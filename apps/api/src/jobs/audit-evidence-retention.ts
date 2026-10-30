@@ -3,6 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 86D「证据流水的保留策略与墓碑」— 审计证据链表(audit_logs_chain)的保留期清理任务。
+// B04(2026-10-27):同文件加挂 ledger 档 —— tool_invocation_ledger 原文 30 天清除
+// (O5 purgeExpiredLlmCallLogRawText 同族;dry-run/apply env 闸/规模闸/永不删行
+// 逐字照抄本文件纪律;落位理由见「ledger 档」节头注)。
 //
 // 用户已拍板(2026-09-27)的两级口径:
 //  - 结构行保留 180 天;入参/出参原文保留 0 天。
@@ -63,9 +66,12 @@ import {
   computeAuditHash,
   recordAuditLog,
   verifyAuditLogIntegrity,
+  DEFAULT_RAW_RETENTION_DAYS,
   type IntegrityVerificationResult,
   type RecordAuditLogParams,
 } from '../services/audit-log-service.js'
+// B04 ledger 档:原文留存天数的 env 键名唯一真相在写侧 service(此处引用不重抄字面量)。
+import { TOOL_LEDGER_RAW_RETENTION_ENV } from '../services/tool-invocation-ledger-service.js'
 // 86G-2:结构行保留天数是"验签公钥登记表判轮换期"的同一份策略 ⇒ 变量名与默认值只允许有一处
 // 真相(此前本文件硬编码 180 + 变量名字面量,登记表只能"声称同源"而无法被机器核对)。
 import {
@@ -630,6 +636,172 @@ export async function runAuditEvidenceRetention(
 }
 
 // =============================================================================
+// B04 ledger 档 — tool_invocation_ledger 原文清除(O5 purgeExpiredLlmCallLogRawText 同族)
+// =============================================================================
+//
+// 为什么落在本文件而非新文件(§0.6 单一真相源,读码后择一):
+//  - 清除对象是账表自身的 raw_input / raw_output 两列(现读 schema :98-:103 与迁移
+//    20261024020000 :58-:59 确认原文本体在表上;链行 metadata 只带摘要 digest 不带原文,
+//    故与上方 86D 链档的重哈希机制**零重叠**,不需要也不得顺手重哈希);
+//  - 机制形状 = O5(UPDATE 置空原文两列 + raw_retained=false + raw_purged_at=now(),
+//    行级 raw_retention_days COALESCE 全局默认,永不 DELETE,幂等);
+//    纪律形状 = 本文件 86D(每日调度先 dry-run 报数;env 显式 apply 闸才真清;
+//    候选 > 规模闸整轮拒跑交人;测试注入 tx 喂内存行不触库)。新文件要把这套骨架
+//    与 parseNonNegativeInt/toRows 再抄第二份,正是 §0.6 禁止的形态;
+//  - 调度复用同一每日 04:45 面(下方回调两档顺序跑、各带各的 apply 开关),
+//    不在 index.ts 新增第二张调度登记面。
+//
+// 保留策略(机主拍板 2026-10-23,代裁依据在迁移头注):
+//  - 原文保留 30 天:全局默认 env TOOL_LEDGER_RAW_RETENTION_DAYS(键名 import 自写侧
+//    service,兜底天数 import DEFAULT_RAW_RETENTION_DAYS —— 30 字面量不在此重写);
+//    0 = 不留存原文;行级 raw_retention_days 覆盖全局默认(COALESCE 谓词,同 O5);
+//  - 真清需显式 TOOL_LEDGER_RAW_PURGE_APPLY=true(照抄 AUDIT_EVIDENCE_RETENTION_APPLY
+//    风格;仓内 .env.example 无留存开关注册先例 —— 86D/O5 的闸同样只落在注释,此处对齐);
+//  - 到期候选 > TOOL_LEDGER_RAW_PURGE_MAX(默认 200,照抄 AUDIT_EVIDENCE_MAX_PURGE 档)
+//    ⇒ apply 档整轮拒跑并打印实数,首批积压必须人看数确认后分批放行;
+//  - **账行永不 DELETE**:只置空原文列,摘要/决策/结果档等全部留存;行级留痕即
+//    raw_purged_at 列本身(O5 同形,不另起第二份审计面)。
+//  - 0 天档边界同 O5 注:同事务刚插入的行(created_at = now())本轮不命中,下一轮清除。
+
+/** 账表名只出现在这一处,SQL 全走 sql.raw 引用它(与 CHAIN_TABLE 同纪律)。 */
+const LEDGER_TABLE = sql.raw('tool_invocation_ledger')
+
+/** B04 ledger 档生效策略(已由 env 解析、钳制)。 */
+export interface ToolLedgerRawPurgePolicy {
+  /** 全局默认留存天数(>=0;行级 raw_retention_days 优先;0 = 不留存原文)。 */
+  defaultDays: number
+  /** 单轮最多清除的候选行数(分批上限)。 */
+  batch: number
+  /** 规模闸:到期候选总数超过该值即整轮拒跑。 */
+  maxPurge: number
+}
+
+/** 从环境变量解析 ledger 档策略(纯函数;env 形态照抄本文件 resolveAuditEvidencePolicy)。 */
+export function resolveToolLedgerRawPurgePolicy(
+  env: NodeJS.ProcessEnv = process.env,
+): ToolLedgerRawPurgePolicy {
+  return {
+    defaultDays: parseNonNegativeInt(
+      env[TOOL_LEDGER_RAW_RETENTION_ENV],
+      DEFAULT_RAW_RETENTION_DAYS,
+    ),
+    batch: parseNonNegativeInt(env.TOOL_LEDGER_RAW_PURGE_BATCH, 50),
+    maxPurge: parseNonNegativeInt(env.TOOL_LEDGER_RAW_PURGE_MAX, 200),
+  }
+}
+
+/** ledger 档运行结果。拒跑/降级都带实数与原因,不静默(86D 同型)。 */
+export interface ToolLedgerRawPurgeResult {
+  mode: 'dry-run' | 'apply'
+  policy: ToolLedgerRawPurgePolicy
+  /** 到期候选总数(规模闸的输入)。 */
+  candidates: number
+  /** 本轮(将)清除原文的行数。 */
+  purged: number
+  status: 'ok' | 'no-candidates' | 'refused-mass' | 'error'
+  reason?: string
+}
+
+/** 可注入出口:默认走真 db;单测一律注入喂内存行,零真实库(§5 铁律,同 86D)。 */
+export interface ToolLedgerRawPurgeDeps {
+  transaction: <T>(fn: (tx: EvidenceTx) => Promise<T>) => Promise<T>
+}
+
+const LEDGER_DEFAULT_DEPS: ToolLedgerRawPurgeDeps = {
+  transaction: (fn) => db.transaction(fn),
+}
+
+/**
+ * 到期 + 原文仍在的谓词(单一判据,COUNT/取批/UPDATE 子查询三处共用,防漂移)。
+ * 行级覆盖 > 全局默认的形状逐字沿用 O5:
+ *   `created_at < now() - COALESCE(raw_retention_days, <defaultDays>)::int * interval '1 day'`
+ */
+function ledgerExpiredCond(defaultDays: number): SQL {
+  return sql`raw_retained = true AND created_at < now() - COALESCE(raw_retention_days, ${defaultDays})::int * interval '1 day'`
+}
+
+/**
+ * 单轮 ledger 原文清除(dry-run 默认)。序列:
+ * COUNT 候选 → 无候选即报 → (仅 apply)规模闸 → 取首批 id(dry-run 报"将清"数)
+ * → (仅 apply)UPDATE 置空原文 + 置位,RETURNING id 实数。
+ * 全函数**不出现 DELETE** —— 账行永不删(由镜像测试反向钉住)。
+ */
+export async function runToolLedgerRawPurge(
+  opts: {
+    apply?: boolean
+    policy?: ToolLedgerRawPurgePolicy
+    env?: NodeJS.ProcessEnv
+    deps?: ToolLedgerRawPurgeDeps
+  } = {},
+): Promise<ToolLedgerRawPurgeResult> {
+  const apply = opts.apply === true
+  const mode: 'dry-run' | 'apply' = apply ? 'apply' : 'dry-run'
+  const policy = opts.policy ?? resolveToolLedgerRawPurgePolicy(opts.env ?? process.env)
+  const deps = opts.deps ?? LEDGER_DEFAULT_DEPS
+  const zero: ToolLedgerRawPurgeResult = { mode, policy, candidates: 0, purged: 0, status: 'ok' }
+
+  try {
+    const outcome = await deps.transaction(async (tx) => {
+      const candRaw = await tx.execute(sql`
+        SELECT COUNT(*)::int AS cnt FROM ${LEDGER_TABLE}
+        WHERE ${ledgerExpiredCond(policy.defaultDays)}
+      `)
+      const candidates = Number(toRows(candRaw)[0]?.['cnt'] ?? 0)
+      if (candidates === 0) return { kind: 'no-candidates' as const, candidates, purged: 0 }
+      // 规模闸只在 apply 档拦:干跑永远报数,人先看实数再决定放行(86D 同型)。
+      if (apply && candidates > policy.maxPurge)
+        return { kind: 'refused-mass' as const, candidates, purged: 0 }
+
+      const targetRaw = await tx.execute(sql`
+        SELECT id FROM ${LEDGER_TABLE}
+        WHERE ${ledgerExpiredCond(policy.defaultDays)}
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${policy.batch}
+      `)
+      const planned = toRows(targetRaw).length
+      if (!apply) return { kind: 'ok' as const, candidates, purged: planned }
+
+      // 永不 DELETE:只置空原文两列并置位,其余列(摘要/决策/结果档)原样留存。
+      // FOR UPDATE SKIP LOCKED 逐字沿用 O5:与在线摄入互不阻塞,谓词复核防竞态。
+      const updRaw = await tx.execute(sql`
+        UPDATE ${LEDGER_TABLE}
+           SET raw_input = NULL, raw_output = NULL, raw_retained = false, raw_purged_at = now()
+         WHERE id IN (
+           SELECT id FROM ${LEDGER_TABLE}
+            WHERE ${ledgerExpiredCond(policy.defaultDays)}
+            ORDER BY created_at ASC, id ASC
+            LIMIT ${policy.batch}
+            FOR UPDATE SKIP LOCKED
+         )
+        RETURNING id
+      `)
+      return { kind: 'ok' as const, candidates, purged: toRows(updRaw).length }
+    })
+
+    const result: ToolLedgerRawPurgeResult = {
+      ...zero,
+      candidates: outcome.candidates,
+      purged: outcome.purged,
+      status: outcome.kind,
+    }
+    if (result.status === 'refused-mass') {
+      result.reason = `明细账原文到期候选 ${result.candidates} 行 > 单次上限 ${policy.maxPurge},整轮拒跑(实数已打印,分批放行后再开)`
+      logger.warn(`[tool-ledger-raw-purge] 拒跑:${result.reason}`)
+      return result
+    }
+    logger.info(
+      `[tool-ledger-raw-purge] ${mode}: 到期候选 ${result.candidates} / 本轮清除 ${result.purged} ` +
+        `(status=${result.status}, defaultDays=${policy.defaultDays}, batch=${policy.batch})`,
+    )
+    return result
+  } catch (e) {
+    // 表未建 / 迁移未跑 / DB 异常:与 86D 同口径降级告警,不打断调度。
+    logger.warn('[tool-ledger-raw-purge] failed (degraded)', { error: (e as Error).message })
+    return { ...zero, status: 'error', reason: (e as Error).message }
+  }
+}
+
+// =============================================================================
 // 调度器(形态逐字照抄 pii-retention-cleanup.ts;挂点在 index.ts 一行)
 // =============================================================================
 
@@ -640,6 +812,8 @@ export function startAuditEvidenceRetentionScheduler(): void {
   // 每天 04:45 (Asia/Shanghai):错开 llm-call-log-purge(04:15)/ pii-retention(03:30)/
   // data-archive(04:30)。默认只 dry-run 报数;真正执行需显式
   // AUDIT_EVIDENCE_RETENTION_APPLY=true(改写哈希属高危,先核对 dry-run 数字)。
+  // B04 ledger 档挂同一张日批面:顺序跑、各带各的 apply 开关
+  // (TOOL_LEDGER_RAW_PURGE_APPLY=true 才真清;两档互不吞异常)。
   scheduledTask = cron.schedule(
     '45 4 * * *',
     async () => {
@@ -649,12 +823,20 @@ export function startAuditEvidenceRetentionScheduler(): void {
       } catch (err) {
         logger.error('[audit-evidence-retention] fatal:', { error: err })
       }
+      try {
+        const ledgerApply = process.env.TOOL_LEDGER_RAW_PURGE_APPLY === 'true'
+        await runToolLedgerRawPurge({ apply: ledgerApply })
+      } catch (err) {
+        logger.error('[tool-ledger-raw-purge] fatal:', { error: err })
+      }
     },
     { timezone: 'Asia/Shanghai' },
   )
   logger.info(
     '[audit-evidence-retention] scheduler started (cron: "45 4 * * *" Asia/Shanghai, apply=' +
       String(process.env.AUDIT_EVIDENCE_RETENTION_APPLY === 'true') +
+      ', ledger-raw-purge apply=' +
+      String(process.env.TOOL_LEDGER_RAW_PURGE_APPLY === 'true') +
       ')',
   )
 }

@@ -37,7 +37,7 @@ interface BillItem {
   }
 }
 
-export function EduChildBillsScreen() {
+function EduChildBillsScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()
@@ -76,9 +76,12 @@ export function EduChildBillsScreen() {
           cells: {
             className: b.className,
             term: b.termName,
-            total: (b.totalFee / 100).toFixed(2),
-            paid: (b.ledger.paidAmount / 100).toFixed(2),
-            arrears: (b.ledger.arrears / 100).toFixed(2),
+            // 金额单位 = **整数元**(schema edu-ai-management 第 859 行:与
+            // eduEnrollment.totalFee / eduPaymentRecord.amount 一致),不是分 ——
+            // 这里再除 100 会把 ¥1000 显示成 ¥10.00(同族 100 倍事故,门 248)。
+            total: `¥${b.totalFee}`,
+            paid: `¥${b.ledger.paidAmount}`,
+            arrears: `¥${b.ledger.arrears}`,
             nextDue: fmtDate(b.ledger.nextDueDate),
           },
           badgeTone: b.ledger.overdueCount > 0 ? 'danger' : b.ledger.arrears > 0 ? 'warn' : 'ok',

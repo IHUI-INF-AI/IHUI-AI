@@ -30,7 +30,7 @@ interface Conversation {
   createdAt: string
 }
 
-export function DeveloperConversationsScreen() {
+function DeveloperConversationsScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

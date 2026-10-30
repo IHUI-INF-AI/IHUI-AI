@@ -56,6 +56,15 @@ const apiLogQuerySchema = z.object({
   method: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
 })
 
+// 公网可达例外(与 admin-ops-wallboard.ts / admin-monitor-panels.ts / menu-routers-routes.ts 同一条定档):
+// server.ts 的 onRoute 钩子对 /api/admin/* 强制注入 network.allowExternal:false ⇒ 管理台页面本身由公网
+// 域名交付,取数却在公网一律 403 "External network access not allowed for this route"。2026-10-28 实测:
+// 装机版桌面端(远程页)打开「操作日志」页 ⇒ 统计全 0 + 该红字;同机对照已例外过的
+// /api/admin/ops-wallboard/overview 返 401「请先登录」(走到鉴权层 ⇒ 例外机制在公网真生效)。
+// 本端点只读、无写副作用,投影列仅 method/path/statusCode/duration/createdAt(无身份、无正文、无密钥),
+// 鉴权仍由下方 preHandler 的 requireAdmin 裁定,响应脱敏不跳过 ⇒ 只显式放行这一条,其余 /api/admin/* 维持内网限制。
+export const API_LOGS_NETWORK = { network: { allowExternal: true } }
+
 export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
@@ -483,7 +492,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /api-logs — API 日志列表(分页 + status/endpoint/method 筛选)
-  server.get('/api-logs', async (request, reply) => {
+  server.get('/api-logs', { config: API_LOGS_NETWORK }, async (request, reply) => {
     const q = apiLogQuerySchema.safeParse(request.query)
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))

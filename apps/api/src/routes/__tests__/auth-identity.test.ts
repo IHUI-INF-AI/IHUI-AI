@@ -12,7 +12,7 @@ vi.hoisted(() => {
 
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({
-    userId: 'mock-user-id',
+    userId: '00000000-0000-4000-8000-000000000fee',
     phone: '13800000000',
     familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 1,
@@ -128,7 +128,7 @@ describe('Auth Identity API', () => {
   describe('Zod 校验', () => {
     beforeEach(() => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-user-id',
+        userId: '00000000-0000-4000-8000-000000000fee',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
@@ -159,7 +159,7 @@ describe('Auth Identity API', () => {
 
     it('PUT /api/auth/realname/:userUuid/audit 无效 action 返回 400', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-admin-id',
+        userId: '00000000-0000-4000-8000-000000000ad1',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
@@ -175,7 +175,7 @@ describe('Auth Identity API', () => {
 
     it('PUT /api/auth/realname/:userUuid/audit 无效 userUuid 返回 400', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-admin-id',
+        userId: '00000000-0000-4000-8000-000000000ad1',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
@@ -193,7 +193,7 @@ describe('Auth Identity API', () => {
   describe('业务逻辑', () => {
     beforeEach(() => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-user-id',
+        userId: '00000000-0000-4000-8000-000000000fee',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
@@ -230,7 +230,7 @@ describe('Auth Identity API', () => {
   describe('管理员鉴权', () => {
     it('GET /api/auth/realname/list 普通用户返回 403', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-user-id',
+        userId: '00000000-0000-4000-8000-000000000fee',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
@@ -245,7 +245,7 @@ describe('Auth Identity API', () => {
 
     it('GET /api/auth/realname/list 管理员返回 200', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-admin-id',
+        userId: '00000000-0000-4000-8000-000000000ad1',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
@@ -261,7 +261,7 @@ describe('Auth Identity API', () => {
 
     it('PUT /api/auth/realname/:userUuid/audit 普通用户返回 403', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-user-id',
+        userId: '00000000-0000-4000-8000-000000000fee',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
@@ -277,7 +277,7 @@ describe('Auth Identity API', () => {
 
     it('PUT /api/auth/realname/:userUuid/audit 管理员审核不存在记录返回 404', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        userId: 'mock-admin-id',
+        userId: '00000000-0000-4000-8000-000000000ad1',
         phone: '13800000000',
         familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,

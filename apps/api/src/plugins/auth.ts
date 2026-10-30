@@ -17,6 +17,7 @@ import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
 import { AppError } from '../errors/AppError.js'
 import { getUserStatus } from '../db/usercenter-queries.js'
+import { isUuidString } from '../utils/uuid.js'
 import { error } from '../utils/response.js'
 import { hasApiKeyCredential } from '../utils/capability-guard.js'
 import type { OpenCapabilityGrant } from '../config/open-capability-registry.js'
@@ -96,7 +97,9 @@ const JOSE_SESSION_CODES = new Set([
 ])
 
 /** 归一为面向人的 401 结论:自带 statusCode 的原样抛(文案逐字不变),jose 抛的换通用文案。 */
-function asSessionRejection(inner: Error & { statusCode?: number }): Error & { statusCode: number } {
+function asSessionRejection(
+  inner: Error & { statusCode?: number },
+): Error & { statusCode: number } {
   if (typeof inner.statusCode === 'number') return inner as Error & { statusCode: number }
   const err = new Error('Invalid or expired token') as Error & { statusCode: number }
   err.statusCode = 401
@@ -176,6 +179,30 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
   const rawPayload = decodeJwt(token)
   if (rawPayload.type === 'challenge') {
     const err = new Error('Challenge token cannot be used for this endpoint')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
+  // 形状闸(2026-10-28 立,与 internal-service 腿 `injectVerifiedUser` 同型、同判据):
+  // `users.id` 是 uuid 列,非 uuid 主体(如 utils/system-access-token.ts 铸的
+  // `sub='system-worker'`)会让 `eq(users.id, …)` 在 Postgres 抛 22P02
+  // invalid input syntax for type uuid;下面 try/catch 会把这枚"结构上不可能存在的
+  // 主体"读成 502 ACCOUNT_STATE_CHECK_FAILED —— 与"真数据库坏了"同桶、无法追责
+  // (memory 腿 500 事故的 JWT 同型残留)。闸必须在**发出 SQL 之前**;判据唯一出口
+  // = utils/uuid.ts 的 isUuidString(§0.6,禁止在此复制正则)。
+  // 真实 DB 故障(连接/超时/权限)仍落到下面 catch 归 502,本闸不洗 DB 故障。
+  // 长度在收窄**之前**取:isUuidString 声明 `value is string`,对已是 string 的入参做否定
+  // 判断时 TS 把分支内收窄成 never,分支里取 .length 会报 TS2339(与 internal 腿同坑同解);
+  // 这里再带 typeof 兜底,是为了 `sub` 缺失的畸形 token(userId 运行时为 undefined)也走
+  // 本闸归 401,而不是在取长度时 TypeError 被外层读成 502。
+  const subjectLength = typeof payload.userId === 'string' ? payload.userId.length : 0
+  if (!isUuidString(payload.userId)) {
+    // 不打印主体原文:与 internal 腿同口径,外来自由串只留长度指标进日志。
+    request.log.warn(
+      { subjectLength, ip: request.ip, endpoint: request.url },
+      'authenticate 主体非 uuid 形态,零查询归位 401',
+    )
+    const err = new Error('Verified UUID principal required')
     ;(err as Error & { statusCode: number }).statusCode = 401
     throw err
   }

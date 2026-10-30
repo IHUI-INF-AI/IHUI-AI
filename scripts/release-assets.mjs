@@ -127,7 +127,7 @@ function buildNotes(sdkVersion, goTag, cliVersion, ref, rows) {
     '| 通道 | 状态 | 说明 |',
     '| --- | --- | --- |',
     `| Go module | ✅ 可 go get | tag \`${goTag}\`(Go 子目录模块必须带完整子路径前缀) |`,
-    '| npm `@ihui/sdk` | ❌ 未发布 | 缺 NPM_TOKEN / 首包无法走 OIDC,见 docs/RELEASE.md |',
+    '| npm `@ihui-ai/sdk` | ❌ 未发布 | 缺 NPM_TOKEN / 首包无法走 OIDC,见 docs/RELEASE.md |',
     '| PyPI `ihui-ai` | ❌ 未发布 | 缺 PYPI_TOKEN |',
     '| Maven `com.ihui:ihui-ai-java` | ❌ 未发布 | 缺 MAVEN_USERNAME / MAVEN_TOKEN |',
     '| .NET | ❌ 无通道 | 仓库未配 NuGet 发布 workflow |',

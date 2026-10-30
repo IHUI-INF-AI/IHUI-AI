@@ -108,7 +108,7 @@ export function ConsoleTableScreen({
             colorScheme={colorScheme}
           />
         ) : rows.length === 0 ? (
-          <EmptyState glyph="◍" title={t('common.empty')} colorScheme={colorScheme} />
+          <EmptyState title={t('common.empty')} colorScheme={colorScheme} />
         ) : (
           <View style={styles.list}>
             {rows.map((row) => (

@@ -4,20 +4,14 @@
 
 import Taro from '@tarojs/taro'
 import { getExt } from '@ihui/shared/utils/file-helpers'
-import { buildFileName, joinUrl, toBase64DataUrl } from '@ihui/shared/utils/image-helpers'
+import { joinUrl } from '@ihui/shared/utils/image-helpers'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { classifyRefreshFailureStatus } from '@ihui/shared/auth/auto-login-policy'
 import { shouldRefreshNow } from '@ihui/shared/auth/auto-refresh'
 import { BASE_URL } from './api-config'
 import { getToken } from './auth'
-import { readFileToBase64 } from './file-utils'
 
-export interface UploadedPicture {
-  base64: string
-  fileName: string
-}
-
-export interface UploadResult {
+interface UploadResult {
   url: string
   fileName: string
 }
@@ -170,17 +164,6 @@ export function chooseImages(maxCount = 9): Promise<string[]> {
       },
     })
   })
-}
-
-export async function imagesToBase64(filePaths: string[]): Promise<UploadedPicture[]> {
-  const pictures: UploadedPicture[] = []
-  for (const filePath of filePaths) {
-    const fileName = buildFileName('img', filePath, pictures.length)
-    const base64Str = await readFileToBase64(filePath)
-    const base64Data = toBase64DataUrl(base64Str, getExt(filePath))
-    pictures.push({ base64: base64Data, fileName })
-  }
-  return pictures
 }
 
 export async function uploadImage(filePath: string, url = '/files/upload'): Promise<UploadResult> {

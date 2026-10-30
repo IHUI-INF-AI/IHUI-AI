@@ -15,7 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { MoreLink } from '../../components/MoreLink'
+import { SectionHeader } from '../../components/SectionHeader'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-native'
 import type { LearnCategory, LearnScreenProps } from '../../types'
@@ -66,12 +66,13 @@ export function LearnScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const renderSectionHeader = (title: string, onMore?: () => void) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {onMore ? (
-        <MoreLink label={t('common.more')} onPress={onMore} colorScheme={colorScheme} />
-      ) : null}
-    </View>
+    <SectionHeader
+      title={title}
+      moreText={t('common.more')}
+      onMore={onMore}
+      colorScheme={colorScheme}
+      style={styles.sectionHeader}
+    />
   )
 
   return (
@@ -279,11 +280,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginBottom: rnSpacing.md,
     } as ViewStyle,
-    sectionTitle: {
-      fontSize: rnType.subtitle.size,
-      fontWeight: '700',
-      color: tk.text.primary,
-    } as TextStyle,
 
     horizontalList: {
       flexDirection: 'row',

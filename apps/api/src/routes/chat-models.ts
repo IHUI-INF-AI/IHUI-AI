@@ -25,6 +25,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { degradedMode, getBulkhead } from '../plugins/resilience-extended.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
 
 /** 校验环境变量是否配置,返回 key 或发送 503 并返回 null。 */
 function requireKey(envName: string, serviceName: string, reply: FastifyReply): string | null {
@@ -676,7 +677,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/kling/video/image-to-video',
-    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (request, reply) => {
       if (!(await checkAuth(request, reply))) return
       const parsed = klingI2VSchema.safeParse(request.body)

@@ -54,12 +54,15 @@ export interface WorkbuddyPoolModelRow {
   sortOrder: number
 }
 
-/** 账号池只支持 chat;text-to-image 模型(如 hunyuan-image-alpha)不能挂进来 */
+/** 账号池只支持 chat;text-to-image 模型(如 hunyuan-image-alpha)不能挂进来
+ * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
+ */
 export function isChatCapableModel(model: WorkbuddyUpstreamModel): boolean {
   const tags = Array.isArray(model.tags) ? model.tags : []
   return !tags.includes('text-to-image')
 }
 
+/** @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注 */
 export function toPoolModelId(upstreamId: string): string {
   return `${WORKBUDDY_MODEL_PREFIX}${upstreamId}`
 }
@@ -127,7 +130,7 @@ export interface WorkbuddyRegistrationContract {
   isRelayPublic: boolean
 }
 
-export interface SqlStatement {
+interface SqlStatement {
   sql: string
   params: unknown[]
 }

@@ -97,9 +97,9 @@ const collectFromPython = (): Set<string> => {
 }
 
 describe('step-decision 词汇表(D55/G-66)', () => {
-  it('19 个字面量,无重复', () => {
-    expect(STEP_DECISIONS).toHaveLength(19)
-    expect(new Set(STEP_DECISIONS).size).toBe(19)
+  it('20 个字面量,无重复', () => {
+    expect(STEP_DECISIONS).toHaveLength(20)
+    expect(new Set(STEP_DECISIONS).size).toBe(20)
   })
 
   it('与后端字面量双向一致(既不缺 also 不多)', () => {
@@ -152,7 +152,7 @@ describe('step-decision 词汇表(D55/G-66)', () => {
     expect([...got].filter((x) => x.includes('helper') || x.includes('RUNTIME'))).toEqual([])
   })
 
-  it('五种语言:19 个决策词 + 4 个态词全部命中,且不等于英文码', () => {
+  it('五种语言:20 个决策词 + 4 个态词全部命中,且不等于英文码', () => {
     for (const lang of LOCALES) {
       const t = realT(lang)
       for (const d of STEP_DECISIONS) {
@@ -174,6 +174,8 @@ describe('step-decision 词汇表(D55/G-66)', () => {
     expect(stepDecisionState('security_blocked')).toBe('rejected')
     expect(stepDecisionState('approval_timeout')).toBe('needsUser')
     expect(stepDecisionState('mcp_annotations_require_approval')).toBe('needsUser')
+    // 会话级污点闸门只把工具抬进审批队列(needs_approval=True),用户此时尚未表态
+    expect(stepDecisionState('taint_egress_gate')).toBe('needsUser')
     expect(stepDecisionState('whatever_new_code')).toBe('unknown')
     expect(stepDecisionState(undefined)).toBe('unknown')
   })
@@ -196,7 +198,7 @@ describe('step-decision 词汇表(D55/G-66)', () => {
     expect(view.text).toBe('决策未知')
   })
 
-  it('permissionDecisionWord 覆盖两条生产者:19 值步骤决策 + allow/ask/deny 权限矩阵', () => {
+  it('permissionDecisionWord 覆盖两条生产者:20 值步骤决策 + allow/ask/deny 权限矩阵', () => {
     for (const lang of LOCALES) {
       const t = realT(lang)
       const stepWord = permissionDecisionWord('auto_skip_approval', t)

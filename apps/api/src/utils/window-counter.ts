@@ -135,6 +135,75 @@ return 0
   return localTryConsumeWindows(specs, Date.now())
 }
 
+/** 退还一次已消费的窗口(投递失败时用)。只减不删:删键会把窗口起点一起抹掉,
+ *  等于把「刚刚确实试过一次」这件事实清空;DECR 到 0 保留原起点,窗口仍按原时间自然过期。 */
+const REFUND_SCRIPT = `
+for i = 1, #KEYS do
+  local c = tonumber(redis.call('GET', KEYS[i]) or '0')
+  if c > 0 then redis.call('DECR', KEYS[i]) end
+end
+return #KEYS
+`
+
+/** 退还一次已消费的窗口。与 tryConsumeWindows 成对使用:先消费、发不出去再退回,
+ *  避免「云侧故障一次」就锁死用户 60 秒、并吃掉 1h/24h 配额。 */
+export async function refundWindows(specs: WindowSpec[]): Promise<void> {
+  if (specs.length === 0) return
+  const redis = getRedis()
+  if (redis) {
+    try {
+      await redis.eval(REFUND_SCRIPT, specs.length, ...specs.map((s) => s.key))
+      return
+    } catch (e) {
+      logger.error('[window-counter] 退还脚本失败,回退内存', {
+        error: String((e as Error)?.message ?? e),
+      })
+    }
+  }
+  const now = Date.now()
+  for (const s of specs) {
+    const w = localStore.get(s.key)
+    if (w && now - w.windowStart <= s.windowMs && w.count > 0) w.count -= 1
+  }
+}
+
+/** 一次性占位(幂等键):首次写入返回 acquired=true 并带回本次值;
+ *  键已存在则返回 acquired=false 和**已有值**,让调用方能把第一次的结果告诉重试方。
+ *  Redis 不可用时退进程内 Map —— 与计数同向降级,不假装成功。 */
+export interface OnceResult {
+  acquired: boolean
+  existing: string | null
+}
+
+const localOnce = new Map<string, { value: string; expiresAt: number }>()
+
+export async function acquireOnce(key: string, value: string, ttlMs: number): Promise<OnceResult> {
+  const ttl = Math.max(1000, ttlMs)
+  const redis = getRedis()
+  if (redis) {
+    try {
+      const ok = await redis.set(key, value, 'PX', ttl, 'NX')
+      if (ok === 'OK') return { acquired: true, existing: null }
+      return { acquired: false, existing: await redis.get(key) }
+    } catch (e) {
+      logger.error('[window-counter] 幂等占位失败,回退内存', {
+        error: String((e as Error)?.message ?? e),
+      })
+    }
+  }
+  const now = Date.now()
+  const current = localOnce.get(key)
+  if (current && current.expiresAt > now) {
+    return { acquired: false, existing: current.value }
+  }
+  if (localOnce.size >= LOCAL_MAX_KEYS) {
+    const oldest = localOnce.keys().next().value
+    if (oldest !== undefined) localOnce.delete(oldest)
+  }
+  localOnce.set(key, { value, expiresAt: now + ttl })
+  return { acquired: true, existing: null }
+}
+
 /** 该计数键还剩多少毫秒到期(用于 Retry-After)。键不存在或取不到 ⇒ 按整窗返回。 */
 export async function windowRemainingMs(key: string, windowMs: number): Promise<number> {
   const redis = getRedis()
@@ -178,9 +247,18 @@ function localTryConsumeWindows(specs: WindowSpec[], now: number): number {
   return 0
 }
 
-/** 清空指定前缀的计数(内存 + 共享存储两面)。给测试隔离用。 */
+/** 清空指定前缀的计数(内存 + 共享存储两面)。给测试隔离用。
+ *
+ * **两侧同语义(2026-10-28 修)**:内存侧原先是无条件 `clear()`,而 Redis 侧一直是按前缀
+ * SCAN ⇒ 同一份声明在两面执行出两种结果。实际后果不是"多清了一点"这么轻:调用方
+ * `resetSendQuotaForTests()` 声明清 `echo:`,却顺带把 `sms:rl:` / `sms:guard:` /
+ * 任何别的族的窗口计数一起抹平,于是"A 族用例清自己"变成了"B 族的频控也放水",
+ * 配额类用例之间互相串数(表现为同一文件里先红后绿、换顺序又红)。
+ * 现在内存侧按键名前缀过滤:声明清什么就只清什么。 */
 export async function resetCounters(prefixes: string[]): Promise<void> {
-  localStore.clear()
+  const matches = (key: string): boolean => prefixes.some((p) => key.startsWith(p))
+  for (const key of [...localStore.keys()]) if (matches(key)) localStore.delete(key)
+  for (const key of [...localOnce.keys()]) if (matches(key)) localOnce.delete(key)
   const redis = getRedis()
   if (!redis || redis.status !== 'ready') return
   for (const prefix of prefixes) {

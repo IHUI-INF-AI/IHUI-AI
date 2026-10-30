@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 import { sql, eq } from 'drizzle-orm'
-import { db } from '../src/db/index.js'
 import { users, vipLevels, userVips, orders } from '@ihui/database'
 import {
   mockAuthenticate,
@@ -32,13 +31,24 @@ vi.mock('../src/services/wechat-pay.js', () => ({
   ),
 }))
 
+// ── 运行档位必须在 config 出口求值前定好(2026-10-28 修,146c050628 档位收口带来的测试回归)──
+// `../src/config/index.ts` 的 `isDevelopmentRuntime` 是**模块级常量**,在导入那一刻由
+// `resolveEffectiveNodeEnv()` 冻结;而 setup 面(`./setup-real-db.ts` → `../src/db/index.js`)
+// 在本用例文件执行前就把 config 拉起来并冻成了 `test` 档 —— `setup-env.ts` 显式钉死
+// `ZCODE_RUNTIME_ENV=test`,它的优先级又高于 `NODE_ENV`,所以"在文件顶部写 NODE_ENV"
+// 无论写在多靠前的位置都太晚。正解只在测试侧:清掉模块缓存后重新拉入 db 与路由,
+// 让 config 在新 env 下重新求值(生产里 env 在进程启动前就设好,冻结语义本身是对的)。
+// **不得**反过来放宽 vip.ts 的闸门或让 PAYMENT_DEV_AUTO_ACTIVATE 默认开。
+process.env.ZCODE_RUNTIME_ENV = 'development'
 process.env.NODE_ENV = 'development'
 // 闸门在 2026-09-18 收紧为「development **且** 显式 PAYMENT_DEV_AUTO_ACTIVATE=1」才直发 VIP
-// (apps/api/src/routes/vip.ts:246,防止环境标识误配导致未付款即得会员)。
+// (apps/api/src/routes/vip.ts:287,防止环境标识误配导致未付款即得会员)。
 // 本文件下方仍按收紧前的语义断言"已激活",所以必须把第二个开关一起设上 ——
 // **不得反过来放宽闸门去迁就测试**。
 process.env.PAYMENT_DEV_AUTO_ACTIVATE = '1'
+vi.resetModules()
 
+const { db } = await import('../src/db/index.js')
 const { vipRoutes, adminVipRoutes } = await import('../src/routes/vip.js')
 
 async function createUser(phone: string, nickname?: string) {

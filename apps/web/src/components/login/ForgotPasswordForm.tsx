@@ -12,6 +12,7 @@ import { z } from 'zod'
 
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { sendCode, resetPassword } from '@ihui/api-client'
+import { useTurnstile } from './LoginWithTurnstile'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
@@ -23,6 +24,8 @@ const emailSchema = z.email()
  */
 export function ForgotPasswordForm() {
   const t = useTranslations('auth')
+  // Turnstile 上下文(包裹在 LoginWithTurnstile 内时有值;独立渲染时为 null,发码请求自动省略)
+  const { token: turnstileToken } = useTurnstile()
   const [method, setMethod] = React.useState<'phone' | 'email'>('phone')
 
   const [phone, setPhone] = React.useState('')
@@ -56,7 +59,10 @@ export function ForgotPasswordForm() {
     }
     setSending(true)
     try {
-      const r = await sendCode(method, target, 'reset')
+      // 2026-10-27:发码端点接了人机验证闸,把上下文里的 Turnstile token 带上(无则省略)
+      const r = await sendCode(method, target, 'reset', {
+        turnstileToken: turnstileToken ?? undefined,
+      })
       if (!r.success) {
         setError(r.error || t('registerFailed'))
         return

@@ -354,6 +354,73 @@ test('形状锁:三个调用点共用同一份 needsMsvcInjection(判据单源,�
   }
 })
 
+test('形状锁:四个桌面入口都接了 rustup 家钉正,判据与三态日志全仓只有一份(§0.6)', () => {
+  // 立因(2026-10-27 本机实测):agent 会话在沙箱里跑桌面构建,HOME 被沙箱根接管 ⇒ rustup
+  // 找不到 settings.toml ⇒ "no default toolchain",报错长得像"没装 Rust"。判据本身
+  // (lib/rustup-env.mjs)当天已写好,但只接了 desktop-build.mjs 与 release-desktop-local.mjs
+  // 两处 —— 两个 saas 入口由脚本**亲自** spawn tauri/cargo,漏在这一格上就是沙箱里必挂,
+  // 而失败形态是"MSVC 注入成功、构建照样死",日志里没有任何一行指向归属问题。
+  const entries = [
+    '../desktop-build.mjs',
+    '../release-desktop-local.mjs',
+    '../desktop-build-saas.mjs',
+    '../desktop-dev-saas.mjs',
+  ]
+
+  // ① 唯一出口必须住在 lib
+  assert.match(readSrc('../lib/rustup-env.mjs'), /export function applyRustupPinToEnv\(/)
+
+  for (const rel of entries) {
+    const raw = readSrc(rel)
+    // import 的模块说明符是字符串 ⇒ 这一条只能读未遮罩原文(maskCommentsAndStrings 会把路径抹成空格)
+    assert.match(
+      maskComments(raw),
+      /import\s*\{[^}]*\bapplyRustupPinToEnv\b[^}]*\}\s*from\s*'\.\/lib\/rustup-env\.mjs'/,
+      `${rel} 必须从唯一真相源 scripts/lib/rustup-env.mjs import applyRustupPinToEnv`,
+    )
+    const masked = maskCommentsAndStrings(raw)
+    assert.match(
+      masked,
+      /applyRustupPinToEnv\(|applyRustupPin\(/,
+      `${rel} 必须实调钉正出口,不得只 import 不用(那等于沙箱里没接)`,
+    )
+    // ② 反第二份:入口不许自己再抄一遍三态日志文案。
+    //    用 maskComments(只挡注释、保留字符串):日志是模板字符串,全遮罩会把重复实现一起遮没。
+    assert.ok(
+      !maskComments(raw).includes('rustup 归属'),
+      `${rel} 不得自写 "rustup 归属" 日志行(那是 lib 那份出口的活;两份必然漂移)`,
+    )
+  }
+
+  // ③ 顺序:钉正必须排在 planBuildEnv **之后** —— 本判据从 PATH 反推 cargo 档案位,
+  //    而 PATH 正是 planBuildEnv 刚重写过的那一份(前插 MSVC bin、剔掉 Git 的 usr/bin)。
+  for (const rel of entries) {
+    const masked = maskCommentsAndStrings(readSrc(rel))
+    const msvc = masked.indexOf('planBuildEnv(')
+    const pin = Math.max(
+      masked.indexOf('applyRustupPinToEnv('),
+      masked.indexOf('applyRustupPin('),
+    )
+    assert.ok(pin !== -1, `${rel} 缺钉正调用点`)
+    if (msvc === -1) continue
+    assert.ok(
+      msvc < pin,
+      `${rel}:planBuildEnv 必须排在钉正之前(反序 ⇒ 钉正读的是重写前的 PATH,可能找不到 cargo)`,
+    )
+  }
+
+  // ④ 钉正的结果必须真的落到那次 spawn 的 env 上(只调用不赋值 = 又一层假接线)
+  const pairs = [
+    ['../desktop-build.mjs', 'applyRustupPin(plan.env)'],
+    ['../release-desktop-local.mjs', 'env: buildEnv'],
+    ['../desktop-build-saas.mjs', 'env: buildEnv'],
+    ['../desktop-dev-saas.mjs', 'env: childEnv'],
+  ]
+  for (const [rel, anchor] of pairs) {
+    assert.ok(readSrc(rel).includes(anchor), `${rel} 钉正结果未落到 spawn env(锚点 ${anchor} 不见了)`)
+  }
+})
+
 test('正例:VCVARS 捕获命令必须先切 UTF-8 码页(cmd 默认 OEM 码页,按 utf8 解会把中文路径读成 U+FFFD)', () => {
   // 判据住在源码里,这里只钉住"chcp 65001 必须在 set 之前、且 call 用裸文件名"
   const src = readSrc('../desktop-build.mjs')

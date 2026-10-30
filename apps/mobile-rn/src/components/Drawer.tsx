@@ -67,6 +67,7 @@ import {
   DRAWER_HOME_ITEM,
   DRAWER_NAV_GROUPS,
   DRAWER_NAV_SECTIONS,
+  DRAWER_SCAN_ITEM,
   type DrawerNavItem,
   type DrawerNavTarget,
 } from '../navigation/drawer-nav'
@@ -771,9 +772,10 @@ export function Drawer(props: DrawerProps) {
     items: group.items.map(buildNavRow),
   }))
 
-  /** 首页行 / 快捷区自动化任务:同取导航单源,不在 JSX 里再写一份(§0.6 单一真相源) */
+  /** 首页行 / 快捷区自动化任务 / 扫一扫:同取导航单源,不在 JSX 里再写一份(§0.6 单一真相源) */
   const homeRow = buildNavRow(DRAWER_HOME_ITEM)
   const automationRow = buildNavRow(DRAWER_AUTOMATION_ITEM)
+  const scanRow = buildNavRow(DRAWER_SCAN_ITEM)
 
   /** 域入口:收起抽屉后进 DomainHubScreen 二级屏(教育/内容/交易/社区,条目单源见 navigation/domain-hub) */
   const handleOpenDomain = useCallback(
@@ -1038,6 +1040,13 @@ export function Drawer(props: DrawerProps) {
               </View>
             </ScrollView>
 
+            {/* 6b. 扫一扫快捷入口(用户 2026-10-27 要求:左侧栏底部一键直达扫码);
+                与快捷区/首页行走同一 buildNavRow 出口,active 态随 ScanLogin 路由高亮 */}
+            <View className="shrink-0 px-2 pt-2">
+              <View style={styles.scanDivider} />
+              <NavRow item={scanRow} />
+            </View>
+
             {/* 6. 底部 UserRow(web SidebarUserRow 同构):头像 24 + 昵称,点击上浮菜单。
                 2026-10-21 与 web 同步:上下对称 8px;底色继续继承抽屉的 surface.card(同源)。 */}
             <View className="shrink-0 px-2 py-2">
@@ -1114,6 +1123,12 @@ const styles = StyleSheet.create({
   navRowText: {
     color: tokens.text.secondary,
     fontSize: rnGeometry.textBody,
+  },
+  // 扫一扫快捷区与上方列表的分隔线(2026-10-27 立)
+  scanDivider: {
+    height: 1,
+    backgroundColor: tokens.border.light,
+    marginBottom: rnSpacing.xs,
   },
   overlay: {
     ...StyleSheet.absoluteFill,

@@ -27,10 +27,49 @@ const PRIVATE_IP_PATTERNS = [
   /^::ffff:/, // v4-mapped v6(需检查内嵌的 v4)
 ]
 
+/**
+ * URL 的 hostname 对 IPv6 字面量带方括号(`http://[::1]:8000` → hostname = `[::1]`)。
+ * 不剥掉这两层括号,后面所有 `startsWith('fe80:')` / `=== '::1'` 形态判定全部落空 ——
+ * 实测这曾让 `[::1]` 与 `[fe80::1]` 在**默认档**就穿过守卫(2026-10-28 补)。
+ */
+function normalizeIpLiteral(raw: string): string {
+  return raw.replace(/^\[/, '').replace(/\]$/, '')
+}
+
+/**
+ * 从 IPv6 字面量里取出**内嵌的 IPv4**。
+ *
+ * 覆盖三型实测形态（`new URL()` 会把点分写成十六进制段，前缀匹配一律落空）：
+ *  - `::ffff:127.0.0.1`（点分尾巴）
+ *  - `::ffff:7f00:1`（URL 规范化后的 v4-mapped，等价 127.0.0.1）
+ *  - `::7f00:1`（v4-compatible，同样等价 127.0.0.1）
+ * 取出来之后按 IPv4 逐段判族，元数据/回环/本机就无处藏。
+ *
+ * 已知残余（不在本轮范围，写破不装看不见）：6to4 `2002::/16` 与 NAT64 `64:ff9b::/96`
+ * 也能承载 IPv4 字面量，但二者都需要外部路由/前缀才可达，应用侧 SSRF 打不到；
+ * 真要覆盖得做完整 v6→字节展开，届时也只改本函数一处。
+ */
+function embeddedIpv4FromV6(lower: string): string | null {
+  const dotted = lower.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/i)
+  if (dotted?.[1]) return dotted[1]
+  const hex = lower.match(/^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i)
+  if (!hex?.[1] || !hex[2]) return null
+  const hi = Number.parseInt(hex[1], 16)
+  const lo = Number.parseInt(hex[2], 16)
+  if (!Number.isFinite(hi) || !Number.isFinite(lo) || hi > 0xffff || lo > 0xffff) return null
+  return [(hi >> 8) & 255, hi & 255, (lo >> 8) & 255, lo & 255].join('.')
+}
+
+/** 守卫侧的目标归一：剥 IPv6 方括号 → 小写 → 提出内嵌 IPv4。两个判据函数共用（§0.6）。 */
+function normalizeGuardTarget(raw: string): string {
+  const stripped = normalizeIpLiteral(raw).toLowerCase()
+  return embeddedIpv4FromV6(stripped) ?? stripped
+}
+
 /** 检查 IP 是否为内网/保留地址 */
 export function isPrivateOrReservedIp(ip: string): boolean {
   // 处理 IPv4-mapped IPv6 (::ffff:x.x.x.x)
-  const normalizedIp = ip.replace(/^::ffff:/, '')
+  const normalizedIp = normalizeGuardTarget(ip)
   // IPv4 数字格式逐段判定(更精确,与 ai-feed-service.ts 行为一致)
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalizedIp)) {
     const parts = normalizedIp.split('.').map(Number)
@@ -94,6 +133,40 @@ const LOCAL_IPS = getLocalIpAddresses()
 const ALLOWED_PROTOCOLS = ['http:', 'https:']
 const ALLOWED_PORTS = ['', '80', '443']
 
+/**
+ * 危险地址族 —— **即便调用方允许私网**也绝不放行的一类目标。
+ *
+ * 与 isPrivateOrReservedIp 的分工:后者是"内网整族拦"(allowPrivate=false 档);
+ * 本判据专门服务于"渠道上游允许 LAN 自托管服务,但仍不能碰元数据/回环/本机"的场景
+ * (relay 转发即此档)。两处判据同住本文件,禁止在任何调用侧再写一份(§0.6)。
+ */
+export function isBlockedTargetIp(ip: string): boolean {
+  const normalizedIp = normalizeGuardTarget(ip)
+
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalizedIp)) {
+    const parts = normalizedIp.split('.').map(Number)
+    if (parts.length !== 4 || parts.some((p) => p < 0 || p > 255)) return true
+    const [a, b] = parts as [number, number]
+    if (a === 0) return true // 0.0.0.0/8 本机网络
+    if (a === 127) return true // 回环
+    if (a === 169 && b === 254) return true // link-local(含云元数据 169.254.169.254)
+    return LOCAL_IPS.includes(normalizedIp)
+  }
+
+  const lower = normalizedIp.toLowerCase()
+  if (lower === '::1' || lower === '::') return true // v6 回环 / 未指定
+  if (lower.startsWith('fe8') || lower.startsWith('fb')) return true // v6 link-local 族
+  if (
+    lower === 'localhost' ||
+    lower.endsWith('.localhost') ||
+    lower.endsWith('.local') ||
+    lower.endsWith('.internal')
+  ) {
+    return true
+  }
+  return LOCAL_IPS.includes(normalizedIp)
+}
+
 export interface SsrfCheckResult {
   safe: boolean
   reason?: string
@@ -109,7 +182,7 @@ export interface SsrfCheckResult {
  */
 export async function assertSafeFetchUrl(
   rawUrl: string,
-  opts?: { allowPrivate?: boolean },
+  opts?: { allowPrivate?: boolean; allowCustomPort?: boolean },
 ): Promise<SsrfCheckResult> {
   if (!rawUrl || typeof rawUrl !== 'string') {
     return { safe: false, reason: 'URL is empty' }
@@ -127,8 +200,8 @@ export async function assertSafeFetchUrl(
     return { safe: false, reason: `Protocol ${parsed.protocol} not allowed` }
   }
 
-  // 端口白名单(空=默认端口)
-  if (!ALLOWED_PORTS.includes(parsed.port)) {
+  // 端口白名单(空=默认端口);allowCustomPort 供"自托管上游跑非常端"的档使用
+  if (!ALLOWED_PORTS.includes(parsed.port) && !opts?.allowCustomPort) {
     return { safe: false, reason: `Port ${parsed.port} not allowed` }
   }
 
@@ -136,7 +209,14 @@ export async function assertSafeFetchUrl(
   const hostname = parsed.hostname
   const isDirectIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':')
   if (isDirectIp) {
-    if (!opts?.allowPrivate && (isPrivateOrReservedIp(hostname) || LOCAL_IPS.includes(hostname))) {
+    // 危险族先判:它不受 allowPrivate 影响(允许 LAN 自托管 ≠ 允许打元数据)
+    if (isBlockedTargetIp(hostname)) {
+      return {
+        safe: false,
+        reason: 'Direct IP access to a blocked target (loopback/link-local/local host) denied',
+      }
+    }
+    if (!opts?.allowPrivate && isPrivateOrReservedIp(hostname)) {
       return { safe: false, reason: 'Direct IP access to private/local network denied' }
     }
     return { safe: true }
@@ -151,11 +231,16 @@ export async function assertSafeFetchUrl(
     return { safe: false, reason: 'DNS resolution failed' }
   }
 
-  if (!opts?.allowPrivate) {
-    for (const addr of addresses) {
-      if (isPrivateOrReservedIp(addr) || LOCAL_IPS.includes(addr)) {
-        return { safe: false, reason: `Resolved IP ${addr} is private/local network` }
+  // 逐 IP 复检(DNS rebinding 面):危险族恒拦,私网族按 allowPrivate 分档
+  for (const addr of addresses) {
+    if (isBlockedTargetIp(addr)) {
+      return {
+        safe: false,
+        reason: `Resolved IP ${addr} is a blocked target (loopback/link-local/local host)`,
       }
+    }
+    if (!opts?.allowPrivate && isPrivateOrReservedIp(addr)) {
+      return { safe: false, reason: `Resolved IP ${addr} is private/local network` }
     }
   }
 
@@ -167,7 +252,7 @@ export async function assertSafeFetchUrl(
  */
 export async function ensureSafeFetchUrl(
   rawUrl: string,
-  opts?: { allowPrivate?: boolean },
+  opts?: { allowPrivate?: boolean; allowCustomPort?: boolean },
 ): Promise<void> {
   const result = await assertSafeFetchUrl(rawUrl, opts)
   if (!result.safe) {
@@ -188,7 +273,7 @@ const SAFE_FETCH_MAX_REDIRECTS = 5
 export async function safeFetch(
   rawUrl: string,
   init: RequestInit = {},
-  opts?: { allowPrivate?: boolean; maxRedirects?: number },
+  opts?: { allowPrivate?: boolean; allowCustomPort?: boolean; maxRedirects?: number },
 ): Promise<Response> {
   const maxRedirects = opts?.maxRedirects ?? SAFE_FETCH_MAX_REDIRECTS
   let currentUrl = rawUrl

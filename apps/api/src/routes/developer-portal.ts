@@ -56,7 +56,7 @@ export const developerPortalRoutes: FastifyPluginAsync = async (server) => {
           ],
           // SDK 计划(后续 P1-1 交付)
           sdks: [
-            { language: 'TypeScript', status: 'planned', npm: '@ihui/sdk' },
+            { language: 'TypeScript', status: 'planned', npm: '@ihui-ai/sdk' },
             { language: 'Python', status: 'planned', pypi: 'ihui-sdk' },
           ],
           // 鉴权方式

@@ -68,7 +68,9 @@ async function startWorkerProcess(): Promise<void> {
       res.end(JSON.stringify({ error: 'not found' }))
     }
   })
-  healthServer.listen(healthPort, '0.0.0.0', () => {
+  // 2026-10-28 安全加固:worker 健康检查仅本机自测用途,收回到回环地址,
+  // 与 API 主监听同源(127.0.0.1),避免 8804 在 0.0.0.0 上裸奔。
+  healthServer.listen(healthPort, '127.0.0.1', () => {
     server.log.info({ port: healthPort }, 'Worker health endpoint listening')
   })
 

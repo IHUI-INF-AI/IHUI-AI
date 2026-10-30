@@ -267,6 +267,63 @@ class SlashCommandRegistry:
         """按名称获取命令,不存在返回 None。"""
         return self._commands.get(name)
 
+    def reload(self, *, force: bool = True) -> dict[str, Any]:
+        """运行时热重载 —— 控制帧 `reload_plugins` 的服务端实现(2026-10-28 立)。
+
+        竞品原帧语义(2026-09 取证,qoder-control-frames.md 第 91 行):
+        `let e=await this.request({type:"reload_plugins"});
+         return this.replaceLatestCommands(e.commands),e`
+        —— 即**宿主显式调用 + 必须把"最新的命令列表"回灌给宿主**(replaceLatestCommands),
+        不是"后台自己会重载"。判据:调用方拿得到重载后的命令集合。
+
+        我方插件面的对位物 = **技能(SKILL.md)贡献的命令能力**。本仓的 slash 命令表
+        本身是静态内置的(见 `_BUILTIN_COMMANDS`),但 `/skill` 命令动态读取
+        `skill_registry.list_skills()` —— 所以"插件(技能)变了"必须体现在**命令可见的
+        技能集合**上。故本方法:
+          ① 先调 `skill_registry.reload(force=force)` 让技能面真正重扫(复用
+             `reload_skills` 帧的同一份实现,不新造第二套扫描逻辑);
+          ② 再回报**重载后的完整命令列表**(内置命令 + 当前技能集合派生的 /skill 视图),
+             即竞品 `replaceLatestCommands(e.commands)` 的等价物;
+          ③ 同时带上技能差额(added/removed/changed),让"插件变了什么"可见 ——
+             只回一句"已重载"等于把静默失败包装成成功态。
+
+        Returns:
+            {
+                "reloaded": bool,
+                "commands": [{"name", "description"}, ...],  # 重载后的最新命令列表
+                "commandCount": int,
+                "skills": int,                                  # 当前技能总数
+                "added": [...], "removed": [...], "changed": [...],  # 技能差额
+                "lastReload": str | None,
+                "forced": bool,
+            }
+
+        任何异常都被捕获,返回 {"reloaded": False, "error": str(e)} —— 挂在帧处理器上,
+        绝不能向上抛导致引擎崩溃。
+        """
+        try:
+            skill_diff = skill_registry.reload(force=force)
+            # 命令列表 = 内置命令 + 技能贡献的 /skill 视图(技能集合已随上面重载更新)。
+            commands = [
+                {"name": c.name, "description": c.description}
+                for c in self.list_commands()
+            ]
+            skill_names = sorted(s.name for s in skill_registry.list_skills())
+            return {
+                "reloaded": True,
+                "commands": commands,
+                "commandCount": len(commands),
+                "skills": len(skill_names),
+                "skillNames": skill_names,
+                "added": skill_diff.get("added", []),
+                "removed": skill_diff.get("removed", []),
+                "changed": skill_diff.get("changed", []),
+                "lastReload": skill_diff.get("lastReload"),
+                "forced": force,
+            }
+        except Exception as e:  # noqa: BLE001 - 兜底:绝不向上抛
+            return {"reloaded": False, "error": str(e)}
+
     async def execute(
         self,
         name: str,

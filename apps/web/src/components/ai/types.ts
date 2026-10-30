@@ -174,6 +174,16 @@ export interface BackgroundAgent {
     output?: string
   }
   error?: string
+  /**
+   * 该 agent 累计 token(D08 ③ 跨会话 Fleet)。字段缺席 = 未判定,面板不渲染该格,
+   * 不用 0 冒充「没花 token」。
+   */
+  tokens?: number
+  /**
+   * 一键接管入口(D08 ③):有会话归属(chat_conversations.id)才给,
+   * 指向既有 `/chat?conversationId=<id>` 深链;无归属 = 不给入口(不伪造)。
+   */
+  takeoverHref?: string
 }
 
 /** 待确认的工具调用 */

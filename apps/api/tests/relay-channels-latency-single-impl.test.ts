@@ -84,6 +84,16 @@ const ADMIN_USER_ID = 'user_admin_latency_001'
 const KEY_POOL_ID = '2f1e0d0c-0b0a-4f0e-9d0c-0b0a0f0e9d0c'
 const PROVIDER_CODE = 'openai'
 const BASE_URL = 'https://vendor.test/v1'
+
+/**
+ * ssrf-guard 在 `fetch` **之前**先做 DNS 解析(`vendor.test` 是假域名)。
+ * 不隔离这一层,真实 `lookup` 会先失败/挂到 TEST_TIMEOUT_MS,被 stub 的 `globalThis.fetch`
+ * 根本轮不到调用 ⇒ 假时钟不前进、latencyMs 恒 0,本文件四条取证全红 ——
+ * 那不是产品缺陷,是测试被 SSRF 前置判据挡在门外。解析成公网 IP 后放行到 fetch 桩。
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
+}))
 const KEY_ROW = {
   id: KEY_POOL_ID,
   providerCode: PROVIDER_CODE,

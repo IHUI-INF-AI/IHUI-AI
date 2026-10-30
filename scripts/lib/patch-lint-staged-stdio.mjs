@@ -4,7 +4,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // Temporary patch script: force stdio into lint-staged tinyexec spawns (EBUSY root cause).
-// Idempotent. Preserves LF. Run: node scripts/lib/patch-lint-staged-stdio.mjs [--check]
+// Idempotent. Preserves LF. Run: node scripts/lib/patch-lint-staged-stdio.mjs [--check] [--soft]
+//   --check 只读判针(0 三针齐 / 1 有缺口 / 2 读不到安装副本·未判定),盯针门 check-lint-staged-stdio-pin.mjs 就是 spawn 它;
+//   --soft  安装期专用:读不到副本/上游改版只告警不中断 install(postinstall 用这档),与 --check 互斥。
+// 三针落在 node_modules ⇒ 每次 pnpm install 之后都要重跑一次(幂等,已打则零写盘);判针靠 --check,不要靠肉眼。
 //
 // 2026-10-12 增设第二针(inject-giterr-visible):lint-staged 把 git 步骤的真实失败
 // (命令/退出码/stderr)吞进 debugLog(默认关)⇒ 钩子与人都只见一句 "failed due to a git error"。
@@ -89,6 +92,15 @@ const PATCHERS = {
 };
 
 const checkOnly = process.argv.includes('--check');
+// --soft = postinstall 专用档(2026-10-27):安装期任何"读不到安装副本 / 上游改版导致针打不上"
+// 都只告警、绝不中断 install —— 一条补丁脚本把 pnpm install 顶红,唯一结局是人们 --ignore-scripts,
+// 反而把整套 lint-staged 与全部钩子一起关掉(§12e 同型:失效方向必须是"多要一次说明",不是"多放一次跳门")。
+// 它与 --check 互斥:soft 恒 0 ⇒ 同时给会让盯针读数变成假绿,直接拒绝,不产出任何读数。
+const soft = process.argv.includes('--soft');
+if (soft && checkOnly) {
+  console.error('--soft 与 --check 不能同给(--soft 恒 0,读数会变假绿);判针请只跑 --check');
+  process.exit(2);
+}
 const byFile = new Map();
 for (const f of files) {
   if (!byFile.has(f.name)) byFile.set(f.name, []);
@@ -99,12 +111,24 @@ for (const [name, modes] of byFile) {
   const p = path.join(LINT_DIR, name);
   if (!fs.existsSync(p)) {
     console.error(`MISSING ${p}`);
+    if (soft) {
+      console.error('(--soft:安装副本不在/版本目录漂移 ⇒ 只告警不中断 install;装好后跑 --check 复核)');
+      continue;
+    }
     process.exit(2);
   }
   let text = fs.readFileSync(p, 'utf8');
   const applied = [];
   for (const mode of modes) {
-    const patched = PATCHERS[mode](text);
+    let patched;
+    try {
+      patched = PATCHERS[mode](text);
+    } catch (e) {
+      if (!soft) throw e;
+      console.error(`WARN ${name} ${mode}: ${e?.message ?? e}(--soft:不中断 install,本针未打上)`);
+      applied.push(`${mode}: SKIPPED(soft)`);
+      continue;
+    }
     if (patched === null) {
       applied.push(`${mode}: ALREADY-PATCHED`);
       continue;

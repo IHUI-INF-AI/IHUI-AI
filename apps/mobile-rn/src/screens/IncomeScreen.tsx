@@ -74,7 +74,7 @@ function mapWithdrawRecord(
   }
 }
 
-export function IncomeScreen() {
+function IncomeScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()

@@ -96,6 +96,23 @@ def test_list_threads_exclude_archived(store: SessionStore) -> None:
     assert page_all.total == 2
 
 
+def test_list_threads_updated_at_tie_breaks_by_rowid_desc(store: SessionStore) -> None:
+    """updated_at 并列时分页次序必须确定:后写在前(rowid DESC 次键)。
+
+    Windows time.time() 粒度 ~15.6ms,快速连建两条 thread 的 updated_at 会并列;
+    无次键时 SQLite 按扫描序(插入序)返回,"最新在前"翻转为"最旧在前"。
+    """
+    tids = [store.create_thread(title=f"t{i}").thread_id for i in range(3)]
+    with store._tx() as conn:
+        conn.execute("UPDATE threads SET updated_at = 100.0")
+    page1 = store.list_threads(limit=1, offset=0)
+    page2 = store.list_threads(limit=1, offset=1)
+    page3 = store.list_threads(limit=1, offset=2)
+    assert [t.thread_id for t in page1.threads] == [tids[2]]
+    assert [t.thread_id for t in page2.threads] == [tids[1]]
+    assert [t.thread_id for t in page3.threads] == [tids[0]]
+
+
 # ==================== 6-10: Turn CRUD + 状态机 ====================
 
 

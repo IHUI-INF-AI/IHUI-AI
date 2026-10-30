@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -165,6 +165,129 @@ T '12d Fail 转发 -Reason' ($src -match 'Invoke-FailNotify -m \$m -Detail \$Det
 T '12e 构建失败调用点真的带 reason(票面那一格)' ($src -match 'Fail "构建失败[^\r\n]*-Reason "\$_"') '判据在、调用点没有 = 没有'
 T '12f ff 未归类调用点真的带 reason' ($src -match 'Fail "git merge --ff-only 失败\(成因见紧邻上一行\)[^\r\n]*-Reason \$ffErrFp') '通用文案没病因'
 T '12g 连败 throw 带末次报错指纹(-Reason "$_" 的病因来源)' ($src -match 'next build 连续 \$MaxTries 次失败[^\r\n]*末次报错') 'throw 不带因 ⇒ reason 仍是通用文案,换病因照样被压'
+
+Write-Output '[13] G-44 监控腿:监控侧逐项身份必须走同一把尺(单源),两病因不同键 / 换读数同键'
+# 立因(现读,不是假想):deploy/win/ihui-monitor.ps1 的 Send-Alert 此前把**整条逐项文案**当去重
+# 身份(旧那一行的形状就是"文案折叠空白后 Trim"),而部署侧 2026-10-26 已改档为
+# 「类别 + 归一化病因」(Get-AlertIdentitySig)⇒ 全仓两把身份尺(§0.6 单一真相源禁令)。
+# 两把尺的实际代价不是"不好看":监控那侧压抖动靠的是**人记得**调用 Get-*AlertSig 分档,
+# 那层保护是散文不是器物 —— 下一个新增告警把轮次/条数/时刻/sha/盘符路径拼进文案,
+# 就又是一次"每轮换一槽 ⇒ 4h 窗结构上永不命中"(本模块头注的 48h/47 封同族)。
+# 纪律:本段只喂**字面量 + 临时档案** $tmp,绝不读写服务的去重档案
+# (D:\DevEnv\state\ihui-monitor-state.json),也不 dot-source ihui-monitor.ps1(它顶层起巡检循环,
+# 一 dot-source 就联网探站并按真实状态写盘 —— 那是生产动作,不是取证)。
+# 路径解析**不能只按 $PSScriptRoot 相对取**:本 harness 会被同目录 .test.mjs 的 T6 变异自证整档
+# 复制到临时目录再跑(那把尺的全部意义是"只有摘掉 -Stall 门控才翻红")。复制臂里 ..\win\ 不存在,
+# 于是所有按相对路径读源码的锁会一起 FAIL ⇒ 变异臂**不变异也红** ⇒ T6 失去鉴别力(把没判读成判过)。
+# 正解 = 先按常规相对位置取,取不到再从当前目录逐级向上找仓库内的真身;一条都找不到 ⇒ 13a 当场喊
+# "取不到=未判定",绝不静默跳过(§0.3)。
+$monCandidates = @((Join-Path $PSScriptRoot '..\win\ihui-monitor.ps1'))
+$monWalk = $PSScriptRoot
+for ($i = 0; $i -lt 6 -and $monWalk; $i++) {
+    $monWalk = Split-Path $monWalk -Parent
+    if ($monWalk) { $monCandidates += (Join-Path $monWalk 'deploy\win\ihui-monitor.ps1') }
+}
+$monPath = @($monCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1)
+$monSrc = if ($monPath) { Get-Content -LiteralPath $monPath -Raw } else { $null }
+T '13a 取到 ihui-monitor.ps1(取不到=未判定,不得记绿)' ([bool]$monSrc) "候选:$($monCandidates -join ' ;; ')"
+# 剥掉整行注释再判:# 里逐字写出旧形是**证据**(与本 harness 9c 的按行扫描、T7 的 pragma 教训同一条
+# 纪律 —— 判据的字面量写进散文会反噬判据自己)。
+$monCode = ''
+if ($monSrc) {
+    $monCode = (@($monSrc -split "\r?\n" | Where-Object { $_.TrimStart() -notmatch '^#' }) -join "`n")
+}
+$oldShape = '\$isig\s*=\s*\(\$item'
+T '13b 反向锁:整条文案自拼身份那一形不得回潮' ((-not ($monCode -match $oldShape)) -and [bool]$monCode) '回潮:逐项文案又直接当了去重身份'
+T '13b-反证 旧形逐字喂进同一条扫描必须命中(否则 13b 是恒真装饰)' ('    $isig = ($item -replace ''\s+'', '''').Trim()' -match $oldShape) '扫描失效'
+T '13c 身份面真的调用单源出口' ($monCode -match 'Get-MonitorAlertIdentity\s+-Item\s+\$item') '没接线 ⇒ 本段等于没做'
+T '13f 抑制锚点吃身份面(读数漂一下不许把窗重新起锚)' ($monCode -match 'Test-AlertSuppressionGrace -Sig \$isig') '锚点回到文案面 ⇒ escalated 又可能到不了'
+T '13g 在场清单与身份面同一把尺(喂文案会把整本台账读成缺席)' ($monCode -match '\$activeSigs = @\(\$alerts \| ForEach-Object \{ Get-MonitorAlertIdentity') '清偿档按 Sig 反查键位,两把尺 ⇒ 4h 抑制被拆掉、每轮重寄'
+T '13h 展示面与身份面分家:进主题的是逐项文案,不是归一后的骨架' ($monCode -match '\$dueItems \+= \$itemTxt') '<n>/<ts> 占位符会被寄进人的邮箱'
+# 出口本体:只许透传,不许加工(加工 = 第二把尺)
+$fnBody = ''
+if ($monSrc) {
+    $fnStart = $monSrc.IndexOf('function Get-MonitorAlertIdentity')
+    if ($fnStart -ge 0) {
+        $fnNext = $monSrc.IndexOf("`nfunction ", $fnStart + 1)
+        $fnBody = if ($fnNext -lt 0) { $monSrc.Substring($fnStart) } else { $monSrc.Substring($fnStart, $fnNext - $fnStart) }
+    }
+}
+$fnCode = (@($fnBody -split "\r?\n" | Where-Object { $_.TrimStart() -notmatch '^#' }) -join "`n")
+# "自己加工"的两种写法(-replace / 用 + 拼标识符)与下面的反例**共用同一条正则** —— 锁与反例
+# 各写一份判据,迟早漂开(§22c 的同一条禁令,本 harness 的 9c 与 9c-反证 也是同一个形状)。
+$stitch = '-replace|\$\w+\s*\+|\+\s*\$\w'
+T '13d 抽到出口函数本体的原文' ($fnCode.Length -gt 0) 'ihui-monitor.ps1 里没有 function Get-MonitorAlertIdentity'
+T '13d-2 出口真透传 Get-AlertIdentitySig' ($fnCode -match 'Get-AlertIdentitySig') $fnCode
+T '13d-3 出口体内不得再自己加工字符串(-replace / 拼接都是第二把尺)' ((-not ($fnCode -match $stitch)) -and $fnCode.Length -gt 0) $fnCode
+$badBody = '  return "ID:" + ($Item -replace ''\s+'', '''').Trim()'
+T '13d-反证 自拼形态的出口体必须被同一条扫描抓住(否则 13d-3 是装饰)' ($badBody -match $stitch) '扫描恒真'
+# ── 对照取证:把监控真实逐项文案喂给**单源本身** ──────────────────────────────────
+$fpDiskWarn = Get-AlertIdentitySig -Message '磁盘剩余 档=1-10GB 卷=D'
+$fpDiskCrit = Get-AlertIdentitySig -Message '磁盘剩余 档=lt1GB 卷=D'
+T '13i 两病因(磁盘跨档)⇒ 不同键(跨档必须当场重报)' ($fpDiskWarn -ne $fpDiskCrit) "warn=$fpDiskWarn crit=$fpDiskCrit"
+$fpUrlA = Get-AlertIdentitySig -Message 'https://aizhs.top/ → 档=访问异常(连续2次确认)'
+$fpUrlB = Get-AlertIdentitySig -Message 'https://bsm.aizhs.top/ → 档=访问异常(连续2次确认)'
+T '13j 不同 URL ⇒ 不同键,且归一不得吃掉 URL 本身(它是语义不是读数)' (($fpUrlA -ne $fpUrlB) -and ($fpUrlA -match 'aizhs\.top/')) "A=$fpUrlA B=$fpUrlB"
+$jitA = Get-AlertIdentitySig -Message 'api(8802) 未监听 连续第 39 轮 2026-10-26 12:00:00 明细 D:\DevEnv\logs\monitor-alerts.log sha=1a2b3c4d5e6f7890'
+$jitB = Get-AlertIdentitySig -Message 'api(8802) 未监听 连续第 41 轮 2026-10-26 12:35:00 明细 D:\DevEnv\logs\monitor-alerts.log sha=9f8e7d6c5b4a3210'
+T '13k 轮次/条数/时刻/盘符路径/sha 换成另一组 ⇒ 同键(忘分档那一型由单源兜住)' ($jitA -eq $jitB) "A=$jitA B=$jitB"
+Fresh
+$dk1 = Test-AlertDueByIdentity -Sig $jitA -StateFile $tmp -RepeatHours 4
+$dk2 = Test-AlertDueByIdentity -Sig $jitB -StateFile $tmp -RepeatHours 4
+T '13k-2 同键在台账层真的压住了下一轮(键相等 + window-hit)' (($dk1.Key -eq $dk2.Key) -and (-not $dk2.Due) -and $dk2.Decision -eq 'window-hit') "k1=$($dk1.Key) k2=$($dk2.Key) d2=$($dk2.Decision)"
+# ── 已知代价(现读点名,不是遗漏):班号是裸数字 ⇒ 跨班归一后并成一格 ──────────────
+$bk1 = Get-AlertIdentitySig -Message '备份超龄 类别=ihui_dev 档=缺1 班(>26h)'
+$bk2 = Get-AlertIdentitySig -Message '备份超龄 类别=ihui_dev 档=缺2 班(>26h)'
+$bkOther = Get-AlertIdentitySig -Message '备份超龄 类别=keycloak 档=缺1 班(>26h)'
+T '13l 现读点名这一格代价:跨班(班号)归一后同槽,而换类别仍必须不同槽' (($bk1 -eq $bk2) -and ($bk1 -ne $bkOther)) "b1=$bk1 b2=$bk2 other=$bkOther"
+Fresh
+$be1 = Test-AlertDueByIdentity -Sig $bk1 -StateFile $tmp -RepeatHours 4
+$stB = Read-AlertDedupState -StateFile $tmp
+$stB.Map[$be1.Key].sigTs = (Get-Date).AddHours(-25).ToString('o')
+Write-AlertDedupState -StateFile $tmp -Map $stB.Map | Out-Null
+$be2 = Test-AlertDueByIdentity -Sig $bk2 -StateFile $tmp -RepeatHours 4
+# 这一条是"代价可接受"的全部依据:跨一班最快 24h(每日 03:00 一班,见 Get-BackupMissedShifts 头注),
+# 恒大于 $AlertRepeatHours 的 4h 窗 ⇒ 跨班那一轮上一次寄信早已过窗 ⇒ **信照旧寄出**,只是判定名从
+# due-new 变 due-repeat;主题/正文里的实际班号由展示面给出(13h),人不会少收一封。
+# 真要在跨班瞬间另开一槽,出路是在单源 deploy/win/alert-dedup.ps1 的 Get-AlertCategory 给监控族
+# 登记固定枚举(本席禁改单源 ⇒ 交主席),而不是在监控侧再拼一把尺。
+T '13m 跨班那一轮仍照旧寄信(信面不丢)' ($be2.Due -and $be2.Decision -eq 'due-repeat') "d1=$($be1.Decision) d2=$($be2.Decision) Due=$($be2.Due)"
+# ── 以上 [13] 为 G-44 监控腿身份单源锁;以下 [13] 段为对侧 runId 命名空间锁(2026-10-26 三方并,两侧都留) ──
+Write-Output '[13] 部署窗口 runId 命名空间:同一身份各起各的锚,清理只碰目标轮次'
+Fresh
+$sigWin = 'web(8801) 未监听'
+# 普通去重身份(非 grace 锚点)必须在下面所有清理后仍在
+$null = Test-AlertDueByIdentity -Sig $sigDb -StateFile $tmp -RepeatHours 4
+$gA = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20 -RunId 'run-A'
+$gB = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20 -RunId 'run-B'
+$gN = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20
+T '13a 同一身份在 run-A / run-B / 无 runId 下都被抑制' ($gA.Suppressed -and $gB.Suppressed -and $gN.Suppressed) "A=$($gA.Suppressed) B=$($gB.Suppressed) N=$($gN.Suppressed)"
+T '13a 三个 Key 互不相同(否则旧窗口的锚会压住新窗口)' (($gA.Key -ne $gB.Key) -and ($gA.Key -ne $gN.Key) -and ($gB.Key -ne $gN.Key)) "A=$($gA.Key) B=$($gB.Key) N=$($gN.Key)"
+
+$clA = Clear-AlertGraceAnchors -StateFile $tmp -RunId 'run-A'
+T '13b 不带 -Keep 清 run-A ⇒ Ok 且 Cleared=1' ($clA.Ok -and $clA.Cleared -eq 1) "Ok=$($clA.Ok) Cleared=$($clA.Cleared) Error=$($clA.Error)"
+T '13b Labels 含 run-A|web(8801) 未监听' (@($clA.Labels) -contains "run-A|$sigWin") "Labels=$(@($clA.Labels) -join ',')"
+
+$st = Read-AlertDedupState -StateFile $tmp
+T '13c run-B 锚点仍在' ($st.Map.ContainsKey($gB.Key)) 'run-B 被误清'
+T '13c 无 runId 的普通 grace 锚点仍在' ($st.Map.ContainsKey($gN.Key)) '无 runId 锚点被误清'
+T '13c run-A 的键已消失' (-not $st.Map.ContainsKey($gA.Key)) 'run-A 仍残留'
+
+$gC = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20 -RunId 'run-C'
+$clB = Clear-AlertGraceAnchors -StateFile $tmp -RunId 'run-B' -Keep
+T '13d -Keep 只清旧轮次 ⇒ Ok 且 Cleared=1(run-C)' ($clB.Ok -and $clB.Cleared -eq 1) "Ok=$($clB.Ok) Cleared=$($clB.Cleared) Error=$($clB.Error)"
+T '13d Labels 含 run-C|web(8801) 未监听' (@($clB.Labels) -contains "run-C|$sigWin") "Labels=$(@($clB.Labels) -join ',')"
+
+$st = Read-AlertDedupState -StateFile $tmp
+T '13e run-B 锚点仍在' ($st.Map.ContainsKey($gB.Key)) '当前窗 run-B 被误清'
+T '13e 无 runId 的普通 grace 锚点仍在' ($st.Map.ContainsKey($gN.Key)) '实现规定 -Keep 不碰无 runId 前缀的条目'
+T '13e run-C 的键已消失' (-not $st.Map.ContainsKey($gC.Key)) 'run-C 仍残留'
+T '13f 普通去重身份条目未被误删' ($st.Map.ContainsKey((Get-AlertDedupKey -Sig $sigDb))) 'DB 迁移条目被清理越界删掉'
+
+Fresh
+[System.IO.File]::WriteAllText($tmp, '{ "alerts": { 此文件已被并发写坏')
+$clG = Clear-AlertGraceAnchors -StateFile $tmp -RunId 'run-A'
+T '13g 坏档案 ⇒ Ok=false / Cleared=0 / Error 非空' ((-not $clG.Ok) -and $clG.Cleared -eq 0 -and $clG.Error) "Ok=$($clG.Ok) Cleared=$($clG.Cleared) Error=$($clG.Error)"
 
 if (Test-Path $tmp) { Remove-Item $tmp -Force }
 Write-Output ''

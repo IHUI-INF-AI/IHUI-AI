@@ -9,13 +9,24 @@
 // 时 waitingTranscript 相可达但停留在 pending,给明确文案,不崩。
 // 归档事实源:服务端 chat_voice_notes(列表分页 + 乐观上行 + 失败回滚),端内不再持有本地桶
 // 「插入对话」复用既有 draftInput 通道(useChatStore.setState,与 ai-side-panel 同形),
-// 不新建消息注入通道。归档/分组/搜索、miniapp 端豁免为台账剩余项,不在本组件内。
+// 不新建消息注入通道。归档/分组/搜索三环**均落在服务端**(partition/groupKey/q 作为查询条件),
+// 本组件只持有查询条件与列表结果;miniapp 端按「平台独占:录音 API 差异」豁免(不在本组件内)。
 
 'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Mic, Square, RefreshCw, X, Trash2, ClipboardPaste } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  ClipboardPaste,
+  Mic,
+  RefreshCw,
+  Square,
+  Tag,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { Button, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
@@ -24,9 +35,11 @@ import {
   createVoiceNote,
   deleteVoiceNote,
   listVoiceNotes,
+  setVoiceNoteArchived,
+  updateVoiceNote,
   voiceSttFromBlob,
 } from '@ihui/api-client'
-import type { VoiceNoteGroupFacet } from '@ihui/types'
+import type { VoiceNoteGroupFacet, VoiceNotePartition } from '@ihui/types'
 import { useWebAuthStore } from '@/stores/auth-store'
 import { useChatStore } from '@/stores/chat'
 import {
@@ -59,6 +72,15 @@ export interface VoiceNoteProps {
 
 export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNoteProps) {
   const t = useTranslations('chat.voiceNote')
+  /**
+   * 归档/分组三枚文案借既有键(本席文件白名单不含 `packages/i18n`,不得新增键):
+   * `aiChat.actions.archive|unarchive` 与 `llmSettings.v2.providerDialog.group` 在 web 五语包
+   * 逐包在位,语义与本面板一致;分区标签用 `teamKnowledge.status.archived`(「已归档」)。
+   * 一旦 D03 拿到 i18n 键额度,这三处应迁回 `chat.voiceNote` 命名空间。
+   */
+  const tAiChat = useTranslations('aiChat')
+  const tLlm = useTranslations('llmSettings.v2.providerDialog')
+  const tTeam = useTranslations('teamKnowledge')
   const token = useWebAuthStore((s) => s.token)
 
   const [open, setOpen] = React.useState(false)
@@ -91,10 +113,16 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
   const [query, setQuery] = React.useState('')
   const [groupKey, setGroupKey] = React.useState<string | null>(null)
   const [groups, setGroups] = React.useState<VoiceNoteGroupFacet[]>([])
+  // 归档分区同理由服务端切(partition 缺省 active:默认视图混入归档行等于"没归档")
+  const [partition, setPartition] = React.useState<VoiceNotePartition>('active')
+  // 行内改分组:只为一行开一个输入位,避免整列表常驻输入框
+  const [groupEditing, setGroupEditing] = React.useState<string | null>(null)
+  const [groupDraft, setGroupDraft] = React.useState('')
 
   const loadArchive = React.useCallback(async () => {
     const res = await listVoiceNotes({
       pageSize: VOICE_NOTE_ARCHIVE_LIMIT,
+      partition,
       withGroups: '1',
       ...(query.trim() ? { q: query.trim() } : {}),
       ...(groupKey ? { groupKey } : {}),
@@ -107,7 +135,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
     setListError(false)
     setArchived(res.data.list.map(toVoiceNoteRecord))
     setGroups(res.data.groups ?? [])
-  }, [groupKey, query])
+  }, [groupKey, partition, query])
 
   // 输入即搜,但去抖 300ms:每敲一个字符打一次后端会把列表打抖。
   // 首帧不去抖(打开就该看见已有笔记,不该先空 300ms)。
@@ -161,6 +189,44 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
     const res = await deleteVoiceNote(id)
     if (!res.success) setArchived(snapshot)
   }, [])
+
+  /**
+   * 归档/恢复(票面②「新建→归档」这一环):归档是写时刻、可撤销,与硬删分家。
+   * 方向由**当前分区**决定而不是行上再存一个归档位 —— 共享层 `toVoiceNoteRecord` 刻意
+   * 不把 phase/归档维带进列表(见 voice-note-phase-matrix 的结构锁),分区即真相。
+   */
+  const toggleArchived = React.useCallback(
+    async (id: string, nextArchived: boolean) => {
+      const snapshot = archivedRef.current
+      // 归档后本行不再属于当前分区:先摘掉再上行,失败原样放回
+      setArchived(removeVoiceNote(snapshot, id))
+      const res = await setVoiceNoteArchived(id, nextArchived)
+      if (!res.success) {
+        setArchived(snapshot)
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [loadArchive],
+  )
+
+  /** 行内改分组(票面②「按分组检索→命中」的前半环):分组同样只落服务端,不做本地兜底 */
+  const assignGroup = React.useCallback(
+    async (id: string, value: string) => {
+      const next = value.trim()
+      if (!next) return
+      setGroupEditing(null)
+      setGroupDraft('')
+      const res = await updateVoiceNote(id, { groupKey: next })
+      if (!res.success) {
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [loadArchive],
+  )
 
   const stopTimer = React.useCallback(() => {
     if (timerRef.current) {
@@ -455,16 +521,36 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
 
           {/* 检索与分组入口(票面②「按分组检索→命中」):条件交给服务端,列表按结果渲染 */}
           <div className="mb-2 space-y-1.5" data-testid="voice-note-filters">
-            <SearchInput
-              size="sm"
-              clearable
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('searchPlaceholder')}
-              aria-label={t('searchPlaceholder')}
-              clearAriaLabel={t('action.dismiss')}
-              data-testid="voice-note-search"
-            />
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <SearchInput
+                  size="sm"
+                  clearable
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t('searchPlaceholder')}
+                  aria-label={t('searchPlaceholder')}
+                  clearAriaLabel={t('action.dismiss')}
+                  data-testid="voice-note-search"
+                />
+              </div>
+              {/* 分区切换:活跃 ⇄ 已归档。归档分区是"能看见自己归档了什么"的唯一入口,
+                  也是票面②「新建→归档」在界面上可见的那一半 */}
+              <Tooltip content={tTeam('status.archived')}>
+                <Button
+                  size="icon-sm"
+                  variant={partition === 'archived' ? 'secondary' : 'ghost'}
+                  aria-label={tTeam('status.archived')}
+                  aria-pressed={partition === 'archived'}
+                  data-testid="voice-note-partition-toggle"
+                  onClick={() =>
+                    setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))
+                  }
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                </Button>
+              </Tooltip>
+            </div>
             {groups.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 <Button
@@ -507,39 +593,107 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
                 .slice()
                 .reverse()
                 .map((note) => (
-                  <div
-                    key={note.id}
-                    className="flex items-center gap-1.5 rounded px-1 py-1 text-xs hover:bg-accent"
-                    data-testid="voice-note-archive-item"
-                  >
-                    <span className="font-mono tabular-nums text-muted-foreground">
-                      {formatVoiceNoteDuration(note.durationMs)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">
-                      {/* 无转写=只存了音频,给命名空间自带的"语音笔记"文案,不猜任何相 */}
-                      {note.transcript ?? t('title')}
-                    </span>
-                    {voiceNoteHasInsertableText(note) && (
-                      <Tooltip content={t('action.insertToInput')}>
+                  <React.Fragment key={note.id}>
+                    <div
+                      className="flex items-center gap-1.5 rounded px-1 py-1 text-xs hover:bg-accent"
+                      data-testid="voice-note-archive-item"
+                    >
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        {formatVoiceNoteDuration(note.durationMs)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {/* 无转写=只存了音频,给命名空间自带的"语音笔记"文案,不猜任何相 */}
+                        {note.transcript ?? t('title')}
+                      </span>
+                      {voiceNoteHasInsertableText(note) && (
+                        <Tooltip content={t('action.insertToInput')}>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            data-testid="voice-note-insert"
+                            onClick={() => insertToInput(note.transcript ?? '')}
+                          >
+                            <ClipboardPaste className="h-3.5 w-3.5" />
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {/* 改分组:分组键只落到服务端,输入框开在本行下方,不做本地暂存 */}
+                      <Tooltip content={tLlm('group')}>
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          data-testid="voice-note-insert"
-                          onClick={() => insertToInput(note.transcript ?? '')}
+                          aria-label={tLlm('group')}
+                          data-testid="voice-note-group-set"
+                          onClick={() => {
+                            setGroupEditing(note.id)
+                            setGroupDraft('')
+                          }}
                         >
-                          <ClipboardPaste className="h-3.5 w-3.5" />
+                          <Tag className="h-3.5 w-3.5" />
                         </Button>
                       </Tooltip>
+                      {/* 归档/恢复:方向由当前分区决定;归档是写时刻、可撤销,与下面的硬删分家 */}
+                      {partition === 'active' ? (
+                        <Tooltip content={tAiChat('actions.archive')}>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={tAiChat('actions.archive')}
+                            data-testid="voice-note-archive-action"
+                            onClick={() => void toggleArchived(note.id, true)}
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </Button>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip content={tAiChat('actions.unarchive')}>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={tAiChat('actions.unarchive')}
+                            data-testid="voice-note-unarchive-action"
+                            onClick={() => void toggleArchived(note.id, false)}
+                          >
+                            <ArchiveRestore className="h-3.5 w-3.5" />
+                          </Button>
+                        </Tooltip>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        data-testid="voice-note-archive-delete"
+                        onClick={() => void removeNote(note.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    {/* 分组输入位:只为本行展开;回车与按钮同一条上行路径(updateVoiceNote) */}
+                    {groupEditing === note.id && (
+                      <div
+                        className="flex items-center gap-1 px-1 pb-1"
+                        data-testid="voice-note-group-editor"
+                      >
+                        <input
+                          className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-xs"
+                          value={groupDraft}
+                          onChange={(e) => setGroupDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void assignGroup(note.id, groupDraft)
+                          }}
+                          placeholder={tLlm('group')}
+                          aria-label={tLlm('group')}
+                          data-testid="voice-note-group-input"
+                        />
+                        <Button
+                          size="xs"
+                          data-testid="voice-note-group-submit"
+                          onClick={() => void assignGroup(note.id, groupDraft)}
+                        >
+                          {tLlm('group')}
+                        </Button>
+                      </div>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      data-testid="voice-note-archive-delete"
-                      onClick={() => void removeNote(note.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  </React.Fragment>
                 ))}
             </div>
           )}

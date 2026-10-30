@@ -16,7 +16,8 @@
  *
  * 退出码:0 无新增缺口 / 1 有新增缺口 / 2 未判定(取不到面、坏清单、空扫、未知形态)。
  * **接线(2026-10-26,机主授权)**:guardian-runner id 250,**warn 档观察**(只喊话不拦提交);
- * `stagedTriggers` = 三个射程根 + 本文件 + 射程清单 + 判据层;`--staged` 判索引、无旗判 HEAD。
+ * `stagedTriggers` = 三个射程根 + 收集目录(apps/web/tests、apps/api/tests、apps/api/test,2026-10-27
+ * 随规则③补:收集目录测试被删会翻缺口)+ 本文件 + 射程清单 + 判据层;`--staged` 判索引、无旗判 HEAD。
  * 跳过 `HUSKY_SKIP_E2E_COVERAGE_GAP=1`;不进 package.json。升 blocking 前置 = 存量缺口归零。
  *
  * 用法:node scripts/check-e2e-coverage-gap.mjs [--staged|--worktree] [--json] [--self-test]
@@ -41,6 +42,7 @@ import {
   inRoot,
   isTestFile,
   normalizePath,
+  testCoversModule,
 } from './lib/e2e-coverage-gap.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -283,6 +285,42 @@ function selfTest() {
     expiredThrew = e instanceof Undetermined && /复审期/.test(e.message)
   }
   check('㉓过期 reviewBy ⇒ Undetermined(exit 2)', expiredThrew)
+
+  // 规则③(收集目录同名 + 同包同名唯一,2026-10-27 立):正反成对,收紧方向全部指向"多要一次说明"。
+  const baseApi = (files, tests) => L({ files, testFiles: tests ?? [], roots: ['apps/api/src'] })
+  const coll = baseApi([M('apps/api/src/lib/x.ts')], ['apps/api/tests/lib/x.test.ts'])
+  check(
+    '㉔③收集目录任意层精确同名命中 ⇒ 不计缺口',
+    coll.gapCount === 0 && coll.covered[0]?.test === 'apps/api/tests/lib/x.test.ts',
+  )
+  const collFlat = baseApi([M('apps/api/src/db/y.tsx')], ['apps/api/test/y.test.ts'])
+  check('㉕③test/(单数)平铺命中,且跨扩展名(y.tsx ← y.test.ts)', collFlat.gapCount === 0)
+  const crossPkg = baseApi([M('apps/api/src/lib/x.ts')], ['apps/web/tests/x.test.ts'])
+  check('㉖③反证:跨包收集目录不认(apps/web/tests 不盖 apps/api/src)', crossPkg.gapCount === 1)
+  const specInTests = baseApi([M('apps/api/src/lib/x.ts')], ['apps/api/tests/visual/x.spec.ts'])
+  check('㉗③反证:收集目录 *.spec.* 不认(playwright 族,vitest 不收)', specInTests.gapCount === 1)
+  const sharedStem = baseApi(
+    [M('apps/api/src/lib/audit.ts'), M('apps/api/src/plugins/audit.ts')],
+    ['apps/api/tests/audit.test.ts'],
+  )
+  check('㉘③反证:同名×2 ⇒ 名字指认不了模块,③失效双双落缺口', sharedStem.gapCount === 2)
+  const prefixed = baseApi([M('apps/api/src/lib/x.ts')], ['apps/api/tests/x-extra.test.ts'])
+  check('㉙③反证:精确同名才认,x-extra 不盖 x(③不做② 的前缀放宽)', prefixed.gapCount === 1)
+  const embedded = baseApi([M('apps/api/src/lib/x.ts')], ['apps/api/src/lib/tests/x.test.ts'])
+  check('㉚③反证:src 内嵌 tests/ 不是收集目录(锚定 P/src|app 兄弟层)', embedded.gapCount === 1)
+  check(
+    '㉛③pairwise 契约:stemUnique 缺省不认,显式 true 才认',
+    testCoversModule('apps/api/src/lib/x.ts', 'apps/api/tests/x.test.ts') === false &&
+      testCoversModule('apps/api/src/lib/x.ts', 'apps/api/tests/x.test.ts', { stemUnique: true }) === true,
+  )
+  const baseWeb2 = (files, tests) => L({ files, testFiles: tests ?? [], roots: ['apps/web/app', 'apps/web/src'] })
+  const crossRoot = baseWeb2(
+    [M('apps/web/app/b/solo.ts'), M('apps/web/src/a/solo.ts')],
+    ['apps/web/tests/solo.test.ts'],
+  )
+  check('㉜③同包跨根(app 与 src)同名也计入唯一性 ⇒ ③失效', crossRoot.gapCount === 2)
+  const oneRoot = baseWeb2([M('apps/web/src/a/solo.ts')], ['apps/web/tests/solo.test.ts'])
+  check('㉝③同名唯一(同包全根计数后只剩一枚)⇒ 认', oneRoot.gapCount === 0)
 
   let fail = 0
   for (const [name, ok] of cases) {

@@ -1217,11 +1217,17 @@ pub async fn qoder_reset_maintenance(
 
 #[tauri::command(async)]
 pub async fn qoder_reset_logout(
+    app: tauri::AppHandle,
     kill_running: bool,
     include_device_id: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
     q_reset_gate().map_err(IpcError::permission)?;
+    crate::require_native_confirm(
+        &app,
+        "Qoder 登出重置",
+        "将登出并重置本机 Qoder 配置(可含设备标识与登录态)。确认执行?",
+    )?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1234,10 +1240,16 @@ pub async fn qoder_reset_logout(
 
 #[tauri::command(async)]
 pub async fn qoder_reset_factory(
+    app: tauri::AppHandle,
     kill_running: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
     q_reset_gate().map_err(IpcError::permission)?;
+    crate::require_native_confirm(
+        &app,
+        "Qoder 出厂重置",
+        "将清除本机 Qoder 全部配置并恢复出厂状态,不可撤销。确认执行?",
+    )?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1270,8 +1282,14 @@ pub async fn qoder_quarantine_restore(
 
 #[tauri::command(async)]
 pub async fn qoder_quarantine_delete(
+    app: tauri::AppHandle,
     quarantine_path: String,
 ) -> Result<WbResetReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "删除隔离区",
+        "将永久删除指定隔离区文件,不可恢复。确认执行?",
+    )?;
     let (cn, roaming) = q_resolve_both()?;
     let parents = [
         cn.parent().map(|p| p.to_path_buf()),

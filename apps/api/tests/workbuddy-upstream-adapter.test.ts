@@ -166,7 +166,7 @@ describe('workbuddyAdapter.buildChatRequest', () => {
     expect(a2.headers['X-Conversation-Message-ID']).not.toBe(
       b1.headers['X-Conversation-Message-ID'],
     )
-    expect(deriveStableId('machine', 'x')).toHaveLength(36)
+    expect(deriveStableId('machine', { uid: 'x', storedMachineId: 'm' })).toHaveLength(36)
   })
 
   it('body:强制 stream:true,maxTokens→max_tokens,temperature 透传', () => {
@@ -396,7 +396,9 @@ describe('workbuddyAdapter.refreshToken', () => {
     expect(res).not.toBeNull()
     expect(res?.token).toBe('AT-new')
     expect(res?.refreshToken).toBeNull()
-    const skew = Math.abs(res!.expiresAt.getTime() - (Date.now() + 3600_000))
+    const expiresAtMs = res!.expiresAt?.getTime() ?? -1
+    expect(expiresAtMs).toBeGreaterThan(0)
+    const skew = Math.abs(expiresAtMs - (Date.now() + 3600_000))
     expect(skew).toBeLessThan(5000)
     const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const headers = firstCall[1].headers as Record<string, string>
@@ -608,6 +610,182 @@ describe('buildChatHeaders', () => {
     expect(h['X-Refresh-Token']).toBeUndefined()
     expect(h['X-CodeBuddy-Request']).toBe('1')
     expect(h['X-Requested-With']).toBe('XMLHttpRequest')
+  })
+})
+
+// =============================================================================
+// getQuota(用户中心权益接口 · 2026-10-27 真号实弹取证形状)
+// =============================================================================
+
+/**
+ * summary 真实回包(2026-10-27 实弹键位):data.Packages 数字是字符串容量键、
+ * 只有包码没有人名、无时间字段;套餐语义在 SubscriptionPackageName/IsPaidUser。
+ */
+function summaryBody(packages: unknown[], extra?: Record<string, unknown>): unknown {
+  return { code: 0, msg: 'OK', data: { Packages: packages, ...(extra ?? {}) } }
+}
+
+describe('workbuddyAdapter.getQuota', () => {
+  it('CN:summary 单请求出数,字符串数字归一 + 包名如实用包码 + 订阅档名透传', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL, init: RequestInit) => {
+        calls.push({ url: String(url), init })
+        return jsonResponse(
+          summaryBody(
+            [
+              {
+                PackageCode: 'TCACA_code_007_nzdH5h4Nl0',
+                CycleTotalCapacity: '2300',
+                CycleRemainCapacity: '2300',
+                CycleUsedCapacity: '0',
+                CapacityUnit: 'credits',
+              },
+              {
+                PackageCode: 'TCACA_code_008_cfWoLwvjU4',
+                CycleTotalCapacity: '500',
+                CycleRemainCapacity: '283.44',
+                CycleUsedCapacity: '216.56',
+                CapacityUnit: 'credits',
+              },
+            ],
+            { SubscriptionPackageName: '体验版', IsPaidUser: false },
+          ),
+        )
+      }),
+    )
+
+    const out = await workbuddyAdapter.getQuota!(
+      makeCtx({ extraMetadata: { domain: 'www.codebuddy.cn', uid: 'u-1' } }) as never,
+      {},
+    )
+    expect(out.ok).toBe(true)
+    const q = out.quota!
+    expect(q.total).toBe(2800)
+    expect(q.remaining).toBeCloseTo(2583.44, 6)
+    expect(q.used).toBeCloseTo(216.56, 6)
+    expect(q.ratio).toBeGreaterThan(0.07)
+    expect(q.unit).toBe('WorkBuddy 积分')
+    // 实测 summary 无包级人名/时间 ⇒ 包名如实用包码,resetsAt 不编造
+    expect(q.packs?.[0]?.name).toBe('TCACA_code_007_nzdH5h4Nl0')
+    expect(q.packs?.[0]?.endAt).toBeUndefined()
+    expect(q.resetsAt).toBeUndefined()
+    // 套餐档名(真号实测"体验版")
+    expect(q.subscriptionName).toBe('体验版')
+
+    // 只打一次 summary(paid/free 明细对无官方码集的请求体 400 code 10001,不接)
+    expect(calls).toHaveLength(1)
+    const first = calls[0]!
+    expect(first.url).toBe('https://www.codebuddy.cn/billing/meter/get-user-resource-summary')
+    const headers = first.init.headers as Record<string, string>
+    expect(headers['Authorization']).toBe('Bearer plain-access-token')
+    expect(headers['Origin']).toBe('https://www.codebuddy.cn')
+    expect(headers['X-Client-Platform']).toBe('web')
+    expect(headers['X-Domain']).toBe('www.codebuddy.cn')
+    expect(headers['X-Refresh-Token']).toBeUndefined()
+    expect(first.init.method).toBe('POST')
+  })
+
+  it('summary 带时间字段的包(CycleEndTime)⇒ resetsAt 取还有余量包里最早到期那枚', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(
+          summaryBody([
+            {
+              PackageCode: 'p-a',
+              CycleTotalCapacity: '100',
+              CycleRemainCapacity: '40',
+              CycleEndTime: '2026-11-30 00:00:00',
+            },
+            {
+              PackageCode: 'p-b',
+              CycleTotalCapacity: '900',
+              CycleRemainCapacity: '0',
+              CycleEndTime: '2026-12-31 00:00:00',
+            },
+          ]),
+        ),
+      ),
+    )
+    const out = await workbuddyAdapter.getQuota!(makeCtx() as never, {})
+    expect(out.ok).toBe(true)
+    // 余量 0 的 p-b 不参与 resetsAt
+    expect(out.quota?.resetsAt).toBe(new Date(Date.parse('2026-11-30T00:00:00')).toISOString())
+    expect(out.quota?.packs?.[0]?.endAt).toBe(
+      new Date(Date.parse('2026-11-30T00:00:00')).toISOString(),
+    )
+  })
+
+  it('CN(workbuddy.cn 域):基址跟域走 www.workbuddy.cn(否则令牌域不一致被网关拒)', async () => {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL) => {
+        urls.push(String(url))
+        return jsonResponse(summaryBody([{ CycleTotalCapacity: '10', CycleRemainCapacity: '10' }]))
+      }),
+    )
+    const out = await workbuddyAdapter.getQuota!(
+      makeCtx({ extraMetadata: { domain: 'www.workbuddy.cn' } }) as never,
+      {},
+    )
+    expect(out.ok).toBe(true)
+    expect(urls[0]).toBe('https://www.workbuddy.cn/billing/meter/get-user-resource-summary')
+  })
+
+  it('global:主路径 404 → 回落 /v2 路径(只有 404 才回落)', async () => {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL) => {
+        const u = String(url)
+        urls.push(u)
+        if (u === 'https://www.workbuddy.ai/billing/meter/get-user-resource-summary') {
+          return jsonResponse({ code: 404, msg: 'not found' }, 404)
+        }
+        if (u === 'https://www.workbuddy.ai/v2/billing/meter/get-user-resource-summary') {
+          return jsonResponse(
+            summaryBody([{ CycleTotalCapacity: '50', CycleRemainCapacity: '20' }]),
+          )
+        }
+        return jsonResponse({ code: 404 }, 404)
+      }),
+    )
+    const out = await workbuddyAdapter.getQuota!(
+      makeCtx({ extraMetadata: { domain: 'www.workbuddy.ai' } }) as never,
+      {},
+    )
+    expect(out.ok).toBe(true)
+    expect(out.quota?.remaining).toBe(20)
+    expect(urls).toEqual([
+      'https://www.workbuddy.ai/billing/meter/get-user-resource-summary',
+      'https://www.workbuddy.ai/v2/billing/meter/get-user-resource-summary',
+    ])
+  })
+
+  it('401 ⇒ ok:false + authFailed(供承载层换票自愈),且绝不返回 quota 0', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ code: 401, msg: 'unauthorized' }, 401)),
+    )
+    const out = await workbuddyAdapter.getQuota!(makeCtx() as never, {})
+    expect(out.ok).toBe(false)
+    expect(out.authFailed).toBe(true)
+    expect(out.quota).toBeUndefined()
+    expect(out.error).toContain('401')
+  })
+
+  it('summary 200 但没有可解析资源包 ⇒ ok:false(不补 0 冒充"余额为零")', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ code: 0, data: { Packages: [] } })),
+    )
+    const out = await workbuddyAdapter.getQuota!(makeCtx() as never, {})
+    expect(out.ok).toBe(false)
+    expect(out.quota).toBeUndefined()
+    expect(out.error).toContain('权益接口')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

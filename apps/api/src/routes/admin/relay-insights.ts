@@ -58,9 +58,17 @@ const adminRelayInsightsRoutes: FastifyPluginAsync = async (server) => {
     const timer = setInterval(() => {
       void push()
     }, 60_000)
-    request.raw.on('close', () => {
+    // 信号源 = reply.raw(O64 同型修正，理由见 agents-kanban.ts 的 stream 注释)：
+    // 挂 request.raw 时这条 timer 要么永不回收、要么在流刚建立时就被掐掉 —— 后者会让
+    // 运营面板静默失去实时性，而界面看上去仍然"连着"。
+    reply.raw.on('close', () => {
       closed = true
       clearInterval(timer)
+      try {
+        if (!reply.raw.writableEnded) reply.raw.end()
+      } catch {
+        /* 已断开的 socket 收尾失败不影响回收 */
+      }
     })
     // Fastify 需要 hijack 防止自动回复结束
     reply.hijack()

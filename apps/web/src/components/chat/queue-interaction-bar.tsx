@@ -24,6 +24,12 @@
 // **W27 纪律**:本条只发"重排/移除/编辑/打断计划"意图,不做任何队列状态写操作;
 // 「打断并执行」只上抛 interruptPlan({stopFirst, thenRun}),停流走 W2 abort 通道、
 // 跑队首由调用方按既有消费路径执行 —— 队首选择逻辑一行不动。
+//
+// 「插到队首」快捷钮(2026-10-28 立,Qoder sendNow 形态对标,纯增量零新判据):
+// 门完全复用 undo 同门(`canUndo` = 队列非空 ∧ 无并发漂移,D69 现判据)——刻意**不走**
+// reorder 拖拽门(那条流式锁定属 W27 出队顺序预期;插到队首恰恰要在运行中钦定"下一条")。
+// 动作 = `onReorder(index, 0)`,store 走既有 `requeue(from→to)`;队首由 shift 消费读
+// queue[0] 的逻辑一行不动 ⇒ W27 不变式天然成立。六格拒因 tooltip 亦复用 undo 现格。
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -222,6 +228,14 @@ export function QueueInteractionBar({
     onReorder?.(fromIndex, toIndex)
   }
 
+  // 「插到队首」:undo 同门(canUndo ∧ 六格 undo 未拦),非队首项一键移到队首。
+  // fromIndex<=0 防御 no-op(队首钮本就不渲染)。不新建判据、不写队列状态 —— 只上抛意图。
+  const tryMoveToFront = (fromIndex: number) => {
+    if (fromIndex <= 0) return
+    if (!actionAllowed('undo')) return
+    onReorder?.(fromIndex, 0)
+  }
+
   const handleReorderKey = (event: React.KeyboardEvent, index: number) => {
     if (event.key === 'ArrowUp' && index > 0) {
       event.preventDefault()
@@ -355,6 +369,21 @@ export function QueueInteractionBar({
                 <span className="min-w-0 flex-1 truncate text-xs" data-queued-text={item.text}>
                   {item.text}
                 </span>
+                {index > 0 ? (
+                  <button
+                    type="button"
+                    className="text-xs text-primary/80 hover:text-primary"
+                    aria-label={t('sendNowAria')}
+                    aria-disabled={!actionAllowed('undo')}
+                    title={blockedTitleOf('undo')}
+                    data-blocked-reason={blockedReasonOf('undo')}
+                    data-queue-op="sendNow"
+                    data-item-id={item.id}
+                    onClick={() => tryMoveToFront(index)}
+                  >
+                    {t('sendNow')}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground"

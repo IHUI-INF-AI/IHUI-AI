@@ -26,6 +26,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
+  appendFileSync,
   closeSync,
   existsSync,
   mkdirSync,
@@ -73,6 +74,19 @@ const GIT_MAX_BUFFER = 64 << 20
  * 防溢出语义**没有放松**:超预算的老路径(按字节切、单条巨型自成一块、ENOBUFS 抛错)原样保留。
  */
 const CAT_BATCH_CHUNK = 2500
+
+/**
+ * 显式临时绕开代理(2026-10-26 立;`--no-proxy` 旗标的取值)。
+ * 立因:AGENTS §0.8「文档不得写跑不通的出路」——当天给的出路是"手打 `git -c http.proxy= …`",
+ * 而收敛器/推送守卫**不吃**这个参数,人照着敲只会再撞一次。这里给一条真跑得通的通道:
+ * 调用方设 `process.env.IHUI_GIT_NO_PROXY='1'`(或由 `--no-proxy` 旗标置上)⇒ 本层所有
+ * **网络动词**第一趟就带摘代理配置(仍然只碰网络动词、不改任何持久配置、不碰代理客户端)。
+ * ⚠️ 这是**单次进程内的临时绕过**,不是"把代理关掉"的开关 —— 长期修法仍是恢复代理节点或由机主改配置。
+ * (刻意**不**在此处引用 GIT_EGRESS_DIRECT_ARGS:那个常数在下面才定义,顶层引用会踩 TDZ。)
+ */
+export function isForceDirect() {
+  return process.env.IHUI_GIT_NO_PROXY === '1'
+}
 /**
  * 单块累计字节预算:必须小于默认 64MB,留出一条巨型 blob 也装得下的余量。
  * 2026-10-12:16MB → 48MB。单块 maxBuffer 取 `max(64MB, 本块字节+1MB)`(见 catBatchRaw),
@@ -85,6 +99,320 @@ export function gitBinary() {
   return GIT
 }
 
+// ─── 代理腿退化 ⇒ 直连兜底(2026-10-26 立;判据唯一出口,消费点只有下面的 gitRaw) ───
+/**
+ * 立因(本机当次实测,不是推断):仓库级 `http.proxy=http://127.0.0.1:7897`(verge-mihomo 在听),
+ * 成组对照 20 次 = 20 次 `Recv failure: Connection was aborted`,而**同一条 URL 摘掉代理直连回 200**
+ * ⇒ 本地 19 枚提交积压推不出去、与远端双向分叉,`push-state.json` 只留下一句"退出码 128 且无
+ * 可辨认特征"(§12f:失效的表现永远是安静)。
+ *
+ * 为什么收在这一层而不是 git-push-guard:全仓 git 派生都从 `gitRaw` 走(converge 的 `git()`、
+ * guardian 自愈轮、post-commit 推送腿、各类尺子的取材面)。只修推送那一格,fetch 当天照样在死
+ * (§0.6 单一真相源:两处各写一份判据必然漂移)。
+ *
+ * 三条边界(缺一条就退化成"多放一次跳门"那一型,§0.10):
+ *  ① 只碰**网络动词** —— `cat-file` / `rev-parse` 这类本地失败绝不补第二趟派生,
+ *     否则等于把"仓库本身坏了"洗成"第二次也失败"。
+ *  ② 只在**传输形态**的错误上兜 —— 远端拒收/分支保护/竞态/钩子失败各有专档
+ *     (判序在 `lib/push-attempt-triage.mjs`),这里绝不把服务器裁决换成"换个腿再试一次"。
+ *  ③ **只多跑一次**,兜底仍失败就抛**第一次**的错误 —— 失效方向是多要一次定向说明(留痕),
+ *     不是多放一次。特征串刻意不含 `[rejected]` 这类服务器侧用语。
+ *
+ * 零持久改动:不碰机主的 git 配置、不碰代理客户端,只在**这一趟派生**用 `-c http.proxy=` 覆盖
+ * (argv 传空值合法;env 传空值在 Windows 会被吃掉 —— 当天实测)。
+ */
+export const GIT_EGRESS_NETWORK_VERBS = Object.freeze([
+  'fetch',
+  'pull',
+  'push',
+  'ls-remote',
+  'clone',
+  'fetch-pack',
+  'archive',
+])
+
+/** 摘代理重跑时注入的配置串(与 gitRaw 前置的 safe.directory 并列,git 多 -c 累积)。 */
+export const GIT_EGRESS_DIRECT_ARGS = Object.freeze(['-c', 'http.proxy=', '-c', 'https.proxy='])
+
+/**
+ * 传输形态特征串:逐条取自 git/curl 对"连不上/链路被切"的原话形态,含本机当天实测的
+ * `Recv failure: Connection was aborted` 与 `unable to access`。**不含**服务器裁决用语。
+ */
+export const GIT_EGRESS_TRANSPORT_RE =
+  /(recv failure|send failure|connection was aborted|could not connect|failed to connect|connection reset by peer|connection timed out|tls connect error|ssl connection|empty reply from server|proxy (?:auth|unreachable)|unable to access)/i
+
+/**
+ * "网络形状"的统一判据(2026-10-26 第二次实测补):
+ *  - 快速失败:回显是传输形态 ∧ 退出码 128;
+ *  - **挂死到超时**:`status` 为 null / code=ETIMEDOUT 且**没有任何回显**(当天实测 `--no-proxy`
+ *    第一趟 200s 零输出被 timeout 杀掉)—— 这一型过去既不换腿也不留痕,把失效做成了安静(§12f)。
+ * 只认这两型;服务器裁决(403/GH006/`[rejected]`)与"仓库坏了"(`not a git repository`)仍落 false。
+ */
+export function isTransportEgress({ errText = '', status = null, timedOut = false } = {}) {
+  if (timedOut) return true
+  if (status !== 128) return false
+  return GIT_EGRESS_TRANSPORT_RE.test(errText)
+}
+
+/**
+ * 纯判据(零 IO,便于镜像测试逐格钉):这一趟该不该**换腿**重跑。
+ * 两个方向共用同一把尺子(缺对称格就是"只兜一个方向"的偏判):
+ *  - 第一趟走的是代理 ⇒ 失败时换**直连**(`useDirectArgs: true`,即摘代理);
+ *  - 第一趟走的是直连(`--no-proxy`,或调用方自己带了摘代理参数)⇒ 失败时换回**代理腿**
+ *    (`useDirectArgs: false`) —— 2026-10-26 实测:显式绕过后若只剩代理腿能用,不兜这一格
+ *    就把"我明明有腿"判成"无法判定远端位置",收敛器整轮白跑。
+ * @param {{verb?:string, errText?:string, status?:number|null, proxyUrl?:string,
+ *          alreadyDirect?:boolean, usedDirect?:boolean, timedOut?:boolean, attempt?:number}}
+ * @returns {{apply:boolean, why:string, useDirectArgs:boolean}}
+ */
+export function egressFallbackPlan({
+  verb = '',
+  errText = '',
+  status = null,
+  proxyUrl = '',
+  alreadyDirect = false,
+  usedDirect = false,
+  timedOut = false,
+  attempt = 0,
+} = {}) {
+  if (!GIT_EGRESS_NETWORK_VERBS.includes(verb)) {
+    return {
+      apply: false,
+      why: `动词 ${verb || '(空)'} 不碰网络 ⇒ 不补第二趟`,
+      useDirectArgs: false,
+    }
+  }
+  if (attempt > 0) {
+    return {
+      apply: false,
+      why: '兜底只多跑一次 ⇒ 第二次仍失败就如实上报,不得连环换腿',
+      useDirectArgs: usedDirect,
+    }
+  }
+  const proxy = String(proxyUrl ?? '').trim()
+  // 网络形状只有一个口径(见 isTransportEgress):快速失败(128+传输回显)与挂死到超时同罪。
+  const networkShaped = isTransportEgress({ errText, status, timedOut })
+  // ── 方向 A:失败的那一趟走的是直连 ⇒ 唯一可换的腿是代理 ──
+  if (usedDirect || alreadyDirect) {
+    if (!networkShaped) {
+      return {
+        apply: false,
+        why: `退出码 ${String(status)} 且回显既非传输形态也非挂死 ⇒ 交既有分档处理`,
+        useDirectArgs: true,
+      }
+    }
+    if (!proxy) {
+      return {
+        apply: false,
+        why: '直连这趟已失败,而仓内没配 http.proxy ⇒ 没有另一条腿可换,失败就是失败',
+        useDirectArgs: true,
+      }
+    }
+    return {
+      apply: true,
+      why: `直连腿不通(第一趟已走直连),而仓内配了代理 ${proxy} ⇒ 换回代理腿重跑一次`,
+      useDirectArgs: false,
+    }
+  }
+
+  // ── 方向 B:失败的那一趟走的是代理 ⇒ 唯一可换的腿是直连 ──
+  if (!proxy) {
+    return {
+      apply: false,
+      why: '没配 http.proxy ⇒ 不存在"退化腿"可摘,失败就是失败',
+      useDirectArgs: false,
+    }
+  }
+  if (!networkShaped) {
+    return {
+      apply: false,
+      why: `退出码 ${String(status)} 且回显既非传输形态也非挂死 ⇒ 交既有分档(拒收/策略/竞态/钩子)处理`,
+      useDirectArgs: false,
+    }
+  }
+  return {
+    apply: true,
+    why: `配了代理 ${proxy} 且回显是网络失败形态 ⇒ 摘代理直连重跑一次`,
+    useDirectArgs: true,
+  }
+}
+
+/** 该 root 生效中的 http.proxy(每进程缓存一次;读不到 ⇒ 空串 ⇒ 不兜,绝不猜)。 */
+const egressProxyCache = new Map()
+export function proxyConfiguredFor(root) {
+  if (egressProxyCache.has(root)) return egressProxyCache.get(root)
+  let value = ''
+  try {
+    value = String(
+      batchExecFileSync(
+        GIT,
+        ['-c', 'safe.directory=*', '-C', root, 'config', '--get', 'http.proxy'],
+        {
+          cwd: root,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10000,
+          maxBuffer: 1 << 20,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      ),
+    ).trim()
+  } catch {
+    value = ''
+  }
+  egressProxyCache.set(root, value)
+  return value
+}
+
+/** 留痕存活期(天)。超窗按行首 ISO 时刻裁;裁掉的条数写回同一本账,**不往 stdout/stderr 打** ——
+ *  本层被全仓几百把尺子共用,守门按 stdout/stderr 做逐字基线比对,漏一行就是把诊断混进判定里。 */
+export const EGRESS_LEDGER_KEEP_DAYS = 30
+
+/**
+ * 退化留痕的存活期(§0.7「豁免会到期」同一纪律,日志也一样:只增不减的账本迟早没人看)。
+ * 30 天足够覆盖一次"代理腿抖动 ↔ 直连兜底"的归因窗口;超窗行按 ISO 前缀裁掉。
+ * 刻意**只裁带合法 ISO 时刻的行**:解析不出时刻 ⇒ 保留(失效方向是多留,不是静默删证据)。
+ * @param {string} text 整份日志文本
+ * @param {{nowMs?:number, keepDays?:number}} [opts]
+ * @returns {{text:string, kept:number, dropped:number}}
+ */
+export function pruneEgressLedger(text, { nowMs = Date.now(), keepDays = EGRESS_LEDGER_KEEP_DAYS } = {}) {
+  const cutoff = nowMs - keepDays * 86400_000
+  const lines = String(text ?? '').split('\n')
+  const kept = []
+  let dropped = 0
+  for (const line of lines) {
+    if (!line) continue
+    // ⚠️ 时刻取「行首到第一个制表符」这一段:写成 slice(0, slice(0,i)) 会把字符串当长度传进去
+    //    ⇒ 恒 NaN ⇒ 老化形同虚设(镜像测试 ⑤ 正是钉这一格的,别顺手"优化"回去)
+    const tab = line.indexOf('\t')
+    const stamp = tab > 0 ? line.slice(0, tab) : line.slice(0, 24)
+    const ts = Date.parse(stamp)
+    if (Number.isFinite(ts) && ts < cutoff) {
+      dropped += 1
+      continue
+    }
+    kept.push(line)
+  }
+  return { text: kept.length ? `${kept.join('\n')}\n` : '', kept: kept.length, dropped }
+}
+
+/** 退化留痕:兜住了也要看得见(写不动不影响判定,只回 null)。 */
+function noteEgressDegradation({ root, verb, plan, ok }) {
+  try {
+    const file = path.join(root, '.ihui-agent', 'state', 'git-egress-degradation.log')
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(
+      file,
+      `${new Date().toISOString()}\tverb=${verb}\tfallback=${ok ? 'recovered' : 'both-failed'}\t依据=${plan?.why ?? '(无)'}\n`,
+      'utf8',
+    )
+    // 超窗老化:每次写入顺手裁,不做第二次调度器(本文件的教训:关键自愈别挂到会自己消失的东西上)。
+    // 被裁条数必须报名 —— 静默丢行等于"账本看起来一直完整"。
+    const raw = readFileSync(file, 'utf8')
+    const pruned = pruneEgressLedger(raw)
+    if (pruned.dropped > 0) {
+      // 被裁条数**写进账本自己**(不 print):本层被全仓几百把尺子共用,任何一行 stdout/stderr
+      // 都会混进守门的逐字基线比对(§12f:失效的表现永远是安静 —— 但治它不能靠制造噪声)。
+      // marker 行本身带合法 ISO 时刻 ⇒ 30 天后照样老化,账本不会长歪。
+      writeFileSync(
+        file,
+        `${pruned.text}${new Date().toISOString()}\tcad=prune\tdropped=${pruned.dropped}\tkept=${pruned.kept}\tkeepDays=${EGRESS_LEDGER_KEEP_DAYS}\n`,
+        'utf8',
+      )
+    }
+    return file
+  } catch {
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 并发档一过性取材失败的**串行退避重试**(2026-10-27 立,守门 84/107/117/243 同批次红的
+// 清偿)。立因(现读 `gates-progress.log` 实证,不是推断):同一道门在同一批里 pass 与 fail
+// 交替出现且耗时跨两个数量级(84:509ms pass ↔ 228285ms fail;117:108692ms pass ↔
+// 142553ms fail;243:72179ms pass ↔ 259137ms fail;107 亦在 16:28:18 与 84/117 同刻整排 fail)
+// ⇒ 形状是"并发抢不到派生/IO 资源"的一过性失败,而单跑复验全绿。门体把这种失败读成违规
+// 判红,按 §12e/§12f 那正是会逼人 `--no-verify` 的形状。
+//
+// 三条边界(与既有 egress 换腿同一条纪律,缺一条就退化成"多放一次跳门"):
+//  ① **只重试只读动词**(下表)。写动词(add/commit/checkout/reset/update-index/…)绝不重跑 ——
+//     重跑一次写操作等于把"可能已落了一半"的状态再写一遍。
+//  ② **不碰网络动词**:那一族已有 `egressFallbackPlan` 的换腿通道,再加重试就是两条兜底叠床架屋。
+//  ③ **只认一过性形态**:超时被杀(ETIMEDOUT)、派生面 EBUSY、以及"无退出码+无信号+无回显"
+//     (并发下 git 连启动都没启动完那一型)。git 自己给的结论(如 status 128 + `fatal:`)照旧
+//     一次就抛 —— 那是真失败,重试只是把同一个错多付一次。
+//  ④ **只多跑两次**,仍失败就抛**第一次**的错误(失效方向是如实报第一次失败,不是"再多放一次")。
+// ─────────────────────────────────────────────────────────────────────────────
+export const GIT_RETRY_READ_VERBS = Object.freeze([
+  'log',
+  'show',
+  'cat-file',
+  'ls-tree',
+  'ls-files',
+  'rev-parse',
+  'diff',
+  'hash-object',
+  'for-each-ref',
+  'show-ref',
+  'grep',
+  'merge-base',
+  'status',
+])
+export const GIT_RETRY_MAX_ATTEMPTS = 2
+/** 退避:150ms → 450ms(串行退避,不并发重跑 —— 并发重跑只会把抢资源那一型再撞一次) */
+export const GIT_RETRY_BACKOFF_MS = Object.freeze([150, 450])
+
+/** 同步退避(取材面全是 sync 派生,不能用 await)。写不动/不支持则立即返回,不因此改判定。 */
+export function sleepSync(ms) {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  } catch {
+    /* 退避失败不阻断重试语义 */
+  }
+}
+
+/**
+ * 纯判据(零 IO,便于镜像测试逐格钉):这一趟失败该不该**串行退避重跑**。
+ * @param {{verb?:string, code?:string|null, status?:number|null, signal?:string|null,
+ *          stderrText?:string, attempt?:number, maxAttempts?:number}} p
+ * @returns {{apply:boolean, why:string, delayMs:number}}
+ */
+export function gitRetryPlan({
+  verb = '',
+  code = null,
+  status = null,
+  signal = null,
+  stderrText = '',
+  attempt = 0,
+  maxAttempts = GIT_RETRY_MAX_ATTEMPTS,
+} = {}) {
+  if (!GIT_RETRY_READ_VERBS.includes(verb))
+    return {
+      apply: false,
+      why: `动词 ${verb || '(空)'} 不在只读重试表 ⇒ 不重跑(写动词/网络动词绝不多跑一次)`,
+      delayMs: 0,
+    }
+  if (attempt >= maxAttempts)
+    return { apply: false, why: `已重试 ${attempt}/${maxAttempts} 次仍失败 ⇒ 如实上报`, delayMs: 0 }
+  const timedOut = code === 'ETIMEDOUT' || /ETIMEDOUT/i.test(String(code ?? ''))
+  const spawnBusy = code === 'EBUSY'
+  // 无退出码 + 无信号 + 无回显 = 派生面连 git 都没跑完(并发下 `git log` 无输出那一型)。
+  const noVerdict = status === null && signal === null && String(stderrText ?? '').trim() === ''
+  if (!timedOut && !spawnBusy && !noVerdict)
+    return {
+      apply: false,
+      why: `退出码 ${String(status)} 且 git 有回显 ⇒ 这是 git 的结论/真失败,不是一过性`,
+      delayMs: 0,
+    }
+  const shape = timedOut ? '超时被杀' : spawnBusy ? '派生面 EBUSY' : '无退出码无回显'
+  return {
+    apply: true,
+    why: `${shape} ⇒ 串行退避重跑(第 ${attempt + 1}/${maxAttempts} 次)`,
+    delayMs: GIT_RETRY_BACKOFF_MS[Math.min(attempt, GIT_RETRY_BACKOFF_MS.length - 1)],
+  }
+}
+
 /**
  * 统一 git 派生:绝对路径 + safe.directory + quotepath(中文路径)+ windowsHide + 数字 timeout
  * + **显式 stdio**。
@@ -93,17 +421,60 @@ export function gitBinary() {
  * (实测:空仓里 `rev-parse --verify HEAD` 漏出 32 字节 `fatal: Needed a single revision`)。
  * 守门靠 stdout/stderr 做逐字基线比对与归因取证,漏一行就把"取数失败"混进判定输出里 ——
  * 而错误文本本来已在 `e.stderr` 内、由 gitErrText 收进 Undetermined 消息,不需要它再漏一遍。
+ *
+ * 外层只负责**一过性失败的串行退避重试**(判据与边界见 `gitRetryPlan`);单趟派生的全部
+ * 语义(stdio 两态、egress 换腿、Undetermined 抛出)仍住在 `gitRawOnce`,逐字未改。
  */
 export function gitRaw(args, root, opts = {}) {
+  const maxAttempts = opts.retryMax ?? GIT_RETRY_MAX_ATTEMPTS
+  let first = null
+  let retryNote = ''
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return gitRawOnce(args, root, opts)
+    } catch (e) {
+      if (attempt === 0) first = e
+      const errStatus = typeof e?.status === 'number' ? e.status : null
+      const errSignal = e?.signal ?? null
+      const plan = gitRetryPlan({
+        verb: String(args[0] ?? ''),
+        code: e?.code ?? null,
+        status: errStatus,
+        signal: errSignal,
+        stderrText: e?.stderr === undefined || e?.stderr === null ? '' : String(e.stderr),
+        attempt,
+        maxAttempts,
+      })
+      if (!plan.apply) {
+        // 重试过但没救回来 ⇒ 把"试过几次、为什么不算数"并进第一次错误的话里(§0.3 未判定
+        // 必须点名原因:只报一句 `git log 失败` 看不出这是重试两趟后的结论)。只增诊断,
+        // 不改判定 —— 仍抛**第一次**的错误,失效方向是如实报第一次失败,不是"再多放一次"。
+        if (retryNote && first && !first.retryNote) {
+          first.retryNote = retryNote
+          first.message = `${first.message}(已${retryNote}仍失败)`
+        }
+        throw first ?? e
+      }
+      retryNote = plan.why
+      sleepSync(plan.delayMs)
+    }
+  }
+}
+
+/** `gitRaw` 的单趟实现(原 `gitRaw` 函数体逐字搬入,判定语义一字未改)。 */
+function gitRawOnce(args, root, opts = {}) {
   // stdio[0] 分两态:不带 input 时 'ignore'(继承会挂),带 input 时**必须** 'pipe' ——
   // 这正是 `cat-file --batch` / `hash-object --stdin-paths` 那一族的老陷阱:stdio[0] 设成
   // 'ignore' 时喂进去的清单被丢弃,而 git 不报错,只是"每个对象都取不到"。
   // 两态都写死,不给调用方留"顺手删掉 stdio"的空间。
   const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  try {
-    return batchExecFileSync(
+  // 显式绕过(调用方 `--no-proxy` / `IHUI_GIT_NO_PROXY=1`)时**第一趟就直连**:
+  // 代理腿已确认死的情况下,再让它先烧一次 21s 超时纯属浪费(guardian 巡检轮当天实测每轮都付这笔)。
+  const forceDirect = Boolean(opts.forceDirect) || isForceDirect()
+  const runOnce = (extraArgs) =>
+    batchExecFileSync(
       GIT,
-      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args],
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...extraArgs, '-C', root, ...args],
       {
         cwd: root,
         encoding: opts.binary ? 'buffer' : 'utf8',
@@ -114,6 +485,8 @@ export function gitRaw(args, root, opts = {}) {
         ...(opts.input === undefined ? {} : { input: opts.input }),
       },
     )
+  try {
+    return runOnce(forceDirect ? GIT_EGRESS_DIRECT_ARGS : [])
   } catch (e) {
     /**
      * ENOENT 有两种成因,Node 的文本只点名**二进制**("spawnSync <git.exe> ENOENT"),
@@ -121,12 +494,52 @@ export function gitRaw(args, root, opts = {}) {
      * 写反就得到同一句,于是排查方向被整个带去"IDE 自带 git 被升级烂掉了"。两种都点名,
      * 只改可诊断性,不改判定(仍然抛 Undetermined,不会因此少判一次)。
      */
+    // ── 网络腿退化 ⇒ 换腿重跑一次(判据与三条边界见 egressFallbackPlan 的头注) ──
+    // 第一趟走的是直连(forceDirect / 调用方自带摘代理)⇒ 这趟要换回代理腿;反之换直连。
+    // timedOut:挂死到超时没有退出码也没有回显,必须同样算"网络形状"(2026-10-26 实测 200s 零输出)。
+    const egressErrText = gitErrText(e)
+    const egressStatus = typeof e?.status === 'number' ? e.status : null
+    const timedOut =
+      e?.code === 'ETIMEDOUT' || /ETIMEDOUT/i.test(String(e?.message ?? '')) || !egressErrText
+    const firstTriedDirect = forceDirect || args.includes('http.proxy=')
+    const plan = egressFallbackPlan({
+      verb: String(args[0] ?? ''),
+      errText: egressErrText,
+      status: egressStatus,
+      timedOut,
+      proxyUrl: proxyConfiguredFor(root),
+      alreadyDirect: firstTriedDirect,
+      usedDirect: firstTriedDirect,
+      attempt: opts.egressAttempt ?? 0,
+    })
+    if (plan.apply) {
+      try {
+        const out = runOnce(plan.useDirectArgs ? GIT_EGRESS_DIRECT_ARGS : [])
+        const log = noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: true })
+        if (log) e.egressNote = log
+        return out
+      } catch {
+        // 两条腿都不通 ⇒ 落到下面,回吐**第一次**的 git 原话(失效方向是如实报第一次失败,
+        // 不是"再多放一次");留痕照写,让"两条腿都断"这件事看得见。
+        noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
+      }
+    } else if (
+      GIT_EGRESS_NETWORK_VERBS.includes(String(args[0] ?? '')) &&
+      isTransportEgress({ errText: egressErrText, status: egressStatus, timedOut })
+    ) {
+      // 网络形状成立但没有另一条腿可换(没配代理 / 显式绕过 / 已换过一次)⇒ 也必须留痕,不得静默。
+      // ⚠️ 必须先过动词表:本地动词(`for-each-ref` 等)失败时 stderr 也可能撞出"connection reset"字样
+      //    (当天实测把 `fallback=both-failed 依据=动词不碰网络` 记进了账本) —— 那是在账上造脏行。
+      noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
+    }
     const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
     const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}${hint}`)
     // **退出码必须带上来**:`git grep` 无命中、`git diff --quiet` 无差异这类是 git 的正常非零结论,
     // 调用方要能区分"git 说没有"与"git 没跑成"。只给一句错误文本会逼调用方去 parse 自己的异常消息
     // (把结论建立在字符串上),而 e.status 是 Node 直接给的机器事实。
     if (typeof e?.status === 'number') err.status = e.status
+    // 兜底为什么没生效,原样带在异常上:问责时不用重新猜(只增诊断,不改任何判定)。
+    err.egressPlan = plan
     throw err
   }
 }
@@ -867,7 +1280,6 @@ export function resolveRemoteHead(branch, { root, fetchedNow = false, run } = {}
     : ';跟踪 ref 也取不到'
   return { sha: null, source: null, stale, reason: `${netReason}${tail}` }
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 /**
  * 裸 git 派生的计数尺子。⚠️ 必须同时覆盖两个维度,少一个都会让棘轮"看起来在收口、实际没量到":
  *  · 入口:`execFileSync` / `execSync` / `spawnSync` / `spawn` 四种(`git-push-guard` 用的就是 spawnSync);
@@ -947,3 +1359,21 @@ export function hideComments(src) {
   return out.join('\n')
 }
 
+/**
+ * §22c:暴露给镜像测试的核心判据(`scripts/tests/git-egress-fallback.test.mjs` 直接 import 这一份,
+ * **不得**在测试里再抄一份动词表/正则/判序 —— 两处算同一件事必漂移)。
+ * 命名导出与此处指向**同一批函数对象**,不是副本。
+ */
+export const __test__ = {
+  egressFallbackPlan,
+  GIT_EGRESS_NETWORK_VERBS,
+  GIT_EGRESS_DIRECT_ARGS,
+  GIT_EGRESS_TRANSPORT_RE,
+  proxyConfiguredFor,
+  isForceDirect,
+  isTransportEgress,
+  pruneEgressLedger,
+  EGRESS_LEDGER_KEEP_DAYS,
+  noteEgressDegradation,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

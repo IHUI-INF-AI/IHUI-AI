@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 /** 未知形状 content → 纯文本(字符串直取;数组取各 part 的 text/content;对象取 text/content) */
-export function contentToText(content: unknown): string {
+function contentToText(content: unknown): string {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
     return content
@@ -255,7 +255,7 @@ export const TERMINAL_EVENT_NAMES: ReadonlySet<string> = new Set([
 ])
 
 /** 解析单个 SSE 事件块(不含块间空行);心跳/注释行以 ":" 开头,忽略 */
-export function parseSseEventBlock(block: string): TraeSseEvent | null {
+function parseSseEventBlock(block: string): TraeSseEvent | null {
   let event: string | null = null
   const dataLines: string[] = []
   for (const line of block.split('\n')) {
@@ -555,10 +555,10 @@ export function extractErrorInfo(
 // =============================================================================
 
 /** Trae OAuth ExchangeToken 固定 ClientID(web 渠道公开常量) */
-export const TRAE_OAUTH_CLIENT_ID = 'ono9krqynydwx5'
+const TRAE_OAUTH_CLIENT_ID = 'ono9krqynydwx5'
 
 /** SOLO 线客户端 ClientID(桌面 SOLO 客户端签发的票用它续;开源实现同源常量) */
-export const TRAE_OAUTH_CLIENT_ID_SOLO = 'en1oxy7wnw8j9n'
+const TRAE_OAUTH_CLIENT_ID_SOLO = 'en1oxy7wnw8j9n'
 
 /**
  * 设备证明通道的「ClientID × 产品线」组合链(2026-10-25,对表开源实现):
@@ -672,14 +672,14 @@ export function buildTraeProofCanonical(i: {
   ].join('\n')
 }
 
-export interface TraeDeviceProofPayload {
+interface TraeDeviceProofPayload {
   DeviceInfo: Record<string, string>
   DeviceProof: { Timestamp: number; Nonce: string; Signature: string }
   clientId: string
 }
 
 /** 构造 (DeviceInfo, DeviceProof) —— 新版 ExchangeToken 报文的两个附加块 */
-export function buildTraeDeviceProof(i: TraeDeviceProof): TraeDeviceProofPayload {
+function buildTraeDeviceProof(i: TraeDeviceProof): TraeDeviceProofPayload {
   const clientId = i.clientId ?? TRAE_OAUTH_CLIENT_ID
   const timestamp = i.timestamp ?? Math.floor(Date.now() / 1000)
   const nonce = i.nonce ?? randomBytes(16).toString('hex')

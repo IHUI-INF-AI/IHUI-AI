@@ -160,6 +160,8 @@ export * from './user-automations.js'
 export * from './user-browse-history.js'
 // 短信接码历史台账(2026-10-08 新增,管理员短信接码 /admin/sms-receive 收码流水)
 export * from './sms-receive-history.js'
+// 短信发送审计 / 退订黑名单 / 上行台账(2026-10-26 新增,腾讯回执对账与营销合规)
+export * from './sms-delivery.js'
 // relatedMsgs 快照累积(2026-10-09 新增,超越平台 12 条滚动窗口的全局热度口径)
 export * from './sms-related-snapshots.js'
 // 平台查询历史快照累积(2026-10-09 新增,攻破 queryUsed 24h+100 条上限)

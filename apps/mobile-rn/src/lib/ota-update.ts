@@ -21,6 +21,10 @@
 
 import { Platform } from 'react-native'
 import * as Updates from 'expo-updates'
+<<<<<<< HEAD
+=======
+import RNRestart from 'react-native-restart'
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
 import { useSyncExternalStore } from 'react'
 
 export type OtaUpdateState =
@@ -138,6 +142,7 @@ async function runCheck(): Promise<OtaUpdateState> {
 }
 
 /**
+<<<<<<< HEAD
  * reloadAsync 看门狗上限(ms)。
  *
  * 为什么需要(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」的第二道保险):
@@ -177,6 +182,48 @@ export async function applyOtaUpdate(): Promise<boolean> {
     return false
   } finally {
     if (watchdog !== undefined) clearTimeout(watchdog)
+=======
+ * 立即重启应用生效(调用前应已 ready)。
+ *
+ * 2026-10-28 定稿:**只走原生真重启,彻底不走 reloadAsync**。
+ *   - 机主连续两轮实拍「点更新 → 灰屏卡死没反应」,根因是 expo-updates 57 的
+ *     RelaunchProcedure:先显示原生 reloadScreen,再 reactHost.restart();JS 面被拆掉后
+ *     如果新界面没被拉回来,就永远停在那一帧,而 JS 已死 —— 看门狗、兜底按钮全部跟着消失。
+ *     这条路只要存在,就总有概率复现,所以直接删掉,不再"失败再退回"。
+ *   - 改走 react-native-restart(ProcessPhoenix:杀进程 + AlarmManager 拉起)= 一次真冷启动:
+ *     进程重开 → expo-updates 按"最新已下载更新"选包 → 界面一定回来。
+ *     (expo-updates 57 没有客户端崩溃回滚,杀进程不会被判成崩溃而退回旧包。)
+ *   - 真重启是同步调用、当场换进程,不存在"调了却不动"的中间态;万原生模块缺失(理论不可达,
+ *     该模块已随包编进 dex)则回到 ready 让用户再点一次,绝不留一块灰屏。
+ *
+ * @returns 是否已把重启交出去(成功时进程当场被替换,返回值只在失败路径可观测)。
+ */
+export async function applyOtaUpdate(): Promise<boolean> {
+  patch({ state: 'installing' })
+  try {
+    RNRestart.restart('ota-apply')
+    // 执行成功时进程当场被换掉,这行之后不会再跑;能返回说明原生模块没动手
+    return true
+  } catch (e) {
+    console.warn('[ota] 原生真重启不可用:', e)
+    patch({ state: 'ready', lastError: e instanceof Error ? e.message : String(e) })
+    return false
+  }
+}
+
+/**
+ * 兜底重启(2026-10-28 机主「点了更新依旧灰屏 卡死 没任何反应」):
+ * `Updates.reloadAsync()` 在个别机型上会"拆了当前 JS 面却没把 Activity 拉起来",
+ * 此时看门狗也随 JS 一起没了,用户对着一块没有出路的遮罩。这里给 UI 一枚
+ * 「立即重启」按钮走原生 `RNRestart`:activity recreate 后 expo-updates 会按最新
+ * 已下载的更新重新启动,与点更新同一个落点。失败只可能发生在原生模块缺失,**不抛**。
+ */
+export function forceRestart(): void {
+  try {
+    RNRestart.restart('ota-fallback')
+  } catch (e) {
+    console.warn('[ota] 原生重启失败:', e)
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
   }
 }
 

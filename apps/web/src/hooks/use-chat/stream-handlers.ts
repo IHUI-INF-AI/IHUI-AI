@@ -14,6 +14,8 @@ import type {
 } from '@ihui/api-client'
 import { PROVIDER_QUOTA_EXHAUSTED } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
+// 2026-10-28 观感档续:agent 内泵换 smooth(见 createAgentDeltaBatcher 头注)
+import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 
 /**
  * 厂商账号额度耗尽的人话覆盖(2026-09-22 批次 60 前端配套)。
@@ -317,13 +319,16 @@ export function createDeltaBatcher(appendFn: (delta: string) => void) {
 /**
  * #9 多 agent stream 节流(2026-07-25 立):
  * 单一 manager 管理多个 agentId 各自的 batcher,flushAll/cancelAll 统一清理。
+ * 2026-10-28 流式观感档续:内泵升 smooth —— 子代理/工具流的正文输出与主链/思考/续接同谱
+ * 逐帧平滑(此前帧级整坨,展开的执行流里文字成块蹦);manager 对外接口(batch/flushAll/
+ * cancelAll)逐字不变,调用面零改动。#16 当年"agent 保持原样"的保留判据由本轮观感需求覆盖。
  */
 export function createAgentDeltaBatcher(chatStore: ChatStore = useChatStore) {
-  const map = new Map<string, ReturnType<typeof createDeltaBatcher>>()
+  const map = new Map<string, ReturnType<typeof createSmoothDeltaBatcher>>()
   const batch = (agentId: string, delta: string) => {
     let b = map.get(agentId)
     if (!b) {
-      b = createDeltaBatcher((d) => chatStore.getState().appendToAgentStream(agentId, d))
+      b = createSmoothDeltaBatcher((d) => chatStore.getState().appendToAgentStream(agentId, d))
       map.set(agentId, b)
     }
     b.batch(delta)

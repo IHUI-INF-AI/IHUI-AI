@@ -200,6 +200,22 @@ export async function createGroup(input: CreateGroupInput): Promise<ApiKeyGroup>
 }
 
 /**
+ * API Key 归属判据(单源):确认 apiKeyId 确属 userId 名下。
+ *
+ * 归属型入口必须用令牌主体做条件查询 —— 只按 id 查证明的是"这行存在",
+ * 不是"这行是你的"。调用方拿到 false 时应回与"key 不存在"完全一致的状态码
+ * 与文案,否则响应差分会泄露他人 Key 是否存在。
+ */
+export async function isKeyOwnedBy(apiKeyId: string, userId: string): Promise<boolean> {
+  const [row] = await dbRead
+    .select({ id: developerApiKeys.id })
+    .from(developerApiKeys)
+    .where(and(eq(developerApiKeys.id, apiKeyId), eq(developerApiKeys.userId, userId)))
+    .limit(1)
+  return Boolean(row)
+}
+
+/**
  * 将 API Key 以指定角色加入组(内部辅助,createGroup + acceptInvite 共用)。
  */
 export async function addMember(

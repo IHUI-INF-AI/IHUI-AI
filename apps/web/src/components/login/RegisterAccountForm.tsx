@@ -20,6 +20,7 @@ import {
   registerByEmail,
 } from '@ihui/api-client'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
+import { useTurnstile } from './LoginWithTurnstile'
 import { emailSchema } from '@/components/login/login-schemas'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -64,6 +65,8 @@ export function RegisterAccountForm({
   setShowAgreeErr,
 }: RegisterAccountFormProps) {
   const t = useTranslations('auth')
+  // Turnstile 上下文(包裹在 LoginWithTurnstile 内时有值;独立渲染时为 null,发码请求自动省略)
+  const { token: turnstileToken } = useTurnstile()
   const setMode = useLoginDialogStore((s) => s.setMode)
   const isPhone = accountType === 'phone'
 
@@ -134,8 +137,11 @@ export function RegisterAccountForm({
     setSendingCode(true)
     try {
       // phone 走通用 sendCode('phone',...),email 走 sendEmailCode(保持原有 API 契约不变)
+      // 2026-10-27:发码端点接了人机验证闸,把上下文里的 Turnstile token 带上(无则省略)
       const r = isPhone
-        ? await sendCode('phone', account, 'register')
+        ? await sendCode('phone', account, 'register', {
+            turnstileToken: turnstileToken ?? undefined,
+          })
         : await sendEmailCode(account, 'register')
       // 类型契约对齐:把 api-client 的 ApiResult<{ sent: boolean }> 映射为 @ihui/shared 的 SendCodeApiResult
       const sendCodeResult: SendCodeApiResult = r.success

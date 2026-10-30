@@ -2171,6 +2171,27 @@ IHUI-AI はひとつの製品ではなく、**オープンソースインフラ*
 
 ---
 
+## アカウント・キープアライブ・センター(2026-10-26 追加 — 無関係だった二本の生存確認を一つの答えに)
+
+公開ラインの Cookie 探活(`services/publish/cookie_refresh_daemon.py`)と AI プラットフォームのチェックイン資格情報(`services/checkin_scheduler.py`)は、これまで別々のスイッチ・別々の集計・別々の失敗表現を持っていたため、「このアカウントはまだ生きているのか」に対して**システム全体で一つの答えがありませんでした**。本センター(`apps/ai-service/app/services/keepalive/`、HTTP 層は `apps/ai-service/app/routers/keepalive.py`)は、Cookie 探活・資格情報(api_key / oauth)の失効検出・チェックイン JWT の健全性(`exp` を読むだけで再署名はしない)を、一つのスケジュール、二つのテーブル、一つの健康度語彙、一つのアラート出口にまとめます。
+
+| エンドポイント | メソッド | 何に答えるか |
+| -------------- | -------- | ------------ |
+| `/api/keepalive/status` | GET | 自己診断:本当に有効か(理由・スケジューラの生存・前回の要約・探針一覧)。設定を読んで推測しない |
+| `/api/keepalive/overview` | GET | 健康度の総覧:四段階の件数・来源別・要対応・期限間近・直近 7 日の成功率・有効な設定 |
+| `/api/keepalive/accounts` | GET | アカウント別明細。`?source=` と `?health=` で絞り込み可 |
+| `/api/keepalive/events` | GET | 探活の履歴。`?ref=` と `?only_failures=true` で絞り込み可。`limit` は既定 50、上限 500 |
+| `/api/keepalive/stats` | GET | `?days=`(1..90、既定 7)の来源別 ok / 失敗 / 合計 / 成功率 |
+| `/api/keepalive/run` | POST | 1 ラウンドをバックグラウンドで起動して即返す。`?ref=<source>:<id>` で単一アカウント、`?force=true` でバックオフを無視 |
+
+- **健康度の四段階**は一箇所(`policy.health_of`)だけで判定します。直近の失敗が `expired`、期限切れ、連続失敗が `ALERT_AFTER_FAILURES` 以上なら `critical`。連続失敗あり、期限警告ウィンドウ内、失敗しか観測していないなら `warning`。それ以外は `healthy`。成功も失敗も未記録なら `unknown`。**クライアント側で再計算してはいけません**。
+- **失敗の語彙**:`ok` / `expired` / `network` / `error` / `unsupported` / `skipped` の六種で、正規化は一つの入口(`classify_message`)だけ。復号できない暗号文(`InvalidTag`、鍵不一致)は必ず `expired` — 何度再試行しても同じ誤りで、録り直ししか救いません。`unsupported`(そもそも生存確認が不要)は成功にも失敗にも数えず `failed` に入れません。そうしないと「本来不要なもの」が本当の赤を覆い隠します。バックオフは `base × 2^(n-1)` を `RETRY_CAP_SECONDS` で頭打ち、再試行は `RETRY_MAX` 回まで。成功したら連続失敗・警告印・アラート印をまとめて消します。
+- **アラート出口**:サイト全体の `notifications` テーブル。**1 ラウンドにつき所有者ごとに 1 件へ集約**(19 件同時に期限切れでも 19 通は送らない — 送ると通知を切られて本当の異常が見えなくなる)。`probe-user` のような非 uuid の所有者は捨てて計数します(1 件の不正 owner でバッチ INSERT 全体が落ちるため)。テーブルが無い場合は warning を出して飛ばし、届いたふりはしません。`KEEPALIVE_ALERT_WEBHOOK` で追加送信も可。全体は fail-open で、通知の失敗がキープアライブを止めることはありません。
+- **スイッチ**:`KEEPALIVE_ENABLED`。未設定時は `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` から継承。`resolve_config()` は毎ラウンド再解決するので、`.env` の変更は再起動なしで次ラウンドから効きます。主な既定値:`INTERVAL_HOURS`=6、`RETRY_MAX`=3、`RETRY_BASE_SECONDS`=300、`RETRY_CAP_SECONDS`=21600、`ALERT_AFTER_FAILURES`=3、`ALERT_REPEAT_HOURS`=24、`EXPIRE_WARN_DAYS`=3、`ALERT_INAPP`=true、`PROBE_CONCURRENCY`=4、`EVENT_RETENTION_DAYS`=90。
+- **境界**:判定するのは資格情報の生存だけ。投稿は公開スケジューラ、日次チェックインは `checkin_scheduler` の担当のままです(代行すると同一アカウントに二つの書き手が同時に触れます)。フロントは `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`(`/publish/accounts`)、クライアント側のラッパーは `packages/api-client/src/endpoints/keepalive.ts`。
+
+---
+
 ## License
 
 [Apache License 2.0](LICENSE) — 自由な使用、改変、配布、商用利用が可能で、伝染性はありません。
@@ -2197,6 +2218,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 ## 最近の更新 (自動維持)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+<<<<<<< HEAD
 **2026-10-28**
 - 🔧 その他:两端 ui-routes 按 HEAD 检出场重生(清在飞面污染,worktree=登记制 .worktrees/) (9ef1520d2939)
 
@@ -2315,6 +2337,93 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:复位两条「能力不同物」的 aligned —— RN 全仓无 mfa/passkey,安全审计事件也零消费方 (8bbd938db43a)
 - 🚀 機能/改善:新增只读队列「aligned 却打不同后端域」—— 把 news 那类假对齐变成可复跑的一眼活 (2651d5e47f4b)
 - 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (60554209a256)
+=======
+**2026-10-29**
+- 🐞 修正:契约产物再跟上路由面（净检出 @ee248c585f 重生成）—— CI OpenAPI Check 复红收口 (d76b7ad820)
+- 🚀 機能/改善:号池面板与运维可见性收口 —— 策略档只读卡片 / 日志详情抽屉 / 模型名复制 / 续期能力位标注 / 探针装车 / 非 git 夹具修复 (f7c98f0f6f)
+
+**2026-10-29**
+- 🐞 修正:复洁器维五补上"旁路落地型"那一格 —— 滞后副本现场两步判据同时失效,R4⑨ 已第三次回潮 (ee248c585f)
+- 📚 ドキュメント:补门 89 R4 —— 给已装车的 AASA 哨兵在 AGENTS.md 点名(与体积清偿同批收口) (7c74403489)
+- 🐞 修正:prebuild 重打 gradle 内存档 —— 512m 元空间实测 OOM 打死 daemon (da077b5d8b)
+- 📚 ドキュメント:门 207 体积清偿 —— 两组"多条合一条",96899→95398(省 1501,预算 96000) (6a903bb87d)
+- 🐞 修正:并发守卫的 onResponse 钩子是同步形态——它把线上整条响应链静默冻住 (5e9ea10ba7)
+- 📚 ドキュメント:撤销 Z-1 号池票 —— 同步远端裁决 d788019208d,本侧滞后副本摘行 (4b795c62ca)
+- 🔧 その他:登记 EX-C1-3 挂住 api-client 单文件行上限的 6 行越限 —— 拆分前置与到期追责写死 (10c2708882)
+- 🐞 修正:重封根护栏 —— 守门 259 装车后未重封,部署环 00:35:47 fail-closed (ade8233ceb)
+- 🐞 修正:2FA step-up 同族补两处漏接 —— agent 提现申请、创建 Key 分享(一次性出 shareToken) (b8b3fc6c7e)
+- 🐞 修正:web 蓝绿接线入库 —— 生产签出本地实现回收进 main(根治 O68 切流空窗) (dfc9b905b5)
+
+**2026-10-29**
+- 📚 ドキュメント:Z-1 行形态修正 + 声明式改桶 actionable→owned-elsewhere —— 编号与题面之间不夹标头,复合主键才取得出 (dfca68aa11)
+
+**2026-10-29**
+- 📚 ドキュメント:登记取号池饱和票(Z-1) —— 顺带用新字母族验证"开新族"这条出路的可行性 (149f6c17a8)
+- 🐞 修正:两端 ui-routes 产物按 HEAD 面重派 —— 门 105 的 G5 自述钉由 stale 转 matched (85e15a629c)
+
+**2026-10-29**
+- 🐞 修正:补回被"整份写回旧态"吞掉的 auditFeedbackLoopClosure 六行(本枚走落地器出口②,理由与证据在下面) (7c5b1b90eb)
+
+**2026-10-29**
+- 🐞 修正:找回被 b966cb2167 整份写回旧态的 dev-stack 超时双形态修复 —— 门 98 由红转绿 (fbfae3f297)
+- 🐞 修正:zh-TW clearAuthHint「這一台」改「這一臺」—— 门 2b 简体残留归零 (bcad210fe7)
+- 📚 ドキュメント:本侧 README 对齐远端新版守门清单行,解掉 git-sync-converge 的零丢失自证停顿 (017f455c72)
+- 🐞 修正:上游转发器补守卫②连接期 dispatcher —— 首跳复检挡不住 DNS rebinding (a3facca58f)
+- 🐞 修正:蓝绿编排器参数化 —— web 蓝绿改走 Node 执行面 (8a4ff327f8)
+- 🐞 修正:scripts/ 面 mypy strict 35→0 + 修 2 处 GBK 日志静默丢行 (969d74b9a6)
+- 📚 ドキュメント:UI/样式 门清单行对齐远端形态 —— 本侧 790 字版是远端 1106 字版的**前缀**(已实证 B.startsWith(A)=true),远端仅在其后追加了 check-ui-spec-mirror.mjs(259) 等条目 ⇒ 取远端版对本侧零丢失。此前 git-sync-converge 因这行按整行比对判『README.md 未存活行』拒绝推进 HEAD,而语义上并无内容丢失。 (12b99cbc35)
+- 🚀 機能/改善:web 蓝绿双实例 + router 原子切流(根治 O68 切流空窗) (38d71cfb82)
+- 🚀 機能/改善:守门 259 装车 —— RN 壳↔小程序壳 spec 接线对账进提交链 (a02c39768b)
+
+**2026-10-28**
+- 🔧 その他:守护: 反馈闭环巡检挂进 tick(此前只挂 main,常驻守护永不到达) (c79806a4ad)
+
+**2026-10-29**
+- 🐞 修正:摘掉 HEAD 面的悬空 import —— guardian 此前在净检出根本 import 不起来 (27215f15ce)
+
+**2026-10-29**
+- 🐞 修正:结清留痕兑底腿加第二道牙 —— merge 落点一律拒补(按父数判,不按候选数判) (88c0defd3a)
+
+**2026-10-29**
+- 📚 ドキュメント:把 AGENTS.md 本轮摘除的两行逐字落成同族归档件 —— 堵住 union 的下一次回捞 (471f33b242)
+
+**2026-10-29**
+- 🚀 機能/改善:装车 AASA 公网健康只读哨兵,并补上它"未知旗标静默掉进默认靶"这颗牙 (e837e076f4)
+- 🐞 修正:CDP 拉不起浏览器时不再只留一句裸断言 —— stderr 留尾随错抛出,等待 15s→30s/腿 (2f44be592a)
+
+**2026-10-28**
+- 📚 ドキュメント:G-86 标头补完整形走声明式改桶 actionable→owned-elsewhere —— 纠正一条会让派单面撒谎的形态 (344b0c65fa)
+- 🐞 修正:立即部署通道三处静默失效根治 (ca2b080abf)
+- 🐞 修正:O68 WorkBuddy 任务族按真机读侧形态重做 —— 读侧必须 GET,字段表以实测为准,写侧未证字段一律拒发 (eb00bda012)
+- 📚 ドキュメント:G-86 行形态修正为"标头在前、粗体内含编号" —— 原形态编号与题面之间夹了归桶标头,判据取不出复合主键(compositeKeyOf=null、titleOf 只回 "G-86"),而这行有编号、不是叙述式待办,落在 F4 归并与同题查重的盲区里(§1 复合主键=编号+标题前缀逐字等值,取不出就等于归并与撞号防线都看不见它) (24d0ab8cdd)
+- 🐞 修正:补回 HEAD 面 Input.tsx / Sheet.tsx 的溯源载荷 —— 只加 5 行水印,内容行零改动 (1c0279864b)
+- 🐞 修正:browser 自拉起第二腿 —— Linux 沙箱被 AppArmor 挡时补 --no-sandbox 重试,治 CDP 永不就绪 (fbc61f7a9b)
+- 📚 ドキュメント:登记线上一条一等缺陷 G-86 —— WebSocket 全通道在公网前置未透传 Upgrade(真客户端复测线上 error、同码本地 OPEN) (11269a2a18)
+- 🔧 その他:放量 deploy 每日额度 40→60(人工阀 budget-cap-change,机主 2026-10-28 23:44 拍板) (d5bfab840d)
+- 🐞 修正:Knip 工作流不再取消在飞 —— 高频并发提交下它永远拿不到终态 (1faefbef94)
+- 🚀 機能/改善:补齐控制帧 resume_goal —— 会话目标「恢复」的显式帧入口 (55d5726383)
+- 🚀 機能/改善:gen-ui-mirror 派生器装车,小程序壳「档→类」绑定块按 RN 逐字归位 (a1c4c3b6b7)
+- 📚 ドキュメント:G-329 票面就地补③格进展 —— 真 TTY 三格已由 2a6c7c58b208327611d748e6087336728e7d6253 实跑转绿(pty 4/4、keys 45/45、terminal 14/14,--retry=0 首跑),读端两处 ConPTY 吞字节的形态按 §12e 不留在本机当恒红门、判据整条迁到写侧 enterSequence/leaveSequence 未废。本行仍不翻勾:②的公网入口断言与余格仍归机主运维面,③只是四条里的一条结清。归属桶、认领态、票号三维未动,走 live-doc-edit 整行改写档由器物自证守恒。 (1d933b1dd9)
+- 🚀 機能/改善:「立即部署」正规通道 —— 会话投递 marker，SYSTEM 守护强制部署 (cb61465efa)
+- 📚 ドキュメント:摘 2 条同题 R4 登记副本并对齐远端形态 —— 编号 ⑨ 在本侧落了三份(403/404/405),远端 afb5a3f59f4 已由他席 4bd57ef6916 合并清理为仅 403 一条;本侧残留 404/405 属滞后副本,且违反 §1「一个编号只能有一行当前状态」。摘除后本侧 AGENTS.md 与远端逐字等值,git-sync-converge 零丢失自证方可通过(此前因这 2 行被判「吞掉本侧内容」拒绝推进 HEAD)。 (d2d9baa3a4)
+- 🐞 修正:O68 pass-entry-broken 结清 —— 切流后固定 8 秒即进门禁,web 停-起空窗加 Next 冷启动致公网 /api/* 502,而 web 维被 EO 缓存刷成 pass ⇒ 假故障。修:就绪等待上限 120 秒。实证 23:20:00 源站 8801 已就绪(等待 5 秒);23:21:02 门禁首轮 web/api/llm 全 pass;DEPLOY-DECISION action=pass gateVerdict=pass failDims=[] sha=8c1eddfb527;23:22:59 canary-pass。 (8f572260a4)
+- 🐞 修正:媒体路由 bodyLimit 全覆盖 + 上限常量单一真相源(清除 2MiB 静默 413 隐患) (2f22c02fd7)
+- 🔧 その他:反馈闭环: 观察维不压主裁决 + guardian 闭环巡检接线 (f4671f89a1)
+
+**2026-10-28**
+- 🔧 その他:全屏 TUI 的真 TTY 交互补齐 —— alt-screen 配对、滚轮端到端、鼠标上报开启三格在真 ConPTY 上实跑转绿 (2a6c7c58b2)
+- 🔧 その他:三处桶导出收敛回真实消费面 —— exports 2026→1970,回到基线 1988 以内 (b48cec35e6)
+
+**2026-10-28**
+- 📚 ドキュメント:把"受管面不等于本机生效面"钉进密钥回填器头注 —— 此前按"填了根 .env 就算配好"办事会静默落空 (afb5a3f59f)
+- 📚 ドキュメント:再次摘除被 merge 带回的两份 R4⑨ 同题副本,AGENTS.md 回到预算内(95993/96000) (a6ed3b7954)
+
+**2026-10-28**
+- 🐞 修正:三门收口 —— 会话轨描边归强调档、workbench 按钮改用尺寸档、路由产物重派 (1d02542d28)
+- 🐞 修正:密钥回填的替换串改为函数式 —— 含 $ 的 token 此前会被静默写坏 (49c1216053)
+- 🐞 修正:密钥回填的替换串改为函数式 —— 含 $ 的 token 此前会被静默写坏 (4f46d18b73)
+- 📚 ドキュメント:结清 O68 自动票(pass-entry-broken 那次是隧道单次抖动,链路按设计工作;现网三维复测全绿,无代码缺口) (d75e178e26)
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
 <!-- END RECENT UPDATES -->
 
 <p align="center">

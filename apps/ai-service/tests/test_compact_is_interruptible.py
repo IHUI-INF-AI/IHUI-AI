@@ -95,7 +95,7 @@ async def test_cancel_during_compaction_interrupts_within_poll_window(
     llm_calls: list[int] = []
     loop = _make_loop(llm_calls)
     entered: dict[str, bool] = {}
-    inner_cancelled: dict[str, bool] = {}
+    inner_cancelled: dict[str, Any] = {}
 
     async def fake_compact_with_llm(
         messages: list[dict[str, Any]],
@@ -106,25 +106,29 @@ async def test_cancel_during_compaction_interrupts_within_poll_window(
         entered["ok"] = True
         # 真实形态:压缩在飞时用户按停止
         loop._cancel_requested = True
+        t_flag = time.perf_counter()
         try:
-            await asyncio.sleep(2.0)  # 远大于 0.25s 轮询窗口
+            await asyncio.sleep(3.0)  # 远大于 0.25s 轮询窗口
         except asyncio.CancelledError:
             inner_cancelled["hit"] = True
+            # 只量"置标志 → 内部压缩被取消"这一段:整轮墙钟含建 loop/长历史
+            # 预处理等与本判据无关的排队时间,-n auto 满载时会放大成假红。
+            inner_cancelled["lag"] = time.perf_counter() - t_flag
             raise
         return messages, {"compressed": False}  # pragma: no cover - 不应到达
 
     monkeypatch.setattr(cwl, "compact_with_llm", fake_compact_with_llm)
 
-    started = time.perf_counter()
     result = await loop.run(_big_history_messages())
-    elapsed = time.perf_counter() - started
 
     assert entered["ok"] is True, "压缩须确实在飞,否则本判据退化为空断言"
     assert inner_cancelled["hit"] is True, "包裹层必须 cancel 内部压缩任务(不悬挂)"
     assert result.stop_reason == "cancelled"
     assert result.success is False
-    # ≤0.25s 轮询窗口级别返回:fake 睡 2.0s,若仍是裸 await 会跑满 2s 才轮到边界检查
-    assert elapsed < 1.5
+    # 0.25s 轮询窗口 + 调度/清理余量;若仍是裸 await 会一直等到 3s 的 sleep 跑完
+    assert inner_cancelled.get("lag", float("inf")) <= 0.6, (
+        f"取消延迟过长: {inner_cancelled}"
+    )
     # 不发起重试轮:LLM 一次都没调;_stream_retry_state 重试状态机从未建立
     assert llm_calls == []
     assert loop._stream_retry_state is None

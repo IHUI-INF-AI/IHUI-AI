@@ -41,6 +41,7 @@ import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 // MSVC 工具链注入判据单源(立因/三态见该文件头注);vcvars 的生产实现同样复用
 // desktop-build.mjs 已有的具名导出,不另写第二种形态
 import { planBuildEnv, needsMsvcInjection } from './lib/msvc-env.mjs'
+import { applyRustupPinToEnv } from './lib/rustup-env.mjs'
 import { __test__ as desktopBuildInternals } from './desktop-build.mjs'
 // 未签名豁免判据单源(§0.6:开关名/临时 config 形态/落点三件事全仓只许一份;
 // scripts/desktop-artifact-single.mjs 与 scripts/desktop-build.mjs 读同一份)
@@ -146,6 +147,18 @@ async function main() {
     buildEnv = { ...process.env, [ALLOW_UNSIGNED_ENV]: '1' }
     console.log(`[desktop-build-saas] ⓘ 跳过 MSVC 注入:NOT_WINDOWS(platform=${process.platform}) —— 本平台不适用,按现 env 直跑`)
   }
+
+  // rustup 家钉正(判据与三态日志单源 lib/rustup-env.mjs):豁免分支由本脚本亲自 spawn
+  // tauri/cargo,agent 会话把 HOME 顶成沙箱根时,MSVC 注入成功照样死在 "no default toolchain"
+  // 且报错长得像"没装 Rust"。必须排在 planBuildEnv **之后** —— 本判据从 PATH 反推 cargo 档案位,
+  // 而 PATH 正是上一步刚重写过的那一份。
+  buildEnv = applyRustupPinToEnv({
+    env: buildEnv,
+    platform: process.platform,
+    existsSync,
+    tag: 'desktop-build-saas',
+    log: (m) => console.log(m),
+  })
 
   if (allowUnsigned) {
     console.log(`[desktop-build-saas] !! ${ALLOW_UNSIGNED_ENV}=1 —— 本地未签名打包(显式豁免):`)

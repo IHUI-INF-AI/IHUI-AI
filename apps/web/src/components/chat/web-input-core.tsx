@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import {
   applyPredictedEditActions,
   fetchPredictiveEdit,
+  reportPredictiveEditMetric,
   PREDICTIVE_EDIT_LANGUAGE,
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
@@ -135,6 +136,9 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     const [prediction, setPrediction] = React.useState<{
       document: string
       actions: PredictiveEditAction[]
+      /** 观测面字段(model×scene 聚合用):实际模型 id 与后端测得的预测延迟。 */
+      model?: string
+      latencyMs?: number
     } | null>(null)
     React.useEffect(() => {
       if (isStreaming || text.trim().length === 0) return
@@ -152,7 +156,12 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           if (controller.signal.aborted) return
           // 三态原样消费:只有 suggested 上屏;其余三档都静默(undetermined 不冒充 no_action)。
           if (outcome.status === 'suggested') {
-            setPrediction({ document: snapshot, actions: outcome.actions })
+            setPrediction({
+              document: snapshot,
+              actions: outcome.actions,
+              model: outcome.model,
+              latencyMs: outcome.latencyMs,
+            })
           }
         })
       }, PREDICTIVE_EDIT_DEBOUNCE_MS)
@@ -161,19 +170,49 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         controller.abort()
       }
     }, [text, isStreaming])
+    // 接受率埋点(B01 票挖出的缺口,2026-10-27 接线):看板的 edit_intent 桶此前**没有生产者**
+    // (全仓唯一上报点 CodeEditor.tsx:256 不带 scene ⇒ 全落缺省 completion 桶),
+    // 因后端 `rate = accepted/suggestions` 且 suggestions 恒 0 ⇒ 预测器接受率恒空。
+    // 每条展示过的建议恰好终结于「应用」(applyPrediction 内报 accepted)或
+    // 「忽略」(建议条消失且未被应用 ⇒ 本 effect 报 dismissed),两个终点各上报一次。
+    const pendingMetricRef = React.useRef<typeof prediction>(null)
+    const predictionVisible = prediction !== null && prediction.document === text && !isStreaming
+    React.useEffect(() => {
+      if (predictionVisible && prediction) {
+        pendingMetricRef.current = prediction
+      } else if (pendingMetricRef.current) {
+        const ended = pendingMetricRef.current
+        pendingMetricRef.current = null
+        reportPredictiveEditMetric({
+          accepted: false,
+          model: ended?.model,
+          latencyMs: ended?.latencyMs,
+        })
+      }
+    }, [predictionVisible, prediction])
     const applyPrediction = () => {
       if (!prediction || prediction.document !== text) return
       const next = applyPredictedEditActions(prediction.document, prediction.actions)
       setPrediction(null)
-      if (next !== null && next !== text) onTextChange(next)
+      if (next !== null && next !== text) {
+        // 先消费掉待报条目再上报:否则紧随的隐藏 effect 会把同一条记成「忽略」。
+        pendingMetricRef.current = null
+        reportPredictiveEditMetric({
+          accepted: true,
+          model: prediction.model,
+          latencyMs: prediction.latencyMs,
+        })
+        onTextChange(next)
+      }
     }
     // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 Brush 清洁刷图标,
     // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
     return (
       <div className="group relative px-3 pt-2 pb-2">
         {/* Predictive Edit 建议条(2026-10-25 接线):仅 suggested 且草稿未变时出现。
-            no_action / undetermined / failed 都不渲染任何东西 —— 预测失败对用户不可见。 */}
-        {prediction && prediction.document === text && !isStreaming ? (
+            no_action / undetermined / failed 都不渲染任何东西 —— 预测失败对用户不可见。
+            渲染条件与接受率埋点的「展示中」判据同源(predictionVisible),两处不许各写一份。 */}
+        {predictionVisible ? (
           <div
             data-testid="predictive-edit-suggestion"
             className="mb-1 flex items-center gap-2 rounded-sm border border-dashed border-border/60 px-2 py-1 text-[11px] text-muted-foreground"

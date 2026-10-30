@@ -20,6 +20,8 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyBaseLogge
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { MAX_MULTIPART_UPLOAD_SIZE } from '../utils/file-type-validator.js'
+import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 
 // =============================================================================
 // Coze 配置 & 通用请求工具
@@ -131,18 +133,31 @@ async function cozeUpload(
 /** 读取 multipart 请求中的字段与单个文件。 */
 async function readMultipart(
   request: FastifyRequest,
-): Promise<{ fields: Record<string, string>; file: { buffer: Buffer; filename: string } | null }> {
+): Promise<{
+  fields: Record<string, string>
+  file: { buffer: Buffer; filename: string } | null
+  tooLarge?: string
+}> {
   const fields: Record<string, string> = {}
   let file: { buffer: Buffer; filename: string } | null = null
+  let tooLarge: string | undefined
   for await (const part of request.parts()) {
     if (part.type === 'field') {
       fields[part.fieldname] = String(part.value)
     } else if (part.type === 'file') {
       const buffer = await part.toBuffer()
+      // 2026-10-28 安全加固:本 helper 把整个文件读进内存,必须有显式闸。
+      // 路由级 bodyLimit 只约束整包;调用方已放开到 100MiB,若不在此闸住,
+      // 整包上限就直接变成堆上限(单个请求即可吃掉 100MiB 内存)。
+      // 不抛错:两处调用方均无 try/catch,抛出去会退化成 500。
+      if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+        tooLarge = `文件大小超过 ${MAX_MULTIPART_UPLOAD_SIZE / 1024 / 1024}MB 限制`
+        continue
+      }
       file = { buffer, filename: part.filename }
     }
   }
-  return { fields, file }
+  return { fields, file, tooLarge }
 }
 
 /** SSE 流式代理:POST JSON 到 Coze 上游,逐行转发为 text/event-stream。 */
@@ -809,24 +824,29 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     reply.send(success(data))
   })
 
-  server.post('/datasets/documents/upload', async (request, reply) => {
-    const { fields, file } = await readMultipart(request)
-    if (!file) return reply.status(400).send(error(400, '未检测到上传文件'))
-    const datasetId = fields.dataset_id
-    if (!datasetId) return reply.status(400).send(error(400, '缺少 dataset_id'))
-    const data = await cozeUpload(
-      '/v1/datasets/documents/upload',
-      reply,
-      {
-        dataset_id: datasetId,
-        document_name: file.filename || 'doc',
-        document_source: '0',
-      },
-      file,
-    )
-    if (data === null) return
-    reply.send(success(data))
-  })
+  server.post(
+    '/datasets/documents/upload',
+    { bodyLimit: FILE_UPLOAD_BODY_LIMIT },
+    async (request, reply) => {
+      const { fields, file, tooLarge } = await readMultipart(request)
+      if (tooLarge) return reply.status(400).send(error(400, tooLarge))
+      if (!file) return reply.status(400).send(error(400, '未检测到上传文件'))
+      const datasetId = fields.dataset_id
+      if (!datasetId) return reply.status(400).send(error(400, '缺少 dataset_id'))
+      const data = await cozeUpload(
+        '/v1/datasets/documents/upload',
+        reply,
+        {
+          dataset_id: datasetId,
+          document_name: file.filename || 'doc',
+          document_source: '0',
+        },
+        file,
+      )
+      if (data === null) return
+      reply.send(success(data))
+    },
+  )
 
   server.post('/datasets/documents/list', async (request, reply) => {
     const b = z
@@ -847,20 +867,25 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     reply.send(success(data))
   })
 
-  server.post('/datasets/images/upload', async (request, reply) => {
-    const { fields, file } = await readMultipart(request)
-    if (!file) return reply.status(400).send(error(400, '未检测到上传文件'))
-    const datasetId = fields.dataset_id
-    if (!datasetId) return reply.status(400).send(error(400, '缺少 dataset_id'))
-    const data = await cozeUpload(
-      '/v1/datasets/images/upload',
-      reply,
-      { dataset_id: datasetId },
-      file,
-    )
-    if (data === null) return
-    reply.send(success(data))
-  })
+  server.post(
+    '/datasets/images/upload',
+    { bodyLimit: FILE_UPLOAD_BODY_LIMIT },
+    async (request, reply) => {
+      const { fields, file, tooLarge } = await readMultipart(request)
+      if (tooLarge) return reply.status(400).send(error(400, tooLarge))
+      if (!file) return reply.status(400).send(error(400, '未检测到上传文件'))
+      const datasetId = fields.dataset_id
+      if (!datasetId) return reply.status(400).send(error(400, '缺少 dataset_id'))
+      const data = await cozeUpload(
+        '/v1/datasets/images/upload',
+        reply,
+        { dataset_id: datasetId },
+        file,
+      )
+      if (data === null) return
+      reply.send(success(data))
+    },
+  )
 
   server.post('/datasets/images/list', async (request, reply) => {
     const b = z
@@ -885,19 +910,31 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
   // 6. files — 文件管理
   // ===========================================================================
   // POST /files/upload  文件上传(multipart)
-  server.post('/files/upload', async (request, reply) => {
-    const data = await request.file()
-    if (!data) return reply.status(400).send(error(400, '未检测到上传文件'))
-    const buffer = await data.toBuffer()
-    const result = await cozeUpload(
-      '/v1/files/upload',
-      reply,
-      {},
-      { buffer, filename: data.filename || 'upload' },
-    )
-    if (result === null) return
-    reply.send(success(result))
-  })
+  // multipart 直传文件:吃全局 2MiB 会被静默 413,显式放开到单文件 100MiB 形态。
+  // 本路由把整个文件读进内存,故下方必须显式闸大小(此前无任何校验)。
+  server.post(
+    '/files/upload',
+    { bodyLimit: FILE_UPLOAD_BODY_LIMIT },
+    async (request, reply) => {
+      const data = await request.file()
+      if (!data) return reply.status(400).send(error(400, '未检测到上传文件'))
+      const buffer = await data.toBuffer()
+      // 2026-10-28 安全加固:补大小闸(此前只有全局体限兜着,放开后必须自己判)
+      if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+        return reply
+          .status(400)
+          .send(error(400, `文件大小超过 ${MAX_MULTIPART_UPLOAD_SIZE / 1024 / 1024}MB 限制`))
+      }
+      const result = await cozeUpload(
+        '/v1/files/upload',
+        reply,
+        {},
+        { buffer, filename: data.filename || 'upload' },
+      )
+      if (result === null) return
+      reply.send(success(result))
+    },
+  )
 
   // ===========================================================================
   // 7. review — 内容审核

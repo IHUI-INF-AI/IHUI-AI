@@ -545,7 +545,7 @@ export function CdpBrowserView({
 
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLCanvasElement>) => {
     // 阻止浏览器快捷键(Ctrl+R/F5 等)干扰 CDP 浏览器
-    const key = e.key.toLowerCase()
+    const key = (e.key ?? '').toLowerCase() // WebView2 偶发 key 为 undefined(IME/合成事件)
     if (e.ctrlKey && ['r', 'w', 'n', 't', 'f'].includes(key)) {
       e.preventDefault()
     } else if (e.key === 'F12') {

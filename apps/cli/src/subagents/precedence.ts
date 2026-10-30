@@ -47,6 +47,7 @@ import type {
   PrecedenceLayer,
   ConfigFieldSource,
   EffortDowngradeTrace,
+  EffortResolution,
   LayerRevision,
   SourceRevisions,
   RevisionUnavailable,
@@ -115,19 +116,19 @@ function src(layer: PrecedenceLayer, origin: string): ConfigFieldSource {
 }
 
 /** 单文件修订号读取结果:`revision=null` 时 `reason` 必给(不得用 0 / 空串冒充"取到了") */
-export interface FileRevision {
+interface FileRevision {
   revision: string | null
   reason: RevisionUnavailable | null
 }
 
 /** 修订号读取器(注入点,只为可测 `stat-failed` 一臂;生产一律用 `readFileRevision`) */
-export type RevisionReader = (file: string) => FileRevision
+type RevisionReader = (file: string) => FileRevision
 
 /**
  * 默认修订号读取:来源文件 mtime 的 ISO 时刻。
  * stat 拿不到 ⇒ `{revision:null, reason:'stat-failed'}`(不猜、不回落"当前时刻")。
  */
-export function readFileRevision(file: string): FileRevision {
+function readFileRevision(file: string): FileRevision {
   try {
     return { revision: fs.statSync(file).mtime.toISOString(), reason: null }
   } catch {
@@ -388,6 +389,16 @@ export function resolveEffectiveOverrides(
   )
   const effortDowngrade = buildEffortDowngrade(requestedEffort, effortHit)
 
+  // G-395 请求档 vs 实得档对照(总是携带):与 effortDowngrade 吃同一批候选、同一命中结果,
+  // 只额外把「两档一致」这一档也留痕(告警面仍由 effortDowngrade 独占)。不改短路顺序。
+  const effortResolution: EffortResolution = {
+    requestedEffort: requestedEffort?.raw,
+    requestedEffortSource: requestedEffort?.source,
+    effectiveEffort: effortHit.value,
+    effectiveEffortSource: effortHit.source,
+    matched: requestedEffort === undefined ? null : requestedEffort.raw === effortHit.value,
+  }
+
   // capabilityMode: explicit ?? role ?? undefined(不从 persona 级联,enum 容错)
   const capabilityModeHit = firstHit(
     [
@@ -459,6 +470,7 @@ export function resolveEffectiveOverrides(
       rolePrompt: rolePromptSource,
     },
     effortDowngrade,
+    effortResolution,
     sourceRevisions,
   }
 
@@ -475,19 +487,29 @@ export function formatConfigSnapshot(config: EffectiveRuntimeConfig): string {
   const winners = (['model', 'reasoningEffort', 'capabilityMode', 'isolation'] as const)
     .map((field) => `${field}:${config.sources[field].layer}`)
     .join(',')
+  // G-395 请求档 vs 实得档:两档原值 + 双方出处 + 是否一致(n/a = 压根没有请求档)
+  const effort = config.effortResolution
+  const requestedText =
+    effort.requestedEffort === undefined
+      ? 'none'
+      : `${effort.requestedEffort}@${effort.requestedEffortSource?.layer ?? '?'}`
+  const effectiveText = `${effort.effectiveEffort ?? 'none'}@${effort.effectiveEffortSource.layer}`
+  const effortText = `requested:${requestedText}→effective:${effectiveText} matched:${
+    effort.matched === null ? 'n/a' : String(effort.matched)
+  }`
   const revisions = PRECEDENCE_LAYERS.map((layer) => {
     const r = config.sourceRevisions[layer]
     if (r.file !== null) return `${layer}=${r.file}@${r.revision ?? 'null'}`
     return `${layer}=null(${r.unavailable ?? 'unavailable'})`
   }).join(' ')
-  return `[subagent] config snapshot(G-395): winners=${winners} revisions=${revisions}\n`
+  return `[subagent] config snapshot(G-395): winners=${winners} effort=${effortText} revisions=${revisions}\n`
 }
 
 /**
  * 快照留痕出口(默认 stderr,`IHUI_SUBAGENT_CONFIG_TRACE=0` 或 `sink=null` 关闭)。
  * 写失败只吞自身,绝不让诊断把一次正常解析带崩。
  */
-export function emitConfigSnapshotTrace(
+function emitConfigSnapshotTrace(
   config: EffectiveRuntimeConfig,
   sink?: ((line: string) => void) | null,
 ): void {

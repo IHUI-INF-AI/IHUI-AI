@@ -778,6 +778,57 @@ class SkillRegistry:
         """重新加载(增量:mtime 驱动,无参幂等,兼容旧调用方)。"""
         self._load_auto_skills()
 
+    def reload(self, *, force: bool = False) -> dict[str, Any]:
+        """运行时热重载 —— 控制帧 `reload_skills` 的服务端实现。
+
+        与 :meth:`reload_auto` 的分工必须分清,否则这条帧会退化成"点了没反应":
+
+        * ``reload_auto`` 是**无人值守**的增量扫描(mtime 驱动),它只保证"最终一致",
+          不向任何人回报结果;
+        * 本方法是**宿主显式调用**的重载口,必须给出可回报的差额(新增/移除/更新/未变),
+          并且 ``force=True`` 要绕过 mtime 判据 —— 用户手改 SKILL.md 后 mtime 可能不变
+          (同一秒内连写、或编辑器保留 mtime),只认 mtime 就会把"改了但没生效"
+          报成"没有变化",这正是 D202 防翻案注记点名的那格。
+
+        Returns:
+            差额字典:``total`` 全量技能数 / ``auto`` auto 来源数 /
+            ``added`` / ``removed`` / ``changed`` 三个名单 / ``unchanged`` 未变数 /
+            ``lastReload`` 本次重载时刻 / ``forced`` 是否强制全量重扫。
+        """
+        before = {
+            name: (s.description, s.prompt_template)
+            for name, s in self._skills.items()
+            if s.source == "auto"
+        }
+        if force:
+            # 只把 mtime 账本"打脏"(保留 path→name 映射),**不能清空**:
+            # _load_auto_skills 的"已删除文件"分支正是靠账本里残留的 path 找漏,
+            # 清空它等于把该分支的输入抽掉 —— 删掉的 SKILL.md 会永久留在注册表里
+            # (这是本方法第一版被自己的用例抓到的真缺陷,别改回 clear())。
+            self._auto_files = {
+                path: (-1.0, name) for path, (_mtime, name) in self._auto_files.items()
+            }
+        self._load_auto_skills()
+        after = {
+            name: (s.description, s.prompt_template)
+            for name, s in self._skills.items()
+            if s.source == "auto"
+        }
+        added = sorted(set(after) - set(before))
+        removed = sorted(set(before) - set(after))
+        changed = sorted(n for n in set(before) & set(after) if before[n] != after[n])
+        return {
+            "total": len(self._skills),
+            "auto": len(after),
+            "added": added,
+            "removed": removed,
+            "changed": changed,
+            "unchanged": max(0, len(after) - len(added) - len(changed)),
+            "lastReload": self.last_reload,
+            "forced": force,
+            "sourceDirs": list(self.source_dirs),
+        }
+
     def list_skills(self) -> list[Skill]:
         """列出全部 skill。
 

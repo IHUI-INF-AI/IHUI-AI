@@ -26,6 +26,7 @@ import {
   taskIdParam,
   type FastifyPluginAsync,
 } from './_shared.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // ---- fal 官方参数(每模型 schema 不同,prompt 常用字段透传,其余模型输入全透传) ----
 const falBody = z.object({
@@ -162,6 +163,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
   server.post(
     '/fal/generate',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'fal 同步生成(Flux/Kling/Veo 等数百模型)',
@@ -194,6 +196,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
   server.post(
     '/fal/queue/*',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'fal 队列异步提交',
@@ -261,6 +264,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
   server.post(
     '/mureka/generate',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Mureka 音乐生成(昆仑万维天工)',
@@ -404,6 +408,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
   server.post(
     '/soniox/transcribe',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Soniox 语音转文本',
@@ -433,6 +438,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
   server.post(
     '/gladia/transcribe',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Gladia 语音转文本(audio_url 直传)',

@@ -309,8 +309,11 @@ function emitFile({ entries, stackCount, tabCount, pinLines }) {
     `/** 全量白名单:前 ${stackCount} 条是已登录分支 RootStack.Screen,后 ${tabCount} 条是 Main Tab */`,
     'export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [',
   ]
-  // 自述钉紧跟数据源头注:「产物按哪份输入生成」与「数据源是谁」同块自述
-  lines.splice(4, 0, ...pinLines, '')
+  // 自述钉紧跟数据源头注:「产物按哪份输入生成」与「数据源是谁」同块自述。
+  // 尾巴不补 '' —— lines[4] 本身就是钉与正文之间的那道空行,再补一个会变成两连空行,而 prettier
+  // 只保留一个 ⇒ 产物 `prettier --check` 恒红(与本节"产物需 prettier --check 稳定"的自我约定相悖)。
+  // 实测:该两连空行是 2026-10-27 起就烘在产物里的存量,四端里只有 rn 这一份,web/taro/extension 均单空行。
+  lines.splice(4, 0, ...pinLines)
   for (const entry of entries) lines.push(...emitEntry(entry))
   lines.push(']', '')
   return `${lines.join('\n')}\n`

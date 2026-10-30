@@ -6,24 +6,24 @@
 
 # JavaScript / TypeScript SDK
 
-> 包名:`@ihui/sdk`(npm),版本 0.1.0。零运行时依赖,完整封装 105 个 `/v1/*` 端点,覆盖 13 个功能模块。
+> 包名:`@ihui-ai/sdk`(npm),版本 0.1.0。零运行时依赖,完整封装 105 个 `/v1/*` 端点,覆盖 13 个功能模块。
 
 ## 安装
 
 ```bash
-npm install @ihui/sdk
+npm install @ihui-ai/sdk
 # 或
-pnpm add @ihui/sdk
+pnpm add @ihui-ai/sdk
 # 或
-yarn add @ihui/sdk
+yarn add @ihui-ai/sdk
 ```
 
-> 本项目 monorepo 内部通过 `workspace:*` 引用,实际发布包名为 `@ihui/sdk`。
+> 本项目 monorepo 内部通过 `workspace:*` 引用,实际发布包名为 `@ihui-ai/sdk`。
 
 ## 快速开始
 
 ```typescript
-import { createClient } from '@ihui/sdk'
+import { createClient } from '@ihui-ai/sdk'
 
 const client = createClient({
   apiKey: process.env.IHUI_API_KEY!, // 必需,格式 ihui_xxx
@@ -537,7 +537,7 @@ const openaiUsage = await client.user.getVendorUsage('openai')
 SDK 抛出 `SdkError` 异常,携带 `status` / `code` / `details`:
 
 ```typescript
-import { createClient, SdkError } from '@ihui/sdk'
+import { createClient, SdkError } from '@ihui-ai/sdk'
 
 try {
   const resp = await client.ai.completions({ ... })
@@ -570,7 +570,7 @@ import type {
   V1ModelInfo,
   V1AgentExecuteRequest,
   V1EmbeddingsResponse,
-} from '@ihui/sdk'
+} from '@ihui-ai/sdk'
 ```
 
 ## 自定义 fetch(测试 / 拦截)
@@ -592,7 +592,7 @@ const client = createClient({
 SDK 导出 `parseChatStream` 和 `parseAgentStream` 工具函数,可用于手动解析 SSE 流:
 
 ```typescript
-import { parseChatStream } from '@ihui/sdk'
+import { parseChatStream } from '@ihui-ai/sdk'
 
 const resp = await fetch('http://localhost:8802/v1/chat/completions', {
   method: 'POST',
@@ -608,7 +608,7 @@ for await (const chunk of parseChatStream(resp.body!)) {
 ## 完整示例
 
 ```typescript
-import { createClient, SdkError } from '@ihui/sdk'
+import { createClient, SdkError } from '@ihui-ai/sdk'
 import fs from 'fs'
 
 const client = createClient({

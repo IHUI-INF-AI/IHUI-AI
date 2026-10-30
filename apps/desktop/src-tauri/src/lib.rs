@@ -90,6 +90,37 @@ pub enum IpcErrorCode {
     Internal,
 }
 
+/// 高危命令的原生确认闸(2026-10-27)。
+///
+/// 威胁模型:default capability 的 remote 授权让 aizhs.top 页面(即线上前端)能调用
+/// 全部命令 —— 一次 XSS 即可无交互执行破坏性命令。前端传的 confirm 参数由调用方
+/// 自报,XSS 直接传 true 绕过(minimax_quarantine_delete 旧形态),不构成闸。
+/// 本闸在 Rust 侧弹**原生对话框**:人不在场就点不了「确认」,脚本物理上无法通过。
+/// 适用 = 低频、破坏性/持久性命令(出厂重置/登出重置/隔离区删除/维护清理);
+/// 高频自动化命令(打卡截图/键鼠)刻意不加 —— 每次都弹窗等于毁掉产品。
+pub fn require_native_confirm(
+    app: &tauri::AppHandle,
+    title: &str,
+    body: &str,
+) -> Result<(), IpcError> {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    let confirmed = app
+        .dialog()
+        .message(body)
+        .title(title)
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "确认执行".to_string(),
+            "取消".to_string(),
+        ))
+        .blocking_show();
+    if confirmed {
+        Ok(())
+    } else {
+        Err(IpcError::permission("用户在原生确认窗中取消(或无人应答)"))
+    }
+}
+
 impl IpcErrorCode {
     /// wire 上的字面量(与 serde 的 `rename_all = "snake_case"` 逐字同形,由契约测试钉住)。
     pub const fn as_str(self) -> &'static str {

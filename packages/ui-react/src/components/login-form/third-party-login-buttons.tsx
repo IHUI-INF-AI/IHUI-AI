@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 
+import { reorderByPriority } from '@ihui/shared/auth/login-region-policy'
 import { Button } from '../button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../tooltip'
 import { cn } from '../../lib/utils'
@@ -33,6 +34,25 @@ export interface ThirdPartyLoginButtonsProps {
    * 保证"企业微信"等长标签在窄列内不溢出。扩展端不传维持 3 列。
    */
   columns?: number
+  /**
+   * 网格优先序(2026-10-26 立,地区判据注入)。表内平台按给定次序排到前面,
+   * 表外平台保持传入顺序排在后面。undefined = 不重排(维持调用方原序)。
+   */
+  priorityPlatforms?: readonly ThirdPartyPlatform[]
+}
+
+/**
+ * 稳定排序:按 priority 表给的名次排前,未列名的保持原相对顺序排后。
+ * 判据与执行器自 2026-10-27 住在共享层 `@ihui/shared/auth/login-region-policy`
+ * (`reorderByPriority`);本函数只是 `key` 档薄适配 —— 图标网格(ThirdPartyProvider)与
+ * 扫码渠道(QrPlatformConfig)都以 `key` 为身份,RN 的 `ThirdPartyLoginOption` 以
+ * `platform` 为身份,两端跑的是同一个执行器,不在这里复算任何判定(§0.6)。
+ */
+export function sortByPlatformPriority<T extends { key: ThirdPartyPlatform }>(
+  items: readonly T[],
+  priority: readonly ThirdPartyPlatform[],
+): T[] {
+  return reorderByPriority(items, priority, (item) => item.key)
 }
 
 /**
@@ -67,16 +87,21 @@ export function ThirdPartyLoginButtons({
   featuredPlatform,
   featuredBackground,
   columns = 3,
+  priorityPlatforms,
 }: ThirdPartyLoginButtonsProps) {
   const { providers, currentPlatform, onLogin } = config
   const isLoading = currentPlatform !== null
 
+  const orderedProviders = priorityPlatforms
+    ? sortByPlatformPriority(providers, priorityPlatforms)
+    : providers
+
   const featuredProvider = featuredPlatform
-    ? providers.find((p) => p.key === featuredPlatform)
+    ? orderedProviders.find((p) => p.key === featuredPlatform)
     : null
   const restProviders = featuredProvider
-    ? providers.filter((p) => p.key !== featuredProvider.key)
-    : providers
+    ? orderedProviders.filter((p) => p.key !== featuredProvider.key)
+    : orderedProviders
 
   return (
     <div className={cn(className)}>
@@ -92,7 +117,7 @@ export function ThirdPartyLoginButtons({
           {restProviders.length > 0 && (
             <>
               <div className="my-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
-                <span>{'或'}</span>
+                <span>{t('auth.or')}</span>
               </div>
               <ThirdPartyGrid
                 t={t}
@@ -112,7 +137,7 @@ export function ThirdPartyLoginButtons({
           </div>
           <ThirdPartyGrid
             t={t}
-            providers={providers}
+            providers={orderedProviders}
             currentPlatform={currentPlatform}
             onLogin={onLogin}
             columns={columns}
@@ -195,7 +220,7 @@ function ThirdPartyGrid({
             (p.forceDisabled
               ? t('auth.appleComingSoon')
               : !p.enabled
-                ? t('auth.googleNotConfigured')
+                ? t('auth.platformNotConfigured')
                 : undefined)
 
           const button = (

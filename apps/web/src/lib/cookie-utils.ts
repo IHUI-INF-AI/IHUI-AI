@@ -14,6 +14,7 @@
  *   作为旧版本降级通道——兼容后端仍下发非 httpOnly cookie 的部署;新部署恒返回 null)。
  */
 import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
+import { SESSION_HINT_COOKIE_NAME } from '@ihui/shared/auth/auto-login-policy'
 
 const REFRESH_TOKEN_COOKIE = 'refresh_token'
 const AUTH_TOKEN_COOKIE = 'auth_token'
@@ -63,5 +64,21 @@ export function getAuthCookie(): string | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${AUTH_TOKEN_COOKIE}=([^;]+)`))
   return match?.[1] ? safeDecodeURIComponent(match[1]) : null
+}
+
+/**
+ * 浏览器里是否**曾经**建立过一条 30 天会话(2026-10-27)。
+ *
+ * 读的是后端下发的非 httpOnly 提示 Cookie(`ihui_session_hint`,值恒 '1'):两条凭据
+ * Cookie 都是 httpOnly,JS 永远看不见,而 localStorage 的会话标记会被一次被动失效清掉 ——
+ * 两者都读不到时,冷启动闸门(hasUsableRefreshCredential)把「cookie 还在」的老用户
+ * 判成匿名,连 /auth/refresh 都不发,表现就是"每次打开都要手点登录"。
+ *
+ * 与凭据同域同寿命、同批下发同批摘除,所以它只是"值得再试一次"的信号,不是登录态;
+ * 值不含任何凭据,被第三方脚本读到也不泄露东西。
+ */
+export function getSessionHintCookie(): boolean {
+  if (typeof document === 'undefined') return false
+  return new RegExp(`(?:^|;\\s*)${SESSION_HINT_COOKIE_NAME}=1(?:;|$)`).test(document.cookie)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

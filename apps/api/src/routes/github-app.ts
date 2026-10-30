@@ -259,6 +259,8 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
   const deduper = options.deduper ?? createDeliveryDeduper()
 
   // 本作用域内保留原始 JSON 字符串:HMAC 基于原始字节,不能被 Fastify 先解析成对象
+  // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
+  server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
     done(null, body)
   })

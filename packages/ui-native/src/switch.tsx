@@ -45,6 +45,7 @@ export interface SwitchProps {
   className?: string
 }
 
+<<<<<<< HEAD
 export function Switch({
   checked = false,
   onCheckedChange,
@@ -57,6 +58,12 @@ export function Switch({
   const translate = useRef(
     new Animated.Value(checked ? SWITCH_THUMB_TRANSLATE_X_PX[size] : 0),
   ).current
+=======
+export function Switch({ checked = false, onCheckedChange, disabled, size = SWITCH_DEFAULT_SIZE, className }: SwitchProps) {
+  const colorScheme = useColorScheme()
+  const foreground = colorScheme === 'dark' ? '#ffffff' : '#000000'
+  const translate = useRef(new Animated.Value(checked ? SWITCH_THUMB_TRANSLATE_X_PX[size] : 0)).current
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
   useEffect(() => {
     Animated.timing(translate, {
       toValue: checked ? SWITCH_THUMB_TRANSLATE_X_PX[size] : 0,
@@ -76,7 +83,11 @@ export function Switch({
       disabled={disabled}
       onPress={() => onCheckedChange?.(!checked)}
       className={cn(
+<<<<<<< HEAD
         'flex-row items-center border-foreground',
+=======
+        'flex-row items-center border-foreground', // border-ink-exempt: 对齐 web Neo-Brutalist 开关墨线描边 —— web 同用 foreground 描边,硬投影同取 foreground,明暗自适应
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
         TRACK_W_CLASS[w],
         TRACK_H_CLASS[h],
         TRACK_RADIUS_CLASS[SWITCH_TRACK_RADIUS_TIER],
@@ -86,12 +97,16 @@ export function Switch({
         disabled && 'opacity-50',
         className,
       )}
+<<<<<<< HEAD
       style={{
         shadowColor: foreground,
         shadowOffset: { width: 3, height: 3 },
         shadowOpacity: 1,
         shadowRadius: 0,
       }}
+=======
+      style={{ shadowColor: foreground, shadowOffset: { width: 3, height: 3 }, shadowOpacity: 1, shadowRadius: 0 }}
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
     >
       <Animated.View
         className={cn(

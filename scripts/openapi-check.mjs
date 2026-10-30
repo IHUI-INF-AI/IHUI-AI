@@ -608,6 +608,36 @@ function getStagedFiles() {
   }
 }
 
+/**
+ * [F] 同批性(warn,不改退出码):本轮改了路由输入面,却没在同一批里带上产物。
+ *
+ * 立因(2026-10-29 现读):`apps/api/openapi.json` 里**没有任何自述钉**,漂移只能在 CI 里
+ * 靠"重新 export 再逐字段比"取到;而 A~E 在全量/暂存档都能 0.4s 跑完并判绿 ⇒
+ * "改了路由没重生成产物"这一步在提交链上**结构上看不见**,只有等 CI 红。今晚同一格红了两次
+ * (1378f7ba3a / d76b7ad820 两枚都是事后补产物),中间还夹着 5 枚把 drift 又加回来的提交。
+ *
+ * 为什么先做 warn 不做 blocking(AGENTS §12e):升 blocking 的前置是"所有写者都已具备同批能力",
+ * 而 `chore(auto)` 收编轮与旁路落地都不跑 pnpm openapi:export ⇒ 当场拦等于给最活跃的一族提交
+ * 造恒红门,唯一结局是逼人 `--no-verify`、连带废掉全部守门。先把"安静"变成"点名",
+ * 等收编/落地两条通道也接上生成器再升档。
+ */
+export function coChangeWarning(files) {
+  const routeInputs = files.filter(
+    (f) =>
+      f.startsWith(ROUTES_DIR_REL + '/') ||
+      f === 'apps/api/src/server.ts' ||
+      f === 'apps/api/src/utils/swagger.ts' ||
+      f === 'apps/api/src/utils/openapi-helpers.ts',
+  )
+  if (routeInputs.length === 0) return null
+  if (files.includes(ARTIFACT_REL)) return null
+  return (
+    `[F] 同批性:本轮改了路由输入面 ${routeInputs.length} 处(${routeInputs.slice(0, 3).join(', ')}` +
+    `${routeInputs.length > 3 ? ' …' : ''})却没带 ${ARTIFACT_REL} ⇒ 契约产物将滞后,` +
+    'CI 的 [E] 必判 ARTIFACT_DRIFT。重生成:pnpm openapi:export(改路由与产物同批,别留给后手补账)'
+  )
+}
+
 /** --staged 判定:本轮改动是否与 OpenAPI 契约相关。 */
 export function isContractRelevant(files) {
   return files.some(
@@ -675,9 +705,14 @@ async function main() {
     const staged = getStagedFiles()
     if (staged === null) {
       console.log(`${C.dim}[openapi-check] 暂存区不可读,本轮按全量模式判定${C.reset}`)
-    } else if (!isContractRelevant(staged)) {
-      console.log(`${C.dim}[openapi-check] 暂存改动与 OpenAPI 契约无关,跳过${C.reset}`)
-      return 0
+    } else {
+      // [F] 只点名不改退出码(升 blocking 的前置见函数头注;§12e 恒红门禁令)
+      const coChange = coChangeWarning(staged)
+      if (coChange) console.log(`${C.yellow}⚠️ [openapi-check] ${coChange}${C.reset}`)
+      if (!isContractRelevant(staged)) {
+        console.log(`${C.dim}[openapi-check] 暂存改动与 OpenAPI 契约无关,跳过${C.reset}`)
+        return 0
+      }
     }
   }
 
@@ -978,6 +1013,16 @@ function runSelfTest() {
   ok(normalizePath('/v1/agents/:id/call') === '/v1/agents/{id}/call', 'normalizePath:Fastify :param → OpenAPI {param}')
   ok(isContractRelevant([ROUTES_DIR_REL + '/v1-public.ts']), '--staged:路由文件改动 = 契约相关')
   ok(!isContractRelevant(['apps/web/src/app/page.tsx']), '--staged:前端改动 = 与契约无关')
+  // [F] 同批性:正反成对(摘掉即翻红),且只点名不判红
+  ok(
+    coChangeWarning([ROUTES_DIR_REL + '/v1-public.ts']) !== null,
+    '[F] 改路由不带产物 ⇒ 必须点名(阳性对照)',
+  )
+  ok(
+    coChangeWarning([ROUTES_DIR_REL + '/v1-public.ts', ARTIFACT_REL]) === null,
+    '[F] 改路由且同批带产物 ⇒ 不点名(阴性对照)',
+  )
+  ok(coChangeWarning(['apps/web/src/app/page.tsx']) === null, '[F] 前端改动与同批性无关')
 
   // 9. 产物 JSON 非法 → ARTIFACT_UNPARSEABLE(走完整 CLI)
   {

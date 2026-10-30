@@ -11,7 +11,7 @@
 ## 快速开始
 
 1. **获取 API Key** — 登录管理后台 → 开发者中心 → 创建密钥(从 27 个权限点中选择授予)。详见 [身份认证](./getting-started/authentication.md)。
-2. **安装 SDK** — TypeScript 用 `@ihui/sdk`,Python 用 `ihui-ai`。详见 [环境配置](./getting-started/setup.md)。
+2. **安装 SDK** — TypeScript 用 `@ihui-ai/sdk`,Python 用 `ihui-ai`。详见 [环境配置](./getting-started/setup.md)。
 3. **发起首个请求**:
 
 ```bash
@@ -52,7 +52,7 @@ curl -X POST http://localhost:8802/v1/chat/completions \
 
 ### SDK
 
-- [JavaScript / TypeScript SDK](./sdk/javascript.md) — `@ihui/sdk`
+- [JavaScript / TypeScript SDK](./sdk/javascript.md) — `@ihui-ai/sdk`
 - [Python SDK](./sdk/python.md) — `ihui-ai`
 - [cURL 示例](./sdk/curl.md) — 105 端点代表性子集
 

@@ -458,6 +458,14 @@ export interface IdempotencyRequest<T> extends IdempotencySlotRef {
    */
   locality?: SlotLocalitySpec<T>
   /**
+   * G-40 E 格「运行时实体存活」的重放前断言。缺省 = 不跑(与改动前逐字同形,与 ③ `locality`
+   * 同一口径)。**本层仍是零 I/O 内核(只有 KV 端口)** —— 存活查询属 DB 层,故此处只留一个
+   * 由调用方注入的窄口(与 `locality.refsOf` 同类:本文件不因此引入第二个 I/O 依赖)。
+   * 语义:被引用实体任一缺失/损坏 ⇒ 实现方抛硬错;本层不吞、不重试、不 `create()` ——
+   * 重建正是 ② 禁止的动作(把损坏洗成"看起来正常")。
+   */
+  assertReplayAlive?: (value: T) => Promise<void>
+  /**
    * 传输不可用时的策略。默认 `closed`:本层是这些面**唯一**的重复创建防线,
    * 放行的代价是真金白银的双跑。`open` 只给"另有响应缓存兜底、或宁可用不可停"的面用
    * —— 那种口径已在 `plugins/open-idempotency.ts` 头部论证过,两处判据不同,不要合并。
@@ -728,6 +736,27 @@ export async function runIdempotently<T>(
   if (input.locality !== undefined) {
     assertFactLocality(replayed, input.locality, input, key, 'replay')
   }
+  // G-40 E 格(票面点名的重放接线点):回放前的最后一关,紧跟局部性断言、排在 return 之前。
+  // 为什么必须卡在这儿而不是交回调用方:本函数返回 `{ ok:true }` 之后,调用方就会拿这个值去签
+  // 句柄并回 200 —— 那时再问存活就已经晚了。而实体若真已死,"重放成功"四个字本身就足以把
+  // 损坏洗成正常。算子本体由 DB 层注入(见 `IdempotencyRequest.assertReplayAlive`)。
+  if (input.assertReplayAlive !== undefined) {
+    await input.assertReplayAlive(replayed)
+  }
   return { ok: true, value: replayed, replayed: true, slotProtected: true }
 }
+
+/**
+ * G-40 E 格 "实体存活"(2026-10-27 接线已通,不再是纯登记):
+ * 事实存在、但它引用的实体缺失/损坏时必须**抛错**,绝不重跑 `create()`(重建=把损坏洗成
+ * 看起来正常)。载体:`command_ack_facts`(引用集合在 `entity_refs`)。两处接线点现状:
+ * - 重放侧:**已通** —— 上方 `runIdempotently` 重放段的 `assertReplayAlive` 钩子(locality
+ *   断言旁、`return` 之前)。本层仍是零 I/O 内核(只有 KV 端口),存活查询由调用方(DB 层)
+ *   注入,与同一节的既有写法一致:`SlotLocalitySpec.refsOf` 也是调用方注入的纯函数,这里不
+ *   引入第二个 I/O 依赖。缺省不跑 ⇒ 与接线前逐字同形。
+ * - 写入侧:`apps/api/src/routes/agent-runs.ts` 的 create 路径 —— 事实与 `entity_refs` 落库处。
+ * 仍未做的那一半:`entity_refs` 里**任意** ref 的通用存在性解析器(ref 串 → "该实体是否存在")。
+ * 票面没有定义这条映射,本格不臆造;`services/command-ack-facts.ts` 的
+ * `assertCommandAckFactAlive`(四档死因)是票面点名的唯一判据,重放侧按它执行。
+ */
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

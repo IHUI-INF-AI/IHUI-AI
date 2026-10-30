@@ -22,6 +22,14 @@ vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: vi.fn(),
 }))
 
+// ---------- 2FA step-up mock(2026-10-29 补)----------
+// 提现/转账路由 2026-10-28 起加了二次验证闸(已开 2FA 须持窗内凭据,否则 401)。
+// 本文件判的是下单/回调/反查,与闸无关 ⇒ 默认放行;闸自身的判据见
+// tests/two-factor-step-up.test.ts 与 tests/payment.test.ts 里的反向用例。
+vi.mock('../src/services/two-factor-step-up-store.js', () => ({
+  requireStepUpForTwoFactorUser: vi.fn(async () => ({ ok: true })),
+}))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -175,7 +183,7 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
   return {
     id: UUID,
     orderNo: 'EDU20260723000000ABCDEF',
-    userId: 'user-001',
+    userId: '11111111-1111-4111-8111-111111111111',
     orderType: 0,
     productId: null,
     amount: 10000,
@@ -247,7 +255,7 @@ describe('payment gateway routes', () => {
     ;(app.paymentIdempotency.fail as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
   })
 
-  function authAs(userId = 'user-001', roleId = 0) {
+  function authAs(userId = '11111111-1111-4111-8111-111111111111', roleId = 0) {
     mockAuthenticate.mockImplementation(
       (request: { userId?: string; jwtPayload?: { userId: string; roleId: number } }) => {
         request.userId = userId
@@ -257,7 +265,7 @@ describe('payment gateway routes', () => {
     )
   }
 
-  function authAsAdmin(userId = 'admin-001') {
+  function authAsAdmin(userId = '22222222-2222-4222-8222-222222222222') {
     authAs(userId, 1)
   }
 
@@ -306,7 +314,11 @@ describe('payment gateway routes', () => {
       expect(body.data.mock).toBe(true)
       expect(body.data.outTradeNo).toBe('EDU20260723000000ABCDEF')
       expect(mockPlaceOrder).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'user-001', amount: 100, payType: 'wechat' }),
+        expect.objectContaining({
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 100,
+          payType: 'wechat',
+        }),
       )
     })
 
@@ -428,7 +440,7 @@ describe('payment gateway routes', () => {
       })
       mockCompleteOrder.mockResolvedValueOnce({
         success: true,
-        order: makeOrder({ status: 'paid', userId: 'user-001' }),
+        order: makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111' }),
       })
       mockGetBalance.mockResolvedValueOnce(100)
       mockFeedbackInvite.mockResolvedValueOnce(undefined)
@@ -492,7 +504,9 @@ describe('payment gateway routes', () => {
 
     it('非本人非管理员返回 403', async () => {
       authAs('user-002', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/query?outTradeNo=EDU001',
@@ -502,8 +516,10 @@ describe('payment gateway routes', () => {
     })
 
     it('本人查询返回 200', async () => {
-      authAs('user-001', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: 'user-001' }))
+      authAs('11111111-1111-4111-8111-111111111111', 0)
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/query?outTradeNo=EDU001',
@@ -518,7 +534,9 @@ describe('payment gateway routes', () => {
     // 2026-09-18 P0 修复:退款仅限管理员(防"自助退款保留会员"套利)
     it('非管理员返回 403', async () => {
       authAs()
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/refund?outTradeNo=EDU001&refundAmount=10000',
@@ -530,7 +548,9 @@ describe('payment gateway routes', () => {
 
     it('订单状态非 paid 返回 400(业务规则)', async () => {
       authAsAdmin()
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'pending', userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'pending', userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/refund?outTradeNo=EDU001&refundAmount=100',
@@ -544,7 +564,11 @@ describe('payment gateway routes', () => {
       authAsAdmin()
       mockIsWechatPayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       mockWxRefund.mockResolvedValueOnce(undefined)
       mockRefundOrder.mockResolvedValueOnce({ success: true })
@@ -576,7 +600,9 @@ describe('payment gateway routes', () => {
 
     it('他人订单返回 403(隐私校验)', async () => {
       authAs('user-002', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'GET',
         url: '/api/payments/wechat/status/EDU001',
@@ -650,7 +676,7 @@ describe('payment gateway routes', () => {
       })
       mockCompleteOrder.mockResolvedValueOnce({
         success: true,
-        order: makeOrder({ status: 'paid', userId: 'user-001' }),
+        order: makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111' }),
       })
       mockGetBalance.mockResolvedValueOnce(0)
       mockActivateOrderSubscription.mockResolvedValueOnce(undefined)
@@ -676,7 +702,9 @@ describe('payment gateway routes', () => {
     // 2026-09-18 P0 修复:退款仅限管理员(同微信退款端点)
     it('非管理员返回 403', async () => {
       authAs()
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=100.00',
@@ -688,7 +716,9 @@ describe('payment gateway routes', () => {
 
     it('订单状态非 paid 返回 400', async () => {
       authAsAdmin()
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'pending', userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'pending', userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=10.00',
@@ -700,7 +730,9 @@ describe('payment gateway routes', () => {
     it('退款失败返回 500', async () => {
       authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       mockAliRefundOrder.mockResolvedValueOnce({ success: false })
       const res = await app.inject({
         method: 'POST',
@@ -713,7 +745,9 @@ describe('payment gateway routes', () => {
     it('退款成功返回 200', async () => {
       authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       mockAliRefundOrder.mockResolvedValueOnce({ success: true })
       mockRefundOrder.mockResolvedValueOnce({ success: true })
       const res = await app.inject({
@@ -750,8 +784,8 @@ describe('payment gateway routes', () => {
       expect(res.statusCode).toBe(200)
       expect(res.json().data.id).toBe('flow-001')
       expect(mockApplyWithdrawal).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'user-001', method: 'bank' }),
-        'user-001',
+        expect.objectContaining({ userId: '11111111-1111-4111-8111-111111111111', method: 'bank' }),
+        '11111111-1111-4111-8111-111111111111',
       )
     })
   })
@@ -857,7 +891,7 @@ describe('payment gateway routes', () => {
 
   describe('GET /api/admin/payments/reconciliation/alipay', () => {
     it('非管理员返回 403', async () => {
-      authAs('user-001', 0)
+      authAs('11111111-1111-4111-8111-111111111111', 0)
       const res = await app.inject({
         method: 'GET',
         url: '/api/admin/payments/reconciliation/alipay',

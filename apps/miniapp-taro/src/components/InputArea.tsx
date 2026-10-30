@@ -17,6 +17,10 @@ import {
   INPUT_AREA_VOICE_BTN_GAP_PX,
   // 票④:ai-home 一侧剩余的可见几何档(逐条裁决依据与"单端档"理由写在 spec 常数注释里)
   INPUT_AREA_DOC_NAME_STRIP_PX,
+  // O02 票④(2026-10-27):⤢/⤡ 切换钮的**定位盒边长** —— 与 RN 端 expandBtn 同一枚档
+  // (收编前小程序写 rpx(40)、RN 写 20,同一控件两份真相);两端必须同枚提交改指,
+  // 漏一侧这枚档就成"仅一侧具名档",改一端仍不带另一端走。
+  INPUT_AREA_EXPAND_BTN_BOX_PX,
   INPUT_AREA_AI_HOME_OVERLAY_TOP_PX,
   INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX,
   INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX,
@@ -644,8 +648,8 @@ export default function InputArea({
                     justifyContent: 'flex-end',
                     right: 0,
                     top: toUnit(INPUT_AREA_FANGDA_TOP_PX),
-                    width: rpx(40),
-                    height: rpx(40),
+                    width: toUnit(INPUT_AREA_EXPAND_BTN_BOX_PX),
+                    height: toUnit(INPUT_AREA_EXPAND_BTN_BOX_PX),
                     zIndex: 2,
                   }}
                 >
@@ -671,8 +675,8 @@ export default function InputArea({
                     justifyContent: 'flex-end',
                     right: 0,
                     top: toUnit(INPUT_AREA_FANGDA_TOP_PX),
-                    width: rpx(40),
-                    height: rpx(40),
+                    width: toUnit(INPUT_AREA_EXPAND_BTN_BOX_PX),
+                    height: toUnit(INPUT_AREA_EXPAND_BTN_BOX_PX),
                     zIndex: 2,
                   }}
                 >

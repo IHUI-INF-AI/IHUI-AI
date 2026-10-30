@@ -28,6 +28,7 @@ import {
   taskIdParam,
   type FastifyPluginAsync,
 } from './_shared.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // ---- Stability 官方参数(aspect_ratio/seed/negative_prompt/cfg_scale 等) ----
 const stabilityBody = z.object({
@@ -308,6 +309,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/kling/generate',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Kling 可灵文生视频',
@@ -400,6 +402,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/runway/generate',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Runway 文生/图生视频',
@@ -468,6 +471,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/luma/generate',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Luma Dream Machine 文生/图生视频',

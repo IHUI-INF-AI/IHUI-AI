@@ -32,6 +32,7 @@ import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
 import { error } from '../utils/response.js'
+import { MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 
 // =============================================================================
 // 常量
@@ -537,6 +538,8 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/midjourney/describe',
     {
+      // multipart 上传图片:吃全局 2MiB 会被静默 413
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       schema: {
         description: 'MJ 图生 prompt(上传图片,MJ 返回 prompt 描述)',
         tags: ['Midjourney'],
@@ -641,6 +644,8 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/midjourney/blend',
     {
+      // multipart 上传 2-5 张图:吃全局 2MiB 会被静默 413
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       schema: {
         description: 'MJ 图像混合(2-5 张图混合,multipart/form-data)',
         tags: ['Midjourney'],
@@ -791,6 +796,8 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/variations',
     {
+      // multipart 上传图片(DALL·E 变体):吃全局 2MiB 会被静默 413
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       schema: {
         description: 'DALL-E 图像变体生成(multipart/form-data)',
         tags: ['Images'],

@@ -57,7 +57,8 @@ const envSchema = z.object({
   // 取值合法性在那里按声明表闭集判,声明表外的值不认 → 落 fail-safe 兜底档)。
   ZCODE_RUNTIME_ENV: z.string().optional(),
   PORT: z.coerce.number().default(8802),
-  HOST: z.string().default('0.0.0.0'),
+  // 2026-10-28 安全加固:默认回环监听(详见 index.ts HOST 说明)。
+  HOST: z.string().default('127.0.0.1'),
   LOG_LEVEL: z.string().default('info'),
   // 2026-09-02 默认追加 Tauri 桌面端 origin(comma 分隔白名单);即便部署未设 env,
   // server.ts 也会固定放行,此处仅保证本地/测试默认配置一致可查。
@@ -69,6 +70,16 @@ const envSchema = z.object({
     .default(
       'http://localhost:8801,http://localhost:8806,http://tauri.localhost,tauri://localhost',
     ),
+
+  /**
+   * 浏览器扩展的精确 origin 白名单(2026-10-27):`chrome-extension://<扩展ID>` 逐枚登记,
+   * 逗号分隔。此前 CORS/WS 对 `chrome-extension://` 前缀整体放行 —— 浏览器里**任何**已
+   * 安装扩展(含恶意扩展)都能产生该形态 Origin,叠加 credentials:true 等于给全部扩展发
+   * 全站带凭据通行证(无 host_permissions 的恶意扩展本被 CORS 挡在响应外,前缀放行把这
+   * 一层拆了)。配置后仅列表内的扩展 ID 可过;**未配置时保持旧行为**(扩展端 UI 不断),
+   * 但服务端会逐次打 warn 点名实际请求的扩展 ID —— 运维把自家扩展 ID 填进来即完成收紧。
+   */
+  EXTENSION_IDS: z.string().default(''),
 
   DATABASE_URL: z.url(),
   DATABASE_READ_REPLICA_URL: z
@@ -161,6 +172,19 @@ const envSchema = z.object({
 
   // 票的 TTL 上限(秒),**由验票侧封顶**——发票方误配大值时"短期"这个前提必须还成立。
   INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+
+  // ── 管理员 TOTP 闸档位(2026-10-28 安全审计)──
+  // 背景:TOTP 此前只对"已开启 2FA 的账号"生效 —— 管理员只要不主动开 2FA,纯密码登录
+  // 后即可走 requireAdmin 保护的全部 admin 路由。本档位给 requireAdmin /
+  // requireAdminRouteGuard 加一道"管理员必须绑 TOTP"的闸。
+  //   off     = 完全不检查(回滚口子,行为与加固前逐字节一致)
+  //   warn    = 未绑 TOTP 的管理员**放行**,但每次打一条结构化告警(默认档,
+  //             供运维统计有多少管理员没绑;绝不锁死生产管理后台)
+  //   enforce = 未绑 TOTP 的管理员访问 admin 面 → 403(文案直接给用户看)
+  // 默认 warn 而非 enforce 的理由:enforce 一旦上线,所有未绑 TOTP 的管理员立刻失去
+  // 管理后台访问权,属于"上线即锁死"的破坏面,必须先经 warn 期盘点存量账号。
+  // 未知值落回 warn(拼错档位名不该静默把门关掉,也不该静默把门锁死)。
+  ADMIN_TOTP_MODE: z.enum(['off', 'warn', 'enforce']).default('warn'),
 
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),

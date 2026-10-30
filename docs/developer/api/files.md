@@ -284,7 +284,7 @@ Content-Type: multipart/form-data
 
 ### 分片上传完整代码示例
 
-**TypeScript(@ihui/sdk)**
+**TypeScript(@ihui-ai/sdk)**
 
 ```typescript
 import fs from 'fs'

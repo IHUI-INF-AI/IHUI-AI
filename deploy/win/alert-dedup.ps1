@@ -286,11 +286,16 @@ function Test-AlertSuppressionGrace {
         # 同 Test-AlertDueByIdentity 的 -Stall:标出"这一格属于切流受阻类",成功切流时锚点与身份
         # **一起**退休。只清身份不清锚点会造出更坏的形态 —— 锚点还挂在上一段停摆的起点上,
         # 恢复后的第一次被挡直接判"超窗",于是每段都秒寄(2026-10-10 由行为测试 T5 抓出)。
-        [switch]$Stall
+        [switch]$Stall,
+        # 部署窗口命名空间(2026-10-26 立):同一告警项在 runId A 与 runId B 下各起各的锚,
+        # 上一轮部署留下的锚不会让下一轮的第一条告警直接判"超窗"而秒寄。
+        # 留空 = 旧行为(键与 label 都不变),既有的非窗口调用方逐字不动。
+        [string]$RunId = ''
     )
     $clean = ($Sig -replace '\s+', ' ').Trim()
     if ($clean.Length -gt 120) { $clean = $clean.Substring(0, 120) }
-    $key = Get-AlertDedupKey -Sig ("grace:" + $clean)
+    $scope = if ($RunId) { $RunId + "|" + $clean } else { $clean }
+    $key = Get-AlertDedupKey -Sig ("grace:" + $scope)
     $now = Get-Date
     $state = Read-AlertDedupState -StateFile $StateFile
 
@@ -299,7 +304,7 @@ function Test-AlertSuppressionGrace {
                   Note = "抑制档案读不出($($state.Error))⇒ 不按预期现象抑制,本轮照常告警" }
     }
     $map = $state.Map
-    $label = $clean
+    $label = $scope
 
     $entry = $null
     if ($map.ContainsKey($key)) { $entry = $map[$key] }
@@ -348,6 +353,59 @@ function Test-AlertSuppressionGrace {
     $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $anchor.ToString('o'); repeatNo = 0; lastSend = $now.ToString('o'); label = $label; stall = [bool]$Stall }
     try { Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null } catch { }
     return @{ Suppressed = $suppressed; ElapsedMinutes = $elapsed; Decision = $decision; Key = $key; Note = $note }
+}
+
+function Clear-AlertGraceAnchors {
+    <#
+      清理部署窗口的抑制锚点(2026-10-26 立)。两种用法:
+        无 -Keep:删掉 label 以 "$RunId|" 开头的 grace 条目(测试/显式清某一轮)。
+        有 -Keep:删掉所有带 runId 前缀、但不是当前 runId 的 grace 条目(监控每轮调用,
+                 防止旧窗口的锚点长期堆在档案里,也让人读到档案时只剩当前这一轮)。
+      只处理 `grace:` 键:用 key == hash("grace:" + label) 精确识别,普通去重条目与
+      切流受阻身份绝不受影响。档案读不出 ⇒ Ok=$false 并带原因,调用方必须打进日志:
+      把"没清成"写成"已清"就是把没判当成判过了。
+      返回 @{ Ok; Cleared; Labels; Error }。
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$StateFile,
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [switch]$Keep,
+        [int]$MaxEntries = 200
+    )
+    $state = Read-AlertDedupState -StateFile $StateFile
+    if ($state.Error) {
+        return @{ Ok = $false; Cleared = 0; Labels = @(); Error = $state.Error }
+    }
+    $map = $state.Map
+    $remove = @()
+    $prefix = $RunId + '|'
+    foreach ($k in @($map.Keys)) {
+        $e = $map[$k]
+        if ($null -eq $e) { continue }
+        $lab = [string]$e.label
+        if (-not $lab) { continue }
+        if ($k -ne (Get-AlertDedupKey -Sig ("grace:" + $lab))) { continue }   # 只认 grace 条目
+        $hasRun = ($lab -match '^[^|]+\|')
+        if ($Keep) {
+            if ($hasRun -and -not $lab.StartsWith($prefix, [System.StringComparison]::Ordinal)) { $remove += $k }
+        } else {
+            if ($lab.StartsWith($prefix, [System.StringComparison]::Ordinal)) { $remove += $k }
+        }
+    }
+    $labels = @()
+    foreach ($k in $remove) {
+        $lab = [string]$map[$k].label
+        if ($lab) { $labels += $lab }
+        $map.Remove($k)
+    }
+    if ($remove.Count -gt 0) {
+        try {
+            Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null
+        } catch {
+            return @{ Ok = $false; Cleared = 0; Labels = $labels; Error = "抑制档案写不出:$($_.Exception.Message)" }
+        }
+    }
+    return @{ Ok = $true; Cleared = $remove.Count; Labels = $labels; Error = '' }
 }
 
 function Clear-AlertStallIdentities {

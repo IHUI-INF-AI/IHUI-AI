@@ -47,5 +47,23 @@
       "url": "https://www.aizhs.top/api/health",
       "contains": "\"status\":\"ok\""
     }
-  ]
+  ],
+  "traffic": {
+    "$comment": "灰度分流(先小流量)的唯一真源(O65 第 2 期 · 2026-10-27 立)。档位表只往递增方向走,末档必须 100% —— 否则没有「全量」这一档。stages[].percent 与本文件其余阈值一样:只改本文件,scripts/canary-traffic.mjs 不内置第二份数值。bucketGranularity/bucketSalt 与 apps/ai-service/app/services/compaction_canary.py 同口径(sha256 前 8 字节大端取模万分位),免得仓内出现两种灰度哈希。slots 是本机两个槽位端口:stable=现网(8801,Cloudflare Tunnel 回源的那只),canary=灰度候选实例(8845,承载 .next-staging 那份新构建)。grayEndpoints 列哪些源站端点在灰度期改指 canary 槽位(只切 web 产物,api/llm 源站不动)。",
+    "bucketGranularity": 10000,
+    "bucketSalt": "ihui-deploy-canary",
+    "routingKeyHeader": "x-ihui-canary-key",
+    "tagHeader": "x-canary-tag",
+    "stages": [
+      { "id": "ramp-1", "percent": 1 },
+      { "id": "ramp-2", "percent": 5 },
+      { "id": "ramp-3", "percent": 25 },
+      { "id": "ramp-full", "percent": 100 }
+    ],
+    "slots": {
+      "stable": { "port": 8801 },
+      "canary": { "port": 8845 }
+    },
+    "grayEndpoints": ["web-origin"]
+  }
 }

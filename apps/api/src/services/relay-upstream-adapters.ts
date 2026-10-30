@@ -172,12 +172,41 @@ export interface RelayQuotaResult {
     /** 原始单位说明(如 trae 积分) */
     unit?: string
     resetsAt?: string
+    /** 订阅档名(workbuddy 实证:summary 的 SubscriptionPackageName,如"体验版";可选) */
+    subscriptionName?: string
     packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
   }
 }
 
 /** 余额查询的执行选项(与 AdapterCallOptions 同形,单独命名便于语义区分) */
 export type QuotaCallOptions = AdapterCallOptions
+
+/** 模型清单条目(富形状;官方模型 id=名称,自定义模型 id 可能被上游截断) */
+export interface RelayModelEntry {
+  name: string
+  id?: string
+  /** id 非完整值(CLI 显示上限截断等)时恒 true,消费方不得当完整 id 用 */
+  idTruncated?: boolean
+}
+
+/**
+ * 上游模型清单富结果(2026-10-27 立,与既有 listModels(): string[] 并存):
+ * - 既有 listModels 契约是纯 id 数组(trae/workbuddy/codearts 已实现且消费方依赖),
+ *   不能改签名;qoder 的清单来自本机 CLI 登录态且含截断 id,无法忠实塞进 string[],
+ *   故新增本富形状方法,永不抛(失败归 ok:false,不冒充)。
+ * - scope 如实标注清单语义(如 qoder 的 'local-cli-login' = 本机 CLI 登录态的
+ *   当前用户,不是号池任意账号)。
+ */
+export interface RelayModelListResult {
+  ok: boolean
+  error?: string
+  /** 清单语义标注(如 'local-cli-login');ok:false 时可缺省 */
+  scope?: string
+  models?: RelayModelEntry[]
+}
+
+/** 富模型清单的执行选项(与 AdapterCallOptions 同形,单独命名便于语义区分) */
+export type ModelListCallOptions = AdapterCallOptions
 
 export interface RelayUpstreamAdapter {
   providerCode: RelayProviderCode
@@ -205,6 +234,15 @@ export interface RelayUpstreamAdapter {
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<TokenRefreshResult | null>
+  /**
+   * 刷新能力声明(2026-10-27 立,保活收敛用):`refreshToken` 方法存在 ≠ 真能刷新。
+   * - 省略/true:适配器确有已实证续期端点 ⇒ 调度器可对它做临期刷新与空闲保活;
+   * - false:方法有(或没有)但**恒无法续期**(如 doubao/loomy 的恒 null 空壳 stub,
+   *   或 codex/opencode/minimax/zcode/lingma/grokbot 等无公开续期协议者)。
+   *   这类平台账号**不得**进保活窗口、也不得被 refreshOne 判成"刷新失败"→ 自动摘除。
+   * 判据:调度器统一用 `isRefreshableProviderCode()`(方法存在 且 本字段不为 false)。
+   */
+  refreshTokenSupported?: boolean
   /** 轻量健康检查(不得消耗大量配额;失败返回 ok:false + 原因;三态语义见 HealthCheckResult) */
   checkHealth(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<HealthCheckResult>
   /** 上游模型列表(可空:平台无此端点时健康检查退化为最小 chat 探测) */
@@ -214,6 +252,14 @@ export interface RelayUpstreamAdapter {
    * 按需调用(管理面点查),不进调度轮询;永不抛(失败归 ok:false)。
    */
   getQuota?(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult>
+  /**
+   * 富模型清单(可选,2026-10-27 立;与 listModels 并存的原因见 RelayModelListResult)。
+   * 永不抛(失败归 ok:false);scope 如实标注清单语义。
+   */
+  listModelsDetailed?(
+    ctx: AdapterAccountContext,
+    opts?: ModelListCallOptions,
+  ): Promise<RelayModelListResult>
   /** 上游响应是否 401/会话失效(触发 401 自愈刷新重试一次) */
   isAuthFailure(statusCode: number, bodyText: string): boolean
   /** executeChat 路径抛出的异常是否为鉴权失效(等价于 isAuthFailure 的异常形态) */
@@ -272,8 +318,27 @@ export function getRelayAdapter(providerCode: string): RelayUpstreamAdapter | nu
   return registry.get(providerCode) ?? null
 }
 
-/** 已注册的适配器 providerCode 列表(admin 展示用) */
-export function listRelayAdapterProviders(): string[] {
-  return [...registry.keys()]
+/**
+ * 平台是否真能续期(2026-10-27 立,保活收敛用)。
+ * 判据 = 适配器**确有** `refreshToken` 方法 且 未显式声明 `refreshTokenSupported: false`。
+ * - codearts/qoder/trae/workbuddy:方法存在且无 false 标记 ⇒ true;
+ * - doubao/loomy:方法存在但显式 false(恒 null 空壳)⇒ false;
+ * - codex/opencode/minimax/zcode/lingma/grokbot:方法不存在 ⇒ false。
+ * 新平台接入只要没有 false 标记、且方法真实存在即自动生效,无需改调度器硬编码名单。
+ */
+export function isRefreshableProviderCode(providerCode: string): boolean {
+  const a = getRelayAdapter(providerCode)
+  if (!a) return false
+  return typeof a.refreshToken === 'function' && a.refreshTokenSupported !== false
 }
+
+/** 全部可续期平台码(供保活窗口 WHERE 直接 IN 过滤) */
+export function getRefreshableProviderCodes(): string[] {
+  const out: string[] = []
+  for (const [code, a] of registry) {
+    if (typeof a.refreshToken === 'function' && a.refreshTokenSupported !== false) out.push(code)
+  }
+  return out
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

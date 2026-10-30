@@ -44,7 +44,12 @@ vi.mock('../../db/index.js', () => {
     return withSettlers(step, () => [])
   }
   return {
-    db: { update: chainWrite, insert: chainWrite, delete: chainWrite },
+    db: {
+      update: chainWrite,
+      insert: chainWrite,
+      delete: chainWrite,
+      execute: vi.fn(async () => []),
+    },
     dbRead: { select: chainWrite },
   }
 })

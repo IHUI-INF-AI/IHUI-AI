@@ -33,17 +33,14 @@ const { requireApiKeyAuth, getUserStatus, verifyAccessToken, decodeJwt } = vi.ho
 
 /** 可链式调用、可直接 await 的 drizzle 查询桩(返回给定结果,永不碰数据库)。 */
 function queryStub(result: unknown): unknown {
-  const proxy: unknown = new Proxy(
-    function stub() {},
-    {
-      get(_target, prop) {
-        if (prop === 'then') {
-          return (resolve: (v: unknown) => void) => resolve(result)
-        }
-        return () => proxy
-      },
+  const proxy: unknown = new Proxy(function stub() {}, {
+    get(_target, prop) {
+      if (prop === 'then') {
+        return (resolve: (v: unknown) => void) => resolve(result)
+      }
+      return () => proxy
     },
-  )
+  })
   return proxy
 }
 
@@ -70,7 +67,12 @@ vi.mock('../src/db/customer-service-queries.js', () => ({
 // 表结构对象与 SQL 构造器只为让 handler 跑通,不参与鉴权断言
 vi.mock('@ihui/database', () => ({
   tools: { status: 'status', sortOrder: 'sortOrder', rating: 'rating', category: 'category' },
-  messages: { senderId: 'sender_id', receiverId: 'receiver_id', isRead: 'is_read', createdAt: 'created_at' },
+  messages: {
+    senderId: 'sender_id',
+    receiverId: 'receiver_id',
+    isRead: 'is_read',
+    createdAt: 'created_at',
+  },
   zhsFaq: { published: 'published', pinned: 'pinned', sortOrder: 'sort_order' },
 }))
 vi.mock('drizzle-orm', () => {
@@ -90,12 +92,12 @@ vi.mock('jose', async (importOriginal) => {
 const { default: Fastify } = await import('fastify')
 const { authenticate } = await import('../src/plugins/auth.js')
 const { openCapabilityGateway } = await import('../src/utils/open-capability-gate.js')
-const { findOpenCapability, openCapabilityEntries } = await import(
-  '../src/config/open-capability-registry.js'
-)
+const { findOpenCapability, openCapabilityEntries } =
+  await import('../src/config/open-capability-registry.js')
 const { v1ToolsRoutes } = await import('../src/routes/other/v1-tools-routes.js')
 const { v1ContentRoutes } = await import('../src/routes/other/v1-content-routes.js')
-const { v1CustomerServiceRoutes } = await import('../src/routes/other/v1-customer-service-routes.js')
+const { v1CustomerServiceRoutes } =
+  await import('../src/routes/other/v1-customer-service-routes.js')
 
 /** 13 个遗留桩端点(收口前后都必须是"无凭据即拒")。 */
 const LEGACY_STUB_ROUTES: ReadonlyArray<readonly [string, string]> = [
@@ -139,25 +141,23 @@ async function buildApp(): Promise<FastifyInstance> {
       await scope.register(v1ToolsRoutes)
       await scope.register(v1ContentRoutes)
       await scope.register(v1CustomerServiceRoutes)
-      await scope.register(
-        async (inner) => {
-          const probe = async (request: FastifyRequest) => {
-            const body: Probe = {
-              userId: request.userId ?? null,
-              apiKeyId: request.apiKey?.id ?? null,
-              scope: request.capability?.scope ?? null,
-              dataClass: request.capability?.dataClass ?? null,
-              grant: request.openCapability ?? null,
-            }
-            return body
+      await scope.register(async (inner) => {
+        const probe = async (request: FastifyRequest) => {
+          const body: Probe = {
+            userId: request.userId ?? null,
+            apiKeyId: request.apiKey?.id ?? null,
+            scope: request.capability?.scope ?? null,
+            dataClass: request.capability?.dataClass ?? null,
+            grant: request.openCapability ?? null,
           }
-          // /api/skills 在登记表内(skills-list);另两条刻意不登记 —— 一条在族外,
-          // 一条落在已登记族的同前缀下(用于验证"族内新增端点不会被顺手开放")
-          inner.get('/skills', probe)
-          inner.get('/probe/secret', probe)
-          inner.get('/v1/tools/newly-added', probe)
-        },
-      )
+          return body
+        }
+        // /api/skills 在登记表内(skills-list);另两条刻意不登记 —— 一条在族外,
+        // 一条落在已登记族的同前缀下(用于验证"族内新增端点不会被顺手开放")
+        inner.get('/skills', probe)
+        inner.get('/probe/secret', probe)
+        inner.get('/v1/tools/newly-added', probe)
+      })
     },
     { prefix: '/api' },
   )
@@ -168,7 +168,7 @@ async function buildApp(): Promise<FastifyInstance> {
 function grantedKey(permissions: string[]): AuthenticatedApiKey {
   return {
     id: 'key-1',
-    userId: 'owner-1',
+    userId: '00000000-0000-4000-8000-000000000e01',
     key: 'Bearer ihui_test',
     permissions,
     rateLimit: 60,
@@ -188,7 +188,9 @@ function wireApiKeyAuth(): void {
   requireApiKeyAuth.mockImplementation(async (request: FastifyRequest, reply: FastifyReply) => {
     const header = request.headers.authorization
     if (typeof header !== 'string' || !header.startsWith('Bearer ihui_')) {
-      await reply.status(401).send({ code: 401, message: '请提供 API Key 鉴权', errorCode: 'SECRET_REQUIRED' })
+      await reply
+        .status(401)
+        .send({ code: 401, message: '请提供 API Key 鉴权', errorCode: 'SECRET_REQUIRED' })
       return
     }
     const scopes = String(request.headers['x-test-scopes'] ?? '')
@@ -210,7 +212,7 @@ beforeEach(() => {
     if (token === 'bad' || token.startsWith('ihui_')) {
       throw Object.assign(new Error('Invalid or expired token'), { code: 'ERR_JWS_INVALID' })
     }
-    return { userId: 'human-1', phone: '', familyId: 'f1', roleId: 0 }
+    return { userId: '00000000-0000-4000-8000-000000000e0b', phone: '', familyId: 'f1', roleId: 0 }
   })
   decodeJwt.mockReturnValue({ type: 'access' })
   getUserStatus.mockResolvedValue(1)
@@ -236,7 +238,7 @@ describe('登记表内端点:API Key 可达', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({
-      userId: 'owner-1',
+      userId: '00000000-0000-4000-8000-000000000e01',
       apiKeyId: 'key-1',
       scope: 'skills:read',
       dataClass: 'scoped-read',
@@ -354,10 +356,14 @@ describe('结构性防线:默认拒绝不允许前缀继承(登记表必须无�
 describe('人 JWT 通道行为不变', () => {
   it('JWT 请求不触发 API Key 鉴权,且 /api/skills 上不会被注入 capability', async () => {
     const app = await buildApp()
-    const res = await app.inject({ method: 'GET', url: '/api/skills', headers: { authorization: 'Bearer jwt' } })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/skills',
+      headers: { authorization: 'Bearer jwt' },
+    })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({
-      userId: 'human-1',
+      userId: '00000000-0000-4000-8000-000000000e0b',
       apiKeyId: null,
       scope: null,
       dataClass: null,
@@ -375,7 +381,7 @@ describe('人 JWT 通道行为不变', () => {
       headers: { authorization: 'Bearer jwt', 'x-api-key': 'ihui_test' },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().userId).toBe('human-1')
+    expect(res.json().userId).toBe('00000000-0000-4000-8000-000000000e0b')
     expect(requireApiKeyAuth).not.toHaveBeenCalled()
     await app.close()
   })
@@ -393,7 +399,11 @@ describe('人 JWT 通道行为不变', () => {
 
   it('无效 JWT 仍是 401(不因新分支放宽)', async () => {
     const app = await buildApp()
-    const res = await app.inject({ method: 'GET', url: '/api/skills', headers: { authorization: 'Bearer bad' } })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/skills',
+      headers: { authorization: 'Bearer bad' },
+    })
     expect(res.statusCode).toBe(401)
     await app.close()
   })
@@ -402,10 +412,20 @@ describe('人 JWT 通道行为不变', () => {
 describe('API Key 鉴权失败时按 api-key-auth 的原始错误码回给客户端', () => {
   it('缺 X-Api-Secret → 401 SECRET_REQUIRED(而非被降级成通用 401)', async () => {
     requireApiKeyAuth.mockImplementation(async (_request: FastifyRequest, reply: FastifyReply) => {
-      await reply.status(401).send({ code: 401, message: 'X-Api-Secret header is required', errorCode: 'SECRET_REQUIRED' })
+      await reply
+        .status(401)
+        .send({
+          code: 401,
+          message: 'X-Api-Secret header is required',
+          errorCode: 'SECRET_REQUIRED',
+        })
     })
     const app = await buildApp()
-    const res = await app.inject({ method: 'GET', url: '/api/skills', headers: { authorization: 'Bearer ihui_x' } })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/skills',
+      headers: { authorization: 'Bearer ihui_x' },
+    })
     expect(res.statusCode).toBe(401)
     expect(res.json()).toMatchObject({ errorCode: 'SECRET_REQUIRED' })
     await app.close()
@@ -413,11 +433,19 @@ describe('API Key 鉴权失败时按 api-key-auth 的原始错误码回给客户
 
   it('限流 429 + Retry-After 原样透传', async () => {
     requireApiKeyAuth.mockImplementation(async (_request: FastifyRequest, reply: FastifyReply) => {
-      await reply.status(429).header('Retry-After', '7').send({ code: 1007, message: 'rate limited' })
+      await reply
+        .status(429)
+        .header('Retry-After', '7')
+        .send({ code: 1007, message: 'rate limited' })
     })
     const app = await buildApp()
-    const res = await app.inject({ method: 'GET', url: '/api/skills', headers: { authorization: 'Bearer ihui_x' } })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/skills',
+      headers: { authorization: 'Bearer ihui_x' },
+    })
     expect([res.statusCode, res.headers['retry-after']]).toEqual([429, '7'])
     await app.close()
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

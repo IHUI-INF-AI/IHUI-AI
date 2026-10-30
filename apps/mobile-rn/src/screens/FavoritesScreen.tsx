@@ -1,85 +1,23 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useMemo } from 'react'
-import {} from 'react-native'
-import { appAlert } from '../components/BottomPops'
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getFavorites, type FavoriteItem } from '@ihui/api-client'
-import { FavoritesScreen as SharedFavoritesScreen, type FavoritesItem } from '@ihui/rn-app'
-import { deleteFavorite } from '../api/social'
-import { usePaginatedList } from '../hooks'
-import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
-import type { RootStackParamList } from '../navigation/RootNavigator'
-import { formatShortDateWithYear } from '../utils/date-utils'
+/**
+ * Favorites 路由(mobile-rn 端 wrapper):收藏列表。
+ *
+ * 2026-10-28 跨端重复屏合并:共享层 `features/favorites/FavoritesScreen` 与
+ * `features/favorite/FavoriteScreen` 打同一个端点(`GET /api/favorites`)、同一套意图
+ * (标题都是「我的收藏」)、卡片字段与删除确认一字不差,唯一差别是后者多一排 tab 筛选
+ * (全部/课程/直播/文章)⇒ 前者是后者的真子集,已删除。本路由因此渲染同一枚共享屏、
+ * 复用同一份模型(`useFavoriteScreenModel`),不再自带第二套取数与渲染。
+ * 路由名保留 = 抽屉/菜单入口的既有指向;把两条路由并成一条是后续产品面动作
+ * (要同步 drawer-nav 与 ui-routes 派生件),不在本票射程。
+ */
+import { FavoriteScreen as SharedFavoriteScreen } from '@ihui/rn-app'
+import { useFavoriteScreenModel } from './FavoriteScreen'
 
-const PAGE_SIZE = 20
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-// 对齐说明:Uniapp 历史项目无独立收藏列表页;favorites.* 文案 shared zh-CN 已齐,
-// 本页仅补 colorScheme 主题注入(对齐其余 9 个 wrapper 的深浅色处理)
 export function FavoritesScreen() {
-  const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
-  const navigation = useNavigation<NavigationProp>()
-  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
-    usePaginatedList<FavoriteItem>(
-      useCallback(async (query) => getFavorites(query), []),
-      PAGE_SIZE,
-    )
-
-  const sharedItems = useMemo<FavoritesItem[]>(
-    () =>
-      items.map((f) => ({
-        id: f.id,
-        title: f.title ?? '',
-        // 后端 userFavorites 表无封面列(契约测试锁死了这一点),共享屏视图模型要求非可选 ⇒ 显式给 null
-        cover: null,
-        // 视图模型沿用 targetType/targetId 作 UI 词汇,传输层字段名以契约为准
-        targetType: f.resourceType,
-        createdAt: formatShortDateWithYear(f.createdAt),
-      })),
-    [items],
-  )
-
-  const onDelete = (item: FavoritesItem) => {
-    appAlert(t('favorites.deleteTitle') || t('common.confirm'), item.title, [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          const original = items.find((i) => i.id === item.id)
-          if (!original) return
-          const res = await deleteFavorite(original.resourceType, original.resourceId)
-          if (res.success) {
-            removeItem((i) => i.id === item.id)
-          } else {
-            appAlert(t('common.failed'), res.error || t('favorites.loadFailed'))
-          }
-        },
-      },
-    ])
-  }
-
-  return (
-    <SharedFavoritesScreen
-      t={t}
-      items={sharedItems}
-      loading={loading}
-      refreshing={refreshing}
-      loadingMore={loadingMore}
-      error={error}
-      onRefresh={refresh}
-      onLoadMore={loadMore}
-      onDelete={onDelete}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-    />
-  )
+  const model = useFavoriteScreenModel()
+  return <SharedFavoriteScreen {...model} />
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

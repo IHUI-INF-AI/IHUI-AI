@@ -232,6 +232,53 @@ async def execute_slash_command(req: SlashCommandRequest) -> dict[str, Any]:
     return {"command": req.command, "output": output}
 
 
+class ReloadPluginsRequest(BaseModel):
+    """`POST /mcp/slash-commands/reload` 入参(控制帧 `reload_plugins`)。
+
+    force=true(默认)绕过 mtime 判据做全量重扫:用户手改 SKILL.md 后 mtime 可能不变
+    (同秒连写 / 编辑器保留 mtime),只走增量会把「改了没生效」报成「没有变化」。
+    """
+
+    force: bool = Field(default=True, description="true=全量重扫(默认);false=只走 mtime 增量")
+
+
+@router.post("/mcp/slash-commands/reload")
+async def reload_slash_commands(req: ReloadPluginsRequest | None = None) -> dict[str, Any]:
+    """控制帧 `reload_plugins`:重扫插件面,并把**最新命令列表**回灌给宿主。
+
+    竞品原帧语义(2026-09 取证,docs/benchmark-evidence/2026-09/qoder-control-frames.md
+    第 27 行):`let e=await this.request({type:"reload_plugins"});
+    return this.replaceLatestCommands(e.commands),e`
+    —— 即**宿主显式调用 + 必须把重载后的命令集合回灌给宿主**,不是「后台自己会重载」。
+    判据:调用方拿得到重载后的命令集合(竞品那句 `replaceLatestCommands` 就是回灌动作)。
+
+    ## 我方「插件面」的对位物是什么
+
+    竞品的插件以「贡献命令」的方式接入宿主。本仓没有"插件代码加载面"
+    (中继插件是声明式 + DB 驱动,插件市场目录是端内静态数据,两者都没有可重扫的
+    运行时源)——**插件能力在本仓以「技能(SKILL.md)」形态承载**:技能被重扫后
+    贡献出来的命令集就变了。故本帧落点是 `slash_command_registry.reload()`:
+      ① 先让技能面真正重扫(复用 `reload_skills` 帧的同一份 `skill_registry.reload`,
+         不新造第二套扫描逻辑);
+      ② 回灌**重载后的完整命令列表**(= 竞品 `replaceLatestCommands(e.commands)` 的
+         等价物);
+      ③ 同时带上技能差额(added/removed/changed),让「插件变了什么」可见 ——
+         只回一句「已重载」等于把一次静默失败包装成成功态。
+
+    Args:
+        req: `{"force": true}` 绕过 mtime 判据做全量重扫(默认);`false` 只走增量。
+
+    Returns:
+        `{"reloaded": bool, "commands": [{name, description}], "commandCount": int,
+        "skills": int, "skillNames": [...], "added": [...], "removed": [...],
+        "changed": [...], "lastReload": str|None, "forced": bool}`
+        失败时 `{"reloaded": false, "error": str}`(不抛 —— 挂在帧处理器上,
+        绝不能向上抛导致引擎崩溃)。
+    """
+    force = True if req is None else bool(req.force)
+    return slash_command_registry.reload(force=force)
+
+
 # ---------------------------------------------------------------------------
 # Sampling 端点(MCP 反向调用 LLM,P1-3)
 # ---------------------------------------------------------------------------
@@ -459,6 +506,57 @@ async def connect_external_server(
     except Exception as e:
         logger.error("连接外部 MCP Server 失败(%s): %s", name, e)
         return JSONResponse(status_code=500, content={"error": f"连接外部 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/external/servers/{name}/clear-auth", response_model=None)
+async def clear_external_server_auth(
+    name: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """控制帧 `mcp_clear_auth`:撤回**用户自授权**给某个 MCP Server 的 OAuth 凭据。
+
+    竞品原帧语义(2026-09 取证,docs/benchmark-evidence/2026-09/qoder-control-frames.md
+    第 19 行):`async mcpClearAuth(e){await this.request({type:"mcp_clear_auth",
+    serverName:e})}` —— **按 serverName 逐个点名**清除,没有"全清"出口。
+
+    ## AGENTS §5 口径的边界(这一格以前被记成"禁区",本票把它拆细)
+
+    §5 的原文是「可清除的是业务元数据,不是授权凭据」—— 它禁的是**一键抹掉
+    平台级/系统级凭据**。它没有禁「用户撤回自己对某个第三方站点的授权」:
+    撤回恰是 OAuth 规范的固有动作(RFC 7009 revocation 的同族语义)。所以本端点:
+
+      ① 只清**用户自授权的** token(该 client 拿到的 access/refresh token),
+         **不碰** client_secret / client_id / 系统令牌 / 其它 server 的凭据 ——
+         那些东西的持有者是 OAuth 服务端,本进程根本拿不到;
+      ② **必须点名** serverName(路径参数),没有"全清"出口;
+      ③ 归属判定沿用外部 server 族的既有判据(`can_mutate`:只允许动自己注册的;
+         部署级谁都动不了)—— 别人的 server 返回 403,且**不产生任何副作用**;
+      ④ 清完即"未授权":后续连接会走一次**新的**授权流程,不会拿旧 token 复活。
+
+    ## 回包
+
+      - `{"cleared": true, "hadToken": bool, "persistFileRemoved": bool, "error": null}`
+        —— 已清除;
+      - `{"cleared": false, "reason": "no_oauth", ...}` —— 这台压根没走 OAuth 通道,
+        没有可撤的授权(不是错误);
+      - 404 / 403 —— 不存在 / 无权(与外部 server 族同形)。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        client = manager.get_client(name)
+        if client is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        if not manager.can_mutate(name, user_id):
+            # 与注销/连接同形:403 明示"看得见但动不了"(它在列表里本来就看得见,
+            # 伪装成 404 与列表面自相矛盾,那是另一种形式的说谎)。
+            return JSONResponse(
+                status_code=403, content={"error": f"无权清除该 MCP Server 的凭据: {name}"}
+            )
+        result = client.clear_oauth_auth()
+        return {"server": name, "ok": True, **result}
+    except Exception as e:
+        logger.error("清除 MCP Server 凭据失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"清除 MCP Server 凭据失败: {e}"})
 
 
 @router.get("/mcp/external/servers/{name}/capabilities", response_model=None)

@@ -36,7 +36,11 @@ on:
 
 concurrency:
   group: knip-${{ github.ref }}
-  cancel-in-progress: true
+  # 2026-10-28 由 true 改 false:本机实测 15:05–15:45Z 窗口 main 约每 5 分钟一枚提交,Knip 单跑
+  # 约 4 分钟,于是 1d02542d / 258af766 / a8a82cb5 三枚上的 run 全被下一枚 cancel,账面只剩
+  # 「最近一次 completed = failure」——判据没错,是终态永远取不到(与 ci.yml 同日同族的
+  # cancel-in-progress=false 同口径)。改 false 后同组排队,每枚提交都拿得到自己的结论。
+  cancel-in-progress: false
 
 permissions:
   contents: read

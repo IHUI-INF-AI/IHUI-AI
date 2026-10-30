@@ -23,6 +23,7 @@ import {
   type FastifyReply,
   type FastifyPluginAsync,
 } from './_shared.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // Suno 音乐生成:官方完整参数(custom_mode/instrumental/style/title/seed 等)
 const sunoGenerateBody = z.object({
@@ -291,6 +292,7 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agnes/video',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Agnes AI 视频生成',
         description:

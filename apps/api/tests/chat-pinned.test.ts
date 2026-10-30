@@ -62,6 +62,10 @@ const { mockVerifyAccessToken, chatQueriesMocks, dbState } = vi.hoisted(() => ({
     favoriteConversation: vi.fn(),
     unfavoriteConversation: vi.fn(),
     rateChatMessage: vi.fn(),
+    // 2026-10-28(读完回):PATCH /messages/:id/flags 的响应体要带真票,本文件只测标记,
+    // 空 Map ⇒ rating:null,与"未表态"一致。
+    listMessageFeedbackRatings: vi.fn(async () => new Map()),
+    clearChatMessageRating: vi.fn(),
     findFavoriteConversations: vi.fn(),
     archiveConversation: vi.fn(),
     unarchiveConversation: vi.fn(),

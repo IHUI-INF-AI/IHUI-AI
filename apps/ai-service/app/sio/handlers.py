@@ -31,6 +31,7 @@ import httpx
 import jwt
 
 from ..core.config import settings
+from ..core.conn_guard import client_ip_from_container, sio_conn_gate
 from ..core.llm_gateway import llm_gateway
 from ..middleware.output_safety import (
     apply_disclaimers,
@@ -75,14 +76,22 @@ def _touch_session(sid: str) -> dict[str, Any] | None:
     return s
 
 
-def _evict_sessions_if_needed() -> None:
-    """TTL 过期淘汰 + FIFO 容量淘汰。"""
+def _purge_expired_sessions() -> int:
+    """只清 TTL 过期的会话，返回清掉的条数。
+
+    2026-10-28 DDoS 加固：这里原来的形态是「TTL 清理 + 超容量时 FIFO pop 最旧一条」，
+    而它在 connect **接受之后**才调用 —— 含义是「新连接进来就把最老实的合法用户踢下线」。
+    攻击者只要持有几个可用 token 持续建连，就能把在线用户的会话逐个挤掉，
+    等于用一条极便宜的握手换掉别人一条已经工作的长连接(放大型拒绝服务)。
+    容量到顶现在改为**拒绝新握手**，存量连接不受影响。
+    """
     now = time.time()
-    expired = [sid for sid, s in _sessions.items() if now - s.get("last_access", 0) > _SESSION_TTL_SEC]
+    expired = [
+        sid for sid, s in _sessions.items() if now - s.get("last_access", 0) > _SESSION_TTL_SEC
+    ]
     for sid in expired:
         _sessions.pop(sid, None)
-    while len(_sessions) > _MAX_SESSIONS:
-        _sessions.pop(next(iter(_sessions)))
+    return len(expired)
 
 
 # =============================================================================
@@ -179,6 +188,14 @@ async def _verify_token(token: str) -> dict[str, Any] | None:
 @_typed_event
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
     """握手鉴权:从 query/auth 提取 token,失败拒绝连接。"""
+    # 2026-10-28 DDoS 加固:按 IP 的握手闸门排在验签**之前**。_verify_token 本地验签不过
+    # 会 fallback 到 GET /api/auth/me(一次跨服务网络调用)—— 让攻击者用一条廉价握手
+    # 换我一次出站请求就是放大攻击,先把频率掐住才不给它放大的机会。
+    ip = client_ip_from_container(environ)
+    if not sio_conn_gate.allow_handshake(ip):
+        logger.info("[sio] connect refused: handshake rate limit (ip=%s sid=%s)", ip, sid)
+        return False
+
     query = environ.get("QUERY_STRING", "") if isinstance(environ, dict) else ""
     token = _extract_token(auth, query)
     if not token:
@@ -195,13 +212,26 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
         logger.info("[sio] connect refused: payload missing userId (sid=%s)", sid)
         return False
 
+    # 容量到顶时拒绝**新**握手，而不是踢掉最老实的那条存量连接(见 _purge_expired_sessions)。
+    _purge_expired_sessions()
+    if len(_sessions) >= _MAX_SESSIONS:
+        logger.info("[sio] connect refused: global session cap (sid=%s)", sid)
+        return False
+    if not sio_conn_gate.acquire(ip):
+        logger.info(
+            "[sio] connect refused: per-ip connection cap (ip=%s live=%d)",
+            ip,
+            sio_conn_gate.live_count(ip),
+        )
+        return False
+
     _sessions[sid] = {
         "user_id": user_id,
         "role_id": payload.get("roleId") or 0,
         "rooms": set(),
         "last_access": time.time(),
+        "ip": ip,
     }
-    _evict_sessions_if_needed()
     logger.info(
         "[sio] connected sid=%s user=%s role=%s",
         sid, user_id, payload.get("roleId", 0),
@@ -215,6 +245,10 @@ async def disconnect(sid: str) -> None:
     session = _sessions.pop(sid, None)
     if not session:
         return
+    # 并发槽必须随连接一起归还；漏还会让该 IP 的额度被历史连接永久占满。
+    ip = session.get("ip")
+    if isinstance(ip, str):
+        sio_conn_gate.release(ip)
     logger.info(
         "[sio] disconnected sid=%s user=%s",
         sid, session.get("user_id"),

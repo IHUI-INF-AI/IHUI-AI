@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import type { IncomingMessage } from 'node:http'
 import Fastify, {
   type FastifyInstance,
   type FastifyError,
@@ -13,7 +14,7 @@ import cookie from '@fastify/cookie'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
-import rateLimit from '@fastify/rate-limit'
+import rateLimit, { type FastifyRateLimitStoreCtor } from '@fastify/rate-limit'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import underPressure from '@fastify/under-pressure'
@@ -28,8 +29,10 @@ import { downloadsRoutes } from './routes/downloads.js'
 import { crashReportsRoutes } from './routes/crash-reports.js'
 
 import { setFastify } from './utils/logger.js'
+import { wildcardContentTypeParser, applyUploadsStaticHardening } from './utils/static-hardening.js'
 import { isAppError } from './errors/index.js'
-import { config } from './config/index.js'
+import { config, isDevelopmentRuntime } from './config/index.js'
+import { GLOBAL_JSON_BODY_LIMIT } from './config/body-limits.js'
 import authPlugin from './plugins/auth.js'
 // O4 数据作用域闸:统一调用主体(principal)必须在 rls-context 之前注册 ——
 // 它挂的 onRequest 钩子用 AsyncLocalStorage.run(store, () => next()) 包住后续整条
@@ -45,7 +48,7 @@ import responseSanitizerPlugin from './plugins/response-sanitizer.js'
 import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
 import { tracePlugin } from './plugins/trace.js'
-import { redis } from './plugins/redis.js'
+import { redis, createRedisClient, FAST_FAIL_REDIS_OPTIONS } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
@@ -70,6 +73,12 @@ import otelPlugin from './plugins/otel.js'
 import businessMetricsPlugin from './plugins/business-metrics.js'
 import xssProtectionPlugin from './plugins/xss-protection.js'
 import sqliGuardPlugin from './plugins/sqli-guard.js'
+// 2026-10-28 DDoS 加固:失稳安全限流存储(Redis 故障→本地保守兜底,而非 fail-open 放行)
+import { createFailSafeRateLimitStore } from './plugins/rate-limit-failsafe-store.js'
+// 2026-10-28 DDoS 加固:WebSocket 守卫(单 IP 连接/握手上限 + 心跳保活)
+import { wsGuard, wsClientIp, wsHandshakeGate } from './plugins/ws-guard.js'
+// 2026-10-28 DDoS 加固:HTTP 单 IP 并发连接守卫(防慢速连接耗尽 FD)
+import { httpConnGuard, resolveMaxConnections } from './plugins/http-conn-guard.js'
 import apiVersioningPlugin from './plugins/api-versioning.js'
 import compressionPlugin from './plugins/compression.js'
 import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
@@ -116,11 +125,13 @@ import auditLoggerPlugin from './plugins/audit-logger.js'
 import antiAutomationPlugin from './plugins/anti-automation.js'
 import threatDetectorPlugin from './plugins/threat-detector.js'
 import { anomalyDetectorPlugin } from './plugins/anomaly-detector-plugin.js'
+import smsSendCaptchaPlugin from './utils/sms-send-captcha.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
   level: process.env.LOG_LEVEL ?? 'info',
-  transport: process.env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+  // 档位判定走 config 出口(安全分支禁裸读 process.env.NODE_ENV,守门语义见 config/index.ts 头注)
+  transport: isDevelopmentRuntime ? { target: 'pino-pretty' } : undefined,
 }
 
 // 独立 pino 实例(errorHandler 在 server 创建前定义,需要独立 logger)
@@ -201,7 +212,14 @@ export async function buildServer(): Promise<FastifyInstance> {
           .map((s) => s.trim())
           .filter(Boolean)
       : false,
-    bodyLimit: 1048576 * 10,
+    // 2026-10-28 DDoS P2 收敛:全局请求体上限从 10MiB 收到 2MiB。
+    // 约束对象:一切经 Fastify 内存解析的请求体,含 multipart 的"整包"大小
+    // (multipart 单文件另由 @fastify/multipart 的 100MiB fileSize 限制,见下方注册处)。
+    // 目的:把普通 JSON/urlencoded 接口的内存耗尽面从 10MiB 压到 2MiB。
+    // 值来自 config/body-limits.ts(单一真相源);凡请求体天然携带二进制媒体的路由
+    // (multipart 上传 / base64 图片音频 / 协议透传)必须在那里取常量显式放开,
+    // 否则会被本值静默 413 —— 判据与静态守卫见 tests/body-limit-regression.test.ts。
+    bodyLimit: GLOBAL_JSON_BODY_LIMIT,
     // 2026-09-18 P0:插件注册超时(默认 10s)必须放宽。adminMissingRoutes 内部动态 import
     // 十余个子路由,注册耗时随 import 图增长;超过 avvio 默认 10s 时抛
     // AVV_ERR_PLUGIN_EXEC_TIMEOUT —— **进程不退出**(仅 unhandled rejection)但也永不
@@ -221,7 +239,43 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   server.setErrorHandler(errorHandler)
 
+  // 2026-10-28 安全加固:slowloris / 慢速 HTTP 拒绝服务防护。
+  // headersTimeout:客户端必须在 20s 内发完请求头,否则断开(防慢头攻击);
+  // keepAliveTimeout:空闲 keep-alive 连接 15s 后回收(防连接池耗尽)。
+  // 二者都只作用于「握手/空闲」阶段,不影响已建立的 SSE/流式响应。
+  //
+  // requestTimeout 量的是「**接收**整个请求」的耗时(Node 语义:请求体收完即停止计时),
+  // 与响应时长无关 —— 早期这里写着「设了会掐断 AI 流式长连接」是错的,故一并更正。
+  // 取值 300s 与 Node 默认一致,显式写出是为了不隐式依赖上游默认值(改了没人知道);
+  // **不取更小**:multipart 上限 100MB,慢上行(2Mbps)合法上传就要 ~400s,
+  // 掐短是误伤真实用户。慢速 body 攻击的真闸在别处:headersTimeout 挡慢头,
+  // httpConnGuard 按 IP 限并发槽(慢连接每个占一格),requestTimeout 只作兜底。
+  if (server.server) {
+    server.server.headersTimeout = 20_000
+    server.server.keepAliveTimeout = 15_000
+    server.server.requestTimeout = 300_000
+    // 全局活跃连接硬顶：per-IP 闸管不住「上万个 IP 各开几条」这一型，这一档管的是
+    // 单实例 FD/内存被耗尽的最后一格。0 可由 IHUI_HTTP_MAX_CONNECTIONS 明确关掉，
+    // 取值算式与"为什么宁可取宽"见 resolveMaxConnections 头注。
+    server.server.maxConnections = resolveMaxConnections(process.env.IHUI_HTTP_MAX_CONNECTIONS)
+  }
+
   await registerPlugins(server)
+
+  // 2026-10-28 安全加固:/uploads/public 静态目录的兜底 CSP。
+  //
+  // 为什么只挂这个前缀、不全局开 helmet 的 CSP:
+  //   · API 的响应绝大多数是 JSON,CSP 对它们没有任何作用;
+  //   · 唯一的 HTML 面是 /docs,而 swagger-ui 自带 `staticCSP`(路由级),
+  //     若在 helmet 里全局设 `default-src 'none'`,onSend 阶段会把 swagger-ui
+  //     自己设的头覆盖掉 ⇒ 文档页白屏。踩这个坑不值得。
+  //   · 真正需要兜底的是静态文件:上传白名单已排除 svg/html,但 PDF 仍可在浏览器
+  //     里被直接打开(PDF 阅读器有沙箱,但历史上有绕过)。`sandbox` 指令把这类
+  //     文档放进空源沙箱,脚本与表单一律禁掉;图片不受影响。
+  server.addHook('onSend', async (request, reply, payload) => {
+    applyUploadsStaticHardening(request, reply)
+    return payload
+  })
 
   // 2026-07-24 国安级零信任策略:对 /api/admin/* 及敏感业务路由自动注入网络分段配置
   // 设计原则:
@@ -233,7 +287,16 @@ export async function buildServer(): Promise<FastifyInstance> {
   //     但启用网络分段策略,strict 模式下 unknown IP 会被拒绝
   //   * 公开路由(health/landing/public/oss/metrics):不注入,保持可达
   // - 降级:MTLS_CLIENT_CERT_REQUIRED=true 时强制 mTLS,false 时仅可选验证
-  const mtlsRequired = process.env.MTLS_CLIENT_CERT_REQUIRED === 'true'
+  // 2026-10-28:改走 config 单一出口(原为裸读 process.env,违反 config 头注的守门语义)。
+  // 默认仍为 false —— 改默认值是部署决策(强制客户端证书会让现有 admin 客户端全部握手失败),
+  // 不由代码单方面收紧;这里只补一条启动告警,让"没开"这件事在日志里可见。
+  const mtlsRequired = config.MTLS_CLIENT_CERT_REQUIRED === 'true'
+  if (config.isProductionGuard && !mtlsRequired) {
+    server.log.warn(
+      'MTLS_CLIENT_CERT_REQUIRED=false: /api/admin/* 目前只靠网络分段 + JWT 两层,' +
+        '未启用双向证书。生产建议开启(需先给运维侧客户端分发证书,否则 admin 全部握手失败)。',
+    )
+  }
 
   // 敏感业务路由前缀(需网络分段保护,但允许公网访问;strict 模式下 unknown IP 拒绝)
   const SENSITIVE_BUSINESS_PREFIXES = [
@@ -329,6 +392,22 @@ export async function buildServer(): Promise<FastifyInstance> {
   return server
 }
 
+/**
+ * 递归剔除 JSON 里的原型污染键(与 Fastify 默认 secure-json-parse 的过滤同语义)。
+ * 只在下面自定义的 application/json 解析器里使用 —— 该解析器覆盖了 Fastify 默认解析器,
+ * 必须自己守住 __proto__ / constructor / prototype 这三个键。
+ */
+function stripDangerousKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => stripDangerousKeys(item))
+  if (value === null || typeof value !== 'object') return value
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue
+    out[k] = stripDangerousKeys(v)
+  }
+  return out
+}
+
 async function registerPlugins(server: FastifyInstance) {
   // 支付宝异步回调用 application/x-www-form-urlencoded,Fastify 默认只解析 JSON
   // 注册 content type parser,把 form-urlencoded 解析成 key-value 对象
@@ -350,18 +429,48 @@ async function registerPlugins(server: FastifyInstance) {
       }
     },
   )
+  // 2026-10-28 修复:客户端(实测为 RN App)在"无 body 的 POST"上仍带
+  // Content-Type: application/json,空串 body 被 Fastify 默认 JSON 解析器判为
+  // FST_ERR_CTP_EMPTY_JSON_BODY(400)。实测后果:App 的 POST /ws/ticket 拿不到票 →
+  // 再以空 token 连 /ws/notifications → 404 → 每 1~2 秒一轮的重连风暴。
+  // 这里把"空 JSON body"按 {} 处理;合法 JSON 仍严格解析,非法 JSON 仍 400,
+  // 缺字段由各路由 schema 决定(空对象不会绕过任何校验)。
+  // 键名过滤保持与 Fastify 默认 secure-json-parse 同语义,避免 __proto__ 污染面。
+  // 必须先移除 Fastify 内置的同名解析器:Fastify 5 对重复注册直接抛
+  // FST_ERR_CTP_ALREADY_PRESENT(routes/live.ts 的直播回调子作用域也依赖这条,
+  // 那里同样"先 remove 再 add")。
+  server.removeContentTypeParser('application/json')
+  server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const raw = typeof body === 'string' ? body : String(body ?? '')
+    if (raw.trim() === '') {
+      done(null, {})
+      return
+    }
+    try {
+      done(null, stripDangerousKeys(JSON.parse(raw)))
+    } catch (err) {
+      done(err as Error)
+    }
+  })
   // 2026-09-18 修复:无 Content-Type 的 POST(前端 fetchApi 无 body 写操作,如
   // POST /auth/qr/generate App 扫码出码)经代理链路到达时被 Fastify 5 判为
   // Unsupported Media Type → 415,面板进入错误态(App 扫码不出码根因)。
-  // 注册通配解析器兜底:未匹配任何已注册 Content-Type 的请求体按空 body 处理,
-  // handler 不依赖 body 时正常执行。application/json、text/plain、
-  // form-urlencoded 及各路由自定义 parser 均精确匹配优先,不受影响。
+  // 注册通配解析器兜底:未匹配任何已注册 Content-Type 的请求。
+  //
+  // 2026-10-28 安全审计修正:原实现把**任何**未知 Content-Type 的请求体都换成
+  // `Buffer.alloc(0)` 静默吞掉。后果不是漏洞而是"静默丢数据":第三方 webhook 用
+  // `text/plain` / `text/xml` 推过来(微信支付 v2 就是 XML),body 被吞成空、
+  // handler 按空处理、照样回 200 ⇒ 发送方以为送达,实际什么都没发生,且没有任何日志。
+  // 现在的口径:
+  //   · body 为空(含无 body 的 POST 与空串) ⇒ 仍按空 body 放行 —— RN App 的
+  //     "无 body 写操作"依赖这条,不能动;
+  //   · body 非空 ⇒ 显式 415,让调用方立刻看见"你用的 Content-Type 我们不认",
+  //     而不是以为成功。要支持某种格式,正确做法是在路由侧注册精确解析器,
+  //     不是在通配里猜。
   server.addContentTypeParser(
     '*',
     { parseAs: 'buffer', bodyLimit: 64 * 1024 },
-    (_req, _body, done) => {
-      done(null, Buffer.alloc(0))
-    },
+    wildcardContentTypeParser,
   )
 
   // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
@@ -403,33 +512,101 @@ async function registerPlugins(server: FastifyInstance) {
       const allowed = config.CORS_ORIGIN.split(',')
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean)
+      // 2026-10-27 收紧:chrome-extension:// 不再整体放行 —— 任何已安装扩展(含恶意)
+      // 都能产生该 Origin,前缀放行等于给全部扩展发全站带凭据通行证。运维把自家扩展 ID
+      // 逐枚填进 IHUI_EXTENSION_IDS 即收紧;未配置时保持旧行为(扩展 UI 不断),但每次
+      // 都点名实际请求的扩展 ID,让"还没配"这件事在日志里可见。
+      const extIds = config.EXTENSION_IDS.split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+      let extAllowed = false
+      if (o.startsWith('chrome-extension://')) {
+        if (extIds.length > 0) {
+          extAllowed = extIds.includes(o)
+        } else {
+          extAllowed = true
+          server.log.warn(
+            { origin: o },
+            'chrome-extension origin 放行(未配置 IHUI_EXTENSION_IDS,精确白名单未生效)',
+          )
+        }
+      }
       cb(
         null,
         allowed.includes(o) ||
           DESKTOP_ORIGINS.includes(o) ||
           MOBILE_CAP_ORIGINS.includes(o) ||
-          o.startsWith('chrome-extension://'),
+          extAllowed,
       )
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
-  // 全局 IP 限流:按 NODE_ENV 分级(防止开发期热点路由反复触发 429)
+  // 全局 IP 限流:按运行档位分级(防止开发期热点路由反复触发 429)
   // - production: 100 req/min/IP(生产安全,DoS 防护)
   // - development: 1000 req/min/IP(单人开发几乎不触发,避免误伤 dev 体验)
-  const isDev = process.env.NODE_ENV !== 'production'
+  // 档位判定走 config.isProductionGuard 单源(2026-10-27 收口:原裸读
+  // process.env.NODE_ENV 违反 config 头注的守门语义 —— "生产"由 ZCODE_RUNTIME_ENV/
+  // NODE_ENV 声明表解析,不是字符串比较)
+  const isDev = !config.isProductionGuard
+  // 2026-10-28 修复(安全审计 P1):限流计数必须是**跨实例共享**的。
+  // 原实现未传 store ⇒ @fastify/rate-limit 落到 LocalStore(进程内存),后果有两个:
+  //   ① 多副本部署时额度按副本数放大(登录 5/min 实际 = 5×N),爆破成本被摊薄;
+  //   ② 进程重启即清零,攻击者可配合重启发难。
+  // 现改为 Redis 单源计数。三个决定各有理由,别顺手改:
+  //   · 用**独立连接**(createRedisClient)而不是 server.redis —— rateLimit 必须在路由
+  //     注册前构造 store,而 redis 插件注册在它之后;把 redis 插件整体上移会改变
+  //     onClose 执行顺序,连带影响队列/调度的优雅关闭(见 createRedisClient 头注)。
+  //   · 限流存储用**失稳安全存储**(createFailSafeRateLimitStore)包裹 Redis:
+  //     Redis 正常时走分布式计数(与内置 RedisStore 等价的原子 Lua);Redis 抖动/不可用时
+  //     **不**放行(fail-open 会打穿限流、放大 DDoS),也**不**把全站打成 429/500
+  //     (硬 fail-closed 牺牲可用性),而是回退到**进程内保守计数**(本地 LRU),
+  //     在故障窗口内仍保留基本限流。这与 distributed-rate-limit 的"Redis 故障→本地
+  //     token bucket"判据同源同思路(原 fail-open 判据已弃用)。
+  //     nameSpace 与 distributedRateLimit 的 `ihui:ratelimit` 区分开,便于运维按前缀
+  //     分别观测/清理,避免两套限流互相污染计数。
+  const rateLimitRedis = createRedisClient(
+    (err) => {
+      server.log.error({ err }, 'rate-limit redis client error')
+    },
+    // 覆盖基础参数的 `maxRetriesPerRequest: null`(BullMQ 要求,但对限流是致命的):
+    // 那一档让命令永不失败、排队等重连,请求会挂死在限流这一步,本地兜底结构上走不到。
+    // 详见 FAST_FAIL_REDIS_OPTIONS 头注。
+    FAST_FAIL_REDIS_OPTIONS,
+  )
+  server.addHook('onClose', async () => {
+    try {
+      await rateLimitRedis.quit()
+    } catch {
+      /* 关闭期断开失败不影响退出 */
+    }
+  })
   await server.register(rateLimit, {
     max: isDev ? 1000 : 100,
     timeWindow: '1 minute',
+    // 失稳安全存储:Redis 故障 → 进程内保守兜底计数,而非 fail-open 放行
+    store: createFailSafeRateLimitStore(
+      rateLimitRedis,
+      'ihui:rl:',
+    ) as unknown as FastifyRateLimitStoreCtor,
+    nameSpace: 'ihui:rl:',
+    // skipOnError 交由存储自身处理:存储层已对 Redis 故障做本地兜底;即便兜底也意外抛错,
+    // 这里保持 false 按 fail-closed 处理,绝不静默放行。
+    skipOnError: false,
   })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
+  // 2026-10-28 DDoS 加固:HTTP 单 IP 并发连接守卫(防慢速连接耗尽 FD),
+  // 与下方 requestTimeout(慢速请求体)形成互补两道闸;部署无关,两端等效。
+  await server.register(httpConnGuard)
   // Swagger / OpenAPI 文档(2026-07-28 P0-4a 品牌化)
   // - 开发环境:默认开放(/docs 路由 + 自定义品牌页)
   // - 生产环境:SWAGGER_ENABLED=true 才挂载(默认 false,避免未授权 schema 泄露)
-  // - 可选 API Key 鉴权:SWAGGER_API_KEY 配置后,访问 /docs 需带 X-API-Key header
-  //   留空 = /docs 公开(仅推荐开发环境)
-  //   /docs-json(spec JSON)始终公开,方便 CI / 自动化工具拉取
-  const swaggerEnabled = config.SWAGGER_ENABLED || process.env.NODE_ENV !== 'production'
+  // - 可选 API Key 鉴权:SWAGGER_API_KEY 配置后,/docs 与 /docs/json、/docs/yaml
+  //   全部需要 X-API-Key header(2026-10-28 收紧:spec 端点不再豁免 —— 它含全部端点/
+  //   参数/枚举,公开它等于把 key 保护架空;仓内导出器走进程内 server.swagger(),
+  //   不受影响)。留空 = 全公开(仅推荐开发环境)
+  //   swagger-ui 静态资源(/docs/static/*)始终公开,无业务信息
+  const swaggerEnabled = config.SWAGGER_ENABLED || !config.isProductionGuard
   if (swaggerEnabled) {
     await server.register(swagger, {
       openapi: {
@@ -546,15 +723,35 @@ async function registerPlugins(server: FastifyInstance) {
     options: {
       // verifyClient callback:next(res: boolean, code?, reason?) — res=true 允许,res=false 拒绝
       verifyClient: (
-        info: { origin: string },
+        info: { origin: string; req: IncomingMessage },
         next: (res: boolean, code?: number, reason?: string) => void,
       ) => {
         const origin = (info.origin ?? '').toLowerCase()
+        // 2026-10-28 DDoS 加固:WebSocket 握手闸门(单 IP 握手频率 + 单 IP 并发上限)。
+        // 在 Origin 校验之前先挡握手洪水/连接耗尽,失败直接拒绝,不进入后续逻辑。
+        const wsIp = wsClientIp(info.req)
+        const gate = wsHandshakeGate(wsIp)
+        if (!gate.ok) {
+          next(false, gate.code ?? 429, gate.reason ?? 'rate limited')
+          return
+        }
         // 缺失 Origin(非浏览器/curl/服务端客户端):允许,依赖 JWT wsAuth
-        // 2026-09-02 增补:放行 chrome-extension:// 前缀(浏览器扩展 popup/sidepanel
-        // 维护的 WS 连接,见 CORS 同名注释的安全论证 —— 该 origin 恶意网页无法伪造)。
-        // 此前仅白名单 CORS_ORIGIN,真实扩展连 WS 恒被 403 拒(1006),扩展端推送从未真通。
-        if (!origin || wsAllowedOrigins.has(origin) || origin.startsWith('chrome-extension://')) {
+        // 2026-10-27 与 CORS 同步收紧:chrome-extension:// 不再整体放行(任何已安装
+        // 扩展都能产生该 Origin)。精确白名单 = IHUI_EXTENSION_IDS;未配置保持旧行为
+        // 并逐次点名(见 CORS 同名注释)。
+        const extIds = config.EXTENSION_IDS.split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+        let extAllowed = false
+        if (origin.startsWith('chrome-extension://')) {
+          if (extIds.length > 0) {
+            extAllowed = extIds.includes(origin)
+          } else {
+            extAllowed = true
+            server.log.warn({ origin }, 'chrome-extension WS 握手放行(未配置 IHUI_EXTENSION_IDS)')
+          }
+        }
+        if (!origin || wsAllowedOrigins.has(origin) || extAllowed) {
           next(true)
         } else {
           next(false, 403, 'Origin not allowed')
@@ -562,6 +759,9 @@ async function registerPlugins(server: FastifyInstance) {
       },
     },
   })
+  // 2026-10-28 DDoS 加固:WebSocket 守卫(单 IP 连接/握手上限 + 心跳保活)。
+  // 必须在 websocket 插件之后注册,才能拿到 server.websocketServer 挂载 connection 监听。
+  await server.register(wsGuard)
   await server.register(wsNotifications)
   // WebSocket AI 能力:agent_stream / tts_stream / realtime_pcm(1:1 流式连接)
   await server.register(wsAi)
@@ -652,6 +852,10 @@ async function registerPlugins(server: FastifyInstance) {
   // 与 threat-detector(IP 信誉评分)互补——信誉先行,行为补充。
   // 顺序敏感:必须在 threatDetectorPlugin 之后、networkSegmentPlugin 之前。
   await server.register(anomalyDetectorPlugin)
+  // 短信发码人机验证闸(2026-10-27):全站发码端点 escalate/required/off 三模,
+  // 阈值内零摩擦、超阈值强制 token;带 token 即校验,无效必拒。preHandler 阶段,
+  // 须在路由注册前挂上(routes 在 registerRoutes 中后置注册,时序满足)。
+  await server.register(smsSendCaptchaPlugin)
   await server.register(networkSegmentPlugin)
   await server.register(mtlsPlugin)
   await server.register(auditLoggerPlugin)

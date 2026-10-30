@@ -25,6 +25,7 @@ import {
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
@@ -49,6 +50,7 @@ import {
   gitVersion,
   resolveWorktree,
   resolveGitdir,
+  parseGitdirPointer,
   needsGitdirPointer,
   resolveBackupDir,
   gitdirArchivePath,
@@ -83,6 +85,19 @@ import {
 // dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
 import { classifyAlertIdentity } from './check-public-path-probe.mjs'
 import { auditProdForeignWork } from './git-guardian-prod-foreign.mjs'
+// G-24 事故归档回收器的调度接线臂(2026-10-26,席位 goal-20261026-b14r3):dry-run 只判不删、
+// 开关面默认关、读数写日志通道留痕;实现单源在 lib(守门 103 C1 行数上限,主文件只留挂点)。
+import {
+  archiveGcDryRun,
+  archiveGcArmDue,
+  loadArchiveGcArmConfig,
+  parseArchiveGcSummary,
+} from './lib/git-guardian-archive-gc.mjs'
+// G-50 DevEnv 搬迁「探测器找静默窗口自动执行」的调度接线(2026-10-28):器物本体
+// (scripts/devenv-migrate.mjs)与镜像测试早已在,唯独没有派发点 ⇒ 按 §0.9「造好没装车
+// = 没有」票面不成立。窗口三态/待做盘点/apply 判据全部 import 自本体(§0.6 单一真相源),
+// 本文件只挂点:默认只 probe 留痕,真搬须 scripts/data/devenv-migrate-arm.json enabled=true。
+import { devenvMigratePatrol } from './devenv-migrate.mjs'
 
 // 纯判据层(2026-10-21 原样搬出:守门 103 C1 行数上限;实现单源在 lib/git-guardian-pure.mjs)
 import {
@@ -337,7 +352,7 @@ function pointerOk() {
     return existsSync(POINTER)
   }
   try {
-    return readFileSync(POINTER, 'utf8').trim() === `gitdir: ${GITDIR}`
+    return pointerContentOk(readFileSync(POINTER, 'utf8'), EXPECTED_POINTER)
   } catch {
     return false
   }
@@ -1051,22 +1066,240 @@ function bareAuditReportMain(json) {
 }
 
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1071(门 103 C1 收口)〉首意: 重建 `.git` 指针文件(原子写 + 回读校验)。
+
+/**
+ * 一行 gitfile 就是几十字节;远超此体积的普通文件**不可能是合法指针**,也没必要把整份读进内存
+ * 再判(2026-10-16 00:21 现场那一枚是 25,433,594 字节的 `.git`)。上限取得比 git 自己的
+ * `gitfile` 余量宽得多,只为把"垃圾 blob"与"合法指针"分开,不承担精确解析。
+ */
+export const GITFILE_MAX_BYTES = 4096
+
+/**
+ * 「现读到的 `.git` 形态 → 指针腿该怎么处置」的**纯判据**(零 IO,可构造面取证)。
+ *
+ * 立因(台账票「修复面假定 `.git` 是目录」那一格):两条兜底恢复路径早在 2026-10-16 就都排在
+ * `gitdirTargetSafe()` 之后了,`EEXIST … mkdir` 那一型已在 HEAD 不成立;仍然活着的是**指针腿自己**——
+ * 旧 `healPointer()` 无条件 `rmSync(POINTER)` + 覆盖,于是那枚 25MB 现场会被守护**静默删掉**
+ * (既没归档也没留证),违反 §5b「破坏性覆盖前必须先归档」与票面正解②。
+ *
+ * 五态各有一条出路,且**失效方向恒为"多要一次定向说明",绝不写成"已修好"也不写成"没救"**(§0.3/§0.10):
+ *  - `absent`            ⇒ 直接落指针(没有现场可归档)
+ *  - `valid-pointer`     ⇒ 直接重写(内容就是期望那一行,不可损失)
+ *  - `stray-file`        ⇒ **先归档现场再落指针**;归档不成 ⇒ 拒绝覆盖
+ *  - `directory`         ⇒ 拒绝动它(那是本机形态;覆盖等于删库)
+ *  - `unreadable`        ⇒ **未判定**并点名原因,既不覆盖也不删
+ * @param {{exists?:boolean,isDirectory?:boolean,sizeBytes?:number,pointerTarget?:string|null,preview?:string,unreadable?:boolean,reason?:string}} input
+ */
+export function pointerFormVerdict({
+  exists = false,
+  isDirectory = false,
+  sizeBytes = 0,
+  pointerTarget = null,
+  preview = '',
+  unreadable = false,
+  reason = '',
+} = {}) {
+  if (unreadable)
+    return {
+      state: 'unreadable',
+      action: 'refuse',
+      writes: false,
+      archives: false,
+      why: `形态读不出来(${reason || 'stat/read 失败'}) ⇒ 未判定:不猜它是指针也不是猜它是目录,不覆盖不删,交人工`,
+    }
+  if (!exists)
+    return { state: 'absent', action: 'write', writes: true, archives: false, why: '无 `.git` ⇒ 没有现场可归档,直接落指针' }
+  if (isDirectory)
+    return { state: 'directory', action: 'refuse', writes: false, archives: false, why: '`.git` 是目录形态 ⇒ 指针腿覆盖它等于删库' }
+  if (sizeBytes > GITFILE_MAX_BYTES)
+    return {
+      state: 'stray-file',
+      action: 'archive-then-write',
+      writes: true,
+      archives: true,
+      why: `普通文件 ${sizeBytes} 字节 > gitfile 上限 ${GITFILE_MAX_BYTES} ⇒ 不可能是合法指针(2026-10-16 那枚 25,433,594 字节现场同型)`,
+    }
+  if (!pointerTarget)
+    return {
+      state: 'stray-file',
+      action: 'archive-then-write',
+      writes: true,
+      archives: true,
+      why: `普通文件而内容不含 \`gitdir:\` 行(前 40 字:${JSON.stringify(String(preview).slice(0, 40))})⇒ 形态不认识 ⇒ 按现场归档,不许直接覆盖`,
+    }
+  return {
+    state: 'valid-pointer',
+    action: 'write',
+    writes: true,
+    archives: false,
+    why: `合法 gitfile 指针(指向 ${pointerTarget})⇒ 一行文本可由期望值复原,直接重写、不产归档`,
+  }
+}
+
+/**
+ * 现问形态(§5b「gitdir 形态是七类必须每次实测的机器事实」的修复面一侧)。只读不写。
+ * @param {string} pointerPath 工作区 `.git`
+ * @returns 同 `pointerFormVerdict`
+ */
+export function inspectGitdirPointer(pointerPath) {
+  let st
+  try {
+    st = statSync(pointerPath)
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return pointerFormVerdict({ exists: false })
+    return pointerFormVerdict({ unreadable: true, reason: `stat ${e && e.code ? e.code : e}` })
+  }
+  if (st.isDirectory()) return pointerFormVerdict({ exists: true, isDirectory: true, sizeBytes: st.size })
+  if (st.size > GITFILE_MAX_BYTES) return pointerFormVerdict({ exists: true, sizeBytes: st.size })
+  let raw
+  try {
+    raw = readFileSync(pointerPath, 'utf8')
+  } catch (e) {
+    return pointerFormVerdict({ unreadable: true, reason: `read ${e && e.code ? e.code : e}` })
+  }
+  return pointerFormVerdict({
+    exists: true,
+    sizeBytes: st.size,
+    pointerTarget: parseGitdirPointer(raw),
+    preview: String(raw).trim().slice(0, 40),
+  })
+}
+
+/**
+ * 修复面两形态分流(纯判据,`remediate` 消费它):
+ * 指针形态机上「真身还在」与「真身没了」是两件事,旧写法靠两条 `if` 各判各的、判序无处取证。
+ *  - 目标(gitdir 本体)骨架不全/不在 ⇒ `restore-gitdir`:这才轮到恢复源,恢复前该归档的归档;
+ *  - 目标在而指针坏 ⇒ `rewrite-pointer`:**只重写 gitfile,绝不 mkdir、绝不灌整份备份**
+ *    (2026-10-16 10:05–10:07 那三次「活仓 config 被覆盖 + 23GB cpSync」就是这一格没分清);
+ *  - 两者都好 ⇒ `none`。
+ * @param {{gitdirOk?:boolean,pointerOk?:boolean}} input
+ * @returns {'restore-gitdir'|'rewrite-pointer'|'none'}
+ */
+export function gitdirRepairPlan({ gitdirOk = false, pointerOk = false } = {}) {
+  if (!gitdirOk) return 'restore-gitdir'
+  if (!pointerOk) return 'rewrite-pointer'
+  return 'none'
+}
+
+/** 指针内容是否与期望一致(纯判据;`pointerOk()` 与夹具侧执行单元共用同一把尺子,§0.6) */
+export function pointerContentOk(rawText, expectedPointer) {
+  return String(rawText ?? '').trim() === String(expectedPointer ?? '').trim()
+}
+
+/**
+ * 落 `.git` 指针的**执行单元**(路径全入参 ⇒ 能在夹具上真跑,不碰活仓)。
+ * 写前按 `inspectGitdirPointer()` 现读的形态处置:异形现场先归档再覆盖,归档不成 ⇒ 拒绝覆盖。
+ *
+ * 归档落点两条硬约束(§5b 原文,不是建议):
+ *  1. 必须由唯一出口 `gitdirArchivePath()` 给出(生产侧),它返回 null ⇒ **拒绝覆盖**;
+ *     不许像 `archiveGitdir()` 那样退回 `${GITDIR}.broken-*`,因为指针文件的同级就是工作区根,
+ *     「现场 mv 到一级目录 = 把它送回宿主批量清理层的射程」。
+ *  2. 落点目录不得与指针文件同目录(同目录 = 工作区根那一格)⇒ 当场拒绝。
+ * @param {{pointer:string,expectedPointer:string,archiveNameFor?:(tag:number)=>string|null,logger?:(msg:string)=>void,notify?:(title:string,detail:string)=>void,inspect?:(p:string)=>object}} opts
+ * @returns {{ok:boolean,state:string,archived:string|null,why:string}}
+ */
+export function writeGitdirPointer({
+  pointer,
+  expectedPointer,
+  archiveNameFor = null,
+  logger = () => {},
+  notify = () => {},
+  // 形态探查可注入:唯一用途是让「读不出来」那一支在夹具上真跑(Windows 上没有可靠的
+  // 权限位能造出稳定 EACCES,而"未判定不得写成已修好"这条必须有牙,不能只靠纯函数构造面)。
+  inspect = inspectGitdirPointer,
+} = {}) {
+  const v = inspect(pointer)
+  const say = (m) => {
+    try {
+      logger(m)
+    } catch {
+      /* 日志层坏了不得把自愈一起带走 */
+    }
+  }
+  const callNotify = (title, detail) => {
+    try {
+      notify(title, detail)
+    } catch (e) {
+      say(`通知层异常(不影响自愈判定): ${String((e && e.message) || e)}`)
+    }
+  }
+
+  if (v.action === 'refuse') {
+    say(`⛔ 指针腿让路:${v.why}(${pointer})`)
+    if (v.state === 'unreadable')
+      callNotify('.git 形态无法判定(指针腿未判定)', `${v.why}\n路径:${pointer}\n期望指针:${String(expectedPointer).trim()}`)
+    return { ok: false, state: v.state, archived: null, why: v.why }
+  }
+
+  let archived = null
+  if (v.archives) {
+    let dst = null
+    try {
+      dst = archiveNameFor ? archiveNameFor(Date.now()) : null
+    } catch {
+      dst = null
+    }
+    if (!dst || samePath(dirname(dst), dirname(pointer))) {
+      const why = !dst
+        ? '现场归档落点取不到(gitdirArchivePath 返回 null)⇒ 拒绝覆盖:宁可仓库继续不可用,不许把唯一现场删掉'
+        : `现场归档落点与指针同目录(${dst})⇒ 等于把 .git* 留在工作区根,违反 §5b ⇒ 拒绝覆盖`
+      say(`⛔ 拒绝覆盖指针:${why}`)
+      callNotify('.git 异形现场未能归档(已拒绝覆盖)', `${why}\n指针路径:${pointer}\n形态:${v.why}`)
+      return { ok: false, state: 'refused-no-archive', archived: null, why }
+    }
+    try {
+      mkdirSync(dirname(dst), { recursive: true })
+      cpSync(pointer, dst)
+      archived = dst
+      say(`归档: .git 现场已备份 -> ${dst}(${v.why})`)
+      callNotify('.git 是指针位上的异形文件(现场已归档并落指针)', `${v.why}\n归档:${dst}\n指针路径:${pointer}`)
+    } catch (e) {
+      const why = `归档失败 ⇒ 放弃覆盖,现场必须可回溯: ${String((e && e.message) || e)}`
+      say(`⛔ 拒绝覆盖指针:${why}`)
+      callNotify('.git 异形现场归档失败(已拒绝覆盖)', `${why}\n指针路径:${pointer}`)
+      return { ok: false, state: 'refused-no-archive', archived: null, why }
+    }
+  }
+
+  const tmp = `${pointer}.tmp-${process.pid}`
+  let ok = false
+  try {
+    writeFileSync(tmp, expectedPointer)
+    try {
+      rmSync(pointer, { recursive: true, force: true })
+    } catch {
+      /* 目标可能不存在 */
+    }
+    renameSync(tmp, pointer)
+    ok = pointerContentOk(readFileSync(pointer, 'utf8'), expectedPointer)
+  } catch (e) {
+    say(`指针落盘异常: ${String((e && e.message) || e)}`)
+    ok = false
+  } finally {
+    try {
+      if (existsSync(tmp)) rmSync(tmp, { force: true })
+    } catch {
+      /* 清不掉不追加噪音 */
+    }
+  }
+  return { ok, state: v.state, archived, why: v.why }
+}
+
 function healPointer() {
   if (!needsGitdirPointer()) {
     log('修复跳过: 当前为常规仓库(.git 即 gitdir 目录),无需也不应重建指针文件')
     return true
   }
-  const tmp = `${POINTER}.tmp-${process.pid}`
-  writeFileSync(tmp, EXPECTED_POINTER)
-  try {
-    rmSync(POINTER, { recursive: true, force: true })
-  } catch {
-    /* 目标可能不存在 */
-  }
-  renameSync(tmp, POINTER)
-  const ok = pointerOk()
-  log(`${ok ? '修复' : '修复失败'}: 重建 .git 指针文件 -> ${GITDIR}`)
-  return ok
+  const r = writeGitdirPointer({
+    pointer: POINTER,
+    expectedPointer: EXPECTED_POINTER,
+    // 归档落点唯一出口(lib 侧同名函数已带夹具闸:落点 null ⇒ 执行单元拒绝覆盖)
+    archiveNameFor: (tag) => gitdirArchivePath(`${basename(GITDIR)}.gitfile-stray-${tag}`),
+    logger: log,
+    notify: (title, detail) => notifyGuardRed(title, detail),
+  })
+  log(`${r.ok ? '修复' : '修复失败'}: 重建 .git 指针文件 -> ${GITDIR}`)
+  return r.ok
 }
 
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1094(门 103 C1 收口)〉首意: 环境自愈:`git=true` 之外的唯一分支 —— pointer/gitdir 都在但 git 命令不可用。
@@ -2735,9 +2968,12 @@ function envDriftDetail(parsed, kindLabel) {
  *
  * 立因(现读):2026-10 起公网链路改为 EdgeOne **源站直填家宽公网 IPv4**(取代 Cloudflare Tunnel
  * 跨境回源,实测回源 ttfb 10~45s → 0.28~0.34s)。该地址是动态的 —— 一变即全公网 5xx,而此前
- * 全仓无任何尺子看守。本机无 EO API 凭据 ⇒ 只能"量到 + 到人",信里给人工出口(EO 控制台改
- * 源站那一格);期望值住台账 scripts/data/eo-origin-expectation.json,判据住
- * scripts/check-egress-ip-drift.mjs(与 auditEnvDrift 同构:判机器状态 ⇒ 绝不进提交链 §12e,
+ * 全仓无任何尺子看守。2026-10-21 立时写"本机无 EO API 凭据 ⇒ 只能量到 + 到人";**2026-10-28
+ * 实测证伪**:生产 api 的 `.env` 里 TENCENT_SMS_* 能签名通过 teo.tencentcloudapi.com 且能
+ * ModifyAccelerationDomain(同值回写 200 OK)⇒ 漂移先走 `scripts/repair-eo-origin.mjs` 自愈,
+ * 自愈不成才到人(信里仍给人工出口,EO 控制台改源站那一格);期望值不再只靠人工台账,而是
+ * 由 `refreshEoLiveLedger()` 把 EO 现配投影成运行时台账喂给判据,仓内台账仅作回落。
+ * 判据仍住 `scripts/check-egress-ip-drift.mjs`(判机器状态 ⇒ 绝不进提交链 §12e,
  * 唯一调度器 = 本守护)。
  *
  * 三态分流(与尺子退出码同形,互不顶掉):
@@ -2759,13 +2995,78 @@ const EGRESS_UNDET_FILE = join(
 const EGRESS_DRIFT_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drift-first.json')
 const EGRESS_UNDET_HORIZON_MS = Number(process.env.IHUI_EGRESS_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
+/**
+ * 自愈腿(2026-10-28 立):EO 源站"可活读、可改写"之后,漂移不再只能到人。
+ *
+ * 前提变更如实登记:2026-10-21 立巡检时写的"本机无 EO API 凭据",2026-10-28 实测证伪 ——
+ * 生产 api 的 `.env` 里 TENCENT_SMS_* 能签名通过 teo.tencentcloudapi.com,
+ * 且 ModifyAccelerationDomain 同值回写 200 OK。于是期望值从"人工登记的台账"升级为
+ * **EO 现配的投影**(运行时台账,写在 .ihui-agent/state/,不进仓),漂移则直接改回。
+ * 唯一器物 = scripts/repair-eo-origin.mjs;本文件只负责派生与解析,判定留在那个脚本里。
+ * 任何缺失/失败都返回可判对象并**回落**旧路(台账巡检 + 到人),自愈绝不把巡检本身拖死。
+ */
+const EGRESS_LIVE_LEDGER_FILE = join(WORKTREE, '.ihui-agent', 'state', 'eo-origin-live-ledger.json')
+
+/** 把 EO 现配写成运行时台账。true = 成功(调用方据此换 --ledger);false = 回落仓内台账。 */
+function refreshEoLiveLedger() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'repair-eo-origin.mjs')
+  if (!existsSync(script)) return false
+  try {
+    const stdout = String(
+      execFileSync(process.execPath, [script, '--print-ledger'], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        maxBuffer: 1 << 20,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }) || '',
+    )
+    const doc = JSON.parse(stdout)
+    if (!doc || !Array.isArray(doc.rows)) return false
+    mkdirSync(dirname(EGRESS_LIVE_LEDGER_FILE), { recursive: true })
+    writeFileSync(EGRESS_LIVE_LEDGER_FILE, JSON.stringify(doc), 'utf8')
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 派生自愈器唯一出口:--apply 漂移即改并从公网入口验证(失败回滚),解析它的结论行。 */
+function runEoRepair() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'repair-eo-origin.mjs')
+  if (!existsSync(script)) return { missing: true }
+  const args = [script, '--apply', '--json']
+  try {
+    const stdout = String(
+      execFileSync(process.execPath, args, {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000, // 改源站 + 等 EO 部署 + 公网入口验证(默认 180s)的上限 + 富余
+        maxBuffer: 1 << 20,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }) || '',
+    )
+    return { missing: false, ...JSON.parse(stdout) }
+  } catch (e) {
+    let parsed = null
+    try { parsed = JSON.parse(String(e.stdout || '')) } catch { parsed = null }
+    return { missing: false, state: (parsed && parsed.state) || 'failed', reason: (parsed && parsed.reason) || 'repair-crashed', ...(parsed || {}) }
+  }
+}
+
 /** 派生那把尺子的唯一出口:只读、带超时、不带控制台窗(§5b / 守门 52·80)。 */
 function runEgressProbe() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-egress-ip-drift.mjs')
   if (!existsSync(script)) return { missing: true, code: 2, stdout: '' }
+  // 2026-10-28:期望改由 EO 现配投影(运行时可读),活读失败才回落仓内台账(旧行为)。
+  const live = refreshEoLiveLedger()
+  const args = [script, '--check', '--json']
+  if (live) args.push('--ledger', EGRESS_LIVE_LEDGER_FILE)
   try {
     const stdout = String(
-      execFileSync(process.execPath, [script, '--check', '--json'], {
+      execFileSync(process.execPath, args, {
         cwd: WORKTREE,
         encoding: 'utf8',
         windowsHide: true,
@@ -2799,7 +3100,7 @@ export function egressAlertDetail(parsed, kindLabel) {
     else if (v.state === 'registered') lines.push(`[登记不判] ${v.face} —— ${v.reason}`)
   }
   return (
-    `${kindLabel}:EdgeOne 源站直填的是**家宽动态公网 IPv4**,漂了不自动修(本机无 EO API 凭据,实测),这封信就是那格眼睛。\n` +
+    `${kindLabel}:EdgeOne 源站直填的是**家宽动态公网 IPv4**;自愈腿已先尝试改源站,未成功才发这封信(失败形状见下行),现在需要人工接手。\n` +
     `${lines.join('\n')}\n` +
     "手动复核:node scripts/check-egress-ip-drift.mjs(结论行 PROBE-RESULT 恒纯 ASCII;curl 复现须 --noproxy '*' 强制 IPv4)。"
   )
@@ -2846,6 +3147,7 @@ export function auditEgressIpDrift(opts = {}) {
     return { state: 'unreadable', code: probe.code }
   }
   if (parsed.state === 'drift') {
+<<<<<<< HEAD
     const faces =
       (parsed.verdicts || [])
         .filter((v) => v.state === 'drift')
@@ -2866,8 +3168,39 @@ export function auditEgressIpDrift(opts = {}) {
         dedupKey: `egress-drift;faces=${faces};tier=${held.tier}`,
       },
     )
+=======
+    // 2026-10-28:先自愈,自愈不成才喊人。镜像测试注入 run 时默认不跑真自愈(无 heal 注入 ⇒ null),
+    // 旧用例行为不变;生产两条路径都不注入 ⇒ runEoRepair 生效。
+    const healFn = Object.prototype.hasOwnProperty.call(opts, 'heal') ? opts.heal : Object.prototype.hasOwnProperty.call(opts, 'run') ? null : runEoRepair
+    const heal = healFn ? healFn() : null
+    if (heal && !heal.missing && (heal.state === 'repaired' || heal.state === 'ok')) {
+      let probeOk = heal.state === 'ok'
+      if (heal.state === 'repaired') {
+        const again = run()
+        try { probeOk = JSON.parse(again.stdout).state === 'ok' } catch { probeOk = false }
+      }
+      clearUndeterminedStreak(driftFile)
+      clearUndeterminedStreak(undetFile)
+      logger(
+        heal.state === 'repaired'
+          ? `✅ 公网出口 IP 漂移已自愈:EO 源站 ${heal.oldOrigin || parsed.expectedSet || '?'} → ${heal.origin}(出口 ${parsed.currentIp}),公网入口已验证${probeOk ? '' : ';运行时台账下轮重读'}`
+          : `✅ 公网出口 IP 巡检:EO 现配 == 现测出口(${parsed.currentIp}),链路正常(仓内台账过期不影响判定)`,
+      )
+      return { state: 'self-healed', healed: heal.state, wan: parsed.currentIp }
+    }
+    const faces = (parsed.verdicts || []).filter((v) => v.state === 'drift').map((v) => v.face).sort().join('+') || 'na'
+    // 起始形状钉 face 集合(同 deploy-stall 型②):事件中途又漂一枚面会进正文,但不另开身份刷屏
+    const { firstMs, heldMs } = noteUndeterminedStreak(driftFile, now, { faces })
+    const held = alertHeldTier(firstMs, now)
+    logger(`❌ 公网出口 IP 与 EdgeOne 源站期望不一致(drift):${faces}(已持续 ${Math.round(heldMs / 60000)} 分钟,持续档=${held.tier})`)
+    const healNote = heal && !heal.missing && heal.state ? `\n自愈未完成:${heal.state}${heal.reason ? `(${heal.reason})` : ''}${heal.rolledBack === false ? ' [回滚也失败]' : ''}` : ''
+    notify('公网出口 IP 与 EdgeOne 源站期望不一致(全公网链路正在或即将 5xx)', `${egressAlertDetail(parsed, '漂移')}${healNote}\n已持续 ${Math.round(heldMs / 60000)} 分钟;持续档=${held.tier}(跨 6h/24h/72h 档即新身份重报)。`, {
+      severity: 'critical',
+      dedupKey: `egress-drift;faces=${faces};tier=${held.tier}`,
+    })
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
     clearUndeterminedStreak(undetFile)
-    return { state: 'drift', faces, tier: held.tier }
+    return { state: 'drift', faces, tier: held.tier, heal: heal && !heal.missing ? heal.state : 'skipped' }
   }
   if (parsed.state === 'unjudged') {
     logger('❓ 出口 IP 巡检未判定(探测源交叉不足或台账不可读/过期),不记为通过')
@@ -3198,7 +3531,7 @@ export function healUnresponsiveServices(opts = {}) {
         // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
         // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
         '服务自愈动作',
-        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
         // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
         // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
         {
@@ -3996,7 +4329,82 @@ export function auditTunnelMetrics(opts = {}) {
   }
 }
 
+<<<<<<< HEAD
 // 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意:
+=======
+// 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意: 
+/** 违禁桶兜底清扫派发层(2026-10-25,与 sweepStaleClosedRows 同型):5 分钟节流 + 器物不在位
+ *  明报"跳过不记为已探测"(§0.3),三态读数只认器物自己的 SWEEP-RESULT 结论行。 */
+export function sweepBannedBuckets(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 5 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'banned-bucket-sweep-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-banned-buckets.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 违禁桶清扫:器物不在位(scripts/strip-banned-buckets.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '清扫器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 违禁桶清扫:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows.map((l) => l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/)).find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  if (state === 'clean') {
+    logger('ℹ️ 违禁桶清扫:干净(waiting-env/waiting-human 未勾行 0,读数来自器物)')
+    return { ran: true, judged: true, ok: true, state }
+  }
+  if (state === 'stripped' && Number(kv('stripped')) > 0) {
+    logger(`✅ 违禁桶清扫:摘除 ${kv('stripped')} 条(留痕 f12-purge;禁令循环回潮已自动收敛)`)
+    return { ran: true, judged: true, ok: true, state, stripped: Number(kv('stripped')) }
+  }
+  if (state === 'undetermined') {
+    logger('⚠️ 违禁桶清扫:未判定(取材取不到/落地被拒)——不记通过,下轮重试')
+    return { ran: true, judged: true, ok: false, state }
+  }
+  // stripped=0 且非 clean(pending 型 dry-run 语义不应出现在 --apply 档;记一笔不猜)
+  logger(`ℹ️ 违禁桶清扫:结论 state=${state ?? '读不到'}(stripped=${kv('stripped') ?? '?'})`)
+  return { ran: true, judged: state !== null, ok: state !== null, state }
+}
+
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -5792,6 +6200,11 @@ export function auditIndexUnmerged(opts = {}) {
   }
 }
 
+// lint-staged stdio 三针盯针(2026-10-27):判据/节流/到人住 lib/lint-staged-pin-audit.mjs;判机器状态 ⇒ 不进提交链(§12e)。
+const PIN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'lint-staged-pin-tick.json')
+export function auditLintStagedPins(opts = {}) {
+  return pinsAudit({ tickFile: PIN_TICK, logger: log, notify: notifyGuardRed, ...opts })
+}
 export function auditTunnelLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -5925,6 +6338,330 @@ export function auditTunnelLegHealth(opts = {}) {
     return { ran: true, judged: true, breaches, warns, unjudged, legs: parsed.legs }
   } catch (e) {
     logger('⚠️ 隧道腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/** 短信发送通道健康的**常驻**派发点(尺子本体 = `scripts/check-sms-channel-health.mjs`,2026-10-27 立) */
+const SMS_HEALTH_TICK = join(WORKTREE, '.ihui-agent', 'state', 'sms-channel-health-tick.ts')
+const SMS_HEALTH_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'sms-channel-health-first.json')
+const SMS_HEALTH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'sms-channel-health-last.json')
+const SMS_HEALTH_INTERVAL_MS = Number(process.env.IHUI_SMS_HEALTH_INTERVAL_MS || 15 * 60 * 1000)
+const SMS_HEALTH_TIMEOUT_MS = Number(process.env.IHUI_SMS_HEALTH_TIMEOUT_MS || 60_000)
+
+export function auditSmsChannelHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = SMS_HEALTH_INTERVAL_MS,
+    tickFile = SMS_HEALTH_TICK,
+    firstFile = SMS_HEALTH_FIRST,
+    lastFile = SMS_HEALTH_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-sms-channel-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 短信通道健康:尺子脚本不在位(scripts/check-sms-channel-health.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: SMS_HEALTH_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 20,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(
+        `⚠️ 短信通道健康未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+          [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+        )
+          .split(/\r?\n/)[0]
+          .slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响告警本身 */
+    }
+    const verdict = parsed.verdict
+    if (verdict === 'breach') {
+      // 身份按"类别 + 尝试量档 + 持续档"折叠:明细(失败条数、具体手机号)会抖,写进身份就是风暴。
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        '短信通道不出量(登录验证码发不出去)',
+        `读数:${String(parsed.detail || '(尺子未给原因)')}\n近 24h 尝试=${parsed.attempts} 成功=${parsed.success};近 1h 尝试=${parsed.lastHourAttempts}\n尺子:scripts/check-sms-channel-health.mjs(只读投递审计表 sms_delivery_logs,不碰云端接口)\n取证:node scripts/check-sms-channel-health.mjs --json(或读 .ihui-agent/state/sms-channel-health-last.json)\n出路:去阿里云费用中心充值 / 购买短信套餐包,然后复跑上面那条命令确认转 ok —— 这是本判据唯一能让它转绿的整改动作。`,
+        {
+          severity: 'warning',
+          dedupKey: `verdict=breach;attempts=${alertCountTier(parsed.attempts)};held=${held.tier}`,
+        },
+      )
+      logger(`❌ 短信通道不出量:${String(parsed.detail || '').slice(0, 200)}(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: 1, unjudged: 0 }
+    }
+    if (verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);只写日志,不喊人 —— 取不到样本不等于通道坏了
+      logger(`ℹ️ 短信通道健康:未判定 —— ${String(parsed.detail || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ 短信通道健康:${String(parsed.detail || '').slice(0, 160)}`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ 短信通道健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/** 资产路径可达性 + 证书到期的**常驻**派发点(尺子 = `scripts/check-asset-path-health.mjs`,2026-10-28 立) */
+const ASSET_PATH_TICK = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-tick.ts')
+const ASSET_PATH_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-first.json')
+const ASSET_PATH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-last.json')
+const ASSET_PATH_INTERVAL_MS = Number(process.env.IHUI_ASSET_PATH_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const ASSET_PATH_TIMEOUT_MS = Number(process.env.IHUI_ASSET_PATH_TIMEOUT_MS || 120_000)
+
+export function auditAssetPathHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = ASSET_PATH_INTERVAL_MS,
+    tickFile = ASSET_PATH_TICK,
+    firstFile = ASSET_PATH_FIRST,
+    lastFile = ASSET_PATH_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-asset-path-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 资产路径健康:尺子脚本不在位(scripts/check-asset-path-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: ASSET_PATH_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(`⚠️ 资产路径健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`)
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+    const missing = Array.isArray(parsed?.env?.missing) ? parsed.env.missing : []
+    const certErr = Number(parsed?.certs?.error || 0)
+    const certWarn = Number(parsed?.certs?.warning || 0)
+    if (parsed.verdict === 'breach') {
+      // 身份按"断链数 + 证书错误数 + 持续档"折叠:具体路径会随整改位移,写进身份就是风暴
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      const lines = missing.slice(0, 12).map((m) => `· ${m.file}:${m.line} ${m.key} -> ${m.path}`)
+      if (missing.length > 12) lines.push(`· …另 ${missing.length - 12} 条(计数已含)`)
+      notify(
+        `生产资产断链:${missing.length} 条路径不可达 / 证书错误 ${certErr}`,
+        `断链清单(.env 指向的文件/目录在当前主机不在位):\n${lines.join('\n') || '(无)'}\n证书:ok=${parsed?.certs?.ok ?? 'n/a'} warn=${certWarn} err=${certErr}\n尺子:scripts/check-asset-path-health.mjs(只读,不打印值,证书到期委托 cert-expiry-check.mjs)\n取证:node scripts/check-asset-path-health.mjs --json(或读 .ihui-agent/state/asset-path-last.json)\n出路:按清单把键值改到真实位置(盘符迁移/同步盘换盘最常见),改完复跑上面那条命令;运行时改了 .env 需重启对应服务才生效。`,
+        { severity: 'warning', dedupKey: `verdict=breach;missing=${alertCountTier(missing.length)};certErr=${alertCountTier(certErr)};held=${held.tier}` },
+      )
+      logger(`❌ 资产路径断链 ${missing.length} 条 / 证书错误 ${certErr}(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: 1, missing: missing.length, certErr }
+    }
+    if (parsed.verdict === 'warn') {
+      logger(`⚠️ 资产路径健康报数(不判红):${String(parsed.why || `证书临近到期 ${certWarn} 张`).slice(0, 180)}`)
+      clearUndeterminedStreak(firstFile)
+      return { ran: true, judged: true, breaches: 0, warns: 1 }
+    }
+    if (parsed.verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);取不到输入不等于坏
+      logger(`ℹ️ 资产路径健康:未判定 —— ${String(parsed.why || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ 资产路径健康:${parsed?.env?.scanned?.length ?? 0} 份 env 全部可达,证书 ok=${parsed?.certs?.ok ?? 'n/a'}`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ 资产路径健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+
+/**
+ * AASA(apple-app-site-association)公网健康的**常驻**派发点(尺子 = `scripts/check-aasa-public-health.mjs`,
+ * 2026-10-29 立)。立因:这台尺子造出来时没人按时跑它 —— 只接了 `pnpm check:aasa-health` 一个手工入口,
+ * 而它判的是"公网两腿能不能取到与单源同构的 AASA",属机主面之外唯一可自动守的那半格
+ * (UniversalLink 控制台填写那一半仍归机主)。按 §12e 它是只读尺子,刻意不进提交链,唯一调度器就是这里。
+ *
+ * 三态语义照抄资产路径那台:breach 发信、warn 只报数、unjudged 既不续命也不清零(§0.3)、ok 清零。
+ * 身份按"breach 条数档"折叠:`alertCountTier` 管计数,具体靶名会随整改位移,写进身份就是风暴(守门 224)。
+ */
+const AASA_TICK = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-tick.ts')
+const AASA_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-first.json')
+const AASA_LAST = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-last.json')
+const AASA_INTERVAL_MS = Number(process.env.IHUI_AASA_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const AASA_TIMEOUT_MS = Number(process.env.IHUI_AASA_TIMEOUT_MS || 120_000)
+
+export function auditAasaPublicHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AASA_INTERVAL_MS,
+    tickFile = AASA_TICK,
+    firstFile = AASA_FIRST,
+    lastFile = AASA_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-aasa-public-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ AASA 公网健康:尺子脚本不在位(scripts/check-aasa-public-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: AASA_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(
+        `⚠️ AASA 公网健康未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+          `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+    const breach = Array.isArray(parsed?.breach) ? parsed.breach : []
+    if (parsed.verdict === 'breach') {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        `AASA 公网健康 breach:${breach.length} 维不达标`,
+        `不达标维(逐条来自尺子 JSON 的 breach 数组):\n${breach.slice(0, 10).map((b) => `· ${b}`).join('\n') || '(无)'}`,
+        {
+          severity: 'warning',
+          dedupKey: `verdict=breach;breach=${alertCountTier(breach.length)};held=${held.tier}`,
+        },
+      )
+      logger(`❌ AASA 公网健康 breach ${breach.length} 维(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: breach.length }
+    }
+    if (parsed.verdict === 'warn') {
+      logger(`⚠️ AASA 公网健康报数(不判红):${String(parsed.why || '有机主面待办').slice(0, 180)}`)
+      clearUndeterminedStreak(firstFile)
+      return { ran: true, judged: true, breaches: 0, warns: 1 }
+    }
+    if (parsed.verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);取不到输入不等于坏,更不等于好
+      logger(`ℹ️ AASA 公网健康:未判定 —— ${String(parsed.why || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ AASA 公网健康:${Array.isArray(parsed?.legs) ? parsed.legs.length : 0} 腿可达且与单源同构`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ AASA 公网健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
     return { ran: false, why: '派发异常' }
   }
 }
@@ -6363,13 +7100,16 @@ function archiveGitdir(tag) {
  * 任一步成功即止;每次破坏性覆盖前先归档现场。
  */
 function remediate(before) {
-  if (!before.gitdirOk) {
+  // 两形态分流交给同一把尺子(纯判据 `gitdirRepairPlan`,镜像可在夹具上真跑取证):
+  // 真身在 ⇒ 只重写 gitfile;真身没了 ⇒ 才轮到恢复源。旧写法两条 `if` 各判各的,判序无从验证。
+  const plan = gitdirRepairPlan({ gitdirOk: before.gitdirOk, pointerOk: before.pointerOk })
+  if (plan === 'restore-gitdir') {
     const ok = !!(healFromBackup() || healFromRemote())
     // 恢复源是整份 gitdir 副本 ⇒ cpSync 会把它自己的 core.bare 一起带回来,恢复后必须再归一一次
     if (ok && !worktreeUsable()) return healWorktreeBare()
     return ok
   }
-  if (!before.pointerOk) healPointer()
+  if (plan === 'rewrite-pointer') healPointer()
   if (!gitUsable()) healEnv()
   if (!gitUsable()) healHead()
   if (!gitUsable()) {
@@ -6410,22 +7150,60 @@ export function gitdirTargetVerdict({
   return { ok: true, why: exists && isDirectory ? '已存在且是目录' : '不存在,可安全建目录' }
 }
 
+/**
+ * 「恢复面按**当次实测**的 gitdir 形态分派」的纯判据(形态三事实 → `gitdirTargetVerdict` 输入)。
+ *
+ * 立因(台账票「git-guardian 的 `.git` 修复路径在"指针文件那台机"失效」本席收的格):
+ * 旧 `gitdirTargetSafe()` 把 `samePath(GITDIR, POINTER)` **无条件**当"自指损坏态"喂给判据。
+ * 而 §5b 明令 gitdir 形态属七类必须每次现读的机器事实 —— 工作区 `.git` 本身就是目录的那类机
+ * (健康的目录形态仓 `resolveGitdir` 恒返回 `<wt>/.git`,本机当次实测即此型)里该路径恒相等,
+ * 于是整条恢复阶梯(`healFromBackup`/`healFromRemote`)对目录形态机**永久死锁**,报错文案还把
+ * 合法布局说成「先修 scripts/lib/gitdir.mjs 的解析」。真自指损坏态(2026-09-23 那型:指针文件
+ * 内容 `gitdir:` 指回自身、`cpSync(BACKUP, GITDIR)` 把 25MB 备份灌进指针文件)的实测特征是
+ * 「路径相同 ∧ 存在 ∧ **不是目录**」—— 只有那一型才禁写。
+ * 形态分派只有这一份实现(§0.6):调用方只喂当次实测的三个事实,不得再各自 `if (isDirectory)`。
+ * @param {{pathsMatch?:boolean,exists?:boolean,isDirectory?:boolean}} face 当次实测三事实
+ */
+export function gitdirTargetVerdictFromFace({
+  pathsMatch = false,
+  exists = false,
+  isDirectory = false,
+} = {}) {
+  return gitdirTargetVerdict({
+    // pathsMatch 时只有「存在 ∧ 是目录」(目录形态机的合法布局,当次实测)才不是自指;
+    // 「存在但不是目录」= 2026-09-23/10-16 那一型,「不存在」= 无从实测形态 —— 两型照旧拒(§0.10)。
+    samePointer: Boolean(pathsMatch) && !(exists === true && isDirectory === true),
+    exists,
+    isDirectory,
+  })
+}
+
 function gitdirTargetSafe() {
   let v
   try {
     const exists = existsSync(GITDIR)
-    v = gitdirTargetVerdict({
-      samePointer: samePath(GITDIR, POINTER),
+    v = gitdirTargetVerdictFromFace({
+      pathsMatch: samePath(GITDIR, POINTER),
       exists,
       isDirectory: exists ? statSync(GITDIR).isDirectory() : false,
     })
   } catch (e) {
+<<<<<<< HEAD
     log(
       `⛔ 拒绝恢复:${gitdirTargetVerdict({ unreadable: true }).why}(${GITDIR}): ${String((e && e.message) || e)}`,
     )
+=======
+    const why = gitdirTargetVerdict({ unreadable: true }).why
+    log(`⛔ 拒绝恢复:${why}(${GITDIR}): ${String((e && e.message) || e)}`)
+    // §0.10:失效方向 = 经既有派发口多要一次定向说明,绝不静默让恢复面停摆(也不跳任何门)
+    notifyGuardRed('gitdir 恢复被拒(形态读不出,未判定)', `${why}\n路径: ${GITDIR}\n本轮异常: ${String((e && e.message) || e)}\n「未判定」≠「判过」:既不猜它是目录也不猜它是指针,恢复面不动作`, { dedupKey: 'gitdir-restore-refuse;unreadable' })
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
     return false
   }
-  if (!v.ok) log(`⛔ 拒绝恢复:${v.why}(${GITDIR})`)
+  if (!v.ok) {
+    log(`⛔ 拒绝恢复:${v.why}(${GITDIR})`)
+    notifyGuardRed('gitdir 恢复被拒(修复面要一次人工定向说明)', `${v.why}\n路径: ${GITDIR}\n工作区 .git: ${POINTER}\n当次实测: pathsMatch=${samePath(GITDIR, POINTER)}, exists=${existsSync(GITDIR)}\n「拒」= 不动作、不是跳门;确认要恢复的先按 §5b 归档现场再人工处理`, { dedupKey: `gitdir-restore-refuse;${String(v.why).slice(0, 12)}` })
+  }
   return v.ok
 }
 
@@ -6976,6 +7754,10 @@ function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
+    // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
+    // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
+    if (!CHECK_ONLY) sweepBannedBuckets()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
@@ -7011,6 +7793,14 @@ function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
+    // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
+    if (!CHECK_ONLY) auditLintStagedPins()
+    // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
+    // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
+    // 不会翻倍发信)。为什么必须挂在 tick 而不是只挂 main():startDaemon 是内存常驻的
+    // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,常驻守护**永远跑不到**这一格,
+    // 闭环就退回"器件在、没人看"。挂上后本改动需重启守护进程才生效(常驻不重读)。
+    auditFeedbackLoopClosure()
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
@@ -7022,6 +7812,15 @@ function main() {
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
     if (!CHECK_ONLY) auditTunnelLegHealth()
+    // 短信通道健康(2026-10-27 立,尺子 = scripts/check-sms-channel-health.mjs):判机器状态 ⇒
+    // 不进提交链(§12e)。立因 = 当天阿里云欠费停机一整天、用户拿不到登录验证码,而全仓零门喊过。
+    if (!CHECK_ONLY) auditSmsChannelHealth()
+    // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
+    // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
+    if (!CHECK_ONLY) auditAssetPathHealth()
+    // AASA 公网健康(2026-10-29 立):这台尺子造出来时只接了手工入口 `pnpm check:aasa-health`,
+    // 没人按时跑它 —— 而它守的是"AASA 两腿公网可达且与单源同构",属机主面之外唯一能自动守的半格。
+    if (!CHECK_ONLY) auditAasaPublicHealth()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
@@ -7068,6 +7867,14 @@ function main() {
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
+    // G-24 事故归档回收器调度接线(2026-10-26,席位 goal-20261026-b14r3):以 dry-run 调
+    // scripts/archive-gc.mjs 并把「保留/待删/未判定」读数写进本守护日志通道(留痕);
+    // 开关面 scripts/data/archive-gc-arm.json 默认关,真 --apply 由机主核过读数后按下。同一挂点语义。
+    if (!CHECK_ONLY) archiveGcDryRun()
+    // G-50 DevEnv 搬迁静默窗口探测(2026-10-28):票面「探测器找静默窗口自动执行」的调度格。
+    // 与上一层同挂点语义(健康轮次 + !CHECK_ONLY);默认只 probe,真搬由
+    // scripts/data/devenv-migrate-arm.json 显式开档(入库默认关)。30 分钟节流。
+    if (!CHECK_ONLY) devenvMigratePatrol({ logger: log })
     // 活 TEMP 落点回潮哨兵(尺子 = check-temp-landing.mjs)。那份尺子的文件头早就写着"唯一调度器
     // = 本文件的 auditTempLanding()",而那个函数**从来不存在** —— 判据齐全却无人在调度,
     // 失效形态是安静。与 scrubTempFixtures 同格(健康轮次早退之前 + !CHECK_ONLY),节流 24h。
@@ -7083,6 +7890,10 @@ function main() {
     if (!CHECK_ONLY) dispatchGateRot()
     if (!CHECK_ONLY) dispatchRelayCapacity()
     if (!CHECK_ONLY) dispatchAutoTriage()
+    if (!CHECK_ONLY) dispatchDeployOutcomeIntake()
+    if (!CHECK_ONLY) dispatchDeployFeedback()
+    if (!CHECK_ONLY) dispatchExportUserFeedback()
+    if (!CHECK_ONLY) dispatchE2eAutofill()
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
@@ -7192,6 +8003,7 @@ function startDaemon() {
         // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .ihui-agent/state/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
+        auditLintStagedPins()
         // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
@@ -7199,6 +8011,12 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
         scrubTempFixtures()
+        // G-24 归档回收 dry-run 接线臂:与 main() 单轮路径同一挂点语义,共用
+        // .ihui-agent/state/archive-gc-arm-tick.iso 节流戳 ⇒ 双执行体并存只有一边真派生。
+        archiveGcDryRun()
+        // G-50 DevEnv 搬迁探测:与 main() 单轮路径同一挂点语义,共用
+        // .ihui-agent/state/devenv-migrate-arm-tick.iso 节流戳 ⇒ 双执行体只有一边真探。
+        devenvMigratePatrol({ logger: log })
         // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
         // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
         // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
@@ -7703,6 +8521,151 @@ export function dispatchAutoTriage(opts = {}) {
   return { ran: true, ok: r.ok, registered, undetermined }
 }
 
+// ── 自进化闭环装车腿(goal-b21/W2) ──────────────────────────────────────────
+// 以下四件器件已在 HEAD 且单测全绿,但此前零生产引用(§0.9「造好没装车=没有」)。
+// 本批把它们接进派发轮:默认开启、可经 IHUI_GUARDIAN_DISABLE_<NAME>=1 关闭、
+// 失败不阻断主轮、节流各自独立。每函数均接受 exists/runner 注入以便测试钉行为。
+
+export function dispatchDeployOutcomeIntake(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_DEPLOY_OUTCOME_INTERVAL_MS || 20 * 60 * 1000),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'deploy-outcome-intake-dispatch-last.json'),
+    logger = log,
+    exists = existsSync,
+    runner = null,
+  } = opts
+  if (process.env.IHUI_GUARDIAN_DISABLE_DEPLOY_OUTCOME === '1') {
+    logger('⏸ 部署结果入库派发:IHUI_GUARDIAN_DISABLE_DEPLOY_OUTCOME=1 ⇒ 跳过')
+    return { ran: false, why: '被 env 关闭' }
+  }
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'deploy-outcome-intake.mjs')
+  if (!exists(script)) {
+    logger('ℹ 部署结果入库派发:器物不在位(scripts/deploy-outcome-intake.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run = runner ?? (() => {
+    try {
+      const out = execFileSync(process.execPath, [script], {
+        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { ok: true, out: String(out ?? '') }
+    } catch (e) {
+      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+    }
+  })
+  const r = run()
+  logger(`${r.ok ? '✅' : '⚠️'} 部署结果入库派发:${r.ok ? '完成' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
+  return { ran: true, ok: r.ok }
+}
+
+export function dispatchDeployFeedback(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_DEPLOY_FEEDBACK_INTERVAL_MS || 20 * 60 * 1000),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'deploy-feedback-dispatch-last.json'),
+    logger = log,
+    exists = existsSync,
+    runner = null,
+  } = opts
+  if (process.env.IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK === '1') {
+    logger('⏸ 部署反馈派发:IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 ⇒ 跳过')
+    return { ran: false, why: '被 env 关闭' }
+  }
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'deploy-feedback.mjs')
+  if (!exists(script)) {
+    logger('ℹ 部署反馈派发:器物不在位(scripts/deploy-feedback.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run = runner ?? (() => {
+    try {
+      const out = execFileSync(process.execPath, [script, '--once'], {
+        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { ok: true, out: String(out ?? '') }
+    } catch (e) {
+      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+    }
+  })
+  const r = run()
+  logger(`${r.ok ? '✅' : '⚠️'} 部署反馈派发:${r.ok ? '完成(--once 仅扫描)' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
+  return { ran: true, ok: r.ok }
+}
+
+export function dispatchExportUserFeedback(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_USER_FEEDBACK_EXPORT_INTERVAL_MS || 20 * 60 * 1000),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'user-feedback-export-dispatch-last.json'),
+    logger = log,
+    exists = existsSync,
+    runner = null,
+  } = opts
+  if (process.env.IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT === '1') {
+    logger('⏸ 用户反馈导出派发:IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT=1 ⇒ 跳过')
+    return { ran: false, why: '被 env 关闭' }
+  }
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'export-user-feedback.mjs')
+  if (!exists(script)) {
+    logger('ℹ 用户反馈导出派发:器物不在位(scripts/export-user-feedback.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run = runner ?? (() => {
+    try {
+      const out = execFileSync(process.execPath, [script], {
+        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { ok: true, out: String(out ?? '') }
+    } catch (e) {
+      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+    }
+  })
+  const r = run()
+  logger(`${r.ok ? '✅' : '⚠️'} 用户反馈导出派发:${r.ok ? '完成(只读查库→导出件)' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
+  return { ran: true, ok: r.ok }
+}
+
+export function dispatchE2eAutofill(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_E2E_AUTOFILL_INTERVAL_MS || 30 * 60 * 1000),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'e2e-autofill-dispatch-last.json'),
+    logger = log,
+    exists = existsSync,
+    runner = null,
+  } = opts
+  if (process.env.IHUI_GUARDIAN_DISABLE_E2E_AUTOFILL === '1') {
+    logger('⏸ E2E 自动补测派发:IHUI_GUARDIAN_DISABLE_E2E_AUTOFILL=1 ⇒ 跳过')
+    return { ran: false, why: '被 env 关闭' }
+  }
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'e2e-autofill.mjs')
+  if (!exists(script)) {
+    logger('ℹ E2E 自动补测派发:器物不在位(scripts/e2e-autofill.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run = runner ?? (() => {
+    try {
+      const out = execFileSync(process.execPath, [script, '--check'], {
+        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { ok: true, out: String(out ?? '') }
+    } catch (e) {
+      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+    }
+  })
+  const r = run()
+  logger(`${r.ok ? '✅' : '⚠️'} E2E 自动补测派发(--check 只读):${r.ok ? '完成' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
+  return { ran: true, ok: r.ok }
+}
+
 /** 依赖安全通告派发(第 3 期③装车):每日一轮,`--register` 走 live-doc-edit 唯一登记入口。 */
 export function dispatchDepAdvisoryRadar(opts = {}) {
   const {
@@ -7981,6 +8944,16 @@ if (isDirectRun) {
 export const __test__ = {
   acquireSingleInstance,
   gitdirTargetVerdict,
+  // 恢复面的"当次实测形态分派"唯一出口(gitdir-pointer 票本席收的格,镜像只 import 这一份)
+  gitdirTargetVerdictFromFace,
+  // `.git` 指针形态的修复面(2026-10-27 票面第③格补的口):判据、现读形态、两形态分流、
+  // 执行单元与"内容是否一致"那把尺子全部导出,镜像只 import 这一份,不复制判据(§22c)。
+  GITFILE_MAX_BYTES,
+  pointerFormVerdict,
+  inspectGitdirPointer,
+  gitdirRepairPlan,
+  pointerContentOk,
+  writeGitdirPointer,
   judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
@@ -7999,13 +8972,19 @@ export const __test__ = {
   auditPushDivergenceLeg,
   healMirrorPurgeLeg,
   auditIndexUnmerged,
+  auditLintStagedPins,
   sweepStaleClosedRows,
+  sweepBannedBuckets,
   sweepStaleClaimMarks,
   // AI 自进化调度层派发点(2026-10-26 导出):镜像测试据此逐条钉「节流 / 无票不 spawn /
   // 预算耗尽不 spawn / 锁在让路 / 结论不可解析落未判定」—— 不导出的话只能读源码字符串,
   // 钉不住行为,而这一族的失效形态全是安静(多 spawn 一次 = 多派一个会话)。
   dispatchAutoEvolve,
   dispatchAutoTriage,
+  dispatchDeployOutcomeIntake,
+  dispatchDeployFeedback,
+  dispatchExportUserFeedback,
+  dispatchE2eAutofill,
   dispatchDepAdvisoryRadar,
   dispatchGateRot,
   dispatchRelayCapacity,
@@ -8065,6 +9044,11 @@ export const __test__ = {
   tempScrubDue,
   parseScrubReport,
   scrubTempFixtures,
+  // G-24 归档回收接线臂(2026-10-26):实现单源在 lib,这里原路径再导出供镜像测试 import(§22c)。
+  archiveGcDryRun,
+  archiveGcArmDue,
+  loadArchiveGcArmConfig,
+  parseArchiveGcSummary,
   // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
   readBareFlag,
   writeBareFalse,

@@ -33,7 +33,7 @@
 
 | SDK | 路径 | 安装方式 | 主要模块 | 最低运行时 | 版本 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| TypeScript | `packages/sdk/src/` | `pnpm add @ihui/sdk` | `agents / ai / audio / files / generation / images / index / knowledge / memory / messages / streaming / threed / tools / user / videos` | Node 20+ / 浏览器 fetch | 0.1.0 | Beta |
+| TypeScript | `packages/sdk/src/` | `pnpm add @ihui-ai/sdk` | `agents / ai / audio / files / generation / images / index / knowledge / memory / messages / streaming / threed / tools / user / videos` | Node 20+ / 浏览器 fetch | 0.1.0 | Beta |
 | Python | `packages/sdk/python/ihui_ai/` | `pip install ihui-ai` | `modules/{agents,ai,audio,files,generation,images,knowledge,memory,messages,threed,tools,user,videos}` + `async_client` + `streaming` | Python ≥ 3.10 | 0.1.0 | Beta |
 | Go | `packages/sdk/go/` | `go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go` | `internal/client` + `internal/model` + `internal/module`(13 模块) | Go 1.21+ | 0.1.0 | Beta |
 | Java | `packages/sdk/java/` | Maven `<dependency>com.ihui:ihui-ai-java:0.1.0</dependency>` | `com.ihui.ai.sdk.module/*`(13 Api)+ `model/*` | JDK 11+ | 0.1.0 | Beta |
@@ -108,18 +108,18 @@
 ### 安装
 
 ```bash
-pnpm add @ihui/sdk
+pnpm add @ihui-ai/sdk
 # 或
-npm install @ihui/sdk
-yarn add @ihui/sdk
+npm install @ihui-ai/sdk
+yarn add @ihui-ai/sdk
 ```
 
-`@ihui/sdk` 仅依赖 `@ihui/types`(workspace 包,发布到 npm 时自动 bundle 类型),无任何运行时第三方依赖。
+`@ihui-ai/sdk` 仅依赖 `@ihui/types`(workspace 包,发布到 npm 时自动 bundle 类型),无任何运行时第三方依赖。
 
 ### 配置与初始化
 
 ```typescript
-import { createClient, type SdkConfig } from '@ihui/sdk'
+import { createClient, type SdkConfig } from '@ihui-ai/sdk'
 
 const config: SdkConfig = {
   apiKey: process.env.IHUI_API_KEY!,        // 必需
@@ -152,7 +152,7 @@ console.log(resp.choices[0]?.message?.content)
 ### 示例:流式对话
 
 ```typescript
-import { parseChatStream } from '@ihui/sdk'
+import { parseChatStream } from '@ihui-ai/sdk'
 
 const stream = client.ai.completionsStream({
   model: 'gpt-4o',
@@ -606,7 +606,7 @@ finally
 ### TS 流式解析
 
 ```typescript
-import { parseChatStream, parseAgentStream, type ChatStreamChunk, type AgentStreamEvent } from '@ihui/sdk'
+import { parseChatStream, parseAgentStream, type ChatStreamChunk, type AgentStreamEvent } from '@ihui-ai/sdk'
 
 // chat.completions 流(OpenAI 兼容)
 const stream = await client.requestStream('POST', '/chat/completions', { ...req, stream: true })
@@ -666,7 +666,7 @@ async def consume():
 ### TS try-catch 模板
 
 ```typescript
-import { SdkError, createClient } from '@ihui/sdk'
+import { SdkError, createClient } from '@ihui-ai/sdk'
 
 const client = createClient({ apiKey: process.env.IHUI_API_KEY! })
 

@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -18,6 +17,7 @@ import { PLAN_PRIORITY_OPTIONS, PLAN_STEP_STATUS_OPTIONS } from '@ihui/shared/pl
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 import { createPlanStyles } from './plan-styles'
 
 /** 步骤草稿(与 web 端 PlanForm StepDraft 同形)。 */
@@ -165,7 +165,8 @@ export function PlanFormScreen({
           {error ? <Text style={styles.formErr}>{error}</Text> : null}
 
           <Text style={styles.fieldLabel}>{t('planPage.formTitleLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={title}
             onChangeText={setTitle}
@@ -175,7 +176,8 @@ export function PlanFormScreen({
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formGoalLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.inputMultiline]}
             value={goal}
             onChangeText={setGoal}
@@ -185,7 +187,8 @@ export function PlanFormScreen({
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formScopeLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.inputMultiline]}
             value={scope}
             onChangeText={setScope}
@@ -195,7 +198,8 @@ export function PlanFormScreen({
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formConstraintsLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.inputMultiline]}
             value={constraints}
             onChangeText={setConstraints}
@@ -205,7 +209,8 @@ export function PlanFormScreen({
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formTagsLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={tagsInput}
             onChangeText={setTagsInput}
@@ -233,7 +238,8 @@ export function PlanFormScreen({
                 <View style={styles.stepIndex}>
                   <Text style={styles.stepIndexText}>{i + 1}</Text>
                 </View>
-                <TextInput
+                <TextField
+                  colorScheme={colorScheme}
                   style={[styles.input, { flex: 1 }]}
                   value={step.title}
                   onChangeText={(v) => updateStep(i, { title: v })}
@@ -270,7 +276,8 @@ export function PlanFormScreen({
                   <Trash2 size={15} color={tk.error.text} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={[styles.input, styles.inputMultiline, { minHeight: 48, fontSize: 12 }]}
                 value={step.description}
                 onChangeText={(v) => updateStep(i, { description: v })}

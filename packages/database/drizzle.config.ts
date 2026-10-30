@@ -4,12 +4,26 @@
 
 import { defineConfig } from 'drizzle-kit'
 
+/**
+ * 缺 DATABASE_URL 时**不给默认值**:旧默认 `localhost:8810` 正是生产 SSH 隧道口
+ * (`db_sync.prod_dsn`,与 `scripts/lib/db-probe-client.mjs` 的 FORBIDDEN_PROD_PORT 同一枚端口),
+ * 于是 `.env` 没加载到的一次裸跑 `db:migrate`/`db:push` 会把整条迁移链打进生产 ——
+ * 判据的失效方向必须是"多要一次显式供值",绝不能是"默默指向生产"。
+ */
+const url = process.env.DATABASE_URL?.trim()
+if (!url) {
+  throw new Error(
+    'DATABASE_URL 未设置 ⇒ 拒绝加载 drizzle 配置。本机开发库请由 packages/database/.env 提供' +
+      '(现读为 5432 回环),或显式导出该变量;不得依赖默认值(旧默认指向 8810 生产隧道口)。',
+  )
+}
+
 export default defineConfig({
   schema: './src/schema/index.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:8810/ihui',
+    url,
   },
   verbose: true,
   strict: true,

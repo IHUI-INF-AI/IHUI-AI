@@ -20,7 +20,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PAGE_SIZE = 20
 
-export function DeveloperWebhooksScreen() {
+function DeveloperWebhooksScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

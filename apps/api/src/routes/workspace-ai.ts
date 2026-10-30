@@ -130,9 +130,13 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const body = z.object({ path: z.string(), name: z.string().optional() }).parse(request.body)
     if (!body.path) return reply.status(400).send(error(400, 'path 不能为空'))
     try {
+      // 2026-10-27 加固:登记入口必须过服务端白名单 —— 否则攻击者可先把 `C:\` 注册成
+      // 「工作区」,再让后续 read/write 的「文件须落在工作区内」这条判据自我成立。
+      // 判据只住 fsBridge.assertWorkspaceRegistered 一处(§0.6)。
+      const workspaceRoot = fsBridge.assertWorkspaceRegistered(body.path)
       const name = body.name ?? body.path.split(/[\\/]/).pop() ?? 'workspace'
-      const techStack = fsBridge.detectTechStack(body.path)
-      fsBridge.addRecent({ path: body.path, name, techStack })
+      const techStack = fsBridge.detectTechStack(workspaceRoot)
+      fsBridge.addRecent({ path: workspaceRoot, name, techStack })
       // 同步查询当前用户的权限配置,前端据此决定是否弹窗
       const { getPermission, touchLastAccessed } =
         await import('../db/workspace-permission-queries.js')
@@ -140,7 +144,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       if (perm) await touchLastAccessed(request.userId, body.path)
       return reply.send(
         success({
-          path: body.path,
+          path: workspaceRoot,
           name,
           techStack,
           permission: perm,

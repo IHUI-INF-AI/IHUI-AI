@@ -26,6 +26,35 @@
  *
  * 消费方式只能是子路径 `@ihui/shared/ui/video-player-spec`,**禁止挂根桶**。本表只存逻辑 px;
  * 小程序侧换算 `(px)=>rpx(px*TARO_RPX_PER_PX)`,RN 侧 1:1(dp)。
+ *
+ * ── O02 票④(第 ④ 格)收口证据:本族"单端档全在 RN、真收敛 0"────────────────
+ * 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`):
+ *   VideoPlayer diffCount 5 / radiusCount 0 / elementRadiusCount 0 / named 冲突 0;
+ *   仅 RN 5 = [4, 6, 8, 12, 16],仅小程序 0。
+ *
+ * 5 值逐条归属 —— **每一条都是 A(小程序端没有这个节点),B 0 枚、C 0 枚**:
+ *   4  进度条轨道粗细 `VP_TRACK_HEIGHT_PX`(web `h-1` = 4);小程序原生 chrome 无自绘轨道。
+ *      同值还有 RN 的 `py-1` 按钮纵向内边距(另一个槽,按值合并会过宽归因,§头注"同名数值不同槽"同理)。
+ *   6  进度条命中行可见高 `VP_PROGRESS_ROW_HEIGHT_PX`(RN 原 `h-1.5`);小程序无自绘命中行。
+ *   8  控制条内元素间距 `VP_CONTROL_GAP_PX`(web `gap-2` = 8);小程序无自绘控制条。
+ *   12 浮层控制条内边距 `VP_OVERLAY_PADDING_PX`(web `p-3` = 12);
+ *      **与 `VP_LABEL_FONT_PX`(12)同值但不同槽** —— 字号与内边距不得按值并成一档。
+ *   16 错误文案横向留白(端内 Tailwind `px-4`,**不在本表**):小程序错误态是
+ *      `justify-center` 容器里的裸 `<Text>`(无自绘容器),补一个 16 就是往屏幕上加节点。
+ *
+ * ⇒ 真收敛 = 0 枚:两端**没有**"同值却各写一份"的档 ——
+ *   · 舞台尺寸已经单源:小程序 `rpx(vpStageHeightRpx())`、RN `aspectRatio: VP_STAGE_ASPECT`,
+ *     422rpx → 211px @375 与 375 × 9/16 = 210.94px 落在同一像素(由 wiring 测试 ② 现算钉住);
+ *   · 其余 4 个数值档的消费面只有 RN 自绘 chrome,小程序端按平台机制不消费
+ *     (原生 `<Video controls>` 的播放/进度/全屏都是微信 chrome)。
+ *   ⚠ 门 128 的 px 档集合**看不见舞台档**(比例不是 px 档),所以"舞台两端同值"这件事
+ *   不能从门读数里推 —— 判据在 `__tests__/video-player-wiring.test.ts` 第 ② 条,不在本表。
+ *
+ * 单腿档清单(处置 = 留端内 / 留本表,均不得给小程序端补自绘节点):
+ *   本表 4 枚(VP_TRACK_HEIGHT_PX / VP_PROGRESS_ROW_HEIGHT_PX / VP_CONTROL_GAP_PX /
+ *   VP_OVERLAY_PADDING_PX)与字号档 VP_LABEL_FONT_PX 只被 RN 消费;
+ *   hitSlop 两枚(VP_CONTROL_BUTTON_HIT_SLOP_PX / VP_PROGRESS_BAR_HIT_SLOP_PX)同为 RN 独有命中扩张通道;
+ *   `px-4`(16)属端内 Tailwind 刻度,不搬进本表(搬进来会造出"两处都同值"的假账)。
  */
 
 /** 舞台宽高比(单一源)。取值依据:RN 收编前既有 `aspect-video` = 16:9;小程序 210px 是同一意图的投影。 */

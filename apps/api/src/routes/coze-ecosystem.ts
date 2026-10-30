@@ -22,6 +22,7 @@ import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { MAX_MULTIPART_UPLOAD_SIZE } from '../utils/file-type-validator.js'
+import { MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 
 // =============================================================================
 // Coze 配置 & 通用请求工具
@@ -310,23 +311,28 @@ export const cozeEcosystemRoutes: FastifyPluginAsync = async (server) => {
   // audio — 音频转写(coze.ts 已有 /audio/speech,此处补齐 transcriptions)
   // ===========================================================================
   // POST /audio/transcriptions  音频转文字
-  server.post('/audio/transcriptions', async (request, reply) => {
-    const data = await request.file()
-    if (!data) return reply.status(400).send(error(400, '未检测到上传音频文件'))
-    const buffer = await data.toBuffer()
-    // P1 安全加固(2026-08-02):音频文件大小限制(防 DoS,CWE-400)
-    if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
-      return reply.status(400).send(error(400, '音频文件大小超过 100MB 限制'))
-    }
-    const result = await cozeUpload(
-      '/v1/audio/transcriptions',
-      reply,
-      {},
-      { buffer, filename: data.filename || 'audio' },
-    )
-    if (result === null) return
-    reply.send(success(result))
-  })
+  // multipart 直传音频:吃全局 2MiB 会被静默 413,显式放开到单文件 25MiB 形态
+  server.post(
+    '/audio/transcriptions',
+    { bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT },
+    async (request, reply) => {
+      const data = await request.file()
+      if (!data) return reply.status(400).send(error(400, '未检测到上传音频文件'))
+      const buffer = await data.toBuffer()
+      // P1 安全加固(2026-08-02):音频文件大小限制(防 DoS,CWE-400)
+      if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+        return reply.status(400).send(error(400, '音频文件大小超过 100MB 限制'))
+      }
+      const result = await cozeUpload(
+        '/v1/audio/transcriptions',
+        reply,
+        {},
+        { buffer, filename: data.filename || 'audio' },
+      )
+      if (result === null) return
+      reply.send(success(result))
+    },
+  )
 
   // ===========================================================================
   // files — 文件管理(coze.ts 已有 POST /files/upload,此处补齐列表/删除)

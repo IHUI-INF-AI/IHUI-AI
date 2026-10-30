@@ -168,6 +168,37 @@ export function useVoiceRecorder({
     }
   }, [onComplete, onRecorded, onSttFailed, recorder, transcribe, language, aiServiceUrl])
 
+  /**
+   * 取消录音(2026-10-27 立,D03 语音笔记 RN 腿)。
+   *
+   * 与 `stop()` 的区别就是本函数存在的理由:stop 是「录完了」——收尾、上传、走 STT、
+   * 回调 onComplete;cancel 是「不要了」——只把麦克风释放掉,**不上传、不转写、不回调任何
+   * 回调**。语音笔记的 cancel / interrupt 两条事件(共享 12 相机里的 recording --cancel-->
+   * cancelled 与 * --interrupt--> interrupted)若复用 stop,就会产生一次「被取消的录音还要
+   * 上传转写」的请求,并且转写结果迟到后还会回调到上层 ⇒ 上层必须自己判「这一条是不是
+   * 被丢弃的那次」,那等于把状态机的语义搬到端内做二次判定(§0.6 单一真相源不许)。
+   * 取消不产生结果 ⇒ 上层不必判,竞态从结构上不存在。
+   */
+  const cancel = useCallback(async () => {
+    // 推进代次:让仍在等待授权/prepare 的 start 续体放弃(与 stop 同一条规矩)
+    startEpochRef.current += 1
+    if (!recordingRef.current) {
+      setRecording(false)
+      return
+    }
+    recordingRef.current = false
+    setRecording(false)
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    try {
+      await recorder.stop()
+    } catch {
+      /* 释放失败无所谓:不产生结果,也不回调 */
+    }
+  }, [recorder])
+
   const start = useCallback(() => {
     if (recordingRef.current) return
     const epoch = ++startEpochRef.current
@@ -244,7 +275,7 @@ export function useVoiceRecorder({
     if (recording && duration >= RECORD_MAX_SECONDS) void stop()
   }, [recording, duration, stop])
 
-  return { recording, transcribing, duration, start, stop }
+  return { recording, transcribing, duration, start, stop, cancel }
 }
 
 export default useVoiceRecorder

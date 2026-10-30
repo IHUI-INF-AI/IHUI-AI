@@ -15,7 +15,34 @@
  *   ② 同目录测试目录:`dir/x.ts` ← `dir/__tests__/x*`(逐字前缀,**但必须落在词边界**
  *      `.` / `-` / `_`,否则 `user.ts` 会被 `users.test.ts` 冒充成绿 —— 失效方向必须指向
  *      "多要一次说明",绝不能"多放一次跳门" §0.10)。
- * 只认这两条:更宽的"同根目录任意 stem 相同"会让 `apps/web/e2e/*.spec.ts` 与业务模块
+ *   ③(2026-10-27 立)收集目录同名:`P/src` 或 `P/app` 下任意层的 `x.ts` ← `P/tests` 或 `P/test`
+ *     下任意层的 `x.test.*`(`x` 精确同名,跨扩展名)。为什么必须认:这是补测配方
+ *     (`e2e-autofill-map.json` 的 api-unit-other)与 vitest include(`apps/api/tests/` 与
+ *     `test/` 递归的 `*.test.ts`)的**真落点** —— 门不认它,
+ *      补测器写的测试门自己不收,"新模块缺测试才准入"就成了空话(2026-10-27 实测:存量缺口
+ *      4042 枚里 239 枚是收集目录里已有同名测试的假缺口)。三条收紧,方向全是"多要一次说明":
+ *      · 只认 `*.test.*`:`.spec.*` 是 playwright 族(`apps/web/tests/visual/*.spec.ts` 等,
+ *        vitest 明确 exclude),认了就是假绿;
+ *      · **精确同名**才认,不做 ② 的词边界前缀放宽 —— 收集目录里特征命名多
+ *        (`admin-deep-p0-batch.test.ts` 这类),前缀会把 `admin-*.test.ts` 冒充成 `admin.ts` 的测试;
+ *      · **同包同名唯一**才认(`findTestlessModules` 按被审面现算,包根 = 射程根的父目录):
+ *        名字指认不了第二枚同名模块 —— 本仓同名撞车组实测 64 个(page×903 / PageClient×139 /
+ *        _shared×7 / audit×3 …),同名多模块时 ③ 失效、落回缺口。非单调提示:新增同名兄弟会让
+ *        原模块的 ③ 证据失效而落进新增缺口,这是"要一次说明",不是误报(§0.10)。
+ *   ④(2026-10-28 立)**收集式** `__tests__`:`X/__tests__/x.test.*` 覆盖 `X/` **子树内**的 `x.*`。
+ *      与 ② 的区别只在"谁的 __tests__":② 是模块**自己目录**下的 `__tests__`(局部),④ 是
+ *      **祖先目录**下的 `__tests__`(收集式) —— 这就是 `apps/api/src/routes/__tests__/` 收
+ *      `apps/api/src/routes/user/*.ts` 的那一族,存量 932 枚"任意层 __tests__ 有同名"里
+ *      926 枚落在此形态。三条收紧,方向同样全是"多要一次说明":
+ *      · **只认 `*.test.*`**:收集目录里的 `.spec.*` 是 playwright 族,认了就是假绿;
+ *      · **子树锚定**:模块必须在 `X/` 之下。不收窄就会让 `routes/__tests__/x.test.ts` 去盖
+ *        `services/x.ts`,一份路由测试冒充服务层测试;
+ *      · **子树内同名唯一**:这维是 ④ 的**主收紧**。整包同名的 926 枚里 910 枚是撞车 ——
+ *        `apps/web/app` 树下任意层的 `page.tsx` 一族(每个 Next 路由页都叫 `page`)、`routes/{user,other}/
+ *        admin-routes.ts` 双份实现……一份 `page.test.tsx` 认下去就是几百枚页面同时"假绿"。
+ *        计数范围取"该 `__tests__` 的父目录子树"而非整包:② 式的同目录 `__tests__` 天然
+ *        唯一,跨子树同名不相关,按子树算才既不误收也不误挡。
+ * 只认这四条:更宽的"同根目录任意 stem 相同"会让 `apps/web/e2e/*.spec.ts` 与业务模块
  * 意外相撞,是静默假绿的入口,故不设。
  *
  * 三档结论(§0.3「没判绝不写成判过」):
@@ -32,7 +59,7 @@
  *   `stock`(存量只报数)。测试被删 ⇒ 模块从"有测试"变成缺口 ⇒ 正确地落进新增。
  */
 
-import { basename, dirname, extname } from 'node:path'
+import { basename, dirname } from 'node:path'
 
 import { maskComments, maskCommentsAndStrings } from './code-mask.mjs'
 
@@ -54,6 +81,12 @@ export const TEST_SUFFIXES = Object.freeze([
   '.spec.mjs',
   '.spec.cjs',
 ])
+
+/**
+ * 规则③ 只认的单测族后缀(`*.test.*`)。收集目录里的 `.spec.*` 是 playwright 族
+ * (`apps/web/tests/visual/*.spec.ts`,vitest exclude 明确不收),认了就是假绿。
+ */
+export const UNIT_TEST_SUFFIXES = Object.freeze(TEST_SUFFIXES.filter((s) => s.startsWith('.test.')))
 
 /**
  * 已知**非源码**形态:静默跳过不是"没判",而是判过"这不是模块"(资源/样式/声明)。
@@ -131,6 +164,23 @@ export function isTestFile(rel) {
   return TEST_SUFFIXES.some((suffix) => p.endsWith(suffix))
 }
 
+/** 规则③ 的单测族判定:测试文件且只落 `*.test.*`(不含 playwright 的 `*.spec.*`)。 */
+export function isUnitTestFile(rel) {
+  const p = normalizePath(rel)
+  return UNIT_TEST_SUFFIXES.some((suffix) => p.endsWith(suffix))
+}
+
+/**
+ * 收集目录包根:`P/tests/**` 或 `P/test/**`(取 `tests`/`test` 首段为界)⇒ `P`;
+ * 不是收集目录形态(含源码里内嵌的 `src/lib/tests/` 这类)返回 null —— 锚定由
+ * `collectionTestCovers` 再判,P 必须是模块的 `src|app` 兄弟层。
+ */
+export function collectionRootOf(rel) {
+  const segs = normalizePath(rel).split('/')
+  const idx = segs.findIndex((s) => s === 'tests' || s === 'test')
+  return idx > 0 ? segs.slice(0, idx).join('/') : null
+}
+
 function isInNonSourceDir(rel) {
   const dir = dirname(normalizePath(rel))
   if (dir === '.' || dir === '') return false
@@ -155,7 +205,6 @@ export function prefixHit(name, stem) {
   return '.-_'.includes(name[stem.length])
 }
 
-const LOCAL_DECL_RE = /^[ \t]*(?:const|let|var|function|class|enum|interface|type|namespace)\b/m
 const CJS_EXPORT_RE = /^[ \t]*(?:module\.exports|exports\.[A-Za-z_$][\w$]*)\s*=/m
 const RUNTIME_DECL_RE =
   /^[ \t]*export\s+(?:default\s+)?(?:abstract\s+)?(?:async\s+)?(?:const|let|var|function|class|enum)\b/gm
@@ -252,10 +301,73 @@ export function classifyFile(entry) {
 }
 
 /**
- * 单个模块是否被某测试文件按命名约定覆盖。两条规则见文件头注。
- * 对 `dir/x.ts`:①同目录 `x.test.*` / `x.spec.*`;②`dir/__tests__/` 下词边界前缀命中。
+ * 规则③ 的位置与名判据(纯路径,不含"同名唯一"那一维 —— 那维要按被审面现算,
+ * 由 `findTestlessModules` 传 `opts.stemUnique` 收口,见文件头注):
+ * `P/src` 或 `P/app` 下任意层的 `x.ts` ← `P/tests` 或 `P/test` 下任意层的 `x.test.*`,
+ * `x` 精确同名、跨扩展名。
  */
-export function testCoversModule(moduleRel, testRel) {
+export function collectionTestCovers(moduleRel, testRel) {
+  const mod = normalizePath(moduleRel)
+  const tst = normalizePath(testRel)
+  if (!isUnitTestFile(tst)) return false
+  const stem = basename(mod).replace(/\.[^.]*$/, '')
+  if (testCoreOf(tst) !== stem) return false
+  const pkg = collectionRootOf(tst)
+  if (!pkg) return false
+  return mod.startsWith(`${pkg}/src/`) || mod.startsWith(`${pkg}/app/`)
+}
+
+/**
+ * 包根:`<pkg>/src/**` 与 `<pkg>/app/**` 的 `<pkg>`(取**首个** `src`/`app` 段之前的部分)。
+ * 与 `collectionRootOf` 的"收集目录切包根"是同一格语义的两条入口,`P` 必须两处一致 —— 否则
+ * `apps/api/tests/*.test.ts` 与 `apps/api/src/**\/__tests__/*.test.ts` 会对同一模块给出相反结论。
+ */
+export function packageRootOf(rel) {
+  const segs = normalizePath(rel).split('/')
+  const idx = segs.findIndex((s) => s === 'src' || s === 'app')
+  return idx > 0 ? segs.slice(0, idx).join('/') : null
+}
+
+/**
+ * 规则④ 的收集式 `__tests__` 父目录(子树根):`X/__tests__/x.test.ts` ⇒ `X`。
+ * 只认**紧邻文件名的** `__tests__`(`X/__tests__/sub/x.test.ts` 这类再嵌一层不认,从严)。
+ * 非该形态返回 null。
+ */
+export function nestedTestsDirOf(rel) {
+  const segs = normalizePath(rel).split('/')
+  const idx = segs.lastIndexOf('__tests__')
+  if (idx <= 0 || idx !== segs.length - 2) return null
+  return segs.slice(0, idx).join('/')
+}
+
+/**
+ * 规则④ 的位置与名判据(纯路径,不含"子树内同名唯一"那一维 —— 那维要按被审面现算,
+ * 由 `findTestlessModules` 传 `opts.subtreeStemUnique` 收口):
+ * `X/__tests__/x.test.*` 覆盖 `X/` 子树内的 `x.*`,stem 精确同名、跨扩展名、同包。
+ * 匹配口径:`stem` 相等(不做前缀/词边界放宽) + 测试须落 `.test.{ts,tsx,js,jsx,mjs,cjs}`
+ * (`UNIT_TEST_SUFFIXES`) + 模块扩展名族 `SOURCE_EXTS`(由上层分类器负责)。
+ */
+export function nestedTestsDirCovers(moduleRel, testRel) {
+  const mod = normalizePath(moduleRel)
+  const tst = normalizePath(testRel)
+  if (!isUnitTestFile(tst)) return false
+  const base = nestedTestsDirOf(tst)
+  if (base === null) return false
+  if (!mod.startsWith(`${base}/`)) return false
+  const mp = packageRootOf(mod)
+  if (mp === null || mp !== packageRootOf(base)) return false
+  return testCoreOf(tst) === basename(mod).replace(/\.[^.]*$/, '')
+}
+
+/**
+ * 单个模块是否被某测试文件按命名约定覆盖。四条规则见文件头注。
+ * 对 `dir/x.ts`:①同目录 `x.test.*` / `x.spec.*`;②`dir/__tests__/` 下词边界前缀命中;
+ * ③收集目录精确同名(还须 `opts.stemUnique === true`,同包同名唯一由调用方按面判);
+ * ④收集式 `__tests__` 精确同名(还须 `opts.subtreeStemUnique === true`,子树内同名唯一
+ * 同样由调用方按面判)。
+ * `opts` 缺省时③④恒不成立 —— 失效方向是"多要一次说明"(§0.10),不是"多放一次跳门"。
+ */
+export function testCoversModule(moduleRel, testRel, opts = {}) {
   const mod = normalizePath(moduleRel)
   const tst = normalizePath(testRel)
   if (!isTestFile(tst)) return false
@@ -267,7 +379,9 @@ export function testCoversModule(moduleRel, testRel) {
     if (getParentTestDir(tst) !== modDir) return false
     return prefixHit(testCoreOf(tst), stem)
   }
-  return false
+  if (nestedTestsDirCovers(mod, tst)) return opts.subtreeStemUnique === true
+  if (!collectionTestCovers(mod, tst)) return false
+  return opts.stemUnique === true
 }
 
 function getParentTestDir(rel) {
@@ -326,19 +440,31 @@ export function findTestlessModules({ files, testFiles, roots } = {}) {
     if (prev === undefined || entry.text !== undefined) inside.set(rel, entry.text)
   }
 
-  // 测试索引:同目录(含 __tests__)即可,不建全仓倒排 —— 规则本身是路径局部的。
+  // 测试索引:同目录(含 __tests__)即可,不建全仓倒排 —— 规则①② 本身是路径局部的。
+  // 规则③ 走"收集目录 + 精确同名"倒排(stem → 单测),规则④ 走同一张倒排(名匹配后再由
+  // nestedTestsDirCovers 判子树锚定 + 调用方现算的子树唯一维)。
   const byDir = new Map()
+  const byStemCore = new Map()
   for (const t of tests) {
     const dir = dirname(t)
     if (!byDir.has(dir)) byDir.set(dir, [])
     byDir.get(dir).push(t)
+    if (!isUnitTestFile(t)) continue
+    const core = testCoreOf(t)
+    if (!byStemCore.has(core)) byStemCore.set(core, [])
+    byStemCore.get(core).push(t)
   }
-  const coveringTests = (rel) => {
+  const coveringTests = (rel, stemUnique, subtreeStemCount) => {
     const dir = dirname(rel)
     const stem = basename(rel).replace(/\.[^.]*$/, '')
     const hits = []
     for (const t of byDir.get(dir) ?? []) if (testCoversModule(rel, t)) hits.push(t)
     for (const t of byDir.get(`${dir}/__tests__`) ?? []) if (testCoversModule(rel, t)) hits.push(t)
+    for (const t of byStemCore.get(stem) ?? []) {
+      const base = nestedTestsDirOf(t)
+      const subtreeStemUnique = base !== null && subtreeStemCount.get(`${base}::${stem}`) === 1
+      if (testCoversModule(rel, t, { stemUnique, subtreeStemUnique })) hits.push(t)
+    }
     return hits.sort()
   }
 
@@ -346,7 +472,7 @@ export function findTestlessModules({ files, testFiles, roots } = {}) {
   const covered = []
   const skipped = []
   const undetermined = []
-  let modules = 0
+  const moduleEntries = []
   for (const [rel, text] of [...inside.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const verdict = classifyFile({ path: rel, text })
     if (verdict.kind === 'test') continue
@@ -358,12 +484,37 @@ export function findTestlessModules({ files, testFiles, roots } = {}) {
       undetermined.push({ path: rel, reason: verdict.reason, blocks: verdict.blocks })
       continue
     }
-    modules += 1
     const root = rootList.filter((r) => inRoot(rel, r)).sort((a, b) => b.length - a.length)[0]
-    const hits = coveringTests(rel)
+    moduleEntries.push({ rel, root })
+  }
+  // 规则③ 的"同包同名唯一"维:包根 = 射程根的父目录(与收集目录 P 同一格)。
+  // 同名 ≥2 枚 ⇒ 名字指认不了模块,③ 失效(落回缺口),失效方向 = 多要一次说明(§0.10)。
+  const stemCount = new Map()
+  for (const { rel, root } of moduleEntries) {
+    const key = `${dirname(root)}::${basename(rel).replace(/\.[^.]*$/, '')}`
+    stemCount.set(key, (stemCount.get(key) ?? 0) + 1)
+  }
+  // 规则④ 的"子树内同名唯一"维:每个收集式 `__tests__` 的父目录为一个计数域。
+  // 与 ③ 的整包计数分开:③ 是"包里只有一枚叫这名",④ 是"这棵子树里只有一枚叫这名" ——
+  // `apps/web/app` 树下任意层的 `page.tsx` 一族必须在 ④ 挡下(整包同名),而同目录 `__tests__` 的
+  // 单例模块不该被别处的同名兄弟连坐(子树同名)。
+  const subtreeStemCount = new Map()
+  const subtreeBases = [...new Set(tests.map(nestedTestsDirOf).filter((b) => b !== null))]
+  for (const base of subtreeBases) {
+    const prefix = `${base}/`
+    for (const { rel } of moduleEntries) {
+      if (!rel.startsWith(prefix)) continue
+      const key = `${base}::${basename(rel).replace(/\.[^.]*$/, '')}`
+      subtreeStemCount.set(key, (subtreeStemCount.get(key) ?? 0) + 1)
+    }
+  }
+  for (const { rel, root } of moduleEntries) {
+    const stemUnique = stemCount.get(`${dirname(root)}::${basename(rel).replace(/\.[^.]*$/, '')}`) === 1
+    const hits = coveringTests(rel, stemUnique, subtreeStemCount)
     if (hits.length) covered.push({ path: rel, test: hits[0] })
     else gaps.push({ path: rel, root })
   }
+  const modules = moduleEntries.length
   const emptyRoots = rootList.filter((r) => ![...inside.keys()].some((p) => inRoot(p, r)))
   return {
     roots: rootList,
@@ -407,6 +558,12 @@ export const __test__ = {
   analyzeExports,
   classifyFile,
   testCoversModule,
+  collectionTestCovers,
+  collectionRootOf,
+  nestedTestsDirCovers,
+  nestedTestsDirOf,
+  packageRootOf,
+  isUnitTestFile,
   prefixHit,
   findTestlessModules,
   diffGaps,

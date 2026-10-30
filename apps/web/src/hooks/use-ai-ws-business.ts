@@ -57,7 +57,7 @@ export interface WebSocketSendParam {
 const DEFAULT_WS_PATH = '/v1/ai/capabilities/ws/stream'
 
 /** 模型变体 → WS provider 映射(7 种变体 + 兜底) */
-export function modelToProvider(model: string): AIWSProvider {
+function modelToProvider(model: string): AIWSProvider {
   if (model.startsWith('wan2.5-i2v')) return 'qwen'
   if (model === 'qwen-plus' || model === 'qwen-omni') return 'qwen'
   if (model === 'Doubao-1.6') return 'doubao'
@@ -510,8 +510,12 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
    *     红线:这里绝不调 logout/expireSession —— 网络抖动与"判不出"都不是会话终结的理由。
    */
   const connectInnerRef = React.useRef<
-    (param: WebSocketSendParam, newIndex: number, name: AiModelKey, afterAuthRetry: boolean) =>
-      Promise<void>
+    (
+      param: WebSocketSendParam,
+      newIndex: number,
+      name: AiModelKey,
+      afterAuthRetry: boolean,
+    ) => Promise<void>
   >(async () => {})
 
   connectInnerRef.current = async (param, newIndex, name, afterAuthRetry) => {

@@ -5,7 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook, waitFor } from '@testing-library/react'
 
-import { SESSION_LOGGED_OUT_STORAGE_KEY } from '@ihui/shared/auth/auto-login-policy'
+import {
+  SESSION_HINT_COOKIE_NAME,
+  SESSION_LOGGED_OUT_STORAGE_KEY,
+} from '@ihui/shared/auth/auto-login-policy'
 // consistent-type-imports 禁 `typeof import('...')` 内联标注 ⇒ 顶部 type-only 命名空间
 // import 后以 `typeof _ns` 引用(类型等值,vi.mock 工厂内仅编译期解析,无运行时影响)。
 import type * as _apiClientNs from '@ihui/api-client'
@@ -40,7 +43,8 @@ import {
  * - `@ihui/api-client` 用 importOriginal 铺开、只覆写 `refreshAccessTokenOnce`:
  *   stores/auth.ts 的 `logout` 也从这里 import,漏了它模块加载即炸。
  * - `@/lib/cookie-utils` 只覆写 `getAuthCookie → null`(走 refresh 路径),其余导出留真
- *   (stores/auth 用到的 setAuthCookie/clearRefreshTokenCookie 是 P2-18 后的空操作)。
+ *   (stores/auth 用到的 setAuthCookie/clearRefreshTokenCookie 是 P2-18 后的空操作;
+ *   G 组的 `getSessionHintCookie` 必须留真 —— 它读的是 jsdom 的 cookie jar,替身会把自己测了个寂寞)。
  * - `@/stores/user` 只给 selector 形态的 `useUserStore`;本文件走不到 /auth/me 成功路径,
  *   fetchProfile 永远不会被真调。
  * - `@/stores/auth` 用**真 store**:断言的核心正是它的 `expireSession()` 只清凭据、
@@ -348,6 +352,67 @@ describe('B. 冷启动准入:httpOnly cookie 看不见 ≠ 没有(2026-10-20)', 
     useAuthStore.getState().logout()
     expect(hasSessionEstablished()).toBe(true)
     expect(markerInStorage()).not.toBeNull()
+  })
+})
+
+describe('G. 后端下发的会话提示 cookie:标记被清也不能把老用户判成匿名(2026-10-27)', () => {
+  /**
+   * 病灶(B 组那一修的残留半格):`ihui-session-established` 住在 localStorage,
+   * `expireSession()` 会清它 —— 而那次 expireSession 可能本身就是一次误判(瞬时失败
+   * 分型修好之前,任何刷新失败都会走到它)。标记一没,JS 视野里就什么都不剩:两条凭据
+   * cookie 是 httpOnly 读不到,于是冷启动闸门判匿名、连 /auth/refresh 都不发,浏览器里
+   * 明明还躺着一条 30 天的 refresh cookie。正解是后端同批下发一条**非 httpOnly**、
+   * 值恒 '1'、与 refresh 同寿命的提示 cookie(名字与下发方同源:
+   * @ihui/shared/auth/auto-login-policy 的 SESSION_HINT_COOKIE_NAME)。
+   */
+  const HINT = SESSION_HINT_COOKIE_NAME
+  const setHint = (value: string) => {
+    document.cookie = `${HINT}=${value}; Path=/; Max-Age=2592000`
+  }
+  const dropHint = () => {
+    document.cookie = `${HINT}=; Path=/; Max-Age=0`
+  }
+
+  afterEach(() => dropHint())
+
+  it('无任何本地痕迹 + 提示 cookie 在场 ⇒ 准入成立,冷启动真发一次 refresh', async () => {
+    // 这正是「隔天打开后台就要重登」的现场:标记没了、isAuthenticated 落成 false、
+    // auth cookie 是 httpOnly 读不到 —— 差别只在于这条提示 cookie 看不看得见。
+    dropHint()
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(false)
+
+    setHint('1')
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(true)
+
+    mocks.getLastRefreshFailure.mockReturnValue('transient')
+    mocks.refreshAccessTokenOnce.mockResolvedValue(null)
+    const { result } = renderHook(() => useAuthBootstrap())
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(1)
+  })
+
+  it('标记被 expireSession 清掉后,提示 cookie 仍接得住(不依赖 localStorage 的存活)', async () => {
+    markSessionEstablished()
+    useAuthStore.setState({ token: 'tk', refreshToken: 'rt', isAuthenticated: true })
+    useAuthStore.getState().expireSession()
+    expect(hasSessionEstablished()).toBe(false)
+    setHint('1')
+
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(true)
+  })
+
+  it('提示 cookie 只认后端那枚值:被改成别的值不算凭据(不接受"有名字就算")', async () => {
+    setHint('yes')
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(false)
+    setHint('1')
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(true)
+  })
+
+  it('摘除必须同批:登出路径 clearAuthCookies 下发的 Max-Age=0 覆盖后不再算凭据', async () => {
+    setHint('1')
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(true)
+    dropHint()
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

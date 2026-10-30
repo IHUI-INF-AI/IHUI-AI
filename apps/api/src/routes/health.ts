@@ -22,11 +22,23 @@ const healthHistory: HealthHistoryEntry[] = []
 
 export const healthRoutes: FastifyPluginAsync = async (server) => {
   server.get('/health', async () => {
+    // Redis 状态一并暴露:短信幂等闸的进程内去重与频控内存兜底**只在单实例下成立**,
+    // 扩容前必须先看这里是不是 up(见服务层 inflightTemplatedBiz 的约束说明)。
+    const redisClient = (server as unknown as { redis?: { ping(): Promise<string> } }).redis
+    let redis: 'up' | 'down' | 'skip' = 'skip'
+    if (redisClient) {
+      try {
+        redis = (await redisClient.ping()) === 'PONG' ? 'up' : 'down'
+      } catch {
+        redis = 'down'
+      }
+    }
     return {
       status: 'ok',
       service: '@ihui/api',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
+      redis,
     }
   })
 

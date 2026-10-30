@@ -41,7 +41,7 @@ interface UserResponse {
   stats: { followingCount: number; followersCount: number; favoritesCount: number }
 }
 
-export function UserPublicScreen() {
+function UserPublicScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()

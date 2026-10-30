@@ -61,6 +61,8 @@ import { Dropdown, type DropdownItem } from '@/components/feedback'
 import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
 import { CookieHealthIndicator } from '@/components/publish/CookieHealthIndicator'
 import { CookieAutoRefreshChip } from '@/components/publish/CookieAutoRefreshChip'
+// 2026-10-26:账号保活中心(三条保活线的统一健康度面板,替代"只有 Cookie 一行小字")
+import { KeepaliveCenterPanel } from '@/components/publish/KeepaliveCenterPanel'
 import { BatchImportDialog } from '@/components/publish/BatchImportDialog'
 import { AccountGroupManager } from '@/components/publish/AccountGroupManager'
 
@@ -269,6 +271,10 @@ export default function AccountsPage() {
         </div>
       </div>
 
+      {/* 2026-10-26:账号保活中心 —— Cookie 探活 / 密钥到期 / 签到凭证统一健康度。
+          未启用时显式说明缺哪个配置键(不假装开启);全绿时只留一行"全部正常"。 */}
+      <KeepaliveCenterPanel />
+
       {!loading && pendingPlatforms.length > 0 && (
         <div className="rounded-md border border-dashed border-orange-500/30 bg-orange-500/5 p-3">
           <div className="mb-1.5 flex items-center gap-2">
@@ -374,8 +380,7 @@ export default function AccountsPage() {
                             {(() => {
                               // status='disabled' 且凭证已清空 ⇒ "凭证已清除待重扫",
                               // 不是平台禁用,避免用户误解(2026-09-27 混包凭证处置的用户反馈)
-                              const cleared =
-                                a.status === 'disabled' && a.hasCredentials === false
+                              const cleared = a.status === 'disabled' && a.hasCredentials === false
                               const statusStyle = cleared
                                 ? STATUS_STYLE.cleared
                                 : (STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled)

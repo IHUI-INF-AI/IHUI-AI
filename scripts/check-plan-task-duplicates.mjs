@@ -242,6 +242,31 @@ export function extractTaskFingerprint(line) {
   return title.slice(0, 60)
 }
 
+/**
+ * 非登记行(正文粗体条目)的"题面"键:取 `- **题面**…` 的粗体内文本并归一(去日期/标点/空白)。
+ *
+ * 立因(2026-10-28 实测):清扫器留痕回捞腿的档②问 a「同题形态是否仍在被审面」只认
+ * `extractTaskFingerprint`,而该函数对非登记行**一律返回 null** ⇒ 正文条目一旦在提交里被
+ * 就地改短(实测 `319a35025fc7`:761 字版被同题 244 字版替换,粗体逐字相同),判据算成
+ * 「非登记行丢失」⇒ 回捞腿整轮 undetermined ⇒ 完成即删清扫停摆。
+ * 归一与权重门槛与指纹同口径(中文字符权重 2,< 16 不可靠 ⇒ null),但**只认行首粗体**:
+ * 正文里的强调词(`**零会话端点证据**`)不作题面。
+ * 登记行返回 null(它们走 extractTaskFingerprint,不在此另立一套)。
+ */
+export function bulletTitleKey(line) {
+  if (typeof line !== 'string') return null
+  const s = line.trim()
+  if (/^- \[[ x]\]/.test(s)) return null
+  const m = /^-\s*\*\*([^*]+)\*\*/.exec(s)
+  if (!m) return null
+  let title = m[1].replace(/\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/g, '')
+  title = title.replace(/[\s\p{P}\p{S}]+/gu, '')
+  let weight = 0
+  for (const ch of title) weight += /[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(ch) ? 2 : 1
+  if (weight < 16) return null // 与指纹同门槛:过短(如"补充")会跨条目乱撞
+  return title.slice(0, 60)
+}
+
 /** 从台账全文找同题多号组(导出供镜像测试复用) */
 export function findDuplicateGroups(content) {
   const byFp = new Map()

@@ -13,6 +13,7 @@ import { generateOrderNumber } from '../utils/crypto-random.js'
 import { logAction } from '../services/audit-service.js'
 import { decryptJSON } from '../utils/crypto.js'
 import { validateTopupAmount } from '../services/topup-discount-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { applyWithdrawal } from '../db/commission-queries.js'
 
 /**
@@ -133,6 +134,11 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      }
       const parsed = withdrawSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

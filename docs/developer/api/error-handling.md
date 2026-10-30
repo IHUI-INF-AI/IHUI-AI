@@ -266,12 +266,12 @@ X-RateLimit-Reset: 1721625600
 
 ## 错误处理最佳实践
 
-### 1. TypeScript(使用 @ihui/sdk)
+### 1. TypeScript(使用 @ihui-ai/sdk)
 
 SDK 已封装 5xx 自动重试(指数退避 500ms / 1000ms),429 和 4xx 不重试。
 
 ```typescript
-import { createClient, SdkError } from '@ihui/sdk'
+import { createClient, SdkError } from '@ihui-ai/sdk'
 
 const client = createClient({
   apiKey: process.env.IHUI_API_KEY!,

@@ -163,6 +163,7 @@ vi.mock('../src/config/index.js', () => ({
 import { authRoutes } from '../src/routes/auth.js'
 import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store.js'
 import { resetSendQuotaForTests } from '../src/utils/code-echo-guard.js'
+import { __test__ as windowCounterTest } from '../src/utils/window-counter.js'
 import { config } from '../src/config/index.js'
 
 const NOW = new Date('2026-07-23T00:00:00Z')
@@ -301,9 +302,14 @@ describe('auth routes', () => {
     })
 
     it('G-192:同一手机号+IP 超出取码配额返回 429 + Retry-After', async () => {
-      // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效
+      // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效。
+      // 2026-10-28:10-27 给投递侧补了号码三档硬顶(sms:rl:,60s 档"同一号码一次"),
+      // 它排在「手机号+IP 配额」(echo:q:)之前 ⇒ 只清 code-store 的话第二帧就被
+      // 60s 档挡成 429,量到的根本不是本用例要量的那一层。投递侧 IP/设备档
+      // (sms:guard:)同理会跨帧累积,一并清干净。
       for (let i = 0; i < 5; i += 1) {
         await codeStoreTest.reset()
+        await windowCounterTest.reset(['sms:rl:', 'sms:guard:'])
         const ok = await app.inject({
           method: 'POST',
           url: '/api/auth/send-code',
@@ -312,6 +318,7 @@ describe('auth routes', () => {
         expect(ok.statusCode).toBe(200)
       }
       await codeStoreTest.reset()
+      await windowCounterTest.reset(['sms:rl:', 'sms:guard:'])
       const blocked = await app.inject({
         method: 'POST',
         url: '/api/auth/send-code',
@@ -606,9 +613,11 @@ describe('auth routes', () => {
       expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
     })
 
-    it('超出宽限期但族里仍有活 token:只拒绝本次,不吊销整族(2026-10-20)', async () => {
-      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文迟到重放。
-      // 吊销整族会把另一个正常上下文刚拿到的活 token 一起打死 → 三端同时被迫重登。
+    it('超出宽限期但族里仍有活 token:放行轮转,不吊销整族(2026-10-27 改判)', async () => {
+      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文 / API 重启打断刷新响应后
+      // 浏览器仍留着旧 cookie —— 迟到的是旧副本,而这一族还有活 token。
+      // 改判前只拒绝本次(401),合法用户每次冷启动撞一次,只能手登并新建 family;
+      // 吊销整族(原 2026-10-20 之前的行为)更会把另一个正常上下文刚拿到的活 token 打死。
       mockVerifyRefreshToken.mockResolvedValueOnce({
         userId: 'user-001',
         familyId: 'fam-1',
@@ -617,14 +626,18 @@ describe('auth routes', () => {
         revokedAt: new Date(Date.now() - 120_000),
       })
       mockFindLiveFamilyToken.mockResolvedValueOnce({ id: 'live-sibling' })
+      mockFindUserById.mockResolvedValueOnce(makeUser())
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/refresh',
         payload: { refreshToken: 'stale-sibling-token' },
       })
-      expect(res.statusCode).toBe(401)
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.accessToken).toBe('access-token')
+      expect(res.json().errorCode).toBeUndefined()
       expect(mockFindLiveFamilyToken).toHaveBeenCalledWith('fam-1')
       expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      // 固定窗口:旧 token 已吊销,重复 revoke 会把 revokedAt 刷成 now
       expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
     })
     it('用户不存在或被禁用返回 401', async () => {

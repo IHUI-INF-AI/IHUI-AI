@@ -10,9 +10,10 @@
  * 立因(不是假想):2026-10 站点公网链路改为 EdgeOne **源站直填家宽公网 IPv4**
  * (`218.27.70.129:8801`,实测把回源 ttfb 从 10~45s 降到 0.28~0.34s)。代价是这个地址是
  * **动态的** —— 一变就全公网 5xx,而此前全仓没有任何尺子看守它(grep ddns/该 IP/ip-drift 零命中)。
- * 本机无腾讯云/EdgeOne API 凭据(实测 D:/DevEnv/secrets/ 无 tencent/edgeone 条目)⇒ 做不到
- * 自动改源站;按 §0.8(文档不得写跑不通的出路),正确形态 = **只读巡检 + 到人告警**,
- * 信里给出人工在 EO 控制台改哪一格。
+ * 2026-10-21 立时写"本机无腾讯云/EdgeOne API 凭据 ⇒ 做不到自动改源站";**2026-10-28 更正**:
+ * 生产 api 的 `.env` 里 TENCENT_SMS_* 实测可调 teo API(读 + 写)。自动改源站已落地在
+ * `scripts/repair-eo-origin.mjs`;**本文件仍是只读巡检**(单一职责,不在此处写云端),期望值
+ * 由守护用"EO 现配投影"的运行时台账经 `--ledger` 喂入(见 git-guardian.mjs 的 refreshEoLiveLedger)。
  *
  * 为什么**不在提交链**:它判的是机器态(这台机此刻的公网出口),挂 blocking 即 §12e 恒红门。
  * 唯一调度器 = `scripts/git-guardian.mjs` 的 `auditEgressIpDrift()`(每 2 分钟一趟,派发经
@@ -119,8 +120,9 @@ export function parseLedger(text, nowMs = Date.now()) {
   return { fatal: '', rows }
 }
 
-/** P1~P4 的行级裁决(纯函数,currentIp=null 即"出口取不到",逐行落未判定而非冒绿)。 */
-export function judgeRows(rows, currentIp, nowMs = Date.now()) {
+/** P1~P4 的行级裁决(纯函数,currentIp=null 即"出口取不到",逐行落未判定而非冒绿)。
+ *  第三位形参只为既有调用点的位置契约保留 —— 过期与否在 parseLedger 那一步已算成 r.expired。 */
+export function judgeRows(rows, currentIp, _nowMs = Date.now()) {
   return (rows || []).map((r) => {
     if (r.badReason) return { ...r, state: 'unjudged', reason: `台账行形状坏:${r.badReason}` }
     if (!r.judge) return { ...r, state: 'registered', reason: '登记不判(judge=false)' }

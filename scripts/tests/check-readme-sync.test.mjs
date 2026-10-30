@@ -483,6 +483,29 @@ test('§22c 判据直连:门体 surface 与判据层是同一批函数对象(测
   assert.equal(surface.classifyDescriptor(d, README_FULL_PATH.toLowerCase()).state, 'covered')
 })
 
+test('棘轮(§0.5):存量在额度内不顶红,超出额度才判红 —— 且不许靠上调额度消红', () => {
+  // §22c:判据只从门体取,这里只构造输入
+  const mk = (missing) => ({ counts: { missing, alias: 0 }, undetermined: [] })
+  const bl = { missing: 125 }
+  assert.equal(gate.decideExit(mk(125), { baseline: bl }), 0, '齐平额度 ⇒ 存量只报数')
+  assert.equal(gate.decideExit(mk(120), { baseline: bl }), 0, '存量下降 ⇒ 更不该红')
+  assert.equal(gate.decideExit(mk(126), { baseline: bl }), 1, '新增一枚未描述 ⇒ 必须判红')
+  // 无基线 ⇒ 退回旧语义,绝不因为"没读到基线"就静默放宽
+  assert.equal(gate.decideExit(mk(1), {}), 1)
+  assert.equal(gate.decideExit(mk(0), {}), 0)
+  // 基线件读不懂 ⇒ 未判定信号(error 非空),门侧据此 exit 2
+  const dir = mkScratch('readme-sync-bl-')
+  try {
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(join(dir, gate.BASELINE_REL), '{"missing": "一百"}', 'utf8')
+    const bad = gate.loadBaseline(dir)
+    assert.equal(bad.present, false)
+    assert.equal(typeof bad.error, 'string', '读不懂必须给未判定信号,不许当没基线')
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('形状锁:runner(HEAD 面)登记 id 22 且档位仍是 warn(升档前置=存量归零)', () => {
   const got = catBatch(REPO_ROOT, ['HEAD:scripts/guardian-runner.mjs'], { maxBuffer: 1 << 29 })
   const runner = got.get('HEAD:scripts/guardian-runner.mjs')

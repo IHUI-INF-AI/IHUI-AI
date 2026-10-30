@@ -59,9 +59,8 @@ const LOCK_RELEASE_OUTCOME_VALUES = [
 ] as const satisfies readonly LockReleaseOutcome[]
 
 /** 编译期钉:登记表缺员 ⇒ 非 never 报错(任何域加档必须同批进表);void 引用绕开 noUnusedLocals */
-type _OutcomeTableCoversUnion = LockReleaseOutcome extends (typeof LOCK_RELEASE_OUTCOME_VALUES)[number]
-  ? true
-  : never
+type _OutcomeTableCoversUnion =
+  LockReleaseOutcome extends (typeof LOCK_RELEASE_OUTCOME_VALUES)[number] ? true : never
 const _outcomeTableCoversUnion: _OutcomeTableCoversUnion = true
 
 /** 字符串状态 → 合法 outcome;未到终点的档返回 null(调用方据此走自己的分支,不进释放原语)。 */
@@ -135,6 +134,19 @@ async function _tick(taskId: string): Promise<void> {
     return
   }
   if (ok) return
+
+  // 驱逐前身份判(G-21 格⑤ 同族纪律「按记录本体做 CAS 身份判,不按 key 一刀切」,2026-10-28):
+  // 本次 tick 读到的登记必须**仍是**当前登记,才轮得到它判死。反例(修复前按 key 无条件停):
+  // 旧 token 的 renew 在途 → re-dispatch 已 startLockHeartbeat 换上新 token/新计时器 → 旧 tick
+  // 回来读到 ok=false,`stopLockHeartbeat(taskId)` 把**新的**心跳一并停掉;此后新锁无人续期,
+  // TTL 到点静默过期,而这条路径连一行日志都不会留(失效方向是安静)。判断权只归同一次登记。
+  if (heartbeats.get(taskId) !== entry) {
+    logger.debug('[workspace-lock-heartbeat] 旧 tick 续期失败但登记已被新一次启动取代,不判死', {
+      taskId,
+      workspace: entry.workspace,
+    })
+    return
+  }
 
   // 锁已丢失:停心跳 → 回写 blocked → SSE 告警
   stopLockHeartbeat(taskId)

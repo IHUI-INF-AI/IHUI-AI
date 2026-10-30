@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { ChevronLeft, ChevronRight, Clock, Coins, FileText } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, Coins, Eye, FileText } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -25,13 +25,16 @@ import {
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
+import { LogDetailDialog } from './LogDetailDialog'
 
 const PAGE_SIZE = 20
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface LogRow {
-  id: number
+  /** llm_call_logs.id 是 uuid 主键(旧标注 number 是笔误:详情面要拿它拼 URL) */
+  id: string
   userId: string
   model: string
   promptTokens: number
@@ -76,6 +79,8 @@ export default function AdminRelayLogsPage() {
   const [startDate, setStartDate] = React.useState('')
   const [endDate, setEndDate] = React.useState('')
   const [groupBy, setGroupBy] = React.useState<'model' | 'day' | 'user'>('model')
+  /** 打开详情抽屉的行 id(null = 关闭) */
+  const [detailId, setDetailId] = React.useState<string | null>(null)
 
   const qs = React.useMemo(() => {
     const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
@@ -321,20 +326,21 @@ export default function AdminRelayLogsPage() {
                 <th className="px-3 py-2 text-right">延迟(ms)</th>
                 <th className="px-3 py-2 text-left">状态</th>
                 <th className="px-3 py-2 text-left">错误</th>
+                <th className="px-3 py-2 text-right">操作</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={`sk-${i}`}>
-                    <td colSpan={7} className="px-3 py-2">
+                    <td colSpan={8} className="px-3 py-2">
                       <Skeleton className="h-6 w-full" />
                     </td>
                   </tr>
                 ))
               ) : list.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                     暂无数据
                   </td>
                 </tr>
@@ -372,6 +378,22 @@ export default function AdminRelayLogsPage() {
                     <td className="px-3 py-2 text-xs text-red-600 dark:text-red-400">
                       {l.errorMessage ?? '-'}
                     </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end">
+                        <Tooltip content="查看单条详情">
+                          <span className="inline-flex">
+                            <Button
+                              size="icon-2xs"
+                              variant="ghost"
+                              onClick={() => setDetailId(l.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span className="sr-only">查看该条请求详情</span>
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -406,6 +428,8 @@ export default function AdminRelayLogsPage() {
           </Button>
         </div>
       </div>
+
+      <LogDetailDialog logId={detailId} onOpenChange={(open) => !open && setDetailId(null)} />
     </div>
   )
 }

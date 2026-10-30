@@ -101,6 +101,37 @@ const metaLearnerRoutes: FastifyPluginAsync = async (server) => {
       reply.status(502).send(error(502, 'ai-service unavailable'))
     }
   })
+
+  // POST /api/admin/meta-learner/refresh → POST /api/admin/meta-learner/refresh
+  // 控制帧 `refresh_memory`(2026-10-28 立):强制重扫持久化记忆源 + 回报差额。
+  // 上游返的是裸 JSON(无 {code,message,data} 包装),本层包成统一信封。
+  server.post('/refresh', async (request, reply) => {
+    try {
+      const upstream = await aiServiceFetch(request, '/api/admin/meta-learner/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.body ?? {}),
+      })
+      const text = await upstream.text()
+      let payload: unknown = text
+      try {
+        payload = JSON.parse(text) as unknown
+      } catch {
+        // 保留原始 text
+      }
+      if (upstream.ok) {
+        return reply.status(upstream.status).send(success(payload))
+      }
+      const detail =
+        payload !== null && typeof payload === 'object' && 'detail' in payload
+          ? String((payload as { detail: unknown }).detail)
+          : null
+      reply.status(upstream.status).send(error(upstream.status, detail ?? '记忆面刷新失败'))
+    } catch (e) {
+      request.log.error({ err: e }, 'meta-learner refresh proxy failed')
+      reply.status(502).send(error(502, 'ai-service unavailable'))
+    }
+  })
 }
 
 export default metaLearnerRoutes

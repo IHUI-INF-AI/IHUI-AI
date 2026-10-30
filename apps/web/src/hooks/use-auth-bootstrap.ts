@@ -8,7 +8,7 @@ import * as React from 'react'
 
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
-import { getAuthCookie } from '@/lib/cookie-utils'
+import { getAuthCookie, getSessionHintCookie } from '@/lib/cookie-utils'
 import { getDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { isDesktopAuthVaultEnabled } from '@/lib/api-base-url'
 import { fetchApi, getLastRefreshFailure } from '@/lib/api'
@@ -69,20 +69,23 @@ async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: strin
  * 判据(任一成立即认为"可能有会话可恢复"):
  * - 持久化 isAuthenticated 标志位(仅 UI 状态,无 token,安全;覆盖"标志位在、cookie 在"的主流回访);
  * - 可读 auth cookie(旧版本降级通道,e2e storageState 注入即走此路);
+ * - 后端下发的会话提示 cookie(非 httpOnly,值恒 '1';JS 唯一看得见、且跨冷启动存活的
+ *   "这台浏览器有过 30 天会话"信号,2026-10-27);
  * - 桌面 Tauri vault 里有 refreshToken(body 模式刷新)—— 覆盖 persist 解密失败时
  *   桌面自动登录不丢(D48′ 信封链路;浏览器模式与**桌面 dev 壳**恒不启用,后者 REST 已同源、
- *   凭据走第一方 httpOnly cookie,不再读写与生产壳共享的那颗键)。
- * 唯一被跳过的场景:浏览器 localStorage 被选择性清除但 httpOnly cookie 尚在 ——
- * Chrome"清除站点数据"会连 cookie 一起清,该场景现实中几乎不存在。
+ *   凭据走第一方 httpOnly cookie,不再读写与生产壳共享的那颗键);
+ * - localStorage 的 `ihui-session-established` 标记(2026-10-20 立;它会被 expireSession()
+ *   清掉,所以从"唯一退路"降为兜底正向信号之一,不再是最后一道)。
+ * 唯一被跳过的场景:四条全空 = 这台设备从没建立过会话 ⇒ 真匿名,不发请求、控制台零噪声。
  */
 async function hasUsableRefreshCredential(): Promise<boolean> {
   if (useAuthStore.getState().isAuthenticated) return true
   if (getAuthCookie()) return true
+  // 提示 cookie 排在 vault 那一支之前:vault 那支会 early-return,"cookie 还在、vault 被清"
+  // 这一型(桌面 persist 解密失败的真实形态)就再也读不到提示信号。带着它发一次无 body 的
+  // /auth/refresh,由浏览器/webview 自动附带第一方 cookie,是能自己接回来的。
+  if (getSessionHintCookie()) return true
   if (isDesktopAuthVaultEnabled()) return (await getDesktopRefreshToken()) !== null
-  // 浏览器:两个 cookie 都是 httpOnly,JS 看不见 —— "看不见"不等于"没有"。
-  // `ihui-auth` 只持久化 isAuthenticated,一次被动失效(expireSession)就会落成 false,
-  // 所以这里必须问一颗独立的、跨冷启动存活的"曾有过会话"标记(2026-10-20);
-  // 否则老用户冷启动被判成匿名、连 /auth/refresh 都不发,表现就是"每次都要手点登录"。
   if (hasSessionEstablished()) return true
   return false
 }

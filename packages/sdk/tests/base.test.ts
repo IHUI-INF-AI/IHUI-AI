@@ -6,7 +6,13 @@ import { BaseClient, SdkError, type SdkConfig } from '../src/base'
 
 /** 构造注入用 fetch,记录每次调用的 url/init 并按脚本返回响应。 */
 function makeFetch(
-  script: Array<{ status?: number; statusText?: string; body?: string | null; throwErr?: Error }>,
+  script: Array<{
+    status?: number
+    statusText?: string
+    body?: string | null
+    throwErr?: Error
+    headers?: Record<string, string>
+  }>,
 ) {
   const calls: Array<{ url: string; init: RequestInit }> = []
   const fetchFn = vi.fn(async (url: string | URL, init?: RequestInit) => {
@@ -16,7 +22,7 @@ function makeFetch(
     return new Response(step.body === null || step.body === undefined ? null : step.body, {
       status: step.status ?? 200,
       statusText: step.statusText ?? '',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...(step.headers ?? {}) },
     })
   })
   return { fetchFn: fetchFn as unknown as typeof fetch, calls }
@@ -169,6 +175,75 @@ describe('BaseClient 错误映射', () => {
     expect(err.code).toBe('network_error')
     expect(calls).toHaveLength(2)
   }, 10000)
+})
+
+describe('SdkError.retryAfterMs(限流透出)', () => {
+  it('429 + Retry-After 整数秒 → 毫秒值,且仍不自动重试', async () => {
+    const { fetchFn, calls } = makeFetch([
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        body: '{"code":"rate_limited","message":"slow down"}',
+        headers: { 'retry-after': '2' },
+      },
+    ])
+    const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
+    const err = (await client.request('GET', '/x').catch((e: unknown) => e)) as SdkError
+    expect(err.status).toBe(429)
+    expect(err.retryAfterMs).toBe(2000)
+    expect(calls).toHaveLength(1)
+  })
+
+  it('Retry-After 为 HTTP-date → 解析为到该时刻的毫秒数', async () => {
+    const at = Date.now() + 30_000
+    const { fetchFn } = makeFetch([
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        body: '{"code":"rate_limited","message":"slow down"}',
+        headers: { 'retry-after': new Date(at).toUTCString() },
+      },
+    ])
+    const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
+    const err = (await client.request('GET', '/x').catch((e: unknown) => e)) as SdkError
+    // HTTP-date 精度到秒(截断毫秒),边界容差 1s;判定窗 [at-Date.now()-1000, at-Date.now()+100]
+    expect(err.retryAfterMs).toBeGreaterThanOrEqual(28_000)
+    expect(err.retryAfterMs).toBeLessThanOrEqual(31_000)
+  })
+
+  it('Retry-After 缺失或不可解析 → retryAfterMs 为 undefined(不猜默认值)', async () => {
+    for (const headers of [{}, { 'retry-after': 'soon' }, { 'retry-after': '  ' }]) {
+      const { fetchFn } = makeFetch([
+        {
+          status: 429,
+          statusText: 'Too Many Requests',
+          body: '{"code":"rate_limited","message":"slow down"}',
+          headers,
+        },
+      ])
+      const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
+      const err = (await client.request('GET', '/x').catch((e: unknown) => e)) as SdkError
+      expect(err.retryAfterMs).toBeUndefined()
+    }
+  })
+
+  it('requestStream 错误路径同样透出 retryAfterMs', async () => {
+    const { fetchFn } = makeFetch([
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        body: '{"code":"rate_limited","message":"slow down"}',
+        headers: { 'retry-after': '5' },
+      },
+    ])
+    const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
+    const err = (await client
+      .requestStream('POST', '/chat/completions', {})
+      .catch((e: unknown) => e)) as SdkError
+    expect(err).toBeInstanceOf(SdkError)
+    expect(err.status).toBe(429)
+    expect(err.retryAfterMs).toBe(5000)
+  })
 })
 
 describe('BaseClient 配置校验', () => {

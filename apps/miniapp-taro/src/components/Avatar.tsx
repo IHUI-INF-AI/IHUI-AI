@@ -4,13 +4,13 @@
 
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
-import type { AvatarSize } from '@ihui/shared/ui/avatar-spec'
+import { type AvatarShape, type AvatarSize } from '@ihui/shared/ui/avatar-spec'
 
 export interface AvatarProps {
   src?: string
   name?: string
   size?: AvatarSize
-  shape?: 'circle' | 'square' | 'rounded'
+  shape?: AvatarShape
   onClick?: () => void
 }
 
@@ -30,6 +30,9 @@ const SIZES: Record<AvatarSize, string> = {
   xl: 'h-16 w-16 text-xl',
 }
 
+/** 形状 → 本端圆角类:键集直接取 spec 的 `AvatarShape`(= `AVATAR_SHAPE_STEP` 的键),spec 加形状而本端没给类名 ⇒ tsc 直接红。 */
+const SHAPE_CLASS: Record<AvatarShape, string> = { circle: 'rounded-md', square: 'rounded-lg' }
+
 export default function Avatar({
   src,
   name = '',
@@ -38,9 +41,9 @@ export default function Avatar({
   onClick,
 }: AvatarProps) {
   const sizeClass = SIZES[size]
-  // 圆角取自跨端唯一表 AVATAR_SHAPE_STEP(circle→md / square→lg),与 web/RN 三端同形;
+  // 圆角档名取自跨端唯一表 AVATAR_SHAPE_STEP(circle→md / square→lg),类名留本端(扫描面);
   // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md,故 circle 档 = rounded-md
-  const shapeClass = shape === 'circle' ? 'rounded-md' : 'rounded-lg'
+  const shapeClass = SHAPE_CLASS[shape]
   // 首字母缩写对齐 RN:按空格分词、各词首字母、最多 2 个、大写(中文名无空格取首字;空名留空)
   const initials = name
     ? name

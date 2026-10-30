@@ -123,6 +123,14 @@ export interface ChatMessage {
    *  permissionMode 等随历史接口原样下发;客户端自报不采信 —— 缺失 = 老消息/未绑定
    *  工作区,安静降级,不得据此编造 default)。结构对齐 api-client ChatMessageMetadata。 */
   metadata?: Record<string, unknown>
+  /**
+   * 2026-10-28(读完回):本人对这条消息的赞/踩票(D49① 落库面的下发形态)。
+   * - `'like' | 'dislike'` = 已表态;`null` = 当前无票(可再投);**字段缺失** = 老服务端
+   *   或该读面未接票,渲染侧按 `null` 处理但不得据此回写(缺失不是"没有票"的证据)。
+   * 只作回显输入;改票/撤销仍走 `POST /chat/messages/feedback` 与
+   * `DELETE /chat/messages/:id/feedback` 两个端点,客户端不做本地乐观记账的真相源。
+   */
+  rating?: 'like' | 'dislike' | null
   /** 2026-07-31 立,AI 对话可视化深度接入 Phase 2:消息级 subagent 工作内容
    *  - 后端 subagent_spawn/progress/end SSE 事件携带 messageId 时,前端按消息分组写入
    *  - 用于在消息气泡内 inline SubagentSection,实时刷新 subagent 生命周期 */

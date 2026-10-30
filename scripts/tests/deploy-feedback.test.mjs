@@ -87,6 +87,9 @@ function quietRound(over = {}) {
     planContent: PLAN_TEXT,
     log: (m) => logs.push(String(m)),
     warn: (m) => warns.push(String(m)),
+    // 夹具密闭(2026-10-28 补环同批):默认假面读回恒空 ⇒ apply 用例绝不触真 `git show`。
+    // 要断言"ticketLine 带回"的用例在 over 里显式覆盖(见 ⑬/⑭)。
+    readPlanHead: () => '',
     ...over,
   })
   return { res, logs, warns }
@@ -157,6 +160,34 @@ test('③ --apply:只调一次 live-doc-edit,env 与令牌族逐项;块文件用
   assert.ok(block.trim().length <= df.LINE_MAX)
   assert.ok(!existsSync(blockPath), '临时块用完即删')
   assert.equal(df.readLedger(ledgerPath)[0].result, 'registered')
+  assert.ok(!('ticketLine' in df.readLedger(ledgerPath)[0]), '回读面恒空(读不到)⇒ 条目退回无键形态,绝不伪造对齐键')
+})
+
+test('③b 回读到已落行 ⇒ registered 条目带 ticketLine(O6x 号可被 extractTicketNo 解析)', () => {
+  const inputPath = signalFile('landed.jsonl', [signal()])
+  const ledgerPath = join(SCRATCH, 'landed-ledger.jsonl')
+  const tmpDir = join(SCRATCH, 'landed-tmp')
+  const fakeSpawn = () => ({ status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' })
+  // 假 HEAD 面:与真实枚 a9cb59ed41e 的落地行同形(行首 `- [ ] O<号> [deploy-feedback] `,行体带 route=)
+  const landedLine = '- [ ] O69 [deploy-feedback] [deploy_outcome/alert_firing] rollback post /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:route=post /api/deploy/release）'
+  const { res } = quietRound({
+    inputPath,
+    ledgerPath,
+    tmpDir,
+    apply: true,
+    spawn: fakeSpawn,
+    readPlanHead: () => `# 前文无关\n${landedLine}\n- [ ] O02 别的票 route=/deploy/x\n`,
+  })
+  assert.equal(res.code, 0)
+  const e = df.readLedger(ledgerPath).find((x) => x.result === 'registered')
+  assert.equal(e?.ticketLine, landedLine, 'ticketLine 必须逐字等于读回的落地行')
+})
+
+test('③c findLandedRegistrationLine:route 带空格取全段;不同 route 不误配;无标记行不算', () => {
+  const t = ['- [ ] O70 [deploy-feedback] X route=post /api/deploy/release tail', '- [x] 旧勾行不是目标', '- [ ] 行首无标记'].join('\n')
+  assert.equal(df.findLandedRegistrationLine(t, 'deploy_outcome|alert_firing|route:post /api/deploy/release'), '- [ ] O70 [deploy-feedback] X route=post /api/deploy/release tail')
+  assert.equal(df.findLandedRegistrationLine(t, 'deploy_outcome|alert_firing|route:/deploy/build-fail'), null, 'route 不同形 ⇒ 判未命中,不得拿别的票的号凑')
+  assert.equal(df.findLandedRegistrationLine(t, ''), '- [ ] O70 [deploy-feedback] X route=post /api/deploy/release tail', 'identity 无 route 段 ⇒ 只按行头标记取首命中')
 })
 
 test('④ 同身份 24h 去重:新鲜 registered 拦截;25h 前放行', () => {

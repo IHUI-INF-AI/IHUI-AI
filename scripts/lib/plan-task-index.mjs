@@ -743,7 +743,13 @@ export function compositeKeyOf(line) {
  * 不会被"带注记"三个字静默放过(这与 `planPrefixNestedPointer` 的"holder 自身不带注记"
  * 口径一致,:670/:684/:686)。
  */
-export function findForks(content) {
+/**
+ * 按**复合主键**把一面分成 `{key, open[], done[]}` 的分组表 —— 全仓唯一的"什么算同一件事 +
+ * 它在这一面是什么状态"分组实现(F1 与 F13 共用它,§0.6;两处各写一遍必漂移)。
+ * 给不出复合主键的行(无编号 / 题面退化)不进表:宁可不算,也不拿一个会误配的键去做事
+ * (与 `compositeKeyOf` 头注同一条禁令)。
+ */
+export function stateGroupsOf(content) {
   const groups = new Map()
   for (const r of parseTaskRows(content)) {
     const k = compositeKeyOf(r.raw)
@@ -751,6 +757,11 @@ export function findForks(content) {
     if (!groups.has(k)) groups.set(k, { key: k, open: [], done: [] })
     groups.get(k)[r.state].push(r)
   }
+  return groups
+}
+
+export function findForks(content) {
+  const groups = stateGroupsOf(content)
   const all = [...groups.values()]
   // G-48(2026-10-26):副本剔除口径 = 派单出口的「本行已被标注/自述为副本」全集
   // (`isClaimExcludedPointer` 三族:【归并】原族 ∪ `副本指针(编号 …` 行首族 ∪ 裸自述族),
@@ -764,6 +775,81 @@ export function findForks(content) {
     forks: all.filter((g) => liveOpenOf(g).length > 0 && g.done.length > 0),
     dupOpen: all.filter((g) => g.open.length > 1),
     dupDone: all.filter((g) => g.done.length > 1),
+  }
+}
+
+/**
+ * F13「已勾行被捣回未勾」的**唯一判据**(2026-10-27 立项,主席 16:30 实测补牙)。
+ *
+ * ## 补的是哪一格(现读实测,不是推断)
+ * 台账是多人共写的活文档。反复出现的失效型 = **某席把工作树/索引里那份滞后副本交进提交**,
+ * 里面那条已结清的票是它的**未勾旧版** ⇒ 同一件事历史上已完成、账面上重新变成待办 ⇒ 两席领同一张票。
+ * 2026-10-27 实测:这种面在守门 130 的 `--gate --staged` 上报 `F1=0 / F4=0 / F4b=0 / F6=0`、
+ * 差值棘轮一行不涨、RC=0 —— 结构性零牙。原因是现有各维**全在"一面之内"数数**:
+ *   - F1 `findForks` 判同一主键在一面内 `- [x]` 与 `- [ ]` **并存**;滞后副本不是"并存",而是
+ *     "整组只剩未勾那一态" ⇒ 组里没有 done 行 ⇒ F1 恒 0(本函数头注 198 行写过同一格);
+ *   - F4/F4b/F6 判的是**变多 / 重复**;被审面内同一件事只剩一行时,它们量的是 0。
+ * 所以必须有一把**跨面**的尺子:同一枚复合主键,锚点面(HEAD)已勾、被审面未勾 ⇒ 状态倒退。
+ * 门 239(check-plan-archive-monotonic)判的是"已归档 ✅ 的票复活成未勾活行",锚在归档注释上,
+ * 也不是这一型(台账"完成即删"退役后,面上的已勾行本来就没有归档注释可对)。
+ *
+ * ## 判据(只用单源出口,零新正则)
+ * 主键 = `compositeKeyOf`(编号 + 标题前缀逐字等值);勾选态 = `parseTaskRows`(CHECKBOX_RE 唯一口径)。
+ * 命中(每枚主键一条):锚点面该主键 ≥1 行已勾 ∧ 被审面该主键 ≥1 行未勾。
+ * 副本指针行(`isClaimExcludedPointer` 三族)**不充被审侧证据** —— 与 `findForks` 的 liveOpenOf
+ * 同一条口径(G-48:那种行是"本行是副本"的自我标注,不是"这件事又变回未做"),复用同一出口、
+ * 不在这里抄第二份判据(§0.6 / 守门 191)。锚点侧的已勾行不做该过滤(它说的是"已完成"这个事实)。
+ * 分组走 `stateGroupsOf`(与 F1 同一把分组尺)。
+ *
+ * ## 档位:差值棘轮,锚点 = 锚点面自身的命中数(§0.2 / §12e)
+ * 同一把尺子跑 `(anchor, anchor)` 得到"锚点面内既已两态并存"的那批主键 = **存量**。存量没归零
+ * 之前对跨面命中做绝对零容忍,就是一台与任何提交都无关的恒红门(唯一结局是逼人 `--no-verify`、
+ * 连带废掉全部守门)。拦点住在 `plan-tasks.mjs` 的 `grewViolations`:被审面命中集**里不在锚点
+ * 面命中集里的键**才判红 —— 拿键集而不是只比个数,是因为"消掉一组长在主键的分叉 + 新带回一枚
+ * 回退"在计数上持平(等量换键那一型,F9 的 G-312 同一课),而这一型恰恰是本维要抓的。
+ *
+ * ## 取不到 ⇒ 未判定(§0.3)
+ * 调用方拿不到任何一面的内容时**不得**调本函数,更不得把 0 命中冒充"判过了且干净";
+ * 面取不到一律 exit 2 并点名原因(见 plan-tasks.mjs 的 Undetermined 通道)。
+ *
+ * @param anchorText 锚点面全文(提交链上 = HEAD blob;与面取同一轮)
+ * @param faceText   被审面全文(同一轮的索引 blob / HEAD blob)
+ * @returns {{hits:Array<{key,anchorDoneLines:number[],faceOpenLines:number[]}>, anchorStockKeys:string[],
+ *            anchorDoneKeys:number, faceRows:number, anchorRows:number}}
+ *   hits = 跨面命中(含存量键);anchorStockKeys = 锚点面自比命中(= 棘轮锚点,存量);
+ *   anchorDoneKeys / anchorRows / faceRows = 候选面读数,"枚举到 0 候选"绝不被读成通过。
+ */
+export function findClosedToOpenRegressions(anchorText, faceText) {
+  const asStr = (t) => (t === null || t === undefined ? '' : String(t))
+  const anchorGroups = stateGroupsOf(asStr(anchorText))
+  const faceGroups = stateGroupsOf(asStr(faceText))
+  // 副本指针行不充"又变回未做"的证据(与 findForks 的 liveOpenOf 同一把尺)
+  const liveOpenOf = (g) => g.open.filter((r) => !isClaimExcludedPointer(r.raw))
+  const hits = []
+  for (const [key, fg] of faceGroups) {
+    const ag = anchorGroups.get(key)
+    if (!ag || ag.done.length === 0) continue
+    const live = liveOpenOf(fg)
+    if (live.length === 0) continue
+    hits.push({
+      key,
+      anchorDoneLines: ag.done.map((r) => r.line),
+      faceOpenLines: live.map((r) => r.line),
+    })
+  }
+  hits.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
+  // 锚点面自身命中数(差值棘轮的锚点):同一把尺子跑两遍 anchor,即"锚点面内既有已勾又有未勾"
+  const anchorStockKeys = []
+  for (const [key, g] of anchorGroups) {
+    if (g.done.length > 0 && liveOpenOf(g).length > 0) anchorStockKeys.push(key)
+  }
+  anchorStockKeys.sort()
+  return {
+    hits,
+    anchorStockKeys,
+    anchorDoneKeys: [...anchorGroups.values()].filter((g) => g.done.length > 0).length,
+    anchorRows: parseTaskRows(asStr(anchorText)).length,
+    faceRows: parseTaskRows(asStr(faceText)).length,
   }
 }
 
@@ -2079,6 +2165,233 @@ export function dispositionOfV2({ line, fields }) {
   }
 }
 
+/**
+ * ── 归属证据尺(2026-10-26 立):`owned-elsewhere` 只在**有真实归属证据**时才剔出派单面 ──
+ *
+ * ## 病(两席独立复现,2026-10-26 现读)
+ * `〔归:桌面端持有人〕` / `归属:…部署环告警去重持有人` / `由那份副本的持有者…` 这类**散文标签**
+ * 不是租约,却照样把行剔出派单面:实测(HEAD `04c556d` 面,2026-10-26)未勾行 46 枚的
+ * `claimMarkOf` **全部为 null**,却被 v2 尺整批读成"归他人" ⇒ `--open --dispatchable
+ * --exclude-inflight` 出单 **0 行**。
+ * 两个方向同时坏:① 账面把"没人认领的真活"读成"别人的活",并发上不去(收工);
+ * ② 另一面别的会话会凭旧账面重复做已完成的事(打架)。机主 2026-10-26 令"不允许两个 agent
+ * 打架重复做同一件任务"要防的正是这个读数,而读数本身就在打架。
+ *
+ * ## 判据(三选一,三条皆不成立 ⇒ `stale-owner-label`,默认保留在出单面并单独报数)
+ *  ① 同行有 **≤72h 完整租约**(`claimMarkOf` 的 `form==='lease'` ∧ 带 `@日期`);
+ *  ② 标签里的**持有者短名**出现在**最近 200 枚提交信息**里;
+ *  ③ 票面点名的文件此刻在 `git status` 脏面。
+ * 取不到输入(提交史 / 脏面读不到)⇒ `undetermined`,**既不折成"归他人"也不折成"可派"**(§0.3)。
+ *
+ * ## 为什么必须核验而不是照标签剔(两把尺子的差就是本仓最贵的那种失效)
+ * 散文标签是**登记时刻**的一句话,它不会随持有者离开而失效 —— 台账里点名"XX 端持有人"的行,
+ * 那个持有人可能三个月前就没在这条线上;而派单面的口径是"现在谁能动手"。一个不会过期的标签
+ * 冒充"现在有人在动",与"已勾行没删"是同一型(账面看起来正常,病在时间里)。
+ *
+ * ## 为什么 ② 要求"席位短名"含拉丁记号(实测,不是偏好)
+ * 朴素子串匹配的假阳性率是 6/25(2026-10-26 现读 25 枚散文归属行 × `git log -200`):
+ * `桌面端`(命中 1 次,出处是"…桌面端 Gitee 附件分发…")、`cloudflared`、`守门`/`98`、
+ * `web`、`钩子`、甚至整句标签 `机主控制台面`(出处是别的提交在复述台账)全部"出现在提交信息里",
+ * 而它们**都不是持有人**——它们是平台名/工具名/普通名词。若照子串算证据,`桌面端持有人` 这条
+ * 本判据要治的行会被判"有证据、继续剔",修了等于没修。
+ * ⇒ 短名 = 标签里剥掉 `持有者/持有人/持有席` 与引导词后、**含字母**的记号(本仓席位短名全是
+ * 这种形态:`owner-scale-r2` / `relay-prod` / `D03`)。纯中文短语在提交信息里只能以普通名词出现,
+ * 拿它当"持有者在动"的证据是假阳性;它们落 `stale-owner-label`(仍出单,但**报数并点名**),
+ * 这正是本仓 §0.10 要的失效方向:多要一次定向说明,不是多放一次跳门,也不是静默剔除。
+ *
+ * ## 两条**不吃**证据的恒定豁免(任务书点名,缺一条即返工)
+ *  - **机主动作面**(`归:机主XX面`:控制台/凭据/真机/DNS/收款/白名单…)—— 机主职权动作不是
+ *    "有没有人在动"的证据问题,任何证据都不该把它派给 agent(`humanActionOwnerOf`);
+ *  - **侧车有记录**的行 —— 侧车是结构化表态,按侧车判,散文只作旁证(`dispositionOfV2` 的 `source`).
+ */
+
+/** 租约存活口径:与 AGENTS §1 的 72h 成文口径同值。刻意不读门 109 的 `TTL_ENV`:
+ *  那道尺子判的是"代摘超龄牌",这里判的是"标签背后的人在不在动";两者不同量纲,共用一只旋钮
+ *  会让调整其一顺手改掉另一。取更短的方向只会让**更多**行落 `stale`(多要一次定向说明),
+ *  与本判据的失效方向一致。 */
+export const OWNER_LEASE_TTL_HOURS = 72
+/** ② 的取材窗口(最近多少枚提交信息)。**唯一出处**:CLI 的取材器从这里取,判据文案也从这里取,
+ *  两处各写一个 200 就会出现"判的是 200 枚、说的是 500 枚"。 */
+export const OWNER_EVIDENCE_COMMIT_WINDOW = 200
+/** 三条证据的稳定名字(输出面与测试共用,禁在别处手写字符串)。 */
+export const OWNER_EVIDENCE_BASIS = ['lease', 'commit', 'dirty']
+/** 出单面保留哪几档(**唯一**实现:过滤面与自检都问它,别在两处各写一份 `=== 'actionable'`)。
+ *  刻意不另立一份"档位词表":词表一旦与这里分家,`--dispatchable` 的射程就会在没人察觉时缩一档。 */
+export function isDispatchKeptSlot(slot) {
+  return slot === 'actionable' || slot === 'stale-owner-label'
+}
+
+/** 机主动作面的锚:归属标签里出现"机主"即视为机主职权域(控制台/凭据/真机/DNS/收款/白名单)。 */
+const HUMAN_ACTION_OWNER_RE = /机主/
+/** 不表态归谁的占位词(`〔归:待认领〕` / `归属:未查明`):它们本来就该留在派单面。 */
+const OWNER_PLACEHOLDER_RE = /^(?:—|-|–|未派|待认领|未查明|未知|无主|无人|他人|别人|本线|本票|本会话|待定|无|n\/a)$/i
+/** 席位短名的形态门:必须含拉丁字母(实测理由见头注"为什么 ② 要求席位短名含拉丁记号")。 */
+const SEAT_NAME_RE = /[A-Za-z]/
+/** 归属标签的截断符:标签后面常紧跟一句说明,不截会把整句当持有人。 */
+const OWNER_LABEL_CUT_RE = /[,，;；。、]/
+
+/** 标签清洗:遮反引号码段、去强调、去引导词、去首尾引号。抽不出实义 ⇒ null(占位不是归属)。 */
+function cleanOwnerLabel(raw) {
+  const t = String(raw ?? '')
+    .replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+    .replace(/\*\*/g, '')
+    .replace(/[「『"'“]+/g, ' ')
+    .replace(/[」』"'”]+/g, ' ')
+    .split(OWNER_LABEL_CUT_RE)[0]
+    .replace(/^(?:应为|应当为|为|是|在|于|由|归给|交给)\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t) return null
+  if (OWNER_PLACEHOLDER_RE.test(t)) return null
+  return t
+}
+
+/**
+ * 行里的归属对象(散文或侧车投影标头)。`from` 自报出处 —— 标头与散文在报告里必须能分开数,
+ * 否则"标签来自侧车投影"与"纯散文标签"会被读成同一件事。
+ * 顺序:标头 `〔归:…〕`(票号/租约可挡在复选框与标头之间)⇒ `归属[:：]…` ⇒ `归[:：]…`
+ *      ⇒ `由 X 持有` ⇒ `持有者:X`。
+ */
+/**
+ * 行里的归属对象(散文或侧车投影标头)。`from` 自报出处 —— 标头与散文在报告里必须能分开数,
+ * 否则"标签来自侧车投影"与"纯散文标签"会被读成同一件事。
+ * 顺序:标头 `〔归:…〕`(票号/租约可挡在复选框与标头之间)⇒ `归属[:：]…` ⇒ `归[:：]…`
+ *      ⇒ `由 X 持有` ⇒ `持有者:X`。
+ *
+ * ⚠️ **命中即定**:某一档的措辞命中了但抽不出实义归属(`归属未查明` / `〔归:待认领〕`)⇒ 返回 null,
+ * **不往更弱的那几档回落**。回落会让抽词器去抓同一行里毫不相干的 `由…持有` / `持有者:` 残句,
+ * 实测把 `归属未查明,不得写成已定` 这一行抽成了「守护」(纯噪声):报告里点名一个**不存在**的
+ * 持有人,比不点名更坏 —— 读的人会去核一个不存在的席位。
+ */
+export function ownerLabelOf(line) {
+  const text = String(line ?? '')
+  const head = /〔\s*归[:：]([^〕｜|]*)/.exec(text)
+  if (head) return labelFrom(head[1], 'header')
+  const prose = /归属[:：]?\s*([^\n]{1,80})/.exec(text)
+  if (prose) return labelFrom(prose[1], 'prose')
+  const short = /归[:：]\s*([^〕\n｜|]{1,60})/.exec(text)
+  if (short) return labelFrom(short[1], 'prose')
+  const by = /由\s*([^,，。;\n]{1,24}?)\s*持有/.exec(text)
+  if (by) return labelFrom(by[1], 'prose')
+  const keeper = /持有[者人][:：]\s*([^,，。;\n]{1,24})/.exec(text)
+  if (keeper) return labelFrom(keeper[1], 'prose')
+  return null
+}
+
+/** 抽取器各档的唯一出口:抽不出实义 ⇒ null(占位不是归属,见 `ownerLabelOf` 的"命中即定")。 */
+function labelFrom(raw, from) {
+  const owner = cleanOwnerLabel(raw)
+  return owner ? { owner, from } : null
+}
+
+/**
+ * 归属对象 → **可核验的席位短名**;抽不出(纯中文短语/占位/泛指)⇒ null。
+ * null 不是"没有归属",而是"这个标签里的持有人**无法用提交史核验**"——由调用方落
+ * `stale-owner-label` 并报数,绝不静默当成"有归属"。
+ */
+export function holderShortNameOf(owner) {
+  if (!owner) return null
+  const t = String(owner)
+    .replace(/\*\*/g, '')
+    .replace(/(?:的)?(?:持有者|持有人|持有席|持有票|持有)$/, '')
+    .replace(/的$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t || OWNER_PLACEHOLDER_RE.test(t)) return null
+  if (!SEAT_NAME_RE.test(t)) return null
+  return t
+}
+
+/** 机主动作面的归属对象;不是 ⇒ null。调用方据此**恒剔**(不吃任何证据)。 */
+export function humanActionOwnerOf(line) {
+  const lab = ownerLabelOf(line)
+  return lab && HUMAN_ACTION_OWNER_RE.test(lab.owner) ? lab.owner : null
+}
+
+const HOUR_MS = 3600000
+/**
+ * 三条证据的裁决(纯判据,输入注入;§22b 同源取向 —— 判据层不做 IO)。
+ * @param {{line:string, evidence?:{recentCommitText?:string|null, dirtyRefs?:(line:string)=>string[]|null, now?:Date}}} p
+ * @returns {{verdict:'held'|'stale'|'undetermined', by:string|null, holder:string|null, detail:string}}
+ */
+export function ownershipEvidenceOf({ line, evidence = {} }) {
+  const now = evidence.now instanceof Date ? evidence.now : null
+  // ① 完整租约 ∧ ≤72h。只有 `form==='lease'`(带 @日期)才算"完整":裸 `（进行中）`
+  //    是无主体的状态牌,不是"某个人此刻在动"(门 109 CL4 同口径)。
+  const claim = claimMarkOf(line)
+  if (claim && claim.form === 'lease' && claim.date && now) {
+    const day = parseDay(claim.date)
+    if (day) {
+      const hours = (now.getTime() - day.getTime()) / HOUR_MS
+      if (hours >= 0 && hours <= OWNER_LEASE_TTL_HOURS)
+        return { verdict: 'held', by: 'lease', holder: claim.holder ?? null, detail: `租约 ${claim.date}${claim.holder ? `/${claim.holder}` : ''}` }
+    }
+  }
+  const label = ownerLabelOf(line)
+  const holder = holderShortNameOf(label?.owner ?? null)
+  const commits = typeof evidence.recentCommitText === 'string' ? evidence.recentCommitText : null
+  let dirty = null
+  if (typeof evidence.dirtyRefs === 'function') {
+    try {
+      dirty = evidence.dirtyRefs(line)
+    } catch {
+      dirty = null
+    }
+  }
+  // ② 持有者短名出现在最近 N 枚提交信息里
+  if (holder && commits !== null && commits.includes(holder))
+    return { verdict: 'held', by: 'commit', holder, detail: `「${holder}」在最近提交信息里` }
+  // ③ 票面点名的文件此刻在脏面
+  if (Array.isArray(dirty) && dirty.length > 0)
+    return { verdict: 'held', by: 'dirty', holder, detail: `点名文件在飞 ${dirty.length} 条` }
+  // 输入取不到 ⇒ 未判定(既不冒"归他人",也不冒"可派")。
+  if (commits === null || dirty === null)
+    return {
+      verdict: 'undetermined',
+      by: null,
+      holder,
+      detail: commits === null ? '最近 200 枚提交信息取不到' : 'git status 脏面取不到',
+    }
+  return {
+    verdict: 'stale',
+    by: null,
+    holder,
+    // 三型逐条写进 detail(任务书要求"每条附它属于哪一型"),文案取自同一份判据而不是别处复述
+    detail:
+      `${claim ? `租约不完整(${claim.form})` : '无租约'} ∧ ` +
+      (holder
+        ? `无提交史(短名「${holder}」不在最近 ${OWNER_EVIDENCE_COMMIT_WINDOW} 枚提交信息里)`
+        : '无提交史(标签里没有可核验的席位短名,纯中文短语/占位不算)') +
+      ' ∧ 文件不脏(点名路径 0 条命中脏面)',
+  }
+}
+
+/**
+ * 派单面的一行 → 出单档位。**唯一出口**:`plan-tasks.mjs --dispatchable` 的过滤、报告与自检
+ * 都问它(§0.6;两处各写一份必然漂成"清单剔了、报告没数")。
+ *  - 非 `owned-elsewhere` ⇒ 原桶原样透传(等人/等条件/可做三档不动);
+ *  - `owned-elsewhere` ∧ 机主面 ⇒ 恒 `owned-elsewhere`;
+ *  - `owned-elsewhere` ∧ 侧车有记录 ⇒ 恒 `owned-elsewhere`(侧车优先,散文只作旁证);
+ *  - `owned-elsewhere` ∧ 只有散文标签 ⇒ 三条证据:held ⇒ `owned-elsewhere`;
+ *    stale ⇒ `stale-owner-label`(出单+报数);输入取不到 ⇒ `undetermined`(不出单也不冒充归他人)。
+ */
+export function dispatchSlotOf({ line, fields, evidence = {} }) {
+  const d = dispositionOfV2({ line, fields })
+  const base = { bucket: d.bucket, source: d.source, conflict: d.conflict, disposition: d }
+  if (d.bucket !== 'owned-elsewhere')
+    return { ...base, slot: d.bucket, by: null, holder: null, detail: null }
+  const human = humanActionOwnerOf(line)
+  if (human) return { ...base, slot: 'owned-elsewhere', by: 'human-action-face', holder: human, detail: '机主动作面,恒剔' }
+  if (d.source === 'fields')
+    return { ...base, slot: 'owned-elsewhere', by: 'sidecar', holder: holderShortNameOf(ownerLabelOf(line)?.owner ?? null), detail: '侧车表态归他人' }
+  const ev = ownershipEvidenceOf({ line, evidence })
+  if (ev.verdict === 'held')
+    return { ...base, slot: 'owned-elsewhere', by: ev.by, holder: ev.holder, detail: ev.detail }
+  if (ev.verdict === 'undetermined')
+    return { ...base, slot: 'undetermined', by: null, holder: ev.holder, detail: ev.detail }
+  return { ...base, slot: 'stale-owner-label', by: null, holder: ev.holder, detail: ev.detail }
+}
+
 /** 行内最后一个日期。取**最后**而不是第一个:进展注记按本仓写法追加在行尾,
  *  而括号里的引用日期(`(2026-09-21 逐条实测)`)可能是旧读数。 */
 const DATE_RE = /20\d{2}-\d{2}-\d{2}/g
@@ -2815,13 +3128,31 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
   // 把同一件事问七遍。这一组才是派单人该看的那一组。
   // 刻意**不替换**上面那组:两把口径都有人读,而把既有读数改名/换基数,下一次没人能证明
   // 它量的是同一件事(§12f:修红不得顺手移动别人的锚点)。两行一起印,基数写在行内。
+  // **分尺切换(票 G-1182552,2026-10-26 goal-c 席)**:派单桶改用 **v2 尺(侧车优先、散文回落)** ——
+  // 理由不是偏好,是撞票:派单过滤器(`plan-tasks.mjs --dispatchable`)早已按 `dispositionOfV2`
+  // 剔行,而 JSON 的 dispClaim* 一直按 v1 散文尺计数。实测 HEAD 面:文本视图报"可做 0",
+  // JSON 同一瞬间报 dispClaimActionable=5,而那 5 行(G-957/G-863/G-329/G-1182551/G-941)
+  // 侧车 owner 全部命中"归他人" ⇒ 照 JSON 派单的会话会把 4 张别人持有的票再派一遍 ——
+  // 正是 §1"认领即租约"与机主 2026-10-26 令"不允许两个 agent 打架重复做同一件任务"要防的形态。
+  // **派单面与过滤面必须同一把尺**(§0.6:同一判据第二份实现必然漂移,这里漂的是"尺的版本")。
+  // v1 散文读数不删除,降级为 `dispClaimProseBuckets`/`counts.dispClaim*Prose` 诊断影子键:
+  // 迁移进度靠"影子与正读数差几个"来量,一键删掉旧尺反而把进度尺也拆了(§12f:不移别人锚点)。
   const dispClaimBuckets = {
     actionable: [],
     'waiting-human': [],
     'waiting-env': [],
     'owned-elsewhere': [],
   }
-  for (const r of claimableRows) dispClaimBuckets[dispositionOf(r.raw)].push(r)
+  const dispClaimProseBuckets = {
+    actionable: [],
+    'waiting-human': [],
+    'waiting-env': [],
+    'owned-elsewhere': [],
+  }
+  for (const r of claimableRows) {
+    dispClaimBuckets[dispositionOfV2({ line: r.raw, fields }).bucket].push(r)
+    dispClaimProseBuckets[dispositionOf(r.raw)].push(r)
+  }
   return {
     rows: rows.length,
     /** 当前面上所有条目行的原文集合 —— 调用方用它算"本次新增的行"(逐字不在基准面上)。
@@ -2862,8 +3193,10 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
      *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。
      *  F4 这一维是第二版才补上的:副本行各算一条 ⇒ 同一件活被派两遍,而报告里只飘着一个组数。 */
     claimableRows,
-    /** F7b 名单:派单口径的逐桶行(与 counts.dispClaim* 同源一份,不得两处各算)。 */
+    /** F7b 名单:派单口径的逐桶行(**v2 尺**,与 `--dispatchable` 过滤器同一把尺;与 counts.dispClaim* 同源一份,不得两处各算)。 */
     dispClaimBuckets,
+    /** F7b 影子名单:派单口径按 v1 散文尺的逐桶行 —— 只供"侧车迁移进度=两读数之差"的诊断,禁止用作派单输入。 */
+    dispClaimProseBuckets,
     counts: {
       open: openRows.length,
       claimed: openRows.filter((r) => r.claim).length,
@@ -2952,12 +3285,19 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
       /** F11 存量读数(v2 尺全体未勾行)—— 差值档的 newWaitingHuman 由调用方(plan-tasks)算。 */
       waitingHuman: waitingHumanRows.length,
       waitingEnv: waitingEnvRows.length,
-      // ── F7b 同一分层在派单口径上的读数(基数 = claimable,已扣副本/作废/分叉)──
+      // ── F7b 同一分层在派单口径上的读数(**v2 尺侧车优先**,基数 = claimable,已扣副本/作废/分叉)──
       // 四桶相加必须等于 claimable,与上面四条"相加等于 unclaimed"是两条独立的闭合判据。
+      // ⚠ 这组数与 `--dispatchable` 的过滤面**必须同尺**(票 G-1182552,2026-10-26):此前它是 v1 散文尺,
+      // 实测把 4 张侧车已记"归他人"的票报成"现在可做",人读视图报 0 —— 照 JSON 派单必撞票。
       dispClaimActionable: dispClaimBuckets.actionable.length,
       dispClaimWaitingHuman: dispClaimBuckets['waiting-human'].length,
       dispClaimWaitingEnv: dispClaimBuckets['waiting-env'].length,
       dispClaimOwnedElsewhere: dispClaimBuckets['owned-elsewhere'].length,
+      /** F7b 影子(v1 散文尺同一基数):与正读数之差 = 侧车迁移进度。**派单不得消费这一组。** */
+      dispClaimActionableProse: dispClaimProseBuckets.actionable.length,
+      dispClaimWaitingHumanProse: dispClaimProseBuckets['waiting-human'].length,
+      dispClaimWaitingEnvProse: dispClaimProseBuckets['waiting-env'].length,
+      dispClaimOwnedElsewhereProse: dispClaimProseBuckets['owned-elsewhere'].length,
       // ── F8 寿命两档 ──
       // 无交代:全部未勾选行里既没租约、也没说等什么、又没有日期的 —— 这批才是"只会涨的账"。
       undisposed: undisposed.length,

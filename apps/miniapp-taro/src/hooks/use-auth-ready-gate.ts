@@ -11,10 +11,10 @@ import { useUserStore } from '@/stores/user'
 import { isLoggedIn } from '@/utils/auth'
 
 /** 就绪后要做的那一次动作(通常是"发首屏那个需要鉴权的请求")。 */
-export type AuthReadyCallback = () => void
+type AuthReadyCallback = () => void
 
 /** 取消注册:页面卸载(useUnload)或不再需要补跑时调用;重复调用无副作用。 */
-export type AuthReadyCancel = () => void
+type AuthReadyCancel = () => void
 
 export interface AuthReadyGate {
   /** 本端这一次冷启动的鉴权判定是否已落定(订阅式读,落定时会触发重渲染)。 */

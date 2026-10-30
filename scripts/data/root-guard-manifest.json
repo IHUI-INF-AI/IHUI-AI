@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-26T04:09:51.019Z",
+  "sealedAt": "2026-10-28T17:13:27.210Z",
   "sealedBy": "root-guard --seal",
-  "reason": "人工复核:封存枚0bdadcf8a1(期望2cc6486652c5)至HEAD仅枚29764ed0cc(门103 C1腾行)实质改动runner,diff逐行审读=纯注释(15归档指针行新增/127注释空行删除/零代码行变动),非注释行与封存版逐字节一致,归档锚点guardian-l139/l2213抽查在档;合并枚bedc2a599c/735e171a62的runner blob与封存版同hash未引入改动;哨兵枚ccae5cc198/6409142643未动runner。漂移复封(前期望2cc6486652c5→现76db26e5ced6)",
+  "reason": "2026-10-29/生产席:修 b44ab834609(chore(auto) 收编)把门 259 注册块按旧基线写回 —— 该提交把 guardian-runner.mjs 整份换成 pre-259 副本(含同日 258 DDoS 文案改进),check-ui-spec-mirror 在 runner 面归零;现将 259 块按 a02c39768b5 原文补回并保留 258 新文案,node --check 通过、门号 259 唯一 1 处、被引用三件均在库。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "76db26e5ced681d4feee632793ef332079fb48eedc6ad3a2a6d5b0d44cf889be"
+      "sha256": "73da356c67744ec9a844779c2d1cf0cbf087f9763da32961e16308dc8b7a86ed"
     },
     {
       "id": "judgement-libs",

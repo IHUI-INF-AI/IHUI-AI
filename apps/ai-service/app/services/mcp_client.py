@@ -267,6 +267,45 @@ class MCPClient:
         except Exception:
             return False
 
+    def clear_oauth_auth(self) -> dict[str, Any]:
+        """清除本 Server 的**用户自授权 OAuth 凭据**(控制帧 `mcp_clear_auth`)。
+
+        口径见 `mcp_oauth.MCPOAuthClient.clear_auth` 的长注释:只清**这个具名
+        server** 的用户自授权 token,不碰 client_secret/系统令牌/其它 server。
+        AGENTS §5「可清除的是业务元数据,不是授权凭据」针对的是"一键抹掉平台级
+        凭据",不是"用户撤回自己对某个第三方的授权"。
+
+        边界:
+          ① 本 client **没有** OAuth 配置(未走 OAuth 通道)⇒ 返回 `cleared:false`
+             + reason `no_oauth`(不是错误,是"这台压根没有可撤的授权");
+          ② OAuth client 是**外部传入**的(`_oauth_client_owned=False`)⇒ 本 client
+             不拥有它的生命周期,只做**本进程内**的内存清除,持久化文件由持有者
+             负责 —— 避免"替别人删了它还要用的凭据文件";
+          ③ 自建的 OAuth client ⇒ 内存 token + 持久化文件一并清。
+
+        Returns:
+            `{"cleared": bool, "reason": str|None, "hadToken": bool,
+            "persistFileRemoved": bool, "error": str|None}`
+        """
+        if self._oauth_client is None:
+            return {
+                "cleared": False,
+                "reason": "no_oauth",
+                "hadToken": False,
+                "persistFileRemoved": False,
+                "error": None,
+            }
+        result = self._oauth_client.clear_auth()
+        if not self._oauth_client_owned:
+            # 外部传入的 client:本进程内存态已清,但持久化文件不归本 client 管 ——
+            # 如实点名,别让调用方以为磁盘上那份也没了。
+            result = {
+                **result,
+                "persistFileRemoved": False,
+                "reason": "external_oauth_client",
+            }
+        return result
+
     async def list_tools(self) -> list[MCPClientTool]:
         """发现工具列表。"""
         resp = await self._send_request("tools/list")

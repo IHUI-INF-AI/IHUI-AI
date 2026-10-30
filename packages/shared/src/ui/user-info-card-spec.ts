@@ -161,6 +161,10 @@ export function userInfoCardAvatarStyle<U extends string | number>(
  *     **保留位图的 2 处**各带行内 `icon-bitmap-exempt` 理由:默认头像(多色 3D 吉祥物插画,非线形
  *     图标)、智汇值行首的品牌标识(须官方真实图标,自造矢量近似属品牌失真)。
  *     行内 `w-4 h-3`(16/12)随保留的品牌标识留在原处,仍是单侧素材档,不进本表。
+ *     ⚠️ 换载体后 nickName 行那枚 `LineIcon name="user" size={40}`(小程序端 size 收 rpx ⇒ 20px)
+ *     在守门 128 的几何档集合里**是一枚"仅小程序档 20"**:RN 端同一行没有这枚人形字形
+ *     (头像是 avatar/initials,昵称前不再插图标)⇒ 单侧元素,不是同元素取不同值。
+ *     不得为此给 RN 补一枚字形(那是造节点抵数字),也不得把 20 搬进本表冒充两端同档。2026-10-27 复量。
  *  3. 等级弹窗 / 邀请码行仅 RN 端存在(小程序端由页面自持弹层、且没有邀请码行),单侧结构不进本表。
  *     其自有节奏档(弹窗 padding 20、标题 18、关闭钮 24/8/14、复制钮 8/2)按本条登记,
  *     不得为让守门 128 变绿搬进本表。⚠️ 其中 **24 自 2026-09-27 起在门账上成为"仅 RN 档"**:
@@ -175,9 +179,10 @@ export function userInfoCardAvatarStyle<U extends string | number>(
  *  5. RN 端行级 muted 面板(`tokenRow`/`growthRow`/`inviteRow` 的 `paddingHorizontal: 8` +
  *     `paddingVertical: 6`)与 `nameRow.paddingVertical: 4`:小程序端这些行没有面板容器、
  *     行内也没有额外上下档 ⇒ 是"一端有底、一端无底"的容器差异,不是同一属性取了两值。
- *     另:RN `card.padding` 之外还有 `header.padding: 8`,而小程序 / web 都只有卡片一层 inset
- *     (`p-3` / 本表 `PADDING_PX` = 12)—— 这道**双 inset** 是真实观感分叉(内容比小程序侧多缩 8px),
- *     删它等于改 RN 版面、不属本票授权范围,登记留待组件源统一票裁。
+ *     另:RN `card.padding` 之外**曾有** `header.padding: 8`,而小程序 / web 都只有卡片一层 inset
+ *     (`p-3` / 本表 `PADDING_PX` = 12)—— 那是同一张卡内容多缩 8px 的**真分叉**,已于 2026-10-27
+ *     按"卡片内边距唯一源 = PADDING_PX"删掉 RN 那一层(小程序/web 一字未改,不是给单端补数);
+ *     现两端顶部块都只有 12 这一层。
  *  6. 通道差异造成的量纲盲区:小程序侧 `gap-1`(4)/ `gap-2`(8)/ `mb-1`(4)与 RN 侧
  *     `marginLeft: 4` / `marginBottom: 4` 屏幕上同值,但守门 128 只读得见 RN 那一份
  *     (Tailwind 的 `gap-*`/`mb-*` 不在它的类名正则里)⇒ 读到的"仅 RN 档 4"是**测量残留**,

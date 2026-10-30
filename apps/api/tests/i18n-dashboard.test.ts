@@ -12,7 +12,9 @@ vi.hoisted(() => {
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000ad1', roleId: 1 }),
 }))
 
 const { mockDicts } = vi.hoisted(() => ({
@@ -67,7 +69,10 @@ describe('i18n-dashboard routes', () => {
   })
 
   it('rejects non-admin user with 403', async () => {
-    vi.mocked(verifyAccessToken).mockResolvedValueOnce({ userId: 'u1', roleId: 0 } as never)
+    vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+      userId: '00000000-0000-4000-8000-000000000b01',
+      roleId: 0,
+    } as never)
     const res = await server.inject({
       method: 'GET',
       url: '/api/admin/i18n-dashboard',
@@ -77,7 +82,10 @@ describe('i18n-dashboard routes', () => {
   })
 
   it('returns overview with 5 languages and zh-CN at 100%', async () => {
-    vi.mocked(verifyAccessToken).mockResolvedValueOnce({ userId: 'admin1', roleId: 1 } as never)
+    vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+      userId: '00000000-0000-4000-8000-000000000a01',
+      roleId: 1,
+    } as never)
     vi.mocked(getUserStatus).mockResolvedValueOnce(1)
     const res = await server.inject({
       method: 'GET',
@@ -95,7 +103,10 @@ describe('i18n-dashboard routes', () => {
   })
 
   it('compares two locales and returns entries', async () => {
-    vi.mocked(verifyAccessToken).mockResolvedValueOnce({ userId: 'admin1', roleId: 1 } as never)
+    vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+      userId: '00000000-0000-4000-8000-000000000a01',
+      roleId: 1,
+    } as never)
     vi.mocked(getUserStatus).mockResolvedValueOnce(1)
     const res = await server.inject({
       method: 'GET',
@@ -112,7 +123,10 @@ describe('i18n-dashboard routes', () => {
   })
 
   it('rejects unsupported locale in compare', async () => {
-    vi.mocked(verifyAccessToken).mockResolvedValueOnce({ userId: 'admin1', roleId: 1 } as never)
+    vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+      userId: '00000000-0000-4000-8000-000000000a01',
+      roleId: 1,
+    } as never)
     vi.mocked(getUserStatus).mockResolvedValueOnce(1)
     const res = await server.inject({
       method: 'GET',
@@ -123,7 +137,10 @@ describe('i18n-dashboard routes', () => {
   })
 
   it('returns missing keys list', async () => {
-    vi.mocked(verifyAccessToken).mockResolvedValueOnce({ userId: 'admin1', roleId: 1 } as never)
+    vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+      userId: '00000000-0000-4000-8000-000000000a01',
+      roleId: 1,
+    } as never)
     vi.mocked(getUserStatus).mockResolvedValueOnce(1)
     const res = await server.inject({
       method: 'GET',
@@ -138,7 +155,10 @@ describe('i18n-dashboard routes', () => {
   })
 
   it('returns missing keys for all locales when locale=all', async () => {
-    vi.mocked(verifyAccessToken).mockResolvedValueOnce({ userId: 'admin1', roleId: 1 } as never)
+    vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+      userId: '00000000-0000-4000-8000-000000000a01',
+      roleId: 1,
+    } as never)
     vi.mocked(getUserStatus).mockResolvedValueOnce(1)
     const res = await server.inject({
       method: 'GET',
@@ -153,7 +173,7 @@ describe('i18n-dashboard routes', () => {
 
   it('rejects cancelled user with 401', async () => {
     vi.mocked(verifyAccessToken).mockResolvedValueOnce({
-      userId: 'cancelled-user',
+      userId: '00000000-0000-4000-8000-000000000c05',
       roleId: 1,
     } as never)
     vi.mocked(getUserStatus).mockResolvedValueOnce(3)

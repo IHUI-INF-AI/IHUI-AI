@@ -457,6 +457,16 @@
       "miniapp": "pkg-ai/ai/chat"
     },
     {
+      "shared": "packages/app/src/features/n8n-model/N8nModelScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/N8nModelScreen.tsx",
+      "miniapp": "pkg-ai/dev-enter/n8n-model/index"
+    },
+    {
+      "shared": "packages/app/src/features/token-value/TokenValueScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TokenValueScreen.tsx",
+      "miniapp": "pkg-shop/token/balance"
+    },
+    {
       "shared": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentDetailScreen.tsx",
       "miniapp": "pkg-ai/ai/agent-detail"

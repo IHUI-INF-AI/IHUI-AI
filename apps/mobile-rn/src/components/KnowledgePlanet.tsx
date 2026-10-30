@@ -29,7 +29,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
-import { MoreLink } from '@ihui/rn-app'
+import { SectionHeader } from '@ihui/rn-app'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
@@ -224,17 +224,15 @@ export function KnowledgePlanet({
   return (
     <View style={styles.wrapper}>
       {/* 标题栏:知识星球 + 进入星球(对齐原项目 popular-courses-title) */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIcon} />
-          <Text style={styles.headerTitle}>知识星球</Text>
-        </View>
-        <MoreLink
-          label={t('knowledgePlanet.enter')}
-          onPress={onEnter}
-          colorScheme={currentRnTheme()}
-        />
-      </View>
+      <SectionHeader
+        title="知识星球"
+        leading={<View style={styles.headerIcon} />}
+        moreText={t('knowledgePlanet.enter')}
+        onMore={onEnter}
+        showMore={Boolean(onEnter)}
+        colorScheme={currentRnTheme()}
+        style={styles.header}
+      />
 
       {/* Tab 切换(对齐原项目 popular-courses-tab-box) */}
       <View style={styles.tabBox}>
@@ -296,15 +294,8 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   // ── 标题栏(对齐原项目 popular-courses-title) ──
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: LIST_PADDING,
     paddingVertical: 10,
-  } as ViewStyle,
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
   } as ViewStyle,
   headerIcon: {
     width: 24,
@@ -313,11 +304,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     marginRight: rnSpacing.sm,
   } as ViewStyle,
-  headerTitle: {
-    fontSize: rnType.title.size,
-    fontWeight: '700',
-    color: tokens.text.primary,
-  } as TextStyle,
   // ── Tab 切换(对齐原项目 popular-courses-tab-box) ──
   tabBox: {
     flexDirection: 'row',

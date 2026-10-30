@@ -15,6 +15,9 @@
  * - backup code 数据库只存 sha256 hash,明文只返回一次
  */
 import { createHmac, randomBytes, createHash } from 'node:crypto'
+import { eq } from 'drizzle-orm'
+import { users } from '@ihui/database'
+import { db } from '../db/index.js'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 
 // ============ Base32 编解码 (RFC 4648) ============
@@ -295,6 +298,43 @@ export function verifyBackupCode(code: string, hashes: string[]): boolean {
     }
   }
   return false
+}
+
+// ============ 绑定状态查询 ============
+
+/**
+ * 某用户 TOTP 绑定状态的只读快照。
+ *
+ * 字段与 `users` 表一一对应(`two_factor_enabled` / `two_factor_enabled_at`),
+ * 与 `/auth/2fa/status` 路由读的是同一对列 —— 绑定态只有这一个真相源。
+ */
+export interface TotpBindingStatus {
+  /** 是否已开启 TOTP(`users.two_factor_enabled`;`/auth/2fa/verify` 通过后才置 true) */
+  enabled: boolean
+  /** 开启时间(`users.two_factor_enabled_at`),未开启为 null */
+  enabledAt: Date | null
+}
+
+/**
+ * 查询「某用户是否已绑定 TOTP」——**一次主键查询,只取两列**。
+ *
+ * 用途:管理员 TOTP 闸(plugins/require-permission.ts 的 requireAdmin /
+ * requireAdminRouteGuard)每次进 admin 面前置判断。admin 面调用频次不高,一次
+ * `WHERE id = $1 LIMIT 1` 走主键索引足够;刻意**不做**进程内缓存 ——
+ * 缓存没有失效钩子时,"刚绑定却不生效"(或刚解绑仍被判为已绑)比多一次查询危险得多。
+ *
+ * @returns 用户存在 → 绑定状态;用户不存在 → null(调用方自行决定放行策略)
+ */
+export async function getTotpStatus(userId: string): Promise<TotpBindingStatus | null> {
+  if (!userId) return null
+  const rows = await db
+    .select({ enabled: users.twoFactorEnabled, enabledAt: users.twoFactorEnabledAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  const row = rows[0]
+  if (!row) return null
+  return { enabled: row.enabled === true, enabledAt: row.enabledAt ?? null }
 }
 
 // ============ 2FA Challenge Token (登录流程短期 JWT) ============

@@ -43,6 +43,7 @@ import {
   n8nAgentStore,
   genId,
 } from './_shared.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // 即梦视频官方参数(火山引擎 CVSync2AsyncSubmitTask:req_key/seed/video_quality/duration/aspect_ratio/i2v_align 等)
 const jimengVideoBody = z.object({
@@ -178,6 +179,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/coze/chat',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Coze 对话',
         description: '代理调用 Coze v1/chat 接口进行智能体对话',
@@ -381,6 +383,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/bailian/chat',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '百炼应用对话',
         description: '代理调用百炼 text-generation/generation 接口进行应用对话(支持流式收集)',
@@ -1034,6 +1037,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/kling/identify',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Kling 人脸识别',
         description:

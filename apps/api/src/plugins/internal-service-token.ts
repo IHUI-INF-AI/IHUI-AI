@@ -11,7 +11,8 @@
  * 设计:
  * - token 与 config.AI_CALLBACK_SECRET 共用(单一密钥,减少配置项)
  * - 为空(未配置)时拒绝所有 internal token 请求(强制配置后才可用)
- * - X-User-Id 必须为有效 UUID 或数字字符串(防注入),成功后注入 request.userId
+ * - 主体必须是 uuid 形态(`users.id` 是 uuid 列;形状闸在 `injectVerifiedUser`,
+ *   早于任何 SQL),再校验存在 + 活跃,成功后注入 request.userId
  *
  * 与 checkAuth 协同:checkAuthOrInternalService 先尝试 JWT,失败降级 internal token。
  */
@@ -20,6 +21,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { error } from '../utils/response.js'
+import { isUuidString } from '../utils/uuid.js'
 import { db } from '../db/index.js'
 import { users } from '@ihui/database'
 import {
@@ -76,7 +78,6 @@ function resolveReplayStore(request: FastifyRequest) {
   if (!redis || typeof redis.set !== 'function') return null
   return createRedisReplayStore(redis)
 }
-
 
 /**
  * 常数时间比较两把凭据(2026-09-27 立,第三十八批)。
@@ -167,7 +168,9 @@ export async function checkInternalServiceToken(
     return false
   }
 
-  // 允许 UUID(如 6b8cd0f6-546f-44c8-853a-5f96edbe08be)或数字字符串(防注入)
+  // 预筛:头里必须是一段可打印的 id(挡掉换行/控制字符这类日志与注入面)。
+  // **它不是归属判据** —— 主体能不能落到 `users.id` 由 `injectVerifiedUser` 的 uuid 形状闸
+  // 与随后的"存在 + 活跃"查询决定,两道都在 SQL 之前/之内,不放这里重复一份。
   if (!requestedUserId || !/^[a-zA-Z0-9-]{1,128}$/.test(requestedUserId)) {
     reply.status(400).send(error(400, 'Valid X-User-Id header required'))
     return false
@@ -181,12 +184,39 @@ export async function checkInternalServiceToken(
  *
  * 抽出来是因为两条通道的**后续**判据必须逐字一致:票档不是特权通道,
  * 它省掉的只是"那把常驻密钥从哪来",省不掉"这个主体是不是活跃用户"。
+ *
+ * 形状闸(2026-10-28 立,必须在进 SQL 之前):`users.id` 是 `uuid` 列,任何非 uuid 形态
+ * 的主体都会让 Postgres 抛 `22P02 invalid input syntax for type uuid`,而这条链没有兜住它
+ * ⇒ 一枚"结构上不可能存在的主体"在响应与监控上长成了 500。
+ * 一手实测(本机 8802,同一形出站请求):
+ *   - `x-user-id: system-worker` / `x-user-id: 1` ⇒ **500**(DrizzleQueryError←22P02)
+ *   - 合法 uuid 形态但库里没有 ⇒ 401 User not found(查询真跑了)
+ * 现在两种脏形态都在**零查询**的前提下归位 401,与 `routes/internal-tool-invocation-ledger.ts`
+ * 的 401 词汇同档;判据仍只有一份(`utils/uuid.ts` 的 `isUuidString`,§0.6)。
+ * 闸放在这个出口是因为两条通道都汇到这里:票档的 `sub` 与老通道的 `X-User-Id` 头
+ * 都可能是脏的 —— 只在老通道那条正则前拦,票档照样外溢成 DB 错。
  */
 async function injectVerifiedUser(
   request: FastifyRequest,
   reply: FastifyReply,
   requestedUserId: string,
 ): Promise<boolean> {
+  // 长度在收窄**之前**取:isUuidString 声明为 `value is string`,对已是 string 的入参做
+  // 否定判断时 TS 把分支内类型收窄成 never(排除 string 后为空集),分支里直接写
+  // requestedUserId.length 会报 TS2339。运行时语义完全等价(string.length 无副作用),
+  // 不动 isUuidString 的签名 —— 它是 §0.6 单一真相源,被多处引用。
+  const subjectLength = requestedUserId.length
+  if (!isUuidString(requestedUserId)) {
+    // 不打印主体原文:它未经任何形状约束(票档的 sub 是签名载荷,老通道那条正则也允许
+    // 任意字母数字串),日志面按 log-sanitizer 之外再留一道"不把外来串原样写进日志"的余量。
+    request.log.warn(
+      { subjectLength, ip: request.ip, endpoint: request.url },
+      '[internal-token] subject not uuid-shaped, rejected before any query',
+    )
+    reply.status(401).send(error(401, 'Verified UUID principal required'))
+    return false
+  }
+
   // 验证用户存在且活跃(防 X-User-Id 欺骗:internal secret 泄露后不能冒充任意/已注销用户)
   const [user] = await db
     .select({ id: users.id, status: users.status, roleId: users.roleId })
@@ -233,6 +263,6 @@ async function injectVerifiedUser(
  * 用户 JWT 分支 —— 票档验票代码根本没机会跑。少认一半 = 票档等于没接。
  */
 export function hasInternalServiceToken(request: FastifyRequest): boolean {
-  return !!(request.headers[INTERNAL_TOKEN_HEADER]) || !!request.headers[INTERNAL_TICKET_HEADER]
+  return !!request.headers[INTERNAL_TOKEN_HEADER] || !!request.headers[INTERNAL_TICKET_HEADER]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

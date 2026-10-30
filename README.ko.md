@@ -2171,6 +2171,27 @@ IHUI-AI는 하나의 제품이 아니라 **오픈소스 인프라**입니다. �
 
 ---
 
+## 계정 킵얼라이브 센터(2026-10-26 추가 — 무관했던 두 개의 생존 확인을 하나의 답으로)
+
+발행 라인의 Cookie 탐지(`services/publish/cookie_refresh_daemon.py`)와 AI 플랫폼 체크인 자격 증명(`services/checkin_scheduler.py`)은 지금까지 각자의 스위치, 각자의 집계, 각자의 실패 표현을 가지고 있었기 때문에 "이 계정이 아직 살아 있는가"에 대해 **시스템 전체의 단일한 답이 없었습니다**. 본 센터(`apps/ai-service/app/services/keepalive/`, HTTP 계층은 `apps/ai-service/app/routers/keepalive.py`)는 Cookie 탐지, 자격 증명(api_key / oauth) 만료 감지, 체크인 JWT 건전성(`exp`만 읽고 재서명하지 않음)을 하나의 스케줄, 두 개의 테이블, 하나의 건강도 어휘, 하나의 알림 출구로 모읍니다.
+
+| 엔드포인트 | 메서드 | 무엇에 답하는가 |
+| ---------- | ------ | --------------- |
+| `/api/keepalive/status` | GET | 자기 진단: 정말 켜져 있는가(사유, 스케줄러 생존, 지난 라운드 요약, 탐침 목록). 설정을 읽어 추측하지 않음 |
+| `/api/keepalive/overview` | GET | 건강도 총람: 네 단계 건수, 출처별 분포, 조치 필요, 만료 임박, 최근 7일 성공률, 유효 설정 |
+| `/api/keepalive/accounts` | GET | 계정별 명세. `?source=` 와 `?health=` 로 필터 |
+| `/api/keepalive/events` | GET | 탐지 이력. `?ref=` 와 `?only_failures=true` 로 필터. `limit` 기본 50, 상한 500 |
+| `/api/keepalive/stats` | GET | `?days=`(1..90, 기본 7) 동안 출처별 ok / 실패 / 합계 / 성공률 |
+| `/api/keepalive/run` | POST | 한 라운드를 백그라운드로 시작하고 즉시 반환. `?ref=<source>:<id>` 로 단일 계정, `?force=true` 로 백오프 무시 |
+
+- **건강도 네 단계**는 한 곳(`policy.health_of`)에서만 판정합니다. 마지막 실패가 `expired` 이거나, 만료 시각이 지났거나, 연속 실패가 `ALERT_AFTER_FAILURES` 이상이면 `critical`. 연속 실패가 있거나, 만료 경고 구간 안이거나, 실패만 관측된 경우는 `warning`. 그 외는 `healthy`. 성공도 실패도 기록이 없으면 `unknown`. **클라이언트가 다시 계산해서는 안 됩니다**.
+- **실패 어휘**: `ok` / `expired` / `network` / `error` / `unsupported` / `skipped` 여섯 가지이며 정규화 진입점은 하나(`classify_message`)뿐입니다. 복호화되지 않는 암호문(`InvalidTag`, 키 불일치)은 항상 `expired` — 재시도 천 번도 같은 오류이고 오직 재등록만이 살립니다. `unsupported`(애초에 생존 확인이 불필요)는 성공도 실패도 아니며 `failed` 에 들어가지 않습니다. 그렇게 하지 않으면 "원래 필요 없는 것"이 진짜 빨강을 덮습니다. 백오프는 `base × 2^(n-1)` 을 `RETRY_CAP_SECONDS` 로 상한, 재시도는 `RETRY_MAX` 회까지. 성공하면 연속 실패 · 경고 도장 · 알림 도장을 함께 지웁니다.
+- **알림 출구**: 사이트 전체 `notifications` 테이블. **라운드당 소유자별 1건으로 집계**(19개가 동시에 만료돼도 19통을 보내지 않습니다 — 그러면 사용자가 알림을 꺼 버려 진짜 이상을 못 봅니다). `probe-user` 같은 비 uuid 소유자는 버리고 계수합니다(잘못된 owner 하나가 배치 INSERT 전체를 실패시킵니다). 테이블이 없으면 warning 을 남기고 건너뛰며, 전달된 척하지 않습니다. `KEEPALIVE_ALERT_WEBHOOK` 로 추가 발송 가능. 전체는 fail-open 이며 알림 실패가 킵얼라이브를 중단시키지 않습니다.
+- **스위치**: `KEEPALIVE_ENABLED`. 미설정 시 `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` 에서 상속. `resolve_config()` 는 매 라운드 다시 해석하므로 `.env` 변경이 재시작 없이 다음 라운드부터 적용됩니다. 주요 기본값: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
+- **경계**: 판정하는 것은 자격 증명의 생존뿐입니다. 발행은 발행 스케줄러, 일일 체크인은 `checkin_scheduler` 담당 그대로입니다(대행하면 같은 계정에 두 작성자가 동시에 접근합니다). 프런트는 `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`(`/publish/accounts`), 클라이언트 래퍼는 `packages/api-client/src/endpoints/keepalive.ts`.
+
+---
+
 ## License
 
 [Apache License 2.0](LICENSE) — 자유 사용, 수정, 배포, 상업 사용, 카피레프트 없음.
@@ -2197,6 +2218,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 ## 최근 업데이트 (자동 유지)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+<<<<<<< HEAD
 **2026-10-28**
 - 🔧 기타:两端 ui-routes 按 HEAD 检出场重生(清在飞面污染,worktree=登记制 .worktrees/) (9ef1520d2939)
 
@@ -2315,6 +2337,90 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:复位两条「能力不同物」的 aligned —— RN 全仓无 mfa/passkey,安全审计事件也零消费方 (8bbd938db43a)
 - 🚀 기능/개선:新增只读队列「aligned 却打不同后端域」—— 把 news 那类假对齐变成可复跑的一眼活 (2651d5e47f4b)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (60554209a256)
+=======
+**2026-10-29**
+- 🐞 수정:契约产物再跟上路由面（净检出 @ee248c585f 重生成）—— CI OpenAPI Check 复红收口 (d76b7ad820)
+- 🚀 기능/개선:号池面板与运维可见性收口 —— 策略档只读卡片 / 日志详情抽屉 / 模型名复制 / 续期能力位标注 / 探针装车 / 非 git 夹具修复 (f7c98f0f6f)
+
+**2026-10-29**
+- 🐞 수정:复洁器维五补上"旁路落地型"那一格 —— 滞后副本现场两步判据同时失效,R4⑨ 已第三次回潮 (ee248c585f)
+- 📚 문서:补门 89 R4 —— 给已装车的 AASA 哨兵在 AGENTS.md 点名(与体积清偿同批收口) (7c74403489)
+- 🐞 수정:prebuild 重打 gradle 内存档 —— 512m 元空间实测 OOM 打死 daemon (da077b5d8b)
+- 📚 문서:门 207 体积清偿 —— 两组"多条合一条",96899→95398(省 1501,预算 96000) (6a903bb87d)
+- 🐞 수정:并发守卫的 onResponse 钩子是同步形态——它把线上整条响应链静默冻住 (5e9ea10ba7)
+- 📚 문서:撤销 Z-1 号池票 —— 同步远端裁决 d788019208d,本侧滞后副本摘行 (4b795c62ca)
+- 🔧 기타:登记 EX-C1-3 挂住 api-client 单文件行上限的 6 行越限 —— 拆分前置与到期追责写死 (10c2708882)
+- 🐞 수정:重封根护栏 —— 守门 259 装车后未重封,部署环 00:35:47 fail-closed (ade8233ceb)
+- 🐞 수정:2FA step-up 同族补两处漏接 —— agent 提现申请、创建 Key 分享(一次性出 shareToken) (b8b3fc6c7e)
+- 🐞 수정:web 蓝绿接线入库 —— 生产签出本地实现回收进 main(根治 O68 切流空窗) (dfc9b905b5)
+
+**2026-10-29**
+- 🔧 기타:登记 EX-C1-3 挂住 api-client 单文件行上限的 6 行越限 —— 拆分前置与到期追责写死 (10c2708882)
+
+**2026-10-29**
+- 📚 문서:Z-1 行形态修正 + 声明式改桶 actionable→owned-elsewhere —— 编号与题面之间不夹标头,复合主键才取得出 (dfca68aa11)
+
+**2026-10-29**
+- 📚 문서:登记取号池饱和票(Z-1) —— 顺带用新字母族验证"开新族"这条出路的可行性 (149f6c17a8)
+- 🐞 수정:两端 ui-routes 产物按 HEAD 面重派 —— 门 105 的 G5 自述钉由 stale 转 matched (85e15a629c)
+
+**2026-10-29**
+- 🐞 수정:补回被"整份写回旧态"吞掉的 auditFeedbackLoopClosure 六行(本枚走落地器出口②,理由与证据在下面) (7c5b1b90eb)
+
+**2026-10-29**
+- 🐞 수정:找回被 b966cb2167 整份写回旧态的 dev-stack 超时双形态修复 —— 门 98 由红转绿 (fbfae3f297)
+- 🐞 수정:zh-TW clearAuthHint「這一台」改「這一臺」—— 门 2b 简体残留归零 (bcad210fe7)
+- 📚 문서:本侧 README 对齐远端新版守门清单行,解掉 git-sync-converge 的零丢失自证停顿 (017f455c72)
+- 🐞 수정:上游转发器补守卫②连接期 dispatcher —— 首跳复检挡不住 DNS rebinding (a3facca58f)
+- 🐞 수정:蓝绿编排器参数化 —— web 蓝绿改走 Node 执行面 (8a4ff327f8)
+- 🐞 수정:scripts/ 面 mypy strict 35→0 + 修 2 处 GBK 日志静默丢行 (969d74b9a6)
+- 📚 문서:UI/样式 门清单行对齐远端形态 —— 本侧 790 字版是远端 1106 字版的**前缀**(已实证 B.startsWith(A)=true),远端仅在其后追加了 check-ui-spec-mirror.mjs(259) 等条目 ⇒ 取远端版对本侧零丢失。此前 git-sync-converge 因这行按整行比对判『README.md 未存活行』拒绝推进 HEAD,而语义上并无内容丢失。 (12b99cbc35)
+- 🚀 기능/개선:web 蓝绿双实例 + router 原子切流(根治 O68 切流空窗) (38d71cfb82)
+- 🚀 기능/개선:守门 259 装车 —— RN 壳↔小程序壳 spec 接线对账进提交链 (a02c39768b)
+
+**2026-10-28**
+- 🔧 기타:守护: 反馈闭环巡检挂进 tick(此前只挂 main,常驻守护永不到达) (c79806a4ad)
+
+**2026-10-29**
+- 🐞 수정:摘掉 HEAD 面的悬空 import —— guardian 此前在净检出根本 import 不起来 (27215f15ce)
+
+**2026-10-29**
+- 🐞 수정:结清留痕兑底腿加第二道牙 —— merge 落点一律拒补(按父数判,不按候选数判) (88c0defd3a)
+
+**2026-10-29**
+- 📚 문서:把 AGENTS.md 本轮摘除的两行逐字落成同族归档件 —— 堵住 union 的下一次回捞 (471f33b242)
+
+**2026-10-29**
+- 🚀 기능/개선:装车 AASA 公网健康只读哨兵,并补上它"未知旗标静默掉进默认靶"这颗牙 (e837e076f4)
+- 🐞 수정:CDP 拉不起浏览器时不再只留一句裸断言 —— stderr 留尾随错抛出,等待 15s→30s/腿 (2f44be592a)
+
+**2026-10-28**
+- 📚 문서:G-86 标头补完整形走声明式改桶 actionable→owned-elsewhere —— 纠正一条会让派单面撒谎的形态 (344b0c65fa)
+- 🐞 수정:立即部署通道三处静默失效根治 (ca2b080abf)
+- 🐞 수정:O68 WorkBuddy 任务族按真机读侧形态重做 —— 读侧必须 GET,字段表以实测为准,写侧未证字段一律拒发 (eb00bda012)
+- 📚 문서:G-86 行形态修正为"标头在前、粗体内含编号" —— 原形态编号与题面之间夹了归桶标头,判据取不出复合主键(compositeKeyOf=null、titleOf 只回 "G-86"),而这行有编号、不是叙述式待办,落在 F4 归并与同题查重的盲区里(§1 复合主键=编号+标题前缀逐字等值,取不出就等于归并与撞号防线都看不见它) (24d0ab8cdd)
+- 🐞 수정:补回 HEAD 面 Input.tsx / Sheet.tsx 的溯源载荷 —— 只加 5 行水印,内容行零改动 (1c0279864b)
+- 🐞 수정:browser 自拉起第二腿 —— Linux 沙箱被 AppArmor 挡时补 --no-sandbox 重试,治 CDP 永不就绪 (fbc61f7a9b)
+- 📚 문서:登记线上一条一等缺陷 G-86 —— WebSocket 全通道在公网前置未透传 Upgrade(真客户端复测线上 error、同码本地 OPEN) (11269a2a18)
+- 🔧 기타:放量 deploy 每日额度 40→60(人工阀 budget-cap-change,机主 2026-10-28 23:44 拍板) (d5bfab840d)
+- 🐞 수정:Knip 工作流不再取消在飞 —— 高频并发提交下它永远拿不到终态 (1faefbef94)
+- 🚀 기능/개선:补齐控制帧 resume_goal —— 会话目标「恢复」的显式帧入口 (55d5726383)
+- 🚀 기능/개선:gen-ui-mirror 派生器装车,小程序壳「档→类」绑定块按 RN 逐字归位 (a1c4c3b6b7)
+- 📚 문서:G-329 票面就地补③格进展 —— 真 TTY 三格已由 2a6c7c58b208327611d748e6087336728e7d6253 实跑转绿(pty 4/4、keys 45/45、terminal 14/14,--retry=0 首跑),读端两处 ConPTY 吞字节的形态按 §12e 不留在本机当恒红门、判据整条迁到写侧 enterSequence/leaveSequence 未废。本行仍不翻勾:②的公网入口断言与余格仍归机主运维面,③只是四条里的一条结清。归属桶、认领态、票号三维未动,走 live-doc-edit 整行改写档由器物自证守恒。 (1d933b1dd9)
+- 🚀 기능/개선:「立即部署」正规通道 —— 会话投递 marker，SYSTEM 守护强制部署 (cb61465efa)
+- 📚 문서:摘 2 条同题 R4 登记副本并对齐远端形态 —— 编号 ⑨ 在本侧落了三份(403/404/405),远端 afb5a3f59f4 已由他席 4bd57ef6916 合并清理为仅 403 一条;本侧残留 404/405 属滞后副本,且违反 §1「一个编号只能有一行当前状态」。摘除后本侧 AGENTS.md 与远端逐字等值,git-sync-converge 零丢失自证方可通过(此前因这 2 行被判「吞掉本侧内容」拒绝推进 HEAD)。 (d2d9baa3a4)
+- 🐞 수정:O68 pass-entry-broken 结清 —— 切流后固定 8 秒即进门禁,web 停-起空窗加 Next 冷启动致公网 /api/* 502,而 web 维被 EO 缓存刷成 pass ⇒ 假故障。修:就绪等待上限 120 秒。实证 23:20:00 源站 8801 已就绪(等待 5 秒);23:21:02 门禁首轮 web/api/llm 全 pass;DEPLOY-DECISION action=pass gateVerdict=pass failDims=[] sha=8c1eddfb527;23:22:59 canary-pass。 (8f572260a4)
+- 🐞 수정:媒体路由 bodyLimit 全覆盖 + 上限常量单一真相源(清除 2MiB 静默 413 隐患) (2f22c02fd7)
+- 🔧 기타:反馈闭环: 观察维不压主裁决 + guardian 闭环巡检接线 (f4671f89a1)
+
+**2026-10-28**
+- 🔧 기타:全屏 TUI 的真 TTY 交互补齐 —— alt-screen 配对、滚轮端到端、鼠标上报开启三格在真 ConPTY 上实跑转绿 (2a6c7c58b2)
+- 🔧 기타:三处桶导出收敛回真实消费面 —— exports 2026→1970,回到基线 1988 以内 (b48cec35e6)
+
+**2026-10-28**
+- 📚 문서:把"受管面不等于本机生效面"钉进密钥回填器头注 —— 此前按"填了根 .env 就算配好"办事会静默落空 (afb5a3f59f)
+- 📚 문서:再次摘除被 merge 带回的两份 R4⑨ 同题副本,AGENTS.md 回到预算内(95993/96000) (a6ed3b7954)
+>>>>>>> 90bd9fcc8c00e2886d4b878ca695112ad527e9fe
 <!-- END RECENT UPDATES -->
 
 <p align="center">

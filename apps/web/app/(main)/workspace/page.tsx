@@ -100,7 +100,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
+    <div className="flex min-h-full flex-col px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
@@ -173,16 +173,16 @@ export default function WorkspacePage() {
       </div>
 
       {!allow ? (
-        <AuthGatePrompt message="请先登录后查看我的项目" />
+        <AuthGatePrompt message="请先登录后查看我的项目" className="my-auto" />
       ) : isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
+        <div className="my-auto flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error && !errorDismissed ? (
         <div
           role="alert"
-          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
+          className="my-auto flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
         >
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1 space-y-0.5">
@@ -219,7 +219,7 @@ export default function WorkspacePage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <p className="text-sm text-muted-foreground">{t('noProjects')}</p>
         </div>
       )}

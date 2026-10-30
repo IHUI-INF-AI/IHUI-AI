@@ -5,15 +5,20 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
-const { mockAuthenticate, mockRateChatMessage } = vi.hoisted(() => ({
+const { mockAuthenticate, mockRateChatMessage, mockClearChatMessageRating } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
   mockRateChatMessage: vi.fn(),
+  mockClearChatMessageRating: vi.fn(),
 }))
 
 // 注意:此链上 Proxy 风格 mock 会抛 "non-object target"(2026-09-23 实测),
 // 一律用显式对象 mock —— 与 chat.ts 的实际导入面一一对应。
 vi.mock('../src/db/chat-queries.js', () => ({
   rateChatMessage: mockRateChatMessage,
+  // 2026-10-28(读完回):撤销出口 + 读面批量查询。本文件只打 POST/DELETE 反馈路由,
+  // 读面空 Map 与"整页无票"同义。
+  clearChatMessageRating: mockClearChatMessageRating,
+  listMessageFeedbackRatings: vi.fn(async () => new Map()),
   compressContextIfNeeded: vi.fn(),
   estimateMessagesTokens: vi.fn(),
   createConversation: vi.fn(),
@@ -226,6 +231,67 @@ describe('POST /messages/feedback(D49①)', () => {
       url: '/messages/feedback',
       payload: { messageId: MSG_ID, rating: 'dislike' },
     })
+    expect(res.statusCode).toBe(404)
+  })
+})
+
+/**
+ * 2026-10-28(读完回):DELETE /messages/:id/feedback —— 撤销一票。
+ *
+ * 守的是三件事:
+ * ① 归属与鉴权不因"只是撤销"而放宽(未登录 401 且不触达查询层;不存在/无权 404);
+ * ② 幂等 —— 本来就无票也回 200。界面上"再点一次已选中的键"必须安静成功,
+ *    错误地把"已经是目标态"报成 404,用户就会以为票没撤掉而反复点;
+ * ③ 响应体给 `{rated:false, rating:null}`,与 POST 的 `{rated:true, rating}` 同形,
+ *    客户端可以按同一套状态机回写(不必为撤销写第二套判据)。
+ */
+describe('DELETE /messages/:id/feedback(2026-10-28 读完回)', () => {
+  let server: Awaited<ReturnType<typeof Fastify>>
+  beforeAll(async () => {
+    const app = Fastify()
+    await app.register(chatRoutes)
+    await app.ready()
+    server = app
+  })
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('未登录 → 401 且不触达查询层', async () => {
+    mockAuthenticate.mockRejectedValueOnce(Object.assign(new Error('auth'), { statusCode: 401 }))
+    const res = await server.inject({ method: 'DELETE', url: `/messages/${MSG_ID}/feedback` })
+    expect(res.statusCode).toBe(401)
+    expect(mockClearChatMessageRating).not.toHaveBeenCalled()
+  })
+
+  it('撤销成功 → 200 且查询层收 (userId, messageId)', async () => {
+    mockAuthenticate.mockImplementationOnce(async (req: { userId?: string }) => {
+      req.userId = 'user-1'
+    })
+    mockClearChatMessageRating.mockResolvedValueOnce({ ok: true })
+    const res = await server.inject({ method: 'DELETE', url: `/messages/${MSG_ID}/feedback` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ rated: false, rating: null })
+    expect(mockClearChatMessageRating).toHaveBeenCalledWith('user-1', MSG_ID)
+  })
+
+  it('幂等:本来就无票也回 200(不把"已是目标态"报成 404)', async () => {
+    mockAuthenticate.mockImplementationOnce(async (req: { userId?: string }) => {
+      req.userId = 'user-1'
+    })
+    // 库层对"删了 0 行"仍返回 ok:无票与撤成功对外同态
+    mockClearChatMessageRating.mockResolvedValueOnce({ ok: true })
+    const res = await server.inject({ method: 'DELETE', url: `/messages/${MSG_ID}/feedback` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ rated: false, rating: null })
+  })
+
+  it('消息不存在/无权 → 404(不区分两种情况)', async () => {
+    mockAuthenticate.mockImplementationOnce(async (req: { userId?: string }) => {
+      req.userId = 'user-1'
+    })
+    mockClearChatMessageRating.mockResolvedValueOnce({ ok: false, reason: 'not-found' })
+    const res = await server.inject({ method: 'DELETE', url: `/messages/${MSG_ID}/feedback` })
     expect(res.statusCode).toBe(404)
   })
 })

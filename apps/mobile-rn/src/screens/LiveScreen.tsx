@@ -10,9 +10,10 @@
  * - 入口:首页 onNavigateLives → Main LiveMain
  * - 直播非原项目 5 主 Tab:底部 TabBar 常驻无高亮,可切换主 Tab(对齐原内容页底部导航)
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { BlurTargetView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -35,6 +36,7 @@ export function LiveScreen() {
   const rootNav = navigation.getParent<RootNav>()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
+  const tabBarBlurTargetRef = useRef<View>(null)
   const [lives, setLives] = useState<Live[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -97,22 +99,25 @@ export function LiveScreen() {
 
   return (
     <View style={styles.shell}>
-      <View style={styles.body}>
-        <SharedLiveScreen
-          t={t}
-          items={items}
-          loading={loading}
-          refreshing={refreshing}
-          error={error}
-          onRefresh={() => load(true)}
-          onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
-          onBack={() => navigation.goBack()}
-          contentBottomPadding={tabBarScrollReserve(insets.bottom)}
-          colorScheme={resolvedTheme}
-        />
-      </View>
+      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样 */}
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <View style={styles.body}>
+          <SharedLiveScreen
+            t={t}
+            items={items}
+            loading={loading}
+            refreshing={refreshing}
+            error={error}
+            onRefresh={() => load(true)}
+            onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
+            onBack={() => navigation.goBack()}
+            contentBottomPadding={tabBarScrollReserve(insets.bottom)}
+            colorScheme={resolvedTheme}
+          />
+        </View>
+      </BlurTargetView>
       {/* 底部导航(直播非主 Tab,TabBar 常驻无高亮) */}
-      <TabBar onChange={handleTabChange} />
+      <TabBar onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
     </View>
   )
 }

@@ -73,16 +73,23 @@ export const HIDE_CURSOR = '\x1b[?25l'
 export const SHOW_CURSOR = '\x1b[?25h'
 export const CLEAR_SCREEN = '\x1b[2J'
 
+// 鼠标上报:1000=按下/释放事件,1006=SGR 扩展编码(滚轮键码 64/65 只在 SGR 下无歧义)。
+// 不开这两档,终端在滚轮时什么都不发 —— 2026-10-28 真 PTY 实测:全会话一条鼠标开关都没有,
+// 滚轮字节只会被解码层当未绑定序列吞掉(G-329 缺陷格)。
+export const ENABLE_MOUSE_REPORTS = '\x1b[?1000h\x1b[?1006h'
+export const DISABLE_MOUSE_REPORTS = '\x1b[?1000l\x1b[?1006l'
+
 /** 进全屏的字节序列(顺序要紧:先进 alt-screen 再清屏,否则会擦掉用户滚动态)。 */
 export function enterSequence(): string {
-  return ENTER_ALT_SCREEN + CLEAR_SCREEN + HIDE_CURSOR
+  return ENTER_ALT_SCREEN + CLEAR_SCREEN + HIDE_CURSOR + ENABLE_MOUSE_REPORTS
 }
 
 /**
  * 退全屏的字节序列。**必须与 enterSequence 严格配对**,且写入时不得再被别的帧插队。
  * alt-screen 一出,主屏内容自动回到原样,所以这里不重画主屏。
+ * 鼠标模式必须在离开前关掉,否则退出后终端会把滚轮当转义序列塞给 shell。
  */
 export function leaveSequence(): string {
-  return SHOW_CURSOR + LEAVE_ALT_SCREEN
+  return DISABLE_MOUSE_REPORTS + SHOW_CURSOR + LEAVE_ALT_SCREEN
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -61,6 +61,15 @@ export interface ModelCompletionResponse {
   finishReason: string
 }
 
+/**
+ * 密钥脱敏:只留末 4 位指纹(够运维核对"是哪一把",不够复用)。
+ * 短密钥一律全掩,避免掩码本身泄露过多信息。
+ */
+function maskKey(key: string): string {
+  if (key.length <= 8) return '****'
+  return `****${key.slice(-4)}`
+}
+
 export class ModelManager extends EventEmitter {
   private models = new Map<string, ModelConfig>()
   private defaultModelId: string | null = null
@@ -85,6 +94,25 @@ export class ModelManager extends EventEmitter {
 
   list(): ModelConfig[] {
     return Array.from(this.models.values())
+  }
+
+  /**
+   * 对外(HTTP 响应)可返回的模型视图 —— 2026-10-27 安全加固。
+   *
+   * `list()` 原样带出 `apiKey` / `baseUrl`,而 `/api/crew/models` 曾完全无鉴权、
+   * `/api/clawdbot/models` 仅需普通登录 —— 两者都把**平台上游密钥明文**交给了调用方。
+   * 路由层一律改用本方法:密钥只保留"是否已配置"与末 4 位指纹,供运维核对是哪一把,
+   * 不足以复用。真正需要密钥的调用链(complete)在服务内部取 `get(id)`,不受影响。
+   */
+  listPublic(): Array<Omit<ModelConfig, 'apiKey'> & { apiKey?: string; hasApiKey: boolean }> {
+    return Array.from(this.models.values()).map((cfg) => {
+      const { apiKey, ...rest } = cfg
+      return {
+        ...rest,
+        hasApiKey: Boolean(apiKey),
+        ...(apiKey ? { apiKey: maskKey(apiKey) } : {}),
+      }
+    })
   }
 
   listEnabled(): ModelConfig[] {

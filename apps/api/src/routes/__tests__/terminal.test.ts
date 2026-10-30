@@ -46,12 +46,24 @@ const MOCK_SESSION: TerminalSession = {
   shell: 'bash',
 }
 
-/** 默认鉴权通过:注入 userId,与真实 authenticate 行为一致 */
-function mockAuth(userId = 'test-user-id'): void {
+/**
+ * 默认鉴权通过:注入 userId + jwtPayload.roleId,与真实 authenticate 行为一致。
+ *
+ * roleId 必须能注入 —— requireAdmin 的判据是 `request.jwtPayload.roleId >= 1`
+ * (resolveAdminRoleId,且显式 includeInternalChannel:false)。只设 userId 的话,
+ * 任何走 admin 闸的端点在单测里都会恒 403,正向分支根本测不到。
+ */
+function mockAuth(userId = 'test-user-id', roleId = 0): void {
   vi.mocked(authenticate).mockImplementation(async (request: { userId?: string }) => {
     request.userId = userId
+    Object.assign(request, { jwtPayload: { roleId } })
     return { userId } as never
   })
+}
+
+/** 管理员身份(本地终端会话默认只对管理员开放);userId 沿用既有断言值 */
+function mockAdminAuth(userId = 'test-user-id'): void {
+  mockAuth(userId, 1)
 }
 
 describe('Terminal API (/api/terminal/*)', () => {
@@ -69,7 +81,9 @@ describe('Terminal API (/api/terminal/*)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockAuth()
+    // 创建本地会话默认只对管理员开放 ⇒ 原有用例(参数校验/限额/500)以管理员身份跑,
+    // 普通用户的拒绝分支在下面的成对用例里单独留证。
+    mockAdminAuth()
   })
 
   describe('鉴权', () => {
@@ -196,6 +210,37 @@ describe('Terminal API (/api/terminal/*)', () => {
         payload: { rows: 201 },
       })
       expect(res.statusCode).toBe(400)
+    })
+
+    it('普通用户(非管理员)创建本地会话 → 403,且 createSession 一次都没被调用', async () => {
+      mockAuth('plain-user', 0)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/terminal/sessions',
+        headers: AUTH_HEADERS,
+        payload: { cwd: 'D:\\' },
+      })
+      expect(res.statusCode).toBe(403)
+      // 断言的是副作用没发生:守卫必须挡在 spawn 之前,而不是先起一枚 PTY 再回 403
+      expect(vi.mocked(createSession)).not.toHaveBeenCalled()
+    })
+
+    it('IHUI_TERMINAL_LOCAL_ENABLED=1 时退回登录用户可用(自托管档,正向对照)', async () => {
+      process.env.IHUI_TERMINAL_LOCAL_ENABLED = '1'
+      try {
+        mockAuth('plain-user', 0)
+        vi.mocked(createSession).mockReturnValue(MOCK_SESSION)
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/terminal/sessions',
+          headers: AUTH_HEADERS,
+          payload: {},
+        })
+        expect(res.statusCode).toBe(200)
+        expect(vi.mocked(createSession)).toHaveBeenCalledTimes(1)
+      } finally {
+        delete process.env.IHUI_TERMINAL_LOCAL_ENABLED
+      }
     })
   })
 

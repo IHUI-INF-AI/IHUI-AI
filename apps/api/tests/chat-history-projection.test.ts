@@ -31,6 +31,10 @@ vi.mock('../src/db/chat-queries.js', () => ({
   favoriteConversation: vi.fn(),
   unfavoriteConversation: vi.fn(),
   rateChatMessage: vi.fn(),
+  // 2026-10-28(读完回):history 读面新增的票批量查询。空 Map = 整页无票,
+  // 与本文件原有断言(只关心 turn 投影/游标,不关心票)语义一致。
+  listMessageFeedbackRatings: vi.fn(async () => new Map()),
+  clearChatMessageRating: vi.fn(),
   findFavoriteConversations: vi.fn(),
   archiveConversation: vi.fn(),
   unarchiveConversation: vi.fn(),

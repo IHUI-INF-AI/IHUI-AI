@@ -101,7 +101,8 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   const compareQuery = z.object({ v1: z.coerce.number(), v2: z.coerce.number() })
 
   // POST /file-versions/create — 上传新版本（multipart: file + 表单字段 fileId/changeLog）
-  server.post('/file-versions/create', async (request, reply) => {
+  // 2026-10-28 DDoS P2:显式放开到单文件上限+余量,脱离全局 2MiB 默认。精确闸在 handler 内。
+  server.post('/file-versions/create', { bodyLimit: MAX_MULTIPART_UPLOAD_SIZE + 1024 * 1024 }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 

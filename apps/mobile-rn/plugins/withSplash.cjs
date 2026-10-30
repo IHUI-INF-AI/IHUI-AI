@@ -19,7 +19,7 @@
  *   2. 写 res/drawable/ic_launcher_background.xml(layer-list:背景色 + gravity=center 的
  *      bitmap,居中显示不缩放;沿用 Expo 既有文件名,样式只需指向它);
  *   3. 把 Theme.App.SplashScreen 的 windowBackground 指向该 layer-list,
- *      并把 splashscreen_background 定为品牌黑 —— 这条只对 API ≤ 30 生效;
+ *      并把 splashscreen_background 定为**浅底**(#FFFFFF)—— 这条只对 API ≤ 30 生效;
  *   4. 写 res/values-v31/styles.xml 补齐 Android 12+(API 31+)的**系统 SplashScreen**:
  *      targetSdk ≥ 31 时平台强制接管启动窗口,只认 windowSplashScreenBackground /
  *      windowSplashScreenAnimatedIcon,**完全忽略** legacy 的 android:windowBackground。
@@ -46,7 +46,12 @@ const {
 const SPLASH_SOURCE_DIR = path.join('assets', 'splash')
 const DENSITIES = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']
 const STYLE_NAME = 'Theme.App.SplashScreen'
-const SPLASH_COLOR = '#000000'
+// 2026-10-27 机主否决整屏黑开屏("你是用户你会愿意看?")后改为浅底:
+// 品牌标本身是浅粉→浅蓝的 pastel 渐变,压黑底才显色,所以浅底上改成居中放**品牌方标**
+// (应用图标同款黑方底 + pastel 标,见 assets/icon.png),画布透明、底色由资源给白。
+// 白底同时覆盖两处:legacy 的 windowBackground 与 API31 的系统 SplashScreen 背景,
+// 顺带让 OTA 重启窗口那一下也是白色而非黑/灰。
+const SPLASH_COLOR = '#FFFFFF'
 
 const LAYER_LIST = `<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">

@@ -166,7 +166,15 @@ export const View = mk('div')
 export const Text = mk('span')
 export const Pressable = mk('button')
 export const TouchableOpacity = mk('button')
-export const ScrollView = mk('div')
+/**
+ * ScrollView 不能是裸 `mk('div')`:它与普通 View 在 DOM 上完全同形,于是分类下拉面板
+ * 「改成 ScrollView 才不会被 maxHeight+overflow:hidden 静默裁切」这条修复在测试里
+ * 无从取证(换回 View 也全绿)。打一个 data 标记,让回归锁能选中真正承担滚动的容器。
+ */
+const ScrollViewBase = mk('div')
+export function ScrollView(props: { children?: ReactNode; [k: string]: unknown }) {
+  return createElement(ScrollViewBase, { ...props, 'data-rn-scrollview': 'true' })
+}
 /**
  * FlatList 必须是"真渲染"的 stub:`mk('div')` 直接吐掉 data/renderItem,任何把内容
  * 放进列表的组件在测试里都渲染成空壳 —— 断言照常通过,覆盖率为 0(假绿)。
@@ -232,6 +240,38 @@ export const BackHandler = {
   addEventListener: (_event: string, _cb: () => boolean) => ({ remove() {} }),
   removeEventListener: (_event: string, _cb: () => boolean) => {},
   exitApp: () => {},
+}
+/**
+ * AppState(2026-10-27 立):语音笔记面板用 `AppState.addEventListener('change')` 监听
+ * App 退到后台(后台回收 ⇒ 录音被系统打断 ⇒ 收成 interrupted 终态)。
+ * 桩要**可派发**:只给个空 addEventListener 的话,组件在测试里挂载即崩(AppState undefined),
+ * 而"退后台"这条路径永远无法被用例触发 —— 等于把该形态锁在零覆盖区。
+ * `__emit` 是替身专用出口(真身 AppState 上没有它)。
+ */
+type AppStateListener = (state: string) => void
+const appStateListeners = new Set<AppStateListener>()
+export const AppState = {
+  currentState: 'active',
+  addEventListener: (_event: string, cb: AppStateListener) => {
+    appStateListeners.add(cb)
+    return {
+      remove: () => {
+        appStateListeners.delete(cb)
+      },
+    }
+  },
+  removeEventListener: (_event: string, cb: AppStateListener) => {
+    appStateListeners.delete(cb)
+  },
+  /** 替身专用:派发一次 AppState 变更 */
+  __emit: (state: string) => {
+    AppState.currentState = state
+    for (const cb of [...appStateListeners]) cb(state)
+  },
+  __reset: () => {
+    appStateListeners.clear()
+    AppState.currentState = 'active'
+  },
 }
 export const Animated = {
   View: mk('div'),
@@ -305,6 +345,7 @@ const ReactNative = {
   I18nManager,
   Animated,
   BackHandler,
+  AppState,
   PanResponder,
   Easing,
 }

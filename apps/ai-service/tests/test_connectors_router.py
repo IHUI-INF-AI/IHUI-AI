@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -228,6 +229,52 @@ async def test_delete(ac):
     assert res.status_code == 200
     assert res.json() == {"ok": True}
     assert connector_store.get(USER_A, "yuque:docs") is None
+
+
+async def test_ownerless_record_is_filtered_out_of_the_http_list(
+    api_app, monkeypatch, tmp_path
+):
+    """无属主的遗留记录在 HTTP 读取面**一条都不出现**,但服务端仍数得到它。
+
+    立因(2026-10-27):`list_owned` 的 fail-closed 只在 store 单测里钉过;端点若改回
+    `list_all()`/整片读,store 层测试照样全绿,而 `connectors:read` 的"已按属主收窄"
+    在 HTTP 面就变成了纸面措辞。这条用例把"收窄发生在 handler 的调用上"钉住:
+    变异成整片读 ⇒ 这里立刻看到别人/无主的 key。
+    """
+    store_path = tmp_path / "connector_store-ownerless.json"
+    store_path.write_text(
+        json.dumps(
+            [
+                {
+                    "key": "yuque:legacy",
+                    "type": "yuque",
+                    "name": "无主遗留",
+                    "app_id": "",
+                    "app_secret": "legacy-secret",
+                    "extra": {"user": "u", "repo": "r"},
+                    "enabled": True,
+                    "installed_at": "2026-09-02T00:00:00+00:00",
+                    "updated_at": "2026-09-02T00:00:00+00:00",
+                    "last_sync_at": "",
+                    "last_error": "",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(connector_store, "_STORE_PATH", store_path)
+    app = FastAPI()
+    app.include_router(connectors_router.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: USER_A
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/connectors")
+
+    assert res.status_code == 200
+    assert res.json() == {"connectors": [], "count": 0}
+    # 管理员/运维侧的出口只有这个计数(响应体里不带,免得开"数得清别人配置"的口)
+    assert connector_store.ownerless_count() == 1
+    assert "legacy-secret" not in res.text
 
 
 async def test_cross_owner_http_is_shaped_like_missing_and_side_effect_free(

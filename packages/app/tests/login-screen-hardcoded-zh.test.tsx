@@ -179,7 +179,6 @@ const MATRIX: { name: string; props: Record<string, unknown> }[] = [
       onToggleNationShow: () => {},
       onSelectNation: () => {},
       nations: [{ id: 1, title: 'China', content: '+86' }],
-      carrierOneClickEntry: createElement('div', { 'data-testid': 'carrier' }),
     },
   },
   ...(['idle', 'loading', 'waiting', 'scanned', 'expired', 'error'] as const).map((status) => ({

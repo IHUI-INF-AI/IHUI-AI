@@ -12,10 +12,13 @@
  * 测试口径(与 `plugin-cache-rollback.test.ts` 同一套夹具机制,不改那个文件):
  *   - 一律走生产入口 `getOrCloneGitCache()` + `IHUI_MOCK_GIT_CLONE_SRC`(即真实调用形状),
  *     不从测试里调私有函数 —— 判据要在"有人真跑它的那一刻"才成立;
- *   - 真造 vs 注入:**逃逸 / 合法链接 / 悬空链接三型全部真造符号链接**(本机实测 Windows
- *     可建 `fs.symlinkSync`,含指向已删除目标的悬空链接 ⇒ 真实 ENOENT 走 degraded-missing);
- *     只有 `unsafe`(可达性判不了)按 G-705 的做法**注入** realpath 实现抛权限类错误码 ——
- *     真造 EPERM/EACCES 需要撤销本机权限或换文件系统,不可复现;
+ *   - 真造 vs 注入:**逃逸 / 合法链接 / 悬空链接三型全部真造目录链接**(经 `linkDir()`:
+ *     优先真符号链接;本机未开开发者模式/非管理员时 `fs.symlinkSync(..., 'dir')` 抛 EPERM,
+ *     回落 junction —— Node 对两者一视同仁:`lstat().isSymbolicLink()`、`readlinkSync`、
+ *     `realpathSync` 三个面上同形,而生产判据消费的正是这三个面。两种都造不出 ⇒ 用例
+ *     skipped(未判定),不冒绿也不冒红);只有 `unsafe`(可达性判不了)按 G-705 的做法
+ *     **注入** realpath 实现抛权限类错误码 —— 真造 EPERM/EACCES 需要撤销本机权限或换文件系统,
+ *     不可复现;
  *   - 每条"拒绝"用例都同时断言**没留下半份内容**(缓存目录整体为空:既没有落位副本也没有
  *     在途 staging),否则"抛了错但脏了盘"这一型看不见。
  */
@@ -130,14 +133,51 @@ const JUNCTION_CAPABLE = (() => {
   }
 })()
 
+/**
+ * 目录链接的建造形态,模块顶层量一次:优先真符号链接 `'dir'`;本机无
+ * SeCreateSymbolicLinkPrivilege(未开开发者模式 / 非管理员)时它抛 EPERM,
+ * 回落 junction。两种都造不出 ⇒ null,依赖它的用例 skipped(未判定)。
+ */
+const DIR_LINK_KIND: 'dir' | 'junction' | null = (() => {
+  let base = ''
+  let tgt = ''
+  try {
+    base = fs.realpathSync(mkScratch('g747-link-'))
+    tgt = fs.realpathSync(mkScratch('g747-link-tgt-'))
+    const probe = path.join(base, 'p')
+    try {
+      fs.symlinkSync(tgt, probe, 'dir')
+      return fs.lstatSync(probe).isSymbolicLink() ? 'dir' : null
+    } catch {
+      fs.symlinkSync(tgt, probe, 'junction')
+      return fs.lstatSync(probe).isSymbolicLink() ? 'junction' : null
+    }
+  } catch {
+    return null
+  } finally {
+    if (base) rmScratch(base)
+    if (tgt) rmScratch(tgt)
+  }
+})()
+
+const CAN_LINK_DIR = DIR_LINK_KIND !== null
+
+/** 唯一的目录链接建造入口(用例里禁止直接 fs.symlinkSync(..., 'dir') —— 会按机器特权翻红/翻绿)。 */
+function linkDir(target: string, link: string): void {
+  if (DIR_LINK_KIND === null) {
+    throw new Error('本机既造不出目录符号链接也造不出 junction:用例应被 skipIf 跳过,而不是走到这里');
+  }
+  fs.symlinkSync(target, link, DIR_LINK_KIND)
+}
+
 // ==================== ① 指向根外的链接 ⇒ 中止且不落半份 ====================
 
 describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
-  it('①源里一条指向缓存根之外的链接 ⇒ 复制中止、点名该链接,且不留半份目录', async () => {
+  it.skipIf(!CAN_LINK_DIR)('①源里一条指向缓存根之外的链接 ⇒ 复制中止、点名该链接,且不留半份目录', async () => {
     write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
     write(path.join(tmpOutside, 'other-tenant-secret.txt'), 'DO-NOT-COPY');
     const link = path.join(tmpMockSrc, 'escape-link');
-    fs.symlinkSync(tmpOutside, link, 'dir');
+    linkDir(tmpOutside, link);
 
     // 阳性对照:这台机上这条链接确实可达、确实落在根外(否则注入/夹具就是一张空支票)
     expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
@@ -166,7 +206,7 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
   // 旧实现在 `hadCache && isUsableDirectoryCopy` 那一支把 `PluginCacheCopyUnsafeError` 折进
   // `staleReason` 文本并回 `fromCache:true` —— 调用方看到的是一句"离线可用",而实际是"内容被拒",
   // 结构化 reasonCode 整条丢掉(守门 135"错误身份不得只活在文案里"同族)。
-  it('⑥G-809 有可用旧副本 + 逃逸链接 ⇒ 抛结构化错误、fromCache 不为 true、旧副本原样在位', async () => {
+  it.skipIf(!CAN_LINK_DIR)('⑥G-809 有可用旧副本 + 逃逸链接 ⇒ 抛结构化错误、fromCache 不为 true、旧副本原样在位', async () => {
     // 先造一份**可用**的旧副本(正常 clone 落位)
     write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
     const first = await getOrCloneGitCache(URL_A, { ttlMs: 60_000 });
@@ -175,7 +215,7 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
     const before = fs.readFileSync(path.join(first.localPath, 'plugin.json'), 'utf-8');
 
     // 再往 mock 源里塞一条越界链接,并让 TTL 立刻过期
-    fs.symlinkSync(tmpOutside, path.join(tmpMockSrc, 'escape-link'), 'dir');
+    linkDir(tmpOutside, path.join(tmpMockSrc, 'escape-link'));
     const outcome = await getOrCloneGitCache(URL_A, { ttlMs: 0 }).then(
       (r) => ({ kind: 'resolved' as const, r }),
       (e: unknown) => ({ kind: 'rejected' as const, e }),
@@ -251,10 +291,10 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
 
   // ==================== ② 正向对照:指向根内的合法链接照常复制 ====================
 
-  it('②指向根内的合法链接 ⇒ 正常复制(正向对照,防"一律拒")', async () => {
+  it.skipIf(!CAN_LINK_DIR)('②指向根内的合法链接 ⇒ 正常复制(正向对照,防"一律拒")', async () => {
     write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
     write(path.join(tmpMockSrc, 'shared/payload.txt'), 'inside-the-root');
-    fs.symlinkSync(path.join(tmpMockSrc, 'shared'), path.join(tmpMockSrc, 'inside-link'), 'dir');
+    linkDir(path.join(tmpMockSrc, 'shared'), path.join(tmpMockSrc, 'inside-link'));
 
     const result = await getOrCloneGitCache(URL_A, { ttlMs: 1000 });
     expect(result.fromCache).toBe(false);
@@ -266,12 +306,12 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
 
   // ==================== ③ degraded-missing:悬空链接按既有语义跳过 ====================
 
-  it('③链接目标已删除(degraded-missing)⇒ 干净跳过,其余内容照拷,不抛穿', async () => {
+  it.skipIf(!CAN_LINK_DIR)('③链接目标已删除(degraded-missing)⇒ 干净跳过,其余内容照拷,不抛穿', async () => {
     write(path.join(tmpMockSrc, 'keep.txt'), 'kept');
     const doomed = path.join(tmpMockSrc, 'gone-target');
     write(path.join(doomed, 'x.txt'), 'x');
     const link = path.join(tmpMockSrc, 'dangling-link');
-    fs.symlinkSync(doomed, link, 'dir');
+    linkDir(doomed, link);
     fs.rmSync(doomed, { recursive: true, force: true });
 
     // 阳性对照:本机 realpath 对悬空链接给的确实是"明确缺失"那一码(封闭集内 ⇒ degraded-missing)
@@ -294,11 +334,11 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
 
   // ==================== ④ unsafe:判不了 ⇒ 拒,且绝不并进 missing ====================
 
-  it('④可达性判不了(unsafe)⇒ 抛带 reasonCode 的错,一条内容都不复制', async () => {
+  it.skipIf(!CAN_LINK_DIR)('④可达性判不了(unsafe)⇒ 抛带 reasonCode 的错,一条内容都不复制', async () => {
     write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
     write(path.join(tmpMockSrc, 'inner/payload.txt'), 'would-be-copied-if-allowed');
     const link = path.join(tmpMockSrc, 'locked-link');
-    fs.symlinkSync(path.join(tmpMockSrc, 'inner'), link, 'dir');
+    linkDir(path.join(tmpMockSrc, 'inner'), link);
 
     // 注入:根那一步照常解析,只有"链接目标"那一步抛权限类错误码 —— 真造 EPERM 需要动本机
     // 权限/文件系统(不可复现),所以按 G-705 的做法只换 realpath,其余照走 node:fs。
