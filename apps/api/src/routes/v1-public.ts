@@ -296,7 +296,8 @@ let modelsCache: ModelsCacheEntry | null = null
  */
 function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string): string {
   if (providerCode === 'stepfun') return `stepfun/${modelId}`
-  // 2026-10-10:同时匹配国内域名 api.agnes-ai.cn(境外 apihub.agnes-ai.com 不可达后切至此)
+  // 2026-10-10:同时匹配国内域名 api.agnes-ai.cn(该厂商两域按账号成对:api.agnes-ai.cn 只认新 key,
+  // apihub.agnes-ai.{cn,com} 只认旧 key —— 2026-10-30 四组合直连实测,两域并存而非一死一活)
   if (baseUrl && (baseUrl.includes('agnes-ai.com') || baseUrl.includes('agnes-ai.cn')))
     return `agnes/${modelId}`
   // P0-5m(2026-07-30):OpenRouter 模型加 openrouter/ 前缀,
