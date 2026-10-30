@@ -2198,6 +2198,17 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-30**
+- 🐞 수정:check-prod-checkout-foreign-work 装未知旗标闸 + 15 例镜像补齐（RP-79 第二枚落地件） (51b66c3a61)
+- 🔧 기타:收口本地积压（hook-window-guard/check-ops-patrol/deploy-decisions-face 改进 + 新 prod-checkout-root + desktop checkin_capture + i18n 派生重生成） (21b66ff087)
+- 🐞 수정:资讯分类屏按共享屏真实契约接回，此前整屏恒空 (67234f694d)
+- ⚡ 성능:face-reader 规格快路径 + git-sync-converge 未知旗闸；收口本地积压 (d6db2333fe)
+- 🐞 수정:补回被误删的 localMonthKey/localDayKey —— miniapp 首页 import 悬空,push 门 typecheck 恒红 (26e62feeee)
+- 🐞 수정:买 VIP 不再被当成 token 充值白送余额 (1484b7bd9d)
+- 📚 문서:登记 RP 族第三票——git-sync-converge 无 --help，未知旗标被当默认动作直接开跑真实索引层收敛（本日实测踩中并留下 16 项中间态，已 reset 清零且证明未进提交）；连同 union-converge 同族一并改为未知旗标显式拒绝并补镜像锁；只加一行不动他票 (5ea3ccc628)
+- 📚 문서:登记 RP 族第二票——AGENTS §5b gitdir 形态描述与实测相反（真 gitdir = 工作区外 D:/IHUI-AI-git-repo，现读 .git 为 gitfile），照旧文处置即删库事故；并硬记门 207 余量仅 51 字节 ⇒ 本枚须等长/净减改法；只加一行不动他票 (663b83881e)
+- 🔧 기타:落地本地未提交改动（Tauri 桌面端 + 文档重生成 + i18n 派生 + face-reader 超时可配） (33deba819e)
+
+**2026-10-30**
 - 🐞 수정:prodCheckoutRoot 装"形态并集回落 + 显式 IHUI_DEVENV_ROOT 不越权"，线上态两条 oracle 不再恒未判定 (e7e35d307da)
 - 🚀 기능/개선:补 mobile-rn 提现两步验证文案（五语） (4de978b0e49)
 - 🚀 기능/개선:提现补两步验证面板（TOTP 注入后自动重试提现） (24a35d957e4)
@@ -2544,9 +2555,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b6f0a1e7c9f)
 - 🔧 기타:壳声明件跟随新落承载页(175 条说明符) (d0e43db6e5e)
 - 🔧 기타:自动落 1 枚小程序壳承载页(共 1 枚待产) (fba6247f597)
-
-**2026-10-28**
-- 🔧 기타:两端 ui-routes 按 HEAD 检出场重生(清在飞面污染,worktree=登记制 .worktrees/) (9ef1520d2939)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
