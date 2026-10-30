@@ -89,8 +89,17 @@ export function LivePlayer({
       }
 
       if (isHlsStream(url)) {
-        // 动态导入 hls.js(~200KB),仅 HLS 路由按需加载,避免打进主 bundle
-        const { default: HlsImpl } = await import('hls.js')
+        // 动态导入 hls.js(~200KB),仅 HLS 路由按需加载,避免打进主 bundle。
+        // 发版后旧 chunk 404 / 网络抖动时这条 import 会 reject。原先既不 catch 也不落状态
+        // ⇒ loading 永不复位、error 仍为 null,而渲染处 `{!loading && !error}` 把播放/
+        // 静音/全屏与重试出口全部藏掉 ⇒ 用户只剩一块永久转圈的黑屏,连"重试"都点不到。
+        const hlsMod = await import('hls.js').catch(() => null)
+        if (!hlsMod) {
+          setError(t('liveStreamError', { details: 'hls_chunk_load_failed' }))
+          setLoading(false)
+          return
+        }
+        const { default: HlsImpl } = hlsMod
         // 二次校验:异步加载期间组件可能已卸载或 url 已变
         if (videoRef.current !== video) return
 
