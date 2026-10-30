@@ -1979,7 +1979,12 @@ export default function ChatPage() {
           </View>
         ) : null}
 
-        {thinking && messages[messages.length - 1]?.role === 'assistant' ? (
+        {/* 与共享屏同一条判据(item.content || (isLastAi ? t('chat.thinking') : '')):
+            「思考中」只在最后一条 AI 消息还没有正文时出现 —— 原来整轮 thinking 期间都挂这一句,
+            于是内容已经开始流式输出后,屏上同时有「正在生成的回答」和「AI 生成中…/思考中…」两坨。 */}
+        {thinking &&
+        messages[messages.length - 1]?.role === 'assistant' &&
+        !messages[messages.length - 1]?.content ? (
           <View className="msg-item assistant">
             <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
             <View className="bubble">

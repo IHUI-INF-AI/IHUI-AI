@@ -11,16 +11,10 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { BASE_URL } from '@/utils/api-config'
-import { get, post } from '@/api'
+import { get } from '@/api'
 import { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT } from '@ihui/shared/constants'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-
-interface ApiConfig {
-  version: string
-  environment: string
-  timeout: string
-}
 
 const STORAGE_TOKEN_KEY = 'coze_token'
 const STORAGE_WORKFLOW_KEY = 'coze_workflow_id'
@@ -47,11 +41,6 @@ export default function ApiSettings() {
     },
     [t],
   )
-  const [config, setConfig] = useState<ApiConfig>({
-    version: '-',
-    environment: '-',
-    timeout: '-',
-  })
   const [apiToken, setApiToken] = useState('')
   const [workflowId, setWorkflowId] = useState('')
   // 共享屏 Coze 配置的三项(接口地址 / Bot ID / 超时):本页原先只有令牌与工作流 ID,
@@ -73,12 +62,6 @@ export default function ApiSettings() {
   const [testing, setTesting] = useState<TestState>('idle')
 
   const load = useCallback(async () => {
-    try {
-      const res = await get<ApiConfig>('/about/api-config')
-      if (res) setConfig(res)
-    } catch (e) {
-      logger.error('about/api-settings', '获取 API 配置', e)
-    }
     const savedToken = Taro.getStorageSync(STORAGE_TOKEN_KEY) || ''
     const savedWorkflow = Taro.getStorageSync(STORAGE_WORKFLOW_KEY) || ''
     setApiToken(savedToken)
@@ -136,14 +119,15 @@ export default function ApiSettings() {
     })
   }, [tt])
 
+  // 连通性诊断打**在册**的公开 GET /api/health(裸 JSON {status:'ok'},无 {code,data} 信封 ⇒
+  // api-client 按"整个响应视作 data"原样返回)。原先打的是后端零注册的自定义诊断路径(恒 404 ⇒
+  // testSuccess 分支永不可达 = 假绿),且会把 Coze 令牌发往不存在的端点(凭据外泄链),
+  // 故整体换到真实在册的健康探针,且**绝不携带任何令牌**。
   const testConnection = useCallback(async () => {
     setTesting('testing')
     try {
-      const res = await post<{ ok?: boolean; version?: string }>('/about/api-test', {
-        token: apiToken,
-        workflowId,
-      })
-      if (res && (res.ok || res.version)) {
+      const res = await get<{ status?: string }>('/health')
+      if (res && res.status === 'ok') {
         setTesting('success')
         Taro.showToast({
           title: t('apiSettings.testSuccess'),
@@ -160,7 +144,7 @@ export default function ApiSettings() {
         icon: 'none',
       })
     }
-  }, [apiToken, workflowId, t])
+  }, [t])
 
   useDidShow(() => load())
 
@@ -181,22 +165,6 @@ export default function ApiSettings() {
             </Text>
             <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
               {BASE_URL}
-            </Text>
-          </View>
-          <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('about.apiSettings.apiVersion', 'API 版本')}
-            </Text>
-            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
-              {config.version}
-            </Text>
-          </View>
-          <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('about.apiSettings.environment', '运行环境')}
-            </Text>
-            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
-              {config.environment}
             </Text>
           </View>
         </View>

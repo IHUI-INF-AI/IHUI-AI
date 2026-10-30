@@ -3,22 +3,44 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx
+// 状态取数取证(2026-10-30):GET /user/profile(miniapp-compat-routes.ts 的 /user/profile SELECT)
+// **不产出** realName / idCard / 认证状态 —— 旧代码读 profile.realnameStatus 恒 undefined,
+// 「已认证 / 审核中 / 未通过」三态分支结构上打不到。在册真值端点 = GET /api/auth/realname/my
+// (auth-identity.ts,回 authStatus/realName/idCard(解密后)/rejectReason),本页改接它。
+// 身份证照片上传位已撤:全仓无任何端点接收 idCardFront/idCardBack(user_auth_info 无照片列,
+// POST /user/realname 与 POST /auth/realname/submit 的 Zod 体只有 realName/idCard/authSource),
+// 留着就是「选了图也丢」的假输入口。
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button, Image } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getProfile, post } from '@/api'
+import { post } from '@/api'
+import { fetchApi } from '@ihui/api-client'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './realname.css'
 
 const ID_CARD_REGEX = /^\d{17}[\dXx]$/
 
 type AuthStatus = 'unverified' | 'reviewing' | 'verified' | 'rejected'
+
+/** 后端 authStatus(user_auth_info.auth_status)→ 页面四态;认不出的值按未认证收口,不猜成已通过 */
+function toAuthStatus(raw: string | null | undefined): AuthStatus {
+  if (raw === 'approved') return 'verified'
+  if (raw === 'pending') return 'reviewing'
+  if (raw === 'rejected') return 'rejected'
+  return 'unverified'
+}
+
+interface RealnameRecord {
+  authStatus?: string | null
+  realName?: string | null
+  idCard?: string | null
+  rejectReason?: string | null
+}
 
 function maskIdCard(id: string): string {
   if (!id || id.length < 8) return id || ''
@@ -31,10 +53,6 @@ export default function Realname() {
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [realName, setRealName] = useState('')
   const [idCard, setIdCard] = useState('')
-  const [frontPhoto, setFrontPhoto] = useState('')
-  const [backPhoto, setBackPhoto] = useState('')
-  const [frontUploading, setFrontUploading] = useState(false)
-  const [backUploading, setBackUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState<AuthStatus>('unverified')
   const [authedName, setAuthedName] = useState('')
@@ -43,25 +61,23 @@ export default function Realname() {
 
   const load = useCallback(async () => {
     try {
-      const profile = await getProfile()
-      const name = (profile.realName as string) || ''
-      const raw = profile.realnameStatus as string | undefined
-      if (name && raw !== 'rejected' && raw !== 'reviewing') {
-        setStatus('verified')
-        setAuthedName(name)
-        setAuthedId((profile.idCard as string) || '')
+      const res = await fetchApi<RealnameRecord>('/api/auth/realname/my')
+      if (!res.success) {
+        // 取不到状态就保持未认证并如实提示 —— 不把「没取到」说成「没认证过」之外的任何状态
+        setStatus('unverified')
+        Taro.showToast({ title: res.error || t('common.failed'), icon: 'none' })
         return
       }
-      if (raw === 'reviewing') {
-        setStatus('reviewing')
-        setRealName(name)
-      } else if (raw === 'rejected') {
-        setStatus('rejected')
-        setRealName(name)
-        setRejectReason((profile.realnameRejectReason as string) || '')
-      } else {
-        setStatus('unverified')
+      const info = res.data ?? {}
+      const next = toAuthStatus(info.authStatus)
+      setStatus(next)
+      if (next === 'verified') {
+        setAuthedName(info.realName || '')
+        setAuthedId(info.idCard || '')
+        return
       }
+      if (next === 'reviewing' || next === 'rejected') setRealName(info.realName || '')
+      if (next === 'rejected') setRejectReason(info.rejectReason || '')
     } catch (e) {
       logger.error('user/realname', t('userRealname.q1'), e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
@@ -69,47 +85,11 @@ export default function Realname() {
   }, [t])
 
   useDidShow(() => {
-    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    // G-933 冷启动门控:GET /auth/realname/my(checkAuth)需鉴权,落定前不发
     gate.waitUntilReady(() => {
       void load()
     })
   })
-
-  const pickPhoto = (side: 'front' | 'back') => {
-    const uploading = side === 'front' ? frontUploading : backUploading
-    if (uploading) return
-    Taro.chooseImage({
-      count: 1,
-      sizeType: ['compressed', 'original'],
-      sourceType: ['album', 'camera'],
-      success: async (res) => {
-        const tempPath = res.tempFilePaths && res.tempFilePaths[0]
-        if (!tempPath) return
-        const setUploading = side === 'front' ? setFrontUploading : setBackUploading
-        const setUrl = side === 'front' ? setFrontPhoto : setBackPhoto
-        setUrl(tempPath)
-        setUploading(true)
-        Taro.showLoading({ title: tt('common.uploading', '上传中…') })
-        try {
-          const uploaded = await uploadImage(tempPath, '/files/upload')
-          if (!uploaded.url) throw new Error('no url')
-          setUrl(uploaded.url)
-        } catch (e) {
-          logger.error('user/realname', t('userRealname.q2'), e)
-          Taro.showToast({ title: tt('user.realname.uploadFailed', '上传失败'), icon: 'none' })
-          setUrl('')
-        } finally {
-          setUploading(false)
-          Taro.hideLoading()
-        }
-      },
-      fail: (err) => {
-        const msg = String(err?.errMsg || '').toLowerCase()
-        if (msg.includes('cancel')) return
-        logger.error('user/realname', t('user.avatar.chooseFailed'), err)
-      },
-    })
-  }
 
   async function onSubmit() {
     const name = realName.trim()
@@ -119,20 +99,11 @@ export default function Realname() {
     if (!ID_CARD_REGEX.test(idCard)) {
       return Taro.showToast({ title: t('user.realname.idCardLength'), icon: 'none' })
     }
-    if (!frontPhoto || !backPhoto) {
-      return Taro.showToast({
-        title: tt('user.realname.uploadRequired', '请上传身份证正反面照片'),
-        icon: 'none',
-      })
-    }
     setSubmitting(true)
     try {
-      await post('/user/realname', {
-        realName: name,
-        idCard: idCard.toUpperCase(),
-        idCardFront: frontPhoto,
-        idCardBack: backPhoto,
-      })
+      // 只发后端真读的键:POST /user/realname 的 Zod 体 = {realName, idCard, authSource},
+      // 多传的键会被 Zod 静默剥掉(user_auth_info 也没有照片列)⇒ 不再摆假字段。
+      await post('/user/realname', { realName: name, idCard: idCard.toUpperCase() })
       Taro.showToast({ title: t('user.realname.authSuccess'), icon: 'success' })
       setStatus('reviewing')
       setTimeout(() => Taro.navigateBack(), 1000)
@@ -187,19 +158,23 @@ export default function Realname() {
           </Text>
         </View>
 
-        {isReviewing && (
-          <View className="rn-status rn-status-reviewing">
-            <Text className="rn-status-text">
-              {tt('user.realname.reviewing', '审核中,请耐心等待')}
-            </Text>
-          </View>
-        )}
-        {status === 'rejected' && (
-          <View className="rn-status rn-status-rejected">
-            <Text className="rn-status-text">{tt('user.realname.rejected', '认证未通过')}</Text>
-            {rejectReason ? <Text className="rn-status-reason">{rejectReason}</Text> : null}
-          </View>
-        )}
+        {/* 认证状态卡:与共享屏同一形制(标签 + 当前值 + 说明 + 驳回原因)一处说完,
+            不再拆成"审核中/未通过"两块各说一遍。状态值取端内已有档(共享屏那组
+            realNameAuth.status_* 是常量表形态、本端词包五语言均无词条,直取会把裸键上屏)。 */}
+        <View className="rn-status">
+          <Text className="rn-status-text">
+            {t('realNameAuth.status')}：
+            {status === 'reviewing'
+              ? t('user.realname.reviewing')
+              : status === 'rejected'
+                ? t('user.realname.rejected')
+                : tt('user.realname.unverified', '未认证')}
+          </Text>
+          <Text className="rn-status-reason">{t('realNameAuth.unverifiedDesc')}</Text>
+          {status === 'rejected' && rejectReason ? (
+            <Text className="rn-status-reason">{rejectReason}</Text>
+          ) : null}
+        </View>
 
         <View className="rn-card">
           <View className="rn-field">
@@ -226,51 +201,6 @@ export default function Realname() {
           </View>
         </View>
 
-        <View className="rn-card">
-          <View className="rn-photo-head">
-            <Text className="rn-label">{tt('user.realname.idCardPhotos', '身份证照片')}</Text>
-          </View>
-          <View className="rn-photo-row">
-            <View
-              className="rn-photo-box"
-              hoverClass="opacity-60"
-              onClick={() => pickPhoto('front')}
-            >
-              {frontPhoto ? (
-                <Image className="rn-photo-img" src={frontPhoto} mode="aspectFill" />
-              ) : (
-                <View className="rn-photo-placeholder">
-                  <Text className="rn-photo-plus">+</Text>
-                  <Text className="rn-photo-tip">{tt('user.realname.frontPhoto', '人像面')}</Text>
-                </View>
-              )}
-              {frontUploading ? (
-                <Text className="rn-photo-loading">{tt('common.uploading', '上传中…')}</Text>
-              ) : null}
-            </View>
-            <View
-              className="rn-photo-box"
-              hoverClass="opacity-60"
-              onClick={() => pickPhoto('back')}
-            >
-              {backPhoto ? (
-                <Image className="rn-photo-img" src={backPhoto} mode="aspectFill" />
-              ) : (
-                <View className="rn-photo-placeholder">
-                  <Text className="rn-photo-plus">+</Text>
-                  <Text className="rn-photo-tip">{tt('user.realname.backPhoto', '国徽面')}</Text>
-                </View>
-              )}
-              {backUploading ? (
-                <Text className="rn-photo-loading">{tt('common.uploading', '上传中…')}</Text>
-              ) : null}
-            </View>
-          </View>
-          <Text className="rn-photo-hint">
-            {tt('user.realname.uploadHint', '请确保照片清晰、完整、无遮挡')}
-          </Text>
-        </View>
-
         <Button
           className={`rn-submit${submitting || isReviewing ? ' disabled' : ''}`}
           disabled={submitting || isReviewing}
@@ -279,7 +209,7 @@ export default function Realname() {
           {isReviewing
             ? tt('user.realname.reviewing', '审核中')
             : submitting
-              ? tt('user.realname.submitting', '提交中…')
+              ? t('realNameAuth.submitting')
               : t('user.realname.submit')}
         </Button>
       </View>

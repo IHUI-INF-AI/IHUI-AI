@@ -12,7 +12,7 @@ import Taro, {
   useShareTimeline,
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getLiveList, type Live } from '@/api'
+import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 // 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
 import {
@@ -22,16 +22,36 @@ import {
   ScreenSkeleton,
 } from '@/components/ScreenStates.taro'
 
-const STATUS_KEY: Record<Live['status'], string> = {
-  living: 'live.liveNow',
-  upcoming: 'live.preview',
-  ended: 'live.replay',
+/**
+ * `GET /live/channels`(apps/api/src/routes/live.ts)的 live_channels 行。
+ * 不取 `GET /live/list` 的唯一理由:它的投影只发 id/title/status/anchor/playUrl/watchCount,startTime 被丢掉
+ * ⇒ 本页"开始时间"一行永远只能渲染 '—'(键在册而值不产出 = 假绿);两端点行集相同(publishedOnly=true)。
+ */
+interface LiveChannelRow {
+  id: string
+  title: string
+  lecturerName: string | null
+  startTime: string | null
+  isLive: boolean
+  viewCount: number
+}
+
+/** 状态档与后端 deriveLiveStatus 同判据;该端点恒 publishedOnly=true ⇒ upcoming 打不到 ⇒ 预告档已撤 */
+type LiveBadge = 'living' | 'ended'
+const BADGE_KEY: Record<LiveBadge, string> = { living: 'live.liveNow', ended: 'live.replay' }
+
+/** 开始时间:与错题本同法(Intl),取不到时刻一律空串(空串再落 '—') */
+function formatStart(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d)
 }
 
 export default function LiveList() {
   const { t } = useI18n()
   const tt = useTt()
-  const [list, setList] = useState<Live[]>([])
+  const [list, setList] = useState<LiveChannelRow[]>([])
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [status, setStatus] = useState('')
@@ -41,12 +61,11 @@ export default function LiveList() {
   const lenRef = useRef(0)
   const statusRef = useRef('')
 
-  const statusText = useCallback((s: Live['status']) => t(STATUS_KEY[s]), [t])
+  const statusText = useCallback((s: LiveBadge) => t(BADGE_KEY[s]), [t])
 
-  const tabs = [
+  const tabs: { key: string; labelKey: string }[] = [
     { key: '', labelKey: 'liveList.all' },
     { key: 'living', labelKey: 'live.liveNow' },
-    { key: 'upcoming', labelKey: 'live.preview' },
     { key: 'ended', labelKey: 'live.replay' },
   ]
 
@@ -62,10 +81,12 @@ export default function LiveList() {
     loadingRef.current = true
     setLoading(true)
     try {
-      const res = await getLiveList({
+      // 全部档不发筛选;'living'/'ended' 走后端真读的 isLive;刻意不发 status=(z.coerce.number().int(),字符串 ⇒ 400 整页报错)
+      const tab = statusRef.current
+      const res = await get<{ list: LiveChannelRow[]; total: number }>('/live/channels', {
         page: pageRef.current,
         pageSize: 10,
-        status: statusRef.current,
+        ...(tab ? { isLive: String(tab === 'living') } : {}),
       })
       const more = res.list || []
       lenRef.current = reset ? more.length : lenRef.current + more.length
@@ -188,34 +209,28 @@ export default function LiveList() {
                   </Text>
                   <View
                     className={`px-[20rpx] py-[8rpx] rounded-xl ${
-                      item.status === 'living'
-                        ? 'bg-[var(--color-danger)]'
-                        : item.status === 'upcoming'
-                          ? 'bg-[var(--color-warning-amber)]'
-                          : 'bg-[var(--color-text-tertiary)]'
+                      item.isLive ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-text-tertiary)]'
                     }`}
                   >
                     <Text className="text-[length:24rpx] text-[var(--color-primary-foreground)]">
-                      {statusText(item.status)}
+                      {statusText(item.isLive ? 'living' : 'ended')}
                     </Text>
                   </View>
                 </View>
                 {/* 对齐 RN lecturer 行(marginTop 6 → 12rpx, 14px → 28rpx, text.medium) */}
-                {item.anchor ? (
+                {item.lecturerName ? (
                   <Text className="block mt-[12rpx] text-[length:28rpx] text-[var(--color-text-medium)]">
-                    {t('liveList.lecturer')}: {item.anchor}
+                    {t('liveList.lecturer')}: {item.lecturerName}
                   </Text>
                 ) : null}
                 {/* 对齐 RN metaRow:开始时间 + 观看人数两端对齐(marginTop 8 → 16rpx, 12px → 24rpx, text.tertiary) */}
                 <View className="flex items-center justify-between mt-[16rpx]">
                   <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
-                    {t('liveList.startAt')}: {item.startTime || '—'}
+                    {t('liveList.startAt')}: {formatStart(item.startTime) || '—'}
                   </Text>
-                  {item.watchCount !== undefined && (
-                    <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
-                      {t('liveList.viewerCount')} {item.watchCount}
-                    </Text>
-                  )}
+                  <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                    {t('liveList.viewerCount')} {item.viewCount}
+                  </Text>
                 </View>
               </PressableCard>
             ))}

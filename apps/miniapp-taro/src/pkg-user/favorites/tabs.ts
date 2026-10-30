@@ -3,38 +3,33 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 收藏分类 Tab:对齐 packages/app/src/features/favorite/FavoriteScreen.tsx 的 TABS + tabLabel
+//
+// 课程/直播/AI作品/资讯 四枚 tab 已下线(假绿清偿@2026-10-31,取证):后端收藏面
+// FAVORITE_RESOURCE_TYPES = project|file|doc|post|comment|aiworld|agent
+// (apps/api/src/routes/social.ts:44-52;zod 与 JSON schema 单源同枚举),
+// course/live/aigc/news 既存不进 POST /favorites,GET /favorites?resourceType=course
+// 还会被 favoritesListQuery 的枚举直接 400 ⇒ 这四枚 tab 一点必恒空 = 假功能,撤;
+// 后端扩枚举后再从 git 历史接回(键 favorite.tab_course/tab_live/tab_aigc/tab_news 在词包不动)。
 import type { TtFn } from '@/i18n'
 
-export type CategoryTab = 'all' | 'course' | 'live' | 'post' | 'aigc' | 'news'
+export type CategoryTab = 'all' | 'post'
 
 export interface CategoryDef {
   key: CategoryTab
   resourceType: string
 }
 
-// 分类 Tab:全部/课程/直播/帖子/AI作品/资讯(resourceType 供列表过滤)
+// 分类 Tab:全部/帖子(resourceType 作为 GET /favorites 的服务端筛选参数,后端在册支持)
 export const CATEGORY_TABS: CategoryDef[] = [
   { key: 'all', resourceType: '' },
-  { key: 'course', resourceType: 'course' },
-  { key: 'live', resourceType: 'live' },
   { key: 'post', resourceType: 'post' },
-  { key: 'aigc', resourceType: 'aigc' },
-  { key: 'news', resourceType: 'news' },
 ]
 
 /** Tab 文案:与共享屏 tabLabel 同一套键(逐分支字面量,禁止拼键,否则门与静态分析都读不到) */
 export function tabLabel(tab: CategoryTab, tt: TtFn): string {
   switch (tab) {
-    case 'course':
-      return tt('favorite.tab_course', '课程')
-    case 'live':
-      return tt('favorite.tab_live', '直播')
     case 'post':
       return tt('favorite.tab_post', '帖子')
-    case 'aigc':
-      return tt('favorite.tab_aigc', 'AI作品')
-    case 'news':
-      return tt('favorite.tab_news', '资讯')
     default:
       return tt('favorite.tab_all', '全部')
   }

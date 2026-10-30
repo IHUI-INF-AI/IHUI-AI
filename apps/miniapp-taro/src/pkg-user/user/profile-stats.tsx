@@ -8,7 +8,8 @@ import { useI18n } from '@/i18n'
 /**
  * 个人中心统计网格 — 对齐共享屏 packages/app/src/features/profile/ProfileScreen.tsx 的 statsGrid:
  * 六格(课程 / 收藏 / 关注 / 粉丝 / 订单 / 智汇值),顺序与 buildStatsCells 一致。
- * 数据缺失时按 0 渲染(与共享屏 `stats?.xxx ?? 0` 同档),统计接口失败不阻断资料展示。
+ * 读数缺失渲染 '--' 而不是 0:共享屏的 `?? 0` 把「请求失败/没这格」和「确实是 0」压成同一个数,
+ * 小程序这侧不跟 —— 取不到就说取不到(标签照常渲染,六格信息层级不变)。
  */
 export interface ProfileStats {
   courseCount: number
@@ -18,21 +19,26 @@ export interface ProfileStats {
   points: number
 }
 
+/** 一格读数:null = 未取到(渲染 '--'),数字 = 后端真值 */
+function cellValue(v: number | null | undefined): string {
+  return v === null || v === undefined || !Number.isFinite(v) ? '--' : String(v)
+}
+
 export default function ProfileStatsGrid({
   stats,
   orderCount,
 }: {
   stats: ProfileStats | null
-  orderCount: number
+  orderCount: number | null
 }) {
   const { t } = useI18n()
   const cells = [
-    { key: 'courses', label: t('profile.myCourses'), value: stats?.courseCount ?? 0 },
-    { key: 'favorites', label: t('profile.myFavorites'), value: stats?.favoriteCount ?? 0 },
-    { key: 'following', label: t('community.follow'), value: stats?.followingCount ?? 0 },
-    { key: 'fans', label: t('community.follower'), value: stats?.fansCount ?? 0 },
-    { key: 'orders', label: t('profile.myOrders'), value: orderCount },
-    { key: 'points', label: t('wallet.points'), value: stats?.points ?? 0 },
+    { key: 'courses', label: t('profile.myCourses'), value: cellValue(stats?.courseCount) },
+    { key: 'favorites', label: t('profile.myFavorites'), value: cellValue(stats?.favoriteCount) },
+    { key: 'following', label: t('community.follow'), value: cellValue(stats?.followingCount) },
+    { key: 'fans', label: t('community.follower'), value: cellValue(stats?.fansCount) },
+    { key: 'orders', label: t('profile.myOrders'), value: cellValue(orderCount) },
+    { key: 'points', label: t('wallet.points'), value: cellValue(stats?.points) },
   ]
   return (
     <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">

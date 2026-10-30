@@ -14,6 +14,13 @@ const CHANNEL_KEYS: Record<string, string> = {
   emailEnabled: 'email',
   smsEnabled: 'sms',
   marketingEnabled: 'marketing',
+  /* 同一组偏好还有**短名**这一族写入方:设置首页的 `NotificationSection` 按共享屏
+     SettingsScreen.tsx:96-98 的 notifRows 键名(push/message/email)PUT
+     `/settings/notification`,⇒ GET 回来的行键就是这三个短名。少了下面三行,屏上会
+     直接印出存储键原文「push」「message」「email」。 */
+  push: 'push',
+  message: 'message',
+  email: 'email',
 }
 
 export function useChannelLabel() {

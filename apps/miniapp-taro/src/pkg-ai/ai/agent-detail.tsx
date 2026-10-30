@@ -7,13 +7,11 @@
 import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
 import { get, getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
-import ThemeRoot from '@/components/ThemeRoot'
 import { ErrorState } from '@/components/ScreenStates.taro'
 import AgentDetailMeta from './agent-detail-meta'
 
@@ -28,6 +26,8 @@ type AgentDetail = Pick<Agent, 'name' | 'description' | 'isVipExclusive'> & {
   avatar?: string
   prologue?: string
   config?: Record<string, unknown>
+  /** 评分(对齐共享屏 AgentDetailScreen.rating):后端返回 rating 时渲染,无则不显示,绝不用 uses 反推假分 */
+  rating?: number
 }
 
 const PERMISSION_REASON_KEY: Record<string, string> = {
@@ -122,29 +122,6 @@ function detectCategory(name: string, desc: string, keywords: Record<string, str
   return 'other'
 }
 
-/** 根据 uses 数推算评分(原项目 RateController 提供真实评分,API 未返回时降级估算) */
-function estimateRating(uses: number | undefined): number {
-  if (!uses || uses <= 0) return 0
-  if (uses < 50) return 3.5 + Math.min(1, uses / 50) * 0.5
-  if (uses < 500) return 4 + Math.min(1, (uses - 50) / 450) * 0.5
-  return 4.5 + Math.min(0.5, (uses - 500) / 1000)
-}
-
-/** 根据 uses 推算评分分布(5/4/3/2/1 星占比) */
-function estimateRatingDistribution(
-  uses: number | undefined,
-): Array<{ star: number; count: number }> {
-  const total = Math.max(uses ?? 0, 1)
-  // 模拟分布:5 星占 60%,4 星 25%,3 星 10%,2 星 3%,1 星 2%
-  return [
-    { star: 5, count: Math.round(total * 0.6) },
-    { star: 4, count: Math.round(total * 0.25) },
-    { star: 3, count: Math.round(total * 0.1) },
-    { star: 2, count: Math.round(total * 0.03) },
-    { star: 1, count: Math.round(total * 0.02) },
-  ]
-}
-
 /** 从描述中提取关键词作为标签(原项目 tags 字段,API 未返回时降级提取) */
 function extractTags(name: string, desc: string, keywords: Record<string, string[]>): string[] {
   const text = `${name} ${desc}`
@@ -191,8 +168,9 @@ type RelatedAgent = Pick<Agent, 'name'> & {
 /** GET /agents/:id 原始行里的定价/归属字段(api 层 getAgentDetail 的映射不带出这三项) */
 interface AgentRawPricing {
   userName?: string | null
-  price?: number
-  isFree?: boolean
+  /** agents.price 是整数「元」列(web 端 `¥${agent.price}`、共享屏 `¥${item.price.toFixed(2)}` 同口径) */
+  price?: number | null
+  isFree?: boolean | null
 }
 
 /** 记录最近使用的智能体(写入本地存储,用于 agent.tsx 最近使用 Tab) */
@@ -221,8 +199,8 @@ export default function AgentDetailPage() {
   const [loadFailed, setLoadFailed] = useState(false)
   const [pricing, setPricing] = useState<{
     creator: string
-    price: number
-    isFree: boolean
+    price: number | null
+    isFree: boolean | null
   } | null>(null)
   const [tab, setTab] = useState<DetailTab>('info')
   const [useCount, setUseCount] = useState<number | undefined>(undefined)
@@ -249,12 +227,13 @@ export default function AgentDetailPage() {
       const rawPricing = await get<AgentRawPricing>(`/agents/${encodeURIComponent(id)}`).catch(
         () => null,
       )
+      // 字段取不到一律留 null:把「没这个数」渲染成 ¥0.00 / 收费 是假断言,只报「—」
       setPricing(
         rawPricing
           ? {
               creator: typeof rawPricing.userName === 'string' ? rawPricing.userName : '',
-              price: typeof rawPricing.price === 'number' ? rawPricing.price : 0,
-              isFree: Boolean(rawPricing.isFree),
+              price: typeof rawPricing.price === 'number' ? rawPricing.price : null,
+              isFree: typeof rawPricing.isFree === 'boolean' ? rawPricing.isFree : null,
             }
           : null,
       )
@@ -366,8 +345,11 @@ export default function AgentDetailPage() {
     return extractExampleDialogs(agent.prologue)
   }, [agent])
 
-  const rating = useMemo(() => estimateRating(useCount), [useCount])
-  const ratingDist = useMemo(() => estimateRatingDistribution(useCount), [useCount])
+  // 评分(对齐共享屏 AgentDetailScreen.rating):后端若返回 rating 则渲染星级+分;
+  // agents 表无评分列(现读 packages/database/src/schema/agents-extended.ts),
+  // 后端唯一评分出口是 /agent-reviews(只看"我自己名下智能体"收到的评价,
+  // apps/api/src/routes/agent-reviews.ts 的 where eq(agents.userId, userId))⇒ 访客取不到
+  // 别人智能体的评分,故 rating 默认 undefined、本端不渲染,也绝不用 uses 反推假分上屏(逐键表见交付)。
 
   const onEdit = useCallback(() => {
     if (!agent) return
@@ -516,8 +498,7 @@ export default function AgentDetailPage() {
           {agent && (
             <AgentDetailMeta
               creator={pricing?.creator ?? ''}
-              uses={useCount ?? 0}
-              rating={rating}
+              uses={useCount ?? null}
               isFree={pricing ? pricing.isFree : null}
               price={pricing ? pricing.price : null}
             />
@@ -572,55 +553,10 @@ export default function AgentDetailPage() {
               </Text>
             </View>
           )}
-          {/* 评价区(对标原项目 RateController 评分系统) */}
-          {useCount !== undefined && useCount > 0 && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
-              <View className="flex items-center justify-between mb-[20rpx]">
-                <Text className="text-[length:32rpx] text-foreground font-semibold">
-                  {t('ai.agentDetail.reviews')}
-                </Text>
-                {rating > 0 && (
-                  <View className="flex items-center">
-                    <Text className="text-[length:36rpx] text-[var(--color-warning-amber)] font-bold mr-[8rpx]">
-                      {rating.toFixed(1)}
-                    </Text>
-                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                      {t('ai.agentDetail.reviewCount', { n: useCount })}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              {/* 评分分布 */}
-              <Text className="block text-[length:22rpx] text-muted-foreground mb-[12rpx]">
-                {t('ai.agentDetail.ratingDistribution')}
-              </Text>
-              {ratingDist.map((item) => {
-                const total = ratingDist.reduce((sum, d) => sum + d.count, 0) || 1
-                const percent = Math.round((item.count / total) * 100)
-                return (
-                  <ThemeRoot key={item.star} className="flex items-center mb-[8rpx]">
-                    <View key={item.star}>
-                      <View className="flex items-center w-[40rpx]">
-                        <Text className="text-[length:22rpx] text-muted-foreground mr-[4rpx]">
-                          {item.star}
-                        </Text>
-                        <LineIcon name="star" size={20} color="var(--color-warning-amber)" />
-                        <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
-                          <View
-                            className="h-full bg-[var(--color-warning-amber)] rounded"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </View>
-                        <Text className="text-[length:22rpx] text-muted-foreground w-[60rpx] text-right">
-                          {percent}%
-                        </Text>
-                      </View>
-                    </View>
-                  </ThemeRoot>
-                )
-              })}
-            </View>
-          )}
+          {/* 评价区已整块撤除(2026-10-30 逐键可达性取证):原实现把 uses 反推成"4.6 分"
+              并按 60/25/10/3/2% 模拟五档分布,再把 usageCount 当"评价人数"上屏 —— 三个数全是假的。
+              后端出口现读只有 /agent-reviews(限"我自己名下智能体"收到的评价),访客取不到本智能体的评分,
+              故本端不渲染评价区;真要做需后端补 per-agent 评分/评价列表出口(交台账)。 */}
           {agent && (
             <View className="mx-[20rpx] my-[24rpx] flex gap-[24rpx]">
               <Button
