@@ -692,6 +692,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 // 监听后调 take_pending_deep_links 重新点亮;复位调用点的对账判据见
                 // lib.rs 测试「导航发起处无一例外必须先复位闸门」+ 守门 G 组。
                 crate::reset_deep_link_gate_for_navigation("main");
+                // 2026-10-30:托盘动作闸门同一时点复位(重载期间渲染端不在,动作须入队而非直投蒸发)
+                crate::reset_tray_gate_for_navigation("main");
                 // G-379,2026-10-07:导航前过存草稿闸(与 CloseRequested 同通道,下同)
                 emit_before_close_for_navigation(&w).await;
                 let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
@@ -762,6 +764,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                             .filter(|u| is_resumable_url(u, &base.origin_prefix));
                         // 导航前复位深链闸门(同启动离线处,调用点对账见 lib.rs 测试)
                         crate::reset_deep_link_gate_for_navigation("main");
+                        // 2026-10-30:托盘动作闸门同一时点复位(重载期间渲染端不在,动作须入队而非直投蒸发)
+                        crate::reset_tray_gate_for_navigation("main");
                         // G-379,2026-10-07:导航前过存草稿闸
                         emit_before_close_for_navigation(&w).await;
                         let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
@@ -795,6 +799,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                                 );
                                 // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
                                 crate::reset_deep_link_gate_for_navigation("main");
+                                // 2026-10-30:托盘动作闸门同一时点复位(重载期间渲染端不在,动作须入队而非直投蒸发)
+                                crate::reset_tray_gate_for_navigation("main");
                                 // G-379,2026-10-07:导航前过存草稿闸
                                 emit_before_close_for_navigation(&w).await;
                                 let _ = w.eval(&format!("location.href={}", js_string(&base.frontend_url)));
@@ -816,6 +822,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     if let Some(w) = app.get_webview_window("main") {
                         // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
                         crate::reset_deep_link_gate_for_navigation("main");
+                        // 2026-10-30:托盘动作闸门同一时点复位(重载期间渲染端不在,动作须入队而非直投蒸发)
+                        crate::reset_tray_gate_for_navigation("main");
                         // G-379,2026-10-07:导航前过存草稿闸
                         emit_before_close_for_navigation(&w).await;
                         let _ = w.eval(&format!("location.href={}", js_string(&target)));
@@ -837,6 +845,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                         if let Some(w) = app.get_webview_window("main") {
                             // reload 前复位深链闸门(调用点对账见 lib.rs 测试)
                             crate::reset_deep_link_gate_for_navigation("main");
+                            // 2026-10-30:托盘动作闸门同一时点复位(重载期间渲染端不在,动作须入队而非直投蒸发)
+                            crate::reset_tray_gate_for_navigation("main");
                             // G-379,2026-10-07:reload 前过存草稿闸
                             emit_before_close_for_navigation(&w).await;
                             let _ = w.eval("location.reload()");
@@ -867,6 +877,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                                 if let Some(w) = app.get_webview_window("main") {
                                     // reload 前复位深链闸门(调用点对账见 lib.rs 测试)
                                     crate::reset_deep_link_gate_for_navigation("main");
+                                    // 2026-10-30:托盘动作闸门同一时点复位(重载期间渲染端不在,动作须入队而非直投蒸发)
+                                    crate::reset_tray_gate_for_navigation("main");
                                     // G-379,2026-10-07:reload 前过存草稿闸
                                     emit_before_close_for_navigation(&w).await;
                                     let _ = w.eval("location.reload()");

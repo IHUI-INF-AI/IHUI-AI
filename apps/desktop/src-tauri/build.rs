@@ -60,6 +60,7 @@ fn main() {
             "resolve_close_choice",
             "set_desktop_badge",
             "take_pending_deep_links",
+            "take_pending_tray_actions",
             "checkin_detect_trae_dir",
             "checkin_capture_jwts",
             "checkin_capture_qoder",
