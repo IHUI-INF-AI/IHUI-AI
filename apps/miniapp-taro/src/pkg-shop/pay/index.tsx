@@ -139,7 +139,7 @@ export default function PayIndex() {
     setOriginalAmount(amt)
     if (!no) return
     // G-933：这一支的余额查询需鉴权（miniapp-compat-routes.ts:2247 checkAuth 同一鉴权面），
-    // 与 /orders/:no、/coupons/available 三支共用同一个 Promise.all 与同一次状态事务，
+    // 与 /orders/:no、/pay/coupons/available 三支共用同一个 Promise.all 与同一次状态事务，
     // 拆支会改该页的加载/回填语义 ⇒ 未落定时整支不出门，ready 翻真后本 effect 重跑一次。
     // waitUntilReady 语义等价：只等「判定落定」，不等登录 ⇒ 游客仍会在落定后走一次，终态与改前一致。
     if (!ready) return
@@ -155,7 +155,7 @@ export default function PayIndex() {
       // 订单详情：原路径 `/vip/order/:no` 后端不存在（只有 `/vip/order/:no/payinfo`）
       // ⇒ 商品名、下单时间永远为空，倒计时也拿不到真实时间。改用通用订单详情（仅本人或管理员可读）。
       get<{ order: OrderRow }>(`/orders/${no}`).catch(() => null),
-      get<{ items: CouponItem[] } | CouponItem[]>('/coupons/available', { amount: amt }).catch(
+      get<{ items: CouponItem[] } | CouponItem[]>('/pay/coupons/available', { amount: amt }).catch(
         () => null,
       ),
     ]).then(([wallet, orderRes, couponRes]) => {
