@@ -1687,6 +1687,12 @@ export default function ChatPage() {
             className="nav-arrow"
           />
         </View>
+        {/* 顶栏标题位(共享屏 header 第一行是产品名,本端此前整块缺失):
+            与共享屏同一视觉层级——标题居左组与入口组之间、弱化字号。
+            取共享屏同一个键,端内不再自立标题文案。 */}
+        <Text className="min-w-0 flex-1 truncate px-[8rpx] text-center text-[length:28rpx] font-semibold text-foreground">
+          {t('chat.title')}
+        </Text>
         <View className="nav-right">
           {agent ? (
             <Text className="nav-agent" onClick={() => setAgentDrawerVisible(true)}>
@@ -1947,11 +1953,13 @@ export default function ChatPage() {
             <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
             <View className="bubble">
               <Text className="bubble-text">{t('ai.generating')}</Text>
+              {/* 流式占位文案:共享屏气泡在「最后一条 AI 消息还没内容」时显示的就是这一句,
+                  端内此前挂的是端自造的同义键,现改取共享屏同一个键 */}
               <Text
                 className="bubble-text"
                 style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}
               >
-                {t('ai.thinking')}
+                {t('chat.thinking')}
               </Text>
               {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
               <View

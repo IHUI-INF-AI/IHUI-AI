@@ -209,7 +209,7 @@ export default function RankingDetailPage() {
       </View>
 
       <ScrollView scrollY className="detail-body">
-        {/* 对齐 RN 共享屏:单张白卡(radius24/padding28/gap24)承载 row1 + 指标行 + 详情盒 */}
+        {/* 本端形态(端内独立实现,不参与镜像对账):单张白卡(radius24/padding28/gap24)承载 row1 + 指标行 + 详情盒 */}
         <View className="detail-card">
           {/* row-1:Logo + 标题 + 简介(排名/机构/关注度) */}
           <View className="head-card">
