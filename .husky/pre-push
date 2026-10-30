@@ -86,7 +86,8 @@ else
   export PUSH_SCOPE_FILES
 
   # ─── tag-only 推送不跑代码质量门(2026-09-24 立,lost-commit 备份被拦死多天)─────
-  # 判据:git 传入的每一行 local_ref 都在 refs/tags/ 下 ⇒ 本次推送**不新增也不推进任何分支**,
+  # 判据:git 传入的每一行,其**存在的那一侧**都在 refs/tags/ 下(新建/推进 tag 看 local_ref,删除 tag
+  # 时 local 侧是 `(nil)`,看 remote 侧)⇒ 本次推送**不新增也不推进任何分支**,
   #       被推的代码内容一个字节都没变(全在远端已有的 HEAD 及祖先里),推的只是 §22 要求的
   #       "丢失 commit 备份引用"。而本门跑的是**工作区**全量 tsc —— 别人一条未提交的半编辑
   #       就能把它钉红:实测 2026-09-24 另一会话把 packages/ui-react/src/components/Upload.tsx
@@ -95,7 +96,12 @@ else
   # 只在**纯 tag 推送**上豁免:混合推送(同时推分支)照跑全部门;PUSH_REFS 为空(无 ref 可推、
   # 或 git 未传清单)按原行为跑门 —— 宁多跑一次,绝不把"拿不到清单"当成"只推了 tag"。
   _ref_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3' | wc -l | tr -d '[:space:]')"
-  _tag_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $1 ~ /^refs\/tags\//' | wc -l | tr -d '[:space:]')"
+  # 判据必须同时认两种形制:①新建/推进 tag ⇒ local_ref 也在 refs/tags/ 下;②**删除 tag** ⇒ git 传的是
+  # `(nil) <全0> refs/tags/<名> <旧sha>`,tag 名只住在**远端侧 $3**。原写法只看 $1 ⇒ 删除类推送一条都
+  # 不计入,豁免结构上够不着:实测 2026-10-30 纯删 8093 枚冗余 tag,每批仍照跑全量门,3~4 分钟/批、
+  # 外推 5 小时。删除 tag 与被拦的"新建 tag"是同一件事的两个方向(都不推任何分支、不携带新对象),
+  # 没有理由只豁免一个。混合推送(同时有 refs/heads/ 那行)照跑全部门 —— $3 落在 heads/ 即不计数。
+  _tag_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $3 ~ /^refs\/tags\// && ($1 ~ /^refs\/tags\// || $1 == "(nil)")' | wc -l | tr -d '[:space:]')"
   if [ "$_ref_n" -gt 0 ] && [ "$_ref_n" -eq "$_tag_n" ]; then
     printf '%s\n' "ℹ️ 本次只推 tag(${_tag_n} 个引用,无分支推进)⇒ 不跑代码质量门(§22 tag 备份通道)" >&2
     exit 0
