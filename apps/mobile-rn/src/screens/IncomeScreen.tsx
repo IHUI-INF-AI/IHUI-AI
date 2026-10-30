@@ -108,7 +108,15 @@ function IncomeScreen() {
         getWithdrawList({ page: 1, pageSize: 50 }),
       ])
       if (!overviewRes.success || !listRes.success || !dayMonthRes.success) {
-        throw new Error('http')
+        // 三个请求任一失败原先只抛一句通用错误 ⇒ 用户看不到"未登录/服务异常"。
+        // 按顺序取第一个失败响应的后端 message。
+        const why = !overviewRes.success
+          ? overviewRes.error
+          : !listRes.success
+            ? listRes.error
+            : dayMonthRes.error
+        setError(why || t('income.loadFailed'))
+        return
       }
       // 「已结算」= 已成功提现的记录(completed status=2);佣金行与提现记录无字段关联,无法逐条标记
       const settledItems = withdrawRes.success
