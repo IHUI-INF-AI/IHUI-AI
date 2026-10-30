@@ -3,14 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/developer/DeveloperScreen.tsx
-// 小程序端渲染层(逐元素同形本屏 ①③④ 三段;共享屏 ② 开发者信息卡依赖
-// GET /developer/dev-info 聚合接口与本端 developerInfo.* 词包,二者均未就位 ⇒ 本端暂不渲染,
-// 与本屏「无有效订阅 ⇒ info 为 null ⇒ ② 整块缺席」的既有语义同形)。
+// 小程序端渲染层(逐元素同形本屏 ①②③④ 四段):② 开发者信息卡的数据走 api-client 的
+// getDeveloperDevInfo(GET /api/developer/dev-info 聚合:账号 + 订阅 + 密钥摘要 + 申请信息),
+// 取词走已镜像到本端的 developerInfo.*;无有效订阅 ⇒ subscription 为 null ⇒ ② 整块缺席,
+// 与共享屏同一语义。
 // 分段数据(四入口构成/顺序/取词键 + 两张问题卡)一律取自
 // @ihui/shared/constants/developer-space,端内不得再抄一份表(§0.6)。
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { getDeveloperDevInfo, type DeveloperDevInfo } from '@ihui/api-client'
 import type { DeveloperSpaceEntryId } from '@ihui/types'
 import {
   DEVELOPER_DEFAULT_LOGO_URL,
@@ -57,10 +59,11 @@ function readSubscription(raw: unknown): unknown {
 }
 
 export default function DevSpace() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const tt = useTt()
   const [profile, setProfile] = useState<UserInfo | null>(null)
   const [subscribed, setSubscribed] = useState(false)
+  const [devInfo, setDevInfo] = useState<DeveloperDevInfo | null>(null)
 
   useEffect(() => {
     Taro.setNavigationBarTitle({ title: t('devSpace.title') })
@@ -69,12 +72,16 @@ export default function DevSpace() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const [pf, subRes] = await Promise.all([
+      const [pf, subRes, dev] = await Promise.all([
         api.getProfile().catch(() => null),
         api.getMyDeveloperSubscription().catch(() => null),
+        getDeveloperDevInfo()
+          .then((r) => r.data ?? null)
+          .catch(() => null),
       ])
       if (cancelled) return
       if (pf) setProfile(pf as UserInfo)
+      if (dev) setDevInfo(dev)
       const sub = readSubscription(subRes)
       // 显式两值判空(不用松等 != null,eqeqeq 禁),语义与原意一致:null 与 undefined 都算未订阅
       setSubscribed(sub !== null && sub !== undefined)
@@ -109,6 +116,66 @@ export default function DevSpace() {
     void Taro.navigateTo({ url: SERVICE_URL })
   }, [])
 
+  const copyApiKey = useCallback(
+    (key: string): void => {
+      void Taro.setClipboardData({
+        data: key,
+        success: () => Taro.showToast({ title: tt('common.copied', '已复制'), icon: 'none' }),
+        fail: () => Taro.showToast({ title: tt('common.copyFailed', '复制失败'), icon: 'none' }),
+      })
+    },
+    [tt],
+  )
+
+  /** 信息卡行表:与共享屏 buildInfoRows 同序;申请信息块按有无整块出现,无值用排字符号占位 */
+  const infoRows = useMemo(() => {
+    if (!devInfo?.subscription) return null
+    const rows: Array<{
+      label: string
+      value: string
+      danger?: boolean
+      action?: { label: string; onPress: () => void }
+    }> = []
+    const application = devInfo.developer
+    if (application) {
+      rows.push({ label: t('developerInfo.nameLabel'), value: application.name || '—' })
+      if (application.description) {
+        rows.push({ label: t('developerInfo.descLabel'), value: application.description })
+      }
+      const statusLabel =
+        application.status === 1
+          ? t('developerInfo.statusApproved')
+          : application.status === 2
+            ? t('developerInfo.statusRejected')
+            : t('developerInfo.statusPending')
+      rows.push({ label: t('developerInfo.statusLabel'), value: statusLabel })
+    }
+    const account = devInfo.account
+    const accountText =
+      account?.email || account?.phone || account?.nickname || account?.username || ''
+    rows.push({ label: t('developerInfo.accountLabel'), value: accountText || '—' })
+    const copyKey = devInfo.apiKeys.firstActiveKey
+    rows.push({
+      label: t('developerInfo.apiKeyLabel'),
+      value:
+        devInfo.apiKeys.count > 0
+          ? t('developerInfo.apiKeyCount', { count: devInfo.apiKeys.count })
+          : t('developerInfo.apiKeyNone'),
+      action: copyKey
+        ? { label: t('devSpace.copy'), onPress: () => copyApiKey(copyKey) }
+        : undefined,
+    })
+    rows.push({ label: t('developerInfo.urlLabel'), value: application?.website || '—' })
+    const endTime = devInfo.subscription.endTime
+    rows.push({
+      label: t('developerInfo.expiryLabel'),
+      value: endTime ? new Intl.DateTimeFormat(locale).format(new Date(endTime)) : '—',
+      danger: true,
+      action: { label: t('devSpace.renew'), onPress: openSubscribe },
+    })
+    return rows
+  }, [devInfo, t, locale, openSubscribe, copyApiKey])
+
   const avatarUrl = profile?.avatar || DEVELOPER_DEFAULT_LOGO_URL
   const displayName = profile?.nickname || profile?.username || t('devSpace.notLoggedIn')
 
@@ -136,6 +203,42 @@ export default function DevSpace() {
               </Text>
             </View>
           </View>
+
+          {/* ② 开发者信息卡(行表驱动,与共享屏同序;无有效订阅 ⇒ 整块缺席) */}
+          {infoRows ? (
+            <View className="mb-[20rpx] flex flex-col gap-[16rpx] rounded-lg bg-card p-[28rpx]">
+              <Text className="block text-[length:30rpx] font-semibold leading-[40rpx] text-foreground">
+                {t('developerInfo.title')}
+              </Text>
+              {infoRows.map((row) => (
+                <View
+                  key={row.label}
+                  className="flex flex-row items-start justify-between gap-[16rpx]"
+                >
+                  <Text className="shrink-0 text-[length:26rpx] leading-[36rpx] text-muted-foreground">
+                    {row.label}
+                  </Text>
+                  <View className="flex flex-1 flex-row items-center justify-end gap-[12rpx]">
+                    <Text
+                      className={`text-right text-[length:26rpx] leading-[36rpx] ${
+                        row.danger ? 'text-destructive' : 'text-foreground'
+                      }`}
+                    >
+                      {row.value}
+                    </Text>
+                    {row.action ? (
+                      <Text
+                        className="shrink-0 text-[length:26rpx] leading-[36rpx] text-primary"
+                        onClick={row.action.onPress}
+                      >
+                        {row.action.label}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           {/* ③ 四个功能入口(顺序即跨端表顺序) */}
           <View className="mb-[20rpx] flex flex-row rounded-lg bg-card py-[24rpx]">
