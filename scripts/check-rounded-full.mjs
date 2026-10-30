@@ -478,13 +478,25 @@ for (const p of relPaths) {
   }
   keptRel.push(p)
 }
-const got = isWorktree
-  ? new Map(keptRel.map((p) => [facePrefix + p, safeRead(p)]))
-  : catBatch(
-      ROOT,
-      keptRel.map((p) => facePrefix + p),
-      { maxBuffer: 1 << 28 },
-    )
+// catBatch 在取面超时 / 派生失败时会**抛**(face-reader 的 BATCH_TIMEOUT)。此前未捕获 ⇒ 进程以
+// rc=1 退出,而落地器把 blocking 门的 rc=1 记成"判红" ⇒ 一次取面超时冒充成"规则违规"。
+// §0.3:取不到输入是**未判定**(exit 2),不是红也不是绿。这里兜住异常转成空表,让下面既有的
+// undetermined 分支统一判 2,出口不新增第二套判据。
+let got
+try {
+  got = isWorktree
+    ? new Map(keptRel.map((p) => [facePrefix + p, safeRead(p)]))
+    : catBatch(
+        ROOT,
+        keptRel.map((p) => facePrefix + p),
+        { maxBuffer: 1 << 28 },
+      )
+} catch (e) {
+  console.error(
+    `${C.red}⚠️  取面失败(${String(e?.message || e).slice(0, 140)})⇒ ${keptRel.length} 个文件全部按未判定处理${C.reset}`,
+  )
+  got = new Map()
+}
 const undetermined = []
 const contents = []
 for (const p of keptRel) {
