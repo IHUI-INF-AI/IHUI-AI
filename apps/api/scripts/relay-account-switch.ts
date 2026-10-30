@@ -34,6 +34,8 @@ import {
   applyTransfers,
   defaultMovePaths,
   detectClientProcesses,
+  findTodaySnapshot,
+  isAccountNotInLedgerError,
   planSwap,
   type MovePaths,
   type MovePlan,
@@ -317,10 +319,17 @@ export interface LinkedSwapResult {
    * - swapped:auth 已切 + 会话已换桶(ops 已记)
    * - skipped-same-account:目标=当前同账号,无需换桶(auth 保留切换结果)
    * - no-target-uid:目标快照缺 uid,无从换桶(auth 保留切换结果,已显式报)
+   * - skipped-not-in-ledger:会话台账未覆盖目标账号,会话面不动(auth 保留切换结果)
    * - rolled-back:换桶失败/被闸挡下,auth 已用 pre-switch 回滚
    * - rollback-failed:换桶失败且回滚也失败(最严重,必须人工介入)
    */
-  status: 'swapped' | 'skipped-same-account' | 'no-target-uid' | 'rolled-back' | 'rollback-failed'
+  status:
+    | 'swapped'
+    | 'skipped-same-account'
+    | 'no-target-uid'
+    | 'skipped-not-in-ledger'
+    | 'rolled-back'
+    | 'rollback-failed'
   message: string
   swap?: SwapPlan
 }
@@ -387,6 +396,15 @@ export function runLinkedSessionSwap(
       // authFileOverride = pre-switch 快照 ⇒ planSwap 读到的是「旧账号」,与新账号形成换桶对
       swapPlan = planSwap(targetUid, deps.movePaths, deps.now, plan.backupPath)
     } catch (e) {
+      // 台账没覆盖这个账号 ≠ 数据危险:auth 切换本身是成功的,回滚它只会让机主白忙一场
+      // (2026-10-30 真机:台账缺目标账号 ⇒ 切号被整枚回滚,一键永远失败)。
+      // 与 no-target-uid 同档:保留 auth 结果、会话面不动、把补台账的出处说清楚。
+      if (isAccountNotInLedgerError(e)) {
+        return {
+          status: 'skipped-not-in-ledger',
+          message: `${(e as Error).message};auth 保留切换结果,会话面未动`,
+        }
+      }
       const rb = rollbackAuth(plan)
       const base = `换桶计划失败(${(e as Error).message})`
       return rb.ok
@@ -480,19 +498,15 @@ function ensureSessionBackup(
   home = homedir(),
 ): { ok: boolean; path?: string; error?: string } {
   const backupsDir = join(home, '.wb-switch', 'backups', 'sessions')
-  if (existsSync(backupsDir)) {
-    const hasManifest = readdirSync(backupsDir).some((d) => {
-      try {
-        return existsSync(join(backupsDir, d, 'manifest.json'))
-      } catch {
-        return false
-      }
-    })
-    if (hasManifest) return { ok: true }
-  }
+  const sessionsRoot = join(home, '.workbuddy', 'workspace', 'sessions')
+  const projectsRoot = join(home, '.workbuddy', 'projects')
+  // 判据必须与换桶前置同一份(planSwap 的「当日 + source 根匹配」manifest):
+  // 此前用"任意子目录有 manifest 即算就绪" ⇒ 昨天有快照、今天没跑备份时这里放行,
+  // 切完 auth 才被 swap 以"当日快照缺失"拒绝 ⇒ 白忙一场再回滚(2026-10-30 代码复核实测)。
+  if (findTodaySnapshot(backupsDir, sessionsRoot, projectsRoot, now)) return { ok: true }
   const plan = computeBackupPlan(
-    join(home, '.workbuddy', 'workspace', 'sessions'),
-    join(home, '.workbuddy', 'projects'),
+    sessionsRoot,
+    projectsRoot,
     now,
     // 目的地跟随 home(测试注入临时 home 时绝不落到真实 ~/.wb-switch)
     join(backupsDir, backupStampOf(now)),
@@ -860,7 +874,9 @@ export function main(
       ? `✅ 会话联动: ${res.message}`
       : res.status === 'skipped-same-account'
         ? `ℹ 会话联动: ${res.message}`
-        : `⚠ 会话联动: ${res.message}`
+        : res.status === 'skipped-not-in-ledger'
+          ? `ℹ 会话联动: ${res.message}(补台账:pnpm relay:session-links rebuild --auto,再 relay:session-move swap --to <uid>)`
+          : `⚠ 会话联动: ${res.message}`
   console.log([...lines, switchedLine, tail].join('\n'))
   return finish(0)
 }
