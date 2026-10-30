@@ -142,42 +142,42 @@
         ]
       },
       "byok.step1Title": {
-        "reason": "llm-settings/index.tsx:195 用 t(`byok.step${step + 1}Title`) 动态拼接,step∈{0,1,2,3} 故产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键,删之即让 BYOK 向导第 1 步标题变空白。与 cli 端 undo* 同型动态拼接盲区。",
+        "reason": "llm-settings/index.tsx:195 用 t(`byok.step${step + 1}Title`) 动态拼接,step∈{0,1,2,3} 故产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键,删之即让 BYOK 向导第 1 步标题变空白。与 cli 端 undo* 同型动态拼接盲区。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
         "evidence": [
           {
-            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
-            "line": 195,
-            "contains": "byok.step${step + 1}Title"
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
           }
         ]
       },
       "byok.step2Title": {
-        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。",
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
         "evidence": [
           {
-            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
-            "line": 195,
-            "contains": "byok.step${step + 1}Title"
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
           }
         ]
       },
       "byok.step3Title": {
-        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。",
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
         "evidence": [
           {
-            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
-            "line": 195,
-            "contains": "byok.step${step + 1}Title"
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
           }
         ]
       },
       "byok.step4Title": {
-        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。",
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
         "evidence": [
           {
-            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
-            "line": 195,
-            "contains": "byok.step${step + 1}Title"
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
           }
         ]
       }
