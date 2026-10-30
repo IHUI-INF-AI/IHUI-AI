@@ -46,7 +46,9 @@ const ADOPTED: readonly string[] = [
   'pkg-content/community/create/index.tsx',
   'pkg-shop/order/refund.tsx',
   'pkg-user/user/email.tsx',
-  'pkg-user/user/feedback.tsx',
+  // 'pkg-user/user/feedback.tsx' 2026-10-31 摘除:c94567126c 把该页转为壳承载形制
+  // (端内 23 行薄壳,渲染 = packages/app FeedbackScreen,「改行为请改源头」)——
+  // 端内不再有表单代码,useUiField 登记点随承载形制移出本锁射程;采纳语义由壳源负责。
   'pkg-user/user/nickname.tsx',
 ]
 
@@ -133,11 +135,16 @@ describe('逐屏采纳防漂移:业务屏必须真的交出写通道', () => {
             /on(?:Input|ChangeText|ValueChange|Confirm|Blur)[\s\S]{0,260}?\b([A-Za-z_$][\w$]*)\s*\(/g,
           ),
         ].map((m) => m[1] ?? '')
-        const reaches = handlerFns.some(
-          (h) =>
-            h === fn ||
-            new RegExp(`(?:const|function)\\s+${h}\\b[\\s\\S]{0,320}?\\b${fn}\\b`).test(src),
-        )
+        const reaches =
+          handlerFns.some(
+            (h) =>
+              h === fn ||
+              new RegExp(`(?:const|function)\\s+${h}\\b[\\s\\S]{0,320}?\\b${fn}\\b`).test(src),
+          ) ||
+          // Props 透传形态(2026-10-31 补,组件拆分后):setter 以 JSX 属性值直传子组件
+          // (publish.tsx 的 onTitleChange={setTitle},输入事件在 publish-form 子文件,
+          // 对接由子组件 prop 契约管)—— 写函数以 JSX 值形态出现在本文件即算同源。
+          new RegExp(`=\\s*\\{?\\s*${fn}\\b`).test(src)
         if (!reaches) {
           offenders.push(
             `${rel}: setValue 写的 ${fn} 与输入事件回调(${[...new Set(handlerFns)].join('/') || '无'})不同源`,
