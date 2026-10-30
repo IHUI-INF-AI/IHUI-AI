@@ -15,6 +15,7 @@ import {
   findActivityById,
   joinActivity,
   leaveActivity,
+  isActivityParticipant,
   findActivityParticipants,
   createActivity,
   updateActivity,
@@ -269,7 +270,11 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
     if (!activity) {
       return reply.status(404).send(error(404, '活动不存在'))
     }
-    return reply.send(success({ activity }))
+    // joined:前端据此决定显示「报名」还是「取消报名」。原先详情里没有这个字段 ⇒
+    // 已报名用户重进页面仍看到「立即报名」,点下去拿到 409「已参与该活动」,
+    // 而「取消报名」入口永远不可达。未登录访问一律 false(详情本身是公开的)。
+    const joined = request.userId ? await isActivityParticipant(activity.id, request.userId) : false
+    return reply.send(success({ activity: { ...activity, joined } }))
   })
 
   // POST /activities/:id/join - 需登录：参与活动
