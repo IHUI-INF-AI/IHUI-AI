@@ -12,7 +12,6 @@
  * 每条锁都带「缺陷形态复跑」:同一把尺必须先能量到坏形状,否则"零命中"是坏尺而不是结论。
  */
 import { describe, expect, it, vi } from 'vitest'
-import { createElement } from 'react'
 import { render } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -53,12 +52,9 @@ describe('BottomPops 键盘避让层', () => {
 
   it('弹层内容真的渲染在避让层之内', () => {
     const { container } = render(
-      createElement(BottomPops, {
-        visible: true,
-        onClose: () => {},
-        title: 'sheet',
-        children: createElement('span', null, 'TOTP-CELL-MARKER'),
-      }),
+      <BottomPops visible onClose={() => {}} title="sheet">
+        <span>TOTP-CELL-MARKER</span>
+      </BottomPops>,
     )
     const avoid = container.querySelector('[data-role="keyboard-avoiding"]')
     expect(avoid).not.toBeNull()
@@ -67,12 +63,9 @@ describe('BottomPops 键盘避让层', () => {
 
   it('阳性对照:visible=false 时整层不渲(证明上一条断言不是恒真)', () => {
     const { container } = render(
-      createElement(BottomPops, {
-        visible: false,
-        onClose: () => {},
-        title: 'sheet',
-        children: createElement('span', null, 'SHOULD-NOT-APPEAR'),
-      }),
+      <BottomPops visible={false} onClose={() => {}} title="sheet">
+        <span>SHOULD-NOT-APPEAR</span>
+      </BottomPops>,
     )
     expect(container.querySelector('[data-role="keyboard-avoiding"]')).toBeNull()
   })
