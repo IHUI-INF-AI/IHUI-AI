@@ -20,6 +20,22 @@
 @import '../../../packages/design-tokens/src/styles/tokens.css';
 @import '../../../packages/design-tokens/src/styles/base.css';
 
+/* 2026-10-30 修复:内置 leading-none 被 --spacing-none 覆盖成 0px(生产事故)。
+   根因:Tailwind v4 把 leading-* 行高工具类挂到 --spacing-* 命名空间,而设计令牌
+   SPACING_STEPS.none=0 经 scripts/sync-css-tokens.mjs 生成了 --spacing-none:0px,
+   于是 .leading-none 变成 line-height:var(--spacing-none)=0px,大字号读数(监控大屏 26px KPI 等)
+   行盒塌缩为 0、墨水溢出压住标题。
+   修法:用未分层(unlayered)普通规则把 leading-none 钉回 line-height:1(并同步重置 --tw-leading)。
+   按 CSS 级联规范,未分层声明恒胜 @layer utilities 内的工具类,不受 Tailwind 合并/排序影响。
+   为何不用 @utility:实测全量构建会把两条声明合并进同一条 .leading-none,并把主题生成的
+   var(--spacing-none) 排在本块之后 ⇒ 仍 0px,不可依赖。
+   根因档 none 在 web 端 p-none/m-none/gap-none/size-none 零使用、RN/小程序亦零消费,
+   保留 --spacing-none 不影响布局;本修复仅钉回被误覆盖的行高语义。 */
+.leading-none {
+  --tw-leading: 1;
+  line-height: 1;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
