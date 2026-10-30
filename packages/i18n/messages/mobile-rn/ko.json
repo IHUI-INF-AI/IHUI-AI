@@ -3588,7 +3588,14 @@
     "termsOfService": "이용약관",
     "thirdPartyLogin": "다른 방식으로 로그인",
     "ssoFailed": "웹 인증 로그인에 실패했습니다. 재시도하거나 계정과 비밀번호로 로그인하세요.",
-    "loginFailed": "로그인 실패, 재시도"
+    "loginFailed": "로그인 실패, 재시도",
+    "twoFactorTitle": "2단계 인증",
+    "twoFactorHint": "인증 앱의 6자리 코드를 입력하거나 백업 코드를 사용하세요.",
+    "twoFactorPlaceholder": "코드 또는 백업 코드",
+    "twoFactorError": "6자 이상 입력하세요",
+    "twoFactorSubmit": "인증 후 로그인",
+    "twoFactorCancel": "취소",
+    "twoFactorCancelled": "2단계 인증이 취소되었습니다"
   },
   "bookmark": {
     "empty": "북마크가 없습니다",

@@ -3588,7 +3588,14 @@
     "termsOfService": "服務條款",
     "thirdPartyLogin": "第三方登入",
     "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入",
-    "loginFailed": "登入失敗，請重試"
+    "loginFailed": "登入失敗，請重試",
+    "twoFactorTitle": "兩步驗證",
+    "twoFactorHint": "請輸入驗證器（Authenticator）中的 6 位動態碼，或使用備用碼。",
+    "twoFactorPlaceholder": "動態碼或備用碼",
+    "twoFactorError": "請輸入至少 6 位驗證碼",
+    "twoFactorSubmit": "驗證並登入",
+    "twoFactorCancel": "取消",
+    "twoFactorCancelled": "已取消兩步驗證"
   },
   "bookmark": {
     "empty": "暫無收藏",
