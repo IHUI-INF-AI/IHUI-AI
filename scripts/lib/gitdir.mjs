@@ -452,6 +452,14 @@ export function gitdirArchivePath(baseName, worktree) {
 export function backupMirrorRoot(worktree) {
   const wt = normalizePath(worktree || resolveWorktree())
   if (countScratchSegments(wt) > 0) return null
+  // G-50 收口(2026-10-31):恢复源按 §15b 收敛到批准落点,不再跟随"工作区所在盘符的根"。
+  // 旧口径 `<盘>:\DevEnv` 会随工作区盘符漂出批准目录(本机实测 = G:\DevEnv 盘根实体),
+  // 而它与"搬进仓内 .DevEnv"结构上互斥:守门 208 判工作树内嵌套 git 仓 + 恢复源不能住在
+  // 被恢复对象里。三层:env 覆盖 > §15b 落点 D:\DevEnv(该盘已有 backups 才认) > 旧口径回退(他机兼容)。
+  const override = (process.env['IHUI_DEVENV_BACKUP_ROOT'] ?? '').trim()
+  if (override) return normalizePath(join(override, 'backups', 'git'))
+  const approved = 'D:\\DevEnv'
+  if (existsSync(join(approved, 'backups'))) return normalizePath(join(approved, 'backups', 'git'))
   return normalizePath(join(parse(wt).root, 'DevEnv', 'backups', 'git'))
 }
 
