@@ -45,6 +45,9 @@ import { indexVerdicts, readVerdicts, writeVerdictRows } from './lib/cross-end-v
 import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 // 剥注释的遮罩实现全仓只许一份(§0.6):形状锁要"数代码里的用量"就问它,不自己写正则剥注释。
 import { maskComments } from './lib/code-mask.mjs'
+// 门户维收敛的候选集编排归单源 lib(§0.6):两族(逐条族/段级族)的判定与幂等闸都在那一份里,
+// 本文件只负责取材(读哪一面)与落盘(写哪一面),不自己复算一遍判据。
+import { __test__ as portalPlanLib } from './lib/cross-end-portal-plan.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const R = (...p) => join(ROOT, ...p)
@@ -246,10 +249,14 @@ function screenKeysOf(s) {
   return sk
 }
 
-const mapRows = parity.loadMap(FACE)
+// 台账与门户表取**同一面**(§0.4):读的是 Detailed 版,顺带拿到"这张表读没读到"的判定 ——
+// 读不到(空表 / 该面没有这份件)必须显式未判定,绝不折成空表冒充"零命中"(§0.3)。
+const mapDetail = parity.loadMapDetailed(FACE)
+const mapRows = mapDetail.rows
 // 门户承载集:判据取对账尺那一份实现,本文件零复算(§0.6)。表取不到 ⇒ set=null ⇒ 整维未判定:
 // 既不放宽跳过集,也不改写任何在册行(§0.3 —— 取不到不能读成"没有门户承载")。
-const portalCarried = parity.collectPortalRoutes(FACE).set
+const portalDetail = parity.collectPortalRoutes(FACE)
+const portalCarried = portalDetail.set
 const registeredWeb = new Set(
   mapRows.filter((r) => r.status === 'aligned' && r.web).map((r) => r.web),
 )
@@ -645,26 +652,38 @@ function insertMarker(rel, spec) {
   return { done: true }
 }
 
+/**
+ * 台账行解析(HEAD 面 / 工作树面共用这一把,§0.6):一行一 JSON。
+ * 取 web/status 是给"生效面上是否已有逐条陈述"那把闸用的;key/raw 是给写盘归并用的。
+ * 解析不出来的行**整条丢掉**(不是"零行")—— 写盘那一步另有"不可解析行拒收"的纪律。
+ */
+function parseMapRows(text) {
+  return (text || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        const o = JSON.parse(l)
+        return {
+          key: `${o.web}::${o.status}::${o.rn || ''}`,
+          raw: JSON.stringify(o),
+          web: String(o.web ?? ''),
+          status: String(o.status ?? ''),
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter(Boolean)
+}
+
 function appendMapRows(rows, opt = {}) {
   if (rows.length === 0) return 0
   // 以 HEAD 面为底,并与工作树现有行做并集 —— 工作树常因旁路落地而落后 HEAD(实测少行),
   // 直接 append 到工作树会把 HEAD 已有行写丢。
-  const parse = (text) =>
-    (text || '')
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => {
-        try {
-          const o = JSON.parse(l)
-          return { key: `${o.web}::${o.status}::${o.rn || ''}`, raw: JSON.stringify(o) }
-        } catch {
-          return null
-        }
-      })
-      .filter(Boolean)
-  const headRows = parse(cov.faceRead('head', MAP_PATH))
-  const workRows = parse(readFileSync(R(MAP_PATH), 'utf8'))
+  const headRows = parseMapRows(cov.faceRead('head', MAP_PATH))
+  const workRows = parseMapRows(readFileSync(R(MAP_PATH), 'utf8'))
   // portal 行按 web 键**取代**同一路由的其它判定行(承载权已由门户表行使,旧判定留着就是第二把尺子)。
   const supersedeWebs = new Set(rows.filter((r) => r.status === 'portal').map((r) => r.web))
   // ①b 的改判行只取代调用方**显式点名的 (web,status) 对**:不顺手把 aligned 当成万能覆盖档,
@@ -772,22 +791,98 @@ const summary = {
   },
 }
 
-// 门户收敛清单:判据与对账尺的 contradicted 同一把(门户表在册 ∧ 台账写「不承载/零承载」)。
-// 表取不到 ⇒ 一条都不改,并显式未判定(§0.3:取不到不能读成"没有门户承载")。
-const portalRowsToLand =
-  convergePortal && portalCarried
-    ? mapRows
-        .filter((r) => (r.status === 'gap' || r.status === 'excluded') && portalCarried.has(r.web))
-        .map((r) => ({
-          web: r.web,
-          status: 'portal',
-          reason: `门户承载(web-portal.ts 推导@${TODAY}):原在册 ${r.status}`,
-          at: TODAY,
-        }))
-    : []
-if (convergePortal && portalCarried === null)
-  console.error(`❌ 未判定:门户表取不到 ⇒ 台账一条不改(${parity.WEB_PORTAL_REL})`)
-summary.portalConverge = { candidates: portalRowsToLand.length, webs: portalRowsToLand.map((r) => r.web) }
+// ---------- 门户维收敛:候选集(逐条族 + 段级族) ----------
+// ① 逐条族(既有):台账里 gap/excluded 的**逐条**行与门户表互斥 ⇒ 改写成 portal 行。
+// ② 段级族(2026-10-31 补):门户表说承载、而台账对这一条**没有任何逐条认领**
+//    (只被某枚段级豁免罩着)⇒ 补一条逐条 portal 行。
+//    为什么这一族以前机器永远修不了:门户收敛腿的候选集只看**逐条**行,而段级行的 web 键是
+//    通配串('admin/**')、门户承载集装的是真实路由名 —— 段级行自己进不了候选,被它罩着的那些
+//    路由在台账里又没有逐条行,于是两头都不在候选集里(2026-10-30 那 28 条只能人工补)。
+//    为什么补一条逐条陈述是合规的:门户表(web-portal.ts)对"这条路由由 WebView 承载"这件事
+//    **已经判完**,本腿只是把同一句话在台账里**更精确地陈述一次**(逐条口径),
+//    失效方向是"多一句精确陈述"而不是"多放一次跳门"(§0.10)。
+//    **段级行本身只读**:它的措辞与射程是人的裁决,本腿绝不自动改/删/缩它(§0.10 硬边界)。
+// 判据零复算(§0.6):段级射程匹配式只有尺子的 prefixScopeOf / routeInScope 一份 ——
+//    候选集直接取尺子 evaluateMap 的 prefixContradiction.items,本文件**不自己再匹配一遍**。
+const portalUndet = [] // 未判定理由(非空 ⇒ 这一腿一条都不改,§0.3)
+const portalUndetDetail = [] // 尺子自己那份未判定清单(逐条点名,不静默吞掉)
+// 台账的**生效面** = HEAD 面 ∪ 工作树面(落地就是往这个并集上写)。
+// 幂等与并发闸都用它:生效面上若已有该路由的逐条陈述,这一条就不再进候选 ——
+//   · 上一轮 --apply 补过的那枚(还没提交)不重复补(硬边界④ 幂等);
+//   · 他席在飞的逐条陈述不被本腿改写(让位并点名,不是静默跳门,§0.10)。
+const workMapRows = (() => {
+  try {
+    return parseMapRows(readFileSync(R(MAP_PATH), 'utf8'))
+  } catch (e) {
+    portalUndet.push(
+      `工作树台账取不到(${MAP_PATH}):${String(e?.message ?? e).slice(0, 120)}`,
+    )
+    return []
+  }
+})()
+const effectiveRows = [...mapRows, ...workMapRows]
+// 生效面键集合的算法归单源 lib(§0.6):"已有一枚 portal 逐条陈述"(逐条族幂等闸)与
+// "已有任何逐条陈述"(段级族让位闸)两把闸共用同一份实现,不许在这边各写一遍。
+const effectiveSets = portalPlanLib.effectiveWebSets(effectiveRows)
+const effectivePortalWebs = effectiveSets.portal
+const effectiveAnyWebs = effectiveSets.all
+
+if (convergePortal) {
+  // 「门户表取不到」的口径归单源 lib(§0.6):本文件不再自己 push 一条重复的理由。
+  // 登记表取不到则是本文件独有的一格(mapDetail 的 unreadable 判定),仍在这里点名。
+  if (mapDetail.unreadable)
+    portalUndet.push(mapDetail.why || `登记表取不到(${MAP_PATH})`)
+}
+// 段级互斥清单:取尺子 evaluateMap 判好的那一份(§0.6 判据单源,本文件零复算射程)。
+let prefixItems = []
+if (convergePortal && portalUndet.length === 0) {
+  try {
+    const ev = parity.evaluateMap(
+      routes,
+      mapRows,
+      parity.collectRnScreens(FACE),
+      FACE,
+      portalDetail,
+      mapDetail.unreadable,
+    )
+    portalUndetDetail.push(...(ev.prefixContradiction?.undetermined ?? []))
+    prefixItems = ev.prefixContradiction?.items ?? []
+  } catch (e) {
+    portalUndet.push(
+      `对账尺取不到段级互斥维:${String(e?.message ?? e).slice(0, 160)}`,
+    )
+  }
+}
+
+// 候选集编排归单源 lib(纯函数):两族各自算好 + 幂等去重 + 未判定闸。
+// 「档未开启」也算未判定:这一腿没被要求判,却产出了候选 ⇒ 读成"判过且有缺口"是假的(§0.3)。
+const portalPlan = portalPlanLib.planPortalConverge({
+  mapRows,
+  portalCarried,
+  effectiveAnyWebs,
+  effectivePortalWebs,
+  prefixItems,
+  undetermined: portalUndet,
+  enabled: convergePortal,
+  portalSource: `门户表(${parity.WEB_PORTAL_REL})`,
+  today: TODAY,
+})
+// 未判定 ⇒ 一条都不改(§0.3):理由以 lib 的返回为准(它含"门户表取不到"这一条兜底)。
+portalUndet.length = 0
+portalUndet.push(...portalPlan.undetermined)
+const portalRowsToLand = portalPlan.rows
+const portalFamilies = portalPlan.families
+const portalSkips = portalPlan.skipped
+if (convergePortal && portalUndet.length > 0)
+  console.error(`❌ 未判定:${portalUndet.join(' + ')} ⇒ 台账一条不改`)
+summary.portalConverge = {
+  candidates: portalRowsToLand.length,
+  webs: portalRowsToLand.map((r) => r.web),
+  families: portalFamilies,
+  prefixUndetermined: portalUndetDetail,
+  skipped: portalSkips,
+  undetermined: portalUndet,
+}
 // 渲染复判出账:candidates = 改判几条 / refused = 留在 gap 的实测理由(带 jac 与交集数)/
 // unjudged = 门结论取不到 ⇒ 本维一条没改(§0.3)。
 summary.renderConverge = {
@@ -851,7 +946,10 @@ if (applyMode) {
 }
 
 // 结论行 = 派发腿唯一解析面(形状由镜像测试钉住,不手抄)。三态必须互斥:
-// 取不到表 ⇒ undetermined(不得读成 clean);给了旗但没 --apply ⇒ planned(不得读成已收敛)。
+// 门户表取不到 ⇒ undetermined(不得读成 clean);给了旗但没 --apply ⇒ planned(不得读成已收敛)。
+// state 判定树与 HEAD 版**逐字同形**(闸是"门户表取不到",不是"有未判定理由"):
+// 「登记表读不到」这一格由候选集为空承载(见上,未判定 ⇒ 一条都不补 ⇒ candidates=0),
+// 它不改变 state 档位 —— 改变档位会让守护腿把"取不到台账"读成"门户表瞎了",是两种病。
 console.log(
   `AUTO-REGISTER-PORTAL face=${FACE} state=${
     convergePortal
@@ -865,6 +963,12 @@ console.log(
       : 'off'
   } candidates=${portalRowsToLand.length} applied=${appliedPortalCount}`,
 )
+// 候选逐条点名(便于追责):这一腿现在会**自动**往台账里加 portal 行,
+// 谁被加、凭哪一族加的、让位给谁 —— 全部落在结论行后面那几行里(形状不碰上面那行契约)。
+for (const p of portalFamilies)
+  console.log(`   · 补 portal:${p.web} —— ${p.family}｜${p.detail}`)
+for (const s of portalSkips) console.log(`   · 让位:${s}`)
+for (const u of portalUndetDetail) console.log(`   · 尺子未判定:${u}`)
 // 渲染复判出账(与上一条同族):改判 / 留 gap(实测不重叠,附两侧条数)/ 未判定(一侧取不到,
 // 不许读成"语义不同")三态分开 —— 把"没量到"并进"量出不同"是本仓记过的失效型,坏的是尺子不是结论。
 console.log(
