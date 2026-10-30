@@ -26,8 +26,10 @@ import {
   Animated,
   Dimensions,
   Easing,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
+  Platform,
   type PanResponderInstance,
   Pressable,
   ScrollView,
@@ -173,7 +175,14 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <View style={styles.root}>
+      {/* 键盘避让住在这一层:本件的 root 即 Modal 内唯一满屏容器,换成 KeyboardAvoidingView
+          是改动面最小的加法(RN Modal 是独立原生窗,挂在 Modal 外的避让对它不生效)。
+          此前弹层里任何 autoFocus 输入框都被键盘整个盖住 —— 而本件是全端底部弹层的唯一承载件。
+          Android 交 adjustResize,与端内既有 7 处 KAV 同一写法。 */}
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         {/* 半透明遮罩(点击关闭) */}
         <Animated.View pointerEvents="auto" style={[styles.mask, { opacity: maskOpacity }]}>
           <Pressable
@@ -224,7 +233,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
             {children}
           </ScrollView>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
@@ -310,17 +319,21 @@ export function AppConfirmHost() {
               accessibilityRole="button"
               accessibilityLabel={btn.text}
             >
-              <Text
-                style={
-                  isDanger
-                    ? styles.confirmBtnDangerText
-                    : isCancel
-                      ? styles.confirmBtnCancelText
-                      : styles.confirmBtnPrimaryText
-                }
-              >
-                {btn.text}
-              </Text>
+              {({ pressed }) => (
+                <View style={pressed ? styles.pressDim : null}>
+                  <Text
+                    style={
+                      isDanger
+                        ? styles.confirmBtnDangerText
+                        : isCancel
+                          ? styles.confirmBtnCancelText
+                          : styles.confirmBtnPrimaryText
+                    }
+                  >
+                    {btn.text}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           )
         })}
@@ -385,6 +398,9 @@ const styles = StyleSheet.create({
   closeButtonPressed: {
     opacity: 0.5,
   } as ViewStyle,
+  pressDim: {
+    opacity: 0.6,
+  } as ViewStyle,
   contentInner: {
     paddingHorizontal: CONTENT_PADDING_H,
     paddingBottom: CONTENT_PADDING_B,
@@ -436,6 +452,26 @@ const styles = StyleSheet.create({
     color: tokens.error.text,
   } as TextStyle,
 })
+
+/**
+ * 弹层动作按钮的唯一档位出口。
+ *
+ * 立因:屏内往 BottomPops 里放按钮时,此前只能照抄 AppConfirm 的档或自己手搓一份
+ * (提现 2FA 面板搓出的是第三色源:一枚已废弃的紫靛档底 + 写死的前景 ——
+ * 深色主题下 CTA 底翻成纯白,写死的前景与它同值,按钮文字直接隐形)。
+ * 一份档、两处消费;屏内不得再自定 height / borderRadius / 底色。
+ */
+export const sheetButton = {
+  base: styles.confirmBtn,
+  row: styles.confirmActions,
+  primary: styles.confirmBtnPrimary,
+  primaryText: styles.confirmBtnPrimaryText,
+  cancel: styles.confirmBtnCancel,
+  cancelText: styles.confirmBtnCancelText,
+  danger: styles.confirmBtnDanger,
+  dangerText: styles.confirmBtnDangerText,
+  pressDim: styles.pressDim,
+} as const
 
 export default BottomPops
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

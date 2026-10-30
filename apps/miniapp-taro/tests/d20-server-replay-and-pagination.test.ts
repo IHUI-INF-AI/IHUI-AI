@@ -581,7 +581,10 @@ describe('④ 源码级反向锁', () => {
   })
 
   it('回放失败必须走可见出口,不得静默留在空态', () => {
-    expect(chatSrc).toMatch(/runServerReplay[\s\S]{0,900}Taro\.showModal\(/)
+    // 900→2000(2026-10-31):58623fbded 可达性收尾把回放成功分支加长(自动发指令的
+    // setTimeout 门前移),showModal 距定义被推过 900 字符 —— 锁的意图是"同一函数体内
+    // 必须有可见失败出口",不是字面距离;窗口放宽,锁的牙(出口被删即红)不变。
+    expect(chatSrc).toMatch(/runServerReplay[\s\S]{0,2000}Taro\.showModal\(/)
     expect(chatSrc).toContain("t('ai.chat.replayFailed')")
   })
 

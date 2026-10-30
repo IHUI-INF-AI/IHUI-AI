@@ -5198,7 +5198,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_STYLE_PARITY',
-    stagedTriggers: ['apps/mobile-rn/src/', 'scripts/rn-style-parity-baseline.json'],
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/rn-style-parity-baseline.json'],
     onFailHint: [
       '',
       '  改法:把 #hex 换成 @ihui/design-tokens(rnLightTokens/rnDarkTokens)的 token 引用,不要新造近似色。',
@@ -6408,6 +6408,29 @@ const checks = [
       '  💡 裸数字(padding: 16 / fontSize: 14)应走 rnSpacing / rnType 档位;本次新增处数 > 该文件 HEAD 面自身处数才判红。',
       '     修复:node scripts/tokens-migrate.mjs <file> --apply(恰在档才换,杂值不动)。',
       '     紧急跳过(不推荐):HUSKY_SKIP_TOKEN_LITERAL_DEBT=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- RN 弹层键盘避让对账(2026-10-31 立;立门时存量已由同批修到 0 ⇒ 绝对零容忍,不背基线债)---
+  {
+    // 编号 272:注册前已核本文件 `id: '272'` 为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
+    id: '272',
+    label:
+      '⌨️ RN 弹层键盘避让对账(blocking,Modal 内含 TextInput 而该 Modal 子树无 KeyboardAvoidingView 即红 —— iOS 无 adjustResize,挂在外层的避让对独立原生窗无效;存量 5 处已修)',
+    script: 'check-modal-keyboard-avoid.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/'],
+    skipEnv: 'HUSKY_SKIP_MODAL_KEYBOARD_AVOID',
+    onFailHint: [
+      '',
+      '  💡 把该 Modal 的唯一直接子容器就地换成 <KeyboardAvoidingView style={原容器} behavior={Platform.OS===\'ios\'?\'padding\':undefined}>;',
+      '     那层若是带 onPress 的遮罩 Pressable,把遮罩点击下移一枚 StyleSheet.absoluteFill 的 Pressable(端内 5 处先例)。',
+      '     别在外面新包一层:祖先插入会重排整棵子树缩进,在共享工作区等于改写他人行。',
+      '     跨文件封装(children 由调用方传入的 BottomPops/Sheet)本门结构上看不到,那条腿由',
+      '     apps/mobile-rn/tests/rn-sheet-keyboard-cta.test.tsx 与 rn-verify-code-modal-avoid.test.tsx 的渲染锁守。',
+      '     自检:node scripts/check-modal-keyboard-avoid.mjs --self-test',
+      '     紧急跳过(不推荐,须留痕):HUSKY_SKIP_MODAL_KEYBOARD_AVOID=1 git commit ...',
       '',
     ].join('\n'),
   },

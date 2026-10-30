@@ -191,7 +191,11 @@ function platformOnlyProblems(src: string, side: string): string[] {
     if (!/z-popover/.test(code)) out.push('web 壳丢了平台专属 z-popover(层叠通道)')
     if (!/Arrow/.test(code)) out.push('web 壳丢了平台专属 Arrow(气泡箭头)')
     if (!/animate-in/.test(code)) out.push('web 壳丢了平台专属 animate-in(进出场动画)')
-    if (!/overflow-hidden/.test(code)) out.push('web 壳丢了平台专属 overflow-hidden')
+    // 2026-10-31 反转(1c771ee4fd 有意移除,取证:无头实测 8801 现网构建 7/7 悬停样本
+    // 箭头落在气泡盒外被裁 —— Radix 把 Arrow 包在 translateY(100%) 的外溢 wrapper 里,
+    // overflow-hidden 会把箭头整枚切掉):从"必备"反转为"禁止回潮",语义仍是锁这一类名。
+    if (/overflow-hidden/.test(code))
+      out.push('web 壳混入了 overflow-hidden(2026-10-30 已有意移除以免裁掉气泡箭头,回写即回归)')
     if (/delayLongPress/.test(code)) out.push('web 壳混入了 RN 专属 delayLongPress(长按通道)')
   }
   if (side === 'RN') {

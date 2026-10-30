@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { ClipboardList } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -48,11 +48,21 @@ const STATUS_TONE: Record<SignUpStatusView, 'muted' | 'emerald' | 'rose' | 'sky'
   completed: 'sky',
 }
 
+/**
+ * 四档底色/前景取色相族唯一真相源 rnHue(端内不得再手抄 rgba/#hex 字面量);
+ * alpha 按本屏原取值选档(0.10→tint、0.12→tintStrong),收编前后运行时字符串逐字节相同。
+ * 键名(muted/emerald/rose/sky)是 STATUS_TONE 按名取用的对外标识,一律不动。
+ *
+ * 实测缺陷登记(收编不替本屏改语义):键名 `sky` 装的其实是 **blue 族** ——
+ * 底取 blue-500 通道 + alpha 0.10、前景取 blue-600,而 rnHue.sky 是 sky-500 通道 + sky-600 前景,
+ * 两族不同值、不可互换。故这一行的右侧写 `rnHue.blue.*`,键名仍留 `sky`
+ * (成因见 hue-tints.js 头注「族名与色相对不上」)。
+ */
 const SIGN_UP_PALETTE = {
-  muted: { bg: 'rgba(115,115,115,0.12)', fg: '#52525b' },
-  emerald: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  rose: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48' },
-  sky: { bg: 'rgba(59,130,246,0.10)', fg: '#2563eb' },
+  muted: { bg: rnHue.zinc.tintStrong, fg: rnHue.zinc.fg },
+  emerald: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg },
+  rose: { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg },
+  sky: { bg: rnHue.blue.tint, fg: rnHue.blue.fg },
 } as const
 
 export function SignUpScreen({ t, colorScheme, onBack, loading, error, rows }: SignUpScreenProps) {

@@ -13,6 +13,7 @@ import {
 } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -1323,7 +1324,13 @@ export function LoginScreen() {
         onRequestClose={cancel2fa}
         statusBarTranslucent
       >
-        <Pressable style={styles.agreementModalOverlay} onPress={cancel2fa}>
+        <KeyboardAvoidingView
+          style={styles.agreementModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {/* 外层由遮罩 Pressable 换成避让层,点遮罩取消的手势下移到这枚满屏 Pressable
+              (与 BottomPops / VerifyCodeModal 同形态);不补这层,"点空白取消 2FA"会静默失效。 */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={cancel2fa} />
           <Pressable style={styles.agreementModalCard} onPress={() => {}}>
             <View style={styles.agreementModalHeader}>
               <Text style={styles.agreementModalTitle}>{t('auth.twoFactorTitle')}</Text>
@@ -1371,7 +1378,7 @@ export function LoginScreen() {
               </TouchableOpacity>
             </View>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />

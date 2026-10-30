@@ -34,7 +34,9 @@
   box-sizing: border-box;
 }
 
-/* 空态 / 错误态 */
+/* 空态 / 错误态
+   min-height 由 tsx 内联消费 SCREEN_STATES_STATE_MIN_HEIGHT_PX(与 RN stateWrap 同取
+   @ihui/shared/ui/screen-states-spec 单一源),本表不再手写这份占位高台。 */
 .ihui-state {
   display: flex;
   flex-direction: column;
@@ -42,7 +44,6 @@
   justify-content: center;
   padding: 64rpx 64rpx;
   gap: 20rpx;
-  min-height: 400rpx;
 }
 
 .ihui-state-glyph-circle {
@@ -61,12 +62,12 @@
   color: var(--color-text-tertiary);
 }
 
+/* 标题字号/行高由 tsx 内联消费 taroType.strong(与 RN 端 rnType.strong 同出 TYPE_STEPS
+   单一源,15px / 30rpx / 22px);本表保留颜色 / 对齐 / 字重(两端同为 600)。 */
 .ihui-state-title {
-  font-size: 30rpx;
   font-weight: 600;
   color: var(--color-muted-foreground);
   text-align: center;
-  line-height: 44rpx;
 }
 
 .ihui-state-desc {
