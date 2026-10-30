@@ -2,231 +2,25 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/order-detail/OrderDetailScreen.tsx
-import { useI18n } from '@/i18n'
-import { logger } from '@/utils/logger'
-import { View, Text } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
-import { useState, useEffect, useMemo } from 'react'
-import { getOrderDetail, closeOrder, type Order } from '@/api'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import ThemeRoot from '@/components/ThemeRoot'
-import { ErrorState } from '@/components/ScreenStates.taro'
+// 镜像 packages/app/src/features/order-detail/OrderDetailScreen.tsx
 
 /**
- * 端内 `Order` 投影只取了展示字段(orderNo/amount/type/title/status/createTime),支付时间
- * 按 api-client Order 契约补读(与 live/detail 的 LiveWithIntro 同手法),不改端内 api 面。
+ * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
+ *   渲染 = packages/app/src/features/order-detail/OrderDetailScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/OrderDetailScreen.tsx 本体,
+ *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
+ * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
  */
-type OrderWithPaidAt = Order & { paidAt?: string | null }
+import ThemeRoot from '@/components/ThemeRoot'
+import AuthReadyGate from '@/components/AuthReadyGate'
+import { OrderDetailScreen as OrderDetailScreenShell } from '@rn-shells/OrderDetailScreen'
 
-const STATUS_KEYS: Record<string, string> = {
-  pending: 'order.status.pending',
-  paid: 'order.status.paid',
-  cancelled: 'order.status.cancelled',
-  refunding: 'order.status.refunding',
-  refunded: 'order.status.refunded',
-  completed: 'order.status.completed',
-  failed: 'order.status.failed',
-}
-
-export default function OrderDetail() {
-  const { t } = useI18n()
-  const router = useRouter()
-  const gate = useAuthReadyGate()
-  const [order, setOrder] = useState<Order>({} as Order)
-  const [canceling, setCanceling] = useState(false)
-  const [loadFailed, setLoadFailed] = useState(false)
-
-  const statusText = useMemo(
-    () => (STATUS_KEYS[order.status] ? t(STATUS_KEYS[order.status] as string) : order.status),
-    [order.status, t],
-  )
-
-  /** 支付时间:未支付订单为空 ⇒ 该行整块不渲染(与 RN `{item.paidAt ? … : null}` 同语义) */
-  const paidAt = (order as OrderWithPaidAt).paidAt
-
-  const reload = (id: string | number) => {
-    setLoadFailed(false)
-    getOrderDetail(id)
-      .then((data) => setOrder(data))
-      .catch((e) => {
-        logger.error('unknown', '订单详情加载', e)
-        // 对齐 RN SharedOrderDetailScreen:加载失败由 ErrorState 常驻呈现(orderDetail.loadFailed)
-        setLoadFailed(true)
-      })
-  }
-
-  useEffect(() => {
-    const id = router.params.id
-    if (!id) return
-    // G-933 冷启动门控:鉴权判定落定前不发需登录详情请求(卸载/参数变更时取消订阅)
-    const cancel = gate.waitUntilReady(() => reload(id))
-    return cancel
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.params.id])
-
-  const goPay = () => {
-    Taro.navigateTo({ url: `/pkg-shop/pay/index?orderNo=${order.orderNo}&amount=${order.amount}` })
-  }
-
-  const goRefund = () => {
-    Taro.navigateTo({ url: `/pkg-shop/order/refund?orderNo=${order.orderNo}` })
-  }
-
-  const goList = () => {
-    Taro.navigateTo({ url: '/pkg-shop/order/list' })
-  }
-
-  const onCancel = async () => {
-    if (!order.id || canceling) return
-    Taro.showModal({
-      title: t('common.hint'),
-      content: t('order.cancelConfirm'),
-      success: async (res) => {
-        if (!res.confirm) return
-        setCanceling(true)
-        try {
-          await closeOrder(String(order.id))
-          Taro.showToast({ title: t('order.cancelSuccess'), icon: 'success' })
-          reload(order.id)
-        } catch (e) {
-          logger.error('order/detail', '取消订单', e)
-          Taro.showToast({ title: t('order.cancelFailed'), icon: 'none' })
-        } finally {
-          setCanceling(false)
-        }
-      },
-    })
-  }
-
+export default function OrderDetailPage() {
   return (
     <ThemeRoot>
-      {/* 对齐 RN SharedOrderDetailScreen:背景 surface.bg(bg-background)、body padding 20rpx、
-          卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡;字段 label 22rpx tertiary + value 32rpx,金额 44rpx/700 success */}
-      <View className="min-h-screen bg-background pb-[140rpx]">
-        <View className="p-[20rpx]">
-          {loadFailed && !order.orderNo ? (
-            /* 对齐 RN SharedOrderDetailScreen 的错误态:message 取 orderDetail.loadFailed,
-               重试重发同一个详情请求(端内可自愈,不必像 RN 那样退回上一屏) */
-            <ErrorState
-              message={t('orderDetail.loadFailed')}
-              onRetry={() => {
-                const id = router.params.id
-                if (id) reload(id)
-              }}
-              retryLabel={t('common.retry')}
-            />
-          ) : (
-            <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-              {/* 对齐 RN orderDetail.product 标签 + productName:端内 Order.title 即 targetTitle */}
-              <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                {t('orderDetail.product')}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-                {order.title}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                {t('order.orderNo')}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-                {order.orderNo}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                {t('order.createTime')}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-                {order.createTime}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                {t('order.orderType')}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-                {order.type}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                {t('order.orderStatus')}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-                {statusText}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                {t('orderDetail.amount')}
-              </Text>
-              <Text className="mt-[16rpx] block text-[length:44rpx] font-bold text-[var(--color-success)]">
-              {/* orders.amount 是「分」(见 vip_levels.price 种 3990=¥39.90)，直接渲染会放大 100 倍 */}
-              ¥{(order.amount / 100).toFixed(2)}
-              </Text>
-              {paidAt ? (
-                <>
-                  <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                    {t('orderDetail.paidAt')}
-                  </Text>
-                  <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-                    {paidAt}
-                  </Text>
-                </>
-              ) : null}
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* 底部操作栏对齐 RN BottomActionBar:固定底部 / bg-card / gap 24rpx /
-          按钮 h88rpx 圆角 16rpx,主按钮 bg-primary 白字 30rpx/500,次按钮 2rpx 描边
-          (顶部那条 2rpx 分隔描边已按 §4 两端同批摘除,靠 bg-card 与页面底对比分层) */}
-      <View
-        className="fixed bottom-0 left-0 right-0 z-10 flex items-center gap-[24rpx] bg-card px-[24rpx] pt-[8rpx]"
-        style={{ paddingBottom: 'calc(8rpx + env(safe-area-inset-bottom))' }}
-      >
-        {order.status === 'pending' && (
-          <View
-            className={`h-[88rpx] flex-1 items-center justify-center rounded-lg border-[length:2rpx] border-border bg-card ${
-              canceling ? 'opacity-50' : ''
-            }`}
-            /* RN BottomActionBar secondaryButtonPressed 为换背景 surface.muted,hoverClass 追加类无法覆盖 bg-card,统一以 opacity 反馈 */
-            hoverClass="opacity-60"
-            onClick={onCancel}
-          >
-            <Text className="text-[length:30rpx] font-medium text-foreground">
-              {t('order.cancel')}
-            </Text>
-          </View>
-        )}
-        {order.status === 'pending' && (
-          <View
-            className="h-[88rpx] flex-1 items-center justify-center rounded-lg bg-primary"
-            hoverClass="opacity-80"
-            onClick={goPay}
-          >
-            <Text className="text-[length:30rpx] font-medium text-primary-foreground">
-              {t('order.goPay')}
-            </Text>
-          </View>
-        )}
-        {order.status === 'paid' && (
-          <View
-            className="h-[88rpx] flex-1 items-center justify-center rounded-lg border-[length:2rpx] border-border bg-card"
-            /* RN BottomActionBar secondaryButtonPressed 为换背景 surface.muted,hoverClass 追加类无法覆盖 bg-card,统一以 opacity 反馈 */
-            hoverClass="opacity-60"
-            onClick={goRefund}
-          >
-            <Text className="text-[length:30rpx] font-medium text-foreground">
-              {t('order.applyRefund')}
-            </Text>
-          </View>
-        )}
-        {!loadFailed && order.status !== 'pending' && order.status !== 'paid' && (
-          <View
-            className="h-[88rpx] flex-1 items-center justify-center rounded-lg bg-primary"
-            hoverClass="opacity-80"
-            onClick={goList}
-          >
-            <Text className="text-[length:30rpx] font-medium text-primary-foreground">
-              {t('order.title')}
-            </Text>
-          </View>
-        )}
-      </View>
+      <AuthReadyGate>
+        <OrderDetailScreenShell />
+      </AuthReadyGate>
     </ThemeRoot>
   )
 }
