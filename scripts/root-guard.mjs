@@ -41,6 +41,16 @@ export const EXIT_UNKNOWN = 2
 
 /** 目标清单形状(唯一真源在 manifest 内;此处只写"必须有哪几条",不写哈希)。 */
 export const REQUIRED_TARGET_IDS = ['guardian-runner', 'judgement-libs', 'agents-ironlaw']
+/**
+ * advisory 档(2026-10-30 立):不一致只告警、**不 fail-closed**。
+ *
+ * 为什么 AGENTS 铁律段必须是 advisory:它是**文档**,被多席分钟级修订;而封条要求每次修订都人工重封,
+ * 实测一天内同一份清单被顶掉三次(4eb3bf17 → 3ac5ea16 → 7c02479c),每次都让三处签出的部署环
+ * fail-closed、连 fetch 都走不到。真正的"改行为"的文件是 guardian-runner(门注册表)与
+ * judgement-libs,这两枚仍是硬判据;铁律段的一致性继续记进封条并每天被 267 点名,但不再卡部署。
+ * 恢复硬判据 = 从这里删掉该 id(前提是先让"改文档即重封"成为常态)。
+ */
+export const ADVISORY_TARGET_IDS = new Set(['agents-ironlaw'])
 const SECTION_START = '## 0. 全局铁律'
 const SECTION_END_PREFIX = '## '
 
@@ -178,15 +188,19 @@ export function checkAll({ manifest, readFile, root, unlocks = [] } = {}) {
       continue
     }
     const unlocked = unlocks.find((u) => u.id === t.id && u.sha256 === h.sha256)
+    // advisory(文档面):不一致只告警,不参与 verdict —— 见 ADVISORY_TARGET_IDS 头注。
+    const advisory = !unlocked && ADVISORY_TARGET_IDS.has(t.id)
     targets.push({
       id: t.id,
-      state: unlocked ? 'unlocked' : 'fail',
+      state: unlocked ? 'unlocked' : advisory ? 'warn' : 'fail',
       expected: t.sha256,
       actual: h.sha256,
       bytes: h.bytes,
       detail: unlocked
         ? `人工解锁记录在有效期(理由:${unlocked.reason ?? ''};至 ${unlocked.expiresAt})`
-        : '内容已改动且无有效人工解锁',
+        : advisory
+          ? '文档面内容已变且未重封 —— advisory:只告警,不 fail-closed(见 ADVISORY_TARGET_IDS 头注)'
+          : '内容已改动且无有效人工解锁',
     })
   }
   const verdict = sawUnknown ? 'unknown' : targets.some((t) => t.state === 'fail') ? 'fail' : 'pass'
