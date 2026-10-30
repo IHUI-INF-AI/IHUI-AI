@@ -80,7 +80,13 @@ function isNestedRef(ref) {
   return !ref.startsWith('refs/heads/') && ref.split('/').length >= 4
 }
 
-function readManifest() {
+/**
+ * 期望清单的读出口(2026-10-30 改为 export):`prune-redundant-lost-tags.mjs` 清仓时必须
+ * 把同一条目的期望值一起摘掉 —— 否则存续层下一轮就把删掉的引用**离线重建回来**(实测 22:08
+ * 一次重建 8,086 枚)。清单的形状/落点/失败语义只许有一份(AGENTS §0.6),所以这里开出口,
+ * 不在调用方另抄一个 JSON 读写。读不到一律回 `{}`(存续层语义:没清单就什么都不重建)。
+ */
+export function readManifest() {
   try {
     const m = JSON.parse(readFileSync(REFS_MANIFEST, 'utf8'))
     return m && typeof m === 'object' ? m : {}
@@ -89,7 +95,11 @@ function readManifest() {
   }
 }
 
-function saveManifest(map) {
+/** 清单落点(开给调用方做"读不到就别写"的前置判断 —— 存续层清单被清空 = 所有期望值一起丢)。 */
+export const REFS_MANIFEST_PATH = REFS_MANIFEST
+
+/** 期望清单的写出口(与 readManifest 同一条序列化形态,调用方不得自己 stringify)。 */
+export function saveManifest(map) {
   try {
     writeFileSync(REFS_MANIFEST, JSON.stringify(map, null, 1) + '\n', 'utf8')
     return true
@@ -583,5 +593,5 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { splitDeadRefs, isNestedRef, objectExists }
+export const __test__ = { splitDeadRefs, isNestedRef, objectExists, readManifest, saveManifest }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
