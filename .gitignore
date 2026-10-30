@@ -192,6 +192,9 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # .ihui-agent/archive/PROJECT_PLAN_*.md 为"这行是被正当归档、不是被删"的依据。锚点只存在于
 # 某一台机器,等于让另一台机器的对账依据凭空消失(G-173 同条规矩:可审计锚点必须受版本控制)。
 .ihui-agent/*
+# scripts/ 下的同族运行时(切号连续性快照等)同理整目录忽略(2026-10-30:快照落点此前漏配,
+# 实测以 ?? 形态暴露在 git status);archive 例外不适用于此面,纯机器状态无归档件。
+scripts/.ihui-agent/*
 # §1 归档两步走需要新归档件能被正常提交(门 166 的唯一合法丢行通道);PROJECT_PLAN_*.md 与
 # AGENTS_*.md 两族放行,archive 其余内容仍整目录忽略(存档机制退役的口径不变)。
 # AGENTS_*.md 这一族是门 207 头注规定的压缩出路(守门历史/取证叙述/重复登记副本整区逐字移入
