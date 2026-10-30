@@ -31,6 +31,13 @@
 - `S7-asar-internals.md` —— app.asar 内部:主进程 40 件 18.6 MB、还原 47,099 条明文、十项能力定位、12 档 `QoderModelPurpose`。**其"必须另解 tgz"一句已被正本 §7 第 3 行修正**
 - `S8-version-delta.md` —— 0.4.11→0.5.1 差集:`browser-connector`(MV3 扩展 v1.7.6,debugger+nativeMessaging+sidePanel,ws 本地腿 + wss 云中继)/ `collaboration-cli`(`@ali/qoder-collab-cli` 0.1.7)/ `qoder.index-settings` / office +35,615,824 B / dynamic-text 51→120 键
 
+## 可视化交付件(AGENTS §0.12 要求:逆向结论按 archify 成交互 HTML)
+
+- **源入库**:`qoder-0.5.1-capability-tree.candidate.json` —— 37 节点六层能力树,叶子副标签即我方判定([真缺]/[部分]/[对等]/[我方强]),另含三张卡(被推翻的判断 / 真缺 Top4 / 取证边界)。**这是可复现源,改内容改它。**
+- **产物不入库**:`qoder-0.5.1-capability-tree.html`(908,124 B)被 `.gitignore:295` 的全局 `*.html` 规则忽略 —— **不 `-f` 强加**,那会绕过仓规。产物在本机工作树里可直接用浏览器打开;换机复现:`node .ihui/skills/archify/bin/archify.mjs finalize tree <candidate.json> <输出.html> --quality standard`。
+- **回执入库**:`.finalize.json` / `.finalize-summary.json` / `.delivery.json` / `.browser-check.json` —— archify 3.2.0 四道闸(validate / deliver / check / **browser-check ran**)全过的凭据。
+- **字节口径(不得含糊)**:回执记录的交付 sha = `596d0da70fb08c3f…1a2ec2d2`(908,124 B);交付后按 §5c 给该 HTML 注入三层溯源水印,**水印后 sha = `99e90109942a8f91…e452d4f9`**。即回执 sha 绑定"注入前字节"——这是本仓水印纪律与 archify 字节封缄的既有冲突,如实登记,不假装两者一致。
+
 ## 未入库的大体积证据(在 gitignore 缓存,复跑命令在各件 §内)
 
 `.ihui-agent/tmp/qoder-rea/asar-analysis.json` 193,121,114 B(app.asar,root sha `e9d780de…`,**已复验与 0.4.11 盘上件一致**)

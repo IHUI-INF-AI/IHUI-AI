@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "642f00d8-68ed-46b1-99c2-1a8acde7c4ed",
+  "status": "current",
+  "command": "deliver",
+  "type": "tree",
+  "input": "G:\\IHUI-AI\\.ihui-agent\\tmp\\archify-qoder-gap\\candidate.json",
+  "output": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\qoder-rea-20261030\\qoder-0.5.1-capability-tree.html",
+  "specification": {
+    "sha256": "7fdefc22dac2db23e627556720908c6aaa98f047e1909a8430fed45478e0adc3",
+    "bytes": 8104
+  },
+  "artifact": {
+    "sha256": "596d0da70fb08c3f7581887b9499c6f605475aae5068682ab4ac58111a2ec2d2",
+    "bytes": 908124
+  }
+}
