@@ -84,7 +84,9 @@ export default function CouponPageScreen() {
     const next = tab as CouponTab
     if (next === statusTab) return
     setStatusTab(next)
-    setTimeout(refresh, 0)
+    // 不再 setTimeout(refresh, 0):refresh 与 fetch 都以旧 fetcher 为依赖,
+    // 这一跳会拿**上一个** tab 的闭包再请求一次,与 usePaginatedList 自己"fetcher 变了就重取"
+    // 的那次并发竞速 ⇒ 列表可能定格在旧 tab 的结果。只留 hook 的自动重取。
   }
 
   return (
