@@ -356,6 +356,9 @@
     "sendAi": "AI に質問",
     "saveWord": "単語帳に保存",
     "saved": "保存済み",
+    "lookupFailed": "検索に失敗しました。ネットワークを確認して再試行してください。",
+    "retry": "再試行",
+    "retrying": "検索中…",
     "close": "閉じる"
   },
   "page": {

@@ -6204,7 +6204,8 @@
     "uploadSelfie": "上传手持身份证照片",
     "title": "身份认证",
     "subtitle": "完成身份认证,保障账户安全",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "submit": "提交认证"
   },
   "referrer": {
     "title": "推荐人",

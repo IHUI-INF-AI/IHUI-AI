@@ -309,6 +309,8 @@ import { adminInvoicesRoutes } from './admin-invoices.js'
 import { missingUserRoutes } from './missing-user-routes.js'
 import { miniappPublicFallbackRoutes } from './miniapp-public-fallback-routes.js'
 import { miniappCompatRoutes } from './miniapp-compat-routes.js'
+// 小程序支付链后端契约（2026-10-30 立）：可用券列表 / 订单选券改价 / 余额支付
+import { miniappPayRoutes } from './miniapp-pay-routes.js'
 import { publicSocketRoutes } from './public-socket.js'
 // OpenClaw 控制台 8 面板后端端点（memory/skills/automation/channels/tools/gateway/sessions/stats）
 import { openclawRoutes } from './openclaw-routes.js'
@@ -1106,6 +1108,9 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 小程序兼容路由(49 个空桩端点,补建小程序调用但后端缺失的路径,避免 404,2026-07-24 立)
   server.register(miniappCompatRoutes, { prefix: '/api' })
+
+  // 小程序支付链(2026-10-30):/api/coupons/available、/api/orders/:no/apply-coupon、/api/pay/balance
+  server.register(miniappPayRoutes, { prefix: '/api' })
 
   // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
   server.register(publicSocketRoutes, { prefix: '/api/admin' })

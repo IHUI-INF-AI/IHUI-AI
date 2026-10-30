@@ -6,6 +6,8 @@ import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
 import { vueToNextRedirects } from './src/config/redirects.config'
 import { buildAiServiceEdgeRewrites } from './src/config/ai-service-edge'
+import { buildCsp } from './src/config/csp'
+import { PUBLIC_HTML_CACHE_RULES } from './src/config/public-html-cache'
 
 // GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
@@ -217,6 +219,10 @@ const nextConfig: NextConfig = {
     // (lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性 "Unexpected token
     // Delim('\u{1a}')" 中断冷构建(成功可达但概率失败)。此为缓解项不保证根治;
     // 真正的可靠性由 ihui-deploy.ps1 的「冷构建 + 多轮重试」兜底。
+    // 2026-10-30 补注:这条巨行(TypeScript 侧再量一次 = 生产态单行 426KB)是 **Tailwind 自己**
+    // 在生产态做的压缩产物(optimizeCss 关不掉它),而 0x1A 在整棵 apps/web 里只存在于构建产物
+    // 目录的 Turbopack 持久缓存 `.sst/.meta`;那些目录当时没被 .gitignore 忽略 ⇒ 落在 Tailwind v4
+    // 的自动扫描面里。根治见 app/globals.css 的 `@source not ...`(扫描面收敛到真源码)。
     optimizeCss: false,
     // 2026-08-04 生产构建排障:SWC memory allocation of 7.5GB failed
     // (next build 反复 0xC0000409 崩溃,根因=webpack 峰值内存过高)。
@@ -775,20 +781,9 @@ const nextConfig: NextConfig = {
   // 注意:output:'export' 模式下 headers() 不生效(静态文件由 CDN/nginx 托管);
   // 改为 standalone 模式或 nginx 配置这些头时生效。保留配置供后续切换。
   async headers() {
-    // 2026-10-28:扫码登录 SDK 的 6 个脚本源抽成常量 —— script-src 现在要按 dev/prod
-    // 分叉(生产摘 unsafe-eval),内联一长串域名会让两个分支各维护一份,迟早写歪。
-    const scriptSrcHosts = [
-      // res.wx.qq.com:微信 WxLogin.js
-      // wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
-      // g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0
-      // lf-package-cn.feishucdn.com:飞书 LarkSSOSDKWebQRCode-1.0.3.js
-      'https://res.wx.qq.com',
-      'https://wwcdn.weixin.qq.com',
-      'https://g.alicdn.com',
-      'https://lf-package-cn.feishucdn.com',
-      'https://cdn.jsdelivr.net',
-      'https://challenges.cloudflare.com',
-    ].join(' ')
+    // 2026-10-30:扫码登录 SDK 的脚本源白名单随 CSP 本体一起移到
+    // `src/config/csp.ts` 的 `SCRIPT_SRC_HOSTS`(单一真相源)。
+    // 此处不留未引用的副本 —— 留着只会让下次改白名单的人改错地方。
     const securityHeaders = [
       { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
       // 2026-08-02 fix:WorkPanel 内置浏览器需 iframe 嵌入同源页面(发布/设置等),
@@ -807,141 +802,23 @@ const nextConfig: NextConfig = {
       },
       {
         key: 'Content-Security-Policy',
-        value: [
-          "default-src 'self'",
-          // 2026-07-25 修复扫码登录 SDK 加载失败:补全厂商 CDN 白名单(清单见 scriptSrcHosts)。
-          //
-          // 2026-10-28 安全加固:生产摘掉 'unsafe-eval',dev 保留。依据是仓内实证,不是推测:
-          //  ① 源码零依赖:apps/web/src + app 全量 grep `new Function|eval(` 无命中。
-          //  ② 生产产物零依赖:静态导出产物 out/_next/static/chunks 全量 grep,唯一命中是
-          //     katex 的 LaTeX 命令表正则字面量(/eval(?:cmd)?|…/),不是可执行 eval。
-          //  ③ 第三方库逐个定性(命中的都是误匹配或死分支):
-          //     - pdfjs:命中是 `new FunctionBasedShading` 类名,非 Function 构造;
-          //     - echarts:new Function 只在 JSON 全局缺失时兜底解析 geoJSON,浏览器必走 JSON.parse;
-          //     - jszip:new Function 仅在调用方传字符串回调时触发,本仓不传;
-          //     - three:命中是 FunctionNode/FunctionCall,非构造调用。
-          //  ④ 唯一真实 eval 依赖是 Monaco(AMD loader 的 eval 探测 + worker 内 eval 求值),
-          //     已用 Playwright 实测:无 unsafe-eval 的 CSP 下 /vs/loader.js 正常加载、
-          //     TS language worker 正常建连并返回诊断、控制台零 CSP 违规 → 走 importScripts 回退,不白屏。
-          //  ⑤ dev 必须保留:Next dev 的 HMR/React Refresh 与 eval-based source map 依赖 eval,
-          //     摘掉会本地起不来(与上面 isDev 分叉 connect-src 同一先例)。
-          // 'unsafe-inline' 保持:Next 的 inline bootstrap script 需要,上 nonce 属大改(见报告遗留项)。
-          isDev
-            ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${scriptSrcHosts}`
-            : `script-src 'self' 'unsafe-inline' ${scriptSrcHosts}`,
-          "style-src 'self' 'unsafe-inline'",
-          // 2026-10-30 收口:img-src 由 `https:` 通配收窄到 curated remotePatterns 白名单。
-          // 与 media-src(已收窄 'self' blob:)同思路:AI 对话 / 文章 / 用户附件里的图现在全部经
-          // 同源代理 /api/media/image 加载(浏览器同源、自动带 httpOnly auth cookie,源站 CDN
-          // 不再被直连),外部域名不再进入 CSP 评估面,https 图片外泄信道清零。
-          // 保留的 7 个域名与 images.remotePatterns 完全一致 —— 那是 next/image 已约束的
-          // 头像/图标信任边界(avatars / icons),与本次收窄同尺,不引入新信任面。
-          "img-src 'self' data: blob: https://aizhs.top https://*.aizhs.top https://api.dicebear.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://platform-lookaside.fbsx.com https://api.qrserver.com https://test-for-dp.oss-cn-guangzhou.aliyuncs.com",
-          "font-src 'self' data:",
-          // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
-          // 与 SSE/WebSocket 调试;生产模式收紧,仅 'self' + 标准 wss/https 等外部连接,
-          // 不再允许浏览器触达本机服务(防 XSS→本机探测/利用)。
-          // 2026-10-13 修复:Tauri 2.11 桌面端 IPC 走 http(s)://ipc.localhost 自定义协议,
-          // 必须显式放行,否则被 CSP 拦截后 Tauri 只能 fallback 到 postMessage(功能退化+控制台红)。
-          // ipc.localhost 仅 Tauri WebView 内可达,普通浏览器永不请求,对 web 无副作用。
-          // 2026-10-27 收紧:生产摘 ws:(明文 WebSocket 外联;线上全部走 wss,ws:// 在
-          // https 页面属混合内容本就会被拦 —— 与 frame-src 的 http: 同型死配置)。
-          isDev
-            ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
-            : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
-          // 2026-10-30 一度放行 https:/data:(与 img-src 同型取舍);2026-10-30 末已根治收紧:
-          //  - 视频/音频现全部走同源代理 —— 前端 <video src="/api/media/stream?url=…">
-          //    经 web rewrites(/api/media/* → 8803)同源访问,浏览器自动带 httpOnly auth cookie
-          //    鉴权,源站 CDN 不再被浏览器直接触达,故无需 https: 通配;
-          //  - 后端 /api/media/stream 复用下载代理的 SSRF 闸门(URL 必须命中平台登记产物)
-          //    并透传 Range,使播放器可拖拽 seek;
-          //  - blob: 保留:下载按钮走 fetch→ObjectURL 落盘,正是 blob: 源。
-          // 剩余风险(已清零):外部 CDN 直链不再进入 CSP 评估面,https: 媒体外泄信道已去除。
-          "media-src 'self' blob:",
-          "object-src 'none'",
-          "base-uri 'self'",
-          // 2026-10-28 补 frame-ancestors:与上面的 X-Frame-Options: SAMEORIGIN 语义对齐。
-          // 必须是 'self' 而非 'none' —— WorkPanel 内置浏览器用 iframe 嵌同源页面
-          // (发布/设置等),'none' 会连自己都嵌不了(2026-08-02 那次 DENY 踩过同样的坑)。
-          // 现代浏览器优先看 frame-ancestors,X-Frame-Options 仅作老浏览器兜底。
-          "frame-ancestors 'self'",
-          // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
-          // - open.weixin.qq.com:微信扫码确认 iframe
-          // - open.work.weixin.qq.com:企业微信 qrConnect iframe
-          // - login.dingtalk.com:钉钉 OAuth iframe
-          // - passport.feishu.cn:飞书 QR iframe
-          // - self:Next.js dev HMR / React DevTools 需要
-          // 2026-08-02 fix:WorkPanel 内置浏览器允许用户打开任意网址,
-          // frame-src 放开 https: 使可嵌入的外部站点能正常 iframe 展示。
-          // 2026-10-27 收紧:摘 http: —— https 页面嵌 http iframe 本就被浏览器
-          // 混合内容策略拦截,这是死配置;留着只会让审计每次都多问一遍。
-          "frame-src 'self' https: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn https://challenges.cloudflare.com",
-          "form-action 'self'",
-        ].join('; '),
+        // 2026-10-30:策略本体抽到 `src/config/csp.ts`(单一真相源)。
+        // 这里是**无 nonce 分支** —— 覆盖所有路径,其中公开可缓存页(见
+        // `src/config/public-html-cache.ts`)只吃这一份;需要逐请求 nonce 的路径由
+        // `proxy.ts` 追加第二份,浏览器按交集执行(nonce 分支不带 unsafe-inline,
+        // 故那些路径上真正生效的是 nonce 策略)。
+        // 两处各抄一份的失效形态是白屏或第三方 SDK 静默加载失败,不是报错。
+        value: buildCsp({ dev: isDev }),
       },
     ]
 
     // 2026-10-21 公网提速：公开内容页的边缘缓存白名单。
-    // 判据：页面没有服务端用户态（不读 cookies/headers/session/鉴权），用户相关数据都在
-    // 客户端 hydrate 后填充，因此共享 HTML 外壳不串号；TTL 按内容变化频率分档。
-    // 明确排除（不得加进来）：/login、/sso/*、OAuth 回调、/admin/*、/edu/edu-management/*、
-    // /user/*、/member/*、/messages/*、/chat/*、/wallet/*、/orders/*、/settings/*、
-    // /developer/*、/publish/*、/distribution/*、/h5/share/*、一次性 code / 授权流。
-    // 与既有 5 条规则同一已知限制：根 layout 用 cookies() 读 locale，共享缓存只影响
-    // <html lang> 首帧；正文由客户端 i18n 渲染。要按语种分缓存需在 EO 配 Cookie: locale。
-    const publicHtmlCache = [
-      // 状态页：Next 数据缓存 60s；边缘只留 60s，故障态最多多活 1 分钟。
-      { source: '/status', value: 'public, s-maxage=60, stale-while-revalidate=60' },
-      // 新闻/博客：正文变化快，边缘 5 分钟 + 回退 1 小时。
-      { source: '/ai-news', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
-      { source: '/blog/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
-      { source: '/news/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
-      {
-        source: '/announcements/:path*',
-        value: 'public, s-maxage=300, stale-while-revalidate=3600',
-      },
-      { source: '/articles/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
-      // 静态营销/文档/协议/对比页：内容低频变化，5 分钟 + 回退 1 天（与 /about 等既有档一致）。
-      { source: '/agreement/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/legal/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/faq', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/help/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/contact', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/use-cases/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      {
-        source: '/ja/use-cases/:path*',
-        value: 'public, s-maxage=300, stale-while-revalidate=86400',
-      },
-      {
-        source: '/ko/use-cases/:path*',
-        value: 'public, s-maxage=300, stale-while-revalidate=86400',
-      },
-      {
-        source: '/zh-TW/use-cases/:path*',
-        value: 'public, s-maxage=300, stale-while-revalidate=86400',
-      },
-      { source: '/compare/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/docs/:path+', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/en/:path+', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/models-pricing', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/developers', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      { source: '/enterprise', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      {
-        source: '/enterprise/inquiry',
-        value: 'public, s-maxage=300, stale-while-revalidate=86400',
-      },
-      { source: '/free-ai', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
-      // 下载页：版本号由 generateStaticParams 决定，10 分钟 + 回退 1 小时。
-      { source: '/download/:platform', value: 'public, s-maxage=600, stale-while-revalidate=3600' },
-      // 市场列表壳：内容更新较频繁，2 分钟 + 回退 1 小时。
-      { source: '/agents', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-      { source: '/models', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-      { source: '/plaza', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-      { source: '/ai-world', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-      { source: '/skills-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-      { source: '/mcp-store', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-      { source: '/capability-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
-    ]
+    // 2026-10-30:数组本体移到 `src/config/public-html-cache.ts`(单一真相源)。
+    // 为什么必须共享:proxy.ts 要用**同一份判据**决定"哪些路径不上 nonce" ——
+    // per-request nonce 与 s-maxage 共享缓存互斥。
+    // 两处各写一份的失效形态是:有人加了缓存规则却忘了同步排除 nonce ⇒
+    // 那条路径的缓存里钉死一个 nonce,任何人抓一次页面就拿到它。
+    const publicHtmlCache = PUBLIC_HTML_CACHE_RULES
     return [
       {
         // Service Worker 脚本必须禁 HTTP 缓存(2026-10-16 立,配 stamp-sw-version.mjs)。

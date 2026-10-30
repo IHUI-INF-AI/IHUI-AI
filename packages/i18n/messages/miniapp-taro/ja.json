@@ -6204,7 +6204,8 @@
     "uploadSelfie": "身分証を手に持った写真をアップロード",
     "title": "本人確認",
     "subtitle": "本人確認を完了してアカウントの安全を確保",
-    "submitting": "送信中..."
+    "submitting": "送信中...",
+    "submit": "認証を提出"
   },
   "referrer": {
     "title": "紹介者",

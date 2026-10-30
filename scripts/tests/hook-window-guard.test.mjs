@@ -15,6 +15,7 @@
  */
 import { describe, test as t } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -87,7 +88,9 @@ describe('hook-window-guard(O43建议②)', () => {
     assert.ok(guard.GUARD_MARK.length > 8 && !guard.GUARD_MARK.includes('\n'))
     const src = safeCommitSrc()
     const iMark = src.indexOf('hookOutput.includes(GUARD_MARK)')
-    const iFallback = src.indexOf('commitArgs(true)')
+    // 2026-10-30 修断链:兜底发令点早已改名 commitArgs→commitArgv(2f9def0ddd,10-26),
+    // 本断言停在 10-15 的旧名上 ⇒ 自 10-26 起恒红。断言的**意图**不变:兜底必须还在且排在拦截之后。
+    const iFallback = src.indexOf('commitArgv(true)')
     assert.ok(iMark > 0, 'safe-commit 必须扫 hookOutput 里的护栏标记')
     assert.ok(iFallback > 0, '--no-verify 兜底必须仍在(门真红那半的应急路径)')
     assert.ok(iMark < iFallback, '护栏拦截必须先于兜底:兜底会把外来件照样交出去')
@@ -144,8 +147,51 @@ describe('hook-window-guard(O43建议②)', () => {
       writeFileSync(bf, JSON.stringify(current))
       const d = guard.checkHookWindow({ repoRoot, baselineFile: bf, expectedRaw: '' })
       assert.equal(d.blocking, false, `基线=当前索引时不得判红(新进=${d.newEntries.length})`)
+      // 2026-10-30 空树档:返回值必须带上该判据(safe-commit 侧靠它拒绝写出空提交)
+      assert.equal(typeof d.emptyWrite, 'boolean', 'checkHookWindow 必须回传 emptyWrite')
     } finally {
       rmScratch(dir)
     }
+  })
+
+  t('T8 空树档:索引与 HEAD 相同 ⇒ 判 true(空提交的唯一成因);无 HEAD ⇒ 判不出,不得误拦', () => {
+    const dir = mkScratch('hook-window-guard-t8')
+    try {
+      const git = (...args) =>
+        spawnSync('git', args, {
+          cwd: dir,
+          encoding: 'utf8',
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+      git('init', '-q')
+      git('config', 'user.email', 'fixture@example.invalid')
+      git('config', 'user.name', 'fixture')
+      // 初生仓:没有 HEAD ⇒ `git diff --cached --quiet HEAD` 取不到判定面 ⇒ 必须返回 false
+      assert.equal(guard.indexMatchesHead(dir), false, '无 HEAD 时不得据空判定面拦提交(§12e 恒红门禁令)')
+      writeFileSync(join(dir, 'a.txt'), '1\n')
+      git('add', 'a.txt')
+      git('commit', '-q', '-m', 'init')
+      // 干净索引 == HEAD ⇒ 此刻写树只能得到空提交
+      assert.equal(guard.indexMatchesHead(dir), true, '索引与 HEAD 无差异必须判 true')
+      writeFileSync(join(dir, 'a.txt'), '2\n')
+      git('add', 'a.txt')
+      assert.equal(guard.indexMatchesHead(dir), false, '有暂存改动必须判 false')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  t('T9 空树档的拦截必须排在 blocking 之前,且带护栏标记(否则 --no-verify 会兜底把它放过)', () => {
+    const src = readFileSync(join(repoRoot, 'scripts', 'lib', 'hook-window-guard.mjs'), 'utf8')
+    const iEmpty = src.indexOf('if (d.emptyWrite)')
+    const iBlocking = src.indexOf('if (!d.blocking)')
+    assert.ok(iEmpty > 0, 'printCheck 必须判空树档')
+    assert.ok(iBlocking > 0, '既有外来件档必须仍在')
+    assert.ok(iEmpty < iBlocking, '空树档必须先判:外来件至少说明有内容进了提交,空树连内容都没有')
+    // 空树档的出口必须打 GUARD_MARK,否则 safe-commit 会认为"不是护栏判红"而允许 --no-verify 兜底
+    const emptyBlock = src.slice(iEmpty, iBlocking)
+    assert.match(emptyBlock, /console\.error\(GUARD_MARK\)/, '空树档必须打 GUARD_MARK')
+    assert.match(emptyBlock, /return 1/, '空树档必须 exit 1 语义')
   })
 })

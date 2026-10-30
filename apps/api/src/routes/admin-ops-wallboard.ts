@@ -60,6 +60,7 @@ import {
   type VisitTransitionSnapshot,
 } from '../services/visit-transition-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
+import { keepaliveIdleDays } from '../services/relay-account-pool-scheduler.js'
 import {
   getPageDwellLiveSnapshot,
   type PageDwellLiveRow,
@@ -610,24 +611,39 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
 }
 
 interface RelayPoolSnapshot {
-  /** key 池:总条数 / 可调度 / 异常(degraded + down) */
+  /** key 池:总条数 / 健康态可判定条数 / 可调度 / 异常(degraded + down) */
   keyTotal: number | null
+  keyClassified: number | null
   keySchedulable: number | null
   keyAbnormal: number | null
-  /** 账号池:总条数 / 可调度 */
+  /** 异常 key 里仍能被选中的条数 */
+  keyAbnormalSchedulable: number | null
+  /** key 池脏健康态行数 */
+  keyRowsUnclassified: number | null
+  /** 账号池:总条数 / 健康态可判定条数 / 可调度 / 不可调度(停用·摘除·宕机) */
   accountsTotal: number | null
+  accountClassified: number | null
   accountsSchedulable: number | null
-  /** 账号 token 最短临期(秒;负 = 已过期) */
+  accountsBlocked: number | null
+  /** 不可调度账号里 token 已过期的条数 */
+  accountsBlockedExpired: number | null
+  /** 账号池脏健康态行数 */
+  accountRowsUnclassified: number | null
+  /** 可调度账号里最短的 token 临期(秒;负 = 已过期;无可调度号带到期时刻为 null) */
   minTokenExpiresInSeconds: number | null
   /**
    * 这份快照距今多少秒(0..TTL)。**语义已随实时化改写**(2026-10-23):原来报的是
    * "5 分钟一轮的 gauge 多久没刷过",现在池子是现读的,该值恒为 0..5 —— 它就是
-   * "这个数有多新"。账号自身 `last_refresh_at` 的年龄另有 `accountRefreshAgeSec`。
+   * "这个数有多新"。账号自身刷新年龄另有 `accountRefreshAgeSec` / `accountLatestRefreshAgeSec`。
    */
   staleAgeSec: number | null
-  /** 账号最近一次刷新距今(秒);null = 没有任何账号带刷新戳 */
+  /** 全池**最久**未刷新的账号距今(秒);null = 没有任何账号带刷新戳 */
   accountRefreshAgeSec: number | null
-  /** 健康态不在封闭词表内、无法折叠的行数(非 0 说明库里有脏值,必须看得见) */
+  /** 全池**最近一次**刷新距今(秒);null = 没有任何账号带刷新戳 */
+  accountLatestRefreshAgeSec: number | null
+  /** 空闲保活窗口(天;null = 该档被 env 关闭)—— 前端按它判"最久未刷新"是否越界 */
+  keepaliveIdleDays: number | null
+  /** 两张池合计的脏健康态行数(兼容旧消费方;分池字段见上) */
   rowsUnclassified: number | null
   /** Key 健康四态计数(unknown/healthy/degraded/down;与汇总字段同一把尺子) */
   keyHealth: { unknown: number; healthy: number; degraded: number; down: number } | null
@@ -652,18 +668,27 @@ async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
     const live = await getRelayPoolLiveSnapshot()
     return {
       keyTotal: live.keyTotal,
+      keyClassified: live.keyClassified,
       keySchedulable: live.keySchedulable,
       keyAbnormal: live.keyAbnormal,
+      keyAbnormalSchedulable: live.keyAbnormalSchedulable,
+      keyBalanceLow: live.keyBalanceLow,
+      keyRowsUnclassified: live.keyRowsUnclassified,
       accountsTotal: live.accountsTotal,
+      accountClassified: live.accountClassified,
       accountsSchedulable: live.accountsSchedulable,
+      accountsBlocked: live.accountsBlocked,
+      accountsBlockedExpired: live.accountsBlockedExpired,
+      accountRowsUnclassified: live.accountRowsUnclassified,
       minTokenExpiresInSeconds: live.minTokenExpiresInSeconds,
       staleAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       accountRefreshAgeSec: live.maxRefreshAgeSeconds,
+      accountLatestRefreshAgeSec: live.minRefreshAgeSeconds,
+      keepaliveIdleDays: keepaliveIdleDays(),
       rowsUnclassified: live.rowsUnclassified,
       keyHealth: live.keyHealth,
       keyByProvider: live.keyByProvider,
       accountByProvider: live.accountByProvider,
-      keyBalanceLow: live.keyBalanceLow,
       accountExpiring24h: live.accountExpiring24h,
     }
   } catch {

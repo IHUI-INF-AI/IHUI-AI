@@ -32,7 +32,10 @@ interface AttendanceRecord {
   remark: string | null
 }
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10)
+// 业务日按 Asia/Shanghai 切:原实现用 toISOString()(UTC)⇒ 北京时间 00:00–07:59 打开本页
+// 查到的是"昨天"那一天的考勤。后端库会话时区实测 Asia/Shanghai(now() 带 +08),
+// 各聚合 SQL 也按它截日 ⇒ 前端必须同口径。中国无夏令时,UTC+8 可直接加偏移后取 UTC 日。
+const todayIso = (): string => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
 
 const statusTone = (s: string): ConsoleBadgeTone =>
   s === 'present' ? 'ok' : s === 'late' ? 'warn' : s === 'absent' ? 'danger' : 'muted'

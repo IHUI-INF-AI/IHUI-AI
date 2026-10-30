@@ -58,6 +58,12 @@ export default function AigcPublishScreen() {
       return
     }
     try {
+      // 权限被拒时原实现直接调 launchImageLibraryAsync ⇒ 什么都不发生、也不提示。
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') {
+        appAlert(t('home.pubPermAlbumImage'))
+        return
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: false,

@@ -70,7 +70,17 @@ const git = (args, input) =>
     input,
     windowsHide: true,
   })
-const headBlob = (rel) => git(['show', `HEAD:${rel}`])
+const headBlob = (rel) => {
+  try {
+    return git(['show', `HEAD:${rel}`])
+  } catch (e) {
+    // "该面没有这份件" 是 §0.4 的合法读数(新页在落之前本来就不在 HEAD 上),返回 null 让调用方判;
+    // 真正的 git 故障(存储对象损坏/仓库不可读)照原样抛,不吞成"没有"。
+    const err = e?.stderr ? String(e.stderr) : String(e?.message ?? e)
+    if (/does not exist in|exists on disk, but not in/.test(err)) return null
+    throw e
+  }
+}
 const hashBytes = (buf) => git(['hash-object', '-w', '--stdin'], Buffer.from(buf, 'utf8')).trim()
 
 /** 词包两档写入(与造页器同一条:全新命名空间按行插,已在册转并键档) */
@@ -78,7 +88,8 @@ function writePackText(headText, groups, members) {
   // 壳承载形制里「t() 全落在通用命名空间」的屏没有专属词条(实测 knowledge-planet / learn /
   // sub-package-index 三屏只用到 common.back|more|retry)⇒ 词包接缝无事可做,不是失败。
   // 旧实现把它当写失败 ⇒ 整批 blocked,而这三屏永远落不下来。
-  if (!Array.isArray(groups) || groups.length === 0) return { ok: true, text: headText, skipped: true }
+  if (!Array.isArray(groups) || groups.length === 0)
+    return { ok: true, text: headText, skipped: true }
   let r = insertJsonMembers(headText, groups)
   if (!r.ok && /已存在顶层命名空间/.test(r.why || '')) r = mergeJsonMembers(headText, members)
   return r
@@ -98,7 +109,8 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
   }
 
   const cfg0 = headOf(MP_CONFIG)
-  if (typeof cfg0 !== 'string') return { ok: false, why: `HEAD 面取不到 ${MP_CONFIG} ⇒ 未判定,整批不落(§0.3)` }
+  if (typeof cfg0 !== 'string')
+    return { ok: false, why: `HEAD 面取不到 ${MP_CONFIG} ⇒ 未判定,整批不落(§0.3)` }
   let cfg = cfg0
   for (const p of planned) {
     // 改道后目标 root 可能还不存在(溢出分包是容量判据现开出来的)⇒ 交给 insertConfigRoot 建块。
@@ -110,11 +122,17 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
   files.push({ path: MP_CONFIG, blob: hashBytes(cfg) })
 
   const reg0 = headOf(REGISTRY)
-  if (typeof reg0 !== 'string') return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 未判定,整批不落` }
+  if (typeof reg0 !== 'string')
+    return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 未判定,整批不落` }
   let reg = reg0
   for (const p of planned) {
     const r = insertRegistryEntry(reg, p.registryEntry)
-    if (!r.ok) return { ok: false, why: `registry 插条目 ${p.registryEntry.shared}:${r.why}`, culprit: p.route }
+    if (!r.ok)
+      return {
+        ok: false,
+        why: `registry 插条目 ${p.registryEntry.shared}:${r.why}`,
+        culprit: p.route,
+      }
     reg = r.text
   }
   files.push({ path: REGISTRY, blob: hashBytes(reg) })
@@ -125,12 +143,14 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
     for (const lb of p.langBlocks) {
       if (!packs.has(lb.packRel)) {
         const t0 = headOf(lb.packRel)
-        if (typeof t0 !== 'string') return { ok: false, why: `HEAD 面取不到词包 ${lb.packRel} ⇒ 未判定,整批不落` }
+        if (typeof t0 !== 'string')
+          return { ok: false, why: `HEAD 面取不到词包 ${lb.packRel} ⇒ 未判定,整批不落` }
         packs.set(lb.packRel, t0)
         packHeads.set(lb.packRel, t0)
       }
       const r = writePackText(packs.get(lb.packRel), lb.groups, lb.members)
-      if (!r.ok) return { ok: false, why: `词包 ${lb.packRel}(${p.route}):${r.why}`, culprit: p.route }
+      if (!r.ok)
+        return { ok: false, why: `词包 ${lb.packRel}(${p.route}):${r.why}`, culprit: p.route }
       packs.set(lb.packRel, r.text)
     }
   }
@@ -202,16 +222,23 @@ function syncParityDoc(deps = {}) {
         /* 目录已在 */
       }
       try {
-        execFileSync(process.execPath, [R('scripts', 'report-rn-miniapp-gaps.mjs'), '--write', tmp], {
-          cwd: ROOT,
-          encoding: 'utf8',
-          windowsHide: true, // §5b
-          timeout: 4 * 60 * 1000, // 守门 80
-          maxBuffer: 1 << 24,
-          stdio: ['ignore', 'pipe', 'pipe'], // §12g
-        })
+        execFileSync(
+          process.execPath,
+          [R('scripts', 'report-rn-miniapp-gaps.mjs'), '--write', tmp],
+          {
+            cwd: ROOT,
+            encoding: 'utf8',
+            windowsHide: true, // §5b
+            timeout: 4 * 60 * 1000, // 守门 80
+            maxBuffer: 1 << 24,
+            stdio: ['ignore', 'pipe', 'pipe'], // §12g
+          },
+        )
       } catch (e) {
-        return { ok: false, err: `生成器没跑成:${String(e?.stderr ?? e?.message ?? e).slice(0, 140)}` }
+        return {
+          ok: false,
+          err: `生成器没跑成:${String(e?.stderr ?? e?.message ?? e).slice(0, 140)}`,
+        }
       }
       try {
         return { ok: true, text: readFileSync(tmp, 'utf8') }
@@ -231,7 +258,11 @@ function syncParityDoc(deps = {}) {
     ((text, nums) => {
       const oid = hashBytes(text)
       const manifest = join(TMP, 'doc-blob.json')
-      writeFileSync(manifest, JSON.stringify({ files: [{ path: PARITY_DOC, blob: oid }] }, null, 1), 'utf8')
+      writeFileSync(
+        manifest,
+        JSON.stringify({ files: [{ path: PARITY_DOC, blob: oid }] }, null, 1),
+        'utf8',
+      )
       try {
         const out = execFileSync(process.execPath, [R('scripts', 'object-space-land.mjs')], {
           cwd: ROOT,
@@ -243,7 +274,8 @@ function syncParityDoc(deps = {}) {
             ...process.env,
             LAND_PATHS: PARITY_DOC,
             LAND_BLOBS: manifest,
-            LAND_BLOB_PROOF: 'blob = 生成器按 HEAD 面产出的全文(本器零复算算式);与 HEAD blob 逐字节比过才落',
+            LAND_BLOB_PROOF:
+              'blob = 生成器按 HEAD 面产出的全文(本器零复算算式);与 HEAD blob 逐字节比过才落',
             LAND_MSG: [
               `docs(cross-end): 自动同步缺口账本到现读口径(${nums})`,
               '',
@@ -253,7 +285,9 @@ function syncParityDoc(deps = {}) {
             ].join('\n'),
           },
         })
-        return /CAS 成功|提交面回读/.test(out) ? { ok: true } : { ok: false, why: '落地器未自证成功' }
+        return /CAS 成功|提交面回读/.test(out)
+          ? { ok: true }
+          : { ok: false, why: '落地器未自证成功' }
       } catch (e) {
         return { ok: false, why: `账本落地失败:${String(e?.message ?? e).slice(0, 140)}` }
       }
@@ -280,7 +314,8 @@ function syncParityDoc(deps = {}) {
   } catch {
     return { state: 'undetermined', why: `HEAD 面取不到 ${PARITY_DOC}` }
   }
-  if (headText === null || headText === undefined) return { state: 'undetermined', why: `HEAD 面取不到 ${PARITY_DOC}` }
+  if (headText === null || headText === undefined)
+    return { state: 'undetermined', why: `HEAD 面取不到 ${PARITY_DOC}` }
   if (headText === fresh) return { state: 'clean' }
   const landed = landOf(
     fresh,
@@ -333,9 +368,13 @@ function syncShellTypes(deps = {}) {
   } catch (e) {
     return { state: 'undetermined', why: `声明件派生失败:${String(e?.message ?? e).slice(0, 140)}` }
   }
-  if (!plan || typeof plan.next !== 'string') return { state: 'undetermined', why: '派生器没给出正文' }
+  if (!plan || typeof plan.next !== 'string')
+    return { state: 'undetermined', why: '派生器没给出正文' }
   if (Array.isArray(plan.undetermined) && plan.undetermined.length > 0) {
-    return { state: 'undetermined', why: `派生未判定:${String(plan.undetermined[0]).slice(0, 120)}` }
+    return {
+      state: 'undetermined',
+      why: `派生未判定:${String(plan.undetermined[0]).slice(0, 120)}`,
+    }
   }
   let current
   try {
@@ -359,7 +398,11 @@ function syncShellTypes(deps = {}) {
   }
   const oid = hashBytes(fresh)
   const manifest = join(TMP, 'shell-decl-blob.json')
-  writeFileSync(manifest, JSON.stringify({ files: [{ path: SHELL_DECL, blob: oid }] }, null, 1), 'utf8')
+  writeFileSync(
+    manifest,
+    JSON.stringify({ files: [{ path: SHELL_DECL, blob: oid }] }, null, 1),
+    'utf8',
+  )
   try {
     const out = execFileSync(process.execPath, [R('scripts', 'object-space-land.mjs')], {
       cwd: ROOT,
@@ -382,7 +425,9 @@ function syncShellTypes(deps = {}) {
         ].join('\n'),
       },
     })
-    return /CAS 成功|提交面回读/.test(out) ? { state: 'landed' } : { state: 'pending', why: '落地器未自证成功' }
+    return /CAS 成功|提交面回读/.test(out)
+      ? { state: 'landed' }
+      : { state: 'pending', why: '落地器未自证成功' }
   } catch (e) {
     return { state: 'pending', why: `声明件落地失败:${String(e?.message ?? e).slice(0, 140)}` }
   }
@@ -437,7 +482,8 @@ function capacityGate(planned, { cap, headOf = headBlob } = {}) {
   } catch {
     return { ok: false, why: `HEAD 面取不到容量表 ${CAPACITY_REL} ⇒ 本轮不放行(先按新产物更新它)` }
   }
-  if (typeof modelText !== 'string') return { ok: false, why: `HEAD 面取不到容量表 ${CAPACITY_REL} ⇒ 本轮不放行(先按新产物更新它)` }
+  if (typeof modelText !== 'string')
+    return { ok: false, why: `HEAD 面取不到容量表 ${CAPACITY_REL} ⇒ 本轮不放行(先按新产物更新它)` }
   const parsed = parseCapacity(modelText)
   if (!parsed.ok) return { ok: false, why: `${parsed.why} ⇒ 本轮不放行` }
   let registryText
@@ -446,7 +492,8 @@ function capacityGate(planned, { cap, headOf = headBlob } = {}) {
   } catch {
     return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
   }
-  if (typeof registryText !== 'string') return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
+  if (typeof registryText !== 'string')
+    return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
   return routePlanned(planned, {
     model: parsed.model,
     registryText,
@@ -464,7 +511,9 @@ function runPages({
   planOf = null,
   gateOf = null,
 } = {}) {
-  const { planned, refused, undetermined } = (planOf ?? (() => planBatch(ROOT, { form: 'shell' })))()
+  const { planned, refused, undetermined } = (
+    planOf ?? (() => planBatch(ROOT, { form: 'shell' }))
+  )()
   if (!planned) return { state: 'undetermined', why: '批量计划读不到 planned 集' }
   if (planned.length === 0) {
     return {
@@ -473,8 +522,12 @@ function runPages({
       refused: refused?.length ?? 0,
       // 只报"拒 N 枚"等于没报:N 枚各有各的成因,而这三腿判据的成因只有生产方知道。
       // 明细随 --json 出账(封顶 20 条防刷屏),打印档逐条点名 ⇒ 接手的人能直接动手。
-      refusedDetail: (refused || []).slice(0, 20).map((r) => `${r.spec}:${String(r.why ?? '(未给因)').slice(0, 110)}`),
-      undeterminedDetail: (undetermined || []).slice(0, 10).map((u) => `${u.spec ?? u}:${String(u.why ?? '未判定').slice(0, 90)}`),
+      refusedDetail: (refused || [])
+        .slice(0, 20)
+        .map((r) => `${r.spec}:${String(r.why ?? '(未给因)').slice(0, 110)}`),
+      undeterminedDetail: (undetermined || [])
+        .slice(0, 10)
+        .map((u) => `${u.spec ?? u}:${String(u.why ?? '未判定').slice(0, 90)}`),
       undetermined: undetermined?.length ?? 0,
       note: '本轮没有可产的屏(缺口要么已落、要么被造页器按三腿判据拒/未判定)',
     }
@@ -639,7 +692,10 @@ function landViaObjectSpace({ manifest, built, msg }) {
     })
     return /CAS 成功|提交面回读/.test(out)
       ? { ok: true }
-      : { ok: false, why: `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}` }
+      : {
+          ok: false,
+          why: `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}`,
+        }
   } catch (error) {
     return { ok: false, why: `落地失败:${String(error?.message ?? error).slice(0, 160)}` }
   }
@@ -672,33 +728,58 @@ function selfTest() {
       roots: { 'pkg-user': { bytes, mirrorEntriesAtMeasure: entry, chunkReserveBytes: 0 } },
     })
   const capRegistry = (n = 0) =>
-    JSON.stringify({ entries: Array.from({ length: n }, (_, i) => ({ shared: `s${i}`, rn: `r${i}`, miniapp: `pkg-user/p${i}/index` })) })
+    JSON.stringify({
+      entries: Array.from({ length: n }, (_, i) => ({
+        shared: `s${i}`,
+        rn: `r${i}`,
+        miniapp: `pkg-user/p${i}/index`,
+      })),
+    })
   const okHead = (rel) => (rel === MP_CONFIG || rel === REGISTRY ? headBlob(rel) : '')
   const cases = [
     {
       name: '两枚齐 ⇒ 出 blob(2 页 + config + registry = 4)',
       want: 4,
-      got: () => assembleBlobs([fakePlan('selftestAa'), fakePlan('selftestBb')], { headOf: okHead, watermarkOf: stamp }).files?.length,
+      got: () =>
+        assembleBlobs([fakePlan('selftestAa'), fakePlan('selftestBb')], {
+          headOf: okHead,
+          watermarkOf: stamp,
+        }).files?.length,
     },
     {
       name: 'app.config 的面取不到 ⇒ 未判定,整批不落(不造有页无路由的孤儿)',
       want: false,
-      got: () => assembleBlobs([fakePlan('selftestAa')], { headOf: () => null, watermarkOf: stamp }).ok,
+      got: () =>
+        assembleBlobs([fakePlan('selftestAa')], { headOf: () => null, watermarkOf: stamp }).ok,
     },
     {
       name: '登记表取不到 ⇒ 同样整批不落',
       want: false,
-      got: () => assembleBlobs([fakePlan('selftestAa')], { headOf: (rel) => (rel === REGISTRY ? null : headBlob(rel)), watermarkOf: stamp }).ok,
+      got: () =>
+        assembleBlobs([fakePlan('selftestAa')], {
+          headOf: (rel) => (rel === REGISTRY ? null : headBlob(rel)),
+          watermarkOf: stamp,
+        }).ok,
     },
     {
       name: '同一枚页插第二遍 ⇒ 插入函数自拒 ⇒ 整批不落(幂等靠拒,不靠静默)',
       want: false,
       got: () => {
-        const first = assembleBlobs([fakePlan('selftestCc')], { headOf: okHead, watermarkOf: stamp })
-        const cfgAfter = first.ok ? git(['cat-file', 'blob', first.files.find((f) => f.path === MP_CONFIG).blob]) : null
-        const regAfter = first.ok ? git(['cat-file', 'blob', first.files.find((f) => f.path === REGISTRY).blob]) : null
+        const first = assembleBlobs([fakePlan('selftestCc')], {
+          headOf: okHead,
+          watermarkOf: stamp,
+        })
+        const cfgAfter = first.ok
+          ? git(['cat-file', 'blob', first.files.find((f) => f.path === MP_CONFIG).blob])
+          : null
+        const regAfter = first.ok
+          ? git(['cat-file', 'blob', first.files.find((f) => f.path === REGISTRY).blob])
+          : null
         const after = { [MP_CONFIG]: cfgAfter, [REGISTRY]: regAfter }
-        return assembleBlobs([fakePlan('selftestCc')], { headOf: (rel) => after[rel] ?? okHead(rel), watermarkOf: stamp }).ok
+        return assembleBlobs([fakePlan('selftestCc')], {
+          headOf: (rel) => after[rel] ?? okHead(rel),
+          watermarkOf: stamp,
+        }).ok
       },
     },
     // ---------- 撞车重装腿(2026-10-29 立):装配到提交之间是分钟级窗口,而接缝面几乎每分钟被
@@ -811,7 +892,10 @@ function selfTest() {
       got: () => {
         let calls = 0
         const r = syncParityDoc({
-          generate: () => ({ ok: true, text: '// [IHUI-AI-PROVENANCE]:x\n镜像 122 / 共享屏 218\n' }),
+          generate: () => ({
+            ok: true,
+            text: '// [IHUI-AI-PROVENANCE]:x\n镜像 122 / 共享屏 218\n',
+          }),
           headOf: () => '// [IHUI-AI-PROVENANCE]:x\n镜像 120 / 共享屏 218\n',
           landOf: () => {
             calls += 1
@@ -910,25 +994,37 @@ function selfTest() {
       name: '折叠:页面 clean + 账本 landed ⇒ 整轮 landed 且 blob+1(写了东西不许报"零写零推")',
       want: 'landed/1',
       got: () => {
-        const o = foldDocResult({ state: 'clean', planned: 0, blobs: 0, note: '无缺口' }, { state: 'landed' })
+        const o = foldDocResult(
+          { state: 'clean', planned: 0, blobs: 0, note: '无缺口' },
+          { state: 'landed' },
+        )
         return `${o.state}/${o.blobs}`
       },
     },
     {
       name: '折叠:页面 clean + 账本未判定 ⇒ 整轮降级未判定(§0.3 不冒绿)',
       want: 'undetermined',
-      got: () => foldDocResult({ state: 'clean', planned: 0 }, { state: 'undetermined', why: '取不到产文' }).state,
+      got: () =>
+        foldDocResult({ state: 'clean', planned: 0 }, { state: 'undetermined', why: '取不到产文' })
+          .state,
     },
     {
       name: '折叠:页面 landed + 账本 clean ⇒ 保持 landed(账本一致不许把落页读回 clean)',
       want: 'landed',
-      got: () => foldDocResult({ state: 'landed', planned: 3, batch: ['a', 'b'], blobs: 6 }, { state: 'clean' }).state,
+      got: () =>
+        foldDocResult(
+          { state: 'landed', planned: 3, batch: ['a', 'b'], blobs: 6 },
+          { state: 'clean' },
+        ).state,
     },
     {
       name: '折叠:页面 clean + 账本 pending ⇒ 仍 clean 但 note 点名(没落地不等于没差异)',
       want: 1,
       got: () => {
-        const o = foldDocResult({ state: 'clean', planned: 0, note: '本轮没有可产的屏' }, { state: 'pending', why: 'CAS' })
+        const o = foldDocResult(
+          { state: 'clean', planned: 0, note: '本轮没有可产的屏' },
+          { state: 'pending', why: 'CAS' },
+        )
         return /账本有差异但没落地/.test(o.note ?? '') ? 1 : 0
       },
     },
@@ -959,7 +1055,8 @@ function selfTest() {
       name: '容量闸:有余额 ⇒ 放行(registry 在册数未到上限)',
       want: '1/0',
       got: () => {
-        const headOf = (rel) => (rel === CAPACITY_REL ? capModel({ entry: 0 }) : rel === REGISTRY ? capRegistry(1) : null)
+        const headOf = (rel) =>
+          rel === CAPACITY_REL ? capModel({ entry: 0 }) : rel === REGISTRY ? capRegistry(1) : null
         const g = capacityGate([fakePlan('capB')], { cap: 5, headOf })
         return `${g.admitted.length}/${g.held.length}`
       },
@@ -968,7 +1065,12 @@ function selfTest() {
       name: '容量闸:到量 ⇒ 本枚 held 并点名原因(不再静默超灌分包)',
       want: '0/1',
       got: () => {
-        const headOf = (rel) => (rel === CAPACITY_REL ? capModel({ bytes: 1992294 }) : rel === REGISTRY ? capRegistry(1) : null)
+        const headOf = (rel) =>
+          rel === CAPACITY_REL
+            ? capModel({ bytes: 1992294 })
+            : rel === REGISTRY
+              ? capRegistry(1)
+              : null
         const g = capacityGate([fakePlan('capC')], { cap: 5, headOf })
         return `${g.admitted.length}/${g.held.length}`
       },
@@ -977,7 +1079,8 @@ function selfTest() {
       name: '容量闸:root 无测量 ⇒ held(未知分包不许当"容量很足")',
       want: '0/1',
       got: () => {
-        const headOf = (rel) => (rel === CAPACITY_REL ? capModel({ entry: 0 }) : rel === REGISTRY ? capRegistry(0) : null)
+        const headOf = (rel) =>
+          rel === CAPACITY_REL ? capModel({ entry: 0 }) : rel === REGISTRY ? capRegistry(0) : null
         const g = capacityGate([fakePlan('capD', 'pkg-unknown')], { cap: 5, headOf })
         return `${g.admitted.length}/${g.held.length}`
       },
@@ -997,7 +1100,10 @@ function selfTest() {
       name: '接缝④b:整批装配时目标 root 不存在也不拒(assembleBlobs 走建块腿)',
       want: true,
       got: () => {
-        const r = assembleBlobs([fakePlan('selftestNewRoot', 'pkg-selftest-new')], { headOf: okHead, watermarkOf: stamp })
+        const r = assembleBlobs([fakePlan('selftestNewRoot', 'pkg-selftest-new')], {
+          headOf: okHead,
+          watermarkOf: stamp,
+        })
         if (!r.ok) return false
         const cfgBlob = r.files.find((f) => f.path === MP_CONFIG)?.blob
         return /pkg-selftest-new/.test(git(['cat-file', 'blob', cfgBlob]))
@@ -1018,7 +1124,8 @@ function selfTest() {
             'pkg-mirror': { bytes: 0, mirrorEntriesAtMeasure: 0, chunkReserveBytes: 0 },
           },
         })
-        const headOf = (rel) => (rel === CAPACITY_REL ? model : rel === REGISTRY ? capRegistry(0) : null)
+        const headOf = (rel) =>
+          rel === CAPACITY_REL ? model : rel === REGISTRY ? capRegistry(0) : null
         const g = capacityGate([fakePlan('mv1')], { cap: 5, headOf })
         return g.admitted?.[0]?.route
       },
@@ -1055,10 +1162,14 @@ function selfTest() {
       got = `throw:${String(error?.message ?? error).slice(0, 60)}`
     }
     const ok = got === c.want
-    console.log(`${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`)
+    console.log(
+      `${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`,
+    )
     if (ok) pass += 1
   }
-  console.log(pass === cases.length ? `自检 ${pass}/${cases.length} 通过` : `❌ 自检 ${pass}/${cases.length}`)
+  console.log(
+    pass === cases.length ? `自检 ${pass}/${cases.length} 通过` : `❌ 自检 ${pass}/${cases.length}`,
+  )
   process.exit(pass === cases.length ? 0 : 1)
 }
 
@@ -1069,7 +1180,10 @@ if (isDirectRun) {
   if (argv.includes('--self-test')) selfTest()
   else {
     const capArg = argv.find((a) => a.startsWith('--cap='))
-    const r = run({ apply: argv.includes('--apply'), cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP })
+    const r = run({
+      apply: argv.includes('--apply'),
+      cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP,
+    })
     const summary = {
       face: 'head',
       state: r.state,
@@ -1108,9 +1222,30 @@ if (isDirectRun) {
       for (const d of r.refusedDetail || []) console.log(`   · 拒:${d}`)
       for (const d of r.undeterminedDetail || []) console.log(`   · 未判定:${d}`)
     }
-    process.exit(r.state === 'clean' || r.state === 'pending' || r.state === 'landed' ? 0 : r.state === 'blocked' ? 1 : 2)
+    process.exit(
+      r.state === 'clean' || r.state === 'pending' || r.state === 'landed'
+        ? 0
+        : r.state === 'blocked'
+          ? 1
+          : 2,
+    )
   }
 }
 
-export const __test__ = { buildWithDrops, assembleBlobs, writePackText, run, runPages, capacityGate, syncParityDoc, foldDocResult, syncShellTypes, foldShellTypesResult, SHELL_DECL, PARITY_DOC, CAPACITY_REL, DEFAULT_CAP }
+export const __test__ = {
+  buildWithDrops,
+  assembleBlobs,
+  writePackText,
+  run,
+  runPages,
+  capacityGate,
+  syncParityDoc,
+  foldDocResult,
+  syncShellTypes,
+  foldShellTypesResult,
+  SHELL_DECL,
+  PARITY_DOC,
+  CAPACITY_REL,
+  DEFAULT_CAP,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

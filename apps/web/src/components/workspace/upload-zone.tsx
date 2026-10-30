@@ -44,14 +44,18 @@ export function UploadZone({
       toast.error(
         `文件超过大小上限(${Math.floor(maxSize / 1024 / 1024)}MB):${oversized.map((f) => f.name).join(', ')}`,
       )
-      return
+      // 原实现在此 return ⇒ 一批里只要有一个超限,其余正常文件**一个都不传**,
+      // 而提示只点名那个超限文件,用户以为其余 4 个已经在传,列表里也找不到它们。
     }
-    // 数量校验:单次选择兜底
-    if (arr.length > maxCount) {
+    const ok = arr.filter((f) => f.size <= maxSize)
+    if (ok.length === 0) return
+    // 数量校验:单次选择兜底(超出档取前 N 个并报出来,不再整批丢弃)
+    let picked = ok
+    if (ok.length > maxCount) {
       toast.error(`单次最多选择 ${maxCount} 个文件`)
-      return
+      picked = ok.slice(0, maxCount)
     }
-    onFiles(arr)
+    onFiles(picked)
   }
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {

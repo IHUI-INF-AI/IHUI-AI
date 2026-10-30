@@ -47,19 +47,16 @@
 //      结构性校验(解码失败一律回落,不进缓存)。
 
 import { createRequire } from 'node:module'
-import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 
 // 正解 = 把本生成器搬到根 scripts/(与 sync-miniapp-tokens.mjs 同一条先例;D2 只比 rank,
 // 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
 // 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
 // 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
 import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
-// 输入清单的唯一构造规则(与守门 105 的现算同一份):此前这里自列两层,承载层没进,
-// 钉与门现算的哈希结构性不等 ⇒ 门 105 的 G5 在完好仓库上恒 stale(2026-10-30 实测两哈希逐位不等)。
-import { bundleInputRels } from './lib/i18n-bundle-inputs.mjs'
 // 取材面的解析与读取一律复用守门那一份实现(§22c:同一件事不写第二套)——
 // `catBatch` 是"清单与内容同面同轮"的批量出口,`readWorktreeFile` 是磁盘面的 sanctioned 读法。
 import { catBatch, readWorktreeFile, FACE_LABEL, gitRaw } from './lib/face-reader.mjs'
@@ -103,20 +100,13 @@ if (faceFlags.length > 1) {
 }
 const FACE = faceFlags[0] ? faceFlags[0][1] : 'worktree'
 const specOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
-// 存在性判断必须在**同一个被审面**上(lib 头注:两侧各列一遍清单必然漂)。
-const faceHas = (rel) => {
-  if (FACE === 'worktree') return existsSync(join(repoRoot, rel))
-  try {
-    gitRaw(['cat-file', '-e', specOf(rel)], repoRoot)
-    return true
-  } catch {
-    return false
-  }
-}
-const INPUT_RELS = bundleInputRels(REMOTE_LOCALES, faceHas)
+const INPUT_RELS = REMOTE_LOCALES.flatMap((locale) => [
+  `${MESSAGES_REL}/shared/${locale}.json`,
+  `${MESSAGES_REL}/miniapp-taro/${locale}.json`,
+])
 // zh-CN 两份输入(产物④):与 remote 8 份同一取材面、同一批量读 —— 缺一份就 exit 2,
 // 绝不回落另一个面(否则 ④ 的钉会说自己是从没读全的输入派生的,§0.3 同型)。
-const ZH_INPUT_RELS = bundleInputRels(['zh-CN'], faceHas)
+const ZH_INPUT_RELS = [`${MESSAGES_REL}/shared/zh-CN.json`, `${MESSAGES_REL}/miniapp-taro/zh-CN.json`]
 const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS]
 // 非磁盘面:一次批量读满。逐份 `git show` 会让并行会话在第 3 份和第 4 份之间推进 HEAD,
 // 产出自洽却错位的钉(守门 118 的"少扫不红"同型)。

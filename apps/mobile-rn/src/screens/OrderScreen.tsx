@@ -86,7 +86,9 @@ export function OrderScreen() {
           orderNo: o.orderNo,
           title: o.targetTitle,
           image: o.image ?? undefined,
-          amount: o.payAmount,
+          // payAmount 是 numeric(10,2),Drizzle 回来是**字符串**;共享屏按 `item.amount.toFixed(2)`
+          // 渲染 ⇒ 只要账号下有一枚订单,首帧就抛 TypeError 整页白屏。web 侧一律 Number(...) 取值。
+          amount: Number(o.payAmount),
           status: o.status,
           // Uniapp「下单时间:YYYY-MM-DD HH:mm」
           createdAt: formatOrderTime(o.createdAt),

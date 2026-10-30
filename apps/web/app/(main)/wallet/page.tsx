@@ -22,6 +22,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 import { AnimatedNumber, AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -126,7 +127,13 @@ export default function WalletPage() {
               {balanceQ.isLoading ? (
                 <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
               ) : (
-                <AnimatedNumber value={balanceQ.data?.balance ?? 0} />
+                // 余额单位是「分」：充值回调 rechargeToken(order.amount) 落的就是订单分金额
+                // （services/order-service.ts rechargeIfTokenOrder），直接渲染会放大 100 倍。
+                <AnimatedNumber
+                  value={(balanceQ.data?.balance ?? 0) / 100}
+                  decimals={2}
+                  prefix="¥"
+                />
               )}
             </div>
           </div>
@@ -199,10 +206,10 @@ export default function WalletPage() {
                           )}
                         >
                           {positive ? '+' : ''}
-                          {it.quantity}
+                          {formatPrice(it.quantity)}
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                          {it.balanceAfter}
+                          {formatPrice(it.balanceAfter)}
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-muted-foreground">
                           {fmtDate(it.createdAt)}

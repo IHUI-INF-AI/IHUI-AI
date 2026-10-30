@@ -230,7 +230,21 @@ export function faceSpecOf(face, rel) {
  */
 export function scanSetFromFace(root, face, relPaths) {
   const specs = new Set(relPaths.map((r) => faceSpecOf(face, r)));
-  const got = catBatch(root, specs);
+  // catBatch 在取面超时 / 派生失败时会**抛**。此前未捕获 ⇒ 进程 rc=1,而落地器把 blocking 门的
+  // rc=1 读成"判红" ⇒ 一次取面超时冒充成"项目外路径违规"。§0.3:整批取不到 = 未判定(exit 2)。
+  // 个别取不到**不在此列**(新增文件在旧面本就不存在,是正常态) ⇒ 只用 faceError 这一个标记
+  // 区分"整批异常",避免把正常态判成红。
+  let got;
+  try {
+    got = catBatch(root, specs);
+  } catch (e) {
+    return {
+      violations: [],
+      scanned: 0,
+      unreadable: [...relPaths],
+      faceError: String((e && e.message) || e).slice(0, 160),
+    };
+  }
   const out = { violations: [], scanned: 0, unreadable: [] };
   for (const r of relPaths) {
     const v = got.get(faceSpecOf(face, r));
@@ -338,6 +352,15 @@ function main() {
 
 
   const faceRes = scanSetFromFace(ROOT, isStaged ? 'staged' : 'head', faceFiles);
+  // 整批取不到被审面 ⇒ 未判定(exit 2),不记绿也不冒红(§0.3)。
+  // 注意判的是 faceError 而不是 unreadable.length:后者在正常态也会非零(新增文件在旧面不存在),
+  // 拿它判红就是自造恒红门(§12e)。
+  if (faceRes.faceError) {
+    log.error(
+      `❌ workspace-hygiene 未判定:${faceRes.unreadable.length} 个文件取不到被审面内容(${faceRes.faceError})⇒ exit 2`,
+    );
+    process.exit(2);
+  }
   const diskRes = { violations: [], unreadable: 0 };
   for (const f of diskFiles) {
     const r = scanFileFromDisk(f);
