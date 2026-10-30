@@ -19,7 +19,9 @@
  *      原判据只正则 StatCell 原语函数体 ⇒ 大屏另有 3 处手写 26px 读数在射程外(2026-10-24 补)。
  *   R2 --wb-cell-min 必须定义,且至少被一条 minmax() 消费(悬空常数=没上车)。
  *   R3 长读数档 .wb-cells-c3 的 minmax 下限必须引用 var(--wb-cell-min),不得另写数字。
- *   R4 凡 bodyClassName 带 wb-split-c3 的面板,其内每组 .wb-cells 必须同时带 wb-cells-c3
+ *   R4 凡 bodyClassName 带 wb-split-c3 的面板,其内每组 .wb-cells 必须同带长读数档
+ *      (wb-cells-c3 或固定 2×2 的 wb-cells-c4 —— 后者 2026-10-30 加,号池 4 格组用,
+ *      其 minmax 下限同样引用 var(--wb-cell-min),不是裸 96 档)
  *      (栏数与列宽必须同源;只改一边就会回到"两栏×3格=107px"那一档)。
  *   R5 wb-split-c3 的 @container 阈值必须逐字等于按源码自身常数复算的值:
  *      阈值 = 2×(每栏格数×列宽下限 + (格数-1)×列间距) + 栏间距,全部从被审面解析。
@@ -67,7 +69,8 @@ export function parseGapPx(text, kind) {
     const m = text.match(/\.wb-split\s*\{[^}]*?gap:\s*(\d+(?:\.\d+)?)px/)
     return m ? Number(m[1]) : null
   }
-  const m = text.match(/wb-cells wb-cells-c3 grid gap-(\d+(?:\.\d+)?)/)
+  // 号池 4 格组用 wb-cells-c4,与 c3 同族同间距(c4 只是把 auto-fit 固定成 2×2)
+  const m = text.match(/wb-cells wb-cells-c(?:3|4) grid gap-(\d+(?:\.\d+)?)/)
   return m ? Number(m[1]) * 4 : null
 }
 
@@ -144,7 +147,7 @@ export function judge(text) {
       const next = text.indexOf('bodyClassName=', start + 1)
       const body = text.slice(start, next < 0 ? text.length : next)
       const grids = [...body.matchAll(/className="([^"]*\bwb-cells\b[^"]*)"/g)].map((m) => m[1])
-      const plain = grids.filter((g) => !/\bwb-cells-(?:c3|wide|6|4)\b/.test(g)).length
+      const plain = grids.filter((g) => !/\bwb-cells-(?:c3|c4|wide|6|4)\b/.test(g)).length
       const fitted = grids.length - plain
       if (plain > 0) {
         v.push({
@@ -189,8 +192,8 @@ export function judge(text) {
       const valueExpr = valueM ? valueM[1] : ''
       if (!DURATION_RE.test(valueExpr)) continue
       const grid = gridClassBefore(text, c.index) ?? ''
-      // 固定列档(3/4 列)与 c3/wide 都算合格;不合格的只有裸 auto-fit 96 档
-      if (!/wb-cells-(?:c3|wide|6|4)/.test(grid)) badDuration.push({ grid, value: valueExpr.replace(/\s+/g, ' ').slice(0, 60) })
+      // 固定列档(3/4 列)与 c3/c4/wide 都算合格;不合格的只有裸 auto-fit 96 档
+      if (!/wb-cells-(?:c3|c4|wide|6|4)/.test(grid)) badDuration.push({ grid, value: valueExpr.replace(/\s+/g, ' ').slice(0, 60) })
     }
     for (const x of badDuration) {
       v.push({
@@ -357,7 +360,7 @@ function selfTest() {
     ],
     ['删掉 --wb-cell-min 定义 ⇒ R2', real.replace(/--wb-cell-min:\s*\d+px;?/, ''), (r) => r.violations.some((x) => x.rule === 'R2')],
     ['minmax 写死数字 ⇒ R3', real.replace('minmax(var(--wb-cell-min), 1fr)', 'minmax(143px, 1fr)'), (r) => r.violations.some((x) => x.rule === 'R3')],
-    ['面板组退回裸 wb-cells ⇒ R4', real.replace(/className="wb-cells wb-cells-c3 grid/g, 'className="wb-cells grid'), (r) => r.violations.some((x) => x.rule === 'R4')],
+    ['面板组退回裸 wb-cells ⇒ R4', real.replace(/className="wb-cells wb-cells-c(?:3|4) grid/g, 'className="wb-cells grid'), (r) => r.violations.some((x) => x.rule === 'R4')],
     ['只改下限不改栏阈值 ⇒ R5', real.replace(/--wb-cell-min:\s*\d+px/, '--wb-cell-min: 160px'), (r) => r.violations.some((x) => x.rule === 'R5')],
     [
       '时长读数组退回裸 auto-fit ⇒ R6',
@@ -366,7 +369,9 @@ function selfTest() {
     ],
     [
       '大字号读数被摘掉 nowrap ⇒ R1(手写 26px 那三处也在射程内)',
-      real.replace(/(wb-num mt-[0-9.]+ text-\[26px\] leading-none font-bold) whitespace-nowrap/, '$1'),
+      // 手写读数的 class 顺序 2026-10-30 现读是「wb-num whitespace-nowrap mt-N text-[26px] …」,
+      // 夹具按现值摘 nowrap(按旧顺序写会替换不到 ⇒ 假失败)
+      real.replace(/(wb-num) whitespace-nowrap (mt-[0-9.]+ text-\[26px\] leading-none font-bold)/, '$1 $2'),
       (r) => r.violations.some((x) => x.rule === 'R1'),
     ],
     // 必须把**所有**面板的 wb-split-c3 一起摘掉:大屏现在有三块用该档,只替第一处时

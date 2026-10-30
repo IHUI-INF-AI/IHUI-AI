@@ -28,7 +28,7 @@
  *
  * 2026-10-23 追加:机主要"实时"。gauge 仍按 5 分钟刷(Grafana 看时序),
  * 但**大屏不再读 gauge**,改读本文件的 `getRelayPoolLiveSnapshot()` —— 同一份
- * `loadRelayPoolRows()` + 同一把 `isRelayPoolRowSchedulable` 尺子,带 5 秒缓存,
+ * `loadRelayPoolRows()` + 同一套可调度尺子(key/账号各一把,见下),带 5 秒缓存,
  * 所以重启不再需要等下一轮 gauge 才有数,也不会把"进程刚起来"读成"池子空了"。
  *
  * 2026-10-26 追加(号池"容量归零"从来没人量):本文件新增 `foldRelayPoolCapacity()` ——
@@ -48,6 +48,7 @@ import { aiRelayKeyPool, aiRelayAccountPool } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 import {
   isRelayPoolHealthState,
+  RELAY_POOL_HEALTH_STATES,
   RELAY_POOL_HEALTH_STATE_VALUE,
   setRelayPoolGaugeSample,
   type RelayPoolAccountSample,
@@ -83,11 +84,44 @@ export function isRelayPoolRowSchedulable(row: {
   return Boolean(row.isEnabled) && !row.tempUnschedulable
 }
 
-/** 折叠容量所需的最小行形(两张池表都满足;不要求健康态列 —— 容量与健康态是两回事)。 */
+/**
+ * 账号池「可调度」的健康态白名单 —— **唯一份**,从 `RELAY_POOL_HEALTH_STATES` 派生(去掉 down)。
+ *
+ * 立因(2026-10-30 实测):选号 SQL(`relay-account-pool-scheduler` 的
+ * `accountSchedulableCondition`)判 `health ≠ down`,而本文件的 `isRelayPoolRowSchedulable`
+ * 只看启用/摘除 ⇒ 巡检判死但尚未触发 temp 摘除的那一窗里,大屏、gauge 与告警引擎都把它
+ * 算成"可调度的腿"(高估容量、掩盖归零)。key 池调度侧确实不看健康态(有熔断器另管),
+ * 所以两个池子的可调度判据本来就该是两把尺子,但都必须与各自调度侧同源。
+ *
+ * `unknown` 仍可选(新导入/未判定要给一次实测机会),`healthy`/`degraded` 照旧可选。
+ */
+export const ACCOUNT_SCHEDULABLE_HEALTH_STATES = RELAY_POOL_HEALTH_STATES.filter(
+  (state) => state !== 'down',
+) as readonly Exclude<RelayPoolHealthState, 'down'>[]
+
+/** 账号池一行可调度性判定:与调度侧 `accountSchedulableCondition()` 同口径。 */
+export function isRelayAccountRowSchedulable(row: {
+  isEnabled: boolean | null
+  tempUnschedulable: boolean | null
+  healthStatus?: string | null
+}): boolean {
+  return (
+    isRelayPoolRowSchedulable(row) &&
+    typeof row.healthStatus === 'string' &&
+    (ACCOUNT_SCHEDULABLE_HEALTH_STATES as readonly string[]).includes(row.healthStatus)
+  )
+}
+
+/** 折叠容量所需的最小行形(两张池表都满足)。 */
 export interface RelayPoolCapacityRow {
   providerCode: string
   isEnabled: boolean | null
   tempUnschedulable: boolean | null
+  /**
+   * 健康态。key 池容量**不读**它(调度侧不看健康态,由熔断器另管);
+   * 账号池容量必须读它 —— 判据见 `isRelayAccountRowSchedulable`。
+   */
+  healthStatus?: string | null
 }
 
 /**
@@ -99,11 +133,14 @@ export interface RelayPoolCapacityRow {
  * - `totalRows` 计**所有**行(含 is_enabled=false、含健康态落在封闭词表之外的脏值行)
  *   —— 容量问的是"池子里有没有腿",与健康态词表能不能折叠无关;
  * - `enabledRows` 只数 `is_enabled = true`(临时摘除的也算,那正是"有号但调度不到"这一型);
- * - `schedulableRows` 一律走 `isRelayPoolRowSchedulable`,不自立判据。
+ * - `schedulableRows` 走调用方给的判据(缺省 `isRelayPoolRowSchedulable`);账号池必须传
+ *   `isRelayAccountRowSchedulable`,否则 health=down 但尚未置 temp 的行会被算成"有腿",
+ *   容量归零告警就永远不会响。
  * 结果按 providerCode 升序(渲染与日志都要确定性顺序)。空输入 ⇒ 空数组(不是"全 0")。
  */
 export function foldRelayPoolCapacity(
   rows: readonly RelayPoolCapacityRow[],
+  schedulableOf: (row: RelayPoolCapacityRow) => boolean = isRelayPoolRowSchedulable,
 ): RelayPoolProviderCapacity[] {
   const byProvider = new Map<string, RelayPoolProviderCapacity>()
   for (const row of rows) {
@@ -115,10 +152,17 @@ export function foldRelayPoolCapacity(
     }
     bucket.totalRows++
     if (Boolean(row.isEnabled)) bucket.enabledRows++
-    if (isRelayPoolRowSchedulable(row)) bucket.schedulableRows++
+    if (schedulableOf(row)) bucket.schedulableRows++
     byProvider.set(row.providerCode, bucket)
   }
   return [...byProvider.values()].sort((a, b) => a.providerCode.localeCompare(b.providerCode))
+}
+
+/** 账号池容量折叠的唯一入口(含 health=down 排除);消费方不得直接给 `foldRelayPoolCapacity` 传裸行。 */
+export function foldRelayAccountCapacity(
+  rows: readonly RelayPoolCapacityRow[],
+): RelayPoolProviderCapacity[] {
+  return foldRelayPoolCapacity(rows, isRelayAccountRowSchedulable)
 }
 
 /** 容量归零的 provider(enabled>0 ∧ schedulable=0)—— 静默回落正在发生的那一格。 */
@@ -199,17 +243,41 @@ export async function loadRelayPoolRows(): Promise<RelayPoolRows> {
 
 /** 大屏「AI 号池」面板要的全部数字(现读两张池表,不经 gauge)。 */
 export interface RelayPoolLiveSnapshot {
+  /** key 池总行数(含停用/脏健康态行) */
   keyTotal: number
+  /** key 池健康态可判定的行数 —— 「可调度 Key」的分母必须是它,不是 keyTotal */
+  keyClassified: number
   keySchedulable: number
-  /** health_state ≥ degraded 的 key 条数(含 down) */
+  /** health_state ≥ degraded 的 key 条数(含 down;与 keySchedulable 不互斥,可调度 ≠ 健康) */
   keyAbnormal: number
+  /** 异常 key 里**仍能被选中**的条数(解释"可调度 14/14 却异常 2"这对读数) */
+  keyAbnormalSchedulable: number
+  /** key 池健康态不在封闭词表内的行数 */
+  keyRowsUnclassified: number
+  /** 余额低于 5 元且非"无限"的**可调度** key 条数(停用 key 没钱不算信号) */
+  keyBalanceLow: number
+  /** 账号池总行数(含停用/脏健康态行) */
   accountsTotal: number
+  /** 账号池健康态可判定的行数 —— 「可调度账号」的分母必须是它 */
+  accountClassified: number
   accountsSchedulable: number
-  /** 账号 token 最短临期(秒;负 = 已过期;无账号带 expires_at 时为 null) */
+  /** 可判定但不可调度的账号数(停用 / 临时摘除 / 宕机) —— = accountClassified - accountsSchedulable */
+  accountsBlocked: number
+  /** 不可调度账号里 token 已过期的条数(死号仍然可见,但不再污染临期读数) */
+  accountsBlockedExpired: number
+  /**
+   * **可调度账号**里最短的 token 临期(秒;负 = 已过期;无此类账号带 expires_at 时为 null)。
+   * 已被停用/摘除/判死的号不参与 —— 否则一条永远修不好的死号会把面板永久钉在"已过期",
+   * 并把真正需要动作的临期信号(例如可调度号 19 小时后到期)盖掉。
+   */
   minTokenExpiresInSeconds: number | null
-  /** 账号最近一次刷新距今(秒;null = 一条都没刷过) */
+  /** 全池**最久**未刷新的账号距今(秒;null = 一条都没刷过) */
   maxRefreshAgeSeconds: number | null
-  /** 健康态不在封闭词表内、因而无法折叠的行数(非 0 必须看得见) */
+  /** 全池**最近一次**刷新距今(秒;null = 一条都没刷过)—— 刷新巡检还活着的正向信号 */
+  minRefreshAgeSeconds: number | null
+  /** 账号池健康态不在封闭词表内的行数 */
+  accountRowsUnclassified: number
+  /** 两张池合计的脏健康态行数(保留给既有消费方;新消费方请用上面两个分池字段) */
   rowsUnclassified: number
   /** Key 健康四态计数(unknown/healthy/degraded/down;不含 rowsUnclassified 的脏值行) */
   keyHealth: { unknown: number; healthy: number; degraded: number; down: number }
@@ -217,17 +285,15 @@ export interface RelayPoolLiveSnapshot {
   keyByProvider: Array<{ provider: string; total: number; schedulable: number; abnormal: number }>
   /** 按 provider 分组的账号池分布 */
   accountByProvider: Array<{ provider: string; total: number; schedulable: number }>
-  /** 余额低于 5 元(500 分)且非"无限"(-1)的 Key 条数 —— 余额预警,0 = 无需动作 */
-  keyBalanceLow: number
-  /** access token 将在 24 小时内过期的账号条数(含已过期) */
+  /** access token 将在 24 小时内过期的**可调度**账号条数(含已过期) */
   accountExpiring24h: number
   computedAtMs: number
 }
 
 /**
- * 现算一份号池实时快照。与 gauge 侧**同一把尺子**(`isRelayPoolRowSchedulable` +
- * `RELAY_POOL_ABNORMAL_MIN_VALUE`),但**不写 gauge**、也不受 5 分钟刷新节奏影响。
- * 不 catch:失败由调用方折成 null。
+ * 现算一份号池实时快照。与 gauge 侧**同一把尺子**(key 用 `isRelayPoolRowSchedulable`、
+ * 账号用 `isRelayAccountRowSchedulable`,异常用 `RELAY_POOL_ABNORMAL_MIN_VALUE`),
+ * 但**不写 gauge**、也不受 5 分钟刷新节奏影响。不 catch:失败由调用方折成 null。
  */
 export async function computeRelayPoolLiveSnapshot(
   nowMs: number = Date.now(),
@@ -235,7 +301,8 @@ export async function computeRelayPoolLiveSnapshot(
   const { keyRows, accountRows } = await loadRelayPoolRows()
   let keySchedulable = 0
   let keyAbnormal = 0
-  let rowsUnclassified = 0
+  let keyAbnormalSchedulable = 0
+  let keyRowsUnclassified = 0
   // 以下全部在**已加载的这两份行**上累加 ⇒ 相对现状零新增查询(5 秒轮询不变)
   const keyHealth = { unknown: 0, healthy: 0, degraded: 0, down: 0 }
   const keyByProvider = new Map<string, { total: number; schedulable: number; abnormal: number }>()
@@ -244,20 +311,24 @@ export async function computeRelayPoolLiveSnapshot(
   let keyBalanceLow = 0
   for (const row of keyRows) {
     if (!isRelayPoolHealthState(row.healthStatus)) {
-      rowsUnclassified++
+      keyRowsUnclassified++
       continue
     }
-    if (isRelayPoolRowSchedulable(row)) keySchedulable++
+    const schedulable = isRelayPoolRowSchedulable(row)
+    if (schedulable) keySchedulable++
     const isAbnormal =
       RELAY_POOL_HEALTH_STATE_VALUE[row.healthStatus] >= RELAY_POOL_ABNORMAL_MIN_VALUE
     if (isAbnormal) keyAbnormal++
+    if (isAbnormal && schedulable) keyAbnormalSchedulable++
     keyHealth[row.healthStatus]++
     const bucket = keyByProvider.get(row.providerCode) ?? { total: 0, schedulable: 0, abnormal: 0 }
     bucket.total++
-    if (isRelayPoolRowSchedulable(row)) bucket.schedulable++
+    if (schedulable) bucket.schedulable++
     if (isAbnormal) bucket.abnormal++
     keyByProvider.set(row.providerCode, bucket)
+    // 只有能被选中的 key 没钱才是信号;停用/摘除的 key 余额为 0 是正常存量
     if (
+      schedulable &&
       row.balanceCents !== null &&
       row.balanceCents >= 0 &&
       row.balanceCents < KEY_BALANCE_LOW_CENTS
@@ -266,41 +337,62 @@ export async function computeRelayPoolLiveSnapshot(
     }
   }
   let accountsSchedulable = 0
+  let accountsBlocked = 0
+  let accountsBlockedExpired = 0
+  let accountRowsUnclassified = 0
   let minTokenExpiresInSeconds: number | null = null
   let maxRefreshAgeSeconds: number | null = null
+  let minRefreshAgeSeconds: number | null = null
   const accountByProvider = new Map<string, { total: number; schedulable: number }>()
   /** token 临期预警窗口:24 小时(含已过期的负值) */
   const ACCOUNT_EXPIRING_WINDOW_SEC = 24 * 3600
   let accountExpiring24h = 0
   for (const row of accountRows) {
     if (!isRelayPoolHealthState(row.healthStatus)) {
-      rowsUnclassified++
+      accountRowsUnclassified++
       continue
     }
-    if (isRelayPoolRowSchedulable(row)) accountsSchedulable++
+    // 与选号 SQL 同一把尺子:down 的号即使还没被 temp 摘除也不再算"可调度"
+    const schedulable = isRelayAccountRowSchedulable(row)
+    if (schedulable) accountsSchedulable++
+    else accountsBlocked++
     const exp = untilSeconds(row.tokenExpiresAt, nowMs)
-    if (exp !== null && (minTokenExpiresInSeconds === null || exp < minTokenExpiresInSeconds)) {
-      minTokenExpiresInSeconds = exp
+    if (schedulable) {
+      if (exp !== null && (minTokenExpiresInSeconds === null || exp < minTokenExpiresInSeconds)) {
+        minTokenExpiresInSeconds = exp
+      }
+      if (exp !== null && exp <= ACCOUNT_EXPIRING_WINDOW_SEC) accountExpiring24h++
+    } else if (exp !== null && exp < 0) {
+      // 死号的过期票单独计数:仍然看得见,但不再冒充"池子最短临期"
+      accountsBlockedExpired++
     }
-    if (exp !== null && exp <= ACCOUNT_EXPIRING_WINDOW_SEC) accountExpiring24h++
     const age = ageSeconds(row.lastRefreshAt, nowMs)
-    if (age !== null && (maxRefreshAgeSeconds === null || age > maxRefreshAgeSeconds)) {
-      maxRefreshAgeSeconds = age
+    if (age !== null) {
+      if (maxRefreshAgeSeconds === null || age > maxRefreshAgeSeconds) maxRefreshAgeSeconds = age
+      if (minRefreshAgeSeconds === null || age < minRefreshAgeSeconds) minRefreshAgeSeconds = age
     }
     const bucket = accountByProvider.get(row.providerCode) ?? { total: 0, schedulable: 0 }
     bucket.total++
-    if (isRelayPoolRowSchedulable(row)) bucket.schedulable++
+    if (schedulable) bucket.schedulable++
     accountByProvider.set(row.providerCode, bucket)
   }
   return {
     keyTotal: keyRows.length,
+    keyClassified: keyRows.length - keyRowsUnclassified,
     keySchedulable,
     keyAbnormal,
+    keyAbnormalSchedulable,
+    keyRowsUnclassified,
     accountsTotal: accountRows.length,
+    accountClassified: accountRows.length - accountRowsUnclassified,
     accountsSchedulable,
+    accountsBlocked,
+    accountsBlockedExpired,
     minTokenExpiresInSeconds,
     maxRefreshAgeSeconds,
-    rowsUnclassified,
+    minRefreshAgeSeconds,
+    accountRowsUnclassified,
+    rowsUnclassified: keyRowsUnclassified + accountRowsUnclassified,
     keyHealth,
     keyByProvider: [...keyByProvider.entries()]
       .map(([provider, v]) => ({ provider, ...v }))
@@ -398,7 +490,8 @@ async function refreshRelayPoolGauges(nowMs: number = Date.now()): Promise<Relay
       providerCode: row.providerCode,
       account: row.uid,
       healthState,
-      schedulable: isRelayPoolRowSchedulable(row),
+      // 与选号 SQL 同口径(down 不再算可调度);key 侧仍用 isRelayPoolRowSchedulable(有熔断器另管)
+      schedulable: isRelayAccountRowSchedulable(row),
       consecutiveFailures: row.consecutiveFailures,
       totalCalls: row.totalCalls,
       tokenExpiresInSeconds: untilSeconds(row.tokenExpiresAt, nowMs),
@@ -410,7 +503,7 @@ async function refreshRelayPoolGauges(nowMs: number = Date.now()): Promise<Relay
   // 喂 gauge 的 ihui_relay_account_pool_{accounts,enabled_accounts,schedulable_accounts,zero_capacity}
   // 四连,也喂下面的到人日志,还喂告警引擎 `relay-alert-rules-service` 的号池指标。
   // 取的是**原始行**而非上面的样本 ⇒ 停用行/脏健康态行都在册,容量不被词表过滤遮蔽。
-  const accountCapacity = foldRelayPoolCapacity(accountRows)
+  const accountCapacity = foldRelayAccountCapacity(accountRows)
 
   setRelayPoolGaugeSample({
     keys,
