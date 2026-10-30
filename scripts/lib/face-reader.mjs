@@ -1230,6 +1230,44 @@ export function catBatch(root, revs, opts = {}) {
 }
 
 /**
+ * **取证探针**(2026-10-30 立,RP-47 的可观测腿):对单个 spec 跑 `git cat-file -t`,把
+ * **实际命令 + 退出码 + stderr 首行**一起带回,供门在「取不到 ⇒ 未判定」时点名。
+ *
+ * 为什么非有它不可(票面一手现场):门 221/254 的 `--staged` 档曾报「N 枚 blob 取不到(首:path)」
+ * 并以 exit 2 收场,而同一句话在**三种完全不同的故障**下逐字相同 —— 索引里根本没有该路径 /
+ * 并发写者把索引锁住 / 底层 exec 崩掉。定位因此只能靠猜,票面把它记成「恒逼人 --no-verify」。
+ * 本函数只取证、不判红:问到了给 `ok:true` 与对象类型,问不到给 `ok:false` 与 rc/stderr。
+ *
+ * 派生 git 一律走本层的 `gitRaw`(§12g 的显式 stdio 与重试策略都在那一处,本函数不另起子进程)。
+ * @returns {{ok:boolean, spec:string, argv:string[], rc:number|null, type:string|null, stderr:string}}
+ */
+export function probeFaceSpec(root, spec) {
+  const argv = ['cat-file', '-t', String(spec)]
+  try {
+    const type = gitRaw(argv, root, { retryMax: 1 })
+    return { ok: true, spec: String(spec), argv, rc: 0, type: String(type ?? '').trim(), stderr: '' }
+  } catch (e) {
+    return {
+      ok: false,
+      spec: String(spec),
+      argv,
+      rc: typeof e?.status === 'number' ? e.status : null,
+      type: null,
+      stderr: String(e?.stderr ?? e?.message ?? '')
+        .split('\n')[0]
+        .slice(0, 160),
+    }
+  }
+}
+
+/** 把 `probeFaceSpec` 的结论折成一行可贴进未判定文案的取证串(两门共用,避免各写一份)。 */
+export function describeProbe(p) {
+  const argv = Array.isArray(p?.argv) ? p.argv.join(' ') : '(取不到 argv)'
+  return `git ${argv} ⇒ rc=${p?.rc ?? 'null'} stderr="${p?.stderr || '(空)'}"`
+}
+
+
+/**
  * **二进制安全的批量读取出口**(G-467,2026-10-01 落地):与 `catBatch` 同档同轮同装箱
  * (字节装箱 / maxBuffer floor / 超限抛),唯一区别是返回 `Map<rev, Buffer|null>` ——
  * 不做任何字符解码。任何"判字节/判哈希"的门(如 check-api-client-utf8 的 UTF-8 完整性)
@@ -1557,5 +1595,7 @@ export const __test__ = {
   pruneEgressLedger,
   EGRESS_LEDGER_KEEP_DAYS,
   noteEgressDegradation,
+  probeFaceSpec,
+  describeProbe,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
