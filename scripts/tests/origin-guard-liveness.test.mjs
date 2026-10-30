@@ -19,6 +19,7 @@ import {
   normalizeGuardReading,
   routerLogPrefixOf,
   summarizeProbeEvents,
+  writeLedger,
 } from '../check-origin-guard-liveness.mjs'
 
 const started = (g, t = '2026-10-30T01:00:00.000Z') =>
@@ -191,5 +192,21 @@ test('未到节流窗口 ⇒ 一个子进程都不派生', async () => {
   })
   assert.equal(r.ran, false)
   assert.equal(notified, 0)
+})
+
+// ── 台账落盘(2026-10-30 抓到 flag:'append' 非法 ⇒ 被空 catch 吞成 null,台账从未存在)──
+test('台账必须真落盘、逐行可解析、且追加不覆盖', () => {
+  const box = mkScratch('origin-ledger')
+  try {
+    const f = writeLedger({ at: '2026-10-30T00:00:00Z', externalDistinct: 3 }, box)
+    assert.ok(f, 'writeLedger 不得返回 null(返回 null 就是写失败)')
+    assert.ok(existsSync(f))
+    writeLedger({ at: '2026-10-30T00:01:00Z', externalDistinct: 4 }, box)
+    const rows = readFileSync(f, 'utf8').trim().split('\n').map((l) => JSON.parse(l))
+    assert.equal(rows.length, 2)
+    assert.deepEqual(rows.map((r) => r.externalDistinct), [3, 4], '第二行必须是追加,不是覆盖')
+  } finally {
+    rmScratch(box)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
