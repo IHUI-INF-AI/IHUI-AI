@@ -302,8 +302,20 @@ export async function revokeRefreshTokenFamily(
   return result.length
 }
 
+/** 合并账户的库确认回执(守门 134 格 2 收口,2026-10-30):计数全部由库答复推出,不是请求侧。 */
+export interface MergeAccountsAck {
+  /** 迁移成功的表数(EXECUTE UPDATE 计数,异常跳过的表不计) */
+  readonly migratedTables: number
+  /** 迁移 UPDATE 的总影响行数(GET DIAGNOSTICS ROW_COUNT 逐表累加) */
+  readonly updatedRows: number
+  /** 唯一约束冲突预清理 DELETE 的总行数 */
+  readonly conflictDeletedRows: number
+  /** fromUserId 软删标记命中行数(0/1)——"合并是否真的发生"的凭据 */
+  readonly fromUserMarked: number
+}
+
 /**
- * 合并账号:把 fromUserId 的所有外键数据迁移到 toUserId,然后删除 fromUserId。
+ * 合并账号:把 fromUserId 的所有外键数据迁移到 toUserId,然后软删除 fromUserId。
  *
  * 业务规则(2026-08-01 立,用户规则:"以老手机号账号信息 昵称 个人简介为准"):
  *   - toUserId = 老手机号账号(保留 nickname/avatar/bio 等资料)
@@ -315,116 +327,186 @@ export async function revokeRefreshTokenFamily(
  *   2. 对每张表逐表 UPDATE ... SET user_id = toUserId WHERE user_id = fromUserId
  *   3. 处理唯一约束冲突:遇到冲突时先 DELETE fromUserId 的冲突行,再 UPDATE
  *   4. 跳过 users 表自身(避免把 fromUserId 的 id 改成 toUserId)
- *   5. 最后 DELETE FROM users WHERE id = fromUserId
+ *   5. 最后软删除 fromUserId(status=3)
  *
- * 注意:此函数在事务中执行,任何步骤失败则整体回滚。
+ * 2026-10-30 守门 134 格 2 收口(返回 Promise<void> → MergeAccountsAck,两条实测根因):
+ *   ① 旧形制的 DO 块**从未成功过**:DO $$ 不接受参数,块内 `EXECUTE ... USING fromUserId` /
+ *     `WHERE id = fromUserId` 引用的是未声明的 PL 标识符(按列引用解析 ⇒ 42703),
+ *     任何调用都在块内抛错并回滚。现改为显式声明 v_from/v_to,值经临时请求表
+ *     (bind parameter 写入,ON COMMIT DROP)读入 —— DO 块正文因此完全静态,无注入面。
+ *   ② 旧形制零回执形态:调用方无法区分"合并了"与"改了 0 行"。现由块内
+ *     GET DIAGNOSTICS ROW_COUNT 逐语句累计,经 ACK 临时表在同一事务内回读;
+ *     fromUserMarked !== 1 时在事务内抛错 ⇒ 整体回滚,绝不把"没发生"报成"合并完成"。
+ *   事务语义:旧实现靠"单条语句"获得原子性(块内无 COMMIT,不依赖块内提交);
+ *   新实现整体包在 db.transaction 里(多语句单事务),原子性等价,未改写提交边界。
  *
- * @param params.fromUserId 被合并的账号 ID(新手机号账号,会被删除)
+ * @param params.fromUserId 被合并的账号 ID(新手机号账号,会被软删除)
  * @param params.toUserId   保留的账号 ID(老手机号账号,资料不变)
+ * @returns 库确认的合并回执(影响行数来自 GET DIAGNOSTICS,非请求侧自算)
  */
 export async function mergeUserAccounts(params: {
   fromUserId: string
   toUserId: string
-}): Promise<void> {
+}): Promise<MergeAccountsAck> {
   const { fromUserId, toUserId } = params
   if (fromUserId === toUserId) {
     throw new Error('不能合并到同一个账号')
   }
 
-  // PL/pgSQL DO block 动态迁移所有引用 users.id 的外键
-  // - 跳过 users 表自身
-  // - 对每张表:先删 fromUserId 在 (user_id) 唯一约束上与 toUserId 冲突的行,再 UPDATE
-  // - 用异常处理跳过无法迁移的表(避免单张表失败阻塞整体合并)
-  // - 最后软删除 fromUserId(status=3,保留审计痕迹,不物理删除避免外键约束遗漏)
-  await db.execute(sql`
-    DO $$
-    DECLARE
-      r RECORD;
-      conflict_cols TEXT;
-      del_stmt TEXT;
-      upd_stmt TEXT;
-    BEGIN
-      -- 遍历所有引用 users.id 的外键(单列外键 user_id)
-      FOR r IN
-        SELECT
-          kcu.table_name,
-          kcu.column_name
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name
-          AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu
-          ON ccu.constraint_name = tc.constraint_name
-          AND ccu.table_schema = tc.table_schema
-        WHERE tc.constraint_type = 'FOREIGN KEY'
-          AND tc.table_schema = 'public'
-          AND ccu.table_name = 'users'
-          AND ccu.column_name = 'id'
-          AND kcu.table_name <> 'users'
-      LOOP
-        -- 检查该表是否有包含 user_id 的唯一约束(可能引发冲突)
-        SELECT string_agg(DISTINCT col.column_name, ', ' ORDER BY col.column_name)
-        INTO conflict_cols
-        FROM information_schema.table_constraints tc2
-        JOIN information_schema.key_column_usage col
-          ON tc2.constraint_name = col.constraint_name
-          AND tc2.table_schema = col.table_schema
-        WHERE tc2.table_name = r.table_name
-          AND tc2.table_schema = 'public'
-          AND tc2.constraint_type = 'UNIQUE'
-          AND EXISTS (
-            SELECT 1 FROM information_schema.key_column_usage col2
-            WHERE col2.constraint_name = tc2.constraint_name
-              AND col2.column_name = r.column_name
-          )
-        GROUP BY tc2.constraint_name;
+  return db.transaction(async (tx) => {
+    // 参数入临时请求表:DO 块不接收 bind parameter,旧形制直接引用 undeclared 标识符即恒失败之源
+    await tx.execute(
+      sql`CREATE TEMP TABLE merge_user_accounts_req (from_id uuid, to_id uuid) ON COMMIT DROP`,
+    )
+    await tx.execute(
+      sql`INSERT INTO merge_user_accounts_req (from_id, to_id) VALUES (${fromUserId}::uuid, ${toUserId}::uuid)`,
+    )
+    await tx.execute(
+      sql`CREATE TEMP TABLE merge_user_accounts_ack (
+        migrated_tables integer,
+        updated_rows bigint,
+        deleted_rows bigint,
+        from_user_marked integer
+      ) ON COMMIT DROP`,
+    )
 
-        IF conflict_cols IS NOT NULL THEN
-          -- 删除 fromUserId 与 toUserId 在唯一约束上冲突的行(保留 toUserId 的行)
-          del_stmt := format(
-            'DELETE FROM %I WHERE %I = $1 AND (%s) IN (SELECT %s FROM %I WHERE %I = $2)',
-            r.table_name, r.column_name, conflict_cols, conflict_cols, r.table_name, r.column_name
-          );
-          EXECUTE del_stmt USING fromUserId, toUserId;
-        END IF;
+    // PL/pgSQL DO block 动态迁移所有引用 users.id 的外键
+    // - 跳过 users 表自身
+    // - 对每张表:先删 fromUserId 在 (user_id) 唯一约束上与 toUserId 冲突的行,再 UPDATE
+    // - 用异常处理跳过无法迁移的表(避免单张表失败阻塞整体合并)
+    // - 最后软删除 fromUserId(status=3,保留审计痕迹,不物理删除避免外键约束遗漏)
+    // - 逐语句 GET DIAGNOSTICS ROW_COUNT 计数,末尾把回执写进 ACK 临时表(单一静态块文本)
+    await tx.execute(sql`
+      DO $$
+      DECLARE
+        r RECORD;
+        conflict_cols TEXT;
+        del_stmt TEXT;
+        upd_stmt TEXT;
+        v_from uuid;
+        v_to uuid;
+        v_cnt bigint;
+        v_tables integer := 0;
+        v_upd_rows bigint := 0;
+        v_del_rows bigint := 0;
+        v_marked integer := 0;
+      BEGIN
+        SELECT from_id, to_id INTO STRICT v_from, v_to FROM merge_user_accounts_req;
 
-        -- 把 fromUserId 的所有行迁移到 toUserId
-        upd_stmt := format(
-          'UPDATE %I SET %I = $2 WHERE %I = $1',
-          r.table_name, r.column_name, r.column_name
-        );
-        BEGIN
-          EXECUTE upd_stmt USING fromUserId, toUserId;
-        EXCEPTION WHEN OTHERS THEN
-          -- 2026-08-02 修复:关键表迁移失败必须回滚,非关键表允许跳过
-          -- 关键表(wallets/orders/token_flows/user_margins)涉及资金/积分,失败必须 RAISE EXCEPTION
-          -- 非关键表(audit_logs 等)允许跳过,WARNING 级别记录便于排查
-          IF r.table_name IN ('wallets', 'orders', 'token_flows', 'user_margins') THEN
-            RAISE EXCEPTION '关键表 % 迁移失败: %', r.table_name, SQLERRM;
-          ELSE
-            RAISE WARNING '非关键表 % 迁移跳过: %', r.table_name, SQLERRM;
+        -- 遍历所有引用 users.id 的外键(单列外键 user_id)
+        FOR r IN
+          SELECT
+            kcu.table_name,
+            kcu.column_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          JOIN information_schema.constraint_column_usage ccu
+            ON ccu.constraint_name = tc.constraint_name
+            AND ccu.table_schema = tc.table_schema
+          WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND tc.table_schema = 'public'
+            AND ccu.table_name = 'users'
+            AND ccu.column_name = 'id'
+            AND kcu.table_name <> 'users'
+        LOOP
+          -- 检查该表是否有包含 user_id 的唯一约束(可能引发冲突)
+          SELECT string_agg(DISTINCT col.column_name, ', ' ORDER BY col.column_name)
+          INTO conflict_cols
+          FROM information_schema.table_constraints tc2
+          JOIN information_schema.key_column_usage col
+            ON tc2.constraint_name = col.constraint_name
+            AND tc2.table_schema = col.table_schema
+          WHERE tc2.table_name = r.table_name
+            AND tc2.table_schema = 'public'
+            AND tc2.constraint_type = 'UNIQUE'
+            AND EXISTS (
+              SELECT 1 FROM information_schema.key_column_usage col2
+              WHERE col2.constraint_name = tc2.constraint_name
+                AND col2.column_name = r.column_name
+            )
+          GROUP BY tc2.constraint_name;
+
+          IF conflict_cols IS NOT NULL THEN
+            -- 删除 fromUserId 与 toUserId 在唯一约束上冲突的行(保留 toUserId 的行)
+            del_stmt := format(
+              'DELETE FROM %I WHERE %I = $1 AND (%s) IN (SELECT %s FROM %I WHERE %I = $2)',
+              r.table_name, r.column_name, conflict_cols, conflict_cols, r.table_name, r.column_name
+            );
+            EXECUTE del_stmt USING v_from, v_to;
+            GET DIAGNOSTICS v_cnt = ROW_COUNT;
+            v_del_rows := v_del_rows + v_cnt;
           END IF;
-        END;
-      END LOOP;
 
-      -- 软删除 fromUserId:status=3(已注销),保留行做审计,避免遗漏的外键约束报错
-      -- 2026-08-01 升级(用户规则:"完美细致完整毫无遗漏"):
-      --   NULL 化所有唯一约束字段(phone/email/username/inviteCode),避免占用导致新注册冲突
-      --   清空 2FA 字段,数据卫生(与 cancelUserAccount 策略一致)
-      UPDATE users SET
-        status = 3,
-        phone = NULL,
-        email = NULL,
-        username = NULL,
-        invite_code = NULL,
-        two_factor_secret = NULL,
-        two_factor_enabled = false,
-        two_factor_backup_codes = '[]'::jsonb,
-        two_factor_enabled_at = NULL,
-        updated_at = now()
-      WHERE id = fromUserId;
-    END;
-    $$;
-  `)
+          -- 把 fromUserId 的所有行迁移到 toUserId
+          upd_stmt := format(
+            'UPDATE %I SET %I = $2 WHERE %I = $1',
+            r.table_name, r.column_name, r.column_name
+          );
+          BEGIN
+            EXECUTE upd_stmt USING v_from, v_to;
+            GET DIAGNOSTICS v_cnt = ROW_COUNT;
+            v_upd_rows := v_upd_rows + v_cnt;
+            v_tables := v_tables + 1;
+          EXCEPTION WHEN OTHERS THEN
+            -- 2026-08-02 修复:关键表迁移失败必须回滚,非关键表允许跳过
+            -- 关键表(wallets/orders/token_flows/user_margins)涉及资金/积分,失败必须 RAISE EXCEPTION
+            -- 非关键表(audit_logs 等)允许跳过,WARNING 级别记录便于排查
+            IF r.table_name IN ('wallets', 'orders', 'token_flows', 'user_margins') THEN
+              RAISE EXCEPTION '关键表 % 迁移失败: %', r.table_name, SQLERRM;
+            ELSE
+              RAISE WARNING '非关键表 % 迁移跳过: %', r.table_name, SQLERRM;
+            END IF;
+          END;
+        END LOOP;
+
+        -- 软删除 fromUserId:status=3(已注销),保留行做审计,避免遗漏的外键约束报错
+        -- 2026-08-01 升级(用户规则:"完美细致完整毫无遗漏"):
+        --   NULL 化所有唯一约束字段(phone/email/username/inviteCode),避免占用导致新注册冲突
+        --   清空 2FA 字段,数据卫生(与 cancelUserAccount 策略一致)
+        UPDATE users SET
+          status = 3,
+          phone = NULL,
+          email = NULL,
+          username = NULL,
+          invite_code = NULL,
+          two_factor_secret = NULL,
+          two_factor_enabled = false,
+          two_factor_backup_codes = '[]'::jsonb,
+          two_factor_enabled_at = NULL,
+          updated_at = now()
+        WHERE id = v_from;
+        GET DIAGNOSTICS v_marked = ROW_COUNT;
+
+        -- 回执落 ACK 临时表,JS 侧同一事务内 SELECT 回读(计数=库答复,不是请求侧)
+        INSERT INTO merge_user_accounts_ack
+          (migrated_tables, updated_rows, deleted_rows, from_user_marked)
+        VALUES (v_tables, v_upd_rows, v_del_rows, v_marked);
+      END;
+      $$;
+    `)
+
+    const ackRows = (await tx.execute(
+      sql`SELECT migrated_tables, updated_rows, deleted_rows, from_user_marked FROM merge_user_accounts_ack`,
+    )) as unknown as Array<Record<string, string | number | null>>
+    const raw = ackRows[0]
+    if (!raw) {
+      // fail-closed:块跑完却没写回执 = 没判 ⇒ 抛错回滚,绝不记绿(§0.3)
+      throw new Error('账号合并回执缺失:ACK 表无行,拒绝把未确认的写当合并成功')
+    }
+    const ack: MergeAccountsAck = {
+      migratedTables: Number(raw.migrated_tables ?? 0),
+      updatedRows: Number(raw.updated_rows ?? 0),
+      conflictDeletedRows: Number(raw.deleted_rows ?? 0),
+      fromUserMarked: Number(raw.from_user_marked ?? 0),
+    }
+    if (ack.fromUserMarked !== 1) {
+      // 软删标记没命中 = 合并根本没发生;在事务内抛 ⇒ 本轮所有迁移一并回滚,
+      // 与守门 134 同律:"改了 0 行"不得与"改成功"同形。
+      throw new Error(`账号合并未生效:fromUserId 软删标记命中 ${ack.fromUserMarked} 行(应为 1)`)
+    }
+    return ack
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
