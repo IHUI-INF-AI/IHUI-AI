@@ -10,10 +10,19 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
-import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
+import {
+  getMemberInfo,
+  getMemberBenefits,
+  getProfile,
+  getVipLevels,
+  type MemberInfo,
+  type VipLevel,
+} from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
+import { formatPrice } from '@ihui/shared/utils/format'
 import ThemeRoot from '@/components/ThemeRoot'
+import VipLevels, { pickEntryLevel, pickPermanentLevel } from './vip-levels'
 import './index.css'
 
 interface BenefitItem {
@@ -118,18 +127,31 @@ export default function MemberIndexPage() {
   }>({})
   const [benefits, setBenefits] = useState<BenefitItem[]>(defaultBenefits)
   const [loading, setLoading] = useState(false)
+  // 加载失败态:与共享屏 VipScreen 一致(ErrorState 承接,不靠一次性 toast 就假装加载完了)
+  const [error, setError] = useState('')
+  // 会员等级(VIP 套餐)—— GET /vip/levels 公开端点,与 pkg-shop/vip 购买页同源
+  const [vipLevels, setVipLevels] = useState<VipLevel[]>([])
+  const [vipLevelsError, setVipLevelsError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError('')
     try {
-      const [memberInfo, userProfile, benefitsRes] = await Promise.all([
+      const [memberInfo, userProfile, benefitsRes, levelsRes] = await Promise.all([
         getMemberInfo().catch(() => ({}) as MemberInfo),
         getProfile().catch(() => null),
         getMemberBenefits().catch(() => ({
           list: [] as Array<{ id: string; title: string; desc: string; icon?: string }>,
         })),
+        getVipLevels().catch(() => null),
       ])
       setInfo(memberInfo)
+      if (levelsRes) {
+        setVipLevels(levelsRes.items || [])
+        setVipLevelsError('')
+      } else {
+        setVipLevelsError(tt('member.index.loadFailed', '加载失败'))
+      }
       if (userProfile) {
         const raw = userProfile as Record<string, unknown>
         setProfile({
@@ -149,7 +171,7 @@ export default function MemberIndexPage() {
       if (list.length > 0) setBenefits(list)
     } catch (e) {
       logger.error('member/index', t('member.q1'), e)
-      Taro.showToast({ title: tt('member.index.loadFailed', '加载失败'), icon: 'none' })
+      setError(tt('member.index.loadFailed', '加载失败'))
     } finally {
       setLoading(false)
     }
@@ -165,6 +187,7 @@ export default function MemberIndexPage() {
   // GET /api/user/profile 走 `miniapp-compat-routes.ts:2247` 的 inline checkAuth。
   // 三支都在同一个 Promise.all 里且无一公开 ⇒ 整块挡到门后,游客可见内容(等级档位表)
   // 本就是页面内静态 TIERS/levelTiers,不依赖这三发,不存在首屏白屏。
+  // (同批第 4 支 getVipLevels 打的是公开端点 GET /vip/levels,不参与这道门控。)
   useDidShow(() => {
     gate.waitUntilReady(load)
   })
@@ -172,13 +195,24 @@ export default function MemberIndexPage() {
   const isVip = Boolean(profile.isVip)
   const isPermanentVip = Boolean(profile.isPermanentVip)
   const remainDays = calcVipRemainDays(profile.vipExpireTime)
+  // 会员卡元信息:与共享屏 VipScreen 的 membershipMeta 同语义(到期时间 + 剩余天数)
   const expireText = isPermanentVip
     ? tt('member.index.permanentVip', '永久有效')
     : profile.vipExpireTime
       ? remainDays > 0
-        ? `${formatDateByTemplate(profile.vipExpireTime, 'YYYY-MM-DD')} ${tt('member.index.expire', '到期')}`
+        ? `${tt('vip.expireAt', '到期时间')}:${formatDateByTemplate(profile.vipExpireTime, 'YYYY-MM-DD')}`
         : tt('member.index.expired', '已过期')
       : ''
+  const daysRemainingText =
+    !isPermanentVip && profile.vipExpireTime && remainDays > 0
+      ? tt('vip.daysRemaining', '剩余 {count} 天', { count: remainDays })
+      : ''
+
+  // VIP CTA 的价格一律取同页 <VipLevels> 已拉到的 GET /vip/levels 真档位(price 单位为分,公开端点):
+  // 此处曾写死 ¥588 / ¥1288,而库里在册档位是 3990/29900/99000/32400 分(packages/database/drizzle/
+  // 0037_vip_captcha.sql 种子)⇒ 写死价就是可见错误文案。取不到档位时整块不渲染,不拿 0 或常量冒充。
+  const entryLevel = useMemo(() => pickEntryLevel(vipLevels), [vipLevels])
+  const permanentLevel = useMemo(() => pickPermanentLevel(vipLevels), [vipLevels])
 
   // 根据成长值推算当前等级
   const growth = info.growth || 0
@@ -213,6 +247,13 @@ export default function MemberIndexPage() {
       <ScrollView scrollY className="member-page">
         {/* ===== Header:用户信息 + VIP 状态 ===== */}
         <View className="member-header">
+          {/* 标题区:对齐共享屏 VipScreen header 的 title + subtitle(本页此前只有原生导航栏标题) */}
+          <Text className="block text-[length:40rpx] font-semibold text-[var(--color-surface-light)]">
+            {tt('vip.title', '会员中心')}
+          </Text>
+          <Text className="block text-[length:24rpx] text-[var(--color-white-70)] mt-[8rpx] mb-[24rpx]">
+            {tt('vip.subtitle', '开通会员,尊享更多权益')}
+          </Text>
           <View className="member-user">
             <Image
               className="member-avatar"
@@ -226,7 +267,10 @@ export default function MemberIndexPage() {
               {isVip ? (
                 <View className="member-vip-badge">
                   <Text className="member-vip-text">VIP</Text>
-                  <Text className="member-vip-expire">{expireText}</Text>
+                  <Text className="member-vip-expire">
+                    {expireText}
+                    {daysRemainingText ? ` · ${daysRemainingText}` : ''}
+                  </Text>
                 </View>
               ) : (
                 <Text className="member-normal-user">
@@ -237,9 +281,22 @@ export default function MemberIndexPage() {
           </View>
         </View>
 
+        {/* 加载失败:共享屏走 ErrorState + vip.retry,这里用同一语义的行内错误条(可重试) */}
+        {error ? (
+          <View className="mx-[20rpx] mb-[24rpx] p-[24rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
+            <Text className="flex-1 text-[length:26rpx] text-destructive">{error}</Text>
+            <Text
+              className="flex-shrink-0 ml-[16rpx] text-[length:26rpx] font-semibold text-[var(--color-primary)]"
+              onClick={() => gate.waitUntilReady(load)}
+            >
+              {tt('vip.retry', '重试')}
+            </Text>
+          </View>
+        ) : null}
+
         {/* ===== 会员等级梯度 ===== */}
         <View className="member-card">
-          <Text className="member-card-title">{tt('member.index.levelIntro', '会员等级介绍')}</Text>
+          <Text className="member-card-title">{tt('vip.levelsTitle', '会员等级')}</Text>
           <View className="member-level-grid">
             {levelTiers.map((tier) => (
               <View
@@ -300,7 +357,10 @@ export default function MemberIndexPage() {
 
         {/* ===== 会员特权列表 ===== */}
         <View className="member-card">
-          <Text className="member-card-title">{tt('member.index.privileges', '会员特权')}</Text>
+          <Text className="member-card-title">
+            {tt('member.index.privileges', '会员特权')} ·{' '}
+            {tt('vip.benefitsCount', '{count} 项专属权益', { count: benefits.length })}
+          </Text>
           <View className="member-benefits">
             {benefits.map((b) => (
               <View key={b.id} className="member-benefit-item">
@@ -321,6 +381,13 @@ export default function MemberIndexPage() {
           </View>
         </View>
 
+        {/* ===== 会员等级(套餐)—— 对齐共享屏 levelsSection:等级 / 时长 / 权益数 / 价格 ===== */}
+        <VipLevels
+          levels={vipLevels}
+          error={vipLevelsError}
+          onRetry={() => gate.waitUntilReady(load)}
+        />
+
         {/* ===== VIP CTA(三态) ===== */}
         {!isVip ? (
           <View className="member-vip-cta">
@@ -331,13 +398,14 @@ export default function MemberIndexPage() {
               <Text className="member-vip-desc">
                 {tt('member.index.openVipDesc', '享受更多特权,提升 AI 体验')}
               </Text>
-              <View className="member-vip-price">
-                <Text className="member-current-price">¥588</Text>
-                <Text className="member-original-price">¥1288</Text>
-              </View>
+              {entryLevel ? (
+                <View className="member-vip-price">
+                  <Text className="member-current-price">¥{formatPrice(entryLevel.price)}</Text>
+                </View>
+              ) : null}
             </View>
             <Button className="member-vip-button" onClick={goToPayment}>
-              {tt('member.index.openNow', '立即开通')}
+              {tt('vip.purchase', '开通会员')}
             </Button>
           </View>
         ) : isPermanentVip ? (
@@ -363,10 +431,11 @@ export default function MemberIndexPage() {
               <Text className="member-price-label">
                 {tt('member.index.upgradePermanent', '升级永久 VIP 会员')}
               </Text>
-              <View className="member-price-display">
-                <Text className="member-current-price">¥588</Text>
-                <Text className="member-original-price">¥1288</Text>
-              </View>
+              {permanentLevel ? (
+                <View className="member-price-display">
+                  <Text className="member-current-price">¥{formatPrice(permanentLevel.price)}</Text>
+                </View>
+              ) : null}
             </View>
             <Text className="member-cta-text">
               {tt('member.index.upgradeHint', '您已是 VIP 会员,可升级为永久 VIP')}

@@ -3,59 +3,134 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 镜像 packages/app/src/features/income/IncomeScreen.tsx
-import { useTt, useI18n } from '@/i18n'
+import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
-import { getDistributionInfo, getCommissionRecords } from '@/api'
+import { get } from '@/api'
+import { formatDate, formatPrice } from '@/utils/time'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 // P2-F 接线:SectionHeader 切换为 Taro 适配层导出(props 契约与旧实现一致)
 import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
+import { IncomeItem, type IncomeRow } from './income-item'
 import './index.css'
 
-interface CommissionRecord {
+/** 佣金流水行:GET /distribution/list 返回 commission_flows 原始行(amount 单位「分」) */
+interface CommissionFlow {
   id: string
   amount: number
-  type: string
-  time: string
-  nickname?: string
+  orderId: string | null
+  status: number
+  createdAt: string
+  remark: string | null
+}
+
+/** 提现记录行:GET /distribution/withdraw-list(status 2 = completed,method 为到账渠道) */
+interface WithdrawalFlow {
+  id: string
+  amount: number
+  method: string
+  status: number
+  createdAt: string
+  processedAt: string | null
+}
+
+/** 概览:GET /distribution/overview,与共享屏 data 同源(amount 单位「分」) */
+interface Overview {
+  totalCommission: number
+  availableCommission: number
+  pendingCommission: number
+  withdrawnCommission: number
 }
 
 const PAGE_SIZE = 20
+const TIME_FORMAT = 'YYYY-MM-DD HH:mm'
+const EMPTY_OVERVIEW: Overview = {
+  totalCommission: 0,
+  availableCommission: 0,
+  pendingCommission: 0,
+  withdrawnCommission: 0,
+}
 
-function sumToday(items: CommissionRecord[]): number {
+/** 今日收益(共享屏数据源为日汇总;本端按流水当日聚合,与原实现同口径) */
+function sumToday(flows: CommissionFlow[]): number {
   const today = new Date().toDateString()
   let sum = 0
-  for (const r of items) {
-    const d = new Date(r.time)
-    if (!isNaN(d.getTime()) && d.toDateString() === today && r.amount > 0) {
-      sum += r.amount
-    }
+  for (const flow of flows) {
+    const d = new Date(flow.createdAt)
+    if (!isNaN(d.getTime()) && d.toDateString() === today && flow.amount > 0) sum += flow.amount
   }
   return sum
 }
 
+/**
+ * 佣金流水 → 卡片行:下单人与卡片标题同源(共享屏 buyer 取的就是 item.title)。
+ * 状态复核(2026-10-30 取证):GET /distribution/list 原样返回 commission_flows 行,
+ * 而该表 status 在生产端恒为 1(唯一 insert 硬编码 status:1,全仓无 update) ⇒
+ * 「status===0 即 cancelled」条件永假,该死分支已撤(income-item.tsx IncomeStatus)。
+ */
+function toCommissionRow(flow: CommissionFlow): IncomeRow {
+  const title = flow.remark || flow.orderId || ''
+  return {
+    id: flow.id,
+    title,
+    buyer: title,
+    amount: Number(flow.amount) || 0,
+    time: formatDate(flow.createdAt, TIME_FORMAT),
+    orderId: flow.orderId || '',
+    status: 'pending',
+  }
+}
+
+/** 提现记录 → 「已结算」行(共享屏 mapWithdrawRecord 同口径:已结算 = 已成功提现) */
+function toWithdrawRow(flow: WithdrawalFlow, t: (key: string) => string): IncomeRow {
+  return {
+    id: flow.id,
+    title: flow.method === 'bank' ? t('income.withdrawBank') : t('income.withdrawRecord'),
+    buyer: '',
+    amount: Number(flow.amount) || 0,
+    time: formatDate(flow.processedAt || flow.createdAt, TIME_FORMAT),
+    orderId: '',
+    status: 'settled',
+  }
+}
+
 export default function CommissionPage() {
   const { t } = useI18n()
-  const tt = useTt()
   const gate = useAuthReadyGate()
-  const [list, setList] = useState<CommissionRecord[]>([])
-  const [loading, setLoading] = useState(false)
-  const [totalCommission, setTotalCommission] = useState(0)
-  const [available, setAvailable] = useState(0)
+  const [overview, setOverview] = useState<Overview>(EMPTY_OVERVIEW)
   const [todayCommission, setTodayCommission] = useState(0)
+  const [rows, setRows] = useState<IncomeRow[]>([])
+  const [settledRows, setSettledRows] = useState<IncomeRow[]>([])
+  const [loading, setLoading] = useState(false)
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const loadingRef = useRef(false)
 
   const loadSummary = async () => {
     try {
-      const info = await getDistributionInfo()
-      setTotalCommission(info.totalCommission)
-      setAvailable(info.available)
+      setOverview(await get<Overview>('/distribution/overview'))
     } catch {
-      // ignore
+      // 概览失败不阻塞明细,保持零值(与原实现同口径)
+    }
+  }
+
+  /**
+   * 已结算 = 已成功提现的记录(共享屏 mapWithdrawRecord 同口径:仅 status=2 计入)。
+   * 佣金流水表没有「已结算」字段,这一支只能由提现记录补,否则该状态永远不可达。
+   */
+  const loadSettled = async () => {
+    try {
+      const res = await get<{ list: WithdrawalFlow[] }>('/distribution/withdraw-list', {
+        page: 1,
+        pageSize: 50,
+      })
+      setSettledRows(
+        (res.list || []).filter((w) => Number(w.status) === 2).map((w) => toWithdrawRow(w, t)),
+      )
+    } catch {
+      setSettledRows([])
     }
   }
 
@@ -64,20 +139,26 @@ export default function CommissionPage() {
     if (reset) {
       pageRef.current = 1
       hasMoreRef.current = true
-      setList([])
+      setRows([])
     }
     if (!hasMoreRef.current) return
     loadingRef.current = true
     setLoading(true)
     try {
-      const res = await getCommissionRecords({ page: pageRef.current, pageSize: PAGE_SIZE })
-      const items = (res.list || []) as CommissionRecord[]
-      setList((prev) => (reset ? items : [...prev, ...items]))
-      setTodayCommission((prev) => (reset ? sumToday(items) : prev + sumToday(items)))
+      // 原实现打的 /distribution/commission 后端从未注册(现读 routes/distribution.ts 只有
+      // /distribution/list),404 被 catch 吞成空列表 ⇒ 用户以为没有收益记录。改打真路由。
+      const res = await get<{ list: CommissionFlow[]; total: number }>('/distribution/list', {
+        page: pageRef.current,
+        pageSize: PAGE_SIZE,
+      })
+      const flows = res.list || []
+      const items = flows.map(toCommissionRow)
+      setRows((prev) => (reset ? items : [...prev, ...items]))
+      setTodayCommission((prev) => (reset ? sumToday(flows) : prev + sumToday(flows)))
       hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
       pageRef.current++
     } catch {
-      // ignore
+      // 明细失败保留现有列表(与原实现同口径)
     } finally {
       loadingRef.current = false
       setLoading(false)
@@ -85,10 +166,10 @@ export default function CommissionPage() {
   }
 
   useEffect(() => {
-    // G-933 冷启动门控:概览(GET /distribution/overview,distribution 组级 authenticate)需鉴权 ⇒ 挡;
-    // load() 的 GET /distribution/commission 后端注册面查无此路由 ⇒ 判不出,按口径原样不动
+    // G-933 冷启动门控:概览/提现记录(GET /distribution/*,distribution 组级 authenticate)需鉴权 ⇒ 挡
     const cancel = gate.waitUntilReady(() => {
       void loadSummary()
+      void loadSettled()
     })
     void load(true)
     return cancel
@@ -96,65 +177,62 @@ export default function CommissionPage() {
   }, [])
 
   useReachBottom(() => {
-    load()
+    void load()
   })
 
   const goWithdraw = () => {
     Taro.navigateTo({ url: '/pkg-shop/wallet/withdrawal/index' })
   }
 
+  const allRows = rows.concat(settledRows)
+
   return (
     <ThemeRoot>
       <View className="wc-page">
-        <SectionHeader
-          title={tt('wallet.commission.title', '佣金明细')}
-          showMore={false}
-          className="mb-[16rpx]"
-        />
-        <View className="wc-summary-card">
-          <View className="wc-summary-row">
-            <View className="wc-summary-item">
-              <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
-              <Text className="wc-stat-value">¥{todayCommission}</Text>
-            </View>
-            <View className="wc-summary-item">
-              <Text className="wc-stat-label">{t('distribution.commission.total')}</Text>
-              <Text className="wc-stat-value">¥{totalCommission}</Text>
-            </View>
-            <View className="wc-summary-item">
-              <Text className="wc-stat-label">{t('wallet.commission.available')}</Text>
-              <Text className="wc-stat-value">¥{available}</Text>
-            </View>
+        <SectionHeader title={t('income.title')} showMore={false} className="mb-[16rpx]" />
+        <View className="wc-stats">
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('income.today')}</Text>
+            <Text className="wc-stat-value">¥{formatPrice(todayCommission)}</Text>
           </View>
-          <Button className="wc-withdraw-btn" onClick={goWithdraw}>
-            {t('developer.income.withdraw')}
-          </Button>
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('income.total')}</Text>
+            <Text className="wc-stat-value">¥{formatPrice(overview.totalCommission)}</Text>
+          </View>
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('income.withdrawable')}</Text>
+            <Text className="wc-stat-value">¥{formatPrice(overview.availableCommission)}</Text>
+          </View>
         </View>
+        <View className="wc-stats mt-[16rpx]">
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('income.pending')}</Text>
+            <Text className="wc-stat-value">¥{formatPrice(overview.pendingCommission)}</Text>
+          </View>
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('income.withdrawn')}</Text>
+            <Text className="wc-stat-value">¥{formatPrice(overview.withdrawnCommission)}</Text>
+          </View>
+        </View>
+        <Button className="wc-withdraw-btn" onClick={goWithdraw}>
+          {t('income.withdraw')}
+        </Button>
 
         <View className="wc-list-section">
-          <Text className="wc-list-title">{t('wallet.commission.records')}</Text>
-          {list.length > 0 && (
+          <Text className="wc-list-title">{t('income.sectionTitle')}</Text>
+          {allRows.length > 0 ? (
             <View className="wc-list">
-              {list.map((r) => (
-                <View key={r.id} className="wc-item">
-                  <View className="wc-item-info">
-                    <Text className="wc-item-type">{r.type}</Text>
-                    <Text className="wc-item-time">
-                      {r.time}
-                      {r.nickname ? ` · ${r.nickname}` : ''}
-                    </Text>
-                  </View>
-                  <Text className={`wc-item-amount ${r.amount > 0 ? 'positive' : 'negative'}`}>
-                    {r.amount > 0 ? '+' : ''}¥{r.amount}
-                  </Text>
-                </View>
+              {allRows.map((row) => (
+                <IncomeItem key={row.id} row={row} />
               ))}
             </View>
-          )}
-          {list.length === 0 && !loading && (
-            <Text className="wc-empty">{t('distribution.commission.empty')}</Text>
-          )}
-          {loading && <Text className="wc-loading">{t('distribution.commission.loading')}</Text>}
+          ) : null}
+          {allRows.length === 0 && !loading ? (
+            <Text className="wc-empty">{t('income.empty')}</Text>
+          ) : null}
+          {loading ? (
+            <Text className="wc-loading">{t('distribution.commission.loading')}</Text>
+          ) : null}
         </View>
       </View>
     </ThemeRoot>

@@ -135,6 +135,19 @@ describe('splitMarkdownBlocks · 拼接不变量', () => {
     expect(splitMarkdownBlocks(math)).toEqual({ blocks: [math] })
     expect(splitMarkdownStable(math)).toEqual({ stable: '', active: math })
   })
+
+  it('脚注与块级原始 HTML 整段不切', () => {
+    const footnote = `${pad('正文引用 [^note]。', 1500)}\n\n[^note]: 脚注定义跨过空行`
+    expect(splitMarkdownBlocks(footnote)).toEqual({ blocks: [footnote] })
+    expect(splitMarkdownStable(footnote)).toEqual({ stable: '', active: footnote })
+
+    const refOnly = `${pad('只出现引用 [^id],定义还在后面。', 1500)}\n\n下一段。`
+    expect(splitMarkdownBlocks(refOnly)).toEqual({ blocks: [refOnly] })
+
+    const html = `${pad('引言。', 1500)}\n\n<div>\n<p>块级原文</p>\n</div>`
+    expect(splitMarkdownBlocks(html)).toEqual({ blocks: [html] })
+    expect(splitMarkdownStable(html)).toEqual({ stable: '', active: html })
+  })
 })
 
 describe('splitMarkdownBlocks · 碎片合并', () => {

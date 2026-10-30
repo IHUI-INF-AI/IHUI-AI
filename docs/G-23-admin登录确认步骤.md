@@ -47,8 +47,11 @@
   ```
 - 写完后跑回归（应绿）：
   ```powershell
-  node D:\IHUI-AI\scripts\check-credential-health.mjs
+  node scripts/check-credential-health.mjs   # 在仓库根执行(相对路径,不钉盘符)
   ```
+  期望末行「✅ 全部凭据有效」且 RC=0。注意:本机不是部署机时,「部署停摆」那一维会如实报 unknown
+  (取不到线上根)—— 那是「未判定」,不是「已上线」。若 DEPLOOP 环境块与权威源不一致,部署环健康
+  门禁每次白烧 1–2 次失败登录（耗锁定预算）——修法同样是把 `IHUI_ADMIN_PASSWORD` 更新成现值。
   这一步同时核对服务环境块 `IHUI-DEPLOYLOOP\Parameters\IHUI_ADMIN_PASSWORD`。**2026-10-30 现读：该格已
   是 ✅ ok（服务侧与权威源同为 `len=9 sha=b338624a13cf`），本文原先写的"现在那条 RED"已不成立**；若日后
   它再翻红，修法同样是把 `IHUI_ADMIN_PASSWORD` 更新成现值——不修则部署环健康门禁每轮白烧 1–2 次失败登录

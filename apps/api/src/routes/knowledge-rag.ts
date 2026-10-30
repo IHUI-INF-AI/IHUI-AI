@@ -65,6 +65,8 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   // 用户数据面：除健康检查外一律要求登录。归属取自凭据，不接受请求参数指定。
   server.addHook('preHandler', async (request, reply) => {
     if (request.url.split('?')[0] === '/api/knowledge/health') return
+    // 必须 return reply:仅 return undefined 时 Fastify 会把链继续交给下一个 preHandler
+    // (链尾的鉴权兜底闸),那边再 send 一次就成 500(2026-10-29 生产实测)。
     if (!(await checkAuth(request, reply))) return reply
   })
 

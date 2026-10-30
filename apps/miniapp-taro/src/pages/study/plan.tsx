@@ -13,16 +13,7 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { FocusInput } from '@/components/FocusField'
-
-interface PlanItem {
-  id: string
-  title: string
-  target: number
-  /** 进度百分比(0-100,当日已学分钟 / target,后端实时聚合) */
-  progress: number
-  /** 今日已学分钟数(全部计划共享当日聚合值) */
-  minutes?: number
-}
+import { PlanFoot, statusClass, statusLabel, statusOf, type PlanItem } from './plan-card'
 
 export default function StudyPlan() {
   const { t } = useI18n()
@@ -60,7 +51,7 @@ export default function StudyPlan() {
 
   const load = useCallback(async () => {
     try {
-      const res = await getStudyPlan()
+      const res = (await getStudyPlan()) as { list?: PlanItem[] }
       setList(res.list || [])
     } catch {
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
@@ -128,20 +119,16 @@ export default function StudyPlan() {
                   <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                     {t('study.planPage.completed', { n: p.minutes ?? 0 })}
                   </Text>
-                  {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx):完成=success.lighter+deepText,进行中=success.light+success.DEFAULT
-                      进度是百分比(当日已学分钟/目标),达标即 100% */}
+                  {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx),
+                      三档 active/completed/overdue 由进度与截止日推出(共享屏词表的「暂停」在本端
+                      结构上取不到数据源,已撤,理由见 ./plan-card 头注);完成带 ✓ */}
                   <Text
-                    className={`text-[length:20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm ${
-                      p.progress >= 100
-                        ? 'bg-[var(--color-success-lighter)] text-[var(--color-success-deep-text)]'
-                        : 'bg-[var(--color-success-light)] text-success'
-                    }`}
+                    className={`text-[length:20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm flex-shrink-0 ${statusClass(statusOf(p))}`}
                   >
-                    {p.progress >= 100
-                      ? t('study.planPage.statusDone')
-                      : t('study.planPage.statusInProgress')}
+                    {statusLabel(t, statusOf(p))}
                   </Text>
                 </View>
+                <PlanFoot item={p} t={t} />
               </View>
             ))}
           </View>

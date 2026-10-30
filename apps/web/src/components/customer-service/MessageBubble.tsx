@@ -11,6 +11,8 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { CloseButton } from '@ihui/ui-react'
 import { getInitials } from '@/components/data/Avatar'
 import { formatTimeOnly } from '@/lib/date-utils'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 /** 层栈 id(见 @/lib/overlay-stack):图片缩放浮层的 Esc 只在栈顶时被消费 */
 const MESSAGE_BUBBLE_ZOOM_OVERLAY_ID = 'message-bubble-image-zoom'
@@ -61,7 +63,7 @@ export function MessageBubble({ message, isSelf }: Props) {
             className="block max-h-48 overflow-hidden rounded-sm border"
           >
             <Image
-              src={message.content}
+              src={toMediaImageUrl(message.content)}
               alt={message.content.split('/').pop() || '图片'}
               width={400}
               height={300}
@@ -106,7 +108,7 @@ export function MessageBubble({ message, isSelf }: Props) {
             }}
           />
           <Image
-            src={message.content}
+            src={toMediaImageUrl(message.content)}
             alt="zoomed"
             width={1200}
             height={800}

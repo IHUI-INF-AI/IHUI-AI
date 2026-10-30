@@ -1751,6 +1751,11 @@ export interface StreamChatOptions {
     parentMessageId?: string
     siblingIndex?: number
   }
+  /** 差距①(2026-10-30 立):客户端生成的稳定输入标识,随 POST body 上行(字段名 `inputId`)。
+   *  服务端在 admission 帧里逐字回显它,上层 `SendAdmissionTracker` 据此把回执配到本条发送。
+   *  undefined = 不发该字段 ⇒ 旧服务端/旧客户端互不破坏(字段可选是这条接线的安全垫)。
+   *  ⚠️ 网关 schema 需声明 inputId 透传(否则 zod strip 静默丢弃,链路掐断 —— 属并行工作流面)。 */
+  inputId?: string
   temperature?: number
   topP?: number
   topK?: number
@@ -1917,6 +1922,11 @@ export interface StreamChatOptions {
    *  注入 messages 时触发(每条引导一次)。前端据此把消息 badge 从「排队中」换成
    *  「引导已生效」,用户确认引导已被 AI 下一轮看到。 */
   onSteer?: (event: SteerEvent) => void
+  /** 差距①(2026-10-30 立):发送准入回执帧(admission)。服务端在流开始、完成准入判定后、
+   *  首个内容帧之前回显本条发送时上行的 `inputId` 与 disposition(四档
+   *  accepted/queued/rejected/duplicate)。形状不认(缺 inputId / 未知 disposition)
+   *  ⇒ 整帧丢弃并计数,不猜档、不抛错;未注册回调时不解析(与其余 per-field 同口径)。 */
+  onSendAdmissionReceipt?: (receipt: SendAdmissionReceipt) => void
   /** Budget 用量分档提醒(2026-09-19 立,网关发):流首网关按用户当日 AI 用量分档
    *  下发 warning(80%~95%)/critical(95%~100%)提醒帧,前端 toast 提示用量进度;
    *  ≥100% 为 HTTP 429 硬中断(errorCode 'BUDGET_EXHAUSTED'),走 onError 路径。 */
@@ -2136,6 +2146,10 @@ export function parseStreamLine(line: string): string | null {
     // 本帧带 text 字段,不拦截会被下方兜底抽取链(json?.text)喷进正文增量
     // (与上方 usage 帧同一坑位,必须在兜底抽取前拦截)。
     if (json?.type === 'steer') return null
+    // 差距①(2026-10-30 立):admission 帧走专用通道(tryParseSendAdmission)。
+    // 本帧不带 content/text/delta,兜底抽取链本会对它静默返回 null —— 但显式分流是
+    // 不依赖兜底行为的写法(与 usage/steer/budget 同一坑位纪律)。
+    if (json?.type === 'admission') return null
     // Budget(2026-09-19 立):网关用量分档提醒帧走专用通道(tryParseBudget)。
     // 不拦截同样会被下方兜底抽取链喷进正文增量(与 steer 同一坑位,必须在兜底前拦截)
     if (json?.type === 'budget') return null
@@ -2318,6 +2332,68 @@ export interface SteerEvent {
   timestamp?: string
   /** 所属 assistant 消息 ID(流启动即确定,便于前端挂 badge) */
   messageId?: string
+}
+
+/**
+ * 发送准入回执(差距①,2026-10-30 立):服务端在流开始、完成准入判定后、首个内容帧之前
+ * 回显客户端上行的 inputId 与 disposition。
+ *
+ * SSE 事件格式(契约见 packages/shared/src/sse/contract.ts,形状真相源见
+ * packages/shared/src/chat/send-admission.ts 的 SendAdmissionReceipt):
+ *   event: admission
+ *   data: {"type":"admission","inputId":"...","disposition":"accepted",
+ *          "messageId":"...","queuedTurnId":"...","reason":"..."}
+ *
+ * ⚠️ 本包运行时依赖面为零(不 import @ihui/shared,与 GetConversationHistoryParams.direction
+ * 同一处置),下方三件(四档闭集 / 接口 / 严格解析)是那份真相源的**镜像**:
+ * 规则漂移由 packages/shared/src/chat/__tests__/send-admission.test.ts 与本包
+ * tests/stream-chat-admission.test.ts 各自的判例表拦下,两侧喂的是同一批形状。
+ */
+export const ADMISSION_DISPOSITIONS = ['accepted', 'queued', 'rejected', 'duplicate'] as const
+export type AdmissionDisposition = (typeof ADMISSION_DISPOSITIONS)[number]
+
+export interface SendAdmissionReceipt {
+  /** 客户端生成的稳定输入标识,必须与本条发送时带的那个逐字相等 */
+  readonly inputId: string
+  readonly disposition: AdmissionDisposition
+  /** 服务端为这一轮分配的助手消息 id */
+  readonly messageId?: string
+  /** queued 档专用:排队项标识 */
+  readonly queuedTurnId?: string
+  /** 拒收原因码(命名错误码) */
+  readonly reason?: string
+}
+
+/**
+ * 严格读准入回执(与 @ihui/shared chat/send-admission.ts 的 readSendAdmissionReceipt 同规则):
+ * 形状不认 ⇒ null(**不猜、不补默认档**)。只有 inputId(非空串)与 disposition(四档内)
+ * 是必需的;可选字段缺席读作"服务端没说明",类型错则整键不带上(不折成空串/0)。
+ */
+function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionReceipt | null {
+  const inputId = raw['inputId']
+  const disposition = raw['disposition']
+  if (typeof inputId !== 'string' || inputId.length === 0) return null
+  if (
+    typeof disposition !== 'string' ||
+    !(ADMISSION_DISPOSITIONS as readonly string[]).includes(disposition)
+  ) {
+    return null
+  }
+  const receipt: {
+    inputId: string
+    disposition: AdmissionDisposition
+    messageId?: string
+    queuedTurnId?: string
+    reason?: string
+  } = { inputId, disposition: disposition as AdmissionDisposition }
+  const messageId = raw['messageId']
+  if (typeof messageId === 'string' && messageId.length > 0) receipt.messageId = messageId
+  const queuedTurnId = raw['queuedTurnId']
+  if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
+    receipt.queuedTurnId = queuedTurnId
+  const reason = raw['reason']
+  if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
+  return receipt
 }
 
 /**
@@ -3604,6 +3680,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
   // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
   let _sseFrameSchemaFaults = 0
+  // 差距①(2026-10-30 立):admission 帧"形状不认 ⇒ 丢弃"的留痕计数(不猜档、不抛错)。
+  // 与 `_sseFrameSchemaFaults` 同口径登记(故意未读):回执本体只经 onSendAdmissionReceipt
+  // 递出,畸形帧不得从那条通道冒充回执。
+  let _admissionReceiptDropped = 0
   // G-816031:权威信封路由。跨重试共享(重试不是新的权威授予);仅当生产端下发
   // deliveryKind/reasonCode 时进入 fail-closed,旧生产端逐帧放行、零行为变化。
   const streamAuthority = createStreamAuthorityRouter()
@@ -3813,6 +3893,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // D130(2026-09-30 立):推理强度档位。仅字段存在时写入(与 permissionMode 同形):
   // undefined 不进 body ⇒ 后端走默认档,旧客户端零行为变化。
   if (opts.reasoningEffort !== undefined) body.reasoningEffort = opts.reasoningEffort
+  // 差距①(2026-10-30 立):准入配对标识上行。仅字段存在时写入(与 permissionMode 同形):
+  // undefined 不进 body ⇒ 旧服务端零行为变化。服务端在 admission 帧里逐字回显它。
+  if (opts.inputId !== undefined) body.inputId = opts.inputId
   if (opts.extraBody) Object.assign(body, opts.extraBody)
   // 2026-08-15 立:streamChat 默认流式,后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk。
   // 默认 true,允许 extraBody 或显式 opts.stream 覆盖为 false。
@@ -3866,6 +3949,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasUsage = typeof opts.onUsage === 'function'
     // Steer(中途引导,2026-09-19 立):onSteer 存在时启用解析
     const hasSteer = typeof opts.onSteer === 'function'
+    // 差距①(2026-10-30 立):onSendAdmissionReceipt 存在时启用解析(未注册不解析,同口径)
+    const hasSendAdmission = typeof opts.onSendAdmissionReceipt === 'function'
     // Budget(用量分档提醒,2026-09-19 立):onBudget 存在时启用解析
     const hasBudget = typeof opts.onBudget === 'function'
     // G-815976(2026-10-04 收口入契约):流式中断标记帧;未注册回调不解析
@@ -4797,6 +4882,38 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
 
     /**
+     * 差距①(2026-10-30 立):发送准入回执帧(admission)。服务端在流开始、完成准入判定后、
+     * 首个内容帧之前回显客户端上行的 inputId 与 disposition:
+     *   event: admission → data: { type:'admission', inputId, disposition,
+     *                              messageId?, queuedTurnId?, reason? }
+     * 严格解析走 readSendAdmissionReceipt(与 @ihui/shared chat/send-admission.ts 同规则):
+     * 返回 null ⇒ 丢弃并计数(不猜档、不抛错)—— 把形状坏的帧读成 accepted 等于用一次
+     * 解析失败伪造"服务端收下了"。成功则回调上层,由 SendAdmissionTracker 按 inputId 配对。 */
+    const tryParseSendAdmission = (line: string): void => {
+      if (!hasSendAdmission) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'admission') return
+        const receipt = readSendAdmissionReceipt(json)
+        if (!receipt) {
+          _admissionReceiptDropped += 1
+          return
+        }
+        opts.onSendAdmissionReceipt!(receipt)
+      } catch {
+        /* 非 JSON 或非 admission 事件忽略 */
+      }
+    }
+
+    /**
      * Budget(用量分档提醒,2026-09-19 立,网关发):流首网关按用户当日 AI 用量
      * 三态分档下发提醒帧(80%~95% warning / 95%~100% critical,均放行不中断流):
      *   event: budget → data: { type:'budget', level:'warning'|'critical', percent?,
@@ -4967,6 +5084,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
      *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
      *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
      *  - steer:tryParseSteer(Steer 2026-09-19 立)
+     *  - admission:tryParseSendAdmission(差距① 2026-10-30 立,发送受理回执;
+     *    严格解析,形状不合即丢弃并计数,不猜不抛)
      *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
      *  - config-warning / deprecation-notice / guardian-warning:
      *    tryParseConfigWarning / tryParseDeprecationNotice / tryParseGuardianWarning
@@ -5224,6 +5343,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // Steer(2026-09-19 立):中途引导注入确认帧
           case 'steer':
             return 'steer'
+          // 差距①(2026-10-30 立):发送受理回执帧(admission,契约名见 shared/sse/contract)
+          case 'admission':
+            return 'admission'
           // Budget(2026-09-19 立):网关用量分档提醒帧
           case 'budget':
             return 'budget'
@@ -5305,6 +5427,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseFinishReason(line)
       } else if (route === 'steer') {
         tryParseSteer(line)
+      } else if (route === 'admission') {
+        tryParseSendAdmission(line)
       } else if (route === 'budget') {
         tryParseBudget(line)
       } else if (route === 'partial_done') {
@@ -5347,6 +5471,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseGoalUpdate(line)
         tryParseThinking(line)
         tryParseSteer(line)
+        tryParseSendAdmission(line)
         tryParseBudget(line)
         tryParsePartialDone(line)
         tryParseConfigWarning(line)

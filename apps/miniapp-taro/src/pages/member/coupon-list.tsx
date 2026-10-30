@@ -6,6 +6,8 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { claimAvailableCoupon, getAvailableCoupons } from '@/api'
+import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface Coupon {
@@ -14,7 +16,6 @@ interface Coupon {
   amount: number
   threshold: number
   expireTime: string
-  status: string
 }
 
 export default function CouponListPage() {
@@ -35,26 +36,40 @@ export default function CouponListPage() {
     [t],
   )
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
+    setLoading(true)
     setError(false)
-    // 「可领取券」这一档后端还没有:GET /api/coupons 的 status 只收 unused/used/expired,
-    // 传 available 会被 zod 拒成 400;而 promo_coupons(券模板)目前只有 admin 面 CRUD,
-    // 没有面向用户的公开列表与按 id 领取。端点上线前本页落空态 —— 把"这个能力还没有"
-    // 渲染成"加载失败"会让下一个接手的人以为这只是网络问题。
-    setList([])
-    setLoading(false)
+    try {
+      const res = await getAvailableCoupons({ page: 1, pageSize: 50 })
+      setList(res.list)
+    } catch (e) {
+      logger.error('member/coupon-list', '获取可领券', e)
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  useDidShow(load)
+  useDidShow(() => void load())
   usePullDownRefresh(() => {
-    load()
-    Taro.stopPullDownRefresh()
+    void load().finally(() => Taro.stopPullDownRefresh())
   })
 
   const onReceive = useCallback(
-    (_id: string) => {
-      Taro.showToast({ title: tt('member.couponList.received', '领取成功'), icon: 'success' })
-      load()
+    async (id: string) => {
+      // 按券模板 id 领(不是按码):后端 /coupons/available 刻意不返回 code,
+      // 码只出现在用户自己已领取的券上。归属主体由后端取自鉴权结果,这里不传 userId。
+      try {
+        await claimAvailableCoupon(id)
+        Taro.showToast({ title: tt('member.couponList.received', '领取成功'), icon: 'success' })
+      } catch (e) {
+        logger.error('member/coupon-list', '领取优惠券', e)
+        Taro.showToast({
+          title: tt('member.couponList.receiveFailed', '领取失败'),
+          icon: 'none',
+        })
+      }
+      await load()
     },
     [tt, load],
   )

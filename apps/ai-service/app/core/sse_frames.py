@@ -10,9 +10,21 @@
 而两处各写一遍迟早漂开(本仓最高频的失效型)。函数体逐字搬自 llm.py,判序一字未改。
 """
 
+import contextvars
+from dataclasses import dataclass, field
 from typing import Any
 
-from .sse_contract import SSE_COMPAT_EVENTS, SSE_TRACE_ID_PAYLOAD_KEY
+from .sse_contract import (
+    FRAME_KIND_DELTA,
+    FRAME_KIND_SNAPSHOT,
+    PROCESS_LOG_EPOCH,
+    SSE_COMPAT_EVENTS,
+    SSE_TRACE_ID_PAYLOAD_KEY,
+    SSE_WATERMARK_PAYLOAD_KEYS,
+    WATERMARK_SNAPSHOT_SEQ,
+    StreamWatermark,
+    apply_frame,
+)
 from .trace_context import sse_frame_trace_id
 
 
@@ -48,4 +60,73 @@ def with_frame_trace_id(evt: str, payload: Any) -> Any:
             return stripped
         return payload
     return {**payload, SSE_TRACE_ID_PAYLOAD_KEY: trace_id}
+
+
+# ── 差距②(2026-10-30 立):帧水位四维的出站注入点 ─────────────────────────────
+#
+# 为什么住在本模块:水位与 traceId 同族 —— 都是"每一帧顶层都要带"的装配字段,
+# 判序只许有一处(llm.py::_sse() 调用本函数,agents 流等未接线面天然不带 = 现状)。
+# 水位状态是**每流一份**的,经 ContextVar 交接:流开始处 begin、流收尾处 end,
+# 出帧时读同一上下文;字段名唯一真相源在 sse_contract.SSE_WATERMARK_PAYLOAD_KEYS
+# (与 packages/api-client/src/frame-watermark.ts 逐字对齐,错一格 = 消费侧恒 undetermined)。
+
+
+@dataclass
+class _StreamFrameSeq:
+    """一条出站流的帧水位游标(生产侧)。首帧按 snapshot 立基线,其后皆 delta。"""
+
+    subscription_id: str
+    watermark: StreamWatermark = field(default_factory=StreamWatermark)
+    seq: int = 0
+
+
+_stream_frame_seq: contextvars.ContextVar["_StreamFrameSeq | None"] = contextvars.ContextVar(
+    "ihui_sse_stream_frame_seq", default=None
+)
+
+
+def begin_stream_watermark(subscription_id: str) -> None:
+    """流开始处挂上本流的帧水位上下文(llm.py gen() 注册 session 后调用)。"""
+    _stream_frame_seq.set(_StreamFrameSeq(subscription_id=subscription_id))
+
+
+def end_stream_watermark() -> None:
+    """流收尾处摘除上下文(gen() finally 调用;未 begin 过也无害)。"""
+    _stream_frame_seq.set(None)
+
+
+def with_frame_watermark(evt: str, payload: Any) -> Any:
+    """出站帧的水位四维注入点(判序与 with_frame_trace_id 同纪律)。
+
+    1. 无流上下文(非主聊天流 / 未注册 session 的流)⇒ 原样返回,线格式逐字节不变;
+    2. 兼容面(SSE_COMPAT_EVENTS)不注入 —— 那是 Anthropic 官方 wire 形状,与 traceId 同理;
+    3. 载荷非 dict ⇒ 不注入(与 traceId 同取向,不造顶层键的容身之处);
+    4. apply_frame 判不 apply(单写者、纪元恒定、订阅恒定下不该发生)⇒ 不注入,
+       **不冒充推进** —— 水位说假话比没有水位更糟,回退方向恒为现状(undetermined)。
+    """
+    state = _stream_frame_seq.get()
+    if state is None or evt in SSE_COMPAT_EVENTS or not isinstance(payload, dict):
+        return payload
+    state.seq += 1
+    is_snapshot = state.seq == 1
+    from_seq = WATERMARK_SNAPSHOT_SEQ if is_snapshot else state.seq - 1
+    to_seq = state.seq
+    decision = apply_frame(
+        state.watermark,
+        frame_kind=FRAME_KIND_SNAPSHOT if is_snapshot else FRAME_KIND_DELTA,
+        log_epoch=PROCESS_LOG_EPOCH,
+        from_seq=from_seq,
+        to_seq=to_seq,
+        subscription_id=state.subscription_id,
+    )
+    if not decision.applied:
+        return payload
+    subscription_key, epoch_key, from_key, to_key = SSE_WATERMARK_PAYLOAD_KEYS
+    return {
+        **payload,
+        subscription_key: state.subscription_id,
+        epoch_key: PROCESS_LOG_EPOCH,
+        from_key: from_seq,
+        to_key: to_seq,
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

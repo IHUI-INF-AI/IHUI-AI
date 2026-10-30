@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/circle-detail/CircleDetailScreen.tsx
+// 端内独立实现:本路由是圈子动态详情,与圈子主页类共享屏业务对象不同,不参与镜像对账(动态详情另有 post-detail 声明在册)
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
@@ -66,10 +66,14 @@ export default function CircleDetailPage() {
   const [id, setId] = useState('')
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // 详情加载失败态:共享屏 PostDetailScreen 用 ErrorState 承接 postDetail.loadFailed,
+  // 这里用页面内错误块承接(弹一次 toast 就当作加载完了 = 把失败说成空内容)
+  const [error, setError] = useState('')
   const loadedRef = useRef('')
 
   const loadAll = useCallback(
     async (qid: string) => {
+      setError('')
       try {
         const res = (await getCircleDetail(qid)) as DetailExt
         setData(res)
@@ -78,7 +82,10 @@ export default function CircleDetailPage() {
         setFollowing(!!res.following)
       } catch (e) {
         logger.error('circle/detail', '获取动态详情', e)
+        // 即时提示(原有行为)+ 落在正文里的失败态(共享屏 ErrorState 的语义)两层都要:
+        // toast 一闪而过,只留它等于"失败过一次就当加载完了"
         Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+        setError(tt('postDetail.loadFailed', '加载帖子失败'))
       }
       try {
         const c = await get<CommentData>(`/circles/${qid}/comments`, { page: 1, pageSize: 10 })
@@ -205,6 +212,12 @@ export default function CircleDetailPage() {
     <ThemeRoot>
       <View className="cd-page">
         <ScrollView scrollY className="cd-scroll">
+          {error ? (
+            <View className="mx-[24rpx] mt-[24rpx] p-[28rpx] bg-card border-[length:2rpx] border-border rounded-lg">
+              <Text className="block text-[length:28rpx] text-destructive">{error}</Text>
+            </View>
+          ) : null}
+
           {data.author ? (
             <View className="cd-head">
               <Image className="cd-avatar" src={data.avatar || defaultAvatar} mode="aspectFill" />

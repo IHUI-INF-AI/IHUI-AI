@@ -234,12 +234,8 @@ export async function toggleN8nWorkflow(
 
 /** 执行 N8n 工作 —— 2026-09-28 门 8 死调用清账:删除(POST /api/ai/n8n/workflows/:id/execute 从未注册;零消费方)。 */
 
-/** 获取 N8n 执行记录列表 */
-export async function getN8nExecutions(
-  query: PageQuery & { workflowId?: string; status?: N8nExecution['status'] } = {},
-): Promise<ApiResult<PageData<N8nExecution>>> {
-  return fetchApi<PageData<N8nExecution>>(`/api/ai/n8n/executions${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getN8nExecutions —— GET /api/ai/n8n/executions
+// 两引擎零注册,全仓零消费方。
 
 /** 获取 N8n 执行记录详情 —— 2026-09-28 门 8 死调用清账:删除(GET /api/ai/n8n/executions/:id 从未注册;零消费方)。 */
 

@@ -18,8 +18,10 @@ import {
   signRecurringContract,
   type VipInfo,
   type VipPayInfo,
+  type VipLevel,
 } from '@/api'
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import {
   VipBenefitsPopup,
@@ -30,6 +32,7 @@ import {
 } from '@/components'
 import './index.css'
 import { aizhsUrl } from '@/constants/icon-urls'
+import LevelsSection from './levels-section'
 
 // 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
 interface VipFeature {
@@ -37,6 +40,32 @@ interface VipFeature {
   icon: string
   title: string
   desc: string
+}
+
+/** GET /api/vip/my 的真实回包 = { vip: userVips 行 + levelName }(apps/api/src/routes/vip.ts),
+ *  与 api 层 VipInfo 的扁平声明不同形;两种形态都认,否则「当前等级 / 到期时间」恒读成未开通。 */
+interface VipMineRow {
+  levelValue?: number
+  levelName?: string
+  endTime?: string
+}
+
+function toVipInfo(raw: VipInfo): VipInfo {
+  const row = (raw as unknown as { vip?: VipMineRow | null }).vip
+  if (!row) return raw
+  return {
+    ...raw,
+    level: row.levelValue ?? 0,
+    name: row.levelName ?? '',
+    expireTime: row.endTime ?? '',
+  }
+}
+
+/** 剩余天数只做算术、不承担格式展示;有效期缺失/不可解析 ⇒ null(判不出就不渲染这一天) */
+function daysUntil(expire: string): number | null {
+  const at = Date.parse(expire)
+  if (!Number.isFinite(at)) return null
+  return Math.max(0, Math.ceil((at - Date.now()) / 86400000))
 }
 
 export default function VipIndexPage() {
@@ -110,6 +139,9 @@ export default function VipIndexPage() {
   )
 
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
+  const [levels, setLevels] = useState<VipLevel[]>([])
+  const [levelsLoaded, setLevelsLoaded] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>([])
   const [selectedPlan, setSelectedPlan] = useState<PriceOption | null>(null)
@@ -159,7 +191,9 @@ export default function VipIndexPage() {
     Taro.showLoading({ title: t('common.loading'), mask: true })
     try {
       const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
-      setInfo(i)
+      setInfo(toVipInfo(i))
+      setLevels(lv.items || [])
+      setLevelsLoaded(true)
       const list = (p.list || []).map((item) => ({
         id: String(item.id),
         title: item.title,
@@ -175,10 +209,12 @@ export default function VipIndexPage() {
       const finalOpts = opts.length > 0 ? opts : defaultPlans
       setPriceOptions(finalOpts)
       setSelectedPlan((prev) => prev ?? finalOpts[0] ?? null)
+      setLoadFailed(false)
     } catch (e) {
       logger.error('vip/index', '获取VIP信息', e)
       setPriceOptions(defaultPlans)
       setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
+      setLoadFailed(true)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       Taro.hideLoading()
@@ -188,6 +224,20 @@ export default function VipIndexPage() {
   const onSelectPlan = useCallback((opt: PriceOption) => {
     setSelectedPlan(opt)
   }, [])
+
+  // 等级卡片上的「开通会员」:与底部购买栏同一条支付链路 —— 先选中该等级,再走确认弹窗
+  const onLevelPurchase = useCallback(
+    (levelId: string) => {
+      const plan = priceOptions.find((opt) => opt.id === levelId)
+      if (!plan) {
+        Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+        return
+      }
+      setSelectedPlan(plan)
+      setShowPayConfirm(true)
+    },
+    [priceOptions, t],
+  )
 
   const onUpgradeClick = useCallback(() => {
     if (!selectedPlan) {
@@ -264,6 +314,7 @@ export default function VipIndexPage() {
   })
 
   const currentPrice = selectedPlan?.price ?? 0
+  const daysLeft = info.expireTime ? daysUntil(info.expireTime) : null
 
   return (
     <ThemeRoot>
@@ -276,24 +327,51 @@ export default function VipIndexPage() {
             mode="aspectFill"
           />
           <View className="content">
-            <View className="title">{tt('vip.index.brandTitle', 'AI智汇社 VIP会员')}</View>
-            <View className="subtitle">{t('vip.openHint')}</View>
+            <View className="title">{t('vip.title')}</View>
+            <View className="subtitle">{t('vip.subtitle')}</View>
             <View className="price-box">
               <Text className="current-price">¥{currentPrice}</Text>
             </View>
           </View>
         </View>
 
+        {/* 加载失败条(对齐 RN ErrorState:文案 + 重试;重试复用一次 load) */}
+        {loadFailed ? (
+          <View className="mx-[32rpx] mt-[32rpx] px-[24rpx] py-[20rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
+            <Text className="text-[length:26rpx] text-muted-foreground">{t('common.failed')}</Text>
+            <Text
+              className="text-[length:26rpx] font-semibold text-[var(--color-brand-accent-deep)]"
+              onClick={() => void load()}
+            >
+              {t('vip.retry')}
+            </Text>
+          </View>
+        ) : null}
+
         {/* 会员状态卡(对齐 RN SharedVipScreen membershipCard:深灰卡 + 白等级名 + 白 70% 到期行) */}
         <View className="status-bar">
           <View className="status-head">
-            <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
+            <View className="flex flex-col">
+              <Text className="text-[length:24rpx] text-[var(--color-white-70)] mb-[8rpx]">
+                {t('vip.currentLevel')}
+              </Text>
+              <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
+            </View>
             <Text className="intro-link" onClick={onIntroduceClick}>
               {t('vip.index.introduce')}
             </Text>
           </View>
           {info.expireTime ? (
-            <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
+            <View className="expire-row flex items-center justify-between">
+              <Text>
+                {/* 到期日与 RN 容器同形(packages/app 侧由 apps/mobile-rn/src/screens/VipScreen.tsx
+                    的 formatDateOnly 收口成日期);后端 /vip/my 直出的是 ISO 串,原样上屏是机器文本 */}
+                {t('vip.expireAt')}:{formatDateByTemplate(info.expireTime, 'YYYY-MM-DD')}
+              </Text>
+              {daysLeft !== null ? (
+                <Text>{t('vip.daysRemaining', { count: daysLeft })}</Text>
+              ) : null}
+            </View>
           ) : null}
         </View>
 
@@ -322,6 +400,14 @@ export default function VipIndexPage() {
             <Text>{t('vip.viewAllBenefits')}</Text>
           </View>
         </View>
+
+        {/* 会员等级目录(对齐 RN levelsSection:等级名/当前徽章/时长/价格/权益数/开通) */}
+        <LevelsSection
+          levels={levels}
+          currentLevel={info.level}
+          loaded={levelsLoaded}
+          onPurchase={onLevelPurchase}
+        />
 
         {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
         <View className="plans-card">

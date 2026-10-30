@@ -80,6 +80,8 @@
     "toolAudioTranscription": "音訊轉文字",
     "toolVisionAnalyze": "辨識圖片內容",
     "toolDispatchSubagent": "派遣子代理",
+    "toolInitAgentsMd": "初始化智能體文檔",
+    "toolTeamTask": "團隊任務",
     "toolScheduleTask": "建立排程任務",
     "toolBgTaskStatus": "查詢背景任務",
     "toolUiDescribe": "讀取頁面控制項",

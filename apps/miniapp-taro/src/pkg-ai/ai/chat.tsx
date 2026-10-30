@@ -48,6 +48,15 @@ import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/ch
 import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
 import { useSideQueue } from './side-queue-host'
 import QueueInteractionBar from './queue-interaction-bar'
+// 255fa96933 摘除端内手写轻对话页时的能力安置腿(§7:删除不得静默丢弃):
+// 正文媒资抽取 / 分享问答快照还原,判据都在同目录子模块,主文件只接线。
+import { applyAnswerMedia, extractAnswerMedia, hasAnyMedia } from './answer-media-extract'
+import {
+  buildShareSnapshotMessages,
+  buildShareSnapshotPath,
+  shareSnapshotForMessage,
+  shareSnapshotFromParams,
+} from './qa-share-snapshot'
 // D77(2026-10-17 落地小程序腿):form_request 帧的投影纯函数单源在共享层
 // (@ihui/shared/chat/form-request-frame,由 apps/web 迁入共用,端内不抄第二份)。
 import { projectFormRequestFrame } from '@ihui/shared/chat/form-request-frame'
@@ -668,6 +677,17 @@ export default function ChatPage() {
   useDidShow(() => {
     if (routeAgentId) loadAgent()
     Taro.showShareMenu({ withShareTicket: true })
+    // [能力安置@255fa96933] 分享问答快照还原(承接被摘端内页的 ?souce=share 链):
+    // 命中即把一问一答直接铺成消息,不请求后端;必须先于本机历史恢复/服务端回放返回,
+    // 否则回放成功分支会把快照覆盖掉。
+    const shareSnapshot = shareSnapshotFromParams(
+      router.params as Record<string, string | undefined>,
+    )
+    if (shareSnapshot) {
+      setMessages(buildShareSnapshotMessages(shareSnapshot))
+      scrollToBottom()
+      return
+    }
     // P3 #46 阶段3-b 截屏理解引导(2026-09-17 立):微信平台不在截屏事件里
     // 提供截图文件,标准做法是监听动作后引导用户从相册选择发送(聊天页已
     // 支持图片选择走视觉模型链路);离开页面时解除监听防重复提示。
@@ -725,13 +745,19 @@ export default function ChatPage() {
     }
   })
 
-  useShareAppMessage(() => ({
+  useShareAppMessage(() => {
     // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对标原 ai_assistant.vue 分享)
-    title: shareMsgRef.current
-      ? (shareMsgRef.current.content || '').slice(0, 50) || t('ai.share.title')
-      : t('ai.share.title'),
-    path: '/pkg-ai/ai/chat',
-  }))
+    const shareMsg = shareMsgRef.current
+    // [能力安置@255fa96933] 分享 path 带上问答快照(?souce=share&question=&content=),
+    // 被分享方进入即还原一问一答不请求后端 —— 与被摘端内页的产出形态同键。
+    const snapshot = shareSnapshotForMessage(messages, shareMsg)
+    return {
+      title: shareMsg
+        ? (shareMsg.content || '').slice(0, 50) || t('ai.share.title')
+        : t('ai.share.title'),
+      path: snapshot ? buildShareSnapshotPath(snapshot) : '/pkg-ai/ai/chat',
+    }
+  })
 
   /**
    * 语义匹配:识别用户是否在请求「图片 / 语音 / 视频」类任务,命中后引导跳转对应 AIGC 页面。
@@ -829,10 +855,15 @@ export default function ChatPage() {
             contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
           },
           (delta) => {
+            // [能力安置@255fa96933] 正文媒资抽取(承接被摘端内页逐 delta extractImageUrls 口径,
+            // 扩展到图/视频/音频):抽到的 URL 合并进本轮助手消息,渲染腿在 ChatMessageItem。
+            const media = extractAnswerMedia(delta)
             setMessages((prev) =>
-              prev.map((m, i) =>
-                i === prev.length - 1 ? { ...m, content: m.content + delta } : m,
-              ),
+              prev.map((m, i) => {
+                if (i !== prev.length - 1) return m
+                const appended = { ...m, content: m.content + delta }
+                return hasAnyMedia(media) ? applyAnswerMedia(appended, media) : appended
+              }),
             )
             scrollToBottom()
           },
@@ -1669,6 +1700,16 @@ export default function ChatPage() {
         style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
       >
         <View className="nav-left" onClick={openModelDrawer} hoverClass="opacity-60">
+          {/* 对齐 RN ChatScreen modelBar 的「{模型}: {当前模型}」:选择器此前没有字段名,只有值 */}
+          <Text
+            style={{
+              fontSize: '22rpx',
+              color: 'var(--color-muted-foreground)',
+              marginRight: '8rpx',
+            }}
+          >
+            {t('chat.modelLabel')}:
+          </Text>
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
           <LineIcon
             name="chevron-down"
@@ -1677,6 +1718,12 @@ export default function ChatPage() {
             className="nav-arrow"
           />
         </View>
+        {/* 顶栏标题位(共享屏 header 第一行是产品名,本端此前整块缺失):
+            与共享屏同一视觉层级——标题居左组与入口组之间、弱化字号。
+            取共享屏同一个键,端内不再自立标题文案。 */}
+        <Text className="min-w-0 flex-1 truncate px-[8rpx] text-center text-[length:28rpx] font-semibold text-foreground">
+          {t('chat.title')}
+        </Text>
         <View className="nav-right">
           {agent ? (
             <Text className="nav-agent" onClick={() => setAgentDrawerVisible(true)}>
@@ -1937,11 +1984,13 @@ export default function ChatPage() {
             <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
             <View className="bubble">
               <Text className="bubble-text">{t('ai.generating')}</Text>
+              {/* 流式占位文案:共享屏气泡在「最后一条 AI 消息还没内容」时显示的就是这一句,
+                  端内此前挂的是端自造的同义键,现改取共享屏同一个键 */}
               <Text
                 className="bubble-text"
                 style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}
               >
-                {t('ai.thinking')}
+                {t('chat.thinking')}
               </Text>
               {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
               <View

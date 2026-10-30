@@ -30,6 +30,9 @@ import { z as zod } from 'zod'
 
 // D120:注入来源 kind 闭集只在本包 constants 声明一份,此处只取类型(§0.6 单一真相源)
 import type { InjectionKind } from '../constants/injection-kinds'
+// 差距①(2026-10-30 立):admission 帧的载荷形状**直接复用** chat/send-admission.ts 的
+// SendAdmissionReceipt(单一真相源,本文件不重抄字段,防双份定义漂移)。
+import type { SendAdmissionReceipt } from '../chat/send-admission'
 
 /** SSE 事件名常量(单一事实源)。值即实际 wire 上的事件判别名。 */
 export const SSE_EVENTS = {
@@ -122,6 +125,13 @@ export const SSE_EVENTS = {
   // 本帧是"某个用户配置的 hook 动作没跑成"—— 回答通常完好。合并 = 把"我的 lint hook
   // 挂了"呈现成"这条回答失败了"。必须与 apps/ai-service/app/core/sse_contract.py 同步。
   HOOK_FAILED: 'hook-failed',
+  // 差距①(2026-10-30 立):发送准入回执帧。生产点 = ai-service 主对话流**流首**
+  // (完成准入判定后、首个内容帧之前,回显客户端上行的 inputId 与 disposition);
+  // 载荷形状唯一真相源 = `packages/shared/src/chat/send-admission.ts` 的
+  // `SendAdmissionReceipt`(判别联合成员直接复用,不重抄字段)。事件名字面量与该文件
+  // 的 `SSE_ADMISSION_EVENT` 同值,由 `__tests__/contract.test.ts` 对账。
+  // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  ADMISSION: 'admission',
 } as const
 
 /**
@@ -826,6 +836,12 @@ export type SSEEventPayload =
       /** 审查对象描述(如 `uncommitted` / `branch:main` / `commit:abc1234`),可缺省 */
       target?: string
     }>
+  // 差距①(2026-10-30 立):发送准入回执。字段**直接 intersect `chat/send-admission.ts`
+  // 的 `SendAdmissionReceipt`**(单一真相源,不重抄形状 —— 防双份定义漂移是本成员的存在理由):
+  // 必需 `inputId`(客户端生成、服务端逐字回显)+ `disposition`(四档
+  // accepted/queued/rejected/duplicate);可选 `messageId`/`queuedTurnId`/`reason`
+  // 缺席读作"服务端没说明",不得据此编造。解析纪律见该文件头注三条。
+  | SSEEventWithMeta<{ type: 'admission' } & SendAdmissionReceipt>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */
 export const SSE_EVENT_NAMES: readonly SSEEventName[] = Object.values(SSE_EVENTS)

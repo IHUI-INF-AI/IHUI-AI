@@ -31,6 +31,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import ts from 'typescript'
 
 import { catBatch } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { __test__ as tok93 } from './check-cross-end-tokens.mjs'
 import { __test__ as syncTok } from './sync-rn-tokens.mjs'
 
@@ -403,8 +404,16 @@ function main() {
   // 为什么必须有这一档:共享工作树里那 22 枚文件可能正挂着别席未提交改动,拿盘上字节交就是替人提交(§12);
   // 而 HEAD 面改写既证得等价,又不读别人的现场 —— 盘上那份由自愈层随后对齐。
   if (argv.includes('--emit-blobs')) {
-    const at = argv.indexOf('--emit-blobs')
-    const out = String(argv[at + 1] ?? '').trim()
+    // G-322 第二十一批:落点型旗标接 `lib/flag-value.mjs` 单源。旧写法只查"非空" ⇒ `--emit-blobs --json`
+    // 把 `--json` 当文件名收下,而落点是 `writeFileSync(join(ROOT, out))` —— **仓根**:往仓库根写出一个
+    // 名为 "--json" 的文件还照打"blob:… → --json"(§28 根目录整洁铁律被吞值动作破坏,产物位置与调用方
+    // 要的不是同一个)。判死排在任何 writeFileSync 之前;`--emit-blobs` 的合法正例面实测过(出件 2 枚 rc=0)。
+    const emitFlag = requireFlagValue(argv, '--emit-blobs', { noun: '输出文件路径' })
+    if (emitFlag.error) {
+      console.error(`❌ ${emitFlag.error} ⇒ 未判定(落点型旗标:不得把被吞的旗标当输出文件名)`)
+      return 2
+    }
+    const out = String(emitFlag.value ?? '').trim()
     if (!out) {
       console.log('❌ 未判定:--emit-blobs 需要跟一个输出文件路径')
       return 2

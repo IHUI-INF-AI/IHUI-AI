@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 const DURATIONS = ['5', '10'] as const
 const RATIOS = ['1280:720', '720:1280', '1104:832', '832:1104'] as const
@@ -203,7 +204,12 @@ export function VideoGenRunway() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border">
+              <video
+                key={url}
+                src={toMediaStreamUrl(url)}
+                controls
+                className="w-full rounded-md border"
+              >
                 <track kind="captions" />
               </video>
             ))}

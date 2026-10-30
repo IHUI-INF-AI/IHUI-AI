@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 interface ImageViewerProps {
   src: string
@@ -181,7 +183,7 @@ export function ImageViewer({
             <Image
               // 纪律②:按资源重建节点 —— 换图即换节点,旧资源的迟到事件不命中新图处理器
               key={currentSrc}
-              src={currentSrc}
+              src={toMediaImageUrl(currentSrc)}
               alt={alt}
               width={1200}
               height={800}
@@ -247,7 +249,7 @@ export function ImageViewer({
               {effectiveStatus === 'loading' && loadingOverlay}
               <Image
                 key={currentSrc}
-                src={currentSrc}
+                src={toMediaImageUrl(currentSrc)}
                 alt={alt}
                 width={1200}
                 height={800}

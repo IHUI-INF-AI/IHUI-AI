@@ -7,6 +7,9 @@
 import * as React from 'react'
 import { Film, ImageIcon, Mic, Music, PlayCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+// 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src;
+// 外部 http(s) 音视频经 /api/media/stream(CSP media-src 为 'self' blob:,无 https: 通配)
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 
 /**
  * 媒体任务共享类型与展示辅助(P3 #31 全局任务看板,2026-09-16 立)。
@@ -146,7 +149,7 @@ export function MediaResultPreview({ task }: { task: MediaTask }) {
     return (
       <video
         controls
-        src={urls.video_url}
+        src={toMediaStreamUrl(urls.video_url)}
         preload="metadata"
         className="w-full max-w-md rounded-md border border-border"
       >
@@ -156,7 +159,12 @@ export function MediaResultPreview({ task }: { task: MediaTask }) {
   }
   if (urls.audio_url) {
     return (
-      <audio controls src={urls.audio_url} preload="metadata" className="w-full max-w-md">
+      <audio
+        controls
+        src={toMediaStreamUrl(urls.audio_url)}
+        preload="metadata"
+        className="w-full max-w-md"
+      >
         <track kind="captions" />
       </audio>
     )
@@ -165,7 +173,7 @@ export function MediaResultPreview({ task }: { task: MediaTask }) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- 动态远程图片降级用 img
       <img
-        src={urls.image_url}
+        src={toMediaImageUrl(urls.image_url)}
         alt={task.message || 'media'}
         className="w-full max-w-md rounded-md border border-border"
       />

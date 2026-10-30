@@ -67,6 +67,8 @@ import { dirname, extname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskCommentsAndStrings, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+// 带值旗标取值的唯一出口(G-322):`--root` 的"给了旗标就必须有值"判据不在此重写。
+import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   Undetermined,
   assertRepoRoot,
@@ -655,16 +657,14 @@ function selfTest() {
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const strict = argv.includes('--strict')
-  const f = argv.indexOf('--root')
-  let root = ROOT
-  if (f >= 0) {
-    const token = argv[f + 1]
-    if (typeof token !== 'string' || token === '' || token.startsWith('-')) {
-      console.error(`❌ 无法判定(exit 2): --root 没收到有效目录 —— 紧邻 token 实得:${token === undefined ? '(其后没有任何参数)' : JSON.stringify(token)}`)
-      return 2
-    }
-    root = resolve(token)
+  // G-322:`--root` 的三态判据(收尾无值 / 空串 / 被下一枚旗标顶值)归单源出口,本文件不再写副本
+  // (§22c:同类判据两份实现必然漂移)。语义与原手写副本逐字同形:三种坏值一律未判定、绝不回落默认根。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定(exit 2): ${rootFlag.error}`)
+    return 2
   }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),

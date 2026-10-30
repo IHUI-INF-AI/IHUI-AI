@@ -173,3 +173,470 @@
 压缩 R4 漏点名补记 ②(短版/长版)时曾连带丢掉两条**现行规则**,已按原文逐字**原位恢复**到 AGENTS.md,此处留痕:
 1. **退役口径**:任一枚退役须连同本行点名与 `package.json`/`git-guardian` 的同名调用点一并摘除,否则 `pnpm check:*` 变成跑不通的出路(§8)。
 2. 构建链(devOnly)存量只报数一条不拦(§12e)——恢复在 ⑪ check-prod-dep-advisories 条内。
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# AGENTS.md trim 2026-10-30 — 守门 207 体积清偿批(逐字留痕,删副本不删证据)
+
+> 本批由席位 g35-s10 执行。摘除前 AGENTS.md 体积 = 95875 字节(工作树面实测,预算 96000);摘除后 = 89030 字节。
+> 族内一律保留信息更全的现行版:§0–§29 规则条款一条未减;被移走的只有文末重复登记副本、
+> 失效原文残留(旧翻勾形态、"这两型现无门"、hooksPath 停摆现场)与超长守门登记里的取证叙述。
+> 本件全部内容由脚本从当轮 AGENTS.md **逐字切片**得到,非人工转写;每块在位判据 = 对原行
+> grep -F 整行命中。门名集合前后差集为空(守门 89 R4 义务面不缩小)。
+> 归档件不得再被文本级批量改写(§5c),也不得跑 `watermark.mjs clean`。
+## §A 文末重复登记副本 / 失效原文(整行删除,原行逐字)
+
+### 原行 30(160 字节;失效原文残留(翻勾形态已被「完成即整行删除」取代;其余分句与下一行逐字重复))
+
+- 完成翻勾 `[ ]` → `[x] ✅(日期)`;新增任务追加到对应优先级(P0/P1/P2)末尾;commit message 用 `feat/fix/docs/chore/test/refactor` 前缀。
+
+### 原行 254(158 字节;失效原文残留(自称"这两型现无门",现行面 = 同节「已由守门 133 判(blocking,已装车)」那条))
+
+- parity 绿 ≠ 语种对:批量落 i18n 后必须逐语种量 CJK 三族互判 + 扫同名自套一层(`{"x":{"x":…}}`),这两型现无门,人工必查。
+
+## §B 超长守门登记的取证叙述(行内整段摘除,摘出段逐字)
+
+### 原行 10(550 字节 → 477 字节;归档件出处登记(HEAD sha + 字节数)属取证流水)
+
+原行整行逐字:
+
+> **本文件为 2026-10-14 压缩版**:规则条款全部保留;历史叙述、失效原文残留、重复登记副本与超长守门登记整区逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`(出处 HEAD `c7834a8f0388aa006ca746cb1cc4a3006336c23d`,1,261,607 字节)。本文与归档原文冲突时以本文为准;本文未写的历史案例按归档件查。另见 `.ihui-agent/archive/AGENTS_history.md`。2026-10-21 二次压缩:压缩前原文逐字归档于 `.ihui-agent/archive/AGENTS-pre-compress-2026-10-21.md`。
+
+摘出段:
+
+- (出处 HEAD `c7834a8f0388aa006ca746cb1cc4a3006336c23d`,1,261,607 字节)
+
+### 原行 32(1961 字节 → 1563 字节;认领即租约条内的实测数字与代摘依据叙述)
+
+原行整行逐字:
+
+
+摘出段:
+
+- guardian 每 30 分钟派发;
+- (依据不是口头状态,而是同批的 CL4:新增已在提交链被拦住,而器物只读 HEAD 面 ⇒ 别人刚写下还没提交的牌进不了射程)
+- (实测注记最长 52 字)
+- (实测一轮 64 枚只剩 6 枚)
+- ;两把尺子曾各自读出 31 与 59,差值同时是"真牌隐身⇒两席领同一张票"和"叙述锁死真票⇒派单面虚低"两个方向的失真
+
+### 原行 36(790 字节 → 621 字节;fold-identical 条的立项票号与机器成因叙述)
+
+原行整行逐字:
+
+- **未带指针而整行逐字节相同的未勾登记行,唯一合法摘除通道 = `node scripts/plan-tasks-merge.mjs --fold-identical-open-rows [--commit]`**(2026-10-16 立,承台账票「台账"同一件事的多份逐字相同待办"没有任何一条合法摘除通道」方向①):同文两份在派单清单里是两行 ⇒ 两个会话各领同一张票,这就是"打架重复做"的机器成因;该档把多重集折到 1,**不加任何注记**(机主 2026-10-13 明令),断言为「claimable 一枚不动 ∧ F4+F4b 副本计数恰好减去删除份数 ∧ 注记枚数不增」,任一不过即整批不落。同题不同号而正文已漂开的副本**不归它**(机器折半即有损,交人工),带指针的那一族仍走 `--dedupe-open-rows`;两面旗同给当场 exit 2。
+
+摘出段:
+
+- (2026-10-16 立,承台账票「台账"同一件事的多份逐字相同待办"没有任何一条合法摘除通道」方向①)
+- 这就是"打架重复做"的机器成因;
+
+### 原行 37(1289 字节 → 1197 字节;侧车条的结清票号与守卫实现名)
+
+原行整行逐字:
+
+- **新登记必须有交代**:一条 `- [ ]` 要么带租约、要么写明在等什么、要么带新鲜日期;三样皆无 = 无交代,提交链差值棘轮只拦本次带进来的(守门 130 F7/F8)。 **结构化侧车记录是第四种交代(2026-10-22 立,P1)**:侧车 = `scripts/data/plan-fields.jsonl`(键 = 编号 + 标题前缀逐字),写它只有 `node scripts/plan-fields-extract.mjs --apply` 一条出口(只搬说辞、一个台账行都不改;抽取前后每行归属桶零变化才放行,任一漂移整批不落);**归属改判**另有同源的声明式出口 `node scripts/plan-fields-reclassify.mjs --decl <json> [--apply]`(票 O68 结清批;禁桶守卫与 `--apply` 落在同一条 `applyReclassify` 判据里 ⇒ 改判同样不许手改 jsonl,也不许借它绕 F11/F12);行内 `〔归:…｜等:…〕` 标头是**投影**、人不手写,渲染与对账的唯一实现 = `scripts/lib/plan-field-line.mjs`,机读判据 = `scripts/check-plan-fields.mjs`(blocking,档位只挂差值维:仅本次新增未勾行缺侧车 / 标头≠投影才红,存量缺侧车只报数不拦提交,§12e)。整行改写必须过的三维守恒(勾选态 ∧ 认领租约 ∧ 归属桶)实现位置 = `scripts/lib/plan-row-conservation.mjs`,调用方 import 它,不接受口头保证。
+
+摘出段:
+
+- 票 O68 结清批;禁桶守卫与 `--apply` 落在同一条 `applyReclassify` 判据里 ⇒ 
+
+### 原行 39(1615 字节 → 1083 字节;「重复登记副本」条的三条通道回潮实测流水)
+
+原行整行逐字:
+
+
+摘出段:
+
+- ——对象空间 CAS 不跑 post-commit ⇒ 自动推送腿不触发 ⇒ origin 仍持有被删行,故
+- (2026-10-14 实测 11:48 清偿 350 → 13:45 带回 1699)
+- (`foldTwins` 排除带注记行,而清偿正在剥注记 ⇒ "重复第一次被看见"读成"本轮造出重复"、整批拒落)
+- (实测 21:42 本侧 0 → 21:44 合并带回 9)
+-  〔2026-10-15 摘除 2 份并发带回的旧副本,被摘行逐字进 `.ihui-agent/archive/AGENTS_dedup-removed-2026-10-15.md`(照本仓 AGENTS_dedup-removed-* 惯例:删副本不删证据)〕
+
+### 原行 42(976 字节 → 928 字节;节拍下调注记(理由见同区 L43/L44,已并入归档))
+
+原行整行逐字:
+
+- **完成即删要有器物(2026-10-20 立,2026-10-21 补 H4)**:① 门 229(`check-plan-closed-stock.mjs`,blocking,stagedTriggers=PROJECT_PLAN.md):S1 拦「跨枚滞留」= 被审面某已勾登记行的**复合主键在父提交面也是已勾** ⇒ 红;刚翻勾那一枚不拦(守门 71 头注 (c) 要的 closed 配平凭据);S2 全量档只报数。② 兜底清扫器 `strip-stale-closed-rows.mjs`(判据 import 门 229)走 `object-space-land` 摘滞留行并自带推送腿;H1 未勾行逐字节同序 / H2 行数差==清扫数 / H3 摘后滞留集==本轮跳过集(基线 HEAD^)/ H4 摘前先借门 71 的 historyMarkers+missingFrom 问"摘了会不会被按未勾还原",仍保护的一律跳过并点名;结论 `SWEEP-RESULT state=clean|stripped|all-held|refused|undetermined`,all-held 落 exit 3;`--apply` 由 guardian 每 **5 分钟**派发(2026-10-23 由 30 分钟下调,理由见下条),单批 ≤400 条;应急 `HUSKY_SKIP_PLAN_CLOSED_STOCK=1` + `..._REASON`。
+
+摘出段:
+
+- (2026-10-23 由 30 分钟下调,理由见下条)
+
+### 原行 43(1557 字节 → 776 字节;护栏③ 收窄条的立因实测段)
+
+原行整行逐字:
+
+
+摘出段:
+
+- 之所以"脏"本来就不构成让路条件:取材面是 `git show HEAD:PROJECT_PLAN.md`、落地走 `object-space-land`(blob 档 + CAS + 行级复活守卫,旧形态行逐字进 `LAND_CLASH_SCOPE.removed`)、工作树滞后带来的回潮由 `scrub-declared-removals` 与 `union-converge` 的 `declaredDropCaps` 两条通道兜 —— **脏的是别人的副本,不是判据面**。
+- 留痕最后一条停在 2026-10-22 07:45,而派发节流台账显示此后每 30 分钟仍在跑,45 枚超龄牌一枚未摘。
+- (实测 45 枚里 4 枚在飞 ⇒ 摘 41、让路 4;原护栏会把 41 枚一起按住)
+- **2026-10-23 实测**:待摘 45 → 4(剩的正是被别席改写那几枚),摘后借门 71 同一把尺子问"会不会被按未勾还原"点名 **0 ⇒ 0**,该族不会被回捞。
+
+### 原行 44(2220 字节 → 979 字节;「摘了又回来」条的根因流水与实测时刻 / 留痕字段清单复述)
+
+原行整行逐字:
+
+
+摘出段:
+
+- 此前清扫器摘得掉、存量却永远归不了零(实测 03:04 清扫一轮、03:27 已勾行仍 40 条),根因是这套器物**只造了一半**——清扫器 `strip-stale-closed-rows.mjs` 摘完落地却**一行留痕都不写**,于是两条回潮防线同时瞎:`scrub-declared-removals` 的 `declaredRows` 认不出这批行(它只认台账里的整行原文)、`union-converge` 的活文档行 union 只认"对侧相对基底新增" ⇒ 对侧旧基线里那份被当成别人的独有行原样补回 ⇒ 摘一次、回一次。
+- (实测 CAS 成功推进 HEAD 而落地器因回读未判定返 exit 2,按退出码跳过留痕就成"无凭据摘除")
+- :30 分钟那档跟不上结清提交的速度(03:12/03:14/03:20/03:25 各一枚),而无滞留时清扫器零落地零推送,压到 5 分钟不会刷爆共享仓
+- (9 例:留痕逐字/空集不落盘/留痕必须在落地之后/union 三条判据/两处 import 不许被删)
+- 产出面 `unionLines` 与自证面 `verifyUnion` 共用这一张表,故只在这一处接,与 `yieldedIdCaps`(让号形态)合起来才堵满"本侧处置权已行使"这一整格。
+- 与 `strip-stale-claim-marks` 的 `stale-claim-strip.jsonl` 对等;
+- (字段 at/seat/file/kind=stale-closed-sweep/commit/baseline)
+
+### 原行 45(715 字节 → 677 字节;复洁器物条的实测事故括注)
+
+原行整行逐字:
+
+- **结清行的复洁器物(2026-10-22 立)**:`auto-commit-quiet.mjs` 收编滞后的工作树副本时,会把"已按台账正当摘除的登记行"当成新增带回(实测四枚已结清票整批复活),因为归并档只判不丢行/不重复,判不出"这行已被摘过"。出口 `scripts/scrub-declared-removals.mjs`(由收编器在归并达标后调用,不进提交链)按摘除台账 `.ihui-agent/state/plan-row-drop.jsonl` + `.ihui-agent/state/stale-claim-strip.jsonl` 逐行剔除,三条件同时成立才动:整行逐字在台账 ∧ 当下 HEAD 面已无此行 ∧ 登记行形;任一不成立或取不到输入一律不剔(exit 2 未判定)。镜像 `scripts/tests/scrub-declared-removals.test.mjs`。
+
+摘出段:
+
+- (实测四枚已结清票整批复活)
+
+### 原行 47(794 字节 → 515 字节;自动档写活文档条的 161 枚长行事故实测段)
+
+原行整行逐字:
+
+- **自动档写活文档的硬规矩**:底稿一律取被审面(`git show HEAD:<文档>` / `scripts/lib/face-reader.mjs`),落盘走对象空间(临时索引 + `commit-tree` + CAS,不写工作树);落地前自证"父提交里每条 `[x]` 复合主键本次仍为 `[x]`",不成立拒绝落地(实测 18 行翻勾被退回的事故即此型)。**改写整行时还必须断言 `dispositionOf`(归他人/等条件/等拍板/可做)、`claimMarkOf`(租约)、`keyOfRow`(主键) 三维逐行不变,任一变了就整行还原**(2026-10-22 实测:把 161 枚 >400 字长行按本节压到 ≤400,切掉了中段的"归属:…"句子 ⇒ 派单口径 48→100,52 枚别人持有的票变成可领的票;门 71/109/130/203/229/234 当时全绿也照样错——账面要现读,不能只看守门 RC)。
+
+摘出段:
+
+- (实测 18 行翻勾被退回的事故即此型)
+- (2026-10-22 实测:把 161 枚 >400 字长行按本节压到 ≤400,切掉了中段的"归属:…"句子 ⇒ 派单口径 48→100,52 枚别人持有的票变成可领的票;门 71/109/130/203/229/234 当时全绿也照样错——
+
+### 原行 119(629 字节 → 612 字节;守护日志的健康态括注)
+
+原行整行逐字:
+
+- **结构与守护**:活 gitdir 形态按当次实测(本机 = 工作区内 `.git` 实体目录;`D:/IHUI-AI-git-repo` 与 `D:/IHUI-AI.git-backup-20260912` 是另一形态的遗留,禁止删除/清理)。守护 = `git-guardian.mjs`(daemon + 计划任务 `IHUI-AI git-guardian` 每 2 分钟),分层自愈 `指针→环境→HEAD→嵌套 ref→本地备份→远端`,破坏性覆盖前先归档到 `gitArchiveDir()`(现 `D:\DevEnv\backups\git\`),**手工抢修也不得把 `.git*` 归档 mv 到工作区根**。诊断:`node scripts/git-guardian.mjs --status|--check`;日志 `.ihui-agent/state/git-guardian.log`(健康不写行)。
+
+摘出段:
+
+- (健康不写行)
+
+### 原行 121(675 字节 → 578 字节;删除意图账的立项与实测枚数)
+
+原行整行逐字:
+
+- **worktree/索引自愈**(`heal-worktree-tracked.mjs`,挂 guardian tick):①恢复被外部删除的跟踪文件(索引==HEAD ∧ HEAD 存在)——**先问删除意图账**:该路径最新一条留痕若仍是 `report-only`(摘标未超 TTL,默认 2h,`IHUI_STAGED_INTENT_TTL_HOURS`)则只报数不代裁;超 TTL 而归属会话已不在 ⇒ 回盘并把逐字路径清单写回同一本账(2026-10-23 立,治"护栏天天让路⇒整仓长期验不动",实测曾十小时内 9→46 枚);②对齐幻影漂移(索引==HEAD ∧ 工作区==某祖先版本);③刷新落后索引(逐路径 update-index,绝不全局 reset);**MERGE_HEAD 在 ⇒ 各写索引层整轮让路**。
+
+摘出段:
+
+- (2026-10-23 立,治"护栏天天让路⇒整仓长期验不动",实测曾十小时内 9→46 枚)
+
+### 原行 122(902 字节 → 700 字节;④落地欠回写层的 19339 行事故与停部署叙述)
+
+原行整行逐字:
+
+- **④落地欠回写层(2026-10-14 立,`alignLandingDebtIndex`,同挂 `--align-drift`)**:`ALIGN_EXEMPT_PATHS` 把活文档从 ①②③ 整体绕行是**对的**(2026-10-12 那次"刷新索引 + 回写工作树"两层接力吃掉 19339 行台账),但旁路落地(`union-converge --apply` 用 commit-tree+CAS 只推进 HEAD)留下的那条**脏索引**从此无人负责——一次不带 pathspec 的提交会把合并成果写回旧态,而 `git merge --ff-only` 被它挡下 ⇒ 停部署。本层**只写索引、绝不写工作树**,判据 = 索引 blob 逐字节等于某枚 `bypass-landing` 留痕自述的前像(∧ 该枚 `landedSha` 是 HEAD 祖先 ∧ 工作区==索引);证明不了的一律 `held`/`undetermined` 逐条点名(§0.3),守护日志必打印。取证:`scripts/tests/heal-worktree-tracked.test.mjs` T9–T17(含形状锁"函数体内不得出现任何写工作树的动作")。
+
+摘出段:
+
+- (2026-10-12 那次"刷新索引 + 回写工作树"两层接力吃掉 19339 行台账)
+- 一次不带 pathspec 的提交会把合并成果写回旧态,而 `git merge --ff-only` 被它挡下 ⇒ 停部署。
+
+### 原行 124(368 字节 → 336 字节;conhost 委托键的现状括注)
+
+原行整行逐字:
+
+- **派生进程纪律**:`spawn/exec` 一律 `windowsHide: true`(机器级默认钩子 `install-console-window-hook.mjs --apply`,换机必跑;不得因钩子省略逐点参数);**派生 git 必须显式 stdio**(§12g);`NODE_OPTIONS` 钩子文件必须 `.mjs` 且放仓库外。禁弹窗排查先查 `HKCU\Console\%%Startup` 委托键(已固定 conhost,禁改回 WT)。
+
+摘出段:
+
+- (已固定 conhost,禁改回 WT)
+
+### 原行 132(1094 字节 → 807 字节;上游工具生成物条的 tauri 典型现场段 / 覆盖面接线点的同层解释括注)
+
+原行整行逐字:
+
+- **上游工具生成物不进水印覆盖面**(唯一出口 `scripts/data/watermark-tool-generated.json` + 判据 `scripts/lib/tool-generated-roots.mjs`,2026-10-16 立):免的是"必须带载荷"这一项,**不免前提** —— 三条缺一不生效:① 路径落在登记 root 前缀内(逐字节比);② 该文件在**被审面**上自述为工具产物(命中 markerRegex);③ `expires` 未到期。不自述 ⇒ 回到覆盖面按缺载荷判红;台账形状坏 ⇒ 水印层拒绝判定(既不冒绿也不冒红,与第三方台账同一条判序)。接线点在 `watermark.mjs` 的 `scanCoverage` 且**必须在 total++ 之前**(与第三方 excluded 同层,否则覆盖率会被读成暴跌),`list-uncovered` / `check-watermark-coverage` / CI 那一步自动继承。这一档不是行内豁免族,**不进守门 108 的族表**,存活期逐条写在台账里。典型现场:`apps/desktop/src-tauri/permissions/autogenerated/*.toml` 共 89 枚由 tauri 的 Rust build script 每枚重建,inject 进去的载荷会被下一次构建洗掉 —— 按现状判红就是恒红门(§12e)。
+
+摘出段:
+
+- 典型现场:`apps/desktop/src-tauri/permissions/autogenerated/*.toml` 共 89 枚由 tauri 的 Rust build script 每枚重建,inject 进去的载荷会被下一次构建洗掉 —— 按现状判红就是恒红门(§12e)。
+- (与第三方 excluded 同层,否则覆盖率会被读成暴跌)
+
+### 原行 145(1130 字节 → 743 字节;发信量条的 28 封盲区立因流水)
+
+原行整行逐字:
+
+
+摘出段:
+
+- 立因是当天现读的一个**盲区**而不是噪声:该工具判据写死"ASCII 关键字 + 时间戳,中文一律不解码",而 git-guardian 的人到留痕是中文散文行 ⇒ 那天寄出 28 封(其中 18 封是同一场停摆),它账面上 `MAIL=0 封 / 0 个签名` —— **风暴判据结构上打不到最大的发信面,"一直在报警"这件事本身没人看得见**。
+
+### 原行 147(579 字节 → 492 字节;出口台账边界②的 CI checkout 细节)
+
+原行整行逐字:
+
+- **出口台账三条实测边界(2026-10-19)**:① 行身份 = `schema 2` 的 `source + alertId + subject`;未给 `--alert-id` 的调用退到"折过数字的标题"分桶,git-guardian 已传真身份(`buildGuardMailArgv` 的 `--alert-id`)。② CI 寄的信在本机无账(它在自己 checkout 的 `.ihui-agent/state/` 下写行,临时 runner 随 run 销毁)。③ 人读档"去重压住 N 轮"只算**出口** `--alert-id` 窗口压住的轮数,各生产者自压的轮次走不到出口。三处边界登记在 `scripts/data/alert-mail-faces.json` 的 `note`/`gapReason`。
+
+摘出段:
+
+- (它在自己 checkout 的 `.ihui-agent/state/` 下写行,临时 runner 随 run 销毁)
+
+### 原行 151(1162 字节 → 888 字节;MSVC 注入条的 link.exe 报错现场与例数)
+
+原行整行逐字:
+
+- **Rust/MSVC 构建环境注入(2026-10-19 立)**:本机 `C:\Program Files\Git\usr\bin` 在系统 PATH 内且带 GNU `link.exe`,而 `apps/desktop/src-tauri/.cargo/config.toml` 的 `linker = "link.exe"` 按 PATH 解析 ⇒ 未加载 MSVC 的 shell 报 `link: missing operand after '\377\376'`,报错不提工具链。唯一真相源 `scripts/lib/msvc-env.mjs`(纯判据零 IO;`vswhere` 返回 `[]` 时用已知安装位兜底;PATH 键大小写不敏感;剔 `<Git>\usr\bin` 并前插 MSVC bin),入口薄壳 `scripts/desktop-build.mjs`(`--debug`/`--dev`/`--no-artifact-check`/`-- <透传>`);取不到工具链 ⇒ 显式「未判定」exit 2,绝不回落裸 env。已接线:`apps/desktop/package.json` 的 `build`/`build:debug`/`dev`/`dev:cdp`、`desktop-build-saas.mjs`、`desktop-dev-saas.mjs`、`release-desktop-local.mjs`;裸 `tauri build`/`tauri dev`/`cargo build` 不注入。**平台闸**:注入只对 win32 成立,macOS/Linux 用 clang/cc;判据单源 `needsMsvcInjection`,三个调用点都要问它(闸必须排在 planBuildEnv 之前);禁反向断言"文件里不许出现 `platform==='win32'`"。取证 `scripts/tests/desktop-build.test.mjs`(38 例)。
+
+摘出段:
+
+- 本机 `C:\Program Files\Git\usr\bin` 在系统 PATH 内且带 GNU `link.exe`,而 `apps/desktop/src-tauri/.cargo/config.toml` 的 `linker = "link.exe"` 按 PATH 解析 ⇒ 未加载 MSVC 的 shell 报 `link: missing operand after '\377\376'`,报错不提工具链。
+- (38 例)
+
+### 原行 154(659 字节 → 622 字节;ninja 备份件登记)
+
+原行整行逐字:
+
+- **Android 原生构建 MAX_PATH(2026-10-21 立)**:`react-native-worklets` 的 CMake 报 `build.ninja still dirty after 100 tries` 或 `mkdir(... .pnpm/react-native-worklets@0.11._…): No such file or directory`,是 Windows 260 字符路径上限,不是缓存脏:`LongPathsEnabled=1` 已开而 SDK 自带的 ninja 1.10.2 不认长路径。修法 = 换 ninja 1.12.1 覆盖 `Sdk/cmake/3.22.1/bin/ninja.exe`(原版备份 `ninja-1.10.2.exe.bak`);`CMAKE_SUPPRESS_REGENERATION=ON` 只消 dirty 循环,`CMAKE_OBJECT_PATH_MAX` 无效。模拟器 debug 包连 Metro 走 `10.0.2.2:8081`(本机 AVD 的 `adb reverse` 不通),且须先清模拟器全局 `http_proxy`。
+
+摘出段:
+
+- (原版备份 `ninja-1.10.2.exe.bak`)
+
+### 原行 159(1771 字节 → 1315 字节;ProxyCommand 条的误判提醒与旗标用法流水 / ssh 报错原文取证串)
+
+原行整行逐字:
+
+
+摘出段:
+
+- 本机 `D:/DevEnv/ihui-prod` 本来就不存在(那是远程机的目录),两件事叠在一起极易误判成网络故障/长期未连。
+- (2026-10-27 真跑命令验证正反例)
+- 静态检查默认只读,`--verify` 真连、`--self-test` 判据自检、`--json` 机读;
+- (判的是本机运行时配置,提交者结构上满足不了)
+- (当日同样踩过)
+- ,当日踩过一整轮
+- ,ssh 只报 `exec: C:WindowsSystem32WindowsPowerShellv1.0powershell.exe: not found`
+
+### 原行 192(652 字节 → 615 字节;单分支门的阳性对照括注)
+
+原行整行逐字:
+
+- 除 main 外禁止新建分支;普通功能/修复/重构/文档一律 main 直接 commit。豁免(逐条点名不静默):`/goal` 的 `goal/*` 临时分支(完成立即删)、48h 在飞窗口内的 PR 分支、linked worktree checkout 分支及其 origin 镜像、镜像远端与幻影引用、stale 远程跟踪引用(出路 `--refresh-remote`)、**`backup/` 与 `ihui-backup/` 引用永不判红**。已合并分支本会话内删净;删未合并分支前必须 tag 备份(§22)。日常 `git fetch origin --prune`。守门:`check-single-branch.mjs`(41,blocking;在飞窗口 `IHUI_SINGLE_BRANCH_GRACE_HOURS`,阳性对照 = 窗口设 0 全翻红)。
+
+摘出段:
+
+- ,阳性对照 = 窗口设 0 全翻红
+
+### 原行 215(219 字节 → 181 字节;撤装条的回收去向括注(现行面 = 上一条收尾五步))
+
+原行整行逐字:
+
+- 2026-10-21 撤装:自动回收器 reap-worktrees.mjs 与计划任务 IHUI-Worktree-Reap 已卸载(回收改由收尾五步人工执行);ensure-silent-tasks.mjs 的 ④ 回收链路监视段随之摘除,不得复活。
+
+摘出段:
+
+- (回收改由收尾五步人工执行)
+
+### 原行 229(1949 字节 → 883 字节;15c 嵌套 git 仓条的 52 个演练仓现场与 208⇄84 立项流水 / mkScratch 的工作区外复述)
+
+原行整行逐字:
+
+
+摘出段:
+
+- 2026-10-14 实测——测试夹具在仓库内 `git init` 且**无任何清理钩子**,中断即永久残留 52 个演练仓,IDE 源代码管理把嵌套仓当独立仓库扫描,聚合出「暂存的更改 10000+(全 D)」幻影计数,而主仓命令行面自始至终干净(机主一度无法判断自己有没有活没交)。
+- (§12d 规定的 worktree 检出落点,linked worktree 天然带 `.git` gitfile,判红就是逼所有人不开 worktree 的恒红门)
+- 立项凭据是 §15「临时件落 `.ihui-agent/tmp/`」与门 208 头注「worktree 落 `.worktrees/`」互相打脸,同一组路径 10-15→10-20 六轮登记→腐烂回潮;而照其第一条出路重登记必被门 84 判「行级复活」(208⇄84 互斥,票 O508)。
+- 定档出处:2026-10-20 现读全树 207,268 条目 / walk 1,274ms ⇒ 原 200,000 必被顶穿 = 恒 `truncated` = 恒红(§12e),已抬到 1,000,000,
+- (悬空 gitfile / 回指伪造 / 指向他仓 admin / worktree 内再长出 `git init` 夹具 —— 四种照旧红,镜像 ⑦ 钉死)
+- (§15b,工作区外 + 进程退出自动回收)
+
+### 原行 230(974 字节 → 806 字节;15d 与 15b 分工的散文解释 / 影子工具的预演语义括注)
+
+原行整行逐字:
+
+- **15d 盘根写入回归锁**(守门 213 `check-disk-root-write.mjs`,blocking,无 stagedTriggers=任何提交都跑):扫描仓库代码里“往磁盘根(D:/G:/C: 一级,即项目树与 DevEnv 之外)写文件/建目录”的模式,对**本次提交新增**的判红(差值棘轮,锚点 = 该文件 HEAD 自身 W1 数;存量只报数不判红,§12e 恒红门禁令)。与 15b 的**盘上**卫生 `check-disk-root-hygiene.mjs` 互补——那道守“盘上别留垃圾”,本门守“代码别再产新的”(把生产者堵在提交口)。收窄集 = literal 首段 ∈ `{IHUI-AI, DevEnv}`(§15b 批准落点,精确匹配非前缀)不立 W1;已知合法生产者走豁免台账 `scripts/data/disk-root-write-exemptions.json`(`{file, reason, ticket, until}`,到期回队列重裁)。配套影子工具 `scripts/quarantine-disk-root-strays.mjs`(只读预演“将会隔离什么”,未接自愈链)。应急放行 `HUSKY_SKIP_DISK_ROOT_WRITE=1 git commit ...`(不推荐)。
+
+摘出段:
+
+- 互补——那道守“盘上别留垃圾”,本门守“代码别再产新的”(把生产者堵在提交口)。
+- (只读预演“将会隔离什么”,未接自愈链)
+
+### 原行 236(492 字节 → 454 字节;16b 的机主令日期括注)
+
+原行整行逐字:
+
+- **16b 推送协议(2026-10-22 机主令,提速到极致)**:只说「推送」时**第一动作固定为 `git push origin main`**,禁止先预判冲突去跑 merge/converge/读工具源码;仅当 push 以 non-fast-forward 失败才进入收敛,且收敛最多一轮 fetch→converge→重生成派生件(README 数字 `gen-doc-numbers --markdown`、`ui-routes` 钉)→再 push。收敛产物(合并树上的生成文件)用普通 `git add` + `git commit`,不再叠 safe-commit/AGENT_SCOPE。
+
+摘出段:
+
+- (2026-10-22 机主令,提速到极致)
+
+### 原行 237(374 字节 → 143 字节;16c 的 hooksPath 停摆实测段)
+
+原行整行逐字:
+
+- **16c 钩子装载位对账**:`core.hooksPath` 必须指向真实存在的钩子目录且 `pre-commit`/`post-commit` 齐备(守门 226 H3)。2026-10-21 实测 `core.hooksPath=.git/no-hooks`(目录不存在)⇒ git 静默跑 **0 个钩子**,post-commit 自动推送/双备份停摆两天、本地积压 7 枚提交才在手工收敛时暴露(失效方向是安静,§12f)。
+
+摘出段:
+
+- 2026-10-21 实测 `core.hooksPath=.git/no-hooks`(目录不存在)⇒ git 静默跑 **0 个钩子**,post-commit 自动推送/双备份停摆两天、本地积压 7 枚提交才在手工收敛时暴露(失效方向是安静,§12f)。
+
+### 原行 316(594 字节 → 508 字节;D 盘根目录与桌面标识括注)
+
+原行整行逐字:
+
+- **所有开发工具全局缓存/临时目录必须指向 D 盘**(`D:\DevEnv\`,实测现值为准):`TEMP/TMP→D:\DevEnv\Temp`、`PNPM_HOME=D:\DevEnv\tools\pnpm`、npm/pip/uv cache、`GOPATH/GOMODCACHE/GOCACHE`、`PLAYWRIGHT_BROWSERS_PATH=D:\DevEnv\cache\playwright`;家目录工具态(`.cargo/.rustup/.m2/.cache/.codex/.trae*/.deepseek/.ollama/.ihui/com.ihui.desktop`(及 G-921 起独立标识的 `com.ihui.desktop.dev`)等)一律 junction 改道到 `D:\DevEnv\cache\userhome\`,**改道机制定为 junction 不 env 优先**(硬编码读取方靠旧路径可解析;换机/重装后重跑)。
+
+摘出段:
+
+- (`D:\DevEnv\`,实测现值为准)
+- (及 G-921 起独立标识的 `com.ihui.desktop.dev`)
+
+### 原行 387(537 字节 → 476 字节;F11 基线键集地板括注)
+
+原行整行逐字:
+
+- **待拍板条目一律禁止(2026-10-23 机主强制令,凌驾本仓一切"呈批等人"惯例)**:台账与计划文档里**不允许存在或新增**任何"待拍板/等人拍板/需拍板/待用户确认"的任务条目——存量逐条由 agent 深度分析后按最优推荐方案直接执行结清(决策与依据写进结清注记或 commit message);增量由守门 130 F11 差值棘轮当场判红拦截(基线 F11 键集地板 `[]` 兼看跳门塞 HEAD 那一型)。§24 的"暂停→确认"流程对本仓**不再适用**。
+
+摘出段:
+
+- (基线 F11 键集地板 `[]` 兼看跳门塞 HEAD 那一型)
+
+### 原行 392(477 字节 → 464 字节;61px 溢出实测数字)
+
+原行整行逐字:
+
+- 「一格一读数」格子的**读数必须整条单行**;放不下只能减列/减栏,禁折行、禁截断、禁缩字号。只补 `nowrap` 会把折行变成溢出压邻格(实测 61px),列宽下限与栏阈值须与它同批改(算式与量法见 `docs/UI_GUIDELINES.md` §13)。守门 `check-readout-no-break.mjs`(240,blocking,含"摘掉即翻红"成对夹具);像素够不够本门不判,另用只读尺 `verify-wallboard-readout.mjs --locale <五语言>` 逐格量。
+
+摘出段:
+
+- (实测 61px)
+
+### 原行 399(517 字节 → 527 字节;两通道反义的推导叙述 / 并入被删副本独有的规则 / 指针注记更新)
+
+原行整行逐字:
+
+- **R4 漏点名补记 ⑤(2026-10-27)**:`check-gate-triggers.mjs`(blocking,射程 `scripts/`,跳过 `HUSKY_SKIP_GATE_TRIGGERS=1`,id 现读):判「注册门没声明 `stagedTriggers` 射程」——同一份缺省在提交通道读成「任何提交都跑」、在落地通道被 `selectAffectedGates` 读成「永不复跑」,两通道反义 ⇒「落地后 N 臂全绿」可以是盲绿;差值棘轮锚点 = HEAD^(缺省判 HEAD 面不是索引),摘射程亦红;`land-gate-rerun.mjs` 同批补 `countUntriggered`。
+
+摘出段:
+
+- ——同一份缺省在提交通道读成「任何提交都跑」、在落地通道被 `selectAffectedGates` 读成「永不复跑」,两通道反义 ⇒「落地后 N 臂全绿」可以是盲绿;
+
+### 原行 401(459 字节 → 375 字节;旁路落地不跑钩子的立因括注)
+
+原行整行逐字:
+
+- **R4 漏点名补记 ⑥(2026-10-27)**:`check-ruff-python.mjs`(blocking,射程 `apps/ai-service/`,跳过 `HUSKY_SKIP_RUFF=1`,id 现读):Python lint 由「只挂 CI」接进提交链(旁路落地与 `chore(auto)` 收编不跑钩子,欠账能在 HEAD 面静默积累);判定面照门 35 同口径(`face-reader` 取材 + `scratch-dir` 物化),pin 唯一源 `apps/ai-service/pyproject.toml`;uvx 缺失/pin 坏/面取不到 ⇒ exit 2 未判定且优先于红。
+
+摘出段:
+
+- (旁路落地与 `chore(auto)` 收编不跑钩子,欠账能在 HEAD 面静默积累)
+
+### 原行 409(539 字节 → 501 字节;已被证伪的旧归因与未提交字节括注)
+
+原行整行逐字:
+
+- **跨端造页闭环腿(2026-10-26 立,巡检轮)**:`git-guardian.mjs` 的 `sweepCrossEndShellPages()` 把 `land-cross-end-shell-pages.mjs` 从「只能人工敲」变成定时自跑:blob = `git show HEAD:<file> ⊕ 本批行`(盘上未提交字节一字节不读),结论走 `--json` 的 summary;clean 即零写零推,blocked/pending 只写日志不喊人(§5e-1),取不到记未判定不记绿 ⇒ 不进提交链(§12e)。**容量上限**:单分包 2 MiB;判据 `scripts/lib/cross-end-subpackage-capacity.mjs`,门 110 **AB3** 兜底。
+
+摘出段:
+
+- (盘上未提交字节一字节不读)
+
+## §C 并入现行面的文字(被删副本独有的规则)
+
+### 并入原行 326(来源 = 被删原行 408)
+
+**根治@2026-10-29 实测**:嵌套 `pwsh -Command "…"` 的双引号会被外层(pwsh7)展开吃掉 `$变量`⇒ParserError;`-EncodedCommand` 的编码必须是 UTF-16LE base64。正解 = 点源 `C:/Users/Public/Documents/PowerShell/ihui-shell-fix.ps1`(纯 ASCII+BOM;pwshx 走 -EncodedCommand 零引号暴露、ihui-ps1 跑前自动补 BOM),真相源与三装载点登记见 `.ihui-agent/archive/AGENTS_powershell-shellfix-2026-10-29.md`。
+
+### 并入原行 46(来源 = 被删原行 411)
+
+、`check-cross-end-parity-drift.mjs`(跨端对齐漂移;唯一调度器 = git-guardian 的 `auditCrossEndParityDrift()` 60 分钟轮,倒退按维到人;镜像 `cross-end-parity-drift-dispatch.test.mjs`)。**另一格会写盘**:`repair-cross-end-mirror.mjs` 的调度器 = 同文件的 `healCrossEndMirror()` 30 分钟轮(只补登记表已有的声明缺口、他席在飞一律拒落、只留日志不喊人;镜像 `cross-end-mirror-heal-dispatch.test.mjs`)。
+
+### 并入原行 394(来源 = 被删原行 421)
+
+。被删详版(2026-10-30 批)独有的判据要点:`check-plan-truncated-rows.mjs` 识别逻辑单源 `check-plan-fragment-rows.mjs` + 基线 `scripts/check-plan-truncated-rows-baseline.json`(只判身份不在基线的命中);`check-analytics-page-coverage.mjs` 分母 = 仓内声明页面清单、分子 = visit_logs 去重 url,判据层 `scripts/lib/analytics-coverage.mjs`;
+
+### 并入原行 417(来源 = 被删原行 417)
+
+自证幂等;存量已清零 ⇒ 绝对零容忍。
+
+### 并入原行 398(来源 = 被删原行 0)
+
+判据全文与 2026-10-27 实证(门 193 缺射程那一笔往 `check-ps1-bom.mjs` 写进两处裸派生 git、落地器仍报 19 臂全绿)逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
+
+## §D 本批留存的指针注记改写
+
+- L400:`(2026-10-25/27/28 三批)` → `(2026-10-25/27/28/30 四批)`
+- L400:``AGENTS_trim-2026-10-28.md`;` → ``AGENTS_trim-2026-10-28.md`、`AGENTS_trim-2026-10-30.md`;`
+- L398:`射程」差值棘轮锚点` → `射程」;差值棘轮锚点`
+
+## §E 空行与逐字切片自证
+
+- 删除空行:
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+---
+
+# 第四轮(同日同席,收 union 回潮)
+
+> 主席/别席的落地与活文档行 union 在 07:5x–08:0x 之间两次推进 HEAD 并把我席剪除的行按行补回(实测 HEAD 从 5dcfa93b2 → 155462628f → 52a6f5ee6b,工作树面 110430 → 103294 → 96969 → 95875 → 89030 → 101460)。本轮只摘「同一面里同一件事的第二份」:每族的存活份已逐条点名,删除份原文逐字如下。
+
+### L401(§1 L32 同名条的尾部副本(union 带回),372 字节)
+
+```
+```
+
+### L403(§1 L43 同名条的尾部副本(union 带回),933 字节)
+
+```
+```
+
+### L404(§1 L44 同名条的尾部副本(union 带回),952 字节)
+
+```
+```
+
+### L395(同区 L397 压缩版的 verbose 副本,838 字节)
+
+```
+```
+
+### L376(README 已点名索引的重复登记(与门名索引条同族),195 字节)
+
+```
+- **常驻工具清单**(不在 runner、勿当没装车):同迁 `README.md` 同名节末段(两份历史清单已并集去重;原行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`)。
+```
+
+### L377(所点名门在 README 已点名 ⇒ AGENTS 重复登记,493 字节)
+
+```
+- **索引迁移漏点名补记**(守门 89 R4):`check-ai-task-background-reference.mjs`(247,ai-service 后台任务须走 spawn 唯一出口) `check-money-display-single-source.mjs`(248,分→元展示只许 `formatPrice` 一个出口) `check-registry-sync-health.mjs`(registry 目录同步「静默停更」哨兵,尺子判三态、派发挂 git-guardian 巡检轮;运维旋钮 `IHUI_REGISTRY_EGRESS_PROXY`,明细 `registry_sync_logs`)。三枚只在此点名,README 索引节尚未收录。
+```
+
+### L378(同上,509 字节)
+
+```
+- **生产签出外来工作只读尺子** `check-prod-checkout-foreign-work.mjs`(2026-10-21 立;镜像测试 `scripts/tests/check-prod-checkout-foreign-work.test.mjs`):生产签出工作区/索引 blob ↔ 该签出 HEAD 与 origin/main 两侧逐路径三态对账(duplicate/foreign/unjudged,`staged-untracked` 独立计数列,单列不并桶);判机器状态 ⇒ **不进提交链、不进 CI**(§12e),唯一调度器 = git-guardian 巡检双挂点;只读零写入;立因与两个实现坑见门体头注。
+```
+
+### L394(同上,346 字节)
+
+```
+- **239 计划归档单调性**:`check-plan-archive-monotonic.mjs`(blocking,跳过 `HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1`;HEAD 已归档 ✅ 的票不得复活成未勾活行/逐字孪生回插,自检 `--self-test` 8 例)。**公开 admin 默认口令对账**:`check-public-admin-default.mjs`(package.json 接线;判据与自检见门体头注)。
+```
+
+### L407(取证叙述,无 AGENTS 独家门名,962 字节)
+
+```
+```
+
+### L41(与 L46 同族,保留含两枚跨端尺子的那条单源面,564 字节)
+
+```
+```
+

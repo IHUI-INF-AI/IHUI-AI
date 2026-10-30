@@ -11,6 +11,8 @@ import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
@@ -74,7 +76,7 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
       {isImage && content ? (
         <div className="flex justify-center rounded-lg border p-3">
           <Image
-            src={content}
+            src={toMediaImageUrl(content)}
             alt={name}
             width={800}
             height={600}

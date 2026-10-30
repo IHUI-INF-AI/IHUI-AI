@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 裁决台账单源(§0.6):镜像数减少的唯一豁免凭据,判据不在此复算。
+import { readVerdicts } from './lib/cross-end-verdicts.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -108,7 +110,27 @@ function docNumbers(md) {
  *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
  * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
-function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
+/**
+ * 「上一轮快照之后」写下的 not-applicable 裁决条数 —— 镜像数减少的唯一合法解释。
+ * 基线时刻取不到 / 台账读不出 / 行内 at 解析不出 ⇒ 返回 0 ⇒ 照旧判红:
+ * 不拿"没读到"当豁免(§0.3),也不给"没证据的撤声明"开路(§0.7 豁免必须验过才免)。
+ */
+export function notApplicableSince(rows, sinceIso) {
+  // 台账 at 只有日精度(2026-10-30),而基线快照是当天凌晨的 ISO 时刻 —— 直接比瞬时会把**当天写的裁决**
+  // 判成"早于基线",于是撤假声明永远豁免不掉、哨兵天天报倒退。两边都归一到"日",同日算同期。
+  const dayOf = (v) => {
+    const t = Date.parse(String(v ?? '').trim())
+    return Number.isFinite(t) ? Math.floor(t / 86400000) : NaN
+  }
+  const sinceDay = dayOf(sinceIso)
+  if (!Number.isFinite(sinceDay) || !Array.isArray(rows)) return 0
+  return rows.filter((r) => {
+    const d = dayOf(r?.at)
+    return r && r.verdict === 'not-applicable' && Number.isFinite(d) && d >= sinceDay
+  }).length
+}
+
+function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows = null }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
     registryEntries: coverage?.json?.stats?.registryEntries ?? null,
@@ -125,6 +147,25 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
     fidelityMissing: fidelity?.json?.totalMissing ?? null,
     fidelityBroken: fidelity?.json?.broken ?? null,
     fidelityOther: fidelity?.json?.other ?? null,
+    // 端词包命名空间维(2026-10-29 立):尺子报 packUndetermined 时这里是 null ⇒ 整轮按未判定走,
+    // 绝不把"词包没读到"折成"零缺口"。
+    fidelityPackAbsent:
+      fidelity?.json?.packUndetermined === true ? null : (fidelity?.json?.packAbsentRows ?? null),
+    // 键级撤除台账三维(2026-10-30 立):免掉多少 / 台账里有多少行不成立 / 有多少行已不免除任何东西。
+    // 立因:还原度尺判"键在不在页面正文里",判不出可达性 ⇒ 「按后端出处撤掉死分支假绿键」这个正确
+    // 动作会把 missing 从 0 顶成 N,而本尺的 mirror-missing-increase 维只会喊"补回文案"——
+    // 照做等于把死分支补回去(f526a1a143 撤 6 枚键即此型)。撤除必须被台账记下来并带到期日,
+    // 而台账本身坏了/腐烂了也得出声,否则这条免检通道就成了一句空话(§0.7 豁免验过才免且会到期)。
+    fidelityRetracted: fidelity?.json?.totalRetracted ?? null,
+    fidelityRetractionTotal: fidelity?.json?.retractionTotal ?? null,
+    fidelityRetractionInvalid:
+      Array.isArray(fidelity?.json?.retractionRefused) &&
+      Array.isArray(fidelity?.json?.retractionBad)
+        ? fidelity.json.retractionRefused.length + fidelity.json.retractionBad.length
+        : null,
+    fidelityRetractionRot: Array.isArray(fidelity?.json?.retractionRot)
+      ? fidelity.json.retractionRot.length
+      : null,
     // 转换机会维(2026-10-27 接):落地器**只读预演**的结论 —— 有页可自动转壳承载时必须被机器看见。
     // 为什么不直接把 apply 挂守护轮:转换还要同批改 `rn-shell-types` 声明件(门 251 C9 判它),
     // 只落页不落声明件会把那道 blocking 门打红(§12e 恒红门),而那一步需要一个按 HEAD 面重生成的
@@ -133,6 +174,8 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
     conversionRefused: conversion?.json?.refused ?? null,
   }
   const reasons = []
+  // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
+  const stale = []
   const missing = []
   for (const [k, v] of Object.entries(cur)) if (v === null || v === undefined) missing.push(k)
   if (!coverage.ok) missing.push('coverage')
@@ -177,6 +220,44 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
       dim: 'mirror-declaration-mismatch',
       detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏${named('other')}`,
     })
+  // 端词包缺整块命名空间(2026-10-29 立):这一型的失效方向最坏 —— 壳承载页由共享源渲染,
+  // 还原度尺对 hosted 行"按构造 100%、无键可缺",逐键那把尺又只看页面文本里有没有键(壳页天生没有),
+  // 两把尺同时看不见,而用户打开那一屏看到的是**每一句话都取不到词条**。实测存量 16 个命名空间 × 5 语言
+  // 是在"还原度 76.5%、断链 0、声明不符 0"一片绿期间撞出来的 ⇒ 现读存量已随本批补齐,按绝对值出声。
+  if (cur.fidelityPackAbsent > 0) {
+    const rows = fidelity?.json?.rows
+    const hit = Array.isArray(rows)
+      ? rows
+          .filter((r) => Array.isArray(r?.packAbsent) && r.packAbsent.length)
+          .slice(0, 3)
+          .map((r) => `${r.route} 缺 ${r.packAbsent.slice(0, 4).join(',')}`)
+      : []
+    reasons.push({
+      dim: 'mirror-pack-namespace-missing',
+      detail:
+        `${cur.fidelityPackAbsent} 屏要的命名空间在本端词包里整块不存在(本端包 ∪ shared 都查无)⇒ 那一屏全部文案取不到` +
+        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看 ❌ 点名行,再从 messages/mobile-rn(基准侧)或 messages/shared 逐字搬该命名空间(勿代拟译文)${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
+    })
+  }
+  // 撤除台账自身出问题必须出声,否则"有出处的撤除"会退化成一条没人看的免检通道:
+  // invalid = 行不成立(缺理由/出处/到期日或已到期)⇒ 那些键照原样算缺口,同时台账该补;
+  // rot = 行已不免除任何东西(键补回来了 / 页改了承载形 / 三元组对不上)⇒ §0.7 该删。
+  if (cur.fidelityRetractionInvalid > 0)
+    reasons.push({
+      dim: 'key-retraction-invalid',
+      detail:
+        `键级撤除台账有 ${cur.fidelityRetractionInvalid} 行不成立(读不出 / 缺 reason|evidence|expires / 出处短于 20 字 / 已到期)` +
+        ` ⇒ 这些行**不免除**任何缺口,且当前 missing 已把它们算进去了;出路:补全那几行的出处与到期日,或按 §0.10 撤掉这行` +
+        ` ⇒ node scripts/check-miniapp-mirror-fidelity.mjs(❌ 点名行)`,
+    })
+  if (cur.fidelityRetractionRot > 0)
+    reasons.push({
+      dim: 'key-retraction-rot',
+      detail:
+        `键级撤除台账有 ${cur.fidelityRetractionRot} 行现在不免除任何东西(§0.7 清单腐烂:豁免项消失同样算红)` +
+        ` ⇒ 要么那一格的裁决早已结清(该删行),要么 (页,屏,键) 三元组被改名而对不上(该改行)` +
+        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs(⚠️ 点名行)+ 台账 scripts/data/miniapp-key-retractions.jsonl`,
+    })
   // 转换机会:"有页可转"不是倒退,但它是"少养一份端内实现"的窗口,现读到 >0 就出声
   // (身份按维去重 ⇒ 同一批机会不会每 60 分钟刷一封;明细抖动不换身份)。
   if (cur.conversionUpgradable > 0)
@@ -188,10 +269,16 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
         '(两步同批:声明件按 HEAD 面派生,只落页会把门 251 C9 打成红)',
     })
 
-  if (prev && Number.isFinite(prev.mirrored) && cur.mirrored < prev.mirrored)
+  // 撤下一条「挂错业务对象的假声明」不是丢镜像。只认**上一轮快照之后**写下的 not-applicable 裁决条数
+  // (台账取不到 / 时刻解析不出 ⇒ 0,照旧判红 —— 豁免必须"验过才免",§0.7)。
+  const lostMirrored = prev && Number.isFinite(prev.mirrored) ? prev.mirrored - cur.mirrored : 0
+  const newlyExempted = prev ? notApplicableSince(verdictRows, prev.at) : 0
+  if (lostMirrored > 0 && lostMirrored > newlyExempted)
     reasons.push({
       dim: 'mirrored-decrease',
-      detail: `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${prev.mirrored - cur.mirrored})`,
+      detail:
+        `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${lostMirrored};同期带证据的新裁决 ${newlyExempted} 条,不足以解释这一减)` +
+        '⇒ 查是哪条标记/登记被删(与门 237 R3 同判据);确属撤假声明,就往裁决台账写 not-applicable 并附证据',
     })
 
   // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):aligned 是"web 有这屏、RN 也有承载"的对数,
@@ -243,13 +330,17 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
   const docMismatch =
     docCur.mirrored !== null && cur.mirrored !== null ? docCur.mirrored !== cur.mirrored : null
   if (docMismatch)
-    reasons.push({
+    // 账本是**纯派生文档**:它滞后不代表三端对齐变坏(对齐本身由上面各维量)。混进 reasons
+    // 的后果是"文档没跟着重生成"被当成倒退寄邮件给机主(§5e-1 可整改性准入:喊人的那一维必须
+    // 是能让人动手修的东西)。这里单独出一档 stale —— 照样逐条点名、照样进 json 与人读面,只是不响警报。
+    stale.push({
       dim: 'doc-stale',
       detail: `账本文档自述 ${docCur.mirrored},现读 ${cur.mirrored} ⇒ 重跑 node scripts/report-rn-miniapp-gaps.mjs --write ${DOC_PATH}`,
     })
 
   return {
     state: reasons.length > 0 ? 'regressed' : 'ok',
+    stale,
     cur,
     prev: prev ?? null,
     reasons,
@@ -293,9 +384,20 @@ function selfTestMain() {
     broken = 0,
     other = 0,
     rows = [],
+    packAbsentRows = 0,
+    packUndetermined = false,
   } = {}) => ({
     ok: true,
-    json: { hosted, hand, totalMissing: missing, broken, other, rows },
+    json: {
+      hosted,
+      hand,
+      totalMissing: missing,
+      broken,
+      other,
+      rows,
+      packAbsentRows,
+      packUndetermined,
+    },
   })
   /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
   const mkConv = ({ upgradable = 0, refused = 12 } = {}) => ({
@@ -343,7 +445,7 @@ function selfTestMain() {
     })(),
   })
   cases.push({
-    name: 'T4 文档数字与现读不等 ⇒ doc-stale(可整改,给出重跑命令)',
+    name: 'T4 文档数字与现读不等 ⇒ doc-stale 单列滞后档(带重跑命令,但不算倒退)',
     pass: (() => {
       const j = judge({
         conversion: mkConv(),
@@ -353,7 +455,11 @@ function selfTestMain() {
         doc: '- 已被小程序显式镜像: **79**',
         prev: { mirrored: 91 },
       })
-      return j.reasons.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail))
+      return (
+        j.state === 'ok' &&
+        j.stale.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail)) &&
+        !j.reasons.some((r) => r.dim === 'doc-stale')
+      )
     })(),
   })
   cases.push({
@@ -488,6 +594,127 @@ function selfTestMain() {
       })
       const d = j.reasons.find((r) => r.dim === 'mirror-declaration-mismatch')?.detail ?? ''
       return d.length > 0 && !d.includes('点名:')
+    })(),
+  })
+  cases.push({
+    name: 'T21 镜像数减少且同期有带证据的新裁决 ⇒ 不判倒退(撤假声明是纠正)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+        verdictRows: ['w', 'x', 'y', 'z'].map((s) => ({
+          shared: `packages/app/src/features/${s}/X${s}Screen.tsx`,
+          verdict: 'not-applicable',
+          at: '2026-10-30',
+        })),
+      })
+      return !j.reasons.some((r) => r.dim === 'mirrored-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T22 反向对照:同样减少但台账取不到 / 裁决写在基线之前 ⇒ 照旧判红(没读到不等于豁免)',
+    pass: (() => {
+      const base = {
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+      }
+      const noLedger = judge({ ...base, verdictRows: null })
+      const staleVerdict = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '2026-10-28' }],
+      })
+      const badAt = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '不是时刻' }],
+      })
+      const hit = (j) => j.reasons.some((r) => r.dim === 'mirrored-decrease')
+      return (
+        hit(noLedger) &&
+        hit(staleVerdict) &&
+        hit(badAt) &&
+        notApplicableSince(null, '2026-10-29') === 0
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T23 账本滞后只出 stale 档 ⇒ state 不因此变红;混有实质倒退时仍 regressed 且 stale 照样点名',
+    pass: (() => {
+      const doc = '- 已被小程序显式镜像: **256**'
+      const onlyStale = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      const withRot = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 1, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      return (
+        onlyStale.state === 'ok' &&
+        (onlyStale.stale || []).some((r) => r.dim === 'doc-stale') &&
+        !(onlyStale.reasons || []).some((r) => r.dim === 'doc-stale') &&
+        withRot.state === 'regressed' &&
+        (withRot.stale || []).some((r) => r.dim === 'doc-stale')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T20 端词包缺整块命名空间 ⇒ 出声且带点名(两把尺都看不见这一型,没人喊就是满屏空白)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({
+          packAbsentRows: 2,
+          rows: [
+            { route: 'pkg-user/pdf-tools-hub/index', packAbsent: ['pdfToolsPage'] },
+            { route: 'pkg-shop/pay/result/index', packAbsent: ['payResult', 'team'] },
+          ],
+        }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const d = j.reasons.find((r) => r.dim === 'mirror-pack-namespace-missing')?.detail ?? ''
+      return (
+        d.includes('2 屏') &&
+        d.includes('pkg-user/pdf-tools-hub/index') &&
+        d.includes('pdfToolsPage') &&
+        d.includes('勿代拟译文')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T21 词包取不到(packUndetermined) ⇒ 整轮未判定,不把"没读到"折成"零缺口"(§0.3)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ packAbsentRows: 0, packUndetermined: true }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return (
+        j.state === 'undetermined' &&
+        (j.missing || []).includes('fidelityPackAbsent') &&
+        !j.reasons.some((r) => r.dim === 'mirror-pack-namespace-missing')
+      )
     })(),
   })
   cases.push({
@@ -638,7 +865,15 @@ function main() {
     }
   })()
   const prev = readPrev()
-  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev })
+  // 裁决台账取 HEAD 面(与其余各尺同面同轮,§0.4);取不到 ⇒ null ⇒ 豁免数记 0,不折成"全是新裁决"。
+  let verdictRows = null
+  try {
+    const read = readVerdicts('head', ROOT)
+    verdictRows = Array.isArray(read?.rows) ? read.rows : null
+  } catch {
+    verdictRows = null
+  }
+  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows })
   result.at = new Date().toISOString()
   if (recordMode) {
     mkdirSync(dirname(STATE_FILE), { recursive: true })
@@ -650,10 +885,12 @@ function main() {
   } else {
     console.log(`STATE=${result.state}`)
     console.log(
-      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'}`,
+      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'} 本端词包缺命名空间 ${result.cur?.fidelityPackAbsent ?? '未判定'}`,
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
+    for (const r of result.stale || [])
+      console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
   }
   process.exit(result.state === 'regressed' ? 1 : result.state === 'undetermined' ? 2 : 0)
 }
@@ -665,5 +902,5 @@ if (isDirectRun) {
   else main()
 }
 
-export const __test__ = { judge, docNumbers, DOC_PATH }
+export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -40,6 +40,7 @@ const SCRIPT = join(ROOT, 'scripts', 'check-cross-end-screen-coverage.mjs')
 // §22c:直接 import 源符号,不留镜像常量
 const { __test__ } = await import(pathToFileURL(SCRIPT).href)
 const {
+  lostMirroredSpecs,
   collectRn,
   headDelegatedRn,
   faceRead,
@@ -79,6 +80,26 @@ test('M3 「该面没有这份件」仍是合法 null,不得冒充未判定(miss
     faceRead('head', 'scripts/__definitely_not_in_head_probe__.ts'),
     null,
     'HEAD 面没有的件 ⇒ null(业务面"不存在"),不是 Undetermined',
+  )
+})
+
+test('M11 R3 豁免三向:撤假声明且台账判过 not-applicable ⇒ 不算倒退;无裁决 ⇒ 照旧判红', () => {
+  const anchor = ['a/XScreen.tsx', 'b/YScreen.tsx', 'c/ZScreen.tsx']
+  const now = ['b/YScreen.tsx']
+  assert.deepEqual(
+    lostMirroredSpecs(anchor, now, new Set(['a/XScreen.tsx'])),
+    ['c/ZScreen.tsx'],
+    '只有带裁决的那条豁免;没裁决的照旧进候选',
+  )
+  assert.deepEqual(
+    lostMirroredSpecs(anchor, now, new Set()),
+    ['a/XScreen.tsx', 'c/ZScreen.tsx'],
+    '台账取不到(空集)⇒ 一条不豁免',
+  )
+  assert.deepEqual(
+    lostMirroredSpecs(anchor, ['c/ZScreen.tsx', 'a/XScreen.tsx'], new Set()),
+    ['b/YScreen.tsx'],
+    '当前面仍有 ⇒ 不进候选',
   )
 })
 

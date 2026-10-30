@@ -14,22 +14,28 @@
  * - 有/无会话两态:auth.json raw 直通、指纹、keyring 模式真实出路文案、零回显
  * - 走临时目录,不碰本机真实 .codex
  */
-import { describe, it } from 'node:test'
+import { after, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { extractCodexAccounts, summarizeSession } from '../lib/codex-auth-extract.mjs'
 
+// §15b 唯一落点:假 CODEX_HOME 走 scratch-dir,不用进程 TEMP;用完即删由模块级 after() 收口。
+const scratchDirs = []
 function makeTempCodexHome(files) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-codex-test-'))
+  const dir = mkScratch('ihui-codex-test-')
+  scratchDirs.push(dir)
   for (const [name, content] of Object.entries(files)) {
     fs.writeFileSync(path.join(dir, name), content, 'utf8')
   }
   return dir
 }
+after(() => {
+  for (const dir of scratchDirs) rmScratch(dir, { bestEffort: true })
+})
 
 const AUTH_JSON_FIXTURE = JSON.stringify({
   auth_mode: 'chatgpt',

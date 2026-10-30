@@ -1,0 +1,60 @@
+{
+  "$comment": "服务「建法/承载归属」债账(票 G-584 归口，消费者 = scripts/check-service-inventory.mjs 的 readDeclaredGaps)。它登记的是**仓侧事实**：某服务名在册(注册表或结构化名册)，但仓里没有任何一条『建』的动作(nssm install / New-Service / sc create)能把它造出来，或它本就不属于这台承载机。判据不在此文件内：桶的划法一律住 scripts/check-service-inventory.mjs 的 classifyServiceFaces，本文件只说『这一格是谁欠的、为什么、什么时候前回看』。四条不可漂的写法(§0.7)：①一条必须同时带 services(非空)/reason(≥10 字定向说明)/reviewBy(YYYY-MM-DD)，缺一即**不构成豁免**(按未登记处理，方向是多喊一次不是多静音一次)；②reviewBy 到期即失效并重新点名，不得改成远期日期续命，要续必须复核现状后改；③这里记的全是名字/通道/归属，**永不写凭据值、nssm 环境块、AppParameters 明文**(§5d/§5e)；④盘符/gitdir 形态/承载机身份属 §0 七类现读机器事实，本文件不得把任何一台机的现状写成判据，所以这里只写『当次实测的判定』并带判据出处，换机后由 --snapshot 重算。",
+  "generatedFrom": "2026-10-30 席位 g35-s13 三面现读：注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services(总 793 键，^(IHUI|Keycloak) 匹配 3 键，均无 Parameters 子键)、结构化名册三本台账(service-auto-restart.json / expected-stopped-services.json / service-definitions.json，共读出 24 个服务名)、仓内动作面(deploy/win + deploy/scripts/prod-bundle + monitoring/alertbridge 的 60 枚文件里逐行找建服/用服动词)。",
+  "gaps": [
+    {
+      "services": ["IHUI-AI-SERVICE", "IHUI-API", "IHUI-WEB"],
+      "kind": "installed-without-repo-provisioning-source",
+      "hostScope": "本机(当前承载机)",
+      "reason": "三枚服务在注册表里活着(ImagePath 是 cmd.exe /c \"cd /d <仓根>…\" 这种 SCM 直装形态，不是 nssm 托管)，但全仓没有任何一条 nssm install / New-Service / sc create 能把它们造出来：唯一命中 IHUI-API 的文件 deploy/win/ihui-enable-unattended-intake.ps1 只做 nssm set 改写环境块，而本机 IHUI-API 根本没有 Parameters 子键 ⇒ 那脚本对这台机结构上跑不通。本票收的格 = 把**服务定义**入仓(见 scripts/data/service-inventory.json 的 services[].provisioning.imageTemplate，已按 ${REPO_ROOT} 归一，不钉盘符)；建服脚本这一腿属机主动作(要 SCM 写权限与服务账号身份)，本席不代造。",
+      "exitRoute": "要么补一枚 deploy/win/install-<svc>.ps1(参照 install-deploy-loop-service.ps1 的幂等写法：仓根从 $PSScriptRoot 推导、不写死盘符)，要么把它显式声明为『本机手工 SCM 直装、换机按清单模板重建』并同批把 IHUI-API/IHUI-WEB 的退役结论落进名册。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "services": [
+        "IHUI-API-ROUTER",
+        "IHUI-API-BLUE",
+        "IHUI-API-GREEN",
+        "IHUI-WEB-ROUTER",
+        "IHUI-WEB-BLUE",
+        "IHUI-WEB-GREEN"
+      ],
+      "kind": "prod-host-only-without-repo-provisioning-source",
+      "hostScope": "生产承载机(非本机)",
+      "reason": "蓝绿三件套在仓里被大量**使用**(ihui-deploy.ps1 / ihui-api-bluegreen.mjs / ihui-monitor.ps1 / run-web.ps1 按名 Get-/Start-/Stop-Service，并在 service-auto-restart.json 与 expected-stopped-services.json 两本台账里逐台登记归属)，但零建服源：没有任何文件 nssm install/New-Service/sc create 过它们 ⇒ 生产机重装时无人能把它造回来。本机现读注册表查无这 6 个键(且 nssm.exe 不在三个候选位)，所以判定是『本机没装』，不是『仓里幽灵引用』。",
+      "exitRoute": "在生产承载机上跑一次 node scripts/check-service-inventory.mjs --snapshot 覆写清单，让那台机自己交出 AppParameters/AppDirectory/AppEnvironmentExtra 的脱敏真相源(键名维度，值一律 mask)；建服脚本是否补由持有人裁。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "services": [
+        "ihui-loki",
+        "ihui-promtail",
+        "ihui-prometheus",
+        "ihui-pg-exporter",
+        "ihui-redis-exporter",
+        "ihui-windows-exporter"
+      ],
+      "kind": "monitor-host-only-named-in-roster-only",
+      "hostScope": "监控承载机(非本机)",
+      "reason": "这 6 枚只被结构化名册点名(service-auto-restart.json 的 2026-10-01『三层重启方案』白名单/排除栏逐台写明 owner=机主，与 service-definitions.json 的 ledger.absentOnHost)，在本机注册表查不到，且不在扫描面(deploy/win + deploy/scripts/prod-bundle + monitoring/alertbridge)的任何建/用动词行里 ⇒ 判定为『另一台承载机(监控机)装着、本机没装』，不是『仓里幽灵引用』。票面原话『16/21 个服务只在注册表里』在那台机上成立、在本机不成立：本机 ^(IHUI|Keycloak) 只匹配 3 枚，其余全是名册对不上号的异地名(本条就是把『异地名』这一格钉成可复核读数，而不是让它继续当本机的缺口读)。",
+      "exitRoute": "监控承载机上重跑 node scripts/check-service-inventory.mjs --snapshot 覆写清单；或把这 6 枚在本机名册里按承载机分栏(现在是一本混着两台机的名册)。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "services": [
+        "IHUI-PG",
+        "IHUI-REDIS",
+        "IHUI-OLLAMA",
+        "IHUI-RSSHUB",
+        "Keycloak",
+        "IHUI-GIT-GUARD",
+        "IHUI-PG-BACKUP"
+      ],
+      "kind": "infra-host-only-named-in-roster-only",
+      "hostScope": "数据/基建承载机(非本机)",
+      "reason": "同上型：名册在册、本机未装、扫描面零动词命中。IHUI-GIT-GUARD 与 IHUI-PG-BACKUP 的 nssm 配置在 AGENTS §5b/§5e 里被当成本机事实反复引用，但建服动作不在仓内任何脚本里 ⇒ 这一格和上面三枚在册服务是**同一个病**(装了/该装但没人建)，只是它们连本机都没装所以不报红只报数。",
+      "exitRoute": "同 kind=installed-without-repo-provisioning-source 那条：补建服脚本或显式声明手工直装；换机后由 --snapshot 重算，不得照抄本条读数。",
+      "reviewBy": "2027-01-31"
+    }
+  ]
+}

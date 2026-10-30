@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 const MODELS = ['mureka-6', 'mureka-5'] as const
 
@@ -177,7 +178,7 @@ export function MusicGenMureka() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {audios.map((url) => (
-              <audio key={url} src={url} controls className="w-full">
+              <audio key={url} src={toMediaStreamUrl(url)} controls className="w-full">
                 <track kind="captions" />
               </audio>
             ))}

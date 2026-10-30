@@ -7,6 +7,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import type { AvatarShape, AvatarSize } from '@ihui/shared/ui/avatar-spec'
 
 /**
@@ -67,7 +68,7 @@ export function Avatar({
     >
       {src && !error ? (
         <Image
-          src={src}
+          src={toMediaImageUrl(src)}
           alt={name ?? 'avatar'}
           fill
           className="object-cover"

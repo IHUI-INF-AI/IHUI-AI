@@ -158,8 +158,8 @@ export function DeveloperKeyDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>权限点</Label>
-            <p className="text-xs text-muted-foreground">选择该密钥可访问的 API 权限</p>
+            <Label>{t('developer.permissionLabel')}</Label>
+            <p className="text-xs text-muted-foreground">{t('developer.permissionHint')}</p>
             <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
               {API_KEY_PERMISSIONS.map((perm) => (
                 <label key={perm} className="flex cursor-pointer items-center gap-2 text-sm">

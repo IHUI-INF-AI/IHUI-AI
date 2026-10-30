@@ -270,7 +270,7 @@ export const OUT_OF_SCOPE = [
   },
   {
     re: /^apps\/miniapp-taro\/src\/rn-compat\/icons-generated\.tsx$/,
-    why: '与 LineIcon/icons.ts 同一份 lucide 字形数据的另一形态(gen-rn-compat.mjs 生成物;rx/ry 是 24 格 viewBox 单位,吸附档位会改坏图标形状,与 UI 容器圆角无关)',
+    why: '第三方 lucide 字形数据(`const S` 表,与上面 LineIcon/icons.ts 同一取源、同一 rx/ry viewBox 单位;实测取值 1/3/9 根本不在档位表,吸附即改坏图标并与 web 端 lucide-react 真几何脱节)。归属:scripts/gen-rn-compat.mjs 生成腿(2026-10-26 随守门 251 落地的生成件,本条是漏登记补登,非新增豁免);复核期:2027-04-30 前人工现算对账一次——若届时该表不再命中(字形数据改由资产目录承载或生成腿改发档位引用),本条应随该批改动一并摘除',
     bExempt: true,
   },
   {

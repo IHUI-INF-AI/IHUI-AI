@@ -63,7 +63,7 @@ import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { getConversation, getMessages } from '@ihui/api-client'
+import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // Runtime 插话能力声明落库口(会话元数据 → store)
@@ -73,6 +73,18 @@ import { judgePageAdvance } from '@/lib/pagination-stall'
 // P1-6 断点续传(片3,2026-10-21):编排与 ChatPaneBody 共用 useResumeBranch 一份出口
 import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
 import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
+// 差距④(2026-10-30 立):?turn= 深链锚点目标(peek/clear)+ 既有跳转机制(锚点定位出口)
+// 差距⑤补全:完整页按服务端 user 开轮口径盖 turnOrdinal(「分享此回合」生成端的数据源)
+import {
+  consumeTurnDeepLink,
+  getTurnDeepLinkVersionForPane,
+  markPageTurnOrdinals,
+  peekTurnDeepLink,
+  pickTurnAnchorMessageId,
+  stampCompletePageTurnOrdinals,
+  subscribeTurnDeepLink,
+} from '@/lib/turn-deeplink'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useDesktop } from '@/hooks/use-desktop'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
@@ -495,6 +507,14 @@ export function AISidePanel() {
   // 三条时序与 ChatPaneBody 同一份编排出口;根主体 = 根单例 useChatStore + paneId null,
   // 显式传进去(不靠函数内隐式回落)—— 谁承载会话,续接就落在谁身上。
   const resume = useResumeBranch(useChatStore, null, t)
+  // 差距⑤遗留边界1(2026-10-30):同会话换 turn 重锚 —— 订阅"归属根窗格"的目标版本号,
+  // ?turn= 变化即进下方 loadHistory effect 依赖重跑(peek 不消费、同值不广播 ⇒ 参数没变
+  // 不重跑,StrictMode 双 effect 可重放的现状不破)。边界2:归属别窗格的目标不动本快照。
+  const turnDeepLinkVersion = React.useSyncExternalStore(
+    subscribeTurnDeepLink,
+    () => getTurnDeepLinkVersionForPane(null),
+    () => getTurnDeepLinkVersionForPane(null),
+  )
   // prevConversationIdRef:跟踪上一次会话 ID,切换时把旧会话状态写入缓存
   const prevConversationIdRef = React.useRef<string | null>(null)
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
@@ -629,6 +649,8 @@ export function AISidePanel() {
           messages: currentStore.messages,
           hasMore: hasMoreHistory,
           oldestCursor: oldestCursorRef.current,
+          // 差距⑤补全:窗口 provenance 随快照带走(切回时 store 已换会话,现值只能从缓存取)
+          turnWindowed: currentStore.messagesTurnWindowed,
         })
       }
     }
@@ -647,12 +669,102 @@ export function AISidePanel() {
     }
 
     async function loadHistory(id: string) {
+      // 差距④(2026-10-30 立):?turn= 深链 —— 有锚点目标时**绕过 LRU 缓存**直接走
+      // around 居中窗口(缓存装的是"上次落点"的内容,与分享链接指向的轮次无关,
+      // 复用会让锚点行不在窗口里、跳转落空)。半径 5 轮与服务端 window 默认同量级。
+      // 降级(差距④设计口径):turn 不存在(404)/拉取失败 ⇒ 清目标、落到常规路径
+      // (会话最新页,与正常打开同位,不猜位置)。
+      // 已知退化(登记):窗口就位后上翻分页停用(resetPager(null,false)) —— around
+      // 通道断点是 turn 游标,与 handleLoadMoreHistory 的 getMessages keyset 游标
+      // 不是同一空间,不得混灌;下翻(prevCursor)通道本窗格暂无消费面,同样不接。
+      const deepLink = peekTurnDeepLink(id)
+      if (deepLink) {
+        setLoadingHistory(true)
+        const localBefore = useChatStore.getState().messages
+        try {
+          const [convRes, histRes] = await Promise.all([
+            getConversation(id),
+            getConversationHistory(id, {
+              aroundTurnId: String(deepLink.turnOrdinal),
+              aroundWindow: 5,
+            }),
+          ])
+          if (cancelled) return
+          if (histRes.success) {
+            // 差距⑤补全:拍平处给每行盖 turn 序号 —— /history 读面的 turn 分组自带
+            // 服务端盖章的 turnOrdinal,这是窗口行序号的唯一权威来源(窗口尾部续聊的
+            // live 行不再从头计数:窗口是"居中"的,尾行未必是会话最新轮,猜不得)。
+            const hydrated: ChatMessage[] = hydrateHistoryMessages(
+              histRes.data.turns.flatMap((t) =>
+                t.messages.map((msg) => ({ ...msg, turnOrdinal: t.turnOrdinal })),
+              ),
+            )
+            // 在途消息守卫与常规路径同一把尺(见 isLocalMessagesChanged 头注)
+            if (!isLocalMessagesChanged(localBefore)) {
+              useChatStore.setState({
+                messages: hydrated,
+                messagesTurnWindowed: true,
+                error: null,
+              })
+            }
+            if (convRes.success) {
+              setConversationTitle(convRes.data.conversation.title || null)
+              const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
+              setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
+              const meta = convRes.data.conversation.metadata as {
+                pendingQuestion?: unknown
+              } | null
+              noteRuntimeCapabilities(meta)
+              const pending = parsePendingQuestion(meta?.pendingQuestion)
+              if (pending) {
+                useChatStore.getState().setPendingQuestion(pending)
+              } else {
+                useChatStore.getState().clearPendingQuestion()
+              }
+            }
+            resetPager(null, false)
+            writeConversationCache(id, {
+              messages: hydrated,
+              hasMore: false,
+              oldestCursor: null,
+              turnWindowed: true,
+            })
+            // 锚点定位复用既有跳转机制(根窗格 = 单例;归属别窗格的深链由 ChatPaneBody
+            // 投递该窗格的 ProgressJumpStore 实例,本支只处理根窗格目标):
+            // MessageList 消费 pendingJump ⇒ scrollIntoView(center) + flashHighlight;
+            // 跳转产生的滚动事件按 scrollTop 回退记成"用户上翻",跟随权自然解除,
+            // 不会被贴底 effect 拽回底部(无需给滚动权威另开口子)。
+            const anchorMessageId = pickTurnAnchorMessageId(
+              histRes.data.turns,
+              deepLink.turnOrdinal,
+            )
+            if (anchorMessageId) {
+              useProgressJumpStore.getState().requestJumpToMessage(anchorMessageId)
+            }
+            setLoadingHistory(false)
+            return
+          }
+          // 404 降级:静默消费(不广播)—— 下面就地落常规路径,广播会多放一枪 effect 重放
+          consumeTurnDeepLink()
+        } catch {
+          consumeTurnDeepLink()
+        }
+        if (cancelled) return
+        setLoadingHistory(false)
+        // 不 return:降级继续走下方常规路径(缓存/最新页)
+      }
+
       // 缓存命中:同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新
       // (read 读到即提为最近使用,LRU 提升在出口内部完成)
       const cached = readConversationCache(id)
       if (cached) {
-        // 同步填充 store(无 loading 状态,无闪烁)
-        useChatStore.setState({ messages: cached.messages, error: null })
+        // 同步填充 store(无 loading 状态,无闪烁);窗口 provenance 随快照恢复
+        // (老条目无 turnWindowed 键 ⇒ false,与"完整页盖号"同形)
+        useChatStore.setState({
+          messages: cached.messages,
+          messagesTurnWindowed: cached.turnWindowed ?? false,
+          error: null,
+        })
         resetPager(cached.oldestCursor, cached.hasMore)
         setLoadingHistory(false)
 
@@ -668,14 +780,21 @@ export function AISidePanel() {
             ])
             if (cancelled) return
             if (convRes.success && msgRes.success) {
-              const hydrated: ChatMessage[] = hydrateHistoryMessages(msgRes.data.messages)
+              // 差距⑤补全:最新页盖号(完整页计数 / 截断页整页 null,见 markPageTurnOrdinals)
+              const hydrated: ChatMessage[] = hydrateHistoryMessages(
+                markPageTurnOrdinals(msgRes.data.messages, msgRes.data.hasMore),
+              )
               // 仅当当前仍在该会话、且拉取期间本地未被写入时才更新 store
               // (前者避免覆盖用户已切换到的新会话;后者避免覆盖流式中的在途消息)
               if (
                 useChatStore.getState().conversationId === id &&
                 !isLocalMessagesChanged(localBefore)
               ) {
-                useChatStore.setState({ messages: hydrated, error: null })
+                useChatStore.setState({
+                  messages: hydrated,
+                  messagesTurnWindowed: false,
+                  error: null,
+                })
                 setConversationTitle(convRes.data.conversation.title || null)
                 // D28 补齐层:来源标识要在消息**已就位**之后才算 —— 发言人清单/时间跨度
                 // 是从 hydrated 上的消息现算的,用 msgRes 原始行算会和 store 实际内容脱节
@@ -689,6 +808,7 @@ export function AISidePanel() {
                 messages: hydrated,
                 hasMore: msgRes.data.hasMore,
                 oldestCursor: msgRes.data.nextCursor,
+                turnWindowed: false,
               })
               // 恢复挂起提问(从 metadata)
               const meta = convRes.data.conversation.metadata as {
@@ -724,11 +844,19 @@ export function AISidePanel() {
         ])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
-          const hydrated: ChatMessage[] = hydrateHistoryMessages(msgRes.data.messages)
+          // 差距⑤补全:最新页盖号(与缓存命中后台刷新支同一把尺)
+          const hydrated: ChatMessage[] = hydrateHistoryMessages(
+            markPageTurnOrdinals(msgRes.data.messages, msgRes.data.hasMore),
+          )
           // 拉取期间本地已写入(新建会话后在途的 assistant 消息)时保留本地,
           // 不用远端快照覆盖 —— 否则正文 / plan / terminal 卡片会被整条抹掉。
+          // 窗口标志与消息**同进同出**:守卫失败时 store 里还是旧列表,provenance 不得单独改写。
           if (!isLocalMessagesChanged(localBefore)) {
-            useChatStore.setState({ messages: hydrated, error: null })
+            useChatStore.setState({
+              messages: hydrated,
+              messagesTurnWindowed: false,
+              error: null,
+            })
           }
           setConversationTitle(convRes.data.conversation.title || null)
           // D28 补齐层:导入来源(与缓存命中路径同一判据/同一算法,见上)
@@ -742,6 +870,7 @@ export function AISidePanel() {
             messages: hydrated,
             hasMore: msgRes.data.hasMore,
             oldestCursor: msgRes.data.nextCursor,
+            turnWindowed: false,
           })
 
           // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
@@ -843,6 +972,7 @@ export function AISidePanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hasMoreHistory/oldestCursorRef 故意不进依赖,避免其变化触发 loadHistory 重载
   }, [
     storeConversationId,
+    turnDeepLinkVersion,
     setConversationId,
     open,
     allow,
@@ -901,6 +1031,8 @@ export function AISidePanel() {
         role: m.role,
         content: m.content,
         createdAt: new Date(m.createdAt).getTime(),
+        // 差距⑤补全:更早页头部仍可能被截断,序号未知 ⇒ null(翻到底时整体重盖,见下)
+        turnOrdinal: null as number | null,
       }))
       // G-816010 分页结果双重复核:响应游标 == 请求游标 ⇒ 本次没有任何前进信息,收下它与
       // replay 不可区分(下次上翻发同一个游标、拿回同一页,账面每次加载都成功而更早的历史
@@ -920,11 +1052,27 @@ export function AISidePanel() {
         return
       }
       if (older.length === 0) {
+        // 差距⑤补全:空尾批 + hasMore=false 同样是"已翻到底"事件 ⇒ 与下方同口径整体重盖
+        if (res.data.hasMore === false) {
+          useChatStore.setState((s) => ({
+            messages: stampCompletePageTurnOrdinals(s.messages),
+            messagesTurnWindowed: false,
+          }))
+        }
         resetPager(null, false)
         return
       }
       // prepend 到 messages 头部(时间正序,older 也是正序且早于当前所有消息)
-      useChatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
+      // 差距⑤补全:翻到最早页(hasMore=false)⇒ 整表自 turn 1 完整,按服务端口径
+      // 整体重盖(此前各页的 null 一并洗掉);未到底则维持 null(不猜)。
+      if (res.data.hasMore === false) {
+        useChatStore.setState((s) => ({
+          messages: stampCompletePageTurnOrdinals([...older, ...s.messages]),
+          messagesTurnWindowed: false,
+        }))
+      } else {
+        useChatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
+      }
       resetPager(res.data.nextCursor, res.data.hasMore)
       // #11 LRU 缓存同步(2026-07-25 立):分页加载更多后,更新缓存的 messages + oldestCursor + hasMore
       patchConversationCache(convId, useChatStore.getState().messages)
