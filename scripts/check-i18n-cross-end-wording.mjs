@@ -54,6 +54,7 @@ const MIN_REASON = 20
 /** 允许作为裁定的类别。刻意不含"同屏两套字"——那是待修项,不是可豁免项。 */
 export const LEGAL_KINDS = new Set([
   'platform-adaptation', // 平台措辞差异(微信里给不出本机路径这类)
+  'different-screen', // 同名键在两端服务**不同界面**(如 aiGroup.*:一端是广场列表、一端是群聊屏)
   'form-difference', // 渲染形态差异(标签+值合并 ↔ 纯标签)
   'semantic-split-needed', // 同名不同义,待拆键(拆完该条自然从漂移集消失)
   'pending-product', // 待产品/翻译定,带到期日的债
