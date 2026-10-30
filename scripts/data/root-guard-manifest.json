@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-30T06:05:59.077Z",
-  "sealedBy": "root-guard --seal (face=HEAD)",
-  "reason": "2026-10-30 主席席:AGENTS.md 铁律段正被别席实时重写(HEAD/索引/磁盘三面三个不同值),在磁盘面上 --seal 只能封到一瞬间的中间态 ⇒ 本枚改为按**HEAD 面**用 root-guard 自己的 hashTarget 现算三目标(值不是手填,是同一把尺子换面取),目的只有一个:让 HEAD 自己自洽,终止「清单落后于已入库内容 ⇒ 三处签出部署环 fail-closed」这一型的反复。",
+  "sealedAt": "2026-10-30T07:08:23.130Z",
+  "sealedBy": "root-guard --seal (face=HEAD, 含本批 runner 改动)",
+  "reason": "2026-10-30 主席席:同批两件事 —— ① 把守门 267 由 warn 升 blocking;② 清单按落地后 HEAD 面重封(runner 取本批新版,另两目标取 HEAD)。升 blocking 的前提就是本批让清单自洽成为常态;此后改 AGENTS/runner 不重封会在提交口被 267 拦下,修法 = node scripts/root-guard.mjs --seal --reason \"...\" 并同枚提交。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "26170f55034fda6454b6e3134d2812e0e23d90c9add82fce43d48207b623e451"
+      "sha256": "84dce084e15a562c8b20914ed9a81639df879fd0fdf117121f9bd8332f9604e6"
     },
     {
       "id": "judgement-libs",
