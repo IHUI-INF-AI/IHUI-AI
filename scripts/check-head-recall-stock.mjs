@@ -33,6 +33,7 @@
  * 头注刻意不写"已接 pre-commit / CI"字样(守门 89 R1/R2 判"声称已接而零命中")。
  */
 
+/* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息(与 check-live-doc-merge-recall.mjs 同形) */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'

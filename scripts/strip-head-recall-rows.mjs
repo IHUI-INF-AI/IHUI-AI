@@ -42,6 +42,7 @@
  * 头注刻意不写"已接 pre-commit / CI"字样(守门 89 R1/R2 判"声称已接而零命中")。
  */
 
+/* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息(与 check-live-doc-merge-recall.mjs 同形) */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
