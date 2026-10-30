@@ -762,8 +762,13 @@ function listUnreachableHashes() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
-    // 显式数字 timeout:不让 fsck 无界挂起把 pre-commit 钉死(与旧 gitRaw 默认同值)。
-    timeout: 60_000,
+    // 显式数字 timeout:不让 fsck 无界挂起把 pre-commit 钉死。
+    // 2026-10-30 实测校准(60s → 240s):本机对象库 9.5GB / 181 个 pack,`--connectivity-only`
+    // 全库遍历 midx 前 92s、midx 后 59s —— 原值 60s 正好卡在噪声带宽里,于是这道门长期
+    // rc=2「fsck 判定面取不到」,而 rc=2 不报警,跑久了被当成绿的(§0.3)。
+    // 阈值必须与实测规模匹配,不是越短越安全:短到永远超时 = 这道门从未真正判过。
+    // 取 4× 实测值留出并发负载余量;真超了仍照旧 rc=2 并点名原因,不折成通过。
+    timeout: 240_000,
     maxBuffer: 64 << 20,
     // stdio[0]='ignore':本环境 pipe-stdin spawn git 确定性 EBUSY(见 lib/gitdir.mjs 同款注),
     // 而 fsck 不读 stdin ⇒ ignore 无副作用,换来的是躲开那扇病窗。
