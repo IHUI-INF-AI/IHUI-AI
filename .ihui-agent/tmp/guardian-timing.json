@@ -1,0 +1,133 @@
+{
+  "generatedAt": "2026-10-28T14:14:18.958Z",
+  "rows": [
+    {
+      "id": "16c",
+      "label": "🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务)",
+      "script": "check-staged-typecheck-mirror-sync.mjs",
+      "mode": "blocking",
+      "ms": 7155,
+      "ok": true
+    },
+    {
+      "id": "19",
+      "label": "⚠️  staged 污染预警(warn-only)",
+      "script": "check-staged-pollution.mjs",
+      "mode": "warn",
+      "ms": 7035,
+      "ok": false
+    },
+    {
+      "id": "44",
+      "label": "🧹 根目录整洁守门(一级目录白名单)",
+      "script": "check-root-dir-clean.mjs",
+      "mode": "blocking",
+      "ms": 7134,
+      "ok": true
+    },
+    {
+      "id": "80",
+      "label": "⏱  热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)",
+      "script": "check-git-read-timeout.mjs",
+      "mode": "blocking",
+      "ms": 2565,
+      "ok": true
+    },
+    {
+      "id": "79",
+      "label": "🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)",
+      "script": "check-no-conflict-markers.mjs",
+      "mode": "blocking",
+      "ms": 5878,
+      "ok": true
+    },
+    {
+      "id": "95",
+      "label": "🔏 水印载荷/横幅行语法对账(blocking,零宽必须被注释包裹)",
+      "script": "check-watermark-syntax.mjs",
+      "mode": "blocking",
+      "ms": 5894,
+      "ok": true
+    },
+    {
+      "id": "99",
+      "label": "🗑️ 暂存删除存续性对账(blocking,被删文件必须无人引用且无替代路径)",
+      "script": "check-staged-deletions.mjs",
+      "mode": "blocking",
+      "ms": 830,
+      "ok": true
+    },
+    {
+      "id": "101",
+      "label": "🔐 清单↔锁 specifier 对账(blocking,拦\"本地全绿、生产构建必炸\"的依赖真值)",
+      "script": "check-lock-manifest-consistency.mjs",
+      "mode": "blocking",
+      "ms": 3502,
+      "ok": true
+    },
+    {
+      "id": "118",
+      "label": "🧬 门脚本取材面纪律对账(blocking,本次改动动过的门必须经统一取材层;全量档只报数)",
+      "script": "check-gate-face-discipline.mjs",
+      "mode": "blocking",
+      "ms": 4620,
+      "ok": true
+    },
+    {
+      "id": "154",
+      "label": "临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)",
+      "script": "check-scratch-root-no-nesting.mjs",
+      "mode": "warn",
+      "ms": 298,
+      "ok": true
+    },
+    {
+      "id": "158",
+      "label": "🛡️ 凭据在场即豁免对账(blocking,拦「安全钩子里只要带了某个头就直接跳过校验」—— 票#23 CSRF 现场收口后无人看守的那一型)",
+      "script": "check-gate-presence-exemption.mjs",
+      "mode": "blocking",
+      "ms": 5523,
+      "ok": true
+    },
+    {
+      "id": "194",
+      "label": "🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(存量以 node scripts/check-direct-run-guard.mjs 末行现读为准,差值棘轮只拦本次新增)",
+      "script": "check-direct-run-guard.mjs",
+      "mode": "blocking",
+      "ms": 5580,
+      "ok": true
+    },
+    {
+      "id": "221",
+      "label": "🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注)",
+      "script": "check-mjs-syntax.mjs",
+      "mode": "blocking",
+      "ms": 4679,
+      "ok": true
+    },
+    {
+      "id": "236",
+      "label": "tracked-but-ignored 新增拦截(gitignored 的东西不得进版本控制)",
+      "script": "check-tracked-ignored.mjs",
+      "mode": "blocking",
+      "ms": 1269,
+      "ok": true
+    },
+    {
+      "id": "23",
+      "label": "📋 staged 文件清单(info)",
+      "script": "check-staged-files.mjs",
+      "mode": "info",
+      "ms": 332,
+      "ok": true
+    },
+    {
+      "id": "13d",
+      "label": "🚫 PROJECT_PLAN.md 重复登记副本指针棘轮",
+      "script": "check-plan-dup-pointer-ratchet.mjs",
+      "mode": "blocking",
+      "ms": 682,
+      "ok": true
+    }
+  ]
+}

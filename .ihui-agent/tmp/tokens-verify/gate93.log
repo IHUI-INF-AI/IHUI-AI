@@ -1,0 +1,6 @@
+[check-cross-end-tokens] Checking rn-tokens.ts vs tokens.css...
+  · R6:1589 个文件里抽到 0 处需登记的 v3 端 alpha 类名(preset 档 0 / 默认色板 26 / 已豁免 0;另有 v4 端 61 处不判),登记 0 形态,判不出形态 10 处(不判红),腐烂 新增 0 / HEAD 存量 0 不计,口径 HEAD(全量审计,存量腐烂照红)
+  · R7:1589 文件里抽到 0 处裸 rpx 长度(本次新引入 0),判不出形态 0 处(不判红),口径 head
+  · R8:306 文件(禁用值集 64 条,派生自 RN 令牌表 ↔ tokens.css 同值档)里抽到 3 处同值 hex 字面量(本次新引入 0,已豁免 3),口径 head
+  · R9–R11:受管块 47/47 档与 TS 源逐值同源(间距/字号+字重/阴影,缺 0 / 漂移 0 / 多 0,口径 head)
+[check-cross-end-tokens] ✅ 112 条映射逐位同值 + R4 基础档按名推导 106 条同值(已登记分歧 3 条) + R5 端内两表 同值 + 品牌键全部已声明(DEFAULT/foreground/cta/ctaForeground/dark) + 无悬空 brand 引用 + R6 alpha 用量 0 处全部已登记且真产出(1589 文件,口径 HEAD(全量审计,存量腐烂照红)) + R7 裸 rpx 长度 0 处(已全部改为 [length:] 形态) + R8 手抄色值 0 处新增(3 处同值字面量,存量 0 按棘轮放过) + R9–R11 受管块 47/47 档与 TS 源同源
