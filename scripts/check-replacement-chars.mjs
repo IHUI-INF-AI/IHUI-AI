@@ -39,12 +39,18 @@
  *   node scripts/object-space-land.mjs 的 LAND_BLOBS 档(共享工作树里别人常在飞,交磁盘字节
  *   等于替别人落地,AGENTS §12)。
  */
+/* eslint eqeqeq: ["error", "smart"] -- 本文件用 x == null / x != null 判 null 与 undefined；换成 === 会把 undefined 判成非空、改变语义 */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assertRepoRoot, catBatch, gitBinary, gitErrText, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { maskedSpans } from './lib/code-mask.mjs'
+// G-322:「带值旗标吞值」判据全仓只许一份(§22c)。本档原有两格裸 `argv[i+1]`/`argv[i+2]`:
+//   实测改前 `--recover scripts/desktop-build.mjs --staged` 把 `--staged` 当**出件文件名**,
+//   真往 `.ihui-agent/tmp/replacement-chars/` 写出了一枚名为 `--staged` 的文件(静默、rc=0)。
+//   单源挡的是任何以 `-` 开头的 token,覆盖面比"只挡双划线"大。
+import { isFlagValueToken, requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPL = String.fromCharCode(0xfffd)
@@ -316,7 +322,8 @@ function selfTest() {
   let fail = 0
   for (const [n, ok] of cases) {
     console.log(`${ok ? '✅' : '❌'} ${n}`)
-    ok ? pass++ : fail++
+    if (ok) pass++
+    else fail++
   }
   console.log(`self-test: ${pass} 通过 / ${fail} 失败 / 共 ${cases.length}`)
   return fail ? 1 : 0
@@ -331,8 +338,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     assertRepoRoot(ROOT, 'check-replacement-chars')
     if (argv.includes('--self-test')) rc = selfTest()
     else if (argv.includes('--recover')) {
-      const i = argv.indexOf('--recover')
-      rc = recover(argv[i + 1], argv[i + 2])
+      const rf = requireFlagValue(argv, '--recover', { noun: '被找回文件的路径参数' })
+      if (rf.error) {
+        console.log(`❌ ${rf.error}`)
+        rc = 2
+      } else {
+        const i = argv.indexOf('--recover')
+        // 第二格是**可选**出件名:缺省合法(走 recover 自己的默认名);给了但不是"值"(被吞的旗标)⇒ 用法错,
+        // 绝不把 `--staged` 这类 token 当文件名静默收下(改前实测真写出过名为 `--staged` 的文件)。
+        const raw = argv[i + 2]
+        if (raw !== undefined && !isFlagValueToken(raw)) {
+          console.log(`❌ --recover 的第二个参数是可选出件名,不接受旗标 —— 紧邻的 token 实得:${JSON.stringify(raw)}`)
+          rc = 2
+        } else rc = recover(rf.value, raw)
+      }
     } else {
       const sel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
       if (sel.error) {
