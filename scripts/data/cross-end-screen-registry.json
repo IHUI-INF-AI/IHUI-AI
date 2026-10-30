@@ -1270,6 +1270,11 @@
       "shared": "packages/app/src/features/ranking/RankingScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/RankingScreen.tsx",
       "miniapp": "pkg-mirror/ranking/index"
+    },
+    {
+      "shared": "packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
+      "miniapp": "pkg-user/identity-verify/index"
     }
   ]
 }
