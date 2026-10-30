@@ -277,6 +277,8 @@ interface QoderImportMapping {
   refreshExpiresAt: Date | null
   name: string | null
   cosy: Record<string, string> | null
+  /** 会话模板(整份会话剔凭证):缺它时「登录本机」以客户端当前文件兜底 ⇒ 带旧号资料 */
+  secrets?: Record<string, unknown>
 }
 
 function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
@@ -318,6 +320,13 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     // 本字段只在拿不到手机号时作 platform-name 兜底,昵称仍压过载荷自带名。
     name: cstr(a['nickname']) || cstr(a['name']) || null,
     cosy: Object.keys(cosy).length > 0 ? cosy : null,
+    // 会话模板:提取器 buildSessionTemplate 已剔凭证;此前这里不返回 ⇒ 模板在导入面被
+    // 静默丢弃,池票永远 tpl=NULL,「登录本机」只能以客户端当前文件兜底 ⇒ 带旧号资料。
+    // 空对象视同没有(否则会把既有模板覆盖成空)。
+    ...(() => {
+      const tpl = objField(a as Record<string, unknown>, 'sessionTemplate')
+      return tpl && Object.keys(tpl).length > 0 ? { secrets: { sessionTemplate: tpl } } : {}
+    })(),
   }
 }
 
@@ -596,7 +605,7 @@ function computeDeviceCollisions(
   return out.sort((a, b) => (a.deviceId < b.deviceId ? -1 : a.deviceId > b.deviceId ? 1 : 0))
 }
 
-export const __test__ = { computeDeviceCollisions }
+export const __test__ = { computeDeviceCollisions, mapQoderImport }
 
 // =============================================================================
 // 批量导入

@@ -554,6 +554,15 @@ export const WEB_PORTAL_SECTIONS = [
         domain: 'invitations',
         fallbackLabel: '邀请管理',
       },
+      // 2026-10-31:产物中心(G3 泛化 · web 数据查看页)进门户;WebView 带 auth_token cookie
+      // 后枚举/下载/签名预览全链路可用,同 2026-10-27 letters 判例,不各端再搓原生屏。
+      {
+        key: 'artifacts',
+        titleKey: 'webViewPortal.artifacts',
+        path: '/artifacts',
+        domain: 'artifacts',
+        fallbackLabel: '产物中心',
+      },
       {
         key: 'pluginMarket',
         titleKey: 'webViewPortal.pluginMarket',
