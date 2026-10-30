@@ -39,6 +39,19 @@ import type { Page } from '@playwright/test'
  *     work-panel 那一族)—— 那需要登录态,本机被 e2e 侧 `password authentication failed for user
  *     "ihui"` 与 `E2E_ADMIN_PASSWORD` 必填挡住,故本文件结的是"真机 modal-in-modal + 幽灵检测"
  *     这两格,三层自绘叠开那一格仍在票上(台账「Esc 无层栈协议」未翻勾的原因即此)。
+ *
+ * 〔更正@2026-10-30/g35-s14 现跑变异档〕上面"要咬住过度放行那一维必须叠开两个自绘层——
+ * 那需要登录态"这半句**只在真机维成立,组件维不成立**:`src/lib/overlay-stack-wired.test.tsx`
+ * 已在 jsdom 里叠开三个**本仓真实自绘组件**(TerminalHistorySearch / UnifiedSuggestionPanel /
+ * SlashCommandPalette,非 Radix),把 `isTopOverlay` 退化成 `return true`(过度放行档)后该套件
+ * **10 failed / 10 passed**(基线 20/0、恒假档 17 failed / 3 passed)⇒ "协议过度放行"这一维
+ * **已被有牙的测试钉住**,只是钉在组件层不是浏览器层。本文件的 3 条对恒真仍全绿(判不到),
+ * 该结论不变、也不得被删;两向变异读数与复跑命令登记在 `overlay-stack-wired.test.tsx` 头注。
+ * 本文件唯一未证的残余:**真机三层自绘叠开逐层退出**这一格(供给出口 `e2e-local-supply.mjs`
+ * 明写"不复用他席服务",8801/8802 常年是别席 dev 进程,且 `E2E_ADMIN_PASSWORD` 需凭据 ⇒ 2026-10-30
+ * 现测 8801 LISTENING 属他席,本席按纪律未占 ⇒ 归主席待空档)。台账层面:HEAD 面 `PROJECT_PLAN.md`
+ * 现读**已无任何** `- [ ]`/`- [x]` 的「Esc 无层栈协议」登记行(全部命中行都是 `<!-- -->` 指针/归档注记),
+ * 该票的结清权已不在台账行上。
  */
 
 const LOGIN_ENTRY = 'button:has-text("请先登录")'

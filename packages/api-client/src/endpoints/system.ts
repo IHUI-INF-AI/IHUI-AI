@@ -226,12 +226,8 @@ export async function deleteAppVersion(id: string): Promise<ApiResult<{ success:
  * POST /api/behavior 从未注册(behavior 面只有 POST /behavior/likes/counts);
  * 本仓零消费方(命中的 recordBehavior 是 clawdbot 引擎内部方法,非本函数)。 */
 
-/** 获取行为记录列表 */
-export async function getBehaviors(
-  query: PageQuery & { userId?: string; action?: string } = {},
-): Promise<ApiResult<PageData<BehaviorRecord>>> {
-  return fetchApi<PageData<BehaviorRecord>>(`/api/behavior${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getBehaviors —— GET /api/behavior 两引擎零注册
+// (openapi 现读 + 注册尾段两式同判),全仓零消费方。
 
 // ===================== category（分类） =====================
 
@@ -278,12 +274,8 @@ export async function deleteCategory(
 // 2026-10-22 G-962 #110 摘除:GET /api/monitor/status 从未注册(在册近邻
 // GET /api/relay/monitor/status 是中转站专用形状),全仓零消费方。
 
-/** 获取监控指标 */
-export async function getMonitorMetrics(
-  query: { names?: string; start?: string; end?: string } = {},
-): Promise<ApiResult<MonitorMetric[]>> {
-  return fetchApi<MonitorMetric[]>(`/api/monitor/metrics${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getMonitorMetrics —— GET /api/monitor/metrics
+// 两引擎零注册,全仓零消费方。
 
 /** 获取服务健康状*/
 export async function getServicesHealth(): Promise<ApiResult<MonitorStatus['services']>> {
@@ -510,33 +502,11 @@ export async function cancelAccountDeletion(): Promise<ApiResult<void>> {
 
 // ===================== statistics（统计） =====================
 
-/** 获取总体统计数据 */
-export async function getStatistics(
-  query: { type?: string; start?: string; end?: string } = {},
-): Promise<ApiResult<StatisticsData>> {
-  return fetchApi<StatisticsData>(`/api/statistics${buildQs(query)}`)
-}
-
-/** 获取用户统计 */
-export async function getUserStatistics(
-  query: { start?: string; end?: string } = {},
-): Promise<ApiResult<StatisticsData>> {
-  return fetchApi<StatisticsData>(`/api/statistics/users${buildQs(query)}`)
-}
-
-/** 获取访问统计 */
-export async function getVisitStatistics(
-  query: { start?: string; end?: string } = {},
-): Promise<ApiResult<StatisticsData>> {
-  return fetchApi<StatisticsData>(`/api/statistics/visits${buildQs(query)}`)
-}
-
-/** 获取订单统计 */
-export async function getOrderStatistics(
-  query: { start?: string; end?: string } = {},
-): Promise<ApiResult<StatisticsData>> {
-  return fetchApi<StatisticsData>(`/api/statistics/orders${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getStatistics/getUserStatistics/getVisitStatistics/
+// getOrderStatistics —— GET /api/statistics(+/users/visits/orders) 两引擎零注册(在册近邻是
+// /api/admin/statistics/* 与用户向 /api/statistics/user-center);全仓零消费方。
+// 注意:根 barrel 的 getUserStatistics 显式导出的是 endpoints/user.js 那一份(打
+// /api/statistics/user-center,在册),本次删除不触及其消费方(RN Profile/MemberDashboard 等)。
 
 // ===================== visit（访问记录） =====================
 
@@ -566,12 +536,8 @@ export async function getVisits(
   return fetchApi<PageData<VisitRecord>>(`/api/visit-tracking/page/record${buildQs(query)}`)
 }
 
-/** 获取访问统计 */
-export async function getVisitStats(
-  query: { start?: string; end?: string } = {},
-): Promise<ApiResult<StatisticsData>> {
-  return fetchApi<StatisticsData>(`/api/visit-tracking/stats${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getVisitStats —— GET /api/visit-tracking/stats
+// 两引擎零注册,全仓零消费方。
 
 // ===================== public-configs（公开系统配置,P3-4.3 Server-Driven UI） =====================
 

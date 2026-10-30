@@ -310,12 +310,8 @@ export async function getAiCommunities(
 
 // ===================== ai-education =====================
 
-/** 获取 AI 教育列表 */
-export async function getAiEducations(
-  query: PageQuery = {},
-): Promise<ApiResult<PageData<AiEducationItem>>> {
-  return fetchApi<PageData<AiEducationItem>>(`/api/ai-education${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getAiEducations —— GET /api/ai-education 两引擎零注册
+// (在册近邻是 /api/ai-education/teacher-certification*),全仓零消费方。
 
 /** 获取 AI 教育详情 */
 export async function getAiEducationDetail(id: string): Promise<ApiResult<AiEducationItem>> {

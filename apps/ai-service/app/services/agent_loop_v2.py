@@ -55,6 +55,7 @@ import random
 import threading
 import time
 import uuid
+from pathlib import Path
 import weakref
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass, field
@@ -1968,6 +1969,50 @@ def merge_turn_scoped_denylist(
     return base | additions
 
 
+def _tool_overflow_dir() -> Path:
+    """工具结果溢出落点:仓库内 .ihui-agent/tmp,不写盘根,不用系统临时目录。"""
+    root = Path(__file__).resolve().parents[4]
+    dest = root / ".ihui-agent" / "tmp" / "tool-output"
+    dest.mkdir(parents=True, exist_ok=True)
+    return dest
+
+
+def _spill_tool_overflow(overflow: str) -> str | None:
+    """把超出预算的尾部写入临时文件,返回路径。写失败返回 None。"""
+    try:
+        path = _tool_overflow_dir() / f"tool-overflow-{uuid.uuid4().hex}.txt"
+        path.write_text(overflow, encoding="utf-8")
+        return str(path)
+    except OSError:
+        return None
+
+
+def bound_tool_result_for_context(payload: Any) -> str:
+    """把工具结果收成 role:tool 正文。预算复用 mcp_server 的工具输出上限。
+
+    未超预算原样 json。超出部分落临时文件,正文留截断说明和文件指针。
+    """
+    from .mcp_server import _estimate_tokens_len, _get_tool_output_max_tokens
+
+    try:
+        text = json.dumps(payload, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        text = json.dumps({"error": "tool result not serializable"}, ensure_ascii=False)
+    max_tokens = _get_tool_output_max_tokens()
+    if _estimate_tokens_len(text) <= max_tokens:
+        return text
+    keep_chars = max_tokens * 4
+    overflow = text[keep_chars:]
+    spilled = _spill_tool_overflow(overflow)
+    dropped = _estimate_tokens_len(overflow)
+    if spilled:
+        note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
+    else:
+        note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
+    head_len = max(0, keep_chars - len(note))
+    return text[:head_len] + note
+
+
 class AgentLoopV2:
     """完整 ReAct 工具调用循环。
 
@@ -2405,6 +2450,8 @@ class AgentLoopV2:
         self._compaction_run_id: str = ""
         # 本次 run 的压缩事件列表(写入 AgentLoopResult.compaction_events)
         self._compaction_events: list[dict[str, Any]] = []
+        # 自动压缩连续失败次数(会话级,不随单次 run 清零;成功归零,满 3 次本会话跳过)
+        self._compaction_fail_streak: int = 0
         self.enable_checkpoint = enable_checkpoint
         self._session_id: str | None = session_id
         self._checkpoint_manager: AgentCheckpointManager = (
@@ -2636,6 +2683,8 @@ class AgentLoopV2:
         enabled, llm_enabled = self._effective_compaction_settings()
         if not enabled or self._compaction_context_limit <= 0:
             return messages
+        if getattr(self, "_compaction_fail_streak", 0) >= 3:
+            return messages
         # 批 58 接线:new_context 工具请求开新窗时跳过摘要压缩(对标 codex
         # request_new_context_window 信号——模型主动放弃摘要,直接截断开新窗)。
         if getattr(self, "_new_context_window_requested", False):
@@ -2667,6 +2716,7 @@ class AgentLoopV2:
                 )
             duration_ms = (time.perf_counter() - started) * 1000
             if not info.get("compressed"):
+                self._compaction_fail_streak = 0
                 return messages
             # P1-②(2026-09-18):决策链保留 —— 在压缩产物上做后处理注入(不改压缩实现,
             # 跨端 parity 零影响):把被压缩 head 段每轮 assistant 推理蒸馏为结构化决策条目
@@ -2737,10 +2787,17 @@ class AgentLoopV2:
                 self._env_tracker.reset()
             except Exception:  # noqa: BLE001 - 重置失败仅影响去重精度
                 pass
+            self._compaction_fail_streak = 0
             return compressed
         except Exception as e:
             # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
+            self._compaction_fail_streak = getattr(self, "_compaction_fail_streak", 0) + 1
             logger.warning("[agent-loop] 上下文压缩失败(降级原消息): %s", e)
+            if self._compaction_fail_streak >= 3:
+                logger.warning(
+                    "[agent-loop] 自动压缩连续失败 %d 次,本会话跳过后续自动压缩",
+                    self._compaction_fail_streak,
+                )
             return messages
 
     def _apply_retention_budget(
@@ -3803,7 +3860,9 @@ class AgentLoopV2:
 
         return _on_chunk
 
-    async def _wait_interruptible(self, coro: Any) -> Any:
+    async def _wait_interruptible(
+        self, coro: Any, cancel_event: asyncio.Event | None = None
+    ) -> Any:
         """等待 coro 完成,期间周期轮询 cancel/pause 标志(0.25s 间隔)。
 
         P0-B(2026-09-18):此前 cancel/pause 只在轮次边界生效,长 LLM 调用与
@@ -3824,6 +3883,8 @@ class AgentLoopV2:
                         if self._cancel_requested
                         else TurnStopReason.PAUSED
                     )
+                    if cancel_event is not None:
+                        cancel_event.set()
                     task.cancel()
                     with contextlib.suppress(BaseException):
                         await task  # 等 task 真正退出(其 finally 链清理资源)
@@ -3831,6 +3892,8 @@ class AgentLoopV2:
         finally:
             # 外部取消路径(如 wait_for 超时取消本协程):内部 task 不可悬挂泄漏
             if not task.done():
+                if cancel_event is not None:
+                    cancel_event.set()
                 task.cancel()
 
     async def _llm_call_with_retry(
@@ -4669,9 +4732,8 @@ class AgentLoopV2:
                             "role": "tool",
                             "tool_call_id": tr.tool_call_id,
                             "name": tr.name,
-                            "content": json.dumps(
-                                tr.result if not tr.error else {"error": tr.error},
-                                ensure_ascii=False,
+                            "content": bound_tool_result_for_context(
+                                tr.result if not tr.error else {"error": tr.error}
                             ),
                         }
                     )
@@ -5517,6 +5579,66 @@ class AgentLoopV2:
             retry_count=retry_count,
         )
 
+    async def _gather_tools_readonly_gated(self, tool_calls: list[ToolCall]) -> list[Any]:
+        """并行批调度:空闲即可开工;在跑的全是只读且本工具也只读才并发。
+
+        遇到不能开工的非只读工具就停,不跳过它去跑后面的。已结束项按
+        return_exceptions 收进槽位(_LoopInterrupted / 其它异常原样保留)。
+        """
+        slots: list[Any] = [None] * len(tool_calls)
+        next_index = 0
+        inflight: list[tuple[int, ToolCall, asyncio.Task[Any]]] = []
+
+        def can_start(tc: ToolCall) -> bool:
+            if not inflight:
+                return True
+            if not is_readonly_tool(tc.name):
+                return False
+            return all(is_readonly_tool(running.name) for _, running, _ in inflight)
+
+        def take_done(done: set[asyncio.Task[Any]]) -> None:
+            nonlocal inflight
+            still: list[tuple[int, ToolCall, asyncio.Task[Any]]] = []
+            for idx, _tc, task in inflight:
+                if task not in done:
+                    still.append((idx, _tc, task))
+                    continue
+                if task.cancelled():
+                    slots[idx] = asyncio.CancelledError()
+                    continue
+                exc = task.exception()
+                slots[idx] = exc if exc is not None else task.result()
+            inflight = still
+
+        while next_index < len(tool_calls) or inflight:
+            while next_index < len(tool_calls) and can_start(tool_calls[next_index]):
+                tc = tool_calls[next_index]
+                inflight.append(
+                    (next_index, tc, asyncio.create_task(self._execute_single(tc)))
+                )
+                next_index += 1
+            if not inflight:
+                break
+            done, _pending = await asyncio.wait(
+                {task for _, _, task in inflight},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            take_done(done)
+            if any(isinstance(item, _LoopInterrupted) for item in slots):
+                for _idx, _tc, task in inflight:
+                    if not task.done():
+                        task.cancel()
+                if inflight:
+                    await asyncio.gather(
+                        *(task for _, _, task in inflight), return_exceptions=True
+                    )
+                    take_done({task for _, _, task in list(inflight)})
+                for idx, item in enumerate(slots):
+                    if item is None:
+                        slots[idx] = asyncio.CancelledError()
+                break
+        return slots
+
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
         # 批58(接线):记录本轮模型尝试过的工具调用(对标 codex
@@ -5537,11 +5659,9 @@ class AgentLoopV2:
                 self._session_id or "", idx, tc.name, "started"
             )
         if self.parallel_tool_calls and len(tool_calls) > 1:
-            # 并行执行
-            # 2026-08-01 P1 修复:return_exceptions=True 防止单个工具异常崩溃整个 gather,
-            # CancelledError(BaseException)不被 _execute_single 的 except Exception 捕获。
-            tasks = [self._execute_single(tc) for tc in tool_calls]
-            gathered_raw = await asyncio.gather(*tasks, return_exceptions=True)
+            # 只读可与正在跑的只读并发;非只读要等前面的在跑工具结束才开工。
+            # 不能开工就停在这一枚,不跳过它去跑后面的。异常仍按 return_exceptions 收。
+            gathered_raw = await self._gather_tools_readonly_gated(tool_calls)
             # P0-B(2026-09-18):循环内中断信号优先传播——gather(return_exceptions=True)
             # 会把 _LoopInterrupted 当普通异常吞掉转 ToolResult,导致并行工具批内
             # 用户取消/暂停失效;命中即整体上抛,交 _run_loop 走优雅中断链路。
@@ -5917,6 +6037,21 @@ class AgentLoopV2:
         if isinstance(content, str) and content.strip():
             return content.strip()[:80]
         return tool_name[:80] or "unknown"
+
+    def _open_tool_executor(
+        self,
+        executor: Callable[..., Any],
+        args: dict[str, Any],
+        cancel_event: asyncio.Event,
+    ) -> Any:
+        """把取消事件传给声明了 cancel 参数的执行器;其余签名只收 args。"""
+        try:
+            params = inspect.signature(executor).parameters
+        except (TypeError, ValueError):
+            return executor(args)
+        if "cancel" in params:
+            return executor(args, cancel=cancel_event)
+        return executor(args)
 
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
         """执行单个工具调用(含超时 + 错误处理 + L5-2 瞬时失败自动重试)。
@@ -6351,11 +6486,18 @@ class AgentLoopV2:
         # run_command 数分钟)期间命中 cancel/pause 标志立即中断;
         # _LoopInterrupted 不进重试链(显式 raise 直通 _run_loop 优雅中断)。
         retry_count = 0
+        cancel_event = asyncio.Event()
+        from .mcp_server import reset_tool_cancel_event, set_tool_cancel_event
+
+        cancel_token = set_tool_cancel_event(cancel_event)
         try:
             while True:
                 try:
                     result = await asyncio.wait_for(
-                        self._wait_interruptible(tool.executor(tc.args)),
+                        self._wait_interruptible(
+                            self._open_tool_executor(tool.executor, tc.args, cancel_event),
+                            cancel_event,
+                        ),
                         timeout=self.tool_timeout,
                     )
                     # P0-3:exec_policy PROMPT 档转真实用户审批(命中时升级处理)。
@@ -6476,6 +6618,8 @@ class AgentLoopV2:
                 )
                 await asyncio.sleep(backoff)
         finally:
+            with contextlib.suppress(Exception):
+                reset_tool_cancel_event(cancel_token)
             if terminal_ctx_token is not None:
                 with contextlib.suppress(Exception):
                     from .mcp_server import reset_terminal_stream_context

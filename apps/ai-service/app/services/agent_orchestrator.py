@@ -318,6 +318,8 @@ class AgentOrchestrator:
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
         chat_mode: str | None = None,
         permission_mode: str | None = None,
+        tool_allow: list[str] | None = None,
+        tool_deny: list[str] | None = None,
     ) -> AgentStepResult:
         """调用单个 agent 执行任务。
 
@@ -350,6 +352,8 @@ class AgentOrchestrator:
             progress_callback,
             chat_mode=chat_mode,
             permission_mode=permission_mode,
+            tool_allow=tool_allow,
+            tool_deny=tool_deny,
         )
 
     # =========================================================================
@@ -1372,6 +1376,8 @@ class AgentOrchestrator:
         tasks: list[dict[str, Any]],
         max_concurrency: int = 5,
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
+        tool_allow: list[str] | None = None,
+        tool_deny: list[str] | None = None,
     ) -> dict[str, Any]:
         """并行派发多个 subagent,每个 task 独立执行,互不污染上下文。
 
@@ -1433,7 +1439,12 @@ class AgentOrchestrator:
                         if isinstance(sid, str):
                             session_id = sid
                     result = await self.invoke(
-                        name, task_desc, session_id=session_id, progress_callback=task_cb
+                        name,
+                        task_desc,
+                        session_id=session_id,
+                        progress_callback=task_cb,
+                        tool_allow=tool_allow,
+                        tool_deny=tool_deny,
                     )
                     return {
                         "name": name,
@@ -1484,6 +1495,8 @@ class AgentOrchestrator:
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
         chat_mode: str | None = None,
         permission_mode: str | None = None,
+        tool_allow: list[str] | None = None,
+        tool_deny: list[str] | None = None,
     ) -> AgentStepResult:
         """执行单个 agent(直接调 LLM + tools,不走 agent_loop 任务管理)。
 
@@ -1512,7 +1525,7 @@ class AgentOrchestrator:
             agent_name=agent.name,
             system_prompt=agent.system_prompt,
             user_input=user_input,
-            tool_names=list(agent.tools),
+            tool_names=self._narrow_agent_tools(list(agent.tools), tool_allow, tool_deny),
             model=model_override or agent.model,
             max_iterations=agent.max_iterations,
             session_id=session_id,
@@ -1571,7 +1584,10 @@ class AgentOrchestrator:
             # 准备 tools:能力名单(agent.tools)∩ 注册表在 _filter_tools 里映射,
             # 而「这一档允许哪些工具」只由 core/permission_mode.allowed_tool_names
             # 一处算(G2 并轨;与 agent_loop_v2 的"schema 收窄 + 执行入口再校验"同构)。
-            tool_defs = self._filter_tools(agent.tools, mode_policy)
+            tool_defs = self._filter_tools(
+                self._narrow_agent_tools(list(agent.tools), tool_allow, tool_deny),
+                mode_policy,
+            )
 
             output = ""
             for it in range(agent.max_iterations):
@@ -1705,6 +1721,24 @@ class AgentOrchestrator:
                 tool_calls=tool_calls,
                 error=str(e),
             )
+
+    @staticmethod
+    def _narrow_agent_tools(
+        names: list[str],
+        tool_allow: list[str] | None,
+        tool_deny: list[str] | None,
+    ) -> list[str]:
+        """缺省两参时原样返回。tool_allow 非 None 是硬边界,tool_deny 再减掉。"""
+        if tool_allow is None and not tool_deny:
+            return names
+        narrowed = names
+        if tool_allow is not None:
+            allow = set(tool_allow)
+            narrowed = [name for name in narrowed if name in allow]
+        if tool_deny:
+            denied = set(tool_deny)
+            narrowed = [name for name in narrowed if name not in denied]
+        return narrowed
 
     @staticmethod
     def _filter_tools(
