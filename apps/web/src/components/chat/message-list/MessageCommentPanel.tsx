@@ -37,7 +37,6 @@ import { formatMessageTimestamp } from './message-item-parts'
 // D125 另批收口(2026-10-23):§7 面板头部出口 = 接受邀请(收件箱)+ 邀请管理(名单/档位/撤销)+ 发言锁
 import { CollabInvitationInbox } from '../collab/CollabInvitationInbox'
 import { CollabManagePanel } from '../collab/CollabManagePanel'
-import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 export interface MessageCommentPanelProps {
   conversationId: string
@@ -75,7 +74,7 @@ export function MessageCommentPanel({
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const config: UserBroadcastConfig = {
-      baseUrl: resolveWsApiBaseUrl(),
+      baseUrl: window.location.origin,
       tokenProvider: () => useAuthStore.getState().token,
     }
     const sub = subscribeUserBroadcast(config, {
