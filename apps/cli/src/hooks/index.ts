@@ -95,6 +95,11 @@ export type HookEvent =
   | 'permissionRequest'
   | 'subagentStart'
   | 'subagentStop'
+  // 后台任务生命周期两档(对齐 Qoder/Trae 的 TaskCreated/TaskCompleted 钩子面)。
+  // 事件源本仓早就存在(background-registry 的登记口与终态收口),此前缺的只是钩子:
+  // 用户能听到子代理起停,却听不到"我把一条命令转后台了 / 它跑完了"。
+  | 'taskCreated'
+  | 'taskCompleted'
   // P2-4 agent-lifecycle Turn 级事件(4 种):
   // - turnStart:每次 LLM 调用 + 工具循环开始(每轮触发,粒度细于 sessionStart)
   // - turnEnd:每轮成功结束(无论是否调用工具)
@@ -122,6 +127,10 @@ export interface HooksConfig {
   permissionRequest?: HookEntry[];
   subagentStart?: HookEntry[];
   subagentStop?: HookEntry[];
+  /** 后台任务登记时派发(经 background-registry.registerTask 消费;与 taskCompleted 成对)。 */
+  taskCreated?: HookEntry[];
+  /** 后台任务到达终态时派发(在状态改写与等待者投递之后,保证钩子读到的已是真终态)。 */
+  taskCompleted?: HookEntry[];
   // P2-4 Turn 级事件(4 种,粒度细于 sessionStart/sessionEnd)
   turnStart?: HookEntry[];
   turnEnd?: HookEntry[];
@@ -471,6 +480,21 @@ export interface HookContext {
   totalTurns?: number;
   /** agent 停止原因(turnComplete 事件用,与 AgentStopReason 对齐) */
   stopReason?: string;
+  // 后台任务两档事件字段(taskCreated / taskCompleted)
+  /** 后台任务 id */
+  taskId?: string;
+  /** 被转后台的命令行原文(taskCreated 起即可见;审计与通知文案的唯一依据) */
+  taskCommand?: string;
+  /** 任务终态(exited / error / killed / timeout);taskCreated 档为 'running' */
+  taskStatus?: string;
+  /** 进程退出码 —— null 与 undefined 不同:前者是"被信号终止,没有码",后者是"还没结束" */
+  taskExitCode?: number | null;
+  /** 是否因超时被终止(与"谁停的"是两条轴,照 G-816026 口径不得由 signal 反推) */
+  taskTimedOut?: boolean;
+  /** 该任务占用的 worktree 路径(隔离档才有) */
+  taskWorktreePath?: string;
+  /** 属主子代理 id —— 本仓超越轴:钩子事件天然带归属,可做"谁的后台任务只通知谁" */
+  taskOwnerAgentId?: string;
 }
 
 /**
@@ -491,6 +515,7 @@ const HOOK_EVENT_KEYS: Array<keyof HooksConfig> = [
   'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
   'permissionRequest',
   'subagentStart', 'subagentStop',
+  'taskCreated', 'taskCompleted',
   // P2-4 Turn 级事件
   'turnStart', 'turnEnd', 'turnError', 'turnComplete',
 ];
