@@ -214,6 +214,7 @@
     "relay:sessions": "pnpm --filter @ihui/api relay:sessions",
     "relay:sessions:backup": "pnpm --filter @ihui/api relay:sessions:backup",
     "relay:switch-account": "pnpm --filter @ihui/api relay:switch-account",
+    "relay:switch-oneclick": "pnpm --filter @ihui/api relay:switch-oneclick",
     "relay:ide-switch": "pnpm --filter @ihui/api relay:ide-switch",
     "relay:sessions:restore": "pnpm --filter @ihui/api relay:sessions:restore",
     "relay:session-links": "pnpm --filter @ihui/api relay:session-links",
