@@ -17,7 +17,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
@@ -185,8 +185,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
     },
     headerBackBtn: {
-      width: 32,
-      height: 32,
+      width: rnGeometry.tapBox,
+      height: rnGeometry.tapBox,
       alignItems: 'center',
       justifyContent: 'center',
     },

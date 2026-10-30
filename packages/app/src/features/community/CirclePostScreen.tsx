@@ -149,7 +149,7 @@ export function CirclePostScreen({
                 <TouchableOpacity
                   style={styles.thumbRemove}
                   onPress={() => onRemoveImage(img.key)}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <X size={14} color={tk.surface.light} />
                 </TouchableOpacity>

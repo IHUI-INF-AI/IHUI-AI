@@ -300,7 +300,21 @@ function main() {
 
   const content = emitFile({ routes, windowTitle, pinLines })
   mkdirSync(dirname(outFile), { recursive: true })
-  writeFileSync(outFile, content, 'utf8')
+  // 2026-10-31 写盘重试(同 gen-i18n/watermark):高频重写生成物撞实时锁的毫秒级 UNKNOWN
+  let lastErr
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      writeFileSync(outFile, content, 'utf8')
+      lastErr = null
+      break
+    } catch (err) {
+      lastErr = err
+      const code = err && typeof err === 'object' ? err.code : ''
+      if (code !== 'UNKNOWN' && code !== 'EPERM' && code !== 'EBUSY') throw err
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+    }
+  }
+  if (lastErr) throw lastErr
 
   // 溯源水印:产物是 git 跟踪文件,受 check-watermark-coverage 门禁约束;inject 幂等,
   // 同一载荷重复生成不产生 diff(参考 gen-i18n-compressed.mjs 的实现)
