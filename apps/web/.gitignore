@@ -1,4 +1,10 @@
 .next/
+# 蓝绿/回滚构建目录(distDir 由 IHUI_BUILD_DIST 指定)。只忽略 `.next/` 时这些目录全部漏网:
+# Tailwind v4 的内容扫描面按 .gitignore 裁剪 ⇒ 构建产物被当源码扫进生成的 CSS
+# (实测:在 .next-blue 里放探针组件,其类名会出现在生成的 CSS 中;旧产物里还留着源码已删除的类名),
+# 且这些目录的 Turbopack 持久缓存 .sst/.meta 携带裸 0x1A 字节,是 apps/web 里唯一存在 0x1A 的地方。
+.next-*/
+.rollback/
 .turbo/
 out/
 node_modules/
