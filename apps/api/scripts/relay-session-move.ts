@@ -212,6 +212,15 @@ export function findTodaySnapshot(
   return best
 }
 
+/**
+ * 「账号不在会话台账」这一型:auth 切号本身是成功的,只是会话面没得换。
+ * 调用方不得据此回滚 auth —— 否则台账没覆盖某个账号时,一键切号永远白忙。
+ * 判据与抛错同源(消息里都含「账号不在台账」),不另写第二份字符串。
+ */
+export function isAccountNotInLedgerError(e: unknown): boolean {
+  return e instanceof Error && /账号不在台账/.test(e.message)
+}
+
 /** ops.jsonl 单条:零内容,只有路径/字节/sha */
 export interface MoveOpFileEntry {
   from: string
