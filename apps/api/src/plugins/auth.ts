@@ -22,6 +22,7 @@ import { isUuidString } from '../utils/uuid.js'
 import { error } from '../utils/response.js'
 import { hasApiKeyCredential } from '../utils/capability-guard.js'
 import { logger } from '../utils/logger.js'
+import { checkUserRateLimit } from '../services/user-rate-limit.js'
 import type { OpenCapabilityGrant } from '../config/open-capability-registry.js'
 
 declare module 'fastify' {
@@ -66,13 +67,13 @@ function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
   try {
     const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 1 })
     redis.on('error', (err) => {
-      logger.error({ err: (err as Error).message }, '[auth] blacklist redis error')
+      logger.error('[auth] blacklist redis error', { err: (err as Error).message })
     })
     tokenBlacklist = createBlacklist(redis)
     return tokenBlacklist
   } catch (e) {
     tokenBlacklistInitFailed = true
-    logger.error({ err: (e as Error).message }, '[auth] blacklist 初始化失败,access 吊销检查停用')
+    logger.error('[auth] blacklist 初始化失败,access 吊销检查停用', { err: (e as Error).message })
     return null
   }
 }
@@ -84,7 +85,7 @@ export async function revokeAccessToken(token: string, expiresAt: Date): Promise
   try {
     await blacklist.add(token, expiresAt)
   } catch (e) {
-    logger.error({ err: (e as Error).message }, '[auth] 写 access 黑名单失败')
+    logger.error('[auth] 写 access 黑名单失败', { err: (e as Error).message })
   }
 }
 
@@ -291,6 +292,13 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
 
   request.userId = payload.userId
   request.jwtPayload = payload
+
+  // 2026-10-30:按用户再计一层(补 IP 桶在 NAT/回环下的失真,见 services/user-rate-limit.ts)。
+  // 放在最后:只有真正通过全部校验的请求才计数,失败请求不占额度。
+  if (!(await checkUserRateLimit(payload.userId))) {
+    throw new AppError('请求过于频繁,请稍后再试', 429, 'USER_RATE_LIMITED')
+  }
+
   return payload
 }
 
