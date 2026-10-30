@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { requireEnv } from './fixtures'
 
 /**
  * 真机验证 8 项清单 E2E 测试
@@ -287,7 +288,7 @@ test.describe('真机验证 - 已登录状态', () => {
         baseURL ?? 'http://localhost:8801',
         {
           account: process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
-          password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
+          password: requireEnv('E2E_USER_PASSWORD'),
         },
         USER_STORAGE_STATE,
       )
@@ -339,7 +340,7 @@ test.describe('真机验证 - 已登录状态', () => {
         baseURL ?? 'http://localhost:8801',
         {
           account: process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
-          password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
+          password: requireEnv('E2E_USER_PASSWORD'),
         },
         USER_STORAGE_STATE,
       )
@@ -383,7 +384,7 @@ test.describe('真机验证 - 已登录状态', () => {
         baseURL ?? 'http://localhost:8801',
         {
           account: process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
-          password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
+          password: requireEnv('E2E_USER_PASSWORD'),
         },
         USER_STORAGE_STATE,
       )
