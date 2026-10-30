@@ -1336,6 +1336,8 @@
     "introLabel": "소개"
   },
   "exam": {
+    "attempts": "응시 횟수",
+    "duration": "시험 시간",
     "tabs": {
       "all": "전체",
       "pending": "대기 중",
@@ -1348,8 +1350,8 @@
     },
     "questions": "{n}문제",
     "minutes": "{n}분",
-    "passScore": "합격 {n}",
-    "totalScore": "총점 {n}",
+    "passScore": "합격 점수",
+    "totalScore": "총점",
     "removedPaper": "시험지 삭제됨",
     "passed": "합격",
     "notPassed": "불합격",
@@ -4753,7 +4755,7 @@
     "allowInvites": "초대 허용"
   },
   "memberDashboard": {
-    "title": "회원 센터",
+    "title": "회원 개요",
     "level": "회원 등급",
     "points": "내 포인트",
     "coupons": "쿠폰",
@@ -5160,7 +5162,7 @@
   },
   "agreement": {
     "title": "약관 및 정책",
-    "subtitle": "다음 약관을 주의 깊게 읽어 주십시오"
+    "subtitle": "본 약관을 주의 깊게 읽어주세요"
   },
   "agreementSections": {
     "sectionTerms": "서비스 약관",
@@ -5982,7 +5984,7 @@
     "loadFailed": "프로모션 불러오기 실패"
   },
   "promotion": {
-    "title": "쿠폰",
+    "title": "쿠폰 센터",
     "empty": "사용 가능한 쿠폰이 없습니다",
     "minSpend": "¥{minSpend} 이상 사용 가능",
     "expireDate": "유효 기간",

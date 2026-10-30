@@ -1336,6 +1336,8 @@
     "introLabel": "紹介"
   },
   "exam": {
+    "attempts": "受験回数",
+    "duration": "所要時間",
     "tabs": {
       "all": "すべて",
       "pending": "未完了",
@@ -1348,8 +1350,8 @@
     },
     "questions": "{n} 問",
     "minutes": "{n} 分",
-    "passScore": "合格 {n}",
-    "totalScore": "合計 {n}",
+    "passScore": "合格点",
+    "totalScore": "総得点",
     "removedPaper": "試験は削除されました",
     "passed": "合格",
     "notPassed": "不合格",
@@ -4753,7 +4755,7 @@
     "allowInvites": "招待を許可"
   },
   "memberDashboard": {
-    "title": "会員センター",
+    "title": "会員概要",
     "level": "会員ランク",
     "points": "マイポイント",
     "coupons": "クーポン",
@@ -5160,7 +5162,7 @@
   },
   "agreement": {
     "title": "規約とポリシー",
-    "subtitle": "以下の規約をよくお読みください"
+    "subtitle": "本契約をよくお読みください"
   },
   "agreementSections": {
     "sectionTerms": "利用規約",
@@ -5982,7 +5984,7 @@
     "loadFailed": "プロモーションの読み込みに失敗"
   },
   "promotion": {
-    "title": "クーポン",
+    "title": "クーポンセンター",
     "empty": "利用可能なクーポンはありません",
     "minSpend": "¥{minSpend} 以上で利用可能",
     "expireDate": "有効期限",

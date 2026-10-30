@@ -1336,6 +1336,8 @@
     "introLabel": "简介"
   },
   "exam": {
+    "attempts": "考试次数",
+    "duration": "考试时长",
     "tabs": {
       "all": "全部",
       "pending": "待完成",
@@ -1348,8 +1350,8 @@
     },
     "questions": "{n} 题",
     "minutes": "{n} 分钟",
-    "passScore": "及格分 {n}",
-    "totalScore": "总分 {n}",
+    "passScore": "及格分",
+    "totalScore": "总分",
     "removedPaper": "试卷已下架",
     "passed": "已通过",
     "notPassed": "未通过",
@@ -4753,7 +4755,7 @@
     "allowInvites": "允许被邀请"
   },
   "memberDashboard": {
-    "title": "会员中心",
+    "title": "会员概览",
     "level": "会员等级",
     "points": "我的积分",
     "coupons": "优惠券",
@@ -5160,7 +5162,7 @@
   },
   "agreement": {
     "title": "协议与政策",
-    "subtitle": "请仔细阅读以下协议"
+    "subtitle": "请仔细阅读本协议"
   },
   "agreementSections": {
     "sectionTerms": "服务条款",
@@ -5982,7 +5984,7 @@
     "loadFailed": "加载推广失败"
   },
   "promotion": {
-    "title": "优惠券",
+    "title": "优惠券中心",
     "empty": "暂无可用优惠券",
     "minSpend": "满 ¥{minSpend} 可用",
     "expireDate": "有效期至",
