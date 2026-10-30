@@ -2,20 +2,21 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnTokens } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 /**
  * Plan 域语义色板基档(与 web 端 plan 组件 slate/blue/emerald/amber/rose 同源,
  * 固定语义色不随主题换档 —— 与 status-styles.ts 的 STATUS_PALETTE 同一模式;
+ * 色值唯一真相源 = packages/design-tokens/src/hue-tints.js 的 rnHue 表,2026-10-31 收编不再手抄;
  * 相近色统一:草稿/待处理/低优先级/未变 共用 SLATE,进行中/中优先级 共用 BLUE,以此类推)。
  */
-const SLATE = { bg: 'rgba(100,116,139,0.12)', fg: '#475569', dot: '#64748b' }
-const BLUE = { bg: 'rgba(59,130,246,0.12)', fg: '#1d4ed8', dot: '#3b82f6' }
-const EMERALD = { bg: 'rgba(16,185,129,0.10)', fg: '#059669', dot: '#10b981' }
-const AMBER = { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: rnTokens.warning.amber }
-const ROSE = { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' }
+const SLATE = { bg: rnHue.slate.tintStrong, fg: rnHue.slate.fg, dot: rnHue.slate.dot }
+const BLUE = { bg: rnHue.blue.tintStrong, fg: rnHue.blue.fgStrong, dot: rnHue.blue.dot }
+const EMERALD = { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg, dot: rnHue.emerald.dot }
+const AMBER = { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg, dot: rnTokens.warning.amber }
+const ROSE = { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg, dot: rnHue.rose.dot }
 
 /** 计划状态 / 步骤状态 / 优先级 / diff 类型 → 语义色(键名与 @ihui/shared/plan 枚举一致)。 */
 export const PLAN_PALETTE = {

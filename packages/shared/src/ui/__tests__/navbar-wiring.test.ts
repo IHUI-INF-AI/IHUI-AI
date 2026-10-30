@@ -715,6 +715,14 @@ const L_LEG_FILE: Record<LegName, string> = Object.fromEntries(
 /**
  * 幻影档判据:返回问题清单(空 = 每一枚导出档都有真消费方)。
  * `read` 是给 ⑪ 变异留的注入点(默认现读磁盘),判据本身零复制 —— 取数点口径与 ①/⑦ 同一条。
+ *
+ * 消费形态两档(2026-10-31 补):
+ *  - 直接消费:腿源码点名档名(原先唯一承认的形态);
+ *  - 间接消费:档被 spec 的**导出复合函数**消费(navbar-spec.ts:NAVBAR_ACTION_HEIGHT_PX /
+ *    NAVBAR_ACTION_MIN_WIDTH_PX 的头注明令「两端都必须只经 navbarActionBoxStyle 消费,端内点名
+ *    = 端自己重排盒子 = 违规」),而腿调用了该函数 —— 判据若只认直取,就会把「按设计走复合函数」
+ *    的档判成幻影,与 spec 自己的设计声明互相矛盾(尺子立起即红的那型)。
+ *    间接维的判定 = spec 源里 `export function <FN>` 的函数体内出现档名 ∧ 任一腿调用 `<FN>(`。
  */
 function phantomTierProblems(opts: {
   legSrcs: Record<LegName, string>
@@ -725,12 +733,47 @@ function phantomTierProblems(opts: {
   const read =
     opts.read ?? ((rel: string): string => prepare(readFileSync(join(ROOT, rel), 'utf8')))
   const problems: string[] = []
+  // spec 源码只剥注释不涂字符串(档名引用住在代码体里);两个 spec 文件并读,
+  // NAVBAR_BACK 族档定义在 navbar-spec、消费函数可能住在 back-chevron-spec。
+  const specSrc = [
+    'packages/shared/src/ui/navbar-spec.ts',
+    'packages/shared/src/ui/back-chevron-spec.ts',
+  ]
+    .map((rel) => {
+      try {
+        return stripComments(readFileSync(join(ROOT, rel), 'utf8'))
+      } catch {
+        return ''
+      }
+    })
+    .join('\n')
   for (const tier of tiers) {
     if (!/^[A-Z][A-Z0-9_]*_PX$/.test(tier)) continue
     const legs = (Object.keys(legSrcs) as LegName[]).filter(
       (leg) => usagesOf(legSrcs[leg], tier).length > 0,
     )
     if (legs.length > 0) continue
+    // 间接消费:spec 的某个 export function 函数体内消费了 tier,且该函数被任一腿调用。
+    // 注:\w+ 后不能接 \s*\( —— 泛型复合函数(navbarActionBoxStyle<U extends ...>() 声明与
+    // 左括号之间隔着泛型参数表,硬要 \s*\( 会把泛型函数整体漏掉(实测踩过)。
+    const fnRe = /export function (\w+)/g
+    let m: RegExpExecArray | null
+    let indirect = false
+    while ((m = fnRe.exec(specSrc)) !== null) {
+      const fn = m[1]
+      const bodyStart = m.index
+      const nextExport = specSrc.indexOf('export ', bodyStart + 10)
+      const body = specSrc.slice(bodyStart, nextExport === -1 ? specSrc.length : nextExport)
+      if (!new RegExp(`\\b${tier}\\b`).test(body)) continue
+      const legCalls = (Object.keys(legSrcs) as LegName[]).some((leg) =>
+        new RegExp(`\\b${fn}\\s*\\(`).test(legSrcs[leg]),
+      )
+      if (legCalls) {
+        indirect = true
+        break
+      }
+    }
+    if (indirect) continue
     problems.push(
       `${tier} 从 spec 导出却没有任何消费方(两条腿都无取数点)⇒ 幻影档:` +
         `接上真实取数点,或把档删掉;只在注释/台账里宣称"已收成"不算装车`,

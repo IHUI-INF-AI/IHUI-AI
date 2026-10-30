@@ -220,6 +220,23 @@ export const TextInput = mk('input')
 export const Image = mk('img')
 export const ActivityIndicator = () => createElement('div', null, 'loading')
 export const RefreshControl = () => null
+/**
+ * RN 的键盘避让容器。替身此前**没有这一枚**,而 BottomPops(全端底部弹层的唯一承载件)
+ * 补上键盘避让后直接 import 它 ⇒ 替身给回 undefined,凡渲染弹层的套件当场
+ * "Element type is invalid" 整片崩。与 flattenStyle / resolveChildren 同一条规矩:
+ * 共享替身必须覆盖真身的 API 面,不得退回各套件各自 vi.mock。
+ * jsdom 没有原生键盘,故 behavior 只当布局占位透传,不模拟遮挡。
+ */
+export const KeyboardAvoidingView = (props: {
+  children?: ReactNode
+  style?: unknown
+  [k: string]: unknown
+}) =>
+  createElement(
+    'div',
+    { 'data-role': 'keyboard-avoiding', style: flattenStyle(props.style) },
+    resolveChildren(props.children),
+  )
 export const Modal = (props: { visible?: boolean; children?: ReactNode }) =>
   props?.visible ? createElement('div', null, props.children) : null
 export const Switch = (props: { value?: boolean; onValueChange?: (v: boolean) => void }) =>

@@ -11,7 +11,9 @@ import {
   Easing,
   Image,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -1890,7 +1892,11 @@ export function HomeScreen() {
         onRequestClose={closeModelModal}
         statusBarTranslucent
       >
-        <View style={shellStyles.modelModalBackdrop}>
+        {/* 模型选择弹层里有搜索框(下面第 3 个 TextInput),没有避让层时键盘盖住搜索框与结果列表 */}
+        <KeyboardAvoidingView
+          style={shellStyles.modelModalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={closeModelModal}
@@ -2029,7 +2035,7 @@ export function HomeScreen() {
               />
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
       {/* MaterialList 素材弹窗(对齐 Uniapp showMaterialList → MaterialList「我的创作」,底部 sheet)
        *  共享组件:MaterialList 自身不带 Modal,包裹 RN Modal 实现底部 sheet(对齐 BottomPopup 同款) */}

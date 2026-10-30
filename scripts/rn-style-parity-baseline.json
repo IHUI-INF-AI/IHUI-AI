@@ -1,9 +1,39 @@
 {
-  "components/ModelList.tsx": ["#f5b301"],
-  "components/PersonalInformationCard.tsx": ["#ffffff"],
-  "hooks/use-push.ts": ["#ff231f7c"],
-  "screens/ChatScreen.tsx": ["#9cdcfe"],
-  "screens/LoginScreen.tsx": ["#000000", "#ffffff"],
-  "screens/MoreCourseScreen.tsx": ["#93d2e2"],
-  "screens/ScanLoginScreen.tsx": ["#ffffff"]
+  "apps/mobile-rn/src/components/ModelList.tsx": [
+    "#f5b301"
+  ],
+  "apps/mobile-rn/src/components/PersonalInformationCard.tsx": [
+    "#ffffff"
+  ],
+  "apps/mobile-rn/src/hooks/use-push.ts": [
+    "#ff231f7c"
+  ],
+  "apps/mobile-rn/src/screens/ChatScreen.tsx": [
+    "#9cdcfe"
+  ],
+  "apps/mobile-rn/src/screens/LoginScreen.tsx": [
+    "#000000",
+    "#ffffff"
+  ],
+  "apps/mobile-rn/src/screens/MoreCourseScreen.tsx": [
+    "#93d2e2"
+  ],
+  "apps/mobile-rn/src/screens/ScanLoginScreen.tsx": [
+    "#ffffff"
+  ],
+  "packages/app/src/features/home/HomeScreen.tsx": [
+    "#1a1a1a",
+    "#ffffff"
+  ],
+  "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx": [
+    "#10a37f",
+    "#4285f4",
+    "#76b900",
+    "#d97757",
+    "#e94560",
+    "#f38020"
+  ],
+  "packages/app/src/features/tools/pdf/PdfToolsHubScreen.tsx": [
+    "#888888"
+  ]
 }
