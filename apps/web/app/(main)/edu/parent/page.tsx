@@ -829,11 +829,13 @@ function GradesView({ childId }: { childId: string }) {
     return acc
   }, {})
 
-  const subjectAvgs = Object.entries(grouped).map(([subject, items]) => {
+  const subjectAvgs = Object.entries(grouped).flatMap(([subject, items]) => {
+    // 分母为零 ⇒ 这一档「没有读数」:不渲染该档,而不是用 0/NaN 冒充平均分
+    if (items.length === 0) return []
     const avg = Math.round(items.reduce((s, i) => s + i.score, 0) / items.length)
     const totalScore = items[0]?.totalScore ?? 100
     const percentage = Math.round((avg / totalScore) * 100)
-    return { subject, avg, totalScore, percentage, count: items.length }
+    return [{ subject, avg, percentage, totalScore, count: items.length }]
   })
 
   if (isLoading) {

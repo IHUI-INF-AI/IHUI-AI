@@ -1,0 +1,5 @@
+HEAD=a2625f158b98b5c577ced349d890a555fccda8e5
+gitdir=D:/IHUI-AI-git-repo/worktrees/land-tip
+CHERRY_PICK_HEAD=97d1bdd38bbd1776ca3dd087e2b9da30329a3cb2
+MERGE_MSG=tmp-wip-land-full
+ORIG_HEAD=339c257d176192a7b8b69f080ebe04cfe8d04bef
