@@ -182,10 +182,10 @@ export default function NotificationPage() {
                   {tt('setting.notification.wxSubscribe', '微信催费提醒')}
                 </Text>
                 <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
-                  {tt(
-                    'setting.notification.wxSubscribeDesc',
-                    '订阅后可在微信接收学费催缴提醒(每次订阅可收一条)',
-                  )}
+                  {/* 原写法取 `setting.notification.wxSubscribeDesc` —— 该键在五语言词包里
+                      **都不存在** ⇒ tt() 的中文兜底恒被渲染(非中文环境也是中文)。
+                      改指同义且已在册的 `bill.wxSubscribeDesc`(本屏下方就跳 bill 页)。 */}
+                  {t('bill.wxSubscribeDesc')}
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
