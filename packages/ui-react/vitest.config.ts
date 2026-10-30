@@ -16,6 +16,8 @@ export default defineConfig({
   test: {
     testTimeout: 15_000,
     environment: 'happy-dom',
+    // 2026-10-31:补挂全局补丁(vitest 4 缺省浏览器全局,根因与 web tests/setup.ts L4 同枚)
+    setupFiles: ['./tests/setup.ts'],
     exclude: ['**/node_modules/**', '**/.ihui-agent/**', '**/dist/**'],
     fileParallelism: false,
   },
