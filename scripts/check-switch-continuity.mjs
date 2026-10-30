@@ -80,7 +80,9 @@ function main(argv) {
         console.log(
           `✅ ${snap.label}: 会话 ${snap.sessions.count} 场(清单钉 ${snap.sessions.digest}) 消息行 ${snap.messageRows?.count ?? '-'} 快照=${path.relative(HERE, file)}`,
         )
-        if (!snap.walMerged) console.log('  ⚠️ WAL 未能 checkpoint(退只读主库,在途帧未含)')
+        // 目录/键族形态(workbuddy/codearts/opencode/loomy)没有 WAL 面,walMerged=null
+        // ⇒ 只有 SQLite 形态真 checkpoint 失败(false)才配这条告警,null 不是失败
+        if (snap.walMerged === false) console.log('  ⚠️ WAL 未能 checkpoint(退只读主库,在途帧未含)')
       } else {
         console.log(`❌ ${app}: 未判定 —— ${snap.why}`)
       }

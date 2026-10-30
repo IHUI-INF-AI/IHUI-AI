@@ -14,6 +14,7 @@ import { createRequire } from 'node:module'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as C } from '../lib/switch-continuity-check.mjs'
+import { buildBatch, appendRecords } from '../lib/leveldb-log.mjs'
 
 const require = createRequire(import.meta.url)
 const { DatabaseSync } = require('node:sqlite')
@@ -201,4 +202,193 @@ test('不认识的应用 ⇒ CheckError bad-app(绝不静默返回空清单)', (
   assert.throws(() => C.locateDbAll('nosuchapp'), /bad-app|不认识/)
   assert.throws(() => C.snapshotApp('nosuchapp'), /bad-app|不认识/)
 })
+
+// ── 2026-10-31 扩容:workbuddy(两层文件族)/ codearts(递归+段过滤)/ loomy(IndexedDB 活主键)──
+
+test('workbuddy 两层 JSONL:3 会话=count 3;删 1 个 ⇒ broken 并点名 lostFp', () => {
+  const scratch = mkScratch('cont-workbuddy')
+  try {
+    const root = path.join(scratch, 'projects')
+    for (const [proj, sessions] of [
+      ['p1', ['s1', 's2']],
+      ['p2', ['s3']],
+    ]) {
+      const d = path.join(root, proj)
+      fs.mkdirSync(d, { recursive: true })
+      for (const s of sessions) fs.writeFileSync(path.join(d, `${s}.jsonl`), '{"type":"message"}\n')
+    }
+    assert.equal(C.APPS.workbuddy.fileSet.depth, 2, 'workbuddy 必须钉两层(更深是子代理流水)')
+    const before = C.snapshotApp('workbuddy', { dbPath: root })
+    assert.equal(before.state, 'ok')
+    assert.equal(before.sessions.count, 3)
+    assert.equal(before.sessionIds.length, 3)
+    assert.equal(before.messageRows, null, '文件族形态无消息行维度')
+
+    // 同一颗会话旁边会出现子代理流水与回滚旁注 —— 都不是独立会话,不得计入
+    fs.mkdirSync(path.join(root, 'p1', 's1', 'subagents'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'p1', 's1', 'subagents', 'agent-1.jsonl'), '{}')
+    fs.writeFileSync(path.join(root, 'p1', 's1.file-rollback.ndjson'), '{}')
+    const same = C.snapshotApp('workbuddy', { dbPath: root })
+    assert.equal(same.sessions.count, 3, '子代理流水 / ndjson 旁注不得计入会话')
+    assert.equal(same.sessions.digest, before.sessions.digest, '旁注出现不得翻清单钉')
+
+    fs.rmSync(path.join(root, 'p2', 's3.jsonl'))
+    const after = C.snapshotApp('workbuddy', { dbPath: root })
+    assert.equal(after.sessions.count, 2)
+    const cmp = C.compareSnapshots(before, after)
+    assert.equal(cmp.verdict, 'continuity-broken')
+    assert.equal(cmp.lostFp.length, 1)
+    assert.deepEqual(
+      cmp.lostFp,
+      [C.fp('p2/s3')],
+      '丢失必须点名到具体会话(id 带项目层,防跨项目同名撞键)',
+    )
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('codearts 递归 + 只认 chatSessions 段:other/ 与非会话 jsonl 不计入', () => {
+  const scratch = mkScratch('cont-codearts')
+  try {
+    const root = path.join(scratch, 'workspaceStorage')
+    const put = (rel, body = '{}\n') => {
+      const f = path.join(root, rel)
+      fs.mkdirSync(path.dirname(f), { recursive: true })
+      fs.writeFileSync(f, body)
+    }
+    put('a/chatSessions/x.jsonl')
+    put('a/other/y.jsonl')
+    put('b/chatSessions/z.jsonl')
+    put('b/chatSessions2/w.jsonl') // 子串相同但段名不同 ⇒ 不算(防 includes 误伤)
+    put('state.jsonl') // 根直属非会话文件
+    const s = C.snapshotApp('codearts', { dbPath: root })
+    assert.equal(s.state, 'ok')
+    assert.equal(s.sessions.count, 2, '只有 chatSessions 段下的两份算会话')
+    assert.deepEqual(
+      s.sessionIds.slice().sort(),
+      [C.fp('a/chatSessions/x'), C.fp('b/chatSessions/z')].sort(),
+    )
+    assert.equal(C.APPS.codearts.fileSet.deep, true, '层级随产品变 ⇒ 递归')
+    assert.equal(C.APPS.codearts.fileSet.segment, 'chatSessions')
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('递归不泄漏到单层形态:opencode 子目录里的 json 不计入', () => {
+  const scratch = mkScratch('cont-nondeep')
+  try {
+    const dir = path.join(scratch, 'history-snip')
+    fs.mkdirSync(path.join(dir, 'sub'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'a.json'), '{}')
+    fs.writeFileSync(path.join(dir, 'b.json'), '{}')
+    fs.writeFileSync(path.join(dir, 'sub', 'c.json'), '{}')
+    assert.equal(
+      C.listFileSet(dir, C.APPS.opencode.fileSet).join(','),
+      'a,b',
+      'depth 缺省=1,不下探',
+    )
+    assert.equal(C.snapshotApp('opencode', { dbPath: dir }).sessions.count, 2)
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+/** 造一枚 Loomy 形态的 IndexedDB leveldb 目录:键按 Chromium IDB 记录键布局编码 */
+function idbKey(str, store = 0x01) {
+  const body = Buffer.from(str, 'utf16le')
+  body.swap16()
+  return Buffer.concat([Buffer.from([0x00, 0x01, 0x02, store, 0x01, str.length]), body])
+}
+
+function makeIdbDir(dir, { puts = [], deletes = [] } = {}) {
+  fs.mkdirSync(dir, { recursive: true })
+  const keyOf = (x) => (typeof x === 'string' ? idbKey(x) : idbKey(x.k, x.store))
+  let buf = Buffer.alloc(0)
+  let seq = 1
+  if (puts.length) {
+    const entries = puts.map((x) => ({ key: keyOf(x), value: Buffer.from('m'.repeat(40)) }))
+    buf = appendRecords(buf, [buildBatch(seq, entries)])
+    seq += puts.length
+  }
+  if (deletes.length) {
+    buf = appendRecords(buf, [
+      buildBatch(
+        seq,
+        deletes.map((x) => ({ key: keyOf(x), type: 0, value: null })),
+      ),
+    ])
+  }
+  fs.writeFileSync(path.join(dir, '000003.log'), buf)
+  return dir
+}
+
+test('loomy IndexedDB 活主键:只数 ses_ 前缀且 tombstone 不算,删一枚 ⇒ broken', () => {
+  const scratch = mkScratch('cont-loomy')
+  try {
+    const dir = makeIdbDir(path.join(scratch, 'idb'), {
+      // theme-mode 是库元数据键:能解成字符串但没 ses_ 前缀,越界时正是这枚先炸
+      // {k:'ses_a', store:2} 复刻真机:同一枚会话主键另有一个 store 的短记录,数场次必须去重
+      puts: ['ses_a', 'ses_b', 'theme-mode', { k: 'ses_a', store: 0x02 }],
+      deletes: ['ses_gone'],
+    })
+    assert.equal(C.decodeIdbStringKey(idbKey('ses_a')), 'ses_a')
+    assert.equal(
+      C.decodeIdbStringKey(Buffer.from([0, 1, 1, 1, 1, 3])),
+      null,
+      '库元数据键不是记录键',
+    )
+    const before = C.snapshotApp('loomy', { dbPath: dir })
+    assert.equal(before.state, 'ok')
+    assert.equal(
+      before.sessions.count,
+      2,
+      '两枚活会话(同键跨 store 去重);元数据键与 tombstone 都不计入',
+    )
+    assert.deepEqual(before.sessionIds.slice().sort(), [C.fp('ses_a'), C.fp('ses_b')].sort())
+    assert.ok(!JSON.stringify(before).includes('ses_gone'), '已删会话不得出现在清单')
+
+    const dir2 = path.join(scratch, 'idb2')
+    fs.cpSync(dir, dir2, { recursive: true })
+    fs.writeFileSync(
+      path.join(dir2, '000004.log'),
+      appendRecords(Buffer.alloc(0), [
+        buildBatch(9, [{ key: idbKey('ses_b'), type: 0, value: null }]),
+      ]),
+    )
+    const after = C.snapshotApp('loomy', { dbPath: dir2 })
+    assert.equal(after.sessions.count, 1)
+    const cmp = C.compareSnapshots(before, after)
+    assert.equal(cmp.verdict, 'continuity-broken')
+    assert.deepEqual(cmp.lostFp, [C.fp('ses_b')])
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('loomy 目录在但 0 枚活会话 ⇒ undetermined(不冒绿)', () => {
+  const scratch = mkScratch('cont-loomy-empty')
+  try {
+    const dir = makeIdbDir(path.join(scratch, 'idb'), { puts: ['theme-mode'] })
+    const s = C.snapshotApp('loomy', { dbPath: dir })
+    assert.equal(s.state, 'undetermined')
+    assert.match(String(s.why), /0 份会话/)
+    assert.equal(C.compareSnapshots(s, s).verdict, 'undetermined')
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('2026-10-31 扩容三键在册:workbuddy/codearts/loomy 形态各自可寻址', () => {
+  for (const k of ['workbuddy', 'codearts', 'loomy']) {
+    assert.ok(C.APPS[k], `${k} 必须在 APPS 注册表`)
+    assert.ok(C.APPS[k].label)
+  }
+  assert.ok(C.APPS.workbuddy.fileSet, 'workbuddy = JSONL 文件族(sessions 表 90 行全软删)')
+  assert.ok(C.APPS.codearts.fileSet, 'codearts = chatSessions/*.jsonl 文件族')
+  assert.ok(C.APPS.loomy.keyCount, 'loomy = IndexedDB 活主键(keyCount;文件数恒定,钉文件只能粗检)')
+  assert.equal(C.APPS.doubao, undefined, '豆包是云端回包缓存,刻意不接')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
