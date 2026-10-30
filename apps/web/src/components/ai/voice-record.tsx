@@ -10,6 +10,7 @@ import { Mic, Square, Play, Pause, Trash2, Download } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 
 interface VoiceRecordProps {
@@ -197,7 +198,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
           <span className="font-mono text-xs tabular-nums">{formatTime(duration)}</span>
           <audio
             ref={audioRef}
-            src={audioUrl}
+            src={toMediaStreamUrl(audioUrl)}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}

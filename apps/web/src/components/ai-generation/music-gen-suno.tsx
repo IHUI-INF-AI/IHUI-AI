@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 import {
   AdvancedParamsPanel,
   parseParamValues,
@@ -239,7 +240,7 @@ export function MusicGenSuno() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {audios.map((url) => (
-              <audio key={url} src={url} controls className="w-full">
+              <audio key={url} src={toMediaStreamUrl(url)} controls className="w-full">
                 <track kind="captions" />
               </audio>
             ))}
