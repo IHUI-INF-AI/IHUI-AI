@@ -5,7 +5,7 @@
 """会话文件导入解析路由(api-service 转发入口)。
 
 - POST /api/session-import/parse  multipart 上传 Claude Code / Codex / Cursor / Aider /
-  微信 的会话导出文件,调用 app.services.importers.parse_conversation_file 解析为统一 IR。
+  ChatGPT / Claude.ai / 微信 的会话导出文件,调用 app.services.importers.parse_conversation_file 解析为统一 IR。
 
 错误映射(与 image_edit/publish 等上传路由惯例一致):
 - 扩展名不在白名单 / source 非法(ValueError)→ 400
@@ -44,7 +44,7 @@ _MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 @router.post("/session-import/parse")
 async def parse_session_import(
     file: UploadFile = File(..., description="会话导出文件(jsonl/json/md/txt/sqlite/db/vscdb/zip)"),
-    source: str = Form(..., description="数据源: claude_code/codex/cursor/aider/wechat"),
+    source: str = Form(..., description="数据源: claude_code/codex/cursor/aider/chatgpt/claude_ai/wechat"),
 ) -> dict[str, Any]:
     """解析会话导出文件为统一 IR(路径钉死 /api/session-import/parse)。"""
     filename = file.filename or ""

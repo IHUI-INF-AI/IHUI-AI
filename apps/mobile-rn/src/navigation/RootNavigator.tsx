@@ -51,6 +51,9 @@ import { MyAgentsScreen } from '../screens/MyAgentsScreen'
 import { EduDashboardScreen } from '../screens/EduDashboardScreen'
 import SecurityCenterScreen from '../screens/SecurityCenterScreen'
 import ApiKeysScreen from '../screens/ApiKeysScreen'
+// G1 设备管理 + E1 待决策收件箱(2026-10-30 立,用户面两屏)
+import DevicesScreen from '../screens/DevicesScreen'
+import PendingDecisionsScreen from '../screens/PendingDecisionsScreen'
 import DataRightsScreen from '../screens/DataRightsScreen'
 import ConnectedAccountsScreen from '../screens/ConnectedAccountsScreen'
 import UsageScreen from '../screens/UsageScreen'
@@ -473,6 +476,10 @@ export type RootStackParamList = {
   EduDashboard: undefined
   SecurityCenter: undefined
   ApiKeys: undefined
+  /** G1 跨设备互联用户面:设备列表/配对码/委派会话/任务状态 */
+  Devices: undefined
+  /** E1 审批收件箱:「我的待决策」列表,条目深链回源会话 */
+  PendingDecisions: undefined
   DataRights: undefined
   ConnectedAccounts: undefined
   Usage: undefined
@@ -1005,6 +1012,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="EduDashboard" component={EduDashboardScreen} />
             <RootStack.Screen name="SecurityCenter" component={SecurityCenterScreen} />
             <RootStack.Screen name="ApiKeys" component={ApiKeysScreen} />
+            <RootStack.Screen name="Devices" component={DevicesScreen} />
+            <RootStack.Screen name="PendingDecisions" component={PendingDecisionsScreen} />
             <RootStack.Screen name="DataRights" component={DataRightsScreen} />
             <RootStack.Screen name="ConnectedAccounts" component={ConnectedAccountsScreen} />
             <RootStack.Screen name="Usage" component={UsageScreen} />

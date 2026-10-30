@@ -4636,6 +4636,97 @@ export function sweepBannedBuckets(opts = {}) {
   return { ran: true, judged: state !== null, ok: state !== null, state }
 }
 
+/** HEAD 面回捞件清扫派发腿(2026-10-30 立,与 sweepBannedBuckets / sweepStaleClosedRows 同型)。
+ *
+ *  为什么这一型必须由守护派发而不是"谁看见谁删":带回它的是**旁路落地与手工 merge**,它们不跑提交链
+ *  上的门(AGENTS §5b 回潮通道①),而普通 `git merge` 那一条更是结构上绕开 union 判据(实测枚
+ *  7864cde002:父1=40/父2=338/结果=342)。所以"拦"(守门 268 差值棘轮)与"清"(本腿)必须同批,
+ *  只装一边都算没修 —— 只拦 ⇒ 下一枚合并照样带回来;只清 ⇒ 带回与清除之间那段窗口里派单口径读数是假的。
+ *
+ *  三态读数只认器物自己的 SWEEP-RESULT 结论行(§0.3):`clean` 与 `all-held` 都是零写零推,
+ *  `pending` 只可能来自 dry-run 档 ⇒ 如实记一笔不猜;`undetermined` / `refused` 记不通过,下轮重试。
+ *  器物不在位 ⇒ 明报跳过,**不记为已探测**。
+ */
+export function sweepHeadRecallRows(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 5 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'head-recall-sweep-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-head-recall-rows.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 回捞件清扫:器物不在位(scripts/strip-head-recall-rows.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '清扫器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 回捞件清扫:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 20 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return {
+              ok: false,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.message ?? e),
+            }
+          }
+        }
+  const r = run()
+  const resultLine = String(r.out ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/))
+    .find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  if (state === 'clean') {
+    logger('ℹ️ 回捞件清扫:干净(HEAD 面无"台账已声明删除却仍在面上"的登记行)')
+    return { ran: true, judged: true, ok: true, state }
+  }
+  if (state === 'all-held') {
+    logger(`ℹ️ 回捞件清扫:命中全部让路(held=${kv('held') ?? '?'},带牌/同主键他行在册)⇒ 零写零推`)
+    return { ran: true, judged: true, ok: true, state, held: Number(kv('held') ?? 0) }
+  }
+  if (state === 'stripped' && Number(kv('stripped')) > 0) {
+    logger(
+      `✅ 回捞件清扫:摘除 ${kv('stripped')} 枚并落地(留痕 form:dropped;推送腿自带,origin 同步追平)`,
+    )
+    return { ran: true, judged: true, ok: true, state, stripped: Number(kv('stripped')) }
+  }
+  if (state === 'undetermined' || state === 'refused' || state === 'pending') {
+    logger(`⚠️ 回捞件清扫:state=${state}(未判定/落地被拒/dry-run 语义)——不记通过,下轮重试`)
+    return { ran: true, judged: true, ok: false, state }
+  }
+  logger(`ℹ️ 回捞件清扫:结论读不到(state=${state ?? 'null'})`)
+  return { ran: true, judged: false, ok: false, state }
+}
+
 /**
  * 暴露凭据主动轮换派发腿(2026-10-30 立,goal-b35 s6)。
  *
@@ -9478,6 +9569,11 @@ function main() {
     // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
     // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
     if (!CHECK_ONLY) sweepBannedBuckets()
+    // HEAD 面回捞件兜底清扫(2026-10-30,机主令"彻底根治 不允许再发生"):带回它的是普通 git merge
+    // 与旁路落地这两条不跑提交链的通道(实测枚 7864cde002 父1=40/父2=338/结果=342),而 scrub 的维一/
+    // 维三以「HEAD 面无此行」为前提,结构上打不到这一型 ⇒ 由本腿 5 分钟级自动摘回并留痕;
+    // 与守门 268(check-head-recall-stock,差值棘轮)同批 —— 只拦不清会留假读数窗口,只清不拦下轮照带。
+    if (!CHECK_ONLY) sweepHeadRecallRows()
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
@@ -10800,6 +10896,7 @@ export const __test__ = {
   auditAppVersionLatest,
   sweepStaleClosedRows,
   sweepBannedBuckets,
+  sweepHeadRecallRows,
   sweepStaleClaimMarks,
   // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
   // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。

@@ -612,7 +612,15 @@ def test_to_iso_rejects_garbage(raw: Any) -> None:
 
 
 def test_entry_rejects_unknown_source() -> None:
-    assert set(SOURCES) == {"claude_code", "codex", "cursor", "aider", "wechat"}
+    assert set(SOURCES) == {
+        "claude_code",
+        "codex",
+        "cursor",
+        "aider",
+        "chatgpt",
+        "claude_ai",
+        "wechat",
+    }
     with pytest.raises(ValueError, match="不支持的数据源"):
         parse_conversation_file("warp", "x.jsonl", b"{}")
 
@@ -631,6 +639,159 @@ def test_entry_shape_matches_route_contract() -> None:
     conv = parsed["conversations"][0]
     assert set(conv) == {"source", "messages", "title"}
     assert set(conv["messages"][0]) == {"role", "content"}
+
+
+# ---------------------------------------------------------------------------
+# ChatGPT(E2,2026-10-30:官方导出 conversations.json,mapping 树深度优先展开)
+# ---------------------------------------------------------------------------
+
+
+def _chatgpt_conversation() -> dict[str, Any]:
+    return {
+        "title": "重构登录页",
+        "create_time": 1_756_800_000,
+        "update_time": 1_756_800_600,
+        "mapping": {
+            "root": {"message": None, "parent": None, "children": ["u1"]},
+            "u1": {
+                "message": {"role": "user", "content": {"content_type": "text", "text": "帮我重构"}},
+                "parent": "root",
+                "children": ["a1", "a2"],
+                "create_time": 1_756_800_010,
+            },
+            "a1": {
+                "message": {
+                    "author": {"role": "assistant", "metadata": {"model": "gpt-4o"}},
+                    "content": {"content_type": "text", "text": "回答一"},
+                },
+                "parent": "u1",
+                "children": [],
+                "create_time": 1_756_800_020,
+            },
+            "a2": {
+                # 重新生成产生的兄弟分支:同样展开;multi_content 非文本块落占位
+                "message": {
+                    "author": {"role": "assistant"},
+                    "content": {
+                        "content_type": "multi_content",
+                        "parts": [
+                            {"content_type": "text", "text": "回答二"},
+                            {"content_type": "visual"},
+                        ],
+                    },
+                },
+                "parent": "u1",
+                "children": [],
+                "create_time": 1_756_800_030,
+            },
+        },
+    }
+
+
+def test_chatgpt_expands_mapping_tree() -> None:
+    blob = json.dumps([_chatgpt_conversation()], ensure_ascii=False).encode()
+    parsed, warnings, truncated = parse_conversation_file("chatgpt", "conversations.json", blob)
+    assert truncated is False
+    convs = parsed["conversations"]
+    assert len(convs) == 1
+    assert convs[0]["title"] == "重构登录页"
+    assert convs[0]["model"] == "gpt-4o"  # 新形态 author.metadata.model
+    assert convs[0]["sourceCreatedAt"] == _EPOCH_ISO  # create_time epoch 秒归一
+    assert [(m["role"], m["content"]) for m in convs[0]["messages"]] == [
+        ("user", "帮我重构"),
+        ("assistant", "回答一"),
+        ("assistant", "回答二\n[非文本内容: visual]"),
+    ]
+    assert any("占位" in w for w in warnings)
+
+
+def test_chatgpt_skips_system_and_tolerates_broken_items() -> None:
+    """system 节点/无 mapping 会话/非 dict 条目:坏的部分跳过,不中断整批。"""
+    conv = _chatgpt_conversation()
+    conv["mapping"]["s1"] = {
+        "message": {"author": {"role": "system"}, "content": {"content_type": "text", "text": "系统注入"}},
+        "parent": "root",
+        "children": [],
+    }
+    conv["mapping"]["root"]["children"].append("s1")
+    blob = json.dumps([conv, {"title": "无mapping"}, "不是对象"], ensure_ascii=False).encode()
+    parsed, warnings, _t = parse_conversation_file("chatgpt", "conversations.json", blob)
+    assert len(parsed["conversations"]) == 1
+    contents = [m["content"] for m in parsed["conversations"][0]["messages"]]
+    assert "系统注入" not in contents
+    assert any("已跳过" in w for w in warnings)
+
+
+def test_chatgpt_rejects_non_array_and_broken_json() -> None:
+    parsed, warnings, _t = parse_conversation_file("chatgpt", "conversations.json", b'{"mapping": {}}')
+    assert parsed["conversations"] == []
+    assert any("数组" in w for w in warnings)
+    parsed, warnings, _t = parse_conversation_file("chatgpt", "conversations.json", b"[{broken")
+    assert parsed["conversations"] == []
+    assert any("JSON" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# Claude.ai(E2,2026-10-30:导出目录内 conversation-*.json,chat_messages 正序)
+# ---------------------------------------------------------------------------
+
+
+def test_claude_ai_happy_path_text_and_blocks() -> None:
+    conv = {
+        "summary": "解释正则含义",
+        "conversation_uuid": "c1",
+        "created_at": "2026-09-02T08:00:00.000Z",
+        "chat_messages": [
+            {"sender": "human", "text": "这个正则什么意思", "uuid": "m1", "created_at": "2026-09-02T08:00:01Z"},
+            {
+                # text 缺失时退 content 块数组;非文本块占位,未知发送者与无正文条目跳过计数
+                "sender": "assistant",
+                "content": [
+                    {"type": "text", "text": "逐段解释"},
+                    {"type": "tool_result", "content": "…"},
+                ],
+                "uuid": "m2",
+                "created_at": "2026-09-02T08:00:02Z",
+                "model": "claude-sonnet-4-5",
+            },
+            {"sender": "system", "text": "未知发送者"},
+            {"sender": "human", "uuid": "m3"},
+        ],
+    }
+    blob = json.dumps(conv, ensure_ascii=False).encode()
+    parsed, warnings, truncated = parse_conversation_file(
+        "claude_ai", "conversation-2026-09-02.json", blob
+    )
+    assert truncated is False
+    convs = parsed["conversations"]
+    assert len(convs) == 1
+    assert convs[0]["title"] == "解释正则含义"
+    assert convs[0]["model"] == "claude-sonnet-4-5"
+    assert convs[0]["sourceCreatedAt"] == "2026-09-02T08:00:00Z"
+    assert [(m["role"], m["content"]) for m in convs[0]["messages"]] == [
+        ("user", "这个正则什么意思"),
+        ("assistant", "逐段解释\n[非文本内容: tool_result]"),
+    ]
+    assert any("发送者" in w for w in warnings)
+    assert any("无正文" in w for w in warnings)
+
+
+def test_claude_ai_content_string_and_multiple_conversations() -> None:
+    """content 为纯字符串;顶层是多个会话对象的数组(用户手工合并导出)。"""
+    convs = [
+        {"summary": "会话一", "chat_messages": [{"sender": "assistant", "content": "纯字符串正文"}]},
+        {"summary": "空会话", "chat_messages": []},
+    ]
+    blob = json.dumps(convs, ensure_ascii=False).encode()
+    parsed, _w, _t = parse_conversation_file("claude_ai", "conversation-merged.json", blob)
+    assert len(parsed["conversations"]) == 1
+    assert parsed["conversations"][0]["messages"][0]["content"] == "纯字符串正文"
+
+
+def test_claude_ai_tolerates_garbage() -> None:
+    parsed, warnings, _t = parse_conversation_file("claude_ai", "conversation-x.json", b"not json")
+    assert parsed["conversations"] == []
+    assert any("未解析到任何会话" in w for w in warnings)
 
 
 async def test_route_resolves_real_importers(client) -> None:

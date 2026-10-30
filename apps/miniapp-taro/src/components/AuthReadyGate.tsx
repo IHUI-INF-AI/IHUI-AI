@@ -19,18 +19,21 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
  * 行为与原页一致:未就绪显示加载中,落定后渲染真相源。
  */
 export default function AuthReadyGate({ children }: { children: ReactNode }) {
-  const gate = useAuthReadyGate()
-  // 等的是"鉴权判定落定"(gate.ready),**不是**"已登录"(gate.allow):
+  // gate 对象本身每次渲染都是新字面量(`useAuthReadyGate` 的返回值),但其中
+  // `waitUntilReady` 是 `useCallback([], …)` 的稳定引用 ⇒ 解构出稳定成员作依赖,
+  // 语义与 `gate.ready` / `gate.waitUntilReady` 逐一对应,effect 不会因新对象重跑。
+  const { ready: gateReady, waitUntilReady } = useAuthReadyGate()
+  // 等的是"鉴权判定落定"(gateReady),**不是**"已登录"(gate.allow):
   // 未登录但已判定时照常渲染真相源,由壳自己的 401 处理显示错误态 —— 与原手写页一致;
   // 若这里等 allow,未登录用户会永久停在加载中,比原来更差。
-  const [ready, setReady] = useState(gate.ready)
+  const [ready, setReady] = useState(gateReady)
   useEffect(() => {
-    if (gate.ready) {
+    if (gateReady) {
       setReady(true)
       return
     }
-    return gate.waitUntilReady(() => setReady(true))
-  }, [gate.ready])
+    return waitUntilReady(() => setReady(true))
+  }, [gateReady, waitUntilReady])
   if (!ready) return <PageLoading />
   return <>{children}</>
 }

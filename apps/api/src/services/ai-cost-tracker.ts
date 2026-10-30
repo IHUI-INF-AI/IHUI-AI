@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { logger } from '../utils/logger.js'
+import type { PriceBreakdownItem, ResolvedPrice, ResolvePriceInput } from './pricing-engine.js'
 
 export interface CostRecord {
   id: string
@@ -12,6 +13,26 @@ export interface CostRecord {
   completionTokens: number
   cost: number
   timestamp: Date
+  /** G4 用量维度:会员档位键(member/vip/svip),可空 */
+  tier?: string | null
+  /** G4 结算明细:命中的 pricing_rules.id;未命中(回退旧路径)为 null */
+  ruleId?: string | null
+  /** G4 结算明细:命中规则的 version,供审计回溯 */
+  ruleVersion?: number | null
+  /** G4 结算明细:系数链(基础价 × 档位 × 错峰) */
+  breakdown?: PriceBreakdownItem[] | null
+}
+
+/**
+ * G4 计费弹性:pricing-engine 可选接入点(2026-10-30 立)。
+ * 由装配方(路由/插件)注入开关与解析函数;本类不 import config,保持
+ * "纯计算类,无 Redis/DB 依赖"的历史测试基建(ai-cost-tracker.test.ts)不变。
+ */
+export interface PricingRulesIntegration {
+  /** PRICING_RULES_ENABLED 开关(默认关 = 逐字节旧行为) */
+  enabled: boolean
+  /** 解析函数注入(生产传 pricing-engine.resolvePrice;单测传桩) */
+  resolve: (input: ResolvePriceInput) => Promise<ResolvedPrice | null>
 }
 
 export interface CostBudget {
@@ -85,9 +106,12 @@ class LRUCache<K, V> {
 export class AICostTracker {
   private readonly pricing = new Map<string, ModelPricing>()
   private readonly store = new LRUCache<string, UserAggregate>(MAX_USERS)
+  /** G4 可选注入;缺省 undefined ⇒ record() 走逐字节旧路径 */
+  private readonly pricingRules?: PricingRulesIntegration
 
-  constructor(pricing: ModelPricing[]) {
+  constructor(pricing: ModelPricing[], options?: { pricingRules?: PricingRulesIntegration }) {
     for (const p of pricing) this.pricing.set(p.model, p)
+    this.pricingRules = options?.pricingRules
   }
 
   calculateCost(model: string, promptTokens: number, completionTokens: number): number {
@@ -116,16 +140,46 @@ export class AICostTracker {
   }
 
   async record(record: Omit<CostRecord, 'id' | 'cost' | 'timestamp'>): Promise<CostRecord> {
-    // P0 修复:用整数(分)运算,避免浮点累加精度漂移
-    const costCents = this.calculateCostCents(
-      record.model,
-      record.promptTokens,
-      record.completionTokens,
-    )
+    // G4 计费弹性:开关开且命中 pricing_rules ⇒ 按组合单价结算并落明细;
+    // 开关关 / 未注入 / 未命中规则 ⇒ 逐字节走下方旧路径(存量结算行为不变)。
+    let costCents: number
+    let ruleMeta: Pick<CostRecord, 'ruleId' | 'ruleVersion' | 'breakdown'> = {}
+    const engine = this.pricingRules
+    let resolved: ResolvedPrice | null = null
+    if (engine?.enabled) {
+      resolved = await engine
+        .resolve({
+          mode: 'token',
+          modelId: record.model,
+          tier: record.tier ?? null,
+          timestamp: new Date(),
+        })
+        .catch(() => null)
+    }
+    if (resolved) {
+      // unitPrice 单位:分/千 token(与 ai_pricing 口径一致);6 位小数 round 同 pricing-service
+      costCents =
+        Math.round(
+          ((record.promptTokens + record.completionTokens) / 1000) * resolved.unitPrice * 1e6,
+        ) / 1e6
+      ruleMeta = {
+        ruleId: resolved.ruleId,
+        ruleVersion: resolved.ruleVersion,
+        breakdown: resolved.breakdown,
+      }
+    } else {
+      // P0 修复:用整数(分)运算,避免浮点累加精度漂移
+      costCents = this.calculateCostCents(
+        record.model,
+        record.promptTokens,
+        record.completionTokens,
+      )
+    }
     // CostRecord.cost 保留元(浮点)用于显示兼容
     const cost = costCents / 100
     const full: CostRecord = {
       ...record,
+      ...ruleMeta,
       id: crypto.randomUUID(),
       cost,
       timestamp: new Date(),

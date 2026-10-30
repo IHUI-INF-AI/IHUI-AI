@@ -1034,12 +1034,31 @@ function getFlag(argv: string[], name: string): string | undefined {
 }
 
 /**
+ * tasklist CSV 输出 → 命中镜像名清单。
+ *
+ * 返回的是**镜像名**(不是整行 CSV):调用方要拿它去 `taskkill /IM <name>`,
+ * 而 CSV 行形如 `"WorkBuddy.exe","3844","Console",...` —— 把整行当名字传下去必失败
+ * (2026-10-30 真机实测:一键切号关闭客户端被这一步卡死)。同名多进程会重复出现,长度即进程数。
+ */
+export function parseTasklistImages(out: string, names: string[]): string[] {
+  const wanted = new Set(names.map((n) => n.toLowerCase()))
+  const matched: string[] = []
+  for (const raw of out.split('\n')) {
+    const m = /^"([^"]+)"/.exec(raw.trim())
+    if (m && wanted.has(m[1]!.toLowerCase())) matched.push(m[1]!)
+  }
+  return matched
+}
+
+/**
  * 客户端存续探测(2026-10-28 增镜像名可配置):WorkBuddy 运行时会话文件可能被占用或正在写,
  * 搬移会半写/让客户端内存态与磁盘不一致。只读探测,绝不杀进程。
  *
  * 镜像名来源次序:显式入参 > env `IHUI_RELAY_CLIENT_IMAGE`(逗号分隔)> `WorkBuddy.exe`。
  * Qoder / Trae 搬家时把各自的进程名传进来即可复用同一道闸(失效方向:名字写错 = 探测不到 =
  * 闸失效,故名字进 env 时必须在文档/命令里点名,不靠猜)。
+ *
+ * 返回值 = 命中的**镜像名**(Windows)或 pgrep 行(非 win32);判存续只用长度。
  */
 export function detectClientProcesses(imageNames?: string[]): string[] {
   const envNames = (process.env['IHUI_RELAY_CLIENT_IMAGE'] ?? '')
@@ -1047,7 +1066,6 @@ export function detectClientProcesses(imageNames?: string[]): string[] {
     .map((s) => s.trim())
     .filter(Boolean)
   const names = imageNames ?? (envNames.length > 0 ? envNames : ['WorkBuddy.exe'])
-  const wanted = new Set(names.map((n) => n.toLowerCase()))
   if (process.platform !== 'win32') {
     try {
       const out = execFileSync(
@@ -1073,13 +1091,7 @@ export function detectClientProcesses(imageNames?: string[]): string[] {
       windowsHide: true,
       encoding: 'utf8',
     })
-    return out
-      .split('\n')
-      .map((s) => s.trim())
-      .filter((line) => {
-        const m = /^"([^"]+)"/.exec(line)
-        return m ? wanted.has(m[1]!.toLowerCase()) : false
-      })
+    return parseTasklistImages(out, names)
   } catch {
     return []
   }

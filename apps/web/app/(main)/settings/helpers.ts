@@ -22,6 +22,7 @@ import {
   KeyRound,
   Bot,
   Lock,
+  Monitor,
   ShieldCheck,
   UserShield,
 } from 'lucide-react'
@@ -62,6 +63,7 @@ export const NAV_GROUPS: readonly SettingsNavGroup[] = [
       { href: '/settings/privacy', labelKey: 'privacyTitle', icon: Shield },
       { href: '/settings/data-rights', labelKey: 'dataRightsTitle', icon: UserShield },
       { href: '/settings/agent-security', labelKey: 'agentSecurityTitle', icon: ShieldCheck },
+      { href: '/settings/devices', labelKey: 'devices.navTitle', icon: Monitor },
     ],
   },
   {
@@ -175,6 +177,12 @@ export const SUB_PAGES = [
     icon: Bell,
     titleKey: 'notificationsTitle',
     descKey: 'notificationsDesc',
+  },
+  {
+    href: '/settings/devices',
+    icon: Monitor,
+    titleKey: 'devices.navTitle',
+    descKey: 'devices.navDesc',
   },
 ] as const
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

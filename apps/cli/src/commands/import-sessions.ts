@@ -50,6 +50,12 @@ interface SessionSourceConfig {
   description: string;
   /** 可接受的导出文件后缀(与 Web 端 conversation-import-panel 的 accept 同口径) */
   extensions: readonly string[];
+  /**
+   * 后缀之外的文件名过滤(可选)。ChatGPT/Claude.ai 导出物都是 .json,
+   * 只按后缀会把下载目录里一切无关 .json 当候选(与微信刻意不猜目录同理),
+   * 故按官方导出物的固定文件名再收一道。
+   */
+  namePattern?: RegExp;
   /** 常见导出目录;不存在的目录在发现阶段静默跳过 */
   roots: () => string[];
 }
@@ -79,6 +85,23 @@ const SESSION_SOURCE_CONFIG: Record<ConversationImportSource, SessionSourceConfi
     description: t('cliImportSessions.sourceAider'),
     extensions: ['.md', '.json', '.jsonl'],
     roots: () => [process.cwd()],
+  },
+  chatgpt: {
+    label: 'ChatGPT',
+    description: t('cliImportSessions.sourceChatgpt'),
+    // ChatGPT 网页版「导出数据」是单文件 conversations.json,官方落点为浏览器下载目录
+    extensions: ['.json'],
+    namePattern: /^conversations\.json$/i,
+    roots: () => [path.join(os.homedir(), 'Downloads')],
+  },
+  claude_ai: {
+    label: 'Claude.ai',
+    description: t('cliImportSessions.sourceClaudeAi'),
+    // Claude.ai 导出解包后是含 conversation-*.json 多文件的目录,同样常见于下载目录;
+    // 逐文件上传解析(一次一个),与 ai-service 侧单文件解析器口径一致
+    extensions: ['.json'],
+    namePattern: /^conversation-.+\.json$/i,
+    roots: () => [path.join(os.homedir(), 'Downloads')],
   },
   wechat: {
     label: 'WeChat',
@@ -156,7 +179,7 @@ export interface SessionFileCandidate {
 
 async function collectFromDir(
   dir: string,
-  extensions: readonly string[],
+  cfg: SessionSourceConfig,
   depth: number,
   out: SessionFileCandidate[],
   budget: { left: number },
@@ -174,11 +197,12 @@ async function collectFromDir(
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIR_NAMES.has(entry.name)) continue;
-      await collectFromDir(full, extensions, depth - 1, out, budget);
+      await collectFromDir(full, cfg, depth - 1, out, budget);
       continue;
     }
     if (!entry.isFile()) continue;
-    if (!extensions.includes(path.extname(entry.name).toLowerCase())) continue;
+    if (!cfg.extensions.includes(path.extname(entry.name).toLowerCase())) continue;
+    if (cfg.namePattern && !cfg.namePattern.test(entry.name)) continue;
     budget.left -= 1;
     const st = await stat(full).catch(() => null);
     out.push({ file: full, mtimeMs: st?.mtimeMs ?? 0 });
@@ -199,12 +223,14 @@ export async function discoverSessionCandidates(
     const st = await stat(root).catch(() => null);
     if (!st) continue;
     if (st.isFile()) {
-      if (cfg.extensions.includes(path.extname(root).toLowerCase())) {
+      const extOk = cfg.extensions.includes(path.extname(root).toLowerCase());
+      const nameOk = !cfg.namePattern || cfg.namePattern.test(path.basename(root));
+      if (extOk && nameOk) {
         found.push({ file: root, mtimeMs: st.mtimeMs });
       }
       continue;
     }
-    await collectFromDir(root, cfg.extensions, MAX_WALK_DEPTH, found, budget);
+    await collectFromDir(root, cfg, MAX_WALK_DEPTH, found, budget);
   }
   const seen = new Set<string>();
   const unique: SessionFileCandidate[] = [];

@@ -261,16 +261,18 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     cleanup()
   })
 
-  it('场景1: 初始渲染五个来源卡片与历史空态,上传区未出现', async () => {
+  it('场景1: 初始渲染七个来源卡片与历史空态,上传区未出现', async () => {
     renderPanel()
 
     const cards = screen.getAllByTestId('import-source-card')
-    expect(cards).toHaveLength(5)
+    expect(cards).toHaveLength(7)
     expect(cards.map((c) => c.getAttribute('data-source'))).toEqual([
       'claude_code',
       'codex',
       'cursor',
       'aider',
+      'chatgpt',
+      'claude_ai',
       'wechat',
     ])
     expect(screen.getByText('选择会话来源')).toBeTruthy()
@@ -292,6 +294,9 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
       codex: '.jsonl,.json',
       cursor: '.json,.jsonl,.vscdb,.db,.sqlite',
       aider: '.md,.json,.jsonl',
+      // E2(2026-10-30):网页导出家族,单 .json,服务端白名单已含
+      chatgpt: '.json',
+      claude_ai: '.json',
       // 微信是 zip/txt 家族:zip 在服务端白名单内;.txt 由 wechat 解析器直读,
       // 但服务端 _ALLOWED_EXTENSIONS 当前未含 .txt —— 见场景7 的诚实性断言
       wechat: '.zip,.txt',
