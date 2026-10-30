@@ -523,9 +523,14 @@ const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(
 export interface ClientLifecycle {
   probe?: () => string[]
   close?: (imageName: string) => void
+  forceClose?: (imageName: string) => void
   launch?: (exe: string) => { ok: boolean; error?: string }
   resolveExe?: () => ResolvedClientExe
   intervalMs?: number
+  /** 优雅关闭等待上限(超过即强制关闭兜底) */
+  gracefulMs?: number
+  /** 强制关闭后等待上限 */
+  forceWaitMs?: number
   timeoutMs?: number
 }
 
@@ -534,57 +539,91 @@ export interface CloseClientResult {
   runningBefore: number
   ok: boolean
   waitedMs: number
+  /** 是否动用了强制关闭(WM_CLOSE 之后主进程仍不退) */
+  forced?: boolean
   error?: string
 }
 
 /**
- * 切号前置:优雅关闭 WorkBuddy 并等进程全部退出。
- * 不带 /F —— taskkill 对 GUI 进程发 WM_CLOSE,强杀会丢未落盘会话;超时仍存活即失败,
- * 调用方必须中止切换(此时登录态一个字节都还没改)。
+ * 切号前置:关闭 WorkBuddy 并等进程全部退出。
+ *
+ * 两段式:先发 WM_CLOSE(taskkill 不带 /F),等 `gracefulMs`;主进程仍不退则 `/F` 强制兜底。
+ * 为什么要兜底 —— 2026-10-30 真机实测:WorkBuddy 主进程收到 WM_CLOSE 后不退出(托盘常驻),
+ * 25s 后 7 个进程仍在;只优雅关闭 = 一键切号永远失败。
+ * 强杀风险:会话是 jsonl 追加写,且切号本就要求客户端停写,可接受;forced 会如实回报给用户。
+ * 关不掉(两段都失败)时调用方必须中止切换 —— 此时登录态一个字节都还没改。
  */
 export function closeClientAndWait(opts: ClientLifecycle = {}): CloseClientResult {
   const probe = opts.probe ?? (() => detectClientProcesses())
   const before = probe()
   if (before.length === 0) return { runningBefore: 0, ok: true, waitedMs: 0 }
-  // 平台闸只对默认实现成立:注入 close 时由调用方接管(测试在 Linux CI 也能跑同一判据)
-  if (!opts.close && process.platform !== 'win32') {
-    return {
-      runningBefore: before.length,
-      ok: false,
-      waitedMs: 0,
-      error: '仅 Windows 支持自动关闭客户端,请手动退出 WorkBuddy 后重试',
-    }
-  }
   const image = before[0] ?? 'WorkBuddy.exe'
-  try {
-    if (opts.close) opts.close(image)
-    else execFileSync('taskkill', ['/IM', image, '/T'], { stdio: 'ignore', windowsHide: true })
-  } catch (e) {
-    return {
-      runningBefore: before.length,
-      ok: false,
-      waitedMs: 0,
-      error: `关闭命令失败: ${errMsg(e)}`,
+  const interval = opts.intervalMs ?? 500
+  if (opts.close) {
+    try {
+      opts.close(image)
+    } catch (e) {
+      return {
+        runningBefore: before.length,
+        ok: false,
+        waitedMs: 0,
+        error: `关闭命令失败: ${errMsg(e)}`,
+      }
+    }
+  } else {
+    // 平台闸只对默认实现成立:注入 close 时由调用方接管(测试在 Linux CI 也能跑同一判据)
+    if (process.platform !== 'win32') {
+      return {
+        runningBefore: before.length,
+        ok: false,
+        waitedMs: 0,
+        error: '仅 Windows 支持自动关闭客户端,请手动退出 WorkBuddy 后重试',
+      }
+    }
+    try {
+      // 不带 /T、不带 /F:向同名主窗口发 WM_CLOSE。同名渲染/子进程没有窗口,
+      // taskkill 会对它们报"只能强制终止"并以非零退出 —— 那不代表关闭失败,退出码不作判据。
+      execFileSync('taskkill', ['/IM', image], { stdio: 'ignore', windowsHide: true })
+    } catch {
+      // 见上:退出码不作判据
     }
   }
-  const interval = opts.intervalMs ?? 400
-  const timeout = opts.timeoutMs ?? 20_000
+
+  const pollUntil = (deadlineMs: number): void => {
+    while (alive.length > 0 && waited < deadlineMs) {
+      sleepSync(interval)
+      waited += interval
+      alive = probe()
+    }
+  }
   let waited = 0
   let alive = probe()
-  while (alive.length > 0 && waited < timeout) {
-    sleepSync(interval)
-    waited += interval
-    alive = probe()
+  const gracefulMs = opts.gracefulMs ?? 8_000
+  pollUntil(gracefulMs)
+
+  let forced = false
+  // 注入 forceClose 时允许测试覆盖强制腿;生产两者都不注入 ⇒ 默认 taskkill /F
+  if (alive.length > 0 && (opts.forceClose || !opts.close)) {
+    forced = true
+    try {
+      if (opts.forceClose) opts.forceClose(image)
+      else execFileSync('taskkill', ['/F', '/IM', image], { stdio: 'ignore', windowsHide: true })
+    } catch {
+      // 同上:退出码不作判据,靠轮询
+    }
+    pollUntil(gracefulMs + (opts.forceWaitMs ?? 8_000))
   }
+
   if (alive.length > 0) {
     return {
       runningBefore: before.length,
       ok: false,
       waitedMs: waited,
+      forced,
       error: `已等待 ${Math.round(waited / 1000)}s 仍有 ${alive.length} 个进程存活(可能有未保存会话),请手动退出后重试`,
     }
   }
-  return { runningBefore: before.length, ok: true, waitedMs: waited }
+  return { runningBefore: before.length, ok: true, waitedMs: waited, forced }
 }
 
 /** 从注册表卸载项读客户端 exe;读不到返回 undefined,绝不抛 */
@@ -770,7 +809,9 @@ export function main(
     closedClient = c.runningBefore > 0
     if (closedClient) {
       console.log(
-        `已关闭 WorkBuddy(${c.runningBefore} 个进程,等待 ${Math.round(c.waitedMs / 1000)}s 退出)`,
+        c.forced
+          ? `已强制关闭 WorkBuddy(${c.runningBefore} 个进程未响应优雅退出,耗时 ${Math.round(c.waitedMs / 1000)}s)`
+          : `已关闭 WorkBuddy(${c.runningBefore} 个进程,等待 ${Math.round(c.waitedMs / 1000)}s 退出)`,
       )
     }
   }
