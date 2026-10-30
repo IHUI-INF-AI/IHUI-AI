@@ -721,5 +721,46 @@ describe('client lifecycle', () => {
     expect(r.code).toBe(0)
     expect(probes).toBe(0)
   })
+
+  it('ensureSessionBackup 与换桶同一判据:昨天有 manifest 仍必须建当日快照', () => {
+    mkdirSync(join(paths.authFile, '..'), { recursive: true })
+    writeFileSync(paths.authFile, authBody('当前号', { uid: OLD_UID }))
+    seedSnapshot('workbuddy-desktop.target.info', authBody('目标号', { uid: NEW_UID }))
+    const mp = moveFixture()
+    const now = new Date()
+    seedSwapStore(mp, now, OLD_UID, NEW_UID)
+
+    const home = join(root, 'fake-home-stale')
+    const sessionsRoot = join(home, '.workbuddy', 'workspace', 'sessions')
+    const projectsRoot = join(home, '.workbuddy', 'projects')
+    mkdirSync(sessionsRoot, { recursive: true })
+    mkdirSync(projectsRoot, { recursive: true })
+    // 昨天的一份 manifest:旧口径("任意 manifest 即就绪")会据此跳过备份,
+    // 切完 auth 才被 planSwap 以"当日快照缺失"拒绝 ⇒ 白忙一场再回滚。
+    const oldDir = join(home, '.wb-switch', 'backups', 'sessions', 'old')
+    mkdirSync(oldDir, { recursive: true })
+    writeFileSync(
+      join(oldDir, 'manifest.json'),
+      JSON.stringify({
+        createdAt: new Date(now.getTime() - 86_400_000).toISOString(),
+        source: { sessionsRoot, projectsRoot },
+        files: [],
+      }),
+    )
+
+    const r = runCapture(() =>
+      main(['--one-click', '--to', 'workbuddy-desktop.target.info', '--apply'], paths, {
+        home,
+        now,
+        movePaths: mp,
+        runningProcs: [],
+      }),
+    )
+    expect(r.code).toBe(0)
+    const dirs = readdirSync(join(home, '.wb-switch', 'backups', 'sessions'))
+    expect(dirs).toContain('old')
+    expect(dirs.length).toBe(2) // 旧的还在 + 当日新建的那份
+    expect(r.out).toContain('会话库快照已就绪')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
