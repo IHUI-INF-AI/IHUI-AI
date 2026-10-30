@@ -738,20 +738,22 @@ oem11.inf，gamevieweridddriver.inf_amd64_9586929572de2d1b"）——即"彻底�
 
 ### 6.1 模型厂商端点
 
-`apps/ai-service/app/core/llm_gateway.py` 内出现的**去重后 29 个 https 主机**（实测命令
-`grep -hoE "https://[a-zA-Z0-9.-]+\.[a-z]{2,}" apps/ai-service/app/core/llm_gateway.py | sort -u | wc -l` → 29）：
+`apps/ai-service/app/core/llm_gateway.py` 内出现的**去重后 28 个 https 主机**（2026-10-30 本票复测更正：
+原登记 29 个含 `apihub.agnes-ai.com`，该 host 现已不在本文件出现；而本文件已有的 `api.x.ai` 原清单漏登。
+Agnes 腿现读只剩 `api.agnes-ai.cn`。实测命令
+`grep -hoE "https://[a-zA-Z0-9.-]+\.[a-z]{2,}" apps/ai-service/app/core/llm_gateway.py | sort -u | wc -l` → 28）：
 
 ```
-ai-gateway.vercel.sh          api.ainative.studio        api.cerebras.ai
-api.cloudflare.com            api.cohere.ai              api.deepseek.com
-api.inference.net             api.mistral.ai             api.nlpcloud.io
-api.reka.ai                   api.routeway.ai            api.scaleway.ai
-api.xiaomimimo.com         apihub.agnes-ai.com
-bailian-intl.alibabacloud.com bazaarlink.ai              dashscope.aliyuncs.com
-generativelanguage.googleapis.com                        integrate.api.nvidia.com
-k.token6688.com               modal.com                  models.inference.ai.azure.com
-open.bigmodel.cn              opencode.ai                pnywsahxhac1qjbo.us-east-2.aws.endpoints.huggingface.cloud
-router.huggingface.co         aizhs.top
+ai-gateway.vercel.sh          aizhs.top                 api.agnes-ai.cn
+api.ainative.studio           api.cerebras.ai           api.cloudflare.com
+api.cohere.ai                 api.deepseek.com          api.inference.net
+api.mistral.ai                api.nlpcloud.io           api.reka.ai
+api.routeway.ai               api.scaleway.ai           api.x.ai
+api.xiaomimimo.com            bailian-intl.alibabacloud.com bazaarlink.ai
+dashscope.aliyuncs.com        generativelanguage.googleapis.com integrate.api.nvidia.com
+k.token6688.com               modal.com                 models.inference.ai.azure.com
+open.bigmodel.cn              opencode.ai               pnywsahxhac1qjbo.us-east-2.aws.endpoints.huggingface.cloud
+router.huggingface.co
 ```
 
 实际启用哪些由 `LLM_PROVIDERS(_JSON)` 环境变量决定（`apps/ai-service/app/core/config.py`），
