@@ -520,4 +520,79 @@ async def download_media_artifact(url: str, request: Request) -> Any:
     return StreamingResponse(_body(), media_type=ctype, headers=headers)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/media/stream?url=<产物直链> —— 媒体产物流式播放代理(2026-10-30 立)
+#
+# 与 /media/download 同族:同源代理 + 同一道 SSRF 闸门(URL 必须命中 media_tasks
+# 登记过的产物)。但面向 <video>/<audio> 播放而非下载,关键差异:
+#  - **透传浏览器 Range 请求**到源站,原样回传 200/206 + Content-Range +
+#    Accept-Ranges,使播放器可拖拽进度、可 seek(不转发 Range 则进度条拖不动、
+#    部分浏览器全屏异常);
+#  - 不返回 Content-Disposition,头部透传上游 content-type(视频格式由源站决定,
+#    切勿用 media_type 覆盖,否则浏览器按 octet-stream 处理);
+#  - 浏览器经 web rewrites(/api/media/* → 8803)同源访问,自动带 httpOnly
+#    auth_token cookie,无需在 <video src> 里拼 token,也无需 CSP 放开 https:
+#    ⇒ media-src 可收窄回 'self' blob:,外泄信道面清零(根治 img-src 同型遗留)。
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/media/stream")
+async def stream_media_artifact(url: str, request: Request) -> Any:
+    """按产物直链代理流式播放(透传 Range,支持 seek)。"""
+    _user_scope(request)  # 401 未登录;产物 URL 命中即放行,URL 本身是凭证
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url 必须是 http(s) 直链")
+
+    conn = await get_db_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT kind FROM media_tasks WHERE "
+            "result->>'video_url' = $1 OR result->>'audio_url' = $1 "
+            "OR result->>'image_url' = $1 LIMIT 1",
+            url,
+        )
+    finally:
+        await conn.close()
+    if row is None:
+        # 未记录 = 不是本平台产物 ⇒ 拒绝代理(SSRF 闸门)
+        raise HTTPException(status_code=404, detail="产物不存在或未登记,拒绝代理播放")
+
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(20.0, read=300.0), follow_redirects=True
+    )
+    req_headers: dict[str, str] = {}
+    rng = request.headers.get("range")
+    if rng:
+        req_headers["range"] = rng
+    try:
+        resp = await client.send(
+            client.build_request("GET", url, headers=req_headers), stream=True
+        )
+    except Exception as e:  # noqa: BLE001
+        await client.aclose()
+        logger.warning("[media_tasks] 播放代理连接源站失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"源站连接失败: {e}") from e
+    if resp.status_code >= 400:
+        status = resp.status_code
+        await resp.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"源站返回 {status}")
+
+    # 透传上游与播放相关的响应头(含 Range 场景的 content-range / accept-ranges)
+    passthrough: dict[str, str] = {}
+    for k in ("content-type", "content-length", "content-range", "accept-ranges"):
+        v = resp.headers.get(k)
+        if v:
+            passthrough[k] = v
+
+    async def _stream_body() -> Any:
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    # 不传 media_type:保留上游 content-type,避免覆盖视频格式
+    return StreamingResponse(_stream_body(), status_code=resp.status_code, headers=passthrough)
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
