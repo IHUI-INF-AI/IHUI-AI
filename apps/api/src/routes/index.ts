@@ -1109,7 +1109,7 @@ export function registerRoutes(server: FastifyInstance) {
   // 小程序兼容路由(49 个空桩端点,补建小程序调用但后端缺失的路径,避免 404,2026-07-24 立)
   server.register(miniappCompatRoutes, { prefix: '/api' })
 
-  // 小程序支付链(2026-10-30):/api/coupons/available、/api/orders/:no/apply-coupon、/api/pay/balance
+  // 小程序支付链(2026-10-30):/api/pay/coupons/available、/api/orders/:no/apply-coupon、/api/pay/balance
   server.register(miniappPayRoutes, { prefix: '/api' })
 
   // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
