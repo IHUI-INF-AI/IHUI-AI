@@ -169,8 +169,9 @@ export default function HelpPage() {
 
         {!loading && !filtered.length ? (
           <View className="text-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('about.help.empty', '暂无帮助内容')}
+            {/* 空态标题对齐 RN HelpScreen EmptyState(共享键 help.empty) */}
+            <Text className="block text-[length:30rpx] font-semibold text-foreground">
+              {tt('help.empty', '暂无帮助')}
             </Text>
           </View>
         ) : null}

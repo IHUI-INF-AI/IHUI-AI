@@ -3588,7 +3588,14 @@
     "termsOfService": "利用規約",
     "thirdPartyLogin": "他の方法でログイン",
     "ssoFailed": "Web認証ログインに失敗しました。再試行するか、アカウントとパスワードでログインしてください。",
-    "loginFailed": "ログインに失敗しました。再試行"
+    "loginFailed": "ログインに失敗しました。再試行",
+    "twoFactorTitle": "二段階認証",
+    "twoFactorHint": "認証アプリに表示される6桁のコード、またはバックアップコードを入力してください。",
+    "twoFactorPlaceholder": "コードまたはバックアップコード",
+    "twoFactorError": "6文字以上で入力してください",
+    "twoFactorSubmit": "認証してログイン",
+    "twoFactorCancel": "キャンセル",
+    "twoFactorCancelled": "二段階認証をキャンセルしました"
   },
   "bookmark": {
     "empty": "しおりがありません",

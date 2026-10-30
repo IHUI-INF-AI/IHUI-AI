@@ -82,7 +82,7 @@ export default function Password() {
         <View className="flex flex-col gap-[24rpx] p-[28rpx]">
           <View className="flex flex-col gap-[12rpx]">
             <Text className="text-[length:32rpx] text-muted-foreground">
-              {tt('user.password.oldPassword', '原密码')}
+              {tt('settings.oldPassword', '旧密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <FocusInput
@@ -129,7 +129,7 @@ export default function Password() {
           </View>
           <View className="flex flex-col gap-[12rpx]">
             <Text className="text-[length:32rpx] text-muted-foreground">
-              {tt('user.password.confirmPassword', '确认密码')}
+              {tt('settings.confirmPassword', '确认新密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <FocusInput

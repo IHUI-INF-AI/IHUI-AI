@@ -16,6 +16,8 @@ import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { useChannelLabel } from './notification-channel-label'
+import NotificationSaveBar from './notification-save-bar'
 
 interface NotificationSettingItem {
   key: string
@@ -32,6 +34,7 @@ export default function NotificationPage() {
   const switchInk = getRnTokens(resolved).brand.DEFAULT
   const [list, setList] = useState<NotificationSettingItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const tt = useCallback(
     (k: string, fb: string) => {
       const v = t(k)
@@ -39,6 +42,8 @@ export default function NotificationPage() {
     },
     [t],
   )
+
+  const channelLabel = useChannelLabel()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -79,6 +84,26 @@ export default function NotificationPage() {
     Taro.navigateTo({ url: '/pkg-user/message/index' })
   }, [])
 
+  /* 对齐 RN saveBtn:开关仍即时生效(本页既有交互),保存按钮做一次全量确认提交 ——
+     幂等,失败会明确回吐,不让"点了没反应"冒充已保存。 */
+  const onSave = useCallback(async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      const payload: Record<string, boolean> = {}
+      list.forEach((item) => {
+        payload[item.key] = item.enabled
+      })
+      await updateNotificationSettings(payload)
+      Taro.showToast({ title: t('notificationSettings.saved'), icon: 'success' })
+    } catch (e) {
+      logger.error('setting/notification', '保存通知设置', e)
+      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+    } finally {
+      setSaving(false)
+    }
+  }, [list, saving, t, tt])
+
   // 微信订阅消息授权(一次性授权,消耗后需再次订阅才能收到下一条推送)
   const onSubscribeWx = useCallback(async () => {
     const accepted = await requestPushSubscription()
@@ -101,6 +126,12 @@ export default function NotificationPage() {
       {/* 根容器背景对齐 RN 共享 NotificationSettingsScreen container(surface.bg → --color-background);
           留白对齐 body padding 10dp→20rpx + 页尾 paddingBottom 24dp→48rpx */}
       <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
+        {/* 对齐 RN 顶部 card:说明文案(notificationSettings.desc) */}
+        <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx]">
+          <Text className="text-[length:28rpx] leading-[1.5] text-[color:var(--color-text-medium)]">
+            {t('notificationSettings.desc')}
+          </Text>
+        </View>
         {/* 分组标题沿用共享 SettingsScreen sectionTitle 视觉:14dp→28rpx(text.secondary) */}
         <View className="mx-[20rpx] mt-[32rpx]">
           <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
@@ -118,7 +149,9 @@ export default function NotificationPage() {
                 <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                   <View className="mr-[16rpx] flex-1">
                     {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-[length:28rpx] text-muted-foreground">{item.title}</Text>
+                    <Text className="text-[length:28rpx] text-muted-foreground">
+                      {channelLabel(item.key, item.title)}
+                    </Text>
                   </View>
 
                   {/* Switch 对齐 RN trackColor.true = brand.DEFAULT(源 --color-primary 墨档);
@@ -192,6 +225,8 @@ export default function NotificationPage() {
             </View>
           </View>
         </View>
+
+        <NotificationSaveBar saving={saving} onSave={() => void onSave()} />
       </View>
     </ThemeRoot>
   )

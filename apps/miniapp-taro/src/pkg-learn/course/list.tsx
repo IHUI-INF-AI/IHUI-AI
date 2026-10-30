@@ -19,12 +19,19 @@ import { SectionHeader, ColorfulLoader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 
+/**
+ * 后端 `/content/course/list` 的投影额外回传 signupCount(见
+ * miniapp-public-fallback-routes 的 toCourseRow),端内 Course 类型未声明该列 ⇒ 本页按可选字段
+ * 消费,缺失按 0 处理(与共享屏 studentCount 的 `?? 0` 同口径,不造数据)。
+ */
+type CourseRow = Course & { signupCount?: number }
+
 export default function CourseList() {
   const { t } = useI18n()
   const tt = useTt()
   const router = useRouter()
   const initialKeyword = router.params.keyword || ''
-  const [list, setList] = useState<Course[]>([])
+  const [list, setList] = useState<CourseRow[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState(initialKeyword)
   const pageRef = useRef(1)
@@ -147,9 +154,13 @@ export default function CourseList() {
                       {item.subtitle}
                     </Text>
                   )}
-                  {item.teacher && (
+                  {/* 对齐 RN courseMeta:讲师 · 「N 人学过」同一行(metaText 11dp→22rpx) */}
+                  {(item.teacher || (item.signupCount ?? 0) > 0) && (
                     <Text className="text-[length:24rpx] text-muted-foreground">
-                      {item.teacher}
+                      {item.teacher ? `${item.teacher} · ` : ''}
+                      {tt('course.studentCount', '{count} 人学过', {
+                        count: item.signupCount ?? 0,
+                      })}
                     </Text>
                   )}
                   <Text className="text-[length:32rpx] text-foreground font-semibold">

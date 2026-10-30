@@ -270,9 +270,9 @@ export default function ModelEdit() {
               </Text>
             ) : null}
 
-            {/* 1. 种类多选 — RN label:14dp→28rpx、600、text.medium、mt16/mb8 */}
+            {/* 1. 分类多选 — RN label:14dp→28rpx、600、text.medium、mt16/mb8 */}
             <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-              {tt('devEnter.modelEdit.categoryLabel', '种类（多选）')}
+              {tt('modelEdit.labelCategory', '分类')}
             </Text>
             <View className="flex flex-wrap gap-[20rpx]">
               {CATEGORIES.map((c) => (
@@ -303,9 +303,9 @@ export default function ModelEdit() {
               </View>
             </Picker>
 
-            {/* 3. 售卖方式 */}
+            {/* 3. 售卖类型 */}
             <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-              {tt('devEnter.modelEdit.saleTypeLabel', '售卖方式')}
+              {tt('modelEdit.labelSaleType', '售卖类型')}
             </Text>
             {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
 
@@ -313,7 +313,7 @@ export default function ModelEdit() {
             {saleType !== 'free' ? (
               <View className="mt-[24rpx] p-[24rpx] rounded-xl bg-muted">
                 <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-                  {tt('devEnter.modelEdit.chargePeriodLabel', '收费周期')}
+                  {tt('modelEdit.labelCycle', '结算周期')}
                 </Text>
                 {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod))}
                 {saleType === 'paid' ? (
@@ -344,11 +344,11 @@ export default function ModelEdit() {
                   </>
                 ) : null}
 
-                {/* 5. 限时免费时限 (限时免费时显示) */}
+                {/* 5. 免费时长 (限时免费时显示) */}
                 {saleType === 'limited' ? (
                   <>
                     <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-                      {tt('devEnter.modelEdit.limitedDurationLabel', '限时免费时限')}
+                      {tt('modelEdit.labelFreeDur', '免费时长')}
                     </Text>
                     {renderOpts(durationOpts, limitedDuration, (v) =>
                       setLimitedDuration(v as LimitedDuration),
@@ -360,7 +360,7 @@ export default function ModelEdit() {
                 {
                   <>
                     <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-                      {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
+                      {tt('modelEdit.labelDiscount', '折扣')}
                     </Text>
                     {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
                   </>
@@ -368,9 +368,9 @@ export default function ModelEdit() {
               </View>
             ) : null}
 
-            {/* 6. 面向群体 */}
+            {/* 6. 可见范围 */}
             <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-              {tt('devEnter.modelEdit.targetGroupLabel', '面向群体')}
+              {tt('modelEdit.labelAudience', '可见范围')}
             </Text>
             {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup))}
 
@@ -383,8 +383,8 @@ export default function ModelEdit() {
             >
               <Text>
                 {submitting
-                  ? tt('devEnter.modelEdit.submitting', '提交中…')
-                  : tt('devEnter.modelEdit.submit', '提交审核')}
+                  ? tt('modelEdit.submitting', '提交中...')
+                  : tt('modelEdit.submit', '保存')}
               </Text>
             </View>
           </View>
