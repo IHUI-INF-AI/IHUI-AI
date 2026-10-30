@@ -20,6 +20,7 @@
 import crypto, { createSign, createVerify, randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { env } from 'node:process'
+import IORedis from 'ioredis'
 
 const API_BASE = env.WX_API_BASE ?? 'https://api.mch.weixin.qq.com'
 
@@ -109,6 +110,73 @@ export function verifyCallbackSignature(
   const verify = createVerify('RSA-SHA256')
   verify.update(signStr, 'utf-8')
   return verify.verify(cert, Buffer.from(signature, 'base64'))
+}
+
+// ── 回调 nonce 一次性消费(2026-10-30 立)──────────────────────────────────────
+/**
+ * 防重放:同一 (endpoint, timestamp, nonce) 只允许消费一次。
+ *
+ * 已有防护:±5 分钟时间窗 + RSA 验签 ⇒ 报文不能被篡改、时效受限。
+ * 缺的是"同一份报文在窗口内可被重复投递"—— 退款/提现/周期扣款此前没有报文级幂等
+ * (支付那条有 transaction_id 幂等兜底,但一并收口)。
+ *
+ * 失败方向:**fail-closed**(Redis 不可用回 'unavailable',调用方回 FAIL)。
+ * 微信按重试曲线自动重投,不会丢单;而放行未知状态在资金面上不可接受
+ * (与 plugins/payment-idempotency.ts 同判据)。
+ */
+let notifyNonceRedis: IORedis | null = null
+let notifyNonceRedisFailed = false
+
+function getNotifyNonceRedis(): IORedis | null {
+  if (notifyNonceRedis) return notifyNonceRedis
+  if (notifyNonceRedisFailed) return null
+  try {
+    notifyNonceRedis = new IORedis(env.REDIS_URL ?? 'redis://localhost:8811', {
+      maxRetriesPerRequest: 1,
+    })
+    notifyNonceRedis.on('error', (err: Error) => {
+      console.error('[wechat-pay] notify nonce redis error:', err.message)
+    })
+    return notifyNonceRedis
+  } catch (e) {
+    notifyNonceRedisFailed = true
+    console.error('[wechat-pay] notify nonce redis 初始化失败:', (e as Error).message)
+    return null
+  }
+}
+
+/**
+ * 判定四态,必须区分「没料可去重」与「去重库挂了」:
+ * - ok          首次消费,继续处理;
+ * - replayed    同 (endpoint, timestamp, nonce) 已被消费过 ⇒ 直接回 SUCCESS,不重复入账;
+ * - unavailable 去重库不可用 ⇒ 调用方 fail-closed(500),由微信按重试曲线重投;
+ * - absent      报文本就没带 timestamp/nonce ⇒ **放行**。生产路径上不可能出现
+ *               (verifyCallbackSignature 先跑,缺头必然验签失败回 400),只会出现在
+ *               DEV/测试(未配置平台证书时验签放行)与显式跳过分支。把这一态并进
+ *               `unavailable` 会让"没头"变成 500 —— 那是把测试环境与 Redis 故障混为一谈。
+ */
+export type NotifyNonceVerdict = 'ok' | 'replayed' | 'unavailable' | 'absent'
+
+/**
+ * 消费一枚回调 nonce。
+ * TTL 900s:时间窗 ±300s,同一条报文最长可被接受约 600s(时间戳落在未来侧),
+ * 留 1.5 倍余量;签名已保证报文时效,无需更长。
+ */
+export async function consumeNotifyNonce(
+  endpoint: string,
+  timestamp: string,
+  nonce: string,
+): Promise<NotifyNonceVerdict> {
+  if (!nonce || !timestamp) return 'absent'
+  const redis = getNotifyNonceRedis()
+  if (!redis) return 'unavailable'
+  const digest = crypto.createHash('sha256').update(`${timestamp}\n${nonce}`).digest('hex')
+  try {
+    const r = await redis.set(`wechatpay:notify:nonce:${endpoint}:${digest}`, '1', 'EX', 900, 'NX')
+    return r === 'OK' ? 'ok' : 'replayed'
+  } catch {
+    return 'unavailable'
+  }
 }
 
 /** AES-256-GCM 解密回调资源（resource.ciphertext） */

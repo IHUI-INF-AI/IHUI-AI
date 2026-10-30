@@ -34,6 +34,7 @@ import {
   cancelContract,
   queryContract,
   verifyCallbackSignature,
+  consumeNotifyNonce,
   decryptCallback,
   generateOutTradeNo,
   parseContractExpiredTime,
@@ -458,6 +459,18 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         } else if (env.NODE_ENV === 'production') {
           request.log.warn('recurring callback missing required headers in production')
           return reply.code(400).send({ code: 'FAIL', message: '缺少必要回调头' })
+        }
+
+        // 2026-10-30:报文级一次性去重。本回调此前**无条件 INSERT 通知行**,重放会堆重复记录;
+        // 且 outTradeNo 为空的分支缺少幂等锁,重放可能重复 placeOrder + completeOrder。
+        if (timestamp && nonce) {
+          const recurringNonceVerdict = await consumeNotifyNonce('recurring', timestamp, nonce)
+          if (recurringNonceVerdict === 'replayed') {
+            return reply.send({ code: 'SUCCESS', message: '重复通知' })
+          }
+          if (recurringNonceVerdict === 'unavailable') {
+            return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+          }
         }
 
         const eventType = body.event_type as string

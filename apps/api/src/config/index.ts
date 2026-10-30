@@ -192,6 +192,9 @@ const envSchema = z.object({
   // 默认 observe:只记"不在公开名单且无凭据"的请求,不拦人 —— 名单不可能一次写全,
   // 先观察真实流量再收紧。切 enforce 的前置:observe 满 24h 且日志里没有新的方法+路径。
   AUTH_DEFAULT_DENY_MODE: z.enum(['off', 'observe', 'enforce']).default('observe'),
+  // 按用户限流(认证后计一层,补 IP 桶在 NAT/回环下的失真)。
+  // 默认 600/min 远高于正常使用,只拦按用户维度的滥用;IP 层 100/min 仍在兜底。
+  USER_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(600),
 
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),
