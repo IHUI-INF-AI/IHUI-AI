@@ -1094,6 +1094,137 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(circlePosts.id, existing.postId))
     return reply.send(success({ id: commentId, deleted: removed.length > 0 }))
   })
+
+  // POST /circles/dynamic/comment - 发表评论(body: dynamicId, content)
+  // 与上方 DELETE 同族(数据源同一张 circle_post_comments);作者一律取令牌主体,
+  // 昵称头像由库侧 join 派生,不信客户端自报(§5 认证不等于授权)。
+  server.post('/circles/dynamic/comment', async (request, reply) => {
+    const parsed = z
+      .object({
+        dynamicId: z.uuid({ error: '无效的 dynamicId' }),
+        content: z.string().trim().min(1, '评论内容不能为空').max(2000, '评论内容过长'),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const dynamicId = parsed.data.dynamicId
+    const post = await findPostById(dynamicId)
+    if (!post) return reply.status(404).send(error(404, '动态不存在'))
+
+    const filtered = await sanitizeUgcInput(
+      { content: parsed.data.content },
+      {
+        action: 'ugc.circle.comment.create',
+        resourceType: 'circle_post',
+        resourceId: dynamicId,
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!filtered.ok) return reply.status(400).send(error(400, '内容含违规词,评论失败'))
+
+    const [created] = await db
+      .insert(circlePostComments)
+      .values({
+        postId: dynamicId,
+        userId: request.userId!,
+        content: filtered.fields.content!.text,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '评论发表失败'))
+    await db
+      .update(circlePosts)
+      .set({ replyCount: sql`${circlePosts.replyCount} + 1`, updatedAt: new Date() })
+      .where(eq(circlePosts.id, dynamicId))
+
+    const [me] = await dbRead
+      .select({ nickname: users.nickname, avatar: users.avatar })
+      .from(users)
+      .where(eq(users.id, request.userId!))
+      .limit(1)
+    return reply.status(201).send(
+      success({
+        comment: commentRow({
+          id: created.id,
+          userId: created.userId,
+          nickname: me?.nickname ?? '',
+          avatar: me?.avatar ?? null,
+          content: created.content,
+          createdAt: created.createdAt,
+          likes: created.likeCount,
+        }),
+      }),
+    )
+  })
+
+  // GET /circles/dynamic/comments?dynamicId=&page=&pageSize= - 评论列表(带作者昵称头像)
+  server.get('/circles/dynamic/comments', async (request, reply) => {
+    const q = z
+      .object({
+        dynamicId: z.uuid({ error: '无效的 dynamicId' }),
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(50).default(10),
+      })
+      .safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    const { dynamicId, page, pageSize } = q.data
+    const where = and(eq(circlePostComments.postId, dynamicId), eq(circlePostComments.status, 1))
+    const [rows, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: circlePostComments.id,
+          userId: circlePostComments.userId,
+          nickname: users.nickname,
+          avatar: users.avatar,
+          content: circlePostComments.content,
+          createdAt: circlePostComments.createdAt,
+          likes: circlePostComments.likeCount,
+        })
+        .from(circlePostComments)
+        .leftJoin(users, eq(users.id, circlePostComments.userId))
+        .where(where)
+        .orderBy(desc(circlePostComments.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(circlePostComments)
+        .where(where),
+    ])
+    return reply.send(
+      success({
+        list: rows.map(commentRow),
+        total: Number(totalRows[0]?.count ?? 0),
+        page,
+        pageSize,
+      }),
+    )
+  })
 }
+
+/** 评论出参归一:时间给 ISO 串、likes 用后端真值,小程序/RN 两端读同一形 */
+function commentRow(r: {
+  id: string
+  userId: string
+  nickname: string | null
+  avatar: string | null
+  content: string
+  createdAt: Date
+  likes: number
+}) {
+  return {
+    id: r.id,
+    userId: r.userId,
+    nickname: r.nickname ?? '',
+    avatar: r.avatar ?? undefined,
+    content: r.content,
+    createdAt: r.createdAt.toISOString(),
+    likes: r.likes,
+  }
+}
+
 export default asksRoutes
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

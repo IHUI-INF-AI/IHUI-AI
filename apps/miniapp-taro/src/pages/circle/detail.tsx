@@ -9,7 +9,7 @@ import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
-import { getCircleDetail, get, post, type Circle } from '@/api'
+import { getCircleDetail, get, post, del, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { EmptyState } from '@/components/ScreenStates.taro'
@@ -88,7 +88,11 @@ export default function CircleDetailPage() {
         setError(tt('postDetail.loadFailed', '加载帖子失败'))
       }
       try {
-        const c = await get<CommentData>(`/circles/${qid}/comments`, { page: 1, pageSize: 10 })
+        const c = await get<CommentData>('/circles/dynamic/comments', {
+          dynamicId: qid,
+          page: 1,
+          pageSize: 10,
+        })
         setComments(c.list || [])
         setCommentTotal(c.total || 0)
       } catch (e) {
@@ -156,7 +160,10 @@ export default function CircleDetailPage() {
     setFavorited(next)
     setData((d) => ({ ...d, favorites: (d.favorites || 0) + (next ? 1 : -1) }))
     try {
-      await post(`/circles/${id}/favorite`, { favorited: next })
+      // 收藏面后端只有 /favorites(POST 建 / DELETE :resourceType/:resourceId 撤),
+      // 动态的资源名就是 'post'(social.ts FAVORITE_RESOURCE_TYPES)
+      if (next) await post('/favorites', { resourceType: 'post', resourceId: id })
+      else await del(`/favorites/post/${id}`)
     } catch (e) {
       logger.error('circle/detail', '收藏', e)
       setFavorited(!next)
@@ -178,10 +185,14 @@ export default function CircleDetailPage() {
     if (!text || !id || submitting) return
     setSubmitting(true)
     try {
-      await post(`/circles/${id}/comments`, { content: text })
+      await post('/circles/dynamic/comment', { dynamicId: id, content: text })
       setCommentText('')
       Taro.showToast({ title: tt('circle.detail.commentSent', '评论成功'), icon: 'success' })
-      const c = await get<CommentData>(`/circles/${id}/comments`, { page: 1, pageSize: 10 })
+      const c = await get<CommentData>('/circles/dynamic/comments', {
+        dynamicId: id,
+        page: 1,
+        pageSize: 10,
+      })
       setComments(c.list || [])
       setCommentTotal(c.total || 0)
       setData((d) => ({ ...d, comments: (d.comments || 0) + 1 }))
