@@ -49,6 +49,11 @@ async function clickTestId(testId: string) {
   const el = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
   expect(el, `必须存在 [data-testid=${testId}]`).not.toBeNull()
   await React.act(async () => {
+    // Radix Tabs Trigger 只绑 onMouseDown/onFocus(automatic 激活),裸 el.click() 不切 tab
+    // (切入扫码即弹的用例因此恒假 —— 弹窗 effect 根本没被触发);派发完整用户序列。
+    el?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+    el?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    el?.focus()
     el?.click()
   })
 }
