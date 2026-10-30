@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "tree",
+  "quality": "standard",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.ihui-agent\\tmp\\archify-qoder-gap\\candidate.json",
+    "sha256": "7fdefc22dac2db23e627556720908c6aaa98f047e1909a8430fed45478e0adc3",
+    "bytes": 8104
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\qoder-rea-20261030\\qoder-0.5.1-capability-tree.html",
+    "sha256": "596d0da70fb08c3f7581887b9499c6f605475aae5068682ab4ac58111a2ec2d2",
+    "bytes": 908124
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\qoder-rea-20261030\\qoder-0.5.1-capability-tree.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\qoder-rea-20261030\\qoder-0.5.1-capability-tree.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\qoder-rea-20261030\\qoder-0.5.1-capability-tree.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 6021,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}
