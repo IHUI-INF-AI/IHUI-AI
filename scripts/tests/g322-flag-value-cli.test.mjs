@@ -9,7 +9,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -752,5 +752,60 @@ test('G-322 第二十一批:blocking∧无守卫五站 —— 审树档 --rev/--
   assertBadFlag(S('check-no-warm-border.mjs'), '--root', '被审仓目录参数', { eat: '--json', rc: 2 })
   assertBadFlag(S('check-theme-prop-wiring.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
   assertBadFlag(S('fix-rn-color-literals.mjs'), '--emit-blobs', '输出文件路径', { eat: '--json', rc: 2 })
+})
+
+// ─── 第二十二批(2026-10-30,g35-s12)───
+// A 族「同源收口 ∧ 同时收紧」:这三站的旧副本都是 `!v || v.startsWith('--')` —— **只挡双划线**,
+// 单划线 token(`-x`)照收。改前一手取证(逐支真跑,非推断):
+//   ① check-load-state-loaded-marks `--root -x --worktree`:旧副本放行 ⇒ 门跑去扫
+//      `G:\IHUI-AI\-x\apps\ai-service\app`,报的是「未判定(取材层/面旗冲突)…ENOENT」——
+//      用法错被读成取材面故障(措辞与修法都指错了方向)。
+//   ② check-migration-bookkeeping `--ledger-from -y`:旧副本放行 ⇒ 门**照常出具
+//      「✓ 全部通过」rc=0**,而 B11 那一格其实根本没判(静默降级,本票最硬的那一型)。
+//      另 `--root --staged` / `--ledger-from --staged`(旧副本本就挡的那两支)在顶层求值处
+//      抛穿成**裸 Node 栈 rc=1**,不是本门既有的「用法错 = exit 2」档。
+//   ③ check-replacement-chars `--recover <path> --staged`:第二格是可选出件名,旧写法
+//      `recover(argv[i+1], argv[i+2])` 把 `--staged` 当文件名**真写出**
+//      `.ihui-agent/tmp/replacement-chars/--staged`(rc=0,静默)。⇒ 同族实害,不是误挂。
+// 改后三支一律 exit 2 且措辞来自单源;`--recover` 的裸栈支由各站 spawn 断言(不得出现 at ModuleJob)。
+test('G-322 第二十二批:A 族三站 —— 单划线加宽支 + 双划线回归支 + --recover 第二格出件名', () => {
+  // 加宽支(旧副本判不出、单源判得出)
+  assertBadFlag(S('check-load-state-loaded-marks.mjs'), '--root', '目录参数', { eat: '-x', rc: 2 })
+  assertBadFlag(S('check-migration-bookkeeping.mjs'), '--root', '目录参数', { eat: '-x', rc: 2 })
+  assertBadFlag(S('check-migration-bookkeeping.mjs'), '--ledger-from', 'JSON 文件参数', { eat: '-y', rc: 2 })
+  assertBadFlag(S('check-replacement-chars.mjs'), '--recover', '被找回文件的路径参数', { eat: '-x', rc: 2 })
+  // 回归支(旧副本本来就挡的形态,收口后仍必须挡,且措辞只有一份)
+  assertBadRoot(S('check-load-state-loaded-marks.mjs'))
+  assertBadFlag(S('check-migration-bookkeeping.mjs'), '--root', '目录参数', { eat: '--staged', rc: 2 })
+  assertBadFlag(S('check-migration-bookkeeping.mjs'), '--ledger-from', 'JSON 文件参数', { eat: '--db', rc: 2 })
+  assertBadFlag(S('check-replacement-chars.mjs'), '--recover', '被找回文件的路径参数', { eat: '--staged', rc: 2 })
+})
+
+test('G-322 第二十二批②:--recover 第二格(可选出件名)不得把旗标当文件名写出', () => {
+  const out = ['.ihui-agent', 'tmp', 'replacement-chars', '--staged']
+  const artifact = resolve(ROOT, ...out)
+  for (const f of [artifact]) if (existsSync(f)) rmSync(f, { force: true })
+  const r = spawnSync(process.execPath, [S('check-replacement-chars.mjs'), '--recover', 'scripts/desktop-build.mjs', '--staged'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 2, `旗标当出件名必须 exit 2:\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+  assert.match(`${r.stdout}${r.stderr}`, /第二个参数是可选出件名,不接受旗标/, '必须点名是哪一格出错')
+  assert.equal(existsSync(artifact), false, '绝不允许真写出名为 --staged 的文件(改前实测写过)')
+})
+
+// ─── 第二十二批③(同批续,g35-s12:收敛器那一族)───
+// `git-sync-converge` 的旧 `getOpt` 写的是 `i >= 0 && argv[i+1] ? argv[i+1] : dflt`,把
+// "没点旗标"与"点了却没给值"折成同一件事。改前一手取证(HEAD 副本真跑,`--dry-run` 兜住不外推):
+//   `--dry-run --branch` ⇒ 静默回到 'main',照常出具「本地领先远端(FF 可达),跳过合并直接推送」
+//     并 **rc=0** —— 归并/推送目标由调用方没打的旗标决定,这是本票最硬的那一型;
+//   `--dry-run --rounds --branch` ⇒ `Number('--branch')` = NaN ⇒ 「❌ NaN 轮未收敛」rc=1(措辞不说用法错)。
+// 改后两支一律 exit 2 且措辞来自单源;正例 `--dry-run --branch main --rounds 2` 与改前逐字同解
+//   (第 1/2 轮 + rc=0),默认档未被放宽。
+test('G-322 第二十二批③:git-sync-converge 的 --branch/--rounds 不得静默退回默认档', () => {
+  assertBadFlag(S('git-sync-converge.mjs'), '--branch', '分支名参数', { pre: ['--dry-run'], eat: '--json', rc: 2 })
+  assertBadFlag(S('git-sync-converge.mjs'), '--rounds', '轮数参数', { pre: ['--dry-run'], eat: '--json', rc: 2 })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
