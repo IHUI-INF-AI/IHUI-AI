@@ -1245,6 +1245,31 @@
       "shared": "packages/app/src/features/tools/pdf/PdfToolsHubScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx",
       "miniapp": "pkg-user/pdf-tools-hub/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+      "miniapp": "pkg-mirror/ai-assistant-n8n/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiGroupScreen.tsx",
+      "miniapp": "pkg-mirror/ai-group/index"
+    },
+    {
+      "shared": "packages/app/src/features/circle-create/CircleCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleCreateScreen.tsx",
+      "miniapp": "pkg-user/circle-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/circle-detail/CircleDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleDetailScreen.tsx",
+      "miniapp": "pkg-user/circle-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/ranking-detail/RankingDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RankingDetailScreen.tsx",
+      "miniapp": "pkg-user/ranking-detail/index"
     }
   ]
 }

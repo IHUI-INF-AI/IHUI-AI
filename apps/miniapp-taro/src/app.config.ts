@@ -198,6 +198,9 @@ export default defineAppConfig({
         'cloud-runs/index',
         'chat-workbench/index',
         'pdf-tools-hub/index',
+        'circle-create/index',
+        'circle-detail/index',
+        'ranking-detail/index',
       ],
     },
     {
@@ -360,6 +363,8 @@ export default defineAppConfig({
         'knowledge-entry-reading/index',
         'knowledge-base-list/index',
         'news-category/index',
+        'ai-assistant-n8n/index',
+        'ai-group/index',
       ],
     },
     {
