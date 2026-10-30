@@ -56,9 +56,7 @@ async function proxyGet(
 
 const metaLearnerRoutes: FastifyPluginAsync = async (server) => {
   // 插件级 requireAdmin 兜底(挂载于 /api/admin/*,与代理前一致保留)。
-  server.addHook('preHandler', async (request, reply) => {
-    return requireAdmin(request, reply)
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // GET /api/admin/meta-learner/lessons → GET /api/admin/meta-learner/lessons
   server.get('/lessons', async (request, reply) => {
