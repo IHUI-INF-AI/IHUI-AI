@@ -51,7 +51,9 @@ const CLI = (() => {
   const override = process.env.RP79_UNION_CONVERGE_CLI
   if (!override) return CLI_REAL
   if (!resolve(override).includes('ihui-scratch')) {
-    throw new Error('RP79_UNION_CONVERGE_CLI 只许指向 scratch 夹具(ihui-scratch)里的副本,不得指向仓内任何文件')
+    throw new Error(
+      'RP79_UNION_CONVERGE_CLI 只许指向 scratch 夹具(ihui-scratch)里的副本,不得指向仓内任何文件',
+    )
   }
   return resolve(override)
 })()
@@ -82,15 +84,23 @@ const out = (r) => `${r.stderr || ''}${r.stdout || ''}`
 
 test('① 清单扫全:源码实际消费的每一枚旗都在清单里,且清单里没有一枚是"幽灵"(两向闭合)', () => {
   const scanned = scanFlagConsumption(unionSrc())
-  assert.ok(scanned.size >= 15, `消费点扫描只认出 ${scanned.size} 枚 —— 少于 RP-79 现读的 17 枚,扫描器或本器形状变了`)
+  assert.ok(
+    scanned.size >= 15,
+    `消费点扫描只认出 ${scanned.size} 枚 —— 少于 RP-79 现读的 17 枚,扫描器或本器形状变了`,
+  )
   const consumedNotListed = [...scanned].filter((f) => !UNION_KNOWN_FLAGS.includes(f)).sort()
   assert.deepEqual(
     consumedNotListed,
     [],
     `这些旗被本器消费却不在清单里 ⇒ 装闸后正当用法会被自己拦死:${consumedNotListed.join(' ')}`,
   )
-  const listedNotConsumed = UNION_KNOWN_FLAGS.filter((f) => !scanned.includes(f)).sort()
-  assert.deepEqual(listedNotConsumed, [], `清单里这些旗在源码里找不到消费点(清单腐烂):${listedNotConsumed.join(' ')}`)
+  const scannedList = [...scanned]
+  const listedNotConsumed = UNION_KNOWN_FLAGS.filter((f) => !scannedList.includes(f)).sort()
+  assert.deepEqual(
+    listedNotConsumed,
+    [],
+    `清单里这些旗在源码里找不到消费点(清单腐烂):${listedNotConsumed.join(' ')}`,
+  )
   assert.deepEqual(
     [...UNION_KNOWN_FLAGS].sort(),
     [...UNION_BOOLEAN_FLAGS, ...UNION_VALUE_FLAGS].sort(),
@@ -110,7 +120,11 @@ test('② 清单与 USAGE 成套(双向形状锁):印了就要认识,认识就�
       `USAGE 里印了 ${f} 而清单不认识 ⇒ 文档承诺了一个不存在的动作(§0.8)`,
     )
   }
-  assert.match(usageText, /退出码:[\s\S]*2 = 用法错/, 'USAGE 必须写明未知旗落 2,而不是让它变成 1(业务失败)')
+  assert.match(
+    usageText,
+    /退出码:[\s\S]*2 = 用法错/,
+    'USAGE 必须写明未知旗落 2,而不是让它变成 1(业务失败)',
+  )
 })
 
 test('③ 转发面:同步链真正推给本器的旗子集 ⊆ 清单(漏一枚 = 每轮自动收敛死在闸上)', () => {
@@ -127,13 +141,18 @@ test('③ 转发面:同步链真正推给本器的旗子集 ⊆ 清单(漏一枚
   const end = src.indexOf('execFileSync(process.execPath, args', start)
   assert.ok(end > start, '同块尾部锚点没找到')
   const block = src.slice(start, end)
-  const literal = new Set(block.match(/'(--[a-z][a-z0-9-]+)'/g)?.map((s) => s.replaceAll("'", '')) ?? [])
+  const literal = new Set(
+    block.match(/'(--[a-z][a-z0-9-]+)'/g)?.map((s) => s.replaceAll("'", '')) ?? [],
+  )
   assert.ok(literal.size >= 2, `派生块里一枚旗都没抽到(${block.length} 字节)⇒ 锚点腐烂,不许假绿`)
   const bad = [...literal].filter((f) => !UNION_KNOWN_FLAGS.includes(f))
   assert.deepEqual(bad, [], `同步链派生块里写死却不认识的旗:${bad.join(' ')}`)
   // 正向对照:本票点名的三枚必须真在这块里(抽到的是不是那一段,而不是空转)
   for (const f of ['--apply', '--theirs', '--accept-state-growth']) {
-    assert.ok(literal.has(f) || block.includes(f), `派生块里没看到 ${f} ⇒ 切片位置不对,本用例没在判转发面`)
+    assert.ok(
+      literal.has(f) || block.includes(f),
+      `派生块里没看到 ${f} ⇒ 切片位置不对,本用例没在判转发面`,
+    )
   }
 })
 
@@ -169,9 +188,21 @@ test('⑤ 未知旗必须被点名(近似旗最容易静默掉进默认档),且�
     ['unknown', '--helpz'],
   )
   assert.equal(judgeFlags(wrap(['--delete-everything'])).flag, '--delete-everything')
-  assert.equal(judgeFlags(wrap(['--apply', '--nope'])).flag, '--nope', '合法旗之后的未知旗也必须抓到')
-  assert.equal(judgeFlags(wrap(['--theirs', '--nope'])).flag, '--nope', '带值旗的下一个旗号不得被当成值吞掉')
-  assert.equal(judgeFlags(wrap(['--theirs'])).verdict, 'ok', '缺值是"值没给"的用法错出口,不是未知旗')
+  assert.equal(
+    judgeFlags(wrap(['--apply', '--nope'])).flag,
+    '--nope',
+    '合法旗之后的未知旗也必须抓到',
+  )
+  assert.equal(
+    judgeFlags(wrap(['--theirs', '--nope'])).flag,
+    '--nope',
+    '带值旗的下一个旗号不得被当成值吞掉',
+  )
+  assert.equal(
+    judgeFlags(wrap(['--theirs'])).verdict,
+    'ok',
+    '缺值是"值没给"的用法错出口,不是未知旗',
+  )
 })
 
 test('⑥ 未判定三态:闸拿不到输入时既不冒绿也不冒红(§0.3)', () => {
@@ -179,13 +210,21 @@ test('⑥ 未判定三态:闸拿不到输入时既不冒绿也不冒红(§0.3)',
   assert.equal(noArgv.verdict, 'undetermined')
   assert.ok(noArgv.reason.length > 0, '未判定必须点名原因,不许空口径')
   const emptyList = judgeFlags(['node', 'x'], { known: [] })
-  assert.equal(emptyList.verdict, 'undetermined', '清单读不到时放行 = 瞎放行,拦停 = 拿整条同步链押在一份空表上')
+  assert.equal(
+    emptyList.verdict,
+    'undetermined',
+    '清单读不到时放行 = 瞎放行,拦停 = 拿整条同步链押在一份空表上',
+  )
 })
 
 test('⑦ 放行出路纪律:必须"验过才免"(enable=1 ∧ 理由 ≥10 字),缺一半/过短一律不放行', () => {
   const { enable, reason, minReasonLength } = UNKNOWN_FLAG_ESCAPE_ENV
   assert.equal(unknownFlagEscape({}).allowed, false, '什么都没设 ⇒ 不放行')
-  assert.equal(unknownFlagEscape({ [enable]: '1' }).allowed, false, '设了开关却没理由 ⇒ 空理由的放行等于没有判据')
+  assert.equal(
+    unknownFlagEscape({ [enable]: '1' }).allowed,
+    false,
+    '设了开关却没理由 ⇒ 空理由的放行等于没有判据',
+  )
   assert.equal(
     unknownFlagEscape({ [enable]: '1', [reason]: '  ' }).allowed,
     false,
@@ -196,16 +235,26 @@ test('⑦ 放行出路纪律:必须"验过才免"(enable=1 ∧ 理由 ≥10 字)
     false,
     `理由不足 ${minReasonLength} 字不得放行`,
   )
-  const ok = unknownFlagEscape({ [enable]: '1', [reason]: '同步链新增了一枚我还没登记的转发旗,先放本轮' })
+  const ok = unknownFlagEscape({
+    [enable]: '1',
+    [reason]: '同步链新增了一枚我还没登记的转发旗,先放本轮',
+  })
   assert.equal(ok.allowed, true)
-  assert.ok(ok.reason.length >= minReasonLength, '放行时必须把理由回带,供调用方逐条打印(不许静默放行)')
+  assert.ok(
+    ok.reason.length >= minReasonLength,
+    '放行时必须把理由回带,供调用方逐条打印(不许静默放行)',
+  )
 })
 
 test('⑧ 出处投影锁:scripts/data/union-converge-flags.json 与清单集合逐枚等值,且每条都有 flag/where/why', () => {
   const reg = JSON.parse(readFileSync(REGISTRY, 'utf8'))
   assert.ok(Array.isArray(reg.flags) && reg.flags.length > 0, '投影表为空 ⇒ 这份"权威清单"不成立')
   const listed = reg.flags.map((x) => x.flag).sort()
-  assert.deepEqual(listed, [...UNION_KNOWN_FLAGS].sort(), '投影与 lib 清单不一致(表多一枚=承诺了不存在的旗;表少一枚=漏登记)')
+  assert.deepEqual(
+    listed,
+    [...UNION_KNOWN_FLAGS].sort(),
+    '投影与 lib 清单不一致(表多一枚=承诺了不存在的旗;表少一枚=漏登记)',
+  )
   assert.equal(new Set(listed).size, listed.length, '投影里有重复条目')
   for (const item of reg.flags) {
     for (const key of ['flag', 'kind', 'where']) {
@@ -215,20 +264,33 @@ test('⑧ 出处投影锁:scripts/data/union-converge-flags.json 与清单集合
       Array.isArray(item.where) ? item.where.length > 0 : String(item.where).length > 0,
       `${item.flag} 缺出处`,
     )
-    assert.ok(String(item.why ?? '').length >= 8, `${item.flag} 的 why 太短,读的人判不出它为什么存在`)
+    assert.ok(
+      String(item.why ?? '').length >= 8,
+      `${item.flag} 的 why 太短,读的人判不出它为什么存在`,
+    )
     assert.ok(['boolean', 'value'].includes(item.kind), `${item.flag} 的 kind 只允许 boolean/value`)
     const wantKind = UNION_BOOLEAN_FLAGS.includes(item.flag) ? 'boolean' : 'value'
     assert.equal(item.kind, wantKind, `${item.flag} 的 kind 与 lib 的档位不一致`)
+    // forwardedBy 登记的是**转发者文件**(谁把这一枚推给本器),必须真在 dynamicForwarding.callers 里;
+    // 它登记不出"清单漏了某一枚转发旗" —— 那一半由用例 ③ 直接读 git-sync 的派生块来证。
+    const callerFiles = (reg.dynamicForwarding?.callers ?? []).map((c) => c.file)
     for (const fwd of item.forwardedBy ?? []) {
-      assert.ok(UNION_KNOWN_FLAGS.includes(fwd), `${item.flag} 的 forwardedBy 指向不存在的旗 ${fwd}`)
+      assert.ok(callerFiles.includes(fwd), `${item.flag} 的 forwardedBy 指向未登记的转发者 ${fwd}`)
     }
   }
-  assert.equal(reg.dynamicForwarding?.wholeArgvPassthrough, false, '静态清单成立的前提是"没有整段 argv 透传";若哪天有了,本票的结论必须重判')
+  assert.equal(
+    reg.dynamicForwarding?.wholeArgvPassthrough,
+    false,
+    '静态清单成立的前提是"没有整段 argv 透传";若哪天有了,本票的结论必须重判',
+  )
 })
 
-test('⑨ 未知旗 CLI:rc=2、点名、零副作用(HEAD 与索引逐字节不变)', () => {
+test('⑨ 未知旗 CLI:rc=2、点名、零副作用(真仓 HEAD ∧ 夹具仓 HEAD/索引逐字节不变)', () => {
   const headBefore = gitIn(REPO, ['rev-parse', 'HEAD'])
-  const idxBefore = gitIn(REPO, ['status', '--porcelain'])
+  // 真仓的索引/工作区**不作断言**:这是多席共写的共享工作区,别席每几分钟就 add/commit 一次
+  // (本次实测:本用例跑完 1 秒内 `?? scripts/lib/api-route-uniqueness.mjs` 凭空出现)。
+  // 拿别席的写入当"本器副作用"= 恒红门(§12e),恒红门的唯一结局是把全部守门一起绕过。
+  // 与别席无关的两条不变量在这里判:真仓 HEAD、以及"根本没有开跑收敛"(输出形状,见下)。
   const dir = mkScratch('union-flag-gate')
   try {
     gitIn(dir, ['init', '-q', '-b', 'main'])
@@ -245,10 +307,13 @@ test('⑨ 未知旗 CLI:rc=2、点名、零副作用(HEAD 与索引逐字节不�
     assert.match(out(r), /未认识|用法错/, '必须点名是用法错,不许裸栈或静默')
     assert.match(out(r), /--definitely-not-a-flag/, '必须点名是哪一枚旗')
     assert.match(out(r), /用法:/, '用法错必须给出用法(唯一出路不许跑不通)')
-    assert.doesNotMatch(out(r), /\[union-converge\]|第 \d\/\d 轮|索引层合并/, '未知旗这一趟绝不许开跑收敛')
+    assert.doesNotMatch(
+      out(r),
+      /\[union-converge\]|第 \d\/\d 轮|索引层合并/,
+      '未知旗这一趟绝不许开跑收敛',
+    )
 
     assert.equal(gitIn(REPO, ['rev-parse', 'HEAD']), headBefore, '零副作用:真仓 HEAD 不许动')
-    assert.equal(gitIn(REPO, ['status', '--porcelain']), idxBefore, '零副作用:真仓索引/工作区不许动')
     assert.equal(gitIn(dir, ['rev-parse', 'HEAD']), fxHead, '夹具仓 HEAD 不许动')
     assert.equal(gitIn(dir, ['ls-files', '-s']), fxIdx, '夹具仓索引 sha 不许动')
   } finally {
@@ -290,6 +355,10 @@ test('⑪ 装车锁:闸排在 main 的一切动作之前,且清单/闸体全仓�
     1,
     '清单出口只许 import 一次',
   )
-  assert.equal([...src.matchAll(/export const (KNOWN_FLAGS|UNION_KNOWN_FLAGS)\b/g)].length, 0, '旗清单不得在本器再立第二份')
+  assert.equal(
+    [...src.matchAll(/export const (KNOWN_FLAGS|UNION_KNOWN_FLAGS)\b/g)].length,
+    0,
+    '旗清单不得在本器再立第二份',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

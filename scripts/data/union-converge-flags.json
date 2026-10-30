@@ -1,0 +1,175 @@
+{
+  "setAt": "2026-10-31",
+  "ticket": "RP-79 旁路器物「未知旗标⇒用法错 exit 2」的剩余面(union-converge 一枚)",
+  "sourceOfTruth": "scripts/lib/union-converge-flags.mjs",
+  "consumer": "scripts/union-converge.mjs",
+  "note": "本表是旗标面的**投影**(给人读与追出处),集合真值住 lib 那份出口;两者的一致性由 scripts/tests/union-converge-arg-guard.test.mjs 双向锁死(表多一枚=文档承诺了不存在的旗,表少一枚=闸会把正当动作拦停)。新增/退役旗标必须同笔改 lib 与本表,单改一边当场红。此处只登记**被 argv 消费**的旗,不登记仅出现在 git 子命令/注释文案里的 --flag 字面量。",
+  "dynamicForwarding": {
+    "wholeArgvPassthrough": false,
+    "note": "全仓唯一把 argv 交给 union-converge 的调用方是 scripts/git-sync-converge.mjs,它派生的是**筛选过的静态清单**:`['scripts/union-converge.mjs','--apply','--theirs',<freshRemote>]` + `args.push('--accept-state-growth',<维=理由>)` + `declarationArgs(process.argv)`(只挑六条声明旗、只吃不以 -- 开头的值)。不存在 `args.push(...process.argv)` 或整段透传 ⇒ 静态清单成立,闸不会误杀同步链。其余出现处(git-guardian 的修法文案、AGENTS/README、tests)只引用不转发。",
+    "callers": [
+      {
+        "file": "scripts/git-sync-converge.mjs",
+        "how": "execFileSync(process.execPath, args) —— 静态 args + 声明旗筛选透传",
+        "flags": [
+          "--apply",
+          "--theirs",
+          "--accept-state-growth",
+          "--take-theirs-doc",
+          "--take-ours",
+          "--take-theirs",
+          "--resolve",
+          "--union-capped",
+          "--supersede"
+        ]
+      }
+    ]
+  },
+  "flags": [
+    {
+      "flag": "--apply",
+      "kind": "boolean",
+      "where": ["scripts/union-converge.mjs main(): const apply = argv.includes('--apply')"],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "落地档:临时索引 + commit-tree + CAS 推 HEAD,从不 checkout、不碰共享工作区;不带则只报告零副作用。"
+    },
+    {
+      "flag": "--theirs",
+      "kind": "value",
+      "where": ["scripts/union-converge.mjs main(): requireFlagValue(argv, '--theirs', ...)"],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "指定归并目标(缺省 origin/<当前分支>);取值走 requireFlagValue 单源出口,值被吞即 exit 2 而不是静默回落。"
+    },
+    {
+      "flag": "--base",
+      "kind": "value",
+      "where": ["scripts/union-converge.mjs main(): requireFlagValue(argv, '--base', ...)"],
+      "forwardedBy": [],
+      "why": "显式指定三方归并基底,仅远端被强制重写过、merge-base 返回空基底时才需要(G-322:吞值会炸出大片假人工裁决)。"
+    },
+    {
+      "flag": "--take-ours",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])"
+      ],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "声明式选边:该路径取本侧。它不隐藏任何事 —— 逐条打印并写进合并提交信息,且须附取证。"
+    },
+    {
+      "flag": "--take-theirs",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv[i] === '--take-theirs' && argv[i + 1]) takeTheirs.add(argv[++i])"
+      ],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "声明式选边:该路径取对侧。同上,逐条留痕,选边仍要过零丢失断言。"
+    },
+    {
+      "flag": "--take-theirs-doc",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv[i] === '--take-theirs-doc' && argv[i + 1]) takeTheirsDocs.add(argv[++i])"
+      ],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "整文档取对侧:行级 union 判不出「本侧该文件与基线逐字相同、正解就是取对侧删除」那一型(2026-10-28 实测两例)。"
+    },
+    {
+      "flag": "--resolve",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): const capped = a === '--union-capped'; if (a !== '--resolve' && !capped) continue"
+      ],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "人已判过的整份内容直接入库(<path>=<内容文件>,可重复);判据只剩零损失断言,语义裁决权在人。"
+    },
+    {
+      "flag": "--union-capped",
+      "kind": "value",
+      "where": ["scripts/union-converge.mjs main(): const capped = a === '--union-capped'"],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "同 --resolve 同一入口,但先按「两侧最大值」机械封顶多余副本再入库 —— 防「多」的那一半判据在台账类路径上判红时逼人裸做 git 手术(G-585)。"
+    },
+    {
+      "flag": "--supersede",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv[i] !== '--supersede' || !argv[i + 1]) continue"
+      ],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "声明式取代(<path>=<声明档 JSON>:dropped/kept/why):判「同一件事被搬到哪一行」只能由人给,工具比不了字面(票 G-310)。"
+    },
+    {
+      "flag": "--fold-keep",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv[i] !== '--fold-keep' || !argv[i + 1]) continue"
+      ],
+      "forwardedBy": [],
+      "why": "折叠层(重复登记副本去重)拒裁时由人指定 keeper(<path>=<声明档 JSON>),把「人最后知道哪一份是活的」回灌进自动档。"
+    },
+    {
+      "flag": "--declare-side-loss",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv[i] !== '--declare-side-loss' || !argv[i + 1]) continue"
+      ],
+      "forwardedBy": [],
+      "why": "逐行声明「对侧某行被有意取代」(<path>=<声明档 JSON>),只作用于人已判过的 --resolve/--union-capped 路径;未命中进 bad 点名。"
+    },
+    {
+      "flag": "--accept-state-growth",
+      "kind": "value",
+      "where": [
+        "scripts/union-converge.mjs main(): if (a !== '--accept-state-growth' || !argv[i + 1]) continue"
+      ],
+      "forwardedBy": ["scripts/git-sync-converge.mjs"],
+      "why": "声明并集天然放大的量纲(forks / dupOpenCopies / rotatedAuto,理由不得为空);同步链每轮常驻转发这三条,漏登记即每次自动收敛死在闸上 —— 这正是本表必须含转发面的原因。"
+    },
+    {
+      "flag": "--show-all-bad",
+      "kind": "boolean",
+      "where": [
+        "scripts/union-converge.mjs main(): const showAllBad = argv.includes('--show-all-bad')"
+      ],
+      "forwardedBy": [],
+      "why": "全列落地闸障碍(缺省只印前 15 条并报名余下几条):静默截断与「没有」同形,读账的人必须能要全貌。"
+    },
+    {
+      "flag": "--move-aware-detail",
+      "kind": "boolean",
+      "where": [
+        "scripts/union-converge.mjs main(): const moveAwareDetail = argv.includes('--move-aware-detail')"
+      ],
+      "forwardedBy": [],
+      "why": "逐行打印「因搬运感知而未取回」的行(缺省只按条目块报计数),回答「你没带回 N 行,为什么」。"
+    },
+    {
+      "flag": "--resurrect-block",
+      "kind": "boolean",
+      "where": [
+        "scripts/union-converge.mjs main(): const resurrectBlock = argv.includes('--resurrect-block')"
+      ],
+      "forwardedBy": [],
+      "why": "把行级复活的「新增强」折进落地闸;缺省只报数 —— 拦存量即恒红门,推送链零风险的档位才是默认档。"
+    },
+    {
+      "flag": "--self-test",
+      "kind": "boolean",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv.includes('--self-test')) return selfTest()"
+      ],
+      "forwardedBy": [],
+      "why": "真临时仓回归自检(含「选边必判失败」反向对照);闸必须排在它之前,否则自检档也能被未知旗带跑。"
+    },
+    {
+      "flag": "--help",
+      "kind": "boolean",
+      "where": [
+        "scripts/union-converge.mjs main(): if (argv.includes('--help') || argv.includes('-h'))"
+      ],
+      "forwardedBy": [],
+      "why": "纯查询档 rc=0、打印用法、不执行任何动作。2026-10-30 实测病:本族器原先没有 --help,敲它就静默掉进默认档开跑真实收敛 —— 闸存在的第一因。"
+    }
+  ]
+}
