@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-10-30T18:10:20.882Z",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\candidate.json",
+    "sha256": "277ab85dddcf016d9af80b12db05306bc8897ca64e1087cad83b2a83e9587dba",
+    "bytes": 25355
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html"
+  },
+  "stages": {
+    "validate": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "G:\\IHUI-AI",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "deliver",
+        "receiptId": "df0b309b-e880-4c5b-8310-5d921b3b67ac",
+        "stage": "check",
+        "type": "architecture",
+        "input": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\candidate.json",
+        "output": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html",
+        "error": "Final artifact check failed; the previous artifact was preserved.",
+        "diagnostics": [
+          {
+            "code": "composition/desktop-readability",
+            "severity": "error",
+            "message": "Final artifact failed composition/desktop-readability.",
+            "subject": {
+              "check": "composition"
+            },
+            "evidence": {
+              "owner": {
+                "kind": "edge",
+                "id": "q-1",
+                "from": "q-shell",
+                "to": "q-ext"
+              },
+              "viewportWidth": 1440,
+              "viewportHeight": 900,
+              "availableDiagramWidth": 930,
+              "budgetBasis": "legacy-930",
+              "readerContract": "declared-wide-v1",
+              "requestedTargetPx": 7.5,
+              "requestedTargetMet": false,
+              "budgetLimit": "legacy",
+              "viewBoxWidth": 1247,
+              "scale": 0.7457898957497995,
+              "text": "内置扩展",
+              "detail": "edge",
+              "sourceFontPx": 8,
+              "projectedFontPx": 5.966319165998396,
+              "minimumProjectedFontPx": 6
+            },
+            "supportedFixes": [
+              "Preserve the semantic text and any supplied coordinates, routes, sides, channels, and labels. Compactly reflow automatic spacing and empty corridors so the complete viewBox width is at most 1240px (current 1247px; 8px source text at 930px desktop budget). If supplied geometry fixes that width, use a renderer-supported semantic text-size setting or renderer-level fix instead. Position-only label controls cannot repair its projection."
+            ]
+          }
+        ],
+        "provenance": "absent",
+        "checker": {
+          "ok": false,
+          "file": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html",
+          "artifact": {
+            "sha256": "1891e90b7812a0f842f2f57ff6670390951d715108e53cf403a4b5b7728298fe",
+            "bytes": 927206
+          },
+          "checks": [
+            {
+              "name": "single_svg",
+              "ok": true,
+              "details": ["found 1 <svg> block(s)"]
+            },
+            {
+              "name": "finite_svg",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "orthogonal_arrows",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "label_route_clearance",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "relationship_crossings",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "relationship_corridors",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "container_border_runs",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "route_rhythm",
+              "ok": true,
+              "details": []
+            },
+            {
+              "name": "legend_clearance",
+              "ok": true,
+              "details": []
+            }
+          ],
+          "composition": {
+            "schemaVersion": 1,
+            "profile": "showcase",
+            "status": "fail",
+            "summary": {
+              "errors": 1,
+              "warnings": 0
+            },
+            "metrics": {
+              "properCrossings": 0,
+              "resolvedCrossovers": 0,
+              "ambiguousCorridors": 0,
+              "arrowheadCollisions": 0,
+              "containerBorderRuns": 0,
+              "labelRouteClearanceIssues": 0,
+              "labelCanvasOverflowIssues": 0,
+              "minLabelRouteClearance": 15,
+              "desktopReadabilityIssues": 1,
+              "viewportHeightIssues": 0,
+              "minProjectedNodeTextPx": 5.966319165998396,
+              "maxBends": 2,
+              "routesOverSuggestedBends": 0,
+              "maxStretch": 1.159,
+              "routesOverSuggestedStretch": 0,
+              "minSegmentPx": 17.5,
+              "minInteriorSegmentPx": 106,
+              "shortSegmentCount": 0,
+              "shortEndpointSegmentCount": 0,
+              "shortInteriorSegmentCount": 0,
+              "microSegmentCount": 0
+            },
+            "suggestedLimits": {
+              "bendsPerRelationship": 2,
+              "stretch": 1.35,
+              "segmentPx": 16,
+              "microSegmentPx": 8
+            },
+            "routeReview": {
+              "crossings": [],
+              "detours": []
+            },
+            "leadingSpace": {
+              "measured": true,
+              "emptyTopPx": 66,
+              "emptyTopRatio": 0.048,
+              "occupiedTop": 66,
+              "viewBoxTop": 0,
+              "canvasHeight": 1378,
+              "typicalNodeHeight": 58,
+              "reviewSuggested": false
+            },
+            "desktopReadability": {
+              "budgetBasis": "legacy-930",
+              "readerContract": "declared-wide-v1",
+              "availableDiagramWidth": 930,
+              "actualBudgetPx": 930,
+              "limit": "legacy",
+              "requestedTargetPx": 7.5,
+              "requestedTargetMet": false,
+              "hardFloorPx": 6,
+              "hardFloorMet": false,
+              "minimumOwner": {
+                "kind": "edge",
+                "id": "q-1",
+                "from": "q-shell",
+                "to": "q-ext"
+              },
+              "minimumSourceTextPx": 8,
+              "minimumProjectedTextPx": 5.966319165998396,
+              "semanticTextCount": 92
+            },
+            "issues": [
+              {
+                "severity": "error",
+                "code": "composition/desktop-readability",
+                "owner": {
+                  "kind": "edge",
+                  "id": "q-1",
+                  "from": "q-shell",
+                  "to": "q-ext"
+                },
+                "viewportWidth": 1440,
+                "viewportHeight": 900,
+                "availableDiagramWidth": 930,
+                "budgetBasis": "legacy-930",
+                "readerContract": "declared-wide-v1",
+                "requestedTargetPx": 7.5,
+                "requestedTargetMet": false,
+                "budgetLimit": "legacy",
+                "viewBoxWidth": 1247,
+                "scale": 0.7457898957497995,
+                "text": "内置扩展",
+                "detail": "edge",
+                "sourceFontPx": 8,
+                "projectedFontPx": 5.966319165998396,
+                "minimumProjectedFontPx": 6
+              }
+            ]
+          }
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      },
+      "execution": "embedded-in-deliver"
+    },
+    "deliver": {
+      "status": "not-run",
+      "execution": "blocked-by-validate"
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  },
+  "diagnostics": [
+    {
+      "code": "composition/desktop-readability",
+      "severity": "error",
+      "message": "Final artifact failed composition/desktop-readability.",
+      "subject": {
+        "check": "composition"
+      },
+      "evidence": {
+        "owner": {
+          "kind": "edge",
+          "id": "q-1",
+          "from": "q-shell",
+          "to": "q-ext"
+        },
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "availableDiagramWidth": 930,
+        "budgetBasis": "legacy-930",
+        "readerContract": "declared-wide-v1",
+        "requestedTargetPx": 7.5,
+        "requestedTargetMet": false,
+        "budgetLimit": "legacy",
+        "viewBoxWidth": 1247,
+        "scale": 0.7457898957497995,
+        "text": "内置扩展",
+        "detail": "edge",
+        "sourceFontPx": 8,
+        "projectedFontPx": 5.966319165998396,
+        "minimumProjectedFontPx": 6
+      },
+      "supportedFixes": [
+        "Preserve the semantic text and any supplied coordinates, routes, sides, channels, and labels. Compactly reflow automatic spacing and empty corridors so the complete viewBox width is at most 1240px (current 1247px; 8px source text at 930px desktop budget). If supplied geometry fixes that width, use a renderer-supported semantic text-size setting or renderer-level fix instead. Position-only label controls cannot repair its projection."
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.finalize-summary.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "validate",
+  "finishedAt": "2026-10-30T18:10:22.261Z",
+  "durationMs": 1379,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

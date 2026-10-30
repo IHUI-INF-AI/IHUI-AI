@@ -305,6 +305,7 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.git',
   '.github',
   '.husky',
+  '.archify', // 2026-10-31:archify 技能(逆向架构取证)产物落点,见 .ihui/skills/archify
   '.ihui',
   '.pnpm-store',
   '.qoder',
