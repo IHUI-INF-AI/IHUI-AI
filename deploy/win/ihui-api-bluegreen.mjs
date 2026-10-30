@@ -149,6 +149,11 @@ function startService(name) {
     if (!waitService(name, 'SERVICE_STOPPED', 30000)) {
       throw new Error(`服务 ${name} 30 秒内未停止,放弃切换`)
     }
+    // 2026-10-30 修:原实现只"停"不"再起" ⇒ 服务被留在 STOPPED,后续健康门禁直接判不健康、
+    // 不切流,表现为"目标色永远起不来"。停完必须再发一次 START 才能加载新代码。
+    log('INFO', `重新启动服务 ${name}(加载新代码)`)
+    const r2 = nssmDo('start', name)
+    if (!r2.ok) log('WARN', `nssm start ${name} 返回非 0(${r2.why.trim()}),以服务状态为准继续等待`)
   } else if (st === 'SERVICE_START_PENDING') {
     // 上一次启动还没落地(例如外部刚触发):不重复下 START,直接等状态,免得把
     // "START 控制在 PENDING 上火"当失败(实测 nssm 会回
@@ -304,11 +309,15 @@ async function main() {
   }
 
   // ── 2. 起目标色 ────────────────────────────────────────────────────────────
-  // 幂等:目标色已在健康服务(上一轮已起好但没切流)就不再重启它 —— 重启一次要多等一次冷启动,
-  // 且在 wrapper 形态下还可能因 STOPPED/RUNNING 判断把好实例停掉。
-  if (await probeHealthy(targetPort)) {
+  // 2026-10-30 修(实测事故):原实现只看端口健康就跳过启动,不校验目标色跑的是不是**本次构建**。
+  // green 自 15:16 就在跑旧构建 ⇒ 部署判 pass 但含修复的 CSS 块 404,新构建永远加载不上。
+  // web 形态(healthPath='/')是前台阻塞进程,目标色又是非活跃色 ⇒ 先停再起安全且必须;
+  // API 形态(wrapper,status 可能 STOPPED 而端口在听)保留幂等跳过,避免二次 start 撞端口。
+  const isWebForm = args.healthPath === '/'
+  if (!isWebForm && (await probeHealthy(targetPort))) {
     log('INFO', `目标色 ${target}(${targetPort}) 已在健康服务,跳过启动`)
   } else {
+    if (isWebForm) log('INFO', `目标色 ${target}(${targetPort}) 需加载本次构建 ⇒ 先停再起`)
     startService(targetSvc)
   }
 
