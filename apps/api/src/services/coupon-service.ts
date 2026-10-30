@@ -306,6 +306,12 @@ export interface RedeemContext {
   spendCents: number
   /** 本次模型,用于 applicableModels 校验 */
   model?: string
+  /**
+   * 核销到哪张订单(orders.id)。
+   * 2026-10-30 补:原实现只翻状态、不记订单号,订单侧无法反查"这一单用了哪张券"
+   * ⇒ 换券/退券/幂等重放都无从判断,支付页选券只能停在前端本地减金额。
+   */
+  orderId?: string
 }
 
 export interface RedeemResult {
@@ -313,6 +319,45 @@ export interface RedeemResult {
   discountCents?: number
   userCoupon?: UserCoupon & { coupon: PromoCoupon }
   reason?: string
+}
+
+/**
+ * 券折减额(分)——「预览」与「核销」的唯一算法源。
+ *
+ * 2026-10-30 抽出:支付页要展示"这张券能减多少"必须先算一遍,但算完不能真核销;
+ * 若预览另写一份算法,两边的取整/门槛/封顶迟早漂移,用户看到的减额与实付不一致。
+ * 因此 redeemCoupon 也改成调用本函数,只保留"原子翻转状态"的职责。
+ *
+ * - discount 折扣券:value=0.80 ⇒ 减 spendCents*0.2(向下取整)
+ * - deduction 满减券:spendCents < minSpend 时不可用(reason=min_spend_not_met)
+ * - referral 裂变券:value 在 (0,1) 区间按折扣算,否则按 referralValue 减额
+ * 折减恒不超过本次消费(不出现负数实付)。
+ */
+export function calcCouponDiscount(
+  coupon: PromoCoupon,
+  spendCents: number,
+): { discountCents: number; reason?: string } {
+  const spend = Number.isFinite(spendCents) && spendCents > 0 ? Math.floor(spendCents) : 0
+  let discountCents = 0
+  if (coupon.type === 'discount') {
+    const rate = Number(coupon.value ?? 0)
+    discountCents = Math.floor(spend * (1 - rate))
+  } else if (coupon.type === 'deduction') {
+    if (coupon.minSpend !== null && spend < coupon.minSpend) {
+      return { discountCents: 0, reason: 'min_spend_not_met' }
+    }
+    discountCents = Number(coupon.value ?? 0)
+  } else if (coupon.type === 'referral') {
+    const rate = Number(coupon.value ?? 0)
+    if (rate > 0 && rate < 1) {
+      discountCents = Math.floor(spend * (1 - rate))
+    } else if (coupon.referralValue !== null && coupon.referralValue > 0) {
+      discountCents = coupon.referralValue
+    }
+  }
+  if (!Number.isFinite(discountCents) || discountCents < 0) discountCents = 0
+  if (discountCents > spend) discountCents = spend
+  return { discountCents }
 }
 
 /**
@@ -370,32 +415,13 @@ export async function redeemCoupon(
     }
   }
 
-  // 6. 算 discountCents
-  let discountCents = 0
-  if (coupon.type === 'discount') {
-    // 折扣券:value=0.80 表示 8 折,discountCents = spendCents * (1 - value)
-    const rate = Number(coupon.value ?? 0)
-    discountCents = Math.floor(context.spendCents * (1 - rate))
-  } else if (coupon.type === 'deduction') {
-    // 满减券:minSpend 门槛,value 减额
-    if (coupon.minSpend !== null && context.spendCents < coupon.minSpend) {
-      return { success: false, reason: 'min_spend_not_met' }
-    }
-    discountCents = Number(coupon.value ?? 0)
-  } else if (coupon.type === 'referral') {
-    // 裂变券:当作折扣券或满减券处理(取决于 value 配置)
-    const rate = Number(coupon.value ?? 0)
-    if (rate > 0 && rate < 1) {
-      discountCents = Math.floor(context.spendCents * (1 - rate))
-    } else if (coupon.referralValue !== null && coupon.referralValue > 0) {
-      discountCents = coupon.referralValue
-    }
+  // 6. 算 discountCents —— 与「预览」共用 calcCouponDiscount,此处只搬结果
+  // (算法若分两份,迟早出现"页面显示减 5 元、实付只减 3 元")
+  const calc = calcCouponDiscount(coupon, context.spendCents)
+  if (calc.reason) {
+    return { success: false, reason: calc.reason }
   }
-
-  // discountCents 不能超过本次消费
-  if (discountCents > context.spendCents) {
-    discountCents = context.spendCents
-  }
+  const discountCents = calc.discountCents
 
   // 7. 原子翻转状态 unused → used
   const [updated] = await db
@@ -404,6 +430,8 @@ export async function redeemCoupon(
       status: 'used',
       usedAt: new Date(),
       discountCents,
+      // 记到哪张订单上:换券/退券/幂等重放都要靠这一列反查,不记则订单侧永远不知道用了哪张券
+      ...(context.orderId ? { usedOnOrderId: context.orderId } : {}),
     })
     .where(and(eq(userCoupons.id, userCouponId), eq(userCoupons.status, 'unused')))
     .returning()
@@ -435,6 +463,8 @@ export async function refundCoupon(userCouponId: string): Promise<void> {
       status: 'unused',
       usedAt: null,
       discountCents: null,
+      // 退券必须同时解绑订单:留着 usedOnOrderId 会让下一次"这单用了哪张券"反查到一张未用券
+      usedOnOrderId: null,
     })
     .where(and(eq(userCoupons.id, userCouponId), eq(userCoupons.status, 'used')))
 }
