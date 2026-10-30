@@ -200,7 +200,13 @@ export function removeWorktree(
   wtPath: string,
   opts: RemoveWorktreeOptions,
 ): boolean {
-  if (!fs.existsSync(wtPath)) return false;
+  if (!fs.existsSync(wtPath)) {
+    // 目录已经不在(上一轮 fallback 删过 / 外部删掉):注册表条目可能还指着它 ⇒ 同样要 prune,
+    // 否则"回收一个目录已不在的检出"这条路会永久留一条 prunable 条目(prune 只摘目录确实
+    // 不存在的条目,对在场检出零副作用)。
+    runGit(['worktree', 'prune'], opts.sourcePath);
+    return false;
+  }
   const args = ['worktree', 'remove', wtPath];
   if (opts.force) args.push('--force');
   const r = runGit(args, opts.sourcePath);
@@ -214,6 +220,11 @@ export function removeWorktree(
       throw new Error(`worktree 删除失败: ${r.stderr || r.stdout}`);
     }
   }
+  // prune 归进唯一的删除出口(2026-10-30 立):`git worktree remove` 失败时(目录被占用/
+  // 含未跟踪件)注册表条目仍指向活目录 ⇒ 只有目录真删掉之后 prune 才摘得掉。此前本模块
+  // 导出的 `pruneWorktrees` 全仓零调用 ⇒ 每次 fallback 都永久留一条 prunable 条目,而编辑器
+  // SCM 把 `git worktree list` 每条都当独立仓 ⇒ 变更数合计爆表。放在这里,调用方漏调也无害。
+  runGit(['worktree', 'prune'], opts.sourcePath);
   return true;
 }
 

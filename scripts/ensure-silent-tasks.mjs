@@ -108,6 +108,83 @@ export function actionToCommand(a) {
 }
 
 /**
+ * 幽灵任务判据(2026-10-30 立):计划任务 pointer 的本地脚本/可执行文件**已不存在**。
+ *
+ * 事故:2026-10-21 撤装自动回收器时删了 `scripts/worktree-reap-hidden.vbs`,却把计划任务
+ * `IHUI-Worktree-Reap` 留在系统里。wscript 每 10 分钟拉起一次找不到脚本 → 弹**不可见的模态框**
+ * 并永久阻塞 ⇒ 任务状态恒为 Running、什么也没做。这类"注册了任务但目标已删"没有任何判据覆盖面,
+ * 只能靠人偶然发现。故补此格:只看 IHUI 归属任务,只判**本地绝对路径**目标,
+ * 环境变量(`%...%`)与相对命令一律不判(无法证明它不存在,宁可漏报)。
+ */
+const TARGET_EXT_RE = /\.(?:vbs|vbe|js|mjs|cjs|ps1|bat|cmd|exe|py|pyw)$/i
+
+/** 按引号安全分词:引号内空格不切分;token 已剥离引号。 */
+export function tokenizeCommand(cmd) {
+  const s = String(cmd ?? '')
+  const out = []
+  let buf = ''
+  let quote = ''
+  for (const ch of s) {
+    if (quote) {
+      if (ch === quote) {
+        quote = ''
+        out.push(buf)
+        buf = ''
+      } else buf += ch
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      if (buf) {
+        out.push(buf)
+        buf = ''
+      }
+      quote = ch
+      continue
+    }
+    if (/\s/.test(ch)) {
+      if (buf) {
+        out.push(buf)
+        buf = ''
+      }
+      continue
+    }
+    buf += ch
+  }
+  if (buf) out.push(buf)
+  return out
+}
+
+/** action 命令串里的本地绝对路径目标(盘符或 UNC + 脚本/可执行扩展名)。 */
+export function localTargetsOf(cmd) {
+  return tokenizeCommand(cmd).filter(
+    (t) => (/^[A-Za-z]:[\\/]/.test(t) || /^\\\\/.test(t)) && TARGET_EXT_RE.test(t),
+  )
+}
+
+/** 目标里在盘上找不到的(注入 exists 便于构造面测试)。 */
+export function missingTargetsOf(cmd, exists = existsSync) {
+  return localTargetsOf(cmd).filter((p) => !exists(p))
+}
+
+/** 幽灵任务违规集(仅 IHUI 归属、非禁用;不自动修,目标已丢)。 */
+export function findOrphanTaskViolations(tasks, exists = existsSync) {
+  const out = []
+  for (const t of tasks) {
+    if (/disabled|禁用/i.test(t.state)) continue
+    const isIhui = IS_IHUI.test(t.name) || t.actions.some((a) => IS_IHUI.test(`${a.exe} ${a.args || ''}`))
+    if (!isIhui) continue
+    const missing = []
+    for (const a of t.actions) {
+      for (const p of missingTargetsOf(actionToCommand(a), exists)) if (!missing.includes(p)) missing.push(p)
+    }
+    if (missing.length) {
+      out.push({ kind: 'task-orphan', name: t.name, detail: `目标不存在: ${missing.join(', ')}`, ihui: true })
+    }
+  }
+  return out
+}
+
+/**
  * 全部计划任务(每个 action 一行 JSONL)。
  * 不用 schtasks CSV/LIST 解析:实测其重定向输出为 GBK 本地化编码且 Task To Run 字段含
  * 未转义内嵌引号("node.exe ""...mjs"" --check")会把分词/按行解析全部撕烂。
@@ -205,6 +282,8 @@ export function audit({ fix = false } = {}) {
     const isIhui = IS_IHUI.test(t.name) || t.actions.some((a) => IS_IHUI.test(`${a.exe} ${a.args || ''}`))
     violations.push({ kind: 'task', name: t.name, detail: actionToCommand(badActions[0]), ihui: isIhui })
   }
+  // ①b 幽灵任务:IHUI 任务的 action 指向的本地脚本/可执行文件已不存在(不自动修,目标已丢)
+  violations.push(...findOrphanTaskViolations(tasks))
   // ② 启动文件夹(.cmd/.bat 登录即闪控制台;仅报告)
   const startupDirs = [
     join(homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'),
@@ -251,7 +330,9 @@ function main() {
   if (CHECK_ONLY) {
     const v = audit({ fix: false })
     if (v.length) {
-      console.error(`❌ [ensure-silent-tasks --check] ${v.length} 处违规(交互控制台弹窗/启动项/Run键)`)
+      console.error(
+        `❌ [ensure-silent-tasks --check] ${v.length} 处违规(交互控制台弹窗/启动项/Run键/任务目标缺失)`,
+      )
       process.exit(1)
     }
     console.info('✅ [ensure-silent-tasks --check] 全盘零弹窗:无交互控制台计划任务/启动项/Run键违规')
@@ -273,5 +354,15 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { exeNameOf, isConsoleAction, actionToCommand, listTasks, wrapperVbsContent }
+export const __test__ = {
+  exeNameOf,
+  isConsoleAction,
+  actionToCommand,
+  listTasks,
+  wrapperVbsContent,
+  tokenizeCommand,
+  localTargetsOf,
+  missingTargetsOf,
+  findOrphanTaskViolations,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

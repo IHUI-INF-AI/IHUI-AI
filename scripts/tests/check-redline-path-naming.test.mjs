@@ -170,4 +170,27 @@ test('T8 探针表不悬空:每条探针的 gateId 必须在真仓注册表里,�
     '探针表退化:三档覆盖缺位',
   )
 })
+
+test('T9 收尾顺序锁:prune 必须排在 rmScratch 之后,且以仓根为 cwd(旧形态每条探针永久留一条 prunable worktree)', () => {
+  // 2026-10-30 立。`worktree remove --force` 会失败(目录被占用 / 含未跟踪件),
+  // 此时注册表条目仍指向活目录 ⇒ 先 prune 结构上摘不掉;目录真没了之后 prune 才生效。
+  // 顺序颠倒 ⇒ 每条探针都永久多一条 prunable 条目,编辑器 SCM 把 `git worktree list`
+  // 每条都当独立仓 ⇒ 变更数合计爆表(safe-commit.mjs 三处同型,同一修法)。
+  const src = readFileSync(join(ROOT, 'scripts', 'check-redline-path-naming.mjs'), 'utf8')
+  const start = src.indexOf('const cleanup = () => {')
+  assert.ok(start >= 0, '找不到 cleanup 本体 —— 锁失效')
+  const end = src.indexOf('process.on(', start)
+  assert.ok(end > start, '拿不到 cleanup 的收尾边界 —— 锁失效')
+  const body = src.slice(start, end)
+  const rm = body.indexOf('rmScratch(scratch)')
+  const prune = body.indexOf("['worktree', 'prune']")
+  assert.ok(rm >= 0, 'cleanup 必须删 scratch(否则夹具永远留在 Temp 顶层)')
+  assert.ok(prune >= 0, 'cleanup 必须 prune(否则注册表条目永远留着)')
+  assert.ok(prune > rm, '顺序颠倒:prune 排在 rmScratch 之前时条目摘不掉')
+  assert.match(
+    body.slice(Math.max(0, prune - 40), prune),
+    /gitIn\(root,/,
+    'prune 必须以仓根为 cwd(以已删的 wt 为 cwd 连目录都进不去)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
