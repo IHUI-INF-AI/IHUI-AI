@@ -85,6 +85,11 @@ export function hashTarget(target, readFile = (p) => readFileSync(p, 'utf8'), ro
   } catch (e) {
     return { ok: false, why: `目标读不到(${target.path}):${e?.message ?? e}` }
   }
+  // 取不到就是取不到:readFile 回 null/undefined(面档缺失、被审对象不存在)一律判未判定。
+  // 少这一道,file 模式会把 null 哈希成空串的 sha256 ⇒ "目标不在面上"被染成"清单落后于内容"
+  // 那种红(§0.3 禁型:把"没判成"写成"判过";两种红的修法完全不同)。
+  if (raw === null || raw === undefined)
+    return { ok: false, why: `目标取不到(${target.path})：被审面上没有这份内容` }
   if (target.mode === 'section') {
     const sec = extractSection(
       raw,
