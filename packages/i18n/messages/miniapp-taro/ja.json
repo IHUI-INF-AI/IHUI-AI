@@ -117,8 +117,7 @@
     "user": "ユーザー",
     "more": "もっと見る",
     "discountAmount": "割引",
-    "loadFailed": "読み込みに失敗しました"
-,
+    "loadFailed": "読み込みに失敗しました",
     "operationFailed": "操作に失敗しました"
   },
   "login": {
@@ -211,7 +210,20 @@
     "contentText": "テキストコンテンツ",
     "boolYes": "はい",
     "boolNo": "いいえ",
-    "closePreview": "プレビューを閉じる"
+    "closePreview": "プレビューを閉じる",
+    "addCamera": "カメラ",
+    "addAlbum": "アルバム",
+    "addLocalFile": "ローカルファイル",
+    "addWxFile": "WeChatファイル",
+    "closeBtn": "閉じる",
+    "linkCopiedBrowser": "リンクをコピーしました。ブラウザで開いてください",
+    "albumPermRequired": "画像の保存にフォトライブラリの権限が必要です",
+    "imgSavedAlbum": "アルバムに保存しました",
+    "btnConfirm": "確定",
+    "camSoonHint": "カメラ撮影は準備中です。アルバムからアップロードしてください",
+    "imgUploadedHint": "画像をアップロードしました。送信後に会話で使用できます",
+    "imgUploadFailed": "画像のアップロードに失敗しました",
+    "imgPickRetry": "画像の選択に失敗しました。再試行してください"
   },
   "course": {
     "learningProgress": "学習進捗",
@@ -1109,6 +1121,11 @@
       "subagent": {
         "title": "サブタスク"
       }
+    },
+    "pane": {
+      "branch": {
+        "ariaLabel": "会話ブランチ"
+      }
     }
   },
   "share": {
@@ -1168,7 +1185,28 @@
     "tabEducation": "教育",
     "tabLife": "生活",
     "loadFailed": "読み込み失敗",
-    "useCount": "{n}人使用"
+    "useCount": "{n}人使用",
+    "join": {
+      "title": "グループに参加",
+      "message": "「{name}」への参加を申請しました"
+    },
+    "cardMembers": "メンバー",
+    "detailEnter": "チャットに入る",
+    "detailMembers": "メンバー",
+    "detailRecent": "最近",
+    "enterChat": {
+      "message": "このグループに参加しますか?",
+      "title": "お知らせ"
+    },
+    "enterDiscover": "発見",
+    "enterMine": "マイ",
+    "memberRole": "役割",
+    "metaActive": "アクティブ",
+    "metaMessages": "メッセージ",
+    "previewHello": "こんにちは",
+    "previewMine": "自分が作成",
+    "subtitle": "AI グループアシスタント",
+    "searchPlaceholder": "AIアシスタントを検索"
   },
   "aiCircle": {
     "title": "AIサークル",
@@ -1210,7 +1248,29 @@
     "openWorkflow": "ワークフローを開く",
     "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
     "placeholder": "質問を入力してください",
-    "streaming": "生成中..."
+    "streaming": "生成中...",
+    "emptyNoAgent": "ワークフローが設定されたエージェントを先に選択してください",
+    "send": "送信",
+    "callFailed": "呼び出しに失敗しました。再試行してください",
+    "toolCalls": "ツール呼び出し",
+    "toolStatusRunning": "実行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失敗",
+    "toolArgs": "引数",
+    "toolResult": "出力",
+    "planSteps": "実行計画",
+    "planStatusPending": "待機中",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "完了",
+    "terminalTasks": "ターミナルタスク",
+    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
+    "terminalStatusRunning": "実行中",
+    "terminalStatusCompleted": "完了",
+    "terminalStatusFailed": "失敗",
+    "terminalExitCode": "終了コード",
+    "terminalOutput": "出力",
+    "terminalTruncated": "…(省略済み、全 {total} 文字)",
+    "compactionToast": "コンテキストを自動圧縮しました({before} → {after} tokens)"
   },
   "agentDialogue": {
     "sendFailed": "送信に失敗しました、再試行してください",
@@ -2689,7 +2749,9 @@
     "me": "自分",
     "studyHours": "{count} 時間学習",
     "anonymous": "匿名ユーザー",
-    "title": "ランキング"
+    "title": "ランキング",
+    "histFallback": "履歴会話",
+    "visitorName": "ランキングのゲスト"
   },
   "recruitment": {
     "title": "トレーダー計画",
@@ -3884,7 +3946,12 @@
     "modelLabel": "モデル",
     "stop": "停止",
     "thinking": "考え中...",
-    "title": "IHUI AI"
+    "title": "IHUI AI",
+    "untitledChat": "無題の会話",
+    "terminal": {
+      "waitingInput": "入力待ち",
+      "mobileUnsupported": "端末ではターミナル未対応"
+    }
   },
   "tabBar": {
     "community": "コミュニティ",
@@ -4395,7 +4462,9 @@
     "name": "サークル名",
     "namePlaceholder": "サークル名を入力",
     "submit": "作成",
-    "title": "サークルを作成"
+    "title": "サークルを作成",
+    "nameRequired": "名前を入力",
+    "saveFailed": "作成に失敗"
   },
   "learndevelop": {
     "d1": "フロントエンドエンジニア",
@@ -4816,7 +4885,19 @@
     "logout": "ログアウト",
     "myFavorites": "お気に入り",
     "myOrders": "マイ注文",
-    "editProfile": "プロフィール編集"
+    "editProfile": "プロフィール編集",
+    "downloadFailRetry": "ダウンロードに失敗しました。再試行してください",
+    "shareBtn": "共有",
+    "n8nHideAnswer": "回答を隠す",
+    "n8nShowAnswer": "回答を表示",
+    "n8nThinking": "思考過程",
+    "n8nCopyAnswer": "回答をコピー",
+    "n8nDownloadImg": "画像をダウンロード",
+    "n8nCopyOk": "コピーしました",
+    "n8nCopyFail": "コピーに失敗しました",
+    "n8nShareFail": "共有に失敗しました",
+    "n8nGenBadge": "AI生成 消費ポイント:",
+    "n8nHoldToTalk": "長押しで質問を話す"
   },
   "verify": {
     "phoneEmpty": "電話番号が入力されていません",
@@ -5246,8 +5327,7 @@
       "late": "遅刻",
       "absent": "欠席",
       "leave": "休み"
-    }
-,
+    },
     "student": "生徒"
   },
   "eduMgmt": {
@@ -6265,7 +6345,8 @@
     "loadFailed": "ワークフローの読み込みに失敗しました"
   },
   "menu": {
-    "sectionDiscover": "発見"
+    "sectionDiscover": "発見",
+    "ranking": "ランキング"
   },
   "agentScreen": {
     "loadFailed": "エージェントの読み込みに失敗",
@@ -7139,7 +7220,9 @@
       "aiTitle": "AI メッセージ",
       "message": "スクリーンショットを生成しました",
       "shareBtn": "共有"
-    }
+    },
+    "errorTitle": "リクエストエラー",
+    "errorRetry": "再試行"
   },
   "mat": {
     "unknown": "不明なエラー",
@@ -7409,8 +7492,7 @@
     "changePassword": "パスワード変更",
     "newPassword": "新しいパスワード",
     "language": "言語",
-    "theme": "テーマ"
-,
+    "theme": "テーマ",
     "version": "バージョン"
   },
   "liveList": {
@@ -7454,7 +7536,8 @@
     "members": "メンバー",
     "membersAction": "メンバー管理",
     "post": "投稿",
-    "posts": "投稿"
+    "posts": "投稿",
+    "loadFailed": "読み込みに失敗"
   },
   "examResult": {
     "loadFailed": "読み込みに失敗",
@@ -7579,8 +7662,7 @@
     "feature": "機能",
     "premium": "プレミアム",
     "title": "会員比較"
-  }
-,
+  },
   "coupon": {
     "useHint": "商品ページでご利用ください"
   },
@@ -7609,5 +7691,15 @@
     "teacher": "担当",
     "time": "時間",
     "weekdayTitle": "曜日"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
+  },
+  "drawer": {
+    "claimFree": "無料資料を受け取る"
+  },
+  "studyIndex": {
+    "receiveFreeBody": "リンクをコピーしました。ブラウザに貼り付けて開けます"
   }
 }

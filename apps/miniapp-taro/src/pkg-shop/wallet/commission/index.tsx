@@ -64,7 +64,12 @@ function sumToday(flows: CommissionFlow[]): number {
   return sum
 }
 
-/** 佣金流水 → 卡片行:下单人与卡片标题同源(共享屏 buyer 取的就是 item.title) */
+/**
+ * 佣金流水 → 卡片行:下单人与卡片标题同源(共享屏 buyer 取的就是 item.title)。
+ * 状态复核(2026-10-30 取证):GET /distribution/list 原样返回 commission_flows 行,
+ * 而该表 status 在生产端恒为 1(唯一 insert 硬编码 status:1,全仓无 update) ⇒
+ * 「status===0 即 cancelled」条件永假,该死分支已撤(income-item.tsx IncomeStatus)。
+ */
 function toCommissionRow(flow: CommissionFlow): IncomeRow {
   const title = flow.remark || flow.orderId || ''
   return {
@@ -74,7 +79,7 @@ function toCommissionRow(flow: CommissionFlow): IncomeRow {
     amount: Number(flow.amount) || 0,
     time: formatDate(flow.createdAt, TIME_FORMAT),
     orderId: flow.orderId || '',
-    status: Number(flow.status) === 0 ? 'cancelled' : 'pending',
+    status: 'pending',
   }
 }
 

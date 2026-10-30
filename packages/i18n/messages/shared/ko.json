@@ -80,6 +80,8 @@
     "toolAudioTranscription": "음성 텍스트 변환",
     "toolVisionAnalyze": "이미지 분석",
     "toolDispatchSubagent": "서브 에이전트 파견",
+    "toolInitAgentsMd": "에이전트 문서 초기화",
+    "toolTeamTask": "팀 작업",
     "toolScheduleTask": "예약 작업 생성",
     "toolBgTaskStatus": "백그라운드 작업 확인",
     "toolUiDescribe": "페이지 컨트롤 읽기",

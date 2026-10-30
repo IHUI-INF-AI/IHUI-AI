@@ -21,6 +21,7 @@ import {
   type VipLevel,
 } from '@/api'
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import {
   VipBenefitsPopup,
@@ -363,7 +364,9 @@ export default function VipIndexPage() {
           {info.expireTime ? (
             <View className="expire-row flex items-center justify-between">
               <Text>
-                {t('vip.expireAt')}:{info.expireTime}
+                {/* 到期日与 RN 容器同形(packages/app 侧由 apps/mobile-rn/src/screens/VipScreen.tsx
+                    的 formatDateOnly 收口成日期);后端 /vip/my 直出的是 ISO 串,原样上屏是机器文本 */}
+                {t('vip.expireAt')}:{formatDateByTemplate(info.expireTime, 'YYYY-MM-DD')}
               </Text>
               {daysLeft !== null ? (
                 <Text>{t('vip.daysRemaining', { count: daysLeft })}</Text>
