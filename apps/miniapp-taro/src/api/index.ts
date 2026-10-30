@@ -311,6 +311,11 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 
   images?: string[]
   /** 视频 URL 列表(对标原 ai_assistant.vue videoUrlList) */
   videos?: string[]
+  /** 音频 URL(对标原 ai_assistant.vue 语音消息字段;ChatMessageItem 语音气泡的播放腿,
+   *  正文抽取补齐时由 answer-media-extract 写入首条 —— 字段住基类,渲染守卫照旧) */
+  audioUrl?: string
+  /** 语音时长(秒,可选;与 audioUrl 同族) */
+  audioDuration?: number
   /** token 消耗(对标原 ai_assistant.vue total_tokens) */
   tokenCount?: number
   /** 代码块内容(对标原 ai_assistant.vue content_code) */
