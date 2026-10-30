@@ -50,6 +50,7 @@ import {
   Paperclip,
   Pencil,
   Phone,
+  PackageOpen,
   Plus,
   Puzzle,
   Receipt,
@@ -165,6 +166,7 @@ type DrawerNavRouteName =
   | 'UserFans'
   | 'ExamHistory'
   | 'Usage'
+  | 'Artifacts'
   | 'StudyPlan'
   | 'McpStore'
   | 'DeepResearch'
@@ -510,6 +512,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         Icon: CalendarCheck,
         route: 'CheckIn',
         target: { type: 'route', name: 'CheckIn' },
+      },
+      // 产物中心(对齐 web SidebarQuickActions /artifacts:AI 交付物下载与预览)
+      {
+        labelKey: 'menu.artifacts',
+        Icon: PackageOpen,
+        route: 'Artifacts',
+        target: { type: 'route', name: 'Artifacts' },
       },
     ],
   },

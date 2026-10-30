@@ -32,6 +32,8 @@ const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
 const QODER_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 每 10 分钟把本机 WorkBuddy 会话模板回灌进号池(票不回灌,只补「登录本机」的配方三键) */
 const WORKBUDDY_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机 MiniMax Code(mcode)会话回灌进号池(mcode 轮换票面,池侧无刷新能力只能跟随) */
+const MINIMAX_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -87,6 +89,8 @@ export const runQoderSessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-qoder-client-session.mjs')
 export const runWorkbuddySessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-workbuddy-client-session.mjs')
+export const runMinimaxSessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-minimax-client-session.mjs')
 
 export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   registerAllRelayAdapters()
@@ -148,10 +152,23 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           },
         },
       )
+      await queue.upsertJobScheduler(
+        'minimax-session-sync-cron',
+        { pattern: MINIMAX_SYNC_CRON_PATTERN },
+        {
+          name: 'minimax-session-sync',
+          data: {},
+          opts: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        },
+      )
       server.log.info({ pattern: CRON_PATTERN }, 'relay-account-pool sweep scheduled')
       server.log.info({ pattern: TRAE_SYNC_CRON_PATTERN }, 'trae-session-sync scheduled')
       server.log.info({ pattern: QODER_SYNC_CRON_PATTERN }, 'qoder-session-sync scheduled')
       server.log.info({ pattern: WORKBUDDY_SYNC_CRON_PATTERN }, 'workbuddy-session-sync scheduled')
+      server.log.info({ pattern: MINIMAX_SYNC_CRON_PATTERN }, 'minimax-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -163,14 +180,17 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       if (
         job.name === 'trae-session-sync' ||
         job.name === 'qoder-session-sync' ||
-        job.name === 'workbuddy-session-sync'
+        job.name === 'workbuddy-session-sync' ||
+        job.name === 'minimax-session-sync'
       ) {
-        // 脚本名单源在三个命名出口里,调度分支与手动触发口走同一条路
+        // 脚本名单源在四个命名出口里,调度分支与手动触发口走同一条路
         const outcome = await (job.name === 'qoder-session-sync'
           ? runQoderSessionSync()
           : job.name === 'workbuddy-session-sync'
             ? runWorkbuddySessionSync()
-            : runTraeSessionSync())
+            : job.name === 'minimax-session-sync'
+              ? runMinimaxSessionSync()
+              : runTraeSessionSync())
         // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {

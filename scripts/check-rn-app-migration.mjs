@@ -170,6 +170,16 @@ export const WHITELIST_ENTRIES = new Map(
       why: '平台账号屏(443 行):扫码重新授权走 /api/publish/scan-login/start + 2.5s 轮询 + 关闭时 cancel(第 141-183 行),二维码用 RN Image 的 headers 带 Bearer(第 246-251/341-346 行,依赖 getToken 与 API_BASE_URL),解绑走本地 appAlert;packages/app 只有 PublishScreen(发布任务列表),web /publish/accounts 是 DOM 实现且另带批量导入/分组,无同名共享屏',
       expires: '2027-06-30',
     },
+    // ── 2026-10-31 补登(0e875130c0 G1/E2 大提交把两枚屏带回未迁移形态,当时经旁路落地未过本门;
+    //     逐条按现读判"无低成本真迁移",与 2026-10-21 判例同型)──
+    'DevicesScreen.tsx': {
+      why: '设备管理屏(543 行,0e875130c0 G1 三端闭环):本地 NavBar + useNavigation + 设备信任/委派交互(信任状态徽标、改名弹层、委派审批跳转),web /settings/devices 是独立 DOM 实现(Card/Table 组合,页面自带 AuthGate);packages/app 无同名共享屏,真共享需新写屏并重定 props 契约(>100 行),故 RN 独占',
+      expires: '2027-06-30',
+    },
+    'PendingDecisionsScreen.tsx': {
+      why: 'E1 审批收件箱屏(270 行,0e875130c0 G1):RN 独立屏(待决列表 + 批准/拒绝二动作 + 刷新);web 端同数据面是 NotificationCenter 组件的内嵌段(feature-center 通知中心一部分,非独立屏),两端形态不同;packages/app 无同名共享屏,真共享需新写屏并重定 props 契约,故 RN 独占',
+      expires: '2027-06-30',
+    },
   }),
 )
 
