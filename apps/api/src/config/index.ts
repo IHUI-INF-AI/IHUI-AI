@@ -381,6 +381,23 @@ const envSchema = z.object({
   // 留空 = 热度查询不可用:消费点显式报"未配置",不影响启动。
   D1JIEMA_ACCT: z.string().default(''),
   D1JIEMA_PASSWORD: z.string().default(''),
+  // G1 跨设备互联闭环(2026-10-30 立):设备委托/认领特性开关。默认开;
+  // 显式设为 'false' 或 '0' 时 delegate/claim 端点返回 503。
+  DEVICE_DELEGATION_ENABLED: z.string().optional().default('true'),
+  // G1 设备 bearer token 的 HMAC 密钥;为空时回退 JWT_SECRET(见 services/device-service.ts)。
+  DEVICE_TOKEN_SECRET: z.string().optional().default(''),
+
+  // ===== G4 计费弹性(2026-10-30 立)=====
+  // pricing_rules 组合定价(基础价 × 会员档位系数 × 错峰时段系数)结算接入开关。
+  // 默认 false = 逐字节旧行为(结算继续走 ai_pricing / calculateCost 存量路径);
+  // 开启后 recordAiCost 优先按生效规则解析,未命中规则仍回退旧路径,存量结算不受影响。
+  PRICING_RULES_ENABLED: booleanFromString(false),
+
+  // ===== G6 企业治理面(2026-10-30 立)=====
+  // org_policies 组织策略准入链(模型白/黑名单、特性开关、组织日预算)总开关。
+  // 默认 false = 所有检查点直通,逐字节旧行为(无组织/无策略用户完全不受影响);
+  // 开启后仅对有生效策略的组织成员生效,治理面自身故障一律 fail-open 放行。
+  ORG_POLICIES_ENABLED: booleanFromString(false),
 })
 
 const parsed = envSchema.safeParse(process.env)

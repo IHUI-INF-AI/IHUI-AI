@@ -86,6 +86,8 @@ export * from './srs.js'
 export * from './remote-device.js'
 // 设备推送 token 注册表(2026-09-06 立)
 export * from './device-tokens.js'
+// G1 跨设备互联闭环:devices / device_pair_codes / device_tasks(2026-10-30 立)
+export * from './devices.js'
 export * from './canary.js'
 export * from './tool.js'
 export * from './developer-api-keys.js'
@@ -222,6 +224,10 @@ export * from './ai-model-mappings.js'
 export * from './coupons.js'
 // 阶梯计价规则表(2026-08-01 立,用得越多越便宜:月度用量达阈值自动降价)
 export * from './tiered-pricing-rules.js'
+// G4 组合定价规则表(2026-10-30 立,基础价 × 会员档位系数 × 错峰时段系数)
+export * from './pricing-rules.js'
+// G6 企业治理面组织策略表(2026-10-30 立,org_policies:模型准入/特性开关/日预算/数据保留)
+export * from './org-policies.js'
 // 用户计费分组(2026-08-01 立,P0 中转站造血能力:用户分组 + 倍率(VIP 折扣矩阵))
 export * from './user-billing-groups.js'
 // Relay 调用返佣流水表(2026-07-31 立,把返佣绑到 relay 调用消费:被邀请人消费,邀请人返佣)

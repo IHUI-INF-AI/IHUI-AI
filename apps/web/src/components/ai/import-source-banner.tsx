@@ -29,12 +29,15 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatSpeakerList, type ImportProvenance } from '@ihui/shared/import-analysis'
 
-/** i18n key → 来源枚举(wechat 之外的四源标签在 conversationImport 命名空间里已有,复用不重复造) */
+/** i18n key → 来源枚举(wechat 之外的六源标签在 conversationImport 命名空间里已有,复用不重复造) */
 const SOURCE_LABEL_KEY: Record<ImportProvenance['source'], string> = {
   claude_code: 'sourceClaudeCode',
   codex: 'sourceCodex',
   cursor: 'sourceCursor',
   aider: 'sourceAider',
+  // E2(2026-10-30):网页导出两源 —— 键由同一轮导入面板落地,横幅复用同一批标签
+  chatgpt: 'sourceChatgpt',
+  claude_ai: 'sourceClaudeAi',
   wechat: 'sourceWechat',
 }
 

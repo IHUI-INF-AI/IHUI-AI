@@ -10,7 +10,7 @@
  *  A **构造点在位且拒坏值**:空 id / 未知 state / 坏时间,都必须抛;
  *  B **载荷里没有收信人主体**:带 `userId` / `user_id` 的一律判不合法(AGENTS §5 认证≠授权);
  *  C **解析侧与构造侧同一套规则**:构造侧拒的,parse 侧同样拦;正向帧 parse 原样认出;
- *  D **扩档不得挤掉旧档**:事件清单五档齐在,未知事件名 parse 返回 null。
+ *  D **扩档不得挤掉旧档**:事件清单九档齐在,未知事件名 parse 返回 null。
  */
 import { describe, it, expect } from 'vitest'
 
@@ -229,7 +229,7 @@ describe('collab C 解析侧与构造侧同一套规则', () => {
 })
 
 describe('collab D 扩档不挤掉旧档', () => {
-  it('事件清单六档齐在(既有三档 + collab 三档,另批收口加 collab:lock)', () => {
+  it('事件清单齐在(既有三档 + collab 三档,另批收口加 collab:lock,票71 加 chat 消息面三档)', () => {
     expect([...USER_BROADCAST_EVENT_NAMES].sort()).toEqual(
       [
         'checkpoint:availability',
@@ -238,6 +238,11 @@ describe('collab D 扩档不挤掉旧档', () => {
         'collab:lock',
         'conversation:updated',
         'mcp:status',
+        // 票71(V2 #23)第二切片(2026-10-24):chat 消息面房间广播
+        'message:created',
+        'message:patched',
+        // 票71 terminal 切片(2026-10-26):终态独立帧同样进封闭集
+        'message:terminal',
       ].sort(),
     )
   })

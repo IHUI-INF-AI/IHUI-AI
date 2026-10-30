@@ -21,8 +21,9 @@ import { fetchApi } from '../client.js'
 // Types
 // =============================================================================
 
-/** 外部工具来源枚举(与 api z.enum 一致) */
-export type ConversationImportSource = 'claude_code' | 'codex' | 'cursor' | 'aider' | 'wechat'
+/** 外部工具来源枚举(与 api z.enum 一致;chatgpt/claude_ai 为 E2 网页导出扩展) */
+export type ConversationImportSource =
+  'claude_code' | 'codex' | 'cursor' | 'aider' | 'chatgpt' | 'claude_ai' | 'wechat'
 
 /** 单条待导入消息(commit 请求体;与 api importedMessageSchema 一致) */
 export interface ConversationImportMessage {

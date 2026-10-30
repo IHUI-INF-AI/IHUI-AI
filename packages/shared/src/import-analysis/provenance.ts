@@ -41,8 +41,15 @@
 // 类型
 // =============================================================================
 
-/** 导入来源(与 @ihui/api-client 的 ConversationImportSource 同集) */
-export type ImportSource = 'claude_code' | 'codex' | 'cursor' | 'aider' | 'wechat'
+/** 导入来源(与 @ihui/api-client 的 ConversationImportSource 同集;2026-10-30 E2 补网页导出两源) */
+export type ImportSource =
+  | 'claude_code'
+  | 'codex'
+  | 'cursor'
+  | 'aider'
+  | 'chatgpt'
+  | 'claude_ai'
+  | 'wechat'
 
 /**
  * 会话来源信息(从 metadata 读出,读不出时为 null)
@@ -78,7 +85,13 @@ export type ImportProvenanceResult =
 /** 来源枚举守卫(与 api 侧 z.enum 同集;运行时校验,不信任 DB 里的任意字符串) */
 function isImportSource(v: unknown): v is ImportSource {
   return (
-    v === 'claude_code' || v === 'codex' || v === 'cursor' || v === 'aider' || v === 'wechat'
+    v === 'claude_code' ||
+    v === 'codex' ||
+    v === 'cursor' ||
+    v === 'aider' ||
+    v === 'chatgpt' ||
+    v === 'claude_ai' ||
+    v === 'wechat'
   )
 }
 
@@ -321,6 +334,8 @@ export const IMPORT_SOURCE_FALLBACK_LABEL: Record<ImportSource, string> = {
   codex: 'Codex CLI',
   cursor: 'Cursor',
   aider: 'Aider',
+  chatgpt: 'ChatGPT',
+  claude_ai: 'Claude.ai',
   wechat: '微信',
 }
 

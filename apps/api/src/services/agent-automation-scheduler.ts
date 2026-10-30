@@ -63,6 +63,20 @@ import {
   describeAutomationFailure,
   type AutomationFailureInput,
 } from './automations/failure-class.js'
+// G2(2026-10-30 立):Goal 自评迭代循环 + 终态结果站内推送。决策与推送都住
+// services/automations/goal-loop.ts(纯函数可单测;goal 状态嵌在既有 last_result jsonb,
+// schema 本车道冻结、零迁移)。
+import {
+  readGoalState,
+  withGoalCarryover,
+  buildGoalEvalMessage,
+  parseGoalVerdict,
+  planGoalOutcome,
+  hasPositiveTokenBalance,
+  notifyAutomationTerminal,
+  notifyGoalRefusal,
+  type GoalOutcome,
+} from './automations/goal-loop.js'
 import {
   userAutomations,
   type AutomationLastResult,
@@ -704,6 +718,8 @@ export async function executeAutomation(
   request: FastifyRequest | null = null,
 ): Promise<string | null> {
   const now = new Date()
+  // G2:行上的 goal 状态(存既有 last_result jsonb;null = 该行没有 Goal 循环,行为逐字节同旧)。
+  const goalState = readGoalState(automation.lastResult)
   // 结算闸门:一次执行只允许一次写库。settle 先置位再 await,所以"结算自己抛穿"不会
   // 在 catch 里被补成第二次写(第二次写会把同一轮失败记成两次重试,attempt 就失真了)。
   let settled = false
@@ -712,21 +728,32 @@ export async function executeAutomation(
     await settleAutomationRun(automation.id, settlement)
   }
 
-  /** 终态结算:paused + last_error + 终态成因 + 停止重排。 */
+  /** 终态结算:paused + last_error + 终态成因 + 停止重排;并落一条终态站内通知(G2)。 */
   const settleTerminal = async (
     lastResult: AutomationLastResult,
     reason: string,
     terminalReason: AutomationTerminalReason,
   ): Promise<void> => {
+    const carried = withGoalCarryover(lastResult, goalState)
     await settle({
       lastRunAt: now,
       updatedAt: now,
-      lastResult,
+      lastResult: carried,
       attempt: attemptOf(automation),
       lastError: reason.slice(0, LAST_ERROR_LIMIT),
       terminalReason,
       nextRunAt: null,
       status: 'paused',
+    })
+    // G2 结果推送:permanent / 超上限 / rrule 不可解析三种终态各推一次。
+    // transient 回队走 settle() 不经这里 —— D30 回帖同款纪律"回队不重复发"。
+    await notifyAutomationTerminal({
+      userId: automation.userId,
+      automationId: automation.id,
+      name: automation.name,
+      sessionId: resolveAutomationSessionId(automation),
+      terminalReason,
+      summary: carried.summary,
     })
   }
 
@@ -769,7 +796,8 @@ export async function executeAutomation(
     await settle({
       lastRunAt: now,
       updatedAt: now,
-      lastResult,
+      // G2:回队不是 goal 终态,goal 状态必须随结算带走(洗掉 = 用户的迭代预算静默蒸发)。
+      lastResult: withGoalCarryover(lastResult, goalState),
       attempt,
       lastError: reason.slice(0, LAST_ERROR_LIMIT),
       // 回队不是终态(它还在等下一次),成因档必须跟着清掉,否则"上一轮的终态"会粘在行上
@@ -828,21 +856,93 @@ export async function executeAutomation(
       }
     }
 
+    // G2 Goal 自评迭代循环(2026-10-30 立):本轮执行成功才进入(transient/permanent 失败
+    // 走失败分支不消耗预算;rrule 不可解析已在上面 settleTerminal 收口)。自评 turn 复用
+    // 同一条 agent 执行链与同一 sessionId ⇒ 会话线程接力,模型看得见自己上一轮的产出。
+    let goalOutcome: GoalOutcome | null = null
+    let finalSummary = summary
+    if (goalState) {
+      const evalCapture = await consumeAgentStream(request, {
+        message: buildGoalEvalMessage(goalState.config.target),
+        sessionId: resolveAutomationSessionId(automation),
+        botId: automation.id,
+      })
+      const verdict =
+        evalCapture.upstreamStatus !== null
+          ? null
+          : parseGoalVerdict(evalCapture.summary ?? evalCapture.contentTail)
+      // 水位检查只在"未达标且预算内"时才打 —— 达标/预算用尽的路径不产生多余查询。
+      const needBalance =
+        verdict !== null && !verdict.met && goalState.runs + 1 < goalState.config.maxRuns
+      const balanceOk = needBalance ? await hasPositiveTokenBalance(automation.userId) : true
+      goalOutcome = planGoalOutcome({
+        goal: goalState,
+        verdict,
+        scheduleType: automation.scheduleType === 'recurring' ? 'recurring' : 'once',
+        rruleNextRunAt: nextRunAt,
+        now,
+        balanceOk,
+      })
+      finalSummary = `${summary} | ${goalOutcome.summaryLine}`.slice(0, LAST_ERROR_LIMIT)
+    }
+
+    const terminalReason: AutomationTerminalReason | null = goalOutcome
+      ? goalOutcome.terminalReason
+      : automation.scheduleType === 'once'
+        ? 'completed'
+        : null
     await settle({
       lastRunAt: now,
       updatedAt: now,
-      lastResult: { finishedAt: now.toISOString(), summary },
-      attempt: 0,
-      lastError: null,
+      lastResult: withGoalCarryover(
+        { finishedAt: now.toISOString(), summary: finalSummary },
+        goalOutcome?.goal ?? goalState,
+      ),
+      // once 的 goal 重跑借道到期判据分支②(attempt>0 + nextRunAt<=now)排进队列;
+      // 其余成功照旧归零(见该分支注释:不看 attempt 会把成功的 once 重放成周期任务)。
+      attempt:
+        goalOutcome?.action === 'rerun' && automation.scheduleType === 'once'
+          ? Math.max(attemptOf(automation), 1)
+          : 0,
+      lastError: goalOutcome?.lastError ?? null,
       // G-241 ②:once 跑成功 = "已完成"这一档(它从此不再排,是真正的终态);
       // recurring 成功只是"这一轮完了、等下一轮",不是终态 ⇒ null。
-      terminalReason: automation.scheduleType === 'once' ? 'completed' : null,
+      // 带 goal 时档位由 planGoalOutcome 定(达标/预算用尽 = completed;水位拒跑 = failed_permanent)。
+      terminalReason,
       // recurring ⇒ 排下一次(到这里必非 null);once ⇒ 显式清掉重试位
-      // (见 automationDueConditions 分支②的注释:once 的 next_run_at 存量值是 scheduled_at)
-      nextRunAt: automation.scheduleType === 'recurring' ? nextRunAt : null,
+      // (见 automationDueConditions 分支②的注释:once 的 next_run_at 存量值是 scheduled_at)。
+      // 带 goal 时排期由 goalOutcome 定(重跑 = now+延迟;收敛 = null 或 recurring 回到常规 rrule 档)。
+      nextRunAt: goalOutcome
+        ? goalOutcome.nextRunAt
+        : automation.scheduleType === 'recurring'
+          ? nextRunAt
+          : null,
+      ...(goalOutcome?.status ? { status: goalOutcome.status } : {}),
     })
 
-    return summary
+    // G2 结果推送:只有终态(terminalReason 非空)才落站内通知;goal 重跑排期与
+    // recurring 常规轮都是非终态 ⇒ 零通知。水位拒跑是独立一档(它不是执行失败,
+    // 是"拒绝继续",用户必须知道)。
+    if (goalOutcome?.refusalNotice) {
+      await notifyGoalRefusal({
+        userId: automation.userId,
+        automationId: automation.id,
+        name: automation.name,
+        sessionId: resolveAutomationSessionId(automation),
+        notice: goalOutcome.refusalNotice,
+      })
+    } else if (terminalReason) {
+      await notifyAutomationTerminal({
+        userId: automation.userId,
+        automationId: automation.id,
+        name: automation.name,
+        sessionId: resolveAutomationSessionId(automation),
+        terminalReason,
+        summary: finalSummary,
+      })
+    }
+
+    return finalSummary
   } catch (err) {
     // A 格:抛穿路径过去只 log.warn + return null(时间戳不动 ⇒ 每 60s 无限重放)。
     // 现在同样进分类与结算;但"结算自己写不进库"不能再补第二次写,只能喊出来。

@@ -1,5 +1,6 @@
 [
   "scripts/lib/face-reader.mjs",
+  "scripts/lib/head-recall.mjs",
   "scripts/git-lock.mjs",
   "scripts/lib/gitdir.mjs",
   "scripts/lib/scratch-dir.mjs",

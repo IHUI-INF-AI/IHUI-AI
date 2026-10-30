@@ -18,6 +18,7 @@ import { join } from 'node:path'
 import {
   detectClientProcesses,
   main,
+  parseTasklistImages,
   planBatchMove,
   readOps,
   resolveAccountId,
@@ -174,11 +175,36 @@ describe('planBatchMove:只取该账号的会话', () => {
   })
 })
 
+describe('parseTasklistImages:CSV → 镜像名(不是整行)', () => {
+  const csv = [
+    '"WorkBuddy.exe","3844","Console","1","87,644 K"',
+    '"node.exe","1234","Console","1","50,000 K"',
+    '"WorkBuddy.exe","18492","Console","1","84,560 K"',
+    '',
+  ].join('\r\n')
+
+  it('只留命中的镜像名,同名多进程保留多份(长度即进程数)', () => {
+    expect(parseTasklistImages(csv, ['WorkBuddy.exe'])).toEqual(['WorkBuddy.exe', 'WorkBuddy.exe'])
+  })
+
+  it('大小写不敏感,且永远不返回整行 CSV', () => {
+    const got = parseTasklistImages(csv, ['workbuddy.EXE', 'node.exe'])
+    expect(got).toEqual(['WorkBuddy.exe', 'node.exe', 'WorkBuddy.exe'])
+    for (const g of got) expect(g).not.toContain(',')
+  })
+
+  it('没命中就是空(零候选不冒充)', () => {
+    expect(parseTasklistImages(csv, ['definitely-not-running-xyz.exe'])).toEqual([])
+  })
+})
+
 describe('detectClientProcesses:镜像名可配(Qoder/Trae 搬家复用同一道闸)', () => {
   it('当前进程名能探到;不存在的镜像名返回空;env 可覆盖默认', () => {
     if (process.platform === 'win32') {
       expect(detectClientProcesses(['node.exe']).length).toBeGreaterThan(0)
       expect(detectClientProcesses(['definitely-not-running-xyz.exe'])).toEqual([])
+      // 返回的必须是镜像名:整行 CSV 会让 taskkill /IM 直接失败(2026-10-30 真机踩过)
+      for (const name of detectClientProcesses(['node.exe'])) expect(name).not.toContain(',')
       vi.stubEnv('IHUI_RELAY_CLIENT_IMAGE', 'node.exe')
       try {
         expect(detectClientProcesses().length).toBeGreaterThan(0)

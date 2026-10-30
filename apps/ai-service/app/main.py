@@ -87,6 +87,9 @@ from app.routers import (
 # D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
 from app.routers import decisions as decisions_router
 
+# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
+from app.routers import knowledge as knowledge_router
+
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
 from app.routers import eval as eval_router
 
@@ -1064,6 +1067,8 @@ def create_app() -> FastAPI:
     app.include_router(recap_router.router, prefix="/api", tags=["recap"])
     # D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询(GET /api/agent/decisions/pending)
     app.include_router(decisions_router.router, prefix="/api", tags=["decisions"])
+    # G5(2026-10-30 立项):编译式知识引擎(POST /api/knowledge/compile + GET /api/knowledge/cards)
+    app.include_router(knowledge_router.router, prefix="/api", tags=["knowledge"])
     # D179(2026-09-30 用户拍板立项):MCP Issue 搜索(POST /api/agent/issues/search)
     app.include_router(issue_search_router.router, prefix="/api", tags=["issue-search"])
     # O11 A2A 标准化(2026-09-20 立):A2A 发现文档,规范规定为根路径,不带 /api 前缀
