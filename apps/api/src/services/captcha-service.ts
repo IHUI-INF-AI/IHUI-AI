@@ -488,24 +488,8 @@ function mathProblem(): { text: string; result: number } {
   return { text: `${big} − ${small} = ?`, result: big - small }
 }
 
-function escapeXml(s: string): string {
-  return s.replace(/[<>&'"]/g, (ch) => {
-    switch (ch) {
-      case '<':
-        return '&lt;'
-      case '>':
-        return '&gt;'
-      case '&':
-        return '&amp;'
-      case "'":
-        return '&apos;'
-      case '"':
-        return '&quot;'
-      default:
-        return ch
-    }
-  })
-}
+// escapeXml 的唯一实现住在 utils/xml-escape.ts(§0.6:同一件事不留第二份)
+import { escapeXml } from '../utils/xml-escape.js'
 
 /* -------------------------------------------------------------------------- */
 /* 单例工厂                                                                    */
