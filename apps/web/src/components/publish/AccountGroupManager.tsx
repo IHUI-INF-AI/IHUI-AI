@@ -105,6 +105,10 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
       return
     }
     setExpandedId(groupId)
+    // 展开新分组必须**先清空**上一份成员清单:原实现只在 r.success 时写入 ⇒ 成员接口慢或
+    // 失败时,B 分组下面显示的还是 A 分组的成员,此时点行上的 X 会执行
+    // removeFromPublishGroup(B, [A 的账号]) 并回一句"已移除" —— 那是真的会删错数据。
+    setMemberIds([])
     try {
       const r = await listPublishGroupMembers(groupId)
       if (r.success && r.data) {
@@ -360,7 +364,15 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
       )}
 
       {/* 创建/编辑分组 */}
-      <Dialog open={createOpen} onOpenChange={(o) => !saving && setCreateOpen(o)}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          // 保存中也要留一条关的出路(Esc / 遮罩 / 取消三条都走这里):
+          // 原写法 `!saving && setCreateOpen(o)` 把它们同时封死 ⇒ 请求不返回就永久困在弹层里。
+          // 重复提交的防护本来就在按钮的 disabled={saving} 上,不靠锁住关闭。
+          setCreateOpen(o)
+        }}
+      >
         <DialogContent className="min-[640px]:max-w-sm">
           <form onSubmit={submitGroup} className="space-y-3">
             <DialogHeader>
