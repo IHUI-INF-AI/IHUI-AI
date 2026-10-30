@@ -24,6 +24,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { gitBinary } from './face-reader.mjs'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -111,7 +112,7 @@ export function readRetractions(face = 'head', root = ROOT) {
   }
   const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
   try {
-    const text = execFileSync('git', ['-C', root, 'show', spec], {
+    const text = execFileSync(gitBinary(), ['-C', root, 'show', spec], {
       encoding: 'utf8',
       // §12g:派生 git 必须显式接管 stdio(不写稳定 EBUSY)
       stdio: ['ignore', 'pipe', 'ignore'],

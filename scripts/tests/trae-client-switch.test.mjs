@@ -9,7 +9,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { __test__ as S } from '../lib/trae-client-switch.mjs'
 import { decryptEnvelope, encryptEnvelope } from '../lib/trae-auth-extract.mjs'
 
@@ -164,4 +166,50 @@ test('⑪ killTrae:某个停不掉 ⇒ kill-partial,不谎报全成', () => {
     (e) => e.code === 'kill-partial' && /44/.test(e.message),
   )
 })
+
+// ── SOLO/产品面接线锁(2026-10-30 立,携对话切号扩到 TRAE SOLO CN)────────────────
+test('findStorageFileForProduct:按产品精确取那份,不回落别的产品', (t2) => {
+  mkTmp((dir, env) => {
+    for (const p of ['Trae CN', 'TRAE SOLO CN', 'Trae']) {
+      fs.mkdirSync(path.join(dir, p, 'User', 'globalStorage'), { recursive: true })
+      fs.writeFileSync(path.join(dir, p, 'User', 'globalStorage', 'storage.json'), '{}', 'utf8')
+    }
+    for (const [want, p] of [
+      [path.join(dir, 'TRAE SOLO CN', 'User', 'globalStorage', 'storage.json'), 'TRAE SOLO CN'],
+      [path.join(dir, 'Trae CN', 'User', 'globalStorage', 'storage.json'), 'trae cn'],
+      [path.join(dir, 'Trae', 'User', 'globalStorage', 'storage.json'), 'TRAE'],
+    ])
+      assert.equal(S.findStorageFileForProduct(p, env), want, `产品 ${p} 落点错`)
+    assert.equal(S.findStorageFileForProduct('Zcode', env), null, '未登记的产品名不得蒙一个')
+    assert.equal(S.findStorageFileForProduct('', env), null, '空产品名 ⇒ null(不猜)')
+  })
+  void t2
+})
+
+test('findStorageFileForProduct:只装了一份时,别的产品 ⇒ null(不拿别人的信封顶)', () => {
+  mkTmp((dir, env) => {
+    fs.mkdirSync(path.join(dir, 'Trae CN', 'User', 'globalStorage'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'Trae CN', 'User', 'globalStorage', 'storage.json'), '{}', 'utf8')
+    assert.equal(path.basename(S.findStorageFileForProduct('Trae CN', env)), 'storage.json')
+    assert.equal(S.findStorageFileForProduct('TRAE SOLO CN', env), null)
+  })
+})
+
+test('isProductRunning:返回数组(查询失败面为 null ⇒ 调用方拒写,不冒充"没在跑")', () => {
+  const r = S.isProductRunning('NoSuchProduct-IHUI', { ...process.env, IHUI_TRAE_PROCESS_CONTROL: '1' })
+  assert.ok(r === null || Array.isArray(r), `既不是 null 也不是数组:${String(r)}`)
+  if (Array.isArray(r)) assert.equal(r.length, 0)
+  // 关掉进程控制 ⇒ 视为"不在跑"(空数组),写回门仍由 existsSync/备份兜底
+  assert.deepEqual(S.isProductRunning('Trae CN', { ...process.env, IHUI_TRAE_PROCESS_CONTROL: '0' }), [])
+})
+
+/** 造临时 APPDATA 形态目录树并把跨 profile 扫描关掉(测试确定性) */
+function mkTmp(fn) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir() || os.homedir(), 'ihui-sw-prod-'))
+  try {
+    fn(root, { APPDATA: root.replace(/\\/g, '/'), IHUI_TRAE_SCAN_USERS: '0' })
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

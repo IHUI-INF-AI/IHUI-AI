@@ -12,6 +12,20 @@
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
 @source '../../../packages/ui-react/src';
+/* 2026-10-30 修复 CSS 解析失败(Delim('\u{1a}')):把构建产物目录从 Tailwind v4 的
+   内容扫描面里摘掉。自动扫描按 .gitignore 裁剪,而蓝绿/回滚目录(.next-blue/.next-green/
+   .next-rollback)此前没被忽略 ⇒ 它们被当源码扫描。实测:在 .next-blue 里放一个探针
+   组件,其类名会出现在生成的 CSS 里;旧产物里还留着源码已删除的类名(部署失败那版
+   CSS 中的 max-[767px]:left-3 在全仓源码与现存产物里都找不到,只可能来自被扫到的历史
+   构建产物);这些目录里的 Turbopack 持久缓存 .sst/.meta 携带裸 0x1A 字节,是整棵
+   apps/web 里唯一存在 0x1A 的地方 —— 一旦被扫进 CSS 就是 Delim 解析失败。
+   这里显式排除(不依赖 .gitignore,净面检出/换机同样成立),扫描面收敛到真源码。 */
+@source not '../.next-blue';
+@source not '../.next-green';
+@source not '../.next-rollback';
+@source not '../.rollback';
+@source not '../out';
+@source not '../tmp';
 @import '../src/styles/animations.css';
 @import '../src/styles/transitions.css';
 @import '../src/styles/theme-presets.css';
@@ -25,9 +39,13 @@
    SPACING_STEPS.none=0 经 scripts/sync-css-tokens.mjs 生成了 --spacing-none:0px,
    于是 .leading-none 变成 line-height:var(--spacing-none)=0px,大字号读数(监控大屏 26px KPI 等)
    行盒塌缩为 0、墨水溢出压住标题。
+   修法:用**未分层(unlayered)普通规则**把 leading-none 钉回 line-height:1(并同步重置 --tw-leading)。
+   按 CSS 级联规范,未分层声明恒胜 @layer utilities 内的工具类,无论 Tailwind 如何合并/排序都胜出;
+   这与本源文件既有的未分层兜底同一手法。
+   为何不用 @utility:实测全量构建会把两条声明合并进同一条 .leading-none,并把主题生成的
+   var(--spacing-none) 排在本块之后 ⇒ 仍 0px(孤立探针与全量构建行为不一致,不可依赖)。
    修法:用未分层(unlayered)普通规则把 leading-none 钉回 line-height:1(并同步重置 --tw-leading)。
    按 CSS 级联规范,未分层声明恒胜 @layer utilities 内的工具类,不受 Tailwind 合并/排序影响。
-   为何不用 @utility:实测全量构建会把两条声明合并进同一条 .leading-none,并把主题生成的
    var(--spacing-none) 排在本块之后 ⇒ 仍 0px,不可依赖。
    根因档 none 在 web 端 p-none/m-none/gap-none/size-none 零使用、RN/小程序亦零消费,
    保留 --spacing-none 不影响布局;本修复仅钉回被误覆盖的行高语义。 */

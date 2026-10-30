@@ -820,6 +820,15 @@ function BackendLogin-Token {
         if ($login.data.accessToken) { return $login.data.accessToken }
         if ($login.token.accessToken) { return $login.token.accessToken }
         if ($login.accessToken) { return $login.accessToken }
+        # 2FA(2026-10-30):admin 开启 TOTP 后本腿拿到的只会是 2FA 挑战而不是令牌 —— 那不是
+        # 故障,是"口令回落腿已被 2FA 关死"的确定性证据。旧实现对此静默返回 $null,门禁只
+        # 表现为 llm 维"未知"且查不出原因。根因排查点永远在自签腿(它是首选,2026-10-30 实测
+        # 公网 200):apps\api\.env 的 JWT_SECRET 是否可读。
+        if ($login.data.twoFactorRequired) {
+            Log "WARN admin 已开启 2FA ⇒ 口令回落腿不可能取得探测令牌(预期行为);请查自签令牌腿:apps\api\.env 的 JWT_SECRET 是否可读"
+            return $null
+        }
+        Log "WARN 口令登录响应里既无 accessToken 也无 twoFactorRequired(响应形状变了?),无法取得探测令牌"
     } catch {
         # 旧实现把所有异常一律吞成 $null,限流与口令错误无从区分,运维只能干猜(状态码现在可见)
         $sc = 0

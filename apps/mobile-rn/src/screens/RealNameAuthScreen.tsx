@@ -7,7 +7,11 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { RealNameAuthScreen as SharedRealNameAuthScreen, type RealNameAuthItem, type RealNameAuthStatus } from '@ihui/rn-app'
+import {
+  RealNameAuthScreen as SharedRealNameAuthScreen,
+  type RealNameAuthItem,
+  type RealNameAuthStatus,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -44,7 +48,11 @@ export function RealNameAuthScreen() {
       try {
         const resp = await fetchApi<RealNameAuthMyResponse>('/auth/realname/my')
         if (cancelled) return
-        if (!resp.success) throw new Error('http')
+        if (!resp.success) {
+          // 透出后端 message(未登录/服务异常),而非一律「加载失败」。
+          setError(resp.error || t('realNameAuth.loadFailed'))
+          return
+        }
         const d = resp.data
         setStatus({
           status: REALNAME_STATUS_MAP[d?.authStatus ?? 'unverified'] ?? 'unverified',
@@ -75,7 +83,11 @@ export function RealNameAuthScreen() {
         method: 'POST',
         body: JSON.stringify({ realName: name, idCard: idNumber, authSource: 'manual' }),
       })
-      if (!resp.success) throw new Error('http')
+      if (!resp.success) {
+        // 提交失败要说明原因(姓名与证件号不匹配/已在审核中/次数超限),否则用户只能盲改重试。
+        setError(resp.error || t('realNameAuth.failed'))
+        return
+      }
       setStatus({ status: 'pending', name, idNumber })
     } catch {
       setError(t('realNameAuth.failed'))
@@ -97,7 +109,8 @@ export function RealNameAuthScreen() {
       onIdNumberChange={setIdNumber}
       onSubmit={onSubmit}
       onBack={() => navigation.goBack()}
-     colorScheme={resolvedTheme}/>
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

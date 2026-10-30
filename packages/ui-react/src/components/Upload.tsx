@@ -202,6 +202,11 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
   const [dragging, setDragging] = React.useState(false)
   const [items, setItems] = React.useState<FileItem[]>([])
   const xhrRef = React.useRef<XMLHttpRequest | null>(null)
+  // 取消/逐项移除必须是**真**取消:原实现只清 UI 列表,上传循环照旧跑完,
+  // 末尾还把结果推给 onChange ⇒ 用户以为撤回了,文件却随提交发了出去。
+  const activeKeyRef = React.useRef<string | null>(null)
+  const cancelledRef = React.useRef(false)
+  const droppedKeysRef = React.useRef<Set<string>>(new Set())
 
   const remaining = Math.max(0, maxCount - value.length)
 
@@ -211,6 +216,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhrRef.current = xhr
+        activeKeyRef.current = key
         xhr.open('POST', endpoint, true)
 
         // 设置自定义头
@@ -299,11 +305,17 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
 
       // 逐个上传
       const newUrls: string[] = []
+      cancelledRef.current = false
+      droppedKeysRef.current.clear()
       for (let i = 0; i < valid.length; i++) {
+        if (cancelledRef.current) break
         const file = valid[i]!
         const item = newItems[i]!
+        if (droppedKeysRef.current.has(item.key)) continue
         try {
           const url = await uploadOne(file, item.key)
+          // 成功回调可能落在用户取消/移除之后:此时不得再写入结果
+          if (cancelledRef.current || droppedKeysRef.current.has(item.key)) continue
           newUrls.push(url)
           setItems((prev) =>
             prev.map((it) =>
@@ -311,13 +323,19 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             ),
           )
         } catch (err) {
+          // abort 走的是 onabort→reject 这条道:用户主动取消/移除不是"上传失败",
+          // 报出去会让调用方弹一句莫名其妙的错误。
+          if (cancelledRef.current || droppedKeysRef.current.has(item.key)) continue
           const msg = err instanceof Error ? err.message : labels.uploadFailed
           setItems((prev) =>
             prev.map((it) => (it.key === item.key ? { ...it, status: 'error', error: msg } : it)),
           )
           onError?.(err instanceof Error ? err : new Error(msg))
+        } finally {
+          if (activeKeyRef.current === item.key) activeKeyRef.current = null
         }
       }
+      if (cancelledRef.current) return
 
       // 推送新增 URL(单选模式只保留最后一个,多选模式追加)
       if (newUrls.length > 0) {
@@ -347,12 +365,21 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
   )
 
   const handleRemoveItem = React.useCallback((key: string) => {
+    // 逐项移除必须同时中止该请求:原实现只把行从列表里删掉,文件继续上传,
+    // 传完后又出现在"已上传"缩略图里(用户的删除被静默撤回)。
+    droppedKeysRef.current.add(key)
+    if (activeKeyRef.current === key) {
+      xhrRef.current?.abort()
+      xhrRef.current = null
+    }
     setItems((prev) => prev.filter((it) => it.key !== key))
   }, [])
 
   const handleCancelAll = React.useCallback(() => {
+    cancelledRef.current = true
     xhrRef.current?.abort()
     xhrRef.current = null
+    activeKeyRef.current = null
     setItems([])
   }, [])
 

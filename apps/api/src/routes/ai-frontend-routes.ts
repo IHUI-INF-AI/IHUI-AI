@@ -56,6 +56,122 @@ async function listGcHistory(
   return { list: rows, total: totalRows[0]?.value ?? 0, page, pageSize }
 }
 
+/**
+ * 小程序「我的创作」tab → `ai_gc_content.gc_type`。
+ * 1=文本 2=图片 3=视频 4=音频 —— 与 `apps/miniapp-taro/src/pages/user/index.tsx`
+ * `loadContentByTab(tabId)` 的四个分支**逐条对齐**(那边 1→textList / 2→imageList /
+ * 3→videoList / 4→audioList)。两边必须是同一张对照表:改这里要同步改那边,否则
+ * 「文本」tab 会拿到图片行,而端上按 tab 决定读 `content` 还是 `imageList`,表现为整片空白。
+ */
+const CREATION_TYPE_BY_TAB: Record<string, GcType> = {
+  '1': 'text',
+  '2': 'image',
+  '3': 'video',
+  '4': 'audio',
+}
+
+/** `ai_gc_content.content` 解码结果:已解开的结构化字段(能解开才有)+ 兜底纯文本 */
+type DecodedGcContent = {
+  text: string
+  title?: string
+  subtitle?: string
+  coverUrl?: string
+  fileUrl?: string
+}
+
+/**
+ * `ai_gc_content.content` 在库里**有两种落库形态**,现读写入点:
+ *  · `routes/other/image-gen-routes.ts:141` ⇒ `content`(或 `prompt`)**纯文本**原样存;
+ *  · `routes/miniapp-compat-routes.ts:1984` ⇒ `JSON.stringify({title,subtitle,coverUrl,fileUrl,problem})`。
+ * 因此这里必须「先试 JSON、解不开再退纯文本」:假定 JSON 会让文本创作整片空;
+ * 假定纯文本会让标题/封面/文件地址全丢。两条分支都不能省。
+ */
+function decodeGcContent(raw: string | null): DecodedGcContent {
+  const text = (raw ?? '').trim()
+  if (text === '') return { text: '' }
+  if (!(text.startsWith('{') && text.endsWith('}'))) return { text }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    // 形似 JSON 但解不开(截断/转义损坏)⇒ 按纯文本对待,不吞掉用户内容
+    return { text }
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { text }
+  const o = parsed as Record<string, unknown>
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined
+  return {
+    text: str(o['content']) ?? str(o['prompt']) ?? '',
+    title: str(o['title']),
+    subtitle: str(o['subtitle']),
+    coverUrl: str(o['coverUrl']),
+    fileUrl: str(o['fileUrl']),
+  }
+}
+
+/**
+ * 「我的创作」统一处理器(两条路径共用:小程序端历史上分别调 `/ai/my-creation` 与
+ * `/aigc/my-works`,全仓都**没有**这两个端点 ⇒ 必然 404、两个页面恒空)。
+ *
+ * 数据源不是新表,就是上面 9 条历史路由用的那张 `ai_gc_content` —— 同一份用户创作记录,
+ * 只是这两条路径当年没接上。响应形状对齐端上读取方式:
+ * 文本读 `content`、图片读 `imageList`、视频读 `videoUrl`、音频读 `audioUrl`,
+ * 时间读 `time`(兼容 `createTime`,端上两个都试过)。
+ *
+ * 说明一个**已知数据缺口**(不在本处理器能修的范围):图片行里没有 url ——
+ * `image-gen-routes.ts` 只把 prompt 落库,生成出的 imageUrl 直接回给客户端不入库。
+ * 所以历史图片行的 `imageList` 会是空数组。要补齐得改那条写入点(它现在连 url 都没有列可存),
+ * 属独立一笔,不在这里假装有数据(零假数据铁律)。
+ */
+async function myCreationHandler(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const q = request.query as { type?: string; gcType?: string; page?: string; pageSize?: string }
+    const { page, pageSize } = parsePaging(q)
+    const offset = (page - 1) * pageSize
+    // `type` = 小程序 tab 号;`gcType` = 直接给语义值(供新调用方用,免背 tab 号)
+    const mapped = q.type === undefined ? undefined : CREATION_TYPE_BY_TAB[String(q.type)]
+    const explicit = q.gcType as GcType | undefined
+    const gcType = explicit ?? mapped
+    const where =
+      gcType === undefined
+        ? eq(aiGcContent.userUuid, request.userId!)
+        : and(eq(aiGcContent.userUuid, request.userId!), eq(aiGcContent.gcType, gcType))
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select()
+        .from(aiGcContent)
+        .where(where)
+        .orderBy(desc(aiGcContent.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db.select({ value: count() }).from(aiGcContent).where(where),
+    ])
+    const list = rows.map((row) => {
+      const d = decodeGcContent(row.content)
+      const type = row.gcType ?? 'text'
+      const fileUrl = d.fileUrl ?? ''
+      return {
+        id: row.id,
+        type,
+        title: d.title ?? d.text.slice(0, 40),
+        subtitle: d.subtitle ?? '',
+        time: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+        content: d.text,
+        coverUrl: d.coverUrl ?? '',
+        // 端上按 gcType 分支读不同字段,这里四个都给,免端上再按类型拼
+        imageList: type === 'image' && fileUrl !== '' ? [fileUrl] : [],
+        videoUrl: type === 'video' ? fileUrl : '',
+        audioUrl: type === 'audio' ? fileUrl : '',
+      }
+    })
+    return reply.send(success({ list, total: totalRows[0]?.value ?? 0, page, pageSize }))
+  } catch (e) {
+    request.log.error(e)
+    return reply.status(500).send(error(500, '查询我的创作失败'))
+  }
+}
+
 function gcHistoryHandler(gcType: GcType) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -182,6 +298,16 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai/audio/speech', gcHistoryHandler('audio'))
   server.get('/ai/suno/generate', gcHistoryHandler('audio'))
   server.get('/ai/tencent/hunyuan3d/submit', gcHistoryHandler('video'))
+
+  // ==========================================================================
+  // GET 我的创作(2 路由)— 同一张 aiGcContent 表,但**全类型**、按 tab/类型过滤
+  // 这两条是小程序端历史上就在调、后端从未注册的路径(小程序页面因此恒空):
+  //   · `/ai/my-creation` ← apps/miniapp-taro/src/pages/user/index.tsx(我的-创作,四个 tab)
+  //   · `/aigc/my-works`  ← apps/miniapp-taro/src/pages/circle/create.tsx(发圈-选我的作品)
+  // 与上面 9 条的区别只在"全类型 + 端上字段拼装",故共用 myCreationHandler。
+  // ==========================================================================
+  server.get('/ai/my-creation', myCreationHandler)
+  server.get('/aigc/my-works', myCreationHandler)
 
   // ==========================================================================
   // MCP 服务器管理 — 接入 mcpServers 表 CRUD

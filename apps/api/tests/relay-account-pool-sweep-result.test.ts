@@ -96,10 +96,19 @@ function emittedKeys(result: object): string[] {
   return Object.keys(result).sort()
 }
 
-/** 消费面(worker 源码)读到的键集,含 `result?.x` 形态。 */
+/**
+ * 消费面(worker 源码)读到的键集,含 `result?.x` 形态。
+ *
+ * 只扫 `sweepAccountPool()` 出现点之后的片段:同一文件里另有一枚**子进程**结果变量
+ * 也叫 `result`(`{code,out,err}`,见 runClientSessionSync),无差别匹配会把它读成
+ * sweep 产出面的幻影键(2026-10-30 实测:3 枚假幻影把本用例压成恒红)。
+ * 找不到调用点 ⇒ 空集 ⇒ 调用方"防空转"断言当场判红,不静默放行。
+ */
 function consumedKeys(source: string): string[] {
+  const from = source.indexOf('sweepAccountPool()')
+  const scope = from >= 0 ? source.slice(from) : ''
   const out = new Set<string>()
-  for (const match of source.matchAll(/\bresult\??\.([A-Za-z0-9_]+)/g)) {
+  for (const match of scope.matchAll(/\bresult\??\.([A-Za-z0-9_]+)/g)) {
     if (match[1]) out.add(match[1])
   }
   return [...out].sort()

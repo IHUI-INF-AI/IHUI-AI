@@ -31,15 +31,29 @@ import { CreditCard } from 'lucide-react-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 function toPaymentItem(orders: PaymentOrder[]): PaymentOrderItem[] {
-  return orders.map((o) => ({
-    orderNo: o.orderNo,
-    subject: o.subject ?? '',
-    amount: o.amount,
-    status: o.status,
-    createdAtText: formatDateByTemplate(o.createdAt, 'YYYY-MM-DD HH:mm'),
-    paidAtText: o.paidAt ? formatDateByTemplate(o.paidAt, 'YYYY-MM-DD HH:mm') : null,
-    paymentMethod: o.paymentMethod,
-  }))
+  // 后端 GET /payments/me 返回的是 edu_payments 原始行:字段名是 paymentNo/payType/payAmount(元,
+  // numeric 字符串)/payTime/orderType,而 PaymentOrder 类型声明的是 orderNo/amount/subject/paidAt。
+  // 逐字按声明取 ⇒ 全是 undefined:金额 undefined 会让"立即支付"按 `?? 0` 开出 0 元支付单,
+  // 单号 undefined 则把同步/取消打到不存在的订单上。这里按后端真实形状映射。
+  return orders.map((o) => {
+    const row = o as PaymentOrder & {
+      paymentNo?: string
+      payType?: string
+      payAmount?: string | number
+      payTime?: string
+      orderType?: string
+    }
+    const paidAt = row.paidAt ?? row.payTime
+    return {
+      orderNo: row.orderNo ?? row.paymentNo ?? '',
+      subject: row.subject ?? row.orderType ?? '',
+      amount: Number(row.payAmount ?? row.amount ?? 0) || 0,
+      status: o.status,
+      createdAtText: formatDateByTemplate(o.createdAt, 'YYYY-MM-DD HH:mm'),
+      paidAtText: paidAt ? formatDateByTemplate(paidAt, 'YYYY-MM-DD HH:mm') : null,
+      paymentMethod: row.paymentMethod ?? row.payType ?? null,
+    }
+  })
 }
 
 export function PaymentScreen() {

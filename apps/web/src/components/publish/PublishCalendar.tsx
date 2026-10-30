@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button, Card, CardContent, Badge } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -91,6 +91,8 @@ function buildMonthGrid(year: number, month: number): Date[] {
 
 export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCalendarProps) {
   const t = useTranslations('publish')
+  // 时间格式随用户语言,不写死 'zh-CN'(五语言界面上时间档本来就该各按本地习惯)
+  const locale = useLocale()
   const today = new Date()
   const [cursor, setCursor] = React.useState({ year: today.getFullYear(), month: today.getMonth() })
   const [selectedDate, setSelectedDate] = React.useState<string | null>(null)
@@ -114,10 +116,19 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
   }
 
   function handleDrop(date: Date) {
-    if (draggedId) {
-      onReschedule(draggedId, date)
-      setDraggedId(null)
+    if (!draggedId) return
+    // 拖拽改期只该改"哪一天"。格子里的 date 是本地零点(见 dayCell 的 new Date(year,month,d)),
+    // 不补回原时刻 ⇒ 一条原定 10:00 的定时发布被拖一次就静默变成 00:00,
+    // 而成功 toast 只播报日期不播报时间,用户不会发现。
+    const src = tasks.find((x) => x.id === draggedId)
+    if (src) {
+      const orig = new Date(src.scheduledAt)
+      if (!Number.isNaN(orig.getTime())) {
+        date.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds())
+      }
     }
+    onReschedule(draggedId, date)
+    setDraggedId(null)
   }
 
   const selectedTasks = selectedDate ? (grouped.get(selectedDate) ?? []) : []
@@ -246,7 +257,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                       <span className="text-[10px] text-muted-foreground">{task.platform}</span>
                     )}
                     <span className="text-[10px] text-muted-foreground">
-                      {new Date(task.scheduledAt).toLocaleTimeString('zh-CN', {
+                      {new Date(task.scheduledAt).toLocaleTimeString(locale, {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}

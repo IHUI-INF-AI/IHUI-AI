@@ -63,7 +63,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
     if (onFeedback) {
       onFeedback()
     } else {
-      Taro.navigateTo({ url: '/pages/feedback/index' }).catch(() => {
+      // 反馈页在 pkg-user 分包(user/feedback);/pages/feedback/index 从未存在过,点了必死
+      Taro.navigateTo({ url: '/pkg-user/user/feedback' }).catch(() => {
         Taro.showToast({ title: '反馈功能暂未开放', icon: 'none' })
       })
     }

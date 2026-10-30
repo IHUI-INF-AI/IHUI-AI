@@ -12,6 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import fs from 'node:fs'
 import { once } from 'node:events'
 
 // 源脚本在模块顶层 parseArgs(process.argv.slice(2)) 且有 isDirectRun 守卫:
@@ -137,5 +138,76 @@ test('P8 反向锁:不传 healthMatch 时只要求 200(旧契约不得被悄悄�
   } finally {
     await s.close()
   }
+})
+
+// ── 目标色"跑的是不是本次代码"(2026-10-30 同型第二面)──────────────────────────────
+// 判据 = 源脚本 decideColorStart(纯函数)。每条都必须"摘掉修复就挂":
+// 旧实现(端口健康即跳过启动)在 C3/C4/C6 三格上全判"跳过",正是 api 侧新代码静默不上的成因。
+const { decideColorStart } = mod.__test__
+
+test('C1 目标色端口无健康应答 ⇒ 必须起(两形态一致,不因 web/api 分叉)', () => {
+  for (const isWebForm of [true, false]) {
+    const d = decideColorStart({
+      isWebForm,
+      portHealthy: false,
+      recordedSha: 'a'.repeat(40),
+      currentSha: 'a'.repeat(40),
+    })
+    assert.equal(d.start, true, `isWebForm=${isWebForm} 时端口不健康必须起`)
+  }
+})
+
+test('C2 web 形态健康也要起(前台阻塞进程,跳过等于永远跑旧构建)', () => {
+  const sha = 'b'.repeat(40)
+  const d = decideColorStart({ isWebForm: true, portHealthy: true, recordedSha: sha, currentSha: sha })
+  assert.equal(d.start, true)
+})
+
+test('C3 api 形态健康但记录 sha ≠ 本次 ⇒ 必须起(旧实现这一格跳过 ⇒ 新代码永不生效)', () => {
+  const d = decideColorStart({
+    isWebForm: false,
+    portHealthy: true,
+    recordedSha: 'c'.repeat(40),
+    currentSha: 'd'.repeat(40),
+  })
+  assert.equal(d.start, true)
+  assert.match(d.reason, /≠/, '理由必须写清"记录 sha ≠ 本次",否则日志又变成一句无法复核的"跳过"')
+})
+
+test('C4 api 形态健康但无运行记录 ⇒ 必须起(不拿"没记录"当"已是最新")', () => {
+  const d = decideColorStart({
+    isWebForm: false,
+    portHealthy: true,
+    recordedSha: undefined,
+    currentSha: 'e'.repeat(40),
+  })
+  assert.equal(d.start, true)
+})
+
+test('C5 api 形态健康且记录 sha = 本次 ⇒ 才允许跳过(唯一静默格,必须收窄到这里)', () => {
+  const sha = 'f'.repeat(40)
+  const d = decideColorStart({ isWebForm: false, portHealthy: true, recordedSha: sha, currentSha: sha })
+  assert.equal(d.start, false)
+})
+
+test('C6 sha 判不出(git 不可用)⇒ 必须起,不许猜一个出来省冷启动', () => {
+  const d = decideColorStart({
+    isWebForm: false,
+    portHealthy: true,
+    recordedSha: 'a'.repeat(40),
+    currentSha: '',
+  })
+  assert.equal(d.start, true)
+})
+
+test('C7 形状锁:源脚本第 2 步走 decideColorStart,不得再有"端口健康就跳过"的单边分支', () => {
+  const src = fs.readFileSync(new URL('../win/ihui-api-bluegreen.mjs', import.meta.url), 'utf8')
+  assert.equal(
+    /if\s*\(\s*!isWebForm\s*&&\s*\(?\s*await\s+probeHealthy\(targetPort\)/.test(src),
+    false,
+    '旧形态(只对 api 形态问端口健康)必须已被删除 —— 它把"在服务"当成"是本次代码"',
+  )
+  assert.match(src, /decideColorStart\(\{/, '第 2 步必须由 decideColorStart 判定')
+  assert.match(src, /writeRuntime\(/, '过门禁后必须落运行记录,否则下一轮永远判"记录缺失"')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

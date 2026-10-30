@@ -171,5 +171,44 @@ describe('鉴权默认拒绝兜底闸', () => {
     expect(__test__.isAuthDefaultPublicPath('/api/agents/abc-123')).toBe(true)
     expect(__test__.isAuthDefaultPublicPath('/api/knowledge/docs')).toBe(false)
   })
+
+  it('enforce 实测补全的 33 条路径:内容面放行,个人/权限面拦截', () => {
+    const allow = [
+      '/api/news',
+      '/api/articles',
+      '/api/tools',
+      '/api/help/categories',
+      '/api/help/articles',
+      '/api/ai-feed/items',
+      '/api/ai-feed/hot',
+      '/api/live/channels',
+      '/api/vip/levels',
+      '/api/circles',
+      '/api/relay/models/public',
+      '/api/relay/monitor/status',
+      '/api/model-leaderboard',
+      '/api/learn/lessons',
+      '/api/exam/papers',
+      '/api/analytics/track',
+      '/api/visit-tracking/visit-log',
+      '/api/knowledge/health',
+    ]
+    for (const p of allow) expect(__test__.isAuthDefaultPublicPath(p), `应放行 ${p}`).toBe(true)
+
+    const deny = [
+      '/api/chat/conversations',
+      '/api/chat/conversations/groups',
+      '/api/subagents/active',
+      '/api/subagents/topology',
+      '/api/workspace/permission-default',
+      '/api/workspace/permission/requests',
+      '/api/agent-control/capability',
+      '/api/settings/contact',
+      '/api/configs',
+      '/api/knowledge/docs',
+      '/api/knowledge/search',
+    ]
+    for (const p of deny) expect(__test__.isAuthDefaultPublicPath(p), `应拦截 ${p}`).toBe(false)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

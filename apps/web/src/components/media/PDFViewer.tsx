@@ -138,7 +138,10 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
     }
     // t 引用稳定(见上方同一说明),本 effect 不会因加入依赖而多跑;
     // 换语言时重渲染当前页,失败文案取新词。
-  }, [page, scale, t])
+    // loading/url 必须在依赖里:loading 期间组件在下面早退,canvas 根本不在树上,
+    // 这一格 effect 会命中 `!canvasRef.current` 直接 return;文档加载完 page/scale 并未变
+    // ⇒ 原实现不再重跑,用户看到**只有工具条与页码、正文整片空白**,必须手动翻页才出画面。
+  }, [page, scale, t, loading, url])
 
   if (loading) {
     return (

@@ -324,6 +324,11 @@ export class ContentToolbar {
         margin-top: 6px;
         font-size: 13px;
       }
+      /* 查词失败态：说明文字按次要文本呈现，别让"没查到"看起来像一条译文。
+         只用已在册变量（--color-muted-foreground），不新增 token。 */
+      .ihui-ctx-popup .ihui-ctx-translation[data-ihui-failed='1'] {
+        color: var(--color-muted-foreground);
+      }
       .ihui-ctx-popup .ihui-ctx-defs {
         margin: 6px 0 0 0;
         padding-left: 16px;

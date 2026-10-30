@@ -87,7 +87,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // §0.6 单一真相源:nssm 判读/候选路径与 UTF-16LE 解码复用 check-service-binary-paths 的出口,禁抄第二份
 import { NSSM_CANDIDATES, decodeNssm, interpretNssmGet, pickPowerShell } from './check-service-binary-paths.mjs'
 // §0.6 DevEnv 根的推导只有一份(项目内/盘根双形态由它自己判),本器不另数两级
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+import { prodCheckoutRoot } from './lib/prod-checkout-root.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 
@@ -581,17 +581,19 @@ export function listServiceNamesFromQuery(text, parentKey = REG_SERVICES_KEY) {
   return { ok: true, code: 0, names }
 }
 
-/** 通道 C 的候选目录:`<devEnvRoot>/ihui-prod`(出口 = seal-c-root-stray 的 `devEnvRoot`,§0.6)。
- *  `devEnvRoot` 在"仓库根本身在夹具内"时抛错 ⇒ 显式落成 refused 归因码,不静默当"没有"。 */
-export function conventionalProdRoots(repoRoot, { exists = existsSync } = {}) {
-  let root
+/** 通道 C 的候选目录 = 单源 `lib/prod-checkout-root.mjs` 的 `prodCheckoutRoot`（2026-10-30，RP-90）。
+ *  本器比"目录在不在"更严一层：要的是一份**带 `.git` 的生产 checkout** ⇒ 把这层守卫包成存在性
+ *  谓词交给单源去选根（`(p) => exists(join(p, '.git'))`），而不是在这里再拼第二份候选序（§0.6）。
+ *  单源内部 `devEnvRoot` 在"仓库根本身在夹具内"时抛错 ⇒ 照旧显式落成 refused 归因码，不静默当"没有"。 */
+export function conventionalProdRoots(repoRoot, { exists = existsSync, env = process.env } = {}) {
+  const hasCheckout = (p) => exists(join(p, '.git'))
+  let cand
   try {
-    root = devEnvRoot(repoRoot)
+    cand = prodCheckoutRoot(repoRoot, hasCheckout, env)
   } catch (e) {
     return { state: 'refused', roots: [], reason: String(e?.message || e).slice(0, 120) }
   }
-  const cand = join(root, 'ihui-prod')
-  if (!exists(join(cand, '.git'))) return { state: 'measured', roots: [] }
+  if (!hasCheckout(cand)) return { state: 'measured', roots: [] }
   return { state: 'measured', roots: [cand] }
 }
 
@@ -883,9 +885,44 @@ export function verdictFromSurvey(survey, opts = {}) {
   }
 }
 
+/** 本器认识的旗标（唯一清单；头注 L74 的用法行与之同源，§0.6 不得两处各写）。 */
+export const PROD_FOREIGN_KNOWN_FLAGS = Object.freeze(['--json', '--prod-root'])
+
+/**
+ * 纯校验：第一枚不认识的旗（字符串），全合法 ⇒ null。不 exit，好被镜像测试直接问。
+ * 立因（2026-10-30 实测）：本器原先没有这道闸，又**没有 selfTest**，于是有人敲
+ * `node scripts/check-prod-checkout-foreign-work.mjs --self-test` 以为在跑自检，
+ * 实际被静默忽略并按默认档跑了一整轮生产签出扫描（几万发 git ls-tree 那种）。
+ * 同族纪律：`check-verbatim-resurrection.mjs` 头注「未认识的旗标一律用法错 exit 2」、
+ * `git-sync-converge.mjs` 的 arg guard（RP-79）。失效方向 = 多要一次定向说明（§0.10），
+ * 绝不"不认识就当没问"进而静默执行默认档动作。
+ */
+export function findUnknownFlag(argvList = []) {
+  const list = Array.isArray(argvList) ? argvList : []
+  for (let i = 0; i < list.length; i++) {
+    const a = String(list[i])
+    if (!a.startsWith('-') || a === '--') continue
+    const key = a.includes('=') ? a.slice(0, a.indexOf('=')) : a
+    if (!PROD_FOREIGN_KNOWN_FLAGS.includes(key)) return a
+    if (key === '--prod-root' && !a.includes('=')) {
+      const v = list[i + 1]
+      if (v !== undefined && !String(v).startsWith('-')) i++
+    }
+  }
+  return null
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   const json = argv.includes('--json')
+  const badFlag = findUnknownFlag(argv)
+  if (badFlag) {
+    console.error(
+      `用法错误：未认识的旗标 ${badFlag}（本器不做"未知旗静默忽略后按默认档跑真探测"；` +
+        `本器只认 ${PROD_FOREIGN_KNOWN_FLAGS.join(' / ')}，用法见文件头注 L74）`,
+    )
+    process.exit(2)
+  }
   const pr = requireFlagValue(argv, '--prod-root', { noun: '路径' })
   if (pr.error) {
     console.error(`用法错误:${pr.error}(§0.8 出路必须真跑得通,不给值不当"没指定")`)
@@ -923,6 +960,8 @@ if (isDirectRun) {
 }
 
 export const __test__ = {
+  PROD_FOREIGN_KNOWN_FLAGS,
+  findUnknownFlag,
   PROD_SERVICE,
   ORIGIN_REF,
   REG_SERVICES_KEY,
