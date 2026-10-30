@@ -76,7 +76,7 @@ export default function DevSpace() {
         api.getProfile().catch(() => null),
         api.getMyDeveloperSubscription().catch(() => null),
         getDeveloperDevInfo()
-          .then((r) => r.data ?? null)
+          .then((r) => (r.success ? r.data : null))
           .catch(() => null),
       ])
       if (cancelled) return
