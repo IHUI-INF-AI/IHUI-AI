@@ -30,6 +30,7 @@ $ErrorActionPreference = 'Continue'
 $script      = Join-Path $PSScriptRoot 'ihui-firewall-hardening.ps1'
 $logDir      = if ($env:IHUI_FW_WATCHDOG_LOG_DIR) { $env:IHUI_FW_WATCHDOG_LOG_DIR } else { 'D:\DevEnv\logs' }
 $log         = Join-Path $logDir 'ihui-firewall-watchdog.log'
+$auditScript = Join-Path $PSScriptRoot 'ihui-audit-policy.ps1'
 $intervalSec = if ($env:IHUI_FW_WATCHDOG_INTERVAL_SEC) { [int]$env:IHUI_FW_WATCHDOG_INTERVAL_SEC } else { 3600 }
 # 日志轮转:单文件超过 8MB 就改名为 .1 重开一个(只保留一份历史,不堆备份)
 $logMaxBytes = 8MB
@@ -60,6 +61,20 @@ while ($true) {
     foreach ($line in $out) { if ($line) { Log "  | $line" } }
   } catch {
     Log "ERROR applying hardening: $($_.Exception.Message)"
+  }
+  # 主机审计基线同轮重放(2026-10-30 接入):4688 进程创建审核 + 命令行 + PowerShell 脚本块
+  # 日志 + Security 日志容量,同样会被组策略刷新 / Windows Update 改回去,和防火墙规则
+  # 是同一类漂移。被重放的脚本一律不得含 exit(会终止本进程),见 ihui-audit-policy.ps1 收尾注释。
+  if (Test-Path $auditScript) {
+    try {
+      Log "=== applying host audit baseline (dot-sourced) ==="
+      $out2 = & { . $auditScript -Apply } *>&1
+      foreach ($line in $out2) { if ($line) { Log "  | $line" } }
+    } catch {
+      Log "ERROR applying audit baseline: $($_.Exception.Message)"
+    }
+  } else {
+    Log "WARN 审计基线脚本不在位:$auditScript(跳过,不阻断防火墙腿)"
   }
   Log "sleeping $intervalSec s ..."
   Start-Sleep -Seconds $intervalSec
