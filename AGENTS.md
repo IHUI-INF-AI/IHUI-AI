@@ -252,6 +252,8 @@ UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查
 
 5 条全满足才可声明"完成":①代码合入 main 并推送;②验证齐绿(typecheck/build/test);③守门全过;④PROJECT_PLAN 翻勾;⑤交付报告带证据。commit 后忘记 push = 协作事故;4 道自动防线:post-commit 自动 push / push-state 跟踪 / converge 核验 / 任务完成定义。工具失联按流程升级,不得静默放弃。
 
+- **"完成"的字面判据 = 远端同步成功(强制,2026-10-30 立)**:上 5 条满足 ≠ 完成;**commit 不算、staged 绿不算、`origin` 与本地不一致不算**。声明"完成"前必须确认 `origin/<branch>` 与本地 `HEAD` 完全一致且推送已落地(核验 `node scripts/git-push-converge.mjs` 六态 = synced)。**禁止把瞬断 / TLS 错误 / 超时当借口提前宣告完成**——2026-10-30 曾误判 `origin` 不可达而过早收口,被用户纠正。遇推送失败:先重测连通性 → 循环 `fetch → converge → push` 直到 `origin` 与本地一致,或配自动化兜底重试,**不得口头宣称完成**(参照本仓 §20 收尾核验 + §22 推送协议)。
+
 ## 21. 功能开发同步更新 README 规则(强制)
 
 触发:新增功能模块/API 路由/页面/端能力。强制动作:同 commit 更新 README(功能说明 + 使用方式 + 所属端),缺一视为交付事故;豁免:纯内部重构/修复。守门(warn):`check-readme-sync.mjs`、`check-readme-table-integrity.mjs`。
