@@ -1336,6 +1336,8 @@
     "introLabel": "Intro"
   },
   "exam": {
+    "attempts": "Attempts",
+    "duration": "Duration",
     "tabs": {
       "all": "All",
       "pending": "Pending",
@@ -1348,8 +1350,8 @@
     },
     "questions": "{n} questions",
     "minutes": "{n} min",
-    "passScore": "Pass {n}",
-    "totalScore": "Total {n}",
+    "passScore": "Pass score",
+    "totalScore": "Total score",
     "removedPaper": "Paper removed",
     "passed": "Passed",
     "notPassed": "Not passed",
@@ -4753,7 +4755,7 @@
     "allowInvites": "Allow invitations"
   },
   "memberDashboard": {
-    "title": "Member Center",
+    "title": "Member Overview",
     "level": "Membership",
     "points": "My Points",
     "coupons": "Coupons",
@@ -5160,7 +5162,7 @@
   },
   "agreement": {
     "title": "Agreements and Policies",
-    "subtitle": "Please read the following agreements carefully"
+    "subtitle": "Please read this agreement carefully"
   },
   "agreementSections": {
     "sectionTerms": "Terms of Service",
@@ -5982,7 +5984,7 @@
     "loadFailed": "Failed to load promote"
   },
   "promotion": {
-    "title": "Coupons",
+    "title": "Coupon Center",
     "empty": "No coupons available",
     "minSpend": "Min. spend ¥{minSpend}",
     "expireDate": "Valid until",

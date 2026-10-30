@@ -1336,6 +1336,8 @@
     "introLabel": "簡介"
   },
   "exam": {
+    "attempts": "考試次數",
+    "duration": "考試時長",
     "tabs": {
       "all": "全部",
       "pending": "待完成",
@@ -1348,8 +1350,8 @@
     },
     "questions": "{n} 題",
     "minutes": "{n} 分鐘",
-    "passScore": "及格分 {n}",
-    "totalScore": "總分 {n}",
+    "passScore": "及格分",
+    "totalScore": "總分",
     "removedPaper": "試卷已下架",
     "passed": "已通過",
     "notPassed": "未通過",
@@ -4753,7 +4755,7 @@
     "allowInvites": "允許被邀請"
   },
   "memberDashboard": {
-    "title": "會員中心",
+    "title": "會員概覽",
     "level": "會員等級",
     "points": "我的積分",
     "coupons": "優惠券",
@@ -5160,7 +5162,7 @@
   },
   "agreement": {
     "title": "協議與政策",
-    "subtitle": "請仔細閱讀以下協議"
+    "subtitle": "請仔細閱讀本協議"
   },
   "agreementSections": {
     "sectionTerms": "服務條款",
@@ -5982,7 +5984,7 @@
     "loadFailed": "載入推廣失敗"
   },
   "promotion": {
-    "title": "優惠券",
+    "title": "優惠券中心",
     "empty": "暫無可用優惠券",
     "minSpend": "滿 ¥{minSpend} 可用",
     "expireDate": "有效期限至",
