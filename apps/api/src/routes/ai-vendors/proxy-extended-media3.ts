@@ -17,6 +17,7 @@
  */
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
+import { escapeXml } from '../../utils/xml-escape.js'
 import { buildSchema } from '../../utils/swagger.js'
 import {
   requireAuth,
@@ -196,6 +197,31 @@ const ADOBE_IMS_TOKEN_URL = 'https://ims-na1.adobelogin.com/ims/token/v3'
 const ADOBE_FIREFLY_SCOPE =
   'openid,additional_info.projectedProductContext,additional_info.job_function,firefly_api,ff_ondemand.onee'
 
+/**
+ * Azure TTS 的 SSML 组装(唯一形状;每个来自请求体的值都过 escapeXml)。
+ *
+ * 立因:SSML 是**字符串拼出来的 XML**,text/voice/lang/rate/pitch/volume 全部来自请求体。
+ * 未转义时 `text` 里一句 `</voice></speak><mstts:express-as style="..."` 就能关掉外层节点、
+ * 把任意 SSML 注入**我方替用户发起**的合成请求(换音色、改语速、朗读被拼进去的别的文本),
+ * 并让其后所有属性失效。转义实现只住 utils/xml-escape.ts(§0.6),本处不再写第二份。
+ */
+export function buildAzureSsml(input: {
+  text: string
+  voice?: string
+  lang?: string
+  rate?: string
+  pitch?: string
+  volume?: string
+}): string {
+  const voice = input.voice ?? 'zh-CN-XiaoxiaoNeural'
+  const lang = input.lang ?? 'zh-CN'
+  const prosody =
+    input.rate || input.pitch || input.volume
+      ? `<prosody${input.rate ? ` rate='${escapeXml(input.rate)}'` : ''}${input.pitch ? ` pitch='${escapeXml(input.pitch)}'` : ''}${input.volume ? ` volume='${escapeXml(input.volume)}'` : ''}>${escapeXml(input.text)}</prosody>`
+      : escapeXml(input.text)
+  return `<speak version='1.0' xml:lang='${escapeXml(lang)}'><voice name='${escapeXml(voice)}'>${prosody}</voice></speak>`
+}
+
 /** Azure OpenAI 端点拼接(resource 级官方 URL) */
 function azureUrl(resource: string, path: string, apiVersion: string): string {
   return `https://${resource}.openai.azure.com${path}?api-version=${apiVersion}`
@@ -206,8 +232,7 @@ function azureUrl(resource: string, path: string, apiVersion: string): string {
  * 不在测试里重抄一份判据 —— 第二份必然漂移)。
  */
 export const __test__ = {
-  azureResourceShape: (v: string) => z.string().regex(AZURE_RESOURCE_RE).safeParse(v).success,
-  azureDeploymentShape: (v: string) => z.string().regex(AZURE_DEPLOYMENT_RE).safeParse(v).success,
+  azureResourceShape: (v: string) => z.string().regex(AZURE_RESOURCE_RE).safeParse(v).success,  azureDeploymentShape: (v: string) => z.string().regex(AZURE_DEPLOYMENT_RE).safeParse(v).success,
   azureApiVersionShape: (v: string) => z.string().regex(AZURE_API_VERSION_RE).safeParse(v).success,
   azureSpeechRegionShape: (v: string) => azureSpeechTtsBody.shape.region.safeParse(v).success,
   azureUrl,
@@ -587,14 +612,8 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = azureSpeechTtsBody.parse(request.body)
       const key = requireVendorKey('azure-speech', reply)
       if (!key) return
-      const voice = body.voice ?? 'zh-CN-XiaoxiaoNeural'
-      const lang = body.lang ?? 'zh-CN'
       const outputFormat = body.output_format ?? 'audio-24khz-48kbitrate-mono-mp3'
-      const prosody =
-        body.rate || body.pitch || body.volume
-          ? `<prosody${body.rate ? ` rate='${body.rate}'` : ''}${body.pitch ? ` pitch='${body.pitch}'` : ''}${body.volume ? ` volume='${body.volume}'` : ''}>${body.text}</prosody>`
-          : body.text
-      const ssml = `<speak version='1.0' xml:lang='${lang}'><voice name='${voice}'>${prosody}</voice></speak>`
+      const ssml = buildAzureSsml(body)
       try {
         const resp = await fetchWithTimeout(
           `https://${body.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
