@@ -58,8 +58,16 @@ const SKIP_ENV = 'HUSKY_SKIP_RN_STYLE_PARITY'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码绝对路径) ───
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SRC = join(root, 'apps/mobile-rn/src')
-const SRC_REL = 'apps/mobile-rn/src'
+/**
+ * 射程根清单(2026-10-31 扩第二根)。此前只有 apps/mobile-rn/src ⇒ `packages/app/src` 里的手抄
+ * 色值对**本门结构性隐身**:共享屏层才是"web 改一处 RN 不跟随"的另一半成因,射程盖不住它,
+ * 基线棘轮守住的只是半边仓库。
+ *
+ * 基线键随之改成**仓库相对全路径**(原来是剥掉目录前缀的短键)。多根下短键会让不同目录的
+ * 同名文件互相顶掉 —— 两个 `HomeScreen.tsx` 共用一个键,一方清零就能把另一方的存量一起"销账"。
+ */
+const SRC_RELS = ['apps/mobile-rn/src', 'packages/app/src']
+const SRC_ABS = SRC_RELS.map((r) => join(root, r))
 const BASELINE_PATH = join(root, 'scripts/rn-style-parity-baseline.json')
 
 // ─── CLI 解析 ───
@@ -161,12 +169,12 @@ function walk(dir, exts, out = []) {
 /** 按面枚举 apps/mobile-rn/src 下的 ts/tsx,返回**仓库相对路径**(正斜杠)。枚举不产正文,不算散写读内容。 */
 function listFaceFiles(f) {
   const isTs = (p) => /\.(ts|tsx)$/.test(p)
-  const scoped = (p) => p.startsWith(`${SRC_REL}/`) && isTs(p)
+  const scoped = (p) => SRC_RELS.some((r) => p.startsWith(`${r}/`)) && isTs(p)
   if (f === 'worktree') {
-    return walk(SRC, ['ts', 'tsx'])
-      .map((abs) => abs.split(sep).join('/'))
-      .filter((abs) => scoped(abs.slice(root.split(sep).join('/').length + 1)))
-      .map((abs) => abs.slice(root.split(sep).join('/').length + 1))
+    const rootPrefix = root.split(sep).join('/').length + 1
+    return SRC_ABS.flatMap((abs) => walk(abs, ['ts', 'tsx']))
+      .map((abs) => abs.split(sep).join('/').slice(rootPrefix))
+      .filter(scoped)
   }
   if (f === 'staged') {
     return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], root)
@@ -174,7 +182,7 @@ function listFaceFiles(f) {
       .map((s) => s.trim())
       .filter((p) => p && scoped(p))
   }
-  return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', SRC_REL], root)
+  return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SRC_RELS], root)
     .split('\n')
     .map((s) => s.trim())
     .filter((p) => p && scoped(p))
@@ -215,7 +223,7 @@ function faceText(faceMode, rel, prefetched) {
   return readWorktreeFile(root, rel)
 }
 
-/** 按面扫一遍 → [{ file(SRC 相对,正斜杠), hexes[] }](无 hex 的文件不入列)。 */
+/** 按面扫一遍 → [{ file(仓库相对全路径,正斜杠), hexes[] }](无 hex 的文件不入列)。 */
 function scanFace(f) {
   const files = listFaceFiles(f)
   const prefetched = prefetchFace(f, files)
@@ -224,7 +232,8 @@ function scanFace(f) {
     const text = faceText(f, rel, prefetched)
     if (text === null) continue // 该面与磁盘都没有 → 不判、不猜(与改判前一致)
     const hexes = extractHexes(stripBom(text))
-    if (hexes.length > 0) out.push({ file: rel.slice(`${SRC_REL}/`.length), hexes })
+    // 键不再剥前缀:两根射程下剥掉各自主目录会让同名文件顶掉彼此的账
+    if (hexes.length > 0) out.push({ file: rel, hexes })
   }
   return out
 }
@@ -356,7 +365,7 @@ function main() {
   if (newHits.length > 0) {
     console.error(`[FAIL] RULE-1: ${newHits.length} 个文件出现基线之外的新增硬编码 #hex(必须改用 @ihui/design-tokens):`)
     for (const h of newHits.slice(0, 30))
-      console.error(`    ${SRC_REL}/${h.file}: ${h.added.join(' ')}`)
+      console.error(`    ${h.file}: ${h.added.join(' ')}`)
   } else if (!quiet) {
     console.log(`[PASS] RULE-1: 无新增硬编码 #hex(存量 ${currentCount} 处 / ${current.length} 文件,只减不增)`)
   }
@@ -370,8 +379,8 @@ function main() {
   } else if (staleFiles.length > 0 || shrunk.length > 0) {
     warnings = staleFiles.length + shrunk.length
     console.warn(`[WARN] RULE-2: ${staleFiles.length} 个基线文件已删除 / ${shrunk.length} 个文件硬编码已减少,建议运行 --update-baseline 收紧基线:`)
-    for (const f of staleFiles.slice(0, 10)) console.warn(`    ${SRC_REL}/${f}(已删除)`)
-    for (const s of shrunk.slice(0, 10)) console.warn(`    ${SRC_REL}/${s.file}(已移除: ${s.removed.join(' ')})`)
+    for (const f of staleFiles.slice(0, 10)) console.warn(`    ${f}(已删除)`)
+    for (const s of shrunk.slice(0, 10)) console.warn(`    ${s.file}(已移除: ${s.removed.join(' ')})`)
   }
 
   if (newHits.length > 0) {
