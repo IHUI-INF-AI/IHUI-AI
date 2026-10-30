@@ -482,7 +482,8 @@ function scanText(text, minTap, rel = '') {
     )
       h2.push({ line, tag })
   }
-  return { h1, h2, skipped, slopOnly }
+  const h3 = scanKeyboard(text)
+  return { h1, h2, skipped, slopOnly, h3 }
 }
 
 /** 被审面上的 geometry.js → tapBox 数值;读不出给 null(调用方落未判定,不猜)。 */
@@ -520,6 +521,86 @@ function listFiles(f) {
     .split('\n')
     .map((s) => s.trim())
     .filter(scoped)
+}
+
+/**
+ * 取一个 JSX 元素的范围:{props, end}(end = 闭标签之后;自闭合则为开标签末)。
+ * 同名嵌套按深度配平;`style={{…}}` 里的 `>` 由花括号深度挡住,不会提前收尾 ——
+ * 上一版探针拿 `+3000 字` 窗口当子树,把兄弟节点的输入框算给了前一个列表(实测误报 2 处),
+ * 这条判据的方向必须是"看不见就不判",而不是"看不见就当有"。
+ */
+function elementRange(text, start, tag) {
+  const openRe = new RegExp(`</?${tag}(?![\\w-])`, 'g')
+  const findPropsEnd = (from) => {
+    let d = 0
+    for (let i = from; i < text.length; i++) {
+      const c = text[i]
+      if (c === '{') d++
+      else if (c === '}') d--
+      else if (c === '>' && d === 0) return i
+    }
+    return -1
+  }
+  const nameEnd = start + 1 + tag.length
+  const propsEnd = findPropsEnd(nameEnd)
+  if (propsEnd < 0) return null
+  const props = text.slice(start, propsEnd + 1)
+  if (text[propsEnd - 1] === '/') return { props, end: propsEnd + 1, selfClosing: true, closed: true }
+  let depth = 1
+  openRe.lastIndex = propsEnd + 1
+  let m
+  while ((m = openRe.exec(text))) {
+    if (m[0].startsWith('</')) {
+      depth--
+      if (depth <= 0) {
+        const gt = text.indexOf('>', m.index)
+        return { props, end: (gt < 0 ? text.length : gt + 1), selfClosing: false, closed: true }
+      }
+      continue
+    }
+    const pe = findPropsEnd(m.index + m[0].length)
+    if (pe < 0) break
+    if (text[pe - 1] === '/') continue // 同名自闭标签不加深
+    depth++
+  }
+  return { props, end: text.length, selfClosing: false, closed: false }
+}
+
+const LIST_SCROLLER_RE = /<(ScrollView|FlatList|SectionList|KeyboardAwareScrollView)(?![\w-])/g
+
+
+/**
+ * H3:滚动容器里会出现输入框时,必须写 `keyboardShouldPersistTaps`。
+ * 默认值 `'never'` 让键盘弹起后的**第一下点击只收键盘、不触发按钮** —— 用户在浮层里填完码/参数
+ * 再点"提交",第一下像没反应,正是"符合使用习惯"的直接反面。
+ * 判"里面有输入框"只按两条静态可证的口径:
+ *  ① 该容器直接承载 `{children}`(内容是谁传的看不见 ⇒ 按构造就必须安全);
+ *  ② 该容器**自己的子树**里出现 `<TextInput` / `<TextField`(已核实 TextField 包的就是 TextInput)。
+ * 声明的盲区(不判,也不记通过):列表引用了"另一个函数渲染输入框"的组件(如 ModelConfigDialog 的
+ * ModelParamsBody)—— 上一版试图用 `[\s\S]{0,4000}?<TextInput` 从组件定义名一路搜,结果把**别的
+ * 函数**里的输入框算给了前一个组件,HEAD 面凭空报 52 处,故整条撤掉;那种站点靠人逐屏看,不靠坏尺子。
+ * 看不见输入框就放过:跨文件传进来的组件同样在盲区里,本门的绿只覆盖上面两条。
+ */
+function scanKeyboard(text) {
+  const code = maskComments(String(text ?? ''))
+  const out = []
+  for (const m of code.matchAll(LIST_SCROLLER_RE)) {
+    const tag = m[1]
+    const r = elementRange(code, m.index, tag)
+    if (!r || r.closed === false) continue // 闭标签配不平 ⇒ 区间不可信,落盲区不判
+    if (/keyboardShouldPersistTaps\s*=/.test(r.props)) continue
+    const subtree = code.slice(m.index, r.end)
+    const after = code.slice(m.index + r.props.length, r.end)
+    const directChildren = /^\s*\{\s*children\s*[,)}\n]/.test(after)
+    const hasInput = /<(?:TextInput|TextField)(?![\w-])/.test(subtree)
+    if (directChildren || hasInput)
+      out.push({
+        line: code.slice(0, m.index).split('\n').length,
+        tag,
+        why: directChildren ? '承载 children' : '子树含输入框',
+      })
+  }
+  return out
 }
 
 function runSelfTest() {
@@ -675,6 +756,35 @@ function runSelfTest() {
   const solidBlack = scan('<Pressable style={{ backgroundColor: \'#000000\' }} onPress={go} />')
   ok(solidBlack.h2.length === 1, 'H2 失守:不透明黑底不是遮罩(拿它当遮罩就等于给任何黑钮发免检)')
 
+  // H3 键盘点击穿透:承载 children 的滚动容器 / 子树里有输入框的滚动容器,必须声明该属性
+  const carrier = scanKeyboard(
+    '<Modal visible><KeyboardAvoidingView><ScrollView style={a}>{children}</ScrollView></KeyboardAvoidingView></Modal>',
+  )
+  ok(carrier.length === 1 && carrier[0].why === '承载 children', 'H3 失效:承载 children 的滚动区内容看不见,必须默认安全')
+  const withInput = scanKeyboard(
+    '<ScrollView horizontal><View><TextInput value={v} /></View></ScrollView>',
+  )
+  ok(withInput.length === 1, 'H3 失效:子树里有输入框却没声明,第一下点击会被键盘吞掉')
+  const declared = scanKeyboard(
+    '<ScrollView keyboardShouldPersistTaps="handled"><TextInput value={v} /></ScrollView>',
+  )
+  ok(declared.length === 0, 'H3 误报:已声明就不该判')
+  // 反向对照:输入框在兄弟节点(不在子树里)不算 —— 上一版用 +3000 字窗口就是这么误报的
+  const sibling = scanKeyboard(
+    '<View><ScrollView horizontal>{chips.map((c) => <Text key={c}>{c}</Text>)}</ScrollView><TextInput value={v} /></View>',
+  )
+  ok(sibling.length === 0, 'H3 过头:兄弟节点的输入框被算给了列表(窗口式子树匹配的病灶)')
+  // 声明的盲区(不是通过):同文件里"另一个函数渲染输入框、本列表只引用它"这一型静态认不出
+  // —— 上一版用 `[\s\S]{0,4000}?<TextInput` 从定义名一路搜,把**别的函数**里的输入框算给了
+  // 前一个组件,HEAD 面凭空报出 52 处(实测其中多数即此型)。宁可留可见的盲区,不要拿坏尺子逼人改代码。
+  const localBody = scanKeyboard(
+    'function ModelParamsBody(){return <TextField value={1} />}\n<ScrollView><ModelParamsBody config={c} /></ScrollView>',
+  )
+  ok(localBody.length === 0, 'H3 过头:同文件组件推断已按坏尺子撤掉,这里必须读成盲区而不是命中')
+
+  const clean = scanKeyboard('<ScrollView>{items.map((i) => <Row key={i.id} />)}</ScrollView>')
+  ok(clean.length === 0, 'H3 过头:没有输入框的列表不该被要求声明该属性')
+
   if (fails.length) {
     for (const f of fails) console.error(`[SELF-TEST FAIL] ${f}`)
     return 1
@@ -753,14 +863,15 @@ function main() {
     const r = scanText(text, minTap, rel)
     blind += r.skipped.length
     slopOnlyTotal += r.slopOnly.length
-    if (r.h1.length || r.h2.length) perFile.set(rel, r)
+    if (r.h1.length || r.h2.length || r.h3.length) perFile.set(rel, r)
   }
   const totalH1 = [...perFile.values()].reduce((s, r) => s + r.h1.length, 0)
   const totalH2 = [...perFile.values()].reduce((s, r) => s + r.h2.length, 0)
+  const totalH3 = [...perFile.values()].reduce((s, r) => s + r.h3.length, 0)
 
   if (!quiet) {
     console.log(
-      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;盲区(静态判不了): ${blind} 处;只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
+      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(候选,区间匹配未自证 ⇒ 只报数不判红);盲区(静态判不了): ${blind} 处;只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
     )
     if (argv.includes('--list')) {
       for (const [rel, r] of perFile)
@@ -820,8 +931,8 @@ function main() {
             .join(' / '),
       )
     const headText = headTexts.get(`HEAD:${rel}`) ?? null
-    const base = headText === null ? { h1: [], h2: [] } : scanText(headText, minTap, rel)
-    if (r.h2.length > base.h2.length)
+    const base = headText === null ? { h1: [], h2: [], h3: [] } : scanText(headText, minTap, rel)
+NaN
       added.push(
         `${rel} 无按压反馈 ${base.h2.length} → ${r.h2.length}(新增 ${r.h2.length - base.h2.length})`,
       )
@@ -851,6 +962,8 @@ export const __test__ = {
   isScrim,
   isTranslucentBlack,
   scrimByStyle,
+  scanKeyboard,
+  elementRange,
   runSelfTest,
   SKIP_ENV,
   SRC_RELS,
