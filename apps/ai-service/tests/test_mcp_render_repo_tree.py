@@ -54,6 +54,8 @@ async def test_success_returns_accounting_not_only_text(monkeypatch, tmp_path):
         "dirsShown",
         "filesShown",
         "filesDropped",
+        "filesIgnored",
+        "ignoredBy",
         "enumerated",
         "complete",
         "engine",
