@@ -11,7 +11,15 @@
 // **不生效**(clean 检出到 88d43f8c1d 仍报 vip-badge.tsx TS2769);side-effect import 才会
 // 随 index.ts 的 import 链进入消费方类型图(本地 apps/web `tsc --noEmit` 0 错误)。
 // 本包自述由本包负责:删掉本行 = 让每个消费方自己记得挂增强,必然再漂移。
-import 'nativewind/types'
+// ⚠️ 但这一行**不能是 import**:盘上 `node_modules/nativewind/` 里该子路径只有
+// `types.d.ts`(无 `types.js`、无 `types/` 目录、包内也没有 exports 映射)⇒ TypeScript
+// 按 .d.ts 解析得到,而 webpack/Metro 按 JS 产物解析必然落空。上一版写成 side-effect
+// import 后类型检查过了、`next build` 改报 module-not-found(导入链正是本入口 +
+// apps/web 的 react-native-web 试点页),等于把类型问题换成了打包问题;
+// `import type {}` 也不行(TS2306:那份 types.d.ts 不是模块)。
+// 三斜杠 reference 是**注释指令**:类型图照样加载增强,打包器根本看不见它。
+// 消费方若要自己的确定性,照 apps/web/nativewind-env.d.ts 在各自类型程序里挂一份。
+/// <reference types="nativewind/types" />
 
 // 按压反馈唯一口:pressed 态**必须**由组件内部持有 —— cssInterop 会把注册表组件(含 Pressable)的
 // 函数形态 style 换成 `{}`(守门 131 真机定案),所以 `style={fn}` 这一路连原样式一起丢。
