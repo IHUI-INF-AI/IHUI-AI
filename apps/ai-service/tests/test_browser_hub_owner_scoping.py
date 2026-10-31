@@ -120,25 +120,43 @@ def test_dedup_window_is_owner_guarded() -> None:
     在单测里起真浏览器属另一票。而这一格的故障形态是"两个人同时打开同一个平台
     登录页 ⇒ 第二个人拿到第一个人的 context(cookies + 登录态)",
     所以判据的存在性本身就是回归面。
+
+    2026-10-31(gap#3)加强:同属主还要**同会话态**才复用 —— 只判属主时,同一个人在
+    A 会话开的 tab 会被他 B 会话的重复创建请求直接接走(两个会话共用一个 context)。
     """
     src = inspect.getsource(BrowserHub.create_session)
-    assert "if _same_owner(candidate.owner_user_id, owner_user_id):" in src, src
+    assert "if _same_owner(candidate.owner_user_id, owner_user_id) and (" in src, src
+    assert "_registration_session_matches(self._tab_registry.get(sid), chat_session_id)" in src, src
     assert "return self._sessions[sid]" not in src, "无条件复用 = 跨属主串会话"
 
 
 def test_router_endpoints_pass_the_principal() -> None:
-    """十个 HTTP 端点 + WS 的出口形状锁:每个 handler 都要把身份喂进归属过滤。"""
+    """十个 HTTP 端点 + WS 的出口形状锁:每个 handler 都要把身份喂进归属过滤。
+
+    2026-10-31(gap#3)口径升级:动作面不再走 user 级的 `hub.get_session`,一律经
+    `hub.require_tab(_tab_scope(...))` —— 既要"身份喂进过滤",也要"点名那一枚 tab"。
+    `get_session` 在本路由里必须一次都不再出现(留着它就是留着 user 级兜底)。
+    """
     src = (AI_SERVICE / "app" / "routers" / "browser_hub.py").read_text(encoding="utf-8")
-    assert src.count("hub.get_session(session_id, user_id)") == 7, src.count(
-        "hub.get_session(session_id, user_id)"
+    # 7 处动作/读取端点:同一形状,判据只有一份
+    assert src.count("hub.require_tab(_tab_scope(session_id, user_id))") == 7, src.count(
+        "hub.require_tab(_tab_scope(session_id, user_id))"
     )
-    assert "hub.get_session(session_id, ws_user_id)" in src
+    # 关闭端点走同一个作用域出口;WS 握手 + 逐条消息复核 = 2 处
+    assert "hub.close_tab(_tab_scope(session_id, user_id))" in src
+    assert src.count("hub.require_tab(_tab_scope(session_id, ws_user_id))") == 2, src.count(
+        "hub.require_tab(_tab_scope(session_id, ws_user_id))"
+    )
     assert "ws_user_id = principal_from_payload(payload)" in src
     assert "owner_user_id=user_id," in src, "create_session 未盖章"
     assert "hub.list_sessions(user_id)" in src and "hub.session_count_for(user_id)" in src
-    # 未过滤的旧调用形态一律不得残留
-    assert "hub.get_session(session_id)" not in src
+    # user 级读取口不得再出现在动作路由里;未过滤/未盖章的旧调用形态同样不得残留
+    assert "hub.get_session(" not in src, "动作面退回 user 级作用域"
     assert "hub.list_sessions()" not in src
+    # 作用域三值只来自承载层:构造器里不许取请求体字段
+    assert "strict_browser_owner=True" in src
+    for forbidden in ("body.session_id", "msg.get(\"tab_id\")", "body.tab_id", "body.user_id"):
+        assert forbidden not in src, f"作用域取值混入客户端可整写字段: {forbidden}"
 
 
 def test_scan_login_sessions_are_owner_stamped() -> None:

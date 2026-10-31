@@ -32,7 +32,7 @@ import time
 from collections import OrderedDict, deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -90,6 +90,135 @@ _BEHAVIOR_BOOST_BANDS: list[tuple[int, int, float, float]] = [
     (6, 20, 0.3, 0.6),
     (21, 100000, 0.6, 1.0),
 ]
+
+# ---------------------------------------------------------------------------
+# 编辑器状态入参(2026-10-31 立,对标 Trae T2§1.3 的 document_action / cursor_move)
+# ---------------------------------------------------------------------------
+# 缺口取证(现读):本仓的 `app/core/file_watcher.py` 只是**路径变更路由器**
+# (FileWatcherEvent 只带 paths),全仓 `git grep document_action|cursor_move` 零命中
+# ⇒ 没有任何一层把"哪个文件正在被编辑 / 光标在第几行 / 选了什么"交给检索侧;
+# `_search_codebase` 因此只能按语义相似度排序,正在编辑的文件邻域拿不到优先权。
+# 本块补的就是这一格:**只加入参 + 单一消费点**(_search_codebase 的邻近度加权),
+# 不新造采集器、不改 codebase_indexer 的签名与 Merkle 脏标算法(单源禁碰)。
+# 默认关(ENGINE_EDITOR_STATE_ENABLED 未设置):不重排、不改分、不写 metadata,
+# 检索结果与现状逐字节等价(与 ENGINE_FILE_WATCHER_ENABLED 同一灰度风格)。
+
+
+def _editor_state_enabled_from_env() -> bool:
+    """editor_state 是否参与检索优先级(门控类,默认关)。
+
+    默认 off:`_search_codebase` 完全忽略 editor_state(现状逐字节等价);
+    设为 on/1/true/yes 时按「活动文件 > 同目录 > 其他」加权重排代码切片。
+    每次调用实读 env(不缓存)——与仓内其余门控同一纪律。
+    """
+    return os.environ.get("ENGINE_EDITOR_STATE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+class EditorState(TypedDict, total=False):
+    """编辑器状态三键(刻意不含文档正文:正文走 /api/llm/fim 那条既有链路)。
+
+    - active_file: 当前编辑焦点的文件路径(相对仓根或绝对路径均可,内部归一化)
+    - cursor_line: 光标所在行(1 基;缺失则不做邻域加成)
+    - selection:   选中文本(本笔只入参就位并随状态透传,不参与排序)
+    """
+
+    active_file: str
+    cursor_line: int
+    selection: str
+
+
+# 邻近度加权档(叠加后封顶 EDITOR_BOOST_CAP;relevance 在下游仍会被夹到 [0,1])
+EDITOR_ACTIVE_FILE_BOOST = 0.35
+EDITOR_SAME_DIR_BOOST = 0.20
+EDITOR_CURSOR_NEIGHBOUR_BOOST = 0.15
+EDITOR_CURSOR_WINDOW_LINES = 40
+EDITOR_BOOST_CAP = 0.5
+
+
+def _norm_editor_path(path: str) -> str:
+    """路径归一化:反斜杠→正斜杠、去 `./` 与首尾 `/`、大小写折叠。
+
+    web 上报的是仓库相对路径,索引侧存的 file_path 可能带 `./` 或平台分隔符,
+    不归一化就会"看起来同路径却判成不同文件"⇒ 优先权静默失效。
+    """
+    normalized = str(path).replace("\\", "/").strip()
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.lower().strip("/")
+
+
+def _coerce_line(value: Any) -> int | None:
+    """行号取值:bool/None/非数字一律 None(不猜、不用 0 冒充"没读到")。"""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
+
+
+def normalize_editor_state(raw: object) -> EditorState | None:
+    """把外部(含 HTTP 请求体)传入的 editor_state 收敛成 EditorState。
+
+    失效方向 = 丢弃而非猜:非映射 / active_file 缺失或空白 ⇒ None,
+    调用方按"没有编辑器状态"继续走现状路径。
+    """
+    if not isinstance(raw, dict):
+        return None
+    active_file = str(raw.get("active_file", "") or "").strip()
+    if not active_file:
+        return None
+    state: EditorState = {"active_file": active_file}
+    cursor_line = _coerce_line(raw.get("cursor_line"))
+    if cursor_line is not None:
+        state["cursor_line"] = cursor_line
+    selection = str(raw.get("selection", "") or "")
+    if selection.strip():
+        state["selection"] = selection
+    return state
+
+
+def editor_proximity_boost(
+    file_path: str,
+    line_start: Any,
+    line_end: Any,
+    editor: EditorState | None,
+) -> tuple[float, str]:
+    """一片代码切片相对编辑器状态的邻近度 ⇒ (附加权重, 档位标签)。
+
+    档位(自上而下命中即止):
+    - "active_file":切片就在正在编辑的文件里;光标落在其 ±EDITOR_CURSOR_WINDOW_LINES
+      行内时再追加邻域权重
+    - "same_dir":同目录邻域
+    - "":其他(不加权,原序不动)
+    """
+    if editor is None:
+        return (0.0, "")
+    active = _norm_editor_path(editor.get("active_file", ""))
+    target = _norm_editor_path(file_path)
+    if not active or not target:
+        return (0.0, "")
+    if target == active:
+        boost = EDITOR_ACTIVE_FILE_BOOST
+        cursor_line = editor.get("cursor_line")
+        start = _coerce_line(line_start)
+        end = _coerce_line(line_end)
+        if isinstance(cursor_line, int) and start is not None and end is not None:
+            if (
+                start - EDITOR_CURSOR_WINDOW_LINES
+                <= cursor_line
+                <= end + EDITOR_CURSOR_WINDOW_LINES
+            ):
+                boost += EDITOR_CURSOR_NEIGHBOUR_BOOST
+        return (min(boost, EDITOR_BOOST_CAP), "active_file")
+    if target.rsplit("/", 1)[0] == active.rsplit("/", 1)[0]:
+        return (EDITOR_SAME_DIR_BOOST, "same_dir")
+    return (0.0, "")
 
 
 @dataclass
@@ -260,6 +389,7 @@ class ContextEngine:
         top_k: int = 5,
         include_codebase: bool = True,
         user_id: str | None = None,
+        editor_state: EditorState | None = None,
     ) -> list[RetrievedContext]:
         """RAG 检索:基于 query 从历史消息 + 代码库检索相关上下文。
 
@@ -274,6 +404,9 @@ class ContextEngine:
             query: 检索查询(通常为用户最新问题)。
             top_k: 历史消息检索 top-K(codebase 固定 top-3)。
             include_codebase: 是否启用 codebase 跨会话检索(默认 True)。
+            editor_state: 编辑器状态(2026-10-31 新增,可选)。ENGINE_EDITOR_STATE_ENABLED
+                =on 时透传给 _search_codebase,用于"正在编辑的文件邻域优先";
+                默认关时该入参被完全忽略(行为与新增前逐字节等价)。
         """
         if not query.strip():
             return []
@@ -316,7 +449,9 @@ class ContextEngine:
         # 跨会话 RAG:检索代码库 chunk
         if include_codebase:
             try:
-                codebase_results = await self._search_codebase(query, top_k=3, user_id=user_id)
+                codebase_results = await self._search_codebase(
+                    query, top_k=3, user_id=user_id, editor_state=editor_state
+                )
                 history_results.extend(codebase_results)
             except Exception as e:
                 logger.warning("retrieve_and_enrich codebase search failed (degrade): %s", e)
@@ -324,11 +459,21 @@ class ContextEngine:
         return history_results
 
     async def _search_codebase(
-        self, query: str, top_k: int = 3, user_id: str | None = None
+        self,
+        query: str,
+        top_k: int = 3,
+        user_id: str | None = None,
+        editor_state: EditorState | None = None,
     ) -> list[RetrievedContext]:
         """跨会话 RAG:从 codebase_indexer 检索代码 chunk。
 
         降级:codebase_indexer 不可用 / API 调用失败 → 返回空列表(不影响主流程)。
+
+        编辑器状态优先(2026-10-31 立,对标 Trae document_action/cursor_move):
+        ENGINE_EDITOR_STATE_ENABLED=on 且 editor_state 带 active_file 时,按
+        `editor_proximity_boost` 给切片加邻近度权重并重排(正在编辑的文件 > 同目录),
+        并在该条 metadata 上留 `editor_proximity` 档位便于对账。默认关时**一次加权
+        都不做**,返回顺序与分值与新增前逐字节等价。
 
         Args:
             query: 自然语言查询。
@@ -336,6 +481,7 @@ class ContextEngine:
             user_id: 调用者身份(2026-10-03 新增)。codebase_chunks 存用户代码
                 明文且已按归属隔离,api 侧据此过滤;不传则该源降级为空
                 (只丢代码上下文,不影响消息历史那一路)。
+            editor_state: 编辑器状态(可选,受 ENGINE_EDITOR_STATE_ENABLED 门控)。
         """
         try:
             # 延迟导入避免循环依赖
@@ -365,6 +511,18 @@ class ContextEngine:
                         },
                     )
                 )
+            if editor_state is not None and _editor_state_enabled_from_env():
+                for item in results:
+                    boost, proximity = editor_proximity_boost(
+                        str(item.metadata.get("file_path", "")),
+                        item.metadata.get("line_start"),
+                        item.metadata.get("line_end"),
+                        editor_state,
+                    )
+                    if boost > 0.0:
+                        item.score = min(1.0, item.score + boost)
+                        item.metadata["editor_proximity"] = proximity
+                results.sort(key=lambda r: r.score, reverse=True)
             return results
         except Exception as e:
             logger.warning("codebase search degrade: %s", e)
@@ -514,6 +672,7 @@ class ContextEngine:
         messages: list[dict[str, Any]] | None = None,
         total_budget: int = DEFAULT_CONTEXT_BUDGET,
         user_id: str = "",
+        editor_state: EditorState | None = None,
     ) -> dict[str, Any]:
         """两层集成入口:合并 @ 提及 + RAG 检索结果(2026-07-22 立,2026-07-22 深化)。
 
@@ -535,6 +694,10 @@ class ContextEngine:
             messages: 当前会话消息历史(为空时仅检索 codebase)。
             total_budget: 总 token 预算。
             user_id: 用户 ID(2026-07-22 深化立,行为学习 + 偏好持久化 key)。
+            editor_state: 编辑器状态(2026-10-31 新增,可选;键 active_file /
+                cursor_line / selection)。仅在 ENGINE_EDITOR_STATE_ENABLED=on 时
+                影响 codebase 源的排序(正在编辑的文件邻域优先);默认关时与本参数
+                未传完全等价。@ 提及源与 history 源不受其影响。
 
         Returns:
             {
@@ -614,6 +777,7 @@ class ContextEngine:
                     top_k=5,
                     include_codebase=True,
                     user_id=user_id,
+                    editor_state=editor_state,
                 )
                 for r in rag_results:
                     source_str = r.source or "unknown"
@@ -1735,6 +1899,14 @@ class EnrichRequest(BaseModel):
         DEFAULT_CONTEXT_BUDGET, ge=500, le=32000, description="总 token 预算"
     )
     userId: str = Field("", description="用户 ID(2026-07-22 深化立,行为学习 + 偏好持久化 key)")
+    editorState: dict[str, Any] | None = Field(
+        None,
+        description=(
+            "编辑器状态 {active_file, cursor_line?, selection?}(2026-10-31 立,"
+            "对标 Trae document_action/cursor_move);仅 ENGINE_EDITOR_STATE_ENABLED=on "
+            "时参与 codebase 源排序,默认关时收下不用(与未传等价)"
+        ),
+    )
 
 
 router = APIRouter()
@@ -1745,6 +1917,7 @@ async def enrich_endpoint(req: EnrichRequest) -> dict[str, Any]:
     """POST /api/context/enrich — @ 提及结果 + RAG 检索两层集成。
 
     输入:@ 提及结果 mentions + conversationId + query + messages(可选)+ totalBudget + userId
+        + editorState(可选,2026-10-31 立,受 ENGINE_EDITOR_STATE_ENABLED 门控)
     输出:{ code, message, data: { enrichedContext, tokenCount, sources, conversationId, taskType } }
 
     流程:
@@ -1762,6 +1935,8 @@ async def enrich_endpoint(req: EnrichRequest) -> dict[str, Any]:
             messages=req.messages or [],
             total_budget=req.totalBudget,
             user_id=req.userId,
+            # 边界处收敛一次:请求体是 dict,内部一律走 EditorState(取不到即 None)
+            editor_state=normalize_editor_state(req.editorState),
         )
         return {"code": 0, "message": "ok", "data": result}
     except Exception as e:

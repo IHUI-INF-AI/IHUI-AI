@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LiveHostProduct,
@@ -180,20 +180,21 @@ export function LiveHostScreen({
           <ScreenSkeleton variant="list" count={2} colorScheme={colorScheme} />
         ) : null}
         {productsError ? <Text style={styles.productError}>{productsError}</Text> : null}
-        <FlatList<LiveHostProduct>
-          data={products}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          ListEmptyComponent={<Text style={styles.productHint}>{t('liveHost.productEmpty')}</Text>}
-          renderItem={({ item }) => (
-            <View style={styles.productItem}>
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={styles.productPrice}>¥{item.price}</Text>
-            </View>
-          )}
-        />
+        {products.length === 0 ? (
+          <Text style={styles.productHint} numberOfLines={2}>
+            {t('liveHost.productEmpty')}
+          </Text>
+        ) : null}
+        {/* 外层已是纵向 ScrollView:再套同向 FlatList(哪怕 scrollEnabled={false})会触发 VirtualizedList
+            嵌套告警,而且列表永远拿不到虚拟化。这里是"随页一起滚的一段列表",用 map 直接摊平。 */}
+        {products.map((item) => (
+          <View key={item.id} style={styles.productItem}>
+            <Text style={styles.productName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.productPrice}>¥{item.price}</Text>
+          </View>
+        ))}
       </View>
     </ScrollView>
   )

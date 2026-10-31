@@ -2,16 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
-import {
-  FlatList,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Fragment, useMemo } from 'react'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import type { AppIcon } from '@ihui/types'
@@ -191,14 +183,16 @@ export function VipTraderScreen({
         </Text>
       </View>
 
-      <FlatList<VipTraderFeature>
-        data={FEATURES}
-        keyExtractor={(i) => i.id}
-        scrollEnabled={false}
-        contentContainerStyle={styles.featureList}
-        ItemSeparatorComponent={() => <View style={styles.featureGap} />}
-        renderItem={renderItem}
-      />
+      {/* 外层是纵向 ScrollView:同向 FlatList(即使 scrollEnabled={false})会告警且无法虚拟化 ⇒
+          这套固定条目随页面一起滚,直接摊平;分隔线按"除首项外每项前一条"复刻 ItemSeparatorComponent。 */}
+      <View style={styles.featureList}>
+        {FEATURES.map((item, index) => (
+          <Fragment key={item.id}>
+            {index > 0 ? <View style={styles.featureGap} /> : null}
+            {renderItem({ item })}
+          </Fragment>
+        ))}
+      </View>
 
       <View style={styles.footPlaceholder} />
 
