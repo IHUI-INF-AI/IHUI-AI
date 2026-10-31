@@ -139,7 +139,7 @@ export function OfflineRecordsScreen({
   return (
     <View style={styles.container}>
       {header}
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>{t('offlineRecordsPage.title')}</Text>
           <Text style={styles.heroSubtitle}>{t('offlineRecordsPage.subtitle')}</Text>

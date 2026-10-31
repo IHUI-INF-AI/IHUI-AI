@@ -310,7 +310,7 @@ export function EduAiVideoComposeScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle}>{t('eduAiPage.videoTitle')}</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <Text style={styles.heroSubtitle}>{t('eduAiPage.videoSubtitle')}</Text>
         </View>

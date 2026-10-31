@@ -83,7 +83,11 @@ export function ModelEditScreen({
         <Text style={styles.headerTitle}>{t('modelEdit.headerTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.baseCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{baseInfo.name.charAt(0)}</Text>
