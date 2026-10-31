@@ -49,9 +49,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MANIFEST_REL = path.relative(ROOT, MANIFEST_PATH).split(path.sep).join('/')
 const norm = (p) => path.relative(ROOT, path.isAbsolute(p) ? p : path.join(ROOT, p)).split(path.sep).join('/')
 
-/** §12g:派生 git 必须显式接管 stdio。 */
+/** §12g:派生 git 必须显式接管 stdio;§5b:本机任何派生进程一律 windowsHide。 */
 function git(args) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  return execFileSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
 }
 
 /**
