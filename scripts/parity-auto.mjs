@@ -235,6 +235,23 @@ export const STAGES = [
     slow: true,
   },
   {
+    id: 'gate-style-tiers',
+    group: 'gate',
+    title: 'web↔RN 非色档档位对账(间距/字号/圆角)',
+    script: 'check-web-rn-style-tiers.mjs',
+    args: [],
+    applyArgs: [],
+    tier: null,
+    wt: false,
+    // 立因(2026-10-31 现读):门 257 的样式维头注逐字只调颜色令牌那把尺,门 128 的 SIDES 只有
+    // miniapp 与 rn(其 web 腿只比圆角、且配的是 web↔小程序)⇒ **字号/间距/圆角在 web↔RN 这一腿
+    // 历史上零判据**。"RN 自动同步 web 样式"当时只有颜色成立,其余全靠人对账追平。
+    // 本腿判的是档表维:两端取值相对唯一档表落在 inTier / missingTier(档表缺位) / fork(真分叉)
+    // 三桶 —— 它把"要不要人"自动分流:补表即结清的那一类零端内改动。
+    // **不标 slow**:实测 888+3674 文件约 26s,与 gate-drift 同量级;标 slow 等于把这一整格
+    // 盲区重新留给下一轮 `--fast`(同 gate-drift 那条论证,不另立口径)。
+  },
+  {
     id: 'gate-drift',
     group: 'gate',
     title: '跨端漂移哨兵(产物级缺陷绝对值出声)',

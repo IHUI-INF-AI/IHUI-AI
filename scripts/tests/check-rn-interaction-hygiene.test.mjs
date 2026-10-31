@@ -104,6 +104,9 @@ test('④ 判据行为锁:命中尺寸按"补满才算过",反馈四形态任一
     '<Pressable style={{ width: 24, height: 24 }} onPress={go} onPressOut={q} />',
     '<Pressable style={{ width: 24, height: 24 }} onPress={go}>{({ pressed }) => <View />}</Pressable>',
     '<Pressable className="active:opacity-60" style={{ width: 24, height: 24 }} onPress={go} />',
+    // 唯一口 pressFeedback():机制住在 @ihui/ui-native,端内只写一行 style={pressFeedback(styles.x)}。
+    // 判据不认它 ⇒ 修了也读成"没修" ⇒ 逼人回去抄内联函数形态(§0.6 两份真相)。
+    '<Pressable style={pressFeedback(styles.a)} onPress={go} />',
   ])
     assert.equal(scanText(form, T).h2.length, 0, `反馈形态漏认:【${form.slice(0, 46)}…】`)
 })
