@@ -1116,7 +1116,13 @@ def test_server_list_resources_returns_3():
 
 
 async def test_server_read_resource_memory():
-    out = await mcp_server.read_resource("memory://current")
+    # 2026-10-31 安全强化第 14 批:读会话记忆必须带**宿主注入**的主体 —— 此前不传
+    # user_id,list_sessions 回全站会话,任何登录用户读一次资源就拿到别人的对话。
+    # 主体必须是合法 UUID(set_security_principal 的 fail-closed:非 UUID 一律不写)。
+    from app.services.agent_security_prefs import security_principal_scope
+
+    with security_principal_scope("11111111-1111-4111-8111-111111111111"):
+        out = await mcp_server.read_resource("memory://current")
     assert out["ok"] is True
     assert out["uri"] == "memory://current"
     assert "sessions" in out["content"]
