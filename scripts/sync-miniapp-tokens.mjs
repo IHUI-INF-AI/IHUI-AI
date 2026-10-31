@@ -203,6 +203,16 @@ export function deriveMiniappManaged(tokensCss, kind) {
 export const THEME_REGION_MARK = '/* ===== v4 色档注册(自动同步自'
 
 /**
+ * 注册区的**块头选择器**——两种形态都要认(2026-10-31 实测):
+ * `@theme static` 是 v4 的"强制输出全部变量"写法。不加 static 时 v4 只输出**被用到**的档,
+ * 而端内页面/组件 CSS 里的 `var(--spacing-2xs)` 这类**跨文件**引用不被算作"用到" ⇒ 变量在产物里
+ * 不存在,运行期该条属性整条失效(实测命中 8 个:2xs / xs-loose / sm-loose / xl / 2xl / 3xl / 4xl / 5xl;
+ * 加了 static 后产物变量定义 17 → 61 档,引用面缺口归零)。
+ * 生成器与守门 36 共用这一份清单:任一形态都必须能定位到同一个块,否则会误报"区被摘走"。
+ */
+export const THEME_SELECTORS = ['@theme', '@theme static']
+
+/**
  * v4 theme 语义档(非色)的注册面 —— 项目具名档进小程序 `@theme` 的唯一出口。
  *
  * 为什么要有(2026-10-31 立,`check-web-rn-style-tiers.mjs` 射程边界① 的对应修法):
@@ -520,7 +530,7 @@ export function mergeDeclsInPlace(text, decls, label = '') {
 export function planAppCssRegions(css, maps) {
   const roots = topLevelRanges(css, ':root')
   const darks = topLevelRanges(css, '.dark')
-  const themes = topLevelRanges(css, '@theme')
+  const themes = THEME_SELECTORS.flatMap((s) => topLevelRanges(css, s)).sort((a, b) => a.open - b.open)
   if (roots.length === 0) throw new Undetermined('app.css 中没有 :root 块')
   if (darks.length === 0) throw new Undetermined('app.css 中没有 .dark 块')
   const hostOf = (idx) => roots.find((b) => idx > b.open && idx < b.bodyEnd)
@@ -660,7 +670,7 @@ export function renderThemeRegion(decls) {
   const body = [...decls].map(([name, value]) => `  ${name}: ${value};`).join('\n')
   return [
     `${THEME_REGION_MARK} tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */`,
-    '@theme {',
+    '@theme static {',
     '  /* 只注册 v4 认得的**色档**:--color-*-rgb 那批三元组不得进来 —— v4 把任何 --color-*',
     '     都当成一个颜色档,进来就会长出 .bg-muted-rgb 这类脏档;它们由下面 :root 的 alpha 区管。 */',
     body,
@@ -1169,21 +1179,22 @@ export const SPACING = { xs: 4 } as const
   // ── TH 组:v4 色档注册区(第 6 处 token 受管区)。同样成对 ——
   // 只证"会插"不证"绝不重复插",第二次运行就会把整份档名清单再写一遍;
   // 反过来只证"不重复插",注册区就会缺档而守门看不见(§4「只比副本已有键的门等于没有」)。
+  const themeRangesOf = (css) => THEME_SELECTORS.flatMap((s) => topLevelRanges(css, s)).sort((x, y) => x.open - y.open)
   const thBody = (css) => {
-    const b = topLevelRanges(css, '@theme')[0]
+    const b = themeRangesOf(css)[0]
     return b ? css.slice(b.bodyStart, b.bodyEnd) : ''
   }
   const th1 = mergeAppCss(wCss, wMaps, wBase)
-  ok('TH1 首次落地:无注册区 ⇒ 整块插入,带标记注释与 @theme 块', !wCss.includes(THEME_REGION_MARK) && th1.includes(THEME_REGION_MARK) && th1.includes('@theme {'))
+  ok('TH1 首次落地:无注册区 ⇒ 整块插入,带标记注释与 @theme 块', !wCss.includes(THEME_REGION_MARK) && th1.includes(THEME_REGION_MARK) && th1.includes('@theme static {'))
   ok(
     'TH1b 幂等(要求的 (a)):插入后立刻再跑一次必须逐字节相同,且块恰好一个、没有"自动补入"注释',
     mergeAppCss(th1, wMaps, wBase) === th1 &&
-      topLevelRanges(th1, '@theme').length === 1 &&
+      themeRangesOf(th1).length === 1 &&
       !/自动补入/.test(th1)
   )
   ok(
     'TH2 插入位置有依据(指令簇末尾、第一处消费 var(--color-*) 之前):不得插到 :root 之后',
-    th1.indexOf('@theme {') > th1.indexOf('@source "') && th1.indexOf('@theme {') < th1.indexOf(':root {')
+    th1.indexOf('@theme static {') > th1.indexOf('@source "') && th1.indexOf('@theme static {') < th1.indexOf(':root {')
   )
 
   // (b) 注释里写着 @theme 而下面才有真块:必须写进真块,注释逐字原位保留。
@@ -1195,7 +1206,7 @@ export const SPACING = { xs: 4 } as const
     wMaps,
     wBase
   )
-  const th3BlockOpen = topLevelRanges(th3, '@theme')[0]
+  const th3BlockOpen = themeRangesOf(th3)[0]
   ok(
     'TH3 注释里的字符串 @theme 不得被当块(要求的 (b)):写进真块、散文逐字留着、块数仍为 1',
     thBody(th3).includes('--color-bg: white;') &&
@@ -1203,7 +1214,7 @@ export const SPACING = { xs: 4 } as const
       // "散文在真块之前"要拿真块的 open 当下标 —— 按文本 indexOf('@theme {') 会先命中
       // 注释里那个假的,把这条断言变成永远为假的死尺子(写这条夹具时实测踩过)。
       th3.indexOf('--color-decoy') < th3BlockOpen.open &&
-      topLevelRanges(th3, '@theme').length === 1
+      themeRangesOf(th3).length === 1
   )
 
   // (c) -rgb 三元组绝不进注册区(进了就长出 .bg-muted-rgb 这类脏档),但仍必须在 alpha 区。
@@ -1245,7 +1256,7 @@ export const SPACING = { xs: 4 } as const
   ok('TH6 找不到指令簇锚点 ⇒ 抛「无法判定」(不得猜一个位置去插)', thNoAnchor)
   let thNoBlock = false
   try {
-    mergeAppCss(th1.replace(/@theme\s*\{[\s\S]*?\n\}/, ''), wMaps, wBase)
+    mergeAppCss(th1.replace(/@theme(?:\s+static)?\s*\{[\s\S]*?\n\}/, ''), wMaps, wBase)
   } catch (e) {
     thNoBlock = e instanceof Undetermined
   }
@@ -1306,6 +1317,7 @@ export const __test__ = {
   toTaroRpxLen,
   isAlphaRgbTriple,
   THEME_REGION_MARK,
+  THEME_SELECTORS,
   filterTokens,
   extractStandaloneRootBlock,
   extractThemeBlock,
