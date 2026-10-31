@@ -36,6 +36,8 @@ import { appendFileSync, mkdirSync, readdirSync, existsSync, writeFileSync } fro
 import { homedir } from 'node:os'
 import { dirname, join, basename, extname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 锚点禁地判据单源(§0.6):本层不另写一份「什么算第三方私有目录」。
+import { findThirdPartyNodeToken } from './lib/task-node-anchor.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const LOG_DIR = join(ROOT, '.tmp-sync')
@@ -270,6 +272,17 @@ export function audit({ fix = false } = {}) {
   // ① 计划任务:任一 action 直指控制台程序且非 session 0 账户 → 违规
   for (const t of tasks) {
     if (/disabled|禁用/i.test(t.state)) continue
+    // ①c 锚点禁地(2026-10-31 立):action 的可执行体、**或参数里被当可执行体用的 node**落在第三方
+    // 产品私有目录 ⇒ 逐条点名。这一型与「会不会弹窗」无关,所以排在 LogonType 豁免**之前** ——
+    // S4U 任务照样会因此停摆:今天实测两枚常驻守护长期烤着 `.workbuddy` 自带 node,对方一升级或
+    // 卸载,整棵 dev 树静默消失(没有窗口问题,只有没人)。不自动修:换锚点必须走该任务自己的
+    // 注册器(注册点见输出点名),本层只负责「看见」,判红权在人。
+    for (const a of t.actions) {
+      const bad = findThirdPartyNodeToken(a.exe) || findThirdPartyNodeToken(a.args || '')
+      if (bad) {
+        violations.push({ kind: 'anchor', name: t.name, detail: bad, ihui: IS_IHUI.test(t.name) })
+      }
+    }
     if (SESSION0_USER.test(t.runAs)) continue // SYSTEM/Service 跑在 session 0,无窗口能力
     // LogonType 枚举:Interactive / Token / Group 属"仅登录时运行"(有桌面,会弹窗);
     // S4U / Password / ServiceAccount 属"无论是否登录都运行"(session 0,无桌面) → 结构上无法弹窗,
