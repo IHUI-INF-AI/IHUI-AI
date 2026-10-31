@@ -311,8 +311,11 @@ class TestRunGrowth:
         assert "拒绝猜 URL" in (out["reason"] or "")
 
     async def test_claim_executes_when_path_configured(self, monkeypatch: pytest.MonkeyPatch):
-        """claim 走 Web 域(www.workbuddy.cn)+ /v2 前缀 + x-client-platform: web(README 实证
-        唯一成功形态),且需账号有 web_cookie;模板 {code} 被任务 code 替换,体为空。"""
+        """有 web_cookie ⇒ Web 域 + /v2 + x-client-platform: web,模板 {code} 被替换、体为空。
+
+        体为空是**真机取证**结论:对未完成任务,空体 / `{code}` / `{task_code}` 三种 body
+        上游一律回同一句 400 `task not completed` ⇒ 任务码取自 URL 路径,body 无关。
+        """
         monkeypatch.setattr(
             settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim"
         )
@@ -334,7 +337,7 @@ class TestRunGrowth:
                 PATH_GROWTH_TASKS: ok_envelope({"tasks": [done]}),
             }
         )
-        dm = {"web_cookie": "session=abc"}  # 领奖需网页登录态
+        dm = {"web_cookie": "session=abc"}  # 有网页登录态 ⇒ 走 Web 域(README 形态)
         async with rec.client() as client:
             out = await wt.run_growth(TOKEN, dm, dry_run=False, client=client)
         assert out["claimed"] == ["first_chat"]
@@ -342,8 +345,39 @@ class TestRunGrowth:
         assert captured["url"].startswith(
             "https://www.workbuddy.cn/v2/activity/growth/tasks/first_chat/claim"
         )
-        assert captured["body"] == {}  # 领奖空体(字段名不可知,不猜)
+        assert captured["body"] == {}  # 领奖空体(任务码在路径里,真机实证)
         assert captured["headers"].get("x-client-platform") == "web"
+
+    async def test_claim_falls_back_to_token_domain_without_web_cookie(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """回归:无 web_cookie(默认令牌采集形态)时,旧实现直接"跳过"⇒ 永远领不到奖。
+
+        真机:令牌域 copilot.tencent.com 打同一路径回业务错误 `task not completed`
+        (非 404/401)⇒ 令牌域同样可用,必须兜底而不是跳过。
+        """
+        monkeypatch.setattr(
+            settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim"
+        )
+        done = task_row(status="completed", progress=3, limit_num=3)
+        captured: dict[str, Any] = {}
+
+        def claim_handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            return httpx.Response(200, json=ok_envelope({}))
+
+        rec = Recorder(
+            {
+                "tasks/first_chat/claim": claim_handler,
+                "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                PATH_GROWTH_TASKS: ok_envelope({"tasks": [done]}),
+            }
+        )
+        async with rec.client() as client:  # 无 web_cookie
+            out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == ["first_chat"]
+        assert "workbuddy.cn" not in captured["url"], "令牌模式不应强制打 Web 域"
 
     async def test_unparseable_balance_never_reports_zero(self):
         rec = Recorder(
@@ -494,6 +528,22 @@ class TestTravel:
             out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
         assert out["accepted"] == ["travel-depart"]
 
+    async def test_depart_skipped_when_daily_limit_reached(self, monkeypatch: pytest.MonkeyPatch):
+        """回归(2026-10-31 真机):daily_limit_reached=true 时不得再打 depart。
+
+        旧实现无条件出发 ⇒ 上游必失败,每轮把 travel 记成 ok=False/unjudged=True(假失败),
+        一键全族的聚合 ok 也被拖成 False。已用尽属正常态:跳过并写明,不算失败。
+        """
+        monkeypatch.setattr(settings, "workbuddy_tasks_travel_depart_states", "idle")
+        rec = Recorder(
+            {PATH_TRAVEL_STATUS: ok_envelope(travel_state(daily_limit_reached=True))}
+        )
+        async with rec.client() as client:
+            out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is True and out["unjudged"] is False
+        assert "今日出发次数已用尽" in (out["reason"] or "")
+        assert not any(PATH_TRAVEL_DEPART in p for p in rec.paths())
+
     async def test_unparseable_travel_state_is_unjudged(self):
         rec = Recorder({PATH_TRAVEL_STATUS: ok_envelope({"oops": 1})})
         async with rec.client() as client:
@@ -598,7 +648,12 @@ class TestActivity:
         assert out["ok"] is True and rec.calls == []
 
     async def test_activity_includes_user_id_and_web_header(self, monkeypatch: pytest.MonkeyPatch):
-        """Web 域事件带 x-client-platform: web 头;body 带从 JWT 解出的 user_id。"""
+        """真机取证形态:body = {eventCode(驼峰), timestamp(毫秒), userId};Web 域带指纹头。
+
+        2026-10-31 报文级证据:发 `event_code` ⇒ 400 10001「eventCode is empty or not
+        string」;补 eventCode 但缺 timestamp ⇒ 400 10001「event missing both reportDelay
+        and timestamp fields」;秒级 timestamp ⇒ 400 10001「too far from now」;毫秒 ⇒ 200。
+        """
         monkeypatch.setattr(settings, "workbuddy_tasks_activity_path", "/v2/report")
         monkeypatch.setattr(
             settings,
@@ -613,15 +668,22 @@ class TestActivity:
             return httpx.Response(200, json=ok_envelope({}))
 
         rec = Recorder({"/v2/report": handler})
+        before_ms = int(time.time() * 1000)
         async with rec.client() as client:
             out = await wt.run_activity(
                 TOKEN, {"web_cookie": "s=1"}, dry_run=False,
                 events=("buddyapp_show",), client=client,
             )
+        after_ms = int(time.time() * 1000)
         assert out["ok"] is True
         assert captured["headers"].get("x-client-platform") == "web"
-        assert captured["body"]["event_code"] == "buddyapp_show"
-        assert captured["body"]["user_id"] == UID
+        body = captured["body"]
+        assert body["eventCode"] == "buddyapp_show"
+        assert "event_code" not in body  # 旧字段名在上游 400,不得回潮
+        assert body["userId"] == UID
+        # 毫秒级(秒级会被上游判 too far from now)
+        assert before_ms <= body["timestamp"] <= after_ms
+        assert body["timestamp"] > 10**11
 
     async def test_activity_no_double_v2_prefix(self, monkeypatch: pytest.MonkeyPatch):
         """回归:activity_path 配置已是 /v2/report,绝不能再叠 /v2(旧 bug 会变成 /v2/v2/report)。"""
@@ -776,6 +838,88 @@ class TestRunFamily:
         """族五/六已登记进派发表(路由 Literal 与调度器 kind 元组同步扩展)。"""
         assert "redeem" in wt.VALID_FAMILY_KINDS
         assert "lottery" in wt.VALID_FAMILY_KINDS
+
+    async def test_all_kind_runs_in_sweep_order(self, monkeypatch: pytest.MonkeyPatch):
+        """kind="all" 按 SWEEP_ORDER 顺序跑完全族并聚合(顺序是硬契约)。
+
+        activity 必须排在 growth 之前:上报计分先落地,growth 同轮列表才看得到
+        「刚达标」的任务并在本轮 claim。顺序漂移 ⇒ 白丢一轮积分,故钉死。
+        """
+        seen: list[str] = []
+
+        def make_stub(kind: str):
+            async def _stub(jwt: str, dm: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+                seen.append(kind)
+                return wt._run_result(kind, ok=True, claimed=[f"{kind}-x"])
+
+            return _stub
+
+        monkeypatch.setattr(
+            wt, "_FAMILY_RUNNERS", {k: make_stub(k) for k in wt.VALID_FAMILY_KINDS}
+        )
+        out = await wt.run_all_families(TOKEN, {}, dry_run=False)
+        assert seen == list(wt.SWEEP_ORDER)
+        assert wt.SWEEP_ORDER.index("activity") < wt.SWEEP_ORDER.index("growth")
+        assert out["kind"] == "all" and out["ok"] is True
+        assert set(out["families"]) == set(wt.SWEEP_ORDER)
+        assert len(out["claimed"]) == len(wt.SWEEP_ORDER)
+
+    async def test_all_kind_survives_single_family_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """单族抛异常不中断整轮:该族记 unjudged,其余照跑。"""
+
+        def boom(_kind: str):
+            async def _stub(jwt: str, dm: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+                raise RuntimeError("上游炸了")
+
+            return _stub
+
+        def ok_stub(kind: str):
+            async def _stub(jwt: str, dm: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+                return wt._run_result(kind, ok=True)
+
+            return _stub
+
+        runners = {k: ok_stub(k) for k in wt.VALID_FAMILY_KINDS}
+        runners["travel"] = boom("travel")
+        monkeypatch.setattr(wt, "_FAMILY_RUNNERS", runners)
+        out = await wt.run_all_families(TOKEN, {}, dry_run=False)
+        assert out["unjudged"] is True
+        assert out["families"]["travel"]["ok"] is False
+        assert len(out["families"]) == len(wt.SWEEP_ORDER)  # 其余族仍全跑
+
+    async def test_run_family_forwards_injection_points(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """注入点必须能穿透 run_family —— 否则生产侧永远拿不到(闭环成死代码)。"""
+        captured: dict[str, Any] = {}
+
+        async def growth_stub(
+            jwt: str, dm: dict[str, Any], **kwargs: Any
+        ) -> dict[str, Any]:
+            captured["growth_reporter"] = kwargs.get("activity_reporter")
+            return wt._run_result("growth", ok=True)
+
+        async def activity_stub(
+            jwt: str, dm: dict[str, Any], **kwargs: Any
+        ) -> dict[str, Any]:
+            captured["activity_events"] = kwargs.get("events")
+            return wt._run_result("activity", ok=True)
+
+        monkeypatch.setattr(
+            wt,
+            "_FAMILY_RUNNERS",
+            {"growth": growth_stub, "activity": activity_stub},
+        )
+
+        async def reporter(_code: str) -> None:
+            return None
+
+        await wt.run_family("growth", TOKEN, {}, activity_reporter=reporter)
+        await wt.run_family("activity", TOKEN, {}, events=("chat_request_send",))
+        assert captured["growth_reporter"] is reporter
+        assert captured["activity_events"] == ("chat_request_send",)
 
 
 # ---------------------------------------------------------------------------
