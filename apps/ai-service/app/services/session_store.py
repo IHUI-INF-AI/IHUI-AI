@@ -1878,6 +1878,96 @@ class SessionStore:
             logger.warning("[session-store] fork 边界对齐失败(用原 seq): %s", e)
             return at_response_id
 
+    def _rollout_cut_seq_for_turn(self, thread_id: str, turn_id: str) -> int | None:
+        """按「已完结回合」算出保留前缀的上界 seq(接线 codex truncate_rollout_after_turn_id)。
+
+        投影沿用本文件既有的 `_project_item_for_boundary`(与 `_align_fork_boundary`
+        同一份,§0.6 不造第二套);回合边界由 turns 表合成:每个 turn 一个
+        `turn_started`,终态按 `completed→turn_completed`、`interrupted/failed→turn_aborted`
+        合成。`running` 不合成终态 ⇒ 上游按"进行中的回合"抛 ValueError,本方法据此
+        返回 None(判不出,交调用方回落既有口径,绝不拿 0 冒充"算出来是 0")。
+        **截断算法本身一律交回 thread_rollout_truncation,这里只做投影与 seq 回映射。**
+        """
+        try:
+            from app.core.thread_rollout_truncation import (
+                EVENT_TURN_ABORTED,
+                EVENT_TURN_COMPLETED,
+                EVENT_TURN_STARTED,
+                ROLLOUT_RESPONSE_ITEM,
+                truncate_rollout_after_turn_id,
+            )
+
+            terminal_event_by_status: dict[str, str | None] = {
+                "completed": EVENT_TURN_COMPLETED,
+                "interrupted": EVENT_TURN_ABORTED,
+                "failed": EVENT_TURN_ABORTED,
+                "running": None,
+            }
+            with self._lock:
+                turn_rows = self._conn.execute(
+                    "SELECT turn_id, turn_seq, status FROM turns"
+                    " WHERE thread_id = ? ORDER BY turn_seq ASC",
+                    (thread_id,),
+                ).fetchall()
+                item_rows = self._conn.execute(
+                    "SELECT seq, turn_id, item_type, payload FROM items"
+                    " WHERE thread_id = ? ORDER BY seq ASC",
+                    (thread_id,),
+                ).fetchall()
+            known_turn_ids = {_row_str(r, "turn_id") for r in turn_rows}
+            items_by_turn: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+            orphan_items: list[tuple[int, dict[str, Any]]] = []
+            for row in item_rows:
+                seq = _row_opt_int(row, "seq")
+                if seq is None:
+                    continue
+                entry: dict[str, Any] = {
+                    "type": ROLLOUT_RESPONSE_ITEM,
+                    "item": _project_item_for_boundary(
+                        _row_str(row, "item_type"), _row_str(row, "payload")
+                    ),
+                }
+                owner = _row_opt_str(row, "turn_id")
+                if owner is not None and owner in known_turn_ids:
+                    items_by_turn.setdefault(owner, []).append((seq, entry))
+                else:
+                    # 不属于任何在册 turn 的 item(无 turn_id / turn 已被删):挂在全部
+                    # 回合块之后,不参与"回合内"归属,只在保留到最后一个回合时才被带上。
+                    orphan_items.append((seq, entry))
+            projected: list[dict[str, Any]] = []
+            seq_by_index: list[int | None] = []
+            for turn_row in turn_rows:
+                tid = _row_str(turn_row, "turn_id")
+                projected.append(
+                    {"type": "event_msg", "event": {"type": EVENT_TURN_STARTED, "turn_id": tid}}
+                )
+                seq_by_index.append(None)
+                for seq, entry in items_by_turn.get(tid, []):
+                    projected.append(entry)
+                    seq_by_index.append(seq)
+                terminal_event = terminal_event_by_status.get(_row_str(turn_row, "status"))
+                if terminal_event is not None:
+                    projected.append(
+                        {
+                            "type": "event_msg",
+                            "event": {"type": terminal_event, "turn_id": tid},
+                        }
+                    )
+                    seq_by_index.append(None)
+            for seq, entry in orphan_items:
+                projected.append(entry)
+                seq_by_index.append(seq)
+            kept = truncate_rollout_after_turn_id(projected, turn_id)
+            retained_seqs = [s for s in seq_by_index[: len(kept)] if s is not None]
+            return max(retained_seqs) if retained_seqs else 0
+        except ValueError as e:
+            # 上游显式判定:该 turn 不是规范持久化回合 / 仍在进行中 ⇒ 不猜边界
+            logger.info("[session-store] 回合截断投影不适用(turn=%s): %s", turn_id, e)
+            return None
+        except Exception as e:  # noqa: BLE001 - 投影失败维持既有口径,绝不阻断回滚
+            logger.warning("[session-store] 回合截断投影失败(turn=%s): %s", turn_id, e)
+            return None
+
     def rollback(
         self,
         thread_id: str,
@@ -1900,9 +1990,15 @@ class SessionStore:
                 "SELECT MAX(seq) AS m FROM items WHERE turn_id = ?",
                 (to_turn_id,),
             ).fetchone()
-        to_seq = _row_opt_int(last_item, "m") if last_item else 0
-        if to_seq is None:
-            to_seq = 0
+        sql_seq = _row_opt_int(last_item, "m") if last_item else None
+        # 2026-11-02 接线:同一件事另由「已完结回合」的 rollout 投影算一遍(见
+        # `_rollout_cut_seq_for_turn`)。两口径都判得出时取**更保守**的一侧(保留更少,
+        # 与"历史到此回合为止"同向);只有 SQL 侧判不出(该 turn 名下没有 item ⇒ 旧实现
+        # 落 0,经 `_get_rollback_ceiling` 的 MIN(to_seq) 会把**整段**历史抹掉)才由投影
+        # 补上真实边界;两边都判不出才维持现状 0。
+        rollout_seq = self._rollout_cut_seq_for_turn(thread_id, to_turn_id)
+        candidates = [value for value in (sql_seq, rollout_seq) if value is not None]
+        to_seq = min(candidates) if candidates else 0
         now = _now()
         with self._tx() as conn:
             conn.execute(
