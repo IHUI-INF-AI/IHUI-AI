@@ -90,13 +90,28 @@ class SendTaskRequest(BaseModel):
 
 
 @router.post("/a2a/agents/register")
-async def register_agent(req: RegisterAgentRequest) -> dict[str, Any]:
-    """注册一个 agent。"""
+async def register_agent(
+    req: RegisterAgentRequest,
+    principal: A2APrincipal,
+) -> dict[str, Any]:
+    """注册一个 agent(需认证;endpoint 经 SSRF 校验,拒绝私网/元数据地址)。
+
+    空 endpoint 表示本地 agent(无远端派发,无 SSRF 风险),直接放行;
+    仅当 endpoint 非空时才做 SSRF 校验。
+    """
+    from ..services.a2a_service import validate_a2a_endpoint
+
+    endpoint = (req.endpoint or "").strip()
+    if endpoint:
+        try:
+            endpoint = validate_a2a_endpoint(endpoint)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"endpoint 校验失败: {e}")
     agent = A2AAgent(
         agent_id=req.id,
         name=req.name,
         capabilities=req.capabilities,
-        endpoint=req.endpoint,
+        endpoint=endpoint,
         description=req.description,
     )
     saved = a2a_server.register_agent(agent)
