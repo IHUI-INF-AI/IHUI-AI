@@ -30,6 +30,7 @@ import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, TAB_BAR_HEIGHT, tabBarStyleSheet } from '
 // blocking 门不值当。要清这层,请在**下一次真正改动本文件的票**里顺带替换,别单独回退。
 import { TABBAR_ICON_DATA } from './tabbarIconData'
 import { useI18n } from '../i18n'
+import { pressFeedback } from '@ihui/ui-native'
 
 // ── tabbar 图标(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
 // 原 5 Tab:AI应用商店(tabbar_1)/广场(tabbar_2)/智汇AI(tabbar_3)/动态(tabbar_4)/我的(tabbar_5)
@@ -156,7 +157,7 @@ export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabB
                 accessibilityState={{ selected: isActive }}
                 accessibilityLabel={t(tab.label)}
                 onPress={handlePress(tab.key)}
-                style={tabBarStyleSheet.item}
+                style={pressFeedback(tabBarStyleSheet.item)}
               >
                 {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高强调档,左右留边圆角)。
                   原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 强调色文字 + 粗体三重区分。 */}

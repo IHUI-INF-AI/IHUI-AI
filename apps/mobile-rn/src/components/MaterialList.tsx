@@ -39,6 +39,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 /** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
 export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
@@ -138,7 +139,7 @@ function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element 
         e.stopPropagation()
         onPress?.()
       }}
-      style={styles.detailBtn}
+      style={pressFeedback(styles.detailBtn)}
       accessibilityRole="button"
       accessibilityLabel={t('material.detailA11y')}
     >

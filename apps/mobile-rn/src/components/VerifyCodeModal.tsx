@@ -57,6 +57,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface VerifyCodeModalProps {
   visible: boolean
@@ -151,7 +152,7 @@ export function VerifyCodeModal({
         <View style={styles.center}>
           <View style={styles.card}>
             <Pressable
-              style={styles.closeBtn}
+              style={pressFeedback(styles.closeBtn)}
               onPress={onClose}
               hitSlop={8}
               accessibilityLabel={t('verify.closeA11y')}
@@ -212,7 +213,7 @@ export function VerifyCodeModal({
               onPress={handleConfirm}
               disabled={!isComplete}
               accessibilityRole="button"
-              style={[styles.confirm, !isComplete && styles.confirmDisabled]}
+              style={pressFeedback([styles.confirm, !isComplete && styles.confirmDisabled])}
             >
               <Text style={styles.confirmText}>{t('verify.confirm')}</Text>
             </Pressable>

@@ -20,6 +20,7 @@ import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 通知面板(mobile-rn 端)。
@@ -214,7 +215,7 @@ export function PushBanner({
                     onClose?.()
                   }}
                   hitSlop={8}
-                  style={styles.close}
+                  style={pressFeedback(styles.close)}
                   accessibilityRole="button"
                   accessibilityLabel={t('common.close')}
                 >

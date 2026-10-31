@@ -21,6 +21,7 @@ import {
   setComment,
   useSelectionAnnotations,
 } from '../../lib/selection-annotations-store'
+import { pressFeedback } from '@ihui/ui-native'
 
 interface SelectionAnnotationBarProps {
   /** 消息 id */
@@ -149,7 +150,7 @@ export function SelectionAnnotationBar({
       <View style={styles.barRow}>
         <Pressable
           onPress={() => setOpen((p) => !p)}
-          style={styles.trigger}
+          style={pressFeedback(styles.trigger)}
           accessibilityRole="button"
           accessibilityLabel={t('selectionAnnotations.hoverHint')}
         >
@@ -160,7 +161,7 @@ export function SelectionAnnotationBar({
         </Pressable>
         <Pressable
           onPress={() => removeAllAnnotations(conversationId, messageId)}
-          style={styles.removeAll}
+          style={pressFeedback(styles.removeAll)}
           accessibilityRole="button"
           accessibilityLabel={t('selectionAnnotations.removeAll')}
         >
@@ -199,13 +200,13 @@ export function SelectionAnnotationBar({
                       setComment(conversationId, messageId, a.id, draft.trim())
                       setDrafts((d) => ({ ...d, [a.id]: '' }))
                     }}
-                    style={styles.addBtn}
+                    style={pressFeedback(styles.addBtn)}
                   >
                     <Text style={styles.addBtnText}>{t('selectionAnnotations.addComment')}</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => removeAnnotation(conversationId, messageId, a.id)}
-                    style={styles.removeOne}
+                    style={pressFeedback(styles.removeOne)}
                     accessibilityRole="button"
                     accessibilityLabel={t('selectionAnnotations.removeOne')}
                   >
