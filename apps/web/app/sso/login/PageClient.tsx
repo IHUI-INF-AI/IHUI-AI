@@ -197,7 +197,7 @@ export default function SsoLoginPage() {
           // 交接成功渲染"请返回小程序"完成卡;SDK 失败如实提示(绝不静默当成功)。
           if (clientId === SSO_CLIENT_IDS.MINIAPP_TARO && isWechatMiniProgramHost()) {
             try {
-              await handOffSsoCodeToMiniapp(r.data.code)
+              await handOffSsoCodeToMiniapp(r.data.code, ssoState)
               setHandoffKind('miniapp')
             } catch {
               toast.error(tSso('miniappHandoffFailed'))
