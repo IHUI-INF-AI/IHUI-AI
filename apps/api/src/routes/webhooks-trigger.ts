@@ -26,6 +26,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { createHmac, randomUUID, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { hasNestedQuantifier } from '../services/rules-service.js'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import {
@@ -185,6 +186,12 @@ function evaluateCondition(payload: unknown, condition: WebhookCondition): boole
         String(condition.value ?? '').length > MAX_REGEX_PATTERN_LENGTH ||
         fieldValue.length > MAX_REGEX_SUBJECT_LENGTH
       ) {
+        return false
+      }
+      // 2026-11-01 安全强化:长度上限拦不住"短而病态"的模式 —— `(a+)+$` 只有 7 个字符,
+      // 却能在一枚攻击者形状的 payload 上把主线程钉死(本门跑在请求路径上,一钉就是整站停摆)。
+      // 判据复用 rules-service 的同一份实现(§0.6),不在这里另造回溯检测器。
+      if (hasNestedQuantifier(String(condition.value ?? ''))) {
         return false
       }
       try {
