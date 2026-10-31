@@ -47,6 +47,8 @@ const { db } = await import('../src/db/index.js')
 const decision = await import('../src/services/relay-session-sync-decision.js')
 export const decideSync = decision.decideSync
 export const parseIso = decision.parseIso
+// 心跳键名单源 = scheduler(§0.6):回灌腿写、调度面读,两处各写一份字面量必然漂移。
+const { CLIENT_ACTIVE_AT_KEY } = await import('../src/services/relay-account-pool-scheduler.js')
 // 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定。
 // 2026-10-30 收口:此前的双份 import type 是 HEAD 就有的 tsc 重复声明(10-29 的「可转译锁」
 // 只钉 esbuild 声明面,tsc 的 TS2300 一直没被看到)——全文件只留这一份,零语义改动。
@@ -80,6 +82,11 @@ export interface SyncInputPayload {
   providerCode: string
   accounts: SyncCandidate[]
   meta?: Record<string, unknown>
+  /**
+   * 客户端活跃心跳时刻(ISO,由 scripts/sync-trae-client-session.mjs 探测进程折算)。
+   * 缺省/null = 本轮不写心跳(客户端明确未运行,或取不到时刻)。
+   */
+  clientActiveAt?: string | null
 }
 
 interface RowOutcome {
@@ -101,6 +108,8 @@ export interface SyncSummary {
   failed: number
   /** 本机新登录账号自动入池数(池内无行 → 走 importAccounts 建行;dry-run 只报不写) */
   imported: number
+  /** 本轮写入的客户端心跳行数(永久保活档的让位依据;dry-run 按候选计数不落库) */
+  heartbeat?: number
   rows: RowOutcome[]
 }
 
@@ -138,6 +147,55 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
+/**
+ * 客户端活跃心跳落库(2026-10-31 永久保活档配套)。
+ *
+ * 每轮**无条件**写,与票面是否变化无关:调度面 `shouldDeferRefresh` 对 keepAliveForever 号
+ * 只看这条心跳判「本机客户端是不是正在自己续期」。若跟着 apply 分支才写,占常态的
+ * same-token 轮会把心跳饿死 ⇒ 池判成客户端静默 ⇒ 接管续期 ⇒ 当场把正在干活的客户端顶下线
+ * (2026-10-24 实测事故型),而这条号已经不能靠验证码登回来。
+ *
+ * 绝不推进 `updatedAt` —— 它是永久保活解摘退避(`keepAliveReviveWhere`)的时钟;心跳每 10 分钟
+ * 拨一次,被摘的号就永远达不到退避条件,解摘档静默失效(取不到 ≠ 达标,但天天拨更糟)。
+ */
+export async function touchClientHeartbeat(
+  uids: string[],
+  at: string | null | undefined,
+  dryRun: boolean,
+): Promise<number> {
+  if (!at || uids.length === 0) return 0
+  // 心跳时刻必须解得开:调度面 clientActiveAtOf 解不出即视为无心跳,写进一枚坏值等于
+  // 让这枚号从此失去「客户端在跑」的证据 ⇒ 池会接管续期 ⇒ 顶掉正在用的客户端。
+  if (Number.isNaN(new Date(at).getTime())) return 0
+  let touched = 0
+  for (const uid of uids) {
+    if (dryRun) {
+      touched++
+      continue
+    }
+    const written = await db
+      .update(aiRelayAccountPool)
+      .set({
+        // 增量整枚走 jsonb 参数,不用 jsonb_build_object($1,$2):PG 在 variadic "any"
+        // 位置报 could not determine data type of parameter(2026-10-31 实测)。
+        extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || ${JSON.stringify(
+          { [CLIENT_ACTIVE_AT_KEY]: at },
+        )}::jsonb`,
+      })
+      .where(
+        and(
+          eq(aiRelayAccountPool.providerCode, 'trae'),
+          eq(aiRelayAccountPool.uid, uid),
+          isNull(aiRelayAccountPool.ownerUserId),
+        ),
+      )
+      .returning({ id: aiRelayAccountPool.id })
+      .catch(() => [])
+    touched += written.length
+  }
+  return touched
+}
+
 export async function runSync(payloadText: string, dryRun: boolean): Promise<SyncSummary> {
   let payload: SyncInputPayload
   try {
@@ -164,6 +222,14 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
     imported: 0,
     rows: [],
   }
+
+  // 心跳先落,再判票:票一致(same-token)是常态,那一支本来一行凭证都不写 —— 心跳若挂在
+  // 票写分支上就永远不达标,池会把「客户端正在续期」误读成「客户端已静默」。
+  summary.heartbeat = await touchClientHeartbeat(
+    payload.accounts.map((a) => (typeof a?.uid === 'string' ? a.uid : '')).filter(Boolean),
+    payload.clientActiveAt,
+    dryRun,
+  )
 
   for (const acc of payload.accounts) {
     const uid = typeof acc?.uid === 'string' ? acc.uid : ''
