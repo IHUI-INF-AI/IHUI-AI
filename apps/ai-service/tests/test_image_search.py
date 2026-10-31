@@ -49,7 +49,8 @@ def test_正常载荷投影为工具结果():
     r = _run(_ok_handler(payload))
     assert r["ok"] is True
     assert r["total"] == 1
-    assert r["results"][0] == {
+    # 原字段集逐字不变;新增的 trust 单列断言(见 test_image_search_trust.py)
+    assert {k: v for k, v in r["results"][0].items() if k != "trust"} == {
         "title": "A cat",
         "imageUrl": "https://img.example/a.jpg",
         "thumbnailUrl": "https://thumb.example/a.jpg",
@@ -58,6 +59,7 @@ def test_正常载荷投影为工具结果():
         "height": 600,
         "source": "example",
     }
+    assert r["results"][0]["trust"]["tier"] == "unknown"
 
 
 def test_max_results_截断且跳过无_image_项():

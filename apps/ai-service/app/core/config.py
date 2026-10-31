@@ -359,6 +359,17 @@ class Settings(BaseSettings):
     # - none(默认):沿用既有账号顺序,完全不改行为。
     # 取不到余额(None)的号排最后(§0.3 不冒充 0);该维度仅在显式开启时生效。
     workbuddy_tasks_urgency_order: str = "none"
+    # 族五/六 redeem(连签兑换)/ lottery(抽奖),2026-10-31 接:
+    # 读侧已真机验证(`/activity/growth/lottery/summary` GET 200、`redemption_status.tiers`
+    # 嵌在 streak 响应里),写侧端点路由存在但 **body 字段名未取证**(2026-10-28 真机对
+    # `{}` / {"code"} / {"task_code"} / {"codes"} 四形态一律 400)⇒ 字段留空 = 拒绝执行
+    # (§0.3 不猜字段);兑换档位/抽奖次数须显式配置,绝不猜"哪个档可兑/抽几次"。
+    workbuddy_tasks_redeem_path: str = "/activity/growth/redeem"  # 兑换端点(路由已证存在;body 字段未取证)
+    workbuddy_tasks_redeem_field: str = ""  # 兑换请求体字段名(未取证 ⇒ 留空拒绝写)
+    workbuddy_tasks_redeem_tiers: str = ""  # 显式要兑换的档位(逗号分隔,如 "7d,14d");空=只读不写
+    workbuddy_tasks_lottery_draw_path: str = "/activity/growth/lottery/draw"  # 抽奖端点(路由已证存在;body 字段未取证)
+    workbuddy_tasks_lottery_draw_field: str = ""  # 抽奖请求体字段名(未取证 ⇒ 留空拒绝写)
+    workbuddy_tasks_lottery_draw_count: int = 1  # 每轮抽奖次数(0 = 不抽)
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:

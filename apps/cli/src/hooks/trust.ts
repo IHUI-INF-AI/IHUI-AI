@@ -75,8 +75,13 @@ export const LEGACY_DIGEST = 'legacy'
 /** ~/.ihui/disabled-hooks — 每行一个被禁 hook 名,# 开头为注释 */
 const DISABLED_HOOKS_PATH = join(homedir(), '.ihui', 'disabled-hooks')
 
-/** ~/.ihui/trusted-folders — 每行一个被信任的绝对路径 */
-const TRUSTED_FOLDERS_PATH = join(homedir(), '.ihui', 'trusted-folders')
+/**
+ * ~/.ihui/trusted-folders — 每行一个被信任的绝对路径。
+ * 导出理由(单一真相源,AGENTS §0.6):configChange 钩子的载荷要报"改的是哪份配置",
+ * 报的就必须是这份清单本身 —— 消费侧自己再拼一次 join(homedir(), '.ihui', 'trusted-folders')
+ * 等于第二份取值实现,迟早与这里漂移(路径一漂,钩子就把 A 文件的变更说成 B 文件的)。
+ */
+export const TRUSTED_FOLDERS_PATH = join(homedir(), '.ihui', 'trusted-folders')
 
 /**
  * 路径规范化:去尾部斜杠 + lowercase(Windows 大小写不敏感)。

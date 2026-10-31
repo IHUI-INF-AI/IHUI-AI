@@ -18,11 +18,21 @@
  *   DN2 散文里的同一数字 —— 块**外**凡是命中某指标措辞的数字,必须等于现算值。这条才是门牙:
  *       光有生成块,别人照样能在正文里写一个旧数("542 张表"就是这么活的)。
  *       措辞表是**封闭集**(CLAIMS),刻意不做相似度匹配 —— 认不准的宁可判"未判定"也不猜。
- *       **差值棘轮(2026-10-31 立)**:`END RECENT UPDATES` 之后是历史快照副本区(现读 61098 条
- *       违规里占 61048),按当前总量判它们 = 谁碰 README 都得先把六万行按今天的值重写一遍
- *       (跑步机;实测一席被逼出手写收敛循环、改了 23900 行)。现在这一区只判**本枚真正带进来的行**
- *       (该行内容不在基线面 ⇒ 判),存量只报数并在结论行点名盲区;活性区与生成块照旧全判。
- *       判据纯函数 `splitArchiveStock`,基线面 = HEAD 档取 `HEAD^`、其余 `HEAD`,取不到 ⇒ 全判。
+ *       **差值棘轮(2026-10-31 立,两级)**:
+ *       ① 区级(`splitArchiveStock`):`END RECENT UPDATES` 之后是历史快照副本区
+ *          (2026-10-31 现读:README.md 块外命中 75616 处、违规 61104 处,归档区占 61067),
+ *          按当前总量判它们 = 谁碰 README 都得先把六万行按今天的值重写一遍
+ *          (跑步机;实测一席被逼出手写收敛循环、改了 23900 行)。这一区只判**本枚真正带进来的行**
+ *          (该行内容不在基线面 ⇒ 判),存量只报数并在结论行点名盲区。
+ *       ② **行级(`splitStagedRatchet`,staged 档专用)**:活性区的旧账同样按"本轮动过哪几行"
+ *          收窄 —— 2026-10-31 现读 README.md 活性声明只有 **37 处**、README.en.md **1 处**,
+ *          但改 README 的那枚此前要把这 38 处存量连同全仓六万条一起背走 ⇒ **README 实际不可改**
+ *          (逼人 `--no-verify`,§12e 恒红门同型)。现在:**基线 = 该文档 HEAD 面自身**
+ *          (基线正文 + 基线命中集合),只判本轮新增/改写出来的声明行,HEAD 存量只报数不判红。
+ *          两条判据联立(任一成立即判红):① 命中落在本轮新增/改写的行上(diff 的 `+` 行);
+ *          ② 命中的存量指纹(键+数值+行全文)在基线命中集合里找不到 ⇒ 本轮新造的说法。
+ *          取不到基线面或改动行清单 ⇒ **全判并点名**(失效方向恒为"多要一次定向说明")。
+ *       生成块(DN1)是**块级**棘轮:本轮没碰生成块 ⇒ 块内过期只报数;碰了 ⇒ 整块重算才放行。
  *   DN3 简介面(可选输入)—— `--description <文件或 ->` 提供 GitHub repo description 时逐条判;
  *       没给输入 ⇒ 计「未判定」并点名(默认不影响退出码,`--strict` 下影响)。
  *       为什么刻意不做成默认必判:提交链里调 `gh api` = 每台每次联网,离线即恒红 ⇒ 逼人
@@ -33,8 +43,9 @@
  *   结局是各会话合法 `--no-verify`,连带废掉全部守门(§12e)。所以注册条目带
  *   `stagedTriggers: ['README.md', 'README.en.md']`,而门体自身再收一道(纵深防御,防手工直跑):
  *   `--staged`/全量档先问"被审文档本轮是否被改动"(`touchedAuditedDocs`),未改动 ⇒ 漂移只报数
- *   exit 0;改动了 ⇒ 块与散文全判。`--strict`(问责档,`pnpm check:doc-numbers` 走这档)与
- *   `--worktree`(人工面)⇒ 无条件全判。
+ *   exit 0;改动了 ⇒ `--staged` 档走**行级差值棘轮**(只判本轮新增/改写的声明行,HEAD 面存量
+ *   只报数),全量档(HEAD 面)与 `--strict`(问责档,`pnpm check:doc-numbers` 走这档)、
+ *   `--worktree`(人工面)⇒ 无条件全判 —— **全量档与 strict 档的语义本档不动**。
  *
  * 取材口径同 70/77/83/98/101/103/118:全量判 **HEAD blob**、`--staged` 判**索引 blob**、
  * `--worktree` 仅人工、两面旗同给 ⇒ exit 2;内容经 `scripts/lib/face-reader.mjs` 的 `catBatch`,
@@ -346,6 +357,127 @@ export function splitArchiveStock(violations, text, baselineText, { archiveMarke
 }
 
 /**
+ * 解析 unified diff,取**新面**(索引面)本轮新增/改写的行号集合(1-based)。纯函数,零 IO。
+ *
+ * 为什么必须有它:`splitArchiveStock` 只分得开「历史快照区」与「活性区」,分不开
+ * 「活性区里哪几行是这一轮动的」—— 而 staged 档要判的正是"本轮带进来的声明"。
+ * 基线面(HEAD)的**命中集合**只知道"哪些话已经说过",不知道"哪些行是这一轮动的";
+ * 两者联立才够(见 `splitStagedRatchet`)。
+ *
+ * 形态:`@@ -a,b +c,d @@` 的 c 是新面首行号;hunk 内 `+` 行 = 新面新增/改写的行,
+ * `-` 行不占新面行号,` ` 上下文行占号(本门取 `--unified=0`,故实际没有上下文行)。
+ * 文件头(`diff --git`/`index`/`---`/`+++`)与 `\ No newline…` 不占号。
+ */
+export function parseChangedLines(diffText) {
+  const changed = new Set()
+  let newLine = 0
+  let inHunk = false
+  for (const raw of String(diffText ?? '').split(/\r?\n/)) {
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(raw)
+    if (hunk) {
+      newLine = Number(hunk[1])
+      inHunk = true
+      continue
+    }
+    if (raw === '') continue
+    // hunk 之前是文件头(`diff --git` / `index` / `--- a/…` / `+++ b/…`)——
+    // ⚠ `+++` 长得像新增行,不在 hunk 里就当内容行会把文件头算成"第 0 行被改"(自检 S26g 抓到)。
+    if (!inHunk) continue
+    const tag = raw[0]
+    if (tag === '+') {
+      changed.add(newLine)
+      newLine += 1
+      continue
+    }
+    if (tag === '-') continue // 删掉的行不在新面 ⇒ 不占号
+    if (tag === ' ') {
+      newLine += 1
+      continue
+    }
+    if (tag === '\\') continue // "\ No newline at end of file"
+  }
+  return changed
+}
+
+/**
+ * 生成块在正文里的行区间(1-based,含两端)。纯函数。
+ * 块标记缺失或未闭合 ⇒ `{begin:null,end:null}`(调用方据此判"不可分档 ⇒ 全判")。
+ */
+export function blockLineRange(text, { blockBegin = BLOCK_BEGIN, blockEnd = BLOCK_END } = {}) {
+  const lines = String(text ?? '').split(/\r?\n/)
+  let begin = -1
+  let end = -1
+  for (let i = 0; i < lines.length; i += 1) {
+    if (begin < 0 && lines[i].includes(blockBegin)) begin = i
+    else if (begin >= 0 && end < 0 && lines[i].includes(blockEnd)) {
+      end = i
+      break
+    }
+  }
+  return { begin: begin < 0 ? null : begin + 1, end: end < 0 ? null : end + 1 }
+}
+
+/**
+ * 生成块本轮是否被触及(块级棘轮,给 DN1 用)。纯函数。
+ *
+ * 为什么要块级而不是行级:DN1 判的是"块里每个键的数值 == 现算值",块是机器生成的
+ * **一整块**(逐字自洽才叫生成块),按行拆会让"改了一行、另一行过期"落进无人认领的缝里。
+ * 块没被本轮碰过 ⇒ 块内过期是**存量**(随每一次提交漂移),只报数;块被碰过 ⇒ 整块重算。
+ *
+ * 取不到改动行清单(`changedLines` 为 null)⇒ 视作**触及**(全判),失效方向恒为"多要一次定向说明"。
+ */
+export function blockTouchedByRound(text, changedLines, { blockBegin = BLOCK_BEGIN, blockEnd = BLOCK_END } = {}) {
+  if (changedLines === null || changedLines === undefined) return true
+  const range = blockLineRange(text, { blockBegin, blockEnd })
+  if (range.begin === null || range.end === null) return true // 块标记缺失/未闭合 ⇒ 不可分档 ⇒ 全判
+  for (const ln of changedLines) if (ln >= range.begin && ln <= range.end) return true
+  return false
+}
+
+/**
+ * staged 档的**行级差值棘轮**(2026-10-31 立,§0.5 锚点纪律 —— 只拦"本次改动带进来的")。
+ *
+ * 病根(2026-10-31 实测):staged 档此前是"本轮改动被审文档 ⇒ 全判",而 HEAD 面现读
+ * 61104 处散文漂移(其中**活性声明只 37 处**,其余 61067 处在 END RECENT UPDATES 之后的
+ * 历史快照区)。于是任何一次改 README 的提交,都得先把 HEAD 面自己的旧账一起还清 ——
+ * 改不动文档(README 实际不可改),逼人 `--no-verify`(§12e 恒红门同型)。
+ *
+ * 正解(本函数):**基线 = 该文档 HEAD 面自身**,只判本轮新增/改写出来的声明行,
+ * HEAD 已有的存量漂移只报数、不判红。两条判据联立(任一成立即判红):
+ *   ① 该命中落在**本轮新增/改写的行**上(diff 的 `+` 行)⇒ 本轮带进来的;
+ *   ② 该命中的「存量指纹」= 键 + 数值 + 所在行全文,在**基线命中集合**里找不到
+ *      ⇒ 本轮新造的说法(即便那一行没进 diff,基线面也没有这句话)。
+ * 两条都不成立 ⇒ HEAD 存量漂移 ⇒ 只报数。
+ *
+ * 失效方向恒为「多要一次定向说明」,**绝不**是"多放一次跳门":
+ *   · 基线面(HEAD)取不到 ⇒ 全判并点名;
+ *   · 本轮改动行清单取不到 ⇒ 全判并点名;
+ *   · 两者都取到但指纹算不出 ⇒ 落到 ② ⇒ 判红(多问一句,不是放过)。
+ */
+export function splitStagedRatchet(violations, { text, baselineText, numbers, changedLines = null } = {}) {
+  if (changedLines === null || changedLines === undefined)
+    return { actionable: violations, stock: [], why: '本轮改动行清单取不到 ⇒ 全判(不静默放宽)' }
+  if (baselineText === null || baselineText === undefined)
+    return { actionable: violations, stock: [], why: '基线面(HEAD)取不到 ⇒ 全判(不静默放宽)' }
+  const curLines = String(text ?? '').split(/\r?\n/)
+  const baseLines = String(baselineText).split(/\r?\n/)
+  // 基线命中集合 = 该文档 HEAD 面自身的存量(同一把 CLAIMS、同一轮现算值 ⇒ 口径同源,零复算)
+  const baseFingerprints = new Set()
+  for (const bv of findStaleClaims(baselineText, numbers).violations) {
+    baseFingerprints.add(`${bv.key}|${bv.found}|${baseLines[bv.line - 1] ?? ''}`)
+  }
+  const actionable = []
+  const stock = []
+  for (const v of violations) {
+    const line = curLines[v.line - 1] ?? ''
+    const fingerprint = `${v.key}|${v.found}|${line}`
+    if (changedLines.has(v.line) || !baseFingerprints.has(fingerprint)) actionable.push(v)
+    else stock.push(v)
+  }
+  return { actionable, stock, why: null }
+}
+
+/**
  * DN1:README 的派生块必须存在且逐键等值。
  * `checked` 也计入本门的"候选数"—— 一个只写生成块、正文不再重复数字的 README 是**合规**的,
  * 若候选只从散文里数,它会被 `decide` 判成"尺子失明"(exit 2),那是把合规当成故障。
@@ -431,6 +563,11 @@ export function planAccountability({ face, touched, strict }) {
   if (strict) return { enforce: true, why: '--strict 问责档 ⇒ 全判(未触及也要求合格证)' }
   if (!touched || touched.length === 0)
     return { enforce: false, why: '本轮未触及被审文档 ⇒ 不问责,漂移只报数(改 README 那枚必须重跑生成块)' }
+  if (face === 'staged')
+    return {
+      enforce: true,
+      why: `本轮改动被审文档(${touched.join(', ')})⇒ 只判本轮新增/改写的声明行(HEAD 面存量漂移只报数,不判红)`,
+    }
   return { enforce: true, why: `本轮改动被审文档(${touched.join(', ')})⇒ 全判` }
 }
 
@@ -669,6 +806,48 @@ export function selfTest() {
   ok('S25d 基线取不到 ⇒ 全判(不静默放宽)', s25d.stock.length === 0 && s25d.actionable.length >= 2)
   const s25e = splitArchiveStock(findStaleClaims('542 张表\n', numbers).violations, '542 张表\n', '542 张表\n')
   ok('S25e 缺 END RECENT UPDATES 标记 ⇒ 全判并点名 why', s25e.actionable.length >= 1 && typeof s25e.why === 'string')
+  // S26 行级差值棘轮(2026-10-31,staged 档专用):只判本轮新增/改写的声明行,HEAD 存量只报数。
+  const s26n = { ...numbers, dbTables: 583 }
+  const s26base = '542 张表\n'
+  const s26new = '542 张表\n999 张表\n'
+  const s26v = findStaleClaims(s26new, s26n).violations
+  const s26a = splitStagedRatchet(s26v, { text: s26new, baselineText: s26base, numbers: s26n, changedLines: new Set([2]) })
+  ok(
+    'S26a 本轮新增的行 ⇒ 判红;HEAD 存量(基线逐字已有、本轮未动)⇒ 只报数',
+    s26a.actionable.length === 1 && s26a.actionable[0].line === 2 && s26a.stock.length === 1,
+  )
+  const s26b = splitStagedRatchet(s26v, { text: s26new, baselineText: s26base, numbers: s26n, changedLines: new Set() })
+  ok(
+    'S26b 本轮没动那行、但基线面没有这句话 ⇒ 仍判红(条目②:本轮新造的说法)',
+    s26b.actionable.length === 1 && s26b.actionable[0].line === 2 && s26b.stock.length === 1,
+  )
+  const s26c = splitStagedRatchet(s26v, { text: s26new, baselineText: null, numbers: s26n, changedLines: new Set([2]) })
+  ok('S26c 基线面取不到 ⇒ 全判并点名 why(失效方向=多要一次定向说明)', s26c.actionable.length === 2 && typeof s26c.why === 'string')
+  const s26d = splitStagedRatchet(s26v, { text: s26new, baselineText: s26base, numbers: s26n, changedLines: null })
+  ok('S26d 本轮改动行清单取不到 ⇒ 全判并点名 why', s26d.actionable.length === 2 && typeof s26d.why === 'string')
+  const s26e = splitStagedRatchet(
+    findStaleClaims('542 张表(本轮重写)\n', s26n).violations,
+    { text: '542 张表(本轮重写)\n', baselineText: s26base, numbers: s26n, changedLines: new Set([1]) },
+  )
+  ok('S26e 同一行被本轮改写 ⇒ 判红(即便数值没变)', s26e.actionable.length === 1 && s26e.stock.length === 0)
+  const s26f = splitStagedRatchet(findStaleClaims(s26base, s26n).violations, {
+    text: s26base,
+    baselineText: s26base,
+    numbers: s26n,
+    changedLines: new Set(),
+  })
+  ok('S26f 本轮完全没碰该文档 ⇒ 零 actionable(存量只报数)', s26f.actionable.length === 0 && s26f.stock.length === 1)
+  const s26g = parseChangedLines(
+    ['diff --git a/README.md b/README.md', 'index 111..222 100644', '--- a/README.md', '+++ b/README.md', '@@ -10,2 +10,3 @@', ' ctx', '-old', '+new', '+extra'].join('\n'),
+  )
+  ok('S26g diff 解析:新面新增/改写的行号={11,12}(删行不占号)', s26g.size === 2 && s26g.has(11) && s26g.has(12))
+  const s26doc = `x\n${BLOCK_BEGIN}\n| a | 1 | \`dbTables\` |\n${BLOCK_END}\ny\n`
+  ok(
+    'S26h 生成块块级棘轮:没碰块⇒不算触及;碰块⇒触及;清单取不到⇒视作触及(全判)',
+    blockTouchedByRound(s26doc, new Set([9])) === false &&
+      blockTouchedByRound(s26doc, new Set([3])) === true &&
+      blockTouchedByRound(s26doc, null) === true,
+  )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -745,6 +924,35 @@ function main(argv) {
     baselineWhy = `基线面 ${baselineRef} 取不到(${e?.message ?? e})⇒ 历史快照区按全判处理`
   }
   const archiveStock = []
+  // ── staged 档的行级差值棘轮取材(2026-10-31)──────────────────────────────
+  // 本轮改动面 = 索引面相对 HEAD 的 diff(只有它知道"这一轮动了哪几行")。
+  // 取不到 ⇒ 该篇按 null 传下去 ⇒ `splitStagedRatchet` 全判并点名(失效方向 = 多要一次定向说明)。
+  const changedLineNumbers = new Map()
+  const changedWhy = new Map()
+  if (face === 'staged') {
+    for (const rel of AUDITED_DOCS) {
+      let diffText = null
+      try {
+        diffText = gitRaw(['diff', '--cached', '--unified=0', 'HEAD', '--', rel], root, { timeout: 60000 })
+      } catch (e) {
+        changedWhy.set(rel, `本轮改动面取不到(${e?.message ?? e})`)
+      }
+      if (diffText === null) {
+        changedLineNumbers.set(rel, null)
+        continue
+      }
+      // 交叉校验:改动清单说这篇被碰过、diff 却没有一个 hunk ⇒ 两次取材之间索引被别席推进过
+      // ⇒ 本篇的"本轮动过哪几行"不可信 ⇒ 该篇全判(多要一次定向说明,不多放一次)。
+      if (touched.includes(rel) && !diffText.includes('@@'))
+        changedWhy.set(rel, '改动清单与改动面不一致(两次取材之间索引被推进)⇒ 该篇全判')
+      changedLineNumbers.set(rel, parseChangedLines(diffText))
+    }
+  }
+  /** 是否走行级棘轮档:只有提交链面(staged)且不是问责全判档(strict/worktree)才走。 */
+  const isRatchetFace = face === 'staged' && !judgeAll
+  let ratchetNew = 0
+  let ratchetStock = 0
+  const blockStock = []
   for (const [rel, text] of docsText) {
     const r = findStaleClaims(text, derived.numbers)
     const g = rel === 'README.md' ? checkGeneratedBlock(text, derived.numbers) : { ok: true, problems: [], checked: 0 }
@@ -755,11 +963,34 @@ function main(argv) {
     }
     candidates += r.checked + g.checked
     const ratchet = splitArchiveStock(r.violations, text, baselines.get(rel) ?? null)
-    for (const v of ratchet.actionable) violations.push({ ...v, file: rel })
-    if (ratchet.why) archiveStock.push({ rel, n: ratchet.stock.length, why: ratchet.why })
-    else if (ratchet.stock.length) archiveStock.push({ rel, n: ratchet.stock.length, why: null })
+    let actionable = ratchet.actionable
+    const stock = [...ratchet.stock]
+    let why = ratchet.why
+    if (isRatchetFace) {
+      // 行级差值棘轮:只判本轮新增/改写的声明行;HEAD 面自身的存量漂移只报数。
+      const s = splitStagedRatchet(actionable, {
+        text,
+        baselineText: baselines.get(rel) ?? null,
+        numbers: derived.numbers,
+        changedLines: changedWhy.has(rel) ? null : (changedLineNumbers.get(rel) ?? null),
+      })
+      actionable = s.actionable
+      stock.push(...s.stock)
+      if (s.why) why = why ? `${why};${s.why}` : s.why
+      ratchetNew += actionable.length
+      ratchetStock += s.stock.length
+    }
+    for (const v of actionable) violations.push({ ...v, file: rel })
+    if (why) archiveStock.push({ rel, n: stock.length, why })
+    else if (stock.length) archiveStock.push({ rel, n: stock.length, why: null })
     if (r.danglingBlock) blockProblems.push(`${rel}:生成块未闭合(有 begin 无 end)`)
-    if (!g.ok) blockProblems.push(...g.problems.map((p) => `${rel}:${p}`))
+    if (!g.ok) {
+      // DN1 块级棘轮:本轮没碰生成块 ⇒ 块内过期是存量(随每次提交漂移),只报数不判红;
+      // 本轮碰了生成块 ⇒ 整块重算才放行(块是机器生成的,逐字自洽才叫生成块)。
+      const touchedBlock = !isRatchetFace || blockTouchedByRound(text, changedWhy.has(rel) ? null : (changedLineNumbers.get(rel) ?? null))
+      if (touchedBlock) blockProblems.push(...g.problems.map((p) => `${rel}:${p}`))
+      else blockStock.push({ rel, n: g.problems.length })
+    }
   }
   const stockTotal = archiveStock.reduce((s, x) => s + x.n, 0)
   for (const x of archiveStock) {
@@ -771,6 +1002,14 @@ function main(argv) {
         baselineWhy ? ' ⚠ ' + baselineWhy + ';' : ''
       } 这块是 DN2 的已知盲区,清账出口 node scripts/scrub-doc-numbers.mjs --apply(默认 dry-run)`,
     )
+  }
+  if (isRatchetFace) {
+    console.log(
+      `ℹ 差值棘轮(staged 档):本轮新增/改写的声明行 ${ratchetNew} 处(判红见上);` +
+        `HEAD 面存量漂移 ${ratchetStock} 处只报数不判红(锚点 = 该文档 HEAD 面自身的命中集合)`,
+    )
+    for (const b of blockStock)
+      console.log(`ℹ ${b.rel}:生成块存量 ${b.n} 处(本轮未碰生成块):只报数不判红(要刷新块跑 node scripts/gen-doc-numbers.mjs --markdown)`)
   }
 
   const descArg = readArg(argv, '--description')
