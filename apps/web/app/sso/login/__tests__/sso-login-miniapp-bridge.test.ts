@@ -134,7 +134,8 @@ describe('页面接线锚(/sso/login PageClient)', () => {
     expect(pageSrc).toContain(
       'clientId === SSO_CLIENT_IDS.MINIAPP_TARO && isWechatMiniProgramHost()',
     )
-    expect(pageSrc).toContain('handOffSsoCodeToMiniapp(r.data.code)')
+    // 2026-10-31 第 24 批:交接必须把发起端给的 state 一并带回(否则小程序侧无法比对)
+    expect(pageSrc).toContain('handOffSsoCodeToMiniapp(r.data.code, ssoState)')
   })
 
   it('desktop deep-link 主路径保持 location.href 不被劫持', () => {
