@@ -104,6 +104,29 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url ?? '', 'http://localhost');
     const headers = req.headers ?? {};
+    // 2026-10-31 安全强化第 10 批:浏览器跨站 WebSocket(CSWSH)不受 CORS 限,唯一
+    // 防线是 Origin 校验 —— drive-by 网页发起的握手必带本页 Origin,非回环来源直接
+    // 拒绝(带凭据也不放行);非浏览器客户端可不带 Origin,不受影响。
+    const origin = headerValue(headers.origin);
+    if (origin !== undefined && origin !== 'null') {
+      let originHost = '';
+      try {
+        originHost = new URL(origin).hostname.toLowerCase();
+      } catch {
+        originHost = '';
+      }
+      if (originHost !== 'localhost' && originHost !== '127.0.0.1' && originHost !== '::1') {
+        try {
+          ws.send(
+            JSON.stringify({ type: 'error', message: 'Origin not allowed', errorCode: 'ORIGIN_REJECTED' }),
+          );
+        } catch {
+          // 对端可能已关闭
+        }
+        ws.close(4003, 'ORIGIN_REJECTED');
+        return;
+      }
+    }
     const decision = authenticateInbound(
       {
         authorization: headerValue(headers.authorization),
