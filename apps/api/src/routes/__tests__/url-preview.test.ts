@@ -47,6 +47,19 @@ vi.mock('../../plugins/auth.js', () => ({
   }),
 }))
 
+/**
+ * 路由面的出站替身必须 mock 'undici'(2026-10-31 安全强化第 15 批 M3 起):
+ * ssrf-guard.safeFetch 走 `import { fetch as undiciFetch } from 'undici'` +
+ * connect-time dispatcher,不再吃 globalThis.fetch ⇒ 只桩全局时本用例会**真访问公网**
+ * (状态码与标题碰巧对,断言却读成"替身零调用"),既不可复现也违反 AGENTS §5 隔离口径。
+ * probeUrl 的显式 fetchImpl 注入档(见上方单元段)不受影响。
+ */
+const { undiciFetchStub } = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('undici')>()
+  return { ...actual, fetch: undiciFetchStub }
+})
+
 import { probeUrl, urlPreviewRoutes, URL_PREVIEW_TIMEOUT_MS } from '../url-preview.js'
 
 /** 公网放行的解析注入(纯函数测试统一用)。 */
@@ -178,20 +191,27 @@ describe('GET /api/url-preview/preview 路由面', () => {
   })
 
   it('缺 url 参数 400;正常探测回三态 envelope', async () => {
-    const fetchStub = vi.fn(async () => htmlResponse(OK_HTML))
-    vi.stubGlobal('fetch', fetchStub)
+    undiciFetchStub.mockImplementation(async () => htmlResponse(OK_HTML))
+    // 第二哨兵:路由若绕过 safeFetch 直用全局 fetch,这里就会命中
+    const globalFetchSpy = vi.fn()
+    vi.stubGlobal('fetch', globalFetchSpy)
     const app = await build()
     try {
       const bad = await app.inject({ method: 'GET', url: '/api/url-preview/preview' })
       expect(bad.statusCode).toBe(400)
 
-      const good = await app.inject({ method: 'GET', url: '/api/url-preview/preview?url=https%3A%2F%2Fexample.com%2F' })
+      const good = await app.inject({
+        method: 'GET',
+        url: '/api/url-preview/preview?url=https%3A%2F%2Fexample.com%2F',
+      })
       expect(good.statusCode).toBe(200)
       const body = good.json()
       expect(body.code).toBe(0)
       expect(body.data).toMatchObject({ status: 'ok', title: 'Example Domain' })
-      expect(fetchStub).toHaveBeenCalledTimes(1)
+      expect(undiciFetchStub).toHaveBeenCalledTimes(1)
+      expect(globalFetchSpy, '路由不得绕过 safeFetch 直接用全局 fetch').not.toHaveBeenCalled()
     } finally {
+      undiciFetchStub.mockReset()
       vi.unstubAllGlobals()
       await app.close()
     }
