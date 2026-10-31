@@ -27,7 +27,12 @@ import { registerRoutes } from './routes/index.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
 import { downloadsRoutes } from './routes/downloads.js'
 import { crashReportsRoutes } from './routes/crash-reports.js'
-import { evaluateOriginAllowance } from './plugins/cors-origin.js'
+import {
+  evaluateOriginAllowance,
+  DESKTOP_ORIGINS,
+  MOBILE_CAP_ORIGINS,
+  deriveCorsAllowanceInputs,
+} from './plugins/cors-origin.js'
 
 import { setFastify } from './utils/logger.js'
 import { wildcardContentTypeParser, applyUploadsStaticHardening } from './utils/static-hardening.js'
@@ -530,15 +535,8 @@ async function registerPlugins(server: FastifyInstance) {
     // helmet 默认 same-origin 会阻止浏览器读取跨域响应,即使 CORS 配置正确
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
-  // 2026-09-02 桌面端 SaaS 化:Tauri WebView2 固定 origin(生产包 frontendDist 静态页
-  // 运行于 http://tauri.localhost;macOS/Linux 兜底自定义协议 tauri://localhost)。
-  // 同时用于下方 CORS 回调与 WebSocket verifyClient 白名单,不依赖部署 env。
-  const DESKTOP_ORIGINS = ['http://tauri.localhost', 'tauri://localhost']
-  // 2026-09-06 移动壳(apps/mobile-cap,Capacitor)预留:本地资产离线模式下 WebView 固定
-  // origin(Android: androidScheme=https → https://localhost;iOS 默认 → capacitor://localhost)。
-  // 该 origin 只有设备上本 App 的 WebView 页面能产生;首版壳走 server.url 远程模式
-  // (origin=站点自身,同源无需此项),此白名单为切换离线模式预置,后端发版一次即可。
-  const MOBILE_CAP_ORIGINS = ['https://localhost', 'capacitor://localhost']
+  // 桌面端 / 移动壳固定 origin 已迁至 plugins/cors-origin.ts(DESKTOP_ORIGINS /
+  // MOBILE_CAP_ORIGINS,单一真源),同时供 CORS 回调与 WebSocket verifyClient 白名单复用。
   await server.register(cors, {
     // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
     // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
@@ -556,15 +554,13 @@ async function registerPlugins(server: FastifyInstance) {
     // 需要支持自家扩展时,把扩展 ID 逐枚填入 IHUI_EXTENSION_IDS。
     // 决策逻辑收敛到 plugins/cors-origin.ts 的 evaluateOriginAllowance(单一真源 + 可单测钉死)。
     origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
-      const allowed = config.CORS_ORIGIN.split(',')
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean)
-      const extIds = config.EXTENSION_IDS.split(',')
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean)
+      const { allowedOrigins, extensionIds: extIds } = deriveCorsAllowanceInputs(
+        config.CORS_ORIGIN,
+        config.EXTENSION_IDS,
+      )
       const r = evaluateOriginAllowance({
         origin,
-        allowedOrigins: allowed,
+        allowedOrigins,
         desktopOrigins: DESKTOP_ORIGINS,
         mobileCapOrigins: MOBILE_CAP_ORIGINS,
         extensionIds: extIds,
@@ -784,9 +780,10 @@ async function registerPlugins(server: FastifyInstance) {
         // 2026-10-29 与 CORS 同步收紧为 fail-closed:chrome-extension:// 不再整体放行。
         // 已配置 IHUI_EXTENSION_IDS 时按精确 ID 放行;未配置时**拒绝**(见 CORS 同名注释)。
         // 决策逻辑收敛到 plugins/cors-origin.ts 的 evaluateOriginAllowance(与 CORS 同一真源)。
-        const extIds = config.EXTENSION_IDS.split(',')
-          .map((s) => s.trim().toLowerCase())
-          .filter(Boolean)
+        const { extensionIds: extIds } = deriveCorsAllowanceInputs(
+          config.CORS_ORIGIN,
+          config.EXTENSION_IDS,
+        )
         const r = evaluateOriginAllowance({
           origin: origin || undefined, // '' 视为缺失 Origin
           allowedOrigins: [...wsAllowedOrigins],

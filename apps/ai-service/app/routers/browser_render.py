@@ -18,6 +18,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ..services.browser_render import render_page
+from ..services.screenshot_service import _validate_url_ssrf
 
 router = APIRouter()
 
@@ -33,6 +34,11 @@ async def browser_render(req: BrowserRenderRequest) -> dict[str, Any]:
     url = req.url.strip()
     if not url.startswith(("http://", "https://")):
         return {"code": 1, "message": "url must start with http(s)://", "data": None}
+    # 2026-10-31 安全强化第 29 批:初始 URL 先过 SSRF 尺(进浏览器之前);
+    # 重定向与子资源由 service 层的 context.route 逐请求复核 —— 两道缺一不可。
+    ok_ssrf, reason_ssrf = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {"code": 1, "message": f"URL 不允许访问: {reason_ssrf}", "data": None}
     try:
         result = await render_page(url, req.timeoutMs)
         return {"code": 0, "message": "success", "data": result}

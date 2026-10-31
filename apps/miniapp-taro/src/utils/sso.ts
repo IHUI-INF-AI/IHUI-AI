@@ -119,7 +119,10 @@ export const SSO_WEBVIEW_MESSAGE_TYPE = 'ihui-sso-code'
  *   JSON 串先解析再按对象规则处理。
  * - 数组嵌套一层以上照旧展开(微信部分端会把 data 套成二维)。
  */
-export function extractSsoCodeFromWebviewMessages(data: unknown): string {
+export function extractSsoCodeFromWebviewMessages(
+  data: unknown,
+  expectedState?: string,
+): string {
   const queue: unknown[] = Array.isArray(data) ? [...data] : [data]
   while (queue.length > 0) {
     const item = queue.shift()
@@ -129,7 +132,7 @@ export function extractSsoCodeFromWebviewMessages(data: unknown): string {
       continue
     }
     if (typeof item === 'string') {
-      const fromUrl = extractSsoCode(item)
+      const fromUrl = extractSsoCode(item, expectedState)
       if (fromUrl) return fromUrl
       if (item.trimStart().startsWith('{')) {
         try {
@@ -141,18 +144,76 @@ export function extractSsoCodeFromWebviewMessages(data: unknown): string {
       continue
     }
     if (typeof item === 'object') {
-      const msg = item as { type?: unknown; sso_code?: unknown }
+      const msg = item as { type?: unknown; sso_code?: unknown; state?: unknown }
       if (typeof msg.type === 'string' && msg.type !== SSO_WEBVIEW_MESSAGE_TYPE) continue
-      if (typeof msg.sso_code === 'string' && msg.sso_code) return msg.sso_code
+      if (typeof msg.sso_code === 'string' && msg.sso_code) {
+        // 2026-10-31 第 24 批:传了 expectedState 就进"严格模式" ——
+        // ① 必须带 type(裸 {sso_code} 容错关闭,它正是"任何被承载页面都能投码"的入口);
+        // ② state 必须逐字相等。
+        if (expectedState !== undefined) {
+          if (msg.type !== SSO_WEBVIEW_MESSAGE_TYPE) continue
+          if (typeof msg.state !== 'string' || msg.state !== expectedState) continue
+        }
+        return msg.sso_code
+      }
     }
   }
   return ''
 }
 
 /** 构建 SSO 登录中心 URL */
-export function getSsoLoginUrl(redirectUri: string): string {
+export function getSsoLoginUrl(redirectUri: string, state?: string): string {
   const webBase = process.env.TARO_APP_WEB_URL || WEB_BASE
-  return buildSsoLoginUrl(webBase, redirectUri, SSO_CLIENT_ID)
+  return buildSsoLoginUrl(webBase, redirectUri, SSO_CLIENT_ID, state)
+}
+
+// =============================================================================
+// SSO state(2026-10-31 安全强化第 24 批)
+//
+// 病灶:小程序的登录态回传走 web-view postMessage(`{type, sso_code}`),而 web-view
+// 承载的是**任意**能进业务域的页面;此前提取器还容错"不带 type 的裸 {sso_code}"。
+// 于是任何被承载的页面都能投一枚自己的授权码,小程序拿到就换票 —— 登录态被换成
+// 攻击者账户。修法 = state:发起前生成随机值存本地并随 URL 发出,web 授权页原样
+// 透传,这里比对;没有待处理 state 时一律不认码(fail-closed)。
+// =============================================================================
+const SSO_STATE_STORAGE_KEY = 'ihui_sso_state'
+
+/**
+ * 生成 128 位随机 state 并记下本次登录,返回它供 `getSsoLoginUrl` 带上。
+ *
+ * 随机源用 Taro.getRandomValues(小程序基础库 2.15+ 的密码学随机);取不到就**抛错**,
+ * 不退回 Math.random —— 弱随机的 state 等于没有 state。
+ */
+export async function beginMiniappSso(): Promise<string> {
+  const { getRandomValues } = await import('@tarojs/taro')
+  const res = await getRandomValues({ length: 16 })
+  const buf = res.randomValues
+  if (!buf || typeof buf.byteLength !== 'number' || buf.byteLength < 16) {
+    throw new Error('getRandomValues 未返回足够的随机字节:拒绝用弱随机生成 SSO state')
+  }
+  const bytes = new Uint8Array(buf)
+  const state = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  setStorageSync(SSO_STATE_STORAGE_KEY, state)
+  return state
+}
+
+/** 读取本次待处理的 state(没有则 null)。 */
+export function peekMiniappSsoState(): string | null {
+  try {
+    const v = getStorageSync(SSO_STATE_STORAGE_KEY)
+    return typeof v === 'string' && v ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** 登录完成后清掉 state(下次 beginMiniappSso 会重新生成)。 */
+export function clearMiniappSsoState(): void {
+  try {
+    removeStorageSync(SSO_STATE_STORAGE_KEY)
+  } catch {
+    // 清不掉无妨:下次 begin 覆盖
+  }
 }
 
 /** taro 封装:返回 boolean(保持原签名) */

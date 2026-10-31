@@ -64,8 +64,17 @@ export function isWechatMiniProgramHost(
 /** 小程序回传腿的载荷构造(单测锚点:字段名与 type 契约锁在这里)
  * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
  */
-export function buildMiniappSsoPayload(ssoCode: string): { type: string; sso_code: string } {
-  return { type: SSO_WEBVIEW_POST_TYPE, sso_code: ssoCode }
+export function buildMiniappSsoPayload(
+  ssoCode: string,
+  state?: string,
+): { type: string; sso_code: string; state?: string } {
+  // 2026-10-31 第 24 批:把发起端给的 state 原样带回(授权页只透传,不比对本页的语义)
+  const payload: { type: string; sso_code: string; state?: string } = {
+    type: SSO_WEBVIEW_POST_TYPE,
+    sso_code: ssoCode,
+  }
+  if (state) payload.state = state
+  return payload
 }
 
 function loadWechatJsSdk(src: string, timeoutMs: number): Promise<void> {
@@ -107,10 +116,10 @@ function loadWechatJsSdk(src: string, timeoutMs: number): Promise<void> {
  * reject = SDK 拿不到/加载失败,调用方如实提示,由用户手动返回(小程序侧 app.tsx
  * 启动腿 query.sso_code 通道仍在,但那条路要求手动带码,不在此强造)。
  */
-export async function handOffSsoCodeToMiniapp(ssoCode: string): Promise<void> {
+export async function handOffSsoCodeToMiniapp(ssoCode: string, state?: string): Promise<void> {
   if (!ssoCode) throw new Error('empty sso_code')
   await loadWechatJsSdk(WECHAT_JWEIXIN_SRC, JWEIXIN_LOAD_TIMEOUT_MS)
-  window.wx?.miniProgram?.postMessage({ data: buildMiniappSsoPayload(ssoCode) })
+  window.wx?.miniProgram?.postMessage({ data: buildMiniappSsoPayload(ssoCode, state) })
 }
 
 export const __test__ = {
