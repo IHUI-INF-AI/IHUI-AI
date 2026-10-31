@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+    "sha256": "10aaf5531e07682021307f5f1260dbd4c3cbc991aa070137654324c4bd084540",
+    "bytes": 5926
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\goal-b41-kfs.html",
+    "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+    "bytes": 860632
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\review-2\\goal-b41-kfs.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\review-2\\goal-b41-kfs.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\review-2\\goal-b41-kfs.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 5863,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 4,
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "cfs-to-kfs",
+            "from": "cfs-grpc",
+            "to": "kfs-route",
+            "label": "对位(读半边)",
+            "collectionIndex": 0,
+            "artifactIndex": 1
+          },
+          "right": {
+            "id": "exports-to-ghidra",
+            "from": "libckg-exports",
+            "to": "ghidra",
+            "label": "反编译取证",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "point": [294, 551]
+        },
+        {
+          "left": {
+            "id": "imp-to-db",
+            "from": "ext-import",
+            "to": "chunks-db",
+            "label": "memory→长期记忆",
+            "collectionIndex": 4,
+            "artifactIndex": 5
+          },
+          "right": {
+            "id": "beyond-imp",
+            "from": "ext-import",
+            "to": "beyond",
+            "label": "证据",
+            "collectionIndex": 8,
+            "artifactIndex": 9
+          },
+          "point": [844, 690.6],
+          "sharedNode": "ext-import"
+        },
+        {
+          "left": {
+            "id": "exports-to-ghidra",
+            "from": "libckg-exports",
+            "to": "ghidra",
+            "label": "反编译取证",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "right": {
+            "id": "cfs-to-proj",
+            "from": "cfs-grpc",
+            "to": "kfs-proj",
+            "label": "路径语法对齐",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "point": [293.99999999999994, 566.0499999999998]
+        },
+        {
+          "left": {
+            "id": "beyond-imp",
+            "from": "ext-import",
+            "to": "beyond",
+            "label": "证据",
+            "collectionIndex": 8,
+            "artifactIndex": 9
+          },
+          "right": {
+            "id": "gaps-note",
+            "from": "ghidra",
+            "to": "gaps",
+            "label": "缺口归并行席",
+            "collectionIndex": 9,
+            "artifactIndex": 10
+          },
+          "point": [845, 641.6]
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "gaps-note",
+            "from": "ghidra",
+            "to": "gaps",
+            "label": "缺口归并行席",
+            "collectionIndex": 9,
+            "artifactIndex": 10
+          },
+          "bends": 4,
+          "stretch": 1
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "cfs-grpc → kfs-route crosses libckg-exports → ghidra: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "ext-import → chunks-db and ext-import → beyond cross next to ext-import: move node chunks-db or beyond so the two reach ext-import from different sides (for example one level with it, one directly above or below it).",
+      "libckg-exports → ghidra crosses cfs-grpc → kfs-proj: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "ext-import → beyond crosses ghidra → gaps: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "ghidra → gaps needs 4 bends: move node ghidra or gaps so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}
