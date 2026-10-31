@@ -156,6 +156,16 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   // 判定面取索引 blob 时,连纯 HEAD 索引也判红 ⇒ 任何人的提交都会被它挡住(恒红门,§0.2)。
   // 补这一行 + 五语言 `toolInitAgentsMd` / `toolInitAgentsMdActivity` 即归零 89/89。
   init_agents_md: 'toolInitAgentsMd',
+  image_search: 'toolImageSearch',
+  list_scheduled_tasks: 'toolListScheduledTasks',
+  schedule_wakeup: 'toolScheduleWakeup',
+  cancel_scheduled_task: 'toolCancelScheduledTask',
+  investigate_codebase: 'toolInvestigateCodebase',
+  send_team_message: 'toolSendTeamMessage',
+  read_team_inbox: 'toolReadTeamInbox',
+  workflow_trigger: 'toolWorkflowTrigger',
+  workflow_resume: 'toolWorkflowResume',
+  workflow_instance_status: 'toolWorkflowInstanceStatus',
 }
 
 export function toolDisplayKey(toolName: string): string | null {
