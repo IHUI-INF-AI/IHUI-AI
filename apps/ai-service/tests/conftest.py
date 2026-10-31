@@ -75,7 +75,13 @@ def pytest_configure(config):
         return
     if any(str(a).startswith("--basetemp") for a in config.invocation_params.args):
         return
-    runs_root = Path(config.rootpath.anchor) / ".pytest_tmp_runs"
+    # 2026-10-31:落点从**盘根**(<盘符>:\.pytest_tmp_runs)迁到批准目录
+    # <盘符>:\DevEnv\Temp\pytest_tmp_runs —— 仍满足立此机制时的两条硬约束
+    # (仓库外 + 与仓库同盘 NVMe),同时符合 AGENTS §15b「项目外落点只允许
+    # D:\DevEnv\{Temp,logs,backups,cache}」与 §15d 盘根写入锁。
+    # 盘符由 rootpath 推导,不写死(机器事实现读)。
+    temp_root = Path(config.rootpath).parents[2] / "DevEnv" / "Temp"
+    runs_root = temp_root / "pytest_tmp_runs"
     # pytest 对显式 basetemp 只做 rm_rf + mkdir(不带 parents),父目录必须自建
     runs_root.mkdir(parents=True, exist_ok=True)
     config.option.basetemp = str(runs_root / f"run-{os.getpid()}")
