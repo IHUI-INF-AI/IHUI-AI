@@ -494,6 +494,46 @@ describe('WallboardView 使用数据面板', () => {
     expect(within(container).getAllByText('落地页(会话/单页)').length).toBeGreaterThan(0)
   })
 
+  it('业务纵深补用户构成:VIP/操盘手/邀请/近7日活跃/等级四档/14日增长都在屏上', async () => {
+    const { container } = renderWallboard()
+    // 标签是静态铺出来的 ⇒ 等**数据**上屏(否则会读到占位「—」)
+    await waitFor(() =>
+      expect(within(container).getAllByText('VIP 用户')[0]?.parentElement?.textContent).toBe(
+        'VIP 用户2',
+      ),
+    )
+    // 每行按父节点整段读:label 与 value 同父,中间不夹包装层
+    const row = (label: string) => within(container).getAllByText(label)[0]?.parentElement?.textContent
+    expect(row('VIP 用户')).toBe('VIP 用户2')
+    expect(row('操盘手')).toBe('操盘手0')
+    expect(row('邀请注册')).toBe('邀请注册1')
+    expect(row('近7日邀请')).toBe('近7日邀请0')
+    expect(row('近7日活跃')).toBe('近7日活跃4')
+    // 等级四档:fixture 是 [10,1,1,0]
+    expect(row('普通')).toBe('普通10')
+    expect(row('白银')).toBe('白银1')
+    expect(row('黄金')).toBe('黄金1')
+    expect(row('钻石')).toBe('钻石0')
+    expect(within(container).getAllByText('用户增长·近14日').length).toBeGreaterThan(0)
+  })
+
+  it('库内 firing 行数 > 去重告警名数时,告警面板点名「多资源」扩散面', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              alerts: { ...overview.alerts, firingTotal: 3, firingNames: ['disk'] },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText(/firing 3 行 \/ 1 个告警名/).length).toBeGreaterThan(0),
+    )
+  })
+
   // 下面两例必须排在最后:本仓 RTL 不自动 cleanup,每例的 DOM 都留在 body 里,
   // 前面那些用 screen.getByText(要求全屏唯一)的用例经不起再多一次渲染。
   it('访问面某档窗口内 0 次(服务端不出空桶)时读数落 0,不得落“—”', async () => {
