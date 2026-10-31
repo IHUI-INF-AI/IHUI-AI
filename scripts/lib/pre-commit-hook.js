@@ -117,13 +117,28 @@ if (TOOL_ONLY) {
   // ① 这一档的判据是"staged 里没有判据库文件",不是"只含工具/文档路径"——纯业务提交
   //    (apps/** 改页面/路由)同样落进这一档,所以"专项档"三个字对业务席是误导;缺陷本身
   //    已登记工单,翻转判据的前置 = 被这一档掩盖的存量红先归零(§12e,否则当场变成恒红拦路门)。
-  // ② 下文各段 else 分支打的是 "(HUSKY_SKIP_XXX=1, 跳过)" —— 本轮只要这一行出现过,
-  //    那些 ⏭ 的**成因就是专项档**,不是有人设了应急变量。把两种成因写成分开的文案是后续
-  //    工单的另一格;在这里先说破,是因为"日志里到处是跳门"会让人以为守门已被人为作废
-  //    (归因失真比少跑几道门更贵:它会让人不去查到底是哪道门没跑)。
+  // ② 下文各段 else 的 ⏭ 由 skipCause() 打印**当次实测到的那一个**成因(2026-10-31 接入):
+  //    "专项档(本次未碰判据库)" 与 "应急变量 HUSKY_SKIP_X=1" 从此分成两句话。旧形态无论哪种
+  //    成因都写后者,于是一次谁都没跳门的普通提交,日志里长得像系统性跳门(归因失真比少跑几道
+  //    门更贵:它会让人不去查到底是哪道门没跑)。
   console.log(
-    '   ↳ 本轮下文出现的 "(HUSKY_SKIP_*=1, 跳过)" 均属专项档成因,非应急变量;逐道是否该跑由工单处置',
+    '   ↳ 下文每道 ⏭ 均带实测成因;写"专项档"者本轮无人跳门,写"应急变量"者请查该次定向说明',
   )
+}
+
+// 跳门成因如实(§0.3「没判绝不写成判过」的同型;也是上面横幅点名的"后续工单另一格")。
+// 病灶:专项档(!TOOL_ONLY 取反)与应急变量两种成因共用一条 else,而文案一律写成
+// "(HUSKY_SKIP_X=1, 跳过)" ⇒ 一次谁都没跳门的普通工具提交,日志里长得像系统性跳门。
+// 与 §5f judgeInterrupt 同一条纪律:只打印**当次实测到的那一个**成因,不猜、不并档。
+function skipCause(envName, opts = {}) {
+  const envSet = process.env[envName] === '1'
+  // opt-in 腿(条件写的是 `(env ?? '1') !== '1'`)与 opt-out 腿的"没跑"成因完全不同:
+  // 前者没设变量就是默认关闭,与专项档无关 —— 混报会把"本来就没这条腿"说成"被专项档掩盖"。
+  if (opts.optIn) return envSet ? '应急变量 ' + envName + '=1' : '默认未开启该腿'
+  if (envSet && TOOL_ONLY) return '专项档 + 应急变量 ' + envName + '=1'
+  if (envSet) return '应急变量 ' + envName + '=1'
+  if (TOOL_ONLY) return '专项档(本次未碰判据库)'
+  return '成因未判定(请核对本段 if 条件)'
 }
 
 // 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
@@ -819,7 +834,9 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
     console.log('⏭  design-tokens → 各端 CSS 副本自动同步(非 git 环境, 跳过)')
   }
 } else {
-  console.log('⏭  design-tokens → 各端 CSS 副本自动同步(HUSKY_SKIP_TOKENS_SYNC=1, 跳过)')
+  console.log(
+    `⏭  design-tokens → 各端 CSS 副本自动同步(${skipCause('HUSKY_SKIP_TOKENS_SYNC')}, 跳过)`,
+  )
 }
 
 // ── README 数字生成块自动同步(2026-10-19 立 · 李总诉求:项目改动自动更新文档)────
@@ -860,7 +877,9 @@ if ((process.env.HUSKY_SKIP_README_NUMBERS ?? '1') !== '1') {
     )
   }
 } else {
-  console.log('⏭  README 数字生成块自动同步(HUSKY_SKIP_README_NUMBERS=1, 跳过)')
+  console.log(
+    `⏭  README 数字生成块自动同步(${skipCause('HUSKY_SKIP_README_NUMBERS', { optIn: true })}, 跳过)`,
+  )
 }
 
 // ── README 最近更新小节自动同步(2026-10-19 立 · 李总诉求:开发时即自动更新文档)────
@@ -893,7 +912,9 @@ if ((process.env.HUSKY_SKIP_README_RECENT ?? '1') !== '1') {
     )
   }
 } else {
-  console.log('⏭  README 最近更新小节自动同步(HUSKY_SKIP_README_RECENT=1, 跳过)')
+  console.log(
+    `⏭  README 最近更新小节自动同步(${skipCause('HUSKY_SKIP_README_RECENT', { optIn: true })}, 跳过)`,
+  )
 }
 
 // 1-4c, 6-29: 批量执行所有守门脚本(guardian-runner 单进程顺序执行)
@@ -1077,7 +1098,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  miniapp-taro 跨端样式一致性守门(HUSKY_SKIP_MINIAPP_PARITY=1, 跳过)')
+  console.log(`⏭  miniapp-taro 跨端样式一致性守门(${skipCause('HUSKY_SKIP_MINIAPP_PARITY')}, 跳过)`)
 }
 
 // 🛡️ auth refresh 单例守门(2026-09-04 立,blocking 根治刷新风暴)
@@ -1102,7 +1123,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  auth refresh 单例守门(HUSKY_SKIP_AUTH_REFRESH=1, 跳过)')
+  console.log(`⏭  auth refresh 单例守门(${skipCause('HUSKY_SKIP_AUTH_REFRESH')}, 跳过)`)
 }
 
 // 16. staged typecheck 闸门(全端,2026-07-30 立,2026-08-18 根治)
@@ -1126,7 +1147,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  staged typecheck 闸门(HUSKY_SKIP_STAGED_TYPECHECK=1, 跳过)')
+  console.log(`⏭  staged typecheck 闸门(${skipCause('HUSKY_SKIP_STAGED_TYPECHECK')}, 跳过)`)
 }
 
 // 16b-16e: 条件守门(非 git 环境用 try/catch 兜底,跳过)
@@ -1246,7 +1267,9 @@ try {
       console.log('⏭  条件 miniapp-taro ICU 反模式扫描(无 apps/miniapp-taro/src staged 改动, 跳过)')
     }
   } else {
-    console.log('⏭  条件 miniapp-taro ICU 反模式扫描(HUSKY_SKIP_MINIAPP_ICU_CHECK=1, 跳过)')
+    console.log(
+      `⏭  条件 miniapp-taro ICU 反模式扫描(${skipCause('HUSKY_SKIP_MINIAPP_ICU_CHECK')}, 跳过)`,
+    )
   }
 } catch {
   // 非 git 环境,跳过
@@ -1291,7 +1314,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
     console.warn('     详细清单已打印在上方,紧急跳过:HUSKY_SKIP_BUTTON_WRAP_CHECK=1')
   }
 } else {
-  console.log('⏭  button 文字换行守门(HUSKY_SKIP_BUTTON_WRAP_CHECK=1, 跳过)')
+  console.log(`⏭  button 文字换行守门(${skipCause('HUSKY_SKIP_BUTTON_WRAP_CHECK')}, 跳过)`)
 }
 
 // 🦶 SiteFooter 守门(2026-07-30 立,blocking 防 v10/v11 回退)
@@ -1321,7 +1344,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  SiteFooter 守门(HUSKY_SKIP_FOOTER_GUARD=1, 跳过)')
+  console.log(`⏭  SiteFooter 守门(${skipCause('HUSKY_SKIP_FOOTER_GUARD')}, 跳过)`)
 }
 
 // 🚪 createPortal 定位守门(2026-09-07 立,blocking)
@@ -1343,7 +1366,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  createPortal 定位守门(HUSKY_SKIP_PORTAL_GUARD=1, 跳过)')
+  console.log(`⏭  createPortal 定位守门(${skipCause('HUSKY_SKIP_PORTAL_GUARD')}, 跳过)`)
 }
 
 // 📏 Button 高度/宽度覆盖守门(2026-09-07 立,blocking;2026-10-22 起三面取材)
@@ -1364,7 +1387,7 @@ if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  Button 高度/宽度覆盖守门(专项档或 HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1, 跳过)')
+  console.log(`⏭  Button 高度/宽度覆盖守门(${skipCause('HUSKY_SKIP_BUTTON_HEIGHT_GUARD')}, 跳过)`)
 }
 
 // 🔑 凭据前缀一致性守门(2026-09-13 立,blocking)
@@ -1386,7 +1409,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  凭据前缀一致性守门(HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1, 跳过)')
+  console.log(`⏭  凭据前缀一致性守门(${skipCause('HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD')}, 跳过)`)
 }
 
 // 🐧 PowerShell 版本声明守门(2026-09-15 立,blocking)
@@ -1407,7 +1430,7 @@ if (process.env.HUSKY_SKIP_PWSH_VERSION_GUARD !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  PowerShell 版本声明守门(HUSKY_SKIP_PWSH_VERSION_GUARD=1, 跳过)')
+  console.log(`⏭  PowerShell 版本声明守门(${skipCause('HUSKY_SKIP_PWSH_VERSION_GUARD')}, 跳过)`)
 }
 
 // 🔌 Agent Engine 协议 parity 守门(2026-09-18 立,blocking)
@@ -1429,7 +1452,9 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  Agent Engine 协议 parity 守门(HUSKY_SKIP_AGENT_ENGINE_PARITY=1, 跳过)')
+  console.log(
+    `⏭  Agent Engine 协议 parity 守门(${skipCause('HUSKY_SKIP_AGENT_ENGINE_PARITY')}, 跳过)`,
+  )
 }
 
 // 🔧 工具注册表完整性守门(2026-09-26 立,blocking;V3 #49)
@@ -1458,7 +1483,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  工具注册表完整性守门(HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1, 跳过)')
+  console.log(`⏭  工具注册表完整性守门(${skipCause('HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY')}, 跳过)`)
 }
 
 // 📋 能力矩阵对账守门(2026-09-26 立,blocking;V3 #57)
@@ -1486,7 +1511,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  能力矩阵对账守门(HUSKY_SKIP_CAPABILITY_MATRIX=1, 跳过)')
+  console.log(`⏭  能力矩阵对账守门(${skipCause('HUSKY_SKIP_CAPABILITY_MATRIX')}, 跳过)`)
 }
 
 // 🖥️ 桌面端事件链路接线守门(2026-09-22 立,blocking)
@@ -1514,7 +1539,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  桌面端事件链路接线守门(HUSKY_SKIP_DESKTOP_EVENT_WIRING=1, 跳过)')
+  console.log(`⏭  桌面端事件链路接线守门(${skipCause('HUSKY_SKIP_DESKTOP_EVENT_WIRING')}, 跳过)`)
 }
 
 console.log('✅ Pre-commit 检查通过')

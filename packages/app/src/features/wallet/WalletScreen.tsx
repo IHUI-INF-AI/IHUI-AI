@@ -79,7 +79,7 @@ export function WalletScreen({
               onPress={() => onAction('recharge')}
               activeOpacity={0.7}
             >
-              <Text style={styles.rechargeBtnText}>{t('wallet.recharge')}</Text>
+              <Text style={styles.rechargeBtnText}>{t('tokenValue.rechargeLabel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.withdrawBtn}
