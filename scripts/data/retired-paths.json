@@ -30,6 +30,26 @@
       "path": "apps/api/src/services/relay-model-sync.ts",
       "reason": "随 SwiftAPI(x5m5x) 后端整体清除,裁决枚 ce2b1c6f03d7113bde0ffced78b78908fd4ca15f;startRelayModelSyncScheduler / stopRelayModelSyncScheduler / syncSwiftapiModels / RelaySyncStats 四枚导出符号全仓零调用 ⇒ 调度器永不启动的死面。本轮摘除枚 adc64aeb6f15cf29ce50b53762cb67865d31cec0。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/heal-i18n-bundle.mjs",
+      "reason": "「派生产物落 HEAD 只留一条接口」裁决枚 977cc1847014aa8927435c690171498769a3b0dd,再由 1250480412be051de6a3e2e86b429b81a364daca 摘净嫁接带回件;现役出口 = scripts/heal-derived-in-checkout.mjs --family i18n(守护班次 git-guardian 的 healI18nBundleLeg 走它),且 scripts/tests/derived-and-push-legs-dispatch.test.mjs 反向钉住「离线包腿不得再自带第二件落地器物」。复活后仅被 8819a1197b385e7d366b5e29decd7579998f2a85 的裸 git→gitBinary 机械 codemod 触及,不构成重新采纳(§0.6 同类实现全仓只许一份)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/heal-i18n-bundle.test.mjs",
+      "reason": "上一条那份器物的镜像测试,与本体同批退役(裁决枚 977cc1847014aa8927435c690171498769a3b0dd、1250480412be051de6a3e2e86b429b81a364daca);本体不在册则测试只剩自指,留着就是给下一枚 union 合并当复活锚点。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-guardrail-hashes.mjs",
+      "reason": "「孤儿护栏一接一退」裁决枚 b2c05e4493a97b1ed62b84961b58f96658e2d272 明退本枚;现读它既不在 scripts/guardian-runner.mjs 注册表也无任何调用方(§0.9 造好没装车 = 没有)。带回枚 c63a091558d74eba2478e5621deb1d9bced4ec84 与删除前的差只有 eslint-disable 注释与 face→_face 形参改名 —— 机械 lint 修复,不是新语义。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/heal-generated-artifact-union.mjs",
+      "reason": "立因是「append-only 归档型生成物」的合并丢失偿还,而那份生成物 archive-completed-tasks.mjs 已于 2026-10-16 整体退役(AGENTS §1 归档机制退役,现读 git ls-files 匹配数为 0 才算合规);裁决枚 295487496e2731c3dad2885dac5abdbc3786c511 与 eee93b075b71af725ef75270a99c9a195fdbaf0c 两次摘除,被 bcc72af873eadd87f59e50236045f0545cdd8f62 一类「收编本机在飞件」通道逐字带回。全仓剩三条 2026-10-15 的探查留痕提到它,而同批留痕里的 archive-completed-tasks.mjs 本身已是明令不得再跑的旧命令 —— 那不构成活出路(§0.8)。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
