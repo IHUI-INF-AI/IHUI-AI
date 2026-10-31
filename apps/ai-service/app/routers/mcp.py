@@ -493,6 +493,31 @@ async def register_external_server(
                 )
         if transport == TRANSPORT_SSE and not req.url.strip():
             return JSONResponse(status_code=400, content={"error": "sse 模式缺少 url"})
+        # 2026-11-01 安全强化:此前 stdio 传输有两道闸(仅管理员 + 部署级命令白名单),而
+        # **url 型传输(sse/http)只判非空** —— 任何登录用户都能注册一枚"由本进程替我出连"的
+        # 外部 MCP:注册后它的 tools 进入调用面,连接由服务端发起,回环上的管理端口与云元数据
+        # 地址都在射程内,首行响应还会被写进日志(mcp_client 的 debug 分支)。
+        #
+        # 为什么这一格用**授权闸**而不是套 `_validate_url_ssrf`:实测(跑既有
+        # tests/test_mcp_client.py::test_sse_connect_success)证明本仓的 MCP 外部服务器**设计上
+        # 就允许指向内网自研服务**(该用例连的正是 127.0.0.1:8803 的 ai-service 自身 MCP 端点),
+        # 而那把尺子的端口封闭表只放行 80/443/8080/8443/3000/8801 ⇒ 接上去会把这条在用的
+        # 第一方集成通道整片打死。内网面在这类能力里是意图,不是缺陷;真正的收口是
+        # **"谁能登记替我出连的通道"**,不是"地址长什么样"。
+        # 保留协议族校验:非 http(s) 一律拒(对第一方内网服务零副作用,却挡掉 file/gopher 等形态)。
+        if req.url.strip():
+            from urllib.parse import urlparse as _urlparse
+
+            if _urlparse(req.url.strip()).scheme.lower() not in ("http", "https"):
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "外部 MCP 仅允许 http(s) 落点"},
+                )
+            if resolve_request_role_id(request) < 1:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "外部 MCP Server(url 型传输)只能由管理员注册"},
+                )
 
         manager = get_mcp_client_manager()
         if manager.get_client(name) is not None:

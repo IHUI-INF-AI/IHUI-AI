@@ -10,6 +10,28 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { startStopwatch } from '../../utils/elapsed-ms.js'
+import { isPrivateOrReservedIp } from '../../utils/ssrf-guard.js'
+
+/**
+ * 内网/元数据主机的**字面**黑名单(与 ssrf-guard 的 IP 判据同源部分复用,不另造 IP 规则)。
+ * 主机名形态单独列在这里,因为这一档不解析 DNS(见 call() 头注):`localhost` 与云厂商
+ * 常用元数据别名在字面层面就该拒,等解析后再判会晚一步。
+ */
+const BLOCKED_INTEGRATION_HOSTS = new Set<string>([
+  'localhost',
+  'metadata',
+  'metadata.google.internal',
+  'instance-data',
+])
+
+export function isBlockedIntegrationHost(hostname: string): boolean {
+  const h = (hostname || '').toLowerCase().replace(/\.$/, '')
+  if (!h) return true
+  if (BLOCKED_INTEGRATION_HOSTS.has(h)) return true
+  if (h.endsWith('.local') || h.endsWith('.internal')) return true
+  if (isPrivateOrReservedIp(h)) return true
+  return false
+}
 
 export interface IntegrationConfig {
   id: string
@@ -88,9 +110,38 @@ export class IntegrationManager extends EventEmitter {
       throw new Error(`Integration "${request.integrationId}" not found or disabled`)
     }
 
-    const url = integration.baseUrl
-      ? new URL(request.path, integration.baseUrl).toString()
-      : request.path
+    // 2026-11-01 安全强化(两处缺陷,失效方向不同,所以分两档判):
+    //  A. 已登记 baseUrl 时,`new URL(absolutePath, base)` 会**丢掉 base** 直接采用 path 的
+    //     host ⇒ 调用方自由挑主机+端口,而 applyAuth 之后该集成的 apiKey/Authorization 会
+    //     随请求寄到那台主机(凭据外泄)。正解:path 只许相对片段,主机由登记方决定。
+    //  B. 未登记 baseUrl 的"自由 URL"型集成:保留设计意图(否则砍断在用能力),但落点必须
+    //     http(s) 且不得指向内网/元数据字面主机。
+    //  两条通道都关闭跟随重定向:一次 302 就能把已判定的主机换成内网落点(与 ssrf-guard
+    //  逐跳复检同一道理)。这里刻意用**字面判据**而非 ensureSafeFetchUrl —— 后者要真实 DNS,
+    //  会把离线构建/无解析器环境整片打挂(现网其余 30+ 出网点仍按该守卫的默认口径走)。
+    let url: string
+    if (integration.baseUrl) {
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(request.path) || request.path.startsWith('//')) {
+        throw new Error(
+          `Integration path 必须是相对片段,不接受绝对 URL(否则会改写已登记的落点主机并带走凭据):${request.path.slice(0, 80)}`,
+        )
+      }
+      url = new URL(request.path, integration.baseUrl).toString()
+    } else {
+      let parsed: URL
+      try {
+        parsed = new URL(request.path)
+      } catch {
+        throw new Error(`未登记 baseUrl 的集成要求 path 为绝对 URL:${request.path.slice(0, 80)}`)
+      }
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error(`集成仅允许 http(s) 落点,收到 ${parsed.protocol}`)
+      }
+      if (isBlockedIntegrationHost(parsed.hostname)) {
+        throw new Error(`集成落点禁止指向内网/元数据主机:${parsed.hostname}`)
+      }
+      url = parsed.toString()
+    }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -105,6 +156,8 @@ export class IntegrationManager extends EventEmitter {
     const response = await fetch(`${url}${queryString}`, {
       method: request.method,
       headers,
+      // 不跟随重定向:否则一次 302 就能把上面判定过的落点换成内网/元数据主机
+      redirect: 'error',
       body: request.body ? JSON.stringify(request.body) : undefined,
     })
 
