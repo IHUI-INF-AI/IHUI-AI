@@ -282,8 +282,8 @@ function createStyles(tk: AppThemeTokens) {
     bubble: {
       maxWidth: '80%',
       borderRadius: rnRadius['2xl'], // 原 15,R1 吸附至 2xl(16)
-      paddingHorizontal: 10,
-      paddingVertical: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing['sm-loose'],
     },
     bubbleUser: { backgroundColor: tk.surface.muted, borderRadius: rnRadius.xl },
     bubbleAi: {
@@ -307,7 +307,11 @@ function createStyles(tk: AppThemeTokens) {
     pickerItem: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.md },
     pickerItemName: { fontSize: rnType.body.size, color: tk.text.medium },
     pickerItemNameActive: { color: tk.text.primary, fontWeight: '500' },
-    pickerItemProvider: { marginTop: 2, fontSize: rnType.label.size, color: tk.text.tertiary },
+    pickerItemProvider: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

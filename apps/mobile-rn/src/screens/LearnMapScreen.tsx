@@ -217,7 +217,7 @@ export default function LearnMapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: {
     alignItems: 'center',
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.brandAccent.light,
   },
-  summaryMain: { flex: 1, gap: 2 },
+  summaryMain: { flex: 1, gap: rnSpacing['2xs'] },
   summaryLabel: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   summaryHint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   card: {
@@ -272,7 +272,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
-  cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14 },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rnSpacing['sm-loose'],
+    padding: 14,
+  },
   stepBadge: {
     width: 26,
     height: 26,
@@ -287,14 +292,19 @@ const styles = StyleSheet.create({
   cardDesc: { fontSize: 13, lineHeight: 19, color: tokens.text.secondary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
   metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-  expandBox: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingTop: 2 },
+  expandBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['2xs'],
+    paddingTop: rnSpacing['2xs'],
+  },
   expandText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   nodesBox: {
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     marginHorizontal: 14,
     marginBottom: 14,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
   },
@@ -318,7 +328,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.brandAccent.deep,
   },
-  nodeMain: { flex: 1, gap: 2 },
+  nodeMain: { flex: 1, gap: rnSpacing['2xs'] },
   nodeTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
   nodeDesc: { fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.secondary },
 })

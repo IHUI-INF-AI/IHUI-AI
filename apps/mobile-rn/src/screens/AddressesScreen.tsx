@@ -346,7 +346,7 @@ export default function AddressesScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
       padding: rnSpacing.lg,
@@ -369,7 +369,12 @@ function makeStyles() {
       fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.bg,
     },
-    checkRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, paddingVertical: 2 },
+    checkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+    },
     checkbox: {
       width: 18,
       height: 18,
@@ -389,7 +394,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    buttonInner: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     buttonDisabled: { opacity: 0.5 },
     buttonText: {
       fontSize: rnType.strong.size,
@@ -411,14 +416,19 @@ function makeStyles() {
     itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     itemPhone: { fontSize: 13, color: tokens.text.secondary },
     badge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     badgeText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     itemAddress: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.lg, paddingTop: 2 },
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: rnSpacing.lg,
+      paddingTop: rnSpacing['2xs'],
+    },
     actionText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
   })

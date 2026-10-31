@@ -138,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       marginTop: rnSpacing.md,
       marginBottom: rnSpacing.lg,
     },

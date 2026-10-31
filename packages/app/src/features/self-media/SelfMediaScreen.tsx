@@ -364,7 +364,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     headerTitle: {
       flex: 1,
@@ -409,7 +409,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md, // gap-3
     },
     stackGapMd: {
-      gap: 10, // gap-2.5
+      gap: rnSpacing['sm-loose'], // gap-2.5
     },
     /* 卡片(技能/记录通用) */
     card: {
@@ -432,8 +432,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     categoryBadge: {
       borderRadius: rnRadius.md, // rounded
-      paddingHorizontal: 6, // px-1.5
-      paddingVertical: 2, // py-0.5
+      paddingHorizontal: rnSpacing['xs-loose'], // px-1.5
+      paddingVertical: rnSpacing['2xs'], // py-0.5
     },
     categoryBadgeText: {
       fontSize: 10, // text-[10px]
@@ -451,7 +451,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm, // rounded-md
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
-      padding: 10, // p-2.5
+      padding: rnSpacing['sm-loose'], // p-2.5
       fontSize: rnType.label.size, // text-xs
       color: tk.text.primary, // dark:text-neutral-100
       textAlignVertical: 'top',
@@ -463,7 +463,7 @@ function createStyles(tk: AppThemeTokens) {
     invokeBtn: {
       alignItems: 'center',
       borderRadius: rnRadius.sm, // rounded-md
-      paddingVertical: 10, // py-2.5
+      paddingVertical: rnSpacing['sm-loose'], // py-2.5
       backgroundColor: tk.brand.cta, // bg-orange-600 → 共享层品牌主色
     },
     invokeBtnDisabled: {
@@ -478,7 +478,7 @@ function createStyles(tk: AppThemeTokens) {
     resultCard: {
       marginTop: rnSpacing.sm, // mt-2
       borderRadius: rnRadius.lg, // rounded-md
-      padding: 10, // p-2.5
+      padding: rnSpacing['sm-loose'], // p-2.5
       backgroundColor: tk.surface.inputBg, // bg-gray-50 dark:bg-neutral-800
     },
     resultHeadRow: {

@@ -1,7 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
@@ -181,19 +182,19 @@ export function ApiSettingsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { padding: 14, paddingBottom: 32 },
+    content: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      marginBottom: 16,
+      gap: rnSpacing.md,
+      marginBottom: rnSpacing.lg,
     },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -201,16 +202,16 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     label: {
       fontSize: 14,
       color: tk.text.secondary,
-      marginTop: 8,
-      marginBottom: 8,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
     },
     input: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -219,10 +220,10 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       color: tk.text.primary,
     },
-    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    inputRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     inputFlex: { flex: 1 },
     eyeBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -232,8 +233,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     eyeText: { fontSize: 16 },
-    hint: { fontSize: 11, color: tk.text.tertiary, marginTop: 12 },
-    btnRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+    hint: { fontSize: 11, color: tk.text.tertiary, marginTop: rnSpacing.md },
+    btnRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.md },
     btn: {
       flex: 1,
       height: 50,
@@ -257,20 +258,20 @@ function createStyles(tk: AppThemeTokens) {
     },
     testLabel: { fontSize: 14, color: tk.text.medium },
     testBtn: {
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     testBtnRunning: { opacity: 0.6 },
     testBtnText: { color: tk.brand.ctaForeground, fontSize: 14, fontWeight: '600' },
-    statusOk: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
-    statusErr: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
+    statusOk: { fontSize: 14, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
+    statusErr: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
     toast: {
       fontSize: 14,
       color: tk.success.DEFAULT,
       textAlign: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
   })
 }

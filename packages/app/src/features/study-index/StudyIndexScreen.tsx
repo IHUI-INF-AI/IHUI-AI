@@ -393,7 +393,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
     searchBar: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -438,7 +438,7 @@ function createStyles(tk: AppThemeTokens) {
     previewModelRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing.md,
       gap: rnSpacing.md,
       backgroundColor: tk.surface.light,
@@ -600,7 +600,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
       paddingVertical: rnSpacing.xs,
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
     } as ViewStyle,
     tipIcon: {
       fontSize: rnType.heading.size,
@@ -619,7 +619,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.text.secondary,
-      paddingRight: 10,
+      paddingRight: rnSpacing['sm-loose'],
     } as TextStyle,
     tipMyModel: {
       width: 72,
@@ -643,10 +643,10 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingTop: rnSpacing.xl,
-      marginTop: 10,
+      marginTop: rnSpacing['sm-loose'],
     } as ViewStyle,
     noMoreText: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       color: tk.text.secondary,
       fontSize: rnType.body.size,
     } as TextStyle,
@@ -672,7 +672,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: rnSpacing.md,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     } as ViewStyle,
     footerText: {
       fontSize: rnType.body.size,
