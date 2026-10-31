@@ -228,7 +228,9 @@ describe('写入面归属强制', () => {
 
   it('indexChunks 空 chunks 时直接返回,不要求归属(无操作即无风险)', async () => {
     const out = await codebaseIndexService.indexChunks('repo-1', [])
-    expect(out).toEqual({ indexed: 0, vectorized: 0 })
+    // 现读返回体含 localEmbedded(G7 本地 embedding 回落档 2026-10-31 起):
+    // 本档锁的是"空 chunks 不要求归属",返回形状仍逐字登记,不降级成 toMatchObject。
+    expect(out).toEqual({ indexed: 0, vectorized: 0, localEmbedded: 0 })
   })
 })
 
