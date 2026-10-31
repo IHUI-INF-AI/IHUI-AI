@@ -113,6 +113,27 @@ def test_load_from_disk_prunes_build_dirs_and_reports_unreadable(tmp_path):
     assert any(".aiignore 是目录" in e for e in ign.errors), "读不动的规则件要出声"
 
 
+def test_lone_trailing_backslash_in_class_is_taken_literally(tmp_path):
+    """真档实测:一枚畸形字符集合把整次骨架装配带崩过(re.error: unterminated character set)。
+
+    修法是"这类写法按字面量处理",而不是猜作者想表达什么;同文件其它规则必须照常生效。
+    """
+    ign = _set((".gitignore", "weird[bar\\]\nx.txt\n"))
+    assert len(ign.rules) == 2, "畸形模式降级成字面量,不该连坐同文件的其它规则"
+    assert is_ignored("x.txt", ign)[0] is True
+    assert is_ignored("weirdq", ign)[0] is False
+
+
+def test_uncompilable_pattern_is_named_and_skipped_not_fatal():
+    errors: list[str] = []
+    rules = parse_ignore_text("bad[z-a]\ngood/\n", ".gitignore", errors=errors)
+    assert errors and "无法编译" in errors[0], "编不过的模式必须点名,不能静默当没写过"
+    assert [r.raw for r in rules] == ["good/"], "坏模式跳过,好规则照发"
+    ign = IgnoreSet(rules=rules, errors=errors)
+    assert is_ignored("good/x.ts", ign)[0] is True
+    assert is_ignored("badz", ign)[0] is False
+
+
 def test_rule_budget_is_enforced_and_speaks(tmp_path):
     big = "\n".join(f"junk{i:05d}/" for i in range(6000))
     (tmp_path / ".gitignore").write_text(big, encoding="utf-8")
