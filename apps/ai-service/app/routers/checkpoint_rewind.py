@@ -9,6 +9,7 @@
 
 对标 Claude Code `checkpoint /rewind`:
 - GET  /api/checkpoints?session_id=...             → 该会话可回滚的 checkpoint 列表
+- GET  /api/checkpoints/file-versions?session_id=&path= → 该会话下该文件的版本清单(只读)
 - POST /api/checkpoints/{checkpoint_id}/restore    → 恢复到该 checkpoint(对话历史 +
                                                     迭代数 + tool state,+ 可选文件回滚)
 
@@ -228,6 +229,39 @@ async def list_checkpoints(
         "total": len(metas),
         "checkpoints": [m.to_dict() for m in metas],
     }
+
+
+class FileVersionsResponse(BaseModel):
+    """某会话下某文件的版本清单(只读预览,不含文件内容)。"""
+
+    session_id: str
+    path: str
+    total: int
+    versions: list[dict[str, Any]] = []
+
+
+@router.get("/file-versions", response_model=FileVersionsResponse)
+async def list_file_history(
+    request: Request,
+    session_id: str = Query(..., min_length=1, description="会话 id"),
+    path: str = Query(..., min_length=1, description="文件路径(与快照时同一条)"),
+) -> FileVersionsResponse:
+    """列出该会话下该文件已捕获的版本(供前端渲染"可回滚到哪几个点")。
+
+    写入腿 `file_editor.snapshot_file` 一直在产,而它的读出口 `list_file_versions`
+    零调用方 ⇒ 用户看得见"能回滚",看不见"有几个版本"。本面**只读**:不碰磁盘、
+    不建快照(版本按 (session_id, 绝对路径) 隔离,跨会话天然取不到别人的记录)。
+    身份与归属一律走该文件既有出口 `_authorize_session`(§5:session_id 是被操作的
+    资源坐标,不是调用方自报的主体;主体只从 JWT 派生)。
+    """
+    _authorize_session(request, session_id)
+    versions = file_editor.list_file_versions(session_id, path)
+    return FileVersionsResponse(
+        session_id=session_id,
+        path=path,
+        total=len(versions),
+        versions=versions,
+    )
 
 
 @router.post("/{checkpoint_id}/restore", response_model=RestoreResponse)
