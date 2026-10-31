@@ -41,6 +41,7 @@ import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 // toast 上限按应用框架实际宽(430 壳)取(2026-10-15 修溢出):原用视口宽 586×0.8=450,
 // 超长文案时 toast 横跨出 #root 被裁右侧;原生无 #root 回退窗口宽行为不变(与 SearchOverlay 同轨)。
 import { useAppFrameWidth } from './Carousel'
+import { useFontMultiplier } from '@ihui/rn-app'
 
 export type FloatBoxType = 'success' | 'error' | 'warning' | 'info'
 
@@ -129,6 +130,9 @@ export function FloatBox({
   duration = DEFAULT_DURATION_MS,
 }: FloatBoxProps) {
   const shown = floatBoxShouldShow(visible, message)
+  // 提示条是全端唯一的操作反馈文字通道 ⇒ 系统字号调大时它必须跟着长;
+  // 行高要同比放大,否则 RN 的死 lineHeight 会把放大后的字裁掉(这正是当年钉住 allowFontScaling 的理由)
+  const fontScale = useFontMultiplier()
   const opacity = useRef(new Animated.Value(0)).current
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onHideRef = useRef<(() => void) | undefined>(onHide)
@@ -198,7 +202,17 @@ export function FloatBox({
     >
       <View style={styles.contentRow}>
         <Icon size={FLOAT_BOX_ICON_SIZE_PX} color={iconColor} />
-        <Text style={styles.message} numberOfLines={2} allowFontScaling={false}>
+        <Text
+          style={[
+            styles.message,
+            {
+              fontSize: Math.round(FLOAT_BOX_FONT_SIZE_PX * fontScale),
+              lineHeight: Math.round(FLOAT_BOX_TEXT_LINE_HEIGHT_PX * fontScale),
+            },
+          ]}
+          numberOfLines={2}
+          allowFontScaling={false}
+        >
           {message}
         </Text>
       </View>

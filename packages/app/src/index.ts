@@ -449,6 +449,8 @@ export type { ScreenReappearAdapter } from './hooks/use-screen-reappear'
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
+/** 系统字号缩放唯一取数口:端内写了死 lineHeight 又要字号真的能放大,只能经它(上限 1.4 的来由见 MoreLink) */
+export { useFontMultiplier } from './components'
 
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'
