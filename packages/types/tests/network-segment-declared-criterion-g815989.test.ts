@@ -128,8 +128,17 @@ describe('G-815989 / 显式声明面钉子(server.ts onRoute 注入)', () => {
       branch.length,
       'server.ts onRoute 缺 INTERNAL_ONLY_PREFIXES 分支(清单在而注入被摘 = 假声明)',
     ).toBeGreaterThan(0)
-    expect(branch).toContain('network: existingConfig.network ?? { allowExternal: false }')
+    // 断言按**意图**判,不锁某一代的写法(2026-11-01 改):实现后来把
+    // `network: existingConfig.network ?? { allowExternal:false }` 换成了
+    // `{ ...toNetworkConfig(existingConfig.network), allowExternal:false, denyProxied:true }`
+    // —— 继承既有网络配置的同时还多加了一道"拒绝经代理"约束(比旧形更强),
+    // 而旧断言钉的是字面量,于是绿了实现、红了锁。三条意图:强制内网、继承既有配置、不注入 mTLS。
+    expect(branch).toContain('allowExternal: false')
+    expect(branch).toMatch(/existingConfig\.network/)
     expect(branch).not.toContain('mtls')
+    // 变异对照:摘掉强制内网那一格,锁必须翻红(否则上面三条是恒真装饰)
+    const mutant = branch.replace('allowExternal: false', 'allowExternal: true')
+    expect(mutant).not.toContain('allowExternal: false')
   })
 })
 
