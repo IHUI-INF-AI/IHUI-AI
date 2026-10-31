@@ -130,7 +130,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{data.modelName}</div>
+            <div className="truncate text-body font-medium">{data.modelName}</div>
             {data.userName && (
               <div className="truncate text-xs text-muted-foreground">{data.userName}</div>
             )}
@@ -144,7 +144,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
         <div className="space-y-4 p-3">
           <section>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            <div className="mb-1.5 text-label font-medium text-muted-foreground">
               {t('questionLabel')}
             </div>
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
@@ -154,7 +154,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
           {data.answer?.thinking && (
             <section className="rounded-lg bg-muted/40 p-3">
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
+              <div className="mb-1 text-label font-medium text-muted-foreground">
                 {t('thinkingLabel')}
               </div>
               <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">
@@ -165,7 +165,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
           {data.answer?.text && (
             <section>
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+              <div className="mb-1.5 text-label font-medium text-muted-foreground">
                 {t('answerLabel')}
               </div>
               <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">

@@ -24,7 +24,7 @@ export function InstanceLogs({ logs, isLoading, logLevel, setLogLevel, fmt }: Pr
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
+        <h2 className="flex items-center gap-2 text-body font-semibold">
           <ScrollText className="h-4 w-4 text-primary" />
           {t('instanceDetail.logs')}
         </h2>

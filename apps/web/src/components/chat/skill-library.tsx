@@ -452,7 +452,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-semibold text-foreground">{t('title')}</span>
+          <span className="text-label font-semibold text-foreground">{t('title')}</span>
           <Link
             href="/ai-skills"
             className="ml-0.5 inline-flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -738,7 +738,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
+                      <span className="min-w-0 truncate text-label font-medium">{skill.name}</span>
                       <span className="rounded-sm bg-muted px-1 text-[9px] text-muted-foreground">
                         {categoryLabel(skill.category)}
                       </span>
@@ -883,7 +883,7 @@ function CustomSkillItem({
         <Icon className="mt-px h-4 w-4 shrink-0 text-primary" />
         <div className="flex-1 min-w-0 space-y-0.5">
           <div className="flex items-center gap-1.5">
-            <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
+            <span className="min-w-0 truncate text-label font-medium">{skill.name}</span>
             <span className="rounded-sm bg-muted px-1 text-[9px] text-muted-foreground">
               {scenarioLabel}
             </span>
@@ -1074,7 +1074,7 @@ function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
       </div>
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-1.5">
-          <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
+          <span className="min-w-0 truncate text-label font-medium">{skill.name}</span>
           <span className="rounded-sm bg-muted px-1 text-[9px] text-muted-foreground">
             {categoryLabel}
           </span>

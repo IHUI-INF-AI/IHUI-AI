@@ -129,7 +129,7 @@ export default function TagDetailPageClient() {
       </Link>
 
       <div className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Tag className="h-6 w-6 text-primary" />
           {tag.name}
         </h1>
@@ -141,7 +141,7 @@ export default function TagDetailPageClient() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-sm font-semibold">{t('resourcesTitle')}</h2>
+        <h2 className="text-body font-semibold">{t('resourcesTitle')}</h2>
         {resourcesQuery.isLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -156,7 +156,7 @@ export default function TagDetailPageClient() {
               const Icon = RESOURCE_ICON[type] ?? FileText
               return (
                 <div key={type} className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-medium uppercase text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-label font-medium uppercase text-muted-foreground">
                     <Icon className="h-3.5 w-3.5" />
                     {groupLabel(type)}
                     <span className="font-normal">({items.length})</span>

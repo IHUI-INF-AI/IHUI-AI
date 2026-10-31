@@ -66,7 +66,7 @@ function CommentItemImpl({
       <div className="min-w-0 flex-1">
         <div className="rounded-lg bg-muted p-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{name}</span>
+            <span className="text-body font-medium">{name}</span>
             <span className="text-xs text-muted-foreground">{time}</span>
           </div>
           <p className="mt-1 text-sm">{content}</p>
@@ -95,7 +95,7 @@ function CommentItemImpl({
                 <div className="min-w-0 flex-1">
                   <div className="rounded-lg bg-muted p-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">{reply.name}</span>
+                      <span className="text-label font-medium">{reply.name}</span>
                       <span className="text-xs text-muted-foreground">{reply.time}</span>
                     </div>
                     <p className="mt-0.5 text-sm">{reply.content}</p>

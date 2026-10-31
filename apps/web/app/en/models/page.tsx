@@ -102,7 +102,7 @@ export default function ModelsLandingPage() {
       <div className="mx-auto max-w-5xl px-6 py-12 md:py-16">
         {/* Hero */}
         <section className="mb-16 flex flex-col items-center text-center md:mb-24">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Cpu className="h-3.5 w-3.5 text-primary" />
             AI Model Hub
           </div>
@@ -129,7 +129,7 @@ export default function ModelsLandingPage() {
         {/* 9 Providers Grid */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               9 Providers, 176+ Models
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -167,7 +167,7 @@ export default function ModelsLandingPage() {
         {/* Features */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Why Choose Our Model Hub?
             </h2>
           </div>
@@ -189,7 +189,7 @@ export default function ModelsLandingPage() {
         {/* Code Example */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Get Started in 3 Lines
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -206,7 +206,7 @@ export default function ModelsLandingPage() {
         {/* Footer CTA */}
         <section>
           <Card className="p-3 text-center md:p-12">
-            <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight text-foreground md:text-display">
               Ready to build with 176+ AI models?
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">

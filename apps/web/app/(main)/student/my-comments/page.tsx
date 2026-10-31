@@ -106,7 +106,7 @@ export default function MyCommentsPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <MessageSquare className="h-7 w-7 text-primary" />
           {tc('title')}
         </h1>
@@ -143,7 +143,7 @@ export default function MyCommentsPage() {
                         className="flex min-w-0 flex-1 items-center gap-2"
                       >
                         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="text-sm font-medium hover:text-primary">
+                        <span className="text-body font-medium hover:text-primary">
                           {comment.targetTitle ?? comment.targetType}
                         </span>
                       </Link>

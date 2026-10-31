@@ -58,7 +58,7 @@ export default function PdfToolsPage() {
           <FileText className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">PDF 工具</h1>
+          <h1 className="text-display font-bold tracking-tight">PDF 工具</h1>
           <p className="text-xs text-muted-foreground">在线处理 PDF：合并、拆分、水印与格式转换</p>
         </div>
       </header>

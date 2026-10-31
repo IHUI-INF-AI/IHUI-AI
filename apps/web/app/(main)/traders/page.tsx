@@ -183,7 +183,7 @@ export default function TradersPage() {
     <div className="py-4 px-4 space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <TrendingUp className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -301,7 +301,7 @@ export default function TradersPage() {
               >
                 <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                       <Percent className="h-3.5 w-3.5" />
                       {t('commission')}: {trader.commissionRate}%
                     </span>
@@ -342,7 +342,7 @@ export default function TradersPage() {
             <DialogDescription>
               {detail ? (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                     <Percent className="h-3.5 w-3.5" />
                     {t('commission')}: {detail.commissionRate}%
                   </span>

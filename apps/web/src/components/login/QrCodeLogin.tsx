@@ -99,7 +99,7 @@ export function QrCodeLogin({ platform, refreshKey, embed = false }: QrCodeLogin
               <button
                 type="button"
                 onClick={reopenNotice}
-                className="inline-flex items-center rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                className="inline-flex items-center rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-foreground transition-colors hover:bg-muted"
               >
                 {t('auth.agreementNoticeAgree')}
               </button>

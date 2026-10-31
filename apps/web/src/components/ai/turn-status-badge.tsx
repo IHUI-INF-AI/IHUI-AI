@@ -78,7 +78,7 @@ export function TurnStatusBadge({
         {t('title')}
       </span>
       <span
-        className={cn('text-xs font-medium', TONE_CLASS[view.tone])}
+        className={cn('text-label font-medium', TONE_CLASS[view.tone])}
         data-turn-state-label={view.state}
       >
         {t(view.titleKey)}

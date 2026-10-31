@@ -98,7 +98,7 @@ function HubCard({ item }: { item: NavItem }) {
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
       )}
       <span className="min-w-0">
-        <span className="block truncate text-sm font-medium text-foreground">{label}</span>
+        <span className="block truncate text-body font-medium text-foreground">{label}</span>
         {item.children && item.children.length > 0 && (
           <span className="mt-0.5 block text-xs text-muted-foreground">{item.children.length}</span>
         )}
@@ -136,7 +136,7 @@ export function DomainHub({ title, description, sections, className }: DomainHub
   return (
     <div className={cn('px-4 py-4', className)}>
       <header className="mb-4">
-        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-heading font-bold tracking-tight">{title}</h1>
         {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
       </header>
 

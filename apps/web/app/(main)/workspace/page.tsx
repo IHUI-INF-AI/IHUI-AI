@@ -104,7 +104,7 @@ export default function WorkspacePage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export default function WorkspacePage() {
         >
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1 space-y-0.5">
-            <p className="text-sm font-medium text-destructive">{t('loadErrorTitle')}</p>
+            <p className="text-body font-medium text-destructive">{t('loadErrorTitle')}</p>
             <p className="text-xs text-destructive/80">{t('loadErrorDesc')}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">

@@ -135,7 +135,7 @@ export default function SubscriptionPage() {
     <div className="px-4 py-4 mx-auto max-w-2xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Crown className="h-6 w-6 text-amber-500" />
           {t('subscription.title')}
         </h1>
@@ -264,7 +264,7 @@ export default function SubscriptionPage() {
               {sub.data?.autoRenew ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">{t('subscription.autoRenewOpened')}</p>
+                    <p className="text-body font-medium">{t('subscription.autoRenewOpened')}</p>
                     <p className="text-xs text-muted-foreground">
                       {t('subscription.nextCharge')}
                       {sub.data.contract?.nextChargeTime

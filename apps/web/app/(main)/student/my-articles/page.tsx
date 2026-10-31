@@ -82,7 +82,7 @@ export default function MyArticlesPage() {
       <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
             <Newspaper className="h-7 w-7 text-primary" />
             {ta('title')}
           </h1>
@@ -175,7 +175,7 @@ export default function MyArticlesPage() {
                         </span>
                         <span>{fmtDate(article.publishedAt ?? article.createdAt)}</span>
                         <span
-                          className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
+                          className={`inline-flex rounded-md px-2 py-0.5 text-label font-medium ${
                             STATUS_STYLE[article.status] ?? STATUS_STYLE[0]
                           }`}
                         >

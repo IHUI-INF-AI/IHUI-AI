@@ -17,7 +17,7 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleSplitTasks}
           disabled={p.tasksLoading}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-label font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             p.tasksLoading && 'cursor-not-allowed opacity-60',
           )}
@@ -59,7 +59,7 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                   {task.estimated_complexity}
                 </span>
-                <span className="text-xs font-medium text-foreground">{task.title}</span>
+                <span className="text-label font-medium text-foreground">{task.title}</span>
               </div>
               {task.description && (
                 <p className="mt-1 text-xs text-muted-foreground">{task.description}</p>

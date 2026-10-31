@@ -116,7 +116,7 @@ export function PermissionConfirmDialog({
             </div>
 
             <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
+              <div className="mb-1 text-label font-medium text-muted-foreground">
                 {t('inputParams')}
               </div>
               {preview.hasContent ? (
@@ -168,7 +168,7 @@ export function PermissionConfirmDialog({
 
             {toolCall.reason && (
               <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                <div className="mb-1 text-label font-medium text-muted-foreground">
                   {t('confirmReason')}
                 </div>
                 <p className="rounded-md bg-muted/40 p-2 text-sm">{toolCall.reason}</p>

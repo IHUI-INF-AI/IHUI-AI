@@ -117,7 +117,7 @@ export default function SpecDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Spec 详情</h1>
+            <h1 className="text-heading font-bold tracking-tight">Spec 详情</h1>
             <p className="text-xs text-muted-foreground">
               {formatDate(spec.generatedAt)} · 分析 {spec.stats?.filesAnalyzed ?? 0} 个文件
             </p>

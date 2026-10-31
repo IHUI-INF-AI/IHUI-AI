@@ -122,7 +122,7 @@ export function CryptoDonation(): React.JSX.Element {
   return (
     <section className="mt-16">
       <div className="text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('subtitle')}
         </p>
@@ -143,7 +143,7 @@ export function CryptoDonation(): React.JSX.Element {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">{t(`${w.id}.name`)}</h3>
+                    <h3 className="text-body font-semibold">{t(`${w.id}.name`)}</h3>
                     {w.recommended && (
                       <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                         {t('usdtTrc20.recommended').split(':')[0]}

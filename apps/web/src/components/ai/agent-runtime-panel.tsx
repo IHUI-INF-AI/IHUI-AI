@@ -187,7 +187,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-cta text-cta-foreground">
             <Bot className="h-4 w-4" />
           </div>
-          <span className="text-sm font-semibold">{t('title')}</span>
+          <span className="text-body font-semibold">{t('title')}</span>
           {sessionId && (
             <Tooltip content={sessionId}>
               <span data-testid="session-id" className="truncate text-xs text-muted-foreground">
@@ -227,7 +227,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         <div className="min-h-0 flex-1 overflow-y-auto p-3 thin-scroll">
           {plan && (
             <section className="mb-3 rounded-md border border-border bg-muted/30 p-3">
-              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <div className="mb-1.5 flex items-center gap-1.5 text-label font-medium text-muted-foreground">
                 <FileText className="h-3 w-3" />
                 {t('plan')}
               </div>
@@ -237,7 +237,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
 
           {permission && (
             <section className="mb-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950/30">
-              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+              <div className="mb-1.5 flex items-center gap-1.5 text-label font-medium">
                 <Shield className="h-3 w-3" />
                 {t('permissionDecision', {
                   // D55②:决策值走共享词表,认不出原样显示(此前把 auto_skip_approval 直喷给用户)
@@ -277,7 +277,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
 
           {error && (
             <section className="mb-3 rounded-md border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-950/30">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
+              <div className="flex items-center gap-1.5 text-label font-medium text-red-700 dark:text-red-400">
                 <AlertCircle className="h-3 w-3" />
                 {t('error')}
               </div>
@@ -292,7 +292,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               // 2026-08-17 P3:dark 模式 banner 弱提示背景统一为 zinc-950/30(深一档,与代码块 token 对齐)
               className="mb-3 rounded-md border border-zinc-300 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-950/30"
             >
-              <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <div className="flex items-center gap-1.5 text-label font-medium text-zinc-700 dark:text-zinc-300">
                 <Ban className="h-3 w-3" />
                 {t('cancelledTitle')}
               </div>
@@ -307,7 +307,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               data-testid="paused-banner"
               className="mb-3 rounded-md border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-700 dark:bg-amber-950/30"
             >
-              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+              <div className="flex items-center gap-1.5 text-label font-medium text-amber-700 dark:text-amber-400">
                 <Pause className="h-3 w-3" />
                 {t('pausedTitle')}
               </div>
@@ -357,7 +357,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handlePause}
                 disabled={pausePending}
-                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 {pausePending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -371,7 +371,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handleResume}
                 disabled={pausePending}
-                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 {pausePending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -385,7 +385,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handleSend}
                 disabled={!input.trim()}
-                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 <Play className="h-3.5 w-3.5" />
                 <span>{t('execute')}</span>

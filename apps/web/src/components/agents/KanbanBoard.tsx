@@ -211,7 +211,7 @@ export function KanbanBoard() {
       {/* 头部 */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         </div>
         <div className="flex items-center gap-2">
           {/* 2-2 团队过滤(无团队时隐藏) */}
@@ -234,7 +234,7 @@ export function KanbanBoard() {
           {/* SSE 状态 */}
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium',
+              'inline-flex items-center gap-1 rounded-md px-2 py-1 text-label font-medium',
               connected
                 ? 'bg-green-500/15 text-green-600 dark:text-green-400'
                 : 'bg-muted text-muted-foreground',
@@ -402,7 +402,7 @@ export function KanbanBoard() {
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-destructive">{tc('errorTitle')}</p>
+            <p className="text-body font-medium text-destructive">{tc('errorTitle')}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-3.5 w-3.5" />

@@ -61,7 +61,7 @@ export function EnvironmentInfoFullDialog() {
         <button
           type="button"
           onClick={() => closeFullView()}
-          className="inline-flex h-8 items-center justify-center rounded-xl bg-foreground px-4 text-xs font-medium text-background transition-opacity hover:opacity-90"
+          className="inline-flex h-8 items-center justify-center rounded-xl bg-foreground px-4 text-label font-medium text-background transition-opacity hover:opacity-90"
           data-testid="env-full-close"
         >
           {tcommon('close')}

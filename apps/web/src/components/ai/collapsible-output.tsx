@@ -73,7 +73,7 @@ export function CollapsibleOutput({
     >
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50">
         <StatusIcon className={cn('h-4 w-4 shrink-0', statusClassName)} />
-        <span className="flex-1 truncate text-sm font-medium">{title}</span>
+        <span className="flex-1 truncate text-body font-medium">{title}</span>
         {duration !== undefined && (
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{duration}ms</span>
         )}

@@ -100,7 +100,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
 
   return (
     <div className="w-full rounded-lg border border-border bg-background/70 p-3 text-left">
-      <p className="text-xs font-medium text-foreground">{t('agentsMd.title')}</p>
+      <p className="text-label font-medium text-foreground">{t('agentsMd.title')}</p>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('agentsMd.hint')}</p>
 
       {!draft && (

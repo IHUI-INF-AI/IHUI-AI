@@ -44,7 +44,7 @@ export function PendingCommandHint({ conversationId, revision }: PendingCommandH
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 space-y-1">
-          <p className="text-xs font-medium text-foreground">{t('duplicatePendingTitle')}</p>
+          <p className="text-label font-medium text-foreground">{t('duplicatePendingTitle')}</p>
           <p className="text-xs text-muted-foreground">{t('duplicatePendingDesc')}</p>
           <ul className="space-y-1">
             {visible.map((record) => (

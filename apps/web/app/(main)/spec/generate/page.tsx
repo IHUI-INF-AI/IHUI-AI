@@ -18,7 +18,7 @@ function StatItem({ icon, label, value }: { icon: React.ReactNode; label: string
     <div className="flex items-center gap-2">
       <span className="text-muted-foreground">{icon}</span>
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span className="text-body font-medium text-foreground">{value}</span>
     </div>
   )
 }
@@ -38,7 +38,7 @@ export default function SpecGeneratePage() {
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">生成 Spec</h1>
+          <h1 className="text-display font-bold tracking-tight">生成 Spec</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             选择范围与模板,自动生成代码规格文档
           </p>

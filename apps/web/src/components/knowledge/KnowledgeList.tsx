@@ -122,7 +122,7 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
                 {item.score !== undefined && (
                   <span
                     className={cn(
-                      'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                       scoreColor(item.score),
                     )}
                   >

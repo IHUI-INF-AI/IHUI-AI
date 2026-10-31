@@ -111,7 +111,7 @@ export function ConversationFolderAdmin() {
   return (
     <div className="space-y-1.5" data-testid="org-admin">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+        <span className="flex items-center gap-1 text-body font-medium text-muted-foreground">
           <FolderOpen className="h-3.5 w-3.5" />
           {t('adminTitle')}
         </span>

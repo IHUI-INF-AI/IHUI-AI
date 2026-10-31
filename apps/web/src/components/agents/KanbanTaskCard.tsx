@@ -122,7 +122,7 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
           aria-hidden
         />
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="truncate text-sm font-medium leading-snug">{task.name}</p>
+          <p className="truncate text-body font-medium leading-snug">{task.name}</p>
           {task.description && (
             <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
           )}

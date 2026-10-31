@@ -53,7 +53,7 @@ export function CheckpointHistoryPanel({
     <div className="rounded-lg border bg-card">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <History className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">{t('title')}</h3>
+        <h3 className="text-body font-semibold">{t('title')}</h3>
       </div>
       {onRestore && checkpoints.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2" data-testid="checkpoint-scope-selector">
@@ -106,7 +106,7 @@ export function CheckpointHistoryPanel({
                         type="button"
                         onClick={() => hasDiff && toggle(cp.id)}
                         className={cn(
-                          'flex min-w-0 items-center gap-1 text-left text-sm font-medium',
+                          'flex min-w-0 items-center gap-1 text-left text-body font-medium',
                           hasDiff && 'cursor-pointer hover:text-primary',
                         )}
                       >

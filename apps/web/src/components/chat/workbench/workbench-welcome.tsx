@@ -88,7 +88,7 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
       </div>
 
       <div className="w-full max-w-xl">
-        <h3 className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
+        <h3 className="px-1 pb-2 text-label font-medium uppercase tracking-wide text-muted-foreground/70">
           {t('workbenchQuickStart')}
         </h3>
         {/* 4 张快捷卡是原生 button,不再冒充 list/listitem:
@@ -112,7 +112,7 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
                 aria-hidden
               />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{c.label}</span>
+                <span className="block truncate text-body font-medium">{c.label}</span>
                 <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">
                   {c.desc}
                 </span>

@@ -171,7 +171,7 @@ export function TaskRecapEntry() {
             <>
               <div className="flex flex-col gap-1.5 pt-2">
                 <label
-                  className="text-xs font-medium text-foreground/80"
+                  className="text-label font-medium text-foreground/80"
                   htmlFor="recap-purpose-input"
                 >
                   {tc('recap.purposeLabel')}

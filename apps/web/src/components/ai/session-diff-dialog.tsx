@@ -35,7 +35,7 @@ export function SessionDiffDialog() {
         <DialogHeader>
           <DialogTitle>
             <span>{t('title')}</span>
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
+            <span className="ml-2 text-label font-normal text-muted-foreground">
               {t('fileCount', { count: changes.length })}
             </span>
           </DialogTitle>
@@ -85,7 +85,7 @@ export function SessionDiffDialog() {
                       </p>
                       {c.oldContent ? (
                         <div>
-                          <p className="mb-1 text-xs font-medium text-muted-foreground">
+                          <p className="mb-1 text-label font-medium text-muted-foreground">
                             {t('before')}
                           </p>
                           <pre className="max-h-40 overflow-auto rounded-xs bg-muted/50 p-2 text-xs leading-relaxed">
@@ -94,7 +94,7 @@ export function SessionDiffDialog() {
                         </div>
                       ) : null}
                       <div>
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">
+                        <p className="mb-1 text-label font-medium text-muted-foreground">
                           {t('after')}
                         </p>
                         <pre className="max-h-40 overflow-auto rounded-xs bg-muted/50 p-2 text-xs leading-relaxed">

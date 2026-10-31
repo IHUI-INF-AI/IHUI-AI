@@ -75,7 +75,7 @@ export default function SubagentsListPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Subagent 派单</h1>
+          <h1 className="text-display font-bold tracking-tight">Subagent 派单</h1>
           <p className="mt-1 text-sm text-muted-foreground">多智能体团队调度 · 对标 AI 工作台</p>
         </div>
         <div className="flex gap-2">
@@ -113,20 +113,20 @@ export default function SubagentsListPage() {
                     className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent"
                   >
                     <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[d.status]}`}
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-label font-medium ${STATUS_BADGE[d.status]}`}
                     >
                       {STATUS_LABEL[d.status]}
                     </span>
                     {d.priority && (
                       <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${PRIORITY_BADGE[d.priority]}`}
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-label font-medium ${PRIORITY_BADGE[d.priority]}`}
                       >
                         {PRIORITY_LABEL[d.priority]}
                       </span>
                     )}
                     {d.agentRole && (
                       <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${ROLE_BADGE[d.agentRole]}`}
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-label font-medium ${ROLE_BADGE[d.agentRole]}`}
                       >
                         {ROLE_LABEL[d.agentRole]}
                       </span>

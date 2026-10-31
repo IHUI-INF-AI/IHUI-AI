@@ -23,7 +23,7 @@ export default function SpecTemplatesPage() {
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Spec 模板</h1>
+          <h1 className="text-display font-bold tracking-tight">Spec 模板</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">选择模板快速生成对应规格文档</p>
         </div>
       </div>

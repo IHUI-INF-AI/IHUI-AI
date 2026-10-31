@@ -625,7 +625,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           >
             {/* 标题 */}
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-semibold">{t('title')}</span>
+              <span className="text-body font-semibold">{t('title')}</span>
               <span
                 className={cn(
                   'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
@@ -664,7 +664,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             {/* 归因分解:按构成来源回答"是谁占满的",每档可展开明细 */}
             <div className="mt-3" data-testid="context-usage-attribution">
               <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                <span className="text-xs font-medium">{t('breakdownTitle')}</span>
+                <span className="text-label font-medium">{t('breakdownTitle')}</span>
                 {attribution.topKey && (
                   <span className="min-w-0 truncate text-[10px] text-muted-foreground">
                     {t('topContributor', {
@@ -836,7 +836,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
             {/* 压缩区 */}
             <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
-              <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+              <div className="mb-2 flex items-center gap-1.5 text-label font-medium">
                 <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>{t('compressTitle')}</span>
               </div>

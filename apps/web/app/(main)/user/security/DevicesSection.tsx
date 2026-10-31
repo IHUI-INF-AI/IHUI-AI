@@ -21,7 +21,7 @@ export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) 
     <section className="space-y-3 mt-6 pt-6">
       <div className="flex items-center gap-2">
         <Monitor className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">{t('devices')}</h2>
+        <h2 className="text-body font-semibold">{t('devices')}</h2>
       </div>
       {devicesLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -38,7 +38,7 @@ export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) 
             <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
               <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium">{d.name}</p>
+                <p className="break-words text-body font-medium">{d.name}</p>
                 <p className="break-words text-xs text-muted-foreground">
                   {d.ip} · {dateFmt.format(new Date(d.lastActive))}
                 </p>

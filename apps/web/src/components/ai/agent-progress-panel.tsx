@@ -94,7 +94,7 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
                     type="button"
                     onClick={() => hasDetail && toggle(step.id)}
                     className={cn(
-                      'flex min-w-0 items-center gap-1 text-left text-sm font-medium',
+                      'flex min-w-0 items-center gap-1 text-left text-body font-medium',
                       hasDetail && 'cursor-pointer hover:text-primary',
                     )}
                   >

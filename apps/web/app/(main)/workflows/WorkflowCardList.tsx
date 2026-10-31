@@ -63,7 +63,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
                 </div>
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                    'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label font-medium',
                     TRIGGER_BADGE[w.triggerType],
                   )}
                 >

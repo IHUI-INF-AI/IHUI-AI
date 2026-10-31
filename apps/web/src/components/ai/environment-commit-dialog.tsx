@@ -117,7 +117,7 @@ export function EnvironmentCommitDialog() {
             type="button"
             onClick={() => void runCommitPush(false)}
             disabled={!commitMsg.trim() || busy !== null || !workspacePath}
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border px-3 text-label font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
             data-testid="env-commit-only"
           >
             {busy === 'commit' ? (
@@ -131,7 +131,7 @@ export function EnvironmentCommitDialog() {
             type="button"
             onClick={() => void runCommitPush(true)}
             disabled={!commitMsg.trim() || busy !== null || !workspacePath}
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-foreground px-3 text-label font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
             data-testid="env-commit-push"
           >
             {busy === 'push' ? (

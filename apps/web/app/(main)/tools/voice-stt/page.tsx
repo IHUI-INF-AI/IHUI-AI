@@ -130,7 +130,7 @@ export default function VoiceSttPage() {
       <BackButton fallbackHref="/tools" />
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Mic className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -155,7 +155,7 @@ export default function VoiceSttPage() {
                 <div className="flex min-w-0 items-start gap-2">
                   <FileAudio className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{file.name}</p>
+                    <p className="truncate text-body font-medium">{file.name}</p>
                     <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
@@ -184,7 +184,7 @@ export default function VoiceSttPage() {
               className="flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-primary/50 hover:bg-accent"
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
-              <span className="text-sm font-medium">{t('selectFile')}</span>
+              <span className="text-body font-medium">{t('selectFile')}</span>
               <span className="text-xs text-muted-foreground">{t('supported')}</span>
             </button>
           )}

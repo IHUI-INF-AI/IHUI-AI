@@ -127,7 +127,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <p
-                  className="text-xs font-medium uppercase tracking-[0.4em] text-muted-foreground"
+                  className="text-label font-medium uppercase tracking-[0.4em] text-muted-foreground"
                   aria-hidden
                 >
                   CERTIFICATE
@@ -225,7 +225,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
               type="button"
               onClick={onPrint}
               className={cn(
-                'inline-flex h-9 items-center gap-1.5 rounded-sm bg-cta px-3 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90',
+                'inline-flex h-9 items-center gap-1.5 rounded-sm bg-cta px-3 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90',
                 '[&>span]:translate-y-[var(--text-vcenter-offset)]',
               )}
             >

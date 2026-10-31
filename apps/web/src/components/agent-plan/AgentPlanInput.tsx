@@ -36,7 +36,7 @@ export function AgentPlanInput({ busy, onGenerate }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <label htmlFor="agent-plan-goal" className="text-sm font-medium">
+        <label htmlFor="agent-plan-goal" className="text-body font-medium">
           {t('goalLabel')}
         </label>
         <Textarea
@@ -51,7 +51,7 @@ export function AgentPlanInput({ busy, onGenerate }: Props) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <label htmlFor="agent-plan-session" className="text-sm font-medium">
+          <label htmlFor="agent-plan-session" className="text-body font-medium">
             {t('sessionLabel')}
           </label>
           <Input
@@ -63,7 +63,7 @@ export function AgentPlanInput({ busy, onGenerate }: Props) {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label htmlFor="agent-plan-model" className="text-sm font-medium">
+          <label htmlFor="agent-plan-model" className="text-body font-medium">
             {t('modelLabel')}
           </label>
           <Input

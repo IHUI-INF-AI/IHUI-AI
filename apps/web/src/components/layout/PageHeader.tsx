@@ -20,7 +20,7 @@ export function PageHeader({ title, subtitle, actions, breadcrumb, className }: 
       {breadcrumb && <Breadcrumb items={breadcrumb} />}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-1">
-          <h1 className="truncate text-xl font-bold tracking-tight min-[640px]:text-2xl">
+          <h1 className="truncate text-heading font-bold tracking-tight min-[640px]:text-display">
             {title}
           </h1>
           {subtitle && <p className="line-clamp-2 text-sm text-muted-foreground">{subtitle}</p>}

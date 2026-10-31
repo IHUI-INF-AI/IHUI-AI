@@ -158,7 +158,7 @@ export default function WithdrawRecordsPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <ArrowDownToLine className="h-7 w-7 text-primary" />
           {t('withdrawRecords')}
         </h1>
@@ -181,7 +181,7 @@ export default function WithdrawRecordsPage() {
                       {(summaryQ.error as Error).message}
                     </div>
                   ) : (
-                    <div className="text-2xl font-bold tracking-tight">{s.value}</div>
+                    <div className="text-display font-bold tracking-tight">{s.value}</div>
                   )}
                 </CardContent>
               </Card>
@@ -237,7 +237,7 @@ export default function WithdrawRecordsPage() {
                       <TableCell className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                             STATUS_CLS[it.status],
                           )}
                         >

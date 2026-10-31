@@ -75,7 +75,7 @@ export default function UserResourcePage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-semibold">{r.title}</h3>
+                  <h3 className="truncate text-body font-semibold">{r.title}</h3>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     {r.type ? (
                       <span className="rounded-md bg-muted px-2 py-0.5">{r.type}</span>

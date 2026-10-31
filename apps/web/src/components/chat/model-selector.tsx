@@ -561,7 +561,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
           <div className="flex items-start gap-2">
             <Crown className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">{t('modelPopoverMemberTitle')}</p>
+              <p className="text-body font-semibold">{t('modelPopoverMemberTitle')}</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 {t('modelPopoverMemberDesc', {
                   from: opt.pointsMultiplier.toFixed(2),
@@ -581,7 +581,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
               router.push('/user/subscription')
             }}
             className={cn(
-              'mt-3 inline-flex h-8 w-full items-center justify-center rounded-sm px-3 text-xs font-medium',
+              'mt-3 inline-flex h-8 w-full items-center justify-center rounded-sm px-3 text-label font-medium',
               'bg-foreground text-background transition-colors hover:bg-foreground/90',
             )}
           >
@@ -859,7 +859,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
           disabled={disabled || loading}
           aria-label={label}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-sm font-medium transition-colors',
+            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
@@ -937,7 +937,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
             <DropdownMenu.Group key={vendor}>
               <DropdownMenu.Label
                 className={cn(
-                  'flex items-center gap-1.5 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide',
+                  'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
                   'bg-card text-muted-foreground',
                 )}
               >
@@ -1048,7 +1048,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
                         <DropdownMenu.Label
                           className={cn(
                             'flex items-center gap-1.5 bg-card px-2 py-1.5',
-                            'text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+                            'text-label font-semibold uppercase tracking-wide text-muted-foreground',
                           )}
                         >
                           <span className="flex-1 truncate">

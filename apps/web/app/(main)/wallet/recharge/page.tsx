@@ -114,7 +114,7 @@ export default function RechargePage() {
         {t('backToWallet')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight">{t('rechargeTitle')}</h1>
+      <h1 className="text-display font-bold tracking-tight">{t('rechargeTitle')}</h1>
 
       <Card>
         <CardHeader>

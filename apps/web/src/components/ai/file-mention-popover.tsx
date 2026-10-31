@@ -430,7 +430,7 @@ export function FileMentionPopover({
                       )}
                     />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm font-medium leading-tight">
+                      <span className="truncate text-body font-medium leading-tight">
                         {item.name}
                       </span>
                       <span className="truncate font-mono text-[10px] leading-snug text-muted-foreground">

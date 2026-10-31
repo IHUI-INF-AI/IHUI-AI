@@ -69,7 +69,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
       <div className="space-y-2 rounded-lg border border-border bg-card p-3">
         <div className="flex items-center gap-1.5">
           <GitFork className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm font-medium">{t('forkTitle')}</span>
+          <span className="text-body font-medium">{t('forkTitle')}</span>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="worlds-task">{t('taskLabel')}</Label>
@@ -177,7 +177,7 @@ function WorldBranchCard({
       data-world-status={branch.status}
     >
       <div className="flex items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+        <span className="min-w-0 flex-1 truncate text-label font-semibold text-foreground">
           {branch.label}
         </span>
         {branch.status === 'running' && (

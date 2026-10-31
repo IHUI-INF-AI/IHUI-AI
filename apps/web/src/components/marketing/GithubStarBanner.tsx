@@ -21,7 +21,7 @@ export function GithubStarBanner(): React.JSX.Element {
           href="https://github.com/IHUI-INF-AI/IHUI-AI"
           target="_blank"
           rel="noopener noreferrer"
-          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary/40 hover:bg-primary/5"
+          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label font-medium transition-colors hover:border-primary/40 hover:bg-primary/5"
         >
           <Code className="h-3.5 w-3.5" />
           <span>Star on GitHub</span>
@@ -50,7 +50,7 @@ export function GithubStarBanner(): React.JSX.Element {
         href="https://aizhs.top"
         target="_blank"
         rel="noopener noreferrer"
-        className="group inline-flex items-center justify-center gap-2 rounded-lg border-2 border-brand-accent-deep bg-card px-5 py-2.5 text-sm font-semibold shadow-sm transition-all hover:scale-[1.02] hover:shadow-lg animate-[pulse_2s_ease-in-out_infinite] dark:shadow-primary/20"
+        className="group inline-flex items-center justify-center gap-2 rounded-lg border-2 border-brand-accent-deep bg-card px-5 py-2.5 text-body font-semibold shadow-sm transition-all hover:scale-[1.02] hover:shadow-lg animate-[pulse_2s_ease-in-out_infinite] dark:shadow-primary/20"
       >
         <Image
           src="/images/logo.png?v=20261021"
@@ -61,7 +61,7 @@ export function GithubStarBanner(): React.JSX.Element {
         />
         <div className="flex flex-col items-start">
           <span>在线体验 AI 助手</span>
-          <span className="text-xs font-normal text-muted-foreground">
+          <span className="text-label font-normal text-muted-foreground">
             aizhs.top · 无需部署，开箱即用
           </span>
         </div>

@@ -114,7 +114,7 @@ export const ChatGenAgnes = React.memo(function ChatGenAgnes() {
 
         {answer ? (
           <div className="space-y-1">
-            <div className="text-sm font-medium">{t('result')}</div>
+            <div className="text-body font-medium">{t('result')}</div>
             <div className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
               {answer}
             </div>

@@ -122,7 +122,7 @@ export default function WithdrawPage() {
         {t('backToWallet')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight">{t('withdrawTitle')}</h1>
+      <h1 className="text-display font-bold tracking-tight">{t('withdrawTitle')}</h1>
 
       {/* 2026-09-30 登录态门 */}
       {!allow ? (
@@ -142,7 +142,7 @@ export default function WithdrawPage() {
                   {(availableQ.error as Error).message}
                 </div>
               ) : (
-                <div className="mt-1 text-2xl font-bold">
+                <div className="mt-1 text-display font-bold">
                   ¥{formatPrice(availableQ.data?.available ?? 0)}
                 </div>
               )}

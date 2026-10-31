@@ -91,7 +91,7 @@ export default function SubscriptionsPage() {
     <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Bell className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -104,7 +104,7 @@ export default function SubscriptionsPage() {
             key={tabItem.value}
             onClick={() => setTab(tabItem.value)}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === tabItem.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -140,7 +140,7 @@ export default function SubscriptionsPage() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{t(TYPE_KEY[s.targetType])}</p>
+                  <p className="break-words text-body font-medium">{t(TYPE_KEY[s.targetType])}</p>
                   <p className="break-words font-mono text-xs text-muted-foreground">
                     {s.targetId}
                   </p>

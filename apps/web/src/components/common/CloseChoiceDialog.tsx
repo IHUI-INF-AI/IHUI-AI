@@ -116,7 +116,7 @@ export function CloseChoiceDialog() {
             checked={remember}
             onCheckedChange={(checked) => toggleRemember(checked === true)}
           />
-          <Label htmlFor="desktop-close-remember" className="text-xs font-normal">
+          <Label htmlFor="desktop-close-remember" className="text-label font-normal">
             {t('desktopAskRemember')}
           </Label>
         </div>

@@ -148,7 +148,7 @@ export function FoldableSection({
         aria-expanded={open}
         aria-label={ariaLabel ?? title}
         data-section-header="true"
-        className="flex w-full items-center gap-1.5 py-1 text-left text-sm font-medium text-muted-foreground/80 transition-colors hover:text-foreground/90 focus-visible:outline-none"
+        className="flex w-full items-center gap-1.5 py-1 text-left text-body font-medium text-muted-foreground/80 transition-colors hover:text-foreground/90 focus-visible:outline-none"
       >
         <ChevronRight
           className={cn(
@@ -161,7 +161,7 @@ export function FoldableSection({
         {/* 借鉴 折叠态摘要设计:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
         {summary && !open && (
           <span
-            className="min-w-0 max-w-[40%] truncate text-xs font-normal text-muted-foreground/50"
+            className="min-w-0 max-w-[40%] truncate text-label font-normal text-muted-foreground/50"
             data-testid={`${testId ?? 'foldable'}-summary`}
           >
             {summary}
@@ -170,7 +170,7 @@ export function FoldableSection({
         {hasProgress && (
           <span
             className={cn(
-              'shrink-0 tabular-nums text-xs font-medium',
+              'shrink-0 tabular-nums text-label font-medium',
               allDone ? 'text-emerald-500' : 'text-primary/80',
             )}
             data-testid={`${testId ?? 'foldable'}-progress-text`}

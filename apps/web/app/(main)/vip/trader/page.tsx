@@ -124,7 +124,7 @@ export default function VipTraderPage() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
-        <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <Button asChild>
           <Link href="/vip">{tc('back')}</Link>
         </Button>
@@ -135,7 +135,7 @@ export default function VipTraderPage() {
   if (order && order.payInfo?.codeUrl) {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">微信扫码支付</h1>
+        <h1 className="text-display font-bold tracking-tight">微信扫码支付</h1>
         <p className="text-sm text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
         </p>
@@ -155,7 +155,7 @@ export default function VipTraderPage() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
-        <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <p className="text-sm text-muted-foreground">
           微信支付未配置，开发模式直接激活（订单号：{order.orderNo}）
         </p>
@@ -191,7 +191,7 @@ export default function VipTraderPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('traderPlan')}
         </h1>
@@ -204,7 +204,7 @@ export default function VipTraderPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl min-[768px]:text-3xl font-bold">
+            <span className="text-display min-[768px]:text-3xl font-bold">
               {formatCNY(level.price)}
             </span>
             <span className="text-sm text-muted-foreground">
@@ -213,7 +213,7 @@ export default function VipTraderPage() {
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-medium text-muted-foreground">{t('benefits')}</p>
+            <p className="mb-2 text-body font-medium text-muted-foreground">{t('benefits')}</p>
             {benefits.length > 0 ? (
               <ul className="space-y-2 text-sm">
                 {benefits.map((b, i) => (

@@ -63,7 +63,7 @@ export function AgentPicker() {
           data-testid="agent-picker-trigger"
           data-selected-agent={selectedAgentId ?? ''}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-sm font-medium transition-colors',
+            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
             // 选中专家时主色描边,让"当前不是默认助手"在底栏一眼可见
             selectedAgentId && 'border-primary/50 text-primary',
@@ -104,7 +104,7 @@ export function AgentPicker() {
         </DropdownMenuItem>
         {personas.length > 0 && <DropdownMenuSeparator className="my-1 h-px bg-border/60" />}
         {personas.length > 0 && (
-          <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <DropdownMenuLabel className="px-2 py-1 text-label font-semibold uppercase tracking-wide text-muted-foreground">
             {t('agentPicker.groupTitle')}
           </DropdownMenuLabel>
         )}
@@ -144,5 +144,4 @@ export function AgentPicker() {
     </DropdownMenu>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

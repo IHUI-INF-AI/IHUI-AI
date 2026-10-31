@@ -134,7 +134,7 @@ export default function TeamKnowledgePage() {
       )}
 
       <div>
-        <h2 className="text-sm font-medium">{t('spaceListTitle')}</h2>
+        <h2 className="text-body font-medium">{t('spaceListTitle')}</h2>
         {spaces.length === 0 && teamId.trim() && !loading ? (
           <div className="text-muted-foreground mt-2 text-sm">{t('emptySpaces')}</div>
         ) : (
@@ -149,7 +149,7 @@ export default function TeamKnowledgePage() {
                   <CardContent className="min-[640px]:p-3 flex flex-col gap-1 p-3">
                     <div className="flex items-center gap-2">
                       <Library className="text-muted-foreground size-4" />
-                      <span className="flex-1 truncate text-sm font-medium">{space.name}</span>
+                      <span className="flex-1 truncate text-body font-medium">{space.name}</span>
                       <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
                         {t(`role.${space.myRole}`)}
                       </span>

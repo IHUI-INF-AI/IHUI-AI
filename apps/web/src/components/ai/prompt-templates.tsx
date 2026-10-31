@@ -51,7 +51,7 @@ export function PromptTemplates({
               onClick={() => onSelect(tpl.content)}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-sm border bg-background px-3 py-1.5',
-                'text-xs font-medium text-foreground/80 transition-all',
+                'text-label font-medium text-foreground/80 transition-all',
                 'hover:border-primary/40 hover:bg-accent hover:text-foreground hover:-translate-y-px',
               )}
             >
@@ -78,7 +78,7 @@ export function PromptTemplates({
         >
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
           <div className="min-w-0 flex-1">
-            <p className="break-words text-xs font-medium">{tpl.name}</p>
+            <p className="break-words text-label font-medium">{tpl.name}</p>
             <p className="mt-0.5 line-clamp-2 break-words text-[11px] text-muted-foreground">
               {tpl.content}
             </p>

@@ -326,7 +326,7 @@ export function InlineDiffCard({
       <CardHeader className="gap-2 p-3">
         <div className="flex w-full items-center gap-2">
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <CardTitle className="flex-1 break-all text-xs font-medium" title={diffInfo.file_path}>
+          <CardTitle className="flex-1 break-all text-label font-medium" title={diffInfo.file_path}>
             {diffInfo.file_path}
             {diffInfo.is_new_file && (
               <span className="ml-1.5 rounded-sm bg-blue-500/15 px-1 py-0.5 text-[10px] text-blue-600">
@@ -523,7 +523,7 @@ export function InlineDiffCard({
               type="button"
               onClick={onApply}
               disabled={isApplying}
-              className="inline-flex items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-label font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isApplying ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -536,7 +536,7 @@ export function InlineDiffCard({
               type="button"
               onClick={onReject}
               disabled={isApplying}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
               <X className="h-3.5 w-3.5" />
               <span>Reject</span>
@@ -550,7 +550,7 @@ export function InlineDiffCard({
             onClick={() =>
               setCommentTarget((prev) => (prev && prev.line === undefined ? null : {}))
             }
-            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted"
             data-testid="diff-comment-file-action"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
@@ -563,7 +563,7 @@ export function InlineDiffCard({
             type="button"
             onClick={handleCopyGitApply}
             disabled={!filePatch}
-            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="inline-diff-copy-apply"
           >
             <Copy className="h-3.5 w-3.5" />

@@ -410,7 +410,7 @@ export function PermissionModePopover({
           className={cn(
             // icon-only(2026-09-30 底栏单行化):原"图标+档名"文字按钮改为纯图标方块,
             // 档名由 Tooltip 承载;档位色彩语义(琥珀=高危/翡翠=替我审批)保留在底色上
-            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 text-xs font-medium leading-none',
+            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 text-label font-medium leading-none',
             'relative duration-150 ease-out',
             currentMode === 'bypass-permissions'
               ? cn(
@@ -469,7 +469,7 @@ export function PermissionModePopover({
           {/* 顶部标题 + 了解更多链接(Codex 风格:左标题,右链接) */}
           <div className="flex items-start justify-between gap-2 px-1 pb-1">
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-foreground">{t('popoverTitle')}</span>
+              <span className="text-body font-semibold text-foreground">{t('popoverTitle')}</span>
               {!hasWorkspace && (
                 <span className="text-[11px] text-muted-foreground">
                   {t('popoverHintNoWorkspace')}
@@ -565,7 +565,7 @@ export function PermissionModePopover({
                     <div className="flex items-center gap-1.5">
                       <span
                         className={cn(
-                          'text-xs font-medium',
+                          'text-label font-medium',
                           opt.risk === 'high' && isSel && 'text-amber-600 dark:text-amber-400',
                         )}
                       >
@@ -607,7 +607,7 @@ export function PermissionModePopover({
             )}
           >
             <ShieldX className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-            <span className="flex-1 min-w-0 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <span className="flex-1 min-w-0 text-label font-medium text-amber-700 dark:text-amber-400">
               {t('quickFullAccess')}
             </span>
             {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}

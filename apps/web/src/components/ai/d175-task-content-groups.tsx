@@ -75,7 +75,7 @@ export function TaskContentGroupsView({ messages }: TaskContentGroupsViewProps):
     >
       {totalCount === 0 && (
         <div data-testid="task-content-empty" className="pb-1.5">
-          <p className="text-xs font-medium text-foreground/80">{tm('empty')}</p>
+          <p className="text-label font-medium text-foreground/80">{tm('empty')}</p>
           <p className="pt-0.5 text-[11px] leading-relaxed text-muted-foreground">
             {tm('emptyDescription')}
           </p>

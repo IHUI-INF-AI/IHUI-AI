@@ -197,7 +197,7 @@ export default function TeamDetailPage() {
               type="button"
               onClick={() => setTab(tb.key)}
               className={cn(
-                '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                '-mb-px border-b-2 px-3 py-2 text-body font-medium transition-colors',
                 tab === tb.key
                   ? 'border-brand-accent-deep text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground',

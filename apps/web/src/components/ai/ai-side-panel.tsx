@@ -1755,7 +1755,7 @@ export function AISidePanel() {
                 className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
               >
                 <span className="flex min-w-0 items-center gap-1">
-                  <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
+                  <span className="min-w-0 truncate text-body font-semibold">{displayTitle}</span>
                   {/* 会话累计 Token / 费用徽章(2026-09-07 工作线 A;2026-09-12 W4 成本真网计价):
                   hover 展开输入/输出/请求数明细,按 currentModel 查真实价目表计费 */}
                   <SessionUsageBadge

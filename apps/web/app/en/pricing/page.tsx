@@ -198,7 +198,7 @@ export default function PricingLandingPage() {
       <div className="mx-auto max-w-5xl px-6 py-12 md:py-16">
         {/* Hero */}
         <section className="mb-12 flex flex-col items-center text-center md:mb-16">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Shield className="h-3.5 w-3.5 text-primary" />
             Pricing
           </div>
@@ -223,7 +223,7 @@ export default function PricingLandingPage() {
             <span className="font-medium">Monthly</span>
             <span className="text-muted-foreground">|</span>
             <span className="font-medium">Annual</span>
-            <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <span className="rounded bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
               Save 2 months
             </span>
           </div>
@@ -283,17 +283,17 @@ export default function PricingLandingPage() {
         {/* Feature Comparison Table */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Compare All Features
             </h2>
           </div>
           <div className="overflow-x-auto">
             <div className="grid min-w-[640px] grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2">
-              <div className="text-sm font-semibold">Feature</div>
-              <div className="text-center text-sm font-semibold">Free</div>
-              <div className="text-center text-sm font-semibold">Individual</div>
-              <div className="text-center text-sm font-semibold">Team</div>
-              <div className="text-center text-sm font-semibold">Enterprise</div>
+              <div className="text-body font-semibold">Feature</div>
+              <div className="text-center text-body font-semibold">Free</div>
+              <div className="text-center text-body font-semibold">Individual</div>
+              <div className="text-center text-body font-semibold">Team</div>
+              <div className="text-center text-body font-semibold">Enterprise</div>
               {comparison.map((row) => (
                 <div key={row.feature} className="contents">
                   <div className="rounded bg-card px-3 py-2 text-sm text-muted-foreground">
@@ -320,7 +320,7 @@ export default function PricingLandingPage() {
         {/* FAQ */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Frequently Asked Questions
             </h2>
           </div>
@@ -339,7 +339,7 @@ export default function PricingLandingPage() {
           <Card className="p-3 md:p-12">
             <div className="flex flex-col items-center text-center">
               <Code className="h-10 w-10 text-primary" />
-              <h2 className="mt-4 text-xl font-bold tracking-tight text-foreground md:text-2xl">
+              <h2 className="mt-4 text-heading font-bold tracking-tight text-foreground md:text-display">
                 Open Source. Self-Host. Free Forever.
               </h2>
               <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
@@ -366,7 +366,7 @@ export default function PricingLandingPage() {
         {/* Footer CTA */}
         <section>
           <Card className="p-3 text-center md:p-12">
-            <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight text-foreground md:text-display">
               Ready to get started?
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">

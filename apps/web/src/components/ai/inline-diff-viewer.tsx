@@ -449,7 +449,7 @@ export function InlineDiffViewer({
     <div className="overflow-hidden rounded-md border border-border bg-background">
       {filename && (
         <div className="bg-muted/40 px-3 py-1.5">
-          <span className="text-xs font-medium text-muted-foreground">{filename}</span>
+          <span className="text-label font-medium text-muted-foreground">{filename}</span>
         </div>
       )}
       <div className="overflow-x-auto font-mono text-xs">

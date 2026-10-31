@@ -18,7 +18,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleAnalyzeImpact}
           disabled={p.impactLoading}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-label font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             p.impactLoading && 'cursor-not-allowed opacity-60',
           )}
@@ -44,7 +44,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
             <span className="text-xs text-muted-foreground">风险评分:</span>
             <span
               className={cn(
-                'rounded px-2 py-0.5 text-xs font-bold',
+                'rounded px-2 py-0.5 text-label font-bold',
                 RISK_BADGE[p.impactResult.riskLevel],
               )}
             >
@@ -60,7 +60,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
             <p className="text-xs text-muted-foreground">{p.impactResult.llmAnalysis.riskReason}</p>
           )}
           <div>
-            <p className="text-xs font-medium text-foreground">
+            <p className="text-label font-medium text-foreground">
               受影响文件 ({p.impactResult.affectedFiles.length})
             </p>
             <div className="mt-1 flex flex-wrap gap-1">
@@ -80,7 +80,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-foreground">
+            <p className="text-label font-medium text-foreground">
               受影响测试 ({p.impactResult.affectedTests.length})
             </p>
             <div className="mt-1 flex flex-wrap gap-1">
@@ -100,7 +100,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-foreground">
+            <p className="text-label font-medium text-foreground">
               下游 spec ({p.impactResult.downstreamSpecs.length})
             </p>
             <div className="mt-1 flex flex-wrap gap-1">
@@ -116,7 +116,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
           </div>
           {p.impactResult.recommendations.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-foreground">建议措施</p>
+              <p className="text-label font-medium text-foreground">建议措施</p>
               <ul className="mt-1 space-y-0.5">
                 {p.impactResult.recommendations.map((r, i) => (
                   <li key={i} className="text-xs text-muted-foreground">

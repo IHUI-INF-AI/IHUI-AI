@@ -202,7 +202,7 @@ export default function SubagentDetailClient() {
               <div>
                 <p className="text-xs text-muted-foreground">状态</p>
                 <span
-                  className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[dispatch.status]}`}
+                  className={`mt-1 inline-block rounded px-1.5 py-0.5 text-label font-medium ${STATUS_BADGE[dispatch.status]}`}
                 >
                   {STATUS_LABEL[dispatch.status]}
                 </span>
@@ -277,7 +277,7 @@ export default function SubagentDetailClient() {
                   unit="次"
                 />
                 {quotasQ.data.exceeded && (
-                  <p className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                  <p className="text-label font-medium text-rose-600 dark:text-rose-400">
                     ⚠ 配额已超限
                   </p>
                 )}

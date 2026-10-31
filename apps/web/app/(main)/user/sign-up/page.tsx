@@ -90,7 +90,7 @@ export default function UserSignUpPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="truncate text-sm font-semibold">{s.targetTitle}</h3>
+                    <h3 className="truncate text-body font-semibold">{s.targetTitle}</h3>
                     {s.status ? (
                       <span
                         className={cn(

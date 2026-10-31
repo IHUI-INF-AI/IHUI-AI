@@ -108,7 +108,7 @@ export default function MyArticlesPage() {
                   ) : null}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm font-semibold">{a.title}</h3>
+                      <h3 className="truncate text-body font-semibold">{a.title}</h3>
                       {a.status && (
                         <span
                           className={`shrink-0 rounded-md px-2 py-0.5 text-xs ${

@@ -183,7 +183,7 @@ export function ImportAnalysisDialog({
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pt-1">
             {/* ① 选场景:推荐区(按来源给默认)+ 全库浏览 */}
             <section className="space-y-1.5">
-              <p className="text-xs font-medium text-foreground/80">{t('analysisScenarioLabel')}</p>
+              <p className="text-label font-medium text-foreground/80">{t('analysisScenarioLabel')}</p>
               {catalog.recommended.length > 0 && (
                 <>
                   <p className="text-[11px] text-muted-foreground">{t('analysisRecommended')}</p>
@@ -201,7 +201,7 @@ export function ImportAnalysisDialog({
                             : 'rounded-sm border border-border p-2 text-left hover:bg-accent'
                         }
                       >
-                        <span className="block text-xs font-medium">{s.title}</span>
+                        <span className="block text-label font-medium">{s.title}</span>
                         <span className="mt-0.5 block text-[11px] text-muted-foreground">
                           {s.useCase || s.description}
                         </span>
@@ -256,7 +256,7 @@ export function ImportAnalysisDialog({
             {/* ② 填 variables */}
             {selected && (
               <section className="space-y-1.5" data-testid="import-analysis-variables">
-                <p className="text-xs font-medium text-foreground/80">
+                <p className="text-label font-medium text-foreground/80">
                   {t('analysisVariablesLabel', { title: selected.title })}
                 </p>
                 {selected.variables.length === 0 ? (

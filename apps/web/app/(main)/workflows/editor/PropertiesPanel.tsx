@@ -41,7 +41,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
   if (!node) {
     return (
       <div className="w-64 shrink-0 bg-card">
-        <div className="bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+        <div className="bg-muted/40 px-3 py-2 text-label font-semibold uppercase text-muted-foreground">
           {t('editor.properties')}
         </div>
         <div className="p-3 text-center text-xs text-muted-foreground">
@@ -72,7 +72,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
   return (
     <div className="w-64 shrink-0 bg-card">
       <div className="flex items-center justify-between bg-muted/40 px-3 py-2">
-        <span className="text-xs font-semibold uppercase text-muted-foreground">
+        <span className="text-label font-semibold uppercase text-muted-foreground">
           {t('editor.properties')}
         </span>
         <CloseButton aria-label="关闭" onClick={onClose} />

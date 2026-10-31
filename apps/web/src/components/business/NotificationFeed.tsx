@@ -190,7 +190,7 @@ export function NotificationFeed({ tab, partition, view }: NotificationFeedProps
   if (error) {
     return (
       <div className="space-y-1 py-10 text-center">
-        <p className="text-sm font-medium text-destructive">{t('unavailable')}</p>
+        <p className="text-body font-medium text-destructive">{t('unavailable')}</p>
         <p className="text-xs text-muted-foreground">{(error as Error).message}</p>
       </div>
     )
@@ -255,7 +255,7 @@ export function NotificationFeed({ tab, partition, view }: NotificationFeedProps
       {/* active 分区把未读单独收在「需要了解」一节:红点与这条分组同源(都只数未归档未读)。 */}
       {unreadRows.length > 0 && (
         <div className="space-y-1">
-          <p className="px-1 text-xs font-semibold text-muted-foreground">{t('important')}</p>
+          <p className="px-1 text-label font-semibold text-muted-foreground">{t('important')}</p>
           <div className="space-y-1 rounded-lg border">{unreadRows.map(renderRow)}</div>
         </div>
       )}

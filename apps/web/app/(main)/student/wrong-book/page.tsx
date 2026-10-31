@@ -61,7 +61,7 @@ export default function WrongBookPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <XCircle className="h-7 w-7 text-primary" />
           {t('wrongBookTitle')}
         </h1>
@@ -96,7 +96,7 @@ export default function WrongBookPage() {
                     </div>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                         'bg-destructive/10 text-destructive',
                       )}
                     >

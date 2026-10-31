@@ -109,7 +109,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
         <div className="space-y-4">
           {SHORTCUT_GROUPS.map((group) => (
             <div key={group.titleKey} className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
                 {group.titleKey === 'shortcutsSectionSwitch' && <ShieldCheck className="h-3 w-3" />}
                 {group.titleKey === 'shortcutsSectionGuard' && <ShieldAlert className="h-3 w-3" />}
                 {group.titleKey === 'shortcutsSectionAudit' && <History className="h-3 w-3" />}
@@ -161,7 +161,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground hover:bg-cta/90"
+            className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-label font-medium text-cta-foreground hover:bg-cta/90"
             data-testid="permission-shortcuts-close"
           >
             {t('shortcutsClose')}

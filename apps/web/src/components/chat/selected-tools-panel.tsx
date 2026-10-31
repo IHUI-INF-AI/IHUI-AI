@@ -74,7 +74,7 @@ function ToolChip({ tool, onRemove }: { tool: SelectedToolItem; onRemove?: (id: 
     >
       <span
         className={cn(
-          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium [&>span]:translate-y-[0.5px]',
+          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium [&>span]:translate-y-[0.5px]',
           isReal
             ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
             : isModel

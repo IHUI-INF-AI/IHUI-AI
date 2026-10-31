@@ -293,7 +293,7 @@ export function GithubConfigDialog() {
               type="button"
               onClick={() => void handleClear()}
               disabled={busy !== null}
-              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-sm border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-sm border border-border px-3 text-label font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
               data-testid="github-token-clear"
             >
               {busy === 'clear' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -309,7 +309,7 @@ export function GithubConfigDialog() {
               type="button"
               onClick={() => void handleStartAuth()}
               disabled={busy !== null || !workspacePath}
-              className="inline-flex h-8 items-center justify-center gap-1 rounded-sm bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="inline-flex h-8 items-center justify-center gap-1 rounded-sm bg-foreground px-3 text-label font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
               data-testid="github-auth-start"
             >
               {busy === 'auth' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -344,7 +344,7 @@ export function GithubConfigDialog() {
                     type="button"
                     onClick={() => void handleSave()}
                     disabled={!token.trim() || busy !== null || !workspacePath}
-                    className="inline-flex h-8 items-center justify-center gap-1 self-start rounded-sm bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex h-8 items-center justify-center gap-1 self-start rounded-sm bg-foreground px-3 text-label font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                     data-testid="github-token-save"
                   >
                     {busy === 'save' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -373,7 +373,7 @@ export function GithubConfigDialog() {
                 </button>
               </div>
               <code
-                className="rounded-md bg-muted px-3 py-2 text-center font-mono text-xl font-semibold tracking-[0.2em]"
+                className="rounded-md bg-muted px-3 py-2 text-center font-mono text-heading font-semibold tracking-[0.2em]"
                 data-testid="github-user-code"
               >
                 {userCode}
@@ -395,7 +395,7 @@ export function GithubConfigDialog() {
             <button
               type="button"
               onClick={handleOpenAuthPage}
-              className="inline-flex h-8 items-center justify-center gap-1 rounded-sm bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-90"
+              className="inline-flex h-8 items-center justify-center gap-1 rounded-sm bg-foreground px-3 text-label font-medium text-background transition-opacity hover:opacity-90"
               data-testid="github-open-auth-page"
             >
               {t('openAuthPage')}

@@ -21,7 +21,7 @@ export function ToolHeader({ title, description }: { title: string; description:
         <ArrowLeft className="h-4 w-4" />
         PDF 工具
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+      <h1 className="text-display font-bold tracking-tight">{title}</h1>
       <p className="text-xs text-muted-foreground">{description}</p>
     </header>
   )
@@ -99,7 +99,7 @@ export function DownloadLink({ url, filename }: { url: string; filename?: string
     <a
       href={url}
       download={filename}
-      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+      className="inline-flex items-center gap-2 text-body font-medium text-primary hover:underline"
     >
       <Download className="h-4 w-4" />
       下载{filename ? `：${filename}` : '结果'}

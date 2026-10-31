@@ -137,7 +137,7 @@ export default function EnglishAgentsPage() {
       <div className="mx-auto max-w-5xl px-6 py-12 md:py-16">
         {/* Hero */}
         <section className="mb-16 flex flex-col items-center text-center md:mb-24">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Bot className="h-3.5 w-3.5" />
             200+ Templates · Visual Orchestration · MCP Native
           </div>
@@ -164,7 +164,7 @@ export default function EnglishAgentsPage() {
         {/* Use Case Categories */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Built for Every Use Case
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -189,7 +189,7 @@ export default function EnglishAgentsPage() {
         {/* How It Works */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               How It Works
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -200,7 +200,7 @@ export default function EnglishAgentsPage() {
             {STEPS.map((step) => (
               <Card key={step.number}>
                 <CardHeader>
-                  <span className="text-sm font-bold text-primary">{step.number}</span>
+                  <span className="text-body font-bold text-primary">{step.number}</span>
                   <CardTitle className="mt-2 text-lg">{step.title}</CardTitle>
                   <CardDescription className="mt-2 leading-relaxed">{step.desc}</CardDescription>
                 </CardHeader>
@@ -217,7 +217,7 @@ export default function EnglishAgentsPage() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Wrench className="h-6 w-6" />
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
                   MCP Tool Protocol Native Support
                 </h2>
                 <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
@@ -235,7 +235,7 @@ export default function EnglishAgentsPage() {
                       <tool.icon className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{tool.name}</p>
+                      <p className="text-body font-medium text-foreground">{tool.name}</p>
                       <p className="text-xs text-muted-foreground">{tool.desc}</p>
                     </div>
                   </div>
@@ -261,7 +261,7 @@ export default function EnglishAgentsPage() {
 
         {/* Footer CTA */}
         <section className="mb-8 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+          <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
             Ready to build your agent?
           </h2>
           <p className="mt-3 text-muted-foreground">Start from a template or create your own.</p>

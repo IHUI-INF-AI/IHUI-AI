@@ -212,7 +212,7 @@ export function TaskStatusBar() {
           className="flex w-full items-center gap-2 px-3 py-2 text-left"
         >
           <Glyph className={cn('h-3.5 w-3.5 shrink-0', glyphCls)} aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-xs font-medium" aria-live="polite">
+          <span className="min-w-0 flex-1 truncate text-label font-medium" aria-live="polite">
             {headline}
           </span>
           {stepText ? (

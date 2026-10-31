@@ -57,7 +57,7 @@ export function HomeFeatureGrid() {
         >
           02
         </div>
-        <h2 className="text-2xl font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
+        <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
@@ -85,12 +85,12 @@ export function HomeFeatureGrid() {
             </div>
 
             {/* 大号标题 — gradient text */}
-            <span className="animate-mag-value-glow line-clamp-2 bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 min-[640px]:text-2xl">
+            <span className="animate-mag-value-glow line-clamp-2 bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-heading font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 min-[640px]:text-display">
               {title}
             </span>
 
             {/* 收益标签 */}
-            <span className="text-[11px] font-medium text-muted-foreground min-[640px]:text-xs">
+            <span className="text-[11px] font-medium text-muted-foreground min-[640px]:text-label">
               {benefit}
             </span>
           </RevealOnView>

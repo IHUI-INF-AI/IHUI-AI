@@ -234,7 +234,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
       <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
         <BackButton />
         <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm font-medium text-foreground">{t('notFoundTitle')}</p>
+          <p className="text-body font-medium text-foreground">{t('notFoundTitle')}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {t('notFoundHint', { name: deepLinkName })}
           </p>
@@ -255,7 +255,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Wand2 className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           {!isLoading && !error && <Badge variant="primary">{t('count', { count: total })}</Badge>}
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
@@ -401,7 +401,7 @@ function SkillCard({
           <button
             type="button"
             onClick={onOpenDetail}
-            className="block w-full truncate text-left text-sm font-semibold leading-tight text-foreground hover:underline"
+            className="block w-full truncate text-left text-body font-semibold leading-tight text-foreground hover:underline"
             aria-label={entry.name}
           >
             {entry.name}
@@ -641,7 +641,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
 
         {/* 评分区 */}
         <div className="mt-5 space-y-2 pt-4">
-          <h3 className="text-sm font-semibold text-foreground">{t('ratingsTitle')}</h3>
+          <h3 className="text-body font-semibold text-foreground">{t('ratingsTitle')}</h3>
           {ratingsLoading && (
             <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -666,7 +666,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
 
           {/* 评分表单 */}
           <div className="mt-3 space-y-2 rounded-md border p-3">
-            <p className="text-xs font-medium text-foreground">{t('rateTitle')}</p>
+            <p className="text-label font-medium text-foreground">{t('rateTitle')}</p>
             <div
               className="flex items-center gap-1.5"
               role="radiogroup"

@@ -189,7 +189,7 @@ export function BackgroundAgentsPanel({
       <div className="flex items-center justify-between bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{t('title')}</span>
+          <span className="text-body font-medium">{t('title')}</span>
           {stats.running > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
@@ -246,7 +246,7 @@ export function BackgroundAgentsPanel({
                         data-testid={`bg-task-state-${agent.agent_id}`}
                         data-task-state={taskState}
                         className={cn(
-                          'rounded px-1.5 py-0.5 text-xs font-medium',
+                          'rounded px-1.5 py-0.5 text-label font-medium',
                           TONE_BADGE_CLASS[view.tone],
                         )}
                       >

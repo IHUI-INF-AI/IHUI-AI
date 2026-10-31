@@ -572,7 +572,7 @@ function DetailPanel({
       {/* 调用按钮 */}
       <button
         type="button"
-        className="mt-1 flex h-7 items-center justify-center gap-1.5 rounded-sm bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/80 disabled:opacity-50"
+        className="mt-1 flex h-7 items-center justify-center gap-1.5 rounded-sm bg-accent px-3 text-label font-medium text-accent-foreground transition-colors hover:bg-accent/80 disabled:opacity-50"
         onClick={handleInvoke}
         disabled={calling}
       >

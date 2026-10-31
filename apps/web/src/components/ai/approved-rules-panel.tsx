@@ -123,14 +123,14 @@ export function ApprovedRulesPanel() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium">{t('title')}</h3>
+          <h3 className="text-body font-medium">{t('title')}</h3>
         </div>
         <button
           type="button"
           onClick={() => void refresh()}
           disabled={loading}
           data-testid="approved-rules-refresh"
-          className="inline-flex h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -169,7 +169,7 @@ export function ApprovedRulesPanel() {
                 key={section.key}
                 data-testid={`approved-rules-section-${section.key}`}
               >
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                <h4 className="mb-1 text-label font-medium text-muted-foreground">
                   {section.titleKey ? t(section.titleKey) : section.key}
                 </h4>
                 <ul className="space-y-1.5">
@@ -179,7 +179,7 @@ export function ApprovedRulesPanel() {
                       className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <code className="block truncate font-mono text-xs font-medium">
+                        <code className="block truncate font-mono text-label font-medium">
                           {grant.prefix}
                         </code>
                         <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
@@ -197,7 +197,7 @@ export function ApprovedRulesPanel() {
                         onClick={() => void handleRevoke(grant)}
                         disabled={revokingKey !== null}
                         data-testid={`approved-rules-revoke-${grant.cacheKey}`}
-                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                       >
                         {revokingKey === grant.cacheKey ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />

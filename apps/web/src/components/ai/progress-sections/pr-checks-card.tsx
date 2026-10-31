@@ -109,7 +109,7 @@ export function PrChecksCard({
       data-checks-summary={resolved}
     >
       <div className="flex items-center gap-2">
-        <span className={cn('text-xs font-medium', SUMMARY_TONE[resolved])} data-testid="pr-checks-summary">
+        <span className={cn('text-label font-medium', SUMMARY_TONE[resolved])} data-testid="pr-checks-summary">
           {summaryLabel[resolved]}
         </span>
         {list.length > 0 ? (
