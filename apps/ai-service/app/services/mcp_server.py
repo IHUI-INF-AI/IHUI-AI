@@ -1306,6 +1306,17 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "chunks_created": result.chunks_created,
             "chunks_vectorized": result.chunks_vectorized,
             "merkle_root": result.merkle_root,
+            # 这三代"必须在响应上可见"的字段此前一律被手挑清单吃掉:实现里写了,端上读不到,
+            # 于是"降级/自证失败/被租约挡住"与"一切正常"在响应上长得一模一样。
+            # 配套用例逐字段断言,新增字段不许再靠人记得手抄。
+            "traversal_engine": result.traversal_engine,
+            "traversal_duration_s": result.traversal_duration_s,
+            "traversal_files_seen": result.traversal_files_seen,
+            "traversal_degraded_reason": result.traversal_degraded_reason,
+            "snapshot_state": result.snapshot_state,
+            "snapshot_detail": result.snapshot_detail,
+            "lock_state": result.lock_state,
+            "lock_detail": result.lock_detail,
             "errors": result.errors[:10],
             "message": (
                 f"索引完成: 扫描 {result.files_scanned} 文件, "
