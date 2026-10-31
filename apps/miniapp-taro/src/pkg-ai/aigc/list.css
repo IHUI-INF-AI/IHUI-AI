@@ -30,7 +30,7 @@
 }
 .page-subtitle {
   margin-top: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -55,7 +55,7 @@
   background: var(--color-cta);
 }
 .category-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-medium);
 }
 .category-chip.active .category-text {
@@ -127,7 +127,7 @@
   z-index: 2;
 }
 .video-badge-text {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-surface-light);
 }
 .media-footer {
@@ -135,7 +135,7 @@
 }
 .card-title {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -153,7 +153,7 @@
 }
 .state-text {
   color: var(--color-text-tertiary);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 
 /* ===== 文本卡片(RN textCard:flex2 padding 14 radius 12 border)=====
@@ -174,7 +174,7 @@
   justify-content: space-between;
 }
 .card-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   margin-left: var(--spacing-sm);
   flex-shrink: 0;
@@ -183,7 +183,7 @@
 .prompt-text {
   display: block;
   margin-top: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -192,7 +192,7 @@
 /* 正文(RN contentText:marginTop 8 fontSize 14 text.medium lineHeight 20,3 行截断) */
 .content-text {
   margin-top: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-medium);
   line-height: 40rpx;
   display: -webkit-box;
@@ -242,7 +242,7 @@
 .audio-duration {
   display: block;
   margin-top: var(--spacing-sm);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 /* 播放按钮(RN audioPlayBtn:marginTop 8 padding 10/4 bg success.light;文字 brand 600;圆角按角色档 control→sm) */

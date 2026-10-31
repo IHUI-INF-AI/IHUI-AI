@@ -31,13 +31,13 @@
 }
 .nm-title {
   flex: 1;
-  font-size: 40rpx; /* RN headerTitle 20dp */
+  font-size: var(--text-heading); /* RN headerTitle 20dp */
   font-weight: 600;
   color: var(--color-foreground); /* RN text.primary */
 }
 /* RN createBtn: px 14dp=28rpx, py 6dp=12rpx, bg brand.DEFAULT;圆角按角色档 control→sm */
 .nm-create-btn {
-  font-size: 28rpx; /* RN createText 14dp */
+  font-size: var(--text-body); /* RN createText 14dp */
   font-weight: 600;
   /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
   color: var(--color-cta-foreground);
@@ -67,7 +67,7 @@
 /* RN cardName: 16dp=32rpx,600,text.primary,单行截断(截断用全局 ihui-ellipsis) */
 .nm-list-name {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -75,7 +75,7 @@
 .nm-list-desc {
   display: block;
   margin-top: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-medium);
 }
 /* RN empty: py 48dp=96rpx;emptyText 14dp=28rpx,text.tertiary */
@@ -84,7 +84,7 @@
   text-align: center;
   color: var(--color-text-tertiary);
   padding: var(--spacing-5xl) 0;
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 
 /* ===== 创建表单(RN WorkflowFormModal 的输入/按钮视觉语言整页化) ===== */
@@ -118,7 +118,7 @@
   justify-content: center;
 }
 .nm-avatar-text {
-  font-size: 22rpx; /* RN 小字档 11dp */
+  font-size: var(--text-caption); /* RN 小字档 11dp */
   color: var(--color-text-tertiary); /* RN text.tertiary */
   text-align: center;
   padding: 0 16rpx;
@@ -131,7 +131,7 @@
   padding: var(--spacing-xs-loose) 16rpx;
   background: var(--color-muted);
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
@@ -144,7 +144,7 @@
   padding: var(--spacing-xs-loose) 16rpx;
   background: var(--color-muted);
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
@@ -178,14 +178,14 @@
 }
 .nm-file-name {
   flex: 1;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .nm-file-remove {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-danger); /* RN danger.DEFAULT */
   padding: 0 8rpx;
   margin-left: var(--spacing-sm);
@@ -208,7 +208,7 @@
   margin-bottom: var(--spacing-sm);
 }
 .nm-param-idx {
-  font-size: 28rpx; /* RN 正文 14dp 档 */
+  font-size: var(--text-body); /* RN 正文 14dp 档 */
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -225,7 +225,7 @@
 }
 .nm-field-label {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary); /* RN text.tertiary(嵌套字段标签降一级) */
   margin-bottom: var(--spacing-xs);
 }
@@ -263,7 +263,7 @@
   padding: 10rpx 20rpx;
   background: var(--color-muted);
   border-radius: var(--radius-lg);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .nm-type:active {
@@ -321,7 +321,7 @@
   color: var(--color-cta-foreground);
   text-align: center;
   border-radius: var(--radius-lg);
-  font-size: 30rpx; /* RN modalBtnTextConfirm 15dp */
+  font-size: var(--text-strong); /* RN modalBtnTextConfirm 15dp */
   font-weight: 600;
 }
 .nm-submit:active {

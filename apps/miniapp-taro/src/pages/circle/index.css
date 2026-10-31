@@ -79,7 +79,7 @@
 
 /* 对齐 RN topicHash:14dp→28rpx / 700 / text.primary→foreground */
 .ci-hottopic-hash {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   font-weight: 700;
 }
@@ -96,7 +96,7 @@
 
 /* 对齐 RN topicCount:11dp→22rpx / text.tertiary */
 .ci-hottopic-count {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
@@ -148,7 +148,7 @@
 
 /* 对齐 RN userBio:11dp→22rpx / text.tertiary / maxWidth 180rpx */
 .ci-user-bio {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   max-width: 180rpx;
   overflow: hidden;
@@ -170,7 +170,7 @@
 
 /* 对齐 RN userFollowText:12dp→24rpx / 600 / surface.card */
 .ci-user-follow-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-card);
   font-weight: 600;
 }
@@ -235,7 +235,7 @@
 
 /* 对齐 RN time:11dp→22rpx / text.tertiary */
 .ci-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
@@ -243,7 +243,7 @@
 /* 对齐 RN title:15dp→30rpx / 600 / text.primary→foreground(间距由 card gap 12 承担) */
 .ci-title {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-foreground);
   font-weight: 600;
 }
@@ -282,7 +282,7 @@
 
 /* 对齐 RN imgMoreText:14dp→28rpx / 600 / text.secondary→muted-foreground */
 .ci-img-more-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   font-weight: 600;
 }
@@ -302,7 +302,7 @@
 
 /* 对齐 RN statNum:12dp→24rpx / text.tertiary */
 .ci-item-action-num {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -389,7 +389,7 @@
 
 /* 对齐 RN Plus size 24dp→48rpx / color surface.card */
 .ci-fab-icon {
-  font-size: 48rpx;
+  font-size: var(--text-display);
   color: var(--color-card);
   line-height: 1;
 }

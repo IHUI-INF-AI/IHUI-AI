@@ -36,7 +36,7 @@
   border-color: var(--color-brand);
 }
 .tab-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   font-weight: 600;
 }
@@ -64,7 +64,7 @@
   border-radius: var(--radius-md);
 }
 .pinned-tag-text {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-brand-accent-deep);
   font-weight: 600;
 }
@@ -79,7 +79,7 @@
 }
 .pinned-title {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   font-weight: 700;
   line-height: 1.4;
@@ -87,7 +87,7 @@
 .pinned-summary {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   line-height: 1.4;
 }
@@ -99,7 +99,7 @@
 .pinned-time,
 .pinned-views,
 .pinned-source {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .pinned-source {
@@ -142,7 +142,7 @@
 }
 .title {
   flex: 1;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   line-height: 44rpx;
   color: var(--color-foreground);
   font-weight: 600;
@@ -152,7 +152,7 @@
 }
 /* content gap 6 → 12rpx;metaRow/sourceText 自身 marginTop 4 → +8rpx */
 .summary {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-xs-loose);
   line-height: 40rpx;
@@ -170,12 +170,12 @@
 }
 .time,
 .views {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   line-height: 28rpx;
   color: var(--color-text-tertiary);
 }
 .source {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   line-height: 28rpx;
   color: var(--color-text-tertiary);
   margin-top: var(--spacing-sm-loose);
@@ -190,7 +190,7 @@
   align-items: center;
   padding: var(--spacing-2xl) 0;
   color: var(--color-muted-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
 }
 .empty-icon {
   font-size: 56rpx;

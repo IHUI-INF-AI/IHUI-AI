@@ -12,7 +12,7 @@ import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/s
 import { permissionTierWordKeys } from '@ihui/shared/chat'
 import { useI18n } from '../i18n'
 
-import { Input, Loading } from '@ihui/ui-native'
+import { Tappable, Input, Loading } from '@ihui/ui-native'
 import type { AgentRuntimePanelProps } from '@ihui/ui-native'
 
 export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
@@ -67,7 +67,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         <Pressable
           onPress={handleClear}
           disabled={status === 'running'}
-          className="rounded-md px-2 py-1"
+          className="rounded-md px-2 py-1 active:opacity-60"
           style={{ backgroundColor: tokens.surface.muted }}
         >
           <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
@@ -164,7 +164,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
           {status === 'running' ? (
             <Pressable
               onPress={handleStop}
-              className="ml-2 h-9 items-center justify-center rounded-md bg-red-500 px-3"
+              className="ml-2 h-9 items-center justify-center rounded-md bg-red-500 px-3 active:opacity-60"
             >
               <Text className="text-xs text-white">{t('agent.runtimeStop')}</Text>
             </Pressable>
@@ -172,7 +172,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             <Pressable
               onPress={handleSend}
               disabled={!input.trim()}
-              className="ml-2 h-9 items-center justify-center rounded-md bg-orange-500 px-3 disabled:opacity-40"
+              className="ml-2 h-9 items-center justify-center rounded-md bg-orange-500 px-3 disabled:opacity-40 active:opacity-60"
             >
               <Text className="text-xs text-white">{t('agent.runtimeSend')}</Text>
             </Pressable>
