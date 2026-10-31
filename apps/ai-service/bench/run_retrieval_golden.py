@@ -386,6 +386,35 @@ def metrics_at(retrieved: list[str], relevant: list[str], ks: list[int]) -> dict
     return res
 
 
+def _rel_to_ai(path: Path) -> str:
+    """报告里的金标路径:仓内相对形态优先,仓外(测试夹具)退回绝对形态。"""
+    try:
+        return str(path.relative_to(AI_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def unsourceable_ids(path: Path) -> set[str]:
+    """重标器 `bench/relabel_golden_answers.py` 写在行内 `relabel.kind` 上的剔除标记。
+
+    这些条目的期望答案**取不到源文件逐字片段**(源文件缺失 / 无可达切片),留在打分集里
+    只会被读成「答错了」而污染召回指标;也不得静默删行。⇒ 显式剔除 + 计数 + 点名。
+    旧金标件没有 `relabel` 字段 ⇒ 返回空集,行为与加本函数之前逐字节相同。
+    """
+    out: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            raw = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(raw, dict) and isinstance(raw.get("relabel"), dict):
+            if raw["relabel"].get("kind") == "unsourceable" and isinstance(raw.get("question_id"), str):
+                out.add(str(raw["question_id"]))
+    return out
+
+
 def current_sha() -> str | None:
     """取 HEAD sha。派生纪律(AGENTS §12g 的 Python 等价物):显式 stdio + 不弹控制台窗口。
 
@@ -576,6 +605,12 @@ def render_md(report: dict[str, Any]) -> str:
     ]
     for d, v in c["docs"].items():
         L.append(f"  - `{d}` → `{v['path']}`({v['leaves']} 叶)")
+    if g.get("excluded_unsourceable"):
+        L.append(
+            f"- **重标剔除(打分集外)**:{g['excluded_unsourceable']} 条期望答案在源文件里取不到逐字片段"
+            f"(`relabel.kind=unsourceable`)⇒ 不参与任何指标,既没被当成「答错」也没被静默删行;"
+            f"样本:{', '.join(g.get('excluded_unsourceable_examples', [])) or '(无)'}"
+        )
     if c["missing_docs"]:
         L.append(f"  - **缺失**:{', '.join(c['missing_docs'])}")
     p = report["params"]
@@ -679,6 +714,7 @@ def summarize(report: dict[str, Any]) -> dict[str, Any]:
         "date": report["date"],
         "head_sha": report["head_sha"],
         "golden_total": report["golden"]["total_lines"],
+        "golden_excluded_unsourceable": report["golden"].get("excluded_unsourceable", 0),
         "corpus": {
             "parents": report["corpus"]["parents"],
             "leaves": report["corpus"]["leaves"],
@@ -744,6 +780,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--k", default=",".join(str(x) for x in DEFAULT_KS), help="逗号分隔的 k 集")
     ap.add_argument("--top-k", type=int, default=0, help="检索深度,默认取 k 集最大值")
     ap.add_argument("--limit", type=int, default=0, help="只跑前 N 条(调试)")
+    ap.add_argument(
+        "--goldens",
+        default=str(GOLDEN_PATH),
+        help=f"金标件路径(默认 {GOLDEN_PATH.relative_to(AI_ROOT)})",
+    )
     ap.add_argument("--date", default="", help="基线件日期后缀 YYYY-MM-DD,默认今天(UTC)")
     ap.add_argument("--json", action="store_true", help="stdout 只打 ASCII 摘要 JSON")
     ap.add_argument("--no-write", action="store_true", help="只算不落基线件")
@@ -754,12 +795,15 @@ def main(argv: list[str] | None = None) -> int:
     if not ks or min(ks) <= 0:
         raise InputError(f"--k 非法:{ks}(须为正整数)")
     top_k = args.top_k or max(ks)
-    if not GOLDEN_PATH.is_file():
-        raise InputError(f"金标文件不存在:{GOLDEN_PATH}")
-    res = validate_golden_set(GOLDEN_PATH)
+    gpath = Path(args.goldens)
+    if not gpath.is_file():
+        raise InputError(f"金标文件不存在:{gpath}")
+    res = validate_golden_set(gpath)
     if not res.ok:
         raise InputError(f"金标校验未过:{res.report_text(5)}")
-    items: list[GoldenItem] = res.items if args.limit <= 0 else res.items[: args.limit]
+    excluded = unsourceable_ids(gpath) & {it.question_id for it in res.items}
+    pool = [it for it in res.items if it.question_id not in excluded]
+    items: list[GoldenItem] = pool if args.limit <= 0 else pool[: args.limit]
     cor = build_corpus()
 
     modes = list(MODES) if args.mode == "all" else [args.mode]
@@ -771,9 +815,11 @@ def main(argv: list[str] | None = None) -> int:
         "date": args.date or datetime.now(UTC).strftime("%Y-%m-%d"),
         "head_sha": current_sha(),
         "golden": {
-            "path": str(GOLDEN_PATH.relative_to(AI_ROOT)),
+            "path": _rel_to_ai(gpath),
             "total_lines": res.total_lines,
             "items_used": len(items),
+            "excluded_unsourceable": len(excluded),
+            "excluded_unsourceable_examples": sorted(excluded)[:5],
             "difficulty_hist": dict(Counter(it.difficulty for it in items)),
             "expected_ids_distinct": len({c for it in items for c in it.expected_chunk_ids}),
             "manifest_present": MANIFEST_PATH.is_file(),
