@@ -41,7 +41,10 @@ jobs:
         run: pnpm config set registry https://registry.npmmirror.com
 
       - name: Install pnpm deps
-        run: pnpm install --no-frozen-lockfile
+        # 2026-11-01 供应链强化:本作业把产物同步到**对外下载面**,故与 release-desktop
+        # 同批收口到 `--frozen-lockfile`(依据同处注释:ci.yml 一直在用 frozen 且为绿;
+        # pnpm-lock.yaml 不存 tarball 主机名 ⇒ 镜像源不影响锁有效性)。
+        run: pnpm install --frozen-lockfile
 
       # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建(api-client 产物化后入口 → dist,
       # 全新 checkout 不先构建依赖,wxt/vite 解析报 "Failed to resolve entry",
