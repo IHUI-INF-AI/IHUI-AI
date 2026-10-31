@@ -15,6 +15,7 @@
  *   server.register(aiAudioRoutes, { prefix: '/api/ai' })
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { wsUpgradeRequiresCredential } from '../plugins/ws-helpers.js'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
@@ -992,58 +993,62 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // 13. WS /audio/realtime — 实时语音识别 WebSocket（引导至 /ws/realtime/pcm）
   // ==========================================================================
-  server.get('/audio/realtime', { websocket: true }, (socket, request) => {
-    const { token } = tokenQuery.parse(request.query)
-    if (!token) {
-      socket.close(4001, '缺少 token')
-      return
-    }
-    ;(async () => {
-      try {
-        await verifyAccessToken(token)
-      } catch {
-        socket.close(4003, 'token 无效')
+  server.get(
+    '/audio/realtime',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket, request) => {
+      const { token } = tokenQuery.parse(request.query)
+      if (!token) {
+        socket.close(4001, '缺少 token')
         return
       }
-      socket.send(
-        JSON.stringify({
-          type: 'websocket_connected',
-          content:
-            'WebSocket 连接已建立。实时语音识别请使用 /ws/realtime/pcm 端点（支持二进制 PCM 流式 ASR + TTS 输出）。',
-          redirect: '/ws/realtime/pcm',
-          alternatives: {
-            http_asr: 'POST /api/ai/audio/recognize （非流式 ASR）',
-            http_tts: 'POST /api/ai/audio/speech （非流式 TTS）',
-          },
-        }),
-      )
-      socket.on('message', (data: Buffer) => {
-        const text = data.toString()
-        if (text === 'ping') {
-          socket.send('pong')
+      ;(async () => {
+        try {
+          await verifyAccessToken(token)
+        } catch {
+          socket.close(4003, 'token 无效')
           return
         }
-        try {
-          const msg = JSON.parse(text)
-          if (msg.command === 'end' || msg.command === 'close') {
-            socket.send(JSON.stringify({ type: 'system', content: '连接已主动关闭' }))
-            socket.close()
-            return
-          }
-        } catch {
-          /* 非 JSON 文本,忽略 */
-        }
-        // 引导用户到 /ws/realtime/pcm
         socket.send(
           JSON.stringify({
-            type: 'redirect',
-            content: '请使用 /ws/realtime/pcm 端点进行实时语音识别',
-            endpoint: '/ws/realtime/pcm',
-            protocol: '二进制 PCM 帧 + JSON 控制消息',
+            type: 'websocket_connected',
+            content:
+              'WebSocket 连接已建立。实时语音识别请使用 /ws/realtime/pcm 端点（支持二进制 PCM 流式 ASR + TTS 输出）。',
+            redirect: '/ws/realtime/pcm',
+            alternatives: {
+              http_asr: 'POST /api/ai/audio/recognize （非流式 ASR）',
+              http_tts: 'POST /api/ai/audio/speech （非流式 TTS）',
+            },
           }),
         )
-      })
-    })()
-  })
+        socket.on('message', (data: Buffer) => {
+          const text = data.toString()
+          if (text === 'ping') {
+            socket.send('pong')
+            return
+          }
+          try {
+            const msg = JSON.parse(text)
+            if (msg.command === 'end' || msg.command === 'close') {
+              socket.send(JSON.stringify({ type: 'system', content: '连接已主动关闭' }))
+              socket.close()
+              return
+            }
+          } catch {
+            /* 非 JSON 文本,忽略 */
+          }
+          // 引导用户到 /ws/realtime/pcm
+          socket.send(
+            JSON.stringify({
+              type: 'redirect',
+              content: '请使用 /ws/realtime/pcm 端点进行实时语音识别',
+              endpoint: '/ws/realtime/pcm',
+              protocol: '二进制 PCM 帧 + JSON 控制消息',
+            }),
+          )
+        })
+      })()
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

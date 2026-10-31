@@ -766,7 +766,15 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '未报名该课程,无权播放'))
       }
     }
-    return reply.status(302).header('location', section.videoUrl).send()
+    // 2026-10-31 安全强化第 15 批(L4 复核纵深):videoUrl 是管理员可控字符串,302
+    // 落点此前零形态校验。合法视频地址只有 http/https(OSS/CDN 直链);拒掉
+    // javascript:/data:/vbscript: 等可执行 scheme,把"管理员账号被盗"的利用面从
+    // 存储型脚本投放收窄到钓鱼重定向。域名白名单不在此收(会误杀自建 OSS)。
+    const playUrl = section.videoUrl ?? ''
+    if (!/^https?:\/\//i.test(playUrl)) {
+      return reply.status(404).send(error(404, '视频地址不可用'))
+    }
+    return reply.status(302).header('location', playUrl).send()
   })
 
   // GET /learn/records - 用户学习记录（需登录,前端 user/learn-record 页面调用）

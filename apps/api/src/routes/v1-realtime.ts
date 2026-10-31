@@ -25,6 +25,7 @@
  *   server.register(v1RealtimeRoutes)  // 无前缀,路由为 /v1/realtime
  */
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import { wsUpgradeRequiresCredential } from '../plugins/ws-helpers.js'
 import { eq } from 'drizzle-orm'
 import WebSocket from 'ws'
 import { dbRead } from '../db/index.js'
@@ -741,7 +742,11 @@ function buildUpstreamWsUrl(
 export const v1RealtimeRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/v1/realtime',
-    { websocket: true, preHandler: [declareCapability('realtime:connect')] },
+    {
+      websocket: true,
+      preValidation: wsUpgradeRequiresCredential(),
+      preHandler: [declareCapability('realtime:connect')],
+    },
     (socket: WebSocket, request: FastifyRequest) => {
       // P1 修复(2026-08-02):加 .catch 防止 handleRealtimeConnection 内部抛错导致
       // unhandledRejection + socket 未关闭(连接泄漏)。catch 中尝试关闭 socket + log。
