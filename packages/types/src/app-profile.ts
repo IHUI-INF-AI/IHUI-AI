@@ -45,6 +45,11 @@ export interface ProfileScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
   colorScheme?: 'light' | 'dark'
+  /**
+   * 实名认证状态(可选)。取自 GET /auth/realname/my 的 authStatus(approved ⇒ verified);
+   * 缺省(= 取不到)不渲染徽标,不猜也不补默认态。
+   */
+  realnameStatus?: 'unverified' | 'pending' | 'verified' | 'rejected'
 }
 
 /** Settings 屏 props */

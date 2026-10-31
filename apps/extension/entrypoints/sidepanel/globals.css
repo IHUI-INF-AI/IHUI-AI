@@ -25,6 +25,24 @@
 @import '../../../../packages/design-tokens/src/styles/tokens.css';
 @import '../../../../packages/design-tokens/src/styles/base.css';
 
+/* 2026-10-31:max-w-* / max-h-none 被 --spacing-<name> 撞名改写(Tailwind v4 的 max-w-<name>
+   在具名撞车时取 spacing 而非 container)。未分层规则钉回 Tailwind 默认 container 刻度,
+   与 apps/web/app/globals.css 里同一段逐条一致(web 端同根因、同手法);生效机制 = 同优先级后写胜,本块位于 utilities 之后。 */
+.max-w-3xs { max-width: 16rem; }
+.max-w-2xs { max-width: 18rem; }
+.max-w-xs { max-width: 20rem; }
+.max-w-sm { max-width: 24rem; }
+.max-w-md { max-width: 28rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-xl { max-width: 36rem; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-3xl { max-width: 48rem; }
+.max-w-4xl { max-width: 56rem; }
+.max-w-5xl { max-width: 64rem; }
+.max-w-6xl { max-width: 72rem; }
+.max-w-7xl { max-width: 80rem; }
+.max-h-none { max-height: none; }
+
 /* ===== 基础 reset ===== */
 
 * {
