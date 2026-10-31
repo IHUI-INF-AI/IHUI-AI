@@ -36,6 +36,8 @@
  * generation 是"换代计数器"(跨进程单飞刷新的 CAS 锚点),缺省视为 0。
  */
 
+// L7570 第③格:诊断面的原文出口**只经**本仓唯一脱敏出口(packages/shared/src/utils/redact.ts)。
+import { redactSecrets } from '@ihui/shared/utils/redact';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -106,6 +108,29 @@ const OS_TIER_EVIDENCE = 'pwsh7=OK;windows-powershell5.1=FAIL(assembly-not-found
 export function getCredentialsPath(): string {
   const ihuiHome = process.env.IHUI_HOME || path.join(os.homedir(), '.ihui');
   return path.join(ihuiHome, CREDENTIALS_FILENAME);
+}
+
+/**
+ * L7570 第③格(诊断量代替原文):`JSON.parse` 的 SyntaxError 消息按 V8 短消息策略会把
+ * **出错位置附近的原文片段**直接嵌进 message —— 输入短时几乎整份内容都在(实测 Node 24:
+ * `JSON.parse('not json at all')` → `Unexpected token 'o', "not json at all" is not valid JSON`)。
+ * 若损坏文件本身是"裸 token / 短的含 token 文本",这段原文会经 `McpCredentialStoreError.cause`
+ * 离开本模块:crash 链路(flattenErrorForReport)把 cause 逐层序列化进崩溃上报,调用方
+ * `console.error(err)` 也会把 cause 链打进终端 —— 那正是"凭据原文落诊断"。
+ * 处置与上游同型:cause 只携带**诊断量**(异常名 + 失败位置数字),原文一律不携带;诊断文案
+ * 仍过一遍 `redactSecrets`(本仓唯一脱敏出口)兜住未来回归。脱敏规则不在此处另写(§单一真相源)。
+ * 边界:读盘 errno 异常(readCredentialStoreSnapshot 的 unreadable 档)不经本函数 ——
+ * OS 错误消息只含路径与 errno 名,不含文件内容;路径本就在 detail/storePath 明示。
+ */
+function redactedParseCause(err: unknown): Error {
+  const position = err instanceof Error ? /position (\d+)/.exec(err.message)?.[1] : undefined;
+  const proxy = new Error(
+    redactSecrets(
+      `JSON parse failed${position === undefined ? '' : ` at position ${position}`} (cause carries type/position only; original message withheld)`,
+    ),
+  );
+  proxy.name = err instanceof Error && err.name.length > 0 ? err.name : 'SyntaxError';
+  return proxy;
 }
 
 function getStateDir(): string {
@@ -877,7 +902,7 @@ function classifyCredentialPayload(text: string): PayloadVerdict {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    return { ok: false, reasonCode: 'payload-not-json', detail: 'JSON 解析失败(半截/被截断的内容)', cause: err };
+    return { ok: false, reasonCode: 'payload-not-json', detail: 'JSON 解析失败(半截/被截断的内容)', cause: redactedParseCause(err) };
   }
   if (!isPlainObject(parsed)) return { ok: false, reasonCode: 'payload-not-object', detail: '顶层不是 JSON 对象' };
   const record = parsed as Record<string, unknown>;

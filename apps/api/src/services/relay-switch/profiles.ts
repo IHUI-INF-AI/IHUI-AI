@@ -160,8 +160,9 @@ export function resolveTargets(home = homedir(), appDataRoaming?: string): Switc
       loginHints: ['state.vscdb'],
       hintMode: 'file-count',
       requiresStoppedApp: true,
-      supported: false,
-      unsupportedReason: 'sqlite SecretStorage 提取器未实现,仅探测',
+      // 2026-10-30 解除 supported:false:重封配方已由 local-login 的 applyCodearts 装车实证
+      // (Local State 取钥 + SafeStorage blob 解密重封,scripts/local-login.mjs);
+      // 本面只做登录态文件级快照/回切(state.vscdb 整文件),池票写回走 relay-local-login。
       notes: ['VS Code fork;登录态在 state.vscdb 的 secret://huaweicloud.authentication 项'],
     },
     {

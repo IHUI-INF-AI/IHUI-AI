@@ -36,6 +36,8 @@ const FIXED_FILES = [
   'radius.d.ts',
   'geometry.js',
   'geometry.d.ts',
+  'hue-tints.js',
+  'hue-tints.d.ts',
   'tailwind-preset.js',
   'tailwind-alpha-plugin.js',
 ]

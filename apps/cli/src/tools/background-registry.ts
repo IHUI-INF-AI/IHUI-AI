@@ -17,6 +17,7 @@
 import type { ChildProcess } from 'node:child_process';
 import * as crypto from 'node:crypto';
 // Worktree 并行隔离层:后台任务结束后自动清理其 worktree
+import { runHook } from '../hooks/index.js';
 import { cleanupWorktree } from './worktree.js';
 // 跨进程台账(状态判据的唯一实现也在那里,本文件不再自己判"进程在不在")
 import { recordHeartbeat, recordTaskSettle, recordTaskStart, type LedgerRecordedTerminal } from './background-ledger.js';
@@ -469,6 +470,44 @@ function addSettleListener(id: string, fn: SettleListener): () => void {
  *    归属成立,于是上一轮的终态会向新一轮的等待者投递一份别人家的快照,并把那一桶整块摘掉。
  *    现在:不改新条目、不投递、不摘桶,`getRemovalGuardStats().staleTerminalRejected` 计一次。
  */
+/**
+ * 后台任务生命周期钩子派发(taskCreated / taskCompleted)。
+ *
+ * 对齐:Qoder/Trae 的 TaskCreated/TaskCompleted 钩子面 —— 本仓事件源早就在
+ * (登记口 registerTask、终态收口 notifySettled),缺的只是把这两件事喊出去。
+ *
+ * 两条纪律:
+ * ① **fail-open 但不静默**:钩子体抛错不得把登记面/终态处理带崩(与既有播报出口、
+ *    审计出口同一条规矩),但也不许装作没发生 —— 落 `[background-registry]` 通道。
+ *    静默吞掉等于把"钩子没跑"说成"钩子跑了",本仓 §0.3 明令禁止那一型。
+ * ② 状态一律读**当下 task**,不在调用方猜:钩子看到的必须是已经落定的终态,
+ *    所以派发点排在 status 改写之后(与 notifySettled 原有的"通知放状态之后"同一条理由)。
+ */
+function fireTaskHook(event: 'taskCreated' | 'taskCompleted', task: BackgroundTask): void {
+  const ctx = {
+    taskId: task.id,
+    taskCommand: task.command,
+    taskStatus: task.status,
+    taskTimedOut: task.timedOut === true,
+    ...(task.worktreePath ? { taskWorktreePath: task.worktreePath } : {}),
+    ...(task.ownerAgentId ? { taskOwnerAgentId: task.ownerAgentId } : {}),
+    // 只有终态档才有退出码;taskCreated 时不塞(undefined ≠ "没有码")
+    ...(event === 'taskCompleted' ? { taskExitCode: task.exitCode ?? null } : {}),
+  };
+  try {
+    void runHook(event, ctx).catch((e: unknown) => {
+      process.stderr.write(
+        `[background-registry] ${event} hook threw for task ${task.id}: ${String(e)}\n`,
+      );
+    });
+  } catch (e) {
+    // runHook 的同步段(配置解析/来源盖章)抛错同样不许外溢到登记面。
+    process.stderr.write(
+      `[background-registry] ${event} hook dispatch failed: ${String(e)}\n`,
+    );
+  }
+}
+
 function notifySettled(task: BackgroundTask): void {
   // G-654② 代际归属门(先于一切判据):这个 key 上如今站着**另一代**登记 ⇒ 手上一条终态
   // 是上一轮迟到的 ⇒ 整段拒收:不改新条目的状态、不向新登记的等待者投递、不摘新登记的桶,
@@ -479,6 +518,10 @@ function notifySettled(task: BackgroundTask): void {
     removalGuardStats.staleTerminalRejected += 1;
     return;
   }
+  // 代际归属门之后、投递与去重裁决之前派发 taskCompleted:钩子面问的是"这一代结算了没",
+  // 与"有没有等待者要收"、"通知是否被去重拦下"是三条独立的轴。放在函数尾部会让
+  // **没有等待者**的常规情形(转后台后没人 join)整批漏掉 —— 那一型恰恰最需要出声。
+  fireTaskHook('taskCompleted', task);
   // 桶同样要按身份认领:另一代遗留的桶不由这一轮投递,也不在这一轮手里被清。
   const bucket = settleListeners.get(task.id);
   const set = bucket && bucket.identity === task.identity ? bucket.listeners : undefined;
@@ -602,6 +645,9 @@ export function registerTask(
   // 读侧就会把它判成 detached-unknown —— 这是"能被看见"的唯一前提。
   // G-1058645:账随世代走 —— 台账记录带上本代 identity,折叠按世代进行。
   recordTaskStart({ id, command, childPid: process?.pid ?? null, identity: task.identity });
+
+  // 登记即出声:模型/宿主把命令转后台的那一刻就是 taskCreated 的唯一真实现场。
+  fireTaskHook('taskCreated', task);
 
   if (process) {
     // 双窗口捕获(G-937959):每个流同时维护"头窗"(前 30k,运行中视图)与"尾窗"
@@ -761,6 +807,11 @@ export function registerFailedTask(command: string, errorMessage: string): strin
     command,
     childPid: null,
   });
+  // 占位任务从未有过进程,因此不会走 notifySettled —— 若不在此补出声,它就只剩
+  // 半截配对(有 created 无 completed)。配对不变式(一枚 taskCreated 恰好对应一次
+  // taskCompleted)是靠这里补齐才成立的,不是靠"通常都会走到收口"。
+  fireTaskHook('taskCreated', task);
+  fireTaskHook('taskCompleted', task);
   return id;
 }
 

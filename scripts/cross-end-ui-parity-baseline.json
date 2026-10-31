@@ -8,13 +8,12 @@
     "IntelligentAssistant": 6,
     "LoginPopUp": 9,
     "ModelConfigDialog": 6,
-    "ModelList": 7,
+    "ModelList": 6,
     "NavBar": 7,
     "UserInfoCard": 3,
     "VideoPlayer": 5,
     "VoiceInput": 8,
-    "SectionHeader": 1,
-    "ScreenStates": 2
+    "SectionHeader": 1
   },
   "radiusCounts": {
     "AgentRuntimePanel": 0,
@@ -30,7 +29,6 @@
     "UserInfoCard": 1,
     "VideoPlayer": 0,
     "SectionHeader": 0,
-    "ScreenStates": 0,
     "VoiceInput": 3
   },
   "elementRadiusCounts": {
@@ -46,7 +44,6 @@
     "NavBar": 0,
     "UserInfoCard": 0,
     "VideoPlayer": 0,
-    "ScreenStates": 0,
     "SectionHeader": 0,
     "VoiceInput": 0
   },
@@ -894,32 +891,6 @@
     "VoiceInput": {
       "reason": "语音输入条的结构几何差异属设计/平台裁决项,单一源 packages/shared/src/ui/voice-input-spec.ts 头注已逐条记载并明确\"未收进来\":波形条数 7 vs 12、条宽 4 vs 3、条间距 4 vs 2、高度包络(h-5 的 60% vs 6..28 插值)、按钮内边距 16/12 vs 12/8、字号 14 vs 12、禁用透明度 0.5 vs 0.4。分叉与两端动画通道(小程序 CSS keyframes 固定高度脉冲 vs RN Animated 逐条高度插值)和录音链路(小程序流式识别 streamingRecognizer partial/final vs RN 整段上传 STT)耦合,不是\"改一端另一端不跟随\"。现读:diffCount=8(仅小程序 4/8,仅 RN 2/6)、radiusCount=3(仅小程序 8,仅 RN 2/6)、elementRadiusCount=0(RE 维仅 RN 具名 bar/clearBtn/imagePopup/imageToggleBtn/voiceBtn,两侧无同名元素故零判据)。收敛前置 = 两端录音链路统一后再收编几何,不靠给单端补数字凑平。",
       "until": "2027-03-27"
-    },
-    "ScreenStates": {
-      "reason": "小程序 .ihui-sk-wrap 的 min-height:400rpx(门读到几何档 200)是 ListEmpty 占位高台,防 loading 期容器塌零;RN ScreenSkeleton 在 ListEmptyComponent 里靠行内容自然高,无对应元素 → “仅小程序 200”是一端多元素档,不是同元素取不同值。“仅 RN 8/12/16/44/92”为枚 a1de25ce 对齐前旧 HEAD 面读数(本枚已把 taro 镜像 dp 除 2 的半尺病灶修掉);RD“仅 RN 6”系 taro shimmer 走 css 类与 inline 两层,门不解析 cascade。下一轮按新 HEAD 复量后按实际残余差下调本条。",
-      "until": "2026-11-24"
-    },
-    "SectionHeader": {
-      "reason": "新配对族(2026-10-27 落地,2026-10-28 按现读改写理由;旧理由写\"几何 onlyMiniapp 恰为该 2 档\"与现读矛盾)。两端几何同取 @ihui/shared/ui/section-header-spec:RN 腿 packages/app/src/components/SectionHeader.tsx 直接消费 TITLE_FONT/SUBTITLE_FONT/SUBTITLE_GAP/MORE_MARGIN_LEFT 四档;余两档 SECTION_HEADER_ARROW_MARGIN_LEFT_PX(2) 与 SECTION_HEADER_MORE_FONT_PX(12) 属「更多」箭头与标签,RN 侧唯一消费点是委托件 packages/app/src/components/MoreLink.tsx(本件不重复持有,重复持有 = 第二份真相)。现读 2026-10-28(全量档 --json):findings[SectionHeader].geometry.onlyMiniapp = [2] —— **一档**,不是两档:ARROW_MARGIN 只在小程序腿被读到;MORE_FONT(12) 在几何面被 RN 的 SUBTITLE_FONT(同为 12)抵消,所以看不见它,但\"看不见\"不等于\"同源\" —— SL 维照旧报这两枚为单侧具名档(只报数不判红),两条读数必须在报告里分开读。2026-10-28 同批收口:「更多」箭头字形尺寸不再各端各写一份,统一由 MORE_FONT 这一档派生(小程序 LineIcon `size={toRpx(SECTION_HEADER_MORE_FONT_PX)}`、RN MoreLink `ICON_SIZE = LABEL_FONT_SIZE`),接线锁 packages/shared/src/ui/__tests__/section-header-wiring.test.ts。不是同元素取不同档,禁止给 SectionHeader 补一份箭头几何。复验:`node scripts/check-cross-end-ui-parity.mjs --json` 取 findings[name=SectionHeader].geometry.onlyMiniapp(应为 [2])与 onlyRn(应为 []);人读面看 \"○ SectionHeader\" 与 \"· SL SectionHeader\" 两行。",
-      "until": "2027-03-27",
-      "singleEndTiers": [
-        {
-          "tier": "SECTION_HEADER_ARROW_MARGIN_LEFT_PX",
-          "side": "miniapp",
-          "kind": "element-absent",
-          "element": "「更多」文字与其右侧箭头的间距 2",
-          "reason": "RN 腿不渲染箭头图标(箭头由委托件 MoreLink 与标签一起画),SectionHeader.tsx 里没有这个节点;给 RN 补一条 2 是给不存在的间隔造留白,不是收敛。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "SECTION_HEADER_MORE_FONT_PX",
-          "side": "miniapp",
-          "kind": "cross-file-consumption",
-          "element": "「更多」标签字号 12(箭头字形由它派生)",
-          "reason": "真跨件消费:RN 的取数点在委托件 packages/app/src/components/MoreLink.tsx(ICON_SIZE = LABEL_FONT_SIZE = 本档),不在配对腿 SectionHeader.tsx 内 ⇒ 门 SL 维只读配对文件,把它读成\"仅小程序引用\"。往 SectionHeader.tsx 补引用才是制造第二份真相。",
-          "until": "2027-03-27"
-        }
-      ]
     },
     "VerifyCodeModal": {
       "reason": "小程序侧零引用孤儿副本(HEAD blob git grep VerifyCodeModal 除自身零命中)⇒ 端入口不可达被默认档配对射程剔除,该族只活在人工 --pair-all 档;RN 腿为 RegisterScreen 活体。两端已收编共享源 @ihui/shared/ui/verify-code-modal-spec,--pair-all 可见的几何仅 RN 1/24 = 隐藏键盘接收器(HIDDEN_INPUT_PX=1,G-978007)与右上 × 关闭钮盒(CLOSE_BOX_PX=24),均小程序侧不存在的单侧元素(spec 自注单侧档按规则6 登记),RE 维零判据不判红。了结判据:小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记。",

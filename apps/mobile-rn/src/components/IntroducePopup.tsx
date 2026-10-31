@@ -15,6 +15,7 @@
  * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
  */
 import { useState } from 'react'
+import { scaleText } from '@ihui/rn-app'
 import {
   Image,
   Modal,
@@ -237,7 +238,7 @@ export function IntroducePopup({
       <View style={styles.footer}>
         {showLevelBadge ? (
           <View style={styles.levelBadge}>
-            <Text style={styles.levelBadgeText} allowFontScaling={false}>
+            <Text style={[styles.levelBadgeText, scaleText(styles.levelBadgeText)]} allowFontScaling={false}>
               当前等级 Lv.{level}
             </Text>
           </View>
@@ -259,7 +260,7 @@ export function IntroducePopup({
                 {({ pressed }) => (
                   <View style={[styles.buttonFace, pressed ? styles.buttonPressed : null]}>
                     <Text
-                      style={btn.primary ? styles.primaryButtonText : styles.secondaryButtonText}
+                      style={[btn.primary ? styles.primaryButtonText : styles.secondaryButtonText, scaleText(btn.primary ? styles.primaryButtonText : styles.secondaryButtonText)]}
                       allowFontScaling={false}
                     >
                       {btnText}
@@ -338,7 +339,7 @@ export function IntroducePopup({
           >
             {listItems.map((text, idx) => (
               <View key={idx} style={styles.benefitItem}>
-                <Text style={styles.benefitNumber} allowFontScaling={false}>
+                <Text style={[styles.benefitNumber, scaleText(styles.benefitNumber)]} allowFontScaling={false}>
                   {idx + 1}.
                 </Text>
                 <Text style={styles.benefitText}>{text}</Text>
@@ -348,7 +349,7 @@ export function IntroducePopup({
 
           {moreBenefitsText ? <Text style={styles.moreBenefits}>{moreBenefitsText}</Text> : null}
 
-          <Text style={styles.copyright} allowFontScaling={false}>
+          <Text style={[styles.copyright, scaleText(styles.copyright)]} allowFontScaling={false}>
             COPYRIGHT © 2024 IKUIINE-AI ALL RIGHTS RESERVED.
           </Text>
 

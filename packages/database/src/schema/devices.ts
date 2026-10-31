@@ -25,6 +25,12 @@ export const devices = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     os: varchar('os', { length: 128 }),
     capabilities: jsonb('capabilities'),
+    // G1b 设备指纹(2026-10-31,对齐 Qoder 0.5.1 peerDeviceStateFingerprintMismatch 的
+    // 安全语义):客户端自生成并持久存的一次性绑定凭据,注册(兑换)时写入;此后每个
+    // 设备请求必须带同一指纹,不一致即 403 —— 防 token 被窃后在其他机器重放。
+    // 与 user_devices 的登录指纹(anomaly-detector 输入面)语义不同:那边是登录行为
+    // 分析的观察值,这边是执行体身份绑定的校验值,两套判据互不复用。
+    fingerprint: varchar('fingerprint', { length: 128 }),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     // 撤销=置时间戳而非物理删除:任务历史仍要能回显设备名;null = 有效。

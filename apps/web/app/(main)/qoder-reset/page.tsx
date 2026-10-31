@@ -197,9 +197,7 @@ export default function QoderResetPage() {
     try {
       const rep = await checkinAuditQoderResidual()
       setWizardAudit(rep)
-      const residual = rep.entries.filter(
-        (e) => e.exists && WIZARD_RESIDUAL_KINDS.has(e.kind),
-      )
+      const residual = rep.entries.filter((e) => e.exists && WIZARD_RESIDUAL_KINDS.has(e.kind))
       setWizardMsg((m) => [
         residual.length === 0
           ? t('wizardAuditClean')
@@ -687,9 +685,7 @@ export default function QoderResetPage() {
           )}
           {wizardStep === 2 &&
             (wizardCriticalFail ? (
-              <p className="text-xs font-medium text-destructive">
-                {t('wizardCriticalFailNote')}
-              </p>
+              <p className="text-xs font-medium text-destructive">{t('wizardCriticalFailNote')}</p>
             ) : (
               <p className="text-muted-foreground text-xs">{t('wizardOptionalNote')}</p>
             ))}
@@ -851,7 +847,7 @@ export default function QoderResetPage() {
                 {progress.done}/{progress.total}
               </span>
             </div>
-            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
+            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-xs">
               <div
                 className="bg-primary h-full transition-all"
                 style={{
@@ -905,7 +901,11 @@ export default function QoderResetPage() {
             <CardDescription>{qNotice || t('quarantineDesc')}</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refreshSide()} disabled={qBusy}>
-            {qBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {qBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
             {t('quarantineRefresh')}
           </Button>
         </CardHeader>

@@ -30,6 +30,7 @@ import {
   VipScreen as SharedVipScreen,
   type VipLevelItem2,
   type VipMembershipInfo,
+  scaleText,
 } from '@ihui/rn-app'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
@@ -524,11 +525,17 @@ export function VipScreen() {
                 </View>
                 <Text style={styles.planDetail}>{plan.detail}</Text>
                 <View style={styles.priceRow}>
-                  <Text style={styles.planAmount} allowFontScaling={false}>
+                  <Text
+                    style={[styles.planAmount, scaleText(styles.planAmount)]}
+                    allowFontScaling={false}
+                  >
                     ¥{(plan.amount / 100).toFixed(2)}
                   </Text>
                   {hasDiscount ? (
-                    <Text style={styles.planDefAmount} allowFontScaling={false}>
+                    <Text
+                      style={[styles.planDefAmount, scaleText(styles.planDefAmount)]}
+                      allowFontScaling={false}
+                    >
                       ¥{(plan.defAmount / 100).toFixed(2)}
                     </Text>
                   ) : null}

@@ -25,6 +25,7 @@ import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
 import { streamChat, setBaseUrl, formatSSEError, getModelContextCapacity, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+// 凭据注册单点(2026-10-31 恢复:裸 setTokenProvider 换 registerCliTokenProvider 工厂,cli-auth-refresh 锁口径)
 import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
@@ -124,7 +125,7 @@ import { frameSystemReminder, neutralizeBoundaries } from '../utils/prompt-bound
 import { injectHostSection, injectReminderSection } from '../utils/prompt-injection-registry.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
-import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, onHookRunEvent } from '../hooks/index.js';
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
 import {
   createOutputTokenContinuationMessage,
@@ -168,14 +169,6 @@ import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
 // G-815977 收编:AgentStopReason 与回合终态封闭集同族的档位从 canonical 派生(见下方联合)
 import type { AgentTurnStopReason } from '@ihui/types';
 import type { ToolResultDisplaySource } from '@ihui/types';
-// §30 状态词汇一等契约(2026-10-31 立):失败结局二分 + 停摆位置的唯一词表。
-// 播报一律经 i18n 出口取词条(§19 禁端内硬编码中文),键集由词表成员推导,端内不抄第二份档名。
-import {
-  AGENT_FAILURE_NOTICE_KEY,
-  agentFailureOutcomeLabelKey,
-  agentFailureOutcomeOf,
-  agentStallStageLabelKey,
-} from '@ihui/types';
 import {
   renderMermaid,
   extractMermaidBlocks,
@@ -543,7 +536,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     allowDangerous: opts.allowDangerous,
     // G-212:这里原来写作 `settings.sandbox ? {…} : undefined` —— 首跑/无 settings.json 的会话
     // 走的是 V1 `loadSettings()`(它不并 DEFAULT_SETTINGS),`sandbox` 整块缺失 ⇒ ctx.sandbox
-    // 为 undefined ⇒ 白名单/凭据 env 屏蔽**一律不生效**,而默认档早已是严档 `'limited'`。
+    // 为 undefined ⇒ 白名单/凭据 env 屏蔽**一律不生效**,而默认档早已是严档 'limited'。
     // 现在无条件按 resolveSandboxOptions 的结算注入:缺配置即默认档(唯一默认源 DEFAULT_SANDBOX_PROFILE),
     // 用户在配置里显式写的宽松档与显式 opts 仍逐字照办(本行不替用户收权)。
     sandbox: {
@@ -902,20 +895,14 @@ export function buildAgentDangerGate(opts: {
     // 于是"关提示"与"关落链"两件事被物理分开(落链在包装器里,先于这段判序)。
     silent: true,
     auditSessionId: opts.sessionId,
-    onDecision: ({ route, tool, args, reason }) => {
+    onDecision: ({ route, tool, args }) => {
       if (opts.silent) return;
       if (route === 'flag') {
         console.info(
           chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`),
         );
       } else if (route === 'denied') {
-        // 拒因正文由唯一出口给出(为什么拒 + 怎么放行),本处只负责挂到终端。
-        console.error(
-          chalk.red(
-            `  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}` +
-              (reason ? `\n    ${reason}` : ''),
-          ),
-        );
+        console.error(chalk.red(`  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}`));
       }
     },
   });
@@ -2696,26 +2683,6 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     stopReason = applyGoalVerificationToStopReason(stopReason, verification);
   }
 
-  if (stopReason === 'error' || stopReason === 'doom_loop') {
-    // §30 一等契约(2026-10-31):失败结局 + 停摆位置到人可见的一行,档位一律查词表。
-    // CLI 这条路径今天**没有**类型化的错误族出口(samplerResult.error 与 catch 到的都是散文),
-    // 所以 outcome 只能记 undetermined —— 判不出不许读成"重试没用"(§0.3);等错误族出口立起来
-    // 后把 cliErrorFamily 换成现读的族名即可,本处不需要改判据。
-    const cliErrorFamily: string | null = null;
-    const cliOutcome = agentFailureOutcomeOf(cliErrorFamily);
-    const cliStallStage = stopReason === 'doom_loop' ? 'doom_loop_guard' : 'undetermined';
-    const outcomeLabelKey = agentFailureOutcomeLabelKey(cliOutcome) ?? '';
-    const stageLabelKey = agentStallStageLabelKey(cliStallStage) ?? '';
-    console.error(
-      chalk.dim(
-        `\n${t(AGENT_FAILURE_NOTICE_KEY, {
-          outcome: outcomeLabelKey ? t(outcomeLabelKey) : cliOutcome,
-          stage: stageLabelKey ? t(stageLabelKey) : cliStallStage,
-        })}\n`,
-      ),
-    );
-  }
-
   if (stopReason === 'error') {
     await runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' }, { signal: opts.signal });
     await runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` }, { signal: opts.signal });
@@ -2764,6 +2731,16 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     workspacePath: opts.workspacePath,
     sessionId: opts.session?.id,
   };
+  // G-41 生产接线:钩子事件流(started/terminal 成对)的生产侧出口 —— §30"钩子无终态
+  // 不得渲染成完成"自此有机器可读逐条终态可填(实现层 d4f8ba336b 事件面的首个生产
+  // 消费者)。json 模式静默:JSON 流不容非 JSON 行混入;terminal 才打印,started 只报
+  // 身份不报结果,刷出来是噪声。
+  const unsubscribeHookRunEvents = onHookRunEvent((evt) => {
+    if (evt.type !== 'terminal' || opts.jsonMode === true) return;
+    console.error(
+      chalk.dim(`  [hook] ${evt.hookEvent}/${evt.hook} → ${evt.outcome}${evt.exitCode !== 0 ? ` (exit ${evt.exitCode})` : ''}`),
+    );
+  });
   const startResult = await runSessionStartHooks(hooksConfig, sessionHookCtx, opts.signal);
   if (!startResult.proceed) {
     const errMsg = startResult.reason ?? 'sessionStart hook blocked';
@@ -2781,10 +2758,9 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   }
 
   setBaseUrl(opts.apiUrl);
-  // 凭据续期单点(与 index.ts / acp/server.ts / server/agent-core.ts / tools/subagent.ts
-  // 共用同一份 provider 判据):长会话跑过 access token 的 15 分钟后,包内 401 拦截器
-  // 必须能拿到 refreshAccessToken 才可能自愈。
-  registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
+  if (opts.apiKey) {
+    registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
+  }
 
   // P1-5 输出格式:outputFormat 优先(显式 --output-format),否则按 jsonMode 决定(text / json)
   const outputFormat: OutputFormat = opts.outputFormat ?? (opts.jsonMode === true ? 'json' : 'text');
@@ -3136,6 +3112,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     // W10 异常路径也 flush 残留 markdown(重复调用幂等:pending 清空后 flush 返回空)
     flushMdStream();
     await runSessionEndHooks(hooksConfig, sessionHookCtx, opts.signal);
+    // G-41:会话钩子(sessionEnd 含自身终态)发完再退订,本轮全部事件都已出口
+    unsubscribeHookRunEvents();
     // P1-6 Codegraph 增量索引:退出时持久化缓存(供下次启动加载)
     if (codegraphSettings.codegraphIncremental?.enabled === true) {
       try {

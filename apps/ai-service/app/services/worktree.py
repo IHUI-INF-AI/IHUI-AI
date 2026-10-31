@@ -204,6 +204,13 @@ async def remove_worktree(
     )
     shutil.rmtree(wt_path, ignore_errors=True)
 
+    # 层 2.5:目录真删掉之后立刻 prune(2026-10-30 立,与 CLI 端同一根因同一修法)。
+    # `git worktree remove` 失败时注册表条目仍指向活目录 ⇒ 只有目录没了 prune 才摘得掉;
+    # 本模块的 prune_worktrees 此前全仓零调用(上面的 docstring 写着"WorkerPool start()
+    # 时调一次",实际没有)⇒ 每次 fallback 都永久留一条 prunable 条目,而编辑器 SCM 把
+    # `git worktree list` 每条都当独立仓 ⇒ 变更数合计爆表。
+    await prune_worktrees(source_path)
+
     # 层 3:检查是否仍存在(可能文件锁未释放)
     if os.path.exists(wt_path):
         logger.warning(
@@ -214,7 +221,8 @@ async def remove_worktree(
 async def prune_worktrees(source_path: str) -> None:
     """清理孤儿 worktree 元数据(对齐 CLI 端 pruneWorktrees)。
 
-    WorkerPool start() 时调一次,清理上次进程崩溃残留。
+    唯一调用方是 remove_worktree 的 fallback 层(2026-10-30 核:此前全仓零调用,
+    旧 docstring 写的"WorkerPool start() 时调一次"从没兑现 —— 那正是注册表条目只增不减的一条腿)。
     """
     await _git(["worktree", "prune"], cwd=source_path, timeout=30.0)
 
