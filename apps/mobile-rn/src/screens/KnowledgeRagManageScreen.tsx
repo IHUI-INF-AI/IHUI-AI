@@ -262,6 +262,7 @@ export default function KnowledgeRagManageScreen() {
       </NavChrome>
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={error ? [] : visible}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderRow}

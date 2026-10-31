@@ -175,7 +175,11 @@ export function ImportAnalysisSheet({
           )}
 
           {catalog.phase === 'ready' && (
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody}>
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollBody}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* ① 选场景:推荐区(按来源给默认)+ 全库浏览 */}
               <Text style={styles.sectionTitle}>
                 {t('conversationImport.analysisScenarioLabel')}

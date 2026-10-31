@@ -174,6 +174,7 @@ export function TopicListScreen() {
         <NavBar title={t('topic.list.pageTitle')} onBack={() => navigation.goBack()} />
       </NavChrome>
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={items}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}

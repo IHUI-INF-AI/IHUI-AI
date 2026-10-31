@@ -191,7 +191,7 @@ export default function ApiKeysScreen() {
       <NavChrome>
         <NavBar title={t('apiKeys.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {secret ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('apiKeys.secretTitle')}</Text>

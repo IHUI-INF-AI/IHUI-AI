@@ -251,6 +251,7 @@ export function WorkflowDetailScreen({
     <View style={styles.container}>
       {header}
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl

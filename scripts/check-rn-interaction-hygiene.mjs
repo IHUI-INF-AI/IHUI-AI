@@ -4,7 +4,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 守门 273:RN 触屏交互卫生对账(blocking;H1 命中尺寸绝对零容忍 / H2 按压反馈差值棘轮)
+ * 守门 273:RN 触屏交互卫生对账(blocking;H1 命中尺寸 / H3 键盘点击穿透 / H4 内容文字缩放 = 绝对零容忍,H2 按压反馈 = 差值棘轮)
  *
  * 为什么必须有门(2026-10-31 实测):
  *  - H1 命中尺寸:`packages/design-tokens/src/geometry.js` 早有 `tapBox: 36` 这一档,端内十几个文件
@@ -40,9 +40,15 @@
  * 档位从**被审面**的 geometry.js 现读(与 §0.4 同基准);解析不出 ⇒ 未判定 exit 2,不猜 36。
  *
  * 口径:全量档 = 审计报告(H2 存量只报数;H1 存量 2026-10-31 已由 22 → 0,`--strict` 才问责);
- *       --staged = **H1 绝对零容忍**(存量已归零才升的档,§0.2)+ **H2 差值棘轮**
+ *       --staged = **H1/H3/H4 绝对零容忍**(三者的可见存量都已归零才升的档,§0.2)+ **H2 差值棘轮**
  *                  (逐文件比 索引 blob vs HEAD blob,只在"本次把违规加回来"时红,§0.5)。
+ *                  H3 只判"闭标签配得平"的区间 ⇒ 配不平的候选根本不进这一维(盲区不判红,§12e)。
  *       取不到内容一律未判定 exit 2,不回落另一个面、不记绿(§0.3/§0.4)。
+ *
+ * 判序为什么是纯函数 `stagedVerdict`(2026-10-31 实测教训):那一轮里 `if (r.h2.length > base.h2.length)`
+ * 被一次改稿吃成语句 `NaN`(ASI 合法 ⇒ 不报语法错),H2 于是**无条件报项** —— 任何改动带 H2 存量
+ * 文件的提交都会红,而当时 41 组自检全绿没抓到(判序住在主流程里,自检走不到)。所以判序抽成
+ * 纯函数、由自检逐维钉方向(持平/减少必须放行,变多才拦),镜像测试再钉"主流程必须委托它"。
  *
  * 用法:node scripts/check-rn-interaction-hygiene.mjs [--staged|--worktree|--strict|--self-test|--quiet]
  *       --strict 才问责存量(治理专用,默认不拦,免得成为恒红门)
@@ -487,6 +493,54 @@ function scanText(text, minTap, rel = '') {
   return { h1, h2, skipped, slopOnly, h3, h4 }
 }
 
+/**
+ * 提交链口径(纯函数,自检与主流程共用同一份实现,§22c 不在测试里另抄)。
+ * 四维各有档位,而**档位写错的方向恰好是"该拦的不拦 / 不该拦的全拦"**,所以判序必须能被自检逐维钉住。
+ * @param rel 被审文件(只用于文案点名)
+ * @param r 本次面(索引 blob)的扫描结果
+ * @param base 该文件 HEAD 自身的扫描结果(新文件传各桶皆空的骨架)
+ * @returns 违规文案数组;空数组 = 该文件本次无新增
+ */
+function stagedVerdict(rel, r, base) {
+  const out = []
+  /**
+   * H1 = **绝对零容忍**(2026-10-31 存量 22 → 0 后升档,§0.2:升 blocking 的前置是存量归零)。
+   *   命中区是"点不中"级缺陷,量出来就是 12 枚真控件,没有"存量太大所以只能棘轮"的余地。
+   */
+  if (r.h1.length)
+    out.push(
+      `${rel} 命中尺寸不足 ${r.h1.length} 处(绝对零容忍):` +
+        r.h1
+          .slice(0, 4)
+          .map((v) => `L${v.line} <${v.tag}> ${v.size}→实得 ${v.eff}`)
+          .join(' / '),
+    )
+  /**
+   * H3 = **绝对零容忍**(2026-10-31 把可信候选 34 → 0 后升档)。
+   * 区间配不平的候选**不进这一维**(那是尺子的盲区,判它红等于逼人跳门),只进盲区计数。
+   */
+  if (r.h3.length)
+    out.push(
+      `${rel} 滚动容器含输入框却没写 keyboardShouldPersistTaps ${r.h3.length} 处(绝对零容忍):` +
+        r.h3.map((v) => `L${v.line} <${v.tag}> ${v.why}`).join(' / '),
+    )
+  /**
+   * H4 = 内容文字**绝对零容忍**(2026-10-31 把 26 处接进 scaleText 后归零才升的档,§0.2)。
+   * 图标字形桶不判:× ✓ emoji 坐在定宽盒里,放大即破版 —— 那一桶合法,判它就是把人逼去跳门。
+   */
+  if (r.h4.content.length)
+    out.push(
+      `${rel} 内容文字钉死系统字号缩放 ${r.h4.content.length} 处(绝对零容忍):` +
+        r.h4.content.map((v) => `L${v.line}【${v.sample}】`).join(' / '),
+    )
+  /** H2 = 差值棘轮(存量按 §12e 不做成恒红门;**只在变多时**拦,持平/减少一律放行)。 */
+  if (r.h2.length > base.h2.length)
+    out.push(
+      `${rel} 无按压反馈 ${base.h2.length} → ${r.h2.length}(新增 ${r.h2.length - base.h2.length})`,
+    )
+  return out
+}
+
 /** 被审面上的 geometry.js → tapBox 数值;读不出给 null(调用方落未判定,不猜)。 */
 function tierFromSource(src, key = TIER_KEY) {
   if (typeof src !== 'string') return null
@@ -835,6 +889,46 @@ function runSelfTest() {
     'H4 分桶失效:字形与内容必须分开报,混成一桶就是把几十处图标也判成缺陷',
   )
 
+  // —— 判序方向锁。立因:2026-10-31 那次改稿把 `if (r.h2.length > base.h2.length)` 吃成语句 `NaN`
+  // (ASI 合法 ⇒ 不报语法错),H2 于是**无条件报项**,任何触碰带 H2 存量文件的提交都会红,
+  // 而当时 41 组自检全绿没抓到 —— 判序住在主流程里,自检走不到。抽成纯函数后这一族断言就是接线锁。
+  const R = (o) => ({ h1: [], h2: [], h3: [], h4: { glyph: [], content: [], scaled: [] }, ...o })
+  const V = (r, base) => stagedVerdict('x.tsx', r, base)
+  const many = (n) => Array.from({ length: n }, (_, i) => ({ line: i + 1, tag: 'Pressable' }))
+  ok(V(R({}), R({})).length === 0, '判序失效:四维全空的改动必须放行')
+  ok(
+    V(R({ h2: many(5) }), R({ h2: many(5) })).length === 0,
+    'H2 持平即红 ⇒ 恒红门(§12e):NaN 那一型就是这么漏进来的',
+  )
+  ok(
+    V(R({ h2: many(4) }), R({ h2: many(9) })).length === 0,
+    'H2 减少必须放行:改少了是好事,拦它等于罚整改',
+  )
+  ok(V(R({ h2: many(6) }), R({ h2: many(5) })).length === 1, 'H2 新增必须拦(棘轮的另一半)')
+  ok(
+    V(R({ h1: [{ line: 3, tag: 'TouchableOpacity', size: '24×24', eff: 24 }] }), R({})).length === 1,
+    'H1 绝对零容忍失效',
+  )
+  ok(
+    V(R({ h3: [{ line: 9, tag: 'ScrollView', why: '子树含输入框' }] }), R({})).some((s) =>
+      /keyboardShouldPersistTaps/.test(s),
+    ),
+    'H3 绝对零容忍失效:缺该属性的滚动区没进判红清单',
+  )
+  ok(
+    V(R({ h4: { glyph: [{ line: 1 }], content: [], scaled: [] } }), R({})).length === 0,
+    'H4 字形桶不得判红:×/✓ 坐定宽盒里,放大即破版',
+  )
+  ok(
+    V(R({ h4: { glyph: [], content: [{ line: 2, sample: '标题' }], scaled: [] } }), R({})).length ===
+      1,
+    'H4 内容桶必须判红',
+  )
+  ok(
+    V(R({ h2: many(2) }), R({})).length === 1,
+    '新建文件(HEAD 面无存量可宽)带 2 处无反馈必须拦 —— base 取不到不等于放行',
+  )
+
   if (fails.length) {
     for (const f of fails) console.error(`[SELF-TEST FAIL] ${f}`)
     return 1
@@ -927,7 +1021,7 @@ function main() {
 
   if (!quiet) {
     console.log(
-      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(候选,区间匹配未自证 ⇒ 只报数不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
+      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(提交链绝对零容忍,2026-10-31 存量 34→0;闭标签配不平的候选不进这一维 ⇒ 落盲区不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
     )
     if (argv.includes('--list')) {
       for (const [rel, r] of perFile)
@@ -935,6 +1029,9 @@ function main() {
           console.log(`   H1 ${rel}:${v.line} <${v.tag}> ${v.size}(补 hitSlop 后实得 ${v.eff})`)
       for (const [rel, r] of perFile)
         for (const v of r.h2) console.log(`   H2 ${rel}:${v.line} <${v.tag}> 无按压反馈`)
+      for (const [rel, r] of perFile)
+        for (const v of r.h3)
+          console.log(`   H3 ${rel}:${v.line} <${v.tag}> ${v.why} ⇒ 缺 keyboardShouldPersistTaps`)
     }
     const top = [...perFile.entries()]
       .sort((a, b) => b[1].h2.length + b[1].h1.length - (a[1].h2.length + a[1].h1.length))
@@ -973,34 +1070,13 @@ function main() {
   }
   const added = []
   for (const [rel, r] of perFile) {
-    /**
-     * H1 = **绝对零容忍**(2026-10-31 存量 22 → 0 后升档,§0.2:升 blocking 的前置是存量归零)。
-     *   命中区是"点不中"级缺陷,量出来就是 12 枚真控件,没有"存量太大所以只能棘轮"的余地。
-     * H2 = 差值棘轮(1296 处存量按 §12e 不做成恒红门;新增即拦)。
-     */
-    if (r.h1.length)
-      added.push(
-        `${rel} 命中尺寸不足 ${r.h1.length} 处(绝对零容忍):` +
-          r.h1
-            .slice(0, 4)
-            .map((v) => `L${v.line} <${v.tag}> ${v.size}→实得 ${v.eff}`)
-            .join(' / '),
-      )
-    /**
-     * H4 = 内容文字**绝对零容忍**(2026-10-31 把 26 处接进 scaleText 后归零才升的档,§0.2)。
-     * 图标字形桶不判:× ✓ emoji 坐在定宽盒里,放大即破版 —— 那一桶合法,判它就是把人逼去跳门。
-     */
-    if (r.h4.content.length)
-      added.push(
-        `${rel} 内容文字钉死系统字号缩放 ${r.h4.content.length} 处(绝对零容忍):` +
-          r.h4.content.map((v) => `L${v.line}【${v.sample}】`).join(' / '),
-      )
     const headText = headTexts.get(`HEAD:${rel}`) ?? null
-    const base = headText === null ? { h1: [], h2: [], h3: [] } : scanText(headText, minTap, rel)
-NaN
-      added.push(
-        `${rel} 无按压反馈 ${base.h2.length} → ${r.h2.length}(新增 ${r.h2.length - base.h2.length})`,
-      )
+    const base =
+      headText === null
+        ? { h1: [], h2: [], h3: [], h4: { glyph: [], content: [], scaled: [] } }
+        : scanText(headText, minTap, rel)
+    // 判序委托给纯函数(自检钉它;主流程里再写一遍就是两份真相)
+    for (const msg of stagedVerdict(rel, r, base)) added.push(msg)
   }
   if (added.length) {
     console.error(`❌ 本次把交互卫生问题加回来了 ${added.length} 项(存量只报数,新增即拦):`)
@@ -1013,6 +1089,11 @@ NaN
     console.error(
       '   H4 改法:`style={[styles.x, scaleText(styles.x)]}`(它按唯一口倍率同比放大 fontSize 与 lineHeight,' +
         '倍率=1 时返回 {} ⇒ 默认观感零变化);图标字形(×/✓/emoji 坐在定宽盒里)不算内容文字,不判。',
+    )
+    console.error(
+      '   H3 改法:给滚动容器(ScrollView/FlatList/SectionList/KeyboardAwareScrollView)补 ' +
+        'keyboardShouldPersistTaps="handled" —— 默认 never 会让键盘弹起后的第一下点击只收键盘、' +
+        '不触发按钮(小程序 rn-compat 不认这个 RN 原语,由该层显式取用白名单挡住,不会漏进 Taro prop)。',
     )
     console.error('   确属不该管(如纯装饰可点区):在行内写明原因并登记豁免,不要跳门。')
     return 1
@@ -1034,6 +1115,7 @@ export const __test__ = {
   scanKeyboard,
   elementRange,
   scanFontLock,
+  stagedVerdict,
   runSelfTest,
   SKIP_ENV,
   SRC_RELS,
