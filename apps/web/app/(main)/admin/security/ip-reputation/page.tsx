@@ -115,7 +115,7 @@ export default function IpReputationPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <ShieldAlert className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -174,13 +174,13 @@ export default function IpReputationPage() {
             <div className="flex items-baseline gap-3">
               <span
                 className={cn(
-                  'text-2xl min-[768px]:text-4xl font-bold tabular-nums',
+                  'text-display min-[768px]:text-4xl font-bold tabular-nums',
                   scoreClass(data.score),
                 )}
               >
                 {data.score}
               </span>
-              <span className={cn('text-sm font-medium', scoreClass(data.score))}>
+              <span className={cn('text-body font-medium', scoreClass(data.score))}>
                 {scoreLabel(data.score)}
               </span>
             </div>

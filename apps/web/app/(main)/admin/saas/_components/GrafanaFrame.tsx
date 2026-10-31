@@ -134,7 +134,7 @@ export function GrafanaFrame({ tenant: _tenant, uid, title, height = 480, bare =
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="text-label font-medium uppercase tracking-wide text-muted-foreground">
           {title ?? t('iframeTitle')}
         </CardTitle>
       </CardHeader>

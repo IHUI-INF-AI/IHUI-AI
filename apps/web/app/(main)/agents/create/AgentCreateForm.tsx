@@ -251,7 +251,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="h-3 w-3 shrink-0 text-primary" />
-                <span className="text-xs font-medium">{skill.name}</span>
+                <span className="text-label font-medium">{skill.name}</span>
               </div>
               {skill.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">

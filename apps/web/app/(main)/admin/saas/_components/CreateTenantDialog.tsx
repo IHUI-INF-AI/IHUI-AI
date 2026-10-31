@@ -92,7 +92,7 @@ export function CreateTenantDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('form.plan')}</label>
+            <label className="text-body font-medium">{t('form.plan')}</label>
             <select
               className={selectClass + ' w-full'}
               value={form.plan ?? 'free'}

@@ -74,11 +74,11 @@ export default function ChatHistoryPage() {
       <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Clock className="h-6 w-6 text-primary" />
             {t('title')}
             {total > 0 && (
-              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums leading-none text-muted-foreground">
+              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-label font-medium tabular-nums leading-none text-muted-foreground">
                 {items.length < total ? `${items.length}/${total}` : total}
               </span>
             )}

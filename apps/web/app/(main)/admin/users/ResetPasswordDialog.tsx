@@ -59,7 +59,7 @@ export function ResetPasswordDialog({ user, pending, onConfirm, onCancel }: Prop
     >
       <form id="reset-pwd-form" onSubmit={submit} className="space-y-3">
         <div className="space-y-1">
-          <label htmlFor="reset-pwd" className="text-sm font-medium">
+          <label htmlFor="reset-pwd" className="text-body font-medium">
             新密码(6-20 位, 需含字母和数字)
           </label>
           <Input
@@ -72,7 +72,7 @@ export function ResetPasswordDialog({ user, pending, onConfirm, onCancel }: Prop
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="reset-pwd-confirm" className="text-sm font-medium">
+          <label htmlFor="reset-pwd-confirm" className="text-body font-medium">
             确认新密码
           </label>
           <Input

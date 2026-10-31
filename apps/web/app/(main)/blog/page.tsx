@@ -36,7 +36,7 @@ export default async function BlogIndexPage() {
       <header className="space-y-3 text-center min-[768px]:text-left">
         <div className="flex items-center justify-center gap-2 min-[768px]:justify-start">
           <BookOpen className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
             {t('title')}
           </h1>
         </div>
@@ -100,7 +100,7 @@ export default async function BlogIndexPage() {
                         <Clock className="h-3.5 w-3.5" />
                         {t('readMinutes', { count: post.readMinutes })}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="inline-flex items-center gap-1 text-body font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
                         {t('readMore')}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </span>

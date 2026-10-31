@@ -74,7 +74,7 @@ function Badge({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        'rounded-md px-2 py-0.5 text-xs font-medium',
+        'rounded-md px-2 py-0.5 text-label font-medium',
         BADGE[status] ?? 'bg-muted text-muted-foreground',
       )}
     >
@@ -188,7 +188,7 @@ export default function DeveloperEnterprisePage() {
     return (
       <div className="px-4 py-4 space-y-4">
         <BackButton />
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Building2 className="h-5 w-5" aria-hidden />
           企业服务
         </h1>
@@ -205,7 +205,7 @@ export default function DeveloperEnterprisePage() {
   return (
     <div className="px-4 py-4 space-y-4">
       <BackButton />
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <Building2 className="h-5 w-5" aria-hidden />
         企业服务
       </h1>

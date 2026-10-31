@@ -180,7 +180,7 @@ export function BatchOperations() {
               setSelected(new Set())
               setBatchResult(null)
             }}
-            className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'market'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -195,7 +195,7 @@ export function BatchOperations() {
               setSelected(new Set())
               setBatchResult(null)
             }}
-            className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'user'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'

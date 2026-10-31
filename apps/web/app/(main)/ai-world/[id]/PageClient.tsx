@@ -171,7 +171,7 @@ export default function AiWorldDetailPage() {
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{world.title}</h1>
+              <h1 className="text-display font-bold tracking-tight">{world.title}</h1>
               {isAuthed && (
                 <button
                   type="button"
@@ -179,7 +179,7 @@ export default function AiWorldDetailPage() {
                   disabled={favPending}
                   aria-pressed={favorited}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition-colors',
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition-colors',
                     favorited
                       ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
                       : 'border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -228,7 +228,7 @@ export default function AiWorldDetailPage() {
 
       {relatedApps.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold">相关推荐</h2>
+          <h2 className="text-body font-semibold">相关推荐</h2>
           <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
             {relatedApps.map((app) => (
               <Link
@@ -238,7 +238,7 @@ export default function AiWorldDetailPage() {
               >
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="line-clamp-2 text-sm font-medium">{app.name}</span>
+                  <span className="line-clamp-2 text-body font-medium">{app.name}</span>
                 </div>
               </Link>
             ))}

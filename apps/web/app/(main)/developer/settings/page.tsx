@@ -111,7 +111,7 @@ export default function SettingsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Settings className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -120,7 +120,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <p className="pb-2 text-sm font-semibold">{t('infoTitle')}</p>
+          <p className="pb-2 text-body font-semibold">{t('infoTitle')}</p>
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-sm">{t('infoName')}</Label>
@@ -168,7 +168,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <p className="pb-2 text-sm font-semibold">{t('prefsTitle')}</p>
+          <p className="pb-2 text-body font-semibold">{t('prefsTitle')}</p>
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1 space-y-0.5">
@@ -217,7 +217,7 @@ export default function SettingsPage() {
 
       <Card className="border-rose-500/30">
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <p className="flex items-center gap-2 pb-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+          <p className="flex items-center gap-2 pb-2 text-body font-semibold text-rose-600 dark:text-rose-400">
             <AlertTriangle className="h-4 w-4" />
             {t('dangerTitle')}
           </p>

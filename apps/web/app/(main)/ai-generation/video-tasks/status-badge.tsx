@@ -32,7 +32,7 @@ export function VideoTaskStatusBadge({ status }: { status: string }) {
   const labelKey = getVideoTaskStatusLabelKey(status)
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[status] ?? STATUS_STYLE.accepted}`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium ${STATUS_STYLE[status] ?? STATUS_STYLE.accepted}`}
     >
       {labelKey ? t(labelKey) : status}
     </span>

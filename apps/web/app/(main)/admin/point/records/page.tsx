@@ -101,7 +101,7 @@ export default function AdminPointRecordsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('recordsTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('recordsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('recordsSubtitle')}</p>
       </div>
 
@@ -184,7 +184,7 @@ export default function AdminPointRecordsPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                         typeBadgeClass(rec.type),
                       )}
                     >

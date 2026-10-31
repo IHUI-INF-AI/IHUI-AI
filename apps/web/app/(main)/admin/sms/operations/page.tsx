@@ -32,7 +32,7 @@ export default function SmsOperationsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Send className="h-6 w-6 text-primary" />
           {t('page.title')}
         </h1>

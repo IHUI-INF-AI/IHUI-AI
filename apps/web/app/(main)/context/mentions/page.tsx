@@ -64,7 +64,7 @@ export default function ContextMentionsPage() {
           <ArrowLeft className="h-3 w-3" />
           返回上下文总览
         </Link>
-        <h1 className="mt-1 text-xl font-bold tracking-tight">@ 提及检索</h1>
+        <h1 className="mt-1 text-heading font-bold tracking-tight">@ 提及检索</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           按类型搜索文件 / 目录 / 符号 / 数据库表 / 网页,并查看详情
         </p>
@@ -169,14 +169,14 @@ function DetailPanel({
         >
           {mention.type}
         </span>
-        <p className="mt-1.5 text-sm font-medium">{mention.label}</p>
+        <p className="mt-1.5 text-body font-medium">{mention.label}</p>
         {mention.detail && (
           <p className="mt-0.5 text-xs text-muted-foreground break-all">{mention.detail}</p>
         )}
       </div>
 
       <div>
-        <p className="text-xs font-medium text-muted-foreground">insertText</p>
+        <p className="text-label font-medium text-muted-foreground">insertText</p>
         <code className="mt-1 block w-full rounded-sm bg-muted px-2 py-1.5 text-xs break-all">
           {mention.insertText}
         </code>
@@ -200,7 +200,7 @@ function DetailPanel({
           </div>
         ) : schema ? (
           <div>
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-label font-medium text-muted-foreground">
               表结构({schema.columns.length} 列)
             </p>
             <div className="mt-1 max-h-[280px] overflow-y-auto rounded-md border">

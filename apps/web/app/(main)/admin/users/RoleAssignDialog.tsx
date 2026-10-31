@@ -134,7 +134,7 @@ export function RoleAssignDialog({
     >
       <div className="space-y-3">
         <div className="space-y-1">
-          <label htmlFor="role-select" className="text-sm font-medium">
+          <label htmlFor="role-select" className="text-body font-medium">
             系统角色
           </label>
           <Select value={role} onValueChange={setRole}>
@@ -157,7 +157,7 @@ export function RoleAssignDialog({
         </div>
 
         <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
-          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
             <KeyRound className="h-3.5 w-3.5" />
             RBAC 细粒度角色(参考)
           </p>

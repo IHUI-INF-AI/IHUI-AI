@@ -89,7 +89,7 @@ export function LiveChannelsBlock({ channels }: Props) {
                 ) : null}
                 {c.isLive ? (
                   <div className="absolute left-2 top-2">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-red-500/95 px-2 py-0.5 text-xs font-medium text-white">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-red-500/95 px-2 py-0.5 text-label font-medium text-white">
                       <span className="h-2 w-2 rounded-sm bg-white" />
                       {t('live.liveBadge')}
                     </span>
@@ -100,7 +100,7 @@ export function LiveChannelsBlock({ channels }: Props) {
                 </div>
               </div>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{c.title}</h3>
+                <h3 className="line-clamp-2 text-body font-semibold leading-tight">{c.title}</h3>
                 <p className="line-clamp-2 text-xs text-muted-foreground">{c.intro}</p>
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <div className="flex items-center gap-1.5">

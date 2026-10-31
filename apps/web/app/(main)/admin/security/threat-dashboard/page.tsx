@@ -73,7 +73,7 @@ export default function ThreatDashboardPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <ShieldCheck className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -92,7 +92,7 @@ export default function ThreatDashboardPage() {
                 <s.icon className="h-4 w-4" />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-bold tabular-nums">
+            <div className="mt-2 text-display font-bold tabular-nums">
               {isLoading ? (
                 <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
               ) : (

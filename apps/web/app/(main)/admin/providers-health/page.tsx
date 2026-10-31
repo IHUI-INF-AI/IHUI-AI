@@ -72,7 +72,7 @@ export default function ProvidersHealthPage() {
       {/* 标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" />
             Provider 余额与健康状态
           </h1>
@@ -85,7 +85,7 @@ export default function ProvidersHealthPage() {
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex h-9 items-center gap-1.5 rounded-sm border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-sm border bg-card px-3 text-body font-medium transition-colors hover:bg-accent disabled:opacity-60"
         >
           <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
           刷新
@@ -179,7 +179,7 @@ export default function ProvidersHealthPage() {
                             href={p.recharge_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex h-8 items-center gap-1 rounded-md bg-cta px-2.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                            className="inline-flex h-8 items-center gap-1 rounded-md bg-cta px-2.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                           >
                             <Wallet className="h-3.5 w-3.5" />
                             去充值
@@ -190,7 +190,7 @@ export default function ProvidersHealthPage() {
                             href={p.recharge_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors hover:bg-accent"
+                            className="inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-label font-medium transition-colors hover:bg-accent"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                             控制台
@@ -216,10 +216,10 @@ function SummaryCard({ label, value, color }: { label: string; value: number; co
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
+        <CardTitle className="text-label font-medium text-muted-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className={cn('text-2xl font-bold', color)}>{value}</div>
+        <div className={cn('text-display font-bold', color)}>{value}</div>
       </CardContent>
     </Card>
   )

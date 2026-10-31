@@ -52,7 +52,7 @@ export default function AskCreatePage() {
         <ArrowLeft className="h-4 w-4" />
         返回问答列表
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">发布问题</h1>
+      <h1 className="text-display font-bold tracking-tight">发布问题</h1>
       <AskEditForm
         title={title}
         setTitle={setTitle}

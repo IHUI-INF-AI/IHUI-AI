@@ -75,7 +75,7 @@ export function CanvasTaskNode({ data, selected }: NodeProps<Node<CanvasNodeData
         >
           <Icon className="h-3.5 w-3.5" />
         </div>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{data.label}</span>
+        <span className="min-w-0 flex-1 truncate text-body font-medium">{data.label}</span>
         <StatusIcon status={data.status} />
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">

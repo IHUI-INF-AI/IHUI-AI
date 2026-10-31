@@ -111,7 +111,7 @@ export default function TenantBackupsPage() {
         {/* 顶部标题 + 创建按钮 */}
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
               <Database className="h-6 w-6 text-primary" />
               <CenteredText>{t('title', { slug })}</CenteredText>
             </h1>
@@ -309,12 +309,12 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="text-label font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-xl font-semibold">{value}</div>
+        <div className="text-heading font-semibold">{value}</div>
         {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>

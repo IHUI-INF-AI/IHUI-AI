@@ -163,7 +163,7 @@ export default function AgentTimelinePage() {
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-6 flex items-center gap-2">
         <History className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
@@ -178,7 +178,7 @@ export default function AgentTimelinePage() {
         <button
           onClick={() => void load(sessionId)}
           disabled={loading || !sessionId.trim()}
-          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {t('load')}
@@ -208,19 +208,19 @@ export default function AgentTimelinePage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalEvents')}</div>
-              <div className="text-xl font-bold">{data.total}</div>
+              <div className="text-heading font-bold">{data.total}</div>
             </div>
             <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalCost')}</div>
-              <div className="text-xl font-bold">{fmtCost(data.summary.total_cost_usd)}</div>
+              <div className="text-heading font-bold">{fmtCost(data.summary.total_cost_usd)}</div>
             </div>
             <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalTokens')}</div>
-              <div className="text-xl font-bold">{data.summary.total_tokens}</div>
+              <div className="text-heading font-bold">{data.summary.total_tokens}</div>
             </div>
             <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('window')}</div>
-              <div className="truncate text-xs font-medium">
+              <div className="truncate text-label font-medium">
                 {data.summary.window.start ? fmtTime(data.summary.window.start) : '-'}
                 {' → '}
                 {data.summary.window.end ? fmtTime(data.summary.window.end) : '-'}
@@ -264,13 +264,13 @@ export default function AgentTimelinePage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            'inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                            'inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-label font-medium',
                             KIND_COLOR[ev.kind],
                           )}
                         >
                           <Icon className="h-3 w-3" /> {KIND_LABEL[ev.kind]}
                         </span>
-                        <span className="truncate text-sm font-medium">{ev.title}</span>
+                        <span className="truncate text-body font-medium">{ev.title}</span>
                         {ev.kind === 'checkpoint' && (
                           <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
                             {t('restorable')}
@@ -298,7 +298,7 @@ export default function AgentTimelinePage() {
                             {/* 1-1 全可解释:step 事件结构化展示决策/证据 */}
                             {getMetaStr(ev.meta, 'decision') && (
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-semibold text-muted-foreground">
+                                <span className="text-label font-semibold text-muted-foreground">
                                   {t('decision')}
                                 </span>
                                 <code className="rounded bg-cta/10 px-1.5 py-0.5 text-xs text-primary">
@@ -320,12 +320,12 @@ export default function AgentTimelinePage() {
                               if (!diff || typeof diff !== 'object' || !diff.path) return null
                               return (
                                 <div>
-                                  <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                                  <p className="mb-1 text-label font-semibold text-muted-foreground">
                                     {t('diffEvidence')} · <code>{diff.path}</code>
                                   </p>
                                   <div className="grid gap-2 sm:grid-cols-2">
                                     <div className="rounded-md bg-destructive/5 p-2">
-                                      <p className="mb-1 text-xs font-medium text-destructive/80">
+                                      <p className="mb-1 text-label font-medium text-destructive/80">
                                         {t('diffBefore')}
                                       </p>
                                       <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs">
@@ -333,7 +333,7 @@ export default function AgentTimelinePage() {
                                       </pre>
                                     </div>
                                     <div className="rounded-md bg-emerald-500/5 p-2">
-                                      <p className="mb-1 text-xs font-medium text-emerald-700">
+                                      <p className="mb-1 text-label font-medium text-emerald-700">
                                         {t('diffAfter')}
                                       </p>
                                       <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs">
@@ -349,7 +349,7 @@ export default function AgentTimelinePage() {
                               if (!test || typeof test !== 'object' || !test.command) return null
                               return (
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-xs font-semibold text-muted-foreground">
+                                  <span className="text-label font-semibold text-muted-foreground">
                                     {t('testEvidence')}
                                   </span>
                                   <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -357,7 +357,7 @@ export default function AgentTimelinePage() {
                                   </code>
                                   {test.exit_code !== null && (
                                     <span
-                                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                      className={`rounded px-1.5 py-0.5 text-label font-medium ${
                                         test.exit_code === 0
                                           ? 'bg-emerald-500/10 text-emerald-600'
                                           : 'bg-destructive/10 text-destructive'
@@ -385,7 +385,7 @@ export default function AgentTimelinePage() {
                               return (
                                 <div className="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/5 p-2">
                                   <Undo2 className="h-3.5 w-3.5 text-emerald-700" />
-                                  <span className="text-xs font-medium text-emerald-700">
+                                  <span className="text-label font-medium text-emerald-700">
                                     {t('rollbackEvidence')}
                                   </span>
                                   <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -425,7 +425,7 @@ export default function AgentTimelinePage() {
                             })()}
                           </>
                         ) : null}
-                        <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                        <p className="mb-1 text-label font-semibold text-muted-foreground">
                           {t('detail')}
                         </p>
                         <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">

@@ -60,7 +60,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
   return (
     <>
       <div className="rounded-lg border">
-        <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium uppercase text-muted-foreground">
+        <div className="flex items-center gap-2 px-4 py-2.5 text-label font-medium uppercase text-muted-foreground">
           <Hash className="h-3.5 w-3.5" />
           {t('cloudTitle')}
         </div>
@@ -113,7 +113,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
                   </code>
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-label font-medium">
                     {tag.usageCount}
                   </span>
                 </td>

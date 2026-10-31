@@ -46,7 +46,7 @@ export function VariableDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <label htmlFor="var-bot-id" className="block text-sm font-medium">
+            <label htmlFor="var-bot-id" className="block text-body font-medium">
               Bot ID *
             </label>
             <input
@@ -59,7 +59,7 @@ export function VariableDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="var-name" className="block text-sm font-medium">
+            <label htmlFor="var-name" className="block text-body font-medium">
               变量名 *
             </label>
             <input
@@ -71,7 +71,7 @@ export function VariableDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="var-value" className="block text-sm font-medium">
+            <label htmlFor="var-value" className="block text-body font-medium">
               变量值
             </label>
             <input
@@ -83,7 +83,7 @@ export function VariableDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="var-type" className="block text-sm font-medium">
+            <label htmlFor="var-type" className="block text-body font-medium">
               数据类型
             </label>
             <select
@@ -100,7 +100,7 @@ export function VariableDialog({
             </select>
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="var-desc" className="block text-sm font-medium">
+            <label htmlFor="var-desc" className="block text-body font-medium">
               描述
             </label>
             <input

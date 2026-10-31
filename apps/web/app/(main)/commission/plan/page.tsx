@@ -117,7 +117,7 @@ export default function CommissionPlanPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Gift className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -146,7 +146,7 @@ export default function CommissionPlanPage() {
                   {t('inviteTitle')}
                 </h2>
                 {inviteCode && (
-                  <span className="rounded-md bg-cta/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                  <span className="rounded-md bg-cta/10 px-2.5 py-0.5 text-label font-medium text-primary">
                     {t('inviteCode')}: {inviteCode}
                   </span>
                 )}
@@ -177,11 +177,11 @@ export default function CommissionPlanPage() {
         <CardContent className="space-y-3 pt-0">
           {RULES.map((rule, idx) => (
             <div key={rule.key} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta text-xs font-bold text-cta-foreground">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta text-label font-bold text-cta-foreground">
                 {idx + 1}
               </span>
               <div className="space-y-0.5">
-                <div className="text-sm font-medium">{t(rule.titleKey)}</div>
+                <div className="text-body font-medium">{t(rule.titleKey)}</div>
                 <p className="text-xs text-muted-foreground">{t(rule.key)}</p>
               </div>
             </div>
@@ -211,7 +211,7 @@ export default function CommissionPlanPage() {
                 {rateRows.map((row) => (
                   <div key={row.level} className="rounded-lg border p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">{row.level}</span>
+                      <span className="text-body font-semibold">{row.level}</span>
                       <span className="text-lg font-bold text-primary">{row.rate}</span>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">{t('commissionRate')}</p>

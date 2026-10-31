@@ -50,7 +50,7 @@ export default function MetricsComparisonPage() {
       {/* 标题 + 刷新 */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" />
             <CenteredText>{t('pageTitle')}</CenteredText>
           </h1>
@@ -68,7 +68,7 @@ export default function MetricsComparisonPage() {
       <Card>
         <CardHeader className="pb-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <CardTitle className="flex items-center gap-2 text-label font-medium uppercase tracking-wide text-muted-foreground">
               <Layers className="h-3 w-3" />
               <CenteredText>{t('compareTitle')}</CenteredText>
             </CardTitle>
@@ -98,7 +98,7 @@ export default function MetricsComparisonPage() {
       {/* 中部 — 横向排序表 */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <CardTitle className="flex items-center gap-2 text-label font-medium uppercase tracking-wide text-muted-foreground">
             <ChevronUp className="h-3 w-3" />
             <CenteredText>{t('rankingTitle')}</CenteredText>
           </CardTitle>

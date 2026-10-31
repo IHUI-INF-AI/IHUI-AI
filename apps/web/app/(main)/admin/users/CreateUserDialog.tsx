@@ -46,7 +46,7 @@ export function CreateUserDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1">
-            <label htmlFor="create-nickname" className="text-sm font-medium">
+            <label htmlFor="create-nickname" className="text-body font-medium">
               昵称
             </label>
             <Input
@@ -58,7 +58,7 @@ export function CreateUserDialog({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label htmlFor="create-phone" className="text-sm font-medium">
+              <label htmlFor="create-phone" className="text-body font-medium">
                 手机号
               </label>
               <Input
@@ -70,7 +70,7 @@ export function CreateUserDialog({
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="create-email" className="text-sm font-medium">
+              <label htmlFor="create-email" className="text-body font-medium">
                 邮箱
               </label>
               <Input
@@ -83,7 +83,7 @@ export function CreateUserDialog({
             </div>
           </div>
           <div className="space-y-1">
-            <label htmlFor="create-password" className="text-sm font-medium">
+            <label htmlFor="create-password" className="text-body font-medium">
               密码(至少 6 位)
             </label>
             <Input

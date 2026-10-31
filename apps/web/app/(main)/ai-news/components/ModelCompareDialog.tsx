@@ -216,7 +216,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
       >
         {/* 头部 */}
         <div className="flex items-center gap-2 bg-muted/30 px-5 py-3">
-          <h3 className="text-sm font-semibold">{t('compare.label')}</h3>
+          <h3 className="text-body font-semibold">{t('compare.label')}</h3>
           <span className="text-[10px] text-muted-foreground">
             {t('compare.selected', { count: entries.length })}
           </span>
@@ -233,7 +233,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
                 </th>
                 {entries.map((e) => (
                   <th key={e.id} className="min-w-[120px] px-2 py-2 text-left">
-                    <div className="text-xs font-semibold leading-tight">{e.modelName}</div>
+                    <div className="text-label font-semibold leading-tight">{e.modelName}</div>
                     <div className="text-[10px] text-muted-foreground">{e.vendor}</div>
                   </th>
                 ))}
@@ -264,7 +264,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
 
         {/* 价格柱状图 */}
         <div className="px-5 py-3">
-          <h4 className="mb-1 text-xs font-semibold text-muted-foreground">
+          <h4 className="mb-1 text-label font-semibold text-muted-foreground">
             {t('compare.priceChartTitle')}
           </h4>
           <p className="mb-2 text-[10px] text-muted-foreground">{t('compare.priceChartHint')}</p>
@@ -274,7 +274,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
         {/* 能力雷达叠加 */}
         {hasCaps ? (
           <div className="px-5 py-3">
-            <h4 className="mb-2 text-xs font-semibold text-muted-foreground">
+            <h4 className="mb-2 text-label font-semibold text-muted-foreground">
               {t('compare.capabilityOverlay')}
             </h4>
             <div className="flex flex-wrap items-center gap-4">

@@ -99,7 +99,7 @@ export function DevelopersContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Code2 className="h-3.5 w-3.5 text-primary" />
           开发者门户 · v{data.version}
         </div>
@@ -127,14 +127,14 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 限流策略 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">限流策略</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">限流策略</h2>
         <Card>
           <CardContent className="p-0">
             <div className="grid grid-cols-2 gap-px bg-border/40 text-sm min-[640px]:grid-cols-4">
-              <div className="bg-card p-3 text-xs font-medium text-muted-foreground">档位</div>
-              <div className="bg-card p-3 text-xs font-medium text-muted-foreground">QPS</div>
-              <div className="bg-card p-3 text-xs font-medium text-muted-foreground">日 Token</div>
-              <div className="bg-card p-3 text-xs font-medium text-muted-foreground">并发</div>
+              <div className="bg-card p-3 text-label font-medium text-muted-foreground">档位</div>
+              <div className="bg-card p-3 text-label font-medium text-muted-foreground">QPS</div>
+              <div className="bg-card p-3 text-label font-medium text-muted-foreground">日 Token</div>
+              <div className="bg-card p-3 text-label font-medium text-muted-foreground">并发</div>
               {TIER_LABELS.map(({ key, label }) => {
                 const r = data.rateLimits[key]
                 return (
@@ -153,13 +153,13 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 支持厂商 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">支持的厂商</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">支持的厂商</h2>
         <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {data.providers.map((p) => (
             <Card key={p} className="transition-colors hover:bg-accent">
               <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
                 <Boxes className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">{p}</span>
+                <span className="text-body font-medium">{p}</span>
               </CardContent>
             </Card>
           ))}
@@ -168,7 +168,7 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* SDK 计划 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">SDK 计划</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">SDK 计划</h2>
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {data.sdks.map((sdk) => (
             <Card key={sdk.language}>
@@ -177,7 +177,7 @@ export function DevelopersContent(): React.JSX.Element {
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="truncate">{sdk.language}</span>
                   </span>
-                  <span className="shrink-0 whitespace-nowrap rounded bg-amber-500/10 px-2 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                  <span className="shrink-0 whitespace-nowrap rounded bg-amber-500/10 px-2 py-0.5 text-label font-normal text-amber-600 dark:text-amber-400">
                     规划中
                   </span>
                 </CardTitle>
@@ -201,7 +201,7 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 鉴权说明 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">鉴权说明</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">鉴权说明</h2>
         <Card>
           <CardHeader className="p-3 pb-2">
             <CardTitle className="flex items-center gap-2 text-base">

@@ -129,7 +129,7 @@ export default function AgentStepRecorderPage() {
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-6 flex items-center gap-2">
         <Activity className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
@@ -144,7 +144,7 @@ export default function AgentStepRecorderPage() {
         <button
           onClick={() => void loadRun(runId, 1)}
           disabled={loading || !runId.trim()}
-          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {t('load')}
@@ -176,7 +176,7 @@ export default function AgentStepRecorderPage() {
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Cpu className="h-3.5 w-3.5" /> {t('stepCount')}
               </div>
-              <div className="text-xl font-bold">{metrics.step_count}</div>
+              <div className="text-heading font-bold">{metrics.step_count}</div>
               <div className="mt-1 flex items-center gap-2 text-xs">
                 <span className="inline-flex items-center gap-1 text-emerald-600">
                   <CheckCircle2 className="h-3 w-3" /> ok {metrics.ok_count}
@@ -190,7 +190,7 @@ export default function AgentStepRecorderPage() {
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Cpu className="h-3.5 w-3.5" /> {t('totalToken')}
               </div>
-              <div className="text-xl font-bold">{metrics.total_tokens}</div>
+              <div className="text-heading font-bold">{metrics.total_tokens}</div>
               <div className="mt-1 text-xs text-muted-foreground">
                 in {metrics.total_tokens_in} / out {metrics.total_tokens_out}
               </div>
@@ -199,13 +199,13 @@ export default function AgentStepRecorderPage() {
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Timer className="h-3.5 w-3.5" /> {t('totalDuration')}
               </div>
-              <div className="text-xl font-bold">{fmtDuration(metrics.total_duration_ms)}</div>
+              <div className="text-heading font-bold">{fmtDuration(metrics.total_duration_ms)}</div>
             </div>
             <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Coins className="h-3.5 w-3.5" /> {t('totalCost')}
               </div>
-              <div className="text-xl font-bold">{fmtCost(metrics.total_cost)}</div>
+              <div className="text-heading font-bold">{fmtCost(metrics.total_cost)}</div>
             </div>
           </div>
 
@@ -219,7 +219,7 @@ export default function AgentStepRecorderPage() {
 
           {/* step 时间线 */}
           <div className="mt-4 rounded-xl border p-3">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
               <Activity className="h-4 w-4" /> {t('timeline', { count: timeline.length })}
             </h2>
             {timeline.length === 0 ? (
@@ -244,7 +244,7 @@ export default function AgentStepRecorderPage() {
                         <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                           #{step.step_index}
                         </span>
-                        <span className="shrink-0 rounded bg-cta/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                        <span className="shrink-0 rounded bg-cta/10 px-1.5 py-0.5 text-label font-medium text-primary">
                           {TYPE_LABEL[step.type] || step.type}
                         </span>
                         {step.tool_name && (
@@ -255,7 +255,7 @@ export default function AgentStepRecorderPage() {
                         {/* 1-1:决策徽章(非普通执行时高亮:拦截/拒绝/重试/免审批) */}
                         {step.decision && step.decision !== 'execute_tool' && (
                           <span
-                            className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                            className={`shrink-0 rounded px-1.5 py-0.5 text-label font-medium ${
                               step.status === 'error'
                                 ? 'bg-amber-500/10 text-amber-600'
                                 : 'bg-violet-500/10 text-violet-600'
@@ -265,7 +265,7 @@ export default function AgentStepRecorderPage() {
                           </span>
                         )}
                         <span
-                          className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium ${
+                          className={`shrink-0 inline-flex items-center gap-1 text-label font-medium ${
                             step.status === 'error' ? 'text-destructive' : 'text-emerald-600'
                           }`}
                         >
@@ -312,7 +312,7 @@ export default function AgentStepRecorderPage() {
                         {/* 1-1 全可解释:决策(为何执行/拦截/重试) */}
                         {step.decision && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('decision')}
                             </p>
                             <div className="flex flex-wrap items-center gap-2">
@@ -328,7 +328,7 @@ export default function AgentStepRecorderPage() {
                         {/* 1-1:原始入参(未截断,与摘要互补) */}
                         {step.input !== null && step.input !== undefined && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('inputRaw')}
                             </p>
                             <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
@@ -339,12 +339,12 @@ export default function AgentStepRecorderPage() {
                         {/* 1-1:diff 证据(before/after 对照) */}
                         {step.diff && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('diffEvidence')} · <code>{step.diff.path}</code>
                             </p>
                             <div className="grid gap-2 sm:grid-cols-2">
                               <div className="rounded-md bg-destructive/5 p-2">
-                                <p className="mb-1 text-xs font-medium text-destructive/80">
+                                <p className="mb-1 text-label font-medium text-destructive/80">
                                   {t('diffBefore')}
                                 </p>
                                 <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs">
@@ -352,7 +352,7 @@ export default function AgentStepRecorderPage() {
                                 </pre>
                               </div>
                               <div className="rounded-md bg-emerald-500/5 p-2">
-                                <p className="mb-1 text-xs font-medium text-emerald-700">
+                                <p className="mb-1 text-label font-medium text-emerald-700">
                                   {t('diffAfter')}
                                 </p>
                                 <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs">
@@ -365,7 +365,7 @@ export default function AgentStepRecorderPage() {
                         {/* 1-1:测试结果证据 */}
                         {step.test && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('testEvidence')}
                             </p>
                             <div className="flex flex-wrap items-center gap-2">
@@ -374,7 +374,7 @@ export default function AgentStepRecorderPage() {
                               </code>
                               {step.test.exit_code !== null && (
                                 <span
-                                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                  className={`rounded px-1.5 py-0.5 text-label font-medium ${
                                     step.test.exit_code === 0
                                       ? 'bg-emerald-500/10 text-emerald-600'
                                       : 'bg-destructive/10 text-destructive'
@@ -399,7 +399,7 @@ export default function AgentStepRecorderPage() {
                         {/* 1-1:回滚证据(checkpoint 引用) */}
                         {step.rollback && step.rollback.available && (
                           <div className="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/5 p-2">
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                            <span className="inline-flex items-center gap-1 text-label font-medium text-emerald-700">
                               <Undo2 className="h-3.5 w-3.5" /> {t('rollbackEvidence')}
                             </span>
                             <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -412,7 +412,7 @@ export default function AgentStepRecorderPage() {
                         )}
                         {step.input_summary && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('inputSummary')}
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
@@ -422,7 +422,7 @@ export default function AgentStepRecorderPage() {
                         )}
                         {step.result_summary && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('resultSummary')}
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
@@ -432,7 +432,7 @@ export default function AgentStepRecorderPage() {
                         )}
                         {step.http_summary && (
                           <div>
-                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                            <p className="mb-1 text-label font-semibold text-muted-foreground">
                               {t('httpSummary')}
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">

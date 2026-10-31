@@ -75,7 +75,7 @@ export default function AsksPageClient() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
             <HelpCircle className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>

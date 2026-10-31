@@ -85,9 +85,9 @@ function TreeNode({ node, depth }: { node: AgentSession; depth: number }) {
 export function SessionTree({ nodes, loading }: Props) {
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
-      <div className="px-3 py-2 text-sm font-medium">
+      <div className="px-3 py-2 text-body font-medium">
         Session 树
-        <span className="ml-2 text-xs font-normal text-muted-foreground">{nodes.length}</span>
+        <span className="ml-2 text-label font-normal text-muted-foreground">{nodes.length}</span>
       </div>
       <div className="flex-1 overflow-auto px-2 py-1">
         {loading ? (

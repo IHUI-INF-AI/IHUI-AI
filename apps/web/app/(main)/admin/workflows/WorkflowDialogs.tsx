@@ -58,7 +58,7 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
               <span className="font-medium">{item.name}</span>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                   (STATUS_BADGE[item.isActive ? 'active' : 'draft'] ?? STATUS_BADGE.draft).cls,
                 )}
               >
@@ -74,7 +74,7 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
             </div>
             {Array.isArray(item.steps) && item.steps.length > 0 ? (
               <div className="rounded-md border p-3">
-                <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                <div className="mb-2 text-label font-medium uppercase text-muted-foreground">
                   {t('steps')}
                 </div>
                 <ol className="ml-4 list-decimal space-y-1">

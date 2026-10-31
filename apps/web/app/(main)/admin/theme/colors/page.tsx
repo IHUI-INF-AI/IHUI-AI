@@ -80,7 +80,7 @@ export default function ColorsPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">颜色方案</h1>
+          <h1 className="text-display font-bold tracking-tight">颜色方案</h1>
           <p className="mt-1 text-sm text-muted-foreground">管理可复用的颜色方案</p>
         </div>
         <Button size="sm" onClick={openCreate}>
@@ -97,7 +97,7 @@ export default function ColorsPage() {
           <Card key={c.id}>
             <CardContent className="min-[640px]:p-3 space-y-3 p-3">
               <div className="flex items-center justify-between">
-                <p className="truncate text-sm font-semibold">{c.name}</p>
+                <p className="truncate text-body font-semibold">{c.name}</p>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
                     <Edit className="h-4 w-4" />

@@ -84,7 +84,7 @@ export default function ContextOverviewPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">上下文</h1>
+          <h1 className="text-heading font-bold tracking-tight">上下文</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             管理对话上下文源、预算分配与 Token 分布
           </p>
@@ -162,7 +162,7 @@ export default function ContextOverviewPage() {
               className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{p.title}</p>
+                <p className="text-body font-medium">{p.title}</p>
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
               <p className="text-xs text-muted-foreground">{p.desc}</p>

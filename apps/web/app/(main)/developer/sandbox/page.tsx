@@ -93,7 +93,7 @@ export default function SandboxPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <FlaskConical className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -107,7 +107,7 @@ export default function SandboxPage() {
               value={method}
               onChange={(e) => setMethod(e.target.value as Method)}
               className={cn(
-                'rounded-sm border bg-background px-2 py-1.5 text-sm font-bold outline-none',
+                'rounded-sm border bg-background px-2 py-1.5 text-body font-bold outline-none',
                 METHOD_CLASS[method],
               )}
             >
@@ -188,7 +188,7 @@ export default function SandboxPage() {
             <div className="flex items-center gap-3 pb-2">
               <span
                 className={cn(
-                  'rounded px-2 py-0.5 text-xs font-bold',
+                  'rounded px-2 py-0.5 text-label font-bold',
                   resp.status < 300
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                     : resp.status < 500
@@ -201,7 +201,7 @@ export default function SandboxPage() {
               <span className="text-xs text-muted-foreground">{resp.duration}ms</span>
             </div>
             <div>
-              <p className="mb-1.5 text-sm font-semibold">{t('responseBody')}</p>
+              <p className="mb-1.5 text-body font-semibold">{t('responseBody')}</p>
               <pre className="max-h-80 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
                 <code>{JSON.stringify(resp.body, null, 2)}</code>
               </pre>

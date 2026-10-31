@@ -23,7 +23,7 @@ export function ModelCompareBar({ entries, onRemove, onClear, onCompare }: Props
   return (
     <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 bg-cta/5 px-4 py-2.5 backdrop-blur">
       <GitCompare className="h-3.5 w-3.5 shrink-0 text-primary" />
-      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+      <span className="shrink-0 text-label font-medium text-muted-foreground">
         {t('compare.selected', { count: entries.length })}
       </span>
       <div className="flex flex-1 flex-wrap items-center gap-1.5">
@@ -55,7 +55,7 @@ export function ModelCompareBar({ entries, onRemove, onClear, onCompare }: Props
         type="button"
         onClick={onCompare}
         disabled={entries.length < 2}
-        className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-cta px-3 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-cta px-3 py-1 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <GitCompare className="h-3 w-3" />
         {t('compare.startCompare')}

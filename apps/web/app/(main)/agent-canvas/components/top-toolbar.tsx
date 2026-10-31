@@ -32,17 +32,17 @@ export function TopToolbar({
   const t = useTranslations('agentCanvas')
   return (
     <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
-      <span className="mr-auto flex items-center gap-2 text-sm font-medium">
+      <span className="mr-auto flex items-center gap-2 text-body font-medium">
         {t('title')}
         {isStreaming && (
-          <span className="flex items-center gap-1 text-xs font-normal text-blue-500">
+          <span className="flex items-center gap-1 text-label font-normal text-blue-500">
             <Radio className="h-3.5 w-3.5 animate-pulse" />
             {t('tracking')}
           </span>
         )}
         {runError && (
           <Tooltip content={runError}>
-            <span className="max-w-[360px] truncate text-xs font-normal text-red-500">
+            <span className="max-w-[360px] truncate text-label font-normal text-red-500">
               {runError}
             </span>
           </Tooltip>

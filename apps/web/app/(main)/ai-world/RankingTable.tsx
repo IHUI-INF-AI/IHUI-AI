@@ -219,7 +219,7 @@ export function RankingTable() {
                     <TableRow key={item.id} className="hover:bg-accent/40">
                       <TableCell>
                         <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold tabular-nums ${rankBadgeClass(item.rank)}`}
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-label font-semibold tabular-nums ${rankBadgeClass(item.rank)}`}
                         >
                           {item.rank}
                         </span>

@@ -97,11 +97,11 @@ export function ContactContent({
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('badge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
           {t('title')}
         </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -132,7 +132,7 @@ export function ContactContent({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs text-muted-foreground">{label}</div>
-                  <div className="mt-1 truncate text-sm font-medium">{value}</div>
+                  <div className="mt-1 truncate text-body font-medium">{value}</div>
                 </div>
               </a>
             )
@@ -160,7 +160,7 @@ export function ContactContent({
 
       {/* CTA */}
       <section className="mt-12 rounded-2xl border bg-primary/5 p-3 text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaSubtitle')}
         </p>

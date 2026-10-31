@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 'use client'
 
 import * as React from 'react'
@@ -127,7 +128,7 @@ export default function RelayBenefitsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Gift className="h-6 w-6 text-primary" aria-hidden="true" />
           {t('title')}
         </h1>
@@ -178,11 +179,11 @@ export default function RelayBenefitsPage() {
                 <div className="rounded-md bg-muted/50 p-2">
                   <p className="text-xs text-muted-foreground">{t('tierNext')}</p>
                   {tier.nextTier ? (
-                    <p className="mt-0.5 text-sm font-semibold tabular-nums">
+                    <p className="mt-0.5 text-body font-semibold tabular-nums">
                       {num.format(tier.nextTier.threshold)} → {tier.nextTier.multiplier.toFixed(2)}x
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-sm font-medium">{t('tierMax')}</p>
+                    <p className="mt-0.5 text-body font-medium">{t('tierMax')}</p>
                   )}
                 </div>
               </div>
@@ -234,7 +235,7 @@ export default function RelayBenefitsPage() {
           {claimM.isError && (
             <Alert variant="danger" description={(claimM.error as Error).message} />
           )}
-          <p className="text-xs font-medium text-muted-foreground">{t('couponList')}</p>
+          <p className="text-label font-medium text-muted-foreground">{t('couponList')}</p>
           {couponsQ.isLoading ? (
             <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -266,14 +267,14 @@ export default function RelayBenefitsPage() {
                     className="flex items-center justify-between gap-3 rounded-md bg-muted/40 p-3"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{ct.name}</p>
+                      <p className="truncate text-body font-medium">{ct.name}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
                     </div>
                     <span
                       className={
                         c.status === 'unused'
-                          ? 'shrink-0 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'
-                          : 'shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
+                          ? 'shrink-0 rounded-md bg-emerald-500/10 px-2 py-0.5 text-label font-medium text-emerald-600 dark:text-emerald-400'
+                          : 'shrink-0 rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground'
                       }
                     >
                       {statusLabel}

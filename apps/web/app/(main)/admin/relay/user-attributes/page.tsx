@@ -135,7 +135,7 @@ export default function UserAttributesPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Tags className="h-5 w-5" aria-hidden />
           用户自定义属性
         </h1>
@@ -146,7 +146,7 @@ export default function UserAttributesPage() {
       </div>
 
       <div className="rounded-lg border p-3">
-        <h2 className="text-sm font-medium">按用户维护</h2>
+        <h2 className="text-body font-medium">按用户维护</h2>
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="min-w-[240px] flex-1 space-y-1.5">
             <Label htmlFor="ua-user">用户 id</Label>
@@ -258,7 +258,7 @@ export default function UserAttributesPage() {
       </div>
 
       <div className="rounded-lg border p-3">
-        <h2 className="text-sm font-medium">按属性反查用户(运营筛选)</h2>
+        <h2 className="text-body font-medium">按属性反查用户(运营筛选)</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           例:key = tier、value = vip,查出所有 VIP 用户 id(上限 1000,结果按 id 返回)。
         </p>

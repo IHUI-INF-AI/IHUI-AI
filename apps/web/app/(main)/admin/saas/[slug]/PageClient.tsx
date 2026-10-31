@@ -151,7 +151,7 @@ export default function TenantDetailPage() {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+              <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
                 <Server className="h-6 w-6 text-primary" />
                 <CenteredText>{tenant.slug}</CenteredText>
               </h1>
@@ -348,7 +348,7 @@ function InfoCard({ label, value, hint }: InfoCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="text-label font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </CardTitle>
       </CardHeader>

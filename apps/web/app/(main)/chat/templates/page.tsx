@@ -81,7 +81,7 @@ export default function ChatTemplatesPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <LayoutTemplate className="h-6 w-6 text-primary" />
           对话模板
         </h1>
@@ -93,7 +93,7 @@ export default function ChatTemplatesPage() {
           <button
             onClick={() => setActiveCat('all')}
             className={cn(
-              'rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+              'rounded-sm px-3 py-1 text-label font-medium transition-colors',
               activeCat === 'all'
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -106,7 +106,7 @@ export default function ChatTemplatesPage() {
               key={c.id}
               onClick={() => setActiveCat(c.id)}
               className={cn(
-                'rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-sm px-3 py-1 text-label font-medium transition-colors',
                 activeCat === c.id
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -145,7 +145,7 @@ export default function ChatTemplatesPage() {
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <div className="flex items-start gap-2">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <h3 className="flex-1 truncate text-sm font-medium">{tpl.title}</h3>
+                  <h3 className="flex-1 truncate text-body font-medium">{tpl.title}</h3>
                 </div>
                 {tpl.description && (
                   <p className="line-clamp-2 text-xs text-muted-foreground">{tpl.description}</p>

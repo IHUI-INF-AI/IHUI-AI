@@ -98,20 +98,20 @@ function ModeBadge({ byok, relay }: { byok: number; relay: number }) {
   const tMode = useTranslations('developer.relayUsage')
   if (byok > 0 && relay > 0) {
     return (
-      <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+      <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-label font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
         {tMode('modeMixed')}
       </span>
     )
   }
   if (byok > 0) {
     return (
-      <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+      <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-label font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
         BYOK
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+    <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">
       {tMode('modeRelay')}
     </span>
   )
@@ -264,7 +264,7 @@ export default function RelayUsagePage() {
     return (
       <div className="px-4 py-4 space-y-4">
         <BackButton />
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Activity className="h-6 w-6 text-primary" aria-hidden />
           {tu('title')}
         </h1>
@@ -280,7 +280,7 @@ export default function RelayUsagePage() {
       {/* 标题 + 既有导出 */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" aria-hidden />
             {tu('title')}
           </h1>
@@ -457,7 +457,7 @@ export default function RelayUsagePage() {
       <section className="space-y-3 pt-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <h2 className="flex items-center gap-2 text-heading font-bold tracking-tight">
               <TrendingUp className="h-5 w-5 text-primary" aria-hidden />
               {t('analytics.title')}
             </h2>
@@ -523,7 +523,7 @@ export default function RelayUsagePage() {
           <>
             {/* 成本卡 */}
             <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <h3 className="flex items-center gap-2 text-body font-semibold text-muted-foreground">
                 <TrendingUp className="h-4 w-4" aria-hidden />
                 {t('analytics.costCard')}
               </h3>
@@ -557,7 +557,7 @@ export default function RelayUsagePage() {
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               {/* 缓存命中率(条形) */}
               <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <h3 className="flex items-center gap-2 text-body font-semibold text-muted-foreground">
                   <Zap className="h-4 w-4" aria-hidden />
                   {t('analytics.cacheCard')}
                 </h3>
@@ -587,7 +587,7 @@ export default function RelayUsagePage() {
 
               {/* 延迟卡 */}
               <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <h3 className="flex items-center gap-2 text-body font-semibold text-muted-foreground">
                   <Gauge className="h-4 w-4" aria-hidden />
                   {t('analytics.latencyCard')}
                 </h3>
@@ -596,21 +596,21 @@ export default function RelayUsagePage() {
                     <p className="text-xs text-muted-foreground">{t('analytics.avg')}</p>
                     <p className="mt-1 text-lg font-semibold tabular-nums">
                       {num.format(analytics.latency.avgMs)}
-                      <span className="ml-0.5 text-xs font-normal text-muted-foreground">ms</span>
+                      <span className="ml-0.5 text-label font-normal text-muted-foreground">ms</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">{t('analytics.p50')}</p>
                     <p className="mt-1 text-lg font-semibold tabular-nums">
                       {num.format(analytics.latency.p50Ms)}
-                      <span className="ml-0.5 text-xs font-normal text-muted-foreground">ms</span>
+                      <span className="ml-0.5 text-label font-normal text-muted-foreground">ms</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">{t('analytics.p95')}</p>
                     <p className="mt-1 text-lg font-semibold tabular-nums">
                       {num.format(analytics.latency.p95Ms)}
-                      <span className="ml-0.5 text-xs font-normal text-muted-foreground">ms</span>
+                      <span className="ml-0.5 text-label font-normal text-muted-foreground">ms</span>
                     </p>
                   </div>
                 </div>
@@ -619,7 +619,7 @@ export default function RelayUsagePage() {
 
             {/* 端点分布(条形列表,call_type 维度替代) */}
             <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">
+              <h3 className="text-body font-semibold text-muted-foreground">
                 {t('analytics.endpointsCard')}
               </h3>
               <div className="mt-3 space-y-2">
@@ -644,7 +644,7 @@ export default function RelayUsagePage() {
 
             {/* 日趋势(mini 柱状图,div 高度映射) */}
             <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">
+              <h3 className="text-body font-semibold text-muted-foreground">
                 {t('analytics.dailyTrend')}
               </h3>
               <div className="mt-3 flex h-16 items-end gap-0.5 overflow-x-auto">
@@ -665,7 +665,7 @@ export default function RelayUsagePage() {
 
             {/* 模型分解 */}
             <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">
+              <h3 className="text-body font-semibold text-muted-foreground">
                 {t('analytics.modelsCard')}
               </h3>
               <div className="mt-3 space-y-1">

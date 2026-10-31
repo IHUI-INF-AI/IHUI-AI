@@ -54,7 +54,7 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
             className="h-12 w-12 shrink-0 rounded-lg object-cover"
           />
         ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-body font-semibold text-primary">
             {getInitials(card.name)}
           </div>
         )}
@@ -125,7 +125,7 @@ export default function BusinessCardPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -141,7 +141,7 @@ export default function BusinessCardPage() {
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <CreditCard className="h-4 w-4 text-primary" />
           {t('myCards')}
-          <span className="text-sm font-normal text-muted-foreground">{(mine ?? []).length}</span>
+          <span className="text-body font-normal text-muted-foreground">{(mine ?? []).length}</span>
         </h2>
         {!allow ? (
           // 2026-09-30 登录态门
@@ -208,7 +208,7 @@ export default function BusinessCardPage() {
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Star className="h-4 w-4 text-amber-500" />
             {t('favorites')}
-            <span className="text-sm font-normal text-muted-foreground">{(favs ?? []).length}</span>
+            <span className="text-body font-normal text-muted-foreground">{(favs ?? []).length}</span>
           </h2>
           <Link
             href="/business-card/favorites"

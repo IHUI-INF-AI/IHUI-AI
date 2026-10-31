@@ -82,7 +82,7 @@ export function ExportImportDialog({
           <button
             type="button"
             onClick={() => setTab('export')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'export'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -94,7 +94,7 @@ export function ExportImportDialog({
           <button
             type="button"
             onClick={() => setTab('import')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'import'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -124,7 +124,7 @@ export function ExportImportDialog({
               accept=".json"
               onChange={handleFileChange}
               disabled={importing}
-              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20"
+              className="block w-full text-body text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-body file:font-medium file:text-primary hover:file:bg-primary/20"
             />
             {importing && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

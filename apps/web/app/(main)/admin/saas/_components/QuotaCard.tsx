@@ -32,7 +32,7 @@ export function QuotaCard({ slug }: QuotaCardProps) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <CardTitle className="text-label font-medium uppercase tracking-wide text-muted-foreground">
             {t('title')}
           </CardTitle>
         </CardHeader>
@@ -47,7 +47,7 @@ export function QuotaCard({ slug }: QuotaCardProps) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <CardTitle className="text-label font-medium uppercase tracking-wide text-muted-foreground">
             {t('title')}
           </CardTitle>
         </CardHeader>
@@ -63,7 +63,7 @@ export function QuotaCard({ slug }: QuotaCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="flex items-center justify-between gap-2 text-label font-medium uppercase tracking-wide text-muted-foreground">
           <span className="min-w-0 truncate">{t('title')}</span>
           {data.placeholder ? (
             <Tooltip content={data.expectedFrom}>

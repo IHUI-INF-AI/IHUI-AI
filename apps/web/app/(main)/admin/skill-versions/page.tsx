@@ -49,7 +49,7 @@ export default function SkillVersionsPage() {
     <div className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <h1 className="flex items-center gap-2 text-heading font-semibold">
             <History className="h-5 w-5 text-primary" />
             技能版本管理
           </h1>

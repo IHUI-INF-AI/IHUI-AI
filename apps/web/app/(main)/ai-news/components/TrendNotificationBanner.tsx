@@ -150,7 +150,7 @@ export function TrendNotificationBanner() {
       {/* 折叠态:🔥 X 资讯热度爆发 + 最新标题 + 增长率 + 相对时间 */}
       <div className="flex items-center gap-2">
         <Flame className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-        <span className="shrink-0 text-xs font-semibold text-orange-700 dark:text-orange-300">
+        <span className="shrink-0 text-label font-semibold text-orange-700 dark:text-orange-300">
           {t('feed.trendNotifyTitle', { count: visibleNotifications.length })}
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-orange-600 dark:text-orange-400">

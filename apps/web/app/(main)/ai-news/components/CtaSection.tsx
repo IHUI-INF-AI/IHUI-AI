@@ -20,7 +20,7 @@ export function CtaSection() {
     >
       <CardContent className="min-[640px]:p-3 grid grid-cols-1 gap-6 p-3 min-[768px]:grid-cols-2">
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold leading-tight tracking-tight min-[768px]:text-3xl">
+          <h2 className="text-display font-bold leading-tight tracking-tight min-[768px]:text-3xl">
             {t('cta.title')}
           </h2>
           <p className="text-sm text-muted-foreground min-[768px]:text-base">{t('cta.subtitle')}</p>

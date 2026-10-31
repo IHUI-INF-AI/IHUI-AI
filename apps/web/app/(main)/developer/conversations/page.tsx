@@ -149,7 +149,7 @@ export default function ConversationsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <MessageSquare className="h-5 w-5 text-primary" />
           对话历史
         </h1>
@@ -214,7 +214,7 @@ export default function ConversationsPage() {
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              className="cursor-pointer truncate text-left text-sm font-medium hover:text-primary"
+                              className="cursor-pointer truncate text-left text-body font-medium hover:text-primary"
                               onClick={() => toggleExpand(c.conversationId)}
                             >
                               {c.title ?? '未命名会话'}
@@ -280,7 +280,7 @@ export default function ConversationsPage() {
                               )}
                             >
                               <div className="mb-1 flex items-center gap-2">
-                                <span className="text-xs font-medium text-foreground">
+                                <span className="text-label font-medium text-foreground">
                                   {m.role === 'user'
                                     ? '用户'
                                     : m.role === 'assistant'

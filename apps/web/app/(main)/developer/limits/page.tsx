@@ -61,7 +61,7 @@ export default function LimitsPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
             <Gauge className="h-5 w-5 text-primary" />
             限额管理
           </h1>
@@ -112,10 +112,10 @@ export default function LimitsPage() {
                   <Card key={item.key}>
                     <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{item.label}</p>
+                        <p className="text-body font-medium">{item.label}</p>
                         <span
                           className={cn(
-                            'text-xs font-medium',
+                            'text-label font-medium',
                             pct >= 90
                               ? 'text-rose-600 dark:text-rose-400'
                               : pct >= 70

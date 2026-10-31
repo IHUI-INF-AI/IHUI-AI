@@ -143,7 +143,7 @@ export default function CertificatesPage() {
       {/* 标题 + 刷新 */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Lock className="h-6 w-6 text-primary" />
             <CenteredText>{t('title')}</CenteredText>
           </h1>
@@ -295,13 +295,13 @@ function StatCard({
   return (
     <Card className={tone ? toneClass[tone] : ''}>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="flex items-center justify-between gap-2 text-label font-medium uppercase tracking-wide text-muted-foreground">
           <span className="min-w-0 truncate">{label}</span>
           <span className="shrink-0">{icon}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tabular-nums">{value}</div>
+        <div className="text-display font-bold tabular-nums">{value}</div>
       </CardContent>
     </Card>
   )

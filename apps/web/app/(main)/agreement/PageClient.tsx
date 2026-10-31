@@ -71,7 +71,7 @@ export default function AgreementPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <FileText className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -85,7 +85,7 @@ export default function AgreementPage() {
             key={tab.key}
             onClick={() => setActiveType(tab.key)}
             className={cn(
-              'flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               activeType === tab.key
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

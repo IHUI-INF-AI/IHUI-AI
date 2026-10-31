@@ -147,7 +147,7 @@ export default function TaskDeveloperPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Terminal className="h-6 w-6 text-primary" />
           任务开发者管理
         </h1>

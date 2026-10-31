@@ -37,7 +37,7 @@ function CapabilityRow({ entry }: { entry: CapabilityEntry }): React.JSX.Element
   return (
     <li className="rounded-md bg-muted/50 p-3 transition-colors hover:bg-muted">
       <div className="flex flex-wrap items-center gap-1.5">
-        <code className="font-mono text-xs font-semibold">{entry.scope}</code>
+        <code className="font-mono text-label font-semibold">{entry.scope}</code>
         <DataClassBadge entry={entry} />
         <RiskBadge entry={entry} />
         <FlagBadge
@@ -120,7 +120,7 @@ export function CapabilityBrowser(): React.JSX.Element {
           <div className="space-y-4">
             {groups.map((group) => (
               <section key={group.domain} className="space-y-2">
-                <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                <h3 className="flex items-center gap-1.5 text-label font-semibold">
                   <span>{t(`domain.${group.domain}`, { defaultValue: group.domain })}</span>
                   <CountBadge count={group.entries.length} />
                 </h3>

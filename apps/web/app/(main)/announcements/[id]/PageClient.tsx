@@ -110,7 +110,7 @@ export default function AnnouncementDetailPage() {
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={cn('rounded-md px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type])}
+            className={cn('rounded-md px-2 py-0.5 text-label font-medium', ANN_TYPE_BADGE[a.type])}
           >
             {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
           </span>
@@ -134,7 +134,7 @@ export default function AnnouncementDetailPage() {
             <span className="text-xs text-destructive">{(readMut.error as Error)?.message}</span>
           )}
         </div>
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{a.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{a.title}</h1>
         <p className="text-xs text-muted-foreground">
           {t('publishedAt')} {fmt(a.publishedAt)}
         </p>
@@ -158,7 +158,7 @@ export default function AnnouncementDetailPage() {
               <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0">
                 <span className="block text-xs text-muted-foreground">{t('prev')}</span>
-                <span className="block break-words text-sm font-medium group-hover:text-primary">
+                <span className="block break-words text-body font-medium group-hover:text-primary">
                   {prev.title}
                 </span>
               </span>
@@ -173,7 +173,7 @@ export default function AnnouncementDetailPage() {
             >
               <span className="min-w-0">
                 <span className="block text-xs text-muted-foreground">{t('next')}</span>
-                <span className="block break-words text-sm font-medium group-hover:text-primary">
+                <span className="block break-words text-body font-medium group-hover:text-primary">
                   {next.title}
                 </span>
               </span>

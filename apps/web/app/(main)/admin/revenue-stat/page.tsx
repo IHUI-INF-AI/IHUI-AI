@@ -58,7 +58,7 @@ export default function RevenueStatPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Wallet className="h-6 w-6 text-primary" />
           营收统计
         </h1>
@@ -152,7 +152,7 @@ export default function RevenueStatPage() {
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {p.date.slice(5)}
                 </span>
-                <span className="text-xs font-semibold tabular-nums">{curFmt.format(p.gross)}</span>
+                <span className="text-label font-semibold tabular-nums">{curFmt.format(p.gross)}</span>
               </div>
             ))}
           </div>
@@ -181,7 +181,7 @@ export default function RevenueStatPage() {
                     style={{ width: `${(c.amount / totalChannel) * 100}%` }}
                   />
                 </div>
-                <div className="text-sm font-semibold tabular-nums">{curFmt.format(c.amount)}</div>
+                <div className="text-body font-semibold tabular-nums">{curFmt.format(c.amount)}</div>
               </div>
             ))}
           </div>

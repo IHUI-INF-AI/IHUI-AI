@@ -93,7 +93,7 @@ export default function SubscriptionPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <CreditCard className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -182,7 +182,7 @@ export default function SubscriptionPage() {
 
           {plans.length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-semibold">{t('upgradePlans')}</p>
+              <p className="mb-2 text-body font-semibold">{t('upgradePlans')}</p>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {plans.map((p) => (
                   <Card
@@ -191,7 +191,7 @@ export default function SubscriptionPage() {
                   >
                     <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold">{p.name}</p>
+                        <p className="text-body font-semibold">{p.name}</p>
                         {p.isCurrent && (
                           <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
                             {t('current')}
@@ -200,7 +200,7 @@ export default function SubscriptionPage() {
                       </div>
                       <p className="text-lg font-bold">
                         {currencyFmt.format(p.price)}
-                        <span className="text-xs font-normal text-muted-foreground">
+                        <span className="text-label font-normal text-muted-foreground">
                           {' '}
                           / {p.period}
                         </span>

@@ -55,7 +55,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
             {(state.research_id || activeId || '').slice(0, 18)}
           </code>
         </span>
-        <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+        <span className="inline-flex items-center gap-1.5 text-body font-medium">
           <span
             className={
               state.status === 'error'

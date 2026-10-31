@@ -111,7 +111,7 @@ function StatCard({ icon, label, value, sublabel }: StatCardProps) {
           <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>{label}</span>
           </span>
-          <span className="text-xl font-semibold tabular-nums">{formatNumber(value)}</span>
+          <span className="text-heading font-semibold tabular-nums">{formatNumber(value)}</span>
           {sublabel && (
             <span className="text-[10px] text-muted-foreground/70 [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span>{sublabel}</span>
@@ -186,7 +186,7 @@ export default function PluginStatsPage() {
       {/* 页头 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">插件市场监测</h1>
+          <h1 className="text-heading font-semibold">插件市场监测</h1>
           <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>实时追踪插件热度、安装量、点击量,辅助运营决策</span>
           </p>
@@ -199,7 +199,7 @@ export default function PluginStatsPage() {
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
                   days === d
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -251,7 +251,7 @@ export default function PluginStatsPage() {
         {/* 热度榜(占 2 列) */}
         <Card className="min-[1024px]:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <CardTitle className="flex items-center gap-2 text-body font-medium">
               <TrendingUp className="h-4 w-4" />
               热度榜单 Top 20
             </CardTitle>
@@ -308,7 +308,7 @@ export default function PluginStatsPage() {
         {/* 趋势图(占 1 列) */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">按天趋势</CardTitle>
+            <CardTitle className="text-body font-medium">按天趋势</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {trendRows.length === 0 && (

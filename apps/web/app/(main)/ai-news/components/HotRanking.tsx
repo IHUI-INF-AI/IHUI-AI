@@ -66,7 +66,7 @@ export function HotRanking({ items, sources }: Props) {
     >
       <div className="flex items-center gap-2 bg-orange-500/5 px-5 py-3">
         <Flame className="h-4 w-4 text-orange-500" />
-        <h2 className="text-sm font-semibold">{t('hotRanking.title')}</h2>
+        <h2 className="text-body font-semibold">{t('hotRanking.title')}</h2>
         <span className="ml-auto text-[10px] text-muted-foreground">
           {t('hotRanking.subtitle')}
         </span>
@@ -90,14 +90,14 @@ export function HotRanking({ items, sources }: Props) {
               >
                 {idx + 1}
               </span>
-              <span className="min-w-0 flex-1 truncate text-xs font-medium leading-tight transition-colors group-hover:text-primary">
+              <span className="min-w-0 flex-1 truncate text-label font-medium leading-tight transition-colors group-hover:text-primary">
                 {it.title}
               </span>
               {sourceName ? (
                 <span className="shrink-0 text-[10px] text-muted-foreground">{sourceName}</span>
               ) : null}
               {hot ? (
-                <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                <span className="flex shrink-0 items-center gap-0.5 text-label font-bold tabular-nums text-orange-600 dark:text-orange-400">
                   <Flame className="h-2.5 w-2.5" />
                   {hot}
                 </span>

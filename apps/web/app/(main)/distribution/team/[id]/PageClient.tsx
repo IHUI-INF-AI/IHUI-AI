@@ -157,12 +157,12 @@ export default function DistributionTeamDetailPage() {
                 className="h-16 w-16 rounded-2xl object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-xl font-bold text-primary">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-heading font-bold text-primary">
                 {initials}
               </div>
             )}
             <div className="min-w-0 flex-1 space-y-1">
-              <h1 className="text-xl font-bold tracking-tight">{displayName}</h1>
+              <h1 className="text-heading font-bold tracking-tight">{displayName}</h1>
               {member.username && (
                 <p className="font-mono text-sm text-muted-foreground">@{member.username}</p>
               )}
@@ -223,12 +223,12 @@ export default function DistributionTeamDetailPage() {
                     className="h-8 w-8 rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-medium">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-label font-medium">
                     {(sub.nickname ?? sub.username ?? 'U')[0]?.toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
+                  <div className="truncate text-body font-medium">
                     {sub.nickname || sub.username || '-'}
                   </div>
                   <div className="text-xs text-muted-foreground">{fmt(sub.createdAt)}</div>

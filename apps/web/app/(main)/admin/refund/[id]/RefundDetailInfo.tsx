@@ -30,7 +30,7 @@ function DetailItem({
       <span className="text-xs text-muted-foreground">{label}</span>
       <span
         className={cn(
-          'text-sm font-medium',
+          'text-body font-medium',
           mono && 'font-mono text-xs',
           highlight && 'text-lg font-bold text-primary',
         )}
@@ -71,7 +71,7 @@ export function RefundDetailInfo({
           <h2 className="text-lg font-semibold">{t('detailTitle')}</h2>
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium',
+              'inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-label font-medium',
               REFUND_STATUS_CFG[refund.status].cls,
             )}
           >
@@ -131,7 +131,7 @@ export function RefundDetailInfo({
 
       {order && (
         <div className="rounded-lg border p-3">
-          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('orderInfo')}</h3>
+          <h3 className="mb-3 text-body font-semibold text-muted-foreground">{t('orderInfo')}</h3>
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <DetailItem label={t('orderNo')} value={order.orderNo} mono />
             <DetailItem label={t('orderType')} value={order.orderType} />
@@ -150,7 +150,7 @@ export function RefundDetailInfo({
       )}
 
       <div className="rounded-lg border p-3">
-        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('auditRecords')}</h3>
+        <h3 className="mb-3 text-body font-semibold text-muted-foreground">{t('auditRecords')}</h3>
         {records.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">{t('noAuditRecords')}</p>
         ) : (
@@ -162,7 +162,7 @@ export function RefundDetailInfo({
               >
                 <span
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                    'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                     rec.action === 'approve'
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                       : 'bg-red-500/10 text-red-600 dark:text-red-500',

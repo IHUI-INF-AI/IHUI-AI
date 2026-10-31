@@ -100,7 +100,7 @@ export default function AdminSystemMonitorPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <MonitorCog className="h-6 w-6 text-primary" />
           {t('monitor.title')}
         </h1>
@@ -113,13 +113,13 @@ export default function AdminSystemMonitorPage() {
           return (
             <Card key={c.label}>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <CardTitle className="flex items-center gap-2 text-label font-medium text-muted-foreground">
                   <Icon className="h-3.5 w-3.5" />
                   {c.label}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-display font-bold">
                   {formatNumber(c.value)}
                   {c.unit}
                 </div>

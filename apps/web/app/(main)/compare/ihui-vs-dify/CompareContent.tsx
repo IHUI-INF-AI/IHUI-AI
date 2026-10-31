@@ -24,7 +24,7 @@ export function CompareContent({
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-4">
         <section className="space-y-5 text-center">
-          <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+          <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
             对比页面开发中
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -50,11 +50,11 @@ export function CompareContent({
     <main className="mx-auto w-full max-w-6xl px-4 py-4">
       {/* Hero */}
       <section className="space-y-5 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Layers className="h-3.5 w-3.5 text-primary" />
           深度对比
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           IHUI AI vs {config.name}
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -81,16 +81,16 @@ export function CompareContent({
         <table className="w-full">
           <thead>
             <tr className="bg-muted/30">
-              <th className="px-4 py-4 text-left text-sm font-semibold">对比维度</th>
-              <th className="px-4 py-4 text-center text-sm font-semibold text-primary">IHUI AI</th>
-              <th className="px-4 py-4 text-center text-sm font-semibold">{config.name}</th>
+              <th className="px-4 py-4 text-left text-body font-semibold">对比维度</th>
+              <th className="px-4 py-4 text-center text-body font-semibold text-primary">IHUI AI</th>
+              <th className="px-4 py-4 text-center text-body font-semibold">{config.name}</th>
             </tr>
           </thead>
           <tbody>
             {config.rows.map((row, idx) => (
               <tr key={row.dimension} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
                 <td className="px-4 py-4">
-                  <div className="text-sm font-medium">{row.dimension}</div>
+                  <div className="text-body font-medium">{row.dimension}</div>
                   {(row.ihuiDetail || row.competitorDetail) && (
                     <div className="mt-1 text-xs text-muted-foreground">
                       {row.ihuiDetail && (
@@ -123,7 +123,7 @@ export function CompareContent({
         <div className="flex items-start gap-3">
           <Rocket className="h-6 w-6 shrink-0 text-primary" />
           <div>
-            <h2 className="text-xl font-semibold">结论</h2>
+            <h2 className="text-heading font-semibold">结论</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
               {config.verdict}
             </p>
@@ -134,7 +134,7 @@ export function CompareContent({
       {/* CTA */}
       <section className="mt-12 ui-hero rounded-2xl border bg-card p-3 text-center">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           30 分钟体验 IHUI AI
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
