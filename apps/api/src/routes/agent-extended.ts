@@ -19,7 +19,9 @@ import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { requireActiveUser } from '../plugins/auth.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
-import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
+// requireStepUpForTwoFactorUser 的唯一消费点(/withdrawal/create)已在 2026-10-31
+// 安全强化第 10 批 R10 随该端点下线一并移除 —— 提现资金动作现只走 /api/wallet/withdraw,
+// 那里有同源的 step-up 闸。此处不再 import（保留这行注释是为了让后来者知道它没被"漏掉"）。
 import { getConversationHistory } from '../services/context-manager-service.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
 import { isUuidString } from '../utils/uuid.js'
@@ -712,44 +714,31 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     bankInfo: z.string().optional(),
   })
   server.post('/withdrawal/create', async (request, reply) => {
-    const body = withdrawalCreateSchema.parse(request.body)
-    const userId = request.userId!
-    // P0 安全修复:禁止为其他用户创建提现申请(IDOR)
-    if (body.userId !== userId) {
-      return reply.code(403).send({ code: 403, message: '无权为其他用户创建提现申请', data: null })
-    }
-    // 2FA step-up(2026-10-29):提现申请是资金流出动作,与 finance/wallet/withdrawal-routes 同族
-    // (上一轮的表驱动覆盖漏了这一处)。已开 2FA 的账号须有窗内二次验证;未开 2FA 的账号逐字不变;
-    // 判不出账号状态一律拒,不默认放行。
-    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
-    if (!stepUp.ok) {
-      return reply
-        .status(401)
-        .send(
-          error(
-            401,
-            stepUp.code === 'STEP_UP_REQUIRED'
-              ? '提现申请需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
-              : '暂时无法确认该账号的两步验证状态，请稍后重试',
-            stepUp.code,
-          ),
-        )
-    }
-    const [row] = await db
-      .insert(zhsAgentWithdrawalDetail)
-      .values({
-        userId: body.userId,
-        agentId: body.agentId,
-        amount: body.amount.toString(),
-        status: 'pending',
-        type: body.type,
-        outBillNo: body.outBillNo,
-        orderIds: body.orderIds,
-        bankInfo: body.bankInfo,
-        initiateAt: new Date(),
-      })
-      .returning()
-    return reply.code(201).send(row)
+    // 2026-10-31 安全强化第 10 批 R10：**下线该创建端点**。
+    //
+    // 它是一张没有资金侧对应的孤岛：`zhs_agent_withdrawal_detail` 全仓只有本文件读写，
+    // 没有任何代理商余额表 / 冻结 / 扣减链路（grep agentBalance / commissionBalance 零命中）。
+    // 也就是说这张单子既不校验可提现余额、也不冻结任何资金 —— 提交即"凭空生成待审提现单"，
+    // 上限 10 万，安全性完全押在"审批人不会误批"上。此前只有 IDOR 闸 + step-up，
+    // 挡得住"替别人提"，挡不住"给自己凭空提"。
+    //
+    // 无产品链路可破坏：`packages/api-client` 有 createAgentWithdrawal 封装，但
+    // apps/web 与 packages/app 下零调用点（实测 grep），从未接过 UI。
+    //
+    // 保留 410 而非 404：调用方拿到明确语义（能力已移除），而不是"路由不存在"的迷雾。
+    // 正规通道 = POST /api/wallet/withdraw（applyWithdrawal 在事务内原子执行
+    // token -= amount / frozen += amount / INSERT withdrawal_flows，资金链路完整）。
+    void withdrawalCreateSchema
+    request.log.warn(
+      { userId: request.userId, body: request.body },
+      'agent-ext/withdrawal/create 已下线（无资金侧校验），请求被拒',
+    )
+    return reply.code(410).send({
+      code: 410,
+      message:
+        '该提现入口已下线：它不校验可提现余额、也不冻结资金。请使用 POST /api/wallet/withdraw（资金在事务内原子扣减与冻结）。',
+      data: null,
+    })
   })
 
   // 提现明细详情
@@ -770,12 +759,16 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // 更新提现明细
+  //
+  // 2026-10-31 安全强化第 10 批 R10：**amount / type 在创建后不可改**。
+  //
+  // 此前 owner 可 `PUT /withdrawal/:id` 把待审单的金额从 1 元改成 10 万（或改 type），
+  // 而审批人看到的正是改后的行 —— 等于让申请人自己决定打款金额。金额只应在创建时
+  // 由服务端按余额定死；要改就撤销重提（重新走一次余额校验）。
+  // bankInfo（收款账户）仍允许本人更正：它不改变金额，改错账户本来就是常见需求。
   const withdrawalUpdateSchema = z.object({
-    amount: z.number().min(0.01).max(100000).optional(),
-    type: z.number().int().min(1).max(3).optional(),
+    // amount / type 刻意不在此列（不是"暂时注释掉"，是结构性移除）
     bankInfo: z.string().optional(),
-    // P0 安全修复(2026-08-02):移除 status 字段,状态变更只走 /review 和 /process 管理员端点
-    // 原代码允许用户自行设置 status=completed/approved/processing/failed,绕过管理员审核
   })
   server.put('/withdrawal/:id', async (request, reply) => {
     const { id } = idParamSchema.parse(request.params)
@@ -794,8 +787,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const [row] = await db
       .update(zhsAgentWithdrawalDetail)
       .set({
-        ...(body.amount !== undefined && { amount: body.amount.toString() }),
-        ...(body.type !== undefined && { type: body.type }),
+        // amount / type 结构性不可改（见上面 schema 注释）
         ...(body.bankInfo !== undefined && { bankInfo: body.bankInfo }),
         updatedAt: new Date(),
       })
