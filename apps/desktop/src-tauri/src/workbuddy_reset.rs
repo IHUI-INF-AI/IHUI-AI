@@ -1140,10 +1140,17 @@ pub async fn workbuddy_reset_maintenance(
 
 #[tauri::command(async)]
 pub async fn workbuddy_reset_logout(
+    app: tauri::AppHandle,
     kill_running: bool,
     include_device_id: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    // 同族规矩:登出重置必须原生确认(见 lib.rs require_native_confirm 注释)。
+    crate::require_native_confirm(
+        &app,
+        "WorkBuddy 登出重置",
+        "将结束 WorkBuddy 进程并清除其登录态(含设备标识则一并重置)。确认执行?",
+    )?;
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1158,9 +1165,16 @@ pub async fn workbuddy_reset_logout(
 
 #[tauri::command(async)]
 pub async fn workbuddy_reset_factory(
+    app: tauri::AppHandle,
     kill_running: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    // 同族规矩:出厂重置必须原生确认(见 lib.rs require_native_confirm 注释)。
+    crate::require_native_confirm(
+        &app,
+        "WorkBuddy 出厂重置",
+        "将把 WorkBuddy 本地目录重置到出厂状态(破坏性、不可逆)。确认执行?",
+    )?;
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1198,8 +1212,16 @@ pub async fn workbuddy_quarantine_restore(
 /// 删除隔离区（二次确认后的人工清理出口;护栏：目录名格式 + 父目录必须匹配用户根）。
 #[tauri::command(async)]
 pub async fn workbuddy_quarantine_delete(
+    app: tauri::AppHandle,
     quarantine_path: String,
 ) -> Result<WbResetReport, IpcError> {
+    // 同族规矩:隔离区删除必须原生确认(见 lib.rs require_native_confirm 注释)——
+    // 删掉隔离区就是销毁唯一一份可回滚的旧数据。
+    crate::require_native_confirm(
+        &app,
+        "删除隔离区快照",
+        "将被永久删除的隔离区快照无法恢复。确认执行?",
+    )?;
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     let parent = root
         .parent()

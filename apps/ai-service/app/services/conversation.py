@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from .tool_context_boundary import scan_and_frame_tool_result
 from ..core.llm_gateway import llm_gateway
 from .mcp_server import mcp_server
 from .memory import memory_store
@@ -959,7 +960,13 @@ class ConversationService:
                     trace.append(tool_trace)
 
                     # 把工具结果回灌 — 失败时显式标注,防止 LLM 幻觉"已完成"
-                    result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                    # 2026-10-31 安全强化第 10 批:外部数据先进宿主定界块(保留标签
+                    # 中和),宿主失败指令保持在块外
+                    raw_tool_json = scan_and_frame_tool_result(
+                        json.dumps(exec_result, ensure_ascii=False)[:4000],
+                        tool_name=tool_name,
+                    )
+                    result_json = raw_tool_json
                     if not ok:
                         err_detail = (
                             exec_result.get("error")
@@ -976,7 +983,7 @@ class ConversationService:
                             f"TOOL EXECUTION FAILED. errorCode={err_code}. error={err_detail}. "
                             f"You MUST tell the user the tool failed and suggest checking if the "
                             f"browser extension / desktop app is running. "
-                            f"Do NOT claim success. Raw result: {result_json}"
+                            f"Do NOT claim success. Raw result: {raw_tool_json}"
                         )
                     messages.append({
                         "role": "tool",

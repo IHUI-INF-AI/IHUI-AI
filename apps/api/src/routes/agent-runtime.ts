@@ -200,10 +200,13 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
           req.log.info({ sessionId: session.id }, '[agent-runtime] 客户端断开,中止 upstream fetch')
           return
         }
+        // 2026-10-31 安全强化第 13 批:错误帧固定文案 —— String(err) 会带出
+        // TypeError 原文(内网主机名、端口、URL),响应面不回传,细节进日志
+        req.log.error({ err }, '[agent-runtime] 上游连接失败')
         reply.raw.write(
           `event: error\ndata: ${JSON.stringify({
             message: '上游连接失败',
-            error: String(err),
+            error: '上游连接失败,请稍后重试',
           })}\n\n`,
         )
         return reply.raw.end()

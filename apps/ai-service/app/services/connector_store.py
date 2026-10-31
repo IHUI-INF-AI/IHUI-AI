@@ -37,6 +37,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,8 +47,49 @@ from typing import Any
 _STORE_PATH = Path(__file__).resolve().parents[2] / "data" / "connector_store.json"
 _LOCK = threading.Lock()
 
+logger = logging.getLogger(__name__)
+
 # 属主字段名 —— 唯一一份,路由与判据都引它,不得在别处再写字符串字面量
 OWNER_FIELD = "owner_user_id"
+
+# app_secret 落盘加密(2026-10-31 安全强化第 13 批,H3):此前 app_secret 与
+# app_id/extra 同样以明文 JSON 落盘,服务器磁盘任意文件读可直取;同仓发布凭据
+# 已走 credentials_crypto(AES-GCM + 密钥环),连接器凭据接入同一密钥源。
+# 落盘形态:app_secret = "enc:v1:" + encrypt({"app_secret": 明文});读取面(_load)
+# 透明解密,调用方拿到的始终是明文(与旧行为逐字节兼容)。
+# 兼容策略:存量明文(无前缀)读时原样用、下次写盘时自然迁移为密文;
+# 加密侧异常(密钥未配置等)降级明文落盘并记日志 —— 存储层不得因加密件挂掉。
+# 解密侧异常(密钥轮换后密钥环也没有)置空串并记日志 —— 该连接器 sync 会因
+# 凭据无效失败,用户重新配置即可,绝不抛异常崩读面。
+_SECRET_CIPHER_PREFIX = "enc:v1:"
+
+
+def _encrypt_secret(plain: str) -> str:
+    if not plain or plain.startswith(_SECRET_CIPHER_PREFIX):
+        return plain
+    try:
+        from app.services.publish.credentials_crypto import encrypt
+
+        return _SECRET_CIPHER_PREFIX + encrypt({"app_secret": plain})
+    except Exception as e:  # noqa: BLE001 - 降级明文,不坏存储
+        logger.warning("[connector_store] app_secret 加密失败,降级明文落盘: %s", type(e).__name__)
+        return plain
+
+
+def _decrypt_secret(value: str) -> str:
+    if not value or not value.startswith(_SECRET_CIPHER_PREFIX):
+        return value
+    try:
+        from app.services.publish.credentials_crypto import decrypt
+
+        payload = decrypt(value[len(_SECRET_CIPHER_PREFIX) :])
+        return str(payload.get("app_secret") or "")
+    except Exception as e:  # noqa: BLE001 - 密钥不匹配/密文损坏 → 置空,不崩读面
+        logger.warning(
+            "[connector_store] app_secret 解密失败(密钥不匹配或密文损坏),该连接器需重新配置: %s",
+            type(e).__name__,
+        )
+        return ""
 
 
 def now_iso() -> str:
@@ -56,24 +98,42 @@ def now_iso() -> str:
 
 
 def _load() -> list[dict[str, Any]]:
-    """读取全部连接器记录;文件缺失/损坏/非列表时返回空列表(异常降级)。"""
+    """读取全部连接器记录;文件缺失/损坏/非列表时返回空列表(异常降级)。
+
+    app_secret 落盘为密文形态(enc:v1: 前缀),读出时透明解密回明文。
+    """
     try:
         if not _STORE_PATH.exists():
             return []
         raw = _STORE_PATH.read_text(encoding="utf-8")
         data = json.loads(raw)
-        return data if isinstance(data, list) else []
+        if not isinstance(data, list):
+            return []
+        for rec in data:
+            if isinstance(rec, dict) and isinstance(rec.get("app_secret"), str):
+                rec["app_secret"] = _decrypt_secret(rec["app_secret"])
+        return data
     except Exception:  # noqa: BLE001 - 读失败返回空列表,不崩服务
         return []
 
 
 def _write(records: list[dict[str, Any]]) -> bool:
-    """原子写全部连接器记录(临时文件 + replace),失败返回 False。"""
+    """原子写全部连接器记录(临时文件 + replace),失败返回 False。
+
+    落盘前对每条 record 的 app_secret 做密文化替换(**替换发生在副本上**,
+    不改调用方手中的对象 —— save 的返回值与 sync 读路径依赖明文)。
+    """
     try:
         _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        persisted: list[dict[str, Any]] = []
+        for rec in records:
+            copy = dict(rec)
+            if isinstance(copy.get("app_secret"), str):
+                copy["app_secret"] = _encrypt_secret(copy["app_secret"])
+            persisted.append(copy)
         tmp_path = _STORE_PATH.with_suffix(".json.tmp")
         tmp_path.write_text(
-            json.dumps(records, ensure_ascii=False, indent=2),
+            json.dumps(persisted, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         tmp_path.replace(_STORE_PATH)
