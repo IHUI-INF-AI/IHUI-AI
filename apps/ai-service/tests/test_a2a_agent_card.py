@@ -494,7 +494,7 @@ def test_task_create_requires_call_scope(task_client: TestClient) -> None:
 
 
 def test_legacy_agent_endpoints_shape_unchanged(task_client: TestClient) -> None:
-    """向后兼容:注册/列表两端的路径与响应形状未受影响(现已需认证 + endpoint 经 SSRF 校验)。"""
+    """注册/列表两端的路径与响应形状未变;R12 起两端均需认证、列表按归属过滤。"""
     registered = task_client.post(
         "/api/a2a/agents/register",
         json={"id": "a1", "name": "A1", "capabilities": ["x"], "endpoint": "http://127.0.0.1"},
@@ -508,7 +508,13 @@ def test_legacy_agent_endpoints_shape_unchanged(task_client: TestClient) -> None
         "endpoint": "http://127.0.0.1",
         "description": "",
     }
-    listing = task_client.get("/api/a2a/agents")
+    # 匿名列表 → 401(收权前的匿名可枚举面已关闭)
+    assert task_client.get("/api/a2a/agents").status_code == 401
+    listing = task_client.get("/api/a2a/agents", headers=_internal_headers("user-a", "agents:read"))
     assert listing.status_code == 200
     assert listing.json() == {"agents": [registered.json()], "count": 1}
+    # 他人列举看不到本人 agent(响应形状不变,集合按归属收窄)
+    other = task_client.get("/api/a2a/agents", headers=_internal_headers("user-b", "agents:read"))
+    assert other.status_code == 200
+    assert other.json() == {"agents": [], "count": 0}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

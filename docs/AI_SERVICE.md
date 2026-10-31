@@ -157,7 +157,7 @@ Agent-to-Agent 协议 HTTP 入口。`send_task` 创建 pending 任务并异步�
 | 方法 | 路径 | 用途 | 鉴权 | 响应类型 |
 |------|------|------|------|----------|
 | POST | `/api/a2a/agents/register` | 注册 agent | JWT | `{id, name, capabilities, endpoint}` |
-| GET | `/api/a2a/agents` | 列出所有已注册 agent | JWT | `{agents: [], count}` |
+| GET | `/api/a2a/agents` | 列出可见 agent(本人 + 无主遗留;管理员全量) | JWT | `{agents: [], count}` |
 | POST | `/api/a2a/tasks` | 发送任务(创建 pending,异步执行) | JWT | `{task_id, name, status: "pending"}` |
 | GET | `/api/a2a/tasks/{task_id}/status` | 查询任务状态 | JWT | `{task_id, status, ...}` |
 | GET | `/api/a2a/tasks/{task_id}/result` | 获取任务结果 | JWT | `{task_id, result}` |
@@ -512,7 +512,7 @@ class A2ATask:
 | 端点 | 流程 |
 |------|------|
 | `POST /a2a/agents/register` | 注册 agent 到 Redis/内存,返回 agent 信息 |
-| `GET /a2a/agents` | 列出所有已注册 agent |
+| `GET /a2a/agents` | 按归属列出可见 agent(本人 + 无主遗留;管理员全量;匿名 401) |
 | `POST /a2a/tasks` | 创建 pending 任务,异步执行,返回 task_id |
 | `GET /a2a/tasks/{id}/status` | 轮询任务状态直到 completed |
 | `GET /a2a/tasks/{id}/result` | 获取 completed 任务的最终结果 |
