@@ -28,9 +28,12 @@ export default function I18nDashboardPage() {
   })
 
   const d = data ?? EMPTY
-  const avgCompletion = Math.round(
-    d.languages.reduce((s, l) => s + l.completion, 0) / d.languages.length,
-  )
+  // 零守卫:EMPTY/接口失败时 languages 为 [],0/0=NaN 会上屏 ⇒ 如实给 '—'(同仓 crew/learn 等看板口径)
+  const avgCompletion =
+    d.languages.length > 0
+      ? Math.round(d.languages.reduce((s, l) => s + l.completion, 0) / d.languages.length)
+      : null
+  const avgCompletionText = avgCompletion === null ? '—' : `${avgCompletion}%`
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
@@ -46,7 +49,7 @@ export default function I18nDashboardPage() {
           <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">国际化数据看板</h1>
         </div>
         <p className="text-xs text-muted-foreground">
-          5 种语言翻译进度概览 · 平均完成度 {avgCompletion}%
+          5 种语言翻译进度概览 · 平均完成度 {avgCompletionText}
         </p>
       </header>
 
@@ -81,7 +84,7 @@ export default function I18nDashboardPage() {
             <Clock className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{avgCompletion}%</div>
+            <div className="text-2xl font-bold text-emerald-600">{avgCompletionText}</div>
             <p className="text-xs text-muted-foreground">所有语言平均</p>
           </CardContent>
         </Card>
