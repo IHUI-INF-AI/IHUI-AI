@@ -305,6 +305,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
+      // @token-issue-exempt: 一次性授权码换 token(码来自已过 2FA 的浏览器会话,Redis 一次性消费)
       const tokens = await buildTokenPair(user, reply)
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 
@@ -439,6 +440,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 5. 用同一 familyId 签发新 token 对
+      // @token-issue-exempt: refresh token 轮转(令牌本身即已认证会话的续期,再过 2FA 会死锁)
       const tokens = await buildTokenPair(
         {
           id: user.id,

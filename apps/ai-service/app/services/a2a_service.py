@@ -158,15 +158,19 @@ class A2AAgent:
         capabilities: list[str] | None = None,
         endpoint: str = "",
         description: str = "",
+        owner_id: str | None = None,
     ) -> None:
         self.id = agent_id
         self.name = name
         self.capabilities = capabilities or []
         self.endpoint = endpoint
         self.description = description
+        # 注册者归属(principal.sub)。**不进 to_dict()** —— 既有响应形状冻结,
+        # 归属只走持久化通道,供覆盖/列举时判权。
+        self.owner_id = owner_id
 
     def to_dict(self) -> dict[str, Any]:
-        """序列化为字典(用于 API 响应和 Redis 持久化)。"""
+        """序列化为字典(用于 API 响应)。"""
         return {
             "id": self.id,
             "name": self.name,
@@ -175,16 +179,38 @@ class A2AAgent:
             "description": self.description,
         }
 
+    def to_storage_dict(self) -> dict[str, Any]:
+        """Redis 持久化用:响应形状 + 归属字段(owner_id)。"""
+        return {**self.to_dict(), "owner_id": self.owner_id}
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "A2AAgent":
-        """从字典反序列化(从 Redis 恢复)。"""
+        """从字典反序列化(从 Redis 恢复;历史行无 owner_id → 按无主遗留处理)。"""
+        raw_owner = data.get("owner_id")
         return cls(
             agent_id=data["id"],
             name=data["name"],
             capabilities=data.get("capabilities"),
             endpoint=data.get("endpoint", ""),
             description=data.get("description", ""),
+            owner_id=raw_owner if isinstance(raw_owner, str) and raw_owner else None,
         )
+
+
+def can_manage_agent(agent: A2AAgent, principal: Principal | None) -> bool:
+    """agent 归属裁决(纯函数,无 I/O)。
+
+    - 管理员(role >= ADMIN_ROLE):全量可见/可覆盖(运维口径与任务面一致);
+    - 无主遗留 agent(收权前写入的 Redis 行):对所有人可见、可覆盖(保持向后兼容);
+    - 有主 agent:只有属主本人可覆盖与列举。
+    """
+    if principal is None:
+        return False
+    if principal.role >= ADMIN_ROLE:
+        return True
+    if agent.owner_id is None:
+        return True
+    return principal.sub == agent.owner_id
 
 
 class A2AServer:
@@ -246,7 +272,7 @@ class A2AServer:
         if not redis:
             return
         try:
-            await redis.hset(self.REDIS_AGENT_KEY, agent.id, json.dumps(agent.to_dict()))
+            await redis.hset(self.REDIS_AGENT_KEY, agent.id, json.dumps(agent.to_storage_dict()))
         except Exception as e:
             logger.warning(f"persist agent failed: {e}", exc_info=True)
 
@@ -406,12 +432,26 @@ class A2AServer:
 
         30 秒超时,成功时返回响应 JSON。派发前再校验一次 endpoint(解析后连,收窄 TOCTOU)。
         """
-        # SSRF 闸:派发前再校验(解析后连,收窄 TOCTOU)
+        # SSRF 闸:派发前再校验(解析后连,收窄 TOCTOU);公网目标还必须钉定 IP,
+        # 否则校验期与连接期两次 DNS 可被 rebinding 换掉(与 mcp webhook 同一条尺)。
         validate_a2a_endpoint(endpoint)
+
+        from urllib.parse import urlparse
 
         import httpx
 
-        url = f"{endpoint.rstrip('/')}/tasks/{task.id}/execute"
+        from .screenshot_service import resolve_pinned_target
+
+        host = (urlparse(endpoint).hostname or "").lower()
+        # 生产环境已在 validate_a2a_endpoint 拒掉本地回环;此处保持同一条判据,
+        # 防止将来有人绕过校验直接调本方法。
+        is_local = host in {"localhost", "127.0.0.1", "::1"} and settings.node_env != "production"
+        pinned = None if is_local else resolve_pinned_target(endpoint)
+        if not is_local and pinned is None:
+            raise ValueError("endpoint 无法钉定公网 IP,拒绝派发")
+        base = pinned[0] if pinned else endpoint
+
+        url = f"{base.rstrip('/')}/tasks/{task.id}/execute"
         payload = {
             "task_id": task.id,
             "input": task.input,
@@ -420,8 +460,12 @@ class A2AServer:
                 "name": task.name,
             },
         }
+        kwargs: dict[str, Any] = {}
+        if pinned:
+            kwargs["headers"] = {"Host": pinned[1]}
+            kwargs["extensions"] = {"sni_hostname": pinned[1]}
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, json=payload, **kwargs)
             resp.raise_for_status()
             data = resp.json()
         return data if isinstance(data, dict) else {"output": str(data)}
@@ -470,10 +514,13 @@ def validate_a2a_endpoint(endpoint: str) -> str:
     host = (parsed.hostname or "").lower()
     if not host:
         raise ValueError("endpoint 缺少 host")
-    # 本地开发回环:放行(http/https 皆可),不解析、不判私网。
+    # 本地开发回环:仅非生产环境放行(http/https 皆可),不解析、不判私网。
+    # 生产环境放行 = 服务端可被指派 POST 本机任意端口(内网横向面),故一律拒。
     # 注意:0.0.0.0 是 unspecified 地址,**不**作本地放行(归入下方 IP 段校验,必拒)。
     local_hosts = {"localhost", "127.0.0.1", "::1"}
     if host in local_hosts:
+        if settings.node_env == "production":
+            raise ValueError("生产环境禁止本地回环 endpoint")
         return endpoint.rstrip("/")
     # 其余必须 https
     if parsed.scheme != "https":
