@@ -30716,7 +30716,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 ## 2026-10-27 第三方 OAuth 通用回调同意闸(登记@2026-10-27/oauth-consent)
 ## 2026-10-28 号池账号命名统一手机号优先(登记@2026-10-28/WorkBuddy)
 ## 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen)
-- [ ] O68 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-10-27T17:30:26.786Z last=2026-10-27T17:30:26.786Z route=/deploy/pass-entry-broken sample="deploy_outcome action=pass-entry-broken sha=[hex:35]…"）
   - **G-249〔旧号〕〔旧号〕 `thread/metadata` 整写会冲掉持久属主** —— `merge=False` 把 `userId`/`roleId` 从 metadata 抹掉 ⇒ 重启后线程无凭据、属主比对空转;反向 patch 可伪造恢复出的属主。归属:该 metadata 契约(batch-46)的持有人。解阻判据:把两键并入 merge 白名单 **或** 放宽那条精确等值断言,二者必须同笔并写明谁让步;补一条"patch metadata 后重启仍带属主"的用例。
   - **G-250〔旧号〕〔旧号〕 只读面与删除/归档仍跨用户工作** —— `thread.search`/`items.list`/`turns.list`/`read`/`delete`/`archive` 按裸 threadId 操作,`GET /api/sessions/threads` 手里有 `get_current_user_id` 却不传给已支持的 `owner_user_id`。归属:引擎 + web 列表两侧持有人。**需产品拍板**(收窄即改变前端可见范围,属对外语义变更,§24),不由实现票自行决定。
   - **G-251〔旧号〕〔旧号〕 `elicitation.respond` 是同一型未闭合格** —— 全局 dict 存裸 future、结算完全不看属主;机制已备好(`_principal_allows` + 带主记录,约 15 行),本轮按"只做票内清单"未动。归属:引擎持有人。解阻判据:与 ① 同一套用例形状(带主注册 + 越权零副作用)。
