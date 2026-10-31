@@ -42,7 +42,17 @@
  *        admin-routes.ts` 双份实现……一份 `page.test.tsx` 认下去就是几百枚页面同时"假绿"。
  *        计数范围取"该 `__tests__` 的父目录子树"而非整包:② 式的同目录 `__tests__` 天然
  *        唯一,跨子树同名不相关,按子树算才既不误收也不误挡。
- * 只认这四条:更宽的"同根目录任意 stem 相同"会让 `apps/web/e2e/*.spec.ts` 与业务模块
+ *   ⑤(2026-10-31 立)名字侧的**点限定词**:①③④ 认 `x.test.*`,也认 `x.<限定词>.test.*`
+ *      (`billing-queries.real.test.ts` 实库回归 / `use-message-list-scroll.authority.test.tsx`
+ *      单维回归 / `tool-calls-section.classification.test.ts` 分类回归)。为什么必须认:
+ *      ② 的词边界前缀**本来就认** `.`(prefixHit 的边界集含 `.`),于是同一形态在
+ *      `dir/x.real.test.ts` 与 `dir/__tests__/x.real.test.ts` 两处给出相反结论 —— 这是四条
+ *      规则内部不自洽,不是"多要一次说明"。收紧两条,方向仍是"多要一次说明":
+ *      · 只认**点**:`x-real.test.*` / `x_extra.test.*` 一律不认(带连字符的特征命名是
+ *        补测配方的真实形态,认了就是 `admin-*.test.ts` 冒充 `admin.ts` 的假绿型);
+ *      · 限定词必须非空(`x..test.ts` 不认);③④ 的同名唯一维**原样保留** ——
+ *        限定词放宽只影响"名字这一维",位置锚定/子树唯一/整包唯一都不动。
+ * 只认这五条:更宽的"同根目录任意 stem 相同"会让 `apps/web/e2e/*.spec.ts` 与业务模块
  * 意外相撞,是静默假绿的入口,故不设。
  *
  * 三档结论(§0.3「没判绝不写成判过」):
@@ -188,7 +198,7 @@ function isInNonSourceDir(rel) {
 }
 
 /** `x.test.ts` / `x.spec.tsx` → `x`;非测试名退回"去掉最后一段扩展名"。 */
-function testCoreOf(rel) {
+export function testCoreOf(rel) {
   const base = basename(normalizePath(rel))
   const hit = TEST_SUFFIXES.find((suffix) => base.endsWith(suffix))
   return hit ? base.slice(0, -hit.length) : base.replace(/\.[^.]*$/, '')
@@ -203,6 +213,89 @@ export function prefixHit(name, stem) {
   if (name === stem) return true
   if (!name.startsWith(stem)) return false
   return '.-_'.includes(name[stem.length])
+}
+
+/**
+ * 规则⑤ 的名字判据(①③④ 共用):测试 core 与模块 stem **逐字相等**,或是 `stem.<限定词>`
+ * (`billing-queries` ← `billing-queries.real`)。限定词只认**点**分隔且非空:
+ * `-` / `_` 边界属特征命名族(§0.10 方向 = 多要一次说明),认了就会让 `admin-x.test.ts`
+ * 冒充 `admin.ts`。空闲:任一为空 / 只有 `stem.` 无后续 ⇒ 不认。
+ */
+export function stemMatches(core, stem) {
+  if (!core || !stem) return false
+  if (core === stem) return true
+  if (!core.startsWith(`${stem}.`)) return false
+  return core.length > stem.length + 1
+}
+
+const IMPORT_SPEC_RE =
+  /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\(\s*|\bimport\s+)['"]([^'"]+)['"]/g
+const APP_SRC_ROOT = Object.freeze({ web: 'apps/web/src', api: 'apps/api/src' })
+
+/** 去掉源码扩展名,便于"带不带 .js 都算同一格"(api 走 ESM 后缀式导入)。 */
+function stripSourceExt(rel) {
+  return normalizePath(rel).replace(/\.(?:tsx?|jsx?|mjs|cjs)$/, '')
+}
+
+/** 测试文件里出现过的模块说明符(注释已遮,字符串保留)。 */
+export function importSpecifiersOf(text) {
+  if (typeof text !== 'string' || text === '') return []
+  const masked = maskComments(text)
+  const out = []
+  for (const m of masked.matchAll(IMPORT_SPEC_RE)) {
+    const spec = m[1]
+    if (spec) out.push(spec)
+  }
+  return out
+}
+
+/**
+ * 把说明符解析成仓库相对路径(未去扩展名);解析不了返回 null。
+ * 只认两类:`./… ../…`(相对测试文件)与 `@/…`(→ 同包 `apps/{web,api}/src` 下)。
+ */
+export function resolveImportSpecifier(testRel, spec) {
+  const t = normalizePath(testRel)
+  const s = String(spec ?? '')
+  if (!s) return null
+  if (s.startsWith('.')) {
+    const parts = []
+    for (const seg of `${dirname(t)}/${s}`.split('/')) {
+      if (seg === '..') parts.pop()
+      else if (seg !== '.' && seg !== '') parts.push(seg)
+    }
+    return parts.join('/')
+  }
+  const alias = /^@\/(.+)$/.exec(s)
+  if (alias) {
+    const app = t.startsWith('apps/web/') ? 'web' : t.startsWith('apps/api/') ? 'api' : null
+    if (!app) return null
+    return `${APP_SRC_ROOT[app]}/${alias[1]}`
+  }
+  return null
+}
+
+/**
+ * 规则⑤ 的**证据维**:测试正文里必须真的 import 了这个模块。
+ * 为什么点限定词要比普通同名多要这一份证据:普通 `x.test.ts` 与限定式
+ * `x.<限定词>.test.ts` 的差别只在名字,名字本身不携带"指向哪个模块"的证据
+ * (`tool-calls-section.classification.test.ts` 逐字复刻了组件里的判定序,却一行都没 import
+ * 组件 —— 组件改了它不会红)。方向仍是"多要一次说明":取不到正文 ⇒ 不认(落回缺口)。
+ */
+export function referencesModule(testText, moduleRel, testRel) {
+  if (typeof testText !== 'string' || testText === '') return false
+  const target = stripSourceExt(moduleRel)
+  for (const spec of importSpecifiersOf(testText)) {
+    const hit = resolveImportSpecifier(testRel, spec)
+    if (hit && stripSourceExt(hit) === target) return true
+  }
+  return false
+}
+
+/** 名字维的完整判定:逐字同名 § 免证据;点限定词必须带 import 证据。 */
+function nameCovers(core, stem, moduleRel, testRel, testText) {
+  if (core === stem) return true
+  if (!stemMatches(core, stem)) return false
+  return referencesModule(testText, moduleRel, testRel)
 }
 
 const CJS_EXPORT_RE = /^[ \t]*(?:module\.exports|exports\.[A-Za-z_$][\w$]*)\s*=/m
@@ -306,12 +399,12 @@ export function classifyFile(entry) {
  * `P/src` 或 `P/app` 下任意层的 `x.ts` ← `P/tests` 或 `P/test` 下任意层的 `x.test.*`,
  * `x` 精确同名、跨扩展名。
  */
-export function collectionTestCovers(moduleRel, testRel) {
+export function collectionTestCovers(moduleRel, testRel, testText) {
   const mod = normalizePath(moduleRel)
   const tst = normalizePath(testRel)
   if (!isUnitTestFile(tst)) return false
   const stem = basename(mod).replace(/\.[^.]*$/, '')
-  if (testCoreOf(tst) !== stem) return false
+  if (!nameCovers(testCoreOf(tst), stem, mod, tst, testText)) return false
   const pkg = collectionRootOf(tst)
   if (!pkg) return false
   return mod.startsWith(`${pkg}/src/`) || mod.startsWith(`${pkg}/app/`)
@@ -347,7 +440,7 @@ export function nestedTestsDirOf(rel) {
  * 匹配口径:`stem` 相等(不做前缀/词边界放宽) + 测试须落 `.test.{ts,tsx,js,jsx,mjs,cjs}`
  * (`UNIT_TEST_SUFFIXES`) + 模块扩展名族 `SOURCE_EXTS`(由上层分类器负责)。
  */
-export function nestedTestsDirCovers(moduleRel, testRel) {
+export function nestedTestsDirCovers(moduleRel, testRel, testText) {
   const mod = normalizePath(moduleRel)
   const tst = normalizePath(testRel)
   if (!isUnitTestFile(tst)) return false
@@ -356,15 +449,16 @@ export function nestedTestsDirCovers(moduleRel, testRel) {
   if (!mod.startsWith(`${base}/`)) return false
   const mp = packageRootOf(mod)
   if (mp === null || mp !== packageRootOf(base)) return false
-  return testCoreOf(tst) === basename(mod).replace(/\.[^.]*$/, '')
+  return nameCovers(testCoreOf(tst), basename(mod).replace(/\.[^.]*$/, ''), mod, tst, testText)
 }
 
 /**
- * 单个模块是否被某测试文件按命名约定覆盖。四条规则见文件头注。
+ * 单个模块是否被某测试文件按命名约定覆盖。五条规则见文件头注。
  * 对 `dir/x.ts`:①同目录 `x.test.*` / `x.spec.*`;②`dir/__tests__/` 下词边界前缀命中;
- * ③收集目录精确同名(还须 `opts.stemUnique === true`,同包同名唯一由调用方按面判);
- * ④收集式 `__tests__` 精确同名(还须 `opts.subtreeStemUnique === true`,子树内同名唯一
- * 同样由调用方按面判)。
+ * ③收集目录同名(还须 `opts.stemUnique === true`,同包同名唯一由调用方按面判);
+ * ④收集式 `__tests__` 同名(还须 `opts.subtreeStemUnique === true`,子树内同名唯一
+ * 同样由调用方按面判);⑤ ①③④ 的名字维一律经 `stemMatches`:认 `x.<限定词>.test.*`,
+ * 但限定式必须自带 import 证据(`opts.testText`,取不到即不认 —— 见 `referencesModule`)。
  * `opts` 缺省时③④恒不成立 —— 失效方向是"多要一次说明"(§0.10),不是"多放一次跳门"。
  */
 export function testCoversModule(moduleRel, testRel, opts = {}) {
@@ -374,13 +468,13 @@ export function testCoversModule(moduleRel, testRel, opts = {}) {
   const modDir = dirname(mod)
   const stem = basename(mod).replace(/\.[^.]*$/, '')
   const testDir = dirname(tst)
-  if (testDir === modDir) return testCoreOf(tst) === stem
+  if (testDir === modDir) return nameCovers(testCoreOf(tst), stem, mod, tst, opts.testText)
   if (testDir === `${modDir}/__tests__` || testDir === '__tests__') {
     if (getParentTestDir(tst) !== modDir) return false
     return prefixHit(testCoreOf(tst), stem)
   }
-  if (nestedTestsDirCovers(mod, tst)) return opts.subtreeStemUnique === true
-  if (!collectionTestCovers(mod, tst)) return false
+  if (nestedTestsDirCovers(mod, tst, opts.testText)) return opts.subtreeStemUnique === true
+  if (!collectionTestCovers(mod, tst, opts.testText)) return false
   return opts.stemUnique === true
 }
 
@@ -408,10 +502,32 @@ export function inRoot(rel, root) {
   return p === root || p.startsWith(`${root}/`)
 }
 
+/** `testTexts` 三种入参(Map / 数组 / 对象)归一到"路径 → 正文"查询函数;取不到给 undefined。 */
+function normalizeTestTexts(input) {
+  const map = new Map()
+  if (input instanceof Map) {
+    for (const [k, v] of input.entries()) map.set(normalizePath(k), typeof v === 'string' ? v : undefined)
+  } else if (Array.isArray(input)) {
+    for (const raw of input) {
+      const entry = typeof raw === 'string' ? { path: raw } : (raw ?? {})
+      const rel = normalizePath(entry.path)
+      if (rel) map.set(rel, typeof entry.text === 'string' ? entry.text : undefined)
+    }
+  } else if (input && typeof input === 'object') {
+    for (const [k, v] of Object.entries(input)) map.set(normalizePath(k), typeof v === 'string' ? v : undefined)
+  }
+  return (rel) => map.get(normalizePath(rel))
+}
+
 /**
  * 判据主函数:射程内哪些源码模块没有任何对应测试。
  *
- * @param {{files:(string|{path:string,text?:string})[], testFiles:string[], roots:string[]}} input
+ * `testTexts`(可选,Map/数组/对象皆可)是**规则⑤ 的证据来源**:只放限定式测试
+ * (`x.<限定词>.test.*`)的正文即可 —— 普通同名测试不需要正文,故调用方不必把 3800 份
+ * 测试全读进来。取不到某枚正文 ⇒ 该枚限定式不认(落回缺口,§0.10)。
+ *
+ * @param {{files:(string|{path:string,text?:string})[], testFiles:string[], roots:string[],
+ *   testTexts?:(Map<string,string>|{path:string,text?:string}[]|Record<string,string>)}} input
  * @returns {{
  *   roots:string[], scanned:number, outOfScope:number, modules:number,
  *   gaps:{path:string,root:string}[], covered:{path:string,test:string}[],
@@ -419,11 +535,12 @@ export function inRoot(rel, root) {
  *   emptyRoots:string[], gapCount:number
  * }}
  */
-export function findTestlessModules({ files, testFiles, roots } = {}) {
+export function findTestlessModules({ files, testFiles, roots, testTexts } = {}) {
   if (!Array.isArray(files)) throw new TypeError('files 必须是数组(字符串路径或 {path,text})')
   if (!Array.isArray(testFiles)) throw new TypeError('testFiles 必须是数组')
   const rootList = normalizeRoots(roots)
   if (rootList.length === 0) throw new TypeError('roots 必须是非空数组')
+  const textOfTest = normalizeTestTexts(testTexts)
 
   const tests = [...new Set(testFiles.map(normalizePath).filter(isTestFile))].sort()
   const inside = new Map()
@@ -453,17 +570,30 @@ export function findTestlessModules({ files, testFiles, roots } = {}) {
     const core = testCoreOf(t)
     if (!byStemCore.has(core)) byStemCore.set(core, [])
     byStemCore.get(core).push(t)
+    // 规则⑤:点限定词的核心名字也要能按 base stem 查到(`x.real` 挂进 `x` 桶)。
+    // 这里只放宽**候选集**,命中与否仍由 testCoversModule 的名字+位置+唯一性三重合判。
+    const base = core.split('.')[0]
+    if (base && base !== core) {
+      if (!byStemCore.has(base)) byStemCore.set(base, [])
+      byStemCore.get(base).push(t)
+    }
   }
   const coveringTests = (rel, stemUnique, subtreeStemCount) => {
     const dir = dirname(rel)
     const stem = basename(rel).replace(/\.[^.]*$/, '')
     const hits = []
-    for (const t of byDir.get(dir) ?? []) if (testCoversModule(rel, t)) hits.push(t)
-    for (const t of byDir.get(`${dir}/__tests__`) ?? []) if (testCoversModule(rel, t)) hits.push(t)
+    for (const t of byDir.get(dir) ?? []) {
+      if (testCoversModule(rel, t, { testText: textOfTest(t) })) hits.push(t)
+    }
+    for (const t of byDir.get(`${dir}/__tests__`) ?? []) {
+      if (testCoversModule(rel, t, { testText: textOfTest(t) })) hits.push(t)
+    }
     for (const t of byStemCore.get(stem) ?? []) {
       const base = nestedTestsDirOf(t)
       const subtreeStemUnique = base !== null && subtreeStemCount.get(`${base}::${stem}`) === 1
-      if (testCoversModule(rel, t, { stemUnique, subtreeStemUnique })) hits.push(t)
+      if (testCoversModule(rel, t, { stemUnique, subtreeStemUnique, testText: textOfTest(t) })) {
+        hits.push(t)
+      }
     }
     return hits.sort()
   }
@@ -565,6 +695,10 @@ export const __test__ = {
   packageRootOf,
   isUnitTestFile,
   prefixHit,
+  stemMatches,
+  importSpecifiersOf,
+  resolveImportSpecifier,
+  referencesModule,
   findTestlessModules,
   diffGaps,
   countByReason,
