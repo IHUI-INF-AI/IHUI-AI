@@ -106,9 +106,9 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 617 | `dbTables` |
+| 数据库表 | 618 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4656 | `apiRoutes` |
+| API 路由 | 4655 | `apiRoutes` |
 | 路由文件 | 656 | `apiRouteFiles` |
 | AI 服务路由 | 630 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -124,8 +124,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 3779 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 308 | `guardianGates` |
-| — blocking | 282 | `guardianBlocking` |
+| 工程守门 | 309 | `guardianGates` |
+| — blocking | 283 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
 | 跟踪文件 | 18334 | `trackedFiles` |
 
@@ -2030,6 +2030,7 @@ IHUI-AI/
 | **第三方 IDE 账号池 admin** | `/api/admin/relay/accounts` + `ai_relay_account_pool` 表      | 第三方 AI IDE 平台(trae / workbuddy / codearts / qoder + 2026-10-27 扩容八平台 codex / opencode / minimax / zcode / loomy / doubao / lingma / grokbot)「完整账号会话凭证」号池,与 ai_relay_key_pool(只存上游 API Key)分表:tokenEnc/refreshTokenEnc/cookiesEnc/secretsEnc 走 encryptField AES-256-GCM 字段级加密,响应面永不回传密文与明文;`POST /admin/relay/accounts/import` 直接吃账号导出 JSON({accounts:[...]} 单批 1–500 条,同 provider 按 uid 唯一去重)、GET list 分页 + provider/enabled/health 筛选、GET `:id` 脱敏详情、PUT `:id` 改调度参数(name/priority/weight/tempUnschedulable/proxyUrl)、POST `:id/toggle` 启停、DELETE `:id` 删除 |
 | **账号池真实探活**          | `POST /admin/relay/accounts/:id/health`                       | 走平台适配器 checkHealth 做真实探测(账号级凭证 + 该号 proxyUrl 出口),回写 healthStatus(healthy/down)+ healthCheckedAt + lastErrorMessage(截断 500),成功即清零 consecutiveFailures;平台适配器未注册 ⇒ 400                                                                                                                                                                                                                                                                                                                                          |
 | **账号池调度巡检**          | `POST /admin/relay/account-pool/sweep`                        | 同上 BullMQ 每 5 分钟一轮 sweepAccountPool,四档:①临期(<15min)刷新回写;②unknown→checkHealth 定级(未判定保 unknown,§0.3);③down/degraded 且可续期未超限→再试一次;④**空闲保活**(2026-10-26):`greatest(last_used_at,last_refresh_at,created_at)` 超窗(默认 7 天,env `RELAY_ACCOUNT_KEEPALIVE_DAYS`,`0/off/false` 整档关、非法值回落默认)主动续票——上游会清理闲置的 refresh 会话(实测报 invalid_grant),只靠 ① 救不了长期没人用的号;client-first 平台让位本机客户端不被顶下线;单轮 ≤50、并发 5、Redis 分布式锁,连刷 3 败自动 tempUnschedulable(原因 admin 可见);产出面 7 枚标量键(worker 日志带 `keepalive`,契约测试两分支同键面)                                                                                          |
+| **号池永久保活档**          | `node scripts/relay-account-keepalive.mjs --status｜--mark <uid> [--off]｜--explain <uid>｜--once` | 2026-11-01 立,给「掉线就再也登不回来」的号一条不会死的续期路(机主本机 Trae 号已不能靠验证码重登,唯一出路 = 号池 + 一键切号)。登记面 `extraMetadata.keepAliveForever`(jsonb 增量 merge,零迁移;整包覆盖会抹掉同住的 checkinSync 同步态/cosy 设备指纹/profile 快照);判据单源全部住 `apps/api/src/services/relay-account-pool-scheduler.ts`(`keepAliveForeverOf`/`clientActiveAtOf`/`shouldDeferRefresh`/`keepaliveIdleWhere`/`keepAliveReviveWhere`/`reviveKeepAliveForeverAccounts`),CLI 与 guardian 派发腿零复算。三条与默认档不同:①续期时机**只看本机客户端心跳,不看 client-first 开关**——心跳由 `sync-trae-client-session.mjs` 探测 `Trae CN` / `TRAE SOLO CN` / `Trae` 三产品进程写入,api 不在时由本 CLI 自带探测补送;落库每轮无条件写且不推进 `updatedAt`(挂在票写分支上会被占常态的 same-token 轮饿死 ⇒ 池误判静默 ⇒ 顶掉机主正用的客户端,2026-10-24 事故型;推进 updatedAt 则解摘退避时钟永不达标);tasklist 探测失败(未知)一律按「在跑」处理——误判在跑只少刷一次,误判静默不可逆,代价不对称;②空闲窗口默认 24h(env `RELAY_ACCOUNT_KEEPALIVE_FOREVER_HOURS`,`0/off` 显式关)而非普通号的 7 天;③「连刷 3 败自动摘除」不再是终点,由解摘档按 6h 退避自动解摘重新纳入(摘除本身保留:去掉它就变成坏票每 5 分钟死撞上游鉴权点),解摘只解除调度封锁、刻意不写 healthStatus。承载体 = `git-guardian` 每 6 小时派发 `--once`(巡检原本只活在 api 的 BullMQ worker,本机 api 是 tsx dev 进程 ⇒ 进程一停续期即停);喊人经唯一出口 `notify-deploy-failure.ts`,去重身份 = provider+uid 前缀,不含计数/时刻(§5e-3/守门 224),守护侧对 `state=alert` 不重复投递、只对 `undetermined`/取不到结论行 notify(那是「腿自己哑了」,另一个身份)。`--explain <uid>` 逐闸读数(登记/心跳/适配器已注册/可再凭证/健康可调度):`--once` 的汇总只有 refreshed/skipped 计数,答不出卡在哪一闸——2026-11-01 正是靠它抓到「独立进程没调 registerAllRelayAdapters ⇒ 四档全部走无刷新能力 skip」这一型(账面像「号活着」,实际腿是哑的) |
 | **号池导入格式自适应**      | `apps/api/src/services/relay-account-format.ts`               | 导入判据单源同时吃我方规范形状(`token`/`refreshToken`)与第三方账号工具导出形状(`access_token`/`accessToken`/`refresh_token`/`uid`/`nickname`/`expires_at`):条目无规范 token 而命中别名族 ⇒ 经 `normalizeForeignAccountShape` 搬运归一再进校验,canonical 值一律优先、别名只补空缺;`expireEpochToMs` 取 1e11 为界**秒/毫秒自适应**(毫秒自 1973 年起恒大于该线、秒制须到公元 5138 年才越过——现网无此数据),否则 Keycloak 惯例的毫秒到期会被当秒放大成"永不过期"、临期/保活/摘除三档集体失明;显式到期只采信**早于** JWT exp 的值(保守取早);归一后仍吃不进档的陌生键(`payment_type`/`checkin_streak`/`dosage_notify_code` 等)由 `foreignPassthroughMetadata`(标量与 stringify≤1024 的对象/数组)原样落 `extraMetadata`,兑现 `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2 的透传承诺;预检 CLI 与服务端 `importAccounts` 共用同一份别名表(§0.6 不抄第二处)                                     |
 | **号池账号体检速查 CLI**    | `pnpm relay:inspect -- --file x.json｜--local`                | `apps/api/scripts/relay-account-inspect.ts`(2026-10-26 立):把「这枚号还能不能用、还剩多久、下一步做什么」折成一行话,零 DB / 零上游请求 / **输出永不回显凭据明文**;六态结论 `usable` / `expiring-soon`(≤1 天) / `expired-renewable`(过期但带 refreshToken,进号池即由调度救回) / `expired-dead`(过期且无续期通道,只能重新登录重导) / `envelope-only`(值是 WorkBuddy 5.6 `$wbEncrypted` 信封:仅同机可解回,查积分/签到/跨机皆不可用,**不冒判过期也不冒判能用**) / `indeterminate`(三段读不到到期≠已失效,§0.3);`--local` 直读本机 `workbuddy-desktop{,-ai}.info` 当前登录态;退出码 `0` 全可用 / `1` 有需要处理 / `2` 未判定                                                               |
 | **账号池用量台账**          | `GET /admin/relay/account-pool/usage/:id?days=7`              | 表 `ai_relay_account_usage_ledger`:每次转发调用(成功与失败)由 recordAccountUsage 落一行,fire-and-forget(台账异常只记 warn,不影响转发主链路);list 侧批量聚合近 24h calls/tokens/failRate;本端点给 24h 汇总 + 按 days 窗口的分页明细与总条数;超保留期行由调度轮清理(24h 节流)                                                                                                                                                                                                                                                                       |
