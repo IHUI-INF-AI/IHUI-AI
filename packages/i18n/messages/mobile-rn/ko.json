@@ -5496,6 +5496,7 @@
     "taskAutoDry": "사용 중이지만 연습 모드(읽기 전용): 실제 수령은 하지 않습니다. 서버에서 WORKBUDDY_TASKS_LIVE_RUN=true 로 설정해야 기록합니다.",
     "taskAutoCronBlocked": "실행 안 됨: 작업 스위치는 켜져 있지만 총 스위치 CHECKIN_CRON_ENABLED 가 꺼져 있습니다.",
     "taskAutoOff": "사용 안 함: 수동 실행만 가능. 서버에서 WORKBUDDY_TASKS_ENABLED=true 로 설정하고 재시작하면 적용됩니다.",
+    "taskAutoNotStarted": "설정은 활성화되었지만 스케줄러가 시작되지 않았습니다: 서버 .env를 수정한 뒤 ai-service를 재시작하세요(프로세스 내 start()은 _started에서 단락되어 핫 리로드되지 않습니다).",
     "taskAutoPaths": "보고/수령 경로 미설정: 보고만 하고 수령은 하지 않습니다.",
     "taskAutoLast": "마지막 순회 {time}",
     "taskAutoLastStats": "{families}개 패밀리 · 수락 {accepted} · 수령 {claimed}",
