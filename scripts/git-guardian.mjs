@@ -26,7 +26,10 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildAlertIdentity, watchPushDivergence } from './lib/push-divergence-watch.mjs'
-import { decideDevDbRotation } from './lib/dev-db-rotation-policy.mjs'
+// 冷却量级与决定器同源(§0.6):本腿只问"上一次真派生是否已过冷却",不另造一个时钟。
+import { decideDevDbRotation, DEV_DB_ROTATION_COOLDOWN_MS } from './lib/dev-db-rotation-policy.mjs'
+// 窗口探测判据单源(§0.6):巡检腿与被派生的器物必须问同一把尺,各写一份必然漂移。
+import { liveServicePorts } from './rotate-local-dev-db-password.mjs'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
@@ -4904,103 +4907,205 @@ const EXPOSED_CRED_INTERVAL_MS = Number(process.env.IHUI_EXPOSED_CRED_INTERVAL_M
 
 /**
  * 本机 dev 库口令轮换的巡检腿(票 O69,2026-11-01)。
- * 只在「登记面有未结清条目」时才会派生;窗口探测取不到 ⇒ 未判定不派生;失败只冷却不硬试。
- * 结论行恒写状态(state)而不是「成功/通过」—— 换没换由器物自己的留痕与验证行给。
+ *
+ * 口径照 `sweepExposedCredentialRotation` 同族,只把"节律"拆成两个**互不冒充**的维度:
+ *  ① `attemptAt` = 冷却锚,**只在真派生出结论时写**(成功 rc=0 / 真失败 rc=1 / 超时被杀 rc=null);
+ *     让路(window-busy)与未判定绝不写它 —— 否则"一次让路把随后出现的空闲窗口锁死 1 小时",
+ *     而"窗口出现在两轮之间"恰恰是本票要消灭的"靠人盯"(§0.10:失效方向必须是多要一次说明,
+ *     绝不能是多放一次跳门;这里是反方向:多拦一次该干的活)。
+ *  ② `probeAt` = 窗口探测节律(默认 5 分钟,与既有清扫族同量级),只压 netstat 的频次,
+ *     不进决定器的冷却档。
+ *
+ * 登记面取材(器物自己的账,现读接口零猜字段):
+ *  `.ihui-agent/state/dev-db-rotation-pending.json` —— 在位且解析得出非空条目 ⇒ 有欠账;
+ *  **不存在** ⇒ `no-pending`(零派生、零写盘、连 netstat 都不点);
+ *  在位但读不动/空文件/坏 JSON ⇒ `pending-unreadable` 未判定(不猜成"无条目"就永不轮换,§0.3)。
+ *  器物 `--apply` 成功后自己 rmSync 该标记 ⇒ 结清由器物闭环,本腿只在 rc=0 时代为删除。
+ *
+ * 窗口判据**不在本层复算**(§0.6):直接吃器物的 `liveServicePorts()`,让"派生侧"和"被派生侧"
+ * 问同一把尺 —— 两把尺判出不同结果时,guardian 会派生一个必然 exit 2 的子进程并把它记成失败。
+ *
+ * 结论行恒写 state,不写"成功/无需":换没换由器物自己的留痕(`dev-db-credential-rotation.jsonl`)
+ * 与其"旧值拒收 ∧ 新值通过"两行验证给,本腿无权替它宣布(§0.3)。
+ * 判机器状态 ⇒ 绝不进提交链(§12e)。
  */
+const DEV_DB_PROBE_INTERVAL_MS = Number(process.env.IHUI_DEV_DB_ROTATION_PROBE_MS || 5 * 60 * 1000)
+
 export function sweepLocalDevDbRotation(opts = {}) {
   const {
     now = Date.now(),
     root = dirname(dirname(fileURLToPath(import.meta.url))),
     tickFile = join(dirname(LOG), 'dev-db-rotation-last.json'),
     pendingFile = join(dirname(LOG), 'dev-db-rotation-pending.json'),
+    probeIntervalMs = DEV_DB_PROBE_INTERVAL_MS,
     logger = log,
     runner = null,
     livePortsProbe = null,
   } = opts
   const script = join(root, 'scripts', 'rotate-local-dev-db-password.mjs')
-  if (!existsSync(script)) return { ran: false, state: 'no-script', why: '器物不在位' }
-  const pending = existsSync(pendingFile)
+  if (!existsSync(script)) {
+    logger(
+      '⚠️ dev 库口令轮换:未判定 —— 器物不在位(scripts/rotate-local-dev-db-password.mjs)⇒ 本轮不派生,不记绿也不记红',
+    )
+    return { ran: false, ok: false, state: 'no-script', why: '器物不在位(未判定)' }
+  }
+  // 节流戳只借这一份读;写盘一律 merge,绝不用新字段把旧 attemptAt 洗掉。
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const writeTick = (patch) => {
+    const body = { ...(tick ?? {}), ...patch }
+    try {
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, JSON.stringify(body), 'utf8')
+      tick = body
+      return true
+    } catch (e) {
+      logger(
+        `⚠️ dev 库口令轮换:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+      )
+      return false
+    }
+  }
+
+  // ① 登记面:读得出才算"读过";读不到 ≠ 没有条目。
+  let pending = false
+  if (!existsSync(pendingFile)) {
+    // 无欠账 ⇒ 交给决定器的第一档,且**连窗口都不探测**(零派生、零写盘、零子进程)。
+    const verdict = decideDevDbRotation({ pending: false, livePorts: [], nowMs: now })
+    logger(`ℹ️ dev 库口令轮换:${verdict.state} —— ${verdict.why}(本轮零派生零写盘)`)
+    return { ran: false, ok: false, state: verdict.state, why: verdict.why, spawned: false }
+  }
+  try {
+    const raw = String(readFileSync(pendingFile, 'utf8')).trim()
+    const parsed = raw.length === 0 ? null : JSON.parse(raw)
+    const hasEntry =
+      parsed !== null &&
+      (Array.isArray(parsed)
+        ? parsed.length > 0
+        : typeof parsed === 'object'
+          ? Object.keys(parsed).length > 0
+          : Boolean(parsed))
+    if (!hasEntry) {
+      logger(
+        '⚠️ dev 库口令轮换:pending-unreadable —— 登记面在位但解析不出条目 ⇒ 未判定,不猜成"无条目"也不派生',
+      )
+      return { ran: false, ok: false, state: 'pending-unreadable', why: '登记面解析不出条目', spawned: false }
+    }
+    pending = true
+  } catch (e) {
+    logger(
+      `⚠️ dev 库口令轮换:pending-unreadable —— 登记面读不动(${String(e?.message ?? e).slice(0, 80)})⇒ 未判定`,
+    )
+    return { ran: false, ok: false, state: 'pending-unreadable', why: '登记面读不动', spawned: false }
+  }
+
+  // ② 窗口:有欠账才探测;探测本身按 probeIntervalMs 压频次(不进冷却档,只压 netstat)。
+  const probeAt = Number.isFinite(Date.parse(String(tick?.probeAt ?? '').trim()))
+    ? Date.parse(String(tick.probeAt))
+    : NaN
+  // 冷却到期那一轮**必须**优先于探测节律:否则"5 分钟前刚量过窗口"会把这一次合法重试再推后,
+  // 而窗口恰恰可能就在这一轮出现(本票要治的就是"窗口靠人盯")。
+  const lastAttemptAt = Number.isFinite(Date.parse(String(tick?.attemptAt ?? '').trim()))
+    ? Date.parse(String(tick.attemptAt))
+    : NaN
+  const retryDue =
+    Number.isFinite(lastAttemptAt) && now - lastAttemptAt >= DEV_DB_ROTATION_COOLDOWN_MS
+  if (!retryDue && Number.isFinite(probeAt) && now - probeAt < probeIntervalMs) {
+    const state = String(tick?.state ?? 'window-probe')
+    logger(`ℹ️ dev 库口令轮换:未到窗口探测节律(state=${state})⇒ 本轮不派生,不记绿`)
+    return { ran: false, ok: false, state: 'probe-throttled', why: '未到窗口探测节律', spawned: false }
+  }
   let livePorts = null
   try {
-    if (typeof livePortsProbe === 'function') livePorts = livePortsProbe()
-    else {
-      const out = execFileSync('netstat', ['-ano'], {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 20000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      const lines = out.split(String.fromCharCode(10))
-      livePorts = [8801, 8802, 8803].filter((p) =>
-        lines.some((ln) => ln.includes(':' + p) && ln.includes('LISTENING')),
-      )
+    if (typeof livePortsProbe === 'function') {
+      const r = livePortsProbe()
+      livePorts = Array.isArray(r) ? r : Array.isArray(r?.live) && r?.ok !== false ? r.live : null
+    } else {
+      // 判据单源:用器物自己的 liveServicePorts。它 netstat 取不到时返回 {ok:false, live:[]} ——
+      // 那一档**必须**落成 null(未判定),按 live 取会把它读成"空闲"⇒ 正好是 §0.3 禁的那一型。
+      const probe = liveServicePorts()
+      livePorts = probe?.ok === true && Array.isArray(probe.live) ? probe.live : null
     }
   } catch {
     livePorts = null
   }
-  let lastAttemptIso = null
-  try {
-    lastAttemptIso = JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? null
-  } catch {
-    /* 没跑过 */
-  }
-  const verdict = decideDevDbRotation({ pending, livePorts, lastAttemptIso, nowMs: now })
+  const verdict = decideDevDbRotation({
+    pending,
+    livePorts,
+    lastAttemptIso: tick?.attemptAt ?? null,
+    nowMs: now,
+  })
   if (!verdict.act) {
-    if (verdict.state === 'window-busy' || verdict.state === 'undetermined') {
-      try {
-        mkdirSync(dirname(tickFile), { recursive: true })
-        writeFileSync(
-          tickFile,
-          JSON.stringify({ attemptAt: new Date(now).toISOString(), state: verdict.state }),
-          'utf8',
-        )
-      } catch {
-        /* 写不进就下轮再试 */
-      }
-    }
-    logger(`ℹ️ dev 库口令轮换:${verdict.state} —— ${verdict.why}(本轮不派生,不记绿)`)
-    return { ran: false, state: verdict.state, why: verdict.why }
+    // 让路/未判定/冷却中:只记探测节律,绝不写 attemptAt(那是冷却锚,让路不配占它)。
+    writeTick({ probeAt: new Date(now).toISOString(), state: verdict.state, why: verdict.why })
+    logger(`ℹ️ dev 库口令轮换:${verdict.state} —— ${verdict.why}(本轮未派生,不记绿)`)
+    return { ran: false, ok: false, state: verdict.state, why: verdict.why, spawned: false }
   }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(
-      tickFile,
-      JSON.stringify({ attemptAt: new Date(now).toISOString(), state: 'dispatched' }),
-      'utf8',
-    )
-  } catch {
-    /* 节流写不进不阻断本轮派发 */
-  }
+
+  // ③ 窗口空闲且有欠账 ⇒ 派生 --apply(§12g:显式 stdio + windowsHide,走 runLegChild 同一把尺)。
+  writeTick({ probeAt: new Date(now).toISOString(), state: 'dispatched' })
   const run =
     typeof runner === 'function'
       ? runner
-      : (args) =>
-          execFileSync(process.execPath, args, {
-            encoding: 'utf8',
-            windowsHide: true,
-            timeout: 300000,
-            stdio: ['ignore', 'pipe', 'pipe'],
-          })
-  let out = ''
-  let rc = 0
-  try {
-    out = String(run([script, '--apply']) ?? '')
-  } catch (e) {
-    rc = typeof e?.status === 'number' ? e.status : 1
-    out = String(e?.stdout ?? e?.message ?? e)
-  }
-  const lines = out.split(String.fromCharCode(10))
-  const tail = lines.slice(-3).join(' | ').slice(0, 300)
-  logger(`🔄 dev 库口令轮换:exit=${rc} ${tail}`)
+      : () => runLegChild(script, ['--apply'], 5 * 60 * 1000)
+  const r = (() => {
+    try {
+      return run()
+    } catch (e) {
+      return {
+        status: typeof e?.status === 'number' ? e.status : null,
+        stdout: String(e?.stdout ?? ''),
+        stderr: String(e?.stderr ?? e?.message ?? e),
+      }
+    }
+  })()
+  const rc = typeof r?.status === 'number' ? r.status : null
+  const out = `${String(r?.stdout ?? '')}${String(r?.stderr ?? '')}`
+  const tail = out
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== '')
+    .slice(-3)
+    .join(' | ')
+    .slice(0, 300)
   if (rc === 0) {
+    // 器物成功即自删标记;它没删成时本腿代删(否则下一轮会把已结清的欠账再派一次)。
     try {
       rmSync(pendingFile, { force: true })
     } catch {
-      /* 标记删不掉时保留,下一轮 plan 会看到 noop */
+      /* 删不掉就在结论里点名,不谎报结清 */
     }
-    return { ran: true, ok: true, rc, tail }
+    writeTick({
+      attemptAt: new Date(now).toISOString(),
+      state: 'applied',
+      rc,
+      outcome: 'rotated-by-device',
+    })
+    logger(`🔄 dev 库口令轮换:已派生并结清(state=applied rc=0)${tail ? ` —— ${tail}` : ''}`)
+    return { ran: true, ok: true, state: 'applied', rc, tail, spawned: true }
   }
-  return { ran: true, ok: false, rc, tail }
+  if (rc === 2) {
+    // 器物的 fail-closed(它自证窗口未到/输入取不到)⇒ 未判定,**不占冷却锚**:下轮探测到空闲即动。
+    writeTick({ state: 'device-refused', rc, why: '器物判窗口未到/输入取不到(未判定,不记绿)' })
+    logger(
+      `⚠️ dev 库口令轮换:未判定(state=device-refused rc=2)⇒ 器物 fail-closed 拒执行,不记绿也不记红${tail ? ` —— ${tail}` : ''}`,
+    )
+    return { ran: true, ok: false, state: 'device-refused', rc, tail, spawned: true }
+  }
+  // rc=1(换票失败/已回滚)或 rc=null(超时被杀、spawn 起不来)⇒ 真失败:写冷却锚,1 小时后可重试。
+  writeTick({
+    attemptAt: new Date(now).toISOString(),
+    state: 'failed',
+    rc,
+    why: '派生失败(冷却 1 小时后重试)',
+  })
+  logger(
+    `❌ dev 库口令轮换:失败(state=failed rc=${rc ?? 'null(被杀/起不来)'})⇒ 不记绿,按 1 小时冷却重试${tail ? ` —— ${tail}` : ''}`,
+  )
+  return { ran: true, ok: false, state: 'failed', rc, tail, spawned: true }
 }
 
 export function sweepExposedCredentialRotation(opts = {}) {
