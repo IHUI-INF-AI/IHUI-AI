@@ -108,6 +108,35 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
     expect(r.stdout).toContain('hello')
   })
 
+  it('R9 N1:组合长选项路径 operands 越界 ⇒ 拒绝(--target-directory 形态)', async () => {
+    const r = await sandboxExecutor.execute({
+      command: 'cp .env --target-directory=C:/Windows/Temp',
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(126)
+    expect(r.stderr).toContain('参数路径越界')
+  })
+
+  it('R9 N1:短选项粘值路径越界 ⇒ 拒绝(-f/外 形态)', async () => {
+    const r = await sandboxExecutor.execute({
+      command: 'tar -C C:/Windows -cf x.tar .',
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(126)
+    expect(r.stderr).toContain('参数路径越界')
+  })
+
+  it('R9 N1:纯旗标参数不受闸影响(正向对照)', async () => {
+    const inside = join(scratchRoot, 'f.txt')
+    const { writeFileSync } = await import('node:fs')
+    writeFileSync(inside, 'data', 'utf-8')
+    const r = await sandboxExecutor.execute({
+      command: `cp ${inside.split(String.fromCharCode(92)).join('/')} ./g.txt`,
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(0)
+  })
+
   it('cwd 指向另一个登记根 ⇒ 拒绝(同根约束)', async () => {
     const otherRoot = mkdtempSync(join(tmpdir(), 'ihui-sbx-other-'))
     try {
