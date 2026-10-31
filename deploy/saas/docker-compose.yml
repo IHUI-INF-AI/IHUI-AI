@@ -66,6 +66,10 @@ services:
       - traefik.http.routers.traefik-dashboard.entrypoints=websecure
       - traefik.http.routers.traefik-dashboard.tls=true
       - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
+      # 2026-10-31 安全强化第 10 批:dashboard 只对私有网段开放 —— 此前仅 tls+证书,
+      # 知道 ADMIN_DOMAIN 即可读全部客户路由与服务拓扑。运维查看走 SSH 隧道/内网。
+      - traefik.http.routers.traefik-dashboard.middlewares=dashboard-ipallow@docker
+      - traefik.http.middlewares.dashboard-ipallow.ipallowlist.sourcerange=127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 
   # IHUI-AI SaaS Admin API — 客户生命周期管理 + 资源监控查询(端口 8830 仅 localhost 暴露)
   admin-api:

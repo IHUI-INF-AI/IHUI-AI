@@ -778,6 +778,129 @@ def _same_owner(session_owner: str | None, caller: str | None) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Tab 级作用域(2026-10-31,gap#3,对照 Trae T2§3.2 的
+# Scope{sessionId, browserOwner, strictBrowserOwner, tabId})
+# ---------------------------------------------------------------------------
+# 修的是哪一格:`_same_owner` 只到 **user 级**,而 `create_session` 那条 10s URL 幂等窗
+# 也只管"同 URL 别串属主"。动作面(navigate / 鼠标键盘 / type / screenshot / execute_js)
+# 从来没有"这一枚 tab 是不是登记在你名下、是不是你点名的那一枚"的判定 —— 拿到一个
+# session_id 就等于拿到该用户作用域里所有满足归属的 tab。本节把动作入口收成"点名一枚
+# 已登记 tab 才放行",缺位与错配一律拒,**绝不回退到 user 级**(回退=这次改动本身被绕过)。
+#
+# 刻意没接的一格(如实登记,不当已完成):请求侧一次性消费(jti 防重放)。
+#   本仓唯一的 jti 消费判据 `consume(jti) -> 'consumed' | 'replayed'` 住在 apps/api 的
+#   TS 侧(`src/plugins/internal-service-ticket.ts` 的 `ReplayStore`,Redis SET NX +
+#   sha256 指纹键),而 ai-service 这边只有**发票**出口(`app/core/internal_ticket.py`),
+#   没有验票口;更关键的是这条浏览器动作腿走的是**用户 access JWT**(routers/browser_hub
+#   的 `Depends(get_current_user_id)` 与 WS 的 `verify_access_token`),请求形状里根本没有
+#   jti 可消费。按 AGENTS §0.6(同类判据全仓只许一份)不在 Python 侧另抄第二份防重放
+#   判据、不新造第三把密钥 ⇒ 跨语言复用受阻,交主席裁决(出路二选一:网关侧在动作腿前置
+#   一次性票并由 api 侧 consume,或本腿显式改走内部票契约)。
+
+
+TAB_SCOPE_MISSING = "missing_tab_scope"
+TAB_SCOPE_UNKNOWN = "unknown_tab"
+TAB_SCOPE_OWNER_MISMATCH = "tab_owner_mismatch"
+TAB_SCOPE_SESSION_MISMATCH = "tab_session_mismatch"
+TAB_SCOPE_UNVERIFIED_CALLER = "unverified_caller"
+
+#: 拒因封闭集:审计与测试按名点名,新增一档必须同笔补对应用例。
+TAB_SCOPE_DENY_CODES: frozenset[str] = frozenset(
+    {
+        TAB_SCOPE_MISSING,
+        TAB_SCOPE_UNKNOWN,
+        TAB_SCOPE_OWNER_MISMATCH,
+        TAB_SCOPE_SESSION_MISMATCH,
+        TAB_SCOPE_UNVERIFIED_CALLER,
+    }
+)
+
+
+def _scope_text(raw: str | None) -> str | None:
+    """作用域取值归一:空串/纯空白 = **该维缺位**(None),不得当成"匹配任何"。"""
+    text = str(raw or "").strip()
+    return text or None
+
+
+class BrowserTabScopeError(RuntimeError):
+    """tab 级作用域判定不通过。
+
+    具名拒因(``code``)是这一格的交付物本身:调用方必须能区分"你没点名 tab"与
+    "这枚 tab 不是你的",而承载层把它翻成 HTTP 时,跨属主/未登记必须与"不存在"同形
+    (见 routers/browser_hub.py 的映射),不得成为探测他人 tab 的预言机。
+    """
+
+    def __init__(self, code: str, tab_id: str | None = None) -> None:
+        if code not in TAB_SCOPE_DENY_CODES:  # 拒因封闭集外的代码一律判死,不许自创
+            raise ValueError(f"未知的 tab 作用域拒因 {code!r};封闭集见 TAB_SCOPE_DENY_CODES")
+        super().__init__(code)
+        self.code = code
+        self.tab_id = tab_id
+
+
+@dataclass(frozen=True)
+class BrowserTabScope:
+    """浏览器动作的作用域(四个轴与 Trae 的 Scope 一一对应)。
+
+    来源纪律(AGENTS §5「认证不等于授权」):三个字段的值**只能来自承载层**——
+      - ``tab_id``:承载层给出的这一枚 tab 的指针(HTTP 路径参数 / 承载层注入的会话态键),
+        不接受"我最近打开的那个"这类隐式解析,也不接受"用户的所有 tab"这种集合;
+      - ``owner_user_id``:承载层已验证的令牌主体(JWT → request.state.user_id,或
+        call_tool 覆盖写的 ``__user_id``),不得取自模型可填的入参形状;
+      - ``chat_session_id``:承载层注入的会话态(call_tool 的 ``__session_id`` 同型)。
+        浏览器 HTTP 主链路今天没有这一路承载层输入 ⇒ 恒 None,该维**不设限**;这不等於
+        放宽 tab/owner 两维,也不是"回退到 user 级"(user 级只是 owner 这一维的名字)。
+      - ``strict_browser_owner``:动作面必须为 True —— 它关掉的是 `_same_owner` 里
+        `caller is None ⇒ True` 那格系统级放行,即"没有主体的调用不得动别人的 tab"。
+        False 只留给内部系统级链路,且它仍要求 tab 已登记。
+    """
+
+    tab_id: str | None = None
+    owner_user_id: str | None = None
+    chat_session_id: str | None = None
+    strict_browser_owner: bool = True
+
+    @property
+    def normalized_tab_id(self) -> str | None:
+        return _scope_text(self.tab_id)
+
+    @property
+    def normalized_owner(self) -> str | None:
+        return _scope_text(self.owner_user_id)
+
+    @property
+    def normalized_chat_session(self) -> str | None:
+        return _scope_text(self.chat_session_id)
+
+
+@dataclass(frozen=True)
+class BrowserTabRegistration:
+    """hub 侧的 tab 登记条目:创建即盖章,此后动作判定只认这份登记。
+
+    `registered_at` 用 `time.monotonic()`(与 `_recent_creations` 同一时基),只用于诊断
+    与后续清理策略;作用域判定不读它 —— 把"账龄"混进鉴权判据会变成第四把尺子。
+    """
+
+    tab_id: str
+    owner_user_id: str | None
+    chat_session_id: str | None
+    registered_at: float
+
+
+def _registration_session_matches(
+    registration: BrowserTabRegistration | None, chat_session_id: str | None
+) -> bool:
+    """幂等复用同样不得跨会话态串 tab:动作方声明了会话态,就必须对上登记值。
+
+    登记缺失(账上没有)而调用方声明了会话态 ⇒ False(拒),而不是"没记就当通过"。
+    """
+    declared = _scope_text(chat_session_id)
+    if declared is None:
+        return True
+    return registration is not None and registration.chat_session_id == declared
+
+
+# ---------------------------------------------------------------------------
 # BrowserHub:单例,管理持续运行的 Chromium 实例
 # ---------------------------------------------------------------------------
 class BrowserHub:
@@ -803,6 +926,9 @@ class BrowserHub:
         self._recent_creations: dict[str, tuple[str, float]] = {}
         # 外部 Chrome 扫码会话:session_id → (subprocess, connected Browser, 临时 profile 目录)
         self._external_procs: dict[str, tuple[Any, Any, str]] = {}
+        # tab 级作用域登记表:tab_id → 创建时盖的章(属主 + 会话态)。
+        # 动作面 require_tab 只认这张表;`_sessions` 是"会话存续",两者缺一不可。
+        self._tab_registry: dict[str, BrowserTabRegistration] = {}
 
     async def start(self) -> None:
         """启动 Chromium 实例(应用启动时调用)。"""
@@ -865,11 +991,17 @@ class BrowserHub:
         viewport: dict[str, int] | None = None,
         user_agent: str | None = None,
         owner_user_id: str | None = None,
+        chat_session_id: str | None = None,
     ) -> BrowserSession:
         """创建新的浏览器会话(带 URL 幂等去重)。
 
         2026-07-31 完美化:同一 URL 在 _DEDUP_WINDOW_SECONDS 内的重复创建请求
         直接返回已有会话,防止前端 React StrictMode/双击/重试导致多会话泄漏。
+
+        2026-10-31(gap#3):新增 `chat_session_id` —— 承载层注入的会话态(MCP 侧
+        `__session_id` 同型;HTTP 主链路没有这一路输入,传 None)。创建即登记到
+        `_tab_registry`,此后动作面只认登记;幂等复用档也必须同会话态才对上,
+        否则 A 会话开的 tab 会被 B 会话的重复创建请求直接接走。
         """
         if not self._started or not self._browser:
             await self.start()
@@ -896,7 +1028,9 @@ class BrowserHub:
                     # 同一个平台登录页是常态(扫码登录更是如此)。旧写法会让第二个人拿到
                     # 第一个人的 context —— 于是他的 cookies、他的登录态、他的画面全在
                     # 别人屏幕上。判据用"同属主才复用",跨属主一律往下新建。
-                    if _same_owner(candidate.owner_user_id, owner_user_id):
+                    if _same_owner(candidate.owner_user_id, owner_user_id) and (
+                        _registration_session_matches(self._tab_registry.get(sid), chat_session_id)
+                    ):
                         logger.info(f"[browser_hub] 幂等命中:复用 session {sid} (url={url})")
                         return candidate
                     logger.info(f"[browser_hub] 幂等窗口内但属主不同:为 {session_id or '新会话'} 另建会话")
@@ -918,6 +1052,7 @@ class BrowserHub:
         )
 
         self._sessions[session_id] = session
+        self._register_tab(session_id, owner_user_id, chat_session_id)
         # 注册到幂等去重表(同 URL 在 _DEDUP_WINDOW_SECONDS 内复用此会话)
         if url:
             import time as _time
@@ -1003,6 +1138,9 @@ class BrowserHub:
             if not _same_owner(old.owner_user_id, owner_user_id):
                 # 与 get_session 同形:别人的会话在这里同样"不存在"
                 return None
+            # 重建前先把旧登记抄下来:新 tab 必须**沿用同一作用域**(属主 + 会话态),
+            # 否则一次风控墙重建就把 A 会话的 tab 变成未登记/换了归属的 tab。
+            old_registration = self._tab_registry.get(session_id)
             url = await old.get_current_url()
             vp = old.viewport
             await self._close_session_internal(session_id)
@@ -1015,6 +1153,11 @@ class BrowserHub:
                 owner_user_id=old.owner_user_id,
             )
             self._sessions[new_id] = session
+            self._register_tab(
+                new_id,
+                old.owner_user_id,
+                old_registration.chat_session_id if old_registration else None,
+            )
             if url:
                 import time as _time
                 self._recent_creations[url] = (new_id, _time.monotonic())
@@ -1029,6 +1172,10 @@ class BrowserHub:
         返回 None 而不是抛 403:与 session_store / 引擎那几处同一条口径 —— 别人的会话
         与"不存在"必须同码同形,否则这个端点就成了"探测别人的 session_id 是否存在"的
         预言机(session_id 是 uuid4,但内部链路会把它们回显到日志与前端状态里)。
+
+        注意:这是**读取/内部链路**的出口(扫码登录轮询、发布风控工厂等)。浏览器动作
+        一律走 `require_tab` —— 那里才判"点名的这一枚 tab 是否已登记、登记的作用域是否
+        就是调用方的作用域"。用 get_session 做动作面 = 只到 user 级(gap#3 的病灶)。
         """
         session = self._sessions.get(session_id)
         if session is None:
@@ -1037,9 +1184,74 @@ class BrowserHub:
             return None
         return session
 
+    # ---- tab 级作用域(gap#3)----
+    def _register_tab(
+        self, tab_id: str, owner_user_id: str | None, chat_session_id: str | None
+    ) -> BrowserTabRegistration:
+        """创建即盖章:把承载层给出的作用域记进登记表(同 tab 重复登记 = 覆盖)。"""
+        registration = BrowserTabRegistration(
+            tab_id=tab_id,
+            owner_user_id=_scope_text(owner_user_id),
+            chat_session_id=_scope_text(chat_session_id),
+            registered_at=time.monotonic(),
+        )
+        self._tab_registry[tab_id] = registration
+        return registration
+
+    def tab_registration(self, tab_id: str) -> BrowserTabRegistration | None:
+        """登记表只读出口(诊断/测试用;作用域判定请走 `require_tab`)。"""
+        return self._tab_registry.get(tab_id)
+
+    def require_tab(self, scope: BrowserTabScope) -> BrowserSession:
+        """动作面唯一的取 tab 出口:命中**已登记**的这一枚 tab 才放行。
+
+        判序(每一步不过 ⇒ `BrowserTabScopeError` 具名拒因,绝不回退到 user 级):
+          1. `tab_id` 缺位 ⇒ `missing_tab_scope` —— "帮我点一下"这类没有点名 tab 的动作
+             不接受,因为隐式解析"该用户的当前 tab"就是把边界重新降回 user 级;
+          2. 登记表里没有 ⇒ `unknown_tab` —— 只在 `_sessions` 里、账上没登记的会话(旁路
+             写入/已关闭的残留)对动作面一律不存在;
+          3. 严格属主档下:调用方主体缺位 ⇒ `unverified_caller`(系统级放行不得从动作面
+             进来),登记属主缺位或与之不等 ⇒ `tab_owner_mismatch`;非严格档回落到
+             `_same_owner` 的既有三态(仍要求已登记);
+          4. 调用方声明了会话态 ⇒ 必须与登记值逐字相等,否则 `tab_session_mismatch`
+             (登记缺失而调用方声明了会话态同样是不匹配,不当成"通过");
+          5. 登记与存续同轮核对:账上有、`_sessions` 里没有 ⇒ 摘账并按 `unknown_tab` 拒。
+        """
+        tab_id = scope.normalized_tab_id
+        if tab_id is None:
+            raise BrowserTabScopeError(TAB_SCOPE_MISSING)
+        registration = self._tab_registry.get(tab_id)
+        if registration is None:
+            raise BrowserTabScopeError(TAB_SCOPE_UNKNOWN, tab_id)
+        caller = scope.normalized_owner
+        if scope.strict_browser_owner:
+            if caller is None:
+                raise BrowserTabScopeError(TAB_SCOPE_UNVERIFIED_CALLER, tab_id)
+            if registration.owner_user_id is None or registration.owner_user_id != caller:
+                # 跨属主与"没盖章"在这里同形:都是"这一枚 tab 不是你的"
+                raise BrowserTabScopeError(TAB_SCOPE_OWNER_MISMATCH, tab_id)
+        elif not _same_owner(registration.owner_user_id, caller):
+            raise BrowserTabScopeError(TAB_SCOPE_OWNER_MISMATCH, tab_id)
+        declared_session = scope.normalized_chat_session
+        if declared_session is not None and registration.chat_session_id != declared_session:
+            raise BrowserTabScopeError(TAB_SCOPE_SESSION_MISMATCH, tab_id)
+        session = self._sessions.get(tab_id)
+        if session is None:
+            self._tab_registry.pop(tab_id, None)
+            raise BrowserTabScopeError(TAB_SCOPE_UNKNOWN, tab_id)
+        return session
+
+    async def close_tab(self, scope: BrowserTabScope) -> bool:
+        """按作用域关闭这一枚 tab:先过 `require_tab`,再走既有内部关闭出口。"""
+        session = self.require_tab(scope)
+        return await self._close_session_internal(session.session_id)
+
     # ---- 外部 Chrome 扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实 profile)----
     async def launch_external_chrome(
-        self, url: str, owner_user_id: str | None = None
+        self,
+        url: str,
+        owner_user_id: str | None = None,
+        chat_session_id: str | None = None,
     ) -> tuple[BrowserSession, dict[str, Any]]:
         """用"用户自己的浏览器"打开 URL,并通过 CDP 附着,注册为 hub session。
 
@@ -1130,6 +1342,7 @@ class BrowserHub:
             owner_user_id=owner_user_id,
         )
         self._sessions[session_id] = session
+        self._register_tab(session_id, owner_user_id, chat_session_id)
         self._external_procs[session_id] = (proc, ext_browser, profile_dir)
         meta: dict[str, Any] = {
             "browser": browser.name,
@@ -1273,6 +1486,10 @@ class BrowserHub:
         session = self._sessions.pop(session_id, None)
         if not session:
             return False
+        # 摘账:登记与存续同生命周期。留着一条已关 tab 的登记 = 作用域判定会先"命中"
+        # 一枚不存在的 tab(require_tab 的第 5 步会兜住并摘掉,但那条路径是异常残留,
+        # 不能当常规回收口)。
+        self._tab_registry.pop(session_id, None)
         # 清理幂等去重表中引用此会话的条目
         stale_urls = [
             u for u, (sid, _) in self._recent_creations.items() if sid == session_id

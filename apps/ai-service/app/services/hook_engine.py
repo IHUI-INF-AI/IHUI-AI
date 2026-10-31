@@ -1188,7 +1188,23 @@ class HookEngine:
         if _SENSITIVE_RE.search(command):
             return None, "script 命令包含敏感模式,被安全策略拒绝"
         # 注入环境变量(只读 context)
-        env = os.environ.copy()
+        # 2026-10-31 安全强化第 14 批:此前是 os.environ.copy() —— hook 脚本由用户配置,
+        # 完整继承等于把 provider API key / JWT_SECRET / 内部共享密钥交给脚本。
+        # 判据取 core/exec_env 六步构造器单源(CORE 白名单 + KEY/SECRET/TOKEN 形名排除),
+        # 与 generate_test / task_executors 同档。
+        from app.core.exec_env import (
+            ShellEnvironmentPolicy,
+            ShellEnvironmentPolicyInherit,
+            populate_env,
+        )
+
+        env = populate_env(
+            list(os.environ.items()),
+            ShellEnvironmentPolicy(
+                inherit=ShellEnvironmentPolicyInherit.CORE,
+                ignore_default_excludes=False,
+            ),
+        )
         env["HOOK_EVENT"] = event
         env["HOOK_CONTEXT"] = json.dumps(context, ensure_ascii=False)
         # 沙箱目录
@@ -2021,7 +2037,12 @@ class HookEngine:
         return result
 
     async def instantiate_template(
-        self, template_id: str, overrides: dict[str, Any], owner_id: str | None = None
+        self,
+        template_id: str,
+        overrides: dict[str, Any],
+        owner_id: str | None = None,
+        *,
+        allow_script: bool = True,
     ) -> dict[str, Any]:
         """用模板创建 hook(overrides 覆盖 url/command 等)。
 
@@ -2049,6 +2070,11 @@ class HookEngine:
         if "config" in overrides and isinstance(overrides["config"], dict):
             payload.setdefault("action", {}).setdefault("config", {}).update(overrides["config"])
         # 创建 hook
+        # 2026-10-31 安全强化第 14 批:模板/overrides 都可能带 script 动作(以服务账号执行
+        # `sh -c`)。是否允许由调用方按角色决定(路由层传 allow_script=_is_admin),
+        # 禁止在创建之后再回滚 —— 检查必须排在 create_hook 之前。
+        if not allow_script and (payload.get("action") or {}).get("type") == "script":
+            return {"error": "script 动作仅管理员可创建"}
         return self.create_hook(payload, owner_id=owner_id)
 
     # ===== 5. 健康预测 =====

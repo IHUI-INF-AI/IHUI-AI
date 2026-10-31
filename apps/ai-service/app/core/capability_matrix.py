@@ -173,8 +173,13 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "default": "false",
         "category": "开关类",
         "owner_module": "app.services.agent_loop_v2",
-        "doc_ref": "app/services/agent_loop_v2.py:349",
-        "reason_if_off": "跨会话接力默认关,显式开启后生效",
+        "doc_ref": "app/services/agent_loop_v2.py:_team_relay_enabled_from_env",
+        "reason_if_off": (
+            "默认关 = 与现状逐零差异;放量射程已核:开关开时仍需显式 team_context 或黑板 "
+            "team.relay.summary 才注入,无团队上下文的普通 run 不受影响。放量必须改 "
+            "agent_loop_v2._team_relay_enabled_from_env 的字面默认(单改台账即与代码脱节),"
+            "本轮未改该文件,故 default 如实登记 false"
+        ),
     },
     {
         "key": "agent_self_healing",
@@ -683,6 +688,17 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "owner_module": "app.services.agent_engine",
         "doc_ref": "app/services/agent_engine.py:542",
         "reason_if_off": "file_watcher 事件门控默认关(对标 Codex 文件监视),显式开启后生效",
+    },
+    {
+        "key": "engine_editor_state",
+        "env": "ENGINE_EDITOR_STATE_ENABLED",
+        "default": "false",
+        "category": "门控类",
+        "owner_module": "app.services.context_engine",
+        "doc_ref": "app/services/context_engine.py:114",
+        "reason_if_off": "编辑器状态(活动文件/光标行/选区)参与 codebase 检索优先级默认关"
+        "(对标 Trae document_action/cursor_move);关闭时 _search_codebase 完全忽略该入参,"
+        "检索结果与新增前逐字节等价",
     },
     {
         "key": "mcp_elicitation_pause",

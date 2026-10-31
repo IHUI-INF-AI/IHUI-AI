@@ -34,9 +34,18 @@
  *   node scripts/e2e-local-supply.mjs --check [--base-url http://localhost:<本席端口>]
  *   node scripts/e2e-local-supply.mjs --run --base-url http://localhost:<本席端口> -- \
  *     e2e/chat-pane-same-conv-noninterfere.spec.ts --project=chromium --no-deps
+ *   node scripts/e2e-local-supply.mjs --stack --base-url=http://localhost:8877 -- \
+ *     e2e/perf-long-session.spec.ts --project=chromium --no-deps   # 一条命令起隔离栈并跑
  *   E2E_DATABASE_URL=postgres://user:pw@localhost:5432/ihui_e2e \
  *     node scripts/e2e-local-supply.mjs --provision-admin
- *   node scripts/e2e-local-supply.mjs --probe-login --api-url http://localhost:8802
+ *   node scripts/e2e-local-supply.mjs --probe-login --api-url http://localhost:8809
+ *
+ * 带值旗标两种写法都收(`--k=v` 与 `--k v`)。**隔离档的 host 必须写 localhost**:
+ * 端口≠8801 或 dist≠.next 时 dev 启动器把 `NEXT_PUBLIC_API_BASE_URL` 烘成
+ * `http://localhost:<端口>`,用 127.0.0.1 打开页面即跨源 ⇒ 每个 /api/* 都被 CORS 拦成
+ * net::ERR_FAILED(2026-10-31 实测,侧栏「加载失败」即此型)。`--stack` 直接拒收非
+ * localhost,并在起隔离 API 时把 `TURNSTILE_SECRET_KEY` 置空(与 CI 同形;键在则脚本登录
+ * 不带 turnstileToken 一律 403)。
  *
  * E2E_ADMIN_PASSWORD 有两档语义(不要混):
  *  - 只让模块加载过关:任意非空值即可 —— 全 route-mock 的 spec(如本票那枚)根本不发真登录;
@@ -46,8 +55,8 @@
  * 退出码:0 = 供给面齐备(或子进程 0)/ 1 = 子进程失败 / 2 = 未判定或供给面缺口(§0.3)
  */
 
-import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -199,34 +208,75 @@ export async function probeHttp(url, timeoutMs = 6000) {
   }
 }
 
+/**
+ * 取一个带值旗标的两种写法:`--k=v` 与 `--k v`。
+ *
+ * 2026-10-31 修复(本机实测):本文件头注与 `--help` 一直写的是 `--base-url <端口>` /
+ * `--api-url <origin>` 的空格形态,而 parseArgs 只认 `=` 形态 ⇒ 照文档敲的命令**必然**
+ * 打印「必须显式给 --base-url」并 exit 2。文档里跑不通的出路比不写更坏(§0.8),
+ * 故两种写法同源解析:先 `=` 形态,再取旗标后紧跟的那一格(不以 `--` 开头才算值)。
+ */
+export function flagValue(argv, name) {
+  const eq = argv.find((a) => a.startsWith(`${name}=`))
+  if (eq) return eq.slice(name.length + 1)
+  const i = argv.indexOf(name)
+  if (i < 0) return null
+  const next = argv[i + 1]
+  return next && !next.startsWith('--') ? next : null
+}
+
 export function parseArgs(argv) {
   const KNOWN = new Set([
     '--check',
     '--run',
     '--provision-admin',
     '--probe-login',
+    '--stack',
     '--help',
     '-h',
     '--base-url',
     '--api-url',
+    '--api-port',
+    '--db',
+    '--keep',
   ])
-  const opts = { mode: null, baseUrl: null, apiUrl: null, pwArgs: [], unknown: [] }
+  const opts = {
+    mode: null,
+    baseUrl: null,
+    apiUrl: null,
+    apiPort: null,
+    db: null,
+    keep: false,
+    pwArgs: [],
+    unknown: [],
+  }
   const rest = [...argv]
   if (rest.includes('--check')) opts.mode = 'check'
   if (rest.includes('--run')) opts.mode = 'run'
   if (rest.includes('--provision-admin')) opts.mode = 'provision'
   if (rest.includes('--probe-login')) opts.mode = 'probe'
+  if (rest.includes('--stack')) opts.mode = 'stack'
   if (rest.includes('--help') || rest.includes('-h')) opts.mode = 'help'
-  const bu = rest.find((a) => a.startsWith('--base-url='))
-  if (bu) opts.baseUrl = bu.slice('--base-url='.length)
-  const au = rest.find((a) => a.startsWith('--api-url='))
-  if (au) opts.apiUrl = au.slice('--api-url='.length)
+  opts.baseUrl = flagValue(rest, '--base-url')
+  opts.apiUrl = flagValue(rest, '--api-url')
+  const ap = flagValue(rest, '--api-port')
+  opts.apiPort = ap ? Number(ap) : null
+  opts.db = flagValue(rest, '--db')
+  opts.keep = rest.includes('--keep')
   const split = rest.indexOf('--')
   const head = split >= 0 ? rest.slice(0, split) : rest
   opts.pwArgs = split >= 0 ? rest.slice(split + 1) : []
   // `--` 之前的未知旗标一律点名(静默吞掉会让人以为自己在带条件跑,实际跑的是裸档)。
-  // 比旗标名时先剥 `=值`,否则 `--base-url=…` 会被自己的闸误报成未知旗标。
-  opts.unknown = head.filter((a) => a.startsWith('--') && !KNOWN.has(a.split('=')[0]) && a !== '--')
+  // 比旗标名时先剥 `=值`,否则 `--base-url=…` 会被自己的闸误报成未知旗标;
+  // 空格形态的**值**(紧跟在已知带值旗标后、不以 `--` 开头)也不是旗标,一并排除。
+  const valuePositions = new Set()
+  for (const name of ['--base-url', '--api-url', '--api-port', '--db']) {
+    const i = head.indexOf(name)
+    if (i >= 0 && head[i + 1] && !head[i + 1].startsWith('--')) valuePositions.add(i + 1)
+  }
+  opts.unknown = head.filter((a, i) => {
+    return a.startsWith('--') && !KNOWN.has(a.split('=')[0]) && a !== '--' && !valuePositions.has(i)
+  })
   return opts
 }
 
@@ -271,6 +321,203 @@ function printSupplyFace(env, file, fileValues, baseUrl) {
     console.log(`\n  web 供给面:${baseUrl}`)
   }
   return missing
+}
+
+/**
+ * 隔离栈模式(`--stack`):把"本席 API(独立库)+ 本席 web(独立端口/构建目录)+ 跑 spec"
+ * 收成一条命令。2026-10-31 立,依据是当次实跑踩到的三处**手册层面**的坑(每一处都让
+ * 上一位人肉照做的席位白跑一轮):
+ *
+ *  ① **host 必须一致**:隔离档(端口≠8801 或 dist≠.next)下,`dev-with-warmup.mjs` 会把
+ *     `NEXT_PUBLIC_API_BASE_URL` 烘成 `http://localhost:<port>`。若 Playwright 用
+ *     `http://127.0.0.1:<port>` 打开页面,页面的每一次 `/api/*` 都是**跨源**请求
+ *     (localhost 与 127.0.0.1 是两个 registrable host),被 CORS 拦成 net::ERR_FAILED
+ *     ⇒ 侧栏「加载失败」、登录态看似在但全站 500 级空转。故本模式只接受 localhost。
+ *  ② **人机验证**:`apps/api/.env` 若配了 `TURNSTILE_SECRET_KEY`,登录钩子对"不带
+ *     turnstileToken 的脚本请求"一律 403(人机验证失败)。CI 没有这个键,脚本登录才走得通;
+ *     本模式给隔离 API 进程显式置空该键(= 与 CI 同形),不碰任何生产/共享进程。
+ *  ③ **库要从哪来**:隔离 API 的 DSN = `apps/api/.env` 的 DATABASE_URL **换库名**
+ *     (`--db`,默认 ihui_e2e),口令段不在命令行出现、也不回显(sanitizeDsn)。
+ *     目标库必须是本机回环且非 8810(判据 import db-probe-client,不另写一份)。
+ *
+ * 退出码沿用本文件:0 = 子进程绿 / 1 = 子进程失败 / 2 = 未判定或供给面缺口。
+ */
+function spawnLogged(cmd, args, opts, logFile) {
+  mkdirSync(path.dirname(logFile), { recursive: true })
+  const fd = openSync(logFile, 'a')
+  const child = spawn(cmd, args, { ...opts, stdio: ['ignore', fd, fd], windowsHide: true })
+  child.on('error', () => closeSync(fd))
+  return child
+}
+
+/** 进程树收口:Windows 用 taskkill /T(否则 next dev 的孙子进程会留在端口上) */
+function stopTree(child) {
+  if (!child || child.exitCode !== null) return
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+  } else {
+    try {
+      process.kill(child.pid, 'SIGTERM')
+    } catch {
+      /* 已退出 */
+    }
+  }
+}
+
+/** 轮询直到 cond() 为真或超时;返回 true/false(不吞异常,异常按"未就绪"处理) */
+async function waitUntil(cond, timeoutMs, intervalMs = 1500) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      if (await cond()) return true
+    } catch {
+      /* 未就绪,继续等 */
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  return false
+}
+
+function readApiEnvDsn() {
+  try {
+    const text = readFileSync(path.join(ROOT, 'apps', 'api', '.env'), 'utf8')
+    const m = /^\s*DATABASE_URL\s*=\s*(.+?)\s*$/m.exec(text)
+    return m ? m[1] : null
+  } catch {
+    return null
+  }
+}
+
+/** 只换库名,口令/host/参数原样保留(不把 DSN 拆开再拼,拼错就是另一个库) */
+export function swapDbName(dsn, db) {
+  const u = new URL(dsn)
+  u.pathname = `/${db}`
+  return u.toString()
+}
+
+async function modeStack(env, opts) {
+  if (!opts.baseUrl) {
+    console.error(
+      '✗ --stack 必须显式给 --base-url=http://localhost:<本席端口>(web 端口由此取)。',
+    )
+    return 2
+  }
+  let u
+  try {
+    u = new URL(opts.baseUrl)
+  } catch {
+    console.error(`✗ --base-url 不是合法 URL:${opts.baseUrl}`)
+    return 2
+  }
+  // 坑①:隔离档的 NEXT_PUBLIC_API_BASE_URL 烘的是 localhost,页面也必须用 localhost 打开。
+  if (u.hostname !== 'localhost') {
+    console.error(
+      `✗ --stack 只接受 http://localhost:<端口>(收到 ${u.hostname})。\n` +
+        '  原因:隔离档 dev 启动器把浏览器 API 基址烘成 http://localhost:<端口>;用 127.0.0.1 打开\n' +
+        '  页面时两者的每一次 /api/* 都是跨源请求,CORS 会把它拦成 net::ERR_FAILED。',
+    )
+    return 2
+  }
+  const webPort = Number(u.port || 80)
+  const apiPort = Number(opts.apiPort ?? 8809)
+  const db = opts.db ?? 'ihui_e2e'
+  const dist = `.next-e2e-${webPort}`
+
+  if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535) {
+    console.error(`✗ --api-port 非法:${opts.apiPort}`)
+    return 2
+  }
+  const baseDsn = readApiEnvDsn()
+  if (!baseDsn) {
+    console.error('✗ 取不到 apps/api/.env 的 DATABASE_URL ⇒ 无法派生隔离库 DSN(未判定)。')
+    return 2
+  }
+  const dsn = swapDbName(baseDsn, db)
+  const guard = guardDbDsn(dsn)
+  if (!guard.ok) {
+    console.error(`✗ 隔离库 DSN 被拒:${guard.why}(判据 import db-probe-client)`)
+    return 2
+  }
+  // 端口已被占用 ⇒ 拒绝:那可能是别席的服务,拿它跑 e2e 失败不可归因。
+  for (const [label, url] of [
+    ['web', opts.baseUrl],
+    ['api', `http://127.0.0.1:${apiPort}`],
+  ]) {
+    const p = await probeHttp(url)
+    if (p.state === 'answered') {
+      console.error(
+        `✗ ${label} 端口已被占用(${url} 应答 HTTP ${p.status})⇒ 不抢别席的服务;换个端口再跑。`,
+      )
+      return 2
+    }
+  }
+
+  console.log(`\n隔离栈:api=http://127.0.0.1:${apiPort}(库 ${db})web=${opts.baseUrl}(dist ${dist})`)
+  console.log(`  db   ${sanitizeDsn(dsn)}(口令不回显)`)
+  const apiLog = path.join(ROOT, '.ihui-agent', 'tmp', 'e2e-stack', `api-${apiPort}.log`)
+  const webLog = path.join(ROOT, '.ihui-agent', 'tmp', 'e2e-stack', `web-${webPort}.log`)
+  const api = spawnLogged(
+    process.execPath,
+    ['--import', 'tsx', 'src/index.ts'],
+    {
+      cwd: path.join(ROOT, 'apps', 'api'),
+      env: {
+        ...env,
+        DATABASE_URL: dsn,
+        PORT: String(apiPort),
+        // 坑②:脚本登录不带 turnstileToken,键在即 403(CI 无该键,故此处与 CI 同形)
+        TURNSTILE_SECRET_KEY: '',
+      },
+    },
+    apiLog,
+  )
+  const web = spawnLogged(
+    process.execPath,
+    [path.join(ROOT, 'scripts', 'dev-with-warmup.mjs'), '--no-backend'],
+    {
+      cwd: ROOT,
+      env: {
+        ...env,
+        IHUI_DEV_PORT: String(webPort),
+        IHUI_BUILD_DIST: dist,
+        IHUI_API_PROXY_TARGET: `http://127.0.0.1:${apiPort}`,
+        // 坑①的对侧:显式钉住 localhost,不依赖启动器的默认推导
+        NEXT_PUBLIC_API_BASE_URL: `http://localhost:${webPort}`,
+      },
+    },
+    webLog,
+  )
+  try {
+    const apiOk = await waitUntil(async () => {
+      const p = await probeHttp(`http://127.0.0.1:${apiPort}/api/health`)
+      return p.state === 'answered' && p.status < 500
+    }, 180_000)
+    if (!apiOk) {
+      console.error(`✗ 隔离 API 180s 内未就绪 ⇒ 未判定。日志:${apiLog}`)
+      return 2
+    }
+    const webOk = await waitUntil(async () => {
+      const p = await probeHttp(opts.baseUrl)
+      return p.state === 'answered'
+    }, 300_000)
+    if (!webOk) {
+      console.error(`✗ 隔离 web 300s 内未就绪 ⇒ 未判定。日志:${webLog}`)
+      return 2
+    }
+    console.log('  两侧已就绪;开始跑 spec\n')
+    return await modeRun(env, opts)
+  } finally {
+    if (opts.keep) {
+      console.log(`  --keep:两侧保持运行(api pid=${api.pid} web pid=${web.pid})`)
+    } else {
+      stopTree(web)
+      stopTree(api)
+      console.log('  隔离栈已收口')
+    }
+  }
 }
 
 async function modeCheck(env, opts) {
@@ -451,7 +698,9 @@ async function modeProvision(env) {
 export async function main(argv = process.argv.slice(2)) {
   const opts = parseArgs(argv)
   if (!opts.mode) {
-    console.error('✗ 未给模式(--check | --run | --provision-admin | --probe-login),不猜你要哪个。')
+    console.error(
+      '✗ 未给模式(--check | --run | --stack | --provision-admin | --probe-login),不猜你要哪个。',
+    )
     return 2
   }
   if (opts.mode === 'help') {
@@ -459,16 +708,19 @@ export async function main(argv = process.argv.slice(2)) {
       [
         'node scripts/e2e-local-supply.mjs --check [--base-url http://localhost:<本席端口>]',
         'node scripts/e2e-local-supply.mjs --run --base-url http://localhost:<本席端口> -- <spec 路径> [playwright 参数…]',
+        'node scripts/e2e-local-supply.mjs --stack --base-url=http://localhost:<本席端口> [--api-port=8809] [--db=ihui_e2e] [--keep] -- <spec 路径> [playwright 参数…]',
         'E2E_DATABASE_URL=postgres://…/ihui_e2e node scripts/e2e-local-supply.mjs --provision-admin',
         'node scripts/e2e-local-supply.mjs --probe-login --api-url http://localhost:<带 /api 反代的 origin>',
         '',
         '(--api-url 只用于拼 <origin>/api/auth/login 探一次登录,与 fixtures.ts 同一条腿;发第二次就不是探测了)',
+        '(--stack 自带起/停隔离 API+web:独立库(--db)、独立端口、独立 dist;跑完自动收口,--keep 可保留)',
       ].join('\n'),
     )
     return 0
   }
   if (opts.mode === 'check') return modeCheck(process.env, opts)
   if (opts.mode === 'run') return modeRun(process.env, opts)
+  if (opts.mode === 'stack') return modeStack(process.env, opts)
   if (opts.mode === 'probe') return modeProbeLogin(process.env, opts)
   return modeProvision(process.env)
 }
@@ -507,6 +759,8 @@ export const __test__ = {
   probeLogin,
   buildChildEnv,
   parseArgs,
+  flagValue,
+  swapDbName,
   spawnPackageManager,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

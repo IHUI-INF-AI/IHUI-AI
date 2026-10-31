@@ -193,6 +193,8 @@ interface UsageData {
 interface AccountRow {
   id: string
   providerCode: string
+  /** 归属用户 id;null = 运营池(全局)—— 名称列的"个人池"徽章判据 */
+  ownerUserId: string | null
   uid: string | null
   name: string
   deviceId: string | null
@@ -546,6 +548,8 @@ export default function AdminRelayAccountPoolPage() {
   const [health, setHealth] = React.useState<'all' | 'unknown' | 'healthy' | 'degraded' | 'down'>(
     'all',
   )
+  // 归属(2026-10-31 机主令:admin 管理页要有"我的个人池"视图):ops=运营池(存量默认) me=我的个人池 all=全部
+  const [owner, setOwner] = React.useState<'ops' | 'me' | 'all'>('ops')
   const [importOpen, setImportOpen] = React.useState(false)
   // 一键重登(2026-10-27 第 3 格):进行中的账号 id + 阶段;null = 空闲。
   // 能力登记在 @/lib/relay-web-login(单一源);trae/workbuddy 有实证链,其余明示未判定。
@@ -623,8 +627,9 @@ export default function AdminRelayAccountPoolPage() {
     if (provider) p.set('provider', provider)
     if (enabled !== 'all') p.set('enabled', enabled)
     if (health !== 'all') p.set('health', health)
+    p.set('owner', owner)
     return p.toString()
-  }, [page, search, provider, enabled, health])
+  }, [page, search, provider, enabled, health, owner])
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin', 'relay', 'account-pool', qs],
@@ -1371,6 +1376,22 @@ export default function AdminRelayAccountPoolPage() {
                 <SelectItem value="down">异常</SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              value={owner}
+              onValueChange={(v) => {
+                setPage(1)
+                setOwner(v as typeof owner)
+              }}
+            >
+              <SelectTrigger className={selectClass} aria-label="归属">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ops">运营池</SelectItem>
+                <SelectItem value="me">我的个人池</SelectItem>
+                <SelectItem value="all">全部归属</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {selectedIds.length > 0 && (
@@ -1501,6 +1522,11 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap items-center gap-1 font-medium">
                               {k.name}
+                              {k.ownerUserId && (
+                                <span className="whitespace-nowrap rounded-md bg-sky-500/10 px-1.5 py-0.5 text-xs font-normal text-sky-600 dark:text-sky-400">
+                                  个人池
+                                </span>
+                              )}
                               {k.expiresSoon === true && (
                                 <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
                                   即将过期
