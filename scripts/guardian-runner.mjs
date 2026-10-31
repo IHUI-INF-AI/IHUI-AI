@@ -6657,6 +6657,33 @@ const checks = [
       '     禁止为消红把门降档或往数组里塞无关值(那是锯尺子,§12e)。',
     ],
   },
+  // 编号 277:注册前已核本文件与 HEAD 面 `id: '277'` 均为 0(现读最大 276);现值以本文件为准
+  // (撞号由门 89 R5/R13 反查)。立因(G-21 半腿,2026-11-01,逆向-复现-超越 §0.11):
+  // 对照程序把插件包逐文件 sha256 内联进 manifest,本仓记录面只有"装过哪一代"(name/version/sha),
+  // 没有任何尺子能回答"盘上那份副本还是不是当时那批字节"。写侧已在
+  // apps/cli/src/plugins/installer.ts 的 InstallRecord.fileDigests 落逐文件摘要,本门是读侧对账。
+  // 档位 = warn(§12e 恒红门禁令):判的是**机器装机态**(~/.ihui/installed-plugins/),
+  // ① 接线前的存量记录结构上拿不到 fileDigests ⇒ 恒落 unjudged/pending;② 用户机没装插件也是
+  // 恒 unjudged。这两格都不是提交者能用一次 commit 满足的,接成 blocking 即每台每次被逼
+  // --no-verify、连带整条守门作废。升 blocking 的前置 = 存量 pending 归零。
+  // 差值棘轮在门体内(--baseline <file>):漂移分"新增 vs 存量",不给基线时 new=null(不拿 0 冒充"无新增")。
+  {
+    id: '277',
+    label:
+      '🔐 已装插件逐文件完整性对账(warn 差值棘轮;台账=InstallRecord.fileDigests ↔ 装机盘上三态 ok/drift/unjudged,drift 三类分开点名,不跟随符号链接/junction)',
+    script: 'check-plugin-manifest-integrity.mjs',
+    args: [],
+    mode: 'warn',
+    stagedTriggers: ['apps/cli/src/plugins/'],
+    onFailHint: [
+      '  💡 红/警的意思是:已装插件目录的逐文件摘要与安装那一刻的台账不一致(或台账/装机面取不到)。',
+      '     ① 看清单:node scripts/check-plugin-manifest-integrity.mjs(三态逐条点名);',
+      '     ② 三类漂移分开的:mismatch(内容有变)/ missing(被删)/ unlisted(未登记混入);',
+      '        unjudged 里的 pending = 接线前写的老记录,既不判 ok 也不判篡改,重装即补上台账;',
+      '     ③ 判据本体:node scripts/check-plugin-manifest-integrity.mjs --self-test。',
+      '     本门只读:绝不自愈、绝不重装、绝不写盘 —— 处置权在人,不在尺子(§5e-1)。',
+    ],
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

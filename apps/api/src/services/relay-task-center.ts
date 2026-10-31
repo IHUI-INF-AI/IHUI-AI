@@ -21,6 +21,19 @@
  * - guardian/schtasks:读 tick JSON(relay-capacity-dispatch-last.json 的 attemptAt /
  *   credential-health-last.json 的 ts+fail);api 进程读不到 ⇒ indeterminate
  *   (部署形态 api 与 guardian 可能不同机,如实不猜)。
+ *   **心跳在位 ≠ 执行成功(2026-11-01 立,与"HTTP 200 当可调度"同族的最后一格假绿)**:
+ *   guardian 侧 `stampDispatchTick`(git-guardian.mjs)把 attemptAt 写在**派发之前**,
+ *   执行结论(stdout JSON)不回写 tick ⇒ 该文件结构上没有结果字段,旧口径的
+ *   `lastRunOk:true + '派发成功'` 是拿"没人告诉我失败"冒"成功了"。新口径分栏:
+ *   ① 器物自述了结果才判成败——现读两个 tick 文件,唯一的结果自述键是
+ *   credential-health-last.json 的 `fail`(check-credential-health.mjs:1810 起,
+ *   `fail = results.filter(level==='fail').length`,数值);`fail=0` ⇒ 本轮通过 true,
+ *   `fail>0` ⇒ false 并点名条数。其余形态(`state:'dispatched'` 是**派发态**不是执行结果,
+ *   来自同文件 window-busy/undetermined 分支,不采信为结果)一律视为"没自述"。
+ *   ② 没自述 ⇒ lastRunOk=null,detail 明写"未判定,不代表跑成功"(§0.3 不记绿)。
+ *   ③ stale 档:心跳超出该器物自身节律的 3 个周期 ⇒ 点名"心跳疑似停摆";节律出处
+ *   逐条写在注册表 `beatMs` 注释里(容量哨兵 = RELAY_CAPACITY_INTERVAL_MS 默认 5 分钟,
+ *   凭据巡检 = schtasks /SC HOURLY /MO 6 即 6 小时),推不出节律的项 beatMs 缺省 ⇒ 不判。
  * - apscheduler(ai-service):GET {AI_SERVICE_URL}/api/checkin/scheduler/status
  *   (Phase1c 只读端点)。三态口径(2026-10-31 立,治两处假信号):
  *   ① running 只认响应体里的 `started`(端点可达 ≠ job 在跑,HTTP 200 不是结论);
@@ -66,6 +79,11 @@ export interface RelayTaskDef {
   tickFile?: string
   /** guardian/schtasks:tick JSON 里时间戳字段名 */
   tickAtField?: string
+  /**
+   * guardian/schtasks:该器物的节律周期(ms),stale 判定的唯一阈值出处。
+   * 只准写从器物注册处量出来的值(见两条登记项各自注释);推不出节律 ⇒ 缺省不判 stale。
+   */
+  beatMs?: number
   /** apscheduler:ai-service 状态端点路径 */
   statusUrlPath?: string
 }
@@ -153,6 +171,11 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     schedule: '每 2 分钟守护轮 + 5 分钟节流',
     tickFile: '.ihui-agent/state/relay-capacity-dispatch-last.json',
     tickAtField: 'attemptAt',
+    // 节律出处:git-guardian.mjs 的 RELAY_CAPACITY_INTERVAL_MS
+    // = Number(process.env.IHUI_RELAY_CAPACITY_INTERVAL_MS || 5*60*1000),即 note 里
+    // "guardian 每 5 分钟自动派发"的同一枚值。注意该文件由 stampDispatchTick 在
+    // **派发前**写 attemptAt、执行结论不回写 ⇒ 结构上没有结果字段,恒走"未判定"分栏。
+    beatMs: 5 * 60 * 1000,
     triggerable: false,
     note: '出路:node scripts/check-relay-capacity-zero.mjs --json(guardian 每 5 分钟自动派发)',
   },
@@ -163,6 +186,10 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     schedule: '每 6 小时(guardian 看门狗 18h 心跳兜底)',
     tickFile: '.ihui-agent/state/credential-health-last.json',
     tickAtField: 'ts',
+    // 节律出处:check-credential-health.mjs installTask() 的 schtasks
+    // /SC HOURLY /MO 6(= 每 6 小时),与 schedule 文案同源。该 tick 由器物执行后经
+    // atomicWriteFileSync 落盘,带自述结果键 fail(numeric)⇒ 结果分栏有真实输入。
+    beatMs: 6 * 60 * 60 * 1000,
     triggerable: false,
     note: '出路:Windows 计划任务承载(--install 可重装);guardian 心跳超 18h 自动重装',
   },
@@ -349,16 +376,98 @@ export function judgeCheckinSchedulerStatus(raw: CheckinProbeRaw): CheckinStatus
   }
 }
 
+/**
+ * tick 载体(guardian/schtasks)的分栏判据:把"心跳在位"与"这一轮执行成功"拆开。
+ * 纯函数、零 IO(§22c:测试 import 这一份,不在测试里复算)。
+ *
+ * 结论面三档:
+ * - 文件读不到 / 时刻字段读不到或不是可解析时刻 ⇒ sourceOk:false(既有 indeterminate 路径,不变);
+ * - 时刻在位、器物**自述了执行结果**(现读两枚 tick,唯一合法结果键 = `fail` 数值,
+ *   语义见文件头注;`state:'dispatched'` 是派发态不是结果,不采信)⇒ lastRunOk true/false;
+ * - 时刻在位但没自述结果 ⇒ lastRunOk:**null**,detail 明写"未判定,不代表跑成功"
+ *   (§0.3:取不到输入不记绿——旧口径的 `lastRunOk:true` 就是把"没人告诉我失败"说成"成功了")。
+ *
+ * stale:心跳超过 `beatMs × STALE_BEAT_TOLERANCE` ⇒ 点名"心跳疑似停摆"。beatMs 未登记
+ * (推不出器物自身节律)⇒ 不判这一档,不造判据没有的档位。容差取 3 拍是设计值并在
+ * 头注明写:心跳戳写在派发前,单拍偏旧区分不出"未到点"与"被跳过",连缺 2 拍仍只报在位。
+ */
+export const STALE_BEAT_TOLERANCE = 3
+
+export interface TickRunJudgement {
+  /** 登记处/心跳文件在不在(原 sourceOk 语义,不放宽) */
+  sourceOk: boolean
+  /** 心跳时刻原值(= 定义里 tickAtField 指的那枚;读不到为 null) */
+  lastRunAt: string | null
+  /** 这一轮执行成功与否:器物没自述 ⇒ null(未判定),不等于 true 也不等于 false */
+  lastRunOk: boolean | null
+  lastRunDetail: string | null
+  /** 心跳疑似停摆(仅当登记了 beatMs 且超阈值;时刻读不到时 false,由 sourceOk 那栏点名) */
+  stale: boolean
+}
+
+export function judgeTickCarrierRun(
+  raw: Record<string, unknown> | null,
+  opts: {
+    atField: string
+    /** 进 detail 的载体名('guardian 派发' / '计划任务') */
+    carrierLabel: string
+    beatMs: number | null | undefined
+    nowMs: number
+  },
+): TickRunJudgement {
+  const at = raw ? strOf(raw[opts.atField]) : null
+  const atMs = at ? Date.parse(at) : NaN
+  if (!raw || !at || !Number.isFinite(atMs)) {
+    // 文件在但时刻坏,与文件不在同栏:都算"心跳读不到",不冒任何结论
+    return { sourceOk: false, lastRunAt: null, lastRunOk: null, lastRunDetail: null, stale: false }
+  }
+
+  const stale =
+    typeof opts.beatMs === 'number' && Number.isFinite(opts.beatMs) && opts.beatMs > 0
+      ? opts.nowMs - atMs > opts.beatMs * STALE_BEAT_TOLERANCE
+      : false
+  const staleNote = stale
+    ? `心跳疑似停摆(距当次已 ${Math.max(0, Math.round((opts.nowMs - atMs) / 60000))} 分钟,超过 ${STALE_BEAT_TOLERANCE} 个节律周期):`
+    : ''
+
+  // 唯一自述结果键:`fail`(数值)。旧服务端/别族没有它 ⇒ 视同"没自述",不做通用猜测扫描
+  const failRaw = raw['fail']
+  const fail = typeof failRaw === 'number' && Number.isFinite(failRaw) ? failRaw : null
+  if (fail !== null) {
+    return {
+      sourceOk: true,
+      lastRunAt: at,
+      lastRunOk: fail === 0,
+      stale,
+      lastRunDetail:
+        (fail === 0
+          ? `${opts.carrierLabel}心跳在位,器物自述本轮 fail=0(巡检项全部通过)`
+          : `${opts.carrierLabel}心跳在位,器物自述本轮失败项 ${fail} 个 ⇒ 本轮结果判负(明细见 tick 的 results)`),
+    }
+  }
+  return {
+    sourceOk: true,
+    lastRunAt: at,
+    lastRunOk: null,
+    stale,
+    lastRunDetail: `${staleNote}心跳在位,但器物没自述执行结果 ⇒ 未判定,不代表跑成功(${opts.carrierLabel}侧时刻戳写在派发之前,只能证明"尝试过派发")`,
+  }
+}
+
 /** 单项任务的状态面(全部字段可为 null = 状态源没给出,如实不猜) */
 export interface RelayTaskState {
   id: string
   schedulable: boolean
-  /** 载体注册处是否还在( BullMQ scheduler 存在/tick 文件可读/ai-service 可达) */
+  /** 载体注册处是否还在( BullMQ scheduler 存在/tick 心跳文件+时刻可读/ai-service 状态源有结论) */
   sourceOk: boolean
   nextRunAt: string | null
+  /** tick 载体语义 = 心跳时刻原值(lastBeatAt);"执行成功"另走 lastRunOk 分栏,不混写 */
   lastRunAt: string | null
+  /** null = 未判定(状态源没自述结果);true/false 只在器物真的报告了本轮成败时才出现 */
   lastRunOk: boolean | null
   lastRunDetail: string | null
+  /** 心跳在位但超节律阈值(仅 tick 载体,且定义登记了 beatMs;其余恒 false) */
+  lastRunStale: boolean
   /** 状态源读不到时的原因(§0.3 未判定点名);判过并判成"门关"不算未判定,不写这里 */
   indeterminateReason: string | null
   /** 读到了结论且结论是"门关":点名的闸门 env 键与出路(2026-10-31 立,与未判定分栏显示) */
@@ -374,7 +483,11 @@ export interface TaskProbeDeps {
     queue: string,
     jobName: string,
   ): Promise<{ at: number; ok: boolean; detail: string | null } | null>
-  readTickJson(relPath: string, atField: string): Promise<string | null>
+  /**
+   * tick 载体:读整枚 JSON 对象(2026-11-01 起不再只抠时刻——分栏要"执行结果"这一维,
+   * 时刻与结果必须来自**同一枚**被审文件)。null = 读不到/不是对象,由判据归 sourceOk:false。
+   */
+  readTickJson(relPath: string): Promise<Record<string, unknown> | null>
   /** null = 状态源压根没给结论(与"结论是未判定"分两栏,§0.3) */
   fetchCheckinStatus(baseUrl: string): Promise<CheckinStatusResult | null>
 }
@@ -417,11 +530,13 @@ export function defaultProbeDeps(makeQueue: (queue: string) => BullMQLike | null
         return null
       }
     },
-    async readTickJson(relPath, atField) {
+    async readTickJson(relPath) {
       try {
         const raw = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, relPath), 'utf8'))
-        const at = raw?.[atField]
-        return typeof at === 'string' ? at : null
+        // 只认 JSON 对象;数组/标量/坏文件一律读不到(不猜)
+        return raw !== null && typeof raw === 'object' && !Array.isArray(raw)
+          ? (raw as Record<string, unknown>)
+          : null
       } catch {
         return null
       }
@@ -504,6 +619,7 @@ export async function collectRelayTaskStates(
         lastRunAt: null,
         lastRunOk: null,
         lastRunDetail: null,
+        lastRunStale: false,
         indeterminateReason: null,
         disabledReason: null,
       }
@@ -529,14 +645,21 @@ export async function collectRelayTaskStates(
         }
       }
       if (def.carrier === 'guardian' || def.carrier === 'schtasks') {
-        const at = await deps.readTickJson(
-          (def as unknown as { tickFile: string }).tickFile,
-          (def as unknown as { tickAtField: string }).tickAtField,
-        )
-        if (!at) {
+        // 分栏诚实口径(2026-11-01 立):"心跳在位"与"这一轮执行成功"拆开判,
+        // 旧形态(读到时刻就 lastRunOk:true + '派发成功/心跳在位')是把"没人告诉我失败"
+        // 说成"成功了"——与刚修掉的"HTTP 200 当可调度"同族假绿,整条作废。
+        const raw = await deps.readTickJson(def.tickFile!)
+        const judged = judgeTickCarrierRun(raw, {
+          atField: def.tickAtField!,
+          carrierLabel: def.carrier === 'guardian' ? 'guardian 派发' : '计划任务',
+          beatMs: def.beatMs,
+          nowMs: Date.now(),
+        })
+        if (!judged.sourceOk) {
           return {
             ...def,
             ...base,
+            lastRunStale: judged.stale,
             indeterminateReason: 'tick 文件不可读(api 进程与守护可能不同机,或任务从未跑过)',
           }
         }
@@ -545,12 +668,12 @@ export async function collectRelayTaskStates(
           ...base,
           schedulable: true,
           sourceOk: true,
-          lastRunAt: at,
-          lastRunOk: true,
-          lastRunDetail:
-            def.carrier === 'guardian'
-              ? 'guardian 派发成功(执行结果见 guardian 日志)'
-              : '计划任务心跳在位',
+          lastRunAt: judged.lastRunAt,
+          lastRunOk: judged.lastRunOk,
+          lastRunDetail: judged.lastRunDetail,
+          lastRunStale: judged.stale,
+          // lastRunOk===null 是"器物没自述结果",状态源本身读到了 ⇒ 不占 indeterminateReason
+          // 栏(那栏专指"状态源读不到"),结论直接写在 detail 里明说未判定(§0.3 双向)
         }
       }
       // apscheduler:判据已在 judgeCheckinSchedulerStatus 里出结论,这里只按三态分派
@@ -658,5 +781,7 @@ export async function runRelayTaskById(
  */
 export const __test__ = {
   judgeCheckinSchedulerStatus,
+  judgeTickCarrierRun,
+  STALE_BEAT_TOLERANCE,
   GATE_HINT_BY_REASON,
 }
