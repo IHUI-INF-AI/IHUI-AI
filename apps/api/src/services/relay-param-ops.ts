@@ -17,6 +17,7 @@
  * 调用方:relay-channel-router.ts 在选定 key 后、转发前调用 applyParamOps。
  */
 import { logger } from '../utils/logger.js'
+import { hasNestedQuantifier } from './rules-service.js'
 // ReDoS 闸(2026-10-31 安全强化第 16 批):ops 配置来自管理面写入 DB,regex_replace
 // 在转发热路径每请求同步执行 —— 配置型正则的"存储型 ReDoS"放大面。长度常量与
 // webhooks-trigger/rules/workspace-ai 同口径(单源 = webhooks-trigger 导出)。
@@ -536,6 +537,16 @@ function applyOp(target: Record<string, unknown>, op: ParamOp, ctx: OpContext): 
             op: 'regex_replace',
             path: op.path,
             length: s.length,
+          })
+          return s
+        }
+        // 2026-11-01 安全强化:超长闸门挡不住 `(a+)+$` 这种 7 字符的病态模式;
+        // 规则由 relay 配置面作者写,被替换的字段却是外部形状 ⇒ 一枚短 pattern 即可钉住主线程。
+        // 判据复用 rules-service 的 `hasNestedQuantifier`(同一份实现,§0.6)。
+        if (hasNestedQuantifier(pattern)) {
+          logger.warn('relay-param-ops: regex pattern 含嵌套量词(指数回溯风险),跳过该 op', {
+            op: 'regex_replace',
+            path: op.path,
           })
           return s
         }
