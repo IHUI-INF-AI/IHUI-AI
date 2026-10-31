@@ -752,6 +752,9 @@ class RulesService {
       }
       case 'regex': {
         if (!rule.matchPattern) return false
+        // ReDoS 运行闸(2026-10-31 安全强化第 10 批,与 webhooks-trigger 同口径):
+        // 主线程同步正则,超长 pattern/超长被测值直接判不匹配,不给灾难性回溯机会
+        if (rule.matchPattern.length > 200 || message.length > 10 * 1024) return false
         try {
           return new RegExp(rule.matchPattern).test(message)
         } catch {

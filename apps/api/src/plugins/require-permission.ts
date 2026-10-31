@@ -15,8 +15,10 @@ import { getTotpStatus, type TotpBindingStatus } from '../services/totp-service.
 /**
  * 与 admin 路由一致：roleId >= 1 视为系统管理员，直接放行所有权限。
  * 与 users.roleId（legacy 数值角色）保持兼容，避免 admin 还需在 RBAC 表补登记。
+ * 2026-10-31 起导出:非 admin 路由面(如 sandbox danger 档收窄)复用同一常量,
+ * 禁止在别处再写第二份字面量 1。
  */
-const ADMIN_ROLE_ID = 1
+export const ADMIN_ROLE_ID = 1
 
 /**
  * 系统管理员判定所允许的**凭据通道**(O13b-③,2026-09-23)。
