@@ -477,6 +477,30 @@ export default defineContentScript({
     '*://pay.weixin.qq.com/*', // WeChat Pay
     '*://*.unionpay.com/*', // UnionPay
     '*://*.gov.cn/*', // government sites
+    // 2026-10-31 安全强化第 18 批(F2):排除表扩国际敏感站点 —— 原表只覆盖
+    // 中国站点,境外支付/邮箱/云控制台上选区文本同样会进入选区处理链路
+    '*://*.paypal.com/*', // PayPal
+    '*://*.stripe.com/*', // Stripe
+    '*://*.checkout.com/*', // Checkout.com
+    '*://*.wise.com/*', // Wise
+    '*://*.mail.google.com/*', // Gmail
+    '*://*.outlook.live.com/*', // Outlook Web
+    '*://*.outlook.office.com/*', // Outlook 365
+    '*://*.mail.yahoo.com/*', // Yahoo Mail
+    '*://*.proton.me/*', // Proton Mail
+    '*://*.icloud.com/*', // iCloud(含邮件/钥匙串相关页)
+    '*://*.amazon.com/*', // Amazon
+    '*://*.aws.amazon.com/*', // AWS 控制台
+    '*://*.console.cloud.google.com/*', // GCP 控制台
+    '*://*.portal.azure.com/*', // Azure 控制台
+    '*://*.login.microsoftonline.com/*', // Microsoft 登录
+    '*://*.accounts.google.com/*', // Google 登录
+    '*://*.appleid.apple.com/*', // Apple ID
+    '*://*.facebook.com/*', // Facebook(登录/会话页)
+    '*://*.instagram.com/*', // Instagram
+    '*://*.x.com/*', // X/Twitter
+    '*://*.twitter.com/*', // Twitter 旧域
+    '*://*.github.com/*', // GitHub(代码/令牌面)
     '*://*.12306.cn/*', // railway ticketing
     '*://*.chinatax.gov.cn/*', // taxation
   ],
