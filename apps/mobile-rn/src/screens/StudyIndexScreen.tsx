@@ -68,7 +68,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import type { StudyVideoItem } from '@ihui/types'
 
@@ -869,12 +869,12 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   gridCoverTitle: {
     flex: 1,
-    fontSize: 9,
+    fontSize: rnType.badge.size,
     fontWeight: '700',
     color: tk.surface.light,
   } as TextStyle,
   gridCoverDate: {
-    fontSize: 9,
+    fontSize: rnType.badge.size,
     fontWeight: '700',
     color: tk.surface.light,
     marginLeft: rpx(8),
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     marginRight: rpx(4),
   } as ImageStyle,
   gridAuthor: {
-    fontSize: 9,
+    fontSize: rnType.caption.size,
     fontWeight: '700',
     color: tk.overlay.modal,
     flex: 1,
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   tipMyModel: {
     width: 72,
-    height: 28,
+    height: rnGeometry.tapBox,
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tk.brandAccent.deep,

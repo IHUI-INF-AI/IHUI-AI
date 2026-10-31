@@ -20,7 +20,7 @@ import { SearchInput } from '../../components/SearchInput'
 import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
 
@@ -380,8 +380,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     headerBackBtn: {
-      width: 32,
-      height: 32,
+      width: rnGeometry.tapBox,
+      height: rnGeometry.tapBox,
       alignItems: 'center',
       justifyContent: 'center',
     },

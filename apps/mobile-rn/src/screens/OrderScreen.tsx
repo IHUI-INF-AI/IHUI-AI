@@ -18,6 +18,17 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PAGE_SIZE = 20
 
 /**
+ * payAmount 的可显示取值:后端 `numeric(10,2)` 经 Drizzle 回来是字符串,并且可能整体缺失。
+ * `Number(null)` = 0 会把它渲染成「¥0.00」(屏幕上就是"免费"),`Number(undefined)` = NaN 会渲染成
+ * 「¥NaN」—— 两者都是把"没有金额"谎报成一个数。取不到可显示的数字一律落 `null`,由共享屏渲染 `—`。
+ */
+export function parsePayAmount(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
  * 对齐 Uniapp pages/user_order_list/index.vue(我的订单)的文案覆盖:
  * - order.title「我的订单」:mobile-rn zh-CN override 为「订单」,恢复 Uniapp 导航标题
  * - order.tab.shipped「待收货」:Uniapp tab3 待收货筛 status 1|2(已支付+已发货),
@@ -88,7 +99,9 @@ export function OrderScreen() {
           image: o.image ?? undefined,
           // payAmount 是 numeric(10,2),Drizzle 回来是**字符串**;共享屏按 `item.amount.toFixed(2)`
           // 渲染 ⇒ 只要账号下有一枚订单,首帧就抛 TypeError 整页白屏。web 侧一律 Number(...) 取值。
-          amount: Number(o.payAmount),
+          // 但 `Number(null)` = 0、`Number(undefined)` = NaN:前者把"没有金额"显示成「¥0.00」
+          // (屏幕上就是"免费"),后者把「¥NaN」直接上屏 ⇒ 取不到可显示的数字一律落 null(渲染 `—`)。
+          amount: parsePayAmount(o.payAmount),
           status: o.status,
           // Uniapp「下单时间:YYYY-MM-DD HH:mm」
           createdAt: formatOrderTime(o.createdAt),

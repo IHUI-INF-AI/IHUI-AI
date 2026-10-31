@@ -490,6 +490,86 @@
       "path": "apps/ai-service/tests/test_background_tasks_spawn.py",
       "reason": "与被裁的 apps/ai-service/app/core/background_tasks.py 同批、同因:该枚是它唯一的行为锁(实测 3 例:强引用登记防 fire-and-forget 任务被 GC 静默回收、完成后自摘不反向泄漏、无 running loop 抛 RuntimeError),由同一枚 f7d269568cf083f004c79dd464b12e0651f55163 逐字节补回(blob b5e43b5870,与被 9fdbc207ba2e 删掉的那份同一枚对象)。留它的理由是判据面而不是观感:守门 247 要求 spawn 为唯一出口,而没有这把行为锁时「强引用」这件事一旦被人改回裸 create_task 就无人响应(本仓在账的「蒸馏偶尔什么都没发生」「workflow 实例永逝」症状族正是该缺陷)。两侧内容已逐条读过。reviewBy 与上一条同步,随 9fdbc207ba 批量误删家族的整体对账复核。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/distribution/commission-overview.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 分销佣金总览分段;②无等价实现(消费方 apps/miniapp-taro/src/pages/distribution/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/exam/review-list.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 错题/复习列表页;②无等价实现(消费方 apps/miniapp-taro/src/app.config.ts(路由注册页,Taro 页面机制无 import) 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/exam/wrong-list/header.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 错题列表页头分段;②无等价实现(消费方 apps/miniapp-taro/src/app.config.ts(路由注册页) 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/setting/parts.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 设置页分段;②无等价实现(消费方 apps/miniapp-taro/src/app.config.ts(路由注册页) 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/share/components/ShareCard.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 分享卡片组件;②无等价实现(消费方 apps/miniapp-taro/src/pages/share/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-ai/aigc/publish-form.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 AIGC 发布表单分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/aigc/publish.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-ai/aigc/publish-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 AIGC 发布分段组;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/aigc/publish-form.tsx 与 publish.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/list-view.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 n8n 模型列表视图分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-learn/course/detail-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 课程详情分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-learn/course/detail.tsx 与 live/detail.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-learn/live/detail-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 直播详情分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-learn/live/detail.tsx 与 course/detail.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-shop/token/token-packages.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 Token 套餐分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-shop/token/balance.tsx 与 token-balance-card.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-shop/vip-trader/index/trader-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 VIP 商户分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-shop/vip-trader/index/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-shop/vip/compare-table.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 VIP 对比表分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-shop/vip/details.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-user/message/in-site-messages.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 站内消息分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-user/message/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/ensure-silent-tasks.test.mjs",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:行级误配销账。被删方 504f863717(10-21 21:29 机主裁定收口 B 批)摘除的是 ensure-silent-tasks ①③ 段(reaper 链路监视,AGENTS §12h 明文不得复活);现文件是 **幽灵任务判据测试**(④ 段,2026-10-30 AGENTS §12h 补刀② 登记的合法新段,全文唯一 test 即「④ 幽灵任务:IHUI 任务目标已删 ⇒ 违规」),不含被摘 ①③ 段的任何用例。与被删件同文的行仅为测试壳行(import/结构骨架),非内容回潮;①③ 段测试无复活。问责复跑:node scripts/check-verbatim-resurrection.mjs;grep -n \"reaper\\|回收链路\" scripts/tests/ensure-silent-tasks.test.mjs 应零命中。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/src/screens/aboutPageSections.ts",
+      "reason": "门 30c+39 双红件,2026-10-31 复核按【摘除】处置(非豁免):共享真相源 packages/app/src/features/about/(AboutScreen.tsx/about-icons.ts/about-styles.ts)在位,apps/mobile-rn/src/screens/AboutScreen.tsx:24 注释明说「富版提升为真相源,端内实现与分段数据表(aboutPageSections.ts)一并删除」;端内无任何真实 import(grep 命中均为注释文字);c247b0a7f7 已第三次删除此死件(检出滞后把轮 55 的正当删除带回),7a47524b07 自动收编第四次带回。按门 30c 修法①(走本仓唯一删除档 LAND_REMOVE_PATHS)摘除;门 39 的 V1 红同源同消。问责复跑:node scripts/check-verbatim-resurrection.mjs 与 node scripts/check-rn-app-migration.mjs;若需重建,先消费共享真相源 packages/app 出口,不得在端内重建。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }

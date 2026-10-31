@@ -33,7 +33,11 @@ export interface OrderItem {
   title: string
   /** 商品图 URL,有值则卡片渲染 130×130 圆角图 */
   image?: string
-  amount: number
+  /**
+   * 实付金额(元)。`null` = 这枚订单**没有金额可显示**,共享屏据此渲染 `—` 占位;
+   * 不得用 0 冒充"没有金额" —— 屏幕上读起来就是"免费"。
+   */
+  amount: number | null
   status: AppOrderStatus
   createdAt: string
 }

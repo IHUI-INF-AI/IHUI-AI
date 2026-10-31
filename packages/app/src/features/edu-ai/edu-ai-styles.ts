@@ -2,27 +2,29 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnTokens } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 /**
  * edu-ai 域固定语义色板(与 web 端 tailwind sky/violet/rose/amber/emerald/indigo/fuchsia/blue/purple
  * 同源,固定语义色不随主题换档;先例见 status-styles.ts STATUS_PALETTE 同口径注释)。
+ * 色值唯一真相源 = packages/design-tokens/src/hue-tints.js 的 rnHue 表(2026-10-31 收编,不再手抄)。
+ * 注:`slate` 键的值实为 zinc 族(zinc-600 前景 + zinc-500 通道底),键名因被调用点按名取用而保留。
  * 结构色(容器/文字/边框/输入底/CTA)一律走 tk.* token,零硬编码。
  */
 export const EDU_AI_PALETTE = {
-  sky: { bg: 'rgba(14,165,233,0.10)', fg: '#0284c7' },
-  violet: { bg: 'rgba(139,92,246,0.10)', fg: '#7c3aed' },
-  rose: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48' },
-  amber: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
-  emerald: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  indigo: { bg: 'rgba(99,102,241,0.10)', fg: '#4f46e5' },
-  fuchsia: { bg: 'rgba(217,70,239,0.10)', fg: '#c026d3' },
-  blue: { bg: 'rgba(59,130,246,0.10)', fg: '#2563eb' },
-  purple: { bg: 'rgba(168,85,247,0.10)', fg: '#9333ea' },
-  slate: { bg: 'rgba(115,115,115,0.12)', fg: '#52525b' },
-  star: { bg: 'rgba(245,158,11,0.12)', fg: rnTokens.warning.amber },
+  sky: { bg: rnHue.sky.tint, fg: rnHue.sky.fg },
+  violet: { bg: rnHue.violet.tint, fg: rnHue.violet.fg },
+  rose: { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg },
+  amber: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
+  emerald: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg },
+  indigo: { bg: rnHue.indigo.tint, fg: rnHue.indigo.fg },
+  fuchsia: { bg: rnHue.fuchsia.tint, fg: rnHue.fuchsia.fg },
+  blue: { bg: rnHue.blue.tint, fg: rnHue.blue.fg },
+  purple: { bg: rnHue.purple.tint, fg: rnHue.purple.fg },
+  slate: { bg: rnHue.zinc.tintStrong, fg: rnHue.zinc.fg },
+  star: { bg: rnHue.amber.tintStrong, fg: rnTokens.warning.amber },
 } as const
 
 export type EduAiTone = keyof typeof EDU_AI_PALETTE

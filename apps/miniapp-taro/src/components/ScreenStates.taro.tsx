@@ -4,6 +4,8 @@
 
 import type { CSSProperties } from 'react'
 import { View, Text } from '@tarojs/components'
+import { taroType } from '@ihui/design-tokens'
+import { SCREEN_STATES_STATE_MIN_HEIGHT_PX } from '@ihui/shared/ui/screen-states-spec'
 import LineIcon, { type IconName } from './LineIcon'
 import './ScreenStates.taro.css'
 
@@ -145,11 +147,17 @@ export function EmptyState({
   colorScheme = 'light',
 }: EmptyStateProps) {
   return (
-    <View className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}>
+    <View
+      className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}
+      style={{ minHeight: toRpx(SCREEN_STATES_STATE_MIN_HEIGHT_PX) }}
+    >
       <View className="ihui-state-glyph-circle">
         <LineIcon name={icon} size={52} color="var(--color-text-tertiary)" />
       </View>
-      <Text className="ihui-state-title">{title}</Text>
+      {/* 标题字号/行高同 RN 端 rnType.strong —— 两端共同消费 TYPE_STEPS 单源,端内不再手写 */}
+      <Text className="ihui-state-title" style={{ fontSize: taroType.strong.fontSize, lineHeight: taroType.strong.lineHeight }}>
+        {title}
+      </Text>
       {desc ? <Text className="ihui-state-desc">{desc}</Text> : null}
       {actionLabel && onAction ? (
         <View className="ihui-state-btn" onClick={onAction}>
@@ -176,11 +184,19 @@ export function ErrorState({
   colorScheme = 'light',
 }: ErrorStateProps) {
   return (
-    <View className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}>
+    <View
+      className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}
+      style={{ minHeight: toRpx(SCREEN_STATES_STATE_MIN_HEIGHT_PX) }}
+    >
       <View className="ihui-state-glyph-circle">
         <Text className="ihui-state-glyph">!</Text>
       </View>
-      <Text className="ihui-state-title">{message}</Text>
+      <Text
+        className="ihui-state-title"
+        style={{ fontSize: taroType.strong.fontSize, lineHeight: taroType.strong.lineHeight }}
+      >
+        {message}
+      </Text>
       {onRetry ? (
         <View className="ihui-state-btn" onClick={onRetry}>
           <Text className="ihui-state-btn-text">{retryLabel}</Text>

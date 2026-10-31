@@ -294,6 +294,7 @@ function AgreementRow({
     <View style={styles.agreementRow}>
       <View style={styles.agreementRowMain}>
         <TouchableOpacity
+        hitSlop={10}
           style={[
             styles.checkbox,
             agreed ? styles.checkboxChecked : styles.checkboxUnchecked,
@@ -1115,9 +1116,9 @@ function QrTabContent({ t, styles, tk, qrConfig, qrPlatforms, renderQrPanel }: Q
                     <Text
                       style={{
                         color: tk.surface.light,
-                        fontSize: 9,
+                        fontSize: rnType.badge.size,
                         fontWeight: '600',
-                        lineHeight: 10,
+                        lineHeight: rnType.badge.lineHeight,
                       }}
                     >
                       {p.label.charAt(0)}

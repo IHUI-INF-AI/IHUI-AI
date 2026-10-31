@@ -1266,12 +1266,16 @@ if (hookFailed && commitResult.status !== 0) {
     if (!baselineTree) return
     const { dir, scratch } = baselineTree
     gitStep(['worktree', 'remove', '--force', dir], 'git worktree remove(基线面)')
-    gitStep(['worktree', 'prune'], 'git worktree prune(基线面)')
     try {
       rmScratch(scratch)
     } catch {
       /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
     }
+    // prune 必须排在 rmScratch **之后**(2026-10-30 立):`worktree remove --force` 会失败
+    // (目录被编辑器占用 / 含未跟踪件),此时注册表条目仍指向一个活目录 ⇒ prune 结构上清不到;
+    // 目录真没了之后 prune 才摘得掉。顺序颠倒的后果是**每轮提交**都永久多一条 prunable 条目,
+    // 而编辑器 SCM 把 `git worktree list` 的每一条都当独立仓 ⇒ 变更数合计成 10K/20K 徽标。
+    gitStep(['worktree', 'prune'], 'git worktree prune(基线面)')
     baselineTree = null
   }
   const ensureBaselineTree = () => {
@@ -1378,12 +1382,13 @@ if (hookFailed && commitResult.status !== 0) {
     if (!foreignTree) return
     const { dir, scratch } = foreignTree
     gitStep(['worktree', 'remove', '--force', dir], 'git worktree remove(他人面)')
-    gitStep(['worktree', 'prune'], 'git worktree prune(他人面)')
     try {
       rmScratch(scratch)
     } catch {
       /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
     }
+    // 同 disposeBaselineTree:prune 排在目录真删之后,否则注册表条目永远摘不掉。
+    gitStep(['worktree', 'prune'], 'git worktree prune(他人面)')
     foreignTree = null
   }
   const ensureForeignTree = () => {
@@ -1399,12 +1404,13 @@ if (hookFailed && commitResult.status !== 0) {
     }
     const fail = (why) => {
       foreignWhy = why
-      gitStep(['worktree', 'prune'], 'git worktree prune(他人面建失败回收)')
       try {
         rmScratch(scratch)
       } catch {
         /* 清理再失败只是噪音 */
       }
+      // 同 disposeForeignTree:目录先没了,prune 才摘得掉 `worktree add` 留下的注册条目。
+      gitStep(['worktree', 'prune'], 'git worktree prune(他人面建失败回收)')
       return null
     }
     const dir = join(scratch, 'face')

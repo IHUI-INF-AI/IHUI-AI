@@ -292,6 +292,10 @@ export const OUT_OF_SCOPE = [
     re: /^apps\/api\/scripts\/relay-session-export\.ts$/,
     why: '会话导出 CLI 生成的自包含 HTML 报表样式(内容产物,同 ai-service 内容渲染分支口径),非端内应用界面;圆角只影响导出件外观,不参与跨端视觉一致性',
   },
+  {
+    re: /^\.ihui\/skills\//,
+    why: '技能自带产物(REA 逆向讲解件与其 vendored 打包 chunk):rx/ry 出自第三方压缩产物内部实现,不是本仓 UI 的圆角取用,方档化等于改渲染库;登记于 2026-10-31,因判据 C 把这类 vendored 目录判成"新增端静默绕开本门"',
+  },
 ]
 
 const RADIUS_TOKEN_RE =

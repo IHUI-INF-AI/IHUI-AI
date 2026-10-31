@@ -405,6 +405,23 @@ function selfTest() {
     )
     return true
   })
+  ck('⑱a 数字值列翻新(README 生成块三列形态,仅数值列变)⇒ 判 superseded 不插回 —— 否则与 Step 2b 数字对齐自咬', () => {
+    const oldRow = '| CLI 工具文件 | 73 | `cliToolFiles` |'
+    const newRow = '| CLI 工具文件 | 72 | `cliToolFiles` |'
+    const v = classifyMissing(['h', oldRow, 't'], ['h', newRow, 't'])
+    assert(
+      v.get(trim(oldRow)) === 'superseded',
+      `数字行翻新应判 superseded,实判 ${v.get(trim(oldRow))} —— lost 会逼 --apply 把旧数值插回,与 Step 2b 死循环`,
+    )
+    const merged = mergeByAnchors(['h', oldRow, 't'], ['h', newRow, 't'], v)
+    assert(merged.lines === 0, `旧数值行不得插回,实插 ${merged.lines}`)
+    const two = classifyMissing(['h', '| 名称 | 73 |'], ['h', '| 名称 | 72 |'])
+    assert(
+      two.get(trim('| 名称 | 73 |')) !== 'superseded',
+      '两列表(无键名列)不得被新规则洗成 superseded(保持旧行为:判 lost 交人工)',
+    )
+    return true
+  })
   ck('⑱b 反向对照:整行表格登记被删(工作树无同键行)⇒ 仍判 lost,锚点规则不许洗绿', () => {
     const gone = '| 77 | check-radius-single-source.mjs | **圆角单一源头,三判据 A/B/C,blocking** |'
     const decoy = '| 78 | check-workspace-dep-links.mjs | **依赖链接五维对账,与本例无关的长行** |'

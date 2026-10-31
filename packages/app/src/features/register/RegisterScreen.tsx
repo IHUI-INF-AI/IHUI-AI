@@ -166,6 +166,7 @@ export function RegisterScreen({
           <View style={styles.agreementRow}>
             <View style={styles.agreementRowMain}>
               <TouchableOpacity
+              hitSlop={10}
                 style={[
                   styles.checkbox,
                   agreed ? styles.checkboxChecked : styles.checkboxUnchecked,

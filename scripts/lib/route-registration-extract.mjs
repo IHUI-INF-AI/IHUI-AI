@@ -736,11 +736,21 @@ export function analyzeTsFile(rel, raw) {
   const matrices = extractMatrixArrays(src)
   const loops = findMatrixLoops(src, matrices)
 
-  /** 内联箭头作用域:`X.register(async (Y) => {…}, {prefix})` ⇒ Y 的前缀挂在 X 之下 */
-  const aliases = new Map() // `${fn}\u0000${recv}` → {parentRecv, prefix}
+  /**
+   * 内联箭头作用域:`X.register(async (Y) => {…}, {prefix})` ⇒ Y 的前缀挂在 X 之下。
+   *
+   * 记账必须按**块**、不能按形参名 —— 这是 2026-10-31 收口的真病根:
+   * `admin-sys/alias-routes.ts` 三处内联块**形参同名 `s`**、前缀各不相同
+   * (`/login-logs` `/tasks/logs` `/posts`),旧键 `外层函数\0形参名` 让后一块覆盖前一块
+   * ⇒ 三处 `/list` 与两处 `/clean` 全塌到 `/posts` 上(HEAD 面 3 个假键 / 8 个行位)。
+   * 现在每块一条 `aliasBlocks`(带绝对区间),`extraPrefix` 按注册点 `idx` 找**最内层**
+   * 命中块再逐层向外走;`aliases` 只留旧档形态给未传 `idx` 的旧调用方(行为不变)。
+   */
+  const aliases = new Map() // 旧档:${fn}\u0000${recv} → 最后一块,仅 extraPrefix(idx 缺省) 消费
+  const aliasBlocks = [] // {fn, recv, parentRecv, prefix, prefixUnknown, start, end}
   const regs = [] // {fn, recv, method, arg, idx, line}
-  const edges = [] // {fn, recv, symbol, prefix, line}
-  const directEdges = [] // {fn, recv, symbol, line}
+  const edges = [] // {fn, recv, symbol, prefix, idx, line}
+  const directEdges = [] // {fn, recv, symbol, idx, line}
   const opaqueLocal = [] // {prefix, line}
   /** 前缀是表达式、静态解不出的 register(交 walkFastifyGraph 报名,本函数不持有桶) */
   const dynamicPrefixes = [] // {symbol, expr, line}
@@ -803,6 +813,17 @@ export function analyzeTsFile(rel, raw) {
       const bodyEnd =
         braceInArgs === -1 ? -1 : findMatchingBracket(argsText, braceInArgs, '{', '}')
       if (paramName && bodyEnd !== -1) {
+        const block = {
+          fn: fnName,
+          recv: paramName[1],
+          parentRecv: recv,
+          prefix: pre ? pre[1] : '',
+          prefixUnknown,
+          // argsText 首字符的绝对偏移 = openIdx + 1(与 detectInlineAliasCollisions 同一算式)
+          start: openIdx + 1 + braceInArgs,
+          end: openIdx + 1 + bodyEnd,
+        }
+        aliasBlocks.push(block)
         aliases.set(`${fnName}\u0000${paramName[1]}`, {
           parentRecv: recv,
           prefix: pre ? pre[1] : '',
@@ -825,6 +846,7 @@ export function analyzeTsFile(rel, raw) {
       symbol: sym[1],
       prefix: pre ? pre[1] : '',
       prefixUnknown,
+      idx: m.index,
       line: lineOfIdx(src, m.index),
     })
     registerRe.lastIndex = openIdx
@@ -892,6 +914,7 @@ export function analyzeTsFile(rel, raw) {
       fn: owner ? owner.name : MODULE_FN,
       recv: m[2],
       symbol: m[1],
+      idx: m.index,
       line: lineOfIdx(src, m.index),
     })
     directRe.lastIndex = m.index + m[0].length - 1
@@ -913,6 +936,7 @@ export function analyzeTsFile(rel, raw) {
     edges,
     directEdges,
     aliases,
+    aliasBlocks,
     opaqueLocal,
     dynamicPrefixes,
   }
@@ -1022,8 +1046,39 @@ export function scanFactoryCalls(info, factoryNames) {
 
 /* ───────────────── 挂载图走通(Fastify) ───────────────── */
 
-/** 某 (file, fn, recv) 相对节点前缀的额外前缀(内联箭头别名链) */
-export function extraPrefix(info, fnName, recv) {
+/**
+ * 某 (file, fn, recv) 相对节点前缀的额外前缀(内联箭头别名链)。
+ *
+ * `idx` = 注册点在文件里的绝对下标。给了就按**块区间**找最内层命中块(同形参名的兄弟块
+ * 各归各的前缀,见 `aliasBlocks` 头注);不给则退回旧档 `aliases`(形参名 → 最后一块),
+ * 行为与收口前逐字相同 —— 仓外调用方(outbound 面)不受影响。
+ */
+export function extraPrefix(info, fnName, recv, idx) {
+  const blocks = info.aliasBlocks || []
+  if (Number.isFinite(idx) && blocks.length > 0) {
+    let cur = recv
+    let at = idx
+    let acc = ''
+    const seen = new Set()
+    for (let hop = 0; hop < 8; hop++) {
+      let best = null
+      for (const b of blocks)
+        if (
+          b.fn === fnName &&
+          b.recv === cur &&
+          at >= b.start &&
+          at <= b.end &&
+          (!best || b.start > best.start)
+        )
+          best = b
+      if (!best || seen.has(best.start)) break
+      seen.add(best.start)
+      acc = joinPrefix(best.prefix, acc)
+      cur = best.parentRecv
+      at = best.start - 1 // 外层块包着本块的 register 调用,退到块体之前一格继续向外
+    }
+    return acc
+  }
   let cur = recv
   let acc = ''
   const seen = new Set()
@@ -1116,7 +1171,7 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
     if (isFactoryFn(info.rel, fnName)) return // 工厂体内的模板由调用点代入,不在此臆造
     for (const r of info.regs) {
       if (r.fn !== fnName) continue
-      const base = joinPrefix(nodePrefix, extraPrefix(info, fnName, r.recv))
+      const base = joinPrefix(nodePrefix, extraPrefix(info, fnName, r.recv, r.idx))
       if (r.arg.kind === 'literal' || r.arg.kind === 'template') {
         let values = []
         if (r.arg.kind === 'literal') values = [r.arg.value]
@@ -1231,7 +1286,7 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
       }
       const recvIdent = /^[A-Za-z_$][\w$]*$/.exec(args[0] || '')
       const recv = recvIdent ? recvIdent[0] : 'server'
-      const base = joinPrefix(nodePrefix, extraPrefix(info, fnName, recv))
+      const base = joinPrefix(nodePrefix, extraPrefix(info, fnName, recv, call.idx))
       for (const reg of factory.regs) {
         const inst = instantiateFactoryReg(reg, factory.paramName, basePath)
         if (!inst.ok) {
@@ -1308,7 +1363,7 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
     ]
     for (const e of allEdges) {
       if (e.fn !== fnName) continue
-      const nodePrefix = joinPrefix(prefix, extraPrefix(info, fnName, e.recv))
+      const nodePrefix = joinPrefix(prefix, extraPrefix(info, fnName, e.recv, e.idx))
       const acc = joinPrefix(nodePrefix, e.prefix)
       const r = resolveSymbol(tsInfos, info, e.symbol)
       if (!r || r.missing !== undefined || r.ambiguous !== undefined) {

@@ -41,9 +41,6 @@ export const NAVBAR_SIDE_PADDING_PX = 10
  */
 export const NAVBAR_SIDE_PLACEHOLDER_PX = 32
 
-/** 返回箭头墨迹 20:引用 GEOMETRY_PX.glyphMd;RN 端此前自写 24,小程序 BackChevron 已是 20。 */
-export const NAVBAR_BACK_GLYPH_PX = GEOMETRY_PX.glyphMd
-
 /** 侧按钮最小宽 28:RN 端 2026-09-23 P1 修复的既定格(给标题留横向空间,勿回升);小程序端原 20px 盒收口到 28。 */
 export const NAVBAR_ACTION_MIN_WIDTH_PX = 28
 

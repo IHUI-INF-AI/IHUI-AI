@@ -908,7 +908,8 @@
       "share2": "分享",
       "agree": "贊同",
       "disagree": "反對"
-    }
+    },
+    "loadFailed": "載入失敗"
   },
   "settings": {
     "title": "設定",
@@ -951,6 +952,7 @@
     "logoutConfirmBody": "確認退出當前帳號？"
   },
   "menu": {
+    "artifacts": "產物中心",
     "about": "關於我們",
     "feedback": "意見反饋",
     "privacy": "隱私政策",
@@ -5448,7 +5450,8 @@
     "addTitle": "新增帳號",
     "adding": "新增中…",
     "deleteConfirm": "確認刪除 {name}？",
-    "summary": "共 {total} 個帳號 · 已啟用 {enabled}"
+    "summary": "共 {total} 個帳號 · 已啟用 {enabled}",
+    "addSuccess": "帳號已新增"
   },
   "checkinAssistant": {
     "title": "簽到助手",
@@ -5721,7 +5724,12 @@
     "realLive": "即時語音進行中",
     "reconnect": "重新連線",
     "realFailDefault": "連線失敗,請重試",
-    "inputDone": "語音輸入完成"
+    "inputDone": "語音輸入完成",
+    "closeImgMenu": "關閉圖片選單",
+    "addImage": "添加圖片",
+    "releaseEnd": "鬆開放送",
+    "transcribing": "識別中…",
+    "clearResult": "清除識別結果"
   },
   "material": {
     "cText": "文本內容",

@@ -46,3 +46,46 @@ test('③ porcelain 解析:路径/HEAD/分支三列', () => {
 test('④ 未合并回收的保活标签名', () => {
   assert.equal(aw.lostTagOf('abc', '0123456789abcdef'), 'lost-commit/worktree-abc-0123456')
 })
+
+test('⑤ porcelain 的 locked/prunable/detached 标记', () => {
+  const rows = aw.parseWorktreeList(
+    [
+      'worktree G:/IHUI-AI/.worktrees/wt-y',
+      'HEAD def456',
+      'branch refs/heads/wt/y',
+      'locked needs review',
+      '',
+      'worktree G:/gone/wt-z',
+      'HEAD 789abc',
+      'detached',
+      'prunable gitdir file points to non-existent location',
+      '',
+    ].join('\n'),
+  )
+  assert.equal(rows[0].locked, 'needs review')
+  assert.equal(rows[0].prunable, false)
+  assert.equal(rows[1].detached, true)
+  assert.equal(rows[1].prunable, true)
+})
+
+test('⑥ 批量回收判定:只收批准落点内、干净、已并入且超龄的 wt/*', () => {
+  const now = 1 + 30 * 86_400_000
+  const base = {
+    path: '/repo/.worktrees/wt-a',
+    branch: 'wt/a',
+    merged: true,
+    lastActivityMs: 1,
+    now,
+    worktreesRoot: '/repo/.worktrees',
+  }
+  assert.equal(aw.evaluateReapCandidate(base).action, 'remove')
+  assert.equal(aw.evaluateReapCandidate({ ...base, locked: true }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, dirty: true }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, merged: false }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, branch: '(detached)' }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, path: '/elsewhere/wt-a' }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, minIdleDays: 31 }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, lastActivityMs: 0 }).action, 'skip')
+  assert.equal(aw.isUnderWorktreesRoot('/repo/.worktrees/wt-a', '/repo'), true)
+  assert.equal(aw.isUnderWorktreesRoot('/repo/.worktrees-x/wt-a', '/repo'), false)
+})

@@ -67,6 +67,27 @@ export type { SectionHeaderProps } from '../../../../packages/app/src/components
 // hook(零平台依赖),替身化等于把被测语义换成假货。
 export { useScreenReappear } from '../../../../packages/app/src/hooks/use-screen-reappear'
 export type { ScreenReappearAdapter } from '../../../../packages/app/src/hooks/use-screen-reappear'
+// 2026-10-31:聚焦描边唯一实现(守门 212)住在共享层 `use-wrap-focus`,端内 LoginScreen 的 2FA
+// 输入框与 MessageInput 的描边都从 @ihui/rn-app 取它。替身漏这组出口 ⇒ 消费屏挂载即
+// `No "useWrapFocus" export is defined on the "@ihui/rn-app" mock`(实测 g958 / login-region 两套件
+// 共 12 例因此红)。同上方纪律:直连真源码,不做假替身 —— 它判的就是"墨档从哪来"。
+export {
+  useWrapFocus,
+  wrapFocusBorder,
+  wrapFocusInk,
+} from '../../../../packages/app/src/hooks/use-wrap-focus'
+export type { WrapFocus, WrapFocusOptions } from '../../../../packages/app/src/hooks/use-wrap-focus'
+// FloatBox 等端内组件从 @ihui/rn-app 取字号缩放唯一口(它读 PixelRatio,替身里 getFontScale()=1,
+// ⇒ 单测下数值与今天逐字相同)。同上方纪律:直连真源码,不做假替身。
+export { useFontMultiplier } from '../../../../packages/app/src/components/MoreLink'
+// 文字按系统字号同比放大字号+行盒的唯一机制(26 处内容文字经它接回缩放通道)。直连真源:
+// 替身若自己做一份"返回 {}"的假实现,那些套件就把**被测语义**换掉了。
+export { scaleText } from '../../../../packages/app/src/hooks/scaled-text'
+// 同一把尺子(tests/rn-app-mock-export-fidelity)现读出的另两枚缺口:两枚都是真组件,直连真源。
+export { BackChevron } from '../../../../packages/app/src/components/BackChevron'
+export type { BackChevronProps } from '../../../../packages/app/src/components/BackChevron'
+export { ScrollJumpButton } from '../../../../packages/app/src/components/ScrollJumpButton'
+export type { ScrollJumpButtonProps } from '../../../../packages/app/src/components/ScrollJumpButton'
 export { OrderScreen } from '../../../../packages/app/src/features/order/OrderScreen'
 export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
 export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'

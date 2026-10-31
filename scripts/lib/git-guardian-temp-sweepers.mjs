@@ -53,8 +53,13 @@ const WORKTREE = resolveWorktree()
 const TEMP_SCRUB_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-scrub-tick.iso')
 const TEMP_SCRUB_INTERVAL_MS = Number(process.env.IHUI_TEMP_SCRUB_INTERVAL_MS || 24 * 60 * 60 * 1000)
 const TEMP_SCRUB_MIN_AGE_DAYS = Number(process.env.IHUI_TEMP_SCRUB_MIN_AGE_DAYS || 7)
-/** 清扫器要遍历整个 TEMP(实测这台机 4.6 万个条目);给 5 分钟硬上限,超时只算"本轮没跑成"。 */
-const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 300_000)
+/**
+ * 2026-10-30:整轮实测 783 秒(7 个根并集;`D:\caches\Temp` 的 3.2 万枚 qoder 面包屑冷缓存逐枚
+ * 读内容占 5 分钟),旧上限 300 秒让这一格**每轮必被掐死**(连续三次 ETIMEDOUT ⇒ 从未真删过一条)。
+ */
+const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 1_200_000)
+/** 没跑成只冷却 1 小时就重试;旧实现"失败也写 24h 戳"让一次超时瞎一整天。 */
+const TEMP_SCRUB_RETRY_MS = Number(process.env.IHUI_TEMP_SCRUB_RETRY_MS || 60 * 60 * 1000)
 
 /** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 `orphanAuditDue` 同一条失效方向)。 */
 export function tempScrubDue(nowMs, tickMs, intervalMs = TEMP_SCRUB_INTERVAL_MS) {
@@ -117,12 +122,17 @@ export function scrubTempFixtures(opts = {}) {
     /* 没跑过 */
   }
   if (!tempScrubDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-  } catch (_e) {
-    /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
+  // 戳只在**有结论**之后写:旧实现先写戳再执行 ⇒ 一次失败/超时白占 24h 冷却窗。
+  const stamp = (ms) => {
+    try {
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, new Date(ms).toISOString(), 'utf8')
+    } catch {
+      /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
+    }
   }
+  // 失败档:戳写成"已过去 interval - retry" ⇒ 距下次到期只剩 retry(默认 1h)。
+  const stampRetry = () => stamp(now - intervalMs + Math.min(TEMP_SCRUB_RETRY_MS, intervalMs))
   const call =
     typeof runner === 'function'
       ? runner()
@@ -153,11 +163,13 @@ export function scrubTempFixtures(opts = {}) {
   if (call.status === 2 || (p.candidates === null && p.deleted === null)) {
     logger(
       `⚠️ TEMP 夹具清扫未跑成(rc=${call.status}):${String(call.stderr || call.stdout).replace(/\s+/g, ' ').slice(0, 160)}` +
-        ' —— 未跑成不等于没有残留,下轮重试(不改本守护退出码)',
+        ' —— 未跑成不等于没有残留,1 小时后重试(不改本守护退出码)',
     )
+    stampRetry()
     return { ran: true, ok: false, why: '未跑成', status: call.status }
   }
   if (p.failed) {
+    stampRetry() // 一条都没删掉 ⇒ 残留仍在,尽快再试
     logger(
       `⚠️ TEMP 夹具清扫:删了 ${p.deleted ?? 0} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)` +
         ` · root=${p.root} · 候选 ${p.candidates}` +
@@ -166,6 +178,7 @@ export function scrubTempFixtures(opts = {}) {
     )
     return { ran: true, ok: true, partial: true, ...p }
   }
+  stamp(now) // 真有结论才推进 24h 节流窗
   if (p.deleted) {
     logger(`✅ TEMP 夹具清扫:释放 ${p.deleted} 条(账龄闸 ${minAgeDays} 天,root=${p.root},候选 ${p.candidates})`)
   }

@@ -51,16 +51,11 @@ function repoRoot(): string {
 
 const ROOT = repoRoot()
 
-/** 逐族:台账键 / spec 文件 / 两端配对腿(与门 128 在册配对的两条腿同一批文件)。 */
+/** 逐族:台账键 / spec 文件 / 两端配对腿(与门 128 在册配对的两条腿同一批文件)。
+ *  2026-10-31 摘 SectionHeader:该族豁免已转锚点(3b3703e6ae)—— RN 侧「更多」字号消费
+ *  活在委托件 MoreLink.tsx(门取材不追委托件 ⇒ SL 读出假单侧),waivers 摘条、
+ *  counts.SectionHeader=1 钉住;单侧档裁定账对转锚点族不再适用,故从本清单摘除。 */
 const FAMILIES = [
-  {
-    name: 'SectionHeader',
-    spec: 'packages/shared/src/ui/section-header-spec.ts',
-    legs: {
-      miniapp: 'apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx',
-      rn: 'packages/app/src/components/SectionHeader.tsx',
-    },
-  },
   {
     name: 'NavBar',
     spec: 'packages/shared/src/ui/navbar-spec.ts',

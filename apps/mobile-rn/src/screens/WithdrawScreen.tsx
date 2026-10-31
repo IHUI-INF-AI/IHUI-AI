@@ -4,19 +4,13 @@
 
 import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
-import { appAlert, BottomPops } from '../components/BottomPops'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { appAlert, BottomPops, sheetButton } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getBalance } from '@ihui/api-client'
-import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app'
+import { getTokens, TextField, WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -145,18 +139,11 @@ export function WithdrawScreen() {
     ])
   }
 
-  // 面板配色跟随主题（与共享屏 colorScheme 同源，避免深色系统下弹出一张刺眼白卡）
-  const dark = resolvedTheme === 'dark'
-  const c = {
-    hint: dark ? '#9CA3AF' : '#6B7280',
-    inputBg: dark ? '#1F2937' : '#F9FAFB',
-    inputText: dark ? '#F9FAFB' : '#111827',
-    border: dark ? '#374151' : '#E5E7EB',
-    cancelBg: dark ? '#374151' : '#F3F4F6',
-    cancelText: dark ? '#E5E7EB' : '#374151',
-    okBg: '#6366F1',
-    error: '#EF4444',
-  }
+  // 弹层取色与共享屏同一出口(getTokens(resolvedTheme)),不再另立一份端内色表。
+  // 此前这里按 dark 三元手写了一整套 Tailwind 蓝灰档,并把 CTA 底定死成一枚已废弃的紫靛档:
+  // 值与 tokens 不同源 ⇒ tokens.css 改色永不跟随;而深色下 brand.cta 翻成纯白,
+  // 配同批写死的浅色前景 ⇒ 提交按钮上的文字在深色模式里对比度 1:1(隐形)。
+  const tk = getTokens(resolvedTheme)
 
   return (
     <View style={styles.root}>
@@ -182,11 +169,18 @@ export function WithdrawScreen() {
         title={t('withdraw.stepUpTitle')}
       >
         <View style={styles.panel}>
-          <Text style={[styles.hint, { color: c.hint }]}>{t('withdraw.stepUpHint')}</Text>
-          <TextInput
+          <Text style={[styles.hint, { color: tk.text.secondary }]}>
+            {t('withdraw.stepUpHint')}
+          </Text>
+          <TextField
+            colorScheme={resolvedTheme}
             style={[
               styles.input,
-              { backgroundColor: c.inputBg, color: c.inputText, borderColor: c.border },
+              {
+                backgroundColor: tk.surface.inputBg,
+                color: tk.text.primary,
+                borderColor: tk.border.light,
+              },
             ]}
             value={totp}
             // 只收数字并截 6 位：粘贴带空格/连字符的码也能直接用
@@ -194,36 +188,46 @@ export function WithdrawScreen() {
             keyboardType="number-pad"
             maxLength={6}
             placeholder={t('withdraw.stepUpPlaceholder')}
-            placeholderTextColor={c.hint}
+            placeholderTextColor={tk.text.secondary}
             editable={!stepUpBusy}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={() => void submitStepUp()}
           />
           {stepUpError ? (
-            <Text style={[styles.error, { color: c.error }]}>{stepUpError}</Text>
+            <Text style={[styles.error, { color: tk.danger.DEFAULT }]}>{stepUpError}</Text>
           ) : null}
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={[styles.btn, { backgroundColor: c.cancelBg }]}
+          <View style={[sheetButton.row, styles.btnRow]}>
+            <Pressable
+              accessibilityRole="button"
+              style={[sheetButton.base, sheetButton.cancel]}
               onPress={() => setStepUpOpen(false)}
               disabled={stepUpBusy}
             >
-              <Text style={[styles.btnText, { color: c.cancelText }]}>
-                {t('withdraw.stepUpCancel')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btn, { backgroundColor: c.okBg }]}
+              {({ pressed }) => (
+                <View
+                  style={[styles.pressCell, pressed || stepUpBusy ? sheetButton.pressDim : null]}
+                >
+                  <Text style={sheetButton.cancelText}>{t('withdraw.stepUpCancel')}</Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={[sheetButton.base, sheetButton.primary]}
               onPress={() => void submitStepUp()}
               disabled={stepUpBusy}
             >
-              {stepUpBusy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={[styles.btnText, styles.okText]}>{t('withdraw.stepUpSubmit')}</Text>
+              {({ pressed }) => (
+                <View style={[styles.pressCell, pressed ? sheetButton.pressDim : null]}>
+                  {stepUpBusy ? (
+                    <ActivityIndicator color={tk.brand.ctaForeground} />
+                  ) : (
+                    <Text style={sheetButton.primaryText}>{t('withdraw.stepUpSubmit')}</Text>
+                  )}
+                </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </BottomPops>
@@ -233,21 +237,21 @@ export function WithdrawScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  panel: { gap: 12 },
-  hint: { fontSize: 13, lineHeight: 19 },
+  panel: { gap: rnSpacing.md },
+  hint: { fontSize: rnType.label.size, lineHeight: rnType.label.lineHeight },
   input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 20,
+    // 描边宽度与常态占位归共享 TextField(聚焦换墨档、零布局跳动),这里只补几何与字档
+    borderRadius: rnRadiusFor.control,
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.md,
+    fontSize: rnType.heading.size,
+    lineHeight: rnType.heading.lineHeight,
+    // 验证码字距:间距族无此档,且它不是几何尺寸(门 270 射程外的合法残留)
     letterSpacing: 8,
     textAlign: 'center',
   },
-  error: { fontSize: 13 },
-  row: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  btn: { flex: 1, height: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  btnText: { fontSize: 15, fontWeight: '600' },
-  okText: { color: '#fff' },
+  error: { fontSize: rnType.label.size },
+  btnRow: { marginTop: rnSpacing.xs },
+  pressCell: { alignItems: 'center', justifyContent: 'center' },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

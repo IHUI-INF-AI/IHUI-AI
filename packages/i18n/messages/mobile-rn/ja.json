@@ -908,7 +908,8 @@
       "share2": "共有",
       "agree": "賛同",
       "disagree": "反対"
-    }
+    },
+    "loadFailed": "読み込みに失敗しました"
   },
   "settings": {
     "title": "設定",
@@ -951,6 +952,7 @@
     "logoutConfirmBody": "このアカウントからログアウトしますか？"
   },
   "menu": {
+    "artifacts": "成果物センター",
     "about": "私たちについて",
     "feedback": "フィードバック",
     "privacy": "プライバシーポリシー",
@@ -5448,7 +5450,8 @@
     "addTitle": "アカウントを追加",
     "adding": "追加中…",
     "deleteConfirm": "{name} を削除しますか？",
-    "summary": "アカウント {total} 件 · 有効 {enabled}"
+    "summary": "アカウント {total} 件 · 有効 {enabled}",
+    "addSuccess": "アカウントを追加しました"
   },
   "checkinAssistant": {
     "title": "チェックインアシスタント",
@@ -5721,7 +5724,12 @@
     "realLive": "通話中",
     "reconnect": "再接続",
     "realFailDefault": "接続失敗。再試行",
-    "inputDone": "音声入力完了"
+    "inputDone": "音声入力完了",
+    "closeImgMenu": "画像メニューを閉じる",
+    "addImage": "画像を追加",
+    "releaseEnd": "離すと送信",
+    "transcribing": "認識中…",
+    "clearResult": "認識結果をクリア"
   },
   "material": {
     "cText": "テキスト内容",

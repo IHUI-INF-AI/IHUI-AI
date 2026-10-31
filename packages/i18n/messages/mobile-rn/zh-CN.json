@@ -908,7 +908,8 @@
       "share2": "分享",
       "agree": "赞同",
       "disagree": "反对"
-    }
+    },
+    "loadFailed": "加载失败"
   },
   "settings": {
     "title": "设置",
@@ -951,6 +952,7 @@
     "logoutConfirmBody": "确认退出当前账号？"
   },
   "menu": {
+    "artifacts": "产物中心",
     "about": "关于我们",
     "feedback": "意见反馈",
     "privacy": "隐私政策",
@@ -5448,7 +5450,8 @@
     "addTitle": "添加账号",
     "adding": "添加中…",
     "deleteConfirm": "确认删除 {name}？",
-    "summary": "共 {total} 个账号 · 已启用 {enabled}"
+    "summary": "共 {total} 个账号 · 已启用 {enabled}",
+    "addSuccess": "账号已添加"
   },
   "checkinAssistant": {
     "title": "签到助手",
@@ -5721,7 +5724,12 @@
     "realLive": "实时语音进行中",
     "reconnect": "重新连接",
     "realFailDefault": "连接失败,请重试",
-    "inputDone": "语音输入完成"
+    "inputDone": "语音输入完成",
+    "closeImgMenu": "关闭图片菜单",
+    "addImage": "添加图片",
+    "releaseEnd": "松开发送",
+    "transcribing": "识别中…",
+    "clearResult": "清除识别结果"
   },
   "material": {
     "cText": "文本内容",

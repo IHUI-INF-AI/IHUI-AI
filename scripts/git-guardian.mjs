@@ -118,6 +118,9 @@ import {
   classifyMergeLossOutcome,
   parseMergeLossCount,
 } from './lib/git-guardian-pure.mjs'
+// worktree 自动回收调度层(2026-10-30):判据/执行在 scripts/agent-worktree.mjs --reap,
+// 本层只负责节流与结论落日志(归属纪律同 TEMP 清扫)。
+import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
 export {
@@ -7573,9 +7576,6 @@ const CROSS_END_LEGS = new Set([
   // 2026-10-29 立:跨端驾驶舱(编排器 parity-auto.mjs)。不在册 ⇒ 它整轮跑不起来时一声不出,
   // 而"没人跑完整趟"与"跑完整趟且全绿"是两件必须分开的事(§5e-3:能看见的才谈得上修)。
   'parity-cockpit',
-  // 2026-10-30 立:手写页升级腿(sweepHandMirrorUpgrades)。此前不在册 ⇒ 未知腿分支把它的
-  // 未判定当场吞掉(mailed:false、连起点件都不写),而 08:49 实测它正整轮解析不出结论行。
-  'hand-upgrade',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -8039,26 +8039,14 @@ export function sweepParityCockpit(opts = {}) {
     )
   }
   if (others > 0) {
-    // 2026-10-30 改判:这一支原先**先 settle 再打印"本轮不得记绿"** —— 起点账被清掉,
-    // "连续未判定满门槛到人"对这条腿结构上永远走不到(实测 08:53 一轮 15/15 阶段里 2 道
-    // 未判定,账面只留下一行 ⚠️,无起点件)。有阶段没判 ⇒ 本轮整体就是没判(§0.3),
-    // 必须走 note 记连击;只有真拿到确定结论(ok 或纯红)才许 settle。
+    settleCrossEndLeg('parity-cockpit', { logger })
     logger(
       `⚠️ 跨端驾驶舱巡检:${ran}/${total} 阶段 · 未判定/坏掉 ${others} 道 ⇒ 本轮不得记绿(§0.3),` +
         ` 红 ${reds} 道已按各自腿到人`,
     )
-    noteCrossEndUndetermined(
-      'parity-cockpit',
-      `本轮 ${ran}/${total} 阶段中有 ${others} 道未判定/坏掉(${notJudged.join(',') || '无名'})。\n` +
-        `这表示「跨端链这一轮没被完整判过」,不是"跑过且没红";连续如此即编排器或其中一阶段瞎了。\n` +
-        `出路:node scripts/parity-auto.mjs --json(只读复跑,看它实际报哪几阶段没判)`,
-      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
-    )
     return { ran: true, ok: false, state: 'undetermined', reds, others }
   }
-  // 2026-10-30:两枚 settle 必须与上面的 note 同用 undetFile(原先走默认路径 ⇒ 注入档的
-  // 测试夹具里"全绿清账"落不到起点件上,形状锁的阳性对照当场判不出来)。
-  settleCrossEndLeg('parity-cockpit', { logger, file: undetFile })
+  settleCrossEndLeg('parity-cockpit', { logger })
   if (reds > 0) {
     logger(
       `⚠️ 跨端驾驶舱巡检:${ran}/${total} 阶段全判过 · 红 ${reds} 道(${redIds.join(',')})⇒ 各维由对应巡检腿按稳定身份到人,本汇总面不重复寄(§5e-1)`,
@@ -8534,25 +8522,11 @@ export function sweepCrossEndShellPages(opts = {}) {
     )
     return { ran: true, ok: false, state: 'unparsed' }
   }
-  // 2026-10-30 改判:原先只要 summary.state 是字符串就直接 settle —— 子进程**自报
-  // undetermined**(实测 08:49「待产 7 …undetermined」)也会被当成"取到确定结论"而清掉起点账,
-  // 存续性门槛对这一型结构上永远走不到。自报未判定与"结论不可用"同型 ⇒ 一律走 note 记连击;
-  // 只有真拿到确定结论(clean/landed/pending/blocked)才许 settle。
+  settleCrossEndLeg('shell-land', { logger, file: undetFile })
   const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   const counts =
     `待产 ${n(summary.planned)} / 本轮 ${n(summary.batch)} / blob ${n(summary.blobs)} / ` +
     `拒 ${n(summary.refused)}(cap=${n(summary.cap)}) / 账本 ${String(summary.doc ?? '?')}`
-  if (summary.state === 'undetermined') {
-    noteCrossEndUndetermined(
-      'shell-land',
-      `造页器自报 state=undetermined(${counts}):${String(summary.why || summary.note || '未附原因').slice(0, 200)}\n` +
-        `这表示**自动造页这一格是瞎的**(小程序缺页不会自己长回来),不是"缺口已清零"。\n` +
-        `出路:node scripts/land-cross-end-shell-pages.mjs(只读预演,看它实际报什么)`,
-      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
-    )
-  } else {
-    settleCrossEndLeg('shell-land', { logger, file: undetFile })
-  }
   if (summary.state === 'clean') logger(`🧭 跨端造页闭环:clean ${counts} —— 无缺口即零写零推`)
   else if (summary.state === 'landed')
     logger(`🧭 跨端造页闭环:landed ${counts} ✅ 已落 HEAD(推送由 post-commit 腿负责)`)
@@ -8834,10 +8808,6 @@ export function sweepHandMirrorUpgrades(opts = {}) {
     tickFile = join(dirname(LOG), 'hand-mirror-upgrade-last.json'),
     logger = log,
     runner = null,
-    notify = notifyGuardRed,
-    // 只为成对夹具开(测试不得碰真 .ihui-agent/state 的起点件):生产调用一律走默认值
-    undetFile = crossEndUndetFile('hand-upgrade'),
-    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'upgrade-miniapp-shell-pages.mjs')
   if (!existsSync(script)) {
@@ -8873,16 +8843,7 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   if (!res || typeof res !== 'object') {
     const why = r.signal ? `子进程被 ${r.signal} 杀掉(多为超时)` : '子进程已退出但末行不是结论 JSON'
     logger(
-      `⚠️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
-    )
-    // 2026-10-30 立:这一支原先只 log 只 return,**一次都没记连击** —— 实测 08:49 起
-    // 「结论行解析不出」整轮未判定,起点件却不存在,存续性门槛结构上永远走不到(§5e-3)。
-    noteCrossEndUndetermined(
-      'hand-upgrade',
-      `${why}(status=${r.status},signal=${r.signal ?? '-'});stderr 前 120:${String(r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
-        `这表示「手写页→壳承载的自动升级这一格是瞎的」,不是"没有可升级的页"。\n` +
-        `出路:node scripts/upgrade-miniapp-shell-pages.mjs --land --json --cap=2(只读复跑看它实际报什么)`,
-      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+      `ℹ️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
     )
     return { ran: true, ok: false, why: '结论解析失败', status: r.status, signal: r.signal }
   }
@@ -8890,8 +8851,6 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   logger(
     `ℹ️ 手写页升级:可落地=${res.upgradable ?? 0} 本批=${res.batch?.length ?? 0} 落地=${landedN}${res.landed?.declLanded ? ' + 声明件' : ''}${res.landed?.err ? ` | ${String(res.landed.err).split('\n')[0].slice(0, 120)}` : ''}`,
   )
-  // 取到确定结论(含"零可落地")⇒ 撤掉在册起点,不背着旧账到人
-  settleCrossEndLeg('hand-upgrade', { logger, file: undetFile })
   return { ran: true, ok: true, ...res }
 }
 
@@ -9739,6 +9698,9 @@ function main() {
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
+    // 陈旧 linked worktree 自动回收(2026-10-30,机主"彻底根治/杜绝"):判据/安全闸在
+    // scripts/agent-worktree.mjs --reap(六条全过才移除),本格只负责 24h 节流地派生它。
+    if (!CHECK_ONLY) reapWorktrees()
     // G-24 事故归档回收器调度接线(2026-10-26,席位 goal-20261026-b14r3):以 dry-run 调
     // scripts/archive-gc.mjs 并把「保留/待删/未判定」读数写进本守护日志通道(留痕);
     // 开关面 scripts/data/archive-gc-arm.json 默认关,真 --apply 由机主核过读数后按下。同一挂点语义。
@@ -9891,6 +9853,9 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
         scrubTempFixtures()
+        // 陈旧 worktree 自动回收:与 main() 单轮路径共用 .ihui-agent/state/worktree-reap-tick.iso
+        // ⇒ 双执行体并存时只有先到那一个真派生,不会把同一批检出回收两遍。
+        reapWorktrees()
         // G-24 归档回收 dry-run 接线臂:与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/archive-gc-arm-tick.iso 节流戳 ⇒ 双执行体并存只有一边真派生。
         archiveGcDryRun()
@@ -9922,8 +9887,15 @@ const TEMP_SCRUB_INTERVAL_MS = Number(
   process.env.IHUI_TEMP_SCRUB_INTERVAL_MS || 24 * 60 * 60 * 1000,
 )
 const TEMP_SCRUB_MIN_AGE_DAYS = Number(process.env.IHUI_TEMP_SCRUB_MIN_AGE_DAYS || 7)
-/** 清扫器要遍历整个 TEMP(实测这台机 4.6 万个条目);给 5 分钟硬上限,超时只算"本轮没跑成"。 */
-const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 300_000)
+/**
+ * 清扫器要遍历 7 个根的并集。2026-10-30 实测:整轮 783 秒(其中 `D:\caches\Temp` 里 3.2 万枚
+ * qoder 面包屑冷缓存逐枚读内容就占 5 分钟),而旧上限写死 300 秒 ⇒ 每轮必被掐死,
+ * `.ihui-agent/state/git-guardian.log` 连续三次 `ETIMEDOUT`,清扫器事实上从未成功删过一条。
+ * 上限改为 20 分钟(仍由环境变量可调),并且**失败不再占满 24h 冷却窗**(见下)。
+ */
+const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 1_200_000)
+/** 没跑成 ⇒ 只冷却 1 小时就重试;旧实现"失败也写 24h 戳"让一次超时瞎一整天。 */
+const TEMP_SCRUB_RETRY_MS = Number(process.env.IHUI_TEMP_SCRUB_RETRY_MS || 60 * 60 * 1000)
 
 /** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 `orphanAuditDue` 同一条失效方向)。 */
 export function tempScrubDue(nowMs, tickMs, intervalMs = TEMP_SCRUB_INTERVAL_MS) {
@@ -9986,12 +9958,19 @@ export function scrubTempFixtures(opts = {}) {
     /* 没跑过 */
   }
   if (!tempScrubDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-  } catch (_e) {
-    /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
+  // 戳只在**有结论**之后写(见下)。旧实现"先写戳再执行"⇒ 一次失败/超时把 24h 冷却窗白占掉,
+  // 而失败本身又是常态(冷缓存 + 300s 上限)⇒ 这一格事实上永不推进。
+  const stamp = (ms) => {
+    try {
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, new Date(ms).toISOString(), 'utf8')
+    } catch {
+      /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
+    }
   }
+  // 失败档:把戳写成"看起来已过去 interval - retry" ⇒ 距下次到期只剩 retry(默认 1h)。
+  // retry 不小于 interval(参数配坏)时退化成正常节流,不得把冷却窗写成负数。
+  const stampRetry = () => stamp(now - intervalMs + Math.min(TEMP_SCRUB_RETRY_MS, intervalMs))
   const call =
     typeof runner === 'function'
       ? runner()
@@ -10023,11 +10002,13 @@ export function scrubTempFixtures(opts = {}) {
     logger(
       `⚠️ TEMP 夹具清扫未跑成(rc=${call.status}):${String(call.stderr || call.stdout)
         .replace(/\s+/g, ' ')
-        .slice(0, 160)}` + ' —— 未跑成不等于没有残留,下轮重试(不改本守护退出码)',
+        .slice(0, 160)}` + ' —— 未跑成不等于没有残留,1 小时后重试(不改本守护退出码)',
     )
+    stampRetry()
     return { ran: true, ok: false, why: '未跑成', status: call.status }
   }
   if (p.failed) {
+    stampRetry() // 一条都没删掉 ⇒ 与"未跑成"同档:残留仍在,尽快再试
     logger(
       `⚠️ TEMP 夹具清扫:删了 ${p.deleted ?? 0} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)` +
         ` · root=${p.root} · 候选 ${p.candidates}` +
@@ -10036,6 +10017,7 @@ export function scrubTempFixtures(opts = {}) {
     )
     return { ran: true, ok: true, partial: true, ...p }
   }
+  stamp(now) // 真有结论(读数取到)才推进 24h 节流窗
   if (p.deleted) {
     logger(
       `✅ TEMP 夹具清扫:释放 ${p.deleted} 条(账龄闸 ${minAgeDays} 天,root=${p.root},候选 ${p.candidates})`,
