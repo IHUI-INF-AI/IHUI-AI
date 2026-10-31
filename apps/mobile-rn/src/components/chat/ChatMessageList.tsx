@@ -6,16 +6,7 @@
 // 零行为/视觉变更:renderMessage 主干逐字节搬运,仅把闭包变量改为 props(同名解构)。
 
 import { type MutableRefObject, type ReactNode } from 'react'
-import {
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Share,
-} from 'react-native'
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View, Share } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import {
   AlertTriangle,
@@ -64,6 +55,7 @@ import { SelectionAnnotationBar } from './SelectionAnnotationBar'
 import { ActionAnchorChip, extractActionAnchors, type ActionAnchor } from './action-anchor'
 import { type FloatBoxType } from '../../components/FloatBox'
 import type { MessageRating } from '@ihui/api-client'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * D135(承 G-46):消息列表执行帧的唯一折叠出口。
@@ -457,7 +449,7 @@ export function ChatMessageItem({
   return (
     <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
       <View style={styles.msgContent}>
-        <Pressable
+        <Tappable
           ref={(el) => {
             if (el) messageRefs.current.set(item.id, el)
             else messageRefs.current.delete(item.id)
@@ -492,7 +484,7 @@ export function ChatMessageItem({
             </View>
           ) : thinkingView ? (
             <View style={styles.thinkingBlock}>
-              <Pressable
+              <Tappable
                 style={styles.thinkingHeader}
                 hitSlop={6}
                 onPress={() =>
@@ -517,7 +509,7 @@ export function ChatMessageItem({
                     {thinkingExpanded ? t('chat.msg.collapse') : t('chat.msg.expand')}
                   </Text>
                 ) : null}
-              </Pressable>
+              </Tappable>
               {thinkingExpanded && reasoning.trim() !== '' ? (
                 <Text style={styles.thinkingContent} selectable>
                   {reasoning}
@@ -549,7 +541,7 @@ export function ChatMessageItem({
               }
               if (seg.type === 'image') {
                 return (
-                  <Pressable
+                  <Tappable
                     key={`${item.id}-img-${segIndex}`}
                     onPress={() => setPreviewImageUrl(seg.url)}
                     style={styles.msgImageWrap}
@@ -560,7 +552,7 @@ export function ChatMessageItem({
                       resizeMode="cover"
                       accessibilityLabel={t('chat.msg.imgA11y')}
                     />
-                  </Pressable>
+                  </Tappable>
                 )
               }
               if (seg.type === 'code') {
@@ -668,7 +660,7 @@ export function ChatMessageItem({
               {item.content || (isStreaming && !isUser ? t('chat.msg.thinkingNow') : item.content)}
             </Text>
           ) : null}
-        </Pressable>
+        </Tappable>
         {showActions ? (
           <View style={styles.msgActions}>
             <TouchableOpacity

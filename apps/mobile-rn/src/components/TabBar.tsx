@@ -12,7 +12,7 @@
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
 import { useCallback, type RefObject } from 'react'
-import { Image, Platform, Pressable, Text, View } from 'react-native'
+import { Image, Platform, Text, View } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -30,6 +30,7 @@ import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, TAB_BAR_HEIGHT, tabBarStyleSheet } from '
 // blocking 门不值当。要清这层,请在**下一次真正改动本文件的票**里顺带替换,别单独回退。
 import { TABBAR_ICON_DATA } from './tabbarIconData'
 import { useI18n } from '../i18n'
+import { Tappable } from '@ihui/ui-native'
 
 // ── tabbar 图标(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
 // 原 5 Tab:AI应用商店(tabbar_1)/广场(tabbar_2)/智汇AI(tabbar_3)/动态(tabbar_4)/我的(tabbar_5)
@@ -150,7 +151,7 @@ export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabB
           {TABS.map((tab) => {
             const isActive = tab.key === activeTab
             return (
-              <Pressable
+              <Tappable
                 key={tab.key}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isActive }}
@@ -171,7 +172,7 @@ export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabB
                 >
                   {labels?.[tab.key] ?? t(tab.label)}
                 </Text>
-              </Pressable>
+              </Tappable>
             )
           })}
         </View>

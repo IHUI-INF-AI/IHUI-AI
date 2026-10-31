@@ -36,6 +36,7 @@ import {
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { Tappable } from '@ihui/ui-native'
 export interface ConfirmPurchaseProduct {
   name: string
   price: number
@@ -270,7 +271,7 @@ export function ConfirmPurchasePopUp({
               {payOptions.map((m) => {
                 const active = m.id === selectedPayMethod
                 return (
-                  <Pressable
+                  <Tappable
                     key={m.id}
                     style={[styles.paymentOption, active ? styles.paymentOptionActive : null]}
                     onPress={() => selectPayMethod(m.id)}
@@ -286,7 +287,7 @@ export function ConfirmPurchasePopUp({
                     <View style={[styles.radio, active ? styles.radioActive : null]}>
                       {active ? <View style={styles.radioDot} /> : null}
                     </View>
-                  </Pressable>
+                  </Tappable>
                 )
               })}
             </View>
@@ -342,7 +343,7 @@ export function ConfirmPurchasePopUp({
           {/* 协议区(对齐 Uniapp agreement "点击立即支付，表示同意《用户协议》",勾选后启用支付) */}
           {hasAgreement ? (
             <View style={styles.agreementRow}>
-              <Pressable
+              <Tappable
                 style={[
                   styles.agreementCheckbox,
                   isAgreed ? styles.agreementCheckboxChecked : null,
@@ -353,14 +354,14 @@ export function ConfirmPurchasePopUp({
                 accessibilityLabel={agreementText}
               >
                 {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 style={styles.agreementTextWrap}
                 onPress={onAgreementPress}
                 disabled={!onAgreementPress}
               >
                 <Text style={styles.agreementText}>{agreementText}</Text>
-              </Pressable>
+              </Tappable>
             </View>
           ) : null}
         </View>

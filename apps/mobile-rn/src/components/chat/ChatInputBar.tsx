@@ -7,7 +7,7 @@
 // (两个新 prop 全可选;不传时渲染与抽取前逐字一致)。
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native'
+import { StyleSheet, View, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Slash } from 'lucide-react-native'
 import { BottomActionBar, type BottomActionBarProps } from '../../components/BottomActionBar'
@@ -21,6 +21,7 @@ import {
   type SlashCommand,
 } from '../../lib/slash-commands'
 import { SlashCommandPalette } from './SlashCommandPalette'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 触发钮底距(相对屏底,safe-area 之外另加):输入条容器是 absolute bottom:0,
@@ -87,7 +88,7 @@ export function ChatInputBar(props: ChatInputBarProps) {
     <>
       <BottomActionBar {...props} />
       {onOpenSlashCommands === undefined ? null : (
-        <Pressable
+        <Tappable
           style={[styles.slashFab, { bottom: insets.bottom + SLASH_FAB_BOTTOM }]}
           onPress={openPalette}
           hitSlop={4}
@@ -95,7 +96,7 @@ export function ChatInputBar(props: ChatInputBarProps) {
           accessibilityLabel={t('slashCmd.paletteTitle')}
         >
           <Slash size={rnGeometry.controlGlyph} color={tokens.text.secondary} />
-        </Pressable>
+        </Tappable>
       )}
       {voiceNoteNode ? (
         <View

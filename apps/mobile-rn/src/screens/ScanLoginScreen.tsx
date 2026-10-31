@@ -17,6 +17,7 @@ import { selectIsAuthenticated, useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -112,13 +113,13 @@ export function ScanLoginScreen() {
       <SafeAreaView style={styles.safe}>
         <Text style={styles.safeTitle}>{t('scanLogin.title')}</Text>
         <Text style={styles.safeHint}>{t('scanLogin.needLogin')}</Text>
-        <Pressable
+        <Tappable
           style={styles.ctaButton}
           onPress={() => navigation.navigate('Login')}
           accessibilityRole="button"
         >
           <Text style={styles.ctaButtonText}>{t('common.login')}</Text>
-        </Pressable>
+        </Tappable>
         <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={undefined}>
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </Pressable>
@@ -136,17 +137,17 @@ export function ScanLoginScreen() {
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
         {denied ? (
-          <Pressable style={styles.ctaButton} onPress={openSettings} accessibilityRole="button">
+          <Tappable style={styles.ctaButton} onPress={openSettings} accessibilityRole="button">
             <Text style={styles.ctaButtonText}>{t('scanLogin.openSettings')}</Text>
-          </Pressable>
+          </Tappable>
         ) : (
-          <Pressable
+          <Tappable
             style={styles.ctaButton}
             onPress={() => void requestPermission()}
             accessibilityRole="button"
           >
             <Text style={styles.ctaButtonText}>{t('scanLogin.grant')}</Text>
-          </Pressable>
+          </Tappable>
         )}
         <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={undefined}>
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>

@@ -18,11 +18,12 @@
  * 堆栈面板为简版(纯文本可选中),完整符号化堆栈仍看 metro 终端输出。
  */
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 interface DevErrorEntry {
   id: number
@@ -120,7 +121,7 @@ export function DevErrorToast() {
 
   return (
     <View pointerEvents="box-none" style={styles.wrapper}>
-      <Pressable
+      <Tappable
         style={styles.bar}
         accessibilityRole="alert"
         accessibilityLabel={`开发报错 ${count} 条: ${latest.message}`}
@@ -143,10 +144,10 @@ export function DevErrorToast() {
             <Text style={styles.badgeText}>{count}</Text>
           </View>
         ) : null}
-        <Pressable hitSlop={8} onPress={clearErrors} style={styles.closeBtn}>
+        <Tappable hitSlop={8} onPress={clearErrors} style={styles.closeBtn}>
           <X size={ICON_SIZE} color={TEXT_COLOR} />
-        </Pressable>
-      </Pressable>
+        </Tappable>
+      </Tappable>
     </View>
   )
 }

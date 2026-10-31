@@ -30,6 +30,7 @@ import type {
   ProgressOverview,
 } from '@ihui/types'
 import { ChevronLeft, BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
+import { Tappable } from '@ihui/ui-native'
 
 /** 课程分类(对齐 Uniapp learn.vue) */
 export interface CourseCategory {
@@ -294,7 +295,7 @@ export function CourseTabScreen({
               ))}
               {totalPages > 1 ? (
                 <View style={styles.pagination}>
-                  <Pressable
+                  <Tappable
                     onPress={() => onPageChange(Math.max(1, page - 1))}
                     disabled={page <= 1}
                     hitSlop={8}
@@ -305,11 +306,11 @@ export function CourseTabScreen({
                       color={tk.text.primary}
                       style={page <= 1 ? styles.pageBtnDisabled : null}
                     />
-                  </Pressable>
+                  </Tappable>
                   <Text style={styles.pageIndicator}>
                     {page} / {totalPages}
                   </Text>
-                  <Pressable
+                  <Tappable
                     onPress={() => onPageChange(Math.min(totalPages, page + 1))}
                     disabled={page >= totalPages}
                     hitSlop={8}
@@ -319,7 +320,7 @@ export function CourseTabScreen({
                     >
                       下一页
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 </View>
               ) : null}
             </View>

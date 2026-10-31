@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Image,
   Linking,
-  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -38,6 +37,7 @@ import type {
   ThirdPartyLoginOption,
   ThirdPartyPlatform,
 } from '@ihui/types'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 登录共享屏 — RN 端 4-tab 完整版(2026-07-30 重做)。
@@ -744,7 +744,7 @@ function PhoneTabContent({
         {hasNationSelector ? (
           <View>
             <View style={[styles.phoneRow, phoneFocused && styles.phoneRowFocused]}>
-              <Pressable
+              <Tappable
                 style={styles.areaBox}
                 onPress={onToggleNationShow}
                 accessibilityRole="button"
@@ -752,7 +752,7 @@ function PhoneTabContent({
               >
                 <Text style={styles.areaText}>{phoneHead}</Text>
                 <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
-              </Pressable>
+              </Tappable>
               <TextField
                 colorScheme={colorScheme}
                 style={[styles.input, styles.phoneInputWithArea]}
@@ -773,7 +773,7 @@ function PhoneTabContent({
                 {nations.map((n) => {
                   const active = n.content === phoneHead
                   return (
-                    <Pressable
+                    <Tappable
                       key={n.id}
                       style={[styles.nationItem, active && styles.nationItemActive]}
                       onPress={() => onSelectNation?.(n)}
@@ -786,7 +786,7 @@ function PhoneTabContent({
                       <Text style={[styles.nationCode, active && styles.nationCodeActive]}>
                         {n.content}
                       </Text>
-                    </Pressable>
+                    </Tappable>
                   )
                 })}
               </View>

@@ -46,6 +46,7 @@ import {
 } from '@ihui/shared/utils/image-preview-offset'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
+import { Tappable } from '@ihui/ui-native'
 
 /** 盒尺寸(dp)。RN 的 onLayout / onLoad 给的都是这个量纲,与平移量同一坐标系。 */
 export interface ImagePreviewBox {
@@ -274,12 +275,12 @@ export default function ImagePreviewModal({
           <View style={styles.row}>
             {multi ? (
               <>
-                <Pressable onPress={() => go(-1)} hitSlop={10} accessibilityRole="button">
+                <Tappable onPress={() => go(-1)} hitSlop={10} accessibilityRole="button">
                   <ChevronLeft size={26} color={HUD_COLOR} />
-                </Pressable>
-                <Pressable onPress={() => go(1)} hitSlop={10} accessibilityRole="button">
+                </Tappable>
+                <Tappable onPress={() => go(1)} hitSlop={10} accessibilityRole="button">
                   <ChevronRight size={26} color={HUD_COLOR} />
-                </Pressable>
+                </Tappable>
               </>
             ) : null}
             <Pressable

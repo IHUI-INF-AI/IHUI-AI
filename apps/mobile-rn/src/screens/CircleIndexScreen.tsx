@@ -40,6 +40,7 @@ import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -223,12 +224,12 @@ export function CircleIndexScreen() {
                   </Pressable>
                 ))}
                 {imgs.length > 3 ? (
-                  <Pressable
+                  <Tappable
                     style={[styles.img, styles.imgMore]}
                     onPress={() => setPreview({ urls: imgs, index: 2 })}
                   >
                     <Text style={styles.imgMoreText}>{`+${imgs.length - 3}`}</Text>
-                  </Pressable>
+                  </Tappable>
                 ) : null}
               </View>
             ) : null}
@@ -290,7 +291,7 @@ export function CircleIndexScreen() {
                 contentContainerStyle={styles.topicScroll}
               >
                 {hotTopics.map((topic) => (
-                  <Pressable
+                  <Tappable
                     key={String(topic.id)}
                     style={styles.topicChip}
                     onPress={() => navigation.navigate('TopicDetail', { id: String(topic.id) })}
@@ -301,7 +302,7 @@ export function CircleIndexScreen() {
                       {topic.name}
                     </Text>
                     <Text style={styles.topicCount}>{topic.count}</Text>
-                  </Pressable>
+                  </Tappable>
                 ))}
               </ScrollView>
             ) : null}
@@ -326,7 +327,7 @@ export function CircleIndexScreen() {
                         {u.bio}
                       </Text>
                     ) : null}
-                    <Pressable
+                    <Tappable
                       style={[styles.userFollow, u.followed ? styles.userFollowActive : null]}
                       onPress={() => void followUser(u)}
                       accessibilityRole="button"
@@ -339,7 +340,7 @@ export function CircleIndexScreen() {
                       >
                         {u.followed ? t('circle.index.followed') : t('circle.index.follow')}
                       </Text>
-                    </Pressable>
+                    </Tappable>
                   </View>
                 ))}
               </ScrollView>
@@ -353,21 +354,21 @@ export function CircleIndexScreen() {
               <Text style={styles.stateText}>{t('circle.index.loading')}</Text>
             </View>
           ) : error ? (
-            <Pressable style={styles.center} onPress={refresh} accessibilityRole="button">
+            <Tappable style={styles.center} onPress={refresh} accessibilityRole="button">
               <Text style={styles.errorText}>{t('circle.index.error')}</Text>
               <Text style={styles.retryText}>{t('circle.index.retry')}</Text>
-            </Pressable>
+            </Tappable>
           ) : (
             <View style={styles.center}>
               <Inbox size={40} color={tk.text.tertiary} />
               <Text style={styles.stateText}>{t('circle.empty')}</Text>
-              <Pressable
+              <Tappable
                 style={styles.emptyBtn}
                 onPress={() => navigation.navigate('CircleCreate')}
                 accessibilityRole="button"
               >
                 <Text style={styles.emptyBtnText}>{t('circle.index.goPublish')}</Text>
-              </Pressable>
+              </Tappable>
             </View>
           )
         }

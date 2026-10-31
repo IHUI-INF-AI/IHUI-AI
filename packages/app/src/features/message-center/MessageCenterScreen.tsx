@@ -19,6 +19,7 @@ import type {
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab }
 
@@ -105,7 +106,7 @@ export function MessageCenterScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('messageCenter.title')}</Text>
         {onPressSettings ? (
-          <Pressable
+          <Tappable
             style={styles.headerAction}
             onPress={onPressSettings}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -113,14 +114,14 @@ export function MessageCenterScreen({
             accessibilityLabel={t('messageCenter.settings')}
           >
             <Settings size={20} color={tk.text.secondary} />
-          </Pressable>
+          </Tappable>
         ) : null}
       </View>
 
       {/* 通知横幅(小程序 NavBar notification 插槽同形):有文案才渲染,可点则整条可点 */}
       {notification ? (
         notification.onPress ? (
-          <Pressable
+          <Tappable
             style={styles.banner}
             onPress={notification.onPress}
             accessibilityRole="button"
@@ -130,7 +131,7 @@ export function MessageCenterScreen({
             <Text style={styles.bannerText} numberOfLines={2}>
               {notification.text}
             </Text>
-          </Pressable>
+          </Tappable>
         ) : (
           <View style={styles.banner}>
             <Bell size={16} color={tk.text.secondary} />
@@ -163,7 +164,7 @@ export function MessageCenterScreen({
           const active = tab.key === activeTab
           const unread = tab.unread ?? 0
           return (
-            <Pressable
+            <Tappable
               key={tab.key}
               onPress={() => onSelectTab(tab.key)}
               style={[styles.tab, active && styles.tabActive]}
@@ -177,7 +178,7 @@ export function MessageCenterScreen({
                   <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
                 </View>
               ) : null}
-            </Pressable>
+            </Tappable>
           )
         })}
       </ScrollView>
@@ -203,7 +204,7 @@ export function MessageCenterScreen({
             <View style={styles.convSection}>
               <Text style={styles.convTitle}>{t('messageCenter.conversations')}</Text>
               {conversations.map((conv: MessageConversationItem) => (
-                <Pressable
+                <Tappable
                   key={conv.id}
                   style={styles.convItem}
                   onPress={() => onPressConversation?.(conv)}
@@ -249,7 +250,7 @@ export function MessageCenterScreen({
                   </View>
                   {/* 删除会话(小程序 MessageActions 的 onDelete 同形):回调不传则整颗按钮不渲染 */}
                   {onDeleteConversation ? (
-                    <Pressable
+                    <Tappable
                       style={styles.convActionBtn}
                       hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                       accessibilityRole="button"
@@ -257,12 +258,12 @@ export function MessageCenterScreen({
                       onPress={() => onDeleteConversation(conv)}
                     >
                       <Trash2 size={16} color={tk.text.tertiary} />
-                    </Pressable>
+                    </Tappable>
                   ) : null}
                   {/* 置顶切换(D20 G-11 端内接线):图标即动作,与 web 菜单同形;
                       onTogglePin 不传则整颗按钮不渲染(其它端零影响) */}
                   {onTogglePin ? (
-                    <Pressable
+                    <Tappable
                       style={styles.convPinBtn}
                       hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                       accessibilityRole="button"
@@ -274,9 +275,9 @@ export function MessageCenterScreen({
                       ) : (
                         <Pin size={16} color={tk.text.tertiary} />
                       )}
-                    </Pressable>
+                    </Tappable>
                   ) : null}
-                </Pressable>
+                </Tappable>
               ))}
             </View>
           ) : null}

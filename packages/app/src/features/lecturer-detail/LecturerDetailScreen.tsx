@@ -27,6 +27,7 @@ import type {
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
+import { Tappable } from '@ihui/ui-native'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -190,11 +191,11 @@ export function LecturerDetailScreen({
             <Text style={styles.sectionTitle}>{t('teacher.detail.intro')}</Text>
             <Text style={styles.introText}>{introText}</Text>
             {introOverflow ? (
-              <Pressable onPress={() => setIntroExpanded((v) => !v)} hitSlop={8}>
+              <Tappable onPress={() => setIntroExpanded((v) => !v)} hitSlop={8}>
                 <Text style={styles.expandText}>
                   {introExpanded ? t('teacher.detail.collapse') : t('teacher.detail.expand')}
                 </Text>
-              </Pressable>
+              </Tappable>
             ) : null}
           </View>
         ) : null}

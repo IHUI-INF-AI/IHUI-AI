@@ -16,7 +16,6 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -34,6 +33,7 @@ import { ChevronRight, Settings } from 'lucide-react-native'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { N8nMessage } from '@ihui/types'
+import { Tappable } from '@ihui/ui-native'
 export type { N8nMessage }
 
 /** AiAssistantN8nScreen props(wrapper 注入数据+回调) */
@@ -120,13 +120,13 @@ export function AiAssistantN8nScreen({
           {hasImages ? (
             <View style={styles.imageGrid}>
               {item.images!.map((url, i) => (
-                <Pressable
+                <Tappable
                   key={`${url}-${i}`}
                   style={styles.imageItem}
                   onPress={() => onPreviewImage(url)}
                 >
                   <Image source={{ uri: url }} style={styles.chatImage} resizeMode="cover" />
-                </Pressable>
+                </Tappable>
               ))}
             </View>
           ) : null}
@@ -172,27 +172,27 @@ export function AiAssistantN8nScreen({
             contentContainerStyle={styles.quickScrollContent}
           >
             {quickSuggestions.map((question) => (
-              <Pressable key={question} style={styles.quickChip} onPress={() => onSend?.(question)}>
+              <Tappable key={question} style={styles.quickChip} onPress={() => onSend?.(question)}>
                 <Text style={styles.quickChipText} numberOfLines={1}>
                   {question}
                 </Text>
-              </Pressable>
+              </Tappable>
             ))}
           </ScrollView>
         </View>
       ) : null}
 
       {/* 模型选择条 */}
-      <Pressable style={styles.modelBar} onPress={onModelPress}>
+      <Tappable style={styles.modelBar} onPress={onModelPress}>
         <Text style={styles.modelBarLabel} numberOfLines={1}>
           {t('chat.modelLabel')}: {selectedModelLabel}
         </Text>
-        <Pressable style={styles.modelConfigBtn} onPress={onModelConfigPress}>
+        <Tappable style={styles.modelConfigBtn} onPress={onModelConfigPress}>
           <Settings size={14} color={tk.text.secondary} />
           <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
-        </Pressable>
+        </Tappable>
         <ChevronRight size={20} color={tk.text.tertiary} style={styles.modelBarArrow} />
-      </Pressable>
+      </Tappable>
 
       {/* 输入区 */}
       <View style={styles.inputWrap}>
@@ -209,7 +209,7 @@ export function AiAssistantN8nScreen({
           onSubmitEditing={onSubmitSearch}
         />
         {/* 发送/停止按钮:流式输出中变为停止(对齐 Uniapp BottomActionBar isLoading 模式) */}
-        <Pressable
+        <Tappable
           style={styles.sendBtn}
           onPress={() => (sending ? onStop?.() : onSend?.(searchInput))}
           disabled={!sending && !searchInput.trim()}
@@ -219,7 +219,7 @@ export function AiAssistantN8nScreen({
           ) : (
             <Text style={styles.sendBtnText}>{t('chat.send')}</Text>
           )}
-        </Pressable>
+        </Tappable>
       </View>
 
       {/* 流式状态条 */}

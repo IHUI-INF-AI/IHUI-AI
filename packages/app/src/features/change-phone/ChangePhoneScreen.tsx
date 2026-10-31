@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePhoneScreenProps } from '../../types'
 import { ChevronDown } from 'lucide-react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { Tappable } from '@ihui/ui-native'
 
 /** 换绑手机共享屏 — props 注入式跨端组件(wrapper 负责 fetchApi + setInterval 倒计时)。
  *  原屏硬编码中文(无 i18n),共享层保持原样不接入 t()。 */
@@ -46,14 +47,14 @@ export function ChangePhoneScreen({
 
       <View style={styles.inputWbox}>
         <View style={styles.inputBox}>
-          <Pressable
+          <Tappable
             style={styles.areaBox}
             onPress={onToggleNationShow}
             accessibilityLabel="选择区号"
           >
             <Text style={styles.areaText}>{phoneHead}</Text>
             <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: rnSpacing.sm }} />
-          </Pressable>
+          </Tappable>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
@@ -68,7 +69,7 @@ export function ChangePhoneScreen({
         {nationShow ? (
           <View style={styles.nationBox}>
             {nations.map((n) => (
-              <Pressable
+              <Tappable
                 key={n.id}
                 style={styles.nationItem}
                 onPress={() => onSelectNation(n)}
@@ -76,7 +77,7 @@ export function ChangePhoneScreen({
               >
                 <Text style={styles.nationTitle}>{n.title}</Text>
                 <Text style={styles.nationCode}>{n.content}</Text>
-              </Pressable>
+              </Tappable>
             ))}
           </View>
         ) : null}
@@ -95,33 +96,33 @@ export function ChangePhoneScreen({
             maxLength={6}
           />
           {sendCodeShow ? (
-            <Pressable style={styles.sendBtn} onPress={onSendCode} accessibilityLabel="发送验证码">
+            <Tappable style={styles.sendBtn} onPress={onSendCode} accessibilityLabel="发送验证码">
               <Text style={styles.sendText}>发送验证码</Text>
-            </Pressable>
+            </Tappable>
           ) : codeMin > 0 ? (
             <Text style={styles.countdownText}>{codeMin}秒后重新获取</Text>
           ) : (
-            <Pressable
+            <Tappable
               style={styles.sendBtn}
               onPress={onSendCode}
               accessibilityLabel="重新获取验证码"
             >
               <Text style={styles.sendText}>获取验证码</Text>
-            </Pressable>
+            </Tappable>
           )}
         </View>
       </View>
 
       {tip ? <Text style={styles.tipText}>{tip}</Text> : null}
 
-      <Pressable
+      <Tappable
         style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
         onPress={onSubmit}
         disabled={submitting}
         accessibilityLabel="确定"
       >
         <Text style={styles.submitText}>{submitting ? '提交中...' : '确定'}</Text>
-      </Pressable>
+      </Tappable>
     </ScrollView>
   )
 }

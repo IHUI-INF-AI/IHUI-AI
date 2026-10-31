@@ -7,12 +7,13 @@
  * 2×2 网格:我的订单 / 我的公司 / 我的智汇值 / 我的钱包
  * 点击跳转对应路由,未登录时 Alert 提示。
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { appAlert } from './BottomPops'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
 
@@ -71,7 +72,7 @@ export function UserCard({ t, isLoggedIn, onPress }: UserCardProps) {
   return (
     <View style={styles.grid}>
       {CARDS.map(({ key, labelKey, subtitleKey, Icon }) => (
-        <Pressable
+        <Tappable
           key={key}
           style={styles.card}
           onPress={() => handlePress(key)}
@@ -88,7 +89,7 @@ export function UserCard({ t, isLoggedIn, onPress }: UserCardProps) {
               {t(subtitleKey)}
             </Text>
           </View>
-        </Pressable>
+        </Tappable>
       ))}
     </View>
   )

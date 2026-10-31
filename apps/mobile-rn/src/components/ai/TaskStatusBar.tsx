@@ -13,7 +13,7 @@
  * 平台特有:依赖 react-native / lucide-react-native API,不适合共享。
  */
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { Check, ChevronDown, ChevronUp, CircleDashed, Loader2, X } from 'lucide-react-native'
 import { humanizeToolText, deriveTaskStatusBar } from '@ihui/shared'
 import type { TaskStatusKind, TaskStatusStepView } from '@ihui/shared'
@@ -23,6 +23,7 @@ import { useI18n } from '../../i18n'
 import type { PlanStepItem, ToolCallItem } from '../../utils/chat-render-model'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 export interface TaskStatusBarProps {
   /** 最后一条带 planSteps 的 assistant 消息的步骤快照(plan_updated 权威整体替换) */
@@ -135,7 +136,7 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
         style={[styles.card, view.active ? styles.cardActive : null]}
         testID={`task-status-bar-kind-${view.kind}`}
       >
-        <Pressable
+        <Tappable
           style={styles.row}
           onPress={() => setUserOpen(!open)}
           accessibilityRole="button"
@@ -160,7 +161,7 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
           ) : (
             <ChevronDown size={14} color={tokens.text.secondary} />
           )}
-        </Pressable>
+        </Tappable>
         {open && view.stepTotal > 0 ? (
           <View style={styles.detail}>
             {view.steps.map((step) => (

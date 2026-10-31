@@ -25,7 +25,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -52,6 +51,7 @@ import { rpx } from '../utils/rpx'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -360,14 +360,14 @@ export default function DevEnterScreen() {
           <View style={styles.promptDialog}>
             <Text style={styles.promptContent}>{t('devEnter.offlineConfirmBody')}</Text>
             <View style={styles.promptFooter}>
-              <Pressable
+              <Tappable
                 style={[styles.promptBtn, styles.promptCancel]}
                 onPress={() => setOfflineTarget(null)}
                 disabled={offlining}
               >
                 <Text style={styles.promptCancelText}>{t('common.cancel')}</Text>
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 style={[styles.promptBtn, styles.promptConfirm]}
                 onPress={() => void confirmOffline()}
                 disabled={offlining}
@@ -375,7 +375,7 @@ export default function DevEnterScreen() {
                 <Text style={styles.promptConfirmText}>
                   {offlining ? t('devEnter.processing') : t('devEnter.confirmOk')}
                 </Text>
-              </Pressable>
+              </Tappable>
             </View>
           </View>
         </View>

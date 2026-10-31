@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatScreenMessage } from '@ihui/types'
@@ -17,6 +17,7 @@ import {
   type AttributionMessage,
 } from '@ihui/shared/utils'
 import type { SegmentLabelKey } from '@ihui/types'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 上下文占用归因面板(RN 消费端)— 消费共享引擎 computeContextAttribution,
@@ -117,7 +118,7 @@ export function ContextUsagePanel({
 
   return (
     <View style={styles.wrap}>
-      <Pressable
+      <Tappable
         onPress={() => setExpanded((v) => !v)}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -126,7 +127,7 @@ export function ContextUsagePanel({
           {percent}% · {usedTokens.toLocaleString()} /{' '}
           {maxTokens > 0 ? maxTokens.toLocaleString() : '—'}
         </Text>
-      </Pressable>
+      </Tappable>
 
       {expanded ? (
         <View style={styles.panel}>
@@ -151,7 +152,7 @@ export function ContextUsagePanel({
             const open = openSegment === seg.key
             return (
               <View key={seg.key}>
-                <Pressable
+                <Tappable
                   onPress={() => expandable && setOpenSegment(open ? null : seg.key)}
                   accessibilityRole={expandable ? 'button' : undefined}
                   accessibilityState={expandable ? { expanded: open } : undefined}
@@ -181,7 +182,7 @@ export function ContextUsagePanel({
                   <Text style={[styles.num, styles.dim]}>
                     {seg.observed ? formatShare(seg.share) : '—'}
                   </Text>
-                </Pressable>
+                </Tappable>
 
                 {!seg.observed ? (
                   <Text style={[styles.note, styles.dim]}>

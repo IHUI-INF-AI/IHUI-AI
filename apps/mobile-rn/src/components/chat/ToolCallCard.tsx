@@ -6,7 +6,7 @@
 // D119 并行工具后续票面的挂载点)。零行为/视觉变更。
 
 import { useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
@@ -16,6 +16,7 @@ import {
   type AssistantExecutionViz,
   type ToolCallItem,
 } from '../../utils/chat-render-model'
+import { Tappable } from '@ihui/ui-native'
 
 const styles = StyleSheet.create({
   // ── D135 执行/交互帧最小可视态 ──
@@ -138,14 +139,14 @@ function ToolCallRow({ call }: { call: ToolCallItem }) {
   return (
     <View>
       {partialDiff ? (
-        <Pressable
+        <Tappable
           style={styles.toolRow}
           onPress={() => setExpanded((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={expanded ? t('chat.diffCollapse') : t('chat.diffExpand')}
         >
           {header}
-        </Pressable>
+        </Tappable>
       ) : (
         <View style={styles.toolRow}>{header}</View>
       )}

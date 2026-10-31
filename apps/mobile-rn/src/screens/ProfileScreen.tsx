@@ -7,7 +7,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -132,6 +131,7 @@ import {
 } from './profileContentTypes'
 import { rpx } from '../utils/rpx'
 import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
 
 type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -1681,7 +1681,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
               当前用 Pressable 仅支持点击跳转;待安装 @react-native-community/slider
               后改为可拖动 Slider 组件 + onSlidingComplete 回调(不引入新依赖,保持现状) */}
-            <Pressable
+            <Tappable
               onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
               onPress={onProgressBarTap}
               style={styles.audioProgressTrack}
@@ -1690,7 +1690,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
               <View
                 style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
               />
-            </Pressable>
+            </Tappable>
             <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
             <TouchableOpacity
               hitSlop={2}
