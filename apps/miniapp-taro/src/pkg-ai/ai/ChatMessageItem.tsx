@@ -328,7 +328,7 @@ export default function ChatMessageItem({
                 onClick={handleReuse}
               />
               <Text
-                style={{ fontSize: '20rpx', color: 'var(--color-link)', marginTop: '4rpx' }}
+                style={{ fontSize: '20rpx', color: 'var(--color-link)', marginTop: 'var(--spacing-2xs)' }}
                 onClick={handleReuse}
               >
                 {t('ai.chatMessageItem.reuse')}
@@ -337,7 +337,7 @@ export default function ChatMessageItem({
           ) : null}
           {/* 用户消息图片列表(若有) */}
           {msg.images && msg.images.length > 0 ? (
-            <View className="agent-content-item-question" style={{ marginTop: '20rpx' }}>
+            <View className="agent-content-item-question" style={{ marginTop: 'var(--spacing-sm-loose)' }}>
               {msg.images.map((imgUrl, i) => (
                 <Image
                   key={i}
@@ -395,7 +395,7 @@ export default function ChatMessageItem({
                   name="triangle-alert"
                   size={28}
                   color="var(--color-destructive)"
-                  style={{ marginRight: '8rpx' }}
+                  style={{ marginRight: 'var(--spacing-xs)' }}
                 />
                 <Text className="text-xs font-medium text-destructive">
                   {t('ai.chatMessageItem.errorCardTitle')}
@@ -439,7 +439,7 @@ export default function ChatMessageItem({
                   return (
                     <Text
                       key={idx}
-                      style={{ fontWeight: 'bold', display: 'block', marginBottom: '20rpx' }}
+                      style={{ fontWeight: 'bold', display: 'block', marginBottom: 'var(--spacing-sm-loose)' }}
                     >
                       {seg.value}
                     </Text>
@@ -453,7 +453,7 @@ export default function ChatMessageItem({
               })}
               {/* 代码块(保留当前 codeCollapsed 逻辑;2026-09-03 浅色化:对齐 web oneLight,代码块 bg=var(--color-muted)) */}
               {msg.codeContent ? (
-                <View style={{ marginTop: '12rpx' }}>
+                <View style={{ marginTop: 'var(--spacing-xs-loose)' }}>
                   <View
                     style={{
                       display: 'flex',
@@ -482,7 +482,7 @@ export default function ChatMessageItem({
                       />
                       <Text
                         style={{
-                          marginLeft: '8rpx',
+                          marginLeft: 'var(--spacing-xs)',
                           fontSize: '24rpx',
                           color: 'var(--color-muted-foreground)',
                         }}
@@ -504,7 +504,7 @@ export default function ChatMessageItem({
                     <Text
                       style={{
                         display: 'block',
-                        padding: '16rpx',
+                        padding: 'var(--spacing-sm)',
                         fontFamily: 'monospace',
                         fontSize: '24rpx',
                         color: 'var(--color-foreground)',
@@ -529,7 +529,7 @@ export default function ChatMessageItem({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    marginTop: '12rpx',
+                    marginTop: 'var(--spacing-xs-loose)',
                     padding: '12rpx 20rpx',
                     background: 'var(--color-muted)',
                     borderRadius: rnRadius['2xl'],
@@ -542,9 +542,9 @@ export default function ChatMessageItem({
                     name={voicePlaying ? 'pause' : 'play'}
                     size={32}
                     color="var(--color-muted-foreground)"
-                    style={{ marginRight: '12rpx' }}
+                    style={{ marginRight: 'var(--spacing-xs-loose)' }}
                   />
-                  <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>
+                  <Text style={{ fontSize: '24rpx', marginRight: 'var(--spacing-xs-loose)' }}>
                     {t('ai.chatMessageItem.voiceMessage')}
                   </Text>
                   {audioDuration ? (
@@ -556,7 +556,7 @@ export default function ChatMessageItem({
               {hasDigitalHuman ? (
                 <View
                   style={{
-                    marginTop: '12rpx',
+                    marginTop: 'var(--spacing-xs-loose)',
                     padding: '10rpx 20rpx',
                     background: 'var(--color-link)',
                     borderRadius: rnRadius.lg,
@@ -600,7 +600,7 @@ export default function ChatMessageItem({
               ) : null}
             </View>
           ) : (
-            <View style={{ padding: '20rpx', textAlign: 'center' }}>
+            <View style={{ padding: 'var(--spacing-sm-loose)', textAlign: 'center' }}>
               <Text style={{ color: 'var(--color-muted-foreground)', fontSize: '24rpx' }}>···</Text>
             </View>
           )}
@@ -723,7 +723,7 @@ export default function ChatMessageItem({
                     alignItems: 'center',
                     fontSize: '24rpx',
                     color: 'var(--color-link)',
-                    marginLeft: '20rpx',
+                    marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
                   }}
                   onClick={handleSpeak}
@@ -746,7 +746,7 @@ export default function ChatMessageItem({
                   style={{
                     fontSize: '24rpx',
                     color: 'var(--color-link)',
-                    marginLeft: '20rpx',
+                    marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
                   }}
                   onClick={onRegenerate}
@@ -760,7 +760,7 @@ export default function ChatMessageItem({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    marginLeft: '20rpx',
+                    marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
                   }}
                   onClick={onToggleFavorite}

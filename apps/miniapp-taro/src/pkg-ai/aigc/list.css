@@ -119,8 +119,8 @@
 /* 视频徽章(RN videoBadge:top/left 8 padding 8/4 rgba(0,0,0,0.55);圆角按角色档 chip→md) */
 .video-badge {
   position: absolute;
-  top: 16rpx;
-  left: 16rpx;
+  top: var(--spacing-sm);
+  left: var(--spacing-sm);
   padding: var(--spacing-xs) 16rpx;
   border-radius: var(--radius-md);
   background: var(--color-scrim);
@@ -215,8 +215,8 @@
   box-sizing: border-box;
 }
 .audio-cover {
-  width: 128rpx;
-  height: 128rpx;
+  width: var(--spacing-6xl);
+  height: var(--spacing-6xl);
   border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--color-border);

@@ -183,7 +183,7 @@ export default function UpgradePage() {
             </View>
           ))}
         </View>
-        <View className="rights" style={{ marginTop: '24rpx' }}>
+        <View className="rights" style={{ marginTop: 'var(--spacing-md)' }}>
           <View className="rights-title">{t('pay.selectMethod')}</View>
           <View className="pay-methods">
             <View

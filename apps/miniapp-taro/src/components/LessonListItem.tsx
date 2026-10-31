@@ -100,7 +100,7 @@ export default function LessonListItem({
         )}
         <View
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
-          style={{ marginLeft: '20rpx' }}
+          style={{ marginLeft: 'var(--spacing-sm-loose)' }}
         >
           <Text className="text-[length:28rpx] font-bold text-foreground truncate">
             {data.title}
@@ -164,7 +164,7 @@ export default function LessonListItem({
         )}
         <View
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
-          style={{ marginLeft: '20rpx' }}
+          style={{ marginLeft: 'var(--spacing-sm-loose)' }}
         >
           <Text className="text-[length:28rpx] font-bold text-foreground truncate">
             {data.title}

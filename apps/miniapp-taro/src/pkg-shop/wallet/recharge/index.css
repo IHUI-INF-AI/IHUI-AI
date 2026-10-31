@@ -22,8 +22,8 @@
   background: var(--color-black-45);
 }
 .rc-loading-spinner {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   border: 6rpx solid var(--color-white-30);
   border-top-color: var(--color-primary-foreground);
   border-radius: var(--radius-lg);
@@ -51,8 +51,8 @@
   background: var(--color-cta);
 }
 .rc-user-avatar {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-2xl);
   background: var(--color-muted);
 }

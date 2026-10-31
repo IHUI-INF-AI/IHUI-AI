@@ -113,7 +113,7 @@
 
 .title-switch-type-bar__modal-btn {
   width: 100rpx;
-  height: 48rpx;
+  height: var(--spacing-2xl);
   display: flex;
   align-items: center;
   justify-content: center;

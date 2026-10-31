@@ -115,8 +115,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   font-size: var(--text-label);
   color: transparent;
   background: var(--color-background);

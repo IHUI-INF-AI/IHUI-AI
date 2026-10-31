@@ -134,7 +134,7 @@
 .income-tab {
   box-sizing: border-box;
   flex: 1;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   border-radius: var(--radius-xl);
   color: var(--color-muted-foreground);
   font-size: var(--text-body);
