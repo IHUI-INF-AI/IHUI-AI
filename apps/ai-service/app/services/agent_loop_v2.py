@@ -168,6 +168,12 @@ from ..core.doom_loop import (
 )
 from ..core.environment_context import EnvironmentStateTracker as _EnvironmentStateTracker
 from ..core.mcp_tool_approval import (
+    MCP_TOOL_APPROVAL_PROMPT_OPTIONS_PAYLOAD_KEY as _APPROVAL_PROMPT_OPTIONS_KEY,
+)
+from ..core.mcp_tool_approval import (
+    McpToolApprovalPromptOptions,
+)
+from ..core.mcp_tool_approval import (
     ToolAnnotations as _McpToolAnnotations,
 )
 from ..core.mcp_tool_approval import (
@@ -1541,6 +1547,7 @@ class AgentEventStream:
         exec_environment: dict[str, Any] | None = None,
         network_target: dict[str, Any] | None = None,
         blocked_network_targets: list[dict[str, Any]] | None = None,
+        prompt_options: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1564,6 +1571,9 @@ class AgentEventStream:
             payload["network_target"] = network_target
         if blocked_network_targets is not None:
             payload["blocked_network_targets"] = blocked_network_targets
+        # G-09(2026-10-31):审批选项的真实可用性(可选附加键,老客户端按未知字段忽略)。
+        if prompt_options is not None:
+            payload[_APPROVAL_PROMPT_OPTIONS_KEY] = prompt_options
         await self.emit("tool.approval", payload)
 
     async def permission_mode(
@@ -5368,6 +5378,23 @@ class AgentLoopV2:
             )
             return None
 
+        # G-09(2026-10-31):审批等待窗口进入 elicitation 计数暂停态。
+        # 服务单例在 mcp_server 懒构造(构造失败降级 None);取不到 ⇒ 不登记、
+        # 不改任何审批语义。`tool_call_elicitation_enabled` 取的就是"服务真实可用",
+        # 这是 Codex 同款:持久选项依赖 elicitation 能力,能力缺席时该选项不可用。
+        _elicitation_service: Any = None
+        try:
+            from .mcp_server import _get_elicitation_service
+
+            _elicitation_service = _get_elicitation_service()
+        except Exception as e:  # noqa: BLE001 - 服务不可用降级为不启用
+            logger.debug("ElicitationService 取用失败(降级不启用): %s", e)
+        prompt_options = McpToolApprovalPromptOptions.build(
+            allow_session_remember=True,
+            allow_persistent_approval=True,
+            tool_call_elicitation_enabled=_elicitation_service is not None,
+        )
+
         approval_id = f"appr_{uuid.uuid4().hex[:12]}"
         ev = asyncio.Event()
         # 参数预览:截断 200 字符(完整 args 不回传 SSE,避免敏感信息全量下发)。
@@ -5411,6 +5438,15 @@ class AgentLoopV2:
         )
         # 批 53:登记 persist 旁路键(供引擎侧 approval.respond 携带 persist 时取回落盘)
         _approval_persist_keys[approval_id] = key
+        # G-09:从"审批已登记"到 finally 清理之间是**真实未决窗口**。RAII 句柄在
+        # 批准/拒绝/超时/取消/异常各出口统一释放(paused/outstanding 归零);
+        # 登记失败只降级计数,绝不阻断审批主链路。
+        elicitation_registration: Any = None
+        if _elicitation_service is not None:
+            try:
+                elicitation_registration = _elicitation_service.register()
+            except Exception as e:  # noqa: BLE001 - 计数失败不阻断审批
+                logger.debug("elicitation 登记失败(降级为不计数): %s", e)
         try:
             # V3 #80:弹窗前先跑独立 guardian 复核(另起一次请求,零本链上下文)。
             # 复核不可用/未开启时返回显式 not_reviewed(+原因),绝不折叠成"无风险";
@@ -5459,6 +5495,8 @@ class AgentLoopV2:
                 blocked_network_targets=(
                     blocked_net if isinstance(blocked_net, list) else None
                 ),
+                # G-09:选项真实可用性随弹窗帧下发(持久选项受 elicitation 能力门控)
+                prompt_options=prompt_options.to_event_payload(),
             )
             # 等待用户决策(批准/拒绝/超时)
             try:
@@ -5472,6 +5510,10 @@ class AgentLoopV2:
                 # once 不落盘(最小特权)/ session 本会话 / always 跨会话 / None 保持批 52 兼容。
                 # 授权键是 (工具+参数归一) 精确匹配,任何作用域都不放大到全局。
                 _scope = grant_scope_for_approval(settled.scope if settled is not None else None)
+                if _scope == "always" and not prompt_options.allow_persistent_approval:
+                    # G-09:elicitation 能力缺席时"别再问我"选项不可用 —— 即使客户端
+                    # 带来 always 也降级为会话级,绝不把不可用选项落成跨会话授权。
+                    _scope = "session"
                 if _scope is not None:
                     try:
                         from . import approval_persistence as _ap
@@ -5503,6 +5545,10 @@ class AgentLoopV2:
             _approval_registry.pop(approval_id, None)
             # 批 53:同步清理 persist 旁路键(与 _approval_registry 同期生命周期)
             _approval_persist_keys.pop(approval_id, None)
+            # G-09:释放 elicitation 登记(异常/取消也走到这里;paused/outstanding 归零)
+            if elicitation_registration is not None:
+                with contextlib.suppress(Exception):
+                    elicitation_registration.release()
 
     async def _emit_permission_mode_event(self, tool_name: str, decision: str) -> None:
         """模式生效时经事件流层发 `permission.mode` 事件(1-5 拆层后统一入口)。
@@ -6649,6 +6695,18 @@ class AgentLoopV2:
         except Exception:
             logger.debug("终端流上下文注入失败(降级,terminal.delta 无归属): %s", tc.name)
 
+        # G-17(2026-10-31):会话身份上下文 —— 工具执行期间,任何经
+        # command_streamer 起的子进程据此注入 IHUI_SESSION_ID/IHUI_VERSION;
+        # finally 配对复位防跨工具泄漏。工具直调(无注入)不编造身份,
+        # 子进程 env 与改动前逐字节同形。
+        session_env_token = None
+        try:
+            from ..core.exec_env import set_session_env_context
+
+            session_env_token = set_session_env_context(self._session_id or None)
+        except Exception:
+            logger.debug("会话身份上下文注入失败(降级,子进程无会话身份): %s", tc.name)
+
         # P0-B(2026-09-18):_wait_interruptible 包裹工具执行——长工具(如
         # run_command 数分钟)期间命中 cancel/pause 标志立即中断;
         # _LoopInterrupted 不进重试链(显式 raise 直通 _run_loop 优雅中断)。
@@ -6792,6 +6850,12 @@ class AgentLoopV2:
                     from .mcp_server import reset_terminal_stream_context
 
                     reset_terminal_stream_context(terminal_ctx_token)
+            # G-17:复位会话身份上下文(与 _execute_single 开头的 set 配对)。
+            if session_env_token is not None:
+                with contextlib.suppress(Exception):
+                    from ..core.exec_env import reset_session_env_context
+
+                    reset_session_env_context(session_env_token)
             # 2026-10-21:复位安全档位主体(与 _execute_single 开头的 set 配对)。
             reset_security_principal(principal_token)
 

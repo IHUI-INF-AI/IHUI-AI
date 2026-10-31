@@ -2554,6 +2554,10 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
     判据取 core/exec_env 单一权威源,与 agent_engine._sanitized_child_env 同尺:
     - NON_INHERITABLE_ENV_VARS(管理凭据/身份令牌,如 IHUI_ADMIN_PASSWORD);
     - 注入型前缀(LD_PRELOAD/LD_AUDIT/DYLD_*,防子进程被环境劫持)。
+
+    G-17(2026-10-31):会话身份注入 —— 身份只从**执行上下文**取(agent_loop_v2 /
+    llm.py 在调工具前经 ``set_terminal_stream_context`` 注入的 session_id),
+    取不到就不注入,子进程 env 与改动前逐字节同形(绝不编造身份)。
     """
     from app.core.exec_env import scrub_injection_env_vars, scrub_non_inheritable_env_vars
 
@@ -2568,7 +2572,14 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
     # P0-2 凭据保险库:剔除凭据形环境变量(绝不外带给子进程)
     env = _filter_vault_env(env, _get_vault_store())
     # 差距⑦:凭据/身份令牌与注入型变量在**出口**剥离(用户 override 也剥)
-    return scrub_non_inheritable_env_vars(scrub_injection_env_vars(env))
+    env = scrub_non_inheritable_env_vars(scrub_injection_env_vars(env))
+    # G-17:排在所有剥离之后 —— 宿主注入的会话身份不该被用户 env 或凭据剥离改写。
+    _exec_session_id = str((_terminal_stream_ctx.get() or {}).get("session_id") or "")
+    if _exec_session_id:
+        from app.core.exec_env import harness_version, inject_session_env
+
+        inject_session_env(env, _exec_session_id, harness_version())
+    return env
 
 
 _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
@@ -3353,6 +3364,16 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
         "total": sub_result.get("total", 0),
         "message": sub_result.get("message", ""),
     }
+
+
+async def _tool_image_search(arguments: dict[str, Any]) -> dict[str, Any]:
+    """image_search: 图片检索(DuckDuckGo Images,无 API key,出网腿与 web_search 同源)。"""
+    from .image_search import search_images
+
+    return await search_images(
+        str(arguments.get("query", "")),
+        int(arguments.get("max_results", 8)),
+    )
 
 
 async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -9495,6 +9516,18 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="image_search",
+        description="图片搜索(DuckDuckGo Images,无 API key;返回 imageUrl/thumbnailUrl/sourceUrl/尺寸)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "搜索关键词"},
+                "max_results": {"type": "integer", "description": "最大返回数", "default": 8},
+            },
+            "required": ["query"],
+        },
+    ),
+    MCPTool(
         name="search_web",
         description="DuckDuckGo Lite 搜索",
         input_schema={
@@ -11777,6 +11810,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
     "web_search": _tool_web_search,
+    "image_search": _tool_image_search,
     "search_web": _tool_search_web,
     "analyze_code": _tool_analyze_code,
     "generate_test": _tool_generate_test,
