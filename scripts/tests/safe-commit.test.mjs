@@ -416,3 +416,48 @@ test('收尾顺序锁:prune 必须排在 rmScratch 之后(旧形态每轮提交�
     '旧形态(prune → rmScratch)不得回来',
   )
 })
+
+// ── SC11 / SC12:AI 代码归属 notes 的「主体缺失必须出声」(2026-11-01 逆向复现超越轮补) ──
+// 立因(一手现场,不是假想):读侧尺 `ai-authorship-report.mjs` 首次量真仓 ⇒
+// `refs/notes/ihui-ai` 这个 ref **根本不存在**,全史 43246 枚 0 带记录。
+// 而写侧在 safe-commit 里是接了的(`import { recordForCommit }`),问题是那段写作
+// `if (authorshipSession) { … }` 无 else —— 主体缺失时整段静默跳过,连一行 warn 都不出。
+// 于是「接线在」与「一枚都没落」在日志上长得一模一样。这正是 §0.3 禁的"没判悄悄变成像是没参与"。
+// 两条用例合起来才成立:SCA1 钉出声,SCA2 钉「给了主体就真能落笔」—— 只钉一头都能被绕过去。
+// 编号用 SCA 前缀而非 SC:本文件已有 SC11「闭包完整」占位,同号异题会让引用指错(§0 一号一行同义纪律)。
+
+test('SCA1 会话主体缺失 ⇒ 提交照旧放行,但归属未落笔必须出声(fail-open 不等于静默)', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  writeFileSync(join(dir, 'x.md'), 'fixture content\n')
+  const r = runSafe(dir, {
+    files: ['x.md'],
+    env: { IHUI_AGENT_SESSION_ID: '', AGENT_NAME: '' },
+  })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `fail-open:主体缺失不得影响提交,实得 ${r.status}:\n${out}`)
+  assert.match(out, /AI 归属 notes 未落笔/, '必须出声说"没落笔"')
+  assert.match(out, /IHUI_AGENT_SESSION_ID/, '必须点名该传哪个 env,不能只说"缺失"')
+  assert.match(out, /不得读成「人类写的」/, '必须把读侧口径写进去(§0.3)')
+  assert.equal(git(dir, 'for-each-ref', 'refs/notes/').trim(), '', '无主体时确实一条 notes 都没造')
+})
+
+test('SCA2 给了会话主体 ⇒ notes 真落到 refs/notes/ 且报告口径记为已写入(与 SCA1 只差那一个 env)', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  writeFileSync(join(dir, 'x.md'), 'fixture content\n')
+  const r = runSafe(dir, {
+    files: ['x.md'],
+    env: { IHUI_AGENT_SESSION_ID: 'fixture-sess-SC12', AGENT_NAME: '' },
+  })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `应放行,实得 ${r.status}:\n${out}`)
+  assert.match(out, /AI 归属 notes 已写入|AI 归属 notes 未判定/, '两条出路之一,不许静默')
+  const refs = git(dir, 'for-each-ref', 'refs/notes/').trim()
+  assert.notEqual(refs, '', '给了主体就必须真落 notes —— 接线在而零落笔正是本票要杀的那一型')
+  assert.match(
+    git(dir, 'notes', '--ref=' + (refs.split(/\s+/).pop() || 'refs/notes/ihui-ai'), 'list', 'HEAD'),
+    /^[0-9a-f]{40}/,
+    'notes 必须挂在本枚 commit 上可按对象名读出',
+  )
+})

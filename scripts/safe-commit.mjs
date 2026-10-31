@@ -2113,6 +2113,14 @@ try {
     })
     if (note && note.state === 'recorded') log('ok', `AI 归属 notes 已写入(${note.ref ?? 'refs/notes/ihui-ai'})`)
     else if (note && note.state !== 'recorded') log('warn', `⚠️ AI 归属 notes 未判定:${(note.reasons || []).join(',')}`)
+  } else {
+    // 主体缺失也要出声。此前这一格整段静默跳过 ⇒ 接线看似在、实际零落笔(全史 43246 枚 0 带记录),
+    // 而读侧尺子 ai-authorship-report 把它记成 unjudged。"没判"绝不能安静地变成"像是没参与"(§0.3)。
+    log(
+      'warn',
+      '⚠️ AI 归属 notes 未落笔:会话主体缺失(IHUI_AGENT_SESSION_ID 与 AGENT_NAME 皆空)⇒ 本枚无归属记录。' +
+        '调用方应显式传 IHUI_AGENT_SESSION_ID=<席位短名>;读侧尺子会把本枚判 unjudged,不得读成「人类写的」。',
+    )
   }
 } catch (e) {
   log('warn', `⚠️ AI 归属 notes 未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
