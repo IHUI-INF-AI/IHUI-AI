@@ -100,6 +100,35 @@ progress {
    改档请改 tokens.css 后跑 sync,不得手写)。见 PROJECT_PLAN O62 附⑧补/附⑨。 */
 @import 'tailwindcss/utilities.css';
 @source "./**/*.{ts,tsx}";
+/* 2026-10-31 小程序端补:内置 leading-none 被 --spacing-none 覆盖成 0rpx(与 web 端 2026-10-30
+   那起生产事故同根)。Tailwind v4 把 leading-* 行高工具类挂在 --spacing-* 命名空间下,而项目档
+   SPACING_STEPS.none=0 经 sync 派生为 --spacing-none:0rpx ⇒ 产物里
+   `.leading-none{--tw-leading:var(--spacing-none);line-height:var(--spacing-none)}` = 0,
+   本端 11 处 leading-none 的文字行盒会塌缩。修法照 web 同一手法:用**未分层**普通规则钉回 1
+   (未分层声明恒胜 @layer utilities,不受 Tailwind 合并/排序影响);web 端同一段在 globals.css。
+   档 none 在 web/RN/小程序三端布局零消费,保留 --spacing-none 不影响布局。 */
+.leading-none {
+  --tw-leading: 1;
+  line-height: 1;
+}
+/* 2026-10-31 小程序端补:max-w-* 被同名 spacing 档撞掉。
+   本端缺默认 theme 的 `--container-*` 时 v4 会回落到 `--spacing-<name>`;补了 container 之后
+   实测**仍**解析成 `var(--spacing-md)`(=12rpx,应 896rpx)⇒ 具名键 `md/xs/sm/lg` 在两个命名
+   空间里撞车时 spacing 胜。改用未分层规则钉回 container 语义(与 .leading-none 同一条手法:
+   实测 v4 的 utilities 输出不带 @layer 包裹,故生效机制是"同优先级、后写胜" —— 本块位于 utilities 之后;若将来被包进 layer,未分层同样胜(两种情况都不依赖合并顺序)。新增 max-w 档时同批补这里。 */
+.max-w-3xs { max-width: var(--container-3xs); }
+.max-w-2xs { max-width: var(--container-2xs); }
+.max-w-xs { max-width: var(--container-xs); }
+.max-w-sm { max-width: var(--container-sm); }
+.max-w-md { max-width: var(--container-md); }
+.max-w-lg { max-width: var(--container-lg); }
+.max-w-xl { max-width: var(--container-xl); }
+.max-w-2xl { max-width: var(--container-2xl); }
+.max-w-3xl { max-width: var(--container-3xl); }
+.max-w-4xl { max-width: var(--container-4xl); }
+.max-w-5xl { max-width: var(--container-5xl); }
+.max-w-6xl { max-width: var(--container-6xl); }
+.max-w-7xl { max-width: var(--container-7xl); }
 /* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */
 @theme static {
   /* 只注册 v4 认得的**色档**:--color-*-rgb 那批三元组不得进来 —— v4 把任何 --color-*
@@ -351,6 +380,27 @@ progress {
   --shadow-elevation-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
   --shadow-elevation-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
   --shadow-elevation-xl: 0 16rpx 48rpx rgba(0, 0, 0, 0.16);
+
+  /* 2026-10-31 小程序端补:Tailwind 默认 theme 的 container 刻度。
+     本端入口是 `@tailwind base/components + @import utilities`,**不含 `@import 'tailwindcss'`**,
+     所以默认 theme 里的 `--container-*` 一个都不在;而 v4 的 `max-w-<name>` 找不到 container 时会
+     回落到 `--spacing-<name>`(项目档已注册)⇒ 产物里 `.max-w-md{max-width:var(--spacing-md)}`
+     = 12rpx(应为 28rem=896rpx),本端 7 处 max-w-* 宽度会塌成一条线。补齐后 max-w 回到 container 刻度。
+     值取 Tailwind v4 默认 13 档;这些键不属项目档表三族(色/间距/字号/阴影),sync 与守门 36 按
+     "端内自有档"对待(只报数不判红),不会被下一次写回删掉。 */
+  --container-3xs: 16rem;
+  --container-2xs: 18rem;
+  --container-xs: 20rem;
+  --container-sm: 24rem;
+  --container-md: 28rem;
+  --container-lg: 32rem;
+  --container-xl: 36rem;
+  --container-2xl: 42rem;
+  --container-3xl: 48rem;
+  --container-4xl: 56rem;
+  --container-5xl: 64rem;
+  --container-6xl: 72rem;
+  --container-7xl: 80rem;
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
