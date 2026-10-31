@@ -23,9 +23,10 @@ import uuid
 from collections.abc import Callable
 from typing import Any, cast
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..core.jwt_auth import resolve_request_role_id
 from ..services.dag_scheduler import (
     DAGNode,
     DAGScheduler,
@@ -36,7 +37,23 @@ from ..services.dag_scheduler import (
 )
 from ..services.task_executors import execute_task
 
-router = APIRouter()
+
+async def _require_admin(request: Request) -> None:
+    """DAG/WorkerPool 面 = 运维编排面,管理员专属。
+
+    2026-10-31 安全强化第 14 批:此面此前只受 JWTAuthMiddleware 的"已登录"约束,
+    而 `taskType` 可声明 `long_running_command` / `test_suite` ⇒ 任意登录用户
+    (role=0)提交一个 DAG 即以服务账号执行任意命令,与 MCP 工具面
+    `run_command` 的 admin-only 档(`_ADMIN_ONLY_TOOLS`)同能力却低一档门槛。
+
+    角色判定走 jwt_auth 单源(fail-closed,取不到按 0)。读取端点一并收进来:
+    DAG 执行结果里带命令 argv 与 stdout/stderr 片段。
+    """
+    if resolve_request_role_id(request) < 1:
+        raise HTTPException(status_code=403, detail="DAG/任务编排仅管理员可用")
+
+
+router = APIRouter(dependencies=[Depends(_require_admin)])
 
 
 # ---------------------------------------------------------------------------

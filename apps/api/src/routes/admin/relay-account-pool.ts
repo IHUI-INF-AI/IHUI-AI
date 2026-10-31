@@ -118,7 +118,7 @@ import {
 import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 // 号池选号策略单一真相源:本端点只取其只读视图出口(不在路由层复算 env 解析,§0.6)
-import { relayPoolPolicyView } from '../../services/relay-pool-policy.js'
+import { ownerListCondition, relayPoolPolicyView } from '../../services/relay-pool-policy.js'
 
 /**
  * 导入载荷的**结构**闸门(2026-10-27 立)。
@@ -259,7 +259,11 @@ const listQuerySchema = paginationSchema.extend({
   health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
   /** 账号代理管理页筛选用:true = 已配置账号级 proxyUrl,false = 直连(未配置) */
   hasProxy: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
-  /** ops = 运营池(默认,保持存量视图);all = 含用户个人池;其余按 ownerUserId 精确筛 */
+  /**
+   * ops = 运营池(默认,保持存量视图);all = 含用户个人池;me = 当前登录管理员个人池
+   * (2026-10-31 机主令:号池收归 admin 后管理页要有"我的个人池"视图);
+   * 其余按 ownerUserId 精确筛
+   */
   owner: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
 
@@ -593,10 +597,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { page, pageSize, search, provider, enabled, health, hasProxy, owner } = q.data
 
+    // me = 当前登录管理员的个人池(fail-closed:取不到登录态显式 401,绝不回落全局池冒充"我的")
+    if (owner === 'me' && !request.userId) return reply.status(401).send(error(401, '未登录'))
     const conds: SQL[] = []
-    // 双池并存:运营号池页默认只显示运营池(存量视图零变化);owner=all 或指定用户 id 才扩面
-    if (!owner || owner === 'ops') conds.push(isNull(aiRelayAccountPool.ownerUserId))
-    else if (owner !== 'all') conds.push(eq(aiRelayAccountPool.ownerUserId, owner))
+    // 双池并存:运营号池页默认只显示运营池(存量视图零变化);owner=all/me 或指定用户 id 才扩面
+    const ownerCond = ownerListCondition(owner, request.userId)
+    if (ownerCond) conds.push(ownerCond)
     if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
     if (enabled === 'true') conds.push(eq(aiRelayAccountPool.isEnabled, true))
     if (enabled === 'false') conds.push(eq(aiRelayAccountPool.isEnabled, false))

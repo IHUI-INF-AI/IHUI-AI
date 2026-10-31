@@ -43,6 +43,22 @@ def _bypass_jwt(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _bypass_dag_admin():
+    """DAG 面已收为管理员专属(2026-10-31 第 14 批 `_require_admin`)。
+
+    本文件测的是 DAG/WorkerPool 的 API 契约,不是鉴权面;中间件在 development
+    跳过路径下不注入 role_id ⇒ 闸会判 0。用依赖覆写放行,鉴权面由
+    tests/test_security_batch14_dag_admin.py 单独钉死(含非 admin 403)。
+    """
+    from app.main import fastapi_app as real_app
+    from app.api import dag
+
+    real_app.dependency_overrides[dag._require_admin] = lambda: None
+    yield
+    real_app.dependency_overrides.pop(dag._require_admin, None)
+
+
+@pytest.fixture(autouse=True)
 def _reset_dag_globals(monkeypatch):
     """重置 dag 模块全局 _pool / _executions,避免测试间污染。"""
     monkeypatch.setattr(dag, "_pool", None)
