@@ -9,7 +9,7 @@
  * 本屏零描边,不涉及守门 83 R8。
  */
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 export function createTopicDetailStyles(tk: AppThemeTokens) {
@@ -18,25 +18,25 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     navRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 12,
+      gap: rnSpacing.md,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
     },
     navTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      padding: 12,
+      gap: rnSpacing.md,
+      padding: rnSpacing.md,
       backgroundColor: tk.surface.card,
     },
-    headerInfo: { flex: 1, gap: 4 },
+    headerInfo: { flex: 1, gap: rnSpacing.xs },
     topicName: { fontSize: 17, fontWeight: '600', color: tk.text.primary },
     topicDesc: { fontSize: 13, lineHeight: 18, color: tk.text.secondary },
     followers: { fontSize: 12, color: tk.text.tertiary },
     followBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
@@ -46,34 +46,34 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     publishBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      gap: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
       backgroundColor: tk.surface.card,
     },
     publishText: { flex: 1, fontSize: 13, color: tk.text.tertiary },
     publishBtn: { fontSize: 13, fontWeight: '600', color: tk.brand.DEFAULT },
-    listContent: { padding: 12, paddingBottom: 20, gap: 8 },
+    listContent: { padding: rnSpacing.md, paddingBottom: rnSpacing.xl, gap: rnSpacing.sm },
     post: {
-      gap: 6,
-      padding: 12,
+      gap: rnSpacing['xs-loose'],
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     cardPressed: { opacity: 0.85 },
-    postUser: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    postUser: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     avatar: {
       width: 32,
       height: 32,
       borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
-    userInfo: { flex: 1, gap: 2 },
+    userInfo: { flex: 1, gap: rnSpacing['2xs'] },
     author: { fontSize: 13, fontWeight: '500', color: tk.text.primary },
     time: { fontSize: 11, color: tk.text.tertiary },
     postTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
     postContent: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
-    imgRow: { flexDirection: 'row', gap: 6 },
+    imgRow: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     postImg: {
       width: 100,
       height: 100,
@@ -82,11 +82,11 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     },
     imgMore: { alignItems: 'center', justifyContent: 'center' },
     imgMoreText: { fontSize: 14, fontWeight: '600', color: tk.text.secondary },
-    postFooter: { flexDirection: 'row', gap: 16 },
-    stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    postFooter: { flexDirection: 'row', gap: rnSpacing.lg },
+    stat: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     statNum: { fontSize: 12, color: tk.text.tertiary },
     stateText: { fontSize: 13, color: tk.text.tertiary },
-    footer: { alignItems: 'center', paddingVertical: 12 },
+    footer: { alignItems: 'center', paddingVertical: rnSpacing.md },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }
 

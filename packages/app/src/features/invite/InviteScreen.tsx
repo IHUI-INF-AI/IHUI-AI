@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { InviteInfo, InviteRecordItem, InviteScreenProps } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -122,13 +122,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 14, paddingBottom: 32 },
+    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     infoCard: {
       padding: 14,
@@ -147,13 +147,13 @@ function createStyles(tk: AppThemeTokens) {
     statsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      marginTop: 12,
+      marginTop: rnSpacing.md,
     },
     statItem: { flex: 1, alignItems: 'center', minWidth: 96 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
-    statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
+    statLabel: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
     shareBtn: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
@@ -162,8 +162,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     shareBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     sectionTitle: {
-      marginTop: 16,
-      marginBottom: 8,
+      marginTop: rnSpacing.lg,
+      marginBottom: rnSpacing.sm,
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     cardStatus: { fontSize: 11, fontWeight: '600' },
     statusDone: { color: tk.success.DEFAULT },
@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     cardTime: { fontSize: 11, color: tk.text.tertiary },
     cardReward: { fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },

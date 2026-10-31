@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { WalletBalance, WalletScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -101,26 +101,26 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    body: { padding: 10 },
-    center: { alignItems: 'center', paddingVertical: 48 },
+    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
+    body: { padding: rnSpacing['sm-loose'] },
+    center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
     muted: { fontSize: 14, color: tk.text.secondary },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     cardLabel: { fontSize: 14, color: tk.text.tertiary },
     cardValue: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '700',
       color: tk.text.primary,
@@ -128,8 +128,8 @@ function createStyles(tk: AppThemeTokens) {
     cardValueMuted: { color: tk.text.secondary },
     actions: {
       flexDirection: 'row',
-      gap: 12,
-      marginTop: 8,
+      gap: rnSpacing.md,
+      marginTop: rnSpacing.sm,
     },
     rechargeBtn: {
       flex: 1,

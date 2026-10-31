@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     retryBtn: {
       alignSelf: 'flex-start',
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -179,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
     },
     cell: { flexBasis: '48%' },
     card: {

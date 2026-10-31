@@ -94,13 +94,21 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    listBody: { gap: 10, padding: 10, paddingBottom: rnSpacing['3xl'] },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: {
+      gap: rnSpacing['sm-loose'],
+      padding: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
+    },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -121,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       minWidth: 18,
       paddingHorizontal: 5,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',

@@ -406,7 +406,7 @@ function makeStyles() {
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pill: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.surface.muted,
     },
@@ -442,7 +442,7 @@ function makeStyles() {
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
     },
-    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sheetTitle: {
       flex: 1,
       fontSize: rnType.title.size,
@@ -463,7 +463,7 @@ function makeStyles() {
     },
     quickRow: { flexDirection: 'row', gap: rnSpacing.sm },
     quickChip: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       height: 28,
       justifyContent: 'center',
       borderRadius: rnRadiusFor.chip,

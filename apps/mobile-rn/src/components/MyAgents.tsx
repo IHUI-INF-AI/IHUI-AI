@@ -118,13 +118,13 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   header: {
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
   },
   scroll: {
     flexDirection: 'row',
     paddingHorizontal: 5,
-    paddingTop: 6,
-    paddingBottom: 2,
+    paddingTop: rnSpacing['xs-loose'],
+    paddingBottom: rnSpacing['2xs'],
   },
   scrollEmpty: {
     flexGrow: 1,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 60,
     marginHorizontal: 5,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     paddingHorizontal: 5,
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: rnRadius.lg,
-    marginBottom: 6,
+    marginBottom: rnSpacing['xs-loose'],
     backgroundColor: tokens.surface.card,
   },
   avatarFallback: {
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: rnSpacing['5xl'],
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
   },
   emptyText: {
     fontSize: rnType.body.size,

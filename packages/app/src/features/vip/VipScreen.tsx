@@ -189,7 +189,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     membershipMetaText: { fontSize: rnType.label.size, color: rnCssLight.white70 },
     levelsSection: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.lg,
       paddingBottom: rnSpacing['3xl'],
     },
@@ -215,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
     cardLevelName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     currentBadge: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: VIP_GOLD,
     },

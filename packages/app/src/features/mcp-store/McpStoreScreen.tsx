@@ -259,7 +259,7 @@ export function McpStoreScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnGeometry.textStrong,
@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
     filterChip: {
       marginRight: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadiusFor.control,
     },
     filterChipOn: { backgroundColor: tk.brand.DEFAULT },
@@ -307,7 +307,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     gradeTag: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
@@ -325,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       marginRight: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadiusFor.control,
     },
     actionSolid: { backgroundColor: tk.brand.DEFAULT },
@@ -339,5 +339,4 @@ function createStyles(tk: AppThemeTokens) {
     actionDisabledText: { fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
   })
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

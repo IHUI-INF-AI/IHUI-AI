@@ -105,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     } as ViewStyle,
@@ -115,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     scrollContent: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       paddingBottom: rnSpacing['2xl'],
     } as ViewStyle,
@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       alignItems: 'center',
     } as ViewStyle,
     entryCardPressed: { backgroundColor: tk.surface.muted } as ViewStyle,

@@ -16,7 +16,7 @@ import { ChevronLeft, Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackScreenItem, LivePlaybackScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -147,17 +147,17 @@ export function LivePlaybackScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    list: { flex: 1, paddingHorizontal: 10 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 10,
+      marginBottom: rnSpacing['sm-loose'],
     },
     cardHeader: {
       flexDirection: 'row',
@@ -169,22 +169,26 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     badgeEnded: {
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     badgeText: { fontSize: 11, color: tk.text.secondary },
-    cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    cardMetaRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    cardMetaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     cardMetaText: { fontSize: 14, color: tk.text.secondary },
-    cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
+    cardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginTop: rnSpacing['sm-loose'],
+    },
     playBtn: {
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
@@ -195,16 +199,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.overlay.modal,
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     modalContent: {
       width: '100%',
       maxWidth: 400,
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius['2xl'],
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.md,
+    },
     playerArea: {
       aspectRatio: 16 / 9,
       backgroundColor: tk.gray.black,
@@ -213,11 +222,16 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     playerIcon: { fontSize: 36, color: tk.surface.light },
-    playerHint: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
-    playerUrl: { marginTop: 8, fontSize: 10, color: tk.text.secondary, paddingHorizontal: 10 },
+    playerHint: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.tertiary },
+    playerUrl: {
+      marginTop: rnSpacing.sm,
+      fontSize: 10,
+      color: tk.text.secondary,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
     closeBtn: {
-      marginTop: 12,
-      paddingVertical: 10,
+      marginTop: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

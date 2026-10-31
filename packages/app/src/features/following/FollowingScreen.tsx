@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FollowingItem, FollowingScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -130,21 +130,21 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 10, paddingBottom: 32 },
+    listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
-    footer: { alignItems: 'center', paddingVertical: 16 },
+    footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
     footerText: { fontSize: 11, color: tk.text.secondary },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -161,13 +161,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
-    cardInfo: { flex: 1, marginLeft: 12 },
+    cardInfo: { flex: 1, marginLeft: rnSpacing.md },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardBio: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
-    cardMeta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    cardBio: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
     unfollowBtn: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,

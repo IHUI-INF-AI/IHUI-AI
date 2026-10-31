@@ -97,7 +97,11 @@ export function SearchScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -142,8 +146,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 10,
       color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },

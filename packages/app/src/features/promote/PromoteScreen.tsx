@@ -178,12 +178,12 @@ function createStyles(tk: AppThemeTokens) {
       textAlign: 'center',
       marginTop: rnSpacing.sm,
     },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     statsCard: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.deepText,
     },
     linkCard: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.md,
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     linkLabel: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.medium },
     linkText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.success.DEFAULT },
-    linkActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: 10 },
+    linkActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['sm-loose'] },
     linkBtn: {
       flex: 1,
       paddingVertical: rnSpacing.sm,
@@ -217,9 +217,13 @@ function createStyles(tk: AppThemeTokens) {
     shareBtn: { backgroundColor: tk.surface.card },
     linkBtnText: { fontSize: rnType.body.size, color: tk.surface.light },
     copyBtnText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
-    codeText: { marginTop: 10, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    codeText: {
+      marginTop: rnSpacing['sm-loose'],
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     sectionTitle: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.lg,
       paddingBottom: rnSpacing.sm,
       fontSize: rnType.title.size,
@@ -227,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     rulesCard: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -239,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
       marginVertical: rnSpacing.sm,
       lineHeight: 18,
     },
-    recordsList: { marginHorizontal: 10, marginBottom: rnSpacing['2xl'] },
+    recordsList: { marginHorizontal: rnSpacing['sm-loose'], marginBottom: rnSpacing['2xl'] },
     recordCard: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -261,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     recordStatus: {
       marginTop: rnSpacing.sm,
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
