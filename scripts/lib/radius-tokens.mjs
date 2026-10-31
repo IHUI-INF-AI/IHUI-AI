@@ -133,7 +133,9 @@ const TEMPLATE_WRAPPER_RE =
 export function objectMemberConstants(src) {
   const masked = maskComments(src || '')
   const out = new Map()
-  for (const m of masked.matchAll(/(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\{/g)) {
+  for (const m of masked.matchAll(
+    /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\{/g,
+  )) {
     for (const [k, v] of objectEntries(masked.slice(m.index), m[1])) {
       if (!/^\d+(?:\.\d+)?$/.test(String(v))) continue
       const key = `${m[1]}.${k}`
@@ -255,11 +257,80 @@ export function radiusLookup(radiusSrc) {
 }
 
 /**
+ * `var(--档名)` 的**形态识别**只此一份(与 `converterCallsInLine` 同一条纪律:门内不许再抄第二把尺)。
+ * 认 CSS 侧与 Tailwind 任意值侧共用的这一种写法,含一个**可选回退值**(`var(--x, 8px)`):
+ * 浏览器语义是"档在 ⇒ 用档值、档不在 ⇒ 用回退",解值必须按同一条序,否则会把回退值当成档值读。
+ * 回退段允许一层括号(覆盖 `var(--x, calc(100% - 8px))` 这一型);更深的嵌套不认 ⇒ 由解值那一步
+ * 落"未判定",不在形态识别处猜。
+ */
+const CSS_VAR_RE = /\bvar\(\s*(--[\w-]+)\s*(?:,((?:[^()]|\([^()]*\))*))?\)/g
+
+const cssVarPxRound = (n) => Math.round(n * 100) / 100
+
+/**
+ * 一段源文本里的 **CSS 变量取用** → `[{ raw, at, text, px, why?, notLength?, via? }]`。
+ *
+ * 为什么要这一支(2026-11-01 票 O67,治门 128 几何维的静默盲区):§4 令牌纪律要求端内把同值写成
+ * `var(--spacing-*)` / `var(--text-*)`,而几何维此前的词汇表只认「数字字面量 / rpx() / 换算器 /
+ * 具名档 / 间距档成员」五形 —— 变量形态在几何维**整族读不到**。它的账面表现不是"少一个数",
+ * 而是**把"没读到"当成"该侧无档"**,于是凭空造出"仅 RN 档 8/10"这种假分叉(web 腿两条 waiver
+ * 登记的同一条盲区;主腿 CategoryBar 同型,现读 HEAD 的 `gap: var(--spacing-sm)` 即实例)。
+ *
+ * 三条口径,缺一不成立:
+ *  ① **档值只从调用方交进来的那张表取**(表由门按被审面的 `packages/design-tokens/src/styles/tokens.css`
+ *     受管块 + 小程序派生态副本互证建成;本 lib 不做文件 IO,与 radiusLookup 同一纪律);
+ *  ② 档在表里但 `kind !== 'length'`(颜色/字重/时长/图层)⇒ **不入几何集,也不报未判定** ——
+ *     它本来就不是长度,报出来是把尺子的噪音当债务;但必须留 `notLength` 标记,由调用方计入
+ *     覆盖面读数(静默跳过与"没这一档"在账面上同形,本仓记过多次);
+ *  ③ 档**不在表里**(名写错 / 已改名 / 源不可读)⇒ `{ px:null, why }` **逐枚点名**,绝不折成
+ *     "该侧无档"、绝不猜(§0.3 —— 这一型是本门最危险的失效形态:静默少一档)。
+ *
+ * `px === 0` 的档(`--spacing-none: 0px`)按 §0.6 与本门 C4 纪律原样返回 0,由调用方决定不入集;
+ * lib 不做"要不要收 0"的判断,免得两侧各判一次。
+ *
+ * @param {string} text 已剥注释的源文本
+ * @param {Map<string,{kind:string,px:number|null,why?:string}>|null} varTable 解值表(取不到 ⇒ 一条不采,
+ *   由调用方按"判据失明"喊死,不得当成"没有变量取用")
+ */
+export function cssVarItemsInSrc(text, varTable) {
+  const out = []
+  if (!(varTable instanceof Map) || varTable.size === 0) return out
+  for (const m of String(text ?? '').matchAll(CSS_VAR_RE)) {
+    const name = m[1]
+    const rec = { raw: m[0], at: m.index, text: name }
+    const hit = varTable.get(name)
+    if (hit === undefined) {
+      const fb = m[2] === undefined || m[2] === '' ? null : lengthToPx(m[2])
+      if (fb !== null && fb > 0) {
+        out.push({ ...rec, px: cssVarPxRound(fb), via: 'fallback' })
+        continue
+      }
+      out.push({ ...rec, px: null, why: '长度档源里没有这一档(名写错 / 已改名 / 源不可读)' })
+      continue
+    }
+    if (hit.kind !== 'length') {
+      out.push({
+        ...rec,
+        px: null,
+        notLength: true,
+        why: '该档在源里不是长度(颜色/字重/时长/图层)',
+      })
+      continue
+    }
+    if (Number.isFinite(hit.px)) {
+      out.push({ ...rec, px: cssVarPxRound(hit.px), srcValue: hit.raw })
+      continue
+    }
+    out.push({ ...rec, px: null, why: hit.why ?? '该档在源里的值折不成长度' })
+  }
+  return out
+}
+
+/**
  * 圆角豁免标记族的识别式住在 `lib/radius-exempt-marker.mjs`(该族的放行语义已由 O81 票㊵ 整体废除,
  * 只剩"认出哪里写过它"这一半,被门 77 判红与门 150 报名共用那一份)。本文件不再转它:
  * 单位折算层与档位表层都不该因为一个禁令正则而多一个依赖面。
  */
-
 
 /**
  * 一段源文本里的**换算器包档取用** → `[{ raw, text, px, why? }]`,px 为 null = 未判定。
@@ -339,8 +410,6 @@ export function geometryItemsInSrc(text, consts, tiers = {}, opts = {}) {
  * `rounded-full` / `rounded-none` 不在此列:前者是"胶囊/正圆"那一型(守门 11 与 77 管),
  * 后者是 0,都不是"这个元素该取哪一档"的判断。
  */
-
-
 
 /**
  * 把一个"半径被除数"折成 px。**解不到就返回 null**,由调用方报名 —— 拿被除数当半径是错的
