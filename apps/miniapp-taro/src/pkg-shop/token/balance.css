@@ -23,12 +23,12 @@
   min-height: 100vh;
   background: var(--color-background);
   /* 对齐 RN contentContainer paddingBottom 32 (dp→rpx 1:2) */
-  padding-bottom: 64rpx;
+  padding-bottom: var(--spacing-3xl);
 }
 
 /* ===== 顶部余额卡片(对齐 RN balanceCard: 品牌色底 + 对比字) ===== */
 .balance-card {
-  margin: 20rpx;
+  margin: var(--spacing-sm-loose);
   /* 对齐 RN padding 14 (dp→rpx 1:2);圆角按角色档 card→lg */
   padding: 28rpx;
   background: var(--color-cta);
@@ -43,7 +43,7 @@
 .balance-value {
   display: block;
   /* 对齐 RN balanceValue marginTop 8 / fontSize 32 / fontWeight 700 (dp→rpx 1:2) */
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 64rpx;
   font-weight: 700;
   color: var(--color-cta-foreground);
@@ -54,8 +54,8 @@
   display: flex;
   align-items: center;
   /* 对齐 RN tabRow gap 8 + marginBottom 12 (dp→rpx 1:2) */
-  gap: 16rpx;
-  padding: 40rpx 20rpx 24rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl) 20rpx 24rpx;
   box-sizing: border-box;
 }
 .func-btn {
@@ -90,7 +90,7 @@
   align-items: center;
   /* 对齐 RN StudyBar wrapper marginBottom 9 + studyBarWrap paddingHorizontal 32 (dp→rpx 1:2) */
   margin: 0 32rpx 18rpx;
-  padding: 4rpx;
+  padding: var(--spacing-2xs);
   border-radius: var(--radius-lg);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -119,7 +119,7 @@
 
 /* ===== 记录列表(对齐 RN recordItem + ItemSeparator) ===== */
 .records-section {
-  margin: 24rpx 20rpx 0;
+  margin: var(--spacing-md) 20rpx 0;
 }
 .record-item {
   /* 对齐 RN recordItem padding 14 / borderRadius 16 / border 1 (dp→rpx 1:2) */
@@ -129,7 +129,7 @@
   justify-content: space-between;
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-2xl);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
   background: var(--color-card);
   box-sizing: border-box;
 }
@@ -138,7 +138,7 @@
   justify-content: space-between;
   align-items: flex-end;
   /* 对齐 RN recordTime marginTop 8 (dp→rpx 1:2) */
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 .record-title {
   display: block;
@@ -164,7 +164,7 @@
 
 .load-more {
   text-align: center;
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
   font-size: 22rpx;
   color: var(--color-text-tertiary);
 }
@@ -172,9 +172,8 @@
   display: block;
   text-align: center;
   /* 对齐 RN empty paddingVertical 32 / fontSize 14 (dp→rpx 1:2) */
-  padding: 64rpx 0;
+  padding: var(--spacing-3xl) 0;
   font-size: 28rpx;
   color: var(--color-text-tertiary);
 }
-/* ⁠​ */
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

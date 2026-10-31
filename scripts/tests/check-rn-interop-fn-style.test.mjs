@@ -118,6 +118,11 @@ test('T5 活面不变量:枚举面存活、非空扫、棘轮绿(存量已清偿
     false,
     '真仓 head 面被判定为空扫 ⇒ 枚举面或仓库根错位,本门会恒判无法判定',
   )
+  // F2(2026-10-31 补)同样走"主流程真的委托了它"这一格:analyze 的返回必须带 F2 读数,
+  // 存量数字**不写死**(清偿到 0 后本例仍须绿),"有牙"由 T11/T12 钉。
+  assert.ok(Array.isArray(r.redF2) && r.redF2.length === 0, 'head 面 F2 棘轮自锚,不该有新增红')
+  assert.ok(Number.isFinite(r.totalF2) && r.totalF2 >= 0, 'F2 读数必须是有限数')
+  assert.equal(r.helperListSize, gate.FN_STYLE_HELPERS.length, 'helperListSize 必须等于名单现读长度')
 })
 
 test('T6 注册表必须现读,且内置兜底清单是它的子集(清单腐烂即红)', () => {
@@ -154,6 +159,127 @@ test('T8 回溯不到开标签必须计"未判定"并报告,绝不静默丢命�
 test('T9 --self-test 端到端 exit 0', () => {
   const out = runNode([join(REPO, 'scripts', 'check-rn-interop-fn-style.mjs'), '--self-test'])
   assert.match(out, /--self-test: 全部通过/)
+})
+
+/**
+ * T11 —— F2(helper 调用型函数形态)的行为正反对照(§22c:判据全走 gate 出口,本文件零复制)。
+ * 立因:F1 只认箭头字面量,`style={pressFeedback(...)}` 整族逃逸,该形态曾铺到 249 处而门一路报绿。
+ */
+test('T11 F2 正反成对:名单内调用命中 / 数组·对象引用·Tappable·带原因豁免放过', () => {
+  const REG = new Set(['Pressable', 'View', 'Text'])
+  const H = gate.FN_STYLE_HELPERS
+  assert.ok(Array.isArray(H) && H.includes('pressFeedback'), '名单必须是数据且首枚族含 pressFeedback')
+  const callee = H[0]
+  const hit = `  <Pressable\n    style={${callee}(styles.card)}\n  />`
+  assert.equal(gate.findHelperFnStyleHits(hit, REG, H).hits.length, 1, '注册组件 + 名单调用必须命中')
+  const dotted = `  <Pressable\n    style={ui.${callee}(styles.card)}\n  />`
+  assert.equal(gate.findHelperFnStyleHits(dotted, REG, H).hits.length, 1, '点链调用取末段比对名单')
+  const arr = '  <Pressable style={[styles.a, styles.b]} />'
+  assert.equal(gate.findHelperFnStyleHits(arr, REG, H).hits.length, 0, '数组形态放过')
+  const obj = '  <Pressable style={styles.a} />'
+  assert.equal(gate.findHelperFnStyleHits(obj, REG, H).hits.length, 0, 'StyleSheet.create 结果放过')
+  const tappable = '  <Tappable style={styles.a} />'
+  assert.equal(gate.findHelperFnStyleHits(tappable, REG, H).hits.length, 0, 'Tappable 的对象 style 不得被 F2 命中')
+  const own = `  <MyCard style={${callee}(styles.card)} />`
+  assert.equal(gate.findHelperFnStyleHits(own, REG, H).hits.length, 0, '非注册组件是其自身契约(同 F1 口径)')
+  const exempted = `  <Pressable style={${callee}(styles.card)} /> // interop-style-exempt: 探针带原因`
+  assert.equal(gate.findHelperFnStyleHits(exempted, REG, H).hits.length, 0, '带原因豁免放行')
+  const bare = `  <Pressable style={${callee}(styles.card)} // interop-style-exempt:\n  />`
+  assert.equal(gate.findHelperFnStyleHits(bare, REG, H).hits.length, 1, '裸标记不带原因不得放行')
+  const unknown = '  <Pressable style={someOtherHelper(x)} />'
+  assert.equal(gate.findHelperFnStyleHits(unknown, REG, H).hits.length, 0, '名单外调用不判(入名单须先证明返回函数形态)')
+  const noList = gate.findHelperFnStyleHits(hit, REG, [])
+  assert.equal(noList.hits.length, 0)
+  assert.equal(noList.undetermined.length, 1, '名单为空 ⇒ 未判定点名,不得静默当作"没有这类 helper"')
+})
+
+/** T12 —— F2 的委托形状锁:主流程必须真调 findHelperFnStyleHits,且 exit 消费 redF2。 */
+test('T12 F2 委托形状锁:analyze 调用判据函数、退出码含 redF2、豁免走原文面', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(
+    src,
+    /findHelperFnStyleHits\(text, registry, FN_STYLE_HELPERS\)/,
+    'analyze 必须把 F2 判据接进逐文件主循环(定义了不接线 = 没有,§0.8)',
+  )
+  assert.match(
+    src,
+    /red\.length \|\| redF2\.length/,
+    '退出码必须消费 redF2(只存字段不参与判定 = F2 无牙)',
+  )
+  assert.match(
+    src,
+    /unreadable\.length \|\| emptyScan \|\| !helpersUsable/,
+    '名单为空/非法必须顶出 exit 2 未判定,不得记绿也不得冒红(§0.3)',
+  )
+  assert.match(
+    src,
+    /findHelperFnStyleHits\([\s\S]*?EXEMPT\.test\(line\)[\s\S]*?latestJsxTagBefore\(code, i\)/,
+    'F2 的豁免必须拿原文判、归属必须走遮罩面(与 F1 同源;接反即豁免通道死/注释误判回潮)',
+  )
+})
+
+/**
+ * T13 —— F2 的端到端装车证明(与 T10 同一套临时索引纪律,绝不碰共享工作树/主索引):
+ * 注入名单内调用 ⇒ staged 面必红;同一形态只写进注释 ⇒ 必绿。行为对照覆盖"定义了没接线"。
+ */
+test('T13 F2 端到端:staged 注入名单调用必红 / 注释提及必绿', () => {
+  const F = 'packages/app/src/components/MoreLink.tsx' // 该文件 HEAD 面 F1/F2 存量为 0 ⇒ 注入即"新增"
+  const src = readFileSync(join(REPO, F), 'utf8')
+  const at = src.indexOf('<Pressable')
+  assert.ok(at >= 0, '夹具必须真有 <Pressable,否则本例是空跑')
+  const insertAt = at + '<Pressable'.length
+  const callee = gate.FN_STYLE_HELPERS[0]
+
+  const dir = mkScratch('g131-t13')
+  try {
+    const tmpIndex = join(dir, 'probe-index')
+    copyFileSync(resolveGitIndex(), tmpIndex)
+    const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
+    const gitEnv = (args, opts = {}) =>
+      execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, ...args], {
+        // §12g 样板:带 input 的派生 git 必须 ['pipe','pipe','pipe'] —— 写 'ignore' 会让
+        // hash-object --stdin 直接读到 EOF 落一枚空 blob(update-index 不报错,staged 面恒空,
+        // A 臂假绿成"门没牙";2026-10-31 本例首跑就是这么红给看的)
+        stdio: ['pipe', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        env,
+        ...(opts.input === undefined ? {} : { input: opts.input }),
+      }).trim()
+    const putInIndex = (body) => {
+      const blob = gitEnv(['hash-object', '-w', '--stdin'], { input: body })
+      gitEnv(['update-index', '--add', '--cacheinfo', `100644,${blob},${F}`])
+    }
+    const runStaged = () => {
+      const r = spawnSync(process.execPath, [SRC, '--staged'], {
+        cwd: REPO,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { code: r.status, out: (r.stdout || '') + (r.stderr || '') }
+    }
+
+    // A 臂:名单内 helper 调用 ⇒ F2 必红(F1 当年对这一型全盲,红只能来自 F2)
+    putInIndex(
+      src.slice(0, insertAt) + `\n      style={${callee}(styles.hit)}` + src.slice(insertAt),
+    )
+    const a = runStaged()
+    assert.equal(a.code, 1, `A 臂:helper 调用形态必须 exit=1,实得 ${a.code}\n${a.out.slice(0, 260)}`)
+    assert.match(a.out, /F2 新增/, '红必须点名 F2 档(挂在 F1 名下 = 判据归因漂了)')
+
+    // B 臂:同一形态只出现在注释里 ⇒ 必绿(遮罩关掉的是误报,不是判据)
+    putInIndex(
+      src.slice(0, insertAt) + `\n      /* 探针:曾写 style={${callee}(styles.row)},整份样式被吃掉 */` + src.slice(insertAt),
+    )
+    const b = runStaged()
+    assert.equal(b.code, 0, `B 臂:注释形态不得判红,实得 ${b.code}\n${b.out.slice(0, 260)}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 /**
  * T10 —— 注释遮罩的双向装车证明(端到端,走临时索引,绝不碰共享工作树/主索引)。

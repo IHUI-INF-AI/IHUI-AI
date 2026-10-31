@@ -153,7 +153,7 @@ export function PublishMediaSection({
               onClick={() => onRemove(i)}
               hoverClass="opacity-60"
             >
-              <Text className="text-[var(--color-surface-light)] text-[length:28rpx] font-bold leading-none">
+              <Text className="text-[var(--color-surface-light)] text-body font-bold leading-none">
                 ×
               </Text>
             </View>
@@ -166,7 +166,7 @@ export function PublishMediaSection({
             onClick={onPick}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:48rpx] text-[var(--color-text-tertiary)] leading-[52rpx]">
+            <Text className="text-display text-[var(--color-text-tertiary)] leading-[52rpx]">
               +
             </Text>
             <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">

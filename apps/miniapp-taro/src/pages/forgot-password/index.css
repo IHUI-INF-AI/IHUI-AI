@@ -34,8 +34,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 24rpx;
-  padding: 24rpx 20rpx;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 20rpx;
 }
 
 .fp-title {
@@ -49,7 +49,7 @@
   padding: 28rpx;
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 
 /* 步骤指示器(端内 2 步业务流程,RN 无此元素) */
@@ -62,7 +62,7 @@
 .fp-field {
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 .fp-label {
@@ -100,7 +100,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .fp-codebtn {
@@ -130,7 +130,7 @@
 .login-btn {
   width: 100%;
   height: 100rpx;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 .btn {
@@ -163,7 +163,7 @@
 .back-row {
   display: flex;
   justify-content: center;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 .back-link {
@@ -176,14 +176,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16rpx 8rpx;
+  padding: var(--spacing-sm) 8rpx;
   flex-shrink: 0;
 }
 
 .password-toggle-label {
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-right: 8rpx;
+  margin-right: var(--spacing-xs);
   white-space: nowrap;
 }
 
@@ -195,13 +195,13 @@
 /* ===== 区号选择器(PhoneAreaCodePicker 组件用,RN 无此控件,按输入框同族样式收敛到 token) ===== */
 .xiaicc {
   height: 100%;
-  padding-right: 16rpx;
+  padding-right: var(--spacing-sm);
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-right: 1rpx solid var(--color-border);
   flex-shrink: 0;
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
 }
 
 .xiaicc-img {
@@ -224,7 +224,7 @@
   top: 100%;
   left: 0;
   right: 0;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-card);
@@ -243,7 +243,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16rpx;
+  padding: var(--spacing-sm);
 }
 
 .nation-info1 {

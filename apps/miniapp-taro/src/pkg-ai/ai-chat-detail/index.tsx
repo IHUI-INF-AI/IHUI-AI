@@ -346,7 +346,7 @@ export default function AiChatDetail() {
                       : 'bg-card border-[length:2rpx] border-border rounded-2xl'
                   }`}
                 >
-                  <Text className="text-[length:32rpx] leading-[44rpx] break-words text-foreground">
+                  <Text className="text-title leading-[44rpx] break-words text-foreground">
                     {msg.content ||
                       (msg.role === 'assistant' && sending
                         ? tt('aiChatDetail.thinking', '思考中…')
@@ -389,7 +389,7 @@ export default function AiChatDetail() {
                 onClick={() => handleRemoveFile(f.id)}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[length:24rpx] font-bold leading-none text-[var(--color-danger-foreground)]">
+                <Text className="text-label font-bold leading-none text-[var(--color-danger-foreground)]">
                   ×
                 </Text>
               </View>
@@ -492,7 +492,7 @@ export default function AiChatDetail() {
                   onClick={handleAddImage}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-[length:32rpx] text-muted-foreground leading-none">+</Text>
+                  <Text className="text-title text-muted-foreground leading-none">+</Text>
                 </View>
               )}
               {inputValue.length > 0 && !sending ? (
@@ -501,7 +501,7 @@ export default function AiChatDetail() {
                   onClick={handleClear}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-[length:24rpx] text-muted-foreground leading-none">×</Text>
+                  <Text className="text-label text-muted-foreground leading-none">×</Text>
                 </View>
               ) : null}
               <View

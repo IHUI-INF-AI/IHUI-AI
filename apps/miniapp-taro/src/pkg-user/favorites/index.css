@@ -7,7 +7,7 @@
 .favorites-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
+  padding: var(--spacing-md);
   padding-bottom: 60rpx;
   box-sizing: border-box;
 }
@@ -16,7 +16,7 @@
 .favorites-top {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .favorites-stats {
   display: flex;
@@ -38,7 +38,7 @@
 }
 .favorites-manage-btn {
   margin-left: auto;
-  padding: 8rpx 20rpx;
+  padding: var(--spacing-xs) 20rpx;
   font-size: 24rpx;
   color: var(--color-primary);
   background: var(--color-border);
@@ -55,7 +55,7 @@
   border-radius: var(--radius-md);
 }
 .favorites-search-icon {
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
@@ -68,7 +68,7 @@
 
 /* ===== 分类 Tab(横向滚动) ===== */
 .favorites-tabs {
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
   white-space: nowrap;
   width: 100%;
 }
@@ -78,7 +78,7 @@
   justify-content: center;
   height: 60rpx;
   padding: 0 24rpx;
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
@@ -93,11 +93,11 @@
 
 /* ===== 批量操作栏 ===== */
 .favorites-batch-bar {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16rpx 20rpx;
+  padding: var(--spacing-sm) 20rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -107,7 +107,7 @@
   align-items: center;
 }
 .favorites-batch-text {
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 26rpx;
   color: var(--color-foreground);
 }
@@ -130,7 +130,7 @@
   border-color: var(--color-cta);
 }
 .favorites-batch-btn {
-  padding: 8rpx 20rpx;
+  padding: var(--spacing-xs) 20rpx;
   font-size: 24rpx;
   color: var(--color-foreground);
   background: var(--color-destructive);
@@ -143,15 +143,15 @@
 
 /* ===== 收藏列表 ===== */
 .favorites-list {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .favorites-card {
   display: flex;
   align-items: center;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -161,7 +161,7 @@
   height: 120rpx;
   border-radius: var(--radius-md);
   background: var(--color-muted);
-  margin-right: 20rpx;
+  margin-right: var(--spacing-sm-loose);
   flex-shrink: 0;
 }
 .favorites-cover-fallback {
@@ -178,7 +178,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .favorites-title {
   font-size: 30rpx;
@@ -202,7 +202,7 @@
   color: var(--color-muted-foreground);
 }
 .favorites-cancel-btn {
-  padding: 8rpx 20rpx;
+  padding: var(--spacing-xs) 20rpx;
   font-size: 24rpx;
   color: var(--color-destructive);
   background: var(--color-danger-tint);
@@ -221,13 +221,13 @@
   font-size: 80rpx;
 }
 .favorites-empty-text {
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
 .favorites-empty-btn {
-  margin-top: 24rpx;
-  padding: 16rpx 40rpx;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 40rpx;
   background: var(--color-cta);
   border-radius: var(--radius-sm);
 }
@@ -241,7 +241,7 @@
 .favorites-loading-more,
 .favorites-no-more {
   text-align: center;
-  padding: 40rpx 0;
+  padding: var(--spacing-xl) 0;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }

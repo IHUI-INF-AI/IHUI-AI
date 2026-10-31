@@ -36,7 +36,7 @@ import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
@@ -401,23 +401,24 @@ const styles = StyleSheet.create({
     gap: rnSpacing['2xs'],
   } as ViewStyle,
   bar: {
-    width: 3,
-    // 角色档 tiny(波形指示条 = 极小元素)→ xs(2);3px 宽的条取更大的档会变成胶囊
+    // 与小程序 w-1(4)同值;角色档 tiny(波形条 = 极小元素)对 4px 仍按非胶囊处理
+    width: 4,
     borderRadius: rnRadiusFor.tiny,
     backgroundColor: tokens.danger.DEFAULT,
   } as ViewStyle,
   recordingText: {
     // 录音行内间距唯一源在 @ihui/shared/ui/voice-input-spec(与小程序端同档)
     marginLeft: VOICE_INPUT_RECORD_ROW_GAP_PX,
-    fontSize: 12,
+    // 与小程序 text-sm(14)同档
+    fontSize: rnType.body.size,
     color: tokens.danger.DEFAULT,
   } as TextStyle,
   transcribingText: {
-    fontSize: 12,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   } as TextStyle,
   idleText: {
-    fontSize: 12,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   } as TextStyle,
   clearBtn: {

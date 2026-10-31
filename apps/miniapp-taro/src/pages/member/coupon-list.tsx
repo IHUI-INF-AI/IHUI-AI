@@ -124,7 +124,7 @@ export default function CouponListPage() {
                     {tt('member.couponList.expireText', '有效期至 {time}', { time: c.expireTime })}
                   </Text>
                   <Button
-                    className="self-end mt-[16rpx] text-[length:24rpx] text-cta-foreground bg-cta rounded-sm px-[28rpx] leading-[56rpx]"
+                    className="self-end mt-[16rpx] text-label text-cta-foreground bg-cta rounded-sm px-[28rpx] leading-[56rpx]"
                     onClick={() => onReceive(c.id)}
                   >
                     {tt('member.couponList.receive', '立即领取')}

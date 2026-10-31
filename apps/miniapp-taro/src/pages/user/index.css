@@ -21,7 +21,7 @@
 .share-popup-content {
   background: var(--color-card);
   border-radius: var(--radius-xl);
-  padding: 40rpx;
+  padding: var(--spacing-xl);
   width: 100%;
   max-width: 640rpx;
   position: relative;
@@ -59,7 +59,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 .share-popup-title {
@@ -85,7 +85,7 @@
   font-weight: 600;
   background: var(--color-primary, var(--color-primary));
   color: var(--color-primary-foreground, var(--color-foreground));
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 /* 抽屉动画 */
@@ -124,7 +124,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 20rpx 24rpx;
+  padding: var(--spacing-sm-loose) 24rpx;
   background: var(--color-card);
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -179,14 +179,14 @@
 /* ===== 内容展示区域样式(对齐 RN contentDisplayArea:minHeight + marginBottom + 紧凑 padding)===== */
 .content-display-area {
   min-height: 200rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
   padding: 0 20rpx;
 }
 
 .content-list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 
 /* AlimamaFangYuanTi 字体(对齐原项目 font-family: "AlimamaFangYuanTi")

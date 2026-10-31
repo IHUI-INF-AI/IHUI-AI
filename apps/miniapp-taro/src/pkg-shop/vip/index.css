@@ -47,19 +47,19 @@
 .title {
   font-size: 48rpx;
   font-weight: 600;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   color: var(--color-white-98);
   text-shadow: 0 2rpx 10rpx var(--color-black-30);
 }
 .subtitle {
   font-size: 28rpx;
   color: var(--color-scrim-foreground);
-  margin-bottom: 40rpx;
+  margin-bottom: var(--spacing-xl);
 }
 .price-box {
   display: flex;
   align-items: baseline;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
 }
 .current-price {
   /* 对齐 RN SharedVipScreen priceText:24dp→48rpx / 700 / VIP 金 */
@@ -72,7 +72,7 @@
    深灰 var(--color-vip-card) / marginH 16dp→32rpx / mt 16dp→32rpx /
    padding 14dp→28rpx / 圆角 12dp→24rpx,白字层级) ===== */
 .status-bar {
-  margin: 32rpx 32rpx 0;
+  margin: var(--spacing-lg) 32rpx 0;
   padding: 28rpx;
   background: var(--color-vip-card);
   border-radius: var(--radius-xl);
@@ -92,41 +92,41 @@
   /* 对齐 RN membershipLabel:14dp→28rpx / white 80% */
   font-size: 28rpx;
   color: var(--color-white-80);
-  padding: 8rpx 20rpx;
+  padding: var(--spacing-xs) 20rpx;
   border: 1px solid var(--color-white-30);
   border-radius: var(--radius-lg);
 }
 .expire-row {
   /* 对齐 RN membershipMeta:mt 8dp→16rpx / 12dp→24rpx / white 70% */
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 24rpx;
   color: var(--color-white-70);
 }
 
 /* ===== 特权列表(垂直 6 项) ===== */
 .features {
-  padding: 40rpx;
+  padding: var(--spacing-xl);
 }
 .section-title {
   font-size: 32rpx;
   color: var(--vip-text);
-  margin-bottom: 32rpx;
+  margin-bottom: var(--spacing-lg);
   font-weight: bold;
 }
 .section-title.small {
   font-size: 28rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .feature-list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 .feature-item {
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  padding: 24rpx;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--vip-card-bg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--vip-border);
@@ -150,7 +150,7 @@
   /* 对齐 RN cardLevelName:16dp→32rpx / 600 */
   font-size: 32rpx;
   color: var(--vip-text);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
   font-weight: 600;
   display: block;
 }
@@ -161,7 +161,7 @@
 }
 .feature-tag {
   /* 对齐 RN SharedVipScreen currentBadge:金底 + gray.800 深字(var(--color-vip-card)) */
-  padding: 4rpx 16rpx;
+  padding: var(--spacing-2xs) 16rpx;
   background: var(--vip-gold);
   border-radius: var(--radius-md);
   font-size: 20rpx;
@@ -170,8 +170,8 @@
   flex-shrink: 0;
 }
 .more-btn {
-  margin-top: 24rpx;
-  padding: 16rpx 0;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
   text-align: center;
   font-size: 24rpx;
   color: var(--vip-gold);
@@ -182,7 +182,7 @@
 
 /* ===== 套餐卡 + 自动续费 + 会员说明(对齐 RN planCard:mt 20rpx / marginH 32rpx / padding 28rpx) ===== */
 .plans-card {
-  margin: 20rpx 32rpx 24rpx;
+  margin: var(--spacing-sm-loose) 32rpx 24rpx;
   padding: 28rpx;
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
@@ -209,13 +209,13 @@
 .auto-renew {
   display: flex;
   align-items: center;
-  margin-top: 24rpx;
-  padding: 8rpx 0;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
 }
 .auto-check {
   width: 36rpx;
   height: 36rpx;
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -236,13 +236,13 @@
   flex: 1;
 }
 .manage-link {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 22rpx;
   color: var(--color-link);
 }
 .member-desc {
-  margin-top: 24rpx;
-  padding: 24rpx;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--color-muted);
   border-radius: var(--radius-md);
 }
@@ -260,7 +260,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 24rpx 40rpx;
+  padding: var(--spacing-md) 40rpx;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: var(--vip-buy-bg);
   backdrop-filter: blur(20px);
@@ -268,7 +268,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 .price-info {
   flex-shrink: 0;
@@ -281,7 +281,7 @@
   /* 对齐 RN planAmount 颜色:brandAccent 前景色 → var(--color-brand-accent-deep) */
   font-size: 32rpx;
   color: var(--color-brand-accent-deep);
-  margin-right: 4rpx;
+  margin-right: var(--spacing-2xs);
   font-weight: 600;
 }
 .number {
@@ -330,7 +330,7 @@
   background: var(--color-card);
   border: 1px solid var(--vip-border);
   border-radius: var(--radius-lg);
-  padding: 40rpx;
+  padding: var(--spacing-xl);
 }
 .pp-title {
   /* 对齐 RN BottomPopup popupTitle:text.primary */
@@ -338,17 +338,17 @@
   font-weight: 700;
   color: var(--vip-text);
   text-align: center;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 .pp-body {
-  margin-bottom: 32rpx;
+  margin-bottom: var(--spacing-lg);
 }
 .pp-text {
   display: block;
   font-size: 26rpx;
   color: var(--vip-text-muted);
   line-height: 1.8;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .pp-btn {
   width: 100%;
@@ -373,7 +373,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
   border-radius: var(--radius-lg);
@@ -382,14 +382,14 @@
   font-size: 32rpx;
   color: var(--vip-text);
   font-weight: 600;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 .pp-plan-price {
   /* 对齐 RN BottomPopup 金额色:brandAccent 前景色 → var(--color-brand-accent-deep) */
   font-size: 56rpx;
   color: var(--color-brand-accent-deep);
   font-weight: 700;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .pp-plan-period {
   font-size: 24rpx;
@@ -398,14 +398,14 @@
 .pp-check {
   display: flex;
   align-items: center;
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 .pp-checkbox {
   width: 36rpx;
   height: 36rpx;
   border: 2rpx solid var(--vip-border);
   border-radius: var(--radius-sm);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -426,10 +426,10 @@
 .pp-pay-item {
   display: flex;
   align-items: center;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--vip-card-bg);
   border-radius: var(--radius-md);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   border: 1px solid var(--vip-border);
 }
 .pp-pay-item.active {
@@ -444,7 +444,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20rpx;
+  margin-right: var(--spacing-sm-loose);
   color: var(--color-foreground);
   font-size: 28rpx;
   font-weight: 700;

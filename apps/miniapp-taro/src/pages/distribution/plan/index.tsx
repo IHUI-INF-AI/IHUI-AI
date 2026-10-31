@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/earn-commission/EarnCommissionScreen.tsx
 
 import { useTt } from '@/i18n'
@@ -95,7 +96,7 @@ export default function DistributionPlan() {
         <Text className="block text-[length:36rpx] font-bold text-foreground text-center">
           {tt('distribution.plan.introTitle', '邀请好友,赚取佣金')}
         </Text>
-        <Text className="block text-[length:28rpx] text-muted-foreground text-center leading-[40rpx]">
+        <Text className="block text-body text-muted-foreground text-center leading-[40rpx]">
           {tt(
             'earnCommission.introDesc',
             '加入分佣计划,邀请好友注册成为会员,即可获得会员费 20% 的佣金收益',
@@ -131,7 +132,7 @@ export default function DistributionPlan() {
             <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[length:28rpx] font-semibold flex items-center justify-center flex-shrink-0">
               <Text>{i + 1}</Text>
             </View>
-            <Text className="flex-1 text-[length:28rpx] text-foreground leading-[38rpx]">{r}</Text>
+            <Text className="flex-1 text-body text-foreground leading-[38rpx]">{r}</Text>
           </View>
         ))}
       </View>
@@ -164,7 +165,7 @@ export default function DistributionPlan() {
 
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[28rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
-          className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-[length:32rpx] font-semibold rounded-xl"
+          className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-title font-semibold rounded-xl"
           onClick={onOpenVip}
           hoverClass="opacity-60"
         >

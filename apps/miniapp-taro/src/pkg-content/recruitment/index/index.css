@@ -32,7 +32,7 @@
 .recruit-header-mask {
   position: relative;
   z-index: 1;
-  padding: 80rpx 30rpx;
+  padding: var(--spacing-4xl) 30rpx;
   display: flex;
   flex-direction: column;
 }
@@ -42,13 +42,13 @@
   color: var(--color-foreground);
 }
 .recruit-subtitle {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 26rpx;
   color: var(--color-white-85);
 }
 .recruit-section {
-  margin: 20rpx;
-  padding: 24rpx;
+  margin: var(--spacing-sm-loose);
+  padding: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-lg);
 }
@@ -57,7 +57,7 @@
   font-weight: 600;
   color: var(--color-foreground);
   display: block;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 .req-list {
   display: flex;
@@ -66,15 +66,15 @@
 .req-item {
   display: flex;
   align-items: flex-start;
-  padding: 16rpx 0;
+  padding: var(--spacing-sm) 0;
 }
 .req-dot {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
   background: var(--color-primary);
-  margin-top: 12rpx;
-  margin-right: 16rpx;
+  margin-top: var(--spacing-xs-loose);
+  margin-right: var(--spacing-sm);
   flex-shrink: 0;
 }
 .req-content {
@@ -88,7 +88,7 @@
   color: var(--color-foreground);
 }
 .req-item-desc {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
@@ -99,7 +99,7 @@
 }
 .priv-item {
   width: 50%;
-  padding: 16rpx;
+  padding: var(--spacing-sm);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -123,7 +123,7 @@
   color: var(--color-warning);
 }
 .priv-item-title {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 26rpx;
   color: var(--color-foreground);
   text-align: center;
@@ -139,10 +139,10 @@
   flex-direction: column;
 }
 .income-item {
-  padding: 20rpx 0;
+  padding: var(--spacing-sm-loose) 0;
 }
 .income-item + .income-item {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 .income-level {
   font-size: 28rpx;
@@ -150,7 +150,7 @@
   color: var(--color-primary);
 }
 .income-detail {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   display: flex;
   flex-direction: column;
 }
@@ -158,7 +158,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8rpx 0;
+  padding: var(--spacing-xs) 0;
 }
 .income-label {
   font-size: 26rpx;
@@ -174,7 +174,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  padding: 20rpx 30rpx;
+  padding: var(--spacing-sm-loose) 30rpx;
   box-sizing: border-box;
   background: var(--color-card);
   box-shadow: 0 -2rpx 12rpx var(--color-black-6);

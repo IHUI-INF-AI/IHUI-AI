@@ -200,10 +200,10 @@ export default function CachePage() {
 
         {/* 提示文字对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="block text-center text-[length:24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
+          <Text className="block text-center text-label leading-[1.8] text-[color:var(--color-text-tertiary)]">
             {t('setting.cache.tip1')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-label leading-[1.8] text-[color:var(--color-text-tertiary)]">
             {t('setting.cache.tip2')}
           </Text>
         </View>
