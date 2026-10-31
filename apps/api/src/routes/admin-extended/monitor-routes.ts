@@ -8,13 +8,13 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import type { Redis, RedisKey } from 'ioredis'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc, and, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { monitorAlerts } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
-import { success, error, parseOrThrow } from '../../utils/response.js'
+import { success, error, parseOrThrow, emptyToUndefined } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
-import { isUuidString } from '../../utils/uuid.js'
 
 /* -------------------------------------------------------------------------- */
 /*  Redis INFO 解析 & 辅助函数                                                   */
@@ -105,6 +105,18 @@ async function getKeysByPrefix(redis: Redis): Promise<PrefixEntry[]> {
     .sort((a, b) => b.totalSize - a.totalSize)
 }
 
+/**
+ * 告警列表的筛选参数。
+ *
+ * 只约束"长度像不像一个列值"(库列是 varchar(20)),**不**在此处枚举合法取值:
+ * 合法词表由前端 `@/lib/admin/monitor-alert-vocabulary` 独家持有(AGENTS.md §0.6),
+ * 后端再抄一份就会漂移。未知取值命中 0 行,是诚实的"没有这种值",不是静默放行。
+ */
+const monitorAlertsQuerySchema = z.object({
+  severity: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+})
+
 export const monitorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/admin/monitor/alerts/:id/ack',
@@ -134,31 +146,46 @@ export const monitorRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(row))
     },
   )
-  server.get('/admin/monitor/funnel/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
-    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
-    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
-    if (!isUuidString(id)) return reply.status(404).send(error(404, '记录不存在'))
-    // 基于现有 monitorAlerts 表按来源聚合生成漏斗数据
-    const rows = await db
-      .select({
-        source: monitorAlerts.source,
-        severity: monitorAlerts.severity,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(monitorAlerts)
-      .where(eq(monitorAlerts.id, id))
-      .groupBy(monitorAlerts.source, monitorAlerts.severity)
-    return reply.send(success({ funnel: rows, total: rows.reduce((s, r) => s + r.count, 0) }))
-  })
-  server.get('/admin/monitoring/alerts', { preHandler: requireAdmin }, async (_request, reply) => {
+  /**
+   * GET /admin/monitor/funnel/:id —— 已摘除(2026-10-31,admin 监控崩溃族 ④)。
+   *
+   * 这条路由是**假路由**:`:id` 要求 UUID、返回的是"按单条告警聚合"的一行,
+   * 而 web 的漏斗页传的是 'signup'/'purchase' 这类漏斗名 ⇒ 必 404、页面恒空。
+   * 真正的业务漏斗在 `GET /api/earnings/funnel`(register→active→byok→vip),
+   * web 侧已改读它,本路由一并摘除(不留第二份"看起来能用"的空实现)。
+   */
+
+  /**
+   * GET /admin/monitoring/alerts —— 告警列表(可按 severity / status 真过滤)。
+   *
+   * 为什么带筛选:web 的 admin 监控告警页原来把 `level=`/`status=` 发给
+   * registerCrud 的 GET,而那个工厂只解析 page/pageSize/search ⇒ 两个筛选器
+   * **从未生效**(控件在、筛选不发生)。这里按库列真名 severity/status 真的过滤,
+   * 且 total 是**过滤后**的条数(不是 list.length,否则分页与总数会各说各话)。
+   *
+   * 词表不在后端另立一份(AGENTS.md §0.6):severity/status 的取值集合由
+   * `@ihui/types` 的 `MONITOR_ALERT_SEVERITIES/STATUSES` 独家持有,后端只做列等值过滤,
+   * 传进来的未知值自然命中 0 行,不会把"没判"说成"没有"。
+   */
+  server.get('/admin/monitoring/alerts', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = monitorAlertsQuerySchema.safeParse(request.query)
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    const { severity, status } = parsed.data
+    const conditions = []
+    if (severity) conditions.push(eq(monitorAlerts.severity, severity))
+    if (status) conditions.push(eq(monitorAlerts.status, status))
+    const where = conditions.length > 0 ? and(...conditions) : undefined
     const list = await db
       .select()
       .from(monitorAlerts)
+      .where(where)
       .orderBy(desc(monitorAlerts.firedAt))
       .limit(100)
-    return reply.send(success({ list, total: list.length }))
+    const [totalRow] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(monitorAlerts)
+      .where(where)
+    return reply.send(success({ list, total: totalRow?.c ?? 0 }))
   })
   server.get('/admin/monitor/redis', { preHandler: requireAdmin }, async (_request, reply) => {
     const redis = server.redis

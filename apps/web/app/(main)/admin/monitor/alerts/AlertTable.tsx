@@ -15,7 +15,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { LEVEL_STYLE, STATUS_LABEL, STATUS_STYLE } from './helpers'
+import { monitorAlertSeverityMeta, monitorAlertStatusMeta } from './helpers'
 import type { Alert } from './types'
 import { formatDate } from '@/lib/date-utils'
 
@@ -65,26 +65,30 @@ export function AlertTable({
             </TableRow>
           ) : (
             list.map((a) => {
-              const st = LEVEL_STYLE[a.level]
-              const Icon = st.icon
+              // 真列是 severity / status(库列真名),不是 level —— 旧写法 LEVEL_STYLE[a.level]
+              // 取到 undefined 就在渲染期抛 TypeError(第一条告警落地即崩表)。
+              // 词表外的值(裸 varchar)显式落「未判定」,不崩也不兜成某个已知档。
+              const sev = monitorAlertSeverityMeta(a.severity)
+              const st = monitorAlertStatusMeta(a.status)
+              const Icon = sev.icon
               return (
                 <TableRow key={a.id}>
                   <TableCell>
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
-                        st.bg,
-                        st.text,
+                        sev.bg,
+                        sev.text,
                       )}
                     >
                       <Icon className="h-3 w-3" />
-                      {a.level}
+                      {sev.label}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{a.title}</div>
+                    <div className="font-medium">{a.name}</div>
                     <div className="max-w-[300px] break-words text-xs text-muted-foreground">
-                      {a.message}
+                      {a.message ?? ''}
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{a.source}</TableCell>
@@ -92,19 +96,20 @@ export function AlertTable({
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
-                        STATUS_STYLE[a.status],
+                        st.bg,
+                        st.text,
                       )}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {STATUS_LABEL[a.status]}
+                      {st.label}
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {formatDate(a.createdAt)}
+                    {formatDate(a.firedAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-nowrap justify-end gap-1">
-                      {a.status === 'active' && (
+                      {a.status === 'firing' && (
                         <Button
                           size="sm"
                           variant="ghost"

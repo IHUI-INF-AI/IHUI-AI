@@ -18,18 +18,21 @@ import { BackButton } from '@/components/common'
 
 export default function AdminMonitorAlertsPage() {
   const qc = useQueryClient()
-  const [level, setLevel] = React.useState('all')
+  const [severity, setSeverity] = React.useState('all')
   const [status, setStatus] = React.useState('all')
 
   const { data: alerts = [], isLoading } = useQuery({
-    queryKey: ['admin', 'monitor', 'alerts', level, status],
+    queryKey: ['admin', 'monitor', 'alerts', severity, status],
     queryFn: () => {
+      // 筛选参数由后端**真的**按列过滤(旧写法把 level=/status= 发给
+      // registerCrud 的 GET,而它只解析 page/pageSize/search ⇒ 两个筛选器从未生效)。
       const qs = new URLSearchParams()
-      if (level !== 'all') qs.set('level', level)
+      if (severity !== 'all') qs.set('severity', severity)
       if (status !== 'all') qs.set('status', status)
-      return apiOrThrow<{ list: Alert[] }>(`/api/admin/monitor/alerts?${qs.toString()}`).then(
-        (d) => d.list ?? [],
-      )
+      const query = qs.toString()
+      return apiOrThrow<{ list: Alert[] }>(
+        `/api/admin/monitoring/alerts${query ? `?${query}` : ''}`,
+      ).then((d) => d.list ?? [])
     },
   })
 
@@ -50,9 +53,14 @@ export default function AdminMonitorAlertsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'monitor', 'alerts'] }),
   })
 
-  const activeCount = alerts.filter((a) => a.status === 'active').length
-  const criticalCount = alerts.filter((a) => a.level === 'critical' && a.status === 'active').length
-  const warningCount = alerts.filter((a) => a.level === 'warning' && a.status === 'active').length
+  // 汇总口径与库内真值对齐:firing=触发中(旧写法的 'active' 全仓不存在 ⇒ 恒 0)。
+  const activeCount = alerts.filter((a) => a.status === 'firing').length
+  const criticalCount = alerts.filter(
+    (a) => a.severity === 'critical' && a.status === 'firing',
+  ).length
+  const warningCount = alerts.filter(
+    (a) => a.severity === 'warning' && a.status === 'firing',
+  ).length
 
   return (
     <div className="space-y-4 px-4 py-4">
@@ -92,7 +100,12 @@ export default function AdminMonitorAlertsPage() {
         </Card>
       </div>
 
-      <AlertFilter level={level} setLevel={setLevel} status={status} setStatus={setStatus} />
+      <AlertFilter
+        severity={severity}
+        setSeverity={setSeverity}
+        status={status}
+        setStatus={setStatus}
+      />
 
       <AlertTable
         list={alerts}
