@@ -17,6 +17,7 @@
  */
 import IORedis from 'ioredis'
 import { config } from '../config/index.js'
+import { FAST_FAIL_REDIS_OPTIONS } from '../plugins/redis.js'
 import { logger } from '../utils/logger.js'
 
 const WINDOW_SECONDS = 60
@@ -29,7 +30,9 @@ function getRedis(): IORedis | null {
   if (redis) return redis
   if (initFailed) return null
   try {
-    redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 1 })
+    // 每请求一次:Redis 不可用时必须立刻失败(见文件头注「失败方向:放行」)。
+    // 默认 enableOfflineQueue 会把 incr 排到重连退避耗尽,单请求拖到秒级(选项单源 §0.6)。
+    redis = new IORedis(config.REDIS_URL, FAST_FAIL_REDIS_OPTIONS)
     redis.on('error', (err) => {
       logger.error('[user-rate-limit] redis error', { err: (err as Error).message })
     })

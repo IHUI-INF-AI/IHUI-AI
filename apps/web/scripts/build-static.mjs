@@ -52,8 +52,42 @@ const RUNTIME_ONLY_ROUTE_DIRS = ['cdn', 'uploads']
  * 配**静态**策略,而不是把 proxy 塞回静态构建 —— 那里没有 per-request 可言。
  */
 const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
+/**
+ * 直接 import `proxy.ts` 的测试(相对 apps/web/)。
+ *
+ * `next build` 的 typecheck 覆盖 tsconfig.include 的**全部**文件(含 src/tests 与
+ * 各 `__tests__` 目录),而 proxy.ts 在静态导出构建期已被移出 ⇒ 这两个测试的
+ * `import ... from '../../../proxy' / '../../proxy'` 结构上必然 TS2307
+ * (2026-10-31 实测 Build Docker run 41150575611 的 build:static)。
+ * 与 proxy 同批移出、finally 恢复;`pnpm typecheck`(不在本脚本内)仍照旧检查它们。
+ */
+const STATIC_EXCLUDED_TEST_FILES = [
+  'src/tests/proxy-guard.test.ts',
+  'src/lib/__tests__/origin-direct-host-guard.test.ts',
+]
+const STATIC_EXCLUDED_FILES = [...STATIC_EXCLUDED_TOP_FILES, ...STATIC_EXCLUDED_TEST_FILES]
 const appDir = path.join(webRoot, 'app')
 const stashDir = path.join(webRoot, '.static-excluded')
+
+/** 把被排除的单个文件移出原位(保留 mtime);嵌套路径自动建父目录。 */
+function stashActiveFile(rel) {
+  const active = path.join(webRoot, rel)
+  if (!existsSync(active)) return
+  const stashed = path.join(stashDir, rel)
+  mkdirSync(path.dirname(stashed), { recursive: true })
+  cpSync(active, stashed, { preserveTimestamps: true })
+  rmSync(active, { force: true })
+}
+
+/** 回填被排除的单个文件(幂等;active 已存在则不覆盖)。 */
+function restoreStashedFile(rel) {
+  const stashed = path.join(stashDir, rel)
+  const active = path.join(webRoot, rel)
+  if (!existsSync(stashed) || existsSync(active)) return
+  mkdirSync(path.dirname(active), { recursive: true })
+  cpSync(stashed, active, { preserveTimestamps: true })
+  rmSync(stashed, { force: true })
+}
 
 /** 移出静态导出不兼容的路由目录;若上次构建崩溃遗留 stash,先恢复 */
 function excludeRuntimeRoutes() {
@@ -66,21 +100,9 @@ function excludeRuntimeRoutes() {
     }
   }
   mkdirSync(stashDir, { recursive: true })
-  // 顶层文件:崩溃自愈同上,先还原再移出
-  for (const name of STATIC_EXCLUDED_TOP_FILES) {
-    const stashed = path.join(stashDir, name)
-    const active = path.join(webRoot, name)
-    if (existsSync(stashed) && !existsSync(active)) {
-      cpSync(stashed, active, { preserveTimestamps: true })
-      rmSync(stashed, { force: true })
-    }
-  }
-  for (const name of STATIC_EXCLUDED_TOP_FILES) {
-    const active = path.join(webRoot, name)
-    if (!existsSync(active)) continue
-    cpSync(active, path.join(stashDir, name), { preserveTimestamps: true })
-    rmSync(active, { force: true })
-  }
+  // 文件(proxy.ts + 依赖它的测试):崩溃自愈同上,先还原再移出
+  for (const rel of STATIC_EXCLUDED_FILES) restoreStashedFile(rel)
+  for (const rel of STATIC_EXCLUDED_FILES) stashActiveFile(rel)
   for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
     const active = path.join(appDir, name)
     // 目录不存在则跳过(如路由被移除);缺失时 cpSync 会抛 ENOENT 导致 CI 构建全挂(2026-09-01 事故)
@@ -91,14 +113,7 @@ function excludeRuntimeRoutes() {
 
 /** 恢复被移出的路由目录(幂等) */
 function restoreRuntimeRoutes() {
-  for (const name of STATIC_EXCLUDED_TOP_FILES) {
-    const stashed = path.join(stashDir, name)
-    const active = path.join(webRoot, name)
-    if (existsSync(stashed) && !existsSync(active)) {
-      cpSync(stashed, active, { preserveTimestamps: true })
-      rmSync(stashed, { force: true })
-    }
-  }
+  for (const rel of STATIC_EXCLUDED_FILES) restoreStashedFile(rel)
   for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
     const stashed = path.join(stashDir, name)
     const active = path.join(appDir, name)

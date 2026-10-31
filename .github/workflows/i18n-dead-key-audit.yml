@@ -74,18 +74,27 @@ jobs:
   unit-tests:
     name: i18n 扫描器单测 + 集成测试
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
         id: checkout
         uses: actions/checkout@v4
 
+      # 2026-10-31:本 job 原为"零第三方依赖"直跑 node --test。但扫描器现经
+      # scripts/lib/i18n-scan-targets.mjs → rn-carried-keys.mjs 静态 import `typescript`
+      # (承载闭包单一真相源,与门 251 / 词包生成器同源)⇒ 不装依赖时 node --test 在加载期
+      # 报 ERR_MODULE_NOT_FOUND 整份文件失败(run 41150575691)。装依赖是"多要一次",不是放宽判据。
+      - uses: pnpm/action-setup@v6
       - name: Setup Node
         id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
 
       - name: 运行 i18n 扫描器单测 + 4 端集成测试
         id: run-tests
@@ -114,16 +123,17 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/i18n-dead-key-audit.yml
-          TRIAGE_IDS: checkout setup-node run-tests
+          TRIAGE_IDS: checkout setup-node install run-tests
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
           O_RUN_TESTS: ${{ steps.run-tests.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
   dead-key-audit:
     name: i18n 死 key 审计
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     needs: unit-tests
 
     steps:
@@ -131,11 +141,17 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
+      # 同 unit-tests job:扫描器静态依赖 typescript,不装依赖会 ERR_MODULE_NOT_FOUND。
+      - uses: pnpm/action-setup@v6
       - name: Setup Node
         id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
 
       - name: 扫描死 key(失败即阻塞 PR;五端全扫,不再只跑 web)
         id: scan
@@ -161,9 +177,10 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/i18n-dead-key-audit.yml
-          TRIAGE_IDS: checkout setup-node scan upload-report
+          TRIAGE_IDS: checkout setup-node install scan upload-report
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
           O_SCAN: ${{ steps.scan.outcome }}
           O_UPLOAD_REPORT: ${{ steps.upload-report.outcome }}
         run: bash scripts/ci-failure-triage.sh

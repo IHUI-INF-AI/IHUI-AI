@@ -1,0 +1,967 @@
+{
+  "version": 1,
+  "root": ".ihui/skills",
+  "entries": [
+    {
+      "path": ".ihui/skills/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".ihui/skills/archify/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    {
+      "path": ".ihui/skills/archify/LICENSE-MIT",
+      "sha256": "b799ab081703e7821ae5096d2c1abdf14bbdc75e8ea1c4045998c36ed6db9706",
+      "bytes": 1102
+    },
+    {
+      "path": ".ihui/skills/archify/NOTICE",
+      "sha256": "665eb53e6fcf09cee183c9f23c8052645dc95570d9ccbbf53dc0f5213a1b5edd",
+      "bytes": 1340
+    },
+    {
+      "path": ".ihui/skills/archify/SKILL.md",
+      "sha256": "03a7f91eb89aa60fed203320812b96cb21318d132b33f7c8a4aa205d7e8e2389",
+      "bytes": 24071
+    },
+    {
+      "path": ".ihui/skills/archify/THIRD_PARTY_NOTICES.md",
+      "sha256": "29bf1928cfd7a4d05556aa377c1c21f8cea1a5a0b38cd2bd2356009bb65d92d2",
+      "bytes": 11532
+    },
+    {
+      "path": ".ihui/skills/archify/assets/JetBrainsMono-OFL.txt",
+      "sha256": "c1ab7c666206842a02b35b30770dac0d7a10156ed401c9defc3f02a754d89e90",
+      "bytes": 4398
+    },
+    {
+      "path": ".ihui/skills/archify/bin/archify.mjs",
+      "sha256": "c3883293941c01f14a5a33c549ff46be2f5680702c9e0171a195e0d6e56d0392",
+      "bytes": 291945
+    },
+    {
+      "path": ".ihui/skills/archify/bin/delivery-update.mjs",
+      "sha256": "b6b1326cb8364f134033c7e4fa267b2e0a60f3841d2198fccea754667a04d4a4",
+      "bytes": 6842
+    },
+    {
+      "path": ".ihui/skills/archify/bin/finalize.mjs",
+      "sha256": "8990d465c129ab3df4364499ad5979156e88de4ee60a6c73e441d1aef952aaab",
+      "bytes": 53213
+    },
+    {
+      "path": ".ihui/skills/archify/bin/open-artifact.mjs",
+      "sha256": "bd27f6bfeee49b57ddfab31efbd6c9d8c73bc5e3ca991dca41a03d365ddbaac5",
+      "bytes": 7286
+    },
+    {
+      "path": ".ihui/skills/archify/bin/preview.mjs",
+      "sha256": "3f4d998d90d0363de0a783566836fb98d7ec688dcdd862279f505a4823af8a7e",
+      "bytes": 39835
+    },
+    {
+      "path": ".ihui/skills/archify/bin/recover-output.mjs",
+      "sha256": "4473c3f882008620376b0ae58878419753d08b2be5a907a09e23476f299d871b",
+      "bytes": 4509
+    },
+    {
+      "path": ".ihui/skills/archify/bin/visual-check.mjs",
+      "sha256": "df7d04e71ea3358fc3bdda973ef8a821a8b700af3fa6b1b10d6d6983b9bf0b90",
+      "bytes": 123679
+    },
+    {
+      "path": ".ihui/skills/archify/brand-marks/README.md",
+      "sha256": "2a00d66c6cceaa92b13f9279500227b77866af244d6973b8c1a475d98b5f95a4",
+      "bytes": 4603
+    },
+    {
+      "path": ".ihui/skills/archify/brand-marks/catalog.json",
+      "sha256": "8c89aaa06aee5599f0b4de3df0aa8af9bba6a7006f2ce8b0821b375046b077e0",
+      "bytes": 16646
+    },
+    {
+      "path": ".ihui/skills/archify/delta/architecture-delta.mjs",
+      "sha256": "1b7cbddbd2c9dcfe0c4ec3b28e2bd53968af44e92b482bc5ede3973738e81381",
+      "bytes": 82229
+    },
+    {
+      "path": ".ihui/skills/archify/examples/agent-run.lifecycle.json",
+      "sha256": "e546d0f1f293d93b3a1ca43591b5f09c40ae9d686e4af5620c8de047a0955fdc",
+      "bytes": 3800
+    },
+    {
+      "path": ".ihui/skills/archify/examples/agent-tool-call.workflow.json",
+      "sha256": "42a135d651c5b725ff17fec5e8554767dd054d698bd7554432be7c60d43e8c3e",
+      "bytes": 5995
+    },
+    {
+      "path": ".ihui/skills/archify/examples/archify-dev-activity.timeline.json",
+      "sha256": "e9c8d76528e8c38a68d9a8df2499c462f6b9633292ea43bf33350546ef2fd3a3",
+      "bytes": 4460
+    },
+    {
+      "path": ".ihui/skills/archify/examples/archify-repository.tree.json",
+      "sha256": "970617ee844ecfb1bb792c677aa8b85688abfd2cf8ab2365dc03ea9e26e6b9c7",
+      "bytes": 4368
+    },
+    {
+      "path": ".ihui/skills/archify/examples/async-job-roundtrip.sequence.json",
+      "sha256": "e6400f4b49520127383b974ed5990b7b64e01fcbd4b47987b087503717377a6c",
+      "bytes": 3996
+    },
+    {
+      "path": ".ihui/skills/archify/examples/brand-aware-delivery.architecture.json",
+      "sha256": "ca5db28c7f76f4d79b86620fa9dfd95a2182d6e4f20702700b7115aba53d7714",
+      "bytes": 3505
+    },
+    {
+      "path": ".ihui/skills/archify/examples/cache-miss-request.sequence.json",
+      "sha256": "ed9ca8716bcc5cf2e7dc31e3ac5ce3ce0745fb1651ce1ed9548ab5948c6483b1",
+      "bytes": 4285
+    },
+    {
+      "path": ".ihui/skills/archify/examples/checkout-platform.base.architecture.json",
+      "sha256": "81f9493b413757332129c7ea0de2c32a9f66ea1cc22b4ce4b14272c49a052e12",
+      "bytes": 2787
+    },
+    {
+      "path": ".ihui/skills/archify/examples/checkout-platform.head.architecture.json",
+      "sha256": "df8f88c8f0bf05d020a3c04627c22fd3dd2f3694e069535a944bce2131389358",
+      "bytes": 2997
+    },
+    {
+      "path": ".ihui/skills/archify/examples/checkout-request.waterfall.json",
+      "sha256": "783b49de64b42322c5308cdcbe22cf332e97d630e3a750a4ef7aa27f0eacb603",
+      "bytes": 1449
+    },
+    {
+      "path": ".ihui/skills/archify/examples/delivery.explainer.json",
+      "sha256": "cb61034bc05925d08ad4f0ebd7f3fb3046bc91d80a3abb6760bc998df37fa03c",
+      "bytes": 4534
+    },
+    {
+      "path": ".ihui/skills/archify/examples/deployment-release.lifecycle.json",
+      "sha256": "06df40889ac0eb981c4db1c2a3b317c1470eb578a6f187e35934ad89c9cf6202",
+      "bytes": 4797
+    },
+    {
+      "path": ".ihui/skills/archify/examples/event-stream.dataflow.json",
+      "sha256": "254e2a5e69dfd9aea62d6eefd86fced10284bd47baaa781b291f487ca366fd0a",
+      "bytes": 6039
+    },
+    {
+      "path": ".ihui/skills/archify/examples/example-rebuild.waterfall.json",
+      "sha256": "77d610013a5aab031df739c207b66ebc26e1740371b51da06956ecf06b5e9929",
+      "bytes": 4617
+    },
+    {
+      "path": ".ihui/skills/archify/examples/holiday-planning.workflow.json",
+      "sha256": "ffd93fecc9668b86af4da7f933b56e218dd40cc1010c59888133d506d661a4ec",
+      "bytes": 2959
+    },
+    {
+      "path": ".ihui/skills/archify/examples/incident-response.workflow.json",
+      "sha256": "6eeb5ba7131b6609f4bcfe2511e5de800cb0f76ba68cf38cafe8d8a15b154366",
+      "bytes": 5873
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/de.json",
+      "sha256": "77975293855578923fbbee29f478d9d84002c04d6a7b3e22cd9db8cf3fb414ba",
+      "bytes": 28444
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/fr.json",
+      "sha256": "ea1af868932eb22761094a4950b769fd0634430fe706fc4ea4335eca7f0529bb",
+      "bytes": 29281
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/fr.partial.json",
+      "sha256": "8958a8354ffccce2ce63ac21b3f8a0f131086f532832445a3fe7feff02200397",
+      "bytes": 959
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/it.json",
+      "sha256": "be8cd15fcd0311521dc8ae1f35bbcf8e33a180e20e5ce94fd0d65dec4e147e6b",
+      "bytes": 28793
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/ja.json",
+      "sha256": "bb6d66d7e1126c5c622423317a536728820d3fe686be90d0c9cc8f6ca4ff3e67",
+      "bytes": 32495
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/pt.json",
+      "sha256": "8e3c6a054183e96465bd882bc23d38eafe19c0484eda5709f4e2b37e132e0731",
+      "bytes": 28454
+    },
+    {
+      "path": ".ihui/skills/archify/examples/locales/ru.json",
+      "sha256": "ea673bf7156d87ac43d754839155a1a145aafa481b5de540e04d1f8d3ec008d3",
+      "bytes": 36940
+    },
+    {
+      "path": ".ihui/skills/archify/examples/orders.erd.json",
+      "sha256": "7d04ee6e130ad1bab90462d5e1ff3259c54f5e0584c71597ed9c4ce18ae26bbd",
+      "bytes": 7201
+    },
+    {
+      "path": ".ihui/skills/archify/examples/payment-incident.timeline.json",
+      "sha256": "62cfe5a710f49883889ea46f8bd76b7619ce84f0e6ff6eb926e0a3a47dd5af77",
+      "bytes": 1645
+    },
+    {
+      "path": ".ihui/skills/archify/examples/payment-platform.tree.json",
+      "sha256": "5070aab92dfb70ea288abd3a6be23101b04aec583baee9dd8db434a8806d0697",
+      "bytes": 1242
+    },
+    {
+      "path": ".ihui/skills/archify/examples/payment-processors.class.json",
+      "sha256": "541f6434c53d5f7e631d5acd40e468017737ada1ccc7dd4f24ea9469ac4e84e3",
+      "bytes": 8443
+    },
+    {
+      "path": ".ihui/skills/archify/examples/payments.class.json",
+      "sha256": "60ad88f59c48e8103299ed9753107aa4ffe3ef808c83ad4758c90b71ff0677f9",
+      "bytes": 3170
+    },
+    {
+      "path": ".ihui/skills/archify/examples/product-analytics.dataflow.json",
+      "sha256": "e779e69971a5ebcaee77103d7b78daa630a891f8838e4a5100c14fedf0c0ba2b",
+      "bytes": 6251
+    },
+    {
+      "path": ".ihui/skills/archify/examples/production-deployment.architecture.json",
+      "sha256": "f2c7b2a389c85fdce26711725f3b56ebd2e43c14eaf4caf5a86674f7ddf527e0",
+      "bytes": 5912
+    },
+    {
+      "path": ".ihui/skills/archify/examples/release-delivery.workflow.json",
+      "sha256": "df93c37e3bc2e3545d36434116de46d9672e2439d67fb648c7bd317b3dd7fcca",
+      "bytes": 5546
+    },
+    {
+      "path": ".ihui/skills/archify/examples/subscription-billing.erd.json",
+      "sha256": "219a59a8ae287e8e88cbc386fbdbfd3e8fcbd1cd4072e3629d12036e883ee827",
+      "bytes": 11667
+    },
+    {
+      "path": ".ihui/skills/archify/examples/web-app.architecture.json",
+      "sha256": "149cb3f6d34fb238b8d9dd3a6244300d0dcc64891670f2162562097ca50ffe95",
+      "bytes": 3963
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/browser-check.mjs",
+      "sha256": "5c35bda0adc4b727a27280be9ea301bbbd6eed40d9064ab137f0e17de10e572b",
+      "bytes": 33850
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/charts.mjs",
+      "sha256": "48653d94af99df8874684599c6aefc4db0ea822c011608b1776bb1df06b53d56",
+      "bytes": 9139
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/check.mjs",
+      "sha256": "7166feba4a2896b230aa22c7c8d7beb13104d70e03a187ed640851969f5eed98",
+      "bytes": 18047
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/diagrams.mjs",
+      "sha256": "b5d14c06efadafbe5d227504cd5cb6290509deeedaeeeb3c30f04c94cef95acc",
+      "bytes": 41852
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/diff.mjs",
+      "sha256": "5333c479916379c52653c2a258159286b158913827a6a3872c1fbfdf748b5fb1",
+      "bytes": 11596
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/inline.mjs",
+      "sha256": "6b110c3567c726a4db6939ac00256c39b3a108be1ad51bd603dab962054a50bf",
+      "bytes": 11863
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/layout.mjs",
+      "sha256": "80dcb06eba636928d56c926419c9c03d9d19afc178c4d8a0a8f6dc099f466177",
+      "bytes": 5713
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/page-bundle.mjs",
+      "sha256": "d6d97239c506fd8651645dee72c7d01567f24664ed91867afef8cd0c3629fe1a",
+      "bytes": 4280
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/parse.mjs",
+      "sha256": "7067a27488f426377429f525b75d1985314fc89053b53297aff6a17378276da0",
+      "bytes": 30400
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/patch.mjs",
+      "sha256": "47c858d55600359227e159997c6c83b168cf45661da34719255fad24224c920d",
+      "bytes": 15181
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/prepare.mjs",
+      "sha256": "07c9ca857bc536a3e3977ee7e74748c940223925665a7d716347ff6cc504dc19",
+      "bytes": 12961
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/reader.css",
+      "sha256": "c571db2a3527212777c18f972fd1cf6ed65ce327e2ae556e27cbc6e6ba974558",
+      "bytes": 59766
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/reader.js",
+      "sha256": "94fab213a339e8625a4c2810215a909d0ea03e9822b088c28e5347101b3ffbb6",
+      "bytes": 60338
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/render.mjs",
+      "sha256": "08ed3ee4393c1cee8f89747453ea4a0560b8336c3d616faf7b49c295b3f54a8f",
+      "bytes": 37147
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/revision.mjs",
+      "sha256": "254e5a1eef53140ab211c6eb6938c8db9dc10e7f9e4685fdfde541561c65d280",
+      "bytes": 5107
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/sources.mjs",
+      "sha256": "2dd7df3d0440953abedd3a93869d79debc050f4f581c227cf749405e4ce0c1dd",
+      "bytes": 24043
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/validate.mjs",
+      "sha256": "a81c75a86c5b32cb54285f090cd2db3da252650c825cb0d198724f4037cf7fa9",
+      "bytes": 17662
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/LICENSE",
+      "sha256": "311bccc30de6f7b9cbfb64232bb0c911ccb2191abe316550813ae25b2c7925b9",
+      "bytes": 1934
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/README.md",
+      "sha256": "47cb1894b1d248c49b7d79590a97fba294b090a7f2bac178a85baa79f2dae0d6",
+      "bytes": 475
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/3DKXF73K.js",
+      "sha256": "8fca0c07afeb611220acb06ff9a9551d9f8c34f682cfff372a3ec7895d371ae0",
+      "bytes": 4850
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/42UTT654.js",
+      "sha256": "bff7f76b8b642e36260bb773c21528198f203e8042b7d3fa25d58dfcf64469be",
+      "bytes": 17328
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/DKTLEL5E.js",
+      "sha256": "85f3c7ad709a5f98d155b3bcc18045c0438f2243f4dbd82552b02a8f45d50908",
+      "bytes": 1131
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/EEIX5ZYH.js",
+      "sha256": "6a3519ebb4d85b211b6fb413017d24afe9e504f97022baed9133b06b8a513144",
+      "bytes": 21833
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/EJ5KOXYD.js",
+      "sha256": "4231d43341545077a71ea584439bb510a423e0418e8f907d87ebc5a9b3be8292",
+      "bytes": 11525
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/GUJTEFZK.js",
+      "sha256": "f81fdd5ae321a8097e476095f7a0b5916b8b7ef2569b631e409c1b3e0685305a",
+      "bytes": 795
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/IZOKQ2GT.js",
+      "sha256": "e77e4f3eaad4264a131c836e4e8806bd2bbad4a1ec6ff6eb772bded185c65d32",
+      "bytes": 12041
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/L4LY553T.js",
+      "sha256": "c96aa3e3e40201179d6cb13ed8573515b8cad9cc1d0e1f9bbf0002f7147d9bb8",
+      "bytes": 22638
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/MSKIJHB2.js",
+      "sha256": "babf29e210f367e687eef88df867609cfd5cfa9ad8bd022650fedcd32babdf5a",
+      "bytes": 7441
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/RVARI57O.js",
+      "sha256": "aab0fbbf29543849fb3b0e4501a7711255971df57d075d1525d80ef55a9c159a",
+      "bytes": 227
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/UKSIWDDN.js",
+      "sha256": "02e0c71a0c7bb7bfde28a72ddcfd40d7c9091998886ea0d7ea99aea396e854e2",
+      "bytes": 10631
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/UPTXNAXN.js",
+      "sha256": "f5c4db2d26e45d409916c676b4380d83fe88b12eacedcc695f2e57df1f884071",
+      "bytes": 13996
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/XTDUIGUI.js",
+      "sha256": "1ee9ed5bd40583c611664ea0d7836a1c19e681de23f146e3d811333f64a454fe",
+      "bytes": 6634
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/chunks/YAYTP6L5.js",
+      "sha256": "c8a387a96f88177fa2e6b41e2e7c1ea8a8c420ce84a8b6ae9b02050fdfdfa81a",
+      "bytes": 23556
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/core.js",
+      "sha256": "3b088e267f128813786a3accffa8c79050a87d1283ac9cf33d308b72f9cc6c32",
+      "bytes": 416
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/diagrams/pie.js",
+      "sha256": "baba2858f8fd2fed76a8cc3274708959c065550159c1e68d782470015597ae61",
+      "bytes": 195
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/diagrams/quadrantChart.js",
+      "sha256": "ad5dfbfbdd607b0791d812abcad968a9ac53537f1d914a753cc5b17b6846f280",
+      "bytes": 221
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/diagrams/radar.js",
+      "sha256": "14e9beec14787a7feb515b3d22a8140df84cd2f1968384f9056816ff88e7262c",
+      "bytes": 190
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/diagrams/sankey.js",
+      "sha256": "fa03d905cd1a6535e4df3559e3f4ba08358ed936c0d9768b5c1c84d7c051893e",
+      "bytes": 190
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/diagrams/venn.js",
+      "sha256": "20abd337ebef46bc5d323865853f48375e7a6b42e1af9f6b720508233aa476ec",
+      "bytes": 164
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/vendor/pele/diagrams/xychart.js",
+      "sha256": "2ab080d4b7bda2d6fe313abb6553bca61a05ac0b5b5d36de7d62dae6acb40e08",
+      "bytes": 221
+    },
+    {
+      "path": ".ihui/skills/archify/explainer/writing.mjs",
+      "sha256": "80d25a1bb96b45e696052cb34b15a6641dd3fd0c9356fc55d8d3862c9d4a2716",
+      "bytes": 14531
+    },
+    {
+      "path": ".ihui/skills/archify/locales/README.md",
+      "sha256": "4a22c14e4760e586eb2827c3adaea939cbe9ad9fcd68b36afef39b0f13f2564e",
+      "bytes": 6162
+    },
+    {
+      "path": ".ihui/skills/archify/locales/ar.json",
+      "sha256": "4a8d5c821a16fa94c97b68784481841c323e288d841acd84ac8415c063483a9f",
+      "bytes": 33837
+    },
+    {
+      "path": ".ihui/skills/archify/locales/en.json",
+      "sha256": "1e8b43d8ba6d8ae75c2b393b2edb43cac5e142f33cbc2d1a2351e0e8baf9e1aa",
+      "bytes": 27386
+    },
+    {
+      "path": ".ihui/skills/archify/locales/es.json",
+      "sha256": "f2b971994cb9f7091758e605931b4b4959103ed0090916fe281bfb2f2e1e5cc7",
+      "bytes": 29504
+    },
+    {
+      "path": ".ihui/skills/archify/locales/ko.json",
+      "sha256": "b7f2be52c61e4ced665ea62bb0670b4c2615a6c706127246a44bbcffdf65f8be",
+      "bytes": 30852
+    },
+    {
+      "path": ".ihui/skills/archify/locales/manifest.json",
+      "sha256": "9a377676b5d16f97a6a1f9326aadbb447321e9ceb5744718181796ce3dcce0d8",
+      "bytes": 293
+    },
+    {
+      "path": ".ihui/skills/archify/locales/zh-CN.json",
+      "sha256": "83d870452e9ff3459a3cae88be6900d9a98b268e6cfba94b608a7c10f484e485",
+      "bytes": 27080
+    },
+    {
+      "path": ".ihui/skills/archify/locales/zh-TW.json",
+      "sha256": "0db367aec82cf92b08d4335d5ed021480801f7ae79b1e2c1a0c79b27d4eafb2e",
+      "bytes": 27147
+    },
+    {
+      "path": ".ihui/skills/archify/migrations/workflow-v2.mjs",
+      "sha256": "a2795e3d84db40fc6b944a1ef89b3a01f755f14609bbb894802825550885e867",
+      "bytes": 12346
+    },
+    {
+      "path": ".ihui/skills/archify/package-lock.json",
+      "sha256": "ab7a1438a8edbd26ceda9cf9648e3ad50542bffd7cc87f9ec83793cde1f26287",
+      "bytes": 3232
+    },
+    {
+      "path": ".ihui/skills/archify/package.json",
+      "sha256": "ea99289562037cae2deeced0b45e1374ce4c4b4f23a53a607a6aada62c803cd0",
+      "bytes": 1485
+    },
+    {
+      "path": ".ihui/skills/archify/recipes/scenarios.mjs",
+      "sha256": "bdcbadbca9c65305249d75ac6ef0b96dd1fbac451529fc245e2b45f2d98fb445",
+      "bytes": 44662
+    },
+    {
+      "path": ".ihui/skills/archify/references/architecture-layout-repair.md",
+      "sha256": "877392530c941180ce5d00229181e355a3eb2100bf92f043e9ae89297ff4f4aa",
+      "bytes": 7603
+    },
+    {
+      "path": ".ihui/skills/archify/references/authoring-contract.md",
+      "sha256": "a82c14dc98982f46d8d79e03375746b7b29fdb09d5e032dcca430d9f9ba837e7",
+      "bytes": 46030
+    },
+    {
+      "path": ".ihui/skills/archify/references/authoring-defaults.md",
+      "sha256": "6a01be21b45d98e0e69851219c19df72ab5cc5b4cae2c22e59ac1780135e796d",
+      "bytes": 16016
+    },
+    {
+      "path": ".ihui/skills/archify/references/brand-marks.md",
+      "sha256": "4c041558cf39d4a6ec39a9f590419f667cd4165594f625d9b6ad888f779e30ee",
+      "bytes": 8925
+    },
+    {
+      "path": ".ihui/skills/archify/references/delivery-contract.md",
+      "sha256": "656a45180caab0de93794c3e6a3d94d88c8af6c7a994ae470a33b8a8004c0028",
+      "bytes": 53770
+    },
+    {
+      "path": ".ihui/skills/archify/references/explainer-authoring.md",
+      "sha256": "79239c4e899f5722870fc331145465246debe984fd0f57eddbc46ab1aebfdf78",
+      "bytes": 27196
+    },
+    {
+      "path": ".ihui/skills/archify/references/repository-authoring.md",
+      "sha256": "a8ce8325929c9aaf5a7bacdd7710774e9d7e32b936e592facd900c59a7ff84bf",
+      "bytes": 11155
+    },
+    {
+      "path": ".ihui/skills/archify/references/update-awareness.md",
+      "sha256": "8d5914c60dcd0d02659ee2263fb09fb1ba67d5775cda60ec4122cd09965dbc13",
+      "bytes": 5111
+    },
+    {
+      "path": ".ihui/skills/archify/references/viewer-runtime.md",
+      "sha256": "fd182b9a3354a126c0374575723fa09cd1b58885176fa5a409c0faa816fc3041",
+      "bytes": 8846
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/architecture/grid.mjs",
+      "sha256": "5e366181ed7057d0dd3c512486d0a23554f984cbfe450aef5d934a89afaf643b",
+      "bytes": 5213
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/architecture/labels.mjs",
+      "sha256": "2966b0401525c097fd8bdde5540f491fe3c01972caa9515dac66d86cc0a840b6",
+      "bytes": 3297
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/architecture/render-architecture.mjs",
+      "sha256": "d444e8602dfe8b38439353432735f076e1605701919fade899636d90a27a5168",
+      "bytes": 61693
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/architecture/routing.mjs",
+      "sha256": "0aaefb59a03af4c0b3a3b6668b981fe2f7d90f9bdb9a5c81580a5d2c86f0bcbd",
+      "bytes": 77624
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/class/README.md",
+      "sha256": "33b51e0742e8ba95bcf37656607e2aaecca7316f32662ef5ff37a9dd73a77d33",
+      "bytes": 10402
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/class/render-class.mjs",
+      "sha256": "22b28d57290488763a5ebba67a69a88f981c19597c00d33f6f09a25dcd9d0b0c",
+      "bytes": 56709
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/dataflow/README.md",
+      "sha256": "5a5dcaeef8b29475a0e750072b0b2af6548037c0dbbe925e5443388135c2f730",
+      "bytes": 14418
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/dataflow/dataflow-compiler.mjs",
+      "sha256": "83cf7de9206fa1588af8fdb56e2df8bb55880aabb1f513f023f954f5d71e77c6",
+      "bytes": 94351
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/dataflow/joint-label-routing.mjs",
+      "sha256": "4c5d85e073d304948eb9309ed0bb8bf1d0a3d41c1c89dcf0aae071dfe4019733",
+      "bytes": 13969
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/dataflow/label-capacity.mjs",
+      "sha256": "3731a44a0ae90f804acf60684e3ad372364078e1c4f9f1729d6ab535b488dedb",
+      "bytes": 7596
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/dataflow/render-dataflow.mjs",
+      "sha256": "6d8bfc2b0ac03b751bce318afc571dbc2c4934b740a26a905c4b6f1170cbce52",
+      "bytes": 4102
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/erd/README.md",
+      "sha256": "14775e2216db353bb8e48be4cfffec17ada149816cf7f222b9461d932d32eb78",
+      "bytes": 17670
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/erd/grid.mjs",
+      "sha256": "331b5c3b4be44256fb9d99ea5a3576564a431e87037b160652d518d50b08e145",
+      "bytes": 10180
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/erd/render-erd.mjs",
+      "sha256": "1bc70ec9c60bcbec2f3850bf0bcc48ea34467d5d02e4a27f8b66c1e519e4ac9c",
+      "bytes": 83615
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/explainer/render-explainer.mjs",
+      "sha256": "c8df74baf4117f25374211506596af20d8f880dae4936f4a3ad5cb4a8441326a",
+      "bytes": 6434
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/lifecycle/README.md",
+      "sha256": "8e08cd55553a8810b01ada7cb9933e27023d8ab2c235e749a5094429b60a15fa",
+      "bytes": 11140
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/lifecycle/render-lifecycle.mjs",
+      "sha256": "818715a573f910d564c626607d8e236f01a503ba267d4b89dda0ac0f1f0f3dce",
+      "bytes": 64515
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/sequence/README.md",
+      "sha256": "6d7be10039a251dfa628617f7d36605753e5bda412fa158f9f1478f109ba5b17",
+      "bytes": 22110
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/sequence/render-sequence.mjs",
+      "sha256": "956f76bd80e334c6da9ceef1e14037ae785a0f383714422b75761f13b2a0a600",
+      "bytes": 60286
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/atomic-output.mjs",
+      "sha256": "69a3bdf819ca35883611af4ce40d0eefa922b6a3befe0e75be98cc6978202942",
+      "bytes": 73514
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/automatic-labels.mjs",
+      "sha256": "7070667e06233ab38c4922dac166933b922d8e73eef7b39706b7170abc4d3ad7",
+      "bytes": 17913
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/brand-marks.mjs",
+      "sha256": "eb48e58bd875b882f34b7c98b9184a4588f9c5d247214f9341f2732e175c6719",
+      "bytes": 32080
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/cli.mjs",
+      "sha256": "255bb3da531c86aec9b12af34aa7337a7d652c4bc91d4825a5e86b56c619a61e",
+      "bytes": 22189
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/desktop-readability.mjs",
+      "sha256": "7ef78549fdab27d3554fee79a29103a7f35d75e761bde1b94a5186bf9a8529c5",
+      "bytes": 10071
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/diagnostics.mjs",
+      "sha256": "49afa9c3c54b272bc48ad7f4021e994e664a10be34e1c64ed6a8477681936e31",
+      "bytes": 11424
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/engineering-profiles.mjs",
+      "sha256": "0ff685c37b96ed26447e25422bf4ddad1a345a962b44141009bad930c0ec0088",
+      "bytes": 10078
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/generated-brand-marks.mjs",
+      "sha256": "7e3c546689a644edd3218cd7d96eea15ed5454bb4049f7f0ce7ddfc476f086e6",
+      "bytes": 166754
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/generated-validators.mjs",
+      "sha256": "a91dce339591c1cf57930f0fa10293e63bb71f711f9b3b3429d81703ac6cbeea",
+      "bytes": 1023182
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/geometry.mjs",
+      "sha256": "e112c554e10e3f5f5b40e5dadc0e26e6fb413ad694de7df00e3f6a9e2496944b",
+      "bytes": 93071
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/i18n.mjs",
+      "sha256": "ca7d50f3206ec1558036cfcc8bc0e0e8bb87986fb56f1b06fc30b355935b4dd5",
+      "bytes": 17011
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/layout-report.mjs",
+      "sha256": "bb2c8c261717bd74e4c4e1544e636c91429e18d2f56c3a67cd29a01b1e28d945",
+      "bytes": 4729
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/legend.mjs",
+      "sha256": "7dd5ed0bfd68fb541814d7d4e3b03874041ba35b148e8b324fe48610eab08740",
+      "bytes": 12367
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/node-card-style.mjs",
+      "sha256": "fd451fe6f31cad310de8be631eda09f49f346897a4b714f0204321cb5766a42d",
+      "bytes": 5612
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/output-path.mjs",
+      "sha256": "e20ea88ffd87b6cb0468f3346b0a0e21871615da86f2c428bdd9c4ca1457e6ac",
+      "bytes": 22171
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/owned-temp-directory.mjs",
+      "sha256": "694eafbdd19d006f68262a449078af7e6f780f9fab272cbfab228ba5757c788e",
+      "bytes": 6340
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/path-semantics.mjs",
+      "sha256": "cc73472730efaf744b06132485ed5db609faf31496631153253227e514da5dfc",
+      "bytes": 35548
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/portable-path.mjs",
+      "sha256": "7cc0912fc6e21b05f9c69b9adce2406c2af8d4298a1bad1e0575e37f29ed384e",
+      "bytes": 15685
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/repository-evidence.mjs",
+      "sha256": "12ac28497235c551928f8dfd72936c5961f8a15dc2f4a881418f1875607d29ef",
+      "bytes": 23530
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/repository-location.mjs",
+      "sha256": "fd2368cdbb2ae5199aab7db06370b7c8256f381354335f43d0b5e9f47cca09be",
+      "bytes": 7491
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/route-quality.mjs",
+      "sha256": "5a9a2ce7876cf3cb7389749f722fb42120de37661f4bd0544e283ed0bd595812",
+      "bytes": 30086
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/sidecar-path.mjs",
+      "sha256": "f552f64d0b005b12942f892f393e19126c613016e541e4b3bb75a93cc207e11a",
+      "bytes": 4411
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/software-notices.mjs",
+      "sha256": "b251bd0eddcdd3233882d58b44648f347b80c523790ebc02b9c4a6135af271de",
+      "bytes": 3648
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/spatial-grid.mjs",
+      "sha256": "725bfca0e0746053bfd1b4bf64b0bacc193d2dd03f4ada0bb6af10d2229acf5c",
+      "bytes": 5582
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/svg-path-analysis.mjs",
+      "sha256": "6359dda83fa4d02250a51447072dab6c878bb7892a810839041e2db27781eac6",
+      "bytes": 8571
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/text-fit.mjs",
+      "sha256": "33f2fd8d44af754a6c5eed6a5603691de5608f25d337a6ef7209fbc33b5fae53",
+      "bytes": 8337
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/utils.mjs",
+      "sha256": "3442e44cd339decb08372b41e66f6517bd6358cf820350383719f90560894ea8",
+      "bytes": 16114
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/shared/validator.mjs",
+      "sha256": "02610d813f00e2cf40427da1e40f44c87f0e453b905a999bdcf506d5fe8e19e9",
+      "bytes": 6478
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/timeline/README.md",
+      "sha256": "fd0f47df613a00248e320755592ee98310ca8c83e840e2c52859e45ca39d9a7b",
+      "bytes": 7263
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/timeline/render-timeline.mjs",
+      "sha256": "c337234d7a9b4671e2a0d6682fa9b1942ed86e76eddd35ed3a055af32714838f",
+      "bytes": 33463
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/tree/README.md",
+      "sha256": "60cedb6f53e9826ce4546db60cf0471e2ea1a3d6e91f9cd9b08554fe2a22db71",
+      "bytes": 7872
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/tree/render-tree.mjs",
+      "sha256": "9698ec669b210b8cb837c9f405b4559944b59190273080e146c2010acf303674",
+      "bytes": 33808
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/waterfall/README.md",
+      "sha256": "1597c558311a2343b48374a03a93ecf64c983f90c404c3d759d855ca5e73e799",
+      "bytes": 7339
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/waterfall/render-waterfall.mjs",
+      "sha256": "d44ea786c2a199cb34cd35d79bf29a8f87277ac296fc3145478b4fdd7fc6df04",
+      "bytes": 26172
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/workflow/README.md",
+      "sha256": "531c891ee4e989947fd6fde3589499d44e83d633c177494ab9d31cff7a459954",
+      "bytes": 23827
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/workflow/render-workflow.mjs",
+      "sha256": "42d8b152ca2ffba7bd71ba552f44a8ea0c3b8e7f606c13df694221e7fe131f56",
+      "bytes": 4796
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/workflow/workflow-compiler.mjs",
+      "sha256": "aa1b2be3ef5721595b871589080bb64eebbac37cbb8c435ca14e19ca0dc8fc5f",
+      "bytes": 253338
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/workflow/workflow-migration-geometry.mjs",
+      "sha256": "153f207c7a090ba23294f6ace5967c8ad4f9f0bbb0e3a8a2c298255d29e35014",
+      "bytes": 9473
+    },
+    {
+      "path": ".ihui/skills/archify/renderers/workflow/workflow-placement-repair.mjs",
+      "sha256": "5c778b7501305cefdf1faf0e833cb180de4142ce867e48b35bff1a6c753bf4f4",
+      "bytes": 7904
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/README.md",
+      "sha256": "34c67ce5e49159809200bf432da72dce3e8ce4867e7be149167257e7f20e89e7",
+      "bytes": 19209
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/architecture.schema.json",
+      "sha256": "aef992b585a18a4016b8207254fe43a6227b0d45322a1ba95e0f69a80fc8f8c1",
+      "bytes": 6024
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/class.schema.json",
+      "sha256": "540512d17e2af4956b431af03faac45918930771a7d9b3b53bf7753e9cc4c593",
+      "bytes": 7738
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/common.schema.json",
+      "sha256": "d3d242ce3814c5276a42b3bdbc3fe9e33cfb5d6b24e20a2405718b7c1916d501",
+      "bytes": 5909
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/dataflow.schema.json",
+      "sha256": "d678d54838f91580e172d599548d64bc00e5730ec885bbceb3aec32eb97d6c4d",
+      "bytes": 6064
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/erd.schema.json",
+      "sha256": "d70e143b6bfd0393eff1433ca2d738990fe7d2f12efcc5e845d42bbdca4bfa87",
+      "bytes": 8643
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/explainer.schema.json",
+      "sha256": "4095d7ce8985c55cfc2f9ec881506ea4be92efddc8682034c2138809fd658d94",
+      "bytes": 17960
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/lifecycle.schema.json",
+      "sha256": "fac9ed3c9f04a0e61253317b2153c03bae6f8e931a4ad4175caddf446e14d0d5",
+      "bytes": 5220
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/sequence.schema.json",
+      "sha256": "9f75ce8482ee4dc6cce21bdd2f27e6f5583d1dee050a547ef83e5da705d595f2",
+      "bytes": 5876
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/timeline.schema.json",
+      "sha256": "7f4a5b67e40be9b623000bb685992b2be36ddd0bad4203f6e9578d60f15d95a9",
+      "bytes": 3681
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/tree.schema.json",
+      "sha256": "4187f7b9af16644624d5b97a44c446c3e2ca6934de42a84603a9965896084282",
+      "bytes": 3070
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/waterfall.schema.json",
+      "sha256": "72c0eb2ccdf01c8f56bb960d0b47e4ab662336ecfc13c7d1a1a678c9c9e7bb98",
+      "bytes": 3288
+    },
+    {
+      "path": ".ihui/skills/archify/schemas/workflow.schema.json",
+      "sha256": "0d689697fc206fc98f8e1d817e1b03240b2b2e80d2acfba333be42a874926ea4",
+      "bytes": 9397
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/check-render-output.mjs",
+      "sha256": "815bd6b92bf56476c18aad6047a13be1f5d4f01600cdaa132d16eed78e4e9ea8",
+      "bytes": 71606
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/check-update.mjs",
+      "sha256": "2f72ae4d973253b4eb1acd916987c2fb4e253d2a439d0e8315269c90e43730a0",
+      "bytes": 62473
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/delivery-update-child.mjs",
+      "sha256": "fb9f7a52b660333ff4ecd59a6dc4127b2faaadd282550811618b9b02878c01af",
+      "bytes": 4437
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/generate-brand-marks.mjs",
+      "sha256": "ec9240c0b64a7680be9ee1a509a208ee26339e5a471a9630a3fdf86257c09b48",
+      "bytes": 8277
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/generate-validators.mjs",
+      "sha256": "b92ed87dfa9d48fc1a0eb1eedec7d85c2a149574f684e8bfb818510157244c95",
+      "bytes": 7313
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/render-examples.mjs",
+      "sha256": "61d11b9845cacdcd742976649630e059d278020a45cf9c427aab3702c72ad56d",
+      "bytes": 5185
+    },
+    {
+      "path": ".ihui/skills/archify/scripts/update-contract.mjs",
+      "sha256": "a7066b06d01eb204cd73fd114341ed72688e16c07a730cb29a989d557596a481",
+      "bytes": 9968
+    },
+    {
+      "path": ".ihui/skills/archify/skill-release.json",
+      "sha256": "1ea25551e0359e547267d40e83812ffd1a7bdf7398826b65f2a2fcf1a11ba596",
+      "bytes": 260
+    },
+    {
+      "path": ".ihui/skills/rea-surpass/SKILL.md",
+      "sha256": "137f2e7960d9f68febcaf82afd69b74af9a06b93bc9c5492d145ee09926202d8",
+      "bytes": 5191
+    }
+  ],
+  "totalBytes": 5003556
+}

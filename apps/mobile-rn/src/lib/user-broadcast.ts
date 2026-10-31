@@ -29,13 +29,22 @@
 
 import { subscribeUserBroadcast, type UserBroadcastSubscription } from '@ihui/api-client'
 import type { WebSocketLike } from '@ihui/api-client'
-import type { ConversationUpdatedEvent, McpStatusEvent } from '@ihui/types'
+import {
+  CHAT_SYNC_EVENT_NAMES,
+  type ChatMessageCreatedEvent,
+  type ChatMessagePatchedEvent,
+  type ChatMessageTerminalEvent,
+  type ConversationUpdatedEvent,
+  type McpStatusEvent,
+} from '@ihui/types'
 import {
   conversationMetaLedger,
   mcpStatusLedger,
   mcpStatusMessage,
   MCP_MOBILE_SETTINGS_HINT_KEY,
 } from '@ihui/shared/chat'
+
+import { chatSyncRnStoreApi } from '../stores/chat-sync'
 
 /** 已提示过的帧指纹上限:RN 前台可连续数小时,不得无界增长 */
 const NOTICE_SEEN_LIMIT = 200
@@ -77,6 +86,25 @@ export interface UserBroadcastAdapterDeps {
 }
 
 /**
+ * chat 消息面帧 → 共享 store(票 #71 RN 端接线,2026-10-31)。
+ *
+ * 判据零复算:`(messageId, rev)` 幂等、duplicate/stale/gap 四态、待 resync 全在
+ * `@ihui/shared/chat` 的 chat-sync-store(它引用 `@ihui/types` 的契约内核)。
+ * 本函数只做一件事:把**未判定 / 未接线**帧的原因交回诊断口(§0.3:认不出的帧必须
+ * 点名,静默丢弃与静默分叉在用户侧是同一个症状)。
+ */
+function applyChatSyncFrame(
+  eventName: string,
+  payload: ChatMessageCreatedEvent | ChatMessagePatchedEvent | ChatMessageTerminalEvent,
+  onUndetermined: ((raw: unknown) => void) | undefined,
+): void {
+  const outcome = chatSyncRnStoreApi.getState().applyEvent(payload)
+  // 端点只打事件名与原因,不打载荷(载荷是用户消息内容)
+  if (outcome.undetermined) onUndetermined?.({ event: eventName, reason: outcome.undetermined })
+  if (outcome.unwired) onUndetermined?.({ event: eventName, reason: outcome.unwired })
+}
+
+/**
  * 挂上广播订阅:帧落到共享账本(列表值就地变,零 HTTP 请求),并按票面给一次性明示。
  *
  * @returns null = 没有 token(未登录)。调用方不得把 null 读成"已订阅"。
@@ -86,7 +114,7 @@ export function attachUserBroadcast(
 ): UserBroadcastSubscription | null {
   if (!deps.token) return null
 
-  return subscribeUserBroadcast(
+  const sub = subscribeUserBroadcast(
     {
       baseUrl: deps.baseUrl,
       tokenProvider: () => deps.token,
@@ -98,7 +126,8 @@ export function attachUserBroadcast(
         const { changed, known } = conversationMetaLedger.apply(e)
         if (known && changed.length === 0) return
         const message = deps.translate('chat.meta.pullOnly')
-        if (message && rememberNotice(`meta|${e.data.conversationId}|${e.data.at}`)) deps.notify(message)
+        if (message && rememberNotice(`meta|${e.data.conversationId}|${e.data.at}`))
+          deps.notify(message)
       },
       'mcp:status': (evt) => {
         const e = evt as McpStatusEvent
@@ -110,10 +139,28 @@ export function attachUserBroadcast(
         const hint = deps.translate(MCP_MOBILE_SETTINGS_HINT_KEY)
         const message = [text, hint].filter((s) => s.length > 0).join(' · ')
         const attempt = e.data.attempt ?? '-'
-        if (message && rememberNotice(`mcp|${e.data.server}|${e.data.state}|${attempt}`)) deps.notify(message)
+        if (message && rememberNotice(`mcp|${e.data.server}|${e.data.state}|${attempt}`))
+          deps.notify(message)
+      },
+      // 票 #71(2026-10-31):chat 消息面房间广播 → 共享 store。
+      // 键位用 @ihui/types 的契约常量做计算属性 ⇒ 端内不出现帧名字面量(§0.6 单一真相源)。
+      [CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED]: (evt) => {
+        applyChatSyncFrame(evt.event, evt.data, deps.onUndetermined)
+      },
+      [CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED]: (evt) => {
+        applyChatSyncFrame(evt.event, evt.data, deps.onUndetermined)
+      },
+      // 终态帧本票**不投影**;但未接线的帧必须被点名,不得静默 —— 只计数不写状态。
+      [CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL]: (evt) => {
+        applyChatSyncFrame(evt.event, evt.data, deps.onUndetermined)
       },
       onUndetermined: (raw) => deps.onUndetermined?.(raw),
     },
   )
+  // 一次订阅 = 一份账本:`use-user-broadcast-sync` 只在 token 变化时重建订阅(重新登录/换账号),
+  // 所以此处清空对齐"身份面重建"。上一位用户的会话消息不得留给下一位 ——
+  // store 是设备级的,身份不是。清空发生在订阅建立之后:订阅没建成时不动既有账本。
+  chatSyncRnStoreApi.getState().clear()
+  return sub
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

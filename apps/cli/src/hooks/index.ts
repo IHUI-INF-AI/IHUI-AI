@@ -100,6 +100,11 @@ export type HookEvent =
   // 用户能听到子代理起停,却听不到"我把一条命令转后台了 / 它跑完了"。
   | 'taskCreated'
   | 'taskCompleted'
+  // 隔离 worktree 生命周期两档(对齐 Qoder/Trae 的 WorktreeCreate/WorktreeRemove 钩子面)。
+  // 事件源 = 会话级 enter_worktree / exit_worktree 工具(创建成功、回收成功后各派发一次;
+  // 拒删路径不派发 —— 没发生的事不许报成事件)。
+  | 'worktreeCreate'
+  | 'worktreeRemove'
   // P2-4 agent-lifecycle Turn 级事件(4 种):
   // - turnStart:每次 LLM 调用 + 工具循环开始(每轮触发,粒度细于 sessionStart)
   // - turnEnd:每轮成功结束(无论是否调用工具)
@@ -131,6 +136,10 @@ export interface HooksConfig {
   taskCreated?: HookEntry[];
   /** 后台任务到达终态时派发(在状态改写与等待者投递之后,保证钩子读到的已是真终态)。 */
   taskCompleted?: HookEntry[];
+  /** 隔离 worktree 创建成功时派发(经 enter_worktree 消费;载荷带 name/path/branch)。 */
+  worktreeCreate?: HookEntry[];
+  /** 隔离 worktree 回收成功时派发(经 exit_worktree 消费;载荷额外带 forced 档位)。 */
+  worktreeRemove?: HookEntry[];
   // P2-4 Turn 级事件(4 种,粒度细于 sessionStart/sessionEnd)
   turnStart?: HookEntry[];
   turnEnd?: HookEntry[];
@@ -495,6 +504,15 @@ export interface HookContext {
   taskWorktreePath?: string;
   /** 属主子代理 id —— 本仓超越轴:钩子事件天然带归属,可做"谁的后台任务只通知谁" */
   taskOwnerAgentId?: string;
+  // 隔离 worktree 两档事件字段(worktreeCreate / worktreeRemove)
+  /** 隔离区名字(即 .worktrees/<name> 目录名) */
+  worktreeName?: string;
+  /** 隔离区绝对路径 */
+  worktreePath?: string;
+  /** 隔离区分支名(agent-wt-<uuid8>) */
+  worktreeBranch?: string;
+  /** 回收档专用:是否走了 force(越过"未合并 / 有未提交改动"拒删判据) */
+  worktreeForced?: boolean;
 }
 
 /**
@@ -516,6 +534,7 @@ const HOOK_EVENT_KEYS: Array<keyof HooksConfig> = [
   'permissionRequest',
   'subagentStart', 'subagentStop',
   'taskCreated', 'taskCompleted',
+  'worktreeCreate', 'worktreeRemove',
   // P2-4 Turn 级事件
   'turnStart', 'turnEnd', 'turnError', 'turnComplete',
 ];
@@ -1684,6 +1703,11 @@ function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string
   if (ctx.maxTurns !== undefined) env.IHUI_MAX_TURNS = String(ctx.maxTurns);
   if (ctx.totalTurns !== undefined) env.IHUI_TOTAL_TURNS = String(ctx.totalTurns);
   if (ctx.stopReason !== undefined) env.IHUI_STOP_REASON = ctx.stopReason;
+  // 隔离 worktree 两档事件字段
+  if (ctx.worktreeName !== undefined) env.IHUI_WORKTREE_NAME = ctx.worktreeName;
+  if (ctx.worktreePath !== undefined) env.IHUI_WORKTREE_PATH = ctx.worktreePath;
+  if (ctx.worktreeBranch !== undefined) env.IHUI_WORKTREE_BRANCH = ctx.worktreeBranch;
+  if (ctx.worktreeForced !== undefined) env.IHUI_WORKTREE_FORCED = String(ctx.worktreeForced);
   return env;
 }
 

@@ -40,9 +40,13 @@ import {
   loadSubagentState,
   type SubagentState,
 } from '../subagents/state-store.js';
-import { createWorktree, createWorktreeWithFallback, removeWorktree, reclaimWorktreeMarker } from '../subagents/worktree.js';
-// Worktree 并行隔离层:可选注入,提供后 worktree 隔离走统一的 WorktreeManager(agent-wt-* 分支)
-import { type WorktreeManager } from './worktree.js';
+import { reclaimWorktreeMarker } from '../subagents/worktree.js';
+// Worktree 并行隔离层:创建/回收实现已抽到 tools/worktree.ts(会话级 enter/exit 工具共用同一套)
+import {
+  createIsolatedWorktree,
+  removeIsolatedWorktree,
+  type WorktreeManager,
+} from './worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 // G-426 拍板第三件套「超阈值自动后台化」:转后台落档用的中间态词汇,只引用唯一声明处
 import { SUBAGENT_STATUS_DETACHED_IDLE } from '../subagents/types.js';
@@ -413,7 +417,11 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         } else if (parentOpts.worktreeManager) {
           // 路径 A(可选注入):WorktreeManager 统一隔离层(.worktrees/<id> 目录 + agent-wt-<uuid8> 分支)
           try {
-            const wt = parentOpts.worktreeManager.create(subagentId);
+            const wt = await createIsolatedWorktree({
+              sourcePath: parentOpts.workspacePath,
+              agentId: subagentId,
+              manager: parentOpts.worktreeManager,
+            });
             effectiveWorkspace = wt.path;
             worktreeBranch = wt.branch;
             worktreeCreated = true;
@@ -428,10 +436,12 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         } else {
           // 路径 B(原有逻辑):feature flag 关闭(默认)走原 git worktree add;启用时走 CoW 快路径+ fallback
           try {
-            const useFastPath = parentOpts.worktreeFastPathEnabled === true;
-            const wt = useFastPath
-              ? await createWorktreeWithFallback(parentId, subagentId, parentOpts.workspacePath, true)
-              : createWorktree(parentId, subagentId, parentOpts.workspacePath);
+            const wt = await createIsolatedWorktree({
+              sourcePath: parentOpts.workspacePath,
+              agentId: subagentId,
+              parentId,
+              fastPathEnabled: parentOpts.worktreeFastPathEnabled === true,
+            });
             effectiveWorkspace = wt.path;
             worktreeCreated = true;
           } catch (err) {
@@ -730,12 +740,16 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         if (worktreeCreated && isolation === 'worktree') {
           if (stopReason === 'completed' && !keepWorktree) {
             try {
-              if (usedWorktreeManager && parentOpts.worktreeManager) {
-                // WorktreeManager 路径:remove 并清理 agent-wt-* 分支
-                parentOpts.worktreeManager.remove(subagentId, { force: true, deleteBranch: true });
-              } else {
-                removeWorktree(effectiveWorkspace, { sourcePath: parentOpts.workspacePath, force: true });
-              }
+              // 创建/回收共用同一出口(与会话级 enter/exit 工具同一实现):
+              // manager 路径 remove 并清理 agent-wt-* 分支,之后补既有 prune;非 manager 路径走 removeWorktree
+              removeIsolatedWorktree({
+                sourcePath: parentOpts.workspacePath,
+                agentId: subagentId,
+                path: effectiveWorkspace,
+                viaManager: usedWorktreeManager,
+                manager: parentOpts.worktreeManager,
+                force: true,
+              });
             } catch {
               // worktree 清理失败不阻塞主流程,保留供后续手动清理(cleanupStale 兜底)
             }
