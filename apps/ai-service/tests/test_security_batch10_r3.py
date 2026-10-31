@@ -93,7 +93,9 @@ class TestProxyFollowingRedirects:
             return (True, "")
 
         class _FakeClient:
-            def build_request(self, method: str, url: str, headers: dict | None = None) -> tuple:
+            def build_request(
+                self, method: str, url: str, headers: dict | None = None, extensions: dict | None = None
+            ) -> tuple:
                 return (method, url)
 
             async def send(self, req: tuple) -> httpx.Response:

@@ -114,6 +114,8 @@ async def _http_get_html(url: str) -> dict[str, Any] | None:
     即整条 SSRF。现手动逐跳:每一跳都重新过 _validate_ssrf,超跳数上限即放弃。"""
     if not _HTTPX_OK:
         return None
+    from ..services.screenshot_service import resolve_pinned_target
+
     current = url
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=False) as client:
@@ -122,7 +124,21 @@ async def _http_get_html(url: str) -> dict[str, Any] | None:
                 reason = _validate_ssrf(current)
                 if reason:
                     return None
-                resp = await client.get(current, headers=_DEFAULT_HEADERS)
+                # R8 复评发现2(中):逐跳校验仍有 TOCTOU —— 校验期 getaddrinfo
+                # 与请求期 httpx 二次解析可不一致(短 TTL rebinding)。钉 IP 与
+                # _download_url_ssrf_safe/media_tasks 同一单源;Host 头与 SNI
+                # 保持原域名(证书校验不受影响)。
+                pinned = resolve_pinned_target(current)
+                if pinned is None:
+                    return None
+                pinned_url, orig_host = pinned
+                hop_headers = dict(_DEFAULT_HEADERS)
+                hop_headers["Host"] = orig_host
+                resp = await client.get(
+                    pinned_url,
+                    headers=hop_headers,
+                    extensions={"sni_hostname": orig_host},
+                )
                 location = resp.headers.get("location")
                 if resp.is_redirect and location:
                     current = str(resp.url.join(location))
@@ -736,8 +752,24 @@ def _robots_cache_get(scheme: str, host: str, port: int | None) -> RobotFilePars
             _robots_cache[key] = None
             return None
         try:
-            with _httpx.Client(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
-                resp = client.get(robots_url, headers=_DEFAULT_HEADERS)
+            # R8 复评发现3:robots 抓取也接钉 IP(此前 follow_redirects=True 仅
+            # 首跳校验,同站 302 → 内网;响应虽只喂 RobotFileParser 布尔 oracle,
+            # 收窄成本与发现 2 同一单源)。
+            from ..services.screenshot_service import resolve_pinned_target
+
+            pinned = resolve_pinned_target(robots_url)
+            if pinned is None:
+                _robots_cache[key] = None
+                return None
+            pinned_url, orig_host = pinned
+            robots_headers = dict(_DEFAULT_HEADERS)
+            robots_headers["Host"] = orig_host
+            with _httpx.Client(timeout=_HTTP_TIMEOUT, follow_redirects=False) as client:
+                resp = client.get(
+                    pinned_url,
+                    headers=robots_headers,
+                    extensions={"sni_hostname": orig_host},
+                )
             data = resp.text if resp.status_code == 200 else ""
         except Exception:  # noqa: BLE001
             data = ""

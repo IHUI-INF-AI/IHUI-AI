@@ -79,7 +79,15 @@ async def _send_following_redirects(
         pinned_url, orig_host = pinned
         hop_headers = {**(headers or {})}
         hop_headers.setdefault("Host", orig_host)
-        resp = await client.send(client.build_request("GET", pinned_url, headers=hop_headers))
+        # R8 复评发现4(本批引入的可用性回归):钉 IP 后 URL host 是 IP,TLS
+        # 必须带 sni_hostname 扩展保持原域名,否则 https 源站证书 hostname
+        # mismatch 全挂(对齐 mcp_server._download_url_ssrf_safe 版本)。
+        resp = await client.send(
+            client.build_request(
+                "GET", pinned_url, headers=hop_headers,
+                extensions={"sni_hostname": orig_host},
+            )
+        )
         location = resp.headers.get("location")
         if resp.is_redirect and location:
             current = str(resp.url.join(location))
