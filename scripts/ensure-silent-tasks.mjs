@@ -247,7 +247,16 @@ function psEncode(script) {
   return Buffer.from(script, 'utf16le').toString('base64')
 }
 
-/** 原位替换任务 action 为 wscript 隐藏包装(保留全部触发器/主体设置)。 */
+/**
+ * 原位替换任务 action 为 wscript 隐藏包装(保留全部触发器/主体设置)。
+ *
+ * 「保留主体」这句话 2026-10-31 起必须**自证**,不能再靠注释:本函数走的是
+ * `Set-ScheduledTask -Action`,而这一支在并发会话里曾把 S4U 守护任务静默改回 Interactive
+ * (今天 IHUI-DevStack 实测:watchdog 21:06 重装成 S4U,21:50 现读又变回 Interactive + wscript,
+ * 而 wscript 那条链一旦被安全策略拦下就是整条守护不出进程)。现在:取主体 ⇒ 回写时显式带上
+ * ⇒ 落地后读回比对,**不一致就判失败**(返回 null,由调用方打「❌ 修复失败…需人工处理」),
+ * 绝不把「包好了」交给一次没人核对过的主体漂移。
+ */
 function replaceActionWithWrapper(taskName, taskToRun) {
   mkdirSync(WRAPPER_DIR, { recursive: true })
   const vbsPath = join(WRAPPER_DIR, `${basename(taskName).replace(/[^a-z0-9_-]/gi, '-')}-${djb2(taskName)}-hidden.vbs`)
@@ -257,13 +266,22 @@ function replaceActionWithWrapper(taskName, taskToRun) {
     `$path = Split-Path '${taskName.replace(/'/g, "''")}'\n` +
     `$leaf = Split-Path '${taskName.replace(/'/g, "''")}' -Leaf\n` +
     `if ($path -eq '') { $path = '\\' }\n` +
-    `Set-ScheduledTask -TaskPath $path -TaskName $leaf -Action $a | Out-Null\n` +
-    `Write-Output OK`
+    `$before = (Get-ScheduledTask -TaskPath $path -TaskName $leaf).Principal\n` +
+    `Set-ScheduledTask -TaskPath $path -TaskName $leaf -Action $a -Principal $before | Out-Null\n` +
+    `$after = (Get-ScheduledTask -TaskPath $path -TaskName $leaf).Principal\n` +
+    `Write-Output ("OK LOGON_BEFORE=" + $before.LogonType + " LOGON_AFTER=" + $after.LogonType)`
   // powershell.exe(5.1)被本机 WDAC 拦 EPERM(从 node 派生时,与 EDID 脚本头注释同款病理),必须用 pwsh(PS7)
   const out = runCapture('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncode(ps)], 90_000)
-  const ok = /OK/.test(out)
-  if (!ok) log(`  替换失败输出: ${out.trim().split('\n').slice(-3).join(' | ')}`)
-  return ok ? vbsPath : null
+  const m = /OK LOGON_BEFORE=(\S+) LOGON_AFTER=(\S+)/.exec(out)
+  if (!m) {
+    log(`  替换失败输出(取不到 LOGON_BEFORE/AFTER 形状,不记成功): ${out.trim().split('\n').slice(-3).join(' | ')}`)
+    return null
+  }
+  if (m[1] !== m[2]) {
+    log(`  ❌ 包装后主体漂了 ${m[1]} → ${m[2]}:本次不算修好(留原样交人工),否则 S4U 根治形态会被静默改回可弹窗的交互形态`)
+    return null
+  }
+  return vbsPath
 }
 
 export function audit({ fix = false } = {}) {
