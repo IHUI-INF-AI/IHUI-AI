@@ -14,6 +14,7 @@ import jwtPlugin from '@fastify/jwt'
 import { decodeJwt } from 'jose'
 import { verifyAccessToken, createBlacklist, type JWTPayload } from '@ihui/auth'
 import IORedis from 'ioredis'
+import { FAST_FAIL_REDIS_OPTIONS } from './redis.js'
 import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
 import { AppError } from '../errors/AppError.js'
@@ -65,7 +66,7 @@ function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
   if (tokenBlacklist) return tokenBlacklist
   if (tokenBlacklistInitFailed) return null
   try {
-    const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 1 })
+    const redis = new IORedis(config.REDIS_URL, FAST_FAIL_REDIS_OPTIONS)
     redis.on('error', (err) => {
       logger.error('[auth] blacklist redis error', { err: (err as Error).message })
     })

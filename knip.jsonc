@@ -156,7 +156,7 @@
         "src/components/Card.tsx",
         "src/components/Input.tsx",
         "src/components/Switch.tsx",
-        "src/components/VipBadge.tsx"
+        "src/components/VipBadge.tsx",
         "src/constants/web-portal.ts"
       ]
     },

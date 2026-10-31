@@ -27,6 +27,7 @@ POSIX 兜底(G-998139):出口 PATH 必含最小系统 bootstrap 目录集
 
 from __future__ import annotations
 
+import contextvars
 import fnmatch
 import os
 import sys
@@ -361,4 +362,46 @@ def inject_session_env(env: dict[str, str], session_id: str, harness_version: st
         # Windows 环境变量大小写不敏感:先移除同名异写键再插入
         env.pop("IHUI_VERSION", None)
     env["IHUI_VERSION"] = harness_version
+
+
+# ============================================================================
+# G-17(2026-10-31):会话身份注入的**执行上下文单一出口**。
+#
+# 病灶:`inject_session_env` 只有定义没有调用方,真实子进程(run_command /
+# command_streamer)拿不到会话身份;而"会话身份"只有承载层知道,不能从
+# 工具入参(LLM 可填)读,也不能从进程环境猜。
+#
+# 承载方式:agent 工具执行期间由 agent_loop_v2 把 self._session_id 放进
+# contextvar;command_streamer 起的子进程按同一个 contextvar 取值
+# (mcp_server 的 run_command 另有现成的终端执行上下文,见 _build_subprocess_env)。
+# 取不到 ⇒ 不注入(绝不编造),子进程 env 与改动前逐字节同形。
+# ============================================================================
+_SESSION_ENV_CONTEXT: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "ihui_session_env_context", default=None
+)
+
+
+def set_session_env_context(session_id: str | None) -> contextvars.Token[str | None]:
+    """把执行会话身份放进当前上下文(空串/None ⇒ 不注入,绝不编造)。"""
+    return _SESSION_ENV_CONTEXT.set(session_id or None)
+
+
+def reset_session_env_context(token: contextvars.Token[str | None]) -> None:
+    """与 set_session_env_context 配对复位(同 set_security_principal 的纪律)。"""
+    _SESSION_ENV_CONTEXT.reset(token)
+
+
+def current_session_env_id() -> str | None:
+    """当前上下文里的会话身份;没有则 None(调用方据此跳过注入)。"""
+    return _SESSION_ENV_CONTEXT.get()
+
+
+def harness_version() -> str:
+    """harness 版本单一来源 = 服务包 __version__;取不到如实返回 unknown。"""
+    try:
+        from app import __version__
+
+        return str(__version__)
+    except Exception:  # noqa: BLE001 - 版本读不到不阻断子进程启动
+        return "unknown"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
