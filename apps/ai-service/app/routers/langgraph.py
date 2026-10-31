@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 from app.core.sse_frames import with_frame_trace_id
 from app.services.canvas_graph import (
     build_canvas_graph,
+    canvas_thread_owner,
     get_canvas_graph_entry,
     register_canvas_graph,
     validate_canvas_dag,
@@ -148,12 +149,46 @@ class CanvasRunRequest(BaseModel):
 
 
 # ----------------------------------------------------------------------
+# 线程归属(2026-10-31 安全强化第 16 批)
+# ----------------------------------------------------------------------
+
+
+def _actor_user_id(request: Request) -> str | None:
+    """中间件注入的已验证主体;没有则 None(不猜、不默认放开成"人人相同")。"""
+    raw = getattr(request.state, "user_id", None)
+    return raw if isinstance(raw, str) and raw else None
+
+
+def _assert_canvas_access(thread_id: str, actor: str | None) -> None:
+    """canvas 线程只准归属主体操作;别人的与不存在的一样 404(不区分存在性)。
+
+    此前本路由族**一个身份依赖都没挂**:任何登录用户拿到(或猜到)一个 runId,就能
+      · GET /{id}/state、/{id}/history 读走他人整图的 checkpoint 与执行历史;
+      · POST /{id}/interrupt、/resume 打断/续跑他人正在执行的 DAG;
+      · 最严重的一格:POST /canvas/run 的 `thread_id` 是客户端自报字段,而注册表按
+        threadId 直接覆盖 ⇒ 攻击者可把自己的 DAG 注册到**他人正在用的 runId** 上,
+        受害者下一次 stream 执行的就是攻击者的图。
+
+    主体为 None 时**不拒**(放行),原因是本链路的身份是"能解析就收紧"而不是硬闸:
+    stream 由 apps/api 代理,前端 EventSource 那条腿不带 Authorization,挂硬依赖会把
+    画布整片 401 打断(实测风险,见交付报告)。已登记 owner 且解析到主体的组合
+    才构成本闸的射程;要把这一格升成硬闸,前置是先让代理腿稳定携带用户身份。
+
+    未登记的 thread(历史条目 / 默认 agent 图)不在此闸射程内 —— 那批 thread 的归属
+    需要 checkpoint 表带 user_id 才能对账,见交付报告遗留项。
+    """
+    owner = canvas_thread_owner(thread_id)
+    if owner is not None and actor is not None and owner != actor:
+        raise HTTPException(status_code=404, detail=f"thread 不存在: {thread_id}")
+
+
+# ----------------------------------------------------------------------
 # 0. POST /canvas/run — Agent Canvas 整图 DAG 注册执行(P0)
 # ----------------------------------------------------------------------
 
 
 @router.post("/canvas/run")
-async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
+async def post_canvas_run(request: Request, req: CanvasRunRequest) -> dict[str, Any]:
     """校验并注册画布 DAG 整图,返回 runId(即 langgraph threadId)。
 
     实际执行由 GET/POST /{runId}/stream 完成:stream 端点按 threadId 命中
@@ -167,7 +202,16 @@ async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
 
+    # 客户端自报的 thread_id 只准**复用属于自己的**线程:已被他人登记的一律换发新 id,
+    # 否则"把攻击者的 DAG 注册到受害者正在用的 runId"这一步就成立了(见上面判据注释)。
     thread_id = req.thread_id or uuid4().hex
+    prev_owner = canvas_thread_owner(thread_id)
+    actor = _actor_user_id(request)
+    if prev_owner is not None and actor is not None and prev_owner != actor:
+        logger.warning(
+            "canvas run 拒绝复用他人线程 actor=%s thread=%s", actor, thread_id
+        )
+        thread_id = uuid4().hex
     try:
         checkpointer: Any | None = await _manager().get_saver()
     except Exception as e:
@@ -181,7 +225,7 @@ async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
         logger.warning("canvas 图构建失败 thread=%s: %s", thread_id, e)
         raise HTTPException(status_code=400, detail=f"canvas 图构建失败: {e}") from None
 
-    register_canvas_graph(thread_id, graph, input_=req.input)
+    register_canvas_graph(thread_id, graph, input_=req.input, owner=_actor_user_id(request))
     logger.info(
         "canvas 图已注册 thread=%s nodes=%d edges=%d",
         thread_id,
@@ -197,12 +241,19 @@ async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
 
 
 @router.post("/{thread_id}/interrupt")
-async def post_interrupt(thread_id: str, req: InterruptRequest) -> dict[str, Any]:
+async def post_interrupt(
+    thread_id: str,
+    request: Request,
+    req: InterruptRequest,
+) -> dict[str, Any]:
     """触发节点暂停(HITL)。
 
     实际 interrupt() 调用须在 graph 节点函数内执行;本端点构造并持久化 interrupt event,
     供前端轮询 / SSE 消费。若已注册 graph 且节点已通过 interrupt() 暂停,本端点仅记录元数据。
+
+    2026-10-31 第 16 批:canvas 线程只准归属主体操作(见 _assert_canvas_access)。
     """
+    _assert_canvas_access(thread_id, _actor_user_id(request))
     try:
         event = await trigger_interrupt(
             thread_id=thread_id,
@@ -235,12 +286,13 @@ async def post_interrupt(thread_id: str, req: InterruptRequest) -> dict[str, Any
 
 
 @router.post("/resume")
-async def post_resume(req: ResumeRequest) -> dict[str, Any]:
+async def post_resume(request: Request, req: ResumeRequest) -> dict[str, Any]:
     """恢复暂停的节点。
 
     返回 ResumeCommand;若已注册 graph,后续由调用方通过 /stream(graph_input=null)
     继续 astream。本端点不直接驱动 graph(避免阻塞),只构造恢复指令。
     """
+    _assert_canvas_access(req.thread_id, _actor_user_id(request))
     try:
         command = await resume_from_interrupt(
             thread_id=req.thread_id,
@@ -290,8 +342,9 @@ async def post_resume(req: ResumeRequest) -> dict[str, Any]:
 
 
 @router.get("/{thread_id}/state")
-async def get_state(thread_id: str) -> dict[str, Any]:
+async def get_state(thread_id: str, request: Request) -> dict[str, Any]:
     """查询线程当前状态:自定义表最新 checkpoint + graph StateSnapshot(若已注册)。"""
+    _assert_canvas_access(thread_id, _actor_user_id(request))
     manager = _manager()
     try:
         latest = await manager.get_latest_checkpoint(thread_id)
@@ -329,9 +382,11 @@ async def get_state(thread_id: str) -> dict[str, Any]:
 @router.get("/{thread_id}/history")
 async def get_history(
     thread_id: str,
+    request: Request,
     limit: int = Query(100, ge=1, le=1000, description="返回条数上限"),
 ) -> dict[str, Any]:
     """查询线程历史 checkpoint 列表(Time Travel 用),按 created_at 升序。"""
+    _assert_canvas_access(thread_id, _actor_user_id(request))
     manager = _manager()
     try:
         history = await manager.get_state_history(thread_id, limit=limit)
@@ -450,6 +505,7 @@ async def get_stream(
 
     SSE 输出:`event: <type>\\ndata: <json>\\n\\n`
     """
+    _assert_canvas_access(thread_id, _actor_user_id(request))
     graph_input: dict[str, Any] | None = None
     if input:
         try:
@@ -477,6 +533,7 @@ async def post_stream(
     供 apps/api langgraph 代理调用(其 streamAgentExecution 以 POST + JSON body
     转发图输入);body 为空对象时视为未传输入(canvas 图回填注册时输入)。
     """
+    _assert_canvas_access(thread_id, _actor_user_id(request))
     return _stream_response(
         thread_id, request, payload or None, _parse_stream_modes(stream_modes)
     )

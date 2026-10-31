@@ -25,106 +25,110 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
-import { wsAuth } from '../../plugins/ws-helpers.js'
+import { wsAuth, wsUpgradeRequiresCredential } from '../../plugins/ws-helpers.js'
 import { getLiveChatServer } from '../../websocket/chat-server.js'
 
 export const liveChatWsRoutes: FastifyPluginAsync = async (server) => {
-  server.get('/ws/live-chat', { websocket: true }, (socket: WebSocket, request) => {
-    const query = request.query as { roomId?: string; token?: string }
-    const roomId = query.roomId
-    const token = query.token
+  server.get(
+    '/ws/live-chat',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket: WebSocket, request) => {
+      const query = request.query as { roomId?: string; token?: string }
+      const roomId = query.roomId
+      const token = query.token
 
-    if (!roomId) {
-      try {
-        socket.send(JSON.stringify({ type: 'error', code: 400, message: '缺少 roomId' }))
-        socket.close()
-      } catch {
-        /* ignore */
-      }
-      return
-    }
-
-    void (async () => {
-      let userId: string | null
-      try {
-        userId = await wsAuth(socket, token)
-      } catch {
-        return
-      }
-      if (!userId) return
-
-      const chatServer = getLiveChatServer()
-      const room = chatServer.join(roomId, socket)
-      /** 同步 live-chat 房间数 gauge(join/leave 后调用;采集失败不影响业务) */
-      const syncRoomGauge = (): void => {
+      if (!roomId) {
         try {
-          server.recordWsRooms(chatServer.roomCount())
-          // ihui_live_online_total(Gauge,per-room set 语义):房间清空时删序列防无界累积
-          const online = chatServer.getRoomSize(roomId)
-          if (online > 0) {
-            server.setLiveOnline(roomId, online)
-          } else {
-            server.deleteLiveOnline(roomId)
-          }
+          socket.send(JSON.stringify({ type: 'error', code: 400, message: '缺少 roomId' }))
+          socket.close()
         } catch {
           /* ignore */
         }
-      }
-      syncRoomGauge()
-      try {
-        socket.send(JSON.stringify({ type: 'system', content: 'joined', roomId }))
-      } catch {
-        chatServer.leave(roomId, socket)
-        syncRoomGauge()
         return
       }
 
-      socket.on('message', (data: Buffer) => {
-        const raw = data.toString()
-        // 单条 ping 直接字符串
-        if (raw === 'ping') {
-          try {
-            socket.send('pong')
-          } catch {
-            chatServer.leave(roomId, socket)
-            syncRoomGauge()
-          }
+      void (async () => {
+        let userId: string | null
+        try {
+          userId = await wsAuth(socket, token)
+        } catch {
           return
         }
-        const t0 = Date.now()
-        void chatServer
-          .handleMessage(room, socket, raw, userId!)
-          .catch((err) => {
-            request.log.warn({ err, roomId }, 'live-chat handleMessage error')
-            try {
-              socket.send(JSON.stringify({ type: 'error', code: 500, message: '服务器内部错误' }))
-            } catch {
-              /* ignore */
-            }
-          })
-          .finally(() => {
-            try {
-              server.recordWsMessageLatency(Date.now() - t0)
-            } catch {
-              /* ignore */
-            }
-          })
-      })
+        if (!userId) return
 
-      socket.on('close', () => {
-        chatServer.leave(roomId, socket)
+        const chatServer = getLiveChatServer()
+        const room = chatServer.join(roomId, socket)
+        /** 同步 live-chat 房间数 gauge(join/leave 后调用;采集失败不影响业务) */
+        const syncRoomGauge = (): void => {
+          try {
+            server.recordWsRooms(chatServer.roomCount())
+            // ihui_live_online_total(Gauge,per-room set 语义):房间清空时删序列防无界累积
+            const online = chatServer.getRoomSize(roomId)
+            if (online > 0) {
+              server.setLiveOnline(roomId, online)
+            } else {
+              server.deleteLiveOnline(roomId)
+            }
+          } catch {
+            /* ignore */
+          }
+        }
         syncRoomGauge()
-        // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
-        chatServer.resetUserRateLimit(userId!)
-      })
+        try {
+          socket.send(JSON.stringify({ type: 'system', content: 'joined', roomId }))
+        } catch {
+          chatServer.leave(roomId, socket)
+          syncRoomGauge()
+          return
+        }
 
-      socket.on('error', () => {
-        chatServer.leave(roomId, socket)
-        syncRoomGauge()
-        // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
-        chatServer.resetUserRateLimit(userId!)
-      })
-    })()
-  })
+        socket.on('message', (data: Buffer) => {
+          const raw = data.toString()
+          // 单条 ping 直接字符串
+          if (raw === 'ping') {
+            try {
+              socket.send('pong')
+            } catch {
+              chatServer.leave(roomId, socket)
+              syncRoomGauge()
+            }
+            return
+          }
+          const t0 = Date.now()
+          void chatServer
+            .handleMessage(room, socket, raw, userId!)
+            .catch((err) => {
+              request.log.warn({ err, roomId }, 'live-chat handleMessage error')
+              try {
+                socket.send(JSON.stringify({ type: 'error', code: 500, message: '服务器内部错误' }))
+              } catch {
+                /* ignore */
+              }
+            })
+            .finally(() => {
+              try {
+                server.recordWsMessageLatency(Date.now() - t0)
+              } catch {
+                /* ignore */
+              }
+            })
+        })
+
+        socket.on('close', () => {
+          chatServer.leave(roomId, socket)
+          syncRoomGauge()
+          // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
+          chatServer.resetUserRateLimit(userId!)
+        })
+
+        socket.on('error', () => {
+          chatServer.leave(roomId, socket)
+          syncRoomGauge()
+          // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
+          chatServer.resetUserRateLimit(userId!)
+        })
+      })()
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

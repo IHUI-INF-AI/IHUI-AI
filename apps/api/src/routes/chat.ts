@@ -86,6 +86,9 @@ import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-querie
 // B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
 import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
+// D35(2026-10-31):metadata 九类只回摘要 —— 投影判据的唯一实现在 @ihui/shared/chat
+// (九类清单 + 信封形态都在那里),本文件不重写一份键表。
+import { projectChatMetadataSummary } from '@ihui/shared/chat'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
@@ -416,6 +419,14 @@ function serializeMessage(
    * (那样读面就从"没有票"退化成"不知道有没有票",又回到本地态幻觉)。
    */
   rating: MessageRating | null = null,
+  /**
+   * D35(2026-10-31):metadata 下发面。`'summary'` = 九类过程信息只回摘要
+   * (`@ihui/shared/chat` 的 `ChatMetadataKindSummary` 信封),列表读面用它;
+   * 全文只经懒取出口 `GET /conversations/:id/messages/:messageId/metadata` 下发。
+   * 缺省 `'full'` 保持写面/分享/导出等既有调用点零行为变化 —— 那些面没有"展开时懒取"
+   * 的消费端,摘要化只会让它们丢数据。
+   */
+  metadataFace: 'full' | 'summary' = 'full',
 ) {
   return {
     id: m.id,
@@ -424,7 +435,7 @@ function serializeMessage(
     content: m.content,
     reasoning: m.reasoning,
     tokens: m.tokens,
-    metadata: m.metadata,
+    metadata: metadataFace === 'summary' ? projectChatMetadataSummary(m.metadata) : m.metadata,
     createdAt: m.createdAt,
     // 票64:标记与版本族坐标必须从读面出来,否则客户端只能靠本地猜测渲染钉选/书签态。
     pinnedAt: m.pinnedAt ?? null,
@@ -1116,7 +1127,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         )
         return reply.send(
           success({
-            messages: result.messages.map((m) => serializeMessage(m, ratings.get(m.id) ?? null)),
+            messages: result.messages.map((m) =>
+              serializeMessage(m, ratings.get(m.id) ?? null, 'summary'),
+            ),
             page,
             pageSize,
             // keyset 模式无需总数,固定 0 保持响应结构稳定(前端以 hasMore/nextCursor 判定)
@@ -1141,7 +1154,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
       return reply.send(
         success({
-          messages: list.map((m) => serializeMessage(m, ratings.get(m.id) ?? null)),
+          messages: list.map((m) => serializeMessage(m, ratings.get(m.id) ?? null, 'summary')),
           page,
           pageSize,
           total,
@@ -1214,6 +1227,53 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         ...(snap.reasoning ? { reasoning: snap.reasoning } : {}),
       }
       return reply.send(success(data))
+    },
+  )
+
+  // GET /conversations/:id/messages/:messageId/metadata - D35 懒取出口(2026-10-31)
+  // 消息列表(含 keyset/offset 两分支)只回 metadata 摘要:九类过程信息
+  // (plan/工具/终端/引用/计量/压缩/降级/记忆/队列)在列表面被投影成
+  // `ChatMetadataKindSummary` 信封,正文只在这里按**单条消息**下发。
+  // 鉴权与 sync-snapshot 同一把尺:requireAuth → 会话归属 → 消息归属(WHERE 谓词
+  // 在本进程内比对 conversationId,不把"消息属于别的会话"当成"消息不存在"之外的东西)。
+  server.get(
+    '/conversations/:id/messages/:messageId/metadata',
+    {
+      schema: {
+        summary: '单条消息完整元数据',
+        description: 'D35 懒取出口:返回该消息的完整 metadata(列表读面只回九类摘要)',
+        tags: ['chat'],
+        params: {
+          type: 'object',
+          required: ['id', 'messageId'],
+          properties: {
+            // G-261:type-only,uuid 由 syncSnapshotParams(Zod)校验
+            id: { type: 'string', description: '对话 ID(UUID,服务端 Zod 校验)' },
+            messageId: { type: 'string', description: '消息 ID(UUID,服务端 Zod 校验)' },
+          },
+        },
+        response: buildResponseSchema(400, 401, 403, 404),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = syncSnapshotParams.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { id, messageId } = parsed.data
+      const owned = await ensureOwnedConversation(id, userId, reply)
+      if (!owned.conversation) return
+
+      const msg = await findMessageById(messageId)
+      // 消息不存在 与 消息不属于本会话 同一个 404:不向调用方泄露"该 id 在别处存在"。
+      if (!msg || msg.conversationId !== id) {
+        return reply.status(404).send(error(404, '消息不存在'))
+      }
+      return reply.send(success({ messageId: msg.id, metadata: msg.metadata ?? null }))
     },
   )
 

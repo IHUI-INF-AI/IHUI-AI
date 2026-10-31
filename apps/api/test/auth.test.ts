@@ -168,6 +168,22 @@ import { config } from '../src/config/index.js'
 
 const NOW = new Date('2026-07-23T00:00:00Z')
 
+/**
+ * G-876:注册路径按 isSmsConfigured()(读 process.env,不是上面的 config mock)判
+ * fail-closed 503。本文件其余用例依赖"未配置"态(send-code 不发但 200),所以只在
+ * 需要注册的档位里临时开、finally 还原 —— 注册只校验验证码,不触发发送链路。
+ */
+async function withSmsConfigured<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = process.env.SMS_API_BASE_URL
+  process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
+  try {
+    return await fn()
+  } finally {
+    if (prev === undefined) delete process.env.SMS_API_BASE_URL
+    else process.env.SMS_API_BASE_URL = prev
+  }
+}
+
 function makeUser(overrides: Record<string, unknown> = {}) {
   return {
     id: 'user-001',
@@ -431,29 +447,46 @@ describe('auth routes', () => {
     })
 
     it('手机号已注册返回 409', async () => {
-      mockFindUserByPhone.mockResolvedValueOnce(makeUser())
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234' },
+      await withSmsConfigured(async () => {
+        // G-876:注册必须带 register 场景发出的短信验证码(匿名占号已封)
+        await putCodeEntry('13800000001', {
+          code: '123456',
+          expiresAt: Date.now() + 60000,
+          sentAt: Date.now(),
+          scene: 'register',
+        })
+        mockFindUserByPhone.mockResolvedValueOnce(makeUser())
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/auth/register',
+          payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
+        })
+        expect(res.statusCode).toBe(409)
+        expect(res.json().message).toContain('已注册')
       })
-      expect(res.statusCode).toBe(409)
-      expect(res.json().message).toContain('已注册')
     })
 
     it('注册成功返回 200 与 token + user', async () => {
-      mockFindUserByPhone.mockResolvedValueOnce(null)
-      mockCreateUser.mockResolvedValueOnce(makeUser())
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234' },
+      await withSmsConfigured(async () => {
+        await putCodeEntry('13800000001', {
+          code: '123456',
+          expiresAt: Date.now() + 60000,
+          sentAt: Date.now(),
+          scene: 'register',
+        })
+        mockFindUserByPhone.mockResolvedValueOnce(null)
+        mockCreateUser.mockResolvedValueOnce(makeUser())
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/auth/register',
+          payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
+        })
+        expect(res.statusCode).toBe(200)
+        const body = res.json()
+        expect(body.data.accessToken).toBe('access-token')
+        expect(body.data.user.id).toBe('user-001')
+        expect(mockCreateUser).toHaveBeenCalled()
       })
-      expect(res.statusCode).toBe(200)
-      const body = res.json()
-      expect(body.data.accessToken).toBe('access-token')
-      expect(body.data.user.id).toBe('user-001')
-      expect(mockCreateUser).toHaveBeenCalled()
     })
   })
 

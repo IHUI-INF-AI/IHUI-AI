@@ -17,6 +17,16 @@
  * 调用方:relay-channel-router.ts 在选定 key 后、转发前调用 applyParamOps。
  */
 import { logger } from '../utils/logger.js'
+// ReDoS 闸(2026-10-31 安全强化第 16 批):ops 配置来自管理面写入 DB,regex_replace
+// 在转发热路径每请求同步执行 —— 配置型正则的"存储型 ReDoS"放大面。长度常量与
+// webhooks-trigger/rules/workspace-ai 同口径(单源 = webhooks-trigger 导出)。
+import {
+  MAX_REGEX_PATTERN_LENGTH,
+  MAX_REGEX_SUBJECT_LENGTH,
+} from '../routes/webhooks-trigger.js'
+
+/** regex flags 白名单:只放行 JS 正则合法旗标,拒杂散字符(防御纵深) */
+const REGEX_FLAGS_WHITELIST = /^[gimsuy]*$/
 
 // ============================================================================
 // 类型定义
@@ -511,6 +521,24 @@ function applyOp(target: Record<string, unknown>, op: ParamOp, ctx: OpContext): 
       return mutateStringField(target, op, (s) => {
         const pattern = op.pattern ?? ''
         const flags = op.flags ?? ''
+        // 运行闸(第 16 批):超长 pattern/被替换串直接跳过该 op,不给灾难性回溯
+        // 机会(try/catch 只能捕获编译错误,拦不住指数回溯打满事件循环)
+        if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+          logger.warn('relay-param-ops: regex pattern 超长,跳过该 op', {
+            op: 'regex_replace',
+            path: op.path,
+            length: pattern.length,
+          })
+          return s
+        }
+        if (s.length > MAX_REGEX_SUBJECT_LENGTH) {
+          logger.warn('relay-param-ops: 被替换字段超长,跳过 regex op', {
+            op: 'regex_replace',
+            path: op.path,
+            length: s.length,
+          })
+          return s
+        }
         try {
           const re = new RegExp(pattern, flags)
           return s.replace(re, op.replacement ?? '')
@@ -638,13 +666,24 @@ export function validateParamOps(ops: unknown): ValidationResult {
       if (typeof o.pattern !== 'string') {
         errors.push(`${at}: regex_replace requires "pattern" string`)
       } else {
-        const flags = typeof o.flags === 'string' ? o.flags : ''
-        try {
-          new RegExp(o.pattern, flags)
-        } catch (e) {
+        // 入库闸(第 16 批):长度与 webhooks-trigger/rules 同口径;flags 白名单
+        if (o.pattern.length > MAX_REGEX_PATTERN_LENGTH) {
           errors.push(
-            `${at}: invalid regex pattern "${o.pattern}": ${e instanceof Error ? e.message : String(e)}`,
+            `${at}: regex pattern exceeds ${MAX_REGEX_PATTERN_LENGTH} chars (ReDoS gate)`,
           )
+        } else {
+          const flags = typeof o.flags === 'string' ? o.flags : ''
+          if (!REGEX_FLAGS_WHITELIST.test(flags)) {
+            errors.push(`${at}: invalid regex flags "${flags}"`)
+          } else {
+            try {
+              new RegExp(o.pattern, flags)
+            } catch (e) {
+              errors.push(
+                `${at}: invalid regex pattern "${o.pattern}": ${e instanceof Error ? e.message : String(e)}`,
+              )
+            }
+          }
         }
       }
     }

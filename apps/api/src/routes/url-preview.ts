@@ -72,6 +72,9 @@ import { isPrivateIPv4Literal as isPrivateIPv4 } from '../utils/ssrf-guard.js'
 
 import { isPrivateIPv6Literal as isPrivateIPv6 } from '../utils/ssrf-guard.js'
 
+import { fetch as undiciFetch } from 'undici'
+import { ssrfGuardedDispatcher } from '../utils/ssrf-guard.js'
+
 function isForbiddenHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
   if (
@@ -156,7 +159,16 @@ export async function probeUrl(
   rawUrl: string,
   options: UrlPreviewProbeOptions = {},
 ): Promise<UrlPreviewProbeResult> {
-  const doFetch = options.fetchImpl ?? globalThis.fetch
+  // 2026-10-31 安全强化第 15 批(M3):生产默认出站连接 guarded dispatcher(判定与
+  // 建连共用同一次解析,收口 TTL=0 rebinding 窗口);fetchImpl 注入路径(测试替身)
+  // 保持原样不受守卫影响。
+  const doFetch: typeof fetch =
+    options.fetchImpl ??
+    (((url: string, init?: RequestInit) =>
+      undiciFetch(url, {
+        ...init,
+        dispatcher: ssrfGuardedDispatcher(),
+      }) as unknown as Promise<Response>) as typeof fetch)
   const timeoutMs = options.timeoutMs ?? URL_PREVIEW_TIMEOUT_MS
   const maxBytes = options.maxBytes ?? URL_PREVIEW_MAX_BYTES
   const maxRedirects = options.maxRedirects ?? MAX_REDIRECTS

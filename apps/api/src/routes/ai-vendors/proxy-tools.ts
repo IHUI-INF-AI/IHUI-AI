@@ -6,6 +6,7 @@
  * 工具类子路由:Coze(9 端点)+ Bailian(2)+ JiMeng4(1)+ N8N(5)+ Kling(3)。
  */
 import { z } from 'zod'
+import { wsUpgradeRequiresCredential } from '../../plugins/ws-helpers.js'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { SignJWT } from 'jose'
 import { sql } from 'drizzle-orm'
@@ -484,6 +485,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     '/bailian/ws',
     {
       websocket: true,
+      preValidation: wsUpgradeRequiresCredential(),
       schema: buildSchema({
         summary: '百炼流式对话(WebSocket)',
         description: 'WebSocket 流式对话,通过 query token 自行校验,推送 chunk/completed/error 事件',
@@ -1235,8 +1237,9 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         recordUsage(request.userId!, 'n8n')
         return reply.send(success({ agentId }))
       } catch (e) {
+        // 2026-10-31 安全强化第 15 批:DB 异常原文含表/列/约束名,不再回传客户端
         request.log.error(e)
-        return reply.status(500).send(error(500, `数据库写入失败: ${(e as Error).message}`))
+        return reply.status(500).send(error(500, '数据库写入失败,请稍后重试'))
       }
     },
   )

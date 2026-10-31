@@ -25,7 +25,7 @@ import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
-import { readChatSyncRev } from '../db/chat-sync-rev-queries.js'
+import { allocateChatSyncRev, readChatSyncRev } from '../db/chat-sync-rev-queries.js'
 // 票71 第二切片:帧载荷的构造器唯一源在 @ihui/types(与契约事件逐字同源,不另造形状)。
 // 2026-10-25(票 B02 余面①)同批把 role / kind 两个封闭集也改取契约类型 —— 本文件此前
 // 各写了一份同值字面量联合,是契约 §2 封闭集的第二个真相源(§0.6)。
@@ -52,8 +52,10 @@ declare module 'fastify' {
     /** 票71 第二切片:新消息的房间广播(收件人由调用方给出的会话成员集合钉死) */
     broadcastChatMessageCreated(input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult
     /**
-     * 票71 第二切片:消息修订的房间广播。异步是因为 rev 要现分配
-     * (Redis INCR 是跨实例单一写入方;不可用时回落壁钟单调序号,绝不进程内从 1 重数)。
+     * 票71 第二切片:消息修订的房间广播。异步是因为 rev 要现分配 ——
+     * 唯一分配点 = `chat-sync-rev-queries.ts` 的 PG 账本(UPSERT 原子递增,跨实例/跨重启
+     * 严格递增);Redis INCR 与壁钟回落两档已于 2026-10-25 退役(见该文件头注),
+     * 分配失败显式 reject,绝不伪造服务端坐标。
      */
     broadcastChatMessagePatched(
       input: ChatMessagePatchedBroadcastInput,
@@ -494,36 +496,14 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
   )
 
   // ── 票71(V2 #23)第二切片:会话房间投递(2026-10-24)────────────────────────
-  // rev 分配点 = 服务端唯一写入方。Redis INCR 在跨实例/跨重启下严格递增;
-  // Redis 不可用时回落"壁钟毫秒 + 本机已发最大值 +1"——**绝不**用"进程内从 1 重数"
-  // 的计数器:那会在进程重启后把 rev 打回 1,端侧按 stale 丢弃新内容,症状是
-  // "另一台设备停在半截回复,而账面全绿"。回落值只保证单调,不保证跨实例严格递增,
-  // 该缺口由端侧 resync(下一片接 REST 拉权威快照)兜底。
-  const chatSyncRevFloor = new Map<string, number>()
-  const CHAT_SYNC_REV_KEY_PREFIX = 'chat-sync:rev:'
-
-  const nextChatSyncRev = async (messageId: string): Promise<number> => {
-    const prev = chatSyncRevFloor.get(messageId) ?? 0
-    const publisher = (server as unknown as { redis?: Redis }).redis
-    if (publisher) {
-      try {
-        const n = await publisher.incr(`${CHAT_SYNC_REV_KEY_PREFIX}${messageId}`)
-        if (typeof n === 'number' && Number.isInteger(n) && n > 0) {
-          const rev = Math.max(n, prev + 1)
-          chatSyncRevFloor.set(messageId, rev)
-          return rev
-        }
-      } catch (err) {
-        server.log.warn(
-          { err, messageId },
-          'ws-broadcast rev 分配(redis incr)失败,回落壁钟单调序号(端侧靠 resync 收敛)',
-        )
-      }
-    }
-    const rev = Math.max(Date.now(), prev + 1)
-    chatSyncRevFloor.set(messageId, rev)
-    return rev
-  }
+  // rev 分配点 = 服务端唯一写入方。值只由 PG 账本(`allocateChatSyncRev` 的 UPSERT)决定:
+  // 跨实例/跨重启严格递增、不重号、不回退。
+  //
+  // 2026-10-31(票71 剩余缺口①前提):Redis INCR 与"壁钟毫秒"两档回落已整体退役 ——
+  // 终态帧的 rev 读同一本 PG 账本(`readChatSyncRev`),两套分配器并存时 patched 的 rev
+  // 与终态的 rev 永远对不上(端侧把终态判 stale),而账本才是契约 §2 的"服务端唯一分配方"。
+  // 分配失败 ⇒ 显式 reject(无 rev 就无帧),绝不伪造坐标 —— 端侧退回打开会话时拉取。
+  const nextChatSyncRev = (messageId: string): Promise<number> => allocateChatSyncRev(messageId)
 
   /**
    * 房间投递体:房间键由 `input.conversationId` 唯一推导,帧里的 `room` 必须与之一致
