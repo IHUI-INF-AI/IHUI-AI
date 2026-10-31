@@ -115,7 +115,10 @@ def test_acl_block_and_allow_share_one_batch(snap):
 
 def test_acl_denied_vs_not_covered_are_different_identities(snap):
     """"命中 deny 矩阵"与"没有任何规则覆盖"必须落到两个不同身份(对照 risk_rule_id)。"""
-    policy = _acl_policy(readable_paths=[os.path.join(REPO_ROOT, "app")])
+    # write ⊆ read 是 os_sandbox.validate 的不变式(2026-10 收口):把可写面收进
+    # 本档的 readable 里,否则构造函数直接 PolicyError,这条用例会红在夹具而不是判据上。
+    app_dir = os.path.join(REPO_ROOT, "app")
+    policy = _acl_policy(readable_paths=[app_dir], writable_paths=[app_dir])
     uncovered = os.path.join(REPO_ROOT, "docs", "x.md")
     denied = os.path.join(REPO_ROOT, ".git", "HEAD")
 
@@ -132,7 +135,9 @@ def test_write_intent_violation_counted_as_write_identity(snap):
         readable_paths=[REPO_ROOT], writable_paths=[], denied_paths=[], base_dir=REPO_ROOT
     )
     target = os.path.join(REPO_ROOT, "app", "x.py")
-    violations = validate_command_paths(policy, ["tee", target], cwd=None)
+    # 写意图由 **flag** 表达(`_WRITE_INTENT_FLAGS`);"tee" 是命令名、根本不在判据面,
+    # 旧写法 ["tee", target] 从未让 pending_write 置位 ⇒ 断言等于空转(2026-10-31 现读)。
+    violations = validate_command_paths(policy, ["cat", "--output", target], cwd=None)
 
     assert violations == [f"写入越权: {target}"], violations
     assert _count(snap, "blocksByRule", "sbx.file.write_not_covered") >= 1.0
@@ -142,8 +147,15 @@ def test_write_intent_violation_counted_as_write_identity(snap):
 # 2. 成对对照:计量开 / 关,判定不得变(§0.9 反向牙)
 # =============================================================================
 
-_PAIRED_ARGV = ["cat", "G:/IHUI-AI/.git/config", "G:/IHUI-AI/app/main.py"]
-_PAIRED_EXPECTED = ["读取越权: G:/IHUI-AI/.git/config"]
+# 盘符是机器事实(AGENTS §0):由本文件位置推导,不写死旧机的 G:/IHUI-AI。
+# 组合语义与 cwd 无关:第一条是 readable 内的合法路径,第二条在 base_dir 之外 ⇒ 只有它越权。
+_TOP = os.path.dirname(os.path.dirname(REPO_ROOT))
+_PAIRED_ARGV = [
+    "cat",
+    os.path.join(REPO_ROOT, "app", "main.py"),
+    os.path.join(_TOP, ".git", "config"),
+]
+_PAIRED_EXPECTED = [f"读取越权: {os.path.join(_TOP, '.git', 'config')}"]
 
 
 @pytest.mark.parametrize("enabled", [True, False], ids=["metrics-on", "metrics-off"])
@@ -155,7 +167,7 @@ def test_decision_identical_with_and_without_metering(monkeypatch, enabled):
     """
     monkeypatch.setenv(METRICS_ENABLED_ENV, "1" if enabled else "0")
     assert SM["metrics_enabled"]() is enabled
-    assert validate_command_paths(_acl_policy(), _PAIRED_ARGV, cwd="G:/IHUI-AI") == (
+    assert validate_command_paths(_acl_policy(), _PAIRED_ARGV, cwd=REPO_ROOT) == (
         _PAIRED_EXPECTED
     )
 
@@ -298,6 +310,9 @@ def test_publish_policy_info_still_visible_when_undetermined(monkeypatch):
         assert state["status"] == "undetermined"
         assert _info_series_present(mod, status="undetermined") is True
     finally:
+        # 投影表在**每次调用**里现读:不先复原 monkeypatch,第二次仍会读到那个坏模块,
+        # 断言 ok 就变成"要求同一份坏输入产出两种结论"(2026-10-31 现读)。
+        monkeypatch.undo()
         SM["reset_caches"]()
     assert mod.publish_policy_info()["status"] == "ok"
     assert _info_series_present(mod, status="ok") is True
@@ -480,7 +495,7 @@ def test_guard_states_cover_all_three_axes(snap):
     assert set(snap()["guard"]["byState"]) == {"enforced", "degraded", "undetermined"}
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="non_windows 分支在 win32 结构上取不到")
+@pytest.mark.skipif(sys.platform == "win32", reason="non_windows 分支在 win32 结构上取不到")
 def test_non_windows_reason_identity_is_reachable_off_win32():
     """非 Windows 面的降级身份是稳定短名而非异常原文。
 

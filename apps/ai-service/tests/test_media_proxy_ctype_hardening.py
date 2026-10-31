@@ -68,8 +68,16 @@ class _FakeClient:
     def __init__(self, *args, **kwargs):
         pass
 
-    def build_request(self, method, url, headers=None):
-        return {"method": method, "url": url, "headers": headers or {}}
+    def build_request(self, method, url, headers=None, extensions=None, **kwargs):
+        # 契约与 httpx.Client.build_request 同形:2026-10-31 安全强化 R6 起,逐跳复检用
+        # extensions={"sni_hostname": 原域名} 钉 IP 后保 SNI —— 旧桩只收 method/url/headers,
+        # 这一跳会 TypeError 并被调用方兜成 502,把"应 415"的断言读成上游故障。
+        return {
+            "method": method,
+            "url": url,
+            "headers": headers or {},
+            "extensions": extensions or {},
+        }
 
     async def send(self, request, stream: bool = False):
         return _FakeResponse(
