@@ -21,7 +21,6 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * ImageGenTemplatesScreen — 跨端共享「提示词模板屏」(门 39 六屏共享化第二批)。
@@ -219,7 +218,7 @@ export function ImageGenTemplatesScreen({
         onRequestClose={onClosePreview}
       >
         <Pressable style={styles.overlay} onPress={onClosePreview}>
-          <Pressable style={pressFeedback(styles.sheet)} onPress={() => undefined}>
+          <Pressable style={styles.sheet} onPress={() => undefined}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={2}>
                 {preview?.name ?? t('imageGenTemplates.previewTitle')}

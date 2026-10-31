@@ -26,7 +26,6 @@ import { tokens } from '../../theme/active-tokens'
 import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import type { SlashCommand } from '../../lib/slash-commands'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 图标名 → 组件(与 SlashCommand.icon 字符串一一对应;未登记的名字不渲染图标) */
 const SLASH_ICONS: Record<string, typeof Cpu> = {
@@ -168,14 +167,11 @@ export function SlashCommandPalette({
   if (!visible) return null
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={pressFeedback(styles.modalMask)} onPress={onClose}>
-        <Pressable
-          style={pressFeedback(styles.listDialogContent)}
-          onPress={(e) => e.stopPropagation()}
-        >
+      <Pressable style={styles.modalMask} onPress={onClose}>
+        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>{t('slashCmd.paletteTitle')}</Text>
-            <Pressable hitSlop={8} onPress={onClose} style={pressFeedback(styles.listDialogClose)}>
+            <Pressable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
           </View>

@@ -19,7 +19,6 @@ import type { TFunction } from '@ihui/types'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * SpecScreen 规范模板库(共享层)
@@ -150,7 +149,7 @@ function Header({
   return (
     <View style={styles.headerBar}>
       <Pressable
-        style={pressFeedback(styles.headerBackBtn)}
+        style={styles.headerBackBtn}
         onPress={onBack}
         accessibilityRole="button"
         accessibilityLabel="back"

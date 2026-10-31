@@ -14,7 +14,6 @@ import { useI18n } from '../i18n'
 
 import { Input, Loading } from '@ihui/ui-native'
 import type { AgentRuntimePanelProps } from '@ihui/ui-native'
-import { pressFeedback } from '@ihui/ui-native'
 
 export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
@@ -69,7 +68,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
           onPress={handleClear}
           disabled={status === 'running'}
           className="rounded-md px-2 py-1"
-          style={pressFeedback({ backgroundColor: tokens.surface.muted })}
+          style={{ backgroundColor: tokens.surface.muted }}
         >
           <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
             {t('agent.runtimeClear')}
