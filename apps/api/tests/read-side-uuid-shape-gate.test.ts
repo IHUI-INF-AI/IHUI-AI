@@ -460,12 +460,28 @@ describe('finance margin/adjust:userId 形状闸(user_margins.user_id 是 uuid �
 
   it('反向对照:合法 uuid 进查询层', async () => {
     dbMock.select.mockClear()
+    dbMock.insert.mockClear()
+    dbMock.update.mockClear()
+    // 生产在 update 的 returning 为空时回 400「调整后余额不能为负」;本档要证的是
+    // "合法 uuid 不被形状闸挡住",所以给这一笔 update 补一行命中,其余写链保持空桩。
+    dbMock.update.mockImplementationOnce(() => {
+      const chain: Record<string, unknown> = {}
+      for (const m of ['set', 'where', 'returning']) chain[m] = () => chain
+      chain.then = (resolve: (v: unknown) => void) => resolve([{ tokenQuantity: 10 }])
+      return chain as never
+    })
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/finance/margin/adjust',
       payload: { userId: LEGIT, amount: 10 },
     })
-    expect(dbMock.select.mock.calls.length).toBeGreaterThan(0)
+    // 生产自"保证金调整丢更新"那票起改原子写(insert 补行 + update 表达式增减),
+    // 不再"读余额 → JS 加 → 整字回写" ⇒ 闸后取证面按写链计,不只看 select。
+    const touched =
+      dbMock.select.mock.calls.length +
+      dbMock.insert.mock.calls.length +
+      dbMock.update.mock.calls.length
+    expect(touched).toBeGreaterThan(0)
     expect([200, 201]).toContain(res.statusCode)
   })
 })
