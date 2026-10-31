@@ -21,6 +21,7 @@ import {
   scheduleRefreshAlarm,
 } from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
+import { assertApiProxyPath } from '../lib/api-proxy-path'
 import { getApiBaseUrl } from '../lib/config'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { dispatchAgentActionRequest } from '../lib/ext-ui-forwarder'
@@ -125,6 +126,13 @@ function replyError(requestId: string, err: unknown): ExtResponse {
 }
 
 async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
+  // 2026-10-31 安全强化第 19 批:目标路径先过站内判据,再拼 query。
+  // 不放在 callApi 那一层是因为 api-client 的 normalizeUrl 对绝对 URL 直通,
+  // 一旦 path 是外链,请求会带着本站 Bearer 打到第三方域并把响应带回。
+  const pathVerdict = assertApiProxyPath(payload.path)
+  if (!pathVerdict.ok) {
+    throw new Error(`api.proxy 目标被拒:${pathVerdict.reason}`)
+  }
   const qs = payload.query
     ? '?' +
       Object.entries(payload.query)
