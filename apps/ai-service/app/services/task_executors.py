@@ -417,6 +417,47 @@ def _resolve_argv(command: str | Sequence[str], args: Sequence[str] | None) -> l
     return argv
 
 
+def _resolve_workspace_cwd(raw: object) -> str | None:
+    """把任务参数里的 cwd 收敛到服务端登记的工作区根内;未给则返回 None(继承服务 cwd)。
+
+    2026-10-31 安全强化第 14 批:此前 `cwd` 是 `ctx.arguments` 里的自由字符串,直接交给
+    `create_subprocess_exec(cwd=...)` —— 任何能提交任务的人都能在服务器任意目录(如
+    `C:\\Windows\\System32`)起进程。判据单源 = app/services/workspace_roots.py
+    (与 LSP / patch / sandbox 同一条白名单),取不到根即 fail-closed。
+    """
+    if not (isinstance(raw, str) and raw.strip()):
+        return None
+    from app.services.workspace_roots import assert_workspace_root
+
+    try:
+        return assert_workspace_root(raw, label="任务工作目录")
+    except Exception as e:  # noqa: BLE001 - HTTPException 与文件系统异常同归一档
+        detail = getattr(e, "detail", None) or str(e)
+        raise TaskExecutionError(f"任务工作目录不可用:{detail}") from e
+
+
+def _default_child_env() -> dict[str, str]:
+    """未显式指定 env 时的子进程环境:CORE 白名单起步 + KEY/SECRET/TOKEN 形名排除。
+
+    与 `mcp_server.generate_test` 同一条实现(core/exec_env 六步构造器),不造第二套判据。
+    """
+    import os
+
+    from app.core.exec_env import (
+        ShellEnvironmentPolicy,
+        ShellEnvironmentPolicyInherit,
+        populate_env,
+    )
+
+    return populate_env(
+        list(os.environ.items()),
+        ShellEnvironmentPolicy(
+            inherit=ShellEnvironmentPolicyInherit.CORE,
+            ignore_default_excludes=False,
+        ),
+    )
+
+
 async def run_command(
     argv: Sequence[str],
     *,
@@ -426,7 +467,15 @@ async def run_command(
     cap_bytes: int = DEFAULT_OUTPUT_CAP_BYTES,
     env: dict[str, str] | None = None,
 ) -> CommandRun:
-    """真实派生子进程(无 shell、禁窗口、可取消、输出有上限且截断自证)。"""
+    """真实派生子进程(无 shell、禁窗口、可取消、输出有上限且截断自证)。
+
+    2026-10-31 安全强化第 14 批:`env=None` 不再等于"继承服务进程 os.environ"。
+    此前两条调用腿(long_running_command / test_suite)都没传 env ⇒ 子进程拿到全部
+    provider API key、JWT_SECRET、AI_CALLBACK_SECRET。判据取 core/exec_env 六步构造器
+    单源(CORE 白名单起步 + KEY/SECRET/TOKEN 形名排除),与 mcp_server.generate_test 同档;
+    调用方显式传 env 时原样使用(责任在调用方,不被本层悄悄改写)。
+    """
+    child_env = env if env is not None else _default_child_env()
     start = time.monotonic()
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -434,7 +483,7 @@ async def run_command(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
-            env=env,
+            env=child_env,
             creationflags=_NO_WINDOW,
         )
     except FileNotFoundError as e:
@@ -518,14 +567,14 @@ async def _exec_long_running_command(ctx: TaskContext) -> dict[str, Any]:
         raise TaskExecutionError("long_running_command: 缺少 command(字符串或 argv 数组)")
 
     _assert_command_not_dangerous(argv)
-    cwd = ctx.arguments.get("cwd")
+    cwd = _resolve_workspace_cwd(ctx.arguments.get("cwd"))
     timeout_s = float(ctx.int_arg("timeout_s", 300, lo=1, hi=7200))
     cap = ctx.int_arg("max_output_bytes", DEFAULT_OUTPUT_CAP_BYTES, lo=1024, hi=4 * 1024 * 1024)
 
     run = await run_command(
         argv,
         task_id=ctx.task_id,
-        cwd=str(cwd) if isinstance(cwd, str) and cwd.strip() else None,
+        cwd=cwd,
         timeout_s=timeout_s,
         cap_bytes=cap,
     )
@@ -607,7 +656,8 @@ async def _exec_test_suite(ctx: TaskContext) -> dict[str, Any]:
     target = ctx.require_str("target")
     framework_arg = str(ctx.arguments.get("framework", "auto")).strip().lower()
     cwd = ctx.arguments.get("cwd")
-    cwd_path = Path(str(cwd)) if isinstance(cwd, str) and cwd.strip() else Path.cwd()
+    resolved_cwd = _resolve_workspace_cwd(cwd)
+    cwd_path = Path(resolved_cwd) if resolved_cwd else Path.cwd()
     timeout_s = float(ctx.int_arg("timeout_s", 900, lo=5, hi=7200))
     cap = ctx.int_arg("max_output_bytes", DEFAULT_OUTPUT_CAP_BYTES, lo=4096, hi=4 * 1024 * 1024)
 

@@ -142,7 +142,10 @@ export function setAuthCookies(
   // cookie 只是会话标识，真正有效性由 JWT + 刷新链路保证（与前端原 30d 策略一致）。
   const cookies = [
     buildCookie(AUTH_TOKEN_COOKIE, payload.accessToken, maxAge, secure, domain),
-    buildCookie(REFRESH_TOKEN_COOKIE, payload.refreshToken, REMEMBER_MAX_AGE, secure, domain),
+    // 2026-10-31 安全强化第 10 批:「不记住登录」时 refresh 同为 session cookie ——
+    // 此前无条件 REMEMBER_MAX_AGE(30d),关闭浏览器即登出的语义被破坏,令牌窃取
+    // 窗口与 remember 登录等价。
+    buildCookie(REFRESH_TOKEN_COOKIE, payload.refreshToken, maxAge, secure, domain),
     // 会话提示 Cookie(2026-10-27):两条凭据都是 httpOnly、JS 读不到,而 localStorage 的
     // ihui-session-established 会被一次被动失效清掉 —— 都看不见时前端冷启动闸门把「cookie
     // 还在」的老用户判成匿名,连 /auth/refresh 都不发。值恒 '1'、不含凭据、必须非 httpOnly;

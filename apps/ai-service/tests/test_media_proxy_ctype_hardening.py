@@ -46,6 +46,9 @@ class _FakeResponse:
         if extra:
             headers.update(extra)
         self.headers = headers
+        # 逐跳辅助(media_tasks._send_following_redirects)读 is_redirect;假响应须与
+        # httpx.Response 契约同形,否则 502 是 AttributeError 冒烟而不是被测判据。
+        self.is_redirect = 300 <= status < 400
 
     async def aiter_bytes(self, chunk_size: int = 65536):
         yield self._body

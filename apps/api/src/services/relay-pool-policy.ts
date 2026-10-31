@@ -41,6 +41,8 @@
  * IHUI_RELAY_POOL_*(与既有 IHUI_RELAY_ACCOUNT_MAX_INFLIGHT 同族风格)。
  * 非法 env 值一律回落默认(失效方向 = 维持既有行为,绝不因配置脏而改选号)。
  */
+import { eq, isNull, type SQL } from 'drizzle-orm'
+import { aiRelayAccountPool } from '@ihui/database'
 import { resolveRealm } from './upstream-adapters/workbuddy-protocol.js'
 
 // =============================================================================
@@ -645,5 +647,21 @@ export const __test__ = {
   filterCreditFloor,
   filterByDomain,
   selectPoolOrdered,
+}
+
+/**
+ * admin 号池列表的归属筛选 → SQL 条件(纯函数,2026-10-31 立,ownerListCondition
+ * 镜像测试钉住四分支)。ops/缺省 → 运营池(owner IS NULL,存量视图零变化);
+ * all → 不限(返回 null = 不加条件);me → 当前登录用户个人池(登录态判空由
+ * handler 层 fail-closed 401,本函数只做条件生成);其余值 → 按 ownerUserId 精确筛。
+ */
+export function ownerListCondition(
+  owner: string | undefined,
+  meUserId: string | undefined,
+): SQL | null {
+  if (!owner || owner === 'ops') return isNull(aiRelayAccountPool.ownerUserId)
+  if (owner === 'me') return meUserId ? eq(aiRelayAccountPool.ownerUserId, meUserId) : null
+  if (owner === 'all') return null
+  return eq(aiRelayAccountPool.ownerUserId, owner)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
@@ -176,6 +177,23 @@ _VALID_TYPES = {"plan", "source", "tool_call_result", "screenshot", "file"}
 _ARTIFACT_BUCKET_TYPES = {"tool_call_result", "screenshot", "file"}
 
 
+def payload_sha256_of(artifact: dict[str, Any]) -> str:
+    """artifact 内容寻址摘要(G-25,2026-10-31)。
+
+    只取**内容维度**(type/title/content/metadata)并规范化排序;id/created_at
+    这类每次都会变的时间与身份字段不参与 —— 否则同一内容永远算不出同一个键。
+    与外部 agent 运行时的 host-actions/result-index 同语义:给内容就能找到产物。
+    """
+    canonical = {
+        "type": artifact.get("type") or "file",
+        "title": artifact.get("title", ""),
+        "content": artifact.get("content", ""),
+        "metadata": artifact.get("metadata") or {},
+    }
+    raw = json.dumps(canonical, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 class ArtifactsStore:
     """会话 artifacts 存储:Redis 优先(async),降级为内存 dict。
 
@@ -252,6 +270,8 @@ class ArtifactsStore:
             # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
             "created_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
             "tool_name": artifact.get("tool_name"),
+            # G-25:内容寻址摘要(与 find_by_payload 同一个规范化实现)
+            "payload_sha256": payload_sha256_of({**artifact, "type": art_type}),
         }
 
         redis = await self._get_redis()
@@ -284,6 +304,32 @@ class ArtifactsStore:
         if art is None:
             return {"ok": False, "errorCode": "NOT_FOUND", "message": f"artifact 不存在: {artifact_id}"}
         return {"ok": True, "artifact": art}
+
+    async def find_by_sha256(self, conversation_id: str, payload_sha256: str) -> dict[str, Any]:
+        """按内容摘要查 artifact(G-25,内容寻址)。
+
+        旧记录没有 payload_sha256 字段时**现算**再比 —— 迁移窗口内不能因为缺键就查不到。
+        """
+        if not conversation_id or not payload_sha256:
+            return {
+                "ok": False,
+                "errorCode": "MISSING_PARAMS",
+                "message": "conversation_id / payload_sha256 必填",
+            }
+        listed = await self.list(conversation_id)
+        for art in listed.get("artifacts", []):
+            sha = art.get("payload_sha256") or payload_sha256_of(art)
+            if sha == payload_sha256:
+                return {"ok": True, "artifact": art}
+        return {
+            "ok": False,
+            "errorCode": "NOT_FOUND",
+            "message": f"artifact 内容未命中: {payload_sha256[:12]}",
+        }
+
+    async def find_by_payload(self, conversation_id: str, artifact: dict[str, Any]) -> dict[str, Any]:
+        """按内容体查 artifact;规范化与 add 写入时**同一实现**(单一真相源)。"""
+        return await self.find_by_sha256(conversation_id, payload_sha256_of(artifact))
 
     async def list(
         self,

@@ -23,6 +23,7 @@ import { createHmac, randomBytes } from 'node:crypto'
 import { eq, and, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { webhookSubscriptions, webhookDeliveryLogs, type RelayWebhookEvent } from '@ihui/database'
+import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 
 // =============================================================================
 // 常量
@@ -93,7 +94,13 @@ async function deliver(url: string, body: string, signature: string): Promise<De
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS)
   try {
-    const resp = await fetch(url, {
+    // 2026-10-31 安全强化第 14 批(H1):生产投递路径补 SSRF 复检 —— 此前只有
+    // 创建/更新订阅时刻校验一次,投递时裸 fetch:订阅域名 DNS A 记录改指内网
+    // (DNS rebinding,创建时校验已过期)即可让服务端盲打任意内网 HTTP 服务,
+    // 且响应体截断 2000 字节写进 delivery_logs 可被本人读回 = 带回显的读 SSRF。
+    // 与 routes/developer/webhooks.ts deliverOnce(test/redeliver 出口)同一把尺子。
+    await ensureSafeFetchUrl(url)
+    const resp = await safeFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
