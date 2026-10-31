@@ -9,7 +9,7 @@
   background: var(--color-background);
 }
 .page-header {
-  padding: 20rpx 30rpx;
+  padding: var(--spacing-sm-loose) 30rpx;
   background: var(--color-card);
 }
 .page-title {
@@ -19,10 +19,10 @@
 }
 .summary-card {
   display: flex;
-  margin: 20rpx;
+  margin: var(--spacing-sm-loose);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
 }
 .summary-item {
   flex: 1;
@@ -38,10 +38,10 @@
   font-size: 34rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .withdrawal-list {
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
 }
 .withdrawal-item {
   display: flex;
@@ -49,8 +49,8 @@
   justify-content: space-between;
   background: var(--color-card);
   border-radius: var(--radius-md);
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
 }
 .withdrawal-info {
   flex: 1;
@@ -60,7 +60,7 @@
   color: var(--color-foreground);
   font-weight: 600;
   display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .withdrawal-time {
   font-size: 24rpx;

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/conversation-import/ConversationImportScreen.tsx
 
 /**
@@ -343,7 +344,7 @@ export default function ConversationImportPage() {
           {source ? (
             <View className="mb-[32rpx]">
               <Button
-                className="h-[88rpx] leading-[88rpx] bg-card text-foreground rounded-sm text-[length:28rpx]"
+                className="h-[88rpx] leading-[88rpx] bg-card text-foreground rounded-sm text-body"
                 onClick={() => void onPick()}
               >
                 {tt('conversationImport.pickFile', '从微信会话中选择导出文件')}
@@ -360,7 +361,7 @@ export default function ConversationImportPage() {
                 </Text>
               ) : null}
               <Button
-                className="mt-[20rpx] h-[88rpx] leading-[88rpx] bg-primary text-[length:28rpx] rounded-sm"
+                className="mt-[20rpx] h-[88rpx] leading-[88rpx] bg-primary text-body rounded-sm"
                 disabled={!file || parsing}
                 onClick={() => void onParse()}
               >

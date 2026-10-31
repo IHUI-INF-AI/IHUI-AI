@@ -121,10 +121,10 @@ export default function LanguagePage() {
 
         {/* 底部说明对齐 RN versionText: 12dp→24rpx + text.tertiary;marginTop 4dp→8rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="block text-center text-label leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.language.tip', '切换语言后将自动保存并生效')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-label leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.language.note', '部分内容可能仍以原文显示,我们正在持续完善多语言支持。')}
           </Text>
         </View>

@@ -18,12 +18,6 @@ interface RuleItem {
   text: string
 }
 
-interface RateRow {
-  level: string
-  rate: string
-  desc: string
-}
-
 const RULES: readonly RuleItem[] = [
   { num: '1', text: '成为VIP会员后可参与分佣计划' },
   { num: '2', text: '邀请好友成为会员,您将获得会员费20%的佣金' },
@@ -31,22 +25,19 @@ const RULES: readonly RuleItem[] = [
   { num: '4', text: '账户余额满100元可申请提现到微信或支付宝' },
 ] as const
 
-const RATE_TABLE: readonly RateRow[] = [
-  { level: 'VIP 会员', rate: '20%', desc: '好友开通 VIP 会员费的 20%' },
-  { level: 'SVIP 会员', rate: '25%', desc: '好友开通 SVIP 会员费的 25%' },
-] as const
-
 /**
  * 分佣计划共享屏 — 平台无关 UI 组件
  *
  * 平台无关:负责渲染 header(返回 + 标题) + 统计卡片 + 规则说明 + 分佣比例表 + 底部按钮。
- * 平台特定(API 调用/导航)由 wrapper 通过 props 注入。
+ * 平台特定(API 调用/导航)由 wrapper 通过 props 注入;分佣比例由 `rates` 注入真值
+ * (GET /distribution/commission-rates),缺省/空数组如实渲染空态,不再硬编 VIP/SVIP 档位。
  */
 export function EarnCommissionScreen({
   t,
   onBack,
   overview,
   onOpenVip,
+  rates = [],
   colorScheme = 'light',
 }: EarnCommissionScreenProps) {
   const tk = getTokens(colorScheme)
@@ -98,13 +89,19 @@ export function EarnCommissionScreen({
         </View>
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('earnCommission.rateTitle') || '分佣比例'}</Text>
-          {RATE_TABLE.map((row) => (
-            <View key={row.level} style={styles.rateRow}>
-              <Text style={styles.rateLevel}>{row.level}</Text>
-              <Text style={styles.rateValue}>{row.rate}</Text>
-              <Text style={styles.rateDesc}>{row.desc}</Text>
-            </View>
-          ))}
+          {rates.length === 0 ? (
+            <Text style={styles.rateEmpty}>{t('earnCommission.rateEmpty') || '暂无分佣比例'}</Text>
+          ) : (
+            rates.map((row) => (
+              <View key={row.level} style={styles.rateRow}>
+                <Text style={styles.rateLevel} numberOfLines={1}>
+                  {row.level}
+                </Text>
+                <Text style={styles.rateValue}>{row.rate}</Text>
+                {row.desc ? <Text style={styles.rateDesc}>{row.desc}</Text> : null}
+              </View>
+            ))
+          )}
         </View>
         {/* 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过 cssInterop,
             函数形态声明会被展开成空对象,钮的 height/底色/圆角静默消失。marginTop 留外层(它在滚动列里
@@ -210,6 +207,12 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 44,
     },
     rateDesc: { flex: 2, fontSize: rnType.body.size, color: tk.text.secondary },
+    rateEmpty: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+      paddingVertical: rnSpacing.sm,
+    },
     // 外层 = 排下一块的布局档(守门 131:按压态不得写在 Pressable 的 style 上);
     // 钮面档在下面的 bottomBtn,由内层 View 承载。数值逐字搬移、未新增。
     bottomBtnBox: { marginTop: rnSpacing.sm },
@@ -220,7 +223,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    bottomBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
+    bottomBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     pressed: { opacity: 0.85 },
   })
 }

@@ -111,7 +111,7 @@ export default function AiCareer() {
                           {name || t('aiCareer.guide')}
                         </Text>
                         {desc ? (
-                          <Text className="mt-[16rpx] text-[length:28rpx] leading-[36rpx] text-muted-foreground line-clamp-2">
+                          <Text className="mt-[16rpx] text-body leading-[36rpx] text-muted-foreground line-clamp-2">
                             {desc}
                           </Text>
                         ) : null}

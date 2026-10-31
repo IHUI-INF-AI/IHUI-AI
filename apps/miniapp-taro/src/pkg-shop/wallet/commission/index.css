@@ -7,16 +7,16 @@
 .wc-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
+  padding: var(--spacing-md);
   padding-bottom: 180rpx;
 }
 .wc-stats {
   display: flex;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .wc-stat-item {
   flex: 1;
-  padding: 24rpx 12rpx;
+  padding: var(--spacing-md) 12rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -32,28 +32,28 @@
   font-size: 30rpx;
   font-weight: 700;
   color: var(--color-primary);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .wc-list-section {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 .wc-list-title {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .wc-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .wc-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-md);
 }

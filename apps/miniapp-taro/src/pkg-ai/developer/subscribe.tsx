@@ -339,7 +339,7 @@ export default function DeveloperSubscribePage() {
 
         {/* 底部动作条 — 对齐 RN footerBar/footerBtn(brand 底/radius rpx(44)/text 16 600) */}
         <Button
-          className="h-[88rpx] leading-[88rpx] text-[length:32rpx] font-semibold text-[var(--color-surface-light)] bg-primary rounded-sm border-none" /* 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
+          className="h-[88rpx] leading-[88rpx] text-title font-semibold text-[var(--color-surface-light)] bg-primary rounded-sm border-none" /* 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
           onClick={contactDev}
         >
           {tt('developer.subscribe.contact', '联系开发者')}

@@ -17,7 +17,7 @@
 
 /* ============ 顶部会员等级展示区(RN header 体感:title 40 bold,徽章 muted 药丸) ============ */
 .header {
-  padding: 32rpx 28rpx 8rpx;
+  padding: var(--spacing-lg) 28rpx 8rpx;
   background: transparent;
 }
 .header-title {
@@ -29,12 +29,12 @@
 .header-level-row {
   display: flex;
   align-items: center;
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 .level-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4rpx 16rpx;
+  padding: var(--spacing-2xs) 16rpx;
   background: var(--color-muted);
   color: var(--color-foreground);
   font-size: 20rpx;
@@ -52,21 +52,21 @@
   text-align: center;
   font-size: 32rpx;
   color: var(--color-warning);
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
 }
 .header-expire {
   display: block;
   font-size: 24rpx;
   color: var(--color-warning);
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 /* ============ 入口卡片区域(RN 卡片语言:r24 + 2rpx 描边) ============ */
 .entry-section {
   display: flex;
   flex-wrap: wrap;
-  padding: 24rpx 28rpx 0;
-  gap: 16rpx;
+  padding: var(--spacing-md) 28rpx 0;
+  gap: var(--spacing-sm);
 }
 .entry-card {
   flex: 1;
@@ -88,7 +88,7 @@
   background: var(--color-gold-muted);
   color: var(--color-warning);
   border-radius: var(--radius-md);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 .entry-title {
   font-size: 28rpx;
@@ -103,7 +103,7 @@
   font-size: 32rpx;
   font-weight: 700;
   color: var(--color-foreground);
-  padding: 32rpx 28rpx 16rpx;
+  padding: var(--spacing-lg) 28rpx 16rpx;
 }
 .privilege-list {
   padding: 0 28rpx;
@@ -115,7 +115,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 .privilege-icon {
   width: 56rpx;
@@ -126,7 +126,7 @@
   color: var(--color-warning);
   background: var(--color-gold-muted);
   border-radius: var(--radius-md);
-  margin-right: 20rpx;
+  margin-right: var(--spacing-sm-loose);
   flex-shrink: 0;
 }
 .privilege-body {
@@ -143,7 +143,7 @@
   display: block;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   line-height: 36rpx;
 }
 .empty-state {
@@ -159,7 +159,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 40rpx;
+  padding: var(--spacing-sm-loose) 40rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;
@@ -206,7 +206,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 32rpx 32rpx 20rpx;
+  padding: var(--spacing-lg) 32rpx 20rpx;
   flex-shrink: 0;
 }
 .popup-title {
@@ -228,7 +228,7 @@
   flex: 1;
 }
 .popup-footer {
-  padding: 20rpx 32rpx 32rpx;
+  padding: var(--spacing-sm-loose) 32rpx 32rpx;
   flex-shrink: 0;
 }
 .popup-action-btn {
@@ -262,12 +262,12 @@
   text-align: center;
   font-size: 24rpx;
   color: var(--color-foreground);
-  padding: 20rpx 8rpx;
+  padding: var(--spacing-sm-loose) 8rpx;
 }
 .matrix-cell.label {
   flex: 1.3;
   text-align: left;
-  padding-left: 16rpx;
+  padding-left: var(--spacing-sm);
   color: var(--color-muted-foreground);
   font-size: 24rpx;
 }
@@ -283,7 +283,7 @@
   display: block;
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
   line-height: 1.7;
 }
 
@@ -291,12 +291,12 @@
 .benefit-list {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
 }
 .benefit-item {
   display: flex;
   align-items: flex-start;
-  padding: 20rpx 24rpx;
+  padding: var(--spacing-sm-loose) 24rpx;
   background: var(--color-gold-muted);
   border-radius: var(--radius-md);
 }
@@ -307,7 +307,7 @@
   text-align: center;
   font-size: 24rpx;
   color: var(--color-warning);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   flex-shrink: 0;
 }
 .benefit-text {
@@ -321,6 +321,6 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   line-height: 1.8;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

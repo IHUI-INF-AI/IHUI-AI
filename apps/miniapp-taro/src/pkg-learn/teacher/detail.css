@@ -3,10 +3,11 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
+
 .tdetail-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
+  padding: var(--spacing-md);
   /* 底部固定操作条占位(RN footerBar 常驻底部) */
   padding-bottom: calc(200rpx + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
@@ -22,7 +23,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 
 .tdetail-avatar {
@@ -47,14 +48,14 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .tdetail-name-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 .tdetail-name {
@@ -68,7 +69,7 @@
 
 /* 金牌徽章(RN goldBadge: vip.gold 底 + text.primary 深字) */
 .tdetail-badge {
-  padding: 4rpx 12rpx;
+  padding: var(--spacing-2xs) 12rpx;
   font-size: 22rpx;
   font-weight: 600;
   color: var(--color-foreground);
@@ -85,7 +86,7 @@
 /* 关注按钮(RN followBtn: brand 底;激活态 muted 底;圆角按角色档 control→sm) */
 .tdetail-follow-btn {
   flex-shrink: 0;
-  padding: 12rpx 28rpx;
+  padding: var(--spacing-xs-loose) 28rpx;
   font-size: 26rpx;
   font-weight: 600;
   color: var(--color-cta-foreground);
@@ -101,12 +102,12 @@
 
 /* ===== 数据统计(RN statRow:白底 radius16 py24,无描边) ===== */
 .tdetail-stats {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   display: flex;
   flex-direction: row;
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
 }
 
 .tdetail-stat-item {
@@ -114,7 +115,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .tdetail-stat-num {
@@ -131,17 +132,17 @@
 
 /* ===== 区块通用(RN section: gap16,无卡片底) ===== */
 .tdetail-intro {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .tdetail-section {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .tdetail-section-title {
@@ -174,16 +175,16 @@
 .tdetail-course-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .tdetail-course-card {
   display: flex;
   flex-direction: row;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
 }
 
 .tdetail-course-cover {
@@ -200,7 +201,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 .tdetail-course-title {
@@ -219,7 +220,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 价格(RN coursePrice: vip.gold;免费 success.deepText) */
@@ -242,23 +243,23 @@
 .tdetail-review-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .tdetail-review-card {
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
 }
 
 .tdetail-review-head {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .tdetail-review-avatar {
@@ -293,7 +294,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
+  gap: var(--spacing-2xs);
   flex-shrink: 0;
 }
 
@@ -317,8 +318,8 @@
   z-index: 10;
   display: flex;
   flex-direction: row;
-  gap: 16rpx;
-  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom, 0px));
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 24rpx calc(16rpx + env(safe-area-inset-bottom, 0px));
   background: var(--color-card);
 }
 
@@ -327,7 +328,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
   font-size: 30rpx;
   font-weight: 600;
   border-radius: var(--radius-sm); /* 底部操作按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
@@ -357,3 +358,4 @@
   color: var(--color-text-tertiary);
   padding: 240rpx 0;
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

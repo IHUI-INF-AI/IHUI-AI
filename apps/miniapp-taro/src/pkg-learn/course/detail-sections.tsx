@@ -90,7 +90,7 @@ export function CourseActionBar({
         </View>
       ) : (
         <View
-          className={`px-[20rpx] h-[80rpx] leading-[80rpx] rounded-xl text-[length:32rpx] font-semibold bg-cta text-cta-foreground ${enrolling ? 'opacity-50' : ''}`}
+          className={`px-[20rpx] h-[80rpx] leading-[80rpx] rounded-xl text-title font-semibold bg-cta text-cta-foreground ${enrolling ? 'opacity-50' : ''}`}
           hoverClass="opacity-60"
           onClick={enrolling ? undefined : onEnroll}
         >

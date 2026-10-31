@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getOverview, type CommissionOverview } from '@ihui/api-client'
+import { getCommissionRates, getOverview, type CommissionOverview } from '@ihui/api-client'
 import { EarnCommissionScreen as SharedEarnCommissionScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -19,10 +19,20 @@ function EarnCommissionScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { t } = useI18n()
   const [overview, setOverview] = useState<CommissionOverview | null>(null)
+  const [rates, setRates] = useState<{ level: string; rate: string }[]>([])
 
   const load = useCallback(async () => {
-    const res = await getOverview()
+    const [res, ratesRes] = await Promise.all([getOverview(), getCommissionRates()])
     if (res.success) setOverview(res.data ?? null)
+    // 分佣比例真值:失败只落 [] (共享屏渲染 earnCommission.rateEmpty),不补默认档位
+    setRates(
+      ratesRes.success
+        ? Object.entries(ratesRes.data.rates ?? {}).map(([level, rate]) => ({
+            level,
+            rate: String(rate ?? ''),
+          }))
+        : [],
+    )
   }, [])
 
   useEffect(() => {
@@ -41,6 +51,7 @@ function EarnCommissionScreen() {
         onBack={() => navigation.goBack()}
         overview={overview}
         onOpenVip={onOpenVip}
+        rates={rates}
         colorScheme={resolvedTheme}
       />
     </View>

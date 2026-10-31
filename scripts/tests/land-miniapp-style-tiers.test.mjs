@@ -82,3 +82,24 @@ test('T9 本文件必须是测试本体,不是落档器的整文件副本', () =
   assert.equal(self.includes(copyMarker), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T10 buildReverse 必须收 TYPE_STEPS 的真实对象形态(v.size)', () => {
+  // 首版用 Number(v) 对 {size,lineHeight,weight} 得 NaN ⇒ 字号映射整表为空,而自检喂的是数字 ⇒ 假绿
+  const r = land.buildReverse({ md: 12 }, { body: { size: 14, lineHeight: 20, weight: 400 } })
+  assert.equal(r.type.get(14), 'body')
+  const r2 = land.buildReverse({ md: 12 }, { body: 14 })
+  assert.equal(r2.type.get(14), 'body', '数字形态也必须继续支持')
+})
+
+test('T11 字号面:只有 leading 覆盖时才换,且注释/档外值不动', () => {
+  const rev = land.buildReverse({}, { body: { size: 14 }, label: { size: 12 } })
+  const a = land.rewriteClassNameTokens('<View className="text-[length:28rpx] leading-[40rpx]" />', rev)
+  assert.equal(a.changes, 1)
+  assert.match(a.out, /text-body/)
+  assert.equal(land.rewriteClassNameTokens('<View className="text-[length:28rpx]" />', rev).changes, 0, '无 leading 覆盖会改行高,不得换')
+  assert.equal(land.rewriteClassNameTokens(`// className="text-[length:28rpx] leading-[40rpx]"
+`, rev).changes, 0, '注释里的同形文本不动')
+  assert.equal(land.rewriteClassNameTokens('<View className="text-[length:26rpx] leading-[40rpx]" />', rev).changes, 0, '档外值不猜')
+  const idem = land.rewriteClassNameTokens(a.out, rev)
+  assert.equal(idem.changes, 0, '幂等')
+})

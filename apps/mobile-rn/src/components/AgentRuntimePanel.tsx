@@ -76,7 +76,8 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1 px-3 py-3">
+      {/* minHeight 与小程序同档(120):短内容时面板不塌成一条,两端同形 */}
+      <ScrollView className="flex-1 px-3 py-3" style={{ minHeight: 120 }}>
         {plan ? (
           <View
             className="mb-3 rounded-md border p-3"
