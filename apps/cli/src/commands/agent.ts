@@ -66,6 +66,10 @@ import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { DEBUG_TOOLS } from '../tools/debug.js';
 import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } from '../tools/codegraph.js';
+// LSP 族必须在 setup 里显式注册:tools/index.ts 顶层的 registerLspTools() 只是模块副作用,
+// 会被本函数首行 clearTools() 整族抹掉(2026-10-31 回归:tool-family-registration-after-setup)。
+import { LSP_TOOLS } from '../tools/lsp.js';
+import { MEMORY_TOOLS } from '../tools/memory.js';
 import { createSubagentTool } from '../tools/subagent.js';
 import { type DangerGate } from '../tools/danger-gate.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
@@ -405,9 +409,14 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // DAP 调试会话族(用户已批准注册给模型,2026-09-27;守门 131 点名的最后一格零注册族)
   registerTools(DEBUG_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
+  // 代码导航族(LSP 8 枚):与 codegraph 同属"看代码"能力,无条件注册
+  registerTools(LSP_TOOLS);
   // L5669①:Skill 工具(渐进披露按名拉正文 + 前置门 428)。须在 listTools() 取工具表
   // 之前注册,否则 G-427 广告门按"Skill 不在表内"整块隐藏技能段。
   registerTools(SKILL_TOOLS);
+  // 四层记忆族(recall/save/dream/forget):后端 /api/memory/* 真在产,属主由宿主凭据派生、
+  // 模型看不见 user_id;同样必须在 clearTools() 之后显式注册(否则被模块副作用注册后抹掉)。
+  registerTools(MEMORY_TOOLS);
   // 浏览器自动化工具:注册后由模型按需调用(执行时经 MCP 连 playwright,不可用自动降级)
   registerBrowserTools();
   // P2-3 剪贴板工具:feature flag 启用时注册(默认关闭,零回归)
