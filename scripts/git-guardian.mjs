@@ -9414,6 +9414,214 @@ export function sweepRnStyleTiers(opts = {}) {
   return { ran: true, ok: true, state, files, changes, held }
 }
 
+/**
+ * 小程序非色档落档自愈轮(2026-10-31 立,与上面 RN 那条同族同口径)。
+ *
+ * 立因:落档器 `land-miniapp-style-tiers.mjs` 早已存在,但**只有 RN 那条有人调度** ——
+ * 三端里 web/RN 的裸数字会随守护节律被补成命名档,小程序那一侧只能靠谁手工敲一次。
+ * 后果不是"少一点优雅",而是**跨端比对必然分叉**:一端写成 `var(--spacing-3xl)`、另一端仍写 64rpx,
+ * 而样式同源门(128/93/131)判的是"同一元素同一档" ⇒ 手工活一停,自动化腿反而每天新增分叉。
+ * 本轮把小程序那一侧也变成节律动作:30 分钟一轮、**只写工作树**(落库交给 auto-commit-quiet),
+ * 不碰共享索引、不与在飞会话抢提交。
+ *
+ * 失效方向与 RN 腿逐字同形:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);
+ * 有改动/零改动各记一行;held 是"工作树脏、归属未知不猜",不是失败。
+ * 判机器状态 ⇒ 不进提交链(§12e),不改本守护退出码。
+ */
+const MINIAPP_STYLE_TIERS_INTERVAL_MS = Number(
+  process.env.IHUI_MINIAPP_STYLE_TIERS_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function sweepMiniappStyleTiers(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = MINIAPP_STYLE_TIERS_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'miniapp-style-tiers-land-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'land-miniapp-style-tiers.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 小程序落档自愈:器物不在位(scripts/land-miniapp-style-tiers.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ 小程序落档自愈:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b 派生进程纪律
+              timeout: Number(process.env.IHUI_MINIAPP_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g 派生 git/node 必须显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+              signal: typeof e?.signal === 'string' ? e.signal : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? '')
+  const line =
+    stdout
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('结论:LAND-MINIAPP-TIERS'))
+      .pop() ?? ''
+  if (!line) {
+    logger(
+      `⚠️ 小程序落档自愈:未判定(rc=${r.status ?? 'n/a'},无结论行)—— 本轮没判,不等于"已对齐"` +
+        `${r.signal ? `,孩子被 ${r.signal} 掐死` : ''}`,
+    )
+    return { ran: true, ok: false, state: 'undetermined' }
+  }
+  const num = (k) => Number(line.match(new RegExp(`${k}=(\\d+)`))?.[1] ?? 0)
+  const state = line.match(/state=([a-z-]+)/)?.[1] ?? ''
+  const files = num('files')
+  const changes = num('changes')
+  const held = num('held')
+  logger(
+    `ℹ️ 小程序落档自愈:${line.slice(0, 200)}(held=工作树脏、归属未知不猜;落库交给 auto-commit-quiet)`,
+  )
+  return { ran: true, ok: true, state, files, changes, held }
+}
+
+/**
+ * web 非色档落档自愈轮(2026-10-31 立,与上面 RN / 小程序两条同族)。
+ *
+ * 立因同一条:落档器 `land-web-style-tiers.mjs` 早已存在,但**没有调度器** —— 于是 web 一侧
+ * 新写的 `text-sm` / `text-xl` 会一直留在默认档,而 RN/小程序那两侧被各自的腿持续补成具名档。
+ * 同源门判的是"同一元素同一档",三端里只有一端停摆,就等于**每天新长一笔跨端分叉**。
+ *
+ * ⚠ 这条腿与另两条有一处必须显式带的差异(器物自己头注写明的实测反例):
+ * 具名档是**三元组**(size / line-height / font-weight),Tailwind 默认档只给前两项 ⇒
+ * "字号与行高相同"**不等于零视觉变化**:`text-xl → text-heading` 会把没有 `font-*` 伴随的
+ * 元素从 400 顶到 700。所以本轮**恒带 `--only-weight-locked`**(只改"同一类名串里已有 font-*
+ * 工具类钉住权重"的那些),这是"可证恒等"的唯一子集。不带这旗的 `--apply` 会静默改全站字重,
+ * 因此这里把它写死成常量,而不是留一个可被环境变量调掉的口子。
+ *
+ * 失效方向与另两条同形:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);
+ * `failed>0` ⇒ ok:false 并点名(那批文件没落,不是"已对齐");`truncated=1` 原样带出(有上限被触到)。
+ * 判机器状态 ⇒ 不进提交链(§12e),不改本守护退出码。
+ */
+const WEB_STYLE_TIERS_INTERVAL_MS = Number(
+  process.env.IHUI_WEB_STYLE_TIERS_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function sweepWebStyleTiers(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = WEB_STYLE_TIERS_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'web-style-tiers-land-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'land-web-style-tiers.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ web 落档自愈:器物不在位(scripts/land-web-style-tiers.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ web 落档自愈:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply', '--only-weight-locked'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b 派生进程纪律
+              timeout: Number(process.env.IHUI_WEB_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g 派生 git/node 必须显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+              signal: typeof e?.signal === 'string' ? e.signal : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? '')
+  const line =
+    stdout
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('结论:LAND-WEB-TIERS'))
+      .pop() ?? ''
+  if (!line) {
+    logger(
+      `⚠️ web 落档自愈:未判定(rc=${r.status ?? 'n/a'},无结论行)—— 本轮没判,不等于"已对齐"` +
+        `${r.signal ? `,孩子被 ${r.signal} 掐死` : ''}`,
+    )
+    return { ran: true, ok: false, state: 'undetermined' }
+  }
+  const num = (k) => Number(line.match(new RegExp(`${k}=(\\d+)`))?.[1] ?? 0)
+  const state = line.match(/state=([a-z-]+)/)?.[1] ?? ''
+  const files = num('files')
+  const changes = num('changes')
+  const held = num('held')
+  const failed = num('failed')
+  const truncated = /truncated=1/.test(line)
+  if (failed > 0) {
+    logger(`❌ web 落档自愈:有 ${failed} 个文件改写后回滚(未落地,不等于"已对齐")—— ${line.slice(0, 200)}`)
+    return { ran: true, ok: false, state, files, changes, held, failed, truncated }
+  }
+  logger(
+    `ℹ️ web 落档自愈:${line.slice(0, 200)}(恒带 --only-weight-locked:只动权重已被 font-* 钉死的那批)` +
+      `${truncated ? ' [truncated=1:本轮触到上限,余量下轮续]' : ''}`,
+  )
+  return { ran: true, ok: true, state, files, changes, held, failed, truncated }
+}
+
+
 export function sweepCrossEndShellPages(opts = {}) {
   const {
     now = Date.now(),
@@ -10751,7 +10959,10 @@ function main() {
     if (!CHECK_ONLY) sweepRnHostShells()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
     // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
+    // 三端非色档落档自愈:源头(web)先补,再 RN,再小程序 —— 只写工作树,落库交给 auto-commit-quiet。
+    if (!CHECK_ONLY) sweepWebStyleTiers()
     if (!CHECK_ONLY) sweepRnStyleTiers()
+    if (!CHECK_ONLY) sweepMiniappStyleTiers()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
@@ -11900,6 +12111,8 @@ export const __test__ = {
   // 造页闭环的调度腿(§22c:镜像测试 import 这一份本体,不在测试里复算派发判据)
   sweepCrossEndShellPages,
   sweepRnStyleTiers,
+  sweepMiniappStyleTiers,
+  sweepWebStyleTiers,
   gitdirTargetVerdict,
   // daemon 存活兜底的纯判据(2026-10-29 立):镜像只吃这一份,不复制 STATE 码表
   judgeGuardDaemonAlive,
