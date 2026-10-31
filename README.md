@@ -40551,3 +40551,41 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 | AI 服务路由 | 618 | `aiServiceRoutes` |
 | 测试文件 | 3748 | `testFiles` |
 | 跟踪文件 | 18275 | `trackedFiles` |
+对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
+| 测试文件 | 3607 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
+| 跟踪文件 | 17728 | `trackedFiles` |
+  <strong>612 张表 · 4616 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3607 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **612 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4616 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
+| **测试覆盖** | **3607 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+| **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
+**2026-10-30**
+**2026-10-30**
+**2026-10-30**
+**2026-10-30**
+**2026-10-29**
+**2026-10-30**
+**2026-10-30**
+**2026-10-30**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
+| 测试文件 | 3694 | `testFiles` |
+| 跟踪文件 | 18165 | `trackedFiles` |
+| 测试文件 | 3701 | `testFiles` |
+| 跟踪文件 | 18200 | `trackedFiles` |
+| 测试文件 | 3709 | `testFiles` |
+| 跟踪文件 | 18214 | `trackedFiles` |
+| 测试文件 | 3732 | `testFiles` |
+| 跟踪文件 | 18244 | `trackedFiles` |
+| AI 服务路由 | 629 | `aiServiceRoutes` |
+| 测试文件 | 3753 | `testFiles` |
+| 跟踪文件 | 18292 | `trackedFiles` |

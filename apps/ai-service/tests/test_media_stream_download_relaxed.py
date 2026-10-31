@@ -47,6 +47,8 @@ class _FakeResponse:
         if content_length is not None:
             headers["content-length"] = str(content_length)
         self.headers = headers
+        # 同 test_media_image_proxy:逐跳辅助读 is_redirect,假响应须与 httpx 契约同形
+        self.is_redirect = False
 
     async def aiter_bytes(self, chunk_size: int = 65536):
         yield self._body
