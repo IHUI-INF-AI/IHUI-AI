@@ -23,7 +23,6 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -375,9 +374,9 @@ export default function PublishAccountsScreen() {
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {scan ? t('publishAccounts.scanTitle') : panel?.displayName}
               </Text>
-              <Pressable onPress={closePanel} hitSlop={8} style={undefined}>
+              <Tappable onPress={closePanel} hitSlop={8}>
                 <X size={18} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
 
             {scan ? (

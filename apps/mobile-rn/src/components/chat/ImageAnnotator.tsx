@@ -688,28 +688,29 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
         </View>
 
         <View style={styles.footer}>
-          <Pressable
+          <Tappable
             onPress={onCancel}
-            style={({ pressed }) => [styles.footerBtn, pressed && styles.panelItemPressed]}
+            style={styles.footerBtn}
+            pressedStyle={styles.panelItemPressed}
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
           >
             <Text style={styles.footerBtnText}>取消</Text>
-          </Pressable>
-          <Pressable
+          </Tappable>
+          <Tappable
             onPress={handleSave}
             disabled={!hasContent}
-            style={({ pressed }) => [
+            style={[
               styles.footerBtn,
               styles.footerBtnPrimary,
               !hasContent && styles.footerBtnDisabled,
-              pressed && styles.panelItemPressed,
             ]}
+            pressedStyle={styles.panelItemPressed}
             accessibilityRole="button"
             accessibilityLabel={t('annot.modelEditSaveA11y')}
           >
             <Text style={[styles.footerBtnText, styles.footerBtnPrimaryText]}>保存</Text>
-          </Pressable>
+          </Tappable>
         </View>
       </View>
     </Modal>

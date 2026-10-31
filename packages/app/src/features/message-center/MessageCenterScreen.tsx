@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { scaleText } from '../../hooks/scaled-text'
-import { View, Text, Image, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Image, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { Bell, Pin, PinOff, Settings, Trash2 } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
@@ -299,7 +299,7 @@ export function MessageCenterScreen({
           )}
           {/* 底部加载更多:onLoadMore 不传或 hasMore===false 时不渲染 */}
           {onLoadMore && hasMore !== false && items.length > 0 ? (
-            <Pressable
+            <Tappable
               style={[styles.loadMoreBtn, loadingMore === true && styles.loadMoreBtnDisabled]}
               onPress={onLoadMore}
               disabled={loadingMore === true}
@@ -308,7 +308,7 @@ export function MessageCenterScreen({
               <Text style={styles.loadMoreText}>
                 {loadingMore === true ? t('common.loading') : t('messageCenter.loadMore')}
               </Text>
-            </Pressable>
+            </Tappable>
           ) : null}
         </ScrollView>
       )}

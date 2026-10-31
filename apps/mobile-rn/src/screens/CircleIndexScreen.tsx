@@ -214,14 +214,13 @@ export function CircleIndexScreen() {
             {imgs.length ? (
               <View style={styles.imgRow}>
                 {imgs.slice(0, 3).map((img, i) => (
-                  <Pressable
-                    style={undefined}
+                  <Tappable
                     key={i}
                     onPress={() => setPreview({ urls: imgs, index: i })}
                     accessibilityRole="imagebutton"
                   >
                     <Image source={{ uri: img }} style={styles.img} />
-                  </Pressable>
+                  </Tappable>
                 ))}
                 {imgs.length > 3 ? (
                   <Tappable

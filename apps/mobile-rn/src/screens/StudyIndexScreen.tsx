@@ -505,20 +505,18 @@ export function StudyIndexScreen() {
             { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) },
           ]}
           rightAction={
-            <Pressable
+            <Tappable
               hitSlop={BACK_HIT_SLOP}
               onPress={() => setShowSearch((v) => !v)}
               accessibilityRole="button"
               accessibilityLabel="搜索"
-
-              style={undefined}
             >
               {showSearch ? (
                 <X size={20} color={tk.text.medium} />
               ) : (
                 <Search size={20} color={tk.text.medium} />
               )}
-            </Pressable>
+            </Tappable>
           }
         />
       </NavChrome>

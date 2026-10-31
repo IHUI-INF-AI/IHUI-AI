@@ -743,16 +743,14 @@ export function InputArea({
                   <ChevronDown size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
                 </TouchableOpacity>
                 {selectedModelName && onClearModel ? (
-                  <Pressable
+                  <Tappable
                     onPress={onClearModel}
                     hitSlop={4}
                     accessibilityRole="button"
                     accessibilityLabel={t('chat.clearModel')}
-
-                    style={undefined}
                   >
                     <X size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
-                  </Pressable>
+                  </Tappable>
                 ) : null}
               </View>
             ) : null}

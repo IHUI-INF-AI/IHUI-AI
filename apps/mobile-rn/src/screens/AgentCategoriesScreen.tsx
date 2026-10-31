@@ -20,7 +20,6 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -212,9 +211,9 @@ export default function AgentCategoriesScreen() {
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.name}
               </Text>
-              <Pressable onPress={() => setPanel(null)} hitSlop={8} style={undefined}>
+              <Tappable onPress={() => setPanel(null)} hitSlop={8}>
                 <X size={18} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
             {panel ? (
               <ScrollView contentContainerStyle={styles.sheetBody}>

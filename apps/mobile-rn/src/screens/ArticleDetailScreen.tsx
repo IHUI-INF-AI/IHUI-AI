@@ -18,7 +18,6 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Pressable,
   Share,
   StyleSheet,
   Text,
@@ -209,16 +208,14 @@ export function ArticleDetailScreen() {
           <View style={styles.commentSheet}>
             <View style={styles.commentHeader}>
               <Text style={styles.commentTitle}>评论</Text>
-              <Pressable
+              <Tappable
                 hitSlop={8}
                 onPress={() => setCommentVisible(false)}
                 accessibilityRole="button"
                 accessibilityLabel={t('comment.close')}
-
-                style={undefined}
               >
                 <Text style={styles.commentClose}>×</Text>
-              </Pressable>
+              </Tappable>
             </View>
             {commentLoading ? (
               <ActivityIndicator style={styles.commentLoading} color={tokens.text.secondary} />
