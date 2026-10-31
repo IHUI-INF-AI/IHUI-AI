@@ -51,7 +51,7 @@
       }
     },
     "shell": {
-      "open": "^https://(www.)?aizhs.top(/.*)?$"
+      "open": "^https://(www\\.)?aizhs\\.top(/.*)?$|^http://localhost(:\\d+)?(/.*)?$"
     }
   },
   "bundle": {

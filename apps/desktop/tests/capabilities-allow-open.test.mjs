@@ -121,6 +121,7 @@ function judgeShellOpenConf() {
   const re = new RegExp(openRe)
   assert.ok(re.test('https://aizhs.top/'), '产品域放行')
   assert.ok(re.test('https://www.aizhs.top/agents'), 'www 子域放行')
+  assert.ok(re.test('http://localhost:8801/sso/login'), 'dev SSO 外开放行(与声明面 dev 条目对齐)')
   assert.ok(!re.test('https://evil.example.com/phish'), '第三方域拒绝(钓鱼链)')
   assert.ok(!re.test('javascript:alert(1)'), 'javascript: 形态拒绝')
   return openRe
