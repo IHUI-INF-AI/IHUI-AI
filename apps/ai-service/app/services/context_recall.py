@@ -115,13 +115,19 @@ class ContextRecallService:
         session_id: str | None,
         query: str,
         top_k: int = _DEFAULT_TOP_K,
+        *,
+        user_id: str,
     ) -> dict[str, Any]:
         """语义回捞:embed query → 向量检索 → 组装结果。
 
         Args:
-            session_id: 会话标识;为空时全库检索,非空时按 session 二次过滤。
+            session_id: 会话标识;为空时在该用户的全部会话内检索,非空时二次过滤。
             query: 自然语言查询(语义检索)。
             top_k: 返回条数上限(默认 8)。
+            user_id: 归属主体,**无默认值**。回捞拿到的是"被压缩丢弃的旧消息原文",
+                跨用户读出即隐私泄露;写入侧本来就逐条记了 user_id,查询侧却从不消费它
+                ⇒ 归属必须显式说清(§5 认证不等于授权)。取不到主体时不得传 None 蒙过去,
+                调用方应在更早一步拒绝。
 
         Returns:
             {ok: True, results: [{session_id, text, summary, similarity,
@@ -144,6 +150,11 @@ class ContextRecallService:
             return {"ok": False, "error": str(e)}
         results: list[dict[str, Any]] = []
         for _eid, entry, sim in hits:
+            # 归属维先行:写入侧记了 user_id 而查询侧不消费 = 任何用户都能捞到别人的
+            # 压缩原文。与主体不同的条目一律不进结果(含 user_id 缺失的历史行:
+            # 这是 fail-closed,不做"空主体视为可见"的回落)。
+            if entry.get("user_id") != user_id:
+                continue
             if session_id and entry.get("session_id") != session_id:
                 continue
             results.append(

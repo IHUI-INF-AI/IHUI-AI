@@ -57,6 +57,11 @@ export function PreviewCanvas({
           ref={iframeRef}
           srcDoc={srcDoc}
           title="design-preview"
+          // srcDoc 内容由用户/AI 生成。不给 sandbox 时它继承父窗口同源 ⇒ 内嵌脚本可读
+          // window.parent.document、localStorage、会话 cookie,一次 XSS 即换登录态。
+          // allow-scripts 足够:画布内的注入脚本只用 postMessage 与自身 document,
+          // 父侧也只调 contentWindow.postMessage(不读 contentDocument)。
+          sandbox="allow-scripts"
           style={{
             flex: 1,
             border: 'none',

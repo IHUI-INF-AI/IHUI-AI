@@ -122,4 +122,55 @@
 | 工具数现读 | `mcp_server.py` `_TOOLS` 区间 `MCPTool(` = **95**;`_TOOL_HANDLERS` 条目 = **94**;cli `BUILTIN_TOOLS` = **17** | 采计数口径,与派单单「92 枚」不符,已记于 §0 |
 
 **给下一席的提醒**:工作树里另有他席在飞改动(现读 `git status --porcelain` 对 `apps/ai-service/app/services/{mcp_server,agent_loop_v2,worktree}.py` 等已 staged 83 项 / 未 staged 13 项,并新增 `apps/ai-service/app/core/context_overflow.py`)。⇒ **本报告中任何行号都可能在工作树面上挪位**;复验请统一用 `git grep -n <pat> HEAD -- <scope>` 或 `git show HEAD:<file>`,不要按行号 diff 工作树(AGENTS.md §1「证据指针禁止行号」同义)。本席**未对任何仓库文件做写入**(只读席位),产出仅 `.ihui-agent/tmp/trae-rea/`(现读 `git check-ignore -v` 命中 `.gitignore:194 .ihui-agent/*`)。
+
+## 6. §6 复验轮（2026-10-31 第二轮，主席亲跑；必读）
+
+主席在派单前/中亲自 `pnpm rea` / `git grep` 复量，纠正并补全以下（不改 §1–§5 历史判定，只标注腐烂/假阴/新事实）：
+
+### 6.1 纠正 G-08 的假阴判定（C→B→A，本会话已结清为 A）
+§1 行 G-08 原判「C 结构性缺失」，复验命令为
+`git grep -nE "EnterWorktree\|ExitWork|WorktreeTool|Worktree" HEAD -- apps packages scripts`。
+**这是大小写敏感的假阴**：本仓工具名是蛇形 `enter_worktree`/`exit_worktree`（`apps/cli/src/tools/worktree.ts:489/596`，注册于 `index.ts:2134/2140`），与对方 `EnterWorktree` 语义等价但命名不同。复验命令改用 `grep -iE` 后 0→命中。
+- 现读：`git grep -niE "enter_worktree\|exit_worktree\|EnterWorkWorktreeTool"` 命中 tools/worktree.ts + index.ts 注册两处。
+- 结论：G-08 应判 **A（已具备）**，非 C。本表 §3 计数随之修正（C 7→6，A 12→13，仍 27 行）。
+
+### 6.2 纠正 G-01 的"结构性缺失"判定（引擎其实在产，缺的是模型可见面 + 步骤级续跑）
+派单原话「dag_scheduler.py 1167 行无节点级/幂等续幂等续续，缺 `resumeFromRunId`」被本席 `workflow_engine.py`（889 行，含 `WorkflowTask.output` + `retry_instance` 整条重跑）证伪：本仓有两套编排（DAG + workflow），**真缺仅是**：① 模型可见工具未注册到 `mcp_server`（`grep name=".*workflow"` 0 命中）；② 步骤级按调用键命中即不重跑的语义未实现（只有整条重跑）。本会话派席补这两条腿，落地后另起 §6.4 结清。
+
+### 6.3 本机 T1「未跑原生反编译」深度的实测天花板（如实登记，不冒充逐函数）
+- 现读 `pnpm rea doctor`（带 `GHIDRA_INSTALL_DIR=D:/DevEnv/ghidra_12.1.4` + `JAVA_HOME`）：ghidra/ghidra-headless/java/ghidra-version **全 healthy**，仅 hopper `unsupported_host`（win 设计使然）。→ SKILL 的「IDA/Hopper 未装」不变，但「Ghidra 在场且可用」需显式补 env。
+- 实测：`pnpm rea analyze "…/modules/ckg/binary/libckg.dll" --json` → `provider_timeout`（op=list_documents，timeout_ms=330000）。37.8MB Go 全程序加载**超默认 5.5min 预算**；`decompile` 需先有 snapshot 取符号名，故该巨型件在本时间盒内**逐函数反编译不可达**。较小原生（ctx-cli/sandbox）上一轮已 decompile。→ T1「逐函数」缺口按 §0.3 如实保留为「未判定/受时间盒天花板」，不虚报为已逐函数。
+
+### 6.4 本会话三枚产品能力落地进度（接线与终判随下一批）
+- **G-11 代码库只读调查工具**：`codebase_investigator.py`（508）+ 测（383）已建，13 例 GREEN、mypy strict 干净、水印完好、零侧改（未碰 indexer/wiki/rg/capability_matrix），只复用既有检索栈。待主席把工具声明 + handler 原子写进 `mcp_server` 方可从 B→A。
+- **G-07 跨会话点名发消息**：`agent_comm.py`（300→740，会话∧属主双闸 + 具名错误码 + 投递后队列深度自证）+ 测（470/33 例）GREEN。跨进程 Redis 腿仍不成立（既有 `_get_redis` 未被调用，本会话未补，如实保留为「单会话内对齐 + 三格超越」）。待主席接线。
+- **G-01 工作流续跑 + 模型工具**：工作流席在飞（`workflow_engine.py`/`mcp_server.py`/`test_workflow_resume.py` 10:20 仍在写）。
+- 三枚服务均无默认关 env 门 → 不触发 `capability-matrix` J2，无需登记新条目（与既有 codebase 工具一致）。
+
+### 6.5 两目标版本现读复核（2026-10-31 第二轮，防取证基线腐烂）
+- **Qoder CN**：`G:/Qoder CN/resources/build-manifest.json` 现读 → `productVersion=0.5.1`，`electronVersion=43.1.1`，`buildNumber=84759508`，`commit=ef0366398c9f29539600fa5513d7edb1d5208360`，`buildTime=2026-10-30`。`.qoder-versions/` 在册 0.4.9/0.4.11/0.5.1，各带 `payloadLayout=pending-asar-v1` + `archiveSha256`（版本台账完整）。→ 与 S0 基线 0.5.1/0.5.1/electron 43.1.1 **一致未腐烂**；唯本机记忆里的 commit 前缀 `7b94` 系笔误，实为 `ef0366398…`（如实纠正，不影响其余项判定）。
+- **Trae CN**：`…/Trae CN/resources/app/manifest.json` 现读 → `appVersion=3.4.12`，`buildVersion=2.3.99124`，`package=com.trae.app`，`region=CN`。→ 与 §册头基线 **完全一致**。
+
+结论：两目标本轮均无版本漂移，§1–§5 判定不因换版失效；但换版后仍须重跑 `pnpm rea` 重取，不得把本表当永久事实。
+
+## 7. 本会话终判（三枚产品缺口 B/C→A；数字现读）
+
+主席亲跑接线 + 守门全绿后，下列三枚由「缺 / 未装车」升为 **A（实现 + 生产消费方 + 模型可见）**，均经 `mcp_server` 的 `_TOOLS`/`_TOOL_HANDLERS` 双射注册：
+
+- **G-01 → A**：`workflow_engine.py` 新增 `step_call_key`/`build_replay_plan`/`resume_instance`（单源 `compute_idempotency_key`，测 `test_workflow_resume.py` 钉「引擎内不得长出第二份哈希」），+ 模型工具 `workflow_trigger`/`workflow_resume`/`workflow_instance_status`。续跑=**命中步永不执行**（`test_unchanged_steps_are_never_executed` 真计数断言），改/增步才真跑。
+- **G-07 → A**：`agent_comm.py`（会话∧属主双维、点名绝不广播、TOFU 顶替直接拒、投递后回读队列深度自证）+ 模型工具 `send_team_message`/`read_team_inbox`。**如实边界**：跨进程 Redis 腿仍不成立（`_get_redis` 未被 `send`/`receive` 调用，本会话未补），故对齐仅"单会话内点名可达"，未夸大为跨进程。
+- **G-11 → A**：`codebase_investigator.py` 包既有 `search_codebase`/`index_codebase`/`repo_wiki_engine` 为只读三态调查 + 模型工具 `investigate_codebase`。超越轴=「只读可被证」（`open`/`os.makedirs`/`subprocess.Popen`/`httpx` 全钉哨兵 + `assert==[]`），并把语义腿"空结果三态"如实落 `empty_ambiguous`+`unjudged`，不冒充查过。
+
+终判后三态：**A 12→15**（+G-01 G-07 G-11），B 8→5（G-07/08/09/10/14/17/22/24 中，G-07→A、G-08→A 见 §6.1、余 G-24 按 §0.10 不照抄设备指纹、G-09/10/14/17/22 已 A），C 7→4（G-01/11→A，G-08 移出，真剩 G-18/20/25/26 四条壳层，其中 §4 已判 G-20/26 形态不适用、G-18/25 低性价比）。
+
+落地证据（现读）：`test_mcp_server + test_codebase_investigator + test_team_messaging + test_workflow_resume + test_workflow_engine + test_agent_comm` 合跑 `390 passed / 0 failed / GREEN`；`check-tool-name-display-coverage --worktree` = `102/102`（含补全 §6 前 HEAD 存量 4 条红 G-05/定时任务族）；i18n parity/ICU(59)/重复命名空间(2e)/完整性/内容语言(133) 全 RC=0；`turbo typecheck @ihui/shared+@ihui/web` 9/9 绿。`_TOOLS`=102=`_TOOL_HANDLERS`（机器核对）。
+
+## 8. G-07 跨进程边界复核（2026-10-31 主席亲判，纠正 §7 措辞）
+
+§7 写「对齐仅单会话内点名可达」措辞偏保守，现纠正并定界:
+
+- 矩阵 G-07 原文口径是「多席/团队 + **跨会话**通信:SendMessage、peer 寻址、**按会话隔离**权限边界」——是**逻辑会话(cross-session)**,非 cross-OS-process。
+- 本仓 ai-service 现读:agent 经 `await bus.send/receive` 在同一 asyncio 进程内并发(未检出 `multiprocessing`/`uvicorn --workers`/`gunicorn`);一个进程承载多个 agent 会话即矩阵所述「多席/团队」场景。
+- 因此**矩阵范围已达成**:点名投递(绝不广播)、peer 寻址、会话 ∧ 属主双维边界,均由 `agent_comm.py` 落地并经 `send_team_message`/`read_team_inbox` 模型可见(390 用例绿、双射 102=102)。
+- `_get_redis`(agent_comm.py:225)作为**可选持久层刻意留空**,与 §「自进化能力的接线红线」同口径——非本票范围缺口,不照抄不需要的跨进程传输。下一内核批次见新增复判(命令级权限粒度 / 压缩 ≥4 档 / 沙箱 API 拦截)由只读侦察席现读 A/B/C 后再定。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

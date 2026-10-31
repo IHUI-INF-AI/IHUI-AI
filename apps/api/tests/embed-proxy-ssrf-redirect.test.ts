@@ -63,4 +63,52 @@ describe('/raw 重定向落点', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * 同源沙箱回归锁(2026-10-31 安全强化第 10 批):/raw 把第三方 HTML 以本 API 源
+ * 输出,直接导航场景(无 iframe sandbox 属性兜底)曾是反射型同源 XSS —— 第三方
+ * 脚本可带登录态取 CSRF token 以受害者身份发状态变更。响应必须带 CSP sandbox
+ * (与前端 iframe 档同语义:opaque origin,无 allow-same-origin)。
+ */
+describe('/raw 同源沙箱 CSP', () => {
+  it('HTML 响应必须带 CSP sandbox 且不含 allow-same-origin', async () => {
+    const html = '<html><body><h1>upstream</h1></body></html>'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        ({
+          ok: true,
+          status: 200,
+          url: 'http://8.8.8.8/',
+          headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+          body: null,
+          text: async () => html,
+          arrayBuffer: async () => new TextEncoder().encode(html).buffer,
+        }) as unknown as Response,
+      ),
+    )
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/raw?url=${encodeURIComponent('http://8.8.8.8/')}`,
+    })
+
+    expect(res.statusCode).toBe(200)
+    const csp = res.headers['content-security-policy']
+    expect(String(csp)).toContain('sandbox')
+    expect(String(csp)).not.toContain('allow-same-origin')
+  })
+
+  it('早退路径(内网 403 错误页)同样带 CSP', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/raw?url=${encodeURIComponent('http://10.1.2.3/')}`,
+    })
+
+    expect(res.statusCode).toBe(403)
+    expect(String(res.headers['content-security-policy'])).toContain('sandbox')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -40477,3 +40477,47 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 🚀 新功能/改进:守门 274 字号可读地板上线 + 字号表补 badge 档 + 9px 文字 11 处收进档 (f0a0cfda3d)
 - 🔧 工程/其他:恢复 RTL asyncUtilTimeout:4000 —— 9fdbc207ba 回退的第六票(43ce93f1a8 的等待预算被「清理回退残留」抹掉) (92729cb16d)
 - 🐞 修复:门 273 的 H2 判据认原语默认态 —— 957 枚误报当场收窄(1296→352) (2aba634b5b)
+| API 路由 | 4654 | `apiRoutes` |
+| AI 服务路由 | 618 | `aiServiceRoutes` |
+| 测试文件 | 3732 | `testFiles` |
+| 跟踪文件 | 18244 | `trackedFiles` |
+> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
+- **AIGC 生成内容打标**(对齐 Trae tagAigcMetadata,goal-b40):媒体任务落库链路自动打标(图像/音频/视频全类型)· 显式标识文案 + 标识类型 + 生成方 + 标准引用(《人工智能生成合成内容标识办法》)· `AIGC_LABELING_ENABLED` 开关,关=逐字节旧行为
+| **本机账号一键切换** | `pnpm relay:switch-account` / `pnpm relay:ide-switch --ide <平台>` / `pnpm relay:snapshot-prune` | WorkBuddy 登录态按快照切换(切换前自动备份当前态);trae / trae-solo / qoder 三 profile ;`--with-sessions` 切账号时联动换桶(换桶失败回滚 auth);切换列表按账号去重展示(同账号旧快照折叠报数,按名寻址不受影响);`relay:snapshot-prune` 把快照库同账号重复清理到每账号最新一份(旧份移 `.pruned/` 可找回,默认 dry-run) |
+**2026-10-31**
+- 🔧 工程/其他:编辑器内预测式编辑 §17 真浏览器验证 —— 建议条上屏/hover 预览装饰/逐条选择性应用/埋点真发四链路全通 (be7f1894b6)
+**2026-10-31**
+- 🐞 修复:修 main 上 8 条 workflow 红的真因 —— 配置解析、构建顺序、依赖面、快速失败档、静态导出暂存、expo 入口双拼、ruff 与死指令 (b00a35fabf)
+**2026-10-31**
+- 📚 文档:WP-7 元素句柄与票71 多端 chat 同步按证据结清 —— WP-7 交付落 dbfe0c624d5(9 例含真 Chrome 全绿),71 三端聊天面(web/taro/RN)全部接线+契约四件收口,cli/extension 无聊天面如实豁免 (242ac41536)
+- 🚀 新功能/改进:WP-7 浏览器可复用元素句柄 + 票71 RN 端 chat 同步接线 —— ① CLI browser_snapshot 为交互元素分配会话级稳定 ref(eN,WeakMap 同元素同 ref),click/type 支持 ref 与 selector 二选一,导航后旧 ref 显式 stale_ref 并提示重新快照;测试 browser-element-handle 9 例(含真 Chrome 5 例)绿,tsc RC=0。② RN 端 message:* 广播 handler 经共享 chat-sync-store 投影进 ChatScreen(幂等/四态零复制/回声跳过),测试 chat-sync-rn 19 例绿;仅单测未真机,新会话 conversationId 为空时同步不生效属已知边界 (dbfe0c624d)
+- 🚀 新功能/改进:G-08 worktree 会话级工具 + G-14 lesson-draft 调度 + G-22 插件默认态 + G-21 装机资产对账 (f97112d718)
+**2026-10-29**
+- 🐞 修复:「我的」页菜单「会员中心」撞名 + 抽屉键错位 + 底部条目被淡出遮罩压暗 (3ac7b5859b)
+- 🐞 修复:增强跨端无硬边淡出遮罩强度 (dd34b4bbfa)
+- 🐞 修复:屏幕侧配对前景键词序写反 —— filterChip/chip/tab 三键按样式工厂约定回正 (876c4cb418)
+- 🚀 新功能/改进:D05设计稿落地现状对齐 + 清偿器补守门130落地前自查(F4/F4b/F9三维,g30 s9/s2) (316beddb12)
+- 🔧 工程/其他:登记会话导出件族豁免 —— 门 47 缺口归零 (599baad8fa)
+- 🐞 修复:补回富文本锚点 link 族的 <a href> 渲染 —— 事故提交 9fdbc207ba 把 renderLink 当残留删掉导致 role=link 全失效 (8fa512f9bb)
+- 🐞 修复:修复 spacing 受管块压塌全站 max-w 命名档 —— AI 面板 32px 塌缩回归 (4394b6b490)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (20dc73c828)
+- 🔧 工程/其他:goal-b25 结清四票并补 G-07 进展注记 —— 门8未判定桶/F9判据/基线差值矛盾/滞台副本末枚 (427938a586)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3355d2fb25)
+- 🐞 修复:智汇AI 首页移除与 AI 应用商店重复的四块内容 (f571b65018)
+- 🐞 修复:结清 L28260 api-client 假绿灯票——判死现读 0,清账链 bd5ce8a101 已在 HEAD (a781529720)
+- 🐞 修复:部署环 ff 竞态锁正则跟上实现演进 + 门 11h 评分星补实心填充 + 水印复注 (2c6838d169)
+- 🐞 修复:结清三票(G-109四格全闭合/G-924死键已清零/G-689 stderr尾缓冲已装车) (5d9d115a2f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3e240a1407)
+- 🐞 修复:结清两枚前提腐烂票(dot-source传递闭包3d31e4c499已装车/六屏下沉411646ee58等已全量) (13c1bdaec1)
+- 🐞 修复:结清 L5646 门116型B行——前提已腐烂(该文件裸git派生实测0,清偿枚949195bcb5早已是祖先) (b8ede2328e)
+| 路由文件 | 651 | `apiRouteFiles` |
+| AI 服务路由 | 613 | `aiServiceRoutes` |
+| CLI 命令文件 | 67 | `cliCommandFiles` |
+| 数据库表 | 612 | `dbTables` |
+| schema 文件 | 237 | `dbSchemaFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
+| 工程守门 | 299 | `guardianGates` |
+| — blocking | 273 | `guardianBlocking` |
+| API 路由 | 4616 | `apiRoutes` |
+| 测试文件 | 3607 | `testFiles` |
+| 跟踪文件 | 17728 | `trackedFiles` |

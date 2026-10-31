@@ -598,6 +598,10 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-10-31:延迟唤醒同档。add_task 无归属校验、任务记录无归属字段,
     # 与 schedule_task/list/cancel 口径不一致即漏洞(defense-in-depth)。
     "schedule_wakeup",
+    # 2026-10-31 安全强化第 10 批:generate_test 同档 —— 它把 arguments.code 原样落盘
+    # 为可 import 的 source.py 并起 pytest 真执行(pytest 收集时即执行模块级代码),
+    # 等价"提交任意 Python 代码由服务进程执行";留在 role 0 可用名单就是任意角色 RCE。
+    "generate_test",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -3704,11 +3708,29 @@ def _run_pytest_on_generated_test(
 
         junit_path = os.path.join(tmpdir, "report.xml")
         cmd = [
-            _sys.executable, "-m", "pytest", test_path,
+            _sys.executable, "-I", "-m", "pytest", test_path,
             "--junit-xml", junit_path, "-p", "no:cacheprovider", "-q",
         ]
+        # 2026-10-31 安全强化第 10 批:子进程环境白名单化 —— 此前未传 env ⇒ 完整继承
+        # 服务进程 os.environ(各 provider API key/JWT_SECRET/AI_CALLBACK_SECRET)。
+        # 判据取 core/exec_env 六步构造器单源:CORE 白名单起步(平台核心变量)+
+        # KEY/SECRET/TOKEN 形名默认排除,不造第二套。
+        from app.core.exec_env import (
+            ShellEnvironmentPolicy,
+            ShellEnvironmentPolicyInherit,
+            populate_env,
+        )
+
+        child_env = populate_env(
+            list(os.environ.items()),
+            ShellEnvironmentPolicy(
+                inherit=ShellEnvironmentPolicyInherit.CORE,
+                ignore_default_excludes=False,
+            ),
+        )
         proc = _subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=tmpdir
+            cmd, capture_output=True, text=True, timeout=timeout, cwd=tmpdir,
+            env=child_env,
         )
         stdout = proc.stdout or ""
         result["output_summary"] = "\n".join(
@@ -6512,6 +6534,47 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _download_url_ssrf_safe(
+    url: str,
+    httpx_mod: Any,
+    *,
+    timeout: float = 60.0,
+) -> bytes | None:
+    """SSRF 安全的 URL 字节下载单源(2026-10-31 安全强化第 10 批)。
+
+    此前三处 URL 下载(_fetch_image_bytes / _resolve_image_source_bytes /
+    _download_media_bytes)直接 GET 用户/模型可控 URL:前两处连首跳
+    _validate_url_ssrf 都没有,且全部 follow_redirects=True 不复检落点 ——
+    公网 302 → http://169.254.169.254/ 即整条 SSRF。现统一:每跳(含重定向
+    逐跳)都过 _validate_url_ssrf,任一跳被禁整条失败(返回 None,由调用方
+    按既有错误码降级)。
+    """
+    from .screenshot_service import _validate_url_ssrf
+
+    if not url or url.startswith("data:"):
+        return None
+    current = url
+    try:
+        async with httpx_mod.AsyncClient(timeout=timeout, follow_redirects=False) as dl:
+            for _hop in range(6):
+                ok, _reason = _validate_url_ssrf(current)
+                if not ok:
+                    logger.warning("mcp_server URL 下载被 SSRF 尺拒绝: %s", current[:200])
+                    return None
+                resp = await dl.get(current)
+                location = resp.headers.get("location")
+                if resp.is_redirect and location:
+                    current = str(resp.url.join(location))
+                    continue
+                if resp.status_code < 400:
+                    return cast(bytes, resp.content)
+                return None
+        return None
+    except Exception as e:
+        logger.warning("mcp_server URL 下载失败: %s", e, exc_info=True)
+        return None
+
+
 async def _fetch_image_bytes(
     item: dict[str, Any], image_url: str, httpx_mod: Any
 ) -> bytes | None:
@@ -6526,29 +6589,17 @@ async def _fetch_image_bytes(
             logger.warning("mcp_server b64_json 解码失败: %s", e, exc_info=True)
             return None
     if image_url and not image_url.startswith("data:"):
-        try:
-            async with httpx_mod.AsyncClient(timeout=60.0) as dl:
-                dl_resp = await dl.get(image_url)
-            if dl_resp.status_code < 400:
-                return cast(bytes, dl_resp.content)
-        except Exception as e:
-            logger.warning("mcp_server 图片 URL 下载失败: %s", e, exc_info=True)
-            return None
+        # 2026-10-31 安全强化第 10 批:URL 下载统一走 SSRF 安全单源
+        return await _download_url_ssrf_safe(image_url, httpx_mod)
     return None
 
 
 async def _download_media_bytes(url: str, httpx_mod: Any) -> bytes | None:
-    """下载媒体字节(图片/视频统一),失败返回 None。"""
-    if not url or url.startswith("data:"):
-        return None
-    try:
-        async with httpx_mod.AsyncClient(timeout=300.0, follow_redirects=True) as dl:
-            resp = await dl.get(url)
-        if resp.status_code < 400:
-            return cast(bytes, resp.content)
-    except Exception as e:
-        logger.warning("mcp_server 媒体 URL 下载失败: %s", e, exc_info=True)
-    return None
+    """下载媒体字节(图片/视频统一),失败返回 None。
+
+    2026-10-31 安全强化第 10 批:改走 _download_url_ssrf_safe 单源
+    (此前 follow_redirects=True 不复检落点,重定向可绕过 SSRF)。"""
+    return await _download_url_ssrf_safe(url, httpx_mod, timeout=300.0)
 
 
 def _resolve_native_provider(provider: str) -> tuple[Any, str]:
@@ -6667,14 +6718,10 @@ async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | 
             return None, "INVALID_BASE64"
         return raw or None, None if raw else "INVALID_BASE64"
     if s.startswith("http://") or s.startswith("https://"):
-        try:
-            async with _httpx.AsyncClient(timeout=60.0, follow_redirects=True) as dl:
-                resp = await dl.get(s)
-            if resp.status_code >= 400:
-                return None, "DOWNLOAD_FAILED"
-            return resp.content, None
-        except Exception:  # noqa: BLE001
-            return None, "DOWNLOAD_FAILED"
+        # 2026-10-31 安全强化第 10 批:URL 下载统一走 SSRF 安全单源
+        # (此前连首跳 _validate_url_ssrf 都没有,follow_redirects=True 不复检落点)
+        fetched = await _download_url_ssrf_safe(s, _httpx)
+        return (fetched, None) if fetched else (None, "DOWNLOAD_FAILED")
     if len(s) > 40 and (s.startswith("data:") is False):
         # 可能是纯 base64(非 data URI)或本地路径
         try:
@@ -9142,25 +9189,49 @@ async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
     """bg_task_status:查询单个后台任务状态,或不传 task_id 时列出某用户的任务。"""
     from .background_tasks import background_task_manager
 
+    host_user_id = arguments.get("__user_id")
+    if not isinstance(host_user_id, str) or not host_user_id:
+        return {
+            "ok": False,
+            "error": "缺少宿主注入的调用者身份",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
+
     task_id = arguments.get("task_id")
     if task_id:
         status = await background_task_manager.get_status(str(task_id))
-        if status is None:
+        # 非本人的任务与"不存在"同形返回:否则 task_id 就是他人任务的枚举面
+        # (任务名、状态、result 原文一并读出)。
+        if status is None or status.get("user_id") != host_user_id:
             return {"ok": False, "error": f"任务不存在: {task_id}"}
         return {"ok": True, "task": status}
 
-    # 列表模式:user_id 可选过滤(来自调用者身份,或显式传入)
-    user_id = arguments.get("user_id") or arguments.get("__user_id")
+    # 列表模式的过滤主体只认宿主注入值。原写法 `arguments.get("user_id") or __user_id`
+    # 把模型自填的 user_id 排在前面 ⇒ 模型报一个他人 uuid 就能列他人正在跑的任务,
+    # 直接违反 packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS(含 user_id)
+    # "宿主绑定、禁入模型参数"契约。
     limit = int(arguments.get("limit", 20))
-    tasks = await background_task_manager.list_tasks(user_id=user_id, limit=limit)
+    tasks = await background_task_manager.list_tasks(user_id=host_user_id, limit=limit)
     return {"ok": True, "tasks": tasks, "count": len(tasks)}
 
 
 # 工具注册表
 async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
     """context_recall: 语义检索回捞被压缩丢弃的旧消息(只读,不修改任何状态)。"""
+    # 身份只认宿主注入的 __user_id(call_tool 从 FastAPI request 透传,LLM 不可控);
+    # 模型自填的 user_id/session_id 一律不作归属依据 —— 原写法连 user 维都不接,
+    # 等于任何人可捞任何人的压缩原文。
+    host_user_id = arguments.get("__user_id")
+    if not isinstance(host_user_id, str) or not host_user_id:
+        return {
+            "ok": False,
+            "error": "缺少宿主注入的调用者身份",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
+    host_session_id = arguments.get("__session_id")
+    model_session_id = arguments.get("session_id")
+    session_id = host_session_id if isinstance(host_session_id, str) and host_session_id else model_session_id
     query = arguments.get("query", "")
-    session_id = arguments.get("session_id")
     top_k = arguments.get("top_k", 8)
     if not isinstance(top_k, int) or top_k <= 0:
         top_k = 8
@@ -9169,6 +9240,7 @@ async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id if isinstance(session_id, str) else None,
             query=query if isinstance(query, str) else "",
             top_k=top_k,
+            user_id=host_user_id,
         )
     except Exception as e:
         logger.warning("context_recall 工具执行异常: %s", e)
@@ -9288,6 +9360,201 @@ async def _tool_request_business_form(args: dict[str, Any]) -> dict[str, object]
         "errorCode": "FORM_CHANNEL_UNAVAILABLE",
         "message": "业务表单请求仅在对话流内可用",
     }
+
+
+# =============================================================================
+# 工作流动作的模型可见面(G-01 补齐腿之二,2026-10-31 立)
+# =============================================================================
+#
+# 病理:引擎 `app/services/workflow_engine.py` 在产(889 行,HTTP 面 routers/workflow.py
+# 与 koubo 消费方都在),而 `git grep 'workflow' mcp_server.py` 的工具注册面 0 命中
+# ⇒ 模型看不见"触发 / 续跑 / 查实例状态"这三枚动词,工作流只能由人从画布点。
+#
+# 与对照程序的区别 = 本仓的超越轴(如实写清,不是顺手做的造型):
+#   对方 run_workflow 的入参是 `script` / `scriptPath` —— 模型交一段脚本文本或一个脚本
+#   路径,执行体就地跑;本族三枚工具的入参只有 workflow_id / instance_id 加一个**数据
+#   对象**,而且三张 schema 都带 `additionalProperties: False` ⇒ "模型给一段代码就地执行"
+#   这条 RCE 面在本仓结构上不存在(不是靠正则拦住的,是靠没有那个字段)。
+#   续跑的比对单位是"步骤的调用键"(workflow_engine.step_call_key,算式单源
+#   task_executors.compute_idempotency_key),比对方只证到 agent() 结果缓存更细。
+#
+# 身份:三枚都只认宿主注入的 `__user_id`,并先过 `resolve_caller` 把开发降级身份归一成
+# None(否则 dev-anonymous 会被当成一个真主体喂给属主闸)。拿不到主体即 PRINCIPAL_REQUIRED
+# 且**一次都不碰引擎** —— 引擎在 principal=None 时是不加闸的,放过去就等于让对话链上的
+# 一次匿名工具调用能碰任何人把工作流。
+
+_WORKFLOW_INSTANCE_STATUS_TASK_FIELDS: Final[tuple[str, ...]] = (
+    "step",
+    "name",
+    "type",
+    "status",
+    "error",
+)
+
+
+async def _tool_workflow_trigger(arguments: dict[str, Any]) -> dict[str, Any]:
+    """workflow_trigger:按 workflow_id 触发一个**已存在**的工作流(不接收脚本)。"""
+    from .workflow_engine import resolve_caller, workflow_engine
+
+    principal = resolve_caller(arguments.get("__user_id"))
+    if not principal:
+        return {
+            "tool": "workflow_trigger", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED", "error": "缺少宿主注入的调用者身份",
+        }
+    workflow_id = str(arguments.get("workflow_id") or "").strip()
+    if not workflow_id:
+        return {
+            "tool": "workflow_trigger", "ok": False,
+            "errorCode": "MISSING_PARAMS", "error": "缺少 workflow_id 参数",
+        }
+    raw_input = arguments.get("input")
+    if raw_input is not None and not isinstance(raw_input, dict):
+        return {
+            "tool": "workflow_trigger", "ok": False,
+            "errorCode": "INVALID_PARAMS",
+            "error": "input 必须是对象(工作流的数据入参);不接受字符串/数组/脚本文本",
+        }
+    inst = await workflow_engine.trigger_workflow(
+        workflow_id, dict(raw_input or {}), principal=principal
+    )
+    if inst is None:
+        # 不存在 / 非本人可见 / 已禁用 / 已有实例在跑 四种都落这一句:前两种在引擎里
+        # 本就同形,这里不替它们分家(分了就是存在性 oracle)。
+        return {
+            "tool": "workflow_trigger", "ok": False,
+            "errorCode": "WORKFLOW_NOT_TRIGGERABLE",
+            "error": f"工作流不可触发(不存在、对当前身份不可见、已禁用或已有实例在跑): {workflow_id}",
+        }
+    return {"tool": "workflow_trigger", "ok": True, "instance": workflow_engine.instance_to_dict(inst)}
+
+
+async def _tool_workflow_resume(arguments: dict[str, Any]) -> dict[str, Any]:
+    """workflow_resume:按调用键续跑一个历史实例(未变步取缓存,改动/新增步才真跑)。"""
+    from .workflow_engine import resolve_caller, workflow_engine
+
+    principal = resolve_caller(arguments.get("__user_id"))
+    if not principal:
+        return {
+            "tool": "workflow_resume", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED", "error": "缺少宿主注入的调用者身份",
+        }
+    instance_id = str(arguments.get("instance_id") or "").strip()
+    if not instance_id:
+        return {
+            "tool": "workflow_resume", "ok": False,
+            "errorCode": "MISSING_PARAMS", "error": "缺少 instance_id 参数",
+        }
+    raw_input = arguments.get("input")
+    if raw_input is not None and not isinstance(raw_input, dict):
+        return {
+            "tool": "workflow_resume", "ok": False,
+            "errorCode": "INVALID_PARAMS",
+            "error": "input 必须是对象(新的工作流数据入参);不接受字符串/数组/脚本文本",
+        }
+    # 错误码与原因由引擎单源给出(build_replay_plan 的「未判定」族),本层不改写、
+    # 更不兜成"那就整条重跑"。
+    result = await workflow_engine.resume_instance(
+        instance_id, dict(raw_input) if raw_input is not None else None, principal=principal
+    )
+    return {"tool": "workflow_resume", **result}
+
+
+async def _tool_workflow_instance_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """workflow_instance_status:查实例状态 + 逐步 trace(只读,不给存在性 oracle)。"""
+    from .workflow_engine import resolve_caller, workflow_engine
+
+    principal = resolve_caller(arguments.get("__user_id"))
+    if not principal:
+        return {
+            "tool": "workflow_instance_status", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED", "error": "缺少宿主注入的调用者身份",
+        }
+    instance_id = str(arguments.get("instance_id") or "").strip()
+    if not instance_id:
+        return {
+            "tool": "workflow_instance_status", "ok": False,
+            "errorCode": "MISSING_PARAMS", "error": "缺少 instance_id 参数",
+        }
+    inst = workflow_engine.get_instance(instance_id, principal)
+    if inst is None:
+        return {
+            "tool": "workflow_instance_status", "ok": False,
+            "errorCode": "INSTANCE_NOT_VISIBLE",
+            "error": f"实例不存在或对当前身份不可见: {instance_id}",
+        }
+    tasks: list[dict[str, Any]] = []
+    for t in workflow_engine.get_instance_tasks(instance_id, principal):
+        # 序列化单源 = engine.task_to_dict(§0.6):本层只从中挑状态面,
+        # output 原文不回给模型(它可能整段是 LLM 长文),只回字数。
+        row = workflow_engine.task_to_dict(t)
+        tasks.append({key: row[key] for key in _WORKFLOW_INSTANCE_STATUS_TASK_FIELDS})
+        tasks[-1]["outputChars"] = len(str(row.get("output") or ""))
+    return {
+        "tool": "workflow_instance_status", "ok": True,
+        "instance": workflow_engine.instance_to_dict(inst),
+        "tasks": tasks,
+        "taskCount": len(tasks),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 代码库只读调查 + 跨会话点名发消息(G-11 / G-07 接线,2026-10-31 立)
+# 身份只认承载层注入的 __user_id / __user_role / __session_id(LLM 不可控);
+# 缺失即具名 PRINCIPAL_REQUIRED 且一次都不碰被调服务(§5)。
+# ---------------------------------------------------------------------------
+async def _tool_investigate_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
+    """investigate_codebase:只读代码库调查(三态 observed/inferred/unknown)。"""
+    from .codebase_investigator import investigate_codebase
+
+    return await investigate_codebase(arguments)
+
+
+async def _tool_send_team_message(arguments: dict[str, Any]) -> dict[str, Any]:
+    """send_team_message:向点名同伴投递一条消息(绝不广播)。"""
+    from .agent_comm import send_to_agent
+
+    if not arguments.get("__user_id"):
+        return {
+            "tool": "send_team_message", "ok": False,
+            "code": "missing_caller_identity",
+            "missingKeys": ["__user_id", "__session_id"],
+            "not_queued": True,
+            "detail": "缺少宿主注入的调用者身份与归属会话",
+        }
+    return await send_to_agent(
+        recipient=str(arguments.get("recipient") or ""),
+        content=str(arguments.get("content") or ""),
+        sender=arguments.get("sender") or None,
+        session_id=arguments.get("__session_id"),
+        user_id=arguments.get("__user_id"),
+        user_role=arguments.get("__user_role"),
+        message_type=str(arguments.get("message_type") or "notification"),
+        require_reply=bool(arguments.get("require_reply") or False),
+        sub_task_id=arguments.get("sub_task_id") or None,
+    )
+
+
+async def _tool_read_team_inbox(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_team_inbox:读本席收件箱(会话 ∧ 属主双闸,拒读零消费)。"""
+    from .agent_comm import read_agent_inbox
+
+    if not arguments.get("__user_id"):
+        return {
+            "tool": "read_team_inbox", "ok": False,
+            "code": "missing_caller_identity",
+            "missingKeys": ["__user_id", "__session_id"],
+            "count": 0,
+            "detail": "缺少宿主注入的调用者身份与归属会话",
+        }
+    return await read_agent_inbox(
+        agent_name=str(arguments.get("agent_name") or ""),
+        session_id=arguments.get("__session_id"),
+        user_id=arguments.get("__user_id"),
+        user_role=arguments.get("__user_role"),
+        limit=int(arguments.get("limit") or 10),
+        wait_seconds=float(arguments.get("wait_seconds") or 0.0),
+    )
 
 
 _TOOLS: list[MCPTool] = [
@@ -11041,10 +11308,9 @@ _TOOLS: list[MCPTool] = [
                     "type": "string",
                     "description": "查询指定任务状态(不传则进入列表模式)",
                 },
-                "user_id": {
-                    "type": "string",
-                    "description": "列表模式下按用户过滤(可选,默认取调用者身份)",
-                },
+                # user_id 已从本工具的对外 schema 摘除(2026-10-31):它是路由身份键
+                # (ROUTING_IDENTITY_KEYS),只能由宿主注入 __user_id,不得作为模型可填参数
+                # 存在 —— 只要还暴露在 schema 里,就必然再被某条 handler 读回去。
                 "limit": {
                     "type": "integer",
                     "description": "列表返回上限(默认 20)",
@@ -11406,6 +11672,125 @@ _TOOLS: list[MCPTool] = [
                 "approveRemark": {"type": "string", "description": "驳回理由/备注(可选)"},
             },
             "required": ["refundId"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== 工作流动作模型可见化(G-01 补齐腿之二,2026-10-31 立)=====
+    # 三张 schema 都 additionalProperties=False 且**没有 script/scriptPath/code 字段**:
+    # RCE 面不是靠拦住的,是靠不存在(见上方 _tool_workflow_trigger 头注的超越轴)。
+    MCPTool(
+        name="workflow_trigger",
+        description=(
+            "触发一个已存在的工作流(异步执行,立即返回 pending 实例)。workflow_id 用工作流列表查得;"
+            "只能触发当前身份名下的工作流,别人的与不存在同形返回。不接收脚本文本或脚本路径。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "workflow_id": {"type": "string", "description": "工作流 ID(必填,形如 wf-xxxx)"},
+                "input": {
+                    "type": "object",
+                    "description": "工作流数据入参(可选;供步骤模板 {var} 渲染,只放数据不放代码)",
+                },
+            },
+            "required": ["workflow_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="workflow_resume",
+        description=(
+            "续跑一个历史实例:入参未变的已完成步瞬时取回缓存 output(结构上不执行),"
+            "被改动或新增的步才真跑。instance_id 用 workflow_instance_status 查得。"
+            "取不到可比对的记录时返回具名错误码(WF_RESUME_*),不会静默降级成整条重跑。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "instance_id": {"type": "string", "description": "源实例 ID(必填,形如 wi-xxxx)"},
+                "input": {
+                    "type": "object",
+                    "description": (
+                        "新的工作流数据入参(可选;缺省=沿用源实例)。"
+                        "传了即所有步的调用键都变 ⇒ 等价整条重跑,只在确实要换数据时传"
+                    ),
+                },
+            },
+            "required": ["instance_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="workflow_instance_status",
+        description=(
+            "查工作流实例状态与逐步 trace(只读):每步的 step/name/type/status/error + output 字数。"
+            "非本人可见的实例与不存在同形返回。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "instance_id": {"type": "string", "description": "实例 ID(必填,形如 wi-xxxx)"},
+            },
+            "required": ["instance_id"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== 代码库只读调查 + 跨会话点名消息(G-11 / G-07 补齐,2026-10-31 立)=====
+    # 三张 schema 均 additionalProperties=False;身份/会话由承载层注入,不入 schema。
+    MCPTool(
+        name="investigate_codebase",
+        description=(
+            "只读代码库调查:把检索/语义/仓库记忆出口组合成带证据锚点的结论,"
+            "逐条标注 observed/inferred/unknown 三态;零写入、零子进程、零网络直连。"
+            "仓库未索引/无命中一律记为 unknown,不冒充查过。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "intent": {"type": "string", "description": "调查意图(必填,逐字记进结果)"},
+                "query": {"type": "string", "description": "词法检索关键词(可选,缺省用 intent)"},
+                "path": {"type": "string", "description": "调查根目录(可选,默认仓根)"},
+                "max_results": {"type": "integer", "description": "每腿命中上限(可选,默认 20,封顶 100)"},
+                "use_semantic": {"type": "boolean", "description": "是否走语义腿(可选,默认 True)"},
+                "use_wiki": {"type": "boolean", "description": "是否读仓库记忆缓存(可选,默认 True)"},
+            },
+            "required": ["intent"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="send_team_message",
+        description=(
+            "向点名的同伴代理投递一条消息(单播,绝不广播);仅可投给当前身份在同一会话内"
+            "已绑定的同伴,未注册/未绑定一律拒绝并入队失败。sender 只认承载层注入身份,不接受自报顶替。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "recipient": {"type": "string", "description": "收件代理名(必填,须已在本会话绑定)"},
+                "content": {"type": "string", "description": "消息正文(必填,非空)"},
+                "message_type": {"type": "string", "description": "消息类型(notification/question/handoff,默认 notification)"},
+                "require_reply": {"type": "boolean", "description": "是否需要回信(默认 False)"},
+                "sub_task_id": {"type": "string", "description": "关联子任务 ID(可选)"},
+            },
+            "required": ["recipient", "content"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="read_team_inbox",
+        description=(
+            "读本席(当前代理)的收件箱;按会话 ∧ 属主两维过滤,拒读时不消费任何(零 receive)。"
+            "只读已投递给本代理且属主一致的消息。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "agent_name": {"type": "string", "description": "本席代理名(必填)"},
+                "limit": {"type": "integer", "description": "最多读取条数(默认 10)"},
+                "wait_seconds": {"type": "number", "description": "阻塞等待秒数(默认 0 不等待)"},
+            },
+            "required": ["agent_name"],
             "additionalProperties": False,
         },
     ),
@@ -11927,6 +12312,15 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "edu_create_refund": _tool_edu_create_refund,
     "edu_approve_refund": _tool_edu_approve_refund,
     "edu_reject_refund": _tool_edu_reject_refund,
+    # ===== 工作流动作(G-01 补齐腿之二,2026-10-31 立;与上面三枚 _TOOLS 声明同批双射,
+    # 漏一枚即 test_tools_count_matches_registry 红)=====
+    "workflow_trigger": _tool_workflow_trigger,
+    "workflow_resume": _tool_workflow_resume,
+    "workflow_instance_status": _tool_workflow_instance_status,
+    # 代码库调查 + 点名消息(G-11 / G-07,2026-10-31 立;与上面三枚 _TOOLS 声明同批双射)
+    "investigate_codebase": _tool_investigate_codebase,
+    "send_team_message": _tool_send_team_message,
+    "read_team_inbox": _tool_read_team_inbox,
 }
 
 

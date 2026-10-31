@@ -44,6 +44,41 @@ from ..services.screenshot_service import _validate_url_ssrf
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# 2026-10-31 安全强化第 10 批:代理三端点(download/stream/image)统一手动逐跳跟随
+# 重定向。follow_redirects=True 会自动跟随落点且不复检 —— 公网页 302 →
+# http://169.254.169.254/ 即整条 SSRF(与 web_crawl_tools._http_get_html
+# 2026-10-27 同型修复)。每一跳重新过 _validate_url_ssrf,超上限按最后落点返回。
+_MAX_PROXY_REDIRECT_HOPS = 5
+
+
+async def _send_following_redirects(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
+    """手动逐跳 GET,每跳先过 SSRF 尺再发请求;中间跳响应即时关闭。
+
+    落点校验失败抛 HTTPException(400),由调用方决定错误形状;
+    网络异常原样上抛(调用方已有 502 映射)。
+    """
+    current = url
+    resp: httpx.Response | None = None
+    for _hop in range(_MAX_PROXY_REDIRECT_HOPS + 1):
+        ok, reason = _validate_url_ssrf(current)
+        if not ok:
+            raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
+        resp = await client.send(client.build_request("GET", current, headers=headers or {}))
+        location = resp.headers.get("location")
+        if resp.is_redirect and location:
+            current = str(resp.url.join(location))
+            await resp.aclose()
+            continue
+        break
+    assert resp is not None
+    return resp
+
+
 
 def _user_scope(request: Request) -> tuple[str, bool]:
     """从 JWT 派生当前用户 (user_id, is_admin)(2026-09-09 P0 越权修复)。
@@ -579,11 +614,15 @@ async def download_media_artifact(url: str, request: Request) -> Any:
     fname = _safe_filename(url, None)
     client = httpx.AsyncClient(
         timeout=httpx.Timeout(20.0, read=180.0),
-        follow_redirects=True,
+        follow_redirects=False,
         headers=_UPSTREAM_NO_COMPRESSION,
     )
     try:
-        resp = await client.send(client.build_request("GET", url), stream=True)
+        # 2026-10-31 安全强化第 10 批:手动逐跳,每跳过 SSRF 尺(重定向绕过封死)
+        resp = await _send_following_redirects(client, url)
+    except HTTPException:
+        await client.aclose()
+        raise  # SSRF 拒绝保持 400,不被吞成 502
     except Exception as e:  # noqa: BLE001
         await client.aclose()
         logger.warning("[media_tasks] 下载代理连接源站失败: %s", e)
@@ -650,7 +689,7 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
 
     client = httpx.AsyncClient(
         timeout=httpx.Timeout(20.0, read=300.0),
-        follow_redirects=True,
+        follow_redirects=False,
         headers=_UPSTREAM_NO_COMPRESSION,
     )
     req_headers: dict[str, str] = {}
@@ -658,9 +697,11 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
     if rng:
         req_headers["range"] = rng
     try:
-        resp = await client.send(
-            client.build_request("GET", url, headers=req_headers), stream=True
-        )
+        # 2026-10-31 安全强化第 10 批:手动逐跳,每跳过 SSRF 尺(重定向绕过封死)
+        resp = await _send_following_redirects(client, url, headers=req_headers)
+    except HTTPException:
+        await client.aclose()
+        raise  # SSRF 拒绝保持 400,不被吞成 502
     except Exception as e:  # noqa: BLE001
         await client.aclose()
         logger.warning("[media_tasks] 播放代理连接源站失败: %s", e)
@@ -736,11 +777,15 @@ async def proxy_image(url: str, request: Request) -> Any:
 
     client = httpx.AsyncClient(
         timeout=httpx.Timeout(20.0, read=60.0),
-        follow_redirects=True,
+        follow_redirects=False,
         headers=_UPSTREAM_NO_COMPRESSION,
     )
     try:
-        resp = await client.send(client.build_request("GET", url), stream=True)
+        # 2026-10-31 安全强化第 10 批:手动逐跳,每跳过 SSRF 尺(重定向绕过封死)
+        resp = await _send_following_redirects(client, url)
+    except HTTPException:
+        await client.aclose()
+        raise  # SSRF 拒绝保持 400,不被吞成 502
     except Exception as e:  # noqa: BLE001
         await client.aclose()
         logger.warning("[media_tasks] 图片代理连接源站失败: %s", e)

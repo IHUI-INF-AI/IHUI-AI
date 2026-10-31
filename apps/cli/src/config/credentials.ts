@@ -528,7 +528,19 @@ export function authenticateInbound(
   req: InboundAuthRequest,
   ctx: InboundAuthContext,
 ): InboundAuthDecision {
-  if (!hasInboundCredentials(ctx)) return { ok: true, subject: 'anonymous' };
+  // 2026-10-31 安全强化第 10 批:anonymous 透传收窄 —— 主机未配置任何凭据时,只有
+  // 不要求 scope 的请求(/health)放行;凡要求 scope 一律 401。原"零凭据 ⇒ 全 API
+  // 匿名直通"叠加 CORS * 与 WS 无 Origin 校验,等于本机任意网页 drive-by 操纵 Agent。
+  if (!hasInboundCredentials(ctx)) {
+    if (req.requiredScope === undefined) return { ok: true, subject: 'anonymous' };
+    return {
+      ok: false,
+      status: 401,
+      errorCode: 'CREDENTIAL_MISSING',
+      message:
+        'Missing credential: host has no inbound credentials configured; set --token or IHUI_AGENT_TOKEN',
+    };
+  }
 
   const presented = bearerOf(req.authorization) ?? req.queryToken?.trim();
   if (!presented) {

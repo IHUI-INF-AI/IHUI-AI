@@ -78,7 +78,13 @@ export function buildCsp({ nonce, dev }: BuildCspOptions): string {
     "font-src 'self' data:",
     dev
       ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
-      : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
+      : // 2026-10-31 收口:生产档原为 `https: wss:` 通配 —— 那等于让"任意 https 域"都能当
+        // XSS 之后的数据外泄信道(同源策略里 connect-src 是最后一道)。逐目标枚举过
+        // (apps/web/src + app + packages,含 WS/EventSource/beacon/tauri-http 四类出口):
+        // 浏览器真正会连的外部源只有 api.aizhs.top 的 https + wss(WS 换票与流式),
+        // 其余(静态图/下载/媒体)都经同源 /api/* 代理;桌面壳另有 ipc.localhost(自定义协议)。
+        // 与 apps/desktop/src-tauri/tauri.conf.json 的 CSP 同源同名单,改一处必须同改另一处。
+        "connect-src 'self' https://api.aizhs.top wss://api.aizhs.top http://ipc.localhost https://ipc.localhost",
     // 2026-10-30 末已根治收紧:视频/音频全部走同源代理(<video src="/api/media/stream?url=…">,
     // 经 web rewrites 同源访问,浏览器自动带 httpOnly auth cookie),故不需要 https: 通配;
     // 后端复用下载代理的 SSRF 闸门并透传 Range(播放器可拖拽 seek)。blob: 保留 —— 下载按钮

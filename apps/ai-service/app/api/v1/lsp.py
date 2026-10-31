@@ -42,6 +42,7 @@ from app.services.command_streamer import (
     read_protocol_frame,
 )
 from app.services.process_tree import CREATE_NO_WINDOW, kill_process_tree
+from app.services.workspace_roots import assert_workspace_root
 
 logger = logging.getLogger(__name__)
 
@@ -135,12 +136,31 @@ def _detect_language_id(file_path: str) -> str:
     }.get(ext, ext or "plaintext")
 
 
-def _resolve_file(file: str, workspace_path: str) -> str:
-    """file 参数 → 绝对路径,并校验存在。"""
-    abs_path = file if os.path.isabs(file) else os.path.join(workspace_path, file)
-    if not os.path.isfile(abs_path):
+# ==================== 工作区白名单(2026-10-31 安全强化第 11 批)====================
+# 判据单源 = app/services/workspace_roots.py(对齐 apps/api utils/workspace-roots.ts
+# 的 IHUI_WORKSPACE_ROOTS fail-closed 语义):workspacePath 一直是客户端自报字符串,
+# 「file 落在工作区内」这条判据传 workspacePath="/" 即自我成立;LSP 会把文件内容经
+# diagnostics/hover 回传给任意登录用户 ⇒ 此前等价于服务器任意文件读。
+
+def _assert_workspace_root(workspace_path: str) -> str:
+    """工作区必须在白名单内,返回归一后的绝对路径;错误文案不回显服务器路径。"""
+    return assert_workspace_root(workspace_path)
+
+
+def _resolve_file(file: str, real_ws: str) -> str:
+    """file 参数 → 绝对路径,并校验在工作区内且存在。
+
+    2026-10-31 安全强化第 11 批:此前 file 显式接受任意绝对路径(symlink/.. 由
+    isfile 直读),现由端点先过 _assert_workspace_root 得归一工作区,再在此处
+    resolve 后强制 containment。
+    """
+    abs_path = file if os.path.isabs(file) else os.path.join(real_ws, file)
+    resolved = Path(abs_path).resolve(strict=False)
+    if not resolved.is_relative_to(Path(real_ws)):
+        raise HTTPException(status_code=400, detail="文件不在工作区内")
+    if not resolved.is_file():
         raise HTTPException(status_code=404, detail=f"文件不存在: {file}")
-    return abs_path
+    return str(resolved)
 
 
 def _normalize_locations(result: Any) -> list[dict[str, Any]]:
@@ -633,8 +653,9 @@ def _lsp_unavailable_body(e: Exception) -> dict[str, Any]:
 async def goto_definition(req: LspPositionRequest) -> dict[str, Any]:
     """POST /api/v1/lsp/definition — 转到定义。"""
     _check_lsp_available()
-    file_path = _resolve_file(req.file, req.workspacePath)
-    client = LspClient.get(req.workspacePath)
+    real_ws = _assert_workspace_root(req.workspacePath)
+    file_path = _resolve_file(req.file, real_ws)
+    client = LspClient.get(real_ws)
     try:
         await client._ensure_started()
         locations = await client.goto_definition(file_path, req.line, req.column)
@@ -647,7 +668,7 @@ async def goto_definition(req: LspPositionRequest) -> dict[str, Any]:
         "message": "ok",
         "data": {
             "count": len(locations),
-            "locations": [_format_location(loc, req.workspacePath) for loc in locations],
+            "locations": [_format_location(loc, real_ws) for loc in locations],
         },
     }
 
@@ -656,8 +677,9 @@ async def goto_definition(req: LspPositionRequest) -> dict[str, Any]:
 async def find_references(req: LspReferencesRequest) -> dict[str, Any]:
     """POST /api/v1/lsp/references — 查找引用。"""
     _check_lsp_available()
-    file_path = _resolve_file(req.file, req.workspacePath)
-    client = LspClient.get(req.workspacePath)
+    real_ws = _assert_workspace_root(req.workspacePath)
+    file_path = _resolve_file(req.file, real_ws)
+    client = LspClient.get(real_ws)
     include_decl = req.includeDeclaration is not False
     try:
         await client._ensure_started()
@@ -673,7 +695,7 @@ async def find_references(req: LspReferencesRequest) -> dict[str, Any]:
         "message": "ok",
         "data": {
             "count": len(locations),
-            "locations": [_format_location(loc, req.workspacePath) for loc in locations],
+            "locations": [_format_location(loc, real_ws) for loc in locations],
             "includeDeclaration": include_decl,
         },
     }
@@ -683,8 +705,9 @@ async def find_references(req: LspReferencesRequest) -> dict[str, Any]:
 async def get_diagnostics(req: LspFileRequest) -> dict[str, Any]:
     """POST /api/v1/lsp/diagnostics — 文件诊断。"""
     _check_lsp_available()
-    file_path = _resolve_file(req.file, req.workspacePath)
-    client = LspClient.get(req.workspacePath)
+    real_ws = _assert_workspace_root(req.workspacePath)
+    file_path = _resolve_file(req.file, real_ws)
+    client = LspClient.get(real_ws)
     try:
         await client._ensure_started()
         diagnostics = await client.get_diagnostics(file_path)
@@ -711,8 +734,9 @@ async def get_diagnostics(req: LspFileRequest) -> dict[str, Any]:
 async def get_hover(req: LspPositionRequest) -> dict[str, Any]:
     """POST /api/v1/lsp/hover — 符号 hover 信息。"""
     _check_lsp_available()
-    file_path = _resolve_file(req.file, req.workspacePath)
-    client = LspClient.get(req.workspacePath)
+    real_ws = _assert_workspace_root(req.workspacePath)
+    file_path = _resolve_file(req.file, real_ws)
+    client = LspClient.get(real_ws)
     try:
         await client._ensure_started()
         hover = await client.hover(file_path, req.line, req.column)

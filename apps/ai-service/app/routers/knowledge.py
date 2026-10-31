@@ -25,18 +25,27 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from app.core.jwt_auth import get_current_user_id
 from app.services.knowledge_compiler import compile_project, load_active_cards, slugify
+from app.services.workspace_roots import assert_workspace_root
 
 router = APIRouter()
 
 
 def _resolve_workspace_root(workspace_path: str | None) -> Path:
-    """落点解析:显式路径优先(必须存在),缺省取进程 cwd。"""
-    if workspace_path:
-        p = Path(workspace_path).expanduser()
-        if not p.is_dir():
-            raise HTTPException(status_code=400, detail=f"workspace_path 不存在: {workspace_path}")
-        return p
-    return Path.cwd()
+    """落点解析:显式路径优先(必须存在),缺省取进程 cwd。
+
+    2026-10-31 安全强化第 11 批:两分支一律过 IHUI_WORKSPACE_ROOTS 白名单判据
+    (单源 app/services/workspace_roots.py,与 apps/api 文件桥同判据)—— 此前
+    workspace_path 是客户端自报字符串,登录用户可让编译产物写到服务器任意可写
+    目录,GET 端点则构成全盘目录存在性 oracle。fail-closed:env 未登记 ⇒ 一律 400。
+    """
+    raw = workspace_path if workspace_path else str(Path.cwd())
+    p = Path(assert_workspace_root(raw))
+    if not p.is_dir():
+        raise HTTPException(
+            status_code=400,
+            detail=f"workspace_path 不存在: {workspace_path or '(缺省 cwd)'}",
+        )
+    return p
 
 
 @router.post("/knowledge/compile")

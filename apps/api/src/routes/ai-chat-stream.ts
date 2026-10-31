@@ -25,6 +25,8 @@ import {
   type ChatMessage,
 } from '@ihui/context-compaction'
 import { checkAuth } from '../plugins/auth.js'
+import { mapUpstreamOutbound, UPSTREAM_AUTH_FAILED_MESSAGE } from '../errors/upstream-status.js'
+import { ErrorCode } from '../errors/codes.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
 import {
@@ -1695,9 +1697,25 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         },
       )
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      // L7648 单源映射:本路由已过 authenticate,下游再回 401/403 只可能是
+      // **服务侧凭据**被上游拒收,不是用户会话失效。旧实现把 resp.status 原样出栈,
+      // 于是 api-client 的 401 出口(refresh→notifyUnauthorized 链)把一次"别人家的 key 错了"
+      // 读成"你登录过期了"——用户被踢下线,而真原因在我方。真 401 只允许由 plugins/auth.ts 发。
+      const outbound = mapUpstreamOutbound(resp.status)
       if (!resp.ok) {
-        // 透传 ai-service 状态码(422/404/429),前端据 429 提示队列已满
-        return reply.status(resp.status).send(data)
+        if (outbound.remapped) {
+          return reply
+            .status(outbound.status)
+            .send(
+              error(
+                outbound.status,
+                UPSTREAM_AUTH_FAILED_MESSAGE,
+                ErrorCode.UPSTREAM_AUTH_FAILED.code,
+              ),
+            )
+        }
+        // 其余(422/404/429)继续透传,前端据 429 提示队列已满
+        return reply.status(outbound.status).send(data)
       }
       request.log.info(
         { conversationId, messageId, status: resp.status },

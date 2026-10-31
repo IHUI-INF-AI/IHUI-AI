@@ -58,7 +58,7 @@ async def test_snapshot_then_recall_hit(tmp_path: Path) -> None:
     )
     assert written == 2
 
-    result = await svc.recall(session_id="sess-1", query=msg_user, top_k=8)
+    result = await svc.recall(session_id="sess-1", query=msg_user, top_k=8, user_id="u-1")
     assert result.get("ok") is True
     results = result["results"]
     assert len(results) >= 1
@@ -77,7 +77,9 @@ async def test_recall_empty_when_no_match(tmp_path: Path) -> None:
         user_id="u-2",
         removed_messages=[{"role": "user", "content": "今天天气真好"}],
     )
-    result = await svc.recall(session_id="sess-2", query="量子计算拓扑纠错码综述", top_k=8)
+    result = await svc.recall(
+        session_id="sess-2", query="量子计算拓扑纠错码综述", top_k=8, user_id="u-2"
+    )
     assert result.get("ok") is True
     assert result["results"] == []
 
@@ -94,13 +96,13 @@ async def test_recall_session_filter(tmp_path: Path) -> None:
         session_id="sess-b", user_id="u", removed_messages=[{"role": "user", "content": msg_b}],
     )
     # 用 sess-a 原文查询:全库命中且包含 sess-a;限定 sess-a 命中 1 条,sess-b 为 0
-    all_res = await svc.recall(session_id=None, query=msg_a, top_k=8)
+    all_res = await svc.recall(session_id=None, query=msg_a, top_k=8, user_id="u")
     assert len(all_res["results"]) >= 1
     assert any(r["session_id"] == "sess-a" for r in all_res["results"])
-    a_res = await svc.recall(session_id="sess-a", query=msg_a, top_k=8)
+    a_res = await svc.recall(session_id="sess-a", query=msg_a, top_k=8, user_id="u")
     assert len(a_res["results"]) == 1
     assert a_res["results"][0]["session_id"] == "sess-a"
-    b_res = await svc.recall(session_id="sess-b", query=msg_a, top_k=8)
+    b_res = await svc.recall(session_id="sess-b", query=msg_a, top_k=8, user_id="u")
     assert b_res["results"] == []
 
 
@@ -114,7 +116,7 @@ async def test_snapshot_empty_noop(tmp_path: Path) -> None:
 async def test_recall_empty_query_ok(tmp_path: Path) -> None:
     """空 query 直接返回 ok + 空 results,不触发 embed。"""
     svc = _make_isolated_service(tmp_path)
-    result = await svc.recall(session_id=None, query="   ", top_k=8)
+    result = await svc.recall(session_id=None, query="   ", top_k=8, user_id="u")
     assert result.get("ok") is True
     assert result["results"] == []
 
@@ -163,9 +165,44 @@ async def test_recall_embed_failure_degrade(tmp_path: Path) -> None:
         raise RuntimeError("embed down")
 
     svc._store.embed = _boom  # type: ignore[method-assign]
-    result = await svc.recall(session_id=None, query="任意", top_k=8)
+    result = await svc.recall(session_id=None, query="任意", top_k=8, user_id="u")
     assert result.get("ok") is False
     assert "error" in result
+
+
+async def test_recall_never_crosses_user(tmp_path: Path) -> None:
+    """跨用户回捞必须拿不到别人的压缩原文(2026-10-31 立的归属维)。
+
+    缺陷本体:snapshot 侧逐条记了 user_id,recall 侧却从不消费它 ⇒ 任一用户的
+    一次回捞查询就能把别人的旧消息原文(含会话 id)捞进自己的模型上下文。
+    三档成对:
+      ① 以 u-victim 的主体回捞 ⇒ 命中(正向对照,防判据被改成"恒空");
+      ② 以 u-attacker 的主体回捞同一条 query ⇒ 0 条;
+      ③ session_id 为空(全库档)同样不得越出主体(旧写法正是这一档把全库交出去)。
+    """
+    svc = _make_isolated_service(tmp_path)
+    secret = "我的银行卡尾号 1234 的取款预约内容"
+    written = await svc.snapshot_compacted(
+        session_id="sess-victim",
+        user_id="u-victim",
+        removed_messages=[{"role": "user", "content": secret}],
+    )
+    assert written == 1
+
+    own = await svc.recall(
+        session_id="sess-victim", query=secret, top_k=8, user_id="u-victim"
+    )
+    assert own["ok"] is True
+    assert [r["text"] for r in own["results"]] == [secret]
+
+    foreign = await svc.recall(
+        session_id="sess-victim", query=secret, top_k=8, user_id="u-attacker"
+    )
+    assert foreign["ok"] is True
+    assert foreign["results"] == []
+
+    foreign_all = await svc.recall(session_id=None, query=secret, top_k=8, user_id="u-attacker")
+    assert foreign_all["results"] == []
 
 
 def test_readonly_tools_include_context_recall() -> None:

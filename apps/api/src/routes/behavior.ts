@@ -46,12 +46,14 @@ const myWatchListQuery = z.object({
 
 const deleteWatchQuery = z.object({
   id: z.uuid({ error: '无效的 ID' }),
-  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
-const clearWatchQuery = z.object({
-  userId: z.uuid({ error: '无效的用户 ID' }),
-})
+// G-261 形状闸:清空范围只认令牌主体(§5 认证不等于授权),但**非法的 ?userId= 必须 400**,
+// 不能悄悄把它当垃圾参数丢掉后回 200 —— 那正是"500/200 掩盖 400"那一型的镜像:
+// 客户端拿到 200 会以为"按这个会员清过了",实际一位没清。
+// 2026-10-30 的安全强化把它改成了 z.object({}),闸就此消失,而路由 schema 里的注释
+// 仍写着"uuid 由 clearWatchQuery(Zod)校验" —— 注释与实现脱节比缺闸更难查。
+const clearWatchQuery = z.object({ userId: z.uuid({ error: 'userId 格式不正确' }).optional() })
 
 const likeCountsSchema = z.object({
   resourceType: z.string().min(1).max(50),
@@ -269,7 +271,8 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const deleted = await deleteWatch(parsed.data.id, parsed.data.userId)
+      // 归属只认令牌主体:原写法 userId 来自 query 且可选,省略即可删任意用户的记录(§5 认证不等于授权)
+      const deleted = await deleteWatch(parsed.data.id, request.userId!)
       if (!deleted) return reply.status(404).send(error(404, '浏览记录不存在'))
       return reply.send(success({ id: parsed.data.id, deleted }))
     },
@@ -301,7 +304,8 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const deleted = await clearAllWatch(parsed.data.userId)
+      // 清空范围同样只认令牌主体,不接受 ?userId=<任意 UUID>
+      const deleted = await clearAllWatch(request.userId!)
       return reply.send(success({ deleted }))
     },
   )

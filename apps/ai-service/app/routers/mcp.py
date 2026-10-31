@@ -8,7 +8,9 @@
 """
 
 import logging
+import os
 from dataclasses import asdict
+from pathlib import PurePath
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -357,6 +359,23 @@ async def register_directory_server(
     try:
         from ..services.mcp_directory import to_client_config
 
+        # req.args[0] 在本端点里不是"参数",而是 filesystem 类 server 的工作目录载体:
+        # 它会被 to_client_config 拼进 catalog 条目的 args 第三位,而那个 server 真会按它
+        # 读写文件 ⇒ 不校验就等于任一登录用户都能把服务端文件系统挂到 D:\IHUI-AI 或
+        # C:\Users\… 上读 .env。判据复用 mcp_server 那一份 deny-by-default 白名单
+        # (MCP_WORKSPACE_ROOTS,含 symlink 穿越防护);extra_roots=() 是刻意的:
+        # 注册期还没有"会话附加目录"这回事,只认进程级白名单。
+        workspace_arg = (req.args[0] if req.args else "") or ""
+        if workspace_arg.strip():
+            ok_root, root_detail = mcp_server_module._validate_path_in_workspace(
+                workspace_arg, extra_roots=()
+            )
+            if not ok_root:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": f"工作目录不在允许范围内: {root_detail}"},
+                )
+
         cfg_dict = to_client_config(
             key,
             env_overrides=req.env or {},
@@ -416,8 +435,29 @@ async def list_external_servers(
         )  # type: ignore[return-value]
 
 
+def stdio_command_allowed(command: str) -> bool:
+    """stdio 可执行文件是否落在部署级允许清单内(fail-closed)。
+
+    清单 = env `MCP_STDIO_COMMAND_ALLOWLIST`,逗号分隔;空/未配置 ⇒ 任何 command 都不放行。
+    比对同时接受"整条命令串"与"可执行文件名"两种写法(Windows 绝对路径与裸 `npx` 都要能用),
+    但绝不做前缀/通配匹配 —— 前缀会让 `/usr/bin/py` 这类部分命中变成放行借口。
+    两侧同形归一(反斜杠→正斜杠 + casefold):清单里写 `C:\\tools\\node.exe` 而调用方传
+    `C:/tools/node.exe` 必须算同一个东西,否则 Windows 上的白名单会静默匹配不上。
+    """
+
+    def _norm(value: str) -> str:
+        return value.strip().replace("\\", "/").casefold()
+
+    allow = {_norm(s) for s in os.getenv("MCP_STDIO_COMMAND_ALLOWLIST", "").split(",") if s.strip()}
+    exe = _norm(command)
+    if not exe or not allow:
+        return False
+    return exe in allow or PurePath(exe).name in allow
+
+
 @router.post("/mcp/external/servers", response_model=None)
 async def register_external_server(
+    request: Request,
     req: ExternalServerRegisterRequest,
     user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
@@ -434,6 +474,23 @@ async def register_external_server(
             )
         if transport == TRANSPORT_STDIO and not req.command.strip():
             return JSONResponse(status_code=400, content={"error": "stdio 模式缺少 command"})
+        if transport == TRANSPORT_STDIO:
+            # stdio 注册 = 让服务端 create_subprocess_exec 起一个由请求方指定的进程
+            # (mcp_client.py 直接 exec(resolved_command, *args, env=proc_env)),
+            # 等同把服务端命令执行能力开放给调用者。两道闸缺一不可:
+            #   ① 角色:只有管理员能注册本地进程(角色只经 resolve_request_role_id 那一份出口,
+            #      它把缺失/非整数/负数一律归一到 0 ⇒ 取不到角色天然是"拒绝"而非"放开");
+            #   ② 可执行文件白名单:部署级给出,未配置即为空 ⇒ 该能力对所有人关闭。
+            if resolve_request_role_id(request) < 1:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "stdio 传输的 MCP Server 只能由管理员注册"},
+                )
+            if not stdio_command_allowed(req.command):
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "command 不在部署级允许清单(MCP_STDIO_COMMAND_ALLOWLIST)内"},
+                )
         if transport == TRANSPORT_SSE and not req.url.strip():
             return JSONResponse(status_code=400, content={"error": "sse 模式缺少 url"})
 

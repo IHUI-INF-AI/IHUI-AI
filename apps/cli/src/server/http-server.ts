@@ -36,6 +36,8 @@ import type { ApiKeyPermission } from '@ihui/types';
 
 export interface AgentServerOptions {
   port: number;
+  /** 绑定地址(2026-10-31 安全强化第 10 批起默认 127.0.0.1;显式传 host 才放开局域网面) */
+  host?: string;
   token?: string;
   /** O12:放行的机器凭据清单(ihui_ 前缀 + secret + scopes) */
   machineKeys?: MachineKeyEntry[];
@@ -48,6 +50,12 @@ export interface AgentServerHandle {
   /** 实际监听端口(opts.port 传 0 时为系统分配的临时端口) */
   port: number;
   close: () => Promise<void>;
+}
+
+/** 是否回环绑定(决定 CORS 语义:回环面允许本机 web 开发消费,非回环面不发 CORS 头) */
+export function isLoopbackHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase();
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
 }
 
 /**
@@ -75,11 +83,18 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
     requireApiSecret: opts.requireApiSecret,
   };
   const startTime = Date.now();
+  // 2026-10-31 安全强化第 10 批:默认只绑回环(此前 listen(port) 落到 0.0.0.0,
+  // 局域网对端可达);CORS 头只在回环面发 —— 非回环暴露面的浏览器跨源请求本身就是
+  // drive-by,不发 ACAO 让预检直接失败。
+  const bindHost = opts.host ?? '127.0.0.1';
+  const loopback = isLoopbackHost(bindHost);
 
   const server = http.createServer(async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Api-Secret');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (loopback) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Api-Secret');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    }
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
@@ -176,7 +191,7 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
 
   return new Promise((resolve, reject) => {
     server.on('error', reject);
-    server.listen(opts.port, () => {
+    server.listen(opts.port, bindHost, () => {
       // opts.port 可为 0(测试用临时端口),真实端口以 address() 为准
       const address = server.address();
       const boundPort = typeof address === 'object' && address ? address.port : opts.port;

@@ -26,14 +26,6 @@
     "dialog:allow-save",
     "autostart:default",
     "global-shortcut:default",
-    {
-      "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$APPDATA/**" }]
-    },
-    {
-      "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$APPDATA/**" }]
-    },
     "notification:default",
     "os:default",
     "store:default",
@@ -53,7 +45,6 @@
     "allow-embedded-browser-state",
     "allow-embedded-browser-new-tab",
     "allow-embedded-browser-devtools",
-    "allow-get-admin-window-info",
     "allow-toggle-devtools",
     "allow-quit-app",
     "allow-restart-app",
@@ -120,17 +111,6 @@
     "allow-workbuddy-quarantine-delete",
     "allow-workbuddy-reset-history",
     "allow-workbuddy-reset-factory",
-    "allow-minimax-reset-probe",
-    "allow-minimax-reset-plan",
-    "allow-minimax-reset-maintenance",
-    "allow-minimax-reset-logout",
-    "allow-minimax-reset-factory",
-    "allow-minimax-quarantine-list",
-    "allow-minimax-quarantine-restore",
-    "allow-minimax-quarantine-delete",
-    "allow-minimax-reset-history",
-    "allow-checkin-audit-minimax-residual",
-    "allow-checkin-audit-workbuddy-residual",
     "allow-checkin-one-click-reset-all"
   ]
 }

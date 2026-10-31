@@ -26,6 +26,7 @@ import os
 from typing import Any
 
 from ..core.db import get_db_conn
+from .aigc_labeling import label_aigc_payload
 
 __all__ = ["get_db_conn"]
 
@@ -155,6 +156,10 @@ async def persist_media_task(
         "completed": bool(result.get("completed")),
         "progress": result.get("progress"),
     }
+    # AIGC 生成内容打标(goal-b40,对齐 Trae tagAigcMetadata):落库链路自动打标,
+    # payload 新增 aigc 块(显式标识文案+标识类型+生成方+标准引用);新增键对既有
+    # 消费方零破坏,AIGC_LABELING_ENABLED=false 关掉即逐字节旧行为。
+    payload = label_aigc_payload(payload, kind=kind, tool=tool, provider=provider)
     try:
         conn = await get_db_conn()
         try:

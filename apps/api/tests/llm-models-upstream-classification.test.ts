@@ -66,6 +66,14 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
 }))
 
+// 本文件全部用例都以 ADMIN_ID 出行,而 /models 会问"是不是系统内置管理员"来决定
+// 是否过滤受限模型(2026-10-31 前该判定是死代码,现在真的会查)。
+// 桩成 true 才能保住 ⑥ 的正向对照语义"管理员 ⇒ 原样透传";
+// 受限模型过滤本身的正反例在 llm-models-restricted-filter-authorization.test.ts。
+vi.mock('../src/db/queries.js', () => ({
+  isSystemAdminUser: vi.fn().mockResolvedValue(true),
+}))
+
 function createChainableMock() {
   const thenFn = (resolve: (v: unknown) => void) => Promise.resolve([]).then(resolve)
   const make = (): Record<string, unknown> =>

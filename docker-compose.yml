@@ -219,7 +219,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
       - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
     ports:
-      - '${WEB_PORT:-8801}:8801'
+      - '127.0.0.1:${WEB_PORT:-8801}:8801'
     depends_on:
       api:
         condition: service_healthy
@@ -235,7 +235,7 @@ services:
     container_name: ihui-ai-service
     restart: unless-stopped
     ports:
-      - '${AI_SERVICE_PORT:-8803}:8803'
+      - '127.0.0.1:${AI_SERVICE_PORT:-8803}:8803'
     environment:
       - NODE_ENV=production
       - PORT=8803

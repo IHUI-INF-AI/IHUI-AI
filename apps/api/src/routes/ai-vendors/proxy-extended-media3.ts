@@ -17,6 +17,7 @@
  */
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
+import { escapeXml } from '../../utils/xml-escape.js'
 import { buildSchema } from '../../utils/swagger.js'
 import {
   requireAuth,
@@ -97,7 +98,8 @@ const cartesiaTtsBody = z.object({
 // ============ Azure Speech TTS 官方参数(region/voice/lang/outputFormat) ============
 const azureSpeechTtsBody = z.object({
   text: z.string().min(1),
-  region: z.string().min(1), // 资源区域,如 eastus / westeurope
+  // region 同样拼进主机名(`https://{region}.tts.speech.microsoft.com`),形状必须收死
+  region: z.string().regex(/^[a-z0-9]{2,20}$/i), // 资源区域,如 eastus / westeurope
   voice: z.string().optional(), // zh-CN-XiaoxiaoNeural / en-US-JennyNeural
   lang: z.string().optional(), // SSML xml:lang
   output_format: z.string().optional(), // X-Microsoft-OutputFormat
@@ -107,10 +109,21 @@ const azureSpeechTtsBody = z.object({
 })
 
 // ============ Azure OpenAI 专有协议(deployment/resource 级端点) ============
+// 这三段是**拼进 URL 结构**的,不是请求体里的值:
+//   resource → `https://{resource}.openai.azure.com`(主机名的一个标签)
+//   deployment → 路径段;apiVersion → query 值
+// 原先只做 `min(1)`,于是 `resource=evil.test/#` 会拼出
+// `https://evil.test/#.openai.azure.com/openai/models` —— 主机名整段被换掉,
+// 而 callVendorWithKey 把**服务端存的 Azure 密钥**放进出站请求头 ⇒ 凭据外发到
+// 攻击者主机 + 认证型 SSRF(内网/元数据同样打得到)。形状收窄到"DNS 标签/路径段/
+// 版本号"三档,坏值当场 400,而不是让它进到 URL 构造函数里。
+const AZURE_RESOURCE_RE = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/
+const AZURE_DEPLOYMENT_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/
+const AZURE_API_VERSION_RE = /^[0-9A-Za-z-]{1,20}$/
 const azureResourceBody = {
-  resource: z.string().min(1), // 资源名 → https://{resource}.openai.azure.com
-  deployment: z.string().min(1), // 部署名(model deployment)
-  apiVersion: z.string().optional(), // 缺省 2024-10-21
+  resource: z.string().regex(AZURE_RESOURCE_RE), // 资源名 → https://{resource}.openai.azure.com
+  deployment: z.string().regex(AZURE_DEPLOYMENT_RE), // 部署名(model deployment)
+  apiVersion: z.string().regex(AZURE_API_VERSION_RE).optional(), // 缺省 2024-10-21
 }
 const azureChatBody = z.object({
   ...azureResourceBody,
@@ -150,8 +163,8 @@ const azureSpeechBody = z.object({
   speed: z.number().min(0.25).max(4.0).optional(),
 })
 const azureModelsQuery = z.object({
-  resource: z.string().min(1),
-  apiVersion: z.string().optional(),
+  resource: z.string().regex(AZURE_RESOURCE_RE),
+  apiVersion: z.string().regex(AZURE_API_VERSION_RE).optional(),
 })
 
 // ---- Stability Image-to-Video 官方参数(multipart:image/seed/cfg_scale/motion_bucket_id) ----
@@ -184,9 +197,45 @@ const ADOBE_IMS_TOKEN_URL = 'https://ims-na1.adobelogin.com/ims/token/v3'
 const ADOBE_FIREFLY_SCOPE =
   'openid,additional_info.projectedProductContext,additional_info.job_function,firefly_api,ff_ondemand.onee'
 
+/**
+ * Azure TTS 的 SSML 组装(唯一形状;每个来自请求体的值都过 escapeXml)。
+ *
+ * 立因:SSML 是**字符串拼出来的 XML**,text/voice/lang/rate/pitch/volume 全部来自请求体。
+ * 未转义时 `text` 里一句 `</voice></speak><mstts:express-as style="..."` 就能关掉外层节点、
+ * 把任意 SSML 注入**我方替用户发起**的合成请求(换音色、改语速、朗读被拼进去的别的文本),
+ * 并让其后所有属性失效。转义实现只住 utils/xml-escape.ts(§0.6),本处不再写第二份。
+ */
+export function buildAzureSsml(input: {
+  text: string
+  voice?: string
+  lang?: string
+  rate?: string
+  pitch?: string
+  volume?: string
+}): string {
+  const voice = input.voice ?? 'zh-CN-XiaoxiaoNeural'
+  const lang = input.lang ?? 'zh-CN'
+  const prosody =
+    input.rate || input.pitch || input.volume
+      ? `<prosody${input.rate ? ` rate='${escapeXml(input.rate)}'` : ''}${input.pitch ? ` pitch='${escapeXml(input.pitch)}'` : ''}${input.volume ? ` volume='${escapeXml(input.volume)}'` : ''}>${escapeXml(input.text)}</prosody>`
+      : escapeXml(input.text)
+  return `<speak version='1.0' xml:lang='${escapeXml(lang)}'><voice name='${escapeXml(voice)}'>${prosody}</voice></speak>`
+}
+
 /** Azure OpenAI 端点拼接(resource 级官方 URL) */
 function azureUrl(resource: string, path: string, apiVersion: string): string {
   return `https://${resource}.openai.azure.com${path}?api-version=${apiVersion}`
+}
+
+/**
+ * 形状收窄四档的机读出口(§22c:测试直接吃这三条正则与本仓的 azureUrl,
+ * 不在测试里重抄一份判据 —— 第二份必然漂移)。
+ */
+export const __test__ = {
+  azureResourceShape: (v: string) => z.string().regex(AZURE_RESOURCE_RE).safeParse(v).success,  azureDeploymentShape: (v: string) => z.string().regex(AZURE_DEPLOYMENT_RE).safeParse(v).success,
+  azureApiVersionShape: (v: string) => z.string().regex(AZURE_API_VERSION_RE).safeParse(v).success,
+  azureSpeechRegionShape: (v: string) => azureSpeechTtsBody.shape.region.safeParse(v).success,
+  azureUrl,
 }
 
 export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => {
@@ -268,8 +317,12 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         { method: 'GET' },
       )
       if (upstream) {
-        task.result = { ...(task.result as Record<string, unknown>), ...(upstream as Record<string, unknown>) }
-        const st = (upstream as { generations_by_pk?: { status?: string } }).generations_by_pk?.status
+        task.result = {
+          ...(task.result as Record<string, unknown>),
+          ...(upstream as Record<string, unknown>),
+        }
+        const st = (upstream as { generations_by_pk?: { status?: string } }).generations_by_pk
+          ?.status
         if (st === 'COMPLETE') task.status = 'succeeded'
         else if (st === 'FAILED') task.status = 'failed'
         else if (st === 'PENDING' || st === 'GENERATING') task.status = 'running'
@@ -316,7 +369,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         if (!tokenResp.ok || typeof issuedToken !== 'string' || issuedToken.length === 0) {
           // 只回传 RFC 6749 错误码;不透传上游令牌端点响应体(失败体亦可能含凭据字段)
           const detail = typeof oauthErrorCode === 'string' ? oauthErrorCode : ''
-          return reply.status(502).send(error(502, `Firefly 令牌获取失败: ${tokenResp.status} ${detail}`))
+          return reply
+            .status(502)
+            .send(error(502, `Firefly 令牌获取失败: ${tokenResp.status} ${detail}`))
         }
         imsToken = issuedToken
       } catch (e) {
@@ -336,7 +391,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
           body: JSON.stringify({
             prompt: body.prompt,
             ...(body.n ? { n: body.n } : {}),
-            ...(body.width && body.height ? { size: { width: body.width, height: body.height } } : {}),
+            ...(body.width && body.height
+              ? { size: { width: body.width, height: body.height } }
+              : {}),
             ...(body.seed !== undefined ? { seed: body.seed } : {}),
             ...(body.content_class ? { contentClass: body.content_class } : {}),
             ...(body.style ? { styles: [{ reference: body.style, strength: 1 }] } : {}),
@@ -348,9 +405,14 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         outputs?: Array<{ seed?: number; image?: { id?: string } }>
       }
       if (!genResp.ok) {
-        return reply.status(502).send(
-          error(502, `Firefly 调用失败: ${genResp.status} ${JSON.stringify(genData).slice(0, 400)}`),
-        )
+        return reply
+          .status(502)
+          .send(
+            error(
+              502,
+              `Firefly 调用失败: ${genResp.status} ${JSON.stringify(genData).slice(0, 400)}`,
+            ),
+          )
       }
       // 第三步:逐一下载生成的图片转 base64
       const images: string[] = []
@@ -401,7 +463,16 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const q = new URLSearchParams()
       if (body.model) q.set('model', body.model)
       if (body.language) q.set('language', body.language)
-      for (const b of ['punctuate', 'smart_format', 'diarize', 'paragraphs', 'detect_language', 'filler_words', 'numerals', 'profanity_filter'] as const) {
+      for (const b of [
+        'punctuate',
+        'smart_format',
+        'diarize',
+        'paragraphs',
+        'detect_language',
+        'filler_words',
+        'numerals',
+        'profanity_filter',
+      ] as const) {
         if (body[b] !== undefined) q.set(b, String(body[b]))
       }
       if (body.redact) q.set('redact', body.redact)
@@ -438,9 +509,11 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
         if (!resp.ok) {
-          return reply.status(502).send(
-            error(502, `Deepgram 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(502, `Deepgram 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
+            )
         }
         recordUsage(request.userId!, 'deepgram')
         return reply.send(success(data))
@@ -497,14 +570,22 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}))
-          return reply.status(502).send(
-            error(502, `Cartesia 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(
+                502,
+                `Cartesia 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+              ),
+            )
         }
         const buf = Buffer.from(await resp.arrayBuffer())
         recordUsage(request.userId!, 'cartesia')
         return reply.send(
-          success({ audio: `data:audio/${container};base64,${buf.toString('base64')}`, bytes: buf.length }),
+          success({
+            audio: `data:audio/${container};base64,${buf.toString('base64')}`,
+            bytes: buf.length,
+          }),
         )
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -531,15 +612,8 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = azureSpeechTtsBody.parse(request.body)
       const key = requireVendorKey('azure-speech', reply)
       if (!key) return
-      const voice = body.voice ?? 'zh-CN-XiaoxiaoNeural'
-      const lang = body.lang ?? 'zh-CN'
       const outputFormat = body.output_format ?? 'audio-24khz-48kbitrate-mono-mp3'
-      const prosody =
-        body.rate || body.pitch || body.volume
-          ? `<prosody${body.rate ? ` rate='${body.rate}'` : ''}${body.pitch ? ` pitch='${body.pitch}'` : ''}${body.volume ? ` volume='${body.volume}'` : ''}>${body.text}</prosody>`
-          : body.text
-      const ssml =
-        `<speak version='1.0' xml:lang='${lang}'><voice name='${voice}'>${prosody}</voice></speak>`
+      const ssml = buildAzureSsml(body)
       try {
         const resp = await fetchWithTimeout(
           `https://${body.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
@@ -557,13 +631,18 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         if (!resp.ok) {
           const errText = await resp.text().catch(() => '')
-          return reply.status(502).send(error(502, `AzureSpeech 调用失败: ${resp.status} ${errText.slice(0, 400)}`))
+          return reply
+            .status(502)
+            .send(error(502, `AzureSpeech 调用失败: ${resp.status} ${errText.slice(0, 400)}`))
         }
         const buf = Buffer.from(await resp.arrayBuffer())
         const ext = outputFormat.includes('mp3') ? 'mp3' : 'wav'
         recordUsage(request.userId!, 'azure-speech')
         return reply.send(
-          success({ audio: `data:audio/${ext};base64,${buf.toString('base64')}`, bytes: buf.length }),
+          success({
+            audio: `data:audio/${ext};base64,${buf.toString('base64')}`,
+            bytes: buf.length,
+          }),
         )
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -594,7 +673,11 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       if (!(await ensurePointsBalance(request, reply, deployment))) return
       const data = await callVendor(
         'azure',
-        azureUrl(resource, `/openai/deployments/${deployment}/chat/completions`, apiVersion ?? '2024-10-21'),
+        azureUrl(
+          resource,
+          `/openai/deployments/${deployment}/chat/completions`,
+          apiVersion ?? '2024-10-21',
+        ),
         reply,
         { method: 'POST', body: JSON.stringify(payload) },
       )
@@ -647,7 +730,11 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       if (!(await ensurePointsBalance(request, reply, deployment))) return
       const data = await callVendor(
         'azure',
-        azureUrl(resource, `/openai/deployments/${deployment}/embeddings`, apiVersion ?? '2024-10-21'),
+        azureUrl(
+          resource,
+          `/openai/deployments/${deployment}/embeddings`,
+          apiVersion ?? '2024-10-21',
+        ),
         reply,
         { method: 'POST', body: JSON.stringify(payload) },
       )
@@ -676,7 +763,11 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const { resource, deployment, apiVersion, ...payload } = body
       const data = await callVendor(
         'azure',
-        azureUrl(resource, `/openai/deployments/${deployment}/images/generations`, apiVersion ?? '2024-10-21'),
+        azureUrl(
+          resource,
+          `/openai/deployments/${deployment}/images/generations`,
+          apiVersion ?? '2024-10-21',
+        ),
         reply,
         { method: 'POST', body: JSON.stringify(payload) },
       )
@@ -710,7 +801,11 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       if (!file) return reply.status(400).send(error(400, '缺少音频文件(字段名 file)'))
       const buffer = await file.toBuffer()
       const form = new FormData()
-      form.append('file', new Blob([new Uint8Array(buffer)], { type: file.mimetype }), file.filename)
+      form.append(
+        'file',
+        new Blob([new Uint8Array(buffer)], { type: file.mimetype }),
+        file.filename,
+      )
       if (rest.language) form.append('language', rest.language)
       if (rest.prompt) form.append('prompt', rest.prompt)
       if (rest.response_format) form.append('response_format', rest.response_format)
@@ -727,12 +822,16 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}))
-          return reply.status(502).send(
-            error(502, `Azure 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(502, `Azure 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
+            )
         }
         const ct = resp.headers.get('content-type') ?? ''
-        const data = ct.includes('application/json') ? await resp.json() : { text: await resp.text() }
+        const data = ct.includes('application/json')
+          ? await resp.json()
+          : { text: await resp.text() }
         recordUsage(request.userId!, 'azure')
         return reply.send(success(data))
       } catch (e) {
@@ -763,7 +862,11 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       if (!key) return
       try {
         const resp = await fetchWithTimeout(
-          azureUrl(resource, `/openai/deployments/${deployment}/audio/speech`, apiVersion ?? '2024-02-01'),
+          azureUrl(
+            resource,
+            `/openai/deployments/${deployment}/audio/speech`,
+            apiVersion ?? '2024-02-01',
+          ),
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...VENDORS.azure!.authHeader(key) },
@@ -778,15 +881,20 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}))
-          return reply.status(502).send(
-            error(502, `Azure 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(502, `Azure 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
+            )
         }
         const format = payload.response_format ?? 'mp3'
         const buf = Buffer.from(await resp.arrayBuffer())
         recordUsage(request.userId!, 'azure')
         return reply.send(
-          success({ audio: `data:audio/${format};base64,${buf.toString('base64')}`, bytes: buf.length }),
+          success({
+            audio: `data:audio/${format};base64,${buf.toString('base64')}`,
+            bytes: buf.length,
+          }),
         )
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -841,9 +949,14 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
         if (!resp.ok) {
-          return reply.status(502).send(
-            error(502, `Stability 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(
+                502,
+                `Stability 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`,
+              ),
+            )
         }
         recordUsage(request.userId!, 'stability')
         return reply.send(success(data))
@@ -890,9 +1003,14 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         if (ct.includes('application/json')) {
           const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
           if (!resp.ok) {
-            return reply.status(502).send(
-              error(502, `Stability 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
-            )
+            return reply
+              .status(502)
+              .send(
+                error(
+                  502,
+                  `Stability 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`,
+                ),
+              )
           }
           return reply.send(success(data))
         }
@@ -947,9 +1065,14 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}))
-          return reply.status(502).send(
-            error(502, `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(
+                502,
+                `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+              ),
+            )
         }
         const buf = Buffer.from(await resp.arrayBuffer())
         recordUsage(request.userId!, 'elevenlabs')
@@ -1001,16 +1124,24 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         )
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}))
-          return reply.status(502).send(
-            error(502, `Deepgram 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(
+                502,
+                `Deepgram 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+              ),
+            )
         }
         const ct = resp.headers.get('content-type') ?? 'audio/mpeg'
         const buf = Buffer.from(await resp.arrayBuffer())
         const ext = ct.includes('wav') ? 'wav' : ct.includes('ogg') ? 'ogg' : 'mp3'
         recordUsage(request.userId!, 'deepgram')
         return reply.send(
-          success({ audio: `data:audio/${ext};base64,${buf.toString('base64')}`, bytes: buf.length }),
+          success({
+            audio: `data:audio/${ext};base64,${buf.toString('base64')}`,
+            bytes: buf.length,
+          }),
         )
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message

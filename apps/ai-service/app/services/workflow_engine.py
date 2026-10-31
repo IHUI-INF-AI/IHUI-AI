@@ -39,8 +39,27 @@ from ..core.token_baseline import CHAIN_WORKFLOW
 from ..core.usage_cache import normalize_usage
 from .session_store import owner_scoped_allows
 from .skills import skill_registry
+from .task_executors import compute_idempotency_key
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# 续跑(按调用键复用已完成步骤)—— 错误码族(G-01 补齐腿之一,2026-10-31 立)
+# ---------------------------------------------------------------------------
+# 每一条都属 AGENTS §0.3 的「未判定」:拿到它们 ⇒ 既没建新实例、也没执行任何步骤。
+# 尤其不得被读成「续跑失败于是整条重跑,还算成功」—— 那是 retry_instance 的语义,
+# 与本出口的区别正是本出口存在的全部理由。
+WORKFLOW_STEP_KEY_TYPE = "workflow_step"
+WF_RESUME_SOURCE_NOT_VISIBLE = "WF_RESUME_SOURCE_NOT_VISIBLE"
+WF_RESUME_WORKFLOW_NOT_VISIBLE = "WF_RESUME_WORKFLOW_NOT_VISIBLE"
+WF_RESUME_SOURCE_NOT_FINAL = "WF_RESUME_SOURCE_NOT_FINAL"
+WF_RESUME_TASK_TRACE_MISALIGNED = "WF_RESUME_TASK_TRACE_MISALIGNED"
+WF_RESUME_TASK_RECORD_INCOMPLETE = "WF_RESUME_TASK_RECORD_INCOMPLETE"
+WF_RESUME_OUTPUT_UNVERIFIABLE = "WF_RESUME_OUTPUT_UNVERIFIABLE"
+WF_RESUME_TRIGGER_REFUSED = "WF_RESUME_TRIGGER_REFUSED"
+
+# 源实例只有落到终态,「已完成步骤集」才是可对账的事实(半途实例不算)。
+RESUMABLE_SOURCE_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled"})
 
 
 def resolve_caller(principal: str | None) -> str | None:
@@ -256,6 +275,7 @@ class WorkflowEngine:
         input_data: dict[str, Any] | None = None,
         *,
         principal: str | None = None,
+        replayed_outputs: dict[int, str] | None = None,
     ) -> WorkflowInstance | None:
         """触发工作流执行。
 
@@ -265,6 +285,10 @@ class WorkflowEngine:
         属主闸排在"已禁用/正在运行"这类状态判定**之前**:非本人可见的工作流一律返回
         None,既不创建实例、也不置 `_running_instances`、更不起后台 task —— 否则
         "别人的禁用工作流"与"别人的正常运行中工作流"在响应上仍可被区分出来。
+
+        `replayed_outputs`(续跑出口用,默认 None = 与新增本参数前逐字同形):
+        {步序(1 起): 缓存 output}。命中的步骤**结构上不执行** —— 执行体不进、
+        LLM/工具一次都不调,只把 output 落回新实例的任务 trace。
         """
         wf = self.get_workflow(workflow_id, principal)
         if not wf:
@@ -297,7 +321,10 @@ class WorkflowEngine:
         self._running_instances.add(workflow_id)
 
         # 后台异步执行
-        spawn(self._execute_instance(inst, wf), name="workflow-execute-instance")
+        spawn(
+            self._execute_instance(inst, wf, replayed_outputs=replayed_outputs),
+            name="workflow-execute-instance",
+        )
         return inst
 
     def _log(self, instance_id: str, level: str, message: str) -> None:
@@ -404,13 +431,25 @@ class WorkflowEngine:
         )
         return resp
 
-    async def _execute_instance(self, inst: WorkflowInstance, wf: Workflow) -> None:
-        """后台执行工作流实例。"""
+    async def _execute_instance(
+        self,
+        inst: WorkflowInstance,
+        wf: Workflow,
+        *,
+        replayed_outputs: dict[int, str] | None = None,
+    ) -> None:
+        """后台执行工作流实例。
+
+        `replayed_outputs` 非空时,落在其中的步序**不进执行体**:直接取回缓存 output
+        并把该步落成 completed(续跑的"入参未变即瞬时复用")。缓存步照样进 trace,
+        否则新实例的任务列表与源实例不同形。
+        """
         inst.status = "running"
         self._log(inst.id, "info", f"工作流 '{wf.name}' 开始执行,共 {len(wf.steps)} 步")
 
         cancel_event = self._cancel_events.get(inst.id)
         all_succeeded = True
+        replay = replayed_outputs or {}
 
         for idx, step in enumerate(wf.steps):
             # 检查取消
@@ -425,6 +464,23 @@ class WorkflowEngine:
             step_type = str(step.get("type", "llm"))
             step_input = str(step.get("input", ""))
             str(step.get("skill", ""))
+
+            cached_output = replay.get(idx + 1)
+            if cached_output is not None:
+                self._tasks.setdefault(inst.id, []).append(
+                    WorkflowTask(
+                        id=f"task-{uuid.uuid4().hex[:8]}",
+                        instanceId=inst.id,
+                        step=idx + 1,
+                        name=step_name,
+                        type=step_type,
+                        status="completed",
+                        input=step_input,
+                        output=cached_output,
+                    )
+                )
+                self._log(inst.id, "info", f"第 {idx + 1} 步命中续跑缓存,未执行: {step_name}")
+                continue
 
             task = WorkflowTask(
                 id=f"task-{uuid.uuid4().hex[:8]}",
@@ -832,6 +888,194 @@ class WorkflowEngine:
         if not wf:
             return None
         return await self.trigger_workflow(inst.workflowId, inst.input, principal=principal)
+
+    # =========================================================================
+    # 续跑:按调用键复用已完成步骤(G-01 补齐腿之一,2026-10-31 立)
+    # =========================================================================
+
+    def step_call_key(
+        self,
+        *,
+        step: int,
+        name: str,
+        step_type: str,
+        raw_input: str,
+        context: dict[str, Any],
+    ) -> str:
+        """一步的调用键 = 续跑复用的唯一比对单位。
+
+        算式单源复用 `task_executors.compute_idempotency_key`(AGENTS §0.6:同类判据
+        全仓只许一份;位宽/规范化口径一旦在两处长出来就必然漂移),本层只负责把
+        "这一步实际吃什么"归一化成 arguments。
+
+        覆盖面如实登记:源侧记录(`WorkflowTask`)只留得住 step/name/type/input/status,
+        所以键里能分辨"改没改"的维度也只有这四维 + 实例入参。**定义中 name/type/input
+        之外的字段被就地改写时(config.tool / condition / thenSteps / steps …),记录侧
+        无从自证 ⇒ 该步仍会命中缓存** —— 这是现有 schema 能达到的最细粒度,不是漏写;
+        要更细就得给 WorkflowTask 加列,而本票明令禁止造第二份 task schema。
+        """
+        return compute_idempotency_key(
+            WORKFLOW_STEP_KEY_TYPE,
+            {
+                "step": step,
+                "name": name,
+                "type": step_type,
+                "input": self._render_template(raw_input, context),
+                "context": context,
+            },
+        )
+
+    def _key_of_definition_step(
+        self, ordinal: int, step: dict[str, Any], context: dict[str, Any]
+    ) -> str:
+        """当前定义里第 ordinal 步的键(字段归一顺序与 _execute_instance 记录时逐字同形)。"""
+        return self.step_call_key(
+            step=ordinal,
+            name=str(step.get("name", f"step_{ordinal}")),
+            step_type=str(step.get("type", "llm")),
+            raw_input=str(step.get("input", "")),
+            context=context,
+        )
+
+    def _key_of_recorded_task(self, task: WorkflowTask, context: dict[str, Any]) -> str:
+        """源实例那一行记录回算的键(记录侧只认自己身上的字段,不猜定义)。"""
+        return self.step_call_key(
+            step=task.step,
+            name=task.name,
+            step_type=task.type,
+            raw_input=task.input,
+            context=context,
+        )
+
+    def build_replay_plan(
+        self, wf: Workflow, source: WorkflowInstance, context: dict[str, Any]
+    ) -> tuple[dict[int, str], str, str]:
+        """把源实例已完成步骤折成 `{步序: 缓存 output}`(键不同/未成功的步不进表)。
+
+        返回 `(plan, errorCode, reason)`。`errorCode` 非空 ⇒ **未判定**:调用方必须把
+        错误码原样交出去,不得"那就整条重跑"并记成功。判定顺序里任何一步都不写盘、
+        不建实例、不起后台 task。
+        """
+        if source.status not in RESUMABLE_SOURCE_STATUSES:
+            return (
+                {},
+                WF_RESUME_SOURCE_NOT_FINAL,
+                f"源实例 {source.id} 状态为 {source.status},未到终态,已完成步骤集无从对账",
+            )
+        tasks = self._tasks.get(source.id, [])
+        if len(tasks) > len(wf.steps):
+            return (
+                {},
+                WF_RESUME_TASK_TRACE_MISALIGNED,
+                f"源实例记录了 {len(tasks)} 步,当前定义只有 {len(wf.steps)} 步,记录映射不到定义",
+            )
+        plan: dict[int, str] = {}
+        for idx, task in enumerate(tasks):
+            ordinal = idx + 1
+            if task.step != ordinal:
+                return (
+                    {},
+                    WF_RESUME_TASK_TRACE_MISALIGNED,
+                    f"第 {ordinal} 条任务记录的 step={task.step},与它在 trace 里的位置不符",
+                )
+            if not task.name or not task.type:
+                return (
+                    {},
+                    WF_RESUME_TASK_RECORD_INCOMPLETE,
+                    f"第 {ordinal} 步的任务记录缺 name/type,调用键算不出来",
+                )
+            raw_step = wf.steps[ordinal - 1]
+            if not isinstance(raw_step, dict):
+                return (
+                    {},
+                    WF_RESUME_TASK_RECORD_INCOMPLETE,
+                    f"当前定义第 {ordinal} 步不是对象,调用键算不出来",
+                )
+            if task.status != "completed":
+                continue
+            if not task.output:
+                return (
+                    {},
+                    WF_RESUME_OUTPUT_UNVERIFIABLE,
+                    f"第 {ordinal} 步 status=completed 而 output 为空串,成功这件事自证不上",
+                )
+            if self._key_of_recorded_task(task, source.input) == self._key_of_definition_step(
+                ordinal, raw_step, context
+            ):
+                plan[ordinal] = task.output
+        return plan, "", ""
+
+    async def resume_instance(
+        self,
+        instance_id: str,
+        input_data: dict[str, Any] | None = None,
+        *,
+        principal: str | None = None,
+    ) -> dict[str, Any]:
+        """续跑一个实例:入参未变的步瞬时取回缓存 output(不执行),改动/新增的步才真跑。
+
+        与 `retry_instance` 的分工就是本出口存在的全部理由:retry 整条重跑、已完成步骤
+        的 output 一个都不复用;本出口复用前缀,并把复用集合如实回给调用方。
+
+        两道属主闸都排在状态判定与建实例之前(AGENTS §5,沿用 retry_instance 口径):
+        源实例与工作流任一非本人可见 ⇒ 具名错误码返回,既不建新实例、也不起后台 task。
+        "不存在"与"非本人可见"**同码同形**(不给存在性 oracle)。新实例属主按 trigger_workflow
+        既有规则 = 当前调用者,无调用者身份时继承工作流定义行的属主,绝不写假主体。
+
+        `input_data=None` ⇒ 沿用源实例入参;显式传新入参 ⇒ 所有步的键都变,等价整条重跑
+        (实例入参是全步骤共享的渲染上下文,不能声称"入参没变")。
+        """
+        source = self.get_instance(instance_id, principal)
+        if source is None:
+            return {
+                "ok": False,
+                "errorCode": WF_RESUME_SOURCE_NOT_VISIBLE,
+                "error": f"源实例不存在或对当前身份不可见: {instance_id}",
+            }
+        wf = self.get_workflow(source.workflowId, principal)
+        if wf is None:
+            return {
+                "ok": False,
+                "errorCode": WF_RESUME_WORKFLOW_NOT_VISIBLE,
+                "error": f"工作流 {source.workflowId} 不存在或对当前身份不可见,续跑取不到定义",
+                "sourceInstanceId": source.id,
+            }
+        context = dict(source.input if input_data is None else input_data)
+        plan, error_code, reason = self.build_replay_plan(wf, source, context)
+        if error_code:
+            return {
+                "ok": False,
+                "errorCode": error_code,
+                "error": reason,
+                "sourceInstanceId": source.id,
+            }
+        inst = await self.trigger_workflow(
+            wf.id, context, principal=principal, replayed_outputs=plan
+        )
+        if inst is None:
+            return {
+                "ok": False,
+                "errorCode": WF_RESUME_TRIGGER_REFUSED,
+                "error": f"工作流 {wf.id} 拒绝触发(已禁用、定义刚被删除或已有实例在跑)",
+                "sourceInstanceId": source.id,
+                "replayedSteps": sorted(plan),
+            }
+        self._log(
+            inst.id,
+            "info",
+            f"续跑自实例 {source.id}:复用第 {sorted(plan)} 步(未执行),"
+            f"其余 {len(wf.steps) - len(plan)} 步真跑",
+        )
+        return {
+            "ok": True,
+            "instanceId": inst.id,
+            "sourceInstanceId": source.id,
+            "workflowId": wf.id,
+            "status": inst.status,
+            "totalSteps": len(wf.steps),
+            "replayedSteps": sorted(plan),
+            "replayedCount": len(plan),
+        }
 
     # =========================================================================
     # 序列化

@@ -29,11 +29,7 @@ import { isUuidString } from '../utils/uuid.js'
 
 type GcType = 'text' | 'image' | 'audio' | 'video'
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 async function listGcHistory(
   userId: string,

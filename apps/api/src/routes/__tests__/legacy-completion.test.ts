@@ -56,6 +56,21 @@ vi.mock('../../plugins/auth.js', () => ({
     request.userId = 'test-user-id'
     return { userId: 'test-user-id' } as never
   }),
+  // D19 端点 2026-10-31 起要求鉴权。这里按真实现的语义桩:无 Authorization 头 ⇒ 401,
+  // 有则注入主体 —— 这样"匿名被拒"才有可测的负例,而不是靠 mock 恒真把门测没。
+  checkAuth: vi.fn(
+    async (
+      request: { headers: Record<string, unknown>; userId?: string },
+      reply: { status: (n: number) => { send: (b: unknown) => void } },
+    ) => {
+      if (!request.headers.authorization) {
+        reply.status(401).send({ code: 401, message: 'Authentication required' })
+        return false
+      }
+      request.userId = 'test-user-id'
+      return true
+    },
+  ),
 }))
 
 vi.mock('../../services/storage-service.js', () => ({
@@ -173,10 +188,22 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
   })
 
   describe('D19: GET /api/work-wechat/token', () => {
+    // 2026-10-31 起该端点要求鉴权(原先匿名即可用本服务中继任意企业凭据)
+    const AUTHED = { authorization: 'Bearer test-token' }
+
+    it('匿名调用被拒(401),且不打上游', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/work-wechat/token?corpId=test-corp&secret=test-secret',
+      })
+      expect(res.statusCode).toBe(401)
+    })
+
     it('有效参数返回 200 与 accessToken', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/work-wechat/token?corpId=test-corp&secret=test-secret',
+        headers: AUTHED,
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
@@ -189,6 +216,7 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/work-wechat/token?corpId=test-corp&secret=test-secret&agentId=1000001',
+        headers: AUTHED,
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
@@ -199,6 +227,7 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/work-wechat/token?secret=test-secret',
+        headers: AUTHED,
       })
       expect(res.statusCode).toBe(400)
     })
@@ -207,6 +236,7 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/work-wechat/token?corpId=test-corp',
+        headers: AUTHED,
       })
       expect(res.statusCode).toBe(400)
     })

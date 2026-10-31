@@ -71,9 +71,14 @@ def _safe(rec: dict[str, Any]) -> dict[str, Any]:
 
     configured = extra 非空 或 app_id 非空(语雀看 extra.user/repo)。
     capabilities 由注册表是否有对应模块决定。
+    2026-10-31 安全强化第 11 批:extra 从原样回传改为「键保留、值布尔化」——
+    此前飞书 folder_token 等目录访问凭据会随列表直达客户端(deploy nginx fragment
+    已登记的已知未修分歧);前端现读零消费 extra 值,布尔化保留"哪个字段已配置"
+    的判断语义,凭据值留在服务端。
     """
-    extra = rec.get("extra")
-    extra = dict(extra) if isinstance(extra, dict) else {}
+    extra_raw = rec.get("extra")
+    extra_raw = extra_raw if isinstance(extra_raw, dict) else {}
+    extra = {str(k): bool(v) for k, v in extra_raw.items()}
     configured = bool(extra) or bool(rec.get("app_id"))
     mod = get_connector(str(rec.get("type") or ""))
     return {
@@ -125,7 +130,9 @@ async def list_connectors(
         return {"connectors": items, "count": len(items)}
     except Exception as e:  # noqa: BLE001 - 内部异常降级,不裸抛
         logger.error("获取连接器列表失败: %s", e)
-        return _error(500, f"获取连接器列表失败: {e}")
+        # 2026-10-31 安全强化第 11 批:500 固定文案 —— 异常原文(含 data/connector_store.json
+        # 绝对路径等)不得回传,细节只进日志(全局兜底 main.py 同口径,此处不覆盖它)
+        return _error(500, "获取连接器列表失败,请稍后重试")
 
 
 @router.post("/config", response_model=None)
@@ -172,7 +179,7 @@ async def save_connector_config(
         return _safe(saved)
     except Exception as e:  # noqa: BLE001
         logger.error("保存连接器配置失败(%s): %s", req.key, e)
-        return _error(500, f"保存连接器配置失败: {e}")
+        return _error(500, "保存连接器配置失败,请稍后重试")
 
 
 @router.post("/sync", response_model=None)
@@ -212,7 +219,7 @@ async def sync_connector(
         }
     except Exception as e:  # noqa: BLE001
         logger.error("连接器同步失败(%s): %s", req.key, e)
-        return _error(500, f"连接器同步失败: {e}")
+        return _error(500, "连接器同步失败,请稍后重试")
 
 
 @router.post("/{key}/fetch", response_model=None)
@@ -237,7 +244,7 @@ async def fetch_connector_document(
         return result if isinstance(result, dict) else {"ok": False, "message": "模块返回异常"}
     except Exception as e:  # noqa: BLE001
         logger.error("拉取连接器文档失败(%s): %s", key, e)
-        return _error(500, f"拉取连接器文档失败: {e}")
+        return _error(500, "拉取连接器文档失败,请稍后重试")
 
 
 @router.post("/{key}/enable", response_model=None)
@@ -255,7 +262,7 @@ async def enable_connector(
         return _safe(updated)
     except Exception as e:  # noqa: BLE001
         logger.error("启用连接器失败(%s): %s", key, e)
-        return _error(500, f"启用连接器失败: {e}")
+        return _error(500, "启用连接器失败,请稍后重试")
 
 
 @router.post("/{key}/disable", response_model=None)
@@ -273,7 +280,7 @@ async def disable_connector(
         return _safe(updated)
     except Exception as e:  # noqa: BLE001
         logger.error("停用连接器失败(%s): %s", key, e)
-        return _error(500, f"停用连接器失败: {e}")
+        return _error(500, "停用连接器失败,请稍后重试")
 
 
 @router.delete("/{key}", response_model=None)
@@ -290,5 +297,5 @@ async def delete_connector(
         return {"ok": True}
     except Exception as e:  # noqa: BLE001
         logger.error("删除连接器失败(%s): %s", key, e)
-        return _error(500, f"删除连接器失败: {e}")
+        return _error(500, "删除连接器失败,请稍后重试")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

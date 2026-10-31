@@ -85,22 +85,50 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
         return call
       })
       .filter((x): x is Record<string, unknown> => x !== null)
+    // 2026-10-31 安全强化第 10 批:分享数据里的 URL 段是创建者可控的自由字符串。
+    // 前端消费点(<Image src>/window.open/VideoPlayer)对 javascript:/data: 等危险
+    // scheme 的容错是 XSS 注入面 —— 服务端在出口处统一只放行 http(s) 外链与站内
+    // 绝对路径,其余整条剔除(纵深:不只依赖单一渲染点的点击校验)。
+    const safeMediaUrl = (value: unknown): string | null => {
+      if (typeof value !== 'string' || value.length === 0) return null
+      return /^https?:\/\//i.test(value) || value.startsWith('/')
+        ? value
+        : null
+    }
     const answer = {
       thinking: typeof rawAnswer.thinking === 'string' ? rawAnswer.thinking : undefined,
       text: typeof rawAnswer.text === 'string' ? rawAnswer.text : undefined,
       images: Array.isArray(rawAnswer.images)
-        ? (rawAnswer.images as unknown[]).filter((x): x is string => typeof x === 'string')
+        ? (rawAnswer.images as unknown[])
+            .map(safeMediaUrl)
+            .filter((x): x is string => x !== null)
         : undefined,
       video:
         rawAnswer.video && typeof rawAnswer.video === 'object'
-          ? (rawAnswer.video as { url: string; cover?: string; width?: number; height?: number })
+          ? (() => {
+              const v = rawAnswer.video as { url: string; cover?: string; width?: number; height?: number }
+              const url = safeMediaUrl(v.url)
+              if (!url) return undefined
+              return { ...v, url, cover: v.cover ? (safeMediaUrl(v.cover) ?? undefined) : undefined }
+            })()
           : undefined,
       audio:
         rawAnswer.audio && typeof rawAnswer.audio === 'object'
-          ? (rawAnswer.audio as { url: string; duration?: number })
+          ? (() => {
+              const a = rawAnswer.audio as { url: string; duration?: number }
+              const url = safeMediaUrl(a.url)
+              if (!url) return undefined
+              return { ...a, url }
+            })()
           : undefined,
       lists: Array.isArray(rawAnswer.lists)
         ? (rawAnswer.lists as Array<{ type: string; content: string }>)
+            .map((item) =>
+              item && typeof item.content === 'string' && safeMediaUrl(item.content)
+                ? item
+                : null,
+            )
+            .filter((x): x is { type: string; content: string } => x !== null)
         : undefined,
       // #39 阶段2:轨迹回放数据(白名单过滤后;空数组不透传,减少响应体积)
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,

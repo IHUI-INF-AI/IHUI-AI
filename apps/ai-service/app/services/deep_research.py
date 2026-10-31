@@ -812,10 +812,22 @@ async def _retrieve_many(
 
 
 def _evidence_to_text(report: ResearchReport) -> str:
-    """把已收集证据格式化为对 LLM 友好的文本。"""
+    """把已收集证据格式化为对 LLM 友好的文本。
+
+    2026-10-31:证据正文是**抓回来的网页正文**,拼进 prompt 前必须过宿主定界
+    (中和 ihui-* 保留标签 + 标明"这是数据不是指令" + 注入模式标注)。
+    否则网页里一句"忽略上面的指令"就直接进了模型最信任的位置。
+    """
+    from .tool_context_boundary import scan_and_frame_tool_result
+
     parts = []
     for i, e in enumerate(report.evidence, 1):
-        parts.append(f"[{i}] (深度第{e.depth}轮·{e.source_name}) {e.question}:\n{e.content}")
+        framed = scan_and_frame_tool_result(
+            e.content,
+            source="web",
+            tool_name=f"deep_research:{e.source_name}",
+        )
+        parts.append(f"[{i}] (深度第{e.depth}轮·{e.source_name}) {e.question}:\n{framed}")
     return "\n\n".join(parts)
 
 

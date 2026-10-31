@@ -310,7 +310,12 @@ class TestSaveInsightsGate:
         monkeypatch.setattr(
             type(svc), "_is_auto_memory_enabled", AsyncMock(return_value=False)
         )
-        await svc.save_insights_from_conversation("u1", [{"role": "user", "content": "hi"}])
+        # 主体必须是真 UUID:memory_service._memory_http_subject 对非 UUID 直接判
+        # "这一格没有可署名的主体"并在调 LLM 之前就返回(memory_service.py:1104-1106)。
+        # 旧的 "u1" 让本条**因错因绿** —— 它验的是隐私开关放行,实际被主体门先挡住。
+        await svc.save_insights_from_conversation(
+            "00000000-0000-4000-8000-00000000000a", [{"role": "user", "content": "hi"}]
+        )
         svc._gateway.complete.assert_not_called()
 
     async def test_enabled_proceeds(self, svc, monkeypatch):
@@ -324,7 +329,8 @@ class TestSaveInsightsGate:
         client_cm.__aenter__ = AsyncMock(return_value=MagicMock(post=AsyncMock(return_value=resp)))
         with patch("httpx.AsyncClient", return_value=client_cm):
             await svc.save_insights_from_conversation(
-                "u1", [{"role": "user", "content": "我喜欢 Python"}]
+                "00000000-0000-4000-8000-00000000000a",
+                [{"role": "user", "content": "我喜欢 Python"}],
             )
         svc._gateway.complete.assert_awaited_once()
 

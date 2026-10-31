@@ -28,6 +28,66 @@ const mockConfig = vi.hoisted(() => ({
 vi.mock('../../config/index.js', () => ({ config: mockConfig }))
 
 vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+
+// auth 链路(2026-10-30 起)自己 new IORedis(config.REDIS_URL) 做吊销名单 + 按用户限流。
+// 上面的 config mock 没给 REDIS_URL ⇒ 落到 tests/setup-env.ts 的兜底值,而那个兜底是
+// **生产 Redis 8811**(本发现同时记进提交信息)⇒ 本文件此前每条认证请求都在往生产 db1
+// 真写 INCR/EXISTS。这里换成内存替身:口径同 tests/helpers/fake-redis.ts,
+// 但**必须内联** —— 该 helper 在 tsconfig rootDir(src)之外,src 下的测试 import 它会触发
+// TS6059 级联(先例见同目录 misc-extended.test.ts 头注)。
+vi.mock('ioredis', () => {
+  const store = new Map<string, { value: string; expiresAt: number }>()
+  const alive = (key: string): boolean => {
+    const row = store.get(key)
+    if (!row) return false
+    if (row.expiresAt && row.expiresAt <= Date.now()) {
+      store.delete(key)
+      return false
+    }
+    return true
+  }
+  class FakeRedis {
+    async exists(...keys: string[]): Promise<number> {
+      return keys.filter(alive).length
+    }
+    async get(key: string): Promise<string | null> {
+      return alive(key) ? (store.get(key)?.value ?? null) : null
+    }
+    async set(key: string, value: string): Promise<'OK'> {
+      store.set(key, { value, expiresAt: 0 })
+      return 'OK'
+    }
+    async setex(key: string, seconds: number, value: string): Promise<'OK'> {
+      store.set(key, { value, expiresAt: Date.now() + seconds * 1000 })
+      return 'OK'
+    }
+    async incr(key: string): Promise<number> {
+      const next = alive(key) ? Number(store.get(key)?.value ?? '0') + 1 : 1
+      store.set(key, { value: String(next), expiresAt: store.get(key)?.expiresAt ?? 0 })
+      return next
+    }
+    async expire(key: string, seconds: number): Promise<number> {
+      const row = store.get(key)
+      if (!row) return 0
+      row.expiresAt = Date.now() + seconds * 1000
+      return 1
+    }
+    async del(...keys: string[]): Promise<number> {
+      let n = 0
+      for (const k of keys) if (store.delete(k)) n += 1
+      return n
+    }
+    async quit(): Promise<'OK'> {
+      return 'OK'
+    }
+    on(): this {
+      return this
+    }
+    connect(): void {}
+    disconnect(): void {}
+  }
+  return { default: FakeRedis }
+})
 vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 vi.mock('jose', () => ({ decodeJwt: vi.fn(() => ({ type: 'access' })) }))
 

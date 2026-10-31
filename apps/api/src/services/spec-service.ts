@@ -18,18 +18,43 @@
  */
 
 import type { FastifyRequest } from 'fastify'
-import { execSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises'
 import { join, resolve, basename, relative, isAbsolute, dirname } from 'node:path'
 import type { SpecGenerateOutput } from '@ihui/types'
 import type { SpecGenerateInput, SpecScope, SpecTemplate } from '@ihui/shared'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+// 工作区登记根判据(单源,2026-10-31 安全强化第 10 批):spec 落盘/读取的 workspacePath
+// 此前是客户端自报字符串 ⇒ branchName `../` 穿越可写服务器任意路径。判据与 FSBridge 同一份。
+import { assertWithinRegisteredRoots } from '../utils/workspace-roots.js'
 import { logger } from '../utils/logger.js'
 
 /** ai-service spec 端点路径(已含 /api 前缀,由 ai-service main.py include_router 注册) */
 const SPEC_GENERATE_PATH = '/api/spec/generate'
 const SPEC_TEMPLATES_PATH = '/api/spec/templates'
+
+/**
+ * 工作区登记闸(2026-10-31 安全强化第 10 批):spec-service 全部 workspacePath 入口
+ * 统一走此薄封装(与 FSBridge 同一判据单源)。fail-closed:env 未登记任何根 ⇒ 一律拒绝。
+ * 返回归一化后的绝对路径(含符号链接消解),调用方直接当 root 用。
+ */
+function assertRegisteredWorkspace(workspacePath: string): string {
+  return assertWithinRegisteredRoots(workspacePath, '工作区')
+}
+
+/**
+ * branchName / baseVersion / version 等直接拼进路径的段白名单。
+ * 防 `..` / 路径分隔符穿越出 .ihui-agent/specs —— 2026-10-31 前它们原样进 join()。
+ */
+const SAFE_SPEC_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
+
+function assertSafeSpecSegment(value: string, label: string): string {
+  if (!SAFE_SPEC_SEGMENT.test(value)) {
+    throw new Error(`${label}只能包含字母、数字、下划线与横线: ${value}`)
+  }
+  return value
+}
 
 /**
  * 本地预置模板(与 ai-service app/routers/spec.py _BUILTIN_TEMPLATES 保持一致)。
@@ -518,7 +543,7 @@ class SpecService {
    * 文件命名:<timestamp>-<scopeHash>.md,按时间倒序返回。
    */
   async getHistory(workspacePath: string, scope: SpecScope): Promise<SpecHistoryResult> {
-    const root = resolve(workspacePath)
+    const root = assertRegisteredWorkspace(workspacePath)
     const scopeHash = computeScopeHash(scope)
     const historyDir = join(root, '.ihui-agent', 'specs', 'history')
 
@@ -558,8 +583,9 @@ class SpecService {
     scope: SpecScope,
     version: string = 'latest',
   ): Promise<SpecLoadResult> {
-    const root = resolve(workspacePath)
+    const root = assertRegisteredWorkspace(workspacePath)
     const scopeHash = computeScopeHash(scope)
+    if (version !== 'latest') assertSafeSpecSegment(version, '版本号')
 
     let target: string
     if (version === 'latest') {
@@ -627,13 +653,13 @@ class SpecService {
    * - version / project:从 package.json 读取,降级 "1.0.0" / 目录名
    */
   async getVariables(workspacePath: string): Promise<SpecVariablesResult> {
-    const root = resolve(workspacePath)
+    const root = assertRegisteredWorkspace(workspacePath)
 
     // author
     let author = 'Unknown'
     try {
-      // windowsHide: 常驻服务无控制台，Windows 下派生 git 子进程必分配可见控制台，显式隐藏
-      const out = execSync('git config user.name', {
+      // 2026-10-31 安全强化第 10 批:execSync(shell 串) → spawnSync(argv),无 shell 解析
+      const r = spawnSync('git', ['config', 'user.name'], {
         cwd: isAbsolute(root) && root ? root : undefined,
         encoding: 'utf-8',
         timeout: 5000,
@@ -641,7 +667,7 @@ class SpecService {
         stdio: ['ignore', 'pipe', 'ignore'],
         windowsHide: true,
       })
-      author = out.trim() || 'Unknown'
+      author = (r.stdout ?? '').trim() || 'Unknown'
     } catch {
       // 降级
     }
@@ -1037,8 +1063,12 @@ ${requirementPreview}
     branchName: string
     baseVersion: string
   }): Promise<SpecBranch> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
+    // 2026-10-31 安全强化第 10 批:branchName 曾原样进 join ⇒ `../../` 穿越写服务器
+    // 任意 .md;baseVersion 同面(history 文件名前缀)。白名单后穿越段直接 400。
+    assertSafeSpecSegment(input.branchName, '分支名')
+    if (input.baseVersion !== 'latest') assertSafeSpecSegment(input.baseVersion, '基线版本')
     const branchesDir = join(root, '.ihui-agent', 'specs', 'branches')
     const branchFile = join(branchesDir, `${input.branchName}.md`)
 
@@ -1096,8 +1126,10 @@ ${requirementPreview}
     workspacePath: string
     branchName: string
   }): Promise<SpecBranchMergeResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
+    // 2026-10-31 安全强化第 10 批:同 createBranch —— 读+写两侧都拼 branchName
+    assertSafeSpecSegment(input.branchName, '分支名')
     const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
     const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
@@ -1164,7 +1196,7 @@ ${requirementPreview}
     workspacePath: string
     branchName: string
   }): Promise<SpecBranchAbandonResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
 
     const branches = await this.readBranchIndex(root)
@@ -1196,7 +1228,7 @@ ${requirementPreview}
     workspacePath: string
     proposedChanges: string
   }): Promise<SpecImpactAnalysisResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const changes = input.proposedChanges.toLowerCase()
 
     const HIGH_RISK_KEYWORDS = [
@@ -1314,7 +1346,7 @@ ${requirementPreview}
     newSpec: string
     autoCommit: boolean
   }): Promise<SpecFullPipelineResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
     const pipelineId = randomUUID().slice(0, 8)
     const backupDir = join(root, '.ihui-agent', 'specs', 'backups', pipelineId)
@@ -1395,25 +1427,25 @@ ${requirementPreview}
           root,
           join(root, '.ihui-agent', 'specs', `${scopeHash}.md`),
         ).replace(/\\/g, '/')
-        execSync(
-          `git add ${specRelPath} && git commit -m "chore(spec): pipeline ${pipelineId} 更新 spec"`,
-          {
+        // 2026-10-31 安全强化第 10 批:execSync(shell 串) → spawnSync(argv,无 shell
+        // 解析);--no-verify 防 cwd 指向恶意仓库时其 pre-commit/commit-msg 钩子被执行。
+        // 不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY(§12g)。
+        const runGit = (args: string[], timeout: number): string => {
+          const r = spawnSync('git', args, {
             cwd: root,
             encoding: 'utf-8',
-            timeout: 15000,
-            // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+            timeout,
             stdio: ['ignore', 'pipe', 'ignore'],
             windowsHide: true,
-          },
-        )
-        commitSha = execSync('git rev-parse HEAD', {
-          cwd: root,
-          encoding: 'utf-8',
-          timeout: 5000,
-          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-          stdio: ['ignore', 'pipe', 'ignore'],
-          windowsHide: true,
-        }).trim()
+          })
+          if (r.status !== 0) {
+            throw new Error((r.stderr ?? '').trim() || `git ${args[0] ?? ''} 退出码 ${r.status}`)
+          }
+          return r.stdout ?? ''
+        }
+        runGit(['add', specRelPath], 15000)
+        runGit(['commit', '--no-verify', '-m', `chore(spec): pipeline ${pipelineId} 更新 spec`], 15000)
+        commitSha = runGit(['rev-parse', 'HEAD'], 5000).trim()
         stages.push({
           name: 'commit',
           status: 'success',
@@ -1461,7 +1493,7 @@ ${requirementPreview}
    * scope 给定时按 specId 过滤,否则返回全部(不同 scope 的分支)。
    */
   async listBranches(workspacePath: string, scope?: SpecScope): Promise<SpecBranchesResult> {
-    const root = resolve(workspacePath)
+    const root = assertRegisteredWorkspace(workspacePath)
     const branches = await this.readBranchIndex(root)
     const filtered = scope ? branches.filter((b) => b.specId === computeScopeHash(scope)) : branches
     return { branches: filtered }
@@ -1480,8 +1512,10 @@ ${requirementPreview}
     scope: SpecScope
     branchName: string
   }): Promise<SpecBranchDiffResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
+    // 2026-10-31 安全强化第 10 批:同 createBranch/mergeBranch 的读侧穿越
+    assertSafeSpecSegment(input.branchName, '分支名')
     const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
     const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
@@ -1522,7 +1556,8 @@ ${requirementPreview}
     scope: SpecScope
     pipelineId: string
   }): Promise<SpecPipelineStatusResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
+    assertSafeSpecSegment(input.pipelineId, '流水线 ID')
     const backupDir = join(root, '.ihui-agent', 'specs', 'backups', input.pipelineId)
     const relBackup = relative(root, backupDir).replace(/\\/g, '/')
 
@@ -1564,7 +1599,7 @@ ${requirementPreview}
     workspacePath: string
     backupDir: string
   }): Promise<SpecPipelineRollbackResult> {
-    const root = resolve(input.workspacePath)
+    const root = assertRegisteredWorkspace(input.workspacePath)
     const backupPath = isAbsolute(input.backupDir)
       ? input.backupDir
       : resolve(root, input.backupDir)

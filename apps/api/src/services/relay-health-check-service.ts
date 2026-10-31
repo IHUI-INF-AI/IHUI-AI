@@ -21,7 +21,7 @@ import { startStopwatch } from '../utils/elapsed-ms.js'
 
 const HEALTH_CHECK_TIMEOUT_MS = 10_000
 const CONSECUTIVE_FAILURES_THRESHOLD = 3
-const CF_KEY = 'consecutiveFailures'
+export const CF_KEY = 'consecutiveFailures'
 /** 单轮恢复探测的禁用 key 数上限(防上游大面积失效时探测风暴) */
 const RECOVER_PROBE_MAX_KEYS = 20
 

@@ -721,8 +721,10 @@ class SandboxExecutor {
     return NETWORK_COMMANDS.some((c) => command.toLowerCase().includes(c.toLowerCase()))
   }
 
-  private cleanEnv(mode: SandboxMode): NodeJS.ProcessEnv {
-    if (mode === 'danger-full-access') return { ...process.env }
+  private cleanEnv(): NodeJS.ProcessEnv {
+    // 2026-10-31 安全强化第 10 批:danger-full-access 不再回传全量 process.env ——
+    // 此前任意登录用户自报该档即可把 JWT_SECRET/DATABASE_URL/上游 API Key 整袋端走。
+    // 该档现在只意味着"放行网络命令与写权限",敏感键在任何模式下都不进子进程环境。
     const env: NodeJS.ProcessEnv = {}
     for (const [key, val] of Object.entries(process.env)) {
       if (val === undefined) continue
@@ -740,7 +742,11 @@ class SandboxExecutor {
     timeoutMs?: number
   }): Promise<{ stdout: string; stderr: string; exitCode: number; mode: SandboxMode }> {
     const mode = params.mode ?? 'workspace-write'
-    const cwd = params.cwd ?? params.workspacePath
+    // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
+    // 字符串,不设闸则传 workspacePath="C:/" 让白名单内的 cat/cp/tee 直接指到服务器
+    // 任意文件。fail-closed:env 未登记任何根 ⇒ 一律拒绝(与 FSBridge 同语义同单源)。
+    const root = assertWithinRegisteredRoots(params.workspacePath, '工作区')
+    const cwd = params.cwd ? assertWithinRegisteredRoots(params.cwd, '执行目录') : root
 
     if (this.checkNetworkCommand(params.command, mode)) {
       return {
@@ -774,7 +780,7 @@ class SandboxExecutor {
       }
     }
 
-    const env = this.cleanEnv(mode)
+    const env = this.cleanEnv()
     const timeout = params.timeoutMs ?? 60000
 
     try {
@@ -2891,6 +2897,10 @@ class FSBridge {
     return { path: params.path, deleted: existedBefore }
   }
 
+  /** regex 条件的 pattern 与被测行长度上限(主线程同步执行,防 ReDoS 放大;与 rules/webhooks-trigger 同口径) */
+  static readonly MAX_GREP_PATTERN_LENGTH = 200
+  static readonly MAX_GREP_LINE_LENGTH = 10 * 1024
+
   grep(params: {
     path: string
     workspacePath: string
@@ -2898,6 +2908,10 @@ class FSBridge {
     glob?: string
     outputMode?: 'content' | 'files_with_matches' | 'count'
   }): unknown {
+    // ReDoS 运行闸(2026-10-31 安全强化第 11 批):主线程同步正则,超长 pattern 直接拒绝
+    if (params.pattern.length > FSBridge.MAX_GREP_PATTERN_LENGTH) {
+      throw new Error(`pattern 超过 ${FSBridge.MAX_GREP_PATTERN_LENGTH} 字符上限`)
+    }
     const root = this.resolvePath(params.path, params.workspacePath)
     const regex = new RegExp(params.pattern, 'i')
     const globRe = params.glob ? this.globToRegex(params.glob) : null
@@ -3030,6 +3044,7 @@ class FSBridge {
         const relPath = relative(root, full).split(sep).join('/')
         let count = 0
         content.split('\n').forEach((line, idx) => {
+          if (line.length > FSBridge.MAX_GREP_LINE_LENGTH) return
           if (regex.test(line)) {
             matches.push({ file: relPath, line: idx + 1, content: line })
             count++

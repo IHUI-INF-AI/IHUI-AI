@@ -160,9 +160,7 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // P2 安全修复(2026-09-09 第九轮):admin bot 管理端点此前仅 checkAuth(任意
   // 登录用户可触 initialize/shutdown 等),收权为 admin(与路由内 checkAuth 双保险)。
-  server.addHook('preHandler', async (request, reply) => {
-    return requireAdmin(request, reply)
-  })
+  server.addHook('preHandler', requireAdmin)
 
   server.get('/clawdbot/status', async (_req, reply) => {
     if (!(await checkAuth(_req, reply))) return

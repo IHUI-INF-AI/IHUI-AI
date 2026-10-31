@@ -14,18 +14,36 @@
  * - sanitizeText(text, options): 对纯文本做正则脱敏
  * - sanitizeMessages(messages, options): 对 OpenAI messages 数组做结构化脱敏
  *
- * 脱敏规则:
- * - API Key:  sk-abc123xyz789 → sk-***xyz789(保留前 3 + 后 6)
- * - Email:    user@example.com → us**@example.com(保留前 2 + 域名)
- * - Phone:    13812345678 → 138****5678(保留前 3 + 后 4)
- * - Bearer:   Bearer eyJxxx.yyy.zzz → Bearer ***(JWT 整体替换)
+ * 脱敏规则(2026-10-30 收口:凭据族改接共享层唯一规则源,本文件不再自持一套):
+ * - API Key:  sk-abc123xyz789 → sk-***xyz789(保留前 3 + 后 6,管理员要能认出"是哪把 key")
+ * - Email:    由共享层 redactEmails 出 `c***@域`(与旧自有实现同形态,已并入单源)
+ * - Phone:    13812345678 → 138****5678(保留前 3 + 后 4;**平台特有**:中国大陆号段形状,共享层无此规则)
+ * - 其余凭据族(PEM 私钥 / sk_ / ihui_ / ghp_ / AIza / AKIA / xox / glpat / 裸 JWT /
+ *   Authorization: Basic / 通用 password= k=v / URL query 敏感参数):
+ *   由共享层 `SECRET_RULES` + `redactUrl` 整段盖成 `[REDACTED_SECRET]` / `***REDACTED***`
  * - messages content: 替换为 [REDACTED length=N](N 为原长度)
  * - tool function.arguments: 替换为 [REDACTED](保留 tool_calls 结构)
+ *
+ * 【为什么凭据族必须吃共享层,而不是留一份自有正则】
+ * 旧实现只认 `sk-[A-Za-z0-9_-]{20,}` 与 `Bearer <三段 JWT>` 两种形状。现读探针(16 族样本):
+ * 数据层单走 sanitizeText 时 13 族原样出明文 —— `ghp_/AIza/AKIA/xoxb-/glpat-`、
+ * PEM 私钥块、**不带 Bearer 前缀的裸 JWT**、`Bearer <不透明 token>`(非三段式,旧 BEARER_REGEX
+ * 要两个点,匹配不上)、`password=xxx` 赋值、URL query 里的 api_key。而 relay-logs 的
+ * 列表面与 metadata 面恰是**只过 sanitizeLogEntry**(详情面才在外面补 redactCredentialText),
+ * ⇒ 这些明文随响应出仓。同一条"端内不得再写第二份脱敏规则"的纪律
+ * (tests/log-sanitizer-plugin-credential-text.test.ts 头注 G-21③ 逐字)此前只管到日志中间件那半,
+ * 数据层这半一直自成一套 —— 两处算同一件事必漂移,漂移已量到。
+ *
+ * 顺序纪律:本地"部分留尾"sk-/Bearer 两档必须排在共享层整段盖之前 ——
+ * 先盖成 `sk-***尾` 后,共享 `sk-` 规则(要求 sk- 后 ≥20 个合法字符)不再命中,
+ * 既保住管理员要的尾 6 位,又不会二次堆叠标记。
  *
  * 入口封顶(A9E-1):所有会进入下方正则的字符串先在 sanitizeText 入口无条件
  * 截到 resolveSanitizeInputCap()(默认 4096,env IHUI_LOG_SANITIZE_MAX_CHARS 可覆盖),
  * 被截断时输出末尾追加 [TRUNCATED ...] 可见标记。顺序 = 先封顶、后正则,不可颠倒。
  */
+
+import { SECRET_RULES, redactEmails, redactIps, redactUrl } from '@ihui/shared/utils/redact'
 
 // =============================================================================
 // 类型定义
@@ -60,14 +78,19 @@ function mergeDefaults(opts?: SanitizeOptions): Required<SanitizeOptions> {
 }
 
 // =============================================================================
-// 正则规则(按 spec 定义)
+// 本地形状规则(只留共享层没有的那两档)
 // =============================================================================
 
-const API_KEY_REGEX = /sk-[A-Za-z0-9_-]{20,}/g
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+/** 平台特有:中国大陆手机号段形状,共享层 redact 无此规则,留本文件 */
 const PHONE_REGEX = /1[3-9]\d{9}/g
+
+/**
+ * 本地"部分留尾"两档(管理员要靠尾巴认出是哪把 key,不是整段盖掉):
+ * sk- 形态与 `Bearer <三段 JWT>`。跑完这两档再交给共享层 SECRET_RULES 盖其余族,
+ * 顺序不可颠倒(理由见文件头"顺序纪律")。
+ */
+const API_KEY_REGEX = /sk-[A-Za-z0-9_-]{20,}/g
 const BEARER_REGEX = /Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g
-const IPV4_REGEX = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g
 
 // =============================================================================
 // 入口长度封顶(先封顶、后正则 — A9E-1 吸收,2026-09 立)
@@ -121,16 +144,6 @@ function redactApiKeyMatch(match: string): string {
   return `sk-***${match.slice(-6)}`
 }
 
-/** Email 脱敏:user@example.com → us**@example.com(保留前 2 + 域名) */
-function redactEmailMatch(match: string): string {
-  const at = match.indexOf('@')
-  if (at < 0) return match
-  const local = match.slice(0, at)
-  const domain = match.slice(at)
-  if (local.length <= 2) return `${local[0] ?? ''}***${domain}`
-  return `${local.slice(0, 2)}**${domain}`
-}
-
 /** Phone 脱敏:13812345678 → 138****5678(保留前 3 + 后 4) */
 function redactPhoneMatch(match: string): string {
   if (match.length < 11) return match
@@ -163,19 +176,22 @@ export function sanitizeText(text: string, options?: SanitizeOptions): string {
   let result = input
 
   if (opts.redactApiKey) {
-    // Bearer JWT(整体替换,与 API Key 同属认证凭据)
+    // 先本地"部分留尾"两档(顺序不可颠倒:盖成 sk-***尾 后共享 sk- 规则不再命中)
     result = result.replace(BEARER_REGEX, 'Bearer ***')
-    // API Key(保留前 3 + 后 6)
     result = result.replace(API_KEY_REGEX, redactApiKeyMatch)
+    // 再吃共享层唯一规则源:其余凭据族(PEM/sk_/ihui_/ghp_/AIza/AKIA/xox/glpat/裸 JWT/
+    // Basic/password= 赋值)整段盖掉,URL query 敏感参数只盖值不盖路径
+    result = redactUrl(result)
+    for (const rule of SECRET_RULES) result = result.replace(rule.pattern, rule.replacement)
   }
   if (opts.redactEmail) {
-    result = result.replace(EMAIL_REGEX, redactEmailMatch)
+    result = redactEmails(result)
   }
   if (opts.redactPhone) {
     result = result.replace(PHONE_REGEX, redactPhoneMatch)
   }
   if (opts.redactIp) {
-    result = result.replace(IPV4_REGEX, '[IP REDACTED]')
+    result = redactIps(result)
   }
 
   return result + marker

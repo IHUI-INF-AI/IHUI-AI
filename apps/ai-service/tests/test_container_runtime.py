@@ -124,11 +124,13 @@ async def test_cloud_run_store_linkage(tmp_path):
     _LIVE_RUNTIMES.append(rt)
 
     run = await rt.start_run("排序算法任务", [PY, "-c", "print('ok')"], user_id="u-1")
-    assert store.get(run["run_id"]) is not None
-    assert store.get(run["run_id"]).status == "running"
+    # store.get 的归属参数无默认值(2026-10-31 起):读别人的 run 与读不存在的 run 同形,
+    # 所以这里必须按发起时的主体去读 —— 顺带把"回写确实落在 u-1 名下"钉死。
+    assert store.get(run["run_id"], user_id="u-1") is not None
+    assert store.get(run["run_id"], user_id="u-1").status == "running"
 
     await rt.wait_run(run["run_id"], timeout=30)
-    linked = store.get(run["run_id"])
+    linked = store.get(run["run_id"], user_id="u-1")
     assert linked is not None
     assert linked.status == "done"
     assert "ok" in linked.output

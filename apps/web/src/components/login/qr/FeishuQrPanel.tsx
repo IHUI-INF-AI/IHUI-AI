@@ -17,6 +17,9 @@ interface FeishuQrPanelProps {
   refreshKey: number
 }
 
+/** 扫码 iframe 的唯一合法来源;passport 之外的任何 frame/window 发来的"带 code 的 URL"一律丢弃 */
+const FEISHU_PASSPORT_ORIGIN = 'https://passport.feishu.cn'
+
 export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
   const t = useTranslations('auth')
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -62,6 +65,11 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
     // 通用监听器:从消息中提取包含 code= 的 URL 并跳转
     const handleMessage = (event: MessageEvent) => {
       if (cancelled) return
+      // 消息必须来自这张扫码 iframe 自己:frame-src 含 `https:` 通配,页面上任何第三方
+      // iframe 都能 parent.postMessage({url:'…code=…'}) 把用户导航走(带假 code)。
+      const frame = container?.querySelector('iframe') ?? null
+      if (event.source !== (frame as HTMLIFrameElement | null)?.contentWindow) return
+      if (event.origin !== FEISHU_PASSPORT_ORIGIN) return
       const data = event.data
       if (!data || typeof data !== 'object') return
       const url: unknown =
@@ -69,8 +77,9 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
       if (typeof url === 'string' && (url.includes('code=') || url.includes('state='))) {
         try {
           const u = new URL(url, window.location.origin)
-          if (u.searchParams.get('code')) {
-            window.location.href = url
+          // 只接受回本源的落点:否则一条消息就成了开放重定向,把带 code 的 URL 整条送给外站。
+          if (u.searchParams.get('code') && u.origin === window.location.origin) {
+            window.location.href = u.toString()
           }
         } catch {
           /* ignore invalid url */
