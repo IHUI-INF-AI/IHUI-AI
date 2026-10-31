@@ -385,6 +385,24 @@ else:
 
 # 进程内版本存储:{(session_id, file_path): [version_record, ...]}
 _FILE_VERSION_STORE: dict[tuple[str, str], list[dict[str, Any]]] = {}
+# 2026-11-01 安全强化:每条 record 里存的是**整份文件正文**,内层已有 MAX_FILE_VERSIONS
+# 封顶,但**外层键 (session_id, path) 永不逐出** ⇒ 换会话/换路径就能无限累积源码副本。
+# 键数封顶按插入序 FIFO 逐出;计数可观测(有上限必须量得到)。
+_FILE_VERSION_MAX_KEYS = 512
+file_version_key_evictions = 0
+
+
+def _remember_file_versions(key: tuple[str, str], versions: list[dict[str, Any]]) -> None:
+    """版本表唯一写口:新键先确保不越封顶,再落值(覆盖已有键不计逐出)。"""
+    global file_version_key_evictions
+    if key in _FILE_VERSION_STORE:
+        _FILE_VERSION_STORE[key] = versions
+        return
+    while len(_FILE_VERSION_STORE) >= _FILE_VERSION_MAX_KEYS:
+        oldest = next(iter(_FILE_VERSION_STORE))
+        _FILE_VERSION_STORE.pop(oldest, None)
+        file_version_key_evictions += 1
+    _FILE_VERSION_STORE[key] = versions
 
 # Redis 单例 + 可用性判定(三重状态:None=未判定, True/False=判定结果)
 _redis_client_instance: Any = None
@@ -506,7 +524,7 @@ def _versions_for(key: tuple[str, str], rkey: str) -> list[dict[str, Any]] | Non
         return _FILE_VERSION_STORE[key]
     loaded = _redis_load_versions(rkey)
     if loaded is not None:
-        _FILE_VERSION_STORE[key] = loaded
+        _remember_file_versions(key, loaded)
         return loaded
     return None
 
@@ -568,7 +586,7 @@ def snapshot_file(
     versions = _versions_for(key, rkey)
     if versions is None:
         versions = []
-        _FILE_VERSION_STORE[key] = versions
+        _remember_file_versions(key, versions)
     versions.append(record)
     # 配额:只保留最近 MAX_FILE_VERSIONS 个
     if len(versions) > MAX_FILE_VERSIONS:

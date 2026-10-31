@@ -607,13 +607,36 @@ def take_admission(conversation_id: str | None, input_id: str, *, limit: int) ->
     调用方那个上限就成了第二份真相(两侧数值必然分叉)。
     """
     if conversation_id:
-        seen = ADMISSION_SEEN.setdefault(conversation_id, {})
+        # 外层键此前**只增不删**:逐会话内部留痕有 limit 封顶,但会话数本身没有,
+        # 而 conversation_id 由客户端带 ⇒ 每来一个新会话就留下一枚永久键(2026-11-01)。
+        # 顺序必须是"先登记封顶、再取留痕":先 `setdefault` 会让下面的
+        # "键已存在就跳过逐出"永远成立 —— 那条写法被本轮用例当场证伪(10 个会话全留下)。
+        _note_admission_conversation(conversation_id)
+        seen = ADMISSION_SEEN[conversation_id]
         if input_id in seen:
             return "duplicate"
         seen[input_id] = None
         while len(seen) > limit:
             seen.pop(next(iter(seen)))
     return "accepted"
+
+
+#: 外层会话键封顶(FIFO 逐出),与本模块 RECOVERY_WINDOWS_LIMIT 同一条纪律。
+ADMISSION_CONVERSATIONS_LIMIT: int = 1024
+#: 逐出计数:上限必须量得到,否则"有上限"只是口头承诺。
+admission_conversation_evictions: int = 0
+
+
+def _note_admission_conversation(conversation_id: str) -> None:
+    """保证 `ADMISSION_SEEN` 的会话数不越过封顶;新建会话键时按插入序逐出最旧。"""
+    global admission_conversation_evictions
+    if conversation_id in ADMISSION_SEEN:
+        return
+    while len(ADMISSION_SEEN) >= ADMISSION_CONVERSATIONS_LIMIT:
+        oldest = next(iter(ADMISSION_SEEN))
+        ADMISSION_SEEN.pop(oldest, None)
+        admission_conversation_evictions += 1
+    ADMISSION_SEEN[conversation_id] = {}
 
 
 def release_admission(conversation_id: str | None, input_id: str) -> None:
@@ -626,6 +649,9 @@ def release_admission(conversation_id: str | None, input_id: str) -> None:
         seen = ADMISSION_SEEN.get(conversation_id)
         if seen is not None:
             seen.pop(input_id, None)
+            if not seen:
+                # 留痕空了就交还会话键 —— 否则封顶只能靠 FIFO 撞满才回收
+                ADMISSION_SEEN.pop(conversation_id, None)
 
 
 def open_recovery_window(subscription_id: str, *, deadline_ms: float) -> None:

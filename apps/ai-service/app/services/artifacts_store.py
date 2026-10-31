@@ -10,8 +10,9 @@
 自研 subagent orchestration 的 artifacts 聚合能力(summarize_artifacts 用)。
 
 设计要点:
-- save_artifacts: 写 Redis(HSET 单 field "payload" + EXPIRE 7d),同时镜像到进程内
-  fallback dict(write-through 缓存),保证 load 在 Redis miss 时也能命中。
+- save_artifacts: 写 Redis(HSET 单 field "payload" + EXPIRE 7d);仅在 Redis 不可用/写失败时
+  镜像到进程内 fallback dict(2026-11-01 改:原先 Redis 成功也照抄一份,产物正文因此在进程里
+  重复驻留且无上限),保证 load 在 Redis miss 时也能命中。
 - load_artifacts: Redis 命中 → 返回 Redis 数据;Redis 空/不可用 → 返回 fallback。
 - delete_artifacts: 删 Redis + 清 fallback。
 - _fallback_cache 同时作为 mcp_server._ARTIFACTS_CACHE 的别名引用,向后兼容现有测试
@@ -42,7 +43,29 @@ _ARTIFACTS_KEY_PREFIX = "mcp:artifacts:"
 _ARTIFACTS_TTL_SECONDS = 7 * 24 * 60 * 60
 
 # 进程内降级 dict(Redis 不可用时使用;mcp_server._ARTIFACTS_CACHE 别名引用本对象)
+# 2026-11-01 安全强化:这份镜像此前**每次 save 都写**(即使 Redis 已经写成功),
+# 而键是 conversation id(外部可造)⇒ 一个账号刷会话即可把产物正文无限期堆在进程里,
+# 与 Redis 那份完全重复。现在:① 只在 Redis 不可用/写失败时才镜像(降级才是它的用途),
+# ② 降级态本身也有 FIFO 封顶。对象仍是普通 dict —— `mcp_server._ARTIFACTS_CACHE`
+# 是它的别名引用、且既有测试直接按 dict 读写它,换成自定义对象会打红一片在用测试。
 _fallback_cache: dict[str, dict[str, Any]] = {}
+_FALLBACK_MAX_ENTRIES = 512
+
+
+def _remember_fallback(conv_id: str, artifacts: dict[str, Any]) -> None:
+    """降级镜像的唯一写口:满则按插入序逐出最旧(可观测计数,不静默丢)。"""
+    if conv_id in _fallback_cache:
+        _fallback_cache[conv_id] = artifacts
+        return
+    while len(_fallback_cache) >= _FALLBACK_MAX_ENTRIES:
+        oldest = next(iter(_fallback_cache))
+        _fallback_cache.pop(oldest, None)
+        global fallback_evictions
+        fallback_evictions += 1
+    _fallback_cache[conv_id] = artifacts
+
+
+fallback_evictions = 0
 
 # 惰性 Redis 客户端(同步;小块数据 HSET/HGETALL 同步开销可忽略,且便于测试 mock)
 _redis_client: Any = None
@@ -87,17 +110,17 @@ def _key(conv_id: str) -> str:
 def save_artifacts(conv_id: str, artifacts: dict[str, Any]) -> bool:
     """保存 artifacts 到 Redis hash(HSET + EXPIRE 7d)。
 
-    同时镜像到进程内 fallback dict(write-through),保证 load 在 Redis miss 时命中。
+    仅在降级时镜像到进程内 fallback dict(2026-11-01 改:此前 Redis 成功也照抄一份),
+    保证 load 在 Redis miss 时仍能命中。
     Returns: True=Redis 持久化成功, False=降级到进程内(或参数非法)。
     """
     if not conv_id or not isinstance(artifacts, dict):
         return False
 
-    # 始终镜像到进程内 fallback(测试兼容 + Redis miss 兜底)
-    _fallback_cache[conv_id] = artifacts
-
+    # 只在降级路径上镜像(Redis 可用且写成功时它就是真相源,不需要进程内第二份)
     client = _get_redis()
     if client is None:
+        _remember_fallback(conv_id, artifacts)
         return False
     try:
         payload = json.dumps(artifacts, ensure_ascii=False, default=str)
@@ -108,6 +131,7 @@ def save_artifacts(conv_id: str, artifacts: dict[str, Any]) -> bool:
         return True
     except Exception as e:
         logger.warning("save_artifacts Redis 写入失败,降级进程内: %s", e)
+        _remember_fallback(conv_id, artifacts)
         return False
 
 

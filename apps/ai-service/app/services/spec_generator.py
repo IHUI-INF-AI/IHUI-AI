@@ -92,6 +92,11 @@ _LLM_MODEL_CHAIN: list[str | None] = ["gpt-4o", "gpt-4o-mini", None]
 # 模块级单例,跨请求共享(2026-07-22 watch 自动同步)
 _active_watchers: dict[str, dict[str, Any]] = {}
 _watchers_lock = threading.Lock()
+# 2026-11-01 安全强化:每枚 watcher 都挂着**活的 Observer 线程 + 文件句柄**,
+# 而 `watch_id = scope_hash(workspace, scope)` 的目标由调用方选 ⇒ 无上限时
+# 线程/FD 耗尽会先于内存出现(一个账号刷不同 scope 即可)。
+# 超限一律显式拒绝,**不静默挤掉别人的活跃 watcher**(那等于把别人的守卫停掉)。
+MAX_ACTIVE_WATCHERS = 64
 
 
 @dataclass
@@ -1429,6 +1434,17 @@ class SpecGenerator:
         watch_id = scope_hash
         # 如已有 watcher,先停止
         self.stop_watch(watch_id)
+
+        # 名额闸排在创建 observer **之前**:检查失败时不能留下已启动的线程/句柄
+        with _watchers_lock:
+            live_watchers = len(_active_watchers)
+        if live_watchers >= MAX_ACTIVE_WATCHERS:
+            return {
+                "error": "watcher_limit",
+                "live": live_watchers,
+                "limit": MAX_ACTIVE_WATCHERS,
+                "hint": "先 stop_watch 释放名额(或等闲置 watcher 自然停止)",
+            }
 
         # 文件变更回调(防抖:5s 内多次变更只触发一次 regen)
         last_trigger = {"time": 0.0}
