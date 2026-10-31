@@ -36,8 +36,6 @@ import type { LookupAddress } from 'node:dns'
 // 下面这段 re-export 是模块边界:公开路径不变、既有消费方一律不改,而实现只有一处。
 // 不得在本文件另写第二份解析或名单(§0.6;搬运算器的反向锁已证逐字节同源)。
 import { embeddedIpv4Of, isPrivateOrReservedIp, parseIpAddress } from './ip-literal'
-import { ALLOWED_FETCH_PROTOCOLS } from './fetch-protocols'
-export { ALLOWED_FETCH_PROTOCOLS }
 
 export {
   DENIED_CIDRS,
@@ -48,8 +46,12 @@ export {
   parseIpAddress,
 } from './ip-literal'
 
-/** 允许的协议(其余一律拒,含 file: / gopher: / dict: / data: 与自定义 scheme) */
-// 常量本体已迁到零依赖的 fetch-protocols.ts(浏览器侧引用它不再拖进 node:dns),此处仅 re-export 保持既有调用方不破。
+// 允许的协议表(其余一律拒,含 file: / gopher: / dict: / data: 与自定义 scheme)的
+// 实现在 ./url-protocols —— 那侧零 Node 内建,好让浏览器侧(navigable-url)复用它
+// 而不把本文件的 node:dns 拖进扩展/web 构建图(2026-10-31 实测该链导致构建失败)。
+// 下面原样 re-export:公开路径不变、既有消费方一律不改,实现仍只有一处(§0.6)。
+export { ALLOWED_FETCH_PROTOCOLS } from './url-protocols'
+import { ALLOWED_FETCH_PROTOCOLS } from './url-protocols'
 
 /** 拒发主机名(精确匹配,大小写不敏感) */
 export const DENIED_HOST_NAMES = ['localhost', 'ip6-localhost', 'ip6-loopback', 'metadata'] as const
