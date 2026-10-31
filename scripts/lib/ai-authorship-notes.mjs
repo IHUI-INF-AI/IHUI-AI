@@ -87,6 +87,122 @@ export function verifyIntegrity(payload) {
   return { state: 'ok', fp: expect, entry_count: payload.entries.length }
 }
 
+// 仓库内相对路径归一的**唯一实现**的内联别名(读侧对账共用,不得在消费方再写一份 replace 链)。
+export const normalizeRepoPath = normPath
+
+// ── 读侧取数解析(纯函数,零 IO)────────────────────────────────────────────
+// 立因:报表/审计这类消费者一旦各自手写一份 git plumbing 输出解析,判据就成 N 份必然漂移(§0.6)。
+// 这三枚只解析**文本形态**,不做任何 IO、不下结论;结论归消费方。
+
+const HEX_RE = /^[0-9a-f]{4,64}$/i
+const RENAME_ARROW = ' => '
+
+/**
+ * `git notes [--ref=X] list` 单行 → { kind:'pair', noteBlob, objectSha } | { kind:'undetermined', why }。
+ * 认不得的形态一律点名,不得静默丢行(丢行等于把"有归属记录"说成"没有")。
+ */
+export function parseNotesListLine(line) {
+  const raw = String(line).replace(/\r$/, '').trim()
+  if (raw === '') return { kind: 'blank' }
+  const cols = raw.split(/\s+/)
+  if (cols.length !== 2 || !HEX_RE.test(cols[0]) || !HEX_RE.test(cols[1])) {
+    return { kind: 'undetermined', why: `notes list 行形态不认得:${raw.slice(0, 120)}` }
+  }
+  return { kind: 'pair', noteBlob: cols[0], objectSha: cols[1] }
+}
+
+/**
+ * `git ls-tree --full-name -z` 单条(NUL 结尾)→ { kind:'entry', path, blob, mode } | { kind:'undetermined', why }。
+ * 形态 `<mode> blob <oid>\t<path>`;非 blob(树/链接)与形态不认得的都点名,不猜。
+ */
+export function parseLsTreeEntryZ(chunk) {
+  const raw = String(chunk).replace(/\0$/, '')
+  if (raw === '') return { kind: 'blank' }
+  const tab = raw.indexOf('\t')
+  if (tab < 0) return { kind: 'undetermined', why: `ls-tree 行缺制表符:${raw.slice(0, 120)}` }
+  const head = raw.slice(0, tab).split(/\s+/)
+  const path = raw.slice(tab + 1)
+  if (head.length !== 3 || !HEX_RE.test(head[2])) return { kind: 'undetermined', why: `ls-tree 头段形态不认得:${raw.slice(0, 120)}` }
+  if (head[1] !== 'blob') return { kind: 'undetermined', why: `ls-tree 该条不是 blob(${head[1]}):${path}` }
+  return { kind: 'entry', mode: head[0], blob: head[2], path: normPath(path) }
+}
+
+/**
+ * diff 路径(可能带 rename 形态)→ 归属对账用的**新侧**路径。
+ * 三种真形态:整段 `a.ts => b.ts` / 花括号 `src/{a.ts => b.ts}` / 普通 `src/a.ts`。
+ * 含引号(core.quotepath 未关时的非 ASCII 形)或段数不对 ⇒ 显式 undetermined,绝不猜新侧。
+ */
+export function resolveDiffPathToNewSide(rawPath) {
+  const p = String(rawPath).replace(/\r$/, '')
+  if (p === '') return { kind: 'undetermined', why: 'diff 路径为空' }
+  if (p.includes('"')) return { kind: 'undetermined', why: `diff 路径含引号形态,不猜:${p.slice(0, 80)}` }
+  if (!p.includes(RENAME_ARROW)) return { kind: 'ok', value: normPath(p) }
+  if (p.includes('{') !== p.includes('}')) return { kind: 'undetermined', why: `rename 花括号不配对:${p.slice(0, 80)}` }
+  if (p.includes('{')) {
+    const braceStart = p.indexOf('{')
+    const braceEnd = p.indexOf('}')
+    if (braceEnd < braceStart) return { kind: 'undetermined', why: `rename 花括号顺序不认得:${p.slice(0, 80)}` }
+    const sides = p.slice(braceStart + 1, braceEnd).split(RENAME_ARROW)
+    if (sides.length !== 2) return { kind: 'undetermined', why: `rename 花括号内段数不为 2:${p.slice(0, 80)}` }
+    const joined = p.slice(0, braceStart) + sides[1] + p.slice(braceEnd + 1)
+    return { kind: 'ok', value: normPath(joined).replace(/\/{2,}/g, '/') }
+  }
+  const whole = p.split(RENAME_ARROW)
+  if (whole.length !== 2) return { kind: 'undetermined', why: `rename 整段形态段数不为 2:${p.slice(0, 80)}` }
+  return { kind: 'ok', value: normPath(whole[1]) }
+}
+
+/**
+ * `git show --numstat` 单行 → { kind:'stat', path, added, removed, binary } | { kind:'blank' } | { kind:'undetermined', why }。
+ * added/removed 为 null 表示二进制(行数结构上无定义,不是 0 —— 用 0 冒充"没改动"是 §0.3 禁形态)。
+ */
+export function parseNumstatLine(line) {
+  const raw = String(line).replace(/\r$/, '')
+  if (raw.trim() === '') return { kind: 'blank' }
+  const t1 = raw.indexOf('\t')
+  const t2 = t1 < 0 ? -1 : raw.indexOf('\t', t1 + 1)
+  if (t1 < 0 || t2 < 0) return { kind: 'undetermined', why: `numstat 行不足两枚制表符:${raw.slice(0, 80)}` }
+  const addedRaw = raw.slice(0, t1).trim()
+  const removedRaw = raw.slice(t1 + 1, t2).trim()
+  const path = resolveDiffPathToNewSide(raw.slice(t2 + 1))
+  if (path.kind !== 'ok') return { kind: 'undetermined', why: path.why }
+  if (addedRaw === '-' || removedRaw === '-') return { kind: 'stat', path: path.value, added: null, removed: null, binary: true }
+  const added = Number(addedRaw)
+  const removed = Number(removedRaw)
+  if (!Number.isInteger(added) || !Number.isInteger(removed) || added < 0 || removed < 0) {
+    return { kind: 'undetermined', why: `numstat 计数不认得:${addedRaw}/${removedRaw} @ ${path.value}` }
+  }
+  return { kind: 'stat', path: path.value, added, removed, binary: false }
+}
+
+/**
+ * 读侧**跨 commit** 的"同一文件被不同主体分别主张"判据(纯函数,零 IO)。
+ * 立因:verifyRecord 的冲突判据射程只到一枚 commit 的载荷(within-note);报表/审计要把这条牙
+ * 撒到整段历史,若在消费方另写一份 `new Set(owners).size > 1` 就是§0.6 的第二份实现 ⇒ 必然漂移。
+ * 语义与 within-note 版一致(不同主体对同一路径各自主张 ⇒ 冲突),只是输入是已展平的条目集
+ * (每条须带 commit)。只点名不裁决:"判没判过"由消费方按输入集是否可枚举决定(§0.3)。
+ * ⚠️ 本次约束(读侧补齐席)是"lib 仅新增纯函数导出、既有函数体一字不动",故 verifyRecord 内
+ *    那段同名判据保持原样,不做行为等价重构。
+ */
+export function findDuplicateSubjectClaims(entries = []) {
+  const byPath = new Map()
+  for (const e of Array.isArray(entries) ? entries : []) {
+    if (!e || typeof e !== 'object') continue
+    const session = typeof e.session === 'string' ? e.session : ''
+    if (session === '') continue
+    for (const raw of e.ai_paths || []) {
+      const key = normPath(raw)
+      const row = byPath.get(key) || { path: key, sessions: [], commits: [], dedupe_keys: [] }
+      if (!row.sessions.includes(session)) row.sessions.push(session)
+      const commit = typeof e.commit === 'string' ? e.commit : ''
+      if (commit && !row.commits.includes(commit)) row.commits.push(commit)
+      if (e.dedupe_key && !row.dedupe_keys.includes(e.dedupe_key)) row.dedupe_keys.push(e.dedupe_key)
+      byPath.set(key, row)
+    }
+  }
+  return [...byPath.values()].filter((r) => r.sessions.length > 1).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+}
+
 // 归属判定的唯一实现(纯函数,零 IO):失效方向永远是「多要一次定向说明」,不是冒绿(§0.3)。
 export function decideAttribution({ sha = null, parentCount = 1, changedPaths = [], declaredPaths = [], dirtyPaths = [], session = null } = {}) {
   const reasons = []
@@ -268,5 +384,12 @@ export const __test__ = {
   recordForCommit,
   verifyRecord,
   REPO_ROOT,
+  // 读侧取数解析(纯函数,报表/审计共用单源;新增导出,不改上面任何既有函数体)
+  normalizeRepoPath,
+  parseNotesListLine,
+  parseLsTreeEntryZ,
+  resolveDiffPathToNewSide,
+  parseNumstatLine,
+  findDuplicateSubjectClaims,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
