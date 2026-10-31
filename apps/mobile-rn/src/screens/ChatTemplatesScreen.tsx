@@ -239,6 +239,7 @@ export default function ChatTemplatesScreen() {
       </NavChrome>
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={visible}
         keyExtractor={(item) => item.id}
         renderItem={renderCard}

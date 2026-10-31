@@ -243,6 +243,7 @@ export function MemoryScreen({
         />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
           data={entries}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

@@ -323,7 +323,7 @@ export default function SecurityCenterScreen() {
         <NavBar title={t('securityCenter.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {/* 安全评分 — GET /api/user/security-score */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('securityCenter.score.title')}</Text>
