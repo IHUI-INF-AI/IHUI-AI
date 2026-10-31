@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+    "sha256": "89461f0ded9bfa067aa020505a5db40cf980c65397a4025de26879be98b969aa",
+    "bytes": 4472
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\goal-b43-wikix.html",
+    "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+    "bytes": 853682
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/temp-cleanup-incomplete",
+      "severity": "error",
+      "message": "Browser cleanup could not safely finish; inspect the reported retained path.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\goal-b43-wikix.html"
+      },
+      "evidence": {
+        "reason": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-IBvasX\".",
+        "retainedDirectory": "D:\\DevEnv\\Temp\\archify-visual-check-profile-IBvasX"
+      },
+      "supportedFixes": [
+        "resolve the reported process or filesystem failure; verify directory ownership before manual cleanup"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-2\\goal-b43-wikix.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-2\\goal-b43-wikix.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-2\\goal-b43-wikix.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 25586,
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  }
+}

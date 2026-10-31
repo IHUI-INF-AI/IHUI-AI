@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "goal-b43:Qoder context-plugin 破译 × Repo Wiki agent 写面落地",
+    "locale": "zh-CN",
+    "subtitle": "MCP-as-engine · hooks 5 事件 8 钩子 · 双通道身份 · 2026-10-31",
+    "output": ".archify/architecture-goal-b43-wikix-20261031-1450/goal-b43-wikix.html",
+    "quality_profile": "showcase",
+    "viewBox": [1100, 880]
+  },
+  "components": [
+    {
+      "id": "qoder-plugin",
+      "type": "backend",
+      "label": "qoder-context 插件 1.0.91",
+      "sublabel": "静默内置 · Wiki + retrieval engine",
+      "tag": "Qoder 破译",
+      "pos": [20, 60],
+      "size": [280, 100]
+    },
+    {
+      "id": "qoder-hooks",
+      "type": "frontend",
+      "label": "hooks 5 事件 8 钩子",
+      "sublabel": "SessionStart/SubagentStart/PostToolUse 逐字",
+      "tag": "Qoder 破译",
+      "pos": [20, 210],
+      "size": [280, 100]
+    },
+    {
+      "id": "qoder-tools",
+      "type": "database",
+      "label": "8 枚 wiki/knowledge 写工具族",
+      "sublabel": "write/edit/delete × 2 + link/unlink",
+      "tag": "Qoder 独有",
+      "pos": [20, 360],
+      "size": [280, 100]
+    },
+    {
+      "id": "ihui-cards",
+      "type": "database",
+      "label": "knowledge_cards(api 既有)",
+      "sublabel": "全写 HTTP 面 · source=agent · 判据单源",
+      "tag": "IHUI",
+      "pos": [350, 60],
+      "size": [280, 100]
+    },
+    {
+      "id": "ihui-writer",
+      "type": "backend",
+      "label": "knowledge_writer 服务层",
+      "sublabel": "write/update/delete/link/unlink 五出口",
+      "tag": "IHUI 新增",
+      "pos": [350, 210],
+      "size": [280, 100]
+    },
+    {
+      "id": "ihui-route",
+      "type": "frontend",
+      "label": "/api/v1/ai/knowledge-write",
+      "sublabel": "四端点 · 双通道身份分离",
+      "tag": "IHUI 新增",
+      "pos": [350, 360],
+      "size": [280, 100]
+    },
+    {
+      "id": "identity",
+      "type": "security",
+      "label": "双通道身份",
+      "sublabel": "创建=内部归属显式 · 改删=仅本人 JWT",
+      "tag": "超越轴",
+      "pos": [680, 60],
+      "size": [260, 100]
+    },
+    {
+      "id": "beyond",
+      "type": "external",
+      "label": "超越轴",
+      "sublabel": "幂等链接 · 三态诚实 · 零复制判据 · 零迁移",
+      "tag": "结论",
+      "pos": [680, 210],
+      "size": [260, 120]
+    },
+    {
+      "id": "states",
+      "type": "external",
+      "label": "T2§8 终局",
+      "sublabel": "八条全闭环(七落一登) · 反编译长跑进行中",
+      "tag": "结论",
+      "pos": [680, 380],
+      "size": [260, 120]
+    }
+  ],
+  "connections": [
+    {
+      "id": "k1",
+      "from": "qoder-plugin",
+      "to": "qoder-hooks",
+      "label": "承载"
+    },
+    {
+      "id": "k2",
+      "from": "qoder-hooks",
+      "to": "qoder-tools",
+      "label": "matcher 印证",
+      "variant": "emphasis"
+    },
+    {
+      "id": "k3",
+      "from": "qoder-tools",
+      "to": "ihui-writer",
+      "label": "对位落地",
+      "variant": "emphasis"
+    },
+    {
+      "id": "k4",
+      "from": "ihui-writer",
+      "to": "ihui-cards",
+      "label": "客户端零复制"
+    },
+    {
+      "id": "k5",
+      "from": "ihui-route",
+      "to": "ihui-writer",
+      "label": "四端点委托"
+    },
+    {
+      "id": "k6",
+      "from": "ihui-writer",
+      "to": "identity",
+      "label": "双通道"
+    },
+    {
+      "id": "k7",
+      "from": "identity",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "k8",
+      "from": "ihui-writer",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "k9",
+      "from": "qoder-tools",
+      "to": "states",
+      "label": "对撞收口"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "goal-b43 破译要点",
+      "items": [
+        "bundled-resources 新矿:qoder-context 静默内置(userVisible=false)",
+        "MCP-as-engine:qoder-search.bundle 5.4MB,alwaysAllow=SearchWorkspace+SearchKnowledge",
+        "mtree 原生 Merkle(napi10)与 Trae merkletrie 同思路",
+        "hooks matcher 逐字印证写工具族清单(知识编辑留痕同语义)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "对撞结果",
+      "items": [
+        "SearchWorkspace/SearchKnowledge/repowiki 本仓全有对位",
+        "写面 agent 出口零对位 → knowledge_write 落地(6/6 测试)"
+      ]
+    }
+  ]
+}

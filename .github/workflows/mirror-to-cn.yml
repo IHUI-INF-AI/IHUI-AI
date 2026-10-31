@@ -21,8 +21,12 @@ name: Mirror to CN
 on:
   workflow_dispatch:
   schedule:
-    # 每 20 分钟一次；单轮未完成时下一个只排队一个，不挤掉在跑的
-    - cron: '*/20 * * * *'
+    # 原 */20(2026-09-23 立)。2026-10-31 降频到每 2 小时,理由是现读出来的:
+    # Gitee 侧已「Repo size … exceeds quota」,而**被拒的包按 Gitee 口径仍计入体积**
+    # (本步上方注释自述),所以每一轮重试都在把服务端体积推得更高 —— 在机主点一次
+    # 「Git GC」之前,重试本身是有害动作。降频把加重率从 72 次/天降到 12 次/天。
+    # GC 完成后如需恢复 ≤20min 镜像延迟,把本行改回 '*/20 * * * *' 即可。
+    - cron: '0 */2 * * *'
 
 permissions:
   contents: read
@@ -218,16 +222,25 @@ jobs:
               # 判词取服务端自己打的那一行原文(含实测 MB),不转述不猜;它没打就如实写"未给出"。
               SIZE_LINE=$(grep -aoE 'Repo size: [0-9.]+MB(, exceeds quota [0-9.]+MB)?' "$PUSH_OUT" | tail -1 || true)
               GC_LINE=$(grep -aoE 'https://gitee\.com[^ ]*settings#git-gc' "$PUSH_OUT" | tail -1 || true)
-              echo "::error::Gitee 拒绝本轮全量推送。服务端判词:${SIZE_LINE:-本轮未打出体积数}。远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签 —— 体积卡在服务端回收,不在 ref 清单。这一步**没有任何前置探测**(0 字节探针已于 2026-09-28 移除,它证明不了配额,详见本步上方注释),所以本轮对象已随上面的推送送出去了:被拒的包按 Gitee 口径仍计入体积 ⇒ 重试本身在把它推得更高,这是**已知代价**,不是遗漏。降体积只有服务端 GC 一条路(Gitee 无 GC API,housekeeping 不可由本 workflow 触发):${GC_LINE:-https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings#git-gc} —— 由仓库所有者点一次「Git GC」。GC 之前下一轮(20 分钟后)仍会照原样再试,改触发器/改判据都无效。"
+              QUOTA_SKIPPED=1
+              # 供「同步结果汇总」如实写「未落地」——本步 exit 0 只是"不再让 CI 变红",
+              # 不等于镜像成功;把没落地渲染成 ✅ = 本仓禁止的假账(§30 无终态不得写完成)。
+              echo "quota_skipped=1" >> "$GITHUB_OUTPUT"
+              echo "::warning::Gitee 拒绝本轮全量推送(配额超限按 §12e 不再判红:它与本次提交内容无关,且收信人改代码也无法整改,唯一出路是仓库所有者点一次 Git GC)。服务端判词:${SIZE_LINE:-本轮未打出体积数}。远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签 —— 体积卡在服务端回收,不在 ref 清单。这一步**没有任何前置探测**(0 字节探针已于 2026-09-28 移除,它证明不了配额,详见本步上方注释),所以本轮对象已随上面的推送送出去了:被拒的包按 Gitee 口径仍计入体积 ⇒ 重试本身在把它推得更高,这是**已知代价**,不是遗漏。降体积只有服务端 GC 一条路(Gitee 无 GC API,housekeeping 不可由本 workflow 触发):${GC_LINE:-https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings#git-gc} —— 由仓库所有者点一次「Git GC」。GC 之前下一轮(2 小时后,见文件头 schedule)仍会照原样再试,改触发器/改判据都无效。"
             else
               # 拿不到配额判词的失败(实测 09-28 那轮 74 分钟后 curl 65 TLS 断开)必须与"配额"
               # 分开说:此时**无法判定**服务端是否收下并留下了本轮上传的对象,更无法判定配额是否
               # 释放 —— 不许把"没拿到判词"写成"配额正常"或"配额已超",两种都是假账。
               echo "::error::Gitee 推送失败,但本轮输出里没有配额判词(见上方 git 原始输出)⇒ 配额状态**未判定**:既不能说仍超限,也不能说已释放。若上方是传输层断开(curl 65 / GnuTLS / RPC / remote end hung up 那一型,实测有一轮推满 74 分钟才断),本轮对象可能已部分留在服务端;下一轮仍会照原样重试。"
+              # 「没有配额判词」的失败照旧红(2026-10-31 只把判词命中那一支降成 warning,余支一字未动)
+              exit "$PUSH_RC"
             fi
-            exit "$PUSH_RC"
           fi
-          echo "✅ Gitee 镜像推送完成"
+          if [ "${QUOTA_SKIPPED:-0}" = "1" ]; then
+            echo "⚠️ Gitee 本轮未落地(服务端体积超配额,判词见上方 warning);GitCode 腿继续跑。"
+          else
+            echo "✅ Gitee 镜像推送完成"
+          fi
 
       - name: 镜像到 GitCode
         id: gitcode
@@ -288,7 +301,15 @@ jobs:
         run: |
           echo "## 国内镜像同步结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          GITEE_RESULT="${{ (steps.gitee.outcome == 'success' || steps.gitee.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}"
+          # 配额跳过时本步 outcome=success(为了不让恒红门),但它**没有落地** ——
+          # 汇总必须照实写,不能借用 outcome 把"未落地"说成"成功"。
+          if [ "${{ steps.gitee.outputs.quota_skipped }}" = "1" ]; then
+            GITEE_RESULT="⚠️ 未落地（Gitee 体积超配额，需仓库所有者在控制台点一次 Git GC；详见上文 warning）"
+          elif [ "${{ steps.gitee.outcome }}" = "success" ] || [ "${{ steps.gitee.outcome }}" = "skipped" ]; then
+            GITEE_RESULT="✅ 成功"
+          else
+            GITEE_RESULT="❌ 失败（见上一步日志）"
+          fi
           GITCODE_RESULT="${{ (steps.gitcode.outcome == 'success' || steps.gitcode.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}"
           echo "- Gitee: $GITEE_RESULT" >> $GITHUB_STEP_SUMMARY
           echo "- GitCode: $GITCODE_RESULT" >> $GITHUB_STEP_SUMMARY

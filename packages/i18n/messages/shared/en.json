@@ -79,6 +79,8 @@
     "toolWorkflowTrigger": "Trigger Workflow",
     "toolWorkflowResume": "Resume Workflow",
     "toolWorkflowInstanceStatus": "Workflow Instance Status",
+    "toolNotebookEdit": "Edit Notebook Cell",
+    "toolSendToSession": "Send Session Message",
     "toolGenerateTest": "Generate test code",
     "toolRunCommand": "Run a command",
     "toolGitOperations": "Run Git operations",
