@@ -188,4 +188,16 @@
 - 编号 O67 → O42819(键位前沿 22819 + 跳距 20000,试 1 枚)
   - [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=10080min count=1 first=2026-10-25T13:45:54.324Z last=2026-10-25T13:45:54.324Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）〔归:机主生产机面｜等:—〕〔归机主依据@2026-10-28/gb23:face 修复后现读两候选仍皆无 —— G:\IHUI-AI\.DevEnv\ 只有 Temp/backups/cache/tools 无 ihui-prod,主仓 .ihui-agent/deploy-decisions.jsonl 也不在;生产账本只住生产机,此处取不到(证据 sha 已被 intake 折成 [hex:40] 占位,原值只能回生产账本取)〕
   - [ ] O67 (2026-10-31) safe-commit 发令前不点名「索引里非本票声明的已暂存件」——生产码与用例被拆进两枚提交、HEAD 一度带红:现状 = O43② 基线刻意取「此刻全量索引(含他人已暂存水位)」,只拦钩子窗口期**新进**的件,于是「发令前索引里已混着别人的件」这一型无人喊;本轮实测两起后果(执行席违规 `git add` 把 packages/i18n 与 apps/api/src/services/relay-task-center.ts 放进共享索引 → 被别席不带 pathspec 的普通提交卷走 → HEAD 面 relay-task-center.ts 是新的三态判据而 relay-task-center.test.ts 仍按旧 deps 形状打桩,主席把 HEAD 面测试原样取出复跑现读 `Tests 1 failed | 8 passed (9)`,红由枚 eb7fbad5ae 就地结清且已推送)。出路 = 在 safe-commit 发令前复量段补**一行只读点名**(逐条报「已暂存但不在本票声明集」的路径数与前 N 条;只警告不拒发 —— 多会话共写索引是本仓常态,拒发即造与提交内容无关的恒堵门 §12e),并把「执行席禁 git add」从散文升成机器判据(候选落点 = 主席收席时跑一把 staged 归属对账,发现非声明集件当场改名/退索引)。验证 = `node scripts/safe-commit.mjs --dry-run` 输出含该行且对纯净索引零误报;镜像件补一例「索引混入非声明件 ⇒ 点名但不拒发」。
+
+---
+
+## 让号留痕(补记 @2026-10-31,由 scripts/plan-collide-renumber.mjs 追加)
+
+> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
+> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
+> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
+
+- 编号 O68 → O62819(键位前沿 42819 + 跳距 20000,试 1 枚)
+  - [ ] O68 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-10-27T17:30:26.786Z last=2026-10-27T17:30:26.786Z route=/deploy/pass-entry-broken sample="deploy_outcome action=pass-entry-broken sha=[hex:35]…"）
+  - [ ]〔归:台账器物面｜等:—〕 O68 **侧车归属改判无出口**:`scripts/data/plan-fields.jsonl` 的 `O02#跨端UI单一源` 记录仍是 2026-10-25 的 `waiting:none`,而行内标头已改归机主真机面 ⇒ v2 尺以侧车为准,派单反复把 O02 列成"现在可做"。现读唯一写侧车的出口 `plan-fields-extract.mjs --apply` 自带"桶零变化"守恒闸(防搬说辞改判定),仓内已无 reclassify 工具 ⇒ 需一条**声明式改判出口**(逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,禁批量)。〔登记@2026-10-29:派单现读 12 行剔 10 仍出单 O02 为凭〕
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
