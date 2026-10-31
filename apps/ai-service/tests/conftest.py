@@ -219,9 +219,23 @@ def _get_app():
     """惰性获取全局 ASGI app(首次调用触发 app.main 导入,进程内仅一次)。"""
     global _app
     if _app is None:
+        # 2026-10-31 根治(实测):导入 app.main 会经 `recap.py → litellm` 的
+        # `load_dotenv()` 把 **.env 全部键无条件写进 os.environ**(含
+        # `MCP_WORKSPACE_ROOTS=` 空值、`JWT_SECRET` 真密钥)。只清厂商 key 不够 ——
+        # 任何一个新键都会让后续用例换一套外部状态,表现为"单文件绿、同 worker
+        # 长序列红"(实测复现:-n 0 跑 test_cors_short_circuit 后再跑三条目标用例 → 3 failed)。
+        # 这里做**导入期 env 差异回滚**:新增键删除、改写键还原,把"测试进程不携带
+        # .env 真值"从口号变成机制。
+        env_before = dict(os.environ)
         from app.main import app as _imported_app
 
         _app = _imported_app
+        for _k, _v in env_before.items():
+            if os.environ.get(_k) != _v:
+                os.environ[_k] = _v
+        for _k in list(os.environ):
+            if _k not in env_before:
+                os.environ.pop(_k, None)
         # 导入后立即补清 setdefault 同步进来的 .env vendor key:
         # - 若 key 来自 .env(app.main setdefault 添加):pop 即回到缺省态;
         # - 若 key 是外壳环境原有值:_isolate_llm_env 的 monkeypatch.delenv
@@ -550,6 +564,11 @@ def _isolate_jwt_auth(monkeypatch, request):
 
     monkeypatch.setattr(settings, "jwt_secret", "")
     monkeypatch.setattr(settings, "node_env", "development")
+    # 第二道(2026-10-31):把"每个用例的起点都是无凭据"变成不变量,而不是依赖
+    # worker 分片顺序 —— 进程环境里的真实凭据会让某些"无凭据"用例在长序列下变红。
+    # monkeypatch 会在 teardown 还原;用例内自己 setenv 的仍然优先。
+    for _k in ("JWT_SECRET", "AI_CALLBACK_SECRET", "INTERNAL_SERVICE_TOKEN"):
+        monkeypatch.delenv(_k, raising=False)
 
 
 @pytest.fixture(autouse=True)
