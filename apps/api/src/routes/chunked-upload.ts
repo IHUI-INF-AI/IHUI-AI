@@ -15,6 +15,9 @@ import {
   statSync,
   createWriteStream,
   createReadStream,
+  openSync,
+  readSync,
+  closeSync,
 } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { and, eq } from 'drizzle-orm'
@@ -36,11 +39,30 @@ import {
   wouldStagedBudgetOverflow,
 } from '../services/upload-integrity.js'
 import { withUploadMergeSlot } from '../services/upload-merge-gate.js'
+import { validateUploadHead } from '../utils/file-type-validator.js'
 
 /** 校验和失败后的会话终态:不再接受分片、不再产出 url、由 reaper 到期收目录。
  *  取值取自 `@ihui/database` 的词表 —— 本文件不得再自拼状态字面量(那正是
  *  `checksum_mismatch` 曾长期不在"状态字典"里的原因:字典只是另一处的注释)。 */
 const STATUS_CHECKSUM_MISMATCH: UploadSessionStatus = UPLOAD_SESSION_STATUS.checksumMismatch
+
+/** 内容类型闸失败后的会话终态（2026-10-31 安全强化第 10 批 R10）。 */
+const STATUS_CONTENT_REJECTED: UploadSessionStatus = UPLOAD_SESSION_STATUS.contentRejected
+
+/** 内容类型闸的取样字节数：覆盖 checkMagicNumber 全部已定义判据的最长前缀（ftyp 偏移 4 起 4 字节、RIFF 偏移 8 起 4 字节 ⇒ 12 足够；留 4096 给未来新增判据）。 */
+const CONTENT_SNIFF_BYTES = 4096
+
+/** 读文件头部若干字节（不整包读入：分片上传面向大文件）。 */
+function readHeadBytes(path: string, maxBytes: number): Buffer {
+  const fd = openSync(path, 'r')
+  try {
+    const buf = Buffer.allocUnsafe(maxBytes)
+    const n = readSync(fd, buf, 0, maxBytes, 0)
+    return buf.subarray(0, n)
+  } finally {
+    closeSync(fd)
+  }
+}
 
 function expiresAtFrom(now: Date): Date {
   // ttl 读取口走钳制器(只可收紧):常量表被 spread 改大也在这里被钳回协议档
@@ -388,6 +410,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           actualSha256: string
           actualSize: number
         }
+      | { kind: 'content-rejected'; reason: string; declaredName: string }
       | { kind: 'disk-error'; err: unknown }
 
     const outcome: MergePhaseOutcome = await withUploadMergeSlot(
@@ -457,7 +480,52 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
             } as const
           }
 
-          // 校验通过才清理 chunks 目录
+          // 内容类型闸（2026-10-31 安全强化第 10 批 R10）——
+          // 此前本链**完全不看文件内容**：`fileMd5` 是可选声明，客户端不声明就一路直通，
+          // 任意二进制都能以 `uploads/public/<uuid>` 在可信域长期托管（CWE-434 未受限上传：
+          // 钓鱼页、木马包、盗版分发，且因落盘名无扩展名连"看名字就知道是什么"都没有）。
+          // 判据与普通上传同一份（`validateUploadHead` 内部复用 EXT_MIME_MAP + checkMagicNumber，
+          // AGENTS.md §0.6）；只读头部 4096 字节，不把大文件整包读进内存。
+          // 放在 checksum 之后：先确认"传输完整"，再确认"内容该不该收" —— 顺序反了会把
+          // 传输损坏误报成内容违规，取证时会认错攻击面。
+          const headBuf = readHeadBytes(finalPath, CONTENT_SNIFF_BYTES)
+          const typeVerdict = validateUploadHead(
+            headBuf,
+            session.fileName,
+            session.mimeType ?? '',
+          )
+          if (!typeVerdict.ok) {
+            try {
+              unlinkSync(finalPath)
+            } catch (cleanErr) {
+              request.log.error({ err: cleanErr, finalPath }, '内容类型闸拒绝后清理文件失败')
+            }
+            await db
+              .update(uploadSessions)
+              .set({ status: STATUS_CONTENT_REJECTED, updatedAt: new Date() })
+              .where(
+                and(
+                  eq(uploadSessions.uploadId, uploadId),
+                  eq(uploadSessions.userId, request.userId ?? ''),
+                ),
+              )
+            request.log.error(
+              {
+                uploadId,
+                fileName: session.fileName,
+                declaredMime: session.mimeType ?? null,
+                reason: typeVerdict.reason,
+              },
+              '分片合并产物内容类型被拒,已清理并拒绝交付',
+            )
+            return {
+              kind: 'content-rejected',
+              reason: typeVerdict.reason,
+              declaredName: session.fileName,
+            } as const
+          }
+
+          // 全部校验通过才清理 chunks 目录（内容被拒时保留分片，便于人工取证与误判申诉）。
           if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
           return { kind: 'merged' } as const
         } catch (e) {
@@ -477,6 +545,16 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           error(
             400,
             `校验和不符:声明 md5=${outcome.declaredMd5 ?? '(未声明)'} 实算 md5=${outcome.actualMd5}(sha256=${outcome.actualSha256}, ${outcome.actualSize} 字节),已拒绝并清理合并文件`,
+          ),
+        )
+    }
+    if (outcome.kind === 'content-rejected') {
+      return reply
+        .status(415)
+        .send(
+          error(
+            415,
+            `文件内容与类型校验失败:${outcome.reason}(文件名 ${outcome.declaredName})。仅接受白名单类型,且文件头必须与扩展名一致;请改用普通上传或修正文件后重传。`,
           ),
         )
     }
