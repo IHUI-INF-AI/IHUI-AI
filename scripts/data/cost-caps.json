@@ -6,7 +6,7 @@
     "deploy": {
       "perHour": 8,
       "perDay": 60,
-      "minutesPerDay": 480
+      "minutesPerDay": 720
     },
     "session": {
       "perHour": 3,
