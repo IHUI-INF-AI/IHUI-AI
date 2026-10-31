@@ -138,7 +138,7 @@ export default function CoursePlanet() {
         <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
           {/* 对齐 RN NavBar:高 44dp→88rpx(透明底、无下描边 ⇒ 透出页面底色) */}
           <View className="h-[88rpx] flex items-center px-[24rpx]">
-            <Text className="text-[length:36rpx] font-semibold text-foreground">
+            <Text className="text-subtitle font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
           </View>
@@ -155,7 +155,7 @@ export default function CoursePlanet() {
       <ThemeRoot>
         <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
           <View className="h-[88rpx] flex items-center px-[24rpx]">
-            <Text className="text-[length:36rpx] font-semibold text-foreground">
+            <Text className="text-subtitle font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
           </View>
@@ -178,7 +178,7 @@ export default function CoursePlanet() {
       <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
         {/* 对齐 RN NavBar:高 44dp→88rpx(透明底、无下描边 ⇒ 透出页面底色) */}
         <View className="h-[88rpx] flex items-center px-[24rpx]">
-          <Text className="text-[length:36rpx] font-semibold text-foreground">
+          <Text className="text-subtitle font-semibold text-foreground">
             {t('coursePlanet.title')}
           </Text>
         </View>

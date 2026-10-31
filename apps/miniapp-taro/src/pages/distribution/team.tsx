@@ -233,7 +233,7 @@ export default function DistributionTeam() {
                       />
                     ) : (
                       <View className="w-[88rpx] h-[88rpx] rounded-2xl bg-[var(--color-muted)] items-center justify-center">
-                        <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
+                        <Text className="text-subtitle font-semibold text-muted-foreground">
                           {m.nickname.charAt(0) || '?'}
                         </Text>
                       </View>

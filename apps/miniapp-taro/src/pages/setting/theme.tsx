@@ -139,7 +139,7 @@ export default function ThemePage() {
                   />
                   <View className="ml-[16rpx] min-w-0 flex-1">
                     {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-[length:32rpx] text-muted-foreground">
+                    <Text className="text-title text-muted-foreground">
                       {tt(th.labelKey, th.label)}
                     </Text>
                     {/* 副行(说明)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}

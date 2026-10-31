@@ -171,7 +171,7 @@ export default function LiveDetail() {
               <LineIcon name="play" size={56} color="var(--color-surface-light)" />
               {live.status === 'living' && (
                 <View className="mt-[24rpx] px-[20rpx] py-[20rpx] rounded-xl bg-primary flex items-center justify-center">
-                  <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
+                  <Text className="text-title font-semibold text-[var(--color-primary-foreground)]">
                     {t('live.detail.enter')}
                   </Text>
                 </View>
@@ -221,7 +221,7 @@ export default function LiveDetail() {
               onClick={handleSubscribe}
               hoverClass="opacity-60"
             >
-              <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
+              <Text className="text-title font-semibold text-[var(--color-primary-foreground)]">
                 {subscribing ? t('liveDetail.subscribing') : t('liveDetail.subscribe')}
               </Text>
             </View>

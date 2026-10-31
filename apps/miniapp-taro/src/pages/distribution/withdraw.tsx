@@ -84,7 +84,7 @@ export default function DistributionWithdraw() {
     <ThemeRoot className="min-h-screen bg-background">
       {/* 对齐 RN WithdrawScreen header:页标题(本页无自绘返回键,返回由原生导航栏承担) */}
       <View className="mx-[20rpx] mt-[24rpx]">
-        <Text className="text-[length:40rpx] font-semibold text-foreground">
+        <Text className="text-heading font-semibold text-foreground">
           {t('withdraw.title')}
         </Text>
       </View>
@@ -104,9 +104,9 @@ export default function DistributionWithdraw() {
           className="mt-[16rpx] flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
           style={ffAmount.focusStyle}
         >
-          <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
+          <Text className="text-title font-semibold text-foreground">¥</Text>
           <Input
-            className="flex-1 ml-[16rpx] text-[length:32rpx] text-foreground"
+            className="flex-1 ml-[16rpx] text-title text-foreground"
             {...ffAmount.spread}
             type="digit"
             value={amount}
@@ -128,7 +128,7 @@ export default function DistributionWithdraw() {
           style={ffBankCard.focusStyle}
         >
           <Input
-            className="flex-1 text-[length:32rpx] text-foreground"
+            className="flex-1 text-title text-foreground"
             {...ffBankCard.spread}
             value={bankCard}
             onInput={(e) => setBankCard(e.detail.value)}

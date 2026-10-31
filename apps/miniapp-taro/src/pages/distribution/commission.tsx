@@ -87,7 +87,7 @@ export default function DistributionCommission() {
         <Text className="text-body text-muted-foreground">
           {t('distribution.commission.total')}
         </Text>
-        <Text className="block text-[length:40rpx] text-foreground font-bold mt-[16rpx]">
+        <Text className="block text-heading text-foreground font-bold mt-[16rpx]">
           ¥{totalCommission}
         </Text>
       </View>
@@ -98,7 +98,7 @@ export default function DistributionCommission() {
               key={r.id}
               className="bg-card border border-border rounded-lg p-[24rpx] mb-[16rpx]"
             >
-              <Text className="block text-[length:32rpx] font-semibold text-foreground">
+              <Text className="block text-title font-semibold text-foreground">
                 {r.type}
               </Text>
               <Text className="block text-caption text-[var(--color-text-tertiary)] mt-[12rpx]">
@@ -107,7 +107,7 @@ export default function DistributionCommission() {
               </Text>
               <View className="flex justify-end mt-[16rpx]">
                 <Text
-                  className={`text-[length:32rpx] font-bold ${r.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
+                  className={`text-title font-bold ${r.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
                 >
                   {r.amount > 0 ? '+' : ''}¥{r.amount}
                 </Text>

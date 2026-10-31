@@ -83,7 +83,7 @@ export default function SetNeed() {
        内容不同,仅对齐视觉语言;ThemeRoot 上提到页面根(修复暗色作用域)。 */
     <ThemeRoot className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[180rpx]">
       <View>
-        <Text className="block text-[length:32rpx] text-foreground font-semibold">
+        <Text className="block text-title text-foreground font-semibold">
           {t('plaza.setNeed.directionTitle')}
         </Text>
         <Text className="block text-label text-muted-foreground mt-[8rpx]">
@@ -101,7 +101,7 @@ export default function SetNeed() {
                 hoverClass="opacity-60"
               >
                 <Text
-                  className={`text-[length:32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
+                  className={`text-title ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
                   {label}
                 </Text>
@@ -112,7 +112,7 @@ export default function SetNeed() {
       </View>
 
       <View className="mt-[16rpx]">
-        <Text className="block text-[length:32rpx] text-foreground font-semibold">
+        <Text className="block text-title text-foreground font-semibold">
           {t('plaza.setNeed.levelTitle')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
@@ -126,7 +126,7 @@ export default function SetNeed() {
                 hoverClass="opacity-60"
               >
                 <Text
-                  className={`text-[length:32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
+                  className={`text-title ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
                   {lv}
                 </Text>
@@ -137,7 +137,7 @@ export default function SetNeed() {
       </View>
 
       <View className="mt-[16rpx]">
-        <Text className="block text-[length:32rpx] text-foreground font-semibold">
+        <Text className="block text-title text-foreground font-semibold">
           {t('plaza.setNeed.budgetTitle')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
@@ -151,7 +151,7 @@ export default function SetNeed() {
                 hoverClass="opacity-60"
               >
                 <Text
-                  className={`text-[length:32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
+                  className={`text-title ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
                   {b}
                 </Text>

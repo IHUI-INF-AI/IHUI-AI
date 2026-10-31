@@ -314,7 +314,7 @@ export default function VideoDetailPage() {
           {/* 对齐 RN 共享屏 body 的「学习进度」块:进度条 + 已学节数 + 标记学完/已学完 */}
           {totalSections > 0 ? (
             <View className="mx-[24rpx] mt-[24rpx] bg-card border border-border rounded-lg p-[28rpx]">
-              <Text className="block text-[length:30rpx] font-semibold text-foreground">
+              <Text className="block text-strong font-semibold text-foreground">
                 {t('course.progress')}
               </Text>
               <View className="mt-[20rpx] h-[12rpx] w-full overflow-hidden rounded-md bg-muted">

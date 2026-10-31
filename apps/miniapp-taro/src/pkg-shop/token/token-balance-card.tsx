@@ -34,7 +34,7 @@ export default function TokenBalanceCard({
         {metas.map((m) => (
           <View key={m.key} className="flex flex-col">
             <Text className="text-caption text-cta-foreground">{m.label}</Text>
-            <Text className="mt-[12rpx] text-[length:32rpx] font-semibold text-cta-foreground">
+            <Text className="mt-[12rpx] text-title font-semibold text-cta-foreground">
               {m.value === null ? '--' : formatTokenValue(m.value)}
             </Text>
           </View>

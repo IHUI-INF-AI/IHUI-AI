@@ -153,7 +153,7 @@ export default function NewsDetailPage() {
 
         {!loading && related.length ? (
           <View className="px-[20rpx] mt-[24rpx]">
-            <Text className="block text-[length:30rpx] text-foreground font-semibold mb-[16rpx]">
+            <Text className="block text-strong text-foreground font-semibold mb-[16rpx]">
               {tt('news.detail.related', '相关推荐')}
             </Text>
             <View className="flex flex-col gap-[16rpx]">

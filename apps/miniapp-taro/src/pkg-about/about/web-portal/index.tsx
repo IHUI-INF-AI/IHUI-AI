@@ -101,7 +101,7 @@ export default function WebPortalPage() {
                   onClick={() => void openEntry(entry)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-[length:32rpx] text-muted-foreground">
+                  <Text className="text-title text-muted-foreground">
                     {tt(entry.titleKey, entry.fallbackLabel)}
                   </Text>
                   <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />

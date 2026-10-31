@@ -145,7 +145,7 @@ export default function RankingIndex() {
     <View className="min-h-screen bg-background pb-[48rpx]">
       {/* header 对齐 RN RankingScreen header(返回键由微信原生导航栏承担 / 标题 48rpx/700,页底色无卡片底) */}
       <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-        <Text className="text-[length:48rpx] font-bold text-foreground">
+        <Text className="text-display font-bold text-foreground">
           {tt('ranking.listTitle', 'AI榜单')}
         </Text>
       </View>

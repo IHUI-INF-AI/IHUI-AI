@@ -47,7 +47,7 @@ export default function StudyRank() {
           名次色对齐 RN rankColor:1=warning.amber / 2=text.tertiary / 3=warning.amberText(替代原 rank-gold/silver/bronze token) */}
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[96rpx] pb-[16rpx]">
-          <Text className="block text-[length:48rpx] font-bold text-foreground">
+          <Text className="block text-display font-bold text-foreground">
             {t('study.rankPage.title')}
           </Text>
           <Text className="block text-body text-muted-foreground mt-[16rpx]">
@@ -119,7 +119,7 @@ export default function StudyRank() {
                 key={u.id}
                 className="flex items-center p-[28rpx] rounded-xl border border-border bg-background"
               >
-                <Text className="w-[72rpx] text-[length:32rpx] font-bold text-muted-foreground">
+                <Text className="w-[72rpx] text-title font-bold text-muted-foreground">
                   #{i + 4}
                 </Text>
                 <Image
@@ -127,10 +127,10 @@ export default function StudyRank() {
                   src={u.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
-                <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-[length:32rpx] font-semibold text-foreground">
+                <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-title font-semibold text-foreground">
                   {u.nickname}
                 </Text>
-                <Text className="text-[length:32rpx] font-bold text-success">
+                <Text className="text-title font-bold text-success">
                   {t('study.rankPage.minutes', { n: u.minutes })}
                 </Text>
               </View>

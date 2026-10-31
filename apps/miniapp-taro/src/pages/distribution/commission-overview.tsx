@@ -106,7 +106,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
           <Text className="block text-caption text-[var(--color-success-deep-text)]">
             {tt('distribution.level', '分销等级')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:36rpx] font-semibold text-[var(--color-success)]">
+          <Text className="block mt-[8rpx] text-subtitle font-semibold text-[var(--color-success)]">
             {info.level ?? 0}
           </Text>
         </View>
@@ -115,7 +115,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             {tt('distribution.commissionRate', '佣金比例')}
           </Text>
           {/* 与 RN 同形:后端 /distribution/overview 未返回佣金比例时显示占位符,不编造数值 */}
-          <Text className="block mt-[8rpx] text-[length:36rpx] font-semibold text-[var(--color-success)]">
+          <Text className="block mt-[8rpx] text-subtitle font-semibold text-[var(--color-success)]">
             —
           </Text>
         </View>

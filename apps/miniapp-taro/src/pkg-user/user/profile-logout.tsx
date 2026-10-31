@@ -50,7 +50,7 @@ export default function ProfileLogoutButton() {
       hoverClass="opacity-60"
       onClick={handleLogout}
     >
-      <Text className="text-[length:32rpx] font-semibold text-destructive">
+      <Text className="text-title font-semibold text-destructive">
         {t('profile.logout')}
       </Text>
     </View>

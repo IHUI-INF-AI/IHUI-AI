@@ -332,7 +332,7 @@ export default function ConversationImportPage() {
                   >
                     {tt(s.labelKey, s.value)}
                   </Text>
-                  <Text className="text-[length:20rpx] text-muted-foreground mt-[4rpx]">
+                  <Text className="text-badge text-muted-foreground mt-[4rpx]">
                     {tt(s.hintKey, '')}
                   </Text>
                 </View>

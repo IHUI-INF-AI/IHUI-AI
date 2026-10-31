@@ -146,7 +146,7 @@ export default function StudyIndex() {
         </View>
 
         {/* 继续学习对齐 RN sectionTitle(18dp→36rpx/700)+ 课程进度卡(card: p 28rpx / 圆角 24rpx / 边框;标题 16dp→32rpx/600;进度条 h 6dp→12rpx,fill success;meta 11dp→22rpx text.tertiary) */}
-        <Text className="block text-[length:36rpx] font-bold text-foreground mb-[16rpx]">
+        <Text className="block text-subtitle font-bold text-foreground mb-[16rpx]">
           {t('study.continueLearning')}
         </Text>
         {loading ? (
@@ -162,7 +162,7 @@ export default function StudyIndex() {
                 hoverClass="opacity-60"
                 onClick={() => goVideo(r)}
               >
-                <Text className="block text-[length:32rpx] font-semibold text-foreground">
+                <Text className="block text-title font-semibold text-foreground">
                   {r.courseTitle}
                 </Text>
                 <View className="h-[12rpx] bg-card ui-tiny rounded-xs overflow-hidden mt-[16rpx]">
@@ -187,7 +187,7 @@ export default function StudyIndex() {
 
         {/* FAB 对齐 RN FloatingActionButton:48×48dp→96rpx / 圆角 12dp→24rpx / bg brand / 图标 24dp→48rpx */}
         <View
-          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-cta text-cta-foreground rounded-xl flex items-center justify-center text-[length:48rpx] shadow-md"
+          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-cta text-cta-foreground rounded-xl flex items-center justify-center text-display shadow-md"
           hoverClass="opacity-60"
           onClick={() => navigate('/pages/study/publish/index')}
         >

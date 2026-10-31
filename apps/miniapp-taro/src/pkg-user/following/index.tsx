@@ -128,7 +128,7 @@ export default function FollowingPage() {
           <Text className="text-body text-muted-foreground">
             {tab === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
           </Text>
-          <Text className="mx-[8rpx] text-[length:40rpx] font-bold text-primary">{totalCount}</Text>
+          <Text className="mx-[8rpx] text-heading font-bold text-primary">{totalCount}</Text>
           <Text className="text-label text-muted-foreground">
             {tt('following.people', '人')}
           </Text>
@@ -184,7 +184,7 @@ export default function FollowingPage() {
                   ) : (
                     <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
                       {/* 对齐 RN avatarInitial 18dp/600/text.secondary */}
-                      <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
+                      <Text className="text-subtitle font-semibold text-muted-foreground">
                         {initial}
                       </Text>
                     </View>
@@ -192,13 +192,13 @@ export default function FollowingPage() {
                   {/* 对齐 RN cardInfo:marginLeft 12dp;bio/meta marginTop 8dp */}
                   <View className="flex-1 min-w-0 flex flex-col gap-[16rpx]">
                     <View className="flex items-center justify-between">
-                      <Text className="text-[length:32rpx] font-semibold text-foreground truncate">
+                      <Text className="text-title font-semibold text-foreground truncate">
                         {name}
                       </Text>
                       {/* 已关注徽章只属于关注行;粉丝行是别人关注我,不挂这个状态 */}
                       {tab === 'following' ? (
                         <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[length:2rpx] border-primary/30 rounded-xs">
-                          <Text className="text-[length:20rpx] text-primary">
+                          <Text className="text-badge text-primary">
                             {tt('following.following', '已关注')}
                           </Text>
                         </View>

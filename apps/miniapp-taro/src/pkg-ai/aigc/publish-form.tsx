@@ -107,7 +107,7 @@ export function PublishForm(props: PublishFormProps) {
 
       {/* 对齐 RN submitBtn(marginTop 24 → 48rpx,py 14 → 28rpx,radius 24rpx;禁用态 bg text.tertiary) */}
       <Button
-        className={`w-full text-[length:32rpx] font-semibold rounded-sm mt-[48rpx] ${
+        className={`w-full text-title font-semibold rounded-sm mt-[48rpx] ${
           busy
             ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
             : 'bg-primary text-[var(--color-primary-foreground)]'

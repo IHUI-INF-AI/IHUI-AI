@@ -51,7 +51,7 @@ export default function TokenRecord({ item, tt }: TokenRecordProps) {
     <View className="record-item">
       <View className="flex items-center">
         <Text
-          className={`mr-[16rpx] shrink-0 px-[12rpx] py-[2rpx] rounded-md text-[length:20rpx] font-semibold ${
+          className={`mr-[16rpx] shrink-0 px-[12rpx] py-[2rpx] rounded-md text-badge font-semibold ${
             isRecharge
               ? 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]'
               : 'bg-muted text-muted-foreground'

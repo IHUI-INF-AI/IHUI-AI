@@ -107,7 +107,7 @@ export default function AiCareer() {
                         mode="aspectFill"
                       />
                       <View className="flex-1 min-w-0 ml-[20rpx]">
-                        <Text className="text-[length:32rpx] font-semibold text-foreground">
+                        <Text className="text-title font-semibold text-foreground">
                           {name || t('aiCareer.guide')}
                         </Text>
                         {desc ? (

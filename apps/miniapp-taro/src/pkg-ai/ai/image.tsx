@@ -226,7 +226,7 @@ export default function ImagePage() {
             {sizes.map((s) => (
               <Text
                 key={s.value}
-                className={`py-[12rpx] px-[24rpx] rounded-md text-[length:20rpx] ${
+                className={`py-[12rpx] px-[24rpx] rounded-md text-badge ${
                   size === s.value
                     ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                     : 'bg-secondary text-muted-foreground'
@@ -243,7 +243,7 @@ export default function ImagePage() {
             {styles.map((s) => (
               <Text
                 key={s}
-                className={`px-[24rpx] py-[12rpx] text-[length:20rpx] rounded-md ${
+                className={`px-[24rpx] py-[12rpx] text-badge rounded-md ${
                   style === s
                     ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                     : 'bg-secondary text-muted-foreground'
@@ -285,7 +285,7 @@ export default function ImagePage() {
                 <Text className="flex-1 text-label text-foreground truncate">
                   {h.prompt}
                 </Text>
-                <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
+                <Text className="text-badge text-[var(--color-text-tertiary)] ml-[16rpx]">
                   {fmtTime(h.createdAt)}
                 </Text>
               </View>

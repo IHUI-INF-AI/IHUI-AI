@@ -82,7 +82,7 @@ export default function AiCircle() {
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
       <View className="p-[24rpx]">
-        <Text className="text-[length:36rpx] font-semibold text-foreground">
+        <Text className="text-subtitle font-semibold text-foreground">
           {t('aiCircle.title')}
         </Text>
       </View>
@@ -140,7 +140,7 @@ export default function AiCircle() {
                       ) : null}
                     </View>
                     {title ? (
-                      <Text className="block text-[length:30rpx] font-semibold text-foreground overflow-hidden ihui-ellipsis line-clamp-2">
+                      <Text className="block text-strong font-semibold text-foreground overflow-hidden ihui-ellipsis line-clamp-2">
                         {title}
                       </Text>
                     ) : null}

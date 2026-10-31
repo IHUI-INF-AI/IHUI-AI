@@ -98,7 +98,7 @@ export default function SubscriptionsPage() {
                     </View>
                   )}
                   <View className="flex-1 min-w-0">
-                    <Text className="text-[length:32rpx] font-semibold text-foreground truncate block">
+                    <Text className="text-title font-semibold text-foreground truncate block">
                       {title}
                     </Text>
                     <Text className="text-body text-muted-foreground mt-[16rpx] truncate block">

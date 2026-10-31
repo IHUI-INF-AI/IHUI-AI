@@ -133,7 +133,7 @@ export function ImportAnalysisPanel({
       <ThemeRoot className="mt-auto max-h-[85vh] flex flex-col bg-background rounded-t-lg px-[32rpx] pt-[32rpx] pb-[40rpx]">
         {/* 头部:标题 + 关闭 */}
         <View className="flex items-center justify-between mb-[16rpx]">
-          <Text className="text-[length:32rpx] text-foreground font-semibold">
+          <Text className="text-title text-foreground font-semibold">
             {tt('conversationImport.analysisTitle', '用场景分析')}
           </Text>
           <View onClick={onClose} hoverClass="opacity-60" className="py-[8rpx] px-[16rpx]">

@@ -241,7 +241,7 @@ export default function VideoPage() {
                 {t(v.nameKey)}
               </Text>
               {!v.available ? (
-                <Text className="block text-[length:20rpx] opacity-70 text-muted-foreground">
+                <Text className="block text-badge opacity-70 text-muted-foreground">
                   {t('ai.video.notAvailable')}
                 </Text>
               ) : null}
@@ -263,14 +263,14 @@ export default function VideoPage() {
           <View className="flex gap-[16rpx] mt-[24rpx]">
             {PARAMS.map((p) => (
               <View key={p.key} className="flex-1">
-                <Text className="block text-[length:20rpx] text-muted-foreground mb-[8rpx]">
+                <Text className="block text-badge text-muted-foreground mb-[8rpx]">
                   {t(p.labelKey)}
                 </Text>
                 <View className="flex gap-[8rpx]">
                   {p.options.map((opt) => (
                     <Text
                       key={opt}
-                      className={`flex-1 py-[12rpx] text-center text-[length:20rpx] rounded-md ${
+                      className={`flex-1 py-[12rpx] text-center text-badge rounded-md ${
                         params[p.key] === opt
                           ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                           : 'bg-secondary text-muted-foreground'
@@ -349,7 +349,7 @@ export default function VideoPage() {
                   <Text className="flex-1 text-label text-foreground truncate">
                     {h.prompt}
                   </Text>
-                  <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
+                  <Text className="text-badge text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} ·{' '}
                     {fmtTime(h.createdAt)}
                   </Text>

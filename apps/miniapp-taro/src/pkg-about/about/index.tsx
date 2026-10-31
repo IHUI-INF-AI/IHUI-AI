@@ -54,7 +54,7 @@ function FeatureCard({ feature, title, desc }: { feature: AboutFeature; title: s
         <View className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-lg bg-brand-accent-light">
           <LineIcon name={feature.icon} size={36} color="var(--color-brand-accent-deep)" />
         </View>
-        <Text className="flex-1 text-[length:30rpx] font-semibold text-foreground">{title}</Text>
+        <Text className="flex-1 text-strong font-semibold text-foreground">{title}</Text>
       </View>
       <Text className="block text-label leading-[38rpx] text-muted-foreground">{desc}</Text>
     </View>
@@ -98,7 +98,7 @@ export default function AboutIndexPage() {
           <View className="p-[16rpx] -m-[16rpx]" onClick={goBack} hoverClass="opacity-60">
             <LineIcon name="chevron-left" size={40} color="var(--color-foreground)" />
           </View>
-          <Text className="text-[length:40rpx] font-bold text-foreground">{t('setting.aboutUs')}</Text>
+          <Text className="text-heading font-bold text-foreground">{t('setting.aboutUs')}</Text>
         </View>
 
         <View className="p-[24rpx] pb-[64rpx] space-y-[24rpx]">
@@ -121,7 +121,7 @@ export default function AboutIndexPage() {
           {/* 我们的故事 */}
           <View className="bg-card rounded-lg p-[24rpx] space-y-[16rpx]">
             <Chip icon="book-open" label={t('about.storyBadge')} />
-            <Text className="block text-[length:36rpx] font-bold text-foreground">
+            <Text className="block text-subtitle font-bold text-foreground">
               {t('about.storyTitle')}
             </Text>
             <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
@@ -141,7 +141,7 @@ export default function AboutIndexPage() {
 
           {/* 6 项平台能力 */}
           <View className="space-y-[24rpx]">
-            <Text className="block text-[length:36rpx] font-bold text-foreground">
+            <Text className="block text-subtitle font-bold text-foreground">
               {t('about.platformTitle')}
             </Text>
             <View className="flex flex-wrap gap-[20rpx]">
@@ -158,7 +158,7 @@ export default function AboutIndexPage() {
 
           {/* 数字见证 */}
           <View className="bg-card rounded-lg p-[24rpx] space-y-[24rpx]">
-            <Text className="block text-center text-[length:36rpx] font-bold text-foreground">
+            <Text className="block text-center text-subtitle font-bold text-foreground">
               {t('about.numbersTitle')}
             </Text>
             <View className="flex flex-wrap gap-[20rpx]">
@@ -167,7 +167,7 @@ export default function AboutIndexPage() {
                   key={s.valueKey}
                   className="flex-1 basis-[44%] flex flex-col items-center gap-[8rpx]"
                 >
-                  <Text className="text-[length:48rpx] font-bold text-brand-accent-deep">
+                  <Text className="text-display font-bold text-brand-accent-deep">
                     {t(s.valueKey)}
                   </Text>
                   <Text className="text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
@@ -181,7 +181,7 @@ export default function AboutIndexPage() {
           {/* CTA(主按钮走 --color-cta / --color-cta-foreground 同源档) */}
           <View className="bg-card rounded-lg p-[24rpx] pt-[36rpx] pb-[36rpx] flex flex-col items-center gap-[16rpx]">
             <LineIcon name="rocket" size={60} color="var(--color-brand-accent-deep)" />
-            <Text className="block text-center text-[length:36rpx] font-bold text-foreground">
+            <Text className="block text-center text-subtitle font-bold text-foreground">
               {t('about.ctaTitle')}
             </Text>
             <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
@@ -209,7 +209,7 @@ export default function AboutIndexPage() {
 
           {/* 合规/帮助入口(本端实装页,改版不删;无边框分隔,行距即分隔) */}
           <View className="space-y-[16rpx]">
-            <Text className="block text-[length:36rpx] font-bold text-foreground">
+            <Text className="block text-subtitle font-bold text-foreground">
               {t('about.complianceTitle')}
             </Text>
             <View className="bg-card rounded-lg p-[24rpx] space-y-[28rpx]">
@@ -220,7 +220,7 @@ export default function AboutIndexPage() {
                   onClick={() => Taro.navigateTo({ url: m.url })}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-[length:30rpx] text-foreground flex-1">
+                  <Text className="text-strong text-foreground flex-1">
                     {t(m.labelKey)}
                   </Text>
                   <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />

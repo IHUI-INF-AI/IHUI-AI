@@ -101,7 +101,7 @@ export default function LanguagePage() {
               >
                 <View className="min-w-0 flex-1">
                   {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-                  <Text className="text-[length:32rpx] text-muted-foreground">
+                  <Text className="text-title text-muted-foreground">
                     {tt(LANG_KEY[l.key] ?? 'legal.supportedRegions.languageZhCN', l.native)}
                   </Text>
                   {/* 副行(英文名)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}

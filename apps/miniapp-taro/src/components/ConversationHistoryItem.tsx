@@ -73,7 +73,7 @@ export default function ConversationHistoryItem({
           <View className="flex items-center justify-between gap-[16rpx]">
             <Text
               key={`t-${id}`}
-              className="text-[length:30rpx] text-foreground font-semibold flex-1 truncate"
+              className="text-strong text-foreground font-semibold flex-1 truncate"
             >
               {title}
             </Text>

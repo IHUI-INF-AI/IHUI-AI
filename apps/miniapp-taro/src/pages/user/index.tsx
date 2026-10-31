@@ -968,7 +968,7 @@ export default function UserIndex() {
                 onClick={openSharePopup}
               >
                 <LineIcon
-                  className="text-[length:32rpx] text-primary"
+                  className="text-title text-primary"
                   name="share-2"
                   size={32}
                   color="var(--color-muted-foreground)"
@@ -983,7 +983,7 @@ export default function UserIndex() {
                 mode="aspectFill"
               />
               <View className="ml-[24rpx]">
-                <Text className="block text-foreground text-[length:36rpx] font-semibold">
+                <Text className="block text-foreground text-subtitle font-semibold">
                   {t('user.tapLogin')}
                 </Text>
                 <Text className="block mt-[8rpx] text-foreground text-label opacity-85">
@@ -1184,7 +1184,7 @@ export default function UserIndex() {
                       className="bg-card rounded-lg p-[28rpx] border border-border user-content-text"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[length:32rpx] font-semibold text-foreground">
+                        <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
                         <Text className="text-label text-muted-foreground">
@@ -1219,7 +1219,7 @@ export default function UserIndex() {
                       className="bg-card rounded-lg p-[28rpx] border border-border user-content-image"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[length:32rpx] font-semibold text-foreground">
+                        <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
                         <Text className="text-label text-muted-foreground">
@@ -1265,7 +1265,7 @@ export default function UserIndex() {
                       className="bg-card rounded-lg overflow-hidden border border-border user-content-video"
                     >
                       <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
-                        <Text className="text-[length:32rpx] font-semibold text-foreground">
+                        <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
                         <Text className="text-label text-muted-foreground">
@@ -1324,7 +1324,7 @@ export default function UserIndex() {
                       className="bg-card rounded-lg p-[28rpx] border border-border user-content-audio"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[length:32rpx] font-semibold text-foreground">
+                        <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
                         <Text className="text-label text-muted-foreground">
@@ -1414,7 +1414,7 @@ export default function UserIndex() {
               onClick={() => goPage(item.path)}
             >
               {renderIcon(item.icon, 'text-[length:40rpx]', 'w-[40rpx] h-[40rpx]')}
-              <Text className="flex-1 ml-[20rpx] text-[length:30rpx] text-foreground">
+              <Text className="flex-1 ml-[20rpx] text-strong text-foreground">
                 {item.fallback ? tt(item.key, item.fallback) : t(item.key)}
               </Text>
               <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">

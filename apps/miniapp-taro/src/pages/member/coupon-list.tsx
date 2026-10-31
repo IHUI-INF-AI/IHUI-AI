@@ -112,7 +112,7 @@ export default function CouponListPage() {
                   </Text>
                 </View>
                 <View className="flex-1 p-[24rpx] flex flex-col justify-between">
-                  <Text className="block text-[length:32rpx] text-foreground font-semibold">
+                  <Text className="block text-title text-foreground font-semibold">
                     {c.title}
                   </Text>
                   <Text className="block mt-[16rpx] text-caption text-muted-foreground">

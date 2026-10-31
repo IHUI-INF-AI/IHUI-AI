@@ -241,7 +241,7 @@ export default function DeveloperIndex() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* RN NavBar: 高 44dp=88rpx(透明底、无下描边 ⇒ 透出页面底色),标题居中 18dp=36rpx semibold */}
         <View className="h-[88rpx] flex items-center justify-center">
-          <Text className="text-[length:36rpx] font-semibold text-foreground">
+          <Text className="text-subtitle font-semibold text-foreground">
             {tt('developer.index.myAgents', '我的智能体')}
           </Text>
         </View>
@@ -252,7 +252,7 @@ export default function DeveloperIndex() {
           hoverClass="opacity-60"
         >
           <View className="flex-1">
-            <Text className="block text-[length:32rpx] font-semibold text-primary-foreground">
+            <Text className="block text-title font-semibold text-primary-foreground">
               {t('developer.index.subscribeTitle')}
             </Text>
             <Text className="block text-label text-primary-foreground/90 mt-[8rpx]">
@@ -350,7 +350,7 @@ export default function DeveloperIndex() {
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[18rpx] min-w-0">
-                  <Text className="block text-[length:32rpx] text-[var(--color-agent-name)] overflow-hidden ihui-ellipsis whitespace-nowrap">
+                  <Text className="block text-title text-[var(--color-agent-name)] overflow-hidden ihui-ellipsis whitespace-nowrap">
                     {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
                   {agent.prologue ? (

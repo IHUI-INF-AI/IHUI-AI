@@ -75,7 +75,7 @@ export default function CategoryDetailPage() {
       <View className="min-h-screen bg-background">
         {/* RN header: paddingHorizontal 10dp=20rpx, paddingBottom 12dp=24rpx; 顶部 48dp 为 RN 状态栏补偿,小程序由系统导航栏承担 */}
         <View className="flex items-center justify-between px-[20rpx] pt-[16rpx] pb-[24rpx]">
-          <Text className="text-[length:40rpx] font-semibold text-foreground">
+          <Text className="text-heading font-semibold text-foreground">
             {categoryId
               ? t('categoryDetail.categoryId', { id: categoryId })
               : t('categoryDetail.allCategories')}
@@ -112,13 +112,13 @@ export default function CategoryDetailPage() {
                   />
                 ) : (
                   <View className="flex items-center justify-center w-[96rpx] h-[96rpx] rounded-md bg-muted">
-                    <Text className="text-[length:32rpx] font-medium text-muted-foreground">
+                    <Text className="text-title font-medium text-muted-foreground">
                       {agent.name.charAt(0)}
                     </Text>
                   </View>
                 )}
                 <View className="flex-1 min-w-0">
-                  <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
+                  <Text className="block text-title font-semibold text-foreground truncate">
                     {agent.name}
                   </Text>
                   <Text className="block text-body text-muted-foreground truncate mt-[16rpx]">
@@ -129,7 +129,7 @@ export default function CategoryDetailPage() {
                       {agent.tags.slice(0, 2).map((tag, i) => (
                         <Text
                           key={i}
-                          className="text-[length:20rpx] px-[12rpx] py-[4rpx] mr-[8rpx] rounded bg-muted text-muted-foreground"
+                          className="text-badge px-[12rpx] py-[4rpx] mr-[8rpx] rounded bg-muted text-muted-foreground"
                         >
                           {tag}
                         </Text>

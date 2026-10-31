@@ -173,7 +173,7 @@ export default function FavoritesPage() {
           <Text className="text-body text-muted-foreground">
             {tt('favorites.total', '已收藏')}
           </Text>
-          <Text className="mx-[8rpx] text-[length:40rpx] font-bold text-primary">{totalCount}</Text>
+          <Text className="mx-[8rpx] text-heading font-bold text-primary">{totalCount}</Text>
           <Text className="text-label text-muted-foreground">
             {tt('favorites.itemsUnit', '项')}
           </Text>
@@ -271,12 +271,12 @@ export default function FavoritesPage() {
                       先在后端 join 出列并同步 packages/api-client/tests/favorites-field-contract.test.ts
                       的 allowed 集,再在这里加分支。 */}
                   <View className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
-                    <Text className="text-[length:20rpx] text-muted-foreground">
+                    <Text className="text-badge text-muted-foreground">
                       {item.resourceType}
                     </Text>
                   </View>
                   <View className="flex-1 min-w-0 flex flex-col gap-[16rpx]">
-                    <Text className="text-[length:32rpx] font-semibold text-foreground truncate">
+                    <Text className="text-title font-semibold text-foreground truncate">
                       {item.title}
                     </Text>
                     <Text className="text-caption text-muted-foreground">

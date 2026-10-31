@@ -146,7 +146,7 @@ export default function CourseList() {
                 />
                 {/* 对齐 RN courseInfo:padding 12dp→24rpx,纵向 gap 6dp→12rpx;价格独立成行(RN pricePaid:16dp→32rpx/600/text.primary) */}
                 <View className="flex-1 p-[24rpx] flex flex-col gap-[12rpx]">
-                  <Text className="text-[length:32rpx] text-foreground font-semibold">
+                  <Text className="text-title text-foreground font-semibold">
                     {item.title}
                   </Text>
                   {item.subtitle && (
@@ -163,7 +163,7 @@ export default function CourseList() {
                       })}
                     </Text>
                   )}
-                  <Text className="text-[length:32rpx] text-foreground font-semibold">
+                  <Text className="text-title text-foreground font-semibold">
                     ¥{item.price ?? 0}
                   </Text>
                 </View>

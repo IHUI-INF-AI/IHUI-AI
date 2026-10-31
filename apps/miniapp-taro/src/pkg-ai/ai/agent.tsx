@@ -286,7 +286,7 @@ export default function AgentPage() {
     <View className="min-h-screen bg-background">
       {/* 页头:共享屏 AgentScreen 的 title 区(本端原生导航栏另写 config 标题,故不加返回键,避免双返回) */}
       <View className="px-[20rpx] pt-[20rpx]">
-        <Text className="block text-[length:36rpx] font-bold text-foreground">
+        <Text className="block text-subtitle font-bold text-foreground">
           {t('agentScreen.title')}
         </Text>
       </View>
@@ -348,7 +348,7 @@ export default function AgentPage() {
                 </Text>
                 {badge > 0 && (
                   <Text
-                    className={`ml-[12rpx] text-[length:20rpx] px-[12rpx] py-[2rpx] rounded-md ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
+                    className={`ml-[12rpx] text-badge px-[12rpx] py-[2rpx] rounded-md ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
                   >
                     {badge}
                   </Text>
@@ -431,7 +431,7 @@ export default function AgentPage() {
                     src={agent.avatar || '/static/default-agent.png'}
                     mode="aspectFill"
                   />
-                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-[var(--color-surface-light)] text-[length:20rpx]">
+                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-[var(--color-surface-light)] text-badge">
                     <Text>NO.{idx + 1}</Text>
                   </View>
                 </View>
@@ -484,12 +484,12 @@ export default function AgentPage() {
                   />
                   <View className="flex-1 ml-[24rpx] min-w-0">
                     <View className="flex flex-row items-center">
-                      <Text className="flex-1 text-[length:32rpx] text-foreground font-semibold truncate">
+                      <Text className="flex-1 text-title text-foreground font-semibold truncate">
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
                         <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)]">
-                          <Text className="text-[length:20rpx] text-[var(--color-surface-light)] font-semibold">
+                          <Text className="text-badge text-[var(--color-surface-light)] font-semibold">
                             VIP
                           </Text>
                         </View>
@@ -502,7 +502,7 @@ export default function AgentPage() {
                     )}
                     <View className="flex flex-row items-center mt-[16rpx]">
                       {agent.category && agent.category !== 'other' && (
-                        <Text className="text-[length:20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
+                        <Text className="text-badge px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
                           {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                         </Text>
                       )}
