@@ -20204,6 +20204,18 @@
     "wizardAuditScope": "Scan scope: {cn} and {roaming}, {files} files in total."
   },
   "checkin": {
+    "taskPanelTitle": "Auto-run tasks",
+    "taskPanelDesc": "One sweep of the WorkBuddy task center: accept tasks, claim rewards, redeem streak tiers, draw the lottery, cat travel, night-owl chat.",
+    "taskPanelPick": "Account",
+    "taskPanelList": "Load tasks",
+    "taskPanelDryRun": "Dry run (no writes)",
+    "taskPanelRun": "Run all task families",
+    "taskPanelRunning": "Running…",
+    "taskPanelEmpty": "No tasks yet, or not loaded",
+    "taskPanelResult": "Result",
+    "taskPanelNoAccount": "No WorkBuddy account yet — add one above first",
+    "taskPanelTaskCode": "Task",
+    "taskPanelStatus": "Status",
     "title": "Check-in Assistant",
     "addAccount": "Add Account",
     "addAccountTitle": "Add Check-in Account",
