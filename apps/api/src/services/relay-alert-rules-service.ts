@@ -54,6 +54,7 @@ import { logger } from '../utils/logger.js'
 import { roundCents } from './relay-billing-service.js'
 // 号池维度指标(2026-10-26):一律复用 stats 层那把尺子,不在本文件写第二份可调度判据(§0.6)
 import {
+  foldRelayAccountCapacity,
   foldRelayPoolCapacity,
   loadRelayPoolRows,
   zeroCapacityProviders,
@@ -266,7 +267,9 @@ async function observeMetric(metric: AlertMetric): Promise<MetricObservation> {
     // 静默失效(假绿);§0.3 要的是显式未判定。
     const { keyRows, accountRows } = await loadRelayPoolRows()
     const keyCap = foldRelayPoolCapacity(keyRows)
-    const accountCap = foldRelayPoolCapacity(accountRows)
+    // 账号池必须走账号尺子(down / 票过期不算容量)—— 裸行 + key 尺子会把
+    // 「down 还没摘除」「票已过期」的号算成有腿,容量归零告警就永远不响。
+    const accountCap = foldRelayAccountCapacity(accountRows)
 
     if (metric === 'relay_key_pool_schedulable') {
       const n = keyCap.reduce((acc, c) => acc + c.schedulableRows, 0)

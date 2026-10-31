@@ -64,12 +64,16 @@ vi.mock('../relay-account-usage.js', () => ({
 }))
 
 import {
+  accountHealthyCondition,
   accountSchedulableCondition,
   healthStatusOf,
   markAccountAuthRejected,
   refreshOne,
 } from '../relay-account-pool-scheduler.js'
-import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from '../relay-pool-stats-service.js'
+import {
+  ACCOUNT_SCHEDULABLE_HEALTH_STATES,
+  isRelayAccountRowSchedulable,
+} from '../relay-pool-stats-service.js'
 import { registerRelayAdapter } from '../relay-upstream-adapters.js'
 
 const UPSTREAM_EXPIRES_AT = '2026-11-15T08:00:00.000Z'
@@ -180,6 +184,25 @@ describe('巡检与调度同一判据(单源)', () => {
     for (const state of ACCOUNT_SCHEDULABLE_HEALTH_STATES) expect(params).toContain(state)
   })
 
+  it('accountSchedulableCondition 排除票已过期的号(2026-10-31:minimax 过期货仍被算可调度)', () => {
+    const now = new Date('2026-10-31T03:12:00.000Z')
+    const { text, params } = render(accountSchedulableCondition(now))
+    // 无票面放行(cookie 型/不限期)+ 有票面必须晚于此刻 —— 两条缺一,票过期的号
+    // 就会被选号选中去撞上游 401,并让大屏「可调度」分子虚高。
+    expect(text).toContain('token_expires_at')
+    expect(text).toContain('is null')
+    expect(text).toContain('>')
+    expect(params).toContain(now.toISOString())
+  })
+
+  it('accountHealthyCondition 刻意不看票面(否则过期号永远进不了刷新候选)', () => {
+    const { text } = render(accountHealthyCondition())
+    expect(text).toContain('is_enabled')
+    expect(text).toContain('temp_unschedulable')
+    expect(text).toContain('health_status')
+    expect(text).not.toContain('token_expires_at')
+  })
+
   it('调度选号引用同一函数(不另写一份「可用」判据)', () => {
     const forwarder = readFileSync(
       fileURLToPath(new URL('../relay-account-forwarder.ts', import.meta.url)),
@@ -187,6 +210,41 @@ describe('巡检与调度同一判据(单源)', () => {
     )
     expect(forwarder).toContain('accountSchedulableCondition()')
     expect(forwarder).toContain(`from './relay-account-pool-scheduler.js'`)
+  })
+
+  it('isRelayAccountRowSchedulable 与选号同口径:宕机/摘除/票过期都不可调度', () => {
+    const NOW = Date.parse('2026-10-31T03:12:00.000Z')
+    const base = {
+      isEnabled: true,
+      tempUnschedulable: false,
+      healthStatus: 'healthy' as const,
+      tokenExpiresAt: new Date('2026-11-10T00:00:00.000Z'),
+    }
+    // 正向对照:健康 + 票未过期 = 可调度
+    expect(isRelayAccountRowSchedulable(base, NOW)).toBe(true)
+    // 无票面(cookie 型/不限期)放行 —— 失效只能靠上游当场拒收判 down
+    expect(isRelayAccountRowSchedulable({ ...base, tokenExpiresAt: null }, NOW)).toBe(true)
+    // 票已过期 = 不可调度(2026-10-31 minimax 实证:过期 70 小时仍被算进分子)
+    expect(
+      isRelayAccountRowSchedulable(
+        { ...base, tokenExpiresAt: new Date('2026-10-28T04:59:00.000Z') },
+        NOW,
+      ),
+    ).toBe(false)
+    // 其余三档不回归
+    expect(isRelayAccountRowSchedulable({ ...base, healthStatus: 'down' }, NOW)).toBe(false)
+    expect(isRelayAccountRowSchedulable({ ...base, isEnabled: false }, NOW)).toBe(false)
+    expect(isRelayAccountRowSchedulable({ ...base, tempUnschedulable: true }, NOW)).toBe(false)
+  })
+
+  it('告警引擎的账号容量走账号尺子(2026-10-31:此前仍用 key 尺子折账号池)', () => {
+    const rules = readFileSync(
+      fileURLToPath(new URL('../relay-alert-rules-service.ts', import.meta.url)),
+      'utf8',
+    )
+    expect(rules).toContain('foldRelayAccountCapacity(accountRows)')
+    // 反向牙:裸行 + key 尺子会把 down/票过期的号算成容量,归零告警永不响
+    expect(rules).not.toContain('foldRelayPoolCapacity(accountRows)')
   })
 
   it('管理面按需查余额的拒收落点走 scheduler 单点实现', () => {
