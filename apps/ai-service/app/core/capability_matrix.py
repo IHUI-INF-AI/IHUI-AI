@@ -23,11 +23,21 @@ category 三值语义(必须如实区分,**不许把灰度类标注为缺陷**):
 静态对账门保证:矩阵登记的 env 在代码里真实存在;代码里新增的默认关 env
 未登记进矩阵即红(防止绕过台账)。
 
+已知盲区(2026-10-31 取证;同日 seat-e2 已补,见下"settings 族"档):由 pydantic settings
+字段承载的默认关开关不经 ``os.environ`` 直读 —— 旧 J2「台账逃逸」看不见它们(不报红),
+旧 J1「幽灵条目」又不许将这类 env 登记成结构化条目(一登记即红)。2026-10-31 起门新增
+J4 档(settings 族默认关布尔字段进红域)并对 settings 族派生 env 名免 J1 检;这类条目
+带 ``"settings_field": "<字段名>"``,其 current 必须走 ``current_for_entry()`` 读 settings
+(见下),否则 ``.env``-only 配置下会出现"台账说关、实际在跑"的第二型不可知(真机实测
+2026-10-31:调度在跑而 os.environ 无该键)。
+逐条现状与判据详见 ``CAPABILITY_MATRIX`` 列表体内的 settings 族注记与本门头注。
+
 对外接口:
     - ``CAPABILITY_MATRIX``:静态登记(key/env/default/category/owner_module/
       doc_ref/reason_if_off);
-    - ``get_capability_matrix()``:每次调用实读 env 生成 current 字段
-      (绝不缓存 —— 台账必须反映当前进程真实状态);
+    - ``get_capability_matrix()``:每次调用实读当前状态生成 current 字段
+      (绝不缓存 —— 台账必须反映当前进程真实状态;取数单源 ``current_for_entry()``:
+      普通行读 os.environ,settings 族行读 settings 字段真值);
     - ``format_matrix_text()``:对齐文本表格,供启动日志与端点共用;
     - ``log_capability_matrix()``:lifespan 启动阶段调用,logger.info 输出台账;
     - ``router``:GET /api/admin/capabilities,role_id >= 1 才可读
@@ -551,6 +561,18 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "指导性片段注入默认关,显式开启后生效",
     },
     {
+        # 装载口补齐批(2026-11-01):参数化八枚片段的**声明面**(不是第二个注入开关)。
+        # 它与 AGENT_INSTRUCTIONAL_FRAGMENTS_ENABLED 是"输入"与"总闸"的关系:总闸 off
+        # 时本值一概不读;总闸 on 而本值未设置 ⇒ 八枚全部不注入(绝不伪造正文)。
+        "key": "agent_instructional_inputs",
+        "env": "AGENT_INSTRUCTIONAL_INPUTS",
+        "default": "(未设置=不声明任何参数化片段)",
+        "category": "开关类",
+        "owner_module": "app.services.agent_loop_v2",
+        "doc_ref": "app/services/agent_loop_v2.py:1889",
+        "reason_if_off": "声明面未设置时八枚参数化片段全不注入(与接线前逐零差异)",
+    },
+    {
         "key": "agent_startup_prewarm",
         "env": "AGENT_STARTUP_PREWARM_ENABLED",
         "default": "false",
@@ -820,14 +842,99 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/checkin_scheduler.py:80",
         "reason_if_off": "每日 08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
     },
+    # ── settings 族(2026-10-31 seat-e2 落 J4 后登记;第四种读取形态,见本文件头注)──
+    # 这类条目由 app/core/config.py 的 class Settings 布尔字段承载:大写 env 键经
+    # case_sensitive=False 映射进小写字段,读取点是 settings.<字段> 属性访问,代码里
+    # 从不出现大写键字面量 ⇒ 门 J1 对「settings 族派生名」免检(免检存续由字段真实
+    # 存在背书,字段被删/改名 ⇒ 该行当场回到 J1 射程按幽灵红)。条目必须带
+    # "settings_field",current 由 current_for_entry() 改读 settings —— 不读 os.environ:
+    # 真机实测(2026-10-31).env-only 配置下调度真在跑而 os.environ 无该键,读 env 会让
+    # 台账撒谎("关"而实际在跑),比不登记更坏。debug 按 J4 减项③(运行模式位)不登记。
+    {
+        "key": "mtls_enabled",
+        "env": "MTLS_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.api_client",
+        "doc_ref": "app/services/api_client.py:_build_api_client",
+        "reason_if_off": "mTLS 双向证书默认关(降级模式,httpx 无证书直连);开启须三张证书路径齐备且文件存在,否则 validate_mtls_config 启动即 fail-fast",
+        "settings_field": "mtls_enabled",
+    },
+    {
+        "key": "edge_first_local",
+        "env": "EDGE_FIRST_LOCAL",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.core.llm_gateway",
+        "doc_ref": "app/core/llm_gateway.py:_resolve_auto_model",
+        "reason_if_off": "边缘优先路由默认关:云部署开启只会把请求打到未部署的本地端点;自托管/边缘实例须显式开启",
+        "settings_field": "edge_first_local",
+    },
+    {
+        "key": "token_compaction",
+        "env": "TOKEN_COMPACTION_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.core.llm_gateway",
+        "doc_ref": "app/core/llm_gateway.py:_apply_token_compaction",
+        "reason_if_off": "RTK+Caveman 双算法压缩默认关:开启后仍需满足 非stub/无tools/token>阈值 才实际压缩,压缩失败降级用原文不阻塞主流程",
+        "settings_field": "token_compaction_enabled",
+    },
+    {
+        # WorkBuddy 任务自动化双闸门(2026-10-29 立族,2026-10-31 过 J4 升级成条目):
+        # 这两枚决定"会不会向第三方平台(codebuddy.cn/workbuddy.cn)发出真实请求",
+        # 与 checkin_cron_enabled 同类(会外发的副作用闸门,须显式开启)。
+        "key": "workbuddy_tasks_enabled",
+        "env": "WORKBUDDY_TASKS_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.checkin_scheduler",
+        "doc_ref": "app/services/checkin_scheduler.py:CheckinScheduler.start",
+        "reason_if_off": "任务巡检节拍总开关默认关:开启即按 sweep_minutes 对第三方平台发真实读请求(dry-run),且是 live_run 真写的前置闸;真机证据链见 config.py 字段注与 docs/WORKBUDDY_TASKS.md",
+        "settings_field": "workbuddy_tasks_enabled",
+    },
+    {
+        "key": "workbuddy_tasks_live_run",
+        "env": "WORKBUDDY_TASKS_LIVE_RUN",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.checkin_scheduler",
+        "doc_ref": "app/services/checkin_scheduler.py:CheckinScheduler._workbuddy_task_sweep",
+        "reason_if_off": "写侧是否真跑:false=_workbuddy_task_sweep 以 dry_run=True 只算不发;true 才真实 POST 领任务/领奖/上报/兑换/抽奖(外部写,有副作用),须与 enabled 双双显式开启",
+        "settings_field": "workbuddy_tasks_live_run",
+    },
 ]
 
 # 合法类别集合(测试与对账门共同引用的语义域)
 VALID_CATEGORIES = ("开关类", "灰度类", "门控类")
 
 
+def current_for_entry(entry: dict[str, Any]) -> str:
+    """current 列的取数单源(抽成可测函数,渲染处不写死)。
+
+    两型条目:
+    - settings 族行(带 ``settings_field``):必须读 ``app.core.config.settings`` 的字段
+      真值。这类字段除了进程环境还多读 `.env`(pydantic-settings 的 env_file 腿),
+      而 os.environ 里可能压根没有该键 —— 真机实测(2026-10-31):.env-only 配置下
+      WorkBuddy 调度真在跑而 ``os.environ.get("WORKBUDDY_TASKS_ENABLED")`` 为空。
+      读 env 会造出"台账说关、实际在跑"的第二型不可知(比不登记更坏),故禁止。
+    - 普通行:每次实读 os.environ,未设置回落登记的 default(绝不缓存)。
+    取不到 settings 值 ⇒ 显式「未判定」字符串,不用 default 冒充(§0.3)。
+    """
+    field = entry.get("settings_field")
+    if field:
+        try:
+            from app.core import config as _config_module
+
+            value = getattr(_config_module.settings, field)
+        except Exception as exc:  # noqa: BLE001 - 取不到输入 ⇒ 如实报未判定,绝不猜
+            return f"(未判定: settings.{field} 读不到: {type(exc).__name__})"
+        return "true" if value else "false"
+    return os.environ.get(entry["env"], str(entry.get("default", "")))
+
+
 def get_capability_matrix() -> list[dict[str, Any]]:
-    """返回台账并逐条实读 env 生成 current 字段。
+    """返回台账并逐条实读当前状态生成 current 字段(取数见 current_for_entry)。
 
     为什么不缓存:台账的意义是「当前进程真实状态」—— env 可能在进程运行期间
     被改(测试 monkeypatch / 运维热调),缓存台账会撒谎。每次调用全量实读。
@@ -835,7 +942,7 @@ def get_capability_matrix() -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for entry in CAPABILITY_MATRIX:
         row = dict(entry)
-        row["current"] = os.environ.get(entry["env"], entry["default"])
+        row["current"] = current_for_entry(entry)
         rows.append(row)
     return rows
 
