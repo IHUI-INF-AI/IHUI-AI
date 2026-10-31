@@ -549,6 +549,23 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
   const start = Date.now()
   const { source, destination, ref, preserveWorkingTree = false, skip } = opts
 
+  // 0. 2026-10-31 安全强化第 20 批(F4):ref 形状校验 —— 必须在任何副作用
+  //    (mkdir/复制/marker)之前。拒前导 `-`(选项注入面:git checkout 会把
+  //    `-b`/`--orphan` 之类当自己的选项)、空白与控制字符;放行 git 合法的
+  //    ref 字符集(含 ~ ^ { } / 用于 `HEAD~1`、`origin/main`、`v1.0.0` 形态)。
+  //    放在第 7 步会让非法 ref 留下"已复制完但 checkout 没做"的半成品目录。
+  //    抛错与该函数既有参数错误(源非 git / destination 非空)同形,不引入
+  //    与 WorktreeResult 类型不兼容的 ok/error 返回形态。
+  //    注意:允许集必须含 `-`(feature-x 这类 ref 名合法),因此"前导 -"必须
+  //    单独判 —— 单靠字符集正则会把 `-b` 放过去(本用例实测抓到过)。
+  if (
+    ref &&
+    ref !== 'HEAD' &&
+    (ref.startsWith('-') || !/^[A-Za-z0-9._/~^{}-]+$/.test(ref))
+  ) {
+    throw new Error(`ref 含非法字符,已拒绝: ${ref}`)
+  }
+
   // 1. 校验源 .git 存在
   const srcGit = path.join(source, '.git')
   if (!fs.existsSync(srcGit)) {
@@ -616,7 +633,7 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
     //    绝不带"无证明的半成品"返回成功)
     fs.writeFileSync(worktreeMarkerPath(destination), source, 'utf-8')
 
-    // 7. ref 指定且不是 HEAD → checkout
+    // 7. ref 指定且不是 HEAD → checkout(形状已在函数入口第 0 步校验)
     if (ref && ref !== 'HEAD') {
       const r = spawnSync('git', ['-C', destination, 'checkout', ref], {
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
