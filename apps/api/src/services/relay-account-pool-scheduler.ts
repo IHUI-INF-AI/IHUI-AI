@@ -11,6 +11,10 @@
  *    对标 workbuddy-switch 桌面端的「每日保活」,差别在:① 这里是服务端集中做,
  *    不依赖任何人开着 GUI;② client-first 平台让位本机客户端(见 shouldDeferRefresh),
  *    不会把本机手里的票顶废。env RELAY_ACCOUNT_KEEPALIVE_DAYS 调窗口,0/off/false 整档关。
+ * 0b. 永久保活档(2026-10-31 立):登记 `extraMetadata.keepAliveForever` 的号窗口默认 24h,
+ *    且**只看客户端心跳不看 client-first**(心跳停 ⇒ 池接管续期);被失败计数摘除后由
+ *    `reviveKeepAliveForeverAccounts` 退避 6h 自动解摘 —— 对「掉线就再也登不回来」的号,
+ *    摘除不能是终点。详见 KEEPALIVE_FOREVER_KEY 一组常量处的立因注。
  * 1. refreshExpiring:access token 距过期 < 15 分钟且有 refreshToken → 调适配器刷新回写
  *    (对标 trae-cn-proxy-rs 的 15 分钟临期检测 + ExchangeToken 续期)
  * 2. sweepUnknown:healthStatus=unknown 的账号 → 适配器 checkHealth 定级 healthy/down
@@ -77,12 +81,93 @@ export function renewalPolicyOf(
   return 'client-first'
 }
 
+/**
+ * 永久保活档(2026-10-31 立)—— 给「掉线就再也登不回来」的号一条不会死的续期路。
+ *
+ * 立因:机主的本机 Trae 号已无法用验证码重登,唯一出路是号池 + 一键切号。而两档既有策略
+ * 都会把它杀死:
+ *  - client-first 在票未过期时**永不刷**(见 shouldDeferRefresh 原语义),但本档头注自己
+ *    写着「上游会清理闲置的 refresh 会话,被动等临期等于等着整池猝死」—— 客户端多日不开
+ *    就是这种「安静地等到 rt 被上游回收」;
+ *  - 连续 3 次刷新失败 ⇒ `tempUnschedulable=true`,而四档候选 where 全部要求未摘除
+ *    ⇒ 摘除 = 从此无人再碰 = 永久丢号(对能验证码重登的号只是降级,对这枚号是终结)。
+ *
+ * 登记面 = `extraMetadata.keepAliveForever = true`(jsonb,零迁移;键名单源 = 本文件)。
+ */
+
+/** 永久保活登记键(判据/管理端点/回灌腿共用这一个名字,§0.6) */
+export const KEEPALIVE_FOREVER_KEY = 'keepAliveForever'
+/**
+ * 客户端活跃心跳键:回灌腿(scripts/sync-trae-client-session.mjs → relay-trae-session-sync.ts)
+ * 每轮在**探测到客户端进程在跑**时写入。scheduler 不探进程(那是机器侧事实,不该住服务层),
+ * 只读这条心跳 —— 心跳在 = 客户端正在自己续期 = 池继续让位;心跳停 = 池接管。
+ */
+export const CLIENT_ACTIVE_AT_KEY = 'clientActiveAt'
+/**
+ * 心跳有效期(毫秒):回灌腿本身每 10 分钟一轮,给 3 倍余量。
+ * 失效方向 = 心跳过期 ⇒ 池接管续期(宁可多刷一次,不可让号静默死)。
+ */
+export const CLIENT_ACTIVE_TTL_MS = 30 * 60 * 1000
+/** 永久保活号的空闲窗口(小时):远窄于普通号的 7 天,保证 rt 会话在 upstream 眼里始终不闲置 */
+export const KEEPALIVE_FOREVER_DEFAULT_HOURS = 24
+/** 被自动摘除后的解摘退避(小时):既不让号永久死亡,也不让坏票每 5 分钟死撞上游鉴权点(封号前兆) */
+export const KEEPALIVE_FOREVER_REVIVE_BACKOFF_HOURS = 6
+/**
+ * 永不命中的空闲边界(epoch):普通保活档被显式关闭时用它占住 `or()` 的左半边,
+ * 让这一轮只剩永久保活分支有效 —— 而不是把整档 if 掉、连带把机主点名要保的号也关掉。
+ */
+const NEVER_IDLE_CUTOFF = new Date(0)
+
+/** 「这枚号登记了永久保活」的唯一 JS 侧判据。取不到 metadata 一律 false(不猜)。 */
+export function keepAliveForeverOf(row: { extraMetadata?: unknown }): boolean {
+  const meta = row.extraMetadata
+  if (!meta || typeof meta !== 'object') return false
+  return (meta as Record<string, unknown>)[KEEPALIVE_FOREVER_KEY] === true
+}
+
+/**
+ * 客户端心跳时刻;缺失/非字符串/解不出 ⇒ null(= 视为静默,由池接管)。
+ * 只认字符串:写入口(touchClientHeartbeat)恒落 ISO,数字/对象这类形态就是畸形输入,
+ * 按「没有心跳」处理才与写读两侧同口径(接管方向 = 宁可多刷一次,不冒顶号风险的反面)。
+ */
+export function clientActiveAtOf(row: { extraMetadata?: unknown }): Date | null {
+  const meta = row.extraMetadata
+  if (!meta || typeof meta !== 'object') return null
+  const raw = (meta as Record<string, unknown>)[CLIENT_ACTIVE_AT_KEY]
+  if (typeof raw !== 'string') return null
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/** SQL 侧的同一把判据(jsonb 文本投影;与 keepAliveForeverOf 同键名,不各写一份)。 */
+export function keepAliveForeverCondition() {
+  return sql`(coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) ->> ${KEEPALIVE_FOREVER_KEY}) = 'true'`
+}
+
+/**
+ * 永久保活号的空闲窗口(小时):`RELAY_ACCOUNT_KEEPALIVE_FOREVER_HOURS`
+ * 未设/非法 ⇒ 默认 24;`0`/`off`/`false` ⇒ null(该号退回普通 7 天窗口,是显式关闭而非静默)。
+ */
+export function keepaliveForeverIdleHours(env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = (env.RELAY_ACCOUNT_KEEPALIVE_FOREVER_HOURS ?? '').trim().toLowerCase()
+  if (raw === '') return KEEPALIVE_FOREVER_DEFAULT_HOURS
+  if (['0', 'off', 'false', 'disabled', 'disable'].includes(raw)) return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : KEEPALIVE_FOREVER_DEFAULT_HOURS
+}
+
 /** client-first 且票尚未过期 ⇒ 本轮不许刷(刷了就是和客户端抢轮换);票已过期 ⇒ 兜底放行。 */
 export function shouldDeferRefresh(
-  row: { providerCode: string; tokenExpiresAt: Date | null },
+  row: { providerCode: string; tokenExpiresAt: Date | null; extraMetadata?: unknown },
   now: Date,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
+  if (keepAliveForeverOf(row)) {
+    // 永久保活号不看 client-first 开关,只看「客户端此刻是不是正在续期」。
+    // 顶掉正在干活的客户端 = 机主要重登 = 而他登不回来,所以只在心跳停了以后才接管。
+    const activeAt = clientActiveAtOf(row)
+    return activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS
+  }
   if (renewalPolicyOf(row.providerCode, env) !== 'client-first') return false
   return row.tokenExpiresAt !== null && row.tokenExpiresAt.getTime() > now.getTime()
 }
@@ -144,15 +229,90 @@ export function accountIdleClock() {
  * of Date`。症状不是「查错行」而是**整个 sweep 在步骤 1.5 抛死**:job 每 5 分钟失败一次,
  * 后面的 unknown 定级 / down 恢复 / 签到对账全部不再执行 —— 保活档自己把巡检打死。
  * 绑定形态改成字符串 + 显式转换后,值仍是同一个时刻,驱动也不再挑类型。
+ *
+ * 第二把 cutoff(2026-10-31 永久保活档):登记了 `keepAliveForever` 的号用远窄于普通号的
+ * 空闲窗口(默认 24h)续票 —— 它不能等 7 天,因为机主已经没有「掉线后重新验证码登录」这条
+ * 退路。给 `foreverCutoff` 为空/undefined 时形状与历史完全一致(普通号窗口不变、也不看 jsonb)。
  */
-export function keepaliveIdleWhere(cutoff: Date) {
-  return and(
+export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
+  const guards = [
     eq(aiRelayAccountPool.isEnabled, true),
     eq(aiRelayAccountPool.tempUnschedulable, false),
     inArray(aiRelayAccountPool.healthStatus, [...ACCOUNT_SCHEDULABLE_HEALTH_STATES]),
     recredentialableCondition(),
-    lt(accountIdleClock(), sql`${cutoff.toISOString()}::timestamptz`),
+  ]
+  const standardIdle = lt(accountIdleClock(), sql`${cutoff.toISOString()}::timestamptz`)
+  if (!foreverCutoff) return and(...guards, standardIdle)
+  return and(
+    ...guards,
+    or(
+      standardIdle,
+      and(
+        keepAliveForeverCondition(),
+        lt(accountIdleClock(), sql`${foreverCutoff.toISOString()}::timestamptz`),
+      ),
+    ),
   )
+}
+
+/**
+ * 永久保活号的解摘候选 where(导出供镜像测试锁形状)。
+ *
+ * 为什么需要这一档:`refreshOne` 连续失败 3 次会置 `tempUnschedulable=true`,而四档候选
+ * 全部要求未摘除 ⇒ 摘除对普通号是「停止打上游、等 admin 看一眼」,对「登不回来」的号是
+ * **永久死亡**。这里把摘除改回它名字本来的含义(临时):退避窗之后自动解摘、再给一次机会。
+ * 摘除本身保留 —— 去掉它就变成坏票每 5 分钟死撞鉴权点,那正是本仓反复点名的封号前兆型。
+ */
+export function keepAliveReviveWhere(before: Date) {
+  return and(
+    keepAliveForeverCondition(),
+    eq(aiRelayAccountPool.tempUnschedulable, true),
+    lt(aiRelayAccountPool.updatedAt, sql`${before.toISOString()}::timestamptz`),
+  )
+}
+
+/**
+ * 解摘「永久保活却被自动摘除」的号(2026-10-31 立)。返回解摘枚数;0 = 本轮无事发生。
+ *
+ * 只做数据面动作(解摘 + 失败计数归零 + 留痕;健康态刻意不动,见下方注),
+ * 不发信 —— 到人通知由承载腿(scripts/relay-account-keepalive.mjs)按汇总结论走
+ * 唯一出口 notify-deploy-failure.ts(§5e / 守门 81:服务层不自拼 SMTP)。
+ */
+export async function reviveKeepAliveForeverAccounts(
+  now: Date = new Date(),
+  backoffHours: number = KEEPALIVE_FOREVER_REVIVE_BACKOFF_HOURS,
+): Promise<
+  Array<{ id: string; uid: string; providerCode: string; lastErrorMessage: string | null }>
+> {
+  const before = new Date(now.getTime() - backoffHours * 60 * 60 * 1000)
+  const stale = await dbRead
+    .select({
+      id: aiRelayAccountPool.id,
+      uid: aiRelayAccountPool.uid,
+      providerCode: aiRelayAccountPool.providerCode,
+      lastErrorMessage: aiRelayAccountPool.lastErrorMessage,
+    })
+    .from(aiRelayAccountPool)
+    .where(keepAliveReviveWhere(before))
+    .limit(KEEPALIVE_MAX_PER_SWEEP)
+  for (const row of stale) {
+    await db
+      .update(aiRelayAccountPool)
+      .set({
+        tempUnschedulable: false,
+        refreshFailureCount: 0,
+        // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
+        // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
+        // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
+        // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
+        // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
+        lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
+        updatedAt: now,
+      })
+      .where(eq(aiRelayAccountPool.id, row.id))
+      .catch(() => {})
+  }
+  return stale
 }
 
 /**
@@ -492,18 +652,41 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   // 救不了「长期没人用」的。这里把「闲置」单独成档:超窗就先续一把,续票失败同走
   // refreshOne 的累计与摘除,不给第二份口径。分布式锁与临期档同轮,不会多实例抢刷。
   const keepaliveDays = keepaliveIdleDays()
-  if (keepaliveDays !== null) {
-    const idleCutoff = new Date(now.getTime() - keepaliveDays * 24 * 60 * 60 * 1000)
+  const foreverHours = keepaliveForeverIdleHours()
+  // 永久保活号若已被上一轮的失败计数摘除,它此刻对四档候选全部不可见 = 静默等死。
+  // 解摘排在保活轮之前:本轮解摘的号本轮就能被续,不必再等一个退避窗。
+  const revived = await reviveKeepAliveForeverAccounts(now).catch((e: unknown) => {
+    logger.warn('[relay-account-pool] 永久保活解摘异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+    return []
+  })
+  if (revived.length > 0) {
+    logger.warn('[relay-account-pool] 永久保活号自动解摘', {
+      count: revived.length,
+      accounts: revived.map((r) => `${r.providerCode}/${r.uid}`).join(','),
+    })
+  }
+  if (keepaliveDays !== null || foreverHours !== null) {
+    // 普通档被显式关闭(0/off)时永久保活档仍要跑:给普通窗口一枚永不命中的边界,
+    // 让 or() 只剩 forever 分支有效 —— 「关掉普通号保活」不等于「连机主点名要保的也一起死」。
+    const idleCutoff =
+      keepaliveDays === null
+        ? NEVER_IDLE_CUTOFF
+        : new Date(now.getTime() - keepaliveDays * 24 * 60 * 60 * 1000)
+    const foreverCutoff =
+      foreverHours === null ? undefined : new Date(now.getTime() - foreverHours * 60 * 60 * 1000)
     const idles = await dbRead
       .select()
       .from(aiRelayAccountPool)
-      .where(keepaliveIdleWhere(idleCutoff))
+      .where(keepaliveIdleWhere(idleCutoff, foreverCutoff))
       .limit(KEEPALIVE_MAX_PER_SWEEP)
     out.keepalive = idles.length
     if (idles.length > 0) {
       logger.info('[relay-account-pool] 空闲保活轮开始', {
         candidates: idles.length,
-        idleDays: keepaliveDays,
+        idleDays: keepaliveDays ?? 'off',
+        foreverHours: foreverHours ?? 'off',
       })
     }
     await runWithConcurrency(idles, SWEEP_CONCURRENCY, async (row) => {
