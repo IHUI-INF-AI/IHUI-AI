@@ -6,7 +6,7 @@
 
 import asyncio
 
-from app.services.artifacts_store import ArtifactsStore, payload_sha256_of
+from app.services.artifacts_store import ArtifactsStore, _stable_json_default, payload_sha256_of
 
 
 def _store() -> ArtifactsStore:
@@ -28,6 +28,13 @@ def test_摘要只取内容维度且稳定():
     assert len(payload_sha256_of(a)) == 64
     assert payload_sha256_of(a) != payload_sha256_of({**a, "content": "other"})
     assert payload_sha256_of(a) != payload_sha256_of({**a, "metadata": {"k": 2}})
+
+
+def test_set_值按排序后的稳定形态序列化():
+    # set/frozenset 的 str() 顺序随 PYTHONHASHSEED 变 ⇒ 摘要跨进程不可复现。
+    assert _stable_json_default({"b", "a", "c"}) == ["a", "b", "c"]
+    assert _stable_json_default(frozenset({"z", "y"})) == ["y", "z"]
+    assert _stable_json_default(3) == "3"
 
 
 def test_add_写入摘要且同内容同摘要():
