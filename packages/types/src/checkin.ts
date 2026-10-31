@@ -176,6 +176,64 @@ export interface CheckinDeviceMapUpdateResponse {
   platform: CheckinPlatform
 }
 
+/**
+ * 上一轮任务巡检摘要(2026-10-31 补)。进程内快照:重启清零、多 worker 各自一份,
+ * 不是持久账本(做任务 ≠ 每日签到,不写 checkin_records)。
+ * `note` 非空 = 本轮没真正跑完(出站暂停/无账号/中途中止),前端据此明说原因。
+ */
+export interface CheckinWbSweepSummary {
+  /** 本轮开始时间,ISO 8601 */
+  at: string
+  /** 本轮结束时间,ISO 8601 */
+  finished_at: string
+  /** 本轮是否为演练(只读探针,未真实写入) */
+  dry_run: boolean
+  /** 本轮纳入的 WorkBuddy 账号数 */
+  accounts: number
+  /** 实际跑完的族次数(账号 × 族,跳过的不计) */
+  families: number
+  /** 累计上报受理数 */
+  accepted: number
+  /** 累计领奖成功数 */
+  claimed: number
+  /** 上游响应读不懂的族次数(unjudged) */
+  unjudged: number
+  /** 抛异常的族次数 */
+  errors: number
+  /** 因冷却跳过的账号数 */
+  skipped_cooldown: number
+  /** 非空 = 本轮未跑完的原因 */
+  note: string | null
+}
+
+/**
+ * WorkBuddy 任务中心自动巡检视图(2026-10-31 补)。
+ *
+ * 此前 status 只报签到五件套,这条 job 对前端完全不可见 ⇒ 用户无法得知
+ * 「自动做任务」在不在跑、为什么没领到分。字段纪律:
+ * - `enabled` 是**任务门 ∧ 总闸**,即「这条 job 现在真会被注册」的唯一判据;
+ * - `tasks_enabled` / `cron_enabled` 是两门原值,用于解释「配了却没跑」;
+ * - 全部只读,前端不得据此推测执行结果(结果仍以 task-run 返回为准)。
+ */
+export interface CheckinWbTasksStatus {
+  /** 真会被注册 = tasks_enabled ∧ cron_enabled(唯一可信判据) */
+  enabled: boolean
+  /** 配置意图:WORKBUDDY_TASKS_ENABLED 原值 */
+  tasks_enabled: boolean
+  /** 总闸 CHECKIN_CRON_ENABLED 原值 */
+  cron_enabled: boolean
+  /** true=真实写侧;false=只读探针(dry-run),不会领奖 */
+  live_run: boolean
+  /** 巡检节拍(分钟),与调度器注册 job 的口径同源 */
+  sweep_minutes: number
+  /** 领奖路径是否已配置(未配置 ⇒ 只上报不领奖) */
+  claim_path_configured: boolean
+  /** 行为上报路径是否已配置 */
+  activity_path_configured: boolean
+  /** 上一轮巡检摘要;null = 本进程还没跑过,undefined = 服务端版本较旧 */
+  last_sweep?: CheckinWbSweepSummary | null
+}
+
 /** GET /scheduler/status 响应 */
 export interface CheckinSchedulerStatusResponse {
   /** 调度总开关 */
@@ -186,6 +244,12 @@ export interface CheckinSchedulerStatusResponse {
   next_run: string | null
   /** 下次执行时间(Qoder 窗口,每日 10:05),ISO 8601 或 null */
   next_run_qoder: string | null
+  /** 下次探针执行时间,ISO 8601 或 null */
+  next_run_probe?: string | null
+  /** 下次 WorkBuddy 任务巡检时间,ISO 8601 或 null */
+  next_run_wb_tasks?: string | null
+  /** 自动做任务巡检视图;服务端版本较旧时不返回 ⇒ 前端按「状态未知」呈现 */
+  wb_tasks?: CheckinWbTasksStatus
 }
 
 /** POST /accounts/{id}/checkin 响应(本次签到记录) */
