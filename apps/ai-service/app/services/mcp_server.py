@@ -598,6 +598,10 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-10-31:延迟唤醒同档。add_task 无归属校验、任务记录无归属字段,
     # 与 schedule_task/list/cancel 口径不一致即漏洞(defense-in-depth)。
     "schedule_wakeup",
+    # 2026-10-31 安全强化第 10 批:generate_test 同档 —— 它把 arguments.code 原样落盘
+    # 为可 import 的 source.py 并起 pytest 真执行(pytest 收集时即执行模块级代码),
+    # 等价"提交任意 Python 代码由服务进程执行";留在 role 0 可用名单就是任意角色 RCE。
+    "generate_test",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -3704,11 +3708,29 @@ def _run_pytest_on_generated_test(
 
         junit_path = os.path.join(tmpdir, "report.xml")
         cmd = [
-            _sys.executable, "-m", "pytest", test_path,
+            _sys.executable, "-I", "-m", "pytest", test_path,
             "--junit-xml", junit_path, "-p", "no:cacheprovider", "-q",
         ]
+        # 2026-10-31 安全强化第 10 批:子进程环境白名单化 —— 此前未传 env ⇒ 完整继承
+        # 服务进程 os.environ(各 provider API key/JWT_SECRET/AI_CALLBACK_SECRET)。
+        # 判据取 core/exec_env 六步构造器单源:CORE 白名单起步(平台核心变量)+
+        # KEY/SECRET/TOKEN 形名默认排除,不造第二套。
+        from app.core.exec_env import (
+            ShellEnvironmentPolicy,
+            ShellEnvironmentPolicyInherit,
+            populate_env,
+        )
+
+        child_env = populate_env(
+            list(os.environ.items()),
+            ShellEnvironmentPolicy(
+                inherit=ShellEnvironmentPolicyInherit.CORE,
+                ignore_default_excludes=False,
+            ),
+        )
         proc = _subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=tmpdir
+            cmd, capture_output=True, text=True, timeout=timeout, cwd=tmpdir,
+            env=child_env,
         )
         stdout = proc.stdout or ""
         result["output_summary"] = "\n".join(

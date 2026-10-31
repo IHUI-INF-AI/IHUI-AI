@@ -19,6 +19,7 @@ import fp from 'fastify-plugin'
 import { z } from 'zod'
 import { config } from '../config/index.js'
 import { error, success } from '../utils/response.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { applyPoolCredentialWriteback } from '../services/relay-account-pool-credential.js'
 
 const credentialBodySchema = z.object({
@@ -36,7 +37,9 @@ const internalRelayAccountPoolCredentialRoutes: FastifyPluginAsync = async (serv
       return reply.status(503).send(error(503, '内部密钥未配置(AI_CALLBACK_SECRET)'))
     }
     const provided = request.headers['x-internal-secret']
-    if (typeof provided !== 'string' || provided !== secret) {
+    // 2026-10-31 安全强化第 11 批:改走 secretsEqual 单源 —— 原生 !== 是非常数时间
+    // 比较,与全仓其余内部凭据比较口径一致(sha256 定长后再 timingSafeEqual)
+    if (typeof provided !== 'string' || !secretsEqual(provided, secret)) {
       return reply.status(401).send(error(401, '内部密钥不匹配'))
     }
     const parsed = credentialBodySchema.safeParse(request.body)
