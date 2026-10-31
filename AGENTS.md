@@ -4,9 +4,6 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-<!--
--->
-
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 
 > 作用域:`G:/IHUI-AI` 仓库根目录及所有子目录。凡「盘符 / gitdir 形态 / 远端 URL / 代理 / 服务承载体(nssm·计划任务·daemon) / PowerShell 解释器身份 / TEMP」七类机器事实,**每次使用前按当次实测取值**,不得把本文或另一台机的现状当本机事实写进判据。
@@ -26,6 +23,7 @@
 10. **失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门"**(归因、豁免、跳门留痕同此禁令)。
 11. **必须永久中文回复,包括思考过程**(用户 2026-10-21 定案)。
 12. **逆向-复现-超越铁律(2026-10-30 立,机主定案)**:凡要实现的能力在某个外部程序里已存在,必须走四步:① 定位对照程序(机主给的路径优先;无可对照程序时在结论里标明「无外部对照」,不空跑逆向);② 用本仓 MCP 服务器 `rea`(REA 6.4.0,配置 `.ihui/mcp.json`,入口 `scripts/rea-mcp-entry.mjs`)对对照程序取证——Electron/前端包走应用分析,安装包走归档分析,原生二进制仅在装机具备 Ghidra/IDA/Hopper 时才反编译;结论必须带 Evidence,分清观察/推断/未知。③ 在本仓用现有栈复现该能力(复现行为与设计,写自己的代码),并用测试钉住行为。④ 至少在一个轴上超越对照(更贴本仓架构/更好测/补齐对照缺失的边界)。**红线**:不把对方专有源码原样粘进仓库,不破解许可证,不绕过付费,不提取凭据。**装机状态(2026-10-30)**:Ghidra 12.1.4 已装于 `D:\DevEnv\ghidra_12.1.4`(REA 6.4.0 验证版本,经 `.ihui/mcp.json` env 注入,原生 PE 反编译端到端已验证);IDA/Hopper 未装。逆向结论用本仓 `archify` 技能(`.ihui/skills/archify/`,v3.2.0)可视化成交互 HTML 架构图交付。
+- **结构与守护**:活 gitdir 形态按当次实测(本机 2026-10-31 实测 = 工作区 `.git` **实体目录**;`D:/IHUI-AI-git-repo` 不存在 ⇒ 活 gitdir 在工作区内;`.git-backup-20260912` 是遗留,禁删清)。守护 = `git-guardian.mjs`(daemon + 计划任务 `IHUI-AI git-guardian` 每 2 分钟),分层自愈 `指针→环境→HEAD→嵌套 ref→本地备份→远端`,破坏性覆盖前先归档到 `gitArchiveDir()`(现 `D:\DevEnv\backups\git\`),**手工抢修也不得把 `.git*` 归档 mv 到工作区根**。诊断:`node scripts/git-guardian.mjs --status|--check`;日志 `.ihui-agent/state/git-guardian.log`。
 
 
 
@@ -361,6 +359,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **声明必须有消费者**:`check-declared-policy-has-consumer.mjs`(121,五类声明 + `create*Handler/Transport` 工厂);**工具契约三面投影单源** `packages/types/src/{tool-contract,schema-projection}.ts`(111/113/115:契约声明、路由身份键 `ROUTING_IDENTITY_KEYS` 禁入模型参数、入参校验 shadow 档默认 off)。
 - **批量写计数诚实性**:`check-batch-write-count-honesty.mjs`(134,blocking):`.where(inArray)` 批量写必须 `.returning({id})` 回库确认集合,响应带 `missedIds`,禁把请求侧 `.length` 当 affected;B3–B7 五维只拦新增。
 - **provider 健康四档单一真相源**(200):canonical = `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const),全仓禁第二份同值声明(PV2)。
+- **监控告警词表单一真相源**(268):canonical = `packages/types/src/monitor-vocabulary.ts` 的 `MONITOR_ALERT_SEVERITIES/STATUSES`(库列 severity/status 真值),web 只 re-export + 展示元数据;`check-monitor-alert-vocabulary.mjs` 按差值棘轮只拦新增同值副本(锚点=文件 HEAD 面自身,存量只报数)。
 - **桌面事件接线三层对账**:`check-desktop-event-wiring.mjs`(Tauri emit → listen → 前端注册;"就绪点亮"按可达性判,被抽进被调函数也算,允许一跳)。
 - **迁移正文不可变**(185):已进 journal 的 .sql 禁就地改正文(IM1 首次入库 blob 对照/IM2 索引 vs HEAD);守门 49 记账结构(B1-B5 离线,B6-B9 连库)。**受管 `.env` 键值被清空对账** `check-env-drift.mjs`(守护巡检档,判机器状态不进提交链)。
 - **元运维巡检轮** `check-ops-patrol.mjs`:看守者本身还活着吗(P1-P6:副本漂移/规则不热加载/时钟失步/无上限/心跳无人判/引用不存在指标)。**服务存续双探测**:`check-service-binary-paths.mjs`(warn,STATE/nssm Application 存在/端口应答,nssm stdout 是 UTF-16)、`check-public-path-probe.mjs`(outage 与常态分序列,取证经 `run-evidence.mjs` 封缄,truncated 不成合格证)。
@@ -387,8 +386,9 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **教训候选稿合法性尺子**:`check-lesson-draft.mjs` 判 `lesson-draft.mjs` 候选稿形态(frontmatter 必填键齐 ∧ `writeBack` 恒 `immutable-exempt-required` ∧ kind 在策略白名单 ∧ 三段标题各恰一次 ∧ rule 不超上限 ∧ 不许自称「写回已完成」);判据源单量 = `scripts/data/lesson-writeback-policy.json`;0 合法/1 违规/2 未判定。用法 `node scripts/check-lesson-draft.mjs <稿路径>|--self-test`。
 - **服务运行配置入库真相源对账尺** `check-service-inventory.mjs`(如实:未进提交链、未进 CI、无守护派发点 ⇒ 只在门 89 的 R3 报数集,不属 R4 射程;问责入口 = 手动):注册表实际值 ↔ 仓内 `scripts/data/service-inventory.json` 四键逐字节对账,三态 ok/drift/unjudged 绝不并桶;**枚举到 0 个候选服务 ⇒ exit 2 未判定**(§0.3,不用 0 冒充「没有」);清单只存脱敏形态,原始秘密不出仓不出 stdout。
 
-- **207 体积清偿**:被移出的重复副本与 R4 补记逐字存于 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(§0–§29 条款一条未减:每类判据至少存活一份);R4 点名义务由 README「守门脚本点名索引」承担。
+<!-- 守门 207 体积清偿第四批(2026-10-30,g35-s8):被剪除的重复登记副本(§1/§20/§27/§28 与「读数不得断行」区同名条的尾部副本、R4 补记②长版、README 已点名而 AGENTS 重复登记的条目)与被压缩条目、以及更早三批(2026-10-25/27/28)的整区逐字,存于 `.ihui-agent/archive/AGENTS_trim-2026-10-30.md`、`AGENTS_trim-2026-10-25.md`、`AGENTS_trim-2026-10-27.md`、`AGENTS_trim-2026-10-27b.md`、`AGENTS_trim-2026-10-28.md`、`AGENTS_trim-2026-10-30.md`;§0–§29 规则条款一条未减(唯一就地改写 = §1「只读对账尺子不进提交链」行吸收尾部副本独家两枚跨端尺子)。R4 补点名四行(immutable-guard / lesson-draft / service-inventory / rotate-exposed-upstream-credentials)同批落本区。 -->
 - **暴露凭据主动轮换器(2026-10-30 立)**:`scripts/rotate-exposed-upstream-credentials.mjs` 按「已知暴露值」的 sha256 前缀走既有 refresh 通道轮换,并**验证旧值不再被接受**(只换不验 = 没做);登记面 `scripts/data/exposed-credentials.jsonl` 只住 fp 与出处、**绝不含凭据原文**;节律面 = `git-guardian.mjs` 的 `sweepExposedCredentialRotation()`(有未结清条目才动,空转零写零推零派生);取不到旧值/库不在线 ⇒ exit 2 未判定(§0.3)。用法 `--dry-run`/`--json`/`--list`/`--register`/`--retire`。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 - **待拍板条目一律禁止(2026-10-23 机主强制令,凌驾本仓一切"呈批等人"惯例)**:台账与计划文档里**不允许存在或新增**任何"待拍板/等人拍板/需拍板/待用户确认"的任务条目——存量逐条由 agent 深度分析后按最优推荐方案直接执行结清(决策与依据写进结清注记或 commit message);增量由守门 130 F11 差值棘轮当场判红拦截。§24 的"暂停→确认"流程对本仓**不再适用**。
 - `pnpm check:all` = `scripts/all-checks-runner.mjs`(子步骤跑完再汇总、不短路,条数现读)+ `pnpm check:dep-links:strict`。**牙有三态**:`--strict` 下「判不出」「台账腐烂」「文档与代码仍脱节且无有效豁免」⇒ exit 2 顶红。合法暂态唯一出口 = 登记表挂 `exemptUntil`(会到期)+ `exemptReason`(≥10 字):缺一半/过短/形态坏/已到期 ⇒ 视同无豁免顶红;豁免粘连(挂在非「仍存在」条上)判腐烂顶红(§0.7/§0.10)。
 ### 读数不得断行(强制)
@@ -412,9 +412,9 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - 原速查整区(约 800 行超长登记)已逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`;本区只留门 89 本体 + 横向口径 + 点名索引(R4 义务:每道已接线门必须在本文或 README 可见)。**mode/blocking、skipEnv、编号一律以 `scripts/guardian-runner.mjs` 注册条目现值为准**(§0.1)。
 - **手动全量**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式)/不带为全量;失败不中断,跑完汇总再 exit 1(子门 exit 75 中断仍立即传播;`GUARDIAN_STOP_ON_FIRST=1` 恢复 fail-fast)。
 - **207 体积对账**:`check-agents-doc-size.mjs`(blocking,预算 96,000 字节,跳过 `HUSKY_SKIP_AGENTS_DOC_SIZE=1`);阈值出处 = 同一份会话日志 1,261,607 B ⇒ ratio 1.000、96KB ≈ 7.6% 的实测锚点,不是拍的整数;阈值/定级以门体头注与 runner 现值为准。
+- **207 体积清偿第四批(2026-10-31)**:44 行「R4 登记补记」与同族重复副本已整行移入 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(规则条款一条未减:每类判据至少存活一份);R4 的点名义务同期改由 README「守门脚本点名索引」承担(补 17 枚门名)。现读 95,121 / 96,000。
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):**已整体迁 `README.md` 的「守门脚本点名索引」节**(R4 的文档面本就含 README,本文不再重复抄一份;2026-10-25 守门 207 清偿第二刀,原 9 行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`)。
 - **非色档三族同源(2026-10-28 立)**:间距 `SPACING_STEPS` / 字号 `TYPE_STEPS`+`FONT_WEIGHTS` / 阴影 `ELEVATION_CSS` 是唯一真源,由 `scripts/sync-css-tokens.mjs` 生成到 tokens.css 的 `css-tokens:managed` 受管块(`@theme` 内末尾,47 档),web 由此获得 `p-md` / `text-body` / `shadow-elevation-md` 这类工具类(写进 `:root` 则 v4 一条工具类都不产出,见脚本头注 §二实测)。受管块是**派生态禁止手改**:改值改 TS 源后跑 `node scripts/sync-css-tokens.mjs --write`;守门 93 的 R9/R10/R11 判受管块与 TS 源逐值同源(缺档/漂移/多档三方向都红),`pnpm check:tokens-css` 可单跑。圆角仍走 `radius.js` 单源,不重复生成(同值两名生产者 = 漂移)。
-- **207 体积清偿第四批(2026-10-31)**:44 行「R4 登记补记」与同族重复副本已整行移入 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(规则条款一条未减:每类判据至少存活一份);R4 的点名义务同期改由 README「守门脚本点名索引」承担(补 17 枚门名)。现读 95,121 / 96,000。
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
-<!-- 守门 207 体积清偿第四批(2026-10-30,g35-s8):被剪除的重复登记副本(§1/§20/§27/§28 与「读数不得断行」区同名条的尾部副本、R4 补记②长版、README 已点名而 AGENTS 重复登记的条目)与被压缩条目、以及更早三批(2026-10-25/27/28)的整区逐字,存于 `.ihui-agent/archive/AGENTS_trim-2026-10-30.md`、`AGENTS_trim-2026-10-25.md`、`AGENTS_trim-2026-10-27.md`、`AGENTS_trim-2026-10-27b.md`、`AGENTS_trim-2026-10-28.md`、`AGENTS_trim-2026-10-30.md`;§0–§29 规则条款一条未减(唯一就地改写 = §1「只读对账尺子不进提交链」行吸收尾部副本独家两枚跨端尺子)。R4 补点名四行(immutable-guard / lesson-draft / service-inventory / rotate-exposed-upstream-credentials)同批落本区。 -->
-- **结构与守护**:活 gitdir 形态按当次实测(本机 2026-10-31 实测 = 工作区 `.git` **实体目录**;`D:/IHUI-AI-git-repo` 不存在 ⇒ 活 gitdir 在工作区内;`.git-backup-20260912` 是遗留,禁删清)。守护 = `git-guardian.mjs`(daemon + 计划任务 `IHUI-AI git-guardian` 每 2 分钟),分层自愈 `指针→环境→HEAD→嵌套 ref→本地备份→远端`,破坏性覆盖前先归档到 `gitArchiveDir()`(现 `D:\DevEnv\backups\git\`),**手工抢修也不得把 `.git*` 归档 mv 到工作区根**。诊断:`node scripts/git-guardian.mjs --status|--check`;日志 `.ihui-agent/state/git-guardian.log`。
+<!--
+-->
+- **207 体积清偿**:被移出的重复副本与 R4 补记逐字存于 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(§0–§29 条款一条未减:每类判据至少存活一份);R4 点名义务由 README「守门脚本点名索引」承担。
