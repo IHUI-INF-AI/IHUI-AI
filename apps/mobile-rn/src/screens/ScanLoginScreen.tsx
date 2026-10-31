@@ -120,7 +120,11 @@ export function ScanLoginScreen() {
         >
           <Text style={styles.ctaButtonText}>{t('common.login')}</Text>
         </Pressable>
-        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          style={pressFeedback(undefined)}
+        >
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </Pressable>
       </SafeAreaView>
@@ -137,7 +141,11 @@ export function ScanLoginScreen() {
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
         {denied ? (
-          <Pressable style={styles.ctaButton} onPress={openSettings} accessibilityRole="button">
+          <Pressable
+            style={pressFeedback(styles.ctaButton)}
+            onPress={openSettings}
+            accessibilityRole="button"
+          >
             <Text style={styles.ctaButtonText}>{t('scanLogin.openSettings')}</Text>
           </Pressable>
         ) : (
@@ -149,7 +157,11 @@ export function ScanLoginScreen() {
             <Text style={styles.ctaButtonText}>{t('scanLogin.grant')}</Text>
           </Pressable>
         )}
-        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          style={pressFeedback(undefined)}
+        >
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </Pressable>
       </SafeAreaView>
