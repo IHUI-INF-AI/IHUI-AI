@@ -6591,7 +6591,7 @@ async def _download_url_ssrf_safe(
     逐跳)都过 _validate_url_ssrf,任一跳被禁整条失败(返回 None,由调用方
     按既有错误码降级)。
     """
-    from .screenshot_service import _validate_url_ssrf
+    from .screenshot_service import _validate_url_ssrf, resolve_pinned_target
 
     if not url or url.startswith("data:"):
         return None
@@ -6603,7 +6603,19 @@ async def _download_url_ssrf_safe(
                 if not ok:
                     logger.warning("mcp_server URL 下载被 SSRF 尺拒绝: %s", current[:200])
                     return None
-                resp = await dl.get(current)
+                # 2026-10-31 安全强化第 10 批 R6:钉 IP —— 校验期与请求期两次
+                # DNS 解析可不一致(短 TTL rebinding),连接只用于校验过的那个 IP,
+                # Host 头与 TLS SNI 保持原域名。钉不出公网 IP 即拒绝。
+                pinned = resolve_pinned_target(current)
+                if pinned is None:
+                    logger.warning("mcp_server URL 下载无法钉定公网 IP: %s", current[:200])
+                    return None
+                pinned_url, orig_host = pinned
+                resp = await dl.get(
+                    pinned_url,
+                    headers={"Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
                 location = resp.headers.get("location")
                 if resp.is_redirect and location:
                     current = str(resp.url.join(location))
