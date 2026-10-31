@@ -109,7 +109,12 @@ export function Button({
 
   return (
     <Pressable
-      className={cn(buttonVariants({ variant, size }), disabled && 'opacity-50', className)}
+      className={cn(
+        buttonVariants({ variant, size }),
+        'active:opacity-60',
+        disabled && 'opacity-50',
+        className,
+      )}
       disabled={disabled || loading}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}

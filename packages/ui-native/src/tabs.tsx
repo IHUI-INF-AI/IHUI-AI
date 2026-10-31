@@ -57,6 +57,7 @@ export function Tabs({ tabs, value, onChange, className, ...props }: TabsProps) 
               'flex-1 items-center justify-center',
               TRIGGER_RADIUS_CLASS[TABS_TRIGGER_RADIUS_TIER],
               TRIGGER_PADDING_Y_CLASS[TABS_TRIGGER_PADDING_Y_PX],
+              'active:opacity-60',
               active && 'bg-background',
             )}
           >

@@ -83,6 +83,7 @@ export function Switch({
         PADDING_CLASS[SWITCH_TRACK_PADDING_PX],
         BORDER_CLASS[SWITCH_TRACK_BORDER_W_PX],
         checked ? 'bg-brand-accent' : 'bg-background',
+        'active:opacity-60',
         disabled && 'opacity-50',
         className,
       )}
