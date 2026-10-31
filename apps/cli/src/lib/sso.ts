@@ -34,6 +34,7 @@ import * as http from 'node:http';
 import * as url from 'node:url';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { writePrivateFile } from './private-file.js';
 import { spawn } from 'node:child_process';
 import { DOC_TEXT_MUTED } from '@ihui/design-tokens';
 import {
@@ -56,6 +57,29 @@ const CALLBACK_PATH = '/callback';
 const CALLBACK_HOST = '127.0.0.1';
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const SERVER_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟超时(用户登录可能耗时)
+
+/**
+ * 回调页把 query 值写进 HTML 前必须过的转义。
+ *
+ * 此前 `?error=<原样插值>` 直接落进 `<p>`:回环端口 1738 在 5 分钟等待窗内对本机任意
+ * 进程/任意页面可达,`/callback?error=<img src=x onerror=...>` 就是在
+ * `http://127.0.0.1:1738` 这个 origin 上执行脚本(反射型 XSS)。回环不等于可信源 ——
+ * 浏览器里那页与本 CLI 的回调页同源,能读到回调流程。
+ */
+export function escapeHtmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** query 值归一:node 的 url.parse 对重复参数给 string[],原样进模板会变成 "a,b" 还带对象味道 */
+function firstQueryValue(raw: string | string[] | undefined): string {
+  if (Array.isArray(raw)) return typeof raw[0] === 'string' ? raw[0] : '';
+  return typeof raw === 'string' ? raw : '';
+}
 
 /**
  * 跨平台打开默认浏览器到指定 URL。
@@ -118,12 +142,13 @@ function waitForCallback(): Promise<string> {
         resolve(code);
       } else if (parsed.query.error) {
         // 用户主动取消授权(error 参数,真正失败场景)
-        const errParam = parsed.query.error;
+        const errParam = firstQueryValue(parsed.query.error);
+        const errShown = escapeHtmlText(errParam.slice(0, 200) || '未知错误');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录失败</title></head>' +
           '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
-          `<h1>✗ 登录失败</h1><p style="color:#c00;">错误: ${errParam}</p>` +
+          `<h1>✗ 登录失败</h1><p style="color:#c00;">错误: ${errShown}</p>` +
           `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">请返回终端重试。</p>` +
           '</body></html>',
         );
@@ -199,7 +224,7 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   }
   existing.apiKey = accessToken;
   if (refreshToken) existing.refreshToken = refreshToken;
-  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
 }
 
 /**

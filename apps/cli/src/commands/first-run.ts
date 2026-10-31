@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { getSettingsPath, type Settings } from './settings.js';
+import { writePrivateFile } from '../lib/private-file.js';
 import { DEFAULT_POLICY_OPTIONS } from '../config/defaults.js';
 import { DEFAULT_SANDBOX_PROFILE } from '../config/sandbox-profile.js';
 
@@ -38,7 +39,7 @@ export async function runFirstRunSetup(): Promise<boolean> {
   // 非 TTY(headless/CI):用默认值静默生成
   if (!process.stdin.isTTY) {
     const defaults = buildDefaultSettings();
-    fs.writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n', 'utf-8');
+    writePrivateFile(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
     console.info(chalk.dim('已生成默认配置(非交互模式):' + settingsPath));
     return true;
   }
@@ -81,7 +82,7 @@ export async function runFirstRunSetup(): Promise<boolean> {
     locale: answers.locale,
   });
 
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+  writePrivateFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
   console.info(chalk.green('\n✓ 配置已生成:' + settingsPath));
   console.info(chalk.dim('  修改配置:ihui settings init --force 重新生成模板,或在 REPL 内用 /config 修改\n'));
 
