@@ -6,8 +6,12 @@ import { forwardRef, useState } from 'react'
 import { Pressable } from 'react-native'
 import type { PressableProps, StyleProp, ViewStyle } from 'react-native'
 
-/** 按下时的不透明度。与旧 pressFeedback 同值:低于 0.5 在深色底上像"消失",高于 0.8 看不出来。 */
-const PRESSED_OPACITY = 0.65
+/**
+ * 按下时的不透明度。**必须与 `active:opacity-60` 同值** —— className 腿(NativeWind 变体)和
+ * style 腿(本组件)是全仓仅有的两条按压通道，取两个数就是"按压深浅"的第二份真相。
+ * 0.5 以下在深色底上像"消失"，0.8 以上看不出来。
+ */
+const PRESSED_OPACITY = 0.6
 
 /**
  * style 刻意取 `StyleProp<ViewStyle>` 而**不是** PressableProps['style']:后者允许函数形态,
