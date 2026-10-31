@@ -27,6 +27,8 @@ import {
   isBlockedByAuthGuard,
   syncAuthCookie,
   ensureSsoRedirectAllowed,
+  firstPartyAllowedOrigins,
+  parseAllowedOrigins,
 } from '../sso-redirect-guard'
 
 /** 构造探测响应:本模块只消费 type 字段 */
@@ -272,7 +274,9 @@ describe('isSafeNavigationTarget - 深链 scheme 与 env SSO_ALLOWED_DEEP_LINK_S
   it('env 缺席 ⇒ 默认档判据逐字不变(只判协议族 + host,未知 scheme 也放)', () => {
     delete process.env[ENV_KEY]
     expect(isSafeNavigationTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(true)
-    expect(isSafeNavigationTarget('ihui-miniapp://sso/callback', { allowDeepLink: true })).toBe(true)
+    expect(isSafeNavigationTarget('ihui-miniapp://sso/callback', { allowDeepLink: true })).toBe(
+      true,
+    )
     expect(isSafeNavigationTarget('unknown-app://x/y', { allowDeepLink: true })).toBe(true)
     expect(isSafeNavigationTarget('ihui://', { allowDeepLink: true })).toBe(false) // 裸 scheme 无 host,既有判据不动
   })
@@ -352,6 +356,64 @@ describe('resolveSafeRedirectTarget - 回跳落点的唯一决策出口', () => 
 
   it('fallback 可指定,默认站内首页', () => {
     expect(resolveSafeRedirectTarget('javascript:alert(1)', { fallback: '/login' })).toBe('/login')
+  })
+})
+
+/**
+ * 2026-11-01 安全强化:/sso/login 与 /sso/register 的 `?redirect=` 此前只传
+ * `allowDeepLink` 而不传 `allowedOrigins` —— 按本文件"未传白名单即只判协议"的原语义,
+ * 任意绝对外站 URL 都被放过,而这些页面刚建立会话(且有一枚无需点击就触发的 effect),
+ * 于是受害者从 aizhs.top 的 URL 栏被一路带到仿冒页。修法是把落点收成"同源 ∪ env"。
+ */
+describe('firstPartyAllowedOrigins(登录/注册回跳的 origin 策略)', () => {
+  const ENV_KEY = 'NEXT_PUBLIC_SSO_ALLOWED_ORIGINS'
+  const previous = process.env[ENV_KEY]
+
+  afterEach(() => {
+    if (previous === undefined) delete process.env[ENV_KEY]
+    else process.env[ENV_KEY] = previous
+  })
+
+  it('env 缺席时不把任意外站算作第一方(反向牙:摘掉 allowedOrigins 即放行)', () => {
+    delete process.env[ENV_KEY]
+    const origins = firstPartyAllowedOrigins()
+    expect(origins).not.toContain('https://evil.example')
+    expect(isSafeNavigationTarget('https://evil.example/phish', { allowedOrigins: origins })).toBe(
+      false,
+    )
+    expect(isSafeNavigationTarget('https://attacker.tld/', { allowedOrigins: origins })).toBe(false)
+  })
+
+  it('env 登记的 origin 逐字生效(部署要放开外站回跳的唯一出路)', () => {
+    process.env[ENV_KEY] = 'https://partner.example , https://edu.example.com'
+    const origins = firstPartyAllowedOrigins()
+    expect(origins).toContain('https://partner.example')
+    expect(origins).toContain('https://edu.example.com')
+    expect(isSafeNavigationTarget('https://partner.app/never', { allowedOrigins: origins })).toBe(
+      false,
+    )
+  })
+
+  it('同源相对路径与深链契约不因收权而变(正向对照)', () => {
+    delete process.env[ENV_KEY]
+    const origins = firstPartyAllowedOrigins()
+    expect(isSafeNavigationTarget('/edu/edu-management', { allowedOrigins: origins })).toBe(true)
+    expect(
+      isSafeNavigationTarget('ihui://sso/callback', {
+        allowDeepLink: true,
+        allowedOrigins: origins,
+      }),
+    ).toBe(true)
+    if (typeof window !== 'undefined') {
+      expect(origins).toContain(window.location.origin)
+    }
+  })
+
+  it('与 parseAllowedOrigins 同口径(不另起一份 env 解析)', () => {
+    process.env[ENV_KEY] = 'https://a.example,,'
+    expect(firstPartyAllowedOrigins()).toEqual(
+      expect.arrayContaining(parseAllowedOrigins('https://a.example')),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
