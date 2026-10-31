@@ -74,8 +74,8 @@ const CAPABILITY_MODES: readonly string[] = ['read-only', 'read-write', 'execute
 /** isolation 合法值集合 */
 const ISOLATION_MODES: readonly string[] = ['none', 'worktree', 'subprocess']
 
-/** reasoningEffort 合法值集合 */
-const REASONING_EFFORTS: readonly string[] = ['minimal', 'low', 'medium', 'high']
+/** reasoningEffort 合法值集合(2026-10-31 扩 xhigh/max,与 py known_efforts / 契约层联合同笔,守门 C5/C6 对账) */
+const REASONING_EFFORTS: readonly string[] = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
 /**
  * 校验 capabilityMode 字符串是否合法。
@@ -160,7 +160,7 @@ function defaultTraceSink(): ((line: string) => void) | null {
 }
 
 /**
- * 档位序:由 REASONING_EFFORTS 数组下标定义(minimal<low<medium<high),
+ * 档位序:由 REASONING_EFFORTS 数组下标定义(minimal<low<medium<high<xhigh<max),
  * 不另立第二份 rank 表;非法值返回 -1。
  */
 function effortRank(e: string): number {

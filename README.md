@@ -40581,3 +40581,35 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 | 测试文件 | 3752 | `testFiles` |
 | 跟踪文件 | 18276 | `trackedFiles` |
 | **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **归属筛选(2026-10-31,机主令:运营池默认存量视图 / 我的个人池 `owner=me`=当前登录管理员 / 全部归属;个人池行名称列带"个人池"徽章;判据单源 `relay-pool-policy.ownerListCondition` 四分支镜像测试)** + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
+| 测试文件 | 3766 | `testFiles` |
+| 跟踪文件 | 18296 | `trackedFiles` |
+|                   | 知识文件系统        | knowledge_fs 只读虚拟路径 `/repo/<repoId>/<file>#<symbol>`(list/read/stat/search 四出口,代码切片投影,对齐 Trae ckg Cfs* 读半边)+ external_import 外部运行时 4 维导入(memory→长期记忆 / automations→调度器幂等键 / capabilities 声明 / sessions 让位 relay 腿) + G7 本地 embedding 回落(远端失败自动降级 1536 维确定性哈希向量,embedding_provider 列如实标注 remote/local-hash,离线索引可识别不冒充)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+- 🚀 新功能/改进:推理档位扩到 xhigh/max(四抄写面同批 + web 轴) (bb5058f925)
+- 🔧 工程/其他:接上 AI 代码归属 git notes 的零调用死腿(fail-open) (ea2a4adf09)
+- 🚀 新功能/改进:G-18 运行清单 + G-25 产物内容寻址 (5deda5045c)
+- 🔧 工程/其他:补齐钩子异步唤醒+8 档事件的用例文件(与 9d14cbe3b 同批,前次提交窗口被并发 reset 打断) (b75a40cc7a)
+- 🚀 新功能/改进:钩子 async/rewake 不阻塞 + 8 档事件单源(HookEvent 23→31) (9d14cbe3bb)
+- 📚 文档:恢复误删的票5(perf e2e)未勾行 —— 上一枚 2fa2b47ca51 把进展注记误写成结清档导致该行被删除;本次从 139d7f462a7 逐字取回原行并附实测进展(首屏 1158ms/1600ms dev 口径通过,长任务带归因 0 属 dev 噪声),票维持未勾 (5128e3340b)
+- 📚 文档:票5 perf e2e 实测进展 —— 隔离栈真跑通(首屏 1158ms/1600ms dev 口径通过),长任务 183/86 带归因 0 属 dev 噪声;票不结清,下一步生产口径复测+归因补 src (2fa2b47ca5)
+- 🐞 修复:两处同向嵌套滚动容器摊平 —— 纵向 ScrollView 里别再套纵向 FlatList (86ef41808a)
+- 🚀 新功能/改进:编辑器态喂索引(editor_state 入上下文聚合，默认关灰度) (f77199d13f)
+- 🚀 新功能/改进:e2e-local-supply 修文档跑不通的旗标形态 + 新增 --stack 隔离栈自起停 —— flagValue 兼容 --base-url <v> 空格形态(此前只认 = 形式,照 --help 敲必 exit 2,§0.8);--stack 自带起/停隔离 API+web(独立库/独立端口/独立 dist,跑完自动收口,--keep 可保留),新增 --api-port/--db/--keep;unknown 判定排除值位置 token。实测:用 --stack + E2E_SKIP_SEED=1 跑通 perf-long-session 首屏用例 1158ms / 预算 1600ms(dev×2)通过(热档 277ms) (139d7f462a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (badfe334a6)
+- 🐞 修复:清两处测试假 oracle —— 夹具给生产从不填充的 request.user 赋值(门 242 W3 绝对零容忍) (51b6e4be56)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b1ba3762e4)
+- 🚀 新功能/改进:错题本页改壳承载 + 修好「可换却写不进去」的转换器 (1dbd0dc639)
+- 🚀 新功能/改进:34 处键盘点击穿透清零并升 H3 为绝对零容忍;顺带根治门 273 自身的恒红缺陷 (a0e5261a78)
+- 🚀 新功能/改进:micro压缩接入执行器 + 浏览器动作tab级作用域 (0cbd8bdb9f)
+- 🚀 新功能/改进:号池管理页加归属筛选(我的个人池 owner=me)+ 个人池徽章 —— admin 账号也能看自己的池 (0ddc1fcbf5)
+- 🐞 修复:内部端点公网封禁 + 运营面越权收口(安全强化第 14 批·api/web) (bd60682c87)
+- 🚀 新功能/改进:G2 ContextFS 只读虚拟文件系统 + Qoder 导入 4 维对位物(goal-b41,先对齐再超越) (6b25542a75)
+- 🐞 修复:测试 mock 的 Redis URL 用非法 db 段当哨兵 ⇒ ioredis 真连接后 SELECT NaN,未处理拒绝把 vitest 退出码打成 1 (1963eee7a7)
+- 🐞 修复:安全强化第 10 批 R5 —— db_query 只读双层加固 + git_operations argv 注入封死 —— ① db_query:关键词黑名单从「尾随空格子串」改词边界 regex(此前 DELETE\nFROM / DELETE/**/FROM 型变体可绕过,deleted_at/drop_function 类标识符不误杀)+ asyncpg conn.transaction(readonly=True) 数据库层兜底(此前 data-modifying CTE 如 WITH d AS (DELETE...RETURNING...) SELECT... 能穿过任何文本黑名单,数据库层只读事务把这一整族含未来未知写语法结构性封死,黑名单降级为纵深第一道);② git_operations:position 段(ref/分支名/tag 名/pattern)全部过 _assert_safe_git_arg(拒 - 前缀 —— show --output=<path> 曾可写服务器任意文件、--ext-diff 可调外部程序;拒空白/控制符),show/branch_create/branch_switch/branch_delete/merge/rebase/tag_create/tag_list 八个动作点全覆盖。测试 test_security_batch10_r5.py 8/8(换行/注释变体拒绝+标识符正向对照+argv 四态+show 端到端)。 (8407903655)
+- 🚀 新功能/改进:大屏「使用数据」补齐用户构成/等级分布/14日增长 + 告警行数分裂提示 (9d2aee1235)
+- 🚀 新功能/改进:大屏五语言同批补 6 键 + 删 1 键按正规出口声明 (99a7ebadd4)
+- 🔧 工程/其他:重新封存根护栏清单 —— guardian-runner 07:17 改动未同批重封,部署环 fail-closed 停摆 (f1fb8220dd)
+- 🐞 修复:归位被"清理功能回退残留"整段回退的积分兑换事务修复 (acd8cd7456)
+- 🐞 修复:号池「可调度」补票面维 + 告警账号容量归位 —— 票过期 70 小时的号仍算在分子里 (cbc49b04e9)
+- 🔧 工程/其他:安全强化第 13 批接线面回归锁 —— 主链工具结果装配点定界断言五条(llm.py 裸拼形态归零+8 处单源引用 / conversation 失败分支宿主指令在块外(Raw result: {raw_tool_json})/ agent_orchestrator 无裸拼 / agent_loop_v2 第 8 批既有接线未绕开 / protocol_adapter 协议转换器刻意不接定界(既有消息回放,双重包裹破坏回放))。第 13 批修复本体已由并行会话收编入库(f0e490a7f9,与本席 R4 工作树改动同内容),本枚补齐其接线面防回归锁。10/10 全绿(r4+r4_framing),mypy --strict 665 文件零错误 (ae754729de)
+- 🐞 修复:安全强化第 13 批 —— 凭据落盘加密/沙箱 fail-closed/工具结果宿主定界/错误帧脱敏/桌面原生确认/边缘封禁 (f0e490a7f9)
+- UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-web-rn-parity.mjs`(web↔RN 跨端对账,warn;自检 `node scripts/check-web-rn-parity.mjs`;跳过 `HUSKY_SKIP_WEB_RN_PARITY`) `check-web-rn-style-tiers.mjs`(2026-10-31 立;**web↔RN 非色档档位对账尺**:257 头注自述样式维只调颜色令牌、128 的 `SIDES` 只有 miniapp/rn,两处叠出字号/间距/圆角**零判据格**;判两端取值相对唯一档表 SPACING_STEPS/TYPE_STEPS/RADIUS_STEPS(档表 import `sync-css-tokens.mjs` 出口零复算)落 inTier / missingTier(表外但对端同值在用 = 档表缺位,出路=补表,零端内改动) / fork(表外且对端零同值 = 真分叉)三桶;只读报告器**刻意不进提交链**(RN 存量 2231 处与本次提交无关, 挂 blocking = §12e 恒红门),唯一调度器 = `parity-auto.mjs` 的 `gate-style-tiers` 腿(**不标 slow**,否则 `--fast` 档重开这一格盲区);取值集枚举到 0 落 exit 2 未判定不记绿;自检 `--self-test` 12 例 + 镜像 `scripts/tests/check-web-rn-style-tiers.test.mjs` 4 例) `check-ui-spec-mirror.mjs`(259,blocking;同名配对组件的 RN 壳↔小程序壳 spec **消费面**必须相等,差集逐条点名;例外走具名台账 `scripts/data/ui-mirror-waivers.json`,判序单源 `scripts/lib/ui-mirror-waivers.mjs`——到期回队列、被审面不再命中判清单腐烂、行形态不合格免不了任何东西;取证 = 门体 `--self-test` 13 例。**配套派生器 `gen-ui-mirror.mjs` 判另一半:同档位的「档→类」映射两端逐字相等(取值漂移本门看不见),它是写盘器物、恒读工作树,刻意不入提交链**)

@@ -808,6 +808,10 @@ export function main(opts) {
     outputPattern,
     dryRun = false,
     exitOnDead = false,
+    // 存量死键基线(2026-10-31,按 AGENTS §12e):本仓历史死键是"判历史存量"的格子,
+    // 存量未归零前挂绝对零容忍 = 恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门。
+    // exitOnDead 档只在 deadCount > maxDead 时判红(只拦新增);缺省 0 = 绝对零容忍(提交链口径)。
+    maxDead = 0,
     out = null,
     scriptName,
     face = 'head',
@@ -1084,7 +1088,9 @@ export function main(opts) {
   console.log(`  基准语言 leaf keys: ${totalLeaves}`)
   console.log(`  代码静态引用 key: ${totalRefs}`)
   console.log(`  useTranslations/getTranslations namespace: ${totalNamespaces}`)
-  console.log(`  死 key: ${deadCount} (${deadRatio}%)`)
+  console.log(
+    `  死 key: ${deadCount} (${deadRatio}%)${maxDead > 0 ? ` · 存量基线 ${maxDead}(超出 ${Math.max(0, deadCount - maxDead)} 枚)` : ''}`,
+  )
   console.log(`  翻译不完整 key: ${incompleteCount}`)
   console.log(`  契约键声明免除: ${contractExempted.length} 枚(仅免死键判定)`)
   console.log(`  动态 t(\`prefix.\${var}\`) 命中: ${dynamicHits.length} 处`)
@@ -1092,7 +1098,7 @@ export function main(opts) {
   if (dryRun) {
     console.log(`\n[${TAG}] --dry-run:跳过报告写入`)
     if (contractHardFail) return 1
-    if (exitOnDead && deadCount > 0) return 1
+    if (exitOnDead && deadCount > maxDead) return 1
     return 0
   }
 
@@ -1101,8 +1107,8 @@ export function main(opts) {
   if (face === 'staged') {
     console.log(`\n[${TAG}] --staged 档:不写报告文件(结论已在 stdout;需要报告请跑全量档)`)
     if (contractHardFail) return 1
-    if (exitOnDead && deadCount > 0) {
-      console.error(`[${TAG}] --exit 1:发现 ${deadCount} 个死 key:`)
+    if (exitOnDead && deadCount > maxDead) {
+      console.error(`[${TAG}] --exit 1:发现 ${deadCount} 个死 key(基线 ${maxDead},新增 ${deadCount - maxDead}):`)
       for (const k of deadKeys) console.error(`  - ${k}`)
       return 1
     }
@@ -1213,8 +1219,11 @@ export function main(opts) {
     )
     return 1
   }
-  if (exitOnDead && deadCount > 0) {
-    console.error(`[${TAG}] --exit 1:发现 ${deadCount} 个死 key`)
+  if (exitOnDead && deadCount > maxDead) {
+    console.error(
+      `[${TAG}] --exit 1:发现 ${deadCount} 个死 key(存量基线 ${maxDead},新增 ${deadCount - maxDead})` +
+        (maxDead > 0 ? ' —— 只拦新增;清掉存量后请同批下调 scripts/data/i18n-dead-key-baseline.json' : ''),
+    )
     return 1
   }
   return 0

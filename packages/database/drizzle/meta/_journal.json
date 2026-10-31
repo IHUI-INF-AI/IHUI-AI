@@ -2489,6 +2489,13 @@
       "when": 1761880200000,
       "tag": "20261031091000_g1b_device_fingerprint",
       "breakpoints": true
+    },
+    {
+      "idx": 359,
+      "version": "7",
+      "when": 1761890400000,
+      "tag": "20261031120000_codebase_embedding_provider",
+      "breakpoints": true
     }
   ]
 }

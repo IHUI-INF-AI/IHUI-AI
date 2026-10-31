@@ -11932,6 +11932,8 @@
       "showContent": "콘텐츠 표시",
       "stopReadAloud": "읽기 중지",
       "toggleMetadata": "메타데이터 전환",
+      "metadataLoading": "메타데이터를 불러오는 중…",
+      "metadataUnavailable": "메타데이터를 일시적으로 사용할 수 없습니다",
       "pin": "고정",
       "unpin": "고정 해제",
       "bookmark": "북마크",
