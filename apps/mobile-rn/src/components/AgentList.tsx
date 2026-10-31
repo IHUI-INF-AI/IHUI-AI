@@ -242,9 +242,9 @@ const styles = StyleSheet.create({
     maxHeight: '70%',
   },
   contentBody: {
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: 5,
-    paddingBottom: 2,
+    paddingBottom: rnSpacing['2xs'],
   },
   row: {
     flexDirection: 'row',
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     fontSize: rnType.body.size,
-    marginLeft: 10,
+    marginLeft: rnSpacing['sm-loose'],
     color: tokens.text.primary,
   },
   textActive: {
@@ -323,13 +323,13 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.xs,
     paddingVertical: 1,
-    marginLeft: 6,
+    marginLeft: rnSpacing['xs-loose'],
     overflow: 'hidden',
   },
   rowRight: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 6,
+    marginLeft: rnSpacing['xs-loose'],
   },
   selectedIcon: {
     width: 16,
@@ -347,13 +347,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     textAlign: 'center',
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     fontSize: 13,
     color: tokens.text.secondary,
   },
   noMoreText: {
     textAlign: 'center',
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     fontSize: 13,
     color: tokens.text.tertiary,
   },

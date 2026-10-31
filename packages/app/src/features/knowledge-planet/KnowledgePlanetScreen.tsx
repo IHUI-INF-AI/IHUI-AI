@@ -16,7 +16,7 @@ import { Newspaper } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import type { KnowledgePlanetScreenProps } from '@ihui/types'
 export type { KnowledgePlanetScreenProps }
 
@@ -98,23 +98,23 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     flex: { flex: 1 } as ViewStyle,
     list: {
-      paddingHorizontal: 10,
-      paddingBottom: 24,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['2xl'],
+      gap: rnSpacing.md,
     } as ViewStyle,
     itemCard: {
       flexDirection: 'row',
       borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     itemCover: {
       width: 120,
@@ -128,7 +128,12 @@ function createStyles(tk: AppThemeTokens) {
       height: '100%',
       backgroundColor: tk.border.light,
     } as ViewStyle,
-    itemBody: { flex: 1, padding: 12, gap: 6, justifyContent: 'space-between' } as ViewStyle,
+    itemBody: {
+      flex: 1,
+      padding: rnSpacing.md,
+      gap: rnSpacing['xs-loose'],
+      justifyContent: 'space-between',
+    } as ViewStyle,
     itemTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary } as TextStyle,
     itemSummary: { fontSize: 14, color: tk.text.secondary } as TextStyle,
     itemDate: { fontSize: 11, color: tk.text.tertiary } as TextStyle,

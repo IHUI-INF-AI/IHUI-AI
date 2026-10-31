@@ -1,7 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -217,9 +218,9 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
     },
     title: {
       fontSize: 16,
@@ -234,14 +235,14 @@ function createStyles(tk: AppThemeTokens) {
     /* 双 Tab chips */
     tabRow: {
       flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingBottom: 8,
+      gap: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
     },
     tabChip: {
       borderRadius: rnRadius.md,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['xs-loose'],
     },
     tabChipActive: {
       backgroundColor: tk.surface.muted,
@@ -257,14 +258,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 双列网格 */
     listContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     row: {
-      gap: 12,
+      gap: rnSpacing.md,
     },
     card: {
       flex: 1,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       overflow: 'hidden',
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -280,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       aspectRatio: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       backgroundColor: tk.surface.muted,
     } satisfies ViewStyle,
     coverFallbackText: {
@@ -293,8 +294,8 @@ function createStyles(tk: AppThemeTokens) {
       left: 8,
       top: 8,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       backgroundColor: tk.overlay.modal,
     },
     statusBadgeText: {
@@ -302,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.surface.light,
     },
     cardBody: {
-      padding: 8,
+      padding: rnSpacing.sm,
     },
     prompt: {
       fontSize: 12,
@@ -310,7 +311,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     time: {
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
       fontSize: 10,
       color: tk.text.tertiary,
     },

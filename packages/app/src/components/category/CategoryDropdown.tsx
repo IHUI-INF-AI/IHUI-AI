@@ -310,7 +310,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     triggerPressed: {
       backgroundColor: tk.surface.muted,
@@ -357,11 +357,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     panelList: {
       padding: rnSpacing.xs,
-      gap: 2,
+      gap: rnSpacing['2xs'],
     },
     panelTitle: {
       paddingHorizontal: rnSpacing.md,
-      paddingTop: 6,
+      paddingTop: rnSpacing['xs-loose'],
       paddingBottom: rnSpacing.xs,
       fontSize: 13,
       fontWeight: '600',

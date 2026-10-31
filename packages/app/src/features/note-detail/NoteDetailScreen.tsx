@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Heart } from 'lucide-react-native'
 import type { NoteDetailItem, NoteDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -89,36 +89,41 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 6,
-      marginBottom: 6,
+      marginTop: rnSpacing['xs-loose'],
+      marginBottom: rnSpacing['xs-loose'],
     },
     author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
     meta: { fontSize: 11, color: tk.text.tertiary },
-    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing['xs-loose'],
+      marginBottom: rnSpacing.md,
+    },
     tag: {
       fontSize: 11,
       color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
-    statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+    statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.lg },
     stat: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
       backgroundColor: tk.surface.card,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.xl,
     },
     statText: {

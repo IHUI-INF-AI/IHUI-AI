@@ -141,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 'auto',
     } as TextStyle,
     listContent: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     } as ViewStyle,
@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
-    cardBody: { padding: rnSpacing.md, gap: 6 } as ViewStyle,
+    cardBody: { padding: rnSpacing.md, gap: rnSpacing['xs-loose'] } as ViewStyle,
     cardTitle: {
       fontSize: rnType.title.size,
       fontWeight: '600',

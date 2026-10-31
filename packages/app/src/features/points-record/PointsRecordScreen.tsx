@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointsRecordItem, PointsRecordScreenProps, PointsRecordType } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -131,13 +131,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     balanceCard: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
@@ -145,28 +145,28 @@ function createStyles(tk: AppThemeTokens) {
     },
     balanceLabel: { fontSize: 14, color: tk.success.deepText },
     balanceValue: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 30,
       fontWeight: '700',
       color: tk.success.deepText,
     },
     tabs: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 8,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
     },
     tab: {
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 14, paddingBottom: 32 },
+    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       padding: 14,
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     cardAmount: { fontSize: 16, fontWeight: '600' },
     amountEarn: { color: tk.success.DEFAULT },
@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     cardMeta: { fontSize: 11, color: tk.text.secondary },
     cardTime: { fontSize: 11, color: tk.text.tertiary },

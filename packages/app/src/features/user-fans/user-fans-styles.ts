@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -19,19 +19,19 @@ export function createUserFansStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 12, gap: 8, paddingBottom: 32 },
+    body: { padding: rnSpacing.md, gap: rnSpacing.sm, paddingBottom: rnSpacing['3xl'] },
     muted: { fontSize: 12, color: tk.text.secondary },
-    total: { fontSize: 12, color: tk.text.tertiary, paddingHorizontal: 4 },
+    total: { fontSize: 12, color: tk.text.tertiary, paddingHorizontal: rnSpacing.xs },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      padding: 12,
+      gap: rnSpacing['sm-loose'],
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -48,14 +48,19 @@ export function createUserFansStyles(tk: AppThemeTokens) {
     avatarText: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     rowMain: { flex: 1, gap: 3 },
     nickname: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    followedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 4 },
+    followedTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.xs,
+    },
     followedText: { fontSize: 12, fontWeight: '600', color: tk.success.DEFAULT },
     followBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
       height: 32,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

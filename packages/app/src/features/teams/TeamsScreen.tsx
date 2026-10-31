@@ -15,7 +15,7 @@ import {
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -228,23 +228,23 @@ export function TeamsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    actionRow: { paddingHorizontal: 10, paddingBottom: 8 },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    actionRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     newBtn: {
       alignSelf: 'flex-start',
-      paddingVertical: 10,
-      paddingHorizontal: 16,
+      paddingVertical: rnSpacing['sm-loose'],
+      paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     newBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
     formCard: {
-      marginHorizontal: 10,
-      marginBottom: 8,
+      marginHorizontal: rnSpacing['sm-loose'],
+      marginBottom: rnSpacing.sm,
       padding: 14,
-      gap: 8,
+      gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -258,24 +258,24 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 14,
       color: tk.text.primary,
     },
     inputMultiline: {
       minHeight: 72,
-      paddingTop: 10,
-      paddingBottom: 10,
+      paddingTop: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 14,
       color: tk.text.primary,
       textAlignVertical: 'top',
     },
-    formActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    formActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
     cancelBtn: {
       flex: 1,
       height: 44,
@@ -297,15 +297,20 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
     btnDisabled: { opacity: 0.6 },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 32, justifyContent: 'center', gap: 8 },
+    center: {
+      alignItems: 'center',
+      paddingVertical: rnSpacing['3xl'],
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+    },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
-    listBody: { padding: 14, paddingTop: 0, paddingBottom: 32 },
+    listBody: { padding: 14, paddingTop: 0, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       padding: 14,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -318,10 +323,10 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     enterBtn: {
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       paddingHorizontal: 14,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brandAccent.light,

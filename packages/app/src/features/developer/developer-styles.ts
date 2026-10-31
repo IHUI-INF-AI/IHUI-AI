@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -18,24 +18,24 @@ import type { AppThemeTokens } from '../../theme/tokens'
 export function createDeveloperStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: tk.surface.bg },
-    scrollContent: { padding: 10, paddingBottom: 24 },
+    scrollContent: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xl'] },
     headerCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
       padding: 14,
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: rnSpacing['sm-loose'],
     },
     avatar: { width: 64, height: 64, borderRadius: rnRadiusFor.hero },
     userName: {
       fontSize: 17,
       fontWeight: '600',
       color: tk.text.primary,
-      marginTop: 8,
-      marginBottom: 8,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
     },
     ctaBtn: {
-      paddingHorizontal: 20,
+      paddingHorizontal: rnSpacing.xl,
       paddingVertical: 5,
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
@@ -44,23 +44,28 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     infoCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
-      padding: 12,
-      marginBottom: 10,
+      padding: rnSpacing.md,
+      marginBottom: rnSpacing['sm-loose'],
     },
-    infoTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary, marginBottom: 6 },
-    infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+    infoTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing['xs-loose'],
+    },
+    infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: rnSpacing.xs },
     infoLabel: { width: 76, fontSize: 13, color: tk.text.secondary },
     infoValue: { flex: 1, fontSize: 13, color: tk.text.primary },
-    infoAction: { fontSize: 12, color: tk.brand.DEFAULT, paddingHorizontal: 4 },
+    infoAction: { fontSize: 12, color: tk.brand.DEFAULT, paddingHorizontal: rnSpacing.xs },
     dangerText: { color: tk.danger.bright },
     entryRow: {
       flexDirection: 'row',
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.panel,
-      paddingVertical: 12,
-      marginBottom: 10,
+      paddingVertical: rnSpacing.md,
+      marginBottom: rnSpacing['sm-loose'],
     },
-    entryItem: { flex: 1, alignItems: 'center', gap: 4 },
+    entryItem: { flex: 1, alignItems: 'center', gap: rnSpacing.xs },
     iconWell: {
       width: 48,
       height: 48,
@@ -71,19 +76,29 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     },
     entryIcon: { width: 28, height: 28 },
     entryText: { fontSize: 13, color: tk.text.primary },
-    faqSection: { gap: 8 },
-    faqHeading: { fontSize: 15, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
+    faqSection: { gap: rnSpacing.sm },
+    faqHeading: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.xs,
+    },
     problemCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
-      padding: 12,
+      padding: rnSpacing.md,
     },
-    problemTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
-    problemDesc: { fontSize: 13, color: tk.text.secondary, marginBottom: 8 },
+    problemTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.xs,
+    },
+    problemDesc: { fontSize: 13, color: tk.text.secondary, marginBottom: rnSpacing.sm },
     problemBtn: {
       alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
@@ -91,7 +106,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     contactCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.control,
-      padding: 12,
+      padding: rnSpacing.md,
       alignItems: 'center',
     },
     contactTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
