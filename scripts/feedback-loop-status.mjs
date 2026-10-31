@@ -58,6 +58,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { extractTicketNo, loadSourcesConfig, normalizeAt, SOURCES_PATH } from './audit-decision-chain.mjs'
 import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
 import { identityOf } from './lib/incident-cluster.mjs'
+import { keyOfRow } from './lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -249,7 +250,15 @@ export function normalizeFeedback(raw, patterns = []) {
     identity: id,
     ticketKey: ticket.key,
     ticketFace: ticket.face,
-    ticketNo: ticket.no || extractTicketNo(ticket.face, patterns) || '',
+    ticketNo:
+      ticket.no ||
+      extractTicketNo(ticket.face, patterns) ||
+      // 第三档:登记行行首编号(keyOfRow = 编号主键唯一判据,归 plan-task-index 单源)。
+      // 为什么必须有:取号族会退位(deploy-feedback 可落到 B/A/H…),而 ticketNoPatterns 只登记了
+      // G/D/P/W/O 五族 —— 2026-10-31 实测 B53 登记行在 patterns 面判不出,dispatched 被误报成
+      // 「票面无可解析票号」而落 undetermined,掩盖了真实状态「尚未派单」。本档只认登记行编号位,
+      // 不另写编号正则。
+      (ticket.face ? keyOfRow(ticket.face) || '' : ''),
     result: textOf(pickSlot(raw, ['result', 'outcome', 'status']), 40),
     why: textOf(pickSlot(raw, ['why', 'reason', 'note'])),
   }
