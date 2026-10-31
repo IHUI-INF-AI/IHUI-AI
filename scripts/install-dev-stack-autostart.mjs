@@ -30,10 +30,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveTaskNodeAnchor } from './lib/task-node-anchor.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TASK_NAME = 'IHUI-DevStack';
-const NODE_EXE = process.execPath;
+// 锚点不再直接取 process.execPath(「谁跑就烤谁」是 2026-10-31 两枚常驻任务被烤上第三方 IDE
+// 自带 node 的根因)。判据单源 = scripts/lib/task-node-anchor.mjs;缺失时由 install() 现算。
+let NODE_EXE = process.execPath;
 const LAUNCHER = path.join(ROOT, 'scripts', 'dev-stack-launch.mjs');
 const STACK = path.join(ROOT, 'scripts', 'dev-stack.mjs');
 const LOG_DIR = path.join(ROOT, '.tmp-sync');
@@ -120,6 +123,19 @@ function stopLegacyWatcher() {
 }
 
 function install() {
+  const anchor = resolveTaskNodeAnchor({
+    execPath: process.execPath,
+    pathEntries: String(process.env.PATH ?? '').split(path.delimiter),
+    exists: (p) => fs.existsSync(p),
+  });
+  if (!anchor.ok) {
+    console.error(
+      `[dev-stack:autostart] ${anchor.undetermined ? '未判定' : '拒绝注册'}:${anchor.why}`,
+    );
+    process.exit(anchor.undetermined ? 2 : 1);
+  }
+  NODE_EXE = anchor.anchor;
+  if (anchor.note) console.log(`[dev-stack:autostart] ${anchor.note}`);
   for (const f of [NODE_EXE, LAUNCHER, STACK]) {
     if (!fs.existsSync(f)) {
       console.error(`[dev-stack:autostart] ⚠️ 依赖缺失: ${f}`);
