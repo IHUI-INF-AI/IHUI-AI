@@ -70,6 +70,15 @@ import { redactCrashText } from '@ihui/shared/utils/redact';
 // 回传通道进的是模型上下文 ⇒ 钩子文本里冒充宿主的保留标签必须中和。
 // 唯一出口住 ../utils/prompt-boundary.js(只调用,不修改那个文件,守门 129 的机制清单)。
 import { neutralizeBoundaries } from '../utils/prompt-boundary.js';
+// 内置安全扫描判据层(单一真相源住在 ../security/secret-scan.ts,本文件只做事件面接线:
+// 编辑类工具后 L1 pattern warning + stop 时整轮聚合改动审查;warn 语义、零外发、失败不传导)。
+import {
+  describeScanOutcome,
+  isEditToolName,
+  reviewWorkspaceChanges,
+  scanEditedFile,
+  type SecretScanOutcome,
+} from '../security/secret-scan.js';
 // 回灌唤醒模型走**既有**提示队列的类型面(§0.6 不造第二套队列):`'task-notification'` 是
 // prompt-queue.ts 通知组里"可被运行中回合 inline 吸收"那一档,本模块只借用它的类型与
 // enqueue 契约,不 import 它的运行时(那是 `tools/background-registry.ts` 已经反向 import
@@ -1706,6 +1715,74 @@ function joinHookContext(lines: string[]): string | undefined {
   return lines.length === 0 ? undefined : lines.join('\n');
 }
 
+// ============================================================================
+// 内置安全扫描接线层(判据住 ../security/secret-scan.ts;本节只做事件面)
+//
+// 对齐对照程序(qoder security-scan 0.9.5)的形态并**刻意分歧**两处:
+//  - 它的 L1 pattern warning 挂在 PostToolUse matcher `Edit|Write|MultiEdit|NotebookEdit`;
+//    本仓对应用既有 postToolCall 事件 + isEditToolName 匹配器(write_file/edit_file/batch_edit)。
+//  - 它有一层云端 diff review;本层**不外发任何内容**(diff/文件内容都只在本进程判),
+//    这是设计分歧不是缺陷 —— 把用户代码送出仓是新的数据出口,不在本射程(AGENTS §5e 精神)。
+// 三条硬边界(全部落在实现里,不在调用方的自觉里):
+//  1. warn-only:结果只进 additionalContext 内存通道(与 G-424 ③ 同路)并点名到 stderr;
+//     **永不**把 proceed 置 false,**永不**改写用户文件。
+//  2. 未判定不冒绿(§0.3):取不到输入 ⇒ status=undetermined + missing 逐条点名,
+//     行内显式带 `not-judged-safe` —— 任何消费面都不可能把它读成"扫过且安全"。
+//  3. 扫描器自身异常不传导(§12e):本函数就地捕获转未判定行,工具调用的正常结果不受影响。
+// ============================================================================
+
+/** 内置安全扫描行的稳定前缀(ASCII 机器码,与 hook-context v1 同纪律,不依赖语言包)。 */
+export const SECURITY_SCAN_LINE_PREFIX = 'security-scan v1';
+
+/** 已点名过的非 clean 扫描行(去重刷屏;与 announcedSkips 同一纪律,有界)。 */
+const announcedSecurityScan = new Set<string>();
+
+function securityScanContextLine(event: string, subject: string, body: string): string {
+  return (
+    `${SECURITY_SCAN_LINE_PREFIX} | event=${redactThenClip(event)} | subject=${redactThenClip(subject)}` +
+    ` | origin=builtin-in-process | body=${redactThenClip(body)}`
+  );
+}
+
+/**
+ * 跑一次内置扫描并成形 additionalContext 行(唯一接线出口,postToolCall/stop 两事件共用)。
+ * scan 内部已全兜底,这里的 catch 是双保险:扫描器自身的故障只可能被读成"未判定",
+ * 不可能让本次工具调用/收场流程连带失败。
+ */
+function builtinSecurityScanLines(event: string, subject: string, scan: () => SecretScanOutcome): string[] {
+  let body: string;
+  try {
+    body = describeScanOutcome(scan());
+  } catch (err) {
+    const note = err instanceof Error ? err.message : String(err);
+    body = `status=undetermined | not-judged-safe | missing=scan-adapter-crashed: ${note.slice(0, 200)}`;
+  }
+  // 非 clean(含未判定)在 stderr 点名:present 面(agent/repl 的调用点当前丢弃返回值),
+  // 静默吞掉正是 §30 那一型;clean 不打扰用户。去重键 = 事件×对象×状态档(整行正文里
+  // count/partial-findings 这类会抖的读数不进键,否则脏仓库每轮都刷同一条,§12e 同理)。
+  if (!body.startsWith('status=clean')) {
+    const statusToken = /^status=\w+/.exec(body)?.[0] ?? 'status=-';
+    const key = `${event}|${subject}|${statusToken}`;
+    if (!announcedSecurityScan.has(key)) {
+      if (announcedSecurityScan.size >= 200) announcedSecurityScan.clear();
+      announcedSecurityScan.add(key);
+      warnOnce(`⚠ [security-scan] ${key}: ${body}`);
+    }
+  }
+  return [securityScanContextLine(event, subject, body)];
+}
+
+/** postToolCall 面:编辑类工具落盘后对本次文件做 L1 pattern 扫描(非编辑工具零动作)。 */
+function editToolScanLines(toolName: string, output: unknown): string[] {
+  if (!isEditToolName(toolName)) return [];
+  return builtinSecurityScanLines('postToolCall', toolName, () => scanEditedFile(output));
+}
+
+/** stop 面:整轮聚合改动(HEAD 以来未提交 diff + 未跟踪文件)审查一次。 */
+function stopScanLines(workspacePath: string): string[] {
+  return builtinSecurityScanLines('stop', 'workspace-aggregate-diff', () => reviewWorkspaceChanges(workspacePath));
+}
+
 /** 单条执行结果 → 该条的 feedback 行(event 由调用方传,与阻断标签同源)。 */
 function feedbackForEntry(
   event: string,
@@ -1925,6 +2002,9 @@ export async function runPostToolCall(toolName: string, output: unknown, signal?
   const hooks = config.postToolCall ?? [];
   const feedbackLines: string[] = [];
   const contextLines: string[] = [];
+  // 内置安全扫描腿(对齐对照程序 PostToolUse `Edit|Write|…` matcher;不依赖用户 hooks.json:
+  // 编辑类工具即便零配置也必扫。结果只进 additionalContext + stderr 点名,不改 proceed)。
+  contextLines.push(...editToolScanLines(toolName, output));
   let worst: HookTerminalState = 'succeeded';
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
@@ -2126,6 +2206,11 @@ export async function runHook(event: HookEvent, ctx: HookContext, options?: RunH
     const env = buildHookEnv(event, ctx);
     const feedbackLines: string[] = [];
     const contextLines: string[] = [];
+    // 内置安全扫描腿(stop 面):整轮聚合改动审查(对齐对照程序 commit/push 前的 diff review 层,
+    // 但零外发)。放在循环之前 ⇒ 用户 stop 钩子即便阻断了收场,审查结论也已成形。
+    if (event === 'stop') {
+      contextLines.push(...stopScanLines(ctx.workspacePath ?? process.cwd()));
+    }
     let worst: HookTerminalState = 'succeeded';
     for (const entry of hooks) {
       if (isToolEvent(event) && ctx.toolName && !matchesTool(entry, ctx.toolName)) continue;

@@ -78,14 +78,18 @@ function pwsh(cmd, env = {}) {
       missingShell: true,
     }
   }
-  const r = spawnSync(SHELL, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', UTF8_PREAMBLE + cmd], {
-    encoding: 'utf8',
-    timeout: 120000,
-    env: { ...process.env, ...env },
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const r = spawnSync(
+    SHELL,
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', UTF8_PREAMBLE + cmd],
+    {
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, ...env },
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   if (r.error) return { out: `派生失败: ${r.error.message}`, status: null }
   return { out: (r.stdout || '') + (r.stderr || ''), status: r.status }
 }
@@ -99,6 +103,17 @@ function requireShell(out) {
 }
 
 // T1/T2/T3 共用一次跑批:交替两签名 + 各自窗口
+/** 从给定开括号位置按花括号配平取整块(含首尾括号);不配平返回 null。 */
+function balancedBraceBlock(src, openIdx) {
+  if (openIdx < 0 || src[openIdx] !== '{') return null
+  let depth = 0
+  for (let i = openIdx; i < src.length; i += 1) {
+    if (src[i] === '{') depth += 1
+    else if (src[i] === '}' && (depth -= 1) === 0) return src.slice(openIdx, i + 1)
+  }
+  return null
+}
+
 test('T1 两条措辞交替时各自守着自己的窗口(旧单槽实现正是被这一型打穿)', () => {
   const scratch = mkScratch('alert-dedup')
   try {
@@ -429,13 +444,27 @@ test('T14 反向源码锁:监控侧不得再回到"无条件 return",且必须�
   )
   // 旧形态:`if ($diag.Contains('[部署重启中-预期现象]')) {` 之后**直接** Add-Content + return,
   // 中间没有任何到期判定。这条反向锁防的是"下一次有人把分支改回一刀切"。
-  const block = src.match(
-    /if \(\$diag\.Contains\('\[部署重启中-预期现象\]'\)\) \{[\s\S]{0,900}?\n  \}/,
-  )
-  assert.ok(block, '找不到"预期现象"抑制分支本体(改结构时请连这条锁一起改,别让它静默失效)')
+  // 取块改用**花括号配平**(2026-11-01 改):旧写法 `{0,900}?` 是长度预算,分支本体一超过 900 字符
+  // 就取不到块 ⇒ 报"找不到分支本体"的假红(同一型教训就写在本文件 ① 那段注释里,这条一直没跟上)。
+  // 配平取块对长度不敏感,而"删掉到期调用改回一刀切"仍然会被下面 ③ 与变异对照咬住。
+  const anchor = src.indexOf("if ($diag.Contains('[部署重启中-预期现象]')) {")
+  assert.ok(anchor >= 0, '找不到"预期现象"抑制分支本体(改结构时请连这条锁一起改,别让它静默失效)')
+  const blockText = balancedBraceBlock(src, src.indexOf('{', anchor))
+  assert.ok(blockText, '分支本体花括号不配平 ⇒ 结构被改坏,本条拒绝当成"没有这段代码"混过去')
+  const block = [blockText]
   assert.ok(
     block[0].includes('Test-AlertSuppressionGrace'),
     `抑制分支里没有到期判定: ${block[0].slice(0, 200)}`,
+  )
+  // 变异对照:把分支体改回旧的一刀切 return(去掉到期调用)⇒ 同一条判据必须翻红,
+  // 否则"块取得到"本身就成了空转的绿(配平改造最容易顺手改瞎的就是这一格)。
+  const mutantBlock = block[0].replace(
+    /Test-AlertSuppressionGrace\s+-Sig\s+\$isig/,
+    'Invoke-BlindSuppress -Sig $isig',
+  )
+  assert.ok(
+    !mutantBlock.includes('Test-AlertSuppressionGrace') && mutantBlock !== block[0],
+    '变异对照失效:改回一刀切的形态没被这条判据抓住',
   )
   // 宽限分钟必须可由 env 覆写,而不是硬编码在服务里(与本仓"告警窗口由 env 决定"同一条口径)
   assert.ok(/IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN/.test(src), '宽限窗写死在代码里,现场无法调速')
@@ -763,7 +792,10 @@ test('T20 监控腿行为对照:两病因不同键、换读数同键,且出口�
     assert.match(out, /PREFIX=True/, '身份面不是「类别=…」形 ⇒ 没落到单源的键形')
     assert.match(out, /DIFF_CAUSE=True/, '两病因(磁盘跨档)必须不同键')
     assert.match(out, /SAME_KEY=True/, '轮次/时刻/盘符/sha 换成另一组必须同键')
-    assert.ok(!/2026-10-26|1a2b3c4d|39|41/.test((out.match(/JKEY=(.+)/) || [])[1] || ''), '身份串里还留着读数:')
+    assert.ok(
+      !/2026-10-26|1a2b3c4d|39|41/.test((out.match(/JKEY=(.+)/) || [])[1] || ''),
+      '身份串里还留着读数:',
+    )
     assert.match(out, /LEDGER=due-new\/window-hit\/True/, '同键没能在台账层压住下一轮:')
     assert.match(out, /KIND_SPLIT=True/, '跨类别被并成一槽(一类会顶掉另一类):')
   } finally {

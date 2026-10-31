@@ -590,6 +590,17 @@ class MCPClient:
             logger.error("SSE 模式缺少 url")
             return False
         parsed = urllib.parse.urlparse(self._config.url)
+        # 2026-11-01 安全强化:连接点只做**协议族**校验(非 http(s) 一律拒:file/gopher 之类
+        # 形态连不上任何 MCP,却能把后续实现带进本地读取面)。
+        # 刻意**不**在这里套 `_validate_url_ssrf`:那把尺子的端口封闭表只放行
+        # 80/443/8080/8443/3000/8801,而本仓的外部 MCP 设计上包含"连内网自研服务"这一档
+        # (既有 tests/test_mcp_client.py::test_sse_connect_success 连的就是
+        # 127.0.0.1:8803 的 ai-service 自身端点)—— 接上去会打死在用能力。
+        # 内网面在这里是意图而非缺陷,真正的收口在注册面:routers/mcp.py 已把 url 型传输
+        # 与 stdio 同档收成"仅管理员注册"(那条通道 = 让服务端替调用者出连)。
+        if parsed.scheme not in ("http", "https"):
+            logger.error("SSE 模式仅允许 http(s),收到 %r", parsed.scheme)
+            return False
         host = parsed.hostname or "localhost"
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
         path = parsed.path or "/sse"

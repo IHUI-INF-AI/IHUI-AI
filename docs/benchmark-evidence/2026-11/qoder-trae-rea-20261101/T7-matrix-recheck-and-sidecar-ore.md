@@ -121,11 +121,28 @@ T4–T6 是 README 写就之后产的，属交付一致性缺口）。
   `git grep -nI -E "resumeFromRunId|resume_from_run_id" -- apps packages scripts` = 0 命中，确认仍是真缺口）。
 - **G-20 / G-26** → 不立票（形态不适用：本仓取源是 `git clone` + npm 平台包 + tauri updater，
   没有「远程可执行分平台下载表」与「多版本目录原子切换」这一格；命中项全属采集/清理对方产品一侧）。
-- **两枚 sidecar** → 反编译进行中（产物落 `.ihui-agent/tmp/rea-goal-b44/`）。
-  对照位本仓现状已现读：桌面自动化面 = `apps/desktop/src-tauri/src/operator.rs`（359 行，
-  `OperatorAction` 枚举 + `capture_decide_act` + `operator_decide`/`operator_execute` 两枚 tauri command，
-  enigo + screenshots 走 capture-decide-act 闭环）；表格面 = `apps/ai-service/app/tools/document_tools.py`
-  （anydoc Rust 引擎主路径 + `_parse_xlsx` zipfile 降级，**只读**，输出首个 worksheet 的 TSV，全仓零写回/公式重算）
-  ⇒ 两条对齐目标初判：`operator.rs` 缺的是动作面广度与权限边界，xlsx 缺的是**写回**那一侧。**[推断]**，
-  待反编译产物证实 sidecar 真实动作面后再定票，不提前开工。
+- **两枚 sidecar** → **取证已完成**（册 `T8-sidecar-native-surface.md`，枚 `e2a418dd84`；走 `analyzeHeadless.bat`，
+  因 `rea analyze` 对原生 PE 有 5.5 分钟硬预算，`provider_timeout op=list_documents` 两次实测复现）。
+  读数：件 1 `QoderComputerUse.exe` = 14 枚工具 + 11 项边界实装，**人工审批门与速率闸各 0 命中**（如实登记未找到）；
+  件 2 `xlsx-sidecar.exe` = 自研 sidecar 协议 14 命令，含 `save_archive`/`recalc_cells`/`convert_workbook` ⇒ **真有写回与公式重算**；
+  函数面 6,995 / 15,168，两件 PE 导出表皆 0（静态链接 Rust）。
+- 由 T8 直接开出的两张票（本轮在飞）：① **桌面自动化动作面 + 审批门**（对照位
+  `apps/desktop/src-tauri/src/operator.rs` 的 `OperatorAction`/`capture_decide_act`；超越轴 = 对方没有的人工审批门与
+  「输入类动作永不自动重试」的可测不变式）；② **agent 表格工作簿读写面**（对照位本仓只有
+  `excel-export-service.ts` 的导出与 `document_tools.py` 的只读，缺「让 agent 改动一个已存在的工作簿」；
+  零新依赖用既有 `exceljs`，红线 = 公式单元格**不得把缓存值当当前值返回**，对方靠 9MB 原生引擎堵的风险，
+  本仓用「失效方向必须明说」堵）。
+- **G-21 逐文件完整性** → **已落地**（代码枚 `6f57e57fe6`，门 id 277 / warn 档；README 点名枚 `7d386b2826`）。
+  设计边界即本册 §3 第 3 条：锚点取安装时刻盘上现算，绝不抄上游声明哈希。
+- **G-22 `autoUpdate` 残腿** → 本轮开出（判据与命令层）。要点是把刚落地的门 277 接成供应链防线：
+  拉取后**验不过就不落**、本地已脏就停不覆盖用户改动、取不到远端一律 `unjudged`（不用"没更新"冒充"查过了"）。
+  ⇒ 这一格是本仓对「插件自动更新」类实现天然多出来的一道牙，**超越轴**（对方只做到版本共存与自动更新，
+  是否校验未取证到，标 [未知]，不得写成对方没有）。
+- **检索引擎本体** → 本轮新开的取证靶：`…/.qoder-cn/plugins/cache/qoderapp-bundler/qoder-context/runtime/qoder-search.bundle.mjs`
+  （约 5.4MB，前两轮只破到 `T6` §1 的 plugin/hooks 规格级，**引擎实现一个字没读**）。
+  对撞基准先钉住以免误报缺失：本仓 `apps/ai-service/app/services/codebase_indexer.py` 的 Merkle 增量**已在产**
+  （`incremental` 开关、`_load_snapshot` 前像、`content_hash` 相同即跳过、`deleted_paths` 差集、有变更才重建）。
+- 本轮已落地并推送到 `origin` 的枚（末行现读 `origin/main..HEAD` 未推数 0，本地=远端一致）：
+  `09fa348a4f`(G-01 代码+T7 册+出图凭据) → `1eeab01a1d`(README 第 30 条) → `60fffea9dc1f`(与对侧分叉的零丢失归并)
+  → `90933dd5ae`(T3 时效告示) → `6f57e57fe6`(G-21) → `7d386b2826`(门 277 点名) → `e2a418dd84`(T8 册)。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

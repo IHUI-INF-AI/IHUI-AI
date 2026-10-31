@@ -52,6 +52,7 @@ import {
   readdirSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -61,6 +62,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+import {
+  danglingLinkSkipReason,
+  hostLibc,
+  loadLockPlatformFace,
+} from './lib/pnpm-lock-platform.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
@@ -246,7 +252,11 @@ export function findMissingExternalLinks(rootDir, pkgDirs) {
  * 如实计数 —— 把中间态判成债务就是逼人跳门。浅扫/深扫的扫描面**分列**报告,不得合成一个数,
  * 否则"扫到 0 条判红"的反空扫护栏失去意义。
  */
-export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
+export function findGuttedLinks(
+  rootDir,
+  pkgDirs,
+  { deep = false, lockFace = null, host = null } = {},
+) {
   const nmDirs = [join(rootDir, 'node_modules'), ...pkgDirs.map((d) => join(d, 'node_modules'))]
   const gutted = []
   const missingBins = []
@@ -254,10 +264,21 @@ export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
   let scanned = 0
   let deepScanned = 0
   let tmpKeysSkipped = 0
+  // 「optional × 平台不匹配」豁免:单源判据在 lib/pnpm-lock-platform.mjs(§0.6,本层不复算)
+  let platformSkipped = 0
+  const platformSample = []
   const check = (abs, rel, owner, nmDir, name, isDeep = false) => {
     if (isDeep) deepScanned += 1
     else scanned += 1
     if (!existsSync(abs)) {
+      if (lockFace && host) {
+        const why = danglingLinkSkipReason(abs, lockFace, host, readlinkSync)
+        if (why) {
+          platformSkipped += 1
+          if (platformSample.length < 3) platformSample.push(`${rel} ⇒ ${why}`)
+          return
+        }
+      }
       gutted.push({ kind: '悬空', link: rel, owner })
       return
     }
@@ -378,7 +399,15 @@ export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
       scan(join(storeDir, k.name, 'node_modules'), `node_modules/.pnpm/${toPosix(k.name)}`, true)
     }
   }
-  return { gutted, missingBins, scanned, deepScanned, tmpKeysSkipped }
+  return {
+    gutted,
+    missingBins,
+    scanned,
+    deepScanned,
+    tmpKeysSkipped,
+    platformSkipped,
+    platformSample,
+  }
 }
 
 /**
@@ -583,13 +612,20 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
   // 深扫(.pnpm 传递闭包)只随 --strict 走 —— 落点纪律见 findGuttedLinks 头注:
   // 并发 install 半复制态会闪出成百上千条红,而本门在提交链上是 blocking,
   // 恒红门 = 各会话 --no-verify = 其余全部守门作废。--staged / 默认档行为逐字不变。
+  const lockFace = loadLockPlatformFace(root)
   const {
     gutted,
     missingBins = [],
     scanned: linksScanned,
     deepScanned = 0,
     tmpKeysSkipped = 0,
-  } = findGuttedLinks(root, targets, { deep: strict })
+    platformSkipped = 0,
+    platformSample = [],
+  } = findGuttedLinks(root, targets, {
+    deep: strict,
+    lockFace,
+    host: { platform: process.platform, arch: process.arch, libc: hostLibc() },
+  })
   // 第四维(判红):pre-commit 第一步必然 spawn 的命令能不能解析到
   let hookCmds = []
   try {
@@ -609,13 +645,25 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
   console.log(
     `workspace 依赖链接对账:${scope} / 判定 ${targets.length} 个包` +
       (strict
-        ? ` | 链接完整性:浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(合计 ${linksScanned + deepScanned} 条;.pnpm 安装中临时键跳过 ${tmpKeysSkipped} 个),破损 ${gutted.length} 条,`
+        ? ` | 链接完整性:浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(合计 ${linksScanned + deepScanned} 条;.pnpm 安装中临时键跳过 ${tmpKeysSkipped} 个;平台不匹配的可选变体豁免 ${platformSkipped} 条),破损 ${gutted.length} 条,`
         : ` | 链接完整性:扫 ${linksScanned} 条,破损 ${gutted.length} 条,`) +
       `钩子命令 ${hookCmds.length} 条(解析不到 ${hookBad.length} 条、入口缺失 ${shimBad.length} 条、判不出 ${shimUnresolved} 条)` +
       ` | 外部依赖声明 ${externalScanned} 条,断链 ${missingExternal.length} 条` +
       (strict ? '(严格档判红)' : '(提交链只报数;断链会阻断 turbo build,要判红加 --strict)') +
       `(${Date.now() - t0}ms)`,
   )
+  // 豁免必须"量得到",不能静默:放行了多少条、为什么放行、样例是谁,都要现读印出来(§0.3/§0.7)
+  if (platformSkipped > 0) {
+    console.log(
+      `   ℹ️ 「optional × 平台不匹配」豁免 ${platformSkipped} 条 —— pnpm 对 lock 里标 optional 且 os/cpu/libc 排除本机的变体只建链接、不物化 store 目录,` +
+        `这是任何平台上的正常终态(判据源 scripts/lib/pnpm-lock-platform.mjs;与门体第一维「拿它判红是拿配置当事实」同一把尺)。样例: ${platformSample.join(' | ')}`,
+    )
+  }
+  if (!lockFace) {
+    console.log(
+      '   ⚠️ pnpm-lock.yaml 取不到或建档为空 ⇒ 本轮一条也不豁免、全部照旧判红(取不到输入不记绿,也不拿"没判"冒充"判过")',
+    )
+  }
   if (missingBins.length) {
     // 2026-09-24 取证后的定档:提交链里**只报数**,`--strict`(check:all / CI)才判红。
     // 取证过程(值得留):我一度以为"102 条缺 shim"是未证明的基线、不敢拦人;
@@ -719,7 +767,6 @@ function run(argv) {
     deepScanned = 0,
     tmpKeysSkipped = 0,
     missingExternal = [],
-    externalScanned = 0,
     skipped,
   } = audit({
     staged: argv.includes('--staged'),
@@ -812,7 +859,8 @@ function run(argv) {
         ? `❌ ${missingExternal.length} 处声明了外部(非 workspace:)依赖,但 node_modules 里解析不到:`
         : `⚠️  ${missingExternal.length} 处声明了外部(非 workspace:)依赖,但 node_modules 里解析不到(提交链只报数;要判红加 --strict):`,
     )
-    for (const m of missingExternal.slice(0, 25)) w(`   ${m.pkg}  缺 ${m.dep}\n      期望 ${m.expect}`)
+    for (const m of missingExternal.slice(0, 25))
+      w(`   ${m.pkg}  缺 ${m.dep}\n      期望 ${m.expect}`)
     if (missingExternal.length > 25) w(`   … 另有 ${missingExternal.length - 25} 条`)
     w(
       `   ⇒ 这一型不报在 typecheck 里(TS2307 只在真 build 时才炸):它让 \`pnpm -r build\` 直接失败,` +
