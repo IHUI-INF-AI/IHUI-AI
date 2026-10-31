@@ -1882,7 +1882,7 @@ function auditHostTimezone() {
     }
     const script = join(dirname(fileURLToPath(import.meta.url)), 'check-host-timezone.mjs')
     if (!existsSync(script)) {
-      logger('ℹ️ 主机时区对账:尺子脚本不在位(scripts/check-host-timezone.mjs)⇒ 本轮跳过,不记为已判')
+      log('ℹ️ 主机时区对账:尺子脚本不在位(scripts/check-host-timezone.mjs)⇒ 本轮跳过,不记为已判')
       return
     }
     let parsed = null
@@ -1903,14 +1903,14 @@ function auditHostTimezone() {
       try {
         parsed = JSON.parse(body)
       } catch {
-        logger(
+        log(
           `ℹ️ 主机时区对账:未判定(派生失败或载荷不可 parse:${String(e && e.message).slice(0, 120)})—— 不寄信,也别当已判过`,
         )
         return
       }
     }
     if (!parsed || parsed.verdict === 'error') {
-      logger(
+      log(
         `ℹ️ 主机时区对账:未判定(${(parsed && parsed.reasons && parsed.reasons[0]) || '载荷是 error'})`,
       )
       return
@@ -1937,14 +1937,14 @@ function auditHostTimezone() {
           dedupKey: `tz=${String((parsed.measured && parsed.measured.registry) || '?')};node=${String((parsed.measured && parsed.measured.nodeIana) || '?')}`,
         },
       )
-      logger(`⚠️ 主机时区对账判红:${lines}`)
+      log(`⚠️ 主机时区对账判红:${lines}`)
       return
     }
-    logger(
+    log(
       `✅ 主机时区对账:无漂移(${parsed.measured && parsed.measured.registry};未判定 ${parsed.undeterminedCount} 维)`,
     )
   } catch (e) {
-    logger(`⚠️ 主机时区对账自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
+    log(`⚠️ 主机时区对账自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
   }
 }
 
@@ -1975,7 +1975,7 @@ function auditDiskRootHygiene() {
     }
     const script = join(dirname(fileURLToPath(import.meta.url)), 'check-disk-root-hygiene.mjs')
     if (!existsSync(script)) {
-      logger('ℹ️ 盘根卫生:尺子脚本不在位(scripts/check-disk-root-hygiene.mjs)⇒ 本轮跳过,不记为已判')
+      log('ℹ️ 盘根卫生:尺子脚本不在位(scripts/check-disk-root-hygiene.mjs)⇒ 本轮跳过,不记为已判')
       return
     }
     let parsed = null
@@ -1994,14 +1994,14 @@ function auditDiskRootHygiene() {
       try {
         parsed = JSON.parse(body)
       } catch {
-        logger(
+        log(
           `ℹ️ 盘根卫生:未判定(派生失败或载荷不可 parse:${String(e && e.message).slice(0, 120)})—— 不寄信,也别当已判过`,
         )
         return
       }
     }
     if (!parsed || !parsed.verdict) {
-      logger('ℹ️ 盘根卫生:未判定(载荷缺 verdict)—— 不寄信,也别当已判过')
+      log('ℹ️ 盘根卫生:未判定(载荷缺 verdict)—— 不寄信,也别当已判过')
       return
     }
     const c = parsed.counts || {}
@@ -2011,7 +2011,7 @@ function auditDiskRootHygiene() {
     if (parsed.verdict === 'undetermined') {
       // 未判定必须**逐维**报名:旧写法只印 worktree 一维,于是"本机盘根没在 config 申报"
       // 这一整格在日志里长得像"盘根那维已经判过了"(把没判写成判过了,同一条禁令)。
-      logger(
+      log(
         `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
       )
       return
@@ -2047,7 +2047,7 @@ function auditDiskRootHygiene() {
           dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json')).firstMs).tier}`,
         },
       )
-      logger(
+      log(
         `⚠️ 盘根卫生判红:外流 ${Number(c.diskRootStray) || 0} / worktree 落点外 ${Number(c.worktreeOutside) || 0}` +
           `(未判定 盘根 ${uN}、worktree ${wN};不适用 ${nN})`,
       )
@@ -2055,12 +2055,159 @@ function auditDiskRootHygiene() {
     }
     // 已判干净 ⇒ 摘掉外流持续计时起点(与上面 dedupKey 的 held 档成套,否则起点会背着历史时长)
     clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json'))
-    logger(
+    log(
       `✅ 盘根卫生:0 违规(白名单对账 + worktree 落点全在 ${join(WORKTREE, '.worktrees')})` +
         (nN ? `;另有 ${nN} 个声明盘根在本机不适用(不是"已判干净",是"本机没有这块盘")` : ''),
     )
   } catch (e) {
-    logger(`⚠️ 盘根卫生自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
+    log(`⚠️ 盘根卫生自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
+  }
+}
+
+// ── git filter 残留巡检(2026-10-31 立) ──
+// 立因(一手取证):Qoder CN 桌面端每次会话启动都跑
+// `git config --name-only --get-regexp '^filter\..*\.(clean|smudge|process|required)$'`;
+// 只要**任一作用域**(system/global/local)命中 filter 键,它就把工作树快照标成不可信
+// (`(not collected: Git content filters are configured; working-tree cleanliness is unknown)`),
+// 会话里从此看不到真实 git status。本机根因 = git-lfs 安装器把 `filter.lfs.*` 同时写进
+// system(<Git 安装目录>/etc/gitconfig)与 global(~/.gitconfig);56 个仓库 `git lfs ls-files`
+// 全空 ⇒ 这些键在本机没有任何消费者。复发通道 = 重装/升级 Git for Windows 或再跑一次
+// `git lfs install`。处置边界:**只**摘 `lfs`;一旦出现非 lfs 的 filter 名就只报数点名、
+// 绝不代删(那是别人的过滤器,删错一次 = 对方 checkout 全线失败)。
+// 判机器状态 ⇒ 只写日志、不到人、不进提交链(§12e)。
+// 注:本文件模块级日志函数名是 `log`(各函数的 opts 形参才叫 `logger`),本腿一律用 `log`。
+const GIT_FILTER_AUDIT_TICK = join(
+  WORKTREE,
+  '.ihui-agent',
+  'state',
+  'git-filter-residue-audit-tick.ts',
+)
+const GIT_FILTER_AUDIT_INTERVAL_MS = 60 * 60 * 1000
+// 探针 argv 单源(数组形参,禁止字符串拼接):--name-only 只回键名,不把可能带凭据的 value 读进日志
+const GIT_FILTER_PROBE_ARGS = [
+  'config',
+  '--name-only',
+  '--get-regexp',
+  '^filter\\..*\\.(clean|smudge|process|required)$',
+]
+
+/**
+ * 探针输出 ⇒ filter 名清单(去重,保持首次出现顺序)。
+ * 行形如 `filter.<name>.<key>`:name = 首段之后到**最后一个点**之前的全部
+ * (名里带点的 `filter.my.x.clean` 归 `my.x`,不是 `my`;只按第二个点切会把名字切坏)。
+ * CRLF / 前后空白 / 空行一律忽略(Windows 上 git 的 stdout 是 CRLF);非 `filter.` 行丢弃。
+ */
+function parseGitFilterKeys(raw) {
+  const names = []
+  for (const line of String(raw ?? '').split(/\r?\n/)) {
+    const key = line.trim()
+    if (!key.startsWith('filter.')) continue
+    const parts = key.split('.')
+    if (parts.length < 3) continue
+    const name = parts.slice(1, -1).join('.')
+    if (name && !names.includes(name)) names.push(name)
+  }
+  return names
+}
+
+/**
+ * 跑一次探针。git 的 `--get-regexp` 在**无匹配**时退出码是 1(不是故障)⇒ 这一支必须判"干净",
+ * 不能与"取不到结论"并桶(§0.3:取不到落 null,由调用方记未判定,不记绿也不冒红)。
+ */
+function probeGitFilterKeys(bin) {
+  try {
+    return String(
+      execFileSync(bin, [...GIT_SAFE_ARGS, ...GIT_FILTER_PROBE_ARGS], {
+        cwd: WORKTREE,
+        // §12g / 守门 193:派生 git 必须显式接管 stdio;不吃的子进程不写 stdio 本机会报 EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: 15000,
+        encoding: 'utf8',
+      }),
+    )
+  } catch (e) {
+    if (e && e.status === 1) return ''
+    return null
+  }
+}
+
+function auditGitFilterResidue() {
+  try {
+    let last = 0
+    try {
+      last = Number(readFileSync(GIT_FILTER_AUDIT_TICK, 'utf8')) || 0
+    } catch {
+      /* 首次:没有 tick 就是该跑 */
+    }
+    if (Date.now() - last < GIT_FILTER_AUDIT_INTERVAL_MS) return
+    try {
+      mkdirSync(dirname(GIT_FILTER_AUDIT_TICK), { recursive: true })
+      writeFileSync(GIT_FILTER_AUDIT_TICK, String(Date.now()))
+    } catch {
+      /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
+    }
+    // git 不可用时退到 PATH 上的 git;真取不到结论由 probeGitFilterKeys 回 null(不猜)
+    const bin = resolveGitBin() || 'git'
+    const out = probeGitFilterKeys(bin)
+    if (out === null) {
+      log('ℹ️ git filter 配置巡检:未判定(git 取不到结论)⇒ 不记绿,下轮重试')
+      return
+    }
+    const before = parseGitFilterKeys(out)
+    if (before.length === 0) {
+      log('✅ git filter 配置巡检:无 filter 键')
+      return
+    }
+    if (!before.every((n) => n === 'lfs')) {
+      // 非 lfs ⇒ 绝不代删,只点名(§0.10:失效方向是多要一次定向说明,不是多删一次)
+      log(
+        `⚠️ git filter 配置巡检:命中 ${before.length} 个 filter(${before.join(', ')})⇒ 含非 lfs,不自动摘除;` +
+          '请人工确认后按作用域 git config <--system|--global|--local> --remove-section filter.<name>',
+      )
+      return
+    }
+    // 只有 lfs ⇒ 自动摘两个已知复发作用域(system = 安装器写、global = `git lfs install` 写)。
+    // 逐作用域 try/catch:某个作用域本来就没有这一段是常态(git 会非零退出),不得渲染成故障;
+    // 结论一律看**复测**,不看删除命令的退出码(那正是"没判写成判过"的那一型)。
+    const failed = []
+    for (const scope of ['--system', '--global']) {
+      try {
+        execFileSync(bin, [...GIT_SAFE_ARGS, 'config', scope, '--remove-section', 'filter.lfs'], {
+          cwd: WORKTREE,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          timeout: 15000,
+          encoding: 'utf8',
+        })
+      } catch (e) {
+        const why = String((e && (e.stderr || e.message)) || '')
+          .trim()
+          .slice(0, 80)
+        if (why) failed.push(`${scope}:${why}`)
+      }
+    }
+    const afterRaw = probeGitFilterKeys(bin)
+    if (afterRaw === null) {
+      log(
+        `⚠️ git filter 配置巡检:摘除后复测取不到结论(未判定)⇒ 不记"已摘除";逐作用域:${failed.join(' | ') || '无失败'}`,
+      )
+      return
+    }
+    const after = parseGitFilterKeys(afterRaw)
+    if (after.length === 0) {
+      log(
+        '✅ git filter 配置巡检:已自动摘除 filter.lfs(system/global)' +
+          (failed.length ? `;未命中的作用域(正常):${failed.join(' | ')}` : ''),
+      )
+      return
+    }
+    // 只写日志不喊人(§5e-1:这一格收信人除"管理员权限"外无整改动作;local 作用域也不归本腿删)
+    log(
+      `⚠️ git filter 配置巡检:摘除失败,仍有 filter(${after.join(', ')})(可能落在 local 作用域或需管理员权限);逐作用域:${failed.join(' | ') || '无失败'}`,
+    )
+  } catch (e) {
+    log(`⚠️ git filter 配置巡检自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
   }
 }
 
@@ -9924,6 +10071,9 @@ function main() {
     // 主机时区漂移问责:必须与上面同格(健康轮次早退之前 + !CHECK_ONLY)—— 挂进 CHECK_ONLY 路径
     // 等于永不执行,本文件已踩过两次(工作区自愈层、根封口层)。
     if (!CHECK_ONLY) auditHostTimezone()
+    // git filter 残留巡检(2026-10-31 立):任一作用域存在 filter 键 ⇒ Qoder CN 把工作树快照标成
+    // "不可信"、会话里看不到真实 git status。同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY 零副作用。
+    if (!CHECK_ONLY) auditGitFilterResidue()
     // 盘根卫生巡检(G 盘清理收口 2026-09-30):同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY。
     if (!CHECK_ONLY) auditDiskRootHygiene()
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
@@ -11259,6 +11409,9 @@ export const __test__ = {
   auditLintStagedPins,
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
   auditAppVersionLatest,
+  // git filter 残留巡检(2026-10-31 立):解析判据与派发腿本体导出,镜像测试只 import 这一份(§22c)。
+  auditGitFilterResidue,
+  parseGitFilterKeys,
   sweepStaleClosedRows,
   sweepBannedBuckets,
   sweepHeadRecallRows,
