@@ -40571,3 +40571,9 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 🐞 修复:前端三处可控输入面收口(安全强化第 2 批) (144a28e8af)
 - 🐞 修复:后端三格重复实现收成单源,并补 SSRF 与脱敏覆盖 (a9c6cf18c7)
 - 🐞 修复:后端越权 / SSRF / 受限模型红线收口(安全强化第 1 批) (420038c4e6)
+| AI 服务路由 | 629 | `aiServiceRoutes` |
+| 测试文件 | 3753 | `testFiles` |
+| 跟踪文件 | 18292 | `trackedFiles` |
+|                   | 知识文件系统        | knowledge_fs 只读虚拟路径 `/repo/<repoId>/<file>#<symbol>`(list/read/stat/search 四出口,代码切片投影,对齐 Trae ckg Cfs* 读半边)+ external_import 外部运行时 4 维导入(memory→长期记忆 / automations→调度器幂等键 / capabilities 声明 / sessions 让位 relay 腿)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+- 📚 文档:T3 §9 内核族五探复判 + rea 逐函数里程碑 (257e673bea)
+- 🚀 新功能/改进:号池账号归属改判 admin 个人池 + 一键切号直连号池(免本机登录) (bcaf7f58d2)

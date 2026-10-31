@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import agent, chat, knowledge_graph, rag
+from . import agent, chat, external_import, knowledge_fs, knowledge_graph, rag
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(chat.router, prefix="/ai", tags=["v1-chat"])
@@ -19,4 +19,8 @@ api_v1_router.include_router(agent.router, prefix="/ai", tags=["v1-agent"])
 api_v1_router.include_router(rag.router, prefix="/ai", tags=["v1-rag"])
 # 知识图谱(G5 - 2026-07-21)
 api_v1_router.include_router(knowledge_graph.router, prefix="/ai/knowledge-graph", tags=["v1-knowledge-graph"])
+# 知识文件系统(G2 - 2026-10-31,对齐 Trae ckg Cfs* 读半边,只读)
+api_v1_router.include_router(knowledge_fs.router, prefix="/ai/knowledge-fs", tags=["v1-knowledge-fs"])
+# 外部运行时导入(2026-10-31,对齐 Qoder 导入数据 4 维命名空间)
+api_v1_router.include_router(external_import.router, prefix="/ai/external-import", tags=["v1-external-import"])
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
