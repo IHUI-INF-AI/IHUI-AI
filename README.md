@@ -99,37 +99,37 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 
-对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
-5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
+对外关键数字声明(与本页生成块同源,均现算):**617 张表 · 4656 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 3777 测试文件 · 309 道工程守门 · 51 CI workflows ·
+5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 14 Compose 服务**。
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 612 | `dbTables` |
-| schema 文件 | 237 | `dbSchemaFiles` |
-| API 路由 | 4616 | `apiRoutes` |
-| 路由文件 | 651 | `apiRouteFiles` |
-| AI 服务路由 | 613 | `aiServiceRoutes` |
+| 数据库表 | 617 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
+| API 路由 | 4656 | `apiRoutes` |
+| 路由文件 | 656 | `apiRouteFiles` |
+| AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 67 | `cliCommandFiles` |
+| CLI 命令文件 | 68 | `cliCommandFiles` |
 | CLI 工具文件 | 72 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3607 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3783 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 299 | `guardianGates` |
-| — blocking | 273 | `guardianBlocking` |
+| 工程守门 | 308 | `guardianGates` |
+| — blocking | 282 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 17728 | `trackedFiles` |
+| 跟踪文件 | 18332 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -15563,6 +15563,8 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):
 - git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
 - 接线/自检: `check-gate-face-discipline.mjs` `check-skip-env-promise.mjs` `check-selftest-registrant-evaluates.mjs` `check-ci-failure-triage-wiring.mjs`(W1 差值只拦新增、W2 失明/错位/孤儿锁硬拦,`TRIAGE_WORKFLOW_FILE` 必须指本文件) `check-api-key-permission-labels.mjs`(union↔web 标签表↔五语言键集) `check-sheet-flex-contract.mjs`(bounded 容器内列表唯一弹性块;镜像 `check-sheet-flex-contract.test.mjs`) `check-mobile-rn-style-parity.mjs`(RN 硬编码 hex 基线棘轮) `check-list-predicate-has-positive-proof.mjs` `check-ops-patrol.mjs` `check-shared-type-not-redeclared.mjs`(sameShape+reachable 两维) `check-alert-identity-volatility.mjs`(V1 去重身份不含抖动量;V3 声明 `inScope:true` 必须在 `SCOPE_PREFIXES` 内、V4 发现集不得漏面;台账 `scripts/data/alert-mail-faces.json`;生产者 `alert-notification-service.ts`;镜像 `check-alert-identity-volatility.test.mjs`) `check-generator-resource-release.mjs`(async 生成器消费点必须显式 aclose/return;warn 起步) `check-no-warm-border.mjs`(W1-W4 暖色描边/9-patch/colorAccent/plugins 被 ignore;镜像 `check-no-warm-border.test.mjs`) `check-auth-cookie-domain-scope.mjs`(V1 域外写手/V2 判据拆毁/V3 回归形状;单源 `apps/api/src/utils/auth-cookies.ts` 的 `resolveCookieDomain`;镜像 `check-auth-cookie-domain-scope.test.mjs`) `check-bpe-encoding-parity.mjs`(C1 声明/C2 行为/C3 反向锁) `check-grafana-metric-exists.mjs`(指标名必须有发射点或台账) `check-grafana-datasource-wiring.mjs`(A uid 必须存在;B 只报数;C gridPos 相交/越界;镜像 `check-grafana-datasource-wiring.test.mjs`) `check-sse-no-blind-merge.mjs`(全量帧/`snapshot`/`initial` 分支禁止铺开本地旧状态,判据落在 `sse-parse.ts`) `check-direct-run-guard.mjs` `check-test-judge-not-replicated.mjs` `check-staged-typecheck-mirror-sync.mjs` `check-registry-worktree-superset.mjs` `check-rich-anchor-renderer-single-source.mjs`(249)
+- 守护巡检档(不进提交链,§12e): `check-root-guard-manifest-sync.mjs` —— 判 root-guard 清单与其绑定的规则文件是否同面自洽。三态不并桶:drift ⇒ 到人邮件(附 seal 与 prod 对齐的可执行下一步)/ unjudged ⇒ 只记日志不记绿(§0.3)/ ok ⇒ 静默零派生。判据零复写:sha256Of/loadManifest/hashTarget/ADVISORY_TARGET_IDS 全 import `root-guard.mjs`(§0.6/§22c)。唯一调度器 = `git-guardian.mjs` 的 `auditRootGuardManifestSync()`(main 单轮 + daemon tick 双挂点,15 分钟节流,dedupKey=manifest-drift 只取类别+枚举态)。自检 `--self-test` 8 例(S2/S3 成对)+ 镜像 `scripts/tests/check-root-guard-manifest-sync.test.mjs` 7 例(M6 反向锁:一旦被注册进 guardian-runner 即造恒红 —— 它判仓库状态不判本次提交)。立因 = 2026-10-31 一天内两次「改 guardian-runner 没重封清单」把 prod 部署链打死。
+- 守护巡检档(不进提交链,§12e): `check-root-guard-manifest-sync.mjs` —— 判 root-guard 清单与其绑定的规则文件是否同面自洽(判仓库**状态**不判本次提交,挂 blocking 会把上一席的漂移定责给下一席,而下一席补不动:补 README 撞门 173 活性声明开放集合、补 AGENTS 撞门 207 体积预算)。三态不并桶:drift ⇒ 到人邮件(附 seal 与 prod 对齐的可执行下一步)/ unjudged ⇒ 只记日志不记绿 / ok ⇒ 静默。判据零复写:sha256Of / loadManifest / hashTarget / ADVISORY_TARGET_IDS 全 import `root-guard.mjs`(§0.6/§22c)。唯一调度器 = `git-guardian.mjs` 的 `auditRootGuardManifestSync()`(main 单轮 + daemon tick 双挂点,15 分钟节流,dedupKey=manifest-drift 只取类别+枚举态)。自检 `--self-test` 8 例(S2/S3 成对)+ 镜像 `scripts/tests/check-root-guard-manifest-sync.test.mjs` 7 例(M5 双挂点与 stdio/timeout 锁、M6 反向锁「注册进 runner 即造恒红」)。立因 = 2026-10-31 一天内两次「改 guardian-runner 没重封清单」把 prod 部署链打死(部署环每轮在 fetch/对齐**之前**跑 `root-guard --check`,清单落后即永久 fail-closed)
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs`
 - i18n/文案: `check-i18n-locale-content-language.mjs` `scan-web-dead-i18n-keys.mjs` `scan-desktop-dead-i18n-keys.mjs` `scan-extension-dead-i18n-keys.mjs` `scan-miniapp-taro-dead-i18n-keys.mjs` `scan-mobile-rn-dead-i18n-keys.mjs` `check-cli-i18n-parity.mjs` `check-i18n-duplicate-namespaces.mjs` `check-i18n-broken-en.mjs` `check-i18n-keys.mjs` `scan-i18n-zh-residue.mjs` `scan-hardcoded-zh.mjs` `check-miniapp-replace-antipattern.mjs` `check-bare-decode-uri.mjs`(241,差值棘轮:裸 decodeURIComponent 遇孤立 % 抛 URIError,渲染求值路径整页崩;唯一出口 safeDecodeURIComponent @ihui/shared/utils/safe-decode-uri,行内豁免 bare-decode-uri-exempt 须带原因)
 - CLI/工具契约: `check-tool-exec-budget.mjs` `check-tool-family-registered.mjs` `check-tool-schema-projection.mjs` `check-file-write-safety.mjs` `check-mention-engine-wired.mjs` `check-slash-command-wired.mjs` `check-lsp-language-table.mjs` `check-doom-loop-parity.mjs` `check-guardian-review-wired.mjs` `check-turn-ordinal-lock.mjs` `check-truncation-accounting.mjs` `check-list-cap-honesty.mjs` `check-compaction-denominator.mjs` `check-load-state-loaded-marks.mjs` `check-load-state-projection-parity.mjs` `check-mobile-api-base-bake.mjs` `check-mobile-version-code.mjs` `check-v3-62-conversation-mount.mjs` `check-ai-panel-mount-guards.mjs` `check-crash-report-redaction.mjs` `check-diagnostic-redaction.mjs` `check-digest-name-reality.mjs` `check-image-placeholders.mjs` `check-upload-budget.mjs` `check-lock-manifest-consistency.mjs` `check-orphan-deletion-refs.mjs` `check-process-exit-attribution.mjs` `check-wire-strictness.mjs` `check-dangling-local-imports.mjs` `check-event-closure-leak.mjs` `check-test-paths.mjs` `check-verify-tmp-files.mjs` `check-workspace-hygiene.mjs` `check-scratch-root-no-nesting.mjs` `check-fixture-tmpdir.mjs` `check-disk-root-hygiene.mjs` `check-disk-root-write.mjs` `check-c-drive-paths.mjs` `check-c-drive-pollution.mjs` `check-pwsh-version.mjs` `check-root-dir-clean.mjs` `check-readme-sync.mjs` `check-readme-table-integrity.mjs` `check-delivery-report-consistency.mjs` `check-multi-end-sync.mjs` `check-prompt-injection-registry.mjs` `check-declared-policy-has-consumer.mjs` `check-desktop-event-wiring.mjs` `check-service-binary-paths.mjs` `check-public-path-probe.mjs` `check-staged-typecheck.mjs`

@@ -11,7 +11,7 @@
  *  ③ 失效方向锁 —— 取不到输入一律未判定,绝不被读成"没问题"。
  */
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -61,26 +61,34 @@ test('M4 面参数非法 ⇒ exit 2(不得默认按"没配好"放行)', () => {
   assert.equal(G.decide('nonsense').exit, 2)
 })
 
-test('M5 接线形状锁:275 已注册且 blocking + skipEnv 成套,script 指向真实文件', () => {
-  const runner = readFileSync(path.join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  // 锚定行首:头注里照抄一遍 `id: '275'` 是登记惯例(见 274 那条),不锚定就会把注释当注册块
-  const block = runner.match(/^[ \t]*id:\s*'275',[\s\S]{0,900}/m)
-  assert.ok(block, "guardian-runner 里找不到行首的 id: '275', ⇒ 门体存在但没装车")
-  assert.match(block[0], /mode:\s*'blocking'/)
-  assert.match(block[0], /skipEnv:\s*'HUSKY_SKIP_ROOT_GUARD_MANIFEST_SYNC'/)
-  const script = block[0].match(/script:\s*'([^']+)'/)?.[1]
-  assert.equal(script, 'check-root-guard-manifest-sync.mjs')
-  assert.ok(existsSync(path.join(ROOT, 'scripts', script)), `${script} 文件不存在`)
-  // R13 同形防线:一个注册对象里不得出现两个 id:/script:
-  const head = block[0].slice(0, block[0].indexOf('onFailHint') > 0 ? block[0].indexOf('onFailHint') : 900)
-  assert.equal([...head.matchAll(/^[ \t]*id:\s*'/gm)].length, 1, '同一注册块出现两个 id: ⇒ 后写覆盖前写')
-  assert.equal([...head.matchAll(/^[ \t]*script:\s*'/gm)].length, 1)
+test('M5 接线形状锁:调度器在 git-guardian 两处执行体都挂上,且尺子被显式接管 stdio/timeout', () => {
+  const g = readFileSync(path.join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
+  assert.match(g, /export function auditRootGuardManifestSync\(/, '调度器函数不在位')
+  // 双执行体:main 单轮路径 + daemon tick(startDaemon 不重读文件,漏 tick = 常驻守护永不判)
+  const calls = [...g.matchAll(/^[ \t]*(?:if \(!CHECK_ONLY\) )?auditRootGuardManifestSync\(\)/gm)].length
+  assert.ok(calls >= 2, `挂点只有 ${calls} 处,应 ≥2(main 单轮 + daemon tick)`)
+  assert.match(g, /'check-root-guard-manifest-sync\.mjs'/, '调度器没引用本尺子')
+  // §12g/守门 80:派生必须显式 stdio + timeout + windowsHide
+  const body = g.slice(g.indexOf('export function auditRootGuardManifestSync'))
+  const seg = body.slice(0, body.indexOf('\nexport ', 10) > 0 ? body.indexOf('\nexport ', 10) : 6000)
+  assert.match(seg, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/)
+  assert.match(seg, /timeout:/)
+  assert.match(seg, /windowsHide:\s*true/)
+  assert.match(g, /^ {2}auditRootGuardManifestSync,$/m, '未导出给镜像测试(测试只能自造判据 = §22c 禁止)')
 })
 
-test('M6 编号唯一:275 在整份 runner 里只出现一次(门 89 R5 反查同口径)', () => {
+test('M6 反向锁:本尺子刻意**不**注册进 guardian-runner(挂提交链即 §12e 恒红门)', () => {
   const runner = readFileSync(path.join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  const hits = [...runner.matchAll(/^[ \t]*id:\s*'275',/gm)].length
-  assert.equal(hits, 1)
+  assert.equal(
+    (runner.match(/script:\s*'check-root-guard-manifest-sync\.mjs'/g) ?? []).length,
+    0,
+    '它一旦被注册进提交链,就会把上一席落下的清单漂移定责给下一席 —— 而下一席补不动' +
+      '(补 README 点名撞门 173 活性声明开放集合,补 AGENTS 点名撞门 207 体积预算)⇒ 恒红逼人跳门。',
+  )
+  // 门体头注也不得自称"已接提交链/守门 NNN"(门 89 R1/R2 判撒谎的同一格)
+  const gate = readFileSync(path.join(ROOT, 'scripts', 'check-root-guard-manifest-sync.mjs'), 'utf8')
+  assert.match(gate, /不进提交链/, '头注应写明档位(守护巡检,不进提交链)')
+  assert.doesNotMatch(gate, /已接线.*提交链|blocking,stagedTriggers/, '头注不得自称已接提交链')
 })
 
 test('M7 真实仓当下自洽(HEAD 面)—— 本门上线当轮不得给自己造红', () => {

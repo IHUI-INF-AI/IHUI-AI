@@ -3,31 +3,34 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 守门 275:根护栏清单必须与它绑定的规则文件同批走。
+ * 根护栏清单同批对账(**守护巡检轮,不进提交链**)：清单绑定的规则文件是否与清单本身一致。
  *
- * 立因(2026-10-31 实测,一天内两次把生产部署链打死):
+ * 为什么不挂提交链(§12e)：它判的是「仓库当前状态是否自洽」,不是「本次提交做错了什么」。
+ * 挂成 blocking 就会把上一席落下的漂移定责给下一席 —— 而下一席结构上无法满足
+ * (改 README 补点名会撞门 173 的活性声明开放集合,改 AGENTS 会撞门 207 的体积预算)。
+ * 判机器状态 ⇒ 挂守护 tick + 到人邮件,才是能落地的档。
+ *
+ * 立因(2026-10-31 实测,同型停摆两次)：
  * `scripts/root-guard.mjs` 的清单(scripts/data/root-guard-manifest.json)按 sha256 绑定
- * `scripts/guardian-runner.mjs` 等规则文件;部署环在**拉取更新之前**判一次根护栏,非 0 即
- * fail-closed。于是「改了 guardian-runner 但没同批 --seal」的提交一旦进 main,prod 签出对齐到
- * 那枚就永远过不去 —— 它不会自己解锁(下一次 seal 又是一枚新提交),整条自愈部署停摆:
+ * `scripts/guardian-runner.mjs` 等规则文件;部署环每轮在 **fetch/对齐之前** 跑
+ * `root-guard --check`,非 0 即 fail-closed。于是「改了 guardian-runner 但没同批 --seal」的
+ * 提交一旦进 main,prod 签出对齐到那枚就永远过不去(重封又是一枚新提交,墙不会自己倒)：
  *   · 11:28 一轮(漂移源自 10790ffb22 07:17)⇒ 02:00 之后所有提交没上线;
  *   · 13:30 又一轮(并发会话再次改 guardian-runner 未重封)⇒ 同型停摆复发。
- * 两次都是 root-guard 自己的差面判读在喊「把清单与规则文件同枚提交并推送」,但提交链上
- * **没有任何一道门**拦得住「不同枚」这件事 —— 判据在、工具在、牙没装(§0.9 同型)。
+ * 两次都是 root-guard 自己的差面判读在喊「把清单与规则文件同枚提交并推送」,但**没有任何器物
+ * 在无人敲的时候发现它** —— 判据在、工具在、调度缺(§0.9 同型)。本器补的就是这一环。
  *
- * 本门补的就是这颗牙,且只咬「本次引入」那一格:
- *   ① 被审面清单与 targets 内容不一致 ∧ 基线面(HEAD)一致 ⇒ 本次提交引入 ⇒ 红;
- *   ② 两面都不一致 ⇒ 存量(本次没让它更坏)⇒ 只报数并点名是哪枚提交带来的,不拦(§12e:
- *      与本次提交内容无关的红,唯一结局是逼人 --no-verify 并连带废掉全部守门);
- *   ③ ADVISORY_TARGET_IDS(AGENTS.md 铁律段)漂移 ⇒ 与 root-guard 同口径,只报数不拦;
- *   ④ 取不到清单/取不到任一 target 正文 ⇒ exit 2 显式未判定,绝不冒绿也不冒红(§0.3)。
+ * 判定三态(不并桶)：
+ *   ① drift(不自洽)⇒ 派发到到人邮件,给可执行下一步(seal 出口 + 同枚提交);
+ *   ② ok(自洽)⇒ 静默,零写盘零派生;
+ *   ③ undetermined(清单/目标/基线面读不到)⇒ 显式未判定,**不记绿**(§0.3)。
  *
- * 判据零复写(§0.6/§22c):sha 算法、清单形状、advisory 集合全部 import `root-guard.mjs` 本体;
- * 本文件只做「按面取材 + 差分定责」。取材面纪律同 §0.4:全量判 HEAD blob、--staged 判索引 blob、
+ * 判据零复写(§0.6/§22c)：sha 算法、清单形状、advisory 集合全部 import `root-guard.mjs` 本体;
+ * 本器只做「按面取材 + 三态归桶」。取材面纪律同 §0.4：全量判 HEAD blob、--staged 判索引 blob、
  * --worktree 仅人工逃生舱,取不到不回落另一个面。
  *
- * 用法:node scripts/check-root-guard-manifest-sync.mjs [--staged|--worktree|--self-test]
- * 跳过:HUSKY_SKIP_ROOT_GUARD_MANIFEST_SYNC=1(须另给 …_REASON 留痕)
+ * 用法：node scripts/check-root-guard-manifest-sync.mjs [--staged|--worktree|--self-test|--json]
+ * 调度器：scripts/git-guardian.mjs 的 `auditRootGuardManifestSync()`(守护 tick,节流 + 跨档重报)
  */
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
@@ -226,6 +229,22 @@ function runSelfTest() {
 export async function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return runSelfTest()
   const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
+  if (argv.includes('--json')) {
+    // 守护派发档:结论走 stdout 的一行 JSON(形状由镜像测试钉住,不在派发侧复写)
+    const cur = judge({ manifestRaw: readFace(face, MANIFEST_REL), readRel: faceReader(face) })
+    const base =
+      face === 'head' ? cur : judge({ manifestRaw: readFace('head', MANIFEST_REL), readRel: faceReader('head') })
+    const out = {
+      state: cur.state === 'undetermined' ? 'unjudged' : cur.state === 'drift' ? 'drift' : 'ok',
+      face,
+      drift: cur.drift ?? [],
+      advisory: cur.advisory ?? [],
+      baseState: base.state === 'undetermined' ? 'unjudged' : base.state,
+      reason: cur.reason ?? null,
+    }
+    process.stdout.write(JSON.stringify(out) + '\n')
+    return out.state === 'drift' ? 1 : out.state === 'unjudged' ? 2 : 0
+  }
   const r = decide(face)
   for (const l of r.lines) console.log(l)
   console.log(
