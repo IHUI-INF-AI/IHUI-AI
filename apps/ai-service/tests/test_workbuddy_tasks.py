@@ -27,6 +27,7 @@ import pytest
 from app.core.config import settings
 from app.services import workbuddy_tasks as wt
 from app.services.workbuddy_tasks import (
+    PATH_GROWTH_LOTTERY_SUMMARY,
     PATH_GROWTH_STREAK,
     PATH_GROWTH_TASKS,
     PATH_GROWTH_TASKS_ACCEPT,
@@ -232,8 +233,10 @@ class TestRunGrowth:
         assert "/billing/meter/checkin-status" not in paths  # dry-run 连探针都不发
         assert all(PATH_TRAVEL_DEPART not in p and PATH_GROWTH_STREAK not in p for p in rec.paths())
 
-    async def test_accept_refused_until_field_configured(self):
-        """出厂默认字段名留空 ⇒ 一个 accept 请求都不发,并点名"不猜字段"(§0.3)。"""
+    async def test_accept_refused_until_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        """accept 字段名留空 ⇒ 一个 accept 请求都不发,并点名"不猜字段"(§0.3)。
+        出厂默认现已填 task_codes(README 实证),故此处临时清空字段名来验拒绝路径。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_accept_field", "")
         assert settings.workbuddy_tasks_accept_field == ""
         rec = Recorder(
             {
@@ -285,7 +288,10 @@ class TestRunGrowth:
         assert accept_call[0] == "POST"
         assert accept_call[2] == {"codes": ["first_chat"]}
 
-    async def test_claim_refused_without_configured_path(self):
+    async def test_claim_refused_without_configured_path(self, monkeypatch: pytest.MonkeyPatch):
+        """claim 路径留空 ⇒ 拒绝执行并点名"不猜 URL"(§0.3)。
+        出厂默认现已填 /activity/growth/tasks/{code}/claim(README 实证),故此处临时清空验拒绝路径。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_claim_path", "")
         done = task_row(status="completed", progress=3, limit_num=3)
         rec = Recorder(
             {
@@ -294,7 +300,6 @@ class TestRunGrowth:
                 PATH_GROWTH_STREAK: ok_envelope({}),
             }
         )
-        assert settings.workbuddy_tasks_claim_path == ""  # 出厂默认留空(未取证 ⇒ 拒绝执行)
         async with rec.client() as client:
             out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
         assert out["claimed"] == []
@@ -302,21 +307,39 @@ class TestRunGrowth:
         assert "拒绝猜 URL" in (out["reason"] or "")
 
     async def test_claim_executes_when_path_configured(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr(settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/claim")
+        """claim 走 Web 域(www.workbuddy.cn)+ /v2 前缀 + x-client-platform: web(README 实证
+        唯一成功形态),且需账号有 web_cookie;模板 {code} 被任务 code 替换,体为空。"""
+        monkeypatch.setattr(
+            settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim"
+        )
         done = task_row(status="completed", progress=3, limit_num=3)
+        captured: dict[str, Any] = {}
+
+        def claim_handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.content) if request.content else {}
+            return httpx.Response(200, json=ok_envelope({}))
+
+        # "tasks/first_chat/claim" 须排在 PATH_GROWTH_TASKS 之前(后者是其父串,否则误匹配)。
         rec = Recorder(
             {
+                "tasks/first_chat/claim": claim_handler,
                 "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
-                "/activity/growth/tasks/claim": ok_envelope({"credit": 10}),
                 PATH_GROWTH_STREAK: ok_envelope({}),
                 PATH_GROWTH_TASKS: ok_envelope({"tasks": [done]}),
             }
         )
+        dm = {"web_cookie": "session=abc"}  # 领奖需网页登录态
         async with rec.client() as client:
-            out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
+            out = await wt.run_growth(TOKEN, dm, dry_run=False, client=client)
         assert out["claimed"] == ["first_chat"]
-        claim_body = [c for c in rec.calls if "tasks/claim" in c[1]][0][2]
-        assert claim_body == {"task_code": "first_chat"}  # 取证 claim 体形
+        assert captured, "claim 未打到 Web 域"
+        assert captured["url"].startswith(
+            "https://www.workbuddy.cn/v2/activity/growth/tasks/first_chat/claim"
+        )
+        assert captured["body"] == {}  # 领奖空体(字段名不可知,不猜)
+        assert captured["headers"].get("x-client-platform") == "web"
 
     async def test_unparseable_balance_never_reports_zero(self):
         rec = Recorder(
@@ -330,6 +353,55 @@ class TestRunGrowth:
             out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
         assert out["credit_delta"] is None  # 测不到 ⇒ null,不冒 0
         assert out["ok"] is True  # 无待办任务本身是成功判定
+
+    async def test_report_then_rejudge_then_claim(self, monkeypatch: pytest.MonkeyPatch):
+        """注入 activity_reporter 后:先为本轮 to_accept 计分,重列后该任务流转到 completed
+        ⇒ 进入 to_claim,并最终在 Web 域领奖。验证"上报→重判→claim"闭环(与 wb2api 同语义)。"""
+        monkeypatch.setattr(
+            settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim"
+        )
+        first_list = ok_envelope({"tasks": [task_row(status="available")]})
+        second_list = ok_envelope({"tasks": [task_row(status="completed")]})
+        lists = iter([first_list, second_list])
+
+        def list_router(request: httpx.Request) -> httpx.Response:
+            try:
+                return httpx.Response(200, json=next(lists))
+            except StopIteration:
+                return httpx.Response(200, json=ok_envelope({"tasks": []}))
+
+        captured_claim: dict[str, Any] = {}
+
+        def claim_handler(request: httpx.Request) -> httpx.Response:
+            captured_claim["url"] = str(request.url)
+            return httpx.Response(200, json=ok_envelope({}))
+
+        # "tasks/first_chat/claim" 须排在 PATH_GROWTH_TASKS 之前(后者是其父串)。
+        rec = Recorder(
+            {
+                "tasks/first_chat/claim": claim_handler,
+                "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                PATH_GROWTH_TASKS: list_router,
+            }
+        )
+        dm = {"web_cookie": "session=abc"}
+        reported: list[str] = []
+
+        async def reporter(task_code: str) -> None:
+            reported.append(task_code)
+
+        async with rec.client() as client:
+            out = await wt.run_growth(
+                TOKEN, dm, dry_run=False, client=client, activity_reporter=reporter
+            )
+        assert reported == ["first_chat"]
+        assert out["accepted"] == []  # available 态未走 accept,改走 报告→completed→claim
+        assert out["claimed"] == ["first_chat"]
+        assert "重判" in (out["reason"] or "")
+        assert captured_claim["url"].startswith(
+            "https://www.workbuddy.cn/v2/activity/growth/tasks/first_chat/claim"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +593,53 @@ class TestActivity:
             out = await wt.run_activity(TOKEN, {}, dry_run=True, client=client)
         assert out["ok"] is True and rec.calls == []
 
+    async def test_activity_includes_user_id_and_web_header(self, monkeypatch: pytest.MonkeyPatch):
+        """Web 域事件带 x-client-platform: web 头;body 带从 JWT 解出的 user_id。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_activity_path", "/v2/report")
+        monkeypatch.setattr(
+            settings,
+            "workbuddy_tasks_activity_hosts",
+            json.dumps({"default": "https://www.workbuddy.cn"}),
+        )
+        captured: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.content) if request.content else {}
+            return httpx.Response(200, json=ok_envelope({}))
+
+        rec = Recorder({"/v2/report": handler})
+        async with rec.client() as client:
+            out = await wt.run_activity(
+                TOKEN, {"web_cookie": "s=1"}, dry_run=False,
+                events=("buddyapp_show",), client=client,
+            )
+        assert out["ok"] is True
+        assert captured["headers"].get("x-client-platform") == "web"
+        assert captured["body"]["event_code"] == "buddyapp_show"
+        assert captured["body"]["user_id"] == UID
+
+    async def test_activity_no_double_v2_prefix(self, monkeypatch: pytest.MonkeyPatch):
+        """回归:activity_path 配置已是 /v2/report,绝不能再叠 /v2(旧 bug 会变成 /v2/v2/report)。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_activity_path", "/v2/report")
+        monkeypatch.setattr(
+            settings,
+            "workbuddy_tasks_activity_hosts",
+            json.dumps({"default": "https://www.codebuddy.cn"}),
+        )
+        captured: dict[str, Any] = {}
+        rec = Recorder(
+            {
+                "/v2/report": lambda r: (
+                    captured.update({"url": str(r.url)}), httpx.Response(200, json=ok_envelope({}))
+                )[1]
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_activity(TOKEN, {}, dry_run=False, events=("chat_request_send",), client=client)
+        assert out["ok"] is True
+        assert captured["url"] == "https://www.codebuddy.cn/v2/report"
+
 
 # ---------------------------------------------------------------------------
 # blackcat(节律规则,无上游端点)
@@ -612,6 +731,28 @@ class TestBlackcatRun:
 # ---------------------------------------------------------------------------
 
 
+class TestUrgencyOrder:
+    def test_none_mode_keeps_order(self):
+        items = [("a", 10), ("b", 5), ("c", None)]
+        assert wt.order_accounts_by_credit_urgency(items, "none") == ["a", "b", "c"]
+
+    def test_lowest_balance_first(self):
+        items = [("a", 10), ("b", 5), ("c", 1), ("d", None)]
+        assert wt.order_accounts_by_credit_urgency(items, "lowest_balance") == ["c", "b", "a", "d"]
+
+    def test_highest_balance_first(self):
+        items = [("a", 10), ("b", 5), ("c", 1), ("d", None)]
+        assert wt.order_accounts_by_credit_urgency(items, "highest_balance") == ["a", "b", "c", "d"]
+
+    def test_unknown_mode_keeps_order(self):
+        items = [("a", 10), ("b", 5)]
+        assert wt.order_accounts_by_credit_urgency(items, "bogus") == ["a", "b"]
+
+    def test_none_balance_sorted_last_stable(self):
+        items = [("a", None), ("b", None), ("c", 3)]
+        assert wt.order_accounts_by_credit_urgency(items, "lowest_balance") == ["c", "a", "b"]
+
+
 class TestRunFamily:
     async def test_contract_keysets(self, monkeypatch: pytest.MonkeyPatch):
         rec = Recorder({PATH_GROWTH_TASKS: ok_envelope({"tasks": []})})
@@ -626,4 +767,129 @@ class TestRunFamily:
     async def test_unknown_kind_is_unjudged(self):
         out = await wt.run_family("nope", TOKEN, {}, dry_run=True)
         assert out["ok"] is False and out["unjudged"] is True
+
+    async def test_redeem_and_lottery_are_registered_kinds(self):
+        """族五/六已登记进派发表(路由 Literal 与调度器 kind 元组同步扩展)。"""
+        assert "redeem" in wt.VALID_FAMILY_KINDS
+        assert "lottery" in wt.VALID_FAMILY_KINDS
+
+
+# ---------------------------------------------------------------------------
+# 族五 redeem(连签兑换):读 redemption_status,写侧 body 字段未取证 ⇒ 默认拒绝写
+# ---------------------------------------------------------------------------
+
+
+class TestRedeem:
+    async def test_dry_run_reads_tiers_only(self):
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"redemption_status": {"tiers": [{"tier": "7d", "days": 7}]}}
+                )
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=True, client=client)
+        assert out["ok"] is True and out["kind"] == "redeem"
+        assert rec.methods() == ["GET"]
+        assert "7d" in (out["reason"] or "")
+        assert out["accepted"] == []
+
+    async def test_write_refused_until_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        """档位已配但 body 字段名未取证 ⇒ 一个兑换请求都不发,并点名"拒绝猜字段"(§0.3)。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_redeem_tiers", "7d")
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"redemption_status": {"tiers": [{"tier": "7d", "days": 7}]}}
+                ),
+                "/activity/growth/redeem": ok_envelope({}),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=False, client=client)
+        assert out["accepted"] == []
+        assert out["unjudged"] is True
+        assert "拒绝猜字段" in (out["reason"] or "")
+        assert "/activity/growth/redeem" not in " ".join(rec.paths())
+
+    async def test_no_targets_is_read_only_success(self):
+        """未配兑换档位 ⇒ 只读列档、不写(绝不猜哪个档可兑)。"""
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"redemption_status": {"tiers": [{"tier": "7d"}]}}
+                )
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is True and out["unjudged"] is False
+        assert "只读不写" in (out["reason"] or "")
+        assert "/activity/growth/redeem" not in " ".join(rec.paths())
+
+    async def test_unreadable_redemption_is_unjudged(self):
+        rec = Recorder({PATH_GROWTH_STREAK: ok_envelope({})})
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is False and out["unjudged"] is True
+
+
+# ---------------------------------------------------------------------------
+# 族六 lottery(抽奖):读 lottery/summary,写侧 body 字段未取证 ⇒ 默认拒绝写
+# ---------------------------------------------------------------------------
+
+
+class TestLottery:
+    async def test_dry_run_reads_summary_only(self):
+        rec = Recorder({PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 2})})
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=True, client=client)
+        assert out["ok"] is True and out["kind"] == "lottery"
+        assert rec.methods() == ["GET"]
+        assert out["unjudged"] is False
+
+    async def test_write_refused_until_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_field", "")
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_count", 1)
+        rec = Recorder(
+            {
+                PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 1}),
+                "/activity/growth/lottery/draw": ok_envelope({}),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == []
+        assert out["unjudged"] is True
+        assert "拒绝猜字段" in (out["reason"] or "")
+        assert "/activity/growth/lottery/draw" not in " ".join(rec.paths())
+
+    async def test_draw_executes_when_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_field", "count")
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_count", 1)
+        captured: list[Any] = []
+
+        def draw_handler(request: httpx.Request) -> httpx.Response:
+            captured.append(json.loads(request.content) if request.content else {})
+            return httpx.Response(200, json=ok_envelope({}))
+
+        rec = Recorder(
+            {
+                PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 1}),
+                "/activity/growth/lottery/draw": draw_handler,
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == ["draw#1"]
+        assert len(captured) == 1 and captured[0] == {"count": 1}
+
+    async def test_zero_count_skips_without_draw(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_count", 0)
+        rec = Recorder({PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({})})
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is True and out["claimed"] == []
+        assert "/activity/growth/lottery/draw" not in " ".join(rec.paths())
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

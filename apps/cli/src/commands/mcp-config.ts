@@ -192,20 +192,58 @@ const MCP_SOURCE_DIRS = ['.ihui', '.claude', '.cursor'];
  * cwd 是子目录;不向上找仓库根的话,项目级 <repo-root>/.ihui/mcp.json 在子目录静默不可见。
  * 根源去重:cwd 即仓库根(或 home)时只扫一层,避免同一文件重复合并。
  */
-function listMcpConfigPaths(cwd: string): string[] {
+interface McpConfigRoot {
+  root: string;
+  /** 是否用户家目录来源(唯一可无条件信任的来源) */
+  isHome: boolean;
+  paths: string[];
+}
+
+/**
+ * 按根源分组(高→低):cwd → 仓库根 → home。
+ * 分组而非扁平列表的原因见 loadMcpConfig 的 includeProject:安全强化第 20 批
+ * 需要把"随仓库 clone 下来的来源"与"用户自己的家目录来源"分开处置。
+ */
+function mcpConfigRoots(cwd: string): McpConfigRoot[] {
   const resolvedCwd = path.resolve(cwd);
-  const roots = [resolvedCwd, findRepoRoot(resolvedCwd), path.resolve(os.homedir())];
+  const home = path.resolve(os.homedir());
+  const roots = [resolvedCwd, findRepoRoot(resolvedCwd), home];
   const uniqueRoots = roots.filter((r, i) => roots.indexOf(r) === i);
-  const paths: string[] = [];
-  for (const root of uniqueRoots) {
-    for (const d of MCP_SOURCE_DIRS) paths.push(path.join(root, d, 'mcp.json'));
-  }
-  return paths;
+  return uniqueRoots.map((root) => ({
+    root,
+    isHome: root === home,
+    paths: MCP_SOURCE_DIRS.map((d) => path.join(root, d, 'mcp.json')),
+  }));
+}
+
+function listMcpConfigPaths(cwd: string): string[] {
+  return mcpConfigRoots(cwd).flatMap((r) => r.paths);
 }
 
 /** 实际存在、会参与本次合并的 mcp.json 源文件清单(优先级 高→低)。 */
 export function listMcpConfigSources(cwd: string = process.cwd()): string[] {
   return listMcpConfigPaths(cwd).filter((p) => fs.existsSync(p));
+}
+
+/**
+ * 实际存在、但属于**工作区来源**(随仓库 clone 而来)的 mcp.json 清单。
+ * 供连接路径在未信任时点名提示 —— 静默不加载等于把攻击面藏起来,
+ * 用户需要知道"仓库想让我跑什么"。
+ */
+export function listProjectMcpConfigSources(cwd: string = process.cwd()): string[] {
+  return mcpConfigRoots(cwd)
+    .filter((r) => !r.isHome)
+    .flatMap((r) => r.paths)
+    .filter((p) => fs.existsSync(p));
+}
+
+export interface LoadMcpConfigOptions {
+  /**
+   * 是否加载工作区来源(cwd / 仓库根)的 mcp.json。默认 true。
+   * 连接路径(loadMcpTools / loadMcpConnections)必须按用户信任开关传值:
+   * false 时只加载家目录来源 —— 见 Settings.mcpTrustProjectServers。
+   */
+  includeProject?: boolean;
 }
 
 /**
@@ -229,8 +267,11 @@ export function getMcpConfigPath(): string {
  * 每个文件先经 normalizeMcpInput 归一化,兼容 IHUI 原生 {servers:[]} 与
  * Claude/Cursor 外部 {mcpServers:{}} 两种格式。
  */
-export function loadMcpConfig(cwd: string = process.cwd()): McpConfig {
-  const paths = listMcpConfigPaths(cwd);
+export function loadMcpConfig(cwd: string = process.cwd(), opts: LoadMcpConfigOptions = {}): McpConfig {
+  const includeProject = opts.includeProject !== false;
+  const paths = mcpConfigRoots(cwd)
+    .filter((r) => includeProject || r.isHome)
+    .flatMap((r) => r.paths);
   let acc: McpConfig = { servers: [] };
   for (const p of [...paths].reverse()) {
     if (!fs.existsSync(p)) continue;
@@ -249,7 +290,10 @@ function saveMcpConfig(config: McpConfig): void {
   const configPath = getMcpConfigPath();
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  // 2026-10-31 安全强化第 20 批(F3):mcp.json 含明文 token/secret(用户 --token
+  // 经 argv 传入即在此落盘),0600 与 credential-storage 的 settings 修复同口径 ——
+  // 同机其他用户不可读。
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
 }
 
 export interface AddMcpServerOptions {
