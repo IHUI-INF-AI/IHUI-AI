@@ -1286,7 +1286,9 @@ class HookEngine:
         """通知动作:支持 toast / email / webhook 三渠道(默认 toast)。
 
         toast:写入 app.state["notifications"] 队列(前端轮询 /api/notifications 获取)
-        email:调用现有 email_service(不存在则 logger.warning 降级)
+        email:本服务**没有**邮件出口 ⇒ 一律如实返回失败(2026-11-01 改判;原先"降级视为成功"
+            会让每枚 notify(email) 在从未投递的情况下报绿。到人邮件的唯一通道在
+            apps/api/scripts/notify-deploy-failure.ts,见 AGENTS §5e)
         webhook:复用 webhook 执行器发送通知
         notification:视为 toast 的别名(兼容旧配置)
         """
@@ -1345,10 +1347,10 @@ class HookEngine:
     async def _notify_email(
         self, config: dict[str, Any], event: str, message: str, context: dict[str, Any]
     ) -> str | None:
-        """email 通知:调用 email_service,不存在则降级 logger.warning。
+        """email 通知:本服务**没有**邮件出口,一律如实返回失败(2026-11-01 改)。
 
         Returns:
-            None=成功,str=错误信息
+            None=成功,str=错误信息(投递未发生就必须是 str,不能是 None)
         """
         to = config.get("to") or config.get("email")
         subject = config.get("subject") or f"Hook 通知: {event}"
@@ -1358,11 +1360,23 @@ class HookEngine:
             logger.info("[hook_engine] notify(email) 已发送: to=%s subject=%s", to, subject)
             return None
         except ImportError:
-            logger.warning(
-                "[hook_engine] email_service 不存在,降级日志: to=%s subject=%s msg=%s",
-                to, subject, message,
+            # 2026-11-01 安全强化:原先这里 `return None  # 降级视为成功` —— 而本进程**没有**
+            # email_service 这个模块(全仓 0 命中),于是每一枚 `notify: email` hook 都在
+            # "从未投递"的情况下报告成功。Hook 是审计/告警到人通道(本仓到人只有邮件一条,
+            # 见 AGENTS §5e),假绿等于把告警整条埋掉 —— 本仓反复实测到的失效形态正是"安静"。
+            # 判据失效时唯一的出路是多要一次显式说明,绝不能是"看起来成功"。
+            logger.error(
+                "[hook_engine] notify(email) 未投递:本服务无 email_service 出口"
+                " —— 到人邮件请走 apps/api/scripts/notify-deploy-failure.ts(AGENTS §5e):"
+                " to=%s subject=%s",
+                to,
+                subject,
             )
-            return None  # 降级视为成功(不阻塞 Hook 执行)
+            return (
+                "email_service 不存在,notify(email) 未投递"
+                "(ai-service 无邮件出口;到人邮件唯一通道 = apps/api 的 notify-deploy-failure,"
+                "见 AGENTS §5e)"
+            )
         except Exception as e:
             return f"email 发送失败: {e}"
 
