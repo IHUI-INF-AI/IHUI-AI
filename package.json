@@ -220,6 +220,7 @@
     "relay:switch-account": "pnpm --filter @ihui/api relay:switch-account",
     "relay:switch-oneclick": "pnpm --filter @ihui/api relay:switch-oneclick",
     "relay:snapshot-prune": "pnpm --filter @ihui/api relay:snapshot-prune",
+    "relay:pool-snapshot-sync": "pnpm --filter @ihui/api relay:pool-snapshot-sync",
     "relay:ide-switch": "pnpm --filter @ihui/api relay:ide-switch",
     "relay:ide-trae-chat-switch": "pnpm --filter @ihui/api relay:ide-trae-chat-switch",
     "relay:sessions:restore": "pnpm --filter @ihui/api relay:sessions:restore",
