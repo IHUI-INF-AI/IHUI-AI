@@ -1,7 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+
+import { rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -149,58 +150,68 @@ export function AIMultimodalScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    modeRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 24, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    modeRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
     modeBtn: {
       flex: 1,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     modeBtnActive: { backgroundColor: tk.brand.cta },
     modeBtnText: { textAlign: 'center', fontSize: 14, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },
-    modelRow: { paddingHorizontal: 10, paddingBottom: 8 },
-    modelLabel: { fontSize: 14, color: tk.text.secondary, marginBottom: 8 },
-    modelEmpty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: 6 },
+    modelRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    modelLabel: { fontSize: 14, color: tk.text.secondary, marginBottom: rnSpacing.sm },
+    modelEmpty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: rnSpacing['xs-loose'] },
     modelChip: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     modelChipActive: { backgroundColor: tk.brand.cta },
     modelChipText: { fontSize: 14, color: tk.text.medium },
     modelChipTextActive: { color: tk.surface.light },
-    list: { flex: 1, paddingHorizontal: 10 },
-    msgBubble: { padding: 10, borderRadius: rnRadiusFor.bubble, marginBottom: 8, maxWidth: '85%' },
+    list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
+    msgBubble: {
+      padding: rnSpacing['sm-loose'],
+      borderRadius: rnRadiusFor.bubble,
+      marginBottom: rnSpacing.sm,
+      maxWidth: '85%',
+    },
     msgUser: { backgroundColor: tk.success.lighter, alignSelf: 'flex-end' },
     msgAssistant: { backgroundColor: tk.surface.card, alignSelf: 'flex-start' },
-    msgRole: { fontSize: 11, color: tk.text.secondary, marginBottom: 8 },
+    msgRole: { fontSize: 11, color: tk.text.secondary, marginBottom: rnSpacing.sm },
     msgContent: { fontSize: 16, color: tk.text.primary },
     errorText: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
       fontSize: 14,
       color: tk.danger.DEFAULT,
     },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      gap: 8,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
     },
     input: {
       flex: 1,
       minHeight: 50,
       maxHeight: 100,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -210,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     sendBtn: {
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -220,8 +231,8 @@ function createStyles(tk: AppThemeTokens) {
     sendBtnDisabled: { backgroundColor: tk.text.tertiary },
     sendText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     clearBtn: {
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },

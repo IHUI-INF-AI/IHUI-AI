@@ -376,7 +376,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       backgroundColor: tk.surface.bg,
     },
     headerBackBtn: {
@@ -403,7 +403,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     },
     chatListContent: {
-      padding: 10, // 历史 .chat-messages padding 20rpx
+      padding: rnSpacing['sm-loose'], // 历史 .chat-messages padding 20rpx
       paddingBottom: 30, // rpx(60)
     },
     messageRow: {
@@ -419,7 +419,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     bubble: {
       maxWidth: 240, // 历史 .message-bubble max-width 480rpx
-      paddingVertical: 10, // rpx(20)
+      paddingVertical: rnSpacing['sm-loose'], // rpx(20)
       paddingHorizontal: rnSpacing.md, // rpx(24)
       borderRadius: rnRadiusFor.bubble,
     },
@@ -501,11 +501,11 @@ function createStyles(tk: AppThemeTokens) {
       top: 50, // rpx(100)
       right: 20, // rpx(40)
       zIndex: 10,
-      padding: 6, // rpx(12)
+      padding: rnSpacing['xs-loose'], // rpx(12)
     },
     // 列表态
     searchBar: {
-      paddingHorizontal: 10, // rpx(20)
+      paddingHorizontal: rnSpacing['sm-loose'], // rpx(20)
       paddingVertical: rnSpacing.sm, // rpx(16)
     },
     searchInput: {
@@ -522,12 +522,12 @@ function createStyles(tk: AppThemeTokens) {
     roomItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10, // rpx(20)
-      paddingVertical: 10, // rpx(20)
+      paddingHorizontal: rnSpacing['sm-loose'], // rpx(20)
+      paddingVertical: rnSpacing['sm-loose'], // rpx(20)
     },
     roomContent: {
       flex: 1,
-      marginLeft: 10, // rpx(20)
+      marginLeft: rnSpacing['sm-loose'], // rpx(20)
     },
     roomHeader: {
       flexDirection: 'row',
@@ -547,7 +547,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: rnSpacing.xs, // rpx(8)
-      marginLeft: 6, // rpx(12)
+      marginLeft: rnSpacing['xs-loose'], // rpx(12)
     },
     unreadText: {
       fontSize: 10, // rpx(20)

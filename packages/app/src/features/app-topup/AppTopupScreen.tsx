@@ -177,14 +177,14 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
     balanceCard: {
-      margin: 10,
+      margin: rnSpacing['sm-loose'],
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
@@ -201,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.ctaForeground,
     },
     section: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.md,
     },
     sectionTitle: {
@@ -212,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rateBox: {
       marginBottom: rnSpacing.md,
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
     amountGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.md,
     },
     amountCard: {
@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     payList: {
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
     },
     payItem: {
       flexDirection: 'row',
@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
     },
     submitBtn: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,

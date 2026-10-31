@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     listContent: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       paddingBottom: rnSpacing.lg,
     } as ViewStyle,
@@ -281,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     imageGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       marginTop: rnSpacing.sm,
     } as ViewStyle,
     imageItem: {
@@ -305,7 +305,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     quickChip: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
       borderWidth: 1,
@@ -382,8 +382,8 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 6,
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     streamingText: {
@@ -395,7 +395,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: rnSpacing.md,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     } as ViewStyle,
   })
 }

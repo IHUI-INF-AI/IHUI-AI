@@ -1,7 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -182,22 +183,26 @@ export function AigcListScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    headerSubtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    headerSubtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
     categoryBar: { maxHeight: 48 },
-    categoryContent: { paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
+    categoryContent: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
     categoryChip: {
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     categoryChipActive: { backgroundColor: tk.brand.cta },
     categoryText: { fontSize: 14, color: tk.text.medium },
     categoryTextActive: { color: tk.surface.light, fontWeight: '600' },
-    list: { flex: 1, paddingHorizontal: 12 },
-    row: { gap: 12, marginBottom: 12 },
+    list: { flex: 1, paddingHorizontal: rnSpacing.md },
+    row: { gap: rnSpacing.md, marginBottom: rnSpacing.md },
     mediaCard: {
       flex: 1,
       borderRadius: rnRadius.lg,
@@ -211,15 +216,15 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       top: 8,
       left: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     videoBadgeText: { fontSize: 11, color: tk.surface.light },
-    mediaFooter: { padding: 12 },
+    mediaFooter: { padding: rnSpacing.md },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
     textCard: {
       flex: 2,
       padding: 14,
@@ -227,12 +232,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTime: { fontSize: 11, color: tk.text.tertiary },
-    promptText: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
-    contentText: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 20 },
+    promptText: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.brand.DEFAULT },
+    contentText: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 20 },
     audioCard: {
       flex: 2,
       flexDirection: 'row',
@@ -241,7 +246,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       alignItems: 'center',
     },
     audioCover: {
@@ -250,18 +255,18 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.border.light,
     },
-    audioInfo: { flex: 1, marginLeft: 12 },
-    audioDuration: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    audioInfo: { flex: 1, marginLeft: rnSpacing.md },
+    audioDuration: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
     audioPlayBtn: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       alignSelf: 'flex-start',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.success.light,
     },
     audioPlayText: { fontSize: 14, color: tk.brand.DEFAULT, fontWeight: '600' },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     fab: {
       position: 'absolute',

@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginTop: rnSpacing.lg,
     },
-    scroll: { paddingBottom: 24 },
+    scroll: { paddingBottom: rnSpacing['2xl'] },
     section: { marginTop: rnSpacing.md },
     label: {
       fontSize: rnType.body.size,
@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     input: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,

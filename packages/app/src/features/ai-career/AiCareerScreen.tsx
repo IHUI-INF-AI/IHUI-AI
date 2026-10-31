@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 14,
     },
     required: { color: tk.danger.DEFAULT },
-    optionsContainer: { gap: 10 },
+    optionsContainer: { gap: rnSpacing['sm-loose'] },
     optionItem: {
       paddingVertical: rnSpacing.md,
       paddingHorizontal: 14,
