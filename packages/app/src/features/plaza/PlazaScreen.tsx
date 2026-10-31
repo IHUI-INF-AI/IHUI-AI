@@ -26,6 +26,7 @@ import type { PlazaItem, StatusChip } from '@ihui/types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface PlazaScreenProps {
   t: TFunction
@@ -346,7 +347,7 @@ export function PlazaScreen({
                 <Text style={styles.emptyTextStrong}>千万级空白市场</Text>
                 <Text style={styles.emptyText}>不会开发?发布需求</Text>
                 <Text style={styles.emptyText}>快来抢占市场!</Text>
-                <Pressable style={styles.emptyBtn} onPress={onPublish}>
+                <Pressable style={pressFeedback(styles.emptyBtn)} onPress={onPublish}>
                   <Text style={styles.emptyBtnText}>发布需求</Text>
                 </Pressable>
               </View>

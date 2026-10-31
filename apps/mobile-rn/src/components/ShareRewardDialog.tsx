@@ -37,6 +37,7 @@ import { Gift, Sparkles, UserPlus, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 // ── 尺寸常量(对齐 IntroducePopup 命名常量惯例) ──
 /** 卡片水平内边距 */
@@ -151,7 +152,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
           <Pressable
             hitSlop={10}
             onPress={onClose}
-            style={styles.close}
+            style={pressFeedback(styles.close)}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
           >

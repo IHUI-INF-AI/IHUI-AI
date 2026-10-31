@@ -36,6 +36,7 @@ import {
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { pressFeedback } from '@ihui/ui-native'
 export interface ConfirmPurchaseProduct {
   name: string
   price: number
@@ -272,7 +273,10 @@ export function ConfirmPurchasePopUp({
                 return (
                   <Pressable
                     key={m.id}
-                    style={[styles.paymentOption, active ? styles.paymentOptionActive : null]}
+                    style={pressFeedback([
+                      styles.paymentOption,
+                      active ? styles.paymentOptionActive : null,
+                    ])}
                     onPress={() => selectPayMethod(m.id)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: active }}
@@ -343,10 +347,10 @@ export function ConfirmPurchasePopUp({
           {hasAgreement ? (
             <View style={styles.agreementRow}>
               <Pressable
-                style={[
+                style={pressFeedback([
                   styles.agreementCheckbox,
                   isAgreed ? styles.agreementCheckboxChecked : null,
-                ]}
+                ])}
                 onPress={toggleAgree}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: isAgreed }}
@@ -355,7 +359,7 @@ export function ConfirmPurchasePopUp({
                 {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
               </Pressable>
               <Pressable
-                style={styles.agreementTextWrap}
+                style={pressFeedback(styles.agreementTextWrap)}
                 onPress={onAgreementPress}
                 disabled={!onAgreementPress}
               >

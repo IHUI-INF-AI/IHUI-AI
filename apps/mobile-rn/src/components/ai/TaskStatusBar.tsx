@@ -23,6 +23,7 @@ import { useI18n } from '../../i18n'
 import type { PlanStepItem, ToolCallItem } from '../../utils/chat-render-model'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface TaskStatusBarProps {
   /** 最后一条带 planSteps 的 assistant 消息的步骤快照(plan_updated 权威整体替换) */
@@ -136,7 +137,7 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
         testID={`task-status-bar-kind-${view.kind}`}
       >
         <Pressable
-          style={styles.row}
+          style={pressFeedback(styles.row)}
           onPress={() => setUserOpen(!open)}
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
