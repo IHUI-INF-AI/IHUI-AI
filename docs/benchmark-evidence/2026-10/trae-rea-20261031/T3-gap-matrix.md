@@ -194,7 +194,7 @@
 
 §1 的 G-11 行原写「ChatPatch/Advisor 属协议层扩展,建议登记不急着做」。本批把 **Advisor** 落地为模型工具 `advisor_consult`(提交 `ace8fec86b`;功能名五语言 + TOOL_DISPLAY_KEYS 在 `6fd18ae83f`):
 
-- **能力**:`apps/ai-service/app/services/advisor.py` 单源 —— 指定另一个模型就一个子问题作答;`(属主, 会话)` 维度次数预算(`asyncio.Lock` 覆盖「判-记」,被拒那次不计数,并发 10 次 limit=3 恰好放行 3 次有用例钉);prompt 长度上限;p 原文不进日志/错误体。
+- **能力**:`apps/ai-service/app/services/advisor.py` 单源 —— 指定另一个模型就一个子问题作答;`(属主, 会话)` 维度次数预算(`asyncio.Lock` 覆盖「判-记」,被拒那次不计数,并发 10 次 limit=3 恰好放行 3 次有用例钉);prompt 长度上限;prompt 原文不进日志/错误体。
 - **超越轴(相对对照产品)**:① 模型名 **fail-closed** —— 实测 `llm_gateway.complete` 主通道失败后会进 FallbackRouter/ComboRouter 自动改道(两处均以 `not _skip_fallback` 为闸),故指定模型时强制 `_skip_fallback=True`,并把 `result.model != 请求名` 同判 `ADVISOR_MODEL_UNAVAILABLE`,绝不把别的模型答案冒充成指定模型的;② stub 模式(未配 key)如实透出 `stub=true`,不冒充真答案。
 - **接线**:`mcp_server._TOOLS` + `_TOOL_HANDLERS` 双射各一条;身份只认宿主注入 `__user_id`/`__session_id`(复用 `agent_comm._identity_or_error`,未自造第二份)。
 - **验证**:`test_advisor_tool` 11 例 + 注册表单源 21 例 = 32/32;mypy `--strict` Success;watermark 2/2;`check-tool-name-display-coverage --worktree` 105/105。
