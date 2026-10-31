@@ -71,8 +71,12 @@ def _mk_app(uid: str | None) -> FastAPI:
 
 
 @pytest.fixture
-def patched_sources(monkeypatch):
+def patched_sources(monkeypatch, tmp_path):
     """两源替身:compile 走真实映射/落盘逻辑,但检索面零网络。"""
+    # 2026-10-31 安全强化第 11 批:workspace_path 是客户端自报字段,现只许落在
+    # IHUI_WORKSPACE_ROOTS 登记的根内(fail-closed,未登记一律 400)。本文件三个
+    # 正常档都用 tmp_path 当工作区 ⇒ 把登记面指到它;"越界 400"另有专项用例覆盖。
+    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(tmp_path))
 
     async def fake_search(query: str, **kwargs: Any) -> list[dict[str, Any]]:
         return list(_FAKE_CODEBASE)

@@ -21,6 +21,10 @@
 import type { BrowserControlActionType, AgentActionRequest, AgentActionResponse } from '@ihui/types'
 import { type DomActionResult, isDomAction, executeDomAction } from '@ihui/dom-actions'
 import { createChromePlatform } from '@ihui/browser-platform'
+// 2026-10-31 安全强化第 21 批:导航协议白名单(与 CLI browser_navigate 同源判据)。
+// 实现层 navigateTab 已会抛错,这里先判是为了给出结构化错误码 —— agent 侧拿到的
+// 应是 {success:false, errorCode} 而不是一次未捕获异常。
+import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url'
 
 const platform = createChromePlatform()
 
@@ -113,11 +117,16 @@ async function bgScreenshot(params: Record<string, unknown>): Promise<DomActionR
 async function bgNavigate(params: Record<string, unknown>): Promise<DomActionResult> {
   const url = params.url as string
   const timeout = (params.timeout as number) ?? 30000
+  // 协议白名单:agent 指令可被页面内容间接注入操纵,file:// 会读到本地文件。
+  const navigable = checkNavigableUrl(url)
+  if (!navigable.ok) {
+    return { success: false, errorCode: 'PERMISSION_DENIED', error: navigable.reason }
+  }
   const activeTab = await platform.tabs.queryActiveTab()
   if (!activeTab) {
     return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
   }
-  const result = await platform.tabs.navigateTab(activeTab.id, url, timeout)
+  const result = await platform.tabs.navigateTab(activeTab.id, navigable.url, timeout)
   return { success: true, data: { id: result.id, url: result.url, title: result.title } }
 }
 

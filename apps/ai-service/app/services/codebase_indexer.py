@@ -521,6 +521,10 @@ class CodebaseIndexer:
                     elif isinstance(emb, Exception):
                         # G7 本地回落档:远端失败(离线/欠费/限流)不再让向量面整批落空,
                         # 降级为本地确定性哈希向量并如实标注来源(local-hash)。
+                        # 本模块的 `llm_gateway` 是**单例**(from ..core.llm_gateway import
+                        # llm_gateway),embed_local_fallback / LOCAL_EMBEDDING_PROVIDER
+                        # 都是它的成员 —— 别写成模块级访问(那会 AttributeError 被下面
+                        # except 吞成"批量 embedding 失败",回落档看起来写了却从未生效)。
                         fallback = llm_gateway.embed_local_fallback(
                             batch[j].content[:MAX_CHUNK_CHARS]
                         )
