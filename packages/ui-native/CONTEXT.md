@@ -42,6 +42,12 @@
   层级 composite(30) → contract(10),方向合规。
 - 运行时依赖只有 `class-variance-authority`(`button.tsx`、`badge.tsx` 用);
   `react` / `react-native` / `nativewind` 是 **peerDependencies** ⇒ 宿主版本由端定,本包不得自带一份 RN。
+  ⚠️ 这条口径要靠**peer 范围与宿主相交**才成立:peer 原写 `react-native ^0.74.0`,而宿主
+  `apps/mobile-rn` 是 `0.86.2`(不相交)⇒ 干净安装会给本包另装一份 0.74.7,NativeWind 的
+  `className` 模块增强按声明文件所在位置只落到仓根那一份,本包组件在 `next build` 面上全线看不见
+  `className`(2026-11-01 部署实测)。现 peer 与 `packages/app` 同形(`^0.74.0 || ^0.76.0 ||
+  ^0.79.0 || ^0.86.0`)+ devDep 钉 `^0.86.0`,全仓单份 react-native@0.86.2;再加范围前请先想清楚
+  "增强落在哪一份"。
 - **不得在本包内写颜色/圆角/几何数字**:色档取 `@ihui/design-tokens` 的 `tokens.*`,圆角取 `rnRadius`,
   尺寸取 `rnGeometry`(AGENTS §4 的三条单一源),由守门 77/83/128/150 判。
 - 只有 `.` 一个出口 ⇒ `@ihui/ui-native/src/button` 这类穿透是 D3。
