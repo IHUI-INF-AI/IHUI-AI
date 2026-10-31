@@ -45,7 +45,11 @@
  * ## 派生纪律(§5b / 守门 52 / 守门 80)
  *
  * 每一次派生都带 `windowsHide: true`(控制台程序弹窗)、显式 `stdio`(漏 stdio 在本机
- * 是确定性 EBUSY)、有界 `timeout`(热路径子进程不得无界)、有界 `maxBuffer`。
+ * 是确定性 EBUSY)、有界 `timeout`(热路径子进程不得无界)。
+ * 输出**不进内存缓冲**:派生直写文件、按尾部解析(`readTail`)。原先那条"有界 maxBuffer"
+ * 在 2026-10-31 被现读证伪 —— collect 档 19204 条通过,run 档把 64 MB 缓冲撑成 ENOBUFS,
+ * 于是整个 Python 侧验收口径长期只能读成「未判定」(不是用例红,是量它的工具撑不住)。
+ * 缓冲上限换不成"更大就好":用例数只增不减,必须有界且与输出总量解耦 ⇒ 落盘 + 取尾。
  *
  * ## 用法
  *   node scripts/run-ai-service-tests.mjs [--collect-only] [--app-dir=<p>]
@@ -56,9 +60,10 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -74,8 +79,13 @@ export const DEFAULT_APP_DIR = join(REPO_ROOT, 'apps', 'ai-service')
  */
 export const DEFAULT_TIMEOUT_MS = 1800000
 
-/** 输出缓冲上限:`--collect-only` 逐条打印用例 id,全量面实测约 1.5 MB 量级。 */
-export const MAX_BUFFER_BYTES = 64 * 1024 * 1024
+/**
+ * 解析面读取的**尾部**字节数(每条流各取一份)。
+ * pytest 的结论全在末尾(总结行 + short test summary)⇒ 取尾即可判;上限刻意与输出
+ * 总量解耦:19204 条用例与 1 条用例花同一份内存,不再有"撑爆缓冲 ⇒ 未判定"这一档。
+ * 截断绝不静默 —— 被截掉的字节数随读数打印(§0.3:没判的不许写成判过)。
+ */
+export const TAIL_BYTES = 4 * 1024 * 1024
 
 /** 只认 venv 两臂(Windows / POSIX);刻意不含裸 `python` —— 见文件头注。 */
 export function pythonCandidates(appDir) {
@@ -307,21 +317,60 @@ export function parseArgv(argv = []) {
   return opts
 }
 
-function spawnPytest({ python, appDir, args, timeoutMs }) {
-  const r = spawnSync(python, ['-m', 'pytest', ...args], {
-    cwd: appDir,
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    maxBuffer: MAX_BUFFER_BYTES,
-    timeout: timeoutMs,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-  })
+/**
+ * 纯函数:按尾部读取一条流的输出(内存与输出总量解耦)。
+ * fs 四件套可注入 ⇒ 判据能在构造面上证明,不必造几十 MB 夹具去撞一次真实派生。
+ * 返回 `{ text, totalBytes, truncatedBytes }`;尾部切片可能把一个多字节字符劈成半截
+ * (落在窗口最前)⇒ 丢掉首位替换字符。
+ */
+export function readTail(path, limitBytes, deps = {}) {
+  const _statSync = deps.statSync ?? statSync
+  const _openSync = deps.openSync ?? openSync
+  const _readSync = deps.readSync ?? readSync
+  const _closeSync = deps.closeSync ?? closeSync
+  const totalBytes = _statSync(path).size
+  const len = Math.min(totalBytes, limitBytes)
+  const offset = totalBytes - len
+  const fd = _openSync(path, 'r')
+  let text = ''
+  try {
+    const buf = Buffer.alloc(len)
+    const got = _readSync(fd, buf, 0, len, offset)
+    text = buf.subarray(0, got).toString('utf8')
+  } finally {
+    _closeSync(fd)
+  }
+  if (text.charCodeAt(0) === 0xfffd) text = text.slice(1)
+  return { text, totalBytes, truncatedBytes: totalBytes - len }
+}
+
+function spawnPytest({ python, appDir, args, timeoutMs, outPath, errPath, tailBytes }) {
+  // 两条流**各落一份文件**:并成一路再截尾,会把先写入那一路的整段成因挤出窗口,
+  // 留在窗口里的是会误导方向的假原因(本机在同一型上踩过,§报错并流那条纪律)。
+  const outFd = openSync(outPath, 'w')
+  const errFd = openSync(errPath, 'w')
+  let r
+  try {
+    r = spawnSync(python, ['-m', 'pytest', ...args], {
+      cwd: appDir,
+      windowsHide: true,
+      stdio: ['ignore', outFd, errFd],
+      timeout: timeoutMs,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    })
+  } finally {
+    closeSync(outFd)
+    closeSync(errFd)
+  }
   const code = r.error ? String(r.error.code || r.error.message) : null
+  const out = readTail(outPath, tailBytes)
+  const err = readTail(errPath, tailBytes)
   return {
     rc: r.status,
-    stdout: r.stdout || '',
-    stderr: r.stderr || '',
+    stdout: out.text,
+    stderr: err.text,
+    outMeta: out,
+    errMeta: err,
     timedOut: code === 'ETIMEDOUT',
     spawnErrorCode: r.error && code !== 'ETIMEDOUT' ? code : null,
   }
@@ -351,34 +400,72 @@ export function main(argv = process.argv.slice(2)) {
     return 2
   }
 
+  let scratchDir = null
+  let keepScratch = false
   let finalRc = 0
-  for (const spec of buildPytestArgs({ collectOnly: opts.collectOnly, extra: opts.extra })) {
-    console.log(`${TAG} ${spec.tier} 档:在 ${opts.appDir} 派生 ${python} -m pytest ${spec.args.join(' ')}`)
-    const spawned = spawnPytest({ python, appDir: opts.appDir, args: spec.args, timeoutMs: opts.timeoutMs })
-    const parsed = parsePytestSummary({ stdout: spawned.stdout, stderr: spawned.stderr, tier: spec.tier })
-    const verdict = judgeTier({
-      tier: spec.tier,
-      rc: spawned.rc,
-      ...parsed,
-      timedOut: spawned.timedOut,
-      spawnErrorCode: spawned.spawnErrorCode,
-      timeoutMs: opts.timeoutMs,
-      appDir: opts.appDir,
-      python,
-    })
-    const counts =
-      `collected=${parsed.collected ?? 'n/a'} passed=${parsed.passed} failed=${parsed.failed} ` +
-      `errors=${parsed.errors} skipped=${parsed.skipped} rc=${spawned.rc ?? 'n/a'}`
-    console.log(`${TAG} ${spec.tier} 档:${counts}`)
-    console.log(`${TAG} ${spec.tier} 档结论:${verdict.state}(exit ${verdict.exitCode})—— ${verdict.detail}`)
-    if (verdict.state !== 'pass') {
-      // 失败面原样转出去,否则收信人只看到结论、看不到是哪一条用例/哪个模块报的错。
-      const tail = `${spawned.stdout}\n${spawned.stderr}`.split(/\r?\n/).slice(-120).join('\n')
-      console.log(`${TAG} ${spec.tier} 档输出末段:\n${tail}`)
+  try {
+    scratchDir = mkScratch('ai-service-tests-')
+    for (const spec of buildPytestArgs({ collectOnly: opts.collectOnly, extra: opts.extra })) {
+      const outPath = join(scratchDir, `${spec.tier}.stdout.log`)
+      const errPath = join(scratchDir, `${spec.tier}.stderr.log`)
+      console.log(
+        `${TAG} ${spec.tier} 档:在 ${opts.appDir} 派生 ${python} -m pytest ${spec.args.join(' ')}`
+      )
+      const spawned = spawnPytest({
+        python,
+        appDir: opts.appDir,
+        args: spec.args,
+        timeoutMs: opts.timeoutMs,
+        outPath,
+        errPath,
+        tailBytes: TAIL_BYTES,
+      })
+      const parsed = parsePytestSummary({ stdout: spawned.stdout, stderr: spawned.stderr, tier: spec.tier })
+      const verdict = judgeTier({
+        tier: spec.tier,
+        rc: spawned.rc,
+        ...parsed,
+        timedOut: spawned.timedOut,
+        spawnErrorCode: spawned.spawnErrorCode,
+        timeoutMs: opts.timeoutMs,
+        appDir: opts.appDir,
+        python,
+      })
+      const counts =
+        `collected=${parsed.collected ?? 'n/a'} passed=${parsed.passed} failed=${parsed.failed} ` +
+        `errors=${parsed.errors} skipped=${parsed.skipped} rc=${spawned.rc ?? 'n/a'}`
+      console.log(`${TAG} ${spec.tier} 档:${counts}`)
+      // 字节账必须点名:解析窗口只吃尾部,读不到的部分要能被追回去(落点文件路径 + 截掉多少)。
+      console.log(
+        `${TAG} ${spec.tier} 档输出面:stdout ${spawned.outMeta.totalBytes}B(取尾 ${spawned.outMeta.totalBytes - spawned.outMeta.truncatedBytes}B / 截 ${spawned.outMeta.truncatedBytes}B) · ` +
+          `stderr ${spawned.errMeta.totalBytes}B(取尾 ${spawned.errMeta.totalBytes - spawned.errMeta.truncatedBytes}B / 截 ${spawned.errMeta.truncatedBytes}B) · 全文落点 ${outPath} , ${errPath}`
+      )
+      console.log(`${TAG} ${spec.tier} 档结论:${verdict.state}(exit ${verdict.exitCode})—— ${verdict.detail}`)
+      if (verdict.state !== 'pass') {
+        // 失败面原样转出去,否则收信人只看到结论、看不到是哪一条用例/哪个模块报的错。
+        // 两流**各取各的尾巴并标明来源**:先并再截会把 stdout 的整段成因挤出窗口。
+        const tailOf = (label, text, n) =>
+          `—— ${label} 末 ${n} 行 ——\n${text.split(/\r?\n/).slice(-n).join('\n')}`
+        console.log(`${TAG} ${spec.tier} 档输出末段:`)
+        console.log(tailOf('stdout', spawned.stdout, 60))
+        console.log(tailOf('stderr', spawned.stderr, 60))
+        // 红档的**现场必须留着**:解析窗口只有尾部,而真成因(ERRORS 段的 traceback)
+        // 通常在中段 —— 删掉等于"给了结论、把取证面销毁",收信人只能整轮重跑。
+        // 2026-10-31 实测撞到这一层:19198 条 ERROR 的末段只剩用例名,读不出为什么。
+        // 终态不靠人记:落点在 scratch 根内,由 §26 的 scrub-temp-fixtures.mjs 按账龄回收。
+        keepScratch = true
+        console.log(
+          `${TAG} ${spec.tier} 档现场保留(未删):${outPath} , ${errPath}` +
+            ` —— 全文 ${spawned.outMeta.totalBytes}B / ${spawned.errMeta.totalBytes}B;` +
+            '上面只转述尾部,成因去全文中段看;由 scratch 清扫器按账龄回收,不必手工清'
+        )
+        finalRc = verdict.exitCode
+        break
+      }
       finalRc = verdict.exitCode
-      break
     }
-    finalRc = verdict.exitCode
+  } finally {
+    if (scratchDir && !keepScratch) rmScratch(scratchDir)
   }
   console.log(`${TAG} RESULT verdict=${finalRc === 0 ? 'GREEN' : finalRc === 1 ? 'FAIL' : 'UNDetermined'} exit=${finalRc}`)
   return finalRc
@@ -395,9 +482,11 @@ export const __test__ = {
   judgeTier,
   buildPytestArgs,
   parseArgv,
+  readTail,
   main,
   TAG,
   DEFAULT_APP_DIR,
   DEFAULT_TIMEOUT_MS,
+  TAIL_BYTES,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

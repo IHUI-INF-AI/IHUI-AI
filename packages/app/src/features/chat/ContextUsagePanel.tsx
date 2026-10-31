@@ -17,6 +17,7 @@ import {
   type AttributionMessage,
 } from '@ihui/shared/utils'
 import type { SegmentLabelKey } from '@ihui/types'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 上下文占用归因面板(RN 消费端)— 消费共享引擎 computeContextAttribution,
@@ -155,7 +156,7 @@ export function ContextUsagePanel({
                   onPress={() => expandable && setOpenSegment(open ? null : seg.key)}
                   accessibilityRole={expandable ? 'button' : undefined}
                   accessibilityState={expandable ? { expanded: open } : undefined}
-                  style={styles.row}
+                  style={pressFeedback(styles.row)}
                 >
                   <View
                     style={[

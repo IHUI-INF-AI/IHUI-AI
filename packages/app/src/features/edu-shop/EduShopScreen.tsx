@@ -18,6 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 教育商城共享屏 —— 渲染真相源(web 基准 = apps/web/app/(main)/edu/shop/page.tsx)。
@@ -111,7 +112,7 @@ export function EduShopScreen({
       <View style={styles.tabRow}>
         <Pressable
           onPress={() => setTab('courses')}
-          style={[styles.tab, tab === 'courses' && styles.tabOn]}
+          style={pressFeedback([styles.tab, tab === 'courses' && styles.tabOn])}
           accessibilityRole="tab"
         >
           <Text style={tab === 'courses' ? styles.tabOnText : styles.tabText}>
@@ -120,7 +121,7 @@ export function EduShopScreen({
         </Pressable>
         <Pressable
           onPress={() => setTab('orders')}
-          style={[styles.tab, tab === 'orders' && styles.tabOn]}
+          style={pressFeedback([styles.tab, tab === 'orders' && styles.tabOn])}
           accessibilityRole="tab"
         >
           <Text style={tab === 'orders' ? styles.tabOnText : styles.tabText}>

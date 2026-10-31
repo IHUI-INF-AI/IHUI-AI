@@ -300,6 +300,57 @@ progress {
   --color-neutral-700: oklch(37.1% 0 none);
   --color-neutral-800: oklch(26.9% 0 none);
   --color-neutral-900: oklch(20.5% 0 none);
+
+  /* 以下 49 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --spacing-none: 0rpx;
+  --spacing-2xs: 4rpx;
+  --spacing-xs: 8rpx;
+  --spacing-xs-loose: 12rpx;
+  --spacing-sm: 16rpx;
+  --spacing-sm-loose: 20rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+  --spacing-xl: 40rpx;
+  --spacing-2xl: 48rpx;
+  --spacing-3xl: 64rpx;
+  --spacing-4xl: 80rpx;
+  --spacing-5xl: 96rpx;
+  --spacing-6xl: 128rpx;
+  --text-badge: 20rpx;
+  --text-badge--line-height: 24rpx;
+  --text-badge--font-weight: 600;
+  --text-caption: 22rpx;
+  --text-caption--line-height: 32rpx;
+  --text-caption--font-weight: 400;
+  --text-label: 24rpx;
+  --text-label--line-height: 32rpx;
+  --text-label--font-weight: 400;
+  --text-body: 28rpx;
+  --text-body--line-height: 40rpx;
+  --text-body--font-weight: 400;
+  --text-strong: 30rpx;
+  --text-strong--line-height: 44rpx;
+  --text-strong--font-weight: 500;
+  --text-title: 32rpx;
+  --text-title--line-height: 48rpx;
+  --text-title--font-weight: 600;
+  --text-subtitle: 36rpx;
+  --text-subtitle--line-height: 52rpx;
+  --text-subtitle--font-weight: 600;
+  --text-heading: 40rpx;
+  --text-heading--line-height: 56rpx;
+  --text-heading--font-weight: 700;
+  --text-display: 48rpx;
+  --text-display--line-height: 64rpx;
+  --text-display--font-weight: 700;
+  --text-display-lg: 60rpx;
+  --text-display-lg--line-height: 76rpx;
+  --text-display-lg--font-weight: 700;
+  --shadow-elevation-none: none;
+  --shadow-elevation-sm: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
+  --shadow-elevation-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  --shadow-elevation-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+  --shadow-elevation-xl: 0 16rpx 48rpx rgba(0, 0, 0, 0.16);
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====

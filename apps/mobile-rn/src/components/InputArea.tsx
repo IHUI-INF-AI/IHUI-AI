@@ -121,6 +121,7 @@ import {
   INPUT_AREA_LEGACY_SHADOW_OFFSET_PX,
   INPUT_AREA_LEGACY_GLYPH_LINE_PX,
 } from '@ihui/shared/ui/input-area-spec'
+import { pressFeedback } from '@ihui/ui-native'
 
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
@@ -472,7 +473,7 @@ export function InputArea({
     return (
       <View style={[styles.collapsedWrap, { bottom: 24 + insets.bottom }]} pointerEvents="box-none">
         <Pressable
-          style={styles.collapsedFab}
+          style={pressFeedback(styles.collapsedFab)}
           onPress={() => {
             setInternalCollapsed(false)
             onCollapsedChange?.(false)
@@ -757,7 +758,7 @@ export function InputArea({
               <Pressable
                 onPress={onOpenModelConfig}
                 hitSlop={4}
-                style={styles.configBtnInShell}
+                style={pressFeedback(styles.configBtnInShell)}
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.modelConfig')}
               >

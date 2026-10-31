@@ -16,6 +16,7 @@ import { MessageInput } from './MessageInput'
 import { ContextUsagePanel } from './ContextUsagePanel'
 
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
@@ -97,7 +98,7 @@ export function ChatScreen({
           ref={setRef}
           onLongPress={() => onLongPressMessage(item)}
           delayLongPress={500}
-          style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}
+          style={pressFeedback([styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi])}
         >
           <Text style={styles.bubbleText}>
             {item.content || (isLastAi ? t('chat.thinking') : '')}
@@ -175,7 +176,7 @@ export function ChatScreen({
                       onModelChange(item.id)
                       onPickerOpenChange(false)
                     }}
-                    style={styles.pickerItem}
+                    style={pressFeedback(styles.pickerItem)}
                   >
                     <Text style={[styles.pickerItemName, active && styles.pickerItemNameActive]}>
                       {item.name || item.id}
