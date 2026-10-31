@@ -11,8 +11,9 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
-import type { TFunction } from './app-shared.js'
+import type { ReactNode } from 'react'
 
+import type { TFunction } from './app-shared.js'
 
 /** 消息中心 Tab key(可扩展为任意 string) */
 export type MessageTab = 'system' | 'order' | 'course' | 'social' | (string & {})
@@ -70,6 +71,30 @@ export interface MessageCenterScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
+  /** 可配置 tab 列表(平台注入 label 与未读数);不传回落到 system/order/course/social 四档 */
+  tabs?: { key: string; label: string; unread?: number }[]
+  /** 会话区块只在激活 tab 命中该 key 时渲染;不传则在所有 tab 渲染(现状) */
+  conversationsTab?: string
+  /** 搜索条;传了才渲染。过滤由平台负责(共享屏不发请求) */
+  search?: { value: string; placeholder?: string; onChangeText: (v: string) => void }
+  /** 页头右侧设置入口;不传则不渲染该按钮 */
+  onPressSettings?: () => void
+  /** 页头下方通知横幅;不传则不渲染 */
+  notification?: { text: string; onPress?: () => void }
+  /** 消息卡片「标记已读」入口;不传则不渲染(仅未读卡片显示) */
+  onMarkRead?: (item: MessageCenterItem) => void
+  /** 会话行「删除会话」入口;不传则不渲染 */
+  onDeleteConversation?: (item: MessageConversationItem) => void
+  /** 自定义 tab 内容(如私信 tab);返回 null 回落默认会话/消息区 */
+  renderTabBody?: (tab: string) => ReactNode | null
+  /** 是否还有下一页;显式 false 时隐藏「加载更多」(不传且给了 onLoadMore 则显示) */
+  hasMore?: boolean
+  /** 正在加载下一页 */
+  loadingMore?: boolean
+  /** 加载更多回调;不传则不渲染底部入口 */
+  onLoadMore?: () => void
+  /** 空态文案(默认 messageCenter.empty) */
+  emptyText?: string
 }
 
 /** 批次 15(2026-07-29):消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */

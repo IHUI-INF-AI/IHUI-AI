@@ -628,12 +628,19 @@ export interface TaskCenterScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 考试题目(平台注入,字段对齐 mobile-rn ExamQuestionScreen Question) */
+/**
+ * 考试题目(平台注入,字段对齐 mobile-rn ExamQuestionScreen Question)。
+ * 2026-10-31 扩展:题型补 fill(填空)/ subjective(主观)/ judgment(判断,答案布尔),
+ * 与后端题目表 type 的 single_choice/multi_choice/judge/fill/essay 五档对齐(端侧负责映射)。
+ * 选择题的 options 仍是纯文本数组;fill/subjective 无选项,端侧传空数组。
+ */
 export interface ExamQuestionItem {
   id: string
-  type: 'single' | 'multi'
+  type: 'single' | 'multi' | 'fill' | 'subjective' | 'judgment'
   content: string
   options: string[]
+  /** 题目分值(接口给就展示,缺省不渲染) */
+  score?: number
 }
 
 /** 考试试卷(平台注入,字段对齐 mobile-rn ExamQuestionScreen Exam) */
@@ -651,8 +658,18 @@ export interface ExamQuestionScreenProps {
   loading: boolean
   error: string
   current: number
-  answers: Record<string, number[]>
+  /**
+   * 答案模型(键 = questionId):选项题存 0-based 选项下标数组(string[] 为历史别名),
+   * 填空/主观题存文本,判断题存布尔。旧形态 Record<string, number[]> 是其子集,向后兼容。
+   */
+  answers: Record<string, string | string[] | number[] | boolean>
   onToggleOption: (questionId: string, optionIndex: number, multi: boolean) => void
+  /** 填空/主观题文本与判断题布尔值的作答出口(fill/subjective/judgment 三类题型调用) */
+  onAnswer?: (questionId: string, value: string | boolean) => void
+  /** 剩余秒数(端侧按试卷时长推导;缺省 ⇒ 不渲染倒计时) */
+  leftSec?: number
+  /** 提交中(为 true 时提交钮禁用) */
+  submitting?: boolean
   onPrev: () => void
   onNext: () => void
   onSubmit: () => void
@@ -742,6 +759,10 @@ export interface DeveloperScreenProps {
 export interface IcpRecordScreenProps {
   t: TFunction
   onBack: () => void
+  /** 复制备案号(平台剪贴板由壳注入;缺省则不渲染复制提示) */
+  onCopy?: (text: string) => void
+  /** 前往工信部备案查询(平台 webview 由壳注入) */
+  onQuery?: () => void
   colorScheme?: 'light' | 'dark'
 }
 
