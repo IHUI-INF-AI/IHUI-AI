@@ -413,7 +413,13 @@ def _agreement(a: dict[str, Any], b: dict[str, Any]) -> float:
 
 
 async def _resolve_image_data_uri(image_source: str) -> tuple[str | None, str | None]:
-    """图片来源 → base64 data URI。成功返回 (data_uri, None),失败返回 (None, error)。"""
+    """图片来源 → base64 data URI。成功返回 (data_uri, None),失败返回 (None, error)。
+
+    2026-10-31 安全强化第 15 批:**不再接受本地路径**。此端点的 image 是请求体里的
+    自由字符串,而本地路径分支会 read_local_image 服务器上任意 `.png/.jpg` 文件(把内网
+    截图/证件照读出来交给多模态模型)。前端本就用 data URI / http(s) URL(上传后取 URL),
+    本地路径这一格是历史遗留 —— 移除不损失能力,等价通路是"先上传再传 URL"。
+    """
     if is_data_uri(image_source):
         return image_source, None
     if is_url(image_source):
@@ -423,12 +429,8 @@ async def _resolve_image_data_uri(image_source: str) -> tuple[str | None, str | 
             return None, f"下载图片失败: {type(e).__name__}: {str(e)[:150]}"
         return encode_base64(data, mime), None
     if is_local_path(image_source):
-        try:
-            data, mime = read_local_image(image_source)
-        except (FileNotFoundError, ValueError, OSError) as e:
-            return None, f"读取本地图片失败: {e}"
-        return encode_base64(data, mime), None
-    return None, "无法识别的图片来源(支持 data URI / http(s) URL / 本地路径)"
+        return None, "不支持本地路径:请上传图片后传 URL 或 data URI"
+    return None, "无法识别的图片来源(支持 data URI / http(s) URL)"
 
 
 _EXTRACT_SYSTEM = (

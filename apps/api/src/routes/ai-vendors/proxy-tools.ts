@@ -1237,8 +1237,9 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         recordUsage(request.userId!, 'n8n')
         return reply.send(success({ agentId }))
       } catch (e) {
+        // 2026-10-31 安全强化第 15 批:DB 异常原文含表/列/约束名,不再回传客户端
         request.log.error(e)
-        return reply.status(500).send(error(500, `数据库写入失败: ${(e as Error).message}`))
+        return reply.status(500).send(error(500, '数据库写入失败,请稍后重试'))
       }
     },
   )
