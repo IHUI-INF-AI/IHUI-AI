@@ -17,6 +17,7 @@ import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Modal, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { useI18n } from '../i18n'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface PurchaseNoticePopUpProps {
   visible: boolean
@@ -66,7 +67,7 @@ export function PurchaseNoticePopUp({
     >
       <View style={styles.root}>
         <Pressable
-          style={styles.overlay}
+          style={pressFeedback(styles.overlay)}
           onPress={onClose}
           accessibilityLabel={t('purchaseNotice.closeA11y')}
         />

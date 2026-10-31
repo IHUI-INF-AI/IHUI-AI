@@ -15,6 +15,7 @@ import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tokens as tk } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface SideMenuItem {
   key: string
@@ -66,7 +67,7 @@ export default function SideMenu({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={pressFeedback(styles.overlay)} onPress={onClose}>
         <Animated.View
           style={[
             styles.container,
