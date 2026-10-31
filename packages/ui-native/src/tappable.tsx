@@ -4,14 +4,16 @@
 
 import { forwardRef, useState } from 'react'
 import { Pressable } from 'react-native'
-import type { PressableProps } from 'react-native'
+import type { PressableProps, StyleProp, ViewStyle } from 'react-native'
 
 /** 按下时的不透明度。与旧 pressFeedback 同值:低于 0.5 在深色底上像"消失",高于 0.8 看不出来。 */
 const PRESSED_OPACITY = 0.65
 
-type TappableProps = Omit<PressableProps, 'style'> & {
-  style?: PressableProps['style']
-}
+/**
+ * style 刻意取 `StyleProp<ViewStyle>` 而**不是** PressableProps['style']:后者允许函数形态,
+ * 而函数形态正是 cssInterop 会吃掉的写法。类型层先拒绝,比运行时静默丢样式好。
+ */
+type TappableProps = Omit<PressableProps, 'style'> & { style?: StyleProp<ViewStyle> }
 
 /**
  * 触屏按压反馈的唯一口。
