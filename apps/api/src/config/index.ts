@@ -386,6 +386,8 @@ const envSchema = z.object({
   DEVICE_DELEGATION_ENABLED: z.string().optional().default('true'),
   // G1 设备 bearer token 的 HMAC 密钥;为空时回退 JWT_SECRET(见 services/device-service.ts)。
   DEVICE_TOKEN_SECRET: z.string().optional().default(''),
+  // G1b(2026-10-31):设备兑换的最低客户端版本闸;空 = 不启用(默认行为不变)。
+  DEVICE_MIN_CLIENT_VERSION: z.string().optional().default(''),
 
   // ===== G4 计费弹性(2026-10-30 立)=====
   // pricing_rules 组合定价(基础价 × 会员档位系数 × 错峰时段系数)结算接入开关。
