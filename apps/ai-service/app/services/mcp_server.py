@@ -47,6 +47,7 @@ from app.core.file_read_state import (
     record_read,
     record_self_write,
 )
+from app.core.bounded_ttl_store import BoundedTtlDict
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
 
@@ -517,7 +518,17 @@ def _get_workspace_roots() -> list[str]:
 # 同处一个 asyncio task,ContextVar 天然传播;不同会话并发互不可见)。
 # 两态纪律:deny-by-default 不变 —— 不在白名单、也不在该会话附加集内的路径照旧拒绝;
 # 附加集只做"扩",不做"收"(白名单内的路径不因附加集而变严)。
-_SESSION_EXTRA_ROOTS: dict[str, tuple[str, ...]] = {}
+_SESSION_EXTRA_ROOTS: "BoundedTtlDict" = BoundedTtlDict(
+    # 2026-11-01 安全强化:这一族值不是普通缓存,而是**文件系统授权**。
+    # 原先是无上限 dict,且 `clear_session_extra_roots` 全仓**零调用方**
+    # (移除路径根本没接线)⇒ 一次会话追加过的目录会永久留在生效表里:
+    # 内存线性增长之外,更要紧的是"会话级扩权"变成进程级常驻扩权
+    # (会话 id 被复用/猜到即可拿到别人追加过的工作区)。
+    # 逐出/过期都做成"读不到即失效"(deny-by-default 不变),
+    # 并把清理挂在写与读这两条必然发生的路径上 —— 不依赖有人来调 sweep(§0.9)。
+    max_keys=5000,
+    ttl_seconds=6 * 3600.0,
+)
 _ACTIVE_SESSION_EXTRA_ROOTS: contextvars.ContextVar[tuple[str, ...]] = (
     contextvars.ContextVar("active_session_extra_roots", default=())
 )
@@ -555,7 +566,7 @@ def set_session_extra_roots(session_id: str, dirs: list[str]) -> tuple[str, ...]
     if not key:
         raise ValueError("session_id 为空,无法登记附加目录")
     if resolved:
-        _SESSION_EXTRA_ROOTS[key] = tuple(resolved)
+        _SESSION_EXTRA_ROOTS.set(key, tuple(resolved))
     else:
         _SESSION_EXTRA_ROOTS.pop(key, None)
     return tuple(resolved)
@@ -567,8 +578,8 @@ def clear_session_extra_roots(session_id: str) -> None:
 
 
 def get_session_extra_roots(session_id: str | None) -> tuple[str, ...]:
-    """读某会话的附加目录集(未登记返回空元组)。"""
-    return _SESSION_EXTRA_ROOTS.get((session_id or "").strip(), ())
+    """读某会话的附加目录集(未登记或已过期返回空元组 ⇒ 扩权不会跨会话永生)。"""
+    return _SESSION_EXTRA_ROOTS.get((session_id or "").strip(), ()) or ()
 
 
 def _active_extra_roots() -> tuple[str, ...]:
