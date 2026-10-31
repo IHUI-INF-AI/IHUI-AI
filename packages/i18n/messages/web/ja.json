@@ -25849,9 +25849,6 @@
     "title": "ヘルプ詳細",
     "answer": "回答"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案/許可番号"
-  },
   "identityVerify": {
     "uploadFront": "身分証明書の表面をアップロード",
     "uploadBack": "身分証明書の裏面をアップロード",

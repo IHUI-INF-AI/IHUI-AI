@@ -25850,9 +25850,6 @@
     "title": "帮助详情",
     "answer": "答案"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP 备案/许可证号"
-  },
   "identityVerify": {
     "uploadFront": "上传身份证人像面",
     "uploadBack": "上传身份证国徽面",
