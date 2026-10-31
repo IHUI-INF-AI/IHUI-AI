@@ -155,7 +155,10 @@ jobs:
 
       - name: 扫描死 key(失败即阻塞 PR;五端全扫,不再只跑 web)
         id: scan
-        run: node scripts/scan-dead-i18n-keys.mjs --target all --exit 1
+        # 2026-10-31:改存量棘轮档(AGENTS §12e)。五端存量死键是历史债,绝对零容忍 = 恒红门;
+        # 基线只拦新增,存量数字与出处见 scripts/data/i18n-dead-key-baseline.json。
+        # 提交链(--staged)不传基线,仍是零容忍。
+        run: node scripts/scan-dead-i18n-keys.mjs --target all --exit 1 --baseline scripts/data/i18n-dead-key-baseline.json
 
       - name: 上传死 key 审计报告
         id: upload-report

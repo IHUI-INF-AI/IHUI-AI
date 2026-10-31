@@ -1335,5 +1335,41 @@ describe('判定面纪律(缺省 HEAD blob / --staged 索引 blob / --worktree �
       '公共层不得再把磁盘当缺省面(入口显式传面,磁盘只经 --worktree 到达)',
     )
   })
+
+  test('存量棘轮档(2026-10-31,AGENTS §12e):等于基线放行 / 低于基线判红 / 取不到或形状坏判未判定', () => {
+    setupFixture({
+      target: 'web',
+      zhCN: { about: { title: '关于' }, dead: { a: '甲', b: '乙' } },
+      codeFiles: { 'apps/web/src/page.tsx': "t('about.title')" },
+    })
+    const write = (name, body) => {
+      const p = path.join(tmpDir, name)
+      fs.writeFileSync(p, body, 'utf8')
+      return p
+    }
+    const atBaseline = write('baseline-eq.json', JSON.stringify({ maxDead: { web: 2 } }))
+    assert.equal(
+      runCli(['--dry-run', '--exit', '1', '--baseline', atBaseline]).status,
+      0,
+      '死 key 数 == 基线 ⇒ 只拦新增,应 exit 0',
+    )
+    const belowBaseline = write('baseline-lt.json', JSON.stringify({ maxDead: { web: 1 } }))
+    assert.equal(
+      runCli(['--dry-run', '--exit', '1', '--baseline', belowBaseline]).status,
+      1,
+      '死 key 数 > 基线 ⇒ 新增 1 枚,应 exit 1',
+    )
+    assert.equal(
+      runCli(['--dry-run', '--exit', '1', '--baseline', path.join(tmpDir, 'no-such.json')]).status,
+      2,
+      '基线取不到 ⇒ 未判定 exit 2,不得回落到 0 假装没有存量',
+    )
+    const broken = write('baseline-broken.json', JSON.stringify({ maxDead: { web: 'x' } }))
+    assert.equal(
+      runCli(['--dry-run', '--exit', '1', '--baseline', broken]).status,
+      2,
+      '基线形状坏 ⇒ 未判定 exit 2',
+    )
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
