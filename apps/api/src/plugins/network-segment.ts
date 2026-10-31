@@ -30,6 +30,46 @@ export interface NetworkRouteConfig {
   allowExternal?: boolean
   /** 额外允许的 CIDR 列表(白名单,如 ['10.0.0.0/8']) */
   allowedCidrs?: string[]
+  /**
+   * 拒绝一切经反向代理转发的请求(默认 false)。
+   *
+   * 2026-10-31 安全强化第 14 批:仅靠 `allowExternal:false` 结构上挡不住本机前门。
+   * 本机拓扑是 EdgeOne/Cloudflared → Next.js(8801) → rewrites → Fastify(8802),而
+   * Fastify 的 `TRUSTED_PROXIES` 含 127.0.0.1 ⇒ `request.ip` 取 `X-Forwarded-For`
+   * 最左值(= 客户端可整写字段)。攻击者加一枚 `X-Forwarded-For: 127.0.0.1` 即被判成
+   * internal,`/api/internal/*` 的 `allowExternal:false` 直接失效(2026-10-31 实测:
+   * 经 8801 打内部端点返回的是 CSRF 403,不是网络分段 403 ⇒ 已穿透)。
+   *
+   * 本档的判据与 IP 分类**无关**,只看"这枚请求是否经过了代理":内部服务(ai-service)
+   * 直连 8802 不带任何转发头;凡经 Next/EdgeOne/Cloudflared 的请求必带。故它排在
+   * IP 分类之前执行,不受 XFF 伪造影响。
+   */
+  denyProxied?: boolean
+}
+
+/**
+ * 代理/边缘注入的转发头(小写)。
+ *
+ * 判据方向恒为 fail-closed:出现任意一枚即视为"经代理转发"。宁可让一次合法代理
+ * 调用拿到 403 并来登记,也不能让公网请求以 127.0.0.1 的身份进内部端点。
+ */
+const PROXY_HEADERS = [
+  'x-forwarded-for',
+  'x-forwarded-host',
+  'x-forwarded-proto',
+  'x-forwarded-port',
+  'x-real-ip',
+  'forwarded',
+  'cf-connecting-ip',
+  'cf-ray',
+  'true-client-ip',
+  'x-client-ip',
+  'eo-connecting-ip',
+] as const
+
+/** 是否携带任一代理注入头。空值也算"带了" —— 客户端显式写空串同样是代理痕迹。 */
+export function hasProxyHeaders(headers: Record<string, unknown>): boolean {
+  return PROXY_HEADERS.some((name) => headers[name] !== undefined)
 }
 
 const BLACKLIST_KEY = 'ip_blacklist'
@@ -204,6 +244,18 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const routeConfig = request.routeOptions.config
     const networkConfig = routeConfig?.network
     if (!networkConfig) return // 未配置 network 的路由不强制分段(向后兼容)
+
+    // denyProxied 必须排在任何 IP 分类之前:经代理的请求其 request.ip 可被 XFF 整写,
+    // 先分类就等于把伪造值当事实(见 NetworkRouteConfig.denyProxied 头注)。
+    if (networkConfig.denyProxied && hasProxyHeaders(request.headers)) {
+      logger.warn('denyProxied 路由收到经代理转发的请求,拒绝', {
+        url: request.url,
+        ip: request.ip,
+        ua: request.headers['user-agent'],
+      })
+      reply.status(403).send({ code: 403, message: '此路由不接受经代理转发的请求' })
+      return
+    }
 
     const clientIp = request.ip
     const classification = classifyIp(clientIp)
