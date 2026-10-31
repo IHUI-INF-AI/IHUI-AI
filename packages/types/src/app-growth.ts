@@ -221,7 +221,17 @@ export interface VipLevelItem2 {
   price: number
   durationDays: number
   status: number
-  benefits?: Record<string, unknown>
+  /** 权益文案列表。后端 /vip/levels 实返数组(web 详情页同按 string[] 消费),
+   *  原声明 Record<string, unknown> 与实现漂移 ⇒ 契约收敛为 string[],
+   *  形态归一由各端 wrapper 负责(不在此造假)。 */
+  benefits?: string[]
+}
+
+/** VIP 权益卡条目(共享屏渲染用:标题 + 可选副文案) */
+export interface VipBenefitCardItem {
+  key: string
+  title: string
+  desc?: string
 }
 
 /** VIP 会员信息(平台注入,字段对齐 mobile-rn VipScreen MembershipInfo) */
@@ -247,6 +257,11 @@ export interface VipScreenProps {
   onPurchase: (level: VipLevelItem2) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 权益卡条目(可选)。有则渲染权益卡区(标题 vip.details.benefitsTitle + 逐条标题/副文案),
+   * 无则保持原有等级列表结构不变 —— 全部可选是为 RN 现有调用点零回归。
+   */
+  benefitItems?: VipBenefitCardItem[]
 }
 
 /** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
@@ -381,6 +396,11 @@ export interface DistributionScreenProps {
   onWithdraw: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 分佣比例真值(可选,来自 GET /distribution/commission-rates 的 key→value)。
+   * 缺省/空数组 ⇒ 共享屏渲染空态(earnCommission.rateEmpty),不由前端补默认档位。
+   */
+  rates?: { level: string; rate: string }[]
 }
 
 /** 首页推荐课程项(平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */

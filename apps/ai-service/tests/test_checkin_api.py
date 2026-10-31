@@ -792,8 +792,9 @@ async def test_create_qoder_accepts_opaque_token(client, fake_store):
             "platform": "qoder",
             "device_map": {
                 "uid": "019f17c6-0eca-7510-a4f5-5b22e8305ed4",
-                # 动态未来 epoch(原硬编码 1793422576 已随真实时间流逝而过期,导致本用例恒 400)
-                "expires_at": int(time.time()) + 86400 * 30,
+                # 时间戳是时间的函数:写死的"未来"会过期(实测 1793422576 已过去 ⇒
+                # 生产按 expires_at 判过期回 400,与"接受 opaque token"这条断言无关)。
+                "expires_at": int(time.time()) + 86400,
                 "cosy": {"client_type": "10"},
             },
         },
