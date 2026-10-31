@@ -265,7 +265,7 @@ function PolicyEditor({
       className="space-y-2 rounded-lg border p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">{t(POLICY_TITLE_KEY[policyKey])}</span>
+        <span className="text-body font-medium">{t(POLICY_TITLE_KEY[policyKey])}</span>
         <span className="text-xs text-muted-foreground">
           {t('version')}: v{row?.version ?? '—'}
         </span>
@@ -460,7 +460,7 @@ export default function OrgGovernancePage() {
           className="rounded-lg border border-dashed p-10 text-center"
         >
           <ShieldCheck className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-          <p className="text-sm font-medium">{t('forbidden')}</p>
+          <p className="text-body font-medium">{t('forbidden')}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t('forbiddenHint')}</p>
         </div>
       </div>
@@ -470,7 +470,7 @@ export default function OrgGovernancePage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t('title')}</h1>
+        <h1 className="text-heading font-semibold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -619,7 +619,7 @@ export default function OrgGovernancePage() {
 
             {/* agent_billings:平台级账单无组织归属列,按模型汇总仅作参考(说明文案取自服务端) */}
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('agentBillings')}</p>
+              <p className="text-body font-medium">{t('agentBillings')}</p>
               {agentNote ? (
                 <p data-testid="org-agent-note" className="text-xs text-muted-foreground">
                   {agentNote}
@@ -653,7 +653,7 @@ export default function OrgGovernancePage() {
 
             {/* 按日明细:默认折叠(原生 details,不额外引入交互件) */}
             <details data-testid="org-byday">
-              <summary className="cursor-pointer text-sm font-medium">{t('byDay')}</summary>
+              <summary className="cursor-pointer text-body font-medium">{t('byDay')}</summary>
               {byDay.length === 0 ? (
                 <p className="py-2 text-xs text-muted-foreground">{t('emptyModels')}</p>
               ) : (

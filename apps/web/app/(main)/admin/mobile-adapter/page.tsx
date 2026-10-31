@@ -72,7 +72,7 @@ export default function MobileAdapterPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Smartphone className="h-6 w-6 text-primary" />
           {t('mobile.title')}
         </h1>
@@ -116,7 +116,7 @@ export default function MobileAdapterPage() {
                         <td className="px-4 py-2.5">
                           <span
                             className={cn(
-                              'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                              'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                               st.bg,
                               st.text,
                             )}

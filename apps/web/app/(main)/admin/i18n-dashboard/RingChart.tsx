@@ -10,7 +10,7 @@ export function RingChart({ value, color }: { value: number; color: string }) {
       style={{ background: `conic-gradient(${color} ${deg}deg, var(--muted) 0deg)` }}
     >
       <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-background">
-        <span className="text-sm font-bold">{value}%</span>
+        <span className="text-body font-bold">{value}%</span>
       </div>
     </div>
   )

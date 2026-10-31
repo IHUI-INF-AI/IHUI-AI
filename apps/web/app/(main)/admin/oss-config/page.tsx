@@ -79,7 +79,7 @@ export default function AdminOssConfigPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-start justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Cloud className="h-6 w-6 text-primary" />
           OSS 配置
         </h1>

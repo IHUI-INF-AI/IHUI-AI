@@ -124,7 +124,7 @@ export default function AdminCustomerServicePage() {
       <div className="flex h-[calc(100vh-280px)] overflow-hidden rounded-lg border bg-card">
         <div className="flex w-72 shrink-0 flex-col">
           <div className="px-4 py-2.5">
-            <p className="flex items-center gap-1.5 text-sm font-medium">
+            <p className="flex items-center gap-1.5 text-body font-medium">
               <Users className="h-4 w-4" /> 会话列表
             </p>
           </div>
@@ -152,14 +152,14 @@ export default function AdminCustomerServicePage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span className="text-sm font-medium text-muted-foreground">
+                      <span className="text-body font-medium text-muted-foreground">
                         {s.userName?.[0]?.toUpperCase() || '?'}
                       </span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-medium">{s.userName}</p>
+                      <p className="truncate text-body font-medium">{s.userName}</p>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {s.lastTime ? timeFmt.format(new Date(s.lastTime)) : ''}
                       </span>
@@ -186,7 +186,7 @@ export default function AdminCustomerServicePage() {
             <>
               <div className="flex items-center gap-2 px-4 py-2.5">
                 <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">{selected.userName}</p>
+                <p className="text-body font-medium">{selected.userName}</p>
               </div>
               <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
                 {(selected.messages ?? []).length === 0 ? (

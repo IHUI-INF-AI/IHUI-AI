@@ -71,7 +71,7 @@ export default function AdminMemberPermissionsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Key className="h-6 w-6 text-primary" />
           会员权限点
         </h1>
@@ -101,7 +101,7 @@ export default function AdminMemberPermissionsPage() {
             <section key={resource} className="overflow-hidden rounded-lg border">
               <header className="flex items-center gap-2 bg-muted/40 px-4 py-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">{resource}</span>
+                <span className="text-body font-semibold">{resource}</span>
                 <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {items.length}
                 </span>
@@ -136,7 +136,7 @@ export default function AdminMemberPermissionsPage() {
                           </button>
                         </TableCell>
                         <TableCell className="px-4 py-2">
-                          <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                          <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                             {p.action}
                           </span>
                         </TableCell>

@@ -114,7 +114,7 @@ export default function AdminDistributionPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">分销中心</h1>
+        <h1 className="text-display font-bold tracking-tight">分销中心</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           管理分销订单、佣金结算、规则配置与提现审核
         </p>
@@ -132,7 +132,7 @@ export default function AdminDistributionPage() {
                   <span className="text-sm text-muted-foreground">{s.label}</span>
                   <Icon className={`h-4 w-4 ${s.tone}`} />
                 </div>
-                <div className="mt-2 text-2xl font-bold tracking-tight">
+                <div className="mt-2 text-display font-bold tracking-tight">
                   {loading ? (
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   ) : (
