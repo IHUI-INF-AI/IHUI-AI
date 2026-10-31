@@ -1562,7 +1562,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
 
   // GET /settlement/:id - 结算详情
-  server.get('/settlement/:id', async (request, reply) => {
+  //
+  // 2026-10-31 安全强化第 10 批 R10：**加 admin 闸**。结算单含佣金率与佣金金额，
+  // 是财务数据；此前任何登录用户按 id 即可读任意结算单。
+  server.get('/settlement/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const rows = await dbRead
       .select()
@@ -1574,7 +1577,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /settlement/:id - 更新结算记录
-  server.put('/settlement/:id', async (request, reply) => {
+  //
+  // 2026-10-31 安全强化第 10 批 R10：**加 admin 闸**。此前本路由只有插件级 checkAuth，
+  // 任意登录用户可改任意结算单的 status / commissionRate / commissionAmount
+  // —— 同文件的 `POST /settlement/settle` 已在第 14 批加了 requireAdmin，唯独这个
+  // 更底层的"直接改行"入口漏了，等于把刚关上的门从旁边绕过去。
+  server.put('/settlement/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const parsed = updateSettlementSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -1947,6 +1955,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/token/balance/:userUuid', async (request, reply) => {
     const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
+    // 2026-10-31 安全强化第 10 批 R10：**归属闸**。此前任何登录用户换一个 uuid 就能读
+    // 任意人的余额与冻结额（余额是资金面数据，可用来挑选"肥羊"账号做定向社工/盗号）。
+    // 读自己恒允许（前端 /api/token/balance 就是查自己）；读他人仅管理员。
+    // 不改成 admin-only 是为了不打断既有自查询链路。
+    if (userUuid !== request.userId && !isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '只能查询自己的余额'))
+    }
     const rows = await dbRead.execute(
       sql`SELECT user_uuid, balance, frozen_balance, updated_at FROM user_token_balance WHERE user_uuid = ${userUuid} LIMIT 1`,
     )
@@ -2367,7 +2382,17 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 14. PUT /cozeZhsApi/agents/token/balance/:userUuid - 真实 UPDATE
-  server.put('/cozeZhsApi/agents/token/balance/:userUuid', async (request, reply) => {
+  //
+  // 2026-10-31 安全强化第 10 批 R10：**加 admin 闸**。此前本路由只有插件级 `checkAuth`
+  // —— 任意登录用户 PUT 自己的 uuid 与 `balance: 1e9` 即可凭空造币。该余额正是直播
+  // 礼物扣款源（routes/live-gifts.ts 扣的就是 user_token_balance），等价于"任意用户
+  // 无上限白嫖礼物并向主播转移价值"，是直接的资金面。财务改写只允许管理员，
+  // 判据走 `requireAdmin`（resolveAdminRoleId + includeInternalChannel:false 单源，
+  // 与 admin 面同一条；内部密钥 + 伪造 X-User-Id 不构成 admin 提权）。
+  server.put(
+    '/cozeZhsApi/agents/token/balance/:userUuid',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
     try {
       const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
       const parsed = z
@@ -2410,7 +2435,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply.status(500).send(error(500, `更新 token 余额失败: ${toUserFriendlyMessage(e)}`))
     }
-  })
+    },
+  )
 
   // 15. POST /cozeZhsApi/agents/user/billing - 真实查 agentBillings + 统计
   server.post('/cozeZhsApi/agents/user/billing', async (request, reply) => {
