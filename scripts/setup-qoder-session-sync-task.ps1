@@ -72,10 +72,14 @@ if (-not $CheckOnly) {
   New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
 
   # ASCII-only wrappers: wscript decodes .vbs via the ANSI codepage.
+  # The "=== RUN ===" marker bounds one run for scripts/check-qoder-session-sync-task.mjs:
+  # without it the sentinel cannot tell "last run failed" from "last run's JSON is from an
+  # older successful round". ASCII-only and time-free (locale formats would be GBK noise).
   $cmdLines = @(
     '@echo off',
     'setlocal',
     ('set "PATH=' + $nodeDir + ';' + $pwshDir + ';%PATH%"'),
+    ('echo === RUN === >> "' + (Join-Path $LogDir 'qoder-session-sync.log') + '"'),
     ('"' + $nodeExe + '" "' + $syncScript + '" --json >> "' + (Join-Path $LogDir 'qoder-session-sync.log') + '" 2>&1')
   )
   Set-Content -LiteralPath $cmdPath -Value $cmdLines -Encoding ascii
