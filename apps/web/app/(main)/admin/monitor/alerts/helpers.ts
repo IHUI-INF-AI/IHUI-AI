@@ -2,31 +2,24 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { ComponentType } from 'react'
-import { AlertTriangle, Bell } from 'lucide-react'
-import type { Alert } from './types'
+/**
+ * alerts 子页的本地出口。
+ *
+ * ⚠️ 词表真值**不在本文件**:`severity` / `status` 的取值与映射表全在
+ * `@/lib/admin/monitor-alert-vocabulary`(admin 监控子页的唯一真相源,
+ * AGENTS.md §0.6)。这里只做转出 + 本页私有样式常量,
+ * 不再自带第二份 LEVEL_STYLE / STATUS_STYLE 映射表。
+ */
+export {
+  MONITOR_ALERT_SEVERITIES,
+  MONITOR_ALERT_STATUSES,
+  UNDETERMINED_LABEL,
+  isMonitorAlertSeverity,
+  isMonitorAlertStatus,
+  monitorAlertSeverityMeta,
+  monitorAlertStatusMeta,
+} from '@/lib/admin/monitor-alert-vocabulary'
 
 export const selectClass =
   'h-8 w-auto rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-export const LEVEL_STYLE: Record<
-  Alert['level'],
-  { bg: string; text: string; icon: ComponentType<{ className?: string }> }
-> = {
-  critical: { bg: 'bg-danger/10', text: 'text-danger-text', icon: AlertTriangle },
-  warning: { bg: 'bg-warning/10', text: 'text-warning-amber-text', icon: AlertTriangle },
-  info: { bg: 'bg-primary/10', text: 'text-primary', icon: Bell },
-}
-
-export const STATUS_LABEL: Record<Alert['status'], string> = {
-  active: '活跃',
-  acknowledged: '已确认',
-  resolved: '已解决',
-}
-
-export const STATUS_STYLE: Record<Alert['status'], string> = {
-  active: 'bg-danger/10 text-danger-text',
-  acknowledged: 'bg-warning/10 text-warning-amber-text',
-  resolved: 'bg-success/10 text-success-deep-text',
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

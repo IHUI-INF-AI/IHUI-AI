@@ -13,6 +13,13 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { TruncatedText, BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+import {
+  MONITOR_ALERT_SEVERITIES,
+  MONITOR_ALERT_STATUSES,
+  monitorAlertSeverityMeta,
+  monitorAlertStatusMeta,
+} from '@/lib/admin/monitor-alert-vocabulary'
+import { formatDate } from '@/lib/date-utils'
 
 interface ErrorStats {
   total: number
@@ -21,28 +28,23 @@ interface ErrorStats {
   resolved: number
 }
 
+/**
+ * 库里 `monitor_alerts` 的一行(后端走全列 select ⇒ 列名与 schema 逐字一致)。
+ * 旧形态写成 type/endpoint/level/time —— 那些列**库里不存在**(真列是
+ * name/source/severity/firedAt),于是 LEVEL_STYLE[e.level] 取到 undefined
+ * 就在渲染期抛 TypeError;status 侧用的又是库里不存在的 open/resolved/ignored。
+ */
 interface ErrorItem {
   id: string
-  type: string
-  message: string
-  endpoint: string
-  time: string
-  level: 'error' | 'warning' | 'critical'
-  status: 'open' | 'resolved' | 'ignored'
+  name: string
+  source: string
+  severity: string
+  status: string
+  message: string | null
+  firedAt: string
 }
 
 const DEFAULT_STATS: ErrorStats = { total: 0, today: 0, critical: 0, resolved: 0 }
-
-const LEVEL_STYLE: Record<ErrorItem['level'], { bg: string; text: string; label: string }> = {
-  critical: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Critical' },
-  error: { bg: 'bg-orange-500/10', text: 'text-orange-600', label: 'Error' },
-  warning: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Warning' },
-}
-const STATUS_STYLE: Record<ErrorItem['status'], { bg: string; text: string; label: string }> = {
-  open: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Open' },
-  resolved: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', label: 'Resolved' },
-  ignored: { bg: 'bg-muted', text: 'text-muted-foreground', label: 'Ignored' },
-}
 
 const th = 'px-4 py-2.5 font-medium'
 const selectClass =
@@ -51,8 +53,8 @@ const selectClass =
 export default function ErrorDashboardPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
-  const [levelFilter, setLevelFilter] = React.useState<'all' | ErrorItem['level']>('all')
-  const [statusFilter, setStatusFilter] = React.useState<'all' | ErrorItem['status']>('all')
+  const [severityFilter, setSeverityFilter] = React.useState('all')
+  const [statusFilter, setStatusFilter] = React.useState('all')
 
   const { data: stats = DEFAULT_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'error-dashboard', 'stats'],
@@ -63,18 +65,19 @@ export default function ErrorDashboardPage() {
     },
   })
   const { data: errors = [] } = useQuery({
-    queryKey: ['admin', 'error-dashboard', 'errors'],
+    // 筛选进 queryKey ⇒ 改筛选真的重新取数(后端按 severity/status 列过滤)。
+    queryKey: ['admin', 'error-dashboard', 'errors', severityFilter, statusFilter],
     queryFn: async () => {
-      const r = await fetchApi<ErrorItem[]>('/api/admin/error-dashboard/errors')
-      if (r.success && r.data) return r.data
-      return []
+      const qs = new URLSearchParams()
+      if (severityFilter !== 'all') qs.set('severity', severityFilter)
+      if (statusFilter !== 'all') qs.set('status', statusFilter)
+      const query = qs.toString()
+      const r = await fetchApi<{ list: ErrorItem[] }>(
+        `/api/admin/error-dashboard/errors${query ? `?${query}` : ''}`,
+      )
+      // 响应体是 {list,page,pageSize};旧写法把整个对象当数组用(⇒ errors.filter 崩)。
+      return r.success && r.data?.list ? r.data.list : []
     },
-  })
-
-  const filtered = errors.filter((e) => {
-    if (levelFilter !== 'all' && e.level !== levelFilter) return false
-    if (statusFilter !== 'all' && e.status !== statusFilter) return false
-    return true
   })
 
   const cards = [
@@ -141,34 +144,38 @@ export default function ErrorDashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('errorDash.filterLevel')}</span>
               <select
-                value={levelFilter}
-                onChange={(e) => setLevelFilter(e.target.value as 'all' | ErrorItem['level'])}
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
                 className={selectClass}
               >
                 <option value="all">{t('errorDash.all')}</option>
-                <option value="critical">Critical</option>
-                <option value="error">Error</option>
-                <option value="warning">Warning</option>
+                {MONITOR_ALERT_SEVERITIES.map((s) => (
+                  <option key={s} value={s}>
+                    {monitorAlertSeverityMeta(s).label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('errorDash.filterStatus')}</span>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | ErrorItem['status'])}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className={selectClass}
               >
                 <option value="all">{t('errorDash.all')}</option>
-                <option value="open">Open</option>
-                <option value="resolved">Resolved</option>
-                <option value="ignored">Ignored</option>
+                {MONITOR_ALERT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {monitorAlertStatusMeta(s).label}
+                  </option>
+                ))}
               </select>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                setLevelFilter('all')
+                setSeverityFilter('all')
                 setStatusFilter('all')
               }}
             >
@@ -182,7 +189,7 @@ export default function ErrorDashboardPage() {
       {/* 错误列表 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('errorDash.errorList')}</h2>
-        {filtered.length === 0 ? (
+        {errors.length === 0 ? (
           <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('errorDash.noData')}
           </div>
@@ -200,29 +207,30 @@ export default function ErrorDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((e) => {
-                  const lv = LEVEL_STYLE[e.level]
-                  const st = STATUS_STYLE[e.status]
+                {errors.map((e) => {
+                  // 词表真值在 monitor-alert-vocabulary(唯一一份);词表外的值落「未判定」。
+                  const sev = monitorAlertSeverityMeta(e.severity)
+                  const st = monitorAlertStatusMeta(e.status)
                   return (
                     <tr key={e.id} className="transition-colors hover:bg-muted/30">
                       <td className="px-4 py-2.5">
-                        <code className="font-mono text-xs">{e.type}</code>
+                        <code className="font-mono text-xs">{e.name}</code>
                       </td>
                       <td className="px-4 py-2.5">
-                        <TruncatedText value={e.message} className="max-w-[260px]" />
+                        <TruncatedText value={e.message ?? ''} className="max-w-[260px]" />
                       </td>
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                        {e.endpoint}
+                        {e.source}
                       </td>
                       <td className="px-4 py-2.5">
                         <span
                           className={cn(
                             'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
-                            lv.bg,
-                            lv.text,
+                            sev.bg,
+                            sev.text,
                           )}
                         >
-                          {lv.label}
+                          {sev.label}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
@@ -237,7 +245,7 @@ export default function ErrorDashboardPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                        {e.time}
+                        {formatDate(e.firedAt)}
                       </td>
                     </tr>
                   )
