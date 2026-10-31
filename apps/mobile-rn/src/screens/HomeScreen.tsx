@@ -150,7 +150,6 @@ import { tabBarDockSpacer } from '../components/TabBar.styles'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
-import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -1930,7 +1929,7 @@ export function HomeScreen() {
                   }
                 }}
                 hitSlop={8}
-                style={pressFeedback(shellStyles.modelSearchToggle)}
+                style={shellStyles.modelSearchToggle}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.a11yModelSearch')}
                 accessibilityState={{ selected: showModelSearch }}
@@ -1940,7 +1939,8 @@ export function HomeScreen() {
                   color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
                 />
               </Pressable>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={undefined}
                 onPress={closeModelModal}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -1966,7 +1966,8 @@ export function HomeScreen() {
                   accessibilityLabel={t('home.a11yModelSearchInput')}
                 />
                 {modelSearch ? (
-                  <Pressable style={pressFeedback(undefined)}
+                  <Pressable
+                    style={undefined}
                     onPress={() => setModelSearch('')}
                     hitSlop={8}
                     accessibilityRole="button"
@@ -2055,7 +2056,8 @@ export function HomeScreen() {
           />
           <View style={shellStyles.materialSheet}>
             <View style={shellStyles.materialSheetBar}>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={undefined}
                 onPress={() => setShowMaterialList(false)}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -2097,7 +2099,8 @@ export function HomeScreen() {
               <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('home.matDetailFallback')}
               </Text>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={undefined}
                 onPress={closeMaterialDetail}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -2114,7 +2117,7 @@ export function HomeScreen() {
                   <Text style={shellStyles.detailDialogErrorText}>{materialDetailError}</Text>
                   <Pressable
                     onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
-                    style={pressFeedback(shellStyles.detailDialogRetryBtn)}
+                    style={shellStyles.detailDialogRetryBtn}
                     accessibilityRole="button"
                   >
                     <Text style={shellStyles.detailDialogRetryText}>{t('home.retryText')}</Text>
@@ -2159,13 +2162,14 @@ export function HomeScreen() {
         onRequestClose={() => setQrCodeVisible(false)}
       >
         <Pressable
-          style={pressFeedback(shellStyles.modalMask)}
+          style={shellStyles.modalMask}
           onPress={() => setQrCodeVisible(false)}
           accessibilityRole="button"
           accessibilityLabel={t('home.closeBtn')}
         >
           <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable style={pressFeedback(undefined)}
+            <Pressable
+              style={undefined}
               onLongPress={() => void handleLongPressQrCode()}
               delayLongPress={500}
               accessibilityRole="imagebutton"
@@ -2177,7 +2181,7 @@ export function HomeScreen() {
             <Pressable
               hitSlop={8}
               onPress={() => setQrCodeVisible(false)}
-              style={pressFeedback(shellStyles.qrClose)}
+              style={shellStyles.qrClose}
               accessibilityRole="button"
               accessibilityLabel={t('home.closeBtn')}
             >
@@ -2236,7 +2240,8 @@ export function HomeScreen() {
                     <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
                       {card.title}
                     </Text>
-                    <Pressable style={pressFeedback(undefined)}
+                    <Pressable
+                      style={undefined}
                       onPress={() => handleRemoveMaterialCard(card.uid)}
                       hitSlop={8}
                       accessibilityRole="button"

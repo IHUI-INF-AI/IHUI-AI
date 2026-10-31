@@ -14,8 +14,8 @@
   min-height: 100vh;
   /* RN shell/scrollContent: bg surface.bg,padding rpx(20),paddingBottom rpx(48) */
   background: var(--color-background);
-  padding: 20rpx;
-  padding-bottom: 48rpx;
+  padding: var(--spacing-sm-loose);
+  padding-bottom: var(--spacing-2xl);
   box-sizing: border-box;
 }
 
@@ -27,14 +27,14 @@
   padding: 28rpx;
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 /* RN logo: 64dp=128rpx 正圆(radius 32dp=64rpx);logoBody mb rpx(16) */
 .dc-avatar {
   width: 128rpx;
   height: 128rpx;
   border-radius: var(--radius-2xl);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   background: var(--color-muted);
 }
 /* RN userName: 17dp=34rpx 600 text.primary,mb rpx(16) */
@@ -42,15 +42,15 @@
   font-size: 34rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   text-align: center;
 }
 .dc-waitting {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
-  margin-bottom: 16rpx;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
 }
 .dc-waitting-text {
   font-size: 28rpx;
@@ -82,17 +82,17 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
   background: var(--color-card);
   border-radius: var(--radius-xl);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 .dc-entry-item {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx; /* RN devItem gap rpx(8) */
+  gap: var(--spacing-xs); /* RN devItem gap rpx(8) */
 }
 .dc-entry-item:active {
   opacity: 0.7; /* RN activeOpacity 0.7 */
@@ -119,10 +119,10 @@
 
 /* ===== 开发者账号信息卡(RN infoCard: bg surface.card, padding rpx(24);圆角按角色档 card→lg) ===== */
 .dc-account-card {
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
   display: flex;
   flex-direction: column;
 }
@@ -131,14 +131,14 @@
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 /* RN infoRow: paddingVertical rpx(8) */
 .dc-account-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 8rpx 0;
+  padding: var(--spacing-xs) 0;
 }
 /* RN infoLabel: width 76dp=152rpx,13dp=26rpx,text.secondary */
 .dc-account-label {
@@ -189,15 +189,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 8rpx;
-  margin-bottom: 24rpx;
-  gap: 16rpx;
+  margin-bottom: var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 .dc-notice-tip {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
 .dc-plaza-btn {
-  padding: 16rpx 40rpx;
+  padding: var(--spacing-sm) 40rpx;
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
@@ -213,26 +213,26 @@
 .dc-faq-section {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  margin-bottom: 24rpx;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
 }
 /* RN unTitle: 15dp=30rpx 600 text.primary,mb rpx(8) */
 .dc-faq-title {
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .dc-faq-grid {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 /* RN problemCard: bg surface.card,radius 12dp=24rpx,padding rpx(24) */
 .dc-faq-item {
   width: 100%;
   box-sizing: border-box;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-xl);
   display: flex;
@@ -246,20 +246,20 @@
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 /* RN problemContext: 13dp=26rpx text.secondary,mb rpx(16) */
 .dc-faq-item-context {
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 /* RN problemBtn: py rpx(8) px rpx(24),radius 6dp=12rpx,bg brand(→primary);
    文字 surface.light 暗色按语义修正为 primary-foreground */
 .dc-faq-item-btn {
   align-self: flex-start;
-  padding: 8rpx 24rpx;
+  padding: var(--spacing-xs) 24rpx;
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
@@ -273,6 +273,6 @@
   text-align: center;
   color: var(--color-muted-foreground);
   font-size: 26rpx;
-  padding: 40rpx 0;
+  padding: var(--spacing-xl) 0;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

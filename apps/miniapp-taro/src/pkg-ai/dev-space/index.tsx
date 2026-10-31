@@ -199,7 +199,7 @@ export default function DevSpace() {
               onClick={openSubscribe}
               hoverClass="opacity-80"
             >
-              <Text className="text-[length:28rpx] font-semibold leading-[40rpx] text-cta-foreground">
+              <Text className="text-body font-semibold leading-[40rpx] text-cta-foreground">
                 {subscribed ? t('devSpace.renew') : tt('developer.becomeDeveloper', '成为开发者')}
               </Text>
             </View>
@@ -208,7 +208,7 @@ export default function DevSpace() {
           {/* ② 开发者信息卡(行表驱动,与共享屏同序;无有效订阅 ⇒ 整块缺席) */}
           {infoRows ? (
             <View className="mb-[20rpx] flex flex-col gap-[16rpx] rounded-lg bg-card p-[28rpx]">
-              <Text className="block text-[length:30rpx] font-semibold leading-[40rpx] text-foreground">
+              <Text className="block text-strong font-semibold leading-[40rpx] text-foreground">
                 {t('developerInfo.title')}
               </Text>
               {infoRows.map((row) => (
@@ -266,7 +266,7 @@ export default function DevSpace() {
 
           {/* ④ 问题解答卡 + 咨询客服 */}
           <View className="flex flex-col gap-[16rpx]">
-            <Text className="mb-[8rpx] block text-[length:30rpx] font-semibold leading-[40rpx] text-foreground">
+            <Text className="mb-[8rpx] block text-strong font-semibold leading-[40rpx] text-foreground">
               {t('devSpace.faqHeading')}
             </Text>
             {DEVELOPER_SPACE_PROBLEMS.map((problem) => (
@@ -276,7 +276,7 @@ export default function DevSpace() {
                 onClick={() => copyProblemLink(problem.url)}
                 hoverClass="opacity-80"
               >
-                <Text className="mb-[8rpx] block text-[length:30rpx] font-semibold leading-[40rpx] text-foreground">
+                <Text className="mb-[8rpx] block text-strong font-semibold leading-[40rpx] text-foreground">
                   {t(problem.titleKey)}
                 </Text>
                 <Text className="mb-[16rpx] block text-[length:26rpx] leading-[36rpx] text-muted-foreground">
@@ -294,10 +294,10 @@ export default function DevSpace() {
               onClick={openService}
               hoverClass="opacity-90"
             >
-              <Text className="block text-[length:30rpx] font-semibold leading-[40rpx] text-foreground">
+              <Text className="block text-strong font-semibold leading-[40rpx] text-foreground">
                 {t('devSpace.contactHeading')}
               </Text>
-              <Text className="mt-[6rpx] block text-[length:24rpx] leading-[34rpx] text-muted-foreground">
+              <Text className="mt-[6rpx] block text-label leading-[34rpx] text-muted-foreground">
                 {t('devSpace.contactDesc')}
               </Text>
             </View>

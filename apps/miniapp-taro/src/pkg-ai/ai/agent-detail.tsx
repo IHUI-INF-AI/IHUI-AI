@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/agent-detail/AgentDetailScreen.tsx
 
 // 对齐目标(RN 共享屏): packages/app/src/features/agent-detail/AgentDetailScreen.tsx
@@ -508,7 +509,7 @@ export default function AgentDetailPage() {
               <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
-              <Text className="text-[length:32rpx] text-foreground leading-[44rpx]">
+              <Text className="text-title text-foreground leading-[44rpx]">
                 {agent.prologue}
               </Text>
             </View>
@@ -534,7 +535,7 @@ export default function AgentDetailPage() {
                       <Text className="text-[length:24rpx] text-muted-foreground font-medium mr-[12rpx]">
                         A:
                       </Text>
-                      <Text className="flex-1 text-[length:32rpx] text-muted-foreground leading-[40rpx]">
+                      <Text className="flex-1 text-title text-muted-foreground leading-[40rpx]">
                         {dialog.a}
                       </Text>
                     </View>
@@ -548,7 +549,7 @@ export default function AgentDetailPage() {
               <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
-              <Text className="text-[length:32rpx] text-foreground leading-[44rpx]">
+              <Text className="text-title text-foreground leading-[44rpx]">
                 {agent.systemPrompt}
               </Text>
             </View>
@@ -560,13 +561,13 @@ export default function AgentDetailPage() {
           {agent && (
             <View className="mx-[20rpx] my-[24rpx] flex gap-[24rpx]">
               <Button
-                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-[length:32rpx] font-semibold rounded-sm h-[100rpx] leading-[100rpx]"
+                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-title font-semibold rounded-sm h-[100rpx] leading-[100rpx]"
                 onClick={onChat}
               >
                 {t('ai.agentDetail.startChat')}
               </Button>
               <Button
-                className={`px-[40rpx] text-[length:28rpx] rounded-sm h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
+                className={`px-[40rpx] text-body rounded-sm h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
                 onClick={onToggleFavorite}
               >
                 {favorited ? t('ai.agentDetail.favorited') : t('ai.agentDetail.favoriteAgent')}

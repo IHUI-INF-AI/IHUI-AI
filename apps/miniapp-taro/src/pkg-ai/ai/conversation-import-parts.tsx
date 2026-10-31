@@ -138,7 +138,7 @@ export function ImportPreviewList({
       })}
 
       <Button
-        className="mt-[12rpx] h-[88rpx] leading-[88rpx] bg-primary text-[length:28rpx] rounded-sm"
+        className="mt-[12rpx] h-[88rpx] leading-[88rpx] bg-primary text-body rounded-sm"
         disabled={selected.length === 0 || committing}
         onClick={onCommit}
       >

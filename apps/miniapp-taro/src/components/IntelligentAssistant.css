@@ -19,7 +19,7 @@
 
 .ia-robot {
   /* 装饰字面量:小程序行内矢量墨迹 64rpx 与 RN 位图装饰是不同媒介(见 spec 头注 waivers) */
-  margin-right: 20rpx;
+  margin-right: var(--spacing-sm-loose);
   flex-shrink: 0;
   line-height: 1;
 }

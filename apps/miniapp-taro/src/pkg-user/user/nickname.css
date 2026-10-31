@@ -17,8 +17,8 @@
   box-sizing: border-box;
 }
 .nick-card {
-  margin-bottom: 24rpx;
-  padding: 24rpx;
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-lg);
 }
@@ -43,7 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .nick-count {
   font-size: 20rpx;
@@ -65,26 +65,26 @@
   color: var(--color-text-tertiary);
 }
 .nick-random {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   display: flex;
   justify-content: flex-end;
 }
 .nick-random-text {
-  padding: 12rpx 24rpx;
+  padding: var(--spacing-xs-loose) 24rpx;
   font-size: 28rpx;
   color: var(--color-primary);
   background: var(--color-muted);
   border-radius: var(--radius-xl);
 }
 .nick-rules {
-  margin-bottom: 24rpx;
-  padding: 24rpx;
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-xl);
 }
 .nick-rules-title {
   display: block;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   font-size: 28rpx;
   font-weight: 600;
   color: var(--color-muted-foreground);
@@ -96,7 +96,7 @@
   color: var(--color-text-tertiary);
 }
 .nick-submit {
-  margin: 8rpx 0 0;
+  margin: var(--spacing-xs) 0 0;
   width: 100%;
   height: 100rpx;
   line-height: 100rpx;

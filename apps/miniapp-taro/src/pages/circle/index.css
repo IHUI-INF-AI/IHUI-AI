@@ -21,9 +21,9 @@
 /* ===== 顶部分类 Tab(对齐 RN tabRow:px 24 / py 16 / gap 16 / bg card;非吸底) ===== */
 .ci-tabs {
   display: flex;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
   background: var(--color-card);
-  padding: 16rpx 24rpx;
+  padding: var(--spacing-sm) 24rpx;
 }
 
 /* 对齐 RN tab:flex 1 / h 64 / 圆角 20 / bg surface.muted;active bg brand.DEFAULT */
@@ -61,8 +61,8 @@
 .ci-hottopic-list {
   display: inline-flex;
   align-items: center;
-  padding: 20rpx 24rpx;
-  gap: 16rpx;
+  padding: var(--spacing-sm-loose) 24rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 对齐 RN topicChip:gap 6 / px 24 / h 64 / bg surface.card(圆角按角色档 chip→md) */
@@ -110,7 +110,7 @@
   display: inline-flex;
   align-items: stretch;
   padding: 0 24rpx 20rpx;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 对齐 RN userCard:w 220 / p 20 / radius 16 / bg surface.card / gap 8(无边框) */
@@ -119,11 +119,11 @@
   flex-direction: column;
   align-items: center;
   width: 220rpx;
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   flex-shrink: 0;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 /* 对齐 RN userAvatar:96×96 / radius 48(圆) / bg surface.muted */
@@ -162,8 +162,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 8rpx;
-  padding: 8rpx 28rpx;
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) 28rpx;
   background: var(--color-brand);
   border-radius: var(--radius-xl);
 }
@@ -189,17 +189,17 @@
   padding: 0 24rpx 24rpx;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 对齐 RN card:gap 12 / p 24 / radius 16 / bg surface.card(无边框) */
 .ci-item {
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
+  padding: var(--spacing-md);
 }
 
 /* 对齐 RN cardPressed:opacity 0.85 */
@@ -210,7 +210,7 @@
 .ci-item-head {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 对齐 RN avatar:56×56 / radius 28(圆) / bg surface.muted */
@@ -263,7 +263,7 @@
 /* 对齐 RN imgRow:gap 12 */
 .ci-images {
   display: flex;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 /* 对齐 RN img:200×200 / radius 12 / bg surface.muted */
@@ -290,14 +290,14 @@
 /* 对齐 RN actions:gap 32 */
 .ci-item-actions {
   display: flex;
-  gap: 32rpx;
+  gap: var(--spacing-lg);
 }
 
 /* 对齐 RN stat:row / center / gap 8 */
 .ci-item-action {
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 /* 对齐 RN statNum:12dp→24rpx / text.tertiary */
@@ -312,7 +312,7 @@
   flex-direction: column;
   align-items: center;
   padding: 120rpx 0;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 对齐 RN Inbox 40dp→80rpx / color text.tertiary */
@@ -330,7 +330,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16rpx 40rpx;
+  padding: var(--spacing-sm) 40rpx;
   background: var(--color-brand);
   border-radius: var(--radius-sm);
 }
@@ -348,7 +348,7 @@
   flex-direction: column;
   align-items: center;
   padding: 120rpx 0;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 对齐 RN errorText:13dp→26rpx / danger.DEFAULT→--color-danger */
@@ -369,7 +369,7 @@
   text-align: center;
   font-size: 26rpx;
   color: var(--color-text-tertiary);
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
 }
 
 /* ===== 悬浮发布按钮(对齐 RN fab:right 48 / bottom 64 / 104×104 / radius 52 / bg brand,无阴影) ===== */

@@ -12,7 +12,7 @@
   padding-bottom: 160rpx;
 }
 .page-header {
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
 }
 .page-title {
@@ -21,7 +21,7 @@
   color: var(--color-foreground);
 }
 .page-content {
-  padding: 24rpx;
+  padding: var(--spacing-md);
 }
 .loading-text {
   display: block;
@@ -39,7 +39,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
   padding: 160rpx 0;
 }
 .empty-icon {
@@ -48,7 +48,7 @@
 /* 重试按钮(RN retryBtn:白卡底 + 灰字 + 32rpx 圆角) */
 .btn {
   display: inline-block;
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   padding: 28rpx 80rpx;
   background: var(--color-card);
   color: var(--color-muted-foreground);
@@ -65,9 +65,9 @@
 .cart-item {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  padding: 24rpx;
-  margin-bottom: 24rpx;
+  gap: var(--spacing-sm-loose);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-lg);
 }
@@ -144,7 +144,7 @@
 .quantity-control {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
   align-self: flex-start;
 }
 .quantity-btn {
@@ -178,8 +178,8 @@
   right: 0;
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  padding: 20rpx 24rpx 40rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm-loose) 24rpx 40rpx;
   background: var(--color-card);
   z-index: 100;
 }
@@ -193,7 +193,7 @@
   flex-direction: row;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .total-label {
   font-size: 26rpx;

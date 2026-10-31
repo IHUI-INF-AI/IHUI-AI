@@ -145,7 +145,7 @@ export default function NewsDetailPage() {
               </View>
             </View>
             {/* 正文:直接铺在页面底色上(RN content 无卡片) */}
-            <View className="text-[length:32rpx] text-[color:var(--color-text-medium)] leading-[44rpx]">
+            <View className="text-title text-[color:var(--color-text-medium)] leading-[44rpx]">
               <RichText nodes={news.content} />
             </View>
           </View>
@@ -171,7 +171,7 @@ export default function NewsDetailPage() {
                     />
                   ) : null}
                   <View className="flex-1 flex flex-col justify-between py-[2rpx] min-w-0">
-                    <Text className="text-[length:28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
+                    <Text className="text-body text-foreground font-semibold leading-[1.4] line-clamp-2">
                       {r.title}
                     </Text>
                     <View className="flex gap-[16rpx] mt-[12rpx]">

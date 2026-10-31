@@ -23,8 +23,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 32rpx 0;
-  gap: 16rpx;
+  padding: var(--spacing-lg) 0;
+  gap: var(--spacing-sm);
 }
 .avatar-avatar-wrap {
   position: relative;
@@ -85,7 +85,7 @@
 .avatar-actions {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 .avatar-btn {
   width: 100%;
@@ -116,7 +116,7 @@
 
 /* ===== 提示文案(RN avatarTip: 22rpx text.tertiary) ===== */
 .avatar-hint {
-  margin-top: 32rpx;
+  margin-top: var(--spacing-lg);
   text-align: center;
 }
 .avatar-hint-line {
@@ -146,7 +146,7 @@
   background: var(--color-black-60);
 }
 .avatar-loading-text {
-  padding: 24rpx 48rpx;
+  padding: var(--spacing-md) 48rpx;
   background: var(--color-card);
   border-radius: var(--radius-xl);
   font-size: 28rpx;

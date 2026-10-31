@@ -19,7 +19,7 @@
 
 .bfc-card {
   margin: 0 16rpx;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   border: 1rpx solid var(--color-border-medium);
   border-radius: var(--radius-lg);
   background: var(--color-card);
@@ -27,19 +27,19 @@
 
 .bfc-kind {
   display: block;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   font-size: 24rpx;
   font-weight: 500;
   color: var(--color-muted-foreground);
 }
 
 .bfc-field {
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 .bfc-label {
   display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-text-tertiary);
 }
@@ -47,7 +47,7 @@
 .bfc-input {
   width: 100%;
   min-height: 72rpx;
-  padding: 8rpx 24rpx;
+  padding: var(--spacing-xs) 24rpx;
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-background);
@@ -62,7 +62,7 @@
 
 .bfc-error {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-danger);
 }
@@ -72,12 +72,12 @@
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8rpx;
-  margin-bottom: 16rpx;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
 }
 
 .bfc-attendee {
-  padding: 4rpx 12rpx;
+  padding: var(--spacing-2xs) 12rpx;
   border-radius: var(--radius-sm);
   background: var(--color-muted);
   font-size: 24rpx;
@@ -85,21 +85,21 @@
 }
 
 .bfc-fold-btn {
-  padding: 4rpx 12rpx;
+  padding: var(--spacing-2xs) 12rpx;
   border-radius: var(--radius-sm);
   font-size: 24rpx;
   color: var(--color-text-tertiary);
 }
 
 .bfc-reason {
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 .bfc-actions {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .bfc-approve,
@@ -109,8 +109,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
-  padding: 8rpx 0;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) 0;
   border-radius: var(--radius-md);
   font-size: 28rpx;
 }
@@ -132,7 +132,7 @@
 
 .bfc-status {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
