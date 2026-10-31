@@ -11,12 +11,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import resolve_request_role_id
 from ..services.prompt_registry import prompt_registry
 
-router = APIRouter()
+# 安全强化(2026-11-01):整族端点收归管理员。
+# prompt_registry 是**进程级全局单例**,被所有用户的 agent 执行链消费
+# (agent_orchestrator 取 system prompt)。原先 7 枚端点没有任何角色闸 —— 任何登录
+# 用户 PUT /api/prompts/<name> 即可改写全平台 system prompt(提示注入即数据外泄),
+# GET .../content 又把内部提示词回读给普通账号。判据角色只经
+# resolve_request_role_id 这一份出口(缺失/非整数/负数一律归 0 ⇒ 天然拒绝)。
+# 现读:全仓(TS/TSX/PY)对 /api/prompts 的调用方为 0 枚,收权不砍任何在用链路。
+def _require_prompt_admin(request: Request) -> None:
+    if resolve_request_role_id(request) < 1:
+        raise HTTPException(status_code=403, detail="Prompt 注册表仅限管理员访问")
+
+
+router = APIRouter(dependencies=[Depends(_require_prompt_admin)])
 
 
 # ---------------------------------------------------------------------------
