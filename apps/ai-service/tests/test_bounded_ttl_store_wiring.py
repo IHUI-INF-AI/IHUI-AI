@@ -64,6 +64,38 @@ def test_sliding_ttl_keeps_active_entry_and_drops_abandoned_one() -> None:
     assert store.expired_swept >= 1
 
 
+def test_freshness_cache_does_not_extend_life_on_read() -> None:
+    """`slide_on_read=False`:TTL 是"内容还能用多久"的硬期限,读它不该把它续成永生。"""
+    now = [0.0]
+    store = BoundedTtlDict(max_keys=5, ttl_seconds=100, slide_on_read=False, clock=lambda: now[0])
+    store.set("k", "v")
+    now[0] = 60
+    assert store.get("k") == "v"
+    now[0] = 130
+    assert store.get("k") is None, "滑动续期不该作用在新鲜度缓存上"
+    assert "k" not in store, "`in` 必须与'还在不在'同义,过期要报不在"
+
+
+def test_default_clock_is_late_bound_so_ttl_tests_can_advance_time() -> None:
+    """默认时钟晚绑定:既有 TTL 用例靠 monkeypatch `time.time` 推进时间线。
+
+    若默认值在 import 时就抓住函数对象(`clock=time.time`),那条时间线对本类完全无效,
+    "过期即失效"这一维在测试里根本测不到 —— 本仓吃过这类"测不到的判据"多次。
+    """
+    import time as _time
+
+    store = BoundedTtlDict(max_keys=5, ttl_seconds=10)
+    real = _time.time
+    try:
+        _time.time = lambda: real() + 9999  # type: ignore[method-assign]
+        store.set("k", "v")
+        assert store.get("k") == "v"  # 写入时刻已被推到 +9999
+        _time.time = lambda: real() + 9999 + 11  # type: ignore[method-assign]
+        assert store.get("k") is None, "晚绑定失效:默认时钟没在跟随 time.time"
+    finally:
+        _time.time = real  # type: ignore[method-assign]
+
+
 def test_ttl_zero_is_explicitly_no_expiry() -> None:
     assert is_expired(0.0, 0, 10**9) is False
     assert is_expired(0.0, 1, 2.0) is True
