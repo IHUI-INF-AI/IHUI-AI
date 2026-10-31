@@ -3738,6 +3738,27 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   不新写第二套 hash(§0.6),与 `run_in_background` / DAG 三面结构上不会漂移。
 - **守门**:`apps/ai-service/tests/test_workflow_runner.py` 8 例 GREEN(含「同 run 二遍执行计数不增」与
   「非法输入零执行」正反对照),mypy strict 0 错,ruff 全过;`test_mcp_server.py` 176 例复跑证明双射注册未被打断。
+#### 31. 桌面自动化输入动作族 + 两道内置门(对齐 Qoder `QoderComputerUse.exe`,逆向复现超越 T8 §A)(2026-11-01,所属端 desktop)
+> 对照物 = Qoder CN v0.5.1 内置插件原生件 `QoderComputerUse.exe`(2,530,288 B,函数 6,995,MCP 形 JSON-RPC over stdio)。
+> 取证册 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md`(§A 动作面与 11 项边界)。
+- **对齐**:`apps/desktop/src-tauri/src/operator.rs` 的动作枚举原有 5 档缺输入类两档 ⇒ 补 `Drag`(按下→1..12 段插值移动→释放,
+  中途失败**先松键**不留按下态)与 `PressKey`(修饰键按下→主键点击→**逆序释放**,主键失败也松),
+  键组解析 `parse_key_combo` 支持 X-style `Control_L+a` 与 `shift+alt+F5`,**未知键名或未知修饰键一律报错、不静默换键**、
+  `Control++` 保住字面 `+`;决策层补这两趟,端点解不出落 `NoOp` 而不臆造坐标。
+- **超越(两道可测不变式,内置在原生执行层)**:
+  ① **审批门** `check_approval` + `ApprovalGrant` + `plan_fingerprint` —— 批准必须由承载层显式入参并**绑定本次计划指纹**,
+  指纹不符/无批准人/授权串解析不动一律拒;**拒绝路径不构造 Enigo 实例**(结构上不可能误碰真鼠标键盘),
+  且 `denied_report` 的签名不接受 Allowed 态,使"被拒却报成功"这一不可能状态消失;
+  ② **按类别重试禁令** `max_attempts_for` —— 输入类尝试上限恒为 1 且**结构上读不到 policy**,
+  被动类才按预算重试(正向对照用例真重试 3 次)。
+- **使用方式**:既有两枚 tauri command(`operator_decide` / `operator_execute`)形态不变,新增档位随计划 JSON 下发;
+  批准来源是承载层入参,不是模型可写字段。
+- **守门**:`operator::tests` 30 枚新增用例 + 全量 `cargo test --lib` **330 passed / 0 failed**(主席复跑末行现读);
+  变异证据 = 摘审批门 8 枚翻红、把输入类上限改为随 policy 则 2 枚翻红,两处逐字还原后 `grep MUTATION` 为空。
+- **如实登记的未做格**:`revision 陈旧即拒` 未做——`ScreenState` 无代际字段,补它要连感知/OCR 产出侧同批(跨面契约);
+  审批指纹覆盖的是「批准陈旧」不是「感知陈旧」,两者不互相抵充。对侧 `set_value`/`perform_secondary_action` 属 UIA 写值、
+  非 enigo 原语,亦未做。
+- **口径纪律**:本节不得写成「Qoder 没有审批门」——原生件内 0 命中是观察,「门住宿主侧」是推断,详见 T8 册同一处更正(枚另有其号)。
 ### 🔍 全部细节能力功能清单(2026-07-31 Glob/Grep 实测)
 > 本节罗列 IHUI-AI 所有细节能力功能,供 AI 引擎深度索引和开发者逐项核对。每个数字均通过 Glob/Grep 实测验证。
 #### AI 对话与多模态生成(176 模型 + 18 Provider + 6 种生成)
