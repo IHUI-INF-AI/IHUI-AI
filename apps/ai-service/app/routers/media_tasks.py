@@ -200,13 +200,19 @@ async def media_upload(
             raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
         import httpx
 
+        # 2026-10-31 安全强化第 14 批:本端点此前只有首跳校验 + follow_redirects=True,
+        # 是"302 到内网即整条 SSRF"的同型漏网(代理三端点已于第 10 批修过)。改走同文件
+        # 的手动逐跳辅助,判据单源;错误文案不带上游原文(URL/内网主机名不进响应体)。
         try:
-            async with httpx.AsyncClient(timeout=60, follow_redirects=True) as _c:
-                _r = await _c.get(url or "")
+            async with httpx.AsyncClient(timeout=60, follow_redirects=False) as _c:
+                _r = await _send_following_redirects(_c, url or "")
                 _r.raise_for_status()
                 data = _r.content
+        except HTTPException:
+            raise
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=f"拉取远程文件失败: {e}") from e
+            logger.warning("[media] 远程文件拉取失败: %s", e)
+            raise HTTPException(status_code=502, detail="拉取远程文件失败") from e
         if len(data) > 50 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="远程文件超过 50MB 上限")
         filename = (url or "").rsplit("/", 1)[-1][:200] or "file.bin"

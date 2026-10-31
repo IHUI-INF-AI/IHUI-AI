@@ -43,6 +43,10 @@ def _make_app():
 
     app = FastAPI()
     app.include_router(dag_module.router, prefix="/api")
+    # 2026-10-31 安全强化第 14 批:DAG 面已收为管理员专属(_require_admin 依赖)。
+    # 本文件测的是 DAG 调度语义,不是鉴权面 —— 用 FastAPI 的依赖覆写把闸替换成放行,
+    # 鉴权面由 tests/test_security_batch14_dag_admin.py 单独钉死(含非 admin 403)。
+    app.dependency_overrides[dag_module._require_admin] = lambda: None
     return app
 
 

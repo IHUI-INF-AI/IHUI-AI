@@ -2101,15 +2101,34 @@ class SessionStore:
         return self._row_to_relay(row)
 
     def list_relay_summaries(
-        self, *, limit: int = 50, offset: int = 0
+        self, *, limit: int = 50, offset: int = 0, owner_user_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """跨 thread 列出接力摘要(created_at 倒序)。"""
+        """跨 thread 列出接力摘要(created_at 倒序)。
+
+        2026-10-31 安全强化第 14 批:此前无属主参数 ⇒ `/relay/summaries` 一次列出**全站**
+        摘要(里面是对话目标/已完成步骤/关键决定)。属主只在 `threads.metadata.userId`,
+        所以过滤必须走 SQL 的 `json_extract`(与 `list_threads(owner_user_id=…)` 同一条
+        判据形态),不能在响应侧筛 —— 那样分页与计数出自两批行。
+
+        `owner_user_id=None` 保持历史全量语义(未鉴权/dev 通道无从对账);
+        带主体时**没有 userId 的历史行按排除**处理(与 list_threads 一致:不可凭空背书)。
+        """
+        args: list[Any] = []
+        if owner_user_id is None:
+            sql_text = (
+                "SELECT * FROM relay_summaries ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            )
+            args = [max(0, int(limit)), max(0, int(offset))]
+        else:
+            sql_text = (
+                "SELECT rs.* FROM relay_summaries rs"
+                " JOIN threads t ON t.thread_id = rs.thread_id"
+                " WHERE json_extract(t.metadata, '$.userId') = ?"
+                " ORDER BY rs.created_at DESC LIMIT ? OFFSET ?"
+            )
+            args = [owner_user_id, max(0, int(limit)), max(0, int(offset))]
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT * FROM relay_summaries ORDER BY created_at DESC"
-                " LIMIT ? OFFSET ?",
-                (max(0, int(limit)), max(0, int(offset))),
-            ).fetchall()
+            rows = self._conn.execute(sql_text, args).fetchall()
         return [self._row_to_relay(r) for r in rows]
 
     def _row_to_relay(self, row: sqlite3.Row) -> dict[str, Any]:

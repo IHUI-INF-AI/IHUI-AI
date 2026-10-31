@@ -310,7 +310,7 @@ def test_api_get_summary_404(store: SessionStore) -> None:
     from fastapi import HTTPException
 
     with pytest.raises(HTTPException) as exc:
-        api_get_relay_summary("ghost", store=store)
+        api_get_relay_summary("ghost", user_id="alice", store=store)
     assert exc.value.status_code == 404
 
 
@@ -322,10 +322,16 @@ def test_api_list_summaries_contract(store: SessionStore) -> None:
 
     # `/summaries` 跨线程整表列出这一格**本批刻意未收**:真过滤要 store 层加属主参数
     # (与 `list_threads(owner_user_id=…)` 同形),响应侧筛会让 total 与集合分叉 —— 台账 G-250 在账。
-    resp = api_list_relay_summaries(limit=10, offset=0, store=store)
+    # 2026-10-31 安全强化第 14 批已收口:store 层加 `owner_user_id`(SQL join threads 的
+    # metadata.userId),路由取身份并透传;直调路由函数时必须显式给身份。
+    resp = api_list_relay_summaries(limit=10, offset=0, user_id="alice", store=store)
     assert resp["code"] == 0
     assert resp["data"]["total"] == 1
     assert resp["data"]["summaries"][0]["thread_id"] == tid
+
+    # 属主不同 ⇒ 一条都看不到(同一份判据,不是响应侧筛)
+    other = api_list_relay_summaries(limit=10, offset=0, user_id="bob", store=store)
+    assert other["data"]["total"] == 0
 
 
 def test_api_continue_thread_injects_boundary(store: SessionStore) -> None:

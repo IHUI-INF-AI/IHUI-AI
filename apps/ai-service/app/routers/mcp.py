@@ -796,10 +796,26 @@ async def install_mcp_store_server(
         entry = get_entry(req.key)
         if entry is None:
             return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        # 2026-10-31 安全强化第 14 批:商店安装的 workspace_path 此前原样进 cfg ⇒ 任意登录
+        # 用户可把 filesystem 类 server 的根指向 C:\ 或 C:\Users\…,再经全局注册的
+        # read_text_file/edit_file 读写任意文件。判据复用同文件 /mcp/directory/register
+        # (第 382 行)那一份 deny-by-default 白名单,不造第二套。
+        store_workspace = req.workspace_path or "/path/to/workspace"
+        if req.workspace_path.strip():
+            from ..services import mcp_server as mcp_server_module
+
+            ok_root, root_detail = mcp_server_module._validate_path_in_workspace(
+                req.workspace_path, extra_roots=()
+            )
+            if not ok_root:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": f"工作目录不在允许范围内: {root_detail}"},
+                )
         cfg_dict = to_client_config(
             req.key,
             env_overrides=req.env or {},
-            workspace_path=req.workspace_path or "/path/to/workspace",
+            workspace_path=store_workspace,
         )
         if cfg_dict is None:
             return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
