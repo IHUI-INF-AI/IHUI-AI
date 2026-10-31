@@ -23,13 +23,18 @@ vi.hoisted(() => {
 })
 
 const { state, authCalls } = vi.hoisted(() => ({
-  state: { mode: 'enforce' as string | undefined },
+  state: { mode: 'enforce' as string | undefined, env: 'test' as string },
   authCalls: { n: 0 },
 }))
 
 vi.mock('../../config/index.js', () => ({
   get config() {
     return { AUTH_DEFAULT_DENY_MODE: state.mode }
+  },
+  // 2026-11-01:生产运行时"缺这枚键"必须武装(不再静默 off)。缺省 'test' 保住既有用例
+  // 的原语义(D4c 那条"测试里整对象替换 config ⇒ off")。
+  get runtimeEnv() {
+    return state.env
   },
 }))
 
@@ -59,8 +64,22 @@ describe('鉴权默认拒绝兜底闸', () => {
     // 插件必须在路由注册前挂上(onRoute 才能捕获每条路由)
     await app.register(authDefaultDenyPlugin)
     app.get('/api/secret', async () => ({ ok: true }))
+    // D7 专用:留痕用例要走"未被其他用例记过"的键(节流键含 tag+方法+路径,60s 一条)
+    app.get('/api/secret-d7', async () => ({ ok: true }))
     app.get('/api/health', async () => ({ ok: true }))
     app.get('/api/auth/login', async () => ({ ok: true }))
+    // 2026-11-01:三条按证据补入的公开面(见插件名单注释里的行号出处)
+    app.get('/api/configs', async () => ({ ok: true }))
+    app.get('/api/announcements', async () => ({ ok: true }))
+    app.get('/api/ai-education/teacher-certification', async () => ({ ok: true }))
+    // 2026-11-01:"凭据校验在 handler 内"的内部面。本用例只验**闸不抢跑**;
+    // 真拒否发生在 handler 的 secretsEqual/内部票校验上(那一条另有各自的用例,不在这里冒充)。
+    app.post('/api/ai/callback', async () => ({ ok: true }))
+    app.post('/api/internal/relay/account-pool/credential', async () => ({ ok: true }))
+    app.get('/api/memory', async () => ({ ok: true }))
+    app.get('/api/chat/ws/zhipu', async () => ({ ok: true }))
+    // 段边界反证:这条不在豁免清单里,不能被 `/api/memory` 顺带放过
+    app.get('/api/memoryXYZ', async () => ({ ok: true }))
     app.get(
       '/api/with-route-auth',
       {
@@ -160,6 +179,167 @@ describe('鉴权默认拒绝兜底闸', () => {
     expect(__test__.resolveAuthDefaultDenyMode()).toBe('off')
   })
 
+  // ── 2026-11-01 安全强化:生产运行时"什么都没写"不再是放行 ──────────────────
+  // 立因:线上那枚 `AUTH_DEFAULT_DENY_MODE=enforce` 只存在于不进仓的本地 `.env`
+  // (实测 D:\DevEnv\ihui-prod\apps\api\.env:10),而仓内 `.env.example` 从未登记它。
+  // 于是一次 `.env` 整体替换(2026-09-26 实测发生过)就把兜底闸静默降成 off。
+  // 这四格各自成对:缺省档只在生产翻转,显式声明一律优先。
+  it('D4d 生产 + 缺该键 ⇒ 武装(不再静默 off)', () => {
+    state.env = 'production'
+    state.mode = undefined
+    try {
+      expect(__test__.resolveAuthDefaultDenyMode()).toBe('enforce')
+    } finally {
+      state.env = 'test'
+    }
+  })
+
+  it('D4d-反证 开发/测试 + 缺该键 ⇒ 仍 off(不该误伤本地面)', () => {
+    for (const env of ['development', 'test']) {
+      state.env = env
+      state.mode = undefined
+      try {
+        expect(__test__.resolveAuthDefaultDenyMode()).toBe('off')
+      } finally {
+        state.env = 'test'
+      }
+    }
+  })
+
+  it('D4e 生产 + 显式 off / observe ⇒ 显式优先,缺省档不夺权', () => {
+    state.env = 'production'
+    try {
+      state.mode = 'off'
+      expect(__test__.resolveAuthDefaultDenyMode()).toBe('off')
+      state.mode = 'observe'
+      expect(__test__.resolveAuthDefaultDenyMode()).toBe('observe')
+      state.mode = 'enforce'
+      expect(__test__.resolveAuthDefaultDenyMode()).toBe('enforce')
+      // 乱值仍落 observe(灰度档),既不静默放行也不静默拦死
+      state.mode = 'Enforce-TYPO'
+      expect(__test__.resolveAuthDefaultDenyMode()).toBe('observe')
+    } finally {
+      state.env = 'test'
+      state.mode = 'enforce'
+    }
+  })
+
+  it('D4f 生产 + 缺键时,无凭据请求**真的**被 401(不是只有解析函数变了)', () => {
+    state.env = 'production'
+    state.mode = undefined
+    return app
+      .inject({ method: 'GET', url: '/api/secret' })
+      .then((res) => {
+        expect(res.statusCode).toBe(401)
+      })
+      .finally(() => {
+        state.env = 'test'
+        state.mode = 'enforce'
+      })
+  })
+
+  it('D4g 同一条在生产缺键时,带有效凭据仍必须放行(正向对照)', () => {
+    state.env = 'production'
+    state.mode = undefined
+    return app
+      .inject({ method: 'GET', url: '/api/secret', headers: { authorization: 'Bearer good' } })
+      .then((res) => {
+        expect(res.statusCode).toBe(200)
+      })
+      .finally(() => {
+        state.env = 'test'
+        state.mode = 'enforce'
+      })
+  })
+
+  // ── 2026-11-01 第二组:兜底闸不得抢在"handler 内自带凭据校验"的面之前判死 ──────
+  // 立因是实测:`POST /api/ai/callback`(ai-service→api 回环)在生产 enforce 下真返回
+  // statusCode 401 —— 闸只认 Authorization/cookie,而这条路由认 X-Internal-Secret,校验点在
+  // handler 里(routes/ai-callback.ts:251-262)。以下用例只验"闸放过去",不冒充"handler 会拒"。
+  it('D5 内部回调面匿名可达闸时,本闸不拦(判据单源:isSelfAuthenticatedRoute)', async () => {
+    state.env = 'production'
+    state.mode = 'enforce'
+    try {
+      for (const url of [
+        '/api/ai/callback',
+        '/api/internal/relay/account-pool/credential',
+        '/api/memory',
+        '/api/chat/ws/zhipu',
+      ]) {
+        const method = url === '/api/ai/callback' || url.includes('credential') ? 'POST' : 'GET'
+        const res = await app.inject({ method, url })
+        expect(res.statusCode, url).not.toBe(401)
+        expect(__test__.isSelfAuthenticatedRoute(url), url).toBe(true)
+      }
+    } finally {
+      state.env = 'test'
+    }
+  })
+
+  it('D5-反证 段边界:不在清单里的相近路径仍必须被拦(不许顺带放过)', async () => {
+    state.env = 'production'
+    state.mode = 'enforce'
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/memoryXYZ' })
+      expect(res.statusCode).toBe(401)
+      expect(__test__.isSelfAuthenticatedRoute('/api/memoryXYZ')).toBe(false)
+      // 反向半格:清单里的条目加一段后仍算(前缀形条目)
+      expect(__test__.isSelfAuthenticatedRoute('/api/internal/relay/account-pool/credential')).toBe(
+        true,
+      )
+      // 而"没带斜杠的等值条目"不得变成前缀
+      expect(__test__.isSelfAuthenticatedRoute('/api/ai/callbackXYZ')).toBe(false)
+    } finally {
+      state.env = 'test'
+    }
+  })
+
+  it('D6 三条按证据补入的公开面:匿名 200(此前在生产 enforce 下被误拦)', async () => {
+    state.env = 'production'
+    state.mode = 'enforce'
+    try {
+      for (const url of [
+        '/api/configs',
+        '/api/announcements',
+        '/api/ai-education/teacher-certification',
+      ]) {
+        const res = await app.inject({ method: 'GET', url })
+        expect(res.statusCode, url).toBe(200)
+      }
+    } finally {
+      state.env = 'test'
+    }
+  })
+
+  it('D7 留痕诚实性:真 401 才许写 enforce-401,认到凭据的那一条改写 credential-ok', async () => {
+    const { logger } = await import('../../utils/logger.js')
+    state.env = 'production'
+    state.mode = 'enforce'
+    try {
+      vi.mocked(logger.warn).mockClear()
+      await app.inject({ method: 'GET', url: '/api/secret-d7' })
+      const blockedEvents = vi
+        .mocked(logger.warn)
+        .mock.calls.map((c) => String((c[1] as { event?: string })?.event ?? ''))
+      expect(blockedEvents).toContain('auth_default_deny_enforce_401')
+      expect(blockedEvents).not.toContain('auth_default_deny_enforce_credential_ok')
+
+      vi.mocked(logger.warn).mockClear()
+      await app.inject({
+        method: 'GET',
+        url: '/api/secret-d7',
+        headers: { authorization: 'Bearer good' },
+      })
+      const okEvents = vi
+        .mocked(logger.warn)
+        .mock.calls.map((c) => String((c[1] as { event?: string })?.event ?? ''))
+      expect(okEvents).toContain('auth_default_deny_enforce_credential_ok')
+      expect(okEvents).not.toContain('auth_default_deny_enforce_401')
+    } finally {
+      state.env = 'test'
+    }
+  })
+
   it('OPTIONS 预检与 HEAD 永不因本闸 401', async () => {
     state.mode = 'enforce'
     const res = await app.inject({ method: 'OPTIONS', url: '/api/secret' })
@@ -192,6 +372,10 @@ describe('鉴权默认拒绝兜底闸', () => {
       '/api/analytics/track',
       '/api/visit-tracking/visit-log',
       '/api/knowledge/health',
+      // 2026-11-01 改判:routes/system.ts:178 注释自述"公开配置(无需鉴权)",handler 取
+      // findPublicConfigs() 并挂 withPublicEdgeCache(边缘缓存的公开载荷),全链零鉴权;
+      // plugins/tenant.ts:41 早已把它列为公开面。上一轮 33 条分类把它误放进 deny。
+      '/api/configs',
     ]
     for (const p of allow) expect(__test__.isAuthDefaultPublicPath(p), `应放行 ${p}`).toBe(true)
 
@@ -204,7 +388,7 @@ describe('鉴权默认拒绝兜底闸', () => {
       '/api/workspace/permission/requests',
       '/api/agent-control/capability',
       '/api/settings/contact',
-      '/api/configs',
+      // '/api/configs' 已于 2026-11-01 移到上面的 allow(证据见那条注释)
       '/api/knowledge/docs',
       '/api/knowledge/search',
     ]

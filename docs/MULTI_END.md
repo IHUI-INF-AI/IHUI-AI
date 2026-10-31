@@ -50,7 +50,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | CLI | `apps/cli/` | TS(commander + inquirer + ws) | 终端 | 24 源配置导入 + subagent 并行 + ACP 协议 + TUI |
 | Desktop | `apps/desktop/` | Tauri 2.1(Rust 薄壳,无前端工程) | 桌面 | 系统托盘 + 深链接 + 自动更新 + 文件系统;UI 由运行时直连的线上站点提供 |
 | Extension | `apps/extension/` | WXT 0.19 + React 19 | 浏览器 | 浏览器上下文菜单 + token 注入 + 页面增强 |
-| Mobile RN | `apps/mobile-rn/` | React Native 0.74.5 + Expo 51 + NativeWind | 8805 | 移动端 + SSO + 生物认证 + 推送 |
+| Mobile RN | `apps/mobile-rn/` | React Native 0.86.2 + Expo 57 + NativeWind | 8805 | 移动端 + SSO + 生物认证 + 推送 |
 | Miniapp Taro | `apps/miniapp-taro/` | Taro 4.2 + React 18 + Tailwind | 微信小程序 | 多端小程序(微信/支付宝/百度/字节/H5)+ 微信支付 |
 
 > 端口分配规则详见 [docs/port-management.md](./port-management.md),统一使用 `88xx` 段。
