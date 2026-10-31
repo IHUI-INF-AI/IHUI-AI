@@ -397,7 +397,7 @@ export default defineConfig(async (merge) => {
               // interface JWTPayload)。此处取 @ihui/shared 的 realpath 作第二包根,
               // 两根一并入列;主仓单仓时 realpath 即字面同值,Set 去重后逐字等价。
               include: (() => {
-                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types', 'app']
+                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types', 'app', 'ui-native']
                 const literalRoot = path.resolve(__dirname, '..', '..', '..', 'packages')
                 let realRoot = literalRoot
                 try {

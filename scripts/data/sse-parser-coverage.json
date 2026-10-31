@@ -13,6 +13,18 @@
     {
       "event": "tool-approval",
       "why": "工具批准需要「挂起等待 + 批准/拒绝卡 + 把回执发回服务端续跑」整条闭环,实测消费面只有 web:apps/web/src/components/ai/tool-approval-dialog.tsx(对话框)+ apps/web/src/components/chat/message-list/MessageList.tsx(挂载)+ packages/api-client/src/client.ts 的 onToolApproval 回调;apps/miniapp-taro/src 全面对 tool-approval / toolApproval **零命中**(无批准卡、无回执通道),小程序只解析帧会出现\"弹出了却无处可点\"的状态,比不显示更糟。与 question/form_request 同一判据口径。"
+    },
+    {
+      "event": "admission",
+      "why": "差距①(2026-10-30 立)发送准入回执帧:服务端生产判据 = 请求体必须带 inputId——apps/ai-service/app/routers/llm.py 的 inputId 字段声明现读原文「缺席 ⇒ 不发 admission 帧。在场 ⇒ 首个内容帧之前原样回显一帧准入回执」。全仓唯一上行 inputId 并做回执配对的端 = web:apps/web/src/hooks/use-chat/send-message.ts(createInputId + createSendAdmissionTracker 于 :151/:802 导入,onSendAdmissionReceipt 接线 :915)与 send-answer.ts:289;载荷形状权威 = packages/shared/src/chat/send-admission.ts。2026-10-31 现读 git grep -l inputId HEAD -- apps/miniapp-taro/src 仅 lib/__tests__/ui-action-registry.test.ts 一处无关局部变量(UI 元素 id)命中 ⇒ 小程序发送体不带 inputId,服务端结构上永远不会向本端发这一帧;sse-parse 补解析只会让 dispatch 收到一条永不触发的分支(「生产了但没人消费」的死码型)。与守门 90 的 groups.no-admission-receipt-chain 同判据、两条台账必须同批删。解阻判据:本端同批落三腿——① 发送经共享层 createInputId() 生成稳定输入 ID(重发同值,端内不造第二源);② 接 createSendAdmissionTracker 配对到本条发送;③ accepted/queued/rejected/duplicate 四档的发送回执呈现位 ×5 语言——三腿齐了才在 sse-parse 补解析并同批删本条与守门 90 对应条目。"
+    },
+    {
+      "event": "hook-failed",
+      "why": "G-87 hook 执行失败帧(D65):仓内唯一落桶与呈现面都在 web——apps/web/src/stores/chat.ts 的 meta.hookFailures(appendMessageHookFailure 写入、hookFailureRecordsFromMeta 读出)+ apps/web/src/components/chat/message-list/hook-failure-card.tsx(六态文案取自 hookFailureView,判定层 packages/shared/src/chat/hook-failures.ts)。小程序端消息 meta 没有该键、无六态卡渲染位(2026-10-31 现读 apps/miniapp-taro/src 对 hookFailure/hook-failed 零命中)⇒ sse-parse 补解析等于把数据收进一个没人读的内存键。与守门 90 的 groups.no-hook-failure-ui 同判据(该分组解阻判据:本端先有 hook 失败呈现位=六态文案 ×5 语言 + meta 落桶,再同批接解析与 dispatch;两条台账必须同批删,本项不得被读成「小程序已可用」)。"
+    },
+    {
+      "event": "review-finding",
+      "why": "D115/G-229 review 模式结构化结论帧:生产点唯一 = apps/ai-service/app/core/review_findings.py::build_review_finding_frames,且只在 chat_mode == \"review\" 时由 apps/ai-service/app/routers/llm.py 的 _with_review_findings 投影;小程序端无 review 会话入口——2026-10-31 现读 apps/miniapp-taro/src 对 ChatMode/review 模式轴零命中(发送体只有 plan_mode/model 两轴,且 plan_mode 无 review 取值调用方)⇒ 服务端结构上不会向本端下发该帧;sse-parse 补了也收不到。finding 分组卡仓内唯一渲染位 = apps/web/src/components/chat/message-list/review-findings-card.tsx(经 stream-handlers.ts::createReviewFindingHandler 收帧)。与守门 90 的 groups.no-review-finding-ui 同判据(两条台账必须同批删)。解阻判据:本端先有 review 模式入口与 finding 分组渲染位(严重度 P1/P2/Nit ×5 语言),再同批补 sse-parse 解析 + dispatch 接线。"
     }
   ]
 }

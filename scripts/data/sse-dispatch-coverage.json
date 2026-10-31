@@ -4,7 +4,7 @@
   "$commentFieldLevel": "字段级台账(b76-05 票1,守门 scripts/check-agent-event-parity.mjs [5/5] 读取)。fieldBaseline[事件名][键] = 该键'生产点写出、前端解析面不读'的豁免理由;键清单本身不写在这里 —— 由守门每次从生产侧(sse_contract.py 声明 / agents.py 与 apps/api/src/services 写出点)与解析侧(agent-events.ts parse*Event 读取点)现读,故本文件不可能与代码脱节。未登记的缺口 = 错误阻断。",
   "fieldBaseline": {},
   "baseline": {
-    "web": 41,
+    "web": 42,
     "extension": 23,
     "miniapp-taro": 30,
     "mobile-rn": 34,
@@ -37,7 +37,8 @@
 ,
     "no-hook-failure-ui": "G-87 hook 执行失败卡(D65,2026-09-24 判定层 `packages/shared/src/chat/hook-failures.ts` 落地)在仓内的**唯一落桶与呈现面都在 web**:`apps/web/src/stores/chat.ts` 的 `meta.hookFailures`(经 `appendMessageHookFailure` 写入、`hookFailureRecordsFromMeta` 读出)+ `apps/web/src/components/chat/message-list/hook-failure-card.tsx`(六态文案取自 `hookFailureView`)。本端消息 meta 没有该键,也没有六态卡渲染位 ⇒ 接帧等于把数据收进一个没人读的内存键(本台账禁止的\"生产了但没人看\")。**解阻判据**:本端先有 hook 失败呈现位(六态文案 ×5 语言 + meta 落桶),再把 `onHookFailure` 接进本端回调表、从本端 missing 删除该项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。",
     "no-review-finding-ui": "D115/G-229 review 模式结构化结论帧(`review-finding`),生产点唯一:`apps/ai-service/app/core/review_findings.py::build_review_finding_frames`,且只在 `chat_mode == \"review\"` 时由 `apps/ai-service/app/routers/llm.py:6407` 的 `_with_review_findings` 投影 —— 本端今天**没有 review 模式的会话入口**(不向服务端下发 `mode=review`),服务端结构上不会把该帧发给本端;端内也没有 finding 分组卡片(web 侧唯一实现在 `apps/web/src/components/chat/message-list/review-findings-card.tsx`,经 `stream-handlers.ts::createReviewFindingHandler` 收帧)。**解阻判据**:本端先有 review 模式入口与 finding 分组渲染位(严重度 ×5 语言),再接 `onReviewFinding`、从本端 missing 删除该项并把该端 baseline 上调。",
-    "no-frame-watermark-diagnostics": "b76-15 帧水位事实**不是服务端下行帧**:它是 api-client 在流终止时对**本地** seq 追踪器的投影 —— `packages/api-client/src/client.ts::emitFrameWatermarkFacts` 首行 `if (!opts.onFrameWatermarkFacts) return`,未注册即不发射,不存在\"帧被静默丢弃\"(与 onRecoveryGateLedger 同型)。该票 2026-10-29 的消费面裁决只落在 web(`apps/web/src/hooks/use-chat/stream-error-report.ts::reportFrameWatermarkFacts`:console 诊断行 + 失败轮并入既有错误上报体,刻意不上屏),本端既未参与该裁决,也没有与 web 同形的诊断出口 —— 本端 logger 是通用应用日志,把内部协议计数塞进去须先定检索键与级别口径,否则就是第二套诊断文案。**解阻判据**:本端确需帧水位读数时,接进本端**既有**日志或上报通道(不新建通道)、从本端 missing 删除该项并把该端 baseline 上调;接入前本项不得被读成\"该端已接\"。"
+    "no-frame-watermark-diagnostics": "b76-15 帧水位事实**不是服务端下行帧**:它是 api-client 在流终止时对**本地** seq 追踪器的投影 —— `packages/api-client/src/client.ts::emitFrameWatermarkFacts` 首行 `if (!opts.onFrameWatermarkFacts) return`,未注册即不发射,不存在\"帧被静默丢弃\"(与 onRecoveryGateLedger 同型)。该票 2026-10-29 的消费面裁决只落在 web(`apps/web/src/hooks/use-chat/stream-error-report.ts::reportFrameWatermarkFacts`:console 诊断行 + 失败轮并入既有错误上报体,刻意不上屏),本端既未参与该裁决,也没有与 web 同形的诊断出口 —— 本端 logger 是通用应用日志,把内部协议计数塞进去须先定检索键与级别口径,否则就是第二套诊断文案。**解阻判据**:本端确需帧水位读数时,接进本端**既有**日志或上报通道(不新建通道)、从本端 missing 删除该项并把该端 baseline 上调;接入前本项不得被读成\"该端已接\"。",
+    "no-admission-receipt-chain": "差距①(2026-10-30 立,web 腿落枚 `f224aeef9bb`「feat(chat): 差距修复七票合车补全」)的发送准入回执帧 `admission`:`onSendAdmissionReceipt` 消费的是「服务端对**这一条发送**的准入判定」(disposition 四档 accepted/queued/rejected/duplicate,形状权威 = `packages/shared/src/chat/send-admission.ts`),它是发送侧配对帧、不是内容增量帧。服务端生产判据 = **请求体带 `inputId`**:`apps/ai-service/app/routers/llm.py` 的 `inputId` 字段声明现读原文「缺席 ⇒ 不发 admission 帧。在场 ⇒ 首个内容帧之前原样回显一帧准入回执」。全仓唯一把这条链跑通的端 = web:`apps/web/src/hooks/use-chat/send-message.ts`(`createInputId` + `createSendAdmissionTracker` 于 :151 导入、:802 建 tracker、:915 接 `onSendAdmissionReceipt` → `admission.accept(receipt).changed` 则 flush)与 `send-answer.ts:289` 同形。本端四腿现读为凭(2026-10-31):`git grep -l inputId HEAD -- apps/extension apps/mobile-rn packages/app apps/cli` = 0 文件;`git grep -l inputId HEAD -- apps/miniapp-taro/src` 仅命中 `lib/__tests__/ui-action-registry.test.ts`(UI 元素 id 的局部变量名,与发送体无关)⇒ 本端发送体不带 inputId,服务端**结构上永远不会向本端发出这一帧**,接回调 = 一条永不触发的分支(与 no-stream-alert-producer 同型:缺的是生产者侧配对,不是控件)。本端同时没有发送回执呈现位(消息级 ack 徽章 / 队列位 / 拒收理由行)。**解阻判据**:同批落三腿 —— ① 发送经共享层 `createInputId()` 生成稳定输入 ID(重发同值,端内不造第二源);② 接 `createSendAdmissionTracker` 把回执配对到本条发送(web 形态为唯一样板,`packages/shared/src/chat/send-admission.ts` 出口,禁止端内复制判据);③ 四档处置的呈现位 ×5 语言 —— 然后从本端 missing 删除本项并上调该端 baseline;只接 callback 而回执落进没人读的内存键 = 本分组要防的复发形态。与守门 63 台账 `webOnly.admission` 同判据,两条登记必须同批删除。"
   },
   "missing": {
     "web": {
@@ -64,6 +65,7 @@
       "onFrameWatermarkFacts": "no-frame-watermark-diagnostics",
       "onHookFailure": "no-hook-failure-ui",
       "onReviewFinding": "no-review-finding-ui",
+      "onSendAdmissionReceipt": "no-admission-receipt-chain(本端确有 streamChat 回调表 —— `apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx:779` 现读在位,缺的不是挂点而是上行 `inputId` 与回执配对/呈现三腿)",
       "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
     },
     "miniapp-taro": {
