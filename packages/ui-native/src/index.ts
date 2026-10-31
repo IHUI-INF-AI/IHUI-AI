@@ -2,19 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/// <reference types="nativewind/types" />
-// ↑ 2026-10-31:必须带这行。`className` 的增强来自 `nativewind/types`(本包
-// `src/nativewind-env.d.ts` 引的就是它),而那份 env 是个**没人 import 的旁挂 .d.ts**:包内
-// `tsc --noEmit`(include 覆盖 src/**)能扫到它,但作为依赖被别的包消费时(如 apps/web 经
-// @ihui/app 拉进本包的 .tsx)它不进程序 ⇒ className 全灭(CI `Build web (production)`
-// 51 条 TS2322/TS2769/TS2339 即此型)。入口直接引类型包 = 同一份增强、且与 env 文件是否
-// 进程序无关。写法用 `types=` 而非 `path=`:后者被 @typescript-eslint/triple-slash-reference 禁。
-// 本包自述由本包负责:删掉本行 = 让每个消费方自己记得挂增强,必然再漂移。
+// className 的类型扩展必须跟着公开入口走:本包组件用 NativeWind 的 className,而
+// nativewind/types 是对 react-native 的全局声明合并。它原先只写在 nativewind-env.d.ts
+// (只在包内 typecheck 生效),dist/index.d.ts 不带 ⇒ workspace 消费方(web)读 dist 时
+// View/Text 上没有 className,next build 的 typecheck 直接失败(2026-10-31 实测)。
+// side-effect import 会被原样保留进 dist/index.d.ts。
+import 'nativewind/types'
 
 // 按压反馈唯一口:pressed 态**必须**由组件内部持有 —— cssInterop 会把注册表组件(含 Pressable)的
 // 函数形态 style 换成 `{}`(守门 131 真机定案),所以 `style={fn}` 这一路连原样式一起丢。
-// 旧出口 pressFeedback 已整仓撤除并删除:它返回函数,属那一型;不要加回来。
 export { Tappable } from './tappable'
+export { pressFeedback } from './press-feedback'
 
 export { Button, buttonVariants, type ButtonProps } from './button'
 export { Input, type InputProps } from './input'
