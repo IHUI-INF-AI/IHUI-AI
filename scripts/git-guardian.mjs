@@ -6650,8 +6650,16 @@ export function auditAppVersionLatest(opts = {}) {
     }
     if (parsed.state === 'undetermined') {
       // 未判定既不续命也不清零(§0.3):取不到输入既不是坏也不是好
+      // 〔Y-14b 裁决@2026-10-31:本档**刻意不升**为喊人,按 §5e-1 可整改性准入逐条判过——
+      //   ① undetermined 的残余成因(公网抖动/尺子超时/临时 DNS)收信人能做的只有"等窗口重跑",
+      //      而这已由本巡检 6h 节流自动做掉,再发信不改变任何动作;
+      //   ② 真正"公网腿自己断了"那型已有专哨(auditPublicPathProbe / check-tunnel-leg-health /
+      //      auditAasaPublicHealth),这里再推 = 同一故障双身份风暴(§5e-3);
+      //   ③ 本票实体整改面(android latest 行缺失)已从"等对账发现"前移为发布链当场拦截:
+      //      publish-mobile-apk.mjs 登记腿不落地即非零退出并点名唯一整改命令(Y-14 根因修复),
+      //      故 fail→发信 这腿维持原样作为兜底即可,升 undetermined 没有增量可整改面。〕
       const un = Array.isArray(parsed.undetermined) ? parsed.undetermined.length : 0
-      logger(`ℹ️ App 更新卡对账:未判定 ${un} 项 —— 不喊人(网络抖动不是缺陷)`)
+      logger(`ℹ️ App 更新卡对账:未判定 ${un} 项 —— 不喊人(网络抖动不是缺陷;裁决见上,§5e-1)`)
       return { ran: true, judged: false, undetermined: un }
     }
     clearUndeterminedStreak(firstFile)

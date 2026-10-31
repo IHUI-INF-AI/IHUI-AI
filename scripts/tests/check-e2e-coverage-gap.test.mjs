@@ -35,8 +35,12 @@ test('__test__ 键齐备(源搬家/改名即报错)', () => {
     'evaluateFace',
     'judgeExit',
     'todayIso',
+    'listQualifierTests',
   ]) {
     assert.ok(k in G, `缺导出 ${k}`)
+  }
+  for (const k of ['stemMatches', 'referencesModule', 'resolveImportSpecifier', 'importSpecifiersOf']) {
+    assert.ok(k in L, `判据层缺导出 ${k}`)
   }
 })
 
@@ -204,5 +208,75 @@ test('判据层④主收紧:子树内同名撞车(page.tsx 族)不得一份测�
     run([M('apps/web/app/a/page.tsx'), M('apps/web/app/b/page.tsx')], ['apps/web/app/a/__tests__/page.test.tsx']).gapCount,
     1,
   )
+})
+
+// ── 规则⑤(点限定词 + import 证据)2026-10-31 立:名字放宽必须带证据,负向必在场 ──────
+test('判据层⑤点限定词:同目录/收集目录均认,但必须真的 import 了该模块', () => {
+  const M = (p) => ({ path: p, text: 'export const a = 1\n' })
+  const run = (files, tests, testTexts) =>
+    L.findTestlessModules({ files, testFiles: tests, testTexts, roots: ['apps/web/src', 'apps/api/src'] })
+  const imp = (from) => `import { a } from '${from}'\n`
+  // 正:同目录限定式 + 相对 import
+  assert.equal(
+    run([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll.authority.test.ts'], [
+      { path: 'apps/web/src/a/scroll.authority.test.ts', text: imp('./scroll') },
+    ]).gapCount,
+    0,
+  )
+  // 正:收集目录限定式 + ESM 后缀式 import(api 族)
+  assert.equal(
+    run([M('apps/api/src/db/billing-queries.ts')], ['apps/api/tests/billing-queries.real.test.ts'], [
+      { path: 'apps/api/tests/billing-queries.real.test.ts', text: imp('../src/db/billing-queries.js') },
+    ]).gapCount,
+    0,
+  )
+  // 正:别名 @/ 也认
+  assert.equal(
+    run([M('apps/web/src/lib/x.ts')], ['apps/web/src/lib/x.db.test.ts'], [
+      { path: 'apps/web/src/lib/x.db.test.ts', text: imp('@/lib/x') },
+    ]).gapCount,
+    0,
+  )
+  // 反:没 import(复刻逻辑的测试)⇒ 仍缺口 —— tool-calls-section 那一型
+  assert.equal(
+    run([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll.authority.test.ts'], [
+      { path: 'apps/web/src/a/scroll.authority.test.ts', text: imp('@/lib/explore-tool-call') },
+    ]).gapCount,
+    1,
+  )
+  // 反:取不到正文 ⇒ 不认(§0.10 失效方向 = 多要一次说明)
+  assert.equal(run([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll.authority.test.ts'], []).gapCount, 1)
+  // 反:连字符不是限定词(admin-*.test.ts 冒充 admin.ts 的假绿型)
+  assert.equal(
+    run([M('apps/api/src/lib/x.ts')], ['apps/api/tests/x-extra.test.ts'], [
+      { path: 'apps/api/tests/x-extra.test.ts', text: imp('../src/lib/x') },
+    ]).gapCount,
+    1,
+  )
+  // 反:限定式不能绕过唯一性维(同名×2 时依旧双双落缺口)
+  assert.equal(
+    run(
+      [M('apps/api/src/lib/audit.ts'), M('apps/api/src/plugins/audit.ts')],
+      ['apps/api/tests/audit.real.test.ts'],
+      [{ path: 'apps/api/tests/audit.real.test.ts', text: imp('../src/lib/audit') }],
+    ).gapCount,
+    2,
+  )
+})
+
+test('判据层⑤证据工具:说明符解析与名字匹配的三态', () => {
+  assert.equal(L.stemMatches('x.real', 'x'), true)
+  assert.equal(L.stemMatches('x', 'x'), true)
+  assert.equal(L.stemMatches('x.', 'x'), false)
+  assert.equal(L.stemMatches('xy', 'x'), false)
+  assert.equal(L.stemMatches('x-extra', 'x'), false)
+  assert.equal(L.resolveImportSpecifier('apps/api/tests/a.real.test.ts', '../src/db/y.js'), 'apps/api/src/db/y.js')
+  assert.equal(L.resolveImportSpecifier('apps/web/src/a/x.test.ts', '@/lib/y'), 'apps/web/src/lib/y')
+  assert.equal(L.resolveImportSpecifier('apps/web/src/a/x.test.ts', 'react'), null)
+  assert.equal(
+    L.referencesModule("import x from './scroll'", 'apps/web/src/a/scroll.ts', 'apps/web/src/a/scroll.a.test.ts'),
+    true,
+  )
+  assert.equal(L.referencesModule('const a = 1', 'apps/web/src/a/scroll.ts', 'apps/web/src/a/scroll.a.test.ts'), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

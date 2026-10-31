@@ -28,10 +28,15 @@
  *
  * CLI:
  *   node scripts/e2e-autofill.mjs [--check] [--staged]        准入判定(默认)
- *   node scripts/e2e-autofill.mjs --propose [--staged]        机器可读缺口清单(JSON)
- *   node scripts/e2e-autofill.mjs --emit <spec> [--module <模块>] [--write] [--staged]
+ *   node scripts/e2e-autofill.mjs --propose [--staged] [--include-stock]  机器可读缺口清单(JSON)
+ *   node scripts/e2e-autofill.mjs --emit <spec> [--module <模块>] [--write] [--staged] [--include-stock]
  *                                                            生成骨架;默认 dry-run,不加 --write 不写盘
  *   node scripts/e2e-autofill.mjs --self-test                   内置断言
+ *
+ * `--include-stock`(2026-10-31 立):把**存量缺口**也纳入 `--propose` / `--emit` 的候选池。
+ * 为什么需要:准入口(`--check`)只拦新增,而存量清偿(把门 250 从 warn 推到 blocking 的唯一前置)
+ * 恰恰要按清单逐个补测 —— 没有这面旗,器物对自己的存量结构上无能为力。默认仍只服务新增,
+ * 存量必须**显式点名**,失效方向是"多要一次说明"(§0.10)。
  *
  * 退出码:0 绿/成功 / 1 有新增缺口 / 2 未判定或拒绝执行(缺输入、目标已存在、参数自相矛盾)。
  */
@@ -375,7 +380,7 @@ export function writeSkeleton(root, specRel, text) {
 }
 
 export function parseArgs(argv = []) {
-  const out = { mode: 'check', face: 'head', spec: null, module: null, write: false, error: null }
+  const out = { mode: 'check', face: 'head', spec: null, module: null, write: false, includeStock: false, error: null }
   const modes = new Set()
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -388,6 +393,7 @@ export function parseArgs(argv = []) {
       out.error = '--worktree 不受支持:判据只取 HEAD blob 或索引 blob,不读滞后工作树'
       return out
     } else if (arg === '--write') out.write = true
+    else if (arg === '--include-stock') out.includeStock = true
     else if (arg === '--emit') {
       const value = argv[i + 1]
       if (!value || value.startsWith('-')) {
@@ -426,6 +432,10 @@ export function parseArgs(argv = []) {
     out.error = '--module 只与 --emit 同用'
     return out
   }
+  if (out.includeStock && out.mode !== 'emit' && out.mode !== 'propose') {
+    out.error = '--include-stock 只与 --propose / --emit 同用(准入判定 --check 永远只拦新增)'
+    return out
+  }
   return out
 }
 
@@ -446,8 +456,8 @@ e2e-autofill.mjs — E2E/集成测试缺口自动补测器
 
 用法:
   node scripts/e2e-autofill.mjs [--check] [--staged]          准入判定(默认)
-  node scripts/e2e-autofill.mjs --propose [--staged]          缺口清单(JSON,机器可读)
-  node scripts/e2e-autofill.mjs --emit <spec> [--module <m>] [--write] [--staged]
+  node scripts/e2e-autofill.mjs --propose [--staged] [--include-stock]  缺口清单(JSON,机器可读)
+  node scripts/e2e-autofill.mjs --emit <spec> [--module <m>] [--write] [--staged] [--include-stock]
                                                              生成骨架;默认 dry-run
   node scripts/e2e-autofill.mjs --self-test                   内置断言
   node scripts/e2e-autofill.mjs --help
@@ -515,6 +525,8 @@ export async function main(argv = process.argv.slice(2)) {
 
   const result = diffGaps({ faceModules, baseModules, faceTests, baseTests, map })
   const scope = `${faceLabel}(对比 ${baseLabel}) 受审模块 ${faceModules.length} 枚 / 测试文件 ${indexTests(faceTests, map).length} 份`
+  // 候选池:默认只有新增(准入档);--include-stock 才把存量并进来(存量清偿档)。
+  const gapPool = args.includeStock ? [...result.newGaps, ...result.stockGaps] : result.newGaps
 
   if (args.mode === 'propose') {
     console.log(
@@ -523,16 +535,18 @@ export async function main(argv = process.argv.slice(2)) {
           tool: 'e2e-autofill',
           face: args.face,
           base: baseLabel,
+          includeStock: args.includeStock,
           auditedModules: faceModules.length,
           testFiles: indexTests(faceTests, map).length,
           newGapCount: result.newGaps.length,
           stockGapCount: result.stockGaps.length,
-          gaps: result.newGaps.map((g) => ({
+          gaps: gapPool.map((g) => ({
             module: g.module,
             kind: g.kind,
             framework: g.framework,
             spec: g.spec,
             caseName: g.caseName,
+            isNew: g.isNew,
           })),
         },
         null,
@@ -546,7 +560,7 @@ export async function main(argv = process.argv.slice(2)) {
     const picked = selectEmitTarget({
       specRel: args.spec,
       moduleRel: args.module,
-      gaps: result.newGaps,
+      gaps: gapPool,
     })
     if (!picked.ok) {
       console.error(`[e2e-autofill] ⏭ 拒绝执行:${picked.reason}`)
@@ -768,6 +782,11 @@ export function selfTest() {
     check('S10 模式互斥', Boolean(parseArgs(['--check', '--propose']).error))
     check('S10 --worktree 不受支持', Boolean(parseArgs(['--worktree']).error))
     check('S10 --write 必须配 --emit', Boolean(parseArgs(['--write']).error))
+    check('S10 --include-stock 只与 propose/emit 同用', Boolean(parseArgs(['--include-stock']).error))
+    check(
+      'S10 --include-stock 与 emit 可组合',
+      parseArgs(['--emit', 'apps/web/e2e/x.spec.ts', '--include-stock']).includeStock === true,
+    )
     check('S10 未知参数', Boolean(parseArgs(['--nope']).error))
 
     check(
