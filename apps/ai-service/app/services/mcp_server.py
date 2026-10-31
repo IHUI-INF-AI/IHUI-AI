@@ -12480,6 +12480,98 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== 工作簿 agent 面(goal-b45 F 席,2026-11-02 立)=====
+    # 对标 Qoder 内置 xlsx-sidecar.exe 的 14 枚命令里 open/read_range/writeCells/save/close
+    # 那一族(取证 T8-sidecar-native-surface.md §B);**只取五枚最小集**,不照抄 14 条凑数。
+    # 身份不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权);
+    # 与 _TOOL_HANDLERS 里四枚 workbook_* 同批双射,漏一侧即 test_tools_count_matches_registry 红。
+    # 不入 _ADMIN_ONLY_TOOLS:归属判据在 api 侧逐请求现问(句柄绑主体 + 文件绑 ownerId),
+    # 对话链 user_role=0 也能安全用 —— 与 edu_* 同一档处置(入名单即断链,见 2026-09-08 先例)。
+    MCPTool(
+        name="workbook_open",
+        description=(
+            "打开 api 侧**已存在**的工作簿(xlsx/xlsm),返回会话句柄、工作表清单与公式读数。"
+            "只按 file_id 开已登记的本人文件:非本人、不存在、不是工作簿 ⇒ 显式错误码且零副作用。"
+            "句柄绑定调用主体,别人的句柄一律拒。身份只认承载层注入,不接受模型自报。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "file_id": {
+                    "type": "string",
+                    "description": "已登记工作簿的文件 id(必填;必须是当前主体可访问的文件)",
+                },
+            },
+            "required": ["file_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="workbook_read_range",
+        description=(
+            "按 A1 形态区域读工作簿单元格。**公式格不回值**:只回公式原文与 state=formula-uncomputed "
+            "(本仓无计算引擎,缓存值可能已陈旧 —— 宁可明说未判定,也不给一个可能是错的数字);"
+            "合并从格同样不回主格的值。普通数值/文本/日期格正常回值。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string", "description": "workbook_open 返回的会话句柄(必填)"},
+                "sheet": {"type": "string", "description": "工作表名(必填,须是 open 返回清单里的名字)"},
+                "range": {
+                    "type": "string",
+                    "description": "A1 形态区域,如 A1:C20 或单格 B7(必填)",
+                },
+            },
+            "required": ["handle", "sheet", "range"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="workbook_write_cells",
+        description=(
+            "写单元格并**非破坏式落新档**:保存只写一份新工作簿,原档一字节不动(返回 savedFileId)。"
+            "两条边界:① 目标格本身是公式 ⇒ 整批拒写(WORKBOOK_FORMULA_OVERWRITE,不把公式换成静态值,"
+            "不做部分写);② 本次改动波及公式 ⇒ 结果带 recalcUnsupported=true 并点名到格,"
+            "因为本仓不重算公式(对照件带原生计算引擎,这一格我们刻意不做)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string", "description": "workbook_open 返回的会话句柄(必填)"},
+                "sheet": {"type": "string", "description": "工作表名(必填)"},
+                "cells": {
+                    "type": "array",
+                    "description": (
+                        "待写格子数组(必填,1-500 项),每项 {address, value};"
+                        "value 只接受 string|number|boolean|null;地址与合法性由 api 侧单源判"
+                    ),
+                    "items": {"type": "object"},
+                },
+                "name": {
+                    "type": "string",
+                    "description": "新档展示名(可选;缺省沿用原档名),不影响原档",
+                },
+            },
+            "required": ["handle", "sheet", "cells"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="workbook_close",
+        description=(
+            "释放工作簿会话句柄。关闭之后同一句柄再使用一律判「未判定」(WORKBOOK_HANDLE_UNDETERMINED)"
+            "—— 不猜它当时改了啥;没保存的改动即失效,要续作必须重新 workbook_open。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string", "description": "待释放的会话句柄(必填)"},
+            },
+            "required": ["handle"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -12864,6 +12956,75 @@ async def _tool_edu_reject_refund(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+# ---------------------------------------------------------------------------
+# 工作簿 agent 面(workbook_* 2026-11-02 立,goal-b45 F 席)
+# 对标 Qoder 内置 xlsx-sidecar.exe 的 open / read_range / writeCells / save 那一格
+# (取证 docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md §B)。
+# 判据(归属 / 公式 / 形状)全部住在 apps/api src/services/workbook-service.ts —— 下面四枚
+# handler 只做薄壳,零复算(§0.6)。身份只认宿主注入的 __user_id,并先过 resolve_caller
+# 把开发降级身份归一成"无身份"(ROUTING_IDENTITY_KEYS 纪律:模型自报即越权);
+# 拿不到主体 ⇒ 一次请求都不发。
+# 与对照件分道的两格:① 保存**只落新档**,绝不原地覆盖用户原档;② **不做公式重算**,
+# 因此公式单元格一律不回缓存值 —— 失效方向是"明说未重算",不是"悄悄给个旧数"(§0.3)。
+# ---------------------------------------------------------------------------
+
+
+async def _tool_workbook_open(args: dict[str, Any]) -> dict[str, Any]:
+    """workbook_open:打开 api 侧**已存在**的工作簿,返回会话句柄 + 结构读数。"""
+    from .workbook_agent import workbook_agent
+    from .workflow_engine import resolve_caller
+
+    out = await workbook_agent.open_workbook(
+        file_id=str(args.get("file_id") or ""),
+        user_id=resolve_caller(args.get("__user_id")),
+    )
+    return {"tool": "workbook_open", **out}
+
+
+async def _tool_workbook_read_range(args: dict[str, Any]) -> dict[str, Any]:
+    """workbook_read_range:按 A1 区域回格;公式格只回公式原文 + formula-uncomputed。"""
+    from .workbook_agent import workbook_agent
+    from .workflow_engine import resolve_caller
+
+    out = await workbook_agent.read_range(
+        handle=str(args.get("handle") or ""),
+        sheet=str(args.get("sheet") or ""),
+        cell_range=str(args.get("range") or ""),
+        user_id=resolve_caller(args.get("__user_id")),
+    )
+    return {"tool": "workbook_read_range", **out}
+
+
+async def _tool_workbook_write_cells(args: dict[str, Any]) -> dict[str, Any]:
+    """workbook_write_cells:写单元格并**非破坏式落新档**(原档一字节不动)。"""
+    from .workbook_agent import workbook_agent
+    from .workflow_engine import resolve_caller
+
+    # cells 原样透传(2026-11-02 N 席修):原先 `... if isinstance(cells, list) else []`
+    # 把"模型给了个对象"折成空数组,客户端只能报"cells 不能为空"—— 结论换了个型,
+    # 该改的方向也被带偏。形状判据单源在 apps/api,本层连"是不是数组"都不该替它判死。
+    out = await workbook_agent.write_cells(
+        handle=str(args.get("handle") or ""),
+        sheet=str(args.get("sheet") or ""),
+        cells=args.get("cells"),
+        user_id=resolve_caller(args.get("__user_id")),
+        name=str(args.get("name") or "") or None,
+    )
+    return {"tool": "workbook_write_cells", **out}
+
+
+async def _tool_workbook_close(args: dict[str, Any]) -> dict[str, Any]:
+    """workbook_close:释放会话(之后该句柄一律判「未判定」,不猜它当时改了啥)。"""
+    from .workbook_agent import workbook_agent
+    from .workflow_engine import resolve_caller
+
+    out = await workbook_agent.close_workbook(
+        handle=str(args.get("handle") or ""),
+        user_id=resolve_caller(args.get("__user_id")),
+    )
+    return {"tool": "workbook_close", **out}
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
@@ -13014,6 +13175,12 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "advisor_consult": _tool_advisor_consult,
     # 工作流续跑(G-逆向对齐,2026-11-02 立;与上方 _TOOLS 声明同批双射)
     "run_workflow": _tool_run_workflow,
+    # 工作簿 agent 面(goal-b45 F 席,2026-11-02 立;与上方四枚 _TOOLS 声明同批双射,
+    # 漏一枚即 test_tools_count_matches_registry 红。判据全在 apps/api,这里只是薄壳)
+    "workbook_open": _tool_workbook_open,
+    "workbook_read_range": _tool_workbook_read_range,
+    "workbook_write_cells": _tool_workbook_write_cells,
+    "workbook_close": _tool_workbook_close,
 }
 
 
