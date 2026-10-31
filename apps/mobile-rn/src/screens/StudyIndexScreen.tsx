@@ -869,12 +869,12 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   gridCoverTitle: {
     flex: 1,
-    fontSize: 9,
+    fontSize: rnType.badge.size,
     fontWeight: '700',
     color: tk.surface.light,
   } as TextStyle,
   gridCoverDate: {
-    fontSize: 9,
+    fontSize: rnType.badge.size,
     fontWeight: '700',
     color: tk.surface.light,
     marginLeft: rpx(8),
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     marginRight: rpx(4),
   } as ImageStyle,
   gridAuthor: {
-    fontSize: 9,
+    fontSize: rnType.caption.size,
     fontWeight: '700',
     color: tk.overlay.modal,
     flex: 1,

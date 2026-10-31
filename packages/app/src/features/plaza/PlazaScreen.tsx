@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
+import { scaleText } from '../../hooks/scaled-text'
 import {
   FlatList,
   Image,
@@ -203,11 +204,11 @@ export function PlazaScreen({
                 {desc}
               </Text>
             ) : null}
-            <Text style={styles.cardDate} allowFontScaling={false}>
+            <Text style={[styles.cardDate, scaleText(styles.cardDate)]} allowFontScaling={false}>
               {formatDateRange(createdAt, closingTime)}
             </Text>
             {cycle ? (
-              <Text style={styles.cardCycle} allowFontScaling={false}>
+              <Text style={[styles.cardCycle, scaleText(styles.cardCycle)]} allowFontScaling={false}>
                 {`周期时间:${cycle}${CYCLE_UNITS[cycleUnit ?? ''] ?? ''}`}
               </Text>
             ) : null}
@@ -227,7 +228,7 @@ export function PlazaScreen({
             </View>
             <View style={styles.cardFooter}>
               <Text
-                style={[styles.price, isCompleted ? styles.priceDone : null]}
+                style={[styles.price, isCompleted ? styles.priceDone : null, scaleText(styles.price)]}
                 allowFontScaling={false}
               >
                 <Text style={styles.priceUnit}>￥</Text>
@@ -250,18 +251,18 @@ export function PlazaScreen({
                 >
                   {({ pressed }) => (
                     <View style={[styles.chatBtn, pressed ? styles.chatBtnPressed : null]}>
-                      <Text style={styles.chatBtnText} allowFontScaling={false}>
+                      <Text style={[styles.chatBtnText, scaleText(styles.chatBtnText)]} allowFontScaling={false}>
                         聊一聊
                       </Text>
                     </View>
                   )}
                 </Pressable>
               ) : isCompleted ? (
-                <Text style={styles.statusDone} allowFontScaling={false}>
+                <Text style={[styles.statusDone, scaleText(styles.statusDone)]} allowFontScaling={false}>
                   项目已完成
                 </Text>
               ) : isDeveloping ? (
-                <Text style={styles.statusDev} allowFontScaling={false}>
+                <Text style={[styles.statusDev, scaleText(styles.statusDev)]} allowFontScaling={false}>
                   开发中...
                 </Text>
               ) : null}

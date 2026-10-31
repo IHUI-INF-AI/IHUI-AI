@@ -4,7 +4,7 @@
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -89,9 +89,10 @@ export function MemberSettingsScreen({
       <ScrollView contentContainerStyle={styles.body}>
         {renderGroup(t('memberSettings.notification'), 'notifications', NOTIF_KEYS, notifications)}
         {renderGroup(t('memberSettings.privacy'), 'privacy', PRIVACY_KEYS, privacy)}
-        <TouchableOpacity style={styles.hint} onPress={() => void 0} activeOpacity={1}>
+        {/* 静态说明文字:此前是一枚 onPress={() => void 0} 的 TouchableOpacity —— 按下去什么都不发生的可点外观就是假 affordance */}
+        <View style={styles.hint}>
           <Text style={styles.hintText}>{t('memberSettings.hint')}</Text>
-        </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   )

@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   newBadge: {
-    fontSize: 9,
+    fontSize: rnType.badge.size,
     color: tokens.surface.light,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: rnRadius.md,

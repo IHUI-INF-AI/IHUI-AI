@@ -224,11 +224,14 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
             </View>
           </View>
 
-          {/* 内容区(center + bottom slot 合并为 children) */}
+          {/* 内容区(center + bottom slot 合并为 children)。
+              keyboardShouldPersistTaps 是必须的:RN 默认 'never' ⇒ 键盘弹起后第一下点击只收键盘、
+              不触发按钮,而本层承载的是调用方传进来的 children(里面有没有输入框看不见),按构造就得让点透。 */}
           <ScrollView
             style={contentHeightStyle}
             contentContainerStyle={styles.contentInner}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {children}
           </ScrollView>

@@ -437,6 +437,8 @@ export type { TextFieldProps } from './components'
  */
 export { useWrapFocus, wrapFocusBorder, wrapFocusInk } from './hooks/use-wrap-focus'
 export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
+/** 文字按系统字号同比放大字号与行盒(配套 allowFontScaling={false} 用;机制与倍率唯一口都只这一份) */
+export { scaleText } from './hooks/scaled-text'
 
 /**
  * 回屏 / 回前台即重取 —— 共享层唯一实现(票 L30756),平台原语由 adapter 注入(§3 禁平台分支进共享层)。
@@ -449,6 +451,8 @@ export type { ScreenReappearAdapter } from './hooks/use-screen-reappear'
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
+/** 系统字号缩放唯一取数口:端内写了死 lineHeight 又要字号真的能放大,只能经它(上限 1.4 的来由见 MoreLink) */
+export { useFontMultiplier } from './components'
 
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'

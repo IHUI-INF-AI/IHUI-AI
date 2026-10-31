@@ -41,6 +41,7 @@ import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 // toast 上限按应用框架实际宽(430 壳)取(2026-10-15 修溢出):原用视口宽 586×0.8=450,
 // 超长文案时 toast 横跨出 #root 被裁右侧;原生无 #root 回退窗口宽行为不变(与 SearchOverlay 同轨)。
 import { useAppFrameWidth } from './Carousel'
+import { scaleText } from '@ihui/rn-app'
 
 export type FloatBoxType = 'success' | 'error' | 'warning' | 'info'
 
@@ -198,7 +199,11 @@ export function FloatBox({
     >
       <View style={styles.contentRow}>
         <Icon size={FLOAT_BOX_ICON_SIZE_PX} color={iconColor} />
-        <Text style={styles.message} numberOfLines={2} allowFontScaling={false}>
+        <Text
+          style={[styles.message, scaleText(styles.message)]}
+          numberOfLines={2}
+          allowFontScaling={false}
+        >
           {message}
         </Text>
       </View>
