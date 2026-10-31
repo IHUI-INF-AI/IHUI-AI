@@ -20,8 +20,10 @@ import { Queue, Worker } from 'bullmq'
 import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sweepAccountPool } from '../services/relay-account-pool-scheduler.js'
+import { describeQueueIsolation, relayAccountPoolQueueName } from '../services/relay-queue-name.js'
 import { registerAllRelayAdapters } from '../services/upstream-adapters/index.js'
 
+/** 队列**基础名**;真实队列名由 relay-queue-name 按库身份解析(隔离库加后缀) */
 export const RELAY_ACCOUNT_POOL_QUEUE_NAME = 'relay-account-pool-queue'
 
 /** 每 5 分钟巡检一次(token 寿命按天计,5 分钟窗口足够提前量) */
@@ -101,7 +103,12 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
     return {} as Worker
   }
 
-  const queue = new Queue(RELAY_ACCOUNT_POOL_QUEUE_NAME, { connection })
+  // 队列属于数据库:隔离库实例只能消费自己后缀的队列,否则会跨库抢作业
+  // (2026-10-24~10-31 事故:隔离栈继承主库 REDIS_URL,抢走主库 sweep 并在缺列库上全轮失败)
+  const queueName = relayAccountPoolQueueName()
+  server.log.info(describeQueueIsolation(), 'relay-account-pool queue resolved')
+
+  const queue = new Queue(queueName, { connection })
   server.addHook('onReady', async () => {
     try {
       await queue.upsertJobScheduler(
@@ -175,7 +182,7 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   })
 
   const worker = new Worker(
-    RELAY_ACCOUNT_POOL_QUEUE_NAME,
+    queueName,
     async (job) => {
       if (
         job.name === 'trae-session-sync' ||
@@ -246,7 +253,7 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
     }
   })
 
-  server.log.info({ queue: RELAY_ACCOUNT_POOL_QUEUE_NAME }, 'relay-account-pool worker started')
+  server.log.info({ queue: queueName }, 'relay-account-pool worker started')
 
   return worker
 }

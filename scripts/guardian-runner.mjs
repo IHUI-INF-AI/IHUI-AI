@@ -5860,6 +5860,50 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 换库未换队列隔离(增量)(1 项,warn)(2026-10-31 立)---
+  // 立因:`.ihui-agent/tmp/perf5` 的 e2e 隔离栈把 DATABASE_URL 换成 ihui_e2e,却继承同一个
+  // REDIS_URL;它起的 BullMQ worker 从主库 relay-account-pool-queue 抢走号池巡检,在缺列的
+  // 隔离库上执行 —— sweep 自 2026-10-24 起连续 7 天全败(失败队列 500 条打满),号池保活停摆。
+  // 档位:先 warn 观察。立门当轮实测 --all:3613 文件 / 9 个换库块 / 5 处命中,已同批清零
+  // (2 处补队列命名空间隔离,3 处按豁免档标理由:只连 PG 的迁移/守卫子进程、以及 env 传给
+  //  进程内函数未派生进程的一只只读对账尺)。清零后仍留一轮 warn,核掉假阴/假阳再议升 blocking。
+  {
+    // 编号 276:注册前已核本文件 `id: '276'` 为 0(现读最大 275);现值以本文件为准。
+    id: '276',
+    label:
+      '🔗 换库未换队列隔离(增量;env 覆盖里换了 DATABASE_URL 却没换 REDIS_URL/队列命名空间 ⇒ 隔离栈会抢主库队列,先 warn 观察)',
+    script: 'check-relay-queue-db-isolation.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_RELAY_QUEUE_DB_ISOLATION',
+    stagedTriggers: [
+      'scripts/',
+      'apps/api/scripts/',
+      'apps/api/src/workers/',
+      'apps/api/src/services/',
+      'apps/api/tests/',
+      'apps/web/e2e/',
+      '.github/workflows/',
+    ],
+    onFailHint: [
+      '',
+      '  💡 红的意思是:这段 env 覆盖把 DATABASE_URL 换成了别的库,却没有同时隔离 Redis / 队列命名空间。',
+      '     后果(2026-10-24 实测):该进程起的 BullMQ worker 会去消费主库同名的 relay-account-pool-queue,',
+      '     在隔离库上跑主库的作业 —— 号池巡检连挂 7 天,失败队列 500 条打满。',
+      '     修法(二选一,优先第一条):',
+      '       ① 同块补 REDIS_URL(换 db index 或另起实例);',
+      '       ② 同块补 RELAY_QUEUE_SUFFIX=<后缀>,队列名变成 relay-account-pool-queue-<后缀>(分隔符是连字符,BullMQ 禁队列名含冒号);',
+      '     确属不起 worker 的派生(迁移/守护/种子脚本),在块内写 // QUEUE_ISOLATION_EXEMPT: <理由>;',
+      '     确属只读用途,在块内写 READ_ONLY。三档豁免都会逐条打印 skip(reason),不会被静默吞。',
+      '     单独复验:node scripts/check-relay-queue-db-isolation.mjs --staged',
+      '     全量看量:node scripts/check-relay-queue-db-isolation.mjs --all',
+      '     自检:node scripts/check-relay-queue-db-isolation.mjs --self-test(17 例)',
+      '     镜像:node --test scripts/tests/check-relay-queue-db-isolation.test.mjs(13 例)',
+      '     紧急跳过:HUSKY_SKIP_RELAY_QUEUE_DB_ISOLATION=1 git commit ...(提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
   // --- .ps1 BOM(差值棘轮)(1 项,blocking)---
   {
     // 原登记 260,与 2026-10-29 新立的 check-prod-dep-advisories 撞号(门 89 R5:同 id 登记两道门
