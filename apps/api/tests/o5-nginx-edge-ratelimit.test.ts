@@ -35,6 +35,13 @@ const RATE_LIMIT = resolve(REPO_ROOT, 'deploy/nginx/conf.d/rate-limit.conf')
 const DOCKER_WEB = resolve(REPO_ROOT, 'deploy/docker/nginx.web.conf')
 /** 2026-09-28 新增:ai-service 对外能力面(站点壳 = http 级壳 + server 级白名单片段)。 */
 const AISVC_SHELL = resolve(REPO_ROOT, 'deploy/nginx/conf.d/public-ai-service.conf')
+/**
+ * 2026-10-31 安全强化第 10 批 R7 把 $waf_block 接进了蓝绿与 docker 两片配置。
+ * 这三条 map 与 docker 壳自含的同名变量落在**同一个 http 上下文**时,重名即
+ * `"x" is already used` ⇒ 整台 nginx 起不来 —— 所以 docker 侧一律带 docker_ 前缀。
+ * 本文件过去不解析这个文件,撞不撞名无人量;现并入判重面。
+ */
+const WAF = resolve(REPO_ROOT, 'deploy/nginx/conf.d/00-waf.conf')
 const AISVC_FRAGMENT = resolve(
   REPO_ROOT,
   'deploy/nginx/conf.d/public-ai-service.locations.fragment',
@@ -383,6 +390,7 @@ describe('O5 nginx 边缘限流静态自检(替代跑不了的 nginx -t)', () =>
   const dk = parseFile(DOCKER_WEB)
   const shell = parseFile(AISVC_SHELL)
   const frag = parseFile(AISVC_FRAGMENT)
+  const waf = parseFile(WAF)
 
   /** 代理到 ai-service 的 location(两种壳的上游标识不同,列在一处以免判据有第二份)。 */
   function aiServiceLocations(parsed: Parsed) {
@@ -519,7 +527,7 @@ describe('O5 nginx 边缘限流静态自检(替代跑不了的 nginx -t)', () =>
     expect(login).toContain('limit_req zone=login_zone')
   })
 
-  it('⑨ 各文件的 zone 名互不重复(同放一个 conf.d 会 duplicate 报错)', () => {
+  it('⑨ 各文件的 zone 名与 map 结果变量名互不重复(同放一个 conf.d 会 duplicate 报错)', () => {
     const all = [...rl.zones, ...dk.zones, ...shell.zones]
     expect(new Set(all).size, `重复的 zone:${all.join(',')}`).toBe(all.length)
     // docker 文件自带一套 docker_ 前缀 zone,不依赖 deploy/nginx/conf.d
@@ -527,21 +535,32 @@ describe('O5 nginx 边缘限流静态自检(替代跑不了的 nginx -t)', () =>
     for (const z of [...dk.used]) expect(z).toMatch(/^docker_/)
     // map 的**结果变量名**同样吃"同 http 上下文重名即启动失败"这条规则
     // (`"x" is already used`)—— 只盯 zone 会漏掉它,而它一旦撞名炸的是整台 nginx。
-    const siteMaps = [...shell.code.matchAll(/^\s*map\s+\S+\s+\$(\w+)\s*\{/gm)].map(
-      (m) => m[1] ?? '',
-    )
-    const mainMaps = [...rl.code.matchAll(/^\s*map\s+\S+\s+\$(\w+)\s*\{/gm)].map((m) => m[1] ?? '')
-    const dockerMaps = [...dk.code.matchAll(/^\s*map\s+\S+\s+\$(\w+)\s*\{/gm)].map(
-      (m) => m[1] ?? '',
-    )
+    const mapNames = (code: string) =>
+      [...code.matchAll(/^\s*map\s+\S+\s+\$(\w+)\s*\{/gm)].map((m) => m[1] ?? '')
+    const siteMaps = mapNames(shell.code)
+    const mainMaps = mapNames(rl.code)
+    const dockerMaps = mapNames(dk.code)
+    const wafMaps = mapNames(waf.code)
     expect(siteMaps, '站点壳应自带一条未带凭据流量的 map').toEqual(['aisvc_anon_key'])
     expect(
       mainMaps,
       '主站限流文件的 map 结果变量名不得漂走(gateway_anon_zone 的 key 就是它)',
     ).toEqual(['gateway_anon_key'])
-    expect(dockerMaps).toEqual(['docker_aisvc_anon_key'])
-    for (const v of dockerMaps) expect(v).toMatch(/^docker_/)
-    expect(new Set([...siteMaps, ...dockerMaps, ...mainMaps]).size).toBe(3)
+    // R7 起 docker 壳自含三条 WAF map(顺序 = 文件内出现序):名单逐字锁死,
+    // 改名 / 漏挂 / 新增未登记都要红,而不是"数一下个数"。
+    expect(dockerMaps, 'docker 壳的 map 清单').toEqual([
+      'docker_waf_path_traversal',
+      'docker_waf_bad_bot',
+      'docker_waf_block',
+      'docker_aisvc_anon_key',
+    ])
+    expect(wafMaps, 'conf.d/00-waf.conf 的三条 map 名不得漂走(蓝绿与 docker 都引用它们)').toEqual(
+      ['waf_path_traversal', 'waf_bad_bot', 'waf_block'],
+    )
+    for (const v of dockerMaps) expect(v, 'docker 壳必须带前缀,避免与站点片段撞名').toMatch(/^docker_/)
+    // 四份配置的 map 结果变量并入同一判重面(docker 壳与 conf.d/* 同落一个 http 上下文)
+    const allMaps = [...siteMaps, ...mainMaps, ...dockerMaps, ...wafMaps]
+    expect(new Set(allMaps).size, `重复的 map 结果变量名:${allMaps.join(',')}`).toBe(allMaps.length)
   })
 
   it('⑩ human-facing /api/ 与静态 location 也真的引用了 zone(不让 api_zone/static_zone 继续空转)', () => {

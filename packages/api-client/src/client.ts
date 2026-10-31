@@ -3587,6 +3587,8 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      // 行缓冲熔断上限(第 18 批 F6):正常 SSE 帧远小于该值
+      const MAX_SSE_LINE_BUFFER_BYTES = 1 * 1024 * 1024
       // 2026-08-15 修复(原 streamChat 读环注释,随环搬入):reader.read() 在 fetch 完成后
       // 无法被 AbortController 中断,若后端返回 200 但不发送数据,流会永久挂起。
       // 为读操作加超时保护,超时后 cancel 并抛错,由外层 catch 做重连判定。
@@ -3620,6 +3622,12 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
         const { done, value } = await readWithTimeout()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
+        // 2026-10-31 安全强化第 18 批(F6):行缓冲熔断 —— 读超时只覆盖"不发数据"
+        // 的挂起,不覆盖"持续发数据但永无换行"的畸形流,无上限的 buffer 可被打满。
+        // 超限即断流报错(正常 SSE 帧远小于该值;该信道被控本身即上游失守)。
+        if (buffer.length > MAX_SSE_LINE_BUFFER_BYTES) {
+          throw new Error('SSE line buffer overflow (malformed upstream stream)')
+        }
         let nl: number
         while ((nl = buffer.indexOf('\n')) !== -1) {
           const line = buffer.slice(0, nl)

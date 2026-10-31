@@ -355,7 +355,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     )
       return
     try {
-      const result = await fsBridge.run(body)
+      const result = await fsBridge.run({
+        ...body,
+        isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
+      })
       return reply.send(success(result))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1167,6 +1170,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         cwd: body.cwd,
         timeoutMs: body.timeoutMs,
         mode,
+        isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
       })
       return reply.send(success(result))
     } catch (e) {

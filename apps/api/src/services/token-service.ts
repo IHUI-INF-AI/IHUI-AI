@@ -69,11 +69,14 @@ export async function issueTokenPair(
 /**
  * 验证 access token：先验签，再查黑名单。
  * 黑名单未传入时跳过黑名单检查（fail-open，由调用方保证已鉴权）。
- * 黑名单传入时默认 fail-open(Redis 故障放行,因为 access token TTL 已 15min,风险可控)。
+ * 2026-10-31 安全强化第 18 批(F4):传入黑名单时改 fail-closed(blacklist.has 的
+ * failClosed 参数本就是为认证场景造的,注释明言"认证场景应传 true",主链路此前
+ * 却用默认 fail-open —— 半成品防护对齐)。Redis 故障 ⇒ 已吊销 token(登出/踢线/
+ * 重放吊销)在故障窗口内不再可用,代价是可用性短暂下降 —— 认证语义宁拒勿放。
  */
 export async function verifyToken(token: string, blacklist?: TokenBlacklist): Promise<JWTPayload> {
   const payload = await verifyAccessToken(token)
-  if (blacklist && (await blacklist.has(token))) {
+  if (blacklist && (await blacklist.has(token, true))) {
     throw new Error('Token 已被吊销')
   }
   return payload

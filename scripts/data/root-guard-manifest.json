@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-31T05:35:07.979Z",
+  "sealedAt": "2026-10-31T06:46:48.415Z",
   "sealedBy": "root-guard --seal",
-  "reason": "13:26 部署轮把 prod 签出对齐到最新后,其 guardian-runner 与清单绑定的 sha 不一致(清单漂移,工作区==HEAD 面,非规则越权);并发会话连续改动 guardian-runner 未同批重封导致部署环反复 fail-closed。按本器差面判读重新封存并同枚提交",
+  "reason": "本枚把 guardian-runner 里 275 的注册块撤下(改挂守护巡检档)⇒ 规则文件内容回到注册前形态,清单随之重封;这正是新尺子要求的「改规则必同批重封」,本枚自己遵守",
   "targets": [
     {
       "id": "guardian-runner",

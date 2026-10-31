@@ -30,6 +30,7 @@ import chalk from 'chalk';
 import { loadSettings, getSettingsPath, type Settings } from './settings.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { loginWithSso } from '../lib/sso.js';
+import { writePrivateFile } from '../lib/private-file.js';
 
 interface LoginResponse {
   accessToken: string;
@@ -124,7 +125,7 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   }
   existing.apiKey = accessToken;
   if (refreshToken) existing.refreshToken = refreshToken;
-  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
 }
 
 /**
@@ -140,7 +141,7 @@ function clearLocalToken(): void {
       const settings = parsed as Settings;
       settings.apiKey = undefined;
       settings.refreshToken = undefined;
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+      writePrivateFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
     }
   } catch {
     // 损坏文件忽略
