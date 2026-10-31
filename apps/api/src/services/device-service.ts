@@ -89,6 +89,7 @@ export async function registerDevice(input: {
   name: string
   os?: string | null
   capabilities?: DeviceCapabilities | null
+  fingerprint?: string | null
 }): Promise<Device> {
   const now = new Date()
   const rows = await db
@@ -98,6 +99,7 @@ export async function registerDevice(input: {
       name: input.name,
       os: input.os ?? null,
       capabilities: input.capabilities ?? null,
+      fingerprint: input.fingerprint ?? null,
       lastSeenAt: now,
     })
     .onConflictDoUpdate({
@@ -106,6 +108,9 @@ export async function registerDevice(input: {
         lastSeenAt: now,
         os: input.os ?? null,
         capabilities: input.capabilities ?? null,
+        // 指纹只在首次注册绑定:重复注册带不同指纹不改写绑定值(改写等于把
+        // "重放防偷渡"变成"重放后重绑"),必须先吊销再重新配对才能换绑。
+        fingerprint: sql`coalesce(${devices.fingerprint}, excluded.fingerprint)`,
         revokedAt: null,
       },
     })
@@ -133,7 +138,10 @@ export async function revokeDevice(userId: string, deviceId: string): Promise<De
   return rows[0] ?? null
 }
 
-/** 签发 6 位数字配对码(TTL 5 分钟、单次使用、每用户 10 次/小时) */
+/** 签发 8 位数字配对码(TTL 5 分钟、单次使用、每用户 10 次/小时)。
+ *  2026-10-31 对齐 Qoder 0.5.1(peerDevicePairingCodePlaceholder:"8 位数字",E1 逐字):
+ *  熵 10^6→10^8,TTL 内在线暴力枚举面收窄 100 倍。 */
+export const PAIR_CODE_DIGITS = 8
 export async function issuePairCode(userId: string): Promise<{ code: string; expiresAt: Date }> {
   const since = new Date(Date.now() - PAIR_CODE_RATE_WINDOW_MS)
   const recent = await db
@@ -143,7 +151,7 @@ export async function issuePairCode(userId: string): Promise<{ code: string; exp
   if (recent.length >= PAIR_CODE_RATE_LIMIT) {
     throw new AppError('配对码签发过于频繁,请稍后再试', 429, 'PAIR_CODE_RATE_LIMITED')
   }
-  const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
+  const code = String(randomInt(0, 100_000_000)).padStart(PAIR_CODE_DIGITS, '0')
   const rows = await db
     .insert(devicePairCodes)
     .values({
@@ -165,7 +173,12 @@ export async function exchangePairCode(input: {
   name?: string
   os?: string | null
   capabilities?: DeviceCapabilities | null
+  /** G1b:客户端自生成并持久存的执行体指纹(可选;给了就绑定,旧客户端不传零行为变化) */
+  fingerprint?: string | null
+  /** G1b:客户端应用版本(可选;DEVICE_MIN_CLIENT_VERSION 非空时参与兼容校验) */
+  clientVersion?: string | null
 }): Promise<{ deviceToken: string; device: Device }> {
+  assertDeviceVersionCompatible(input.clientVersion)
   const rows = await db
     .select()
     .from(devicePairCodes)
@@ -188,8 +201,56 @@ export async function exchangePairCode(input: {
     name: input.name ?? '已配对设备',
     os: input.os,
     capabilities: input.capabilities,
+    fingerprint: input.fingerprint,
   })
   return { deviceToken: signDeviceToken(device.id), device }
+}
+
+/**
+ * G1b 版本兼容闸(2026-10-31,对齐 Qoder 0.5.1 peerDeviceStateVersionIncompatible):
+ * env `DEVICE_MIN_CLIENT_VERSION`(如 "0.3.0")非空时,兑换请求的 clientVersion
+ * 必须不低于它;不兼容 409。env 缺省空 = 不启用(部署方逐级收紧,不改变默认行为)。
+ * 轻量比较:按 `.` 分段数值比,缺段补 0,不引 semver 依赖( prerelelease 后缀截断取数值段)。
+ */
+export function assertDeviceVersionCompatible(clientVersion: string | null | undefined): void {
+  const min = (config as { DEVICE_MIN_CLIENT_VERSION?: string }).DEVICE_MIN_CLIENT_VERSION?.trim()
+  if (!min) return
+  if (!clientVersion || !clientVersion.trim()) {
+    throw new AppError('客户端版本过旧,请升级后重试', 409, 'DEVICE_VERSION_INCOMPATIBLE')
+  }
+  const num = (v: string) => v.split('.').map((seg) => parseInt(seg, 10) || 0)
+  const a = num(clientVersion.trim())
+  const b = num(min)
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const av = a[i] ?? 0
+    const bv = b[i] ?? 0
+    if (av !== bv) {
+      if (av < bv) {
+        throw new AppError('客户端版本过旧,请升级后重试', 409, 'DEVICE_VERSION_INCOMPATIBLE')
+      }
+      return
+    }
+  }
+}
+
+/**
+ * G1b 指纹一致性闸(对齐 Qoder 0.5.1 peerDeviceStateFingerprintMismatch):
+ * 设备行绑定了指纹 ⇒ 每个设备请求必须携带同一 `X-Device-Fingerprint` 头;
+ * 未绑定的行(存量设备/未声明指纹的新客户端)跳过校验 —— 旧行为逐字节保持。
+ * 时序侧信道:字符串比较走 timingSafeEqual(定长 sha256 hex)。
+ */
+export function assertDeviceFingerprint(
+  device: Pick<Device, 'fingerprint'>,
+  headerValue: unknown,
+): void {
+  const bound = device.fingerprint
+  if (!bound) return
+  const presented = typeof headerValue === 'string' ? headerValue.trim() : ''
+  const a = createHash('sha256').update(presented).digest('hex')
+  const b = createHash('sha256').update(bound).digest('hex')
+  if (!timingSafeEqual(Buffer.from(a), Buffer.from(b))) {
+    throw new AppError('设备指纹不匹配,请重新配对', 403, 'DEVICE_FINGERPRINT_MISMATCH')
+  }
 }
 
 /** 心跳:刷新 last_seen_at,并回发续期后的设备令牌(在线设备令牌永不过期) */

@@ -62,6 +62,10 @@ MCP_TOOL_APPROVAL_ACCEPT_FOR_SESSION = "Allow for this session"
 MCP_TOOL_APPROVAL_ACCEPT_AND_REMEMBER = "Allow and don't ask me again"
 MCP_TOOL_APPROVAL_CANCEL = "Cancel"
 
+# tool.approval 事件里"选项真实可用性"的载荷键(可选附加键,老客户端忽略)。
+# 与 replay/expired 同纪律:只出现在事件帧上,不进 SSEEventContract 的必填清单。
+MCP_TOOL_APPROVAL_PROMPT_OPTIONS_PAYLOAD_KEY = "prompt_options"
+
 
 def requires_mcp_tool_approval(annotations: ToolAnnotations | None) -> bool:
     """auto 模式下的注解推断(逐行对应 requires_mcp_tool_approval)。"""
@@ -129,6 +133,13 @@ class McpToolApprovalPromptOptions:
             allow_session_remember=allow_session_remember,
             allow_persistent_approval=tool_call_elicitation_enabled and allow_persistent_approval,
         )
+
+    def to_event_payload(self) -> dict[str, bool]:
+        """投影成 tool.approval 事件载荷(只含真实可用性,不含任何推断)。"""
+        return {
+            "allow_session_remember": self.allow_session_remember,
+            "allow_persistent_approval": self.allow_persistent_approval,
+        }
 
 
 class McpToolApprovalCache:

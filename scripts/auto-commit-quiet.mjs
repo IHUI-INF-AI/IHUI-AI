@@ -87,7 +87,23 @@ export function partitionStaleCopies(paths, probes) {
   for (const p of paths) {
     const wt = probes.worktree(p)
     const head = probes.head(p)
-    if (!wt || !head || wt === head) {
+    if (!wt) {
+      kept.push(p)
+      continue
+    }
+    if (!head) {
+      // HEAD 无此文件:通常是真新文件(收编);但若历史上曾入库过,这就是**删除档死件回潮**
+      // (2026-10-31 实测:aboutPageSections.ts 被正当删除三次,本器第四次把它收编回 HEAD ——
+      // 旧判据在「HEAD blob 问不到」这一格 fail-open,恰好是回潮的通道)。证得到曾存在 ⇒ skip。
+      // 证不到(探针取不到/无 A 记录)⇒ 按真新文件放行(失效方向保持原收编行为,不猜)。
+      if (probes.everExisted?.(p)) {
+        skipped.push(p)
+        continue
+      }
+      kept.push(p)
+      continue
+    }
+    if (wt === head) {
       kept.push(p)
       continue
     }
@@ -116,10 +132,20 @@ function staleCopyProbes(p) {
       }
     },
     head: () => oid(`HEAD:${p}`),
+    everExisted: () => {
+      // 曾入库过 = 历史上有 A(add)记录;删除档死件判据的事实腿(不是猜测)。
+      try {
+        return git(['log', '--diff-filter=A', '-n', '1', '--format=%H', '--', p]).trim().length > 0
+      } catch {
+        return false
+      }
+    },
     ancestors: () => {
       let commits = []
       try {
-        commits = git(['log', '-n', '6', '--format=%H', '--', p])
+        // 窗口 6→40(2026-10-31):回潮-删除轮次多的路径(aboutPageSections 三删四回)在 6 枚
+        // 窗口里可能只见删除不见旧 blob,滞后判定漏网;40 覆盖同一路径的现实轮次。
+        commits = git(['log', '-n', '40', '--format=%H', '--', p])
           .trim()
           .split('\n')
           .filter(Boolean)
@@ -566,6 +592,22 @@ function main() {
     `候选 ${stale.length}/${changes.length} 个文件(${verb},阈值 ${QUIET_MIN} 分钟):${stale.slice(0, 8).join(', ')}${stale.length > 8 ? ' …' : ''}`,
   )
   if (DRY) return log('dry-run:不提交')
+
+  // 滞后副本/删除档死件守卫(2026-10-31 重新接线):判据与装车锁(T6)2026-10-29 就写好了,
+  // 但 main 里的接线被后续某次副本覆盖洗掉 —— 守卫整个悬空,aboutPageSections 第四次回潮
+  // (7a47524b07)即此通道,T6 一直红着没人修(教训:镜像测试红了必须有人读)。
+  //   ① 工作树 blob == 该路径任一祖先 blob ⇒ 滞后副本(旁路落地只推进 HEAD 不写工作树的残留);
+  //   ② HEAD 无此文件但 git log --diff-filter=A 证得到曾入库 ⇒ 删除档死件回潮(不再 fail-open)。
+  // 失效方向仍是「少收编一次」:skipped 留在工作树,交删除意图账 / 归属席位显式处置(§0.10)。
+  {
+    const { kept, skipped } = dropStaleCopies(stale, changes)
+    if (skipped.length) {
+      log(`跳过滞后副本(留在工作树,交删除意图账/归属席位显式处置):${skipped.join(', ')}`)
+      if (kept.length === 0) return
+      stale.length = 0
+      stale.push(...kept)
+    }
+  }
 
   syncReadmeNumbers(stale) // 先刷数字,再把真写盘的 README 纳入
   // 命令行长度上限(2026-10-24 实测):脏件到 620 个时,整批 pathspec 传给 safe-commit 会在

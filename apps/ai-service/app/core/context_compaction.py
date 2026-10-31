@@ -46,6 +46,13 @@
   且 `runtime_encoding_name()` 会返回 `p50k_base(fallback)` ⇒ 故障期不再静默分叉;
 - encode 失败 fallback 到 `len(text)//4`:同样改为 warning 可见(不再是 debug)。
 - 读数里带实际所用表:正常路径 `runtime_encoding_name()` = `cl100k_base`。
+
+【2026-10-31 增量:上下文压力五判据 + micro 档】
+- assess_context_pressure():只读五字段(percent_left + warning/error/auto_compact/blocking),
+  阈值阶梯只住本模块;compress_messages_if_needed 出口以**纯增量字段**附带,
+  既有六字段与压缩结果逐值不变。
+- micro_compact_messages():回收最近 N 轮之外的旧 tool 结果正文(占位替换、不删消息),
+  info 带 tools_kept / tools_removed,由调用方原样交给 compaction_metrics 既有事件维度。
 """
 
 from __future__ import annotations
@@ -62,6 +69,9 @@ from .tunables import (
     DEFAULT_MIN_MESSAGES,
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
+    RECLAIM_KEEP_RECENT_ROUNDS,
+    RECLAIM_MIN_RESULT_TOKENS,
+    RECLAIM_MIN_SAVED_TOKENS,
 )
 
 logger = logging.getLogger(__name__)
@@ -458,6 +468,70 @@ def _split_pair_groups(
     return groups
 
 
+# ==================== 上下文压力五判据(只读,2026-10-31 立) ====================
+# 对标外部 agent 运行时的 token budget 判据:percent_left + 四道阈值线。本段是
+# **唯一阈值阶梯**,不参与压缩决策(压缩触发仍走 compress_messages_if_needed 的
+# trigger_ratio),只把「当前上下文处于哪一档」如实报给调用方 / UI / 指标。
+# 阈值语义(percent_left = 窗口剩余百分比,0..100,超窗钳到 0):
+#   warning      : percent_left < 40  (已用 > 60%)
+#   error        : percent_left < 20  (已用 > 80%)
+#   auto_compact : 已用占比 > trigger_ratio(默认 0.88 ⇒ 剩余 < 12%)
+#   blocking     : 剩余 = 0(含超窗)
+# 判据用整数交叉相乘比较阈值(避免二进制浮点把"恰好踩线"翻转),
+# percent_left 只做展示舍入。
+CONTEXT_WARNING_PERCENT_LEFT = 40.0
+CONTEXT_ERROR_PERCENT_LEFT = 20.0
+CONTEXT_BLOCKING_PERCENT_LEFT = 0.0
+
+
+def assess_context_pressure(
+    used_tokens: int,
+    context_limit: int,
+    *,
+    trigger_ratio: float = DEFAULT_TRIGGER_RATIO,
+) -> dict[str, Any]:
+    """只读判据:当前上下文压力五字段(不改压缩决策、不抛异常)。
+
+    Args:
+        used_tokens: 当前上下文已占 token(负数按 0 处理)。
+        context_limit: 模型窗口 token;<= 0 表示**拿不到窗口信息** ⇒
+            percent_left=None(未判定),四个布尔一律 False —— 不拿 0 冒充
+            「窗口耗尽」,也不冒充「安全」。
+        trigger_ratio: auto-compact 触发占比(与 compress_messages_if_needed 同源,
+            默认 DEFAULT_TRIGGER_RATIO=0.88)。
+
+    Returns:
+        {percent_left, is_above_warning, is_above_error,
+         is_above_auto_compact, is_at_blocking}
+        percent_left 为 0..100 的剩余百分比(超窗钳到 0);其余为 bool。
+    """
+    if context_limit <= 0:
+        # 未判定:拿不到窗口大小就不猜。
+        return {
+            "percent_left": None,
+            "is_above_warning": False,
+            "is_above_error": False,
+            "is_above_auto_compact": False,
+            "is_at_blocking": False,
+        }
+    used = max(0, int(used_tokens))
+    limit = int(context_limit)
+    raw_percent_left = (1.0 - used / limit) * 100.0
+    percent_left = round(max(0.0, min(100.0, raw_percent_left)), 2)
+    # 阈值比较走整数交叉相乘(used*100 vs limit*阈值),避免 0.6/0.8 这类二进制
+    # 不可精确表示的值把"恰好踩线"翻转成越线(warning/error 阈值都是整百分比)。
+    warning_used_ceiling = limit * int(100 - CONTEXT_WARNING_PERCENT_LEFT)
+    error_used_ceiling = limit * int(100 - CONTEXT_ERROR_PERCENT_LEFT)
+    return {
+        "percent_left": percent_left,
+        "is_above_warning": used * 100 > warning_used_ceiling,
+        "is_above_error": used * 100 > error_used_ceiling,
+        "is_above_auto_compact": used / limit > trigger_ratio,
+        "is_at_blocking": used * 100
+        >= limit * int(100 - CONTEXT_BLOCKING_PERCENT_LEFT),
+    }
+
+
 def _truncate_fallback(
     system_msgs: list[dict[str, Any]],
     non_system: list[dict[str, Any]],
@@ -581,6 +655,7 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": 0,
             "trigger": "none",
+            **assess_context_pressure(0, context_limit, trigger_ratio=trigger_ratio),
         }
 
     original_tokens = estimate_messages_tokens(messages)
@@ -594,6 +669,9 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
+            **assess_context_pressure(
+                original_tokens, context_limit, trigger_ratio=trigger_ratio
+            ),
         }
 
     # 消息数过少不压缩(minMessages = 2,与 TS 共享包一致)
@@ -605,6 +683,9 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
+            **assess_context_pressure(
+                original_tokens, context_limit, trigger_ratio=trigger_ratio
+            ),
         }
 
     # 分割:首条 system + head(压缩) + tail(保留 keepRecent 条)
@@ -620,6 +701,9 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
+            **assess_context_pressure(
+                original_tokens, context_limit, trigger_ratio=trigger_ratio
+            ),
         }
 
     # 配对组保护:kr 切分点对齐组边界(不拆散 assistant(tool_calls) 与其 tool 结果)
@@ -643,6 +727,9 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
+            **assess_context_pressure(
+                original_tokens, context_limit, trigger_ratio=trigger_ratio
+            ),
         }
 
     tail = [msg for group in tail_groups for msg in group]
@@ -674,7 +761,16 @@ def compress_messages_if_needed(
             target_threshold=int(context_limit * target_ratio),
         )
         if fallback is not None:
-            return fallback
+            fallback_messages, fallback_info = fallback
+            # 截断降级返回的是改过的消息 ⇒ 判据按压缩后 tokens 报(出口状态,不是入口)
+            fallback_info.update(
+                assess_context_pressure(
+                    int(fallback_info.get("compressed_tokens") or 0),
+                    context_limit,
+                    trigger_ratio=trigger_ratio,
+                )
+            )
+            return fallback_messages, fallback_info
 
         # 第二级 incompressible:截断到最小长度仍超触发阈值
         # (典型场景:system prompt 本身巨大且 system 消息永不截断)
@@ -691,6 +787,9 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "incompressible",
+            **assess_context_pressure(
+                original_tokens, context_limit, trigger_ratio=trigger_ratio
+            ),
         }
 
     logger.info(
@@ -709,5 +808,100 @@ def compress_messages_if_needed(
         "removed_count": removed_count,
         "usage_ratio": original_tokens / context_limit,
         "trigger": "ratio",
+        **assess_context_pressure(
+            compressed_tokens, context_limit, trigger_ratio=trigger_ratio
+        ),
     }
+
+
+# ==================== micro-compaction(旧工具结果回收) ====================
+# 对标外部 agent 运行时的 micro 档压缩:不删消息、不动 tool_calls 配对结构,只把
+# 「最近 N 轮之外且足够长」的 tool 结果正文替换成占位符。阈值复用 tunables 的
+# RECLAIM_* 常量(跨端唯一真源),不再另立第二套数字。
+# 与 compress_messages_if_needed 的分工:micro 是廉价前置档(零摘要、零 LLM),
+# 本批总收益不足 min_saved_tokens 时整批不落(不白破前缀缓存)。
+MICRO_COMPACT_PLACEHOLDER = "[old tool result reclaimed]"
+
+
+def micro_compact_messages(
+    messages: list[dict[str, Any]],
+    *,
+    keep_recent_rounds: int = RECLAIM_KEEP_RECENT_ROUNDS,
+    min_result_tokens: int = RECLAIM_MIN_RESULT_TOKENS,
+    min_saved_tokens: int = RECLAIM_MIN_SAVED_TOKENS,
+    context_limit: int = 0,
+    trigger_ratio: float = DEFAULT_TRIGGER_RATIO,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """micro-compaction:回收旧 tool 结果正文(不修改传入对象,返回新列表)。
+
+    Args:
+        messages: OpenAI 格式消息列表。
+        keep_recent_rounds: 最近 N 个 assistant 轮内的 tool 结果不回收。
+        min_result_tokens: 单条 tool 结果低于该 token 数不值得回收。
+        min_saved_tokens: 本批总节省低于该值 ⇒ 整批不落(返回原列表)。
+        context_limit: 可选窗口大小;> 0 时 info 附五判据(按压缩后 tokens 报),
+            <= 0 时 percent_left=None(未判定)。
+        trigger_ratio: 五判据的 auto-compact 阈值(与 compress 同源)。
+
+    Returns:
+        (messages, info)
+        - messages: 回收后的新列表,或原列表(未达收益门槛)
+        - info: {compressed, original_tokens, compressed_tokens, removed_count,
+                 tools_kept, tools_removed, trigger, llm_summary, percent_left…}
+        tools_kept / tools_removed 是**工具结果条数**,与 compaction_metrics 既有
+        事件维度同名对齐;removed_count 仍表示删除的消息条数(本档恒 0)。
+    """
+    original_tokens = estimate_messages_tokens(messages)
+    tool_total = 0
+    reclaimable: list[int] = []
+    rounds_seen = 0
+    # 从尾部往前走:每遇到一条 assistant 记一轮;最近 keep_recent_rounds 轮内的 tool 保留。
+    for idx in range(len(messages) - 1, -1, -1):
+        role = messages[idx].get("role")
+        if role == "assistant":
+            rounds_seen += 1
+            continue
+        if role != "tool":
+            continue
+        tool_total += 1
+        if rounds_seen < keep_recent_rounds:
+            continue
+        content = messages[idx].get("content", "")
+        if not isinstance(content, str) or not content:
+            continue
+        if estimate_tokens(content) < min_result_tokens:
+            continue
+        reclaimable.append(idx)
+
+    tools_removed = 0
+    compacted = messages
+    compressed_tokens = original_tokens
+    if reclaimable:
+        candidate: list[dict[str, Any]] = list(messages)
+        for idx in reclaimable:
+            replacement = dict(messages[idx])
+            replacement["content"] = MICRO_COMPACT_PLACEHOLDER
+            candidate[idx] = replacement
+        candidate_tokens = estimate_messages_tokens(candidate)
+        if original_tokens - candidate_tokens >= min_saved_tokens:
+            compacted = candidate
+            compressed_tokens = candidate_tokens
+            tools_removed = len(reclaimable)
+
+    info: dict[str, Any] = {
+        "compressed": tools_removed > 0,
+        "original_tokens": original_tokens,
+        "compressed_tokens": compressed_tokens,
+        "removed_count": 0,
+        "tools_kept": tool_total - tools_removed,
+        "tools_removed": tools_removed,
+        "trigger": "micro" if tools_removed > 0 else "none",
+        "llm_summary": False,
+    }
+    info.update(
+        assess_context_pressure(
+            compressed_tokens, context_limit, trigger_ratio=trigger_ratio
+        )
+    )
+    return compacted, info
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
