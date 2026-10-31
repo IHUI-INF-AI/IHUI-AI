@@ -13,9 +13,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.rbac import Principal, Role, get_current_principal
 from ..services.eval_service import eval_service
 
 logger = logging.getLogger(__name__)
@@ -70,13 +71,21 @@ async def list_datasets() -> dict[str, Any]:
 
 
 @router.post("/datasets", status_code=201)
-async def create_dataset(req: CreateDatasetRequest) -> dict[str, Any]:
-    """创建评估数据集。"""
+async def create_dataset(
+    req: CreateDatasetRequest,
+    principal: Principal = Depends(get_current_principal),
+) -> dict[str, Any]:
+    """创建评估数据集。
+
+    2026-10-31 安全强化第 30 批:创建者归属由承载层写入(不是请求体字段)。
+    读/跑保持登录即可(数据集是团队共享资源),归属只拦"删别人的"。
+    """
     try:
         result = eval_service.create_dataset(
             name=req.name,
             items=req.items,
             description=req.description,
+            owner_user_id=principal.user_id,
         )
         return {"code": 0, "message": "success", "data": result}
     except ValueError as e:
@@ -93,10 +102,23 @@ async def get_dataset(name: str) -> dict[str, Any]:
 
 
 @router.delete("/datasets/{name}")
-async def delete_dataset(name: str) -> dict[str, Any]:
-    """删除数据集。"""
-    ok = eval_service.delete_dataset(name)
-    if not ok:
+async def delete_dataset(
+    name: str,
+    principal: Principal = Depends(get_current_principal),
+) -> dict[str, Any]:
+    """删除数据集:仅属主本人或管理员。
+
+    别人的与不存在的同形 404(不给出存在性差异);判定走
+    ``delete_dataset_guarded`` 的唯一实现(不做"先查后删")。
+    """
+    outcome = eval_service.delete_dataset_guarded(
+        name,
+        actor_user_id=principal.user_id,
+        is_admin=principal.role in (Role.ADMIN, Role.OWNER),
+    )
+    if outcome == "not_found":
+        raise HTTPException(status_code=404, detail=f"数据集不存在: {name}")
+    if outcome == "forbidden":
         raise HTTPException(status_code=404, detail=f"数据集不存在: {name}")
     return {"code": 0, "message": "success", "data": {"deleted": True}}
 
