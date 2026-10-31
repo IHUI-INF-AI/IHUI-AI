@@ -173,4 +173,20 @@
 - 本仓 ai-service 现读:agent 经 `await bus.send/receive` 在同一 asyncio 进程内并发(未检出 `multiprocessing`/`uvicorn --workers`/`gunicorn`);一个进程承载多个 agent 会话即矩阵所述「多席/团队」场景。
 - 因此**矩阵范围已达成**:点名投递(绝不广播)、peer 寻址、会话 ∧ 属主双维边界,均由 `agent_comm.py` 落地并经 `send_team_message`/`read_team_inbox` 模型可见(390 用例绿、双射 102=102)。
 - `_get_redis`(agent_comm.py:225)作为**可选持久层刻意留空**,与 §「自进化能力的接线红线」同口径——非本票范围缺口,不照抄不需要的跨进程传输。下一内核批次见新增复判(命令级权限粒度 / 压缩 ≥4 档 / 沙箱 API 拦截)由只读侦察席现读 A/B/C 后再定。
+
+## 9. 内核族五探复判（2026-10-31 主席现读，矩阵之外的 deeper-kernel 抽查；全部 A 或刻意等价，非缺口）
+
+矩阵 27 行收口后，主席对 T1/T2 记的**更细内核能力**逐族本仓现读复判，结论是这些也都已具备或为本仓刻意选择的等价机制——**不构成"补齐"缺口**：
+
+| 内核族(对方) | 本仓现读判定 | 一手证据 |
+|---|---|---|
+| 命令级权限粒度(对方16值枚举,命令级,无审批即拒不降级) | **A** | `core/command_safety.py::_split_script_into_commands`(按 \|/&&/;/子shell 分段)、`core/exec_policy.py::prefix_rule`→`Decision.{DENY,PROMPT}`、`exec_policy_amendments.py::append_allow_prefix_rule`(前缀规则持久化)、`core/permissions_instructions.py`(对标 codex permissions_instructions.rs);测试 `test_permissions_instructions_56.py`/`test_mcp_wiring_58b.py` |
+| 上下文压缩 ≥4 档 | **A** | `core/context_compaction.py` percent_left + warning(<40)/error(<20)/auto_compact/blocking 四阈值线(§4 建议7 本批已落) |
+| 子代理隔离(对方43型×4档) | **A** | `apps/cli/src/subagents/precedence.ts::ISOLATION_MODES=['none','worktree','subprocess']` 全 precedence 解析(explicit??role??persona??'none');第4档=容器/命名空间级,属 OS 原生,本仓以 worktree+subprocess 覆盖真实隔离需求 |
+| 会话 fork/resume/continue/list | **A** | `core/rollout_truncation.py::fork_turn_positions`(Codex rollback_start_idx 语义,按用户回合 fork/重放/裁剪)+ `api/v1/debug.py::list_sessions` + `command_ack_facts.parent_session_id`(fork 血缘);`workflow_engine.resume_instance` 续跑 |
+| 沙箱 API 拦截(对方5+8 listener,非仅 Job Object) | **A/刻意等价** | `core/proc_sandbox.py` = **内核级 Job Object**(ctypes `SetInformationJobObject`):`LimitFlags = KILL_ON_JOB_CLOSE|PROCESS_MEMORY|ACTIVE_PROCESS`(防孤儿+防 fork 炸弹),**未设 BREAKAWAY_OK/SILENT_BREAKAWAY_OK ⇒ 默认禁 breakaway(子进程不可逃逸)**,UI 7 项限制;文件头注明确写"Windows 用 Job Object 作 codex landlock/seatbelt 的内核等价物" ⇒ 对方 listener 是**另一种机制**,本仓取内核等价的刻意设计,非缺失 |
+
+**rea 原生逐函数取证进展(补 T1 §0.3 深度)**:对 `sandbox/trae-sandbox.exe`(1.26MB,Go,非 37.8MB 量级)`pnpm rea analyze --json` **成功完成**:`procedure_count=6374`、`string_count=1194`、7 段(.text 794KB/.pdata 67KB)——即**逐函数级可达**,据此把"对方沙箱确为原生拦截 PE"从结构推断升为**观察**(confidence=derived, authority=shipped-artifact)。而 `libckg.dll`(37.8MB)/`ai_agent.dll`(282MB)/`harness.dll`(248MB)仍超 `analyze` 默认 load 预算(`provider_timeout` op=list_documents)⇒ **天花板按体积定量**:≲数MB 原生可逐函数,数十MB+ 受 load 预算挡,已如实登记(非"未做",是"工具时间盒所限"),要逐函数须单独立票并放宽 timeout/snapshot 续跑。
+
+**本批总判**:矩阵 + 内核五探的全部真·产品/内核缺口均已 A(本会话落 G-01/G-07/G-11 三枚 + 前批落 G-05/08/09/10/14/17/22 + 命令权限/压缩/隔离/fork/沙箱五族本已具备);余 G-18/20/25/26 属壳层,§4/§6 已判形态不适用/低性价比/合规冲突,不照抄。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
