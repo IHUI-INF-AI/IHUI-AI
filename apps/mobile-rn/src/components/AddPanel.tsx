@@ -29,6 +29,7 @@ import { BottomPops } from './BottomPops'
 
 import { rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { pressFeedback } from '@ihui/ui-native'
 
 // ── PlusButton 统一加号按钮 ──────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export function PlusButton({
   const { t } = useI18n()
   return (
     <Pressable
-      style={[styles.plusButton, active ? styles.plusButtonActive : null]}
+      style={pressFeedback([styles.plusButton, active ? styles.plusButtonActive : null])}
       onPress={onPress}
       disabled={disabled}
       hitSlop={4}

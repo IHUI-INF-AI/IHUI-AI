@@ -10,6 +10,7 @@ import { Loader2, Mic, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
+import { pressFeedback } from '@ihui/ui-native'
 
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
@@ -233,7 +234,7 @@ export function VoicePanel({
       }}
     >
       <Pressable
-        style={styles.modalMask}
+        style={pressFeedback(styles.modalMask)}
         onPress={() => {
           if (!loading) onClose()
         }}
@@ -246,7 +247,7 @@ export function VoicePanel({
               onPress={() => {
                 if (!loading) onClose()
               }}
-              style={styles.listDialogClose}
+              style={pressFeedback(styles.listDialogClose)}
             >
               <X size={20} color={tokens.text.primary} />
             </Pressable>
@@ -346,7 +347,7 @@ export function VoicePanel({
           {!loading ? (
             <Pressable
               onPress={onClose}
-              style={[styles.panelCancelBtn, styles.ttsCancelBtn]}
+              style={pressFeedback([styles.panelCancelBtn, styles.ttsCancelBtn])}
               accessibilityRole="button"
               accessibilityLabel={t('common.cancel')}
             >
