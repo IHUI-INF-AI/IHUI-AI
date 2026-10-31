@@ -44,6 +44,7 @@ import {
 type FormRequestFramePayload = Parameters<typeof projectFormRequestFrame>[0]
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
+import { pressFeedback } from '@ihui/ui-native'
 
 const REJECT_REASON_MAX = 200
 const NS = 'ai.pane.businessForms'
@@ -260,7 +261,7 @@ function FormPanel({
   return (
     <View style={s.chipWrap}>
       {/* 收起 ≠ 决策:被拒/收起后仍留重新打开的入口(与同族 ToolApprovalSheet 同语义) */}
-      <Pressable style={s.chip} onPress={onReopen}>
+      <Pressable style={pressFeedback(s.chip)} onPress={onReopen}>
         {kind === 'calendarEvent' ? (
           <CalendarDays size={16} color={tokens.text.primary} />
         ) : (
@@ -273,7 +274,7 @@ function FormPanel({
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-        <Pressable style={s.backdrop} onPress={onClose}>
+        <Pressable style={pressFeedback(s.backdrop)} onPress={onClose}>
           <View style={s.sheet}>
             <View style={s.chrome}>
               <Text style={s.title}>{t(`${NS}.aria.${kind}`)}</Text>
@@ -311,7 +312,7 @@ function FormPanel({
                           </Text>
                         ))}
                         {fold.foldNeeded ? (
-                          <Pressable onPress={onFold} hitSlop={4}>
+                          <Pressable style={pressFeedback(undefined)} onPress={onFold} hitSlop={4}>
                             <Text style={s.fold}>
                               {entry.foldOpen
                                 ? t(`${NS}.${fold.collapseKey}`)
@@ -342,7 +343,7 @@ function FormPanel({
                 <Text style={s.actionText}>{t(`${NS}.action.reject`)}</Text>
               </Pressable>
               <Pressable
-                style={[s.action, s.approve, (busy || decided) && s.actionDisabled]}
+                style={pressFeedback([s.action, s.approve, (busy || decided) && s.actionDisabled])}
                 onPress={onApprove}
                 disabled={busy || decided}
               >
