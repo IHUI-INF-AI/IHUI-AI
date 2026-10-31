@@ -935,6 +935,8 @@
       }
     },
     "wallboard": {
+      "firingRowsSplit": "{total} 條告警依名稱聚合為 {names} 條",
+      "pv5mNow": "近 5 分鐘 {count} 次瀏覽",
       "edgeControlLeg": "未走加速的對照",
       "edgeHeadlineHit": "國內加速命中率",
       "edgeHeadlineMs": "首頁現在開啟耗時",

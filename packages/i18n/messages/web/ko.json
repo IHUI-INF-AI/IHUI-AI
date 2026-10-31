@@ -935,6 +935,8 @@
       }
     },
     "wallboard": {
+      "firingRowsSplit": "{total}건의 알림을 이름 기준 {names}건으로 집계",
+      "pv5mNow": "최근 5분간 {count}회",
       "edgeControlLeg": "가속을 거치지 않은 비교 측정",
       "edgeHeadlineHit": "중국 본토 가속 적중률",
       "edgeHeadlineMs": "현재 홈페이지 열림 시간",
