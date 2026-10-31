@@ -49,8 +49,14 @@ export function ParameterPanel({
   const [loadingModels, setLoadingModels] = React.useState(false)
   const [modelsError, setModelsError] = React.useState<string | null>(null)
 
-  // 首次挂载从 localStorage 读取 apiKey
+  // 首次挂载从 sessionStorage 读取 apiKey;旧版本存在 localStorage 的残值顺手清掉
+  // (那次迁移的目的就是把 Key 从持久化存储挪走,不清理等于旧值永远可被 XSS 读到)。
   React.useEffect(() => {
+    try {
+      window.localStorage.removeItem(API_KEY_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
     try {
       const saved = window.sessionStorage.getItem(API_KEY_STORAGE_KEY)
       if (saved) onApiKeyChange(saved)
