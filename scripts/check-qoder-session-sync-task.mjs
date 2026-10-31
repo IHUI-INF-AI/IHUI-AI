@@ -199,7 +199,7 @@ export function judgeDims({
   } else {
     dims.log_verdict = {
       verdict: 'ok',
-      reading: `total=${summary.total} applied=${summary.applied} skipped=${summary.skipped} imported=${summary.imported}`,
+      reading: `total=${summary.total} applied=${summary.applied} skipped=${summary.skipped} imported=${summary.imported ?? '-'}`,
     }
   }
 
@@ -253,10 +253,20 @@ function readLogSegment(logPath, size) {
   }
 }
 
+/** 取 `--flag value`(命令行优先;取不到返回 null,由上层回落到 env/默认)。 */
+export function argValue(argv, flag) {
+  const i = argv.indexOf(flag)
+  if (i < 0 || i + 1 >= argv.length) return null
+  const v = String(argv[i + 1] ?? '').trim()
+  return v && !v.startsWith('--') ? v : null
+}
+
 export async function main(argv) {
   const json = argv.includes('--json')
-  const taskName = process.env.IHUI_QODER_SYNC_TASK || DEFAULT_TASK_NAME
-  const logPath = process.env.IHUI_QODER_SYNC_LOG || DEFAULT_LOG_PATH
+  // 命令行 > env > 默认:同一把尺子被 qoder / workbuddy 两条腿共用,判据零分叉
+  const taskName =
+    argValue(argv, '--task') || process.env.IHUI_QODER_SYNC_TASK || DEFAULT_TASK_NAME
+  const logPath = argValue(argv, '--log') || process.env.IHUI_QODER_SYNC_LOG || DEFAULT_LOG_PATH
   const now = Date.now()
 
   const taskQuery = queryTaskXml(taskName)

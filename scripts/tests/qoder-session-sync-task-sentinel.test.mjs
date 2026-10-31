@@ -23,7 +23,10 @@ import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { auditQoderSessionSyncTask } from '../git-guardian.mjs'
+import {
+  auditQoderSessionSyncTask,
+  auditWorkbuddySessionSyncTask,
+} from '../git-guardian.mjs'
 import { __test__ as S } from '../check-qoder-session-sync-task.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -117,11 +120,11 @@ test('S4 总体三态优先级:breach > unjudged > ok', () => {
   )
 })
 
-function runDispatch(stdout, over = {}) {
+function runDispatch(stdout, over = {}, fn = auditQoderSessionSyncTask) {
   const dir = mkScratch('qoder-sync-sentinel-')
   const calls = []
   try {
-    const result = auditQoderSessionSyncTask({
+    const result = fn({
       now: NOW,
       intervalMs: 0,
       tickFile: join(dir, 'tick.iso'),
@@ -144,9 +147,21 @@ test('D1 breach ⇒ 只喊一次,身份只含维名,正文带幂等重建出路'
   assert.equal(result.breaches, 1)
   const [title, body, opts] = calls[0]
   assert.match(title, /Qoder 号池保活腿失效/)
-  assert.equal(opts.dedupKey, 'dims=task_wrapper')
+  assert.equal(opts.dedupKey, 'qoder;dims=task_wrapper')
   assert.match(body, /setup-qoder-session-sync-task\.ps1/)
+  assert.match(body, /-Kind qoder/)
   assert.match(body, /InteractiveToken/)
+})
+
+test('D3 WorkBuddy 腿共用同一判据,身份/出路按腿分开', () => {
+  const dims = dimsOf({ wrapperExists: false })
+  const { calls } = runDispatch(JSON.stringify({ overall: 'breach', dims }), {}, auditWorkbuddySessionSyncTask)
+  assert.equal(calls.length, 1)
+  const [title, body, opts] = calls[0]
+  assert.match(title, /WorkBuddy 号池保活腿失效/)
+  assert.equal(opts.dedupKey, 'workbuddy;dims=task_wrapper')
+  assert.match(body, /-Kind workbuddy/)
+  assert.match(body, /客户端正在运行|inspector/)
 })
 
 test('D2 ok / unjudged / 结论不可解析 ⇒ 都不喊人', () => {
@@ -158,10 +173,13 @@ test('D2 ok / unjudged / 结论不可解析 ⇒ 都不喊人', () => {
   assert.equal(runDispatch('not-json').calls.length, 0)
 })
 
-test('W1 装车锁:主健康轮 !CHECK_ONLY 真调用 + __test__ 可 import + 节流可配', () => {
+test('W1 装车锁:两条腿都在 !CHECK_ONLY 真调用 + __test__ 可 import + 节流可配', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
   assert.match(src, /if \(!CHECK_ONLY\) auditQoderSessionSyncTask\(\)/)
+  assert.match(src, /if \(!CHECK_ONLY\) auditWorkbuddySessionSyncTask\(\)/)
   assert.match(src, /\n\s*auditQoderSessionSyncTask,\n/)
+  assert.match(src, /\n\s*auditWorkbuddySessionSyncTask,\n/)
+  assert.match(src, /IHUI_CLIENT_SYNC_TASK_INTERVAL_MS/)
   assert.match(src, /IHUI_QODER_SYNC_TASK_INTERVAL_MS/)
 })
 
