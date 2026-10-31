@@ -40,6 +40,7 @@ import {
   planAtomicRollback,
   executeAtomicRollback,
 } from '../services/atomic-rollback.js'
+import { resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -1139,6 +1140,25 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'command 和 workspacePath 不能为空'))
     try {
       const mode = body.mode ? sandboxExecutor.resolveMode(body.mode) : undefined
+      // 2026-10-31 安全强化第 10 批:两道闸补齐 ——
+      // ① danger-full-access 仅管理员:此前任意登录用户自报该档即可放行 curl/wget
+      //   并拿到全量进程环境(等价于整台服务器的凭据外传通道);
+      // ② 工作区权限闸:与 /fs/run 同型 —— workspace_permissions 未配置 ⇒ 401 引导
+      //   先走 /fs/open setup,已配置但不覆盖该路径 ⇒ 403。
+      if (
+        mode === 'danger-full-access' &&
+        resolveAdminRoleId(request, { includeInternalChannel: false }) < ADMIN_ROLE_ID
+      ) {
+        return reply.status(403).send(error(403, 'danger-full-access 沙箱模式仅管理员可用'))
+      }
+      if (
+        (await assertWorkspacePermission(request, reply, {
+          workspacePath: body.workspacePath,
+          tool: 'sandbox.execute',
+          args: { command: body.command, cwd: body.cwd, mode: body.mode },
+        })) !== null
+      )
+        return
       const result = await sandboxExecutor.execute({
         command: body.command,
         workspacePath: body.workspacePath,

@@ -312,7 +312,13 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
           return (
             <button
               key={`list-${idx}`}
-              onClick={() => window.open(item.content, '_blank')}
+              onClick={() => {
+                // 2026-10-31 安全强化第 10 批:scheme 白名单 —— content 是分享创建者
+                // 可控的自由字符串,javascript: 经 window.open 会在本站源执行(存储型
+                // XSS,新窗口继承 opener)。只放行 http(s) 外链,并显式断开 opener。
+                if (!/^https?:\/\//i.test(item.content)) return
+                window.open(item.content, '_blank', 'noopener,noreferrer')
+              }}
               className="block overflow-hidden rounded-sm"
             >
               <Image
