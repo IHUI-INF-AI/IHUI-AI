@@ -16,7 +16,6 @@ import {
   type AssistantExecutionViz,
   type ToolCallItem,
 } from '../../utils/chat-render-model'
-import { pressFeedback } from '@ihui/ui-native'
 
 const styles = StyleSheet.create({
   // ── D135 执行/交互帧最小可视态 ──
@@ -140,7 +139,7 @@ function ToolCallRow({ call }: { call: ToolCallItem }) {
     <View>
       {partialDiff ? (
         <Pressable
-          style={pressFeedback(styles.toolRow)}
+          style={styles.toolRow}
           onPress={() => setExpanded((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={expanded ? t('chat.diffCollapse') : t('chat.diffExpand')}

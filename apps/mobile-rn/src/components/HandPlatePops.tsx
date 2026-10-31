@@ -48,7 +48,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import { pressFeedback } from '@ihui/ui-native'
 
 export interface HandPlatePaymentMethod {
   id: string
@@ -353,10 +352,10 @@ export function HandPlatePops({
                     return (
                       <Pressable
                         key={m.id}
-                        style={pressFeedback([
+                        style={[
                           styles.purchasePaymentOption,
                           active ? styles.purchasePaymentOptionActive : null,
-                        ])}
+                        ]}
                         onPress={() => selectPayMethod(m.id)}
                         accessibilityRole="radio"
                         accessibilityState={{ checked: active }}
@@ -378,10 +377,7 @@ export function HandPlatePops({
                 {hasAgreement ? (
                   <View style={styles.purchaseAgreement}>
                     <Pressable
-                      style={pressFeedback([
-                        styles.checkbox,
-                        isAgreed ? styles.checkboxChecked : null,
-                      ])}
+                      style={[styles.checkbox, isAgreed ? styles.checkboxChecked : null]}
                       onPress={toggleAgree}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: isAgreed }}
@@ -390,7 +386,7 @@ export function HandPlatePops({
                       {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
                     </Pressable>
                     <Pressable
-                      style={pressFeedback(styles.purchaseAgreementTextWrap)}
+                      style={styles.purchaseAgreementTextWrap}
                       onPress={purchase.onAgreementPress}
                       disabled={!purchase.onAgreementPress}
                     >
@@ -400,10 +396,10 @@ export function HandPlatePops({
                 ) : null}
 
                 <Pressable
-                  style={pressFeedback([
+                  style={[
                     styles.purchasePayBtn,
                     payDisabled ? styles.purchasePayBtnDisabled : null,
-                  ])}
+                  ]}
                   onPress={handlePay}
                   disabled={payDisabled}
                   accessibilityRole="button"

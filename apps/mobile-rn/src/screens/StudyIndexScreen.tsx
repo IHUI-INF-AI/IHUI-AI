@@ -71,7 +71,6 @@ import { rpx } from '../utils/rpx'
 import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import type { StudyVideoItem } from '@ihui/types'
-import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -165,7 +164,7 @@ function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
           </Animated.View>
         </View>
         <Pressable
-          style={pressFeedback(styles.tipMyModel)}
+          style={styles.tipMyModel}
           onPress={onPressMyModel}
           accessibilityRole="button"
           accessibilityLabel="我的合集"
@@ -511,7 +510,7 @@ export function StudyIndexScreen() {
               accessibilityRole="button"
               accessibilityLabel="搜索"
 
-              style={pressFeedback(undefined)}
+              style={undefined}
             >
               {showSearch ? (
                 <X size={20} color={tk.text.medium} />
@@ -663,10 +662,7 @@ export function StudyIndexScreen() {
             error ? (
               <View style={styles.centerWrap}>
                 <Text style={styles.errorText}>{error}</Text>
-                <Pressable
-                  style={pressFeedback(styles.retryBtn)}
-                  onPress={() => void load({ reset: true })}
-                >
+                <Pressable style={styles.retryBtn} onPress={() => void load({ reset: true })}>
                   <Text style={styles.retryText}>{t('common.ok')}</Text>
                 </Pressable>
               </View>
