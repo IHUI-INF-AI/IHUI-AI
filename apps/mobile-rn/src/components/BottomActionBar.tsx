@@ -80,6 +80,7 @@ import {
 // O02 票④(2026-10-31 接线):发送方块控件走共享核心 BottomActionBarControl —— 方块边长唯一源
 // 在核心(boxPx),本壳只供视觉(底色/圆角/禁用态)与 RN 原语注入;与小程序壳同一份核心。
 import { BottomActionBarControl, type BottomActionBarPlatform } from '@ihui/shared/ui'
+import { pressFeedback } from '@ihui/ui-native'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -401,7 +402,7 @@ function LabelButton({ action }: BottomActionBarItemProps) {
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      style={style}
+      style={pressFeedback(style)}
     >
       {isLoading ? (
         <ActivityIndicator
@@ -441,7 +442,7 @@ function IconButton({ action }: BottomActionBarItemProps) {
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      style={style}
+      style={pressFeedback(style)}
     >
       {isLoading ? (
         <ActivityIndicator size="small" color={tokens.text.primary} />
@@ -602,7 +603,7 @@ function ChatInputBar(props: BottomActionBarProps) {
         <View style={styles.modelBar}>
           {modelName !== undefined || onShowModelList !== undefined ? (
             <Pressable
-              style={styles.modelNameBtn}
+              style={pressFeedback(styles.modelNameBtn)}
               onPress={onShowModelList}
               onLongPress={
                 onModelConfigChange !== undefined
@@ -621,7 +622,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           ) : null}
           {onShowModelConfig !== undefined ? (
             <Pressable
-              style={styles.configBtn}
+              style={pressFeedback(styles.configBtn)}
               onPress={onShowModelConfig}
               onLongPress={
                 onModelConfigChange !== undefined
@@ -660,7 +661,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               <Image source={{ uri }} style={styles.imagePreviewImg} resizeMode="cover" />
               {onRemoveImage !== undefined ? (
                 <Pressable
-                  style={styles.imageRemoveBtn}
+                  style={pressFeedback(styles.imageRemoveBtn)}
                   onPress={() => onRemoveImage(index)}
                   hitSlop={4}
                   accessibilityRole="button"
@@ -754,7 +755,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           {/* 添加附件(ChatScreen 传入 onAddFile → DocumentPicker + uploadFileMultipart 真实上传;
               未传 onAddFile 时降级为占位提示 Alert,保持向后兼容) */}
           <Pressable
-            style={styles.addFileBtn}
+            style={pressFeedback(styles.addFileBtn)}
             onPress={() => {
               if (onAddFile) {
                 onAddFile()
@@ -773,7 +774,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           </Pressable>
           {onFunctionHandle !== undefined ? (
             <Pressable
-              style={styles.secondaryBtn}
+              style={pressFeedback(styles.secondaryBtn)}
               onPress={onFunctionHandle}
               hitSlop={4}
               accessibilityRole="button"
@@ -787,7 +788,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           ) : null}
           {onSourceHandle !== undefined ? (
             <Pressable
-              style={styles.secondaryBtn}
+              style={pressFeedback(styles.secondaryBtn)}
               onPress={onSourceHandle}
               hitSlop={4}
               accessibilityRole="button"
@@ -798,7 +799,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           ) : null}
           {onFangda !== undefined ? (
             <Pressable
-              style={styles.secondaryBtn}
+              style={pressFeedback(styles.secondaryBtn)}
               onPress={onFangda}
               hitSlop={4}
               accessibilityRole="button"
@@ -811,7 +812,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               ✂ 图标 + loading 态(ActivityIndicator),请求中禁用防重复点击 */}
           {onCompactContext !== undefined ? (
             <Pressable
-              style={styles.secondaryBtn}
+              style={pressFeedback(styles.secondaryBtn)}
               onPress={onCompactContext}
               disabled={compactContextLoading}
               hitSlop={4}
