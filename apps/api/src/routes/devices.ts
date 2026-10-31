@@ -24,6 +24,7 @@ import {
   registerDevice,
   revokeDevice,
   updateTaskProgress,
+  assertDeviceFingerprint,
   verifyDeviceToken,
   type DeviceCapabilities,
 } from '../services/device-service.js'
@@ -147,6 +148,17 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
       reply.status(401).send(error(401, '设备令牌无效或已过期'))
       return null
     }
+    // G1b 指纹一致性闸(绑定过指纹的设备必须每请求携带同一 X-Device-Fingerprint;
+    // 未绑定 = 存量设备,跳过校验)。requireDevice 在各端点 try 块之外调用,闸命中
+    // 必须在这里手写响应归位(与上方 401 同形),不能依赖端点自身的 replyServiceError。
+    try {
+      assertDeviceFingerprint(device, request.headers['x-device-fingerprint'])
+    } catch (e) {
+      const err = e as { statusCode?: number; message?: string; errorCode?: string }
+      const code = err.statusCode ?? 403
+      reply.status(code).send(error(code, err.message ?? '设备指纹不匹配', err.errorCode))
+      return null
+    }
     return device
   }
 
@@ -229,10 +241,12 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
   server.post('/devices/pair-exchange', async (request, reply) => {
     const parsed = z
       .object({
-        code: z.string().regex(/^\d{6}$/, '配对码为 6 位数字'),
+        code: z.string().regex(/^\d{8}$/, '配对码为 8 位数字'),
         name: z.string().min(1).max(255).optional(),
         os: z.string().max(128).optional().nullable(),
         capabilities: capabilitiesSchema,
+        fingerprint: z.string().min(8).max(128).optional().nullable(),
+        clientVersion: z.string().max(64).optional().nullable(),
       })
       .safeParse(request.body)
     if (!parsed.success) {

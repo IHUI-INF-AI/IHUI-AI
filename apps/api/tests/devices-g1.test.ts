@@ -189,7 +189,17 @@ vi.mock('../src/db/index.js', async () => {
       const keys: string[] = conflictCfg.target.map((c: any) => snakeToCamel(c.name))
       const found = rows.find((r) => keys.every((k) => String(r[k]) === String(v[k])))
       if (found) {
-        Object.assign(found, conflictCfg.set)
+        for (const [sk, sv] of Object.entries(conflictCfg.set)) {
+          // G1b:registerDevice 的 set 里出现 drizzle SQL 模板(如
+          // `coalesce(${devices.fingerprint}, excluded.fingerprint)`,指纹只绑定
+          // 一次)。内存假库按其语义解释:已有值非空取已有值,否则取本次插入值。
+          // (sk/sv 避免遮蔽外层参数 v —— insert values;v[sk] 取本次插入的同列值。)
+          if (sv !== null && typeof sv === 'object' && 'queryChunks' in (sv as object)) {
+            ;(found as any)[sk] = found[sk] ?? (v as any)[sk] ?? null
+          } else {
+            ;(found as any)[sk] = sv
+          }
+        }
         return [{ ...found }]
       }
     }
@@ -388,7 +398,7 @@ describe('G1 跨设备互联闭环', () => {
     const issued = await asUser('POST', '/api/devices/pair-code', USER_A)
     expect(issued.statusCode).toBe(200)
     const { code, expires_at } = issued.json().data
-    expect(code).toMatch(/^\d{6}$/)
+    expect(code).toMatch(/^\d{8}$/)
     expect(new Date(expires_at).getTime() - Date.now()).toBeLessThanOrEqual(5 * 60_000 + 1000)
     const ok = await server.inject({
       method: 'POST',
@@ -407,7 +417,7 @@ describe('G1 跨设备互联闭环', () => {
     const wrong = await server.inject({
       method: 'POST',
       url: '/api/devices/pair-exchange',
-      payload: { code: code === '000000' ? '000001' : '000000' },
+      payload: { code: code === '00000000' ? '00000001' : '00000000' },
     })
     expect(wrong.statusCode).toBe(400)
   })
@@ -416,7 +426,7 @@ describe('G1 跨设备互联闭环', () => {
     store.device_pair_codes.push({
       id: randomUUID(),
       userId: USER_A,
-      codeHash: hashPairCode('654321'),
+      codeHash: hashPairCode('65432100'),
       expiresAt: new Date(Date.now() - 1000),
       usedAt: null,
       createdAt: new Date(Date.now() - 6 * 60_000),
@@ -424,7 +434,7 @@ describe('G1 跨设备互联闭环', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/devices/pair-exchange',
-      payload: { code: '654321' },
+      payload: { code: '65432100' },
     })
     expect(res.statusCode).toBe(410)
   })
@@ -436,6 +446,99 @@ describe('G1 跨设备互联闭环', () => {
     }
     const over = await asUser('POST', '/api/devices/pair-code', USER_A)
     expect(over.statusCode).toBe(429)
+  })
+
+  it('G1b 配对码 8 位形状:签发 8 位,6 位兑换 400', async () => {
+    const issued = await asUser('POST', '/api/devices/pair-code', USER_A)
+    expect(issued.statusCode).toBe(200)
+    expect(String(issued.json().data.code)).toMatch(/^\d{8}$/)
+    const short = await server.inject({
+      method: 'POST',
+      url: '/api/devices/pair-exchange',
+      payload: { code: '123456' },
+    })
+    expect(short.statusCode).toBe(400)
+  })
+
+  it('G1b 指纹绑定:兑换带指纹 ⇒ 每请求须带同一指纹,不匹配 403;未绑定设备跳过(向后兼容)', async () => {
+    const issued = await asUser('POST', '/api/devices/pair-code', USER_A)
+    const code = issued.json().data.code as string
+    const bound = await server.inject({
+      method: 'POST',
+      url: '/api/devices/pair-exchange',
+      payload: { code, name: 'fp-bound', fingerprint: 'fp-device-aaaa' },
+    })
+    expect(bound.statusCode).toBe(200)
+    const boundToken = bound.json().data.device_token as string
+
+    const bad = await server.inject({
+      method: 'POST',
+      url: '/api/devices/heartbeat',
+      headers: { authorization: `Bearer ${boundToken}`, 'x-device-fingerprint': 'fp-evil' },
+    })
+    expect(bad.statusCode).toBe(403)
+    expect(bad.json().errorCode).toBe('DEVICE_FINGERPRINT_MISMATCH')
+
+    const ok = await server.inject({
+      method: 'POST',
+      url: '/api/devices/heartbeat',
+      headers: { authorization: `Bearer ${boundToken}`, 'x-device-fingerprint': 'fp-device-aaaa' },
+    })
+    expect(ok.statusCode).toBe(200)
+
+    // 未声明指纹的设备(存量形态)不带指纹头照常工作 —— 旧行为逐字节保持。
+    const { deviceToken: bareToken } = await pairNewDevice(USER_A, 'fp-bare')
+    const bare = await server.inject({
+      method: 'POST',
+      url: '/api/devices/heartbeat',
+      headers: { authorization: `Bearer ${bareToken}` },
+    })
+    expect(bare.statusCode).toBe(200)
+  })
+
+  it('G1b 版本闸:DEVICE_MIN_CLIENT_VERSION 非空时低于/缺失 409,达标通过;空 env 不启用', async () => {
+    // 空 env(默认形态):不传 clientVersion 照常兑换
+    const issued = await asUser('POST', '/api/devices/pair-code', USER_A)
+    const code = issued.json().data.code as string
+    const noGate = await server.inject({
+      method: 'POST',
+      url: '/api/devices/pair-exchange',
+      payload: { code, name: 'ver-nogate' },
+    })
+    expect(noGate.statusCode).toBe(200)
+
+    mockConfig.DEVICE_MIN_CLIENT_VERSION = '2.0.0'
+    try {
+      const issued2 = await asUser('POST', '/api/devices/pair-code', USER_A)
+      const code2 = issued2.json().data.code as string
+      const tooOld = await server.inject({
+        method: 'POST',
+        url: '/api/devices/pair-exchange',
+        payload: { code: code2, name: 'ver-old', clientVersion: '1.9.9' },
+      })
+      expect(tooOld.statusCode).toBe(409)
+      expect(tooOld.json().errorCode).toBe('DEVICE_VERSION_INCOMPATIBLE')
+
+      const issued3 = await asUser('POST', '/api/devices/pair-code', USER_A)
+      const code3 = issued3.json().data.code as string
+      const missing = await server.inject({
+        method: 'POST',
+        url: '/api/devices/pair-exchange',
+        payload: { code: code3, name: 'ver-missing' },
+      })
+      expect(missing.statusCode).toBe(409)
+
+      const issued4 = await asUser('POST', '/api/devices/pair-code', USER_A)
+      const code4 = issued4.json().data.code as string
+      const ok = await server.inject({
+        method: 'POST',
+        url: '/api/devices/pair-exchange',
+        payload: { code: code4, name: 'ver-ok', clientVersion: '2.1.0' },
+      })
+      expect(ok.statusCode).toBe(200)
+    } finally {
+      mockConfig.DEVICE_MIN_CLIENT_VERSION = ''
+    }
   })
 
   it('delegate:到他用户设备 403;本人设备 queued;设备不存在 404', async () => {
