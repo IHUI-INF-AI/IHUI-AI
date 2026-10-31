@@ -8434,34 +8434,26 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
             }
         source = "data_uri"
     elif audio_in.lower().startswith(("http://", "https://")):
-        from .screenshot_service import _validate_url_ssrf
+        # 2026-10-31 R12:统一走逐跳 + 钉 IP 的下载单源。
+        # 此前只有首跳 _validate_url_ssrf,校验期与连接期两次 DNS 可被 rebinding 换掉。
+        import httpx as _httpx
 
-        ok_ssrf, reason = _validate_url_ssrf(audio_in)
-        if not ok_ssrf:
+        downloaded = await _download_url_ssrf_safe(audio_in, _httpx, timeout=60.0)
+        if downloaded is None:
             return {
                 "tool": "audio_transcription", "ok": False,
-                "error": f"URL 不允许访问: {reason}", "errorCode": "SSRF_BLOCKED",
+                "error": "URL 不允许访问或下载失败", "errorCode": "SSRF_BLOCKED",
                 "text": None,
             }
-        try:
-            from ..core.llm_gateway import get_http_client
-
-            client = get_http_client()
-            resp = await client.get(audio_in, timeout=60.0)
-            resp.raise_for_status()
-            audio_bytes = resp.content
-        except Exception as e:  # noqa: BLE001
-            return {
-                "tool": "audio_transcription", "ok": False,
-                "error": f"音频下载失败: {e}"[:300], "errorCode": "DOWNLOAD_FAILED",
-                "text": None,
-            }
+        audio_bytes = downloaded
         source = "url"
-        ctype = str(resp.headers.get("content-type", "")).lower()
-        for _ext in ("mpeg", "mp3", "wav", "ogg", "flac", "m4a", "webm", "aac"):
-            if _ext in ctype:
-                filename = f"audio.{'mp3' if _ext == 'mpeg' else _ext}"
-                break
+        _path_lower = urlparse(audio_in).path.lower()
+        _url_ext = _path_lower.rsplit(".", 1)[-1] if "." in _path_lower else ""
+        filename = (
+            f"audio.{_url_ext}"
+            if _url_ext in ("mp3", "wav", "ogg", "flac", "m4a", "webm", "aac")
+            else "audio.mp3"
+        )
     else:
         # 本地路径(如 voice_tts save_path 落地的音频)
         from pathlib import Path as _Path

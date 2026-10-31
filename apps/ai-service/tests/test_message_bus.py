@@ -89,6 +89,10 @@ def _mock_http_client(monkeypatch):
     """
     import httpx
 
+    # 先把 app.main 的惰性导入走完:openai 在导入期会 `class _DefaultAsyncHttpxClient(httpx.AsyncClient)`,
+    # 若此刻 AsyncClient 已被换成函数,类定义直接 TypeError(单跑本文件必现;全量档被别处先导入掩盖)。
+    from app.main import app  # noqa: F401
+
     original_client = httpx.AsyncClient
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json={"ok": True})

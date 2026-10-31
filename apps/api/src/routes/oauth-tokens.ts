@@ -385,6 +385,7 @@ async function handleAuthorizationCodeGrant(
   }
   const user = await findUserById(session.userId)
   if (!user) return fail(reply, issuer, 400, 'invalid_grant', '授权用户不存在')
+  // @token-issue-exempt: OAuth 授权码换 token(码由用户在授权页完成登录后签发,一次性消费)
   const tokens = await buildTokenPair(user)
   await createAuditLog({
     event: 'token',
@@ -447,6 +448,7 @@ async function handleRefreshTokenGrant(
   }
   const user = await findUserById(payload.userId)
   if (!user) return fail(reply, issuer, 400, 'invalid_grant', '授权用户不存在')
+  // @token-issue-exempt: refresh token 轮转(令牌本身即已认证会话的续期,再过 2FA 会死锁)
   const tokens = await buildTokenPair({
     ...user,
     familyId: payload.familyId || user.familyId || null,

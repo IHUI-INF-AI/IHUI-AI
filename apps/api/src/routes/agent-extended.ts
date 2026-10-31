@@ -722,8 +722,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     // 上限 10 万，安全性完全押在"审批人不会误批"上。此前只有 IDOR 闸 + step-up，
     // 挡得住"替别人提"，挡不住"给自己凭空提"。
     //
-    // 无产品链路可破坏：`packages/api-client` 有 createAgentWithdrawal 封装，但
-    // apps/web 与 packages/app 下零调用点（实测 grep），从未接过 UI。
+    // 无产品链路可破坏：`packages/api-client` 的 createAgentWithdrawal 封装零调用点
+    // （实测 grep），已随本端点下线一并移除，从未接过 UI。
     //
     // 保留 410 而非 404：调用方拿到明确语义（能力已移除），而不是"路由不存在"的迷雾。
     // 正规通道 = POST /api/wallet/withdraw（applyWithdrawal 在事务内原子执行

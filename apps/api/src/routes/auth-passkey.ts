@@ -436,6 +436,7 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
 
+      // @token-issue-exempt: passkey/WebAuthn 本身即持有因子+生物因子,替代 TOTP 第二因子
       const tokens = await buildTokenPair(
         {
           id: user.id,

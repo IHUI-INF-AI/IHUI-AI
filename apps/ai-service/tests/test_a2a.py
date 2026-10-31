@@ -180,6 +180,7 @@ async def test_register_agent_returns_saved_agent_dict():
     )
 
     with patch("app.routers.a2a.a2a_server") as mock_server:
+        mock_server.get_agent = MagicMock(return_value=None)
         mock_server.register_agent = MagicMock(return_value=fake_agent)
         result = await register_agent(
             RegisterAgentRequest(
@@ -201,6 +202,7 @@ async def test_register_agent_returns_saved_agent_dict():
 async def test_register_agent_passes_all_fields():
     """register_agent 把所有字段传给 a2a_server.register_agent(需认证 + 本地 endpoint)。"""
     with patch("app.routers.a2a.a2a_server") as mock_server:
+        mock_server.get_agent = MagicMock(return_value=None)
         mock_server.register_agent = MagicMock(return_value=MagicMock(to_dict=lambda: {"id": "x"}))
         await register_agent(
             RegisterAgentRequest(
@@ -232,7 +234,7 @@ async def test_list_agents_returns_agents_and_count():
     ]
     with patch("app.routers.a2a.a2a_server") as mock_server:
         mock_server.list_agents = MagicMock(return_value=agents)
-        result = await list_agents()
+        result = await list_agents(_principal())
 
     assert len(result["agents"]) == 2
     assert result["count"] == 2
@@ -243,7 +245,7 @@ async def test_list_agents_empty_returns_zero_count():
     """无 agent 时 count=0。"""
     with patch("app.routers.a2a.a2a_server") as mock_server:
         mock_server.list_agents = MagicMock(return_value=[])
-        result = await list_agents()
+        result = await list_agents(_principal())
 
     assert result["agents"] == []
     assert result["count"] == 0
@@ -494,7 +496,7 @@ async def test_register_then_list_agents_integration():
             id="integration-a1", name="IntegrationA1",
             capabilities=["test"], endpoint="http://127.0.0.1",
         ), principal=_principal())
-        result = await list_agents()
+        result = await list_agents(_principal())
         ids = [a["id"] for a in result["agents"]]
         assert "integration-a1" in ids
     finally:

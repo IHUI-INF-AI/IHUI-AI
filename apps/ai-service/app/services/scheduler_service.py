@@ -313,8 +313,25 @@ class TaskScheduler:
             payload = callback.get("payload", {})
             if not url:
                 raise ValueError("http_webhook callback 缺少 url")
+            # 2026-10-31 R12:webhook_url 由模型/用户写入,外部可控;本服务能访问内网,
+            # 出站前必须过同一把 SSRF 尺并钉定公网 IP(POST 不跟随重定向,只需首跳)。
+            from app.services.screenshot_service import (
+                _validate_url_ssrf,
+                resolve_pinned_target,
+            )
+
+            ok, reason = _validate_url_ssrf(url)
+            pinned = resolve_pinned_target(url) if ok else None
+            if not ok or pinned is None:
+                raise ValueError(f"http_webhook 目标不允许访问: {reason or '无法钉定公网 IP'}")
+            pinned_url, orig_host = pinned
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(
+                    pinned_url,
+                    json=payload,
+                    headers={"Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
                 resp.raise_for_status()
         elif cb_type == "mcp_tool":
             tool_name = callback.get("tool_name")
