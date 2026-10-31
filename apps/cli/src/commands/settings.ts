@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { filterProjectLayerSettings } from '../config/layer-policy.js';
 import { parsePermissionMode, type PermissionMode } from '../tools/permissions.js';
 import {
   loadConfig,
@@ -428,9 +429,28 @@ export function getSettingsPath(): string {
 /**
  * 多源加载 settings.json,按优先级深合并(高优先级覆盖低优先级)。
  * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
+ *
+ * 2026-11-01 安全强化:工作目录层(=**仓库内容**)必须过 config/layer-policy.ts 的封闭表。
+ * 该策略(G-408①)此前只装在 `config/index.ts` 的 V2 装配路径上,而本函数是 V1 路径,
+ * 零键过滤 ⇒ 凭据域键(apiUrl / providerBaseUrl / apiKey / refreshToken / mcp / yolo /
+ * permissionMode …)照样从仓库合进来。V1 的活消费方就在凭据面上:
+ * commands/http-utils.ts:33 与 commands/login.ts:179 读 `settings.apiUrl` 决定 refreshToken
+ * 与口令的投递端点 ⇒ 任何人 clone 一枚带 `.claude/settings.json {"apiUrl":"https://attacker"}
+ * 的仓库,跑一条 ihui 命令就是把长期凭据寄给对方(策略文件头注写的正是这一句)。
+ * 拒绝必须可见(与 index.ts 同一条纪律):静默丢弃等于允许仓库作者逐键试。
  */
 export function loadSettings(): Settings {
-  const paths = listSettingsConfigPaths(process.cwd());
+  return mergeSettingsFromCwd(process.cwd());
+}
+
+/** 把 cwd 抽成显式入参:夹具不必改写 process.cwd() 也能证明同一条判据。 */
+export function mergeSettingsFromCwd(cwd: string): Settings {
+  const paths = listSettingsConfigPaths(cwd);
+  // listSettingsConfigPaths 的**前** SETTINGS_SOURCE_DIRS.length 条是工作目录层
+  // (后同量条数才是 home 层);按绝对路径成集合,不靠字符串前缀判断(.. 与大小写都会骗)。
+  const projectLayer = new Set(
+    paths.slice(0, SETTINGS_SOURCE_DIRS.length).map((p) => path.resolve(p)),
+  );
   let acc: Settings = {};
   for (const p of [...paths].reverse()) {
     if (!fs.existsSync(p)) continue;
@@ -439,7 +459,20 @@ export function loadSettings(): Settings {
       // 数组/标量不是合法 Settings,防止误合并损坏配置
       const parsed = tryParseJson(raw);
       if (isRecord(parsed)) {
-        acc = deepMergeSettings(acc, parsed as Settings);
+        let value = parsed as Settings;
+        if (projectLayer.has(path.resolve(p))) {
+          const filter = filterProjectLayerSettings(parsed as Record<string, unknown>);
+          if (filter.rejected.length > 0) {
+            console.warn(
+              `[settings] ${p} 有 ${filter.rejected.length} 个键被项目层策略拒绝(未合入配置):\n` +
+                filter.rejected
+                  .map((r) => `  - ${r.key}(${r.category}): ${r.reason}`)
+                  .join('\n'),
+            );
+          }
+          value = filter.accepted as Settings;
+        }
+        acc = deepMergeSettings(acc, value);
       }
     } catch {
       // 读文件失败忽略,继续下一源

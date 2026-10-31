@@ -40703,3 +40703,59 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
   「非法输入零执行」正反对照),mypy strict 0 错,ruff 全过;`test_mcp_server.py` 176 例复跑证明双射注册未被打断。
 - 号池队列隔离: `check-relay-queue-db-isolation.mjs`(门 276,2026-10-31 立:env 覆盖块把 `DATABASE_URL` 换成隔离库却没同时换 Redis/队列命名空间 ⇒ 判红;隔离证据写在注释里不算数,三档豁免(路径 `apps/api/tests/`·`*.test.*`/块内 `QUEUE_ISOLATION_EXEMPT`/`READ_ONLY`)逐条打印 `skip(reason)` 不静默吞;队列名携带库身份的解析单源 = `apps/api/src/services/relay-queue-name.ts`(显式 `RELAY_QUEUE_SUFFIX` > 隔离库名特征 > 原名),**分隔符是连字符不是冒号——BullMQ `QueueBase` 对队列名里的 `:` 直接抛,2026-10-31 实测冒号形态让隔离栈 API 崩在 worker 启动那一步**;mode=warn 起步(全量实测存量假阳未清,升 blocking 的前置是存量归零 §12e);自检 17 例 + 镜像 13 例 + `apps/api/tests/relay-queue-name.test.ts` 24 例;不变量与夹具抄写口径见 `docs/RELAY_QUEUE_DB_ISOLATION.md`)
 - 插件/装机面: `check-plugin-manifest-integrity.mjs`(门 277,2026-11-01 立,G-21 半腿/逆向-复现-超越 §0.11:已装插件的逐文件内容完整性对账 —— 写侧 `apps/cli/src/plugins/installer.ts` 的 `collectInstallFileDigests` 在落位那一刻把 `{path,sha256,bytes}` 记进 `InstallRecord.fileDigests`(可选字段,存量记录无需迁移),本门读台账 ↔ 盘上三态 `ok/drift/unjudged` 并逐条点名;drift 三类**分开报**不并桶(mismatch 内容有变 / missing 被删 / unlisted 未登记混入),老记录无该字段恒落 `unjudged`+`pending`(既不判"已核对"也不判"被篡改"),目录读不到/台账形状坏/记录名含穿越一律未判定;不跟随符号链接与 junction(§26),登记路径当下是链接 ⇒ 无从证内容;链接判据由注入缝钉死并另做真链接对照。**档位 warn + 差值棘轮**(§12e:判机器装机态,存量 pending 结构上拿不到哈希 ⇒ 升 blocking 即恒红门;升档前置 = pending 归零),`--baseline <file>` 才分得出"新增 vs 存量",不给基线时 `new=null` 不拿 0 冒充"无新增";`--print-baseline` 只打 stdout,**本门绝不写盘/不自愈/不重装**;判据单源 = 门体(比对三分类与 sha 取算复用 `check-installed-asset-catalog.mjs` 的 `judge`/`sha256Hex`,零复算);`--staged` 被接受但判序与全量档同一把尺(判装机态,无仓内取材面);自检 `--self-test` 21 组 + 镜像 `check-plugin-manifest-integrity.test.mjs` 14 例;取源是 git clone 无解包面 ⇒ zip-bomb 那一维不适用)
+#### 31. 桌面自动化输入动作族 + 两道内置门(对齐 Qoder `QoderComputerUse.exe`,逆向复现超越 T8 §A)(2026-11-01,所属端 desktop)
+> 对照物 = Qoder CN v0.5.1 内置插件原生件 `QoderComputerUse.exe`(2,530,288 B,函数 6,995,MCP 形 JSON-RPC over stdio)。
+> 取证册 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md`(§A 动作面与 11 项边界)。
+- **对齐**:`apps/desktop/src-tauri/src/operator.rs` 的动作枚举原有 5 档缺输入类两档 ⇒ 补 `Drag`(按下→1..12 段插值移动→释放,
+  中途失败**先松键**不留按下态)与 `PressKey`(修饰键按下→主键点击→**逆序释放**,主键失败也松),
+  键组解析 `parse_key_combo` 支持 X-style `Control_L+a` 与 `shift+alt+F5`,**未知键名或未知修饰键一律报错、不静默换键**、
+  `Control++` 保住字面 `+`;决策层补这两趟,端点解不出落 `NoOp` 而不臆造坐标。
+- **超越(两道可测不变式,内置在原生执行层)**:
+  ① **审批门** `check_approval` + `ApprovalGrant` + `plan_fingerprint` —— 批准必须由承载层显式入参并**绑定本次计划指纹**,
+  指纹不符/无批准人/授权串解析不动一律拒;**拒绝路径不构造 Enigo 实例**(结构上不可能误碰真鼠标键盘),
+  且 `denied_report` 的签名不接受 Allowed 态,使"被拒却报成功"这一不可能状态消失;
+  ② **按类别重试禁令** `max_attempts_for` —— 输入类尝试上限恒为 1 且**结构上读不到 policy**,
+  被动类才按预算重试(正向对照用例真重试 3 次)。
+- **使用方式**:既有两枚 tauri command(`operator_decide` / `operator_execute`)形态不变,新增档位随计划 JSON 下发;
+  批准来源是承载层入参,不是模型可写字段。
+- **守门**:`operator::tests` 30 枚新增用例 + 全量 `cargo test --lib` **330 passed / 0 failed**(主席复跑末行现读);
+  变异证据 = 摘审批门 8 枚翻红、把输入类上限改为随 policy 则 2 枚翻红,两处逐字还原后 `grep MUTATION` 为空。
+- **如实登记的未做格**:`revision 陈旧即拒` 未做——`ScreenState` 无代际字段,补它要连感知/OCR 产出侧同批(跨面契约);
+  审批指纹覆盖的是「批准陈旧」不是「感知陈旧」,两者不互相抵充。对侧 `set_value`/`perform_secondary_action` 属 UIA 写值、
+  非 enigo 原语,亦未做。
+- **口径纪律**:本节不得写成「Qoder 没有审批门」——原生件内 0 命中是观察,「门住宿主侧」是推断,详见 T8 册同一处更正(枚另有其号)。
+#### 32. 插件自动更新判据层 `checkUpdates` / `planUpdate`(验不过就不落·对齐 Qoder autoUpdate)(2026-11-01,所属端 cli)
+> 缺口矩阵 G-22 的残腿(主腿已在 `defaults.ts:50-51` 显式登记两档默认态)。对照物 = Qoder 装机的
+> `installed_plugins_v2.json` + `marketplaces/` + 同一插件多版本并存(`archives/<插件>/<sha256>.zip`,实测**文件名==该 zip 自身 sha256**)。
+- **能力**:`apps/cli/src/plugins/update-plan.ts` 出两份报告 —— 哪些插件有更新(`up-to-date / available / unjudged` 三态)、
+  以及**只出计划不落盘**的更新方案;出口 `plugin-updates` 命令(`commands/plugin-updates.ts`)。
+- **使用方式**:`ihui-cli plugin-updates --check` / `--plan`;退出码 `0 全绿 / 1 有 refused 或 available 未落 / 2 任何未判定`;
+  **默认零副作用**,`--apply` 明确未做(要接 safe-commit 五步法与 git 写锁,另票)。
+- **供应链判据(超越对照之处)**:①**验不过就不落** —— 落地前必须用门 277 的逐文件完整性判据验暂存副本,
+  混入未登记文件 ⇒ `staged-integrity-fail`、改字节 ⇒ `mismatch`,原目录逐字节不动;②**本地脏就停** ⇒ `local-drift-defers`
+  且暂存调用数为 0(绝不覆盖用户本地改动);③**取不到不冒充** ⇒ 市场未登记/远端不可达/无 commit pin 一律 `unjudged`,
+  `upToDate` 恒 0;④**一次只进一步** ⇒ `merge-base` 距离分档,跳两枚即 `not-direct-successor` 拒绝。
+- **判据单源纪律**:比对只用门 `scripts/check-plugin-manifest-integrity.mjs` 的 `judgeRecord`(运行时校验,
+  门不在手边即 `integrity-gate-unavailable` 而**绝不回落第二份 hash**),哈希只用写侧 `collectInstallFileDigests`;
+  形状锁同时钉住 src 与测试两侧不得出现 `createHash`/`node:crypto`/`sha256Hex`/`judge(`。
+- **守门**:`apps/cli/tests/plugin-update-plan.test.ts` 23 例(含"原目录快照逐字等值""stagerCalls==0"这类**副作用没发生**的断言),
+  `pnpm turbo typecheck --filter=ihui-cli --force` 8/8;邻档插件回归 176/176。
+- **口径纪律**:不得写成「Qoder 没有完整性校验」——它是否校验未取证到,标 [未知];本节说的是本仓多做出来的四道判据。
+#### 33. 安全扫描接进 hooks 两腿(编辑后告警 + 收场聚合审查·对齐 Qoder security-scan)(2026-11-01,所属端 cli)
+> 缺口矩阵 G-12。真缺口不是"缺扫描器",而是**判据住在 475 行命令壳里出不去**(`commands/security.ts` 当时只导出
+> `registerSecurityCommand`),任何内部调用方都用不上 ⇒ 先搬家再接线。
+- **能力**:`apps/cli/src/security/secret-scan.ts`(进程内 pattern 判据本体 `SECRET_SCAN_PATTERNS`)与
+  `audit-guards.ts`(自命令壳逐字节搬家的 5 枚类型守卫 + 3 枚校验);命令壳降到 319 行只留呈现面。
+- **使用方式**:无需新命令 —— 接进既有 hooks 事件面:编辑腿 `postToolCall`(命中 `Edit`/`Write`)出告警、
+  收场腿 `stop` 对整轮改动做聚合审查;钩子在 `apps/cli/src/hooks/index.ts` 两处派发。
+- **三条硬边界(超越轴)**:①**不外发用户代码**(对照侧深扫走远端,本仓刻意不做,把用户代码送出仓是新增数据出口);
+  ②**未判定不冒绿** —— 缺输入落 `undetermined` 并点名 `missing` + `not-judged-safe`,配有反向牙(改判成"安全"必翻红);
+  ③**守卫失败不伤用户动作** —— 扫描器自炸时 `proceed` 恒真,绝不因守卫问题拦人干活(§12e 同源的失效方向)。
+- **守门**:`apps/cli/tests/security-scan-hooks.test.ts` 15/15;`ihui-cli` typecheck 8/8;门 95 全部通过;
+  同批收掉本条线上一枚既有红(`hooks-trust-command` 4 例自 `0e3ad01c29` 起 mock 缺 `TRUSTED_FOLDERS_PATH` 导出)⇒ 现 8/8。
+- **如实边界**:云端 L2/L4 深度审查与 settings 开关刻意不做;`additionalContext` 并入模型输入的下游消费腿在 `agent.ts`
+  (取证时登记的边界,不在本格射程);对方 `qoder-hooks.json` 的 `Stop` 实为**空数组**(深扫挂 `PostToolUse` 的 `git push`),
+  即收场这一层本仓反而更完整。
+- 只读尺子/派生器/核验器(不在 runner,不进提交链,也不进守护巡检轮): `check-temp-landing.mjs` `check-dispatch-premise.mjs` `check-alertmanager-live-config.mjs` `check-monitor-runtime-parity.mjs` `check-tunnel-leg-health.mjs` `check-prod-checkout-foreign-work.mjs`(git-guardian 巡检轮派生,`--json` 只判不修;未跟踪洪水只计数不判定) `check-index-unmerged-age.mjs`(2026-10-24 立,index 烂尾哨兵:unmerged 条目按路径集指纹计龄,同批滞留 ≥15 分钟即到人;立因 = 凌晨违规 stash+rebase+pop 冲突逃逸挂了 2 枚 unmerged + 91 个被删文件 12 小时无人察觉;不走提交链,派发层 = git-guardian 的 `auditIndexUnmerged`;镜像 `check-index-unmerged-age.test.mjs`) `verify-panel-data.mjs` `verify-panel-logql.mjs` `verify-grafana-panel-data.mjs` `verify-grafana-logql-panels.mjs` `sync-panel-live-provisioning.mjs` `sync-grafana-live-provisioning.mjs`(仓内 provisioning 是唯一真相 ⇒ 派生到部署机运行副本,连不上的源不写入并点名原因;幂等 + `pre-sync-backups/` 退路;`--check` 零副作用;大屏核验五档 有数/全零/空板/失败/未判定,全零 ≠ 空板,不许接提交门) `strip-stale-closed-rows.mjs` `strip-stale-claim-marks.mjs` `env-backfill-model-keys.mjs` `quarantine-disk-root-strays.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `heal-worktree-tracked.mjs` `sync-lost-commit-tags.mjs` `check-retrieval-quality.mjs`(2026-11-01 立,逆向复现超越轮:量代码检索的召回形态是 dual-leg-fused 还是 serial-fallback、降级有没有出声;三态 + 枚举 0 枚出口 exit 2;融合判据经真 rrf_fuse 派生,门体自身零公式;刻意不进提交链) `ai-authorship-report.mjs`(2026-11-01 立,AI 代码归属读侧聚合四问 覆盖率/主体分桶/跨席重复主张/归属失效;无 note 一律 unjudged 严禁判成「人类写的」;跨席重复主张做到跨 commit 射程;判据 import lib/ai-authorship-notes 单源;不进提交链)
+- 只读哨兵(判机器态,**刻意不进提交链**,§12e:提交者结构上满足不了): `check-qoder-session-sync-task.mjs`(2026-10-31 立 —— Qoder 会话回灌计划任务的**存续哨兵**,只判「这条保活腿现在还在不在跑」,不判账号业务健康。立因:该任务以交互用户身份跑(DPAPI 只能由登录用户解),而「任务被删 / 被禁用 / 被改成 S4U / pwsh 或 Qoder 目录漂移 / 任务停摆」这些失效形态全部表现为**安静** —— 池里那枚号照旧显示 healthy(票还有 30 天),直到票过期才发现没人续。三态 `ok / breach / unjudged`(§0.3):取不到输入记 `unjudged`,不记绿也不冒红;日志刚被新一轮写了一半 ⇒ 本轮 `unjudged`,不按缺陷派单。用法 `node scripts/check-qoder-session-sync-task.mjs [--json]`;退出码 `0 ok / 1 breach / 2 unjudged`。**唯一调度器** = `scripts/git-guardian.mjs` 的 `auditQoderSessionSyncTask()`)
+- 只读尺子/派生器/核验器(不在 runner,不进提交链,也不进守护巡检轮): `check-temp-landing.mjs` `check-dispatch-premise.mjs` `check-alertmanager-live-config.mjs` `check-monitor-runtime-parity.mjs` `check-tunnel-leg-health.mjs` `check-prod-checkout-foreign-work.mjs`(git-guardian 巡检轮派生,`--json` 只判不修;未跟踪洪水只计数不判定) `check-index-unmerged-age.mjs`(2026-10-24 立,index 烂尾哨兵:unmerged 条目按路径集指纹计龄,同批滞留 ≥15 分钟即到人;立因 = 凌晨违规 stash+rebase+pop 冲突逃逸挂了 2 枚 unmerged + 91 个被删文件 12 小时无人察觉;不走提交链,派发层 = git-guardian 的 `auditIndexUnmerged`;镜像 `check-index-unmerged-age.test.mjs`) `verify-panel-data.mjs` `verify-panel-logql.mjs` `verify-grafana-panel-data.mjs` `verify-grafana-logql-panels.mjs` `sync-panel-live-provisioning.mjs` `sync-grafana-live-provisioning.mjs`(仓内 provisioning 是唯一真相 ⇒ 派生到部署机运行副本,连不上的源不写入并点名原因;幂等 + `pre-sync-backups/` 退路;`--check` 零副作用;大屏核验五档 有数/全零/空板/失败/未判定,全零 ≠ 空板,不许接提交门) `strip-stale-closed-rows.mjs` `strip-stale-claim-marks.mjs` `env-backfill-model-keys.mjs` `quarantine-disk-root-strays.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `heal-worktree-tracked.mjs` `sync-lost-commit-tags.mjs` `check-app-version-latest.mjs`(2026-10-29 立 / 2026-10-30 接线,Y-14:App 内更新卡的 **latest 行只读对账** —— 判 `GET /api/app-version/latest?platform=android` 的 `data.latest` 在位、`downloadUrl` 指向自有站点腿、apk 真能取到;红项正文直接给登记器物 `register-app-version-latest.mjs`(OWNER-ONLY:requireAdmin 只认人用 JWT 或生产机 `--via db`);**不进提交链**(§12e,判公网与线上数据,提交者改不了那一格),派发层 = `git-guardian` 的 `auditAppVersionLatest`(6h 节流、未判定只写日志不喊人),手工入口 `node scripts/check-app-version-latest.mjs`(加 `--json` 出机器可读结论)) `check-retrieval-quality.mjs`(2026-11-01 立,逆向复现超越轮:量代码检索的召回形态是 dual-leg-fused 还是 serial-fallback、降级有没有出声;三态 + 枚举 0 枚出口 exit 2;融合判据经真 rrf_fuse 派生,门体自身零公式;刻意不进提交链) `ai-authorship-report.mjs`(2026-11-01 立,AI 代码归属读侧聚合四问 覆盖率/主体分桶/跨席重复主张/归属失效;无 note 一律 unjudged 严禁判成「人类写的」;跨席重复主张做到跨 commit 射程;判据 import lib/ai-authorship-notes 单源;不进提交链)

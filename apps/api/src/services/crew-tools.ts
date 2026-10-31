@@ -17,6 +17,9 @@
  * 6. knowledge_search  — RAG 知识库检索
  */
 import { execFile } from 'node:child_process'
+import { mkdirSync, realpathSync } from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import { logger } from './clawdbot/logger.js'
 import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
@@ -45,6 +48,67 @@ export interface OpenAIToolDef {
 interface CrewTool {
   def: OpenAIToolDef
   handler: ToolHandler
+}
+
+/**
+ * terminal_run 的沙箱根(2026-11-01 安全强化)。
+ *
+ * 为什么必须有:原先 execFile 不带 `cwd` ⇒ 进程继承 API 的工作目录(= 仓库根,里面有
+ * `.env`:数据库口令 + 各厂商模型密钥)。白名单里的 cat/head/tail/find/grep 因此可以直接
+ * 把密钥读进模型可见上下文 —— 命令合法、路径越权。
+ * 默认落 `os.tmpdir()/ihui-crew-sandbox`(§26 口径:不硬编码 C 盘路径,用 TEMP);
+ * 运维想把沙箱挂到已登记的隔离卷上,显式设 `CREW_SANDBOX_ROOT`。
+ * 取不到(创建失败/路径不可解析)⇒ 返回 null,调用方**拒绝执行**,绝不回落进程 cwd。
+ */
+let cachedSandboxRoot: string | null | undefined
+
+function crewSandboxRoot(): string | null {
+  if (cachedSandboxRoot !== undefined) return cachedSandboxRoot
+  const requested = String(process.env.CREW_SANDBOX_ROOT ?? '').trim()
+  const target = requested || path.join(os.tmpdir(), 'ihui-crew-sandbox')
+  try {
+    mkdirSync(target, { recursive: true })
+    // 用 realpath 而不是 resolve 作为生效根:显式登记的沙箱若是一枚指向仓库根的链接,
+    // "在沙箱内"就只是字面说法。canonical 化后,裸文件名只能落在真目录里。
+    cachedSandboxRoot = realpathSync(target)
+    logger.info(`[crew-tools] terminal_run 沙箱根: ${cachedSandboxRoot ?? '(解析失败)'}`)
+  } catch (e) {
+    cachedSandboxRoot = null
+    logger.warn(`[crew-tools] 沙箱根创建失败,terminal_run 停用: ${(e as Error).message}`)
+  }
+  return cachedSandboxRoot
+}
+
+/**
+ * 参数是否试图越出沙箱:返回拒因,合法返回 null。
+ *
+ * 判据是"拒绝一切指向沙箱外或隐藏面的形态",不是"看起来无害就放过":
+ *  - 绝对路径(`/`、`\`、盘符 `C:`)⇒ 拒;
+ *  - 含路径分隔符或 `..` 的相对路径(逐级逃逸)⇒ 拒;
+ *  - 点开头(`.env`、`.ssh/config`、`./x`)⇒ 拒(点文件正是密钥的常见落点);
+ *  - 纯旗标放过,但 `--file=<路径>` 这类把值焊在旗标里的形态按值判。
+ * 结论:agent 只能在沙箱根里操作**裸文件名**。
+ */
+function reasonArgEscapesSandbox(arg: string): string | null {
+  const tokensToCheck: string[] = []
+  if (arg.startsWith('--')) {
+    const eq = arg.indexOf('=')
+    if (eq > 0) tokensToCheck.push(arg.slice(eq + 1))
+    else return null
+  } else if (arg.startsWith('-')) {
+    return null
+  } else {
+    tokensToCheck.push(arg)
+  }
+  for (const value of tokensToCheck) {
+    if (!value) return '空路径值'
+    if (value.includes('/') || value.includes('\\')) return '含路径分隔符'
+    if (/^[A-Za-z]:/.test(value)) return 'Windows 盘符绝对路径'
+    if (value.startsWith('.')) return '点开头的隐藏路径(.env 一类密钥面)'
+    if (value.includes('..')) return '含 .. 逐级逃逸'
+    if (value.length > 255) return '参数过长'
+  }
+  return null
 }
 
 /** 终端命令白名单(安全限制) */
@@ -254,6 +318,32 @@ export const CREW_TOOLS: CrewTool[] = [
           duration: 0,
         }
       }
+      // 2026-11-01 安全强化:白名单只约束"能起哪个进程",不约束"对它说什么"。
+      // 原先 cat/head/tail/find/grep 全在白名单里而**参数面零收敛**,且 execFile 未带 cwd
+      // ⇒ 进程跑在 API 的工作目录(= 仓库根,里面有 `.env`:数据库口令 + 各厂商模型密钥)。
+      // 于是任务文本里写一句 `cat .env` 就能把密钥读进模型可见上下文:命令合法、路径越权。
+      // 处置:① 一律钉到独立沙箱根(默认 <tmp>/ihui-crew-sandbox,运维可用
+      //   CREW_SANDBOX_ROOT 指到已登记的隔离目录);② 参数只许**裸名字**——绝对路径、
+      //   盘符、`..`、以 `.` 开头的点文件、含分隔符的相对路径全部拒绝。
+      //   这条判据不猜"看起来无害",取不到合法沙箱根即拒绝执行(fail-closed)。
+      const sandboxRoot = crewSandboxRoot()
+      if (!sandboxRoot) {
+        return {
+          success: false,
+          error: 'CREW_SANDBOX_ROOT 不可用,terminal_run 已拒绝执行(不回落进程工作目录)',
+          duration: 0,
+        }
+      }
+      for (const arg of tokens.slice(1)) {
+        const bad = reasonArgEscapesSandbox(arg)
+        if (bad) {
+          return {
+            success: false,
+            error: `参数 ${arg.slice(0, 60)} 被拒:${bad}(terminal_run 仅允许沙箱根内的裸文件名)`,
+            duration: 0,
+          }
+        }
+      }
       try {
         // 用 execFile 替代 exec,无 shell 解析,argv 严格按字面传递
         const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
@@ -261,7 +351,15 @@ export const CREW_TOOLS: CrewTool[] = [
             execFile(
               binary,
               tokens.slice(1),
-              { timeout: 10000, maxBuffer: 1024 * 1024, shell: false },
+              {
+                timeout: 10000,
+                maxBuffer: 1024 * 1024,
+                shell: false,
+                // 钉死工作目录(2026-11-01 安全强化):不传 cwd 即继承 API 进程 cwd =仓库根,
+                // 而根目录里的 `.env` 装着数据库口令与各厂商模型密钥。
+                cwd: sandboxRoot ?? undefined,
+                windowsHide: true,
+              },
               (err, out, errOut) => {
                 if (err) {
                   ;(err as Error & { stdout?: string; stderr?: string }).stdout = out

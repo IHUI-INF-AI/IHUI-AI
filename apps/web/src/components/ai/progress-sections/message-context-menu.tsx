@@ -246,8 +246,6 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
   )
 })
 
-export default MessageContextMenu
-
 /**
  * MessageSearchBar(2026-07-29 立,Phase 23)
  *

@@ -136,8 +136,6 @@ export function FenLeiOverlay({
   )
 }
 
-export default FenLeiOverlay
-
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,

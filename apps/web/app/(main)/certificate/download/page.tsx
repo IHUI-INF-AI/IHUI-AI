@@ -16,6 +16,7 @@ import { CertificateList } from './CertificateList'
 import { CertificatePrintArea } from './CertificatePrintArea'
 import { api } from './helpers'
 import { formatDate } from '@/lib/date-utils'
+import { escapeHtml } from '@ihui/shared'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import type { Certificate, CertsData } from './types'
@@ -93,21 +94,27 @@ export default function CertificateDownloadPage() {
         }
       }
 
+      // 2026-11-01 安全强化:这三枚都是**库存字符串**(cert.name varchar(200)、
+      // certificateNo、nickname 用户可写),原先未转义就写进 document.write 的模板里 ——
+      // 打印窗是 window.open('', '_blank') 开出的**同源**文档,发证方(或任何能写证书名的
+      // 面)塞一枚 <img src=x onerror=…> 即在被打印者的同源上下文里执行,而该窗的
+      // window.opener 指向已登录的本站会话。同仓的导出路径
+      // (src/components/chat/conversation-export.ts)对每一处插值都转义,本页此前是唯一的例外。
       const bodyContent =
         imageHtml ||
         `
         <div style="text-align:center;padding:48px 24px;">
-          <h1 style="font-size:28px;margin:0 0 8px;">${cert.name}</h1>
-          <p style="color:#666;margin:0 0 24px;">${t('download.certNo')}：${cert.certificateNo ?? '-'}</p>
+          <h1 style="font-size:28px;margin:0 0 8px;">${escapeHtml(cert.name)}</h1>
+          <p style="color:#666;margin:0 0 24px;">${t('download.certNo')}：${escapeHtml(cert.certificateNo ?? '-')}</p>
           <div style="font-size:16px;line-height:2;">
-            <p>${t('download.holder')}：${cert.nickname ?? '-'}</p>
+            <p>${t('download.holder')}：${escapeHtml(cert.nickname ?? '-')}</p>
             <p>${t('download.issueTime')}：${cert.issuedAt ? formatDate(cert.issuedAt) : '-'}</p>
-            <p>${STATUS_TEXT[cert.status] ?? t('download.statusValid')}</p>
+            <p>${escapeHtml(STATUS_TEXT[cert.status] ?? t('download.statusValid'))}</p>
           </div>
         </div>`
 
       printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" />
-        <title>${cert.name}</title>
+        <title>${escapeHtml(cert.name)}</title>
         <style>
           * { margin:0; padding:0; box-sizing:border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color:#1f2937; }

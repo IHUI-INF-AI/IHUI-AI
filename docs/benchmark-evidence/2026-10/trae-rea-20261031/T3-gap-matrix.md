@@ -202,7 +202,7 @@
 
 | 内核族(对方) | 本仓现读判定 | 一手证据 |
 |---|---|---|
-| 命令级权限粒度(对方16值枚举,命令级,无审批即拒不降级) | **A** | `core/command_safety.py::_split_script_into_commands`(按 \|/&&/;/子shell 分段)、`core/exec_policy.py::prefix_rule`→`Decision.{DENY,PROMPT}`、`exec_policy_amendments.py::append_allow_prefix_rule`(前缀规则持久化)、`core/permissions_instructions.py`(对标 codex permissions_instructions.rs);测试 `test_permissions_instructions_56.py`/`test_mcp_wiring_58b.py` |
+| 命令级权限粒度(对方枚举 **17 枚** ai_agent 块 / **22 枚** harness 块;原判「16 值」已于 11-01 复核推翻——串名将 `sandbox_execute_failure`+`to_recovery` 误读为一枚,详见 `../../2026-11/qoder-trae-rea-20261101/T10-trae-kernel-numbers-audited.md` §2.1。命令级粒度与「无审批即拒不降级」两句**不受影响**,后者在复核中升为观察级实锤) | **A** | `core/command_safety.py::_split_script_into_commands`(按 \|/&&/;/子shell 分段)、`core/exec_policy.py::prefix_rule`→`Decision.{DENY,PROMPT}`、`exec_policy_amendments.py::append_allow_prefix_rule`(前缀规则持久化)、`core/permissions_instructions.py`(对标 codex permissions_instructions.rs);测试 `test_permissions_instructions_56.py`/`test_mcp_wiring_58b.py` |
 | 上下文压缩 ≥4 档 | **A** | `core/context_compaction.py` percent_left + warning(<40)/error(<20)/auto_compact/blocking 四阈值线(§4 建议7 本批已落) |
 | 子代理隔离(对方43型×4档) | **A** | `apps/cli/src/subagents/precedence.ts::ISOLATION_MODES=['none','worktree','subprocess']` 全 precedence 解析(explicit??role??persona??'none');第4档=容器/命名空间级,属 OS 原生,本仓以 worktree+subprocess 覆盖真实隔离需求 |
 | 会话 fork/resume/continue/list | **A** | `core/rollout_truncation.py::fork_turn_positions`(Codex rollback_start_idx 语义,按用户回合 fork/重放/裁剪)+ `api/v1/debug.py::list_sessions` + `command_ack_facts.parent_session_id`(fork 血缘);`workflow_engine.resume_instance` 续跑 |
