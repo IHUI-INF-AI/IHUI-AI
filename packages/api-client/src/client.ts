@@ -578,6 +578,81 @@ function resolveBody(body: RequestInit['body']): TransportInit['body'] {
   if (body === null) return undefined
   return body as TransportInit['body']
 }
+/**
+ * 本站凭据只许发往本站域集合(2026-10-31 安全强化第 20 批)。
+ *
+ * 病灶:`normalizeUrl` 的第一条分支是 `if (/^https?:\/\//i.test(url)) return url` ——
+ * 绝对 URL 原样直通,而下面挂凭据的那一步只看"有没有 token",不看"这枚请求要去哪"。
+ * 于是任何能让 `fetchApi/apiOrThrow` 拿到一个外链 path 的通道(现读到的这一条是
+ * 浏览器扩展的 api.proxy:后台代持 accessToken,调用方给的 path 一路透传),
+ * 都会**带着本站长期凭据请求任意域**,并把响应原样带回调用方。
+ *
+ * 判据口径:相对 URL 是同源 ⇒ 照挂;绝对 URL 只有 origin 命中"本端已注入的基址集合"
+ * (api 基址 / 流式基址 / ai-service 基址 / 宿主同源)才挂。集合为空且目标是绝对 URL ⇒
+ * **不挂**(fail-closed:调用方给了完整外链,凭据该不该去与基址是否注入无关)。
+ */
+export function credentialAllowedOrigins(
+  bases: Array<string | null | undefined>,
+  sameOrigin?: string | null,
+): Set<string> {
+  const out = new Set<string>()
+  for (const b of bases) {
+    if (!b) continue
+    try {
+      out.add(new URL(b).origin)
+    } catch {
+      // 相对基址(同源代理):本身不产 origin,由 sameOrigin 那一路覆盖
+    }
+  }
+  if (sameOrigin) {
+    try {
+      out.add(new URL(sameOrigin).origin)
+    } catch {
+      // 同上:解析不了就不进集合
+    }
+  }
+  return out
+}
+
+/** 目标 URL 是否允许携带本站凭据。 */
+export function shouldAttachCredential(
+  target: string,
+  allowedOrigins: ReadonlySet<string>,
+): boolean {
+  // 无 scheme 形态 = 同源相对请求 ⇒ 与旧行为一致
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(target)) return true
+  let origin: string
+  try {
+    origin = new URL(target).origin
+  } catch {
+    return false
+  }
+  return allowedOrigins.has(origin)
+}
+
+/** 宿主同源(浏览器/WebView 有 location;RN/小程序没有 ⇒ null,由基址集合覆盖)。 */
+function hostOrigin(): string | null {
+  const loc = (globalThis as { location?: { origin?: unknown } }).location
+  return typeof loc?.origin === 'string' && loc.origin ? loc.origin : null
+}
+
+/** 本端已注入基址的 origin 集合(每次现算 —— 基址可在运行期被 setBaseUrl 改)。 */
+function currentCredentialAllowedOrigins(): Set<string> {
+  // aiServiceBaseUrl() 是"裸 fetch 腿"的合法目标(工具结果回传、上传表单等十几条腿
+  // 都打它的绝对 URL),不纳入就会把那些腿的凭据一起掐掉 —— 它是同一条既有真相源,
+  // 不是新开的口子。
+  let aiBase: string | null = null
+  try {
+    aiBase = aiServiceBaseUrl()
+  } catch {
+    aiBase = null
+  }
+  return credentialAllowedOrigins(
+    [baseUrl, streamBaseUrl, aiServiceBaseOverride, aiBase],
+    hostOrigin(),
+  )
+}
+
 function normalizeUrl(url: string, useStreamBase = false, baseOverride?: string | null): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
@@ -934,7 +1009,7 @@ export async function fetchApi<T>(
     ...(restOptions.headers as Record<string, string> | undefined),
   }
 
-  if (token) {
+  if (token && shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins())) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
@@ -1004,7 +1079,9 @@ export async function fetchApi<T>(
             } else {
               const newToken = await refreshAccessTokenOnce()
               if (newToken) {
-                headers['Authorization'] = `Bearer ${newToken}`
+                // 同一条判据:外链目标即使续期成功也不挂凭据
+                if (shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins()))
+                  headers['Authorization'] = `Bearer ${newToken}`
                 authRetried = true
                 continue
               }
@@ -1064,7 +1141,9 @@ export async function fetchApi<T>(
       if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
         const newToken = await refreshAccessTokenOnce()
         if (newToken) {
-          headers['Authorization'] = `Bearer ${newToken}`
+          // 同一条判据:外链目标即使续期成功也不挂凭据
+          if (shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins()))
+            headers['Authorization'] = `Bearer ${newToken}`
           result = await circuitBreaker.execute(async () => {
             return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           })
@@ -1159,7 +1238,9 @@ async function fetchTextOnce(
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-10-31 第 20 批:凭据只发往本站域集合(判据见 shouldAttachCredential)
+  if (token && shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins()))
+    headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
@@ -1251,7 +1332,9 @@ async function fetchAiServiceJsonOnce<T>(
     ...(hasBody && !isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(restOptions.headers as Record<string, string> | undefined),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-10-31 第 20 批:凭据只发往本站域集合(判据见 shouldAttachCredential)
+  if (token && shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins()))
+    headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
@@ -1343,7 +1426,9 @@ async function fetchRawOnce(
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-10-31 第 20 批:凭据只发往本站域集合(判据见 shouldAttachCredential)
+  if (token && shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins()))
+    headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
@@ -1458,6 +1543,15 @@ export interface FetchWithAuthRefreshOptions {
    * 因此一律经这里进,不经 headers。
    */
   accessToken?: string | null
+  /**
+   * 本趟目标服务的基址(仅当调用方**在代码里**指定了非默认基址时传)。
+   *
+   * 2026-10-31 第 20 批:凭据只发往本站域集合,而 voice-stt 这类腿允许调用方显式传
+   * `aiServiceUrl`(例如测试里的 http://ai.test、桌面端直连的 127.0.0.1:8803)。
+   * 可信性必须由**代码**声明,不能被数据驱动 —— 所以这里要求调用方把基址显式递进来,
+   * 本出口只把它并进"允许带凭据的 origin 集合",不据此放宽其它请求。
+   */
+  serviceBaseUrl?: string
 }
 
 /**
@@ -1492,9 +1586,17 @@ export async function fetchWithAuthRefresh(
 ): Promise<Response> {
   const ownsAuth = hasOwnAuthorization(init.headers)
   const token = options.accessToken === undefined ? getToken() : options.accessToken
+  // 2026-10-31 第 20 批:外链目标不挂凭据(判据同 fetchApi 那一条,不另立一套)
+  const allowedOrigins = currentCredentialAllowedOrigins()
+  if (options.serviceBaseUrl) {
+    for (const o of credentialAllowedOrigins([options.serviceBaseUrl])) allowedOrigins.add(o)
+  }
+  const urlCarriesCredential = shouldAttachCredential(url, allowedOrigins)
   const first = await fetch(url, {
     ...init,
-    headers: ownsAuth ? copyHeaders(init.headers) : withBearerHeader(init.headers, token),
+    headers: ownsAuth
+      ? copyHeaders(init.headers)
+      : withBearerHeader(init.headers, urlCarriesCredential ? token : null),
   })
   if (first.status !== 401) return first
   if (!isReplayableBody(init.body)) return first
@@ -1502,7 +1604,10 @@ export async function fetchWithAuthRefresh(
   const refreshed = await refreshAccessTokenOnce()
   if (!refreshed) return first
   // 只重放这一次:第二次仍 401 也照样交回(循环重放=凭据死循环,fetchApi 同此红线)
-  return fetch(url, { ...init, headers: withBearerHeader(init.headers, refreshed) })
+  return fetch(url, {
+    ...init,
+    headers: withBearerHeader(init.headers, urlCarriesCredential ? refreshed : null),
+  })
 }
 
 // ==================== SSE 流式对话 ====================
@@ -3857,7 +3962,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-10-31 第 20 批:外链目标不挂凭据(判据同 fetchApi 那一条)
+  if (token && shouldAttachCredential(url, currentCredentialAllowedOrigins()))
+    headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 P2 修复：与 fetchApi/postApi/putApi/patchApi/deleteApi 保持一致，
   // 注入 X-Requested-With 配合后端 CSRF 防护(无 Bearer token 时走 cookie 兜底路径)
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'

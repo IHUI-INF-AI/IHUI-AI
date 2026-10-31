@@ -133,7 +133,9 @@ export async function voiceSttFromBlob(params: VoiceSttParams): Promise<string> 
       body: formData,
       // ai-service 启用 JWT 鉴权(2026-08 起),必须携带 Bearer token
     },
-    { accessToken: token ?? undefined },
+    // 2026-10-31 第 20 批:显式声明目标服务基址 —— 凭据只发往已知域集合,
+    // 而本腿允许调用方在代码里指定 aiServiceUrl(测试 http://ai.test、桌面端直连 8803)
+    { accessToken: token ?? undefined, serviceBaseUrl: aiServiceUrl },
   )
 
   if (!res.ok) {
@@ -197,7 +199,9 @@ export async function voiceSttFromReactNative(
       body: fd,
       signal: AbortSignal.timeout(30_000),
     },
-    { accessToken: token ?? undefined },
+    // 2026-10-31 第 20 批:显式声明目标服务基址 —— 凭据只发往已知域集合,
+    // 而本腿允许调用方在代码里指定 aiServiceUrl(测试 http://ai.test、桌面端直连 8803)
+    { accessToken: token ?? undefined, serviceBaseUrl: aiServiceUrl },
   )
 
   if (!res.ok) {
