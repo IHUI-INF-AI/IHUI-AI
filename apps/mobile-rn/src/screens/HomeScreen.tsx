@@ -1940,15 +1940,14 @@ export function HomeScreen() {
                   color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
                 />
               </Tappable>
-              <Pressable
-                style={undefined}
+              <Tappable
                 onPress={closeModelModal}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={shellStyles.modelModalClose}>×</Text>
-              </Pressable>
+              </Tappable>
             </View>
             {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
             {showModelSearch ? (
@@ -1967,15 +1966,14 @@ export function HomeScreen() {
                   accessibilityLabel={t('home.a11yModelSearchInput')}
                 />
                 {modelSearch ? (
-                  <Pressable
-                    style={undefined}
+                  <Tappable
                     onPress={() => setModelSearch('')}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel={t('home.a11yClearQuery')}
                   >
                     <Text style={shellStyles.modelSearchClear}>×</Text>
-                  </Pressable>
+                  </Tappable>
                 ) : null}
               </View>
             ) : null}
@@ -2057,15 +2055,14 @@ export function HomeScreen() {
           />
           <View style={shellStyles.materialSheet}>
             <View style={shellStyles.materialSheetBar}>
-              <Pressable
-                style={undefined}
+              <Tappable
                 onPress={() => setShowMaterialList(false)}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={shellStyles.materialSheetClose}>×</Text>
-              </Pressable>
+              </Tappable>
             </View>
             <MaterialList
               categories={materialCategories}
@@ -2100,15 +2097,14 @@ export function HomeScreen() {
               <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('home.matDetailFallback')}
               </Text>
-              <Pressable
-                style={undefined}
+              <Tappable
                 onPress={closeMaterialDetail}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={shellStyles.detailDialogClose}>×</Text>
-              </Pressable>
+              </Tappable>
             </View>
             <View style={shellStyles.detailDialogBody}>
               {materialDetailLoading ? (
@@ -2169,15 +2165,14 @@ export function HomeScreen() {
           accessibilityLabel={t('home.closeBtn')}
         >
           <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable
-              style={undefined}
+            <Tappable
               onLongPress={() => void handleLongPressQrCode()}
               delayLongPress={500}
               accessibilityRole="imagebutton"
               accessibilityLabel={t('home.qrLongPressA11y')}
             >
               <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
-            </Pressable>
+            </Tappable>
             <Text style={shellStyles.qrTitle}>{t('home.qrHint')}</Text>
             <Tappable
               hitSlop={8}
@@ -2241,15 +2236,14 @@ export function HomeScreen() {
                     <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
                       {card.title}
                     </Text>
-                    <Pressable
-                      style={undefined}
+                    <Tappable
                       onPress={() => handleRemoveMaterialCard(card.uid)}
                       hitSlop={8}
                       accessibilityRole="button"
                       accessibilityLabel={t('home.a11yRemoveMat')}
                     >
                       <Text style={shellStyles.materialCardClose}>×</Text>
-                    </Pressable>
+                    </Tappable>
                   </View>
                 ))}
               </View>
