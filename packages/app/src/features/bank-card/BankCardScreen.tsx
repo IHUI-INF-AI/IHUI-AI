@@ -82,18 +82,18 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     error: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    listBody: { padding: 10 },
+    listBody: { padding: rnSpacing['sm-loose'] },
     separator: { height: 12 },
     card: {
       padding: rnSpacing.md,
@@ -108,13 +108,13 @@ function createStyles(tk: AppThemeTokens) {
     bankName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.brand.ctaForeground },
     badge: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(255,255,255,0.25)',
     },
     badgeText: { fontSize: 10, color: tk.surface.light },
     cardNumber: {
-      marginTop: 10,
+      marginTop: rnSpacing['sm-loose'],
       fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.brand.ctaForeground,

@@ -256,9 +256,9 @@ function createStyles(tk: AppThemeTokens) {
     nestedList: { gap: rnSpacing.md, padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] },
     /** 分类 chip 条:左右留白由组件 contentPaddingHorizontal 注入(与卡片同一档),这里只管纵向 */
     categoryBar: { paddingTop: rnSpacing.sm, paddingBottom: rnSpacing.xs },
-    backBtn: { paddingHorizontal: 10, paddingTop: rnSpacing.md },
+    backBtn: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing.md },
     title: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.sm,
       paddingBottom: rnSpacing.sm,
       fontSize: 22,
@@ -285,10 +285,10 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.secondary },
     cardMain: { flex: 1, marginLeft: rnSpacing.md },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     name: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     vipBadge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.warning.DEFAULT,

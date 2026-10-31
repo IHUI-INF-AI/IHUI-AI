@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.xs, fontSize: rnType.caption.size, color: tk.text.secondary },
-    scroll: { paddingTop: rnSpacing.md, paddingBottom: 24 },
+    scroll: { paddingTop: rnSpacing.md, paddingBottom: rnSpacing['2xl'] },
     centerBlock: {
       flexDirection: 'column',
       alignItems: 'center',
@@ -273,9 +273,9 @@ function createStyles(tk: AppThemeTokens) {
     pinnedBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: rnSpacing['2xs'],
       backgroundColor: tk.brandAccent.light,
-      paddingHorizontal: 4,
+      paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
       borderRadius: rnRadius.md,
     },
@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.xs,
     },
     metaText: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    viewBox: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    viewBox: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['2xs'] },
     pagination: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -307,7 +307,7 @@ function createStyles(tk: AppThemeTokens) {
     pagerBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: rnSpacing['2xs'],
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     pagerBtnDisabled: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: rnSpacing['2xs'],
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,

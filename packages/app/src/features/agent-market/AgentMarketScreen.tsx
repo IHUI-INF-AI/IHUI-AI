@@ -110,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     btnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size },
     title: {

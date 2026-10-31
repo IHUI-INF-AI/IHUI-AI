@@ -152,13 +152,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     body: { padding: 14, gap: rnSpacing.md },
-    field: { gap: 6 },
+    field: { gap: rnSpacing['xs-loose'] },
     label: { fontSize: rnType.title.size, color: tk.text.secondary },
     inputBox: {
       flexDirection: 'row',
