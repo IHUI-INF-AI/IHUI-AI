@@ -199,6 +199,15 @@ jobs:
           # → 中途过期;应用侧 refresh 轮转消费与 storage 文件互踩 → 晚段用例被
           # SSO 授权页接管(im-channels ×4 等)。e2e 拉长到 24h 根治,生产不变。
           JWT_ACCESS_TTL_SECONDS: '86400'
+          # 2026-10-31:只对本环境放开"终端路由"这一格的鉴权档。
+          # 立因:POST /api/terminal/sessions 的 requireAdmin 自 2026-10-28 起多一道管理员
+          # TOTP 闸(plugins/require-permission.ts:265-281,ADMIN_TOTP_MODE 默认 enforce),
+          # 而 e2e_admin 是 seed 出来的测试管理员、不绑 TOTP ⇒ 403 ⇒ 前端 createSession 失败
+          # ⇒ sessions 恒空 ⇒ TerminalPanel 只渲染空态,`.xterm` 结构上永不出现
+          # (ide-editor 用例三连红)。选这个开关而不是 ADMIN_TOTP_MODE=warn:后者会把**全部
+          # admin 面**的 TOTP 闸一起降档,削弱 e2e 对其它 admin 路由的覆盖;本开关是产品已声明
+          # 的自托管出口(routes/terminal.ts 头注),射程只到终端路由(改走 requireAuth)。
+          IHUI_TERMINAL_LOCAL_ENABLED: '1'
         run: |
           # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
           # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)

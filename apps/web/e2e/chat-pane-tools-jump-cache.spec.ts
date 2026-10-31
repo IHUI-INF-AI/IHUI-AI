@@ -729,19 +729,57 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
       })
       .toBe('pane-root:no:still|pane-1:hl:moved')
 
-    // 等平滑滚动落定,记下 pane-1 的稳态位,再走腿2
-    await page.waitForTimeout(800)
-    const pane1Settled = await scrollTopOf(page, SECOND_PANE)
+    // 2026-10-31 修:固定 800ms 既可能太短(smooth 未落定 ⇒ 基线是中间值 ⇒ 腿2 假 moved),
+    // 也可能把稳态位读成滚动途中值;根格基线旧实现用的是腿1 之前的 rootRecorded,同样陈旧。
+    // 改成"连续两次读数差 ≤1px 才算落定",两格都重读。
+    const settleScrollTop = async (pane: string): Promise<number> => {
+      let last = await scrollTopOf(page, pane)
+      for (let i = 0; i < 30; i += 1) {
+        await page.waitForTimeout(100)
+        const next = await scrollTopOf(page, pane)
+        if (Math.abs(next - last) <= 1) return next
+        last = next
+      }
+      return last
+    }
+    const pane1Settled = await settleScrollTop(SECOND_PANE)
+    const rootSettled = await settleScrollTop(ROOT_PANE)
+    /** 取一格的两段读数(hl / moved):拆开是为了不把 1.5s 的高亮窗口与 smooth 落定绑在同一帧 */
+    const probeParts = async (baselines: Record<string, number>, pane: string) => {
+      const snapshot = await jumpProbe(baselines)
+      const part = snapshot.split('|').find((p) => p.startsWith(`${pane}:`))
+      if (!part) throw new Error(`jumpProbe 缺 ${pane}:${snapshot}`)
+      const [, hl, moved] = part.split(':')
+      return { hl, moved }
+    }
+    const baselines = { [ROOT_PANE]: rootSettled, [SECOND_PANE]: pane1Settled }
 
     // 腿2:不带 paneId(历史形态)⇒ matchesPaneEvent(undefined??null, null) 只放行根格;
     // pane-1 不得再动、不得再亮
     await dispatchJump({ messageId: target })
+    // 高亮 = 1500ms 瞬时态(progress-jump-store.ts:58-70);位移 = 等 smooth 落定。
+    // 两者塞进同一个字符串 = 只要不同帧就永远不等(腿1 靠"pane-1 一起滚"侥幸同帧)。
     await expect
-      .poll(() => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Settled }), {
+      .poll(async () => (await probeParts(baselines, ROOT_PANE)).hl, {
         timeout: 10_000,
-        message: '不带 paneId 的跳转没有只落根窗格(门控口径被破坏)',
+        message: '不带 paneId 的跳转没有点亮根窗格(门控失效)',
       })
-      .toBe('pane-root:hl:moved|pane-1:no:still')
+      .toBe('hl')
+    await expect
+      .poll(async () => (await probeParts(baselines, ROOT_PANE)).moved, {
+        timeout: 10_000,
+        message: '不带 paneId 的跳转没有滚动根窗格(门控失效)',
+      })
+      .toBe('moved')
+    await expect
+      .poll(
+        async () => {
+          const p = await probeParts(baselines, SECOND_PANE)
+          return `${p.hl}:${p.moved}`
+        },
+        { timeout: 10_000, message: 'pane-1 被不带 paneId 的跳转带走' },
+      )
+      .toBe('no:still')
   })
 
   test('③ 缓存隔离:两格各流一轮后,两枚 persist 快照各存各的、互不掺', async ({ page }) => {
