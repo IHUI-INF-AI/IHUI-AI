@@ -121,7 +121,7 @@
     "tsx": "^4.23.5",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "ws": "^8.21.1"
+    "ws": "^8.22.0"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top"
