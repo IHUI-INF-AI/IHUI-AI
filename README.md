@@ -121,13 +121,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3731 | `testFiles` |
+| 测试文件 | 3732 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 308 | `guardianGates` |
 | — blocking | 282 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 18242 | `trackedFiles` |
+| 跟踪文件 | 18244 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -891,6 +891,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **MCP + A2A 三栈**:自研 MCP 协议服务端 + 客户端(stdio / SSE / HTTP)· 24 内置工具 · Agent-to-Agent 互通
 - **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
 - **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能
+- **AIGC 生成内容打标**(对齐 Trae tagAigcMetadata,goal-b40):媒体任务落库链路自动打标(图像/音频/视频全类型)· 显式标识文案 + 标识类型 + 生成方 + 标准引用(《人工智能生成合成内容标识办法》)· `AIGC_LABELING_ENABLED` 开关,关=逐字节旧行为
 ### 💬 对话体验(Web 端王牌)
 - **全局 docked AI 面板**:任意页面右侧常驻对话,不占独立路由,深链可分享
 - **丝滑流式**:SSE + 断点续传 · 消息排队 · Steer 中途引导(对标 Codex / Cursor)
