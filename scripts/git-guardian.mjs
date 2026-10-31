@@ -8654,6 +8654,103 @@ const CROSS_END_SHELL_INTERVAL_MS = Number(
  * ⚠️ 点名但**不喊人**(§5e-1:拒落属常态,收信人无事可做;真倒退由门 251 与人读台账判)。
  * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
  */
+/**
+ * RN 非色档落档自愈轮(2026-10-31 立)。
+ *
+ * 立因:尺子 `check-web-rn-style-tiers.mjs` 量出"值在档表里却写成裸数字"的位置 —— 这些位置
+ * 改档表也不会上屏(RN 侧原有 4257 处裸数字,首轮落档后现读仍在千余处)。器物
+ * `land-rn-style-tiers.mjs` 做等值改写(像素零变化),但**没人持续派发**就只是手工活一次;
+ * 而共享工作区里被并发覆盖是常态(实测一轮 246 个文件的改动被洗掉,工作树引用率从 85.2% 掉回 69.2%)。
+ * 本腿把"补落"变成节律动作:30 分钟一轮、**只写工作树**(与 healCrossEndMirror 同族,
+ * 落库交给仓内收编器 auto-commit-quiet)⇒ 不碰共享索引、不与在飞会话抢提交。
+ *
+ * 三态:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);有改动/零改动各记一行。
+ * held 是"工作树脏、归属未知不猜"的跳过面,不是失败 —— 它会自己随着他席提交而回落。
+ */
+const RN_STYLE_TIERS_INTERVAL_MS = Number(
+  process.env.IHUI_RN_STYLE_TIERS_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function sweepRnStyleTiers(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = RN_STYLE_TIERS_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'rn-style-tiers-land-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'land-rn-style-tiers.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ RN 落档自愈:器物不在位(scripts/land-rn-style-tiers.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ RN 落档自愈:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b 派生进程纪律
+              timeout: Number(process.env.IHUI_RN_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+              signal: typeof e?.signal === 'string' ? e.signal : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? '')
+  const line =
+    stdout
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('结论:LAND-TIERS'))
+      .pop() ?? ''
+  if (!line) {
+    logger(
+      `⚠️ RN 落档自愈:未判定(rc=${r.status ?? 'n/a'},无结论行)—— 本轮没判,不等于"已对齐"` +
+        `${r.signal ? `,孩子被 ${r.signal} 掐死` : ''}`,
+    )
+    return { ran: true, ok: false, state: 'undetermined' }
+  }
+  const num = (k) => Number(line.match(new RegExp(`${k}=(\\d+)`))?.[1] ?? 0)
+  const state = line.match(/state=([a-z-]+)/)?.[1] ?? ''
+  const files = num('files')
+  const changes = num('changes')
+  const held = num('held')
+  if (state === 'rolled-back') {
+    logger(`❌ RN 落档自愈:有文件注入校验失败已回滚(该文件可能停在无水印态)—— ${line.slice(0, 200)}`)
+    return { ran: true, ok: false, state, files, changes, held }
+  }
+  logger(
+    `ℹ️ RN 落档自愈:${line.slice(0, 200)}(held=工作树脏、归属未知不猜;落库交给 auto-commit-quiet)`,
+  )
+  return { ran: true, ok: true, state, files, changes, held }
+}
+
 export function sweepCrossEndShellPages(opts = {}) {
   const {
     now = Date.now(),
@@ -9975,6 +10072,8 @@ function main() {
     // 链条按依赖序派:先补 RN 薄壳,再落小程序页 —— 下游三腿判据要问的就是"RN 腿在不在"。
     if (!CHECK_ONLY) sweepRnHostShells()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
+    // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
+    if (!CHECK_ONLY) sweepRnStyleTiers()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
@@ -11122,6 +11221,7 @@ if (isDirectRun) {
 export const __test__ = {
   // 造页闭环的调度腿(§22c:镜像测试 import 这一份本体,不在测试里复算派发判据)
   sweepCrossEndShellPages,
+  sweepRnStyleTiers,
   gitdirTargetVerdict,
   // daemon 存活兜底的纯判据(2026-10-29 立):镜像只吃这一份,不复制 STATE 码表
   judgeGuardDaemonAlive,
