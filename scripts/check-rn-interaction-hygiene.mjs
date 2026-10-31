@@ -194,8 +194,9 @@ function topColors(body) {
     }
     if (depth > 0) continue
     if (ch === ',') {
-      const m = /^\s*backgroundColor\s*:\s*(["'`][^"'`]*["'`])\s*$/.exec(line)
-      if (m) out.push(m[1].slice(1, -1))
+      // 收两种形态：带引号的字面量，以及 rnCssLight.black20 / tk.overlay.modal 这样的裸标识符链
+      const m = /^\s*backgroundColor\s*:\s*(["'`][^"'`]*["'`]|[A-Za-z_$][\w$]*(?:\.[\w$]+)*)\s*$/.exec(line)
+      if (m) out.push(m[1].replace(/^["'`]|["'`]$/g, ''))
       line = ''
       continue
     }
@@ -445,7 +446,8 @@ function isScrim(props) {
 function scrimByStyle(props, table) {
   for (const m of props.matchAll(/styles\.([A-Za-z_$][\w$]*)/g)) {
     const e = table.get(m[1])
-    if (e && Array.isArray(e.bg) && e.bg.some(isTranslucentBlack)) return true
+    if (e && Array.isArray(e.bg) && e.bg.some((v) => isTranslucentBlack(v) || isScrimToken(v, SCRIM_TOKENS)))
+      return true
   }
   return false
 }
@@ -932,6 +934,20 @@ function runSelfTest() {
       '<Pressable style={styles.pickerOverlay} activeOpacity={1} onPress={close} />',
   )
   ok(scrimSheet.h2.length === 0, 'H2 过头:遮罩证据写在同文件样式键里也要认')
+  // 表键值写成命名 token 的那一跳也要认（旧版只认 rgba 字面量，16 枚因此被计入）。
+  setScrimTokens(new Set(['black20']))
+  const scrimViaTableToken = scan(
+    'const styles = StyleSheet.create({\n  mask: { position: \'absolute\', backgroundColor: rnCssLight.black20 },\n})\n' +
+      '<Pressable style={styles.mask} onPress={close} />',
+  )
+  ok(scrimViaTableToken.h2.length === 0, 'H2 过头：表键里的遮罩色是现读确认的 token，也算自己写的证据')
+  const tableTokenUnknown = scan(
+    'const styles = StyleSheet.create({\n  card: { position: \'absolute\', backgroundColor: rnCssLight.brandBg },\n})\n' +
+      '<Pressable style={styles.card} onPress={go} />',
+  )
+  ok(tableTokenUnknown.h2.length === 1, 'H2 失守：表键值是名单外 token 时不得当遮罩')
+  setScrimTokens(new Set())
+
   const scrimHex = scan(
     '<Pressable style={{ backgroundColor: \'#00000080\' }} onPress={close} />',
   )
@@ -1133,11 +1149,13 @@ function main() {
   let h4Scaled = 0
   const TOKENS_REL = 'packages/design-tokens/src/rn-tokens.ts'
   try {
-    // 按被审面显式取（与档位同一基准 §0.4）：head→HEAD:、staged→索引 :、worktree→盘上。
-    const spec = face === 'head' ? `HEAD:${'${TOKENS_REL}'}` : face === 'staged' ? `:${'${TOKENS_REL}'}` : null
-    const tokenSrc = spec
-      ? (catBatch(ROOT, [spec], { maxBuffer: 1 << 26, timeout: 120000 }).get(spec) ?? null)
-      : readWorktreeFile(ROOT, TOKENS_REL)
+    // 复用门里已有的 keyOf(face→前缀) 取材出口。上一版手搓模板串时把 ${TOKENS_REL} 写成了
+    // 字面量 ⇒ spec 变成 "HEAD:${TOKENS_REL}" 永远取不到，整档空转却只打印一句"取不到"。
+    const tspec = keyOf(TOKENS_REL)
+    const tokenSrc =
+      face === 'worktree'
+        ? readWorktreeFile(ROOT, TOKENS_REL)
+        : (catBatch(ROOT, [tspec], { maxBuffer: 1 << 26, timeout: 120000 }).get(tspec) ?? null)
     if (typeof tokenSrc !== "string") throw new Error("取不到被审面的 rn-tokens")
     const n = setScrimTokens(scrimTokenNames(tokenSrc))
     if (!quiet && n === 0)
