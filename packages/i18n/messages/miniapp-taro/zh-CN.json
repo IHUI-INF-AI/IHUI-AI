@@ -106,7 +106,6 @@
     "empty": "暂无数据",
     "failed": "加载失败",
     "free": "免费",
-    "detecting": "检测中...",
     "loading": "加载中...",
     "loadingShort": "加载中...",
     "noMore": "没有更多了",
@@ -2813,7 +2812,6 @@
     "notificationSettings": "通知设置",
     "close": "关闭",
     "demo": {
-      "zhangsan": "张三",
       "lisi": "李四",
       "wangwu": "王五",
       "likeNote": "赞了你的课程笔记",
@@ -4571,25 +4569,6 @@
     "r3": "字节",
     "r4": "智谱"
   },
-  "aboutBusinesslicense": {
-    "r1": "吉林省爱智汇人工智能科技有限公司",
-    "r2": "1000万元人民币",
-    "r3": "2023-06-15 至 长期",
-    "r4": "有限责任公司",
-    "r5": "广州市市场监督管理局",
-    "r6": "技术服务、技术开发、技术咨询、技术交流、技术转让、技术推广；软件开发；信息系统集成服务；信息技术咨询服务；互联网信息服务。"
-  },
-  "aboutModelrecord": {
-    "r1": "智汇AI对话大模型",
-    "r2": "粤网信备4401060000001号",
-    "r3": "吉林省爱智汇人工智能科技有限公司",
-    "r4": "生成合成类(深度合成)"
-  },
-  "aboutIcprecord": {
-    "r1": "吉ICP备2025027274号",
-    "r2": "吉林省爱智汇人工智能科技有限公司",
-    "p1": "吉ICP备2025027274号-7A"
-  },
   "StudyStats": {
     "y1": "h,已完成"
   },
@@ -4652,9 +4631,6 @@
   },
   "VipUpgradeToast": {
     "p1": "升级会员解锁更多功能"
-  },
-  "aboutApppermission": {
-    "q1": "获取权限状态"
   },
   "aicareer": {
     "q1": "面试",
@@ -7369,9 +7345,6 @@
     "empty": "暂无数据",
     "unfollow": "取消关注"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP备案/许可证号"
-  },
   "income": {
     "title": "收益",
     "today": "今日收益",
@@ -7495,7 +7468,6 @@
   "settings": {
     "oldPassword": "旧密码",
     "confirmPassword": "确认新密码",
-    "icpRecord": "ICP 备案",
     "pwdFieldsRequired": "请填写完整的密码信息",
     "pwdTooShort": "新密码至少 6 位",
     "pwdNotMatch": "两次输入的密码不一致",

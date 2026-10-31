@@ -106,7 +106,6 @@
     "empty": "No data",
     "failed": "Failed to load",
     "free": "Free",
-    "detecting": "Checking...",
     "loading": "Loading...",
     "loadingShort": "Loading...",
     "noMore": "No more",
@@ -2813,7 +2812,6 @@
     "notificationSettings": "Notification settings",
     "close": "Close",
     "demo": {
-      "zhangsan": "Zhang San",
       "lisi": "Li Si",
       "wangwu": "Wang Wu",
       "likeNote": "liked your course note",
@@ -4571,25 +4569,6 @@
     "r3": "ByteDance",
     "r4": "Zhipu"
   },
-  "aboutBusinesslicense": {
-    "r1": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
-    "r2": "10 million RMB",
-    "r3": "2023-06-15 to long-term",
-    "r4": "Limited liability company",
-    "r5": "Guangzhou Municipal Market Supervision Administration",
-    "r6": "Technical services, technical development, technical consulting, technical exchange, technical transfer, technical promotion; software development; system integration services; IT consulting services; internet information services"
-  },
-  "aboutModelrecord": {
-    "r1": "IHUI AI Dialogue LLM",
-    "r2": "Ji ICP License No. 2025027274",
-    "r3": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
-    "r4": "Generative synthetic (deep synthesis)"
-  },
-  "aboutIcprecord": {
-    "r1": "Ji ICP License No. 2025027274",
-    "r2": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
-    "p1": "Ji ICP License No. 2025027274-7A"
-  },
   "StudyStats": {
     "y1": "h, completed"
   },
@@ -4652,9 +4631,6 @@
   },
   "VipUpgradeToast": {
     "p1": "Upgrade to unlock more features"
-  },
-  "aboutApppermission": {
-    "q1": "Get permission status"
   },
   "aicareer": {
     "q1": "Interview",
@@ -7369,9 +7345,6 @@
     "empty": "No data",
     "unfollow": "Unfollow"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP License No."
-  },
   "income": {
     "title": "Earnings",
     "today": "Today",
@@ -7495,7 +7468,6 @@
   "settings": {
     "oldPassword": "Current Password",
     "confirmPassword": "Confirm New Password",
-    "icpRecord": "ICP Record",
     "pwdFieldsRequired": "Please fill in all password fields",
     "pwdTooShort": "Password must be at least 6 characters",
     "pwdNotMatch": "Passwords do not match",

@@ -106,7 +106,6 @@
     "empty": "데이터 없음",
     "failed": "로딩 실패",
     "free": "무료",
-    "detecting": "검사 중...",
     "loading": "로딩 중...",
     "loadingShort": "로딩 중...",
     "noMore": "더 이상 없습니다",
@@ -2815,7 +2814,6 @@
     "notificationSettings": "알림 설정",
     "close": "닫기",
     "demo": {
-      "zhangsan": "장산",
       "lisi": "리쓰",
       "wangwu": "왕우",
       "likeNote": "회원님의 강의 노트를 좋아합니다",
@@ -4574,25 +4572,6 @@
     "r3": "바이트댄스",
     "r4": "즈푸 AI"
   },
-  "aboutBusinesslicense": {
-    "r1": "지린성 아이즈후이 인공지능 과학기술 유한회사",
-    "r2": "1000만 위안",
-    "r3": "2023-06-15 ~ 장기",
-    "r4": "유한책임회사",
-    "r5": "광저우시 시장감독관리국",
-    "r6": "기술 서비스, 기술 개발, 기술 자문, 기술 교류, 기술 이전, 기술 보급; 소프트웨어 개발; 시스템 통합 서비스; 정보 기술 자문; 인터넷 정보 서비스"
-  },
-  "aboutModelrecord": {
-    "r1": "지혜AI 대화 LLM",
-    "r2": "Ji ICP 2025027274호",
-    "r3": "지린성 아이즈후이 인공지능 과학기술 유한회사",
-    "r4": "생성 합성류(심층 합성)"
-  },
-  "aboutIcprecord": {
-    "r1": "길림(吉) ICP 등록번호 2025027274",
-    "r2": "지린성 아이즈후이 인공지능 과학기술 유한회사",
-    "p1": "길림(吉) ICP 등록번호 2025027274-7A"
-  },
   "StudyStats": {
     "y1": "h, 완료"
   },
@@ -4655,9 +4634,6 @@
   },
   "VipUpgradeToast": {
     "p1": "회원 업그레이드로 더 많은 기능 해제"
-  },
-  "aboutApppermission": {
-    "q1": "권한 상태 가져오기"
   },
   "aicareer": {
     "q1": "면접",
@@ -7369,9 +7345,6 @@
     "empty": "데이터 없음",
     "unfollow": "팔로우 취소"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP 신고/허가 번호"
-  },
   "income": {
     "title": "수익",
     "today": "오늘의 수익",
@@ -7495,7 +7468,6 @@
   "settings": {
     "oldPassword": "기존 비밀번호",
     "confirmPassword": "새 비밀번호 확인",
-    "icpRecord": "ICP 신고",
     "pwdFieldsRequired": "비밀번호 정보를 모두 입력하세요",
     "pwdTooShort": "새 비밀번호는 최소 6자 이상이어야 합니다",
     "pwdNotMatch": "두 번 입력한 비밀번호가 일치하지 않습니다",

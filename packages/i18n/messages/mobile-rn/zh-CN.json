@@ -929,8 +929,6 @@
     "checkUpdateUnsupported": "当前环境不支持应用内更新",
     "changePhoneMissingUser": "用户信息缺失,无法更换手机号",
     "logoutConfirm": "确认退出当前账号?",
-    "appPermission": "应用权限",
-    "icpRecord": "ICP 备案",
     "usageRules": "使用规范",
     "changePassword": "修改密码",
     "oldPassword": "旧密码",
@@ -1961,9 +1959,6 @@
     "fans": "粉丝",
     "empty": "暂无数据",
     "unfollow": "取消关注"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP备案/许可证号"
   },
   "identityVerify": {
     "title": "身份认证",
