@@ -421,3 +421,59 @@ test('C12 ui-routes 输入预取不是空转:函数在、两段式齐、两处�
     '两处调用(healUiRoutesFamily / judgeUiRoutesFace)都必须走同一出口',
   )
 })
+
+/**
+ * C16 —— 与基线逐字节全等的落点必须被剔出本批。
+ * 现场理由(2026-11-01):守护日志里 i18n 一族自 10-31 21:19 起**每轮** refused,原话点名 4 份
+ * CDN 载荷"构造内容与某历史 blob 逐字节相同 ⇒ 按写回旧版处理";逐字节去量,那 4 份盘 == HEAD
+ * 一字节没变,而真变的 3 份 gen.ts 被它们一起堵在后面 ⇒ 105 的 G5(blocking)常驻在完好仓上。
+ * 正反成对:全等 ⇒ identical;不同形 ⇒ changed;面上取不到(null)= 新增,不是全等(阳性对照);
+ * 一份读不回 ⇒ error 且整批不备(不得"落能读到的那几份")。
+ * 委托形状锁:healI18nFamily 必须真调它并消费 identical / bytesAll —— 定义了不接线 = 没有(§0.8)。
+ */
+test('C16 全等落点剔出本批 / 变化集仍交落地 / 读不回整批不报 / 委托形状锁', () => {
+  const rels = ['a.gen.ts', 'b.gen.ts', 'c.b64.txt']
+  const disk = { 'a.gen.ts': 'A2', 'b.gen.ts': 'B2', 'c.b64.txt': 'C2' }
+  const face = { 'a.gen.ts': 'A2', 'b.gen.ts': 'B1', 'c.b64.txt': null }
+  const r = H.partitionIdenticalOutputs({
+    rels,
+    readDisk: (p) => disk[p],
+    readFace: (p) => face[p],
+  })
+  assert.equal(r.error, undefined, '三份都读得回 ⇒ 不该有 error')
+  assert.deepEqual(r.identical, ['a.gen.ts'], '与基线逐字节全等 ⇒ 不进本批')
+  assert.deepEqual(
+    r.changed.map((c) => c.path).sort(),
+    ['b.gen.ts', 'c.b64.txt'],
+    '变了的那份与"面上还没有"的新增份都必须在变化集里',
+  )
+  assert.equal(
+    r.bytesAll,
+    6,
+    'bytesAll 量整批写回字节(含全等那几份)⇒ 上限那一闸不许被剔除逻辑顺手缩小',
+  )
+  const e = H.partitionIdenticalOutputs({
+    rels,
+    readDisk: (p) => (p === 'b.gen.ts' ? null : disk[p]),
+    readFace: (p) => face[p],
+  })
+  assert.equal(e.error, 'b.gen.ts', '生成后读不回一份 ⇒ 点名是哪一份')
+  assert.equal(e.changed.length, 0, '读不回一份 ⇒ 整批不备,不落半套')
+
+  const src = readFileSync(new URL('../heal-derived-in-checkout.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /const part = partitionIdenticalOutputs\(\{/,
+    'healI18nFamily 必须真调这一判据(定义了不接线 = 没有,§0.8)',
+  )
+  assert.match(
+    src,
+    /const bytes = part\.bytesAll/,
+    '字节上限闸必须消费剔除函数算出的整批字节,不是变化集字节',
+  )
+  assert.match(
+    src,
+    /const identical = part\.identical/,
+    '被剔掉的路径清单要拿得到(JSON 结论与拒落原因都靠它,静默剔除等于没有留痕)',
+  )
+})
