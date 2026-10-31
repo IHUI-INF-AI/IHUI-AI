@@ -10,7 +10,6 @@ import { ChevronDown } from 'lucide-react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 换绑手机共享屏 — props 注入式跨端组件(wrapper 负责 fetchApi + setInterval 倒计时)。
  *  原屏硬编码中文(无 i18n),共享层保持原样不接入 t()。 */
@@ -48,7 +47,7 @@ export function ChangePhoneScreen({
       <View style={styles.inputWbox}>
         <View style={styles.inputBox}>
           <Pressable
-            style={pressFeedback(styles.areaBox)}
+            style={styles.areaBox}
             onPress={onToggleNationShow}
             accessibilityLabel="选择区号"
           >
@@ -71,7 +70,7 @@ export function ChangePhoneScreen({
             {nations.map((n) => (
               <Pressable
                 key={n.id}
-                style={pressFeedback(styles.nationItem)}
+                style={styles.nationItem}
                 onPress={() => onSelectNation(n)}
                 accessibilityLabel={`${n.title} ${n.content}`}
               >
@@ -103,7 +102,7 @@ export function ChangePhoneScreen({
             <Text style={styles.countdownText}>{codeMin}秒后重新获取</Text>
           ) : (
             <Pressable
-              style={pressFeedback(styles.sendBtn)}
+              style={styles.sendBtn}
               onPress={onSendCode}
               accessibilityLabel="重新获取验证码"
             >
@@ -116,7 +115,7 @@ export function ChangePhoneScreen({
       {tip ? <Text style={styles.tipText}>{tip}</Text> : null}
 
       <Pressable
-        style={pressFeedback([styles.submitBtn, submitting && styles.submitBtnDisabled])}
+        style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
         onPress={onSubmit}
         disabled={submitting}
         accessibilityLabel="确定"

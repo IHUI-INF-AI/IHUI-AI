@@ -34,7 +34,6 @@ import { ChevronRight, Settings } from 'lucide-react-native'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { N8nMessage } from '@ihui/types'
-import { pressFeedback } from '@ihui/ui-native'
 export type { N8nMessage }
 
 /** AiAssistantN8nScreen props(wrapper 注入数据+回调) */
@@ -123,7 +122,7 @@ export function AiAssistantN8nScreen({
               {item.images!.map((url, i) => (
                 <Pressable
                   key={`${url}-${i}`}
-                  style={pressFeedback(styles.imageItem)}
+                  style={styles.imageItem}
                   onPress={() => onPreviewImage(url)}
                 >
                   <Image source={{ uri: url }} style={styles.chatImage} resizeMode="cover" />
@@ -184,11 +183,11 @@ export function AiAssistantN8nScreen({
       ) : null}
 
       {/* 模型选择条 */}
-      <Pressable style={pressFeedback(styles.modelBar)} onPress={onModelPress}>
+      <Pressable style={styles.modelBar} onPress={onModelPress}>
         <Text style={styles.modelBarLabel} numberOfLines={1}>
           {t('chat.modelLabel')}: {selectedModelLabel}
         </Text>
-        <Pressable style={pressFeedback(styles.modelConfigBtn)} onPress={onModelConfigPress}>
+        <Pressable style={styles.modelConfigBtn} onPress={onModelConfigPress}>
           <Settings size={14} color={tk.text.secondary} />
           <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
         </Pressable>
@@ -211,7 +210,7 @@ export function AiAssistantN8nScreen({
         />
         {/* 发送/停止按钮:流式输出中变为停止(对齐 Uniapp BottomActionBar isLoading 模式) */}
         <Pressable
-          style={pressFeedback(styles.sendBtn)}
+          style={styles.sendBtn}
           onPress={() => (sending ? onStop?.() : onSend?.(searchInput))}
           disabled={!sending && !searchInput.trim()}
         >

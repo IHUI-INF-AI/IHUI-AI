@@ -9,7 +9,6 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createCartStyles } from './cart-styles'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 购物车跨端共享屏 —— RN 端与小程序端的唯一渲染真相源。
@@ -89,7 +88,7 @@ export function CartScreen({
   const renderItem = ({ item }: { item: CartItemView }) => (
     <View style={styles.card}>
       <Pressable
-        style={pressFeedback([styles.checkbox, item.selected ? styles.checkboxChecked : null])}
+        style={[styles.checkbox, item.selected ? styles.checkboxChecked : null]}
         onPress={() => onToggleItem(item.id)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: item.selected }}
@@ -111,10 +110,7 @@ export function CartScreen({
         <Text style={styles.price}>¥{item.price.toFixed(2)}</Text>
         <View style={styles.qtyRow}>
           <Pressable
-            style={pressFeedback([
-              styles.qtyBtn,
-              item.quantity <= 1 ? styles.qtyBtnDisabled : null,
-            ])}
+            style={[styles.qtyBtn, item.quantity <= 1 ? styles.qtyBtnDisabled : null]}
             disabled={item.quantity <= 1}
             onPress={() => onQuantityChange(item.id, -1)}
             accessibilityRole="button"
@@ -124,7 +120,7 @@ export function CartScreen({
           </Pressable>
           <Text style={styles.qtyValue}>{item.quantity}</Text>
           <Pressable
-            style={pressFeedback(styles.qtyBtn)}
+            style={styles.qtyBtn}
             onPress={() => onQuantityChange(item.id, 1)}
             accessibilityRole="button"
             accessibilityLabel="+"
@@ -134,7 +130,7 @@ export function CartScreen({
         </View>
       </View>
       <Pressable
-        style={pressFeedback(styles.deleteBtn)}
+        style={styles.deleteBtn}
         onPress={() => onRemove(item.id)}
         accessibilityRole="button"
         accessibilityLabel={t('common.delete')}
@@ -175,7 +171,7 @@ export function CartScreen({
       {items.length > 0 ? (
         <View style={styles.footer}>
           <Pressable
-            style={pressFeedback([styles.checkbox, allSelected ? styles.checkboxChecked : null])}
+            style={[styles.checkbox, allSelected ? styles.checkboxChecked : null]}
             onPress={onToggleAll}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: allSelected }}
@@ -191,10 +187,7 @@ export function CartScreen({
             <Text style={styles.totalPrice}>¥{totalPrice.toFixed(2)}</Text>
           </View>
           <Pressable
-            style={pressFeedback([
-              styles.checkoutBtn,
-              totalCount === 0 ? styles.checkoutBtnDisabled : null,
-            ])}
+            style={[styles.checkoutBtn, totalCount === 0 ? styles.checkoutBtnDisabled : null]}
             onPress={onCheckout}
             accessibilityRole="button"
             accessibilityLabel={t('cart.checkout')}
