@@ -9,7 +9,7 @@
  *   - 全局持久化:跨会话/跨终端保留任务清单
  *   - 项目隔离:按 workspacePath 分组,切换工作区只看本工作区任务
  *   - 紧凑进度条:启动 banner 显示一行 "✓ 2/5 ▰▰▱▱▱"
- *   - 子命令:add/list/show/done/undone/remove/clear/help
+ *   - 子命令:add/list/show/done/undone/cancel/block/remove/clear/help
  *
  * 与 todo-write 工具的区别:
  *   - todo-write:Agent 内部调用,工作区本地 .ihui/todos.json,全量替换语义
@@ -20,10 +20,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import chalk from 'chalk';
+import { t } from '../i18n/index.js';
 
 // === 类型 ===
 
-export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+/**
+ * 任务五态(2026-10 扩,对齐对方 cancelled/blocked;新值追加末尾不重排既有)。
+ * 与 tools/todo-write.ts TodoItem.status、plan/structured.ts PlanStepStatus 同批同词表;
+ * 与 Kanban 六档 AGENT_TASK_STATUSES 刻意并存,不得混写。
+ */
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
 export type TaskPriority = 'high' | 'medium' | 'low';
 
 export interface TaskItem {
@@ -121,12 +127,14 @@ export function listTasks(workspacePath: string): TaskItem[] {
   return sortTasks(ws.tasks);
 }
 
-/** 读取指定 workspace 的任务统计 {total, pending, in_progress, completed} */
+/** 读取指定 workspace 的任务统计 {total, pending, in_progress, completed, cancelled, blocked} */
 export function getTaskStats(workspacePath: string): {
   total: number;
   pending: number;
   in_progress: number;
   completed: number;
+  cancelled: number;
+  blocked: number;
 } {
   const tasks = listTasks(workspacePath);
   return {
@@ -134,6 +142,8 @@ export function getTaskStats(workspacePath: string): {
     pending: tasks.filter((t) => t.status === 'pending').length,
     in_progress: tasks.filter((t) => t.status === 'in_progress').length,
     completed: tasks.filter((t) => t.status === 'completed').length,
+    cancelled: tasks.filter((t) => t.status === 'cancelled').length,
+    blocked: tasks.filter((t) => t.status === 'blocked').length,
   };
 }
 
@@ -171,7 +181,33 @@ export function markDone(workspacePath: string, id: string): TaskItem | null {
   return task;
 }
 
-/** 标记任务未完成(撤销 done) */
+/** 标记任务受阻(等待外部条件;id 不存在返回 null) */
+export function markBlocked(workspacePath: string, id: string): TaskItem | null {
+  const store = loadStore();
+  const ws = store.workspaces[workspacePath];
+  if (!ws) return null;
+  const task = ws.tasks.find((t) => t.id === id);
+  if (!task) return null;
+  task.status = 'blocked';
+  delete task.completedAt;
+  saveStore(store);
+  return task;
+}
+
+/** 标记任务已取消(不再执行;id 不存在返回 null) */
+export function markCancelled(workspacePath: string, id: string): TaskItem | null {
+  const store = loadStore();
+  const ws = store.workspaces[workspacePath];
+  if (!ws) return null;
+  const task = ws.tasks.find((t) => t.id === id);
+  if (!task) return null;
+  task.status = 'cancelled';
+  delete task.completedAt;
+  saveStore(store);
+  return task;
+}
+
+/** 标记任务未完成(撤销 done/cancel/block,回到 pending) */
 export function markUndone(workspacePath: string, id: string): TaskItem | null {
   const store = loadStore();
   const ws = store.workspaces[workspacePath];
@@ -218,7 +254,8 @@ export function showTask(workspacePath: string, id: string): TaskItem | null {
 // === 排序 ===
 
 function sortTasks(tasks: TaskItem[]): TaskItem[] {
-  const statusOrder: Record<TaskStatus, number> = { in_progress: 0, pending: 1, completed: 2 };
+  // 新两态追加末尾(cancelled/blocked 排在 completed 之后),既有三态相对次序不动
+  const statusOrder: Record<TaskStatus, number> = { in_progress: 0, pending: 1, completed: 2, cancelled: 3, blocked: 4 };
   const priorityOrder: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
   return [...tasks].sort((a, b) => {
     const s = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
@@ -235,6 +272,8 @@ const STATUS_ICON: Record<TaskStatus, string> = {
   pending: '⏳',
   in_progress: '🚧',
   completed: '✅',
+  cancelled: '🚫',
+  blocked: '⛔',
 };
 
 const PRIORITY_ICON: Record<TaskPriority, string> = {
@@ -243,21 +282,25 @@ const PRIORITY_ICON: Record<TaskPriority, string> = {
   low: '🟢',
 };
 
+// 五态标签取词单源 = cli 词包(§19 五语言同批;旧三态在 zh-CN 下输出与原硬编码逐字一致)
 const STATUS_LABEL: Record<TaskStatus, string> = {
-  pending: '待办',
-  in_progress: '进行中',
-  completed: '已完成',
+  pending: t('cli.taskStatusLabels.pending'),
+  in_progress: t('cli.taskStatusLabels.inProgress'),
+  completed: t('cli.taskStatusLabels.completed'),
+  cancelled: t('cli.taskStatusLabels.cancelled'),
+  blocked: t('cli.taskStatusLabels.blocked'),
 };
 
 /**
  * 渲染紧凑一行进度条(供 banner 使用):
  *   "✓ 2/5 ▰▰▱▱▱ 40%"
  * 无任务时返回空字符串(让 banner 不显示这行)
+ * 分母口径:cancelled(已取消)不再执行,移出分母;blocked(受阻)仍欠完成,留在分母。
  */
 export function renderCompactProgress(workspacePath: string): string {
   const stats = getTaskStats(workspacePath);
-  if (stats.total === 0) return '';
-  const total = stats.total;
+  const total = stats.total - stats.cancelled;
+  if (total === 0) return '';
   const done = stats.completed;
   const pct = Math.round((done / total) * 100);
   // 进度条总宽度 10 格
@@ -280,7 +323,7 @@ export function renderTaskList(workspacePath: string): string {
   }
   const stats = getTaskStats(workspacePath);
   const lines: string[] = [];
-  lines.push(chalk.cyan(`\n╭─ 任务列表 · [${wsName}] · ${stats.total} 项(待办 ${stats.pending} · 进行中 ${stats.in_progress} · 完成 ${stats.completed})`));
+  lines.push(chalk.cyan(`\n╭─ 任务列表 · [${wsName}] · ${stats.total} 项(待办 ${stats.pending} · 进行中 ${stats.in_progress} · 完成 ${stats.completed} · 取消 ${stats.cancelled} · 受阻 ${stats.blocked})`));
   lines.push(chalk.cyan('│'));
   let lastStatus: TaskStatus | null = null;
   for (const t of tasks) {
@@ -291,14 +334,14 @@ export function renderTaskList(workspacePath: string): string {
     const sIcon = STATUS_ICON[t.status];
     const pIcon = PRIORITY_ICON[t.priority];
     const idStr = chalk.dim(`#${t.id.padStart(3, ' ')}`);
-    const content = t.status === 'completed'
+    const content = t.status === 'completed' || t.status === 'cancelled'
       ? chalk.dim.strikethrough(t.content)
       : t.content;
     lines.push(`│  ${sIcon} ${pIcon} ${idStr} ${content}`);
     if (t.note) lines.push(`│       ${chalk.dim('↳ ' + t.note)}`);
   }
   lines.push(chalk.cyan('│'));
-  lines.push(chalk.cyan('╰─ /tasks add <内容> · /tasks done <id> · /tasks remove <id>'));
+  lines.push(chalk.cyan('╰─ /tasks add <内容> · /tasks done <id> · /tasks cancel <id> · /tasks block <id> · /tasks remove <id>'));
   lines.push('');
   return lines.join('\n');
 }
@@ -312,7 +355,7 @@ export function renderTaskDetail(task: TaskItem): string {
   lines.push(`│  ${chalk.dim('内容:')} ${task.content}`);
   if (task.note) lines.push(`│  ${chalk.dim('备注:')} ${task.note}`);
   lines.push(`│  ${chalk.dim('创建:')} ${new Date(task.createdAt).toLocaleString('zh-CN', { hour12: false })}`);
-  if (task.completedAt) {
+  if (task.completedAt && task.status === 'completed') {
     lines.push(`│  ${chalk.dim('完成:')} ${new Date(task.completedAt).toLocaleString('zh-CN', { hour12: false })}`);
   }
   lines.push(chalk.cyan('╰─'));
@@ -331,6 +374,8 @@ export function renderTasksHelp(): string {
     '│  /tasks show <id>          查看任务详情',
     `│  /tasks done <id>          标记任务完成 ${chalk.green('✓')}`,
     '│  /tasks undone <id>        撤销完成状态',
+    `│  ${t('cli.tasksHelpCancel')}`,
+    `│  ${t('cli.tasksHelpBlock')}`,
     '│  /tasks remove <id>        删除任务',
     '│  /tasks clear              清空所有任务',
     '│  /tasks help               显示本帮助',
@@ -353,6 +398,8 @@ export function renderTasksHelp(): string {
  *   /tasks show <id>
  *   /tasks done <id>
  *   /tasks undone <id>
+ *   /tasks cancel <id>
+ *   /tasks block <id>
  *   /tasks remove <id>
  *   /tasks clear
  *   /tasks help
@@ -399,6 +446,24 @@ export function handleTasksCommand(input: string, workspacePath: string): string
       const task = markDone(workspacePath, id);
       if (!task) return chalk.yellow(`未找到任务 #${id}`);
       return chalk.green(`✓ 任务 #${id} 已完成: ${task.content}`);
+    }
+
+    case 'cancel':
+    case 'cancelled': {
+      const id = parts[1];
+      if (!id) return chalk.yellow(t('cli.tasksUsageCancel'));
+      const task = markCancelled(workspacePath, id);
+      if (!task) return chalk.yellow(`未找到任务 #${id}`);
+      return chalk.green(t('cli.taskCancelledFeedback', { id, content: task.content }));
+    }
+
+    case 'block':
+    case 'blocked': {
+      const id = parts[1];
+      if (!id) return chalk.yellow(t('cli.tasksUsageBlock'));
+      const task = markBlocked(workspacePath, id);
+      if (!task) return chalk.yellow(`未找到任务 #${id}`);
+      return chalk.green(t('cli.taskBlockedFeedback', { id, content: task.content }));
     }
 
     case 'undone': {

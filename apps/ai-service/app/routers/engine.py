@@ -67,8 +67,9 @@ def _make_loop_factory() -> Any:
     """构造主循环工厂:复用 agents 路由既有的 LLM/工具装配(不重复实现一遍)。"""
 
     async def _factory(spec: dict[str, Any], host_tools: list[Any]) -> Any:
+        from ..core.hook_runtime import build_registered_hook_runtime
         from ..core.token_baseline import CHAIN_MAIN
-        from ..services.agent_loop_v2 import AgentLoopV2
+        from ..services.agent_loop_v2 import AgentLoopV2, instructional_inputs_from_env
         from .agents import _build_loop_v2_tools, _make_loop_v2_llm
 
         # V3 #47 第二格:角色过桥。spec["role_id"] 由 agent_engine._spec(thread) 给出,
@@ -115,9 +116,16 @@ def _make_loop_factory() -> Any:
             model_params=spec.get("model_params"),
             # 2026-09-18 第三批(Goals 对标):线程目标注入 system 全程可见
             thread_goal=spec.get("goal"),
+            # 接线批(2026-11-01):生命周期钩子运行时注入(与 agents._new_v2_loop
+            # 同一出口 build_registered_hook_runtime;登记表为空 ⇒ 无钩子 runtime ⇒
+            # 与注入前逐零差异;判据详解见 core/hook_runtime.py 登记表节注释)。
+            hook_runtime=build_registered_hook_runtime(),
             # G-941(2026-10-22):引擎线程的主循环工厂,链标签取唯一常量源
             # (账本增量基线按 (chain, tool_name) 分桶,见 agents._new_v2_loop 同款注释)。
             chain=CHAIN_MAIN,
+            # 装载口补齐批(2026-11-01):参数化指令片段的声明面(唯一读口 = 服务端 env
+            # AGENT_INSTRUCTIONAL_INPUTS;未设置 ⇒ {}= 八枚全不注入,与接线前逐零差异)。
+            instructional_inputs=instructional_inputs_from_env(),
         )
 
     return _factory
