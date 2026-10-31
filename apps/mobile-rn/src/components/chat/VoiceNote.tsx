@@ -66,6 +66,7 @@ import {
   updateVoiceNote,
 } from '@ihui/api-client'
 import { rnRadius } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
   formatVoiceNoteDuration,
@@ -420,7 +421,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             <View style={styles.actionRow}>
               {phase === 'ready' && (
                 <Pressable
-                  style={styles.primaryBtn}
+                  style={pressFeedback(styles.primaryBtn)}
                   onPress={startRecording}
                   accessibilityRole="button"
                   testID="voice-note-start"
@@ -431,7 +432,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               )}
               {busy && (
                 <Pressable
-                  style={styles.stopBtn}
+                  style={pressFeedback(styles.stopBtn)}
                   onPress={stopRecording}
                   accessibilityRole="button"
                   disabled={!recording}
@@ -448,7 +449,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
               {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
                 <Pressable
-                  style={styles.outlineBtn}
+                  style={pressFeedback(styles.outlineBtn)}
                   onPress={saveAudioOnly}
                   accessibilityRole="button"
                   testID="voice-note-save-audio-only"
