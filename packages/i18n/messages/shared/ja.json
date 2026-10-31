@@ -79,6 +79,8 @@
     "toolWorkflowTrigger": "ワークフロー起動",
     "toolWorkflowResume": "ワークフロー再開",
     "toolWorkflowInstanceStatus": "ワークフロー状態照会",
+    "toolNotebookEdit": "ノートブックセル編集",
+    "toolSendToSession": "セッションメッセージ送信",
     "toolGenerateTest": "テストコードを生成",
     "toolRunCommand": "コマンドを実行",
     "toolGitOperations": "Git 操作を実行",

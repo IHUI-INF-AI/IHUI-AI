@@ -29,6 +29,12 @@
  *           原写法带千位逗号则新值同形带逗号。框图行仅当替换后行长逐字不变才落 replace。
  *
  * 纪律:
+ *   **同档对齐(2026-10-31,门 173 行级差值棘轮)**:本器与门同一档 —— 只处置**本轮新增/改写**的
+ *   声明行(基线 = 该文档 HEAD 面自身,改动面 = 工作树相对 HEAD 的 diff),HEAD 面已有的存量漂移
+ *   **只报数、不写回**。理由写死在这儿:批量把历史快照改写成今天的数字是**反模式**(门自己的注释
+ *   如此定性)—— 写回去下一轮数字一动又全过期,那是跑步机;存量要清得逐条人工裁定。
+ *   分档判据**不在本器另造**:一律 import 门 173 的 `splitStagedRatchet` / `parseChangedLines`
+ *   (同一个纯函数、同一份基线口径),本器只负责"要不要写、写成什么"。
  *   默认 dry-run 只打印分桶计数 + 样例 + manual 清单落 `.ihui-agent/tmp/scrub-doc-numbers/manual-list.jsonl`;
  *   `--apply` 才写盘,写盘前把每篇原文逐字节备份到 `.ihui-agent/state/doc-numbers-pre-apply-<时间戳>-<篇名>.md`,
  *   并做规划-写盘之间的回读 CAS(文件在规划后被别席改过 ⇒ 整轮拒绝,exit 2 未判定)。
@@ -50,9 +56,18 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { AUDITED_DOCS, CLAIMS, UPDATES_BEGIN, UPDATES_END, findStaleClaims, toInt } from './check-doc-numbers.mjs'
+import {
+  AUDITED_DOCS,
+  CLAIMS,
+  UPDATES_BEGIN,
+  UPDATES_END,
+  findStaleClaims,
+  parseChangedLines,
+  splitStagedRatchet,
+  toInt,
+} from './check-doc-numbers.mjs'
 import { collectNumbers } from './gen-doc-numbers.mjs'
-import { readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15/守门 70,禁 process.cwd) */
@@ -169,9 +184,16 @@ function countFound(list, found) {
 
 /**
  * 对一篇文档出裁决:行级分桶 + 写回 edits(行号 1 基来自门,替换只换该行)。
- * @returns {{rel:string, edits:{index:number,from:string,newLine:string}[], buckets:{replace:object[],exempt:object[],manual:object[]}, checked:number, danglingBlock:boolean, total:number}}
+ *
+ * `opts.onlyLines`(可选):只处置这些行上的违规 —— 门 173 的 staged 档改档后
+ * (2026-10-31,行级差值棘轮),本器与门**同一档**:HEAD 面自身的存量漂移只报数、不写回。
+ * 理由不是偷懒,是**批量把历史快照改写成今天的数字本身就是反模式**(门自己的注释写死了这一点):
+ * 写回去 ⇒ 下一轮数字一动又全过期 ⇒ 跑步机。存量要清得逐条人工裁定,不是本器批量代劳。
+ * 缺省(不传)⇒ 全量分桶(纯函数层的既有行为不变,镜像测试 T1/T2/T3 依赖它)。
+ * @returns {{rel:string, edits:{index:number,from:string,newLine:string}[], buckets:{replace:object[],exempt:object[],manual:object[]}, checked:number, danglingBlock:boolean, total:number, inScope:number}}
  */
-export function planDoc(rel, text, numbers) {
+export function planDoc(rel, text, numbers, opts = {}) {
+  const onlyLines = opts.onlyLines instanceof Set ? opts.onlyLines : null
   const lines = text.split('\n')
   const scan = findStaleClaims(text, numbers)
   const perLine = new Map()
@@ -181,7 +203,10 @@ export function planDoc(rel, text, numbers) {
   }
   const buckets = { replace: [], exempt: [], manual: [] }
   const edits = []
+  let inScope = 0
   for (const [lineNo, vios] of perLine) {
+    if (onlyLines && !onlyLines.has(lineNo)) continue // 本轮范围外 ⇒ 不分桶、不写回(存量只报数)
+    inScope += vios.length
     const idx = lineNo - 1
     const raw = lines[idx] ?? ''
     const hasCr = raw.endsWith('\r')
@@ -229,7 +254,7 @@ export function planDoc(rel, text, numbers) {
     if (verdict === 'replace') edits.push({ index: idx, from: raw, newLine: spans.newLine + eol })
     else if (verdict === 'exempt') edits.push({ index: idx, from: raw, newLine: `${body} ${exemptMarker(feats)}${eol}` })
   }
-  return { rel, edits, buckets, checked: scan.checked, danglingBlock: scan.danglingBlock, total: scan.violations.length }
+  return { rel, edits, buckets, checked: scan.checked, danglingBlock: scan.danglingBlock, total: scan.violations.length, inScope, onlyLines: onlyLines ?? null }
 }
 
 /** 行级写回 + 双向守恒断言:改动行集合必须恰等于规划行集合(不增行、不删行、不碰别的行)。 */
@@ -283,7 +308,9 @@ export function verifyAfterApply(textsBefore, plansBefore, textsAfter) {
   for (const [rel, text] of textsAfter) {
     const before = textsBefore.get(rel)
     if (text === before) continue
-    const afterPlan = planDoc(rel, text, lastNumbers)
+    // 自证必须与规划**同一档**:范围外(HEAD 存量)的行没被写过,不因此算"剩余 replace"。
+    const scope = plansBefore.find((p) => p.rel === rel)?.onlyLines ?? null
+    const afterPlan = planDoc(rel, text, lastNumbers, { onlyLines: scope })
     if (afterPlan.buckets.replace.length > 0) {
       for (const e of afterPlan.buckets.replace) problems.push(`剩余 replace:${rel}:${e.line} \`${e.key}\` ${e.found}→${e.want}`)
     }
@@ -418,19 +445,60 @@ async function main(argv) {
     return 2
   }
   lastNumbers = derived.numbers
+  // ── 与门 173 的 staged 档同一档(2026-10-31 行级差值棘轮)────────────────────
+  // 基线面 = HEAD 正文(锚点:该文档 HEAD 面自身的命中集合);改动面 = 工作树相对 HEAD 的 diff。
+  // 只处置"本轮新增/改写"的声明行;HEAD 存量漂移只报数、不写回 ——
+  // 批量把历史快照改写成今天的数字是反模式(门自己的注释写死了),那会变成跑步机。
+  // 取材失败(基线/改动面取不到)⇒ 传给门同一分档函数的是 null ⇒ 它全判(失效方向=多要一次定向说明)。
+  const headBaselines = new Map()
+  try {
+    const blobs = catBatch(ROOT, AUDITED_DOCS.map((rel) => `HEAD:${rel}`))
+    for (const rel of AUDITED_DOCS) {
+      const v = blobs.get(`HEAD:${rel}`)
+      if (typeof v === 'string') headBaselines.set(rel, v)
+    }
+  } catch {
+    /* 基线面取不到 ⇒ 下面按 null 传 ⇒ 门同一分档函数全判 */
+  }
+  const worktreeChanged = new Map()
+  for (const rel of AUDITED_DOCS) {
+    let diffText = null
+    try {
+      diffText = gitRaw(['diff', '--unified=0', 'HEAD', '--', rel], ROOT, { timeout: 60000 })
+    } catch {
+      diffText = null
+    }
+    worktreeChanged.set(rel, diffText === null ? null : parseChangedLines(diffText))
+  }
   const plans = []
+  const stockRows = []
   for (const [rel, text] of texts) {
-    const p = planDoc(rel, text, derived.numbers)
+    const split = splitStagedRatchet(findStaleClaims(text, derived.numbers).violations, {
+      text,
+      baselineText: headBaselines.get(rel) ?? null,
+      numbers: derived.numbers,
+      changedLines: worktreeChanged.get(rel) ?? null,
+    })
+    const p = planDoc(rel, text, derived.numbers, { onlyLines: new Set(split.actionable.map((v) => v.line)) })
     if (p.danglingBlock) {
       console.error(`❌ 未判定:${rel} 的生成块/更新块未闭合(有 begin 无 end)⇒ 屏蔽面会吞到文末,本轮拒绝处置任何一篇(既不记成功也不记失败)`)
       return 2
     }
     plans.push(p)
+    stockRows.push({ rel, n: split.stock.length, why: split.why })
   }
   const c = bucketCounts(plans)
-  console.log(`face=worktree · 门 173 违规共 ${c.total} 处(命中判据 ${plans.reduce((a, p) => a + p.checked, 0)} 处)· 分桶:replace=${c.replace} exempt=${c.exempt} manual=${c.manual}`)
+  const inScopeTotal = plans.reduce((a, p) => a + p.inScope, 0)
+  const stockTotal = stockRows.reduce((a, x) => a + x.n, 0)
+  console.log(
+    `face=worktree · 门 173 违规共 ${c.total} 处(命中判据 ${plans.reduce((a, p) => a + p.checked, 0)} 处)· ` +
+      `本轮新增/改写 ${inScopeTotal} 处 · HEAD 面存量 ${stockTotal} 处只报数不写回 · 分桶:replace=${c.replace} exempt=${c.exempt} manual=${c.manual}`,
+  )
   for (const p of plans) {
-    console.log(`  ${p.rel}:违规 ${p.total} ⇒ replace=${p.buckets.replace.length} exempt=${p.buckets.exempt.length} manual=${p.buckets.manual.length}`)
+    console.log(`  ${p.rel}:违规 ${p.total}(本轮范围 ${p.inScope}) ⇒ replace=${p.buckets.replace.length} exempt=${p.buckets.exempt.length} manual=${p.buckets.manual.length}`)
+  }
+  for (const s of stockRows) {
+    if (s.n > 0 || s.why) console.log(`  ${s.rel}:HEAD 面存量 ${s.n} 处只报数不写回${s.why ? `(原因:${s.why})` : ''}`)
   }
   for (const bucket of ['replace', 'exempt', 'manual']) {
     const all = plans.flatMap((p) => p.buckets[bucket])
@@ -446,6 +514,13 @@ async function main(argv) {
   }
   if (c.total === 0) {
     console.log('✅ 本轮零改动:门 173 散文判据零违规(若门仍报红,红源在 DN1 生成块,跑 node scripts/gen-doc-numbers.mjs --markdown)')
+    return 0
+  }
+  if (inScopeTotal === 0) {
+    console.log(
+      `✅ 本轮零改动:本轮新增/改写的声明行零违规(HEAD 面存量 ${stockTotal} 处只报数、不写回 —— 门的新档也不要求清它;` +
+        `批量把历史快照改成今天的数字是反模式)。若门仍红,红源在 DN1 生成块或本轮改过的行,跑 node scripts/gen-doc-numbers.mjs --markdown`,
+    )
     return 0
   }
   if (!apply) {
@@ -506,7 +581,7 @@ async function main(argv) {
   for (const rel of AUDITED_DOCS) after.set(rel, readWorktreeFile(ROOT, rel))
   lastNumbers = collectNumbers({ root: ROOT, face: 'worktree' }).numbers
   const problems = verifyAfterApply(texts, plans, after)
-  const c2 = bucketCounts(plans.map((p) => planDoc(p.rel, after.get(p.rel), lastNumbers)))
+  const c2 = bucketCounts(plans.map((p) => planDoc(p.rel, after.get(p.rel), lastNumbers, { onlyLines: p.onlyLines })))
   if (problems.length > 0 || c2.replace > 0) {
     for (const x of problems) console.error(`❌ 自证不过:${x}`)
     console.error(`结论:剩余 replace=${c2.replace} ⇒ 不为 0,本器判失败(备份在 ${BACKUP_DIR}/doc-numbers-pre-apply-${ts}-*.md)`)

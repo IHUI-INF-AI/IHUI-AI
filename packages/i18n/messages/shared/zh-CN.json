@@ -79,6 +79,8 @@
     "toolWorkflowTrigger": "触发工作流",
     "toolWorkflowResume": "续跑工作流",
     "toolWorkflowInstanceStatus": "查询工作流实例",
+    "toolNotebookEdit": "编辑笔记本单元格",
+    "toolSendToSession": "发送会话消息",
     "toolGenerateTest": "生成测试代码",
     "toolRunCommand": "执行命令",
     "toolGitOperations": "执行 Git 操作",
