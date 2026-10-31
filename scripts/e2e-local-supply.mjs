@@ -36,6 +36,8 @@
  *     e2e/chat-pane-same-conv-noninterfere.spec.ts --project=chromium --no-deps
  *   node scripts/e2e-local-supply.mjs --stack --base-url=http://localhost:8877 -- \
  *     e2e/perf-long-session.spec.ts --project=chromium --no-deps   # 一条命令起隔离栈并跑
+ *   CI=1 node scripts/e2e-local-supply.mjs --stack --prod --base-url=http://localhost:8877 -- \
+ *     e2e/perf-long-session.spec.ts --project=chromium --no-deps    # CI 同形:next build + next start
  *   E2E_DATABASE_URL=postgres://user:pw@localhost:5432/ihui_e2e \
  *     node scripts/e2e-local-supply.mjs --provision-admin
  *   node scripts/e2e-local-supply.mjs --probe-login --api-url http://localhost:8809
@@ -239,6 +241,8 @@ export function parseArgs(argv) {
     '--api-port',
     '--db',
     '--keep',
+    '--prod',
+    '--no-build',
   ])
   const opts = {
     mode: null,
@@ -247,6 +251,8 @@ export function parseArgs(argv) {
     apiPort: null,
     db: null,
     keep: false,
+    prod: false,
+    noBuild: false,
     pwArgs: [],
     unknown: [],
   }
@@ -263,6 +269,8 @@ export function parseArgs(argv) {
   opts.apiPort = ap ? Number(ap) : null
   opts.db = flagValue(rest, '--db')
   opts.keep = rest.includes('--keep')
+  opts.prod = rest.includes('--prod')
+  opts.noBuild = rest.includes('--no-build')
   const split = rest.indexOf('--')
   const head = split >= 0 ? rest.slice(0, split) : rest
   opts.pwArgs = split >= 0 ? rest.slice(split + 1) : []
@@ -350,6 +358,17 @@ function spawnLogged(cmd, args, opts, logFile) {
   return child
 }
 
+/** 同步跑一条一次性子进程(如 next build),stdout/stderr 与 spawnLogged 落同一份日志 */
+function runLoggedSync(cmd, args, opts, logFile) {
+  mkdirSync(path.dirname(logFile), { recursive: true })
+  const fd = openSync(logFile, 'a')
+  try {
+    return spawnSync(cmd, args, { ...opts, stdio: ['ignore', fd, fd], windowsHide: true })
+  } finally {
+    closeSync(fd)
+  }
+}
+
 /** 进程树收口:Windows 用 taskkill /T(否则 next dev 的孙子进程会留在端口上) */
 function stopTree(child) {
   if (!child || child.exitCode !== null) return
@@ -398,6 +417,15 @@ export function swapDbName(dsn, db) {
   return u.toString()
 }
 
+/** 取 DSN 里的库名(与 swapDbName 同一套 URL 解析;解析不出返回空串,不猜) */
+export function dbNameFromDsn(dsn) {
+  try {
+    return new URL(dsn).pathname.replace(/^\//, '')
+  } catch {
+    return ''
+  }
+}
+
 async function modeStack(env, opts) {
   if (!opts.baseUrl) {
     console.error(
@@ -424,7 +452,14 @@ async function modeStack(env, opts) {
   const webPort = Number(u.port || 80)
   const apiPort = Number(opts.apiPort ?? 8809)
   const db = opts.db ?? 'ihui_e2e'
-  const dist = `.next-e2e-${webPort}`
+  // --prod:CI 同形(playwright.config 的 CI 腿 = `pnpm build && pnpm start`)。
+  // 构建产物落独立 dist,绝不碰他席在跑的 apps/web/.next。
+  const prod = Boolean(opts.prod)
+  if (opts.noBuild && !prod) {
+    console.error('✗ --no-build 只对 --prod 有意义(dev 档本就不构建)⇒ 不猜意图。')
+    return 2
+  }
+  const dist = `.next-e2e-${webPort}${prod ? '-prod' : ''}`
 
   if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535) {
     console.error(`✗ --api-port 非法:${opts.apiPort}`)
@@ -455,7 +490,9 @@ async function modeStack(env, opts) {
     }
   }
 
-  console.log(`\n隔离栈:api=http://127.0.0.1:${apiPort}(库 ${db})web=${opts.baseUrl}(dist ${dist})`)
+  console.log(
+    `\n隔离栈:api=http://127.0.0.1:${apiPort}(库 ${db})web=${opts.baseUrl}(dist ${dist}${prod ? ',next build+start 生产口径' : ',next dev'})`,
+  )
   console.log(`  db   ${sanitizeDsn(dsn)}(口令不回显)`)
   const apiLog = path.join(ROOT, '.ihui-agent', 'tmp', 'e2e-stack', `api-${apiPort}.log`)
   const webLog = path.join(ROOT, '.ihui-agent', 'tmp', 'e2e-stack', `web-${webPort}.log`)
@@ -467,6 +504,9 @@ async function modeStack(env, opts) {
       env: {
         ...env,
         DATABASE_URL: dsn,
+        // 不隔离 Redis 时必须隔离队列命名空间:否则隔离栈的 worker 会抢主库的
+        // relay-account-pool-queue,在隔离库上执行主库的作业(2026-10-24 事故)。
+        RELAY_QUEUE_SUFFIX: db,
         PORT: String(apiPort),
         // 坑②:脚本登录不带 turnstileToken,键在即 403(CI 无该键,故此处与 CI 同形)
         TURNSTILE_SECRET_KEY: '',
@@ -474,22 +514,65 @@ async function modeStack(env, opts) {
     },
     apiLog,
   )
-  const web = spawnLogged(
-    process.execPath,
-    [path.join(ROOT, 'scripts', 'dev-with-warmup.mjs'), '--no-backend'],
-    {
-      cwd: ROOT,
-      env: {
-        ...env,
-        IHUI_DEV_PORT: String(webPort),
-        IHUI_BUILD_DIST: dist,
-        IHUI_API_PROXY_TARGET: `http://127.0.0.1:${apiPort}`,
-        // 坑①的对侧:显式钉住 localhost,不依赖启动器的默认推导
-        NEXT_PUBLIC_API_BASE_URL: `http://localhost:${webPort}`,
+  const webEnv = {
+    ...env,
+    IHUI_BUILD_DIST: dist,
+    IHUI_API_PROXY_TARGET: `http://127.0.0.1:${apiPort}`,
+    // 坑①的对侧:显式钉住 localhost,不依赖启动器的默认推导
+    NEXT_PUBLIC_API_BASE_URL: `http://localhost:${webPort}`,
+    NEXT_TELEMETRY_DISABLED: '1',
+  }
+  let web
+  if (prod) {
+    const nextBin = path.join(WEB_DIR, 'node_modules', 'next', 'dist', 'bin', 'next')
+    if (!existsSync(nextBin)) {
+      console.error(`✗ 取不到 next 入口(${nextBin})⇒ --prod 未判定,不回落 dev 档冒充生产口径。`)
+      stopTree(api)
+      return 2
+    }
+    console.log(`  --prod:next build → ${dist}(CI 同形;不碰共享 .next)…`)
+    const buildId = path.join(WEB_DIR, dist, 'BUILD_ID')
+    if (opts.noBuild) {
+      if (!existsSync(buildId)) {
+        console.error(
+          `✗ --no-build 但 ${dist}/BUILD_ID 不存在 ⇒ 没有可复用的生产构建,未判定(不回落 dev 档)。`,
+        )
+        stopTree(api)
+        return 2
+      }
+      console.log(`  --no-build:复用已有构建 ${dist}/BUILD_ID=${readFileSync(buildId, 'utf8').trim()}`)
+    } else {
+      const built = runLoggedSync(
+        process.execPath,
+        ['--max-old-space-size=8192', nextBin, 'build'],
+        { cwd: WEB_DIR, env: webEnv },
+        webLog,
+      )
+      if (built.error || built.status !== 0) {
+        console.error(
+          `✗ next build 失败(${built.error?.message ?? `exit ${built.status}`})⇒ --prod 未判定。日志:${webLog}`,
+        )
+        stopTree(api)
+        return 2
+      }
+    }
+    web = spawnLogged(
+      process.execPath,
+      [nextBin, 'start', '-p', String(webPort)],
+      { cwd: WEB_DIR, env: webEnv },
+      webLog,
+    )
+  } else {
+    web = spawnLogged(
+      process.execPath,
+      [path.join(ROOT, 'scripts', 'dev-with-warmup.mjs'), '--no-backend'],
+      {
+        cwd: ROOT,
+        env: { ...webEnv, IHUI_DEV_PORT: String(webPort) },
       },
-    },
-    webLog,
-  )
+      webLog,
+    )
+  }
   try {
     const apiOk = await waitUntil(async () => {
       const p = await probeHttp(`http://127.0.0.1:${apiPort}/api/health`)
@@ -508,9 +591,23 @@ async function modeStack(env, opts) {
       return 2
     }
     console.log('  两侧已就绪;开始跑 spec\n')
+    if (prod && env.CI) {
+      // CI 下 playwright.config 的 reuseExistingServer 默认 false ⇒ webServer 段会去跑
+      // `pnpm build && pnpm start`(默认 .next + 8801),既覆盖共享构建目录又打错端口。
+      // 本栈已按 CI 同形起好 build+start,这里让它复用本席服务。
+      env.PLAYWRIGHT_REUSE_SERVER = '1'
+    }
     return await modeRun(env, opts)
   } finally {
     if (opts.keep) {
+      // unref:否则 keep 档的父进程会一直挂在子进程句柄上,命令看起来"卡住不返回"
+      // (2026-10-31 实测:spec 已跑完并打印结论,shell 仍等不到退出码)。
+      try {
+        api.unref()
+        web.unref()
+      } catch {
+        /* 已退出 */
+      }
       console.log(`  --keep:两侧保持运行(api pid=${api.pid} web pid=${web.pid})`)
     } else {
       stopTree(web)
@@ -679,7 +776,14 @@ async function modeProvision(env) {
   console.log(`▶ seed 目标库:${sanitizeDsn(dsn)}(口令不回显)`)
   const r = spawnPackageManager(plan, args, {
     cwd: ROOT,
-    env: { ...env, DATABASE_URL: dsn, E2E_ADMIN_PASSWORD: password },
+    env: {
+      ...env,
+      DATABASE_URL: dsn,
+      // 不隔离 Redis 时必须隔离队列命名空间:否则隔离栈的 worker 会抢主库的
+      // relay-account-pool-queue,在隔离库上执行主库的作业(2026-10-24 事故)。
+      RELAY_QUEUE_SUFFIX: dbNameFromDsn(dsn),
+      E2E_ADMIN_PASSWORD: password,
+    },
     stdio: ['ignore', 'inherit', 'inherit'],
     windowsHide: true,
   })
@@ -708,12 +812,13 @@ export async function main(argv = process.argv.slice(2)) {
       [
         'node scripts/e2e-local-supply.mjs --check [--base-url http://localhost:<本席端口>]',
         'node scripts/e2e-local-supply.mjs --run --base-url http://localhost:<本席端口> -- <spec 路径> [playwright 参数…]',
-        'node scripts/e2e-local-supply.mjs --stack --base-url=http://localhost:<本席端口> [--api-port=8809] [--db=ihui_e2e] [--keep] -- <spec 路径> [playwright 参数…]',
+        'node scripts/e2e-local-supply.mjs --stack --base-url=http://localhost:<本席端口> [--api-port=8809] [--db=ihui_e2e] [--keep] [--prod [--no-build]] -- <spec 路径> [playwright 参数…]',
         'E2E_DATABASE_URL=postgres://…/ihui_e2e node scripts/e2e-local-supply.mjs --provision-admin',
         'node scripts/e2e-local-supply.mjs --probe-login --api-url http://localhost:<带 /api 反代的 origin>',
         '',
         '(--api-url 只用于拼 <origin>/api/auth/login 探一次登录,与 fixtures.ts 同一条腿;发第二次就不是探测了)',
         '(--stack 自带起/停隔离 API+web:独立库(--db)、独立端口、独立 dist;跑完自动收口,--keep 可保留)',
+        '(--prod:web 走 next build + next start,构建落 .next-e2e-<端口>-prod,与 CI 的 build+start 同形且不碰共享 .next)',
       ].join('\n'),
     )
     return 0
