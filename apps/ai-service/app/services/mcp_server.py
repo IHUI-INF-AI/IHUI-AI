@@ -7862,14 +7862,15 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
 
             # 2026-10-31 安全强化第 32 批:走 SSRF 安全下载单源(逐跳 + 钉 IP)。
             # 此前 follow_redirects=True ⇒ 公网 302 → 内网即可把内网文件上传到外部存储。
-            data = await _download_url_ssrf_safe(url, _httpx, timeout=60.0)
-            if data is None:
+            fetched_data = await _download_url_ssrf_safe(url, _httpx, timeout=60.0)
+            if fetched_data is None:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
                     "error": "拉取远程文件失败或被 SSRF 尺拒绝(重定向逐跳校验)",
                     "errorCode": "FETCH_FAILED",
                     "file_url": None,
                 }
+            data = fetched_data
             if len(data) > 50 * 1024 * 1024:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
