@@ -62,13 +62,24 @@ async def _send_following_redirects(
     落点校验失败抛 HTTPException(400),由调用方决定错误形状;
     网络异常原样上抛(调用方已有 502 映射)。
     """
+    from ..services.screenshot_service import resolve_pinned_target
+
     current = url
     resp: httpx.Response | None = None
     for _hop in range(_MAX_PROXY_REDIRECT_HOPS + 1):
         ok, reason = _validate_url_ssrf(current)
         if not ok:
             raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
-        resp = await client.send(client.build_request("GET", current, headers=headers or {}))
+        # 2026-10-31 安全强化第 10 批 R6:钉 IP(DNS rebinding TOCTOU)——
+        # 校验期与请求期两次解析可不一致,连接只用于校验过的那个 IP;
+        # Host 头保持原域名,同段 http 无 SNI 语义,原调用方自带头不受影响。
+        pinned = resolve_pinned_target(current)
+        if pinned is None:
+            raise HTTPException(status_code=400, detail="URL 无法钉定公网 IP,已拒绝")
+        pinned_url, orig_host = pinned
+        hop_headers = {**(headers or {})}
+        hop_headers.setdefault("Host", orig_host)
+        resp = await client.send(client.build_request("GET", pinned_url, headers=hop_headers))
         location = resp.headers.get("location")
         if resp.is_redirect and location:
             current = str(resp.url.join(location))
