@@ -9,7 +9,10 @@
  *  ① 无 workbuddy 账号 ⇒ 整块不渲染且零请求(不打空 id);
  *  ② 「一键做任务」发 kind='all' + dry_run=false,预演发 dry_run=true(顺序由后端 SWEEP_ORDER 定,
  *     本端不得自行拆请求);
- *  ③ 巡检态读 wb_tasks.enabled(两门与):on/dry/off/unknown 四档文案分开且不互相冒充;
+ *  ③ 巡检态判定**只有一份实现**(packages/shared/src/utils/workbuddy-sweep-view.ts):本端只把
+ *     档位翻成 i18n 键。七档(on/dry/cron-blocked/tasks-off/not-registered + loading/unknown)
+ *     各自文案不互相冒充;`enabled` 是观测态,不是"两门与";旧服务端缺 not_running_reason 时
+ *     只保留"总闸拦"这一条推断,其余落「状态未知」;
  *  ④ 上一轮回执按 ISO 前 16 位截断,note 原样追加;
  *  ⑤ unjudged=true 不冒充成功:reason 原样呈现。
  *
@@ -17,6 +20,9 @@
  * 渲染输出与真实请求形参,不是「真机已渲染」。React DOM 会丢弃 testID 这类未知属性,
  * 故断言走文本与请求体,不走 testID。
  */
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -34,12 +40,38 @@ vi.mock('../../i18n', () => {
 })
 
 import { WorkbuddyTaskSection, deriveSweepView } from '../WorkbuddyTaskSection'
+import type { CheckinSchedulerStatusResponse } from '@ihui/types'
+
+/**
+ * `not_running_reason` 尚未进 `packages/types`(后端席并行落)。用例按冻结契约喂这个字段,
+ * 集中做一次断言式转换;types 面补齐后这一处 cast 可整块删掉(不在用例里散落)。
+ */
+const asStatus = (v: unknown): CheckinSchedulerStatusResponse =>
+  v as unknown as CheckinSchedulerStatusResponse
 
 const ACCOUNT_WB = { id: 7, name: 'wb-acc', platform: 'workbuddy' }
 const ACCOUNT_TRAE = { id: 9, name: 'trae-acc', platform: 'trae' }
 
 const translate = (key: string, params?: Record<string, string | number>): string =>
   params && Object.keys(params).length > 0 ? `${key}(${Object.values(params).join(',')})` : key
+
+/** 本端源文件(判据同源锁按源码结构判,和小程序端同一条纪律)。 */
+const SECTION_SOURCE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'WorkbuddyTaskSection.tsx',
+)
+
+/** wb_tasks 公共字段基线(用例只覆盖判定相关的那几个)。 */
+const SWEEP_BASE = {
+  tasks_enabled: true,
+  cron_enabled: true,
+  live_run: true,
+  sweep_minutes: 180,
+  claim_path_configured: true,
+  activity_path_configured: true,
+  last_sweep: null,
+}
 
 /** 巡检态基线:未启用(默认安全态),用例按需覆盖单个字段。 */
 const sweepOf = (over: Record<string, unknown> = {}, top: Record<string, unknown> = {}) => ({
@@ -92,7 +124,12 @@ function routeMock(
     if (path === '/api/checkin/scheduler/status') return opts.sweep ?? sweepOf()
     if (path.endsWith('/task-run')) return opts.run ?? RUN_OK
     if (path.endsWith('/tasks')) {
-      return opts.list ?? { success: true, data: { ok: true, kind: 'list', tasks: [], reason: null, unjudged: false } }
+      return (
+        opts.list ?? {
+          success: true,
+          data: { ok: true, kind: 'list', tasks: [], reason: null, unjudged: false },
+        }
+      )
     }
     throw new Error(`unexpected path: ${path}`)
   })
@@ -148,7 +185,7 @@ describe('RN 自动做任务区块', () => {
     })
   })
 
-  it('③ 巡检态-on:两门与且真实写入 ⇒ 已启用,并带下次时间(ISO 前 16 位)', async () => {
+  it('③ 巡检态-on:enabled(观测态)为真且真实写入 ⇒ 已启用,并带下次时间(ISO 前 16 位)', async () => {
     const sweep = {
       enabled: true,
       started: true,
@@ -157,8 +194,10 @@ describe('RN 自动做任务区块', () => {
       next_run_wb_tasks: '2026-10-31T09:00:00+08:00',
       wb_tasks: {
         enabled: true,
-        tasks_enabled: true,
-        cron_enabled: true,
+        // 观测态优先:两门意图即便全关(旧数据/异常回执),只要进程里真注册了就报已启用
+        tasks_enabled: false,
+        cron_enabled: false,
+        not_running_reason: null,
         live_run: true,
         sweep_minutes: 30,
         claim_path_configured: true,
@@ -186,16 +225,80 @@ describe('RN 自动做任务区块', () => {
     expect(bodyText()).not.toContain('checkinAssistant.taskAutoOn')
   })
 
-  it('③ 巡检态-blocked:任务门开但总闸关 ⇒ 说被总闸拦,不说未启用', async () => {
-    routeMock({ sweep: sweepOf({ enabled: false, tasks_enabled: true, cron_enabled: false }) })
+  it('③ 巡检态-cron-blocked:reason=cron_gate_off ⇒ 说被总闸拦,不说未启用', async () => {
+    routeMock({
+      sweep: sweepOf({
+        enabled: false,
+        tasks_enabled: true,
+        cron_enabled: false,
+        not_running_reason: 'cron_gate_off',
+      }),
+    })
     render(<WorkbuddyTaskSection accounts={[ACCOUNT_WB]} />)
     await openSection()
     await waitFor(() => expect(bodyText()).toContain('checkinAssistant.taskAutoCronBlocked'))
     expect(bodyText()).not.toContain('checkinAssistant.taskAutoOff')
   })
 
-  it('③ 巡检态-off:两门都关 ⇒ 未启用(仅手动)', async () => {
-    routeMock({ sweep: sweepOf({ enabled: false, tasks_enabled: false, cron_enabled: false }) })
+  it('③ 向后兼容锁:旧服务端不给 not_running_reason,两门原值仍能认出总闸拦', async () => {
+    const legacy = {
+      enabled: true,
+      started: true,
+      next_run: null,
+      next_run_qoder: null,
+      next_run_wb_tasks: null,
+      wb_tasks: {
+        ...SWEEP_BASE,
+        enabled: false,
+        tasks_enabled: true,
+        cron_enabled: false,
+      },
+    }
+    expect(deriveSweepView(asStatus(legacy), null, translate).tone).toBe('cron-blocked')
+  })
+
+  it('③ 巡检态-not-registered:reason=scheduler_not_started ⇒ 新档,绝不显示"已启用"', async () => {
+    const notStarted = {
+      enabled: true,
+      started: false,
+      next_run: null,
+      next_run_qoder: null,
+      next_run_wb_tasks: null,
+      wb_tasks: {
+        ...SWEEP_BASE,
+        enabled: false,
+        tasks_enabled: true,
+        cron_enabled: true,
+        not_running_reason: 'scheduler_not_started',
+      },
+    }
+    const view = deriveSweepView(asStatus(notStarted), null, translate)
+    expect(view.tone).toBe('not-registered')
+    expect(view.text).toBe('checkinAssistant.taskAutoNotStarted')
+    expect(view.text).not.toContain('taskAutoOn')
+
+    routeMock({
+      sweep: sweepOf({
+        enabled: false,
+        tasks_enabled: true,
+        cron_enabled: true,
+        not_running_reason: 'scheduler_not_started',
+      }),
+    })
+    render(<WorkbuddyTaskSection accounts={[ACCOUNT_WB]} />)
+    await openSection()
+    await waitFor(() => expect(bodyText()).toContain('checkinAssistant.taskAutoNotStarted'))
+    expect(bodyText()).not.toContain('checkinAssistant.taskAutoOn')
+  })
+
+  it('③ 巡检态-tasks-off:reason=tasks_gate_off ⇒ 未启用(仅手动)', async () => {
+    routeMock({
+      sweep: sweepOf({
+        enabled: false,
+        tasks_enabled: false,
+        not_running_reason: 'tasks_gate_off',
+      }),
+    })
     render(<WorkbuddyTaskSection accounts={[ACCOUNT_WB]} />)
     await openSection()
     await waitFor(() => expect(bodyText()).toContain('checkinAssistant.taskAutoOff'))
@@ -212,6 +315,42 @@ describe('RN 自动做任务区块', () => {
     await openSection()
     await waitFor(() => expect(bodyText()).toContain('checkinAssistant.taskAutoUnknown'))
     expect(bodyText()).not.toContain('checkinAssistant.taskAutoOff')
+  })
+
+  it('③ 巡检态-loading:还没取到 ⇒ 独立档位,不冒充 unknown/on', () => {
+    expect(deriveSweepView(undefined, null, translate).tone).toBe('loading')
+  })
+
+  it('③ 连接符同源:未判定档把详情用「 · 」追加(web/小程序同一长相)', () => {
+    expect(deriveSweepView(null, 'HTTP 502', translate).text).toBe(
+      'checkinAssistant.taskAutoUnknown · HTTP 502',
+    )
+  })
+
+  it('③ 判据同源锁:本端源文件不得留任何字面判定,判定必须来自 shared 唯一实现', () => {
+    const src = readFileSync(SECTION_SOURCE, 'utf8')
+    expect(src).toMatch(/from '@ihui\/shared\/utils\/workbuddy-sweep-view'/)
+    expect(src).toMatch(/deriveWbSweepView\(/)
+    // 三型本地复算一律不得回归(它们就是曾经漂移出三份的那段判据)
+    expect(src).not.toMatch(/wt\.tasks_enabled\s*&&\s*!?wt\.cron_enabled/)
+    expect(src).not.toMatch(/if \(!wt\.enabled\)/)
+    expect(src).not.toMatch(/slice\(0,\s*16\)\.replace\('T'/)
+    // 七档映射表必须穷举(少一档 = 那一档没文案/没上色);键形允许带引号或不带(含 - 的必须带)
+    for (const tone of [
+      'loading',
+      'on',
+      'dry',
+      'cron-blocked',
+      'tasks-off',
+      'not-registered',
+      'unknown',
+    ]) {
+      expect(src.includes(`'${tone}':`) || src.includes(`${tone}:`), `缺档位映射: ${tone}`).toBe(
+        true,
+      )
+    }
+    // 反证:摘掉共享 import 的那一行,本端结构上就判不出档位(不存在第二份真相)
+    expect(src).not.toMatch(/export function deriveWbSweepView/)
   })
 
   it('③b 上一轮回执:ISO 截到分钟,note 非空原样追加', async () => {
@@ -238,7 +377,9 @@ describe('RN 自动做任务区块', () => {
     })
     render(<WorkbuddyTaskSection accounts={[ACCOUNT_WB]} />)
     await openSection()
-    await waitFor(() => expect(bodyText()).toContain('checkinAssistant.taskAutoLast(2026-10-31 08:05)'))
+    await waitFor(() =>
+      expect(bodyText()).toContain('checkinAssistant.taskAutoLast(2026-10-31 08:05)'),
+    )
     expect(bodyText()).toContain('checkinAssistant.taskAutoLastStats(4,2,1)')
     expect(bodyText()).toContain('出站暂停:本轮提前结束')
   })

@@ -13,8 +13,10 @@
  * - GET  /api/checkin/scheduler/status       ⇒ 顶层 next_run_wb_tasks + wb_tasks{...,last_sweep}
  *
  * 判据纪律(与后端同口径):
- * - `enabled` 是「任务门 ∧ 总闸」,**只有**它代表这条 job 真会被注册;只看 tasks_enabled
- *   会造成"显示已启用却永不跑"的假绿 —— 两门原值只用于解释"配了却没跑"的细分原因。
+ * - 巡检态判定**不在本文件**:唯一实现 = `@ihui/shared/utils/workbuddy-sweep-view`(三端同一份,
+ *   2026-10-31 收三抄漂移),本端只留「档位 → i18n 键」与「档位 → 样式类名」两张映射表。
+ * - `enabled` 自 2026-10-31 起是**观测态**(这条 job 真注册在进程里),不再是"两门与";
+ *   未运行原因读 `not_running_reason`,旧服务端没给该字段时按判序落「状态未知」而非编原因。
  * - 取不到状态 ≠ 未启用:一律按「状态未知」呈现,不冒充。
  * - 上游响应读不懂时后端回 unjudged=true,面板**不冒充成功**,原样把 reason 摆出来。
  * - 仅当账号池里存在 platform==='workbuddy' 的账号才挂载;否则整块不渲染、零请求。
@@ -23,6 +25,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import { rnRadius } from '@ihui/design-tokens'
 import type { CheckinSchedulerStatusResponse } from '@ihui/types'
+import {
+  composeWbSweepText,
+  deriveWbSweepView,
+  formatWbIsoMinute,
+  joinWbSweepParts,
+  type WbSweepMessageKey,
+  type WbSweepTone,
+} from '@ihui/shared/utils/workbuddy-sweep-view'
 import * as api from '@/api'
 import LineIcon from '@/components/LineIcon'
 
@@ -89,80 +99,61 @@ export function runWorkbuddyTasks(accountId: number, dryRun: boolean): Promise<T
   )
 }
 
-/** 巡检态五档(渲染决策的封闭集,颜色只在渲染层映射)。 */
-export type SweepTone = 'on' | 'warn' | 'off' | 'unknown'
+/**
+ * 巡检态档位:判据在 `@ihui/shared/utils/workbuddy-sweep-view`(三端同一份),本端别名只用于
+ * 导出面稳定。七档 = 五结论(on/dry/cron-blocked/tasks-off/not-registered)+ 两未判定态。
+ */
+export type SweepTone = WbSweepTone
 
 export interface SweepView {
   tone: SweepTone
   text: string
   pathsMissing: boolean
-  /** 下次巡检时间(ISO 前 16 位截断;ISO 截断而非 toLocaleString,避免端/服务端时区差) */
+  /** 下次巡检时间(ISO 前 16 位截断;截字符串而非 toLocaleString,避免端/服务端时区差) */
   next: string | null
 }
 
 /**
- * 巡检态渲染决策(纯函数,便于单测):
- * 已启用 / 演练模式 / 被总闸拦 / 未启用 / 状态未知。
+ * 档位 → 本端 i18n 键(判据不在本端,这里只登记"这一档说什么话";七档穷举,漏档编译期即红)。
+ * `not-registered`(2026-10-31 新档)= 两门意图都开但观测态为假 ⇒ 出路只有一条:改完 .env
+ * 必须重启 ai-service(进程内 start() 有 `if self._started: return` 短路,不会热加载)。
+ */
+const SWEEP_MESSAGE_KEYS: Record<WbSweepMessageKey, string> = {
+  loading: 'checkinAssistant.taskAutoLoading',
+  on: 'checkinAssistant.taskAutoOn',
+  dry: 'checkinAssistant.taskAutoDry',
+  'cron-blocked': 'checkinAssistant.taskAutoCronBlocked',
+  'tasks-off': 'checkinAssistant.taskAutoOff',
+  'not-registered': 'checkinAssistant.taskAutoNotStarted',
+  unknown: 'checkinAssistant.taskAutoUnknown',
+}
+
+/**
+ * 巡检态渲染决策(纯函数,便于单测):判定整段交给共享判据,本端只做「档位 → 文案」的翻译适配。
+ * 取不到状态 ⇒ 「状态未知」,绝不冒充「未启用」。
  */
 export function deriveSweepView(
   sweep: CheckinSchedulerStatusResponse | null | undefined,
   sweepError: string | null,
   t: Tx,
 ): SweepView {
-  if (sweep === undefined) {
-    return {
-      tone: 'unknown',
-      text: t('checkinAssistant.taskAutoLoading'),
-      pathsMissing: false,
-      next: null,
-    }
-  }
-  const wt = sweep?.wb_tasks
-  if (!wt) {
-    return {
-      tone: 'unknown',
-      text: sweepError
-        ? `${t('checkinAssistant.taskAutoUnknown')} · ${sweepError}`
-        : t('checkinAssistant.taskAutoUnknown'),
-      pathsMissing: false,
-      next: null,
-    }
-  }
-  const pathsMissing = !wt.claim_path_configured || !wt.activity_path_configured
-  const iso = sweep?.next_run_wb_tasks
-  const next = iso ? iso.slice(0, 16).replace('T', ' ') : null
-  // enabled 是两门与:为假时必须按两门原值细分,不让用户对着一个灰点猜。
-  if (!wt.enabled) {
-    if (wt.tasks_enabled && !wt.cron_enabled) {
-      return {
-        tone: 'warn',
-        text: t('checkinAssistant.taskAutoCronBlocked'),
-        pathsMissing,
-        next: null,
-      }
-    }
-    return { tone: 'off', text: t('checkinAssistant.taskAutoOff'), pathsMissing, next: null }
-  }
-  if (!wt.live_run) {
-    return { tone: 'warn', text: t('checkinAssistant.taskAutoDry'), pathsMissing, next }
-  }
+  const decision = deriveWbSweepView(sweep, sweepError)
   return {
-    tone: 'on',
-    text: t('checkinAssistant.taskAutoOn', { minutes: wt.sweep_minutes }),
-    pathsMissing,
-    next,
+    tone: decision.tone,
+    text: composeWbSweepText(decision, SWEEP_MESSAGE_KEYS, t),
+    pathsMissing: decision.pathsMissing,
+    next: decision.next,
   }
-}
-
-/** 时间一律取 ISO 前 16 位并把 T 换成空格:同一份字符串在任何端都渲染成同一格。 */
-function formatIsoMinute(iso: string): string {
-  return iso.slice(0, 16).replace('T', ' ')
 }
 
 const TONE_CLASS: Record<SweepTone, string> = {
   on: 'bg-[var(--color-success-light)] text-[var(--color-success-text)]',
-  warn: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
-  off: 'bg-muted text-muted-foreground',
+  dry: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
+  'cron-blocked': 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
+  // 配置已开却没跑起来:与"被总闸拦"同族(都得动服务端配置并重启),同走告警档。
+  'not-registered': 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
+  'tasks-off': 'bg-muted text-muted-foreground',
+  loading: 'bg-muted text-muted-foreground',
   unknown: 'bg-muted text-muted-foreground',
 }
 
@@ -320,15 +311,16 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
                 {(() => {
                   const last = sweep.wb_tasks?.last_sweep
                   if (!last) return t('checkinAssistant.taskAutoLastNever')
-                  const head = t('checkinAssistant.taskAutoLast', {
-                    time: formatIsoMinute(last.at),
-                  })
-                  const stats = t('checkinAssistant.taskAutoLastStats', {
-                    families: last.families,
-                    accepted: last.accepted,
-                    claimed: last.claimed,
-                  })
-                  return `${head} · ${stats}${last.note ? ` · ${last.note}` : ''}`
+                  // 分段连接符与 web/RN 同源(三端同一句同一长相,不再各写一份)。
+                  return joinWbSweepParts([
+                    t('checkinAssistant.taskAutoLast', { time: formatWbIsoMinute(last.at) ?? '—' }),
+                    t('checkinAssistant.taskAutoLastStats', {
+                      families: last.families,
+                      accepted: last.accepted,
+                      claimed: last.claimed,
+                    }),
+                    last.note,
+                  ])
                 })()}
               </Text>
             ) : null}
