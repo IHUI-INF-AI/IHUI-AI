@@ -65,10 +65,13 @@ export function getSsoRedirectUrl(): string {
 /**
  * 构建 web SSO 登录中心 URL。
  * redirect 用 chrome.identity.getRedirectURL(),client_id=extension。
+ *
+ * 2026-10-31 第 22 批:支持 state(chrome.identity 的回调落点虽只回给本扩展,但 state 仍
+ * 绑住"这次授权是本次发起的" —— 与其余端同一契约,不因落点较窄就少一道绑定)。
  */
-export function getSsoLoginUrl(): string {
+export function getSsoLoginUrl(state?: string): string {
   const redirectUri = getSsoRedirectUrl()
-  return buildSsoLoginUrl(WEB_BASE, redirectUri, SSO_CLIENT_ID)
+  return buildSsoLoginUrl(WEB_BASE, redirectUri, SSO_CLIENT_ID, state)
 }
 
 /**
@@ -84,11 +87,24 @@ export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null
  * @param interactive true=弹出可见窗口让用户登录;false=静默尝试(已授权时直接拿 code)
  * @returns redirect URL(含 sso_code query),或 null(用户取消/超时/失败)
  */
-export async function openSsoLogin(interactive = true): Promise<string | null> {
+/**
+ * 生成 SSO state(128 位随机,16 字节 → 32 hex)。
+ *
+ * 2026-10-31 第 22 批:随机源必须是平台的密码学实现;取不到就**抛错**而不是退回
+ * Math.random —— 弱随机的 state 等于没有 state,而它挡的是"别人替你登录"。
+ * (extensions 里 Web Crypto 恒在;RN/小程序各自的随机源在各自文件中实现。)
+ */
+function makeSsoState(): string {
+  const bytes = new Uint8Array(16)
+  globalThis.crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+export async function openSsoLogin(interactive = true, state?: string): Promise<string | null> {
   if (typeof chrome === 'undefined' || !chrome.identity?.launchWebAuthFlow) {
     throw new Error('chrome.identity API 不可用,请在 manifest 添加 identity 权限')
   }
-  const url = getSsoLoginUrl()
+  const url = getSsoLoginUrl(state)
   return new Promise((resolve) => {
     chrome.identity.launchWebAuthFlow({ url, interactive }, (responseUrl) => {
       if (chrome.runtime.lastError || !responseUrl) {
@@ -111,10 +127,12 @@ export async function openSsoLogin(interactive = true): Promise<string | null> {
  * @returns 成功返回 SsoTokenData;失败/取消返回 null
  */
 export async function loginWithSso(): Promise<SsoTokenData | null> {
-  const responseUrl = await openSsoLogin(true)
+  // 2026-10-31 第 22 批:每次登录生成新的随机 state,随授权 URL 发出并在回调比对。
+  const state = makeSsoState()
+  const responseUrl = await openSsoLogin(true, state)
   if (!responseUrl) return null
 
-  const code = extractSsoCode(responseUrl)
+  const code = extractSsoCode(responseUrl, state)
   if (!code) return null
 
   const tokenData = await exchangeSsoCode(code)
