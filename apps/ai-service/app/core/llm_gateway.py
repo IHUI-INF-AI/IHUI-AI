@@ -563,7 +563,19 @@ def _llm_provider_config_enabled_from_env() -> bool:
     )
 
 
-def _apply_responses_headers(call_kwargs: dict[str, Any]) -> None:
+def _apply_responses_headers(
+    call_kwargs: dict[str, Any],
+) -> None:
+    """批58:Responses 出站装配路径的唯一入口(header 注入 + original 图像档能力闸)。
+
+    两格都挂在这里,是因为 complete/astream 两处调用点只认这一个函数;
+    任何异常均降级跳过,绝不改变既有头、绝不阻塞请求。
+    """
+    _apply_codex_response_headers(call_kwargs)
+    _apply_original_image_detail_policy(call_kwargs)
+
+
+def _apply_codex_response_headers(call_kwargs: dict[str, Any]) -> None:
     """批58:把 build_responses_headers 产出的头并入 call_kwargs['extra_headers']。
 
     与 apply_provider_headers 一样合并在调用方 kwargs 之后,避免被整体覆盖;
@@ -583,6 +595,41 @@ def _apply_responses_headers(call_kwargs: dict[str, Any]) -> None:
         call_kwargs["extra_headers"] = merged
     except Exception as e:  # noqa: BLE001 - 头注入失败降级跳过
         logger.warning("responses_headers 注入失败(降级跳过): %s", e)
+
+
+def _apply_original_image_detail_policy(call_kwargs: dict[str, Any]) -> None:
+    """原图档能力闸:厂商不支持 original 时,发出去之前把该档降为默认档。
+
+    判据实现**不在本文件**(§0.6):`responses_headers` 的 can_request_original_image_detail /
+    normalize_output_image_detail / sanitize_original_image_detail 自批58 起零生产调用方,
+    网关照原样把 detail=original 发给不支持的厂商 = 静默失真(上游 400 或自行重采样,
+    而账面以为有闸)。本函数只做 kwargs 侧的取值与留痕,判定一次也没有复写。
+
+    provider 归因刻意用 `_explicit_provider_code_of` 而**不是** `_model_to_provider_code`:
+    后者把不认识的前缀兜底成 'openai',那等于让每一个未归因模型默认拿到原图档
+    (同一理由见 `_explicit_provider_code_of` 头注与 `_metrics_provider`)。未归因 ⇒ 名单外
+    ⇒ 降档,失效方向恒为"少发一档画质",不是"少发一次判定"。
+    """
+    try:
+        from app.core.responses_headers import (
+            DEFAULT_IMAGE_DETAIL,
+            sanitize_messages_original_image_detail,
+        )
+
+        messages = call_kwargs.get("messages")
+        if not isinstance(messages, list):
+            return
+        provider_code = _explicit_provider_code_of(str(call_kwargs.get("model") or ""))
+        downgraded = sanitize_messages_original_image_detail(messages, provider_code)
+        if downgraded:
+            logger.info(
+                "[image_detail] provider=%s 不在 original 支持名单,%d 个图像条目已降为 %s",
+                provider_code or "<未归因>",
+                downgraded,
+                DEFAULT_IMAGE_DETAIL,
+            )
+    except Exception as e:  # noqa: BLE001 - 降档失败降级跳过,绝不阻塞请求
+        logger.warning("original image detail 降档失败(降级跳过): %s", e)
 
 
 def _apply_responses_stream_options(call_kwargs: dict[str, Any]) -> None:
