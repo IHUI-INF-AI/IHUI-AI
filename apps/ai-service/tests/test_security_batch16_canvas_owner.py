@@ -45,10 +45,31 @@ from app.services.canvas_graph import (
 
 _DAG = {"nodes": [{"id": "n1", "type": "tool", "name": "工具节点"}], "edges": []}
 
+# 主体必须是 uuid 形态:第 26 批把"非 uuid 主体"排除在归属之外(系统身份不得取得归属)。
+_ALICE = "11111111-1111-4111-8111-111111111111"
+_BOB = "22222222-2222-4222-8222-222222222222"
+_CAROL = "33333333-3333-4333-8333-333333333333"
+
 
 class _FakeGraph:
     async def ainvoke(self, *a, **k):  # pragma: no cover - 不参与本用例
         return {}
+
+
+@pytest.fixture(autouse=True)
+def owner_store_stub(monkeypatch):
+    """归属持久账的内存替身:单测不连 DB(§5 测试隔离铁律)。"""
+    store: dict[str, str] = {}
+
+    async def _load(thread_id: str) -> str | None:
+        return store.get(thread_id)
+
+    async def _claim(thread_id: str, user_id: str) -> str | None:
+        return store.setdefault(thread_id, user_id)
+
+    monkeypatch.setattr(lg, "load_thread_owner", _load)
+    monkeypatch.setattr(lg, "claim_thread_owner", _claim)
+    return store
 
 
 @pytest.fixture
@@ -80,8 +101,8 @@ def _req(user_id: str | None):
 
 
 def test_owner_registered_and_cleared():
-    register_canvas_graph("t-a", _FakeGraph(), owner="alice")
-    assert canvas_thread_owner("t-a") == "alice"
+    register_canvas_graph("t-a", _FakeGraph(), owner=_ALICE)
+    assert canvas_thread_owner("t-a") == _ALICE
     remove_canvas_graph("t-a")
     # 摘图必须同时摘归属账,否则同名 thread 复用时背着旧主体
     assert canvas_thread_owner("t-a") is None
@@ -94,31 +115,32 @@ def test_owner_absent_when_not_supplied():
     remove_canvas_graph("t-b")
 
 
-def test_access_denied_for_other_principal():
-    register_canvas_graph("t-c", _FakeGraph(), owner="alice")
+async def test_access_denied_for_other_principal():
+    register_canvas_graph("t-c", _FakeGraph(), owner=_ALICE)
     with pytest.raises(HTTPException) as exc:
-        lg._assert_canvas_access("t-c", "bob")
+        await lg._assert_thread_access("t-c", _BOB, claim=True)
     assert exc.value.status_code == 404
     # 别人的与"不存在"同形:不给出存在性差异
     assert exc.value.detail == "thread 不存在: t-c"
     remove_canvas_graph("t-c")
 
 
-def test_access_allowed_for_owner_and_unknown_thread():
-    register_canvas_graph("t-d", _FakeGraph(), owner="alice")
-    lg._assert_canvas_access("t-d", "alice")  # 不抛
-    lg._assert_canvas_access("t-never-registered", "bob")  # 未登记 ⇒ 不在射程
+async def test_access_allowed_for_owner_and_unknown_thread():
+    register_canvas_graph("t-d", _FakeGraph(), owner=_ALICE)
+    await lg._assert_thread_access("t-d", _ALICE, claim=False)  # 不抛
+    # 未登记 ⇒ 不在射程(历史条目/默认 agent 图);读取类不得登记归属
+    await lg._assert_thread_access("t-never-registered", _BOB, claim=False)
     remove_canvas_graph("t-d")
 
 
-def test_access_allowed_when_principal_unresolvable():
+async def test_access_allowed_when_principal_unresolvable():
     """C 主体解析不到 ⇒ 放行。这条是刻意的射程声明,不是漏洞登记。
 
-    摘掉 `_actor_user_id` 的 None 分支(改成硬拒)会把 apps/api 代理的 stream 腿整片打断;
-    要升成硬闸必须先解决代理腿的身份透传,不能在这里悄悄放宽又在这里悄悄收紧。
+    摘掉 None 分支(改成硬拒)会把内部系统调用整片打断;要升成硬闸必须先解决
+    全部调用腿的身份透传,不能在这里悄悄放宽又在这里悄悄收紧。
     """
-    register_canvas_graph("t-e", _FakeGraph(), owner="alice")
-    lg._assert_canvas_access("t-e", None)
+    register_canvas_graph("t-e", _FakeGraph(), owner=_ALICE)
+    await lg._assert_thread_access("t-e", None, claim=False)
     remove_canvas_graph("t-e")
 
 
@@ -130,23 +152,23 @@ def test_access_allowed_when_principal_unresolvable():
 async def test_canvas_run_refuses_to_hijack_foreign_thread(manager_stub):
     """bob 拿 alice 的 runId 再 run ⇒ 换发新 id,alice 的图原封不动。"""
     resp_alice = await post_canvas_run(
-        _req("alice"), CanvasRunRequest(dag=_DAG, thread_id="t-victim")
+        _req(_ALICE), CanvasRunRequest(dag=_DAG, thread_id="t-victim")
     )
     assert resp_alice["code"] == 0
     assert resp_alice["data"]["runId"] == "t-victim"
     victim_graph = get_canvas_graph_entry("t-victim")["graph"]
 
     resp_bob = await post_canvas_run(
-        _req("bob"), CanvasRunRequest(dag=_DAG, thread_id="t-victim")
+        _req(_BOB), CanvasRunRequest(dag=_DAG, thread_id="t-victim")
     )
     new_id = resp_bob["data"]["runId"]
     assert new_id != "t-victim", "他人线程不得被覆盖注册"
-    assert canvas_thread_owner(new_id) == "bob"
+    assert canvas_thread_owner(new_id) == _BOB
 
     # 关键断言:受害者的图没被换掉
     still = get_canvas_graph_entry("t-victim")
     assert still is not None and still["graph"] is victim_graph
-    assert canvas_thread_owner("t-victim") == "alice"
+    assert canvas_thread_owner("t-victim") == _ALICE
 
     remove_canvas_graph("t-victim")
     remove_canvas_graph(new_id)
@@ -154,25 +176,25 @@ async def test_canvas_run_refuses_to_hijack_foreign_thread(manager_stub):
 
 async def test_canvas_run_owner_is_recorded_from_principal(manager_stub):
     """缺省 thread_id 时,生成的 runId 也带上主体归属。"""
-    resp = await post_canvas_run(_req("carol"), CanvasRunRequest(dag=_DAG))
+    resp = await post_canvas_run(_req(_CAROL), CanvasRunRequest(dag=_DAG))
     run_id = resp["data"]["runId"]
-    assert canvas_thread_owner(run_id) == "carol"
+    assert canvas_thread_owner(run_id) == _CAROL
     remove_canvas_graph(run_id)
 
 
 async def test_state_read_by_stranger_is_404(manager_stub):
     """B 跨用户读 state/history ⇒ 404(此前可直接读走整图 checkpoint)。"""
     resp = await post_canvas_run(
-        _req("alice"), CanvasRunRequest(dag=_DAG, thread_id="t-read")
+        _req(_ALICE), CanvasRunRequest(dag=_DAG, thread_id="t-read")
     )
     assert resp["code"] == 0
     with pytest.raises(HTTPException) as exc:
-        await lg.get_state("t-read", _req("bob"))
+        await lg.get_state("t-read", _req(_BOB))
     assert exc.value.status_code == 404
     with pytest.raises(HTTPException):
-        await lg.get_history("t-read", _req("bob"), limit=5)
+        await lg.get_history("t-read", _req(_BOB), limit=5)
     # 属主自己读得动(证明 404 来自归属闸,不是路由坏了)
-    ok = await lg.get_state("t-read", _req("alice"))
+    ok = await lg.get_state("t-read", _req(_ALICE))
     assert ok["code"] == 0
     remove_canvas_graph("t-read")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
