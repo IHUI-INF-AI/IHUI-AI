@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { ChevronDown, ChevronUp } from 'lucide-react-native'
 import {
   QUEUE_OPS_NAMESPACE,
@@ -47,7 +47,8 @@ import { Tappable } from '@ihui/ui-native'
  * 此前硬编码 false **逐字节一致**(零回归);声明一旦到达即自动生效,本组件不用再改。
  * 显式传 false 与"不传"同效,不额外分支。
  *
- * 平台特有:RN 无 hover ⇒ 全部用按压态(Pressable style 函数);web 的拖拽重排
+ * 平台特有:RN 无 hover ⇒ 全部用按压态(Tappable 的 pressedStyle 档;函数形态 style 会被
+ * cssInterop 吃掉,见 packages/ui-native/src/tappable.tsx);web 的拖拽重排
  * 在触屏上退化为 ↑/↓ 按钮重排(同一 reorderQueue 语义,流式中同样被锁)。
  */
 
@@ -190,15 +191,15 @@ export function QueueInteractionBar({
         const editing = editingId === item.id
         return (
           <View key={item.id} style={styles.row}>
-            <Pressable
+            <Tappable
               accessibilityRole="button"
               accessibilityLabel={t(qk('reorderAria'))}
               accessibilityState={{ disabled: !reorderVerdict.allowed || index === 0 }}
               testID={`queue-op-reorder-up-${index}`}
-              style={({ pressed }) => [
-                styles.opBtn,
-                (pressed || index === 0 || !reorderVerdict.allowed) && styles.opBtnMuted,
-              ]}
+              // pressed 与"到顶/不允许"共切同一个 opBtnMuted ⇒ 布尔并集等价拆法：
+              // 常态条件进 style，按下态进 pressedStyle。原函数形态整份被 cssInterop 吃掉。
+              style={[styles.opBtn, (index === 0 || !reorderVerdict.allowed) && styles.opBtnMuted]}
+              pressedStyle={styles.opBtnMuted}
               onPress={() => {
                 if (!reorderVerdict.allowed) {
                   // D38 收口:重排被拒显式说因(流式中锁定;组合矩阵里 reorder 只认
@@ -211,19 +212,19 @@ export function QueueInteractionBar({
               }}
             >
               <ChevronUp size={14} color={tokens.text.secondary} />
-            </Pressable>
-            <Pressable
+            </Tappable>
+            <Tappable
               accessibilityRole="button"
               accessibilityLabel={t(qk('reorderAria'))}
               accessibilityState={{
                 disabled: !reorderVerdict.allowed || index === items.length - 1,
               }}
               testID={`queue-op-reorder-down-${index}`}
-              style={({ pressed }) => [
+              style={[
                 styles.opBtn,
-                (pressed || index === items.length - 1 || !reorderVerdict.allowed) &&
-                  styles.opBtnMuted,
+                (index === items.length - 1 || !reorderVerdict.allowed) && styles.opBtnMuted,
               ]}
+              pressedStyle={styles.opBtnMuted}
               onPress={() => {
                 if (!reorderVerdict.allowed) {
                   setDeniedHint({ action: 'reorder', reason: 'streaming' })
@@ -234,7 +235,7 @@ export function QueueInteractionBar({
               }}
             >
               <ChevronDown size={14} color={tokens.text.secondary} />
-            </Pressable>
+            </Tappable>
             {editing ? (
               <>
                 {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);

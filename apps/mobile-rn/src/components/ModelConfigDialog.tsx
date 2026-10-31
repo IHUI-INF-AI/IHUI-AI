@@ -1132,7 +1132,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
                   {/* 录音按钮 */}
                   <View className="mb-3 items-center">
-                    <Pressable
+                    <Tappable
                       onPress={isRecording ? handleStopRecord : handleStartRecord}
                       className={
                         isRecording
@@ -1146,7 +1146,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                       ) : (
                         <Mic size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
                       )}
-                    </Pressable>
+                    </Tappable>
                     <Text className="mt-2 text-xs" style={{ color: tokens.text.tertiary }}>
                       {isRecording ? t('profile.cfgStopRecord') : t('profile.cfgStartRecord')}
                     </Text>

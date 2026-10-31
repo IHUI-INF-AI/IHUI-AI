@@ -34,7 +34,6 @@ import {
   View,
   type GestureResponderEvent,
   type ImageStyle,
-  type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -385,20 +384,18 @@ function LabelButton({ action }: BottomActionBarItemProps) {
 
   const labelStyle: TextStyle = isPrimary ? styles.primaryButtonLabel : styles.secondaryButtonLabel
 
-  const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [
-    baseStyle,
-    pressed && !isDisabled && !isLoading ? pressedStyle : null,
-    isDisabled || isLoading ? disabledStyle : null,
-  ]
-
+  // 原写法是 `const style = ({pressed}) => [...]` 再 `style={style}`：函数形态喂进 cssInterop
+  // 注册的 Pressable 会被换成 `{}`，两个按钮的整份内联样式从来没生效过。disabled 时原生
+  // Pressable 不发 press 事件 ⇒ pressedStyle 天然只在可点时叠加，与原条件式等价。
   return (
-    <Pressable
+    <Tappable
       onPress={handlePress}
       disabled={isDisabled || isLoading}
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      style={style}
+      style={[baseStyle, (isDisabled || isLoading) && disabledStyle]}
+      pressedStyle={pressedStyle}
     >
       {isLoading ? (
         <ActivityIndicator
@@ -410,7 +407,7 @@ function LabelButton({ action }: BottomActionBarItemProps) {
           {action.label}
         </Text>
       )}
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -425,20 +422,15 @@ function IconButton({ action }: BottomActionBarItemProps) {
     }
   }
 
-  const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [
-    styles.iconButton,
-    pressed && !isDisabled && !isLoading ? styles.iconButtonPressed : null,
-    isDisabled || isLoading ? styles.buttonDisabled : null,
-  ]
-
   return (
-    <Pressable
+    <Tappable
       onPress={handlePress}
       disabled={isDisabled || isLoading}
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      style={style}
+      style={[styles.iconButton, (isDisabled || isLoading) && styles.buttonDisabled]}
+      pressedStyle={styles.iconButtonPressed}
     >
       {isLoading ? (
         <ActivityIndicator size="small" color={tokens.text.primary} />
@@ -447,7 +439,7 @@ function IconButton({ action }: BottomActionBarItemProps) {
           {icon}
         </Text>
       )}
-    </Pressable>
+    </Tappable>
   )
 }
 
