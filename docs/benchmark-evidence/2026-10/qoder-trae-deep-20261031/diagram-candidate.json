@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "goal-b40 最底层取证:Trae 原生栈 × Qoder 0.5.1 × IHUI 对位",
+    "locale": "zh-CN",
+    "subtitle": "REA 6.4.0 + PE 字符串层/panic 路径/schema 级取证 · 2026-10-31",
+    "output": ".archify/architecture-qoder-trae-deep-20261031-1045/qoder-trae-deep.html",
+    "quality_profile": "showcase",
+    "viewBox": [1100, 960]
+  },
+  "components": [
+    {
+      "id": "trae-mods",
+      "type": "backend",
+      "label": "Trae ai-agent 模块层",
+      "sublabel": "Rust(icube-mono 单仓·cargo run)",
+      "tag": "Trae 原生",
+      "pos": [20, 60],
+      "size": [240, 96]
+    },
+    {
+      "id": "trae-harness",
+      "type": "backend",
+      "label": "harness.dll 核心",
+      "sublabel": "1437 模块 · 20 域全景",
+      "tag": "Trae 原生",
+      "pos": [20, 210],
+      "size": [240, 96]
+    },
+    {
+      "id": "trae-toolhost",
+      "type": "backend",
+      "label": "toolhost 工具宿主",
+      "sublabel": "120 命令 · snapshot/Skill 11 族",
+      "tag": "Trae 原生",
+      "pos": [20, 360],
+      "size": [240, 96]
+    },
+    {
+      "id": "trae-ckg",
+      "type": "database",
+      "label": "libckg 代码知识图谱",
+      "sublabel": "sqlite+向量 · 实体/关系 · DSL",
+      "tag": "Trae 原生",
+      "pos": [20, 510],
+      "size": [240, 96]
+    },
+    {
+      "id": "trae-ctxfs",
+      "type": "security",
+      "label": "ContextFS",
+      "sublabel": "context:// 虚拟路径 · ls/cat/Glob/Grep",
+      "tag": "Trae 独有",
+      "pos": [20, 660],
+      "size": [240, 76]
+    },
+    {
+      "id": "qoder-remote",
+      "type": "backend",
+      "label": "Qoder 0.5.1 设备互联",
+      "sublabel": "8 位码 · LAN/Relay · 四重校验",
+      "tag": "Qoder",
+      "pos": [290, 60],
+      "size": [250, 96]
+    },
+    {
+      "id": "qoder-inbox",
+      "type": "frontend",
+      "label": "collaboration.inbox",
+      "sublabel": "Needs Me 桶(all/needsMe 分页)",
+      "tag": "Qoder",
+      "pos": [290, 210],
+      "size": [250, 96]
+    },
+    {
+      "id": "qoder-import",
+      "type": "cloud",
+      "label": "竞品数据导入",
+      "sublabel": "sessions/automations/capabilities/memory",
+      "tag": "Qoder 独有",
+      "pos": [290, 360],
+      "size": [250, 96]
+    },
+    {
+      "id": "qoder-plugins",
+      "type": "backend",
+      "label": "pluginHost + 主进程",
+      "sublabel": "ESM+chunks 全混淆(如实留白)",
+      "tag": "Qoder",
+      "pos": [290, 510],
+      "size": [250, 96]
+    },
+    {
+      "id": "ihui-ai",
+      "type": "backend",
+      "label": "IHUI ai-service",
+      "sublabel": "FastAPI + LangGraph + 引擎内核",
+      "tag": "IHUI",
+      "pos": [570, 60],
+      "size": [250, 96]
+    },
+    {
+      "id": "ihui-mcp",
+      "type": "backend",
+      "label": "MCP server(resources 已有)",
+      "sublabel": "mcp_server.py · resources 已有",
+      "tag": "IHUI",
+      "pos": [570, 210],
+      "size": [240, 96]
+    },
+    {
+      "id": "ihui-aigc",
+      "type": "security",
+      "label": "AIGC 打标(本轮新)",
+      "sublabel": "落库自动打标 · 全类型 · 20 测试",
+      "tag": "IHUI 新增",
+      "pos": [570, 360],
+      "size": [250, 96]
+    },
+    {
+      "id": "ihui-devices",
+      "type": "backend",
+      "label": "G1b 设备互联安全面",
+      "sublabel": "8 位码 · 指纹绑定 · 版本闸",
+      "tag": "IHUI 新增",
+      "pos": [570, 510],
+      "size": [250, 96]
+    },
+    {
+      "id": "ihui-kc",
+      "type": "database",
+      "label": "索引 + 向量 + 知识编译",
+      "sublabel": "indexer · pgvector · knowledge_compiler",
+      "tag": "IHUI",
+      "pos": [570, 660],
+      "size": [250, 76]
+    },
+    {
+      "id": "gap-exec",
+      "type": "external",
+      "label": "登记缺口(不硬抄)",
+      "sublabel": "ContextFS / 持久执行 / 导入 4 维",
+      "tag": "后续",
+      "pos": [850, 360],
+      "size": [230, 120]
+    },
+    {
+      "id": "beyond",
+      "type": "external",
+      "label": "超越轴(已落地)",
+      "sublabel": "AIGC 打标 · G1b 安全面 · CUE 选择+预览",
+      "tag": "结论",
+      "pos": [850, 510],
+      "size": [230, 160]
+    }
+  ],
+  "connections": [
+    {
+      "id": "mods-harness",
+      "from": "trae-mods",
+      "to": "trae-harness",
+      "label": "聚合入口"
+    },
+    {
+      "id": "harness-ckg",
+      "from": "trae-harness",
+      "to": "trae-ckg",
+      "label": "ckg/ 域",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "q-inbox",
+      "from": "qoder-remote",
+      "to": "qoder-inbox",
+      "label": "同宿主",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "q-imp",
+      "from": "qoder-inbox",
+      "to": "qoder-import",
+      "label": "迁移流(记忆一等)",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "cmp-harness",
+      "from": "trae-harness",
+      "to": "ihui-ai",
+      "label": "对位:引擎/编排",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cmp-mcp",
+      "from": "trae-toolhost",
+      "to": "ihui-mcp",
+      "label": "对位:MCP server",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cmp-aigc",
+      "from": "trae-toolhost",
+      "to": "ihui-aigc",
+      "label": "对齐+超越",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cmp-dev",
+      "from": "qoder-remote",
+      "to": "ihui-devices",
+      "label": "对齐(b39)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cmp-ckg",
+      "from": "trae-ckg",
+      "to": "ihui-kc",
+      "label": "对位:索引/向量",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gap-in",
+      "from": "qoder-import",
+      "to": "gap-exec",
+      "label": "独立票"
+    },
+    {
+      "id": "gap-q",
+      "from": "qoder-import",
+      "to": "gap-exec",
+      "label": "独立票"
+    },
+    {
+      "id": "beyond-in",
+      "from": "ihui-aigc",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "beyond-dev",
+      "from": "ihui-devices",
+      "to": "beyond",
+      "label": "证据"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "取证方法(goal-b40)",
+      "items": [
+        "rea analyze 全量:Trae ev_a95ac9bb / Qoder 0.5.1 ev_5e7effda",
+        "PE 字符串分类:panic 路径=真实源码地图(harness 1437 模块/20 域)",
+        "Rust 运行时判别:cargo run · rust.byted.org · icube-mono 单仓",
+        "schema 级:libckg vec_items/vec_items_v2 + embedding_entity 映射"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "红线遵循(§0.12)",
+      "items": [
+        "不粘对方专有源码 · 不破解 · 不绕付费 · 不提取凭据",
+        "只取结构/行为/文案级证据,实现全部写自己的代码",
+        "Qoder 主进程混淆面如实留白(还原边际低)"
+      ]
+    }
+  ]
+}
