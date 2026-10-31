@@ -207,14 +207,17 @@ export interface CheckinWbSweepSummary {
 }
 
 /**
- * WorkBuddy 任务巡检「为什么没在跑」的机器枚举(判序唯一实现见后端
- * `checkin_scheduler._wb_tasks_not_running_reason`,前端只按值分支,不再自己算一遍)。
+ * WorkBuddy 任务中心自动巡检视图(2026-10-31 补)。
  *
- * - `tasks_gate_off`        任务门(WORKBUDDY_TASKS_ENABLED)关
- * - `cron_gate_off`         任务门开着,但总闸(CHECKIN_CRON_ENABLED)关
- * - `scheduler_not_started` 两门皆开而进程里没有调度器(建表失败 / start() 抛异常 /
- *                           lifespan 没跑到)⇒ 配置看起来全对,活儿一件不干
- * - `job_not_registered`    调度器在跑而这条 job 不在注册表(改完 .env 没重启)
+ * 此前 status 只报签到五件套,这条 job 对前端完全不可见 ⇒ 用户无法得知
+ * 「自动做任务」在不在跑、为什么没领到分。字段纪律:
+ * - `enabled` 是**任务门 ∧ 总闸**,即「这条 job 现在真会被注册」的唯一判据;
+ * - `tasks_enabled` / `cron_enabled` 是两门原值,用于解释「配了却没跑」;
+ * - 全部只读,前端不得据此推测执行结果(结果仍以 task-run 返回为准)。
+ */
+/**
+ * `wb_tasks.not_running_reason` 的机器枚举(取值表只此一份,三端按字符串分支)。
+ * 与后端 `checkin_scheduler._WB_TASKS_NOT_RUNNING_REASONS` 同源;新增取值必须同批改两边。
  */
 export const CHECKIN_WB_TASKS_NOT_RUNNING_REASONS = [
   'tasks_gate_off',
@@ -223,38 +226,15 @@ export const CHECKIN_WB_TASKS_NOT_RUNNING_REASONS = [
   'job_not_registered',
 ] as const
 
-/**
- * 上面那张表的类型投影 —— 取值只此一份(§0.6):消费方(判据/文案映射/用例遍历)一律
- * import 这份 `as const` 表,不得再抄字面量;新增档位忘了接线由表的长度断言喊出来。
- */
 export type CheckinWbTasksNotRunningReason = (typeof CHECKIN_WB_TASKS_NOT_RUNNING_REASONS)[number]
 
-/**
- * WorkBuddy 任务中心自动巡检视图(2026-10-31 补;同日二修:enabled 改观测态)。
- *
- * 此前 status 只报签到五件套,这条 job 对前端完全不可见 ⇒ 用户无法得知
- * 「自动做任务」在不在跑、为什么没领到分。字段纪律:
- * - `enabled` 是**观测态**:调度器已 start ∧ 这条 job 现在真注册在调度表里。
- *   它不是「两门与」——两道闸都只是**配置意图**,判不出"进程里到底有没有这条 job":
- *   建表失败会让 start() 提前 return(而 lifespan 又把异常吞掉),此时两门 env 全
- *   true、job 却永不执行,按意图报绿就是面板说谎(AGENTS.md §0.3);
- * - `tasks_enabled` / `cron_enabled` 是两门原值(**意图态**),只用于解释配置;
- * - `not_running_reason` 在 `enabled` 为 false 时点名卡在哪一层(见上面枚举);
- * - 全部只读,前端不得据此推测执行结果(结果仍以 task-run 返回为准)。
- */
 export interface CheckinWbTasksStatus {
-  /** 观测态:job 现在真注册着(调度器已 start ∧ get_job 非空)⇒ 自动巡检真会跑 */
+  /** 真会被注册 = tasks_enabled ∧ cron_enabled(唯一可信判据) */
   enabled: boolean
-  /** 配置意图:WORKBUDDY_TASKS_ENABLED 原值(不代表 job 已注册) */
+  /** 配置意图:WORKBUDDY_TASKS_ENABLED 原值 */
   tasks_enabled: boolean
-  /** 配置意图:总闸 CHECKIN_CRON_ENABLED 原值(不代表 job 已注册) */
+  /** 总闸 CHECKIN_CRON_ENABLED 原值 */
   cron_enabled: boolean
-  /**
-   * enabled 为 false 时说明卡在哪一层;enabled 为 true 时后端恒返回 null。
-   * undefined = 服务端版本较旧不返回该字段 ⇒ 按「未判定」呈现,不得回落成
-   * 「已启用」也不得回落成某个具体原因(§0.3)。
-   */
-  not_running_reason?: CheckinWbTasksNotRunningReason | null
   /** true=真实写侧;false=只读探针(dry-run),不会领奖 */
   live_run: boolean
   /** 巡检节拍(分钟),与调度器注册 job 的口径同源 */
@@ -265,6 +245,8 @@ export interface CheckinWbTasksStatus {
   activity_path_configured: boolean
   /** 上一轮巡检摘要;null = 本进程还没跑过,undefined = 服务端版本较旧 */
   last_sweep?: CheckinWbSweepSummary | null
+  /** enabled=false 时点名卡在哪一层;null/undefined = 已启用或服务端版本较旧 */
+  not_running_reason?: CheckinWbTasksNotRunningReason | null
 }
 
 /** GET /scheduler/status 响应 */
