@@ -7041,7 +7041,7 @@
     "updateSuccess": "更新成功"
   },
   "adminOrgGovernance": {
-    "agentBillings": "Agent 平台帳單(僅參考)",
+    "agentBillings": "Agent 平臺帳單(僅參考)",
     "allowlistHint": "每列一個模型 ID;模式為「允許」時僅放行清單內模型,「禁止」時拒絕清單內模型",
     "allowlistMode": "模式",
     "balance": "餘額變動",
