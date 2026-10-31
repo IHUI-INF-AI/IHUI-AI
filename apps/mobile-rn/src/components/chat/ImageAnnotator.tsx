@@ -28,7 +28,6 @@ import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 画布内相邻采样点的最小位移(px):小于此位移不记点,抑制手抖产生密集垃圾点 */
 const MIN_POINT_GAP = 2
@@ -474,7 +473,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
           <Pressable
             hitSlop={8}
             onPress={onCancel}
-            style={pressFeedback(styles.headerClose)}
+            style={styles.headerClose}
             accessibilityRole="button"
             accessibilityLabel={t('annot.closeA11y')}
           >
@@ -555,7 +554,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
           <View style={styles.toolRow}>
             <Pressable
               onPress={() => setMode('pen')}
-              style={pressFeedback([styles.toolBtn, mode === 'pen' && styles.toolBtnActive])}
+              style={[styles.toolBtn, mode === 'pen' && styles.toolBtnActive]}
               accessibilityRole="button"
               accessibilityLabel={t('annot.penToolA11y')}
             >
@@ -569,7 +568,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             </Pressable>
             <Pressable
               onPress={() => setMode('text')}
-              style={pressFeedback([styles.toolBtn, mode === 'text' && styles.toolBtnActive])}
+              style={[styles.toolBtn, mode === 'text' && styles.toolBtnActive]}
               accessibilityRole="button"
               accessibilityLabel={t('annot.textToolA11y')}
             >
@@ -584,7 +583,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             <Pressable
               onPress={undo}
               disabled={opLog.length === 0}
-              style={pressFeedback([styles.toolBtn, opLog.length === 0 && styles.toolBtnDisabled])}
+              style={[styles.toolBtn, opLog.length === 0 && styles.toolBtnDisabled]}
               accessibilityRole="button"
               accessibilityLabel={t('annot.undoA11y')}
             >
@@ -594,7 +593,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             <Pressable
               onPress={clearAll}
               disabled={!hasContent}
-              style={pressFeedback([styles.toolBtn, !hasContent && styles.toolBtnDisabled])}
+              style={[styles.toolBtn, !hasContent && styles.toolBtnDisabled]}
               accessibilityRole="button"
               accessibilityLabel={t('annot.clearA11y')}
             >
@@ -633,7 +632,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 <Pressable
                   key={`width-${i}`}
                   onPress={() => setWidthIndex(i)}
-                  style={pressFeedback([styles.toolBtn, widthIndex === i && styles.toolBtnActive])}
+                  style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
                   accessibilityRole="button"
                   accessibilityLabel={t('annot.penLabel', { v: t(widthLabelKey) })}
                 >
@@ -669,7 +668,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               />
               <Pressable
                 onPress={confirmPendingText}
-                style={pressFeedback(styles.textInputBtn)}
+                style={styles.textInputBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t('annot.markAddA11y')}
               >
@@ -677,7 +676,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               </Pressable>
               <Pressable
                 onPress={cancelPendingText}
-                style={pressFeedback(styles.textInputBtn)}
+                style={styles.textInputBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t('annot.markDropA11y')}
               >

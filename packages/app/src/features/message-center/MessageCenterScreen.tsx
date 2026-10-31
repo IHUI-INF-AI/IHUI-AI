@@ -27,7 +27,6 @@ import type {
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab }
@@ -177,7 +176,7 @@ export function MessageCenterScreen({
                       onTogglePin 不传则整颗按钮不渲染(其它端零影响) */}
                   {onTogglePin ? (
                     <Pressable
-                      style={pressFeedback(styles.convPinBtn)}
+                      style={styles.convPinBtn}
                       hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                       accessibilityRole="button"
                       accessibilityLabel={pinActionLabel(conv.pinned)}

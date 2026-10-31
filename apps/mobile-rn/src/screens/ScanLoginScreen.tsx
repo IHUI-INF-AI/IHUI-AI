@@ -17,7 +17,6 @@ import { selectIsAuthenticated, useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -114,17 +113,13 @@ export function ScanLoginScreen() {
         <Text style={styles.safeTitle}>{t('scanLogin.title')}</Text>
         <Text style={styles.safeHint}>{t('scanLogin.needLogin')}</Text>
         <Pressable
-          style={pressFeedback(styles.ctaButton)}
+          style={styles.ctaButton}
           onPress={() => navigation.navigate('Login')}
           accessibilityRole="button"
         >
           <Text style={styles.ctaButtonText}>{t('common.login')}</Text>
         </Pressable>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          style={pressFeedback(undefined)}
-        >
+        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={undefined}>
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </Pressable>
       </SafeAreaView>
@@ -141,27 +136,19 @@ export function ScanLoginScreen() {
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
         {denied ? (
-          <Pressable
-            style={pressFeedback(styles.ctaButton)}
-            onPress={openSettings}
-            accessibilityRole="button"
-          >
+          <Pressable style={styles.ctaButton} onPress={openSettings} accessibilityRole="button">
             <Text style={styles.ctaButtonText}>{t('scanLogin.openSettings')}</Text>
           </Pressable>
         ) : (
           <Pressable
-            style={pressFeedback(styles.ctaButton)}
+            style={styles.ctaButton}
             onPress={() => void requestPermission()}
             accessibilityRole="button"
           >
             <Text style={styles.ctaButtonText}>{t('scanLogin.grant')}</Text>
           </Pressable>
         )}
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          style={pressFeedback(undefined)}
-        >
+        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={undefined}>
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </Pressable>
       </SafeAreaView>

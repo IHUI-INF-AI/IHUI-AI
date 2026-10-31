@@ -176,7 +176,6 @@ import {
   type TerminalTaskItem,
   type ToolCallItem,
 } from '../utils/chat-render-model'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
@@ -394,7 +393,7 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
         return (
           <View key={item.id} style={bubbleStyles.card}>
             <Pressable
-              style={pressFeedback(bubbleStyles.cardHead)}
+              style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [item.id]: !open }))}
               accessibilityRole="button"
               accessibilityLabel={[displayName, view.subject, statusLabel]
@@ -617,7 +616,7 @@ export function TerminalTaskList({
         return (
           <View key={task.id} style={bubbleStyles.card}>
             <Pressable
-              style={pressFeedback(bubbleStyles.cardHead)}
+              style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [task.id]: !open }))}
               accessibilityRole="button"
               accessibilityLabel={task.command}
