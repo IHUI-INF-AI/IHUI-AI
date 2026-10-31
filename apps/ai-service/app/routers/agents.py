@@ -619,8 +619,9 @@ async def _new_v2_loop(
     """
     from app.core.model_context_window import resolve_with_env_priority
 
+    from ..core.hook_runtime import build_registered_hook_runtime
     from ..core.token_baseline import CHAIN_MAIN
-    from ..services.agent_loop_v2 import AgentLoopV2
+    from ..services.agent_loop_v2 import AgentLoopV2, instructional_inputs_from_env
 
     return AgentLoopV2(
         _make_loop_v2_llm(model),
@@ -629,6 +630,13 @@ async def _new_v2_loop(
         session_id=session_id,
         max_iterations=max_iterations or 8,
         enable_checkpoint=True,
+        # 接线批(2026-11-01):生命周期钩子运行时注入。此前 HookRuntime 批30 移植后
+        # 消费侧判据面全量在位(agent_loop_v2 PRE_TOOL_USE deny/上下文注入),但构造/
+        # 注入方全仓为 0 ⇒ self._hook_runtime 恒 None ⇒ 可编程拦截从未生效。
+        # 登记表为空时 build_registered_hook_runtime() 产出无钩子 runtime,run() 返回
+        # 空 outcome,与注入前逐零差异;登记口 register_lifecycle_hook 只在服务端代码,
+        # 客户端请求面无通道(不构成可信主体绕过)。engine/agent_plan 两处构造同批接线。
+        hook_runtime=build_registered_hook_runtime(),
         # G-161:此前根本没把请求里的 permission_mode 传进来 →
         # 端上选的权限档在这条主执行链上永远是 default。
         permission_mode=permission_mode,
@@ -651,6 +659,11 @@ async def _new_v2_loop(
         # recorder 的 run 键回退 session_id,子代理经编排共享父会话 ⇒ 同键不可分。
         # G-941 取证收口(goal-20261026-b14r2):取唯一常量源,不落字面量。
         chain=CHAIN_MAIN,
+        # 装载口补齐批(2026-11-01):参数化指令片段的声明面(唯一读口 = 服务端 env
+        # AGENT_INSTRUCTIONAL_INPUTS;未设置 ⇒ {}= 八枚全不注入,与接线前逐零差异)。
+        # 注入判定/开关仍在 agent_loop_v2._inject_instructional_fragments 一处,
+        # 本行只把**构造入参**交进去,不新增第二份注入路径。
+        instructional_inputs=instructional_inputs_from_env(),
     )
 
 
