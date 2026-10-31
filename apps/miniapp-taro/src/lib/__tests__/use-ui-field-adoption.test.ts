@@ -39,7 +39,10 @@ const ADOPTED: readonly string[] = [
   'pages/exam/answer.tsx',
   'pages/study/plan.tsx',
   'pages/study/publish/index.tsx',
-  'pkg-about/about/api-settings/index.tsx',
+  // 'pkg-about/about/api-settings/index.tsx' 2026-10-31 摘除:本轮转为壳承载形制
+  // (端内 23 行薄壳,渲染 = packages/app ApiSettingsScreen 经 @rn-shells/ApiSettingsScreen,
+  // 「改行为请改源头」)—— 端内不再有表单代码,useUiField 登记点随承载形制移出本锁射程;
+  // 采纳语义由壳源负责(与上面 feedback 同一条口径)。
   'pkg-about/about/help.tsx',
   'pkg-ai/aigc/publish.tsx',
   'pkg-ai/dev-enter/n8n-model/index.tsx',
