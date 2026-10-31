@@ -127,7 +127,7 @@ export function CheckpointRollbackConfirm({
               role="alert"
               data-testid="rollback-confirm-unavailable"
             >
-              <p className="text-sm font-medium text-destructive">
+              <p className="text-body font-medium text-destructive">
                 {t('rollbackUnavailableTitle')}
               </p>
               <p className="text-xs text-destructive">{t('rollbackUnavailableDesc')}</p>

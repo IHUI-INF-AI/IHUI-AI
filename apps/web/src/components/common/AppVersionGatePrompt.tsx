@@ -143,7 +143,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             </p>
             {releaseNotes ? (
               <div className="mt-3 rounded-lg bg-muted p-3">
-                <p className="text-xs font-medium">{t('gateReleaseNotes')}</p>
+                <p className="text-label font-medium">{t('gateReleaseNotes')}</p>
                 <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
                   {releaseNotes}
                 </p>
@@ -182,7 +182,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             type="button"
             onClick={handleUpdate}
             disabled={state === 'installing'}
-            className="rounded-sm bg-cta px-4 py-1.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+            className="rounded-sm bg-cta px-4 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
           >
             {state === 'installing' ? t('installing') : t('gateUpdateNow')}
           </button>

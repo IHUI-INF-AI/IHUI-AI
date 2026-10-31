@@ -119,7 +119,7 @@ export function ApplicationsPanel() {
   return (
     <div className="flex w-72 shrink-0 flex-col bg-muted/20">
       <div className="flex items-center gap-1 px-2 py-1.5">
-        <span className="text-xs font-medium">{t('applications.title')}</span>
+        <span className="text-label font-medium">{t('applications.title')}</span>
         <button
           onClick={() => setShowForm(!showForm)}
           className={cn(
@@ -181,7 +181,7 @@ export function ApplicationsPanel() {
       )}
 
       <div className="flex-1 overflow-auto p-1">
-        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+        <div className="px-2 py-1 text-label font-medium text-muted-foreground">
           {t('applications.launchConfigs')}
         </div>
         {configs.map((config) => {
@@ -194,7 +194,7 @@ export function ApplicationsPanel() {
             >
               <Icon className={cn('h-3.5 w-3.5 shrink-0', meta.color)} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium">{config.name}</div>
+                <div className="truncate text-label font-medium">{config.name}</div>
                 <div className="truncate text-xs text-muted-foreground">{config.command}</div>
               </div>
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
@@ -219,7 +219,7 @@ export function ApplicationsPanel() {
 
         {history.length > 0 && (
           <div className="mt-3">
-            <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-1 px-2 py-1 text-label font-medium text-muted-foreground">
               <History className="h-3 w-3" />
               <span>{t('applications.recentRuns')}</span>
             </div>

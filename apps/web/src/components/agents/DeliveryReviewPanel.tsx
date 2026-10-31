@@ -139,7 +139,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
     <div className="space-y-2.5 text-sm" data-testid="delivery-review-panel">
       {/* 1. 总结区:输出摘要全文 + 工具调用量 top5 徽章 */}
       <div className="rounded-md bg-muted/50 p-2.5" data-testid="delivery-review-summary">
-        <div className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground/80">
+        <div className="mb-1 flex items-center gap-1 text-label font-medium text-muted-foreground/80">
           <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{t('summary')}</span>
         </div>
@@ -169,7 +169,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
 
       {/* 3. 文件变更区:kind 徽章 + 路径 + 增删统计 + 涉及步骤提示 */}
       <div data-testid="delivery-review-files">
-        <div className="mb-1 text-xs font-medium text-muted-foreground/80">
+        <div className="mb-1 text-label font-medium text-muted-foreground/80">
           {t('filesChanged')}
           <span className="ml-1 tabular-nums text-[10px] opacity-70">
             ({deliverables.filesChanged.length})

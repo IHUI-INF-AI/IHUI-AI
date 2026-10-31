@@ -48,7 +48,7 @@ export function SourceList({ sources, onToggle, onBudgetChange, className }: Sou
             <Icon className={cn('h-4 w-4 shrink-0', TYPE_COLOR[s.type])} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-medium">{s.label}</p>
+                <p className="truncate text-body font-medium">{s.label}</p>
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {s.budgetPercent}%
                 </span>

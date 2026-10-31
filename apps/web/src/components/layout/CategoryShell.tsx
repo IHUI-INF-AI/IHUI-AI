@@ -127,7 +127,7 @@ export function CategoryShell({
           aria-current={active ? 'page' : undefined}
           aria-label={item.description ? `${item.label}: ${item.description}` : item.label}
           className={cn(
-            'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+            'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-label font-medium transition-colors',
             active
               ? 'bg-cta text-cta-foreground font-semibold'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -173,14 +173,14 @@ export function CategoryShell({
               </SheetTrigger>
               <SheetContent side="left" className="w-[90vw] p-3 min-[640px]:w-72">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="text-body font-semibold">{title}</p>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto">{renderNavGroups()}</div>
               </SheetContent>
             </Sheet>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            <h1 className="text-heading font-bold tracking-tight">{title}</h1>
             {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
           </div>
           {/* 移动端当前项指示(<640px 显示) */}

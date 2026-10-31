@@ -57,7 +57,7 @@ export function NotificationItem({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-medium', !read && 'text-primary')}>{title}</span>
+          <span className={cn('text-body font-medium', !read && 'text-primary')}>{title}</span>
           {!read && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
         </div>
         {content && <p className="mt-0.5 text-sm text-muted-foreground">{content}</p>}

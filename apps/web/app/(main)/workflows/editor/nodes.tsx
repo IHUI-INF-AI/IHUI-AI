@@ -90,7 +90,7 @@ export function StepNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
         <div className={cn('flex h-6 w-6 items-center justify-center rounded text-xs', c.badge)}>
           {TYPE_LABEL[data.stepType]}
         </div>
-        <span className="text-sm font-medium">{data.label}</span>
+        <span className="text-body font-medium">{data.label}</span>
       </div>
 
       {/* 摘要信息 */}

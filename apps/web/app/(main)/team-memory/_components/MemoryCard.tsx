@@ -45,7 +45,7 @@ export function MemoryCard({ row, onEdit, onDelete }: MemoryCardProps) {
           <span className={`rounded px-2 py-0.5 text-xs ${KIND_BADGE[row.kind]}`}>
             {t(`kind.${row.kind}`)}
           </span>
-          <span className="flex-1 truncate text-sm font-medium">{row.title}</span>
+          <span className="flex-1 truncate text-body font-medium">{row.title}</span>
           <Button
             variant="ghost"
             size="icon-sm"

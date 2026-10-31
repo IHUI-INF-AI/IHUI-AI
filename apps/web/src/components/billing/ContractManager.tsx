@@ -74,7 +74,7 @@ export function ContractManager() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">{t('title')}</h3>
+        <h3 className="text-body font-medium">{t('title')}</h3>
         {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
 
@@ -89,7 +89,7 @@ export function ContractManager() {
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{t('planName')}</span>
+                    <span className="text-body font-medium">{t('planName')}</span>
                     <Badge variant={statusVariant(c.status)}>
                       {t(STATUS_KEY[c.status ?? 'unknown'] ?? 'status.unknown')}
                     </Badge>

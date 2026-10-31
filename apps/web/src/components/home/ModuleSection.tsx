@@ -124,9 +124,9 @@ function ModuleItemCard({ item }: { item: HomeItem }) {
         )}
       </div>
       <div className="space-y-1 p-2.5">
-        <h3 className="line-clamp-1 text-sm font-medium">{item.title}</h3>
+        <h3 className="line-clamp-1 text-body font-medium">{item.title}</h3>
         {item.meta && <p className="line-clamp-1 text-xs text-muted-foreground">{item.meta}</p>}
-        {item.price && <span className="text-sm font-semibold text-primary">{item.price}</span>}
+        {item.price && <span className="text-body font-semibold text-primary">{item.price}</span>}
       </div>
     </Link>
   )

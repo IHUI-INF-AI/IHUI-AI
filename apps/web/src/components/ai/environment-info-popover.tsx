@@ -148,7 +148,7 @@ function PopoverHeader({ onViewFull, t }: { onViewFull: () => void; t: EnvT }) {
       data-testid="env-info-header"
     >
       <span
-        className="flex-1 truncate text-sm font-medium text-foreground"
+        className="flex-1 truncate text-body font-medium text-foreground"
         data-testid="env-info-title"
       >
         {t('title')}

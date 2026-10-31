@@ -79,7 +79,7 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
           data-testid="mode-switcher"
           data-mode={currentMode}
           className={cn(
-            'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors',
+            'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors',
             'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
@@ -103,7 +103,7 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
         >
           <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="flex min-w-0 flex-col">
-            <span className="text-sm font-medium leading-tight">{tTools('title')}</span>
+            <span className="text-body font-medium leading-tight">{tTools('title')}</span>
             <span className="truncate text-xs text-muted-foreground leading-tight">
               {toolsPanelOpen ? t('toolsPanelClose') : t('toolsPanelOpen')}
             </span>
@@ -123,7 +123,7 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
             >
               <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium leading-tight">{t(item.labelKey)}</span>
+                <span className="text-body font-medium leading-tight">{t(item.labelKey)}</span>
                 <span className="truncate text-xs text-muted-foreground leading-tight">
                   {t(item.descKey)}
                 </span>

@@ -40,7 +40,7 @@ export function StatCard({
           </div>
         )}
       </div>
-      <div className="mt-2 text-2xl font-bold tabular-nums tracking-tight">
+      <div className="mt-2 text-display font-bold tabular-nums tracking-tight">
         {loading ? (
           <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
         ) : (

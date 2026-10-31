@@ -150,7 +150,7 @@ function DetailsContent() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
-        <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <Button asChild>
           <Link href="/vip">{tc('back')}</Link>
         </Button>
@@ -163,7 +163,7 @@ function DetailsContent() {
     const qrValue = order.payInfo?.payUrl ?? order.payInfo?.codeUrl ?? ''
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h1 className="text-display font-bold tracking-tight">
           {isAlipay ? '支付宝扫码支付' : '微信扫码支付'}
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -237,7 +237,7 @@ function DetailsContent() {
         {tc('back')}
       </Link>
 
-      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('details')}</h1>
+      <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('details')}</h1>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-5">
         <div className="min-[1024px]:col-span-3">
@@ -247,7 +247,7 @@ function DetailsContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl min-[768px]:text-3xl font-bold">
+                <span className="text-display min-[768px]:text-3xl font-bold">
                   {formatCNY(level.price)}
                 </span>
                 <span className="text-sm text-muted-foreground">
@@ -256,7 +256,7 @@ function DetailsContent() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium text-muted-foreground">{t('benefits')}</p>
+                <p className="mb-2 text-body font-medium text-muted-foreground">{t('benefits')}</p>
                 {benefits.length > 0 ? (
                   <ul className="space-y-2 text-sm">
                     {benefits.map((b, i) => (

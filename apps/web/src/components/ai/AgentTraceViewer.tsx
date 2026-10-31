@@ -96,7 +96,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
             )}
             <span
               className={cn(
-                'text-sm font-medium',
+                'text-body font-medium',
                 trace.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
               )}
             >
@@ -140,7 +140,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      'flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium',
+                      'flex h-6 w-6 items-center justify-center rounded-md text-label font-medium',
                       hasErrorInIter
                         ? 'bg-destructive/10 text-destructive'
                         : 'bg-muted text-muted-foreground',
@@ -148,7 +148,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   >
                     {it.iteration}
                   </span>
-                  <span className="text-sm font-medium">
+                  <span className="text-body font-medium">
                     {tStatus('roundNumber', { n: it.iteration })}
                   </span>
                   {hasErrorInIter && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
@@ -175,7 +175,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {/* 推理内容 */}
                   {it.reasoning && (
                     <div>
-                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      <p className="mb-1 text-label font-medium text-muted-foreground">
                         {t('traceReasoning')}
                       </p>
                       <div
@@ -203,7 +203,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {/* 工具调用列表 */}
                   {it.tool_calls.length > 0 && (
                     <div>
-                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      <p className="mb-1 text-label font-medium text-muted-foreground">
                         {t('traceToolCallsTitle', { n: it.tool_calls.length })}
                       </p>
                       <div className="space-y-1.5">
@@ -220,7 +220,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                               )}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">
+                                <span className="text-body font-medium">
                                   {/* 工具显示名走共享映射;映射不到的插件/MCP 动态名保留原码名 */}
                                   {(() => {
                                     const key = toolDisplayKey(tc.name)
@@ -263,7 +263,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
       {/* 最终回复 */}
       {trace.final_response && (
         <div className="rounded-lg border bg-card p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">最终回复</p>
+          <p className="mb-1 text-label font-medium text-muted-foreground">最终回复</p>
           <p className="whitespace-pre-wrap break-words text-sm">{trace.final_response}</p>
         </div>
       )}

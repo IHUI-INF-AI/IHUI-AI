@@ -199,7 +199,7 @@ export default function TeamMemoryPage() {
       {error && <Alert variant="danger" description={error} className="items-start" />}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">{t('listTitle')}</h2>
+        <h2 className="text-body font-medium">{t('listTitle')}</h2>
         <Button size="sm" onClick={startCreate}>
           <Plus className="size-4" />
           <span>{t('newBtn')}</span>

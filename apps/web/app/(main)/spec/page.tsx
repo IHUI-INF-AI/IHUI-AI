@@ -83,7 +83,7 @@ export default function SpecListPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Spec 模式</h1>
+          <h1 className="text-display font-bold tracking-tight">Spec 模式</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             代码规格文档生成 · 四阶段生命周期管理
           </p>
@@ -98,7 +98,7 @@ export default function SpecListPage() {
 
       <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-[1fr_220px]">
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground">历史版本</h2>
+          <h2 className="text-body font-semibold text-muted-foreground">历史版本</h2>
           {!allow ? (
             <AuthGatePrompt message={tGate('loginRequired')} />
           ) : isLoading ? (
@@ -126,7 +126,7 @@ export default function SpecListPage() {
         </div>
 
         <div className="space-y-3">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+          <h2 className="flex items-center gap-1.5 text-body font-semibold text-muted-foreground">
             <Layers className="h-4 w-4" />
             模板
           </h2>

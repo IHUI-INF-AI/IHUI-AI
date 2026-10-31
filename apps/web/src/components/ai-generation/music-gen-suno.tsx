@@ -212,7 +212,7 @@ export function MusicGenSuno() {
             checked={instrumental}
             onCheckedChange={(v) => setInstrumental(v === true)}
           />
-          <Label htmlFor="suno-instrumental" className="cursor-pointer text-sm font-normal">
+          <Label htmlFor="suno-instrumental" className="cursor-pointer text-body font-normal">
             {t('instrumental')}
           </Label>
         </div>

@@ -64,7 +64,7 @@ export default function LearnRecordPage() {
     <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <BookOpen className="h-5 w-5 text-primary" />
           {t('title', { default: '学习记录' })}
         </h1>
@@ -92,7 +92,7 @@ export default function LearnRecordPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
-                    <p className="truncate text-sm font-semibold">{item.title}</p>
+                    <p className="truncate text-body font-semibold">{item.title}</p>
                     {item.courseTitle ? (
                       <p className="truncate text-xs text-muted-foreground">{item.courseTitle}</p>
                     ) : null}
@@ -103,7 +103,7 @@ export default function LearnRecordPage() {
                     ) : null}
                   </div>
                   <div className="flex w-28 shrink-0 flex-col items-end gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
+                    <span className="text-label font-medium text-muted-foreground">{progress}%</span>
                     <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                       <div
                         className="h-full rounded-md bg-primary transition-all"

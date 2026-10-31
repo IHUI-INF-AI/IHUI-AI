@@ -301,7 +301,7 @@ export function SlashCommandPalette({
           </IconButton>
         )}
         {argMode && (
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+          <span className="shrink-0 text-label font-medium text-muted-foreground">
             {argMode.title}
           </span>
         )}
@@ -357,7 +357,7 @@ export function SlashCommandPalette({
                     {suggestion.icon ?? <Sparkles className="h-3.5 w-3.5" />}
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="break-words text-sm font-medium leading-tight">
+                    <span className="break-words text-body font-medium leading-tight">
                       {suggestion.label}
                     </span>
                     {suggestion.description && (
@@ -445,7 +445,7 @@ export function SlashCommandPalette({
                     {/* 命令文本(label + description + usage 三层) */}
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="break-words text-sm font-medium leading-tight">
+                        <span className="break-words text-body font-medium leading-tight">
                           {cmd.label}
                         </span>
                         {cmd.hasArgs && cmd.usage && (

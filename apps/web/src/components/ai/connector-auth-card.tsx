@@ -84,20 +84,20 @@ export function ConnectorAuthCard({
       <div className="flex flex-wrap items-center gap-2">
         {state === 'connected' ? (
           <span
-            className="text-xs font-medium text-emerald-600 dark:text-emerald-500"
+            className="text-label font-medium text-emerald-600 dark:text-emerald-500"
             data-connector-auth-label="connected"
           >
             {t('connected')}
           </span>
         ) : state === 'declined' ? (
           <span
-            className="text-xs font-medium text-muted-foreground"
+            className="text-label font-medium text-muted-foreground"
             data-connector-auth-label="declined"
           >
             {t('declined', { connectorName })}
           </span>
         ) : (
-          <span className="text-xs font-medium" data-connector-auth-label="title">
+          <span className="text-label font-medium" data-connector-auth-label="title">
             {t('title', { connectorName })}
           </span>
         )}
