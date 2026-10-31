@@ -688,7 +688,7 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     dimension: 'geometry',
     owner: 'mobile-rn',
     kind: 'A',
-    anchor: /recordingOverlay:\s*\{[^}]*\bgap:\s*10,/,
+    anchor: /recordingOverlay:\s*\{[^}]*\bgap:\s*rnSpacing\['sm-loose'\],/,
     otherAnchor: /recordingOverlay/,
     why: 'A 录音覆盖层 gap / 输入行竖衬 / 死样式行高:小程序同行由行衬 0/10/5 表达',
   },
@@ -949,6 +949,21 @@ describe('⑦ 差异档事实表与台账同批对账(13 几何 + 3 半径)', ()
         'mobile-rn': dirtyRn,
       }).length,
       '出处改值后判据仍绿 ⇒ 事实表只认端名、不认那一行还在不在',
+    ).toBeGreaterThan(0)
+  })
+
+  it('本锁有牙:出处落档后换档 ⇒ 判据必须红(锚点认得 token 形,不是只认字面量)', () => {
+    const dirtyRn = RN_SRC.replace(
+      /(recordingOverlay:\s*\{[^}]*\bgap:\s*)rnSpacing\['sm-loose'\]/,
+      "$1rnSpacing['md']",
+    )
+    expect(dirtyRn).not.toBe(RN_SRC)
+    expect(
+      oneSidedFactProblems(ONE_SIDED_FACTS, {
+        'miniapp-taro': TARO_SRC,
+        'mobile-rn': dirtyRn,
+      }).length,
+      '落档写法换档后判据仍绿 ⇒ 锚点退化成只认字面量,落档一轮就哑一轮',
     ).toBeGreaterThan(0)
   })
 })
