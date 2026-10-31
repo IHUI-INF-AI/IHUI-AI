@@ -223,6 +223,7 @@
     "toolMemorySave": "기억 저장",
     "toolMemoryDream": "기억 정착",
     "toolMemoryForget": "기억 잊기",
+    "toolAdvisorConsult": "다른 모델에 상담",
     "toolVendorVoiceClone": "음성 복제",
     "toolRequestBusinessForm": "양식 작성 요청",
     "fileActivity": "{state, select, running {파일 처리 중} completed {파일 처리 완료} other {파일 처리}}",
