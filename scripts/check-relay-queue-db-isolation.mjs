@@ -41,27 +41,56 @@
  * 连字符是因为 BullMQ 的 QueueBase 对队列名里的 `:` 直接抛,用冒号会让隔离栈启动即崩)。
  * 本门只是让"明显没打算隔离"的启动器在提交时就被点名,别指望它替代那层自动后缀。
  *
- * ── 用法 ────────────────────────────────────────────────────────────────────
- *   node scripts/check-relay-queue-db-isolation.mjs --staged     # 默认档:本次暂存的文件(读索引 blob)
- *   node scripts/check-relay-queue-db-isolation.mjs --all        # 全量档:工作树里的启动器目录
- *   node scripts/check-relay-queue-db-isolation.mjs --files a.mjs b.ts
- *   node scripts/check-relay-queue-db-isolation.mjs --self-test  # 内置正反用例,不碰真仓
+ * ── 用法(取材面纪律 = AGENTS §0.4:清单与内容同面同轮,取不到不回落另一个面)──────
+ *   node scripts/check-relay-queue-db-isolation.mjs                   # 默认 = 全量档(HEAD blob)
+ *   node scripts/check-relay-queue-db-isolation.mjs --staged          # 提交档:本次暂存文件(索引 blob)
+ *   node scripts/check-relay-queue-db-isolation.mjs --all             # 全量档(与默认同一面,给 CI/人工显式写)
+ *   node scripts/check-relay-queue-db-isolation.mjs --worktree        # 人工逃生舱:读磁盘(可能是并行会话半编辑态)
+ *   node scripts/check-relay-queue-db-isolation.mjs --files a.mjs b.ts     # 人工点名(读磁盘)
+ *   node scripts/check-relay-queue-db-isolation.mjs --self-test        # 内置正反用例,不碰真仓
+ *   node scripts/check-relay-queue-db-isolation.mjs --root <目录> --all   # 镜像测试/取证通道:换仓根(值须是仓库根)
  *   node scripts/check-relay-queue-db-isolation.mjs --help
  *
- * 退出码:0 无违规(或有豁免 / NOT_APPLICABLE);1 有违规;2 取不到被审面(--staged 且 git
- * 不可用 / 索引里没有本次暂存文件)。
+ * 旗标纪律:`--staged` / `--all` / `--worktree` / `--files` **任意两枚同给 ⇒ exit 2**(两个面互斥,
+ * 取哪一面都会让另一枚成为假绿);**未知旗 ⇒ exit 2 并点名** —— 静默吞旗会让操作者以为判的是工作树、
+ * 实际判的是索引,这一型比判错更危险(§0.3:「没判」绝不允许写成「判过」)。
+ *
+ * 各档清单来源(与正文**同面同轮**,都取自 `scripts/lib/face-reader.mjs` 的出口):
+ *   全量档 ⇒ 清单 `listFaceFiles(root,'head')`(= `git ls-tree -r --name-only HEAD`)∩ 启动器目录,正文 `HEAD:<path>`;
+ *   提交档 ⇒ 清单 `git diff --cached --name-only`,正文索引 blob `:<path>`(盘上随后改对不算修好);
+ *   逃生舱 ⇒ 清单磁盘遍历(看得见**未跟踪**的新启动器 —— 这正是它存在的理由),正文读盘。
+ *   默认(不给面旗)走全量档:`scripts/guardian-executor` 只在这台门不带旗的**全量轮**里派生它
+ *   (`--staged` 由 runner 在提交轮统一追加),此前默认落成索引档 ⇒ 全量轮永远只报「索引为空」,
+ *   HEAD 面一格都没判过 —— 那是把「没判」当「判过」,同 §0.3。
+ *
+ * 退出码:0 无违规(含豁免 / NOT_APPLICABLE);1 有违规;2 未判定(取不到被审面 / git 不可用 /
+ * 旗标用法错 / 本轮候选一个正文都没读到)。
  *
  * 扫描面排除:node_modules、.ihui-agent/tmp、docs/、*.md、pnpm-lock.yaml、二进制与非文本扩展名。
  * 不扫 docs/ 与 *.md 是有意的:文档里必然大段引用 `DATABASE_URL` 与 `REDIS_URL`,
  * 把它们纳入判据只会得到一台与提交无关的恒红门(AGENTS §12e)。
+ * 含 NUL 的 blob 按**不可读**处理(不计 scanned、不冒充判过),与工作树档同一口径;
+ * 若本轮候选**全部**不可读 ⇒ exit 2 未判定,不得回落成「violations: 0」的绿。
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // git 与**正文**一律走面读取层(§0.4 清单与内容同面同轮 / §5b 绝对路径 git + §12g 显式 stdio):
-// 清单用 gitRaw,内容用层的读取入口 catBatch / readWorktreeFile —— 只引层不用它读内容,在门 118
-// 那档就是「半接线」:看起来换了面,判定面其实没换。
-import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+// 清单用层的枚举出口 listFaceFiles(全量档)与 gitRaw(提交档取 `diff --cached --name-only`,
+// 它不产 blob 正文,属枚举类调用),内容用层的读取入口 catBatch / readWorktreeFile —— 只引层不用它
+// 读内容,在门 118 那档就是「半接线」:看起来换了面,判定面其实没换。
+import {
+  FACE_LABEL,
+  FACE_NOTE,
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  gitRaw,
+  listFaceFiles,
+  readWorktreeFile,
+} from './lib/face-reader.mjs'
+// `--root` 的取值走全仓唯一出口(9 份逐字副本静默降级 38 处的教训,见 lib/flag-value.mjs 头注)
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -93,7 +122,13 @@ const TEXT_EXT = new Set([
   '.yml', '.yaml', '.json', '.sh', '.bash', '.ps1', '.psm1', '.py',
 ])
 
-const MAX_BYTES = 512 * 1024
+/**
+ * 单个候选的体积上限。
+ * 2026-10-31 由 512KB 抬到 4MB:现读 `scripts/git-guardian.mjs` 的 HEAD blob = 563,558 字节,
+ * 旧上限把**本仓最大的启动器承载体**整枚跳掉却只报一个计数 —— 那是"多放一次跳门"(§0.10)。
+ * 上限本身仍要留:真二进制/巨型生成物不该进字符扫描器(判据是 O(n) 状态机)。
+ */
+const MAX_BYTES = 4 * 1024 * 1024
 
 // ─── 判据常量 ────────────────────────────────────────────────────────────────
 
@@ -473,11 +508,98 @@ export function scanSource(src, options = {}) {
   return result
 }
 
-// ─── 取材面 ──────────────────────────────────────────────────────────────────
+// ─── 取材面(§0.4:清单与内容同面同轮;取不到不回落另一个面)────────────────────
 
-function git(args) {
+/** 四枚「面旗」:同给 = 两个判定面互斥 ⇒ exit 2,不猜哪一枚才是认真的。 */
+const FACE_FLAGS = ['--staged', '--all', '--worktree', '--files']
+
+/** 本门认识的全部旗标;不在这张表里的 `-x` / `--x` 一律按「未知旗」exit 2 点名。 */
+const KNOWN_FLAGS = new Set(['--help', '-h', '--self-test', '--root', ...FACE_FLAGS])
+
+/** 面旗 → 判定面。**不给面旗 = 全量档**(runner 的全量轮正是「不带 --staged」那一档)。 */
+const FACE_BY_FLAG = { '--staged': 'staged', '--all': 'head', '--worktree': 'worktree' }
+
+/**
+ * 纯函数:argv → 判定面与候选清单来源。**任何用法错都进 `errors`,由调用方 exit 2 逐条点名**,
+ * 绝不静默降级成"某一枚旗看起来更像"(旧实现把未知旗落进 else = 索引档,操作者以为判的是工作树,
+ * 实际判的是索引 —— 抬头还照打 `--staged`,这一型没有牙)。
+ */
+export function parseArgv(argv) {
+  const out = { errors: [], mode: 'run', face: 'head', faceFlag: '--all(默认)', files: [], root: null }
+  const unknown = [...new Set(argv.filter((a) => a.startsWith('-') && !KNOWN_FLAGS.has(a)))]
+  const given = FACE_FLAGS.filter((f) => argv.includes(f))
+  if (unknown.length > 0) {
+    out.errors.push(
+      `未知旗标:${unknown.join(' / ')} —— 本门只认 ${[...KNOWN_FLAGS].join(' / ')},` +
+        '静默吞旗等于让你以为判的是一个面、实际判的是另一个',
+    )
+  }
+  if (given.length > 1) {
+    out.errors.push(
+      `面旗同给:${given.join(' + ')} —— 清单与内容只能取同一个面(AGENTS §0.4);` +
+        '取哪一面都会让另一面成为假绿,请一次只给一枚',
+    )
+  }
+  if (argv.includes('--help') || argv.includes('-h')) out.mode = 'help'
+  if (argv.includes('--self-test')) out.mode = 'self-test'
+  if (out.mode === 'self-test' && given.length > 0) {
+    out.errors.push(`--self-test 与面旗 ${given.join(' + ')} 同用 —— 自检构造的是内存样例,没有面可判`)
+  }
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) out.errors.push(rootFlag.error)
+  else if (rootFlag.value) out.root = path.resolve(rootFlag.value)
+
+  if (given.length === 1) {
+    const flag = given[0]
+    if (flag === '--files') {
+      out.face = 'files'
+      out.faceFlag = '--files'
+      const idx = argv.indexOf('--files')
+      out.files = argv
+        .slice(idx + 1)
+        .filter((a) => !a.startsWith('-'))
+        .map((p) => String(p).replace(/\\/g, '/'))
+      if (out.files.length === 0) out.errors.push('--files 后面没有给路径(一个候选都没有 ⇒ 未判定)')
+    } else {
+      out.face = FACE_BY_FLAG[flag]
+      out.faceFlag = flag
+    }
+  }
+  return out
+}
+
+/** 纯函数:某枚路径属不属于本门的启动器目录(与旧的静态清单 + 「apps/某一端/scripts」运行时枚举同形)。 */
+export function inScanScope(rel) {
+  const p = String(rel).replace(/\\/g, '/')
+  if (ALL_SCAN_DIRS.some((dir) => p === dir || p.startsWith(`${dir}/`))) return true
+  // 旧实现用 fs.readdirSync('apps') 追加 `apps/<name>/scripts`;HEAD 面不能读磁盘来"知道有哪些端",
+  // 所以同一件事改由路径形状判定(逐字等价:枚举出来的目录就是 apps/<某一端>/scripts)。
+  return /^apps\/[^/]+\/scripts\//.test(p)
+}
+
+/** 纯函数:判定面 → `cat-file` 规格形状(工作树档不走它,直接读盘)。 */
+export function faceSpecOf(face, rel) {
+  if (face === 'head') return `HEAD:${rel}`
+  if (face === 'staged') return `:${rel}`
+  throw new Undetermined(`faceSpecOf 不接受判定面 ${String(face)}(worktree/files 走磁盘读取入口)`)
+}
+
+/**
+ * 纯函数:把一层交回来的正文折成「可用正文」或 null(= 不可读)。
+ * 三档都要拦:① 层说取不到(null/undefined);② 体积超上限;③ **含 NUL**(二进制)。
+ * 第③档以前只有工作树档靠 `readWorktreeFile` 天然挡住,HEAD/索引档的 `catBatch` 不筛 ——
+ * 于是同一份二进制在三个面上"两个面被当成正文扫、一个面被当成不可读",面一致性就是假绿。
+ */
+export function normalizeBlobText(text) {
+  if (text === null || text === undefined) return null
+  if (text.includes('\u0000')) return null
+  if (Buffer.byteLength(text) > MAX_BYTES) return null
+  return text
+}
+
+function git(args, root) {
   try {
-    return { ok: true, out: gitRaw(args, ROOT) }
+    return { ok: true, out: gitRaw(args, root) }
   } catch (e) {
     return { ok: false, err: e instanceof Error ? e.message : String(e) }
   }
@@ -496,7 +618,7 @@ function isCandidate(relPath) {
   return TEXT_EXT.has(ext)
 }
 
-function walk(dirAbs, acc) {
+function walk(dirAbs, acc, root) {
   let entries
   try {
     entries = fs.readdirSync(dirAbs, { withFileTypes: true })
@@ -505,21 +627,21 @@ function walk(dirAbs, acc) {
   }
   for (const ent of entries) {
     const abs = path.join(dirAbs, ent.name)
-    const rel = path.relative(ROOT, abs).replace(/\\/g, '/')
+    const rel = path.relative(root, abs).replace(/\\/g, '/')
     if (ent.isDirectory()) {
       if (SKIP_DIR_PARTS.some((part) => ent.name === part || rel.includes(part))) continue
-      walk(abs, acc)
+      walk(abs, acc, root)
     } else if (ent.isFile()) {
       if (isCandidate(rel)) acc.push(rel)
     }
   }
 }
 
-/** `--all`:工作树里的启动器目录(含运行时枚举的 apps/* /scripts)。 */
-function collectAll() {
+/** 逃生舱的清单:磁盘里的启动器目录(含未跟踪的新文件 —— 人工排查要的正是这一格)。 */
+function collectAllFromDisk(root) {
   const dirs = [...ALL_SCAN_DIRS]
   try {
-    for (const app of fs.readdirSync(path.join(ROOT, 'apps'), { withFileTypes: true })) {
+    for (const app of fs.readdirSync(path.join(root, 'apps'), { withFileTypes: true })) {
       if (!app.isDirectory()) continue
       dirs.push(`apps/${app.name}/scripts`)
     }
@@ -527,13 +649,25 @@ function collectAll() {
     /* apps/ 不在就只扫静态清单 */
   }
   const files = []
-  for (const dir of [...new Set(dirs)]) walk(path.join(ROOT, dir), files)
+  for (const dir of [...new Set(dirs)]) walk(path.join(root, dir), files, root)
   return [...new Set(files)].sort()
 }
 
-/** `--staged`:本次暂存的变更文件,内容读**索引 blob**(盘上随后改对不算修好)。 */
-function collectStaged() {
-  const r = git(['diff', '--cached', '--name-only', '--diff-filter=ACMR'])
+/**
+ * 全量档的清单:**HEAD 面枚举跟踪文件**(层的 listFaceFiles),不在这里读磁盘。
+ * 一次全仓 `ls-tree` 再按目录形状筛,而不是把目录当 pathspec 传下去:「apps/某一端/scripts」这一族
+ * 是运行时才知道有哪些端,而"运行时枚举"若靠 `fs.readdirSync('apps')` 就把磁盘面偷偷混进了
+ * HEAD 档的清单(§0.4 清单与内容同面)。
+ */
+export function collectHeadFace(root) {
+  return listFaceFiles(root, 'head')
+    .filter((rel) => inScanScope(rel) && isCandidate(rel))
+    .sort()
+}
+
+/** `--staged`:本次暂存的变更文件(清单 = 索引 vs HEAD 的差异,内容读**索引 blob**)。 */
+function collectStaged(root) {
+  const r = git(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root)
   if (!r.ok) return { err: `git 不可用:${r.err}` }
   const all = r.out.split('\n').map((s) => s.trim()).filter(Boolean)
   // 索引里一条暂存都没有 ⇒ 确实取不到被审面(exit 2);
@@ -542,31 +676,38 @@ function collectStaged() {
   return { files: all.filter(isCandidate) }
 }
 
-/** 索引 blob:走层的读取入口 catBatch。取不到 ⇒ null(由调用方按「取不到不回落另一个面」处置)。 */
-function readStaged(rel) {
-  const spec = `:${rel}`
-  let got
-  try {
-    got = catBatch(ROOT, [spec])
-  } catch {
-    return null
+/**
+ * 一次把整批候选按**被审面**读回正文(批量,不逐文件派生 git)。
+ * 层的 `catBatch` 读不到某个对象回 null;派生本身失败(截断/缓冲区/仓库坏了)**抛**
+ * `Undetermined` ⇒ 由调用方折成 exit 2「未判定」,**绝不回落另一个面**。
+ */
+export function readFaceContents(root, face, files) {
+  const map = new Map()
+  if (face === 'worktree' || face === 'files') {
+    for (const rel of files) {
+      // 层的 readWorktreeFile:不存在 ⇒ null;含 NUL ⇒ null;读失败(权限/编码)⇒ 抛 Undetermined,
+      // 不把它伪装成"这个文件不存在"(§0.3)
+      map.set(rel, normalizeBlobText(readWorktreeFile(root, rel)))
+    }
+    return map
   }
-  const text = got.get(spec)
-  if (text === null || text === undefined) return null
-  if (Buffer.byteLength(text) > MAX_BYTES) return null
-  return text
+  const specs = files.map((rel) => faceSpecOf(face, rel))
+  const got = catBatch(root, specs)
+  for (let i = 0; i < files.length; i += 1) map.set(files[i], normalizeBlobText(got.get(specs[i])))
+  return map
 }
 
-/** 工作树正文:走层的读取入口 readWorktreeFile(含 NUL 由层判不可读 ⇒ null)。 */
-function readWorktree(rel) {
-  try {
-    const text = readWorktreeFile(ROOT, rel)
-    if (text === null) return null
-    if (Buffer.byteLength(text) > MAX_BYTES) return null
-    return text
-  } catch {
-    return null
-  }
+/** 清单+内容一次取齐(同一面、同一轮)。取不到面 ⇒ 返回 `{err}`;层抛 ⇒ 由调用方折 exit 2。 */
+function gatherFace(root, face, explicitFiles) {
+  let files
+  if (face === 'files') files = explicitFiles
+  else if (face === 'head') files = collectHeadFace(root)
+  else if (face === 'staged') {
+    const got = collectStaged(root)
+    if (got.err) return { err: got.err }
+    files = got.files
+  } else files = collectAllFromDisk(root)
+  return { files, contents: readFaceContents(root, face, files) }
 }
 
 // ─── 自检(构造面,不碰真仓)────────────────────────────────────────────────────
@@ -700,6 +841,94 @@ function selfTest() {
     return extractBalanced('{ a: 1', 0) === null && extractBalanced('no brace', 0) === null
   })
 
+  // —— 取材面纪律(2026-10-31 补:旗标不得静默吞 / 含 NUL 不得当绿 / 全量档不得读磁盘)——
+  t('⑱ 未知旗标 ⇒ 点名进 errors(旧实现把它静默落进索引档)', () => {
+    const p = parseArgv(['--nope'])
+    return p.errors.length === 1 && p.errors[0].includes('--nope')
+  })
+
+  t('⑲ 面旗两枚同给 ⇒ 两枚都点名(取哪一面都会让另一面成假绿)', () => {
+    const p = parseArgv(['--all', '--worktree'])
+    return p.errors.some((e) => e.includes('--all') && e.includes('--worktree'))
+  })
+
+  t('⑳ 不给面旗 = 全量档 head(runner 的全量轮正是不带旗那一档)', () => {
+    const p = parseArgv([])
+    return p.errors.length === 0 && p.face === 'head' && p.faceFlag.startsWith('--all')
+  })
+
+  t('㉑ --worktree / --staged / --files 各落各的面,--files 收路径且转正斜杠', () => {
+    const w = parseArgv(['--worktree'])
+    const s = parseArgv(['--staged'])
+    const f = parseArgv(['--files', 'a.mjs', 'b\\c.ts'])
+    return (
+      w.face === 'worktree' &&
+      s.face === 'staged' &&
+      f.face === 'files' &&
+      f.files.join(',') === 'a.mjs,b/c.ts'
+    )
+  })
+
+  t('㉒ --files 不给路径 ⇒ 未判定点名(不当成"没有候选 = 干净")', () => {
+    const p = parseArgv(['--files'])
+    return p.errors.some((e) => e.includes('--files 后面没有给路径'))
+  })
+
+  t('㉓ --root 给了旗标不给值 ⇒ 未判定(不得静默回落默认根)', () => {
+    const p = parseArgv(['--all', '--root'])
+    return p.errors.length === 1 && /--root 需要一个目录参数/.test(p.errors[0])
+  })
+
+  t('㉔ --self-test 与面旗同给 ⇒ 未判定(自检不碰真仓,没有面可判)', () => {
+    const p = parseArgv(['--self-test', '--staged'])
+    return p.mode === 'self-test' && p.errors.length === 1 && /--self-test 与面旗/.test(p.errors[0])
+  })
+
+  t('㉕ 含 NUL 的正文 ⇒ 不可读(null),不得被当成扫过的绿', () => {
+    const nulBody = `${ENV_OPEN} DATABASE_URL: dsn\u0000 }`
+    const big = 'x'.repeat(MAX_BYTES + 1)
+    return (
+      normalizeBlobText(nulBody) === null &&
+      normalizeBlobText(null) === null &&
+      normalizeBlobText(undefined) === null &&
+      normalizeBlobText(big) === null &&
+      normalizeBlobText('ok\n') === 'ok\n'
+    )
+  })
+
+  t('㉖ faceSpecOf:head ⇒ HEAD:<path>、staged ⇒ :<path>;磁盘档拒答(不猜面)', () => {
+    let threw = false
+    try {
+      faceSpecOf('worktree', 'x.mjs')
+    } catch {
+      threw = true
+    }
+    return (
+      faceSpecOf('head', 'a/b.mjs') === 'HEAD:a/b.mjs' &&
+      faceSpecOf('staged', 'a/b.mjs') === ':a/b.mjs' &&
+      threw
+    )
+  })
+
+  t('㉗ inScanScope:启动器目录算;docs / 非清单目录 / 名字撞前缀的都不算', () => {
+    return (
+      inScanScope('scripts/x.mjs') === true &&
+      inScanScope('apps/desktop/scripts/y.mjs') === true &&
+      inScanScope('.github/workflows/ci.yml') === true &&
+      inScanScope('docs/x.md') === false &&
+      inScanScope('packages/shared/src/y.ts') === false &&
+      inScanScope('scriptsfoo/x.mjs') === false
+    )
+  })
+
+  t('㉘ 全量档清单非空/已排序/全在启动器目录内(HEAD≠磁盘那一格交给镜像测试用夹具自证)', () => {
+    const head = collectHeadFace(ROOT)
+    const sortedOk = head.every((p, i) => i === 0 || head[i - 1] <= p)
+    return (
+      head.length > 0 && sortedOk && head.every((p) => inScanScope(p) === true && !p.startsWith('docs/'))
+    )
+  })
+
   let fail = 0
   for (const [name, ok] of cases) {
     if (!ok) fail += 1
@@ -714,12 +943,21 @@ function selfTest() {
 function printHelp() {
   console.log(`门 276 —— 换库必须换队列隔离
 
-用法:
-  node scripts/check-relay-queue-db-isolation.mjs --staged     默认档:本次暂存文件(读索引 blob)
-  node scripts/check-relay-queue-db-isolation.mjs --all        全量档:工作树启动器目录
-  node scripts/check-relay-queue-db-isolation.mjs --files <path...>
-  node scripts/check-relay-queue-db-isolation.mjs --self-test  内置正反用例,不碰真仓
+用法(取材面纪律 = AGENTS §0.4:清单与内容同面同轮,取不到不回落另一个面):
+  node scripts/check-relay-queue-db-isolation.mjs                      默认 = 全量档(HEAD blob)
+  node scripts/check-relay-queue-db-isolation.mjs --staged             提交档:本次暂存文件(索引 blob)
+  node scripts/check-relay-queue-db-isolation.mjs --all                全量档(与默认同一面;清单 = HEAD 树)
+  node scripts/check-relay-queue-db-isolation.mjs --worktree           人工逃生舱:读磁盘(可能是并行会话半编辑态)
+  node scripts/check-relay-queue-db-isolation.mjs --files <path...>    人工点名(读磁盘)
+  node scripts/check-relay-queue-db-isolation.mjs --self-test          内置正反用例,不碰真仓
+  node scripts/check-relay-queue-db-isolation.mjs --root <目录> --all   取证通道:换仓根(值必须是仓库根)
   node scripts/check-relay-queue-db-isolation.mjs --help
+
+旗标纪律(不给旗不算错,给了错旗绝不静默):
+  · --staged / --all / --worktree / --files 任意两枚同给 ⇒ exit 2(两个判定面互斥)
+  · 未知旗标 ⇒ exit 2 并点名(静默吞旗 = 你以为判的是工作树,实际判的是索引)
+  · --self-test 与面旗同给 ⇒ exit 2(自检构造的是内存样例,没有面可判)
+  · --root 给了旗标不给值 ⇒ exit 2(不得静默回落默认根)
 
 判据三条:
   ① 找 env 覆盖块:env: { … } / Object.assign(process.env, { … }) / process.env.DATABASE_URL = …
@@ -735,59 +973,68 @@ function printHelp() {
 边界:本门只判启动器形状,判不出运行时连的是哪台 Redis、队列名解析成了什么;
 真正兜底是队列名携带库身份 relay-account-pool-queue-<库名>(分隔符必须是连字符:BullMQ 禁队列名含冒号;docs/RELAY_QUEUE_DB_ISOLATION.md)。
 
-退出码:0 无违规(含豁免 / NOT_APPLICABLE);1 有违规;2 取不到被审面。`)
+退出码:0 无违规(含豁免 / NOT_APPLICABLE);1 有违规;2 未判定(取不到被审面 / 旗标用法错 /
+本轮候选一个正文都没读到)。含 NUL 或超过 ${MAX_BYTES / 1024 / 1024}MB 的候选按不可读处理:
+不计入判定,也不冒充判过。`)
 }
 
-function main() {
-  const argv = process.argv.slice(2)
-  if (argv.includes('--help') || argv.includes('-h')) {
+function main(argv) {
+  const parsed = parseArgv(argv)
+  if (parsed.mode === 'help') {
     printHelp()
     return 0
   }
-  if (argv.includes('--self-test')) return selfTest()
+  if (parsed.errors.length > 0) {
+    console.error('门 276 · 未判定(这是用法错,不是"没有违规"):')
+    for (const e of parsed.errors) console.error(`   · ${e}`)
+    console.error('   出路:一次只给一枚面旗;要看全部门认的旗标就跑 --help。')
+    return 2
+  }
+  if (parsed.mode === 'self-test') return selfTest()
 
-  const filesIdx = argv.indexOf('--files')
-  let face
-  let candidates
-  let read
+  const root = parsed.root ?? ROOT
+  if (parsed.root) {
+    // --root 是给镜像测试/人工取证的换仓通道。根不是仓库根就必须停手:基准错位产出的正是
+    // "看起来自洽、实则混面"的绿(见 face-reader 的 assertRepoRoot 头注)。
+    try {
+      assertRepoRoot(root, '--root')
+    } catch (e) {
+      console.error(`⚠️ 未判定:--root ${root} 不可用(${String((e && e.message) || e).split('\n')[0]})`)
+      return 2
+    }
+  }
 
-  if (filesIdx !== -1) {
-    face = 'files'
-    candidates = argv.slice(filesIdx + 1).filter((a) => !a.startsWith('--')).map((p) => p.replace(/\\/g, '/'))
-    if (candidates.length === 0) {
-      console.error('❌ --files 后面没有给路径')
-      return 2
-    }
-    read = (rel) => readWorktree(rel)
-  } else if (argv.includes('--all')) {
-    face = 'all'
-    candidates = collectAll()
-    if (candidates.length === 0) {
-      console.error('⚠️ 取不到被审面:--all 在启动器目录里没找到候选文件')
-      return 2
-    }
-    read = (rel) => readWorktree(rel)
-  } else {
-    face = 'staged'
-    const got = collectStaged()
-    if (got.err) {
-      console.error(`⚠️ 取不到被审面:${got.err}`)
-      return 2
-    }
-    candidates = got.files
-    read = (rel) => readStaged(rel)
+  let gathered
+  try {
+    gathered = gatherFace(root, parsed.face, parsed.files)
+  } catch (e) {
+    const msg = String((e && e.message) || e).split('\n')[0]
+    console.error(`⚠️ 未判定:${parsed.faceFlag} 的判定面取不到(${msg})—— 不回落另一个面,也不记绿`)
+    return 2
+  }
+  if (gathered.err) {
+    console.error(`⚠️ 取不到被审面:${gathered.err}`)
+    return 2
+  }
+
+  const { files, contents } = gathered
+  if (files.length === 0) {
+    console.error(`⚠️ 取不到被审面:${parsed.faceFlag} 在这一面没枚举到任何候选文件(枚举到 0 ≠ 无违规)`)
+    return 2
   }
 
   const violations = []
   const skips = []
+  const unreadableNames = []
   let scanned = 0
   let rewritten = 0
   let unreadable = 0
 
-  for (const rel of candidates) {
-    const src = read(rel)
-    if (src === null) {
+  for (const rel of files) {
+    const src = contents.get(rel)
+    if (src === null || src === undefined) {
       unreadable += 1
+      unreadableNames.push(rel)
       continue
     }
     scanned += 1
@@ -797,8 +1044,22 @@ function main() {
     skips.push(...r.skips)
   }
 
-  console.log(`换库未换队列隔离门(276) · 扫描面 ${face === 'files' ? `--files(${candidates.length})` : `--${face}`}`)
-  console.log(`scanned=${scanned} rewritten=${rewritten}${unreadable > 0 ? ` unreadable=${unreadable}(二进制/超大/读失败,未计入)` : ''}`)
+  // 抬头如实打印本轮判的是哪个面(旧实现把 --worktree 与未知旗静默落进索引档,抬头照打 --staged)
+  const labelFace = parsed.face === 'files' ? 'worktree' : parsed.face
+  console.log(`换库未换队列隔离门(276) · 扫描面 ${parsed.faceFlag} · 正文取自 ${FACE_LABEL[labelFace]}`)
+  console.log(`面依据:${FACE_NOTE[labelFace]}`)
+  console.log(
+    `候选=${files.length} scanned=${scanned} rewritten=${rewritten}` +
+      (unreadable > 0 ? ` unreadable=${unreadable}(NUL/超大/取不到,未计入判定)` : ''),
+  )
+  if (unreadable > 0) {
+    const shown = unreadableNames.slice(0, 10).join(', ')
+    console.log(`⚠ 未取到正文(不等于无违规):${shown}${unreadable > 10 ? ` …(共 ${unreadable} 个)` : ''}`)
+  }
+  if (scanned === 0) {
+    console.error('⚠️ 未判定:本轮候选一个正文都没读到 —— 不得把"没读到"报成 violations: 0 的绿')
+    return 2
+  }
 
   for (const s of skips) {
     console.log(`skip(${s.file}${s.line > 0 ? `:${s.line}` : ''}) ${s.reason}`)
@@ -823,12 +1084,24 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 
 if (isDirectRun) {
   try {
-    process.exitCode = main()
+    process.exitCode = main(process.argv.slice(2))
   } catch (e) {
     console.error(`❌ ${e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e)}`)
     process.exitCode = 2
   }
 }
 
-export const __test__ = { extractBalanced, stripComments, scanSource, pathExemptReason, findEnvBlocks }
+export const __test__ = {
+  extractBalanced,
+  stripComments,
+  scanSource,
+  pathExemptReason,
+  findEnvBlocks,
+  parseArgv,
+  normalizeBlobText,
+  faceSpecOf,
+  inScanScope,
+  collectHeadFace,
+  readFaceContents,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
