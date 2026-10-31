@@ -29,6 +29,7 @@
  * 圆角一律 rnRadius 档位(守门 77),不写死数字。
  */
 import { useEffect, useRef } from 'react'
+import { scaleText } from '@ihui/rn-app'
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import type { TextStyle, ViewStyle } from 'react-native'
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg'
@@ -246,7 +247,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
           >
             {({ pressed }) => (
               <View style={[styles.buttonFace, pressed ? styles.buttonPressed : null]}>
-                <Text style={styles.primaryButtonText} allowFontScaling={false}>
+                <Text style={[styles.primaryButtonText, scaleText(styles.primaryButtonText)]} allowFontScaling={false}>
                   {t('sr.claimBtn', { n: reward })}
                 </Text>
               </View>
@@ -263,7 +264,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             >
               {({ pressed }) => (
                 <View style={[styles.secondaryFace, pressed ? styles.buttonPressed : null]}>
-                  <Text style={styles.secondaryButtonText} allowFontScaling={false}>
+                  <Text style={[styles.secondaryButtonText, scaleText(styles.secondaryButtonText)]} allowFontScaling={false}>
                     {secondaryLabel}
                   </Text>
                 </View>

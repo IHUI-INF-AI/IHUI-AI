@@ -363,6 +363,9 @@
   --spacing-5xl: 48px;
   --spacing-6xl: 64px;
   /* 字号三连档(源:typography.ts 的 TYPE_STEPS + FONT_WEIGHTS)→ text-body / font-medium */
+  --text-badge: 10px;
+  --text-badge--line-height: 12px;
+  --text-badge--font-weight: 600;
   --text-caption: 11px;
   --text-caption--line-height: 16px;
   --text-caption--font-weight: 400;

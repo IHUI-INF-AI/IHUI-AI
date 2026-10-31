@@ -5198,7 +5198,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_STYLE_PARITY',
-    stagedTriggers: ['apps/mobile-rn/src/', 'scripts/rn-style-parity-baseline.json'],
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/rn-style-parity-baseline.json'],
     onFailHint: [
       '',
       '  改法:把 #hex 换成 @ihui/design-tokens(rnLightTokens/rnDarkTokens)的 token 引用,不要新造近似色。',
@@ -6411,7 +6411,85 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- RN 弹层键盘避让对账(2026-10-31 立;立门时存量已由同批修到 0 ⇒ 绝对零容忍,不背基线债)---
+  {
+    // 编号 272:注册前已核本文件 `id: '272'` 为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
+    id: '272',
+    label:
+      '⌨️ RN 弹层键盘避让对账(blocking,Modal 内含 TextInput 而该 Modal 子树无 KeyboardAvoidingView 即红 —— iOS 无 adjustResize,挂在外层的避让对独立原生窗无效;存量 5 处已修)',
+    script: 'check-modal-keyboard-avoid.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/'],
+    skipEnv: 'HUSKY_SKIP_MODAL_KEYBOARD_AVOID',
+    onFailHint: [
+      '',
+      '  💡 把该 Modal 的唯一直接子容器就地换成 <KeyboardAvoidingView style={原容器} behavior={Platform.OS===\'ios\'?\'padding\':undefined}>;',
+      '     那层若是带 onPress 的遮罩 Pressable,把遮罩点击下移一枚 StyleSheet.absoluteFill 的 Pressable(端内 5 处先例)。',
+      '     别在外面新包一层:祖先插入会重排整棵子树缩进,在共享工作区等于改写他人行。',
+      '     跨文件封装(children 由调用方传入的 BottomPops/Sheet)本门结构上看不到,那条腿由',
+      '     apps/mobile-rn/tests/rn-sheet-keyboard-cta.test.tsx 与 rn-verify-code-modal-avoid.test.tsx 的渲染锁守。',
+      '     自检:node scripts/check-modal-keyboard-avoid.mjs --self-test',
+      '     紧急跳过(不推荐,须留痕):HUSKY_SKIP_MODAL_KEYBOARD_AVOID=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   // --- 全端杀手锏常量二次写死锁(2026-10-31 复登:门体/自检/豁免表一直在盘上,四路调度点皆无)---
+  {
+    // 编号 273:注册前已核本文件与 HEAD 面 `id: '273'` 均为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
+    id: '273',
+    label:
+      '👆 RN 触屏交互卫生对账(blocking;H1 命中尺寸绝对零容忍(立门当轮存量已清零才升的档)+ H2 按压反馈差值棘轮(存量只报数,现值由门自己打印;TouchableOpacity 默认 activeOpacity=0.2 自带变暗不计入);档位取 geometry.js 的 tapBox,门内从被审面现读)',
+    script: 'check-rn-interaction-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'packages/ui-native/src/'],
+    skipEnv: 'HUSKY_SKIP_RN_INTERACTION_HYGIENE',
+    onFailHint: [
+      '',
+      '  💡 H1 命中尺寸:方块取档位 `rnGeometry.tapBox`(两端同源,不在端内写 44/24 这类第二份真相);',
+      '     图标钮尺寸不该动就补 `hitSlop`(必须补满:min(w,h)+2×slop ≥ 档位;`hitSlop={0}` 不算补过)。',
+      '     hitSlop 在小程序侧无对应机制(端内 Sheet.tsx 头注自述"本端不设")⇒ 跨端源里只靠它过关的,',
+      '     本门会进 `slopOnly` 普查点名(小程序腿没被补上),那不是"两端都过关"。',
+      '  💡 H2 按压反馈:Pressable 没有默认态 ⇒ 用 onPressIn/onPressOut、children 函数形态 `{({ pressed })`、',
+      '     className `active:` 变体或函数形态 style 的 pressed 入参(函数形态 style 会被 cssInterop 吃掉 —— 守门 131,',
+      '     所以端内先例一律走前三型)。TouchableOpacity 默认 activeOpacity=0.2 已自带变暗,不算缺反馈;',
+      '     被判的那枚是因为显式写了 `activeOpacity={1}` 把默认反馈关掉了 ⇒ 改回不写或写 <1 即可(枚数以门现读为准,文案不钉数)。',
+      '     例外是**遮罩**:半透黑底(bg-black/α、rgba(0,0,0,α<1)、8 位带 alpha hex、tk.overlay.*)按下去就是关层,',
+      '     本门不要求它变暗(那等于全屏闪一下)—— 别为了让门绿去给遮罩加 onPressIn。',
+      '  💡 判不了的(静态盲区,门头注已点名):padding/flex 撑出来的尺寸、跨文件样式、style={fn}。',
+      '  💡 自检:node scripts/check-rn-interaction-hygiene.mjs --self-test | 存量口径:--strict',
+      '  💡 紧急跳过(不推荐,须留痕):HUSKY_SKIP_RN_INTERACTION_HYGIENE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    // 编号 274:注册前已核本文件与 HEAD 面 `id: '274'` 均为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
+    id: '274',
+    label:
+      '🔤 RN 字号可读地板对账(blocking;T1 字面量 fontSize 低于档位表最小档 ⇒ 绝对零容忍(立门当轮 97→0);T2「有档不取档」只报数;地板现读 typography.ts 的 TYPE_STEPS 最小 size,不写死 10)',
+    script: 'check-rn-type-floor.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+      'packages/ui-native/src/',
+      'packages/design-tokens/src/typography.ts',
+    ],
+    skipEnv: 'HUSKY_SKIP_RN_TYPE_FLOOR',
+    onFailHint: [
+      '',
+      '  💡 取档:`rnType.<档>.size`(表内最小档就是地板 —— 现为 badge 10,对应 web 早已强制的',
+      '     10px 计数徽章模板;caption 11 / label 12 / body 14 …)。',
+      '  💡 需要更小字号**不是**豁免理由:先回答"这行字用户能不能读"。要真的新档位在 TYPE_STEPS',
+      '     落档(带取值依据)→ 跑 node scripts/sync-css-tokens.mjs --write → 门 93 R10 复核,三端同动。',
+      '  💡 字符串/计算式形态、小程序与 web 两腿不射程内(门头注已点名,别把本门的绿读成三端都绿)。',
+      '  💡 自检:node scripts/check-rn-type-floor.mjs --self-test | 存量口径:--strict',
+      '  💡 紧急跳过(不推荐,须留痕):HUSKY_SKIP_RN_TYPE_FLOOR=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   {
     // 编号 271:注册前已核本文件 `id: '271'` 为 0;现值以本文件为准。
     id: '271',

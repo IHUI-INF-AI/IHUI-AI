@@ -908,7 +908,8 @@
       "share2": "Share",
       "agree": "Agree",
       "disagree": "Dislike"
-    }
+    },
+    "loadFailed": "Failed to load"
   },
   "settings": {
     "title": "Settings",
@@ -951,6 +952,7 @@
     "logoutConfirmBody": "Sign out of this account?"
   },
   "menu": {
+    "artifacts": "Artifacts",
     "about": "About us",
     "feedback": "Feedback",
     "privacy": "Privacy Policy",
@@ -5448,7 +5450,8 @@
     "addTitle": "Add account",
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
-    "summary": "{total} accounts · {enabled} enabled"
+    "summary": "{total} accounts · {enabled} enabled",
+    "addSuccess": "Account added"
   },
   "checkinAssistant": {
     "title": "Check-in Assistant",
@@ -5721,7 +5724,12 @@
     "realLive": "Live voice in progress",
     "reconnect": "Reconnect",
     "realFailDefault": "Connection failed. Retry.",
-    "inputDone": "Voice input done"
+    "inputDone": "Voice input done",
+    "closeImgMenu": "Close image menu",
+    "addImage": "Add image",
+    "releaseEnd": "Release to send",
+    "transcribing": "Transcribing…",
+    "clearResult": "Clear transcription"
   },
   "material": {
     "cText": "Text content",

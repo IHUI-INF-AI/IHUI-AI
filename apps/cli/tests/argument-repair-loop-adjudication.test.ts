@@ -3,46 +3,49 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 票「argument-validation 装车后的覆盖面三格缺口」① 的**代裁取证**用例(2026-10-26/s8-argval)。
+ * 票「argument-validation 装车后的覆盖面三格缺口」① 的**终局**(2026-10-31 执行):
+ * `apps/cli/src/tools/argument-repair-loop.ts` 已整体退役(删除),不再以"等宿主"的生产件
+ * 形式留在 `src/` 里。
  *
- * 裁决结论 = B 案(不在 `tools/index.ts` 的 enforce 站点接 `createArgumentRepairSession`)。
- * 本用例不测 repair-loop 本身的行为(那边已由 `argument-repair.test.ts` 钉死),只钉**裁决的四条事实**:
- *   ① 覆盖面没丢:string 形态的入参在**到达 enforce 之前**已由 `parseNativeToolCalls` →
- *      `parseToolArguments` 收敛成 `Record`,故 repair-loop 的"原值是 string ⇒ 一次 JSON.parse"
- *      一支在执行器站点结构上不可达 ⇒ 就地接线救不回票面要的那条腿;
- *   ② 回喂账已发生且在**唯一**落点:enforce 被拒 ⇒ 拒绝文案带单行路径级违规清单,
- *      计数走 `noteEnforceRepairRejection`(按工具名连续窗),`enforceRepairStreak` 与快照同增;
- *   ③ 两套预算互斥(接线即矛盾):同一次失败,telemetry 窗已判 `exhausted`(第 4 次起硬失败),
- *      会话侧却还在出 `reject`/`nudge` 帧 ⇒ 模型面前会同时收到两个互相打脸的预算;
- *   ④ 接线探测器(形状锁):执行器正文不含 `createArgumentRepairSession` / `argument-repair-loop`
- *      的任何 import 或调用 ⇒ 一旦有人接而未摘旧账,本用例当场翻红,强制"再判一次并口";
- *      正向对照 = 同一把尺子在 repair-loop 自己的文件里**必须**命中(证明探测器不是恒真)。
+ * 裁决 = 不接线(继承 2026-10-26/s8-argval 的四条取证;原用例里借用会话本身的 ①③ 两格
+ * 已随模块一起退场,结论保留在本头注与 git 历史),依据逐条:
+ *   ① 覆盖面不缺口:string 形态入参在到达 enforce 之前已由 `parseNativeToolCalls` →
+ *      `parseToolArguments`(`tools/index.ts`)收敛成 `Record`,故会话侧"原值是 string ⇒
+ *      一次 JSON.parse"这一支在执行器站点**结构上不可达**;object 位的 stringify 由
+ *      `enforceValidateToolArguments` 内的 schema-aware 容错解析接住。
+ *   ② 回喂账已发生且在唯一落点:enforce 被拒 ⇒ 拒绝文案带单行路径级违规清单,计数走
+ *      `noteEnforceRepairRejection`(按工具名连续窗,`TOOL_ARG_REPAIR_MAX_ATTEMPTS`)。
+ *   ③ 两套预算互斥:同一次失败,telemetry 窗第 max+1 次即 `invalid_arguments_exhausted` 硬失败,
+ *      而会话侧此时还在出 `reject`/`nudge` 帧 ⇒ 就地接线会让模型面前同时出现两个打脸的计数器。
+ *   ④ 会话独有的 `cancelAsk`(每帧先取消挂着的用户 ask)在执行器站点没有对应物理量 ——
+ *      拒绝刻意发生在权限/批准弹窗**之前**,此刻无 ask 可 cancel,也没有第二帧的发送通道。
+ *   ⑤ 真实宿主 = 上游 `dynamic-workflow/src/engine/scheduler-submit.ts`,本仓现读不存在
+ *      (`packages/` 无 dynamic-workflow) ⇒ 它是"等宿主"的移植件,不是执行器的缺失半边。
  *
- * 纪律:反向对照全部用测试内替身(本地 schema、本地 session、直接调 telemetry 出口),
- * **没有为迁就测试改动任何生产源码**。
+ * §7 删除三问(留在此处,防"为什么删"随 commit 消息飘走):
+ *   ① 承载什么功能? —— repair 帧会话(reject×3 / nudge×1 / exhausted 两条独立预算 + cancelAsk 时序)。
+ *   ② 有无等价实现? —— 有:入参校验唯一应用点 `applyToolArgValidation` + `noteEnforceRepairRejection`
+ *      连续窗(下方行为锁),string 一支不可达、nudge 无物理量。
+ *   ③ 无等价才不可删 —— ② 成立 ⇒ 删除合法。
+ *
+ * 本文件现在钉的是**退役之后不许复活**:生产树零 import / 模块文件不存在 / 唯一 repair 预算
+ * 仍是 telemetry 窗且行为未变。任何人把模块加回来接线,都会在这里先翻红,强制重判并口。
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import {
-  NUDGE_ATTEMPTS,
-  REPAIR_ATTEMPTS,
-  createArgumentRepairSession,
-  normalizeSubmit,
-} from '../src/tools/argument-repair-loop.js';
 import {
   TOOL_ARG_REPAIR_MAX_ATTEMPTS,
   TOOL_ARG_VALIDATION_ENV,
   enforceRepairStreak,
-  enforceValidateToolArguments,
-  noteEnforceRepairRejection,
   resetToolArgShadowTelemetry,
   snapshotToolArgShadow,
 } from '../src/tools/argument-validation-telemetry.js';
-import { validateToolArguments } from '../src/tools/argument-validator.js';
 import {
   clearTools,
   executeToolCall,
-  parseNativeToolCalls,
   registerTools,
   resetRateLimiter,
   type Tool,
@@ -50,9 +53,10 @@ import {
   type ToolSchema,
 } from '../src/tools/index.js';
 
-/** 与 `argument-repair.test.ts` 同形状的最小夹具(object 位必填 name)。 */
+const SRC_ROOT = fileURLToPath(new URL('../src/', import.meta.url));
+
 const FIXTURE_SCHEMA: ToolSchema = {
-  name: 'fixture_tool',
+  name: 'retire_probe_tool',
   description: '',
   parameters: {
     type: 'object',
@@ -61,25 +65,20 @@ const FIXTURE_SCHEMA: ToolSchema = {
   },
 };
 
-/** object 位夹具:用于证明 enforce 判定面自己就带一次 schema-aware 容错(不需要会话二次 parse)。 */
-const OBJECT_SCHEMA: ToolSchema = {
-  name: 'fixture_object_tool',
-  description: '',
-  parameters: {
-    type: 'object',
-    properties: {
-      payload: {
-        type: 'object',
-        description: '',
-        properties: { a: { type: 'number', description: '' } },
-        required: ['a'],
-      },
-    },
-    required: ['payload'],
-  },
-};
-
 const ctx: ToolContext = { workspacePath: process.cwd() };
+
+function walkTs(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const abs = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === 'dist') continue;
+      walkTs(abs, out);
+    } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+      out.push(abs);
+    }
+  }
+  return out;
+}
 
 function makeTool(schema: ToolSchema): Tool {
   return {
@@ -88,20 +87,16 @@ function makeTool(schema: ToolSchema): Tool {
     parameters: schema.parameters.properties,
     required: [...(schema.parameters.required ?? [])],
     dangerLevel: 'read',
-    async execute() {
-      return { success: true, output: 'fixture-ran' };
-    },
+    execute: async () => ({ success: true, output: 'fixture-ran' }),
   };
 }
-
-const makeFixtureTool = () => makeTool(FIXTURE_SCHEMA);
 
 let warnSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   resetRateLimiter();
   clearTools();
-  registerTools([makeFixtureTool()]);
+  registerTools([makeTool(FIXTURE_SCHEMA)]);
   resetToolArgShadowTelemetry();
   delete process.env[TOOL_ARG_VALIDATION_ENV];
   // enforce 首次启用会 announce 一次,测试面不需要看
@@ -114,127 +109,79 @@ afterEach(() => {
   warnSpy.mockRestore();
 });
 
-// ==================== ① string 一支在 enforce 站点不可达 ====================
+// ==================== 退役锁一:生产树零残留 ====================
 
-describe('① 覆盖面核对:入参在到达 enforce 之前已是 Record', () => {
-  it('OpenAI 形态的 JSON 字符串 arguments ⇒ 解析面已收敛成对象(repair-loop 夹具① 那一支不可达)', () => {
-    const raw = '{"name":"alpha"}';
-    const calls = parseNativeToolCalls({
-      role: 'assistant',
-      tool_calls: [{ function: { name: 'fixture_tool', arguments: raw } }],
-    });
-    expect(calls).toHaveLength(1);
-    expect(typeof calls[0]!.arguments).toBe('object');
-    expect(calls[0]!.arguments).toEqual({ name: 'alpha' });
+describe('① 退役锁:生产树不再有 repair 会话(零 import、零文件)', () => {
+  it('src/**/*.ts 不再出现 argument-repair-loop / createArgumentRepairSession(同一个尺子正反对照)', () => {
+    const files = walkTs(SRC_ROOT).map((file) => ({ file, text: readFileSync(file, 'utf-8') }));
+    // 扫描面非空(否则下面的 toEqual([]) 是恒真)
+    expect(files.length).toBeGreaterThan(50);
 
-    // 反向对照(测试内替身):同一枚原串直接喂会话侧,parse 那一支确实是**真能力**
-    // ⇒ 结论不是"那半边是废码",而是"这一族已被上游解析层接住,执行器站点收不到 string"。
-    const viaSession = normalizeSubmit(raw, FIXTURE_SCHEMA);
-    expect(viaSession.reparsed).toBe(true);
-    expect(viaSession.valid).toBe(true);
+    const hits = files
+      .filter(
+        (f) => f.text.includes('argument-repair-loop') || f.text.includes('createArgumentRepairSession'),
+      )
+      .map((f) => f.file);
+    expect(hits).toEqual([]);
+
+    // 正向对照:同一把尺子在唯一应用点上必须命中"仍在用的 repair 窗" ⇒ 上面的空集不是尺子坏了
+    const executor = files.find((f) => f.file.endsWith(path.join('tools', 'index.ts')));
+    expect(executor).toBeDefined();
+    expect(executor!.text).toContain('noteEnforceRepairRejection');
+    expect(executor!.text).toContain('applyToolArgValidation');
   });
 
-  it('非对象的可 parse 串在执行器站点被折成 {}(与 repair-loop 报的路径不同形,但都到不了 enforce)', () => {
-    const calls = parseNativeToolCalls({
-      tool_calls: [{ function: { name: 'fixture_tool', arguments: '42' } }],
-    });
-    expect(calls[0]!.arguments).toEqual({});
-    // 会话侧走的是另一套判序(原值不过 ⇒ 报 (root));这正是"两份归一判律"的分歧面
-    const viaSession = normalizeSubmit('42', FIXTURE_SCHEMA);
-    expect(viaSession.violations[0]!.field).toBe('(root)');
-  });
-
-  it('enforce 判定面自带一次 schema-aware 容错 ⇒ object 位的 stringify 无需会话二次 parse', () => {
-    // 变异对照:没有容错那一半时这一发必被拒(阳性对照 = 同一把尺子的裸校验)
-    expect(validateToolArguments({ payload: '{"a":1}' }, OBJECT_SCHEMA).valid).toBe(false);
-    const d = enforceValidateToolArguments(makeTool(OBJECT_SCHEMA), { payload: '{"a":1}' });
-    expect(d.status).toBe('pass-normalized');
-    expect((d.args as { payload: unknown }).payload).toEqual({ a: 1 });
+  it('src/tools/argument-repair-loop.ts 文件不存在(不再有"坐着没人 import"的等宿主件)', () => {
+    expect(existsSync(path.join(SRC_ROOT, 'tools', 'argument-repair-loop.ts'))).toBe(false);
   });
 });
 
-// ==================== ② 回喂账的唯一落点 ====================
+// ==================== 退役锁二:唯一 repair 窗的行为未变 ====================
 
-describe('② enforce 被拒时记账真的发生(且只有一处)', () => {
-  it('拒绝在执行之前 + 文案带单行违规清单 + 连续窗计数与快照同增', async () => {
+describe('② 留存实现:telemetry 连续窗是唯一的修复预算(行为锁)', () => {
+  it('常量单源仍是 3;第 max 次前是 invalid_arguments(带 n/max 与违规清单),第 max+1 次才硬失败', async () => {
     process.env[TOOL_ARG_VALIDATION_ENV] = 'enforce';
-    const r = await executeToolCall({ name: 'fixture_tool', arguments: { other: 1 } }, ctx);
-    expect(r.success).toBe(false);
-    expect(r.errorType).toBe('invalid_arguments');
-    expect(r.error).toContain('(1/3)');
-    expect(r.error).toContain('name=missing_required(expected=string; got=undefined)');
-    expect(r.error).not.toMatch(/[\r\n]/);
-    expect(enforceRepairStreak('fixture_tool')).toBe(1);
-    expect(snapshotToolArgShadow().enforce.repairRejections).toBe(1);
+    expect(TOOL_ARG_REPAIR_MAX_ATTEMPTS).toBe(3);
 
-    // 第二次违规:窗走到 2 —— 记账仍是同一处(若接了会话,这里会出现两套数)
-    const again = await executeToolCall({ name: 'fixture_tool', arguments: { other: 2 } }, ctx);
-    expect(again.error).toContain('(2/3)');
-    expect(enforceRepairStreak('fixture_tool')).toBe(2);
-  });
-});
-
-// ==================== ③ 两套预算互斥(接线即矛盾) ====================
-
-describe('③ 反证:同一次失败,telemetry 窗与会话双预算给出不同裁决', () => {
-  it('窗已 exhausted(第 max+1 次)时,会话侧仍在出 reject/nudge 帧', async () => {
-    const toolName = FIXTURE_SCHEMA.name;
-    let window = { attempt: 0, max: TOOL_ARG_REPAIR_MAX_ATTEMPTS, exhausted: false };
-    for (let i = 0; i < TOOL_ARG_REPAIR_MAX_ATTEMPTS + 1; i++) {
-      window = noteEnforceRepairRejection(toolName);
+    for (let attempt = 1; attempt <= TOOL_ARG_REPAIR_MAX_ATTEMPTS; attempt++) {
+      const r = await executeToolCall({ name: FIXTURE_SCHEMA.name, arguments: { other: attempt } }, ctx);
+      expect(r.success).toBe(false);
+      expect(r.errorType).toBe('invalid_arguments');
+      expect(r.error).toContain(`(${attempt}/${TOOL_ARG_REPAIR_MAX_ATTEMPTS})`);
+      expect(r.error).toContain('name=missing_required(expected=string; got=undefined)');
+      expect(r.error).not.toMatch(/[\r\n]/);
     }
-    expect(window.exhausted).toBe(true);
-    expect(window.attempt).toBe(TOOL_ARG_REPAIR_MAX_ATTEMPTS + 1);
-    expect(enforceRepairStreak(toolName)).toBe(TOOL_ARG_REPAIR_MAX_ATTEMPTS + 1);
+    expect(enforceRepairStreak(FIXTURE_SCHEMA.name)).toBe(TOOL_ARG_REPAIR_MAX_ATTEMPTS);
 
-    // 同一时刻、同一次失败的会话侧判定:预算尚未耗尽 ⇒ 若两套并存,执行器会一边硬失败一边许诺重试
-    const session = createArgumentRepairSession(toolName, { schema: FIXTURE_SCHEMA });
-    const outcome = await session.submit({ other: 1 });
-    expect(outcome.kind).toBe('reject');
-    if (outcome.kind === 'reject') {
-      expect(outcome.repairsRemaining).toBe(REPAIR_ATTEMPTS - 1);
-      expect(outcome.nudgesRemaining).toBe(NUDGE_ATTEMPTS);
+    const exhausted = await executeToolCall(
+      { name: FIXTURE_SCHEMA.name, arguments: { other: 'x' } },
+      ctx,
+    );
+    expect(exhausted.success).toBe(false);
+    expect(exhausted.errorType).toBe('invalid_arguments_exhausted');
+    expect(exhausted.error).toContain('exceeds the 3-attempt repair window');
+    expect(exhausted.error).toContain('last violations ->');
+    expect(exhausted.error).toContain('name=missing_required');
+    expect(enforceRepairStreak(FIXTURE_SCHEMA.name)).toBe(TOOL_ARG_REPAIR_MAX_ATTEMPTS + 1);
+    expect(snapshotToolArgShadow().enforce.repairRejections).toBe(TOOL_ARG_REPAIR_MAX_ATTEMPTS + 1);
+    expect(snapshotToolArgShadow().enforce.repairExhausted).toBe(1);
+  });
+
+  it('一次判定通过即清零连续窗(会话级单调预算没有这条语义 —— 退役后不丢这格)', async () => {
+    process.env[TOOL_ARG_VALIDATION_ENV] = 'enforce';
+
+    for (let i = 0; i < 2; i++) {
+      await executeToolCall({ name: FIXTURE_SCHEMA.name, arguments: { other: i } }, ctx);
     }
-    expect(enforceRepairStreak(toolName)).toBe(TOOL_ARG_REPAIR_MAX_ATTEMPTS + 1); // 会话不写这笔账
-  });
+    expect(enforceRepairStreak(FIXTURE_SCHEMA.name)).toBe(2);
 
-  it('会话侧走到 nudge 帧时,telemetry 窗早已封顶(两条预算的终态时刻不同形)', async () => {
-    const toolName = 'nudge_pair_tool';
-    const session = createArgumentRepairSession(toolName, { schema: FIXTURE_SCHEMA });
-    let lastKind = 'accepted';
-    for (let i = 0; i < REPAIR_ATTEMPTS + 1; i++) {
-      lastKind = (await session.submit({ other: i })).kind;
-    }
-    expect(lastKind).toBe('nudge'); // 会话侧:repair 耗尽后还有一帧提醒
-    const window = noteEnforceRepairRejection(toolName); // 执行器侧:第一次就该是 attempt 1
-    expect(window.attempt).toBe(1);
-    expect(window.exhausted).toBe(false);
-    // 反过来推到窗封顶 ⇒ 会话侧已经无预算可给(第 5 次起会话只能 exhausted,而窗此时才第 1 次)
-    for (let i = 0; i < TOOL_ARG_REPAIR_MAX_ATTEMPTS; i++) noteEnforceRepairRejection(toolName);
-    expect((await session.submit({ other: 'x' })).kind).toBe('exhausted');
-  });
-});
+    const ok = await executeToolCall({ name: FIXTURE_SCHEMA.name, arguments: { name: 'recovered' } }, ctx);
+    expect(ok.success).toBe(true);
+    expect(enforceRepairStreak(FIXTURE_SCHEMA.name)).toBe(0);
 
-// ==================== ④ 接线探测器(形状锁) ====================
-
-describe('④ 探测器:执行器未 import repair 会话;旧账仍在位', () => {
-  // 读**生产正文**而不是编译产物;探测器自身文件不参与判定(它必然含这两个标识符)。
-  const executorSource = async () =>
-    (await import('node:fs')).readFileSync(new URL('../src/tools/index.ts', import.meta.url), 'utf8');
-
-  it('tools/index.ts 不含 createArgumentRepairSession / argument-repair-loop ⇒ ① 维持未接线', async () => {
-    const src = await executorSource();
-    expect(src).not.toContain('createArgumentRepairSession');
-    expect(src).not.toContain('argument-repair-loop');
-    // 同一段正文必须仍调用唯一的账(探测器不是"因为文件空了所以绿")
-    expect(src).toContain('noteEnforceRepairRejection');
-    expect(src).toContain('applyToolArgValidation');
-  });
-
-  it('正向对照:同一把尺子在 repair-loop 文件里必须命中 ⇒ 上一条的 not.toContain 不是恒真', async () => {
-    const { readFileSync } = await import('node:fs');
-    const own = readFileSync(new URL('../src/tools/argument-repair-loop.ts', import.meta.url), 'utf8');
-    expect(own).toContain('export function createArgumentRepairSession');
+    const again = await executeToolCall({ name: FIXTURE_SCHEMA.name, arguments: { other: 'again' } }, ctx);
+    expect(again.errorType).toBe('invalid_arguments');
+    expect(again.error).toContain('(1/3)');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -604,10 +604,38 @@ export async function executeWithinExecBudget(
 }
 
 
+/**
+ * 危险操作确认回调的**显式契约**(类型单源;`ToolContext.confirmDangerous` 必须用它)。
+ *
+ * 契约三条(判定单源 = `resolveDangerousConfirmation`;验收 = `tests/danger-confirm-contract.test.ts`):
+ *   - 回调在场 ∧ resolve(true)  ⇒ 放行,并记一笔 `noteDangerousApproval`;
+ *   - 回调在场 ∧ resolve(false) ⇒ 拒绝,归因 `user-declined`(人真拒了);
+ *   - 回调缺席                  ⇒ 拒绝,归因 `no-confirmation-channel`(宿主没接确认渠道),
+ *                                **不是**"没人应答 = 默许"。
+ * 第三格是安全默认:本类型故意保持**可选**(既有 4 处构造点不强制提供),但"缺席"只能落拒绝 ——
+ * `ctx.allowDangerous` 是影子披露字段,不参与本契约的判定(见下方同名注释)。
+ */
+export type DangerousConfirmationCallback = (
+  tool: Tool,
+  args: Record<string, unknown>,
+) => Promise<boolean>;
+
+/**
+ * 确认回调契约的三种可观测结局(测试面按 `kind` 断言,不从布尔反推"到底有没有渠道")。
+ * 互斥且必居其一:任何一次 dangerous 调用只能落在其中一档。
+ */
+export type DangerousConfirmationOutcome =
+  | { readonly kind: 'approved'; readonly via: 'callback' }
+  | { readonly kind: 'declined'; readonly via: 'callback' }
+  | { readonly kind: 'no-channel'; readonly via: 'absent' };
+
 export interface ToolContext {
   workspacePath: string;
-  /** 危险操作确认回调,返回 true 表示允许执行。未提供时 dangerous 操作直接拒绝。 */
-  confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * 危险操作确认回调。契约见 `DangerousConfirmationCallback`;
+   * 未提供时 dangerous 操作直接拒绝(fail-closed,拒绝归因 `no-confirmation-channel`)。
+   */
+  confirmDangerous?: DangerousConfirmationCallback;
   /**
    * 会话级危险旁路披露字段(--allow-dangerous;2026-09-25 L7905 收口)。
    *
@@ -1258,6 +1286,32 @@ function applyToolArgValidation(tool: Tool, call: ParsedToolCall): ToolResult | 
 }
 
 /**
+ * 「确认回调契约」的**唯一判定出口**(类型契约见 `DangerousConfirmationCallback`)。
+ *
+ * 三条结局互斥且必居其一,不做第四档猜测:
+ *   - 无回调 ⇒ `no-channel`(安全默认:拒绝,而不是"没人应答 = 放行");
+ *   - 回调答 false ⇒ `declined`;
+ *   - 回调答 true  ⇒ `approved`。
+ * 回调自身抛错**不在此吞掉** —— 由回调实现方按其平台语义决定(`createDangerGate` 的实现
+ * 会 fail-closed 答 false),本函数不擅自把异常改写成任何一种结局。
+ *
+ * 调用方不得自行读 `ctx.confirmDangerous` 判"有没有渠道":本地危险闸与权限轴 ask 闸
+ * 都只认本函数返回值(测试 `tests/danger-confirm-contract.test.ts` 钉住三格)。
+ */
+export async function resolveDangerousConfirmation(
+  ctx: Pick<ToolContext, 'confirmDangerous'>,
+  tool: Tool,
+  args: Record<string, unknown>,
+): Promise<DangerousConfirmationOutcome> {
+  const confirm = ctx.confirmDangerous;
+  if (!confirm) return { kind: 'no-channel', via: 'absent' };
+  const approved = await confirm(tool, args);
+  return approved
+    ? { kind: 'approved', via: 'callback' }
+    : { kind: 'declined', via: 'callback' };
+}
+
+/**
  * hub remote 工具的批准闸(G-401 拍板②,唯一实现)。
  *
  * 与本地闸(requiresUserConfirmation 路径)的关系:判定源不同 —— 本地 Tool 有契约
@@ -1308,9 +1362,9 @@ async function denyOrApproveDangerous(
     return null;
   }
 
-  const confirm = ctx.confirmDangerous;
-  const allowed = confirm ? await confirm(tool, call.arguments) : false;
-  if (allowed) {
+  // 契约判定只走唯一出口:缺席 ⇒ no-channel(拒绝),答假 ⇒ declined,答真 ⇒ approved。
+  const outcome = await resolveDangerousConfirmation(ctx, tool, call.arguments);
+  if (outcome.kind === 'approved') {
     noteDangerousApproval(ctx.allowDangerous === true, tool.name);
     if (opts.recordLease) {
       recordApprovedInvocation({
@@ -1325,7 +1379,7 @@ async function denyOrApproveDangerous(
 
   const denial = buildToolDenial({
     gate: opts.leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
-    decider: confirm ? 'user-declined' : 'no-confirmation-channel',
+    decider: outcome.kind === 'declined' ? 'user-declined' : 'no-confirmation-channel',
     tool: call.name,
     args: call.arguments,
   });
@@ -1687,7 +1741,10 @@ async function gatePermissionAxis(
   // 本地路径:既有确认闸已经会问的交给它(避免同一次调用问两遍)。hub 分支没有既有确认闸,
   // 所以不传 skipIfLegacyConfirm ⇒ ask 一律在这里问/拒(比现状只严不宽)。
   if (opts.skipIfLegacyConfirm && requiresUserConfirmation(tool as Tool)) return null;
-  if (!ctx.confirmDangerous) {
+  // 与本地危险闸共用同一份契约判定(不在这里再抄一遍"有没有渠道"):
+  // 缺席 ⇒ no-channel 拒绝;答假 ⇒ declined 拒绝;答真 ⇒ 放行并记账。
+  const outcome = await resolveDangerousConfirmation(ctx, tool as Tool, call.arguments);
+  if (outcome.kind === 'no-channel') {
     return {
       success: false,
       output: '',
@@ -1695,8 +1752,7 @@ async function gatePermissionAxis(
       errorType: 'permission_denied',
     };
   }
-  const approved = await ctx.confirmDangerous(tool as Tool, call.arguments);
-  if (!approved) {
+  if (outcome.kind === 'declined') {
     return {
       success: false,
       output: '',

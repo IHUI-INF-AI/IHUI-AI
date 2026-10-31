@@ -466,7 +466,25 @@ function injectFile(absPath, { reseatTail = false } = {}) {
   // 只拦"会整块重写自身"的那一支('injected');skip-done 与归位(reseated)在旧实现里
   // 本来就走得到,这里一字不改地保留。
   if (r.action === 'injected' && absPath === fileURLToPath(import.meta.url)) return 'skip-self'
-  if (r.action === 'injected' || r.action === 'reseated') writeFileSync(absPath, r.text, 'utf8')
+  if (r.action === 'injected' || r.action === 'reseated') {
+    // 2026-10-31 写盘重试:Windows 实时扫描会短暂独占高频重写的生成物,gen 写完紧随的
+    // inject 撞上即 UNKNOWN(实测全量 turbo 连续多轮稳定红在同一文件;单跑恒过 = 毫秒级
+    // 瞬态锁)。重试 5 次退避 400ms;非锁类错误照旧即抛。
+    let lastErr
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        writeFileSync(absPath, r.text, 'utf8')
+        lastErr = null
+        break
+      } catch (err) {
+        lastErr = err
+        const code = err && typeof err === 'object' ? err.code : ''
+        if (code !== 'UNKNOWN' && code !== 'EPERM' && code !== 'EBUSY') throw err
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+      }
+    }
+    if (lastErr) throw lastErr
+  }
   return r.action
 }
 

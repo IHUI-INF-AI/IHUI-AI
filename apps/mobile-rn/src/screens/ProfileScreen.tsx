@@ -1667,6 +1667,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             </Pressable>
             <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
             <TouchableOpacity
+            hitSlop={2}
               onPress={onDownload}
               style={styles.audioDownloadBtn}
               activeOpacity={0.7}
@@ -1831,6 +1832,7 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
       <View style={styles.sharePopupOverlay}>
         <View style={styles.sharePopupCard}>
           <TouchableOpacity
+          hitSlop={3}
             onPress={onClose}
             style={styles.sharePopupClose}
             activeOpacity={0.7}

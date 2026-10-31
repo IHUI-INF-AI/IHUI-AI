@@ -14,7 +14,7 @@
 import { useMemo } from 'react'
 import { Download, Eye, MessageSquare, PackageOpen, RefreshCw } from 'lucide-react-native'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnHue, rnHueTintOnly, rnRadius, rnTokens } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
@@ -39,11 +39,13 @@ export interface ArtifactItem {
 
 /** kind 徽标语义色(固定语义色,不随主题换档;与 web page.tsx KIND_CLASS 同源档位)。 */
 export const ARTIFACT_KIND_PALETTE: Record<ArtifactItem['kind'], { bg: string; fg: string }> = {
-  html_report: { bg: 'rgba(168,85,247,0.12)', fg: '#9333ea' },
-  slides: { bg: 'rgba(59,130,246,0.12)', fg: '#2563eb' },
-  sheet: { bg: 'rgba(16,185,129,0.12)', fg: '#059669' },
-  doc: { bg: 'rgba(115,115,115,0.12)', fg: '#737373' },
-  video_ref: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
+  html_report: { bg: rnHue.purple.tintStrong, fg: rnHue.purple.fg },
+  slides: { bg: rnHue.blue.tintStrong, fg: rnHue.blue.fg },
+  sheet: { bg: rnHue.emerald.tintStrong, fg: rnHue.emerald.fg },
+  // doc 的前景已由 tokens.css 派生进 RN 令牌表(门 93 R8 现点名这一枚),
+  // 所以取语义档而不是色相表;色相表的 neutral 族刻意只留底档。
+  doc: { bg: rnHueTintOnly.neutral.tintStrong, fg: rnTokens.gray['500'] },
+  video_ref: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
 }
 
 function kindLabelKey(kind: ArtifactItem['kind']): string {
@@ -287,9 +289,9 @@ export function ArtifactsScreen({
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll}>
         <Text style={styles.desc}>{t('artifacts.desc')}</Text>
         <View style={styles.card}>
-          {error ? <Text style={[styles.emptyText, { color: '#e11d48' }]}>{error}</Text> : null}
+          {error ? <Text style={[styles.emptyText, { color: rnHue.rose.fg }]}>{error}</Text> : null}
           {previewError ? (
-            <Text style={[styles.emptyText, { color: '#e11d48' }]}>{previewError}</Text>
+            <Text style={[styles.emptyText, { color: rnHue.rose.fg }]}>{previewError}</Text>
           ) : null}
           {loading ? (
             <View style={styles.emptyBox}>

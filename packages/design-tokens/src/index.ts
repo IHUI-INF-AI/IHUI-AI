@@ -187,6 +187,16 @@ export {
   TARO_RPX_PER_PX,
   type GeometryStep,
 } from './geometry.js'
+// 色相族 tint 唯一真相源(共享屏/RN 按色相给业务分类配底色只此一张表)。
+// 立因与取值规则写在 hue-tints.js 头注;同值关系由 scripts/tests/hue-tints.test.mjs 钉住。
+export {
+  rnHue,
+  rnHueTintOnly,
+  hueFamilies,
+  hueTintOnlyFamilies,
+  hueTint,
+  hueTintStrong,
+} from './hue-tints.js'
 
 // 间距档位唯一真相源(全端共用):RN 取 rnSpacing(dp 数值),小程序取 taroSpacing(已折 rpx)。
 // 立因与取值依据写在 spacing.ts 头注;跨端差异由守门 128 check-cross-end-ui-parity.mjs 复核。

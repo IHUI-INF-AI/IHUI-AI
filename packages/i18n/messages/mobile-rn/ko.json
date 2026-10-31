@@ -908,7 +908,8 @@
       "share2": "공유",
       "agree": "동의",
       "disagree": "반대"
-    }
+    },
+    "loadFailed": "불러오기 실패"
   },
   "settings": {
     "title": "설정",
@@ -951,6 +952,7 @@
     "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?"
   },
   "menu": {
+    "artifacts": "산출물 센터",
     "about": "회사 소개",
     "feedback": "피드백",
     "privacy": "개인정보처리방침",
@@ -5448,7 +5450,8 @@
     "addTitle": "계정 추가",
     "adding": "추가 중…",
     "deleteConfirm": "{name}을(를) 삭제할까요?",
-    "summary": "계정 {total}개 · 활성 {enabled}"
+    "summary": "계정 {total}개 · 활성 {enabled}",
+    "addSuccess": "계정이 추가되었습니다"
   },
   "checkinAssistant": {
     "title": "체크인 도우미",
@@ -5721,7 +5724,12 @@
     "realLive": "통화 중",
     "reconnect": "재연결",
     "realFailDefault": "연결 실패 재시도",
-    "inputDone": "음성 입력 완료"
+    "inputDone": "음성 입력 완료",
+    "closeImgMenu": "이미지 메뉴 닫기",
+    "addImage": "이미지 추가",
+    "releaseEnd": "놓으면 전송",
+    "transcribing": "인식 중…",
+    "clearResult": "인식 결과 지우기"
   },
   "material": {
     "cText": "텍스트 내용",

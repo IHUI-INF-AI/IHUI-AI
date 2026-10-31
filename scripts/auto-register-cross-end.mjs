@@ -679,7 +679,11 @@ function parseMapRows(text) {
 }
 
 function appendMapRows(rows, opt = {}) {
-  if (rows.length === 0) return 0
+  // 「本批没有新行」≠「什么都不用做」:取代清单里可能有"幂等跳过、但仍须清掉旧判定行"的 web 键
+  // (D1 的边界:工作树已有 portal X、HEAD 还有 gap X ⇒ 本批为空但 X 的旧行必须清)。
+  // 所以提前返回的条件要**同时**看本批与取代清单,否则那一轮永远清不掉旧行。
+  const supersedeOnly = (opt.supersedeWebs ?? []).filter((w) => !rows.some((r) => r.web === w))
+  if (rows.length === 0 && supersedeOnly.length === 0) return 0
   // 以 HEAD 面为底,并与工作树现有行做并集 —— 工作树常因旁路落地而落后 HEAD(实测少行),
   // 直接 append 到工作树会把 HEAD 已有行写丢。
   const headRows = parseMapRows(cov.faceRead('head', MAP_PATH))
@@ -817,6 +821,9 @@ const portalUndetDetail = [] // 尺子自己那份未判定清单(逐条点名,�
 //   · 上一轮 --apply 补过的那枚(还没提交)不重复补(硬边界④ 幂等);
 //   · 他席在飞的逐条陈述不被本腿改写(让位并点名,不是静默跳门,§0.10)。
 const workMapRows = (() => {
+  // 「本腿没开启」就不读工作树台账(D6):这一腿没被判,却报出"工作树台账取不到"这类
+  // 与门户维无关的理由 ⇒ state=off 的腿带非空 undetermined,读的人以为这一格出过事。
+  if (!convergePortal) return []
   try {
     return parseMapRows(readFileSync(R(MAP_PATH), 'utf8'))
   } catch (e) {

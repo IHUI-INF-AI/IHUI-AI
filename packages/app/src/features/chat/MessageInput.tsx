@@ -30,7 +30,7 @@ import {
   ChevronLeft,
 } from 'lucide-react-native'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { wrapFocusInk } from '../../hooks/use-wrap-focus'
 
 export type { MessageInputAgentVariable, MessageInputFile, MessageInputProps }
@@ -170,7 +170,7 @@ export function MessageInput({
                     </Text>
                   </View>
                 )}
-                <TouchableOpacity style={styles.fileRemove} onPress={() => onRemoveFile(f.id)}>
+                <TouchableOpacity hitSlop={11} style={styles.fileRemove} onPress={() => onRemoveFile(f.id)}>
                   <Text style={styles.fileRemoveText}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -379,7 +379,11 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.xs,
     },
     fileVideoBadge: { color: tk.text.secondary, fontSize: rnType.title.size, marginBottom: 2 },
-    fileVideoText: { color: tk.text.secondary, fontSize: 9, textAlign: 'center' },
+    fileVideoText: {
+      color: tk.text.secondary,
+      fontSize: rnType.badge.size,
+      textAlign: 'center',
+    },
     fileDocPlaceholder: {
       width: '100%',
       height: '100%',
@@ -389,7 +393,11 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.xs,
     },
     fileDocIcon: { fontSize: rnType.heading.size, marginBottom: 2 },
-    fileDocText: { fontSize: 9, color: tk.text.secondary, textAlign: 'center' },
+    fileDocText: {
+      fontSize: rnType.badge.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
     fileRemove: {
       position: 'absolute',
       top: 2.5,
@@ -421,8 +429,8 @@ function createStyles(tk: AppThemeTokens) {
     // 聚焦描边取墨档走 WRAP 唯一实现(与 SearchInput / TextField 同一出口),不在这里另挑一档
     inputRowFocused: { borderColor: wrapFocusInk(tk) },
     iconBtn: {
-      width: 24,
-      height: 24,
+      width: rnGeometry.tapBox,
+      height: rnGeometry.tapBox,
       alignItems: 'center',
       justifyContent: 'center',
     },
