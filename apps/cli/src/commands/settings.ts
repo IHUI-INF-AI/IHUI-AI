@@ -127,6 +127,16 @@ export interface Settings {
   autoApprovePlan?: boolean;
   /** 启用 MCP 工具 */
   enableMcp?: boolean;
+  /**
+   * 是否信任**工作区来源**的 mcp.json(`<cwd|repo-root>/.{ihui,claude,cursor}/mcp.json`)。
+   *
+   * 2026-10-31 安全强化第 20 批(CLI Critical):这些文件随仓库一起被 clone 下来,
+   * 其中 stdio server 的 `command`/`args` 会以当前用户身份 spawn ⇒ 克隆恶意仓库
+   * 再在其中运行 CLI 即等于 RCE。故默认 false:项目来源的 server 不参与连接,
+   * 只有用户显式置 true(且只能写在用户全局层 —— 本键在 layer-policy 的安全
+   * 敏感表内)才加载。家目录来源 `~/.ihui/mcp.json` 不受影响。
+   */
+  mcpTrustProjectServers?: boolean;
   /** LLM 采样参数 */
   sampler?: SamplerSettings;
   /** 路径信任映射 */

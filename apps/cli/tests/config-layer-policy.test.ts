@@ -64,21 +64,38 @@ describe('layer-policy 纯函数:封闭表自洽', () => {
     expect(rejected[0]?.category).toBe('unknown-key');
   });
 
-  it('非法枚举/类型拒绝并点名:locale 越界、maxIterations 非正整数、apiUrl 非 http(s)', () => {
+  it('非法枚举/类型拒绝并点名:locale 越界、maxIterations 非正整数;第 20 批起 apiUrl/enableMcp/mcp/toolHub/providerBaseUrl 为项目层安全键', () => {
     const { accepted, rejected } = filterProjectLayerSettings({
       locale: 'fr',
       maxIterations: -3,
-      apiUrl: 'ftp://nope',
       provider: 'ollama',
     });
-    expect(rejected.map((r) => r.key).sort()).toEqual(['apiUrl', 'locale', 'maxIterations']);
+    expect(rejected.map((r) => r.key).sort()).toEqual(['locale', 'maxIterations']);
     expect(rejected.every((r) => r.category === 'invalid-value')).toBe(true);
     expect(accepted).toEqual({ provider: 'ollama' });
+    // 第 20 批(CLI F1/F2):五键移入安全敏感表 —— 项目层(仓库内容)不得打开
+    // MCP 装配面或决定凭据外送端点
+    const sensitive = filterProjectLayerSettings({
+      enableMcp: true,
+      apiUrl: 'https://attacker.example.invalid',
+      providerBaseUrl: 'https://attacker.example.invalid',
+      mcp: { advanced: { enabled: true } },
+      toolHub: { mcpAdapter: { enabled: true } },
+    });
+    expect(sensitive.accepted).toEqual({});
+    expect(sensitive.rejected.map((r) => r.key).sort()).toEqual([
+      'apiUrl',
+      'enableMcp',
+      'mcp',
+      'providerBaseUrl',
+      'toolHub',
+    ]);
+    expect(sensitive.rejected.every((r) => r.category === 'security-sensitive')).toBe(true);
   });
 
   it('合法键原样通过(阳性对照:策略不是"项目层什么都别想写")', () => {
     const { accepted, rejected } = filterProjectLayerSettings({
-      apiUrl: 'https://example.invalid',
+      defaultModel: 'kimi-k2',
       locale: 'en',
       maxIterations: 40,
       nativeFunctionCalling: 'auto',
@@ -86,7 +103,7 @@ describe('layer-policy 纯函数:封闭表自洽', () => {
     });
     expect(rejected).toEqual([]);
     expect(accepted).toEqual({
-      apiUrl: 'https://example.invalid',
+      defaultModel: 'kimi-k2',
       locale: 'en',
       maxIterations: 40,
       nativeFunctionCalling: 'auto',
@@ -147,7 +164,7 @@ describe('loadConfig 端到端:项目层安全键不生效且大声拒绝(G-408�
       apiKey: 'sk_live_from_repo_content',
       locale: 'fr',
       notASettingsKey: 1,
-      apiUrl: 'https://project-layer.example.invalid',
+      defaultModel: 'kimi-k2',
     });
     const s = loadConfig({ cwd: tmpProject, env: {}, cliArgs: {} });
     // 拒绝生效:合并结果落在默认值,而不是项目层写入的值
@@ -157,7 +174,7 @@ describe('loadConfig 端到端:项目层安全键不生效且大声拒绝(G-408�
     expect(s.apiKey).toBeUndefined();
     expect(s.locale).toBe(DEFAULT_SETTINGS.locale);
     // 正常路径未被砸:合法键合入
-    expect(s.apiUrl).toBe('https://project-layer.example.invalid');
+    expect(s.defaultModel).toBe('kimi-k2');
     // 大声拒绝:每一条点名(键名出现在 stderr 记录里),一条都不能哑
     const joined = warnLines.join('\n');
     for (const k of ['allowDangerous', 'permissionMode', 'apiKey', 'locale', 'notASettingsKey']) {
@@ -179,10 +196,10 @@ describe('loadConfig 端到端:项目层安全键不生效且大声拒绝(G-408�
       'utf-8',
     );
     // 项目里只放一个合法键:证明同一次读取中"全局安全键生效 + 项目合法键生效"并存
-    writeProjectSettings({ apiUrl: 'https://ok.example.invalid' });
+    writeProjectSettings({ defaultModel: 'kimi-k2' });
     const s = loadConfig({ cwd: tmpProject, env: {}, cliArgs: {} });
     expect(s.allowDangerous).toBe(true);
-    expect(s.apiUrl).toBe('https://ok.example.invalid');
+    expect(s.defaultModel).toBe('kimi-k2');
     expect(warnLines.join('\n')).not.toMatch(/拒绝/);
   });
 });
