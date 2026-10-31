@@ -1027,7 +1027,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/settle - 触发结算
-  server.post('/settlement/settle', async (request, reply) => {
+  // 2026-10-31 安全强化第 14 批:运营动作(把台账状态推到已结算)必须 admin。
+  // 此前只有插件级 checkAuth ⇒ 任意登录用户可把任意结算单标成已结算(不可逆资金动作)。
+  server.post('/settlement/settle', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z.object({ id: z.string().optional() }).parse(request.body)
     if (!body?.id) return reply.status(400).send(error(400, 'id 为必填项'))
     const record = await settleSettlement(body.id)
@@ -1086,7 +1088,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/create - 创建结算记录
-  server.post('/settlement/create', async (request, reply) => {
+  // 2026-10-31 第 14 批:agentId/金额/佣金/状态全由客户端定 ⇒ 任意登录用户可凭空造结算单,
+  // 必须 admin。
+  server.post('/settlement/create', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z
       .object({
         agentId: z.string().uuid().nullable().optional(),
@@ -1104,72 +1108,83 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/sync-existing - 批量同步购买记录到结算表
-  server.post('/settlement/sync-existing', async (_request, reply) => {
-    // P1 修复:加 limit 1000 防止全表 active 购买记录加载到内存(原查询无 limit)
-    const activeBuys = await dbRead
-      .select({ id: zhsAgentBuy.id, agentId: zhsAgentBuy.agentId, price: zhsAgentBuy.price })
-      .from(zhsAgentBuy)
-      .where(eq(zhsAgentBuy.status, 'active'))
-      .limit(1000)
+  // 2026-10-31 第 14 批:批量写资金台账,admin 专属。
+  server.post(
+    '/settlement/sync-existing',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      // P1 修复:加 limit 1000 防止全表 active 购买记录加载到内存(原查询无 limit)
+      const activeBuys = await dbRead
+        .select({ id: zhsAgentBuy.id, agentId: zhsAgentBuy.agentId, price: zhsAgentBuy.price })
+        .from(zhsAgentBuy)
+        .where(eq(zhsAgentBuy.status, 'active'))
+        .limit(1000)
 
-    // P1 修复:加 limit 1000 防止全表结算记录加载到内存(原查询无 limit)
-    const existing = await dbRead
-      .select({ buyRecordId: agentSettlements.buyRecordId })
-      .from(agentSettlements)
-      .where(sql`${agentSettlements.buyRecordId} IS NOT NULL`)
-      .limit(1000)
+      // P1 修复:加 limit 1000 防止全表结算记录加载到内存(原查询无 limit)
+      const existing = await dbRead
+        .select({ buyRecordId: agentSettlements.buyRecordId })
+        .from(agentSettlements)
+        .where(sql`${agentSettlements.buyRecordId} IS NOT NULL`)
+        .limit(1000)
 
-    const existingIds = new Set(existing.map((s) => s.buyRecordId))
-    const missing = activeBuys.filter((b) => !existingIds.has(b.id))
+      const existingIds = new Set(existing.map((s) => s.buyRecordId))
+      const missing = activeBuys.filter((b) => !existingIds.has(b.id))
 
-    if (missing.length === 0) {
-      return reply.send(success({ synced: 0 }))
-    }
+      if (missing.length === 0) {
+        return reply.send(success({ synced: 0 }))
+      }
 
-    await db.insert(agentSettlements).values(
-      missing.map((b) => ({
-        agentId: b.agentId,
-        buyRecordId: b.id,
-        amount: Math.round(parseFloat(b.price) * 100),
-        status: 'unsettled',
-      })),
-    )
-    return reply.send(success({ synced: missing.length }))
-  })
+      await db.insert(agentSettlements).values(
+        missing.map((b) => ({
+          agentId: b.agentId,
+          buyRecordId: b.id,
+          amount: Math.round(parseFloat(b.price) * 100),
+          status: 'unsettled',
+        })),
+      )
+      return reply.send(success({ synced: missing.length }))
+    },
+  )
 
   // POST /settlement/sync-single/:buyRecordId - 同步单条购买记录到结算表
-  server.post('/settlement/sync-single/:buyRecordId', async (request, reply) => {
-    const { buyRecordId } = buyRecordIdParam.parse(request.params)
+  // 2026-10-31 第 14 批:写资金台账,admin 专属。
+  server.post(
+    '/settlement/sync-single/:buyRecordId',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { buyRecordId } = buyRecordIdParam.parse(request.params)
 
-    const already = await dbRead
-      .select({ id: agentSettlements.id })
-      .from(agentSettlements)
-      .where(eq(agentSettlements.buyRecordId, buyRecordId))
-      .limit(1)
-    if (already.length > 0) {
-      return reply.send(success({ synced: false, message: '结算记录已存在' }))
-    }
+      const already = await dbRead
+        .select({ id: agentSettlements.id })
+        .from(agentSettlements)
+        .where(eq(agentSettlements.buyRecordId, buyRecordId))
+        .limit(1)
+      if (already.length > 0) {
+        return reply.send(success({ synced: false, message: '结算记录已存在' }))
+      }
 
-    const buyRecord = await dbRead
-      .select()
-      .from(zhsAgentBuy)
-      .where(eq(zhsAgentBuy.id, buyRecordId))
-      .limit(1)
-    if (!buyRecord[0]) {
-      return reply.status(404).send(error(404, '购买记录不存在'))
-    }
+      const buyRecord = await dbRead
+        .select()
+        .from(zhsAgentBuy)
+        .where(eq(zhsAgentBuy.id, buyRecordId))
+        .limit(1)
+      if (!buyRecord[0]) {
+        return reply.status(404).send(error(404, '购买记录不存在'))
+      }
 
-    await db.insert(agentSettlements).values({
-      agentId: buyRecord[0].agentId,
-      buyRecordId: buyRecord[0].id,
-      amount: Math.round(parseFloat(buyRecord[0].price) * 100),
-      status: 'unsettled',
-    })
-    return reply.send(success({ synced: true }))
-  })
+      await db.insert(agentSettlements).values({
+        agentId: buyRecord[0].agentId,
+        buyRecordId: buyRecord[0].id,
+        amount: Math.round(parseFloat(buyRecord[0].price) * 100),
+        status: 'unsettled',
+      })
+      return reply.send(success({ synced: true }))
+    },
+  )
 
   // POST /settlement/batch-delete - 批量删除
-  server.post('/settlement/batch-delete', async (request, reply) => {
+  // 2026-10-31 第 14 批:批量删资金台账,admin 专属(此前任何登录用户可清空结算单)。
+  server.post('/settlement/batch-delete', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z.object({ ids: z.array(z.string()).max(100).optional() }).parse(request.body)
     const ids = body?.ids ?? []
     const deleted = await deleteSettlements(ids)
@@ -1248,7 +1263,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /examine/:recordId - 更新审核记录
-  server.put('/examine/:recordId', async (request, reply) => {
+  // 2026-10-31 第 14 批:审核记录 = 裁决台账,整体可写等于可把他人申请改到自己名下或
+  // 直接改 status=approved。同族 DELETE 已于 2026-09-27 加属主闸,这里补 admin 闸。
+  server.put('/examine/:recordId', { preHandler: requireAdmin }, async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
     const body = request.body as UpdateExamineInput
     const record = await updateExamine(recordId, body)
@@ -1272,7 +1289,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /examine/:recordId/approve - 批准
-  server.put('/examine/:recordId/approve', async (request, reply) => {
+  server.put('/examine/:recordId/approve', { preHandler: requireAdmin }, async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
     const record = await approveExamine(recordId, request.userId!)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
@@ -1280,7 +1297,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /examine/:recordId/reject - 拒绝
-  server.put('/examine/:recordId/reject', async (request, reply) => {
+  server.put('/examine/:recordId/reject', { preHandler: requireAdmin }, async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
     const body = z.object({ reason: z.string().optional() }).parse(request.body)
     if (!body?.reason) return reply.status(400).send(error(400, 'reason 为必填项'))
@@ -1290,7 +1307,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /examine/:recordId/return - 退回审核(状态改为 pending,记录退回原因)
-  server.post('/examine/:recordId/return', async (request, reply) => {
+  server.post('/examine/:recordId/return', { preHandler: requireAdmin }, async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
     const body = z.object({ reason: z.string().optional() }).parse(request.body)
     const rows = await db
@@ -1308,7 +1325,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /examine/batch-approve - 批量批准
-  server.post('/examine/batch-approve', async (request, reply) => {
+  server.post('/examine/batch-approve', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z.object({ recordIds: z.array(z.string()).optional() }).parse(request.body)
     const recordIds = body?.recordIds ?? []
     if (recordIds.length === 0) {
@@ -1333,7 +1350,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /examine/batch-reject - 批量拒绝
-  server.post('/examine/batch-reject', async (request, reply) => {
+  server.post('/examine/batch-reject', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z
       .object({ recordIds: z.array(z.string()).max(100).optional(), reason: z.string().optional() })
       .parse(request.body)
@@ -1515,7 +1532,17 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // 2FA step-up 闸：已开 2FA 的账号，重新生成 OAuth 密钥前须有窗内二次验证
     const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
     if (!stepUp.ok) {
-      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
@@ -1765,6 +1792,17 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
           action: 'no_change',
         }),
       )
+    }
+    // 2026-10-31 安全强化第 14 批:下架是破坏性运营动作(线上可见性归零)。此前只有
+    // 插件级 checkAuth ⇒ body 里塞任意 agentId 即可下架他人的智能体。非 admin 必须是
+    // 该智能体的属主(agents.user_id)。
+    const isAdminUnpublish = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdminUnpublish && agent.userId !== request.userId) {
+      request.log.warn(
+        { agentId, actor: request.userId },
+        '[agents] 非属主尝试下架他人智能体,已拒绝',
+      )
+      return reply.status(403).send(error(403, '无权下架他人的智能体'))
     }
     const updated = await unpublishAgentByAgentId(agentId, reason)
     return reply.send(
