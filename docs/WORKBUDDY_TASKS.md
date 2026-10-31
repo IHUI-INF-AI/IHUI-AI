@@ -152,7 +152,10 @@ curl -s -H "Authorization: Bearer <令牌>" \
 | --- | --- |
 | 六族执行引擎 | `apps/ai-service/app/services/workbuddy_tasks.py` |
 | 自动巡检 job + 状态暴露 | `apps/ai-service/app/services/checkin_scheduler.py` |
-| 接口 | `apps/ai-service/app/routers/checkin.py` |
-| 面板 | `apps/web/src/components/checkin/WorkbuddyTaskPanel.tsx` |
-| 配置默认值 | `apps/ai-service/app/core/config.py` + `apps/ai-service/.env.example` |
+| 接口 | `apps/ai-service/app/routers/checkin.py`(两条任务入口的出站暂停/冷却预检 = `_outbound_risk_precheck`,与手动查余额、手动签到同一实现) |
+| 巡检态判据(三端唯一真相源) | `packages/shared/src/utils/workbuddy-sweep-view.ts`(取值表在 `packages/types/src/checkin.ts` 的 `CHECKIN_WB_TASKS_NOT_RUNNING_REASONS`,端上不再各算一遍) |
+| 面板(web / RN / 小程序) | `apps/web/src/components/checkin/WorkbuddyTaskPanel.tsx`、`apps/mobile-rn/src/components/WorkbuddyTaskSection.tsx`、`apps/miniapp-taro/src/pkg-user/checkin-assistant/WorkbuddyTaskSection.tsx` |
+| 真机 DOM 验证 | `apps/web/e2e/workbuddy-task-panel.spec.ts` |
+| 补签卡不自动消耗的机器锁 | 行为级 + AST 静态锁:`apps/ai-service/tests/test_workbuddy_tasks.py`,判据实现 `workbuddy_tasks.makeup_card_write_hit` / `find_makeup_card_write_hookups` |
+| 配置默认值 | `apps/ai-service/app/core/config.py` + `apps/ai-service/.env.example`(两枚闸门同批登记在能力矩阵 `app/core/capability_matrix.py`) |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
