@@ -375,8 +375,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
           <View style={styles.panel} testID="voice-note-panel">
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
-              <Pressable
-                style={undefined}
+              <Tappable
                 onPress={closePanel}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -384,7 +383,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 testID="voice-note-close"
               >
                 <X size={16} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
 
             {/* phase 徽章(12 相文案全量走 i18n,与 web 同命名空间);
@@ -511,7 +510,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
 
             {/* 分区切换:活跃 ⇄ 已归档(票面②「新建→归档」在 RN 上可见的那一半) */}
             <View style={styles.groupRow}>
-              <Pressable
+              <Tappable
                 style={[styles.chip, partition === 'archived' ? styles.chipActive : null]}
                 onPress={() => setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))}
                 accessibilityRole="button"
@@ -521,12 +520,12 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 <Text style={[styles.chipText, partition === 'archived' && styles.chipActiveText]}>
                   {t('quickNotes.archived')}
                 </Text>
-              </Pressable>
+              </Tappable>
             </View>
 
             {groups.length > 0 && (
               <View style={styles.groupRow} testID="voice-note-filters">
-                <Pressable
+                <Tappable
                   style={[styles.chip, groupKey === null ? styles.chipActive : null]}
                   onPress={() => setGroupKey(null)}
                   accessibilityRole="button"
@@ -535,9 +534,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                   <Text style={[styles.chipText, groupKey === null && styles.chipActiveText]}>
                     {t('chat.voiceNote.groupAll')}
                   </Text>
-                </Pressable>
+                </Tappable>
                 {groups.map((facet) => (
-                  <Pressable
+                  <Tappable
                     key={facet.groupKey}
                     style={[styles.chip, groupKey === facet.groupKey ? styles.chipActive : null]}
                     onPress={() => setGroupKey(facet.groupKey)}
@@ -552,7 +551,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                     >
                       {facet.groupKey} {facet.count}
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 ))}
               </View>
             )}
@@ -579,8 +578,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         {note.transcript ?? t('chat.voiceNote.title')}
                       </Text>
                       {voiceNoteHasInsertableText(note) && (
-                        <Pressable
-                          style={undefined}
+                        <Tappable
                           onPress={() => onInsert(note.transcript ?? '')}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -590,11 +588,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           <Text style={styles.archiveAction}>
                             {t('chat.voiceNote.action.insertToInput')}
                           </Text>
-                        </Pressable>
+                        </Tappable>
                       )}
                       {/* 改分组:分组键只落服务端,输入框开在本行下方 */}
-                      <Pressable
-                        style={undefined}
+                      <Tappable
                         onPress={() => {
                           setGroupEditing(note.id)
                           setGroupDraft('')
@@ -605,11 +602,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         testID="voice-note-group-set"
                       >
                         <Tag size={14} color={tokens.text.secondary} />
-                      </Pressable>
+                      </Tappable>
                       {/* 归档/恢复:方向由当前分区决定 */}
                       {partition === 'active' ? (
-                        <Pressable
-                          style={undefined}
+                        <Tappable
                           onPress={() => void toggleArchived(note.id, true)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -617,10 +613,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           testID="voice-note-archive-action"
                         >
                           <Archive size={14} color={tokens.text.secondary} />
-                        </Pressable>
+                        </Tappable>
                       ) : (
-                        <Pressable
-                          style={undefined}
+                        <Tappable
                           onPress={() => void toggleArchived(note.id, false)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -628,10 +623,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           testID="voice-note-unarchive-action"
                         >
                           <ArchiveRestore size={14} color={tokens.text.secondary} />
-                        </Pressable>
+                        </Tappable>
                       )}
-                      <Pressable
-                        style={undefined}
+                      <Tappable
                         onPress={() => void removeNote(note.id)}
                         hitSlop={6}
                         accessibilityRole="button"
@@ -639,7 +633,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         testID="voice-note-archive-delete"
                       >
                         <Trash2 size={14} color={tokens.text.secondary} />
-                      </Pressable>
+                      </Tappable>
                     </View>
                     {groupEditing === note.id && (
                       <View style={styles.groupEditor} testID="voice-note-group-editor">
@@ -652,8 +646,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           placeholderTextColor={tokens.text.tertiary}
                           testID="voice-note-group-input"
                         />
-                        <Pressable
-                          style={undefined}
+                        <Tappable
                           onPress={() => void assignGroup(note.id, groupDraft)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -661,7 +654,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           testID="voice-note-group-submit"
                         >
                           <Check size={14} color={tokens.text.secondary} />
-                        </Pressable>
+                        </Tappable>
                       </View>
                     )}
                   </View>

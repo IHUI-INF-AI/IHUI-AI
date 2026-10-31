@@ -553,7 +553,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
 
         <View style={styles.toolbar}>
           <View style={styles.toolRow}>
-            <Pressable
+            <Tappable
               onPress={() => setMode('pen')}
               style={[styles.toolBtn, mode === 'pen' && styles.toolBtnActive]}
               accessibilityRole="button"
@@ -566,8 +566,8 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>
                 画笔
               </Text>
-            </Pressable>
-            <Pressable
+            </Tappable>
+            <Tappable
               onPress={() => setMode('text')}
               style={[styles.toolBtn, mode === 'text' && styles.toolBtnActive]}
               accessibilityRole="button"
@@ -580,8 +580,8 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>
                 文字
               </Text>
-            </Pressable>
-            <Pressable
+            </Tappable>
+            <Tappable
               onPress={undo}
               disabled={opLog.length === 0}
               style={[styles.toolBtn, opLog.length === 0 && styles.toolBtnDisabled]}
@@ -590,7 +590,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             >
               <Undo2 size={16} color={tokens.text.primary} />
               <Text style={styles.toolBtnText}>撤销</Text>
-            </Pressable>
+            </Tappable>
             <Tappable
               onPress={clearAll}
               disabled={!hasContent}
@@ -630,7 +630,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             {PEN_WIDTHS.map((penWidth, i) => {
               const widthLabelKey = PEN_WIDTH_LABELS[i] ?? ''
               return (
-                <Pressable
+                <Tappable
                   key={`width-${i}`}
                   onPress={() => setWidthIndex(i)}
                   style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
@@ -648,7 +648,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                       backgroundColor: widthIndex === i ? tokens.brand.ctaForeground : color,
                     }}
                   />
-                </Pressable>
+                </Tappable>
               )
             })}
           </View>
