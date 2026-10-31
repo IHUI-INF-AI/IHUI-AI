@@ -152,7 +152,11 @@ class CodebaseIndexService {
       await db
         .delete(codebaseChunks)
         .where(
-          and(_ownerScope(ownerUuid), eq(codebaseChunks.repoId, repoId), eq(codebaseChunks.filePath, filePath)),
+          and(
+            _ownerScope(ownerUuid),
+            eq(codebaseChunks.repoId, repoId),
+            eq(codebaseChunks.filePath, filePath),
+          ),
         )
     }
 
@@ -402,7 +406,9 @@ class CodebaseIndexService {
       this.search({ query, repoId, language, topK, scoreThreshold, ownerUuid }).catch(
         () => [] as SearchResult[],
       ),
-      this.keywordSearch({ query, repoId, language, topK, ownerUuid }).catch(() => [] as SearchResult[]),
+      this.keywordSearch({ query, repoId, language, topK, ownerUuid }).catch(
+        () => [] as SearchResult[],
+      ),
     ])
 
     if (vectorResults.length === 0 && keywordResults.length === 0) return []
@@ -434,7 +440,11 @@ class CodebaseIndexService {
     const result = await db
       .delete(codebaseChunks)
       .where(
-        and(_ownerScope(ownerUuid), eq(codebaseChunks.repoId, repoId), eq(codebaseChunks.filePath, filePath)),
+        and(
+          _ownerScope(ownerUuid),
+          eq(codebaseChunks.repoId, repoId),
+          eq(codebaseChunks.filePath, filePath),
+        ),
       )
       .returning({ id: codebaseChunks.id })
     return result.length
@@ -463,7 +473,13 @@ class CodebaseIndexService {
       const batch = filePaths.slice(i, i + BATCH)
       const result = await db
         .delete(codebaseChunks)
-        .where(and(_ownerScope(ownerUuid), eq(codebaseChunks.repoId, repoId), inArray(codebaseChunks.filePath, batch)))
+        .where(
+          and(
+            _ownerScope(ownerUuid),
+            eq(codebaseChunks.repoId, repoId),
+            inArray(codebaseChunks.filePath, batch),
+          ),
+        )
         .returning({ id: codebaseChunks.id })
       deleted += result.length
     }
@@ -498,6 +514,93 @@ class CodebaseIndexService {
       totalFiles: Number(row.files) || 0,
       vectorizedChunks: Number(row.vectorized) || 0,
     }
+  }
+
+  /**
+   * 路径投影元数据清单(2026-10-31 G2 立,knowledge_fs 虚拟文件系统的数据源)。
+   *
+   * 对齐 Trae ckg 的 CfsListDir/CfsStat 最小数据面:返回切片的路径/符号元数据,
+   * 不返回 content(内容面走 readFileChunks 逐文件聚合)。归属面同 getStats:
+   * _ownerScope fail-closed,无归属返回空集而非别人的代码。
+   */
+  async listPathIndex(
+    repoId: string,
+    ownerUuid?: string | null,
+  ): Promise<
+    Array<{
+      filePath: string
+      lineStart: number
+      lineEnd: number
+      symbolName: string | null
+      symbolType: string | null
+      language: string | null
+    }>
+  > {
+    return (await db
+      .select({
+        filePath: codebaseChunks.filePath,
+        lineStart: codebaseChunks.lineStart,
+        lineEnd: codebaseChunks.lineEnd,
+        symbolName: codebaseChunks.symbolName,
+        symbolType: codebaseChunks.symbolType,
+        language: codebaseChunks.language,
+      })
+      .from(codebaseChunks)
+      .where(and(_ownerScope(ownerUuid), eq(codebaseChunks.repoId, repoId)))
+      .orderBy(codebaseChunks.filePath, codebaseChunks.lineStart)) as Array<{
+      filePath: string
+      lineStart: number
+      lineEnd: number
+      symbolName: string | null
+      symbolType: string | null
+      language: string | null
+    }>
+  }
+
+  /**
+   * 单文件切片聚合(按行号升序;2026-10-31 G2 立,供 knowledge_fs read 使用)。
+   * 与 listPathIndex 同一归属纪律。文件不存在返回空数组 —— 「空」由投影层
+   * 如实回给上层(path_missing),不在此冒充任何内容。
+   */
+  async readFileChunks(
+    repoId: string,
+    filePath: string,
+    ownerUuid?: string | null,
+  ): Promise<
+    Array<{
+      lineStart: number
+      lineEnd: number
+      content: string
+      symbolName: string | null
+      symbolType: string | null
+      language: string | null
+    }>
+  > {
+    return (await db
+      .select({
+        lineStart: codebaseChunks.lineStart,
+        lineEnd: codebaseChunks.lineEnd,
+        content: codebaseChunks.content,
+        symbolName: codebaseChunks.symbolName,
+        symbolType: codebaseChunks.symbolType,
+        language: codebaseChunks.language,
+      })
+      .from(codebaseChunks)
+      .where(
+        and(
+          _ownerScope(ownerUuid),
+          eq(codebaseChunks.repoId, repoId),
+          eq(codebaseChunks.filePath, filePath),
+        ),
+      )
+      .orderBy(codebaseChunks.lineStart)) as Array<{
+      lineStart: number
+      lineEnd: number
+      content: string
+      symbolName: string | null
+      symbolType: string | null
+      language: string | null
+    }>
   }
 
   /**
