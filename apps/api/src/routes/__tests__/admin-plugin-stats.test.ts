@@ -31,12 +31,13 @@ const { setAdmin, setAdminUser, getAdmin } = vi.hoisted(() => {
 })
 
 vi.mock('../../plugins/require-permission.js', () => ({
-  requireAdmin: vi.fn(async (request: any, reply: any) => {
+  requireAdmin: vi.fn(async (_request: any, reply: any) => {
     const admin = getAdmin()
     if (!admin) {
       return reply.status(403).send({ code: 403, message: 'Admin required', data: null })
     }
-    request.user = admin
+    // 生产 requireAdmin 只按 jwtPayload/internalUserRoleId 判权,从不写 request.user
+    // (守门 242 W3:夹具不得给生产从不填充的字段赋值)——鉴权通过即放行,不留假主体。
   }),
 }))
 
@@ -77,10 +78,14 @@ describe('Admin Plugin Stats API', () => {
   // ─────────────────────────────────────────────────────────
   // 鉴权
   // ─────────────────────────────────────────────────────────
-  it('非 admin → 403', async () => {
+  it('非 admin → 403,且查询层零副作用(正向对照:下方 200 用例断言 mockSummary 被调用)', async () => {
     setAdmin(false)
     const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/summary' })
     expect(res.statusCode).toBe(403)
+    // 越权必须"没发生",不是"发生了但被隐藏":403 时不得触达任何统计查询
+    expect(mockSummary).not.toHaveBeenCalled()
+    expect(mockTop).not.toHaveBeenCalled()
+    expect(mockTrend).not.toHaveBeenCalled()
   })
 
   // ─────────────────────────────────────────────────────────
