@@ -47,6 +47,9 @@ const { store, normalizeFolderPath } = vi.hoisted(() => {
 });
 
 vi.mock('../src/hooks/trust.js', () => ({
+  // 实现侧 trust.ts:114 用 configPath: TRUSTED_FOLDERS_PATH 报状态;mock 不导出它会让 4 例
+  // 在 vi.mock 工厂里直接抛「No export defined」(0e3ad01c29 起)。本测试不断言其值,给稳定假值即可。
+  TRUSTED_FOLDERS_PATH: '/tmp/ihui-test-trusted-folders',
   normalizeFolderPath,
   isFolderTrusted: (p: string) => store.folders.includes(normalizeFolderPath(p)),
   trustFolder: (p: string) => {
