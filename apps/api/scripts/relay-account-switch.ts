@@ -478,6 +478,37 @@ export function fmtTarget(t: SwitchTarget): string {
   return `${t.name}  ${t.nickname ?? '(无昵称)'}${phone}  domain=${t.domain ?? '?'}  令牌过期=${exp}${t.expired ? '(已过期)' : ''}  形态=${t.tokenShape}  sha=${t.sha12}${flag}`
 }
 
+/** 去重展示的一行:代表快照 + 被折叠的同账号更旧快照份数 */
+export interface DedupedDisplayRow {
+  target: SwitchTarget
+  /** 同账号(同 accountId)被折叠的更旧快照份数 */
+  hiddenOlder: number
+}
+
+/**
+ * 展示层按账号去重:同一 accountId 只保留最新一份(入参新→旧,首见即组内最新),
+ * 其余折叠报数 —— 快照库是"每次切换前自动备份"的产物,同一账号切一次多一份,
+ * 按时间全量平铺会把可选账号清单淹没成满屏同号重复(2026-10-31 机主反馈)。
+ * 无 accountId 的快照按 sha12 独立成组,绝不并入他人(宁多显示一份,不冒并账号)。
+ * 只影响展示;planSwitch 仍按全量快照名寻址,旧快照照常可切。
+ */
+export function dedupeTargetsForDisplay(targets: SwitchTarget[]): DedupedDisplayRow[] {
+  const byKey = new Map<string, DedupedDisplayRow>()
+  for (const t of targets) {
+    const key = t.accountId ? `uid:${t.accountId}` : `noid:${t.sha12}`
+    const row = byKey.get(key)
+    if (row) row.hiddenOlder += 1
+    else byKey.set(key, { target: t, hiddenOlder: 0 })
+  }
+  return [...byKey.values()]
+}
+
+/** fmtTarget + 同账号折叠附注(去重展示统一出口) */
+export function fmtTargetDeduped(row: DedupedDisplayRow): string {
+  const suffix = row.hiddenOlder > 0 ? ` (另有 ${row.hiddenOlder} 份同账号旧快照已折叠)` : ''
+  return fmtTarget(row.target) + suffix
+}
+
 /** 同步从 stdin 读一行(仅 TTY 有效;非 TTY 返回空串,绝不阻塞) */
 function readLineSync(promptText: string): string {
   if (!process.stdin.isTTY) return ''
@@ -539,12 +570,16 @@ const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(
  */
 export function listPidsByImage(imageName: string): number[] {
   try {
-    const out = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${imageName}`, '/FO', 'CSV', '/NH'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-      timeout: 15_000,
-    })
+    const out = execFileSync(
+      'tasklist',
+      ['/FI', `IMAGENAME eq ${imageName}`, '/FO', 'CSV', '/NH'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+        timeout: 15_000,
+      },
+    )
     return parseTasklistCsvPids(out)
   } catch {
     return []
@@ -790,8 +825,12 @@ export function main(
       lines.push(`当前 auth 文件: ${paths.authFile}`)
       if (current) lines.push(fmtTarget(current))
       else lines.push('(当前文件不存在或不可解析)')
-      lines.push(`快照库: ${paths.backupsDir}(${targets.length} 份,新→旧)`)
-      for (const t of targets) lines.push(fmtTarget(t))
+      const rows = dedupeTargetsForDisplay(targets)
+      const hiddenTotal = targets.length - rows.length
+      lines.push(`快照库: ${paths.backupsDir}(${targets.length} 份 / ${rows.length} 个账号,新→旧)`)
+      for (const row of rows) lines.push(fmtTargetDeduped(row))
+      if (hiddenTotal > 0)
+        lines.push(`(已按账号折叠 ${hiddenTotal} 份旧快照;重复堆积可跑 relay:snapshot-prune 清理)`)
       lines.push('切换: relay:switch-account --to <快照名> [--apply](不带 --apply 只出计划)')
       console.log(lines.join('\n'))
       return 0
@@ -801,17 +840,21 @@ export function main(
       return 2
     }
     if (process.stdin.isTTY) {
-      console.log(`可切换账号(${targets.length}):`)
-      targets.forEach((t, i) => console.log(`  [${i + 1}] ${fmtTarget(t)}`))
+      const rows = dedupeTargetsForDisplay(targets)
+      console.log(
+        `可切换账号(${rows.length},已折叠 ${targets.length - rows.length} 份同账号旧快照):`,
+      )
+      rows.forEach((row, i) => console.log(`  [${i + 1}] ${fmtTargetDeduped(row)}`))
       const ans = readLineSync('输入序号或快照名切到: ').trim()
       if (!ans) {
         console.error('未选择,已取消')
         return 2
       }
       const byNum = Number(ans)
-      if (Number.isInteger(byNum) && byNum >= 1 && byNum <= targets.length) {
-        targetName = targets[byNum - 1]?.name
+      if (Number.isInteger(byNum) && byNum >= 1 && byNum <= rows.length) {
+        targetName = rows[byNum - 1]?.target.name
       } else {
+        // 按名寻址仍走全量快照:被折叠的旧快照是合法目标,输入全名照常可切
         const hit = targets.find((t) => t.name === ans)
         if (!hit) {
           console.error(`未匹配到快照: ${ans}`)
@@ -820,9 +863,12 @@ export function main(
         targetName = hit.name
       }
     } else {
+      const rows = dedupeTargetsForDisplay(targets)
       console.log('一键模式需指定目标: relay:switch-account --one-click --to <快照名> --apply')
-      console.log(`或在本机终端运行以交互选择。当前快照库(${targets.length} 份):`)
-      for (const t of targets) console.log(fmtTarget(t))
+      console.log(
+        `或在本机终端运行以交互选择。当前快照库(${targets.length} 份 / ${rows.length} 个账号):`,
+      )
+      for (const row of rows) console.log(fmtTargetDeduped(row))
       return 2
     }
   } else {
