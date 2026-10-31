@@ -38,6 +38,7 @@ import type {
   ThirdPartyLoginOption,
   ThirdPartyPlatform,
 } from '@ihui/types'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 登录共享屏 — RN 端 4-tab 完整版(2026-07-30 重做)。
@@ -745,7 +746,7 @@ function PhoneTabContent({
           <View>
             <View style={[styles.phoneRow, phoneFocused && styles.phoneRowFocused]}>
               <Pressable
-                style={styles.areaBox}
+                style={pressFeedback(styles.areaBox)}
                 onPress={onToggleNationShow}
                 accessibilityRole="button"
                 accessibilityLabel={t('auth.selectAreaCode')}
@@ -775,7 +776,7 @@ function PhoneTabContent({
                   return (
                     <Pressable
                       key={n.id}
-                      style={[styles.nationItem, active && styles.nationItemActive]}
+                      style={pressFeedback([styles.nationItem, active && styles.nationItemActive])}
                       onPress={() => onSelectNation?.(n)}
                       accessibilityRole="button"
                       accessibilityLabel={`${n.title} ${n.content}`}

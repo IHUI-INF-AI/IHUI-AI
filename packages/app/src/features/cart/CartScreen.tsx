@@ -111,7 +111,10 @@ export function CartScreen({
         <Text style={styles.price}>¥{item.price.toFixed(2)}</Text>
         <View style={styles.qtyRow}>
           <Pressable
-            style={[styles.qtyBtn, item.quantity <= 1 ? styles.qtyBtnDisabled : null]}
+            style={pressFeedback([
+              styles.qtyBtn,
+              item.quantity <= 1 ? styles.qtyBtnDisabled : null,
+            ])}
             disabled={item.quantity <= 1}
             onPress={() => onQuantityChange(item.id, -1)}
             accessibilityRole="button"
@@ -188,7 +191,10 @@ export function CartScreen({
             <Text style={styles.totalPrice}>¥{totalPrice.toFixed(2)}</Text>
           </View>
           <Pressable
-            style={[styles.checkoutBtn, totalCount === 0 ? styles.checkoutBtnDisabled : null]}
+            style={pressFeedback([
+              styles.checkoutBtn,
+              totalCount === 0 ? styles.checkoutBtnDisabled : null,
+            ])}
             onPress={onCheckout}
             accessibilityRole="button"
             accessibilityLabel={t('cart.checkout')}

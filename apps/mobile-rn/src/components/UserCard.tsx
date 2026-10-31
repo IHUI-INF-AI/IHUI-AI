@@ -13,6 +13,7 @@ import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
 
@@ -73,7 +74,7 @@ export function UserCard({ t, isLoggedIn, onPress }: UserCardProps) {
       {CARDS.map(({ key, labelKey, subtitleKey, Icon }) => (
         <Pressable
           key={key}
-          style={styles.card}
+          style={pressFeedback(styles.card)}
           onPress={() => handlePress(key)}
           android_ripple={{ color: tokens.border.light }}
         >

@@ -37,6 +37,7 @@ import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -205,7 +206,7 @@ export default function AgentCategoriesScreen() {
         onRequestClose={() => setPanel(null)}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={() => setPanel(null)} />
+          <Pressable style={pressFeedback(styles.mask)} onPress={() => setPanel(null)} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>

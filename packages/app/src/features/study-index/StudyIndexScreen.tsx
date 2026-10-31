@@ -38,6 +38,7 @@ import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 export type { StudyTrackCategory, StudyVideoItem }
 
 /** 赛道分类 */
@@ -162,7 +163,7 @@ export function StudyIndexScreen({
             </Animated.View>
           </View>
           <Pressable
-            style={styles.tipMyModel}
+            style={pressFeedback(styles.tipMyModel)}
             onPress={onPressMyModel}
             accessibilityRole="button"
             accessibilityLabel="我的合集"
