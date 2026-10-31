@@ -163,6 +163,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         request.state.user_id = user_id
         request.state.role_id = role_id
         request.state.jwt_payload = payload
+        # 安全强化(2026-11-01):客户端可整写的 x-user-id 一律覆写成本次已验签主体。
+        # 判据出口只有这一份;读明文头的那三族 v1 路由走 resolve_inbound_actor,两者
+        # 失效方向相同(拿不到已验证主体 ⇒ 401,绝不放行成"调用者自称的那个人")。
+        _bind_inbound_user_header(request, user_id)
 
         return await call_next(request)
 
@@ -187,6 +191,34 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         except jwt.InvalidTokenError as e:
             logger.debug("JWT invalid: %s", e)
             return None
+
+
+def _bind_inbound_user_header(request: Request, user_id: str | None) -> None:
+    """把客户端自带的 `x-user-id` 请求头**覆写**为本次已验签主体(仅在头存在时)。
+
+    为什么在中间件做而不是只改路由:明文身份头是"客户端可整写字段",AGENTS §5 已禁
+    它承载身份;但仓内已有三族 v1 路由以 `Header(alias="X-User-Id")` 形状读它,逐个改
+    完仍挡不住下一族新写的端点重犯。这里在唯一的验签出口把值钉成已验证主体,读明文头
+    的历史代码拿到的就是同一个人 —— 覆写不新增头(给没有该头的请求造一枚"身份"是另一种
+    放开)。判据与 `app/core/inbound_identity.py` 同一方向:拿不到主体就不动。
+    """
+    if not user_id:
+        return
+    raw_headers = request.scope.get("headers")
+    if not isinstance(raw_headers, list):
+        return
+    try:
+        encoded = str(user_id).encode("latin-1")
+    except (UnicodeError, ValueError):
+        return
+    for index, item in enumerate(raw_headers):
+        try:
+            name_bytes, _value_bytes = item
+            name = name_bytes.decode("latin-1").lower()
+        except (AttributeError, UnicodeError, ValueError):
+            continue
+        if name == "x-user-id":
+            raw_headers[index] = (b"x-user-id", encoded)
 
 
 async def get_current_user_id(request: Request) -> str:
