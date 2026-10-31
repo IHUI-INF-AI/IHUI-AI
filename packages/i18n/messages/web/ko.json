@@ -20208,6 +20208,18 @@
   },
   "checkin": {
     "taskPanelTitle": "작업 자동 실행",
+    "taskPanelAutoTitle": "자동 순회",
+    "taskPanelAutoLoading": "불러오는 중…",
+    "taskPanelAutoUnknown": "상태 알 수 없음(서버가 순회 상태를 반환하지 않았습니다. 백엔드 버전을 확인하세요)",
+    "taskPanelAutoOn": "사용 중 · {minutes}분마다 자동 순회",
+    "taskPanelAutoNext": "다음 {time}",
+    "taskPanelAutoDry": "사용 중이지만 연습 모드(읽기 전용): 실제 수령은 하지 않습니다. 서버에서 WORKBUDDY_TASKS_LIVE_RUN=true 로 설정해야 기록합니다.",
+    "taskPanelAutoCronBlocked": "실행 안 됨: 작업 스위치는 켜져 있지만 총 스위치 CHECKIN_CRON_ENABLED 가 꺼져 있습니다.",
+    "taskPanelAutoOff": "사용 안 함: 수동 실행만 가능. 서버에서 WORKBUDDY_TASKS_ENABLED=true 로 설정하고 재시작하면 적용됩니다.",
+    "taskPanelAutoPaths": "보고/수령 경로 미설정: 보고만 하고 수령은 하지 않습니다.",
+    "taskPanelAutoLast": "마지막 순회 {time}",
+    "taskPanelAutoLastStats": "{families}개 패밀리 · 수락 {accepted} · 수령 {claimed}",
+    "taskPanelAutoLastNever": "이 프로세스에서는 아직 순회 없음",
     "taskPanelDesc": "WorkBuddy 작업 센터를 한 번에 순회: 작업 수락, 달성 보상 수령, 연속 로그인 교환, 추첨, 고양이 여행, 야행성 채팅.",
     "taskPanelPick": "계정",
     "taskPanelList": "작업 불러오기",
@@ -26314,7 +26326,6 @@
     "invitedCount": "초대 인원",
     "rules": "커미션 규칙",
     "rateTitle": "커미션 비율",
-    "rateEmpty": "수수료 비율이 없습니다",
     "openVip": "VIP 회원을 열어 커미션 플랜에 참여하세요"
   },
   "examQuestion": {
