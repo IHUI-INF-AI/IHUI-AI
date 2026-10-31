@@ -15,7 +15,7 @@
 
 import type { WebSocket } from '@fastify/websocket'
 import { desc, eq, sql } from 'drizzle-orm'
-import { liveComment, type LiveComment } from '@ihui/database'
+import { liveComment, users, type LiveComment } from '@ihui/database'
 import { db } from '../db/index.js'
 import { WsRateLimiter } from '../plugins/ws-helpers.js'
 // ihui_live_danmaku_total:chat-server 不持有 fastify 实例,走模块级桥接函数打点
@@ -36,7 +36,9 @@ const MESSAGE_RATE_WINDOW_MS = 60_000
 // 恶意 HTML,在他人浏览器端执行。落库/广播前对 HTML 特殊字符转义(`&` 必须最先转义,
 // 否则 `&lt;` 中的 `&` 会被二次编码),前端以 innerHTML 渲染时显示原文、不执行脚本。
 // 注意:仅转义 HTML 特殊字符,不删除/改写正常文本。
-function escapeHtml(s: string): string {
+// 2026-10-31 安全强化第 19 批(F2)导出:REST 弹幕腿(mobile-chat-routes)与
+// WS 腿共用同一实现,消除"WS 转义 / REST 原文"的双标存储型 XSS 口子。
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -224,15 +226,18 @@ export class LiveChatServer {
       }
       // P2 修复(2026-08-06):落库前对 content/userName/userAvatar 做 HTML 转义,
       // 广播与历史读取均从 DB 取转义后值,杜绝 XSS 注入。
+      // 2026-10-31 安全强化第 19 批(F3):展示身份改服务端取材 —— 此前 userName/
+      // userAvatar 完全采信客户端消息外壳,可冒充任意昵称(含管理员腔)在房间内
+      // 发言;userId 才是真身,展示名与 REST 腿(mobile-chat-routes nicknameOf)
+      // 同口径从 users 表取,客户端字段弃用。
       const safeContent = escapeHtml(content)
-      const safeUserName =
-        msg.userName !== undefined && msg.userName !== null
-          ? escapeHtml(String(msg.userName))
-          : null
-      const safeUserAvatar =
-        msg.userAvatar !== undefined && msg.userAvatar !== null
-          ? escapeHtml(String(msg.userAvatar))
-          : null
+      const [profile] = await db
+        .select({ nickname: users.nickname, avatar: users.avatar })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+      const safeUserName = profile?.nickname ? escapeHtml(profile.nickname) : null
+      const safeUserAvatar = profile?.avatar ? escapeHtml(profile.avatar) : null
       const [row] = await db
         .insert(liveComment)
         .values({

@@ -51,6 +51,7 @@ import {
 import { getRnTokens, rnRadiusFor } from '@ihui/design-tokens'
 import { useWrapFocus } from '../hooks/use-wrap-focus'
 import { Search, Mic, Keyboard, X } from 'lucide-react-native'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface SearchInputProps {
   value: string
@@ -221,7 +222,7 @@ export function SearchInput({
 
       {showClear ? (
         <Pressable
-          style={[styles.clearButton, { backgroundColor: tokens.text.tertiary }]}
+          style={pressFeedback([styles.clearButton, { backgroundColor: tokens.text.tertiary }])}
           onPress={handleClear}
           hitSlop={CLEAR_BUTTON_HIT_SLOP}
           accessibilityLabel="清除"
@@ -232,7 +233,7 @@ export function SearchInput({
 
       {voiceEnabled ? (
         <Pressable
-          style={styles.voiceToggleButton}
+          style={pressFeedback(styles.voiceToggleButton)}
           onPress={handleToggleVoiceMode}
           hitSlop={VOICE_TOGGLE_HIT_SLOP}
           accessibilityRole="button"

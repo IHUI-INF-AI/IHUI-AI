@@ -247,14 +247,24 @@ test('T1 门判定的受管集恰为生成器导出的那几族(副本全空 ⇒
     '@theme 面缺档清单与 deriveThemeRegistryDecls 不同形(注册区整族缺失必须被看见 —— 前两维全绿而到端 CSS 为零就是本面立项的起因)'
   )
   assert.ok(want[':root'].length > 150, `受管档总数异常偏小(${want[':root'].length})`)
-  // 注册集 = light 受管集 **剔掉 -rgb**:两侧同表的两面条结论(数量不写死,按当次实测算)
+  // 注册集 = light 受管集 **剔掉 -rgb** ∪ 非色档三族(spacing/text/shadow-elevation,2026-10-31 起)
   const rgbInLight = want[':root'].filter((d) => gen.isAlphaRgbTriple(d.name))
   assert.ok(rgbInLight.length > 0, 'tokens.css 里若一把 -rgb 都没有,A6/A4 那组判据就成了空转')
+  const semantic = gen.deriveThemeSemanticDecls(TOKENS)
+  assert.ok(semantic.length > 40, `非色档注册集异常偏小(${semantic.length})—— 档表若被摘空,下面那条等式会退化成空转`)
   assert.equal(
-    want[':root'].length - wantTheme.length,
-    rgbInLight.length,
-    '注册集与 light 受管集的差集必须恰等于 -rgb 那批(不得多剔也不得少剔)'
+    wantTheme.length,
+    want[':root'].length - rgbInLight.length + semantic.length,
+    '注册集必须恰等于「light 色档剔 -rgb」∪ 非色档三族(不得多写也不得少写)'
   )
+  for (const d of semantic) {
+    assert.match(
+      d.name,
+      /^--(?:spacing|text|shadow-elevation)-/,
+      `非色档注册只许来自三族(v4 认它们生成 tool class),混入别族会长出脏档:${d.name}`
+    )
+    assert.notEqual(d.name, '--text-vcenter-offset', 'web 专用补偿不得进注册区(会生成 .text-vcenter-offset 脏档)')
+  }
 })
 
 // ─── T2 反恒红:派生态必须绿,而真仓现状的红**只允许**来自尚未落地的注册面 ───
@@ -596,10 +606,13 @@ test('T9e 取不到输入 / 受管集为空 / 两个面旗同给 ⇒ exit 2「�
   const dirs = {
     // 副本整份不在(HEAD 里就没有这个路径)
     noCopy: buildGateFixture({ tokensCss: SYNCED.tokensCss, appCss: null }),
-    // 受管集为空:不是"没有可判的档 ⇒ 通过",而是判据没吃到输入
+    // 受管集为空:不是"没有可判的档 ⇒ 通过",而是判据没吃到输入。
+    // 夹具键必须**结构性非受管**:`--font-*` 命中 MINIAPP_SKIP_PREFIXES 且不属于
+    // 2026-10-31 起进 @theme 的三族(--spacing/--text/--shadow-elevation)——
+    // 早先这里用 `--spacing-1`,口径扩面后它已变成受管非色档,夹具前提当场失效。
     noManaged: buildGateFixture({
-      tokensCss: '@theme {\n  --spacing-1: 4px;\n}\n',
-      appCss: ':root {\n  --spacing-1: 4px;\n}\n',
+      tokensCss: '@theme {\n  --font-probe: 4px;\n}\n',
+      appCss: ':root {\n  --font-probe: 4px;\n}\n',
     }),
     // 非 git 目录 + 盘上内容**完全正确** ⇒ 默认档也不得回落磁盘冒绿(这正是收口前的行为)
     noGit: buildGateFixture({ ...SYNCED, git: false }),
@@ -936,10 +949,17 @@ test('T21 注册区的写回侧与判定侧各自的装车点必须在位', () =
   // 标记只有一份,且派生态里恰好一块
   assert.equal(genSrc.includes("export const THEME_REGION_MARK = '/* ===== v4 色档注册(自动同步自'"), true)
   assert.equal(gen.topLevelRanges(GENERATED, '@theme').length, 1, '派生态里注册块必须恰好一个')
-  // buildAppCssMaps 的 theme 集 == deriveMiniappManaged(light) 剔 -rgb(两侧同表的直接对账)
+  // buildAppCssMaps 的 theme 集 == deriveThemeRegistryDecls(写回面与派生出口同一份)
+  // 直接对账出口本身,不在测试里重算"色档剔 -rgb ∪ 非色档"——重算就是第二份判据(§22c)。
   const maps = gen.buildAppCssMaps(TOKENS)
-  const expect = gen.deriveMiniappManaged(TOKENS, 'light').filter((d) => !gen.isAlphaRgbTriple(d.name))
+  const expect = gen.deriveThemeRegistryDecls(TOKENS)
   assert.deepEqual([...maps.theme.keys()], expect.map((d) => d.name))
   assert.deepEqual([...maps.theme.values()], expect.map((d) => d.value))
+  // 阳性对照:剔 -rgb 这件事仍必须发生(v4 把任何 --color-* 当色档)
+  assert.equal(
+    [...maps.theme.keys()].some((n) => gen.isAlphaRgbTriple(n)),
+    false,
+    '注册集混进 alpha 三元组 ⇒ v4 会长出 .bg-muted-rgb 这类脏档'
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

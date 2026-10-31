@@ -26,10 +26,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as entry } from '../run-ai-service-tests.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -303,8 +304,19 @@ test('⑤ 摘掉 0-用例分支 ⇒ ① 的结论消失;生产文件逐字节未
   const fixture = mkFixture({ 'test_empty_surface.py': SRC_ZERO })
   try {
     const mutant = join(mutantDir, 'mutant.mjs')
-    const mutated = SRC_BEFORE.replace(anchor, 'if (false) {')
+    // 变异体落在 scratch 里,而生产源码 import 了 `./lib/scratch-dir.mjs`(2026-10-31 取尾
+    // 根治那一枚)⇒ 相对路径在复制面上解析不到,node 会以 ERR_MODULE_NOT_FOUND 退出 1。
+    // 那个 1 会被下面这条自证读成"业务结论仍 rc=1",等于让自证自己被骗过去(实测撞到)。
+    // 正解 = 把变异体的这条 import 换成绝对 file URL:只动模块落点解析,判据本体一字未改。
+    const mutated = SRC_BEFORE.replace(anchor, 'if (false) {').replace(
+      "from './lib/scratch-dir.mjs'",
+      `from '${pathToFileURL(join(REPO, 'scripts', 'lib', 'scratch-dir.mjs')).href}'`
+    )
     assert.notEqual(mutated, SRC_BEFORE, '变异没生效 ⇒ 这条自证是假的')
+    assert.ok(
+      !mutated.includes("from './lib/scratch-dir.mjs'"),
+      '变异体不得留相对 import:复制出 scripts/ 那一层后它必然加载失败,rc 不再是业务结论'
+    )
     writeFileSync(mutant, mutated)
 
     const base = runCli(['--app-dir=' + fixture, '--python=' + PY, '--collect-only'])
@@ -349,5 +361,69 @@ test('生产入口自己也不许出现静默兜底形态', () => {
     .join('\n')
   assert.ok(!code.includes('|' + '| true'))
   assert.ok(!code.includes('--passWithNo' + 'Tests'))
+})
+
+// ── 2026-10-31 追加:输出落盘 + 取尾(ENOBUFS 那一档的根治)─────────────────────
+// 立因(现读):collect 档 19204 条通过,run 档把 64 MB 的 maxBuffer 撑成 ENOBUFS ⇒
+// 整台跑测器长期只能读成「未判定」。这不是用例红,是量它的工具撑不住。
+test('readTail:窗口装得下时不截断,全文原样', () => {
+  const dir = mkScratch('tail-')
+  try {
+    const p = join(dir, 'small.log')
+    writeFileSync(p, 'x'.repeat(10) + '\n= 123 passed in 1.00s =\n', 'utf8')
+    const r = entry.readTail(p, 4096)
+    assert.equal(r.truncatedBytes, 0)
+    assert.match(r.text, /123 passed in/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('readTail:大输出按尾部切,截断量如实点名且总结行仍在窗口内', () => {
+  const dir = mkScratch('tail-')
+  try {
+    const p = join(dir, 'big.log')
+    const head = 'H'.repeat(50 * 1024)
+    const tail = '\n= 19204 passed in 300.00s =\n'
+    writeFileSync(p, head + tail, 'utf8')
+    const r = entry.readTail(p, 4 * 1024)
+    assert.equal(r.totalBytes, head.length + tail.length)
+    assert.ok(r.truncatedBytes > 46 * 1024, `截断量没点名: ${r.truncatedBytes}`)
+    const parsed = entry.parsePytestSummary({ stdout: r.text, stderr: '' })
+    assert.ok(parsed.parsed, '尾部窗口必须读到总结行,否则取尾等于失去判定力')
+    assert.equal(parsed.passed, 19204)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('形状锁:派生不得再把输出读进内存缓冲(回退即 ENOBUFS ⇒ 未判定)', () => {
+  // 判的是**代码面**:头注里"原先那条有界 maxBuffer 被证伪"是说明,不是实现(门 12 那条
+  // "已闭环 vs 未实现"的分界同型)⇒ 先剥注释再搜,否则这条锁会把写来解释病因的话判成违规。
+  const code = maskComments(readFileSync(CLI, 'utf8'))
+  assert.ok(!/maxBuffer/.test(code), '代码面出现 maxBuffer ⇒ 回到"输出总量撑爆缓冲"那一档')
+  assert.ok(
+    /stdio: \['ignore', outFd, errFd\]/.test(code),
+    '两流必须各落一份文件:并成一再截尾,会把先写入那一路的成因整段挤出窗口',
+  )
+  assert.ok(/tailBytes: TAIL_BYTES/.test(code), '取尾上限须由常量单源提供,不散写魔数')
+})
+
+test('变异自证:窗口小于总结行 ⇒ 落「未判定」exit 2,绝不冒绿', () => {
+  const dir = mkScratch('tail-')
+  try {
+    const p = join(dir, 'tiny.log')
+    writeFileSync(p, 'no summary line here at all, just noise '.repeat(40), 'utf8')
+    const r = entry.readTail(p, 8)
+    const v = entry.judgeTier({
+      tier: 'run',
+      rc: 1,
+      ...entry.parsePytestSummary({ stdout: r.text, stderr: '' }),
+    })
+    assert.equal(v.state, 'undetermined')
+    assert.equal(v.exitCode, 2)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

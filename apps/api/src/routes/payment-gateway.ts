@@ -61,7 +61,7 @@ import {
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { db } from '../db/index.js'
-import { zhsCourseVideo, vipLevels, developerPricing } from '@ihui/database'
+import { zhsCourseVideo, vipLevels, developerPricing, plans } from '@ihui/database'
 import { eq, sql, and } from 'drizzle-orm'
 import { calculateTopupBonus } from '../services/topup-discount-service.js'
 import { getWechatMiniOpenId } from '../services/wechat-subscribe-message.js'
@@ -92,7 +92,7 @@ const MAX_PAYMENT_AMOUNT_CENTS = 100_000_000
  *
  * @returns DB 反查金额(分);null 表示无商品可反查,调用方使用客户端金额。
  */
-async function resolveProductAmountCents(
+export async function resolveProductAmountCents(
   orderType: number,
   productId: string | undefined,
   clientAmountCents: number,
@@ -136,6 +136,29 @@ async function resolveProductAmountCents(
       )
     }
     return dbAmountCents
+  }
+  // 2026-10-31 安全强化第 19 批(F1 高危):API 订阅(orderType=6)此前直接落
+  // 客户端金额 —— 任意登录用户可下 0.01 元订单,回调验签通过后按 planId 激活
+  // 整档 token 配额(activateApiSubscription 只查 plan 行不比对实付金额)。
+  // 与 VIP/Developer 同口径按 plans 表反查覆盖(isForSale=false 一并拒,防下架
+  // 套餐被低价扫尾)。
+  if (orderType === 6) {
+    const [row] = await db
+      .select({ price: plans.price, isActive: plans.isActive, isForSale: plans.isForSale })
+      .from(plans)
+      .where(and(eq(plans.id, productId), eq(plans.isActive, true), eq(plans.isForSale, true)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, productId, userId }, 'API 订阅套餐不存在或已下架,使用客户端金额')
+      return null
+    }
+    if (row.price !== clientAmountCents) {
+      log.error(
+        { orderType, productId, clientAmountCents, dbAmountCents: row.price, userId },
+        'API 订阅金额不一致,采用 DB 金额',
+      )
+    }
+    return row.price
   }
   return null
 }
@@ -1890,7 +1913,17 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 2FA step-up 闸：已开 2FA 的账号，提现前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
       const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
       if (!stepUp.ok) {
-        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              stepUp.code === 'STEP_UP_REQUIRED'
+                ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+                : '暂时无法确认该账号的两步验证状态，请稍后重试',
+              stepUp.code,
+            ),
+          )
       }
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
@@ -1938,7 +1971,17 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 2FA step-up 闸：已开 2FA 的账号，提现前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
       const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
       if (!stepUp.ok) {
-        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              stepUp.code === 'STEP_UP_REQUIRED'
+                ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+                : '暂时无法确认该账号的两步验证状态，请稍后重试',
+              stepUp.code,
+            ),
+          )
       }
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
