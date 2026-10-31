@@ -15,6 +15,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
+import { authenticate } from '../plugins/auth.js'
 import { bulkUpdateKeys } from '../services/developer-api-keys-service.js'
 import { db, dbRead } from '../db/index.js'
 import { developerApiKeys, keyRateWindowCounts } from '@ihui/database'
@@ -41,6 +42,20 @@ const bulkPatchSchema = z
   .refine((d) => d.ids.length > 0, { message: 'ids 必填' })
 
 const developerRelayKeysAdminRoutes: FastifyPluginAsync = async (server) => {
+  // 2026-10-31 安全强化第 12 批:插件级挂 authenticate —— 此前两端点读 request.userId
+  // 却无任何注入源(auth-default-deny observe 档不拦),对所有调用者恒 401(fail-closed
+  // 功能坏死型);一旦未来某个"尽力而为"的全局中间件开始匿名解析身份,这里就会从
+  // fail-closed 翻成 fail-open。挂上后与 other/ barrel 同形态:未登录 401,登录后
+  // 归属闸(bulkUpdateKeys 只动自己的 Key)保持不变。
+  server.addHook('preHandler', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      return reply.status(statusCode).send({ code: statusCode, message: '操作失败,请稍后重试' })
+    }
+  })
+
   // 1. 批量编辑(归属内 Key,越权 id 自动落空)
   server.post('/developer/relay/keys/bulk', async (request, reply) => {
     const userId = request.userId

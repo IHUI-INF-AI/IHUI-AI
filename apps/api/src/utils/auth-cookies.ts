@@ -16,6 +16,7 @@
  * 仅 cookie 的写入方从「前端 JS」变为「后端 Set-Cookie」。
  */
 import type { FastifyReply } from 'fastify'
+import { config } from '../config/index.js'
 import { SESSION_HINT_COOKIE_NAME } from '@ihui/shared/auth/auto-login-policy'
 
 const AUTH_TOKEN_COOKIE = 'auth_token'
@@ -30,6 +31,13 @@ export interface AuthCookiesPayload {
 }
 
 function isSecure(request: FastifyReply['request']): boolean {
+  // 2026-10-31 安全强化第 12 批:fail-safe —— request.protocol 只在 trustProxy 命中
+  // TRUSTED_PROXIES 时才采信 X-Forwarded-Proto,生产在反代后漏配该 env 时 protocol
+  // 恒 http ⇒ 30 天 refresh cookie 以无 Secure 下发,SSL 剥离场景可被中间人窃取。
+  // 现生产档(非 development)一律 secure(csrf.ts:296 同口径;浏览器对
+  // localhost/127.0.0.1 的 secure cookie 有豁免,本地 http 调试不受影响),
+  // 开发档维持按协议判。
+  if (!(config.isDevelopmentRuntime ?? config.NODE_ENV === 'development')) return true
   return request.protocol === 'https'
 }
 
