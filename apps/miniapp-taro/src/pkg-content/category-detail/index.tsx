@@ -86,7 +86,7 @@ export default function CategoryDetailPage() {
             hoverClass="opacity-60"
             onClick={toggleSort}
           >
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {sort === 'hot' ? t('categoryDetail.hot') : t('categoryDetail.new')}
             </Text>
           </View>
@@ -121,7 +121,7 @@ export default function CategoryDetailPage() {
                   <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
                     {agent.name}
                   </Text>
-                  <Text className="block text-[length:28rpx] text-muted-foreground truncate mt-[16rpx]">
+                  <Text className="block text-body text-muted-foreground truncate mt-[16rpx]">
                     {agent.description || t('categoryDetail.noDesc')}
                   </Text>
                   {agent.tags && agent.tags.length > 0 && (
@@ -138,7 +138,7 @@ export default function CategoryDetailPage() {
                   )}
                 </View>
                 {agent.useCount !== undefined && (
-                  <Text className="text-[length:28rpx] text-muted-foreground">
+                  <Text className="text-body text-muted-foreground">
                     {t('categoryDetail.useCount', { n: agent.useCount })}
                   </Text>
                 )}

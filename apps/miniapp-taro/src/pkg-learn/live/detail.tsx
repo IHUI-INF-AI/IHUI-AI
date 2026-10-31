@@ -127,7 +127,7 @@ export default function LiveDetail() {
                     : 'bg-[var(--color-text-tertiary)]'
               }`}
             >
-              <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">
+              <Text className="text-caption text-[var(--color-primary-foreground)]">
                 {live.status === 'living'
                   ? t('liveDetail.ongoing')
                   : live.status === 'upcoming'
@@ -137,14 +137,14 @@ export default function LiveDetail() {
             </View>
             {live.anchor && (
               <View className="px-[16rpx] py-[4rpx] ui-chip rounded-md bg-[var(--color-card)]">
-                <Text className="text-[length:22rpx] text-muted-foreground">
+                <Text className="text-caption text-muted-foreground">
                   {t('liveDetail.lecturer')}:{live.anchor}
                 </Text>
               </View>
             )}
             {live.watchCount !== undefined ? (
               <View className="px-[16rpx] py-[4rpx] ui-chip rounded-md bg-[var(--color-card)]">
-                <Text className="text-[length:22rpx] text-muted-foreground">
+                <Text className="text-caption text-muted-foreground">
                   {t('liveDetail.viewerCount', { count: live.watchCount })}
                 </Text>
               </View>
@@ -178,18 +178,18 @@ export default function LiveDetail() {
               )}
               {live.status === 'ended' && (
                 <View className="mt-[24rpx] flex flex-col items-center">
-                  <Text className="text-[length:28rpx] text-[var(--color-surface-light)]">
+                  <Text className="text-body text-[var(--color-surface-light)]">
                     {t('live.detail.ended')}
                   </Text>
                 </View>
               )}
               {live.status === 'upcoming' && (
                 <View className="mt-[24rpx] flex flex-col items-center">
-                  <Text className="text-[length:28rpx] text-[var(--color-surface-light)]">
+                  <Text className="text-body text-[var(--color-surface-light)]">
                     {t('live.detail.notStarted')}
                   </Text>
                   {live.startTime && (
-                    <Text className="mt-[16rpx] text-[length:24rpx] text-[var(--color-surface-light)] opacity-80">
+                    <Text className="mt-[16rpx] text-label text-[var(--color-surface-light)] opacity-80">
                       {formatDate(live.startTime)}
                     </Text>
                   )}
@@ -208,7 +208,7 @@ export default function LiveDetail() {
                     原类名 text-[length:28rpx] → size 28,text-[var(--color-success-deep-text)]
                     → color 同 token;line-height 对 mask 载体无效故不保留。 */}
                 <LineIcon name="check" size={28} color="var(--color-success-deep-text)" />
-                <Text className="ml-[8rpx] text-[length:28rpx] text-[var(--color-success-deep-text)]">
+                <Text className="ml-[8rpx] text-body text-[var(--color-success-deep-text)]">
                   {t('liveDetail.subscribed')}
                 </Text>
               </View>

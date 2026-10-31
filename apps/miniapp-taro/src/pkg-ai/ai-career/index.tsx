@@ -123,7 +123,7 @@ export default function AiCareer() {
                         {tags.map((tag, idx) => (
                           <Text
                             key={idx}
-                            className="py-[8rpx] px-[16rpx] rounded-xl text-[length:22rpx] text-muted-foreground bg-[var(--color-muted)]"
+                            className="py-[8rpx] px-[16rpx] rounded-xl text-caption text-muted-foreground bg-[var(--color-muted)]"
                           >
                             {tag}
                           </Text>
@@ -133,11 +133,11 @@ export default function AiCareer() {
                     {/* 对齐 RN cardFoot:gap 16dp=32rpx / mt 12dp=24rpx;meta 11dp=22rpx 三级色;CTA px14dp h30dp 圆角 24rpx brand 底 */}
                     {uses > 0 ? (
                       <View className="flex flex-row items-center gap-[32rpx] mt-[24rpx]">
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
                         </Text>
                         <View className="ml-auto flex flex-row items-center justify-center px-[28rpx] h-[60rpx] rounded-xl bg-[var(--color-brand)]">
-                          <Text className="text-[length:28rpx] font-semibold text-[var(--color-surface-light)]">
+                          <Text className="text-body font-semibold text-[var(--color-surface-light)]">
                             {tt('aiAssistant.startChat', '开始对话')}
                           </Text>
                         </View>

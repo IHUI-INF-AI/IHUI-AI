@@ -29,25 +29,25 @@ export default function RefundOrderCard({
   return (
     <View className="flex flex-col gap-[16rpx]">
       <View className="flex items-start justify-between gap-[24rpx]">
-        <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
+        <Text className="text-body text-muted-foreground shrink-0">
           {tt('order.refund.orderNo', '订单号')}
         </Text>
-        <Text className="text-[length:28rpx] text-muted-foreground text-right break-all">
+        <Text className="text-body text-muted-foreground text-right break-all">
           {orderNo}
         </Text>
       </View>
       {order?.title ? (
         <View className="flex items-start justify-between gap-[24rpx]">
-          <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
+          <Text className="text-body text-muted-foreground shrink-0">
             {tt('order.refund.productLabel', '商品名称')}
           </Text>
-          <Text className="text-[length:28rpx] text-foreground text-right break-all">
+          <Text className="text-body text-foreground text-right break-all">
             {order.title}
           </Text>
         </View>
       ) : null}
       <View className="flex items-start justify-between gap-[24rpx]">
-        <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
+        <Text className="text-body text-muted-foreground shrink-0">
           {tt('order.refund.amountLabel', '订单金额')}
         </Text>
         <Text className="text-[length:36rpx] font-semibold text-[var(--color-success)] text-right break-all">
@@ -56,10 +56,10 @@ export default function RefundOrderCard({
       </View>
       {order?.createTime ? (
         <View className="flex items-start justify-between gap-[24rpx]">
-          <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
+          <Text className="text-body text-muted-foreground shrink-0">
             {tt('order.refund.orderTimeLabel', '下单时间')}
           </Text>
-          <Text className="text-[length:28rpx] text-foreground text-right break-all">
+          <Text className="text-body text-foreground text-right break-all">
             {order.createTime}
           </Text>
         </View>

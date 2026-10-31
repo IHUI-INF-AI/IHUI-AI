@@ -105,7 +105,7 @@ export default function StudyPlan() {
                   <Text className="flex-1 text-[length:36rpx] text-foreground font-bold overflow-hidden">
                     {p.title}
                   </Text>
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
+                  <Text className="text-caption text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
                     {t('study.planPage.target', { n: p.target })}
                   </Text>
                 </View>
@@ -116,7 +116,7 @@ export default function StudyPlan() {
                   />
                 </View>
                 <View className="flex justify-between items-center mt-[16rpx]">
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-caption text-[var(--color-text-tertiary)]">
                     {t('study.planPage.completed', { n: p.minutes ?? 0 })}
                   </Text>
                   {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx),

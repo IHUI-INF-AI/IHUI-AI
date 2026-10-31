@@ -150,13 +150,13 @@ export default function CourseList() {
                     {item.title}
                   </Text>
                   {item.subtitle && (
-                    <Text className="text-[length:28rpx] text-muted-foreground">
+                    <Text className="text-body text-muted-foreground">
                       {item.subtitle}
                     </Text>
                   )}
                   {/* 对齐 RN courseMeta:讲师 · 「N 人学过」同一行(metaText 11dp→22rpx) */}
                   {(item.teacher || (item.signupCount ?? 0) > 0) && (
-                    <Text className="text-[length:24rpx] text-muted-foreground">
+                    <Text className="text-label text-muted-foreground">
                       {item.teacher ? `${item.teacher} · ` : ''}
                       {tt('course.studentCount', '{count} 人学过', {
                         count: item.signupCount ?? 0,
@@ -175,7 +175,7 @@ export default function CourseList() {
         {/* 对齐 RN emptyWrap/emptyText:paddingY 48dp→96rpx,字号 14dp→28rpx,text.secondary */}
         {!loading && list.length === 0 && (
           <View className="text-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {t('course.list.empty')}
             </Text>
           </View>

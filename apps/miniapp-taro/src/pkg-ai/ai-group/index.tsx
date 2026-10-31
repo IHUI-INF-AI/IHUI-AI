@@ -220,7 +220,7 @@ export default function AiGroup() {
                         </Text>
                       ) : null}
                       {uses > 0 ? (
-                        <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="block mt-[16rpx] text-caption text-[var(--color-text-tertiary)]">
                           {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
                         </Text>
                       ) : null}

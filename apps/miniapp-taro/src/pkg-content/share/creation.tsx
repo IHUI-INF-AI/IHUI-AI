@@ -142,12 +142,12 @@ export default function ShareCreationPage() {
               <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
                 {content.modelName || t('share.creation.modelDefault')}
               </Text>
-              <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="block text-label text-[var(--color-text-tertiary)]">
                 {fmtTime(content.createdAt)}
               </Text>
             </View>
             {content.tokenCost ? (
-              <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-label text-[var(--color-text-tertiary)]">
                 {t('share.creation.tokenCost', { n: content.tokenCost })}
               </Text>
             ) : null}
@@ -161,7 +161,7 @@ export default function ShareCreationPage() {
                   mode="aspectFill"
                 />
               ) : null}
-              <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-label text-[var(--color-text-tertiary)]">
                 {content.userName}
               </Text>
             </View>
@@ -185,7 +185,7 @@ export default function ShareCreationPage() {
             {answer.thinking ? (
               <View className="mb-[12rpx] rounded-lg bg-[var(--color-muted)] overflow-hidden">
                 <View className="px-[20rpx] py-[16rpx]">
-                  <Text className="text-[length:24rpx] font-semibold text-muted-foreground">
+                  <Text className="text-label font-semibold text-muted-foreground">
                     {t('share.creation.thinkingProcess')}
                   </Text>
                 </View>
@@ -234,10 +234,10 @@ export default function ShareCreationPage() {
             ) : null}
             {answer.audio?.url ? (
               <View className="mt-[16rpx] px-[20rpx] py-[16rpx] bg-[var(--color-muted)] rounded-lg flex items-center">
-                <Text className="text-[length:24rpx] text-foreground flex-1">
+                <Text className="text-label text-foreground flex-1">
                   {t('share.creation.voiceAnswer')}
                 </Text>
-                <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-label text-[var(--color-text-tertiary)]">
                   {answer.audio.duration ? `${answer.audio.duration}s` : ''}
                 </Text>
               </View>
@@ -262,13 +262,13 @@ export default function ShareCreationPage() {
 
         <View className="mx-[16rpx] mt-[24rpx] mb-[48rpx] flex gap-[16rpx]">
           <Button
-            className="flex-1 text-[length:28rpx] rounded-sm !bg-primary !text-[var(--color-primary-foreground)]"
+            className="flex-1 text-body rounded-sm !bg-primary !text-[var(--color-primary-foreground)]"
             onClick={onRegenerate}
           >
             {t('share.creation.regenerate')}
           </Button>
           <Button
-            className="flex-1 text-[length:28rpx] rounded-sm !bg-muted !text-foreground"
+            className="flex-1 text-body rounded-sm !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
             {t('share.creation.shareFriend')}

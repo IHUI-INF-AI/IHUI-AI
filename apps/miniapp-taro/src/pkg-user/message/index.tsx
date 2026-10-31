@@ -344,7 +344,7 @@ export default function MessageIndex() {
       // 按同页 announcements / private 的真数据轨道口径落空态。
       return (
         <ThemeRoot>
-          <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+          <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
             {t('message.empty')}
           </Text>
         </ThemeRoot>
@@ -370,7 +370,7 @@ export default function MessageIndex() {
             </Text>
           ) : null}
           {loading ? (
-            <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+            <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
               {t('common.loading')}
             </Text>
           ) : filtered.length ? (
@@ -415,7 +415,7 @@ export default function MessageIndex() {
               )
             })
           ) : (
-            <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+            <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
               {keyword ? t('message.notFound') : t('message.empty')}
             </Text>
           )}

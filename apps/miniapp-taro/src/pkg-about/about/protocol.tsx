@@ -533,7 +533,7 @@ export default function ProtocolPage() {
               {section.paragraphs.map((p, pIdx) => (
                 <View key={pIdx} className="mt-[16rpx]">
                   {p.title ? (
-                    <Text className="block text-[length:28rpx] font-semibold text-foreground mb-[8rpx]">
+                    <Text className="block text-body font-semibold text-foreground mb-[8rpx]">
                       {p.title}
                     </Text>
                   ) : null}

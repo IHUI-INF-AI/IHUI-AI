@@ -241,14 +241,14 @@ export default function CoursePlanet() {
                     {item.title}
                   </Text>
                   {item.teacher ? (
-                    <Text className="text-[length:24rpx] text-muted-foreground mt-[8rpx]">
+                    <Text className="text-label text-muted-foreground mt-[8rpx]">
                       {tt('coursePlanet.teacher', '讲师')}: {item.teacher}
                     </Text>
                   ) : null}
                   <View className="flex items-center justify-between mt-[8rpx]">
                     {item.price !== null && item.price !== undefined ? (
                       <Text
-                        className={`text-[length:24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
+                        className={`text-label font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
                       >
                         {item.price === 0
                           ? tt('coursePlanet.free', '免费')
@@ -256,7 +256,7 @@ export default function CoursePlanet() {
                       </Text>
                     ) : null}
                     {item.students !== null && item.students !== undefined ? (
-                      <Text className="text-[length:24rpx] text-muted-foreground">
+                      <Text className="text-label text-muted-foreground">
                         {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                       </Text>
                     ) : null}
@@ -268,12 +268,12 @@ export default function CoursePlanet() {
             <EmptyState title={t('coursePlanet.empty')} />
           )}
           {hasMore && displayList.length > 0 ? (
-            <Text className="block text-center text-muted-foreground text-[length:24rpx] py-[24rpx]">
+            <Text className="block text-center text-muted-foreground text-label py-[24rpx]">
               {tt('coursePlanet.loadingMore', '加载中…')}
             </Text>
           ) : null}
           {!hasMore && displayList.length > 0 ? (
-            <Text className="block text-center text-muted-foreground text-[length:24rpx] py-[24rpx]">
+            <Text className="block text-center text-muted-foreground text-label py-[24rpx]">
               {t('common.noMore')}
             </Text>
           ) : null}

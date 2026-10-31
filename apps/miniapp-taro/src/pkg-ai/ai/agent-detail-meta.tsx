@@ -31,19 +31,19 @@ export default function AgentDetailMeta({ creator, uses, isFree, price }: AgentD
 
   return (
     <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
-      <Text className="block text-[length:22rpx] text-muted-foreground">
+      <Text className="block text-caption text-muted-foreground">
         {tt('agentDetail.creator', '创建者')}
       </Text>
       <Text className="block text-[length:30rpx] text-foreground mt-[8rpx]">{creator || '—'}</Text>
 
-      <Text className="block text-[length:22rpx] text-muted-foreground mt-[20rpx]">
+      <Text className="block text-caption text-muted-foreground mt-[20rpx]">
         {tt('agentDetail.uses', '使用次数')}
       </Text>
       <Text className="block text-[length:30rpx] text-foreground mt-[8rpx]">
         {uses === null ? '—' : uses}
       </Text>
 
-      <Text className="block text-[length:22rpx] text-muted-foreground mt-[20rpx]">
+      <Text className="block text-caption text-muted-foreground mt-[20rpx]">
         {tt('agentDetail.price', '价格')}
       </Text>
       <Text className="block text-[length:30rpx] text-[var(--color-brand)] font-semibold mt-[8rpx]">

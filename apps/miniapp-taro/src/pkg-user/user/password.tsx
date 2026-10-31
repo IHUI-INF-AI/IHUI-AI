@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/change-pwd/ChangePwdScreen.tsx
 
 import { useI18n } from '@/i18n'
@@ -101,7 +102,7 @@ export default function Password() {
                 onInput={(e) => setOldPwd(e.detail.value)}
               />
               <Text
-                className="absolute right-[24rpx] text-[length:28rpx] text-muted-foreground"
+                className="absolute right-[24rpx] text-body text-muted-foreground"
                 onClick={() => setShowOld((v) => !v)}
               >
                 {showOld ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
@@ -122,14 +123,14 @@ export default function Password() {
                 onInput={(e) => setNewPwd(e.detail.value)}
               />
               <Text
-                className="absolute right-[24rpx] text-[length:28rpx] text-muted-foreground"
+                className="absolute right-[24rpx] text-body text-muted-foreground"
                 onClick={() => setShowNew((v) => !v)}
               >
                 {showNew ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
               </Text>
             </View>
             {newPwd !== '' && !newPwdValid && (
-              <Text className="mt-[12rpx] text-[length:22rpx] text-destructive">
+              <Text className="mt-[12rpx] text-caption text-destructive">
                 {tt('user.password.tooShort', '密码长度 6-20 位')}
               </Text>
             )}
@@ -148,20 +149,20 @@ export default function Password() {
                 onInput={(e) => setConfirmPwd(e.detail.value)}
               />
               <Text
-                className="absolute right-[24rpx] text-[length:28rpx] text-muted-foreground"
+                className="absolute right-[24rpx] text-body text-muted-foreground"
                 onClick={() => setShowConfirm((v) => !v)}
               >
                 {showConfirm ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
               </Text>
             </View>
             {confirmPwd !== '' && !confirmMatch && (
-              <Text className="mt-[12rpx] text-[length:22rpx] text-destructive">
+              <Text className="mt-[12rpx] text-caption text-destructive">
                 {tt('user.password.mismatch', '两次输入的密码不一致')}
               </Text>
             )}
           </View>
 
-          <Text className="text-right text-[length:28rpx] text-primary" onClick={gotoForgot}>
+          <Text className="text-right text-body text-primary" onClick={gotoForgot}>
             {tt('user.password.forgotOld', '忘记原密码?通过手机验证修改')}
           </Text>
 

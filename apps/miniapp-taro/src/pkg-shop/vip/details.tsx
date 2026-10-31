@@ -112,7 +112,7 @@ export default function VipDetailsPage() {
         <Text className="block text-[length:40rpx] font-bold text-foreground">
           {t('vip.details.title')}
         </Text>
-        <Text className="block text-[length:28rpx] mt-[16rpx] text-muted-foreground">
+        <Text className="block text-body mt-[16rpx] text-muted-foreground">
           {t('vip.upgrade.bannerDesc')}
         </Text>
       </View>
@@ -166,7 +166,7 @@ export default function VipDetailsPage() {
                     <Text className="text-[length:30rpx] font-bold text-foreground">
                       {planName(p.type)}
                     </Text>
-                    <Text className="text-[length:24rpx] text-muted-foreground mt-[6rpx]">
+                    <Text className="text-label text-muted-foreground mt-[6rpx]">
                       {p.days}
                       {t('page.vip.dayUnit')}
                     </Text>

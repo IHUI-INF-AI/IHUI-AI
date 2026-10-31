@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 导入会话「用场景分析」面板(小程序端,2026-10-03)
  *
@@ -141,7 +142,7 @@ export function ImportAnalysisPanel({
             </Text>
           </View>
         </View>
-        <Text className="block text-[length:24rpx] text-muted-foreground mb-[20rpx]">
+        <Text className="block text-label text-muted-foreground mb-[20rpx]">
           {tt(
             'conversationImport.analysisDesc',
             '选一个场景、填写变量，分析指令会作为一条消息发进本会话——本会话的导入记录就是它的上下文。',
@@ -154,7 +155,7 @@ export function ImportAnalysisPanel({
               <View className="flex-shrink-0 mt-[4rpx]">
                 <LineIcon name="triangle-alert" size={26} color="var(--color-destructive)" />
               </View>
-              <Text className="flex-1 text-[length:24rpx] text-destructive">
+              <Text className="flex-1 text-label text-destructive">
                 {tt('conversationImport.analysisLoadFailed', '场景库加载失败：{error}', {
                   error: catalog.message,
                 })}
@@ -170,7 +171,7 @@ export function ImportAnalysisPanel({
               </Text>
               {catalog.recommended.length > 0 && (
                 <>
-                  <Text className="block text-[length:22rpx] text-muted-foreground mb-[12rpx]">
+                  <Text className="block text-caption text-muted-foreground mb-[12rpx]">
                     {tt('conversationImport.analysisRecommended', '推荐（按导入来源）')}
                   </Text>
                   {catalog.recommended.map((s) => (
@@ -193,7 +194,7 @@ export function ImportAnalysisPanel({
                 hoverClass="opacity-60"
                 className="py-[16rpx]"
               >
-                <Text className="text-[length:24rpx] text-primary">
+                <Text className="text-label text-primary">
                   {tt('conversationImport.analysisBrowseAll', '浏览全部场景（{count}）', {
                     count: catalog.all.length,
                   })}
@@ -202,7 +203,7 @@ export function ImportAnalysisPanel({
 
               {browseOpen && (
                 <View className="mb-[20rpx]">
-                  <Text className="block text-[length:22rpx] text-muted-foreground mb-[12rpx]">
+                  <Text className="block text-caption text-muted-foreground mb-[12rpx]">
                     {tt('conversationImport.analysisCategoryLabel', '场景分类')}
                   </Text>
                   <View className="flex flex-wrap gap-[12rpx] mb-[16rpx]">
@@ -245,13 +246,13 @@ export function ImportAnalysisPanel({
                     })}
                   </Text>
                   {selected.variables.length === 0 ? (
-                    <Text className="block text-[length:22rpx] text-muted-foreground">
+                    <Text className="block text-caption text-muted-foreground">
                       {tt('conversationImport.analysisNoVariables', '该场景无需填写变量。')}
                     </Text>
                   ) : (
                     selected.variables.map((name) => (
                       <View key={name} className="mb-[16rpx]">
-                        <Text className="block text-[length:22rpx] text-muted-foreground mb-[8rpx]">
+                        <Text className="block text-caption text-muted-foreground mb-[8rpx]">
                           {name}
                         </Text>
                         <FocusInput
@@ -270,7 +271,7 @@ export function ImportAnalysisPanel({
                       </View>
                     ))
                   )}
-                  <Text className="block text-[length:22rpx] text-muted-foreground">
+                  <Text className="block text-caption text-muted-foreground">
                     {tt(
                       'conversationImport.analysisOptionalHint',
                       '变量可留空：留空的部分会明确标为「待补充」，不会被静默丢弃。',
@@ -285,7 +286,7 @@ export function ImportAnalysisPanel({
         {/* ③ 发起 */}
         {catalog.phase === 'ready' && (
           <View className="mt-[20rpx] pt-[20rpx]">
-            <Text className="block text-[length:22rpx] text-muted-foreground mb-[16rpx]">
+            <Text className="block text-caption text-muted-foreground mb-[16rpx]">
               {selected
                 ? tt(
                     'conversationImport.analysisEstimate',
@@ -302,7 +303,7 @@ export function ImportAnalysisPanel({
               }`}
             >
               <LineIcon name="sparkles" size={28} color="var(--color-foreground)" />
-              <Text className="text-[length:28rpx] text-foreground font-semibold">
+              <Text className="text-body text-foreground font-semibold">
                 {tt('conversationImport.analysisSubmit', '发起分析')}
               </Text>
             </View>
@@ -334,7 +335,7 @@ function ScenarioRow({
       <View onClick={onClick} hoverClass="opacity-80">
         <Text className="block text-[length:26rpx] text-foreground font-semibold">{title}</Text>
         {subtitle !== '' && (
-          <Text className="block text-[length:22rpx] text-muted-foreground mt-[6rpx]">
+          <Text className="block text-caption text-muted-foreground mt-[6rpx]">
             {subtitle}
           </Text>
         )}
@@ -361,7 +362,7 @@ function CategoryChip({
         active ? 'bg-primary border-[var(--color-border-medium)]' : 'bg-card border-border'
       }`}
     >
-      <Text className="text-[length:22rpx] text-foreground">{label}</Text>
+      <Text className="text-caption text-foreground">{label}</Text>
     </View>
   )
 }

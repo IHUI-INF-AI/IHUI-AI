@@ -42,7 +42,7 @@ function Chip({ icon, label }: { icon: IconName; label: string }) {
   return (
     <View className="inline-flex items-center gap-[10rpx] px-[20rpx] py-[8rpx] rounded-md bg-brand-accent-light self-start">
       <LineIcon name={icon} size={24} color="var(--color-brand-accent-deep)" />
-      <Text className="text-[length:22rpx] font-medium text-brand-accent-deep">{label}</Text>
+      <Text className="text-caption font-medium text-brand-accent-deep">{label}</Text>
     </View>
   )
 }
@@ -112,7 +112,7 @@ export default function AboutIndexPage() {
               {t('about.heroSubtitle')}
             </Text>
             {info.version ? (
-              <Text className="text-[length:22rpx] text-muted-foreground">
+              <Text className="text-caption text-muted-foreground">
                 {t('about.version', { version: info.version })}
               </Text>
             ) : null}
@@ -192,7 +192,7 @@ export default function AboutIndexPage() {
               hoverClass="opacity-60"
               onClick={goRegister}
             >
-              <Text className="text-[length:28rpx] font-semibold text-cta-foreground">
+              <Text className="text-body font-semibold text-cta-foreground">
                 {t('about.ctaPrimary')}
               </Text>
             </View>
@@ -201,7 +201,7 @@ export default function AboutIndexPage() {
               hoverClass="opacity-60"
               onClick={openDeveloper}
             >
-              <Text className="text-[length:28rpx] font-semibold text-foreground">
+              <Text className="text-body font-semibold text-foreground">
                 {t('about.ctaSecondary')}
               </Text>
             </View>
@@ -230,7 +230,7 @@ export default function AboutIndexPage() {
           </View>
 
           <View className="text-center pt-[16rpx]">
-            <Text className="text-[length:22rpx] text-muted-foreground">{t('about.copyright')}</Text>
+            <Text className="text-caption text-muted-foreground">{t('about.copyright')}</Text>
           </View>
         </View>
       </View>

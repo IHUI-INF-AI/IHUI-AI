@@ -124,7 +124,7 @@ export default function Orders() {
           {tabs.map((tab) => (
             <View
               key={tab.key}
-              className={`px-[28rpx] py-[12rpx] rounded-xl text-[length:28rpx] ${
+              className={`px-[28rpx] py-[12rpx] rounded-xl text-body ${
                 status === tab.key
                   ? 'bg-primary font-semibold text-[var(--color-surface-light)]'
                   : 'bg-card text-muted-foreground'
@@ -157,20 +157,20 @@ export default function Orders() {
                       'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]'
                     }`}
                   >
-                    <Text className="text-[length:22rpx]">{statusText(item.status)}</Text>
+                    <Text className="text-caption">{statusText(item.status)}</Text>
                   </View>
                 </View>
                 <View className="mt-[16rpx] flex items-center justify-between">
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-caption text-[var(--color-text-tertiary)]">
                     {t('user.orders.orderNo')}
                     {item.orderNo}
                   </Text>
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-caption text-[var(--color-text-tertiary)]">
                     {item.createTime}
                   </Text>
                 </View>
                 <View className="mt-[16rpx] flex items-end justify-between">
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-caption text-[var(--color-text-tertiary)]">
                     {item.type}
                   </Text>
                   <View className="flex items-center gap-[24rpx]">
@@ -179,7 +179,7 @@ export default function Orders() {
                     </Text>
                     {item.status === 'pending' ? (
                       <View
-                        className="rounded-xl bg-primary px-[24rpx] py-[12rpx] text-[length:28rpx] text-[var(--color-surface-light)]"
+                        className="rounded-xl bg-primary px-[24rpx] py-[12rpx] text-body text-[var(--color-surface-light)]"
                         hoverClass="opacity-60"
                         onClick={(e) => {
                           e.stopPropagation()
@@ -197,12 +197,12 @@ export default function Orders() {
         ) : null}
 
         {!loading && list.length === 0 ? (
-          <View className="py-[96rpx] text-center text-[length:28rpx] text-muted-foreground">
+          <View className="py-[96rpx] text-center text-body text-muted-foreground">
             <Text>{t('user.orders.empty')}</Text>
           </View>
         ) : null}
         {loading ? (
-          <View className="py-[96rpx] text-center text-[length:28rpx] text-muted-foreground">
+          <View className="py-[96rpx] text-center text-body text-muted-foreground">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : null}

@@ -141,7 +141,7 @@ export default function CheckinAssistant() {
           </Text>
 
           {loading ? (
-            <Text className="block py-[64rpx] text-center text-[length:28rpx] text-muted-foreground">
+            <Text className="block py-[64rpx] text-center text-body text-muted-foreground">
               {t('common.loading')}
             </Text>
           ) : list.length === 0 ? (
@@ -164,21 +164,21 @@ export default function CheckinAssistant() {
                     {acc.name}
                   </Text>
                   <View className="flex flex-wrap items-center gap-[8rpx]">
-                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-[length:22rpx] text-muted-foreground">
+                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-caption text-muted-foreground">
                       {acc.platform}
                     </Text>
-                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-[length:22rpx] text-muted-foreground">
+                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-caption text-muted-foreground">
                       {acc.enabled ? t('checkinAssistant.enabled') : t('checkinAssistant.disabled')}
                     </Text>
                     {acc.device_map?.pool_account_id ? (
-                      <Text className="rounded-md bg-[var(--color-muted)] px-[10rpx] py-[4rpx] text-[length:22rpx] text-foreground">
+                      <Text className="rounded-md bg-[var(--color-muted)] px-[10rpx] py-[4rpx] text-caption text-foreground">
                         {t('checkinAssistant.poolSynced')}
                       </Text>
                     ) : null}
                   </View>
                 </View>
                 {acc.last_record ? (
-                  <Text className="mt-[8rpx] block text-[length:24rpx] text-muted-foreground">
+                  <Text className="mt-[8rpx] block text-label text-muted-foreground">
                     {acc.last_record.ok
                       ? t('checkinAssistant.lastOk', { credits: acc.last_record.credits ?? 0 })
                       : t('checkinAssistant.lastFailed')}
@@ -186,19 +186,19 @@ export default function CheckinAssistant() {
                 ) : null}
                 <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-foreground"
+                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
                     onClick={() => void checkin(acc)}
                   >
                     {t('checkinAssistant.checkin')}
                   </Text>
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-foreground"
+                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
                     onClick={() => void toggle(acc)}
                   >
                     {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
                   </Text>
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-muted-foreground"
+                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-muted-foreground"
                     onClick={() => remove(acc)}
                   >
                     {t('checkinAssistant.delete')}
@@ -216,7 +216,7 @@ export default function CheckinAssistant() {
               {PLATFORMS.map((p) => (
                 <Text
                   key={p}
-                  className={`rounded-lg px-[20rpx] py-[10rpx] text-[length:24rpx] ${
+                  className={`rounded-lg px-[20rpx] py-[10rpx] text-label ${
                     platform === p
                       ? 'bg-[var(--color-cta)] text-[var(--color-cta-foreground)]'
                       : 'bg-muted text-muted-foreground'

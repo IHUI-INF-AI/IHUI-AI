@@ -34,7 +34,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
               hoverClass="opacity-60"
             >
               <Text
-                className={`text-[length:28rpx] ${
+                className={`text-body ${
                   isActive ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'
                 }`}
               >

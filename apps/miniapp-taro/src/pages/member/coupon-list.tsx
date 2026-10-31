@@ -78,14 +78,14 @@ export default function CouponListPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background p-[20rpx] pb-[64rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-body">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-body">
             <Text>{tt('member.couponList.loadFailed', '加载失败')}</Text>
             <Text
-              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[length:28rpx] text-primary"
+              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-body text-primary"
               onClick={load}
             >
               {t('common.retry')}
@@ -103,11 +103,11 @@ export default function CouponListPage() {
                     <Text className="text-[length:44rpx] font-bold text-[var(--color-success)]">
                       {c.amount}
                     </Text>
-                    <Text className="text-[length:22rpx] ml-[4rpx] text-muted-foreground">
+                    <Text className="text-caption ml-[4rpx] text-muted-foreground">
                       {tt('member.couponList.unit', '元')}
                     </Text>
                   </View>
-                  <Text className="mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+                  <Text className="mt-[16rpx] text-caption text-muted-foreground">
                     {tt('member.couponList.coupon', '优惠券')}
                   </Text>
                 </View>
@@ -115,12 +115,12 @@ export default function CouponListPage() {
                   <Text className="block text-[length:32rpx] text-foreground font-semibold">
                     {c.title}
                   </Text>
-                  <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+                  <Text className="block mt-[16rpx] text-caption text-muted-foreground">
                     {tt('member.couponList.thresholdText', '满{threshold}元可用', {
                       threshold: c.threshold,
                     })}
                   </Text>
-                  <Text className="block mt-[8rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="block mt-[8rpx] text-caption text-[var(--color-text-tertiary)]">
                     {tt('member.couponList.expireText', '有效期至 {time}', { time: c.expireTime })}
                   </Text>
                   <Button
@@ -134,7 +134,7 @@ export default function CouponListPage() {
             ))}
           </View>
         ) : (
-          <View className="text-center py-[64rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+          <View className="text-center py-[64rpx] text-body text-[var(--color-text-tertiary)]">
             <Text>{tt('member.couponList.empty', '暂无可领取优惠券')}</Text>
           </View>
         )}

@@ -48,7 +48,7 @@ export default function ProfileStatsGrid({
           className="flex flex-1 flex-col items-center justify-center min-w-[200rpx] py-[24rpx] bg-muted rounded-lg"
         >
           <Text className="text-[length:36rpx] font-semibold text-foreground">{cell.value}</Text>
-          <Text className="mt-[8rpx] text-[length:24rpx] text-muted-foreground">{cell.label}</Text>
+          <Text className="mt-[8rpx] text-label text-muted-foreground">{cell.label}</Text>
         </View>
       ))}
     </View>

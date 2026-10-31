@@ -129,7 +129,7 @@ export default function MemberDetail() {
             <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
               {stats.teamCount}
             </Text>
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {tt('distribution.memberDetail.teamCount', '团队人数')}
             </Text>
           </View>
@@ -137,7 +137,7 @@ export default function MemberDetail() {
             <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
               {stats.monthNew}
             </Text>
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {tt('distribution.memberDetail.monthNew', '本月新增')}
             </Text>
           </View>
@@ -145,14 +145,14 @@ export default function MemberDetail() {
             <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
               ¥{stats.totalCommission}
             </Text>
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {tt('distribution.memberDetail.totalCommission', '总佣金')}
             </Text>
           </View>
         </View>
 
         <View className="flex flex-col gap-[24rpx]">
-          <Text className="text-[length:28rpx] text-muted-foreground">
+          <Text className="text-body text-muted-foreground">
             {tt('distribution.memberDetail.memberList', '成员列表')}
           </Text>
 
@@ -186,10 +186,10 @@ export default function MemberDetail() {
                       </Text>
                     </View>
                     <View className="flex flex-row items-center justify-between gap-[16rpx]">
-                      <Text className="flex-1 text-[length:22rpx] text-[var(--color-text-tertiary)] truncate">
+                      <Text className="flex-1 text-caption text-[var(--color-text-tertiary)] truncate">
                         {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
                       </Text>
-                      <Text className="flex-shrink-0 text-[length:28rpx] font-semibold text-[var(--color-success)]">
+                      <Text className="flex-shrink-0 text-body font-semibold text-[var(--color-success)]">
                         {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
                       </Text>
                     </View>
@@ -201,7 +201,7 @@ export default function MemberDetail() {
 
           {list.length === 0 && !loading && !error && (
             <View className="py-[48rpx] text-center">
-              <Text className="text-[length:28rpx] text-muted-foreground">
+              <Text className="text-body text-muted-foreground">
                 {t('distribution.memberDetail.empty')}
               </Text>
             </View>
@@ -209,7 +209,7 @@ export default function MemberDetail() {
 
           {error && !loading && (
             <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
-              <Text className="text-[length:28rpx] text-muted-foreground text-center">
+              <Text className="text-body text-muted-foreground text-center">
                 {tt('distribution.memberDetail.error', '加载失败')}
               </Text>
               <View
@@ -217,7 +217,7 @@ export default function MemberDetail() {
                 onClick={() => load(true)}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[length:28rpx] font-medium text-[var(--color-primary-foreground)]">
+                <Text className="text-body font-medium text-[var(--color-primary-foreground)]">
                   {tt('distribution.memberDetail.retry', '点击重试')}
                 </Text>
               </View>
@@ -225,13 +225,13 @@ export default function MemberDetail() {
           )}
 
           {loading && (
-            <Text className="block text-center text-[length:28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
+            <Text className="block text-center text-body text-[var(--color-text-tertiary)] py-[48rpx]">
               {t('distribution.memberDetail.loading')}
             </Text>
           )}
 
           {!loading && !hasMore && list.length > 0 && (
-            <Text className="block text-center text-[length:28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
+            <Text className="block text-center text-body text-[var(--color-text-tertiary)] py-[48rpx]">
               {tt('distribution.memberDetail.noMore', '没有更多了')}
             </Text>
           )}

@@ -96,14 +96,14 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
 
   return (
     <View className="mt-[24rpx]">
-      <Text className="block mb-[16rpx] text-[length:24rpx] text-muted-foreground">
+      <Text className="block mb-[16rpx] text-label text-muted-foreground">
         {tt('distribution.subtitle', '推广商品,赚取佣金')}
       </Text>
 
       {/* 等级卡(对齐 RN levelCard:左等级 / 右佣金比例) */}
       <View className="p-[28rpx] rounded-xl bg-[var(--color-success-light)] flex flex-row items-center justify-between">
         <View>
-          <Text className="block text-[length:22rpx] text-[var(--color-success-deep-text)]">
+          <Text className="block text-caption text-[var(--color-success-deep-text)]">
             {tt('distribution.level', '分销等级')}
           </Text>
           <Text className="block mt-[8rpx] text-[length:36rpx] font-semibold text-[var(--color-success)]">
@@ -111,7 +111,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
           </Text>
         </View>
         <View className="flex flex-col items-end">
-          <Text className="block text-[length:22rpx] text-[var(--color-success-deep-text)]">
+          <Text className="block text-caption text-[var(--color-success-deep-text)]">
             {tt('distribution.commissionRate', '佣金比例')}
           </Text>
           {/* 与 RN 同形:后端 /distribution/overview 未返回佣金比例时显示占位符,不编造数值 */}
@@ -128,7 +128,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             <Text className="text-[length:34rpx] font-semibold text-foreground whitespace-nowrap">
               {formatPrice(info.totalCommission ?? 0)}
             </Text>
-            <Text className="mt-[8rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="mt-[8rpx] text-caption text-muted-foreground">
               {tt('distribution.totalEarnings', '累计收益')}
             </Text>
           </View>
@@ -136,7 +136,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             <Text className="text-[length:34rpx] font-semibold text-foreground whitespace-nowrap">
               {formatPrice(info.withdrawnCommission ?? 0)}
             </Text>
-            <Text className="mt-[8rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="mt-[8rpx] text-caption text-muted-foreground">
               {tt('distribution.withdrawn', '已提现')}
             </Text>
           </View>
@@ -144,7 +144,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             <Text className="text-[length:34rpx] font-semibold text-[var(--color-success)] whitespace-nowrap">
               {formatPrice(info.pendingCommission ?? 0)}
             </Text>
-            <Text className="mt-[8rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="mt-[8rpx] text-caption text-muted-foreground">
               {tt('distribution.pending', '待结算')}
             </Text>
           </View>
@@ -158,14 +158,14 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
           hoverClass={canWithdraw ? 'opacity-60' : 'none'}
         >
           <Text
-            className={`text-[length:28rpx] font-semibold ${
+            className={`text-body font-semibold ${
               canWithdraw ? 'text-[var(--color-cta-foreground)]' : 'text-muted-foreground'
             }`}
           >
             {tt('distribution.index.menuWithdraw', '申请提现')}
           </Text>
         </View>
-        <Text className="block mt-[12rpx] text-center text-[length:22rpx] text-muted-foreground">
+        <Text className="block mt-[12rpx] text-center text-caption text-muted-foreground">
           {tt('distribution.withdrawMin', '满 ¥{amount} 方可提现', {
             amount: formatPrice(WITHDRAW_MIN),
           })}
@@ -173,7 +173,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
       </View>
 
       {/* 分销商品(对齐 RN sectionTitle + productCard;空列表走空态) */}
-      <Text className="block mt-[24rpx] mb-[12rpx] text-[length:28rpx] font-semibold text-foreground">
+      <Text className="block mt-[24rpx] mb-[12rpx] text-body font-semibold text-foreground">
         {tt('distribution.products', '分销商品')}
       </Text>
       {products.length === 0 ? (
@@ -185,17 +185,17 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
               key={item.id}
               className="p-[28rpx] rounded-xl border border-[var(--color-border)] bg-card"
             >
-              <Text className="block text-[length:28rpx] font-semibold text-foreground">
+              <Text className="block text-body font-semibold text-foreground">
                 {item.title}
               </Text>
               <View className="mt-[12rpx] flex flex-row items-center justify-between">
                 <Text className="text-[length:26rpx] font-semibold text-[var(--color-success)]">
                   ¥{item.salePrice}
                 </Text>
-                <Text className="text-[length:22rpx] text-muted-foreground">
+                <Text className="text-caption text-muted-foreground">
                   {tt('distribution.orderList.commission', '佣金')}: ¥{item.commission}
                 </Text>
-                <Text className="text-[length:22rpx] text-muted-foreground">
+                <Text className="text-caption text-muted-foreground">
                   {tt('distribution.sales', '已售 {count} 件', { count: item.sales })}
                 </Text>
               </View>

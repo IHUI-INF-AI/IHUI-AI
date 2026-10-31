@@ -92,7 +92,7 @@ export default function SubscriptionsPage() {
                     />
                   ) : (
                     <View className="w-[80rpx] h-[80rpx] rounded-xl bg-muted mr-[24rpx] flex items-center justify-center flex-shrink-0">
-                      <Text className="text-[length:28rpx] font-semibold text-foreground">
+                      <Text className="text-body font-semibold text-foreground">
                         {targetTypeLabel(item.targetType)}
                       </Text>
                     </View>
@@ -101,12 +101,12 @@ export default function SubscriptionsPage() {
                     <Text className="text-[length:32rpx] font-semibold text-foreground truncate block">
                       {title}
                     </Text>
-                    <Text className="text-[length:28rpx] text-muted-foreground mt-[16rpx] truncate block">
+                    <Text className="text-body text-muted-foreground mt-[16rpx] truncate block">
                       {sub}
                     </Text>
                   </View>
                   <Text
-                    className="ml-[24rpx] border-[length:2rpx] border-border rounded-xl bg-background px-[24rpx] py-[12rpx] text-[length:28rpx] font-semibold text-[var(--color-text-medium)] flex-shrink-0"
+                    className="ml-[24rpx] border-[length:2rpx] border-border rounded-xl bg-background px-[24rpx] py-[12rpx] text-body font-semibold text-[var(--color-text-medium)] flex-shrink-0"
                     onClick={() => handleCancel(item)}
                   >
                     {t('subscriptions.delete')}
@@ -117,15 +117,15 @@ export default function SubscriptionsPage() {
           })}
           <View className="flex items-center justify-center py-[32rpx]">
             {loading ? (
-              <Text className="text-[length:28rpx] text-muted-foreground">
+              <Text className="text-body text-muted-foreground">
                 {t('common.loading')}
               </Text>
             ) : hasMore ? (
-              <Text className="text-[length:28rpx] text-muted-foreground">
+              <Text className="text-body text-muted-foreground">
                 {t('subscriptions.loadMore')}
               </Text>
             ) : (
-              <Text className="text-[length:28rpx] text-muted-foreground">
+              <Text className="text-body text-muted-foreground">
                 {t('subscriptions.noMore')}
               </Text>
             )}

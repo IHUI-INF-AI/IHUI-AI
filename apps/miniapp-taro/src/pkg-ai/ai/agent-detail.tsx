@@ -405,7 +405,7 @@ export default function AgentDetailPage() {
           {/* 已有旧数据时重取失败:常驻提示(不静默把旧内容当真) */}
           {agent && loadFailed && (
             <View className="mx-[20rpx] mt-[24rpx] px-[20rpx] py-[16rpx] rounded-sm bg-[var(--color-warning-amber-light)]">
-              <Text className="text-[length:24rpx] text-[var(--color-warning-amber-text)]">
+              <Text className="text-label text-[var(--color-warning-amber-text)]">
                 {t('agentDetail.loadFailed')}
               </Text>
             </View>
@@ -432,13 +432,13 @@ export default function AgentDetailPage() {
                     </View>
                     {/* 编辑入口 — 对齐共享屏头右侧编辑键(后端 PUT 归属校验兜,前端不另判) */}
                     <Text
-                      className="flex-shrink-0 ml-[16rpx] px-[20rpx] py-[8rpx] text-[length:24rpx] text-foreground border border-border rounded-sm"
+                      className="flex-shrink-0 ml-[16rpx] px-[20rpx] py-[8rpx] text-label text-foreground border border-border rounded-sm"
                       onClick={onEdit}
                     >
                       {t('agentEdit.entry')}
                     </Text>
                   </View>
-                  <Text className="block text-[length:22rpx] text-muted-foreground mt-[12rpx]">
+                  <Text className="block text-caption text-muted-foreground mt-[12rpx]">
                     {t('agentDetail.description')}
                   </Text>
                   <Text className="block text-[length:32rpx] text-foreground mt-[4rpx]">
@@ -446,7 +446,7 @@ export default function AgentDetailPage() {
                   </Text>
                   <View className="flex items-center mt-[12rpx]">
                     {categoryLabel && (
-                      <Text className="text-[length:28rpx] text-[var(--color-primary)] mr-[16rpx]">
+                      <Text className="text-body text-[var(--color-primary)] mr-[16rpx]">
                         {categoryLabel}
                       </Text>
                     )}
@@ -459,7 +459,7 @@ export default function AgentDetailPage() {
                   {tags.map((tag, idx) => (
                     <Text
                       key={`${tag}-${idx}`}
-                      className="text-[length:22rpx] px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded-sm bg-muted text-muted-foreground"
+                      className="text-caption px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded-sm bg-muted text-muted-foreground"
                     >
                       #{tag}
                     </Text>
@@ -468,7 +468,7 @@ export default function AgentDetailPage() {
               )}
               {permLoading ? (
                 <View className="mt-[24rpx] py-[16rpx] px-[20rpx] rounded-sm bg-muted">
-                  <Text className="text-[length:24rpx] text-muted-foreground">
+                  <Text className="text-label text-muted-foreground">
                     {t('ai.agentDetail.permissionLoading')}
                   </Text>
                 </View>
@@ -481,7 +481,7 @@ export default function AgentDetailPage() {
                   }`}
                 >
                   <Text
-                    className={`text-[length:24rpx] ${
+                    className={`text-label ${
                       permission.hasPermission
                         ? 'text-[var(--color-success-deep-text)]'
                         : 'text-[var(--color-warning-amber-text)]'
@@ -506,7 +506,7 @@ export default function AgentDetailPage() {
           )}
           {agent?.prologue && (
             <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
-              <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
+              <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
               <Text className="text-title text-foreground leading-[44rpx]">
@@ -517,14 +517,14 @@ export default function AgentDetailPage() {
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
           {exampleDialogs.length > 0 && (
             <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
-              <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
+              <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.exampleDialog')}
               </Text>
               {exampleDialogs.map((dialog, idx) => (
                 <View key={idx} className="mb-[20rpx]">
                   {dialog.q && (
                     <View className="flex mb-[8rpx]">
-                      <Text className="text-[length:24rpx] text-[var(--color-primary)] font-medium mr-[12rpx]">
+                      <Text className="text-label text-[var(--color-primary)] font-medium mr-[12rpx]">
                         Q:
                       </Text>
                       <Text className="flex-1 text-[length:32rpx] text-foreground">{dialog.q}</Text>
@@ -532,7 +532,7 @@ export default function AgentDetailPage() {
                   )}
                   {dialog.a && (
                     <View className="flex">
-                      <Text className="text-[length:24rpx] text-muted-foreground font-medium mr-[12rpx]">
+                      <Text className="text-label text-muted-foreground font-medium mr-[12rpx]">
                         A:
                       </Text>
                       <Text className="flex-1 text-title text-muted-foreground leading-[40rpx]">
@@ -546,7 +546,7 @@ export default function AgentDetailPage() {
           )}
           {agent?.systemPrompt && (
             <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
-              <Text className="text-[length:22rpx] text-muted-foreground mb-[16rpx] block">
+              <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
               <Text className="text-title text-foreground leading-[44rpx]">
@@ -601,7 +601,7 @@ export default function AgentDetailPage() {
                       {r.name}
                     </Text>
                     {r.description && (
-                      <Text className="block text-[length:22rpx] text-muted-foreground mt-[4rpx] truncate">
+                      <Text className="block text-caption text-muted-foreground mt-[4rpx] truncate">
                         {r.description}
                       </Text>
                     )}

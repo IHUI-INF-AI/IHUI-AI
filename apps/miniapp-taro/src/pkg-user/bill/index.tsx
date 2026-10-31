@@ -227,7 +227,7 @@ export default function Bill() {
             <Text className="text-[length:30rpx] font-semibold text-[var(--color-surface-light)]">
               {tt('bill.wxSubscribe', '微信催费提醒')}
             </Text>
-            <Text className="mt-[6rpx] block text-[length:22rpx] text-[var(--color-surface-light)] opacity-80">
+            <Text className="mt-[6rpx] block text-caption text-[var(--color-surface-light)] opacity-80">
               {tt('bill.wxSubscribeDesc', '订阅后欠费催缴将推送到微信')}
             </Text>
           </View>
@@ -244,7 +244,7 @@ export default function Bill() {
 
         {/* 学费账单(报名维度) */}
         <View className="mx-[20rpx] mt-[24rpx]">
-          <Text className="text-[length:28rpx] font-semibold text-foreground">
+          <Text className="text-body font-semibold text-foreground">
             {tt('bill.title', '学费账单')}
           </Text>
         </View>
@@ -266,21 +266,21 @@ export default function Bill() {
                       {item.className}
                     </Text>
                     <View className="shrink-0 rounded-sm bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
-                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-caption text-[var(--color-text-tertiary)]">
                         {codeText(ENROLL_STATUS_KEY, item.status)}
                       </Text>
                     </View>
                   </View>
                   <View className="mt-[12rpx] flex items-center gap-[16rpx]">
-                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-caption text-[var(--color-text-tertiary)]">
                       {item.termName}
                     </Text>
-                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-caption text-[var(--color-text-tertiary)]">
                       {codeText(BUSINESS_LINE_KEY, item.businessLine)}
                     </Text>
                   </View>
                   <View className="mt-[16rpx] flex items-center justify-between">
-                    <Text className="text-[length:24rpx] text-muted-foreground">
+                    <Text className="text-label text-muted-foreground">
                       {tt('bill.feeSummary', '应缴 ¥{total} · 已缴 ¥{paid}', {
                         total: item.totalFee.toLocaleString(),
                         paid: item.paidAmount.toLocaleString(),
@@ -302,7 +302,7 @@ export default function Bill() {
                   </View>
                   {ledger?.nextDueDate ? (
                     <View className="mt-[8rpx]">
-                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-caption text-[var(--color-text-tertiary)]">
                         {overdueDays > 0
                           ? tt('bill.overdue', '已逾期 {days} 天', { days: overdueDays })
                           : tt('bill.dueOn', '{date} 到期', { date: ledger.nextDueDate })}
@@ -317,7 +317,7 @@ export default function Bill() {
                       hoverClass="opacity-60"
                       onClick={() => void onPay(item)}
                     >
-                      <Text className="text-[length:28rpx] font-semibold text-[var(--color-surface-light)]">
+                      <Text className="text-body font-semibold text-[var(--color-surface-light)]">
                         {payingId === item.id
                           ? tt('bill.paying', '支付中…')
                           : tt('bill.payOnline', '在线缴纳 ¥{amount}', {
@@ -339,7 +339,7 @@ export default function Bill() {
         {/* 缴费记录 */}
         {data.payments.length > 0 ? (
           <View className="mx-[20rpx] mt-[32rpx]">
-            <Text className="text-[length:28rpx] font-semibold text-foreground">
+            <Text className="text-body font-semibold text-foreground">
               {tt('bill.paymentHistory', '缴费记录')}
             </Text>
             <View className="mt-[16rpx] rounded-lg border border-[var(--color-border)] bg-card px-[24rpx]">
@@ -350,7 +350,7 @@ export default function Bill() {
                       {codeText(PAY_METHOD_KEY, p.paymentMethod)}
                       {p.status === 'refunded' ? tt('bill.refunded', '(已退费)') : ''}
                     </Text>
-                    <Text className="mt-[4rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="mt-[4rpx] block text-caption text-[var(--color-text-tertiary)]">
                       {p.paymentDate}
                       {p.receiptNo ? ` · ${tt('bill.receiptNo', '单号 {no}', { no: p.receiptNo })}` : ''}
                     </Text>

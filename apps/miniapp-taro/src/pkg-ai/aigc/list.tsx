@@ -373,7 +373,7 @@ export default function AigcList() {
                 </View>
                 {/* 对齐 RN textCard promptText:标签 + 提示词本体,仅在有提示词时呈现 */}
                 {item.prompt ? (
-                  <Text className="mt-[8rpx] text-[length:28rpx] text-[color:var(--color-primary)]">
+                  <Text className="mt-[8rpx] text-body text-[color:var(--color-primary)]">
                     {t('aigcList.promptLabel')} {item.prompt}
                   </Text>
                 ) : null}
@@ -420,7 +420,7 @@ export default function AigcList() {
                         color="var(--color-primary)"
                       />
                       {/* 对齐 RN audioPlayText:按钮内文案(共享屏有、本页原先只有图标) */}
-                      <Text className="ml-[8rpx] text-[length:28rpx] font-semibold text-[color:var(--color-primary)]">
+                      <Text className="ml-[8rpx] text-body font-semibold text-[color:var(--color-primary)]">
                         {t('aigcList.playAudio')}
                       </Text>
                     </View>

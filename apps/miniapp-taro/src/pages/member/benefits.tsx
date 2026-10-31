@@ -388,10 +388,10 @@ export default function BenefitsPage() {
                     </Text>
                   )}
                   <View className="flex-1 ml-[16rpx]">
-                    <Text className="block text-[length:28rpx] text-[var(--color-text-medium)] font-medium">
+                    <Text className="block text-body text-[var(--color-text-medium)] font-medium">
                       {tt(b.tk, b.tf)}
                     </Text>
-                    <Text className="block mt-[6rpx] text-[length:22rpx] text-muted-foreground">
+                    <Text className="block mt-[6rpx] text-caption text-muted-foreground">
                       {tt(b.dk, b.df)}
                     </Text>
                   </View>

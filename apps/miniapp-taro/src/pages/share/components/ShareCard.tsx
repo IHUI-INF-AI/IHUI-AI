@@ -81,7 +81,7 @@ export default function ShareCard() {
         style={ffRemark.focusStyle}
       >
         <Input
-          className="flex-1 text-[length:28rpx] text-foreground"
+          className="flex-1 text-body text-foreground"
           {...ffRemark.spread}
           value={remark}
           onInput={(e) => setRemark(e.detail.value)}
@@ -103,22 +103,22 @@ export default function ShareCard() {
       </View>
       {result ? (
         <View className="mt-[24rpx] border border-border rounded-lg p-[24rpx]">
-          <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block text-label text-[var(--color-text-tertiary)]">
             {t('share.url')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground break-all">
+          <Text className="block mt-[8rpx] text-body text-foreground break-all">
             {result.shareUrl}
           </Text>
-          <Text className="block mt-[16rpx] text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
             {t('share.code')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground">
+          <Text className="block mt-[8rpx] text-body text-foreground">
             {result.shareCode}
           </Text>
-          <Text className="block mt-[16rpx] text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
             {t('share.expireAt')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground">
+          <Text className="block mt-[8rpx] text-body text-foreground">
             {result.expireAt ? formatDateByTemplate(result.expireAt, 'YYYY-MM-DD HH:mm') : ''}
           </Text>
         </View>

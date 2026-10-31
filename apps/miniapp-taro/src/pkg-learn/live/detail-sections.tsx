@@ -77,7 +77,7 @@ export function LiveIntro({ intro }: { intro?: string | null }) {
       <Text className="block text-[length:30rpx] font-semibold text-foreground mb-[16rpx]">
         {t('liveDetail.intro')}
       </Text>
-      <Text className="block text-[length:28rpx] text-[var(--color-text-medium)]">
+      <Text className="block text-body text-[var(--color-text-medium)]">
         {intro || '—'}
       </Text>
     </View>

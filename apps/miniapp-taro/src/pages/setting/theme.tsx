@@ -111,7 +111,7 @@ export default function ThemePage() {
             行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
             卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-body text-muted-foreground">
             {tt('settings.theme', '主题')}
           </Text>
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
