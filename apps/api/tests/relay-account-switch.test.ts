@@ -18,7 +18,9 @@ import {
   applySwitch,
   assertNoSecretLeak,
   closeClientAndWait,
+  dedupeTargetsForDisplay,
   fmtTarget,
+  fmtTargetDeduped,
   listSwitchTargets,
   main,
   parseTasklistCsvPids,
@@ -27,6 +29,7 @@ import {
   rollbackAuth,
   runLinkedSessionSwap,
   type SwitchPaths,
+  type SwitchTarget,
 } from '../scripts/relay-account-switch.js'
 import { readOpsAll, type MovePaths } from '../scripts/relay-session-move.js'
 
@@ -124,6 +127,56 @@ describe('listSwitchTargets', () => {
     expect(t.expired).toBe(false)
     expect(t.authExpiresAt).toBeDefined()
     expect(JSON.stringify(t)).not.toContain('xx') // 信封载荷不外泄
+  })
+})
+
+describe('dedupeTargetsForDisplay 展示去重(同账号折叠,治满屏重复)', () => {
+  const mk = (name: string, accountId: string | undefined, sha12: string): SwitchTarget => ({
+    name,
+    path: join('X:', 'fake', name),
+    modifiedAt: '',
+    sha12,
+    ...(accountId ? { accountId } : {}),
+    tokenShape: 'jwt',
+    isCurrent: false,
+    expired: false,
+  })
+
+  it('同 accountId 多份只留首见(最新),旧份折叠报数', () => {
+    const rows = dedupeTargetsForDisplay([
+      mk('workbuddy-desktop.20261028T000000Z.info', 'uid-a', 'a1'),
+      mk('workbuddy-desktop.20261027T000000Z.info', 'uid-a', 'a2'),
+      mk('workbuddy-desktop.20261026T000000Z.info', 'uid-a', 'a3'),
+      mk('workbuddy-desktop.20261025T000000Z.info', 'uid-b', 'b1'),
+    ])
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.target.sha12).toBe('a1')
+    expect(rows[0]!.hiddenOlder).toBe(2)
+    expect(rows[1]!.target.sha12).toBe('b1')
+    expect(rows[1]!.hiddenOlder).toBe(0)
+    expect(fmtTargetDeduped(rows[0]!)).toContain('另有 2 份同账号旧快照已折叠')
+    expect(fmtTargetDeduped(rows[1]!)).not.toContain('已折叠')
+  })
+
+  it('无 accountId 的快照按 sha12 独立成组,绝不冒并账号', () => {
+    const rows = dedupeTargetsForDisplay([
+      mk('workbuddy-desktop.20261028T000000Z.info', undefined, 'a1'),
+      mk('workbuddy-desktop.20261027T000000Z.info', undefined, 'a2'),
+    ])
+    expect(rows).toHaveLength(2)
+    for (const r of rows) expect(r.hiddenOlder).toBe(0)
+  })
+
+  it('展示去重不影响按名寻址:被折叠的旧快照名仍出现在全量清单里', () => {
+    seedSnapshot('workbuddy-desktop.20261026T110000Z.info', authBody('甲', { uid: 'uid-x' }))
+    seedSnapshot('workbuddy-desktop.20261027T090000Z.info', authBody('甲', { uid: 'uid-x' }))
+    const { targets } = listSwitchTargets(paths)
+    expect(targets).toHaveLength(2)
+    const rows = dedupeTargetsForDisplay(targets)
+    expect(rows).toHaveLength(1)
+    // planSwitch 仍按全量 targets 寻址,旧快照照常可切(展示层去重 ≠ 删除)
+    const plan = planSwitch(paths, 'workbuddy-desktop.20261026T110000Z.info')
+    expect(plan.targetName).toBe('workbuddy-desktop.20261026T110000Z.info')
   })
 })
 
@@ -565,15 +618,23 @@ describe('client lifecycle', () => {
     })
 
     it('反向对照①:中文宿主的"没有运行的任务"信息行 ⇒ 空(不靠文案匹配也能排除)', () => {
-      expect(parseTasklistCsvPids('信息: 没有运行的任务，指定筛选条件为“IMAGENAME eq WorkBuddy.exe”。\n')).toEqual([])
+      expect(
+        parseTasklistCsvPids(
+          '信息: 没有运行的任务，指定筛选条件为“IMAGENAME eq WorkBuddy.exe”。\n',
+        ),
+      ).toEqual([])
     })
 
     it('反向对照②:英文 INFO 行 ⇒ 空(本地化两种形态都不进候选)', () => {
-      expect(parseTasklistCsvPids('INFO: No tasks are running which match the specified criteria.\n')).toEqual([])
+      expect(
+        parseTasklistCsvPids('INFO: No tasks are running which match the specified criteria.\n'),
+      ).toEqual([])
     })
 
     it('反向对照③:带 /NH 时仍可能混进的表头行 ⇒ 第 2 列不是数字即丢弃', () => {
-      expect(parseTasklistCsvPids('"Image Name","PID","Session Name","Session#","Mem Usage"\n')).toEqual([])
+      expect(
+        parseTasklistCsvPids('"Image Name","PID","Session Name","Session#","Mem Usage"\n'),
+      ).toEqual([])
     })
 
     it('反向对照④:PID 为 0 / 负数 / 非整数 ⇒ 一律丢弃(0 与小数都不是可用 PID)', () => {
