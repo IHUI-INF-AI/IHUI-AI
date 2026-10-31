@@ -27,6 +27,7 @@ import pytest
 from app.core.config import settings
 from app.services import workbuddy_tasks as wt
 from app.services.workbuddy_tasks import (
+    PATH_GROWTH_LOTTERY_SUMMARY,
     PATH_GROWTH_STREAK,
     PATH_GROWTH_TASKS,
     PATH_GROWTH_TASKS_ACCEPT,
@@ -766,4 +767,129 @@ class TestRunFamily:
     async def test_unknown_kind_is_unjudged(self):
         out = await wt.run_family("nope", TOKEN, {}, dry_run=True)
         assert out["ok"] is False and out["unjudged"] is True
+
+    async def test_redeem_and_lottery_are_registered_kinds(self):
+        """族五/六已登记进派发表(路由 Literal 与调度器 kind 元组同步扩展)。"""
+        assert "redeem" in wt.VALID_FAMILY_KINDS
+        assert "lottery" in wt.VALID_FAMILY_KINDS
+
+
+# ---------------------------------------------------------------------------
+# 族五 redeem(连签兑换):读 redemption_status,写侧 body 字段未取证 ⇒ 默认拒绝写
+# ---------------------------------------------------------------------------
+
+
+class TestRedeem:
+    async def test_dry_run_reads_tiers_only(self):
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"redemption_status": {"tiers": [{"tier": "7d", "days": 7}]}}
+                )
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=True, client=client)
+        assert out["ok"] is True and out["kind"] == "redeem"
+        assert rec.methods() == ["GET"]
+        assert "7d" in (out["reason"] or "")
+        assert out["accepted"] == []
+
+    async def test_write_refused_until_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        """档位已配但 body 字段名未取证 ⇒ 一个兑换请求都不发,并点名"拒绝猜字段"(§0.3)。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_redeem_tiers", "7d")
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"redemption_status": {"tiers": [{"tier": "7d", "days": 7}]}}
+                ),
+                "/activity/growth/redeem": ok_envelope({}),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=False, client=client)
+        assert out["accepted"] == []
+        assert out["unjudged"] is True
+        assert "拒绝猜字段" in (out["reason"] or "")
+        assert "/activity/growth/redeem" not in " ".join(rec.paths())
+
+    async def test_no_targets_is_read_only_success(self):
+        """未配兑换档位 ⇒ 只读列档、不写(绝不猜哪个档可兑)。"""
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"redemption_status": {"tiers": [{"tier": "7d"}]}}
+                )
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is True and out["unjudged"] is False
+        assert "只读不写" in (out["reason"] or "")
+        assert "/activity/growth/redeem" not in " ".join(rec.paths())
+
+    async def test_unreadable_redemption_is_unjudged(self):
+        rec = Recorder({PATH_GROWTH_STREAK: ok_envelope({})})
+        async with rec.client() as client:
+            out = await wt.run_redeem(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is False and out["unjudged"] is True
+
+
+# ---------------------------------------------------------------------------
+# 族六 lottery(抽奖):读 lottery/summary,写侧 body 字段未取证 ⇒ 默认拒绝写
+# ---------------------------------------------------------------------------
+
+
+class TestLottery:
+    async def test_dry_run_reads_summary_only(self):
+        rec = Recorder({PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 2})})
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=True, client=client)
+        assert out["ok"] is True and out["kind"] == "lottery"
+        assert rec.methods() == ["GET"]
+        assert out["unjudged"] is False
+
+    async def test_write_refused_until_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_field", "")
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_count", 1)
+        rec = Recorder(
+            {
+                PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 1}),
+                "/activity/growth/lottery/draw": ok_envelope({}),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == []
+        assert out["unjudged"] is True
+        assert "拒绝猜字段" in (out["reason"] or "")
+        assert "/activity/growth/lottery/draw" not in " ".join(rec.paths())
+
+    async def test_draw_executes_when_field_configured(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_field", "count")
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_count", 1)
+        captured: list[Any] = []
+
+        def draw_handler(request: httpx.Request) -> httpx.Response:
+            captured.append(json.loads(request.content) if request.content else {})
+            return httpx.Response(200, json=ok_envelope({}))
+
+        rec = Recorder(
+            {
+                PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 1}),
+                "/activity/growth/lottery/draw": draw_handler,
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == ["draw#1"]
+        assert len(captured) == 1 and captured[0] == {"count": 1}
+
+    async def test_zero_count_skips_without_draw(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_lottery_draw_count", 0)
+        rec = Recorder({PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({})})
+        async with rec.client() as client:
+            out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is True and out["claimed"] == []
+        assert "/activity/growth/lottery/draw" not in " ".join(rec.paths())
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
