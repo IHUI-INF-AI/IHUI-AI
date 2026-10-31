@@ -244,3 +244,24 @@ test('⑫ 射程枚举与门体常量同源(三根 src 都在枚举里)', () => 
   assert.equal(TIER_KEY, 'tapBox', '档位键名换了就必须同步改本门取值处,不许就近吸附成第二个数')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('⑰ H4 内容文字桶已升绝对零:资格锁 + 提交链必须真的引用它', () => {
+  const { scanFontLock } = __test__
+  const r = scanFontLock(
+    `<Text style={styles.a} allowFontScaling={false}>{t('x.y')}</Text><Text style={styles.b} allowFontScaling={false}>{'×'}</Text>`,
+  )
+  assert.equal(r.content.length, 1, '内容文字必须进内容桶')
+  assert.equal(r.glyph.length, 1, '图标字形必须留在字形桶(判它即逼人跳门)')
+  const scaled = scanFontLock(
+    '<Text style={[styles.a, scaleText(styles.a)]} allowFontScaling={false}>{t("x.y")}</Text>',
+  )
+  assert.equal(scaled.content.length, 0, '已接 scaleText 的格子不得再算缺陷')
+  assert.equal(scaled.scaled.length, 1)
+  // 资格锁:工作树(=本枚要落的内容)内容桶必须为 0,否则这一维就是恒红门
+  const out = run(['--worktree']).stdout
+  const m = /关系统字号缩放: (\d+) 处内容文字/.exec(out)
+  assert.ok(m, `读不到 H4 内容桶计数:${out.slice(0, 200)}`)
+  assert.equal(Number(m[1]), 0, 'H4 已是绝对零容忍 ⇒ 内容桶回潮先在这里响,而不是堵住所有人的 pre-commit')
+  const staged = GATE_SRC.slice(GATE_SRC.indexOf('// staged 档'))
+  assert.match(staged, /r\.h4\.content/, 'H4 升了档却不在提交链里引用 ⇒ 文案与判据两份真相')
+})

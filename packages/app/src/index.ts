@@ -437,6 +437,8 @@ export type { TextFieldProps } from './components'
  */
 export { useWrapFocus, wrapFocusBorder, wrapFocusInk } from './hooks/use-wrap-focus'
 export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
+/** 文字按系统字号同比放大字号与行盒(配套 allowFontScaling={false} 用;机制与倍率唯一口都只这一份) */
+export { scaleText } from './hooks/scaled-text'
 
 /**
  * 回屏 / 回前台即重取 —— 共享层唯一实现(票 L30756),平台原语由 adapter 注入(§3 禁平台分支进共享层)。
