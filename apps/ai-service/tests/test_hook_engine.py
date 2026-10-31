@@ -802,13 +802,18 @@ class TestRunNotify:
 
     @pytest.mark.asyncio
     async def test_email_channel_import_error(self, engine):
-        """email 渠道:email_service 不存在时降级(视为成功)。"""
+        """email 渠道:无邮件出口 ⇒ 必须如实报失败(2026-11-01 安全强化改判)。
+
+        原断言 `assert err is None` 钉的是"降级视为成功"—— 而本进程根本没有
+        email_service,等于让每一枚 notify(email) 在从未投递的情况下报告成功。
+        返回形状与同函数 webhook 分支失败时一致((None, 错误串)),不新增中断语义。
+        """
         with patch("builtins.__import__", side_effect=ImportError):
             result, err = await engine._run_notify(
                 {"channel": "email", "to": "a@b.com", "message": "hi"}, "error", {})
-        # ImportError 降级视为成功
-        assert err is None
-        assert "email" in result
+        assert err is not None
+        assert "notify(email) 失败" in err
+        assert result is None
 
 
 # ════════════════════════════════════════════════════════════════════════

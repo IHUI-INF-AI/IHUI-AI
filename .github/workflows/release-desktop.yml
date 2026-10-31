@@ -415,7 +415,18 @@ jobs:
         run: pnpm config set registry https://registry.npmmirror.com
 
       - name: Install pnpm deps
-        run: pnpm install --no-frozen-lockfile
+        # 2026-11-01 供应链强化:此处原为 `--no-frozen-lockfile` —— 这条链产出**签名并对外发布**
+        # 的桌面安装包,允许解析漂移意味着"lockfile 与 package.json 不一致时不报错,
+        # 而是把上游最新版装进来、签上名、发给用户"(投毒只需劫持一次上游发版,无需 PR)。
+        # 换回 frozen 的依据(现读,不是推测):
+        #  · `ci.yml:67/355` 一直在用 `pnpm install --frozen-lockfile`,且 CI 为绿 ⇒ 该写法
+        #    在本仓现有镜像源(.npmrc registry=npmmirror)下本就可行;
+        #  · `pnpm-lock.yaml` 里 **没有** 任何 per-package `resolution.tarball` 主机名
+        #    (grep `resolution:\{tarball:"https://` = 0 命中)⇒ 换注册表不会让锁失效;
+        #  · ci.yml:63 的既有注释写的就是同一句判据:"禁止改成裸 pnpm install 或加
+        #    --no-frozen-lockfile —— 那等于把这道门删掉"。
+        # 失败方向由此变成"锁不一致时流水线响亮地红",而不是静默装出另一个东西。
+        run: pnpm install --frozen-lockfile
 
       # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建。api-client 产物化后
       # (0fca0f3034,入口 main/exports → dist),CI 全新 checkout 下不先构建
