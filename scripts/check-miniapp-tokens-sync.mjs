@@ -64,6 +64,7 @@ import {
   deriveMiniappManaged,
   deriveThemeRegistryDecls,
   isAlphaRgbTriple,
+  THEME_SELECTORS,
   TOKENS_SOURCE_REL,
   APP_CSS_REL,
 } from './sync-miniapp-tokens.mjs'
@@ -141,7 +142,7 @@ export function compare({ tokensCss, appCss }) {
   const have = {
     ':root': collectVars(appCss, [':root']),
     '.dark': collectVars(appCss, ['.dark']),
-    '@theme': collectVars(appCss, ['@theme']),
+    '@theme': collectVars(appCss, THEME_SELECTORS),
   }
   const mismatches = []
   const missing = []
