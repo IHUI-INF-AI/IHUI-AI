@@ -71,6 +71,7 @@ import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -477,7 +478,7 @@ export function PlazaScreen() {
               },
             ]}
             rightAction={
-              <Pressable
+              <Pressable style={pressFeedback(undefined)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 onPress={() => setShowSearch((v) => !v)}
                 accessibilityRole="button"
@@ -558,7 +559,7 @@ export function PlazaScreen() {
         onRequestClose={() => setIdentityVisible(false)}
       >
         <Pressable
-          style={styles.categoryMask}
+          style={pressFeedback(styles.categoryMask)}
           onPress={() => setIdentityVisible(false)}
           accessibilityLabel={t('plaza.index.closeIdentity')}
         >
@@ -582,7 +583,7 @@ export function PlazaScreen() {
             </View>
             <View style={styles.identityButtons}>
               <Pressable
-                style={[styles.identityBtn, styles.identityBtnOutline]}
+                style={pressFeedback([styles.identityBtn, styles.identityBtnOutline])}
                 onPress={() => {
                   // 对齐原项目 toSet:写身份 userStatus='nomal' + 关弹窗(切换发布路径视图)
                   setIdentityVisible(false)
@@ -611,7 +612,7 @@ export function PlazaScreen() {
               </Pressable>
             </View>
             <Pressable
-              style={styles.identityFooter}
+              style={pressFeedback(styles.identityFooter)}
               onPress={() => {
                 setIdentityVisible(false)
                 setNoticeVisible(true)
@@ -633,7 +634,7 @@ export function PlazaScreen() {
         onRequestClose={() => setNoticeVisible(false)}
       >
         <Pressable
-          style={styles.categoryMask}
+          style={pressFeedback(styles.categoryMask)}
           onPress={() => setNoticeVisible(false)}
           accessibilityLabel={t('plaza.index.closeDevNotice')}
         >
