@@ -37,7 +37,6 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
 import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
@@ -45,8 +44,43 @@ import { facePx } from './lib/length-units.mjs'
 // 换算器包档(toRpx/toUnit 支)的形态识别与取源表**只此一份**,住在 lib/radius-tokens.mjs;
 // 圆角维已从那一份取数,几何维若另写一条正则,两处就会漂成"圆角认得、盒形不认"(§0.6)。
 import { geometryItemsInSrc, lengthConstsOf } from './lib/radius-tokens.mjs'
+// CSS 命名档(`--spacing-*` / `--text-*`)的「档名 → px」由**生产受管块那一份**给:
+// 若在本门另写一条名字换算,就会漂成"TS 源认得、CSS 写法认不得"(§0.6)。
+import { buildEntries, parseTokenTables, ELEVATION_REL, TYPOGRAPHY_REL } from './sync-css-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * CSS 命名档(`--spacing-*` / `--text-*`)→ 逻辑 px。
+ *
+ * 为什么要有这一份:间距/字号「任意值落档」自动化把 web 与小程序的盒档从裸 px/rpx 改写成了
+ * CSS 变量,而几何维其余提取式全按数字字面量取档 ⇒ **落档推进得越好、这一侧读数越少**,
+ * 门反过来把"两端同一档"报成"仅另一端档 N"(2026-10-31 实测 `CategoryBar.css` 的
+ * `height: var(--spacing-3xl)` 整族隐身,凭空 4 档假分叉、本门当场翻红)。
+ * 名字换算**不重写**:交 `sync-css-tokens.mjs` 的 `buildEntries` —— 它就是写 tokens.css 受管块
+ * 的那个生产者(§0.6);本仓一旦另写一份 `--spacing-<step>` 拼名,某天就会漂成"表里有、名对不上"。
+ * 三份源缺任意一份 ⇒ 返回 `null`(调用侧按未判定处理,不拿半张表凑数)。
+ * 0 值档(如 `--spacing-none`)**保留在表里**:它解得到,只是由消费腿按 C4 排除出值集,
+ * 免得每写一次 `var(--spacing-none)` 就多一枚假"未判定"。
+ */
+export function cssTierPxFrom({ spacing, typography, elevation }) {
+  if (!spacing || !typography || !elevation) return null
+  let entries
+  try {
+    entries = buildEntries(parseTokenTables({ spacing, typography, elevation }))
+  } catch {
+    return null
+  }
+  const map = {}
+  for (const en of entries) {
+    if (!/^--(?:spacing|text)-/.test(en.name)) continue
+    // 行高/字重不是几何档(与 NON_GEO_KEY 同口径);圆角留给 RD 维,并进几何即同一处双计。
+    if (/--(?:line-height|font-weight)$/.test(en.name)) continue
+    const px = Number.parseFloat(en.value)
+    if (Number.isFinite(px) && px >= 0) map[en.name] = px
+  }
+  return Object.keys(map).length ? map : null
+}
 
 /**
  * 两端的组件面。RN 侧**三层都扫**(2026-09-27 票⑭ 起):`packages/app/src/components`(共享组件层)
@@ -415,6 +449,39 @@ export function readGeometry(src, side, tiers = {}) {
         push(px)
         if (named[memberName] === undefined) named[memberName] = px
       }
+      /**
+       * **CSS 命名档消费腿**(`var(--spacing-md)` / `var(--text-badge)`):间距/字号「任意值落档」运动
+       * 把 web 与小程序的盒档从裸 px/rpx 改写成了 CSS 变量,而本维其余提取式全按「数字字面量」取档
+       * ⇒ **落档推进得越好、这一侧读数越少**,门反过来把"两端同一档"报成"仅另一端档 N"。
+       * 2026-10-31 实测:`CategoryBar.css` 的 `height: var(--spacing-3xl)`(=32)整族隐身,凭空造出
+       * "仅 web/RN 档 6/8/10/16/32" 并把本门顶成红 —— 而本仓的自动化腿(land-*-style-tiers)每天都在
+       * 生产这一型写法,不修尺子就等于"每自动落一次档,就多一笔假分叉"(§12f:判据失效的表现是安静)。
+       * 档名→px 交 `sync-css-tokens.mjs` 的 `buildEntries`(与写受管块**同一个生产者**,§0.6 不复算)。
+       * 解不到的逐枚进 `unreadable`,不静默当"这一侧没写档"(§0.3)。
+       * 行高/字重后缀不入射程:`line-height` 归 NON_GEO_KEY 拦(无单位行高折成 0.5 幽灵档那一型),
+       * `font-weight` 根本不是长度;圆角一律留给 RD 维(并进几何就是同一处双计)。
+       */
+      for (const m of code.matchAll(/\bvar\(\s*(--(?:spacing|text)-[a-z0-9-]+)\s*\)/g)) {
+        const name = m[1]
+        if (/--(?:line-height|font-weight)$/.test(name)) continue
+        const px = tiers[name]
+        if (px === undefined) {
+          unreadable.push({
+            raw: name,
+            text: name,
+            px: null,
+            why: 'CSS 命名档表读不到该档(受管块与 TS 源不同名、或档已改名)',
+          })
+          continue
+        }
+        /**
+         * `0` 是**合法档值**(`--spacing-none`),但 0 进值集等于造同值假账(C4)——
+         * 它既不该进集合,也不该报未判定(档解得到,只是不入档集)。
+         * 不这么分的话,每写一次 `gap: var(--spacing-none)` 就多一枚假"未判定"噪声。
+         */
+        if (px === 0) continue
+        if (px <= MAX_GEO_PX) push(px)
+      }
     }
     const alias = {}
     for (const m of code.matchAll(
@@ -536,7 +603,14 @@ export function specTiers(sources) {
     const spTable = codeSp.match(/SPACING_STEPS\s*=\s*\{([\s\S]*?)\}\s*as const/)
     if (!spTable) continue
     const spSteps = []
-    for (const m of spTable[1].matchAll(/(?:'([^']{1,6})'|([A-Za-z_$][\w$]*))\s*:\s*(\d+(?:\.\d+)?)/g))
+    /**
+     * 档名**不封顶长度**(原写法限到 6 字符):2026-10-31 补进的半步档 `xs-loose` / `sm-loose`
+     * 各 8 字符 ⇒ 整档解不到,`rnSpacing['xs-loose']` 落进 unreadable,而 `SPACING_ROLES` 里
+     * 指向这两档的角色也跟着失连。小程序/web 侧同一档经 `buildEntries` 的 CSS 名解得到,
+     * 于是"两端同一档"被读成"仅小程序档 6"(2026-10-31 实测 CategoryBar / ScreenStates 各一笔)。
+     * 限长是给旧档名表凑的整数,不是判据 —— 表在长,尺子的键集必须跟着长(§0.6)。
+     */
+    for (const m of spTable[1].matchAll(/(?:'([^']+)'|([A-Za-z_$][\w$]*))\s*:\s*(\d+(?:\.\d+)?)/g))
       spSteps.push([m[1] || m[2], Number(m[3])])
     for (const [k, v] of spSteps) if (v > 0) tiers[`rnSpacing.${k}`] = v
     const spRoles = codeSp.match(/SPACING_ROLES\s*=\s*\{([\s\S]*?)\}\s*as const/)
@@ -2514,21 +2588,34 @@ export function collect(
    */
   const spacingPath = 'packages/design-tokens/src/spacing.ts'
   const hasSpacing = geoList === null ? false : geoList.includes(spacingPath)
+  /**
+   * CSS 命名档(`var(--spacing-*)` / `var(--text-*)`)的取源需要这三份表凑齐才能交给
+   * `parseTokenTables` + `buildEntries`(缺一份就整腿不判,不是拿半张表凑数)。
+   * 它们**不进 `specSources`**:那一份喂给 `specTiers` / SL 维的 `specFnTiers`,混进去会让
+   * 与本次无关的两维跟着移动 —— 读面同轮取满、用途各走各的表(§0.4 同面同轮)。
+   */
+  const hasTypography = geoList === null ? false : geoList.includes(TYPOGRAPHY_REL)
+  const hasElevation = geoList === null ? false : geoList.includes(ELEVATION_REL)
   // 几何表、圆角表、间距表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
   const tierPaths = [
     ...specFiles,
     ...(hasGeo ? [geoPath, geoDtsPath] : []),
     ...(hasRadius ? [radiusPath] : []),
     ...(hasSpacing ? [spacingPath] : []),
+    ...(hasTypography ? [TYPOGRAPHY_REL] : []),
+    ...(hasElevation ? [ELEVATION_REL] : []),
   ]
   const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
   const specSources = {}
+  const cssTierSources = {}
   for (let i = 0; i < tierPaths.length; i++) {
     const t = tierGot.get(tierSpecs[i])
     if (t === null || t === undefined)
       throw new Undetermined(`${FACE_TXT[face]}取不到具名档来源 ${tierPaths[i]}`)
-    specSources[tierPaths[i]] = t
+    if (tierPaths[i] === TYPOGRAPHY_REL || tierPaths[i] === ELEVATION_REL)
+      cssTierSources[tierPaths[i]] = t
+    else specSources[tierPaths[i]] = t
   }
   if (!hasGeo && need.some((rel) => /\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\./.test(text[rel])))
     throw new Undetermined(`${FACE_TXT[face]}取不到 ${geoPath},而配对组件在引用几何表 ⇒ 判据失明`)
@@ -2548,6 +2635,42 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${radiusPath} 或档位表解析为空,而配对组件在用圆角 ⇒ 圆角维判据失明`,
     )
   const tiers = specTiers(specSources)
+  /**
+   * **CSS 命名档腿**(`var(--spacing-*)` / `var(--text-*)`)的档表接入。
+   * 立因:间距/字号落档自动化(land-web/rn/miniapp-style-tiers)把两端盒档从裸 px/rpx 改写成了
+   * CSS 变量,而几何维的全部提取式只认数字字面量 ⇒ 落档越干净、这一侧读数越空,门把"两端同一档"
+   * 报成"仅另一端档 N"(2026-10-31 实测 CategoryBar 凭空 4 档假分叉)。
+   * 名字换算不重写:交 `sync-css-tokens.mjs` 的 `buildEntries`(与写 tokens.css 受管块同一个生产者)。
+   * 失明方向与几何/圆角两腿同一条:表取不到而配对腿在写 CSS 档 ⇒ 未判定喊死,不拿"读不到"冒充"没写"。
+   */
+  {
+    const usesCssTier = need.some((rel) =>
+      /var\(\s*--(?:spacing|text)-/.test((text[rel] ?? '') + (styles[rel] ?? '')),
+    )
+    const srcSpacing = specSources[spacingPath] ?? null
+    const srcTypography = cssTierSources[TYPOGRAPHY_REL] ?? null
+    const srcElevation = cssTierSources[ELEVATION_REL] ?? null
+    const absent = [srcSpacing, srcTypography, srcElevation].filter((v) => !v).length
+    if (absent) {
+      if (usesCssTier)
+        throw new Undetermined(
+          `${FACE_TXT[face]}取不到 CSS 命名档所需档位源(spacing/typography/elevation 缺 ${absent} 份),` +
+            `而配对组件在写 var(--spacing-*/--text-*) ⇒ 几何维判据失明`,
+        )
+    } else {
+      const cssPx = cssTierPxFrom({
+        spacing: srcSpacing,
+        typography: srcTypography,
+        elevation: srcElevation,
+      })
+      if (!cssPx) {
+        if (usesCssTier)
+          throw new Undetermined(
+            `${FACE_TXT[face]}CSS 命名档表解析为空或解析失败(受管块改名、档源结构变了?)⇒ 几何维判据失明`,
+          )
+      } else Object.assign(tiers, cssPx)
+    }
+  }
   /**
    * SL 维的两张投影表(判据语义见 specLegAudit 同一段注):
    *  · `specFnTiers` —— spec 里 `export function` 的函数体引用了哪些档。函数体按**括号配平**取整段,
@@ -4113,10 +4236,17 @@ export function main(argv, repoRoot = ROOT) {
         pairCount: res.pairCount,
         findings: res.findings.map((f) => ({
           name: f.name,
+          // 主腿机器面此前只递计数,`diffCount: 1` 背后是哪一档差在只有终端人读面看得见 ——
+          // 清欠债的人拿不到输入,只能自己再算一遍(必漂移)。web 腿已按"机器面与主腿同键同形"
+          // 补过同一格,这一路没跟着补;两条腿读同一台输出机,键集不该有两种。
+          miniapp: f.miniapp,
+          web: f.web,
           diffCount: diffCount(f),
           radiusCount: radiusCount(f),
-          radius: f.radius,
           elementRadiusCount: elementRadiusCount(f),
+          geometry: f.geometry,
+          named: f.named,
+          radius: f.radius,
           elementRadius: f.elementRadius,
           lang: f.lang,
         })),
@@ -4864,6 +4994,7 @@ export const __test__ = {
   stripComments,
   toPx,
   readGeometry,
+  cssTierPxFrom,
   specTiers,
   specProjectionAliases,
   specTierEquivalence,
