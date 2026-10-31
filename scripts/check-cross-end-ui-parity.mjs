@@ -41,10 +41,13 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
 import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
-import { facePx } from './lib/length-units.mjs'
+import { facePx, lengthToPx } from './lib/length-units.mjs'
 // 换算器包档(toRpx/toUnit 支)的形态识别与取源表**只此一份**,住在 lib/radius-tokens.mjs;
 // 圆角维已从那一份取数,几何维若另写一条正则,两处就会漂成"圆角认得、盒形不认"(§0.6)。
-import { geometryItemsInSrc, lengthConstsOf } from './lib/radius-tokens.mjs'
+import { geometryItemsInSrc, lengthConstsOf, cssVarItemsInSrc } from './lib/radius-tokens.mjs'
+// CSS 变量解值的取源:tokens.css 的块解析**只此一份实现**(lib/design-token-blocks.mjs 是它的全仓唯一出口,
+// 生成器与守门 36/93 都从那里取);本门不得再抄第二份 `--x: y` 正则(§0.6)。
+import { collectVars } from './lib/design-token-blocks.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -227,9 +230,77 @@ export function toPx(raw, unit, side, where = 'css') {
 const RADIUS_FORM_RE = /rounded|radius|cornerradius|border-radius/i
 
 /**
- * 一个文件 → 归一后的几何档集合 + 具名常量表。纯函数:自检钉的是它,不是打印。
+ * 长度档 CSS 变量的**单一真相源**与它的**小程序派生态副本**。
+ * 源 = `packages/design-tokens/src/styles/tokens.css`(§4 规定的唯一色/档源头,受管块由
+ * `sync-css-tokens.mjs` 从 TS 档表生成,派生态禁止手改);副本 = 小程序 `app.css` 的受管块,
+ * 按该端量纲写成 rpx。两者不是两张真相:副本必须能被源解释(rpx÷2 = px),对不上就说明
+ * 派生态漂了 —— 那种格本门**不替它发合格证**,把该档标成未判定逐枚点名(判红权归守门 36/93)。
  */
-export function readGeometry(src, side, tiers = {}) {
+const TOKENS_CSS_PATH = 'packages/design-tokens/src/styles/tokens.css'
+const MINIAPP_TOKEN_COPY_PATH = 'apps/miniapp-taro/src/app.css'
+/** 解值表里"这一档是长度"与"这一档不是长度"必须分开登记:后者不入几何集、也不报未判定(见 lib 头注②)。 */
+const CSS_VAR_LENGTH_KIND = 'length'
+const CSS_VAR_OTHER_KIND = 'other'
+
+/**
+ * 被审面 → CSS 变量解值表(`Map<档名, {kind, px?, raw, why?}>`)。
+ *
+ * 三条纪律:
+ *  ① 只从**被审面**取源(与清单同面同轮),绝不 import 磁盘常量 —— 否则档位一改,门对着旧表打分;
+ *  ② 无单位的值(`--z-index: 10`、`--text-badge--font-weight: 600`)一律判"非长度档":
+ *     单位缺失时 lengthToPx 会按裸数字当 px 读,那正是本门 NON_GEO_KEY 立起来防的那一型
+ *     (把字重当尺寸 = 噪音尺);要求带 `px|rem|rpx` 单位才允许进几何集;
+ *  ③ 与小程序派生态**互证**:同一档在副本里的 rpx 值折回 px 必须等于源值,不等 ⇒ 该档
+ *     `{kind:'length', px:null, why}` ⇒ 消费侧逐枚报名未判定(失效方向是"多要一次定向说明",
+ *     绝不是"挑一个信")。副本读不到 ⇒ 互证没做,由调用方在覆盖面面点名,不记成"已互证"。
+ *
+ * 源取不到时返回**空表**并由调用方按"判据失明"喊死(§0.3),本函数自己不抛,以便在纯函数面上单测。
+ */
+export function cssVarTiers(sources) {
+  const out = new Map()
+  const src = sources?.[TOKENS_CSS_PATH]
+  if (typeof src !== 'string') return out
+  const vars = collectVars(src, ['@theme', ':root'])
+  const copyRaw = sources?.[MINIAPP_TOKEN_COPY_PATH]
+  const copy =
+    typeof copyRaw === 'string' ? collectVars(copyRaw, [':root', '@theme', '@theme static']) : null
+  for (const [name, d] of vars) {
+    const value = String(d.value ?? '').trim()
+    // ② 必须自带长度单位才认(rpx/px/rem);裸数字一律判"非长度档"
+    const bare = value
+      .replace(/^calc\(/, '')
+      .replace(/\)$/, '')
+      .trim()
+    const hasUnit = /(?:rpx|px|rem)$/.test(bare)
+    const px = hasUnit ? lengthToPx(value) : null
+    if (px === null) {
+      out.set(name, { kind: CSS_VAR_OTHER_KIND, raw: value })
+      continue
+    }
+    let why = null
+    const c = copy ? copy.get(name) : undefined
+    if (c) {
+      const cpx = facePx(c.value, 'miniapp', 'css')
+      if (cpx === null) why = `小程序派生态该档(${c.value})不可折算`
+      else if (round(cpx) !== round(px))
+        why = `源 ${value}(=${px})与小程序派生态 ${c.value}(=${cpx})折算不等`
+    }
+    out.set(
+      name,
+      why
+        ? { kind: CSS_VAR_LENGTH_KIND, px: null, raw: value, why }
+        : { kind: CSS_VAR_LENGTH_KIND, px, raw: value },
+    )
+  }
+  return out
+}
+
+/**
+ * 一个文件 → 归一后的几何档集合 + 具名常量表。纯函数:自检钉的是它,不是打印。
+ * `cssVars` = `cssVarTiers` 的解值表;传 null/空表 ⇒ CSS 变量形态一条不采(由调用方按失明判,
+ * 不得读成"该侧没有变量取用")。
+ */
+export function readGeometry(src, side, tiers = {}, cssVars = null) {
   const code = stripComments(src)
   const named = {}
   const values = new Set()
@@ -238,6 +309,15 @@ export function readGeometry(src, side, tiers = {}) {
   }
   const keyed = (name) =>
     GEO_KEY.test(name) && !NON_GEO_KEY.test(name) && !RADIUS_FORM_RE.test(name)
+  /**
+   * 取值**紧邻在前的那个键名**(两条采集支共用一份实现:换算器支与 CSS 变量支都必须按同一语境筛,
+   * 各写一遍必漂成"换算器认得圆角语境、变量认不得")。
+   */
+  const keyBefore = (at) => {
+    const head = code.slice(code.lastIndexOf('\n', at - 1) + 1, at)
+    const m = /([A-Za-z][A-Za-z0-9_-]*)\s*[:=]\s*[^:;{}]*$/.exec(head)
+    return m ? m[1] : null
+  }
 
   for (const m of code.matchAll(
     /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g,
@@ -345,16 +425,59 @@ export function readGeometry(src, side, tiers = {}) {
   const unreadable = []
   {
     const consts = lengthConstsOf(src, tiers)
-    const keyBefore = (at) => {
-      const head = code.slice(code.lastIndexOf('\n', at - 1) + 1, at)
-      const m = /([A-Za-z][A-Za-z0-9_-]*)\s*[:=]\s*[^:;{}]*$/.exec(head)
-      return m ? m[1] : null
-    }
     for (const it of geometryItemsInSrc(code, consts, tiers)) {
       const key = keyBefore(it.at)
       if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
       if (it.px === null) unreadable.push({ raw: it.raw, text: it.text, px: null, why: it.why })
       else if (it.px <= MAX_GEO_PX) push(it.px)
+    }
+  }
+  /**
+   * **CSS 变量解值支**(2026-11-01 票 O67,治本门最危险的那一型静默):§4 令牌纪律要求端内把同值
+   * 写成 `var(--spacing-*)` / `var(--text-*)`,而几何维的词汇表此前只认「数字字面量 / rpx() /
+   * 换算器包档 / 具名档 / 间距档成员」——变量形态整族读不到,账面表现不是"少一个数",
+   * 而是**把"没读到"写成"该侧无档"**,于是凭空造出"仅 RN 档 8/10"那种假分叉(web 腿两条 waiver
+   * 与主腿 CategoryBar 是同一条洞)。
+   * 口径三条:
+   *  ① 语境筛与换算器支**共用 `keyed()` + `keyBefore()`**(两处各写一遍必漂成"换算器认得圆角语境、
+   *     变量认不得");圆角维的地盘(`border-radius: var(--radius-lg)`)由 RADIUS_FORM_RE 挡在外面,
+   *     不重复计。
+   *  ② Tailwind 任意值形态 `gap-[var(--spacing-sm)]` 的键名住在方括号前缀里,`keyBefore()` 只能
+   *     认到 `className`(它不是长度键)⇒ 单独一条前缀白名单,与本文件数字任意值支**同一串前缀**,
+   *     不另起一套语义;颜色/底色那一型(`bg-[var(--color-x)]`、`text-[var(--color-x)]`)刻意不在
+   *     前缀表里 —— 它是色档不是盒档,报出来是把噪音当债务。
+   *  ③ 档名**不在解值表**(名写错 / 已改名 / 源不可读)⇒ 逐枚 `unreadable` 点名(§0.3),
+   *     **绝不折成"该侧无档"**;档在表里但不是长度 ⇒ 计入 `cssVar.notLength` 覆盖面读数,
+   *     静默与"没这一档"在账面上同形,所以必须留数给人看。
+   * `0`(`--spacing-none: 0px`)按本门 C4 纪律不入集:0 值引用会造出"两侧都读成同值"的假账。
+   */
+  const cssVar = { resolved: 0, notLength: 0, unresolvable: 0 }
+  if (cssVars instanceof Map && cssVars.size) {
+    const TW_ANY_VAR_PREFIX =
+      /(?:^|[\s"'`])(?:size|gap|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[var\(\s*--[\w-]+/g
+    const arbitraryAt = new Set()
+    for (const m of code.matchAll(TW_ANY_VAR_PREFIX))
+      arbitraryAt.add(m.index + m[0].lastIndexOf('var('))
+    for (const it of cssVarItemsInSrc(code, cssVars)) {
+      const isArbitrary = arbitraryAt.has(it.at)
+      if (!isArbitrary) {
+        const key = keyBefore(it.at)
+        if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
+      }
+      if (it.notLength) {
+        cssVar.notLength++
+        continue
+      }
+      if (it.px === null) {
+        cssVar.unresolvable++
+        unreadable.push({ raw: it.raw, text: it.text, px: null, why: it.why })
+        continue
+      }
+      if (it.px === 0) continue // C4:0 值不入集
+      if (it.px <= MAX_GEO_PX) {
+        push(it.px)
+        cssVar.resolved++
+      }
     }
   }
 
@@ -383,7 +506,7 @@ export function readGeometry(src, side, tiers = {}) {
     {
       const wrapRanges = []
       const CALL_RE = /\b(?:toUnit|toRpx|px2rpx|rp|rpx)\s*\(/g
-      for (let mm; (mm = CALL_RE.exec(code)); ) {
+      for (let mm; (mm = CALL_RE.exec(code));) {
         const open = mm.index + mm[0].length - 1
         let depth = 0
         const cap = Math.min(code.length, open + 400)
@@ -409,7 +532,12 @@ export function readGeometry(src, side, tiers = {}) {
         const memberName = `${m[1]}.${key}`
         const px = tiers[memberName]
         if (px === undefined) {
-          unreadable.push({ raw: memberName, text: key, px: null, why: '间距档位表读不到该成员(源表没有此档或已改名)' })
+          unreadable.push({
+            raw: memberName,
+            text: key,
+            px: null,
+            why: '间距档位表读不到该成员(源表没有此档或已改名)',
+          })
           continue
         }
         push(px)
@@ -463,7 +591,7 @@ export function readGeometry(src, side, tiers = {}) {
       if (named[name] === undefined) named[name] = px
     }
   }
-  return { values, named, unreadable }
+  return { values, named, unreadable, cssVar }
 }
 
 /**
@@ -536,7 +664,17 @@ export function specTiers(sources) {
     const spTable = codeSp.match(/SPACING_STEPS\s*=\s*\{([\s\S]*?)\}\s*as const/)
     if (!spTable) continue
     const spSteps = []
-    for (const m of spTable[1].matchAll(/(?:'([^']{1,6})'|([A-Za-z_$][\w$]*))\s*:\s*(\d+(?:\.\d+)?)/g))
+    /**
+     * 档名长度上限必须是**实测上限**而不是"看起来够"。旧写法 `{1,6}` 把带连字符的档名整枚丢掉:
+     * 现读 `packages/design-tokens/src/spacing.ts` 的 `'xs-loose': 6` / `'sm-loose': 10`(8 字符),
+     * 于是 `rnSpacing['xs-loose']` 在 RN 腿**读不到** —— 而"读不到"在账面上的表现不是少一个数,
+     * 是凭空造出"仅小程序档 6"(2026-11-01 票 O67 把 CSS 变量解值接上后立刻顶出来的第二条同型洞,
+     * 与 var 那一条是**同一个失效形**:量具看不见 ⇒ 判成对面独有)。`{1,16}` 取实测最长档名
+     * (`listItemPadY` 12 字符)再放余量;超限的引号串不当档名(它更可能是注释或值里的引号)。
+     */
+    for (const m of spTable[1].matchAll(
+      /(?:'([^']{1,16})'|([A-Za-z_$][\w$]*))\s*:\s*(\d+(?:\.\d+)?)/g,
+    ))
       spSteps.push([m[1] || m[2], Number(m[3])])
     for (const [k, v] of spSteps) if (v > 0) tiers[`rnSpacing.${k}`] = v
     const spRoles = codeSp.match(/SPACING_ROLES\s*=\s*\{([\s\S]*?)\}\s*as const/)
@@ -1218,7 +1356,8 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
    *  ② `export const A_PX = B_PX` 的显式同值声明(G-16 第(i)格残留那一半,2026-10-25):
    *     `A` 就是 `B`,跨 spec 也成立,键由 `specTierEquivalence` 统一算,本层零复算。
    */
-  const sameTier = (x, y) => x !== y && eq.keyOf.get(x) !== undefined && eq.keyOf.get(x) === eq.keyOf.get(y)
+  const sameTier = (x, y) =>
+    x !== y && eq.keyOf.get(x) !== undefined && eq.keyOf.get(x) === eq.keyOf.get(y)
   const out = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
@@ -1243,7 +1382,8 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
         if (!ids.has(name)) continue
         for (const id of idsOf(stripComments(coreExports[name]))) ids.add(id)
       }
-      for (const fn of Object.keys(specFnTiers)) if (ids.has(fn)) for (const t of specFnTiers[fn]) ids.add(t)
+      for (const fn of Object.keys(specFnTiers))
+        if (ids.has(fn)) for (const t of specFnTiers[fn]) ids.add(t)
       return ids
     }
     const pa = expand(ia)
@@ -2533,7 +2673,12 @@ export function collect(
   if (!hasGeo && need.some((rel) => /\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\./.test(text[rel])))
     throw new Undetermined(`${FACE_TXT[face]}取不到 ${geoPath},而配对组件在引用几何表 ⇒ 判据失明`)
   /** 间距表同一条失明判据(2026-10-27 与 hasSpacing 接线同批):表取不到而配对腿在引用 ⇒ 该维看不见,不得记成"两端一致"。 */
-  if (!hasSpacing && need.some((rel) => /\b(?:rnSpacing|rnSpacingFor|taroSpacing|taroSpacingFor)\s*[.[]/.test(text[rel])))
+  if (
+    !hasSpacing &&
+    need.some((rel) =>
+      /\b(?:rnSpacing|rnSpacingFor|taroSpacing|taroSpacingFor)\s*[.[]/.test(text[rel]),
+    )
+  )
     throw new Undetermined(
       `${FACE_TXT[face]}取不到 ${spacingPath},而配对组件在引用间距档位 ⇒ 间距维判据失明`,
     )
@@ -2548,6 +2693,52 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${radiusPath} 或档位表解析为空,而配对组件在用圆角 ⇒ 圆角维判据失明`,
     )
   const tiers = specTiers(specSources)
+  /**
+   * **CSS 变量解值表**(2026-11-01 票 O67,与具名档**同面同轮**取,一次 catBatch 读满)。
+   *
+   * 判序与上面几张表逐字同形,但**两件事不同罪,不得并桶**:
+   *  · `tokens.css` 取不到(或被审面把它挪走 / 解出空表)⇒ **判据失明** —— 只要配对腿正在引用
+   *    长度档变量就整轮 exit 2 点名(§0.3)。这一格不喊死的后果实测过:几何维把"读不到"写成
+   *    "该侧无档",凭空造出"仅 RN 档 8/10"(主腿 CategoryBar + web 腿两条 waiver 同一条洞)。
+   *  · 小程序**派生态副本**取不到 ⇒ 只是"互证没做",不判失明(源才是唯一真相,副本的存续归
+   *    守门 36/93),但必须在覆盖面面点名,不得读成"已互证"。
+   * 为什么变量名里排除 `--radius*` / `--color*` 那一族:圆角有自己的档表(`radius.js`)与自己的
+   * 失明判据(上面 `usesRadius` 那条),再算进这一条会造出"一处取值两张表都喊失明"的双口径;
+   * 颜色/字重/时长本来就不是长度,不该为它们把整门判死。
+   */
+  const cssVarSources = {}
+  {
+    const cssPaths = [TOKENS_CSS_PATH, MINIAPP_TOKEN_COPY_PATH]
+    const specs = cssPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
+    const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 26 })
+    for (let i = 0; i < specs.length; i++) {
+      const t = got.get(specs[i])
+      if (t !== null && t !== undefined) cssVarSources[cssPaths[i]] = t
+    }
+  }
+  const cssVars = cssVarTiers(cssVarSources)
+  const cssVarCopyRead = Object.prototype.hasOwnProperty.call(
+    cssVarSources,
+    MINIAPP_TOKEN_COPY_PATH,
+  )
+  /** 长度档变量的取用形(`var(--spacing-*)` / `var(--text-*)` 等),排除由别的表负责的那些族。 */
+  const usesCssLengthVar = (body) =>
+    /var\(\s*--(?!(?:radius|color|chart|font|animate|z|shadow|ease)[\w-]*\s*[,)])/i.test(body)
+  /**
+   * 失明判据的**扫描面 = 几何维真在读的那一面**(配对正文 + 伴生样式表 + 类臂声明体),
+   * 不是只有 .tsx:端内把档写进同名 `.css`(CategoryBar 即此例)时,只扫正文等于
+   * "源不可读却一路安静" —— 与本票要治的静默型同一条洞。
+   */
+  const geoFaceParts = [
+    ...need.map((rel) => text[rel] ?? ''),
+    ...Object.values(styles ?? {}),
+    ...Object.values(classArmCss ?? {}),
+  ]
+  const geoFaceText = geoFaceParts.join('\n')
+  if (!cssVars.size && usesCssLengthVar(geoFaceText))
+    throw new Undetermined(
+      `${FACE_TXT[face]}取不到长度档源 ${TOKENS_CSS_PATH}(或解出的档表为空),而配对组件在引用 var(--*) ⇒ 几何维判据失明,不得把"读不到"记成"该侧无档"`,
+    )
   /**
    * SL 维的两张投影表(判据语义见 specLegAudit 同一段注):
    *  · `specFnTiers` —— spec 里 `export function` 的函数体引用了哪些档。函数体按**括号配平**取整段,
@@ -2586,9 +2777,13 @@ export function collect(
   const coreMissing = []
   let coreFiles = []
   try {
-    coreFiles = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', 'packages/shared/src/ui'], repoRoot, {
-      maxBuffer: 1 << 28,
-    })
+    coreFiles = gitRaw(
+      ['ls-tree', '-r', '--name-only', 'HEAD', '--', 'packages/shared/src/ui'],
+      repoRoot,
+      {
+        maxBuffer: 1 << 28,
+      },
+    )
       .split('\n')
       .map((s) => s.trim())
       .filter((s) => /-core\.tsx$/.test(s))
@@ -2605,7 +2800,8 @@ export function collect(
         coreMissing.push(rel)
         return
       }
-      for (const m of got.matchAll(/export\s+(?:function|const)\s+([A-Za-z_$][\w$]*)/g)) coreExports[m[1]] = got
+      for (const m of got.matchAll(/export\s+(?:function|const)\s+([A-Za-z_$][\w$]*)/g))
+        coreExports[m[1]] = got
     })
   }
   const geoDecl = hasGeo
@@ -2643,6 +2839,10 @@ export function collect(
     // 不是为了让锁让步,而是这两键同属"取材面",顺序本身在表达这件事)。
     styleSources,
     tiers,
+    // CSS 变量解值表(长度档 → px)与"派生态互证做没做"这一格 —— 后者必须跟着走,
+    // 否则"副本读不到"会在账面上长得和"已互证"一模一样。
+    cssVars,
+    cssVarCopyRead,
     radius: radiusTable,
     bareRounded,
     geoDecl,
@@ -2804,7 +3004,8 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
     const m = named.exec(code)
     if (m) defAt = m.index
   }
-  if (defAt < 0) return { anchored: false, indirect: false, tiers: null, rootTag: null, rootImportSrc: null }
+  if (defAt < 0)
+    return { anchored: false, indirect: false, tiers: null, rootTag: null, rootImportSrc: null }
   /**
    * `export default` 后面是什么,决定这一维**有没有得看**:
    *  - 具名/匿名函数、类、箭头函数 ⇒ 组件体在本文内,根槽位可判;
@@ -2934,11 +3135,25 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
   // 链上名字若不补判,循环委托(C↔D)会把对侧误判成宿主根(2026-10-31 T32b 反例)。
   const known = new Set([...(ancestors ?? []), ...(name ? [name] : [])])
   if (isLocallyDeclaredComponent(code, tagName, src) || known.has(tagName)) {
-    if (hop >= 2) return { anchored: true, indirect: true, tiers: null, rootTag: tagName, rootImportSrc: importSourceOf(src, tagName) }
+    if (hop >= 2)
+      return {
+        anchored: true,
+        indirect: true,
+        tiers: null,
+        rootTag: tagName,
+        rootImportSrc: importSourceOf(src, tagName),
+      }
     const dm = new RegExp(
       `\\b(?:export\\s+)?(?:async\\s+)?function\\s+${tagName}\\b|\\b(?:export\\s+)?const\\s+${tagName}\\s*=`,
     ).exec(code)
-    if (!dm) return { anchored: true, indirect: true, tiers: null, rootTag: tagName, rootImportSrc: importSourceOf(src, tagName) }
+    if (!dm)
+      return {
+        anchored: true,
+        indirect: true,
+        tiers: null,
+        rootTag: tagName,
+        rootImportSrc: importSourceOf(src, tagName),
+      }
     // **matchAll** 不是 match:`.match(/g/)` 返回字符串数组,m[0]/m[2] 会退化成**字符索引**
     // (实测 import 区被拼成 "i\ni"),必须用 matchAll 拿捕获组。
     const importBlock = [...stripComments(String(src ?? '')).matchAll(IMPORT_STMT_RE)]
@@ -2951,7 +3166,8 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
     return rootSlotRadiiOf(synthetic, table, tagName, hop + 1, [...known])
   }
   const rootImportSrc = importSourceOf(src, tagName)
-  if (!table) return { anchored: true, indirect: false, tiers: null, rootTag: tagName, rootImportSrc }
+  if (!table)
+    return { anchored: true, indirect: false, tiers: null, rootTag: tagName, rootImportSrc }
   /**
    * 取材走**未遮字符串的原文**(`mat`:字符串完整、注释遮成空格且与 `code` 等长下标):圆角档就写在
    * `className="rounded-lg"` 的**引号内**,用遮罩后的文本读会把它抹成空格(判据失明);而用删除式
@@ -3344,7 +3560,12 @@ export function classDefScan(cssText, wanted) {
  * web / rn 侧查不到时**不得**记成 `undefined`:那两侧的字符串可能是构建期生成的工具类,
  * 本门没有可解析的 Tailwind 配置 ⇒ 一律 `undetermined`(判不出就报名)。
  */
-export function classArmVerdicts(refs, ownDefs = new Map(), globalDefs = new Map(), side = 'miniapp') {
+export function classArmVerdicts(
+  refs,
+  ownDefs = new Map(),
+  globalDefs = new Map(),
+  side = 'miniapp',
+) {
   // 工具类 / 标记名的形态判据(只用于"查不到定义时"的归类,不做提取):
   // `max-w-sm` / `min-w-0` / `line-clamp-1` 与 `ui-card` / `ui-panel` 这类标记名在样式源里
   // 本就查不到单一定义(由构建期生成或是纯标记),把它们报成"写错类名"就是会喊错的披露。
@@ -3442,10 +3663,22 @@ function withGeometryStyles(text, styles, armStyles, f) {
 }
 
 /**
- * 换算器包档里**解不到**的逐枚原文 + 原因(机器面):"没读到"必须能被下一票看见 ——
+ * 换算器包档 / CSS 变量解值里**解不到**的逐枚原文 + 原因(机器面):"没读到"必须能被下一票看见 ——
  * 只算出来而不交给 finding,账面读起来与"没有未判定"完全同形。
+ * `label` 是腿名(小程序 / RN / web):**两腿的未判定都必须交出去**。旧写法只交 `ga` 那一腿,
+ * 于是 RN 腿读不到的成员(实测 `rnSpacing['xs-loose']` 曾被 `{1,6}` 整枚吞掉)在机器面**根本不存在**,
+ * 而那一侧的表现是"对面独有一档" —— 少报名的那一腿正是造假的那一腿。
  */
-const geoUnreadLines = (g) => (g.unreadable ?? []).map((u) => `${u.raw} —— ${u.why}`)
+const geoUnreadLines = (g, label) =>
+  (g.unreadable ?? []).map((u) => `${label ? `${label}:` : ''}${u.raw} —— ${u.why}`)
+
+/**
+ * 解值**覆盖面全量累加**(2026-11-01 票 O67 收尾自证时补的一格):
+ * 打印面若只对 `findings` 求和,就会把"零分叉的族"整族漏掉 —— 而本票解掉的 CategoryBar /
+ * BusinessFormCard 恰恰是解值后**归零**的那两族,账面于是读成"入账 2 处",把解掉的枚数
+ * 说成没解掉(数字没撒谎,但口径撒谎)。所以这里按**读过的每一条配对腿**累加,不挑 findings。
+ */
+const newCssVarCover = () => ({ resolved: 0, notLength: 0, unresolvable: 0, legs: 0 })
 
 export function audit(
   pairs,
@@ -3455,6 +3688,7 @@ export function audit(
   radiusTable = null,
   styles = {},
   armStyles = {},
+  cssVars = null,
 ) {
   const findings = []
   /**
@@ -3463,6 +3697,8 @@ export function audit(
    * 与"RE 什么都没看见"在账面上就长得一模一样。
    */
   const radiusUnpaired = []
+  const cssVarCover = newCssVarCover()
+  const geoUnjudged = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
     const b = text[p.rn]
@@ -3476,8 +3712,22 @@ export function audit(
      */
     const aAll = withLocalStyles(text, styles, p.miniapp)
     const bAll = withLocalStyles(text, styles, p.rn)
-    const ga = readGeometry(withGeometryStyles(text, styles, armStyles, p.miniapp), 'miniapp', tiers)
-    const gb = readGeometry(bAll, 'rn', tiers)
+    const ga = readGeometry(
+      withGeometryStyles(text, styles, armStyles, p.miniapp),
+      'miniapp',
+      tiers,
+      cssVars,
+    )
+    const gb = readGeometry(bAll, 'rn', tiers, cssVars)
+    // 覆盖面按**每一条读过的腿**累加(含随后因零分叉不进 findings 的那一族),见 newCssVarCover 头注。
+    for (const g of [ga, gb]) {
+      cssVarCover.resolved += g.cssVar.resolved
+      cssVarCover.notLength += g.cssVar.notLength
+      cssVarCover.unresolvable += g.cssVar.unresolvable
+      cssVarCover.legs += 1
+    }
+    for (const line of [...geoUnreadLines(ga, '小程序'), ...geoUnreadLines(gb, 'RN')])
+      geoUnjudged.push(`${p.name} ${line}`)
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
     /**
@@ -3539,9 +3789,11 @@ export function audit(
       radius,
       radiusSeen,
       elementRadius,
-      // 几何维的"读不到"逐枚点名(换算器实参解不到 / 倍率取不到):机器面必须有这一格,
-      // 否则下一票只看得见"差异为 0",看不见"还有几枚没判"。
-      geoUnreadable: geoUnreadLines(ga),
+      // 几何维的"读不到"逐枚点名(换算器实参解不到 / 倍率取不到 / CSS 变量档解不到):机器面必须有这一格,
+      // 否则下一票只看得见"差异为 0",看不见"还有几枚没判"。**两腿都报**,少报的那一腿正是会造假的那一腿。
+      geoUnreadable: [...geoUnreadLines(ga, '小程序'), ...geoUnreadLines(gb, 'RN')],
+      // CSS 变量解值覆盖面:两腿各记一笔(合并成一个数就看不出"只有一侧写了变量")。
+      cssVar: { miniapp: ga.cssVar, rn: gb.cssVar },
       lang: { miniapp: styleLanguage(a), rn: styleLanguage(b) },
       icons: { miniapp: iconCarriers(a), rn: iconCarriers(b) },
       invalidWaiver: waiverProblem(w) ?? undefined,
@@ -3551,6 +3803,9 @@ export function audit(
   return {
     findings,
     radiusUnpaired,
+    // 覆盖面全量读数与逐枚未判定名单(口径见 newCssVarCover 头注:不挑 findings,按读过的每条腿累加)
+    cssVarCover,
+    geoUnjudged,
     ...verdictOf(findings, baseline),
     pairCount: pairs.pairs.length,
   }
@@ -3581,6 +3836,7 @@ export function webRadiusAudit(
   styles = {},
   tiers = {},
   armStyles = {},
+  cssVars = null,
 ) {
   const findings = []
   const undetermined = []
@@ -3603,8 +3859,13 @@ export function webRadiusAudit(
      * web 与 RN 同为 px/dp 直通,只有 miniapp 那一侧要折 rpx→px。
      * 类臂声明体同样只并进几何:RD / RE 的取面仍是 `aAll` / `bAll`。
      */
-    const ga = readGeometry(withGeometryStyles(text, styles, armStyles, p.miniapp), 'miniapp', tiers)
-    const gb = readGeometry(bAll, 'rn', tiers)
+    const ga = readGeometry(
+      withGeometryStyles(text, styles, armStyles, p.miniapp),
+      'miniapp',
+      tiers,
+      cssVars,
+    )
+    const gb = readGeometry(bAll, 'rn', tiers, cssVars)
     const mini = new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' }))
     const web = new Set(radiusSetOf(bAll, radiusTable))
     const erA = radiusEntriesOf(aAll, radiusTable)
@@ -3629,7 +3890,8 @@ export function webRadiusAudit(
       },
       elementRadius,
       webSeen: { miniapp: [...mini], web: [...web] },
-      geoUnreadable: geoUnreadLines(ga),
+      geoUnreadable: [...geoUnreadLines(ga, '小程序'), ...geoUnreadLines(gb, 'web')],
+      cssVar: { miniapp: ga.cssVar, rn: gb.cssVar },
     })
   }
   return { findings, undetermined }
@@ -3996,6 +4258,7 @@ export function main(argv, repoRoot = ROOT) {
     collected.radius,
     collected.styles ?? {},
     collected.classArmCss ?? {},
+    collected.cssVars ?? null,
   )
   /**
    * web 腿(与主腿**分开记账**):同一组件名在主腿与 web 腿各自有一份差异时,共用一个锚点会让
@@ -4009,6 +4272,7 @@ export function main(argv, repoRoot = ROOT) {
     collected.styles ?? {},
     collected.tiers,
     collected.classArmCss ?? {},
+    collected.cssVars ?? null,
   )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
   /**
@@ -4119,9 +4383,18 @@ export function main(argv, repoRoot = ROOT) {
           elementRadiusCount: elementRadiusCount(f),
           elementRadius: f.elementRadius,
           lang: f.lang,
+          // 与 web 腿**同键同形**(此前主腿 json 没有 geometry/geoUnreadable,读 json 的脚本
+          // 只能去 parse 人读面那一行 —— 而"未判定几枚"在机器面根本不存在,等于没报)。
+          geometry: f.geometry,
+          geoUnreadable: f.geoUnreadable,
+          cssVar: f.cssVar,
         })),
         // RE 的射程边界也要能被机器读:下一票(给两腿立同一套元素名)的输入就是这两列名单。
         radiusUnpaired: res.radiusUnpaired ?? [],
+        // 解值覆盖面与未判定名单同样进机器面:口径按读过的每条腿(见 audit 的 cssVarCover 头注),
+        // 只对 findings 求和会把解掉后归零的族说成"没解掉"。
+        cssVarCover: res.cssVarCover,
+        geoUnjudged: res.geoUnjudged,
         unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
         undeterminedEdges: (collected.undeterminedEdges ?? []).length,
         // 配对射程也要能被机器读:下一票(按语义槽配对)的输入就是这两份名单,
@@ -4262,7 +4535,8 @@ export function main(argv, repoRoot = ROOT) {
         if (l.undefined.length) parts.push(`查无定义:${l.undefined.join(' ')}`)
         if (l.undetermined.length)
           parts.push(`未判定:${l.undetermined.map((u) => `${u.class}(${u.reason})`).join(' ')}`)
-        if (parts.length) console.log(`     · ${l.name}[${l.side}] ${l.file} —— ${parts.join(' | ')}`)
+        if (parts.length)
+          console.log(`     · ${l.name}[${l.side}] ${l.file} —— ${parts.join(' | ')}`)
       }
       console.log(
         '     ⇒ 转判红的条件(尚未生效):① 小程序侧"查无定义"类名数超台账锚点;' +
@@ -4486,6 +4760,33 @@ export function main(argv, repoRoot = ROOT) {
       console.log(
         `  下调:${res.shrunk.map((s) => `${s.name} ${s.anchor}→${s.diffCount}`).join(', ')}`,
       )
+    /**
+     * **CSS 变量解值覆盖面**(2026-11-01 票 O67):这一格必须印出来,不能只住在代码里 ——
+     * "解值表建好了但本轮一枚都没消费"与"词汇表还没接上"在别的账面上完全同形,
+     * 而后者正是本票要治的静默型。三档分列,永不并桶:
+     *  · 入账 = 从 tokens.css 解出长度并折进几何集的取用数;
+     *  · 未判定 = 档名不在源里(名写错/改名/源不可读)的逐枚点名数(同时进 geoUnreadable);
+     *  · 非长度 = 档存在但不是长度(颜色/字重/时长),不入集、不报未判定,只报数。
+     * **口径 = 读过的每一条配对腿**(audit 里的 `cssVarCover`),不是 `findings` 求和:
+     * 零分叉的族不进 findings,而本票解掉的 CategoryBar / BusinessFormCard 恰恰归零 ——
+     * 只对 findings 求和会把"解掉的枚数"印成"没解掉"(数字没撒谎,口径撒谎)。
+     */
+    {
+      const { resolved, unresolvable, notLength, legs } = res.cssVarCover
+      console.log(
+        `  · CSS 变量解值(源 ${TOKENS_CSS_PATH},覆盖面 = 读过的 ${legs} 条配对腿,含零分叉而不进 findings 的族):` +
+          `入账 ${resolved} 处 / 未判定 ${unresolvable} 处` +
+          ` / 非长度档不纳入 ${notLength} 处` +
+          `;与小程序派生态副本(${MINIAPP_TOKEN_COPY_PATH})互证:${collected.cssVarCopyRead ? '已做' : '未做(副本不可读,不是已核对)'}`,
+      )
+      /**
+       * 未判定必须**逐枚点名**(§0.3:只给个数不给名字,下一个人就无从知道要去看哪一枚)。
+       * 这一格此前只在 `--json` 面有,人读面一个都没有 —— 数字有了而名字没有,与没有等于同形。
+       */
+      for (const s of res.geoUnjudged.slice(0, 8)) console.log(`     · 未判定 ${s}`)
+      if (res.geoUnjudged.length > 8)
+        console.log(`     · 其余 ${res.geoUnjudged.length - 8} 处未判定同上`)
+    }
     if (res.rot.length)
       console.log(
         `  × 台账腐烂:${res.rot.join('/')} —— 台账钉着这些名字而本轮实测**无该族记录**:` +
@@ -4563,10 +4864,7 @@ export function main(argv, repoRoot = ROOT) {
         specLegAudit(base.pairs, base.text, base.tiers, {
           specFnTiers: base.specFnTiers,
           coreExports: base.coreExports,
-        }).map((x) => [
-          x.name,
-          x.onlyMiniapp.length + x.onlyRn.length,
-        ]),
+        }).map((x) => [x.name, x.onlyMiniapp.length + x.onlyRn.length]),
       )
       slRed = sl.filter((x) => x.onlyMiniapp.length + x.onlyRn.length > (baseSl.get(x.name) ?? 0))
     }
@@ -4613,9 +4911,7 @@ export function main(argv, repoRoot = ROOT) {
       'plain-css': 'plain-css(副作用式 import 的本地表)',
     }
     const seenForms = new Set([...Object.keys(cs.byForm), ...Object.keys(FORM_LABEL)])
-    const bits = [...seenForms]
-      .sort()
-      .map((k) => `${FORM_LABEL[k] ?? k}=${cs.byForm[k] ?? 0}`)
+    const bits = [...seenForms].sort().map((k) => `${FORM_LABEL[k] ?? k}=${cs.byForm[k] ?? 0}`)
     console.log(
       `  ${csRed.length ? '×' : '·'} CS 取用形态覆盖面(${cs.scanned}/${cs.legs} 条配对腿有源文本可读):` +
         bits.join(' / '),
@@ -4627,8 +4923,7 @@ export function main(argv, repoRoot = ROOT) {
         `盒档取用与样式表取用是同一份材料,不另起第二把尺子`,
     )
     for (const k of ['module-css', 'css-in-js'])
-      for (const s of cs.sites[k] ?? [])
-        console.log(`     · CS ${k} 取用逐条点名:${s}`)
+      for (const s of cs.sites[k] ?? []) console.log(`     · CS ${k} 取用逐条点名:${s}`)
     if (cs.unresolvedModule)
       console.log(
         `  ? CS 未判定:${cs.unresolvedModule} 处 CSS Module 引用在被审面取不到 ⇒ 该侧盒档没量,` +
@@ -4865,6 +5160,9 @@ export const __test__ = {
   toPx,
   readGeometry,
   specTiers,
+  cssVarTiers,
+  TOKENS_CSS_PATH,
+  MINIAPP_TOKEN_COPY_PATH,
   specProjectionAliases,
   specTierEquivalence,
   specLegAudit,
