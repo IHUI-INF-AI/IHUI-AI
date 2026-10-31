@@ -4361,7 +4361,8 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             git_args = list(_READONLY_ACTIONS[action])
             # show 命令需要 ref 参数
             if action == "show":
-                ref = arguments.get("ref", "HEAD")
+                ref = str(arguments.get("ref", "HEAD") or "HEAD")
+                _assert_safe_git_arg(ref, "ref")
                 git_args.append(ref)
         else:
             # 写操作:根据 action 构造命令参数
@@ -4430,6 +4431,20 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+def _assert_safe_git_arg(value: str, label: str) -> str:
+    """git argv position 段安全断言(2026-10-31 安全强化第 10 批 R5)。
+
+    position 段(引用名/分支名/tag 名)以 `-` 开头会被 git 当**选项**解析:
+    `show --output=<path>` 可写服务器任意文件、`--ext-diff` 可调外部程序。
+    空白/控制符同属注入面(不可能出现在合法引用名里)。违反抛 ValueError,
+    由调用方按既有错误形状返回。
+    """
+    v = value.strip()
+    if not v or v.startswith("-") or any(c.isspace() or ord(c) < 32 for c in v):
+        raise ValueError(f"非法 git {label}: {value[:80]}")
+    return v
+
+
 def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str] | None:
     """构造写操作的 git 命令参数(Wave 8 新增)。
 
@@ -4440,10 +4455,10 @@ def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str
         name = arguments.get("name")
         if not name:
             return None
-        args = ["branch", str(name)]
+        args = ["branch", _assert_safe_git_arg(str(name), "分支名")]
         from_ref = arguments.get("from")
         if from_ref:
-            args.append(str(from_ref))
+            args.append(_assert_safe_git_arg(str(from_ref), "起点引用"))
         return args
 
     if action == "branch_switch":
@@ -4454,7 +4469,7 @@ def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str
         args = ["checkout"]
         if create:
             args.append("-b")
-        args.append(str(name))
+        args.append(_assert_safe_git_arg(str(name), "分支名"))
         return args
 
     if action == "branch_delete":
@@ -4462,7 +4477,7 @@ def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str
         if not name:
             return None
         force = arguments.get("force", False)
-        return ["branch", "-D" if force else "-d", str(name)]
+        return ["branch", "-D" if force else "-d", _assert_safe_git_arg(str(name), "分支名")]
 
     if action == "merge":
         branch = arguments.get("branch")
@@ -4476,17 +4491,17 @@ def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str
         message = arguments.get("message")
         if message:
             args.extend(["-m", str(message)])
-        args.append(str(branch))
+        args.append(_assert_safe_git_arg(str(branch), "分支名"))
         return args
 
     if action == "rebase":
         upstream = arguments.get("upstream")
         if not upstream:
             return None
-        args = ["rebase", str(upstream)]
+        args = ["rebase", _assert_safe_git_arg(str(upstream), "上游引用")]
         branch = arguments.get("branch")
         if branch:
-            args.append(str(branch))
+            args.append(_assert_safe_git_arg(str(branch), "分支名"))
         return args
 
     if action == "stash_push":
@@ -4507,20 +4522,21 @@ def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str
         name = arguments.get("name")
         if not name:
             return None
+        safe_name = _assert_safe_git_arg(str(name), "tag 名")
         args = ["tag"]
         if arguments.get("annotated"):
-            args.extend(["-a", str(name)])
+            args.extend(["-a", safe_name])
             message = arguments.get("message")
             args.extend(["-m", str(message) if message else f"Tag {name}"])
         else:
-            args.append(str(name))
+            args.append(safe_name)
         return args
 
     if action == "tag_list":
         args = ["tag", "-l"]
         pattern = arguments.get("pattern")
         if pattern:
-            args.append(str(pattern))
+            args.append(_assert_safe_git_arg(str(pattern), "匹配模式"))
         return args
 
     return None
@@ -4560,21 +4576,24 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "仅允许 SELECT / WITH 查询(只读),禁止写操作/DDL",
         }
 
-    # 禁止危险关键词(在 SQL 任意位置,忽略大小写)
+    # 禁止危险关键词(在 SQL 任意位置,忽略大小写)。
+    # 2026-10-31 安全强化第 10 批 R5:尾随空格匹配可被 `DELETE<换行>FROM` /
+    # `DELETE/**/FROM` 绕过 → 改词边界 regex(词边界判据对 deleted_at /
+    # drop_function 这类标识符不误杀:关键字后跟字母/下划线不是边界)。
     _DANGEROUS_KEYWORDS = [
-        "INSERT ", "UPDATE ", "DELETE ", "DROP ", "ALTER ", "CREATE ",
-        "TRUNCATE ", "GRANT ", "REVOKE ", "EXEC ", "EXECUTE ", "MERGE ",
-        "VACUUM ", "REINDEX ", "CLUSTER ",
+        "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE",
+        "TRUNCATE", "GRANT", "REVOKE", "EXEC", "EXECUTE", "MERGE",
+        "VACUUM", "REINDEX", "CLUSTER",
     ]
-    sql_check = " " + sql_upper + " "
     for kw in _DANGEROUS_KEYWORDS:
-        if kw in sql_check:
+        # 词边界:DELETE\nFROM 型换行变体同杀;deleted_at 等标识符不误杀
+        if re.search(r"\b" + kw + r"\b", sql_upper):
             return {
                 "tool": "db_query",
                 "sql": sql,
                 "rows": [],
                 "ok": False,
-                "message": f"SQL 含禁止关键词: {kw.strip()}",
+                "message": f"SQL 含禁止关键词: {kw}",
             }
 
     # 检查 database_url 配置
@@ -4607,10 +4626,15 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
             else:
                 sql_with_limit = sql
 
-            rows = await asyncio.wait_for(
-                conn.fetch(sql_with_limit, *params),
-                timeout=10,
-            )
+            # 2026-10-31 安全强化第 10 批 R5:READ ONLY 事务兜底 —— 关键词黑名单
+            # 是文本层判据,`WITH d AS (DELETE ... RETURNING ...) SELECT ...` 型
+            # data-modifying CTE 曾能穿过任何黑名单;数据库层只读事务把这一整族
+            # 绕过(含未来未知的写语法)结构性封死。黑名单降级为纵深第一道。
+            async with conn.transaction(readonly=True):
+                rows = await asyncio.wait_for(
+                    conn.fetch(sql_with_limit, *params),
+                    timeout=10,
+                )
             # 转换为可序列化 dict 列表
             result_rows = [dict(r) for r in rows]
             # 将非 JSON 类型转为字符串
