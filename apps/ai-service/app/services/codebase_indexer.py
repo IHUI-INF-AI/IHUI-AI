@@ -28,11 +28,13 @@ AST 解析失败时降级为固定行数切片(100 行/片,50 行重叠)。
 """
 
 import asyncio
+import copy
 import hashlib
 import json
 import logging
 import os
 import re
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -165,6 +167,32 @@ SNAPSHOT_STATES: tuple[str, ...] = (
 )
 
 
+INDEX_LEASE_ACQUIRED = "acquired"
+INDEX_LEASE_COALESCED = "coalesced-waited"
+INDEX_LEASE_OVER_WINDOW = "over-window"
+INDEX_LEASE_STATES: tuple[str, ...] = (
+    INDEX_LEASE_ACQUIRED,
+    INDEX_LEASE_COALESCED,
+    INDEX_LEASE_OVER_WINDOW,
+)
+DEFAULT_INDEX_LEASE_WAIT_S = 60.0
+#: 单仓飞行中索引表(单源):同仓后到调用**并到正在跑的那一轮**,而不是各跑一遍。
+#: 取证对齐 Qoder 的 `startSync`/`refreshLock`/`endSync` 租约协议(T9 §4.2-5);
+#: 本仓此前同一仓可以并发跑 N 轮全量索引(懒索引闸门 + `index_codebase` 两条路都会发起),
+#: 每轮都是真金白银的 embedding,且两轮会抢同一枚临时快照文件名。
+_INDEX_LEASES: dict[str, "asyncio.Task[IndexResult]"] = {}
+
+
+def _lease_wait_seconds() -> float:
+    raw = os.environ.get("IHUI_INDEX_LEASE_WAIT_S", "")
+    if raw.strip():
+        try:
+            return max(float(raw), 0.0)
+        except ValueError:
+            logger.warning("IHUI_INDEX_LEASE_WAIT_S=%r 不是数字,回落默认 %s", raw, DEFAULT_INDEX_LEASE_WAIT_S)
+    return DEFAULT_INDEX_LEASE_WAIT_S
+
+
 @dataclass
 class SnapshotRead:
     """一次快照读取的结论:能用的文件表 + 这份档能不能自证。"""
@@ -219,6 +247,9 @@ class IndexResult:
     # ok/legacy/absent/corrupt/truncated/skipped 六档,端上必须看得见本轮站在哪一档。
     snapshot_state: str = ""
     snapshot_detail: str | None = None
+    #: 租约档(acquired / coalesced-waited / over-window;"" = 没经过租约层)
+    lock_state: str = ""
+    lock_detail: str | None = None
 
 
 class CodebaseIndexer:
@@ -718,11 +749,12 @@ class CodebaseIndexer:
         return SnapshotRead(cast(dict[str, str], files), SNAPSHOT_STATE_OK)
 
     def _save_snapshot(self, repo_id: str, root: Path, file_hashes: dict[str, str]) -> None:
-        """持久化本轮快照(原子写:先写临时文件再 replace)。"""
+        """持久化本轮快照(原子写:先写逐轮唯一的临时件,再 replace 落位)。"""
+        tmp: Path | None = None
         try:
             _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
             path = self._snapshot_path(repo_id, root)
-            tmp = path.with_suffix(".json.tmp")
+            tmp = path.with_name(f"{path.name}.{os.getpid()}-{uuid.uuid4().hex[:8]}.tmp")
             tmp.write_text(
                 json.dumps(
                     {
@@ -737,9 +769,19 @@ class CodebaseIndexer:
                 encoding="utf-8",
             )
             tmp.replace(path)
+            tmp = None
         except Exception as e:
-            # 快照写失败不影响本轮结果(下轮退化为全量索引)
-            logger.debug("保存 Merkle 快照失败: %s", e)
+            # 快照写失败不阻断本轮(下轮退化为全量索引),但**必须出声**:
+            # 安静退化会让"这仓有索引"和"没有"在响应上长得一模一样(§0.3)。
+            # 实测:八路并发写同一仓时,Windows 的瞬时文件锁会挡下其中一路的 replace。
+            logger.warning("保存 Merkle 快照失败(%s): %s ⇒ 下轮退化为全量索引", repo_id, e)
+        finally:
+            # 落地失败也不能把临时件留在盘上:留在 snaps 目录里会被下一轮的 glob 误认成档案。
+            if tmp is not None:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError as cleanup_error:  # pragma: no cover - 锁仍未放
+                    logger.warning("快照临时件清不掉 %s: %s", tmp, cleanup_error)
 
     # ==========================================================================
     # 三层语义索引:模块层 + 架构层合成切片(2026-09-07 立,对标 CodeBuddy)
@@ -822,6 +864,72 @@ class CodebaseIndexer:
         return chunks
 
     async def index_repository(
+        self,
+        repo_path: str,
+        repo_id: str | None = None,
+        api_token: str | None = None,
+        incremental: bool = True,
+        internal_user_id: str | None = None,
+    ) -> IndexResult:
+        """同仓单飞行索引(租约层):后到的调用并到正在跑的那一轮,而不是各跑一遍。
+
+        对齐取证目标 Qoder 的带租约串行协议(`startSync` 拿 token、期间 `refreshLock`、
+        收尾 `endSync` 必须见 `released`;T9 §4.2-5)。本仓此前**根本没有这一层**:
+        懒索引闸门与 `index_codebase` 工具两条路都会发起整仓索引,同一仓并发时
+        每轮都实打实花一遍 embedding,还会抢同一枚临时快照文件名。
+
+        三条不安静失效的方向:
+        - 并进去的那轮在响应上写 `lockState=coalesced-waited`,统计与那一轮同源;
+        - 等过窗口仍没跑完 ⇒ 返回 `over-window` 且 `errors` 点名"本轮未开工",
+          `files_indexed=0` 绝不被读成"没东西可索引"(§0.3);
+        - 租约只在**在飞期间**合并,跑完即摘 ⇒ 不做"结果缓存",不存在拿到陈旧结果的通道。
+        """
+        key = f"{repo_id or '-'}|{Path(repo_path).resolve()}"
+        running = _INDEX_LEASES.get(key)
+        if running is not None and not running.done():
+            wait_s = _lease_wait_seconds()
+            try:
+                shared = await asyncio.wait_for(asyncio.shield(running), timeout=wait_s)
+            except TimeoutError:
+                refused = IndexResult(repo_id=repo_id or "")
+                refused.lock_state = INDEX_LEASE_OVER_WINDOW
+                refused.lock_detail = f"等待同仓在飞轮次超过 {wait_s}s"
+                refused.errors.append(
+                    f"同仓索引正在飞行中({key})⇒ 本轮未开工,files_indexed=0 不得读成「没东西可索引」;"
+                    "可调 IHUI_INDEX_LEASE_WAIT_S 或稍后重试"
+                )
+                return refused
+            joined = copy.copy(shared)
+            joined.errors = list(shared.errors)
+            joined.lock_state = INDEX_LEASE_COALESCED
+            joined.lock_detail = "本轮并入了先起跑的同仓索引,统计与那一轮同源"
+            joined.errors.append(joined.lock_detail)
+            return joined
+
+        task = asyncio.create_task(
+            self._index_repository_unleased(
+                repo_path,
+                repo_id=repo_id,
+                api_token=api_token,
+                incremental=incremental,
+                internal_user_id=internal_user_id,
+            )
+        )
+        _INDEX_LEASES[key] = task
+
+        def _release(done: "asyncio.Task[IndexResult]") -> None:
+            if _INDEX_LEASES.get(key) is done:
+                _INDEX_LEASES.pop(key, None)
+
+        task.add_done_callback(_release)
+        try:
+            out = await task
+        finally:
+            _release(task)
+        out.lock_state = INDEX_LEASE_ACQUIRED
+        return out
+
+    async def _index_repository_unleased(
         self,
         repo_path: str,
         repo_id: str | None = None,
