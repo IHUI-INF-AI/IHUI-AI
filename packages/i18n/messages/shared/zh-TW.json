@@ -223,6 +223,7 @@
     "toolMemorySave": "儲存記憶",
     "toolMemoryDream": "記憶固化",
     "toolMemoryForget": "遺忘記憶",
+    "toolAdvisorConsult": "諮詢另一個模型",
     "toolVendorVoiceClone": "複製聲紋",
     "toolRequestBusinessForm": "請求填寫業務表單",
     "fileActivity": "{state, select, running {正在處理檔案} completed {已處理檔案} other {處理檔案}}",
