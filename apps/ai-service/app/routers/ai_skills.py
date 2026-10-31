@@ -27,9 +27,10 @@ import re
 import time
 from typing import Any, TypeVar
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.jwt_auth import require_request_user_id
 from app.core.llm_gateway import llm_gateway
 from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
 from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
@@ -123,20 +124,35 @@ class SkillExportData(BaseModel):
 
 
 class SkillImportData(BaseModel):
-    """Skill 导入数据。"""
+    """Skill 导入数据。
+
+    2026-11-01 安全强化:逐字段上限。原先只有 `name` 有 max_length,
+    `description` / `promptTemplate` / `sourceUrl` / `tags` 全无限长 —— 而这些会被存进
+    **进程级内存字典**,任何登录用户循环导入即可把服务内存吃光(DoS);
+    `promptTemplate` 还是将来被拼装进模型上下文的字段,长度无界同时意味着提示面不可控。
+    """
+
     name: str = Field(..., min_length=1, max_length=100)
-    description: str = ""
-    icon: str = "wand2"
-    category: str = "ai-top"
-    tags: list[str] = []
-    promptTemplate: str = ""
-    sourceUrl: str = ""
+    description: str = Field("", max_length=2000)
+    icon: str = Field("wand2", max_length=64)
+    category: str = Field("ai-top", max_length=64)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    promptTemplate: str = Field("", max_length=20000)
+    sourceUrl: str = Field("", max_length=512)
 
 
 # ===== Phase 3+4 内存存储(2026-08-11 新增,Redis 可选升级路径)=====
 
 _rating_store: dict[str, list[dict[str, Any]]] = {}  # {skill_id: [rating_records]}
 _imported_skills: dict[str, dict[str, Any]] = {}  # {skill_id: import_data}
+
+# 2026-11-01 安全强化:内存存储必须有容量上限与"每人份额",否则"可选升级 Redis"之前
+# 服务先被单个用户写爆。上限取的是**功能形态合理值**,不是随手数:
+# 导入面按"个人技能库"设计(每人几十枚量级),2000 枚全局上限已远超真实使用;
+# 评分面按每人一条(取最新)设计,5000 条/技能同样富余。超限一律响亮拒绝,不静默丢弃。
+MAX_IMPORTED_SKILLS_TOTAL = 2000
+MAX_IMPORTED_SKILLS_PER_OWNER = 200
+MAX_RATINGS_PER_SKILL = 5000
 
 
 # ===== 内部工具 =====
@@ -695,15 +711,44 @@ async def export_ai_skill(skill_id: str) -> dict[str, Any]:
 
 
 @router.post("/import", response_model=ApiEnvelope)
-async def import_ai_skill(data: SkillImportData) -> dict[str, Any]:
+async def import_ai_skill(
+    data: SkillImportData,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """导入 AI Skill。
 
     从 JSON 数据创建 custom skill,存储在 _imported_skills 中,
     source 固定为 'imported',可用于后续导出和调用。
 
+    2026-11-01 安全强化三件:
+      ① **归属**:`_imported_skills` 是进程级全局字典,原先写入的记录里没有任何主体字段
+        ⇒ 无法按人限份额、也无法在将来做"只看自己的导入"。现在主体只经
+        `require_request_user_id` 这一份出口取(生产无凭据 ⇒ 401,不回落匿名);
+      ② 全局容量上限 + ③ 每人份额上限:原先两处皆无,单个账号循环导入即可写爆服务内存。
+      另:tags 逐条长度也在此校验(pydantic 的 list 上限只管条数,管不住单条内容)。
+
     Returns:
         {code, message, data: {id, name, ...}}
     """
+    for tag in data.tags:
+        if not isinstance(tag, str) or len(tag) > 50:
+            raise HTTPException(status_code=422, detail="tags 每条须为 ≤50 字符的字符串")
+    if data.sourceUrl and not data.sourceUrl.startswith(("http://", "https://")):
+        # 自由文本落点会被前端当 href 渲染;只收 http(s),`javascript:`/`data:` 形态一律拒
+        raise HTTPException(status_code=422, detail="sourceUrl 仅允许 http(s)")
+
+    if len(_imported_skills) >= MAX_IMPORTED_SKILLS_TOTAL:
+        raise HTTPException(
+            status_code=429,
+            detail=f"导入库已达全局上限 {MAX_IMPORTED_SKILLS_TOTAL},暂拒绝新增(请清理或等运维扩容)",
+        )
+    owned = sum(1 for v in _imported_skills.values() if v.get("ownerUserId") == user_id)
+    if owned >= MAX_IMPORTED_SKILLS_PER_OWNER:
+        raise HTTPException(
+            status_code=429,
+            detail=f"单账号导入上限 {MAX_IMPORTED_SKILLS_PER_OWNER} 已达,拒绝继续写入",
+        )
+
     skill_id = data.name.lower().replace(" ", "-").replace("_", "-")
     # 去重:如果已存在同名 skill 或已注册,加后缀
     if skill_registry.get(skill_id) or skill_id in _imported_skills:
@@ -722,6 +767,7 @@ async def import_ai_skill(data: SkillImportData) -> dict[str, Any]:
         "source": "imported",
         "promptTemplate": data.promptTemplate,
         "sourceUrl": data.sourceUrl,
+        "ownerUserId": user_id,
         "importedAt": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     _imported_skills[skill_id] = import_record
@@ -740,11 +786,23 @@ async def import_ai_skill(data: SkillImportData) -> dict[str, Any]:
 
 
 @router.post("/{skill_id}/rate", response_model=ApiEnvelope)
-async def rate_ai_skill(skill_id: str, req: RatingRequest) -> dict[str, Any]:
+async def rate_ai_skill(
+    skill_id: str,
+    req: RatingRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """评分 AI Skill(1-5 星)。
 
     验证 skill 存在后,将评分记录存入 _rating_store。
     支持同一用户多次评分(取最新)。
+
+    2026-11-01 安全强化:docstring 一直写着"同一用户多次评分(取最新)",但原实现
+    **既不记主体、也不去重**,只是一路 `append()` —— 于是:
+      ① 单账号可对同一技能追加无限条 5 星,直接把 `stats.average` 刷成想要的值
+        (评分是别的用户的选择依据,这是完整性缺陷,不是统计噪声);
+      ② `_rating_store` 无界增长(内存 DoS 面,与 import 同型)。
+    现在按主体落库并**同主体覆盖旧值**(实现那句"取最新"),并对每技能记录数设硬上限。
+    主体只经 `require_request_user_id` 这一份出口取。
 
     Returns:
         {code, message, data: {skillId, rating, comment, createdAt}}
@@ -754,13 +812,27 @@ async def rate_ai_skill(skill_id: str, req: RatingRequest) -> dict[str, Any]:
     if not skill and skill_id not in _imported_skills:
         raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
 
+    records = _rating_store.setdefault(skill_id, [])
+    prior_same_owner = next((i for i, r in enumerate(records) if r.get("userId") == user_id), None)
+    if prior_same_owner is None and len(records) >= MAX_RATINGS_PER_SKILL:
+        raise HTTPException(
+            status_code=429,
+            detail=f"该技能评分记录已达上限 {MAX_RATINGS_PER_SKILL},拒绝继续追加",
+        )
+
     record = {
         "skillId": skill_id,
+        "userId": user_id,
         "rating": req.rating,
         "comment": req.comment or "",
         "createdAt": datetime.datetime.now(datetime.UTC).isoformat(),
     }
-    _rating_store.setdefault(skill_id, []).append(record)
+    if prior_same_owner is not None:
+        # 同主体改评 = 覆盖,不新增条目(否则"取最新"这句从未成立,均值也可被一人拉偏)
+        record["firstRatedAt"] = records[prior_same_owner].get("createdAt")
+        records[prior_same_owner] = record
+    else:
+        records.append(record)
 
     return _ok(record)
 
