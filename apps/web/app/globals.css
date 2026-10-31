@@ -54,6 +54,29 @@
   line-height: 1;
 }
 
+/* 2026-10-31:max-w-* / max-h-none 因 --spacing-<name> 撞名被改写(web 端 800+ 处 max-w-*),
+   用普通规则钉回 Tailwind 默认 container 刻度。**生效机制如实写**:实测 v4 的 utilities 输出
+   **不带 @layer 包裹**,所以真正起作用的是"同优先级、后写胜" —— 本块在文件里位于
+   `@import 'tailwindcss'` 之后 ⇒ 恒在其后。若将来 utilities 被包进 layer,未分层声明同样胜出,
+   两种情况都不依赖 Tailwind 的合并顺序。**刻意内联而不抽 @import**:经 @import 引入的 CSS 是否
+   被 v4 一并 layer 化未经验证,此处取确定性;extension 端同一段逐条一致(那边也内联)。
+   小程序端形态不同(rpx + 自补 --container-*),兜底写在 apps/miniapp-taro/src/app.css。 */
+
+.max-w-3xs { max-width: 16rem; }
+.max-w-2xs { max-width: 18rem; }
+.max-w-xs { max-width: 20rem; }
+.max-w-sm { max-width: 24rem; }
+.max-w-md { max-width: 28rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-xl { max-width: 36rem; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-3xl { max-width: 48rem; }
+.max-w-4xl { max-width: 56rem; }
+.max-w-5xl { max-width: 64rem; }
+.max-w-6xl { max-width: 72rem; }
+.max-w-7xl { max-width: 80rem; }
+.max-h-none { max-height: none; }
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
