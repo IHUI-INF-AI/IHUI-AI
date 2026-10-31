@@ -40723,3 +40723,24 @@ A: Yes. ~14839+ tests / 3782 test files / 67 e2e spec / 4656 API 路由 / 617 �
   「非法输入零执行」正反对照),mypy strict 0 错,ruff 全过;`test_mcp_server.py` 176 例复跑证明双射注册未被打断。
 - 插件/装机面: `check-plugin-manifest-integrity.mjs`(门 277,2026-11-01 立,G-21 半腿/逆向-复现-超越 §0.11:已装插件的逐文件内容完整性对账 —— 写侧 `apps/cli/src/plugins/installer.ts` 的 `collectInstallFileDigests` 在落位那一刻把 `{path,sha256,bytes}` 记进 `InstallRecord.fileDigests`(可选字段,存量记录无需迁移),本门读台账 ↔ 盘上三态 `ok/drift/unjudged` 并逐条点名;drift 三类**分开报**不并桶(mismatch 内容有变 / missing 被删 / unlisted 未登记混入),老记录无该字段恒落 `unjudged`+`pending`(既不判"已核对"也不判"被篡改"),目录读不到/台账形状坏/记录名含穿越一律未判定;不跟随符号链接与 junction(§26),登记路径当下是链接 ⇒ 无从证内容;链接判据由注入缝钉死并另做真链接对照。**档位 warn + 差值棘轮**(§12e:判机器装机态,存量 pending 结构上拿不到哈希 ⇒ 升 blocking 即恒红门;升档前置 = pending 归零),`--baseline <file>` 才分得出"新增 vs 存量",不给基线时 `new=null` 不拿 0 冒充"无新增";`--print-baseline` 只打 stdout,**本门绝不写盘/不自愈/不重装**;判据单源 = 门体(比对三分类与 sha 取算复用 `check-installed-asset-catalog.mjs` 的 `judge`/`sha256Hex`,零复算);`--staged` 被接受但判序与全量档同一把尺(判装机态,无仓内取材面);自检 `--self-test` 21 组 + 镜像 `check-plugin-manifest-integrity.test.mjs` 14 例;取源是 git clone 无解包面 ⇒ zip-bomb 那一维不适用)
 - 只读哨兵(判机器态,**刻意不进提交链**,§12e:提交者结构上满足不了): `check-qoder-session-sync-task.mjs`(2026-10-31 立 —— Qoder 会话回灌计划任务的**存续哨兵**,只判「这条保活腿现在还在不在跑」,不判账号业务健康。立因:该任务以交互用户身份跑(DPAPI 只能由登录用户解),而「任务被删 / 被禁用 / 被改成 S4U / pwsh 或 Qoder 目录漂移 / 任务停摆」这些失效形态全部表现为**安静** —— 池里那枚号照旧显示 healthy(票还有 30 天),直到票过期才发现没人续。三态 `ok / breach / unjudged`(§0.3):取不到输入记 `unjudged`,不记绿也不冒红;日志刚被新一轮写了一半 ⇒ 本轮 `unjudged`,不按缺陷派单。用法 `node scripts/check-qoder-session-sync-task.mjs [--json]`;退出码 `0 ok / 1 breach / 2 unjudged`。**唯一调度器** = `scripts/git-guardian.mjs` 的 `auditQoderSessionSyncTask()`)
+#### 31. 桌面自动化输入动作族 + 两道内置门(对齐 Qoder `QoderComputerUse.exe`,逆向复现超越 T8 §A)(2026-11-01,所属端 desktop)
+> 对照物 = Qoder CN v0.5.1 内置插件原生件 `QoderComputerUse.exe`(2,530,288 B,函数 6,995,MCP 形 JSON-RPC over stdio)。
+> 取证册 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md`(§A 动作面与 11 项边界)。
+- **对齐**:`apps/desktop/src-tauri/src/operator.rs` 的动作枚举原有 5 档缺输入类两档 ⇒ 补 `Drag`(按下→1..12 段插值移动→释放,
+  中途失败**先松键**不留按下态)与 `PressKey`(修饰键按下→主键点击→**逆序释放**,主键失败也松),
+  键组解析 `parse_key_combo` 支持 X-style `Control_L+a` 与 `shift+alt+F5`,**未知键名或未知修饰键一律报错、不静默换键**、
+  `Control++` 保住字面 `+`;决策层补这两趟,端点解不出落 `NoOp` 而不臆造坐标。
+- **超越(两道可测不变式,内置在原生执行层)**:
+  ① **审批门** `check_approval` + `ApprovalGrant` + `plan_fingerprint` —— 批准必须由承载层显式入参并**绑定本次计划指纹**,
+  指纹不符/无批准人/授权串解析不动一律拒;**拒绝路径不构造 Enigo 实例**(结构上不可能误碰真鼠标键盘),
+  且 `denied_report` 的签名不接受 Allowed 态,使"被拒却报成功"这一不可能状态消失;
+  ② **按类别重试禁令** `max_attempts_for` —— 输入类尝试上限恒为 1 且**结构上读不到 policy**,
+  被动类才按预算重试(正向对照用例真重试 3 次)。
+- **使用方式**:既有两枚 tauri command(`operator_decide` / `operator_execute`)形态不变,新增档位随计划 JSON 下发;
+  批准来源是承载层入参,不是模型可写字段。
+- **守门**:`operator::tests` 30 枚新增用例 + 全量 `cargo test --lib` **330 passed / 0 failed**(主席复跑末行现读);
+  变异证据 = 摘审批门 8 枚翻红、把输入类上限改为随 policy 则 2 枚翻红,两处逐字还原后 `grep MUTATION` 为空。
+- **如实登记的未做格**:`revision 陈旧即拒` 未做——`ScreenState` 无代际字段,补它要连感知/OCR 产出侧同批(跨面契约);
+  审批指纹覆盖的是「批准陈旧」不是「感知陈旧」,两者不互相抵充。对侧 `set_value`/`perform_secondary_action` 属 UIA 写值、
+  非 enigo 原语,亦未做。
+- **口径纪律**:本节不得写成「Qoder 没有审批门」——原生件内 0 命中是观察,「门住宿主侧」是推断,详见 T8 册同一处更正(枚另有其号)。
