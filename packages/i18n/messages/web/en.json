@@ -25794,7 +25794,6 @@
     "actionReedit": "Re-edit",
     "title": "My agents",
     "searchPlaceholder": "Search agents",
-    "loading": "Loading…",
     "empty": "No agents"
   },
   "certDetail": {
@@ -27106,7 +27105,6 @@
     "save": "Save"
   },
   "aigcCover": {
-    "loading": "Loading…",
     "title": "Cover Settings",
     "subtitle": "Generate a cover for \"{title}\"",
     "empty": "No covers yet",
