@@ -22,6 +22,9 @@
  * 取材面(§0.4 纪律):默认判 **HEAD blob**(`git ls-tree` + `git cat-file --batch`),
  * 不读工作树 —— 共享工作树里技能文件常有他席未提交改动,判盘上会把他人的在飞改动
  * 算成资产漂移。盘上面只能由 `--worktree` 人工档显式取,不自动回落。
+ * 用户级安装副本面由 `--compare-install <dir>` 显式取(CLI 真的从 `~/.ihui/skills` 加载
+ * 用户技能、插件装 `~/.ihui/installed-plugins/`);该档默认只报数、`--strict` 才判红,
+ * 因为用户机安装状态不是仓内判据。
  *
  * 接线面:刻意**不进提交链**(§12e —— 资产改动与提交内容无关时它是恒红门),唯一调度点 =
  * `scripts/all-checks-runner.mjs`(`pnpm check:all`,人工/CI 全量档)的末段一步。
@@ -39,8 +42,8 @@
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -188,6 +191,41 @@ export function computeWorktreeCatalog({ repoRoot = REPO_ROOT } = {}) {
   return {
     version: 1,
     root: ASSET_ROOT,
+    entries,
+    totalBytes: entries.reduce((n, e) => n + e.bytes, 0),
+  }
+}
+
+/**
+ * 按**用户级安装副本**算清单(2026-10-31 第三条扩展)。
+ *
+ * CLI 从 `~/.ihui/skills` 加载用户技能(SKILL_DIRS 的最低优先级),插件装
+ * `~/.ihui/installed-plugins/`。安装副本理应逐字节等于仓内源;此处把副本的
+ * 相对路径**重新挂回 ASSET_ROOT 前缀**,于是可直接复用 `judge` 的同一套比对 ——
+ * 不新写第二份判据(§0.6)。
+ *
+ * 只读盘、不跟随符号链接(§26 junction 穿透红线)。
+ */
+export function computeInstallCatalog(dirAbs, { prefix = ASSET_ROOT } = {}) {
+  const entries = []
+  const walk = (dir) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, ent.name)
+      if (ent.isSymbolicLink()) continue
+      if (ent.isDirectory()) {
+        walk(abs)
+        continue
+      }
+      const body = readFileSync(abs)
+      const rel = relative(dirAbs, abs).split(sep).join('/')
+      entries.push({ path: `${prefix}/${rel}`, sha256: sha256Hex(body), bytes: body.length })
+    }
+  }
+  walk(dirAbs)
+  entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+  return {
+    version: 1,
+    root: prefix,
     entries,
     totalBytes: entries.reduce((n, e) => n + e.bytes, 0),
   }
@@ -379,9 +417,11 @@ export function main(argv = process.argv.slice(2)) {
     console.log(
       [
         '用法: node scripts/check-installed-asset-catalog.mjs [--worktree] [--json]',
+        '      node scripts/check-installed-asset-catalog.mjs --compare-install <dir> [--strict] [--json]',
         '      node scripts/check-installed-asset-catalog.mjs --write',
         '      node scripts/check-installed-asset-catalog.mjs --self-test',
         `清单: ${CATALOG_PATH}(root=${ASSET_ROOT})`,
+        '--compare-install:把用户级安装副本(如 ~/.ihui/skills)与仓内源逐文件对账;默认只报数,--strict 才判红',
         '退出码: 0 一致 / 1 漂移 / 2 未判定',
       ].join('\n'),
     )
@@ -406,6 +446,45 @@ export function main(argv = process.argv.slice(2)) {
       )
       return EXIT.OK
     }
+
+    const installArg = argv.find(
+      (a) => a === '--compare-install' || a.startsWith('--compare-install='),
+    )
+    if (installArg !== undefined) {
+      if (worktree) {
+        console.error('[installed-assets] --compare-install 与 --worktree 互斥')
+        return EXIT.UNDETERMINED
+      }
+      const dirArg = installArg.includes('=')
+        ? installArg.slice('--compare-install='.length)
+        : argv[argv.indexOf(installArg) + 1]
+      if (!dirArg || dirArg.startsWith('--')) {
+        console.error('[installed-assets] --compare-install 需要一个目录参数')
+        return EXIT.UNDETERMINED
+      }
+      const strict = argv.includes('--strict')
+      const dirAbs = resolve(dirArg)
+      catalog = parseCatalog(loadCatalogText(repoRoot))
+      if (!existsSync(dirAbs)) {
+        // 目录不存在 = 明确"未安装",不是"取不到输入";默认不判红,strict 才算漂移。
+        console.log(`[installed-assets] 安装目录不存在: ${dirAbs}(视为未安装)`)
+        return strict ? EXIT.DRIFT : EXIT.OK
+      }
+      const install = computeInstallCatalog(dirAbs)
+      const result = judge(catalog, install)
+      if (json) {
+        console.log(JSON.stringify({ mode: 'install', installDir: dirAbs, strict, ...result }))
+      } else {
+        printResult(result, `install(${dirAbs})`)
+        console.log(
+          strict
+            ? '[installed-assets] strict 档:安装副本与仓内源不一致按漂移计'
+            : '[installed-assets] 默认档:用户机安装状态只报数不判红(加 --strict 才红)',
+        )
+      }
+      return strict && result.verdict !== 'ok' ? EXIT.DRIFT : EXIT.OK
+    }
+
     catalog = parseCatalog(loadCatalogText(repoRoot))
     mode = worktree ? 'worktree(人工档)' : 'HEAD'
     actual = worktree ? computeWorktreeCatalog({ repoRoot }) : computeHeadCatalog({ repoRoot })
@@ -445,6 +524,7 @@ export const __test__ = {
   parseCatFileBatch,
   computeHeadCatalog,
   computeWorktreeCatalog,
+  computeInstallCatalog,
   parseCatalog,
   judge,
   selfTest,

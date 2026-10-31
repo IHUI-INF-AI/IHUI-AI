@@ -83,6 +83,35 @@ def resolve_caller(principal: str | None) -> str | None:
 def cast_str_or_none(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
+
+# ---------------------------------------------------------------------------
+# 步骤「定义摘要」—— 续跑的第四道判定(2026-10-31 立)
+# ---------------------------------------------------------------------------
+# 病根(本函数存在前,step_call_key 的 docstring 自己登记过):调用键只有
+# step/name/type/input/context 四维,用户把 config.tool / condition / thenSteps /
+# steps 之类的字段就地改写后,resume 仍命中旧缓存并回放旧结果 —— 静默拿错结果。
+# 定义摘要把「除 input 外的全部字段」折成一枚指纹,定义一变即摘要变 ⇒ 该步不回放。
+#
+# input 刻意不进摘要:它已经进调用键,且会被模板渲染(模板与渲染值等价时不该判成"定义变了")。
+WORKFLOW_STEP_DEFINITION_TYPE = "workflow_step_definition"
+
+
+def definition_digest_of_step(step: dict[str, Any]) -> str:
+    """一步的定义摘要 = 该步除 `input` 外全部字段的规范化哈希。
+
+    算式单源(§0.6):规范化 JSON(`sort_keys=True, ensure_ascii=False,
+    separators=(",", ":")`)与摘要算法都由 `task_executors.compute_idempotency_key`
+    承担 —— `tests/test_workflow_resume.py` 的反向锁明令本文件不得长出第二份哈希实现
+    (§22c:同类判据全仓只许一份,第二份必然漂移)。
+    带 `WORKFLOW_STEP_DEFINITION_TYPE` 命名空间,保证它与调用键永不互撞。
+
+    稳定性:只有 `input` 的步(最常见的 echo 形态)返回的是**空对象**的摘要,不是空串 ——
+    空串在本模块有专属含义(`definitionDigest == ""` = 旧记录,无从证明定义没变)。
+    """
+    payload = {key: value for key, value in step.items() if key != "input"}
+    return compute_idempotency_key(WORKFLOW_STEP_DEFINITION_TYPE, payload)
+
+
 # ---------------------------------------------------------------------------
 # 数据模型
 # ---------------------------------------------------------------------------
@@ -139,6 +168,9 @@ class WorkflowTask:
     input: str = ""
     output: str = ""
     error: str = ""
+    # 记下该步**执行那一刻**的定义摘要(`definition_digest_of_step`)。
+    # 空串是"无从证明"的专有含义:本列出现之前写下的旧记录,续跑时一律不回放。
+    definitionDigest: str = ""
 
 
 @dataclass
@@ -443,6 +475,10 @@ class WorkflowEngine:
         `replayed_outputs` 非空时,落在其中的步序**不进执行体**:直接取回缓存 output
         并把该步落成 completed(续跑的"入参未变即瞬时复用")。缓存步照样进 trace,
         否则新实例的任务列表与源实例不同形。
+
+        每步都落 `definitionDigest`(执行这一刻的定义摘要):执行步与复用步同值写入,
+        后者正是 `build_replay_plan` 证明"与记录侧相等"的那一枚 —— 缺了它,新实例
+        自己就成了一条"无从证明定义"的旧记录,下一轮续跑会把全部步重跑。
         """
         inst.status = "running"
         self._log(inst.id, "info", f"工作流 '{wf.name}' 开始执行,共 {len(wf.steps)} 步")
@@ -464,6 +500,10 @@ class WorkflowEngine:
             step_type = str(step.get("type", "llm"))
             step_input = str(step.get("input", ""))
             str(step.get("skill", ""))
+            # 定义摘要按"执行这一刻的这一步定义"取:命中复用的步也落同一枚摘要
+            # (它正是 build_replay_plan 证明"与记录侧相等"的那一枚),
+            # 于是新实例的 trace 自身仍可被下一轮续跑对账。
+            definition_digest = definition_digest_of_step(step)
 
             cached_output = replay.get(idx + 1)
             if cached_output is not None:
@@ -477,6 +517,7 @@ class WorkflowEngine:
                         status="completed",
                         input=step_input,
                         output=cached_output,
+                        definitionDigest=definition_digest,
                     )
                 )
                 self._log(inst.id, "info", f"第 {idx + 1} 步命中续跑缓存,未执行: {step_name}")
@@ -490,6 +531,7 @@ class WorkflowEngine:
                 type=step_type,
                 status="running",
                 input=step_input,
+                definitionDigest=definition_digest,
             )
             self._tasks.setdefault(inst.id, []).append(task)
             self._log(inst.id, "info", f"执行第 {idx + 1} 步: {step_name}({step_type})")
@@ -908,11 +950,11 @@ class WorkflowEngine:
         全仓只许一份;位宽/规范化口径一旦在两处长出来就必然漂移),本层只负责把
         "这一步实际吃什么"归一化成 arguments。
 
-        覆盖面如实登记:源侧记录(`WorkflowTask`)只留得住 step/name/type/input/status,
-        所以键里能分辨"改没改"的维度也只有这四维 + 实例入参。**定义中 name/type/input
-        之外的字段被就地改写时(config.tool / condition / thenSteps / steps …),记录侧
-        无从自证 ⇒ 该步仍会命中缓存** —— 这是现有 schema 能达到的最细粒度,不是漏写;
-        要更细就得给 WorkflowTask 加列,而本票明令禁止造第二份 task schema。
+        覆盖面:本键只分辨 step/name/type/input(渲染后)+ 实例入参这五维。定义里
+        `name`/`type`/`input` **之外**的字段(`config.tool` / `condition` / `thenSteps` /
+        `steps` …)不在键里,由 `WorkflowTask.definitionDigest` 一列兜底
+        (判据 `definition_digest_of_step`,`build_replay_plan` 的第四道判定)——
+        两道判据都必须成立才回放,任一不成立即"多跑一次"。
         """
         return compute_idempotency_key(
             WORKFLOW_STEP_KEY_TYPE,
@@ -949,18 +991,28 @@ class WorkflowEngine:
 
     def build_replay_plan(
         self, wf: Workflow, source: WorkflowInstance, context: dict[str, Any]
-    ) -> tuple[dict[int, str], str, str]:
+    ) -> tuple[dict[int, str], str, str, dict[str, Any]]:
         """把源实例已完成步骤折成 `{步序: 缓存 output}`(键不同/未成功的步不进表)。
 
-        返回 `(plan, errorCode, reason)`。`errorCode` 非空 ⇒ **未判定**:调用方必须把
-        错误码原样交出去,不得"那就整条重跑"并记成功。判定顺序里任何一步都不写盘、
+        返回 `(plan, errorCode, reason, meta)`。`errorCode` 非空 ⇒ **未判定**:调用方必须
+        把错误码原样交出去,不得"那就整条重跑"并记成功。判定顺序里任何一步都不写盘、
         不建实例、不起后台 task。
+
+        四道判定全部成立才回放(output 可证 ∧ 定义摘要可证且相等 ∧ 调用键相等):
+        1. 记录 status=completed;
+        2. output 非空;
+        3. 记录侧 `definitionDigest` 非空且等于当前定义摘要 —— 旧记录(空摘要)与定义
+           被改写过的步都在这里被拦下,**失效方向恒为"多跑一次"**;
+        4. 调用键相等(step/name/type/渲染后 input/实例入参)。
+        `meta` 如实点名这两类不进 plan 的步:
+        `definitionChangedSteps`(摘要不等)/ `definitionUnprovableSteps`(记录无摘要)。
         """
         if source.status not in RESUMABLE_SOURCE_STATUSES:
             return (
                 {},
                 WF_RESUME_SOURCE_NOT_FINAL,
                 f"源实例 {source.id} 状态为 {source.status},未到终态,已完成步骤集无从对账",
+                {},
             )
         tasks = self._tasks.get(source.id, [])
         if len(tasks) > len(wf.steps):
@@ -968,8 +1020,11 @@ class WorkflowEngine:
                 {},
                 WF_RESUME_TASK_TRACE_MISALIGNED,
                 f"源实例记录了 {len(tasks)} 步,当前定义只有 {len(wf.steps)} 步,记录映射不到定义",
+                {},
             )
         plan: dict[int, str] = {}
+        definition_changed: list[int] = []
+        definition_unprovable: list[int] = []
         for idx, task in enumerate(tasks):
             ordinal = idx + 1
             if task.step != ordinal:
@@ -977,12 +1032,14 @@ class WorkflowEngine:
                     {},
                     WF_RESUME_TASK_TRACE_MISALIGNED,
                     f"第 {ordinal} 条任务记录的 step={task.step},与它在 trace 里的位置不符",
+                    {},
                 )
             if not task.name or not task.type:
                 return (
                     {},
                     WF_RESUME_TASK_RECORD_INCOMPLETE,
                     f"第 {ordinal} 步的任务记录缺 name/type,调用键算不出来",
+                    {},
                 )
             raw_step = wf.steps[ordinal - 1]
             if not isinstance(raw_step, dict):
@@ -990,6 +1047,7 @@ class WorkflowEngine:
                     {},
                     WF_RESUME_TASK_RECORD_INCOMPLETE,
                     f"当前定义第 {ordinal} 步不是对象,调用键算不出来",
+                    {},
                 )
             if task.status != "completed":
                 continue
@@ -998,12 +1056,28 @@ class WorkflowEngine:
                     {},
                     WF_RESUME_OUTPUT_UNVERIFIABLE,
                     f"第 {ordinal} 步 status=completed 而 output 为空串,成功这件事自证不上",
+                    {},
                 )
+            if not task.definitionDigest:
+                # 本列出现之前写下的记录:无从证明定义没变 ⇒ 保守不回放(多跑一次)。
+                definition_unprovable.append(ordinal)
+                continue
+            if task.definitionDigest != definition_digest_of_step(raw_step):
+                definition_changed.append(ordinal)
+                continue
             if self._key_of_recorded_task(task, source.input) == self._key_of_definition_step(
                 ordinal, raw_step, context
             ):
                 plan[ordinal] = task.output
-        return plan, "", ""
+        return (
+            plan,
+            "",
+            "",
+            {
+                "definitionChangedSteps": definition_changed,
+                "definitionUnprovableSteps": definition_unprovable,
+            },
+        )
 
     async def resume_instance(
         self,
@@ -1024,6 +1098,11 @@ class WorkflowEngine:
 
         `input_data=None` ⇒ 沿用源实例入参;显式传新入参 ⇒ 所有步的键都变,等价整条重跑
         (实例入参是全步骤共享的渲染上下文,不能声称"入参没变")。
+
+        复用判据是**两道**:调用键相等(step/name/type/渲染后 input/入参)∧ 定义摘要相等
+        (除 input 外的全部定义字段)。定义里 `config.tool` / `condition` / `thenSteps` /
+        `steps` 任一被改写 ⇒ 摘要变 ⇒ 该步重跑;旧记录(无摘要)⇒ 同样重跑。返回值里
+        `definitionChangedSteps` / `definitionUnprovableSteps` 如实点名这两类步。
         """
         source = self.get_instance(instance_id, principal)
         if source is None:
@@ -1041,7 +1120,7 @@ class WorkflowEngine:
                 "sourceInstanceId": source.id,
             }
         context = dict(source.input if input_data is None else input_data)
-        plan, error_code, reason = self.build_replay_plan(wf, source, context)
+        plan, error_code, reason, replay_meta = self.build_replay_plan(wf, source, context)
         if error_code:
             return {
                 "ok": False,
@@ -1049,6 +1128,8 @@ class WorkflowEngine:
                 "error": reason,
                 "sourceInstanceId": source.id,
             }
+        definition_changed = list(replay_meta.get("definitionChangedSteps") or [])
+        definition_unprovable = list(replay_meta.get("definitionUnprovableSteps") or [])
         inst = await self.trigger_workflow(
             wf.id, context, principal=principal, replayed_outputs=plan
         )
@@ -1059,12 +1140,23 @@ class WorkflowEngine:
                 "error": f"工作流 {wf.id} 拒绝触发(已禁用、定义刚被删除或已有实例在跑)",
                 "sourceInstanceId": source.id,
                 "replayedSteps": sorted(plan),
+                "definitionChangedSteps": definition_changed,
             }
         self._log(
             inst.id,
             "info",
             f"续跑自实例 {source.id}:复用第 {sorted(plan)} 步(未执行),"
-            f"其余 {len(wf.steps) - len(plan)} 步真跑",
+            f"其余 {len(wf.steps) - len(plan)} 步真跑"
+            + (
+                f";定义已变更须重跑的第 {definition_changed} 步"
+                if definition_changed
+                else ""
+            )
+            + (
+                f";记录无定义摘要须重跑的第 {definition_unprovable} 步"
+                if definition_unprovable
+                else ""
+            ),
         )
         return {
             "ok": True,
@@ -1075,6 +1167,9 @@ class WorkflowEngine:
             "totalSteps": len(wf.steps),
             "replayedSteps": sorted(plan),
             "replayedCount": len(plan),
+            # 定义一变即不回放(第四道判定):如实点名,避免"少复用了几步"无从归因
+            "definitionChangedSteps": definition_changed,
+            "definitionUnprovableSteps": definition_unprovable,
         }
 
     # =========================================================================
