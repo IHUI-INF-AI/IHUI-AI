@@ -359,7 +359,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **声明必须有消费者**:`check-declared-policy-has-consumer.mjs`(121,五类声明 + `create*Handler/Transport` 工厂);**工具契约三面投影单源** `packages/types/src/{tool-contract,schema-projection}.ts`(111/113/115:契约声明、路由身份键 `ROUTING_IDENTITY_KEYS` 禁入模型参数、入参校验 shadow 档默认 off)。
 - **批量写计数诚实性**:`check-batch-write-count-honesty.mjs`(134,blocking):`.where(inArray)` 批量写必须 `.returning({id})` 回库确认集合,响应带 `missedIds`,禁把请求侧 `.length` 当 affected;B3–B7 五维只拦新增。
 - **provider 健康四档单一真相源**(200):canonical = `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const),全仓禁第二份同值声明(PV2)。
-- **监控告警词表单一真相源**(268):canonical = `packages/types/src/monitor-vocabulary.ts` 的 `MONITOR_ALERT_SEVERITIES/STATUSES`(库列 severity/status 真值),web 只 re-export + 展示元数据;`check-monitor-alert-vocabulary.mjs` 按差值棘轮只拦新增同值副本(锚点=文件 HEAD 面自身,存量只报数)。
+- **监控告警词表单一真相源**(275):canonical = `packages/types/src/monitor-vocabulary.ts` 的 `MONITOR_ALERT_SEVERITIES/STATUSES`(库列 severity/status 真值),web 只 re-export + 展示元数据;`check-monitor-alert-vocabulary.mjs` 按差值棘轮只拦新增同值副本(锚点=文件 HEAD 面自身,存量只报数)。
 - **桌面事件接线三层对账**:`check-desktop-event-wiring.mjs`(Tauri emit → listen → 前端注册;"就绪点亮"按可达性判,被抽进被调函数也算,允许一跳)。
 - **迁移正文不可变**(185):已进 journal 的 .sql 禁就地改正文(IM1 首次入库 blob 对照/IM2 索引 vs HEAD);守门 49 记账结构(B1-B5 离线,B6-B9 连库)。**受管 `.env` 键值被清空对账** `check-env-drift.mjs`(守护巡检档,判机器状态不进提交链)。
 - **元运维巡检轮** `check-ops-patrol.mjs`:看守者本身还活着吗(P1-P6:副本漂移/规则不热加载/时钟失步/无上限/心跳无人判/引用不存在指标)。**服务存续双探测**:`check-service-binary-paths.mjs`(warn,STATE/nssm Application 存在/端口应答,nssm stdout 是 UTF-16)、`check-public-path-probe.mjs`(outage 与常态分序列,取证经 `run-evidence.mjs` 封缄,truncated 不成合格证)。
