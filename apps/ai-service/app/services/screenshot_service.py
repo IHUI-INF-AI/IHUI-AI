@@ -118,6 +118,48 @@ def _validate_url_ssrf(url: str) -> tuple[bool, str]:
     return True, ""
 
 
+def _resolve_public_ip(hostname: str) -> str | None:
+    """解析 hostname,返回第一个非内网 IP;全内网/解析失败返回 None。
+
+    判据与 _validate_url_ssrf 同一把尺(_is_private_ip),不造第二套。
+    """
+    try:
+        addrs = socket.getaddrinfo(hostname, None)
+    except (socket.gaierror, OSError):
+        return None
+    for _family, _type, _proto, _canon, sockaddr in addrs:
+        ip = str(sockaddr[0])
+        if not _is_private_ip(ip):
+            return ip
+    return None
+
+
+def resolve_pinned_target(url: str) -> tuple[str, str] | None:
+    """DNS rebinding TOCTOU 防护的钉 IP 出口(2026-10-31 安全强化第 10 批 R6)。
+
+    _validate_url_ssrf 在校验期自行 getaddrinfo,真实请求时 httpx 会**再解析
+    一次** —— 两次结果可不一致(攻击者权威 DNS 对短 TTL 域名交替返回公网/
+    内网 IP),首跳闸即被绕过。本出口把 URL 的 hostname 换成**校验过的那个
+    IP**,连接层不再有任何 DNS 查询;Host 头与 TLS SNI(httpx extensions
+    ``sni_hostname``)由调用方保持原域名,证书校验与虚拟主机路由不受影响。
+
+    Returns:
+        (钉 IP 后的 URL, 原 hostname);解析不出公网 IP 返回 None(调用方拒绝)。
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if not host:
+        return None
+    ip = _resolve_public_ip(host)
+    if not ip:
+        return None
+    netloc = f"[{ip}]" if ":" in ip else ip
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    pinned = url.replace(f"{parsed.scheme}://{parsed.netloc}", f"{parsed.scheme}://{netloc}", 1)
+    return pinned, host
+
+
 def _route_ssrf_guard(route: Any) -> bool:
     """每跳/每子资源都过 SSRF 尺(2026-10-27 修):入口的 _validate_url_ssrf 只看首跳,
     而浏览器会自动跟随重定向并加载页面引用的子资源 —— 公网页 302 →

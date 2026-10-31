@@ -9,8 +9,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import path from 'node:path'
 
 import { __test__ as S } from '../sync-minimax-client-session.mjs'
+import { __test__ as E } from '../lib/minimax-auth-extract.mjs'
 
 const RECORD_KEY =
   'com.minimax.mcode.oauth.prod.cn\u0000pn7olbPZk-liTDivJTlyUgyJxgtXvTojk5gKj6qHfMI'
@@ -125,7 +127,17 @@ test('⑥ 零凭据回显:meta 与记录键短名都不含令牌', () => {
   assert.equal(S.recordKeyLabel('').includes('minimax'), false)
 })
 
-test('⑦ scopes 只留非空字符串;全空 ⇒ 不带该键', () => {
+test('⑦ 服务身份:MINIMAX_DATA_DIR 直接指定数据根,不再拼 USERPROFILE', () => {
+  // 用仓库内真实存在的目录做夹具(候选根必须 existsSync 才留)。判据 = 优先序,
+  // 不是"能不能读到本机 .minimax" —— IHUI-API 以 LocalSystem 运行时 USERPROFILE 是
+  // systemprofile,回灌腿因此结构上读不到真实用户会话(2026-10-31 现读 MINIMAX_DIR_MISSING)。
+  const real = path.resolve('scripts')
+  assert.deepEqual(E.candidateRoots({ env: { MINIMAX_DATA_DIR: real, USERPROFILE: 'C:/no-such-home' } }), [real])
+  const viaHome = E.candidateRoots({ env: { USERPROFILE: 'C:/no-such-home' } })
+  assert.deepEqual(viaHome, [])
+})
+
+test('⑦b scopes 只留非空字符串;全空 ⇒ 不带该键', () => {
   const withScopes = S.buildPayload({
     accounts: [{ accessToken: 'acc', scopes: ['a', '', 3, null] }],
   })

@@ -248,8 +248,27 @@ async def download_image(url: str, timeout: float = 30.0) -> Path | None:
             "User-Agent": _UA,
             "Referer": f"{parsed.scheme}://{parsed.netloc}/",
         }
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
+        # 2026-10-31 安全强化第 15 批:此前只有首跳 `_assert_safe_image_url` +
+        # `follow_redirects=True` —— 公网页 302 → http://169.254.169.254/ 即整条 SSRF
+        # (与本仓 media_tasks / vision_helper 同型)。现改为手动逐跳,每跳复检同一份判据;
+        # 中间跳响应即时关闭,避免连接泄漏。
+        _MAX_HOPS = 5
+        current = url
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            resp: httpx.Response | None = None
+            for _hop in range(_MAX_HOPS + 1):
+                _assert_safe_image_url(current)
+                resp = await client.send(
+                    client.build_request("GET", current, headers=headers)
+                )
+                location = resp.headers.get("location")
+                if resp.is_redirect and location:
+                    current = str(resp.url.join(location))
+                    await resp.aclose()
+                    continue
+                break
+            if resp is None:  # pragma: no cover - 循环至少跑一次
+                return None
             if resp.status_code != 200:
                 logger.warning(
                     "[image_uploader] 下载失败 %s: HTTP %s",

@@ -11,6 +11,16 @@ import Fastify, { type FastifyInstance } from 'fastify'
 
 import { embedProxyRoutes } from '../src/routes/embed-proxy.js'
 
+// 2026-10-31 安全强化第 15 批(M3):embed-proxy 建连接 guarded dispatcher 后改走
+// undici fetch(全局 fetch 不认 init.dispatcher),拦截点从全局 fetch 换成 undici
+// fetch —— 测试语义不变:断言"哪些 URL 真的发出了请求"。
+const undiciSpy = vi.hoisted(() => ({ fetch: vi.fn() }))
+
+vi.mock('undici', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual, fetch: undiciSpy.fetch }
+})
+
 const redirectTo = (location: string, status = 302): Response =>
   ({
     ok: false,
@@ -31,13 +41,13 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await app.close()
-  vi.unstubAllGlobals()
+  undiciSpy.fetch.mockReset()
 })
 
 describe('/raw 重定向落点', () => {
   it('302 落点指向私网 ⇒ 落点绝不发出请求(首跳只发一次)', async () => {
-    const fetchMock = vi.fn(async () => redirectTo('http://192.168.0.5/secret'))
-    vi.stubGlobal('fetch', fetchMock)
+    const fetchMock = undiciSpy.fetch
+    fetchMock.mockImplementationOnce(async () => redirectTo('http://192.168.0.5/secret'))
 
     const res = await app.inject({
       method: 'GET',
@@ -51,8 +61,7 @@ describe('/raw 重定向落点', () => {
   })
 
   it('首跳就是私网 ⇒ 403,且一次请求都没发(对照)', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
+    const fetchMock = undiciSpy.fetch
 
     const res = await app.inject({
       method: 'GET',
@@ -73,9 +82,8 @@ describe('/raw 重定向落点', () => {
 describe('/raw 同源沙箱 CSP', () => {
   it('HTML 响应必须带 CSP sandbox 且不含 allow-same-origin', async () => {
     const html = '<html><body><h1>upstream</h1></body></html>'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
+    undiciSpy.fetch.mockImplementationOnce(
+      async () =>
         ({
           ok: true,
           status: 200,
@@ -85,7 +93,6 @@ describe('/raw 同源沙箱 CSP', () => {
           text: async () => html,
           arrayBuffer: async () => new TextEncoder().encode(html).buffer,
         }) as unknown as Response,
-      ),
     )
 
     const res = await app.inject({
@@ -100,7 +107,9 @@ describe('/raw 同源沙箱 CSP', () => {
   })
 
   it('早退路径(内网 403 错误页)同样带 CSP', async () => {
-    vi.stubGlobal('fetch', vi.fn())
+    undiciSpy.fetch.mockImplementation(async () => {
+      throw new Error('should not fetch')
+    })
 
     const res = await app.inject({
       method: 'GET',

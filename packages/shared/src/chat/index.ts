@@ -94,6 +94,9 @@ export * from './prompt-drafts'
 // 即"数据面在、投影层无人实现"。上方"三个模块都不存在"的说明对 voice-note / prompt-drafts
 // 也已失真(两者文件在 HEAD 面存在),但那两行的归属不在本票,此处只动 history-projection。
 export * from './history-projection'
+// D35 metadata 九类摘要投影(2026-10-31):消息列表只回摘要,展开时走懒取出口取全文。
+// 九类清单与投影判据的唯一实现;服务端 routes/chat.ts 与 web 懒取判定共用。
+export * from './message-metadata-summary'
 // D65 Hook 失败可见性(定档 C:hook_engine 失败信息内存有/SSE 通道无/DLQ 消费出口无 ⇒ 本票仅契约先行
 // 六态词汇表含 resultNotRecorded 终态缺省;attachment stderr/command 过 shared/utils/redact;渲染位待 D34 补事件)
 export * from './hook-failures'

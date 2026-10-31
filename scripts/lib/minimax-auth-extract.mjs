@@ -62,6 +62,11 @@ function cstr(v) {
 export function candidateRoots(opts = {}) {
   const raw = Array.isArray(opts.roots) && opts.roots.length > 0 ? opts.roots : (() => {
     const env = opts.env ?? process.env
+    // MINIMAX_DATA_DIR(与 mcode 自身认的变量同名)显式指定数据根:IHUI-API 以 LocalSystem
+    // 运行时 USERPROFILE=systemprofile,把 ~/.minimax 读成「目录不存在」,回灌腿结构上瘸一条
+    // (2026-10-31 现读:worker 每 10 分钟记 MINIMAX_DIR_MISSING,池内票过期后无人续)。
+    const explicit = cstr(env.MINIMAX_DATA_DIR)
+    if (explicit) return [explicit]
     const home = cstr(env.USERPROFILE) || cstr(env.HOME) || os.homedir()
     return [path.join(home, '.minimax'), path.join(home, GLOBAL_ROOT_NAME)]
   })()

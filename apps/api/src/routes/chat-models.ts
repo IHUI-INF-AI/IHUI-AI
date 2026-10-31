@@ -19,6 +19,7 @@
  *   OPENROUTER_API_KEY 等(multi)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { wsUpgradeRequiresCredential } from '../plugins/ws-helpers.js'
 import { z } from 'zod'
 import { SignJWT } from 'jose'
 import { checkAuth } from '../plugins/auth.js'
@@ -586,96 +587,102 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   //    客户端 WS → DeepSeek HTTP SSE 逐行转发
   // ==========================================================================
 
-  server.get('/ws/deepseek', { websocket: true }, (socket, request) => {
-    const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
-    const model = qModel || 'deepseek-chat'
-    const key = api_key || process.env.DEEPSEEK_API_KEY
+  server.get(
+    '/ws/deepseek',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket, request) => {
+      const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
+      const model = qModel || 'deepseek-chat'
+      const key = api_key || process.env.DEEPSEEK_API_KEY
 
-    ;(async () => {
-      if (!key) {
-        socket.close(4001, 'Missing DEEPSEEK_API_KEY')
-        return
-      }
-      const userId = await wsAuth(token, (c, r) => socket.close(c, r))
-      if (!userId) return
-
-      socket.on('message', async (data: Buffer) => {
-        const raw = data.toString()
-        let body: Record<string, unknown>
-        try {
-          const msg = JSON.parse(raw) as Record<string, unknown>
-          if (msg.messages) {
-            body = { ...msg, model: msg.model ?? model, stream: true }
-          } else {
-            body = {
-              model,
-              messages: [{ role: 'user', content: msg.content ?? raw }],
-              stream: true,
-            }
-          }
-        } catch {
-          body = { model, messages: [{ role: 'user', content: raw }], stream: true }
+      ;(async () => {
+        if (!key) {
+          socket.close(4001, 'Missing DEEPSEEK_API_KEY')
+          return
         }
+        const userId = await wsAuth(token, (c, r) => socket.close(c, r))
+        if (!userId) return
 
-        // WS 这一腿此前**完全没有期限也没有中止**:裸 fetch + socket.on('close') 只记一个
-        // 断连指标 ⇒ 客户端早已离开的会话仍在逐块读上游(既继续烧 token,也占着连接)。
-        // 与 streamSSE 同一纪律:deadline + 连接关闭中止 + finally 归还 reader。
-        const wsController = new AbortController()
-        let wsReader: ReadableStreamDefaultReader<Uint8Array> | null = null
-        const WS_DEADLINE_MS = 60_000
-        const wsTimer = setTimeout(() => wsController.abort(), WS_DEADLINE_MS)
-        const abortOnClose = (): void => wsController.abort()
-        socket.on('close', abortOnClose)
-        try {
-          const resp = await fetch(DEEPSEEK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-            body: JSON.stringify(body),
-            signal: wsController.signal,
-          })
-          if (!resp.ok || !resp.body) {
-            const errText = await resp.text().catch(() => '')
-            socket.send(
-              JSON.stringify({
-                type: 'error',
-                data: {
-                  message: `DeepSeek API error: ${resp.status}`,
-                  detail: errText.slice(0, 200),
-                },
-              }),
-            )
-            return
-          }
-          wsReader = resp.body.getReader()
-          const decoder = new TextDecoder()
-          let buffer = ''
-          for (;;) {
-            const { done, value } = await wsReader.read()
-            if (done) break
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() ?? ''
-            for (const line of lines) {
-              if (line.trim()) socket.send(line)
+        socket.on('message', async (data: Buffer) => {
+          const raw = data.toString()
+          let body: Record<string, unknown>
+          try {
+            const msg = JSON.parse(raw) as Record<string, unknown>
+            if (msg.messages) {
+              body = { ...msg, model: msg.model ?? model, stream: true }
+            } else {
+              body = {
+                model,
+                messages: [{ role: 'user', content: msg.content ?? raw }],
+                stream: true,
+              }
             }
+          } catch {
+            body = { model, messages: [{ role: 'user', content: raw }], stream: true }
           }
-          if (buffer.trim()) socket.send(buffer)
-        } catch (e) {
-          // 客户端先走 ⇒ 不再往已关的 socket 写,也不再把它记成一次故障
-          if (!wsController.signal.aborted) {
-            socket.send(JSON.stringify({ type: 'error', data: { message: (e as Error).message } }))
+
+          // WS 这一腿此前**完全没有期限也没有中止**:裸 fetch + socket.on('close') 只记一个
+          // 断连指标 ⇒ 客户端早已离开的会话仍在逐块读上游(既继续烧 token,也占着连接)。
+          // 与 streamSSE 同一纪律:deadline + 连接关闭中止 + finally 归还 reader。
+          const wsController = new AbortController()
+          let wsReader: ReadableStreamDefaultReader<Uint8Array> | null = null
+          const WS_DEADLINE_MS = 60_000
+          const wsTimer = setTimeout(() => wsController.abort(), WS_DEADLINE_MS)
+          const abortOnClose = (): void => wsController.abort()
+          socket.on('close', abortOnClose)
+          try {
+            const resp = await fetch(DEEPSEEK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              body: JSON.stringify(body),
+              signal: wsController.signal,
+            })
+            if (!resp.ok || !resp.body) {
+              const errText = await resp.text().catch(() => '')
+              socket.send(
+                JSON.stringify({
+                  type: 'error',
+                  data: {
+                    message: `DeepSeek API error: ${resp.status}`,
+                    detail: errText.slice(0, 200),
+                  },
+                }),
+              )
+              return
+            }
+            wsReader = resp.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
+            for (;;) {
+              const { done, value } = await wsReader.read()
+              if (done) break
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split('\n')
+              buffer = lines.pop() ?? ''
+              for (const line of lines) {
+                if (line.trim()) socket.send(line)
+              }
+            }
+            if (buffer.trim()) socket.send(buffer)
+          } catch (e) {
+            // 客户端先走 ⇒ 不再往已关的 socket 写,也不再把它记成一次故障
+            if (!wsController.signal.aborted) {
+              socket.send(
+                JSON.stringify({ type: 'error', data: { message: (e as Error).message } }),
+              )
+            }
+          } finally {
+            clearTimeout(wsTimer)
+            socket.off('close', abortOnClose)
+            await wsReader?.cancel().catch(() => undefined)
           }
-        } finally {
-          clearTimeout(wsTimer)
-          socket.off('close', abortOnClose)
-          await wsReader?.cancel().catch(() => undefined)
-        }
-      })
-      socket.on('close', () => {
-        server.recordWsDisconnect()
-      })
-    })()
-  })
+        })
+        socket.on('close', () => {
+          server.recordWsDisconnect()
+        })
+      })()
+    },
+  )
 
   // ==========================================================================
   // 3. Kling — POST /kling/video/generate, /kling/video/image-to-video,
@@ -952,87 +959,91 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   //    双向 WS 转发:客户端 ↔ DashScope Omni realtime WS
   // ==========================================================================
 
-  server.get('/ws/qwen-omni', { websocket: true }, (socket, request) => {
-    const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
-    const model = qModel || 'qwen-omni'
-    const key = api_key || QWEN_KEY()
+  server.get(
+    '/ws/qwen-omni',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket, request) => {
+      const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
+      const model = qModel || 'qwen-omni'
+      const key = api_key || QWEN_KEY()
 
-    ;(async () => {
-      if (!key) {
-        socket.close(4001, 'Missing DASHSCOPE_API_KEY')
-        return
-      }
-      const userId = await wsAuth(token, (c, r) => socket.close(c, r))
-      if (!userId) return
+      ;(async () => {
+        if (!key) {
+          socket.close(4001, 'Missing DASHSCOPE_API_KEY')
+          return
+        }
+        const userId = await wsAuth(token, (c, r) => socket.close(c, r))
+        if (!userId) return
 
-      const wsUrl = `wss://dashscope.aliyuncs.com/api-ws/v1/realtime/?model=${encodeURIComponent(model)}`
-      const upstream = new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${key}` } })
-      upstream.binaryType = 'arraybuffer'
+        const wsUrl = `wss://dashscope.aliyuncs.com/api-ws/v1/realtime/?model=${encodeURIComponent(model)}`
+        const upstream = new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${key}` } })
+        upstream.binaryType = 'arraybuffer'
 
-      upstream.onopen = () => {
-        upstream.send(
-          JSON.stringify({
-            header: { action: 'session.updated' },
-            payload: {
-              session_configuration: {
-                modalities: ['text', 'audio'],
-                voice: 'longxiaochun',
+        upstream.onopen = () => {
+          upstream.send(
+            JSON.stringify({
+              header: { action: 'session.updated' },
+              payload: {
+                session_configuration: {
+                  modalities: ['text', 'audio'],
+                  voice: 'longxiaochun',
+                },
               },
-            },
-          }),
-        )
-        socket.on('message', (data: Buffer) => {
+            }),
+          )
+          socket.on('message', (data: Buffer) => {
+            try {
+              upstream.send(data)
+            } catch {
+              /* upstream closed */
+            }
+          })
+        }
+
+        upstream.onmessage = (event) => {
+          if (typeof event.data === 'string') {
+            socket.send(event.data)
+          } else if (event.data instanceof ArrayBuffer) {
+            socket.send(Buffer.from(event.data))
+          }
+        }
+
+        upstream.onerror = () => {
           try {
-            upstream.send(data)
+            socket.close(4002, 'upstream error')
           } catch {
-            /* upstream closed */
+            /* already closed */
+          }
+        }
+
+        upstream.onclose = () => {
+          try {
+            socket.close()
+          } catch {
+            /* already closed */
+          }
+        }
+
+        server.recordWsConnect()
+        socket.on('message', () => {
+          server.recordWsMessageReceived()
+        })
+        const origSend = socket.send.bind(socket)
+        socket.send = ((data: unknown, ...rest: unknown[]) => {
+          server.recordWsMessageSent()
+          return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
+        }) as typeof socket.send
+        socket.on('close', () => {
+          server.recordWsDisconnect()
+          try {
+            upstream.close()
+          } catch {
+            /* already closed */
           }
         })
-      }
-
-      upstream.onmessage = (event) => {
-        if (typeof event.data === 'string') {
-          socket.send(event.data)
-        } else if (event.data instanceof ArrayBuffer) {
-          socket.send(Buffer.from(event.data))
-        }
-      }
-
-      upstream.onerror = () => {
-        try {
-          socket.close(4002, 'upstream error')
-        } catch {
-          /* already closed */
-        }
-      }
-
-      upstream.onclose = () => {
-        try {
-          socket.close()
-        } catch {
-          /* already closed */
-        }
-      }
-
-      server.recordWsConnect()
-      socket.on('message', () => {
-        server.recordWsMessageReceived()
-      })
-      const origSend = socket.send.bind(socket)
-      socket.send = ((data: unknown, ...rest: unknown[]) => {
-        server.recordWsMessageSent()
-        return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
-      }) as typeof socket.send
-      socket.on('close', () => {
-        server.recordWsDisconnect()
-        try {
-          upstream.close()
-        } catch {
-          /* already closed */
-        }
-      })
-    })()
-  })
+      })()
+    },
+  )
 
   // ==========================================================================
   // 6.1 Doubao(豆包/火山方舟)WebSocket — GET /ws/doubao
@@ -1041,159 +1052,167 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   //    客户端需自行发送 session.update 初始化;后续可按官方协议补写 onopen 内 session 配置。
   // ==========================================================================
 
-  server.get('/ws/doubao', { websocket: true }, (socket, request) => {
-    const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
-    const model = qModel || 'doubao-1.5-pro-32k'
-    const key = api_key || DOUBAO_KEY()
+  server.get(
+    '/ws/doubao',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket, request) => {
+      const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
+      const model = qModel || 'doubao-1.5-pro-32k'
+      const key = api_key || DOUBAO_KEY()
 
-    ;(async () => {
-      if (!key) {
-        socket.close(4001, 'Missing DOUBAO_API_KEY')
-        return
-      }
-      const userId = await wsAuth(token, (c, r) => socket.close(c, r))
-      if (!userId) return
+      ;(async () => {
+        if (!key) {
+          socket.close(4001, 'Missing DOUBAO_API_KEY')
+          return
+        }
+        const userId = await wsAuth(token, (c, r) => socket.close(c, r))
+        if (!userId) return
 
-      const wsUrl = `wss://ark.cn-beijing.volces.com/api/v3/realtime?model=${encodeURIComponent(model)}`
-      const upstream = new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${key}` } })
-      upstream.binaryType = 'arraybuffer'
+        const wsUrl = `wss://ark.cn-beijing.volces.com/api/v3/realtime?model=${encodeURIComponent(model)}`
+        const upstream = new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${key}` } })
+        upstream.binaryType = 'arraybuffer'
 
-      upstream.onopen = () => {
-        socket.on('message', (data: Buffer) => {
+        upstream.onopen = () => {
+          socket.on('message', (data: Buffer) => {
+            try {
+              upstream.send(data)
+            } catch {
+              /* upstream closed */
+            }
+          })
+        }
+
+        upstream.onmessage = (event) => {
+          if (typeof event.data === 'string') {
+            socket.send(event.data)
+          } else if (event.data instanceof ArrayBuffer) {
+            socket.send(Buffer.from(event.data))
+          }
+        }
+
+        upstream.onerror = () => {
           try {
-            upstream.send(data)
+            socket.close(4002, 'upstream error')
           } catch {
-            /* upstream closed */
+            /* already closed */
+          }
+        }
+
+        upstream.onclose = () => {
+          try {
+            socket.close()
+          } catch {
+            /* already closed */
+          }
+        }
+
+        server.recordWsConnect()
+        socket.on('message', () => {
+          server.recordWsMessageReceived()
+        })
+        const origSend = socket.send.bind(socket)
+        socket.send = ((data: unknown, ...rest: unknown[]) => {
+          server.recordWsMessageSent()
+          return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
+        }) as typeof socket.send
+        socket.on('close', () => {
+          server.recordWsDisconnect()
+          try {
+            upstream.close()
+          } catch {
+            /* already closed */
           }
         })
-      }
-
-      upstream.onmessage = (event) => {
-        if (typeof event.data === 'string') {
-          socket.send(event.data)
-        } else if (event.data instanceof ArrayBuffer) {
-          socket.send(Buffer.from(event.data))
-        }
-      }
-
-      upstream.onerror = () => {
-        try {
-          socket.close(4002, 'upstream error')
-        } catch {
-          /* already closed */
-        }
-      }
-
-      upstream.onclose = () => {
-        try {
-          socket.close()
-        } catch {
-          /* already closed */
-        }
-      }
-
-      server.recordWsConnect()
-      socket.on('message', () => {
-        server.recordWsMessageReceived()
-      })
-      const origSend = socket.send.bind(socket)
-      socket.send = ((data: unknown, ...rest: unknown[]) => {
-        server.recordWsMessageSent()
-        return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
-      }) as typeof socket.send
-      socket.on('close', () => {
-        server.recordWsDisconnect()
-        try {
-          upstream.close()
-        } catch {
-          /* already closed */
-        }
-      })
-    })()
-  })
+      })()
+    },
+  )
 
   // ==========================================================================
   // 7. Zhipu WebSocket — GET /ws/zhipu
   //    双向 WS 转发:客户端 ↔ 智谱 GLM WS
   // ==========================================================================
 
-  server.get('/ws/zhipu', { websocket: true }, (socket, request) => {
-    const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
-    const model = qModel || 'glm-4'
-    const key = api_key || process.env.ZHIPU_API_KEY
+  server.get(
+    '/ws/zhipu',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket, request) => {
+      const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
+      const model = qModel || 'glm-4'
+      const key = api_key || process.env.ZHIPU_API_KEY
 
-    ;(async () => {
-      if (!key) {
-        socket.close(4001, 'Missing ZHIPU_API_KEY')
-        return
-      }
-      const userId = await wsAuth(token, (c, r) => socket.close(c, r))
-      if (!userId) return
+      ;(async () => {
+        if (!key) {
+          socket.close(4001, 'Missing ZHIPU_API_KEY')
+          return
+        }
+        const userId = await wsAuth(token, (c, r) => socket.close(c, r))
+        if (!userId) return
 
-      const wsUrl = 'wss://open.bigmodel.cn/api/paas/v4/chat/completions'
-      const upstream = new WebSocket(wsUrl, {
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      })
+        const wsUrl = 'wss://open.bigmodel.cn/api/paas/v4/chat/completions'
+        const upstream = new WebSocket(wsUrl, {
+          headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        })
 
-      upstream.onopen = () => {
-        upstream.send(JSON.stringify({ model, stream: true }))
-        socket.on('message', (data: Buffer) => {
-          const raw = data.toString()
-          try {
-            const msg = JSON.parse(raw) as Record<string, unknown>
-            if (!msg.messages) {
-              msg.messages = [{ role: 'user', content: msg.content ?? raw }]
+        upstream.onopen = () => {
+          upstream.send(JSON.stringify({ model, stream: true }))
+          socket.on('message', (data: Buffer) => {
+            const raw = data.toString()
+            try {
+              const msg = JSON.parse(raw) as Record<string, unknown>
+              if (!msg.messages) {
+                msg.messages = [{ role: 'user', content: msg.content ?? raw }]
+              }
+              msg.model = model
+              msg.stream = true
+              upstream.send(JSON.stringify(msg))
+            } catch {
+              upstream.send(
+                JSON.stringify({ model, messages: [{ role: 'user', content: raw }], stream: true }),
+              )
             }
-            msg.model = model
-            msg.stream = true
-            upstream.send(JSON.stringify(msg))
+          })
+        }
+
+        upstream.onmessage = (event) => {
+          socket.send(typeof event.data === 'string' ? event.data : String(event.data))
+        }
+
+        upstream.onerror = () => {
+          try {
+            socket.close(4002, 'upstream error')
           } catch {
-            upstream.send(
-              JSON.stringify({ model, messages: [{ role: 'user', content: raw }], stream: true }),
-            )
+            /* already closed */
+          }
+        }
+
+        upstream.onclose = () => {
+          try {
+            socket.close()
+          } catch {
+            /* already closed */
+          }
+        }
+
+        server.recordWsConnect()
+        socket.on('message', () => {
+          server.recordWsMessageReceived()
+        })
+        const origSend = socket.send.bind(socket)
+        socket.send = ((data: unknown, ...rest: unknown[]) => {
+          server.recordWsMessageSent()
+          return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
+        }) as typeof socket.send
+        socket.on('close', () => {
+          server.recordWsDisconnect()
+          try {
+            upstream.close()
+          } catch {
+            /* already closed */
           }
         })
-      }
-
-      upstream.onmessage = (event) => {
-        socket.send(typeof event.data === 'string' ? event.data : String(event.data))
-      }
-
-      upstream.onerror = () => {
-        try {
-          socket.close(4002, 'upstream error')
-        } catch {
-          /* already closed */
-        }
-      }
-
-      upstream.onclose = () => {
-        try {
-          socket.close()
-        } catch {
-          /* already closed */
-        }
-      }
-
-      server.recordWsConnect()
-      socket.on('message', () => {
-        server.recordWsMessageReceived()
-      })
-      const origSend = socket.send.bind(socket)
-      socket.send = ((data: unknown, ...rest: unknown[]) => {
-        server.recordWsMessageSent()
-        return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
-      }) as typeof socket.send
-      socket.on('close', () => {
-        server.recordWsDisconnect()
-        try {
-          upstream.close()
-        } catch {
-          /* already closed */
-        }
-      })
-    })()
-  })
+      })()
+    },
+  )
 
   // ==========================================================================
   // 7.1 Zhipu health — GET /zhipu/health

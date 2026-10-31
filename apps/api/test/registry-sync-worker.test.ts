@@ -333,7 +333,9 @@ describe('Registry Sync Worker', () => {
     expect(mockInsertSyncLog).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'fail',
-        errorMessage: '2 个条目 upsert 失败',
+        // 生产自 2026-10 起在"N 个条目 upsert 失败"后附首个错误摘要(截 300 字),
+        // 落库侧靠它定位;断言只锁前缀,不把"附不附原因"钉成契约。
+        errorMessage: expect.stringContaining('2 个条目 upsert 失败'),
       }),
     )
     expect(result).toEqual({ synced: 0, failed: 2, skipped: 0, total: 2 })

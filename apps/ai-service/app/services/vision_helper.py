@@ -101,9 +101,34 @@ def encode_base64(data: bytes, mime_type: str) -> str:
 
 
 async def download_image(url: str, timeout: int = 30) -> tuple[bytes, str]:
-    """下载 URL 图片,返回 (data, mime_type)。失败抛异常。"""
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        resp = await client.get(url)
+    """下载 URL 图片,返回 (data, mime_type)。失败抛异常。
+
+    2026-10-31 安全强化第 15 批:此前 `follow_redirects=True` + 零校验 —— 公网页 302 →
+    `http://169.254.169.254/` 即整条 SSRF,取回的内容还会被编码成 data URI 交给多模态
+    模型(等于把内网内容读回来)。现改为手动逐跳,每跳先过 screenshot_service 的 SSRF 尺
+    (与本仓 media_tasks / web_crawl_tools 同一条判据实现,不造第二套)。
+    """
+    import httpx
+
+    from .screenshot_service import _validate_url_ssrf
+
+    _MAX_HOPS = 5
+    current = url
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+        resp: httpx.Response | None = None
+        for _hop in range(_MAX_HOPS + 1):
+            ok, reason = _validate_url_ssrf(current)
+            if not ok:
+                raise ValueError(f"URL 不被允许: {reason}")
+            resp = await client.send(client.build_request("GET", current))
+            location = resp.headers.get("location")
+            if resp.is_redirect and location:
+                current = str(resp.url.join(location))
+                await resp.aclose()
+                continue
+            break
+        if resp is None:  # pragma: no cover - 循环至少跑一次
+            raise ValueError("下载失败:未发出请求")
         resp.raise_for_status()
         data = resp.content
         ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()

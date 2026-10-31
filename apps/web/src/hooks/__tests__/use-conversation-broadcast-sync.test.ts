@@ -21,7 +21,10 @@ const { userBroadcastMock, chatSyncMock, applyChatSyncMock, closeMeta, closeChat
     applyChatSyncMock: vi.fn(),
     closeMeta: vi.fn(),
     closeChat: vi.fn(),
-    storeState: { conversationId: 'conv-1' as string | null },
+    storeState: {
+      conversationId: 'conv-1' as string | null,
+      gapMessageIds: [] as string[],
+    },
   }))
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
@@ -34,8 +37,11 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/stores/chat', () => ({
   useChatStore: Object.assign(
-    (sel: (s: { conversationId: string | null }) => unknown) =>
-      sel({ conversationId: storeState.conversationId }),
+    (sel: (s: { conversationId: string | null; chatSyncGapMessageIds: string[] }) => unknown) =>
+      sel({
+        conversationId: storeState.conversationId,
+        chatSyncGapMessageIds: storeState.gapMessageIds,
+      }),
     {
       getState: () => ({
         conversationId: storeState.conversationId,
@@ -49,6 +55,12 @@ vi.mock('@/stores/chat', () => ({
 
 vi.mock('@/components/common', () => ({ toast: { info: vi.fn() } }))
 vi.mock('@/lib/query-client', () => ({ getQueryClient: () => ({}) }))
+
+// 票71 剩余缺口②:resync 编排本体由 src/lib/__tests__/chat-sync-resync.test.ts 定点;
+// 本文件只钉"hook 是否按坐标触发"。不 mock 的话会连带加载 @/lib/api(与本文件的
+// @ihui/api-client 精简 mock 冲突)。
+const { resyncMock } = vi.hoisted(() => ({ resyncMock: vi.fn().mockResolvedValue({}) }))
+vi.mock('@/lib/chat-sync-resync', () => ({ resyncChatSyncGaps: resyncMock }))
 
 vi.mock('@ihui/api-client', () => ({
   subscribeUserBroadcast: (...args: unknown[]) => {
@@ -66,6 +78,7 @@ import { useConversationBroadcastSync } from '../use-conversation-broadcast-sync
 beforeEach(() => {
   vi.clearAllMocks()
   storeState.conversationId = 'conv-1'
+  storeState.gapMessageIds = []
 })
 
 describe('useConversationBroadcastSync — 票71 消息面接线', () => {
@@ -97,6 +110,23 @@ describe('useConversationBroadcastSync — 票71 消息面接线', () => {
     unmount()
     expect(closeMeta).toHaveBeenCalledTimes(1)
     expect(closeChat).toHaveBeenCalledTimes(1)
+  })
+
+  // 票71 剩余缺口②(2026-10-31):gap 坐标非空 ⇒ 按坐标触发 resync;空 ⇒ 一次都不发。
+  it('gap 坐标非空时按坐标触发 resync(会话钉死,带取消判据)', () => {
+    storeState.gapMessageIds = ['m-1', 'm-2']
+    renderHook(() => useConversationBroadcastSync())
+    expect(resyncMock).toHaveBeenCalledTimes(1)
+    expect(resyncMock).toHaveBeenCalledWith({
+      conversationId: 'conv-1',
+      messageIds: ['m-1', 'm-2'],
+      isCancelled: expect.any(Function),
+    })
+  })
+
+  it('没有 gap 坐标时结构上不发 resync(duplicate/stale 是正常路径)', () => {
+    renderHook(() => useConversationBroadcastSync())
+    expect(resyncMock).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -144,11 +144,16 @@ export async function runBackupNow(
     const filePath = path.join(dir, fileName)
     if (!filePath.startsWith(dir)) throw new Error('path_escape')
 
-    const script = `pg_dump --host=${conn.host} --port=${conn.port} --username=${conn.user} --dbname=${conn.dbname} --no-password | gzip > "${filePath}"`
+    // 2026-10-31 安全强化第 15 批:此前把 conn.* 与 filePath 直接拼进 `bash -c` 的脚本串,
+    // 而 `settings.backupDir` 是管理员可配项 —— 值里带 `"` 或 `$(...)` 就是命令替换
+    // (原实现只拦了 `..` 的路径穿越,没处理 shell 元字符)。
+    // 现改为 bash 位置参数:`$1..$5` 只作为取值插入,不参与语法解析;宿主脚本串是常量。
+    const script =
+      'pg_dump --host="$1" --port="$2" --username="$3" --dbname="$4" --no-password | gzip > "$5"'
     await new Promise<void>((resolve, reject) => {
       execFile(
         'bash',
-        ['-c', script],
+        ['-c', script, '--', conn.host, String(conn.port), conn.user, conn.dbname, filePath],
         {
           timeout: 10 * 60_000,
           env: { ...process.env, PGPASSWORD: conn.password },

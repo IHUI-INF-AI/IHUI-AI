@@ -139,12 +139,15 @@ describe('admin deep P0 batch operations', () => {
 
   describe('POST /api/admin/orders/batch-cancel', () => {
     it('成功取消全部 pending 订单', async () => {
+      // 生产链 = dbRead 预读 + edu_orders 与统一 orders 两表 update 各取 returning
+      // (守门 134:affected 只认回库确认且双侧命中的集合) ⇒ 三组结果按此顺序预置。
       enqueue(
         [
           { id: O1, status: 'pending' },
           { id: O2, status: 'pending' },
         ],
-        [],
+        [{ id: O1 }, { id: O2 }],
+        [{ id: O1 }, { id: O2 }],
       )
       const res = await server.inject({
         method: 'POST',
@@ -165,7 +168,8 @@ describe('admin deep P0 batch operations', () => {
           { id: O2, status: 'paid' },
           { id: O3, status: 'cancelled' },
         ],
-        [],
+        [{ id: O1 }],
+        [{ id: O1 }],
       )
       const res = await server.inject({
         method: 'POST',
