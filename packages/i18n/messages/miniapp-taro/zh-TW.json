@@ -1432,11 +1432,6 @@
       "pending": "待完成",
       "completed": "已完成"
     },
-    "empty": {
-      "all": "暫無考試",
-      "pending": "暫無待完成考試",
-      "completed": "暫無考試記錄"
-    },
     "questions": "{n} 題",
     "minutes": "{n} 分鐘",
     "passScore": "及格分",

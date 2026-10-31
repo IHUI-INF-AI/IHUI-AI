@@ -1432,11 +1432,6 @@
       "pending": "Pending",
       "completed": "Completed"
     },
-    "empty": {
-      "all": "No exams available",
-      "pending": "No pending exams",
-      "completed": "No exam records yet"
-    },
     "questions": "{n} questions",
     "minutes": "{n} min",
     "passScore": "Pass score",
