@@ -66,7 +66,6 @@ import {
   updateVoiceNote,
 } from '@ihui/api-client'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
-import { pressFeedback } from '@ihui/ui-native'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
   formatVoiceNoteDuration,
@@ -364,7 +363,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
         accessibilityRole="button"
         accessibilityLabel={t('chat.voiceNote.title')}
         testID="voice-note-trigger"
-        style={pressFeedback(styles.trigger)}
+        style={styles.trigger}
       >
         <Mic size={16} color={tokens.text.secondary} />
       </Pressable>
@@ -376,7 +375,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
               <Pressable
-                style={pressFeedback(undefined)}
+                style={undefined}
                 onPress={closePanel}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -422,7 +421,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             <View style={styles.actionRow}>
               {phase === 'ready' && (
                 <Pressable
-                  style={pressFeedback(styles.primaryBtn)}
+                  style={styles.primaryBtn}
                   onPress={startRecording}
                   accessibilityRole="button"
                   testID="voice-note-start"
@@ -433,7 +432,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               )}
               {busy && (
                 <Pressable
-                  style={pressFeedback(styles.stopBtn)}
+                  style={styles.stopBtn}
                   onPress={stopRecording}
                   accessibilityRole="button"
                   disabled={!recording}
@@ -450,7 +449,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
               {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
                 <Pressable
-                  style={pressFeedback(styles.outlineBtn)}
+                  style={styles.outlineBtn}
                   onPress={saveAudioOnly}
                   accessibilityRole="button"
                   testID="voice-note-save-audio-only"
@@ -463,7 +462,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               {/* 录音中显式取消 ⇒ cancelled 相(共享表 recording --cancel--> cancelled) */}
               {phase === 'recording' && (
                 <Pressable
-                  style={pressFeedback(styles.outlineBtn)}
+                  style={styles.outlineBtn}
                   onPress={() => abortRecording('cancel')}
                   accessibilityRole="button"
                   accessibilityLabel={t('chat.voiceNote.action.cancel')}
@@ -475,7 +474,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               {/* 转写完成即插入当前对话(不经服务端归档行,落库失败回滚时这条路径仍通) */}
               {phase === 'completed' && transcript.trim().length > 0 && (
                 <Pressable
-                  style={pressFeedback(styles.outlineBtn)}
+                  style={styles.outlineBtn}
                   onPress={insertTranscriptToInput}
                   accessibilityRole="button"
                   accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
@@ -489,7 +488,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               )}
               {isVoiceNotePhaseTerminal(phase) && (
                 <Pressable
-                  style={pressFeedback(styles.outlineBtn)}
+                  style={styles.outlineBtn}
                   onPress={resetToReady}
                   accessibilityRole="button"
                   testID="voice-note-retry"
@@ -512,10 +511,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             {/* 分区切换:活跃 ⇄ 已归档(票面②「新建→归档」在 RN 上可见的那一半) */}
             <View style={styles.groupRow}>
               <Pressable
-                style={pressFeedback([
-                  styles.chip,
-                  partition === 'archived' ? styles.chipActive : null,
-                ])}
+                style={[styles.chip, partition === 'archived' ? styles.chipActive : null]}
                 onPress={() => setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))}
                 accessibilityRole="button"
                 accessibilityLabel={t('quickNotes.archived')}
@@ -530,7 +526,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             {groups.length > 0 && (
               <View style={styles.groupRow} testID="voice-note-filters">
                 <Pressable
-                  style={pressFeedback([styles.chip, groupKey === null ? styles.chipActive : null])}
+                  style={[styles.chip, groupKey === null ? styles.chipActive : null]}
                   onPress={() => setGroupKey(null)}
                   accessibilityRole="button"
                   testID="voice-note-group-chip-all"
@@ -542,10 +538,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 {groups.map((facet) => (
                   <Pressable
                     key={facet.groupKey}
-                    style={pressFeedback([
-                      styles.chip,
-                      groupKey === facet.groupKey ? styles.chipActive : null,
-                    ])}
+                    style={[styles.chip, groupKey === facet.groupKey ? styles.chipActive : null]}
                     onPress={() => setGroupKey(facet.groupKey)}
                     accessibilityRole="button"
                     testID="voice-note-group-chip"
@@ -586,7 +579,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                       </Text>
                       {voiceNoteHasInsertableText(note) && (
                         <Pressable
-                          style={pressFeedback(undefined)}
+                          style={undefined}
                           onPress={() => onInsert(note.transcript ?? '')}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -600,7 +593,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                       )}
                       {/* 改分组:分组键只落服务端,输入框开在本行下方 */}
                       <Pressable
-                        style={pressFeedback(undefined)}
+                        style={undefined}
                         onPress={() => {
                           setGroupEditing(note.id)
                           setGroupDraft('')
@@ -615,7 +608,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                       {/* 归档/恢复:方向由当前分区决定 */}
                       {partition === 'active' ? (
                         <Pressable
-                          style={pressFeedback(undefined)}
+                          style={undefined}
                           onPress={() => void toggleArchived(note.id, true)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -626,7 +619,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         </Pressable>
                       ) : (
                         <Pressable
-                          style={pressFeedback(undefined)}
+                          style={undefined}
                           onPress={() => void toggleArchived(note.id, false)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -637,7 +630,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         </Pressable>
                       )}
                       <Pressable
-                        style={pressFeedback(undefined)}
+                        style={undefined}
                         onPress={() => void removeNote(note.id)}
                         hitSlop={6}
                         accessibilityRole="button"
@@ -659,7 +652,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           testID="voice-note-group-input"
                         />
                         <Pressable
-                          style={pressFeedback(undefined)}
+                          style={undefined}
                           onPress={() => void assignGroup(note.id, groupDraft)}
                           hitSlop={6}
                           accessibilityRole="button"
