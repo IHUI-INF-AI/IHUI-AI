@@ -205,7 +205,7 @@
 /* model-type-btn 文字标签(对齐 RN modelTypeLabel fontSize 12dp→24rpx,text.secondary) */
 .ai-model-type-label {
   margin-left: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -284,7 +284,7 @@
 }
 
 .material-tab-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   transition: color 0.2s ease;
 }
@@ -347,7 +347,7 @@
 }
 
 .material-item-preview {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -433,7 +433,7 @@
 }
 
 .material-card-preview {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -480,7 +480,7 @@
 }
 
 .announcement-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   font-weight: 400;
 }
@@ -510,7 +510,7 @@
 }
 
 .load-more-text {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 

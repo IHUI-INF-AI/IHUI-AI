@@ -13,7 +13,7 @@
   background: var(--color-card);
 }
 .page-title {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: bold;
   color: var(--color-foreground);
 }
@@ -31,7 +31,7 @@
   align-items: center;
 }
 .summary-label {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .summary-value {
@@ -56,25 +56,25 @@
   flex: 1;
 }
 .withdrawal-amount {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   font-weight: 600;
   display: block;
   margin-bottom: var(--spacing-xs);
 }
 .withdrawal-time {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   display: block;
 }
 .withdrawal-reason {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-destructive);
   margin-top: 6rpx;
   display: block;
 }
 .withdrawal-status {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   padding: 6rpx 16rpx;
   border-radius: var(--radius-sm);
 }
@@ -99,7 +99,7 @@
 .empty-text {
   text-align: center;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   display: block;
   padding: 60rpx 0;
 }

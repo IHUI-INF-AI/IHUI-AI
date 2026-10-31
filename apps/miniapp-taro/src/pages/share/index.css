@@ -47,12 +47,12 @@
   gap: var(--spacing-xs);
 }
 .share-rank-title {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-foreground);
 }
 .share-rank-subtitle {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .share-rank-enter {
@@ -87,12 +87,12 @@
   padding: var(--spacing-md) 28rpx 0;
 }
 .share-rank-card-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .share-rank-card-unit {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .share-rank-more {
@@ -104,7 +104,7 @@
   text-align: center;
 }
 .share-rank-more-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -134,7 +134,7 @@
 /* 对齐 RN emptyText:fontSize 16 → 32rpx,text.secondary → muted-foreground */
 .share-empty-text {
   color: var(--color-muted-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
 }
 
 /* 加载动画 - 跳动圆点 */
@@ -180,7 +180,7 @@
 }
 .share-nomore-text {
   color: var(--color-muted-foreground);
-  font-size: 24rpx;
+  font-size: var(--text-label);
 }
 
 /* ===== 分类弹层(对标原 tagWrapShow) ===== */
@@ -199,7 +199,7 @@
   padding: 28rpx 28rpx 16rpx;
 }
 .share-tag-panel-title {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
 }

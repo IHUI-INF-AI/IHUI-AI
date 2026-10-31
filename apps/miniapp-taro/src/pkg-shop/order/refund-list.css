@@ -68,12 +68,12 @@
   justify-content: space-between;
 }
 .refund-amount {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-danger);
 }
 .refund-status {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
 }
 .refund-status-refunding {
@@ -90,7 +90,7 @@
   margin-top: var(--spacing-sm);
 }
 .refund-title {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
   color: var(--color-foreground);
 }
@@ -101,12 +101,12 @@
   gap: var(--spacing-xs-loose);
 }
 .refund-reason-label {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
 .refund-reason-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex: 1;
 }
@@ -118,7 +118,7 @@
   justify-content: space-between;
 }
 .refund-order-no {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   flex: 1;
   margin-right: var(--spacing-sm);
@@ -127,7 +127,7 @@
   white-space: nowrap;
 }
 .refund-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
@@ -139,7 +139,7 @@
   background: var(--color-success-tint);
   border: 2rpx solid var(--color-success-tint-strong);
   border-radius: var(--radius-sm);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-success);
 }
 
@@ -153,7 +153,7 @@
 }
 .refund-action-btn {
   padding: 10rpx 24rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
@@ -217,7 +217,7 @@
 }
 .refund-step-time {
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
@@ -233,14 +233,14 @@
 }
 .refund-empty-text {
   margin-top: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .refund-loading,
 .refund-no-more {
   display: block;
   text-align: center;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   padding: var(--spacing-xl) 0;
 }

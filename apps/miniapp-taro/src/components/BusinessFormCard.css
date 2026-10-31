@@ -28,7 +28,7 @@
 .bfc-kind {
   display: block;
   margin-bottom: var(--spacing-sm);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 500;
   color: var(--color-muted-foreground);
 }
@@ -40,7 +40,7 @@
 .bfc-label {
   display: block;
   margin-bottom: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -51,7 +51,7 @@
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-background);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
 }
@@ -63,7 +63,7 @@
 .bfc-error {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-danger);
 }
 
@@ -80,14 +80,14 @@
   padding: var(--spacing-2xs) 12rpx;
   border-radius: var(--radius-sm);
   background: var(--color-muted);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
 .bfc-fold-btn {
   padding: var(--spacing-2xs) 12rpx;
   border-radius: var(--radius-sm);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -112,7 +112,7 @@
   gap: var(--spacing-xs);
   padding: var(--spacing-xs) 0;
   border-radius: var(--radius-md);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 
 .bfc-reject {
@@ -133,7 +133,7 @@
 .bfc-status {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 

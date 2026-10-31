@@ -41,7 +41,7 @@
   padding: 0 32rpx 24rpx;
 }
 .ex-title {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .ex-list {
@@ -54,7 +54,7 @@
   padding: var(--spacing-xs-loose) 24rpx;
   background: var(--color-card);
   border-radius: var(--radius-xl);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .form {
@@ -67,7 +67,7 @@
   padding: var(--spacing-sm-loose);
   background: var(--color-background);
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   box-sizing: border-box;
 }
 .form-row {
@@ -85,7 +85,7 @@
   padding: var(--spacing-xs) 16rpx;
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .size.active {
@@ -96,7 +96,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   padding: 0 32rpx;
 }
 .btn[disabled] {

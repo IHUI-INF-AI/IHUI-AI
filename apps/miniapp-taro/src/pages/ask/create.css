@@ -48,20 +48,20 @@
 
 /* 对齐 RN label: 14dp→28rpx / text.secondary */
 .ask-create-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   font-weight: 600;
 }
 
 .ask-create-counter {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
 /* ===== 输入框(白底浮于 muted 块上;对齐 RN input 字号 16dp→32rpx;圆角按角色档 control→sm) ===== */
 .ask-create-input {
   width: 100%;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   padding: var(--spacing-sm) 24rpx;
   background: var(--color-card);
@@ -77,7 +77,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   box-sizing: border-box;
 }
@@ -95,7 +95,7 @@
 }
 
 .ask-create-picker-value {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
@@ -117,7 +117,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-2xl);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -161,7 +161,7 @@
   background: var(--color-destructive);
   color: var(--color-destructive-foreground);
   border-radius: var(--radius-sm);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   z-index: 2;
 }
 
@@ -177,7 +177,7 @@
 }
 
 .ask-create-img-add-icon {
-  font-size: 48rpx;
+  font-size: var(--text-display);
   color: var(--color-muted-foreground);
 }
 
@@ -194,7 +194,7 @@
 
 .ask-create-switch-desc {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-2xs);
 }
@@ -218,7 +218,7 @@
   background: var(--color-brand);
   color: var(--color-primary-foreground);
   border-radius: var(--radius-xl);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   border: none;
 }
@@ -258,13 +258,13 @@
 }
 
 .ask-create-sheet-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
 
 .ask-create-sheet-close {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   color: var(--color-muted-foreground);
   padding: 0 8rpx;
 }
@@ -274,7 +274,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 28rpx 32rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
@@ -285,6 +285,6 @@
 
 .ask-create-sheet-check {
   color: var(--color-brand);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

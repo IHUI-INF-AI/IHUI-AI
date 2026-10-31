@@ -24,7 +24,7 @@
   gap: var(--spacing-sm);
 }
 .cal-title {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--color-foreground);
 }
@@ -34,7 +34,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-primary);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
@@ -42,7 +42,7 @@
 }
 .cal-today-btn {
   padding: var(--spacing-xs) 20rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -69,7 +69,7 @@
 .cal-week-cell {
   flex: 1;
   text-align: center;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   padding: var(--spacing-xs-loose) 0;
 }
@@ -118,7 +118,7 @@
 /* ===== 选中日期直播列表 ===== */
 .cal-section-title {
   margin: var(--spacing-md) 0 16rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -143,14 +143,14 @@
 }
 .cal-card-title {
   flex: 1;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .cal-badge {
   padding: var(--spacing-2xs) 14rpx;
   border-radius: var(--radius-md);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   margin-left: var(--spacing-xs-loose);
 }
 .cal-badge-upcoming {
@@ -169,7 +169,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .cal-action {

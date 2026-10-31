@@ -55,7 +55,7 @@
 /* ===== 字段标签(对齐 RN label:14/600/text.secondary,mt 12 mb 8) ===== */
 .reg-label {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-md);
@@ -84,7 +84,7 @@
   height: 100%;
   border: none;
   background: transparent;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
 }
 
@@ -115,7 +115,7 @@
 
 .reg-codebtn-text {
   color: var(--color-primary);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -160,7 +160,7 @@
 
 .reg-agreement-text {
   flex: 1;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   line-height: 36rpx;
   color: var(--color-muted-foreground);
 }
@@ -188,7 +188,7 @@
 .btn-register {
   border-radius: var(--radius-xl);
   background-color: var(--color-brand-accent);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   /* accent 底配 foreground 文字(浅灰蓝上白字对比不足) */
   color: var(--color-brand-accent-foreground);
@@ -213,7 +213,7 @@
 }
 
 .password-toggle-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   margin-right: var(--spacing-xs);
   white-space: nowrap;
@@ -246,7 +246,7 @@
 }
 
 .input-area-code {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -286,13 +286,13 @@
 }
 
 .nation-name {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   flex-shrink: 0;
 }
 
 .nation-code {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
