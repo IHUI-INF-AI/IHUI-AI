@@ -198,7 +198,11 @@ export function VerifyCodeModal({
               />
             </View>
 
-            <Pressable onPress={handleResend} disabled={remaining > 0}>
+            <Pressable
+              onPress={handleResend}
+              disabled={remaining > 0}
+              style={pressFeedback(undefined)}
+            >
               <Text
                 style={[
                   styles.countdown,

@@ -208,7 +208,7 @@ export function LoginPopUp({
     >
       <View style={styles.root}>
         <Pressable
-          style={styles.overlay}
+          style={pressFeedback(styles.overlay)}
           onPress={onClose}
           accessibilityLabel={t('lp.closeA11y')}
         />

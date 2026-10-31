@@ -211,7 +211,10 @@ export function NotesPanel({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={pressFeedback(styles.modalMask)} onPress={onClose}>
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={pressFeedback(styles.listDialogContent)}
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>语音笔记</Text>
             <Pressable
