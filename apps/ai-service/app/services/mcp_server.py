@@ -5213,7 +5213,18 @@ async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
 
 # 自动化任务配置缓存(2026-07-24 立,configure_automation_task 配置记录 + 执行结果)
 # key=config_id(uuid hex),value={task_id, action, execute, arguments, config_response}
-_AUTOMATION_CONFIGS: dict[str, dict[str, Any]] = {}
+# 2026-11-01 安全强化(补封顶):现读**生产代码零读取点**(只有 tests/test_configure_automation_task_real.py
+# 回头读自己那一条)—— 每一枚 `configure_automation_task` 调用都往里塞一份含
+# `arguments`(用户原文)的记录且永不出站,所以这一格既是没有上界的内存面,也是
+# "用户投喂内容被进程无限期留住"的留存面。真值在 api 层(本表只是配置阶段回执的镜像)
+# ⇒ 封顶不改变任何在用行为;测试读自己刚写的那一条,在 512 上限内不受影响。
+_AUTOMATION_CONFIGS_MAX_KEYS: Final = 512
+_AUTOMATION_CONFIGS_TTL_SECONDS: Final = 24 * 3600.0
+_AUTOMATION_CONFIGS: "BoundedTtlDict" = BoundedTtlDict(
+    max_keys=_AUTOMATION_CONFIGS_MAX_KEYS,
+    ttl_seconds=_AUTOMATION_CONFIGS_TTL_SECONDS,
+    slide_on_read=False,
+)
 
 
 async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -5935,7 +5946,7 @@ team_board_evictions = 0
 
 def _team_board_freshness(board: dict[str, dict[str, Any]]) -> float:
     """表里最新一条的时间戳(epoch 秒);解析不出/空表 ⇒ 0(视作最可逐出)。"""
-    from datetime import UTC, datetime
+    from datetime import datetime
 
     newest = 0.0
     for task in board.values():
@@ -6248,7 +6259,26 @@ from .artifacts_store import (  # noqa: E402
 )
 
 # 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
+# 2026-11-01 安全强化(补镜像封顶):原先每条任务(含 `prompt` / `agent_tools` /
+# `webhook_url` 等用户原文)append 后**永不出队**,而现读**生产代码零读取点**
+# (只有 tests/test_mcp_server.py 清它并断言自己刚写的那一条)—— 真相源是
+# Redis + task_scheduler,本表既不被生产读也不被淘汰 ⇒ 纯积累面。
+# 逐出只发生在**越限**时(越限前行为一字不变,测试的"写一条读到一条"仍在 512 内),
+# 且丢条数必须可观测:静默丢是另一种失效形。
 _SCHEDULED_TASKS: list[dict[str, Any]] = []
+_SCHEDULED_TASKS_MAX_MIRROR: Final = 512
+#: 被逐出镜像的累计条数(只报数,不参与任何判定;读不到即 0 是真的 0)
+scheduled_tasks_mirror_drops: int = 0
+
+
+def _remember_scheduled_task(task: dict[str, Any]) -> None:
+    """把任务记进内存镜像,并在越限时从**最旧**一端逐出。"""
+    global scheduled_tasks_mirror_drops
+    _SCHEDULED_TASKS.append(task)
+    overflow = len(_SCHEDULED_TASKS) - _SCHEDULED_TASKS_MAX_MIRROR
+    if overflow > 0:
+        del _SCHEDULED_TASKS[:overflow]
+        scheduled_tasks_mirror_drops += overflow
 
 # 调度任务 Redis 持久化层(2026-07-24 立,对标 Codex Automations)
 # key 规范:mcp:schedule:<task_id> hash,字段见 _SCHEDULE_REDIS_FIELDS
@@ -9344,7 +9374,7 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
         "created_at": datetime.now(UTC).isoformat(),
         "webhook_url": webhook_url,
     }
-    _SCHEDULED_TASKS.append(task)
+    _remember_scheduled_task(task)
     # 持久化到 Redis(失败降级内存,不阻塞调度)
     _persist_task_to_redis(task)
     # 注册到后台调度器(task_scheduler 单例:AsyncIOScheduler + cron/date/interval + worker 回调)
