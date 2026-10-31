@@ -4,13 +4,20 @@
 
 'use client'
 
-
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, ListChecks, Loader2, PlayCircle, RefreshCw } from 'lucide-react'
 
 import { Button, Label } from '@ihui/ui-react'
 import type { CheckinSchedulerStatusResponse } from '@ihui/types'
+import {
+  composeWbSweepText,
+  deriveWbSweepView,
+  formatWbIsoMinute,
+  joinWbSweepParts,
+  type WbSweepMessageKey,
+  type WbSweepTone,
+} from '@ihui/shared/utils/workbuddy-sweep-view'
 
 import { fetchAiServiceJson } from '@/lib/api'
 
@@ -26,6 +33,10 @@ import { fetchAiServiceJson } from '@/lib/api'
  *
  * 判据纪律(与后端同口径):上游响应读不懂时后端回 unjudged=true,面板**不冒充成功**,
  * 原样把 reason 摆出来;dry-run 仅只读探针,零写侧调用。
+ *
+ * 巡检态判据不在本文件(2026-10-31 收三抄):唯一实现 = `@ihui/shared/utils/workbuddy-sweep-view`,
+ * 本端只登记「档位 → 本端 i18n 键 / 配色类名」两张映射表。`wb_tasks.enabled` 自该日起是
+ * **观测态**(这条 job 真注册在进程里),不再是两门与;未运行原因读 `not_running_reason`。
  */
 
 /** 最小账号形态(只取面板要用的字段,不耦合 api-client 的完整类型)。 */
@@ -70,6 +81,32 @@ const KIND_LABEL: Record<string, string> = {
   blackcat: 'blackcat',
   redeem: 'redeem',
   lottery: 'lottery',
+}
+
+/**
+ * 判定档位 → 本端 i18n 键。判据(为什么是这个档)在 `@ihui/shared/utils/workbuddy-sweep-view`,
+ * 这里只登记"这一档说什么话";七档必须逐档覆盖,少一档编译期即红(Record 是穷举式)。
+ */
+const WB_SWEEP_MESSAGE_KEYS: Record<WbSweepMessageKey, string> = {
+  loading: 'taskPanelAutoLoading',
+  on: 'taskPanelAutoOn',
+  dry: 'taskPanelAutoDry',
+  'cron-blocked': 'taskPanelAutoCronBlocked',
+  'tasks-off': 'taskPanelAutoOff',
+  'not-registered': 'taskPanelAutoNotStarted',
+  unknown: 'taskPanelAutoUnknown',
+}
+
+/** 判定档位 → 本端配色(类名留在可扫描文件里:shared 只出数值,不出样式)。 */
+const WB_SWEEP_TONE_CLASS: Record<WbSweepTone, string> = {
+  on: 'border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400',
+  dry: 'border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-500',
+  'cron-blocked': 'border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-500',
+  // 配置已开却没跑起来:与"被总闸拦"同族(都得动服务端配置并重启),同为琥珀告警档。
+  'not-registered': 'border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-500',
+  'tasks-off': 'border-border bg-muted/40 text-muted-foreground',
+  loading: 'border-border bg-muted/40 text-muted-foreground',
+  unknown: 'border-border bg-muted/40 text-muted-foreground',
 }
 
 export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] }) {
@@ -182,41 +219,22 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
     [accountId, loadTasks],
   )
 
-  // 巡检态渲染决策(纯函数式,不调 hook):把「配了却没跑」的四种情形分开说,
-  // 不让用户对着一个灰点猜。enabled 已是两门与,这里再按两门原值细分原因。
-  const sweepView = React.useMemo<{
-    tone: 'on' | 'warn' | 'off' | 'unknown'
-    text: string
-    pathsMissing: boolean
-    next: string | null
-  }>(() => {
-    if (sweep === undefined) {
-      return { tone: 'unknown', text: t('taskPanelAutoLoading'), pathsMissing: false, next: null }
-    }
-    const wt = sweep?.wb_tasks
-    if (!wt) {
-      return {
-        tone: 'unknown',
-        text: sweepError ? `${t('taskPanelAutoUnknown')}: ${sweepError}` : t('taskPanelAutoUnknown'),
-        pathsMissing: false,
-        next: null,
-      }
-    }
-    const pathsMissing = !wt.claim_path_configured || !wt.activity_path_configured
-    // 纯字符串截断(不走 toLocaleString):避免 SSR/CSR 时区差造成 hydration 抖动。
-    const iso = sweep?.next_run_wb_tasks
-    const next = iso ? iso.slice(0, 16).replace('T', ' ') : null
-    if (!wt.enabled) {
-      if (wt.tasks_enabled && !wt.cron_enabled) {
-        return { tone: 'warn', text: t('taskPanelAutoCronBlocked'), pathsMissing, next: null }
-      }
-      return { tone: 'off', text: t('taskPanelAutoOff'), pathsMissing, next: null }
-    }
-    if (!wt.live_run) {
-      return { tone: 'warn', text: t('taskPanelAutoDry'), pathsMissing, next }
-    }
-    return { tone: 'on', text: t('taskPanelAutoOn', { minutes: wt.sweep_minutes }), pathsMissing, next }
-  }, [sweep, sweepError, t])
+  // 巡检态渲染决策:判据在 `@ihui/shared/utils/workbuddy-sweep-view`(三端同一份),这里只做
+  // 「档位 → 本端文案/配色」的呈现映射,不再本地重算一遍(2026-10-31 收三抄漂移)。
+  // undefined=读取中;没有 wb_tasks=「状态未知」,绝不冒充"未启用"(§0.3)。
+  const sweepDecision = React.useMemo(
+    () => deriveWbSweepView(sweep, sweepError),
+    [sweep, sweepError],
+  )
+  const sweepView = React.useMemo(
+    () => ({
+      tone: sweepDecision.tone,
+      text: composeWbSweepText(sweepDecision, WB_SWEEP_MESSAGE_KEYS, t),
+      pathsMissing: sweepDecision.pathsMissing,
+      next: sweepDecision.next,
+    }),
+    [sweepDecision, t],
+  )
 
   if (wbAccounts.length === 0) {
     return (
@@ -250,15 +268,10 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           <p className="text-xs text-muted-foreground">{t('taskPanelDesc')}</p>
 
           {/* 自动巡检态:让「有没有在自动跑、为什么没跑」在界面上直接可读,
-              而不是让用户去翻 .env。tone=unknown 时明确说「状态未知」不冒充未启用。 */}
+              而不是让用户去翻 .env。档位判定来自共享判据;unknown 档明确说「状态未知」,
+              不冒充未启用。配色按档位查表(七档穷举,漏一档即编译期红)。 */}
           <div
-            className={`mt-2 rounded-md border px-2 py-1.5 text-[11px] ${
-              sweepView.tone === 'on'
-                ? 'border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
-                : sweepView.tone === 'warn'
-                  ? 'border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-500'
-                  : 'border-border bg-muted/40 text-muted-foreground'
-            }`}
+            className={`mt-2 rounded-md border px-2 py-1.5 text-[11px] ${WB_SWEEP_TONE_CLASS[sweepView.tone]}`}
             data-testid="wb-task-sweep-status"
             data-tone={sweepView.tone}
           >
@@ -273,21 +286,22 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
               <span className="mt-0.5 block">{t('taskPanelAutoPaths')}</span>
             )}
             {/* 上一轮巡检的战果:自动跑完却没有回执,用户等于在盲飞。note 非空
-                = 本轮未跑完(出站暂停/无账号/中途中止),原样摆出来不粉饰。 */}
+                = 本轮未跑完(出站暂停/无账号/中途中止),原样摆出来不粉饰。
+                分段连接符走共享出口(三端同一句同一长相,不再各写一份)。 */}
             {sweep?.wb_tasks && (
               <span className="mt-0.5 block">
                 {(() => {
                   const last = sweep.wb_tasks?.last_sweep
                   if (!last) return t('taskPanelAutoLastNever')
-                  const head = t('taskPanelAutoLast', {
-                    time: last.at.slice(0, 16).replace('T', ' '),
-                  })
-                  const stats = t('taskPanelAutoLastStats', {
-                    families: last.families,
-                    accepted: last.accepted,
-                    claimed: last.claimed,
-                  })
-                  return `${head} · ${stats}${last.note ? ` · ${last.note}` : ''}`
+                  return joinWbSweepParts([
+                    t('taskPanelAutoLast', { time: formatWbIsoMinute(last.at) ?? '—' }),
+                    t('taskPanelAutoLastStats', {
+                      families: last.families,
+                      accepted: last.accepted,
+                      claimed: last.claimed,
+                    }),
+                    last.note,
+                  ])
                 })()}
               </span>
             )}
@@ -349,7 +363,10 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           </div>
 
           {error && (
-            <p className="mt-3 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+            <p
+              data-testid="wb-task-error"
+              className="mt-3 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+            >
               {error}
             </p>
           )}

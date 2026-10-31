@@ -40678,3 +40678,27 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
 | 工程守门 | 299 | `guardianGates` |
 | — blocking | 273 | `guardianBlocking` |
+| **AI 服务**  | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,仅此层用 Python),200+ services + 23 routers + 18 LLM Providers + 105 MCP 工具 + 38 发布适配器                                                                            |
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 105 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3607 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | MCP 工具协议        | 105 内置 MCP 工具(全量清单以 apps/ai-service/app/services/mcp_server.py 的 _TOOLS 为准;核心族:代码检索/知识库查询/文件读写/命令执行/网页与图片搜索/工作流触发与续跑/代码调查/团队点名消息/顾问咨询)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+|                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / **200+ services**(Glob 实测)/ **23 routers** / **18 LLM Providers**(openai/anthropic/gemini/qwen/dashscope/doubao/volcengine/zhipu/hunyuan/stepfun/kling/jimeng/ollama/lmstudio/llama_cpp/openrouter/luyala)/ **105 MCP 工具** / **38 发布适配器** / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+#### 30. 工作流脚本工具 `run_workflow`(节点级续跑回缓存 · 对标 Qoder Workflow/RunWorkflow)(2026-11-01,所属端 ai-service)
+> 逆向-复现-超越(AGENTS §0.12)本轮落地产物之一。对照物 = Qoder CN v0.5.1 agent SDK 的 `Workflow`/`RunWorkflow`;
+> 取证册 `docs/benchmark-evidence/2026-10/trae-rea-20261031/T3-gap-matrix.md`(G-01 判结构性缺失)与
+> `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T7-matrix-recheck-and-sidecar-ore.md`(现读复量)。
+- **能力**:`apps/ai-service/app/services/workflow_runner.py` 接收一段工作流脚本(一串 agent 节点),
+  先做 Kahn 拓扑校验(成环 / 重复 id / 空脚本一律拒绝),再逐节点执行。**核心是续跑语义**:带
+  `resume_from_run_id` 时入参逐字节未变的节点从 checkpoint 瞬时回缓存**不重跑**,只有入参变了的节点真执行。
+- **使用方式**:MCP 工具 `run_workflow`,入参 `{ nodes: [...], resume_from_run_id?: string }`;注册在
+  `apps/ai-service/app/services/mcp_server.py` 的 `_TOOLS` / `_TOOL_HANDLERS` 双射表(与既有工具族同形)。
+- **对齐轴**:与对照程序一致的「未变节点回缓存」重放语义。
+- **超越三条**(对照取证未证到的边界):
+  ① **失效方向恒为显式未判定**——run 不存在 / 脚本非法 / 主体缺失一律回具名错误码(`WORKFLOW_RUN_NOT_FOUND` 等)并
+  **零节点执行**,绝不「当作缓存命中」也绝不「当作没命中」(§0.3);
+  ② **归属主体不信客户端自报**——`principal` 必须由承载层显式注入,run 的 owner 持久在 checkpoint payload,
+  续跑时逐字比对,跨租户续跑直接 `WORKFLOW_FORBIDDEN`(§5「认证不等于授权」);
+  ③ **幂等键零分叉**——节点键复用全仓唯一出口 `task_executors.compute_idempotency_key` 与 `CheckpointStore`,
+  不新写第二套 hash(§0.6),与 `run_in_background` / DAG 三面结构上不会漂移。
+- **守门**:`apps/ai-service/tests/test_workflow_runner.py` 8 例 GREEN(含「同 run 二遍执行计数不增」与
+  「非法输入零执行」正反对照),mypy strict 0 错,ruff 全过;`test_mcp_server.py` 176 例复跑证明双射注册未被打断。
+- 号池队列隔离: `check-relay-queue-db-isolation.mjs`(门 276,2026-10-31 立:env 覆盖块把 `DATABASE_URL` 换成隔离库却没同时换 Redis/队列命名空间 ⇒ 判红;隔离证据写在注释里不算数,三档豁免(路径 `apps/api/tests/`·`*.test.*`/块内 `QUEUE_ISOLATION_EXEMPT`/`READ_ONLY`)逐条打印 `skip(reason)` 不静默吞;队列名携带库身份的解析单源 = `apps/api/src/services/relay-queue-name.ts`(显式 `RELAY_QUEUE_SUFFIX` > 隔离库名特征 > 原名),**分隔符是连字符不是冒号——BullMQ `QueueBase` 对队列名里的 `:` 直接抛,2026-10-31 实测冒号形态让隔离栈 API 崩在 worker 启动那一步**;mode=warn 起步(全量实测存量假阳未清,升 blocking 的前置是存量归零 §12e);自检 17 例 + 镜像 13 例 + `apps/api/tests/relay-queue-name.test.ts` 24 例;不变量与夹具抄写口径见 `docs/RELAY_QUEUE_DB_ISOLATION.md`)

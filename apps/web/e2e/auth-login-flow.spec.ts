@@ -267,8 +267,25 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       { timeout: 8000 },
     )
     await expect(page.getByTestId('login-tab-qr')).toHaveAttribute('data-state', 'active')
+    // 2026-10-31 修:qr 是首屏时第三方登录区**结构上不渲染**
+    // (packages/ui-react/src/components/login-form/login-form.tsx:308 的 `tab !== 'qr'`),
+    // 国内档"微信最优先"落在扫码面板内部的平台序(qrPlatforms,按钮 testid 见 qr-tab.tsx:136)。
+    // 此处先断真实承载面,再把主推大按钮放到非 qr tab 上验;原判据一条不减。
+    await expect(page.locator('[data-testid^="qr-tab-"]').first()).toHaveAttribute(
+      'data-testid',
+      'qr-tab-wechat',
+    )
+    // 2026-10-27 口径:qr 首屏未同意即弹协议通知窗(login-form.tsx:178-182),遮住底层表单;
+    // 继续操作前先按真实用户路径同意一次(弹窗可能晚一帧出现,故先等再判)。
+    const noticeAgree = page.getByTestId('agreement-notice-agree')
+    await noticeAgree.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
+    if (await noticeAgree.isVisible().catch(() => false)) await noticeAgree.click()
+    // 主推大按钮仍要验(它在非 qr tab 才渲染):切到 email ⇒ featured 必须是微信、不得是 Google。
+    await page.getByTestId('login-tab-email').click()
     await expect(page.getByTestId('third-party-featured-wechat')).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('third-party-featured-google')).toHaveCount(0)
+    // 回到首屏,继续断"国内档手机号仍在"
+    await page.getByTestId('login-tab-qr').click()
     // 国内档手机号验证码登录仍在(IP 判国内时不该被剔掉)
     await expect(page.getByTestId('login-tab-phone')).toBeVisible({ timeout: 8000 })
 

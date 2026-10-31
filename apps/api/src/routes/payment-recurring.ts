@@ -197,6 +197,9 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
 
         return reply.send(
           success({
+            // 2026-10-31 R12:前端 signRecurringContract 读 signUrl;输出面补同名键(=redirectUrl),
+            // 否则小程序拿到的是 undefined,自动续费签约入口永远跳不出去。
+            signUrl: signResult.redirectUrl ?? '',
             preEntrustwebId: signResult.preEntrustwebId,
             ...(signResult.redirectUrl !== undefined
               ? { redirectUrl: signResult.redirectUrl }

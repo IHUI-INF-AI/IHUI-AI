@@ -16,6 +16,15 @@ export const UPLOAD_SESSION_STATUS = {
   completed: 'completed',
   cancelled: 'cancelled',
   checksumMismatch: 'checksum_mismatch',
+  /**
+   * 2026-10-31 安全强化第 10 批 R10 新增：合并产物**内容类型**不可信（扩展名不在白名单、
+   * MIME 与扩展名不一致、或魔数校验失败），拒绝交付。
+   *
+   * 与 `checksumMismatch` 分列而不是复用：两者取证含义不同 —— 前者是"传输损坏/客户端
+   * 声明不符"，后者是"内容本身就不该被托管"（CWE-434 未受限上传）。混用会让运维
+   * 无法区分"网络问题"与"有人在探上传白名单"。
+   */
+  contentRejected: 'content_rejected',
 } as const
 
 export type UploadSessionStatus = (typeof UPLOAD_SESSION_STATUS)[keyof typeof UPLOAD_SESSION_STATUS]
@@ -25,6 +34,7 @@ export const UPLOAD_SESSION_TERMINAL_STATUSES: readonly UploadSessionStatus[] = 
   UPLOAD_SESSION_STATUS.completed,
   UPLOAD_SESSION_STATUS.cancelled,
   UPLOAD_SESSION_STATUS.checksumMismatch,
+  UPLOAD_SESSION_STATUS.contentRejected,
 ]
 
 /** 可回收态:未到期前停在这些状态才可能被 TTL 删掉。 */

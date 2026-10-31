@@ -13,8 +13,17 @@
 import type { FastifyInstance } from 'fastify'
 import { Queue, Worker } from 'bullmq'
 import { pollPendingUsdtPayments } from '../services/payment-usdt-service.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
-export const USDT_PAYMENT_QUEUE_NAME = 'usdt-payment-queue'
+/**
+ * 队列名(2026-10-31 起经库身份解析)。本文件是这一族的**唯一取名处**:
+ * 生产者 = 下面注册 cron 的 `new Queue`,消费者 = 下面的 `new Worker`,两侧读同一枚常量。
+ * 支付轮询被隔离栈抢走属资损面,主库(`ihui`、未设后缀)解析结果与旧字面量逐字节相同
+ * ⇒ 线上队列名零扰动。
+ */
+const USDT_PAYMENT_QUEUE_BASE_NAME = 'usdt-payment-queue'
+
+export const USDT_PAYMENT_QUEUE_NAME = queueNameWithDbIdentity(USDT_PAYMENT_QUEUE_BASE_NAME)
 
 /** 每 1 分钟轮询一次（cron 表达式见 CRON_PATTERN） */
 const CRON_PATTERN = '* * * * *'

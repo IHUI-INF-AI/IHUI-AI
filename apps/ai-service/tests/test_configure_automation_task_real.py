@@ -77,9 +77,16 @@ async def test_execute_dispatch_subagent_calls_dispatch():
 async def test_execute_webhook_posts_to_url():
     """execute=True + action=webhook → httpx POST 到 webhook_url,executed 基于 status_code。"""
     # 批 52b 网络审批门:测试环境无审批 requester(fail-closed → deny),stub 为放行
+    # 第 32 批:webhook 出站前过 SSRF 尺 + 钉公网 IP;hooks.example.com 是虚构域名,
+    # 真实判据会 DNS 失败 ⇒ 这里把**判据本身**stub 成放行(不是绕开调用路径)。
     with patch(
         "app.services.network_approval.evaluate_network_access_detailed",
         return_value=("allow", None),
+    ), patch(
+        "app.services.screenshot_service._validate_url_ssrf", return_value=(True, "")
+    ), patch(
+        "app.services.screenshot_service.resolve_pinned_target",
+        return_value=("https://hooks.example.com/incoming", "hooks.example.com"),
     ), patch("httpx.AsyncClient", _mock_httpx_client(200, "received")):
         out = await _tool_configure_automation_task({
             "task_id": "custom_task", "action": "webhook", "execute": True,
@@ -96,6 +103,11 @@ async def test_execute_webhook_failure_status():
     with patch(
         "app.services.network_approval.evaluate_network_access_detailed",
         return_value=("allow", None),
+    ), patch(
+        "app.services.screenshot_service._validate_url_ssrf", return_value=(True, "")
+    ), patch(
+        "app.services.screenshot_service.resolve_pinned_target",
+        return_value=("https://hooks.example.com/incoming", "hooks.example.com"),
     ), patch("httpx.AsyncClient", _mock_httpx_client(500, "error")):
         out = await _tool_configure_automation_task({
             "task_id": "custom_task", "action": "webhook", "execute": True,

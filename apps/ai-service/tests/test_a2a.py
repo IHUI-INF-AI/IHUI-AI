@@ -173,17 +173,21 @@ def test_send_task_request_missing_name_raises():
 
 
 async def test_register_agent_returns_saved_agent_dict():
-    """register_agent 返回 saved agent 的 to_dict。"""
+    """register_agent 返回 saved agent 的 to_dict(需认证 + endpoint 经 SSRF 校验)。"""
     fake_agent = A2AAgent(
         agent_id="a1", name="Agent1",
-        capabilities=["x"], endpoint="http://x", description="d",
+        capabilities=["x"], endpoint="http://127.0.0.1", description="d",
     )
 
     with patch("app.routers.a2a.a2a_server") as mock_server:
+        mock_server.get_agent = MagicMock(return_value=None)
         mock_server.register_agent = MagicMock(return_value=fake_agent)
-        result = await register_agent(RegisterAgentRequest(
-            id="a1", name="Agent1", capabilities=["x"], endpoint="http://x", description="d",
-        ))
+        result = await register_agent(
+            RegisterAgentRequest(
+                id="a1", name="Agent1", capabilities=["x"], endpoint="http://127.0.0.1", description="d",
+            ),
+            principal=_principal(),
+        )
 
     assert result["id"] == "a1"
     assert result["name"] == "Agent1"
@@ -196,13 +200,17 @@ async def test_register_agent_returns_saved_agent_dict():
 
 
 async def test_register_agent_passes_all_fields():
-    """register_agent 把所有字段传给 a2a_server.register_agent。"""
+    """register_agent 把所有字段传给 a2a_server.register_agent(需认证 + 本地 endpoint)。"""
     with patch("app.routers.a2a.a2a_server") as mock_server:
+        mock_server.get_agent = MagicMock(return_value=None)
         mock_server.register_agent = MagicMock(return_value=MagicMock(to_dict=lambda: {"id": "x"}))
-        await register_agent(RegisterAgentRequest(
-            id="agent-x", name="X", description="desc",
-            capabilities=["a", "b"], endpoint="http://y",
-        ))
+        await register_agent(
+            RegisterAgentRequest(
+                id="agent-x", name="X", description="desc",
+                capabilities=["a", "b"], endpoint="http://127.0.0.1",
+            ),
+            principal=_principal(),
+        )
 
     args, _ = mock_server.register_agent.call_args
     passed_agent = args[0]
@@ -210,7 +218,7 @@ async def test_register_agent_passes_all_fields():
     assert passed_agent.name == "X"
     assert passed_agent.description == "desc"
     assert passed_agent.capabilities == ["a", "b"]
-    assert passed_agent.endpoint == "http://y"
+    assert passed_agent.endpoint == "http://127.0.0.1"
 
 
 # =============================================================================
@@ -226,7 +234,7 @@ async def test_list_agents_returns_agents_and_count():
     ]
     with patch("app.routers.a2a.a2a_server") as mock_server:
         mock_server.list_agents = MagicMock(return_value=agents)
-        result = await list_agents()
+        result = await list_agents(_principal())
 
     assert len(result["agents"]) == 2
     assert result["count"] == 2
@@ -237,7 +245,7 @@ async def test_list_agents_empty_returns_zero_count():
     """无 agent 时 count=0。"""
     with patch("app.routers.a2a.a2a_server") as mock_server:
         mock_server.list_agents = MagicMock(return_value=[])
-        result = await list_agents()
+        result = await list_agents(_principal())
 
     assert result["agents"] == []
     assert result["count"] == 0
@@ -486,9 +494,9 @@ async def test_register_then_list_agents_integration():
     try:
         await register_agent(RegisterAgentRequest(
             id="integration-a1", name="IntegrationA1",
-            capabilities=["test"], endpoint="http://x",
-        ))
-        result = await list_agents()
+            capabilities=["test"], endpoint="http://127.0.0.1",
+        ), principal=_principal())
+        result = await list_agents(_principal())
         ids = [a["id"] for a in result["agents"]]
         assert "integration-a1" in ids
     finally:
@@ -508,7 +516,7 @@ async def test_send_task_then_get_status_integration():
     ):
         try:
             # 注册一个 agent 让 send_task 顺利执行
-            await register_agent(RegisterAgentRequest(id="it-a", name="ItA"))
+            await register_agent(RegisterAgentRequest(id="it-a", name="ItA"), principal=_principal("it-user"))
 
             result = await send_task(
                 SendTaskRequest(name="it-task", input={"goal": "test"}, assigned_agent_id="it-a"),

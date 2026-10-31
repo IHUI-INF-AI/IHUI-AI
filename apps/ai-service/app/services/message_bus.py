@@ -316,8 +316,27 @@ class IMChannel(BaseChannel):
             return False
         payload = {"msgtype": "text", "text": {"content": message.content}}
         try:
+            # 2026-10-31 R12:webhook_url 来自 metadata(外部可控)且本服务能访问内网,
+            # 出站前过同一把 SSRF 尺并钉 IP(POST 不跟随重定向,只需首跳)。
+            from .screenshot_service import _validate_url_ssrf, resolve_pinned_target
+
+            ok_ssrf, ssrf_reason = _validate_url_ssrf(webhook_url)
+            pinned = resolve_pinned_target(webhook_url) if ok_ssrf else None
+            if not ok_ssrf or pinned is None:
+                logger.error(
+                    "[IMChannel] IM webhook 被 SSRF 尺拒绝: %s (%s)",
+                    message.id,
+                    ssrf_reason or "无法钉定公网 IP",
+                )
+                return False
+            pinned_url, orig_host = pinned
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(webhook_url, json=payload)
+                resp = await client.post(
+                    pinned_url,
+                    json=payload,
+                    headers={"Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
             if 200 <= resp.status_code < 300:
                 logger.info("[IMChannel] IM webhook 发送成功: %s", message.id)
                 return True

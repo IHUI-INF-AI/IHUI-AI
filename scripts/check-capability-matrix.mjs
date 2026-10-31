@@ -34,6 +34,26 @@ import { requireFlagValue } from './lib/flag-value.mjs'
  *      或 `guard` 字段(剪除为什么安全:哪条不变式仍然成立 / 哪道护栏接住了它),
  *      缺即红并点名 key。"A missing test path is a gap, not coverage" —— 没有记录的
  *      剪除是缺口,不是覆盖;同一 env 仍被活条目登记时不免检(防用墓碑洗白活条目)。
+ *   J4 (2026-10-31 立,seat-e2 量出「settings 族零射程」盲区后补的档) ——
+ *      app/core/config.py 的 class Settings 体内默认 False 的布尔字段(bool / bool | None /
+ *      Optional[bool] 三形同视)是**第四种读取形态**(大写 env 键经 case_sensitive=False
+ *      映射进小写字段,读取点是 settings.<字段> 属性访问,不经 os.environ),J2 的三种
+ *      正则一条都看不见它 ⇒ 「生产上哪些能力是关的」台账对这一整族结构性隐身。
+ *      J4 红域 = 这类字段派生的大写 env 名(FIELD.upper();无 env_prefix/alias,见下
+ *      已知局限)未登记进矩阵即红。减项三条(与 .ihui-agent/tmp/seat-e2 量算件同口径):
+ *      ① 已在矩阵在册;② 大写名同时有 os.environ 字面量直读(anyRead 命中,J2 已覆盖,
+ *      不重复报);③ 取值型后缀/具名运行模式位(SETTINGS_NON_SWITCH_SUFFIXES /
+ *      SETTINGS_RUNTIME_MODE_FIELDS,判据写死在常量表,不靠肉眼)。
+ *      **配套 J1 免检(不是削判据,是加覆盖面的代价)**:矩阵行的 env 若由 Settings 体内
+ *      真实存在的布尔字段派生,则 J1 不要求其大写键以带引号字面量出现 —— 字面量住在
+ *      字段名(标识符)里,不在大写键上;settings 族代码从不写大写键字符串。免检的边界
+ *      由「字段存续」背书:字段被改名/删除 ⇒ 派生集当场失去该员 ⇒ 在册行立刻回到 J1
+ *      射程按幽灵条目红(self-test 场景 9 锁这一界)。**既有 J1/J2/J3 判据一字未放松。**
+ *   已知局限(J4):Field(alias=/validation_alias=)声明的布尔字段不匹配裸 `= False`
+ *      正则,落 J4 射程外(现读 config.py 无任何 alias;若引入,alias 名不会静默进台账,
+ *      新增字段会被"字段在但台账查无"以 J4 之外的下一次人工清点接住 —— 与 J2 跨行盲区
+ *      同档登记,不冒充已覆盖)。config.py 在被检面取不到 ⇒ J4 无输入 = exit 2 未判定,
+ *      绝不回退另一个面、绝不记绿(§0.3/§0.4)。
  *
  * 取材铁律(仓库血泪教训):Python 侧一律先剥行注释再 grep —— 注释里出现的
  * 同名字符串会被裸正则误吸,造成假绿/假红(参考 check-agent-event-parity.mjs
@@ -183,6 +203,55 @@ const ENV_FLAG_RE = /_env_flag\(\s*(?:"([A-Z][A-Z0-9_]+)"|([A-Z][A-Z0-9_]*_ENV))
 /** 矩阵条目的 env 字段。 */
 const MATRIX_ENV_RE = /"env":\s*"([A-Z][A-Z0-9_]+)"/g
 
+/** J4(2026-10-31)的取材位与判据。config.py 与矩阵同目录,固定相对路径。 */
+const CONFIG_REL = `${APP_DIR_REL}/core/config.py`
+/** Settings 类体起点(到第一条 4 空格缩进 `def` 截止 —— 字段声明全在其前)。 */
+const SETTINGS_CLASS_RE = /^class Settings\(BaseSettings\):/m
+/** 布尔字段声明:注解 bool / bool | None / Optional[bool],默认裸 True/False。
+ *  Field(alias=...) 形态不匹配(已知局限,见头注),刻意不扩 —— 扩了就要替 alias 派生背书。 */
+const SETTINGS_BOOL_RE =
+  /^ {4}([a-z][a-z0-9_]*)\s*:\s*(?:bool\s*(?:\|\s*None)?|Optional\[bool\])\s*=\s*(True|False)\b/gm
+/** J4 减项③a:取值型后缀(字段名以小写后缀结尾 ⇒ 旋钮取值,不是能力开关)。 */
+const SETTINGS_NON_SWITCH_SUFFIXES = [
+  '_path',
+  '_template',
+  '_seconds',
+  '_minutes',
+  '_count',
+  '_model',
+  '_hosts',
+  '_tiers',
+  '_window',
+  '_order',
+  '_field',
+  '_codes',
+  '_url',
+  '_dir',
+  '_roots',
+  '_turns',
+]
+/** J4 减项③b:具名运行模式位(部署/调试形态,不是"生产上关着的能力")。 */
+const SETTINGS_RUNTIME_MODE_FIELDS = new Set(['debug'])
+
+/**
+ * 解析 config.Settings 类体内的布尔字段(J4 的输入面)。
+ * @returns {{fields: Array<{field: string, env: string, defaultFalse: boolean}>} | null}
+ *   供 J1 免检与 J4 红域;定位不到类体 ⇒ null(调用方折成「未判定」,不猜)。
+ */
+export function collectSettingsBoolFields(configSrc) {
+  const text = stripPyLineComments(configSrc)
+  const cls = SETTINGS_CLASS_RE.exec(text)
+  if (!cls) return null
+  const rest = text.slice(cls.index)
+  const defIdx = rest.search(/\n    def /)
+  const body = defIdx < 0 ? rest : rest.slice(0, defIdx)
+  const fields = []
+  for (const m of body.matchAll(SETTINGS_BOOL_RE)) {
+    fields.push({ field: m[1], env: m[1].toUpperCase(), defaultFalse: m[2] === 'False' })
+  }
+  return { fields }
+}
+
 /**
  * 剥掉 Python 行注释(保留字符串内部的 `#`)。
  * 这不是洁癖:capability_matrix 与被扫描代码的注释里都会出现 env 同名串
@@ -316,6 +385,29 @@ export function runCheck(root, opts = {}) {
   }
   const matrixEnvs = collectMatrixEnvs(matrixSrc)
   stats.matrixEnvs = matrixEnvs.size
+  // J4/G-667 输入面:config.Settings 的布尔字段(2026-10-31 立)。取不到 ⇒ 未判定,
+  // 不回退另一个面、不记绿(§0.3/§0.4);J1 免检与 J4 红域共用这一次解析。
+  let configSrc
+  try {
+    configSrc = loader.read(CONFIG_REL)
+  } catch (e) {
+    if (e instanceof Undetermined) throw e
+    configSrc = null
+  }
+  if (configSrc === null || configSrc === undefined) {
+    throw new Undetermined(
+      `被检面取不到 ${CONFIG_REL} ⇒ J4(settings 族默认关)没有输入,未判定(不回落磁盘/不记绿)`,
+    )
+  }
+  const settingsParse = collectSettingsBoolFields(configSrc)
+  if (!settingsParse) {
+    throw new Undetermined(
+      `${CONFIG_REL} 定位不到 class Settings(BaseSettings) 类体 ⇒ J4 未判定(口径失效不猜)`,
+    )
+  }
+  const settingsDerivedEnvs = new Set(settingsParse.fields.map((f) => f.env))
+  stats.settingsBoolFields = settingsParse.fields.length
+  stats.settingsBoolOff = settingsParse.fields.filter((f) => f.defaultFalse).length
   // J3(G-667)的观测面:逐条目解析(只看列表体),算出墓碑 env 集合。
   // 同一 env 仍被活条目登记时不免检 —— 墓碑不得拿来洗白活条目的幽灵红。
   const matrixEntries = collectMatrixEntries(matrixSrc)
@@ -366,8 +458,10 @@ export function runCheck(root, opts = {}) {
 
   // J1: 幽灵条目 —— 矩阵登记的 env 必须在源码里真实存在。
   // pruned 墓碑(G-667)免检:env 不在代码里正是「已剪除」的本义;免检的代价由 J3 收。
+  // settings 族派生名(2026-10-31 J4 配套)免检:字面量住在 Settings 字段名(标识符)里,
+  // 大写键字符串在代码里从不出现 —— 免检存续由「字段仍在类体里」背书,字段消失即回到射程。
   for (const env of [...matrixEnvs].sort()) {
-    if (prunedEnvs.has(env)) continue
+    if (prunedEnvs.has(env) || settingsDerivedEnvs.has(env)) continue
     if (!corpus.includes(`"${env}"`) && !corpus.includes(`'${env}'`)) {
       errors.push(`[J1 幽灵条目] 台账登记的 env "${env}" 在 apps/ai-service/app/ 源码中不存在(被改名/删除?), 请同步 capability_matrix.py`)
     }
@@ -378,6 +472,23 @@ export function runCheck(root, opts = {}) {
     if (!matrixEnvs.has(env)) {
       errors.push(`[J2 台账逃逸] 默认关 env "${env}"(${file})未登记进 capability_matrix.py, 生产能力状态再度不可知`)
     }
+  }
+
+  // J4 (2026-10-31): settings 族逃逸 —— config.Settings 里默认 False 的布尔字段,
+  // 其派生大写 env 名未登记进矩阵即红(第四种读取形态, J2 三种正则看不见)。
+  // 减项:①在册;②大写名同时有 os.environ 字面量直读(anyRead ⇒ J2 已覆盖,不重复报);
+  // ③取值型后缀/具名运行模式位(判据写死在上方常量表)。
+  for (const f of settingsParse.fields.filter((x) => x.defaultFalse)) {
+    if (matrixEnvs.has(f.env)) continue
+    if (anyRead.has(f.env)) continue
+    if (
+      SETTINGS_RUNTIME_MODE_FIELDS.has(f.field) ||
+      SETTINGS_NON_SWITCH_SUFFIXES.some((s) => f.field.endsWith(s))
+    )
+      continue
+    errors.push(
+      `[J4 settings族台账逃逸] config.Settings 默认关布尔字段 "${f.field}"(派生 env ${f.env},settings.<字段> 属性读取形态)未登记进 capability_matrix.py, 「生产上哪些能力是关的」对 settings 族再度失明(登记时条目须带 "settings_field": "${f.field}", current 取数走 settings 不读 os.environ)`,
+    )
   }
 
   // J3 (G-667): 被剪掉的矩阵格子必须带不变式 —— 墓碑换了 J1 免检,代价是必须逐条写清
@@ -409,7 +520,7 @@ function main() {
   } catch (e) {
     if (e instanceof Undetermined) {
       console.error(
-        `❌ check-capability-matrix: 无法判定(exit 2,未判定)—— 索引面取材失败,**不回退磁盘**:${e.message}`,
+        `❌ check-capability-matrix: 无法判定(exit 2,未判定)—— 判定面取材失败,**不回退另一个面**:${e.message}`,
       )
       console.error('   未判定 ≠ 通过:这次没判成,不是"台账一致"。')
       process.exit(2)
@@ -428,6 +539,7 @@ function main() {
     console.log(
       `✅ check-capability-matrix: 台账 ${stats.matrixEnvs} 条 / 扫描 ${stats.scannedFiles} 个 py 文件 / ` +
         `代码可读到的 env 名 ${stats.envNamesRead} 个,其中可判「默认关」${stats.defaultOffEnvs} 个已全部登记; ` +
+        `settings 族布尔字段 ${stats.settingsBoolFields} 个(默认关 ${stats.settingsBoolOff},J4 红域已过); ` +
         `pruned 墓碑 ${stats.prunedEntries} 条(J3:剪除格子须逐条带 invariant/guard); ` +
         `台账外且非默认关 ${stats.undocumentedNotOff} 个(阈值/URL/密钥路径等,按设计不属 J2 红域,只报数不判红)`,
     )
@@ -465,16 +577,52 @@ function selfTestRun() {
       `D = _env_flag(FIXTURE_FLAG_ENV, default=False)\n`
 
     const ALL_FOUR = ['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED', 'FIXTURE_CONST_ENABLED', 'FIXTURE_FLAG_ENABLED']
+    // J4 夹具(2026-10-31):config.py 是 J4 的取材面,所有场景都必须写它
+    // (缺面 ⇒ runCheck 抛 Undetermined ⇒ self-test 当场炸,这正是「取不到不记绿」的形态)。
+    // CONFIG_PLAIN:无布尔默认关字段 ⇒ 场景 1–6 的既有期望逐字不变。
+    const CONFIG_PLAIN =
+      'from pydantic_settings import BaseSettings\n' +
+      '\nclass Settings(BaseSettings):\n' +
+      '    app_name: str = "ihui"\n' +
+      '    model_config = {"env_file": ".env", "extra": "ignore"}\n' +
+      '\n    def boot(self) -> None:\n' +
+      '        return None\n' +
+      '\nsettings = Settings()\n'
+    // CONFIG_OFF:四枚默认 False 布尔字段 + 两枚减项③样本(debug / _template 后缀)。
+    // fixture_dual_enabled 同时被 fixtureCodeDual 以 os.environ 字面量直读 ⇒ 落 J4 减项②。
+    const CONFIG_OFF =
+      'from pydantic_settings import BaseSettings\n' +
+      '\nclass Settings(BaseSettings):\n' +
+      '    app_name: str = "ihui"\n' +
+      '    debug: bool = False\n' +
+      '    fixture_settings_off_enabled: bool = False\n' +
+      '    fixture_settings_opt_off: bool | None = False\n' +
+      '    fixture_dual_enabled: bool = False\n' +
+      '    fixture_knob_template: bool = False\n' +
+      '    model_config = {"env_file": ".env", "extra": "ignore"}\n' +
+      '\n    def boot(self) -> None:\n' +
+      '        return None\n' +
+      '\nsettings = Settings()\n'
+    // 常量形态之外的直读腿(减项②夹具):大写键以 os.environ.get 字面量出现
+    const fixtureCodeDual = fixtureCode + 'F = os.environ.get("FIXTURE_DUAL_ENABLED", "false")\n'
+    /** J4 红域成员(减项③两枚 debug/fixture_knob_template 不在内)。 */
+    const SETTINGS_THREE = [
+      'FIXTURE_SETTINGS_OFF_ENABLED',
+      'FIXTURE_SETTINGS_OPT_OFF',
+      'FIXTURE_DUAL_ENABLED',
+    ]
 
-    const run = (envs) => {
+    const run = (envs, cfg = CONFIG_PLAIN, code = fixtureCode) => {
       writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrc(envs))
-      writeFileSync(join(coreDir, 'fixture.py'), fixtureCode)
+      writeFileSync(join(coreDir, 'fixture.py'), code)
+      writeFileSync(join(coreDir, 'config.py'), cfg)
       return runCheck(dir)
     }
     // G-667 场景用:列表尾部追加自定义条目(pruned 墓碑)再跑一遍。
     const runPlus = (envs, extraEntries) => {
       writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrcPlus(envs, extraEntries))
       writeFileSync(join(coreDir, 'fixture.py'), fixtureCode)
+      writeFileSync(join(coreDir, 'config.py'), CONFIG_PLAIN)
       return runCheck(dir)
     }
 
@@ -545,7 +693,78 @@ function selfTestRun() {
         }
       }
     }
-    if (!quiet) console.log('✅ check-capability-matrix self-test: J1/J2/J3 红 + 绿场景全部咬合, 注释剥离生效')
+    // ── J4(settings 族,2026-10-31)成对夹具:能红也能绿,并锁 J1 免检的边界 ──
+    // 场景 7(应红):默认 False 布尔字段未登记 ⇒ J4 点名;bool | None 形态同视;
+    // 减项③(debug / _template 后缀)不得误伤成红。
+    {
+      const { errors } = run(ALL_FOUR, CONFIG_OFF)
+      for (const need of [
+        'FIXTURE_SETTINGS_OFF_ENABLED',
+        'FIXTURE_SETTINGS_OPT_OFF',
+        'FIXTURE_DUAL_ENABLED',
+      ]) {
+        if (!errors.some((e) => e.includes('J4') && e.includes(need))) {
+          console.error(`❌ self-test 场景 7 失败: J4 未检出 settings 族台账逃逸 ${need}`, errors)
+          return 1
+        }
+      }
+      for (const mustNot of ['DEBUG', 'FIXTURE_KNOB_TEMPLATE']) {
+        if (errors.some((e) => e.includes('J4') && e.includes(mustNot))) {
+          console.error(`❌ self-test 场景 7 失败: 减项③误伤 ${mustNot}(取值型/运行模式位不得进 J4 红域)`, errors)
+          return 1
+        }
+      }
+    }
+    // 场景 8(应绿):登记后 J4 清零,且 J1 对 settings 族派生名免检成立
+    // (夹具代码里根本没有 "FIXTURE_SETTINGS_*" 字面量,不免检就会陪绑出 J1 红)。
+    {
+      const { errors } = run([...ALL_FOUR, ...SETTINGS_THREE], CONFIG_OFF)
+      if (errors.length !== 0) {
+        console.error(
+          '❌ self-test 场景 8 失败: 期望 0 错误(settings 族登记后应绿,J1 免检应成立):',
+          errors,
+        )
+        return 1
+      }
+    }
+    // 场景 9(应红,免检不松口的锁):字段从 config.py 消失(改名/删除)⇒ 派生集失去该员
+    // ⇒ 在册行立刻回到 J1 射程按幽灵条目红。少这一条,"免检"就是永久免检。
+    {
+      const { errors } = run([...ALL_FOUR, ...SETTINGS_THREE], CONFIG_PLAIN)
+      if (!errors.some((e) => e.includes('J1') && e.includes('FIXTURE_SETTINGS_OFF_ENABLED'))) {
+        console.error(
+          '❌ self-test 场景 9 失败: settings 字段消失后在册行未被 J1 按幽灵条目追回:',
+          errors,
+        )
+        return 1
+      }
+    }
+    // 场景 10(J4 减项②不误伤也不重复):大写键同时有 os.environ 字面量直读 ⇒
+    // 归 J2 报(台账逃逸本体),J4 不重复点名;登记后两档一起清零。
+    {
+      const { errors } = run(
+        [...ALL_FOUR, 'FIXTURE_SETTINGS_OFF_ENABLED', 'FIXTURE_SETTINGS_OPT_OFF'],
+        CONFIG_OFF,
+        fixtureCodeDual,
+      )
+      if (!errors.some((e) => e.includes('J2') && e.includes('FIXTURE_DUAL_ENABLED'))) {
+        console.error('❌ self-test 场景 10 失败: 直读形态未落 J2 红域:', errors)
+        return 1
+      }
+      if (errors.some((e) => e.includes('J4') && e.includes('FIXTURE_DUAL_ENABLED'))) {
+        console.error('❌ self-test 场景 10 失败: J4 与 J2 对同一逃逸重复点名:', errors)
+        return 1
+      }
+      const green = run([...ALL_FOUR, ...SETTINGS_THREE], CONFIG_OFF, fixtureCodeDual)
+      if (green.errors.length !== 0) {
+        console.error('❌ self-test 场景 10 失败: 全部登记后期望 0 错误:', green.errors)
+        return 1
+      }
+    }
+    if (!quiet)
+      console.log(
+        '✅ check-capability-matrix self-test: J1/J2/J3 红 + 绿场景全部咬合, J4(settings 族)红/绿/免检边界/减项不重复 四场景咬合, 注释剥离生效',
+      )
     return 0
   } finally {
     rmScratch(dir)

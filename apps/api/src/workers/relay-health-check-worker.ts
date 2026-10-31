@@ -14,8 +14,23 @@
 import type { FastifyInstance } from 'fastify'
 import { Queue, Worker } from 'bullmq'
 import { checkAllKeys } from '../services/relay-health-check-service.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
-export const RELAY_HEALTH_CHECK_QUEUE_NAME = 'relay-health-check-queue'
+/**
+ * 队列名(2026-10-31 起经库身份解析)。本文件是这一族的**唯一取名处**:
+ * 生产者 = 下面注册 cron 的 `new Queue`,消费者 = 下面的 `new Worker`,两侧读同一枚常量。
+ *
+ * 为什么优先级最高:Redis 现场取证(2026-10-31,`.ihui-agent/tmp/queue-proof/PROOF.md` §3b)
+ * 量到 `bull:relay-health-check-queue:failed` **ZCARD=500 打满**(条目集中在 2026-10-24),
+ * 与号池那族是同一型事故 —— 隔离栈起 worker、吃主库队列、在缺列库上跑。
+ * 残留 500 条是事故证据,**不许删**(清理需另授权)。
+ * 主库(`ihui`、未设后缀)解析结果与旧字面量逐字节相同 ⇒ 线上队列名零扰动。
+ */
+const RELAY_HEALTH_CHECK_QUEUE_BASE_NAME = 'relay-health-check-queue'
+
+export const RELAY_HEALTH_CHECK_QUEUE_NAME = queueNameWithDbIdentity(
+  RELAY_HEALTH_CHECK_QUEUE_BASE_NAME,
+)
 
 /** 每 5 分钟巡检一次（cron 表达式见 CRON_PATTERN） */
 const CRON_PATTERN = '*/5 * * * *'

@@ -21,17 +21,40 @@
  * - guardian/schtasks:读 tick JSON(relay-capacity-dispatch-last.json 的 attemptAt /
  *   credential-health-last.json 的 ts+fail);api 进程读不到 ⇒ indeterminate
  *   (部署形态 api 与 guardian 可能不同机,如实不猜)。
- * - apscheduler(ai-service):fetch {AI_SERVICE_URL}/api/checkin/scheduler/status
- *   (Phase1c 只读端点);不可达 ⇒ indeterminate。
+ *   **心跳在位 ≠ 执行成功(2026-11-01 立,与"HTTP 200 当可调度"同族的最后一格假绿)**:
+ *   guardian 侧 `stampDispatchTick`(git-guardian.mjs)把 attemptAt 写在**派发之前**,
+ *   执行结论(stdout JSON)不回写 tick ⇒ 该文件结构上没有结果字段,旧口径的
+ *   `lastRunOk:true + '派发成功'` 是拿"没人告诉我失败"冒"成功了"。新口径分栏:
+ *   ① 器物自述了结果才判成败——现读两个 tick 文件,唯一的结果自述键是
+ *   credential-health-last.json 的 `fail`(check-credential-health.mjs:1810 起,
+ *   `fail = results.filter(level==='fail').length`,数值);`fail=0` ⇒ 本轮通过 true,
+ *   `fail>0` ⇒ false 并点名条数。其余形态(`state:'dispatched'` 是**派发态**不是执行结果,
+ *   来自同文件 window-busy/undetermined 分支,不采信为结果)一律视为"没自述"。
+ *   ② 没自述 ⇒ lastRunOk=null,detail 明写"未判定,不代表跑成功"(§0.3 不记绿)。
+ *   ③ stale 档:心跳超出该器物自身节律的 3 个周期 ⇒ 点名"心跳疑似停摆";节律出处
+ *   逐条写在注册表 `beatMs` 注释里(容量哨兵 = RELAY_CAPACITY_INTERVAL_MS 默认 5 分钟,
+ *   凭据巡检 = schtasks /SC HOURLY /MO 6 即 6 小时),推不出节律的项 beatMs 缺省 ⇒ 不判。
+ * - apscheduler(ai-service):GET {AI_SERVICE_URL}/api/checkin/scheduler/status
+ *   (Phase1c 只读端点)。三态口径(2026-10-31 立,治两处假信号):
+ *   ① running 只认响应体里的 `started`(端点可达 ≠ job 在跑,HTTP 200 不是结论);
+ *   ② disabled 认门关(`enabled=false` 或 `started=false`),必须点名是哪道闸与对应
+ *   env 键,出路要能照着做(§5e-1);
+ *   ③ unjudged = 不可达 / 非 200 / 体读不懂,如实写真实状态码(该端点带
+ *   `require_request_user_id`,凭据被拒就是 401,不得冒"总开关关了"的猜测归因)。
+ *   外发身份走本仓正牌出口(与 `utils/ai-service-fetch.ts` 的 `aiServiceSystemFetch`
+ *   同一把 `getSystemAccessToken()` 票),不自造 ai-service 不认的头。
  *
  * 手动触发:仅 bullmq 五项(sweep/trae/qoder/workbuddy-session-sync/relay-pool-gauge)有进程内
  * 直调口;guardian/schtasks/apscheduler 一律 triggerable:false 并给真实出路
  * (§0.8 文档不写跑不通的出路)——容量哨兵已有 CLI,凭据巡检由计划任务承载,
- * 签到调度开关在 ai-service env(CHECKIN_CRON_ENABLED,默认 false)。
+ * 签到调度开关在 ai-service env(CHECKIN_CRON_ENABLED 总闸,默认 false;
+ * WorkBuddy 任务巡检另需 WORKBUDDY_TASKS_ENABLED,默认 false)。
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { relayAccountPoolQueueName, queueNameWithDbIdentity } from './relay-queue-name.js'
+import { getSystemAccessToken } from '../utils/system-access-token.js'
 
 /** 单条任务的定义面(注册表唯一写点;聚合与触发都从这里读) */
 export interface RelayTaskDef {
@@ -56,6 +79,11 @@ export interface RelayTaskDef {
   tickFile?: string
   /** guardian/schtasks:tick JSON 里时间戳字段名 */
   tickAtField?: string
+  /**
+   * guardian/schtasks:该器物的节律周期(ms),stale 判定的唯一阈值出处。
+   * 只准写从器物注册处量出来的值(见两条登记项各自注释);推不出节律 ⇒ 缺省不判 stale。
+   */
+  beatMs?: number
   /** apscheduler:ai-service 状态端点路径 */
   statusUrlPath?: string
 }
@@ -67,7 +95,7 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 5 分钟',
     cron: '*/5 * * * *',
-    queue: 'relay-account-pool-queue',
+    queue: relayAccountPoolQueueName(),
     schedulerId: 'relay-account-pool-cron',
     jobName: 'sweep',
     triggerable: true,
@@ -78,7 +106,7 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 10 分钟',
     cron: '*/10 * * * *',
-    queue: 'relay-account-pool-queue',
+    queue: relayAccountPoolQueueName(),
     schedulerId: 'trae-session-sync-cron',
     jobName: 'trae-session-sync',
     triggerable: true,
@@ -89,7 +117,7 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 10 分钟',
     cron: '*/10 * * * *',
-    queue: 'relay-account-pool-queue',
+    queue: relayAccountPoolQueueName(),
     schedulerId: 'qoder-session-sync-cron',
     jobName: 'qoder-session-sync',
     triggerable: true,
@@ -100,7 +128,7 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 10 分钟',
     cron: '*/10 * * * *',
-    queue: 'relay-account-pool-queue',
+    queue: relayAccountPoolQueueName(),
     schedulerId: 'workbuddy-session-sync-cron',
     jobName: 'workbuddy-session-sync',
     triggerable: true,
@@ -111,7 +139,13 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 5 分钟(分钟位 3/8/13…,与 key 池 gauge 错峰)',
     cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *',
-    queue: 'scheduler',
+    // 队列名必须经解析器取:这张表的 `queue` 会被
+    // `routes/admin/relay-account-pool.ts` 直接喂给 `new Queue(queue, {connection})` 去读
+    // jobScheduler/作业(观测面)。写死字面量的话,隔离实例的面板读的是主库队列、主库的面板在
+    // 隔离实例里读自己看不见的队列 ⇒ 观测失真,与「换库不换队列」是同一件事。
+    // 基础名与归属模块(`plugins/scheduler.ts`)逐字节相同,配对由 tests/queue-name-db-identity.test.ts ③
+    // 钉住(本文件不 import 归属模块:那会把 db 拉进任务中心的测试导入链)。
+    queue: queueNameWithDbIdentity('scheduler'),
     schedulerId: 'relay-pool-gauge',
     jobName: 'relay-pool-gauge',
     triggerable: true,
@@ -122,7 +156,9 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 5 分钟',
     cron: '*/5 * * * *',
-    queue: 'relay-health-check-queue',
+    // 同上:实际队列名经解析器取(基础名与 `workers/relay-health-check-worker.ts` 同值,
+    // 由 tests/queue-name-db-identity.test.ts ③ 钉住)。这一族在 Redis 有 failed=500 的同族事故残留。
+    queue: queueNameWithDbIdentity('relay-health-check-queue'),
     schedulerId: 'relay-health-check-cron',
     jobName: 'check-all',
     triggerable: false,
@@ -135,6 +171,11 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     schedule: '每 2 分钟守护轮 + 5 分钟节流',
     tickFile: '.ihui-agent/state/relay-capacity-dispatch-last.json',
     tickAtField: 'attemptAt',
+    // 节律出处:git-guardian.mjs 的 RELAY_CAPACITY_INTERVAL_MS
+    // = Number(process.env.IHUI_RELAY_CAPACITY_INTERVAL_MS || 5*60*1000),即 note 里
+    // "guardian 每 5 分钟自动派发"的同一枚值。注意该文件由 stampDispatchTick 在
+    // **派发前**写 attemptAt、执行结论不回写 ⇒ 结构上没有结果字段,恒走"未判定"分栏。
+    beatMs: 5 * 60 * 1000,
     triggerable: false,
     note: '出路:node scripts/check-relay-capacity-zero.mjs --json(guardian 每 5 分钟自动派发)',
   },
@@ -145,6 +186,10 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     schedule: '每 6 小时(guardian 看门狗 18h 心跳兜底)',
     tickFile: '.ihui-agent/state/credential-health-last.json',
     tickAtField: 'ts',
+    // 节律出处:check-credential-health.mjs installTask() 的 schtasks
+    // /SC HOURLY /MO 6(= 每 6 小时),与 schedule 文案同源。该 tick 由器物执行后经
+    // atomicWriteFileSync 落盘,带自述结果键 fail(numeric)⇒ 结果分栏有真实输入。
+    beatMs: 6 * 60 * 60 * 1000,
     triggerable: false,
     note: '出路:Windows 计划任务承载(--install 可重装);guardian 心跳超 18h 自动重装',
   },
@@ -152,25 +197,281 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     id: 'checkin-scheduler',
     name: '签到调度(ai-service APScheduler,总开关默认关)',
     carrier: 'apscheduler',
-    schedule: '每日 06:00 探针 / 08:05 主窗口 / 10:05 qoder',
+    // 与 checkin_scheduler.py start() 实际注册的四条 job 对齐(2026-10-31 补 WorkBuddy 巡检腿)
+    schedule: '每日 06:00 探针 / 08:05 主窗口 / 10:05 qoder / WorkBuddy 任务巡检每 180 分钟(可调)',
     statusUrlPath: '/api/checkin/scheduler/status',
     triggerable: false,
-    note: '出路:ai-service env CHECKIN_CRON_ENABLED=true 开启;或号池页单号「签到」按钮(O64)即时触发',
+    note: '出路:ai-service env CHECKIN_CRON_ENABLED=true 开总闸(改后需重启);WorkBuddy 任务巡检另需 WORKBUDDY_TASKS_ENABLED=true;或号池页单号「签到」按钮(O64)即时触发',
   },
 ]
+
+/** 签到调度三态(2026-10-31 立;"能不能跑"的结论只从响应体取,不从 HTTP 可达性取) */
+export type CheckinSchedulerState = 'running' | 'disabled' | 'unjudged'
+
+/**
+ * 状态源交给判据的原始读数(判据的唯一输入面):
+ * - `ok` = 拿到 2xx 与解析结果(解析失败把 body 留 undefined,由判据归"读不懂")
+ * - `http-error` = 非 2xx,只有状态码可读
+ * - `transport-error` = 连接层失败(DNS/拒连/超时/URL 没配)
+ */
+export type CheckinProbeRaw =
+  | { kind: 'ok'; status: number; body: unknown }
+  | { kind: 'http-error'; status: number }
+  | { kind: 'transport-error'; message: string }
+
+/** 判据产出(纯数据;聚合层只按 state 分派,不再自行猜原因) */
+export interface CheckinStatusResult {
+  state: CheckinSchedulerState
+  /** 人话结论(进面板 lastRunDetail),只写从响应体取到的真实字段 */
+  detail: string
+  /** running 时的下次主窗口时刻(体里的 next_run);取不到为 null,不拿"从未"冒充"健康" */
+  nextRunAt: string | null
+  /** disabled 时点名的闸门 env 键与出路;其余态 null */
+  gateHint: string | null
+}
+
+/** 响应体里 ai-service 自己点名的"为什么没跑"(枚举与引擎侧 WbTasksNotRunningReason 同值) */
+export type CheckinGateReason =
+  'tasks_gate_off' | 'cron_gate_off' | 'scheduler_not_started' | 'job_not_registered'
+
+/** reason → 出路(读不到 reason 时不启用这条路,改按两门现推) */
+const GATE_HINT_BY_REASON: Readonly<Record<CheckinGateReason, string>> = {
+  tasks_gate_off:
+    'WORKBUDDY_TASKS_ENABLED=false(任务门关)⇒ 出路:ai-service env 设 WORKBUDDY_TASKS_ENABLED=true 并重启,总闸 CHECKIN_CRON_ENABLED 需同时为 true',
+  cron_gate_off:
+    'CHECKIN_CRON_ENABLED=false(总闸关)⇒ 出路:ai-service env 设 CHECKIN_CRON_ENABLED=true 并重启',
+  scheduler_not_started:
+    '总闸已开但调度器未启动(start() 未走完,常见于建表异常 fail-open 早退)⇒ 出路:看 ai-service 日志 [checkin_scheduler]',
+  job_not_registered:
+    '调度器在跑但这条 job 没注册(改完 env 没重启:start() 的 `if self._started: return` 短路不会补注册)⇒ 出路:重启 ai-service',
+}
+
+/** 只认 JSON 对象;其余形态一律"读不懂"(不猜、不拿 undefined 冒绿) */
+function asStatusRecord(body: unknown): Record<string, unknown> | null {
+  return body !== null && typeof body === 'object' && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : null
+}
+
+function boolOf(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null
+}
+
+function strOf(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null
+}
+
+/** 体里自报的 reason → 出路;未知 reason 原样带出(不假装有现成出路) */
+function hintFromReason(reason: string | null): string | null {
+  switch (reason) {
+    case 'tasks_gate_off':
+      return GATE_HINT_BY_REASON.tasks_gate_off
+    case 'cron_gate_off':
+      return GATE_HINT_BY_REASON.cron_gate_off
+    case 'scheduler_not_started':
+      return GATE_HINT_BY_REASON.scheduler_not_started
+    case 'job_not_registered':
+      return GATE_HINT_BY_REASON.job_not_registered
+    case null:
+      return null
+    default:
+      return `${reason}(ai-service 自报的 reason 未登记出路映射)`
+  }
+}
+
+/**
+ * 三态判据(纯函数,零 IO;测试直接 import 同一份实现,§22c)。
+ *
+ * 结论来源只有响应体:HTTP 200 只是"读到体",不等于"调度在跑";
+ * 读不到体(非 200 / 连不上 / 体不是那个形状) ⇒ 显式未判定,并把真实原因原样带出,
+ * 绝不回落成"总开关大概没开"这种猜测性归因(§0.3 + §5e-1)。
+ */
+export function judgeCheckinSchedulerStatus(raw: CheckinProbeRaw): CheckinStatusResult {
+  if (raw.kind === 'transport-error') {
+    return {
+      state: 'unjudged',
+      detail: `状态源不可达:${raw.message}(未判定,不代表调度关着)`,
+      nextRunAt: null,
+      gateHint: null,
+    }
+  }
+  if (raw.kind === 'http-error') {
+    const needIdentity = raw.status === 401 || raw.status === 403
+    return {
+      state: 'unjudged',
+      detail: needIdentity
+        ? `HTTP ${raw.status}(该端点要求身份,号池侧凭据被 ai-service 拒收)⇒ 出路:核 apps/api 与 ai-service 的 JWT_SECRET 是否同源,再看 ai-service 日志的 401 详情`
+        : `HTTP ${raw.status}(端点非 200,读不到调度状态)⇒ 出路:确认 ai-service(8803)在跑且 /api/checkin/scheduler/status 可达`,
+      nextRunAt: null,
+      gateHint: null,
+    }
+  }
+
+  const body = asStatusRecord(raw.body)
+  const enabled = body ? boolOf(body['enabled']) : null
+  const started = body ? boolOf(body['started']) : null
+  if (!body || enabled === null || started === null) {
+    return {
+      state: 'unjudged',
+      detail: `HTTP ${raw.status} 但响应体读不懂(缺布尔 enabled/started 字段),不猜结论`,
+      nextRunAt: null,
+      gateHint: null,
+    }
+  }
+
+  const wb = asStatusRecord(body['wb_tasks'])
+  const reason = strOf(wb?.['not_running_reason'])
+  const reasonHint = hintFromReason(reason)
+  // 门关的具体闸:体里自报的 reason 优先(它是引擎侧唯一判序的产物),否则按两门现推
+  const gateHint =
+    reasonHint ??
+    (enabled === false
+      ? GATE_HINT_BY_REASON.cron_gate_off
+      : GATE_HINT_BY_REASON.scheduler_not_started)
+
+  // WorkBuddy 任务巡检这条子 job 的态。引擎侧 `wb_tasks.enabled` 是**观测态**
+  // (调度器已 start ∧ 这条 job 真在注册表里),不是配置位;自报了 not_running_reason
+  // 就直接用它点名。旧服务端不返回该字段 ⇒ 退到按两门**意图位**现推:意图位为假时
+  // job 结构上不可能注册(这是推导,不是猜);两门皆真而 job 不在,只剩"改完 env 没重启"
+  // 那一型。三条出路文案复用 GATE_HINT_BY_REASON,不另抄一份(§0.6)。
+  const wbEnabled = boolOf(wb?.['enabled'])
+  const wbTasksEnabled = boolOf(wb?.['tasks_enabled'])
+  const wbCronEnabled = boolOf(wb?.['cron_enabled'])
+  const wbSweepMinutes = typeof wb?.['sweep_minutes'] === 'number' ? wb['sweep_minutes'] : null
+  const wbLiveRun = boolOf(wb?.['live_run'])
+  const wbInferredHint =
+    wbTasksEnabled === false
+      ? GATE_HINT_BY_REASON.tasks_gate_off
+      : wbCronEnabled === false
+        ? GATE_HINT_BY_REASON.cron_gate_off
+        : wbTasksEnabled === true && wbCronEnabled === true
+          ? GATE_HINT_BY_REASON.job_not_registered
+          : null
+  const wbLine = !wb
+    ? 'WorkBuddy 任务巡检态读不到(体里没有 wb_tasks)'
+    : reasonHint
+      ? `WorkBuddy 任务巡检未在跑:${reasonHint}`
+      : wbEnabled === true
+        ? `WorkBuddy 任务巡检在跑(每 ${wbSweepMinutes ?? '?'} 分钟,${wbLiveRun === true ? '正式执行' : 'dry-run'})`
+        : wbEnabled === false && wbInferredHint
+          ? `WorkBuddy 任务巡检未在跑(服务端未给 not_running_reason,按两门现推):${wbInferredHint}`
+          : 'WorkBuddy 任务巡检态读不到(缺 wb_tasks.enabled 或两门意图位),不猜卡在哪一层'
+
+  const nextRunAt = strOf(body['next_run'])
+  if (started) {
+    return {
+      state: 'running',
+      detail: `调度已启动(started=true,总闸 enabled=${enabled}):下次主窗口 ${
+        nextRunAt ?? '未给出'
+      };${wbLine}`,
+      nextRunAt,
+      gateHint: null,
+    }
+  }
+  return {
+    state: 'disabled',
+    detail: `调度未启动:${gateHint}`,
+    nextRunAt: null,
+    gateHint,
+  }
+}
+
+/**
+ * tick 载体(guardian/schtasks)的分栏判据:把"心跳在位"与"这一轮执行成功"拆开。
+ * 纯函数、零 IO(§22c:测试 import 这一份,不在测试里复算)。
+ *
+ * 结论面三档:
+ * - 文件读不到 / 时刻字段读不到或不是可解析时刻 ⇒ sourceOk:false(既有 indeterminate 路径,不变);
+ * - 时刻在位、器物**自述了执行结果**(现读两枚 tick,唯一合法结果键 = `fail` 数值,
+ *   语义见文件头注;`state:'dispatched'` 是派发态不是结果,不采信)⇒ lastRunOk true/false;
+ * - 时刻在位但没自述结果 ⇒ lastRunOk:**null**,detail 明写"未判定,不代表跑成功"
+ *   (§0.3:取不到输入不记绿——旧口径的 `lastRunOk:true` 就是把"没人告诉我失败"说成"成功了")。
+ *
+ * stale:心跳超过 `beatMs × STALE_BEAT_TOLERANCE` ⇒ 点名"心跳疑似停摆"。beatMs 未登记
+ * (推不出器物自身节律)⇒ 不判这一档,不造判据没有的档位。容差取 3 拍是设计值并在
+ * 头注明写:心跳戳写在派发前,单拍偏旧区分不出"未到点"与"被跳过",连缺 2 拍仍只报在位。
+ */
+export const STALE_BEAT_TOLERANCE = 3
+
+export interface TickRunJudgement {
+  /** 登记处/心跳文件在不在(原 sourceOk 语义,不放宽) */
+  sourceOk: boolean
+  /** 心跳时刻原值(= 定义里 tickAtField 指的那枚;读不到为 null) */
+  lastRunAt: string | null
+  /** 这一轮执行成功与否:器物没自述 ⇒ null(未判定),不等于 true 也不等于 false */
+  lastRunOk: boolean | null
+  lastRunDetail: string | null
+  /** 心跳疑似停摆(仅当登记了 beatMs 且超阈值;时刻读不到时 false,由 sourceOk 那栏点名) */
+  stale: boolean
+}
+
+export function judgeTickCarrierRun(
+  raw: Record<string, unknown> | null,
+  opts: {
+    atField: string
+    /** 进 detail 的载体名('guardian 派发' / '计划任务') */
+    carrierLabel: string
+    beatMs: number | null | undefined
+    nowMs: number
+  },
+): TickRunJudgement {
+  const at = raw ? strOf(raw[opts.atField]) : null
+  const atMs = at ? Date.parse(at) : NaN
+  if (!raw || !at || !Number.isFinite(atMs)) {
+    // 文件在但时刻坏,与文件不在同栏:都算"心跳读不到",不冒任何结论
+    return { sourceOk: false, lastRunAt: null, lastRunOk: null, lastRunDetail: null, stale: false }
+  }
+
+  const stale =
+    typeof opts.beatMs === 'number' && Number.isFinite(opts.beatMs) && opts.beatMs > 0
+      ? opts.nowMs - atMs > opts.beatMs * STALE_BEAT_TOLERANCE
+      : false
+  const staleNote = stale
+    ? `心跳疑似停摆(距当次已 ${Math.max(0, Math.round((opts.nowMs - atMs) / 60000))} 分钟,超过 ${STALE_BEAT_TOLERANCE} 个节律周期):`
+    : ''
+
+  // 唯一自述结果键:`fail`(数值)。旧服务端/别族没有它 ⇒ 视同"没自述",不做通用猜测扫描
+  const failRaw = raw['fail']
+  const fail = typeof failRaw === 'number' && Number.isFinite(failRaw) ? failRaw : null
+  if (fail !== null) {
+    return {
+      sourceOk: true,
+      lastRunAt: at,
+      lastRunOk: fail === 0,
+      stale,
+      lastRunDetail:
+        (fail === 0
+          ? `${opts.carrierLabel}心跳在位,器物自述本轮 fail=0(巡检项全部通过)`
+          : `${opts.carrierLabel}心跳在位,器物自述本轮失败项 ${fail} 个 ⇒ 本轮结果判负(明细见 tick 的 results)`),
+    }
+  }
+  return {
+    sourceOk: true,
+    lastRunAt: at,
+    lastRunOk: null,
+    stale,
+    lastRunDetail: `${staleNote}心跳在位,但器物没自述执行结果 ⇒ 未判定,不代表跑成功(${opts.carrierLabel}侧时刻戳写在派发之前,只能证明"尝试过派发")`,
+  }
+}
 
 /** 单项任务的状态面(全部字段可为 null = 状态源没给出,如实不猜) */
 export interface RelayTaskState {
   id: string
   schedulable: boolean
-  /** 载体注册处是否还在( BullMQ scheduler 存在/tick 文件可读/ai-service 可达) */
+  /** 载体注册处是否还在( BullMQ scheduler 存在/tick 心跳文件+时刻可读/ai-service 状态源有结论) */
   sourceOk: boolean
   nextRunAt: string | null
+  /** tick 载体语义 = 心跳时刻原值(lastBeatAt);"执行成功"另走 lastRunOk 分栏,不混写 */
   lastRunAt: string | null
+  /** null = 未判定(状态源没自述结果);true/false 只在器物真的报告了本轮成败时才出现 */
   lastRunOk: boolean | null
   lastRunDetail: string | null
-  /** 状态源读不到时的原因(§0.3 未判定点名) */
+  /** 心跳在位但超节律阈值(仅 tick 载体,且定义登记了 beatMs;其余恒 false) */
+  lastRunStale: boolean
+  /** 状态源读不到时的原因(§0.3 未判定点名);判过并判成"门关"不算未判定,不写这里 */
   indeterminateReason: string | null
+  /** 读到了结论且结论是"门关":点名的闸门 env 键与出路(2026-10-31 立,与未判定分栏显示) */
+  disabledReason: string | null
 }
 
 export interface RelayTask extends RelayTaskDef, RelayTaskState {}
@@ -182,10 +483,13 @@ export interface TaskProbeDeps {
     queue: string,
     jobName: string,
   ): Promise<{ at: number; ok: boolean; detail: string | null } | null>
-  readTickJson(relPath: string, atField: string): Promise<string | null>
-  fetchCheckinStatus(
-    baseUrl: string,
-  ): Promise<{ schedulable: boolean; detail: string | null } | null>
+  /**
+   * tick 载体:读整枚 JSON 对象(2026-11-01 起不再只抠时刻——分栏要"执行结果"这一维,
+   * 时刻与结果必须来自**同一枚**被审文件)。null = 读不到/不是对象,由判据归 sourceOk:false。
+   */
+  readTickJson(relPath: string): Promise<Record<string, unknown> | null>
+  /** null = 状态源压根没给结论(与"结论是未判定"分两栏,§0.3) */
+  fetchCheckinStatus(baseUrl: string): Promise<CheckinStatusResult | null>
 }
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
@@ -226,26 +530,53 @@ export function defaultProbeDeps(makeQueue: (queue: string) => BullMQLike | null
         return null
       }
     },
-    async readTickJson(relPath, atField) {
+    async readTickJson(relPath) {
       try {
         const raw = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, relPath), 'utf8'))
-        const at = raw?.[atField]
-        return typeof at === 'string' ? at : null
+        // 只认 JSON 对象;数组/标量/坏文件一律读不到(不猜)
+        return raw !== null && typeof raw === 'object' && !Array.isArray(raw)
+          ? (raw as Record<string, unknown>)
+          : null
       } catch {
         return null
       }
     },
     async fetchCheckinStatus(baseUrl) {
+      if (!baseUrl.trim()) {
+        return judgeCheckinSchedulerStatus({
+          kind: 'transport-error',
+          message: 'AI_SERVICE_URL 未配置(聚合调用方没给基址)',
+        })
+      }
+      const url = `${baseUrl.replace(/\/$/, '')}/api/checkin/scheduler/status`
+      let res: Response
+      let body: unknown
       try {
-        const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/checkin/scheduler/status`, {
+        // 身份纪律:该端点带 require_request_user_id(apps/ai-service/app/core/jwt_auth.py:256),
+        // 生产态裸 fetch 必吃 401。走本仓"无用户上下文"外发的正牌票——与
+        // utils/ai-service-fetch.ts 的 aiServiceSystemFetch 同一个 getSystemAccessToken 出口,
+        // 不发明 ai-service 不认的头(§0.8:跑不通的出路不许写)。
+        const token = await getSystemAccessToken()
+        res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
           signal: AbortSignal.timeout(3000),
         })
-        if (!res.ok) return { schedulable: false, detail: `HTTP ${res.status}` }
-        const j = (await res.json()) as Record<string, unknown>
-        return { schedulable: true, detail: JSON.stringify(j).slice(0, 200) }
       } catch (e) {
-        return { schedulable: false, detail: e instanceof Error ? e.message : String(e) }
+        return judgeCheckinSchedulerStatus({
+          kind: 'transport-error',
+          message: e instanceof Error ? e.message : String(e),
+        })
       }
+      if (!res.ok) {
+        return judgeCheckinSchedulerStatus({ kind: 'http-error', status: res.status })
+      }
+      try {
+        body = await res.json()
+      } catch {
+        // 200 但体不是 JSON:读不懂就是不判,不拿可达性冒"调度在跑"
+        body = undefined
+      }
+      return judgeCheckinSchedulerStatus({ kind: 'ok', status: res.status, body })
     },
   }
 }
@@ -288,7 +619,9 @@ export async function collectRelayTaskStates(
         lastRunAt: null,
         lastRunOk: null,
         lastRunDetail: null,
+        lastRunStale: false,
         indeterminateReason: null,
+        disabledReason: null,
       }
       if (def.carrier === 'bullmq') {
         if (!bullmqOk) {
@@ -312,14 +645,21 @@ export async function collectRelayTaskStates(
         }
       }
       if (def.carrier === 'guardian' || def.carrier === 'schtasks') {
-        const at = await deps.readTickJson(
-          (def as unknown as { tickFile: string }).tickFile,
-          (def as unknown as { tickAtField: string }).tickAtField,
-        )
-        if (!at) {
+        // 分栏诚实口径(2026-11-01 立):"心跳在位"与"这一轮执行成功"拆开判,
+        // 旧形态(读到时刻就 lastRunOk:true + '派发成功/心跳在位')是把"没人告诉我失败"
+        // 说成"成功了"——与刚修掉的"HTTP 200 当可调度"同族假绿,整条作废。
+        const raw = await deps.readTickJson(def.tickFile!)
+        const judged = judgeTickCarrierRun(raw, {
+          atField: def.tickAtField!,
+          carrierLabel: def.carrier === 'guardian' ? 'guardian 派发' : '计划任务',
+          beatMs: def.beatMs,
+          nowMs: Date.now(),
+        })
+        if (!judged.sourceOk) {
           return {
             ...def,
             ...base,
+            lastRunStale: judged.stale,
             indeterminateReason: 'tick 文件不可读(api 进程与守护可能不同机,或任务从未跑过)',
           }
         }
@@ -328,28 +668,52 @@ export async function collectRelayTaskStates(
           ...base,
           schedulable: true,
           sourceOk: true,
-          lastRunAt: at,
-          lastRunOk: true,
-          lastRunDetail:
-            def.carrier === 'guardian'
-              ? 'guardian 派发成功(执行结果见 guardian 日志)'
-              : '计划任务心跳在位',
+          lastRunAt: judged.lastRunAt,
+          lastRunOk: judged.lastRunOk,
+          lastRunDetail: judged.lastRunDetail,
+          lastRunStale: judged.stale,
+          // lastRunOk===null 是"器物没自述结果",状态源本身读到了 ⇒ 不占 indeterminateReason
+          // 栏(那栏专指"状态源读不到"),结论直接写在 detail 里明说未判定(§0.3 双向)
         }
       }
-      // apscheduler
+      // apscheduler:判据已在 judgeCheckinSchedulerStatus 里出结论,这里只按三态分派
       const st = await deps.fetchCheckinStatus(opts.aiServiceUrl ?? '')
       if (!st) {
-        return { ...def, ...base, indeterminateReason: 'ai-service 状态端点不可达' }
+        return {
+          ...def,
+          ...base,
+          sourceOk: false,
+          indeterminateReason: 'ai-service 状态源无结论(deps 未返回判定,与"门关"不同栏)',
+        }
+      }
+      if (st.state === 'running') {
+        return {
+          ...def,
+          ...base,
+          schedulable: true,
+          sourceOk: true,
+          nextRunAt: st.nextRunAt,
+          lastRunDetail: st.detail,
+        }
+      }
+      if (st.state === 'disabled') {
+        return {
+          ...def,
+          ...base,
+          schedulable: false,
+          sourceOk: true,
+          lastRunDetail: st.detail,
+          // 判过了 ⇒ 不进"未判定"栏,单独点名闸门(§0.3 双向:判过的也不写成没判)
+          disabledReason: st.gateHint,
+        }
       }
       return {
         ...def,
         ...base,
-        schedulable: st.schedulable,
-        sourceOk: true,
+        schedulable: false,
+        sourceOk: false,
         lastRunDetail: st.detail,
-        indeterminateReason: st.schedulable
-          ? null
-          : 'ai-service 调度不可用(总开关 CHECKIN_CRON_ENABLED=false?)',
+        indeterminateReason: st.detail,
       }
     }),
   )
@@ -409,4 +773,15 @@ export async function runRelayTaskById(
     }
   }
   return null
+}
+
+/**
+ * 判据面出口(§22c:测试 import 这份实现,禁止在测试里复制判据)。
+ * 只暴露纯函数,IO 出口一律不进(__test__ 不是第二份实现)。
+ */
+export const __test__ = {
+  judgeCheckinSchedulerStatus,
+  judgeTickCarrierRun,
+  STALE_BEAT_TOLERANCE,
+  GATE_HINT_BY_REASON,
 }

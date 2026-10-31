@@ -10,12 +10,16 @@ claim 路径配置后执行 / travel 状态解析+claim 差量+depart 配置闸+
 activity 未配置拒绝、坏 hosts、配置后上报 / blackcat 窗口边界(跨零点)、
 窗口外跳过零调用、无补全面未判定、注入假补全后计数 / run_family 合同键集 /
 redeem+lottery 真机实证 body 形态(含 403 业务拒绝不得误判会话失效的回归)。
+补签卡边界(2026-10-31 立,口径同 docs/WORKBUDDY_TASKS.md §5):六族 + kind='all' 聚合入口
+在 dry-run/实跑两档下都不得向 makeup-cards/use 出网 —— 行为级防回潮锁 + 读 workbuddy_tasks
+源码的静态形状锁(判据单源在生产层,测试只 import,§22c)。
 证据级别:读写双侧均 2026-10-31 真机报文级验证(见 workbuddy_tasks 模块 docstring)。
 """
 
 from __future__ import annotations
 
 import base64
+import inspect
 import json
 import time
 import uuid
@@ -27,6 +31,8 @@ import httpx
 import pytest
 
 from app.core.config import settings
+from app.routers import checkin as checkin_router
+from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services import workbuddy_tasks as wt
 from app.services.workbuddy_tasks import (
     PATH_GROWTH_LOTTERY_DRAW,
@@ -1155,4 +1161,249 @@ class TestLottery:
         async with rec.client() as client:
             out = await wt.run_lottery(TOKEN, {}, dry_run=False, client=client)
         assert out["ok"] is False and out["unjudged"] is True
+
+
+# ---------------------------------------------------------------------------
+# 补签卡(makeup cards)不自动消耗 —— 行为级防回潮锁 + 静态形状锁(2026-10-31 立)
+#
+# 口径唯一文档面 = docs/WORKBUDDY_TASKS.md §5「补签卡只读、不自动使用」;判据实现唯一源
+# = app/services/workbuddy_tasks.py 的 makeup_card_write_hit / find_makeup_card_write_hookups
+# (测试只 import,不另抄一份常量,§22c 单一真相源)。
+# 诚实交代:写侧本来就没接线 ⇒ 本组用例是**防回潮锁**,不是修 bug;它的价值由"把某族的
+# URL 换成 makeup-cards/use 立刻翻红"证明,不由"这次改了什么"证明。
+# ---------------------------------------------------------------------------
+
+
+def _sweep_streak_payload() -> dict[str, Any]:
+    """连签读侧真形态:有可兑档位 + 补签卡余量(读得到,但绝不自动消耗)。"""
+    data = _streak_with_status("unlocked")
+    data["makeup_cards"] = {"balance": 2, "max": 4}
+    data["streak"]["makeup_dates"] = []
+    return data
+
+
+def _sweep_routes() -> dict[str, Any]:
+    """让六族在实跑档尽量走到各自的写腿 —— 覆盖面越大这条锁越有牙。
+
+    路由表按插入序**前缀匹配**:`/activity/growth/tasks` 是 accept/claim 路径的前缀,
+    更长的 fragment 必须登记在前(与 TestRunGrowth 同一条坑)。
+    """
+    return {
+        "/billing/meter/checkin-status": ok_envelope({"total_credits": 100}),
+        "/v2/report": ok_envelope({}),
+        PATH_GROWTH_TASKS_ACCEPT: ok_envelope({}),
+        "tasks/first_chat/claim": ok_envelope({}),
+        PATH_TRAVEL_CLAIM: ok_envelope({"credit": 5}),
+        PATH_TRAVEL_DEPART: ok_envelope({}),
+        PATH_GROWTH_REDEEM: ok_envelope({"credit": 0}),
+        PATH_GROWTH_LOTTERY_DRAW: ok_envelope({"draw_uuid": "d-1"}),
+        PATH_GROWTH_STREAK: ok_envelope(_sweep_streak_payload()),
+        PATH_TRAVEL_STATUS: ok_envelope(
+            travel_state(state="idle", reward_credit=5, daily_limit_reached=True)
+        ),
+        PATH_GROWTH_LOTTERY_SUMMARY: ok_envelope({"chances": 1, "module": {"enabled": True}}),
+        PATH_GROWTH_TASKS: ok_envelope(
+            {
+                "tasks": [
+                    task_row(status="completed"),
+                    task_row(task_id=2, code="daily_share", status="available"),
+                ]
+            }
+        ),
+    }
+
+
+class TestMakeupCardNeverAutoConsumed:
+    """六族 + 聚合入口在任何档位都不得向补签卡写侧端点出网。"""
+
+    # (kind) ⇒ 该族必须出现的读侧路径(证明这一族真的跑了,不是"零请求"骗过断言 = 假绿)
+    _EXPECTED_READ: dict[str, str] = {
+        "growth": PATH_GROWTH_TASKS,
+        "travel": PATH_TRAVEL_STATUS,
+        "activity": "/v2/report",
+        "redeem": PATH_GROWTH_STREAK,
+        "lottery": PATH_GROWTH_LOTTERY_SUMMARY,
+    }
+
+    @pytest.fixture(autouse=True)
+    def _no_sleep(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """族内节流 sleep 走 random.uniform ⇒ 压成 0,别让一次全族遍历睡十几秒。"""
+        monkeypatch.setattr(wt.random, "uniform", lambda _a, _b: 0.0)
+
+    async def _run(
+        self,
+        kind: str,
+        dry_run: bool,
+        monkeypatch: pytest.MonkeyPatch,
+        completions: list[str],
+    ) -> tuple[Recorder, dict[str, Any]]:
+        """经 run_family(与路由/调度器同一个入口)跑一族或全族。"""
+
+        async def fake_completion(model: str) -> None:
+            completions.append(model)
+
+        # blackcat 是时钟节律族(默认窗口 23:00-08:00):把窗口判据钉成"在窗内",
+        # 否则本用例的实跑档会在白天整族跳过 ⇒ 正向对照变成看运气。
+        monkeypatch.setattr(wt, "blackcat_window_active", lambda _spec, _now=None: True)
+        rec = Recorder(_sweep_routes())
+        async with rec.client() as client:
+            out = await wt.run_family(
+                kind,
+                TOKEN,
+                {},
+                dry_run=dry_run,
+                chat_completion=fake_completion,
+                events=("chat_request_send",),
+                client=client,
+                timeout=5.0,
+            )
+        return rec, out
+
+    def _assert_actually_ran(
+        self,
+        kind: str,
+        dry_run: bool,
+        rec: Recorder,
+        out: dict[str, Any],
+        completions: list[str],
+    ) -> None:
+        """正向对照(与"没打补签卡"成对):族必须真干活,否则空转也算过。"""
+        paths = " ".join(rec.paths())
+        if kind == "blackcat":
+            # 取证结论:该族无专属上游端点(纯本地节律)⇒ 出网必须恒为 0;
+            # 它的正向对照 = 补全回调真被调用(实跑档)。
+            assert rec.calls == [], f"blackcat 不该出网,实际发了:{rec.paths()}"
+            if dry_run:
+                assert "dry-run" in (out["reason"] or "")
+            else:
+                assert completions, "blackcat 实跑档没跑过任何补全 ⇒ 整族空转,断言失去意义"
+            return
+        if kind == "activity" and dry_run:
+            assert rec.calls == [], "activity 的 dry-run 合同 = 零写侧调用"
+            assert "dry-run" in (out["reason"] or "")
+            return
+        expected = self._EXPECTED_READ[kind]
+        assert expected in paths, f"{kind}(dry_run={dry_run}) 未发出预期的读侧请求 {expected}"
+        if not dry_run:
+            assert any(m == "POST" for m, _u, _b in rec.calls), (
+                f"{kind} 实跑档一个 POST 都没有 ⇒ 写腿没被覆盖,补签卡锁成了摆设"
+            )
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    @pytest.mark.parametrize("kind", list(wt.SWEEP_ORDER))
+    async def test_family_never_calls_makeup_card_use(
+        self, kind: str, dry_run: bool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """SWEEP_ORDER 全族逐族遍历:请求 URL 与请求体都不得命中补签卡写侧指纹。"""
+        completions: list[str] = []
+        rec, out = await self._run(kind, dry_run, monkeypatch, completions)
+        url_hits = [url for _m, url, _b in rec.calls if wt.makeup_card_write_hit(url)]
+        assert url_hits == [], f"{kind}(dry_run={dry_run}) 向补签卡写侧发了请求:{url_hits}"
+        body_hits = [
+            str(body) for _m, _u, body in rec.calls if wt.makeup_card_write_hit(str(body))
+        ]
+        assert body_hits == [], f"{kind}(dry_run={dry_run}) 请求体出现补签卡写侧形态:{body_hits}"
+        self._assert_actually_ran(kind, dry_run, rec, out, completions)
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    async def test_all_entrypoint_never_calls_makeup_card_use(
+        self, dry_run: bool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """kind='all' 聚合入口(手动 task-run 的默认口径)同样不得命中 —— 且必须真跑完全族。"""
+        completions: list[str] = []
+        rec, out = await self._run("all", dry_run, monkeypatch, completions)
+        assert set(out["families"]) == set(wt.SWEEP_ORDER)
+        url_hits = [url for _m, url, _b in rec.calls if wt.makeup_card_write_hit(url)]
+        assert url_hits == [], f"全族聚合向补签卡写侧发了请求:{url_hits}"
+        assert rec.calls, "kind='all' 一个请求都没发 ⇒ 上面的断言是空转假绿"
+
+    async def test_read_side_makeup_card_balance_still_parsed(self) -> None:
+        """边界只在"不自动消耗",不在"读不到":balance/max 仍必须解析出来(非 0 值探针)。"""
+        rec = Recorder({PATH_GROWTH_STREAK: ok_envelope(_sweep_streak_payload())})
+        async with rec.client() as client:
+            out = await wt.fetch_growth_streak(TOKEN, {}, client=client)
+        assert out is not None
+        assert out["makeup_card_balance"] == 2 and out["makeup_card_max"] == 4
+        assert rec.methods() == ["GET"]
+
+
+class TestMakeupCardStaticShapeLock:
+    """静态形状锁:源码里不许出现"把补签卡写侧接进出网调用"的形态。
+
+    与行为级锁互补:行为锁只在被接进的那一族真的被跑过时才有牙;静态锁不依赖夹具路由,
+    新增一条"顺手补签"哪怕没有用例覆盖它,提交链上也会红。判据实现单源在生产层(§22c)。
+    """
+
+    # 射程 = WorkBuddy 全部出网面:引擎 + 自动巡检调度轮 + 手动路由。判据单源在生产层
+    # (§0.6),这里只多喂几个源:以后谁在**任何一半**里加一条"顺手补签",提交链上就红,
+    # 而不是只锁住引擎那半。
+    _WB_WRITE_SURFACE = (wt, checkin_scheduler_mod, checkin_router)
+
+    @pytest.mark.parametrize("mod", _WB_WRITE_SURFACE, ids=lambda m: m.__name__)
+    def test_wb_write_surface_source_is_clean(self, mod: Any) -> None:
+        try:
+            src = inspect.getsource(mod)
+        except OSError as e:
+            # 读不到源码 ⇒ 显式「未判定」,绝不因为"取不到"就当"没有接线"(§0.3)
+            raise ValueError(f"补签卡静态锁读不到 {mod.__name__} 源码(未判定):{e}") from e
+        assert wt.find_makeup_card_write_hookups(src) == [], f"{mod.__name__} 出现补签卡写侧形态"
+
+    def test_flags_literal_write_path_at_request_call(self) -> None:
+        src = '''
+async def _wb_request(path, jwt, device_map, body):
+    return 200, {}, "token"
+
+async def run_makeup(jwt, device_map):
+    return await _wb_request(
+        "/activity/growth/makeup-cards/use", jwt, device_map, {"target_date": "2026-10-31"}
+    )
+'''
+        hits = wt.find_makeup_card_write_hookups(src)
+        assert len(hits) == 1, f"字面量端点没被抓到:{hits}"
+
+    def test_flags_path_constant_and_its_use(self) -> None:
+        src = '''
+PATH_MAKEUP_CARD_USE = "/activity/growth/makeup-cards/use"
+
+async def run_makeup(jwt, device_map):
+    return await _wb_request(PATH_MAKEUP_CARD_USE, jwt, device_map, {})
+'''
+        assert wt.find_makeup_card_write_hookups(src), "路径常量形态没被抓到"
+
+    def test_flags_snake_and_fstring_variants(self) -> None:
+        src = '''
+async def run_makeup(base, jwt, device_map):
+    return await _post_once(f"{base}/activity/growth/makeup_cards/use", jwt, device_map, {})
+'''
+        assert wt.find_makeup_card_write_hookups(src), "下划线/f-string 变体没被抓到"
+
+    def test_flags_imported_identifier_at_call_site(self) -> None:
+        """路径字面量住在别的模块 ⇒ 靠"出网调用子树里的标识符名"这一面兜住。"""
+        src = '''
+from somewhere_else import PATH_MAKEUP_CARDS_USE
+
+async def run_makeup(jwt, device_map):
+    return await _wb_request(PATH_MAKEUP_CARDS_USE, jwt, device_map, {})
+'''
+        hits = wt.find_makeup_card_write_hookups(src)
+        assert any("标识符" in h for h in hits), f"跨模块旁路没被抓到:{hits}"
+
+    def test_does_not_flag_read_side_keys_or_prose(self) -> None:
+        """成对锁(§12f):读侧字段名与 docstring/注释里的**说明**不许判红,
+        否则后来人只能改措辞绕尺子,判据就废了。"""
+        src = '''
+"""模块说明:写侧 makeup-cards/use 刻意不接(target_date 未取证,先真机取证再落写侧)。"""
+
+async def fetch_streak(data):
+    cards = data.get("makeup_cards")
+    used = data.get("makeup_cards_used")
+    # 注释里写 makeup-cards/use 也只是说明,不是调用点
+    return cards, used
+'''
+        assert wt.find_makeup_card_write_hookups(src) == []
+
+    def test_unparseable_source_is_not_green(self) -> None:
+        """取不到输入 ⇒ 显式「未判定」(抛错),不冒绿(§0.3)。"""
+        with pytest.raises(ValueError):
+            wt.find_makeup_card_write_hookups("def broken(:\n    pass\n")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

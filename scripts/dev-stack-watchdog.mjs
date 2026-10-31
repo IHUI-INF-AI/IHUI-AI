@@ -9,9 +9,17 @@
 // 「网络断开」。vbs 自启只在登录时跑一次,守护自身死掉即整个自愈体系瓦解。
 //
 // 本脚本由 Windows 计划任务(IHUI-DevStackWatchdog,每 2 分钟)调起,单次执行:
-//   1. 读 .tmp-sync/dev-stack-watcher.heartbeat.json(dev-stack --watch 每 30s 续写)
+//   1. 读 .tmp-sync/dev-stack-watcher.heartbeat.json(dev-stack --watch 的**推进事件**续写:
+//      锁检查后第一枚 → 初始启动阶段每条腿/每轮探活 → 进入循环后每轮 tick;
+//      2026-10-31 前的旧实现只在进入 watch 块后才写,于是冷启动 160s 判成"死了",
+//      每 2 分钟无效 revive 一头,并把在跑那头的日志以 'w' 截成 0 字节 —— 详见
+//      scripts/tests/dev-stack-watchdog-coldstart.test.mjs 的立因段)
 //   2. 心跳新鲜(<90s)且 pid 存活 → 守护健康,直接退出
 //   3. 否则经 dev-stack-launch.mjs 隐藏拉起守护(单实例锁防双开,新实例会接管)
+//
+// 判据本体在 decidePatrol(纯函数,挂 __test__ 供镜像测试 import,§22c 禁止第二份);
+// 本脚本**没有**新增"任务在跑就宽限"一类的放宽:自愈口径(FRESH_MS=90s + 每 2 分钟一轮)
+// 与 2026-10-31 之前逐毫秒相同。
 //
 // 用法: node scripts/dev-stack-watchdog.mjs [--install]
 //   --install 注册计划任务(幂等);无参 = 单次巡检(计划任务调用形态)
@@ -23,12 +31,42 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOG_DIR = path.join(ROOT, '.tmp-sync');
-const HB_FILE = path.join(LOG_DIR, 'dev-stack-watcher.heartbeat.json');
+// 心跳落点与写方(scripts/dev-stack.mjs)同源:默认线上那枚;DEV_STACK_HEARTBEAT_FILE
+// 只给镜像测试重定向用(两侧必须一起设,否则巡检读默认路径会把健康守护判成死)。
+const HB_PATH_ENV = 'DEV_STACK_HEARTBEAT_FILE';
+const HB_FILE = (String(process.env[HB_PATH_ENV] || '').trim() || path.join(LOG_DIR, 'dev-stack-watcher.heartbeat.json'));
 const WATCHDOG_LOG = path.join(LOG_DIR, 'dev-stack-watchdog.log');
 const FRESH_MS = 90_000;
+// 巡检节律(分钟):install() 注册的重复间隔就是它,镜像测试用它对账"自愈没被改慢"
+const PATROL_INTERVAL_MINUTES = 2;
 const TASK_NAME = 'IHUI-DevStackWatchdog';
 // 被巡检的守护任务(由 install-dev-stack-autostart.mjs 注册为 S4U 非交互)
 const SUPERVISOR_TASK = 'IHUI-DevStack';
+
+/**
+ * 巡检裁决(纯判据,零 IO):
+ *   心跳缺失/坏形状 → 'revive'(守护从未跑过或刚被清,与 2026-09-22 以来的口径一致)
+ *   心跳过期        → 'revive'
+ *   心跳新鲜但 pid 已死 → 'revive'(pid 复用/半死)
+ *   心跳新鲜且 pid 存活 → 'healthy'
+ * 不在此处判"任务是否在跑":冷启动期该由写方自己续心跳(见 dev-stack.mjs 的 heartbeat*)。
+ * @returns {'healthy'|'revive'}
+ */
+function decidePatrol({ hb, now = Date.now(), freshMs = FRESH_MS, alive = false } = {}) {
+  const ts = Number(hb?.ts);
+  const n = Number(now);
+  if (!Number.isFinite(ts) || ts <= 0) return 'revive';
+  if (!Number.isFinite(n)) return 'revive'; // 读不到"现在"⇒ 不猜健康,按缺心跳处理(与旧实现同)
+  if (n - ts >= freshMs) return 'revive';
+  return alive ? 'healthy' : 'revive';
+}
+
+/** 心跳龄(毫秒);缺/坏字段 ⇒ null(点名"读不到",不冒充 0 也不冒充健康) */
+function heartbeatAgeMs({ hb, now = Date.now() } = {}) {
+  const ts = Number(hb?.ts);
+  if (!Number.isFinite(ts) || ts <= 0) return null;
+  return now - ts;
+}
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}`;
@@ -133,12 +171,23 @@ function patrol() {
   } catch {
     /* 无心跳文件 = 守护从未跑过或刚被清 */
   }
-  const fresh = hb && Date.now() - Number(hb.ts) < FRESH_MS;
-  if (fresh && pidAlive(hb.pid)) {
+  const now = Date.now();
+  // pidAlive 只在有心跳时才真派生 tasklist(无心跳时 Number(undefined)=NaN ⇒ 直接 false,
+  // 与旧实现的短路同 IO 成本:旧版在需要写日志那一支同样调了 pidAlive)
+  const alive = pidAlive(hb?.pid);
+  const verdict = decidePatrol({ hb, now, freshMs: FRESH_MS, alive });
+  if (verdict === 'healthy') {
     // 健康:不写日志(每 2 分钟一条会刷爆),静默退出
     return;
   }
-  log(`心跳${hb ? `过期(${Math.round((Date.now() - Number(hb.ts)) / 1000)}s,pid ${hb.pid}${pidAlive(hb.pid) ? '存活' : '已死'})` : '缺失'},需要复活`);
+  const age = heartbeatAgeMs({ hb, now });
+  log(
+    `心跳${
+      age === null
+        ? '缺失'
+        : `过期(${Math.round(age / 1000)}s,pid ${hb.pid}${alive ? '存活' : '已死'})`
+    },需要复活`,
+  );
   revive();
 }
 
@@ -163,7 +212,7 @@ function install() {
 
   const ps = [
     `$action = New-ScheduledTaskAction -Execute '${process.execPath.replace(/'/g, "''")}' -Argument '"${me.replace(/'/g, "''")}"'`,
-    `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 2) -RepetitionDuration (New-TimeSpan -Days 3650)`,
+    `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes ${PATROL_INTERVAL_MINUTES}) -RepetitionDuration (New-TimeSpan -Days 3650)`,
     `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 5)`,
     `$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited`,
     `Register-ScheduledTask -TaskName '${TASK_NAME}' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null`,
@@ -181,12 +230,27 @@ function install() {
     console.error(`[dev-stack-watchdog] 计划任务注册失败: ${out.trim().split('\n').slice(-5).join(' | ')}`);
     process.exit(1);
   }
-  log(`计划任务 ${TASK_NAME} 已注册(每 2 分钟巡检,LogonType=S4U → session 0,无桌面即无窗口)`);
+  log(`计划任务 ${TASK_NAME} 已注册(每 ${PATROL_INTERVAL_MINUTES} 分钟巡检,LogonType=S4U → session 0,无桌面即无窗口)`);
 }
 
+// §22d 双形态守卫:CLI 直跑才执行巡检/注册,被镜像测试 import 时零副作用
+// (import 一 patrol 就会派生守护头与 pwsh,这是测试绝不能碰的副作用)。
 const isDirectRun = process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href;
 if (isDirectRun) {
   if (process.argv.includes('--install')) install();
   else patrol();
 }
+
+// 纯判据与常量导出给镜像测试(scripts/tests/dev-stack-watchdog-coldstart.test.mjs)。
+// 测试一律 import 这里,不得再复制第二份判据(§22c)。
+export const __test__ = {
+  decidePatrol,
+  heartbeatAgeMs,
+  FRESH_MS,
+  PATROL_INTERVAL_MINUTES,
+  HB_PATH_ENV,
+  HB_FILE,
+  TASK_NAME,
+  SUPERVISOR_TASK,
+};
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

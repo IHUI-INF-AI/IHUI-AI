@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "작업 실패"
-  },
-  "message": {
-    "deleted": "삭제됨"
-  },
   "workflows": {
     "title": "워크플로우",
     "empty": "워크플로우가 없습니다",
@@ -929,8 +923,6 @@
     "checkUpdateUnsupported": "이 빌드에서는 앱 내 업데이트를 사용할 수 없습니다",
     "changePhoneMissingUser": "사용자 정보가 누락되었습니다",
     "logoutConfirm": "로그아웃하시겠습니까?",
-    "appPermission": "앱 권한",
-    "icpRecord": "ICP 신고",
     "usageRules": "이용 규정",
     "changePassword": "비밀번호 변경",
     "oldPassword": "기존 비밀번호",
@@ -1124,7 +1116,6 @@
     "network": "네트워크 오류"
   },
   "common": {
-    "success": "성공",
     "backToTop": "맨 위로",
     "ok": "확인",
     "gotIt": "알겠습니다",
@@ -1240,7 +1231,6 @@
     "confirmBtn": "확인",
     "empty": "표지가 없습니다",
     "loadFailed": "불러오기 실패",
-    "loading": "불러오는 중...",
     "subtitle": "표지 선택 또는 생성",
     "title": "표지",
     "workTitleDefault": "이름 없는 작품",
@@ -1318,7 +1308,6 @@
     "badgeRejected": "거부됨",
     "badgeReviewing": "검토 중",
     "empty": "어시스턴트가 없습니다",
-    "loading": "불러오는 중...",
     "metaAudience": "공개 범위",
     "metaCategory": "카테고리",
     "metaCycleForever": "영구",
@@ -1762,7 +1751,6 @@
     "title": "내 쿠폰",
     "validUntil": "유효기간",
     "use": "지금 사용",
-    "useHint": "상품 페이지에서 사용해 주세요",
     "couponCenter": "쿠폰센터"
   },
   "courseAnnex": {
@@ -1961,9 +1949,6 @@
     "fans": "팔로워",
     "empty": "데이터 없음",
     "unfollow": "팔로우 취소"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 신고/허가 번호"
   },
   "identityVerify": {
     "title": "본인 인증",
@@ -4530,7 +4515,6 @@
     },
     "workflows": {
       "home": "워크플로",
-      "editor": "워크플로 편집기",
       "automations": "자동화 작업",
       "orchestration": "오케스트레이션",
       "schedule": "예약 작업"
@@ -5477,7 +5461,30 @@
     "poolSynced": "풀 등록됨",
     "lastOk": "지난 체크인 성공 +{credits}",
     "lastFailed": "지난 체크인 실패",
-    "actionFailed": "작업 실패"
+    "actionFailed": "작업 실패",
+    "taskTitle": "작업 자동 실행",
+    "taskDesc": "WorkBuddy 작업 센터를 한 번에 순회: 작업 수락, 달성 보상 수령, 연속 로그인 교환, 추첨, 고양이 여행, 야행성 채팅.",
+    "taskPick": "계정",
+    "taskList": "작업 불러오기",
+    "taskDryRun": "미리보기(쓰기 없음)",
+    "taskRun": "전체 실행",
+    "taskRunning": "실행 중…",
+    "taskEmpty": "작업이 없거나 아직 불러오지 않음",
+    "taskResult": "실행 결과",
+    "taskUnjudged": "업스트림 응답을 해석하지 못해 이번 결과는 미판정입니다(성공 아님)",
+    "taskAutoTitle": "자동 순회",
+    "taskAutoLoading": "불러오는 중…",
+    "taskAutoUnknown": "상태 알 수 없음(서버가 순회 상태를 반환하지 않았습니다. 백엔드 버전을 확인하세요)",
+    "taskAutoOn": "사용 중 · {minutes}분마다 자동 순회",
+    "taskAutoNext": "다음 {time}",
+    "taskAutoDry": "사용 중이지만 연습 모드(읽기 전용): 실제 수령은 하지 않습니다. 서버에서 WORKBUDDY_TASKS_LIVE_RUN=true 로 설정해야 기록합니다.",
+    "taskAutoCronBlocked": "실행 안 됨: 작업 스위치는 켜져 있지만 총 스위치 CHECKIN_CRON_ENABLED 가 꺼져 있습니다.",
+    "taskAutoOff": "사용 안 함: 수동 실행만 가능. 서버에서 WORKBUDDY_TASKS_ENABLED=true 로 설정하고 재시작하면 적용됩니다.",
+    "taskAutoNotStarted": "설정은 활성화되었지만 스케줄러가 시작되지 않았습니다: 서버 .env를 수정한 뒤 ai-service를 재시작하세요(프로세스 내 start()은 _started에서 단락되어 핫 리로드되지 않습니다).",
+    "taskAutoPaths": "보고/수령 경로 미설정: 보고만 하고 수령은 하지 않습니다.",
+    "taskAutoLast": "마지막 순회 {time}",
+    "taskAutoLastStats": "{families}개 패밀리 · 수락 {accepted} · 수령 {claimed}",
+    "taskAutoLastNever": "이 프로세스에서는 아직 순회 없음"
   },
   "mat": {
     "unknown": "알 수 없는 오류",
@@ -7054,12 +7061,10 @@
     "empty": "콘텐츠가 없습니다",
     "pinned": "고정됨",
     "publishedAt": "{date}에 게시",
-    "viewCount": "{count} 조회",
     "total": "총 {total}편",
     "prev": "이전",
     "next": "다음",
-    "loading": "로딩 중...",
-    "error": "로드 실패"
+    "loading": "로딩 중..."
   },
   "searchHistoryPage": {
     "title": "검색 기록",
@@ -7118,10 +7123,7 @@
     "output": "최종 출력",
     "runningHint": "아직 실행 중이며 최종 출력이 없습니다",
     "noOutput": "출력 없음",
-    "noTask": "작업 설명 없음",
-    "prev": "이전",
-    "pagination": "{page} / {totalPages} 페이지, 총 {total}건",
-    "next": "다음"
+    "noTask": "작업 설명 없음"
   },
   "chatWorkbenchPage": {
     "title": "대화",

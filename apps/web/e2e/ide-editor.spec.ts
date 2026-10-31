@@ -46,6 +46,15 @@ test.describe('IDE 编辑器工作区', () => {
   })
 
   test('终端面板 Ctrl+` 切换后 xterm 视口出现', async ({ adminPage: page }) => {
+    // 2026-10-31:把"创建终端会话"这条请求的答复带进失败信息 —— `.xterm` 缺席有三种成因
+    // (403=管理员 TOTP 闸 / 501=node-pty 缺失 / 200=产品侧渲染缺陷),此前三者同形,
+    // 被连续两轮读成"产品渲染问题"。断言本身一条不减,只让红的时候能判死。
+    const sessionPosts: string[] = []
+    page.on('response', (r) => {
+      if (r.request().method() !== 'POST') return
+      if (!r.url().includes('/api/terminal/sessions')) return
+      sessionPosts.push(String(r.status()))
+    })
     await page.goto('/developer/ide')
     await expect(page).toHaveURL(/developer\/ide/)
 
@@ -68,7 +77,12 @@ test.describe('IDE 编辑器工作区', () => {
 
     // xterm 终端实例挂载 .xterm 容器(WS 未连接也渲染 DOM)
     const xterm = page.locator('.xterm')
-    await expect(xterm.first()).toBeVisible({ timeout: 15000 })
+    await expect(
+      xterm.first(),
+      `xterm 未挂载;POST /api/terminal/sessions 答复=${
+        sessionPosts.join(',') || '未观测到'
+      }(403=管理员 TOTP 闸,见 require-permission.ts 的 checkAdminTotpGate;501=node-pty 缺失;200=产品侧 TerminalViewport 未挂载)`,
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('无 fatal JS 运行时错误', async ({ adminPage: page }) => {

@@ -20216,6 +20216,7 @@
     "taskPanelAutoDry": "사용 중이지만 연습 모드(읽기 전용): 실제 수령은 하지 않습니다. 서버에서 WORKBUDDY_TASKS_LIVE_RUN=true 로 설정해야 기록합니다.",
     "taskPanelAutoCronBlocked": "실행 안 됨: 작업 스위치는 켜져 있지만 총 스위치 CHECKIN_CRON_ENABLED 가 꺼져 있습니다.",
     "taskPanelAutoOff": "사용 안 함: 수동 실행만 가능. 서버에서 WORKBUDDY_TASKS_ENABLED=true 로 설정하고 재시작하면 적용됩니다.",
+    "taskPanelAutoNotStarted": "설정은 활성화되었지만 스케줄러가 시작되지 않았습니다: 서버 .env를 수정한 뒤 ai-service를 재시작하세요(프로세스 내 start()은 _started에서 단락되어 핫 리로드되지 않습니다).",
     "taskPanelAutoPaths": "보고/수령 경로 미설정: 보고만 하고 수령은 하지 않습니다.",
     "taskPanelAutoLast": "마지막 순회 {time}",
     "taskPanelAutoLastStats": "{families}개 패밀리 · 수락 {accepted} · 수령 {claimed}",
@@ -25796,7 +25797,6 @@
     "actionReedit": "다시 편집",
     "title": "내 에이전트",
     "searchPlaceholder": "에이전트 검색",
-    "loading": "불러오는 중…",
     "empty": "에이전트 없음"
   },
   "certDetail": {
@@ -25847,9 +25847,6 @@
     "empty": "도움말 콘텐츠 없음",
     "title": "도움말 상세",
     "answer": "답변"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 등록/허가 번호"
   },
   "identityVerify": {
     "uploadFront": "신분증 앞면 업로드",
@@ -27111,7 +27108,6 @@
     "save": "저장"
   },
   "aigcCover": {
-    "loading": "불러오는 중...",
     "title": "커버 설정",
     "subtitle": "\"{title}\" 커버 생성",
     "empty": "표지가 없습니다. 먼저 생성해 주세요",

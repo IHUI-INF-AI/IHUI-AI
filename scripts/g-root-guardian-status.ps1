@@ -15,7 +15,6 @@
 # Read-only: does not modify any state.
 # ============================================================================
 
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Continue'
 

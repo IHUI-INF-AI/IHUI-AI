@@ -123,7 +123,7 @@ import {
 import { drainLedgerAlerts, ledgerStateLabel, summarizeLedger } from '../tools/background-ledger.js';
 import { runSandboxedAsync } from '../sandbox/index.js';
 import { estimateMessagesTokens } from '../context.js';
-import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, setHookRewakeQueue } from '../hooks/index.js';
 import {
   saveSession as saveSessionState,
   loadSession as loadSessionState,
@@ -719,6 +719,10 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     followUpMode: 'steer',
     queueInterruptOnce: false,
   };
+  // 钩子唤醒腿接线(2026-10-31 第二笔):async 钩子 exit 2 的回灌唤醒走**本会话**这份提示队列。
+  // 未接线时 hooks 层只落 stderr 审计行 + droppedNoQueue 计数(不静默丢);接线后一次 exit2
+  // 恰好入队一次(claim 语义在 hooks 层,宿主不复制判定)。
+  setHookRewakeQueue(state.promptQueue);
   // Sessions 模块集成:若 opts.sessionId 提供且 history 为空,尝试从新 sessions 模块加载
   // (兼容老 session.ts 模块:若老模块已加载 history,新模块不覆盖)
   if (opts.sessionId && state.history.length === 0) {

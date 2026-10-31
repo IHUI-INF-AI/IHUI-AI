@@ -34,6 +34,14 @@ deploy-feedback 条目与本模块无关,不要据此推断本族的状态)。
   ⇒ accept 走 **WORKBUDDY_TASKS_ACCEPT_FIELD** 显式配置,留空即拒绝执行并点名四种试过的
   形态都 400 —— 宁可不做,不猜字段名。
 
+**补签卡(makeup cards)只读、不自动使用(口径与 docs/WORKBUDDY_TASKS.md §5 逐字一致,2026-10-31 立)**:
+  `streak` 读侧会带回 `makeup_cards{balance,max}`,但那个写侧端点**刻意不接进任何自动流程**
+  (巡检轮 / 手动 task-run / 六族 / kind='all' 都不发)——补签卡是稀缺资源,自动消耗它替你补
+  一天连续登录不是每个用户都愿意;而且它的 `target_date` 形态**至今未取证**(上游 400 只点名
+  格式错)。要接必须先真机取证再落写侧。这条边界不是散文:行为级锁在
+  `tests/test_workbuddy_tasks.py`(全族 × dry-run/实跑 + 正向对照),静态形状锁见本文件末尾的
+  `find_makeup_card_write_hookups`(§0.9:判据必须在真跑它的那一刻才成立)。
+
 claim(领任务奖励)与 activity **已于 2026-10-31 报文级真机实证**(不再只是读 README):
 `WORKBUDDY_TASKS_CLAIM_PATH=/activity/growth/tasks/{code}/claim` —— 任务码在 **URL 路径**,
 body 无关(空体/`{code}`/`{task_code}` 对未完成任务一律回同一句 400 `task not completed`);
@@ -97,6 +105,7 @@ dry_run=true ⇒ 除只读(list/status/checkin-status)外零写侧调用。
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import json
 import random
@@ -1751,4 +1760,90 @@ READ_ONLY_PATHS: Final = (
     _webify(PATH_TRAVEL_STATUS),
     _webify(PATH_GROWTH_LOTTERY_SUMMARY),
 )
+
+
+# ---------------------------------------------------------------------------
+# 补签卡写侧的"防回潮"判据(2026-10-31 立;口径见模块 docstring 与 §5 文档)
+#
+# 下面两个纯函数是这条边界的**唯一实现**:行为级用例与静态形状锁都问这里,不在测试里
+# 另抄一份判据常量(§22c 单一真相源)。它们不参与线上判定 —— 存在的意义就是"接回来即红"。
+# ---------------------------------------------------------------------------
+
+# 写侧端点的形态指纹:makeup + card(s) + use 三段,分隔符允许 `-`/`_`/`/`/空格/无(覆盖
+# kebab / snake / 驼峰三种书写)。`use` 后必须落在词边界上,以免误伤 `makeup_cards_used`
+# 这类**读侧**字段名;单独出现的 `makeup_cards`(streak 读侧 JSON 键)同样不算命中。
+_MAKEUP_WRITE_TOKEN_RE: Final = re.compile(r"makeup[-_ ]?cards?[-_ /]*use\b", re.IGNORECASE)
+
+# 出网调用原语:本模块所有请求都从这几处发出(新增原语必须同批登记,否则静态锁失明)。
+_REQUEST_CALL_FUNS: Final = frozenset({"_wb_request", "_post_once"})
+_REQUEST_CALL_ATTRS: Final = frozenset({"post", "request", "Request"})
+
+
+def makeup_card_write_hit(text: str) -> bool:
+    """URL / 请求体 / 标识符是否指向补签卡**写侧**端点(读侧键名一律不算命中)。"""
+    return _MAKEUP_WRITE_TOKEN_RE.search(text) is not None
+
+
+def _is_request_call(node: ast.Call) -> bool:
+    """该 Call 是不是"直接构造并发出请求"的调用点(取字典值那种普通调用不算)。"""
+    fn = node.func
+    if isinstance(fn, ast.Name):
+        return fn.id in _REQUEST_CALL_FUNS
+    if isinstance(fn, ast.Attribute):
+        return fn.attr in _REQUEST_CALL_ATTRS
+    return False
+
+
+def _docstring_constant_ids(tree: ast.AST) -> set[int]:
+    """收集"文档串"字面量节点 id —— 说明性散文不在射程,只锁代码里的端点形态(§12f)。"""
+    out: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(
+            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            continue
+        first = node.body[0] if node.body else None
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            out.add(id(first.value))
+    return out
+
+
+def find_makeup_card_write_hookups(source: str) -> list[str]:
+    """静态形状锁:在 `source`(本模块源码文本)里找出"把补签卡写侧接进出网调用"的点。
+
+    判据刻意只窄到两面(§12f:整文件禁词会把注释/docstring 里的说明也判红,逼人改措辞绕尺子):
+
+    1. **非 docstring 的字符串字面量**命中 `makeup_card_write_hit` —— 端点路径真要发出去,
+       必然以字符串形态落在某个请求构造面上;
+    2. **出网原语**(`_wb_request` / `_post_once` / `.post()` / `.request()`)调用子树里出现的
+       **标识符名**命中同一指纹 —— 兜住"路径常量住在别的模块、这里只 import 名字再传进去"的旁路。
+
+    命中 ⇒ 返回逐条 `L<行号>: <说明>`(空列表 = 未接线)。源码解析不了 ⇒ 抛 ValueError:
+    取不到输入一律显式「未判定」,不冒绿(§0.3)。
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as e:  # 连语法都读不动 ⇒ 无判定,不假装干净
+        raise ValueError(f"补签卡静态锁无法解析源码(未判定):{e}") from e
+    prose = _docstring_constant_ids(tree)
+    hits: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if id(node) not in prose and makeup_card_write_hit(node.value):
+                hits.append(f"L{node.lineno}: 字符串字面量指向补签卡写侧端点")
+        elif isinstance(node, ast.Call) and _is_request_call(node):
+            for sub in ast.walk(node):
+                ident: str | None = None
+                if isinstance(sub, ast.Name):
+                    ident = sub.id
+                elif isinstance(sub, ast.Attribute):
+                    ident = sub.attr
+                if ident is not None and makeup_card_write_hit(ident):
+                    hits.append(f"L{node.lineno}: 出网调用里出现补签卡写侧标识符 {ident}")
+    return hits
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

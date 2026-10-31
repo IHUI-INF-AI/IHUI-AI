@@ -52,10 +52,21 @@ export interface BuildCspOptions {
  * ⚠️ 调用方必须把同一条字符串**同时**写进请求头与响应头:Next 从**请求头**的
  * `content-security-policy` 里读 nonce 并给自有 inline bootstrap script 打上它;
  * 响应头那份才是浏览器实际执行的策略。两边不一致 ⇒ nonce 对不上 ⇒ 白屏。
+ *
+ * dev + nonce 补 `'unsafe-eval`(2026-10-31 修,dev-only,不动 2026-10-30 的收紧):
+ * 原三元结构 `nonce ? <nonce 分支> : (dev ? … : …)` 让"发了 nonce 就整条跳过 dev 分支",
+ * 而 proxy.ts 对 HTML 路径**开发态也发 nonce** ⇒ dev 页永远拿不到 'unsafe-eval' ⇒
+ * Next dev 的 HMR / React Refresh / eval 型 source map 被 CSP 拦死,页面落进错误边界
+ * (控制台原文 `eval() is not supported in this environment ... CSP`),§17「UI 改动必须
+ * 真浏览器验证」因此结构性失效。**仅 dev 态**在 nonce 分支追加 'unsafe-eval';
+ * 生产态 nonce 分支一字不变(仍无 'unsafe-eval',也依铁律②不带 'unsafe-inline')。
  */
 export function buildCsp({ nonce, dev }: BuildCspOptions): string {
   const scriptSrc = nonce
-    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${SCRIPT_SRC_HOSTS}`
+    ? dev
+      ? // dev-only 放宽:只加 'unsafe-eval',绝不加 'unsafe-inline'(CSP3 下会被忽略的双写)
+        `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' ${SCRIPT_SRC_HOSTS}`
+      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${SCRIPT_SRC_HOSTS}`
     : dev
       ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${SCRIPT_SRC_HOSTS}`
       : `script-src 'self' 'unsafe-inline' ${SCRIPT_SRC_HOSTS}`

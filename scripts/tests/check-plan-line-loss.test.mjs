@@ -22,6 +22,8 @@ import {
   declaredRows,
   LEDGERS as SCRUB_LEDGERS,
 } from '../scrub-declared-removals.mjs'
+// 复合主键判据只认单源(§0.6):测试不得手拼键串。
+import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 // 源脚本今日两种导出形态都成立:HEAD 仍导出 __test__,并行会话在制版已改成逐个具名导出。
 // 取 `__test__ ?? 模块命名空间`,同一批符号在此后两种形态下都能拿到 —— 断言强度一条不降,
 // 也让"删掉镜像测试"失去唯一理由(测试不会因源侧重命名而失效)。
@@ -2376,6 +2378,36 @@ test('四向夹具④(变异自证):摘掉③那一支 ⇒ ③的夹具当场翻
   } finally {
     rmScratch(dir)
   }
+})
+
+test('回捞侧声明刹车:整行在摘除台账 ⇒ 不回捞;撤掉台账 ⇒ 照旧回捞(成对变异)', () => {
+  const target = '## 台账\n\n- [ ] A1 既有行\n'
+  const entry = {
+    marker: 'A1',
+    id: 'A1',
+    line: '- [ ] A1 被摘的副本行',
+    prev: '- [ ] A1 既有行',
+  }
+  const withoutDeclared = G.healContent(target, [entry])
+  assert.equal(
+    withoutDeclared.inserted + withoutDeclared.appended,
+    1,
+    '不传台账时必须照旧回捞(撤掉新判据 ⇒ 翻红)',
+  )
+  const key = compositeKeyOf(entry.line)
+  assert.ok(key, '夹具前提:entry.line 必须能算出复合主键')
+  const declared = {
+    set: new Set([entry.line]),
+    dropTitleFps: new Set(),
+    keyIndex: new Map([[key, [entry.line]]]),
+  }
+  const withDeclared = G.healContent(target, [entry], declared)
+  assert.equal(
+    withDeclared.inserted + withDeclared.appended,
+    0,
+    '整行在摘除台账里时不得再插回(2026-11-01 R12:摘了又回来的根因就在回捞侧缺这道闸)',
+  )
+  assert.equal(withDeclared.skippedDeclared, 1, '必须点名被台账拦下的条数,不得静默')
 })
 
 test('单源形状锁:闸门只 import 复洁器那一份解析,门内不得长出第二份 jsonl 解析或桶正则(§0.6/门 191)', () => {
