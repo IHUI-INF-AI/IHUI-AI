@@ -110,7 +110,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | schema 文件 | 240 | `dbSchemaFiles` |
 | API 路由 | 4656 | `apiRoutes` |
 | 路由文件 | 656 | `apiRouteFiles` |
-| AI 服务路由 | 623 | `aiServiceRoutes` |
+| AI 服务路由 | 624 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -121,13 +121,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3752 | `testFiles` |
+| 测试文件 | 3766 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 308 | `guardianGates` |
 | — blocking | 282 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 18276 | `trackedFiles` |
+| 跟踪文件 | 18296 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -803,7 +803,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | A2A 协议            | Agent-to-Agent 互通 / Redis 持久化 + 内存降级                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 |                   | 知识库 RAG          | 文档向量化 / 语义搜索 / 引用追溯 / knowledge-base + knowledge-rag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |                   | 知识图谱            | knowledge-graph schema + 节点关系图谱 / 跨文档实体链接(开源 AI 平台中少见)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                   | 知识文件系统        | knowledge_fs 只读虚拟路径 `/repo/<repoId>/<file>#<symbol>`(list/read/stat/search 四出口,代码切片投影,对齐 Trae ckg Cfs* 读半边)+ external_import 外部运行时 4 维导入(memory→长期记忆 / automations→调度器幂等键 / capabilities 声明 / sessions 让位 relay 腿)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+|                   | 知识文件系统        | knowledge_fs 只读虚拟路径 `/repo/<repoId>/<file>#<symbol>`(list/read/stat/search 四出口,代码切片投影,对齐 Trae ckg Cfs* 读半边)+ external_import 外部运行时 4 维导入(memory→长期记忆 / automations→调度器幂等键 / capabilities 声明 / sessions 让位 relay 腿) + G7 本地 embedding 回落(远端失败自动降级 1536 维确定性哈希向量,embedding_provider 列如实标注 remote/local-hash,离线索引可识别不冒充)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 |                   | pgvector 向量库     | 0123_pgvector_embedding 迁移 / 原生 PostgreSQL 向量索引 / 无需独立向量数据库                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 |                   | 工作流编排          | 可视化工作流 / CrewAI 集成 / N8N 代理 / workflows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |                   | 向量记忆            | 余弦相似度语义搜索 / 跨会话长期记忆(**按用户属主隔离**,无属主标记的历史条目 fail-closed 不可见) / vector-memory / pgvector + FTS5 双引擎 + 自动记忆提取 + 用户画像建模                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -5571,6 +5571,117 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-31**
+- 🐞 修复:ScreenStates 占位高台收单一源 + 标题字号撤手写档 —— 消解 2026-11-24 到期豁免的真实差异半边 (e8ba95f0f3)
+- 🚀 新功能/改进:切号链收尾 —— codearts 快照面解除 supported:false + 闭环 CLI 挂 script + 快照落点补忽略 (42b2ce0a2e)
+- 🔧 工程/其他:probe3 (61600c99b2)
+- 🐞 修复:补齐 RN 端 7 枚 t() 调用点的缺词 —— 界面不再回显裸键路径 (3229f88b8d)
+- 🐞 修复:DevicesScreen 展开面板圆角回角色档 —— panel 取 xl(12) 不再 sm(4) (c164fb5f83)
+- 🔧 工程/其他:probe (a8ef367298)
+- 🐞 修复:弹层键盘避让补进唯一承载件 + 提现 2FA 面板色值收口(三道 HEAD 恒红门归零) (235d418a8e)
+- 🐞 修复:跨端接线族五连修(末枚)—— 幻影判据补间接消费维 / tooltip 语义反转 / 裁定账摘 SectionHeader / 补回 navbar-core 导出 (c3ff235506)
+- 🔧 工程/其他:probe6 (403d6bfa0d)
+- 🔧 工程/其他:采纳锁两处对齐现状 —— feedback 壳承载摘出 ADOPTED + setValue 同源判据补 props 透传形态 (1ccbebaa2f)
+- 🐞 修复:验证码弹层补键盘避让 —— 键盘不再盖住用户要看的 6 个码格 (5e99373861)
+- 🐞 修复:gen-i18n 三处写盘全部走重试(remote-locale-manifest.gen.ts 同型锁实证) (6f78b9dc8d)
+- 🐞 修复:恢复 I18nProvider value 定身(9fdbc207ba 第三票回退)+ d20 形状锁窗口放宽 (12fe73bd51)
+- 🐞 修复:gen-i18n 写盘加重试 —— Windows 实时扫描毫秒级独占锁致全量 turbo 连续三轮稳定红 (3fc2338841)
+- 🐞 修复:恢复 G-41 钩子事件流生产接线 —— 9fdbc207ba「清理回退残留」抹掉的第二个接线面 (7cc430a3df)
+- 🔧 工程/其他:补 packages/ui-react/tests/setup.ts 的溯源水印横幅 —— 销 HEAD 面欠账 (f77e41df3f)
+- 🐞 修复:守门 218 射程补上 packages/app/src —— 共享屏层的手抄色值不再对门隐身 (23dee91758)
+- 🐞 修复:清偿 devices page 的 TASK_STATUSES 只用作类型 lint 红(0e875130c0 带入的 HEAD 存量) (61d3c76645)
+- ♻️ 重构:色相表分成"带前景的族"与"纯底档的族"两型 + 收编最后一张手抄表 (38f236b266)
+- 🔧 工程/其他:清偿 devices-g1.test 两处 eqeqeq(0e875130c0 带入的 HEAD 存量 lint 红) (397e481f7a)
+- 🔧 工程/其他:清偿 rn-sheet-keyboard-cta 两处 children-as-prop(235d418a8e 带入的 HEAD 存量 lint 红) (ecb6277916)
+- 🔧 工程/其他:补 vitest 入口的两个漏项 —— 浏览器全局补丁未挂 + Radix Trigger 裸 click 恒假 (906c04feca)
+- 🐞 修复:色相表补上构建装车腿 + 8 个共享屏的 tint 抄本收编到单源 (1160d9530c)
+- 🐞 修复:根槽位判据扩两条窄追跳 —— 同文件本地代渲染 + 跨端同源核心构造判定 (56ef0e8d7f)
+- 🚀 新功能/改进:色相族 tint 落单一真相源 —— 收编 RN 侧 8 份手抄调色板的落点 (894de57d3a)
+- 📚 文档:中英散文声明行数字对齐 gen-doc-numbers 现算 —— 617 表/4653 路由/3698 测试文件/306 守门/51 CI/14 Compose(仅声明行 8+1 行;并摘除 en 内混入的历史中文生成块行 cliToolFiles,该行祖先态已删属复活);历史变更日志行不动 (645f426bf4)
+- 🚀 新功能/改进:文件读取状态缓存接线 + 失败词表对账门 + 派生面收敛收尾 —— ai-service read_file 登记会话级内容指纹、file_edit 落盘前脏判定(fresh/stale/never_read/undetermined 四档不并桶,__session_id 取承载层注入,判据本体 file_read_state 单源)+ 沙箱阻断计量测试;词表对账门入库(复用门 151 解析器,接线另票);门 269 提取器内联箭头按块记账(修 alias-routes 三处同名形参前缀塌缩);reset 页面细进度条圆角收编 rounded-xs 与 prettier 重排 (c0312b47ff)
+- 🐞 修复:恢复模型广场兜底容量与兜底降级组 —— 转壳承载丢失的能力维随形状锁取材点迁移一并归位 (4f45a62234)
+- 🐞 修复:守门 102 的 GA1 字形集扩进关闭/勾选族 —— × 当图标长期不响这一格补上 (824b10cb6c)
+- 🔧 工程/其他:on-demand 三级就绪对账改挂产物文件面 —— 同 i18n-compressed 的收口逻辑 (86660d7aee)
+- 🐞 修复:门 272 的镜像锁改用 code-mask 剥注释,并格式化门体 (e255be79c3)
+- 🐞 修复:清偿 i18n 测试收口枚的未用标识符(mergeMessages/Locale/MESSAGES_ROOT/REPO_ROOT 删除后残留 import 与常量)+ sep 回补(下游相对路径换算仍在用) (7baf0ecb7e)
+- 🐞 修复:四处弹层输入补键盘避让,并装守门 272 锁住这一型 (fe670d07fd)
+- 📚 文档:守门 272 补进「守门脚本点名索引」的 UI/样式 行 (092b35faf9)
+- 🔧 工程/其他:i18n 无损性套件撤第二份合并判据 —— 降回产物层健康锁,内容对账归守门 105 钉现算 (3a7a164c51)
+- 🚀 新功能/改进:守门 273 触屏交互卫生上线 + 命中尺寸 22→0 清零 + 三处静默失效补口 (8dfce6e70d)
+- 🐞 修复:I18nProvider 定身恢复(9fdbc207ba 第五票)+ drawer artifacts 条目五语言补齐 + i18n 产物按 HEAD 面重生成 (f195ed1e06)
+- 🐞 修复:generate-ui-routes 写盘加重试 —— build 链三处生成脚本写盘全部覆盖(同 gen-i18n/watermark 同型) (1d1d7894c2)
+- 🐞 修复:watermark inject 写盘加重试 —— gen 写完紧随的 inject 撞实时扫描锁(同 gen-i18n 同型) (1df3c59ff0)
+- 🐞 修复:I18nProvider value 定身恢复 —— 9fdbc207ba 回退的第四票(与 miniapp/mobile-rn 同型母型缺陷) (a0d46a32ab)
+- 🐞 修复:再删 aboutPageSections 死件回潮(第三次)—— 检出滞后把轮 55 的正当删除带回来 (c247b0a7f7)
+
+- 🚀 新功能/改进:G1b 设备互联安全面三件(对齐 Qoder 0.5.1 peerDevice 状态族)——8 位配对码/设备指纹绑定/版本兼容闸 (1bcaf44c0b)
+- 📚 文档:票79 权限双轴化按证据结清 —— 契约/裁决器/wire/前端 UI 四层全部在车,双轴 picker 挂载与请求链消费现读,承载测试 14 例复跑绿;resume 三出口有意不接与真机集成验证按票面原样交后手 (d00771a6b1)
+- 📚 文档:票59 消息级版本切换按证据结清 —— 三段(后端不删行/sibling 入族坐标/CanvasVersionMenu 复用)全部在车,承载测试 22 例复跑绿 (032f358bdf)
+- 🐞 修复:离线包生成物按当前词包源重刷(门 105 G-680 自述钉 stale 清偿)—— gen:i18n 现跑产物,inputsSha256 与源对齐;ui-routes 钉已 matched 不动 (4f511bba67)
+- 📚 文档:三条僵尸票按证据结清 —— argument-validation 三格全有终局(模块退役裁决+行为锁 10 例)、--allow-dangerous 契约声明与测试面已落地、O66 四件落点全在车(承载测试 55 例);三批本机现读全绿 (627aa16be5)
+- 🚀 新功能/改进:26 处内容文字接回系统字号通道 —— 新增唯一放大机制 scaleText(),门 273 的 H4 随之升绝对零 (d1a6dea5a1)
+- 🚀 新功能/改进:文字必须随系统字号长大 —— FloatBox 接上缩放唯一口 + 一把握不住复发三次的替身缺口尺子 (c7c6f50dd5)
+- 🚀 新功能/改进:门 273 补 H3「键盘点击穿透」普查 + 摘掉两处"填完再点第一下没反应" (cf65e9c457)
+- 🐞 修复:门 273 两条判据方向再校正 —— 遮罩不算缺反馈 + 摘掉一枚假 affordance (10790ffb22)
+- 🔧 工程/其他:probe (92a1ebbb9b)
+- 🔧 工程/其他:壳声明件跟随新落承载页(187 条说明符) (d64476f31f)
+- 🚀 新功能/改进:守门 274 字号可读地板上线 + 字号表补 badge 档 + 9px 文字 11 处收进档 (f0a0cfda3d)
+- 🔧 工程/其他:恢复 RTL asyncUtilTimeout:4000 —— 9fdbc207ba 回退的第六票(43ce93f1a8 的等待预算被「清理回退残留」抹掉) (92729cb16d)
+- 🐞 修复:门 273 的 H2 判据认原语默认态 —— 957 枚误报当场收窄(1296→352) (2aba634b5b)
+
+- 🐞 修复:数字值列退位出表格锚点,根治 Step2b 数字对齐与活文档闸自咬 —— README 生成块「|名称|数值|键名|」三列形态下 gen-doc-numbers 每轮翻新数值,旧锚点 T#名|73 与新锚点 T#名|72 永不相遇 ⇒ 改写被误判 lost、--apply 把旧数值插回、下一轮再翻新,死循环(2026-10-31 实测两枚提交各吃一轮);行身份改取名称+键名,仅第 2 格纯数字且第 3 格键名形状才走此路,两列表与自由文本第 3 格维持旧行为(反向锁在自检 ⑱a);immutable-exempt: 修的是两把器物判据咬合造成的恒红循环,扩识别不放宽语义,带正反用例与镜像 18/18 (0e63b9c2a3)
+
+- 🐞 修复:收编器补齐滞后副本守卫的接线与两个漏网洞 —— ① main 重新接线 dropStaleCopies:判据与装车锁 T6 于 2026-10-29 写好,main 里的接线被后续副本覆盖洗掉,守卫整个悬空(教训:镜像测试红了必须有人读),aboutPageSections 第四次回潮(7a47524b07)即此通道,T6 一直红着无人修;② partitionStaleCopies 的 !head 分支不再 fail-open:HEAD 无此文件但 git log --diff-filter=A 证得到曾入库 ⇒ 删除档死件回潮必须跳过(第四轮回潮正是这条通道);③ 祖先窗口 6→40(回潮-删除轮次多的路径在 6 枚窗口漏网);新增 T10/T11/T12,镜像 12/12,dry-run rc=0 (f221586d3f)
+- 📚 文档:三条 [归并] 指针副本按证据结清摘除 —— 其所指实质工作均已在 HEAD 落地:①prod-bundle 运行入口三枚入库源在册(git ls-files deploy/scripts/prod-bundle/svc/run-{api,web,ai}.ps1)+ check-prod-bundle-shadow.mjs:148-159 的 PAIRS 三对已登记,E1 枚举闭合(14 个运行副本全在登记表,运行副本本机不在=未判定非失败);②门 98 D6「错名 .js 影子架空 .ts 说明符映射」判据已实现(头注 35-46 + 实现 1170-1232,--self-test 19 例)。三行均属「重复登记副本存量清零」射程,不再保留一行一状态 (999ea0250c)
+- 📚 文档:安装器视觉三版按证据结清 —— 选型 A 版墨光·续已于 3a1f2a462f 落地(90 枚氛围资产+全帧目审 18/18),本机 check-installer-assets 三行 PASS、正式与候选同 blob 复核通过 (c4c5dd0f42)
+- 📚 文档:G-23 admin 默认口令按证据结清 —— fixtures/seed 已改从 env 取、守门 check-public-admin-default 现跑通过、离线取证现役散列对公开默认六候选全脱靶;余项凭据三点漂移归机主核对 (f5cc79b586)
+- 🚀 新功能/改进:G-09/G-17/G-05/G-10 —— elicitation 接线 + 会话身份注入 + 图片检索 + 压缩五判据 (a6e69e7452)
+- 📚 文档:O68 pass-entry-broken 按证据结清 —— 该型根因是切流空窗:门禁起点早于新构建真就绪、web 维被 EdgeOne 缓存刷绿,触发条件在 deploy/win/health-gate-verdict.ps1:98(末轮明确 fail ∧ 源站 web+api 直探均 pass)、产出点 ihui-deploy.ps1:3429;修复四枚全部已在 HEAD 谱系(merge-base --is-ancestor 逐枚现读):e6d21d196d 就绪等待替代固定 8s、8f572260a4 结清(实测源站 5 秒就绪/门禁首轮全绿)、38d71cfb82 与 dfc9b905b5 蓝绿+router 原子切流(空窗归零);信号时刻 2026-10-27T17:30Z=本地 10-28 01:30,正是 ihui-deploy.ps1:3238 记载 6 枚 01:30~09:10 的首枚,早于修复 ⇒ 票面系滞后回填,本仓无需再改代码 (180f90e911)
+- 📚 文档:票86 证据级可追溯执行流水按证据结清 —— 落库四要素/链式审计/签名导出路由+公钥面/180 天保留作业四层全部在车,承载测试 67 例单跑全绿(并发下超时为饿死假红) (cbed2c09ab)
+
+- 📚 文档:WP-7 元素句柄与票71 多端 chat 同步按证据结清 —— WP-7 交付落 dbfe0c624d5(9 例含真 Chrome 全绿),71 三端聊天面(web/taro/RN)全部接线+契约四件收口,cli/extension 无聊天面如实豁免 (242ac41536)
+- 🚀 新功能/改进:WP-7 浏览器可复用元素句柄 + 票71 RN 端 chat 同步接线 —— ① CLI browser_snapshot 为交互元素分配会话级稳定 ref(eN,WeakMap 同元素同 ref),click/type 支持 ref 与 selector 二选一,导航后旧 ref 显式 stale_ref 并提示重新快照;测试 browser-element-handle 9 例(含真 Chrome 5 例)绿,tsc RC=0。② RN 端 message:* 广播 handler 经共享 chat-sync-store 投影进 ChatScreen(幂等/四态零复制/回声跳过),测试 chat-sync-rn 19 例绿;仅单测未真机,新会话 conversationId 为空时同步不生效属已知边界 (dbfe0c624d)
+- 🚀 新功能/改进:G-08 worktree 会话级工具 + G-14 lesson-draft 调度 + G-22 插件默认态 + G-21 装机资产对账 (f97112d718)
+
+- 🚀 新功能/改进:推理档位扩到 xhigh/max(四抄写面同批 + web 轴) (bb5058f925)
+
+**2026-10-31**
+- 🔧 工程/其他:接上 AI 代码归属 git notes 的零调用死腿(fail-open) (ea2a4adf09)
+- 🚀 新功能/改进:G-18 运行清单 + G-25 产物内容寻址 (5deda5045c)
+
+**2026-10-31**
+- 🔧 工程/其他:补齐钩子异步唤醒+8 档事件的用例文件(与 9d14cbe3b 同批,前次提交窗口被并发 reset 打断) (b75a40cc7a)
+
+**2026-10-31**
+- 🚀 新功能/改进:钩子 async/rewake 不阻塞 + 8 档事件单源(HookEvent 23→31) (9d14cbe3bb)
+- 📚 文档:恢复误删的票5(perf e2e)未勾行 —— 上一枚 2fa2b47ca51 把进展注记误写成结清档导致该行被删除;本次从 139d7f462a7 逐字取回原行并附实测进展(首屏 1158ms/1600ms dev 口径通过,长任务带归因 0 属 dev 噪声),票维持未勾 (5128e3340b)
+- 📚 文档:票5 perf e2e 实测进展 —— 隔离栈真跑通(首屏 1158ms/1600ms dev 口径通过),长任务 183/86 带归因 0 属 dev 噪声;票不结清,下一步生产口径复测+归因补 src (2fa2b47ca5)
+- 🐞 修复:两处同向嵌套滚动容器摊平 —— 纵向 ScrollView 里别再套纵向 FlatList (86ef41808a)
+
+**2026-10-31**
+- 🚀 新功能/改进:编辑器态喂索引(editor_state 入上下文聚合，默认关灰度) (f77199d13f)
+- 🚀 新功能/改进:e2e-local-supply 修文档跑不通的旗标形态 + 新增 --stack 隔离栈自起停 —— flagValue 兼容 --base-url <v> 空格形态(此前只认 = 形式,照 --help 敲必 exit 2,§0.8);--stack 自带起/停隔离 API+web(独立库/独立端口/独立 dist,跑完自动收口,--keep 可保留),新增 --api-port/--db/--keep;unknown 判定排除值位置 token。实测:用 --stack + E2E_SKIP_SEED=1 跑通 perf-long-session 首屏用例 1158ms / 预算 1600ms(dev×2)通过(热档 277ms) (139d7f462a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (badfe334a6)
+- 🐞 修复:清两处测试假 oracle —— 夹具给生产从不填充的 request.user 赋值(门 242 W3 绝对零容忍) (51b6e4be56)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b1ba3762e4)
+- 🚀 新功能/改进:错题本页改壳承载 + 修好「可换却写不进去」的转换器 (1dbd0dc639)
+- 🚀 新功能/改进:34 处键盘点击穿透清零并升 H3 为绝对零容忍;顺带根治门 273 自身的恒红缺陷 (a0e5261a78)
+
+**2026-10-31**
+- 🚀 新功能/改进:micro压缩接入执行器 + 浏览器动作tab级作用域 (0cbd8bdb9f)
+- 🚀 新功能/改进:号池管理页加归属筛选(我的个人池 owner=me)+ 个人池徽章 —— admin 账号也能看自己的池 (0ddc1fcbf5)
+- 🐞 修复:内部端点公网封禁 + 运营面越权收口(安全强化第 14 批·api/web) (bd60682c87)
+- 🚀 新功能/改进:G2 ContextFS 只读虚拟文件系统 + Qoder 导入 4 维对位物(goal-b41,先对齐再超越) (6b25542a75)
+- 🐞 修复:测试 mock 的 Redis URL 用非法 db 段当哨兵 ⇒ ioredis 真连接后 SELECT NaN,未处理拒绝把 vitest 退出码打成 1 (1963eee7a7)
+- 🐞 修复:安全强化第 10 批 R5 —— db_query 只读双层加固 + git_operations argv 注入封死 —— ① db_query:关键词黑名单从「尾随空格子串」改词边界 regex(此前 DELETE\nFROM / DELETE/**/FROM 型变体可绕过,deleted_at/drop_function 类标识符不误杀)+ asyncpg conn.transaction(readonly=True) 数据库层兜底(此前 data-modifying CTE 如 WITH d AS (DELETE...RETURNING...) SELECT... 能穿过任何文本黑名单,数据库层只读事务把这一整族含未来未知写语法结构性封死,黑名单降级为纵深第一道);② git_operations:position 段(ref/分支名/tag 名/pattern)全部过 _assert_safe_git_arg(拒 - 前缀 —— show --output=<path> 曾可写服务器任意文件、--ext-diff 可调外部程序;拒空白/控制符),show/branch_create/branch_switch/branch_delete/merge/rebase/tag_create/tag_list 八个动作点全覆盖。测试 test_security_batch10_r5.py 8/8(换行/注释变体拒绝+标识符正向对照+argv 四态+show 端到端)。 (8407903655)
+- 🚀 新功能/改进:大屏「使用数据」补齐用户构成/等级分布/14日增长 + 告警行数分裂提示 (9d2aee1235)
+- 🚀 新功能/改进:大屏五语言同批补 6 键 + 删 1 键按正规出口声明 (99a7ebadd4)
+- 🔧 工程/其他:重新封存根护栏清单 —— guardian-runner 07:17 改动未同批重封,部署环 fail-closed 停摆 (f1fb8220dd)
+- 🐞 修复:归位被"清理功能回退残留"整段回退的积分兑换事务修复 (acd8cd7456)
+- 🐞 修复:号池「可调度」补票面维 + 告警账号容量归位 —— 票过期 70 小时的号仍算在分子里 (cbc49b04e9)
+- 🔧 工程/其他:安全强化第 13 批接线面回归锁 —— 主链工具结果装配点定界断言五条(llm.py 裸拼形态归零+8 处单源引用 / conversation 失败分支宿主指令在块外(Raw result: {raw_tool_json})/ agent_orchestrator 无裸拼 / agent_loop_v2 第 8 批既有接线未绕开 / protocol_adapter 协议转换器刻意不接定界(既有消息回放,双重包裹破坏回放))。第 13 批修复本体已由并行会话收编入库(f0e490a7f9,与本席 R4 工作树改动同内容),本枚补齐其接线面防回归锁。10/10 全绿(r4+r4_framing),mypy --strict 665 文件零错误 (ae754729de)
+- 🐞 修复:安全强化第 13 批 —— 凭据落盘加密/沙箱 fail-closed/工具结果宿主定界/错误帧脱敏/桌面原生确认/边缘封禁 (f0e490a7f9)
+
+**2026-10-31**
 - 🚀 新功能/改进:预测式编辑建议条五语词表(编辑器场景 CUE 对齐批次) (9c9e338469)
 - ♻️ 重构:门户维收敛候选集编排抽成纯函数,段级族可被构造面钉住 (182440479b)
 - 🔧 工程/其他:派生产物按最新 HEAD 面重生成 —— 补 webViewPortal.artifacts 词条,离线包与两枚路由钉同步 (bdd9129d40)
@@ -5643,89 +5754,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-10-31**
 - 🐞 修复:修 main 上 8 条 workflow 红的真因 —— 配置解析、构建顺序、依赖面、快速失败档、静态导出暂存、expo 入口双拼、ruff 与死指令 (b00a35fabf)
-
-**2026-10-31**
-- 📚 文档:WP-7 元素句柄与票71 多端 chat 同步按证据结清 —— WP-7 交付落 dbfe0c624d5(9 例含真 Chrome 全绿),71 三端聊天面(web/taro/RN)全部接线+契约四件收口,cli/extension 无聊天面如实豁免 (242ac41536)
-- 🚀 新功能/改进:WP-7 浏览器可复用元素句柄 + 票71 RN 端 chat 同步接线 —— ① CLI browser_snapshot 为交互元素分配会话级稳定 ref(eN,WeakMap 同元素同 ref),click/type 支持 ref 与 selector 二选一,导航后旧 ref 显式 stale_ref 并提示重新快照;测试 browser-element-handle 9 例(含真 Chrome 5 例)绿,tsc RC=0。② RN 端 message:* 广播 handler 经共享 chat-sync-store 投影进 ChatScreen(幂等/四态零复制/回声跳过),测试 chat-sync-rn 19 例绿;仅单测未真机,新会话 conversationId 为空时同步不生效属已知边界 (dbfe0c624d)
-- 🚀 新功能/改进:G-08 worktree 会话级工具 + G-14 lesson-draft 调度 + G-22 插件默认态 + G-21 装机资产对账 (f97112d718)
-
-**2026-10-31**
-- 🐞 修复:收编器补齐滞后副本守卫的接线与两个漏网洞 —— ① main 重新接线 dropStaleCopies:判据与装车锁 T6 于 2026-10-29 写好,main 里的接线被后续副本覆盖洗掉,守卫整个悬空(教训:镜像测试红了必须有人读),aboutPageSections 第四次回潮(7a47524b07)即此通道,T6 一直红着无人修;② partitionStaleCopies 的 !head 分支不再 fail-open:HEAD 无此文件但 git log --diff-filter=A 证得到曾入库 ⇒ 删除档死件回潮必须跳过(第四轮回潮正是这条通道);③ 祖先窗口 6→40(回潮-删除轮次多的路径在 6 枚窗口漏网);新增 T10/T11/T12,镜像 12/12,dry-run rc=0 (f221586d3f)
-- 📚 文档:三条 [归并] 指针副本按证据结清摘除 —— 其所指实质工作均已在 HEAD 落地:①prod-bundle 运行入口三枚入库源在册(git ls-files deploy/scripts/prod-bundle/svc/run-{api,web,ai}.ps1)+ check-prod-bundle-shadow.mjs:148-159 的 PAIRS 三对已登记,E1 枚举闭合(14 个运行副本全在登记表,运行副本本机不在=未判定非失败);②门 98 D6「错名 .js 影子架空 .ts 说明符映射」判据已实现(头注 35-46 + 实现 1170-1232,--self-test 19 例)。三行均属「重复登记副本存量清零」射程,不再保留一行一状态 (999ea0250c)
-- 📚 文档:安装器视觉三版按证据结清 —— 选型 A 版墨光·续已于 3a1f2a462f 落地(90 枚氛围资产+全帧目审 18/18),本机 check-installer-assets 三行 PASS、正式与候选同 blob 复核通过 (c4c5dd0f42)
-- 📚 文档:G-23 admin 默认口令按证据结清 —— fixtures/seed 已改从 env 取、守门 check-public-admin-default 现跑通过、离线取证现役散列对公开默认六候选全脱靶;余项凭据三点漂移归机主核对 (f5cc79b586)
-- 🚀 新功能/改进:G-09/G-17/G-05/G-10 —— elicitation 接线 + 会话身份注入 + 图片检索 + 压缩五判据 (a6e69e7452)
-- 📚 文档:O68 pass-entry-broken 按证据结清 —— 该型根因是切流空窗:门禁起点早于新构建真就绪、web 维被 EdgeOne 缓存刷绿,触发条件在 deploy/win/health-gate-verdict.ps1:98(末轮明确 fail ∧ 源站 web+api 直探均 pass)、产出点 ihui-deploy.ps1:3429;修复四枚全部已在 HEAD 谱系(merge-base --is-ancestor 逐枚现读):e6d21d196d 就绪等待替代固定 8s、8f572260a4 结清(实测源站 5 秒就绪/门禁首轮全绿)、38d71cfb82 与 dfc9b905b5 蓝绿+router 原子切流(空窗归零);信号时刻 2026-10-27T17:30Z=本地 10-28 01:30,正是 ihui-deploy.ps1:3238 记载 6 枚 01:30~09:10 的首枚,早于修复 ⇒ 票面系滞后回填,本仓无需再改代码 (180f90e911)
-- 📚 文档:票86 证据级可追溯执行流水按证据结清 —— 落库四要素/链式审计/签名导出路由+公钥面/180 天保留作业四层全部在车,承载测试 67 例单跑全绿(并发下超时为饿死假红) (cbed2c09ab)
-
-**2026-10-31**
-- 🐞 修复:数字值列退位出表格锚点,根治 Step2b 数字对齐与活文档闸自咬 —— README 生成块「|名称|数值|键名|」三列形态下 gen-doc-numbers 每轮翻新数值,旧锚点 T#名|73 与新锚点 T#名|72 永不相遇 ⇒ 改写被误判 lost、--apply 把旧数值插回、下一轮再翻新,死循环(2026-10-31 实测两枚提交各吃一轮);行身份改取名称+键名,仅第 2 格纯数字且第 3 格键名形状才走此路,两列表与自由文本第 3 格维持旧行为(反向锁在自检 ⑱a);immutable-exempt: 修的是两把器物判据咬合造成的恒红循环,扩识别不放宽语义,带正反用例与镜像 18/18 (0e63b9c2a3)
-
-**2026-10-31**
-- 🚀 新功能/改进:G1b 设备互联安全面三件(对齐 Qoder 0.5.1 peerDevice 状态族)——8 位配对码/设备指纹绑定/版本兼容闸 (1bcaf44c0b)
-- 📚 文档:票79 权限双轴化按证据结清 —— 契约/裁决器/wire/前端 UI 四层全部在车,双轴 picker 挂载与请求链消费现读,承载测试 14 例复跑绿;resume 三出口有意不接与真机集成验证按票面原样交后手 (d00771a6b1)
-- 📚 文档:票59 消息级版本切换按证据结清 —— 三段(后端不删行/sibling 入族坐标/CanvasVersionMenu 复用)全部在车,承载测试 22 例复跑绿 (032f358bdf)
-- 🐞 修复:离线包生成物按当前词包源重刷(门 105 G-680 自述钉 stale 清偿)—— gen:i18n 现跑产物,inputsSha256 与源对齐;ui-routes 钉已 matched 不动 (4f511bba67)
-- 📚 文档:三条僵尸票按证据结清 —— argument-validation 三格全有终局(模块退役裁决+行为锁 10 例)、--allow-dangerous 契约声明与测试面已落地、O66 四件落点全在车(承载测试 55 例);三批本机现读全绿 (627aa16be5)
-- 🚀 新功能/改进:26 处内容文字接回系统字号通道 —— 新增唯一放大机制 scaleText(),门 273 的 H4 随之升绝对零 (d1a6dea5a1)
-- 🚀 新功能/改进:文字必须随系统字号长大 —— FloatBox 接上缩放唯一口 + 一把握不住复发三次的替身缺口尺子 (c7c6f50dd5)
-- 🚀 新功能/改进:门 273 补 H3「键盘点击穿透」普查 + 摘掉两处"填完再点第一下没反应" (cf65e9c457)
-- 🐞 修复:门 273 两条判据方向再校正 —— 遮罩不算缺反馈 + 摘掉一枚假 affordance (10790ffb22)
-- 🔧 工程/其他:probe (92a1ebbb9b)
-- 🔧 工程/其他:壳声明件跟随新落承载页(187 条说明符) (d64476f31f)
-- 🚀 新功能/改进:守门 274 字号可读地板上线 + 字号表补 badge 档 + 9px 文字 11 处收进档 (f0a0cfda3d)
-- 🔧 工程/其他:恢复 RTL asyncUtilTimeout:4000 —— 9fdbc207ba 回退的第六票(43ce93f1a8 的等待预算被「清理回退残留」抹掉) (92729cb16d)
-- 🐞 修复:门 273 的 H2 判据认原语默认态 —— 957 枚误报当场收窄(1296→352) (2aba634b5b)
-
-**2026-10-31**
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (adf8244981)
-- 🚀 新功能/改进:守门 273 触屏交互卫生上线 + 命中尺寸 22→0 清零 + 三处静默失效补口 (8dfce6e70d)
-- 🐞 修复:I18nProvider 定身恢复(9fdbc207ba 第五票)+ drawer artifacts 条目五语言补齐 + i18n 产物按 HEAD 面重生成 (f195ed1e06)
-- 🐞 修复:generate-ui-routes 写盘加重试 —— build 链三处生成脚本写盘全部覆盖(同 gen-i18n/watermark 同型) (1d1d7894c2)
-- 🐞 修复:watermark inject 写盘加重试 —— gen 写完紧随的 inject 撞实时扫描锁(同 gen-i18n 同型) (1df3c59ff0)
-- 🐞 修复:I18nProvider value 定身恢复 —— 9fdbc207ba 回退的第四票(与 miniapp/mobile-rn 同型母型缺陷) (a0d46a32ab)
-- 🐞 修复:再删 aboutPageSections 死件回潮(第三次)—— 检出滞后把轮 55 的正当删除带回来 (c247b0a7f7)
-
-**2026-10-31**
-- 📚 文档:中英散文声明行数字对齐 gen-doc-numbers 现算 —— 617 表/4653 路由/3698 测试文件/306 守门/51 CI/14 Compose(仅声明行 8+1 行;并摘除 en 内混入的历史中文生成块行 cliToolFiles,该行祖先态已删属复活);历史变更日志行不动 (645f426bf4)
-- 🚀 新功能/改进:文件读取状态缓存接线 + 失败词表对账门 + 派生面收敛收尾 —— ai-service read_file 登记会话级内容指纹、file_edit 落盘前脏判定(fresh/stale/never_read/undetermined 四档不并桶,__session_id 取承载层注入,判据本体 file_read_state 单源)+ 沙箱阻断计量测试;词表对账门入库(复用门 151 解析器,接线另票);门 269 提取器内联箭头按块记账(修 alias-routes 三处同名形参前缀塌缩);reset 页面细进度条圆角收编 rounded-xs 与 prettier 重排 (c0312b47ff)
-- 🐞 修复:恢复模型广场兜底容量与兜底降级组 —— 转壳承载丢失的能力维随形状锁取材点迁移一并归位 (4f45a62234)
-- 🐞 修复:守门 102 的 GA1 字形集扩进关闭/勾选族 —— × 当图标长期不响这一格补上 (824b10cb6c)
-- 🔧 工程/其他:on-demand 三级就绪对账改挂产物文件面 —— 同 i18n-compressed 的收口逻辑 (86660d7aee)
-- 🐞 修复:门 272 的镜像锁改用 code-mask 剥注释,并格式化门体 (e255be79c3)
-- 🐞 修复:清偿 i18n 测试收口枚的未用标识符(mergeMessages/Locale/MESSAGES_ROOT/REPO_ROOT 删除后残留 import 与常量)+ sep 回补(下游相对路径换算仍在用) (7baf0ecb7e)
-- 🐞 修复:四处弹层输入补键盘避让,并装守门 272 锁住这一型 (fe670d07fd)
-- 📚 文档:守门 272 补进「守门脚本点名索引」的 UI/样式 行 (092b35faf9)
-- 🔧 工程/其他:i18n 无损性套件撤第二份合并判据 —— 降回产物层健康锁,内容对账归守门 105 钉现算 (3a7a164c51)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (37ca28af71)
-- 🔧 工程/其他:采纳锁两处对齐现状 —— feedback 壳承载摘出 ADOPTED + setValue 同源判据补 props 透传形态 (1ccbebaa2f)
-- 🐞 修复:验证码弹层补键盘避让 —— 键盘不再盖住用户要看的 6 个码格 (5e99373861)
-- 🐞 修复:gen-i18n 三处写盘全部走重试(remote-locale-manifest.gen.ts 同型锁实证) (6f78b9dc8d)
-- 🐞 修复:恢复 I18nProvider value 定身(9fdbc207ba 第三票回退)+ d20 形状锁窗口放宽 (12fe73bd51)
-- 🐞 修复:gen-i18n 写盘加重试 —— Windows 实时扫描毫秒级独占锁致全量 turbo 连续三轮稳定红 (3fc2338841)
-- 🐞 修复:恢复 G-41 钩子事件流生产接线 —— 9fdbc207ba「清理回退残留」抹掉的第二个接线面 (7cc430a3df)
-- 🔧 工程/其他:补 packages/ui-react/tests/setup.ts 的溯源水印横幅 —— 销 HEAD 面欠账 (f77e41df3f)
-- 🐞 修复:守门 218 射程补上 packages/app/src —— 共享屏层的手抄色值不再对门隐身 (23dee91758)
-- 🐞 修复:清偿 devices page 的 TASK_STATUSES 只用作类型 lint 红(0e875130c0 带入的 HEAD 存量) (61d3c76645)
-- ♻️ 重构:色相表分成"带前景的族"与"纯底档的族"两型 + 收编最后一张手抄表 (38f236b266)
-- 🔧 工程/其他:清偿 devices-g1.test 两处 eqeqeq(0e875130c0 带入的 HEAD 存量 lint 红) (397e481f7a)
-- 🔧 工程/其他:清偿 rn-sheet-keyboard-cta 两处 children-as-prop(235d418a8e 带入的 HEAD 存量 lint 红) (ecb6277916)
-- 🔧 工程/其他:补 vitest 入口的两个漏项 —— 浏览器全局补丁未挂 + Radix Trigger 裸 click 恒假 (906c04feca)
-- 🐞 修复:色相表补上构建装车腿 + 8 个共享屏的 tint 抄本收编到单源 (1160d9530c)
-- 🐞 修复:根槽位判据扩两条窄追跳 —— 同文件本地代渲染 + 跨端同源核心构造判定 (56ef0e8d7f)
-- 🚀 新功能/改进:色相族 tint 落单一真相源 —— 收编 RN 侧 8 份手抄调色板的落点 (894de57d3a)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7b434d031)
-- 🐞 修复:跨端接线族五连修(末枚)—— 幻影判据补间接消费维 / tooltip 语义反转 / 裁定账摘 SectionHeader / 补回 navbar-core 导出 (c3ff235506)
-- 🔧 工程/其他:probe6 (403d6bfa0d)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3bd0be64c9)
-- 🔧 工程/其他:probe3 (61600c99b2)
-- 🐞 修复:补齐 RN 端 7 枚 t() 调用点的缺词 —— 界面不再回显裸键路径 (3229f88b8d)
-- 🐞 修复:DevicesScreen 展开面板圆角回角色档 —— panel 取 xl(12) 不再 sm(4) (c164fb5f83)
-- 🔧 工程/其他:probe (a8ef367298)
-- 🐞 修复:弹层键盘避让补进唯一承载件 + 提现 2FA 面板色值收口(三道 HEAD 恒红门归零) (235d418a8e)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (39d0793928)
-- 🐞 修复:ScreenStates 占位高台收单一源 + 标题字号撤手写档 —— 消解 2026-11-24 到期豁免的真实差异半边 (e8ba95f0f3)
-- 🚀 新功能/改进:切号链收尾 —— codearts 快照面解除 supported:false + 闭环 CLI 挂 script + 快照落点补忽略 (42b2ce0a2e)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
@@ -5784,6 +5812,7 @@ G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒
 | **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
 | **测试覆盖** | **3607 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+| **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
 | **本机账号一键切换** | `pnpm relay:switch-account` / `pnpm relay:ide-switch --ide <平台>` | WorkBuddy 登录态按快照切换(切换前自动备份当前态);trae / trae-solo / qoder 三 profile ;`--with-sessions` 切账号时联动换桶(换桶失败回滚 auth) |
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs` `check-rn-interaction-hygiene.mjs` `check-rn-type-floor.mjs`
 
@@ -40547,45 +40576,3 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 📚 文档:切号条目口径按 2026-10-31 取证更正 + 补登统一入口与 MiniMax 回灌 (772eb33cca)
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs` `check-rn-interaction-hygiene.mjs`
-| AI 服务路由 | 624 | `aiServiceRoutes` |
-| AI 服务路由 | 618 | `aiServiceRoutes` |
-| 测试文件 | 3748 | `testFiles` |
-| 跟踪文件 | 18275 | `trackedFiles` |
-对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
-| 测试文件 | 3607 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
-| 跟踪文件 | 17728 | `trackedFiles` |
-  <strong>612 张表 · 4616 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3607 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
-| **代码规模** | 8 端代码 / 205 schema 文件 / **612 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4616 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
-| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
-| **测试覆盖** | **3607 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
-→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
-| **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
-**2026-10-30**
-**2026-10-30**
-**2026-10-30**
-**2026-10-30**
-**2026-10-29**
-**2026-10-30**
-**2026-10-30**
-**2026-10-30**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
-| 测试文件 | 3694 | `testFiles` |
-| 跟踪文件 | 18165 | `trackedFiles` |
-| 测试文件 | 3701 | `testFiles` |
-| 跟踪文件 | 18200 | `trackedFiles` |
-| 测试文件 | 3709 | `testFiles` |
-| 跟踪文件 | 18214 | `trackedFiles` |
-| 测试文件 | 3732 | `testFiles` |
-| 跟踪文件 | 18244 | `trackedFiles` |
-| AI 服务路由 | 629 | `aiServiceRoutes` |
-| 测试文件 | 3753 | `testFiles` |
-| 跟踪文件 | 18292 | `trackedFiles` |
