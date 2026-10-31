@@ -7033,8 +7033,6 @@
       "share": "Share",
       "showContent": "Show content",
       "toggleMetadata": "Toggle metadata"
-      "metadataLoading": "Loading metadata…",
-      "metadataUnavailable": "Metadata is temporarily unavailable",
     },
     "next": "Next",
     "prev": "Previous",
@@ -11934,6 +11932,8 @@
       "showContent": "Show content",
       "stopReadAloud": "Stop reading",
       "toggleMetadata": "Toggle metadata",
+      "metadataLoading": "Loading metadata…",
+      "metadataUnavailable": "Metadata is temporarily unavailable",
       "pin": "Pin",
       "unpin": "Unpin",
       "bookmark": "Bookmark",
