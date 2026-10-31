@@ -85,7 +85,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               </View>
               <View>
                 <Text className="block text-[length:32rpx] text-foreground">{item.title}</Text>
-                <Text className="block text-[length:28rpx] text-muted-foreground mt-[4rpx]">
+                <Text className="block text-body text-muted-foreground mt-[4rpx]">
                   {item.desc}
                 </Text>
               </View>

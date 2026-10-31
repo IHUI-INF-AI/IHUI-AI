@@ -29,7 +29,7 @@ export function StatsBar({ stats }: { stats: WrongStats | null }) {
         <Text className="block text-[length:36rpx] font-semibold text-foreground">
           {stats?.total ?? 0}
         </Text>
-        <Text className="block text-[length:24rpx] text-muted-foreground mt-[6rpx]">
+        <Text className="block text-label text-muted-foreground mt-[6rpx]">
           {t('wrongQuestions.statsTotal')}
         </Text>
       </View>
@@ -37,7 +37,7 @@ export function StatsBar({ stats }: { stats: WrongStats | null }) {
         <Text className="block text-[length:36rpx] font-semibold text-foreground">
           {stats?.unresolved ?? 0}
         </Text>
-        <Text className="block text-[length:24rpx] text-muted-foreground mt-[6rpx]">
+        <Text className="block text-label text-muted-foreground mt-[6rpx]">
           {t('wrongQuestions.statsUnresolved')}
         </Text>
       </View>
@@ -45,7 +45,7 @@ export function StatsBar({ stats }: { stats: WrongStats | null }) {
         <Text className="block text-[length:36rpx] font-semibold text-foreground">
           {stats?.resolved ?? 0}
         </Text>
-        <Text className="block text-[length:24rpx] text-muted-foreground mt-[6rpx]">
+        <Text className="block text-label text-muted-foreground mt-[6rpx]">
           {t('wrongQuestions.statsResolved')}
         </Text>
       </View>

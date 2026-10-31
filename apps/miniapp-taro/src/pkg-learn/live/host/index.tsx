@@ -151,7 +151,7 @@ export default function LiveHost() {
             {tt('liveHost.title', '主播中心')}
           </Text>
           <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
-            <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">
+            <Text className="text-caption text-[var(--color-primary-foreground)]">
               {badgeText}
             </Text>
           </View>
@@ -159,13 +159,13 @@ export default function LiveHost() {
 
         {error ? (
           <View className="px-[20rpx] py-[8rpx]">
-            <Text className="text-[length:28rpx] text-[var(--color-danger)]">{error}</Text>
+            <Text className="text-body text-[var(--color-danger)]">{error}</Text>
           </View>
         ) : null}
 
         {/* previewArea:height 176 → 352rpx,marginHorizontal 10 → 20rpx,radius 12 → 24rpx,bg gray.900 */}
         <View className="mx-[20rpx] mt-[16rpx] h-[352rpx] rounded-xl bg-[var(--color-screen-canvas)] flex items-center justify-center">
-          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-body text-[var(--color-text-tertiary)]">
             {status === 'active'
               ? tt('liveHost.previewActive', '已开始预览')
               : tt('liveHost.previewIdle', '未开始预览')}
@@ -174,7 +174,7 @@ export default function LiveHost() {
 
         {/* sectionBox:marginHorizontal 10 → 20rpx,marginTop 12 → 24rpx,padding 12 → 24rpx,radius 24rpx */}
         <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)]">
-          <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
+          <Text className="block text-body text-[var(--color-text-tertiary)] mb-[16rpx]">
             {tt('liveHost.streamTitle', '直播标题')}
           </Text>
           <FocusInput
@@ -190,7 +190,7 @@ export default function LiveHost() {
                 onClick={() => stream.pushUrl && copyText(stream.pushUrl)}
                 hoverClass="opacity-60"
               >
-                <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[16rpx] text-body text-[var(--color-text-tertiary)]">
                   {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}({copyHint})
                 </Text>
               </View>
@@ -199,7 +199,7 @@ export default function LiveHost() {
                 onClick={() => copyText(stream.streamKey)}
                 hoverClass="opacity-60"
               >
-                <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[16rpx] text-body text-[var(--color-text-tertiary)]">
                   {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}({copyHint})
                 </Text>
               </View>
@@ -245,7 +245,7 @@ export default function LiveHost() {
           <View className="flex flex-wrap">
             {stats.map((s) => (
               <View key={s.label} className="w-1/2 mb-[16rpx]">
-                <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-body text-[var(--color-text-tertiary)]">
                   {s.label}
                 </Text>
                 <Text className="text-[length:32rpx] font-semibold text-foreground">{s.value}</Text>
@@ -270,13 +270,13 @@ export default function LiveHost() {
               }
               hoverClass="opacity-60"
             >
-              <Text className="text-[length:28rpx] text-[var(--color-success)]">
+              <Text className="text-body text-[var(--color-success)]">
                 {tt('liveHost.productAddBtn', '添加商品')}
               </Text>
             </View>
           </View>
           {HOST_PRODUCTS.length === 0 ? (
-            <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] py-[16rpx] text-center">
+            <Text className="block text-body text-[var(--color-text-tertiary)] py-[16rpx] text-center">
               {tt('pointsMall.empty', '暂无商品')}
             </Text>
           ) : (

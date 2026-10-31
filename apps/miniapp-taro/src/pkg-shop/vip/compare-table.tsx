@@ -62,26 +62,26 @@ export default function CompareTable() {
   if (error) {
     body = (
       <View className="flex flex-col items-center py-[32rpx]">
-        <Text className="text-[length:24rpx] text-muted-foreground">{t('common.loadFailed')}</Text>
+        <Text className="text-label text-muted-foreground">{t('common.loadFailed')}</Text>
         <View
           className="mt-[16rpx] px-[28rpx] py-[8rpx] border-[length:2rpx] border-border rounded-md"
           hoverClass="opacity-60"
           onClick={load}
         >
-          <Text className="text-[length:24rpx] text-foreground">{t('common.retry')}</Text>
+          <Text className="text-label text-foreground">{t('common.retry')}</Text>
         </View>
       </View>
     )
   } else if (loading) {
     body = (
-      <Text className="block py-[32rpx] text-center text-[length:24rpx] text-muted-foreground">
+      <Text className="block py-[32rpx] text-center text-label text-muted-foreground">
         {t('common.loading')}
       </Text>
     )
   } else if (rows.length === 0) {
     // 与共享屏空态同一句文案(空态只属于「取到了但确实没有」)
     body = (
-      <Text className="block py-[32rpx] text-center text-[length:24rpx] text-muted-foreground">
+      <Text className="block py-[32rpx] text-center text-label text-muted-foreground">
         {t('common.empty')}
       </Text>
     )
@@ -93,7 +93,7 @@ export default function CompareTable() {
             key={row.feature}
             className={`flex items-stretch ${idx % 2 === 1 ? 'bg-muted' : ''}`}
           >
-            <Text className="flex-[1.2] py-[20rpx] px-[16rpx] text-left text-foreground font-semibold text-[length:22rpx]">
+            <Text className="flex-[1.2] py-[20rpx] px-[16rpx] text-left text-foreground font-semibold text-caption">
               {featureLabel(row.feature)}
             </Text>
             <Text className={cell}>{row.basic}</Text>
@@ -108,7 +108,7 @@ export default function CompareTable() {
   return (
     <View className="border-[length:2rpx] border-border rounded-xl overflow-hidden">
       <View className="flex items-stretch bg-muted">
-        <Text className="flex-[1.2] py-[20rpx] px-[16rpx] text-left text-foreground font-semibold text-[length:22rpx]">
+        <Text className="flex-[1.2] py-[20rpx] px-[16rpx] text-left text-foreground font-semibold text-caption">
           {t('vipCompare.feature')}
         </Text>
         <Text className={cell}>{t('vipCompare.basic')}</Text>

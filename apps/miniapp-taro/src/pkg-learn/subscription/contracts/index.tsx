@@ -125,25 +125,25 @@ export default function SubscriptionContractsPage() {
                       : tt('subscription.autoRenew', '自动续费')}
                   </Text>
                   <Text
-                    className={`text-[length:24rpx] px-[16rpx] py-[4rpx] rounded-lg ${STATUS_STYLE[c.status]}`}
+                    className={`text-label px-[16rpx] py-[4rpx] rounded-lg ${STATUS_STYLE[c.status]}`}
                   >
                     {getStatusText(c.status)}
                   </Text>
                 </View>
                 <View className="mt-[20rpx]">
                   <View className="flex justify-between py-[8rpx]">
-                    <Text className="text-[length:28rpx] text-muted-foreground">
+                    <Text className="text-body text-muted-foreground">
                       {tt('subscription.nextCharge', '下次扣款')}
                     </Text>
-                    <Text className="text-[length:28rpx] text-foreground">
+                    <Text className="text-body text-foreground">
                       {formatDateByTemplate(c.nextChargeTime, 'YYYY-MM-DD HH:mm') || '-'}
                     </Text>
                   </View>
                   <View className="flex justify-between py-[8rpx]">
-                    <Text className="text-[length:28rpx] text-muted-foreground">
+                    <Text className="text-body text-muted-foreground">
                       {tt('subscription.lastCharge', '上次扣款')}
                     </Text>
-                    <Text className="text-[length:28rpx] text-foreground">
+                    <Text className="text-body text-foreground">
                       {c.lastChargeTime
                         ? `${formatDateByTemplate(c.lastChargeTime, 'YYYY-MM-DD HH:mm')} ${
                             c.lastChargeStatus ? getLastChargeText(c.lastChargeStatus) : ''
@@ -152,10 +152,10 @@ export default function SubscriptionContractsPage() {
                     </Text>
                   </View>
                   <View className="flex justify-between py-[8rpx]">
-                    <Text className="text-[length:28rpx] text-muted-foreground">
+                    <Text className="text-body text-muted-foreground">
                       {tt('subscription.signTime', '签约时间')}
                     </Text>
-                    <Text className="text-[length:28rpx] text-foreground">
+                    <Text className="text-body text-foreground">
                       {formatDateByTemplate(c.signedAt || c.createdAt, 'YYYY-MM-DD HH:mm') || '-'}
                     </Text>
                   </View>
@@ -163,7 +163,7 @@ export default function SubscriptionContractsPage() {
                 {c.status === 'active' && (
                   <View className="mt-[24rpx] text-right">
                     <Text
-                      className="inline-block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[length:2rpx] border-border rounded-xl"
+                      className="inline-block text-body font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[length:2rpx] border-border rounded-xl"
                       onClick={() => onCancel(c)}
                     >
                       {tt('subscription.cancelBtn', '解约')}
@@ -176,14 +176,14 @@ export default function SubscriptionContractsPage() {
         )}
         {list.length === 0 && !loading && gate.ready && (
           <View className="text-center py-[96rpx] text-muted-foreground">
-            <Text className="text-[length:28rpx]">
+            <Text className="text-body">
               {tt('subscription.contractsEmpty', '暂无自动续费签约')}
             </Text>
           </View>
         )}
         {(loading || !gate.ready) && (
           <View className="text-center py-[96rpx] text-muted-foreground">
-            <Text className="text-[length:28rpx]">{tt('subscription.loadingText', '加载中...')}</Text>
+            <Text className="text-body">{tt('subscription.loadingText', '加载中...')}</Text>
           </View>
         )}
       </View>

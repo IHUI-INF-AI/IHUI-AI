@@ -289,7 +289,7 @@ export default function ConversationImportPage() {
 
       <ScrollView className="flex-1 h-0" scrollY>
         <View className="py-[24rpx] px-[32rpx] pb-[80rpx]">
-          <Text className="block text-[length:24rpx] text-muted-foreground mb-[24rpx]">
+          <Text className="block text-label text-muted-foreground mb-[24rpx]">
             {tt(
               'conversationImport.desc',
               '将 Claude Code / Codex / Cursor / Aider / 微信等外部工具的会话记录导入为平台会话',
@@ -302,12 +302,12 @@ export default function ConversationImportPage() {
               <View className="flex-shrink-0 mt-[4rpx]">
                 <LineIcon name="triangle-alert" size={28} color="var(--color-destructive)" />
               </View>
-              <Text className="flex-1 text-[length:24rpx] text-destructive">{error}</Text>
+              <Text className="flex-1 text-label text-destructive">{error}</Text>
             </ThemeRoot>
           ) : null}
 
           {/* Step 1 来源 */}
-          <Text className="block text-[length:28rpx] text-foreground font-semibold mb-[16rpx]">
+          <Text className="block text-body text-foreground font-semibold mb-[16rpx]">
             {tt('conversationImport.sourcesTitle', '选择会话来源')}
           </Text>
           <View className="flex flex-wrap gap-[12rpx] mb-[16rpx]">
@@ -349,14 +349,14 @@ export default function ConversationImportPage() {
               >
                 {tt('conversationImport.pickFile', '从微信会话中选择导出文件')}
               </Button>
-              <Text className="block text-[length:22rpx] text-muted-foreground mt-[12rpx]">
+              <Text className="block text-caption text-muted-foreground mt-[12rpx]">
                 {tt(
                   'conversationImport.uploadHint',
                   '支持文本导出格式(zip 压缩包 / txt 纯文本),单文件不超过 20MB',
                 )}
               </Text>
               {file ? (
-                <Text className="block text-[length:24rpx] text-foreground mt-[12rpx]">
+                <Text className="block text-label text-foreground mt-[12rpx]">
                   {tt('conversationImport.fileSelected', '已选择:{name}', { name: file.name })}
                 </Text>
               ) : null}
@@ -397,7 +397,7 @@ export default function ConversationImportPage() {
 
           {/* Step 4 导入历史 */}
           {historyError ? (
-            <Text className="block text-[length:24rpx] text-destructive mb-[12rpx]">
+            <Text className="block text-label text-destructive mb-[12rpx]">
               {historyError}
             </Text>
           ) : null}

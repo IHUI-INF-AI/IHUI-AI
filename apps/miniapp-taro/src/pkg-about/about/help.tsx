@@ -137,7 +137,7 @@ export default function HelpPage() {
           />
         </View>
 
-        <Text className="block text-[length:28rpx] font-semibold text-foreground pt-[16rpx] pb-[16rpx]">
+        <Text className="block text-body font-semibold text-foreground pt-[16rpx] pb-[16rpx]">
           {tt('about.help.faqTitle', '常见问题')}
         </Text>
 
@@ -177,42 +177,42 @@ export default function HelpPage() {
           </View>
         ) : null}
 
-        <Text className="block text-[length:28rpx] font-semibold text-foreground pt-[16rpx] pb-[16rpx]">
+        <Text className="block text-body font-semibold text-foreground pt-[16rpx] pb-[16rpx]">
           {tt('about.help.feedbackTitle', '意见反馈')}
         </Text>
 
         <View className="p-[28rpx] bg-card rounded-lg border border-border">
           <View className="mb-[24rpx]">
-            <Text className="block text-[length:28rpx] text-foreground mb-[12rpx] font-medium">
+            <Text className="block text-body text-foreground mb-[12rpx] font-medium">
               <Text className="text-destructive mr-[4rpx]">*</Text>
               {tt('about.help.username', '姓名')}
             </Text>
             <FocusInput
-              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
+              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
               value={form.username}
               placeholder={tt('about.help.usernamePlaceholder', '请输入姓名')}
               onInput={(e) => updateField('username', e.detail.value)}
             />
           </View>
           <View className="mb-[24rpx]">
-            <Text className="block text-[length:28rpx] text-foreground mb-[12rpx] font-medium">
+            <Text className="block text-body text-foreground mb-[12rpx] font-medium">
               <Text className="text-destructive mr-[4rpx]">*</Text>
               {tt('about.help.phone', '联系方式')}
             </Text>
             <FocusInput
-              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
+              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
               value={form.phone}
               placeholder={tt('about.help.phonePlaceholder', '请输入联系方式')}
               onInput={(e) => updateField('phone', e.detail.value)}
             />
           </View>
           <View className="mb-[24rpx]">
-            <Text className="block text-[length:28rpx] text-foreground mb-[12rpx] font-medium">
+            <Text className="block text-body text-foreground mb-[12rpx] font-medium">
               <Text className="text-destructive mr-[4rpx]">*</Text>
               {tt('about.help.context', '问题描述')}
             </Text>
             <FocusTextarea
-              className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
+              className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
               value={form.context}
               placeholder={tt('about.help.contextPlaceholder', '请输入反馈详情')}
               onInput={(e) => updateField('context', e.detail.value)}
@@ -231,12 +231,12 @@ export default function HelpPage() {
               : tt('about.help.submit', '提交反馈')}
           </Button>
           {feedbackState === 'success' ? (
-            <Text className="block text-center text-[length:28rpx] mt-[16rpx] text-success">
+            <Text className="block text-center text-body mt-[16rpx] text-success">
               {tt('about.help.submitSuccess', '反馈提交成功')}
             </Text>
           ) : null}
           {feedbackState === 'failed' ? (
-            <Text className="block text-center text-[length:28rpx] mt-[16rpx] text-destructive">
+            <Text className="block text-center text-body mt-[16rpx] text-destructive">
               {tt('about.help.submitFailed', '反馈提交失败,请稍后重试')}
             </Text>
           ) : null}

@@ -137,7 +137,7 @@ export default function DeveloperWithdrawal() {
         {/* 汇总卡 — 对齐 RN balanceCard(padding 14/radius 12/白卡,value 28 700) */}
         <View className="flex bg-card rounded-lg p-[28rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {t('developer.income.withdrawnYuan')}
             </Text>
             <Text className="text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
@@ -145,7 +145,7 @@ export default function DeveloperWithdrawal() {
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {t('developer.income.withdrawn')}
             </Text>
             <Text className="text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
@@ -155,7 +155,7 @@ export default function DeveloperWithdrawal() {
         </View>
         <View>
           {loading ? (
-            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[96rpx]">
+            <Text className="block text-center text-muted-foreground text-body py-[96rpx]">
               {t('common.loading')}
             </Text>
           ) : list.length ? (
@@ -168,11 +168,11 @@ export default function DeveloperWithdrawal() {
                   <Text className="block text-[length:32rpx] text-foreground font-semibold mb-[8rpx]">
                     ¥{item.amount}
                   </Text>
-                  <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="block text-caption text-[var(--color-text-tertiary)]">
                     {displayTime(item)}
                   </Text>
                   {displayReason(item) ? (
-                    <Text className="block text-[length:22rpx] text-destructive mt-[12rpx]">
+                    <Text className="block text-caption text-destructive mt-[12rpx]">
                       {displayReason(item)}
                     </Text>
                   ) : null}
@@ -181,7 +181,7 @@ export default function DeveloperWithdrawal() {
               </View>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[96rpx]">
+            <Text className="block text-center text-muted-foreground text-body py-[96rpx]">
               {t('developer.withdrawal.empty')}
             </Text>
           )}

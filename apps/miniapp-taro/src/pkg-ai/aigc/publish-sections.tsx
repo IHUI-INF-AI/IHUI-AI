@@ -51,7 +51,7 @@ export function PublishTypeChips({
             onClick={() => onChange(opt.key)}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:28rpx] font-semibold">{opt.label}</Text>
+            <Text className="text-body font-semibold">{opt.label}</Text>
           </View>
         ))}
       </View>
@@ -126,7 +126,7 @@ export function PublishMediaSection({
           onClick={onAddByUrl}
           hoverClass="opacity-60"
         >
-          <Text className="text-[length:28rpx] font-semibold text-[var(--color-primary-foreground)]">
+          <Text className="text-body font-semibold text-[var(--color-primary-foreground)]">
             {t('aigcPublish.urlAddBtn')}
           </Text>
         </View>
@@ -136,7 +136,7 @@ export function PublishMediaSection({
         onClick={onPick}
         hoverClass="opacity-60"
       >
-        <Text className="text-[length:28rpx] font-semibold text-foreground">
+        <Text className="text-body font-semibold text-foreground">
           {uploading ? t('aigcPublish.uploading', { progress }) : t('aigcPublish.pickFromAlbum')}
         </Text>
       </View>
@@ -169,7 +169,7 @@ export function PublishMediaSection({
             <Text className="text-display text-[var(--color-text-tertiary)] leading-[52rpx]">
               +
             </Text>
-            <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
+            <Text className="text-caption text-[var(--color-text-tertiary)] mt-[16rpx]">
               {uploading ? t('aigcPublish.uploadingShort') : t('aigcPublish.fileAddText')}
             </Text>
           </View>

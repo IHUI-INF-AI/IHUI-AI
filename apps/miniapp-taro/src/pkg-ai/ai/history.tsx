@@ -772,7 +772,7 @@ export default function HistoryPage() {
         <View className="flex-shrink-0">
           <LineIcon name="file-text" size={28} color="var(--color-muted-foreground)" />
         </View>
-        <Text className="flex-1 text-[length:24rpx] text-muted-foreground">
+        <Text className="flex-1 text-label text-muted-foreground">
           {tt('conversationImport.pageTitle', '外部会话导入')}
         </Text>
         <View className="flex-shrink-0">
@@ -783,7 +783,7 @@ export default function HistoryPage() {
       {/* 兜底提示:服务端没取到才出现。可见、不谎报,给「重试」出口 */}
       {degraded && !loading ? (
         <View className="flex items-center justify-between gap-[16rpx] px-[32rpx] py-[16rpx] bg-card">
-          <Text className="flex-1 text-[length:24rpx] text-muted-foreground">
+          <Text className="flex-1 text-label text-muted-foreground">
             {tt('ai.historyPage.fallbackNotice', '服务端会话加载失败,当前显示本机历史记录')}
           </Text>
           {/* 重试:命中块用 View(hoverClass 只在 View 上受支持),文案用 Text */}
@@ -792,7 +792,7 @@ export default function HistoryPage() {
             onClick={onRefresh}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:24rpx] text-foreground font-semibold">
+            <Text className="text-label text-foreground font-semibold">
               {tt('common.retry', '重试')}
             </Text>
           </View>
@@ -814,7 +814,7 @@ export default function HistoryPage() {
               hoverClass="opacity-60"
             >
               <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
-              <Text className="text-[length:24rpx]">{tt(f.labelKey, f.fallback)}</Text>
+              <Text className="text-label">{tt(f.labelKey, f.fallback)}</Text>
             </View>
           ))}
       </View>
@@ -830,7 +830,7 @@ export default function HistoryPage() {
       >
         {loading ? (
           <View className="flex items-center justify-center py-[160rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {tt('common.loading', '加载中')}
             </Text>
           </View>
@@ -841,7 +841,7 @@ export default function HistoryPage() {
               className="w-[120rpx] h-[120rpx]"
               mode="aspectFit"
             />
-            <Text className="text-[length:28rpx] text-muted-foreground mt-[24rpx]">
+            <Text className="text-body text-muted-foreground mt-[24rpx]">
               {isFiltered
                 ? tt('ai.historyPage.noResult', '未找到相关对话')
                 : t('ai.historyPage.empty')}
@@ -862,7 +862,7 @@ export default function HistoryPage() {
               if (!items || items.length === 0) return null
               return (
                 <View key={g.key} className="mb-[32rpx]">
-                  <Text className="block text-[length:24rpx] text-muted-foreground mb-[16rpx] pl-[8rpx]">
+                  <Text className="block text-label text-muted-foreground mb-[16rpx] pl-[8rpx]">
                     {tt(g.labelKey, g.fallback)}
                   </Text>
                   {items.map((h) => {
@@ -901,12 +901,12 @@ export default function HistoryPage() {
             })}
             {loadingMore ? (
               // 「加载更多」必须看得见在取,否则用户以为到底了 —— 复用既有 common.loading 档
-              <Text className="block text-center p-[32rpx] text-[length:24rpx] text-muted-foreground">
+              <Text className="block text-center p-[32rpx] text-label text-muted-foreground">
                 {tt('common.loading', '加载中')}
               </Text>
             ) : null}
             {!hasMore ? (
-              <Text className="block text-center p-[32rpx] text-[length:24rpx] text-muted-foreground">
+              <Text className="block text-center p-[32rpx] text-label text-muted-foreground">
                 {tt('ai.historyPage.noMore', '没有更多了')}
               </Text>
             ) : null}

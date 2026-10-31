@@ -986,7 +986,7 @@ export default function UserIndex() {
                 <Text className="block text-foreground text-[length:36rpx] font-semibold">
                   {t('user.tapLogin')}
                 </Text>
-                <Text className="block mt-[8rpx] text-foreground text-[length:24rpx] opacity-85">
+                <Text className="block mt-[8rpx] text-foreground text-label opacity-85">
                   {t('user.loginHint')}
                 </Text>
               </View>
@@ -1132,7 +1132,7 @@ export default function UserIndex() {
                   {membershipBenefits.map((b) => (
                     <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
                       {renderIcon(b.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
-                      <Text className="mt-[8rpx] text-[length:24rpx] text-foreground text-center">
+                      <Text className="mt-[8rpx] text-label text-foreground text-center">
                         {tf(b.key, b.fallback)}
                       </Text>
                     </View>
@@ -1187,7 +1187,7 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">
+                        <Text className="text-label text-muted-foreground">
                           {item.time}
                         </Text>
                       </View>
@@ -1222,7 +1222,7 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">
+                        <Text className="text-label text-muted-foreground">
                           {item.time}
                         </Text>
                       </View>
@@ -1268,7 +1268,7 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">
+                        <Text className="text-label text-muted-foreground">
                           {item.time}
                         </Text>
                       </View>
@@ -1327,7 +1327,7 @@ export default function UserIndex() {
                         <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[length:24rpx] text-muted-foreground">
+                        <Text className="text-label text-muted-foreground">
                           {item.time}
                         </Text>
                       </View>
@@ -1361,7 +1361,7 @@ export default function UserIndex() {
                         </View>
                         {/* 当前时间(对齐 RN audioTime fontSize 12dp) */}
                         <Text
-                          className="text-[length:24rpx] text-muted-foreground"
+                          className="text-label text-muted-foreground"
                           style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
                         >
                           {formatAudioTime(audioCurrentTime[index] || 0)}
@@ -1394,7 +1394,7 @@ export default function UserIndex() {
                 onClick={() => goPage(entry.path)}
               >
                 {renderIcon(entry.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
-                <Text className="mt-[6rpx] text-[length:24rpx] text-foreground">
+                <Text className="mt-[6rpx] text-label text-foreground">
                   {t(entry.key)}
                 </Text>
               </View>
@@ -1509,7 +1509,7 @@ export default function UserIndex() {
                 </Text>
               </View>
               {/* 分享提示 */}
-              <Text className="block text-center text-[length:28rpx] text-foreground font-semibold mb-[20rpx]">
+              <Text className="block text-center text-body text-foreground font-semibold mb-[20rpx]">
                 {tf('user.share.shareTo', '分享给好友')}
               </Text>
               {/* 分享按钮 */}

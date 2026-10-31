@@ -150,14 +150,14 @@ export default function AgentListPanel({
                   </View>
                   {/* RN desc marginTop 8dp→16rpx / fontSize 14dp→28rpx / color text.secondary */}
                   {agent.description && (
-                    <Text className="block text-[length:28rpx] text-muted-foreground truncate mt-[16rpx]">
+                    <Text className="block text-body text-muted-foreground truncate mt-[16rpx]">
                       {agent.description}
                     </Text>
                   )}
                 </View>
                 {/* RN meta fontSize 11dp→22rpx / color text.tertiary */}
                 {agent.useCount !== undefined && (
-                  <Text className="shrink-0 text-[length:22rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
+                  <Text className="shrink-0 text-caption text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {agent.useCount}
                     {tt('agent.uses', '次')}
                   </Text>

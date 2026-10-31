@@ -193,7 +193,7 @@ export default function Phone() {
             <Text className="block text-center text-[length:44rpx] font-bold text-foreground">
               {tt('user.phone.step1Title', '验证当前手机号')}
             </Text>
-            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-[length:28rpx] text-muted-foreground">
+            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-body text-muted-foreground">
               {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
             </Text>
             <View className="mb-[32rpx]">
@@ -211,7 +211,7 @@ export default function Phone() {
                   onInput={(e) => setOldCode(e.detail.value)}
                 />
                 <Text
-                  className={`shrink-0 pl-[24rpx] text-[length:28rpx] ${
+                  className={`shrink-0 pl-[24rpx] text-body ${
                     oldCountdown > 0
                       ? 'text-muted-foreground'
                       : 'font-bold text-[var(--color-brand-accent-deep)]'
@@ -241,7 +241,7 @@ export default function Phone() {
                 ? tt('user.phone.step2Title', '绑定新手机号')
                 : tt('user.phone.bindTitle', '绑定手机号')}
             </Text>
-            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-[length:28rpx] text-muted-foreground">
+            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-body text-muted-foreground">
               {currentPhone
                 ? `${tt('user.phone.verifiedTip', '当前手机号已通过验证')}: ${maskedPhone}`
                 : tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
@@ -277,7 +277,7 @@ export default function Phone() {
                   onInput={(e) => setNewCode(e.detail.value)}
                 />
                 <Text
-                  className={`shrink-0 pl-[24rpx] text-[length:28rpx] ${
+                  className={`shrink-0 pl-[24rpx] text-body ${
                     newCountdown > 0
                       ? 'text-muted-foreground'
                       : 'font-bold text-[var(--color-brand-accent-deep)]'
@@ -304,7 +304,7 @@ export default function Phone() {
               </Text>
             </View>
             <View className="mt-[24rpx] rounded-xl bg-muted p-[24rpx]">
-              <Text className="mb-[12rpx] block text-[length:28rpx] font-semibold text-[var(--color-brand-accent-deep)]">
+              <Text className="mb-[12rpx] block text-body font-semibold text-[var(--color-brand-accent-deep)]">
                 {tt('user.phone.noticeTitle', '【更换后影响】')}
               </Text>
               <Text className="block text-body leading-[1.6] text-foreground">

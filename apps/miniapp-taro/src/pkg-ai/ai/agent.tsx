@@ -383,7 +383,7 @@ export default function AgentPage() {
             </ScrollView>
             {/* 排序选项 */}
             <View className="flex items-center px-3 pt-2 pb-1">
-              <Text className="text-[length:22rpx] text-muted-foreground mr-2">
+              <Text className="text-caption text-muted-foreground mr-2">
                 {t('ai.agentList.sortBy')}
               </Text>
               {sortOptions.map((opt) => {
@@ -391,7 +391,7 @@ export default function AgentPage() {
                 return (
                   <View
                     key={opt.key}
-                    className={`mr-3 text-[length:22rpx] ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
+                    className={`mr-3 text-caption ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
                     onClick={() => setSortKey(opt.key)}
                     hoverClass="opacity-60"
                   >
@@ -408,10 +408,10 @@ export default function AgentPage() {
       {hotBanner.length > 0 && (
         <View className="px-3 pt-3">
           <View className="flex items-center justify-between mb-2">
-            <Text className="text-[length:28rpx] text-foreground font-semibold">
+            <Text className="text-body text-foreground font-semibold">
               {t('ai.agentList.hotRecommend')}
             </Text>
-            <Text className="text-[length:22rpx] text-muted-foreground">
+            <Text className="text-caption text-muted-foreground">
               {t('ai.agentList.hot')}
             </Text>
           </View>
@@ -439,7 +439,7 @@ export default function AgentPage() {
                   {agent.name}
                 </Text>
                 {agent.uses !== undefined && (
-                  <Text className="block text-[length:22rpx] text-[var(--color-primary)] mt-1">
+                  <Text className="block text-caption text-[var(--color-primary)] mt-1">
                     {t('ai.agentList.useCount', { n: agent.uses })}
                   </Text>
                 )}
@@ -507,7 +507,7 @@ export default function AgentPage() {
                         </Text>
                       )}
                       {agent.uses !== undefined && (
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {t('agentScreen.useCount')} {agent.uses}
                         </Text>
                       )}
@@ -529,7 +529,7 @@ export default function AgentPage() {
         onClick={onCreateAgent}
         hoverClass="opacity-60"
       >
-        <Text className="text-[length:24rpx]">+ {t('ai.agentList.createAgent')}</Text>
+        <Text className="text-label">+ {t('ai.agentList.createAgent')}</Text>
       </View>
 
       <View className="fixed bottom-0 left-0 right-0 bg-card shadow-[0_-1px_2px_var(--color-black-4)]">

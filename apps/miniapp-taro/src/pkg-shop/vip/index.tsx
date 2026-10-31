@@ -352,7 +352,7 @@ export default function VipIndexPage() {
         <View className="status-bar">
           <View className="status-head">
             <View className="flex flex-col">
-              <Text className="text-[length:24rpx] text-[var(--color-white-70)] mb-[8rpx]">
+              <Text className="text-label text-[var(--color-white-70)] mb-[8rpx]">
                 {t('vip.currentLevel')}
               </Text>
               <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>

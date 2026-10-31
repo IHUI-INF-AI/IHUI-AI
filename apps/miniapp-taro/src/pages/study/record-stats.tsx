@@ -68,7 +68,7 @@ export function RecordStats({ stats }: { stats: StudyStats | null }) {
               <Text className="text-heading font-bold text-foreground leading-[1.2]">
                 {cell.value}
               </Text>
-              <Text className="mt-[16rpx] text-[length:22rpx] text-muted-foreground text-center">
+              <Text className="mt-[16rpx] text-caption text-muted-foreground text-center">
                 {cell.label}
               </Text>
             </View>

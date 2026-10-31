@@ -60,7 +60,7 @@ export default function WorkflowCard({
       <View className="flex items-center justify-between">
         <Text className="nm-list-name ihui-ellipsis flex-1">{item.name || defaultName}</Text>
         <Text
-          className={`ml-[16rpx] shrink-0 rounded-md px-[12rpx] py-[6rpx] text-[length:22rpx] font-semibold ${
+          className={`ml-[16rpx] shrink-0 rounded-md px-[12rpx] py-[6rpx] text-caption font-semibold ${
             item.active
               ? 'bg-[var(--color-success-light)] text-[color:var(--color-success)]'
               : 'bg-muted text-muted-foreground'
@@ -70,7 +70,7 @@ export default function WorkflowCard({
         </Text>
       </View>
       {item.desc ? <Text className="nm-list-desc text-ellipsis-2">{item.desc}</Text> : null}
-      <View className="mt-[20rpx] flex flex-wrap items-center gap-[24rpx] text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
+      <View className="mt-[20rpx] flex flex-wrap items-center gap-[24rpx] text-caption text-[color:var(--color-text-tertiary)]">
         {item.updatedAt ? <Text>{item.updatedAt}</Text> : null}
       </View>
       <View className="mt-[24rpx] flex items-center gap-[20rpx]">
@@ -85,7 +85,7 @@ export default function WorkflowCard({
           hoverClass="opacity-60"
         >
           <Text
-            className={`text-[length:28rpx] font-semibold ${
+            className={`text-body font-semibold ${
               item.active
                 ? 'text-[color:var(--color-brand-accent-foreground)]'
                 : 'text-[color:var(--color-success-foreground)]'
@@ -102,7 +102,7 @@ export default function WorkflowCard({
           }}
           hoverClass="opacity-60"
         >
-          <Text className="text-[length:28rpx] text-[color:var(--color-text-medium)]">
+          <Text className="text-body text-[color:var(--color-text-medium)]">
             {t('n8nModel.actionEdit')}
           </Text>
         </View>

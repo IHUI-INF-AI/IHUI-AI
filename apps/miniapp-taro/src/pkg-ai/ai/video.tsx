@@ -236,7 +236,7 @@ export default function VideoPage() {
               hoverClass="opacity-60"
             >
               <Text
-                className={`block text-[length:24rpx] ${vendor === v.key ? 'text-[var(--color-brand-accent-foreground)]' : 'text-muted-foreground'}`}
+                className={`block text-label ${vendor === v.key ? 'text-[var(--color-brand-accent-foreground)]' : 'text-muted-foreground'}`}
               >
                 {t(v.nameKey)}
               </Text>
@@ -250,11 +250,11 @@ export default function VideoPage() {
         </View>
 
         <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
-          <Text className="block text-[length:24rpx] text-muted-foreground mb-[16rpx]">
+          <Text className="block text-label text-muted-foreground mb-[16rpx]">
             {t(currentVendor.descKey)}
           </Text>
           <FocusTextarea
-            className="w-full min-h-[192rpx] p-[24rpx] text-[length:24rpx] bg-transparent border border-border rounded-sm box-border"
+            className="w-full min-h-[192rpx] p-[24rpx] text-label bg-transparent border border-border rounded-sm box-border"
             placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
@@ -295,14 +295,14 @@ export default function VideoPage() {
 
         {status !== 'idle' && status !== 'failed' ? (
           <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
-            <Text className="block text-[length:28rpx] font-medium text-foreground mb-[16rpx]">
+            <Text className="block text-body font-medium text-foreground mb-[16rpx]">
               {statusText}
             </Text>
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-md">
-                <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-label text-[var(--color-text-tertiary)]">
                   {statusText}
                 </Text>
               </View>
@@ -334,7 +334,7 @@ export default function VideoPage() {
         ) : null}
 
         <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
-          <Text className="block text-[length:28rpx] font-medium text-foreground mb-[16rpx]">
+          <Text className="block text-body font-medium text-foreground mb-[16rpx]">
             {t('ai.video.history')}
           </Text>
           {history.length ? (
@@ -346,7 +346,7 @@ export default function VideoPage() {
                   onClick={() => replayHistory(h)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="flex-1 text-[length:24rpx] text-foreground truncate">
+                  <Text className="flex-1 text-label text-foreground truncate">
                     {h.prompt}
                   </Text>
                   <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">

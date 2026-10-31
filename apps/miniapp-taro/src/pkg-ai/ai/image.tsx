@@ -197,14 +197,14 @@ export default function ImagePage() {
       ) : null}
       {!result ? (
         <View className="px-[32rpx] pb-[24rpx]">
-          <Text className="text-[length:24rpx] text-muted-foreground">
+          <Text className="text-label text-muted-foreground">
             {t('ai.image.tryThese')}
           </Text>
           <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
             {examples.map((ex) => (
               <Text
                 key={ex}
-                className="py-[12rpx] px-[24rpx] bg-muted rounded-md text-[length:24rpx] text-muted-foreground"
+                className="py-[12rpx] px-[24rpx] bg-muted rounded-md text-label text-muted-foreground"
                 onClick={() => setPrompt(ex)}
               >
                 {ex}
@@ -215,7 +215,7 @@ export default function ImagePage() {
       ) : null}
       <View className="py-[24rpx] px-[32rpx]">
         <FocusTextarea
-          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-sm text-[length:24rpx] box-border"
+          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-sm text-label box-border"
           value={prompt}
           placeholder={t('ai.image.placeholder')}
           maxlength={500}
@@ -265,7 +265,7 @@ export default function ImagePage() {
       </View>
 
       <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
-        <Text className="block text-[length:28rpx] font-medium text-foreground mb-[16rpx]">
+        <Text className="block text-body font-medium text-foreground mb-[16rpx]">
           {t('ai.image.history')}
         </Text>
         {history.length ? (
@@ -282,7 +282,7 @@ export default function ImagePage() {
                   src={h.url}
                   mode="aspectFill"
                 />
-                <Text className="flex-1 text-[length:24rpx] text-foreground truncate">
+                <Text className="flex-1 text-label text-foreground truncate">
                   {h.prompt}
                 </Text>
                 <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">

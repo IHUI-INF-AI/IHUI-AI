@@ -1722,7 +1722,7 @@ export default function ChatPage() {
         {/* 顶栏标题位(共享屏 header 第一行是产品名,本端此前整块缺失):
             与共享屏同一视觉层级——标题居左组与入口组之间、弱化字号。
             取共享屏同一个键,端内不再自立标题文案。 */}
-        <Text className="min-w-0 flex-1 truncate px-[8rpx] text-center text-[length:28rpx] font-semibold text-foreground">
+        <Text className="min-w-0 flex-1 truncate px-[8rpx] text-center text-body font-semibold text-foreground">
           {t('chat.title')}
         </Text>
         <View className="nav-right">
@@ -2089,11 +2089,11 @@ export default function ChatPage() {
           data-testid="goal-notice-strip"
           className="mx-[20rpx] mt-[8rpx] flex flex-row items-center rounded-md bg-muted px-[16rpx] py-[8rpx]"
         >
-          <Text className="text-[length:22rpx] font-semibold text-muted-foreground">
+          <Text className="text-caption font-semibold text-muted-foreground">
             {goalNotice.label}
           </Text>
           {goalNotice.objective ? (
-            <Text className="ml-[12rpx] flex-1 text-[length:22rpx] text-foreground">
+            <Text className="ml-[12rpx] flex-1 text-caption text-foreground">
               {goalNotice.objective}
             </Text>
           ) : null}

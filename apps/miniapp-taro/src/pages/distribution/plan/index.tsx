@@ -107,7 +107,7 @@ export default function DistributionPlan() {
             <Text className="block text-[length:44rpx] font-bold text-[var(--color-primary)]">
               ¥{totalEarnings.toFixed(2)}
             </Text>
-            <Text className="block text-[length:28rpx] text-muted-foreground">
+            <Text className="block text-body text-muted-foreground">
               {tt('distribution.plan.totalEarnings', '累计收益')}
             </Text>
           </View>
@@ -115,7 +115,7 @@ export default function DistributionPlan() {
             <Text className="block text-[length:44rpx] font-bold text-[var(--color-primary)]">
               {inviteCount}
             </Text>
-            <Text className="block text-[length:28rpx] text-muted-foreground">
+            <Text className="block text-body text-muted-foreground">
               {tt('distribution.plan.inviteCount', '邀请人数')}
             </Text>
           </View>
@@ -129,7 +129,7 @@ export default function DistributionPlan() {
         </Text>
         {rules.map((r, i) => (
           <View key={i} className="flex flex-row items-center gap-[24rpx]">
-            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[length:28rpx] font-semibold flex items-center justify-center flex-shrink-0">
+            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-body font-semibold flex items-center justify-center flex-shrink-0">
               <Text>{i + 1}</Text>
             </View>
             <Text className="flex-1 text-body text-foreground leading-[38rpx]">{r}</Text>
@@ -148,7 +148,7 @@ export default function DistributionPlan() {
             key={row.level}
             className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx]"
           >
-            <Text className="flex-1 text-[length:28rpx] font-medium text-foreground">
+            <Text className="flex-1 text-body font-medium text-foreground">
               {row.level}
             </Text>
             <Text className="text-[length:32rpx] font-bold text-[var(--color-primary)] min-w-[88rpx]">
@@ -157,7 +157,7 @@ export default function DistributionPlan() {
           </View>
         ))}
         {!rateRows.length ? (
-          <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[16rpx]">
+          <Text className="block text-center text-body text-muted-foreground py-[16rpx]">
             {tt('common.empty', '暂无数据')}
           </Text>
         ) : null}

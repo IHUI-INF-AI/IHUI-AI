@@ -133,19 +133,19 @@ export default function AiAssistantN8n() {
                       </View>
                       {/* 对齐 RN badge:11dp=22rpx w600 / px 8dp=16rpx py 3dp=6rpx / 12dp=24rpx 圆角 */}
                       <Text
-                        className={`py-[6rpx] px-[16rpx] rounded-xl text-[length:22rpx] font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
+                        className={`py-[6rpx] px-[16rpx] rounded-xl text-caption font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
                       >
                         {statusInfo.label}
                       </Text>
                     </View>
                     {desc ? (
-                      <Text className="block mt-[16rpx] text-[length:28rpx] text-muted-foreground line-clamp-2">
+                      <Text className="block mt-[16rpx] text-body text-muted-foreground line-clamp-2">
                         {desc}
                       </Text>
                     ) : null}
                     {/* 对齐 RN cardUrl:mt 8dp=16rpx / 11dp=22rpx / brand 色 */}
                     <View className="mt-[16rpx]">
-                      <Text className="text-[length:22rpx] text-[var(--color-brand)]">
+                      <Text className="text-caption text-[var(--color-brand)]">
                         {tt('aiAssistantN8n.openWorkflow', '打开工作流')} →
                       </Text>
                     </View>

@@ -551,7 +551,7 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.audioMessage', '音频消息')}</Text>
           </View>
-          <Text className="text-[length:24rpx] text-accent" onClick={() => openAudio(url)}>
+          <Text className="text-label text-accent" onClick={() => openAudio(url)}>
             {tt('agentDialogue.clickPlay', '点击播放')}
           </Text>
         </View>
@@ -573,7 +573,7 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.fileMessage', '文件消息')}</Text>
           </View>
-          <Text className="text-[length:24rpx] text-accent" onClick={() => openFile(url)}>
+          <Text className="text-label text-accent" onClick={() => openFile(url)}>
             {tt('agentDialogue.clickView', '点击查看')}
           </Text>
         </View>
@@ -599,7 +599,7 @@ export default function AgentDialogue() {
         <View className="flex flex-col gap-[16rpx] p-[20rpx]">
           {chatList.length === 0 && !loading ? (
             <View className="flex justify-center items-center py-[80rpx]">
-              <Text className="text-[length:28rpx] text-muted-foreground text-center">
+              <Text className="text-body text-muted-foreground text-center">
                 {tt('agentDialogue.messageEmpty', '发送消息开始对话')}
               </Text>
             </View>
@@ -646,7 +646,7 @@ export default function AgentDialogue() {
                 </>
               ) : (
                 <View className="py-[12rpx]">
-                  <Text className="text-[length:24rpx] text-muted-foreground">{msg.content}</Text>
+                  <Text className="text-label text-muted-foreground">{msg.content}</Text>
                 </View>
               )}
             </View>

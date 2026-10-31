@@ -183,17 +183,17 @@ export default function TopicListPage() {
                         #{item.name}
                       </Text>
                       {item.description ? (
-                        <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden ihui-ellipsis whitespace-nowrap">
+                        <Text className="block text-label text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden ihui-ellipsis whitespace-nowrap">
                           {item.description}
                         </Text>
                       ) : null}
                       <View className="flex gap-[16rpx] mt-[8rpx]">
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {tt('topic.list.participants', '{n} 人参与', {
                             n: item.participantCount || 0,
                           })}
                         </Text>
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {tt('topic.list.posts', '{n} 篇内容', { n: item.count || 0 })}
                         </Text>
                       </View>

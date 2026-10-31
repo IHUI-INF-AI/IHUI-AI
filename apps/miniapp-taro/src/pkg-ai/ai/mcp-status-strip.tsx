@@ -118,7 +118,7 @@ export default function McpStatusStrip() {
         <Text
           key={`mcp-status-${line.server}`}
           data-testid="mcp-status-line"
-          className="block text-[length:22rpx] text-muted-foreground"
+          className="block text-caption text-muted-foreground"
         >
           {line.text}
         </Text>
@@ -126,7 +126,7 @@ export default function McpStatusStrip() {
       {hint.length > 0 ? (
         <Text
           data-testid="mcp-settings-hint"
-          className="mt-[4rpx] block text-[length:22rpx] text-foreground"
+          className="mt-[4rpx] block text-caption text-foreground"
         >
           {hint}
         </Text>

@@ -68,16 +68,16 @@ export default function TokenPackages({ tt, onSelect }: TokenPackagesProps) {
               <Text className="mt-[16rpx] text-[length:40rpx] font-bold text-foreground">
                 {formatTokenValue(p.tokens)}
               </Text>
-              <Text className="mt-[8rpx] text-[length:22rpx] text-muted-foreground">
+              <Text className="mt-[8rpx] text-caption text-muted-foreground">
                 {tt('tokenValue.tokenUnit', '智汇值')}
               </Text>
-              <Text className="mt-[8rpx] min-h-[32rpx] text-[length:22rpx] font-semibold text-brand-accent-deep">
+              <Text className="mt-[8rpx] min-h-[32rpx] text-caption font-semibold text-brand-accent-deep">
                 {p.bonus > 0
                   ? `${tt('tokenValue.bonus', '奖励')} ${formatTokenValue(p.bonus)}`
                   : ''}
               </Text>
               <View className="mt-[16rpx] h-[56rpx] px-[24rpx] flex items-center justify-center rounded-xl bg-cta">
-                <Text className="text-[length:28rpx] font-semibold text-cta-foreground">
+                <Text className="text-body font-semibold text-cta-foreground">
                   ¥{p.price}
                 </Text>
               </View>

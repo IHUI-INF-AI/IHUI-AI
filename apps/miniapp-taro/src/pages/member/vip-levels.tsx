@@ -56,13 +56,13 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
       </Text>
       {error ? (
         <View className="flex items-center justify-between">
-          <Text className="text-[length:24rpx] text-muted-foreground">{error}</Text>
-          <Text className="text-[length:24rpx] text-[var(--color-brand)]" onClick={onRetry}>
+          <Text className="text-label text-muted-foreground">{error}</Text>
+          <Text className="text-label text-[var(--color-brand)]" onClick={onRetry}>
             {tt('vip.retry', '重试')}
           </Text>
         </View>
       ) : levels.length === 0 ? (
-        <Text className="block text-[length:24rpx] text-muted-foreground">
+        <Text className="block text-label text-muted-foreground">
           {tt('vip.empty', '暂无会员等级信息')}
         </Text>
       ) : (
@@ -71,15 +71,15 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
           return (
             <View key={level.id} className="mb-[16rpx] p-[20rpx] border border-border rounded-lg">
               <View className="flex items-center justify-between">
-                <Text className="text-[length:28rpx] font-semibold text-foreground">
+                <Text className="text-body font-semibold text-foreground">
                   {level.levelName}
                 </Text>
-                <Text className="text-[length:24rpx] text-muted-foreground">
+                <Text className="text-label text-muted-foreground">
                   {t('vip.duration', { days: level.durationDays })}
                 </Text>
               </View>
               <View className="flex items-end justify-between mt-[12rpx]">
-                <Text className="text-[length:22rpx] text-muted-foreground">
+                <Text className="text-caption text-muted-foreground">
                   {benefitsCount > 0 ? t('vip.benefitsCount', { count: benefitsCount }) : ''}
                 </Text>
                 <Text className="text-[length:36rpx] font-bold text-[var(--color-vip-gold-start)]">

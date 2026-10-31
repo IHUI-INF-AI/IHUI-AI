@@ -31,7 +31,7 @@ export interface SettingRow {
 export function RowsSection({ title, rows }: { title: string; rows: SettingRow[] }) {
   return (
     <View className="mx-[20rpx] mt-[32rpx]">
-      <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">{title}</Text>
+      <Text className="mb-[16rpx] block text-body text-muted-foreground">{title}</Text>
       <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
         {rows.map((row) => (
           <View
@@ -110,7 +110,7 @@ export function NotificationSection() {
 
   return (
     <View className="mx-[20rpx] mt-[32rpx]">
-      <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
+      <Text className="mb-[16rpx] block text-body text-muted-foreground">
         {t('settings.notification')}
       </Text>
       <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">

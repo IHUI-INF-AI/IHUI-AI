@@ -155,7 +155,7 @@ export default function CachePage() {
                 style={{ width: `${progress}%` }}
               />
             </View>
-            <Text className="mt-[16rpx] block text-center text-[length:24rpx] text-muted-foreground">
+            <Text className="mt-[16rpx] block text-center text-label text-muted-foreground">
               {tt('setting.cache.clearing', '清理中')} {progress}%
             </Text>
           </View>

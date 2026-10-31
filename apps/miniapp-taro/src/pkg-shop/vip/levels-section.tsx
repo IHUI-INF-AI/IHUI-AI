@@ -59,7 +59,7 @@ export default function LevelsSection({
                   ) : null}
                 </View>
                 <View className="flex items-end justify-between mt-[16rpx]">
-                  <Text className="text-[length:24rpx] text-muted-foreground">
+                  <Text className="text-label text-muted-foreground">
                     {t('vip.duration', { days: level.durationDays })}
                   </Text>
                   <Text className="text-[length:32rpx] font-bold text-[var(--color-vip-gold-start)]">
@@ -67,7 +67,7 @@ export default function LevelsSection({
                   </Text>
                 </View>
                 {benefitsCount > 0 ? (
-                  <Text className="block mt-[16rpx] text-[length:24rpx] text-muted-foreground">
+                  <Text className="block mt-[16rpx] text-label text-muted-foreground">
                     {t('vip.benefitsCount', { count: benefitsCount })}
                   </Text>
                 ) : null}
@@ -77,7 +77,7 @@ export default function LevelsSection({
                     hoverClass="opacity-60"
                     onClick={() => onPurchase(level.id)}
                   >
-                    <Text className="text-[length:28rpx] font-bold text-[var(--color-vip-card)]">
+                    <Text className="text-body font-bold text-[var(--color-vip-card)]">
                       {t('vip.purchase')}
                     </Text>
                   </View>
