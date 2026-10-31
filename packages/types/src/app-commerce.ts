@@ -462,6 +462,11 @@ export interface EarnCommissionScreenProps {
   overview: { totalCommission: number; invitedCount: number } | null
   onOpenVip: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 分佣比例真值(可选,来自 GET /distribution/commission-rates 的 key→value)。
+   * 缺省/空数组 ⇒ 共享屏渲染空态(earnCommission.rateEmpty),不由前端补默认档位。
+   */
+  rates?: { level: string; rate: string; desc?: string }[]
 }
 
 /** 充值 Screen Props */

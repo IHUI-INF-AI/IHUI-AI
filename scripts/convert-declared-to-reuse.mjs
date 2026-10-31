@@ -47,7 +47,9 @@ const specShellSymbol = (spec) =>
     .pop()
     .replace(/\.tsx$/, '')
 const REUSE_RE = /from '@(?:ihui\/rn-app|rn-shells)[^']*'/
-const PATH_RE = /['"`](\/[A-Za-z0-9_\-/:.$ {}]+)['"`]/g
+// 字符类含 `()`:端点常写成模板串 `` `/api/x${qs(a)}` `` —— 不含括号会在 `(` 处断掉,
+// 整条端点读不到(实测 order.ts 的 getOrders 因此进不了封装索引,user/profile 被误判缺数据面)。
+const PATH_RE = /['"`](\/[A-Za-z0-9_\-/:.$ {}()]+)['"`]/g
 /** 资源档(图片/字体/媒体)不是 API 端点:把它们计入"端点差集"会造出假"数据面会缩" */
 const RESOURCE_RE = /\.(png|jpe?g|svg|webp|gif|ico|woff2?|ttf|mp4|webm|json)$/i
 const WECHAT_ONLY = [
@@ -83,7 +85,11 @@ function endpointSet(text) {
     // 资源路径不是 API 端点:`/static/default-agent.png` 这类是打包进端的图片,
     // 拿它比"壳有没有这条"必然判出"数据面会缩"——那是尺子把资源当接口,不是页真的多一个能力。
     if (RESOURCE_RE.test(raw)) continue
-    const cut = raw.split(/\$\{/)[0].replace(/\/$/, '')
+    const cut0 = raw.split(/\$\{/)[0].replace(/\/$/, '')
+    // 同一路由两种写法:`/api/x`(端内直连)与 `/x`(经 fetchApi 的 normalizeUrl 补 /api)。
+    // 不归一会把"壳走封装、页写字面量"误判成数据面会缩(实测 user/profile 的 realname 端点即此型)。
+    // 只剥一层且要求 `/api/` 边界 ⇒ `/apiary/x` 不动。
+    const cut = cut0.startsWith('/api/') ? cut0.slice(4) : cut0
     if (cut.length > 3 && !cut.startsWith('/pages/') && !cut.startsWith('/pkg-')) out.add(cut)
   }
   return out
@@ -124,7 +130,11 @@ export function apiClientSymbols(text) {
 export function apiClientEndpointIndex(files) {
   const index = new Map()
   for (const src of files) {
-    const decls = [...(src.text || '').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+([A-Za-z_$][\w$]*)/g)]
+    const decls = [
+      ...(src.text || '').matchAll(
+        /export\s+(?:async\s+)?(?:function|const)\s+([A-Za-z_$][\w$]*)/g,
+      ),
+    ]
     for (let i = 0; i < decls.length; i++) {
       const name = decls[i][1]
       const start = decls[i].index
@@ -141,7 +151,14 @@ export function apiClientEndpointIndex(files) {
 /**
  * @returns {{verdict:string, page?:string, spec?:string, shell?:string, why?:string, missing?:string[], wxOnly?:string[]}}
  */
-export function judgePage({ route, pageText, registry, shellOf, specText, apiEndpoints = new Map() }) {
+export function judgePage({
+  route,
+  pageText,
+  registry,
+  shellOf,
+  specText,
+  apiEndpoints = new Map(),
+}) {
   const mark = MARK_RE.exec(pageText)
   if (!mark) return { verdict: 'skip', why: '页面没有标记载体(不在本器射程)' }
   if (REUSE_RE.test(pageText)) return { verdict: 'skip', why: '已是真复用形制' }
@@ -328,7 +345,13 @@ function main() {
   // 端点封装索引按 HEAD 面建:取不到就空表(结果只会多拒,不会放宽)
   let apiEndpoints = new Map()
   try {
-    const epFiles = git(['ls-tree', '-r', '--name-only', 'HEAD', 'packages/api-client/src/endpoints'])
+    const epFiles = git([
+      'ls-tree',
+      '-r',
+      '--name-only',
+      'HEAD',
+      'packages/api-client/src/endpoints',
+    ])
       .split('\n')
       .map((s) => s.trim())
       .filter((f) => f.endsWith('.ts'))
@@ -388,7 +411,11 @@ function main() {
         try {
           writeFileSync(
             R(rel) + '.tmp',
-            renderReusePage({ pageText: disk, route: r.page, shellText: safeShow(r.shell, shellCache) || '' }),
+            renderReusePage({
+              pageText: disk,
+              route: r.page,
+              shellText: safeShow(r.shell, shellCache) || '',
+            }),
             'utf8',
           )
           renameSync(R(rel) + '.tmp', R(rel))
@@ -490,7 +517,10 @@ function selfTest() {
       want: 'convertible',
       got: () => {
         const idx = apiClientEndpointIndex([
-          { rel: 'x.ts', text: `export async function getItems() {\n  return fetchApi('/items/1')\n}\n` },
+          {
+            rel: 'x.ts',
+            text: `export async function getItems() {\n  return fetchApi('/items/1')\n}\n`,
+          },
         ])
         return judgePage({
           route: 'pkg-a/a/index',
@@ -517,13 +547,55 @@ function selfTest() {
         }).verdict,
     },
     {
+      name: '/api 归一:页写 /api/x、壳走 fetchApi(/x) ⇒ 同一路由,不再误判"数据面会缩"',
+      want: 'convertible',
+      got: () =>
+        judgePage({
+          route: 'pkg-a/a/index',
+          pageText: `// 镜像 packages/app/src/features/a/AScreen.tsx\nfetchApi('/api/items/1')\nt('a.title')`,
+          registry,
+          shellOf: () => shellOk,
+          specText: shellOk,
+        }).verdict,
+    },
+    {
+      name: '反向对照:/api 归一不放宽到"任意端点都算齐"(other 仍拦)',
+      want: 'blocked',
+      got: () =>
+        judgePage({
+          route: 'pkg-a/a/index',
+          pageText: `// 镜像 packages/app/src/features/a/AScreen.tsx\nfetchApi('/api/other')\nt('a.title')`,
+          registry,
+          shellOf: () => shellOk,
+          specText: shellOk,
+        }).verdict,
+    },
+    {
+      name: '模板串端点(插值里带函数调用)也能读到:/api/orders/me${buildQs(q)} ⇒ /orders/me',
+      want: '/orders/me',
+      got: () => [...endpointSet('return fetchApi(`/api/orders/me${buildQs(query)}`)')].join(','),
+    },
+    {
+      name: '非端点模板串不被误收(纯文案/变量拼接)',
+      want: '',
+      got: () => [...endpointSet('const label = `hello ${name}`')].join(','),
+    },
+    {
+      name: '/api 只剥一层且按 /api/ 边界:/apiary/x 不被改写',
+      want: '/apiary/x',
+      got: () => [...endpointSet(`fetchApi('/apiary/x')`)].join(','),
+    },
+    {
+      name: '/api 归一形态:/api/auth/realname/my ⇒ /auth/realname/my',
+      want: '/auth/realname/my',
+      got: () => [...endpointSet(`fetchApi('/api/auth/realname/my')`)].join(','),
+    },
+    {
       name: 'apiClientSymbols 认跨行花括号与 type/as 形态',
       want: 'A,b,c',
       got: () =>
         [
-          ...apiClientSymbols(
-            `import {\n  type A,\n  b as be,\n  c,\n} from '@ihui/api-client'`,
-          ),
+          ...apiClientSymbols(`import {\n  type A,\n  b as be,\n  c,\n} from '@ihui/api-client'`),
         ].join(','),
     },
     {
