@@ -17,9 +17,10 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - DELETE /accounts/{id}         删除(级联 records / error_counts)
 - PATCH  /accounts/{id}/enabled 启用/停用
 - PATCH  /accounts/{id}/name    重命名展示名
-- POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
+- POST   /accounts/{id}/checkin 手动签到(尊重冷却与出站全局限流,命中 429)
 - GET    /accounts/{id}/tasks   O68 WorkBuddy growth 任务列表(只读)
 - POST   /accounts/{id}/task-run O68 执行任务族(growth/travel/activity/blackcat/redeem/lottery/all,dry_run 可选)
+                                〔2026-10-31 上两条同补出站限流 + 账号冷却预检,命中 429〕
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
 - GET    /scheduler/status      调度器运行状态(enabled / started / next_run / next_run_qoder)
@@ -435,6 +436,35 @@ async def _wb_tasks_account_or_404(
     return account
 
 
+async def _outbound_risk_precheck(account_id: int) -> None:
+    """出站风控预检(2026-10-31 由 query_credits 样板提为唯一实现,§0.6 单一真相源)。
+
+    命中即 429 快速失败,**绝不向上游发出任何请求**;口径逐字沿用样板:
+    - 出站闸门限流预检:暂停中统一 429 快速失败(Trae 路径底层会把暂停转成
+      error dict,不预检就返回 200+error,前端无法按限流中止批量刷新);
+    - 账号冷却预检(第五件套,2026-10-16):冷却中账号(如 401 死号 10 年 /
+      挑战页 30min)不再打平台——天天拿死 token 打平台鉴权点是封号前兆,
+      与积分快照跳冷却(get_active_cooldowns)同口径;读冷却失败按无冷却放行
+      (fail-open,不阻塞正常操作)。
+    """
+    gate_remaining = checkin_outbound_gate.paused_remaining()
+    if gate_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"签到出站限流冷却中({gate_remaining:.0f}s)",
+        )
+    try:
+        cooldowns = await checkin_store.get_active_cooldowns()
+    except Exception:
+        cooldowns = {}
+    cd_end = cooldowns.get(account_id)
+    if cd_end is not None and cd_end > datetime.now(UTC):
+        raise HTTPException(
+            status_code=429,
+            detail=f"账号处于冷却期, {cd_end.isoformat()} 后解冻",
+        )
+
+
 @router.get("/accounts/{account_id}/tasks")
 async def list_account_tasks(
     account_id: int, current_user: str = Depends(require_request_user_id)
@@ -451,6 +481,10 @@ async def list_account_tasks(
             "reason": "任务族表面前仅对 WorkBuddy 账号实现(取证面只在 WorkBuddy 域)",
             "unjudged": False,
         }
+    # 出站风控预检(2026-10-31):与手动查余额/手动签到同口径 —— 暂停中或冷却中的账号
+    # 一律 429 停手,连只读列表都不打上游。排在平台闸之后是刻意的:非 workbuddy 分支
+    # 结构上零出站,先短路可保住既有 ok=false 契约;预检仍先于**任何**出站请求。
+    await _outbound_risk_precheck(account_id)
     device_map = dict(account.get("device_map") or {})
     client, owned = client_for(device_map)
     try:
@@ -484,6 +518,9 @@ async def run_account_task(
             "reason": "任务族表面前仅对 WorkBuddy 账号实现",
             "unjudged": False,
         }
+    # 出站风控预检(2026-10-31):一键做任务是**写侧**动作,拿冷却中的死号或被限流的
+    # 出口连点,会把风险放大到同 IP 全部账号 ⇒ 与手动签到/查余额同口径先停手。
+    await _outbound_risk_precheck(account_id)
     device_map = dict(account.get("device_map") or {})
     try:
         return await workbuddy_tasks.run_family(
@@ -539,28 +576,8 @@ async def query_credits(
     account = await checkin_store.get_decrypted_jwt(account_id, current_user)
     if account is None:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
-    # 出站闸门限流预检:暂停中统一 429 快速失败(Trae 路径底层会把暂停转成
-    # error dict,不预检就返回 200+error,前端无法按限流中止批量刷新)
-    gate_remaining = checkin_outbound_gate.paused_remaining()
-    if gate_remaining > 0:
-        raise HTTPException(
-            status_code=429,
-            detail=f"签到出站限流冷却中({gate_remaining:.0f}s)",
-        )
-    # 账号冷却预检(第五件套,2026-10-16):冷却中账号(如 401 死号 10 年 /
-    # 挑战页 30min)不再查余额——天天拿死 token 打平台鉴权点是封号前兆。
-    # 与积分快照跳冷却(get_active_cooldowns)同口径;读冷却失败按无冷却放行
-    # (fail-open,不阻塞正常查询)。
-    try:
-        cooldowns = await checkin_store.get_active_cooldowns()
-    except Exception:
-        cooldowns = {}
-    cd_end = cooldowns.get(account_id)
-    if cd_end is not None and cd_end > datetime.now(UTC):
-        raise HTTPException(
-            status_code=429,
-            detail=f"账号处于冷却期, {cd_end.isoformat()} 后解冻",
-        )
+    # 出站限流 + 账号冷却预检(判据唯一实现见 _outbound_risk_precheck,2026-10-31 收口)
+    await _outbound_risk_precheck(account_id)
     platform = account.get("platform")
     try:
         if platform == "qoder":
