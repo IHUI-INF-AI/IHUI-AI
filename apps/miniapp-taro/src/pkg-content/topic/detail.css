@@ -54,7 +54,7 @@
 
 .topic-detail-followers {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -96,7 +96,7 @@
 }
 
 .topic-detail-publish-icon {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-text-tertiary);
 }
 
@@ -161,14 +161,14 @@
 }
 
 .topic-detail-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
 /* 帖子内容 */
 .topic-detail-post-title {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-foreground);
   font-weight: 600;
   line-height: 1.4;
@@ -210,7 +210,7 @@
   background: var(--color-muted);
   border-radius: var(--radius-md);
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
 }
 
@@ -231,12 +231,12 @@
 }
 
 .topic-detail-post-stat-icon {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-tertiary);
 }
 
 .topic-detail-post-stat-num {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 

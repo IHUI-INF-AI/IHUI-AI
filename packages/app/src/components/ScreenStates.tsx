@@ -141,9 +141,9 @@ export function EmptyState({
       <Text style={styles.stateTitle}>{title}</Text>
       {desc ? <Text style={styles.stateDesc}>{desc}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable style={styles.stateBtn} onPress={onAction} accessibilityRole="button">
+        <Tappable style={styles.stateBtn} onPress={onAction} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{actionLabel}</Text>
-        </Pressable>
+        </Tappable>
       ) : null}
     </View>
   )
@@ -175,9 +175,9 @@ export function ErrorState({
       </View>
       <Text style={styles.stateTitle}>{message}</Text>
       {onRetry ? (
-        <Pressable style={styles.stateBtn} onPress={onRetry} accessibilityRole="button">
+        <Tappable style={styles.stateBtn} onPress={onRetry} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{retryLabel}</Text>
-        </Pressable>
+        </Tappable>
       ) : null}
     </View>
   )

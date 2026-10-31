@@ -84,7 +84,7 @@
 }
 
 .category-bar__badge-text {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   line-height: 20rpx;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

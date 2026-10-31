@@ -41,7 +41,7 @@
 .cc-content {
   width: 100%;
   min-height: 240rpx;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   line-height: 1.5;
 }
@@ -52,18 +52,18 @@
   margin-top: var(--spacing-xs);
 }
 .cc-counter-num {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-brand);
 }
 .cc-counter-max {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
 /* ===== 区块标题(对齐 RN label: 14dp→28rpx / text.secondary→muted-foreground) ===== */
 .cc-section-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-sm);
 }
@@ -101,7 +101,7 @@
 /* 深色遮罩上恒定浅字:--color-scrim-foreground(明暗同值白) */
 .cc-del-icon {
   color: var(--color-scrim-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   line-height: 1;
 }
 .cc-add-img {
@@ -122,7 +122,7 @@
   line-height: 1;
 }
 .cc-add-tip {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 
@@ -137,7 +137,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-md);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-brand);
   flex-shrink: 0;
 }
@@ -147,7 +147,7 @@
 }
 .cc-topic-x {
   margin-left: var(--spacing-xs-loose);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .cc-topic-more {
@@ -188,7 +188,7 @@
 }
 .cc-aigc-picked-title {
   flex: 1;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-brand);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -196,7 +196,7 @@
 }
 .cc-aigc-x {
   margin-left: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -227,12 +227,12 @@
   padding: 28rpx 32rpx;
 }
 .cc-sheet-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .cc-sheet-close {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   color: var(--color-muted-foreground);
   padding: 0 8rpx;
 }
@@ -255,7 +255,7 @@
 }
 .cc-aigc-option-title {
   flex: 1;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -281,7 +281,7 @@
 }
 /* 对齐 RN label: 14dp→28rpx / text.secondary */
 .cc-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .cc-vis {
@@ -300,7 +300,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-md);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .cc-vis-chip.active {
@@ -308,10 +308,10 @@
   color: var(--color-brand);
 }
 .cc-vis-icon {
-  font-size: 24rpx;
+  font-size: var(--text-label);
 }
 .cc-vis-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
 }
 
 /* ===== 底部发布按钮(对齐 RN submitBtn: bg brand.DEFAULT / 字 16dp→32rpx 600
@@ -334,7 +334,7 @@
   background: var(--color-brand);
   color: var(--color-primary-foreground);
   border-radius: var(--radius-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
 }
 /* 对齐 RN submitDisabled: bg text.tertiary */

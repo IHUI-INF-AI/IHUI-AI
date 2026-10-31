@@ -53,12 +53,12 @@
   margin-bottom: var(--spacing-sm);
 }
 .dc-waitting-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-primary);
 }
 .dc-waitting-sub {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-muted-foreground);
 }
 /* RN entryBtn: py rpx(10) px rpx(40), bg brand(→primary);
@@ -69,7 +69,7 @@
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   text-align: center;
 }
@@ -128,7 +128,7 @@
 }
 /* RN infoTitle: 15dp=30rpx 600 text.primary,mb rpx(12) */
 .dc-account-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs-loose);
@@ -164,7 +164,7 @@
 .dc-copy-btn {
   flex-shrink: 0;
   padding: 0 8rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-primary);
 }
 .dc-copy-btn:active {
@@ -174,7 +174,7 @@
 .dc-renew-btn {
   flex-shrink: 0;
   padding: 0 8rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-danger-bright);
   font-weight: 600;
 }
@@ -193,7 +193,7 @@
   gap: var(--spacing-sm);
 }
 .dc-notice-tip {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .dc-plaza-btn {
@@ -201,7 +201,7 @@
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   text-align: center;
 }
@@ -218,7 +218,7 @@
 }
 /* RN unTitle: 15dp=30rpx 600 text.primary,mb rpx(8) */
 .dc-faq-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);
@@ -243,7 +243,7 @@
 }
 /* RN problemTitle: 15dp=30rpx 600,mb rpx(8) */
 .dc-faq-item-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);

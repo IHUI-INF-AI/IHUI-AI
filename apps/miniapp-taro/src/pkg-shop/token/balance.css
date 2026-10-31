@@ -37,7 +37,7 @@
 .balance-label {
   display: block;
   /* 对齐 RN balanceLabel fontSize 14 (dp→rpx 1:2);cta 底配 cta-foreground 字(成对) */
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-cta-foreground);
 }
 .balance-value {
@@ -71,7 +71,7 @@
   text-align: center;
 }
 .func-btn Text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .func-btn.active {
@@ -79,7 +79,7 @@
   background: var(--color-cta);
 }
 .func-btn.active Text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-cta-foreground);
 }
@@ -106,7 +106,7 @@
   text-align: center;
   border-radius: var(--radius-lg);
   /* 对齐 RN tabTextActive fontSize 16 (dp→rpx 1:2) */
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-text-tertiary);
 }
 .tab-item.active {
@@ -143,7 +143,7 @@
 .record-title {
   display: block;
   /* 对齐 RN recordTitle fontSize 14 / fontWeight 600 (dp→rpx 1:2) */
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -152,12 +152,12 @@
 }
 .record-time {
   /* 对齐 RN recordTime fontSize 11 (dp→rpx 1:2) */
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 .record-count {
   /* 对齐 RN amountRed(brandAccent)/ amount fontSize 16 / fontWeight 700 (dp→rpx 1:2) */
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-brand-accent-deep);
   font-weight: 700;
 }
@@ -165,7 +165,7 @@
 .load-more {
   text-align: center;
   padding: var(--spacing-md) 0;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 .empty-text {
@@ -173,7 +173,7 @@
   text-align: center;
   /* 对齐 RN empty paddingVertical 32 / fontSize 14 (dp→rpx 1:2) */
   padding: var(--spacing-3xl) 0;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-tertiary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

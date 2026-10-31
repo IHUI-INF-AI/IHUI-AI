@@ -18,12 +18,12 @@
   padding: var(--spacing-md) 20rpx;
 }
 .banner-title {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-foreground);
 }
 .banner-desc {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   margin-top: var(--spacing-sm);
   color: var(--color-muted-foreground);
 }
@@ -52,25 +52,25 @@
   transform: translateX(-50%);
   background: var(--color-danger);
   color: var(--color-danger-foreground);
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   padding: 2rpx 12rpx;
   border-radius: var(--radius-md);
 }
 .plan-name {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .plan-price {
   display: block;
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   color: var(--color-danger);
   font-weight: 700;
   margin: var(--spacing-xs-loose) 0;
 }
 .plan-orig {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   text-decoration: line-through;
 }
@@ -83,13 +83,13 @@
   box-sizing: border-box;
 }
 .rights-title {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-md);
 }
 .rights-item {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-medium);
   line-height: 44rpx;
   padding: var(--spacing-xs) 0;
@@ -113,7 +113,7 @@
   background: var(--color-muted);
 }
 .pay-method-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .btn {
@@ -126,7 +126,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   border: none;
 }
