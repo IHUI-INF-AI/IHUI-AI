@@ -14,9 +14,11 @@
  *
  * 判据放在 `@ihui/shared` 而非各端:CLI 走 CDP 直连、extension 走 chrome.tabs,
  * 两条实现路径,协议判据只许一份(§0.6 同类判据第二份必然漂移)。
- * 协议表复用 ssrf-guard 的 `ALLOWED_FETCH_PROTOCOLS`,不另抄一份 http/https。
+ * 协议表复用 `ALLOWED_FETCH_PROTOCOLS`,不另抄一份 http/https。2026-10-31:该常量已从
+ * `ssrf-guard.ts` 拆到零 Node 内建的 `./url-protocols` —— ssrf-guard 带 `node:dns`,
+ * 本文件被扩展打进 chrome-mv3 包时会连带把 node 内建拖进浏览器构建图(实测构建失败)。
  */
-import { ALLOWED_FETCH_PROTOCOLS } from './fetch-protocols.js'
+import { ALLOWED_FETCH_PROTOCOLS } from './url-protocols.js'
 
 /**
  * 除 http/https 外唯一允许的导航目标:空白占位页。
