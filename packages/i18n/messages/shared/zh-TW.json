@@ -79,6 +79,8 @@
     "toolWorkflowTrigger": "觸發工作流程",
     "toolWorkflowResume": "續跑工作流程",
     "toolWorkflowInstanceStatus": "查詢工作流程執行個體",
+    "toolNotebookEdit": "編輯筆記本儲存格",
+    "toolSendToSession": "傳送會話訊息",
     "toolGenerateTest": "產生測試程式碼",
     "toolRunCommand": "執行命令",
     "toolGitOperations": "執行 Git 操作",
