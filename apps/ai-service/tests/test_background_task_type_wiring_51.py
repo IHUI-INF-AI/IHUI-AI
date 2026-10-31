@@ -106,7 +106,7 @@ def test_mcp_server_no_longer_carries_its_own_task_whitelist() -> None:
     assert not hasattr(ms, "_BG_TASK_IMPLS"), "mcp_server 仍自带任务白名单 ⇒ 广告面与注册表分叉"
 
 
-def test_tool_entry_reaches_every_real_executor(tmp_path: Path) -> None:
+def test_tool_entry_reaches_every_real_executor(tmp_path: Path, monkeypatch) -> None:
     """六类各从**生产工具入口**走通一次,并回真实业务结论(不是 executed:True 的空壳)。
 
     这是本票的主判据:上一轮「在账未接线 6 类」说的就是这条链断在 `_tool_run_in_background`
@@ -117,6 +117,9 @@ def test_tool_entry_reaches_every_real_executor(tmp_path: Path) -> None:
     只判"工具面到得了这两类、且落到注册表分派上"—— 它们**真做业务**的证据在
     `test_background_task_executors.py`(真 httpx 栈 + 真并发计数)与本文件逐类型续跑用例里。
     """
+    # 2026-10-31 第 11 批:test_suite 执行器按 IHUI_WORKSPACE_ROOTS 校验工作项目录
+    # (fail-closed,未登记即直接 failed:"未登记任何工作区根")。
+    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(tmp_path))
     from app.services.background_tasks import background_task_manager
 
     pkg = _tree(tmp_path)
@@ -383,8 +386,11 @@ def _artifact(task_type: str, result: dict[str, Any]) -> Any:
 
 
 @pytest.mark.parametrize("task_type", RESUMABLE_TYPES)
-def test_resumed_run_is_equivalent_to_single_pass(task_type: str, tmp_path: Path) -> None:
+def test_resumed_run_is_equivalent_to_single_pass(task_type: str, tmp_path: Path, monkeypatch) -> None:
     """每类各一条:中断 → 恢复 ⇒ 已完成单元不重跑,且终产物与一次跑完等价。"""
+    # 2026-10-31 第 11 批:后台任务的 test_suite 执行器按 IHUI_WORKSPACE_ROOTS
+    # 校验工作项目录(fail-closed,未登记即"未登记任何工作区根"并直接 failed)。
+    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(tmp_path))
     args, seams = _args_for(task_type, tmp_path)
     if task_type in ("batch_llm", "web_batch"):
         # 并发=1 才谈得上"跑到第 k 个被中断";并发>1 时取消点落在谁身上是时序问题,不是续跑语义
