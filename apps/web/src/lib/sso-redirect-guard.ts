@@ -68,7 +68,10 @@ const SAFE_NAVIGATION_PROTOCOLS = new Set(['http:', 'https:'])
 function allowedDeepLinkSchemesFromEnv(): readonly string[] | undefined {
   const raw = process.env.SSO_ALLOWED_DEEP_LINK_SCHEMES
   if (!raw) return undefined
-  const schemes = raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+  const schemes = raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
   return schemes.length > 0 ? schemes : undefined
 }
 
@@ -109,9 +112,31 @@ export interface SafeNavigationOptions {
 
 /** 解析 env 白名单(逗号分隔);未配置 ⇒ 空数组(= 所有绝对地址都不放行)。 */
 export function parseAllowedOrigins(raw?: string): string[] {
-  return (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  return (raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
+/**
+ * 第一方落点集合 = **本站 origin** ∪ `NEXT_PUBLIC_SSO_ALLOWED_ORIGINS`。
+ *
+ * 为什么需要它(2026-11-01 安全强化):`allowedOrigins` 缺席时 `isSafeNavigationTarget`
+ * 按"只判协议"的原语义放过**任意绝对 http(s) 外站**(文件内注释写明这是 mobile-auth
+ * 的设计意图)。`/sso/redirect` 早就显式传了白名单,而 `/sso/login` 与 `/sso/register`
+ * 的 `?redirect=` 是完全面向用户的入参,却什么都没传 ⇒ 受害者刚由企业 SSO 建好会话,
+ * 就被本站 URL 栏一路带到 https://evil.com 的仿冒页(自动跳转,无需点击)。
+ * 本出口把"合法的第一方"这件事收成一份判据,调用点只负责选策略、不再各拼一次。
+ *
+ * 深链不受影响:`allowedOrigins` 只作用在 SAFE_NAVIGATION_PROTOCOLS(http/https)那一支,
+ * `ihui://` 走的是另一支(协议族 + host + env scheme 白名单),故 App 回跳契约不变。
+ * 需要放开外站回跳的部署:显式设 `NEXT_PUBLIC_SSO_ALLOWED_ORIGINS`(逐字 origin 比对)。
+ */
+export function firstPartyAllowedOrigins(): string[] {
+  const env = parseAllowedOrigins(process.env.NEXT_PUBLIC_SSO_ALLOWED_ORIGINS)
+  const self = typeof window === 'undefined' ? [] : [window.location.origin]
+  return Array.from(new Set([...self, ...env]))
+}
 
 /**
  * 协议级安全判定 —— 与本文件的**归属/守卫**判定是两件事,不得互相代替:

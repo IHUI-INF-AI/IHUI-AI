@@ -190,6 +190,9 @@ class TokenBucket:
 RATE_RULES: list[tuple[str, int, int]] = [
     ("/api/llm/", 60, 60),  # 60 次/分钟
     ("/api/v1/chat/", 30, 60),  # 30 次/分钟
+    # 2026-11-01 安全强化:/api/voice/stt 在 JWT_PUBLIC_PATHS 里(匿名可调)且每次都走本地
+    # CPU 推理,原先不在任何限流规则内 ⇒ 脚本化打满即可停摆。tts 同为本地合成,一并纳入。
+    ("/api/voice/", 20, 60),  # 20 次/分钟
 ]
 
 
