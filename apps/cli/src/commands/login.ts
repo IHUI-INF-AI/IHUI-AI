@@ -124,7 +124,7 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   }
   existing.apiKey = accessToken;
   if (refreshToken) existing.refreshToken = refreshToken;
-  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
 }
 
 /**
@@ -140,7 +140,7 @@ function clearLocalToken(): void {
       const settings = parsed as Settings;
       settings.apiKey = undefined;
       settings.refreshToken = undefined;
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
     }
   } catch {
     // 损坏文件忽略
