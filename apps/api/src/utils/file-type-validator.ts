@@ -217,6 +217,58 @@ export interface ValidationResultErr {
 export type ValidationResult = ValidationResultOk | ValidationResultErr
 
 /**
+ * 只按「文件头」校验类型：扩展名白名单 + MIME 一致性 + magic number，**不含大小判定**。
+ *
+ * 2026-10-31 安全强化第 10 批 R10 抽出（供分片上传合并后校验用）：
+ * 分片上传是为大文件设计的（`MAX_UPLOAD_SIZE` 10MB 对它是硬回退），但此前合并完
+ * 只比对客户端声明的 md5（且 `fileMd5` 可选 ⇒ 不声明就完全不校验内容），
+ * 任意二进制都能落进 `uploads/public` 在可信域托管。合并后无法把整包读进内存，
+ * 只能读头部 —— 该函数就是"头部能判的那部分"，判据与 `validateUploadFile` 同一份
+ * （后者内部复用它，AGENTS.md §0.6 单一真相源）。
+ *
+ * @param head         文件前若干字节（建议 ≥ 4096，覆盖全部已定义魔数的最长前缀）
+ * @param filename     原始文件名（用于提取扩展名）
+ * @param declaredMime 客户端声明的 MIME；空串表示"未声明"（跳过一致性判，只验魔数）
+ */
+export function validateUploadHead(
+  head: Buffer,
+  filename: string,
+  declaredMime: string,
+): ValidationResult {
+  if (head.length === 0) {
+    return { ok: false, reason: '文件内容为空' }
+  }
+
+  const ext = extractExt(filename)
+  if (!ext) {
+    return { ok: false, reason: '文件名缺少扩展名' }
+  }
+  const allowedMimes = EXT_MIME_MAP[ext]
+  if (!allowedMimes) {
+    return { ok: false, reason: `不支持的文件类型: .${ext}` }
+  }
+
+  // 未声明 MIME 时不判一致性（很多客户端对大文件分片上传根本不发 Content-Type，
+  // 硬要它匹配会把正常用户挡在门外）；魔数判据仍在下一关生效。
+  if (declaredMime) {
+    const normalizedMime = normalizeMime(declaredMime)
+    if (!allowedMimes.includes(normalizedMime)) {
+      return { ok: false, reason: `MIME 类型 ${declaredMime} 与扩展名 .${ext} 不匹配` }
+    }
+  }
+
+  if (!checkMagicNumber(ext, head)) {
+    return { ok: false, reason: '文件内容与声明的类型不一致(magic number 校验失败)' }
+  }
+
+  const canonicalMime = allowedMimes[0]
+  if (!canonicalMime) {
+    return { ok: false, reason: '内部错误:文件类型映射异常' }
+  }
+  return { ok: true, extension: ext, mimeType: canonicalMime }
+}
+
+/**
  * 校验上传文件:扩展名白名单 + MIME 一致性 + magic number + 大小限制。
  * @param buffer       文件二进制内容
  * @param filename     原始文件名(用于提取扩展名)
@@ -237,30 +289,7 @@ export function validateUploadFile(
     const mb = (maxSize / (1024 * 1024)).toFixed(0)
     return { ok: false, reason: `文件大小超过 ${mb}MB 限制` }
   }
-
-  const ext = extractExt(filename)
-  if (!ext) {
-    return { ok: false, reason: '文件名缺少扩展名' }
-  }
-  const allowedMimes = EXT_MIME_MAP[ext]
-  if (!allowedMimes) {
-    return { ok: false, reason: `不支持的文件类型: .${ext}` }
-  }
-
-  const normalizedMime = normalizeMime(declaredMime)
-  if (!allowedMimes.includes(normalizedMime)) {
-    return { ok: false, reason: `MIME 类型 ${declaredMime} 与扩展名 .${ext} 不匹配` }
-  }
-
-  if (!checkMagicNumber(ext, buffer)) {
-    return { ok: false, reason: '文件内容与声明的类型不一致(magic number 校验失败)' }
-  }
-
-  const canonicalMime = allowedMimes[0]
-  if (!canonicalMime) {
-    return { ok: false, reason: '内部错误:文件类型映射异常' }
-  }
-  return { ok: true, extension: ext, mimeType: canonicalMime }
+  return validateUploadHead(buffer, filename, declaredMime)
 }
 
 /**

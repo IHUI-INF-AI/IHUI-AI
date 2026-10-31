@@ -404,8 +404,11 @@ class A2AServer:
     async def _dispatch_remote(self, endpoint: str, task: A2ATask) -> dict[str, Any]:
         """跨服务 HTTP 派发:POST `${endpoint}/tasks/{task_id}/execute`。
 
-        30 秒超时,成功时返回响应 JSON。
+        30 秒超时,成功时返回响应 JSON。派发前再校验一次 endpoint(解析后连,收窄 TOCTOU)。
         """
+        # SSRF 闸:派发前再校验(解析后连,收窄 TOCTOU)
+        validate_a2a_endpoint(endpoint)
+
         import httpx
 
         url = f"{endpoint.rstrip('/')}/tasks/{task.id}/execute"
@@ -447,6 +450,58 @@ class A2AServer:
     def list_tasks(self) -> list[A2ATask]:
         """列出所有任务(内存缓存中的)。"""
         return list(self._tasks.values())
+
+
+def validate_a2a_endpoint(endpoint: str) -> str:
+    """校验 A2A agent endpoint,防 SSRF(私网/回环/链路本地/元数据地址)。
+
+    要求 https(本地开发回环允许 http);解析 host 后对所有 IP 做私网/保留段判定,
+    任一命中即拒。返回规范化后的 endpoint(去尾部斜杠)。
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    if not endpoint:
+        raise ValueError("endpoint 不能为空")
+    parsed = urlparse(endpoint)
+    if parsed.scheme not in ("https", "http"):
+        raise ValueError(f"endpoint 仅支持 http/https,实得: {parsed.scheme}")
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise ValueError("endpoint 缺少 host")
+    # 本地开发回环:放行(http/https 皆可),不解析、不判私网。
+    # 注意:0.0.0.0 是 unspecified 地址,**不**作本地放行(归入下方 IP 段校验,必拒)。
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if host in local_hosts:
+        return endpoint.rstrip("/")
+    # 其余必须 https
+    if parsed.scheme != "https":
+        raise ValueError("非本地 endpoint 必须使用 https")
+
+    def _blocked(ip: str) -> bool:
+        try:
+            addr = ipaddress.ip_address(ip.split("%")[0])
+        except ValueError:
+            return True
+        return (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+            or addr.is_unspecified
+        )
+
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:  # noqa: BLE001
+        raise ValueError(f"endpoint host 无法解析: {host} ({e})")
+    ips = {info[4][0] for info in infos}
+    for ip in ips:
+        if _blocked(str(ip)):
+            raise ValueError(f"endpoint 指向受限地址段: {ip}")
+    return endpoint.rstrip("/")
 
 
 a2a_server = A2AServer()

@@ -191,6 +191,11 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
         .header('Content-Type', contentType)
         .header('Cache-Control', 'public, max-age=86400')
         .header('Access-Control-Allow-Origin', '*')
+        // 2026-10-31 安全强化第 10 批 R10：纵深防御。MIME 白名单（proxyImage 内）已把
+        // SVG 结构性排除，这两条是第二道：即便将来白名单被放宽，顶层导航到本端点也
+        // 无法执行脚本（sandbox 空源 + default-src 'none'），且禁止浏览器嗅探改型。
+        .header('Content-Security-Policy', "default-src 'none'; sandbox")
+        .header('X-Content-Type-Options', 'nosniff')
         .send(buffer)
     } catch (e) {
       return reply.status(502).send(error(502, toUserFriendlyMessage(e) || '图片代理失败'))
