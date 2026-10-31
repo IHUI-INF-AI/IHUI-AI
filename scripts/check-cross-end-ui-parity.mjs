@@ -4113,10 +4113,17 @@ export function main(argv, repoRoot = ROOT) {
         pairCount: res.pairCount,
         findings: res.findings.map((f) => ({
           name: f.name,
+          // 主腿机器面此前只递计数,`diffCount: 1` 背后是哪一档差在只有终端人读面看得见 ——
+          // 清欠债的人拿不到输入,只能自己再算一遍(必漂移)。web 腿已按"机器面与主腿同键同形"
+          // 补过同一格,这一路没跟着补;两条腿读同一台输出机,键集不该有两种。
+          miniapp: f.miniapp,
+          web: f.web,
           diffCount: diffCount(f),
           radiusCount: radiusCount(f),
-          radius: f.radius,
           elementRadiusCount: elementRadiusCount(f),
+          geometry: f.geometry,
+          named: f.named,
+          radius: f.radius,
           elementRadius: f.elementRadius,
           lang: f.lang,
         })),

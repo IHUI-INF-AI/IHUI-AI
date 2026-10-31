@@ -1914,3 +1914,51 @@ test('T54 圆角:档名 / 角色名 / 像素值是同一个档(取源 = HEAD 面
   const other = radiusSetOf('const s = { card: { borderRadius: rnRadius.xl } }', table)
   assert.notDeepEqual(other, byPx, '真不同档必须仍被判出差异')
 })
+
+test('T55 主腿机器面必须带几何明细:diffCount 要能被 findings 自己复算(摘掉 geometry/named 即翻红)', () => {
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-500)}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(Array.isArray(j.findings) && j.findings.length > 0, '主腿一条 findings 都不产出 ⇒ 这一格没判')
+  // 阳性对照:全表若一条几何档都没差,这个锁就退化成"键存在即可"——那不算判过。
+  const withGeo = j.findings.filter(
+    (f) => (f.geometry?.onlyMiniapp?.length ?? 0) + (f.geometry?.onlyRn?.length ?? 0) > 0,
+  )
+  assert.ok(
+    withGeo.length > 0,
+    `判据产出的 14 族里没有任何一族带几何残档 ⇒ 尺子读窄了,不是两端真同值(现存读数:${JSON.stringify(
+      j.findings.map((f) => [f.name, f.diffCount]),
+    )})`,
+  )
+  for (const f of j.findings) {
+    assert.ok(f.geometry, `${f.name}:机器面缺 geometry ⇒ 门报了档差却不给是哪一档,清欠债的人只能自己复算一遍`)
+    assert.ok(Array.isArray(f.named), `${f.name}:机器面缺 named 数组 ⇒ diffCount 无法复算`)
+    assert.equal(
+      f.diffCount,
+      f.named.length + f.geometry.onlyMiniapp.length + f.geometry.onlyRn.length,
+      `${f.name}:diffCount(${f.diffCount})与明细集合数不符 ⇒ 计数与取证两半会各自漂移(§0.6)`,
+    )
+  }
+  // 反向对照:把明细从 json 里摘掉,复算式必须当场报错而不是静默通过
+  const stripped = JSON.parse(JSON.stringify(j))
+  const targetName = withGeo[0].name
+  const idx = stripped.findings.findIndex((f) => f.name === targetName)
+  assert.ok(idx >= 0, `阳性对照族 ${targetName} 不在本次主腿产出里 ⇒ 尺子的配对集变了,请重取对照`)
+  assert.ok(stripped.findings[idx].geometry, `${targetName} 本就没有 geometry ⇒ 正向那圈已经失职了`)
+  delete stripped.findings[idx].geometry
+  assert.throws(
+    () =>
+      stripped.findings.forEach((f) =>
+        assert.equal(
+          f.diffCount,
+          f.named.length + f.geometry.onlyMiniapp.length + f.geometry.onlyRn.length,
+        ),
+      ),
+    '摘掉 geometry 后复算式没有翻红 ⇒ 这条锁是哑的',
+  )
+})
