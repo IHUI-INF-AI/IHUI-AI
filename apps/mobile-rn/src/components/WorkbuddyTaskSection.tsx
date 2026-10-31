@@ -12,21 +12,31 @@
  *                                               energy_delta,reason,unjudged}
  *   body {kind,dry_run};kind="all" = 按后端 SWEEP_ORDER 跑完全部族(顺序由后端单一真源决定,
  *   本端不得自行拆成多次请求)。
- * - GET  /api/checkin/scheduler/status ⇒ {...,wb_tasks:{enabled,tasks_enabled,cron_enabled,
- *   live_run,sweep_minutes,claim_path_configured,activity_path_configured,last_sweep}}
+ * - GET  /api/checkin/scheduler/status ⇒ {...,wb_tasks:{enabled(观测态:这条 job 真注册在进程里),
+ *   tasks_enabled,cron_enabled,not_running_reason,live_run,sweep_minutes,
+ *   claim_path_configured,activity_path_configured,last_sweep}}
  *
  * 三条不可漂的写法:
  *  ① 只有 platform==='workbuddy' 的账号才挂这一区块;一个都没有 ⇒ 返回 null,零请求(不打空 id);
- *  ② 巡检态 `enabled` 只读 `wb_tasks.enabled`(任务门 ∧ 总闸,这条 job 真会被注册的唯一判据)——
- *     只看 tasks_enabled 会写出「已启用」却根本不会跑的假绿;
+ *  ② 巡检态判定**不在本文件**:唯一实现 = `@ihui/shared/utils/workbuddy-sweep-view`(三端同一份,
+ *     2026-10-31 收三抄漂移),本端只留「档位 → i18n 键」与「档位 → 配色」两张映射表;
  *  ③ unjudged=true 不冒充成功:reason 原样摆出来;取不到巡检态写「状态未知」,不写成「未启用」。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import type { TextStyle, ViewStyle } from 'react-native'
 import { ChevronDown, ListChecks } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { CheckinSchedulerStatusResponse, CheckinWbSweepSummary } from '@ihui/types'
+import {
+  composeWbSweepText,
+  deriveWbSweepView,
+  formatWbIsoMinute,
+  joinWbSweepParts,
+  type WbSweepMessageKey,
+  type WbSweepTone,
+} from '@ihui/shared/utils/workbuddy-sweep-view'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 
@@ -65,30 +75,42 @@ export interface WorkbuddyTaskRunResponse {
   unjudged: boolean
 }
 
-/** 巡检态五档:已启用 / 演练模式 / 被总闸拦 / 未启用 / 状态未知。 */
-export type SweepTone = 'on' | 'dry' | 'blocked' | 'off' | 'unknown'
+/**
+ * 巡检态档位:判据在 `@ihui/shared/utils/workbuddy-sweep-view`(三端同一份),本端别名只用于
+ * 导出面稳定(用例与页面按 `SweepTone` 称呼它)。七档 = 五结论(on/dry/cron-blocked/tasks-off/
+ * not-registered)+ 两未判定态(loading/unknown)。
+ */
+export type SweepTone = WbSweepTone
 
+/** 呈现形态:档位 + 已翻译好的一句话 + 两个附加说明位。 */
 export interface SweepView {
   tone: SweepTone
   text: string
   /** 领奖/上报路径缺一 ⇒ 只上报不领奖,必须单独说明 */
   pathsMissing: boolean
-  /** 下次巡检时间(已截到分钟),仅已启用时有意义 */
+  /** 下次巡检时间(已截到分钟),仅这条 job 真在跑的档位给值 */
   next: string | null
 }
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
 /**
- * 时间只做字符串截断(ISO 前 16 位),不走 toLocaleString:
- * 后者按设备时区/语言变体输出,同一份回执在不同机器上不可对账。
+ * 档位 → 本端 i18n 键。判据不在本端,这里只登记"这一档说什么话";七档穷举,漏一档编译期即红。
+ * `not-registered`(2026-10-31 新档)= 两门意图都开但观测态为假:出路 = 改完 .env 必须重启
+ * ai-service(进程内 start() 有 `if self._started: return` 短路,不会热加载)。
  */
-export function formatIsoMinute(iso: string): string {
-  return iso.slice(0, 16).replace('T', ' ')
+const SWEEP_MESSAGE_KEYS: Record<WbSweepMessageKey, string> = {
+  loading: 'checkinAssistant.taskAutoLoading',
+  on: 'checkinAssistant.taskAutoOn',
+  dry: 'checkinAssistant.taskAutoDry',
+  'cron-blocked': 'checkinAssistant.taskAutoCronBlocked',
+  'tasks-off': 'checkinAssistant.taskAutoOff',
+  'not-registered': 'checkinAssistant.taskAutoNotStarted',
+  unknown: 'checkinAssistant.taskAutoUnknown',
 }
 
 /**
- * 巡检态 → 呈现决策(纯函数,渲染与用例共用一份)。
+ * 巡检态 → 呈现决策(本端只负责"翻译",判定整段交给共享判据;渲染与用例共用一份)。
  *
  * `sweep === undefined` = 还没取到(读取中);`null` 或没有 `wb_tasks` = 服务端没给这份
  * 视图 ⇒ 「状态未知」,**绝不**降级成「未启用」。
@@ -98,55 +120,33 @@ export function deriveSweepView(
   sweepError: string | null,
   t: Translate,
 ): SweepView {
-  if (sweep === undefined) {
-    return { tone: 'unknown', text: t('checkinAssistant.taskAutoLoading'), pathsMissing: false, next: null }
-  }
-  const wt = sweep?.wb_tasks
-  if (!wt) {
-    return {
-      tone: 'unknown',
-      text: sweepError
-        ? `${t('checkinAssistant.taskAutoUnknown')}: ${sweepError}`
-        : t('checkinAssistant.taskAutoUnknown'),
-      pathsMissing: false,
-      next: null,
-    }
-  }
-  const pathsMissing = !wt.claim_path_configured || !wt.activity_path_configured
-  const iso = sweep?.next_run_wb_tasks
-  const next = iso ? formatIsoMinute(iso) : null
-  // 两门与 = 唯一可信判据。未启用时再按两门原值把「配了却没跑」的原因分开说。
-  if (!wt.enabled) {
-    if (wt.tasks_enabled && !wt.cron_enabled) {
-      return { tone: 'blocked', text: t('checkinAssistant.taskAutoCronBlocked'), pathsMissing, next: null }
-    }
-    return { tone: 'off', text: t('checkinAssistant.taskAutoOff'), pathsMissing, next: null }
-  }
-  if (!wt.live_run) {
-    return { tone: 'dry', text: t('checkinAssistant.taskAutoDry'), pathsMissing, next }
-  }
+  const decision = deriveWbSweepView(sweep, sweepError)
   return {
-    tone: 'on',
-    text: t('checkinAssistant.taskAutoOn', { minutes: wt.sweep_minutes }),
-    pathsMissing,
-    next,
+    tone: decision.tone,
+    text: composeWbSweepText(decision, SWEEP_MESSAGE_KEYS, t),
+    pathsMissing: decision.pathsMissing,
+    next: decision.next,
   }
 }
 
 /**
  * 上一轮回执文案。`last_sweep` 缺席 = 本进程还没跑过(写「尚未巡检」,不是「失败」);
- * `note` 非空 = 本轮没跑完,原样追加,不粉饰。
+ * `note` 非空 = 本轮没跑完,原样追加,不粉饰。分段连接符与 web/小程序同源。
  */
-export function deriveLastSweepText(last: CheckinWbSweepSummary | null | undefined, t: Translate): string {
+export function deriveLastSweepText(
+  last: CheckinWbSweepSummary | null | undefined,
+  t: Translate,
+): string {
   if (!last) return t('checkinAssistant.taskAutoLastNever')
-  const at = typeof last.at === 'string' ? formatIsoMinute(last.at) : '—'
-  const head = t('checkinAssistant.taskAutoLast', { time: at })
-  const stats = t('checkinAssistant.taskAutoLastStats', {
-    families: last.families,
-    accepted: last.accepted,
-    claimed: last.claimed,
-  })
-  return `${head} · ${stats}${last.note ? ` · ${last.note}` : ''}`
+  return joinWbSweepParts([
+    t('checkinAssistant.taskAutoLast', { time: formatWbIsoMinute(last.at) ?? '—' }),
+    t('checkinAssistant.taskAutoLastStats', {
+      families: last.families,
+      accepted: last.accepted,
+      claimed: last.claimed,
+    }),
+    last.note,
+  ])
 }
 
 export function WorkbuddyTaskSection({
@@ -266,18 +266,8 @@ export function WorkbuddyTaskSection({
   if (wbAccounts.length === 0) return null
 
   const blocked = busy !== null || (accountId !== null && busyAccountId === accountId)
-  const toneStyle =
-    sweepView.tone === 'on'
-      ? styles.sweepOn
-      : sweepView.tone === 'dry' || sweepView.tone === 'blocked'
-        ? styles.sweepWarn
-        : styles.sweepIdle
-  const toneTextStyle =
-    sweepView.tone === 'on'
-      ? styles.sweepOnText
-      : sweepView.tone === 'dry' || sweepView.tone === 'blocked'
-        ? styles.sweepWarnText
-        : styles.sweepIdleText
+  // 七档 → 配色查表(样式留在本端可扫描文件里;shared 只出判定,不出色值)。
+  const toneStyles = sweepToneStyles(sweepView.tone)
 
   return (
     <View style={styles.card}>
@@ -303,23 +293,23 @@ export function WorkbuddyTaskSection({
         <View style={styles.body}>
           <Text style={styles.muted}>{t('checkinAssistant.taskDesc')}</Text>
 
-          <View style={[styles.sweep, toneStyle]}>
-            <Text style={[styles.sweepLine, toneTextStyle]}>
+          <View style={[styles.sweep, toneStyles.box]}>
+            <Text style={[styles.sweepLine, toneStyles.text]}>
               <Text style={styles.sweepLabel}>{t('checkinAssistant.taskAutoTitle')}: </Text>
               {sweepView.text}
             </Text>
             {sweepView.next ? (
-              <Text style={[styles.sweepLine, styles.mono, toneTextStyle]}>
+              <Text style={[styles.sweepLine, styles.mono, toneStyles.text]}>
                 {t('checkinAssistant.taskAutoNext', { time: sweepView.next })}
               </Text>
             ) : null}
             {sweepView.pathsMissing ? (
-              <Text style={[styles.sweepLine, toneTextStyle]}>
+              <Text style={[styles.sweepLine, toneStyles.text]}>
                 {t('checkinAssistant.taskAutoPaths')}
               </Text>
             ) : null}
             {lastSweepText ? (
-              <Text style={[styles.sweepLine, toneTextStyle]}>{lastSweepText}</Text>
+              <Text style={[styles.sweepLine, toneStyles.text]}>{lastSweepText}</Text>
             ) : null}
           </View>
 
@@ -368,9 +358,7 @@ export function WorkbuddyTaskSection({
               onPress={() => void runAll('run')}
             >
               <Text style={styles.actionPrimaryText}>
-                {busy === 'run'
-                  ? t('checkinAssistant.taskRunning')
-                  : t('checkinAssistant.taskRun')}
+                {busy === 'run' ? t('checkinAssistant.taskRunning') : t('checkinAssistant.taskRun')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -399,9 +387,7 @@ export function WorkbuddyTaskSection({
                 ))
               )}
               {listReason || listUnjudged ? (
-                <Text style={styles.warn}>
-                  {listReason ?? t('checkinAssistant.taskUnjudged')}
-                </Text>
+                <Text style={styles.warn}>{listReason ?? t('checkinAssistant.taskUnjudged')}</Text>
               ) : null}
             </View>
           ) : null}
@@ -514,7 +500,12 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['2xs'],
     gap: rnSpacing.xs,
   },
-  taskRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: rnSpacing.sm },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: rnSpacing.sm,
+  },
   taskTitle: { flexShrink: 1, fontSize: rnType.caption.size, color: tokens.text.primary },
   taskCode: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   taskMeta: { fontSize: rnType.caption.size, color: tokens.text.secondary },
@@ -529,4 +520,34 @@ const styles = StyleSheet.create({
   resultTitle: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   claimed: { fontSize: rnType.caption.size, color: tokens.success.deep },
 })
+
+/**
+ * 档位 → 配色两件套(盒 + 字)。`Record<WbSweepTone, …>` 是穷举式:共享判据新增档位而本端没上色,
+ * 编译期就红 —— 这比"运行时落成 undefined 样式、界面静默变成无色"好得多。
+ * 色值全部取自既有 token(tokens.success/warning/surface/border/text),不自造色档。
+ */
+const SWEEP_TONE_BOX: Record<WbSweepTone, ViewStyle> = {
+  on: styles.sweepOn,
+  dry: styles.sweepWarn,
+  'cron-blocked': styles.sweepWarn,
+  // 配置已开却没跑起来:与"被总闸拦"同族(都得动服务端配置并重启 ai-service),同走告警档。
+  'not-registered': styles.sweepWarn,
+  'tasks-off': styles.sweepIdle,
+  loading: styles.sweepIdle,
+  unknown: styles.sweepIdle,
+}
+
+const SWEEP_TONE_TEXT: Record<WbSweepTone, TextStyle> = {
+  on: styles.sweepOnText,
+  dry: styles.sweepWarnText,
+  'cron-blocked': styles.sweepWarnText,
+  'not-registered': styles.sweepWarnText,
+  'tasks-off': styles.sweepIdleText,
+  loading: styles.sweepIdleText,
+  unknown: styles.sweepIdleText,
+}
+
+function sweepToneStyles(tone: WbSweepTone): { box: ViewStyle; text: TextStyle } {
+  return { box: SWEEP_TONE_BOX[tone], text: SWEEP_TONE_TEXT[tone] }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
