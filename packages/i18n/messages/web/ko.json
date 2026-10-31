@@ -12765,6 +12765,8 @@
     "reasoningEffortLow": "신속",
     "reasoningEffortMedium": "균형",
     "reasoningEffortHigh": "심층",
+    "reasoningEffortXhigh": "매우 심층",
+    "reasoningEffortMax": "최대",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
     "analysisOpen": "시나리오 분석 보기",

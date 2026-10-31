@@ -405,6 +405,35 @@ def _as_http_request(raw_request: object) -> Request | None:
     return raw_request if isinstance(raw_request, Request) else None
 
 
+_stdio_local_warned = False
+
+
+def _local_stdio_principal() -> _gate.Principal:
+    """stdio 通道的**本地宿主**主体(无 HTTP 请求上下文时使用)。
+
+    stdio 由本机用户拉起、输入只来自本地 fd(远程不可达),与 HTTP 面"必须自带凭据"
+    不是同一信任模型 —— 复用 HTTP 的 `resolve_principal_from_headers({})` 会让
+    `node_env=production` 下的 stdio 导出**恒被拒**(实测 PrincipalAuthError:
+    Authentication required,本地 MCP 客户端等于接不上)。
+    这里给 role=0 + 权限矩阵兜底:不越过本地用户既有权限,也不冒充任何远端主体。
+    """
+    global _stdio_local_warned
+    if not _stdio_local_warned:
+        _stdio_local_warned = True
+        logger.warning(
+            "[mcp_export] stdio 通道无 HTTP 请求上下文 ⇒ 按本地宿主主体处理(role=0,权限矩阵兜底)"
+        )
+    return _gate.Principal(
+        # kind 是封闭枚举('jwt'|'internal'|'dev-anonymous'):本地 stdio 与"非生产
+        # 开发回退"同属**非远端凭据**这一族,故复用 dev-anonymous,不为它新开一档
+        # (新档会牵动权限矩阵按 kind 的分支,收益为零)。
+        kind="dev-anonymous",
+        sub=None,
+        role=0,
+        scopes=frozenset({_gate.ALL_SCOPES}),
+    )
+
+
 def principal_for_call(
     context: Context[LifespanContextT, RequestT] | None,
 ) -> _gate.Principal:
@@ -419,12 +448,17 @@ def principal_for_call(
             raw_request = context.request_context.request
         except ValueError:  # 无请求上下文(如 stdio 直调)
             raw_request = None
+    if raw_request is None:
+        return _local_stdio_principal()
     return _gate.resolve_principal_from_request(_as_http_request(raw_request))
 
 
 def principal_for_list(ctx: ServerRequestContext[object, object]) -> _gate.Principal:
     """tools/list 侧凭据解析(与 call 同一信任模型,同样显式取头)。"""
-    return _gate.resolve_principal_from_request(_as_http_request(ctx.request))
+    raw_request = getattr(getattr(ctx, "request", None), "request", None)
+    if raw_request is None:
+        return _local_stdio_principal()
+    return _gate.resolve_principal_from_request(_as_http_request(raw_request))
 
 
 def _denied_to_mcp_error(
