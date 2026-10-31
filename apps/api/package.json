@@ -29,6 +29,7 @@
     "relay:switch-account": "tsx scripts/relay-account-switch.ts",
     "relay:switch-oneclick": "tsx scripts/relay-account-switch.ts --one-click",
     "relay:snapshot-prune": "tsx scripts/relay-snapshot-prune.ts",
+    "relay:pool-snapshot-sync": "tsx scripts/relay-pool-snapshot-sync.ts",
     "relay:ide-switch": "tsx scripts/relay-ide-switch.ts",
     "relay:ide-trae-chat-switch": "tsx scripts/relay-trae-chat-switch.ts",
     "relay:sessions:restore": "tsx scripts/relay-session-restore.ts",
