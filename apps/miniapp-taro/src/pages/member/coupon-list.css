@@ -22,7 +22,7 @@
 .retry {
   margin-top: var(--spacing-sm);
   padding: var(--spacing-xs) 32rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-primary);
 }
 
@@ -53,7 +53,7 @@
   align-items: baseline;
 }
 .c-amt {
-  font-size: 60rpx;
+  font-size: var(--text-display-lg);
   font-weight: 700;
 }
 .c-unit {
@@ -62,7 +62,7 @@
 }
 .c-type {
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   opacity: 0.9;
 }
 .coupon-right {
@@ -74,26 +74,26 @@
 }
 .c-title {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-foreground);
   font-weight: 600;
 }
 .c-thres {
   display: block;
   margin-top: var(--spacing-xs-loose);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .c-time {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .c-btn {
   align-self: flex-end;
   margin-top: var(--spacing-sm);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-cta-foreground);
   background: var(--color-cta);
   border-radius: var(--radius-sm);

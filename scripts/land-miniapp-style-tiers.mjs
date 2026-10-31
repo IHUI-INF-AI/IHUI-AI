@@ -89,9 +89,12 @@ export function buildReverse(spacingPx, typeSizes) {
   const spacing = new Map()
   for (const [k, v] of Object.entries(spacingPx)) if (!spacing.has(Number(v))) spacing.set(Number(v), k)
   const type = new Map()
+  const kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
   for (const [k, v] of Object.entries(typeSizes)) {
     const px = typeof v === 'number' ? v : Number(v?.size)
-    if (Number.isFinite(px) && !type.has(px)) type.set(px, k)
+    // **档名要转 kebab**:`TYPE_STEPS` 的键是 `displayLg`,而 CSS 变量/工具类是 `--text-display-lg`。
+    // 首版直接用了原键,产出 `var(--text-displayLg)` —— 一个**不存在的变量**,2 处成员页字号会失效。
+    if (Number.isFinite(px) && !type.has(px)) type.set(px, kebab(k))
   }
   return { spacing, type }
 }

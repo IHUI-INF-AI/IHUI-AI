@@ -30,7 +30,7 @@
   text-align: center;
   padding: 120rpx 0;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 
 /* 成绩展示区(对齐 scoreCard:浅色卡 + 语义描边,替代原渐变) */
@@ -67,7 +67,7 @@
 }
 
 .exam-result-status {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   margin-top: var(--spacing-sm);
 }
@@ -88,13 +88,13 @@
 }
 
 .exam-result-total {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   margin-top: var(--spacing-xs);
 }
 
 .exam-result-rank {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   margin-top: var(--spacing-xs);
 }
@@ -140,7 +140,7 @@
 }
 
 .exam-result-stat-label {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-xs);
 }
@@ -156,7 +156,7 @@
 
 .exam-result-card-title {
   display: block;
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-sm);
@@ -179,13 +179,13 @@
 }
 
 .exam-result-review-idx {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
   color: var(--color-foreground);
 }
 
 .exam-result-review-status {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   padding: var(--spacing-2xs) 16rpx;
   border-radius: var(--radius-sm);
 }
@@ -202,13 +202,13 @@
 
 .exam-result-review-score {
   margin-left: auto;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
 .exam-result-review-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
   color: var(--color-foreground);
   line-height: 1.5;
@@ -222,14 +222,14 @@
 }
 
 .exam-result-review-label {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   margin-right: var(--spacing-xs);
   flex-shrink: 0;
 }
 
 .exam-result-review-answer {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   flex: 1;
 }
 
@@ -250,7 +250,7 @@
 
 .exam-result-review-analysis-label {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);
@@ -258,7 +258,7 @@
 
 .exam-result-review-analysis-text {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   line-height: 1.6;
 }
@@ -266,7 +266,7 @@
 .exam-result-review-empty {
   display: block;
   text-align: center;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   padding: var(--spacing-lg) 0;
 }
@@ -289,7 +289,7 @@
   flex: 1;
   height: 100rpx;
   line-height: 100rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   border-radius: var(--radius-sm);
   border: none;

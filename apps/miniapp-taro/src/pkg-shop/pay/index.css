@@ -62,7 +62,7 @@
 .py-amount-discount {
   display: block;
   margin-top: var(--spacing-xs-loose);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-success);
 }
 
@@ -101,7 +101,7 @@
 }
 .py-section-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: var(--spacing-sm);
@@ -124,7 +124,7 @@
   line-height: 64rpx;
   text-align: center;
   border-radius: var(--radius-md);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   background: var(--color-muted);
   font-weight: 700;
 }
@@ -144,18 +144,18 @@
   flex-direction: column;
 }
 .py-method-name {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .py-method-sub {
   margin-top: 6rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .py-recharge-link {
   /* 辅助描边按钮对齐 RN outlineBtn:success 描边 + success 字 */
   padding: var(--spacing-xs) 20rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-success);
   border: 2rpx solid var(--color-success);
   border-radius: var(--radius-sm);
@@ -176,7 +176,7 @@
 }
 .py-radio-mark {
   color: var(--color-cta-foreground);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 700;
   line-height: 1;
 }
@@ -192,7 +192,7 @@
   border: 2rpx solid var(--color-border);
 }
 .py-coupon-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .py-coupon-right {
@@ -201,7 +201,7 @@
 }
 .py-coupon-value {
   /* 优惠减免金额与 py-amount-discount 同语义(RN success 金额语言) */
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-success);
   font-weight: 600;
 }
@@ -211,7 +211,7 @@
 }
 .py-coupon-arrow {
   margin-left: var(--spacing-xs-loose);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-muted-foreground);
 }
 
@@ -226,7 +226,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-xl);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
 }
 .py-submit::after {

@@ -31,19 +31,19 @@
 }
 .name {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-foreground);
   font-weight: 600;
 }
 .desc {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-xs);
 }
 .uses {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-primary);
   margin-top: var(--spacing-xs);
 }

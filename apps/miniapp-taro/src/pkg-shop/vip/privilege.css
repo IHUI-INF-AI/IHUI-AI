@@ -22,7 +22,7 @@
 }
 .header-title {
   display: block;
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-foreground);
 }
@@ -37,7 +37,7 @@
   padding: var(--spacing-2xs) 16rpx;
   background: var(--color-muted);
   color: var(--color-foreground);
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   font-weight: 500;
   border-radius: var(--radius-md);
 }
@@ -50,13 +50,13 @@
   height: 48rpx;
   line-height: 48rpx;
   text-align: center;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-warning);
   margin-right: var(--spacing-xs-loose);
 }
 .header-expire {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-warning);
   margin-top: var(--spacing-sm);
 }
@@ -84,14 +84,14 @@
   height: 64rpx;
   line-height: 64rpx;
   text-align: center;
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   background: var(--color-gold-muted);
   color: var(--color-warning);
   border-radius: var(--radius-md);
   margin-bottom: var(--spacing-xs-loose);
 }
 .entry-title {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   font-weight: 600;
   text-align: center;
@@ -100,7 +100,7 @@
 /* ============ 权益列表(RN VipBenefitScreen 卡片:p28/r24/border2,title 32 bold,desc 28 lh36) ============ */
 .section-title {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--color-foreground);
   padding: var(--spacing-lg) 28rpx 16rpx;
@@ -122,7 +122,7 @@
   height: 56rpx;
   line-height: 56rpx;
   text-align: center;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-warning);
   background: var(--color-gold-muted);
   border-radius: var(--radius-md);
@@ -135,13 +135,13 @@
 }
 .privilege-title {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--color-foreground);
 }
 .privilege-desc {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-sm);
   line-height: 36rpx;
@@ -170,7 +170,7 @@
   line-height: 88rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   border-radius: var(--radius-sm);
   border: none;
@@ -219,7 +219,7 @@
   height: 48rpx;
   line-height: 48rpx;
   text-align: center;
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   color: var(--color-muted-foreground);
 }
 .popup-body {
@@ -237,7 +237,7 @@
   line-height: 84rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   border-radius: var(--radius-sm);
   border: none;
@@ -260,7 +260,7 @@
 .matrix-cell {
   flex: 1;
   text-align: center;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   padding: var(--spacing-sm-loose) 8rpx;
 }
@@ -269,7 +269,7 @@
   text-align: left;
   padding-left: var(--spacing-sm);
   color: var(--color-muted-foreground);
-  font-size: 24rpx;
+  font-size: var(--text-label);
 }
 .matrix-cell.level-cell {
   font-weight: 600;
@@ -281,7 +281,7 @@
 }
 .matrix-desc {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-sm-loose);
   line-height: 1.7;
@@ -305,7 +305,7 @@
   height: 36rpx;
   line-height: 36rpx;
   text-align: center;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-warning);
   margin-right: var(--spacing-sm);
   flex-shrink: 0;

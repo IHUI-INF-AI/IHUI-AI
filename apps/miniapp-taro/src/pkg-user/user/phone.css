@@ -19,7 +19,7 @@
 }
 .phone-intro-title {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-sm);
@@ -44,7 +44,7 @@
 }
 .phone-label {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   margin-bottom: var(--spacing-sm);
 }
@@ -57,7 +57,7 @@
   background: var(--color-background);
   border-radius: var(--radius-sm);
   padding: 0 200rpx 0 20rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   box-sizing: border-box;
 }
 .phone-code-btn {
@@ -65,7 +65,7 @@
   right: 20rpx;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-primary);
   white-space: nowrap;
 }
@@ -78,7 +78,7 @@
   text-align: center;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   border-radius: var(--radius-sm);
 }
 .phone-submit.disabled {
@@ -99,7 +99,7 @@
 }
 .phone-notice-desc {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   line-height: 1.6;
 }

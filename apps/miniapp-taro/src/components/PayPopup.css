@@ -24,7 +24,7 @@
 }
 
 .pp-benefit-item {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   line-height: 1.6;
   color: var(--color-foreground);
 }
