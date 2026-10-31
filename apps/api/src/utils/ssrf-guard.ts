@@ -329,7 +329,14 @@ export async function safeFetch(
   let currentInit = init
   for (let hop = 0; ; hop++) {
     await ensureSafeFetchUrl(currentUrl, opts)
-    const res = await fetch(currentUrl, { ...currentInit, redirect: 'manual' })
+    // 2026-10-31 安全强化第 15 批(M3):建连走带 connect.lookup 钩子的 dispatcher
+    // —— 本模块 globalThis.fetch 只认 RequestInit,不带 dispatcher;undici 的
+    // fetch 才接受。判定(上一行)与建连共用同一次解析,TOCTOU 窗口收口。
+    const res = (await undiciFetch(currentUrl, {
+      ...currentInit,
+      redirect: 'manual',
+      dispatcher: ssrfGuardedDispatcher({ allowPrivate: opts?.allowPrivate }),
+    })) as unknown as Response
     const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
     if (!location) return res
     if (hop >= maxRedirects) throw new Error('SSRF blocked: too many redirects')
@@ -350,5 +357,83 @@ export async function safeFetch(
     }
     currentUrl = nextUrl
   }
+}
+
+// =============================================================================
+// 连接期守卫(2026-10-31 安全强化第 15 批,M3):判定与建连共用同一次解析
+// =============================================================================
+// ensureSafeFetchUrl 问的是"一次解析",fetch 建连时传输层还会再解析一次 ——
+// 一条 TTL=0 的 A 记录能让"校验时公网、建连时内网"(DNS rebinding TOCTOU)。
+// 收口范式 = utils/relay-egress-guard.ts 的 relayGuardedLookup(判据是它自己的
+// allowPrivate:true 档):把"这个地址能不能连"的判定挪进 undici Agent 的
+// connect.lookup 钩子 —— undici 拿它建 socket 的地址就是钩子交回的地址,
+// 校验与建连因此共用同一次解析,rebinding 失效。
+// 本工厂是通用档:判据不重写(§0.6),复用本模块 isBlockedTargetIp(危险族恒拦,
+// 不受档位影响)+ isPrivateOrReservedIp(私网族按 allowPrivate 分档),与
+// ensureSafeFetchUrl 的判定语义逐条同源;解析失败 ⇒ 交回错误,绝不"判不出就放行"。
+
+import { lookup as guardedDnsLookupAll } from 'node:dns/promises'
+import type { LookupFunction } from 'node:net'
+import { Agent as UndiciAgent, fetch as undiciFetch } from 'undici'
+
+export interface SsrfLookupOptions {
+  all?: boolean
+  family?: number
+}
+
+export type SsrfLookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  addresses: { address: string; family: number }[] | string,
+) => void
+
+export type SsrfGuardedLookup = (
+  hostname: string,
+  options: SsrfLookupOptions,
+  callback: SsrfLookupCallback,
+) => void
+
+export function ssrfGuardedLookup(opts?: { allowPrivate?: boolean }): SsrfGuardedLookup {
+  const allowPrivate = opts?.allowPrivate ?? false
+  return (hostname, options, callback) => {
+    void guardedDnsLookupAll(hostname, { ...options, all: true })
+      .then((rows) => {
+        for (const row of rows) {
+          if (
+            isBlockedTargetIp(row.address) ||
+            (!allowPrivate && isPrivateOrReservedIp(row.address))
+          ) {
+            callback(
+              Object.assign(
+                new Error(`SSRF blocked: ${row.address} is a blocked target (connect-time)`),
+                { code: 'ESSRFBLOCKED' },
+              ),
+              [],
+            )
+            return
+          }
+        }
+        callback(null, rows)
+      })
+      .catch((e: unknown) => {
+        callback(e instanceof Error ? e : new Error(String(e)), [])
+      })
+  }
+}
+
+/** 按档位缓存的 undici dispatcher 单例(连接池按 host 复用,不能每请求新建)。 */
+const guardedDispatchers = new Map<boolean, UndiciAgent>()
+
+export function ssrfGuardedDispatcher(opts?: { allowPrivate?: boolean }): UndiciAgent {
+  const allowPrivate = opts?.allowPrivate ?? false
+  let agent = guardedDispatchers.get(allowPrivate)
+  if (!agent) {
+    // undici LookupFunction 的回调形态(net.LookupAddress 族)与 net 的 lookup 契约
+    // 同形;本模块 SsrfLookupCallback 语义一致,仅签名结构差异,此处对齐。
+    agent = new UndiciAgent({
+      connect: { lookup: ssrfGuardedLookup({ allowPrivate }) as unknown as LookupFunction },
+    })
+    guardedDispatchers.set(allowPrivate, agent)
+  }
+  return agent
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
