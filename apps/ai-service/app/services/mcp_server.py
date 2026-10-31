@@ -4702,7 +4702,24 @@ async def _tool_agent_control(
 
     # 从 arguments 提取参数(去掉 MCP tool 的元数据字段)
     timeout_ms = int(arguments.pop("timeout", 30000))
-    params = dict(arguments)
+    # `__` 前缀是宿主注入的元数据(身份/会话),不是业务参数 ⇒ 不再下发到端侧
+    params = {k: v for k, v in arguments.items() if not k.startswith("__")}
+
+    # 2026-10-31 安全强化第 14 批:此前 request 不带 userId ⇒ api 层
+    # findEndpointByCategory 退回"同 category 最近活跃" ——— 任意登录用户可操纵**别人**的
+    # 浏览器/桌面(点击、输入、截图)。主语必须取宿主注入的已验证主体
+    # (security_principal_scope,与工具执行链同一个出口),不能读 arguments 里的
+    # `__user_id`(那是模型可填面,自报即越权);取不到一律拒 —— 无从定址就不能发。
+    from .agent_security_prefs import current_security_principal
+
+    caller_uid = current_security_principal()
+    if not caller_uid:
+        return {
+            "tool": f"{category}_{action}",
+            "ok": False,
+            "error": "缺少调用者身份,拒绝控制他人端(无从定址)",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
 
     request = {
         "requestId": f"mcp-{uuid.uuid4().hex[:12]}",
@@ -4710,6 +4727,7 @@ async def _tool_agent_control(
         "action": action,
         "params": params,
         "timeout": timeout_ms,
+        "userId": caller_uid,
     }
 
     tool_name = f"{category}_{action}"
@@ -9531,7 +9549,8 @@ async def _tool_investigate_codebase(arguments: dict[str, Any]) -> dict[str, Any
     """investigate_codebase:只读代码库调查(三态 observed/inferred/unknown)。"""
     from .codebase_investigator import investigate_codebase
 
-    return await investigate_codebase(arguments)
+    result: dict[str, Any] = await investigate_codebase(arguments)
+    return result
 
 
 async def _tool_send_team_message(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -9549,7 +9568,8 @@ async def _tool_send_team_message(arguments: dict[str, Any]) -> dict[str, Any]:
     return await send_to_agent(
         recipient=str(arguments.get("recipient") or ""),
         content=str(arguments.get("content") or ""),
-        sender=arguments.get("sender") or None,
+        # 契约要求 str:模型可能给 null,`or None` 会把 None 透给下游(类型层已判红)
+        sender=str(arguments.get("sender") or ""),
         session_id=arguments.get("__session_id"),
         user_id=arguments.get("__user_id"),
         user_role=arguments.get("__user_role"),
@@ -12687,12 +12707,26 @@ class MCPServer:
     async def read_resource(self, uri: str) -> dict[str, Any]:
         """读取指定 URI 的资源内容。"""
         if uri == "memory://current":
+            from .agent_security_prefs import current_security_principal
             from .memory import memory_store
 
-            sessions = await memory_store.list_sessions()
+            # 2026-10-31 安全强化第 14 批:此前不传 user_id ⇒ list_sessions 回全站会话,
+            # 再逐个回读最近 10 条消息 —— 任何登录用户读一次资源就拿到别人的对话内容。
+            # 主体取宿主注入的 security principal(与工具执行同一出口),取不到一律拒。
+            principal = current_security_principal()
+            if not principal:
+                return {
+                    "uri": uri,
+                    "content": None,
+                    "ok": False,
+                    "error": "缺少调用者身份,拒绝读取会话记忆",
+                }
+            sessions = await memory_store.list_sessions(user_id=principal)
             data: dict[str, Any] = {"sessions": sessions}
             for sid in sessions[:5]:
-                data[sid] = await memory_store.get(sid, limit=10)
+                # key 形态必须与 list_sessions 的过滤前缀一致(memory:{uid}:{sid}),
+                # 否则读的是另一个 key 空间(旧实现依赖"不带前缀 = 全站"那条路)。
+                data[sid] = await memory_store.get(sid, limit=10, user_id=principal)
             return {"uri": uri, "content": data, "ok": True}
         if uri == "skills://available":
             skills = skill_registry.list_skills()

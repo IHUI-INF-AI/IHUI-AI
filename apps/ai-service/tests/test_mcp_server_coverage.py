@@ -22,6 +22,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 
 from app.services.mcp_server import (
     MCPServer,
@@ -95,6 +96,18 @@ def _make_fake_httpx_client(handler, exc=None):
 
 class TestMcpServerCoverageAgentControl:
     """_tool_agent_control 覆盖率补强:fail-closed + httpx 转发 + 异常分支。"""
+
+    @pytest.fixture(autouse=True)
+    def _principal(self, monkeypatch):
+        """2026-10-31 第 14 批:控制指令必须带宿主注入的主体(否则拒发)。
+
+        生产由 security_principal_scope 发布;此处按同一出口打桩。无主体的分支由
+        test_refuses_without_principal 单独钉死。
+        """
+        monkeypatch.setattr(
+            "app.services.agent_security_prefs.current_security_principal",
+            lambda: "u-agent-control-test",
+        )
 
     async def test_no_secret_returns_missing_secret_fail_closed(self, monkeypatch):
         """AGENT_CONTROL_INTERNAL_SECRET 未配置 → ok=False + MISSING_SECRET + 不发 HTTP。"""
@@ -257,6 +270,67 @@ class TestMcpServerCoverageAgentControl:
         # 副作用:仍透传 action/category
         assert out["action"] == "click_element"
         assert out["category"] == "browser"
+
+
+async def test_agent_control_refuses_without_principal(monkeypatch):
+    """2026-10-31 第 14 批:无宿主主体 ⇒ PRINCIPAL_REQUIRED,且一次 HTTP 都不发。
+
+    变异自证:摘掉 _tool_agent_control 里的主体检查,本用例会退化成"按最近活跃端
+    发出去"(post_calls 非空),当场翻红。
+    """
+    monkeypatch.setattr(
+        "app.services.agent_security_prefs.current_security_principal", lambda: None
+    )
+    post_calls: list = []
+    monkeypatch.setattr(
+        "httpx.AsyncClient",
+        _make_fake_httpx_client(lambda m, u: post_calls.append((m, u)) or _FakeHttpxResponse()),
+    )
+
+    out = await _tool_agent_control("browser", "screenshot", {"url": "https://x.com"})
+
+    assert out["ok"] is False
+    assert out["errorCode"] == "PRINCIPAL_REQUIRED"
+    assert post_calls == []
+
+
+async def test_agent_control_forwards_principal_and_strips_metadata(monkeypatch):
+    """转发体必须带 userId(= 宿主主体),且 `__` 前缀元数据不进 params。"""
+    monkeypatch.setattr(
+        "app.services.agent_security_prefs.current_security_principal",
+        lambda: "u-forward-1",
+    )
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "agent_control_internal_secret", "test-secret")
+    sent: list[dict] = []
+
+    class _CapturingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def post(self, url, **kwargs):
+            sent.append(kwargs.get("json") or {})
+            return _FakeHttpxResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient", _CapturingClient)
+
+    await _tool_agent_control(
+        "browser",
+        "click_element",
+        {"selector": "#a", "__user_id": "spoofed", "__session_id": "s1"},
+    )
+
+    assert sent, "应当发出一次控制请求"
+    body = sent[0]
+    assert body["userId"] == "u-forward-1"
+    assert body["params"] == {"selector": "#a"}
 
 
 # =============================================================================

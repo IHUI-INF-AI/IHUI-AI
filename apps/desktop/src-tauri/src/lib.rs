@@ -1430,6 +1430,35 @@ fn ensure_in_app_data(
             path
         )));
     }
+    // 2026-10-31 安全强化第 14 批(F4 纵深):词法校验不解析 symlink —— app_data
+    // 内若出现指向外部的符号链接(需另一攻击链先落 symlink),读写可越界。对已
+    // 存在的路径补 canonicalize(解析全部 symlink 分量)后再比前缀;路径不存在
+    // (创建场景)保留词法结果。Windows canonicalize 产出 \\?\ 扩展前缀,两侧同
+    // 剥后再比,避免前缀形态失配误拒。
+    fn strip_extended_prefix(pb: std::path::PathBuf) -> std::path::PathBuf {
+        let s = pb.as_os_str().to_string_lossy().into_owned();
+        if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+            return std::path::PathBuf::from(format!(r"\\{}", rest));
+        }
+        if let Some(rest) = s.strip_prefix(r"\\?\") {
+            return std::path::PathBuf::from(rest);
+        }
+        pb
+    }
+    if p_norm.exists() {
+        if let Ok(real) = std::fs::canonicalize(&p_norm) {
+            let base = match std::fs::canonicalize(&app_data_norm) {
+                Ok(b) => strip_extended_prefix(b),
+                Err(_) => app_data_norm.clone(),
+            };
+            if !strip_extended_prefix(real).starts_with(&base) {
+                return Err(IpcError::permission(format!(
+                    "路径(经符号链接解析)不在应用数据目录内(拒绝): {}",
+                    path
+                )));
+            }
+        }
+    }
     Ok(p_norm)
 }
 
