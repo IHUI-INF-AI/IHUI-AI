@@ -205,9 +205,15 @@ async def sync_connector(
         items = list(raw_items) if isinstance(raw_items, list) else []
         last_sync_at = str(result.get("last_sync_at") or "")
         if ok:
-            connector_store.set_sync_state(user_id, req.key, last_sync_at, "", items=items)
+            saved = connector_store.set_sync_state(
+                user_id, req.key, last_sync_at, "", items=items
+            )
         else:
-            connector_store.set_sync_state(user_id, req.key, "", str(result.get("message") or "同步失败"))
+            saved = connector_store.set_sync_state(
+                user_id, req.key, "", str(result.get("message") or "同步失败")
+            )
+        if saved is None:
+            return _error(500, "同步已完成,但同步状态持久化失败,请稍后重试")
         logger.info("连接器同步 %s: ok=%s", req.key, ok)
         return {
             "ok": ok,
@@ -292,7 +298,8 @@ async def delete_connector(
     try:
         if connector_store.get(user_id, key) is None:
             return _error(404, f"连接器不存在: {key}")
-        connector_store.remove(user_id, key)
+        if not connector_store.remove(user_id, key):
+            return _error(500, "删除连接器失败,请稍后重试")
         logger.info("连接器已删除: %s", key)
         return {"ok": True}
     except Exception as e:  # noqa: BLE001

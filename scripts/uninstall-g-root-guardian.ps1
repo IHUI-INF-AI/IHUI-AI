@@ -16,7 +16,6 @@
 # Idempotent: re-running is safe (skips if task not registered).
 # ============================================================================
 
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Stop'
 

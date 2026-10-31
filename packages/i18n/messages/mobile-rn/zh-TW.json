@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "操作失敗"
-  },
-  "message": {
-    "deleted": "已刪除"
-  },
   "workflows": {
     "title": "工作流",
     "empty": "暫無工作流",
@@ -929,8 +923,6 @@
     "checkUpdateUnsupported": "目前環境不支援應用程式內更新",
     "changePhoneMissingUser": "使用者資訊缺失,無法更換手機號",
     "logoutConfirm": "確認退出當前帳號?",
-    "appPermission": "應用權限",
-    "icpRecord": "ICP 備案",
     "usageRules": "使用規範",
     "changePassword": "修改密碼",
     "oldPassword": "舊密碼",
@@ -1124,7 +1116,6 @@
     "network": "網路錯誤,請稍後重試"
   },
   "common": {
-    "success": "成功",
     "backToTop": "回到頂部",
     "ok": "好的",
     "gotIt": "知道了",
@@ -1240,7 +1231,6 @@
     "confirmBtn": "確定",
     "empty": "暫無封面",
     "loadFailed": "載入失敗",
-    "loading": "載入中...",
     "subtitle": "選擇或生成封面",
     "title": "封面",
     "workTitleDefault": "未命名作品",
@@ -1318,7 +1308,6 @@
     "badgeRejected": "已拒絕",
     "badgeReviewing": "審核中",
     "empty": "暫無智慧體",
-    "loading": "載入中...",
     "metaAudience": "可見範圍",
     "metaCategory": "分類",
     "metaCycleForever": "永久有效",
@@ -1762,7 +1751,6 @@
     "title": "我的優惠券",
     "validUntil": "有效期至",
     "use": "立即使用",
-    "useHint": "請前往商品頁使用",
     "couponCenter": "領券中心"
   },
   "courseAnnex": {
@@ -1961,9 +1949,6 @@
     "fans": "粉絲",
     "empty": "暫無資料",
     "unfollow": "取消關注"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案/許可證號"
   },
   "identityVerify": {
     "title": "身分認證",
@@ -4530,7 +4515,6 @@
     },
     "workflows": {
       "home": "工作流程",
-      "editor": "工作流程編輯器",
       "automations": "自動化任務",
       "orchestration": "編排中心",
       "schedule": "定時任務"
@@ -5477,7 +5461,30 @@
     "poolSynced": "已進號池",
     "lastOk": "上次簽到成功 +{credits}",
     "lastFailed": "上次簽到失敗",
-    "actionFailed": "操作失敗"
+    "actionFailed": "操作失敗",
+    "taskTitle": "自動做任務",
+    "taskDesc": "一鍵巡檢 WorkBuddy 任務中心：接任務、達標領獎、連登兌換、抽獎、貓貓旅行、夜貓子閒聊。",
+    "taskPick": "選擇帳號",
+    "taskList": "讀取任務",
+    "taskDryRun": "預演（不寫入）",
+    "taskRun": "一鍵做任務",
+    "taskRunning": "執行中…",
+    "taskEmpty": "暫無任務，或尚未讀取",
+    "taskResult": "執行結果",
+    "taskUnjudged": "上游回應無法判讀，本輪未判定（不構成成功）",
+    "taskAutoTitle": "自動巡檢",
+    "taskAutoLoading": "讀取中…",
+    "taskAutoUnknown": "狀態未知（伺服器未回傳巡檢狀態，請確認後端版本）",
+    "taskAutoOn": "已啟用 · 每 {minutes} 分鐘自動巡檢",
+    "taskAutoNext": "下次 {time}",
+    "taskAutoDry": "已啟用但為演練模式（唯讀探針）：不會真實領獎。伺服器設 WORKBUDDY_TASKS_LIVE_RUN=true 後才會寫入。",
+    "taskAutoCronBlocked": "未執行：任務門已開，但總閘 CHECKIN_CRON_ENABLED 關閉。",
+    "taskAutoOff": "未啟用：僅手動執行。伺服器設 WORKBUDDY_TASKS_ENABLED=true 並重新啟動後生效。",
+    "taskAutoNotStarted": "設定已開但排程器未啟動：修改伺服器 .env 後必須重新啟動 ai-service 才生效（程式內 start() 遇 _started 會短路，不會熱載入）。",
+    "taskAutoPaths": "上報/領獎路徑未設定：只上報不領獎。",
+    "taskAutoLast": "上次巡檢 {time}",
+    "taskAutoLastStats": "跑 {families} 族 · 新增 {accepted} · 領 {claimed}",
+    "taskAutoLastNever": "本程式尚未巡檢"
   },
   "mat": {
     "unknown": "未知錯誤",
@@ -7054,12 +7061,10 @@
     "empty": "暫無資訊",
     "pinned": "置頂",
     "publishedAt": "發布於 {date}",
-    "viewCount": "{count} 閱讀",
     "total": "共 {total} 篇",
     "prev": "上一頁",
     "next": "下一頁",
-    "loading": "加載中...",
-    "error": "加載失敗"
+    "loading": "加載中..."
   },
   "searchHistoryPage": {
     "title": "搜尋紀錄",
@@ -7118,10 +7123,7 @@
     "output": "最終輸出",
     "runningHint": "仍在運行,暫無最終輸出",
     "noOutput": "暫無輸出",
-    "noTask": "無任務描述",
-    "prev": "上一頁",
-    "pagination": "第 {page} / {totalPages} 頁,共 {total} 條",
-    "next": "下一頁"
+    "noTask": "無任務描述"
   },
   "chatWorkbenchPage": {
     "title": "對話",

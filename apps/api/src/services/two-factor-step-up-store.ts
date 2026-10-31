@@ -67,6 +67,57 @@ export async function isTwoFactorStepUpFresh(
   return true
 }
 
+const totpCounterKey = (userId: string): string => `ihui:2fa:totpc:${userId}`
+
+/** TOTP counter 账的存活期：覆盖 ±1 窗口（90s）再留余量 */
+const TOTP_COUNTER_TTL_SEC = 200
+
+/** 无 Redis 时的进程内回落（单实例等效） */
+const memLastTotpCounter = new Map<string, number>()
+
+/**
+ * 同一步 TOTP 只允许兑付一次（防同一码在 ±1 窗口内被重复换取 token）。
+ *
+ * 判据是 **counter 单调递增**（不是"见过就拒"）：用户跨周期正常登录时 counter 前进，
+ * 同一步的第二次兑付才被拒。Redis 用 Lua 原子执行"比较并写回"，并发重放只有一方成功；
+ * Redis 不可用时退到进程内账（多实例各记一份 = 宁可多要一次码）。
+ *
+ * @returns true = 首次使用并已记账；false = 该步已被兑付过
+ */
+export async function consumeTotpCounter(
+  userId: string,
+  counter: number,
+  redis: Redis | null,
+): Promise<boolean> {
+  const memLast = memLastTotpCounter.get(userId) ?? -1
+  if (redis) {
+    try {
+      const result = await redis.eval(
+        `local cur = tonumber(redis.call('GET', KEYS[1]) or '-1')
+         if tonumber(ARGV[1]) <= cur then return 0 end
+         redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+         return 1`,
+        1,
+        totpCounterKey(userId),
+        String(counter),
+        String(TOTP_COUNTER_TTL_SEC),
+      )
+      if (Number(result) === 1) {
+        memLastTotpCounter.set(userId, Math.max(memLast, counter))
+        return true
+      }
+      return false
+    } catch (e) {
+      logger.warn('totp-counter: redis 记账失败，改判进程内账', {
+        err: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+  if (counter <= memLast) return false
+  memLastTotpCounter.set(userId, counter)
+  return true
+}
+
 export async function revokeTwoFactorStepUp(userId: string, redis: Redis | null): Promise<void> {
   memFreshUntil.delete(userId)
   if (!redis) return
@@ -117,6 +168,8 @@ export const __test__ = {
   isTwoFactorStepUpFresh,
   revokeTwoFactorStepUp,
   requireStepUpForTwoFactorUser,
+  consumeTotpCounter,
   memFreshUntil,
+  memLastTotpCounter,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

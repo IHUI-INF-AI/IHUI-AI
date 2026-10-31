@@ -3,9 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 号池任务中心测试(2026-10-27,缺口④)。
+ * 号池任务中心测试(2026-10-27,缺口④;2026-10-31 签到调度三态诚实口径改造)。
  * 观测聚合走注入探针(§0.9 不碰真 Redis/真文件/真 ai-service);
  * 触发分发 mock 掉执行体模块(不真跑 DB/子进程)。
+ * 三态判据一律 import 源脚本的 __test__(§22c:测试里复制判据必然漂移,守门 191 判)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -19,6 +20,10 @@ vi.mock('../src/services/relay-account-pool-scheduler.js', () => ({
     healthRecovered: 1,
   })),
 }))
+// 内部系统票铸造器:测试里不真签 JWT(config.JWT_SECRET 可能为空),只验"带没带"
+vi.mock('../src/utils/system-access-token.js', () => ({
+  getSystemAccessToken: vi.fn(async () => 'mocked-system-token'),
+}))
 vi.mock('../src/workers/relay-account-pool-worker.js', () => ({
   runTraeSessionSync: vi.fn(async () => ({ code: 0, applied: 2, skipped: 0, stderr: '' })),
   runQoderSessionSync: vi.fn(async () => ({ code: 0, applied: 1, skipped: 0, stderr: '' })),
@@ -31,11 +36,45 @@ vi.mock('../src/services/relay-pool-stats-service.js', () => ({
 import {
   RELAY_POOL_TASKS,
   collectRelayTaskStates,
+  defaultProbeDeps,
   runRelayTaskById,
+  __test__,
   type TaskProbeDeps,
 } from '../src/services/relay-task-center.js'
 
 const stubDeps = (over: Partial<TaskProbeDeps>): Partial<TaskProbeDeps> => over
+
+/** 签到调度响应体的「跑起来」形态(ai-service CheckinScheduler.status() 的真实字段) */
+const RUNNING_BODY = {
+  enabled: true,
+  started: true,
+  next_run: '2026-11-01T08:05:00+08:00',
+  next_run_qoder: '2026-11-01T10:05:00+08:00',
+  next_run_probe: '2026-11-01T06:00:00+08:00',
+  next_run_wb_tasks: '2026-11-01T03:00:00+08:00',
+  wb_tasks: {
+    enabled: true,
+    tasks_enabled: true,
+    cron_enabled: true,
+    live_run: false,
+    sweep_minutes: 180,
+    claim_path_configured: true,
+    activity_path_configured: false,
+    last_sweep: null,
+  },
+}
+
+/** 总闸关(CHECKIN_CRON_ENABLED=false)的真实形态:start() 整个函数体被门拦住 */
+const RUNNING_BODY_DISABLED = {
+  ...RUNNING_BODY,
+  enabled: false,
+  started: false,
+  next_run: null,
+  next_run_qoder: null,
+  next_run_probe: null,
+  next_run_wb_tasks: null,
+  wb_tasks: { ...RUNNING_BODY.wb_tasks, enabled: false, cron_enabled: false },
+}
 
 describe('RELAY_POOL_TASKS 注册表(单一源)', () => {
   it('四载体齐、9 任务、id 唯一', () => {
@@ -66,6 +105,11 @@ describe('RELAY_POOL_TASKS 注册表(单一源)', () => {
       }
     }
   })
+  it('签到调度注册项与实际注册的 job 齐(2026-10-31 补 WorkBuddy 任务巡检腿)', () => {
+    const c = RELAY_POOL_TASKS.find((t) => t.id === 'checkin-scheduler')!
+    expect(c.schedule).toMatch(/06:00/)
+    expect(c.schedule).toMatch(/WorkBuddy 任务巡检/)
+  })
 })
 
 describe('collectRelayTaskStates(注入探针)', () => {
@@ -74,8 +118,10 @@ describe('collectRelayTaskStates(注入探针)', () => {
   it('Redis 不可用 ⇒ bullmq 族 indeterminate 点名 Redis,其余族照读', async () => {
     const tasks = await collectRelayTaskStates({
       deps: stubDeps({
-        readTickJson: async () => '2026-10-27T03:00:00Z',
-        fetchCheckinStatus: async () => ({ schedulable: true, detail: 'ok' }),
+        // 新契约(2026-11-01 分栏):读整枚 tick 对象;guardian 的 attemptAt 无结果自述
+        readTickJson: async () => ({ attemptAt: '2026-10-27T03:00:00Z' }),
+        fetchCheckinStatus: async () =>
+          __test__.judgeCheckinSchedulerStatus({ kind: 'ok', status: 200, body: RUNNING_BODY }),
       }),
     })
     const sweep = tasks.find((t) => t.id === 'relay-pool-sweep')!
@@ -84,6 +130,9 @@ describe('collectRelayTaskStates(注入探针)', () => {
     const sentinel = tasks.find((t) => t.id === 'relay-capacity-sentinel')!
     expect(sentinel.lastRunAt).toBe('2026-10-27T03:00:00Z')
     expect(sentinel.sourceOk).toBe(true)
+    // 分栏口径:心跳在位绝不冒"执行成功";无自述结果 ⇒ null(不得为 true)
+    expect(sentinel.lastRunOk).toBeNull()
+    expect(sentinel.lastRunDetail).toMatch(/未判定/)
   })
 
   it('bullmq 全源在位 ⇒ schedulable + 上次/下次齐;上次失败透出 failedReason', async () => {
@@ -119,14 +168,390 @@ describe('collectRelayTaskStates(注入探针)', () => {
     }
   })
 
-  it('ai-service 报不可调度 ⇒ indeterminateReason 点名总开关,不写成健康', async () => {
+  it('三态·running ⇒ schedulable + 真实 next_run 进面板,不塞原始 JSON 转储', async () => {
     const tasks = await collectRelayTaskStates({
       deps: stubDeps({
-        fetchCheckinStatus: async () => ({ schedulable: false, detail: 'disabled' }),
+        fetchCheckinStatus: async () =>
+          __test__.judgeCheckinSchedulerStatus({ kind: 'ok', status: 200, body: RUNNING_BODY }),
       }),
     })
     const c = tasks.find((t) => t.id === 'checkin-scheduler')!
-    expect(c.indeterminateReason).toMatch(/CHECKIN_CRON_ENABLED/)
+    expect(c.schedulable).toBe(true)
+    expect(c.sourceOk).toBe(true)
+    expect(c.indeterminateReason).toBeNull()
+    expect(c.nextRunAt).toBe('2026-11-01T08:05:00+08:00')
+    // 面板读的是取到的真实字段,不是被 slice(0,200) 截断的原始 JSON
+    expect(c.lastRunDetail).toMatch(/已启动/)
+    expect(c.lastRunDetail).not.toMatch(/^\{/)
+  })
+
+  it('三态·disabled(门关)⇒ schedulable:false + 点名闸门 env,不记未判定', async () => {
+    const tasks = await collectRelayTaskStates({
+      deps: stubDeps({
+        fetchCheckinStatus: async () =>
+          __test__.judgeCheckinSchedulerStatus({
+            kind: 'ok',
+            status: 200,
+            body: RUNNING_BODY_DISABLED,
+          }),
+      }),
+    })
+    const c = tasks.find((t) => t.id === 'checkin-scheduler')!
+    expect(c.schedulable).toBe(false)
+    // 端点通了 = 状态源在位,这不是"没判",不得混进 indeterminate(§0.3 双向)
+    expect(c.sourceOk).toBe(true)
+    expect(c.indeterminateReason).toBeNull()
+    expect(c.disabledReason).toMatch(/CHECKIN_CRON_ENABLED/)
+  })
+
+  it('三态·unjudged(HTTP 401)⇒ 如实点名 401,禁止冒 CHECKIN_CRON_ENABLED 猜测归因', async () => {
+    const tasks = await collectRelayTaskStates({
+      deps: stubDeps({
+        fetchCheckinStatus: async () =>
+          __test__.judgeCheckinSchedulerStatus({ kind: 'http-error', status: 401 }),
+      }),
+    })
+    const c = tasks.find((t) => t.id === 'checkin-scheduler')!
+    expect(c.schedulable).toBe(false)
+    expect(c.sourceOk).toBe(false)
+    expect(c.indeterminateReason).toMatch(/HTTP 401/)
+    // 旧的猜测性归因不得加回:按它去设 env 永远修不好(§5e-1 可整改性)
+    expect(c.indeterminateReason).not.toMatch(/CHECKIN_CRON_ENABLED/)
+    expect(c.disabledReason).toBeNull()
+  })
+
+  it('deps 完全没给结论(null)⇒ 未判定点名"无结论",不记绿也不记红', async () => {
+    const tasks = await collectRelayTaskStates({
+      deps: stubDeps({ fetchCheckinStatus: async () => null }),
+    })
+    const c = tasks.find((t) => t.id === 'checkin-scheduler')!
+    expect(c.schedulable).toBe(false)
+    expect(c.sourceOk).toBe(false)
+    expect(c.indeterminateReason).toMatch(/无结论|不可达/)
+  })
+})
+
+describe('judgeCheckinSchedulerStatus(纯判据,七种响应形态)', () => {
+  const judge = __test__.judgeCheckinSchedulerStatus
+
+  it('200 + started=true ⇒ running,nextRunAt 取体里的 next_run', () => {
+    const r = judge({ kind: 'ok', status: 200, body: RUNNING_BODY })
+    expect(r.state).toBe('running')
+    expect(r.nextRunAt).toBe('2026-11-01T08:05:00+08:00')
+    expect(r.gateHint).toBeNull()
+    expect(r.detail).toContain('2026-11-01T08:05:00+08:00')
+  })
+
+  it('200 + enabled=false(总闸关)⇒ disabled 且点名 CHECKIN_CRON_ENABLED=true 并重启', () => {
+    const r = judge({ kind: 'ok', status: 200, body: RUNNING_BODY_DISABLED })
+    expect(r.state).toBe('disabled')
+    expect(r.gateHint).toMatch(/CHECKIN_CRON_ENABLED=true/)
+    expect(r.gateHint).toMatch(/重启/)
+    expect(r.nextRunAt).toBeNull()
+  })
+
+  it('200 + 总闸开但 started=false ⇒ disabled 归因为"启动失败,看 ai-service 日志"', () => {
+    const r = judge({
+      kind: 'ok',
+      status: 200,
+      body: { ...RUNNING_BODY, started: false, next_run: null },
+    })
+    expect(r.state).toBe('disabled')
+    expect(r.gateHint).toMatch(/未启动/)
+    expect(r.gateHint).toMatch(/日志/)
+    // 门是开的,不得再让用户去设 CHECKIN_CRON_ENABLED(归因必须落在真闸门上)
+    expect(r.gateHint).not.toMatch(/CHECKIN_CRON_ENABLED/)
+  })
+
+  it('200 + WorkBuddy 任务门关 ⇒ 主调度结论不变,出路点名 WORKBUDDY_TASKS_ENABLED', () => {
+    const r = judge({
+      kind: 'ok',
+      status: 200,
+      body: {
+        ...RUNNING_BODY,
+        wb_tasks: { ...RUNNING_BODY.wb_tasks, enabled: false, tasks_enabled: false },
+      },
+    })
+    expect(r.state).toBe('running')
+    expect(r.detail).toMatch(/WORKBUDDY_TASKS_ENABLED/)
+  })
+
+  it('旧服务端(体里没 not_running_reason)+ 两门皆开而 job 没注册 ⇒ 只能说"没重启",不许推给任务门', () => {
+    const r = judge({
+      kind: 'ok',
+      status: 200,
+      body: {
+        ...RUNNING_BODY,
+        wb_tasks: {
+          ...RUNNING_BODY.wb_tasks,
+          enabled: false,
+          tasks_enabled: true,
+          cron_enabled: true,
+        },
+      },
+    })
+    expect(r.detail).toMatch(/按两门现推/)
+    expect(r.detail).toMatch(/重启 ai-service/)
+    expect(r.detail).not.toMatch(/WORKBUDDY_TASKS_ENABLED=false/)
+    expect(r.detail).not.toMatch(/巡检在跑/)
+  })
+
+  it('旧服务端 + 总闸关 ⇒ 点名 CHECKIN_CRON_ENABLED(不误指任务门,照错提示配 env 永远修不好)', () => {
+    const r = judge({
+      kind: 'ok',
+      status: 200,
+      body: {
+        ...RUNNING_BODY,
+        wb_tasks: {
+          ...RUNNING_BODY.wb_tasks,
+          enabled: false,
+          tasks_enabled: true,
+          cron_enabled: false,
+        },
+      },
+    })
+    expect(r.detail).toMatch(/CHECKIN_CRON_ENABLED/)
+    expect(r.detail).not.toMatch(/WORKBUDDY_TASKS_ENABLED=false/)
+  })
+
+  it('连两门意图位都读不到 ⇒ 落未判定,不点名任何闸门 env(§0.3 不猜)', () => {
+    const r = judge({
+      kind: 'ok',
+      status: 200,
+      body: { ...RUNNING_BODY, wb_tasks: { enabled: false } },
+    })
+    expect(r.detail).toMatch(/不猜卡在哪一层/)
+    expect(r.detail).not.toMatch(/WORKBUDDY_TASKS_ENABLED|CHECKIN_CRON_ENABLED/)
+  })
+
+  it('200 + not_running_reason 点名(引擎侧枚举四档)⇒ 逐 reason 给对应 env 出路', () => {
+    for (const [reason, expected] of [
+      ['tasks_gate_off', /WORKBUDDY_TASKS_ENABLED/],
+      ['cron_gate_off', /CHECKIN_CRON_ENABLED/],
+      ['scheduler_not_started', /未启动/],
+      ['job_not_registered', /重启/],
+    ] as const) {
+      const r = judge({
+        kind: 'ok',
+        status: 200,
+        body: { ...RUNNING_BODY_DISABLED, wb_tasks: { not_running_reason: reason } },
+      })
+      expect(r.state, reason).toBe('disabled')
+      expect(r.gateHint ?? r.detail, reason).toMatch(expected)
+    }
+  })
+
+  it('200 + 主调度在跑但巡检 job 没注册 ⇒ 不得拿 wb_tasks.enabled=true 冒"巡检在跑"', () => {
+    const r = judge({
+      kind: 'ok',
+      status: 200,
+      body: {
+        ...RUNNING_BODY,
+        wb_tasks: {
+          ...RUNNING_BODY.wb_tasks,
+          enabled: true,
+          not_running_reason: 'job_not_registered',
+        },
+      },
+    })
+    expect(r.state).toBe('running')
+    expect(r.detail).toMatch(/巡检未在跑/)
+    expect(r.detail).not.toMatch(/巡检在跑/)
+  })
+
+  it('200 + 响应体读不懂 ⇒ unjudged(不冒绿也不猜门关)', () => {
+    for (const body of [null, 'not json', 42, {}, { enabled: 'yes', started: 1 }]) {
+      const r = judge({ kind: 'ok', status: 200, body })
+      expect(r.state, JSON.stringify(body)).toBe('unjudged')
+      expect(r.detail).toMatch(/读不懂/)
+      expect(r.detail).not.toMatch(/CHECKIN_CRON_ENABLED/)
+    }
+  })
+
+  it('非 200(401/403/500)⇒ unjudged 且如实写真实状态码,禁止猜测性归因', () => {
+    for (const status of [401, 403, 500]) {
+      const r = judge({ kind: 'http-error', status })
+      expect(r.state, String(status)).toBe('unjudged')
+      expect(r.detail, String(status)).toContain(`HTTP ${status}`)
+      expect(r.detail).not.toMatch(/CHECKIN_CRON_ENABLED/)
+    }
+    // 401 特别要求:给出"端点需身份"这一真实归因与可核查出路(§5e-1)
+    const r401 = judge({ kind: 'http-error', status: 401 })
+    expect(r401.detail).toMatch(/身份/)
+  })
+
+  it('连接层失败 ⇒ unjudged 且原样带上错误文本', () => {
+    const r = judge({
+      kind: 'transport-error',
+      message: 'fetch failed: ECONNREFUSED 127.0.0.1:8803',
+    })
+    expect(r.state).toBe('unjudged')
+    expect(r.detail).toMatch(/ECONNREFUSED/)
+    expect(r.detail).not.toMatch(/CHECKIN_CRON_ENABLED/)
+  })
+})
+
+describe('judgeTickCarrierRun(心跳在位 ≠ 执行成功,2026-11-01 分栏口径)', () => {
+  const judge = __test__.judgeTickCarrierRun
+  const NOW = Date.parse('2026-11-01T00:00:00Z')
+  const base = { atField: 'attemptAt', carrierLabel: 'guardian 派发', beatMs: 5 * 60 * 1000 }
+
+  it('心跳在位但无结果字段 ⇒ lastRunOk=null 且 detail 明写"未判定"(旧口径的 true 是假绿)', () => {
+    const r = judge({ attemptAt: '2026-11-01T00:00:00Z' }, { ...base, nowMs: NOW })
+    expect(r.sourceOk).toBe(true)
+    expect(r.lastRunOk).toBeNull()
+    expect(r.lastRunDetail).toMatch(/未判定/)
+    expect(r.lastRunDetail).toMatch(/不代表跑成功/)
+    expect(r.lastRunDetail).not.toMatch(/派发成功$/)
+    expect(r.stale).toBe(false)
+  })
+
+  it('器物自述 fail=0 ⇒ lastRunOk:true(有真实结果输入才给绿,不是无脑降级)', () => {
+    const r = judge({ ts: '2026-11-01T00:00:00Z', fail: 0 }, {
+      ...base,
+      atField: 'ts',
+      carrierLabel: '计划任务',
+      nowMs: NOW,
+    })
+    expect(r.sourceOk).toBe(true)
+    expect(r.lastRunOk).toBe(true)
+    expect(r.lastRunDetail).toMatch(/fail=0/)
+  })
+
+  it('器物自述 fail>0 ⇒ lastRunOk:false 并点名条数(正向对照,与上一例成对)', () => {
+    const r = judge({ ts: '2026-11-01T00:00:00Z', fail: 2 }, {
+      ...base,
+      atField: 'ts',
+      carrierLabel: '计划任务',
+      nowMs: NOW,
+    })
+    expect(r.lastRunOk).toBe(false)
+    expect(r.lastRunDetail).toMatch(/失败项 2 个/)
+  })
+
+  it('raw=null(文件读不到)⇒ sourceOk:false,走既有 indeterminate 路径,不出任何成败结论', () => {
+    const r = judge(null, { ...base, nowMs: NOW })
+    expect(r).toEqual({ sourceOk: false, lastRunAt: null, lastRunOk: null, lastRunDetail: null, stale: false })
+  })
+
+  it('文件在但时刻缺失/不可解析 ⇒ 与读不到同栏(sourceOk:false),不猜', () => {
+    for (const raw of [{}, { attemptAt: 42 }, { attemptAt: 'not-a-date' }, { ts: '2026-01-01T00:00:00Z' }]) {
+      const r = judge(raw, { ...base, nowMs: NOW })
+      expect(r.sourceOk, JSON.stringify(raw)).toBe(false)
+      expect(r.lastRunOk).toBeNull()
+    }
+  })
+
+  it('stale:超过 beatMs×3 个周期 ⇒ 点名"心跳疑似停摆"并带进 detail;阈值内不判', () => {
+    const fresh = new Date(NOW - base.beatMs * 2).toISOString()
+    const old = new Date(NOW - base.beatMs * 4).toISOString()
+    expect(judge({ attemptAt: fresh }, { ...base, nowMs: NOW }).stale).toBe(false)
+    const r = judge({ attemptAt: old }, { ...base, nowMs: NOW })
+    expect(r.stale).toBe(true)
+    expect(r.lastRunDetail).toMatch(/心跳疑似停摆/)
+    // 未判定与停摆两维并存时各说各的,不互相吞
+    expect(r.lastRunDetail).toMatch(/未判定/)
+  })
+
+  it('beatMs 未登记(推不出器物节律)⇒ 不开 stale 档,不造判据没有的档位', () => {
+    const ancient = new Date(NOW - 365 * 24 * 3600 * 1000).toISOString()
+    const r = judge({ attemptAt: ancient }, { ...base, beatMs: undefined, nowMs: NOW })
+    expect(r.stale).toBe(false)
+    expect(r.lastRunDetail).not.toMatch(/停摆/)
+    // 结果分栏仍按"没自述 ⇒ null",与 stale 档是否存在无关
+    expect(r.lastRunOk).toBeNull()
+  })
+
+  it('state:"dispatched" 是派发态不是执行结果 ⇒ 不得被读成成败(现读 guardian 侧的真实形态)', () => {
+    const r = judge({ attemptAt: '2026-11-01T00:00:00Z', state: 'dispatched' }, { ...base, nowMs: NOW })
+    expect(r.lastRunOk).toBeNull()
+    expect(r.lastRunDetail).toMatch(/没自述执行结果/)
+  })
+
+  it('聚合面:guardian 心跳在位无结果 ⇒ lastRunOk:null + 不占 indeterminateReason 栏;schtasks fail=0 ⇒ true', async () => {
+    const freshAt = new Date().toISOString()
+    const tasks = await collectRelayTaskStates({
+      deps: stubDeps({
+        readTickJson: async (relPath) =>
+          relPath.includes('credential-health')
+            ? { ts: freshAt, fail: 0 }
+            : { attemptAt: freshAt },
+      }),
+    })
+    const sentinel = tasks.find((t) => t.id === 'relay-capacity-sentinel')!
+    expect(sentinel.lastRunOk).toBeNull()
+    expect(sentinel.indeterminateReason).toBeNull()
+    expect(sentinel.lastRunDetail).toMatch(/未判定/)
+    const cred = tasks.find((t) => t.id === 'credential-health')!
+    expect(cred.lastRunOk).toBe(true)
+    expect(cred.lastRunStale).toBe(false)
+  })
+})
+
+describe('defaultProbeDeps.fetchCheckinStatus(真出口形状)', () => {
+  /** deps 出口类型允许 null(= 压根没给结论);真实现必须回三态之一,拿到 null 就是缺陷 ⇒ 直接抛 */
+  const fetchStatus = async () => {
+    const r = await defaultProbeDeps(() => null).fetchCheckinStatus('http://127.0.0.1:8803')
+    if (!r) throw new Error('默认实现返回 null(三态判据必须出结论,不得"没给")')
+    return r
+  }
+
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('带 ai-service 认得的内部系统票(Authorization Bearer),不自造对方不认的头', async () => {
+    const calls: Array<{ url: string; headers: Headers }> = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL | undefined, init?: RequestInit) => {
+        calls.push({ url: String(url), headers: new Headers(init?.headers ?? {}) })
+        return new Response(JSON.stringify(RUNNING_BODY), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }),
+    )
+    const { getSystemAccessToken } = await import('../src/utils/system-access-token.js')
+    const r = await fetchStatus()
+    expect(calls[0]!.url).toBe('http://127.0.0.1:8803/api/checkin/scheduler/status')
+    expect(calls[0]!.headers.get('authorization')).toBe('Bearer mocked-system-token')
+    expect(getSystemAccessToken).toHaveBeenCalled()
+    expect(r.state).toBe('running')
+  })
+
+  it('401 ⇒ 如实 unjudged 点名 HTTP 401(生产态裸 fetch 的真实结局),不冒 CHECKIN_CRON_ENABLED', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{"detail":"Not authenticated"}', { status: 401 })),
+    )
+    const r = await fetchStatus()
+    expect(r.state).toBe('unjudged')
+    expect(r.detail).toMatch(/HTTP 401/)
+    expect(r.detail).not.toMatch(/CHECKIN_CRON_ENABLED/)
+  })
+
+  it('连接失败 ⇒ unjudged 带真实错误,不冒绿', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('connect ECONNREFUSED 127.0.0.1:8803')
+      }),
+    )
+    const r = await fetchStatus()
+    expect(r.state).toBe('unjudged')
+    expect(r.detail).toMatch(/ECONNREFUSED/)
+  })
+
+  it('200 但体不是 JSON ⇒ unjudged(读不懂就是不判)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html>502 upstream</html>', { status: 200 })),
+    )
+    const r = await fetchStatus()
+    expect(r.state).toBe('unjudged')
+    expect(r.detail).toMatch(/读不懂/)
   })
 })
 
@@ -182,3 +607,4 @@ describe('runRelayTaskById(触发分发,mock 执行体)', () => {
     }
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

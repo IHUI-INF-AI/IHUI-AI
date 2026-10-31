@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "Operation failed"
-  },
-  "message": {
-    "deleted": "Deleted"
-  },
   "workflows": {
     "title": "Workflows",
     "empty": "No workflows yet",
@@ -929,8 +923,6 @@
     "checkUpdateUnsupported": "In-app updates are not available in this build",
     "changePhoneMissingUser": "Missing user info, cannot change phone",
     "logoutConfirm": "Confirm logout?",
-    "appPermission": "App Permissions",
-    "icpRecord": "ICP Record",
     "usageRules": "Usage Rules",
     "changePassword": "Change Password",
     "oldPassword": "Current Password",
@@ -1124,7 +1116,6 @@
     "network": "Network error, please retry"
   },
   "common": {
-    "success": "Success",
     "backToTop": "Jump to top",
     "ok": "OK",
     "gotIt": "Got it",
@@ -1240,7 +1231,6 @@
     "confirmBtn": "Confirm",
     "empty": "No covers",
     "loadFailed": "Failed to load",
-    "loading": "Loading...",
     "subtitle": "Choose or generate a cover",
     "title": "Cover",
     "workTitleDefault": "Untitled work",
@@ -1318,7 +1308,6 @@
     "badgeRejected": "Rejected",
     "badgeReviewing": "In review",
     "empty": "No assistants",
-    "loading": "Loading...",
     "metaAudience": "Visibility",
     "metaCategory": "Category",
     "metaCycleForever": "Forever",
@@ -1762,7 +1751,6 @@
     "title": "My Coupons",
     "validUntil": "Valid until",
     "use": "Use now",
-    "useHint": "Please use it on the product page",
     "couponCenter": "Coupon Center"
   },
   "courseAnnex": {
@@ -1961,9 +1949,6 @@
     "fans": "Followers",
     "empty": "No data",
     "unfollow": "Unfollow"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP License No."
   },
   "identityVerify": {
     "title": "Identity Verification",
@@ -4574,7 +4559,6 @@
     },
     "workflows": {
       "home": "Workflows",
-      "editor": "Workflow Editor",
       "automations": "Automations",
       "orchestration": "Orchestration",
       "schedule": "Scheduled Tasks"
@@ -5477,7 +5461,30 @@
     "poolSynced": "In account pool",
     "lastOk": "Last check-in succeeded +{credits}",
     "lastFailed": "Last check-in failed",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "taskTitle": "Auto-run tasks",
+    "taskDesc": "One sweep of the WorkBuddy task center: accept tasks, claim rewards, redeem streak tiers, draw the lottery, cat travel, night-owl chat.",
+    "taskPick": "Account",
+    "taskList": "Load tasks",
+    "taskDryRun": "Dry run (no writes)",
+    "taskRun": "Run all task families",
+    "taskRunning": "Running…",
+    "taskEmpty": "No tasks yet, or not loaded",
+    "taskResult": "Result",
+    "taskUnjudged": "Upstream response could not be parsed — this run is undetermined (not a success)",
+    "taskAutoTitle": "Auto sweep",
+    "taskAutoLoading": "Loading…",
+    "taskAutoUnknown": "Unknown (server did not return sweep status; check the backend version)",
+    "taskAutoOn": "Enabled · sweeps every {minutes} min",
+    "taskAutoNext": "next {time}",
+    "taskAutoDry": "Enabled but in dry-run (read-only probes): no real claims. Set WORKBUDDY_TASKS_LIVE_RUN=true on the server to write.",
+    "taskAutoCronBlocked": "Not running: task switch is on but the master switch CHECKIN_CRON_ENABLED is off.",
+    "taskAutoOff": "Disabled: manual only. Set WORKBUDDY_TASKS_ENABLED=true on the server and restart.",
+    "taskAutoNotStarted": "Configured as enabled but the scheduler is not running: restart ai-service after editing the server .env (start() short-circuits on _started, so there is no hot reload).",
+    "taskAutoPaths": "Report/claim paths not configured: reports only, no claims.",
+    "taskAutoLast": "Last sweep {time}",
+    "taskAutoLastStats": "{families} families · {accepted} accepted · {claimed} claimed",
+    "taskAutoLastNever": "No sweep yet in this process"
   },
   "mat": {
     "unknown": "Unknown error",
@@ -6003,7 +6010,7 @@
   "dist": {
     "noInviteCode": "No invite code",
     "linkCopied": "Invite link copied",
-    "inviteTitle": "Join AI 智汇 community",
+    "inviteTitle": "Join the IHUI AI community",
     "shared": "Shared",
     "shareFail": "Share failed. Retry.",
     "qrNotReady": "QR not ready yet",
@@ -7054,12 +7061,10 @@
     "empty": "No news",
     "pinned": "Pinned",
     "publishedAt": "Published {date}",
-    "viewCount": "{count} reads",
     "total": "{total} articles",
     "prev": "Previous",
     "next": "Next",
-    "loading": "Loading...",
-    "error": "Failed to load"
+    "loading": "Loading..."
   },
   "searchHistoryPage": {
     "title": "Search History",
@@ -7118,10 +7123,7 @@
     "output": "Final Output",
     "runningHint": "Still running, no final output yet",
     "noOutput": "No output",
-    "noTask": "No task description",
-    "prev": "Previous",
-    "pagination": "Page {page} / {totalPages}, {total} total",
-    "next": "Next"
+    "noTask": "No task description"
   },
   "chatWorkbenchPage": {
     "title": "Chat",

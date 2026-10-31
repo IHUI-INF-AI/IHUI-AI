@@ -23,6 +23,10 @@ vi.hoisted(() => {
 
 vi.mock('../src/plugins/require-permission.js', () => ({
   requireAuth: vi.fn(),
+  // 2026-10-31 安全强化第 10 批 R10：/api-key-groups/:id/recharge 改为 admin-only，
+  // 路由模块开始引用 requireAdmin。本套件不测充值面，给一个「永远放行」的替身即可
+  // （若将来加充值用例，改成可断言的 vi.fn 并断言被调用）。
+  requireAdmin: vi.fn(async () => undefined),
 }))
 
 vi.mock('../src/services/api-key-group-service.js', () => ({

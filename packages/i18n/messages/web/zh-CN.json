@@ -20217,6 +20217,7 @@
     "taskPanelAutoDry": "已启用但为演练模式(只读探针):不会真实领奖。服务端设 WORKBUDDY_TASKS_LIVE_RUN=true 后才会写入。",
     "taskPanelAutoCronBlocked": "未运行:任务门已开,但总闸 CHECKIN_CRON_ENABLED 关闭。",
     "taskPanelAutoOff": "未启用:仅手动执行。服务端设 WORKBUDDY_TASKS_ENABLED=true 并重启后生效。",
+    "taskPanelAutoNotStarted": "配置已开但调度器未启动:改完服务端 .env 必须重启 ai-service 才生效(进程内 start() 遇 _started 会短路,不热加载)。",
     "taskPanelAutoPaths": "上报/领奖路径未配置:只上报不领奖。",
     "taskPanelAutoLast": "上次巡检 {time}",
     "taskPanelAutoLastStats": "跑 {families} 族 · 新增 {accepted} · 领 {claimed}",
@@ -25797,7 +25798,6 @@
     "actionReedit": "重新编辑",
     "title": "我的智能体",
     "searchPlaceholder": "搜索智能体",
-    "loading": "加载中…",
     "empty": "暂无智能体"
   },
   "certDetail": {
@@ -25848,9 +25848,6 @@
     "empty": "暂无帮助内容",
     "title": "帮助详情",
     "answer": "答案"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 备案/许可证号"
   },
   "identityVerify": {
     "uploadFront": "上传身份证人像面",
@@ -27112,7 +27109,6 @@
     "save": "保存"
   },
   "aigcCover": {
-    "loading": "加载中…",
     "title": "封面设置",
     "subtitle": "为「{title}」生成封面",
     "empty": "暂无封面",

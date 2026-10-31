@@ -6,15 +6,32 @@ import type { FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
 import { Queue, QueueEvents, Worker, type ConnectionOptions, type Job } from 'bullmq'
 import { config } from '../config/index.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
 /**
- * 队列名常量。集中定义避免散落字符串拼写错误。
+ * 队列**基础名**(未解析的字面名)。只作为解析器的输入,不得直接投给 `new Queue` / `new Worker`。
  */
-export const QUEUE_NAMES = {
+const QUEUE_BASE_NAMES = {
   email: 'email',
   notification: 'notification',
   aiCallback: 'ai-callback',
   notificationDispatch: 'notification-dispatch',
+} as const
+
+/**
+ * 队列名常量(2026-10-31 起 = **经库身份解析后**的实际队列名)。
+ *
+ * 为什么解析在常量层做,而不是在每个调用点做:这四个名字同时是生产者(`new Queue`)与
+ * 消费者(`createWorker` → `new Worker`,见 src/workers/{email,notification,ai-callback,
+ * notification-dispatch}-worker.ts)唯一的取值来源。解析放在这里,两侧**结构上不可能分家**;
+ * 放调用点则每加一处消费者就多一次"忘包一层"的机会(号池 7 天停摆的正是这一型)。
+ * 主库(`ihui`、未设后缀)解析结果与旧字面量逐字节相同 ⇒ 生产队列名零扰动。
+ */
+export const QUEUE_NAMES = {
+  email: queueNameWithDbIdentity(QUEUE_BASE_NAMES.email),
+  notification: queueNameWithDbIdentity(QUEUE_BASE_NAMES.notification),
+  aiCallback: queueNameWithDbIdentity(QUEUE_BASE_NAMES.aiCallback),
+  notificationDispatch: queueNameWithDbIdentity(QUEUE_BASE_NAMES.notificationDispatch),
 } as const
 
 export type QueueName = keyof typeof QUEUE_NAMES
@@ -106,6 +123,9 @@ declare module 'fastify' {
  * 3. Worker 的实际处理逻辑由 routes/services 注册（decouple），
  *    本插件只负责基础设施初始化，避免循环依赖。
  * 4. 队列默认重试 3 次，指数退避；失败入 dead-letter（BullMQ 内置 failed 集）。
+ * 5. 队列名一律从 `QUEUE_NAMES` 取(该常量已在模块加载时经 `queueNameWithDbIdentity` 带上
+ *    库身份后缀)。隔离库起的实例因此不会再从主库队列抢作业(2026-10-31 号池 7 天停摆的同型
+ *    事故在 Redis 侧对这些队列族仍有 failed=500 残留,见 `.ihui-agent/tmp/queue-proof/PROOF.md`)。
  */
 const queuePlugin: FastifyPluginAsync = async (server) => {
   const connection: ConnectionOptions = {
@@ -195,6 +215,9 @@ export const queue = fp(queuePlugin, {
  * 用法：
  *   const worker = createWorker(server, QUEUE_NAMES.email, async (job) => { ... })
  *   // onClose: await worker.close()
+ *
+ * `queueName` **必须是已解析的实际队列名**(即 `QUEUE_NAMES.*`,或别的队列族经
+ * `queueNameWithDbIdentity()` 解析出来的名字);传未解析的基础名 = 绕过隔离判据。
  */
 export function createWorker<T>(
   server: Parameters<FastifyPluginAsync>[0],

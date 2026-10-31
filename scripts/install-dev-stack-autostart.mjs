@@ -29,11 +29,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveTaskNodeAnchor } from './lib/task-node-anchor.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TASK_NAME = 'IHUI-DevStack';
-const NODE_EXE = process.execPath;
+// 锚点不再直接取 process.execPath(「谁跑就烤谁」是 2026-10-31 两枚常驻任务被烤上第三方 IDE
+// 自带 node 的根因)。判据单源 = scripts/lib/task-node-anchor.mjs;缺失时由 install() 现算。
+let NODE_EXE = process.execPath;
 const LAUNCHER = path.join(ROOT, 'scripts', 'dev-stack-launch.mjs');
 const STACK = path.join(ROOT, 'scripts', 'dev-stack.mjs');
 const LOG_DIR = path.join(ROOT, '.tmp-sync');
@@ -52,6 +55,41 @@ const LEGACY_VBS = path.join(
 );
 
 const psEncode = (script) => Buffer.from(script, 'utf16le').toString('base64');
+
+// SCHED_S_TASK_RUNNING(0x41301)。本任务 ExecutionTimeLimit=0,注册并 Start 之后立刻回读
+// 拿到的就是这一枚,而不是 0。
+const TASK_RESULT_RUNNING = 267009;
+
+/**
+ * 判「注册 + 启动」是否成功(纯函数,不碰 IO,测试直接 import 生产判据)。
+ *
+ * 旧判据是 `/LAST=(?!0\b)/` ⇒ 只认 LAST=0,于是**每次成功注册都被判成失败**并 exit 1:
+ * 照文档敲 `pnpm dev:stack:autostart` 的人以为没装上,而 dev-stack-watchdog 的自愈腿
+ * (`r.status !== 0` ⇒ 记 `non-s4u-repair-failed`)永远收不到成功,每 2 分钟重装一次。
+ * 失效方向按 §0.3:读不到 `LOGON=… LAST=…` 形状 ⇒ 未判定(exit 2),既不冒绿也不冒红。
+ */
+export function judgeRegisterOutcome(out) {
+  const text = String(out ?? '');
+  const m = /LOGON=(\S+)\s+LAST=(\d+)/.exec(text);
+  if (!m) {
+    return { ok: false, undetermined: true, logon: null, last: null, why: '读不到 LOGON/LAST 形状' };
+  }
+  const logon = m[1];
+  const last = Number(m[2]);
+  if (logon !== 'S4U') {
+    return { ok: false, undetermined: false, logon, last, why: `LogonType=${logon}(非 S4U ⇒ 有桌面即会弹窗)` };
+  }
+  if (last !== 0 && last !== TASK_RESULT_RUNNING) {
+    return { ok: false, undetermined: false, logon, last, why: `LastTaskResult=${last}` };
+  }
+  return {
+    ok: true,
+    undetermined: false,
+    logon,
+    last,
+    why: last === TASK_RESULT_RUNNING ? 'running(常驻任务正在跑)' : 'completed(LAST=0)',
+  };
+}
 
 // pwsh(PS7):本机 WDAC 拦 node 派生的 powershell.exe(5.1)报 EPERM;AGENTS.md §27 亦要求 pwsh
 function runPs(script) {
@@ -85,6 +123,19 @@ function stopLegacyWatcher() {
 }
 
 function install() {
+  const anchor = resolveTaskNodeAnchor({
+    execPath: process.execPath,
+    pathEntries: String(process.env.PATH ?? '').split(path.delimiter),
+    exists: (p) => fs.existsSync(p),
+  });
+  if (!anchor.ok) {
+    console.error(
+      `[dev-stack:autostart] ${anchor.undetermined ? '未判定' : '拒绝注册'}:${anchor.why}`,
+    );
+    process.exit(anchor.undetermined ? 2 : 1);
+  }
+  NODE_EXE = anchor.anchor;
+  if (anchor.note) console.log(`[dev-stack:autostart] ${anchor.note}`);
   for (const f of [NODE_EXE, LAUNCHER, STACK]) {
     if (!fs.existsSync(f)) {
       console.error(`[dev-stack:autostart] ⚠️ 依赖缺失: ${f}`);
@@ -121,18 +172,31 @@ function install() {
   ].join('\n');
 
   const out = runPs(ps);
-  if (!/LOGON=S4U/.test(out) || /LAST=(?!0\b)/.test(out)) {
-    console.error(`[dev-stack:autostart] 注册/启动失败:\n${out.split('\n').slice(-6).join('\n')}`);
+  const verdict = judgeRegisterOutcome(out);
+  if (!verdict.ok) {
+    const tail = out.split('\n').slice(-6).join('\n');
+    if (verdict.undetermined) {
+      console.error(`[dev-stack:autostart] 未判定:读不到注册结果形状 ⇒ 不记成功也不记失败:\n${tail}`);
+      process.exit(2);
+    }
+    console.error(`[dev-stack:autostart] 注册/启动失败(${verdict.why}):\n${tail}`);
     process.exit(1);
   }
-  const line = out.split('\n').find((l) => l.startsWith('LOGON=')) || out;
-  console.log(`[dev-stack:autostart] 任务 ${TASK_NAME} 已注册并启动:${line}`);
+  console.log(
+    `[dev-stack:autostart] 任务 ${TASK_NAME} 已注册并启动(${verdict.why}):LOGON=${verdict.logon} LAST=${verdict.last}`,
+  );
   console.log(`[dev-stack:autostart] 旧启动夹 VBS: ${legacyRemoved} · 旧守护: ${stopMsg}`);
   console.log('[dev-stack:autostart] 守护跑在 session 0(无桌面)→ 其服务树结构性无法弹窗;自愈频率未变(30s)。');
   console.log('[dev-stack:autostart] 停止服务: pnpm dev:safe:stop · 看健康: pnpm dev:stack:check');
 }
 
-// 本脚本仅 CLI 形态使用(无测试 import),故直接执行,不需要 §22d isDirectRun 守卫
-install();
+// §22d 双形态入口:镜像测试要 import judgeRegisterOutcome,import 时不得触发重装动作。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  install();
+}
+
+export const __test__ = { judgeRegisterOutcome, TASK_RESULT_RUNNING };
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

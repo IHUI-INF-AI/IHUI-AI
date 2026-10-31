@@ -14,7 +14,7 @@
  *
  * 调用格式:
  *   { "todos": [
- *     { "id": "t1", "content": "...", "status": "pending|in_progress|completed", "priority": "high|medium|low" }
+ *     { "id": "t1", "content": "...", "status": "pending|in_progress|completed|cancelled|blocked", "priority": "high|medium|low" }
  *   ]}
  */
 
@@ -22,11 +22,19 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Tool, ToolResult, ToolContext } from './index.js';
 import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
+import { t } from '../i18n/index.js';
 
+/**
+ * 待办五态(2026-10 扩,对齐对方 cancelled/blocked):
+ *   pending → in_progress → completed,另有 cancelled(用户主动取消,不再执行)
+ *   与 blocked(受阻,等待外部条件)。词表与 commands/tasks.ts TaskStatus、
+ *   plan/structured.ts PlanStepStatus 三处同批扩档(§0.6 抄写面同改);
+ *   与 Kanban 六档 AGENT_TASK_STATUSES 是刻意并存的两套域(不得混写)。
+ */
 export interface TodoItem {
   id: string;
   content: string;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
   priority: 'high' | 'medium' | 'low';
   summary?: string;
 }
@@ -40,6 +48,8 @@ const STATUS_ICONS: Record<TodoItem['status'], string> = {
   pending: '⏳',
   in_progress: '🚧',
   completed: '✅',
+  cancelled: '🚫',
+  blocked: '⛔',
 };
 
 const PRIORITY_ICONS: Record<TodoItem['priority'], string> = {
@@ -81,8 +91,8 @@ function validateTodo(item: unknown, index: number): string | undefined {
   if (typeof t.id !== 'string' || t.id.length === 0) return `todos[${index}].id 必须为非空字符串`;
   if (typeof t.content !== 'string' || t.content.length === 0) return `todos[${index}].content 必须为非空字符串`;
   const status = t.status as string;
-  if (!['pending', 'in_progress', 'completed'].includes(status)) {
-    return `todos[${index}].status 必须为 pending|in_progress|completed,实际: ${status}`;
+  if (!['pending', 'in_progress', 'completed', 'cancelled', 'blocked'].includes(status)) {
+    return `todos[${index}].status 必须为 pending|in_progress|completed|cancelled|blocked,实际: ${status}`;
   }
   const priority = t.priority as string;
   if (!['high', 'medium', 'low'].includes(priority)) {
@@ -101,19 +111,33 @@ function mergeTodos(oldTodos: TodoItem[], newTodos: TodoItem[]): TodoItem[] {
 /** 渲染 todos 为用户可见文本 */
 function renderTodos(todos: TodoItem[]): string {
   if (todos.length === 0) return '(无 todo)';
-  const byStatus: Record<string, TodoItem[]> = { in_progress: [], pending: [], completed: [] };
-  for (const t of todos) (byStatus[t.status] ?? []).push(t);
+  const byStatus: Record<string, TodoItem[]> = {
+    in_progress: [],
+    pending: [],
+    completed: [],
+    cancelled: [],
+    blocked: [],
+  };
+  for (const tItem of todos) (byStatus[tItem.status] ?? []).push(tItem);
   const lines: string[] = [];
-  const order: (keyof typeof byStatus)[] = ['in_progress', 'pending', 'completed'];
-  const labels: Record<string, string> = { in_progress: '进行中', pending: '待办', completed: '已完成' };
+  // 新两态追加在既有三态之后(不重排既有次序,旧三态分组输出行为逐字节不变)
+  const order: TodoItem['status'][] = ['in_progress', 'pending', 'completed', 'cancelled', 'blocked'];
+  // 五语言取词走 cli 词包单源(§19;守门 70 逐行棘轮:新档不得再落中文硬编码行)
+  const labels: Record<TodoItem['status'], string> = {
+    in_progress: t('cli.taskStatusLabels.inProgress'),
+    pending: t('cli.taskStatusLabels.pending'),
+    completed: t('cli.taskStatusLabels.completed'),
+    cancelled: t('cli.taskStatusLabels.cancelled'),
+    blocked: t('cli.taskStatusLabels.blocked'),
+  };
   for (const status of order) {
     const list = byStatus[status]!;
     if (list.length === 0) continue;
-    lines.push(`${STATUS_ICONS[status as TodoItem['status']]} ${labels[status]} (${list.length}):`);
-    for (const t of list) {
-      const pri = PRIORITY_ICONS[t.priority];
-      const summary = t.summary ? ` — ${t.summary}` : '';
-      lines.push(`  ${pri} [${t.id}] ${t.content}${summary}`);
+    lines.push(`${STATUS_ICONS[status]} ${labels[status]} (${list.length}):`);
+    for (const t2 of list) {
+      const pri = PRIORITY_ICONS[t2.priority];
+      const summary = t2.summary ? ` — ${t2.summary}` : '';
+      lines.push(`  ${pri} [${t2.id}] ${t2.content}${summary}`);
     }
   }
   return lines.join('\n');
@@ -121,7 +145,7 @@ function renderTodos(todos: TodoItem[]): string {
 
 export const todo_write: Tool = {
   name: 'todo_write',
-  description: '管理任务清单。参数:todos(数组,每项含 id/content/status[pending|in_progress|completed]/priority[high|medium|low])。可选 merge(默认 false,全量替换;true 时保留旧列表中未在新列表出现的 id)。用于跟踪多步任务的进度,提升可观测性。',
+  description: '管理任务清单。参数:todos(数组,每项含 id/content/status[pending|in_progress|completed|cancelled|blocked]/priority[high|medium|low])。可选 merge(默认 false,全量替换;true 时保留旧列表中未在新列表出现的 id)。用于跟踪多步任务的进度,提升可观测性。',
   dangerLevel: 'write',
   parameters: {
     todos: {
@@ -135,8 +159,8 @@ export const todo_write: Tool = {
           content: { type: 'string', description: '任务描述' },
           status: {
             type: 'string',
-            description: 'pending(待办)/ in_progress(进行中)/ completed(已完成)',
-            enum: ['pending', 'in_progress', 'completed'],
+            description: 'pending(待办)/ in_progress(进行中)/ completed(已完成)/ cancelled(已取消)/ blocked(受阻)',
+            enum: ['pending', 'in_progress', 'completed', 'cancelled', 'blocked'],
           },
           priority: {
             type: 'string',
@@ -168,8 +192,8 @@ export const todo_write: Tool = {
     } else {
       finalTodos = opts.todos;
     }
-    // 排序:in_progress > pending > completed;同 status 内按 priority 降序
-    const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2 };
+    // 排序:in_progress > pending > completed;新两态追加在既有三态之后;同 status 内按 priority 降序
+    const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, cancelled: 3, blocked: 4 };
     const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
     finalTodos.sort((a, b) => {
       const s = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
@@ -193,7 +217,7 @@ export const todo_write: Tool = {
  */
 export const todo_read: Tool = {
   name: 'todo_read',
-  description: '读取当前任务清单(只读,不修改)。无参数。返回按 in_progress > pending > completed 排序的清单,含每项 id/content/status/priority/summary。',
+  description: '读取当前任务清单(只读,不修改)。无参数。返回按 in_progress > pending > completed > cancelled > blocked 排序的清单,含每项 id/content/status/priority/summary。',
   dangerLevel: 'read',
   parameters: {},
   required: [],

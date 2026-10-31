@@ -165,6 +165,11 @@ class FakeStore:
             "id": acc["id"],
             "name": acc["name"],
             "jwt": acc["jwt"],
+            # 真实现在 SELECT 里就带了 platform(checkin_store.py 的
+            # `SELECT id, name, jwt_enc, device_map, enabled, platform`),替身此前漏回吐
+            # ⇒ WorkBuddy 任务两条入口的平台闸在替身上恒判「非 workbuddy」,用例无从落地
+            # (2026-10-31 席位 F 补:替身必须与真面同形,否则测的是替身)。
+            "platform": acc.get("platform", "trae"),
             "device_map": dict(acc["device_map"]),
             "enabled": acc["enabled"],
         }
@@ -1636,5 +1641,318 @@ async def test_query_credits_passes_classified_error_through(client, fake_store,
     body = resp.json()
     assert body["ok"] is False
     assert body["classified_error"] == {"type": "Challenge", "cooldown_seconds": 1800}
+
+
+# ---------------------------------------------------------------------------
+# O68 WorkBuddy 任务两条入口(2026-10-31 立,席位 F)
+#
+# GET  /accounts/{id}/tasks 与 POST /accounts/{id}/task-run 是签到页「读取任务 /
+# 预演 / 一键做任务」三按钮的唯一后端入口,此前在本仓**零用例**,且只做属主校验 +
+# 平台闸,既不查「出站全局暂停」也不查「账号冷却」—— 而手动签到(run_checkin_now)
+# 与手动查余额(query_credits)都已定档:"401 死号 / 429 限流账号被手动连点只会把
+# 风险放大到同 IP 全部账号"。本块补齐同一条预检,并把两条路由的判定面钉住。
+#
+# 隔离口径:上游出口一律换成记录桩或 httpx.MockTransport,绝无真实网络。
+# ---------------------------------------------------------------------------
+
+
+def _stub_wb_upstream(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """把 workbuddy_tasks 的两个上游出口换成记录桩(返回生产构造器的合同形状)。"""
+    from app.services import workbuddy_tasks
+
+    calls: list[str] = []
+
+    async def fake_list(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        calls.append("list_growth_tasks")
+        return workbuddy_tasks._list_result([], None, False, True)
+
+    async def fake_run(
+        kind: str, jwt: str, device_map: dict[str, Any], **_kw: Any
+    ) -> dict[str, Any]:
+        calls.append(f"run_family:{kind}")
+        return workbuddy_tasks._run_result(kind, ok=True)
+
+    monkeypatch.setattr(workbuddy_tasks, "list_growth_tasks", fake_list)
+    monkeypatch.setattr(workbuddy_tasks, "run_family", fake_run)
+    return calls
+
+
+def _seed_cooldown(fake_store, account_id: int, until: datetime) -> None:
+    """往替身 records 里塞一条未来冷却(与 query_credits 冷却用例同一手法)。"""
+    fake_store.records[fake_store.next_record_id] = {
+        "id": fake_store.next_record_id,
+        "account_id": account_id,
+        "cooldown_until": until,
+    }
+    fake_store.next_record_id += 1
+
+
+async def test_wb_list_tasks_429_when_outbound_paused(client, fake_store, monkeypatch):
+    """出站全局暂停中:任务列表入口 429 快速失败,**一个上游请求都不发**;
+    不暂停时同一请求确实打到上游(正向对照,防"预检把门焊死"的假绿)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB列表号", platform="workbuddy")
+
+    checkin_outbound_gate.reset()  # 基线:上一条用例若中途失败,不把暂停带进本用例
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    try:
+        resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+        assert resp.status_code == 429
+        assert "限流冷却中" in resp.json()["detail"]
+        assert calls == []  # 副作用没发生
+    finally:
+        checkin_outbound_gate.reset()
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    assert calls == ["list_growth_tasks"]  # 正向对照:未暂停时确实上了上游
+
+
+async def test_task_run_429_when_outbound_paused(client, fake_store, monkeypatch):
+    """出站全局暂停中:一键做任务入口 429,执行链一次都没进(连只读探针都不发)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB执行号", platform="workbuddy")
+
+    checkin_outbound_gate.reset()
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    try:
+        resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+        assert resp.status_code == 429
+        assert "限流冷却中" in resp.json()["detail"]
+        assert calls == []
+    finally:
+        checkin_outbound_gate.reset()
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+    assert resp.status_code == 200
+    assert calls == ["run_family:growth"]
+
+
+async def test_wb_list_tasks_429_when_account_in_cooldown(client, fake_store, monkeypatch):
+    """账号冷却中:任务列表入口 429,detail 点名解冻时刻;冷却过去后放行。"""
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB死号", platform="workbuddy")
+    until = datetime.now(UTC) + timedelta(days=3650)
+    _seed_cooldown(fake_store, aid, until)
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 429
+    detail = resp.json()["detail"]
+    assert "冷却期" in detail
+    assert until.isoformat() in detail  # 解冻时刻可核对,不是一句"稍后再试"
+    assert calls == []
+
+    # 正向对照:冷却表里没这一枚 ⇒ 同一请求照常上上游
+    fake_store.records.clear()
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    assert calls == ["list_growth_tasks"]
+
+
+async def test_task_run_429_when_account_in_cooldown(client, fake_store, monkeypatch):
+    """账号冷却中:一键做任务入口 429(不给"手动点一下就绕过冷却"的后门)。"""
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB限流号", platform="workbuddy")
+    until = datetime.now(UTC) + timedelta(hours=2)
+    _seed_cooldown(fake_store, aid, until)
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "all"})
+    assert resp.status_code == 429
+    detail = resp.json()["detail"]
+    assert "冷却期" in detail
+    assert until.isoformat() in detail
+    assert calls == []
+
+
+async def test_wb_task_routes_fail_open_when_cooldown_read_fails(
+    client, fake_store, monkeypatch
+):
+    """读冷却失败 ⇒ fail-open 按"无冷却"放行(与 query_credits 样板同口径):
+    预检的失效方向是"多放一次正常操作",绝不能把两条入口焊死。"""
+    from app.services import checkin_store as checkin_store_mod
+
+    async def boom() -> dict[int, datetime]:
+        raise RuntimeError("冷却表读不动(假故障)")
+
+    monkeypatch.setattr(checkin_store_mod, "get_active_cooldowns", boom)
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB放行号", platform="workbuddy")
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+    assert resp.status_code == 200
+    assert calls == ["list_growth_tasks", "run_family:growth"]
+
+
+async def test_task_run_all_kind_follows_production_sweep_order(client, fake_store, monkeypatch):
+    """kind="all" 的族顺序取自生产模块的 SWEEP_ORDER(测试不抄第二份常量,§22c),
+    并且 activity 族**真的在生产调用链里被派发**(不是只存在于测试注入面)。
+
+    手法:只把 _FAMILY_RUNNERS 的六枚族执行器换成记录桩 —— run_family → run_all_families
+    这条生产派发链一步都没被替换,替身只发生在最末端。
+    """
+    from app.services import workbuddy_tasks
+
+    aid = await _seed_account(fake_store, name="WB全族号", platform="workbuddy")
+    dispatched: list[str] = []
+
+    def make_stub(kind: str):
+        async def stub(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+            dispatched.append(kind)
+            return workbuddy_tasks._run_result(kind, ok=True)
+
+        return stub
+
+    for family in workbuddy_tasks.SWEEP_ORDER:
+        monkeypatch.setitem(workbuddy_tasks._FAMILY_RUNNERS, family, make_stub(family))
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "all"})
+    assert resp.status_code == 200
+    body = resp.json()
+    # 派发序列 == 生产顺序(activity 打头,与调度器共用同一张表)
+    assert dispatched == list(workbuddy_tasks.SWEEP_ORDER)
+    assert "activity" in dispatched
+    # 聚合回执的 families 明细也覆盖全部族,顺序与 SWEEP_ORDER 同
+    assert list(body["families"]) == list(workbuddy_tasks.SWEEP_ORDER)
+    assert body["kind"] == "all" and body["ok"] is True
+
+
+async def test_task_run_dry_run_emits_only_read_only_requests(client, fake_store, monkeypatch):
+    """dry_run=true ⇒ HTTP 面只出现只读探针、零写侧请求;
+    正向对照 = 同一账号同一族去掉 dry_run,accept 的 POST 确实发出。
+
+    这条走真执行链(路由 → run_family → run_growth),上游以 httpx.MockTransport 记账,
+    所以"零写侧"量的是真请求单,不是桩的自我声明。
+    """
+    import httpx
+
+    from app.services import checkin_engine
+    from app.services.checkin_outbound import checkin_outbound_gate
+    from app.services.workbuddy_tasks import (
+        PATH_GROWTH_STREAK,
+        PATH_GROWTH_TASKS,
+        PATH_GROWTH_TASKS_ACCEPT,
+    )
+
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
+    checkin_outbound_gate.reset()
+
+    calls: list[tuple[str, str]] = []
+
+    def ok_env(data: Any) -> dict[str, Any]:
+        return {"code": 0, "msg": "ok", "data": data}
+
+    # 路由表按插入序前缀匹配:"/activity/growth/tasks" 是 accept 路径的前缀,长者在前
+    routes: dict[str, Any] = {
+        PATH_GROWTH_TASKS_ACCEPT: ok_env({}),
+        PATH_GROWTH_TASKS: ok_env(
+            {
+                "tasks": [
+                    {
+                        "task_id": 1,
+                        "code": "first_chat",
+                        "title": "完成一次对话",
+                        "description": "使用 WorkBuddy 完成至少一次对话交互",
+                        "icon_url": "",
+                        "level_name": "养虾尝试",
+                        "status": "available",
+                        "url": "",
+                    }
+                ]
+            }
+        ),
+        PATH_GROWTH_STREAK: ok_env({"streak": {"days": 5, "next_tier": "7d"}}),
+        "/billing/meter/checkin-status": ok_env({"total_credits": 100}),
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        calls.append((request.method, request.url.path))
+        for frag, resp_body in routes.items():
+            if frag in url:
+                return httpx.Response(200, json=resp_body)
+        return httpx.Response(404, json={"code": 404, "msg": "unmapped"})
+
+    # 路由与 workbuddy_tasks 都经 checkin_engine.client_for 取共享出口 ⇒ 换这一处即可
+    monkeypatch.setattr(checkin_engine, "_shared_client", httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), trust_env=False
+    ))
+
+    aid = await _seed_account(fake_store, name="WB预演号", platform="workbuddy")
+
+    resp = await client.post(
+        f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth", "dry_run": True}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    paths = [p for _m, p in calls]
+    assert PATH_GROWTH_TASKS in paths  # 只读列表确实打了
+    assert all(m == "GET" for m, _p in calls), calls
+    assert PATH_GROWTH_TASKS_ACCEPT not in paths
+    assert "/billing/meter/checkin-status" not in paths  # dry-run 连余额探针都不发
+
+    # 正向对照:同族非 dry_run ⇒ accept 的写侧 POST 真的发出(预演/实跑不是同一张脸)
+    calls.clear()
+    resp = await client.post(
+        f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth", "dry_run": False}
+    )
+    assert resp.status_code == 200
+    accept_calls = [(m, p) for m, p in calls if PATH_GROWTH_TASKS_ACCEPT in p]
+    assert accept_calls and all(m == "POST" for m, _p in accept_calls), calls
+
+    checkin_outbound_gate.reset()
+
+
+async def test_wb_task_routes_non_workbuddy_account_never_touches_upstream(
+    client, fake_store, monkeypatch
+):
+    """平台闸:非 WorkBuddy 账号 ⇒ 两条入口都给可判定失败(ok=false + reason),
+    而不是未判定,且一个上游请求都不发。"""
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="Trae号", platform="trae")
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False and body["kind"] == "list"
+    assert body["reason"] and "WorkBuddy" in body["reason"]
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False and body["kind"] == "growth"
+    assert body["reason"]
+
+    assert calls == []
+
+
+async def test_wb_task_routes_owner_mismatch_is_404(client, fake_store, monkeypatch):
+    """属主不匹配 ⇒ 两条入口一律 404(_wb_tasks_account_or_404 真的在 WHERE 里带上属主),
+    且早于任何上游动作。"""
+    from app.main import fastapi_app
+
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="别人的 WB 号", platform="workbuddy")
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+        assert resp.status_code == 404
+        assert "账号不存在" in resp.json()["detail"]
+
+        resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+        assert resp.status_code == 404
+        assert "账号不存在" in resp.json()["detail"]
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+
+    assert calls == []
+
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

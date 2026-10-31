@@ -58,6 +58,23 @@ export interface SymbolResult {
   detail?: string
 }
 
+/**
+ * 编辑器状态(2026-11-01 立,web→api→ai-service 上报腿)。
+ *
+ * 字段形态与 ai-service `normalize_editor_state`(context_engine.py)对齐:
+ * apps/api 转发时把 camelCase 键映射为 ai-service 请求体
+ * `editorState: { active_file, cursor_line?, selection? }`(snake_case)。
+ * ai-service 侧失效方向 = 丢弃:not-a-dict / activeFile 缺失或空白 ⇒ 按无编辑器状态继续。
+ */
+export interface ContextEditorState {
+  /** 正在编辑的文件路径(相对仓根或绝对路径均可,ai-service 内部归一化) */
+  activeFile: string
+  /** 光标所在行(1 基;缺省则不做光标邻域加成) */
+  cursorLine?: number
+  /** 选中文本(空白会被 ai-service 忽略) */
+  selection?: string
+}
+
 /** enrich 请求体 */
 export interface EnrichInput {
   userMessage: string
@@ -66,6 +83,8 @@ export interface EnrichInput {
   messages?: Array<{ role: string; content: string }>
   totalBudget: number
   userId?: string
+  /** 编辑器状态(可选,2026-11-01 立;ai-service 侧受 ENGINE_EDITOR_STATE_ENABLED 门控,默认关) */
+  editorState?: ContextEditorState
 }
 
 /** enrich 响应 */

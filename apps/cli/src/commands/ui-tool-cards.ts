@@ -76,10 +76,13 @@ export function formatToolResultForCard(output: string): { text: string; truncat
   };
 }
 
+// 五态几何字形 + ANSI 色(与旧三态同一视觉语言;cancelled 灰=不再执行,blocked 红=卡住)
 const TODO_STATUS_ICONS: Record<TodoItem['status'], string> = {
   pending: chalk.dim('○'),
   in_progress: chalk.yellow('◐'),
   completed: chalk.green('●'),
+  cancelled: chalk.dim('✖'),
+  blocked: chalk.red('⊘'),
 };
 
 const TODO_PRIORITY_COLORS: Record<TodoItem['priority'], (s: string) => string> = {
@@ -93,10 +96,12 @@ export function renderTodoChecklist(todos: TodoItem[]): string[] {
   if (todos.length === 0) return [];
   const inProgress = todos.filter((t) => t.status === 'in_progress').length;
   const completed = todos.filter((t) => t.status === 'completed').length;
-  const pending = todos.length - inProgress - completed;
+  const cancelled = todos.filter((t) => t.status === 'cancelled').length;
+  const blocked = todos.filter((t) => t.status === 'blocked').length;
+  const pending = todos.filter((t) => t.status === 'pending').length;
   const out: string[] = [
     chalk.cyan(`\n╭─ Todo 清单 · ${todos.length} 项`),
-    chalk.dim(`│  ${pending} pending · ${inProgress} 进行 · ${completed} 完成`),
+    chalk.dim(`│  ${pending} pending · ${inProgress} 进行 · ${completed} 完成 · ${cancelled} 取消 · ${blocked} 受阻`),
     chalk.cyan('│'),
   ];
   for (const t of todos) {
@@ -113,6 +118,8 @@ const PLAN_STATUS_ICONS: Record<PlanStep['status'], string> = {
   pending: chalk.dim('○'),
   in_progress: chalk.yellow('◐'),
   completed: chalk.green('●'),
+  cancelled: chalk.dim('✖'),
+  blocked: chalk.red('⊘'),
 };
 
 /** 结构化计划步骤卡片(plan-<sessionId>.json → 可视化) */

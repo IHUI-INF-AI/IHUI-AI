@@ -9,18 +9,31 @@
  *  1. 定时拉取(每 6 小时)— repeat job `registry-sync-cron`
  *  2. webhook 推送 — 单次 job `registry-sync-manual` / `registry-sync-webhook`
  *
- * 队列名 `registry-sync-queue`,与既有 queue.ts 的 4 个队列独立,避免相互影响。
+ * 队列名基础名 `registry-sync-queue`(实际队列名经 `queueNameWithDbIdentity` 带库身份后缀),
+ * 与既有 queue.ts 的 4 个队列独立,避免相互影响。
  * Worker 处理逻辑由调用方(services/registry-sync)注册,本模块只负责 Queue 生产者。
  */
 import { Queue, Worker } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { cleanupOldSyncLogs, cleanupOldWebhookTriggers } from '../db/registry-queries.js'
 import { logger } from '../utils/logger.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
-export const REGISTRY_SYNC_QUEUE_NAME = 'registry-sync-queue'
+/**
+ * 队列名(2026-10-31 起经库身份解析)。
+ *
+ * 生产者是下面的 `new Queue`,消费者是内联的 `startRegistryCleanupWorker` 与
+ * `src/workers/registry-sync-worker.ts` 的 `new Worker` —— 两侧读的是**同一枚导出常量**,
+ * 所以解析只需要在这一处发生,生产者投的队列和消费者听的队列结构上不可能分家。
+ * 主库(`ihui`、未设后缀)解析结果与旧字面量逐字节相同 ⇒ 线上队列名零扰动。
+ */
+const REGISTRY_SYNC_QUEUE_BASE = 'registry-sync-queue'
+const REGISTRY_CLEANUP_QUEUE_BASE = 'registry-cleanup-queue'
+
+export const REGISTRY_SYNC_QUEUE_NAME = queueNameWithDbIdentity(REGISTRY_SYNC_QUEUE_BASE)
 
 /** 每日 TTL 清理队列名(与同步队列独立,避免相互影响)。 */
-export const REGISTRY_CLEANUP_QUEUE_NAME = 'registry-cleanup-queue'
+export const REGISTRY_CLEANUP_QUEUE_NAME = queueNameWithDbIdentity(REGISTRY_CLEANUP_QUEUE_BASE)
 
 /** 每天凌晨 3:00 执行清理(避开每 6 小时的同步任务时间点)。 */
 const CLEANUP_CRON_PATTERN = '0 3 * * *'
