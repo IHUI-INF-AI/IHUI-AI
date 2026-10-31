@@ -142,9 +142,22 @@ vi.mock('../src/services/relay-channel-router.js', () => ({
 
 const originalFetch = globalThis.fetch
 
+/**
+ * 真出口替身必须挂 'undici'(2026-10-31 安全强化第 15 批 M3 起 ssrf-guard.safeFetch
+ * 用 `import { fetch as undiciFetch } from 'undici'` + connect-time dispatcher)。
+ * 只桩 globalThis.fetch 时:本文件四条取证全红,而失败原因是**真连了公网**
+ * (实读 121s 网络退避),latencyMs 读成 0 —— 症状与"产品缺陷"一模一样,极易误修生产。
+ * globalThis 同挂一枚替身:既保持时钟推进的可复现性,又不给真网络留任何通道。
+ */
+const { undiciFetchStub } = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('undici')>()
+  return { ...actual, fetch: undiciFetchStub }
+})
+
 /** 推进假时钟的 fetch 替身:perf 与 wall 各走多少,决定该样本可信与否 */
 function stubUpstream(perfMs: number, wallMs: number) {
-  globalThis.fetch = vi.fn(async () => {
+  const impl = vi.fn(async () => {
     clock.perf += perfMs
     clock.wall += wallMs
     return {
@@ -155,7 +168,9 @@ function stubUpstream(perfMs: number, wallMs: number) {
         usage: { total_tokens: 7 },
       }),
     }
-  }) as unknown as typeof globalThis.fetch
+  })
+  undiciFetchStub.mockImplementation(impl)
+  globalThis.fetch = impl as unknown as typeof globalThis.fetch
 }
 
 async function boot(): Promise<FastifyInstance> {
