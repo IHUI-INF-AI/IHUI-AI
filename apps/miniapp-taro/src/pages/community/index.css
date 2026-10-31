@@ -82,7 +82,7 @@
   line-height: 44rpx;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 
@@ -175,7 +175,7 @@
 }
 
 .agent-h-scroll-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -190,7 +190,7 @@
 }
 
 .team-button-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -238,13 +238,13 @@
 }
 
 .agent-h-avatar-text {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-background);
 }
 
 .agent-h-name {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-foreground);
   text-align: center;
   width: 100%;
@@ -266,7 +266,7 @@
 }
 
 .recent-title {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: bold;
   color: var(--color-foreground);
 }
@@ -319,13 +319,13 @@
 }
 
 .recent-item .agent-avatar-fallback-text {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-background);
 }
 
 .recent-item .agent-name {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   text-align: center;
   max-width: 100rpx;
@@ -350,7 +350,7 @@
 }
 
 .my-title {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: bold;
   color: var(--color-foreground);
 }
@@ -403,13 +403,13 @@
 }
 
 .my-item .agent-avatar-fallback-text {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-background);
 }
 
 .my-item .agent-name {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   text-align: center;
   max-width: 100rpx;
@@ -445,7 +445,7 @@
 }
 
 .community-agent-list-posts {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -454,7 +454,7 @@
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-2xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -480,7 +480,7 @@
 }
 
 .community-loading-more-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground, var(--color-white-50));
 }
 
@@ -492,7 +492,7 @@
 }
 
 .community-empty-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground, var(--color-white-50));
 }
 
@@ -504,7 +504,7 @@
 }
 
 .community-no-more-text {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground, var(--color-white-40));
 }
 
@@ -564,7 +564,7 @@
 }
 
 .community-float-arrow-text {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   color: var(--color-primary);
   font-weight: bold;
 }
@@ -589,12 +589,12 @@
 }
 
 .community-float-item-icon {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   margin-bottom: 6rpx;
 }
 
 .community-float-item-text {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   font-weight: bold;
   color: var(--color-foreground);
   letter-spacing: 2rpx;
@@ -607,7 +607,7 @@
 /* ===== 分类弹层 TitleSwitchScrollTitle 适配 ===== */
 
 .community-s-t-b .text-\[60rpx\] {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground, var(--color-white-70));
 }
 

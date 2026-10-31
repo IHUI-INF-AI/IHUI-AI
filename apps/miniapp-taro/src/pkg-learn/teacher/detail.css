@@ -38,7 +38,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48rpx;
+  font-size: var(--text-display);
   font-weight: 600;
   color: var(--color-muted-foreground);
 }
@@ -59,7 +59,7 @@
 }
 
 .tdetail-name {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -70,7 +70,7 @@
 /* 金牌徽章(RN goldBadge: vip.gold 底 + text.primary 深字) */
 .tdetail-badge {
   padding: var(--spacing-2xs) 12rpx;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   font-weight: 600;
   color: var(--color-foreground);
   background: var(--color-rank-gold);
@@ -119,14 +119,14 @@
 }
 
 .tdetail-stat-num {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.2;
 }
 
 .tdetail-stat-label {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -146,7 +146,7 @@
 }
 
 .tdetail-section-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -205,7 +205,7 @@
 }
 
 .tdetail-course-title {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.4;
@@ -225,7 +225,7 @@
 
 /* 价格(RN coursePrice: vip.gold;免费 success.deepText) */
 .tdetail-course-price {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-vip-gold-start);
 }
@@ -235,7 +235,7 @@
 }
 
 .tdetail-course-students {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -274,7 +274,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -305,7 +305,7 @@
 }
 
 .tdetail-review-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
@@ -329,7 +329,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--spacing-md) 0;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   border-radius: var(--radius-sm); /* 底部操作按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
 }

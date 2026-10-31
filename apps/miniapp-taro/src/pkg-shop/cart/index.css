@@ -16,7 +16,7 @@
   background: var(--color-card);
 }
 .page-title {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -33,7 +33,7 @@
   display: block;
   text-align: center;
   color: var(--color-text-tertiary);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 .empty-wrapper {
   display: flex;
@@ -54,7 +54,7 @@
   color: var(--color-muted-foreground);
   text-align: center;
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 .btn.disabled {
   opacity: 0.5;
@@ -113,7 +113,7 @@
   justify-content: center;
 }
 .placeholder-icon {
-  font-size: 48rpx;
+  font-size: var(--text-display);
 }
 
 /* 商品信息(RN info:gap10 纵排) */
@@ -125,7 +125,7 @@
   min-width: 0;
 }
 .cart-item-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.4;
@@ -135,7 +135,7 @@
   overflow: hidden;
 }
 .cart-item-price {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-success);
 }
@@ -155,7 +155,7 @@
   justify-content: center;
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   background: var(--color-background);
 }
@@ -166,7 +166,7 @@
 .quantity-value {
   min-width: 40rpx;
   text-align: center;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
@@ -184,7 +184,7 @@
   z-index: 100;
 }
 .select-all-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .footer-total {
@@ -200,7 +200,7 @@
   color: var(--color-muted-foreground);
 }
 .total-price {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   color: var(--color-danger);
   font-weight: 700;
 }

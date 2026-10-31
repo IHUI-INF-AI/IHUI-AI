@@ -47,7 +47,7 @@
   display: none;
 }
 .vs-activation-icon {
-  font-size: 32rpx;
+  font-size: var(--text-title);
 }
 .vs-activation-text {
   font-size: 26rpx;
@@ -71,13 +71,13 @@
   align-items: center;
 }
 .vs-info-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
   margin-right: var(--spacing-md);
 }
 .vs-info-value {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   max-width: 60%;
   text-align: right;
@@ -100,7 +100,7 @@
   line-height: 100rpx;
   text-align: center;
   border-radius: var(--radius-xl);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
@@ -116,7 +116,7 @@
   line-height: 88rpx;
   text-align: center;
   border-radius: var(--radius-xl);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   background: var(--color-card);
   color: var(--color-foreground);
   border: none;
@@ -136,7 +136,7 @@
   justify-content: center;
 }
 .vs-share-icon-text {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
 }
 .vs-share-content {
   display: flex;
@@ -144,11 +144,11 @@
   flex: 1;
 }
 .vs-share-title {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .vs-share-desc {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
