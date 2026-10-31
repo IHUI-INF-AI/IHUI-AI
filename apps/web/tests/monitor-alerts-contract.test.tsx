@@ -18,12 +18,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MONITOR_ALERT_SEVERITIES, MONITOR_ALERT_STATUSES } from '@ihui/types'
+// 词表与展示元数据的唯一真相源 = web 侧 lib(并席 2026-10-31 立,从 @ihui/types 的 canonical 派生);
+// helpers 只做转出,不再自带第二份映射表。
 import {
-  SEVERITY_STYLE,
-  severityStyle,
-  statusLabel,
-  statusStyle,
-} from '../app/(main)/admin/monitor/alerts/helpers'
+  UNDETERMINED_LABEL,
+  monitorAlertSeverityMeta,
+  monitorAlertStatusMeta,
+} from '../src/lib/admin/monitor-alert-vocabulary'
 import type { Alert, AlertRule } from '../app/(main)/admin/monitor/alerts/types'
 
 const apiOrThrowMock = vi.hoisted(() => vi.fn())
@@ -114,41 +115,44 @@ describe('/admin/monitor/alerts 真列渲染', () => {
     expect(() => wrap()).not.toThrow()
     expect(await screen.findByText(LEGACY_ALERT.name)).toBeTruthy()
     // 未知状态原样显示(词表头注:读侧兜底=原样,不冒充 firing)
-    expect(screen.getByText('active')).toBeTruthy()
-    // 未知严重度落 info 档 ⇒ 有文案(「信息」),而不是 undefined.icon 崩表
-    expect(screen.getByText('信息')).toBeTruthy()
+    // 词表外的脏值显式为「未判定」—— 不冒充任何已知档(旧实现是取到 undefined 后崩表)
+    expect(screen.getAllByText('未判定').length).toBeGreaterThan(0)
+    // 未知严重度同样显式「未判定」,不是 undefined.icon 崩表,也不冒充 info 档
     // 非 firing ⇒ 不出现确认按钮
     expect(screen.queryByRole('button', { name: '确认' })).toBeNull()
   })
 })
 
 describe('监控告警词表完备性(回归锁)', () => {
-  it('MONITOR_ALERT_STATUSES 逐值:statusLabel/statusStyle 均返回非空', () => {
+  it('MONITOR_ALERT_STATUSES 逐值:标签与样式均非空', () => {
     for (const s of MONITOR_ALERT_STATUSES) {
-      expect(statusLabel(s).length).toBeGreaterThan(0)
-      expect(statusStyle(s).length).toBeGreaterThan(0)
+      const meta = monitorAlertStatusMeta(s)
+      expect(meta.status).toBe(s)
+      expect(meta.label.length).toBeGreaterThan(0)
+      expect(meta.text.length).toBeGreaterThan(0)
     }
   })
 
-  it('MONITOR_ALERT_SEVERITIES 逐值:severityStyle 有标签有图标', () => {
+  it('MONITOR_ALERT_SEVERITIES 逐值:有标签有图标', () => {
     for (const s of MONITOR_ALERT_SEVERITIES) {
-      const st = severityStyle(s)
-      expect(st.label.length).toBeGreaterThan(0)
-      expect(st.icon).toBeTruthy()
+      const meta = monitorAlertSeverityMeta(s)
+      expect(meta.severity).toBe(s)
+      expect(meta.label.length).toBeGreaterThan(0)
+      expect(meta.icon).toBeTruthy()
     }
   })
 
-  it("未知值('active'/'acknowledged'/''/undefined/null)返回兜底而不是 undefined", () => {
+  it("未知值('active'/'acknowledged'/''/undefined/null)显式「未判定」而不是 undefined 或冒充已知档", () => {
     for (const v of ['active', 'acknowledged', '', undefined, null]) {
-      expect(statusLabel(v)).toBeDefined()
-      expect(statusLabel(v).length).toBeGreaterThan(0)
-      expect(statusStyle(v)).toBeDefined()
-      expect(statusStyle(v).length).toBeGreaterThan(0)
-      expect(severityStyle(v)).toBeDefined()
-      expect(severityStyle(v).icon).toBeTruthy()
+      const sm = monitorAlertStatusMeta(v)
+      expect(sm.label).toBe(UNDETERMINED_LABEL)
+      expect(sm.status).toBeNull()
+      expect(sm.text.length).toBeGreaterThan(0)
+      const vm = monitorAlertSeverityMeta(v)
+      expect(vm.label).toBe(UNDETERMINED_LABEL)
+      expect(vm.severity).toBeNull()
+      expect(vm.icon).toBeTruthy()
     }
-    // 未知严重度显式落 info 档
-    expect(severityStyle('active')).toBe(SEVERITY_STYLE.info)
     // 已知词表之外的旧词必须逐字等于共享词表的合法键集(防词表再次漂移)
     expect(MONITOR_ALERT_STATUSES).toEqual(['firing', 'suppressed', 'resolved'])
     expect(MONITOR_ALERT_SEVERITIES).toEqual(['info', 'warning', 'critical'])
