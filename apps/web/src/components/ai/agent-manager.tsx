@@ -45,7 +45,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
       <div className="flex items-center justify-between bg-muted/30 p-3">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
-          <h3 className="text-sm font-semibold">{t('title')}</h3>
+          <h3 className="text-body font-semibold">{t('title')}</h3>
         </div>
         <Button variant="outline" size="sm" onClick={onCreate}>
           <Plus className="h-4 w-4" />
@@ -87,11 +87,11 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
                       )}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium">{agent.name}</p>
+                      <p className="break-words text-body font-medium">{agent.name}</p>
                       <p className="break-words text-xs text-muted-foreground">{agent.role}</p>
                     </div>
                     {agent.model && (
-                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">
                         {agent.model}
                       </span>
                     )}

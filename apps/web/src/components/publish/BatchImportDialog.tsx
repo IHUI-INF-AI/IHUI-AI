@@ -226,7 +226,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
               </div>
               <label className="flex cursor-pointer flex-col items-center gap-2 ui-control rounded-sm border border-dashed border-input bg-muted/20 p-3 hover:bg-muted/40">
                 <Upload className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('batchImport.selectFile')}</span>
+                <span className="text-body font-medium">{t('batchImport.selectFile')}</span>
                 <span className="text-xs text-muted-foreground">CSV 格式,支持 38 平台</span>
                 <input
                   type="file"

@@ -39,7 +39,7 @@ export default function CartePage() {
             <p className="mt-1 text-sm text-black/70">{t('recommend')}</p>
           </div>
           <div className="space-y-4 p-3 text-center">
-            <p className="text-sm font-medium">{t('inviteHint')}</p>
+            <p className="text-body font-medium">{t('inviteHint')}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={QR_IMAGE} alt="" className="mx-auto w-48" />
             <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">

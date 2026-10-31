@@ -138,7 +138,7 @@ export default function DistributionCompanyPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Building2 className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -162,7 +162,7 @@ export default function DistributionCompanyPage() {
                   <div className="text-lg font-semibold">{user?.nickname ?? '-'}</div>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                       'bg-primary/10 text-primary',
                     )}
                   >
@@ -195,7 +195,7 @@ export default function DistributionCompanyPage() {
                     ) : (
                       <div
                         className={cn(
-                          'text-xl font-bold tracking-tight min-[768px]:text-2xl',
+                          'text-heading font-bold tracking-tight min-[768px]:text-display',
                           s.tone,
                         )}
                       >
@@ -226,7 +226,7 @@ export default function DistributionCompanyPage() {
                     {loading ? (
                       <Loader2 className="mx-auto mt-1 h-5 w-5 animate-spin text-muted-foreground" />
                     ) : (
-                      <div className="mt-1 text-2xl font-bold">{s.value}</div>
+                      <div className="mt-1 text-display font-bold">{s.value}</div>
                     )}
                   </div>
                 ))}

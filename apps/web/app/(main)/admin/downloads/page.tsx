@@ -240,12 +240,12 @@ export default function DownloadsPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardTitle className="text-body font-medium text-muted-foreground">
                     {c.label}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-emerald-600">
+                  <div className="text-display font-bold text-emerald-600">
                     {c.value.toLocaleString()}
                   </div>
                 </CardContent>
@@ -329,11 +329,11 @@ export default function DownloadsPage() {
                     </td>
                     <td className="py-1.5 pr-3">
                       {p.value ? (
-                        <span className="rounded bg-emerald-600/10 px-1.5 py-0.5 text-xs font-medium text-emerald-600">
+                        <span className="rounded bg-emerald-600/10 px-1.5 py-0.5 text-label font-medium text-emerald-600">
                           {t('pendingConnected')}
                         </span>
                       ) : (
-                        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
+                        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-label font-medium text-destructive">
                           {t('pendingNotConnected')}
                         </span>
                       )}

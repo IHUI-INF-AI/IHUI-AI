@@ -143,7 +143,7 @@ export default async function BillingPage() {
       <div className="px-4 py-4 space-y-4">
         <BackButton />
         <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t('billing.title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('billing.title')}</h1>
           <p className="text-xs text-muted-foreground">{t('billing.subtitle')}</p>
         </header>
 
@@ -155,7 +155,7 @@ export default async function BillingPage() {
                 <Wallet className="h-3.5 w-3.5" />
                 {t('billing.currentBalance')}
               </div>
-              <div className="mt-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              <div className="mt-2 text-heading font-bold tracking-tight min-[768px]:text-display">
                 ¥ 128.50
               </div>
               <Button size="sm" className="mt-3 w-full gap-1.5 text-xs px-4">
@@ -167,7 +167,7 @@ export default async function BillingPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
               <div className="text-xs text-muted-foreground">{t('billing.monthConsume')}</div>
-              <div className="mt-2 text-2xl font-bold">¥ 285.40</div>
+              <div className="mt-2 text-display font-bold">¥ 285.40</div>
               <div className="mt-1 flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
                 <ArrowUpRight className="h-3 w-3" />
                 {tp('consumeTrend', { n: 8.7 })}
@@ -177,7 +177,7 @@ export default async function BillingPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
               <div className="text-xs text-muted-foreground">{t('billing.totalRecharge')}</div>
-              <div className="mt-2 text-2xl font-bold">¥ 1,500.00</div>
+              <div className="mt-2 text-display font-bold">¥ 1,500.00</div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {tp('rechargeCount', { n: 6 })}
               </div>
@@ -202,9 +202,9 @@ export default async function BillingPage() {
                   </span>
                 )}
                 <CardContent className="min-[640px]:p-3 p-3">
-                  <div className="text-sm font-semibold">{p.name}</div>
+                  <div className="text-body font-semibold">{p.name}</div>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                    <span className="text-heading font-bold tracking-tight min-[768px]:text-display">
                       {p.price}
                     </span>
                     <span className="text-xs text-muted-foreground">

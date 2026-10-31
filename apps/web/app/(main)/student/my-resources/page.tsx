@@ -90,7 +90,7 @@ export default function MyResourcesPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <FileText className="h-7 w-7 text-primary" />
           {tr('title')}
         </h1>
@@ -167,7 +167,7 @@ export default function MyResourcesPage() {
                       <span>{fmtDate(resource.createdAt)}</span>
                     </div>
                     <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
+                      className={`inline-flex rounded-md px-2 py-0.5 text-label font-medium ${
                         STATUS_STYLE[resource.status] ?? STATUS_STYLE[0]
                       }`}
                     >

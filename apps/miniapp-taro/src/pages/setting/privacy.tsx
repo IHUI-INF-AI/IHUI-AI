@@ -146,7 +146,7 @@ export default function PrivacySettingPage() {
             圆角 12dp→24rpx + border.light 描边 + padding 14dp→28rpx + marginBottom 12dp→24rpx;
             卡面 surface.light 在 RN 暗色仍为纯白导致浅字不可读,按语义 token 修正为 --color-card 随主题 */}
         <View className="mb-[24rpx]">
-          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-body text-muted-foreground">
             {t('settingPrivacy.systemPermissions')}
           </Text>
           <View className="rounded-lg border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
@@ -154,13 +154,13 @@ export default function PrivacySettingPage() {
               <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">
                   {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
-                  <Text className="text-[length:28rpx] text-muted-foreground">
+                  <Text className="text-body text-muted-foreground">
                     {t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}
                   </Text>
                   {/* 权限状态为小程序端补充信息(RN 无对应行):24rpx;
                       granted→--color-success / denied→--color-destructive / unknown→text.tertiary */}
                   <Text
-                    className={`mt-[4rpx] text-[length:24rpx] ${
+                    className={`mt-[4rpx] text-label ${
                       permStatus[item.key] === 'granted'
                         ? 'text-[color:var(--color-success)]'
                         : permStatus[item.key] === 'denied'
@@ -188,14 +188,14 @@ export default function PrivacySettingPage() {
         {/* 隐私开关分组:行对齐 SecuritySettingsScreen row(py 10dp→20rpx +
             rowDivider borderTop border.light);Switch trackColor true=brand.DEFAULT → --color-primary */}
         <View className="mb-[24rpx]">
-          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-body text-muted-foreground">
             {t('settingPrivacy.privacySettings')}
           </Text>
           <View className="rounded-lg border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
             {switchItems.map((item) => (
               <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">
-                  <Text className="text-[length:28rpx] text-muted-foreground">{item.label}</Text>
+                  <Text className="text-body text-muted-foreground">{item.label}</Text>
                   <Text className="mt-[4rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
                     {item.desc}
                   </Text>
@@ -214,7 +214,7 @@ export default function PrivacySettingPage() {
             字号/留白对齐 versionText 12dp→24rpx 居中,链接色用 --color-link 语义 token */}
         <View className="mt-[8rpx] text-center">
           <Text
-            className="text-[length:24rpx] text-[color:var(--color-link)] underline"
+            className="text-label text-[color:var(--color-link)] underline"
             onClick={onPrivacyPolicy}
           >
             {t('settingPrivacy.privacyPolicy')}

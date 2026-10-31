@@ -86,7 +86,7 @@ export default function OnboardingPage() {
     <div className="mx-auto max-w-3xl px-4 py-4">
       <div className="mb-2 flex items-center gap-2">
         <BookOpen className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
       <p className="mb-6 text-sm text-muted-foreground">{t('subtitle')}</p>
 
@@ -117,7 +117,7 @@ export default function OnboardingPage() {
                     <Icon className="h-4 w-4 text-primary" />
                     <span
                       className={cn(
-                        'text-sm font-semibold',
+                        'text-body font-semibold',
                         isDone && 'text-muted-foreground line-through',
                       )}
                     >
@@ -140,7 +140,7 @@ export default function OnboardingPage() {
 
       <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border p-3">
         <Network className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold">{t('mcpTitle')}</span>
+        <span className="text-body font-semibold">{t('mcpTitle')}</span>
         <span className="text-sm text-muted-foreground">{t('mcpDesc')}</span>
         <span className="ml-auto inline-flex items-center gap-2 text-sm">
           <Link

@@ -70,7 +70,7 @@ export default function ChannelStatusClient() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
@@ -93,7 +93,7 @@ export default function ChannelStatusClient() {
           <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
             {(['operational', 'degraded', 'down', 'maintenance'] as const).map((s) => (
               <div key={s} className="rounded-lg border bg-card p-3 text-center">
-                <p className="text-2xl font-medium tabular-nums">{count(s)}</p>
+                <p className="text-display font-medium tabular-nums">{count(s)}</p>
                 <p className={cn('mt-1 rounded-md px-2 py-0.5 text-xs', STATUS_STYLE[s])}>{t(s)}</p>
               </div>
             ))}
@@ -104,10 +104,10 @@ export default function ChannelStatusClient() {
               <Card key={c.providerCode}>
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium">{c.displayName}</p>
+                    <p className="truncate text-body font-medium">{c.displayName}</p>
                     <span
                       className={cn(
-                        'rounded-md px-2 py-0.5 text-xs font-medium',
+                        'rounded-md px-2 py-0.5 text-label font-medium',
                         STATUS_STYLE[c.status],
                       )}
                     >

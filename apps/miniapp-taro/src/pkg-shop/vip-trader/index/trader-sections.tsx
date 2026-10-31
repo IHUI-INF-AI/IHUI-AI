@@ -75,7 +75,7 @@ export function TraderHero({ amount, durationDays }: { amount: number; durationD
   return (
     <View>
       <View className="px-[32rpx] pt-[24rpx]">
-        <Text className="block text-[length:40rpx] font-bold text-foreground">
+        <Text className="block text-heading font-bold text-foreground">
           {tt('vipTrader.title', 'VIP 操盘手')}
         </Text>
         <Text className="block mt-[8rpx] text-[length:26rpx] text-muted-foreground">
@@ -86,7 +86,7 @@ export function TraderHero({ amount, durationDays }: { amount: number; durationD
       <View className="trader-section">
         <View className="flex flex-row items-center">
           <View className="px-[20rpx] py-[8rpx] rounded-md bg-[var(--color-vip-gold-tint)]">
-            <Text className="text-[length:22rpx] font-semibold text-[var(--color-warning)]">
+            <Text className="text-caption font-semibold text-[var(--color-warning)]">
               {tt('vipTrader.badge', '操盘手专属')}
             </Text>
           </View>
@@ -98,7 +98,7 @@ export function TraderHero({ amount, durationDays }: { amount: number; durationD
             { price, power: TRADER_POWER },
           )}
         </Text>
-        <Text className="block mt-[12rpx] text-[length:24rpx] text-muted-foreground">
+        <Text className="block mt-[12rpx] text-label text-muted-foreground">
           {isLifetimeDuration(durationDays)
             ? tt('vipTrader.lifetime', '终身有效')
             : tt('vip.duration', '{days} 天', { days: durationDays })}
@@ -154,10 +154,10 @@ export function BenefitsHead({ count }: { count: number }) {
   // 区头与下方行数同批同源;不拿后端 benefits 长度来填,那样数字会大于可见行数。
   return (
     <View className="flex flex-row items-center justify-between mb-[20rpx]">
-      <Text className="text-[length:32rpx] font-semibold text-foreground">
+      <Text className="text-title font-semibold text-foreground">
         {tt('vipTrader.benefits', '专属权益')}
       </Text>
-      <Text className="text-[length:22rpx] text-muted-foreground">
+      <Text className="text-caption text-muted-foreground">
         {tt('vipTrader.benefitCount', '共 {count} 项', { count })}
       </Text>
     </View>

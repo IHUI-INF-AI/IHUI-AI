@@ -110,7 +110,7 @@ export default function RecruitmentDetailPage() {
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{data.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{data.title}</h1>
         <p className="text-xs text-muted-foreground min-[768px]:text-base">{data.description}</p>
       </header>
 
@@ -160,7 +160,7 @@ export default function RecruitmentDetailPage() {
                       highlightIdx === i && 'bg-primary/5',
                     )}
                   >
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-label font-medium text-primary">
                       {i + 1}
                     </span>
                     <div>

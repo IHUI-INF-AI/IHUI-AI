@@ -105,7 +105,7 @@ export default function WithdrawalPage() {
 
         {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
         <View className="rounded-lg border border-border bg-card p-4">
-          <Text className="block text-[length:28rpx] text-muted-foreground">
+          <Text className="block text-body text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
           <View
@@ -122,7 +122,7 @@ export default function WithdrawalPage() {
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
             <Text
-              className="text-[length:22rpx] text-[var(--color-text-tertiary)]"
+              className="text-caption text-[var(--color-text-tertiary)]"
               onClick={fillAll}
             >
               {tt('distribution.withdraw.all', '全部提现')}
@@ -168,7 +168,7 @@ export default function WithdrawalPage() {
         </Button>
 
         <View
-          className="mt-3 text-center text-[length:22rpx] text-[var(--color-text-tertiary)]"
+          className="mt-3 text-center text-caption text-[var(--color-text-tertiary)]"
           onClick={goRecords}
           hoverClass="opacity-60"
         >

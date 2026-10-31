@@ -79,7 +79,7 @@ export function MobileDashboardClient() {
     <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-6">
       <BackButton />
       <header className="space-y-1 px-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Smartphone className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -244,7 +244,7 @@ export function MobileDashboardClient() {
                         <tr key={`${p.path}-${idx}`}>
                           <td className="px-5 py-2.5">
                             <span
-                              className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${
+                              className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-label font-semibold ${
                                 idx === 0
                                   ? 'bg-cta text-cta-foreground'
                                   : 'bg-muted text-muted-foreground'
@@ -302,7 +302,7 @@ function StatCard({ labelKey, value, sub, trendUp, Icon }: StatCardProps) {
         </div>
         <div className="space-y-0.5">
           <div className="text-sm text-muted-foreground">{t(labelKey)}</div>
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
+          <div className="text-display font-bold tracking-tight">{value}</div>
           <div
             className={`text-xs ${sub === '—' || sub === t('noData') ? 'text-muted-foreground' : trendUp ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-600 dark:text-rose-500'}`}
           >

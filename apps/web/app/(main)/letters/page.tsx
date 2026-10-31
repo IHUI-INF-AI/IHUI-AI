@@ -67,7 +67,7 @@ export default function LettersPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Mail className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -120,7 +120,7 @@ export default function LettersPage() {
                           active && 'bg-accent',
                         )}
                       >
-                        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-medium text-muted-foreground">
+                        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-body font-medium text-muted-foreground">
                           {(m.counterpartName || '?').slice(0, 1)}
                           {isUnread(m) && (
                             <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-destructive" />
@@ -128,7 +128,7 @@ export default function LettersPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-medium">{m.counterpartName}</p>
+                            <p className="truncate text-body font-medium">{m.counterpartName}</p>
                             <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                               {formatLetterTime(m.letter.createdAt)}
                             </span>

@@ -198,7 +198,7 @@ export function BudgetAlertsSection() {
                   </span>
                   <span
                     className={cn(
-                      'rounded px-1.5 py-0.5 text-xs font-medium',
+                      'rounded px-1.5 py-0.5 text-label font-medium',
                       a.severity === 'critical'
                         ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                         : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',

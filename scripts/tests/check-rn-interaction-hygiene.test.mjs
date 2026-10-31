@@ -255,11 +255,14 @@ test('⑯ H3 已升绝对零容忍:资格锁 + 判序必须引用它 + 区间配
   const r = elementRange('<ScrollView a={1}>{x}</ScrollView>', 0, 'ScrollView')
   assert.equal(r.closed, true)
   assert.equal(elementRange('<ScrollView a={1}>{x}', 0, 'ScrollView').closed, false)
-  // 资格锁(§0.2:升 blocking 的前置 = 存量归零)。取工作树 = 本枚要落的内容,不取 HEAD ——
-  // HEAD 面上那 34 处正是本票要清的存量,拿它当资格就等于永远不许升档。
-  const wt = run(['--worktree']).stdout
-  const m = /keyboardShouldPersistTaps: (\d+) 处/.exec(wt)
-  assert.ok(m, `结论行读不到 H3 计数:${wt.slice(0, 200)}`)
+  // 资格锁(§0.2:升 blocking 的前置 = 存量归零)。取材面 = HEAD blob(§0.4 全量档口径)。
+  // 上一版取工作树有它的时期理由:那 34 处存量正躺在 HEAD 上,拿 HEAD 当资格等于永远不许升档。
+  // 存量清零后这条理由消失,而工作树在共享仓里常年滞后 HEAD(旁路落地只推 HEAD/索引,不写盘)
+  // ⇒ 拿它当资格锁就是让"别人没回写的那份盘"把我门自检钉成恒红(§12e 同型)。
+  // "存量归没有归零"这件事本来就应在被审面上判,在这一维上工作树不是权威面。
+  const head = run([]).stdout
+  const m = /keyboardShouldPersistTaps: (\d+) 处/.exec(head)
+  assert.ok(m, `结论行读不到 H3 计数:${head.slice(0, 200)}`)
   assert.equal(
     Number(m[1]),
     0,
@@ -268,7 +271,7 @@ test('⑯ H3 已升绝对零容忍:资格锁 + 判序必须引用它 + 区间配
   // 判序必须真的引用这一维(否则"升了档"只写在文案里 = 假账)
   assert.match(verdictBody(), /r\.h3\.length/, 'H3 升了档却不在判序里引用 ⇒ 文案与判据两份真相')
   assert.match(
-    run([]).stdout,
+    head,
     /提交链绝对零容忍[\s\S]{0,40}闭标签配不平的候选不进这一维/,
     '结论行必须自己说清 H3 的档位与盲区口径',
   )

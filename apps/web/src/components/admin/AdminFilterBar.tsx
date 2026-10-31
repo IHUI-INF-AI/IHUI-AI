@@ -51,7 +51,7 @@ export function AdminFilterBar({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         {icon && <span className="text-primary">{icon}</span>}
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-display font-bold tracking-tight">{title}</h1>
       </div>
       <div className="flex items-center gap-2">
         {extraActions}

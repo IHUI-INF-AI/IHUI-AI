@@ -50,7 +50,7 @@ export function ErrorFallback({ error, onReset }: { error?: Error; onReset: () =
       </p>
       <button
         onClick={onReset}
-        className="mt-2 inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+        className="mt-2 inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
       >
         <RefreshCw className="h-4 w-4" />
         {t('retry')}
@@ -68,7 +68,7 @@ function StaticErrorFallback({ onReset }: { onReset?: () => void }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-3">
       <AlertCircle className="h-10 w-10 text-destructive" />
-      <h1 className="text-2xl font-bold">页面出错了</h1>
+      <h1 className="text-display font-bold">页面出错了</h1>
       <p className="text-muted-foreground">应用发生了错误,请刷新页面重试</p>
       <button
         type="button"

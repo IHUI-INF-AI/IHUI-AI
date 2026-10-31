@@ -84,7 +84,7 @@ export default function MemberExamRecordPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Award className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -126,7 +126,7 @@ export default function MemberExamRecordPage() {
                     </td>
                     <td className="px-3 py-2 text-right font-semibold">
                       {r.score}
-                      <span className="text-xs font-normal text-muted-foreground">
+                      <span className="text-label font-normal text-muted-foreground">
                         {' '}
                         / {r.totalScore}
                       </span>
@@ -134,7 +134,7 @@ export default function MemberExamRecordPage() {
                     <td className="px-3 py-2">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                           passed
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-red-500/10 text-red-600 dark:text-red-500',
@@ -210,7 +210,7 @@ export default function MemberExamRecordPage() {
                   <div className="text-xs text-muted-foreground">{t('detail.score')}</div>
                   <div className="mt-0.5 text-lg font-semibold">
                     {detail.score}
-                    <span className="text-xs font-normal text-muted-foreground">
+                    <span className="text-label font-normal text-muted-foreground">
                       {' '}
                       / {detail.totalScore}
                     </span>
@@ -250,7 +250,7 @@ export default function MemberExamRecordPage() {
                         <td className="px-3 py-2">
                           <span
                             className={cn(
-                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                               d.isCorrect
                                 ? 'bg-emerald-500/10 text-emerald-600'
                                 : 'bg-red-500/10 text-red-600',

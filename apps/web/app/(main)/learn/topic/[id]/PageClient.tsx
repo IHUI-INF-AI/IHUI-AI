@@ -134,7 +134,7 @@ export default function LearnTopicDetailPage() {
             </Tooltip>
           </div>
           <div className="flex-1 min-w-0 space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight">{topic.title}</h1>
+            <h1 className="text-display font-bold tracking-tight">{topic.title}</h1>
             {topic.description && (
               <p className="text-sm text-muted-foreground">{topic.description}</p>
             )}

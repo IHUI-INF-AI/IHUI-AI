@@ -188,7 +188,7 @@ export default function AdminTopupConfigPage() {
       <div className="space-y-4 px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">充值阶梯折扣配置</h1>
+            <h1 className="text-heading font-semibold">充值阶梯折扣配置</h1>
             <p className="text-sm text-muted-foreground">管理阶梯折扣规则与自定义充值选项</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
@@ -212,7 +212,7 @@ export default function AdminTopupConfigPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">充值阶梯折扣配置</h1>
+          <h1 className="text-heading font-semibold">充值阶梯折扣配置</h1>
           <p className="text-sm text-muted-foreground">管理阶梯折扣规则与自定义充值选项</p>
         </div>
         <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>

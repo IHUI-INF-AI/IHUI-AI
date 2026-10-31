@@ -9,7 +9,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-background px-2 py-1.5">
       <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium">{value}</p>
+      <p className="text-body font-medium">{value}</p>
     </div>
   )
 }

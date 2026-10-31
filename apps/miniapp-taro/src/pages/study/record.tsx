@@ -134,7 +134,7 @@ export default function StudyRecord() {
     // 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg,listBody p14dp→28rpx/pb32dp→64rpx
     <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] box-border">
       {/* 对齐 RN header:标题由原生导航栏承担(record.config.ts),副标题「{昵称} 的学习记录」留在页内 */}
-      <Text className="block text-[length:24rpx] text-muted-foreground mb-[20rpx]">
+      <Text className="block text-label text-muted-foreground mb-[20rpx]">
         {tt('studyRecord.subtitle', '{name} 的学习记录', { name: displayName })}
       </Text>
 

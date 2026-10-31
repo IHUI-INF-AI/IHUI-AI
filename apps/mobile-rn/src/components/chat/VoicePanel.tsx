@@ -10,6 +10,7 @@ import { Loader2, Mic, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
+import { Tappable } from '@ihui/ui-native'
 
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
@@ -232,7 +233,7 @@ export function VoicePanel({
         if (!loading) onClose()
       }}
     >
-      <Pressable
+      <Tappable
         style={styles.modalMask}
         onPress={() => {
           if (!loading) onClose()
@@ -241,7 +242,7 @@ export function VoicePanel({
         <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>转语音</Text>
-            <Pressable
+            <Tappable
               hitSlop={8}
               onPress={() => {
                 if (!loading) onClose()
@@ -249,7 +250,7 @@ export function VoicePanel({
               style={styles.listDialogClose}
             >
               <X size={20} color={tokens.text.primary} />
-            </Pressable>
+            </Tappable>
           </View>
           {/* FF(D126)实时语音对话区:三态 UI 与回调契约(真实连接由调用方接线) */}
           <View style={styles.realtimeSection}>
@@ -344,17 +345,17 @@ export function VoicePanel({
             </View>
           )}
           {!loading ? (
-            <Pressable
+            <Tappable
               onPress={onClose}
               style={[styles.panelCancelBtn, styles.ttsCancelBtn]}
               accessibilityRole="button"
               accessibilityLabel={t('common.cancel')}
             >
               <Text style={styles.panelCancelText}>{t('common.cancel')}</Text>
-            </Pressable>
+            </Tappable>
           ) : null}
         </Pressable>
-      </Pressable>
+      </Tappable>
     </Modal>
   )
 }

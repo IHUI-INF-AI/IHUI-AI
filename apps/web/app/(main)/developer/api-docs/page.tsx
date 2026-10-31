@@ -124,7 +124,7 @@ function Section({
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-body font-semibold">{title}</p>
         </div>
         {children}
       </CardContent>
@@ -181,7 +181,7 @@ export default function ApiDocsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Code className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -229,7 +229,7 @@ export default function ApiDocsPage() {
             <li key={e.path} className="flex items-center gap-2">
               <span
                 className={cn(
-                  'rounded px-1.5 py-0.5 font-mono text-xs font-bold',
+                  'rounded px-1.5 py-0.5 font-mono text-label font-bold',
                   METHOD_CLASS[e.method],
                 )}
               >
@@ -264,7 +264,7 @@ export default function ApiDocsPage() {
             <aside className="space-y-2 min-[1024px]:max-h-[60vh] min-[1024px]:overflow-y-auto min-[1024px]:pr-1">
               {filtered.map((g) => (
                 <div key={g.category}>
-                  <p className="mb-1 px-1 text-xs font-semibold uppercase text-muted-foreground">
+                  <p className="mb-1 px-1 text-label font-semibold uppercase text-muted-foreground">
                     {g.category}
                   </p>
                   <div className="space-y-0.5">
@@ -281,7 +281,7 @@ export default function ApiDocsPage() {
                       >
                         <span
                           className={cn(
-                            'shrink-0 rounded px-1 py-0.5 text-xs font-bold',
+                            'shrink-0 rounded px-1 py-0.5 text-label font-bold',
                             METHOD_CLASS[e.method],
                           )}
                         >
@@ -299,13 +299,13 @@ export default function ApiDocsPage() {
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      'rounded px-1.5 py-0.5 text-xs font-bold',
+                      'rounded px-1.5 py-0.5 text-label font-bold',
                       METHOD_CLASS[selected.method],
                     )}
                   >
                     {selected.method}
                   </span>
-                  <code className="flex-1 min-w-0 text-sm font-medium">{selected.path}</code>
+                  <code className="flex-1 min-w-0 text-body font-medium">{selected.path}</code>
                   <button
                     onClick={() => copyPath(selected.path)}
                     className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -316,7 +316,7 @@ export default function ApiDocsPage() {
                 <p className="text-sm text-muted-foreground">{selected.summary}</p>
                 {selected.params && selected.params.length > 0 && (
                   <div className="space-y-1.5">
-                    <p className="text-sm font-semibold">{t('requestParams')}</p>
+                    <p className="text-body font-semibold">{t('requestParams')}</p>
                     {selected.params.map((p) => (
                       <div
                         key={p.name}
@@ -340,7 +340,7 @@ export default function ApiDocsPage() {
                 )}
                 {selected.responseExample && (
                   <div>
-                    <p className="mb-1.5 text-sm font-semibold">{t('responseExample')}</p>
+                    <p className="mb-1.5 text-body font-semibold">{t('responseExample')}</p>
                     <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs">
                       <code>{selected.responseExample}</code>
                     </pre>

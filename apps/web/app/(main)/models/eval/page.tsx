@@ -181,7 +181,7 @@ export default function EvalPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('eval.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('eval.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('eval.subtitle')}</p>
       </header>
 
@@ -429,7 +429,7 @@ export default function EvalPage() {
           {viewDataset && (
             <div className="space-y-3">
               <div>
-                <p className="text-sm font-medium">{viewDataset.name}</p>
+                <p className="text-body font-medium">{viewDataset.name}</p>
                 {viewDataset.description && (
                   <p className="mt-0.5 text-xs text-muted-foreground">{viewDataset.description}</p>
                 )}
@@ -893,7 +893,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
           <div className="space-y-4">
             {/* summary */}
             <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+              <h4 className="mb-2 text-label font-medium text-muted-foreground">
                 {t('eval.runs.detail.summary')}
               </h4>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -903,7 +903,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
                   </p>
                   <p className="mt-0.5 text-lg font-bold">
                     <span
-                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${scoreCls(detail.avg_score)}`}
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium ${scoreCls(detail.avg_score)}`}
                     >
                       {(detail.avg_score * 100).toFixed(0)}%
                     </span>
@@ -920,20 +920,20 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">{t('eval.runs.table.model')}</p>
-                  <p className="mt-0.5 text-sm font-medium">{detail.model}</p>
+                  <p className="mt-0.5 text-body font-medium">{detail.model}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">
                     {t('eval.runs.table.dataset')}
                   </p>
-                  <p className="mt-0.5 text-sm font-medium">{detail.dataset_name}</p>
+                  <p className="mt-0.5 text-body font-medium">{detail.dataset_name}</p>
                 </div>
               </div>
             </div>
 
             {/* items */}
             <div>
-              <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+              <h4 className="mb-2 text-label font-medium text-muted-foreground">
                 {t('eval.runs.detail.items')} ({detail.results?.length ?? 0})
               </h4>
               <div className="max-h-80 space-y-2 overflow-y-auto">

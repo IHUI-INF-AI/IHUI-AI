@@ -201,7 +201,7 @@ export default function ManualFaqPage() {
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 07 章 · 使用说明手册</div>
-        <h1 className="text-2xl min-[768px]:text-3xl font-bold tracking-tight">常见问题</h1>
+        <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">常见问题</h1>
         <p className="text-sm text-muted-foreground min-[768px]:text-base">
           按类别整理的高频问题解答,覆盖账号、积分、对话、Agent、知识库、安全、故障排查。
           找不到答案可在底部联系客服。
@@ -211,7 +211,7 @@ export default function ManualFaqPage() {
       {/* FAQ 分组 */}
       {faqGroups.map((group) => (
         <section key={group.category} id={group.category} className="mt-10 space-y-3">
-          <h2 className="text-xl font-bold">
+          <h2 className="text-heading font-bold">
             <span className="mr-2 inline-flex">
               {typeof group.icon === 'string' ? group.icon : <group.icon className="h-5 w-5" />}
             </span>
@@ -223,7 +223,7 @@ export default function ManualFaqPage() {
                 key={idx}
                 className="group rounded-lg border bg-card p-3 transition-colors open:bg-accent/30"
               >
-                <summary className="cursor-pointer list-none text-sm font-medium">
+                <summary className="cursor-pointer list-none text-body font-medium">
                   <span className="mr-2 text-muted-foreground">Q{idx + 1}.</span>
                   {item.q}
                   <span className="float-right text-muted-foreground transition-transform group-open:rotate-45">+</span>
@@ -237,13 +237,13 @@ export default function ManualFaqPage() {
 
       {/* 联系客服 */}
       <section id="contact" className="mt-12 space-y-3">
-        <h2 className="text-xl font-bold">没找到答案?</h2>
+        <h2 className="text-heading font-bold">没找到答案?</h2>
         <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
           <a
             href="mailto:support@aizhs.top"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
-            <p className="text-sm font-semibold">📧 邮件支持</p>
+            <p className="text-body font-semibold">📧 邮件支持</p>
             <p className="mt-1 text-xs text-muted-foreground">support@aizhs.top</p>
             <p className="mt-1 text-xs text-muted-foreground">工作时间:9:00-22:00,通常 2 小时内回复</p>
           </a>
@@ -251,7 +251,7 @@ export default function ManualFaqPage() {
             href="https://aizhs.top/community"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
-            <p className="flex items-center text-sm font-semibold">
+            <p className="flex items-center text-body font-semibold">
               <MessageCircle className="mr-1.5 inline h-4 w-4" />
               社区论坛
             </p>
@@ -262,7 +262,7 @@ export default function ManualFaqPage() {
             href="/"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
-            <p className="flex items-center text-sm font-semibold">
+            <p className="flex items-center text-body font-semibold">
               <Users className="mr-1.5 inline h-4 w-4" />
               飞书用户群
             </p>
@@ -273,7 +273,7 @@ export default function ManualFaqPage() {
             href="https://status.aizhs.top"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
-            <p className="flex items-center text-sm font-semibold">
+            <p className="flex items-center text-body font-semibold">
               <BarChart3 className="mr-1.5 inline h-4 w-4" />
               服务状态
             </p>
@@ -297,13 +297,13 @@ export default function ManualFaqPage() {
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <a
             href="/docs/manual"
-            className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+            className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
           >
             返回手册首页
           </a>
           <a
             href="/docs"
-            className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
           >
             浏览开发者文档
           </a>

@@ -25,7 +25,7 @@ export function FormField({
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
-        <label className="text-sm font-medium leading-none whitespace-nowrap">
+        <label className="text-body font-medium leading-none whitespace-nowrap">
           {label}
           {required && <span className="ml-0.5 text-destructive">*</span>}
         </label>

@@ -40,7 +40,7 @@ export function StudyPlanTimelineDialog({
               {/* Plan summary */}
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div>
-                  <p className="text-sm font-medium">{query.data.plan.title}</p>
+                  <p className="text-body font-medium">{query.data.plan.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {query.data.plan.startDate} ~ {query.data.plan.endDate}
                   </p>
@@ -62,7 +62,7 @@ export function StudyPlanTimelineDialog({
                 <div className="space-y-4">
                   {query.data.timeline.map((day) => (
                     <div key={day.date}>
-                      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                      <div className="mb-2 flex items-center gap-2 text-body font-medium">
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         <span>{day.date}</span>
                         <span className="text-xs text-muted-foreground">

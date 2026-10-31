@@ -28,7 +28,7 @@ export default function OpenClawPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">OpenClaw</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">OpenClaw</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 

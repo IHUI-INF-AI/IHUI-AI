@@ -53,7 +53,7 @@ export function StateBadge({ state, className }: StateBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-label font-medium',
         cfg.className,
         className,
       )}

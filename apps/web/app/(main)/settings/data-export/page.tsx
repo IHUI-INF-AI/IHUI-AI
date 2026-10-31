@@ -155,7 +155,7 @@ export default function DataExportPage() {
           <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4" />
             {t('exportCsv')}
-            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">
               {tc('comingSoon')}
             </span>
           </CardTitle>

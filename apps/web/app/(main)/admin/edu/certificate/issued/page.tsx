@@ -83,32 +83,32 @@ export default function EduCertificateIssuedPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('issuedTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('issuedTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('issuedSubtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-4">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('issuedTotal')}</div>
-            <div className="mt-1 text-2xl font-semibold">{total}</div>
+            <div className="mt-1 text-display font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('sourceExam')}</div>
-            <div className="mt-1 text-2xl font-semibold text-sky-600">{bySource.exam}</div>
+            <div className="mt-1 text-display font-semibold text-sky-600">{bySource.exam}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('sourceLearn')}</div>
-            <div className="mt-1 text-2xl font-semibold text-emerald-600">{bySource.learn}</div>
+            <div className="mt-1 text-display font-semibold text-emerald-600">{bySource.learn}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('sourceManual')}</div>
-            <div className="mt-1 text-2xl font-semibold text-amber-600">{bySource.manual}</div>
+            <div className="mt-1 text-display font-semibold text-amber-600">{bySource.manual}</div>
           </CardContent>
         </Card>
       </div>
@@ -184,7 +184,7 @@ export default function EduCertificateIssuedPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         c.source === 'exam'
                           ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
                           : c.source === 'learn'

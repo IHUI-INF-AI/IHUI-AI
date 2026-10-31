@@ -48,7 +48,7 @@ export function MonitorLogs({ logs, t }: Props) {
             >
               <span
                 className={cn(
-                  'inline-flex shrink-0 rounded px-1.5 py-0.5 text-xs font-medium',
+                  'inline-flex shrink-0 rounded px-1.5 py-0.5 text-label font-medium',
                   l.level === 'error'
                     ? 'bg-red-500/10 text-red-600'
                     : l.level === 'warn'

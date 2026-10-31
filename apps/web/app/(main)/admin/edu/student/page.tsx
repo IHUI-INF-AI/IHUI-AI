@@ -135,20 +135,20 @@ export default function EduStudentPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('totalStudents')}</div>
-            <div className="mt-1 text-2xl font-semibold">{total}</div>
+            <div className="mt-1 text-display font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('currentPageSignups')}</div>
-            <div className="mt-1 text-2xl font-semibold">
+            <div className="mt-1 text-display font-semibold">
               {rows.reduce((a, s) => a + s.signupCount, 0)}
             </div>
           </CardContent>
@@ -156,7 +156,7 @@ export default function EduStudentPage() {
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('currentPageLearnHours')}</div>
-            <div className="mt-1 text-2xl font-semibold">
+            <div className="mt-1 text-display font-semibold">
               {rows.reduce((a, s) => a + s.learnHours, 0)}h
             </div>
           </CardContent>

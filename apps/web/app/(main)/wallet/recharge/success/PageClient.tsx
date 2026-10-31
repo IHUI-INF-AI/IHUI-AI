@@ -83,7 +83,7 @@ function SuccessContent() {
           <CardContent className="flex flex-col items-center gap-6 px-4 py-6 text-center">
             <CheckCircle2 className="h-16 w-16 text-emerald-500" />
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold tracking-tight">{t('rechargeSuccess')}</h1>
+              <h1 className="text-display font-bold tracking-tight">{t('rechargeSuccess')}</h1>
               <p className="text-sm text-muted-foreground">{t('rechargeSuccessDesc')}</p>
             </div>
             {(orderNo || amount) && (
@@ -126,7 +126,7 @@ function SuccessContent() {
           <CardContent className="flex flex-col items-center gap-6 px-4 py-6 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
             <div className="space-y-1">
-              <h1 className="text-xl font-bold tracking-tight">等待支付确认</h1>
+              <h1 className="text-heading font-bold tracking-tight">等待支付确认</h1>
               <p className="text-sm text-muted-foreground">
                 {status === 'timeout'
                   ? '长时间未检测到支付,如已完成支付请刷新本页或联系客服'
@@ -149,7 +149,7 @@ function SuccessContent() {
     <div className="px-4 py-4 mx-auto w-full max-w-md">
       <Card>
         <CardContent className="flex flex-col items-center gap-5 px-4 py-6 text-center">
-          <h1 className="text-xl font-bold tracking-tight">
+          <h1 className="text-heading font-bold tracking-tight">
             {isAlipay ? '支付宝扫码支付' : '微信扫码支付'}
           </h1>
           {amount && (

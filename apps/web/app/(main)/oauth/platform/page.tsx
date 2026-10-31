@@ -43,11 +43,11 @@ export default function OauthPlatformPage() {
       <BackButton />
       {/* Hero */}
       <section className="space-y-6 text-center">
-        <div className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <div className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-label font-medium text-primary">
           <KeyRound className="h-3.5 w-3.5" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           {t('heroTitle')}
         </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -66,7 +66,7 @@ export default function OauthPlatformPage() {
       {/* Features */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             {t('featuresTitle')}
           </h2>
           <p className="text-sm text-muted-foreground">{t('featuresSubtitle')}</p>
@@ -92,7 +92,7 @@ export default function OauthPlatformPage() {
       {/* Steps */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             {t('stepsTitle')}
           </h2>
           <p className="text-sm text-muted-foreground">{t('stepsSubtitle')}</p>
@@ -102,7 +102,7 @@ export default function OauthPlatformPage() {
             const Icon = s.icon
             return (
               <div key={s.title} className="relative space-y-3 rounded-lg border p-3">
-                <div className="absolute right-4 top-4 text-2xl min-[768px]:text-3xl font-bold text-muted/30">
+                <div className="absolute right-4 top-4 text-display min-[768px]:text-3xl font-bold text-muted/30">
                   {i + 1}
                 </div>
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -118,7 +118,7 @@ export default function OauthPlatformPage() {
 
       {/* Bottom CTA */}
       <section className="rounded-2xl bg-primary/5 px-6 py-8 text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t('ctaSubtitle')}</p>
         <div className="mt-6 flex justify-center">
           <Link href="/oauth/my-authorized">

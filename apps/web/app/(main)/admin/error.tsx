@@ -35,7 +35,7 @@ export default function AdminError({
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-3 text-center">
       <ShieldAlert className="h-12 w-12 text-destructive" />
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">管理后台发生错误</h1>
+        <h1 className="text-heading font-semibold">管理后台发生错误</h1>
         {/* 2026-08-01 错误中文化:不直接渲染 error.message(可能英文),始终显示中文兜底 */}
         <p className="text-sm text-muted-foreground">{t('errorDescription')}</p>
       </div>

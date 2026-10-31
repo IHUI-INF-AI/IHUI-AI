@@ -59,7 +59,7 @@ export default function MemberHelpPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex min-w-0 items-center gap-2 text-heading font-bold tracking-tight">
           <HelpCircle className="h-5 w-5 shrink-0 text-primary" />
           <span className="whitespace-nowrap">帮助中心</span>
         </h1>
@@ -95,7 +95,7 @@ export default function MemberHelpPage() {
               <Card className="transition-colors hover:bg-accent">
                 <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{a.title}</h2>
+                    <h2 className="min-w-0 flex-1 truncate text-body font-semibold">{a.title}</h2>
                     {a.updatedAt && (
                       <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                         {fmt(a.updatedAt)}

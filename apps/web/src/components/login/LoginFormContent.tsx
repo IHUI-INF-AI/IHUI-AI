@@ -73,7 +73,7 @@ function TwoFactorPanel({
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-sm font-medium text-foreground">{tAuth('twoFactorTitle')}</p>
+        <p className="text-body font-medium text-foreground">{tAuth('twoFactorTitle')}</p>
         <p className="mt-1 text-xs text-muted-foreground">{tAuth('twoFactorHint')}</p>
       </div>
       <input
@@ -94,7 +94,7 @@ function TwoFactorPanel({
           type="button"
           onClick={handleSubmit}
           disabled={!code.trim()}
-          className="h-9 flex-1 rounded-sm bg-cta px-4 text-sm font-medium text-cta-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="h-9 flex-1 rounded-sm bg-cta px-4 text-body font-medium text-cta-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {tAuth('twoFactorSubmit')}
         </button>

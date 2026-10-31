@@ -84,7 +84,7 @@ export function CompressionStatsTable({ stats, className }: CompressionStatsTabl
                   <TableCell className="text-center">
                     <span
                       className={cn(
-                        'inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium tabular-nums',
+                        'inline-block rounded-sm px-1.5 py-0.5 text-label font-medium tabular-nums',
                         ratioBadgeClass(r.compressionRatio),
                       )}
                     >
@@ -93,7 +93,7 @@ export function CompressionStatsTable({ stats, className }: CompressionStatsTabl
                   </TableCell>
                   <TableCell
                     className={cn(
-                      'text-right text-xs font-medium tabular-nums',
+                      'text-right text-label font-medium tabular-nums',
                       qualityClass(r.qualityScore),
                     )}
                   >

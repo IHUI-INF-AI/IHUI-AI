@@ -25,7 +25,7 @@ export function CapabilityLegend(): React.JSX.Element {
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-          <h2 className="text-sm font-semibold">{t('principleTitle')}</h2>
+          <h2 className="text-body font-semibold">{t('principleTitle')}</h2>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">{t('principleBody')}</p>
         <ul className="grid gap-2 sm:grid-cols-2">

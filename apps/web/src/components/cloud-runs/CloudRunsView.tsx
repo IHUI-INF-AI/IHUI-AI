@@ -100,13 +100,13 @@ export function CloudRunsView() {
       <div className="mx-auto max-w-4xl px-4 py-4">
         <div className="mb-6 flex items-center gap-2">
           <Cloud className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">{t('detailTitle')}</h1>
+          <h1 className="text-display font-bold">{t('detailTitle')}</h1>
         </div>
 
         <div className="rounded-xl border p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold">{t('runId')}</span>
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+            <span className="text-body font-semibold">{t('runId')}</span>
+            <span className="inline-flex items-center gap-1.5 text-body font-medium">
               <span className={`h-2 w-2 rounded-full ${statusDot(selected.status)}`} />
               {statusLabel(selected.status)}
             </span>
@@ -135,7 +135,7 @@ export function CloudRunsView() {
         </div>
 
         <div className="mt-4 rounded-xl border p-3">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('task')}
           </h2>
           <p className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">
@@ -144,7 +144,7 @@ export function CloudRunsView() {
         </div>
 
         <div className="mt-4 rounded-xl border p-3">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('output')}
           </h2>
           {selected.output ? (
@@ -174,7 +174,7 @@ export function CloudRunsView() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Cloud className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
+          <h1 className="text-display font-bold">{t('title')}</h1>
         </div>
         <button
           onClick={() => void loadList(data?.page ?? 1)}
@@ -217,12 +217,12 @@ export function CloudRunsView() {
                     <code className="truncate rounded bg-muted px-1 text-xs text-muted-foreground">
                       {run.run_id.slice(0, 18)}
                     </code>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1.5 text-label font-medium">
                       <span className={`h-2 w-2 rounded-full ${statusDot(run.status)}`} />
                       {statusLabel(run.status)}
                     </span>
                   </div>
-                  <p className="mb-1 line-clamp-2 text-sm font-medium">
+                  <p className="mb-1 line-clamp-2 text-body font-medium">
                     {run.task ? run.task : t('noTask')}
                   </p>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">

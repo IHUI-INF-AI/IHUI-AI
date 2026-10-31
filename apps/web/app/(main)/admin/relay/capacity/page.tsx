@@ -64,7 +64,7 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
   return (
     <div className="rounded-lg border bg-card p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-medium tabular-nums">{value}</p>
+      <p className="mt-1 text-display font-medium tabular-nums">{value}</p>
       {hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   )
@@ -132,7 +132,7 @@ export default function CapacityPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">容量与趋势</h1>
+          <h1 className="text-display font-bold tracking-tight">容量与趋势</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Key 池容量汇总与增长/调用趋势,实测聚合,辅助容量规划。
           </p>
@@ -198,13 +198,13 @@ export default function CapacityPage() {
           <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-2">
             <Card>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <p className="text-sm font-medium">Key 增长(新建/日)</p>
+                <p className="text-body font-medium">Key 增长(新建/日)</p>
                 <BarChart points={keyTrendQ.data ?? []} valueKey="created" />
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <p className="text-sm font-medium">调用趋势(次/日)</p>
+                <p className="text-body font-medium">调用趋势(次/日)</p>
                 <BarChart points={callTrendQ.data ?? []} valueKey="calls" />
               </CardContent>
             </Card>

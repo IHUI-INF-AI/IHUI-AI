@@ -70,14 +70,14 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
                 <Ticket className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium">{t.title}</p>
+                <p className="break-words text-body font-medium">{t.title}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {t.ticketNo} · {formatDate(t.createdAt)}
                 </p>
               </div>
               <span
                 className={cn(
-                  'inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                  'inline-flex shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                   STATUS_BADGE[t.status],
                 )}
               >

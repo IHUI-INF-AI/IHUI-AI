@@ -103,8 +103,8 @@
   margin-bottom: var(--spacing-sm);
 }
 .agent-avatar {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-sm);
   background: var(--color-background);
   flex-shrink: 0;

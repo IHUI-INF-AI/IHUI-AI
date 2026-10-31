@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useRef } from 'react'
-import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { ChevronDown } from 'lucide-react-native'
 import type {
@@ -16,6 +16,7 @@ import { MessageInput } from './MessageInput'
 import { ContextUsagePanel } from './ContextUsagePanel'
 
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
@@ -93,7 +94,7 @@ export function ChatScreen({
     }
     return (
       <View style={isUser ? styles.msgEnd : styles.msgStart}>
-        <Pressable
+        <Tappable
           ref={setRef}
           onLongPress={() => onLongPressMessage(item)}
           delayLongPress={500}
@@ -102,7 +103,7 @@ export function ChatScreen({
           <Text style={styles.bubbleText}>
             {item.content || (isLastAi ? t('chat.thinking') : '')}
           </Text>
-        </Pressable>
+        </Tappable>
       </View>
     )
   }
@@ -170,7 +171,7 @@ export function ChatScreen({
               renderItem={({ item }) => {
                 const active = item.id === model
                 return (
-                  <Pressable
+                  <Tappable
                     onPress={() => {
                       onModelChange(item.id)
                       onPickerOpenChange(false)
@@ -181,7 +182,7 @@ export function ChatScreen({
                       {item.name || item.id}
                     </Text>
                     <Text style={styles.pickerItemProvider}>{item.provider}</Text>
-                  </Pressable>
+                  </Tappable>
                 )
               }}
             />

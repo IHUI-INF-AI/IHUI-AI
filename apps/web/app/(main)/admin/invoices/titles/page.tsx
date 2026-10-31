@@ -138,7 +138,7 @@ export default function AdminInvoiceTitlesPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">发票抬头管理</h1>
+          <h1 className="text-display font-bold tracking-tight">发票抬头管理</h1>
           <p className="mt-1 text-sm text-muted-foreground">管理用户与企业发票抬头信息</p>
         </div>
         <Button onClick={openCreate} size="sm">
@@ -188,7 +188,7 @@ export default function AdminInvoiceTitlesPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         t.titleType === 'company'
                           ? 'bg-primary/10 text-primary'
                           : 'bg-muted text-muted-foreground',
@@ -202,7 +202,7 @@ export default function AdminInvoiceTitlesPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     {t.isDefault ? (
-                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-label font-medium text-emerald-600">
                         默认
                       </span>
                     ) : (

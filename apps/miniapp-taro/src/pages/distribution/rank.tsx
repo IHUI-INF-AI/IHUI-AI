@@ -85,14 +85,14 @@ export default function DistributionRank() {
                     mode="aspectFill"
                   />
                 </View>
-                <Text className="text-[length:28rpx] font-semibold text-foreground mt-[16rpx] max-w-full truncate">
+                <Text className="text-body font-semibold text-foreground mt-[16rpx] max-w-full truncate">
                   {item.nickname}
                 </Text>
-                <Text className="text-[length:28rpx] text-[var(--color-success)] mt-[16rpx]">
+                <Text className="text-body text-[var(--color-success)] mt-[16rpx]">
                   ¥{item.commission}
                 </Text>
                 <Text
-                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[length:22rpx] text-[var(--color-surface-light)]"
+                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-caption text-[var(--color-surface-light)]"
                   style={{ backgroundColor: badge }}
                 >
                   {rank}
@@ -109,7 +109,7 @@ export default function DistributionRank() {
               key={u.id}
               className="flex flex-row items-center p-[28rpx] rounded-xl border border-border bg-[var(--color-background)]"
             >
-              <Text className="w-[72rpx] text-[length:32rpx] font-bold text-[var(--color-muted-foreground)]">
+              <Text className="w-[72rpx] text-title font-bold text-[var(--color-muted-foreground)]">
                 {i + 4}
               </Text>
               <View className="w-[88rpx] h-[88rpx] rounded-2xl border-[length:3rpx] border-[var(--color-muted-foreground)] bg-[var(--color-muted)] overflow-hidden">
@@ -119,10 +119,10 @@ export default function DistributionRank() {
                   mode="aspectFill"
                 />
               </View>
-              <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-[length:32rpx] font-semibold text-foreground truncate">
+              <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-title font-semibold text-foreground truncate">
                 {u.nickname}
               </Text>
-              <Text className="text-[length:32rpx] font-bold text-[var(--color-success)]">
+              <Text className="text-title font-bold text-[var(--color-success)]">
                 ¥{u.commission}
               </Text>
             </View>
@@ -130,7 +130,7 @@ export default function DistributionRank() {
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-[120rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+        <View className="text-center py-[120rpx] text-body text-[var(--color-text-tertiary)]">
           <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
         </View>
       )}

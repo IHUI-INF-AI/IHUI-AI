@@ -45,7 +45,7 @@ export default function ToolsPage() {
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 

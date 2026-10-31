@@ -121,7 +121,7 @@ export function CurlPlayground(): React.JSX.Element {
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Wand2 className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">{t('curlLinkTitle')}</p>
+          <p className="text-body font-semibold">{t('curlLinkTitle')}</p>
         </div>
         <p className="text-xs text-muted-foreground">{t('curlLinkDesc')}</p>
 

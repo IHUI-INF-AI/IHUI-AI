@@ -121,7 +121,7 @@ export default function ClawdbotDashboardPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Bot className="h-6 w-6 text-primary" /> Clawdbot 控制台
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Bot 管理、会话监控、工具与权限</p>
@@ -150,7 +150,7 @@ export default function ClawdbotDashboardPage() {
 
       <div className="rounded-lg border bg-card">
         <div className="px-4 py-2.5">
-          <p className="text-sm font-medium">Bot 列表</p>
+          <p className="text-body font-medium">Bot 列表</p>
         </div>
         <div className="space-y-2">
           {bots.length === 0 ? (
@@ -162,7 +162,7 @@ export default function ClawdbotDashboardPage() {
               <div key={b.id} className="flex items-center justify-between px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</p>
+                    <p className="min-w-0 flex-1 truncate text-body font-medium">{b.name}</p>
                     <span
                       className={cn(
                         'rounded px-1.5 py-0.5 text-xs',

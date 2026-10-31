@@ -199,12 +199,12 @@ export default function AiSkillsPageClient() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+            <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           </div>
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Upload className="h-3.5 w-3.5" />
             {td('importBtn')}
@@ -236,7 +236,7 @@ export default function AiSkillsPageClient() {
               type="button"
               onClick={() => setActiveTab(tab.key as TabKey)}
               className={cn(
-                'rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
+                'rounded-sm px-3 py-1.5 text-label font-medium transition-colors',
                 activeTab === tab.key
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -268,7 +268,7 @@ export default function AiSkillsPageClient() {
               aria-pressed={sortKey === opt.key}
               data-testid={`skills-sort-${opt.key}`}
               className={cn(
-                'rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors',
+                'rounded-sm px-2.5 py-1.5 text-label font-medium transition-colors',
                 sortKey === opt.key
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -387,7 +387,7 @@ function SkillCard({ skill, stats }: SkillCardProps) {
         </div>
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-semibold leading-tight text-foreground">
+            <span className="text-body font-semibold leading-tight text-foreground">
               {skill.name}
             </span>
             <Badge variant={skill.available ? 'success' : 'default'}>
@@ -483,7 +483,7 @@ function RecommendSection() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Sparkles className="h-4 w-4 text-amber-500" />
-            <h2 className="text-sm font-semibold">{t('recommendTitle')}</h2>
+            <h2 className="text-body font-semibold">{t('recommendTitle')}</h2>
           </div>
           <Link
             href="/ai-skills"
@@ -511,7 +511,7 @@ function RecommendSection() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-4 w-4 text-amber-500" />
-          <h2 className="text-sm font-semibold">{t('recommendTitle')}</h2>
+          <h2 className="text-body font-semibold">{t('recommendTitle')}</h2>
         </div>
         <Link
           href="/ai-skills"
@@ -535,7 +535,7 @@ function RecommendSection() {
                   <Icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="text-sm font-semibold leading-tight text-foreground">
+                  <span className="text-body font-semibold leading-tight text-foreground">
                     {skill.name}
                   </span>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">

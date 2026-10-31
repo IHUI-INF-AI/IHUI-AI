@@ -73,7 +73,7 @@ export function CommentsDialog({ post, onClose }: Props) {
               <div key={c.id} className="rounded-md border p-3">
                 <div className="flex items-center gap-2">
                   <Avatar src={c.author.avatar ?? undefined} name={c.author.nickname} size="xs" />
-                  <span className="text-sm font-medium">{c.author.nickname || '-'}</span>
+                  <span className="text-body font-medium">{c.author.nickname || '-'}</span>
                   <span className="text-xs text-muted-foreground">
                     {dateFormatter.format(new Date(c.createdAt))}
                   </span>

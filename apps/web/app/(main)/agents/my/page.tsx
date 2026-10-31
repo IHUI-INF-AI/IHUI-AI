@@ -100,7 +100,7 @@ export default function MyAgentsPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" asChild>
@@ -117,7 +117,7 @@ export default function MyAgentsPage() {
             key={f.value}
             onClick={() => setStatus(f.value)}
             className={cn(
-              'rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+              'rounded-sm px-3 py-1 text-label font-medium transition-colors',
               status === f.value
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -165,10 +165,10 @@ export default function MyAgentsPage() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1 space-y-1">
-                      <h3 className="line-clamp-2 text-sm font-medium">{agent.name}</h3>
+                      <h3 className="line-clamp-2 text-body font-medium">{agent.name}</h3>
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                           STATUS_CLASS[agent.status] ?? STATUS_CLASS.offline,
                         )}
                       >

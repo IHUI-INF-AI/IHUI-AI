@@ -82,7 +82,7 @@ export default function AiCircle() {
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
       <View className="p-[24rpx]">
-        <Text className="text-[length:36rpx] font-semibold text-foreground">
+        <Text className="text-subtitle font-semibold text-foreground">
           {t('aiCircle.title')}
         </Text>
       </View>
@@ -134,13 +134,13 @@ export default function AiCircle() {
                         {author}
                       </Text>
                       {createTime ? (
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {createTime}
                         </Text>
                       ) : null}
                     </View>
                     {title ? (
-                      <Text className="block text-[length:30rpx] font-semibold text-foreground overflow-hidden ihui-ellipsis line-clamp-2">
+                      <Text className="block text-strong font-semibold text-foreground overflow-hidden ihui-ellipsis line-clamp-2">
                         {title}
                       </Text>
                     ) : null}
@@ -164,7 +164,7 @@ export default function AiCircle() {
                     <View className="flex items-center gap-[32rpx]">
                       <View className="flex items-center gap-[8rpx]">
                         <LineIcon name="heart" size={26} color="var(--color-text-tertiary)" />
-                        <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-label text-[var(--color-text-tertiary)]">
                           {likes}
                         </Text>
                       </View>
@@ -174,7 +174,7 @@ export default function AiCircle() {
                           size={26}
                           color="var(--color-text-tertiary)"
                         />
-                        <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-label text-[var(--color-text-tertiary)]">
                           {comments}
                         </Text>
                       </View>

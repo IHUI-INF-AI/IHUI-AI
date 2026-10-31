@@ -103,7 +103,7 @@ export function StreamInspector() {
         <button
           type="button"
           onClick={toggle}
-          className={`inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors ${
+          className={`inline-flex h-7 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors ${
             on
               ? 'bg-red-500/10 text-red-600 dark:text-red-400'
               : 'bg-muted text-foreground hover:bg-accent'

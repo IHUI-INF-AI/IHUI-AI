@@ -92,7 +92,7 @@ function SchemaView({ schema }: { schema: JsonSchema }) {
         {Object.entries(properties).map(([fieldName, prop]) => (
           <li key={fieldName} className="rounded-lg border bg-card p-2.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <code className="font-mono text-xs font-semibold text-primary">{fieldName}</code>
+              <code className="font-mono text-label font-semibold text-primary">{fieldName}</code>
               <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
                 {describeType(prop)}
               </span>
@@ -186,7 +186,7 @@ export default function PersonasPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <UserCircle className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -247,7 +247,7 @@ export default function PersonasPage() {
                 >
                   <CardContent className="min-[640px]:p-3 p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 font-mono text-sm font-semibold">
+                      <span className="flex items-center gap-2 font-mono text-body font-semibold">
                         <UserCircle className="h-4 w-4 shrink-0 text-primary" />
                         {p.name}
                       </span>
@@ -275,7 +275,7 @@ export default function PersonasPage() {
             <FileJson className="h-5 w-5 text-primary" />
             {selectedName}
             {detail?.description && (
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-label font-normal text-muted-foreground">
                 {detail.description}
               </span>
             )}
@@ -292,7 +292,7 @@ export default function PersonasPage() {
             <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <Card>
                 <CardHeader className="p-3 pb-2">
-                  <h3 className="text-sm font-medium">{t('inputSchema')}</h3>
+                  <h3 className="text-body font-medium">{t('inputSchema')}</h3>
                 </CardHeader>
                 <CardContent className="min-[640px]:p-3 p-3 pt-0">
                   <SchemaView schema={detail.input_schema} />
@@ -300,7 +300,7 @@ export default function PersonasPage() {
               </Card>
               <Card>
                 <CardHeader className="p-3 pb-2">
-                  <h3 className="text-sm font-medium">{t('outputSchema')}</h3>
+                  <h3 className="text-body font-medium">{t('outputSchema')}</h3>
                 </CardHeader>
                 <CardContent className="min-[640px]:p-3 p-3 pt-0">
                   <SchemaView schema={detail.output_schema} />

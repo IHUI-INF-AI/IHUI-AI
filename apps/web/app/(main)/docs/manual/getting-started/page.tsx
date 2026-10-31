@@ -37,7 +37,7 @@ export default function ManualGettingStartedPage() {
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 01 章 · 使用说明手册</div>
-        <h1 className="text-2xl min-[768px]:text-3xl font-bold tracking-tight">开始使用</h1>
+        <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">开始使用</h1>
         <p className="text-sm text-muted-foreground min-[768px]:text-base">
           3 分钟完成注册、登录、首次 AI 对话。本章面向首次使用智汇 AI 的终端用户,无需任何技术背景。
         </p>
@@ -45,7 +45,7 @@ export default function ManualGettingStartedPage() {
 
       {/* 注册账号 */}
       <section id="register" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">1.1 注册账号</h2>
+        <h2 className="text-heading font-bold">1.1 注册账号</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
             <li>
@@ -71,7 +71,7 @@ export default function ManualGettingStartedPage() {
 
       {/* 登录 */}
       <section id="login" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">1.2 登录</h2>
+        <h2 className="text-heading font-bold">1.2 登录</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
             <li>访问 <a href="https://aizhs.top/login" className="text-primary underline">https://aizhs.top/login</a></li>
@@ -87,7 +87,7 @@ export default function ManualGettingStartedPage() {
 
       {/* 界面导览 */}
       <section id="ui-tour" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">1.3 界面导览</h2>
+        <h2 className="text-heading font-bold">1.3 界面导览</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4 text-sm text-muted-foreground">
           <div>
             <p className="font-medium text-foreground">📍 左侧栏(导航)</p>
@@ -120,7 +120,7 @@ export default function ManualGettingStartedPage() {
 
       {/* 首次对话 */}
       <section id="first-chat" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">1.4 第一次 AI 对话</h2>
+        <h2 className="text-heading font-bold">1.4 第一次 AI 对话</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
             <li>点击左侧栏"新建对话"按钮(或快捷键 <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl + K</kbd>)</li>

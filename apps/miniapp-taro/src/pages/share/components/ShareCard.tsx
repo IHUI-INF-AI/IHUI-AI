@@ -70,7 +70,7 @@ export default function ShareCard() {
 
   return (
     <View className="mx-[20rpx] mt-[20rpx] bg-card border border-border rounded-lg p-[24rpx]">
-      <Text className="block text-[length:32rpx] font-semibold text-foreground">
+      <Text className="block text-title font-semibold text-foreground">
         {t('share.title')}
       </Text>
       <Text className="block mt-[16rpx] text-[length:26rpx] text-muted-foreground">
@@ -81,7 +81,7 @@ export default function ShareCard() {
         style={ffRemark.focusStyle}
       >
         <Input
-          className="flex-1 text-[length:28rpx] text-foreground"
+          className="flex-1 text-body text-foreground"
           {...ffRemark.spread}
           value={remark}
           onInput={(e) => setRemark(e.detail.value)}
@@ -91,7 +91,7 @@ export default function ShareCard() {
         />
       </View>
       <View
-        className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm text-[length:30rpx] font-semibold ${
+        className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm text-strong font-semibold ${
           loading
             ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
             : 'bg-cta text-cta-foreground'
@@ -103,29 +103,29 @@ export default function ShareCard() {
       </View>
       {result ? (
         <View className="mt-[24rpx] border border-border rounded-lg p-[24rpx]">
-          <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block text-label text-[var(--color-text-tertiary)]">
             {t('share.url')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground break-all">
+          <Text className="block mt-[8rpx] text-body text-foreground break-all">
             {result.shareUrl}
           </Text>
-          <Text className="block mt-[16rpx] text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
             {t('share.code')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground">
+          <Text className="block mt-[8rpx] text-body text-foreground">
             {result.shareCode}
           </Text>
-          <Text className="block mt-[16rpx] text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
             {t('share.expireAt')}
           </Text>
-          <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground">
+          <Text className="block mt-[8rpx] text-body text-foreground">
             {result.expireAt ? formatDateByTemplate(result.expireAt, 'YYYY-MM-DD HH:mm') : ''}
           </Text>
         </View>
       ) : null}
       {result ? (
         <View
-          className="mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm bg-cta text-[length:30rpx] font-semibold text-cta-foreground"
+          className="mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm bg-cta text-strong font-semibold text-cta-foreground"
           hoverClass="opacity-70"
           onClick={onShare}
         >

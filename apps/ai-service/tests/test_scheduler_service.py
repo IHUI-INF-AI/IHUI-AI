@@ -276,7 +276,14 @@ class TestUpdateTask:
 class TestExecuteCallback:
     @pytest.mark.asyncio
     async def test_http_webhook(self, sched):
-        """http_webhook:mock httpx.AsyncClient,验证 POST url+json。"""
+        """http_webhook:POST 必须打到**判定过并钉住**的目标上。
+
+        原断言写的是 `post("http://example.com/hook", json=...)` —— 那是 2026-10-31 R12
+        之前的形态。现在生产侧先过 `_validate_url_ssrf`,再把域名解析结果钉进 URL 并按
+        Host/SNI 保原域名(防 DNS rebinding:判定用一个 IP、建连用另一个)。测试若继续
+        断言裸域名,等于把加固判成回归;而它当时还**真的在做 DNS 解析**(本机解析到的 IP
+        直接进断言),既违反 §5 测试隔离,也让结论随网络漂。现改成把解析桩成定值。
+        """
 
         class _FakeClient:
             def __init__(self, *a, **kw):
@@ -292,14 +299,49 @@ class TestExecuteCallback:
         mock_resp.raise_for_status = MagicMock()
         _FakeClient.post = AsyncMock(return_value=mock_resp)
 
+        import app.services.screenshot_service as shot
+
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(ss.httpx, "AsyncClient", _FakeClient)
+            mp.setattr(
+                shot,
+                "resolve_pinned_target",
+                lambda _url: ("http://93.184.216.34/hook", "example.com"),
+            )
             await sched._execute_callback(
                 {"type": "http_webhook", "url": "http://example.com/hook", "payload": {"a": 1}}
             )
-        _FakeClient.post.assert_awaited_once_with(
-            "http://example.com/hook", json={"a": 1}
-        )
+
+        _FakeClient.post.assert_awaited_once()
+        args, kwargs = _FakeClient.post.await_args
+        assert args[0] == "http://93.184.216.34/hook", "必须走钉住的 IP,不是再解析一次的域名"
+        assert args[0] != "http://example.com/hook", "反向牙口:裸域名回来=加固被绕过"
+        assert kwargs["json"] == {"a": 1}
+        assert kwargs["headers"] == {"Host": "example.com"}, "钉 IP 不能丢掉原域名(虚拟主机分流)"
+        assert kwargs["extensions"] == {"sni_hostname": "example.com"}
+
+    async def test_http_webhook_internal_target_never_reaches_the_socket(self, sched):
+        """成对正向对照:守卫拒掉时**一次请求都不许发出**(不是"发了再报错")。"""
+        post = AsyncMock()
+
+        class _NeverClient:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                self.post = post
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(ss.httpx, "AsyncClient", _NeverClient)
+            with pytest.raises(ValueError):
+                await sched._execute_callback(
+                    {"type": "http_webhook", "url": "http://169.254.169.254/latest/meta-data", "payload": {}}
+                )
+        assert post.await_count == 0, "云元数据地址不得产生任何出连"
 
     @pytest.mark.asyncio
     async def test_mcp_tool(self, sched, monkeypatch):

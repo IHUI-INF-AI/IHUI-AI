@@ -84,7 +84,7 @@ export default function AskEditByIdPage() {
         <ArrowLeft className="h-4 w-4" />
         返回问题详情
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">编辑问题</h1>
+      <h1 className="text-display font-bold tracking-tight">编辑问题</h1>
       <AskEditForm
         title={title}
         setTitle={setTitle}

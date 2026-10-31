@@ -83,6 +83,7 @@ import {
 import { useState } from 'react'
 import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
 import { TextField } from '@ihui/rn-app'
+import { Tappable } from '@ihui/ui-native'
 
 export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
 
@@ -206,21 +207,17 @@ export function LoginPopUp({
       statusBarTranslucent
     >
       <View style={styles.root}>
-        <Pressable
-          style={styles.overlay}
-          onPress={onClose}
-          accessibilityLabel={t('lp.closeA11y')}
-        />
+        <Tappable style={styles.overlay} onPress={onClose} accessibilityLabel={t('lp.closeA11y')} />
         <View style={styles.card}>
           <View style={styles.dragBar} />
-          <Pressable
+          <Tappable
             style={styles.closeButton}
             onPress={onClose}
             hitSlop={8}
             accessibilityLabel={t('common.close')}
           >
             <Text style={styles.closeIcon}>×</Text>
-          </Pressable>
+          </Tappable>
           {showProfile ? (
             <ProfileForm
               avatarUrl={avatarUrl}
@@ -257,7 +254,7 @@ export function LoginPopUp({
                 )}
               </Pressable>
               {showAgreementRow ? (
-                <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
+                <Tappable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
                     {agreeChecked ? (
                       <Check
@@ -271,7 +268,7 @@ export function LoginPopUp({
                     <Text style={styles.agreementSeparator}> 与 </Text>
                     <Text style={styles.agreementLink}>《隐私政策》</Text>
                   </Text>
-                </Pressable>
+                </Tappable>
               ) : null}
             </>
           )}
