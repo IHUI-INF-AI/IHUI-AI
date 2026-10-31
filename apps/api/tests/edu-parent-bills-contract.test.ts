@@ -124,7 +124,10 @@ vi.mock('../src/config/index.js', () => ({
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:8810/forbidden-in-mock-tests',
-    REDIS_URL: 'redis://localhost:8811/forbidden-in-mock-tests',
+    // 必须带合法 db 段:带非数字段时 ioredis 会在连上后发 SELECT NaN,
+    // 成为 unhandled rejection 把 vitest 退出码打成 1(21 个用例全过也判红);
+    // 6379 本机无监听 ⇒ 只在 error 事件里失败,与同族测试同形,不碰生产 8811。
+    REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
