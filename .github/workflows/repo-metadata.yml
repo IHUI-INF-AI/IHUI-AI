@@ -36,7 +36,7 @@ jobs:
   update-metadata:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # 2026-09-10 根因修复:description/homepage 的 PATCH 与 topics 的 PUT 都需要
       # administration: write,而 GITHUB_TOKEN 无法获得该权限(permissions 里根本没有

@@ -60,11 +60,11 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
         id: setup-pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
       # 立因(现读 run 39846192962 @ 9f8d15add 的 install 日志,逐字):
       #   "Content-addressable store is at: /home/runner/work/IHUI-AI/IHUI-AI/D:/DevEnv/tools/pnpm/store/v11"
@@ -79,7 +79,7 @@ jobs:
       #   唯 `pnpm store path --store-dir=…` 生效。
       - name: Setup Node
         id: setup-node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           # 刻意不吃 `cache: 'pnpm'`:该输入让 setup-node 用**不带参数**的 `pnpm store path`
@@ -88,7 +88,7 @@ jobs:
 
       - name: Cache pnpm store (检出目录之外)
         id: store-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}

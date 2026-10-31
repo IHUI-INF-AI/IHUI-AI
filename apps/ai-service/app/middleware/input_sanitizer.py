@@ -193,6 +193,11 @@ RATE_RULES: list[tuple[str, int, int]] = [
     # 2026-11-01 安全强化:/api/voice/stt 在 JWT_PUBLIC_PATHS 里(匿名可调)且每次都走本地
     # CPU 推理,原先不在任何限流规则内 ⇒ 脚本化打满即可停摆。tts 同为本地合成,一并纳入。
     ("/api/voice/", 20, 60),  # 20 次/分钟
+    # 2026-11-01 安全强化第 2 批:`POST /api/ai-skills/reload` 是**登录用户可点的全局动作**
+    # (web 技能库有"重新加载"按钮,skill-library.tsx:470),它会触发 skill_registry.reload()
+    # 重扫磁盘。按钮不能砍(在用能力),但一次点击 = 一次全局重扫 ⇒ 脚本化点击就是放大器。
+    # 因此限的是该路径的调用频率,而不是把它收成管理员专属。
+    ("/api/ai-skills/reload", 6, 60),  # 6 次/分钟
 ]
 
 

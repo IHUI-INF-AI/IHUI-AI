@@ -10,8 +10,10 @@
  * `merge-live-doc --file AGENTS.md --apply` 把盘上正文顶回 **102352**,而当时被叫到的复洁器判了个
  * `clean dropped=0` —— 因为既有四维的入口条件全带 `/^\s*- \[[ xX]\]/`,AGENTS.md 的 30 行正文子弹
  * **0/30 命中**。本文件把"这一格不再无人负责"钉成可复跑的夹具:
- *   · 正控:归并确实把迁出行插回来了(否则本测试证明不了任何事);
- *   · 修控:带 `--archive-disposition` 的复洁把插回的迁出行放回原样;
+ *   · 正控:两格都得钉 —— 盘上有批次件当凭据时归并**不**插回(2026-10-28 gb22 起归并层自己认这份
+ *     磁盘凭据,本文件初版所测的"照样插回"已被归并层吃掉),凭据缺席时归并**确实**插回(否则本测试
+ *     证明不了任何事,而维五也无事可做);
+ *   · 修控:归并插回之后批次件才落盘这一格,带 `--archive-disposition` 的复洁把迁出行放回原样;
  *   · 正向对照:别人本轮真新增的行(不在任何归档批次里)必须照样留着 —— 否则等于把归并关了;
  *   · 反控:不传旗 ⇒ 行为逐字不变;处置侧文本取不到 / 同族 0 份 / 整篇复制件 ⇒ exit 2 且一个字不动;
  *     登记行形(`- [ ]`/`- [x]`)绝不由本维剔(PROJECT_PLAN 一族语义不动,红线)。
@@ -151,38 +153,62 @@ function seed({
   return { dir, run, doc, write, compressed }
 }
 
-test('① 正控:在飞窗口里 merge-live-doc --apply 确实把迁出行原样插回(修前实测同型)', () => {
-  const { dir, run, doc, compressed } = seed()
+test('① 正控:迁出行两格都得钉 —— 盘上有批次凭据时归并不插回,凭据缺席时确实插回', () => {
+  // 格 A(批次件已在盘上,§1 两步走的"落盘未落库"窗口):归并层自己也认这份凭据
+  //   (merge-live-doc 的 `readArchivedForDoc(FILE, headText, wtText)` 把处置侧快照=工作树副本
+  //    交给 lib 的 `selectMovedOutForDisposition`,后者按**磁盘归档目录**取清单,2026-10-28 票 gb22)。
+  //   ⇒ 本文件 2026-10-28 写这条时所测的"归并照样把迁出行插回",在今天这版归并里已经不发生:
+  //     这一格由归并层自己负责,维五是第二层。两层的分工在这里钉住,不许任何一层装作看见。
+  const a = seed()
   try {
-    assert.equal(doc(), compressed, '起点=压好版')
-    const m = run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
+    assert.equal(a.doc(), a.compressed, '起点=压好版')
+    const m = a.run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
     assert.equal(m.code, 0, `归并退出码 ${m.code}\n${m.out}`)
-    const after = doc()
+    const after = a.doc()
+    assert.ok(
+      !after.includes(MOVED_1) && !after.includes(MOVED_2),
+      '格 A 破:盘上已有批次凭据仍被插回 ⇒ 归并层把清偿成果又吞了一次',
+    )
+    assert.ok(after.includes(XCONTROL), '格 A 的反牙:无凭据的别人新增行必须照样补回')
+  } finally {
+    rmScratch(a.dir)
+  }
+
+  // 格 B(批次件不在盘上:还没写、被清、或本机没有)⇒ 归并结构上没有凭据,必须插回。
+  // 这一格是维五的唯一活口:见 ②(批次件晚于归并才落盘时,由维五把它放回原样)。
+  const b = seed({ batchOnDisk: false })
+  try {
+    const m = b.run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
+    assert.equal(m.code, 0, `归并退出码 ${m.code}\n${m.out}`)
+    const after = b.doc()
     assert.ok(
       after.includes(MOVED_1) && after.includes(MOVED_2),
-      '正控失效:迁出行没被插回,本夹具证明不了任何事',
+      '格 B 正控失效:凭据缺席时迁出行没被插回,本夹具证明不了任何事',
     )
     assert.ok(after.includes(XCONTROL), '别人真新增的行必须照样补回')
-    assert.ok(after.length > compressed.length, '插回后必须变长')
+    assert.ok(after.length > b.compressed.length, '插回后必须变长')
     // 备份件 = 归并那一刻的盘上正文(2026-10-28 现场的 `.ihui-agent/tmp/AGENTS.md.<stamp>.pre-merge.bak`)
-    const baks = readdirSync(join(dir, '.ihui-agent/tmp')).filter((f) =>
+    const baks = readdirSync(join(b.dir, '.ihui-agent/tmp')).filter((f) =>
       f.endsWith('.pre-merge.bak'),
     )
     assert.equal(baks.length, 1, `应恰有一枚归并备份件,实得 ${baks.length}`)
     assert.equal(
-      readFileSync(join(dir, '.ihui-agent/tmp', baks[0]), 'utf8'),
-      compressed,
-      '备份件必须逐字节等于压好版 —— 复洁的处置侧基准就是这一份',
+      readFileSync(join(b.dir, '.ihui-agent/tmp', baks[0]), 'utf8'),
+      b.compressed,
+      '备份件必须逐字等于归并前的盘上正文',
     )
   } finally {
-    rmScratch(dir)
+    rmScratch(b.dir)
   }
 })
 
-test('② 修控:带 --archive-disposition 的复洁把插回的迁出行放回原样,正向对照仍保留', () => {
-  const { dir, run, doc } = seed()
+test('② 修控:归并插回之后批次件才落盘 ⇒ 带 --archive-disposition 的复洁把迁出行放回原样', () => {
+  // 走 ① 的格 B:凭据缺席时归并先插回(它没有别的依据可用),随后 §1 的迁出批次才写进盘上。
+  // 此刻归并层已经跑过、不会再跑,唯一能把它放回去的是维五 —— 这才是本票要钉的那一层。
+  const { dir, run, doc, write } = seed({ batchOnDisk: false })
   try {
     run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
+    write('.ihui-agent/archive/AGENTS_trim-夹具批次.md', [MOVED_1, MOVED_2].join('\n') + '\n')
     const s = run('scrub-declared-removals.mjs', [
       'AGENTS.md',
       '--archive-disposition',
@@ -215,9 +241,11 @@ test('② 修控:带 --archive-disposition 的复洁把插回的迁出行放回�
 })
 
 test('③ 反控:不传旗 ⇒ 既有四维行为逐字不变(实测现场那句 clean dropped=0)', () => {
-  const { dir, run, doc } = seed()
+  // 与 ② 同一格(归并先插回、批次件随后才落盘),差别只在旗:不传 --archive-disposition ⇒ 一行不动。
+  const { dir, run, doc, write } = seed({ batchOnDisk: false })
   try {
     run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
+    write('.ihui-agent/archive/AGENTS_trim-夹具批次.md', [MOVED_1, MOVED_2].join('\n') + '\n')
     const s = run('scrub-declared-removals.mjs', ['AGENTS.md'])
     assert.match(s.out, /state=clean dropped=0/)
     assert.match(
@@ -228,7 +256,7 @@ test('③ 反控:不传旗 ⇒ 既有四维行为逐字不变(实测现场那句
     const after = doc()
     assert.ok(
       after.includes(MOVED_1) && after.includes(MOVED_2),
-      '不传旗时迁出行照旧留着 —— 这就是 2026-10-28 现场',
+      '不传旗时迁出行照旧留着 —— 这一档的射程由调用方决定,器物不越权',
     )
   } finally {
     rmScratch(dir)

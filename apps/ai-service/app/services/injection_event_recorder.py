@@ -24,16 +24,23 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from app.core.bounded_ttl_store import BoundedTtlDict
+
 # 每会话最多保留的注入事件数(进程内,防无界增长)
 MAX_PER_SESSION = 200
 # 单次查询上限
 MAX_QUERY_LIMIT = 200
+# 2026-11-01 安全强化:外层会话键上限 + 滑动寿命(与 context_compaction 同一条判据、同一份实现)。
+# 这一族条目存的是**被拦下来的攻击者提示片段**,原先只有"每会话 ≤200 条"的内限,
+# 外层键无上限且永不清理 ⇒ 单账号刷会话即可线性吃满内存,同时把注入样本无限期留在进程里。
+MAX_SESSION_KEYS = 2000
+SESSION_TTL_SECONDS = 6 * 3600.0
 
 
 _lock = threading.Lock()
-_history: dict[str, list[dict[str, Any]]] = {}
-# user_id -> set(session_id) 的轻量归属索引(可选,用于会话未登记时的弱校验)
-_owned: dict[str, set[str]] = {}
+_history: BoundedTtlDict = BoundedTtlDict(
+    max_keys=MAX_SESSION_KEYS, ttl_seconds=SESSION_TTL_SECONDS
+)
 
 
 def record_injection_event(
@@ -75,18 +82,18 @@ def record_injection_event(
         "at": time.time(),
     }
     with _lock:
-        _history.setdefault(session_id, []).append(rec)
-        if len(_history[session_id]) > MAX_PER_SESSION:
-            _history[session_id] = _history[session_id][-MAX_PER_SESSION:]
-        if user_id:
-            _owned.setdefault(user_id, set()).add(session_id)
+        existing = _history.get(session_id) or []
+        _history.set(session_id, [*existing, rec][-MAX_PER_SESSION:])
+        # 归属索引原样删除(2026-11-01):它的键是 user_id、而没有任何一处按 user_id 读过它,
+        # 兄弟模块 context_compaction 的读侧键是 session_id ⇒ 这份索引既不参与判据也无上限,
+        # 属于"写了没人读的第二份真相源"(§0.6)。记录本身已带 user_id 字段,需要时按记录判。
     return rec
 
 
 def list_injection_events(session_id: str, limit: int = MAX_QUERY_LIMIT) -> list[dict[str, Any]]:
     """列出某会话的注入拦截事件(时间升序,截断到 limit)。"""
     with _lock:
-        records = list(_history.get(session_id, []))
+        records = list(_history.get(session_id) or [])
     return records[: max(1, min(int(limit), MAX_QUERY_LIMIT))]
 
 
@@ -94,7 +101,6 @@ def reset_injection_events() -> None:
     """清空全部注入事件记录(测试用)。"""
     with _lock:
         _history.clear()
-        _owned.clear()
 
 
 __all__ = [

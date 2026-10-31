@@ -47,20 +47,28 @@ env:
   # 本值只决定 runner 上的 python 解释器,不参与 lint 版本判定)。
   PYTHON_VERSION: '3.12'
 
+# 2026-11-01 安全强化:显式最小权限(与 ci.yml 同档)。此前本文件不声明 permissions,
+# 拿的是仓库/组织**默认**那一份;而默认档位可能含写权。声明之后未列出的 scope 一律
+# 降为 none(同 release-desktop.yml 头注那条事实)。
+# 本作业只做 checkout + 装依赖 + 构建 packages + 跑全量守门:不建 PR、不上传产物、
+# 不动 release、不调 GITHUB_TOKEN 写接口 ⇒ `contents: read` 就是它需要的全部。
+permissions:
+  contents: read
+
 jobs:
   guardian-full:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # fetch-depth: 0 —— 守门要读历史(reflog / lost-commit tag / git log 派生),
           # 浅克隆会让 30a(commit 丢失防护)这类门读不到真历史。
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -75,7 +83,7 @@ jobs:
         run: pnpm -r --filter "./packages/*" build
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 

@@ -67,10 +67,10 @@ jobs:
             runner: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       # macOS Universal:补装 x86_64 目标(arm64 已就位)
       - name: Add macOS x86_64 target (universal build)
@@ -96,7 +96,7 @@ jobs:
       # 2026-09-16 构建提速:Rust target 缓存——release 全量编译 20-40 分钟是大头,
       # 增量后仅重编变更 crate(实测可压缩到 5-10 分钟);key 按 Cargo.lock 哈希失效。
       - name: Cache Rust build
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: apps/desktop/src-tauri
           cache-all-crates: true
@@ -106,7 +106,7 @@ jobs:
       # 2026-09-17 编译缓存跨 run 共享:命中后依赖 crate 全跳过,只编业务代码
       # (macOS/Linux 单 job 预期 8-10 分钟;首 run 为填充缓存,第二次起生效)
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
       - name: Enable sccache
         run: echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
@@ -149,7 +149,7 @@ jobs:
 
       - name: Build & Release
         id: tauri
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
         # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
         # (产物实际已构建+签名成功,CI 日志实证);容错后由下一步兜底上传
@@ -212,7 +212,7 @@ jobs:
       - name: Upload unsigned installer for signing (Windows)
         if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
         id: upload-unsigned-desktop
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: unsigned-desktop-${{ matrix.label }}
           path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
@@ -222,7 +222,7 @@ jobs:
       - name: Submit SignPath signing request (Windows)
         if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
         id: signpath-desktop
-        uses: signpath/github-action-submit-signing-request@v3
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
@@ -324,7 +324,7 @@ jobs:
           fi
 
       - name: Upload bundle artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-bundle-${{ matrix.label }}
           path: |
@@ -368,10 +368,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -395,18 +395,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (main branch for commit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -415,7 +415,18 @@ jobs:
         run: pnpm config set registry https://registry.npmmirror.com
 
       - name: Install pnpm deps
-        run: pnpm install --no-frozen-lockfile
+        # 2026-11-01 供应链强化:此处原为 `--no-frozen-lockfile` —— 这条链产出**签名并对外发布**
+        # 的桌面安装包,允许解析漂移意味着"lockfile 与 package.json 不一致时不报错,
+        # 而是把上游最新版装进来、签上名、发给用户"(投毒只需劫持一次上游发版,无需 PR)。
+        # 换回 frozen 的依据(现读,不是推测):
+        #  · `ci.yml:67/355` 一直在用 `pnpm install --frozen-lockfile`,且 CI 为绿 ⇒ 该写法
+        #    在本仓现有镜像源(.npmrc registry=npmmirror)下本就可行;
+        #  · `pnpm-lock.yaml` 里 **没有** 任何 per-package `resolution.tarball` 主机名
+        #    (grep `resolution:\{tarball:"https://` = 0 命中)⇒ 换注册表不会让锁失效;
+        #  · ci.yml:63 的既有注释写的就是同一句判据:"禁止改成裸 pnpm install 或加
+        #    --no-frozen-lockfile —— 那等于把这道门删掉"。
+        # 失败方向由此变成"锁不一致时流水线响亮地红",而不是静默装出另一个东西。
+        run: pnpm install --frozen-lockfile
 
       # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建。api-client 产物化后
       # (0fca0f3034,入口 main/exports → dist),CI 全新 checkout 下不先构建
@@ -425,7 +436,7 @@ jobs:
         run: pnpm --filter @ihui/extension... build
 
       - name: Download all bundle artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: .
           pattern: desktop-bundle-*
@@ -461,7 +472,7 @@ jobs:
       #   这里只把解析结果当 artifact 留档。
       - name: Upload resolved feed snapshot (not pushed)
         if: steps.changes.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-feed-snapshot-${{ inputs.tag || github.ref_name }}
           path: apps/web/src/config/desktop-feed.generated.ts
@@ -495,12 +506,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 1
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
 

@@ -747,7 +747,7 @@ async def test_review_pr_github_api_diff_404(monkeypatch):
 async def test_review_pr_cache_hit_skips_api_call(monkeypatch):
     """缓存命中时不调用 diff API(但仍调用 metadata/files)。"""
     cache_key = "github:pr:test/cache:5:diff"
-    _PR_DIFF_CACHE[cache_key] = (_DIFF_TEXT, time.time())  # 预置缓存
+    _set_cached_pr_diff(cache_key, _DIFF_TEXT)  # 预置缓存(走生产同一份写入口,不戳存储内部形状)
 
     call_count = {"diff_calls": 0}
     diff_response = _FakeResponse(200, {}, _DIFF_TEXT)
@@ -798,7 +798,7 @@ async def test_review_pr_cache_populated_after_api_call(monkeypatch):
     assert out["ok"] is True
     # 缓存应被填充
     assert cache_key in _PR_DIFF_CACHE
-    assert _PR_DIFF_CACHE[cache_key][0] == _DIFF_TEXT
+    assert _get_cached_pr_diff(cache_key) == _DIFF_TEXT
 
     _PR_DIFF_CACHE.pop(cache_key, None)
 

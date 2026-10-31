@@ -8439,6 +8439,113 @@ function stampCrossEndDispatch(tickFile, attemptAtMs, r, stdout, extra = {}) {
  * 判机器状态 ⇒ 绝不进提交链;不改本守护退出码(与 auditCrossEndParityDrift 同型)。
  * 5 分钟节流:无新提交时尺子零 git 派生(游标==HEAD 即返),不会刷爆共享仓。
  */
+/**
+ * 提交面「内容整片退回更早版本」巡检(2026-11-01 立,洞 A 收口)。
+ *
+ * 为什么由守护派而不是提交链:尺子判的是**已入库的历史**,提交者结构上无法满足"把过去改掉" ——
+ * 挂进提交链就是 §12e 那条恒红门禁令的现场。而这一格此前无人复查:门 30c/84 只判暂存面与索引面,
+ * 门 100/168 只判合并,收编器只在"它自己要收编"那一刻判工作树。本会话实测的两起损失
+ * (`9fdbc207ba2ea5536812f8b965d7a9218bb28785` 摘掉告警身份去重、`b41b9fdce8c87fa3afb0c04ee88999d6591ac1da`
+ * 摘掉部署预期窗口)走的都是"绕过钩子直接提"这条唯一落点,当场一道门都没响。
+ *
+ * 档位:第一版**只写守护日志 + 落台账**(`--mark` 由尺子自己写 `.ihui-agent/state/landed-revert-audit.jsonl`),
+ * 不推邮件 —— §5e-1 的准入问的是"红了收信人能做什么",而首轮窗口里的存量枚数还没量过;先量一版
+ * 真实命中数,再决定要不要升到人通道(升档前置 = 存量归零,同 §12e)。
+ * 结论取不到 ⇒ 只记"本轮没判",绝不记绿(§0.3)。
+ */
+export const LANDED_REVERT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
+
+export function auditLandedReverts(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = LANDED_REVERT_AUDIT_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'landed-revert-audit-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-landed-reverts.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 提交面回退巡检:尺子不在位(scripts/check-landed-reverts.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ 提交面回退巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json', '--mark'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 5 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio(丢了 stdout 就等于恒读不到)
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = 判出回退,exit 2 = 未判定(枚举不到候选),两种都**不是**"尺子坏了"
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger(
+      `⚠️ 提交面回退巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"历史是干净的"(§0.3)`,
+    )
+    return { ran: true, state: 'undetermined', why: '结论不可用' }
+  }
+  if (parsed.state === 'unjudged') {
+    logger(`ℹ️ 提交面回退巡检:未判定 —— ${String(parsed.reason ?? '(无原因)').slice(0, 140)}`)
+    return { ran: true, state: 'unjudged' }
+  }
+  const hits = parsed.findings ?? []
+  if (parsed.state === 'ok') {
+    logger(
+      `✅ 提交面回退巡检:审 ${parsed.audited ?? 0} 枚(跳过合并 ${parsed.skippedMerges ?? 0})命中 0 处,游标基准 ${String(parsed.base ?? '(无)').slice(0, 12)}`,
+    )
+    return { ran: true, state: 'ok', audited: parsed.audited ?? 0 }
+  }
+  logger(
+    `⚠️ 提交面回退巡检:审 ${parsed.audited ?? 0} 枚,命中 ${hits.length} 处"整片退回更早版本" —— 逐枚复核(该回补的回补):`,
+  )
+  for (const h of hits.slice(0, 20))
+    logger(
+      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ 与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`,
+    )
+  if (hits.length > 20)
+    logger(`   …另有 ${hits.length - 20} 处,见台账 .ihui-agent/state/landed-revert-audit.jsonl`)
+  return { ran: true, state: 'flagged', hits: hits.length }
+}
+
 export const IMMUTABLE_GUARD_AUDIT_INTERVAL_MS = 5 * 60 * 1000
 
 export function auditImmutableGuardNewCommits(opts = {}) {
@@ -10945,6 +11052,7 @@ function main() {
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
     if (!CHECK_ONLY) auditImmutableGuardNewCommits()
+    if (!CHECK_ONLY) auditLandedReverts()
     // 根护栏清单自洽性(2026-10-31 立;与 daemon tick 同一挂点语义,共用
     // .ihui-agent/state/root-guard-manifest-audit-last.json 节流戳 ⇒ 双执行体并存只先到那个真跑)
     if (!CHECK_ONLY) auditRootGuardManifestSync()
