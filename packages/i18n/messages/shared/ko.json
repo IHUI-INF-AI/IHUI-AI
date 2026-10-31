@@ -79,6 +79,8 @@
     "toolWorkflowTrigger": "워크플로 트리거",
     "toolWorkflowResume": "워크플로 재개",
     "toolWorkflowInstanceStatus": "워크플로 인스턴스 상태",
+    "toolNotebookEdit": "노트북 셀 편집",
+    "toolSendToSession": "세션 메시지 보내기",
     "toolGenerateTest": "테스트 코드 생성",
     "toolRunCommand": "명령 실행",
     "toolGitOperations": "Git 작업 실행",

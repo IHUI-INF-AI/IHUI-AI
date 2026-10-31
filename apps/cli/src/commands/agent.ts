@@ -289,17 +289,36 @@ import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
 // ==================== 公共函数 ====================
 
-/** 读取工作区 AGENTS.md(如果存在),用于注入 system prompt */
-function readAgentsMd(workspacePath: string): string | undefined {
+/**
+ * 读取工作区 AGENTS.md(如果存在),用于注入 system prompt。
+ *
+ * instructionsLoaded 档的事件源就是这里(2026-10-31 第三笔):全仓只有这一条 AGENTS.md
+ * 装载链 —— CLI 直连与 REPL 都经 setupAgentTools 走到这一处(REPL 自己不读 AGENTS.md,
+ * 它只在 /init 时创建模板),所以在这里派发恰好覆盖两种宿主,不需要第二条接线。
+ *
+ * "装载成功"的判据必须与真正进 system prompt 的判据同形(调用方按 truthy 取用):
+ * 文件不存在 / 读不动 / 内容为空或纯空白 ⇒ **一条都不派**。空文件被报成"指令已装载"
+ * 就是无中生有的事件,和硬造定时器同一型;派发排在 trim 判定之后正是为此。
+ *
+ * 导出面:本函数原来只在文件内可见,现导出是为了让"装载即派发 / 未装载不派发"这一格
+ * 能被测试直接钉住(§14:判据要能被真跑出来),不是给别的模块取用。
+ */
+export function readAgentsMd(workspacePath: string): string | undefined {
   const p = path.join(workspacePath, 'AGENTS.md');
+  let content: string | undefined;
   try {
     if (fs.existsSync(p)) {
-      return fs.readFileSync(p, 'utf-8');
+      content = fs.readFileSync(p, 'utf-8');
     }
   } catch {
-    // 读取失败忽略
+    // 读取失败忽略(读不动 ⇒ 下面判据自然不派发)
   }
-  return undefined;
+  if (content !== undefined && content.trim().length > 0) {
+    void runHook('instructionsLoaded', { workspacePath, instructionsPath: p }).catch(() => {
+      // 派发故障不得回改装载结果(runHook 内部已自兜,这里只兜 promise rejection)
+    });
+  }
+  return content;
 }
 
 export interface SetupAgentToolsOptions {
@@ -1095,6 +1114,26 @@ function attachCheckpointAutoSnapshot(
       }
     }
   });
+}
+
+/**
+ * fileChanged 档派发接线(2026-10-31 第二笔):FsEventSource 每观测到一次文件变更,
+ * 就派发一次 `runHook('fileChanged', …)`,载荷 = 变更文件路径 + 变更档位
+ * (与 fs-watcher 的 FsEventKind 同形:create/modify/delete/rename)。
+ * 口径与 attachCheckpointAutoSnapshot 一致 —— 监听链是观察面,钩子故障不得传导进来;
+ * runHook 自身已全量兜底,这里的 catch 只是不让 promise rejection 逃逸出派发帧。
+ * 返回退订函数(测试与未来 stop 收口可用)。
+ */
+export function attachHookFileChangedDispatch(src: FsEventSource): () => void {
+  const onEvent = (e: FsEvent): void => {
+    void runHook('fileChanged', { filePath: e.path, fileChangeKind: e.kind }).catch(() => {
+      // 派发故障不回改已经观测到的事件
+    });
+  };
+  src.on('event', onEvent);
+  return () => {
+    src.off('event', onEvent);
+  };
 }
 
 export interface RunToolLoopResult {
@@ -2819,6 +2858,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         codegraphSettings.fsWatcher.ignore ?? [],
       );
       fsEventSource.start();
+      // fileChanged 档:监听源每次事件恰好派发一次钩子(2026-10-31 第二笔接线)
+      attachHookFileChangedDispatch(fsEventSource);
       // P2-1 checkpoints 集成:文件改动 N 次(N=20)后自动 snapshot 受影响文件
       if (opts.checkpoints) {
         attachCheckpointAutoSnapshot(fsEventSource, opts.checkpoints, 20);

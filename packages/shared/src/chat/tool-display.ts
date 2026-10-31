@@ -166,6 +166,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   workflow_trigger: 'toolWorkflowTrigger',
   workflow_resume: 'toolWorkflowResume',
   workflow_instance_status: 'toolWorkflowInstanceStatus',
+  // G-NotebookEdit 补齐(2026-11-01 立):.ipynb 单元格结构编辑
+  notebook_edit: 'toolNotebookEdit',
+  // G-07 会话寻址投递(2026-10-31 立):与 send_team_message 互补的第二形态
+  send_to_session: 'toolSendToSession',
 }
 
 export function toolDisplayKey(toolName: string): string | null {
