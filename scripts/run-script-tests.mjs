@@ -251,6 +251,58 @@ export function runChunk(files) {
 }
 
 /**
+ * 红项按**文件**归因:junit reporter 的 `<testcase … file="…" failure="…">` 是唯一带路径的形态。
+ *
+ * 为什么非要它(2026-11-01 现读):`--test-reporter=tap` 在 Node 24 把多文件的用例**拍平**输出,
+ * 整份 TAP 里一个文件路径都没有 ⇒ 本 runner 只能报 `[片N] 用例名`,911 文件 252 红**无法按文件归因**,
+ * 每一枚红都得人工重跑单文件才能定位(那片红至今无人收口的真原因)。junit 同一次跑就带 `file=`,
+ * 所以归因只在"这片有红"时多做一次派生,绿片零额外开销。
+ * 解析只认 `failure=` 属性(阳性对照:.ihui-agent/tmp 那次探针实测的失败项形状);
+ * 取不到 ⇒ 返回空表,由调用方记成"归因未判定",绝不当成"这片其实没红"。
+ */
+export function parseJunitFailures(xml) {
+  const out = []
+  const RE = /<testcase\b[^>]*?name="([^"]*)"[^>]*?file="([^"]*)"[^>]*?failure="([^"]*)"/g
+  let m
+  while ((m = RE.exec(String(xml ?? '')))) {
+    out.push({
+      name: decodeXmlEntities(m[1]),
+      file: decodeXmlEntities(m[2]),
+      why: decodeXmlEntities(m[3]).replace(/\s+/g, ' ').slice(0, 200),
+    })
+  }
+  return out
+}
+
+/** 实体还原(junit 把引号与换行写成 `&quot;` / `&#10;`,不归一就没法给人看) */
+export function decodeXmlEntities(s) {
+  return String(s ?? '')
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+/** 用 junit reporter 再跑一遍同一批文件(只在有红时调用)。 */
+export function runChunkJunit(files) {
+  const r = spawnSync(process.execPath, ['--test', '--test-reporter=junit', ...files], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 1 << 28,
+    env: (() => {
+      const e = { ...process.env }
+      delete e.NODE_TEST_CONTEXT
+      return e
+    })(),
+  })
+  return parseJunitFailures(r.stdout)
+}
+
+/**
  * `rootDir` 是**测试专用注入口**(默认仍是真仓 ROOT):反假绿两条性质("发现 0 ⇒ 判红"、
  * "计数缺失 ⇒ 判红")必须在隔离目录里用真假测试文件端到端取证,又不能往真仓 `scripts/tests/`
  * 里丢临时文件(§25;且并发会话的一次 `add -A` 会把它当成正式测试收走)。
@@ -328,6 +380,7 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   const tally = { tests: 0, pass: 0, fail: 0, skipped: 0, cancelled: 0 }
   const failures = []
   const unparsed = []
+  const redChunks = []
   chunks.forEach((chunk, i) => {
     const p = runChunk(chunk)
     if (!p.parsed) {
@@ -343,10 +396,32 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
     // 会让清单打成 `[object Object]`(2026-10-21 实测:CI 日志 100 条全成这个,等于把失败名
     // 整个丢了,比改之前更糟)。
     for (const n of p.notOk) failures.push({ chunk: i + 1, name: n.name, why: n.why })
+    if (p.fail > 0) redChunks.push({ chunk: i + 1, files: chunk })
     console.log(
       `  片 ${i + 1}/${chunks.length}: ${chunk.length} 文件 → pass ${p.pass} / fail ${p.fail}`,
     )
   })
+  // 归因只在"这片有红"时多跑一次 junit(tap 在 Node 24 把多文件拍平,里面根本没有文件路径)。
+  const byFile = new Map()
+  const unattributed = []
+  for (const rc of redChunks) {
+    const got = runChunkJunit(rc.files)
+    if (!got.length) {
+      // TAP 说这片有红而 junit 归因不到 ⇒ 记"归因未判定",绝不当成"这片其实没红"
+      unattributed.push({ chunk: rc.chunk, files: rc.files.length })
+      continue
+    }
+    for (const f of got) {
+      const rel = f.file.replace(/\\/g, '/').replace(/^.*?(scripts\/tests\/|deploy\/tests\/)/, '$1')
+      const cur = byFile.get(rel) || { count: 0, sample: f.name, why: f.why }
+      cur.count += 1
+      if (!cur.why && f.why) cur.why = f.why
+      byFile.set(rel, cur)
+    }
+  }
+  const redFiles = [...byFile.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([file, v]) => ({ file, ...v }))
   console.log(
     `文件 ${files.length} 个 / ${chunks.length} 片 ⇒ 用例 ${tally.tests},pass ${tally.pass},fail ${tally.fail},skip ${tally.skipped},cancelled ${tally.cancelled}`,
   )
@@ -365,6 +440,19 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   } else if (!unparsed.length) {
     console.log(CHANGED ? '✅ 改动面对应的镜像测试绿' : '✅ 全量镜像测试绿')
   }
+  // 按文件归因(修一片红要先知道红在哪枚文件里;tap 拍平后这是唯一拿得到的路径来源)
+  if (redFiles.length) {
+    console.log(`❌ 红项按文件归因:${redFiles.length} 枚文件(按红条数降序,前 30):`)
+    for (const r of redFiles.slice(0, 30))
+      console.log(
+        `   ${String(r.count).padStart(3)} × ${r.file}\n         ↳ ${String(r.why || r.sample).slice(0, 150)}`,
+      )
+    if (redFiles.length > 30) console.log(`   …另 ${redFiles.length - 30} 枚文件,见 --json`)
+  }
+  for (const u of unattributed)
+    console.log(
+      `⚠️ 片 ${u.chunk}(${u.files} 文件)TAP 报红而 junit 归因不到 ⇒ **归因未判定**,不等于那片没红`,
+    )
   if (CHANGED) {
     // 结论行:files=改动面命中的 scripts/** 枚数;suites=据此选出的测试文件枚数。
     // unparsed 单列(不为零)—— runner 崩了的那些片不摊进 fail 计数里冒充"判过了"。
@@ -379,6 +467,11 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
         chunks: chunks.length,
         ...tally,
         red: failures.length + unparsed.length,
+        redFiles,
+        attributionUnjudged: unattributed,
+        ...(redFiles.length + unattributed.length === 0
+          ? {}
+          : { attributed: redFiles.reduce((n, r) => n + r.count, 0) }),
         ...(CHANGED
           ? { changed: { files: changed.paths.length, suites: files.length, paths: changed.paths } }
           : {}),

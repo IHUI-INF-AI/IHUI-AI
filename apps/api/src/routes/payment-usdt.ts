@@ -21,6 +21,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import {
   createUsdtPayment,
   listUserUsdtPayments,
@@ -194,7 +195,11 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       // 强制验签(fail-closed):secret 未配置或提供的 secret 不匹配 → 拒绝
       const providedSecret = request.headers['x-webhook-secret'] as string | undefined
-      if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
+      // 2026-11-01 安全强化:改用仓内单源的 `secretsEqual`(定长散列 + timingSafeEqual)。
+      // 原先是 `providedSecret !== WEBHOOK_SECRET` 的字符串比较:比较长度可变、短路可见,
+      // 对一枚长期凭据做逐字节时序探测是教科书型时序面(此处已有 60/min 限流 + 链上复核,
+      // 所以不构成"可完成"的攻击,但判据该按最严的那条写)。不另造第二份实现(§0.6)。
+      if (!WEBHOOK_SECRET || !providedSecret || !secretsEqual(providedSecret, WEBHOOK_SECRET)) {
         request.log.warn(
           {
             hasConfig: !!WEBHOOK_SECRET,

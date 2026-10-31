@@ -8,6 +8,32 @@ vi.mock('../src/utils/logger.js', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }))
 
+// 2026-11-01 安全强化:出网闸的形替身(本仓已有 4 个测试文件用同一手法 mock 它)。
+// 刻意保留**字面内网判定**的真实语义,而不是让它恒通过 —— 否则"接了守卫"这件事
+// 在本文件里就只是装饰:摘掉 downloadFileFromUrl 里的调用,下面的反向牙必须翻红。
+vi.mock('../src/utils/ssrf-guard.js', () => {
+  const judged: string[] = []
+  const isInternalLiteral = (raw: string): boolean => {
+    let host = ''
+    try {
+      host = new URL(raw).hostname.toLowerCase().replace(/\.$/, '')
+    } catch {
+      return true // 解析不出来 ⇒ 不放过
+    }
+    if (host === 'localhost' || host === '::1') return true
+    if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.)/.test(host)) return true
+    return /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  }
+  return {
+    ensureSafeFetchUrl: vi.fn(async (raw: string) => {
+      judged.push(raw)
+      if (isInternalLiteral(raw)) throw new Error('SSRF blocked: internal/reserved target')
+      return raw
+    }),
+    __judged: judged,
+  }
+})
+
 import {
   MAX_FILE_SIZE,
   guessContentType,
@@ -15,6 +41,61 @@ import {
   downloadFileFromUrl,
   uploadFileToServer,
 } from '../src/utils/file-transfer.js'
+
+/**
+ * 出网闸接线(2026-11-01 安全强化)。
+ *
+ * 本文件此前只测"怎么把字节搬回来",不测"该不该搬":`downloadFileFromUrl` 是裸 `fetch(url)`,
+ * 而 `uploadFromNetworkUrl` 把 url **原样转发**给内部转存服务(= 下游替我出连)。
+ * 现读它在 `apps/api/src` 内零调用方 ⇒ 今天不是活敞口,但它是**已导出的通用工具**:
+ * 任何一个新路由接上它,就白拿一枚"服务端替调用者出连"的原语
+ * (云元数据 169.254.169.254、只绑回环的管理端口都在射程)。闸住在工具自己这一侧。
+ */
+describe('file-transfer 出网闸', () => {
+  async function judged(): Promise<string[]> {
+    const mod = (await import('../src/utils/ssrf-guard.js')) as unknown as {
+      __judged: string[]
+    }
+    return mod.__judged
+  }
+
+  it('内网/元数据字面落点:一次 fetch 都不发,直接返回 null', async () => {
+    const fetchSpy = vi.fn()
+    global.fetch = fetchSpy as never
+    const before = (await judged()).length
+    for (const url of [
+      'http://169.254.169.254/latest/meta-data/iam/',
+      'http://127.0.0.1:8802/admin',
+      'http://localhost:8803/api/mcp',
+    ]) {
+      expect(await downloadFileFromUrl(url), url).toBeNull()
+    }
+    expect(fetchSpy, '被拒的落点不该发出任何请求').not.toHaveBeenCalled()
+    // 闸确实被问过(而不是靠别的分支偶然返回 null)
+    expect((await judged()).length - before).toBe(3)
+  })
+
+  it('正向对照:公网落点照常工作(闸在 fetch 之前问,且不拦合法目标)', async () => {
+    const fetchSpy = vi.fn(async () =>
+      mockFetchResponse({ ok: true, status: 200, bodyChunks: [new Uint8Array([1, 2, 3])] }),
+    )
+    global.fetch = fetchSpy as never
+    const r = await downloadFileFromUrl('https://public.example.com/a.bin')
+    expect(r).not.toBeNull()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(await judged()).toContain('https://public.example.com/a.bin')
+  })
+
+  it('转发面同样在入口判(它把 url 交出去让别人出连)', async () => {
+    const { readFileSync } = await import('node:fs')
+    const src = readFileSync('src/utils/file-transfer.ts', 'utf-8')
+    const guardAt = src.indexOf('await ensureSafeFetchUrl(url)')
+    const postAt = src.indexOf("body: JSON.stringify({ filePath: url })")
+    expect(guardAt, '两处出网都该过闸').toBeGreaterThan(0)
+    expect(src.split('ensureSafeFetchUrl(').length - 1).toBeGreaterThanOrEqual(2)
+    expect(guardAt, '闸必须排在把 url 转发出去之前').toBeLessThan(postAt)
+  })
+})
 
 /** 构造 mock fetch 响应 */
 function mockFetchResponse(opts: {

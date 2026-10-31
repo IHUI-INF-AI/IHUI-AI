@@ -140,7 +140,14 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // PUT /organizations/:id - 修改组织
   // -------------------------------------------------------------------------
-  server.put('/organizations/:id', async (request, reply) => {
+  // 2026-11-01 安全强化:这三枚端点原先只有 `authenticate`(= 只证明"是登录用户"),
+  // 却按 `:id` 直接改/删组织并列出成员 email/phone,**没有任何归属或成员资格判据**:
+  // 任何登录账号 `DELETE /organizations/<别人的 uuid>` 就能毁掉对方组织及其成员关系。
+  // 现读:本文件当前**未进生产注册表**(routes/index.ts 只挂 zhs 那套),所以今天不构成
+  // 活敞口 —— 但它是一枚 fail-open 陷阱:因为处理函数"确实调了 authenticate",
+  // 默认拒绝网(只拦"完全没有主体"的请求)结构上抓不到被注册后的它。
+  // 因此就地收口到 requireAdmin,与 zhs-organization.ts 第 11 批的裁决同语义。
+  server.put('/organizations/:id', { preHandler: requireAdmin }, async (request, reply) => {
     await authenticate(request)
     const paramParsed = idParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
@@ -180,7 +187,7 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // DELETE /organizations/:id - 删除组织
   // -------------------------------------------------------------------------
-  server.delete('/organizations/:id', async (request, reply) => {
+  server.delete('/organizations/:id', { preHandler: requireAdmin }, async (request, reply) => {
     await authenticate(request)
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
@@ -207,7 +214,7 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // GET /organizations/:id/members - 组织成员列表
   // -------------------------------------------------------------------------
-  server.get('/organizations/:id/members', async (request, reply) => {
+  server.get('/organizations/:id/members', { preHandler: requireAdmin }, async (request, reply) => {
     await authenticate(request)
     const paramParsed = idParamSchema.safeParse(request.params)
     if (!paramParsed.success) {

@@ -7,6 +7,8 @@ export * from './ai-skill-variables'
 export * from './agent-action-addressing'
 export * from './app-control-intent'
 export * from './async'
+// WebView 落点信任判定(跨端唯一实现:小程序与 RN 各自只注入自身信任域清单)
+export * from './webview-trust'
 export * from './base64'
 // 上下文占用归因分解(按构成来源,而非只报总量)
 export * from './context-attribution'

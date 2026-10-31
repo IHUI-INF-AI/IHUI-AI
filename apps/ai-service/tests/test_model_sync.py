@@ -1046,7 +1046,8 @@ class TestGeminiAdapter:
     """测试 Google Gemini /v1beta/models 适配。
 
     Gemini API 特点:
-    - 端点:{base_url}/v1beta/models?key={api_key}
+    - 端点:{base_url}/v1beta/models,凭据走 x-goog-api-key 头(2026-11-01 起;
+      原先拼在 ?key= 查询串里 ⇒ 同一枚平台密钥会随 URL 进日志/中间层访问日志)
     - 响应:{"models": [{"name": "models/gemini-1.5-flash", "displayName": "...",
               "inputTokenLimit": 1048576, "outputTokenLimit": 8192,
               "supportedGenerationMethods": ["generateContent", "countTokens"]}]}
@@ -1056,7 +1057,7 @@ class TestGeminiAdapter:
 
     @pytest.mark.asyncio
     async def test_gemini_endpoint(self) -> None:
-        """验证调用 {base_url}/v1beta/models 且 query 含 key。"""
+        """验证调用 {base_url}/v1beta/models,且凭据只在头里、不在 URL 里。"""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         service = ModelSyncService()
@@ -1073,8 +1074,10 @@ class TestGeminiAdapter:
             mock_get.assert_called_once()
             call_args = mock_get.call_args
             url = call_args.args[0] if call_args.args else call_args.kwargs.get("url", "")
+            sent_headers = call_args.kwargs.get("headers") or {}
             assert "v1beta/models" in url
-            assert "key=" in url
+            assert "key=" not in url, f"URL 仍带凭据:{url}"
+            assert sent_headers.get("x-goog-api-key") == "AIza-test", "鉴权必须仍在"
 
     @pytest.mark.asyncio
     async def test_gemini_response_parsing(self) -> None:

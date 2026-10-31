@@ -18,6 +18,28 @@
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join, normalize, resolve } from 'node:path'
+// 词法器复用共享层那一份(maskComments),不在这里再抄一台(§0.6;AGENTS「方向分两档」口径:
+// 本器判的是**代码里的边**,所以只遮注释,绝不遮字符串 —— 说明符本身就住在字符串里)。
+import { maskComments } from './code-mask.mjs'
+
+/**
+ * 抽取前先抹掉注释(整行等长替换,行号不动)。
+ *
+ * 为什么需要这一步(2026-11-01 实测,不是防御性臆想):`lib/outbound-route-registrations.mjs` 第 434 行
+ * 那段块注释里举例写了 `export { X } from './p.js'`,被下面那条抽取正则当成真边收进闭包 ⇒
+ * 所有装了这份 lib 的门在造夹具时统一报「闭包里的 lib/p.js 不存在」,一型毒到 8 枚用例红。
+ * 现读只此一条假边,且它落在 `scanSpans` 判出的 block 注释里(其余命中都是真代码)。
+ *
+ * ⚠ 不能用 maskCommentsAndStrings / blankQuoteStrings:那会把 `'./a'` 这些**真说明符**一起抹掉,
+ *    闭包当场退化成空集 —— 误收是响亮报错,漏拷是静默拷错,后者比前者难查得多。
+ */
+function maskCommentLines(text) {
+  try {
+    return maskComments(text)
+  } catch {
+    return text // 遮罩器取不到 ⇒ 回到改前行为(宁可照旧误收并报红,也不静默少拷)
+  }
+}
 
 /**
  * 从 `entryRel`(相对 scriptsDir)出发,递归收集所有**相对** import 的路径(含入口自身)。
@@ -37,7 +59,7 @@ export function relativeImportClosure(scriptsDir, entryRel, seen = new Set()) {
     // 这里绝不静默 —— 静默正是"夹具跑得通但拷错了东西"的来源。
     return seen
   }
-  for (const m of text.matchAll(
+  for (const m of maskCommentLines(text).matchAll(
     /(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"](\.[^']+)['"]|(?:^|\n)\s*import\s*['"](\.[^']+)['"]/g,
   )) {
     const spec = m[1] || m[2]
