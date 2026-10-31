@@ -20207,6 +20207,18 @@
     "wizardAuditScope": "スキャン範囲：{cn} と {roaming}、合計 {files} ファイル。"
   },
   "checkin": {
+    "taskPanelTitle": "タスク自動実行",
+    "taskPanelDesc": "WorkBuddy タスクセンターを一括巡回:タスク受諾、達成報酬の受け取り、連続ログイン交換、抽選、猫の旅、夜更かしチャット。",
+    "taskPanelPick": "アカウント",
+    "taskPanelList": "タスクを取得",
+    "taskPanelDryRun": "ドライラン(書き込みなし)",
+    "taskPanelRun": "全ファミリー実行",
+    "taskPanelRunning": "実行中…",
+    "taskPanelEmpty": "タスクなし、または未取得",
+    "taskPanelResult": "実行結果",
+    "taskPanelNoAccount": "WorkBuddy アカウントがありません。先に上で追加してください",
+    "taskPanelTaskCode": "タスク",
+    "taskPanelStatus": "状態",
     "title": "チェックインアシスタント",
     "addAccount": "アカウント追加",
     "addAccountTitle": "チェックインアカウントを追加",
