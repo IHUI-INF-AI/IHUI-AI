@@ -39,6 +39,8 @@ export interface ChunkInput {
   symbolName?: string
   symbolType?: string
   embedding?: number[] | null
+  /** G7:向量来源标注;'remote' | 'local-hash';缺省按向量有无回落判定 */
+  embeddingProvider?: string
 }
 
 /**
@@ -75,6 +77,8 @@ export interface SearchResult {
   symbolName: string | null
   symbolType: string | null
   score: number
+  /** 本行向量来源(G7):'remote' | 'local-hash';NULL = 无向量或存量未标注行 */
+  embeddingProvider: string | null
 }
 
 export interface IndexStats {
@@ -136,8 +140,10 @@ class CodebaseIndexService {
   ): Promise<{
     indexed: number
     vectorized: number
+    /** G7:本批用本地回落档('local-hash')标注的行数 —— 离线/远端不可用的可识别痕迹 */
+    localEmbedded: number
   }> {
-    if (chunks.length === 0) return { indexed: 0, vectorized: 0 }
+    if (chunks.length === 0) return { indexed: 0, vectorized: 0, localEmbedded: 0 }
     // 归属强制在**任何 DB 操作之前**:本表存用户代码明文,写无主行等于制造一处
     // "归属不明但长期留存"的外泄面 —— 正是本次整改要消除的东西。存量无主行由
     // 迁移标记过期待清理,不在这里再造新的。缺 ownerUuid 即抛错(而非静默跳过),
@@ -203,6 +209,8 @@ class CodebaseIndexService {
       language: c.language ?? null,
       symbolName: c.symbolName ?? null,
       symbolType: c.symbolType ?? null,
+      embeddingProvider:
+        c.embeddingProvider ?? (c.embedding && c.embedding.length === 1536 ? 'remote' : null),
       ownerUuid,
       expiresAt,
     }))
@@ -216,7 +224,8 @@ class CodebaseIndexService {
       indexed += batch.length
     }
 
-    return { indexed, vectorized }
+    const localEmbedded = chunks.filter((c) => c.embeddingProvider === 'local-hash').length
+    return { indexed, vectorized, localEmbedded }
   }
 
   /**
@@ -267,6 +276,7 @@ class CodebaseIndexService {
           "language",
           "symbol_name",
           "symbol_type",
+          "embedding_provider",
           1 - ("embedding" <=> ${vectorLiteral}::vector) AS "score"
         FROM "codebase_chunks"
         WHERE ${sql.join(whereParts, sql` AND `)}
@@ -281,6 +291,7 @@ class CodebaseIndexService {
         language: string | null
         symbol_name: string | null
         symbol_type: string | null
+        embedding_provider: string | null
         score: number
       }>
 
@@ -297,6 +308,7 @@ class CodebaseIndexService {
             language: row.language,
             symbolName: row.symbol_name,
             symbolType: row.symbol_type,
+            embeddingProvider: row.embedding_provider ?? null,
             score,
           })
         }
@@ -362,6 +374,7 @@ class CodebaseIndexService {
         language: string | null
         symbol_name: string | null
         symbol_type: string | null
+        embedding_provider: string | null
         score: number
       }>
 
@@ -374,6 +387,7 @@ class CodebaseIndexService {
         language: row.language,
         symbolName: row.symbol_name,
         symbolType: row.symbol_type,
+        embeddingProvider: row.embedding_provider ?? null,
         score: Number(row.score) || 0,
       }))
     } catch (e) {
