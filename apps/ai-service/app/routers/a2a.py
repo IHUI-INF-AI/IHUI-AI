@@ -12,9 +12,10 @@ O11 收权(2026-09-20):
   并按能力目录要求 scope:建单 `agents:call`、读取 `agents:read`;
 - 建单时把调用者 `principal.sub` 写为任务归属(响应体形状不变,归属只进持久化);
 - 读取他人任务 → 403(裁决见 `a2a_service.can_access_task`)。
-- agent 注册/列表两端(`POST /a2a/agents/register`、`GET /a2a/agents`)路径与响应
-  形状**保持原样**,向后兼容;对外发现能力由 `/.well-known/agent.json`
-  (见 routers/agent_wellknown.py)以新增端点承载,不改动上述任何既有契约。
+- agent 注册/列表两端(`POST /a2a/agents/register`、`GET /a2a/agents`)在 R12 收权:
+  两端都要求认证;注册按归属判权(他人已注册的 id → 403,管理员可覆盖且不夺属主),
+  列表只返回本人 + 无主遗留条目(管理员全量)。响应形状保持不变(owner 不进响应体)。
+  `/.well-known/agent.json`(见 routers/agent_wellknown.py)仍是匿名发现面。
 """
 
 from typing import Annotated, Any
@@ -22,7 +23,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ..services.a2a_service import A2AAgent, A2ATask, a2a_server, can_access_task
+from ..services.a2a_service import (
+    A2AAgent,
+    A2ATask,
+    a2a_server,
+    can_access_task,
+    can_manage_agent,
+)
 from ..services.agent_card import SCOPE_TASK_CALL, SCOPE_TASK_READ
 from ..services.capability_gate import (
     Principal,
@@ -98,9 +105,15 @@ async def register_agent(
 
     空 endpoint 表示本地 agent(无远端派发,无 SSRF 风险),直接放行;
     仅当 endpoint 非空时才做 SSRF 校验。
+    归属:首次注册盖 principal.sub;覆盖他人已注册 id → 403(管理员例外,
+    且管理员覆盖不改变原属主);无主遗留条目由首个覆盖者认领。
     """
     from ..services.a2a_service import validate_a2a_endpoint
 
+    existing = a2a_server.get_agent(req.id)
+    if existing is not None and not can_manage_agent(existing, principal):
+        raise HTTPException(status_code=403, detail=f"无权覆盖 agent: {req.id}")
+    owner_id = existing.owner_id if existing is not None and existing.owner_id else principal.sub
     endpoint = (req.endpoint or "").strip()
     if endpoint:
         try:
@@ -113,15 +126,18 @@ async def register_agent(
         capabilities=req.capabilities,
         endpoint=endpoint,
         description=req.description,
+        owner_id=owner_id,
     )
     saved = a2a_server.register_agent(agent)
     return saved.to_dict()
 
 
 @router.get("/a2a/agents")
-async def list_agents() -> dict[str, Any]:
-    """列出所有已注册 agent。"""
-    agents = [a.to_dict() for a in a2a_server.list_agents()]
+async def list_agents(principal: A2APrincipal) -> dict[str, Any]:
+    """列出当前主体可见的已注册 agent(需认证;本人 + 无主遗留,管理员全量)。"""
+    agents = [
+        a.to_dict() for a in a2a_server.list_agents() if can_manage_agent(a, principal)
+    ]
     return {"agents": agents, "count": len(agents)}
 
 

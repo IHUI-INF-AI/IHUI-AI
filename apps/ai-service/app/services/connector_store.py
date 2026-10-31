@@ -62,6 +62,10 @@ OWNER_FIELD = "owner_user_id"
 # 解密侧异常(密钥轮换后密钥环也没有)置空串并记日志 —— 该连接器 sync 会因
 # 凭据无效失败,用户重新配置即可,绝不抛异常崩读面。
 _SECRET_CIPHER_PREFIX = "enc:v1:"
+# 仅存储层内部使用:解密失败的记录保留原密文,避免下一次整表 _write 把它覆盖成空串
+# (密钥轮换后重新找回旧密钥即可恢复,写入空串则永久丢失)。下划线键绝不外泄给调用方。
+_SECRET_UNREADABLE = "_secret_unreadable"
+_SECRET_RAW = "_secret_raw"
 
 
 class SecretCryptoUnavailable(Exception):
@@ -101,6 +105,11 @@ def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _public(rec: dict[str, Any]) -> dict[str, Any]:
+    """剥离仅存储层使用的下划线键,保证内部记账字段不进调用方/响应体。"""
+    return {k: v for k, v in rec.items() if not str(k).startswith("_")}
+
+
 def _load() -> list[dict[str, Any]]:
     """读取全部连接器记录;文件缺失/损坏/非列表时返回空列表(异常降级)。
 
@@ -115,7 +124,12 @@ def _load() -> list[dict[str, Any]]:
             return []
         for rec in data:
             if isinstance(rec, dict) and isinstance(rec.get("app_secret"), str):
-                rec["app_secret"] = _decrypt_secret(rec["app_secret"])
+                raw_secret = rec["app_secret"]
+                plain = _decrypt_secret(raw_secret)
+                if raw_secret.startswith(_SECRET_CIPHER_PREFIX) and not plain:
+                    rec[_SECRET_UNREADABLE] = True
+                    rec[_SECRET_RAW] = raw_secret
+                rec["app_secret"] = plain
         return data
     except Exception:  # noqa: BLE001 - 读失败返回空列表,不崩服务
         return []
@@ -131,9 +145,16 @@ def _write(records: list[dict[str, Any]]) -> bool:
         _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
         persisted: list[dict[str, Any]] = []
         for rec in records:
-            copy = dict(rec)
+            copy = _public(rec)
             if isinstance(copy.get("app_secret"), str):
-                copy["app_secret"] = _encrypt_secret(copy["app_secret"])
+                if (
+                    not copy["app_secret"]
+                    and rec.get(_SECRET_UNREADABLE)
+                    and isinstance(rec.get(_SECRET_RAW), str)
+                ):
+                    copy["app_secret"] = rec[_SECRET_RAW]
+                else:
+                    copy["app_secret"] = _encrypt_secret(copy["app_secret"])
             persisted.append(copy)
         tmp_path = _STORE_PATH.with_suffix(".json.tmp")
         tmp_path.write_text(
@@ -154,7 +175,7 @@ def list_owned(owner_user_id: str) -> list[dict[str, Any]]:
     if not owner_user_id:
         return []
     with _LOCK:
-        return [dict(rec) for rec in _load() if rec.get(OWNER_FIELD) == owner_user_id]
+        return [_public(rec) for rec in _load() if rec.get(OWNER_FIELD) == owner_user_id]
 
 
 def ownerless_count() -> int:
@@ -170,7 +191,7 @@ def get(owner_user_id: str, key: str) -> dict[str, Any] | None:
     with _LOCK:
         for rec in _load():
             if rec.get("key") == key and rec.get(OWNER_FIELD) == owner_user_id:
-                return dict(rec)
+                return _public(rec)
     return None
 
 
@@ -241,7 +262,7 @@ def set_enabled(owner_user_id: str, key: str, enabled: bool) -> dict[str, Any] |
                 rec["enabled"] = bool(enabled)
                 rec["updated_at"] = now_iso()
                 if _write(records):
-                    return dict(rec)
+                    return _public(rec)
                 return None
     return None
 
@@ -275,7 +296,7 @@ def set_sync_state(
                 if items is not None:
                     rec["sync_items"] = list(items)
                 if _write(records):
-                    return dict(rec)
+                    return _public(rec)
                 return None
     return None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
