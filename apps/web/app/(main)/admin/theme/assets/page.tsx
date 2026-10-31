@@ -68,7 +68,7 @@ export default function AssetsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">品牌资产</h1>
+        <h1 className="text-display font-bold tracking-tight">品牌资产</h1>
         <p className="mt-1 text-sm text-muted-foreground">管理 Logo / Favicon / 品牌图片</p>
       </div>
 
@@ -81,7 +81,7 @@ export default function AssetsPage() {
             const cur = findByType(type)
             return (
               <div key={type} className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                <p className="text-label font-medium text-muted-foreground">{label}</p>
                 <div className="flex items-center gap-3">
                   <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">
                     {cur ? (
@@ -131,7 +131,7 @@ export default function AssetsPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">品牌图片库</p>
+            <p className="text-body font-medium">品牌图片库</p>
             <Button variant="outline" size="sm" onClick={() => imageRef.current?.click()}>
               <Upload className="h-3.5 w-3.5" />
               上传图片

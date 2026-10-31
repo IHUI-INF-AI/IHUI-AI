@@ -528,7 +528,7 @@ export default function SmsReceivePage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <MessageSquareMore className="h-6 w-6 text-primary" />
           短信接码
         </h1>
@@ -718,7 +718,7 @@ export default function SmsReceivePage() {
                     )}
                     {sms.code && (
                       <div className="flex items-center justify-between rounded-md bg-primary/10 p-3">
-                        <span className="font-mono text-2xl font-bold tracking-widest text-primary">
+                        <span className="font-mono text-display font-bold tracking-widest text-primary">
                           {sms.code}
                         </span>
                         <Button
@@ -789,7 +789,7 @@ export default function SmsReceivePage() {
             {/* 平台用途分布(2026-10-09 机主要求:trae/腾讯科技 分平台显示登录/注册具体数,本机台账全量口径) */}
             {phone && (
               <div className="space-y-1.5 rounded-md border p-3">
-                <div className="text-xs font-semibold text-muted-foreground">
+                <div className="text-label font-semibold text-muted-foreground">
                   平台用途分布(本机台账全量;「登录」=该号已注册过对应平台)
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -832,7 +832,7 @@ export default function SmsReceivePage() {
                         {new Date(h.receivedAt).toLocaleString('zh-CN', { hour12: false })}
                       </span>
                       {h.platform && (
-                        <span className="text-xs font-semibold">【{h.platform}】</span>
+                        <span className="text-label font-semibold">【{h.platform}】</span>
                       )}
                       <UsageTag kind={h.usageKind} />
                       {h.smsCode && (
@@ -878,7 +878,7 @@ export default function SmsReceivePage() {
           {toolsOpen && (
             <CardContent className="grid gap-4 md:grid-cols-2">
               <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <h3 className="flex items-center gap-2 text-body font-semibold">
                   <Send className="h-4 w-4" />
                   发送短信
                 </h3>
@@ -916,11 +916,11 @@ export default function SmsReceivePage() {
                 </form>
               </section>
               <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <h3 className="flex items-center gap-2 text-body font-semibold">
                   <History className="h-4 w-4" />
                   平台历史(24h 最多 100 条,限频 1 次/分钟)
                   {usedUnion && (
-                    <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                    <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-label font-semibold text-primary">
                       本地累积 {usedUnion.total} 条
                     </span>
                   )}

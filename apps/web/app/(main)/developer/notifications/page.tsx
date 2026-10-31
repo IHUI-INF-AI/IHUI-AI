@@ -124,7 +124,7 @@ export default function NotificationsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Bell className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -141,7 +141,7 @@ export default function NotificationsPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <Label className="text-sm font-medium">
+                  <Label className="text-body font-medium">
                     {t(PREF_LABEL_KEY[item.key] ?? `${item.key}Label`)}
                   </Label>
                   <p className="text-xs text-muted-foreground">

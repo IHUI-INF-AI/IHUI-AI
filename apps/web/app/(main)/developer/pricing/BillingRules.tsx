@@ -19,15 +19,15 @@ export function BillingRules(): React.JSX.Element {
       <CardContent className="min-[640px]:p-3 space-y-4 p-3">
         <div className="flex items-center gap-2">
           <Calculator className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">{t('rulesTitle')}</p>
+          <p className="text-body font-semibold">{t('rulesTitle')}</p>
         </div>
 
         <p className="text-xs text-muted-foreground">{t('rulesSubtitle')}</p>
 
         {/* 公式卡片 */}
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs font-medium text-muted-foreground">{t('formula')}</p>
-          <p className="mt-1.5 font-mono text-sm font-semibold">{t('formulaBody')}</p>
+          <p className="text-label font-medium text-muted-foreground">{t('formula')}</p>
+          <p className="mt-1.5 font-mono text-body font-semibold">{t('formulaBody')}</p>
         </div>
 
         {/* 公式参数说明 */}
@@ -66,7 +66,7 @@ export function BillingRules(): React.JSX.Element {
 
         {/* 示例 */}
         <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+          <div className="flex items-center gap-2 text-label font-semibold text-primary">
             <FileText className="h-3.5 w-3.5" />
             {t('exampleTitle')}
           </div>

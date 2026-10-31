@@ -145,7 +145,7 @@ export default function EditThemePage() {
   return (
     <div className="space-y-4">
       <BackButton />
-      <h1 className="text-2xl font-bold tracking-tight">编辑主题</h1>
+      <h1 className="text-display font-bold tracking-tight">编辑主题</h1>
 
       <form onSubmit={submit} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
@@ -232,7 +232,7 @@ export default function EditThemePage() {
               <p className="text-lg font-semibold">示例标题</p>
               <p className="text-sm opacity-80">这是一段示例正文,展示当前主题的视觉效果。</p>
               <span
-                className="inline-block rounded-md px-3 py-1 text-xs font-medium"
+                className="inline-block rounded-md px-3 py-1 text-label font-medium"
                 style={{ backgroundColor: form.accentColor, color: '#fff' }}
               >
                 主按钮

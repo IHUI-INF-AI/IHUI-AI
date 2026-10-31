@@ -133,7 +133,7 @@ export default function CertificateDownloadPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Award className="h-6 w-6 text-primary" />
           {t('download.title')}
         </h1>

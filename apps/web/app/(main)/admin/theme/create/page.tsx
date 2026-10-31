@@ -91,7 +91,7 @@ export default function CreateThemePage() {
 
   return (
     <div className="space-y-4 px-4 py-4">
-      <h1 className="text-2xl font-bold tracking-tight">创建主题</h1>
+      <h1 className="text-display font-bold tracking-tight">创建主题</h1>
 
       <form onSubmit={submit} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
@@ -184,13 +184,13 @@ export default function CreateThemePage() {
               <p className="text-sm opacity-80">这是一段示例正文,展示当前主题的视觉效果。</p>
               <div className="flex gap-2">
                 <span
-                  className="rounded-md px-3 py-1 text-xs font-medium"
+                  className="rounded-md px-3 py-1 text-label font-medium"
                   style={{ backgroundColor: form.accentColor, color: '#fff' }}
                 >
                   主按钮
                 </span>
                 <span
-                  className="rounded-md px-3 py-1 text-xs font-medium"
+                  className="rounded-md px-3 py-1 text-label font-medium"
                   style={{ borderColor: form.borderColor, borderWidth: 1, color: form.textColor }}
                 >
                   次按钮

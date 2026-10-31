@@ -165,7 +165,7 @@ export default function CircleDetailPage() {
                 <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium">{p.title}</p>
+                      <p className="break-words text-body font-medium">{p.title}</p>
                       {p.content && (
                         <p className="mt-1 text-xs text-muted-foreground">{p.content}</p>
                       )}

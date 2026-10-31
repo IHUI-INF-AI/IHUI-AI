@@ -41,7 +41,7 @@ export default function ContextVisualizationPage() {
             <ArrowLeft className="h-3 w-3" />
             返回上下文总览
           </Link>
-          <h1 className="mt-1 text-xl font-bold tracking-tight">Token 可视化</h1>
+          <h1 className="mt-1 text-heading font-bold tracking-tight">Token 可视化</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             查看当前会话 Token 分布饼图、历史趋势与压缩事件
           </p>
@@ -124,11 +124,11 @@ export default function ContextVisualizationPage() {
                         key={`${e.timestamp}-${i}`}
                         className="flex items-center gap-3 rounded-lg border bg-card p-2.5"
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-amber-100 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-amber-100 text-label font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                           {(ratio * 100).toFixed(0)}%
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium">
+                          <p className="text-label font-medium">
                             {new Intl.DateTimeFormat('zh-CN', {
                               month: '2-digit',
                               day: '2-digit',

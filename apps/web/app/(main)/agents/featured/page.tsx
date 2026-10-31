@@ -68,7 +68,7 @@ export default function FeaturedAgentsPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Star className="h-6 w-6 text-primary" />
           精选智能体
         </h1>
@@ -107,7 +107,7 @@ export default function FeaturedAgentsPage() {
                       <Sparkles className="h-8 w-8 text-muted-foreground/40" />
                     </div>
                   )}
-                  <span className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-xs font-medium text-white">
+                  <span className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-label font-medium text-white">
                     <Star className="h-3 w-3" />
                     精选
                   </span>
@@ -127,7 +127,7 @@ export default function FeaturedAgentsPage() {
                         <Sparkles className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
-                    <h3 className="line-clamp-2 pt-1 text-sm font-medium">{agent.name}</h3>
+                    <h3 className="line-clamp-2 pt-1 text-body font-medium">{agent.name}</h3>
                   </div>
                   <p className="line-clamp-2 text-xs text-muted-foreground">
                     {agent.description ?? '暂无描述'}
