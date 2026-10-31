@@ -209,6 +209,9 @@ import { useChatInput } from '../hooks/useChatInput'
 // D153b / D154(2026-09-30 立)per-user 广播消费面:会话元数据覆盖 + MCP 状态行。
 // 跨端判据在 @ihui/shared/chat/user-broadcast-store,本端只做接线与 FloatBox 提示出口适配。
 import { useUserBroadcastSync } from '../hooks/use-user-broadcast-sync'
+// 票 #71(2026-10-31):chat 消息面广播 → 共享 store → 本页消息列表。
+// 幂等/四态裁定在 @ihui/shared/chat 的 chat-sync-store(本屏只订阅 + 投影,不复制判据)。
+import { useRemoteChatSyncMessages } from '../stores/chat-sync'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
@@ -747,6 +750,15 @@ export function ChatScreen() {
     [showToast],
   )
   useUserBroadcastSync({ token: authToken, translate: t, notify: notifyBroadcast })
+  /**
+   * 票 #71:chat 消息面跨端同步。帧由 lib/user-broadcast 投进共享 store(幂等/四态在那里),
+   * 本 hook 只把"当前会话"的消息面并进页级 messages:
+   *  - 已存在的行就地更新 content/reasoning,其它字段(工具卡/附件/标记)原样保留;
+   *  - 本地没有的行追加(id = 服务端 messageId);
+   *  - 本端流式中暂停(本端流式链路是这一格的权威),回声消息不重复追加。
+   * 不改渲染语义:列表、FlatList key、滚动与流式写入路径全部不动。
+   */
+  useRemoteChatSyncMessages({ conversationId, setMessages, paused: isStreaming })
   // 账本被广播改过 ⇒ 版本递增 ⇒ 下面的抽屉列表重算覆盖值(不发任何 HTTP 请求)
   const broadcastMetaVersion = useSyncExternalStore(
     subscribeConversationMeta,

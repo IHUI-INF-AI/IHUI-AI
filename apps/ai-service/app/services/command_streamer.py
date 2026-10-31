@@ -259,6 +259,36 @@ def _clamp_timeout(timeout: int) -> int:
     return timeout
 
 
+def _inject_session_identity(
+    env: dict[str, str] | None, session_id: str | None = None
+) -> dict[str, str] | None:
+    """G-17:把执行会话身份注入子进程环境(判据与版本号单源在 app.core.exec_env)。
+
+    - 显式 session_id 优先,其次读执行上下文(contextvar,由 agent_loop_v2 在工具
+      执行前 set);两者都取不到 ⇒ 原样返回 —— env=None 保持"裸继承 os.environ"
+      的既有语义,绝不编造身份;
+    - 有身份且 env=None ⇒ 先复制 os.environ 再注入(与 env 透传路径同形)。
+
+    本函数的 import 刻意放在函数内:模块顶层仍保持"只依赖 stdlib",
+    app.core.exec_env 自身也只依赖 stdlib,不会构成循环。
+    """
+    try:
+        from app.core.exec_env import (
+            current_session_env_id,
+            harness_version,
+            inject_session_env,
+        )
+    except Exception as e:  # noqa: BLE001 - 依赖缺失降级为不注入
+        logger.warning("会话身份注入依赖不可用(降级不注入): %s", e)
+        return env
+    sid = session_id or current_session_env_id()
+    if not sid:
+        return env
+    target = dict(os.environ) if env is None else env
+    inject_session_env(target, sid, harness_version())
+    return target
+
+
 async def _read_stream(
     stream: asyncio.StreamReader | None, ev_type: str, queue: asyncio.Queue[dict[str, Any] | None]
 ) -> None:
@@ -352,6 +382,7 @@ async def stream_command(
     cwd: str | None = None,
     timeout: int = 300,
     env: dict[str, str] | None = None,
+    session_id: str | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """流式执行命令,yield 事件流。
 
@@ -365,6 +396,7 @@ async def stream_command(
         cwd: 工作目录
         timeout: 超时秒数(clamp 到 1-1800)
         env: 额外环境变量(合并到 os.environ)
+        session_id: 显式执行会话身份;缺省从执行上下文取,都取不到则不注入
     """
     ok, reason = validate_command(command)
     if not ok:
@@ -383,6 +415,8 @@ async def stream_command(
     full_env: dict[str, str] | None = None
     if env:
         full_env = {**os.environ, **env}
+    # G-17:会话身份注入(无身份时原样返回,env=None 仍是裸继承语义)
+    full_env = _inject_session_identity(full_env, session_id)
 
     start = time.monotonic()
 
@@ -468,6 +502,7 @@ async def run_command_simple(
     command: str,
     cwd: str | None = None,
     timeout: int = 60,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """同步包装器:收集所有输出,返回聚合结果。
 
@@ -481,7 +516,7 @@ async def run_command_simple(
     error: str | None = None
     timed_out = False
 
-    async for event in stream_command(command, cwd=cwd, timeout=timeout):
+    async for event in stream_command(command, cwd=cwd, timeout=timeout, session_id=session_id):
         etype = event.get("type")
         if etype == "stdout":
             stdout_parts.append(event.get("content", ""))

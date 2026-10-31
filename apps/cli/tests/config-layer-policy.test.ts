@@ -22,6 +22,7 @@ import {
 } from '../src/config/layer-policy.js';
 import { loadConfig, sourcesFor } from '../src/config/index.js';
 import { DEFAULT_SETTINGS } from '../src/config/defaults.js';
+import { deepMergeSettings } from '../src/commands/settings.js';
 
 describe('layer-policy 纯函数:封闭表自洽', () => {
   it('两张表互斥(同一键不得既可写又敏感)', () => {
@@ -183,6 +184,38 @@ describe('loadConfig 端到端:项目层安全键不生效且大声拒绝(G-408�
     expect(s.allowDangerous).toBe(true);
     expect(s.apiUrl).toBe('https://ok.example.invalid');
     expect(warnLines.join('\n')).not.toMatch(/拒绝/);
+  });
+});
+
+/**
+ * G-22:插件两档的默认态必须**显式声明**。此前 `plugins` / `pluginMarketplace` 未登记进
+ * DEFAULT_SETTINGS,默认值只能从消费方 `settings.plugins?.enabled === true` 的写法反推
+ * (判不出默认值)。三条:① 两键在默认层可读且为 false;② 两键仍在项目层白名单且有校验器
+ * (显式默认不得顺手改可写面);③ 用户显式开启会被深合并保留(默认 false 是缺省,不是强制)。
+ */
+describe('G-22 插件默认态显式化', () => {
+  it('DEFAULT_SETTINGS 显式声明 plugins.enabled=false 与 pluginMarketplace.enabled=false', () => {
+    expect(DEFAULT_SETTINGS.plugins).toBeDefined();
+    expect(DEFAULT_SETTINGS.plugins?.enabled).toBe(false);
+    expect(DEFAULT_SETTINGS.pluginMarketplace).toBeDefined();
+    expect(DEFAULT_SETTINGS.pluginMarketplace?.enabled).toBe(false);
+  });
+
+  it('两键都在项目层白名单且有校验器(显式默认不改变可写面)', () => {
+    const allowed: readonly string[] = PROJECT_ALLOWED_SETTINGS_KEYS;
+    for (const k of ['plugins', 'pluginMarketplace']) {
+      expect(allowed.includes(k), `${k} 不在白名单`).toBe(true);
+      expect(typeof PROJECT_KEY_VALIDATORS[k], `${k} 无校验器`).toBe('function');
+    }
+  });
+
+  it('用户显式开启不被默认 false 压住(深合并保留上层值)', () => {
+    const on = deepMergeSettings(DEFAULT_SETTINGS, {
+      plugins: { enabled: true },
+      pluginMarketplace: { enabled: true },
+    });
+    expect(on.plugins?.enabled).toBe(true);
+    expect(on.pluginMarketplace?.enabled).toBe(true);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

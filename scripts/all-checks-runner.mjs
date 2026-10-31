@@ -36,7 +36,7 @@ import { pathToFileURL } from 'node:url'
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
 
-/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery`,顺序与集合都不得增删。 */
+/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery` + 2026-10-31 补接的装机资产对账(G-21),共 28 条;顺序与集合都不得增删。 */
 export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:conflict-markers',
   'pnpm check:api-key-leak',
@@ -66,6 +66,9 @@ export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:artifact-budget',
   // 票 G-217 补接:尺子②`audit-benchmark-delivery.mjs --strict` 早在 2026-10-06 就造好了,却从未进
   // check:all ⇒ 按 AGENTS §0.9「造好没装车 = 没有」等于没有。范例同前 26 条(走 pnpm 脚本名,不裸写路径)。
+  // 2026-10-31 补接 G-21:装机资产逐文件 sha256 对账(judge HEAD blob 面,不读工作树)。
+  // 刻意不进提交链(§12e:资产改动与提交内容无关时它是恒红门),全量档是它唯一的自动调度点。
+  'node scripts/check-installed-asset-catalog.mjs',
   'pnpm check:benchmark-delivery',
 ])
 
@@ -390,9 +393,9 @@ function runSelfTest() {
       })(),
     ],
     [
-      'A7 子步骤清单是 27 条且含那条死链上的第 18 步',
+      'A7 子步骤清单是 28 条且含那条死链上的第 18 步',
       (() =>
-        CHECK_ALL_STEPS.length === 27 &&
+        CHECK_ALL_STEPS.length === 28 &&
         CHECK_ALL_STEPS[17] === 'node scripts/scan-dead-i18n-keys.mjs --target all --exit 1')(),
     ],
     [
