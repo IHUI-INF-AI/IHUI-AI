@@ -102,6 +102,18 @@ const graceHours = (() => {
 
 export const BACKUP_REF_PREFIXES = ['backup/', 'ihui-backup/']
 
+/**
+ * 机器人 PR 分支命名空间(2026-10-31 立)。
+ *
+ * 为什么单独一类:§9b 要治的是"**人类**旁支长期滞留"——会话各自拉分支、忘了合回。机器人
+ * (GitHub dependabot 等)按 PR 生命周期自己创建/关闭分支,既不该被会话合并(那是依赖升级决策),
+ * 也不该被删(本门 hint 与 AGENTS §22 都禁止对**未并入**分支 `-D` / `origin --delete`)。
+ * 实测:20 条 10-29 的 dependabot 分支让本门对所有提交恒红(恒红门 = 逼人 --no-verify,§12e),
+ * 而正解不属任何会话的自主动作面 ⇒ 单列一类、只报数、并逐条点名,免得被当成"已处理"。
+ * 只按 refs 路径首段认(不按子串),避免把人类同名分支吞进豁免。
+ */
+export const BOT_PR_PREFIXES = ['dependabot/']
+
 /** `for-each-ref` 的 "短名 unix时刻" 输出 → Map(短名 → 提交秒);坏行跳过不猜 */
 export function branchTipTimes(raw) {
   const map = new Map()
@@ -118,12 +130,13 @@ export function branchTipTimes(raw) {
 }
 
 /**
- * 在飞/备份豁免判定(纯函数,供 self-test 与镜像测试直接喂构造面)。
- * @returns {'in-flight'|'backup'|null} null = 不豁免,回到原判据
+ * 在飞/备份/机器人 PR 豁免判定(纯函数,供 self-test 与镜像测试直接喂构造面)。
+ * @returns {'in-flight'|'backup'|'bot-pr'|null} null = 不豁免,回到原判据
  */
 export function inFlightExempt(name, tipTimes, nowMs, grace) {
   const bare = name.startsWith('origin/') ? name.slice('origin/'.length) : name
   if (BACKUP_REF_PREFIXES.some((p) => bare.startsWith(p))) return 'backup'
+  if (BOT_PR_PREFIXES.some((p) => bare.startsWith(p))) return 'bot-pr'
   const ct = tipTimes.get(name)
   if (ct === undefined || !Number.isFinite(nowMs)) return null
   // ct 是**秒**(for-each-ref 的 committerdate:unix),nowMs 是**毫秒** —— 换算必须先对齐单位。
@@ -355,6 +368,7 @@ function main() {
     orphan: [],
     'in-flight': [],
     backup: [],
+    'bot-pr': [],
     stale: [],
   }
   /** 分支尖端提交时刻(一次 for-each-ref,不逐个起进程);取不到 ⇒ 空表 ⇒ 在飞豁免整段失效并如实喊出 */
@@ -476,6 +490,12 @@ function main() {
       console.log(
         `${C.dim}ℹ️ 不判但如实报数:${exempt.backup.length} 个备份引用(§5b 禁删/§22 要求双留,` +
           `本门不得喊人删它们):${exempt.backup.join(', ')}${C.reset}`,
+      )
+    }
+    if (exempt['bot-pr'].length) {
+      console.log(
+        `${C.dim}ℹ️ 不判但如实报数:${exempt['bot-pr'].length} 个机器人 PR 分支(依赖升级由 PR 生命周期` +
+          `管理,会话既不合并也不删;要处置请在托管侧关 PR/调 dependabot 配额):${exempt['bot-pr'].join(', ')}${C.reset}`,
       )
     }
   }
@@ -697,6 +717,18 @@ export function selfTest() {
   })
   t('反向对照:backup 判据不看时刻(超龄备份也绝不喊删)', () => {
     return inFlightExempt('backup/ancient', new Map(), now, 0) === 'backup'
+  })
+  t('机器人 PR 分支豁免为 bot-pr(依赖升级归 PR 生命周期,会话既不合并也不删)', () => {
+    return (
+      inFlightExempt('dependabot/npm_and_yarn/bullmq-6.4.2', new Map(), now, 0) === 'bot-pr' &&
+      inFlightExempt('origin/dependabot/npm_and_yarn/three-0.186.1', new Map(), now, 0) === 'bot-pr'
+    )
+  })
+  t('反向对照:人类同名/似名前缀不享 bot-pr(只认 refs 路径首段)', () => {
+    return (
+      inFlightExempt('feat/dependabot-lookalike', new Map(), now, 0) === null &&
+      inFlightExempt('ci-fix/bullmq-6.4.2', new Map(), now, 0) === null
+    )
   })
   let bad = 0
   for (const [name, ok] of cases) {
