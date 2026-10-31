@@ -21,6 +21,7 @@ import { Check, ChevronDown } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { CategoryItem, ColorSchemeName } from './types'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface CategoryDropdownProps {
   /** 选项(必填) */
@@ -225,7 +226,7 @@ export function CategoryDropdown({
       <Modal visible={open} transparent animationType="none" onRequestClose={closePanel}>
         <Animated.View style={[styles.backdrop, { opacity: fade }]}>
           <Pressable
-            style={styles.backdropPress}
+            style={pressFeedback(styles.backdropPress)}
             onPress={closePanel}
             accessibilityRole="button"
             accessibilityLabel={backdropA11yLabel}

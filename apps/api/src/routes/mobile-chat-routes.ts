@@ -43,6 +43,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
 import { findCircleByIdOrSlug } from '../db/community-queries.js'
 import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
+import { escapeHtml } from '../websocket/chat-server.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { isUuidString } from '../utils/uuid.js'
 import { success, error } from '../utils/response.js'
@@ -248,13 +249,17 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const nickname = await nicknameOf(request.userId!)
+    // 2026-10-31 安全强化第 19 批(F2 中高):REST 弹幕腿此前未转义直落库 ——
+    // 同一张 live_comment 表、同一历史读取口,前端以 innerHTML 渲染;WS 腿
+    // (P2 修复)落库前逐字段转义而 REST 腿原文落库 ⇒ 存储型 XSS 打直播间全员。
+    // 现与 WS 腿共用同一 escapeHtml(单出口,§0.6)。
     const [row] = await db
       .insert(liveComment)
       .values({
         channelId,
         userId: request.userId!,
-        userName: nickname || null,
-        content: parsed.data.content,
+        userName: nickname ? escapeHtml(nickname) : null,
+        content: escapeHtml(parsed.data.content),
         type: 1,
       })
       .returning()

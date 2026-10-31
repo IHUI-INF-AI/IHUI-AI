@@ -280,12 +280,6 @@ def _reset_rate_limit_buckets():
         return out
 
     node = _get_app()
-    # Starlette 的中间件链是**首次请求时**才建的;夹具跑在用例之前,不显式建就永远找不到。
-    if getattr(node, "middleware_stack", "absent") is None and hasattr(
-        node, "build_middleware_stack"
-    ):
-        node.middleware_stack = node.build_middleware_stack()
-
     seen: set[int] = set()
     stack = [node]
     limiter = None
@@ -294,6 +288,16 @@ def _reset_rate_limit_buckets():
         if id(cur) in seen:
             continue
         seen.add(id(cur))
+        # Starlette 的中间件链是**首次请求时**才建的,而本夹具跑在任何用例之前 ⇒ 不显式建,
+        # 链就是 None、BFS 在那一跳断掉。必须**每到一个 Starlette 节点**建一次:
+        # 根节点是 socketio.ASGIApp(不是 Starlette 应用,没有 build_middleware_stack),
+        # 真正的 FastAPI 在第二跳 —— 旧写法只对根建,等于没建(2026-10-31 全量实测:
+        # 19234 条用例的 setup 全部在"找不到限流器"上崩,而单文件跑因未导入 app.main 走
+        # 惰性跳过分支、看起来是绿的)。
+        if getattr(cur, "middleware_stack", "absent") is None and hasattr(
+            cur, "build_middleware_stack"
+        ):
+            cur.middleware_stack = cur.build_middleware_stack()
         if isinstance(cur, RateLimitMiddleware):
             limiter = cur
             break

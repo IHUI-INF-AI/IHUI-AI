@@ -24,6 +24,7 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface GlobalFloatBoxProps {
   /** 赚米按钮回调(分享/推广) */
@@ -96,7 +97,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           收起时朝左(提示点击拉出);竖线为独立 View 恒定在右侧不动。
           原静态图 zhankaiH.png 无法换向,弃用。 */}
       <Pressable
-        style={styles.arrow}
+        style={pressFeedback(styles.arrow)}
         onPress={toggleBox}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         accessibilityRole="button"
@@ -113,7 +114,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
       {/* 浮窗内容:三个按钮竖排(赚米/客服/反馈) */}
       <View style={styles.floatBox}>
         <Pressable
-          style={styles.item}
+          style={pressFeedback(styles.item)}
           onPress={handlePromote}
           accessibilityRole="button"
           accessibilityLabel={t('globalBox.earn')}
@@ -122,7 +123,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           <Text style={[styles.label, styles.labelPromote]}>赚 米</Text>
         </Pressable>
         <Pressable
-          style={styles.item}
+          style={pressFeedback(styles.item)}
           onPress={handleConsult}
           accessibilityRole="button"
           accessibilityLabel={t('globalBox.support')}
@@ -131,7 +132,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           <Text style={styles.label}>客 服</Text>
         </Pressable>
         <Pressable
-          style={styles.item}
+          style={pressFeedback(styles.item)}
           onPress={handleFeedback}
           accessibilityRole="button"
           accessibilityLabel={t('globalBox.feedback')}

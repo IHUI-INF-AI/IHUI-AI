@@ -83,6 +83,7 @@ import {
 import { useState } from 'react'
 import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
 import { TextField } from '@ihui/rn-app'
+import { pressFeedback } from '@ihui/ui-native'
 
 export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
 
@@ -214,7 +215,7 @@ export function LoginPopUp({
         <View style={styles.card}>
           <View style={styles.dragBar} />
           <Pressable
-            style={styles.closeButton}
+            style={pressFeedback(styles.closeButton)}
             onPress={onClose}
             hitSlop={8}
             accessibilityLabel={t('common.close')}
@@ -257,7 +258,7 @@ export function LoginPopUp({
                 )}
               </Pressable>
               {showAgreementRow ? (
-                <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
+                <Pressable style={pressFeedback(styles.agreementRow)} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
                     {agreeChecked ? (
                       <Check
