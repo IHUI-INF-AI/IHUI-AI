@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -49,6 +49,28 @@ import { rnRadius } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/**
+ * 接口 benefits 实返数组(字符串或 { name } 对象);api-client 声明为 Record 属历史漂移,
+ * 契约 VipLevelItem2.benefits 已同步收成 string[] ⇒ 端内在此归一。取不到/非数组一律返回空,
+ * 共享屏按「无权益数据」处理,不造词。
+ */
+function normalizeBenefits(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const text = item.trim()
+      if (text) out.push(text)
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const name = (item as { name?: unknown }).name
+      if (typeof name === 'string' && name.trim()) out.push(name.trim())
+    }
+  }
+  return out
+}
+
 function toVipLevel(l: VipLevel): VipLevelItem2 {
   return {
     id: l.id,
@@ -57,7 +79,7 @@ function toVipLevel(l: VipLevel): VipLevelItem2 {
     price: l.price,
     durationDays: l.durationDays,
     status: l.status,
-    benefits: l.benefits ?? undefined,
+    benefits: normalizeBenefits(l.benefits),
   }
 }
 
@@ -435,6 +457,23 @@ export function VipScreen() {
 
   const filteredPlans = pricePlans.filter((p) => p.tab === planTab)
 
+  /**
+   * 权益卡条目:各等级 benefits 的并集去重(接口按等级下发,共享屏只收一份清单);
+   * 标题即接口文案本身,不另造词。全部等级都没有 benefits ⇒ 空数组 ⇒ 共享屏不渲染该区。
+   */
+  const benefitItems = useMemo(() => {
+    const seen = new Set<string>()
+    const items: { key: string; title: string }[] = []
+    for (const level of levels) {
+      for (const title of level.benefits ?? []) {
+        if (seen.has(title)) continue
+        seen.add(title)
+        items.push({ key: title, title })
+      }
+    }
+    return items
+  }, [levels])
+
   return (
     <View style={styles.screen}>
       {/* 权益介绍入口(对齐 Uniapp vip_info/index.vue 行 59-71 触发入口) */}
@@ -616,6 +655,7 @@ export function VipScreen() {
         error={error}
         toast={toast}
         purchasingId={purchasingId}
+        benefitItems={benefitItems}
         onRefresh={() => load(true)}
         onPurchase={onPurchase}
         onBack={() => navigation.goBack()}
