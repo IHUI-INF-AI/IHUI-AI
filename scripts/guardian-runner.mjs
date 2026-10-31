@@ -6497,34 +6497,6 @@ const checks = [
     ].join('\n'),
   },
   {
-    // 编号 275:注册前已核本文件与 HEAD 面 `id: '275'` 均为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
-    id: '275',
-    label:
-      '🧷 根护栏清单同批对账(blocking;被清单绑定的规则文件(guardian-runner / judgement-libs)改了而未同批 --seal ⇒ 部署环在「拉取更新前判根护栏」处永久 fail-closed;只咬本次引入,存量报数不拦)',
-    script: 'check-root-guard-manifest-sync.mjs',
-    args: [],
-    mode: 'blocking',
-    stagedTriggers: ['scripts/'],
-    skipEnv: 'HUSKY_SKIP_ROOT_GUARD_MANIFEST_SYNC',
-    onFailHint: [
-      '',
-      '  💡 这道红的意思是:本枚把 `scripts/guardian-runner.mjs`(或 judgement-libs.json)改了,',
-      '     却没把 `scripts/data/root-guard-manifest.json` 一起改 ⇒ 清单绑的还是旧内容。',
-      '  💡 为什么致命:部署环每轮在 fetch/对齐**之前**跑 `root-guard --check`,清单落后于内容',
-      '     ⇒ prod 签出一对齐就 rc=1 fail-closed,而且它不会自己解锁(重封又是一枚新提交)。',
-      '     2026-10-31 一天内两次把生产部署链打死(07:17 的 10790ffb22 与 13:26 那轮同型)。',
-      '  💡 正解(二选一,都不许削判据):',
-      '     ① 有意改规则 ⇒ node scripts/root-guard.mjs --seal --reason "<复核结论>",',
-      '        把 scripts/data/root-guard-manifest.json 与本枚规则文件**同一枚提交**带上(safe-commit 的 -- 清单里加上它);',
-      '     ② 不该改 ⇒ 回退规则文件那部分改动。',
-      '  💡 复核前先问一句:HEAD 面自不自洽?`node scripts/check-root-guard-manifest-sync.mjs`',
-      '     报「存量漂移」⇒ 那是别人落下的,本门不拦你,但请尽快单独成枚重封解墙。',
-      '  💡 自检:node scripts/check-root-guard-manifest-sync.mjs --self-test(8 例,含成对夹具)',
-      '  💡 紧急跳过(不推荐,须留痕):HUSKY_SKIP_ROOT_GUARD_MANIFEST_SYNC=1 git commit ...',
-      '',
-    ].join('\n'),
-  },
-  {
     // 编号 271:注册前已核本文件 `id: '271'` 为 0;现值以本文件为准。
     id: '271',
     label:
