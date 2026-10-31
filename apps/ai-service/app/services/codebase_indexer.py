@@ -147,6 +147,37 @@ def _merkle_root(file_hashes: dict[str, str]) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
+SNAPSHOT_SCHEMA_VERSION = 2
+SNAPSHOT_STATE_OK = "ok"
+SNAPSHOT_STATE_LEGACY = "legacy"
+SNAPSHOT_STATE_ABSENT = "absent"
+SNAPSHOT_STATE_CORRUPT = "corrupt"
+SNAPSHOT_STATE_TRUNCATED = "truncated"
+SNAPSHOT_STATE_SKIPPED = "skipped"
+#: 档位清单单源:实现与用例都从这一行取,不另写第二份(§0.6)。
+SNAPSHOT_STATES: tuple[str, ...] = (
+    SNAPSHOT_STATE_OK,
+    SNAPSHOT_STATE_LEGACY,
+    SNAPSHOT_STATE_ABSENT,
+    SNAPSHOT_STATE_CORRUPT,
+    SNAPSHOT_STATE_TRUNCATED,
+    SNAPSHOT_STATE_SKIPPED,
+)
+
+
+@dataclass
+class SnapshotRead:
+    """一次快照读取的结论:能用的文件表 + 这份档能不能自证。"""
+
+    files: dict[str, str]
+    state: str
+    detail: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.state not in SNAPSHOT_STATES:
+            raise ValueError(f"快照档位 {self.state!r} 不在 SNAPSHOT_STATES 里")
+
+
 @dataclass
 class CodeChunk:
     """代码切片。"""
@@ -184,6 +215,10 @@ class IndexResult:
     traversal_duration_s: float = 0.0  # 这一趟枚举的实际耗时
     traversal_files_seen: int = 0  # 通道自报的计数(触顶时 = 上限,不是全仓规模)
     traversal_degraded_reason: str | None = None  # 非 None = 走了回退通道,原委在此
+    # 快照自证档(2026-11-01,对齐 T9「读到坏档不当没发生过」那一格):
+    # ok/legacy/absent/corrupt/truncated/skipped 六档,端上必须看得见本轮站在哪一档。
+    snapshot_state: str = ""
+    snapshot_detail: str | None = None
 
 
 class CodebaseIndexer:
@@ -626,21 +661,61 @@ class CodebaseIndexer:
         path_key = hashlib.sha256(str(root).encode()).hexdigest()[:12]
         return _MERKLE_SNAPSHOT_DIR / f"{repo_id}-{path_key}.merkle.json"
 
-    def _load_snapshot(self, repo_id: str, root: Path) -> dict[str, str]:
-        """加载上轮文件 hash 快照;不存在/损坏时返回空 dict(触发全量索引)。"""
+    def _load_snapshot_read(self, repo_id: str, root: Path) -> SnapshotRead:
+        """读上轮 Merkle 快照,并**把"这份档能不能自证"一起带回来**。
+
+        旧口径是"读不动/形态不合 ⇒ 返回空 dict",后果有两格都是安静的:
+        ① 本轮退化成全量重索引(白烧 embedding),响应里看不出来;
+        ② 更要紧的是 `deleted_paths = prev - new` 的分母也变成空 ⇒ **幽灵切片永不清理**,
+           而端上读到的仍是"增量同步完成"。
+        取证对齐目标:Qoder 读回快照时逐字段校验并**拒绝截断文件**(T9 §4.2-1,该格 Trae 未见同等出口)。
+        本仓在此之上多一条:除声明的 `fileCount` 外,还要用 `files` **重算 merkleRoot** 与档内值对,
+        所以"尾巴被削掉但字节数恰好凑得上"这一型也判得出来。
+        """
         path = self._snapshot_path(repo_id, root)
         try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            files = raw.get("files", {})
-            if isinstance(files, dict) and all(
-                isinstance(k, str) and isinstance(v, str) for k, v in files.items()
-            ):
-                return cast(dict[str, str], files)
+            raw = path.read_text(encoding="utf-8")
         except FileNotFoundError:
-            pass
+            return SnapshotRead({}, SNAPSHOT_STATE_ABSENT)
+        except OSError as e:
+            return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"快照读不动: {type(e).__name__}")
+        try:
+            parsed = json.loads(raw)
         except Exception as e:
-            logger.debug("加载 Merkle 快照失败(%s): %s", path, e)
-        return {}
+            return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"JSON 解析失败: {str(e)[:120]}")
+        if not isinstance(parsed, dict):
+            return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, "顶层不是对象")
+        files = parsed.get("files")
+        if not isinstance(files, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in files.items()
+        ):
+            return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, "files 字段形态不合")
+        version = parsed.get("schemaVersion")
+        if version is None:
+            # v1 老档:内容可用,但**没有自证凭据**。判 legacy,不冒充 ok。
+            return SnapshotRead(
+                cast(dict[str, str], files),
+                SNAPSHOT_STATE_LEGACY,
+                "旧版档无 schemaVersion/fileCount ⇒ 坏档无法自证,本轮起按 v2 重写",
+            )
+        if version != SNAPSHOT_SCHEMA_VERSION:
+            return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"schemaVersion={version!r} 不在认得的档位里")
+        declared_count = parsed.get("fileCount")
+        if not isinstance(declared_count, int) or declared_count != len(files):
+            return SnapshotRead(
+                {},
+                SNAPSHOT_STATE_TRUNCATED,
+                f"声明 fileCount={declared_count!r} 与实际 {len(files)} 条不符 ⇒ 判截断",
+            )
+        declared_root = parsed.get("merkleRoot")
+        recomputed = _merkle_root(files)
+        if not isinstance(declared_root, str) or declared_root != recomputed:
+            return SnapshotRead(
+                {},
+                SNAPSHOT_STATE_TRUNCATED,
+                "merkleRoot 与 files 重算值不符 ⇒ 档被改写过或尾部缺失",
+            )
+        return SnapshotRead(cast(dict[str, str], files), SNAPSHOT_STATE_OK)
 
     def _save_snapshot(self, repo_id: str, root: Path, file_hashes: dict[str, str]) -> None:
         """持久化本轮快照(原子写:先写临时文件再 replace)。"""
@@ -650,7 +725,12 @@ class CodebaseIndexer:
             tmp = path.with_suffix(".json.tmp")
             tmp.write_text(
                 json.dumps(
-                    {"merkleRoot": _merkle_root(file_hashes), "files": file_hashes},
+                    {
+                        "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
+                        "merkleRoot": _merkle_root(file_hashes),
+                        "fileCount": len(file_hashes),
+                        "files": file_hashes,
+                    },
                     ensure_ascii=False,
                     indent=0,
                 ),
@@ -789,7 +869,12 @@ class CodebaseIndexer:
         result.traversal_degraded_reason = traversal_prov.degraded_reason
 
         # --- Merkle 增量:计算本轮文件 hash 并与快照对比 ---
-        prev_snapshot = self._load_snapshot(repo_id, root) if incremental else {}
+        snapshot = (
+            self._load_snapshot_read(repo_id, root)
+            if incremental
+            else SnapshotRead({}, SNAPSHOT_STATE_SKIPPED)
+        )
+        prev_snapshot = snapshot.files
         new_hashes: dict[str, str] = {}
         changed: list[tuple[Path, str, str]] = []  # [(abs_path, rel_path, language)]
         for file_path, language in files:
@@ -814,6 +899,16 @@ class CodebaseIndexer:
 
         # 已删除文件:上轮快照有、本轮无 → 清除幽灵切片
         deleted_paths = [p for p in prev_snapshot if p not in new_hashes] if incremental else []
+        result.snapshot_state = snapshot.state
+        result.snapshot_detail = snapshot.detail
+        if incremental and snapshot.state in (SNAPSHOT_STATE_CORRUPT, SNAPSHOT_STATE_TRUNCATED):
+            # 坏档派生的"已删除集"不可信:宁可这一轮不清幽灵切片,也不拿一份自证失败的档
+            # 去删活文件的切片。上一轮这条是安静退化成 prev={} 的,于是"没清理"被读成"清理完了"。
+            deleted_paths = []
+            result.errors.append(
+                f"快照自证失败({snapshot.state}:{snapshot.detail})⇒ 本轮跳过增量复用与幽灵切片清理,"
+                "已按全量重索引,下轮好档自动恢复"
+            )
         if deleted_paths:
             result.files_deleted = await self._delete_files_from_api(
                 repo_id, deleted_paths, api_token, internal_user_id

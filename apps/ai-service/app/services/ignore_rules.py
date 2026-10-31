@@ -99,6 +99,12 @@ def _glob_to_regex(body: str, *, anchored: bool, dir_only: bool) -> re.Pattern[s
                 i += 1
                 continue
             cls = body[i + 1 : j]
+            if not cls or cls.endswith("\\"):
+                # 空集合或结尾单反斜杠会让正则当场崩(真仓里就撞上了:一条畸形规则
+                # 能把整次渲染带倒)。这种写法按字面量处理,不猜它想表达什么。
+                out.append(re.escape(ch))
+                i += 1
+                continue
             if cls.startswith("!"):
                 cls = "^" + cls[1:]
             elif cls.startswith("^"):
@@ -116,8 +122,17 @@ def _glob_to_regex(body: str, *, anchored: bool, dir_only: bool) -> re.Pattern[s
     return re.compile("^" + pattern + "$")
 
 
-def parse_ignore_text(text: str, source_rel: str, *, base_dir: str = "") -> list[IgnoreRule]:
-    """一枚规则文件的正文 → 规则列表(行号是文件内 1 基行号)。"""
+def parse_ignore_text(
+    text: str,
+    source_rel: str,
+    *,
+    base_dir: str = "",
+    errors: list[str] | None = None,
+) -> list[IgnoreRule]:
+    """一枚规则文件的正文 → 规则列表(行号是文件内 1 基行号)。
+
+    编译不过的模式**跳过并点名**,不让一条畸形规则把整次装配带崩(本仓真档实测崩过一枚)。
+    """
     rules: list[IgnoreRule] = []
     prefix = base_dir.strip("/")
     for idx, raw in enumerate(text.splitlines(), start=1):
@@ -143,12 +158,18 @@ def parse_ignore_text(text: str, source_rel: str, *, base_dir: str = "") -> list
         if prefix:
             body = f"{prefix}/{body}" if not anchored else f"{prefix}/{body}"
             anchored = True
+        try:
+            regex = _glob_to_regex(body, anchored=True if prefix else anchored, dir_only=dir_only)
+        except re.error as e:
+            if errors is not None:
+                errors.append(f"{source_rel}:{idx} 模式无法编译,本轮不生效: {str(e)[:80]}")
+            continue
         rules.append(
             IgnoreRule(
                 raw=raw,
                 source=source_rel,
                 line=idx,
-                regex=_glob_to_regex(body, anchored=True if prefix else anchored, dir_only=dir_only),
+                regex=regex,
                 dir_only=dir_only,
                 negated=negated,
             )
@@ -196,7 +217,7 @@ def load_ignore_set(
         except OSError as e:
             errors.append(f"规则文件读不动 {source_rel}: {type(e).__name__}")
             continue
-        rules.extend(parse_ignore_text(text, source_rel, base_dir=base_dir))
+        rules.extend(parse_ignore_text(text, source_rel, base_dir=base_dir, errors=errors))
         if len(rules) > MAX_RULES:
             errors.append(f"规则总数超过上限 {MAX_RULES},已停止收集(其余规则文件本轮不生效)")
             rules = rules[:MAX_RULES]
