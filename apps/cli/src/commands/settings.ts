@@ -13,6 +13,7 @@
  */
 
 import * as fs from 'node:fs';
+import { writePrivateFile } from '../lib/private-file.js';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveSandboxOptions } from '../sandbox/index.js';
@@ -506,7 +507,9 @@ export function saveSettingsTemplate(overwrite = false): boolean {
       },
     },
   };
-  fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
+  // R8 复评 O4:settings.json 的首次落盘点统一走 writePrivateFile(0600 起)——
+  // 模板虽只含占位默认值,但此文件随后会被写入凭据,从诞生起就应受限权限。
+  writePrivateFile(p, JSON.stringify(template, null, 2) + '\n');
   return true;
 }
 
