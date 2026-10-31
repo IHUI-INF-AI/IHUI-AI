@@ -80,7 +80,29 @@ _SENSITIVE_DIRNAMES = frozenset({".git", ".github", ".ihui-agent", ".env", "secr
 _now = time.monotonic
 
 # 内存缓存:namespace -> {"ts": float, "files": {rel: {"hash": str, "summary": str}}}
+# 2026-11-01 安全强化:`_WIKI_TTL_SECONDS` 此前**只在重读同一 ns 时**判,
+# 于是从没被再读的条目永生;而 namespace 取的是工作区路径(受调用方影响的面),
+# 值里是整份项目百科文本 ⇒ 键数必须封顶、过期必须主动扫。
 _WIKI_CACHE: dict[str, dict[str, Any]] = {}
+_WIKI_CACHE_MAX_NAMESPACES = 128
+wiki_cache_evictions = 0
+
+
+def _remember_wiki(ns: str, entry: dict[str, Any]) -> None:
+    """项目百科内存缓存的唯一写口:顺带扫过期,仍超上限再按插入序逐出。"""
+    global wiki_cache_evictions
+    now = _now()
+    for stale in [
+        k for k, v in _WIKI_CACHE.items()
+        if (now - float(v.get("ts", 0.0))) >= _WIKI_TTL_SECONDS
+    ]:
+        _WIKI_CACHE.pop(stale, None)
+        wiki_cache_evictions += 1
+    while len(_WIKI_CACHE) >= _WIKI_CACHE_MAX_NAMESPACES and ns not in _WIKI_CACHE:
+        oldest = next(iter(_WIKI_CACHE))
+        _WIKI_CACHE.pop(oldest, None)
+        wiki_cache_evictions += 1
+    _WIKI_CACHE[ns] = entry
 
 
 def clear_wiki_cache() -> None:
@@ -348,7 +370,7 @@ async def ensure_wiki(
             wiki_text = wiki_text[:max_chars] + "\n...(项目百科已截断)"
 
         # 写回内存 + 磁盘缓存
-        _WIKI_CACHE[ns] = {"ts": _now(), "text": wiki_text, "files": new_files}
+        _remember_wiki(ns, {"ts": _now(), "text": wiki_text, "files": new_files})
         _save_disk(ns, wp, {"files": new_files})
 
         return wiki_text
