@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "操作失败"
-  },
-  "message": {
-    "deleted": "已删除"
-  },
   "workflows": {
     "title": "工作流",
     "empty": "暂无工作流",
@@ -1122,7 +1116,6 @@
     "network": "网络错误,请稍后重试"
   },
   "common": {
-    "success": "成功",
     "backToTop": "回到顶部",
     "ok": "好的",
     "gotIt": "知道了",
@@ -1238,7 +1231,6 @@
     "confirmBtn": "确定",
     "empty": "暂无封面",
     "loadFailed": "加载失败",
-    "loading": "加载中...",
     "subtitle": "选择或生成封面",
     "title": "封面",
     "workTitleDefault": "未命名作品",
@@ -1316,7 +1308,6 @@
     "badgeRejected": "已拒绝",
     "badgeReviewing": "审核中",
     "empty": "暂无智能体",
-    "loading": "加载中...",
     "metaAudience": "可见范围",
     "metaCategory": "分类",
     "metaCycleForever": "永久有效",
@@ -1760,7 +1751,6 @@
     "title": "我的优惠券",
     "validUntil": "有效期至",
     "use": "立即使用",
-    "useHint": "请前往商品页使用",
     "couponCenter": "领券中心"
   },
   "courseAnnex": {
@@ -4569,7 +4559,6 @@
     },
     "workflows": {
       "home": "工作流",
-      "editor": "工作流编辑器",
       "automations": "自动化任务",
       "orchestration": "编排中心",
       "schedule": "定时任务"
@@ -7072,12 +7061,10 @@
     "empty": "暂无资讯",
     "pinned": "置顶",
     "publishedAt": "发布于 {date}",
-    "viewCount": "{count} 阅读",
     "total": "共 {total} 篇",
     "prev": "上一页",
     "next": "下一页",
-    "loading": "加载中...",
-    "error": "加载失败"
+    "loading": "加载中..."
   },
   "searchHistoryPage": {
     "title": "搜索历史",
@@ -7136,10 +7123,7 @@
     "output": "最终输出",
     "runningHint": "仍在运行,暂无最终输出",
     "noOutput": "暂无输出",
-    "noTask": "无任务描述",
-    "prev": "上一页",
-    "pagination": "第 {page} / {totalPages} 页,共 {total} 条",
-    "next": "下一页"
+    "noTask": "无任务描述"
   },
   "chatWorkbenchPage": {
     "title": "对话",
