@@ -187,7 +187,7 @@ export default function DataRightsScreen() {
       <NavChrome>
         <NavBar title={t('dataRights.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {erased ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('dataRights.eraseSuccess')}</Text>

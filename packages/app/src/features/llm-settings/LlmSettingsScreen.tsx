@@ -167,7 +167,7 @@ export function LlmSettingsScreen({
               <View key={i} style={[styles.stepDot, i <= wizardStep && styles.stepDotOn]} />
             ))}
           </View>
-          <ScrollView contentContainerStyle={styles.wizardBody}>
+          <ScrollView contentContainerStyle={styles.wizardBody} keyboardShouldPersistTaps="handled">
             <Text style={styles.stepTitle}>{t(`byok.step${wizardStep + 1}Title`)}</Text>
 
             {wizardStep === 0 ? (
