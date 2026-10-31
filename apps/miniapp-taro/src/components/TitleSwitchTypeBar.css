@@ -56,7 +56,7 @@
 /* multi 模式勾选图标 */
 .title-switch-type-bar__check {
   margin-left: 6rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   line-height: 1;
   color: var(--color-primary-foreground);
 }
@@ -93,7 +93,7 @@
 }
 
 .title-switch-type-bar__modal-title {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: bold;
   color: var(--color-card-foreground);
   margin-bottom: 50rpx;
@@ -105,7 +105,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   margin-bottom: 50rpx;
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-muted-foreground);
   padding: 0 12rpx;
   box-sizing: border-box;
@@ -117,7 +117,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: bold;
   color: var(--color-cta-foreground);
   background: var(--color-cta);

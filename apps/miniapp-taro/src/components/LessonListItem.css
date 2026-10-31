@@ -43,7 +43,7 @@
 }
 
 .lli-vip-text {
-  font-size: 20rpx; /* 对齐原项目 20rpx */
+  font-size: var(--text-badge); /* 对齐原项目 20rpx */
   color: var(--color-warning); /* 金色,对齐原项目 #e99d42 */
   font-weight: 500;
   line-height: 1.4;
@@ -61,7 +61,7 @@
 }
 
 .lli-pill-text {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   font-weight: 500;
   line-height: 1.4;
 }
@@ -86,7 +86,7 @@
   border-radius: var(--radius-md); /* 角标 tag = chip 档 */
   background-color: var(--color-black-40);
   color: var(--color-foreground);
-  font-size: 24rpx; /* 对齐原项目 24rpx */
+  font-size: var(--text-label); /* 对齐原项目 24rpx */
   line-height: 1.4;
 }
 
@@ -114,7 +114,7 @@
   border-top-left-radius: var(--radius-md);
   background-color: var(--color-destructive);
   color: var(--color-foreground);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 700;
   line-height: 1.4;
 }

@@ -18,7 +18,7 @@
   margin-bottom: var(--spacing-md);
 }
 .message-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 500;
   color: var(--color-foreground);
   display: block;
@@ -32,7 +32,7 @@
 .empty-text {
   text-align: center;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   display: block;
   padding: 60rpx 0;
 }

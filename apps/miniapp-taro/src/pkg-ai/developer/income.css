@@ -20,7 +20,7 @@
   padding: var(--spacing-md) 20rpx;
 }
 .income-title {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -48,23 +48,23 @@
   width: 100%;
 }
 .income-acc-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-medium);
   margin-right: var(--spacing-xs);
 }
 .income-acc-value {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 700;
   color: var(--color-foreground);
   margin-right: var(--spacing-xs);
 }
 .income-acc-unit {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-medium);
   margin-right: auto;
 }
 .income-withdraw-btn {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
@@ -83,13 +83,13 @@
   flex: 1;
 }
 .income-stat-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .income-stat-value {
   display: block;
   margin-top: var(--spacing-sm);
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 700;
   color: var(--color-foreground);
 }
@@ -106,10 +106,10 @@
   box-sizing: border-box;
 }
 .income-card-bottom .income-stat-label {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
 }
 .income-card-bottom .income-stat-value {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
 }
 
@@ -117,7 +117,7 @@
 .income-fee-tip {
   margin: var(--spacing-sm-loose) 20rpx 0;
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 
@@ -137,7 +137,7 @@
   height: 64rpx;
   border-radius: var(--radius-xl);
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,24 +167,24 @@
 }
 .income-item-title {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: var(--spacing-xs);
 }
 .income-item-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 .income-item-amount {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-success);
   font-weight: 700;
   margin-bottom: var(--spacing-xs);
 }
 /* 状态徽章 — 对齐 RN cardStatus(纯彩色文字,无底色):settled=success/pending=warning */
 .income-item-badge {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   font-weight: 600;
   padding: 0;
   border-radius: 0;
@@ -202,7 +202,7 @@
   display: block;
   text-align: center;
   padding: var(--spacing-5xl) 0;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -246,12 +246,12 @@
   flex-direction: column;
 }
 .income-popup-title {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .income-popup-sub {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-tertiary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

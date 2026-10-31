@@ -36,7 +36,7 @@
   justify-content: center;
 }
 .dev-avatar-text {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-primary);
 }
@@ -53,7 +53,7 @@
   color: var(--color-foreground);
 }
 .dev-bio {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
@@ -99,12 +99,12 @@
   gap: var(--spacing-xs);
 }
 .dev-stat-num {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 700;
   color: var(--color-primary);
 }
 .dev-stat-label {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 
@@ -114,7 +114,7 @@
 }
 .dev-section-title {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-sm);
@@ -148,7 +148,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-primary);
 }
@@ -166,17 +166,17 @@
   gap: var(--spacing-xs-loose);
 }
 .dev-model-name {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .dev-model-uses {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 .dev-model-desc {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,7 +185,7 @@
 .dev-model-btn {
   flex-shrink: 0;
   padding: 10rpx 24rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-primary);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
@@ -204,7 +204,7 @@
   margin-bottom: var(--spacing-sm);
 }
 .dev-notify-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
@@ -222,21 +222,21 @@
 }
 .dev-post-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .dev-post-content {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .dev-post-time {
   display: block;
   margin-top: var(--spacing-xs-loose);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 
@@ -245,7 +245,7 @@
   margin: var(--spacing-md);
   height: 84rpx;
   line-height: 84rpx;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-cta-foreground);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
