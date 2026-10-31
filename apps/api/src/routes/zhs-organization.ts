@@ -77,8 +77,9 @@ const zhsOrganizationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(org))
   })
 
-  // 创建
-  server.post('/', async (request, reply) => {
+  // 创建(2026-10-31 安全强化第 11 批:写操作此前整作用域零鉴权,匿名可建/改/删组织树;
+  // 与下方 admin 副本同语义收口到 requireAdmin,GET 只读保持公开)
+  server.post('/', { preHandler: requireAdmin }, async (request, reply) => {
     const body = orgSchema.safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
@@ -95,8 +96,8 @@ const zhsOrganizationRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success(created))
   })
 
-  // 更新
-  server.put('/:id', async (request, reply) => {
+  // 更新(同批收口)
+  server.put('/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     const body = updateSchema.safeParse(request.body)
     if (!body.success) {
@@ -111,8 +112,8 @@ const zhsOrganizationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(updated))
   })
 
-  // 删除(检查子节点)
-  server.delete('/:id', async (request, reply) => {
+  // 删除(检查子节点;同批收口)
+  server.delete('/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     const children = await db
       .select({ count: sql<number>`count(*)::int` })

@@ -798,10 +798,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           .status(201)
           .send(success({ conversation: serializeConversation(conversation) }))
       } catch (err) {
-        // 2026-07-27 修复:500 空 body 不友好,打印堆栈 + 返回错误消息
+        // 2026-10-31 安全强化第 11 批:500 一律固定文案 —— 此前把 err.message 原样回传,
+        // 数据库错误(表名/约束/SQLSTATE)与上游 fetch 错误(内网 URL)会直达客户端,
+        // 绕过中央 errorHandler 的脱敏兜底;细节保留在服务端日志
         request.log.error({ err }, '创建对话失败')
-        const msg = err instanceof Error ? err.message : '创建对话失败'
-        return reply.code(500).send(error(500, msg))
+        return reply.code(500).send(error(500, '创建对话失败,请稍后重试'))
       }
     },
   )
@@ -1020,8 +1021,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ action, affected, missedIds }))
     } catch (err) {
       request.log.error({ err }, '批量操作失败')
-      const msg = err instanceof Error ? err.message : '批量操作失败'
-      return reply.code(500).send(error(500, msg))
+      return reply.code(500).send(error(500, '批量操作失败,请稍后重试'))
     }
   })
 
@@ -1583,8 +1583,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (err) {
       request.log.error({ err }, '重新生成失败')
-      const msg = err instanceof Error ? err.message : '重新生成失败'
-      return reply.code(500).send(error(500, msg))
+      return reply.code(500).send(error(500, '重新生成失败,请稍后重试'))
     }
   })
 
@@ -1691,8 +1690,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, err.message))
       }
       request.log.error({ err }, '创建分支失败')
-      const msg = err instanceof Error ? err.message : '创建分支失败'
-      return reply.code(500).send(error(500, msg))
+      return reply.code(500).send(error(500, '创建分支失败,请稍后重试'))
     }
   })
 

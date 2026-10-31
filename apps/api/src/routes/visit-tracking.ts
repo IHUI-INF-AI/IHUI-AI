@@ -73,6 +73,9 @@ function observeVisitorRequest(request: FastifyRequest): ObservedVisitorFields {
 // 2026-10-23 真值化:这里**刻意不再声明** ip / userAgent —— 客户端自报的来源与 UA
 // 属可整写字段,收下即污染整张表。旧前端仍可能带这两个键,剥未知键 ⇒ 静默丢弃,
 // 不会 400(ajv 未配 additionalProperties:false,见 src/server.ts 的 ajv 段)。
+// 业务日(visitDate)与来源字段(ip/user_agent)**不由客户端决定**:前者由 saveVisitLog
+// 在服务端观测面上算,后者同样取自 observeVisitorRequest。此前 schema 收 visitDate 且
+// handler 用 `...parsed.data` 直接展开 ⇒ 客户端一个 visitDate 就能把记录写到任意一天。
 const saveVisitLogSchema = z
   .object({
     data: z
@@ -82,7 +85,6 @@ const saveVisitLogSchema = z
         url: z.string().max(512).optional(),
         referer: z.string().max(512).optional(),
         sessionId: z.string().max(128).optional(),
-        visitDate: z.string().max(10).optional(),
       })
       .optional(),
     userId: z.uuid().optional(),
@@ -90,7 +92,6 @@ const saveVisitLogSchema = z
     url: z.string().max(512).optional(),
     referer: z.string().max(512).optional(),
     sessionId: z.string().max(128).optional(),
-    visitDate: z.string().max(10).optional(),
   })
   .transform((v) => (v.data ? v.data : v))
 

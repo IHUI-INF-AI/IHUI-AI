@@ -7784,6 +7784,36 @@ def _interrupted_callback_flush(
     return bool(stream_exiting and not error and str(content or "").strip())
 
 
+def _is_allowed_callback_target(url: str) -> bool:
+    """callback 目标白名单(2026-10-31 安全强化第 10 批)。
+
+    callback_url 是请求体里的用户可控字段:指向攻击者服务器 = 把 X-Internal-Secret
+    (内部服务共享密钥,/internal/checkin 全套的唯一防线)整枚送出 + 一封携带完整
+    推理结果与元数据的 POST SSRF。唯一合法落点 = API 侧服务自身
+    (settings.api_service_url 的 scheme+host+port 同源,路径不限)。
+    """
+    from urllib.parse import urlsplit
+
+    try:
+        target = urlsplit(url)
+        base = urlsplit(settings.api_service_url)
+    except ValueError:
+        return False
+    if target.scheme not in ("http", "https") or not target.hostname:
+        return False
+
+    def _default_port(u: Any, scheme: str) -> int:
+        port = int(u.port or 0)
+        if port:
+            return port
+        return 443 if scheme == "https" else 80
+
+    return (
+        (target.hostname or "").lower() == (base.hostname or "").lower()
+        and _default_port(target, target.scheme) == _default_port(base, base.scheme)
+    )
+
+
 async def _fire_callback(
     url: str,
     payload: dict[str, Any],
@@ -7900,6 +7930,14 @@ async def _fire_callback(
     if not settings.ai_callback_secret:
         logger.error(
             "LLM callback skipped: ai_callback_secret 未配置(API 侧 AI_CALLBACK_SECRET 缺失时拒绝回调)"
+        )
+        return
+    # 2026-10-31 安全强化第 10 批:目标白名单排在带密钥发送之前 —— 非白名单目标
+    # 一律不发(连不带密钥的裸 POST 也不发,推理结果本身就是要保护的数据)。
+    if not _is_allowed_callback_target(url):
+        logger.error(
+            "LLM callback blocked: callback_url 不在允许集内(仅 API 侧 %s 同源可收回调)",
+            settings.api_service_url,
         )
         return
     headers: dict[str, str] = {"X-Internal-Secret": settings.ai_callback_secret}
