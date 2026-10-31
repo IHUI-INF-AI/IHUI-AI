@@ -888,8 +888,8 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **智能路由**:成本感知择优 · 国内外端点竞速 · 故障自动 fallback · 模型积分计价(免费 ×0 → 旗舰 ×30 五档梯度)
 - **LangGraph 图编排**:plan → execute → summarize · Postgres 节点级检查点 · HITL 人工介入 · 5 模式流式(values/updates/messages/events/debug)
 - **MCP + A2A 三栈**:自研 MCP 协议服务端 + 客户端(stdio / SSE / HTTP)· 24 内置工具 · Agent-to-Agent 互通
-- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
-- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的)
 - **AIGC 生成内容打标**(对齐 Trae tagAigcMetadata,goal-b40):媒体任务落库链路自动打标(图像/音频/视频全类型)· 显式标识文案 + 标识类型 + 生成方 + 标准引用(《人工智能生成合成内容标识办法》)· `AIGC_LABELING_ENABLED` 开关,关=逐字节旧行为
 ### 💬 对话体验(Web 端王牌)
 - **全局 docked AI 面板**:任意页面右侧常驻对话,不占独立路由,深链可分享
@@ -7850,8 +7850,8 @@ G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒
 - **智能路由**:成本感知择优 · 国内外端点竞速 · 故障自动 fallback · 模型积分计价(免费 ×0 → 旗舰 ×30 五档梯度)
 - **LangGraph 图编排**:plan → execute → summarize · Postgres 节点级检查点 · HITL 人工介入 · 5 模式流式(values/updates/messages/events/debug)
 - **MCP + A2A 三栈**:自研 MCP 协议服务端 + 客户端(stdio / SSE / HTTP)· 24 内置工具 · Agent-to-Agent 互通
-- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
-- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的)
 ### 💬 对话体验(Web 端王牌)
 - **全局 docked AI 面板**:任意页面右侧常驻对话,不占独立路由,深链可分享
 - **丝滑流式**:SSE + 断点续传 · 消息排队 · Steer 中途引导(对标 Codex / Cursor)
@@ -40696,7 +40696,7 @@ A: Yes. ~14839+ tests / 3782 test files / 67 e2e spec / 4656 API 路由 / 617 �
 → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 | **AI 服务**  | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,仅此层用 Python),200+ services + 23 routers + 18 LLM Providers + 105 MCP 工具 + 38 发布适配器                                                                            |
 核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 105 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3607 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
-|                   | MCP 工具协议        | 105 内置 MCP 工具(全量清单以 apps/ai-service/app/services/mcp_server.py 的 _TOOLS 为准;核心族:代码检索/知识库查询/文件读写/命令执行/网页与图片搜索/工作流触发与续跑/代码调查/团队点名消息/顾问咨询)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+|                   | MCP 工具协议        | 106 内置 MCP 工具(全量清单以 apps/ai-service/app/services/mcp_server.py 的 _TOOLS 为准;核心族:代码检索/知识库查询/文件读写/目录骨架预算装箱/命令执行/网页与图片搜索/工作流触发与续跑/代码调查/团队点名消息/顾问咨询)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 |                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / **200+ services**(Glob 实测)/ **23 routers** / **18 LLM Providers**(openai/anthropic/gemini/qwen/dashscope/doubao/volcengine/zhipu/hunyuan/stepfun/kling/jimeng/ollama/lmstudio/llama_cpp/openrouter/luyala)/ **105 MCP 工具** / **38 发布适配器** / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 数据库表 | 617 | `dbTables` |
 | API 路由 | 4656 | `apiRoutes` |
