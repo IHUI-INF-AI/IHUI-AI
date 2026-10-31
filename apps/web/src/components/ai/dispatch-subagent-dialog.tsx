@@ -560,7 +560,7 @@ function DispatchForm({
       </Field>
       {/* DAG 编辑器 */}
       <div className="space-y-1.5 rounded-lg border border-border bg-card px-2.5 py-2">
-        <label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <label className="flex items-center gap-1.5 text-label font-medium text-foreground">
           <input
             type="checkbox"
             checked={enableDag}
@@ -676,7 +676,7 @@ function DispatchForm({
       </div>
       {/* 重试 */}
       <div className="space-y-1.5 rounded-lg border border-border bg-card px-2.5 py-2">
-        <span className="text-xs font-medium text-foreground">{t('retrySection')}</span>
+        <span className="text-label font-medium text-foreground">{t('retrySection')}</span>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             <span className="text-[11px] text-muted-foreground">{t('fields.retryCount')}</span>
@@ -716,7 +716,7 @@ function DispatchForm({
       </div>
       {/* 配额 */}
       <div className="space-y-1.5 rounded-lg border border-border bg-card px-2.5 py-2">
-        <label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <label className="flex items-center gap-1.5 text-label font-medium text-foreground">
           <input
             type="checkbox"
             checked={enableQuotas}
@@ -1504,7 +1504,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="flex items-center gap-1 text-xs font-medium text-foreground">
+      <label className="flex items-center gap-1 text-label font-medium text-foreground">
         <span>{label}</span>
         {required && <span className="text-red-500">*</span>}
       </label>

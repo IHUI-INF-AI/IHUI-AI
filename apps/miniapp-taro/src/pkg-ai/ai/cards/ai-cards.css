@@ -160,8 +160,8 @@
   padding: 14rpx 12rpx;
 }
 .ai-card-tool-icon {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -414,8 +414,8 @@
   gap: var(--spacing-2xs);
 }
 .ai-card-spinner-dot {
-  width: 8rpx;
-  height: 8rpx;
+  width: var(--spacing-xs);
+  height: var(--spacing-xs);
   border-radius: var(--radius-xs);
   background: var(--color-card);
   animation: aiCardPulse 1.2s infinite ease-in-out;

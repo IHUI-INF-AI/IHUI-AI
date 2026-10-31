@@ -98,7 +98,7 @@ function Badge({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        'rounded-md px-2 py-0.5 text-xs font-medium',
+        'rounded-md px-2 py-0.5 text-label font-medium',
         BADGE[status] ?? 'bg-muted text-muted-foreground',
       )}
     >
@@ -172,7 +172,7 @@ export default function EnterprisePage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Building2 className="h-5 w-5" aria-hidden />
             企业合规
           </h1>
@@ -266,7 +266,7 @@ export default function EnterprisePage() {
             (rows as Profile[]).map((p) => (
               <Row key={p.id}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium">{p.companyName}</p>
+                  <p className="text-body font-medium">{p.companyName}</p>
                   <Badge status={p.status} />
                 </div>
                 <Meta label="信用代码" value={p.creditCode} />
@@ -303,7 +303,7 @@ export default function EnterprisePage() {
             (rows as Invoice[]).map((v) => (
               <Row key={v.id}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium">{v.title}</p>
+                  <p className="text-body font-medium">{v.title}</p>
                   <Badge status={v.status} />
                 </div>
                 <Meta label="订单" value={`${v.orderNo}(${yuan(v.amountCents)})`} />
@@ -336,7 +336,7 @@ export default function EnterprisePage() {
             (rows as Contract[]).map((c) => (
               <Row key={c.id}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium">{c.title}</p>
+                  <p className="text-body font-medium">{c.title}</p>
                   <Badge status={c.status} />
                 </div>
                 <Meta label="合同号" value={c.contractNo} />
@@ -358,7 +358,7 @@ export default function EnterprisePage() {
             (rows as Voucher[]).map((v) => (
               <Row key={v.id}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium">{v.payerCompany}</p>
+                  <p className="text-body font-medium">{v.payerCompany}</p>
                   <Badge status={v.status} />
                 </div>
                 <Meta label="订单" value={`${v.orderNo}(${yuan(v.amountCents)})`} />

@@ -111,7 +111,7 @@ export default async function AiEduPage() {
         <BackButton />
         {/* Hero */}
         <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <GraduationCap className="h-3.5 w-3.5 text-primary" />
             AI 教育
           </div>
@@ -125,7 +125,7 @@ export default async function AiEduPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                <div className="text-display font-bold text-primary min-[768px]:text-3xl">
                   {m.value}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
@@ -138,7 +138,7 @@ export default async function AiEduPage() {
 
         {/* 痛点 */}
         <section className="mt-12 space-y-4">
-          <h2 className="text-2xl font-bold tracking-tight">教培行业面临的真实挑战</h2>
+          <h2 className="text-display font-bold tracking-tight">教培行业面临的真实挑战</h2>
           <ul className="space-y-2 text-sm text-muted-foreground min-[768px]:text-base">
             <li className="flex gap-2">
               <span className="text-rose-500">•</span>
@@ -165,11 +165,11 @@ export default async function AiEduPage() {
 
         {/* 解决方案 */}
         <section className="mt-12 space-y-4">
-          <h2 className="text-2xl font-bold tracking-tight">IHUI AI 教育 Agent 解决方案</h2>
+          <h2 className="text-display font-bold tracking-tight">IHUI AI 教育 Agent 解决方案</h2>
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             {capabilities.map((c) => (
               <div key={c.title} className="rounded-lg border bg-card p-3">
-                <div className="flex items-center gap-2 text-sm font-semibold">
+                <div className="flex items-center gap-2 text-body font-semibold">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   {c.title}
                 </div>
@@ -181,7 +181,7 @@ export default async function AiEduPage() {
 
         {/* 技术栈 */}
         <section className="mt-12 space-y-4">
-          <h2 className="text-2xl font-bold tracking-tight">8 端同源技术栈</h2>
+          <h2 className="text-display font-bold tracking-tight">8 端同源技术栈</h2>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
@@ -206,17 +206,17 @@ export default async function AiEduPage() {
         <section className="mt-12 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-3">
             <BookOpen className="h-5 w-5 text-primary" />
-            <div className="mt-3 text-2xl font-bold">60%</div>
+            <div className="mt-3 text-display font-bold">60%</div>
             <div className="mt-1 text-xs text-muted-foreground">教师辅导工作量降低</div>
           </div>
           <div className="rounded-lg border bg-card p-3">
             <Users className="h-5 w-5 text-primary" />
-            <div className="mt-3 text-2xl font-bold">25%</div>
+            <div className="mt-3 text-display font-bold">25%</div>
             <div className="mt-1 text-xs text-muted-foreground">学员留存率提升</div>
           </div>
           <div className="rounded-lg border bg-card p-3">
             <BarChart3 className="h-5 w-5 text-primary" />
-            <div className="mt-3 text-2xl font-bold">95%+</div>
+            <div className="mt-3 text-display font-bold">95%+</div>
             <div className="mt-1 text-xs text-muted-foreground">智能批改准确率</div>
           </div>
         </section>
@@ -224,7 +224,7 @@ export default async function AiEduPage() {
         {/* CTA */}
         <section className="mt-12 rounded-lg border bg-card p-3 text-center">
           <Wrench className="mx-auto h-6 w-6 text-primary" />
-          <h2 className="mt-3 text-2xl font-bold tracking-tight">30 分钟搭建 AI 教育 Agent</h2>
+          <h2 className="mt-3 text-display font-bold tracking-tight">30 分钟搭建 AI 教育 Agent</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
             注册即用,Apache 2.0 开源,可私有化部署;Web/API/AI
             Service/Desktop/Extension/Mobile/Miniapp/CLI 8 端同源。
@@ -232,14 +232,14 @@ export default async function AiEduPage() {
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/use-cases"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               <span>查看更多用例</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Link
               href="/docs/agent"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-4 text-xs font-medium transition-colors hover:bg-accent"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-4 text-label font-medium transition-colors hover:bg-accent"
             >
               阅读 Agent 文档
             </Link>

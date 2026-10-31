@@ -108,7 +108,7 @@ export default function MemberFeedbackPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <MessageSquare className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -121,7 +121,7 @@ export default function MemberFeedbackPage() {
             key={v}
             onClick={() => setTab(v)}
             className={cn(
-              'flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'flex-1 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === v
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -157,11 +157,11 @@ export default function MemberFeedbackPage() {
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                         {typeLabel[item.type] ?? item.type}
                       </span>
-                      <span className="text-sm font-medium">{item.title}</span>
+                      <span className="text-body font-medium">{item.title}</span>
                     </div>
                     <span
                       className={cn(
-                        'rounded-md px-2 py-0.5 text-xs font-medium',
+                        'rounded-md px-2 py-0.5 text-label font-medium',
                         STATUS_CLS[item.status],
                       )}
                     >

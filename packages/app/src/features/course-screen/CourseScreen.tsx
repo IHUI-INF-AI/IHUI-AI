@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { FlatList, Pressable, Text, View, StyleSheet } from 'react-native'
+import { FlatList, Text, View, StyleSheet } from 'react-native'
 import { TextField } from '../../components/TextField'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -11,6 +11,7 @@ import type { CourseScreenProps } from '../../types'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /** 课程列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { CourseScreenProps }
@@ -95,7 +96,7 @@ export function CourseScreen({
         ListFooterComponent={
           totalPages > 1 ? (
             <View style={styles.pagination}>
-              <Pressable
+              <Tappable
                 onPress={() => onPageChange(Math.max(1, page - 1))}
                 disabled={page <= 1}
                 hitSlop={8}
@@ -106,11 +107,11 @@ export function CourseScreen({
                   color={tk.text.primary}
                   style={page <= 1 && styles.pageBtnDisabled}
                 />
-              </Pressable>
+              </Tappable>
               <Text style={styles.pageIndicator}>
                 {page} / {totalPages}
               </Text>
-              <Pressable
+              <Tappable
                 onPress={() => onPageChange(Math.min(totalPages, page + 1))}
                 disabled={page >= totalPages}
                 hitSlop={8}
@@ -118,7 +119,7 @@ export function CourseScreen({
                 <Text style={[styles.pageBtn, page >= totalPages && styles.pageBtnDisabled]}>
                   {t('courseScreen.nextPage')}
                 </Text>
-              </Pressable>
+              </Tappable>
             </View>
           ) : null
         }

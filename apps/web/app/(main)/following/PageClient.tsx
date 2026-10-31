@@ -86,7 +86,7 @@ function FollowingContent() {
     <div className="py-4 mx-auto max-w-3xl space-y-4 px-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Users className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -98,7 +98,7 @@ function FollowingContent() {
           <button
             key={value}
             onClick={() => setTab(value)}
-            className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'

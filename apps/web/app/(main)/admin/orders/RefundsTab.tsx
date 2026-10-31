@@ -139,7 +139,7 @@ export function RefundsTab({
               setPage(1)
             }}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               status === tb.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -200,7 +200,7 @@ export function RefundsTab({
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         REFUND_STATUS_CFG[r.status].cls,
                       )}
                     >

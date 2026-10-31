@@ -47,7 +47,7 @@ export default async function ApiDocsPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('apiDocs.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('apiDocs.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('apiDocs.subtitle')}</p>
       </header>
 
@@ -124,7 +124,7 @@ export default async function ApiDocsPage() {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <div className="mb-2 text-xs font-semibold text-muted-foreground">
+              <div className="mb-2 text-label font-semibold text-muted-foreground">
                 {t('apiDocs.example.curl')}
               </div>
               <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
@@ -132,7 +132,7 @@ export default async function ApiDocsPage() {
               </pre>
             </div>
             <div>
-              <div className="mb-2 text-xs font-semibold text-muted-foreground">
+              <div className="mb-2 text-label font-semibold text-muted-foreground">
                 {t('apiDocs.example.python')}
               </div>
               <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">

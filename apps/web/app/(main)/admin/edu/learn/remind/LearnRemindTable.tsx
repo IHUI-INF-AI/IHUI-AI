@@ -86,7 +86,7 @@ export function LearnRemindTable({
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                     )}
                   >
                     {t(TYPE_MAP[r.type] ?? 'type.unknown')}
@@ -99,7 +99,7 @@ export function LearnRemindTable({
                   {r.isRead ? (
                     <span className="text-xs text-muted-foreground">{t('read')}</span>
                   ) : (
-                    <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                    <span className="text-label font-medium text-rose-600 dark:text-rose-400">
                       {t('unread')}
                     </span>
                   )}

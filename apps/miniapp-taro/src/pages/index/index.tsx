@@ -1363,7 +1363,7 @@ export default function Index() {
                     name="chevron-right"
                     size={22}
                     color="var(--color-primary-foreground)"
-                    style={{ marginLeft: '4rpx' }}
+                    style={{ marginLeft: 'var(--spacing-2xs)' }}
                   />
                 </View>
               </View>

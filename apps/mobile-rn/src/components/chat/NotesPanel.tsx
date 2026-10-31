@@ -13,6 +13,7 @@ import { tokens } from '../../theme/active-tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
+import { Tappable } from '@ihui/ui-native'
 
 /** durationMs → `m:ss`;0/负值视为「无时长」(回空串,行上只留创建时间) */
 function formatDuration(durationMs: number): string {
@@ -209,11 +210,11 @@ export function NotesPanel({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalMask} onPress={onClose}>
+      <Tappable style={styles.modalMask} onPress={onClose}>
         <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>语音笔记</Text>
-            <Pressable
+            <Tappable
               hitSlop={8}
               onPress={onClose}
               style={styles.listDialogClose}
@@ -221,7 +222,7 @@ export function NotesPanel({
               accessibilityLabel={t('common.close')}
             >
               <X size={20} color={tokens.text.primary} />
-            </Pressable>
+            </Tappable>
           </View>
 
           <Pressable
@@ -243,14 +244,14 @@ export function NotesPanel({
           ) : error ? (
             <>
               <Text style={styles.errorText}>{error}</Text>
-              <Pressable
+              <Tappable
                 onPress={() => void load()}
                 style={styles.retryBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t('common.retryShort')}
               >
                 <Text style={styles.retryText}>重试</Text>
-              </Pressable>
+              </Tappable>
             </>
           ) : notes.length === 0 ? (
             <Text style={styles.emptyText}>暂无语音笔记</Text>
@@ -281,16 +282,16 @@ export function NotesPanel({
             </ScrollView>
           )}
 
-          <Pressable
+          <Tappable
             onPress={onClose}
             style={[styles.panelCancelBtn, styles.notesCancelBtn]}
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
           >
             <Text style={styles.panelCancelText}>取消</Text>
-          </Pressable>
+          </Tappable>
         </Pressable>
-      </Pressable>
+      </Tappable>
     </Modal>
   )
 }

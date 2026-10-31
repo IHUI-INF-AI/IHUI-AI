@@ -29,7 +29,7 @@ function NoticeBar({ text, testId }: { text: string; testId?: string }) {
       <View className="flex-shrink-0 mt-[4rpx]">
         <LineIcon name="triangle-alert" size={26} color="var(--color-destructive)" />
       </View>
-      <Text className="flex-1 text-[length:24rpx] text-destructive" data-testid={testId}>
+      <Text className="flex-1 text-label text-destructive" data-testid={testId}>
         {text}
       </Text>
     </ThemeRoot>
@@ -72,18 +72,18 @@ export function ImportPreviewList({
   return (
     <View className="mb-[32rpx]">
       <View className="flex items-center justify-between mb-[12rpx]">
-        <Text className="text-[length:28rpx] text-foreground font-semibold">
+        <Text className="text-body text-foreground font-semibold">
           {tt('conversationImport.previewTitle', '解析预览')}
         </Text>
         <View onClick={onToggleAll} hoverClass="opacity-60" className="py-[8rpx] px-[16rpx]">
-          <Text className="text-[length:24rpx] text-primary">
+          <Text className="text-label text-primary">
             {allSelected
               ? tt('conversationImport.deselectAll', '全不选')
               : tt('conversationImport.selectAll', '全选')}
           </Text>
         </View>
       </View>
-      <Text className="block text-[length:24rpx] text-muted-foreground mb-[12rpx]">
+      <Text className="block text-label text-muted-foreground mb-[12rpx]">
         {tt('conversationImport.selected', '已选 {count}/{total}', {
           count: selected.length,
           total: rows.length,
@@ -126,7 +126,7 @@ export function ImportPreviewList({
               <Text className="block text-[length:26rpx] text-foreground truncate">
                 {r.title || tt('conversationImport.conversationUntitled', '未命名会话')}
               </Text>
-              <Text className="block text-[length:22rpx] text-muted-foreground mt-[4rpx]">
+              <Text className="block text-caption text-muted-foreground mt-[4rpx]">
                 {tt('conversationImport.messagesCount', '{count} 条消息', {
                   count: r.messageCount,
                 })}
@@ -170,7 +170,7 @@ export function ImportResultList({
   if (items.length === 0) return null
   return (
     <View className="mb-[32rpx]">
-      <Text className="block text-[length:28rpx] text-foreground font-semibold mb-[16rpx]">
+      <Text className="block text-body text-foreground font-semibold mb-[16rpx]">
         {tt('conversationImport.resultTitle', '已导入 {count} 个会话', { count: items.length })}
       </Text>
       {items.map((c) => (
@@ -178,7 +178,7 @@ export function ImportResultList({
           <Text className="block text-[length:26rpx] text-foreground font-semibold truncate">
             {c.title || tt('conversationImport.conversationUntitled', '未命名会话')}
           </Text>
-          <Text className="block text-[length:22rpx] text-muted-foreground mt-[6rpx] mb-[16rpx]">
+          <Text className="block text-caption text-muted-foreground mt-[6rpx] mb-[16rpx]">
             {tt('conversationImport.messagesCount', '{count} 条消息', {
               count: c.messageCount,
             })}
@@ -233,11 +233,11 @@ export function ImportHistoryList({
 }) {
   return (
     <View>
-      <Text className="block text-[length:28rpx] text-foreground font-semibold mb-[16rpx]">
+      <Text className="block text-body text-foreground font-semibold mb-[16rpx]">
         {tt('conversationImport.historyTitle', '导入历史')}
       </Text>
       {items.length === 0 ? (
-        <Text className="block text-[length:24rpx] text-muted-foreground">
+        <Text className="block text-label text-muted-foreground">
           {tt('conversationImport.historyEmpty', '暂无导入记录')}
         </Text>
       ) : (
@@ -247,11 +247,11 @@ export function ImportHistoryList({
               <Text className="flex-1 text-[length:26rpx] text-foreground truncate">
                 {h.fileName || '—'}
               </Text>
-              <Text className="flex-shrink-0 text-[length:22rpx] text-muted-foreground">
+              <Text className="flex-shrink-0 text-caption text-muted-foreground">
                 {historyStatusLabel(toHistoryStatus(h.status), h.status, tt)}
               </Text>
             </View>
-            <Text className="block text-[length:22rpx] text-muted-foreground mt-[8rpx]">
+            <Text className="block text-caption text-muted-foreground mt-[8rpx]">
               {tt('conversationImport.historyParsed', '解析')}: {h.parsedCount} ·{' '}
               {tt('conversationImport.historyImported', '导入')}: {h.importedCount} ·{' '}
               {tt('conversationImport.failedCountLabel', '失败')}: {h.failedCount}

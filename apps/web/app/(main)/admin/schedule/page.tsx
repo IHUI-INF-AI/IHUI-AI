@@ -74,7 +74,7 @@ export default function AdminSchedulePage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Clock className="h-6 w-6 text-primary" />
             定时任务
           </h1>
@@ -159,7 +159,7 @@ export default function AdminSchedulePage() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Calendar className="h-4 w-4 text-primary" />
             下次执行预览
-            {editingId && <span className="text-xs font-normal text-muted-foreground">编辑中</span>}
+            {editingId && <span className="text-label font-normal text-muted-foreground">编辑中</span>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -169,7 +169,7 @@ export default function AdminSchedulePage() {
             <ul className="space-y-1.5">
               {runs.map((d, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-xs font-medium text-primary">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-label font-medium text-primary">
                     {i + 1}
                   </span>
                   {dtf.format(d)}

@@ -86,7 +86,7 @@ export function CommunityTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       {topic.isPinned && (
-                        <span className="inline-flex items-center rounded bg-amber-500/10 px-1 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        <span className="inline-flex items-center rounded bg-amber-500/10 px-1 py-0.5 text-label font-medium text-amber-600 dark:text-amber-400">
                           {t('pinned')}
                         </span>
                       )}
@@ -104,7 +104,7 @@ export function CommunityTable({
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         st.cls,
                       )}
                     >

@@ -132,7 +132,7 @@ export function ErrorCodeTable(): React.JSX.Element {
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">{t('errorCodesTitle')}</p>
+          <p className="text-body font-semibold">{t('errorCodesTitle')}</p>
         </div>
         <p className="text-xs text-muted-foreground">{t('errorCodesDesc')}</p>
 
@@ -164,13 +164,13 @@ export function ErrorCodeTable(): React.JSX.Element {
               ) : (
                 filtered.map((e) => (
                   <TableRow key={e.code}>
-                    <TableCell className="px-2 py-1.5 font-mono text-xs font-medium">
+                    <TableCell className="px-2 py-1.5 font-mono text-label font-medium">
                       {e.code}
                     </TableCell>
                     <TableCell className="px-2 py-1.5">
                       <span
                         className={cn(
-                          'rounded px-1.5 py-0.5 text-xs font-semibold',
+                          'rounded px-1.5 py-0.5 text-label font-semibold',
                           statusClass(e.httpStatus),
                         )}
                       >

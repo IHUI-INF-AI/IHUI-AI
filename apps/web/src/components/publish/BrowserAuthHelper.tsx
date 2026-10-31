@@ -108,7 +108,7 @@ export function BrowserAuthHelper({
 
   return (
     <div className="space-y-2.5 rounded-md border border-orange-500/20 bg-orange-500/5 p-3">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+      <div className="flex items-center gap-1.5 text-label font-medium text-orange-600 dark:text-orange-400">
         <Cookie className="h-3.5 w-3.5" />
         Cookie 获取教程(4 步)
       </div>
@@ -121,7 +121,7 @@ export function BrowserAuthHelper({
                 {idx + 1}
               </div>
               <div className="min-w-0 flex-1 space-y-0.5 pt-0.5">
-                <div className="flex items-center gap-1 text-xs font-medium">
+                <div className="flex items-center gap-1 text-label font-medium">
                   <Icon className="h-3 w-3 text-orange-500" />
                   {step.title}
                 </div>

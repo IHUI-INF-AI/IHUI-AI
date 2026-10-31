@@ -32,7 +32,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
                 onClick={() => p.setScopeType(opt.type)}
                 aria-pressed={isActive}
                 className={cn(
-                  'flex h-7 items-center gap-1 px-2 text-xs font-medium transition-colors',
+                  'flex h-7 items-center gap-1 px-2 text-label font-medium transition-colors',
                   idx < SCOPE_OPTIONS.length - 1 && 'border-border',
                   isActive
                     ? 'bg-cta text-cta-foreground'
@@ -64,7 +64,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
         onClick={p.handleGenerate}
         disabled={p.loading}
         className={cn(
-          'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
+          'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-label font-medium transition-colors',
           'bg-cta text-cta-foreground hover:bg-cta/90',
           p.loading && 'cursor-not-allowed opacity-60',
         )}
@@ -154,7 +154,7 @@ export function SpecTabNav({ p }: { p: SpecPanelApi }) {
             type="button"
             onClick={() => p.setTabMode(tab.mode)}
             className={cn(
-              'flex h-6 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors',
+              'flex h-6 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors',
               isActive
                 ? 'bg-primary/10 text-primary'
                 : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',

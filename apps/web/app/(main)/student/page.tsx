@@ -87,7 +87,7 @@ export default function StudentCenterPage() {
       <BackButton />
       <header className="flex items-center justify-between space-y-1">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
             <BarChart3 className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
@@ -143,40 +143,40 @@ export default function StudentCenterPage() {
             <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('totalLessons')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('totalLessons')}</CardTitle>
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{lessons?.total ?? 0}</div>
+                  <div className="text-display font-bold">{lessons?.total ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('completedLessons')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('completedLessons')}</CardTitle>
                   <Award className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="text-display font-bold text-emerald-600 dark:text-emerald-400">
                     {lessons?.completed ?? 0}
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('inProgressLessons')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('inProgressLessons')}</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-primary">{lessons?.inProgress ?? 0}</div>
+                  <div className="text-display font-bold text-primary">{lessons?.inProgress ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('avgProgress')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('avgProgress')}</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{lessons?.avgProgress ?? 0}%</div>
+                  <div className="text-display font-bold">{lessons?.avgProgress ?? 0}%</div>
                 </CardContent>
               </Card>
             </div>
@@ -191,31 +191,31 @@ export default function StudentCenterPage() {
             <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('totalExams')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('totalExams')}</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{exams?.total ?? 0}</div>
+                  <div className="text-display font-bold">{exams?.total ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('passedExams')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('passedExams')}</CardTitle>
                   <Award className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="text-display font-bold text-emerald-600 dark:text-emerald-400">
                     {exams?.passed ?? 0}
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('avgScore')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('avgScore')}</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{exams?.avgScore ?? 0}</div>
+                  <div className="text-display font-bold">{exams?.avgScore ?? 0}</div>
                 </CardContent>
               </Card>
             </div>
@@ -230,11 +230,11 @@ export default function StudentCenterPage() {
             <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('totalCerts')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('totalCerts')}</CardTitle>
                   <Award className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{certs?.total ?? 0}</div>
+                  <div className="text-display font-bold">{certs?.total ?? 0}</div>
                 </CardContent>
               </Card>
             </div>

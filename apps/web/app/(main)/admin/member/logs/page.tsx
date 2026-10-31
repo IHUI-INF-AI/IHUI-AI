@@ -58,7 +58,7 @@ export default function AdminMemberLogsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <ScrollText className="h-6 w-6 text-primary" />
           会员操作日志
         </h1>
@@ -116,7 +116,7 @@ export default function AdminMemberLogsPage() {
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.user}</TableCell>
                   <TableCell>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label font-medium">
                       {l.action}
                     </span>
                   </TableCell>

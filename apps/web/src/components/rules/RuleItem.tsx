@@ -41,7 +41,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
       <span className="w-6 shrink-0 text-right text-xs text-muted-foreground">{index}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{rule.name}</span>
+          <span className="truncate text-body font-medium">{rule.name}</span>
           {!rule.enabled && (
             <span className="rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">
               {t('disabled')}

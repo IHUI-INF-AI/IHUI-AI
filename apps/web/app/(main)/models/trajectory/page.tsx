@@ -131,7 +131,7 @@ function TraceCard({
             <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-sm font-medium">{truncateSessionId(trace.session_id)}</span>
+                  <span className="text-body font-medium">{truncateSessionId(trace.session_id)}</span>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="font-mono text-xs">{trace.session_id}</p>
@@ -190,7 +190,7 @@ function TraceDetailCard({
               <span>
                 {t('trajectory.step')} {step.step}
               </span>
-              <span className="ml-auto flex items-center gap-1 text-xs font-normal text-muted-foreground">
+              <span className="ml-auto flex items-center gap-1 text-label font-normal text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {formatDuration(step.duration_ms)}
               </span>
@@ -199,7 +199,7 @@ function TraceDetailCard({
           <CardContent className="space-y-3 text-sm">
             {/* 推理过程 */}
             <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              <span className="mb-1 block text-label font-medium text-muted-foreground">
                 {t('trajectory.reasoning')}
               </span>
               <div className="rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed">
@@ -210,7 +210,7 @@ function TraceDetailCard({
             {/* 工具调用 */}
             {step.tool_calls.length > 0 && (
               <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                <span className="mb-1 block text-label font-medium text-muted-foreground">
                   {t('trajectory.toolCalls')}
                 </span>
                 <div className="space-y-1">
@@ -228,7 +228,7 @@ function TraceDetailCard({
 
             {/* 结果 */}
             <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              <span className="mb-1 block text-label font-medium text-muted-foreground">
                 {t('trajectory.result')}
               </span>
               <div className="rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed">
@@ -293,7 +293,7 @@ function ErrorState({
       </div>
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
-        <p className="mb-1 text-sm font-medium">{error}</p>
+        <p className="mb-1 text-body font-medium">{error}</p>
         <p className="mb-4 text-xs text-muted-foreground">{t('trajectory.error')}</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />

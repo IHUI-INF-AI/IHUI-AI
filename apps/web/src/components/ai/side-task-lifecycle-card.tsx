@@ -82,9 +82,9 @@ export function SideTaskLifecycleCard({
       {view ? (
         <React.Fragment>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">{t('title')}</span>
+            <span className="text-label font-medium text-muted-foreground">{t('title')}</span>
             <span
-              className={cn('text-xs font-medium', TONE_CLASS[view.tone])}
+              className={cn('text-label font-medium', TONE_CLASS[view.tone])}
               data-side-task-state-label={view.state}
             >
               {t(view.titleKey)}
@@ -164,7 +164,7 @@ export function SideTaskLifecycleCard({
               data-side-task-confirm="open"
               className="flex flex-col gap-2 rounded-md border border-border/60 bg-background p-2"
             >
-              <p className="text-xs font-medium" data-side-task-confirm-title="true">
+              <p className="text-label font-medium" data-side-task-confirm-title="true">
                 {t('closeConfirm.title')}
               </p>
               <p className="text-[11px] text-muted-foreground" data-side-task-confirm-desc="true">

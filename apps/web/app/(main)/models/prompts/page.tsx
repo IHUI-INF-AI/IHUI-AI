@@ -335,7 +335,7 @@ export default function PromptsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{t('prompts.title')}</h1>
+            <h1 className="text-display font-bold tracking-tight">{t('prompts.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t('prompts.subtitle')}</p>
           </div>
           <Button className="gap-1.5" onClick={openCreate}>
@@ -498,7 +498,7 @@ export default function PromptsPage() {
             )}
             {!editingName && (
               <div className="space-y-2">
-                <label className="text-sm font-medium">{t('prompts.form.name')}</label>
+                <label className="text-body font-medium">{t('prompts.form.name')}</label>
                 <Input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
@@ -507,7 +507,7 @@ export default function PromptsPage() {
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t('prompts.form.content')}</label>
+              <label className="text-body font-medium">{t('prompts.form.content')}</label>
               <textarea
                 className={textareaCls}
                 value={formContent}
@@ -517,7 +517,7 @@ export default function PromptsPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t('prompts.form.description')}</label>
+              <label className="text-body font-medium">{t('prompts.form.description')}</label>
               <Input
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
@@ -550,7 +550,7 @@ export default function PromptsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{viewName}</span>
+              <span className="text-body font-medium">{viewName}</span>
               {viewVersions.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
@@ -571,7 +571,7 @@ export default function PromptsPage() {
               )}
             </div>
             <div>
-              <span className="text-sm font-medium">{t('prompts.detail.content')}</span>
+              <span className="text-body font-medium">{t('prompts.detail.content')}</span>
               {viewLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -598,7 +598,7 @@ export default function PromptsPage() {
             <SheetTitle className="flex items-center gap-2">
               <History className="h-4 w-4" />
               {t('prompts.history.title')}
-              <span className="text-sm font-normal text-muted-foreground">- {historyName}</span>
+              <span className="text-body font-normal text-muted-foreground">- {historyName}</span>
             </SheetTitle>
           </SheetHeader>
           <div className="flex-1 space-y-3 py-4">
@@ -617,7 +617,7 @@ export default function PromptsPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
+                            <span className="text-body font-medium">
                               {t('prompts.history.version', { version: v.version })}
                             </span>
                             {isCurrent && (

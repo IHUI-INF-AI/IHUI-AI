@@ -13,9 +13,10 @@
  * 读数行一律 `space-between`,读数文本 `flexShrink: 0`(行宽不够时不先压数字);
  * 标签侧 `flexShrink: 1` 让位。
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '@ihui/rn-app'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 export type ParentT = (key: string, params?: Record<string, string | number>) => string
 export type ParentStyles = ReturnType<typeof createParentStyles>
@@ -110,13 +111,14 @@ export function EduParentStateView({
     <View style={styles.center}>
       <Text style={tone === 'danger' ? styles.dangerNote : styles.subNote}>{message}</Text>
       {onRetry ? (
-        <Pressable
+        <Tappable
           onPress={onRetry}
           accessibilityRole="button"
-          style={({ pressed }) => [styles.retryBtn, pressed && styles.pressed]}
+          style={styles.retryBtn}
+          pressedStyle={styles.pressed}
         >
           <Text style={styles.retryText}>{t('common.retry')}</Text>
-        </Pressable>
+        </Tappable>
       ) : null}
     </View>
   )

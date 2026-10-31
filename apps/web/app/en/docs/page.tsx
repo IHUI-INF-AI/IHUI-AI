@@ -186,7 +186,7 @@ export default function EnDocsPage() {
       <main className="mx-auto w-full max-w-6xl px-4 py-4">
         {/* Hero */}
         <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <BookOpen className="h-3.5 w-3.5 text-primary" />
             Documentation
           </div>
@@ -213,7 +213,7 @@ export default function EnDocsPage() {
         <section className="mt-16">
           <div className="flex items-center gap-3">
             <Rocket className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">Quick Start</h2>
+            <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">Quick Start</h2>
           </div>
           <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
             Ship your first AI feature in minutes. Each guide links to the full Chinese documentation.
@@ -235,7 +235,7 @@ export default function EnDocsPage() {
                   <CardContent className="mt-auto">
                     <Link
                       href={card.href}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                      className="inline-flex items-center gap-1 text-body font-medium text-primary hover:underline"
                     >
                       Learn More
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -251,7 +251,7 @@ export default function EnDocsPage() {
         <section className="mt-16">
           <div className="flex items-center gap-3">
             <BookOpen className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               Documentation Categories
             </h2>
           </div>
@@ -290,7 +290,7 @@ export default function EnDocsPage() {
         <section className="mt-16 rounded-lg border bg-card p-3">
           <div className="flex items-center gap-3">
             <Code className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               Quick API Example
             </h2>
           </div>
@@ -313,7 +313,7 @@ cd my-ai-app && ihui dev`}</code>
         <section className="mt-16">
           <div className="flex items-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               Architecture Overview
             </h2>
           </div>
@@ -326,7 +326,7 @@ cd my-ai-app && ihui dev`}</code>
                 key={mod.name}
                 className="rounded-lg border bg-card p-3"
               >
-                <div className="font-mono text-sm font-semibold text-primary">{mod.name}</div>
+                <div className="font-mono text-body font-semibold text-primary">{mod.name}</div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{mod.desc}</p>
               </div>
             ))}
@@ -345,7 +345,7 @@ cd my-ai-app && ihui dev`}</code>
         <section className="mt-16">
           <div className="flex items-center gap-3">
             <Users className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               Community &amp; Support
             </h2>
           </div>
@@ -379,7 +379,7 @@ cd my-ai-app && ihui dev`}</code>
 
         {/* Footer CTA */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-3 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             Ready to build?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">

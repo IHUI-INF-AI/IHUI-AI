@@ -57,7 +57,7 @@ export default function LevelBadge({
         <Text>{displayTitle}</Text>
       </View>
       {nextLevelTitle && progress > 0 && progress < 100 && (
-        <Text className="ml-2 text-[length:20rpx] text-muted-foreground">
+        <Text className="ml-2 text-badge text-muted-foreground">
           {tt('level.distance', '距')} {nextLevelTitle} {Math.floor(progress)}%
         </Text>
       )}

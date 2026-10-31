@@ -241,7 +241,7 @@ export default function AdminRelayParamOpsPage() {
     return (
       <div className="space-y-4 px-4 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
+          <h1 className="text-heading font-semibold">{t('title')}</h1>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-3 w-3" /> {t('retry')}
           </Button>
@@ -263,7 +263,7 @@ export default function AdminRelayParamOpsPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
+          <h1 className="text-heading font-semibold">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">

@@ -35,7 +35,7 @@ export default function AdminTicketReplyPage() {
   return (
     <div className="space-y-4">
       <BackButton />
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" />
         工单回复
       </h1>

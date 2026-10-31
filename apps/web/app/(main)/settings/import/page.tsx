@@ -69,7 +69,7 @@ export default function ImportPage() {
       <BackButton />
       {/* Header */}
       <header className="space-y-1 shrink-0">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <PackagePlus className="h-6 w-6 text-primary" />
           {convT('pageTitle')}
         </h1>
@@ -187,7 +187,7 @@ function CliImportSection() {
       {/* Step 1: 选择来源 */}
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <p className="text-sm font-medium">{t('sources')}</p>
+          <p className="text-body font-medium">{t('sources')}</p>
           {sourcesLoading ? (
             <div className="flex items-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -222,7 +222,7 @@ function CliImportSection() {
       {source && (
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-            <p className="text-sm font-medium">{t('upload')}</p>
+            <p className="text-body font-medium">{t('upload')}</p>
             <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
               <FileUp className="h-6 w-6 text-muted-foreground" />
@@ -257,7 +257,7 @@ function CliImportSection() {
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{t('previewTitle')}</p>
+              <p className="text-body font-medium">{t('previewTitle')}</p>
               <button
                 type="button"
                 onClick={toggleAll}
@@ -323,7 +323,7 @@ function CliImportSection() {
 
             {/* Conflict strategy */}
             <div className="space-y-2">
-              <p className="text-xs font-medium">{t('conflictStrategy')}</p>
+              <p className="text-label font-medium">{t('conflictStrategy')}</p>
               <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
                 {CONFLICT_STRATEGIES.map((s) => {
                   const active = strategy === s
@@ -367,7 +367,7 @@ function CliImportSection() {
       {/* History */}
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <p className="flex items-center gap-2 text-sm font-medium">
+          <p className="flex items-center gap-2 text-body font-medium">
             <History className="h-4 w-4 text-muted-foreground" />
             {t('historyTitle')}
           </p>

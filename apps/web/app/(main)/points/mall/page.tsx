@@ -108,9 +108,9 @@ export default function PointsMallPage() {
                     <Gift className="h-8 w-8" />
                   </div>
                 )}
-                <h3 className="mb-1 truncate text-sm font-medium">{item.name}</h3>
+                <h3 className="mb-1 truncate text-body font-medium">{item.name}</h3>
                 <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-                  <span className="text-sm font-medium">
+                  <span className="text-body font-medium">
                     {item.points} {t('pointsUnit')}
                   </span>
                   <Button

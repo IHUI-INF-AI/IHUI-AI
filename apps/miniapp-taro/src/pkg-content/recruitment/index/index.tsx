@@ -98,7 +98,7 @@ export default function RecruitmentIndexPage() {
             ? hero.textKeys.map((key) => (
                 <Text
                   key={key}
-                  className="block text-center text-[length:32rpx] font-bold text-[color:var(--color-surface-light)]"
+                  className="block text-center text-title font-bold text-[color:var(--color-surface-light)]"
                 >
                   {t(key)}
                 </Text>
@@ -118,7 +118,7 @@ export default function RecruitmentIndexPage() {
                   onClick={purchase}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-[length:32rpx] font-bold text-cta-foreground">
+                  <Text className="text-title font-bold text-cta-foreground">
                     {t(TRADER_PLAN_PROMO_KEYS.purchase)}
                   </Text>
                 </View>

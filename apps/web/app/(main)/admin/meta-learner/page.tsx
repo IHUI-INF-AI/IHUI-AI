@@ -172,7 +172,7 @@ export default function MetaLearnerPage() {
       <BackButton />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Brain className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
@@ -387,7 +387,7 @@ export default function MetaLearnerPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
-                      <p className="text-2xl font-medium">{f.agentErrors.total}</p>
+                      <p className="text-display font-medium">{f.agentErrors.total}</p>
                       <div className="flex flex-wrap gap-2">{byTypeRows(f.agentErrors.byType)}</div>
                     </CardContent>
                   </Card>
@@ -399,7 +399,7 @@ export default function MetaLearnerPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
-                      <p className="text-2xl font-medium">{f.toolFailures.total}</p>
+                      <p className="text-display font-medium">{f.toolFailures.total}</p>
                       <div className="flex flex-wrap gap-2">
                         {byTypeRows(f.toolFailures.byType)}
                       </div>
@@ -413,7 +413,7 @@ export default function MetaLearnerPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
-                      <p className="text-2xl font-medium">{f.failedCheckpoints}</p>
+                      <p className="text-display font-medium">{f.failedCheckpoints}</p>
                       <p className="text-xs text-muted-foreground">
                         {t('lessonsExtracted')}: {t('recentFailures')}
                       </p>
@@ -421,7 +421,7 @@ export default function MetaLearnerPage() {
                   </Card>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">{t('recentFailures')}</p>
+                  <p className="text-body font-medium text-muted-foreground">{t('recentFailures')}</p>
                   {f.recent.length === 0 ? (
                     <EmptyState
                       icon={<Activity className="h-8 w-8 text-muted-foreground" />}

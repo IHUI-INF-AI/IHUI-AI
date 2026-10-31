@@ -128,7 +128,7 @@ export function NewsComments({ articleId, className }: NewsCommentsProps) {
         <CardTitle className="flex items-center gap-1.5 text-base">
           <MessageSquare className="h-4 w-4" />
           {t('title')}
-          <span className="text-sm font-normal text-muted-foreground">({comments.length})</span>
+          <span className="text-body font-normal text-muted-foreground">({comments.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 p-3 pt-0 min-[640px]:pt-0">

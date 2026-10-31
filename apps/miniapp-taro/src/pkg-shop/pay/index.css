@@ -119,8 +119,8 @@
   border-color: var(--color-brand-accent-deep);
 }
 .py-method-icon {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   line-height: 64rpx;
   text-align: center;
   border-radius: var(--radius-md);
@@ -217,9 +217,9 @@
 
 .py-submit {
   position: fixed;
-  bottom: 32rpx;
-  left: 32rpx;
-  right: 32rpx;
+  bottom: var(--spacing-lg);
+  left: var(--spacing-lg);
+  right: var(--spacing-lg);
   /* 对齐 RN primaryBtn:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字 */
   height: 100rpx;
   line-height: 100rpx;

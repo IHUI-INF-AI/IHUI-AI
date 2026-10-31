@@ -66,11 +66,11 @@ function TreeRow({ node, depth }: { node: ProductTreeNode; depth: number }) {
           <span className="inline-block h-5 w-5" />
         )}
         <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="flex-1 truncate text-sm font-medium">{node.name}</span>
+        <span className="flex-1 truncate text-body font-medium">{node.name}</span>
         <span className="text-sm tabular-nums text-muted-foreground">¥{Number(node.price)}</span>
         <span
           className={cn(
-            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
             node.isPublished
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
               : 'bg-muted text-muted-foreground',
@@ -110,7 +110,7 @@ export default function AdminProductCategoriesPage() {
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('productsTitle')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('productsTitle')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('productsSubtitle')}</p>
         </div>
         <Button asChild variant="ghost" size="sm">

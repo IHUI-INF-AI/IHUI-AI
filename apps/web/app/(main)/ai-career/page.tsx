@@ -159,7 +159,7 @@ export default function AICareerPage() {
     <Container maxWidth="md" className="px-4 py-4 space-y-6">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <GraduationCap className="h-7 w-7" />
           {t('title')}
         </h1>
@@ -169,7 +169,7 @@ export default function AICareerPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-5 p-3">
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.school')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
@@ -180,7 +180,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.classLevel')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
@@ -191,7 +191,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.scoreRange')} <span className="text-destructive">*</span>
             </span>
             <Input
@@ -203,7 +203,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.languageDifficulty')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
@@ -214,7 +214,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.scienceCharacteristics')}
             </span>
             <Textarea
@@ -229,7 +229,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.learningObstacle')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
@@ -240,7 +240,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">{t('fields.hobbies')}</span>
+            <span className="mb-2 block text-body font-medium">{t('fields.hobbies')}</span>
             <Input
               value={form.hobbies}
               onChange={(e) => update('hobbies', e.target.value)}
@@ -250,7 +250,7 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">
+            <span className="mb-2 block text-body font-medium">
               {t('fields.target')} <span className="text-destructive">*</span>
             </span>
             <Input

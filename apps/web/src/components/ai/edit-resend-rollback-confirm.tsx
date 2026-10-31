@@ -144,7 +144,7 @@ export function EditResendRollbackConfirm({
         <div className="min-h-0 flex-1 space-y-3 overflow-auto pt-2">
           {/* 预览:要回退的文件清单 */}
           <div data-edit-resend-section="files" className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">{t('previewFilesTitle')}</p>
+            <p className="text-label font-medium text-muted-foreground">{t('previewFilesTitle')}</p>
             {files.map((f) => (
               <div
                 key={f.path}
@@ -182,7 +182,7 @@ export function EditResendRollbackConfirm({
 
           {/* 预览:要重发的编辑内容 */}
           <div data-edit-resend-section="draft" className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">{t('previewEditTitle')}</p>
+            <p className="text-label font-medium text-muted-foreground">{t('previewEditTitle')}</p>
             <div
               data-edit-resend-draft
               className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-xs"

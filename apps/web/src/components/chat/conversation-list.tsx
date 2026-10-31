@@ -410,7 +410,7 @@ export function ConversationList({
             onCheckedChange={(checked) => toggleAll(checked === true)}
             aria-label={t('selectAll')}
           />
-          <span className="text-sm font-medium tabular-nums">
+          <span className="text-body font-medium tabular-nums">
             {t('selectedCount', { count: selectedIds.size })}
           </span>
           <BatchAttentionSummaryLine
@@ -512,7 +512,7 @@ export function ConversationList({
                 }}
                 className="min-w-0 flex-1 text-left"
               >
-                <p className="truncate text-sm font-medium">{item.title}</p>
+                <p className="truncate text-body font-medium">{item.title}</p>
                 <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                   <span className="min-w-0 truncate">{item.model}</span>
                   <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
@@ -700,7 +700,7 @@ export function ConversationList({
             <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
+            <label className="text-body font-medium text-muted-foreground">
               {tc('renameDialog.label')}
             </label>
             <Input

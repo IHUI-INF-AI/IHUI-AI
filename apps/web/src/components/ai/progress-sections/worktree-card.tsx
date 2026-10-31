@@ -85,9 +85,9 @@ export function WorktreeCard({
       data-worktree-tone={view.tone}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('title')}</span>
+        <span className="text-label font-medium text-muted-foreground">{t('title')}</span>
         <span
-          className={cn('text-xs font-medium', TONE_CLASS[view.tone])}
+          className={cn('text-label font-medium', TONE_CLASS[view.tone])}
           data-worktree-state-label={view.state}
         >
           {stateLabel[view.state]}

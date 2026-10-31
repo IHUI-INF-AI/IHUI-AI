@@ -85,11 +85,11 @@ export function ToolsSection() {
 
   return (
     <section className="space-y-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
         {t('sectionLabel')}
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">{t('title')}</h2>
+        <h2 className="text-heading font-bold tracking-tight">{t('title')}</h2>
         <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -97,7 +97,7 @@ export function ToolsSection() {
         {CATEGORIES.map((cat) => (
           <Card key={cat.titleKey}>
             <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-              <h3 className="text-sm font-semibold tracking-tight">
+              <h3 className="text-body font-semibold tracking-tight">
                 {t(CATEGORY_KEY[cat.titleKey] ?? 'categories.unknown')}
               </h3>
               <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
@@ -121,14 +121,14 @@ export function ToolsSection() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <h3 className="mb-3 text-sm font-semibold tracking-tight">{t('partnersTitle')}</h3>
+          <h3 className="mb-3 text-body font-semibold tracking-tight">{t('partnersTitle')}</h3>
           <div className="flex flex-wrap gap-2">
             {PARTNERS.map((name) => (
               <div
                 key={name}
                 className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-label font-bold text-primary">
                   {name[0]}
                 </span>
                 <span>{name}</span>

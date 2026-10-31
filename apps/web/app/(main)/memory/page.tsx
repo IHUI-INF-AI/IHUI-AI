@@ -263,7 +263,7 @@ export default function MemoryListPage() {
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">记忆系统</h1>
+          <h1 className="text-display font-bold tracking-tight">记忆系统</h1>
           <span className="text-sm text-muted-foreground">({entries.length})</span>
         </div>
         <Button asChild>

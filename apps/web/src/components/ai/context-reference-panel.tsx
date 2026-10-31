@@ -68,7 +68,7 @@ export function ContextReferencePanel({
   return (
     <div className="rounded-xl border bg-card">
       <div className="bg-muted/40 px-4 py-2.5">
-        <h3 className="text-sm font-semibold">{t('contextUsage.referenceTitle')}</h3>
+        <h3 className="text-body font-semibold">{t('contextUsage.referenceTitle')}</h3>
       </div>
       <ul className="space-y-1">
         {references.length === 0 ? (

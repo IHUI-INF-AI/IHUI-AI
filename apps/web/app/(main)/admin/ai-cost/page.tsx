@@ -319,7 +319,7 @@ export default function AiCostPage() {
     <div className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Coins className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -373,7 +373,7 @@ export default function AiCostPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-xs text-muted-foreground">{c.label}</p>
-                      <p className="text-xl font-semibold tabular-nums">{c.value}</p>
+                      <p className="text-heading font-semibold tabular-nums">{c.value}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -389,7 +389,7 @@ export default function AiCostPage() {
                   <BarChart3 className="h-4 w-4" />
                   {t('byModel')}
                   {/* 总数说明:图被折叠时,人必须看得出"这里只画了 10 条、其实有 N 个"。 */}
-                  <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                  <span className="text-label font-normal tabular-nums text-muted-foreground">
                     {modelChart.totalModelCount}
                   </span>
                 </CardTitle>
@@ -441,7 +441,7 @@ export default function AiCostPage() {
                   <TrendingUp className="h-4 w-4" />
                   {t('byDay')}
                   {/* 同"按模型":这里只画最后 10 天,总数必须看得见(30 天档会静默少 20 天)。 */}
-                  <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                  <span className="text-label font-normal tabular-nums text-muted-foreground">
                     {d.byDay.length}
                   </span>
                 </CardTitle>

@@ -152,7 +152,7 @@ export function FundingSection({ items }: Props) {
                   {fmt.dateOnlyFormatter.format(new Date(item.date))}
                 </span>
               </div>
-              <h3 className="text-sm font-semibold leading-tight">{item.title}</h3>
+              <h3 className="text-body font-semibold leading-tight">{item.title}</h3>
               <p className="line-clamp-3 text-xs text-muted-foreground">{item.summary}</p>
               <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
                 <Building2 className="h-3 w-3" />

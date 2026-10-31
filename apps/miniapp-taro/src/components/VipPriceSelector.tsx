@@ -71,7 +71,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
                 className="absolute -top-2 left-1/2 px-2 py-[4rpx] rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
-                <Text className="text-[length:20rpx] text-destructive-foreground">
+                <Text className="text-badge text-destructive-foreground">
                   {tt('vip.hot', '热门')}
                 </Text>
               </View>
@@ -104,7 +104,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
                 className="mt-[12rpx] px-[12rpx] py-[4rpx] rounded bg-warning/10 inline-block"
                 style={{ display: 'block', textAlign: 'center' }}
               >
-                <Text className="text-[length:20rpx] text-warning">{opt.discount}</Text>
+                <Text className="text-badge text-warning">{opt.discount}</Text>
               </View>
             )}
           </View>

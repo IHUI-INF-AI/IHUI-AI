@@ -184,7 +184,7 @@ export default function LivePlayPage() {
 
         <Card className="flex h-[420px] min-[768px]:h-[600px] flex-col">
           <div className="px-4 py-3">
-            <h2 className="text-sm font-medium">{t('danmuTitle')}</h2>
+            <h2 className="text-body font-medium">{t('danmuTitle')}</h2>
           </div>
           <div ref={danmuRef} className="flex-1 space-y-2 overflow-y-auto p-3">
             {danmuList.map((d) => (

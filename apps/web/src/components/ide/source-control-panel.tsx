@@ -313,7 +313,7 @@ export function SourceControlPanel() {
           <button
             onClick={() => setBranchOpen(!branchOpen)}
             disabled={switchingBranch}
-            className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+            className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-label font-medium hover:bg-muted/50 disabled:opacity-50"
           >
             <GitBranch
               className={cn('h-3.5 w-3.5 text-muted-foreground', switchingBranch && 'animate-spin')}
@@ -438,14 +438,14 @@ export function SourceControlPanel() {
       <div className="flex-1 overflow-auto px-1">
         {stagedFiles.length > 0 && (
           <div className="mb-2">
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+            <div className="px-2 py-1 text-label font-medium text-muted-foreground">
               {t('sourceControl.staged', { count: stagedFiles.length })}
             </div>
             {stagedFiles.map((f) => renderFile(f, true))}
           </div>
         )}
         <div className="mb-2">
-          <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          <div className="px-2 py-1 text-label font-medium text-muted-foreground">
             {t('sourceControl.changes', { count: unstagedFiles.length })}
           </div>
           {unstagedFiles.length > 0 ? (
@@ -458,7 +458,7 @@ export function SourceControlPanel() {
         </div>
 
         <div className="mb-2">
-          <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
+          <div className="flex items-center gap-1 px-2 py-1 text-label font-medium text-muted-foreground">
             <GitCommit className="h-3 w-3" />
             <span>{t('sourceControl.commitHistory')}</span>
           </div>

@@ -136,7 +136,7 @@ export function AgentSwarmMonitor({
                   value={
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 text-xs font-medium',
+                        'rounded px-1.5 py-0.5 text-label font-medium',
                         STATUS_CLASS[swarm.status],
                       )}
                     >
@@ -155,7 +155,7 @@ export function AgentSwarmMonitor({
             {/* Agent 状态 */}
             {agentList.length > 0 && (
               <div>
-                <h4 className="mb-2 text-sm font-medium">{t('agentStatus')}</h4>
+                <h4 className="mb-2 text-body font-medium">{t('agentStatus')}</h4>
                 <div className="overflow-hidden rounded-lg border">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -194,7 +194,7 @@ export function AgentSwarmMonitor({
                             <td className="px-3 py-2">
                               <span
                                 className={cn(
-                                  'rounded px-1.5 py-0.5 text-xs font-medium',
+                                  'rounded px-1.5 py-0.5 text-label font-medium',
                                   STATUS_CLASS[a.status],
                                 )}
                               >
@@ -216,7 +216,7 @@ export function AgentSwarmMonitor({
             {/* 性能指标 */}
             {performanceMetrics && (
               <div>
-                <h4 className="mb-2 text-sm font-medium">{t('performanceMetrics')}</h4>
+                <h4 className="mb-2 text-body font-medium">{t('performanceMetrics')}</h4>
                 <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 text-sm">
                   <Metric
                     label={t('successRate')}
@@ -237,7 +237,7 @@ export function AgentSwarmMonitor({
 
                 {optimizationSuggestions.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <h5 className="text-xs font-medium text-muted-foreground">
+                    <h5 className="text-label font-medium text-muted-foreground">
                       {t('optimizationSuggestions')}
                     </h5>
                     {optimizationSuggestions.map((s, i) => (
@@ -257,7 +257,7 @@ export function AgentSwarmMonitor({
             {/* 执行结果 */}
             {results.length > 0 && (
               <div>
-                <h4 className="mb-2 text-sm font-medium">{t('executionResults')}</h4>
+                <h4 className="mb-2 text-body font-medium">{t('executionResults')}</h4>
                 <div className="space-y-2">
                   {results.map((r) => (
                     <div key={r.step_id} className="rounded-lg border p-2.5 text-sm">
@@ -323,7 +323,7 @@ function InfoItem({
   return (
     <div className={cn('rounded-md border bg-muted/20 px-2.5 py-1.5', fullWidth && 'col-span-2')}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn('mt-0.5 break-words text-sm font-medium', mono && 'font-mono')}>
+      <div className={cn('mt-0.5 break-words text-body font-medium', mono && 'font-mono')}>
         {value}
       </div>
     </div>
@@ -334,7 +334,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border bg-muted/20 px-2.5 py-1.5">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-sm font-semibold">{value}</div>
+      <div className="mt-0.5 text-body font-semibold">{value}</div>
     </div>
   )
 }

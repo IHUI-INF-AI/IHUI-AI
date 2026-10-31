@@ -100,7 +100,7 @@ function RecordsContent() {
     <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
@@ -166,7 +166,7 @@ function RecordsContent() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                           r.isPassed
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
@@ -183,7 +183,7 @@ function RecordsContent() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                           cls,
                         )}
                       >

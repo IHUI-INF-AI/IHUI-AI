@@ -108,7 +108,7 @@ export default function MenuPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <MenuIcon className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>

@@ -90,7 +90,7 @@ export default function GrayReleasePage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <FlaskConical className="h-6 w-6 text-primary" />
             {t('grayRelease.title')}
           </h1>
@@ -141,13 +141,13 @@ export default function GrayReleasePage() {
                           style={{ width: `${r.percentage}%` }}
                         />
                       </div>
-                      <span className="text-xs font-medium">{r.percentage}%</span>
+                      <span className="text-label font-medium">{r.percentage}%</span>
                     </div>
                   </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                         r.isEnabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',

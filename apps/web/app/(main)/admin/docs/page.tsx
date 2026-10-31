@@ -103,7 +103,7 @@ export default function AdminDocsPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <FileText className="h-6 w-6 text-primary" />{t('title')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
@@ -136,11 +136,11 @@ export default function AdminDocsPage() {
                 <tr key={d.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{d.title}</td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category as keyof typeof DOC_CATEGORY_KEY] ?? 'categories.unknown')}</span>
+                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category as keyof typeof DOC_CATEGORY_KEY] ?? 'categories.unknown')}</span>
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.slug}</td>
                   <td className="px-4 py-2.5">
-                    <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
+                    <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
                       <span className={cn('h-1.5 w-1.5 rounded-sm', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
                       {t(DOC_STATUS_KEYS[d.status as keyof typeof DOC_STATUS_KEYS]!)}
                     </span>

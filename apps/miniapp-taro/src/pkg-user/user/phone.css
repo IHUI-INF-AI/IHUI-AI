@@ -62,7 +62,7 @@
 }
 .phone-code-btn {
   position: absolute;
-  right: 20rpx;
+  right: var(--spacing-sm-loose);
   top: 50%;
   transform: translateY(-50%);
   font-size: var(--text-label);

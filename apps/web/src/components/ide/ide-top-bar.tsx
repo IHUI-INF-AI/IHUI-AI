@@ -65,7 +65,7 @@ export function IDETopBar() {
       <button
         onClick={() => setActiveTopTab('editor')}
         className={cn(
-          'flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+          'flex items-center gap-1.5 rounded-sm px-3 py-1 text-label font-medium transition-colors',
           activeTopTab === 'editor'
             ? 'bg-background text-foreground'
             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -76,7 +76,7 @@ export function IDETopBar() {
       </button>
       <ViewSwitcher />
       {activeTopTab !== 'editor' && (
-        <div className="group flex items-center gap-1.5 rounded-md bg-background px-3 py-1 text-xs font-medium text-foreground [&>span]:translate-y-[0.7px]">
+        <div className="group flex items-center gap-1.5 rounded-md bg-background px-3 py-1 text-label font-medium text-foreground [&>span]:translate-y-[0.7px]">
           <Icon className="h-3.5 w-3.5" />
           <span>{configLabel}</span>
           <button

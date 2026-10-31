@@ -62,7 +62,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Newspaper className="h-3.5 w-3.5" />
             </div>
-            <h2 className="text-sm font-semibold">{t('aiNews.title')}</h2>
+            <h2 className="text-body font-semibold">{t('aiNews.title')}</h2>
             <span className="text-[10px] text-muted-foreground">{t('aiNews.fallbackHint')}</span>
           </div>
           <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
@@ -95,7 +95,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Newspaper className="h-3.5 w-3.5" />
           </div>
-          <h2 className="text-sm font-semibold">{t('aiNews.title')}</h2>
+          <h2 className="text-body font-semibold">{t('aiNews.title')}</h2>
           <span className="text-[10px] text-muted-foreground">{t('aiNews.subtitle')}</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -143,7 +143,7 @@ function NewsCard({ item }: { item: AiNewsItem }) {
           </>
         )}
       </div>
-      <h3 className="line-clamp-2 text-xs font-medium leading-snug text-foreground group-hover:text-primary">
+      <h3 className="line-clamp-2 text-label font-medium leading-snug text-foreground group-hover:text-primary">
         {item.title}
       </h3>
       {item.summary && (
@@ -167,7 +167,7 @@ function FallbackNewsCard({ item }: { item: FallbackItem }) {
         <span className="text-muted-foreground/60">·</span>
         <span>{PROVIDER_LABEL[item.provider] ?? '其他'}</span>
       </div>
-      <h3 className="line-clamp-1 text-xs font-medium leading-snug text-foreground group-hover:text-primary">
+      <h3 className="line-clamp-1 text-label font-medium leading-snug text-foreground group-hover:text-primary">
         {item.title}
       </h3>
       <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">

@@ -169,7 +169,7 @@ export function DictItemDialog({
             <DialogTitle>
               {editing ? t('dict.editItemTitle') : t('dict.createItemTitle')}
               {parent && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                <span className="ml-2 text-body font-normal text-muted-foreground">
                   ({parent.name})
                 </span>
               )}

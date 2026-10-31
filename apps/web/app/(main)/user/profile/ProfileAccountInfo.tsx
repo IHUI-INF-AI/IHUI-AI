@@ -19,7 +19,7 @@ export function ProfileAccountInfo({ user, data }: Props) {
   const t = useTranslations('user.profile')
   return (
     <div className="rounded-lg border p-3">
-      <h2 className="mb-3 text-sm font-semibold">{t('accountInfo')}</h2>
+      <h2 className="mb-3 text-body font-semibold">{t('accountInfo')}</h2>
       <DescriptionList
         column={2}
         items={[

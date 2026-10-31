@@ -78,7 +78,7 @@ export default function MemoryScopePage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-xl font-bold">无效的作用域</h1>
+          <h1 className="text-heading font-bold">无效的作用域</h1>
         </div>
         <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -99,7 +99,7 @@ export default function MemoryScopePage() {
           </Button>
           <div className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight">{scopeOpt?.label ?? scope} 记忆</h1>
+            <h1 className="text-heading font-bold tracking-tight">{scopeOpt?.label ?? scope} 记忆</h1>
             <span className="text-sm text-muted-foreground">({entries.length})</span>
           </div>
         </div>

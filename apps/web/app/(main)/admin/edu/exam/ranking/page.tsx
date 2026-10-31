@@ -76,7 +76,7 @@ export default function EduExamRankingPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -148,7 +148,7 @@ export default function EduExamRankingPage() {
                     {idx < 3 ? (
                       <span
                         className={cn(
-                          'inline-flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold',
+                          'inline-flex h-7 w-7 items-center justify-center rounded-md text-label font-bold',
                           RANK_BADGE[idx],
                         )}
                       >

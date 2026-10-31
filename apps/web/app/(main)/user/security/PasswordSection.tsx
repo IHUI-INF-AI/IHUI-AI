@@ -23,7 +23,7 @@ export function PasswordSection({ pwMsg, pwLoading, onSubmit }: Props) {
     <section className="space-y-4">
       <div className="flex items-center gap-2">
         <Lock className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">{t('password')}</h2>
+        <h2 className="text-body font-semibold">{t('password')}</h2>
       </div>
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">

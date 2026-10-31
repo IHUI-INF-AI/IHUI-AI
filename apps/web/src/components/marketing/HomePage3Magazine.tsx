@@ -69,10 +69,10 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
         <div className="absolute inset-0 bg-black/50 transition-colors group-hover:bg-black/60" />
       </div>
       <div className="relative z-10 mt-auto flex flex-col gap-1.5 p-3">
-        <span className="inline-flex w-fit items-center ui-card rounded-lg bg-card px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-foreground">
+        <span className="inline-flex w-fit items-center ui-card rounded-lg bg-card px-2.5 py-1 text-label font-semibold uppercase tracking-wider text-foreground">
           {tag}
         </span>
-        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-white min-[1024px]:text-xl">
+        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-white min-[1024px]:text-heading">
           {item.title}
         </h3>
         <div className="flex items-center gap-2 text-xs text-white/85">
@@ -121,10 +121,10 @@ function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-2.5">
-        <span className="inline-flex w-fit items-center rounded bg-muted px-1.5 py-px text-xs font-semibold uppercase tracking-wider text-foreground/80">
+        <span className="inline-flex w-fit items-center rounded bg-muted px-1.5 py-px text-label font-semibold uppercase tracking-wider text-foreground/80">
           {tag}
         </span>
-        <h3 className="line-clamp-2 text-xs font-semibold leading-snug">{item.title}</h3>
+        <h3 className="line-clamp-2 text-label font-semibold leading-snug">{item.title}</h3>
         <div className="mt-auto flex items-center justify-between gap-1.5">
           <p className="truncate text-xs text-muted-foreground">{item.authorName || item.title}</p>
           {item.createdAt && (
@@ -161,7 +161,7 @@ function MiniCard({ item }: { item: NewsItem }) {
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-2">
-        <h4 className="line-clamp-2 text-xs font-semibold leading-snug">{item.title}</h4>
+        <h4 className="line-clamp-2 text-label font-semibold leading-snug">{item.title}</h4>
         <div className="mt-auto flex items-center justify-between gap-1">
           <p className="truncate text-xs text-muted-foreground">{item.authorName || item.title}</p>
           {item.createdAt && (
@@ -314,8 +314,8 @@ export function HomePage3Magazine() {
     <div className="flex flex-1 flex-col space-y-4">
       <header className="flex flex-col items-center gap-3 text-center">
         <div className="flex flex-col items-center gap-1">
-          <h2 className="text-2xl font-bold tracking-tight min-[768px]:text-3xl">{t('title')}</h2>
-          <h3 className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground/70">
+          <h2 className="text-display font-bold tracking-tight min-[768px]:text-3xl">{t('title')}</h2>
+          <h3 className="text-label font-medium uppercase tracking-[0.3em] text-muted-foreground/70">
             {t('titleEn')}
           </h3>
           <p className="text-sm text-muted-foreground/80">{t('subtitle')}</p>
@@ -359,7 +359,7 @@ export function HomePage3Magazine() {
             onClick={() => refetch()}
             disabled={isRefetching}
             data-testid="magazine-retry"
-            className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
           >
             {isRefetching ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

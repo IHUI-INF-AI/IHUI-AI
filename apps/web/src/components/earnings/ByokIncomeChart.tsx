@@ -31,10 +31,10 @@ export function ByokIncomeChart({ data, loading }: Props) {
       <CardContent className="min-[640px]:p-3 p-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold">{t('byokTrend')}</p>
+            <p className="text-body font-semibold">{t('byokTrend')}</p>
             <p className="text-xs text-muted-foreground">{t('byokTrendDesc')}</p>
           </div>
-          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+          <p className="text-body font-bold text-emerald-600 dark:text-emerald-400">
             ¥{total.toFixed(2)}
           </p>
         </div>

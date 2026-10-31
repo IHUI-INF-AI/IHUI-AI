@@ -114,7 +114,7 @@ function TrendChart({
         {/* Tokens 趋势 */}
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="text-label font-medium text-muted-foreground">
               {t('usage.chart.tokens')}
             </span>
           </div>
@@ -152,7 +152,7 @@ function TrendChart({
         {/* Calls 趋势 */}
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="text-label font-medium text-muted-foreground">
               {t('usage.chart.calls')}
             </span>
           </div>
@@ -199,7 +199,7 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
           {RANGE_KEYS.map((key) => (
             <span
               key={key}
-              className="h-7 rounded-md px-3 text-xs font-medium text-muted-foreground"
+              className="h-7 rounded-md px-3 text-label font-medium text-muted-foreground"
             >
               {t(`usage.ranges.${key}`)}
             </span>
@@ -250,7 +250,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
       <BackButton />
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
-        <p className="mb-1 text-sm font-medium">{error}</p>
+        <p className="mb-1 text-body font-medium">{error}</p>
         <p className="mb-4 text-xs text-muted-foreground">数据加载失败，请稍后重试</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -383,7 +383,7 @@ export default function UsagePage() {
                 key={key}
                 type="button"
                 className={cn(
-                  'h-7 rounded-sm px-3 text-xs font-medium transition-colors',
+                  'h-7 rounded-sm px-3 text-label font-medium transition-colors',
                   isActive
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -407,7 +407,7 @@ export default function UsagePage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>
-                <div className="mt-3 text-2xl font-bold tracking-tight">{s.value}</div>
+                <div className="mt-3 text-display font-bold tracking-tight">{s.value}</div>
                 <div className="mt-0.5 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{s.label}</span>
                   <span className="text-xs text-muted-foreground">{s.sub}</span>

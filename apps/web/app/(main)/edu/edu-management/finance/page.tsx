@@ -1498,7 +1498,7 @@ export default function FinancePage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">财务管理</h1>
+        <h1 className="text-display font-bold tracking-tight">财务管理</h1>
         <p className="text-xs text-muted-foreground">管理学费标准、缴费记录和退费申请</p>
       </header>
 
@@ -1602,7 +1602,7 @@ export default function FinancePage() {
                         <tr key={t.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs">{t.className}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{t.termName}</td>
-                          <td className="px-4 py-3 text-xs font-medium">{t.feeName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{t.feeName}</td>
                           <td className="px-4 py-3 text-xs">{t.amount.toLocaleString()}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {BILLING_CYCLE_MAP.get(t.billingCycle) ?? t.billingCycle}
@@ -1661,42 +1661,42 @@ export default function FinancePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">总收入</CardTitle>
+                <CardTitle className="text-body font-medium text-muted-foreground">总收入</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-display font-bold text-green-600">
                   {summary?.totalIncome?.toLocaleString() ?? '-'}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-body font-medium text-muted-foreground">
                   已缴费人数
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{summary?.paidCount ?? '-'}</p>
+                <p className="text-display font-bold">{summary?.paidCount ?? '-'}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-body font-medium text-muted-foreground">
                   欠费人数
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-orange-500">{summary?.unpaidCount ?? '-'}</p>
+                <p className="text-display font-bold text-orange-500">{summary?.unpaidCount ?? '-'}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-body font-medium text-muted-foreground">
                   欠费总额
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-red-500">
+                <p className="text-display font-bold text-red-500">
                   {summary?.unpaidAmount?.toLocaleString() ?? '-'}
                 </p>
               </CardContent>
@@ -1816,10 +1816,10 @@ export default function FinancePage() {
                     <tbody>
                       {payments.map((p) => (
                         <tr key={p.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{p.studentName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{p.studentName}</td>
                           <td className="px-4 py-3 text-xs">{p.className}</td>
                           <td className="px-4 py-3 text-xs">{p.feeName}</td>
-                          <td className="px-4 py-3 text-xs font-medium">
+                          <td className="px-4 py-3 text-label font-medium">
                             {p.amount.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-xs">{p.paymentDate}</td>
@@ -1913,7 +1913,7 @@ export default function FinancePage() {
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {p.orderNo || '-'}
                           </td>
-                          <td className="px-4 py-3 text-xs font-medium">
+                          <td className="px-4 py-3 text-label font-medium">
                             {p.amount.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -2014,9 +2014,9 @@ export default function FinancePage() {
                     <tbody>
                       {refunds.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
                           <td className="px-4 py-3 text-xs">{r.className}</td>
-                          <td className="px-4 py-3 text-xs font-medium">
+                          <td className="px-4 py-3 text-label font-medium">
                             {r.amount.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-xs">{r.refundDate}</td>
@@ -2180,7 +2180,7 @@ export default function FinancePage() {
                               onChange={() => toggleReminderSelect(r.enrollmentId)}
                             />
                           </td>
-                          <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
                           <td className="px-4 py-3 text-xs">
                             {BUSINESS_LINE_MAP.get(r.businessLine) ?? r.businessLine}
                           </td>
@@ -2190,7 +2190,7 @@ export default function FinancePage() {
                           </td>
                           <td className="px-4 py-3 text-xs">{r.totalFee.toLocaleString()}</td>
                           <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-xs font-medium text-red-600">
+                          <td className="px-4 py-3 text-label font-medium text-red-600">
                             {r.dueAmount.toLocaleString()}
                           </td>
                         </tr>
@@ -2205,7 +2205,7 @@ export default function FinancePage() {
           {/* 催缴触达统计:delivery.buckets 是逐收件人回执聚合,"送达"才计入真触达;
               unknownReminders 是回执列上线前的历史行,两向都不计。caveat 文案来自后端,与数字同源。 */}
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold">催缴触达统计（近 30 天）</h2>
+            <h2 className="text-body font-semibold">催缴触达统计（近 30 天）</h2>
             {reminderStatsQuery.error ? (
               <Alert variant="danger" description="加载催缴统计失败，请稍后重试" />
             ) : reminderStatsQuery.isLoading ? (
@@ -2265,7 +2265,7 @@ export default function FinancePage() {
 
           {/* 催费记录 */}
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold">催费记录</h2>
+            <h2 className="text-body font-semibold">催费记录</h2>
             <Card>
               <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
                 <Select
@@ -2331,7 +2331,7 @@ export default function FinancePage() {
                             <td className="px-4 py-3 text-xs">
                               {REMINDER_CHANNEL_MAP.get(m.channel) ?? m.channel}
                             </td>
-                            <td className="px-4 py-3 text-xs font-medium">
+                            <td className="px-4 py-3 text-label font-medium">
                               {m.dueAmount.toLocaleString()}
                             </td>
                             <td className="px-4 py-3 text-xs text-muted-foreground">

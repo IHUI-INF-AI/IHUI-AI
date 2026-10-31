@@ -763,7 +763,7 @@ export function ScanLoginDialog({
           {phase === 'idle' && (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium">{t('accounts.platform')}</label>
+                <label className="text-body font-medium">{t('accounts.platform')}</label>
                 {/* 2026-09-30 重设计:常用平台 pill 网格直选(2 列,大点击区),其余收进下拉 */}
                 {commonPlatforms.length > 0 && (
                   <div className="grid grid-cols-2 gap-2">
@@ -776,7 +776,7 @@ export function ScanLoginDialog({
                           onClick={() => setPlatform(p.platform)}
                           disabled={isBusy}
                           aria-pressed={active}
-                          className={`flex items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          className={`flex items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             active
                               ? 'border-brand-accent-deep bg-primary/10 text-primary'
                               : 'border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted'
@@ -934,7 +934,7 @@ export function ScanLoginDialog({
                       {t('accounts.elapsedSeconds', { seconds: elapsedSeconds.toFixed(1) })}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-body font-medium text-foreground">
                     {t(`accounts.loadingStage.${displayStage}`)}
                   </p>
                   {taskMessage && taskMessage !== t(`accounts.loadingStage.${displayStage}`) && (
@@ -974,7 +974,7 @@ export function ScanLoginDialog({
                 </div>
               )}
               <div className="space-y-1 text-center">
-                <p className="text-sm font-medium">{t('accounts.scanLogin')}</p>
+                <p className="text-body font-medium">{t('accounts.scanLogin')}</p>
                 <p className="text-xs text-muted-foreground">{t('accounts.scanWithPhoneHint')}</p>
               </div>
               <CountdownTimer
@@ -1021,14 +1021,14 @@ export function ScanLoginDialog({
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-2 py-4 text-emerald-600">
               <CheckCircle2 className="h-12 w-12" />
-              <p className="text-sm font-medium">{t('accounts.scanLoginSucceeded')}</p>
+              <p className="text-body font-medium">{t('accounts.scanLoginSucceeded')}</p>
             </div>
           )}
 
           {phase === 'failed' && (
             <div className="flex flex-col items-center gap-2 py-4 text-destructive">
               <XCircle className="h-12 w-12" />
-              <p className="text-sm font-medium">{t('accounts.scanLoginFailed')}</p>
+              <p className="text-body font-medium">{t('accounts.scanLoginFailed')}</p>
               {errorMsg && <p className="text-xs text-muted-foreground">{errorMsg}</p>}
             </div>
           )}

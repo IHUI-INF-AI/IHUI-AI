@@ -206,7 +206,7 @@ export default function VisitTrackingPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">访问追踪统计</h1>
+        <h1 className="text-display font-bold tracking-tight">访问追踪统计</h1>
         <p className="text-xs text-muted-foreground">
           日期范围筛选 · 前台/后台/登录页口径切换 · 排行可按端(网站/移动端/小程序)筛选 · PV/UV 趋势
           · 页面使用排行 · 访问明细
@@ -363,14 +363,14 @@ export default function VisitTrackingPage() {
                         </TableCell>
                         <TableCell className="px-3 py-2">
                           <span
-                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}
+                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}
                           >
                             {SCOPE_LABEL[row.scope]}
                           </span>
                         </TableCell>
                         <TableCell className="px-3 py-2">
                           <span
-                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[row.platform]}`}
+                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[row.platform]}`}
                           >
                             {PLATFORM_LABEL[row.platform]}
                           </span>

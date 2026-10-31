@@ -59,7 +59,7 @@ export default function HotArticlesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Flame className="h-6 w-6 text-orange-500" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('hotTitle')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('hotTitle')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('hotSubtitle')}</p>
       </header>
@@ -94,7 +94,7 @@ export default function HotArticlesPage() {
                 <Card className="overflow-hidden transition-colors hover:bg-accent">
                   <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
                     <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-body font-bold ${
                         idx < 3
                           ? 'bg-orange-500/10 text-orange-500'
                           : 'bg-muted text-muted-foreground'

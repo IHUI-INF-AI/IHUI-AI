@@ -60,7 +60,7 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
             {data.highlights.map((h, i) => (
               <Text
                 key={i}
-                className="text-[length:22rpx] px-2 py-1 mr-[12rpx] mb-1 rounded bg-primary/10 text-primary"
+                className="text-caption px-2 py-1 mr-[12rpx] mb-1 rounded bg-primary/10 text-primary"
               >
                 {h}
               </Text>

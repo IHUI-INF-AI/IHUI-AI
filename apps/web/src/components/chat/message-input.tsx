@@ -1259,7 +1259,7 @@ export function MessageInput({
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
             {(isDragOver || isConvDragOver) && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-primary/10">
-                <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
+                <p className="text-body font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
             {/* 浮窗折叠态:窄拖拽条(2026-09-30 底栏单行化)—— 仅 floatHeader(展开/停靠/最小化)

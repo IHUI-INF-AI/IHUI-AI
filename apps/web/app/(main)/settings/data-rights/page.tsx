@@ -270,7 +270,7 @@ export default function DataRightsPage() {
 
       {/* 标题 */}
       <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
+        <h1 className="text-heading font-semibold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -327,7 +327,7 @@ export default function DataRightsPage() {
               {exportData && (
                 <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                    <h3 className="flex items-center gap-1.5 text-body font-medium">
                       <FileJson className="h-4 w-4" />
                       {t('exportResult')}
                     </h3>
@@ -342,7 +342,7 @@ export default function DataRightsPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">{t('userInfo')}</p>
+                    <p className="text-label font-medium text-muted-foreground">{t('userInfo')}</p>
                     <UserInfoList user={exportData.user} t={t} />
                   </div>
 
@@ -394,7 +394,7 @@ export default function DataRightsPage() {
               {portabilityData && (
                 <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                    <h3 className="flex items-center gap-1.5 text-body font-medium">
                       <FileJson className="h-4 w-4" />
                       {t('portabilityResult')}
                     </h3>

@@ -55,7 +55,7 @@ export function HelpTable({ list, isLoading, deletePending, onEdit, onDelete }: 
               <tr key={h.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-2.5 font-medium">{h.title}</td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">
                     {t(CATEGORY_KEY[h.category] ?? 'categories.unknown')}
                   </span>
                 </td>
@@ -63,7 +63,7 @@ export function HelpTable({ list, isLoading, deletePending, onEdit, onDelete }: 
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                       h.isPublished
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                         : 'bg-muted text-muted-foreground',
