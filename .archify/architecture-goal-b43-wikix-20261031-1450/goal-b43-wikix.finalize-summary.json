@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "running",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+    "sha256": "89461f0ded9bfa067aa020505a5db40cf980c65397a4025de26879be98b969aa",
+    "bytes": 4472
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+    "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+    "bytes": 853682
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "not-run"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.finalize-summary.json"
+  },
+  "visualReview": "not-requested",
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "e7b3b1b6-2e66-42e6-8aca-c1e3bef1921a",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\candidate.json",
+  "output": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+  "specification": {
+    "sha256": "682b008ce2ceeb45311038920b424b7744b5ca7819f9af8256090164fcb6dee8",
+    "bytes": 8073
+  },
+  "artifact": {
+    "sha256": "97c0b80bc8318f66683792f3579c65b5701bc33558035c0cfdc8e85896bb5881",
+    "bytes": 869647
+  }
+}
