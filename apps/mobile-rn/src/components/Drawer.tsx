@@ -362,7 +362,7 @@ function SwipeableConversationItem({
           style={{ width: FAVORITE_WIDTH, backgroundColor: tokens.warning.DEFAULT }}
         >
           <Pressable
-            className="items-center justify-center"
+            className="items-center justify-center active:opacity-60"
             style={{ width: FAVORITE_WIDTH, height: '100%' }}
             onPress={() => onToggleFavorite(item.id, !item.favorited)}
             accessibilityLabel={`${item.favorited ? t('drawer.collected') : t('drawer.collect')} ${item.title}`}
@@ -385,7 +385,7 @@ function SwipeableConversationItem({
           style={{ width: DELETE_WIDTH, backgroundColor: tokens.danger.DEFAULT }}
         >
           <Pressable
-            className="items-center justify-center"
+            className="items-center justify-center active:opacity-60"
             style={{ width: DELETE_WIDTH, height: '100%' }}
             onPress={() => onDelete(item.id)}
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
@@ -403,7 +403,7 @@ function SwipeableConversationItem({
       {/* 内容(上层,跟随手势平移) */}
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
-          className="flex-row items-center px-4 py-3"
+          className="flex-row items-center px-4 py-3 active:opacity-60"
           style={{ backgroundColor: tokens.surface.card }}
           onPress={handleSelect}
           android_ripple={{ color: tokens.surface.muted }}
@@ -443,7 +443,7 @@ function NavRow({ item }: { item: NavRowModel }) {
   return (
     <Pressable
       onPress={item.onPress}
-      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
       style={active ? styles.navRowActive : undefined}
       android_ripple={{ color: tokens.surface.muted }}
     >
@@ -478,7 +478,7 @@ function NavExpandableRow({ item }: { item: NavRowModel }) {
       <View className="flex-row items-center">
         <Pressable
           onPress={item.onPress}
-          className="h-9 flex-1 flex-row items-center gap-2.5 rounded-md px-2.5"
+          className="h-9 flex-1 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
           style={active ? styles.navRowActive : undefined}
           android_ripple={{ color: tokens.surface.muted }}
         >
@@ -497,7 +497,7 @@ function NavExpandableRow({ item }: { item: NavRowModel }) {
         <Pressable
           style={undefined}
           onPress={() => setExpanded((v) => !v)}
-          className="h-9 w-9 items-center justify-center rounded-md"
+          className="h-9 w-9 items-center justify-center rounded-md active:opacity-60"
           accessibilityRole="button"
           accessibilityLabel={item.label}
           android_ripple={{ color: tokens.surface.muted }}
@@ -530,7 +530,7 @@ function NavDomainRow({ label, Icon, onPress }: NavDomainRowProps) {
     <Pressable
       style={undefined}
       onPress={onPress}
-      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
       android_ripple={{ color: tokens.surface.muted }}
     >
       <Icon size={rnGeometry.glyphMd} color={tokens.text.secondary} />
@@ -558,7 +558,7 @@ function NavGroupSection({ title, variant, defaultOpen, items }: NavGroupSection
       <Pressable
         style={undefined}
         onPress={() => setExpanded((v) => !v)}
-        className="h-8 flex-row items-center gap-1.5 rounded-md px-2.5"
+        className="h-8 flex-row items-center gap-1.5 rounded-md px-2.5 active:opacity-60"
         android_ripple={{ color: tokens.surface.muted }}
       >
         {variant === 'hot' ? (
@@ -895,7 +895,7 @@ export function Drawer(props: DrawerProps) {
               <Pressable
                 style={undefined}
                 onPress={handleLogoPress}
-                className="h-9 w-9 items-center justify-center rounded-md"
+                className="h-9 w-9 items-center justify-center rounded-md active:opacity-60"
                 android_ripple={{ color: tokens.surface.muted }}
               >
                 <Image
@@ -906,7 +906,7 @@ export function Drawer(props: DrawerProps) {
               <Pressable
                 style={undefined}
                 onPress={onClose}
-                className="h-9 w-9 items-center justify-center rounded-md"
+                className="h-9 w-9 items-center justify-center rounded-md active:opacity-60"
                 android_ripple={{ color: tokens.surface.muted }}
               >
                 {/* 收拢键图标(2026-10-15 用户定):与 web 端侧边栏拉出态同款的
@@ -920,7 +920,7 @@ export function Drawer(props: DrawerProps) {
                 {/* 2. 快捷区:「新建任务」灰底行(web BTN_NEW_CONVERSATION 同构) */}
                 <Pressable
                   onPress={handleCreateNewChat}
-                  className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+                  className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
                   style={{ backgroundColor: tokens.surface.muted }}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
@@ -1058,7 +1058,7 @@ export function Drawer(props: DrawerProps) {
               <Pressable
                 style={undefined}
                 onPress={isLoggedIn ? () => setUserMenuOpen((v) => !v) : handleLoginPress}
-                className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+                className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
                 android_ripple={{ color: tokens.surface.muted }}
               >
                 {isLoggedIn ? (
@@ -1085,7 +1085,7 @@ export function Drawer(props: DrawerProps) {
             {/* 7. 用户菜单浮层(点空白收起;下拉容器取角色档 card=8) */}
             {userMenuOpen ? (
               <>
-                <Pressable style={styles.menuScrim} onPress={() => setUserMenuOpen(false)} />
+                <Tappable style={styles.menuScrim} onPress={() => setUserMenuOpen(false)} />
                 <View
                   style={[styles.userMenu, { bottom: insets.bottom + USER_MENU_BOTTOM_OFFSET }]}
                 >
@@ -1094,7 +1094,7 @@ export function Drawer(props: DrawerProps) {
                       style={undefined}
                       key={key}
                       onPress={onPress}
-                      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+                      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
                       android_ripple={{ color: tokens.surface.muted }}
                     >
                       <Icon size={rnGeometry.glyphSm} color={tokens.text.secondary} />
