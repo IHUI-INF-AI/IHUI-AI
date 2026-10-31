@@ -135,7 +135,21 @@
       "storeEncrypted": "MCP 憑證已加密儲存(後端:{backend})",
       "migrationFailed": "憑證遷移未完成,已保留原檔案且未覆蓋({reason})"
     },
-    "agentFailureTerminated": "本次終止:結局={outcome}｜停擺位置={stage}"
+    "agentFailureTerminated": "本次終止:結局={outcome}｜停擺位置={stage}",
+    "failureOutcomeRetryable": "可重試",
+    "failureOutcomeTerminal": "終局(重試無意義)",
+    "failureOutcomeUndetermined": "未判定",
+    "agentStallLlmRequest": "模型請求",
+    "agentStallToolExecution": "工具執行",
+    "agentStallApprovalWait": "審批等待",
+    "agentStallElicitationWait": "追問等待",
+    "agentStallStreamChannel": "串流通道",
+    "agentStallQueueDispatch": "編隊佇列",
+    "agentStallPermissionGate": "權限閘",
+    "agentStallBudgetGovernance": "預算治理",
+    "agentStallHookPipeline": "鉤子鏈",
+    "agentStallDoomLoopGuard": "死迴圈守護",
+    "agentStallUndetermined": "未判定"
   },
   "waiting": {
     "agent": {
