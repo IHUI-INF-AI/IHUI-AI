@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "goal-b41 最底层突破:PE 导出表 × solo-mcp 新大陆 × ContextFS/导入4维落地",
+    "locale": "zh-CN",
+    "subtitle": "Ghidra headless + PE 结构层取证 · 先对齐再超越 · 2026-10-31",
+    "output": ".archify/architecture-goal-b41-kfs-20261031-1125/goal-b41-kfs.html",
+    "quality_profile": "showcase",
+    "viewBox": [1100, 960]
+  },
+  "components": [
+    {
+      "id": "libckg-exports",
+      "type": "database",
+      "label": "libckg.dll 导出表面",
+      "sublabel": "23 导出:sqlite3_vec_* · hook trampoline · BP IPC",
+      "tag": "Trae 最底层",
+      "pos": [20, 60],
+      "size": [250, 96]
+    },
+    {
+      "id": "sandbox-detours",
+      "type": "security",
+      "label": "sandbox Detours 注入面",
+      "sublabel": "sbox/vm_sdk 9+9 同构 · .detourc 节",
+      "tag": "Trae 最底层",
+      "pos": [20, 210],
+      "size": [250, 96]
+    },
+    {
+      "id": "solo-mcp",
+      "type": "backend",
+      "label": "solo.builtin-mcp 新大陆",
+      "sublabel": "record-replay RPA · PIM 五连接器 · chronicle",
+      "tag": "Trae 新发现",
+      "pos": [20, 360],
+      "size": [250, 96]
+    },
+    {
+      "id": "cfs-grpc",
+      "type": "frontend",
+      "label": "ckg Cfs* 虚拟文件系统",
+      "sublabel": "21 gRPC 消息 · read/write/stat/search",
+      "tag": "Trae 独有",
+      "pos": [20, 510],
+      "size": [250, 96]
+    },
+    {
+      "id": "ghidra",
+      "type": "backend",
+      "label": "Ghidra 12.1.4 headless",
+      "sublabel": "901s 全量分析 · rea load 预算天花板突破",
+      "tag": "本席方法",
+      "pos": [20, 660],
+      "size": [250, 76]
+    },
+    {
+      "id": "kfs-route",
+      "type": "frontend",
+      "label": "/api/v1/ai/knowledge-fs",
+      "sublabel": "list/read/stat/search · X-User-Id 归属",
+      "tag": "IHUI 新增",
+      "pos": [560, 60],
+      "size": [260, 96]
+    },
+    {
+      "id": "kfs-proj",
+      "type": "backend",
+      "label": "knowledge_fs.py 投影层",
+      "sublabel": "/repo/<repoId>/<file>#<symbol> 只读",
+      "tag": "IHUI 新增",
+      "pos": [560, 210],
+      "size": [260, 96]
+    },
+    {
+      "id": "kfs-api",
+      "type": "backend",
+      "label": "api chunks/file 端点",
+      "sublabel": "_ownerScope fail-closed · codebase:read",
+      "tag": "IHUI 新增",
+      "pos": [560, 360],
+      "size": [260, 96]
+    },
+    {
+      "id": "chunks-db",
+      "type": "database",
+      "label": "codebase_chunks",
+      "sublabel": "三层切片(函数/模块/架构)+ pgvector",
+      "tag": "IHUI",
+      "pos": [560, 510],
+      "size": [260, 96]
+    },
+    {
+      "id": "ext-import",
+      "type": "backend",
+      "label": "external_runtime_import",
+      "sublabel": "Qoder 4 维:memory/automations 真出口",
+      "tag": "IHUI 新增",
+      "pos": [560, 660],
+      "size": [260, 96]
+    },
+    {
+      "id": "beyond",
+      "type": "external",
+      "label": "超越轴(本轮)",
+      "sublabel": "可证明只读 · 逐用户隔离 · 幂等导入 · 三态诚实",
+      "tag": "结论",
+      "pos": [870, 210],
+      "size": [210, 190]
+    },
+    {
+      "id": "gaps",
+      "type": "external",
+      "label": "G-01/G-11(他席已落)",
+      "sublabel": "workflow_runner · investigator · 14aa125c49",
+      "tag": "并行席",
+      "pos": [870, 470],
+      "size": [210, 120]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cfs-to-kfs",
+      "from": "cfs-grpc",
+      "to": "kfs-route",
+      "label": "对位(读半边)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "kfs-chain",
+      "from": "kfs-route",
+      "to": "kfs-proj",
+      "label": "四出口"
+    },
+    {
+      "id": "proj-api",
+      "from": "kfs-proj",
+      "to": "kfs-api",
+      "label": "身份头单源复用"
+    },
+    {
+      "id": "api-db",
+      "from": "kfs-api",
+      "to": "chunks-db",
+      "label": "listPathIndex/readFileChunks"
+    },
+    {
+      "id": "imp-to-db",
+      "from": "ext-import",
+      "to": "chunks-db",
+      "label": "memory→长期记忆",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "exports-to-ghidra",
+      "from": "libckg-exports",
+      "to": "ghidra",
+      "label": "反编译取证",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "cfs-to-proj",
+      "from": "cfs-grpc",
+      "to": "kfs-proj",
+      "label": "路径语法对齐"
+    },
+    {
+      "id": "beyond-kfs",
+      "from": "kfs-proj",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "beyond-imp",
+      "from": "ext-import",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "gaps-note",
+      "from": "ghidra",
+      "to": "gaps",
+      "label": "缺口归并行席"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "取证方法(goal-b41)",
+      "items": [
+        "PE 导出表:纯 node 解析器(零依赖)先破一层——libckg 23 导出/sqlite-vec 实锤",
+        "Ghidra headless:rea 超时件(libckg 39.6MB)改走 headless+Java 脚本,901s 全量",
+        "反编译级:35908 函数(rea 2 倍分辨率)· contextfs 155 函数 · 六 Provider 组合挂载树",
+        "协议更正:端口 50000 = JSON-RPC 分发(decodeJSONRPCParams)· gorm+sqlcipher 存储栈",
+        "solo-mcp 漏扫面:record-replay/PIM 五连接器/chronicle/computer-use 五态状态机",
+        "Microsoft Detours:.detourc/.detourd 节 = 系统调用注入拦截实锤(非 Job Object)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "红线与三态(§0.12/§0.3)",
+      "items": [
+        "不粘专有源码 · 不破解 · 不绕付费 · 不提取凭据",
+        "观察/推断/未知分档;取不到记 resource_constraint 不虚报",
+        "他席在飞面零触碰:G-01/G-11 归 14aa125c49,本席只补 ContextFS/导入4维"
+      ]
+    }
+  ]
+}
