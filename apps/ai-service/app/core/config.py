@@ -313,10 +313,10 @@ class Settings(BaseSettings):
     # WorkBuddy 任务赚积分自动化族(O68,2026-10-29 立)——四族 growth/travel/activity/blackcat。
     # 证据级别(2026-10-28 真机读侧实弹后更新):六个读端点在 WB_BASE 与 WB_WEB_BASE
     # 两域 GET 均 HTTP 200 + code:0 ⇒ **读侧已真机验证**(旧实现按 POST 打 ⇒ 404,已修);
-    # 写侧端点路由存在(tasks/accept 等 400 "invalid request"、travel/claim 403
-    # "no unclaimed travel"),但 **body 字段名未判定**(试过的四种形态同样 400)⇒ 默认关、
-    # 默认 dry-run、accept 未配字段名时拒绝执行并写明原因(§0.3 不猜)。判据实现唯一源
-    # = app/services/workbuddy_tasks.py。
+    # 写侧端点与 body 形态已全部实证(2026-10-31 真机报文级:growth accept/claim、
+    # travel depart/claim、activity /v2/report、redeem、lottery);仍保留
+    # enabled(节拍) + live_run(写侧) 双门控,默认双双关闭 —— 写侧有副作用,须显式开启。
+    # 判据实现唯一源 = app/services/workbuddy_tasks.py。
     workbuddy_tasks_enabled: bool = False  # 调度节拍总开关(默认 off)
     workbuddy_tasks_live_run: bool = False  # 调度轮是否真写(领任务/出发/领取);false=只 dry-run
     workbuddy_tasks_sweep_minutes: int = 180  # 任务巡检间隔(分钟)
@@ -359,17 +359,19 @@ class Settings(BaseSettings):
     # - none(默认):沿用既有账号顺序,完全不改行为。
     # 取不到余额(None)的号排最后(§0.3 不冒充 0);该维度仅在显式开启时生效。
     workbuddy_tasks_urgency_order: str = "none"
-    # 族五/六 redeem(连签兑换)/ lottery(抽奖),2026-10-31 接:
-    # 读侧已真机验证(`/activity/growth/lottery/summary` GET 200、`redemption_status.tiers`
-    # 嵌在 streak 响应里),写侧端点路由存在但 **body 字段名未取证**(2026-10-28 真机对
-    # `{}` / {"code"} / {"task_code"} / {"codes"} 四形态一律 400)⇒ 字段留空 = 拒绝执行
-    # (§0.3 不猜字段);兑换档位/抽奖次数须显式配置,绝不猜"哪个档可兑/抽几次"。
-    workbuddy_tasks_redeem_path: str = "/activity/growth/redeem"  # 兑换端点(路由已证存在;body 字段未取证)
-    workbuddy_tasks_redeem_field: str = ""  # 兑换请求体字段名(未取证 ⇒ 留空拒绝写)
-    workbuddy_tasks_redeem_tiers: str = ""  # 显式要兑换的档位(逗号分隔,如 "7d,14d");空=只读不写
-    workbuddy_tasks_lottery_draw_path: str = "/activity/growth/lottery/draw"  # 抽奖端点(路由已证存在;body 字段未取证)
-    workbuddy_tasks_lottery_draw_field: str = ""  # 抽奖请求体字段名(未取证 ⇒ 留空拒绝写)
-    workbuddy_tasks_lottery_draw_count: int = 1  # 每轮抽奖次数(0 = 不抽)
+    # 族五/六 redeem(连签兑换)/ lottery(抽奖) —— 读写双侧 2026-10-31 真机报文级实证,
+    # 默认值即实证形态 ⇒ 开箱可用(不再有"留空拒绝写"的配置闸)。
+    workbuddy_tasks_redeem_path: str = "/activity/growth/redeem"  # 兑换端点
+    # 档位键名(真机实证 body = {"tier":"7d","client_token":"<uuid4>"};client_token 恒定带)
+    workbuddy_tasks_redeem_field: str = "tier"
+    # 空 = 自动模式:兑所有 tier_<tier>_status ∉ {locked,claimed} 的档(对齐竞品连登管家);
+    # 非空 = 只兑清单内且档位表真实存在的档(逗号分隔,如 "7d,14d")
+    workbuddy_tasks_redeem_tiers: str = ""
+    workbuddy_tasks_lottery_draw_path: str = "/activity/growth/lottery/draw"  # 抽奖端点
+    # 幂等键字段名(真机实证 body = {"client_token":"<uuid4>"};驼峰 clientToken 会 400)
+    workbuddy_tasks_lottery_draw_field: str = "client_token"
+    # 单轮抽奖上限(实际次数 = min(chances, 此值);0 = 不抽;对齐竞品「有次数自动抽完」)
+    workbuddy_tasks_lottery_draw_count: int = 5
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
