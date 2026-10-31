@@ -223,6 +223,7 @@
     "toolMemorySave": "保存记忆",
     "toolMemoryDream": "记忆固化",
     "toolMemoryForget": "遗忘记忆",
+    "toolAdvisorConsult": "咨询另一个模型",
     "toolVendorVoiceClone": "克隆声纹",
     "toolRequestBusinessForm": "请求填写业务表单",
     "fileActivity": "{state, select, running {正在处理文件} completed {已处理文件} other {处理文件}}",

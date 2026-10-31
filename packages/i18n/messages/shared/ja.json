@@ -223,6 +223,7 @@
     "toolMemorySave": "記憶を保存",
     "toolMemoryDream": "記憶を定着",
     "toolMemoryForget": "記憶を忘れる",
+    "toolAdvisorConsult": "別モデルに相談",
     "toolVendorVoiceClone": "声をクローン",
     "toolRequestBusinessForm": "業務フォーム入力を依頼",
     "fileActivity": "{state, select, running {ファイルを処理中} completed {ファイルを処理済み} other {ファイルの処理}}",
