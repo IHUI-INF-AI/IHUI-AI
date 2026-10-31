@@ -562,7 +562,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             )}
 
             {/* 归档列表(服务端事实源:新建→落库→插入对话→归档/分组/删除) */}
-            <ScrollView style={styles.archiveList}>
+            <ScrollView style={styles.archiveList} keyboardShouldPersistTaps="handled">
               {archived
                 .slice()
                 .reverse()

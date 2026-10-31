@@ -92,6 +92,7 @@ export function AccountPoolScreen({
       </View>
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
