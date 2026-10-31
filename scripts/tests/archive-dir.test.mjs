@@ -4,14 +4,18 @@
 
 // archive-dir 回归测试:钉三件事 —— ① 表里每个 kind 都交出 §15b 那个根下的路径;
 // ② "参数写错"与"环境交不出落点"是两个退出码(混成一个会把"问错了"读成"没有落点");
-// ③ 它只回答"落在哪",不建目录、不写文件、不碰网盘。
+// ③ 落点解析档只回答"落在哪"(不建目录、不写文件、不碰网盘);写盘动作只许出现在保留档留痕
+//    那一处 —— 射程由 ③ 的两条锁一起钉(2026-11-01 收窄,旧整文件禁词面与 archive-retention
+//    的留痕要求互斥,两套测试不可能同时绿)。
 // 跑法:node --test scripts/tests/archive-dir.test.mjs
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
+
+import { maskComments } from '../lib/code-mask.mjs'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -91,19 +95,68 @@ test('CLI 三档退出码:0 只打一行路径 / 2 参数错 / 1 环境交不出
   assert.equal(missing.status, 2, '--kind 缺值应 2,实得 ' + missing.status)
 })
 
-test('本工具不得建目录或写文件(它只回答"落在哪")', () => {
+test('写盘动作只允许出现在保留档留痕那一处(禁词射程锁)', () => {
+  // 契约住在 archive-dir.mjs 头注:「**落点解析档**不建目录、不写文件 —— 建目录是调用方的事」。
+  // 旧形拿整文件禁词扫描当尺,等于把这一档的契约扩成「全文件永不写盘」;而 G-24 的保留档
+  // (台账 G-245「双上限 + 最近 N 代」)必须往留痕账追加行 —— 本条与 archive-retention.test.mjs
+  // 因此互斥,2026-11-01 实测两套不可能同时绿(10-25 那枚"清理归档退役残留"误把实现整片写回
+  // 旧基线,就是为了让这对矛盾看起来"成立")。现在按契约的真实射程判:写盘标识符只准出现在
+  // appendRetentionLedger 的函数体内,射程外一枚都不许有;且那一段必须真有这两枚(豁免必须验过才免)。
   const src = readFileSync(CLI, 'utf8')
-  // 判据面必须先剥注释:本文件头注里写着"mkdirSync 是调用方的事"这句话 ——
-  // 不剥注释就是门把自己解释自己的散文判成违规(守门 131/70 同型)。
-  const code = src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter((l) => !/^\s*\/\//.test(l))
-    .join('\n')
-  for (const forbidden of ['mkdirSync', 'writeFileSync', 'appendFile', 'rmSync', 'cpSync']) {
-    assert.ok(!code.includes(forbidden), `archive-dir 的代码面出现了 ${forbidden} —— 建目录/写盘是调用方的事`)
+  const code = maskComments(src)
+  const start = code.indexOf('export function appendRetentionLedger')
+  assert.ok(start >= 0, '保留档留痕函数消失 ⇒ 本条的豁免射程无从划定(不是"没有写盘所以绿")')
+  const end = code.indexOf('\n}', start)
+  assert.ok(end > start, '留痕函数体收不出界 ⇒ 射程判断失效,拒绝报绿')
+  const ledgerBody = code.slice(start, end)
+  const callSites = (name) => {
+    const out = []
+    for (let i = code.indexOf(name); i >= 0; i = code.indexOf(name, i + 1)) out.push(i)
+    return out
   }
+  // 判**调用点**而不是标识符:`import { appendFileSync, mkdirSync } from 'node:fs'` 里那两名
+  // 是声明面,拿标识符扫会把 import 语句判成越界写盘(2026-11-01 本条第一版就是这么红的)。
+  for (const name of ['mkdirSync(', 'writeFileSync(', 'appendFileSync(', 'rmSync(', 'cpSync(']) {
+    for (const i of callSites(name)) {
+      assert.ok(
+        i >= start && i < end,
+        `${name.slice(0, -1)} 的调用点落在留痕函数之外(偏移 ${i},射程 [${start},${end})) ⇒ 越界写盘`,
+      )
+    }
+  }
+  // 阳性对照:豁免段里确实有这两枚动作,否则上面那条"射程外不得有"是被空集蒙过去的绿。
+  assert.ok(
+    /mkdirSync\(/.test(ledgerBody) && /appendFileSync\(/.test(ledgerBody),
+    '留痕函数里没有 mkdirSync+appendFileSync 调用 ⇒ 豁免段是空的,整条判据空转',
+  )
+  // 反向对照:真删不走这里(全仓唯一 rmSync 出口在 retire 层,本器只委托)。
+  assert.equal(callSites('rmSync(').length, 0, '本器直接 rmSync = 绕过全仓唯一删除出口(§5b 归档面)')
   // 阳性对照:剥注释这一步真在起作用(而不是"源码本来就干净"蒙过去的绿)
   assert.ok(/mkdirSync/.test(src), '夹具失效:注释里已没有 mkdirSync 字样,本条的剥注释对照无从成立')
+})
+
+test('落点解析档跑一次不改磁盘(行为锁:解析前后父目录条目一致)', async () => {
+  // 契约的**动作**面证明,不看措辞:每一档 kind 各解析一次,父目录的条目集合必须一字不变。
+  const { archiveDirFor, KINDS } = await loadTool()
+  const keys = Object.keys(KINDS)
+  assert.ok(keys.length >= 2, 'kind 表为空 ⇒ 本条空转')
+  // archiveDirFor 交的是 {path, cause, reason} 三态(缺省落点也可能为 null ⇒ 不猜)
+  const paths = keys.map((k) => archiveDirFor(k, ROOT).path).filter((p) => typeof p === 'string')
+  assert.equal(paths.length, keys.length, '有 kind 解析不出 path ⇒ 本条的父目录集不全,拒绝报绿')
+  const parents = [...new Set(paths.map((p) => dirname(p)))]
+  const snap = () =>
+    parents.map((p) => `${p} => ${existsSync(p) ? readdirSync(p).sort().join('|') : '(不存在)'}`)
+  const before = snap()
+  for (const k of keys) {
+    const r = runCli(['--kind', k])
+    assert.equal(r.status, 0, `解析 ${k} 应 0,实得 ${r.status} stderr=${r.stderr.slice(0, 60)}`)
+  }
+  const def = runCli([])
+  assert.equal(def.status, 0, '缺省解析应 0')
+  assert.deepEqual(
+    snap(),
+    before,
+    '解析档跑完父目录条目变了 ⇒ 它建了目录或写了文件(契约:落点解析只回答"落在哪")',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
