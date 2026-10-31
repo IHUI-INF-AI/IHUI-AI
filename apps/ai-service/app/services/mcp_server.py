@@ -1961,6 +1961,63 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "list_files", "path": resolved, "ok": False, "error": str(e)}
 
 
+async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
+    """render_repo_tree: 按 token 预算渲染目录骨架(逆向复现超越 goal-b47,对齐 mtree renderTree)。
+
+    枚举不在此层重抄一遍:实现层 `repo_tree_render.render_workspace_tree` 吃
+    `rg_fallback_parity.enumerate_code_files` 单源出口,所以忽略目录/扩展名白名单/
+    文件数护栏与懒索引护栏是同一套;本层只做路径护栏 + 参数体检 + 核算面透传。
+    """
+    from pathlib import Path as _Path
+
+    from .repo_tree_render import DEFAULT_MAX_TOKENS, MIN_MAX_TOKENS, render_workspace_tree
+
+    path = arguments.get("path", ".")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {
+            "tool": "render_repo_tree",
+            "path": path,
+            "ok": False,
+            "error": info,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    resolved = info
+    if not os.path.isdir(resolved):
+        return {
+            "tool": "render_repo_tree",
+            "path": resolved,
+            "ok": False,
+            "error": f"{resolved} 不是目录,render_repo_tree 只渲染目录骨架。",
+            "errorCode": "NOT_A_DIRECTORY",
+        }
+    raw_budget = arguments.get("maxTokens", DEFAULT_MAX_TOKENS)
+    try:
+        max_tokens = int(raw_budget) if raw_budget is not None else DEFAULT_MAX_TOKENS
+    except (TypeError, ValueError):
+        return {
+            "tool": "render_repo_tree",
+            "path": resolved,
+            "ok": False,
+            "error": f"maxTokens 不是整数:{raw_budget!r}",
+            "errorCode": "BAD_MAX_TOKENS",
+        }
+    max_tokens = max(max_tokens, MIN_MAX_TOKENS)
+    raw_scope = arguments.get("scope")
+    scope = raw_scope if isinstance(raw_scope, str) and raw_scope.strip() else None
+    try:
+        out = render_workspace_tree(_Path(resolved), max_tokens=max_tokens, scope=scope)
+    except Exception as e:
+        return {
+            "tool": "render_repo_tree",
+            "path": resolved,
+            "ok": False,
+            "error": str(e),
+            "errorCode": "RENDER_FAILED",
+        }
+    return {"tool": "render_repo_tree", "path": resolved, "ok": True, **out.to_dict()}
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
 
@@ -10421,6 +10478,22 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="render_repo_tree",
+        description=(
+            "按 token 预算渲染仓库目录骨架(不是文件清单):预算不足时先保目录树、削掉的文件与"
+            "被 scope 排除的条目分别计数回报,complete/dropReason 说明这份骨架是全仓还是削过的"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "仓库根目录,默认当前目录;必须在工作区白名单内"},
+                "maxTokens": {"type": "integer", "description": "骨架的 token 预算,默认 2000"},
+                "scope": {"type": "string", "description": "只渲染该相对子树(如 apps/api);省略则全仓"},
+            },
+            "required": ["path"],
+        },
+    ),
+    MCPTool(
         name="write_file",
         description=(
             "写入内容到本地文件。写冲突治理:若现盘内容与本会话上次看到的版本不一致"
@@ -13186,6 +13259,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
     "list_files": _tool_list_files,
+    "render_repo_tree": _tool_render_repo_tree,
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
