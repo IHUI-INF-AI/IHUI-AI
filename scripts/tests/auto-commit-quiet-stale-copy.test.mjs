@@ -70,6 +70,39 @@ const faceFor = (table) => (p) => ({
   worktree: () => table[p]?.worktree ?? null,
   head: () => table[p]?.head ?? null,
   ancestors: () => table[p]?.ancestors ?? [],
+  everExisted: () => table[p]?.everExisted ?? false,
+})
+
+// 2026-10-31 实测(aboutPageSections 第四次回潮,提交 7a47524b07):正当删除三次的死件,第四次
+// 被本器收编回 HEAD。通道 = partitionStaleCopies 的 `!head` 分支 fail-open:删除提交让
+// `HEAD:<path>` 问不到 ⇒ 直接 kept。补「曾入库过」探针后,删除档死件必须 skip。
+test('T10 删除档死件回潮:HEAD 无此文件但历史上曾入库 ⇒ 必须跳过(不再 fail-open 收编)', () => {
+  const r = __test__.partitionStaleCopies(['dead.ts'], {
+    worktree: () => 'dead-blob',
+    head: () => null,
+    ancestors: () => [],
+    everExisted: () => true,
+  })
+  assert.deepEqual(r, { kept: [], skipped: ['dead.ts'] })
+})
+
+test('T11 真新文件:HEAD 无此文件且无入库历史 ⇒ 照常收编(fail-open 语义不变)', () => {
+  const r = __test__.partitionStaleCopies(['new.ts'], {
+    worktree: () => 'new-blob',
+    head: () => null,
+    ancestors: () => [],
+    everExisted: () => false,
+  })
+  assert.deepEqual(r, { kept: ['new.ts'], skipped: [] })
+})
+
+test('T12 探针取不到 everExisted ⇒ 按真新文件放行(不猜,保持原收编行为)', () => {
+  const r = __test__.partitionStaleCopies(['m.ts'], {
+    worktree: () => 'b',
+    head: () => null,
+    ancestors: () => [],
+  })
+  assert.deepEqual(r, { kept: ['m.ts'], skipped: [] })
 })
 
 // 事故回放(2026-10-29 现读):b44ab834609 把 a3facca58f3 早 4 分钟入库的 relay 守卫②整份写回旧版,
