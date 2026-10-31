@@ -101,7 +101,7 @@ progress {
 @import 'tailwindcss/utilities.css';
 @source "./**/*.{ts,tsx}";
 /* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */
-@theme {
+@theme static {
   /* 只注册 v4 认得的**色档**:--color-*-rgb 那批三元组不得进来 —— v4 把任何 --color-*
      都当成一个颜色档,进来就会长出 .bg-muted-rgb 这类脏档;它们由下面 :root 的 alpha 区管。 */
   --color-background: hsl(0 0% 96.1%);
