@@ -35,6 +35,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from ..core.bounded_ttl_store import BoundedTtlDict
 from ..core.jwt_auth import get_current_user_id_sync
 from ..routers import agent_runtime
 
@@ -45,16 +46,29 @@ logger = logging.getLogger(__name__)
 MAX_PER_SESSION = 200
 # 单次查询上限
 MAX_QUERY_LIMIT = 200
+# 2026-11-01 安全强化:外层键数上限 + 滑动寿命。
+# 原先只有"每会话 ≤200 条"这一层内限,而**会话键本身无上限、永不清理** ——
+# 每个新会话/新请求都能留下一枚永久键(条目里存着 LLM 摘要文本),
+# 于是单账号循环起新会话即可线性吃满进程内存。
+MAX_SESSION_KEYS = 2000
+SESSION_TTL_SECONDS = 6 * 3600.0
 
 
 # =============================================================================
-# 进程内压缩历史存储(线程安全 dict)
+# 进程内压缩历史存储(线程安全、有界、带寿命)
 # =============================================================================
 
 _lock = threading.Lock()
-_history: dict[str, list[dict[str, Any]]] = {}
-# user_id -> set(session_id) 的轻量归属索引(可选,用于未在 agent_runtime 登记时的弱校验)
-_owned: dict[str, set[str]] = {}
+_history: BoundedTtlDict = BoundedTtlDict(
+    max_keys=MAX_SESSION_KEYS, ttl_seconds=SESSION_TTL_SECONDS
+)
+# 归属索引:**键 = session_id,值 = owner user_id**。
+# 2026-11-01 修一处真实越权判据失效:原实现写入用 `_owned[user_id] -> {session_id}`,
+# 而 `_authorize_session` 读的却是 `_owned.get(session_id)` —— 两侧键空间不同,
+# 那次"会话未登记时按归属兜底"的检查**结构上永不命中**(写了,但永远读不到)。
+_owned: BoundedTtlDict = BoundedTtlDict(
+    max_keys=MAX_SESSION_KEYS, ttl_seconds=SESSION_TTL_SECONDS
+)
 
 
 def record_compaction(
@@ -91,12 +105,11 @@ def record_compaction(
     if metadata:
         rec["metadata"] = metadata
     with _lock:
-        _history.setdefault(session_id, []).append(rec)
-        if len(_history[session_id]) > MAX_PER_SESSION:
-            # 保留最近 MAX_PER_SESSION 条
-            _history[session_id] = _history[session_id][-MAX_PER_SESSION:]
+        existing = _history.get(session_id) or []
+        _history.set(session_id, [*existing, rec][-MAX_PER_SESSION:])
         if user_id:
-            _owned.setdefault(user_id, set()).add(session_id)
+            # 键 = session_id(与 _authorize_session 的读侧同一条键空间)
+            _owned.set(session_id, user_id)
     return rec
 
 
@@ -108,7 +121,7 @@ def list_compaction_events(
     与 _history 解耦,避免聚合端点直接依赖私有存储。
     """
     with _lock:
-        records = list(_history.get(session_id, []))
+        records = list(_history.get(session_id) or [])
     return records[: max(1, min(int(limit), MAX_QUERY_LIMIT))]
 
 
@@ -123,10 +136,12 @@ def _authorize_session(request: Request, session_id: str) -> tuple[str, bool]:
         if owner and owner != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权访问他人会话")
     else:
-        # 会话未登记时:若我们记录过归属且非本人,拒绝(宽松但防越权)
+        # 会话未登记时:按记录过的归属兜底(宽松但防越权)。
+        # 本枚修好后这条检查才**真的会触发**:原实现读 `_owned.get(session_id)`,
+        # 而写侧键是 user_id ⇒ 恒为 None ⇒ "防越权"只是注释。
         with _lock:
             recorder_owner = _owned.get(session_id)
-        if recorder_owner and user_id not in recorder_owner and not is_admin:
+        if recorder_owner and recorder_owner != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权访问他人会话")
     return user_id, is_admin
 

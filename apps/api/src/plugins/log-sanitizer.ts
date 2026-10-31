@@ -9,7 +9,6 @@ import type {
   FastifyRequest,
 } from 'fastify'
 import fp from 'fastify-plugin'
-import { redactUrl, SECRET_RULES } from '@ihui/shared/utils/redact'
 import { buildSensitiveKeySet, sanitizeData, type SanitizerOptions } from './response-sanitizer.js'
 
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'] as const
@@ -24,33 +23,13 @@ type LogLevel = (typeof LOG_LEVELS)[number]
  * （mergeObject / message）做递归脱敏后再委托给原 logger 输出。
  */
 /**
- * 自由文本里的凭据打码(**日志面唯一出口**,2026-10-28 起具名导出)。
- *
- * 立因:此前这一维只有本插件的 request.log Proxy 用得到,而 `api_logs.error` 那一列
- * 是**直接落库**的文本,不经过 pino,也就没人给它打码 —— 于是"想把异常摘要写进表"
- * 这一件事在结构上就不成立(写进去的原文可能带 token/cookie)。
- * 现在落库面与日志面共用同一条规则(共享层 `@ihui/shared/utils/redact`),
- * 不写第二份打码(§0.6 单一真相源)。
+ * 自由文本里的凭据打码:实现已下移到叶子模块 `utils/redact-credential-text.ts`
+ * (2026-11-01)。原因:根 logger(`utils/logger.ts`)也要用这同一道出口,而本模块
+ * 经 `response-sanitizer → utils/crypto → config` 引回 logger,接上去即成 ESM 环。
+ * 规则仍只有共享层那一份(`redactUrl` + `SECRET_RULES`),本文件不再有第二处实现。
  */
-export function redactCredentialText(text: string): string {
-  let out = redactUrl(text)
-  for (const rule of SECRET_RULES) out = out.replace(rule.pattern, rule.replacement)
-  return out
-}
-
-/** 字段名规则之后再扫一遍字符串叶子；对象/数组形状保持不变 */
-function redactCredentialStrings(value: unknown): unknown {
-  if (typeof value === 'string') return redactCredentialText(value)
-  if (Array.isArray(value)) return value.map(redactCredentialStrings)
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = redactCredentialStrings(v)
-    }
-    return out
-  }
-  return value
-}
+export { redactCredentialText, redactCredentialStrings } from '../utils/redact-credential-text.js'
+import { redactCredentialStrings } from '../utils/redact-credential-text.js'
 
 function wrapLogger(log: FastifyBaseLogger, keys: Set<string>): FastifyBaseLogger {
   return new Proxy(log, {

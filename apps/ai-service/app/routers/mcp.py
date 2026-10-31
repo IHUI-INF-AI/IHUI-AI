@@ -493,18 +493,20 @@ async def register_external_server(
                 )
         if transport == TRANSPORT_SSE and not req.url.strip():
             return JSONResponse(status_code=400, content={"error": "sse 模式缺少 url"})
-        # 2026-11-01 安全强化:此前 stdio 传输有两道闸(仅管理员 + 部署级命令白名单),而
-        # **url 型传输(sse/http)只判非空** —— 任何登录用户都能注册一枚"由本进程替我出连"的
-        # 外部 MCP:注册后它的 tools 进入调用面,连接由服务端发起,回环上的管理端口与云元数据
-        # 地址都在射程内,首行响应还会被写进日志(mcp_client 的 debug 分支)。
+        # 2026-11-01 安全强化(第 8 批的**更正**):那一批我在下面加过一道
+        # "url 型传输仅管理员可注册",把既有契约
+        # `tests/test_mcp_stdio_registration_gates.py::test_sse_register_untouched_by_stdio_gate`
+        # 打红了。那枚用例是更早一批(7a1c556d19)特意装的**反向牙**,钉的是
+        # "stdio 的两道闸只针对本地进程执行面,不得顺手扩到所有 transport ⇒ 普通用户仍能注册远程 MCP"
+        # —— 也就是说用户自登记远程连接器是本产品的设计能力(外部服务器另有归属鉴权),
+        # 我那道闸过粗,砍掉的是在用能力,故本枚撤销角色闸。
+        # 只保留协议族校验:非 http(s) 一律拒(对第一方内网服务零副作用,却挡掉 file/gopher 形态)。
         #
-        # 为什么这一格用**授权闸**而不是套 `_validate_url_ssrf`:实测(跑既有
-        # tests/test_mcp_client.py::test_sse_connect_success)证明本仓的 MCP 外部服务器**设计上
-        # 就允许指向内网自研服务**(该用例连的正是 127.0.0.1:8803 的 ai-service 自身 MCP 端点),
-        # 而那把尺子的端口封闭表只放行 80/443/8080/8443/3000/8801 ⇒ 接上去会把这条在用的
-        # 第一方集成通道整片打死。内网面在这类能力里是意图,不是缺陷;真正的收口是
-        # **"谁能登记替我出连的通道"**,不是"地址长什么样"。
-        # 保留协议族校验:非 http(s) 一律拒(对第一方内网服务零副作用,却挡掉 file/gopher 等形态)。
+        # 如实登记的残余风险(不藏):普通用户可让服务端向任意可达地址发起 MCP 连接;
+        # 但"内网第一方 MCP(127.0.0.1:8803)"同样是设计内用法(证据:
+        # tests/test_mcp_client.py::test_sse_connect_success 连的就是它),
+        # 所以直接套 ssrf 端口封闭表同样打红在用面。正确收口 = 归属 + 可登记的落点策略
+        # (数据/配置面的活),单列一票推进,不用一刀切冒充修复。
         if req.url.strip():
             from urllib.parse import urlparse as _urlparse
 
@@ -512,11 +514,6 @@ async def register_external_server(
                 return JSONResponse(
                     status_code=403,
                     content={"error": "外部 MCP 仅允许 http(s) 落点"},
-                )
-            if resolve_request_role_id(request) < 1:
-                return JSONResponse(
-                    status_code=403,
-                    content={"error": "外部 MCP Server(url 型传输)只能由管理员注册"},
                 )
 
         manager = get_mcp_client_manager()

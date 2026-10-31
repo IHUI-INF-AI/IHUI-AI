@@ -1180,9 +1180,15 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
   const co = counter(oursText)
   const ct = subtractSuppressed(counter(theirsText), suppress)
   const cb = baseText === null ? new Map() : counter(baseText)
-  const want = new Map(co)
+  const want = new Map([...co].filter(([l]) => l.trim() !== ''))
+  // ↑ 空行不参与期望重数 —— 这是本函数头注(1173)自己声明的书面口径,与 :1062 及 lostAddedLines
+  //   同一条规矩(三处必须同形)。原实现只在下面**对侧累加**那一圈跳空行,而 want 的初值直接
+  //   整份复制本侧 counter ⇒ 本侧空行被算进"期望存活",对侧新增内容合法吸收掉一个分隔空行时,
+  //   就得到一道与内容无关的红(2026-11-01 实测:README.md 非空行 40622→40624 只增不减,
+  //   唯"未存活"的是 1 个空行,冒号后面什么都没有 —— 与 :1176 记的那一型同源,只是这次
+  //   漏在补回侧而非抑制侧)。判据对**内容行**的追讨一分未减,反证用例见 union-converge 镜像测试。
   for (const [l, n] of ct) {
-    if (l === '') continue // 空行不参与补回:与 unionLines 的补回循环同形(理由见本函数头注)
+    if (l.trim() === '') continue // 空行/纯空白行都不参与:与上面 want 初值及 :1062 同一条规矩(原先只认 l === '',口径比姊妹处窄)
     const own = co.get(l) || 0
     // 副本指针行只许"从无到有带一份",绝不参与份数累加(2026-09-29 G-814386)。
     // 立因:这类行已被尺子的派单口径算作同一条活账的副本,而 max/累加会把**已判过死刑的副本**

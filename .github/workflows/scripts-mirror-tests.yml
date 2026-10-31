@@ -75,7 +75,7 @@ jobs:
     #   现在 continue-on-error 只贴在"测试确实跑了、但可能带存量红"那一步上(观察期语义
     #   不变),环境类失败(装不上 / 被跳过 / 一行没跑)由哨兵步当场判红。
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # 必须取全历史。这批镜像测试里有一族判据的设计目的就是「夹具不算证明 —— 必须拿真仓
           # 历史 blob 证」(如 `check-dangling-local-imports.test.mjs` 的 D4/D5、各门的「真仓历史
@@ -88,14 +88,14 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         # 不写 `with: version` —— 根 package.json 的 `packageManager: pnpm@11.18.0` 才是唯一
         # 版本源。原先这里再写一个 `version: 11` 会被 action 判成
         # "Multiple versions of pnpm specified" 直接失败(2026-10-15 那夜的 skipped 链就是这么起的);
         # 同仓 ci-monorepo.yml / blue-green-deploy.yml 也都是只让它读 packageManager。
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -116,7 +116,7 @@ jobs:
       # 只要**空 venv**:实测被判据模块 `_load_lifecycle.py` 只 import 标准库
       # (time/dataclasses/ast/re),不装 ai-service 依赖。
       - name: Setup Python (判据在 Python 里的那族守门要它)
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
 

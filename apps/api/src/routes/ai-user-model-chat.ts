@@ -183,8 +183,13 @@ export async function callLLM(params: LLMCallParams): Promise<{
       'anthropic-version': '2023-06-01',
     }
   } else if (vendor === 'google') {
-    endpoint = `${baseUrl ?? 'https://generativelanguage.googleapis.com'}/v1beta/models/${modelId}:generateContent?key=${apiKey}`
-    headers = { 'Content-Type': 'application/json' }
+    // 2026-11-01 安全强化:凭据只走 x-goog-api-key 头,不进 URL。
+    // 原先 `?key=${apiKey}` 让用户的 key 随 URL 走:访问日志、异常文本、上游错误摘要
+    // 都按 URL 记录。同一原生端点在本仓 Node 侧早已用头形态
+    // (routes/ai-vendors/proxy-llm.ts 直接 POST `:generateContent`,URL 不含 key;
+    // vendor-auth-strategies.ts 的 `x-goog-api-key`),故这不只是"更干净",而是有对照实现。
+    endpoint = `${baseUrl ?? 'https://generativelanguage.googleapis.com'}/v1beta/models/${modelId}:generateContent`
+    headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
   } else {
     endpoint = (baseUrl ?? 'https://api.openai.com') + '/v1/chat/completions'
     headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }

@@ -66,6 +66,17 @@ class GeminiProvider(BaseProvider):
             base = "https://generativelanguage.googleapis.com"
         return base.rstrip("/")
 
+    @staticmethod
+    def _auth_headers(api_key: str) -> dict[str, str]:
+        """凭据只走 x-goog-api-key 头,绝不进 URL。
+
+        查询串形态(`?key=`)会让同一枚服务端密钥随 URL 落到:① httpx 在 DEBUG 档
+        逐请求打印的完整 URL;② 任何中间层(反代/中转/云监控)的访问日志;③ 异常
+        上下文里的 request.url。Google 原生 REST 与本仓 Node 侧(proxy-llm.ts 调同一
+        端点)都已用这枚头 ⇒ 查询串只剩风险、没有收益。
+        """
+        return {"x-goog-api-key": api_key}
+
     def _convert_messages(
         self,
         messages: list[dict[str, Any]],
@@ -180,8 +191,8 @@ class GeminiProvider(BaseProvider):
     ) -> dict[str, Any]:
         payload = self._build_payload(messages, model, tools=tools, safety_settings=safety_settings, **kwargs)
         real_model = self._strip_prefix(model)
-        url = f"{self.base_url}/v1beta/models/{real_model}:generateContent?key={self.api_key}"
-        data = await self._request("POST", url, json=payload)
+        url = f"{self.base_url}/v1beta/models/{real_model}:generateContent"
+        data = await self._request("POST", url, json=payload, headers=self._auth_headers(self.api_key))
         text, tool_calls, finish_reason = self._parse_candidates(data)
         # SAFETY/RECITATION 拦截:Gemini 返回空文本 + finishReason=SAFETY,
         # 上抛明确错误避免前端看到空回复(用户感知为"对话被自动结束")
@@ -215,10 +226,16 @@ class GeminiProvider(BaseProvider):
         safety_settings = kwargs.pop("safety_settings", None)
         payload = self._build_payload(messages, model, tools=tools, safety_settings=safety_settings, **kwargs)
         real_model = self._strip_prefix(model)
-        url = f"{self.base_url}/v1beta/models/{real_model}:streamGenerateContent?key={self.api_key}&alt=sse"
+        url = f"{self.base_url}/v1beta/models/{real_model}:streamGenerateContent?alt=sse"
         try:
             client = get_http_client()
-            async with client.stream("POST", url, json=payload, timeout=self.timeout) as resp:
+            async with client.stream(
+                "POST",
+                url,
+                json=payload,
+                headers=self._auth_headers(self.api_key),
+                timeout=self.timeout,
+            ) as resp:
                 if resp.status_code >= 400:
                     body = await resp.aread()
                     raise ProviderError(
@@ -268,7 +285,7 @@ class GeminiProvider(BaseProvider):
             yield {"type": "error", "message": str(e)}
 
     async def list_models(self) -> list[dict[str, Any]]:
-        url = f"{self.base_url}/v1beta/models?key={self.api_key}"
-        data = await self._request("GET", url)
+        url = f"{self.base_url}/v1beta/models"
+        data = await self._request("GET", url, headers=self._auth_headers(self.api_key))
         return cast(list[dict[str, Any]], data.get("models", []))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

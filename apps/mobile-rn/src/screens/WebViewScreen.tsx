@@ -13,6 +13,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuthStore } from '../stores/auth-store'
 import { WEB_BASE_URL, toSsoRedirectUri } from '../lib/webview-portal-config'
+import { isTrustedWebviewUrl } from '@ihui/shared'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { BackChevron } from '@ihui/rn-app'
 
@@ -48,9 +49,18 @@ export function WebViewScreen() {
   const dark = resolvedTheme === 'dark'
 
   // App→Web 会话打通:已登录 → sso_code → mobile-auth 消费页;失败/未登录降级直开
+  //
+  // 2026-11-01 安全强化:签 sso_code 之前必须先过落点信任闸。
+  // 原先的流程是"对送进来的**任何** url 取其 origin → 为该 origin 签一枚一次性会话码 →
+  // 拼进 `${origin}/sso/mobile-auth?sso_code=…&redirect=…`",而 `url` 是路由参数
+  // (WebPortalScreen 按细分入口打开,链接形态可被内容/配置面影响)。
+  // 会话码被签给任意 origin = 把"换会话"的能力外送给攻击者指定的站点。
+  // 小程序端同一件事有闸(`utils/webview-trust.ts`),RN 端没有 —— 同一判据两份实现,
+  // 缺的那一份永远不响。机制现在收进 `@ihui/shared` 唯一实现,端侧只注入策略。
+  // 不信任的落点**照旧打开**(产品行为不变:能看页面),只是不带我们的会话。
   useEffect(() => {
     let cancelled = false
-    if (!token) {
+    if (!token || !isTrustedWebviewUrl(url)) {
       setSourceUri(url)
       return
     }
