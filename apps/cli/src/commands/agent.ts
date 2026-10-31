@@ -421,9 +421,13 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     // P1-5 hub mcp-adapter:flag 启用时走 hub adapter 路径(MCP 工具注册到 hub remote registry);
     // 否则走原 mcp-runtime 路径(注册到 registry Map)。两条路径互斥,避免重复注册。
     const useHubAdapter = settings.toolHub?.mcpAdapter?.enabled === true;
+    // 2026-10-31 安全强化第 20 批(CLI Critical):工作区来源的 mcp.json 默认
+    // 不参与连接(其 stdio command 会以用户身份 spawn ⇒ clone 即 RCE)。
+    // 只有用户全局层显式 mcpTrustProjectServers=true 才放行。
+    const mcpTrust = { allowProjectServers: settings.mcpTrustProjectServers === true };
     if (useHubAdapter) {
       try {
-        const conns = await loadMcpConnections({ workspacePath: opts.workspacePath });
+        const conns = await loadMcpConnections({ workspacePath: opts.workspacePath }, mcpTrust);
         if (conns.length > 0) {
           const remoteRegistry = new InMemoryRegistry();
           let total = 0;
@@ -444,7 +448,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       }
     } else {
       try {
-        const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath });
+        const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath }, mcpTrust);
         if (mcpTools.length > 0) {
           registerTools(mcpTools);
           if (!opts.silent) console.info(chalk.dim(`  🔌 已加载 ${mcpTools.length} 个 MCP 工具`));

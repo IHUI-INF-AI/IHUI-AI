@@ -1,0 +1,458 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-10-31T03:31:58.068Z",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+    "sha256": "10aaf5531e07682021307f5f1260dbd4c3cbc991aa070137654324c4bd084540",
+    "bytes": 5926
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+    "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+    "bytes": 860632
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "10aaf5531e07682021307f5f1260dbd4c3cbc991aa070137654324c4bd084540",
+          "bytes": 5926
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 470,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "46503539-8aa5-4cc8-8c73-f6417a8d2c4b",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+        "output": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "specification": {
+          "sha256": "10aaf5531e07682021307f5f1260dbd4c3cbc991aa070137654324c4bd084540",
+          "bytes": 5926
+        },
+        "artifact": {
+          "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+          "bytes": 860632
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 176,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "artifact": {
+          "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+          "bytes": 860632
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": ["found 1 <svg> block(s)"]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 4,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 5,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6.256363636363637,
+            "maxBends": 4,
+            "routesOverSuggestedBends": 1,
+            "maxStretch": 1.32,
+            "routesOverSuggestedStretch": 0,
+            "minSegmentPx": 24,
+            "minInteriorSegmentPx": 60,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [
+              {
+                "left": {
+                  "id": "cfs-to-kfs",
+                  "from": "cfs-grpc",
+                  "to": "kfs-route",
+                  "label": "对位(读半边)",
+                  "collectionIndex": 0,
+                  "artifactIndex": 1
+                },
+                "right": {
+                  "id": "exports-to-ghidra",
+                  "from": "libckg-exports",
+                  "to": "ghidra",
+                  "label": "反编译取证",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "point": [294, 551]
+              },
+              {
+                "left": {
+                  "id": "imp-to-db",
+                  "from": "ext-import",
+                  "to": "chunks-db",
+                  "label": "memory→长期记忆",
+                  "collectionIndex": 4,
+                  "artifactIndex": 5
+                },
+                "right": {
+                  "id": "beyond-imp",
+                  "from": "ext-import",
+                  "to": "beyond",
+                  "label": "证据",
+                  "collectionIndex": 8,
+                  "artifactIndex": 9
+                },
+                "point": [844, 690.6],
+                "sharedNode": "ext-import"
+              },
+              {
+                "left": {
+                  "id": "exports-to-ghidra",
+                  "from": "libckg-exports",
+                  "to": "ghidra",
+                  "label": "反编译取证",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "right": {
+                  "id": "cfs-to-proj",
+                  "from": "cfs-grpc",
+                  "to": "kfs-proj",
+                  "label": "路径语法对齐",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "point": [293.99999999999994, 566.0499999999998]
+              },
+              {
+                "left": {
+                  "id": "beyond-imp",
+                  "from": "ext-import",
+                  "to": "beyond",
+                  "label": "证据",
+                  "collectionIndex": 8,
+                  "artifactIndex": 9
+                },
+                "right": {
+                  "id": "gaps-note",
+                  "from": "ghidra",
+                  "to": "gaps",
+                  "label": "缺口归并行席",
+                  "collectionIndex": 9,
+                  "artifactIndex": 10
+                },
+                "point": [845, 641.6]
+              }
+            ],
+            "detours": [
+              {
+                "relationship": {
+                  "id": "gaps-note",
+                  "from": "ghidra",
+                  "to": "gaps",
+                  "label": "缺口归并行席",
+                  "collectionIndex": 9,
+                  "artifactIndex": 10
+                },
+                "bends": 4,
+                "stretch": 1
+              }
+            ]
+          },
+          "leadingSpace": {
+            "measured": false,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": null,
+            "requestedTargetMet": null,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "node",
+              "id": "beyond"
+            },
+            "minimumSourceTextPx": 7.4,
+            "minimumProjectedTextPx": 6.256363636363637,
+            "semanticTextCount": 34
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "46503539-8aa5-4cc8-8c73-f6417a8d2c4b"
+      }
+    },
+    "browser-check": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": 16,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "browser-check",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "fail",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "46503539-8aa5-4cc8-8c73-f6417a8d2c4b",
+        "artifact": {
+          "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+          "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+          "bytes": 860632
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "not-checked",
+          "executable": null
+        },
+        "diagnostics": [
+          {
+            "code": "viewer/evidence-path-conflict",
+            "severity": "error",
+            "message": "browser-check will not replace the existing unowned evidence path \"G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json\".",
+            "subject": {
+              "artifact": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+              "evidencePath": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json"
+            },
+            "evidence": {
+              "reason": {
+                "code": "ownership-artifact-mismatch"
+              }
+            },
+            "supportedFixes": [
+              "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+            ]
+          }
+        ],
+        "containment": {
+          "status": "fail",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": []
+        },
+        "themeStates": {
+          "status": "fail",
+          "viewports": []
+        },
+        "readability": {
+          "status": "fail",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": []
+        },
+        "viewerChrome": {
+          "status": "fail",
+          "viewports": []
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "goal-b41-kfs.browser-check.json",
+          "files": []
+        },
+        "error": "browser-check will not replace the existing unowned evidence path \"G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json\"."
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/evidence-path-conflict",
+      "severity": "error",
+      "message": "browser-check will not replace the existing unowned evidence path \"G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json\".",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "evidencePath": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json"
+      },
+      "evidence": {
+        "reason": {
+          "code": "ownership-artifact-mismatch"
+        }
+      },
+      "supportedFixes": [
+        "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "browser-check",
+  "finishedAt": "2026-10-31T03:31:58.917Z",
+  "durationMs": 848,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

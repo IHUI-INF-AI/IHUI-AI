@@ -1,0 +1,1373 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-10-31T02:30:59.572Z",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\candidate.json",
+    "sha256": "682b008ce2ceeb45311038920b424b7744b5ca7819f9af8256090164fcb6dee8",
+    "bytes": 8073
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+    "sha256": "97c0b80bc8318f66683792f3579c65b5701bc33558035c0cfdc8e85896bb5881",
+    "bytes": 869647
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "682b008ce2ceeb45311038920b424b7744b5ca7819f9af8256090164fcb6dee8",
+          "bytes": 8073
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 844,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "e7b3b1b6-2e66-42e6-8aca-c1e3bef1921a",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\candidate.json",
+        "output": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+        "specification": {
+          "sha256": "682b008ce2ceeb45311038920b424b7744b5ca7819f9af8256090164fcb6dee8",
+          "bytes": 8073
+        },
+        "artifact": {
+          "sha256": "97c0b80bc8318f66683792f3579c65b5701bc33558035c0cfdc8e85896bb5881",
+          "bytes": 869647
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 225,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+        "artifact": {
+          "sha256": "97c0b80bc8318f66683792f3579c65b5701bc33558035c0cfdc8e85896bb5881",
+          "bytes": 869647
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": ["found 1 <svg> block(s)"]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 14,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 4,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6.763636363636364,
+            "maxBends": 6,
+            "routesOverSuggestedBends": 5,
+            "maxStretch": 1.479,
+            "routesOverSuggestedStretch": 2,
+            "minSegmentPx": 8,
+            "minInteriorSegmentPx": 18,
+            "shortSegmentCount": 1,
+            "shortEndpointSegmentCount": 1,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [
+              {
+                "left": {
+                  "id": "harness-ckg",
+                  "from": "trae-harness",
+                  "to": "trae-ckg",
+                  "label": "ckg/ 域",
+                  "collectionIndex": 1,
+                  "artifactIndex": 2
+                },
+                "right": {
+                  "id": "cmp-mcp",
+                  "from": "trae-toolhost",
+                  "to": "ihui-mcp",
+                  "label": "对位:MCP server",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "point": [284.00000000000006, 309]
+              },
+              {
+                "left": {
+                  "id": "harness-ckg",
+                  "from": "trae-harness",
+                  "to": "trae-ckg",
+                  "label": "ckg/ 域",
+                  "collectionIndex": 1,
+                  "artifactIndex": 2
+                },
+                "right": {
+                  "id": "cmp-aigc",
+                  "from": "trae-toolhost",
+                  "to": "ihui-aigc",
+                  "label": "对齐+超越",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "point": [284.00000000000006, 480]
+              },
+              {
+                "left": {
+                  "id": "harness-ckg",
+                  "from": "trae-harness",
+                  "to": "trae-ckg",
+                  "label": "ckg/ 域",
+                  "collectionIndex": 1,
+                  "artifactIndex": 2
+                },
+                "right": {
+                  "id": "cmp-dev",
+                  "from": "qoder-remote",
+                  "to": "ihui-devices",
+                  "label": "对齐(b39)",
+                  "collectionIndex": 7,
+                  "artifactIndex": 8
+                },
+                "point": [283, 261.4]
+              },
+              {
+                "left": {
+                  "id": "q-inbox",
+                  "from": "qoder-remote",
+                  "to": "qoder-inbox",
+                  "label": "同宿主",
+                  "collectionIndex": 2,
+                  "artifactIndex": 3
+                },
+                "right": {
+                  "id": "cmp-harness",
+                  "from": "trae-harness",
+                  "to": "ihui-ai",
+                  "label": "对位:引擎/编排",
+                  "collectionIndex": 4,
+                  "artifactIndex": 5
+                },
+                "point": [564, 183]
+              },
+              {
+                "left": {
+                  "id": "q-imp",
+                  "from": "qoder-inbox",
+                  "to": "qoder-import",
+                  "label": "迁移流(记忆一等)",
+                  "collectionIndex": 3,
+                  "artifactIndex": 4
+                },
+                "right": {
+                  "id": "cmp-mcp",
+                  "from": "trae-toolhost",
+                  "to": "ihui-mcp",
+                  "label": "对位:MCP server",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "point": [546.0666666666667, 265]
+              },
+              {
+                "left": {
+                  "id": "cmp-harness",
+                  "from": "trae-harness",
+                  "to": "ihui-ai",
+                  "label": "对位:引擎/编排",
+                  "collectionIndex": 4,
+                  "artifactIndex": 5
+                },
+                "right": {
+                  "id": "cmp-dev",
+                  "from": "qoder-remote",
+                  "to": "ihui-devices",
+                  "label": "对齐(b39)",
+                  "collectionIndex": 7,
+                  "artifactIndex": 8
+                },
+                "point": [415, 183]
+              },
+              {
+                "left": {
+                  "id": "cmp-mcp",
+                  "from": "trae-toolhost",
+                  "to": "ihui-mcp",
+                  "label": "对位:MCP server",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "right": {
+                  "id": "cmp-dev",
+                  "from": "qoder-remote",
+                  "to": "ihui-devices",
+                  "label": "对齐(b39)",
+                  "collectionIndex": 7,
+                  "artifactIndex": 8
+                },
+                "point": [283, 309]
+              },
+              {
+                "left": {
+                  "id": "cmp-aigc",
+                  "from": "trae-toolhost",
+                  "to": "ihui-aigc",
+                  "label": "对齐+超越",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "right": {
+                  "id": "cmp-dev",
+                  "from": "qoder-remote",
+                  "to": "ihui-devices",
+                  "label": "对齐(b39)",
+                  "collectionIndex": 7,
+                  "artifactIndex": 8
+                },
+                "point": [283, 480]
+              },
+              {
+                "left": {
+                  "id": "cmp-aigc",
+                  "from": "trae-toolhost",
+                  "to": "ihui-aigc",
+                  "label": "对齐+超越",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "right": {
+                  "id": "gap-in",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 9,
+                  "artifactIndex": 10
+                },
+                "point": [546, 464]
+              },
+              {
+                "left": {
+                  "id": "cmp-aigc",
+                  "from": "trae-toolhost",
+                  "to": "ihui-aigc",
+                  "label": "对齐+超越",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "right": {
+                  "id": "gap-q",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 10,
+                  "artifactIndex": 11
+                },
+                "point": [546, 422]
+              },
+              {
+                "left": {
+                  "id": "cmp-dev",
+                  "from": "qoder-remote",
+                  "to": "ihui-devices",
+                  "label": "对齐(b39)",
+                  "collectionIndex": 7,
+                  "artifactIndex": 8
+                },
+                "right": {
+                  "id": "gap-q",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 10,
+                  "artifactIndex": 11
+                },
+                "point": [651.0785714285448, 504]
+              },
+              {
+                "left": {
+                  "id": "gap-in",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 9,
+                  "artifactIndex": 10
+                },
+                "right": {
+                  "id": "gap-q",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 10,
+                  "artifactIndex": 11
+                },
+                "point": [564, 464],
+                "sharedNode": "qoder-import"
+              },
+              {
+                "left": {
+                  "id": "gap-in",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 9,
+                  "artifactIndex": 10
+                },
+                "right": {
+                  "id": "beyond-in",
+                  "from": "ihui-aigc",
+                  "to": "beyond",
+                  "label": "证据",
+                  "collectionIndex": 11,
+                  "artifactIndex": 12
+                },
+                "point": [844, 464]
+              },
+              {
+                "left": {
+                  "id": "gap-q",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 10,
+                  "artifactIndex": 11
+                },
+                "right": {
+                  "id": "beyond-in",
+                  "from": "ihui-aigc",
+                  "to": "beyond",
+                  "label": "证据",
+                  "collectionIndex": 11,
+                  "artifactIndex": 12
+                },
+                "point": [844, 504]
+              }
+            ],
+            "detours": [
+              {
+                "relationship": {
+                  "id": "q-imp",
+                  "from": "qoder-inbox",
+                  "to": "qoder-import",
+                  "label": "迁移流(记忆一等)",
+                  "collectionIndex": 3,
+                  "artifactIndex": 4
+                },
+                "bends": 2,
+                "stretch": 1.372
+              },
+              {
+                "relationship": {
+                  "id": "cmp-mcp",
+                  "from": "trae-toolhost",
+                  "to": "ihui-mcp",
+                  "label": "对位:MCP server",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "bends": 3,
+                "stretch": 1
+              },
+              {
+                "relationship": {
+                  "id": "cmp-aigc",
+                  "from": "trae-toolhost",
+                  "to": "ihui-aigc",
+                  "label": "对齐+超越",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "bends": 3,
+                "stretch": 1.1,
+                "directCorridorBlockers": [
+                  {
+                    "id": "qoder-import",
+                    "label": "竞品数据导入",
+                    "box": [290, 360, 250, 96]
+                  }
+                ]
+              },
+              {
+                "relationship": {
+                  "id": "cmp-dev",
+                  "from": "qoder-remote",
+                  "to": "ihui-devices",
+                  "label": "对齐(b39)",
+                  "collectionIndex": 7,
+                  "artifactIndex": 8
+                },
+                "bends": 6,
+                "stretch": 1.479
+              },
+              {
+                "relationship": {
+                  "id": "gap-q",
+                  "from": "qoder-import",
+                  "to": "gap-exec",
+                  "label": "独立票",
+                  "collectionIndex": 10,
+                  "artifactIndex": 11
+                },
+                "bends": 3,
+                "stretch": 1.099
+              },
+              {
+                "relationship": {
+                  "id": "beyond-in",
+                  "from": "ihui-aigc",
+                  "to": "beyond",
+                  "label": "证据",
+                  "collectionIndex": 11,
+                  "artifactIndex": 12
+                },
+                "bends": 4,
+                "stretch": 1.176
+              }
+            ]
+          },
+          "leadingSpace": {
+            "measured": false,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": null,
+            "requestedTargetMet": null,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "edge",
+              "id": "mods-harness",
+              "from": "trae-mods",
+              "to": "trae-harness"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 6.763636363636364,
+            "semanticTextCount": 45
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "e7b3b1b6-2e66-42e6-8aca-c1e3bef1921a"
+      }
+    },
+    "browser-check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 5892,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "browser-check",
+        "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "pass",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "e7b3b1b6-2e66-42e6-8aca-c1e3bef1921a",
+        "artifact": {
+          "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+          "sha256": "97c0b80bc8318f66683792f3579c65b5701bc33558035c0cfdc8e85896bb5881",
+          "bytes": 869647
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "available",
+          "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+        },
+        "diagnostics": [],
+        "containment": {
+          "status": "pass",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 1511,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1376,
+              "diagramWidth": 1346,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 78,
+                "diagramChromePx": 78,
+                "svgPx": 1175,
+                "cardsPx": 169,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1643,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1410,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 86,
+                "diagramChromePx": 84,
+                "svgPx": 1231,
+                "cardsPx": 179,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1643,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1410,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 86,
+                "diagramChromePx": 84,
+                "svgPx": 1231,
+                "cardsPx": 179,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1663,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1390,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 94,
+                "diagramChromePx": 94,
+                "svgPx": 1213,
+                "cardsPx": 199,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "themeStates": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            }
+          ]
+        },
+        "readability": {
+          "status": "pass",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 1511,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1376,
+              "diagramWidth": 1346,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 78,
+                "diagramChromePx": 78,
+                "svgPx": 1175,
+                "cardsPx": 169,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1643,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1410,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 86,
+                "diagramChromePx": 84,
+                "svgPx": 1231,
+                "cardsPx": 179,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1643,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1410,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 86,
+                "diagramChromePx": 84,
+                "svgPx": 1231,
+                "cardsPx": 179,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1663,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1390,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 94,
+                "diagramChromePx": 94,
+                "svgPx": 1213,
+                "cardsPx": 199,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "viewerChrome": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 1511,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1376,
+              "diagramWidth": 1346,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 78,
+                "diagramChromePx": 78,
+                "svgPx": 1175,
+                "cardsPx": 169,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1643,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1410,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 86,
+                "diagramChromePx": 84,
+                "svgPx": 1231,
+                "cardsPx": 179,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1643,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1410,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 86,
+                "diagramChromePx": 84,
+                "svgPx": 1231,
+                "cardsPx": 179,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1663,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": null,
+              "readerOverflow": null,
+              "readerFit": "authored-height",
+              "diagramType": "architecture",
+              "documentScrollUnclipped": true,
+              "ok": true,
+              "readerWidth": 1440,
+              "diagramWidth": 1390,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 94,
+                "diagramChromePx": 94,
+                "svgPx": 1213,
+                "cardsPx": 199,
+                "viewBoxHeight": 960
+              },
+              "viewBoxWidth": 1100,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "聚合入口",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "mods-harness",
+                "from": "trae-mods",
+                "to": "trae-harness"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "qoder-trae-deep.browser-check.json",
+          "files": []
+        }
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "diagnostics": [],
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "finishedAt": "2026-10-31T02:31:07.120Z",
+  "durationMs": 7547,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

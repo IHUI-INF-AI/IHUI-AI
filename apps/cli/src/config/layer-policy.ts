@@ -47,22 +47,33 @@ export const SECURITY_SENSITIVE_SETTINGS_KEYS = [
   'approvalPolicy',
   'profile',
   'profiles',
+  // 2026-10-31 安全强化第 20 批(CLI F1/F2):enableMcp/mcp/toolHub 打开工作区
+  // MCP 装配面(仓库 .claude/mcp.json 的 stdio command 会以用户身份 spawn,
+  // settings.mcp.advanced.enabled 与 toolHub.mcpAdapter.enabled 是同面总开关);
+  // apiUrl/providerBaseUrl 决定凭据(refreshToken)外送的端点 —— 项目层可写时,
+  // 仓库一枚 settings.json 就能把长期凭据 POST 给攻击者。五键与凭据域同语义,
+  // 只允许用户全局层。
+  'enableMcp',
+  'mcp',
+  'toolHub',
+  'apiUrl',
+  'providerBaseUrl',
+  // 2026-10-31 安全强化第 20 批(CLI Critical):工作区 mcp.json 的信任开关。
+  // 项目层可写它 = 仓库自己给自己发信任状 ⇒ 必须只允许用户全局层。
+  'mcpTrustProjectServers',
 ] as const satisfies readonly (keyof Settings)[];
 
 /** 项目层允许写入的封闭白名单 = Settings 顶层键 − 安全键。Settings 新增顶层键时本表必须同笔扩列。 */
 export const PROJECT_ALLOWED_SETTINGS_KEYS = [
   'announcements',
-  'apiUrl',
   'clipboard',
   'codegraphIncremental',
   'compactionV2',
   'defaultModel',
-  'enableMcp',
   'fsWatcher',
   'localQwen',
   'locale',
   'maxIterations',
-  'mcp',
   'mermaid',
   'nativeFunctionCalling',
   'offline',
@@ -70,11 +81,9 @@ export const PROJECT_ALLOWED_SETTINGS_KEYS = [
   'pluginMarketplace',
   'plugins',
   'provider',
-  'providerBaseUrl',
   'sampler',
   'subagentPrecedence',
   'telemetry',
-  'toolHub',
   'voice',
   'worktreeFastPath',
 ] as const satisfies readonly (keyof Settings)[];
@@ -85,8 +94,8 @@ export type ProjectKeyValidator = (value: unknown) => string | null;
 const isBoolean: ProjectKeyValidator = (v) => (typeof v === 'boolean' ? null : '期望 boolean');
 const isNonEmptyString: ProjectKeyValidator = (v) =>
   typeof v === 'string' && v.length > 0 ? null : '期望非空字符串';
-const isHttpUrl: ProjectKeyValidator = (v) =>
-  typeof v === 'string' && /^https?:\/\//i.test(v) ? null : '期望 http(s):// 开头的字符串';
+// isHttpUrl 的唯一消费方(providerBaseUrl)已于第 20 批移入安全敏感表,校验器
+// 随之退役;将来新增 URL 型允许键时在此重建。
 const isPositiveInteger: ProjectKeyValidator = (v) =>
   typeof v === 'number' && Number.isInteger(v) && v > 0 ? null : '期望正整数';
 const isPlainObject: ProjectKeyValidator = (v) =>
@@ -107,17 +116,14 @@ const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as const;
  */
 export const PROJECT_KEY_VALIDATORS: Readonly<Record<string, ProjectKeyValidator>> = {
   announcements: isPlainObject,
-  apiUrl: isHttpUrl,
   clipboard: isPlainObject,
   codegraphIncremental: isPlainObject,
   compactionV2: isPlainObject,
   defaultModel: isNonEmptyString,
-  enableMcp: isBoolean,
   fsWatcher: isPlainObject,
   localQwen: isPlainObject,
   locale: enumOf(LOCALES),
   maxIterations: isPositiveInteger,
-  mcp: isPlainObject,
   mermaid: isPlainObject,
   nativeFunctionCalling: isNativeFunctionCalling,
   offline: isBoolean,
@@ -125,11 +131,9 @@ export const PROJECT_KEY_VALIDATORS: Readonly<Record<string, ProjectKeyValidator
   pluginMarketplace: isPlainObject,
   plugins: isPlainObject,
   provider: enumOf(['ollama', 'openai-compatible']),
-  providerBaseUrl: isHttpUrl,
   sampler: isPlainObject,
   subagentPrecedence: isPlainObject,
   telemetry: isPlainObject,
-  toolHub: isPlainObject,
   voice: isPlainObject,
   worktreeFastPath: isPlainObject,
 };

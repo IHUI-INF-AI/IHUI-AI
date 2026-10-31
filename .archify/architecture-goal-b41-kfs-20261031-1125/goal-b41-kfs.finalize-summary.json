@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+    "sha256": "10aaf5531e07682021307f5f1260dbd4c3cbc991aa070137654324c4bd084540",
+    "bytes": 5926
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+    "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+    "bytes": 860632
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/evidence-path-conflict",
+      "severity": "error",
+      "message": "browser-check will not replace the existing unowned evidence path \"G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json\".",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+        "evidencePath": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json"
+      },
+      "evidence": {
+        "reason": {
+          "code": "ownership-artifact-mismatch"
+        }
+      },
+      "supportedFixes": [
+        "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 848,
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  }
+}

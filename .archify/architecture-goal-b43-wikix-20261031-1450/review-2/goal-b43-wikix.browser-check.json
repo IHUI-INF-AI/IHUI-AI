@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "browser-check",
+  "evidenceKind": "automated-browser",
+  "status": "fail",
+  "visualReview": "not-requested",
+  "provenance": "current",
+  "deliveryReceiptId": "2cbccecb-8ea4-4962-b498-a72efb1433fe",
+  "artifact": {
+    "path": "G:\\IHUI-AI\\goal-b43-wikix.html",
+    "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+    "bytes": 853682
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/temp-cleanup-incomplete",
+      "severity": "error",
+      "message": "Browser cleanup could not safely finish; inspect the reported retained path.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\goal-b43-wikix.html"
+      },
+      "evidence": {
+        "reason": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-IBvasX\".",
+        "retainedDirectory": "D:\\DevEnv\\Temp\\archify-visual-check-profile-IBvasX"
+      },
+      "supportedFixes": [
+        "resolve the reported process or filesystem failure; verify directory ownership before manual cleanup"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "policy": "fit-or-reader-declared-readable-vertical-scroll",
+    "viewports": []
+  },
+  "themeStates": {
+    "status": "fail",
+    "viewports": []
+  },
+  "readability": {
+    "status": "fail",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "fail",
+    "viewports": []
+  },
+  "captures": {
+    "status": "not-requested",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "directory": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-2",
+    "receipt": "goal-b43-wikix.browser-check.json",
+    "files": []
+  },
+  "error": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-IBvasX\"."
+}

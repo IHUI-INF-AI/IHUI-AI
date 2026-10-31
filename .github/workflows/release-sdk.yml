@@ -414,14 +414,14 @@ jobs:
           # 回读验证:registry 拿不到就等于没发布,绝不用"命令没报错"当结论。
           # registry 传播有延迟,故轮询而非单次 sleep —— 超时仍是判红,不降级为警告。
           PUBLISHED=""
-          for i in $(seq 1 12); do
+          for i in $(seq 1 36); do
             PUBLISHED="$(npm view @ihui-ai/sdk version --registry=https://registry.npmjs.org/ 2>/dev/null || echo '')"
             [ "$PUBLISHED" = "$VERSION" ] && break
             echo "  …第 $i 次回读=$PUBLISHED,10s 后重试"
             sleep 10
           done
           echo "registry 回读 version=$PUBLISHED (期望 $VERSION)"
-          [ "$PUBLISHED" = "$VERSION" ] || { echo "❌ 发布后回读失败:npm registry 查不到 @ihui-ai/sdk@$VERSION"; exit 1; }
+          [ "$PUBLISHED" = "$VERSION" ] || { echo "❌ 发布后回读失败:npm registry 360s 内仍查不到 @ihui-ai/sdk@$VERSION —— 判红保持不变(不用「命令没报错」当结论),但本步失败不等于未发布:先人工 npm view 回读,确认已落地就别重跑发布"; exit 1; }
           # proof 非空 = 已用 registry 回读证实;release-summary 据此判定,缺 proof 即判红
           echo "proof=@ihui-ai/sdk@$VERSION (registry 回读确认)" >> "$GITHUB_OUTPUT"
           echo "✅ @ihui-ai/sdk@$VERSION 已在 npm registry 可见"
@@ -539,7 +539,7 @@ jobs:
           python -m twine upload --non-interactive dist/*
           # 回读验证:PyPI JSON API 为准(与"命令没报错"无关);传播有延迟 → 轮询后仍查不到判红
           ok=0
-          for i in $(seq 1 12); do
+          for i in $(seq 1 36); do
             if curl -fsS "https://pypi.org/pypi/ihui-ai/$VERSION/json" -o /tmp/ihui-pypi.json; then
               ok=1
               break

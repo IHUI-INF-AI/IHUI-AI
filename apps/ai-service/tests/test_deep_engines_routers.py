@@ -51,6 +51,20 @@ def _make_app(router: Any) -> FastAPI:
     return app
 
 
+@pytest.fixture(autouse=True)
+def _admin_role(monkeypatch: pytest.MonkeyPatch) -> None:
+    """角色判定放行(2026-10-31 第 10 批起 sandbox 执行面收窄为管理员)。
+
+    本文件测的是引擎路由行为,角色不是被测面;那道闸的正向用例在
+    test_sandbox_policy_not_self_authored.py::test_non_admin_rejected_before_any_policy_work。
+    不补这一格,下面"非法策略 400 / 路径越权 403"会全部被角色闸的 403 顶掉 ——
+    前者读成红,后者读成**假绿**(期望 403、实得另一种 403)。
+    """
+    from app.routers import sandbox_exec as _sandbox_exec
+
+    monkeypatch.setattr(_sandbox_exec, "resolve_request_role_id", lambda request: 1)
+
+
 @pytest.fixture()
 def patch_client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

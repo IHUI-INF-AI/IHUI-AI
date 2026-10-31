@@ -255,15 +255,19 @@ def test_install_after_disable_reenables(api_client, bridge_mock, clean_registry
     assert len(bridge_mock["add"]) == 2
 
 
-def test_install_workspace_path_used(api_client, bridge_mock, clean_registry):
+def test_install_workspace_path_used(api_client, bridge_mock, clean_registry, tmp_path, monkeypatch):
     """filesystem 支持 workspace_path 替换 args 尾部参数。"""
+    # 2026-10-31 安全强化第 14 批:workspace_path 只许落在 MCP_WORKSPACE_ROOTS 登记根内
+    # (否则 filesystem server 的根可指向 C:\ 再经 read_text_file/edit_file 读写任意文件)。
+    # 盘符同样是机器事实(AGENTS §0)——用临时目录并登记它,不写死旧机的 G:/ihui。
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
     r = api_client.post(
         "/api/mcp/store/install",
-        json={"key": "filesystem", "workspace_path": "G:/ihui"},
+        json={"key": "filesystem", "workspace_path": str(tmp_path)},
     )
     assert r.status_code == 200
-    assert bridge_mock["add"][0]["args"][-1] == "G:/ihui"
-    assert mcp_store.get_installed("filesystem")["args"][-1] == "G:/ihui"
+    assert bridge_mock["add"][0]["args"][-1] == str(tmp_path)
+    assert mcp_store.get_installed("filesystem")["args"][-1] == str(tmp_path)
 
 
 # =============================================================================

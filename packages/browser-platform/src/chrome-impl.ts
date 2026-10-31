@@ -29,6 +29,10 @@ import type {
   StorageArea,
   MessageSender,
 } from './index.js'
+// 2026-10-31 安全强化第 21 批:导航协议白名单(与 CLI 的 browser_navigate 同源,
+// 判据只在 @ihui/shared 一份 —— CLI 走 CDP、扩展走 chrome.tabs,两条实现路径
+// 不许各写一套)。
+import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url'
 
 // ===== Storage Adapter =====
 
@@ -107,7 +111,9 @@ function waitForTabComplete(
 
 const chromeTabs: TabsAdapter = {
   async openTab(url: string): Promise<void> {
-    await chrome.tabs.create({ url })
+    const navigable = checkNavigableUrl(url)
+    if (!navigable.ok) throw new Error(navigable.reason)
+    await chrome.tabs.create({ url: navigable.url })
   },
 
   async queryActiveTab(): Promise<TabInfo | null> {
@@ -118,8 +124,10 @@ const chromeTabs: TabsAdapter = {
   },
 
   async navigateTab(tabId: number, url: string, timeoutMs = 30000): Promise<TabInfo> {
-    await chrome.tabs.update(tabId, { url })
-    return waitForTabComplete(tabId, url, timeoutMs)
+    const navigable = checkNavigableUrl(url)
+    if (!navigable.ok) throw new Error(navigable.reason)
+    await chrome.tabs.update(tabId, { url: navigable.url })
+    return waitForTabComplete(tabId, navigable.url, timeoutMs)
   },
 
   async activateTab(tabId: number): Promise<void> {
