@@ -226,7 +226,7 @@ export function AtomicRollbackPanel() {
 
       {plan && (
         <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
-          <div className="text-sm font-medium">{t('planTitle')}</div>
+          <div className="text-body font-medium">{t('planTitle')}</div>
           <div className="flex flex-wrap gap-2 text-xs">
             <Badge className="border-transparent bg-primary/10 text-primary hover:bg-primary/10">
               {t('restoreCount', { count: plan.restore.length })}
@@ -279,7 +279,7 @@ export function AtomicRollbackPanel() {
 
       {result && (
         <div className="space-y-1.5 rounded-lg border border-border bg-card p-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
+          <div className="flex items-center gap-2 text-body font-medium">
             <Badge
               className={
                 result.ok

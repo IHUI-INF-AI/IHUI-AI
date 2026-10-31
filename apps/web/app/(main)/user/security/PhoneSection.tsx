@@ -43,7 +43,7 @@ export function PhoneSection({
     <section className="space-y-4 mt-6 pt-6">
       <div className="flex items-center gap-2">
         <Smartphone className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">{t('phone')}</h2>
+        <h2 className="text-body font-semibold">{t('phone')}</h2>
       </div>
       {phone ? (
         <p className="text-sm text-muted-foreground">

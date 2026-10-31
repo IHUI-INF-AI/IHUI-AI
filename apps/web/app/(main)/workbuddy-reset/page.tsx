@@ -287,7 +287,7 @@ export default function WorkbuddyResetPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-6">
       <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
+        <h1 className="text-heading font-semibold">{t('title')}</h1>
         <p className="text-muted-foreground mt-1 text-sm">{t('subtitle')}</p>
       </div>
 

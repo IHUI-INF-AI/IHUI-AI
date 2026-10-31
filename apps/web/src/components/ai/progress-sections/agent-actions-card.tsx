@@ -140,7 +140,7 @@ export function AgentActionsCard({
       {groups.map(([action, group]) => (
         <div key={action} className="flex flex-col gap-1" data-action-group={action}>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-foreground">
+            <span className="text-label font-medium text-foreground">
               {actionLabel[action]} {t('header.count', { count: group.length })}
             </span>
           </div>

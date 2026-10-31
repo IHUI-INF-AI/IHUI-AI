@@ -33,13 +33,13 @@ export function InstanceHeader({ inst, fmt, onBack }: Props) {
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
         <span
           className={cn(
-            'inline-flex rounded px-2 py-0.5 text-xs font-medium',
+            'inline-flex rounded px-2 py-0.5 text-label font-medium',
             STATUS_BADGE[inst.status],
           )}
         >
           {t(INSTANCE_STATUS_KEYS[inst.status] ?? 'instanceStatus.unknown')}
         </span>
-        {inst.workflowName && <span className="text-sm font-medium">{inst.workflowName}</span>}
+        {inst.workflowName && <span className="text-body font-medium">{inst.workflowName}</span>}
         <div className="text-xs text-muted-foreground">
           <span>
             {t('instanceDetail.startedAt')}: {fmt(inst.startedAt)}

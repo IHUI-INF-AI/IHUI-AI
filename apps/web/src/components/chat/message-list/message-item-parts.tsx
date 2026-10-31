@@ -138,7 +138,7 @@ export function TypingIndicator({
   return (
     <div className="flex items-center gap-2 py-1" data-testid="typing-indicator" aria-hidden="true">
       {/* 2026-08-29:文字光线扫描动效(.text-shimmer),流式等待态视觉反馈 */}
-      <span className="text-shimmer text-xs font-medium">
+      <span className="text-shimmer text-label font-medium">
         {preview ? t('thinking', { preview }) : (waitingText ?? t('waitingResponse'))}
       </span>
     </div>

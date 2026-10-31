@@ -88,7 +88,7 @@ export function CreditsHeatmapCard({
       data-heatmap-mode={mode}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('title')}</span>
+        <span className="text-label font-medium text-muted-foreground">{t('title')}</span>
         <div className="ml-auto flex gap-1" role="tablist" aria-label={t('title')}>
           {HEATMAP_VIEW_MODES.map((m) => (
             <button

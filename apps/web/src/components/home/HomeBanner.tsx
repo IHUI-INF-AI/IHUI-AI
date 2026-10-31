@@ -70,7 +70,7 @@ export function HomeBanner() {
               idx === current ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <h2 className="max-w-md text-2xl font-bold text-white drop-shadow min-[768px]:text-3xl">
+            <h2 className="max-w-md text-display font-bold text-white drop-shadow min-[768px]:text-3xl">
               {t(slide.titleKey)}
             </h2>
             <p className="mt-2 max-w-sm text-sm text-white/80 min-[768px]:text-base">

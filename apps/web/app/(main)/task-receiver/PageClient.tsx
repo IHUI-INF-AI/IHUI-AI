@@ -110,7 +110,7 @@ export default function TaskReceiverPageClient() {
     <div className="mx-auto w-full max-w-4xl px-4 py-4">
       <BackButton />
       <header className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">
+        <h2 className="text-heading font-semibold">
           {tNav('agents')} · {t('title')}
         </h2>
         <div className="flex items-center gap-2">

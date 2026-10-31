@@ -1267,10 +1267,10 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
       },
       // 标题样式
       h1({ children }) {
-        return <h1 className="my-0 text-2xl font-semibold">{children}</h1>
+        return <h1 className="my-0 text-display font-semibold">{children}</h1>
       },
       h2({ children }) {
-        return <h2 className="my-0 text-xl font-semibold">{children}</h2>
+        return <h2 className="my-0 text-heading font-semibold">{children}</h2>
       },
       h3({ children }) {
         return <h3 className="my-0 text-lg font-semibold">{children}</h3>
@@ -1279,10 +1279,10 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         return <h4 className="my-0 text-base font-semibold">{children}</h4>
       },
       h5({ children }) {
-        return <h5 className="my-0 text-sm font-semibold">{children}</h5>
+        return <h5 className="my-0 text-body font-semibold">{children}</h5>
       },
       h6({ children }) {
-        return <h6 className="my-0 text-sm font-medium">{children}</h6>
+        return <h6 className="my-0 text-body font-medium">{children}</h6>
       },
       p({ children }) {
         // 过滤掉由 markdown 多余空行产生的空段落(<br>)和纯空白段落

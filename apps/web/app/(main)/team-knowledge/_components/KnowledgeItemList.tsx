@@ -101,7 +101,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
     <Card>
       <CardContent className="min-[640px]:p-3 flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">{t('itemsTitle')}</h2>
+          <h2 className="text-body font-medium">{t('itemsTitle')}</h2>
           <Button size="sm" onClick={() => setEditTarget({ item: null })} disabled={!canEdit}>
             <Plus className="size-4" />
             <span>{t('newItemBtn')}</span>
@@ -165,7 +165,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
                   <span className={`rounded px-1.5 py-0.5 text-xs ${STATUS_BADGE[row.status]}`}>
                     {t(`status.${row.status}`)}
                   </span>
-                  <span className="flex-1 truncate text-sm font-medium">{row.title}</span>
+                  <span className="flex-1 truncate text-body font-medium">{row.title}</span>
                   <span className="text-muted-foreground text-xs">r{row.revision}</span>
                   <Button
                     variant="ghost"

@@ -221,7 +221,7 @@ function HookFailureRow({
       <div className="flex items-center gap-1.5">
         <Icon className={cn('h-3.5 w-3.5 shrink-0', TONE_TEXT[view.tone])} aria-hidden="true" />
         <span
-          className={cn('text-xs font-medium', TONE_TEXT[view.tone])}
+          className={cn('text-label font-medium', TONE_TEXT[view.tone])}
           data-testid="hook-failure-state"
           data-hook-state-label={view.state}
         >

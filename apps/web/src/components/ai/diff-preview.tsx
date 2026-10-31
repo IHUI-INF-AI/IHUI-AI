@@ -49,7 +49,7 @@ export function DiffPreview({
     <div className={cn('overflow-hidden rounded-md border border-border bg-background', className)}>
       {(filename || language) && (
         <div className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-1.5">
-          {filename && <span className="text-xs font-medium text-muted-foreground">{filename}</span>}
+          {filename && <span className="text-label font-medium text-muted-foreground">{filename}</span>}
           {language && (
             <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {language}
