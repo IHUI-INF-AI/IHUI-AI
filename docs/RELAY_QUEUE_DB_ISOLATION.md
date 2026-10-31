@@ -163,15 +163,22 @@ redis-cli -n 0 --scan --pattern 'bull:relay-account-pool-queue*' # 这条队列�
 **用法:**
 
 ```bash
-node scripts/check-relay-queue-db-isolation.mjs --staged     # 默认档:本次暂存文件(读索引 blob)
-node scripts/check-relay-queue-db-isolation.mjs --all        # 全量档:工作树里的启动器目录
-node scripts/check-relay-queue-db-isolation.mjs --files a.mjs b.ts
-node scripts/check-relay-queue-db-isolation.mjs --self-test  # 17 例,不碰真仓
-node --test scripts/tests/check-relay-queue-db-isolation.test.mjs   # 镜像 13 例
+node scripts/check-relay-queue-db-isolation.mjs                     # 默认 = 全量档(清单与正文同取 HEAD blob)
+node scripts/check-relay-queue-db-isolation.mjs --staged            # 提交档:本次暂存文件(读索引 blob)
+node scripts/check-relay-queue-db-isolation.mjs --all               # 全量档(与默认同一面)
+node scripts/check-relay-queue-db-isolation.mjs --worktree          # 人工逃生舱:读磁盘(不得作提交门禁)
+node scripts/check-relay-queue-db-isolation.mjs --files a.mjs b.ts  # 人工点名(读磁盘)
+node scripts/check-relay-queue-db-isolation.mjs --self-test         # 28 例,不碰真仓
+node scripts/check-relay-queue-db-isolation.mjs --root <目录> --all  # 取证通道:换仓根(值必须是仓库根)
+node --test scripts/tests/check-relay-queue-db-isolation.test.mjs   # 镜像 21 例
 ```
 
-退出码:`0` 无违规(含豁免 / `NOT_APPLICABLE`);`1` 有违规;`2` 取不到被审面
-(`--staged` 且 git 不可用 / 索引里没有本次暂存文件)。
+退出码:`0` 无违规(含豁免 / `NOT_APPLICABLE`);`1` 有违规;`2` 未判定(取不到被审面 / 旗标用法错:
+面旗两枚同给、未知旗、`--files` 不给路径、`--root` 不给值或指向非仓库根 / 本轮候选一个正文都没读到)。
+
+**取材面纪律(AGENTS §0.4)**:全量档判 **HEAD blob**(清单取自 `git ls-tree -r HEAD`,不读磁盘)、
+`--staged` 判**索引 blob**、`--worktree` 只作人工逃生舱(读盘,可能含并行会话的半编辑态);
+清单与内容**同面同轮**,两面旗同给或未知旗一律 exit 2 —— 静默吞旗会让人以为判的是工作树、实际判的是索引。
 
 **边界(别把它当运行时隔离证明):** 本门判不出运行时行为——它看不见 `spawn` 之后那个进程
 连的是哪台 Redis,也看不见队列名最终解析成什么。它只判**启动器形状**:一眼能看出「这段 env
