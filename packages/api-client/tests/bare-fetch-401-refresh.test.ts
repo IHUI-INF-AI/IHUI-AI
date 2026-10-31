@@ -633,7 +633,10 @@ describe('fetchWithAuthRefresh 出口自身', () => {
     installProvider(OLD, async () => NEW)
     stubFetch(() => fakeResponse({ status: 200, body: '{}' }))
 
-    await fetchWithAuthRefresh('http://ai.test/x', { headers: [['Accept', 'application/json']] })
+    // 2026-10-31 第 20 批:本用例的意图是"headers 二元组形态不丢凭据",与目标域名无关。
+    // 原先用 http://ai.test/x 这个任意外链 —— 凭据现在只发往已知域集合,外链不再挂
+    // (见 client.ts 的 shouldAttachCredential);改用同源相对路径,意图不变且与契约一致。
+    await fetchWithAuthRefresh('/x', { headers: [['Accept', 'application/json']] })
 
     expect(authOf(0)).toBe(`Bearer ${OLD}`)
     expect(headersOf(0)['Accept']).toBe('application/json')
