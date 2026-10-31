@@ -41,6 +41,14 @@ README(逆向+真机验证)补证并填入默认值:`WORKBUDDY_TASKS_CLAIM_PATH=
 `WORKBUDDY_TASKS_LIVE_RUN=false` 双门控,写侧须显式开启;若运维把配置清空则回到"拒绝执行"。
 `www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
 
+族五/六 redeem(连签兑换)/ lottery(抽奖)于 2026-10-31 接入:读侧已真机验证
+(`/activity/growth/lottery/summary` GET 200、`redemption_status.tiers` 嵌在 streak 响应),
+写侧端点(`/activity/growth/redeem`、`/activity/growth/lottery/draw`)路由存在但
+**body 字段名未取证**(2026-10-28 真机对 `{}` / `{"code"}` / `{"task_code"}` / `{"codes"}`
+四形态一律 400)⇒ `WORKBUDDY_TASKS_REDEEM_FIELD` / `WORKBUDDY_TASKS_LOTTERY_DRAW_FIELD`
+留空即拒绝写(§0.3);兑换档位(`.._REDEEM_TIERS`)与抽奖次数(`.._LOTTERY_DRAW_COUNT`)
+须显式配置,绝不猜"哪个档可兑/抽几次"。
+
 blackcat 族无专属端点(取证结论):它是本地节律规则 —— 23:00–08:00(Asia/Shanghai,
 跨零点)窗口内对指定模型跑 N 次聊天补全以满足任务,窗口外跳过并报原因。补全面由
 调用方注入(`chat_completion` 回调),本服务默认未接线 ⇒ 窗口内无回调 = 未判定。
@@ -102,6 +110,10 @@ PATH_GROWTH_STREAK: Final = "/activity/growth/streak"
 PATH_TRAVEL_STATUS: Final = "/activity/growth/buddy/travel/status"
 PATH_TRAVEL_DEPART: Final = "/activity/growth/buddy/travel/depart"
 PATH_TRAVEL_CLAIM: Final = "/activity/growth/buddy/travel/claim"
+
+# 族五/六 redeem / lottery 读侧路径(2026-10-31 接;真机 GET 均 200):
+# lottery/summary 为抽奖概览只读端点;redeem 的兑换档位读自 streak 的 redemption_status。
+PATH_GROWTH_LOTTERY_SUMMARY: Final = "/activity/growth/lottery/summary"
 
 # 活动遥测事件码(二进制逐字;上报路径与主机绑定为推断 ⇒ 全走配置)
 WB_ACTIVITY_EVENT_CODES: Final = (
@@ -1133,6 +1145,251 @@ async def run_blackcat(
 
 
 # ---------------------------------------------------------------------------
+# 族五:redeem(连签兑换;读 redemption_status,写侧 body 字段未取证 ⇒ 默认拒绝写)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_redeem_tiers(
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any] | None:
+    """只读:GET streak 取 redemption_status(真机形态见 fetch_growth_streak)。
+
+    返回 {"tiers": [...], "status": {...}};读不到 redemption_status ⇒ None(不编造)。
+    tiers[] 真形态项形如 {tier, days, credit, energy, cards, chances}。
+    """
+    status, payload, _mode = await _wb_request(
+        PATH_GROWTH_STREAK, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
+    )
+    if _failure_reason(status, payload, _mode) is not None:
+        return None
+    code, data = _envelope(payload)
+    if code != _CODE_OK or not isinstance(data, dict):
+        return None
+    rs = data.get("redemption_status")
+    if not isinstance(rs, dict):
+        return None
+    tiers = rs.get("tiers")
+    return {"tiers": tiers if isinstance(tiers, list) else [], "status": rs}
+
+
+async def run_redeem(
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    dry_run: bool = False,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
+    """redeem 族:连签兑换。读 redemption_status 列档(只读);写侧端点路由存在但 body
+    字段名未取证(2026-10-28 真机 {} / {"code"} / {"task_code"} / {"codes"} 四形态全 400)⇒
+    WORKBUDDY_TASKS_REDEEM_FIELD 留空即拒绝执行(§0.3 不猜字段);兑换档位由
+    WORKBUDDY_TASKS_REDEEM_TIERS 显式指定(空 = 只读不写,绝不猜哪个档可兑)。"""
+    eff_client, owned = (client, False) if client is not None else client_for(device_map)
+    try:
+        info = await fetch_redeem_tiers(jwt, device_map, client=eff_client, timeout=timeout)
+        if info is None:
+            return _run_result(
+                "redeem", ok=False, reason="redemption_status 读不到(未判定)", unjudged=True
+            )
+        tiers = info["tiers"]
+        names = [
+            str(t.get("tier"))
+            for t in tiers
+            if isinstance(t, dict) and t.get("tier") is not None
+        ]
+        if dry_run:
+            return _run_result(
+                "redeem",
+                ok=True,
+                reason=(
+                    f"dry-run:redemption 档位 {len(tiers)} 个"
+                    f"({','.join(names) or '无'}),零写侧调用"
+                ),
+                unjudged=False,
+            )
+        targets = [
+            t.strip()
+            for t in (settings.workbuddy_tasks_redeem_tiers or "").split(",")
+            if t.strip()
+        ]
+        if not targets:
+            return _run_result(
+                "redeem",
+                ok=True,
+                reason=(
+                    f"redemption 档位 {len(tiers)} 个;未配 WORKBUDDY_TASKS_REDEEM_TIERS "
+                    "⇒ 只读不写(不猜哪个档可兑)"
+                ),
+                unjudged=False,
+            )
+        field = (settings.workbuddy_tasks_redeem_field or "").strip()
+        path = (settings.workbuddy_tasks_redeem_path or "").strip()
+        if not field:
+            return _run_result(
+                "redeem",
+                ok=False,
+                reason=(
+                    f"redeem {len(targets)} 档未执行:body 字段名未取证(2026-10-28 四形态全 400)"
+                    "⇒ WORKBUDDY_TASKS_REDEEM_FIELD 留空按 §0.3 拒绝猜字段"
+                ),
+                unjudged=True,
+            )
+        if not path:
+            return _run_result(
+                "redeem", ok=False, reason="redeem 路径未配置(§0.3 拒绝猜 URL)", unjudged=True
+            )
+        accepted: list[str] = []
+        reasons: list[str] = []
+        unjudged = False
+        for tier in targets:
+            status, payload, mode = await _wb_request(
+                path, jwt, device_map, {field: tier}, client=eff_client, timeout=timeout
+            )
+            fail = _failure_reason(status, payload, mode)
+            if fail is not None:
+                reasons.append(f"redeem {tier} {fail}")
+                unjudged = unjudged or status in (0, -1)
+                continue
+            code, _data = _envelope(payload)
+            if code is None:
+                reasons.append(f"redeem {tier} 信封不可解析")
+                unjudged = True
+            elif code == _CODE_OK:
+                accepted.append(tier)
+            else:
+                reasons.append(f"redeem {tier} code={code}")
+        return _run_result(
+            "redeem",
+            ok=bool(accepted),
+            accepted=accepted,
+            reason=";".join(reasons) if reasons else None,
+            unjudged=unjudged,
+        )
+    finally:
+        if owned:
+            await eff_client.aclose()
+
+
+# ---------------------------------------------------------------------------
+# 族六:lottery(抽奖;读 lottery/summary,写侧 body 字段未取证 ⇒ 默认拒绝写)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_lottery_summary(
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any] | None:
+    """只读:GET /activity/growth/lottery/summary(真机 200)。形态未全取证 ⇒ 原样返回
+    data dict,不做猜测性字段改写(§0.3);读不懂 ⇒ None。"""
+    status, payload, _mode = await _wb_request(
+        PATH_GROWTH_LOTTERY_SUMMARY,
+        jwt,
+        device_map,
+        {},
+        client=client,
+        timeout=timeout,
+        method="GET",
+    )
+    if _failure_reason(status, payload, _mode) is not None:
+        return None
+    code, data = _envelope(payload)
+    if code != _CODE_OK or not isinstance(data, dict):
+        return None
+    return data
+
+
+async def run_lottery(
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    dry_run: bool = False,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
+    """lottery 族:抽奖。读 lottery/summary(只读,真机 200);写侧 lottery/draw 路由存在但
+    body 字段名未取证(2026-10-28 四形态全 400)⇒ WORKBUDDY_TASKS_LOTTERY_DRAW_FIELD 留空
+    即拒绝写(§0.3);抽奖次数 = WORKBUDDY_TASKS_LOTTERY_DRAW_COUNT(默认 1,0 = 不抽)。"""
+    eff_client, owned = (client, False) if client is not None else client_for(device_map)
+    try:
+        summary = await fetch_lottery_summary(jwt, device_map, client=eff_client, timeout=timeout)
+        if dry_run:
+            return _run_result(
+                "lottery",
+                ok=True,
+                reason=(
+                    "dry-run:lottery summary "
+                    f"{'已读' if summary is not None else '读不到(未判定)'},零写侧调用"
+                ),
+                unjudged=summary is None,
+            )
+        count = max(0, int(settings.workbuddy_tasks_lottery_draw_count))
+        if count == 0:
+            return _run_result(
+                "lottery", ok=True, reason="lottery 次数配置为 0 ⇒ 不抽", unjudged=False
+            )
+        field = (settings.workbuddy_tasks_lottery_draw_field or "").strip()
+        path = (settings.workbuddy_tasks_lottery_draw_path or "").strip()
+        if not field:
+            return _run_result(
+                "lottery",
+                ok=False,
+                reason=(
+                    f"lottery draw {count} 次未执行:body 字段名未取证(2026-10-28 四形态全 400)"
+                    "⇒ WORKBUDDY_TASKS_LOTTERY_DRAW_FIELD 留空按 §0.3 拒绝猜字段"
+                ),
+                unjudged=True,
+            )
+        if not path:
+            return _run_result(
+                "lottery",
+                ok=False,
+                reason="lottery/draw 路径未配置(§0.3 拒绝猜 URL)",
+                unjudged=True,
+            )
+        drawn: list[str] = []
+        reasons: list[str] = []
+        unjudged = False
+        for i in range(count):
+            status, payload, mode = await _wb_request(
+                path, jwt, device_map, {field: 1}, client=eff_client, timeout=timeout
+            )
+            fail = _failure_reason(status, payload, mode)
+            if fail is not None:
+                reasons.append(f"draw#{i + 1} {fail}")
+                unjudged = unjudged or status in (0, -1)
+                break
+            code, _data = _envelope(payload)
+            if code is None:
+                reasons.append(f"draw#{i + 1} 信封不可解析")
+                unjudged = True
+                break
+            if code == _CODE_OK:
+                drawn.append(f"draw#{i + 1}")
+            else:
+                reasons.append(f"draw#{i + 1} code={code}")
+                break
+            if count > 1:
+                await asyncio.sleep(random.uniform(0.5, 2.0))
+        return _run_result(
+            "lottery",
+            ok=bool(drawn),
+            claimed=drawn,
+            reason=";".join(reasons) if reasons else None,
+            unjudged=unjudged,
+        )
+    finally:
+        if owned:
+            await eff_client.aclose()
+
+
+# ---------------------------------------------------------------------------
 # 统一派发(路由与调度器共用同一入口,判据零复算)
 # ---------------------------------------------------------------------------
 
@@ -1141,6 +1398,8 @@ _FAMILY_RUNNERS: Final[dict[str, Callable[..., Awaitable[dict[str, Any]]]]] = {
     "travel": run_travel,
     "activity": run_activity,
     "blackcat": run_blackcat,
+    "redeem": run_redeem,
+    "lottery": run_lottery,
 }
 
 VALID_FAMILY_KINDS: Final = tuple(_FAMILY_RUNNERS)
@@ -1170,10 +1429,12 @@ READ_ONLY_PATHS: Final = (
     PATH_GROWTH_TASKS,
     PATH_GROWTH_STREAK,
     PATH_TRAVEL_STATUS,
+    PATH_GROWTH_LOTTERY_SUMMARY,
     PATH_CHECKIN_STATUS,
     PATH_WEB_CHECKIN_STATUS,
     _webify(PATH_GROWTH_TASKS),
     _webify(PATH_GROWTH_STREAK),
     _webify(PATH_TRAVEL_STATUS),
+    _webify(PATH_GROWTH_LOTTERY_SUMMARY),
 )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
