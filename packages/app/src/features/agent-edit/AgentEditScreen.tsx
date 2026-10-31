@@ -107,7 +107,7 @@ export function AgentEditScreen({
           style={styles.input}
           value={form.avatar}
           onChangeText={(v) => onChange('avatar', v)}
-          placeholder={t('agentEdit.avatPlaceholder')}
+          placeholder={t('agentEdit.avatarPlaceholder')}
           placeholderTextColor={tk.text.tertiary}
           autoCapitalize="none"
         />
