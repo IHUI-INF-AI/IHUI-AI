@@ -18,6 +18,7 @@ import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import type { StageOption, StudyCategory, StudyPublishScreenProps } from '@ihui/types'
+import { pressFeedback } from '@ihui/ui-native'
 export type { StageOption, StudyCategory, StudyPublishScreenProps }
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
@@ -539,7 +540,7 @@ export function StudyPublishScreen({
             <Pressable
               key={m}
               onPress={() => onModeChange(m)}
-              style={[styles.tabItem, active ? styles.tabItemActive : null]}
+              style={pressFeedback([styles.tabItem, active ? styles.tabItemActive : null])}
               accessibilityRole="button"
               accessibilityLabel={label}
             >

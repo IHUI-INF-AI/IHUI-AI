@@ -99,6 +99,7 @@ import { rnAuthStore } from '../stores/auth-store'
 // 顶层类型导入(用于 navigation 类型推断)
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * mobile-rn 登录页(2026-07-30 重构:3-tab + 协议同意 + 第三方登录区 + 忘记密码 + 注册链接)
@@ -1274,7 +1275,7 @@ export function LoginScreen() {
       >
         <Pressable style={styles.agreementModalOverlay} onPress={closeAgreementModal}>
           {/* 内层 Pressable 拦截卡片区域点击,避免点卡片误关弹窗(对齐历史 @click.stop) */}
-          <Pressable style={styles.agreementModalCard} onPress={() => {}}>
+          <Pressable style={pressFeedback(styles.agreementModalCard)} onPress={() => {}}>
             <View style={styles.agreementModalHeader}>
               <Text style={styles.agreementModalTitle}>{t('login.agreeTermsTitle')}</Text>
             </View>
@@ -1331,7 +1332,7 @@ export function LoginScreen() {
           {/* 外层由遮罩 Pressable 换成避让层,点遮罩取消的手势下移到这枚满屏 Pressable
               (与 BottomPops / VerifyCodeModal 同形态);不补这层,"点空白取消 2FA"会静默失效。 */}
           <Pressable style={StyleSheet.absoluteFill} onPress={cancel2fa} />
-          <Pressable style={styles.agreementModalCard} onPress={() => {}}>
+          <Pressable style={pressFeedback(styles.agreementModalCard)} onPress={() => {}}>
             <View style={styles.agreementModalHeader}>
               <Text style={styles.agreementModalTitle}>{t('auth.twoFactorTitle')}</Text>
             </View>

@@ -353,10 +353,10 @@ export function HandPlatePops({
                     return (
                       <Pressable
                         key={m.id}
-                        style={[
+                        style={pressFeedback([
                           styles.purchasePaymentOption,
                           active ? styles.purchasePaymentOptionActive : null,
-                        ]}
+                        ])}
                         onPress={() => selectPayMethod(m.id)}
                         accessibilityRole="radio"
                         accessibilityState={{ checked: active }}
@@ -378,7 +378,10 @@ export function HandPlatePops({
                 {hasAgreement ? (
                   <View style={styles.purchaseAgreement}>
                     <Pressable
-                      style={[styles.checkbox, isAgreed ? styles.checkboxChecked : null]}
+                      style={pressFeedback([
+                        styles.checkbox,
+                        isAgreed ? styles.checkboxChecked : null,
+                      ])}
                       onPress={toggleAgree}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: isAgreed }}
@@ -397,10 +400,10 @@ export function HandPlatePops({
                 ) : null}
 
                 <Pressable
-                  style={[
+                  style={pressFeedback([
                     styles.purchasePayBtn,
                     payDisabled ? styles.purchasePayBtnDisabled : null,
-                  ]}
+                  ])}
                   onPress={handlePay}
                   disabled={payDisabled}
                   accessibilityRole="button"
