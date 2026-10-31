@@ -22,7 +22,13 @@
  *      (Trae CUE 的 all/line/word 三档做不了的组合挑选,真浏览器实证);
  *   ④ 接受率埋点真发(scene=edit_intent,分母分子同批)。
  */
+import { mkdirSync } from 'node:fs'
+import * as path from 'node:path'
+
 import { test, expect } from '@playwright/test'
+
+/** 截图留痕落点:仓根 .ihui-agent/tmp(§15b);playwright cwd = apps/web,向上两级到仓根。 */
+const SHOT_DIR = path.resolve(process.cwd(), '../../.ihui-agent/tmp/goal-b39-trae')
 
 const WS = 'G:/ihui-e2e-ws'
 const INITIAL = 'const word = 1'
@@ -39,6 +45,17 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
 
   test('建议条上屏 → hover 预览 → 逐条选择性应用 → 埋点真发', async ({ page }) => {
     const metricBodies: Array<Record<string, unknown>> = []
+    mkdirSync(SHOT_DIR, { recursive: true })
+
+    // 散点 API 兜底:**最先注册**(Playwright route 后注册者优先,兜底必须垫底),
+    // me/notice 等未枚举端点统一回空成功,防其把页面拖崩;具体 mock 在其后逐个覆盖。
+    await page.route('**/api/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: null }),
+      })
+    })
 
     // 假工作区:根目录只有一个 hello.ts;子目录懒加载返回空
     await page.route('**/api/workspace/fs/browse', async (route) => {
@@ -52,7 +69,15 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
           message: 'ok',
           data: {
             entries: atRoot
-              ? [{ name: 'hello.ts', path: `${WS}/hello.ts`, isDir: false, size: INITIAL.length, modified: 0 }]
+              ? [
+                  {
+                    name: 'hello.ts',
+                    path: `${WS}/hello.ts`,
+                    isDir: false,
+                    size: INITIAL.length,
+                    modified: 0,
+                  },
+                ]
               : [],
           },
         }),
@@ -82,7 +107,12 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
             disposition: 'suggested',
             actions: [
               { kind: 'replace', start: 6, end: 10, text: 'value', anchor: 'word' },
-              { kind: 'insert', start: INITIAL.length, end: INITIAL.length, text: '\n// e2e-append' },
+              {
+                kind: 'insert',
+                start: INITIAL.length,
+                end: INITIAL.length,
+                text: '\n// e2e-append',
+              },
             ],
             model: 'e2e-mock',
             latency_ms: 42,
@@ -99,7 +129,11 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ code: 0, message: 'ok', data: { model: 'e2e-mock', scene: 'edit_intent' } }),
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { model: 'e2e-mock', scene: 'edit_intent' },
+        }),
       })
     })
     // auth:refresh 腿回固定 LoginResult(bootstrap 用,token 入内存后登录墙放行)
@@ -120,15 +154,6 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
         }),
       })
     })
-    // 散点 API 兜底:me/notice 等端点统一回空成功,防未枚举端点把页面拖崩
-    await page.route('**/api/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ code: 0, message: 'ok', data: null }),
-      })
-    })
-
     await page.addInitScript(
       ([ws]) => {
         localStorage.setItem('ide:workspacePath', ws as string)
@@ -142,7 +167,7 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
       [WS],
     )
 
-    await page.goto('/developer/ide')
+    await page.goto('/developer/ide', { waitUntil: 'domcontentloaded' })
     // 文件树出现 → 打开 hello.ts → Monaco 载入初始内容
     await page.getByText('hello.ts').first().click()
     const viewLines = page.locator('.monaco-editor .view-lines')
@@ -152,9 +177,10 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
     // ① 初始内容即触发(600ms debounce + mock 即回):建议条真浏览器可见
     const bar = page.getByTestId('editor-edit-intent-bar')
     await expect(bar).toBeVisible({ timeout: 8000 })
-    await expect(bar).toContainText('predictiveEditChanges(2)')
+    // 真浏览器 = 真 i18n 词包(zh-CN),断言真实文案而非键名(键名形态归组件测试)
+    await expect(bar).toContainText('2 处建议改动')
     await page.screenshot({
-      path: '.ihui-agent/tmp/goal-b39-trae/editor-edit-intent-e2e.png',
+      path: path.join(SHOT_DIR, 'editor-edit-intent-e2e.png'),
       fullPage: false,
     })
 
@@ -165,13 +191,16 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
     await expect(page.locator('.monaco-editor .ihui-edit-intent-preview').first()).toBeVisible({
       timeout: 3000,
     })
+    // 鼠标移到第 0 条(切换预览对象),再移出条目区(编辑器主体)⇒ 预览清空
     await labels.nth(0).hover()
+    await expect(page.locator('.monaco-editor .ihui-edit-intent-preview').first()).toBeVisible()
+    await page.locator('.monaco-editor .view-lines').hover()
     await expect(page.locator('.monaco-editor .ihui-edit-intent-preview')).toHaveCount(0)
 
     // ③ 取消第 2 条勾选 → 应用所选 ⇒ 只应用第 1 条(逐条选择性应用的真浏览器实证)
     const boxes = bar.getByRole('checkbox')
     await boxes.nth(1).uncheck()
-    await bar.getByRole('button', { name: 'predictiveEditApplySelected' }).click()
+    await bar.getByRole('button', { name: '应用所选' }).click()
     await expect(viewLines).toContainText(APPLIED_ONE, { timeout: 5000 })
     await expect(viewLines).not.toContainText('e2e-append')
     await expect(bar).toBeHidden()
@@ -185,7 +214,7 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
 
     // 全局留痕:应用后的编辑器实况截图
     await page.screenshot({
-      path: '.ihui-agent/tmp/goal-b39-trae/editor-edit-intent-applied.png',
+      path: path.join(SHOT_DIR, 'editor-edit-intent-applied.png'),
       fullPage: false,
     })
     expect(fileContent).toBe(INITIAL) // 假 read 面未被真实改动(拦截层只读)
