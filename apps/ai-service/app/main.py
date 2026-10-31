@@ -897,6 +897,14 @@ async def lifespan(app: FastAPI) -> Any:
 
         await stop_video_worker()
 
+    async def _s_media_task_poller() -> None:
+        # 与启动侧 start_media_task_poller 配对(此前独缺这一步 ⇒ 每轮关停/热重载都泄漏
+        # 一个扫描 media_tasks 在途任务的 asyncio.Task)。幂等;异常由 _run_shutdown_steps
+        # 报名后继续,不吞后续资源释放。
+        from app.services.media_tasks import stop_media_task_poller
+
+        await stop_media_task_poller()
+
     async def _s_task_scheduler() -> None:
         from app.services.scheduler_service import task_scheduler
 
@@ -991,6 +999,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("checkin_scheduler", _s_checkin_scheduler),
         ("keepalive_center", _s_keepalive_center),
         ("video_worker", _s_video_worker),
+        ("media_task_poller", _s_media_task_poller),
         ("task_scheduler", _s_task_scheduler),
         ("screenshot_service", _s_screenshot),
         ("browser_hub", _s_browser_hub),
