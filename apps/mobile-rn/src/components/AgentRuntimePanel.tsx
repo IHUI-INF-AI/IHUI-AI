@@ -12,7 +12,7 @@ import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/s
 import { permissionTierWordKeys } from '@ihui/shared/chat'
 import { useI18n } from '../i18n'
 
-import { Tappable, Input, Loading } from '@ihui/ui-native'
+import { Input, Loading } from '@ihui/ui-native'
 import type { AgentRuntimePanelProps } from '@ihui/ui-native'
 
 export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
