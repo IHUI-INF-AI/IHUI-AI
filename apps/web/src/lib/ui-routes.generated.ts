@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 627aa16be5e0990d28d35fbe3cb3783813af1e06
-// inputsSha256: fa24b0651e9dafdcc6f9cac938b8856460f11ef9f797a83d7e94f729f359a154
+// sourceCommit: 6172d85b5a439406b8dae4ce48e833f1d9963a8e
+// inputsSha256: 0e2e3cbb93f62419b307c771a63694186ec330b4e9fb5668c64c6ea20f452189
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -924,7 +924,7 @@
 // input: apps/web/app/forbidden/page.tsx 7e66da391b84e4d0d9f04663f7080dd7ac926b44bd5823780a5e3bd88d9d990f
 // input: apps/web/app/h5/share/[code]/page.tsx 167c448e4b4a8fc29be5687451d9507f01ee71ce9633cc34fae01875dea45992
 // input: apps/web/app/login/page.tsx f2ee8254da02a265ebf622b16283fd9f31b604d5f19fa26620418a4a5bb5891e
-// input: apps/web/app/sso/[provider]/page.tsx ef2d295a33af0b0ab8d9c98ae1543f68880e57949a4617b1de744e77858fdf93
+// input: apps/web/app/sso/[provider]/page.tsx 34c4679ae16bbc2e459a0ec8791ff799af932d3c5b4ce5210b5fe58d83f7fdb1
 // input: apps/web/app/sso/auth/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/sso/dingtalk/page.tsx fcf9e7746b7f89f487cf7918a46ee7e5b6790029aed1d16430c0366d371a5e2e
 // input: apps/web/app/sso/login/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
@@ -934,7 +934,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-31T00:59:28.647Z
+// generatedAt: 2026-10-31T03:22:27.019Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
