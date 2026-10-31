@@ -57,6 +57,7 @@ vi.mock('@ihui/rn-app', async () => {
   // `No "useWrapFocus" export is defined on the mock`(实测本套件 9 例因此红)。补真实现,不做假货。
   const wrapFocus = await import('../../../packages/app/src/hooks/use-wrap-focus')
   const moreLink = await import('../../../packages/app/src/components/MoreLink')
+  const scaled = await import('../../../packages/app/src/hooks/scaled-text')
   const Fake = (props: Record<string, unknown>) => {
     sharedPropsCaptured.push(props)
     return createElement('div', { 'data-testid': 'shared-login-screen' })
@@ -67,6 +68,7 @@ vi.mock('@ihui/rn-app', async () => {
     tokens: tokens.tokens,
     useWrapFocus: wrapFocus.useWrapFocus,
     useFontMultiplier: moreLink.useFontMultiplier,
+    scaleText: scaled.scaleText,
   }
 })
 

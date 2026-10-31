@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { scaleText } from '@ihui/rn-app'
 
 /**
  * BottomPopup 支付弹窗(mobile-rn 端)
@@ -149,11 +150,11 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                           <Text style={styles.levelName} numberOfLines={1}>
                             {level.levelName}
                           </Text>
-                          <Text style={styles.levelMeta} allowFontScaling={false}>
+                          <Text style={[styles.levelMeta, scaleText(styles.levelMeta)]} allowFontScaling={false}>
                             {level.durationDays} 天 · Lv.{level.levelValue}
                           </Text>
                         </View>
-                        <Text style={styles.levelPrice} allowFontScaling={false}>
+                        <Text style={[styles.levelPrice, scaleText(styles.levelPrice)]} allowFontScaling={false}>
                           ¥{level.price}
                         </Text>
                       </View>
