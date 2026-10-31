@@ -15,6 +15,7 @@ import type {
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 export type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps }
 
@@ -146,7 +147,7 @@ export function ExamQuestionScreen({
           {[true, false].map((value) => {
             const active = typeof raw === 'boolean' && raw === value
             return (
-              <Pressable
+              <Tappable
                 key={String(value)}
                 style={[styles.judgmentOption, active && styles.optionSelected]}
                 onPress={() => onAnswer?.(q.id, value)}
@@ -154,7 +155,7 @@ export function ExamQuestionScreen({
                 <Text style={[styles.judgmentText, active && styles.optionTextSelected]}>
                   {value ? t('examQuestion.judgmentTrue') : t('examQuestion.judgmentFalse')}
                 </Text>
-              </Pressable>
+              </Tappable>
             )
           })}
         </View>
@@ -162,7 +163,7 @@ export function ExamQuestionScreen({
         q.options.map((opt, idx) => {
           const active = selected.includes(idx)
           return (
-            <Pressable
+            <Tappable
               key={idx}
               style={[styles.option, active && styles.optionSelected]}
               onPress={() => onToggleOption(q.id, idx, q.type === 'multi')}
@@ -170,7 +171,7 @@ export function ExamQuestionScreen({
               <Text style={[styles.optionText, active && styles.optionTextSelected]}>
                 {String.fromCharCode(65 + idx)}. {opt}
               </Text>
-            </Pressable>
+            </Tappable>
           )
         })
       )}
@@ -183,17 +184,17 @@ export function ExamQuestionScreen({
           <Text style={styles.navText}>{t('examQuestion.prev')}</Text>
         </Pressable>
         {isLast ? (
-          <Pressable
+          <Tappable
             style={[styles.submitBtn, submitting && styles.submitDisabled]}
             onPress={onSubmit}
             disabled={submitting}
           >
             <Text style={styles.submitText}>{t('examQuestion.submit')}</Text>
-          </Pressable>
+          </Tappable>
         ) : (
-          <Pressable style={styles.navBtn} onPress={onNext}>
+          <Tappable style={styles.navBtn} onPress={onNext}>
             <Text style={styles.navText}>{t('examQuestion.next')}</Text>
-          </Pressable>
+          </Tappable>
         )}
       </View>
     </ScrollView>

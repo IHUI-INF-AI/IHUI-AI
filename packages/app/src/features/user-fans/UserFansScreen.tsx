@@ -9,6 +9,7 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createUserFansStyles } from './user-fans-styles'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 粉丝列表跨端共享屏 —— RN 端(及后续任何承载端)的唯一渲染真相源。
@@ -135,7 +136,7 @@ export function UserFansScreen({
               </View>
             ))}
             {rows.length < total ? (
-              <Pressable
+              <Tappable
                 style={styles.moreBtn}
                 onPress={onLoadMore}
                 disabled={loadingMore}
@@ -147,7 +148,7 @@ export function UserFansScreen({
                     ? t('common.loading')
                     : t('userFans.loadMore', { loaded: rows.length, total })}
                 </Text>
-              </Pressable>
+              </Tappable>
             ) : null}
           </>
         )}

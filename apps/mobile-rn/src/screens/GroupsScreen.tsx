@@ -27,6 +27,7 @@ import { useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type Filter = 'all' | 'mine'
@@ -274,7 +275,7 @@ export default function GroupsScreen() {
         onRequestClose={() => setPanel(null)}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={() => setPanel(null)} />
+          <Tappable style={styles.mask} onPress={() => setPanel(null)} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>

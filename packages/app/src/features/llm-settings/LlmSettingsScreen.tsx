@@ -18,6 +18,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * LLM 供应商设置(BYOK)共享屏 —— 渲染真相源(web 基准 = settings/llm:MVP 范围)。
@@ -208,7 +209,7 @@ export function LlmSettingsScreen({
                   style={styles.input}
                   accessibilityLabel={t('byok.keyPlaceholder')}
                 />
-                <Pressable
+                <Tappable
                   onPress={() => setKeyVisible((v) => !v)}
                   style={styles.linkBtn}
                   accessibilityRole="button"
@@ -216,7 +217,7 @@ export function LlmSettingsScreen({
                   <Text style={styles.linkText}>
                     {keyVisible ? t('byok.hideKey') : t('byok.showKey')}
                   </Text>
-                </Pressable>
+                </Tappable>
               </View>
             ) : null}
 

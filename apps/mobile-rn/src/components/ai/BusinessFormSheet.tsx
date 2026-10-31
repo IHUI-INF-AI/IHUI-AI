@@ -44,6 +44,7 @@ import {
 type FormRequestFramePayload = Parameters<typeof projectFormRequestFrame>[0]
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
+import { Tappable } from '@ihui/ui-native'
 
 const REJECT_REASON_MAX = 200
 const NS = 'ai.pane.businessForms'
@@ -260,7 +261,7 @@ function FormPanel({
   return (
     <View style={s.chipWrap}>
       {/* 收起 ≠ 决策:被拒/收起后仍留重新打开的入口(与同族 ToolApprovalSheet 同语义) */}
-      <Pressable style={s.chip} onPress={onReopen}>
+      <Tappable style={s.chip} onPress={onReopen}>
         {kind === 'calendarEvent' ? (
           <CalendarDays size={16} color={tokens.text.primary} />
         ) : (
@@ -270,10 +271,10 @@ function FormPanel({
           {t(`${NS}.aria.${kind}`)}
         </Text>
         {statusText ? <Text style={s.chipStatus}>{statusText}</Text> : null}
-      </Pressable>
+      </Tappable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-        <Pressable style={s.backdrop} onPress={onClose}>
+        <Tappable style={s.backdrop} onPress={onClose}>
           <View style={s.sheet}>
             <View style={s.chrome}>
               <Text style={s.title}>{t(`${NS}.aria.${kind}`)}</Text>
@@ -337,21 +338,21 @@ function FormPanel({
             </ScrollView>
 
             <View style={s.chrome}>
-              <Pressable style={[s.action, s.reject]} onPress={onReject} disabled={busy || decided}>
+              <Tappable style={[s.action, s.reject]} onPress={onReject} disabled={busy || decided}>
                 <X size={16} color={tokens.text.primary} />
                 <Text style={s.actionText}>{t(`${NS}.action.reject`)}</Text>
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 style={[s.action, s.approve, (busy || decided) && s.actionDisabled]}
                 onPress={onApprove}
                 disabled={busy || decided}
               >
                 {!busy ? <Check size={16} color={tokens.brand.ctaForeground} /> : null}
                 <Text style={[s.actionText, s.approveText]}>{t(`${NS}.action.${intent}`)}</Text>
-              </Pressable>
+              </Tappable>
             </View>
           </View>
-        </Pressable>
+        </Tappable>
       </Modal>
     </View>
   )

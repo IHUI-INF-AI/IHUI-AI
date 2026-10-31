@@ -84,6 +84,7 @@ import {
 import { useI18n } from '../../i18n'
 import { useVoiceRecorder } from '../../hooks/use-voice-recorder'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /** RN locale → whisper 语言提示(兜底 zh,与 VoiceInput/useVoiceRecorder 默认同档) */
 const STT_LANGUAGE: Record<string, string> = {
@@ -357,7 +358,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
 
   return (
     <View>
-      <Pressable
+      <Tappable
         onPress={() => setOpen((v) => !v)}
         hitSlop={4}
         accessibilityRole="button"
@@ -366,7 +367,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
         style={styles.trigger}
       >
         <Mic size={16} color={tokens.text.secondary} />
-      </Pressable>
+      </Tappable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={closePanel}>
         <View style={styles.backdrop}>
@@ -420,7 +421,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
 
             <View style={styles.actionRow}>
               {phase === 'ready' && (
-                <Pressable
+                <Tappable
                   style={styles.primaryBtn}
                   onPress={startRecording}
                   accessibilityRole="button"
@@ -428,10 +429,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 >
                   <Mic size={14} color={tokens.brand.ctaForeground} />
                   <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.start')}</Text>
-                </Pressable>
+                </Tappable>
               )}
               {busy && (
-                <Pressable
+                <Tappable
                   style={styles.stopBtn}
                   onPress={stopRecording}
                   accessibilityRole="button"
@@ -444,11 +445,11 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                     <Square size={12} color={tokens.brand.ctaForeground} />
                   )}
                   <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.stop')}</Text>
-                </Pressable>
+                </Tappable>
               )}
               {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
               {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
-                <Pressable
+                <Tappable
                   style={styles.outlineBtn}
                   onPress={saveAudioOnly}
                   accessibilityRole="button"
@@ -457,11 +458,11 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                   <Text style={styles.outlineBtnText}>
                     {t('chat.voiceNote.action.saveAudioOnly')}
                   </Text>
-                </Pressable>
+                </Tappable>
               )}
               {/* 录音中显式取消 ⇒ cancelled 相(共享表 recording --cancel--> cancelled) */}
               {phase === 'recording' && (
-                <Pressable
+                <Tappable
                   style={styles.outlineBtn}
                   onPress={() => abortRecording('cancel')}
                   accessibilityRole="button"
@@ -469,11 +470,11 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                   testID="voice-note-cancel"
                 >
                   <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.cancel')}</Text>
-                </Pressable>
+                </Tappable>
               )}
               {/* 转写完成即插入当前对话(不经服务端归档行,落库失败回滚时这条路径仍通) */}
               {phase === 'completed' && transcript.trim().length > 0 && (
-                <Pressable
+                <Tappable
                   style={styles.outlineBtn}
                   onPress={insertTranscriptToInput}
                   accessibilityRole="button"
@@ -484,17 +485,17 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                   <Text style={styles.outlineBtnText}>
                     {t('chat.voiceNote.action.insertToInput')}
                   </Text>
-                </Pressable>
+                </Tappable>
               )}
               {isVoiceNotePhaseTerminal(phase) && (
-                <Pressable
+                <Tappable
                   style={styles.outlineBtn}
                   onPress={resetToReady}
                   accessibilityRole="button"
                   testID="voice-note-retry"
                 >
                   <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.retry')}</Text>
-                </Pressable>
+                </Tappable>
               )}
             </View>
 

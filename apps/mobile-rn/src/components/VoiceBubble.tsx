@@ -14,13 +14,14 @@
  * AGENTS §4:半径取 design-tokens 单一源头,禁本地 px 圆角常量。
  */
 import { useCallback } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { Pause, Play } from 'lucide-react-native'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import { rnRadiusFor, rnType } from '@ihui/design-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
+import { Tappable } from '@ihui/ui-native'
 
 /** 波形指示条数(静态装饰条,点亮数 = 播放进度) */
 const VOICE_BUBBLE_BAR_COUNT = 16
@@ -65,7 +66,7 @@ export function VoiceBubble({
 
   return (
     <View style={styles.row}>
-      <Pressable
+      <Tappable
         style={[styles.playBtn, { backgroundColor: btnBg }]}
         onPress={onToggle}
         hitSlop={6}
@@ -77,7 +78,7 @@ export function VoiceBubble({
         ) : (
           <Play size={13} color={btnFg} fill={btnFg} />
         )}
-      </Pressable>
+      </Tappable>
       <View style={styles.bars}>
         {Array.from({ length: VOICE_BUBBLE_BAR_COUNT }, (_, i) => (
           <View

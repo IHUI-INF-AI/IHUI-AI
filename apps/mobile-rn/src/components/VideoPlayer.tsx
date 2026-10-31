@@ -219,7 +219,12 @@ export function VideoPlayer({
   return (
     <View
       className="w-full"
-      style={{ backgroundColor: tokens.gray[900], aspectRatio: VP_STAGE_ASPECT, borderRadius: rnRadius.lg, overflow: 'hidden' }}
+      style={{
+        backgroundColor: tokens.gray[900],
+        aspectRatio: VP_STAGE_ASPECT,
+        borderRadius: rnRadius.lg,
+        overflow: 'hidden',
+      }}
       onLayout={onContainerLayout}
       testID="video-player"
     >
@@ -268,7 +273,7 @@ export function VideoPlayer({
           onPress={toggleFullscreen}
           accessibilityLabel={t('player.fullscreen')}
           hitSlop={VP_CONTROL_BUTTON_HIT_SLOP_PX}
-          className="rounded-lg bg-white/10 px-2 py-1"
+          className="rounded-lg bg-white/10 px-2 py-1 active:opacity-60"
           testID="video-fullscreen"
         >
           <Text className="text-white" style={{ fontSize: VP_LABEL_FONT_PX }}>
@@ -287,7 +292,7 @@ export function VideoPlayer({
             onPress={togglePlay}
             accessibilityLabel={paused ? t('player.play') : t('player.pause')}
             hitSlop={VP_CONTROL_BUTTON_HIT_SLOP_PX}
-            className="rounded-lg bg-white/15 px-3 py-1"
+            className="rounded-lg bg-white/15 px-3 py-1 active:opacity-60"
             testID="video-play-pause"
           >
             <Text className="text-white" style={{ fontSize: VP_LABEL_FONT_PX }}>
@@ -298,7 +303,7 @@ export function VideoPlayer({
             onPress={cycleRate}
             accessibilityLabel={t('player.rate')}
             hitSlop={VP_CONTROL_BUTTON_HIT_SLOP_PX}
-            className="rounded-lg bg-white/15 px-2 py-1"
+            className="rounded-lg bg-white/15 px-2 py-1 active:opacity-60"
             testID="video-rate"
           >
             <Text className="text-white" style={{ fontSize: VP_LABEL_FONT_PX }}>
@@ -313,7 +318,7 @@ export function VideoPlayer({
           onPress={onProgressBarTap}
           accessibilityLabel={t('player.seek')}
           hitSlop={VP_PROGRESS_BAR_HIT_SLOP_PX}
-          className="justify-center"
+          className="justify-center active:opacity-60"
           style={{ marginTop: VP_CONTROL_GAP_PX, height: VP_PROGRESS_ROW_HEIGHT_PX }}
           testID="video-progress"
         >

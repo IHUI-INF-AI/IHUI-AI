@@ -28,6 +28,7 @@ import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
+import { Tappable } from '@ihui/ui-native'
 
 /** 画布内相邻采样点的最小位移(px):小于此位移不记点,抑制手抖产生密集垃圾点 */
 const MIN_POINT_GAP = 2
@@ -470,7 +471,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
       <View style={styles.root}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>标注图片</Text>
-          <Pressable
+          <Tappable
             hitSlop={8}
             onPress={onCancel}
             style={styles.headerClose}
@@ -478,7 +479,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             accessibilityLabel={t('annot.closeA11y')}
           >
             <X size={20} color={tokens.text.primary} />
-          </Pressable>
+          </Tappable>
         </View>
 
         <View style={styles.canvasWrap} onLayout={handleCanvasLayout}>
@@ -590,7 +591,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               <Undo2 size={16} color={tokens.text.primary} />
               <Text style={styles.toolBtnText}>撤销</Text>
             </Pressable>
-            <Pressable
+            <Tappable
               onPress={clearAll}
               disabled={!hasContent}
               style={[styles.toolBtn, !hasContent && styles.toolBtnDisabled]}
@@ -599,7 +600,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             >
               <Trash2 size={16} color={tokens.text.primary} />
               <Text style={styles.toolBtnText}>清空</Text>
-            </Pressable>
+            </Tappable>
           </View>
 
           <View style={styles.toolRow}>
@@ -666,22 +667,22 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 onSubmitEditing={confirmPendingText}
                 accessibilityLabel={t('annot.markInputA11y')}
               />
-              <Pressable
+              <Tappable
                 onPress={confirmPendingText}
                 style={styles.textInputBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t('annot.markAddA11y')}
               >
                 <Check size={18} color={tokens.text.primary} />
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 onPress={cancelPendingText}
                 style={styles.textInputBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t('annot.markDropA11y')}
               >
                 <X size={18} color={tokens.text.primary} />
-              </Pressable>
+              </Tappable>
             </View>
           ) : null}
         </View>
