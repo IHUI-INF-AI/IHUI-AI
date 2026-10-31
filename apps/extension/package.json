@@ -11,7 +11,7 @@
     "gen:ui-routes": "node scripts/generate-ext-ui-routes.mjs",
     "typecheck": "wxt prepare && tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
+    "test": "wxt prepare && vitest run --passWithNoTests",
     "clean": "rimraf .output .wxt dist .turbo node_modules"
   },
   "dependencies": {

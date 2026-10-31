@@ -542,7 +542,7 @@ def _rule_series(metric: Any, decision: str) -> dict[str, float | None]:
                 observed[identity] = observed.get(identity, 0.0) + float(sample.value)
     except Exception:  # noqa: BLE001
         logger.debug("[sandbox-metrics] rule 时序枚举失败", exc_info=True)
-    merged: dict[str, float | None] = {rule: None for rule in sorted(SANDBOX_RULE_IDS)}
+    merged: dict[str, float | None] = dict.fromkeys(sorted(SANDBOX_RULE_IDS))
     merged.update({rule: value for rule, value in observed.items() if value is not None})
     return merged
 
@@ -552,7 +552,7 @@ def _blind_rule_view() -> dict[str, float | None]:
 
     空表会被读成"这个计量面不存在";None 逐条列出才会读成"计量关了,所以这些格没数"。
     """
-    view: dict[str, float | None] = {rule: None for rule in sorted(SANDBOX_RULE_IDS)}
+    view: dict[str, float | None] = dict.fromkeys(sorted(SANDBOX_RULE_IDS))
     view[UNDETERMINED_IDENTITY] = None
     return view
 
