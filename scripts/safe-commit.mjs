@@ -88,6 +88,9 @@ import { REPO_GIT_IDENTITY_ARGS } from './lib/bypass-git.mjs'
 // (它同时是旁路留痕的写口与台账的读口;在这里另写一遍 appendFileSync = 第二份 schema,
 //  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
 import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
+// AI 代码归属 notes 的唯一实现住 lib;record-ai-authorship.mjs:7 钉死本文件是其生产消费方
+// (§0.9「造好没装车=没有」)。fail-open 接在提交成功之后,见 Step 5 后那段。
+import { recordForCommit } from './lib/ai-authorship-notes.mjs'
 // G-920:事后载荷归因与处置建议的唯一出口(判据住 lib,本工具引那一份 —— 不在这里再算一遍)
 import {
   adviceFor,
@@ -2076,6 +2079,25 @@ try {
   if (!w.ok) log('warn', `⚠️ ${w.why}`)
 } catch (e) {
   log('warn', `⚠️ 正证留痕未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
+}
+// AI 代码归属写 git notes(对标 codex checkpoint / refs/notes/ai)。fail-open:会话主体缺失
+// ⇒ recordForCommit 自回 undetermined 不写(§0.3);任何异常都不得影响本枚提交(绝不在提交后抛)。
+try {
+  const authorshipSession = String(process.env.IHUI_AGENT_SESSION_ID ?? process.env.AGENT_NAME ?? '')
+  if (authorshipSession) {
+    const note = recordForCommit({
+      repoDir: repoRoot,
+      commit: committedSha,
+      session: authorshipSession,
+      declaredPaths: expectedFiles.map(normalize),
+      model: String(process.env.IHUI_AI_MODEL ?? ''),
+      tool: 'safe-commit',
+    })
+    if (note && note.state === 'recorded') log('ok', `AI 归属 notes 已写入(${note.ref ?? 'refs/notes/ihui-ai'})`)
+    else if (note && note.state !== 'recorded') log('warn', `⚠️ AI 归属 notes 未判定:${(note.reasons || []).join(',')}`)
+  }
+} catch (e) {
+  log('warn', `⚠️ AI 归属 notes 未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
 }
 log('ok', `post-commit hook 将自动调用 git-push-guard 推送`)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
