@@ -200,16 +200,16 @@ export function ImageGenGalleryScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    navHeader: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    navHeader: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.display.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
-    body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
-    column: { gap: 10 },
-    header: { gap: 10, paddingBottom: 2 },
+    body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
+    column: { gap: rnSpacing['sm-loose'] },
+    header: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },
     subtitle: { fontSize: 13, color: tk.text.secondary },
     loading: { paddingVertical: rnSpacing['2xl'] },
     errorBox: {
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
@@ -249,7 +249,11 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     image: { width: '100%', height: '100%' },
-    placeholder: { alignItems: 'center', gap: 6, paddingHorizontal: rnSpacing.sm },
+    placeholder: {
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
+      paddingHorizontal: rnSpacing.sm,
+    },
     placeholderText: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,

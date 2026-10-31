@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { rnRadius, rnRadiusFor, rnGeometry, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo, useState } from 'react'
@@ -315,7 +316,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     container: { flex: 1, backgroundColor: pageBg },
     bodyScroll: { flex: 1 },
     body: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.md,
       paddingBottom: rnSpacing['2xl'],
       gap: rnSpacing.lg,
@@ -341,7 +342,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       fontWeight: '700',
       color: tk.brandAccent.foreground,
     },
-    userMeta: { flex: 1, gap: 2 },
+    userMeta: { flex: 1, gap: rnSpacing['2xs'] },
     nickname: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     subText: { fontSize: rnType.body.size, color: tk.text.secondary },
     section: { gap: rnSpacing.sm },
@@ -397,7 +398,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.surface.bg,
       borderRadius: rnRadiusFor.panel,
       padding: 14,
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
     },
     modalTitle: {
       fontSize: rnType.subtitle.size,
@@ -414,7 +415,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
+    modalActions: {
+      flexDirection: 'row',
+      gap: rnSpacing['sm-loose'],
+      marginTop: rnSpacing['xs-loose'],
+    },
     modalBtn: {
       flex: 1,
       height: 50,

@@ -242,8 +242,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing['sm-loose'],
   } as ViewStyle,
   // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子
   // (改前那一维由横幅容器的列布局 stretch 撑出),未引入任何新数字档。
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: rnSpacing['sm-loose'],
   } as ViewStyle,
   iconText: { fontSize: rnType.title.size } as TextStyle,
   info: { flex: 1, minWidth: 0 } as ViewStyle,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 2,
+    marginBottom: rnSpacing['2xs'],
   } as TextStyle,
   time: { fontSize: rnType.label.size, color: tokens.text.secondary } as TextStyle,
   close: {

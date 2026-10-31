@@ -10,7 +10,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseScreenProps } from '../../types'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /** 课程列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { CourseScreenProps }
@@ -131,24 +131,28 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     title: {
-      paddingHorizontal: 10,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
     },
-    searchWrap: { paddingHorizontal: 10, paddingVertical: 12, marginBottom: 8 },
+    searchWrap: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
+    },
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       height: 50,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 16,
       color: tk.text.primary,
     },
-    errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     error: { fontSize: 14, color: tk.danger.DEFAULT },
     card: {
       padding: 14,
@@ -158,21 +162,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     cardTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+    metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     metaText: { fontSize: 14, color: tk.text.secondary },
-    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
     footerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     price: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
     pagination: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
     },
     pageBtn: { fontSize: 16, color: tk.text.primary },
     pageBtnDisabled: { opacity: 0.4 },

@@ -44,7 +44,6 @@ import {
 type FormRequestFramePayload = Parameters<typeof projectFormRequestFrame>[0]
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
-import { pressFeedback } from '@ihui/ui-native'
 
 const REJECT_REASON_MAX = 200
 const NS = 'ai.pane.businessForms'
@@ -261,7 +260,7 @@ function FormPanel({
   return (
     <View style={s.chipWrap}>
       {/* 收起 ≠ 决策:被拒/收起后仍留重新打开的入口(与同族 ToolApprovalSheet 同语义) */}
-      <Pressable style={pressFeedback(s.chip)} onPress={onReopen}>
+      <Pressable style={s.chip} onPress={onReopen}>
         {kind === 'calendarEvent' ? (
           <CalendarDays size={16} color={tokens.text.primary} />
         ) : (
@@ -274,7 +273,7 @@ function FormPanel({
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-        <Pressable style={pressFeedback(s.backdrop)} onPress={onClose}>
+        <Pressable style={s.backdrop} onPress={onClose}>
           <View style={s.sheet}>
             <View style={s.chrome}>
               <Text style={s.title}>{t(`${NS}.aria.${kind}`)}</Text>
@@ -312,7 +311,7 @@ function FormPanel({
                           </Text>
                         ))}
                         {fold.foldNeeded ? (
-                          <Pressable style={pressFeedback(undefined)} onPress={onFold} hitSlop={4}>
+                          <Pressable onPress={onFold} hitSlop={4}>
                             <Text style={s.fold}>
                               {entry.foldOpen
                                 ? t(`${NS}.${fold.collapseKey}`)
@@ -343,7 +342,7 @@ function FormPanel({
                 <Text style={s.actionText}>{t(`${NS}.action.reject`)}</Text>
               </Pressable>
               <Pressable
-                style={pressFeedback([s.action, s.approve, (busy || decided) && s.actionDisabled])}
+                style={[s.action, s.approve, (busy || decided) && s.actionDisabled]}
                 onPress={onApprove}
                 disabled={busy || decided}
               >
@@ -364,7 +363,7 @@ function createStyles() {
     chip: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
@@ -393,13 +392,13 @@ function createStyles() {
       color: tokens.text.primary,
     },
     body: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
-    bodyInner: { gap: 10, paddingVertical: rnSpacing.sm },
+    bodyInner: { gap: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     field: { gap: rnSpacing.xs },
     label: { fontSize: rnType.label.size, color: tokens.text.secondary },
     required: { color: tokens.danger.DEFAULT },
     input: {
       minHeight: 40,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -410,12 +409,17 @@ function createStyles() {
     },
     error: { fontSize: rnType.caption.size, color: tokens.danger.DEFAULT },
     failed: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    attendeeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: rnSpacing.xs },
+    attendeeWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing['xs-loose'],
+      marginTop: rnSpacing.xs,
+    },
     attendee: {
       fontSize: rnType.caption.size,
       color: tokens.text.medium,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.card,
     },
@@ -425,9 +429,9 @@ function createStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,

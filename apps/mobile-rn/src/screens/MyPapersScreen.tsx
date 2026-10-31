@@ -262,7 +262,7 @@ function makeStyles() {
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     label: { fontSize: 13, color: tokens.text.secondary },
     input: {
@@ -277,7 +277,7 @@ function makeStyles() {
     },
     submit: {
       height: 44,
-      marginTop: 10,
+      marginTop: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
@@ -296,7 +296,7 @@ function makeStyles() {
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     cardTitle: {

@@ -294,7 +294,7 @@ function AgreementRow({
     <View style={styles.agreementRow}>
       <View style={styles.agreementRowMain}>
         <TouchableOpacity
-        hitSlop={10}
+          hitSlop={10}
           style={[
             styles.checkbox,
             agreed ? styles.checkboxChecked : styles.checkboxUnchecked,
@@ -1574,8 +1574,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 10,
-      marginHorizontal: -10,
+      gap: rnSpacing['sm-loose'],
+      marginHorizontal: -rnSpacing['sm-loose'],
       marginBottom: rnSpacing['2xl'],
     },
     // logoBox fallback:53×53(2026-09-04 sqlogo 原图等比 72→50,再整体放大 50→53,与 logoImage 同步)
@@ -1682,7 +1682,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== 输入框 =====
     field: {
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       marginBottom: rnSpacing.lg,
     },
     labelRow: {
@@ -1751,7 +1751,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     areaArrow: {
       fontSize: 10,
       color: tk.text.tertiary,
-      marginLeft: 6,
+      marginLeft: rnSpacing['xs-loose'],
     },
     phoneInputWithArea: {
       flex: 1,
@@ -1854,7 +1854,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 16,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1893,7 +1893,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     autoLoginRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     autoLoginText: {
       fontSize: rnType.label.size,
@@ -1927,7 +1927,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyItemMain: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       paddingRight: rnSpacing.md,
     },
     historyItemDel: {
@@ -1940,7 +1940,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     historyClear: {
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: 14,
       alignItems: 'center',
     },
@@ -1978,7 +1978,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: OAUTH_BRAND_COLORS.wechat,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
     },
     wechatLoginBtnText: {
       color: OAUTH_BUTTON_FOREGROUND,
@@ -2145,7 +2145,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
       gap: rnSpacing.xs,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: 'transparent',

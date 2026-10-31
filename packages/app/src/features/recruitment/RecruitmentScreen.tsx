@@ -214,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: { width: 50, height: 50, borderRadius: rnRadius['2xl'] },
     founderText: { flex: 1, marginLeft: rnSpacing.md },
     founder: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
-    recommend: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
+    recommend: { marginTop: rnSpacing['2xs'], fontSize: 13, color: tk.text.secondary },
     intro: {
       fontSize: rnType.body.size,
       lineHeight: 20,
@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
     qrWrap: { alignItems: 'center' },
     qrcode: { width: 176, height: 176 },
     auxText: {
-      marginTop: 6,
+      marginTop: rnSpacing['xs-loose'],
       fontSize: rnType.caption.size,
       textAlign: 'center',
       color: tk.text.secondary,

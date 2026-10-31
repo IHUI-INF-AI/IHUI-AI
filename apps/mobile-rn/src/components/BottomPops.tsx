@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
-    marginTop: 10,
+    marginTop: rnSpacing['sm-loose'],
   } as ViewStyle,
   title: {
     flex: 1,

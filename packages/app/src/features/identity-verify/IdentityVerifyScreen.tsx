@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IdentityVerifyStatus, IdentityVerifyScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -102,28 +102,28 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     body: { flex: 1 },
     card: {
       padding: 14,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     subtitle: { fontSize: 14, color: tk.text.secondary },
-    status: { marginTop: 8, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
+    status: { marginTop: rnSpacing.sm, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
     statusOk: { color: tk.success.DEFAULT },
     uploadItem: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 10,
+      marginTop: rnSpacing['sm-loose'],
     },
     label: { fontSize: 14, color: tk.text.medium },
     uploadBtn: {
@@ -135,9 +135,9 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     uploadBtnText: { fontSize: 24, color: tk.text.tertiary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,

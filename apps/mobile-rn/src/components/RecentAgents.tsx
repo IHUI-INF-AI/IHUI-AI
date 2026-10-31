@@ -95,12 +95,12 @@ const styles = StyleSheet.create({
     marginBottom: rnSpacing.sm,
   },
   scroll: {
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
   },
   item: {
     alignItems: 'center',
     minWidth: 60,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     paddingHorizontal: 5,
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   name: {
-    marginTop: 6,
+    marginTop: rnSpacing['xs-loose'],
     maxWidth: 80,
     fontSize: rnType.label.size,
     color: tokens.text.secondary,

@@ -597,7 +597,7 @@ function createStyles(tk: AppThemeTokens) {
     root: { flex: 1, backgroundColor: tk.surface.bg },
     tabRow: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.sm,
     },
@@ -623,7 +623,7 @@ const formStyles = StyleSheet.create({
 // 以下四个 StyleSheet 均含主题色,不能模块级锁浅色:按当前 colorScheme 的 tokens 动态创建(组件内 useMemo)。
 function createFieldStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    wrap: { gap: 6 },
+    wrap: { gap: rnSpacing['xs-loose'] },
     label: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
     input: {
       borderWidth: 1,
@@ -631,7 +631,7 @@ function createFieldStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       height: 50,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
@@ -654,7 +654,7 @@ function createCoverStyles(tk: AppThemeTokens) {
       borderStyle: 'dashed',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       backgroundColor: tk.surface.card,
     },
     previewWrap: {
