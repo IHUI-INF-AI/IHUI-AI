@@ -20208,6 +20208,18 @@
     "wizardAuditScope": "扫描范围：{cn} 与 {roaming}，共 {files} 个文件。"
   },
   "checkin": {
+    "taskPanelTitle": "自动做任务",
+    "taskPanelDesc": "一键巡检 WorkBuddy 任务中心:领任务、达标领奖、连登兑换、抽奖、猫猫旅行、夜猫子闲聊。",
+    "taskPanelPick": "选择账号",
+    "taskPanelList": "读取任务",
+    "taskPanelDryRun": "预演(不写入)",
+    "taskPanelRun": "一键做任务",
+    "taskPanelRunning": "执行中…",
+    "taskPanelEmpty": "暂无任务,或尚未读取",
+    "taskPanelResult": "执行结果",
+    "taskPanelNoAccount": "暂无 WorkBuddy 账号,请先在上方添加",
+    "taskPanelTaskCode": "任务",
+    "taskPanelStatus": "状态",
     "title": "签到助手",
     "addAccount": "添加账号",
     "addAccountTitle": "添加签到账号",

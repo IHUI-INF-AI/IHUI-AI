@@ -20208,6 +20208,18 @@
     "wizardAuditScope": "掃描範圍：{cn} 與 {roaming}，共 {files} 個檔案。"
   },
   "checkin": {
+    "taskPanelTitle": "自動做任務",
+    "taskPanelDesc": "一鍵巡檢 WorkBuddy 任務中心:接任務、達標領獎、連登兌換、抽獎、貓貓旅行、夜貓子閒聊。",
+    "taskPanelPick": "選擇帳號",
+    "taskPanelList": "讀取任務",
+    "taskPanelDryRun": "預演(不寫入)",
+    "taskPanelRun": "一鍵做任務",
+    "taskPanelRunning": "執行中…",
+    "taskPanelEmpty": "暫無任務,或尚未讀取",
+    "taskPanelResult": "執行結果",
+    "taskPanelNoAccount": "暫無 WorkBuddy 帳號,請先在上方加入",
+    "taskPanelTaskCode": "任務",
+    "taskPanelStatus": "狀態",
     "title": "簽到助手",
     "addAccount": "新增帳號",
     "addAccountTitle": "新增簽到帳號",
