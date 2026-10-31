@@ -7033,6 +7033,8 @@
       "share": "共有",
       "showContent": "コンテンツを表示",
       "toggleMetadata": "メタデータを切り替え"
+      "metadataLoading": "メタデータを読み込み中…",
+      "metadataUnavailable": "メタデータを一時的に取得できません",
     },
     "next": "次のページ",
     "prev": "前のページ",

@@ -7033,6 +7033,8 @@
       "share": "Share",
       "showContent": "Show content",
       "toggleMetadata": "Toggle metadata"
+      "metadataLoading": "Loading metadata…",
+      "metadataUnavailable": "Metadata is temporarily unavailable",
     },
     "next": "Next",
     "prev": "Previous",
