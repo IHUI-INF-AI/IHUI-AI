@@ -12,8 +12,14 @@ const PRESSED_OPACITY = 0.65
 /**
  * style 刻意取 `StyleProp<ViewStyle>` 而**不是** PressableProps['style']:后者允许函数形态,
  * 而函数形态正是 cssInterop 会吃掉的写法。类型层先拒绝,比运行时静默丢样式好。
+ *
+ * `pressedStyle` 给的是**该元素自己的设计档按压样式**(如 `textBtnPressed` 换背景色)。
+ * 传了它就不再叠默认不透明度 —— 否则同一元素同时吃两套按压观感,而设计档本来就不是不透明度。
  */
-type TappableProps = Omit<PressableProps, 'style'> & { style?: StyleProp<ViewStyle> }
+type TappableProps = Omit<PressableProps, 'style'> & {
+  style?: StyleProp<ViewStyle>
+  pressedStyle?: StyleProp<ViewStyle>
+}
 
 /**
  * 触屏按压反馈的唯一口。
@@ -29,7 +35,7 @@ type TappableProps = Omit<PressableProps, 'style'> & { style?: StyleProp<ViewSty
  * RN 侧的主流写法,interop 对它逐元素合并,值保留)。
  */
 export const Tappable = forwardRef<React.ComponentRef<typeof Pressable>, TappableProps>(
-  function Tappable({ style, onPressIn, onPressOut, ...rest }, ref) {
+  function Tappable({ style, pressedStyle, onPressIn, onPressOut, ...rest }, ref) {
     const [pressed, setPressed] = useState(false)
     return (
       <Pressable
@@ -43,7 +49,11 @@ export const Tappable = forwardRef<React.ComponentRef<typeof Pressable>, Tappabl
           setPressed(false)
           onPressOut?.(e)
         }}
-        style={[style, pressed && { opacity: PRESSED_OPACITY }]}
+        style={
+          pressedStyle
+            ? [style, pressed && pressedStyle]
+            : [style, pressed && { opacity: PRESSED_OPACITY }]
+        }
       />
     )
   },
