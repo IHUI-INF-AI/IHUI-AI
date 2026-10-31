@@ -212,7 +212,11 @@ export default function AgentCategoriesScreen() {
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.name}
               </Text>
-              <Pressable onPress={() => setPanel(null)} hitSlop={8}>
+              <Pressable
+                onPress={() => setPanel(null)}
+                hitSlop={8}
+                style={pressFeedback(undefined)}
+              >
                 <X size={18} color={tokens.text.secondary} />
               </Pressable>
             </View>
