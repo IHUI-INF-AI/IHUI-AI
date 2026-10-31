@@ -114,6 +114,17 @@ function AuthorizeContent() {
   }
 
   const onDeny = () => {
+    // 2026-10-31 安全强化第 14 批(M2)纵深收紧:deny 跳转与 approve 同一裁决 ——
+    // 仅当 info 已由服务端校验接口成功加载(redirect_uri 已过 redirectUris 精确
+    // 白名单)才允许跳转。现读结构性事实:校验失败走 error 分支提前 return,拒绝
+    // 按钮只在 info≠null 时渲染,所以本守卫在当前形态下是**纵深**(防未来渲染
+    // 结构变化把按钮暴露到未校验态),不是堵现实可达漏洞 —— 如实记录,不夸大。
+    // 刻意不套 isSafeNavigationTarget:合法第三方 client 的回调域不在本站白名单
+    // 内,套了会误杀。
+    if (!info) {
+      setError('redirect_uri 未通过服务端校验,已阻止跳转')
+      return
+    }
     const sep = redirectUri.includes('?') ? '&' : '?'
     redirectTo(`${redirectUri}${sep}error=access_denied&state=${state}`)
   }

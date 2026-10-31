@@ -119,10 +119,16 @@ def get_relay_summary(
 def list_relay_summaries(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    user_id: str = Depends(require_request_user_id),
     store: SessionStore = Depends(get_session_store),
 ) -> dict[str, Any]:
-    """跨 thread 列出接力摘要(created_at 倒序)。"""
-    rows = store.list_relay_summaries(limit=limit, offset=offset)
+    """跨 thread 列出接力摘要(created_at 倒序)。只列调用方自己的那些。
+
+    2026-10-31 安全强化第 14 批:此前既不取身份也不过滤 ⇒ 一次列出**全站**摘要。
+    过滤走 store 层的 `owner_user_id`(SQL join threads 的 metadata.userId),与
+    `_owned_thread` / `list_threads` 同一份属主判据,不在这里响应侧筛。
+    """
+    rows = store.list_relay_summaries(limit=limit, offset=offset, owner_user_id=user_id)
     return {
         "code": 0,
         "message": "ok",
