@@ -17,6 +17,18 @@
 - POST   /browser/sessions/{session_id}/reload      刷新
 - WS     /browser/ws/{session_id}           WebSocket 画面流 + 事件回传
 
+作用域(gap#3,2026-10-31):`{session_id}` 在本路由里就是 **tab 指针**。每一条动作
+都必须经 `hub.require_tab(BrowserTabScope(...))` —— 三个值只来自承载层:路径参数给出
+tab_id,`Depends(get_current_user_id)`/WS 的 `verify_access_token` 给出已验证主体,
+请求体**不参与**作用域判定(体里的字段是客户端可整写面,§5)。缺 tab_id ⇒ `missing_tab_scope`
+(400 具名),跨属主/未登记 ⇒ 与"不存在"同形的 404(不当预言机),且**没有**"退到用户级
+取最近一枚 tab"的任何出口。
+
+未接的一格(如实登记):请求侧一次性消费(jti 防重放)。判据单源在 apps/api 的 TS 侧
+(`src/plugins/internal-service-ticket.ts` 的 `ReplayStore.consume`),ai-service 只有发票
+出口(`app/core/internal_ticket.py`)、没有验票/消费口,而这条腿的请求形状里也没有 jti
+(走用户 access JWT)。按 §0.6 不在 Python 侧另抄第二份防重放判据 ⇒ 跨语言复用受阻,交主席裁。
+
 WebSocket 协议:
 - 服务端推送: {"type": "frame", "data": "<base64 jpeg>", "metadata": {...}}
 - 服务端推送: {"type": "navigation", "url": "...", "title": "..."}
@@ -39,11 +51,60 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import get_current_user_id, principal_from_payload, verify_access_token
-from ..services.browser_hub import hub
+from ..services.browser_hub import (
+    TAB_SCOPE_MISSING,
+    BrowserTabScope,
+    BrowserTabScopeError,
+    hub,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/browser", tags=["browser-hub"])
+
+
+# =============================================================================
+# tab 级作用域(gap#3)
+# =============================================================================
+def _tab_scope(
+    tab_id: str | None,
+    user_id: str | None,
+    *,
+    chat_session_id: str | None = None,
+) -> BrowserTabScope:
+    """动作端点唯一的作用域构造器。
+
+    三个入参的来源都是承载层:`tab_id` 来自路由路径参数(由本服务自己在创建时 mint 的
+    uuid4,不是模型/客户端可自报的字段名),`user_id` 来自已验证的 JWT 主体,
+    `chat_session_id` 只有承载层注入的会话态才能填(HTTP 主链路今天没有这一路输入 ⇒ None,
+    该维不设限;它**不是**"退到 user 级",tab 登记与严格属主两维照旧全判)。
+
+    `user_id` 允许 None 是**必需的**:None 表示"承载层没能给出主体",判据那边
+    (strict_browser_owner)据此拒 ⇒ `unverified_caller`。把它挡在构造器之外(比如自造
+    一个匿名主体填进去)才是问题 —— 那等于把"没有身份"伪装成"有身份"。
+    """
+    return BrowserTabScope(
+        tab_id=tab_id,
+        owner_user_id=user_id,
+        chat_session_id=chat_session_id,
+        strict_browser_owner=True,
+    )
+
+
+def _tab_scope_denial(exc: BrowserTabScopeError) -> HTTPException:
+    """具名拒因 → HTTP 形状。
+
+    跨属主 / 未登记 / 会话态不匹配 / 主体缺位 **一律同一个 404 形状**,与旧的
+    `会话不存在: {id}` 逐字同形 —— 别人的 tab 必须与"不存在"无法区分,否则这一组端点
+    合起来就是"探测他人 tab 是否存在"的预言机。只有 `missing_tab_scope` 给 400:那是
+    调用方自己的请求契约写错了(没点名 tab),不含任何关于他人资源的信息。
+    """
+    if exc.code == TAB_SCOPE_MISSING:
+        return HTTPException(
+            status_code=400,
+            detail=f"{TAB_SCOPE_MISSING}: 浏览器动作必须点名 tab(缺少 tab_id),不提供用户级兜底",
+        )
+    return HTTPException(status_code=404, detail=f"会话不存在: {exc.tab_id or ''}")
 
 
 # =============================================================================
@@ -131,9 +192,10 @@ async def get_session_info(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """获取会话信息。"""
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     url = await session.get_current_url()
     title = await session.get_title()
     cookies = await session.get_cookies()
@@ -154,7 +216,10 @@ async def close_session(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """关闭会话。"""
-    ok = await hub.close_session(session_id, user_id)
+    try:
+        ok = await hub.close_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     if not ok:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
     return {"code": 0, "message": "会话已关闭", "data": {"session_id": session_id}}
@@ -170,9 +235,10 @@ async def navigate(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """导航到指定 URL。"""
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     result = await session.navigate(body.url, wait_until=body.wait_until)
     return {"code": 0, "data": result}
 
@@ -187,9 +253,10 @@ async def get_cookies(
 
     可选 query 参数 ?urls=https://a.com,https://b.com 过滤特定域名的 cookies。
     """
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     url_list = urls.split(",") if urls else None
     cookies = await session.get_cookies(url_list)
     return {
@@ -208,9 +275,10 @@ async def screenshot(
     user_id: str = Depends(get_current_user_id),
 ) -> Response:
     """一次性截图(返回 PNG)。"""
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     png_bytes = await session.screenshot(full_page=full_page)
     return Response(
         content=png_bytes,
@@ -224,9 +292,10 @@ async def go_back(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     ok = await session.go_back()
     return {"code": 0, "data": {"success": ok, "url": await session.get_current_url()}}
 
@@ -236,9 +305,10 @@ async def go_forward(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     ok = await session.go_forward()
     return {"code": 0, "data": {"success": ok, "url": await session.get_current_url()}}
 
@@ -253,9 +323,10 @@ async def reload(
     2026-08-02 fix:抖音/微信等站点在 CDP 会话被风控后,reload 仍停在验证墙,
     此时重建全新 context(新指纹)通常可恢复正常页面。
     """
-    session = hub.get_session(session_id, user_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
     recreated = False
     if await session.reload_with_recovery():
         new_session = await hub.recreate_session(session_id, user_id)
@@ -302,12 +373,18 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     # 并在别人已登录的页面里执行任意脚本。
     ws_user_id = principal_from_payload(payload)
 
-    session = hub.get_session(session_id, ws_user_id)
-    if not session:
+    # tab 级作用域(gap#3):WS 与 HTTP 动作端点走同一个判据出口,不在这里另抄一份。
+    # 顺带关掉旧的一格:`principal_from_payload` 取不到主体(返回 None)时,原写法交给
+    # 用户级读取口的 `caller=None` 命中的正是 `_same_owner` 里"None = 系统级不设过滤",
+    # 等于一张没有主体的 token 就能 attach 任何人的 tab。严格档下这判成 unverified_caller。
+    try:
+        session = hub.require_tab(_tab_scope(session_id, ws_user_id))
+    except BrowserTabScopeError as exc:
+        # 具名拒因只落服务端日志:对外仍与"不存在"逐字同形(不给探测留缝)
+        logger.info(f"[browser_hub] WebSocket 拒绝: session={session_id} 拒因={exc.code}")
         await ws.accept()
         await ws.close(code=4004, reason=f"会话不存在: {session_id}")
         return
-
     await ws.accept()
     logger.info(f"[browser_hub] WebSocket 连接: session={session_id}")
 
@@ -352,6 +429,15 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
                 break
 
             msg_type = msg.get("type")
+            # 逐条消息复核作用域(gap#3):握手时判过一次不够 —— tab 可能在连接存续期间
+            # 被关闭、被风控墙重建(换了 id)或被摘账。复核不过 ⇒ 一条浏览器指令都不发出
+            # (副作用为零),只回一帧带具名拒因的 error;`session` 保持原绑定,finally
+            # 的停流仍能收到那个已建成的会话上。
+            try:
+                session = hub.require_tab(_tab_scope(session_id, ws_user_id))
+            except BrowserTabScopeError as exc:
+                await ws.send_json({"type": "error", "code": exc.code, "event": msg_type})
+                continue
             try:
                 if msg_type == "mouse":
                     await session.dispatch_mouse(
