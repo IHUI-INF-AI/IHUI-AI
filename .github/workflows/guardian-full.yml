@@ -47,6 +47,14 @@ env:
   # 本值只决定 runner 上的 python 解释器,不参与 lint 版本判定)。
   PYTHON_VERSION: '3.12'
 
+# 2026-11-01 安全强化:显式最小权限(与 ci.yml 同档)。此前本文件不声明 permissions,
+# 拿的是仓库/组织**默认**那一份;而默认档位可能含写权。声明之后未列出的 scope 一律
+# 降为 none(同 release-desktop.yml 头注那条事实)。
+# 本作业只做 checkout + 装依赖 + 构建 packages + 跑全量守门:不建 PR、不上传产物、
+# 不动 release、不调 GITHUB_TOKEN 写接口 ⇒ `contents: read` 就是它需要的全部。
+permissions:
+  contents: read
+
 jobs:
   guardian-full:
     runs-on: ubuntu-latest
