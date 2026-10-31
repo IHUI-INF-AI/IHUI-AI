@@ -5874,6 +5874,140 @@ export function auditSmsChannelHealth(opts = {}) {
   }
 }
 
+/**
+ * Qoder 会话回灌计划任务的**常驻**派发点(尺子 = `scripts/check-qoder-session-sync-task.mjs`,2026-10-31 立)。
+ *
+ * 立因:回灌任务以交互用户身份跑(DPAPI 只能由登录用户解),而"任务被删/被禁用/被改成
+ * S4U/pwsh 或 Qoder 目录漂移/任务停摆"的失效形态全是**安静** —— 池里那枚号照旧 healthy,
+ * 直到票过期才发现没人续。判机器状态 ⇒ 刻意不进提交链(§12e),本函数是它唯一调度器。
+ * 未判定只写日志不喊人(§0.3);红项的出路直接给幂等重建命令(§5e-1 可整改性)。
+ */
+const QODER_SYNC_TASK_TICK = join(WORKTREE, '.ihui-agent', 'state', 'qoder-sync-task-tick.iso')
+const QODER_SYNC_TASK_LAST = join(WORKTREE, '.ihui-agent', 'state', 'qoder-sync-task-last.json')
+const QODER_SYNC_TASK_INTERVAL_MS = Number(
+  process.env.IHUI_QODER_SYNC_TASK_INTERVAL_MS || 30 * 60 * 1000,
+)
+const QODER_SYNC_TASK_TIMEOUT_MS = Number(process.env.IHUI_QODER_SYNC_TASK_TIMEOUT_MS || 60_000)
+
+export function auditQoderSessionSyncTask(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = QODER_SYNC_TASK_INTERVAL_MS,
+    tickFile = QODER_SYNC_TASK_TICK,
+    lastFile = QODER_SYNC_TASK_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-qoder-session-sync-task.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ Qoder 回灌任务存续:尺子脚本不在位(scripts/check-qoder-session-sync-task.mjs)⇒ 本轮跳过',
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: QODER_SYNC_TASK_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 20,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || !parsed.dims || typeof parsed.dims !== 'object') {
+      logger(
+        `⚠️ Qoder 回灌任务存续未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+          [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+        )
+          .split(/\r?\n/)[0]
+          .slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响告警本身 */
+    }
+    const breaches = Object.entries(parsed.dims).filter(
+      ([, d]) => String(d?.verdict) === 'breach',
+    )
+    const unjudged = Object.entries(parsed.dims).filter(
+      ([, d]) => String(d?.verdict) === 'unjudged',
+    )
+    if (breaches.length > 0) {
+      // 身份 = 违规维名集合(排序),读数/耗时/计数不进指纹 —— 否则每轮刷新都像新故障
+      const dimNames = breaches.map(([k]) => k).sort().join(',')
+      const detail = breaches
+        .map(([k, d]) => `${k}: ${String(d?.reason || '')}${d?.reading ? ` (${d.reading})` : ''}`)
+        .join('\n')
+      notify(
+        'Qoder 号池保活腿失效(本机会话不再回灌)',
+        `读数:\n${detail}\n` +
+          `影响:运营池里本机 Qoder 号不再自动回灌客户端新票,池侧只剩「票过期后兜底刷新」;\n` +
+          `客户端长期不再续期时会掉号(其它 5 枚 Qoder 号不受这条腿影响)。\n` +
+          `尺子:scripts/check-qoder-session-sync-task.mjs(只读:计划任务 XML + 日志区段/新鲜度,不触库)\n` +
+          `取证:node scripts/check-qoder-session-sync-task.mjs --json(或读 .ihui-agent/state/qoder-sync-task-last.json)\n` +
+          `出路:① 幂等重建任务+pwsh -File scripts/setup-qoder-session-sync-task.ps1 -RunNow;` +
+          `② 若报 Qoder 数据目录缺失,先确认 Qoder 客户端已在 Administrator 会话登录;` +
+          `③ 复跑上面的取证命令直到 overall=ok。\n` +
+          `注意:DPAPI 绑定登录用户,任务身份必须是 InteractiveToken;改成 S4U/服务账号结构上读不到凭据。`,
+        { severity: 'warning', dedupKey: `dims=${dimNames}` },
+      )
+      logger(`❌ Qoder 回灌任务存续:${dimNames}(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: breaches.length, unjudged: unjudged.length }
+    }
+    if (unjudged.length > 0) {
+      logger(
+        `ℹ️ Qoder 回灌任务存续:未判定 —— ${unjudged
+          .map(([k, d]) => `${k}:${String(d?.reason || '')}`)
+          .join(';')
+          .slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    logger(`✅ Qoder 回灌任务存续:${Object.keys(parsed.dims).length} 维全绿`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger(
+      '⚠️ Qoder 回灌任务存续派发失败(不阻断其余守护): ' +
+        String((e && e.message) || e).slice(0, 160),
+    )
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 资产路径可达性 + 证书到期的**常驻**派发点(尺子 = `scripts/check-asset-path-health.mjs`,2026-10-28 立) */
 const ASSET_PATH_TICK = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-tick.ts')
 const ASSET_PATH_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-first.json')
@@ -10122,6 +10256,10 @@ function main() {
     // 短信通道健康(2026-10-27 立,尺子 = scripts/check-sms-channel-health.mjs):判机器状态 ⇒
     // 不进提交链(§12e)。立因 = 当天阿里云欠费停机一整天、用户拿不到登录验证码,而全仓零门喊过。
     if (!CHECK_ONLY) auditSmsChannelHealth()
+    // Qoder 会话回灌计划任务存续(2026-10-31 立,尺子 = scripts/check-qoder-session-sync-task.mjs):
+    // 立因 = 回灌腿以交互用户身份跑(DPAPI 只能由登录用户解),它的失效形态全是安静 —— 任务被删/
+    // 禁用/改成 S4U/停摆都不会让池里那枚号立刻变红。判机器状态 ⇒ 不进提交链(§12e),本行是唯一调度器。
+    if (!CHECK_ONLY) auditQoderSessionSyncTask()
     // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
     // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
     if (!CHECK_ONLY) auditAssetPathHealth()
@@ -11437,6 +11575,7 @@ export const __test__ = {
   dispatchDepAdvisoryRadar,
   dispatchGateRot,
   dispatchRelayCapacity,
+  auditQoderSessionSyncTask,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,
