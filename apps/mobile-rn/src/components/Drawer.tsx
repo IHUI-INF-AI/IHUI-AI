@@ -95,6 +95,7 @@ import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
 // 静态 import 走 declarations.d.ts 的图片模块声明(Metro 标准形态,无需 lint 抑制)
 import LOGO_LIGHT from '../../assets/images/logo.png' // icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标,web 同一资产,暂无矢量等价物) until 2027-01-15
 import LOGO_DARK from '../../assets/images/logo-dark.png' // icon-bitmap-exempt: 品牌多色插画 logo 暗主题版(同 LOGO_LIGHT 理由) until 2027-01-15
+import { pressFeedback } from '@ihui/ui-native'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -363,7 +364,7 @@ function SwipeableConversationItem({
         >
           <Pressable
             className="items-center justify-center"
-            style={{ width: FAVORITE_WIDTH, height: '100%' }}
+            style={pressFeedback({ width: FAVORITE_WIDTH, height: '100%' })}
             onPress={() => onToggleFavorite(item.id, !item.favorited)}
             accessibilityLabel={`${item.favorited ? t('drawer.collected') : t('drawer.collect')} ${item.title}`}
           >
@@ -386,7 +387,7 @@ function SwipeableConversationItem({
         >
           <Pressable
             className="items-center justify-center"
-            style={{ width: DELETE_WIDTH, height: '100%' }}
+            style={pressFeedback({ width: DELETE_WIDTH, height: '100%' })}
             onPress={() => onDelete(item.id)}
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
@@ -404,7 +405,7 @@ function SwipeableConversationItem({
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
           className="flex-row items-center px-4 py-3"
-          style={{ backgroundColor: tokens.surface.card }}
+          style={pressFeedback({ backgroundColor: tokens.surface.card })}
           onPress={handleSelect}
           android_ripple={{ color: tokens.surface.muted }}
         >
@@ -444,7 +445,7 @@ function NavRow({ item }: { item: NavRowModel }) {
     <Pressable
       onPress={item.onPress}
       className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
-      style={active ? styles.navRowActive : undefined}
+      style={pressFeedback(active ? styles.navRowActive : undefined)}
       android_ripple={{ color: tokens.surface.muted }}
     >
       <Icon
@@ -479,7 +480,7 @@ function NavExpandableRow({ item }: { item: NavRowModel }) {
         <Pressable
           onPress={item.onPress}
           className="h-9 flex-1 flex-row items-center gap-2.5 rounded-md px-2.5"
-          style={active ? styles.navRowActive : undefined}
+          style={pressFeedback(active ? styles.navRowActive : undefined)}
           android_ripple={{ color: tokens.surface.muted }}
         >
           <Icon
@@ -494,7 +495,7 @@ function NavExpandableRow({ item }: { item: NavRowModel }) {
             {item.label}
           </Text>
         </Pressable>
-        <Pressable
+        <Pressable style={pressFeedback(undefined)}
           onPress={() => setExpanded((v) => !v)}
           className="h-9 w-9 items-center justify-center rounded-md"
           accessibilityRole="button"
@@ -526,7 +527,7 @@ interface NavDomainRowProps {
 
 function NavDomainRow({ label, Icon, onPress }: NavDomainRowProps) {
   return (
-    <Pressable
+    <Pressable style={pressFeedback(undefined)}
       onPress={onPress}
       className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
       android_ripple={{ color: tokens.surface.muted }}
@@ -553,7 +554,7 @@ function NavGroupSection({ title, variant, defaultOpen, items }: NavGroupSection
   const [expanded, setExpanded] = useState(defaultOpen)
   return (
     <View className="mt-1">
-      <Pressable
+      <Pressable style={pressFeedback(undefined)}
         onPress={() => setExpanded((v) => !v)}
         className="h-8 flex-row items-center gap-1.5 rounded-md px-2.5"
         android_ripple={{ color: tokens.surface.muted }}
@@ -889,7 +890,7 @@ export function Drawer(props: DrawerProps) {
           >
             {/* 1. Header:logo(点击回首页)+ PanelLeftRounded 收拢钮(web SidebarHeader 同构) */}
             <View className="flex-row items-center justify-between px-2 py-1">
-              <Pressable
+              <Pressable style={pressFeedback(undefined)}
                 onPress={handleLogoPress}
                 className="h-9 w-9 items-center justify-center rounded-md"
                 android_ripple={{ color: tokens.surface.muted }}
@@ -899,7 +900,7 @@ export function Drawer(props: DrawerProps) {
                   style={styles.headerLogo}
                 />
               </Pressable>
-              <Pressable
+              <Pressable style={pressFeedback(undefined)}
                 onPress={onClose}
                 className="h-9 w-9 items-center justify-center rounded-md"
                 android_ripple={{ color: tokens.surface.muted }}
@@ -916,7 +917,7 @@ export function Drawer(props: DrawerProps) {
                 <Pressable
                   onPress={handleCreateNewChat}
                   className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
-                  style={{ backgroundColor: tokens.surface.muted }}
+                  style={pressFeedback({ backgroundColor: tokens.surface.muted })}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Plus size={rnGeometry.glyphMd} color={tokens.text.primary} />
@@ -1050,7 +1051,7 @@ export function Drawer(props: DrawerProps) {
             {/* 6. 底部 UserRow(web SidebarUserRow 同构):头像 24 + 昵称,点击上浮菜单。
                 2026-10-21 与 web 同步:上下对称 8px;底色继续继承抽屉的 surface.card(同源)。 */}
             <View className="shrink-0 px-2 py-2">
-              <Pressable
+              <Pressable style={pressFeedback(undefined)}
                 onPress={isLoggedIn ? () => setUserMenuOpen((v) => !v) : handleLoginPress}
                 className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
                 android_ripple={{ color: tokens.surface.muted }}
@@ -1084,7 +1085,7 @@ export function Drawer(props: DrawerProps) {
                   style={[styles.userMenu, { bottom: insets.bottom + USER_MENU_BOTTOM_OFFSET }]}
                 >
                   {userMenuItems.map(({ key, labelKey, Icon, onPress }) => (
-                    <Pressable
+                    <Pressable style={pressFeedback(undefined)}
                       key={key}
                       onPress={onPress}
                       className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
