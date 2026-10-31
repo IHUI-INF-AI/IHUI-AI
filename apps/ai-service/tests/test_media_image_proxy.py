@@ -36,6 +36,9 @@ class _FakeResponse:
         self.status_code = 200
         self._body = body
         self.headers = {"content-type": content_type}
+        # 手动逐跳辅助(media_tasks._send_following_redirects)会读 is_redirect;
+        # 假响应必须与 httpx.Response 的契约同形,否则测的是 AttributeError 不是业务。
+        self.is_redirect = False
 
     async def aiter_bytes(self, chunk_size: int = 65536):
         yield self._body

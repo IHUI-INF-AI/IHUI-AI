@@ -200,6 +200,11 @@ async def create_hook(
     """创建 Hook。"""
     _validate_event(req.event)
     _validate_action(req.action)
+    # 2026-10-31 安全强化第 14 批:script 动作 = 以服务账号执行 `sh -c` / `cmd /c`。
+    # HOOK_ALLOWED_ACTIONS 只是运维"允许这个能力存在",不等于"对每个登录用户开放";
+    # 同族 create 链路此前对 role=0 也放行 ⇒ 任意用户可拿到服务身份命令执行。
+    if req.action.type == "script" and not _is_admin(request):
+        raise HTTPException(status_code=403, detail="script 动作仅管理员可创建")
     payload = {
         "name": req.name,
         "description": req.description,
@@ -476,7 +481,11 @@ async def instantiate_template(
     """
     try:
         data = await hook_engine.instantiate_template(
-            template_id, body.overrides, owner_id=getattr(request.state, "user_id", None)
+            template_id,
+            body.overrides,
+            owner_id=getattr(request.state, "user_id", None),
+            # 2026-10-31 第 14 批:模板与 overrides 都可能带 script 动作,与手建同一档
+            allow_script=_is_admin(request),
         )
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
