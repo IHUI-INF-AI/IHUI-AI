@@ -10161,7 +10161,7 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="image_search",
-        description="图片搜索(DuckDuckGo Images,无 API key;返回 imageUrl/thumbnailUrl/sourceUrl/尺寸)",
+        description="图片搜索(DuckDuckGo Images,无 API key)。每条结果带 trust={tier: official|trusted|unknown|unsafe, score, reasons} 来源可信度分档,结果按 score 降序;unsafe 会在 summary.message 里点名。",
         input_schema={
             "type": "object",
             "properties": {
