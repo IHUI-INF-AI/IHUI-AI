@@ -26,11 +26,15 @@ type StyleLike = StyleProp<ViewStyle> | ((state: PressState) => StyleProp<ViewSt
  *     先求值原函数再叠透明度。BottomActionBar 两枚 Pressable 就是这型 —— 直接当对象包进去
  *     会得到 TS2345(函数不是 StyleProp),组合写法是唯一既保留原反馈又不动调用点的解。
  */
-export function pressFeedback(style: StyleLike) {
-  return ({ pressed }: PressState) => [
-    typeof style === 'function' ? style({ pressed }) : style,
-    pressed && { opacity: PRESSED_OPACITY },
-  ]
+export function pressFeedback(style: StyleLike): (state: PressState) => StyleProp<ViewStyle> {
+  // RN 0.86 的 `StyleProp<T> = T | RecursiveArray<T | Falsy> | Falsy` 未把 `RegisteredStyle`
+  // 收进数组元素分支,而 `StyleSheet.create` 的键正是 `RegisteredStyle` ⇒ 数组在类型层不可赋,
+  // 运行时合法(RN 的 StyleSheet.flatten 就吃这种数组)。这里是全仓唯一的断言点。
+  return ({ pressed }: PressState) =>
+    [
+      typeof style === 'function' ? style({ pressed }) : style,
+      pressed && { opacity: PRESSED_OPACITY },
+    ] as StyleProp<ViewStyle>
 }
 
 export const __test__ = { PRESSED_OPACITY }
