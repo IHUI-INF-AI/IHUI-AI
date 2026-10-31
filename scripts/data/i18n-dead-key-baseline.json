@@ -1,0 +1,13 @@
+{
+  "note": "i18n 死 key 存量基线(2026-10-31 立,AGENTS §12e):本仓历史死键是判历史存量的格子,存量未归零前挂绝对零容忍 = 恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门。CI 全量档按此只拦新增(deadCount > maxDead 即红);提交链(--staged)不传本文件,仍是零容忍。清掉某端存量后必须同批下调该端数字,否则基线成了不会到期的豁免(§0.7)。数字是 2026-10-31 HEAD 面现读(c6c 复核:scripts/scan-dead-i18n-keys.mjs --target all)。",
+  "recordedAt": "2026-10-31",
+  "recordedFrom": "HEAD 面 node scripts/scan-dead-i18n-keys.mjs --target all 现读;web 2 / miniapp-taro 504 / mobile-rn 13 / cli 14 / extension 0",
+  "maxDead": {
+    "web": 2,
+    "miniapp-taro": 504,
+    "mobile-rn": 13,
+    "cli": 14,
+    "extension": 0,
+    "desktop": 0
+  }
+}
