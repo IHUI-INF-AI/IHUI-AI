@@ -5093,15 +5093,41 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
                             "denialReason": _net_denial,
                         }
                     else:
-                        webhook_payload = arguments.get("webhook_payload", arguments)
-                        async with httpx.AsyncClient(timeout=15.0) as client:
-                            wresp = await client.post(webhook_url, json=webhook_payload)
+                        # 2026-10-31 安全强化第 32 批:webhook_url 是外部可控输入,
+                        # 而本服务能访问内网 —— "内网地址不可达兜底"不成立。出站前
+                        # 过同一把 SSRF 尺并钉定公网 IP(POST 不跟随重定向,只需首跳)。
+                        from .screenshot_service import (
+                            _validate_url_ssrf,
+                            resolve_pinned_target,
+                        )
+
+                        _webhook_ok, _webhook_reason = _validate_url_ssrf(webhook_url)
+                        _webhook_pinned = (
+                            resolve_pinned_target(webhook_url) if _webhook_ok else None
+                        )
+                        if not _webhook_ok or _webhook_pinned is None:
                             execution_result = {
-                                "ok": wresp.status_code < 400,
-                                "status_code": wresp.status_code,
-                                "response": wresp.text[:500],
+                                "ok": False, "errorCode": "SSRF_BLOCKED",
+                                "error": "webhook 目标不允许访问: "
+                                + (_webhook_reason or "无法钉定公网 IP"),
                             }
-                            executed = wresp.status_code < 400
+                            executed = False
+                        else:
+                            _pinned_url, _orig_host = _webhook_pinned
+                            webhook_payload = arguments.get("webhook_payload", arguments)
+                            async with httpx.AsyncClient(timeout=15.0) as client:
+                                wresp = await client.post(
+                                    _pinned_url,
+                                    json=webhook_payload,
+                                    headers={"Host": _orig_host},
+                                    extensions={"sni_hostname": _orig_host},
+                                )
+                                execution_result = {
+                                    "ok": wresp.status_code < 400,
+                                    "status_code": wresp.status_code,
+                                    "response": wresp.text[:500],
+                                }
+                                executed = wresp.status_code < 400
             else:
                 execution_result = {
                     "ok": False, "errorCode": "INVALID_PARAMS",
@@ -6153,19 +6179,27 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            resp = await client.get(
-                url,
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/120.0.0.0 Safari/537.36"
-                    ),
-                },
-            )
-        content_type = resp.headers.get("content-type", "")
-        body = resp.text
+        # 2026-10-31 安全强化第 32 批:逐跳 SSRF(此前 follow_redirects=True 可被
+        # 公网 302 → 内网/云元数据绕过;正文会原样回给模型)。
+        fetched = await _fetch_url_ssrf_safe(
+            url,
+            httpx,
+            timeout=15.0,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+            },
+        )
+        if fetched is None:
+            return {
+                "tool": "fetch_url", "ok": False, "url": url,
+                "error": "URL 抓取失败或被 SSRF 尺拒绝(重定向逐跳校验)",
+                "errorCode": "FETCH_FAILED",
+            }
+        _status, body, content_type, final_url = fetched
         title = ""
         truncated = False
 
@@ -6217,11 +6251,11 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
         return {
             "tool": "fetch_url",
             "ok": True,
-            "url": str(resp.url),
+            "url": final_url,
             "title": title,
             "content": content,
             "content_type": content_type,
-            "status_code": resp.status_code,
+            "status_code": _status,
             "fetched_at": datetime.now(UTC).isoformat(),
             "truncated": truncated,
             "message": f"抓取成功(mode={mode}, {len(content)} 字符)",
@@ -6628,6 +6662,113 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         "failover_attempts": attempts,
         "message": f"全部 {len(attempts)} 家图片 provider 均失败",
     }
+
+
+async def _fetch_url_ssrf_safe(
+    url: str,
+    httpx_mod: Any,
+    *,
+    timeout: float = 15.0,
+    headers: dict[str, str] | None = None,
+    max_hops: int = 5,
+    max_bytes: int = 5 * 1024 * 1024,
+) -> tuple[int, str, str, str] | None:
+    """SSRF 安全的逐跳 GET(返回 状态码/正文/content-type/最终 URL),2026-10-31 安全强化第 32 批。
+
+    缺陷:`_tool_fetch_url` 此前只有首跳 `_validate_url_ssrf` + `follow_redirects=True` ——
+    公网页 302 → `http://169.254.169.254/` 即绕过校验,正文原样回给模型。
+    现逐跳自管:每跳过同一把尺(screenshot_service 那份,不另立判据)并钉定公网 IP
+    (校验期与请求期两次 DNS 解析可不一致),任一跳被拒/钉不出 IP/异常/正文超限 ⇒ None。
+    """
+    from .screenshot_service import _validate_url_ssrf, resolve_pinned_target
+
+    if not url or url.startswith("data:"):
+        return None
+    current = url
+    try:
+        async with httpx_mod.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            for _hop in range(max_hops + 1):
+                ok, _reason = _validate_url_ssrf(current)
+                if not ok:
+                    logger.warning("mcp_server fetch_url 被 SSRF 尺拒绝: %s", current[:200])
+                    return None
+                pinned = resolve_pinned_target(current)
+                if pinned is None:
+                    logger.warning("mcp_server fetch_url 无法钉定公网 IP: %s", current[:200])
+                    return None
+                pinned_url, orig_host = pinned
+                resp = await client.get(
+                    pinned_url,
+                    headers={**(headers or {}), "Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
+                location = resp.headers.get("location")
+                # 用状态码判重定向(而不是 httpx 的 is_redirect 属性):测试桩只需
+                # 实现最小契约(status_code/headers/text/url),判据不依赖具体实现细节。
+                if 300 <= resp.status_code < 400 and location:
+                    current = str(resp.url.join(location))
+                    continue
+                body = resp.text
+                if len(body) > max_bytes:
+                    logger.warning("mcp_server fetch_url 正文超限: %s", current[:200])
+                    return None
+                return (
+                    resp.status_code,
+                    body,
+                    resp.headers.get("content-type", ""),
+                    str(resp.url),
+                )
+        return None
+    except Exception as e:
+        logger.warning("mcp_server fetch_url 失败: %s", e)
+        return None
+
+
+def _download_url_ssrf_safe_sync(
+    url: str,
+    httpx_mod: Any,
+    *,
+    timeout: float = 60.0,
+    max_hops: int = 5,
+) -> bytes | None:
+    """SSRF 安全的逐跳下载(同步版,供同步函数使用;2026-10-31 安全强化第 32 批)。
+
+    与 async 版 `_download_url_ssrf_safe` 同判据、同钉 IP 纪律;存在的理由只有一个:
+    `_audio_source_from_args` 是同步函数,不能 await async 版。
+    """
+    from .screenshot_service import _validate_url_ssrf, resolve_pinned_target
+
+    if not url or url.startswith("data:"):
+        return None
+    current = url
+    try:
+        with httpx_mod.Client(timeout=timeout, follow_redirects=False) as client:
+            for _hop in range(max_hops + 1):
+                ok, _reason = _validate_url_ssrf(current)
+                if not ok:
+                    logger.warning("mcp_server 同步下载被 SSRF 尺拒绝: %s", current[:200])
+                    return None
+                pinned = resolve_pinned_target(current)
+                if pinned is None:
+                    logger.warning("mcp_server 同步下载无法钉定公网 IP: %s", current[:200])
+                    return None
+                pinned_url, orig_host = pinned
+                resp = client.get(
+                    pinned_url,
+                    headers={"Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
+                location = resp.headers.get("location")
+                if 300 <= resp.status_code < 400 and location:
+                    current = str(resp.url.join(location))
+                    continue
+                if resp.status_code >= 400:
+                    return None
+                return cast(bytes, resp.content)
+        return None
+    except Exception as e:
+        logger.warning("mcp_server 同步下载失败: %s", e)
+        return None
 
 
 async def _download_url_ssrf_safe(
@@ -7719,17 +7860,17 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
                 }
             import httpx as _httpx
 
-            try:
-                async with _httpx.AsyncClient(timeout=60, follow_redirects=True) as _c:
-                    _r = await _c.get(url)
-                    _r.raise_for_status()
-                    data = _r.content
-            except Exception as e:  # noqa: BLE001
+            # 2026-10-31 安全强化第 32 批:走 SSRF 安全下载单源(逐跳 + 钉 IP)。
+            # 此前 follow_redirects=True ⇒ 公网 302 → 内网即可把内网文件上传到外部存储。
+            fetched_data = await _download_url_ssrf_safe(url, _httpx, timeout=60.0)
+            if fetched_data is None:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
-                    "error": f"拉取远程文件失败: {e}"[:300], "errorCode": "FETCH_FAILED",
+                    "error": "拉取远程文件失败或被 SSRF 尺拒绝(重定向逐跳校验)",
+                    "errorCode": "FETCH_FAILED",
                     "file_url": None,
                 }
+            data = fetched_data
             if len(data) > 50 * 1024 * 1024:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
@@ -8055,13 +8196,11 @@ def _audio_source_from_args(
             return b"", "", f"URL 不允许访问: {reason}"
         import httpx as _httpx
 
-        try:
-            with _httpx.Client(timeout=60, follow_redirects=True) as _c:
-                _r = _c.get(url)
-                _r.raise_for_status()
-                data = _r.content
-        except Exception as e:  # noqa: BLE001
-            return b"", "", f"拉取远程音频失败: {e}"[:300]
+        # 2026-10-31 安全强化第 32 批:走同步版 SSRF 安全下载单源(逐跳 + 钉 IP)。
+        # 此前 follow_redirects=True ⇒ 公网 302 → 内网音频可被拉取。
+        data = _download_url_ssrf_safe_sync(url, _httpx, timeout=60.0)
+        if data is None:
+            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)"
         if len(data) >= 20 * 1024 * 1024:
             return b"", "", "远程音频超过官方 <20MiB 硬限制"
         return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None

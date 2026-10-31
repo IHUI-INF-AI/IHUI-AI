@@ -1851,16 +1851,33 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
-      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+      // 2026-10-31 安全强化第 10 批 R10：**服务端反查商品价**。
+      //
+      // 此前本路由直接落客户端金额，而第 19 批只把 `resolveProductAmountCents` 接到了
+      // wechat/native/alipay/paypal 等**支付**调用点 —— 下单这一侧仍可自报。攻击面是：
+      // 下 1 分钱的 orderType=2/5/6 订单 → 支付完成回调按 productId 激活整档权益
+      // （VIP 等级 / 开发者套餐 / API 订阅配额），只查产品行不比对实付金额 ⇒ 1 分钱买整档。
+      // 反查与支付侧同一单源（vipLevels / developerPricing / plans），此处补上不漏。
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      const finalAmountCents = dbAmountCents ?? amountCents
+      if (finalAmountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (finalAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
-        amount: amountCents,
+        amount: finalAmountCents,
         orderType,
         productId,
         payType: 'fund',
       })
-      return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents }))
+      return reply.send(success({ outTradeNo: order.orderNo, amount: finalAmountCents }))
     },
   )
 

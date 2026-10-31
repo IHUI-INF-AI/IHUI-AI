@@ -494,17 +494,18 @@ def test_task_create_requires_call_scope(task_client: TestClient) -> None:
 
 
 def test_legacy_agent_endpoints_shape_unchanged(task_client: TestClient) -> None:
-    """向后兼容:注册/列表两端的路径与响应形状未受影响。"""
+    """向后兼容:注册/列表两端的路径与响应形状未受影响(现已需认证 + endpoint 经 SSRF 校验)。"""
     registered = task_client.post(
         "/api/a2a/agents/register",
-        json={"id": "a1", "name": "A1", "capabilities": ["x"], "endpoint": "http://x"},
+        json={"id": "a1", "name": "A1", "capabilities": ["x"], "endpoint": "http://127.0.0.1"},
+        headers=_internal_headers("user-a", "agents:call"),
     )
     assert registered.status_code == 200
     assert registered.json() == {
         "id": "a1",
         "name": "A1",
         "capabilities": ["x"],
-        "endpoint": "http://x",
+        "endpoint": "http://127.0.0.1",
         "description": "",
     }
     listing = task_client.get("/api/a2a/agents")

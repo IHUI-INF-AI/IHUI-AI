@@ -185,6 +185,7 @@ import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 // 钉钉 DTFrameLogin / 飞书 QRLogin),扫码成功后走标准 OAuth callback:POST /api/auth/:platform/callback
 
 /** 签发 access+refresh 双 token 并落库(O7 起 export:根级 /oauth/token 复用同一签发口径)。 */
+// @token-issue-exempt: 定义行本身,不是调用点
 export async function buildTokenPair(
   user: {
     id: string
@@ -421,6 +422,7 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   // 已是吊销态(race / stale-sibling 放行)不再重复 revoke:否则 revokedAt 被刷成 now,
   // 30s 窗口随每次重放滑动 —— 与 /auth/refresh 第 4 步同一条纪律。
   if (!stored.revokedAt) await revokeRefreshToken(rawRefreshToken)
+  // @token-issue-exempt: refresh-grant: 凭 refresh_token 续期,不是新登录(登录期已过 2FA)
   const tokens = await buildTokenPair({
     ...user,
     familyId: payload.familyId || user.familyId || createFamilyId(),
@@ -662,6 +664,50 @@ function decryptTwoFactorSecret(stored: Buffer | null): Buffer | null {
 // - signChallengeToken(payload) → 5min 短期 JWT,type='challenge'
 // - verifyChallengeToken(token) → 校验 type='challenge',返回 {userId,...} 或 null
 // challenge token 只能用于 /auth/2fa/login-verify,其他端点由 plugins/auth.ts 拒绝。
+
+/**
+ * 登录第二因子闸 —— **所有登录支路的唯一入口**（2026-10-31 安全强化第 10 批 R10）。
+ *
+ * 语义：已启用 TOTP 的账号，任何登录方式（密码 / 短信 / 邮箱码 / 社交 IdP / 扫码 /
+ * 小程序）都**不得直接下发可用凭据**，只能拿到 5min challengeToken，由前端走
+ * `POST /auth/2fa/login-verify` 完成第二因子。返回 `null` = 放行；返回 reply = 已发送
+ * challenge 响应，调用方 `return` 即可。
+ *
+ * 立因（真实的旁路，不是理论）：2FA 分支此前被逐路手抄，只有 4 条支路有、6 条没有 ——
+ * `/auth/:platform/callback`（覆盖 google/github/wechat/apple/alipay/feishu/企微/钉钉）、
+ * `/auth/login/phone-code`（短信登录）、企微扫码、钉钉扫码、微信小程序 ×2。
+ * 也就是说：攻击者拿到受害者的 IdP 会话或一条短信码，就能**完全绕过 TOTP** 拿到 token
+ * —— 恰恰是 2FA 存在的意义所在。手抄型判据必然漂移（§0.6），故收成这一份。
+ *
+ * 新支路只能接这里，不得再自己写 `if (user.twoFactorEnabled)`。
+ */
+export async function twoFactorLoginGate(
+  user: {
+    id: string
+    phone?: string | null
+    roleId?: number | null
+    twoFactorEnabled?: boolean | null
+  },
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<FastifyReply | null> {
+  if (!user.twoFactorEnabled) return null
+  const challengeToken = await signChallengeToken({
+    userId: user.id,
+    phone: user.phone ?? '',
+    familyId: '',
+    roleId: user.roleId ?? 0,
+  })
+  // 必须 skipResponseSanitization：challengeToken 是 JWT，响应脱敏层会把长串改写成 ***
+  request.skipResponseSanitization = true
+  return reply.send(
+    success({
+      twoFactorRequired: true,
+      challengeToken,
+      expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+    }),
+  )
+}
 
 const loginByEmailSchema = z.object({
   email: z.email(),
@@ -1301,6 +1347,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
+    // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
+    const twoFactorReply = await twoFactorLoginGate(user, request, reply)
+    if (twoFactorReply) return twoFactorReply
+
     const gate = await gateLoginIpWhitelist(request, reply, user.id)
     if (!gate.allowed) return gate.reply
     const tokens = await buildTokenPair(user, reply)
@@ -1372,6 +1423,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         })
       }
 
+      // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
+      // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
+      const twoFactorReply = await twoFactorLoginGate(user, request, reply)
+      if (twoFactorReply) return twoFactorReply
+
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair(user, reply)
@@ -1442,7 +1498,27 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
     const updateData: { nickname?: string; phone?: string; avatar?: string } = {}
     if (body.nickname) updateData.nickname = body.nickname
-    if (body.phone) updateData.phone = body.phone
+    // 2026-10-31 安全强化第 10 批 R10：**手机号不得由本端点改写**。
+    //
+    // 此前 `if (body.phone) updateData.phone = body.phone` 直落 `updateUser` —— 无验证码、
+    // 无唯一性预检。任取一个有效会话（被盗 access token / cookie，或经上面刚修的 2FA
+    // 旁路拿到的会话）把手机号改成攻击者的号，之后 `/auth/send-code` + `/auth/reset-password`
+    // 全部改道攻击者手机，受害者连"改密码踢掉对方"都做不到（短信登录同样走新号）
+    // —— 这是持久化接管，比一次性会话劫持严重得多。
+    //
+    // 唯一合法通道是 `/auth/change-phone/confirm`（要求新号 6 位短信码 + 号码未被占用
+    // 预检 + 成功后给用户发安全通知短信）。这里明确拒绝并给出出路，不静默丢弃
+    // （静默丢弃会让调用方以为改成功）。
+    if (body.phone) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            '手机号不能通过此接口修改。请先向新号码发送验证码，再调用 POST /auth/change-phone/confirm（需要 code）。',
+          ),
+        )
+    }
     if (body.avatar) updateData.avatar = body.avatar
 
     if (Object.keys(updateData).length === 0 && !body.openId) {
@@ -1496,6 +1572,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(binding.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
+      // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
+      const twoFactorReply = await twoFactorLoginGate(user, request, reply)
+      if (twoFactorReply) return twoFactorReply
+
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
@@ -1587,6 +1668,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
+    // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
+    const twoFactorReply = await twoFactorLoginGate(user, request, reply)
+    if (twoFactorReply) return twoFactorReply
+
     const gate = await gateLoginIpWhitelist(request, reply, user.id)
     if (!gate.allowed) return gate.reply
     const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
@@ -1887,6 +1973,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await markSessionUsed(code)
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      // @token-issue-exempt: oauth-code-exchange: session 由 /auth/oauth/authorize 的已认证会话创建
       const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       await createAuditLog({
         event: 'token',
@@ -2165,6 +2252,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(entry.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     deviceCodeStore.delete(parsed.data.device_code)
+    // @token-issue-exempt: oauth-device-token: device flow 的用户确认发生在已认证浏览器会话
     const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'device_token',
@@ -2290,6 +2378,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    // @token-issue-exempt: oauth-web-token: 同上,凭一次性 session 换 token
     const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'web_token',
@@ -2398,6 +2487,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    // @token-issue-exempt: oauth-pkce-token: 同上,PKCE 只证明发起方一致,不替代登录
     const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'pkce_token',
@@ -2441,49 +2531,48 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     grant_type: z.literal('urn:ietf:params:oauth:grant-type:jwt-bearer'),
   })
 
-  // POST /oauth/jwt/token — JWT 授权（private_key_jwt）
+  // POST /oauth/jwt/token — JWT 授权（private_key_jwt）【2026-10-31 安全强化第 10 批 R10：已下线】
+  //
+  // 下线理由（不是临时禁用，是能力缺失）：
+  // RFC 7523 的 jwt-bearer 语义要求资源方用 **客户端注册的公钥** 验签 assertion，
+  // 而本仓 oauth_apps 表只有 client_id / client_secret(+bcrypt hash)，**没有任何公钥或
+  // JWKS 字段**（packages/database/src/schema/oauth.ts:31-59）。没有验签材料 ⇒ 该端点
+  // 只能"解 payload 取 sub"，等价于：任何匿名者注册一个 OAuth app 后，提交
+  // `a.<b64url({"sub":"<任意用户 uuid>"})>.c` 即换到该用户的 access+refresh 全量令牌
+  // —— 含管理员，直接账号接管。此前 client_secret 还是 optional，连"知道密钥"这个
+  // 最低门槛都不存在。
+  //
+  // 为什么不是"补验签"：验签需要先有公钥注册通道（DCR 时上传 JWKS + 轮转 + 撤销），
+  // 那是新功能而非修 bug；在没有可信公钥来源时任何"看起来在验签"的实现都只是
+  // 把同一把钥匙换到另一处。仓库内也无任何消费者（唯一 jwt-bearer 引用在
+  // services/coze-auth-utils.ts，那是**出站**调 Coze，方向相反）。
+  //
+  // 保留路由形状（而非删掉）是为了给旧调用方一个可诊断的 501 而不是 404 迷雾；
+  // 审计日志照记，用于取证谁还在试。恢复条件：oauth_apps 增加 jwks/public_key 列
+  // 且 DCR 流程支持公钥登记之后，按 RFC 7523 重写本端点。
   server.post('/oauth/jwt/token', async (request, reply) => {
     const parsed = oauthJwtTokenSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const app = await findOAuthAppByClientId(parsed.data.client_id)
-    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
-    // client_secret 校验必须走常量时间验证器(matchesOAuthAppSecret:内部 secretsEqual 定长散列,
-    // 兼容 KDF 摘要),严禁裸 `!==` 逐字节比密钥(计时侧信道逐字节猜 client_secret)。
-    if (parsed.data.client_secret && !(await matchesOAuthAppSecret(app, parsed.data.client_secret)))
-      return reply.status(401).send(error(401, '应用凭证错误'))
-    // 校验 assertion（JWT格式: header.payload.signature）
-    const parts = parsed.data.assertion.split('.')
-    if (parts.length !== 3) return reply.status(400).send(error(400, 'assertion 格式无效'))
-    try {
-      const payloadJson = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString()) as {
-        sub?: string
-        exp?: number
-      }
-      if (payloadJson.exp && payloadJson.exp * 1000 < Date.now())
-        return reply.status(400).send(error(400, 'assertion 已过期'))
-      const userId = payloadJson.sub
-      if (!userId) return reply.status(400).send(error(400, 'assertion 缺少 sub'))
-      const user = await findUserById(userId)
-      if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+    if (app) {
+      // 只记 clientId 与来源，**绝不**读取 assertion 的 sub —— 未验签的 sub 不可信，
+      // 记进审计会污染取证（把攻击者自选 uuid 写成"某人尝试登录"）。
       await createAuditLog({
         event: 'jwt_token',
         clientId: parsed.data.client_id,
-        userId: user.id,
-        status: 'success',
-      })
-      return reply.send(
-        success({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          token_type: 'Bearer',
-          expires_in: expiresIn,
-        }),
-      )
-    } catch {
-      return reply.status(400).send(error(400, 'assertion 解析失败'))
+        status: 'blocked',
+        detail: 'jwt_bearer_unsupported_no_client_jwks',
+      }).catch(() => undefined)
     }
+    return reply
+      .status(501)
+      .send(
+        error(
+          501,
+          'jwt-bearer 授权未启用：本服务未提供客户端公钥登记，无法验签 assertion。请改用 authorization_code + PKCE 流程。',
+        ),
+      )
   })
 
   // --- 确认授权 / 多路径兼容 / 调试 ---
@@ -2548,6 +2637,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    // @token-issue-exempt: oauth-access-token: authorization_code 换 token 的兼容路径
     const { accessToken, expiresIn } = await buildTokenPair(user, reply)
     await createAuditLog({
       event: 'access_token',
@@ -2588,6 +2678,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await markSessionUsed(parsed.data.code)
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      // @token-issue-exempt: oauth-token-exchange: 同上,令牌交换不是新登录
       const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       return reply.send(
         success({
@@ -3225,6 +3316,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
 
+    // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
+    // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
+    const twoFactorReply = await twoFactorLoginGate(user, request, reply)
+    if (twoFactorReply) return twoFactorReply
+
     const gate = await gateLoginIpWhitelist(request, reply, user.id)
     if (!gate.allowed) return gate.reply
     const { accessToken, refreshToken } = await buildTokenPair(user, reply)
@@ -3309,6 +3405,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         })
       }
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
+      // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
+      const twoFactorReply = await twoFactorLoginGate(user, request, reply)
+      if (twoFactorReply) return twoFactorReply
+
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair(user, reply)
@@ -3756,6 +3857,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const familyId = createFamilyId()
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
+      // @token-issue-exempt: 2fa-verify-success: 本端点就是第二因子的兑付点,再过闸会死循环
       const tokens = await buildTokenPair(
         {
           id: user.id,
