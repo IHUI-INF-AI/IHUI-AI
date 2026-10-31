@@ -95,7 +95,7 @@ export default function KBDetailPage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{article.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{article.title}</h1>
         {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
@@ -136,7 +136,7 @@ export default function KBDetailPage() {
             <div className="min-[1024px]:sticky min-[1024px]:top-4">
               <Card>
                 <CardContent className="min-[640px]:p-3 p-3">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="mb-3 text-label font-semibold uppercase tracking-wide text-muted-foreground">
                     {t('toc')}
                   </p>
                   <nav className="space-y-1">

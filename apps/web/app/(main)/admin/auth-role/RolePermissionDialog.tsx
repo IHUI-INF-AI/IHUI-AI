@@ -104,7 +104,7 @@ export function RolePermissionDialog({ roleId, onClose }: Props) {
                   onCheckedChange={() => toggle(p.id)}
                 />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium">
+                  <div className="text-body font-medium">
                     {p.displayName}
                     <span className="ml-2 font-mono text-xs text-muted-foreground">{p.name}</span>
                   </div>

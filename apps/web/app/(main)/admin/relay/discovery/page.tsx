@@ -198,7 +198,7 @@ export default function AdminRelayDiscoveryPage() {
       <BackButton />
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" />
             动态发现审批
           </h1>

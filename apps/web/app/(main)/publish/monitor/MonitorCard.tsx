@@ -100,7 +100,7 @@ function Block({
 }) {
   return (
     <div className="rounded-md bg-muted/40 p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      <div className="mb-2 flex items-center gap-1.5 text-label font-medium text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         <span style={{ transform: 'translateY(0.3px)' }}>{label}</span>
       </div>
@@ -197,11 +197,11 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
             <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {platformName}
             </span>
-            <span className="truncate text-sm font-medium">{item.title}</span>
+            <span className="truncate text-body font-medium">{item.title}</span>
           </div>
           <span
             className={cn(
-              'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+              'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
               STATUS_STYLE[statusKey],
             )}
           >
@@ -297,7 +297,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
 
           <Block icon={RotateCcw} label={t('blockResubmit')}>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-semibold tabular-nums leading-none">
+              <span className="text-display font-semibold tabular-nums leading-none">
                 {item.resubmit_count}
               </span>
               <span className="text-xs text-muted-foreground">{t('resubmitCount')}</span>

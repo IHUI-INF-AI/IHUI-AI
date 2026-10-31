@@ -83,7 +83,7 @@ export default function CardFavoritesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Star className="h-6 w-6 text-amber-500" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">收藏的名片</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">收藏的名片</h1>
         </div>
         <p className="text-xs text-muted-foreground">共收藏 {items.length} 张名片</p>
       </header>
@@ -124,7 +124,7 @@ export default function CardFavoritesPage() {
                         className="h-12 w-12 shrink-0 rounded-xl object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-body font-semibold text-primary">
                         {getInitials(card.name)}
                       </div>
                     )}

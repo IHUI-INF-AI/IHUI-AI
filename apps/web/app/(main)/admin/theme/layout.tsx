@@ -22,7 +22,7 @@ export default function ThemeLayout({ children }: { children: React.ReactNode })
       <header className="flex items-center gap-3 rounded-lg border bg-card p-3">
         <Palette className="h-5 w-5 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">主题管理</p>
+          <p className="text-body font-semibold">主题管理</p>
           <p className="text-xs text-muted-foreground">当前主题: {currentName || '未设置'}</p>
         </div>
       </header>

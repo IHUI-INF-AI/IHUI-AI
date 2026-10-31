@@ -39,7 +39,7 @@ export default function MemberBenefitsPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Award className="h-5 w-5 text-primary" />
           会员权益
         </h1>
@@ -77,7 +77,7 @@ export default function MemberBenefitsPage() {
                       <span className="text-base font-semibold">{b.levelName}</span>
                     </div>
                     {b.current && (
-                      <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-label font-medium text-amber-600 dark:text-amber-400">
                         当前等级
                       </span>
                     )}

@@ -73,7 +73,7 @@ export function UploadProgress({ progress, fileName, status, fileSize }: UploadP
     <div className="space-y-1.5 ui-card rounded-lg border bg-muted/30 p-2.5">
       <div className="flex items-center gap-2">
         <Icon className={STATUS_ICON_CLASS[status]} />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+        <span className="min-w-0 flex-1 truncate text-label font-medium">
           {fileName ?? t(labelKey)}
         </span>
         {typeof fileSize === 'number' && fileSize > 0 && (

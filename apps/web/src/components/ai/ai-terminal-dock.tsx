@@ -73,7 +73,7 @@ export function AiTerminalDock() {
       {/* mini 工具栏:背景色对比区分工具栏与主体,不画分割线 */}
       <div className="flex h-8 shrink-0 items-center gap-1.5 bg-muted/40 px-2">
         <SquareTerminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate text-xs font-medium text-muted-foreground">
+        <span className="truncate text-label font-medium text-muted-foreground">
           {t('terminalDock.title')}
         </span>
         <div className="ml-auto flex items-center gap-0.5">

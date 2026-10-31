@@ -35,7 +35,7 @@ export default function EarningsPage() {
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Coins className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
             {t('title')}
           </h1>
@@ -63,7 +63,7 @@ export default function EarningsPage() {
               <KeyRound className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold">{t('configureByok')}</p>
+              <p className="text-body font-semibold">{t('configureByok')}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{t('configureByokDesc')}</p>
             </div>
           </div>

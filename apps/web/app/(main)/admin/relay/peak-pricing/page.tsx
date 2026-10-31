@@ -256,7 +256,7 @@ export default function PeakPricingPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Clock className="h-5 w-5" aria-hidden />
             分时高峰倍率
           </h1>
@@ -354,7 +354,7 @@ export default function PeakPricingPage() {
       </div>
 
       <div className="rounded-lg border p-3">
-        <h2 className="text-sm font-medium">命中预览</h2>
+        <h2 className="text-body font-medium">命中预览</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           排障用:确认某模型在指定时刻实际生效的倍率与命中规则(留空时间 = 当前时刻)。
         </p>

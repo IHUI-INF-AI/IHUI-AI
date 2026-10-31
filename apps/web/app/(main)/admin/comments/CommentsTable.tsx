@@ -88,7 +88,7 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-medium">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-label font-medium">
                         {initials(name)}
                       </span>
                       <span className="text-sm">{name}</span>
@@ -100,7 +100,7 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-label font-medium',
                         item.isDeleted
                           ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                           : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
@@ -196,11 +196,11 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
                 <span>{formatTime(comment.createdAt)}</span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-medium">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-body font-medium">
                   {initials(comment.userNickname)}
                 </span>
                 <div className="flex-1">
-                  <div className="text-sm font-medium">{comment.userNickname ?? '-'}</div>
+                  <div className="text-body font-medium">{comment.userNickname ?? '-'}</div>
                   <div className="mt-1 text-sm">
                     {comment.isDeleted ? (
                       <span className="italic text-muted-foreground">{t('deletedContent')}</span>
@@ -213,7 +213,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
             </div>
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-medium">{t('repliesTitle')}</h4>
+                <h4 className="text-body font-medium">{t('repliesTitle')}</h4>
                 <span className="text-xs text-muted-foreground">
                   {t('repliesCount', { count: replies.length })}
                 </span>

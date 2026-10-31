@@ -79,7 +79,7 @@ export default function AdminSearchHotWordsPage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
-      <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+      <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
 
       <form onSubmit={onAdd} className="flex items-center gap-2">
         <input
@@ -90,7 +90,7 @@ export default function AdminSearchHotWordsPage() {
         />
         <button
           type="submit"
-          className="h-9 rounded-sm bg-cta px-4 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
+          className="h-9 rounded-sm bg-cta px-4 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
           disabled={addMut.isPending || !newWord.trim()}
         >
           {addMut.isPending ? t('adding') : t('add')}

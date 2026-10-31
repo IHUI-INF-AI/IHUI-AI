@@ -83,7 +83,7 @@ export default function FigmaImportPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Palette className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -98,7 +98,7 @@ export default function FigmaImportPage() {
               type="button"
               onClick={() => setTarget(k)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium',
+                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium',
                 target === k
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -151,10 +151,10 @@ export default function FigmaImportPage() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <Code2 className="h-4 w-4 shrink-0 text-primary" />
-              <h2 className="truncate text-sm font-semibold">
+              <h2 className="truncate text-body font-semibold">
                 {summary?.name || t('resultTitle')}
                 {typeof summary?.width === 'number' && typeof summary?.height === 'number' && (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  <span className="ml-2 text-label font-normal text-muted-foreground">
                     {Math.round(summary.width)}×{Math.round(summary.height)}
                   </span>
                 )}

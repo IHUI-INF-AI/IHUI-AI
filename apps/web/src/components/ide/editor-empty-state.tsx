@@ -188,7 +188,7 @@ export function EditorEmptyState() {
           <div className="flex w-72 flex-col gap-4">
             {recentFiles.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                <p className="mb-2 text-label font-medium text-muted-foreground">
                   {t('editorEmpty.recentFiles')}
                 </p>
                 <div className="flex flex-col gap-0.5">
@@ -210,7 +210,7 @@ export function EditorEmptyState() {
               </div>
             )}
             <div>
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <p className="mb-2 flex items-center gap-1.5 text-label font-medium text-muted-foreground">
                 <Keyboard className="h-3.5 w-3.5" />
                 <span>{t('editorEmpty.shortcuts')}</span>
               </p>

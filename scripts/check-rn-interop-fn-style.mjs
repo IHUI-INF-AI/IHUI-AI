@@ -242,6 +242,66 @@ export function findHelperFnStyleHits(text, registry, helpers) {
   return { hits, undetermined }
 }
 
+/**
+ * F3(2026-11-01 补,F1 的漏判面):JSX 属性 `style={<裸标识符>}`,而该标识符在**本文件**里
+ * 绑定到函数(箭头 / `function` 声明 / `= (…) =>`)。
+ *
+ * 为什么单独立一档:F1 的正则要求箭头字面量就写在 `style={` 后面。把函数先起个名再传进去
+ * (`const style = ({pressed}) => […]` ⇒ `style={style}`)就整条隐身 —— 实测
+ * BottomActionBar 的聊天主按钮与图标按钮两枚正是这一型,而 cssInterop 吃掉它的路径与 F1
+ * 逐字同一条(非数组声明 ⇒ `assignToTarget(props, { ...函数 })` ⇒ `style={{}}`,连原样式一起丢)。
+ *
+ * 判据只在"绑定确实在本文件、且确实是函数"时成立:认不出来源形态 ⇒ 不报(宁漏不误),
+ * 对象字面量 / 数组 / `styles.X` / StyleSheet 结果一律放过。归属与行内豁免口径与 F1/F2 同源。
+ */
+export function findNamedFnStyleHits(text, registry) {
+  const hits = []
+  const undetermined = []
+  if (typeof text !== 'string') return { hits, undetermined: [{ reason: '内容取不到' }] }
+  const raw = text.split('\n')
+  const code = maskCommentsAndStrings(text).split('\n')
+  const RE = /\bstyle=\{\s*([A-Za-z_$][\w$]*)\s*\}/
+  const fnBound = new Set()
+  const otherBound = new Set()
+  for (const line of code) {
+    const fd = /^function\s+([A-Za-z_$][\w$]*)\s*\(/.exec(line)
+    if (fd) {
+      fnBound.add(fd[1])
+      continue
+    }
+    const d =
+      /^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+)$/.exec(line) ||
+      /^([A-Za-z_$][\w$]*)\s*=\s*(?!=)(.+)$/.exec(line)
+    if (!d) continue
+    const [, name, rhs] = d
+    if (/^(?:async\s+)?(?:\([^)]*\)\s*(?::[^=]*)?=>|[A-Za-z_$][\w$]*\s*=>|function\b)/.test(rhs))
+      fnBound.add(name)
+    // 同名又被重绑成非函数形态(含裸重新赋值) ⇒ 这一档形态不确定,宁可漏报不误报
+    else otherBound.add(name)
+  }
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i]
+    const m = RE.exec(code[i] ?? '')
+    if (!m) continue
+    const ident = m[1]
+    // 必须是"本文件里确实绑成了函数";同名又被重绑成非函数形态 ⇒ 形态不确定,不报
+    if (!fnBound.has(ident) || otherBound.has(ident)) continue
+    if (
+      EXEMPT.test(line) ||
+      (i > 0 && COMMENT_LINE.test(raw[i - 1]) && EXEMPT.test(raw[i - 1]))
+    )
+      continue
+    const tag = latestJsxTagBefore(code, i)
+    if (!tag) {
+      undetermined.push({ line: i + 1, reason: 'F3 回溯不到 JSX 开标签(不猜,只报数)' })
+      continue
+    }
+    if (!registry.has(tag)) continue // 同 F1/F2:非注册组件收函数形态是其自身契约
+    hits.push({ line: i + 1, tag, ident, text: line.trim().slice(0, 120) })
+  }
+  return { hits, undetermined }
+}
+
 function listFacePaths(face) {
   if (face === 'head')
     return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], ROOT, { timeout: GIT_TIMEOUT })
@@ -285,9 +345,12 @@ export function analyze(face) {
   const headCounts = new Map()
   const f2Counts = new Map()
   const f2HeadCounts = new Map()
+  const f3Counts = new Map()
+  const f3HeadCounts = new Map()
   const undetermined = []
   const detail = []
   const detailF2 = []
+  const detailF3 = []
   // 名单为空/非法 ⇒ 整档一次「未判定」点名(逐文件调只会刷几百条同因噪声)
   const helpersUsable = Array.isArray(FN_STYLE_HELPERS) && FN_STYLE_HELPERS.length > 0
   if (!helpersUsable) undetermined.push({ file: '(全局)', reason: 'F2 helper 名单为空/非法 ⇒ 本档未判定' })
@@ -311,12 +374,19 @@ export function analyze(face) {
         for (const h of h2.hits) detailF2.push({ file: f, ...h })
       }
     }
+    const h3 = findNamedFnStyleHits(text, registry)
+    for (const x of h3.undetermined) undetermined.push({ file: f, ...x })
+    if (h3.hits.length) {
+      f3Counts.set(f, h3.hits.length)
+      for (const h of h3.hits) detailF3.push({ file: f, ...h })
+    }
   }
   // 棘轮锚点:同一批文件在 **HEAD** 自身的数量。判 head 面时两者同一次读数 ⇒ 存量恒等于本轮,
   // 这正是"全量档只报数"的语义;判 staged 面时才真读到上一枚提交。F2 同一条锚点口径。
   if (face === 'head') {
     for (const [f, n] of counts) headCounts.set(f, n)
     for (const [f, n] of f2Counts) f2HeadCounts.set(f, n)
+    for (const [f, n] of f3Counts) f3HeadCounts.set(f, n)
   } else {
     const headMap = readFace(files, 'head')
     for (const f of files) {
@@ -325,6 +395,7 @@ export function analyze(face) {
       headCounts.set(f, findFnStyleHits(t, registry).hits.length)
       if (helpersUsable)
         f2HeadCounts.set(f, findHelperFnStyleHits(t, registry, FN_STYLE_HELPERS).hits.length)
+      f3HeadCounts.set(f, findNamedFnStyleHits(t, registry).hits.length)
     }
   }
   const red = []
@@ -336,6 +407,11 @@ export function analyze(face) {
   for (const [f, n] of [...f2Counts].sort()) {
     const cap = f2HeadCounts.get(f) ?? 0
     if (n > cap) redF2.push({ file: f, n, cap })
+  }
+  const redF3 = []
+  for (const [f, n] of [...f3Counts].sort()) {
+    const cap = f3HeadCounts.get(f) ?? 0
+    if (n > cap) redF3.push({ file: f, n, cap })
   }
   /**
    * 空扫不得记绿:`head` 面枚举到 0 个候选文件,只可能是枚举/锚点坏了(仓库根错位、
@@ -363,6 +439,11 @@ export function analyze(face) {
     totalF2: detailF2.length,
     filesWithHitsF2: f2Counts.size,
     redF2,
+    // F3(命名函数形态 style;差值棘轮,与 F1/F2 各自独立计数)
+    stockF3: detailF3.filter((d) => !redF3.some((r) => r.file === d.file)),
+    totalF3: detailF3.length,
+    filesWithHitsF3: f3Counts.size,
+    redF3,
     // 注册表读不到**不影响退出码**:那是机器态(没装依赖 / 干净检出 / CI 未 install),
     // 提交者结构上满足不了 ⇒ 判红就是一台恒红门,唯一结局是逼人绕过钩子连带废掉全部守门
     // (守门 104/110 同一取向)。此时按内置清单判并在报告里点名"注册表未对账"。
@@ -371,7 +452,7 @@ export function analyze(face) {
     exit:
       unreadable.length || emptyScan || !helpersUsable
         ? 2
-        : red.length || redF2.length || rot.length
+        : red.length || redF2.length || redF3.length || rot.length
           ? 1
           : 0,
   }
@@ -584,6 +665,78 @@ function runSelfTest() {
     })(),
   )
   ok(
+    'F3 命中:函数先起名再当 style 传进注册组件(F1 的内联正则对此全盲)',
+    (() => {
+      const src = [
+        'const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [',
+        '  baseStyle,',
+        '  pressed ? pressedStyle : null,',
+        ']',
+        'return (',
+        '  <Pressable',
+        '    onPress={handlePress}',
+        '    style={style}',
+        '  />',
+        ')',
+      ].join('\n')
+      const r = findNamedFnStyleHits(src, REG)
+      return r.hits.length === 1 && r.hits[0].ident === 'style' && findFnStyleHits(src, REG).hits.length === 0
+    })(),
+  )
+  ok(
+    'F3 放过:绑定确实是对象/StyleSheet 结果(数组逐元素合并,值保留,不属这一型)',
+    (() => {
+      const a = 'const style = StyleSheet.create({ card: { padding: 4 } })\n<View style={style} />'
+      const b = 'const style = styles.card\n<Pressable style={style} />'
+      const c = 'const style = { padding: 4 }\n<Pressable style={style} />'
+      return (
+        findNamedFnStyleHits(a, REG).hits.length === 0 &&
+        findNamedFnStyleHits(b, REG).hits.length === 0 &&
+        findNamedFnStyleHits(c, REG).hits.length === 0
+      )
+    })(),
+  )
+  ok(
+    'F3 放过:自定义组件收函数形态是其自身契约(与 F1/F2 同一条归属口径)',
+    findNamedFnStyleHits('const style = (p) => [a, b]\n<MyOwnButton style={style} />', REG).hits
+      .length === 0,
+  )
+  ok(
+    'F3 放过:同名又被重绑成非函数 ⇒ 形态不确定,宁可漏报不误报',
+    findNamedFnStyleHits(
+      'let style = (p) => [a]\nstyle = styles.card\n<Pressable style={style} />',
+      REG,
+    ).hits.length === 0,
+  )
+  ok(
+    'F3 放过:带原因的行内豁免(interop-style-exempt,与 F1/F2 同一豁免族)',
+    findNamedFnStyleHits(
+      'const style = (p) => [a]\n// interop-style-exempt: 该组件不经 cssInterop\n<Pressable style={style} />',
+      REG,
+    ).hits.length === 0,
+  )
+  ok(
+    'F3 回溯不到开标签 ⇒ 计未判定(三档同一条"看不见归属不静默丢命中")',
+    (() => {
+      // 必须先有"这名字确实是函数"的绑定,否则走不到归属回溯那一步(测的是回溯,不是绑定)
+      const r = findNamedFnStyleHits('const style = (p) => [a]\n  style={style}', REG)
+      return r.hits.length === 0 && r.undetermined.length === 1
+    })(),
+  )
+  ok(
+    'F3 装车证明:analyze(head) 真把 F3 接入读数(redF3/totalF3 齐备,head 面棘轮自锚必无红;存量多少不写死)',
+    (() => {
+      const r = analyze('head')
+      return (
+        Array.isArray(r.redF3) &&
+        r.redF3.length === 0 &&
+        Number.isFinite(r.totalF3) &&
+        r.totalF3 >= 0 &&
+        r.exit !== 1
+      )
+    })(),
+  )
+  ok(
     'F2 装车证明:analyze(head) 真把 F2 接入读数(redF2/totalF2/helperListSize 齐备,head 面棘轮自锚必无红;存量多少不写死 —— 清偿到 0 后本例仍须绿)',
     (() => {
       const r = analyze('head')
@@ -672,6 +825,20 @@ function main() {
       `✅ F2 无新增。存量 ${r.totalF2} 处 / ${r.filesWithHitsF2} 文件按"HEAD 自身存量"棘轮只报数;名单 ${r.helperListSize} 个 helper(名单现读自门体 FN_STYLE_HELPERS)`,
     )
   }
+  if (r.redF3.length) {
+    console.log(`❌ F3 新增(超出该文件 HEAD 自身存量)${r.redF3.length} 个文件:`)
+    for (const x of r.redF3)
+      console.log(`   ${x.file} 现 ${x.n} 处 > HEAD ${x.cap} 处(命名函数当 style 传进注册组件)`)
+    console.log(
+      '   出路:把函数解绑成数组形态交给 Tappable(`<Tappable style={A} pressedStyle={B}>`);' +
+        '`interop-style-exempt: <原因>` 与 F1/F2 同一豁免族。',
+    )
+  } else {
+    console.log(
+      `✅ F3 无新增。存量 ${r.totalF3} 处 / ${r.filesWithHitsF3} 文件按"HEAD 自身存量"棘轮只报数` +
+        '(这一档管的是"函数先起名再传"的形态,F1 的内联正则对它全盲)',
+    )
+  }
   console.log(`提示:本门射程 = ${STAGED_TRIGGER_HINT} 的 .tsx/.ts`)
   process.exitCode = r.exit
 }
@@ -685,6 +852,7 @@ if (
 export const __test__ = {
   findFnStyleHits,
   findHelperFnStyleHits,
+  findNamedFnStyleHits,
   FN_STYLE_HELPERS,
   maskCommentsAndStrings,
   deriveInteropRegistry,

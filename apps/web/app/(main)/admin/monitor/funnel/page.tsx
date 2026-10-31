@@ -103,7 +103,7 @@ export default function AdminMonitorFunnelPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Filter className="h-6 w-6 text-primary" />
             业务漏斗仪表盘
           </h1>
@@ -118,28 +118,28 @@ export default function AdminMonitorFunnelPage() {
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">总用户</CardTitle>
+              <CardTitle className="text-label font-medium text-muted-foreground">总用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{formatNumber(view.totalUsers)}</div>
+              <div className="text-display font-bold text-primary">{formatNumber(view.totalUsers)}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">转化用户</CardTitle>
+              <CardTitle className="text-label font-medium text-muted-foreground">转化用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success-text">
+              <div className="text-display font-bold text-success-text">
                 {formatNumber(view.convertedUsers)}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">转化率</CardTitle>
+              <CardTitle className="text-label font-medium text-muted-foreground">转化率</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-warning-text">
+              <div className="text-display font-bold text-warning-text">
                 {readRate(view.conversionRate, undetermined, 2)}
               </div>
             </CardContent>
@@ -184,7 +184,7 @@ export default function AdminMonitorFunnelPage() {
                     <div className="relative h-8 overflow-hidden rounded-md bg-muted">
                       <div
                         className={cn(
-                          'flex h-full items-center rounded-md px-2 text-xs font-medium transition-all',
+                          'flex h-full items-center rounded-md px-2 text-label font-medium transition-all',
                           i === 0
                             ? 'bg-primary text-primary-foreground' /* r5-cta-exempt: 漏斗首段进度条填充,非主按钮;品牌墨底+配对前景是该图表的既有形态 until 2026-12-20 */
                             : i === stages.length - 1

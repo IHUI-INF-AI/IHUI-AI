@@ -57,7 +57,7 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex rounded px-2 py-0.5 text-xs font-medium',
+                        'inline-flex rounded px-2 py-0.5 text-label font-medium',
                         METHOD_COLOR[l.method] ?? 'bg-muted text-muted-foreground',
                       )}
                     >

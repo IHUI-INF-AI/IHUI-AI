@@ -132,7 +132,7 @@ export default function MyCommissionPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <DollarSign className="h-7 w-7 text-primary" />
           {t('commissionTitle')}
         </h1>
@@ -151,7 +151,7 @@ export default function MyCommissionPage() {
                   {summaryQ.isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : (
-                    <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                    <div className="text-heading font-bold tracking-tight min-[768px]:text-display">
                       {s.value}
                     </div>
                   )}
@@ -214,7 +214,7 @@ export default function MyCommissionPage() {
                           {it.token}
                         </TableCell>
                         <TableCell className="px-4 py-2.5">
-                          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-label font-medium text-emerald-600 dark:text-emerald-400">
                             {it.status === 1 ? t('commissionActive') : t('commissionInvalid')}
                           </span>
                         </TableCell>

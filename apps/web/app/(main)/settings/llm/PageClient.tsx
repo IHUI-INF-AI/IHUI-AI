@@ -232,7 +232,7 @@ export default function UserLlmConfigsPage() {
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <KeyRound className="h-6 w-6 shrink-0 text-primary" />
             <span className="truncate">{t('title')}</span>
           </h1>
@@ -320,7 +320,7 @@ export default function UserLlmConfigsPage() {
             // 进而重复添加。
             <Card>
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-sm font-medium">{tV2('fetchFailed')}</p>
+                <p className="text-body font-medium">{tV2('fetchFailed')}</p>
                 <Button size="sm" variant="outline" onClick={() => void refetch()}>
                   {tc('retry')}
                 </Button>
@@ -333,7 +333,7 @@ export default function UserLlmConfigsPage() {
                   <Wand2 className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{tV2('emptyTitle')}</p>
+                  <p className="text-body font-medium">{tV2('emptyTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{tV2('emptyDesc')}</p>
                 </div>
                 <Button
@@ -468,25 +468,25 @@ export default function UserLlmConfigsPage() {
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
                 <Card>
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
-                    <p className="text-xs font-medium">Cloudflare Workers AI</p>
+                    <p className="text-label font-medium">Cloudflare Workers AI</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.cfDesc')}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
-                    <p className="text-xs font-medium">GitHub Models</p>
+                    <p className="text-label font-medium">GitHub Models</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.githubDesc')}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
-                    <p className="text-xs font-medium">HuggingFace</p>
+                    <p className="text-label font-medium">HuggingFace</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.hfDesc')}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
-                    <p className="text-xs font-medium">Pollinations</p>
+                    <p className="text-label font-medium">Pollinations</p>
                     <p className="text-[11px] text-muted-foreground">
                       {tV2('byok.pollinationsDesc')}
                     </p>
@@ -494,7 +494,7 @@ export default function UserLlmConfigsPage() {
                 </Card>
                 <Card className="min-[640px]:col-span-2">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
-                    <p className="text-xs font-medium">LLM7</p>
+                    <p className="text-label font-medium">LLM7</p>
                     <p className="text-[11px] text-muted-foreground">{tV2('byok.llm7Desc')}</p>
                   </CardContent>
                 </Card>

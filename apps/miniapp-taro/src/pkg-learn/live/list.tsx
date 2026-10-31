@@ -204,7 +204,7 @@ export default function LiveList() {
               >
                 {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
                 <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="flex-1 ihui-ellipsis text-[length:32rpx] font-semibold text-foreground">
+                  <Text className="flex-1 ihui-ellipsis text-title font-semibold text-foreground">
                     {item.title}
                   </Text>
                   <View
@@ -212,23 +212,23 @@ export default function LiveList() {
                       item.isLive ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-text-tertiary)]'
                     }`}
                   >
-                    <Text className="text-[length:24rpx] text-[var(--color-primary-foreground)]">
+                    <Text className="text-label text-[var(--color-primary-foreground)]">
                       {statusText(item.isLive ? 'living' : 'ended')}
                     </Text>
                   </View>
                 </View>
                 {/* 对齐 RN lecturer 行(marginTop 6 → 12rpx, 14px → 28rpx, text.medium) */}
                 {item.lecturerName ? (
-                  <Text className="block mt-[12rpx] text-[length:28rpx] text-[var(--color-text-medium)]">
+                  <Text className="block mt-[12rpx] text-body text-[var(--color-text-medium)]">
                     {t('liveList.lecturer')}: {item.lecturerName}
                   </Text>
                 ) : null}
                 {/* 对齐 RN metaRow:开始时间 + 观看人数两端对齐(marginTop 8 → 16rpx, 12px → 24rpx, text.tertiary) */}
                 <View className="flex items-center justify-between mt-[16rpx]">
-                  <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-label text-[var(--color-text-tertiary)]">
                     {t('liveList.startAt')}: {formatStart(item.startTime) || '—'}
                   </Text>
-                  <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-label text-[var(--color-text-tertiary)]">
                     {t('liveList.viewerCount')} {item.viewCount}
                   </Text>
                 </View>

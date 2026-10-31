@@ -75,7 +75,7 @@ export function ArticlesList({
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex items-center gap-2">
                       {item.isPinned && (
-                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                           <Pin className="h-3 w-3" />
                           {t('pinned')}
                         </span>

@@ -154,7 +154,7 @@ function HistoryList({ entries, now }: HistoryListProps) {
               <div className="flex items-center gap-1.5">
                 <span
                   className={cn(
-                    'text-xs font-medium',
+                    'text-label font-medium',
                     isHighRisk && 'text-amber-700 dark:text-amber-400',
                   )}
                 >
@@ -348,7 +348,7 @@ export function PermissionHistoryPanel({
       <div className="flex items-center justify-between gap-2 px-1 pb-1">
         <div className="flex items-center gap-1.5">
           <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
+          <span className="text-body font-semibold text-foreground">{t('historyTitle')}</span>
         </div>
         {entries.length > 0 && (
           <button

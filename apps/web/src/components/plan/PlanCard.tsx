@@ -43,7 +43,7 @@ export function PlanCard({ plan }: PlanCardProps) {
           <CardTitle className="line-clamp-1 text-base">{plan.title}</CardTitle>
           <span
             className={cn(
-              'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+              'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
               PLAN_STATUS_COLOR[plan.status],
             )}
           >

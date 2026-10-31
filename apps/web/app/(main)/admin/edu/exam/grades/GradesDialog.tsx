@@ -60,7 +60,7 @@ export function GradesDialog({
                 <div className="text-xs text-muted-foreground">
                   {t('subjectiveInfo', { index: idx + 1, score: Number(q.score) })}
                 </div>
-                <div className="mt-1 text-sm font-medium">{q.title}</div>
+                <div className="mt-1 text-body font-medium">{q.title}</div>
                 <div className="mt-2 flex items-center gap-2">
                   <Label htmlFor={`g-${q.id}`} className="text-xs">
                     {t('fieldScore')}

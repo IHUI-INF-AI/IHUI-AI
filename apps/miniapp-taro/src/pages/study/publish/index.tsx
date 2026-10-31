@@ -81,7 +81,7 @@ export default function StudyPublish() {
           input 语言:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted / 字号 16dp→32rpx;提交按钮 h 50dp→100rpx / radius 15dp→30rpx */}
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[180rpx] flex flex-col gap-[28rpx]">
         <FocusInput
-          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
+          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-title text-foreground"
           placeholder={t('study.publish.titlePlaceholder')}
           maxlength={50}
           value={title}
@@ -90,13 +90,13 @@ export default function StudyPublish() {
 
         <View className="flex flex-col gap-[12rpx]">
           <FocusTextarea
-            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
+            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-title text-foreground"
             placeholder={t('study.publish.contentPlaceholder')}
             maxlength={2000}
             value={content}
             onInput={(e) => setContent(e.detail.value)}
           />
-          <Text className="block text-right text-[length:22rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block text-right text-caption text-[var(--color-text-tertiary)]">
             {content.length}/2000
           </Text>
         </View>
@@ -110,10 +110,10 @@ export default function StudyPublish() {
             onChange={(e) => setCategory(Number(e.detail.value))}
           >
             <View className="flex items-center h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl">
-              <Text className="text-[length:28rpx] text-foreground w-[160rpx]">
+              <Text className="text-body text-foreground w-[160rpx]">
                 {t('study.publish.category')}
               </Text>
-              <Text className="flex-1 text-[length:28rpx] text-muted-foreground text-right">
+              <Text className="flex-1 text-body text-muted-foreground text-right">
                 {categories[category]}
               </Text>
               <LineIcon name="chevron-right" size={32} className="ml-[16rpx]" />
@@ -126,17 +126,17 @@ export default function StudyPublish() {
             onChange={(e) => setVisibility(Number(e.detail.value))}
           >
             <View className="flex items-center h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl">
-              <Text className="text-[length:28rpx] text-foreground w-[160rpx]">
+              <Text className="text-body text-foreground w-[160rpx]">
                 {t('study.publish.visibility')}
               </Text>
-              <Text className="flex-1 text-[length:28rpx] text-muted-foreground text-right">
+              <Text className="flex-1 text-body text-muted-foreground text-right">
                 {visibilityOptions[visibility]}
               </Text>
               <LineIcon name="chevron-right" size={32} className="ml-[16rpx]" />
             </View>
           </Picker>
           <FocusInput
-            className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:28rpx] text-foreground"
+            className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-body text-foreground"
             placeholder={t('study.publish.tagsPlaceholder')}
             value={tags}
             onInput={(e) => setTags(e.detail.value)}

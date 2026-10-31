@@ -143,7 +143,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
     >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">
+          <span className="text-body font-semibold">
             <TrendingUp className="mr-1 inline h-3.5 w-3.5" />
             {t('knowledgeGraphTitle')}
           </span>

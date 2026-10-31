@@ -188,7 +188,7 @@ export default function AgentPlanProgressPage() {
         </button>
         <div className="mb-6 flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">Plan 任务进度</h1>
+          <h1 className="text-display font-bold">Plan 任务进度</h1>
         </div>
 
         {error && (
@@ -200,8 +200,8 @@ export default function AgentPlanProgressPage() {
         {/* 计划元信息 */}
         <div className="rounded-xl border p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold">{detail.goal}</span>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium">
+            <span className="text-body font-semibold">{detail.goal}</span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-muted px-2.5 py-0.5 text-label font-medium">
               <span
                 className={`h-2 w-2 rounded-full ${
                   detail.status === 'failed' || detail.status === 'rejected'
@@ -250,7 +250,7 @@ export default function AgentPlanProgressPage() {
 
         {/* 任务进度 */}
         <div className="mt-4 rounded-xl border p-3">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
             <ListChecks className="h-4 w-4" /> 任务进度
           </h2>
           <div className="mb-3 flex items-center gap-3 text-sm">
@@ -310,7 +310,7 @@ export default function AgentPlanProgressPage() {
 
         {/* 版本历史 */}
         <div className="mt-4 rounded-xl border p-3">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
             <Layers className="h-4 w-4" /> 版本历史(点击切换查看差异)
           </h2>
           {versionsData && versionsData.versions.length === 0 ? (
@@ -375,7 +375,7 @@ export default function AgentPlanProgressPage() {
     <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-4 flex items-center gap-2">
         <FileText className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">Plan 任务进度</h1>
+        <h1 className="text-display font-bold">Plan 任务进度</h1>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
         查看计划任务勾选态与版本演进。输入 plan_id 打开某份计划,或点击下方最近查看。
@@ -392,7 +392,7 @@ export default function AgentPlanProgressPage() {
         <button
           onClick={() => void loadPlan(planId)}
           disabled={loading || !planId.trim()}
-          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           打开
@@ -406,7 +406,7 @@ export default function AgentPlanProgressPage() {
       )}
 
       <div className="rounded-xl border p-3">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
           <ListChecks className="h-4 w-4" /> 最近查看({recent.length})
         </h2>
         {recent.length === 0 ? (
@@ -425,14 +425,14 @@ export default function AgentPlanProgressPage() {
                     <code className="truncate rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                       {p.plan_id.slice(0, 24)}
                     </code>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-medium">
                       <span
                         className={`h-2 w-2 rounded-full ${p.status === 'done' ? 'bg-emerald-500' : p.status === 'executing' ? 'animate-pulse bg-primary' : 'bg-muted-foreground'}`}
                       />
                       {STATUS_LABEL[p.status] || p.status}
                     </span>
                   </div>
-                  <p className="line-clamp-1 text-sm font-medium">{p.goal || '(无目标描述)'}</p>
+                  <p className="line-clamp-1 text-body font-medium">{p.goal || '(无目标描述)'}</p>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     {p.total > 0 && (
                       <span>

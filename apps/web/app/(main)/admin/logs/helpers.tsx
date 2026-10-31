@@ -40,7 +40,7 @@ export function Badge({ cls, children }: { cls: string; children: React.ReactNod
   return (
     <span
       className={cn(
-        'inline-flex justify-center rounded-md px-1.5 py-0.5 font-mono text-xs font-medium',
+        'inline-flex justify-center rounded-md px-1.5 py-0.5 font-mono text-label font-medium',
         cls,
       )}
     >

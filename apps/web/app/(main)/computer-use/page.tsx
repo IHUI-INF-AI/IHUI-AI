@@ -190,7 +190,7 @@ export default function ComputerUsePage() {
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-6 flex items-center gap-2">
         <Globe className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
 
       {/* 打开区 */}
@@ -206,7 +206,7 @@ export default function ComputerUsePage() {
           <button
             onClick={openPage}
             disabled={busy || !url.trim()}
-            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -233,7 +233,7 @@ export default function ComputerUsePage() {
             <button
               onClick={takeScreenshot}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <Camera className="h-3.5 w-3.5" /> {t('screenshot')}
             </button>
@@ -248,21 +248,21 @@ export default function ComputerUsePage() {
             <button
               onClick={extractText}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <FileText className="h-3.5 w-3.5" /> {t('extractText')}
             </button>
             <button
               onClick={() => refreshSnapshot()}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <ScanSearch className="h-3.5 w-3.5" /> {t('refreshSnapshot')}
             </button>
             <button
               onClick={closeBrowser}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-destructive/40 px-3 py-1.5 text-label font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
             >
               <CircleX className="h-3.5 w-3.5" /> {t('close')}
             </button>
@@ -283,7 +283,7 @@ export default function ComputerUsePage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 截图预览 */}
         <div className="rounded-xl border p-3">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <Camera className="h-4 w-4" /> {t('screenshotTitle')}
           </h2>
           {screenshot ? (
@@ -302,7 +302,7 @@ export default function ComputerUsePage() {
 
         {/* 输入操作 */}
         <div className="rounded-xl border p-3">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
             <Keyboard className="h-4 w-4" /> {t('inputTextTitle')}
           </h2>
           <p className="mb-3 text-xs text-muted-foreground">
@@ -334,7 +334,7 @@ export default function ComputerUsePage() {
             <button
               onClick={typeIntoSelected}
               disabled={busy || !openInfo || !typeText.trim()}
-              className="ml-auto inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="ml-auto inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               <Keyboard className="h-4 w-4" /> {t('type')}
             </button>
@@ -344,7 +344,7 @@ export default function ComputerUsePage() {
 
       {/* 快照列表 */}
       <div className="mt-6 rounded-xl border p-3">
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
           <MousePointerClick className="h-4 w-4" /> {t('snapshotTitle', { count: elements.length })}
         </h2>
         {elements.length === 0 ? (
@@ -401,7 +401,7 @@ export default function ComputerUsePage() {
                     clickElement(el)
                   }}
                   disabled={busy || el.disabled}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-sm bg-accent px-2.5 py-1 text-xs font-medium transition hover:bg-accent/80 disabled:opacity-40"
+                  className="shrink-0 inline-flex items-center gap-1 rounded-sm bg-accent px-2.5 py-1 text-label font-medium transition hover:bg-accent/80 disabled:opacity-40"
                 >
                   <MousePointerClick className="h-3 w-3" /> {t('click')}
                 </button>
@@ -414,7 +414,7 @@ export default function ComputerUsePage() {
       {/* 提取文本结果 */}
       {textResult && (
         <div className="mt-6 rounded-xl border p-3">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('extractedTextTitle')}
           </h2>
           <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-xs leading-relaxed">

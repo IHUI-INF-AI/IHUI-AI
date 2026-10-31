@@ -106,7 +106,7 @@ function NumberField({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor={testId} className="text-xs font-medium">
+        <Label htmlFor={testId} className="text-label font-medium">
           {label}
         </Label>
         <div className="flex items-center gap-1">
@@ -266,7 +266,7 @@ export function SamplingParamsPanel({
               (undefined/true 均为默认开);打开即回默认(不落盘),关闭显式存 false。 */}
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 space-y-1">
-              <Label htmlFor="sampling-knowledge-context" className="text-xs font-medium">
+              <Label htmlFor="sampling-knowledge-context" className="text-label font-medium">
                 {t('knowledgeContext')}
               </Label>
               <p className="text-[11px] leading-snug text-muted-foreground">
@@ -283,7 +283,7 @@ export function SamplingParamsPanel({
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="sampling-system-prompt" className="text-xs font-medium">
+              <Label htmlFor="sampling-system-prompt" className="text-label font-medium">
                 {t('systemPrompt')}
               </Label>
               <span className="text-[11px] tabular-nums text-muted-foreground">

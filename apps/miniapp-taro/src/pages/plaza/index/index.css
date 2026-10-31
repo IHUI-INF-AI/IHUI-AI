@@ -155,8 +155,8 @@
 /* 头像 fallback 对齐 RN avatarWrap+avatarFallback:24dp→48rpx 圆 / bg surface.muted */
 .pza-avatar {
   flex: none;
-  width: 48rpx;
-  height: 48rpx;
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
   border-radius: 50%;
   background: var(--color-muted);
   overflow: hidden;
@@ -442,7 +442,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 80rpx;
+  height: var(--spacing-4xl);
   border-radius: var(--radius-sm);
   background: var(--color-brand);
 }

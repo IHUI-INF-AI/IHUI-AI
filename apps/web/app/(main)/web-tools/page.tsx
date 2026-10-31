@@ -128,7 +128,7 @@ export default function WebToolsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Globe className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -148,7 +148,7 @@ export default function WebToolsPage() {
                   setError(null)
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium',
+                  'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium',
                   tool === k
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -253,7 +253,7 @@ export default function WebToolsPage() {
         <section className="space-y-3 rounded-lg border border-border bg-card p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              {result.title && <h2 className="truncate text-sm font-semibold">{result.title}</h2>}
+              {result.title && <h2 className="truncate text-body font-semibold">{result.title}</h2>}
               <a
                 href={result.url}
                 target="_blank"

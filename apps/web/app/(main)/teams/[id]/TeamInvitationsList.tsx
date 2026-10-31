@@ -49,7 +49,7 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
             <Mail className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="break-words text-sm font-medium">{inv.invitee}</div>
+            <div className="break-words text-body font-medium">{inv.invitee}</div>
             <div className="mt-0.5 text-xs text-muted-foreground">
               {t('expiresAt')}: {fmt(inv.expiresAt)}
             </div>

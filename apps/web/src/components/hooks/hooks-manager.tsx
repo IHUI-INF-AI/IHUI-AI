@@ -290,7 +290,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
         {/* 名称 + 描述 */}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium">{hook.name}</span>
+            <span className="truncate text-body font-medium">{hook.name}</span>
             {!hook.enabled && (
               <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {t('disabled')}
@@ -476,7 +476,7 @@ function HookEditor({
           {testResult && (
             <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-xs font-semibold">{t('testResultTitle')}</span>
+                <span className="text-label font-semibold">{t('testResultTitle')}</span>
                 <Badge
                   className={
                     testResult.triggered
@@ -771,7 +771,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="flex items-center gap-1 text-xs font-medium text-foreground">
+      <label className="flex items-center gap-1 text-label font-medium text-foreground">
         <span>{label}</span>
         {required && <span className="text-destructive">*</span>}
       </label>

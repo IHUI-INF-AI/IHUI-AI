@@ -61,7 +61,7 @@ export const Heatmap = React.memo(function Heatmap({
                 content={`${xLabels?.[j] ?? ''} ${yLabels?.[i] ?? ''}: ${v}`}
               >
                 <div
-                  className="m-0.5 flex aspect-square min-w-[24px] items-center justify-center rounded text-xs font-medium transition-transform hover:scale-110"
+                  className="m-0.5 flex aspect-square min-w-[24px] items-center justify-center rounded text-label font-medium transition-transform hover:scale-110"
                   style={{
                     backgroundColor: color,
                     opacity: getOpacity(v),

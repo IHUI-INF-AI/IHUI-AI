@@ -169,11 +169,11 @@ export default function SettingIndexPage() {
             />
             <View className="min-w-0 flex-1">
               {/* 昵称对齐 RN nickname: 16dp→32rpx semibold + text.primary;无昵称落「未设置昵称」 */}
-              <Text className="block text-[length:32rpx] text-foreground font-semibold">
+              <Text className="block text-title text-foreground font-semibold">
                 {user.nickname || t('profile.nickname')}
               </Text>
               {/* 副行对齐 RN subText: 14dp→28rpx + text.secondary;间距对齐 userMeta gap 2dp→4rpx */}
-              <Text className="mt-[4rpx] block text-[length:28rpx] text-muted-foreground">
+              <Text className="mt-[4rpx] block text-body text-muted-foreground">
                 {t('profile.editProfile')}
               </Text>
             </View>
@@ -192,7 +192,7 @@ export default function SettingIndexPage() {
             文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
             上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
         <Button
-          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-card text-[length:32rpx] font-semibold dark:bg-muted"
+          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-card text-title font-semibold dark:bg-muted"
           style={{ color: 'var(--color-danger)' }}
           onClick={onLogout}
         >
@@ -202,7 +202,7 @@ export default function SettingIndexPage() {
         {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx;
             且同 RN 的 `appVersion ? … : null` —— 拿不到真实版本号时这一行不出现 */}
         {appVersion ? (
-          <Text className="mt-[8rpx] block text-center text-[length:24rpx] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-label text-[color:var(--color-text-tertiary)]">
             {t('settings.version')} {appVersion}
           </Text>
         ) : null}

@@ -231,7 +231,7 @@ export default function AdminAiPricingPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Coins className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">模型定价管理</h1>
+        <h1 className="text-heading font-bold">模型定价管理</h1>
         <span className="text-xs text-muted-foreground">
           token=分/千token · 按次/按张/按视频=分(入库单位),展示按 元/百万token · 元/次|张|秒
         </span>

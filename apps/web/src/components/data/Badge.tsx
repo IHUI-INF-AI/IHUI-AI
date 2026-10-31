@@ -28,7 +28,7 @@ export function Badge({ variant = 'default', children, className, title }: Badge
   const span = (
     <span
       className={cn(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-label font-medium',
         variantMap[variant],
         className,
       )}

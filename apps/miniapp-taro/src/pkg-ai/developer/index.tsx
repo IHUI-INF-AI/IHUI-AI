@@ -241,7 +241,7 @@ export default function DeveloperIndex() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* RN NavBar: 高 44dp=88rpx(透明底、无下描边 ⇒ 透出页面底色),标题居中 18dp=36rpx semibold */}
         <View className="h-[88rpx] flex items-center justify-center">
-          <Text className="text-[length:36rpx] font-semibold text-foreground">
+          <Text className="text-subtitle font-semibold text-foreground">
             {tt('developer.index.myAgents', '我的智能体')}
           </Text>
         </View>
@@ -252,10 +252,10 @@ export default function DeveloperIndex() {
           hoverClass="opacity-60"
         >
           <View className="flex-1">
-            <Text className="block text-[length:32rpx] font-semibold text-primary-foreground">
+            <Text className="block text-title font-semibold text-primary-foreground">
               {t('developer.index.subscribeTitle')}
             </Text>
-            <Text className="block text-[length:24rpx] text-primary-foreground/90 mt-[8rpx]">
+            <Text className="block text-label text-primary-foreground/90 mt-[8rpx]">
               {t('developer.index.subscribeDesc')}
             </Text>
           </View>
@@ -300,7 +300,7 @@ export default function DeveloperIndex() {
             onClick={onSearchConfirm}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:28rpx] font-semibold text-primary-foreground">搜索</Text>
+            <Text className="text-body font-semibold text-primary-foreground">搜索</Text>
           </View>
         </View>
 
@@ -350,7 +350,7 @@ export default function DeveloperIndex() {
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[18rpx] min-w-0">
-                  <Text className="block text-[length:32rpx] text-[var(--color-agent-name)] overflow-hidden ihui-ellipsis whitespace-nowrap">
+                  <Text className="block text-title text-[var(--color-agent-name)] overflow-hidden ihui-ellipsis whitespace-nowrap">
                     {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
                   {agent.prologue ? (
@@ -358,7 +358,7 @@ export default function DeveloperIndex() {
                       {agent.prologue}
                     </Text>
                   ) : null}
-                  <Text className="text-[length:24rpx] text-[var(--color-text-medium)]">
+                  <Text className="text-label text-[var(--color-text-medium)]">
                     {tt('developer.index.typeLabel', '类型')}：{getTypeText(agent)}
                   </Text>
                 </View>
@@ -369,7 +369,7 @@ export default function DeveloperIndex() {
                   <View className="flex items-center gap-[16rpx]">
                     {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-[length:24rpx] px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
+                      className="text-label px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
@@ -378,7 +378,7 @@ export default function DeveloperIndex() {
                     </Text>
                     {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-accent) 下划线文字钮 */}
                     <Text
-                      className="text-[length:28rpx] text-[var(--color-brand-accent-deep)] font-medium underline"
+                      className="text-body text-[var(--color-brand-accent-deep)] font-medium underline"
                       onClick={() => onDelete(agent)}
                     >
                       {tt('developer.index.deleteBtn', '删除')}
@@ -391,7 +391,7 @@ export default function DeveloperIndex() {
             <EmptyState title={t('developer.index.empty')} />
           )}
           {list.length > 0 && !hasMore ? (
-            <Text className="block text-center text-[length:24rpx] text-[var(--color-text-tertiary)] py-[16rpx]">
+            <Text className="block text-center text-label text-[var(--color-text-tertiary)] py-[16rpx]">
               {tt('developer.index.noMore', '没有更多了')}
             </Text>
           ) : null}

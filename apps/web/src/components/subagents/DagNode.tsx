@@ -77,7 +77,7 @@ function DagNodeComponent({ data }: NodeProps) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5">
-            <span className="truncate text-xs font-semibold text-foreground">{nodeId}</span>
+            <span className="truncate text-label font-semibold text-foreground">{nodeId}</span>
             <span className={`shrink-0 text-[10px] font-medium ${accent.text}`}>{label}</span>
           </div>
         </div>

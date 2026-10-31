@@ -46,8 +46,8 @@
   color: var(--color-muted-foreground);
 }
 .level-icon {
-  width: 48rpx;
-  height: 48rpx;
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
   line-height: 48rpx;
   text-align: center;
   font-size: var(--text-title);
@@ -80,8 +80,8 @@
   align-items: center;
 }
 .entry-icon {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   line-height: 64rpx;
   text-align: center;
   font-size: var(--text-subtitle);
@@ -215,8 +215,8 @@
   color: var(--color-foreground);
 }
 .popup-close {
-  width: 48rpx;
-  height: 48rpx;
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
   line-height: 48rpx;
   text-align: center;
   font-size: var(--text-subtitle);

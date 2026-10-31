@@ -19,6 +19,7 @@ import type { TFunction } from '@ihui/types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * SelfMediaScreen 自媒体助手(共享层)
@@ -174,7 +175,7 @@ export function SelfMediaScreen({
                 const invokeDisabled = invoking || !skill.available
                 return (
                   <View key={skill.id} style={styles.card}>
-                    <Pressable
+                    <Tappable
                       onPress={() => onSelectSkill(expanded ? null : skill.id)}
                       accessibilityRole="button"
                       accessibilityLabel={skill.name}
@@ -204,7 +205,7 @@ export function SelfMediaScreen({
                       <Text style={styles.skillDesc} numberOfLines={2}>
                         {skill.description}
                       </Text>
-                    </Pressable>
+                    </Tappable>
 
                     {expanded ? (
                       <View style={styles.skillBody}>
@@ -248,9 +249,9 @@ export function SelfMediaScreen({
                               <Text style={styles.resultDuration}>
                                 {t('selfMedia.duration', { ms: result.duration_ms })}
                               </Text>
-                              <Pressable onPress={onShare} hitSlop={6}>
+                              <Tappable onPress={onShare} hitSlop={6}>
                                 <Text style={styles.resultShare}>{t('selfMedia.share')}</Text>
-                              </Pressable>
+                              </Tappable>
                             </View>
                             <Text selectable style={styles.resultOutput}>
                               {result.output || result.error}

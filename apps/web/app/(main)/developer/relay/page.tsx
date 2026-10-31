@@ -103,7 +103,7 @@ export default function RelayOverviewPage() {
     return (
       <div className="px-4 py-4 space-y-4">
         <BackButton />
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Zap className="h-6 w-6 text-primary" />
           中转站概览
         </h1>
@@ -125,7 +125,7 @@ export default function RelayOverviewPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Zap className="h-6 w-6 text-primary" />
           中转站概览
         </h1>
@@ -167,7 +167,7 @@ export default function RelayOverviewPage() {
               <Bot className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium">或使用自己的 API Key(BYOK)</p>
+              <p className="text-label font-medium">或使用自己的 API Key(BYOK)</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 自带大厂 API Key(OpenAI/DeepSeek/智谱等),平台只收 5-20% 服务费。Cloudflare/GitHub
                 Models/HuggingFace 等免费 provider 不收费。
@@ -184,7 +184,7 @@ export default function RelayOverviewPage() {
       </Card>
 
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">我的 Key</h2>
+        <h2 className="text-body font-semibold">我的 Key</h2>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href="/developer/relay/keys">
@@ -215,10 +215,10 @@ export default function RelayOverviewPage() {
               <div key={k.id} className="flex items-center gap-3 rounded-md bg-muted/40 p-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{k.name}</p>
+                    <p className="truncate text-body font-medium">{k.name}</p>
                     <span
                       className={cn(
-                        'rounded-md px-2 py-0.5 text-xs font-medium',
+                        'rounded-md px-2 py-0.5 text-label font-medium',
                         k.status === 'active'
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                           : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',

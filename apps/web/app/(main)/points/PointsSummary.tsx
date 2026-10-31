@@ -36,7 +36,7 @@ function StatCard({
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : (
-          <div className="text-2xl font-bold tabular-nums tracking-tight">{value ?? '-'}</div>
+          <div className="text-display font-bold tabular-nums tracking-tight">{value ?? '-'}</div>
         )}
       </CardContent>
     </Card>
@@ -74,7 +74,7 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
               className="h-6 w-6"
               unoptimized
             />
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>

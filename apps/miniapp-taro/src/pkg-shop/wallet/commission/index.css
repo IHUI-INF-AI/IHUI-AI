@@ -91,9 +91,9 @@
 }
 .wc-withdraw-btn {
   position: fixed;
-  bottom: 32rpx;
-  left: 32rpx;
-  right: 32rpx;
+  bottom: var(--spacing-lg);
+  left: var(--spacing-lg);
+  right: var(--spacing-lg);
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);

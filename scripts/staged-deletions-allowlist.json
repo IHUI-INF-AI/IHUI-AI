@@ -60,6 +60,12 @@
     {
       "path": "scripts/tests/check-monitor-vocabulary-single-source.test.mjs",
       "reason": "2026-10-31 有意删除:本文件测的实现在同一枚里一并删除 —— 它是本席 19:20 落地的词表尺子(未注册、头注自称尚未接提交链),而并席 19:53 已落地等价的 check-monitor-alert-vocabulary.mjs(编号 268、blocking、差值棘轮、已注册进 guardian-runner、已完成 AGENTS 点名)⇒ 两份实现同一件事违反 §0.6「同类判据全仓只许一份,第二份必然漂移」。被删源文件在门 99 自身结论里判 [no-reference](不计红),本测试随之删除。关于门报的「它测的模块仍在 ../lib/face-reader.mjs 与 ../lib/scratch-dir.mjs」:那两个是**被它使用的公共 lib**,不是仍在引用它的消费者 —— 门 99 对被删件取的是「谁 import 我」这一反向,而本轮取证行给的是「我 import 了谁」,该维对被删测试恒成立、不构成存续证据(判据方向问题另记,不在本枚削判据)。保留方 268 的镜像与自检:node scripts/check-monitor-alert-vocabulary.mjs --self-test。"
+    },
+    {
+      "path": "scripts/tests/check-cross-end-ui-parity-cssvar.test.mjs",
+      "reason": "有意摘除重复镜像锁(2026-11-01):本席为门 128 几何维加的 CSS 命名档腿(var(--spacing-*)/var(--text-*))与间距档键长修复,已被并席票 O67(88bd07c0c0)以更贴实现落点的方式重做并入库 —— 解值住在 lib/radius-tokens.cssVarItemsInSrc + 门体经 lib/design-token-blocks.collectVars 直读 tokens.css 受管块(浏览器真正解析的那一份),并互证小程序派生副本、失明扫描面含类臂声明体。那 9 例(var 解值成同档 / 解不到逐枚点名 / 行高字重圆角不串味 / 0 值不入集 / 键长回归 / CategoryBar 端到端零分叉)在对面那套 C14/C15/C16/C17/C9/C13/C8b 里逐条有更贴实现落点的版本,两把并留必然按 §0.6 漂开。",
+      "ticket": "O67",
+      "until": "2027-05-01"
     }
   ]
 }

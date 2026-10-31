@@ -124,11 +124,11 @@ export default function ManualIndexPage() {
 
       {/* Hero */}
       <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <BookOpen className="h-3.5 w-3.5" />
           使用说明手册
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           智汇 AI 使用说明手册
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -175,7 +175,7 @@ export default function ManualIndexPage() {
         </a>
         <a
           href="/docs/manual/getting-started"
-          className="inline-flex items-center gap-1 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+          className="inline-flex items-center gap-1 rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
         >
           <span>开始阅读</span>
           <ChevronRight className="h-3.5 w-3.5" aria-hidden />

@@ -204,7 +204,7 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
       {!immersive && (
         <aside className={WORKBENCH_LAYOUT.railClass}>
           <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-3">
-            <span className="min-w-0 truncate text-sm font-medium">{t('workbenchSessions')}</span>
+            <span className="min-w-0 truncate text-body font-medium">{t('workbenchSessions')}</span>
             <span className="flex shrink-0 items-center gap-0.5">
               <Button
                 type="button"

@@ -84,7 +84,7 @@ export default function SelectUserPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <UserPlus className="h-6 w-6 text-primary" />
           选择授权用户
         </h1>

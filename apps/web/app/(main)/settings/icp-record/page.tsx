@@ -51,7 +51,7 @@ export default function IcpRecordPage() {
                 className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
               >
                 <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
-                <dd className="text-right text-sm font-medium">
+                <dd className="text-right text-body font-medium">
                   {item.link ? (
                     <a
                       href={item.link}

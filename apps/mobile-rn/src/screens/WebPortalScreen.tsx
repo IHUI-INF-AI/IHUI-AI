@@ -13,7 +13,7 @@
 // 平台特有:依赖 RN react-native 原语(ScrollView/Pressable)与本端 WebView 路由容器,不适合共享。
 import { rnSpacing } from '@ihui/design-tokens'
 import { useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -24,6 +24,7 @@ import { WEB_PORTAL_SECTIONS, buildWebUrl, type WebPortalEntry } from '../lib/we
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { NavChrome } from '../components/NavChrome'
 import { tokens } from '../theme/active-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -70,7 +71,7 @@ export function WebPortalScreen() {
           const isOpen = expanded.has(section.titleKey)
           return (
             <View key={section.titleKey} className="mb-3">
-              <Pressable
+              <Tappable
                 onPress={() => toggleSection(section.titleKey)}
                 accessibilityRole="button"
                 className={`flex-row items-center justify-between rounded-lg px-4 py-3 ${
@@ -94,11 +95,11 @@ export function WebPortalScreen() {
                     <ChevronDown size={14} color={tokens.text.tertiary} />
                   )}
                 </View>
-              </Pressable>
+              </Tappable>
               {isOpen ? (
                 <View className="mt-1 gap-1">
                   {section.entries.map((entry) => (
-                    <Pressable
+                    <Tappable
                       key={entry.key}
                       onPress={() => openEntry(entry)}
                       accessibilityRole="button"
@@ -113,7 +114,7 @@ export function WebPortalScreen() {
                       </Text>
                       {/* 行尾与小程序端同形:chevron-right 矢量图标;path 只进跳转 URL,不上屏 */}
                       <ChevronRight size={16} color={tokens.text.tertiary} />
-                    </Pressable>
+                    </Tappable>
                   ))}
                 </View>
               ) : null}

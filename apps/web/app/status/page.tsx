@@ -235,7 +235,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
     outage: '服务中断',
   }
   return (
-    <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', styles[status])}>
+    <span className={cn('rounded-md px-2 py-0.5 text-label font-medium', styles[status])}>
       {labels[status]}
     </span>
   )
@@ -253,7 +253,7 @@ function SeverityBadge({ severity }: { severity: IncidentSeverity }) {
     critical: '严重故障',
   }
   return (
-    <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', styles[severity])}>
+    <span className={cn('rounded-md px-2 py-0.5 text-label font-medium', styles[severity])}>
       {labels[severity]}
     </span>
   )
@@ -273,7 +273,7 @@ function Section({
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-body font-semibold">{title}</p>
         </div>
         {children}
       </CardContent>
@@ -339,7 +339,7 @@ export default async function StatusPage() {
         <Card>
           <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
             <AlertTriangle className="h-8 w-8 text-rose-500" />
-            <p className="text-sm font-medium">{result.error}</p>
+            <p className="text-body font-medium">{result.error}</p>
             <p className="text-xs text-muted-foreground">页面将每 60 秒自动刷新重试</p>
           </CardContent>
         </Card>
@@ -368,7 +368,7 @@ export default async function StatusPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 px-4 py-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Activity className="h-5 w-5 text-primary" />
           系统状态
         </h1>
@@ -381,7 +381,7 @@ export default async function StatusPage() {
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-3 p-3">
           <div className="flex items-center gap-2">
             <StatusBadge status={overall} />
-            <span className="text-sm font-medium">
+            <span className="text-body font-medium">
               {overall === 'operational'
                 ? '所有系统运行正常'
                 : overall === 'degraded'
@@ -426,7 +426,7 @@ export default async function StatusPage() {
               <div key={i.id} className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityBadge severity={i.severity} />
-                  <span className="text-sm font-medium">{i.providerCode}</span>
+                  <span className="text-body font-medium">{i.providerCode}</span>
                   <span className="text-xs text-muted-foreground">{i.modelId ?? '—'}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">{i.description}</p>

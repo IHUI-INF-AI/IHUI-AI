@@ -246,7 +246,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
           {/* ============ 结构化默认参数(融合 chat/settings) ============ */}
           <div className="space-y-2 rounded-md border bg-muted/20 p-3">
             <div className="flex items-center justify-between gap-3">
-              <Label className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium">
+              <Label className="flex min-w-0 flex-1 items-center gap-1.5 text-body font-medium">
                 <Settings2 className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">{tParams('title')}</span>
               </Label>

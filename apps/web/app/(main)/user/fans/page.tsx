@@ -132,7 +132,7 @@ export default function FansPage() {
                 <div className="flex items-center gap-3">
                   <Avatar src={fan.avatar ?? undefined} name={fan.nickname ?? '?'} size="md" />
                   <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="truncate text-sm font-medium">{fan.nickname ?? t('anonymous')}</p>
+                    <p className="truncate text-body font-medium">{fan.nickname ?? t('anonymous')}</p>
                     {fan.bio ? (
                       <p className="truncate text-xs text-muted-foreground">{fan.bio}</p>
                     ) : null}

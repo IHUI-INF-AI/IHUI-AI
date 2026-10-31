@@ -85,7 +85,7 @@ export default function UseCasesIndexPage() {
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             用例中心
           </div>
@@ -116,7 +116,7 @@ export default function UseCasesIndexPage() {
                   <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">{uc.desc}</p>
-                <div className="mt-4 text-xs font-medium text-primary">{uc.metrics}</div>
+                <div className="mt-4 text-label font-medium text-primary">{uc.metrics}</div>
               </Link>
             )
           })}

@@ -135,7 +135,7 @@ function SortableUserRow({
       <td className="px-4 py-2.5">
         <span
           className={cn(
-            'inline-flex items-center gap-1 text-xs font-medium',
+            'inline-flex items-center gap-1 text-label font-medium',
             isAdmin ? 'text-primary' : 'text-muted-foreground',
           )}
         >
@@ -146,7 +146,7 @@ function SortableUserRow({
       <td className="px-4 py-2.5">
         <span
           className={cn(
-            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
             isBanned
               ? 'bg-rose-500/10 text-rose-600 dark:text-rose-500'
               : isActive
