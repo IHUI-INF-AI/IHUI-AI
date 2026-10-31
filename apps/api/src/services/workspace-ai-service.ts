@@ -852,21 +852,42 @@ class SandboxExecutor {
     // cwd,`cat /etc/passwd`、`tee /任意路径` 等参数路径原样通过)。逐参数
     // realpathOrResolve + isInsideRoot,与 FSBridge.resolvePath 同判据。
     if (SANDBOX_FILE_TOOL_BINARIES.has(binary)) {
+      // R9 复评 N1:`-` 前缀参数不再一刀切跳过 —— GNU 组合长选项
+      // (`cp x --target-directory=/外`、`tar --file=/外`)与短选项粘值
+      // (`grep -f/etc/passwd`)的路径 operands 曾全量漏网。取值规则:
+      //   · --flag=value 取 = 右侧;-f<value>(路径型短选项)取后缀;
+      //   · 纯旗标(-v/--verbose)跳过;裸路径参数照查。
+      const pathShortOptions = new Set(['f', 'C'])
       for (const arg of tokens.slice(1)) {
-        if (!arg || arg.startsWith('-')) continue
+        if (!arg) continue
+        let candidate: string
+        if (arg.startsWith('--')) {
+          const eq = arg.indexOf('=')
+          if (eq <= 0) continue // --verbose 类纯旗标
+          candidate = arg.slice(eq + 1)
+        } else if (arg.startsWith('-') && arg.length > 2 && pathShortOptions.has(arg[1] ?? '')) {
+          candidate = arg.slice(2)
+        } else if (arg.startsWith('-')) {
+          continue
+        } else {
+          candidate = arg
+        }
+        if (!candidate) continue
         // 路径形态:盘符(C:/ 或 C:\)、绝对(/ 或 \)、相对(./ 或 ../)。用 RegExp 构造避开字面量转义在评审工具链里的二次解释。
-        const looksLikePath = new RegExp('^([A-Za-z]:[/' + String.fromCharCode(92) + '/]|[/' + String.fromCharCode(92) + ']|\.\.?[/' + String.fromCharCode(92) + '/])').test(arg)
+        const looksLikePath = new RegExp('^([A-Za-z]:[/' + String.fromCharCode(92) + '/]|[/' + String.fromCharCode(92) + ']|\.\.?[/' + String.fromCharCode(92) + '/])').test(candidate)
         if (!looksLikePath) continue
         let abs: string
         try {
-          abs = isAbsolute(arg) ? realpathOrResolve(arg) : realpathOrResolve(resolve(cwd, arg))
+          abs = isAbsolute(candidate)
+            ? realpathOrResolve(candidate)
+            : realpathOrResolve(resolve(cwd, candidate))
         } catch {
-          return { stdout: '', stderr: `参数路径无法解析: ${arg}`, exitCode: 126, mode }
+          return { stdout: '', stderr: `参数路径无法解析: ${candidate}`, exitCode: 126, mode }
         }
         if (!isInsideRoot(abs, root)) {
           return {
             stdout: '',
-            stderr: `参数路径越界(仅允许工作区登记根内): ${arg}`,
+            stderr: `参数路径越界(仅允许工作区登记根内): ${candidate}`,
             exitCode: 126,
             mode,
           }
