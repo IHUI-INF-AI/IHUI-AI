@@ -101,7 +101,7 @@ export default function LiveSubscribe() {
       <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[20rpx] pb-[64rpx] box-border">
         <View className="flex items-baseline text-body text-foreground">
           <Text>{tt('live.subscribe.count', '已订阅')}</Text>
-          <Text className="font-bold text-[length:40rpx] text-primary mx-[8rpx]">
+          <Text className="font-bold text-heading text-primary mx-[8rpx]">
             {list.length}
           </Text>
           <Text>{tt('live.subscribe.unit', '场')}</Text>
@@ -146,7 +146,7 @@ export default function LiveSubscribe() {
                   hoverClass="opacity-60"
                 >
                   {/* 对齐 RN targetId(16dp → 32rpx semibold,单行截断) */}
-                  <Text className="overflow-hidden whitespace-nowrap ihui-ellipsis text-[length:32rpx] font-semibold text-foreground">
+                  <Text className="overflow-hidden whitespace-nowrap ihui-ellipsis text-title font-semibold text-foreground">
                     {l.title}
                   </Text>
                   {/* 对齐 RN createdAt(14dp → 28rpx,text.secondary) */}

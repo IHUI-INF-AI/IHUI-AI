@@ -146,7 +146,7 @@ export default function WebviewIndex() {
       <ThemeRoot>
         <View className="min-h-screen bg-card">
           <View className="px-[32rpx] pt-[24rpx] pb-[16rpx]">
-            <Text className="text-[length:32rpx] font-medium text-foreground">
+            <Text className="text-title font-medium text-foreground">
               {t('webview.title')}
             </Text>
           </View>

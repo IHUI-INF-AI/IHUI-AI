@@ -89,7 +89,7 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
             <Text className="px-[10rpx] py-[2rpx] rounded-md bg-muted text-caption font-semibold text-muted-foreground">
               {typeLabel(row.msgType)}
             </Text>
-            <Text className="flex-1 text-[length:30rpx] font-semibold text-foreground truncate">
+            <Text className="flex-1 text-strong font-semibold text-foreground truncate">
               {row.title || row.content || t('message.unnamedRoom')}
             </Text>
           </View>

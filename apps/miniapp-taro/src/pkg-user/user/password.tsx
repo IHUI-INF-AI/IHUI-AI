@@ -89,12 +89,12 @@ export default function Password() {
       <View className="min-h-screen bg-background">
         <View className="flex flex-col gap-[24rpx] p-[28rpx]">
           <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-[length:32rpx] text-muted-foreground">
+            <Text className="text-title text-muted-foreground">
               {tt('settings.oldPassword', '旧密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <FocusInput
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
+                className="box-border h-full w-full bg-transparent pr-[120rpx] text-title text-foreground"
                 password={!showOld}
                 maxlength={20}
                 placeholder={tt('user.password.oldPlaceholder', '请输入原密码')}
@@ -110,12 +110,12 @@ export default function Password() {
             </View>
           </View>
           <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-[length:32rpx] text-muted-foreground">
+            <Text className="text-title text-muted-foreground">
               {tt('user.password.newPassword', '新密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <FocusInput
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
+                className="box-border h-full w-full bg-transparent pr-[120rpx] text-title text-foreground"
                 password={!showNew}
                 maxlength={20}
                 placeholder={tt('user.password.newPlaceholder', '请输入新密码')}
@@ -136,12 +136,12 @@ export default function Password() {
             )}
           </View>
           <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-[length:32rpx] text-muted-foreground">
+            <Text className="text-title text-muted-foreground">
               {tt('settings.confirmPassword', '确认新密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <FocusInput
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
+                className="box-border h-full w-full bg-transparent pr-[120rpx] text-title text-foreground"
                 password={!showConfirm}
                 maxlength={20}
                 placeholder={tt('user.password.confirmPlaceholder', '请再次输入新密码')}
@@ -173,7 +173,7 @@ export default function Password() {
             hoverClass="opacity-70"
             onClick={onSubmit}
           >
-            <Text className="text-[length:32rpx] font-semibold text-[var(--color-surface-light)]">
+            <Text className="text-title font-semibold text-[var(--color-surface-light)]">
               {submitting
                 ? tt('user.password.submitting', '修改中…')
                 : tt('user.password.submit', '修改密码')}

@@ -139,7 +139,7 @@ export default function ShareCreationPage() {
               />
             ) : null}
             <View className="flex-1 min-w-0">
-              <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
+              <Text className="block text-title font-semibold text-foreground truncate">
                 {content.modelName || t('share.creation.modelDefault')}
               </Text>
               <Text className="block text-label text-[var(--color-text-tertiary)]">

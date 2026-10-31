@@ -159,7 +159,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <FocusInput
-            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-[length:32rpx] text-foreground"
+            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-title text-foreground"
             type="text"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
@@ -172,7 +172,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <FocusTextarea
-            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-[length:32rpx] text-foreground min-h-[320rpx]"
+            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-title text-foreground min-h-[320rpx]"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
             onInput={(e) => select(e.detail.value)}
@@ -214,7 +214,7 @@ export default function ExamAnswer() {
               {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
             </View>
             <Text
-              className={`flex-1 ml-[24rpx] text-[length:32rpx] ${
+              className={`flex-1 ml-[24rpx] text-title ${
                 selected
                   ? 'text-[var(--color-success)] font-medium'
                   : 'text-[var(--color-text-medium)]'
@@ -251,7 +251,7 @@ export default function ExamAnswer() {
           顶部计时条为小程序业务(自动交卷),进度对齐 RN progress(28rpx/600 success) */}
       <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[64rpx]">
         <View className="flex justify-between items-center">
-          <Text className="text-[length:32rpx] text-[var(--color-danger)] font-bold">
+          <Text className="text-title text-[var(--color-danger)] font-bold">
             {formatTime(remain)}
           </Text>
           <Text className="text-body text-[var(--color-success)] font-semibold">
@@ -288,7 +288,7 @@ export default function ExamAnswer() {
               hoverClass="opacity-60"
               onClick={prev}
             >
-              <Text className="text-[length:32rpx] text-[var(--color-text-medium)]">
+              <Text className="text-title text-[var(--color-text-medium)]">
                 {t('exam.answer.prev')}
               </Text>
             </View>
@@ -299,7 +299,7 @@ export default function ExamAnswer() {
               hoverClass="opacity-60"
               onClick={next}
             >
-              <Text className="text-[length:32rpx] text-[var(--color-text-medium)]">
+              <Text className="text-title text-[var(--color-text-medium)]">
                 {t('exam.answer.next')}
               </Text>
             </View>
@@ -309,7 +309,7 @@ export default function ExamAnswer() {
               hoverClass="opacity-60"
               onClick={onSubmit}
             >
-              <Text className="text-[length:32rpx] font-semibold text-primary-foreground">
+              <Text className="text-title font-semibold text-primary-foreground">
                 {t('exam.answer.submit')}
               </Text>
             </View>

@@ -519,7 +519,7 @@ export default function ProtocolPage() {
     <ThemeRoot>
       <ScrollView className="h-screen bg-background" scrollY>
         <View className="px-[28rpx] pt-[28rpx] pb-[64rpx]">
-          <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
+          <Text className="block text-title font-semibold text-foreground mb-[24rpx]">
             {tt('about.protocol.mainTitle', '服务协议')}
           </Text>
           {sections.map((section, sIdx) => (
@@ -527,7 +527,7 @@ export default function ProtocolPage() {
               key={sIdx}
               className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx]"
             >
-              <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[8rpx]">
+              <Text className="block text-title font-semibold text-foreground mb-[8rpx]">
                 {section.subtitle}
               </Text>
               {section.paragraphs.map((p, pIdx) => (

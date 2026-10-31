@@ -147,7 +147,7 @@ export default function LiveHost() {
       <View className="min-h-screen bg-[var(--color-background)]">
         {/* header:标题(RN title 20dp→40rpx 600)+ 状态徽章(11dp → 22rpx,radius 12 → 24rpx) */}
         <View className="flex items-center justify-between px-[20rpx] pt-[16rpx] pb-[16rpx]">
-          <Text className="text-[length:40rpx] font-semibold text-foreground">
+          <Text className="text-heading font-semibold text-foreground">
             {tt('liveHost.title', '主播中心')}
           </Text>
           <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
@@ -178,7 +178,7 @@ export default function LiveHost() {
             {tt('liveHost.streamTitle', '直播标题')}
           </Text>
           <FocusInput
-            className="rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[length:32rpx] text-foreground bg-[var(--color-muted)]"
+            className="rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-title text-foreground bg-[var(--color-muted)]"
             value={streamTitle}
             onInput={(e) => setStreamTitle(e.detail.value)}
             placeholder={tt('liveHost.streamTitlePlaceholder', '请输入直播标题')}
@@ -216,7 +216,7 @@ export default function LiveHost() {
             onClick={startLive}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
+            <Text className="text-title font-semibold text-[var(--color-primary-foreground)]">
               {loading && status === 'idle'
                 ? tt('liveHost.starting', '开启中...')
                 : tt('liveHost.startLive', '开始直播')}
@@ -229,7 +229,7 @@ export default function LiveHost() {
             onClick={endLive}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
+            <Text className="text-title font-semibold text-[var(--color-primary-foreground)]">
               {loading && status === 'active'
                 ? tt('liveHost.ending', '结束中...')
                 : tt('liveHost.endLive', '结束直播')}
@@ -239,7 +239,7 @@ export default function LiveHost() {
 
         {/* 直播数据:sectionTitle 18dp → 36rpx semibold;statLabel 14 → 28rpx;statValue 16 → 32rpx */}
         <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)]">
-          <Text className="block text-[length:36rpx] font-semibold text-foreground mb-[16rpx]">
+          <Text className="block text-subtitle font-semibold text-foreground mb-[16rpx]">
             {tt('liveHost.stats', '直播统计')}
           </Text>
           <View className="flex flex-wrap">
@@ -248,7 +248,7 @@ export default function LiveHost() {
                 <Text className="text-body text-[var(--color-text-tertiary)]">
                   {s.label}
                 </Text>
-                <Text className="text-[length:32rpx] font-semibold text-foreground">{s.value}</Text>
+                <Text className="text-title font-semibold text-foreground">{s.value}</Text>
               </View>
             ))}
           </View>
@@ -257,7 +257,7 @@ export default function LiveHost() {
         {/* 商品管理:lastSection marginBottom 32 → 64rpx;添加按钮 bg card + success 文字 */}
         <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)] mb-[64rpx]">
           <View className="flex items-center justify-between mb-[16rpx]">
-            <Text className="text-[length:36rpx] font-semibold text-foreground">
+            <Text className="text-subtitle font-semibold text-foreground">
               {tt('liveHost.productManagement', '商品管理')}
             </Text>
             <View
@@ -282,10 +282,10 @@ export default function LiveHost() {
           ) : (
             HOST_PRODUCTS.map((item) => (
               <View key={item.id} className="flex items-center justify-between py-[16rpx]">
-                <Text className="flex-1 mr-[16rpx] text-[length:32rpx] text-foreground">
+                <Text className="flex-1 mr-[16rpx] text-title text-foreground">
                   {item.name}
                 </Text>
-                <Text className="text-[length:32rpx] font-semibold text-[var(--color-danger)]">
+                <Text className="text-title font-semibold text-[var(--color-danger)]">
                   ¥{item.price}
                 </Text>
               </View>

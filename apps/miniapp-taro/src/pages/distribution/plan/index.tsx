@@ -87,13 +87,13 @@ export default function DistributionPlan() {
       {/* 对齐 RN header(返回 + 标题):小程序返回键由原生导航栏承担,标题按共享屏同一层级写在页内
           —— config 的 navigationBarTitleText 取不到 t(),这里才是唯一可取词的标题位 */}
       <View className="flex flex-row items-center pb-[24rpx]">
-        <Text className="block text-[length:40rpx] font-semibold text-foreground">
+        <Text className="block text-heading font-semibold text-foreground">
           {tt('earnCommission.title', '分佣计划')}
         </Text>
       </View>
       {/* 对齐 RN EarnCommissionScreen introCard:标题+描述+统计同卡,内容居中 */}
       <View className="bg-card ui-card rounded-lg p-[28rpx] flex flex-col items-center gap-[24rpx]">
-        <Text className="block text-[length:36rpx] font-bold text-foreground text-center">
+        <Text className="block text-subtitle font-bold text-foreground text-center">
           {tt('distribution.plan.introTitle', '邀请好友,赚取佣金')}
         </Text>
         <Text className="block text-body text-muted-foreground text-center leading-[40rpx]">
@@ -124,7 +124,7 @@ export default function DistributionPlan() {
 
       {/* 对齐 RN sectionCard:白卡 + 居中标题 + 圆形序号规则列表 */}
       <View className="bg-card ui-card rounded-lg p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
-        <Text className="block text-[length:32rpx] font-semibold text-foreground text-center">
+        <Text className="block text-title font-semibold text-foreground text-center">
           {tt('distribution.plan.rulesTitle', '分佣规则')}
         </Text>
         {rules.map((r, i) => (
@@ -140,7 +140,7 @@ export default function DistributionPlan() {
       {/* 分佣比例:档位/比例逐行取自 GET /distribution/commission-rates 的在册配置;
           未配置时该面为空,如实渲染空态,不再以硬编数字顶位 */}
       <View className="bg-card ui-card rounded-lg p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
-        <Text className="block text-[length:32rpx] font-semibold text-foreground text-center">
+        <Text className="block text-title font-semibold text-foreground text-center">
           {tt('earnCommission.rateTitle', '分佣比例')}
         </Text>
         {rateRows.map((row) => (
@@ -151,7 +151,7 @@ export default function DistributionPlan() {
             <Text className="flex-1 text-body font-medium text-foreground">
               {row.level}
             </Text>
-            <Text className="text-[length:32rpx] font-bold text-[var(--color-primary)] min-w-[88rpx]">
+            <Text className="text-title font-bold text-[var(--color-primary)] min-w-[88rpx]">
               {row.rate}
             </Text>
           </View>

@@ -70,7 +70,7 @@ export default function ShareCard() {
 
   return (
     <View className="mx-[20rpx] mt-[20rpx] bg-card border border-border rounded-lg p-[24rpx]">
-      <Text className="block text-[length:32rpx] font-semibold text-foreground">
+      <Text className="block text-title font-semibold text-foreground">
         {t('share.title')}
       </Text>
       <Text className="block mt-[16rpx] text-[length:26rpx] text-muted-foreground">
@@ -91,7 +91,7 @@ export default function ShareCard() {
         />
       </View>
       <View
-        className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm text-[length:30rpx] font-semibold ${
+        className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm text-strong font-semibold ${
           loading
             ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
             : 'bg-cta text-cta-foreground'
@@ -125,7 +125,7 @@ export default function ShareCard() {
       ) : null}
       {result ? (
         <View
-          className="mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm bg-cta text-[length:30rpx] font-semibold text-cta-foreground"
+          className="mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm bg-cta text-strong font-semibold text-cta-foreground"
           hoverClass="opacity-70"
           onClick={onShare}
         >

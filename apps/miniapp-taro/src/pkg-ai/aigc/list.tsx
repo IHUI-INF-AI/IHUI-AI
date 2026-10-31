@@ -452,7 +452,7 @@ export default function AigcList() {
         onClick={() => Taro.navigateTo({ url: '/pkg-ai/aigc/publish' })}
         hoverClass="opacity-60"
       >
-        <Text className="text-[length:32rpx] font-semibold text-cta-foreground">
+        <Text className="text-title font-semibold text-cta-foreground">
           {t('aigcList.publish')}
         </Text>
       </View>

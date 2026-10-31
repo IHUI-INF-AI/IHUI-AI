@@ -107,7 +107,7 @@ export default function SubscriptionContractsPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[8rpx]">
-          <Text className="text-[length:40rpx] text-foreground font-semibold">
+          <Text className="text-heading text-foreground font-semibold">
             {tt('subscription.contractsTitle', '自动续费管理')}
           </Text>
         </View>
@@ -119,7 +119,7 @@ export default function SubscriptionContractsPage() {
                 className="bg-background border-[length:2rpx] border-border rounded-xl p-[24rpx] mb-[24rpx]"
               >
                 <View className="flex justify-between items-center">
-                  <Text className="text-[length:32rpx] text-foreground font-semibold">
+                  <Text className="text-title text-foreground font-semibold">
                     {c.planId
                       ? `${tt('subscription.planLabel', '套餐')} ${c.planId}`
                       : tt('subscription.autoRenew', '自动续费')}

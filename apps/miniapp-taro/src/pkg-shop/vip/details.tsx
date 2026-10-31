@@ -109,7 +109,7 @@ export default function VipDetailsPage() {
     <View className="min-h-screen bg-background pb-[140rpx]">
       {/* 顶部标题区(对齐 RN VipCompareScreen header:px20/py24,back 32 medium,title 40 bold) */}
       <View className="pt-[24rpx] px-[20rpx] pb-[24rpx]">
-        <Text className="block text-[length:40rpx] font-bold text-foreground">
+        <Text className="block text-heading font-bold text-foreground">
           {t('vip.details.title')}
         </Text>
         <Text className="block text-body mt-[16rpx] text-muted-foreground">
@@ -118,7 +118,7 @@ export default function VipDetailsPage() {
       </View>
 
       <View className="mx-[20rpx]">
-        <Text className="block text-[length:32rpx] font-bold text-foreground mb-[16rpx]">
+        <Text className="block text-title font-bold text-foreground mb-[16rpx]">
           {tt('vip.details.benefitsTitle', '权益详情')}
         </Text>
         <View className="flex flex-col gap-[24rpx]">
@@ -131,7 +131,7 @@ export default function VipDetailsPage() {
                 <LineIcon name={b.icon as IconName} size={36} color="var(--color-warning)" />
               </View>
               <View className="flex-1 flex flex-col">
-                <Text className="text-[length:32rpx] font-bold text-foreground">{b.title}</Text>
+                <Text className="text-title font-bold text-foreground">{b.title}</Text>
                 <Text className="mt-[16rpx] text-body text-muted-foreground leading-[36rpx]">
                   {b.desc}
                 </Text>
@@ -143,7 +143,7 @@ export default function VipDetailsPage() {
 
       {/* 套餐选择(对标原项目月度/年度卡片) */}
       <View className="m-[24rpx]">
-        <Text className="block text-[length:32rpx] font-bold text-foreground mb-[16rpx]">
+        <Text className="block text-title font-bold text-foreground mb-[16rpx]">
           {t('vip.plans')}
         </Text>
         <View className="flex gap-[20rpx]">
@@ -158,12 +158,12 @@ export default function VipDetailsPage() {
                   onClick={() => selectPlan(p.type)}
                 >
                   {p.type === 'yearly' ? (
-                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-[length:20rpx] py-[4rpx] px-[12rpx] rounded-tr-xl rounded-bl-md">
+                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-badge py-[4rpx] px-[12rpx] rounded-tr-xl rounded-bl-md">
                       {t('developer.subscribe.recommended')}
                     </Text>
                   ) : null}
                   <View className="flex flex-col mb-[16rpx]">
-                    <Text className="text-[length:30rpx] font-bold text-foreground">
+                    <Text className="text-strong font-bold text-foreground">
                       {planName(p.type)}
                     </Text>
                     <Text className="text-label text-muted-foreground mt-[6rpx]">
@@ -203,7 +203,7 @@ export default function VipDetailsPage() {
 
       {/* 会员对比表(镜像 RN VipCompareScreen 的 table:四列表头 + 后端三档取值,同目录 ./compare-table) */}
       <View className="mx-[32rpx] my-[32rpx]">
-        <Text className="block text-[length:32rpx] font-bold text-foreground mb-[16rpx]">
+        <Text className="block text-title font-bold text-foreground mb-[16rpx]">
           {t('vipCompare.title')}
         </Text>
         <CompareTable />

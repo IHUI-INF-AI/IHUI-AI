@@ -15,7 +15,7 @@ export default function RefundHeader() {
   const tt = useTt()
   return (
     <View className="mb-[24rpx]">
-      <View className="text-[length:32rpx] font-semibold text-foreground">
+      <View className="text-title font-semibold text-foreground">
         {tt('order.refund.title', '申请退款')}
       </View>
       <View className="mt-[16rpx] text-body text-muted-foreground">

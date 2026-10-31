@@ -304,7 +304,7 @@ export default function AiChatDetail() {
     <ThemeRoot className="flex flex-col h-screen bg-background">
       {/* 对齐 RN ChatScreen header:无卡片底 + 标题 20dp/600(底部描边已按 §4 两端同批摘除) */}
       <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] flex-shrink-0">
-        <Text className="text-[length:40rpx] font-semibold text-foreground">
+        <Text className="text-heading font-semibold text-foreground">
           {t('aiChatDetail.title')}
         </Text>
       </View>
@@ -407,7 +407,7 @@ export default function AiChatDetail() {
             className="flex flex-row items-center"
           >
             <LineIcon name="chevron-left" size={32} className="mr-[8rpx]" />
-            <Text className="text-[length:32rpx] text-muted-foreground mr-[24rpx]">
+            <Text className="text-title text-muted-foreground mr-[24rpx]">
               {t('messageInput.fullscreenBack')}
             </Text>
           </View>
@@ -456,7 +456,7 @@ export default function AiChatDetail() {
             >
               {/* Taro Input 组件:支持 onInput / onFocus / onBlur / onConfirm + i18n placeholder */}
               <Input
-                className="w-full h-[80rpx] text-[length:36rpx] bg-transparent text-foreground"
+                className="w-full h-[80rpx] text-subtitle bg-transparent text-foreground"
                 type="text"
                 value={inputValue}
                 placeholder={tt('aiChatDetail.inputPlaceholder', '输入消息…')}

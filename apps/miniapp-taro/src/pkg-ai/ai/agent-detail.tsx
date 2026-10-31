@@ -421,11 +421,11 @@ export default function AgentDetailPage() {
                 <View className="ml-[24rpx] flex-1">
                   <View className="flex items-center justify-between">
                     <View className="flex items-center flex-1">
-                      <Text className="text-[length:48rpx] text-foreground font-bold">
+                      <Text className="text-display text-foreground font-bold">
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
-                        <Text className="ml-[16rpx] text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
+                        <Text className="ml-[16rpx] text-badge px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
                           {t('ai.agentDetail.vipExclusive')}
                         </Text>
                       )}
@@ -441,7 +441,7 @@ export default function AgentDetailPage() {
                   <Text className="block text-caption text-muted-foreground mt-[12rpx]">
                     {t('agentDetail.description')}
                   </Text>
-                  <Text className="block text-[length:32rpx] text-foreground mt-[4rpx]">
+                  <Text className="block text-title text-foreground mt-[4rpx]">
                     {agent.description || '—'}
                   </Text>
                   <View className="flex items-center mt-[12rpx]">
@@ -527,7 +527,7 @@ export default function AgentDetailPage() {
                       <Text className="text-label text-[var(--color-primary)] font-medium mr-[12rpx]">
                         Q:
                       </Text>
-                      <Text className="flex-1 text-[length:32rpx] text-foreground">{dialog.q}</Text>
+                      <Text className="flex-1 text-title text-foreground">{dialog.q}</Text>
                     </View>
                   )}
                   {dialog.a && (
@@ -576,7 +576,7 @@ export default function AgentDetailPage() {
           )}
           {related.length > 0 && (
             <View className="mb-[48rpx]">
-              <Text className="block text-[length:32rpx] text-foreground font-semibold mx-[20rpx] mb-[24rpx]">
+              <Text className="block text-title text-foreground font-semibold mx-[20rpx] mb-[24rpx]">
                 {t('ai.agentDetail.relatedAgents')}
               </Text>
               <ScrollView

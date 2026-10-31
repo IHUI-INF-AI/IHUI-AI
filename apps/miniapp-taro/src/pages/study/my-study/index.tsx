@@ -94,7 +94,7 @@ export default function MyStudy() {
         {/* 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg;header px10dp→20rpx/pt48dp→96rpx/pb12dp→24rpx,标题 20dp→40rpx/600 */}
         <View className="flex flex-col h-screen bg-background">
           <View className="px-[20rpx] pt-[96rpx] pb-[24rpx] flex-shrink-0">
-            <Text className="text-[length:40rpx] font-semibold text-foreground">
+            <Text className="text-heading font-semibold text-foreground">
               {t('study.myStudy.title')}
             </Text>
           </View>
@@ -111,7 +111,7 @@ export default function MyStudy() {
       <ThemeRoot>
         <View className="flex flex-col h-screen bg-background">
           <View className="px-[20rpx] pt-[96rpx] pb-[24rpx] flex-shrink-0">
-            <Text className="text-[length:40rpx] font-semibold text-foreground">
+            <Text className="text-heading font-semibold text-foreground">
               {t('study.myStudy.title')}
             </Text>
           </View>
@@ -138,7 +138,7 @@ export default function MyStudy() {
     <ThemeRoot>
       <View className="flex flex-col h-screen bg-background">
         <View className="px-[20rpx] pt-[96rpx] pb-[24rpx] flex-shrink-0">
-          <Text className="text-[length:40rpx] font-semibold text-foreground">
+          <Text className="text-heading font-semibold text-foreground">
             {t('study.myStudy.title')}
           </Text>
         </View>

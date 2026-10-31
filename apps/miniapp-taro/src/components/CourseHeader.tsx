@@ -89,7 +89,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
                   className="w-[38rpx] h-[34rpx] mr-[10rpx]"
                   lazyLoad
                 />
-                <Text className="text-[length:20rpx] text-destructive">
+                <Text className="text-badge text-destructive">
                   {tt('CourseHeader.text1', '付费项目')}
                 </Text>
               </View>

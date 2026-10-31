@@ -133,7 +133,7 @@ export default function CheckinAssistant() {
     <ThemeRoot>
       <ScrollView scrollY className="min-h-screen bg-background">
         <View className="px-[28rpx] pt-[24rpx] pb-[64rpx]">
-          <Text className="block text-[length:40rpx] font-bold text-foreground">
+          <Text className="block text-heading font-bold text-foreground">
             {t('checkinAssistant.title')}
           </Text>
           <Text className="mt-[8rpx] block text-[length:26rpx] leading-[38rpx] text-muted-foreground">
@@ -146,7 +146,7 @@ export default function CheckinAssistant() {
             </Text>
           ) : list.length === 0 ? (
             <View className="mt-[24rpx] rounded-lg border border-border bg-card p-[28rpx]">
-              <Text className="block text-[length:30rpx] font-semibold text-foreground">
+              <Text className="block text-strong font-semibold text-foreground">
                 {t('checkinAssistant.empty')}
               </Text>
               <Text className="mt-[8rpx] block text-[length:26rpx] text-muted-foreground">
@@ -160,7 +160,7 @@ export default function CheckinAssistant() {
                 className="mt-[20rpx] rounded-lg border border-border bg-card p-[24rpx]"
               >
                 <View className="flex flex-wrap items-center justify-between gap-[12rpx]">
-                  <Text className="text-[length:30rpx] font-semibold text-foreground">
+                  <Text className="text-strong font-semibold text-foreground">
                     {acc.name}
                   </Text>
                   <View className="flex flex-wrap items-center gap-[8rpx]">
@@ -209,7 +209,7 @@ export default function CheckinAssistant() {
           )}
 
           <View className="mt-[28rpx] rounded-lg border border-border bg-card p-[28rpx]">
-            <Text className="block text-[length:30rpx] font-semibold text-foreground">
+            <Text className="block text-strong font-semibold text-foreground">
               {t('checkinAssistant.addTitle')}
             </Text>
             <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
@@ -252,7 +252,7 @@ export default function CheckinAssistant() {
               }`}
               onClick={() => void submit()}
             >
-              <Text className="text-[length:30rpx] font-semibold text-[var(--color-cta-foreground)]">
+              <Text className="text-strong font-semibold text-[var(--color-cta-foreground)]">
                 {busy ? t('checkinAssistant.adding') : t('checkinAssistant.add')}
               </Text>
             </View>

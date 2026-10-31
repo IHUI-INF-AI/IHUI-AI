@@ -219,7 +219,7 @@ export default function ModelEdit() {
         <View className="flex items-center justify-between px-[20rpx] py-[24rpx]">
           {/* 返回键由微信原生导航栏承担,页内不再自渲染 */}
           {/* RN headerTitle:20dp→40rpx、600、text.primary */}
-          <Text className="text-[length:40rpx] font-semibold text-foreground">
+          <Text className="text-heading font-semibold text-foreground">
             {tt('devEnter.modelEdit.title', '编辑模型')}
           </Text>
           {/* RN headerSpacer:w40→80rpx,标题视觉居中 */}
@@ -239,13 +239,13 @@ export default function ModelEdit() {
                 />
               ) : (
                 /* RN avatar:w48/h48/r24(圆形)+ surface.muted;AGENTS §4 头像豁免,保留圆形 rounded-full */
-                <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-[length:40rpx] font-semibold text-foreground">
+                <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-heading font-semibold text-foreground">
                   <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
                 </View>
               )}
               <View className="flex-1 overflow-hidden">
                 {/* RN baseName:16dp→32rpx、600、text.primary;numberOfLines(1)→truncate */}
-                <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
+                <Text className="block text-title font-semibold text-foreground truncate">
                   {agentInfo.name || tt('devEnter.modelEdit.model', '模型')}
                 </Text>
                 {agentInfo.prologue ? (
@@ -325,12 +325,12 @@ export default function ModelEdit() {
                       style={ffPrice.focusStyle}
                     >
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
-                      <Text className="text-[length:36rpx] font-semibold text-primary mr-[16rpx]">
+                      <Text className="text-subtitle font-semibold text-primary mr-[16rpx]">
                         ¥
                       </Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
                       <Input
-                        className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
+                        className="flex-1 h-[96rpx] text-title text-foreground"
                         {...ffPrice.spread}
                         type="digit"
                         value={price}
@@ -375,7 +375,7 @@ export default function ModelEdit() {
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
             <View
-              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-[length:32rpx] font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
+              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-title font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
               onClick={onSubmit}
               hoverClass="opacity-60"
             >

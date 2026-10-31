@@ -117,7 +117,7 @@ export default function LearnDevelop() {
       {/* 对齐 RN LearnDevelopScreen:容器底 surface.bg;头部无卡片底(与 RN header 一致直接置于页面底色上),标题 20dp→40rpx/600 */}
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] py-[24rpx]">
-          <Text className="text-[length:40rpx] font-semibold text-foreground">
+          <Text className="text-heading font-semibold text-foreground">
             {t('learnDevelop.title')}
           </Text>
         </View>
@@ -125,7 +125,7 @@ export default function LearnDevelop() {
         <View className="px-[20rpx] pt-[24rpx] pb-[48rpx]">
           {/* 学习路径(RN 无对应区,保留业务;卡片对齐 RN entryCard 语言:圆角 12dp→24rpx + 边框 border.light + padding 14dp→28rpx) */}
           <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-            <Text className="text-[length:32rpx] font-semibold text-foreground">
+            <Text className="text-title font-semibold text-foreground">
               {tt('learnDevelop.pathTitle', '学习路径')}
             </Text>
           </View>
@@ -138,11 +138,11 @@ export default function LearnDevelop() {
                 {isImagePath(path.icon) ? (
                   <Image src={path.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 ) : (
-                  <Text className="text-[length:48rpx]">{path.icon}</Text>
+                  <Text className="text-display">{path.icon}</Text>
                 )}
               </View>
               <View className="flex-1 flex flex-col">
-                <Text className="text-[length:30rpx] font-semibold text-foreground">
+                <Text className="text-strong font-semibold text-foreground">
                   {tt(path.nameKey, path.name)}
                 </Text>
                 <Text className="text-label text-muted-foreground mt-[8rpx]">
@@ -162,7 +162,7 @@ export default function LearnDevelop() {
 
           {/* 推荐课程(RN 无对应区,保留业务;课程行卡对齐 RN CourseCarousel list 变体卡片:圆角 24rpx + 边框,thumb 100×80dp→200×160rpx 直角,价格 12dp→24rpx/600,免费 success/付费 text.primary) */}
           <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-            <Text className="text-[length:32rpx] font-semibold text-foreground">
+            <Text className="text-title font-semibold text-foreground">
               {tt('learnDevelop.recommend', '推荐课程')}
             </Text>
           </View>
@@ -241,7 +241,7 @@ export default function LearnDevelop() {
             onClick={onContact}
             hoverClass="opacity-80"
           >
-            <Text className="text-[length:32rpx] font-bold text-foreground">
+            <Text className="text-title font-bold text-foreground">
               {tt('learnDevelop.contactLabel', '直接联系李总')}
             </Text>
           </View>

@@ -41,7 +41,7 @@ export function RowsSection({ title, rows }: { title: string; rows: SettingRow[]
             hoverClass="opacity-60"
           >
             {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-            <Text className="text-[length:32rpx] text-muted-foreground">{row.label}</Text>
+            <Text className="text-title text-muted-foreground">{row.label}</Text>
             {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
             <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
           </View>
@@ -119,7 +119,7 @@ export function NotificationSection() {
             key={row.key}
             className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
           >
-            <Text className="text-[length:32rpx] text-muted-foreground">{row.label}</Text>
+            <Text className="text-title text-muted-foreground">{row.label}</Text>
             <Switch
               checked={values[row.key]}
               color={switchInk}
@@ -144,7 +144,7 @@ function PwdField({
 }) {
   return (
     <FocusInput
-      className="box-border h-[88rpx] w-full rounded-sm bg-muted px-[24rpx] text-[length:30rpx] text-foreground"
+      className="box-border h-[88rpx] w-full rounded-sm bg-muted px-[24rpx] text-strong text-foreground"
       password
       maxlength={20}
       placeholder={placeholder}
@@ -211,7 +211,7 @@ export function PasswordModal({ visible, onClose }: { visible: boolean; onClose:
     <View className="fixed inset-0 z-[1040] flex items-center justify-center">
       <View className="absolute inset-0 bg-[var(--color-black-50)]" onClick={close} />
       <View className="relative mx-[40rpx] w-full rounded-lg bg-background p-[28rpx]">
-        <Text className="mb-[20rpx] block text-[length:32rpx] font-semibold text-foreground">
+        <Text className="mb-[20rpx] block text-title font-semibold text-foreground">
           {t('settings.changePassword')}
         </Text>
         <View className="flex flex-col gap-[16rpx]">
@@ -229,14 +229,14 @@ export function PasswordModal({ visible, onClose }: { visible: boolean; onClose:
             onClick={close}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:30rpx] text-foreground">{t('common.cancel')}</Text>
+            <Text className="text-strong text-foreground">{t('common.cancel')}</Text>
           </View>
           <View
             className="flex h-[88rpx] flex-1 items-center justify-center rounded-sm bg-[color:var(--color-cta)]"
             onClick={() => void submit()}
             hoverClass="opacity-60"
           >
-            <Text className="text-[length:30rpx] font-semibold text-[color:var(--color-cta-foreground)]">
+            <Text className="text-strong font-semibold text-[color:var(--color-cta-foreground)]">
               {submitting ? t('common.loading') : t('common.confirm')}
             </Text>
           </View>

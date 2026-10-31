@@ -254,7 +254,7 @@ export default function SpecialModelsPage() {
       {/* 精选推荐 */}
       {featured.length > 0 ? (
         <View className="mx-[24rpx] mb-[24rpx]">
-          <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[16rpx]">
+          <Text className="block text-title font-semibold text-foreground mb-[16rpx]">
             {tt('ai.special.featured', '精选推荐')}
           </Text>
           <ScrollView scrollX className="whitespace-nowrap w-full" enhanced showScrollbar={false}>
@@ -298,7 +298,7 @@ export default function SpecialModelsPage() {
               </View>
               <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
                 <View className="flex items-center justify-between gap-[12rpx]">
-                  <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden ihui-ellipsis whitespace-nowrap">
+                  <Text className="text-title font-semibold text-foreground flex-1 min-w-0 overflow-hidden ihui-ellipsis whitespace-nowrap">
                     {m.name}
                   </Text>
                   <Text className="text-caption text-[var(--color-text-tertiary)] flex-shrink-0">
