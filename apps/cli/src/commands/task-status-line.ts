@@ -36,6 +36,7 @@ import type {
 } from '@ihui/api-client';
 import type { PlanStep, PlanUpdateEvent } from '@ihui/types/ai';
 import type { ToolCall } from '@ihui/types/chat';
+import type { TodoItem } from '../tools/todo-write.js';
 import {
   deriveTaskStatusBar,
   describeToolCall,
@@ -490,11 +491,30 @@ export function asPlanUpdateSink(
 
 /**
  * cli 现有步骤通道:`todo_write` 清单 → PlanStep[]。
- * 状态三态与 PlanStepStatus 前三种取值同名,直接收窄复用。
+ * todo 五态里 cancelled/blocked 在对话状态行域(@ihui/types/ai 的 PlanStepStatus 五档封闭集,
+ * 由 apps/web plan-step-status-exhaustive 测试钉死,不得扩)没有同名词档,桥接归一:
+ *   cancelled → 'skipped'(不再执行,与跳过同桶);blocked → 'pending'(仍欠完成,留在未完桶)。
+ * 参数类型引用 TodoItem 的结构切片(§0.6:不在本文件重抄词表)。
  */
 export function planStepsFromTodos(
-  todos: readonly { id: string; content: string; status: 'pending' | 'in_progress' | 'completed' }[],
+  todos: readonly Pick<TodoItem, 'id' | 'content' | 'status'>[],
 ): PlanStep[] {
-  return todos.map((todo) => ({ id: todo.id, step: todo.content, status: todo.status }));
+  return todos.map((todo) => ({
+    id: todo.id,
+    step: todo.content,
+    status: bridgeTodoStatus(todo.status),
+  }));
+}
+
+/** todo 五态 → 对话状态行(ai 域)五档封闭集的归一表 */
+function bridgeTodoStatus(status: TodoItem['status']): PlanStep['status'] {
+  switch (status) {
+    case 'cancelled':
+      return 'skipped';
+    case 'blocked':
+      return 'pending';
+    default:
+      return status;
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
