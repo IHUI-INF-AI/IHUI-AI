@@ -2380,6 +2380,10 @@ fn set_desktop_badge(app: tauri::AppHandle, unread: u32) -> Result<(), String> {
 
 #[tauri::command]
 async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
+    // R8 复评:读剪贴板是凭据窃取面(用户复制密码/token 后被 XSS 静默读走),
+    // 与键鼠/截屏同闸 —— 默认关,IHUI_DESKTOP_COMPUTER_CONTROL=1 解锁;
+    // clipboard_set 只写不读,保留直接可用(正常粘贴链路不受影响)。
+    require_computer_control()?;
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     let fmt = format.as_deref().unwrap_or("text");
     let result = match fmt {

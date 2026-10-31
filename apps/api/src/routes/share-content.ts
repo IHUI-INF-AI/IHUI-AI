@@ -123,11 +123,14 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
           : undefined,
       lists: Array.isArray(rawAnswer.lists)
         ? (rawAnswer.lists as Array<{ type: string; content: string }>)
-            .map((item) =>
-              item && typeof item.content === 'string' && safeMediaUrl(item.content)
-                ? item
-                : null,
-            )
+            .map((item) => {
+              if (!item || typeof item.content !== 'string') return null
+              // R8 复评 D1:按 type 分流 —— text 型渲染为纯文本节点(无 href
+              // 上下文),原样放行;此前无差别套 safeMediaUrl 把「结论如下」这类
+              // 文本列表整条剔除(功能回归)。媒体型(image 等)才要求 URL 白名单。
+              if (item.type === 'text') return item
+              return safeMediaUrl(item.content) ? item : null
+            })
             .filter((x): x is { type: string; content: string } => x !== null)
         : undefined,
       // #39 阶段2:轨迹回放数据(白名单过滤后;空数组不透传,减少响应体积)
