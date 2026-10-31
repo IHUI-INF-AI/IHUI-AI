@@ -9,6 +9,7 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createCartStyles } from './cart-styles'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 购物车跨端共享屏 —— RN 端与小程序端的唯一渲染真相源。
@@ -88,7 +89,7 @@ export function CartScreen({
   const renderItem = ({ item }: { item: CartItemView }) => (
     <View style={styles.card}>
       <Pressable
-        style={[styles.checkbox, item.selected ? styles.checkboxChecked : null]}
+        style={pressFeedback([styles.checkbox, item.selected ? styles.checkboxChecked : null])}
         onPress={() => onToggleItem(item.id)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: item.selected }}
@@ -120,7 +121,7 @@ export function CartScreen({
           </Pressable>
           <Text style={styles.qtyValue}>{item.quantity}</Text>
           <Pressable
-            style={styles.qtyBtn}
+            style={pressFeedback(styles.qtyBtn)}
             onPress={() => onQuantityChange(item.id, 1)}
             accessibilityRole="button"
             accessibilityLabel="+"
@@ -130,7 +131,7 @@ export function CartScreen({
         </View>
       </View>
       <Pressable
-        style={styles.deleteBtn}
+        style={pressFeedback(styles.deleteBtn)}
         onPress={() => onRemove(item.id)}
         accessibilityRole="button"
         accessibilityLabel={t('common.delete')}
@@ -171,7 +172,7 @@ export function CartScreen({
       {items.length > 0 ? (
         <View style={styles.footer}>
           <Pressable
-            style={[styles.checkbox, allSelected ? styles.checkboxChecked : null]}
+            style={pressFeedback([styles.checkbox, allSelected ? styles.checkboxChecked : null])}
             onPress={onToggleAll}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: allSelected }}
