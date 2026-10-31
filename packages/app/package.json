@@ -16,6 +16,11 @@
       "types": "./src/pilot.ts",
       "import": "./src/pilot.ts",
       "default": "./src/pilot.ts"
+    },
+    "./features/*": {
+      "types": "./src/features/*.tsx",
+      "import": "./src/features/*.tsx",
+      "default": "./src/features/*.tsx"
     }
   },
   "scripts": {
