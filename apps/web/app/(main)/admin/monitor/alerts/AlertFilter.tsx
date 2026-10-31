@@ -5,7 +5,7 @@
 'use client'
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
-import { selectClass, STATUS_LABEL } from './helpers'
+import { selectClass, SEVERITY_STYLE, STATUS_LABEL } from './helpers'
 
 interface Props {
   level: string
@@ -14,6 +14,12 @@ interface Props {
   setStatus: (v: string) => void
 }
 
+/**
+ * 当前未被 page.tsx 渲染:后端 `registerCrud` 的 GET 只认 page/pageSize/search,
+ * `level=` / `status=` 空转(2026-10-31 摘除,见 page.tsx 头注)。
+ * 本组件保留待服务端筛选能力就绪后接回;选项一律**派生自 helpers.ts 的共享词表**
+ * (词表唯一真相源 = @ihui/types 的 monitor-vocabulary),禁止在此写死第二份列表。
+ */
 export function AlertFilter({ level, setLevel, status, setStatus }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -23,9 +29,11 @@ export function AlertFilter({ level, setLevel, status, setStatus }: Props) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">全部级别</SelectItem>
-          <SelectItem value="critical">严重</SelectItem>
-          <SelectItem value="warning">警告</SelectItem>
-          <SelectItem value="info">信息</SelectItem>
+          {Object.entries(SEVERITY_STYLE).map(([value, style]) => (
+            <SelectItem key={value} value={value}>
+              {style.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Select value={status} onValueChange={setStatus}>
@@ -34,9 +42,9 @@ export function AlertFilter({ level, setLevel, status, setStatus }: Props) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">全部状态</SelectItem>
-          {Object.entries(STATUS_LABEL).map(([k, v]) => (
-            <SelectItem key={k} value={k}>
-              {v}
+          {Object.entries(STATUS_LABEL).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
             </SelectItem>
           ))}
         </SelectContent>
