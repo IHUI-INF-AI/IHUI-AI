@@ -483,7 +483,8 @@ function scanText(text, minTap, rel = '') {
       h2.push({ line, tag })
   }
   const h3 = scanKeyboard(text)
-  return { h1, h2, skipped, slopOnly, h3 }
+  const h4 = scanFontLock(text)
+  return { h1, h2, skipped, slopOnly, h3, h4 }
 }
 
 /** 被审面上的 geometry.js → tapBox 数值;读不出给 null(调用方落未判定,不猜)。 */
@@ -601,6 +602,47 @@ function scanKeyboard(text) {
       })
   }
   return out
+}
+
+/**
+ * H4 普查(只报数):`allowFontScaling={false}` 把系统字号缩放通道关了。
+ * 分两桶是因为**两类都有合法用途**,一刀切判红就是逼人跳门:
+ *  - 字形桶:children 是单字符字面量/`{'×'}`/✓ 之类 —— 图标坐在定宽盒里,放大即破版;
+ *  - 内容桶:children 带 `t(`、插值、单词 —— 那是正文/按钮/提示文字,关掉就等于
+ *    "用户在系统里把字号调到最大,这里仍然不给放大"(FloatBox 那一格已按 useFontMultiplier 同比放大修掉)。
+ * 升级前置:内容桶必须逐格改成"字号+行高同比放大"后归零(见 apps/mobile-rn/tests/rn-floatbox-font-scale.test.tsx)。
+ */
+function scanFontLock(text) {
+  const code = maskComments(String(text ?? ''))
+  const glyph = []
+  const content = []
+  const scaledOut = []
+  for (const m of code.matchAll(/allowFontScaling\s*=\s*\{\s*false\s*\}/g)) {
+    const line = code.slice(0, m.index).split('\n').length
+    const tail = code.slice(m.index, m.index + 320)
+    const gt = tail.indexOf('>')
+    const after = gt < 0 ? '' : tail.slice(gt + 1)
+    const closeAt = after.search(/<\//)
+    const inner = (closeAt < 0 ? after.slice(0, 60) : after.slice(0, closeAt)).trim()
+    // 已经自己按倍率放大字号+行盒的(如 FloatBox),不再算"关掉缩放";窗口取前后是因为
+    // style 覆盖通常写在 allowFontScaling 之前。普查口径,判红权不在这一维。
+    const win = code.slice(Math.max(0, m.index - 420), m.index + 320)
+    const scaled = /fontScale|maxFontSizeMultiplier/.test(win)
+    const bare = inner.replace(/^\{\s*|\s*\}$/g, '').trim()
+    const decoded = bare.startsWith("'") || bare.startsWith('"') || bare.startsWith('`')
+      ? bare
+          .slice(1, -1)
+          .replace(/\\u([\da-fA-F]{4})/g, (_, h) => String.fromCharCode(Number.parseInt(h, 16)))
+          .replace(/\\./g, (c) => c[1])
+      : bare
+    const isGlyph =
+      inner === '' ||
+      (decoded.length > 0 && decoded.length <= 2 && bare !== decoded) ||
+      /^(?:[A-Za-z_$][\w$]*\.)?[A-Za-z_$]*_(?:ICON|GLYPH|MARK|SYMBOL|CHAR)$/.test(bare) ||
+      /(?:icon|glyph|mark|emoji|symbol|char)/i.test(bare)
+    ;(scaled ? scaledOut : isGlyph ? glyph : content).push({ line, sample: inner.slice(0, 26) })
+  }
+  return { glyph, content, scaled: scaledOut }
 }
 
 function runSelfTest() {
@@ -785,6 +827,14 @@ function runSelfTest() {
   const clean = scanKeyboard('<ScrollView>{items.map((i) => <Row key={i.id} />)}</ScrollView>')
   ok(clean.length === 0, 'H3 过头:没有输入框的列表不该被要求声明该属性')
 
+  const lock = scanFontLock(
+    `<Text allowFontScaling={false}>{'×'}</Text><Text allowFontScaling={false}>{t('about.title')}</Text>`,
+  )
+  ok(
+    lock.glyph.length === 1 && lock.content.length === 1,
+    'H4 分桶失效:字形与内容必须分开报,混成一桶就是把几十处图标也判成缺陷',
+  )
+
   if (fails.length) {
     for (const f of fails) console.error(`[SELF-TEST FAIL] ${f}`)
     return 1
@@ -854,6 +904,9 @@ function main() {
   let undetermined = 0
   let blind = 0
   let slopOnlyTotal = 0
+  let h4Glyph = 0
+  let h4Content = 0
+  let h4Scaled = 0
   for (const rel of files) {
     const text = get(rel)
     if (text === null || text === undefined) {
@@ -863,6 +916,9 @@ function main() {
     const r = scanText(text, minTap, rel)
     blind += r.skipped.length
     slopOnlyTotal += r.slopOnly.length
+    h4Glyph += r.h4.glyph.length
+    h4Content += r.h4.content.length
+    h4Scaled += r.h4.scaled.length
     if (r.h1.length || r.h2.length || r.h3.length) perFile.set(rel, r)
   }
   const totalH1 = [...perFile.values()].reduce((s, r) => s + r.h1.length, 0)
@@ -871,7 +927,7 @@ function main() {
 
   if (!quiet) {
     console.log(
-      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(候选,区间匹配未自证 ⇒ 只报数不判红);盲区(静态判不了): ${blind} 处;只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
+      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(候选,区间匹配未自证 ⇒ 只报数不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
     )
     if (argv.includes('--list')) {
       for (const [rel, r] of perFile)
@@ -964,6 +1020,7 @@ export const __test__ = {
   scrimByStyle,
   scanKeyboard,
   elementRange,
+  scanFontLock,
   runSelfTest,
   SKIP_ENV,
   SRC_RELS,
