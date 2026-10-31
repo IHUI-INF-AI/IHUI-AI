@@ -117,6 +117,18 @@ def test_gates_model_whitelist_and_unknown_effort():
     assert p.effort_for_configuration_update("gpt-5", "minimal") == "minimal"
 
 
+def test_xhigh_max_are_known_efforts_same_gates_as_high():
+    """2026-10-31 扩档:xhigh/max 进 known_efforts,三道门判定与 high 逐字同形(§0.6 无第二份表)。"""
+    p = _make(models=("gpt-5",))
+    assert ReasoningEffortPin().known_efforts == frozenset(
+        {"minimal", "low", "medium", "high", "xhigh", "max"}
+    )
+    for tier in ("xhigh", "max"):
+        assert p.effort_for_configuration_update("gpt-5", tier) == tier  # 合法档
+        assert p.effort_for_configuration_update("other", tier) is None  # 模型门同形
+    assert p.effort_for_configuration_update("gpt-5", "ultra") is None  # 未知仍拦
+
+
 # --- 覆盖项记录判定(record_reasoning_effort_override) ---
 
 
