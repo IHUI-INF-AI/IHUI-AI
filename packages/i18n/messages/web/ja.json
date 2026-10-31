@@ -935,6 +935,8 @@
       }
     },
     "wallboard": {
+      "firingRowsSplit": "{total} 件のアラートを名前で {names} 件に集約",
+      "pv5mNow": "直近 5 分間で {count} 回",
       "edgeControlLeg": "非加速経路の比較計測",
       "edgeHeadlineHit": "国内高速化ヒット率",
       "edgeHeadlineMs": "トップページの現在の表示時間",

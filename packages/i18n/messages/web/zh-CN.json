@@ -935,6 +935,8 @@
       }
     },
     "wallboard": {
+      "firingRowsSplit": "{total} 条告警按名称聚合为 {names} 条",
+      "pv5mNow": "近 5 分钟 {count} 次访问",
       "edgeControlLeg": "未走加速的对照",
       "edgeHeadlineHit": "国内加速命中率",
       "edgeHeadlineMs": "首页现在打开耗时",
@@ -11921,6 +11923,7 @@
       "readAloud": "朗读",
       "readAloudFailed": "朗读失败,请稍后重试",
       "readAloudTruncated": "内容过长,只朗读前 {max} 字",
+        "stopReadAloud": "停止朗读",
       "regenerate": "重新生成",
       "reply": "回复",
       "saveAsNewVersion": "保存为新版本",

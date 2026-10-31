@@ -935,6 +935,8 @@
       }
     },
     "wallboard": {
+      "firingRowsSplit": "{total} firing alerts aggregated into {names} names",
+      "pv5mNow": "{count} views in the last 5 min",
       "edgeControlLeg": "Control run without acceleration",
       "edgeHeadlineHit": "CN Acceleration Hit Rate",
       "edgeHeadlineMs": "Homepage Open Time Now",
