@@ -462,7 +462,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               {/* 录音中显式取消 ⇒ cancelled 相(共享表 recording --cancel--> cancelled) */}
               {phase === 'recording' && (
                 <Pressable
-                  style={styles.outlineBtn}
+                  style={pressFeedback(styles.outlineBtn)}
                   onPress={() => abortRecording('cancel')}
                   accessibilityRole="button"
                   accessibilityLabel={t('chat.voiceNote.action.cancel')}
@@ -474,7 +474,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               {/* 转写完成即插入当前对话(不经服务端归档行,落库失败回滚时这条路径仍通) */}
               {phase === 'completed' && transcript.trim().length > 0 && (
                 <Pressable
-                  style={styles.outlineBtn}
+                  style={pressFeedback(styles.outlineBtn)}
                   onPress={insertTranscriptToInput}
                   accessibilityRole="button"
                   accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
@@ -488,7 +488,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               )}
               {isVoiceNotePhaseTerminal(phase) && (
                 <Pressable
-                  style={styles.outlineBtn}
+                  style={pressFeedback(styles.outlineBtn)}
                   onPress={resetToReady}
                   accessibilityRole="button"
                   testID="voice-note-retry"
@@ -511,7 +511,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             {/* 分区切换:活跃 ⇄ 已归档(票面②「新建→归档」在 RN 上可见的那一半) */}
             <View style={styles.groupRow}>
               <Pressable
-                style={[styles.chip, partition === 'archived' ? styles.chipActive : null]}
+                style={pressFeedback([
+                  styles.chip,
+                  partition === 'archived' ? styles.chipActive : null,
+                ])}
                 onPress={() => setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))}
                 accessibilityRole="button"
                 accessibilityLabel={t('quickNotes.archived')}
@@ -526,7 +529,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             {groups.length > 0 && (
               <View style={styles.groupRow} testID="voice-note-filters">
                 <Pressable
-                  style={[styles.chip, groupKey === null ? styles.chipActive : null]}
+                  style={pressFeedback([styles.chip, groupKey === null ? styles.chipActive : null])}
                   onPress={() => setGroupKey(null)}
                   accessibilityRole="button"
                   testID="voice-note-group-chip-all"
@@ -538,7 +541,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 {groups.map((facet) => (
                   <Pressable
                     key={facet.groupKey}
-                    style={[styles.chip, groupKey === facet.groupKey ? styles.chipActive : null]}
+                    style={pressFeedback([
+                      styles.chip,
+                      groupKey === facet.groupKey ? styles.chipActive : null,
+                    ])}
                     onPress={() => setGroupKey(facet.groupKey)}
                     accessibilityRole="button"
                     testID="voice-note-group-chip"
