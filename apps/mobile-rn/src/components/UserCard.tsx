@@ -12,7 +12,7 @@ import { appAlert } from './BottomPops'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
 
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
 
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     // 对齐 Uniapp 14rpx(≈7px)卡片间距
     gap: 7,
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
   },
   card: {
     width: '48%',
@@ -109,8 +109,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     // 对齐 Uniapp padding: 0 10rpx 0 12rpx
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['sm-loose'],
     // 卡片按角色表 card→lg(8)(RADIUS_ROLES,2026-09-27 定档)
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -283,7 +283,7 @@ export default function PublishAnalyticsScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     chipRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
@@ -364,10 +364,10 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
     },
-    accountMain: { flex: 1, gap: 2 },
+    accountMain: { flex: 1, gap: rnSpacing['2xs'] },
     accountName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-    accountRight: { alignItems: 'flex-end', gap: 2 },
+    accountRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     rate: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     risk: { fontSize: 10 },
     riskSafe: { color: tokens.success.deep },

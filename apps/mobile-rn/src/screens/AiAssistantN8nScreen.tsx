@@ -2273,7 +2273,7 @@ const bubbleStyles = StyleSheet.create({
   errorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.danger.light,

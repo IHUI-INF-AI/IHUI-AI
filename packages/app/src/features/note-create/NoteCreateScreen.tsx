@@ -109,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
     center: {
@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 44,
       height: 24,
       borderRadius: rnRadius.lg,
-      padding: 2,
+      padding: rnSpacing['2xs'],
       justifyContent: 'center',
     },
     switchTrackOn: { backgroundColor: tk.success.DEFAULT },

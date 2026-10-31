@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   levelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   } as ViewStyle,
   levelText: {
     fontSize: rnType.title.size,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   benefitList: {
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
   } as ViewStyle,
   benefitItem: {
     flexDirection: 'row',
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   } as ViewStyle,
   benefitIconWrap: {
     width: 32,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   benefitContent: {
     flex: 1,
-    gap: 2,
+    gap: rnSpacing['2xs'],
   } as ViewStyle,
   benefitTitle: {
     fontSize: rnType.body.size,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
     padding: rnSpacing.md,
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     borderWidth: 1,
     borderColor: tokens.border.light,
   } as ViewStyle,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
   } as ViewStyle,
   colTitle: {
     width: '40%',
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   } as ViewStyle,
   // 面层:撑满外框内容盒,承载按压态(见上方守门 131 说明)。
   openBtnFace: {

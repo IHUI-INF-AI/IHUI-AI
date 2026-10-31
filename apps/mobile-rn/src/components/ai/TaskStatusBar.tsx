@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   diffAdded: { color: tokens.success.DEFAULT, fontVariant: ['tabular-nums'] },
   diffRemoved: { color: tokens.danger.DEFAULT, fontVariant: ['tabular-nums'] },
   detail: { paddingHorizontal: rnSpacing.md, paddingBottom: rnSpacing.sm, gap: rnSpacing.xs },
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
   stepTitle: { flex: 1, fontSize: rnType.label.size, color: tokens.text.secondary },
   stepTitleDone: { color: tokens.text.tertiary },
   stepTitleActive: { color: tokens.text.primary, fontWeight: '500' },

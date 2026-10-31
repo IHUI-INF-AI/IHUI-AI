@@ -152,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: rnRadius.lg,
       padding: rnSpacing.sm,
-      gap: 2,
+      gap: rnSpacing['2xs'],
     },
     cardValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     cardLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },

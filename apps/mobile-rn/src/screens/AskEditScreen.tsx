@@ -269,7 +269,7 @@ export default function AskEditScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
   muted: { fontSize: 13, color: tokens.text.secondary },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
   },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   field: { gap: 5 },
   label: { fontSize: rnType.label.size, color: tokens.text.secondary },
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },

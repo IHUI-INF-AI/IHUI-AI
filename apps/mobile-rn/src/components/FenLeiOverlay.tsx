@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing.md,
     // paddingTop 由组件内联注入 `insets.top + PANEL_PADDING_TOP`(见 Modal 处注释),此处不留常量档
     paddingBottom: 14,
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
   },
   // 标题(对齐 uniapp tag-head:36rpx≈18sp 紫色 #865EFF 加粗居中)
   headTitle: {
@@ -163,13 +163,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.brandAccent.deep,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
   },
   // 确定按钮(品牌色胶囊)
   confirmBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },

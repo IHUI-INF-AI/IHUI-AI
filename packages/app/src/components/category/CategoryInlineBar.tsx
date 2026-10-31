@@ -180,7 +180,7 @@ function createStyles(tk: AppThemeTokens) {
     item: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       height: 32,
       paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.md,

@@ -380,7 +380,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
-    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     dangerTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     subTitle: {
@@ -456,7 +456,7 @@ function makeStyles() {
     },
     resultBox: {
       gap: rnSpacing.xs,
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
     },

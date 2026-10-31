@@ -8,7 +8,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { StudyProgressData, StudyProgressScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -90,26 +90,36 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
     },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    muted: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    error: {
+      fontSize: 14,
+      color: tk.danger.DEFAULT,
+      marginBottom: rnSpacing.sm,
+      textAlign: 'center',
+    },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    statGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.lg,
+    },
     statCard: {
       flex: 1,
       minWidth: '45%',
@@ -121,30 +131,35 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     statValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
-    statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
-    sectionTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary, marginBottom: 8 },
+    statLabel: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     bar: {
       height: 6,
       backgroundColor: tk.surface.card,
       borderRadius: rnRadius.xl,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       overflow: 'hidden',
     },
     barFill: { height: 6, backgroundColor: tk.success.DEFAULT, borderRadius: rnRadius.xl },
-    meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    meta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
     btn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

@@ -236,7 +236,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     headerTitle: {
       flex: 1,
@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
     nameRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6, // rpx(12)
+      gap: rnSpacing['xs-loose'], // rpx(12)
     },
     name: {
       fontSize: rnType.title.size,
@@ -311,8 +311,8 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 1,
     },
     titleBadge: {
-      paddingHorizontal: 6, // rpx(12)
-      paddingVertical: 2, // rpx(4)
+      paddingHorizontal: rnSpacing['xs-loose'], // rpx(12)
+      paddingVertical: rnSpacing['2xs'], // rpx(4)
       borderRadius: rnRadius.md, // rpx(12)
       backgroundColor: tk.surface.muted,
       flexShrink: 1,

@@ -224,8 +224,12 @@ export default function ArticleEditScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.lg, gap: 6, paddingBottom: rnSpacing['4xl'] },
-    label: { fontSize: rnType.body.size, color: tokens.text.secondary, marginTop: 10 },
+    body: { padding: rnSpacing.lg, gap: rnSpacing['xs-loose'], paddingBottom: rnSpacing['4xl'] },
+    label: {
+      fontSize: rnType.body.size,
+      color: tokens.text.secondary,
+      marginTop: rnSpacing['sm-loose'],
+    },
     input: {
       height: 44,
       paddingHorizontal: rnSpacing.md,
@@ -242,7 +246,12 @@ function makeStyles() {
       paddingBottom: rnSpacing.md,
       textAlignVertical: 'top',
     },
-    summaryInput: { height: 78, paddingTop: 10, paddingBottom: 10, textAlignVertical: 'top' },
+    summaryInput: {
+      height: 78,
+      paddingTop: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['sm-loose'],
+      textAlignVertical: 'top',
+    },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,

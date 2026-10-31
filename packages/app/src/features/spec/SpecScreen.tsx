@@ -182,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     headerBackBtn: {
       width: rnGeometry.tapBox,
@@ -256,8 +256,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     idBadge: {
       borderRadius: rnRadius.md, // rounded-md
-      paddingHorizontal: 6, // px-1.5
-      paddingVertical: 2, // py-0.5
+      paddingHorizontal: rnSpacing['xs-loose'], // px-1.5
+      paddingVertical: rnSpacing['2xs'], // py-0.5
       backgroundColor: tk.surface.muted, // bg-gray-100 dark:bg-neutral-800
     },
     idBadgeText: {
@@ -273,12 +273,12 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       marginTop: rnSpacing.sm, // mt-2
-      gap: 6, // gap-1.5
+      gap: rnSpacing['xs-loose'], // gap-1.5
     },
     tag: {
       borderRadius: rnRadius.md, // rounded-md
-      paddingHorizontal: 6, // px-1.5
-      paddingVertical: 2, // py-0.5
+      paddingHorizontal: rnSpacing['xs-loose'], // px-1.5
+      paddingVertical: rnSpacing['2xs'], // py-0.5
       backgroundColor: tk.brandAccent.light, // bg-orange-50 dark:bg-orange-900/30 → 共享层强调色浅底
     },
     tagText: {

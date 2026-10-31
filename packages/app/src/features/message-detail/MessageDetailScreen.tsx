@@ -81,13 +81,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     replyText: { fontSize: rnType.title.size, color: tk.text.primary, fontWeight: '600' },
-    body: { padding: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subject: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',

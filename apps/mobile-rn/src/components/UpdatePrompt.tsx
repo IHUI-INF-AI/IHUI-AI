@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.brandAccent.light,
   },
-  titleWrap: { flex: 1, minWidth: 0, gap: 2 },
+  titleWrap: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
   title: { color: tokens.text.primary, fontSize: 15, fontWeight: '600' },
   body: { color: tokens.text.secondary, fontSize: 12.5 },
   // 关闭钮:独立圆角块(原来只有一枚 18px 的 X,可点面太小也不成块)

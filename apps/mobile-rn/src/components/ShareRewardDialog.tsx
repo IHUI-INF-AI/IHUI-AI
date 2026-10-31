@@ -247,7 +247,10 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
           >
             {({ pressed }) => (
               <View style={[styles.buttonFace, pressed ? styles.buttonPressed : null]}>
-                <Text style={[styles.primaryButtonText, scaleText(styles.primaryButtonText)]} allowFontScaling={false}>
+                <Text
+                  style={[styles.primaryButtonText, scaleText(styles.primaryButtonText)]}
+                  allowFontScaling={false}
+                >
                   {t('sr.claimBtn', { n: reward })}
                 </Text>
               </View>
@@ -264,7 +267,10 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             >
               {({ pressed }) => (
                 <View style={[styles.secondaryFace, pressed ? styles.buttonPressed : null]}>
-                  <Text style={[styles.secondaryButtonText, scaleText(styles.secondaryButtonText)]} allowFontScaling={false}>
+                  <Text
+                    style={[styles.secondaryButtonText, scaleText(styles.secondaryButtonText)]}
+                    allowFontScaling={false}
+                  >
                     {secondaryLabel}
                   </Text>
                 </View>
@@ -353,13 +359,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     marginBottom: 14,
   } as TextStyle,
   benefits: {
     alignSelf: 'stretch',
     gap: rnSpacing.sm,
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
   } as ViewStyle,
   benefitItem: {
     flexDirection: 'row',
@@ -368,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   } as ViewStyle,
   benefitText: {
     flex: 1,
@@ -398,7 +404,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   secondaryButton: {
     alignSelf: 'stretch',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     paddingVertical: 9,
     paddingHorizontal: rnSpacing.xl,
     alignItems: 'center',

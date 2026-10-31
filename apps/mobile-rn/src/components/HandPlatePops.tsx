@@ -48,6 +48,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface HandPlatePaymentMethod {
   id: string
@@ -386,7 +387,7 @@ export function HandPlatePops({
                       {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
                     </Pressable>
                     <Pressable
-                      style={styles.purchaseAgreementTextWrap}
+                      style={pressFeedback(styles.purchaseAgreementTextWrap)}
                       onPress={purchase.onAgreementPress}
                       disabled={!purchase.onAgreementPress}
                     >

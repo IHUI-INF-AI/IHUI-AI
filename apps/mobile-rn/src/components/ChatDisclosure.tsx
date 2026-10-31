@@ -18,6 +18,7 @@ import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 import type { MessageCitation, MessageInjection, SteerNotice } from '../utils/chat-render-model'
 import { permissionTierWordKeys } from '@ihui/shared/chat'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 引用来源列表:来源标签 + 条目文字。
@@ -48,7 +49,7 @@ export function CitationList({
           <View key={`${item.source}_${index}`} style={disclosureStyles.card}>
             {external && url ? (
               <Pressable
-                style={disclosureStyles.cardHead}
+                style={pressFeedback(disclosureStyles.cardHead)}
                 accessibilityRole="link"
                 accessibilityLabel={url}
                 onPress={() => {
@@ -97,7 +98,7 @@ export function InjectionDisclosure({
         return (
           <View key={key} style={disclosureStyles.card}>
             <Pressable
-              style={disclosureStyles.cardHead}
+              style={pressFeedback(disclosureStyles.cardHead)}
               onPress={() => setOpenKeys((prev) => ({ ...prev, [key]: !open }))}
               accessibilityRole="button"
               accessibilityLabel={item.collapsed}
@@ -238,19 +239,19 @@ export function ToolApprovalRow({
   return (
     <View style={disclosureStyles.approvalRow}>
       <Pressable
-        style={disclosureStyles.approvalBtn}
+        style={pressFeedback(disclosureStyles.approvalBtn)}
         onPress={() => respond(APPROVAL_ACTION_WIRE.allowOnce)}
       >
         <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeOnce')}</Text>
       </Pressable>
       <Pressable
-        style={disclosureStyles.approvalBtn}
+        style={pressFeedback(disclosureStyles.approvalBtn)}
         onPress={() => respond(APPROVAL_ACTION_WIRE.alwaysAllow)}
       >
         <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeAlways')}</Text>
       </Pressable>
       <Pressable
-        style={disclosureStyles.approvalBtn}
+        style={pressFeedback(disclosureStyles.approvalBtn)}
         onPress={() => respond(APPROVAL_ACTION_WIRE.reject)}
       >
         <Text style={disclosureStyles.approvalText}>{t('common.cancel')}</Text>

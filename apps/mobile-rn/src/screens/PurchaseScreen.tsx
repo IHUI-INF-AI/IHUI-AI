@@ -413,7 +413,7 @@ export default function PurchaseScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     tabRow: { flexDirection: 'row', gap: rnSpacing.sm },
     tab: {
@@ -442,9 +442,9 @@ function makeStyles() {
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
-    cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: {
       flex: 1,
       fontSize: rnType.strong.size,
@@ -501,8 +501,8 @@ function makeStyles() {
     methodTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     noteBox: {
       flexDirection: 'row',
-      gap: 6,
-      padding: 10,
+      gap: rnSpacing['xs-loose'],
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
     },
@@ -526,7 +526,11 @@ function makeStyles() {
       fontWeight: '600',
       color: tokens.brand.ctaForeground,
     },
-    qrBox: { alignItems: 'center', gap: 6, paddingVertical: 10 },
+    qrBox: {
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['sm-loose'],
+    },
     // 二维码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),取亮色板书面白。
     qrCanvas: {
       padding: rnSpacing.sm,

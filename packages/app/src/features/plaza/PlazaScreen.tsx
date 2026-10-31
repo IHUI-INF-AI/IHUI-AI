@@ -208,7 +208,10 @@ export function PlazaScreen({
               {formatDateRange(createdAt, closingTime)}
             </Text>
             {cycle ? (
-              <Text style={[styles.cardCycle, scaleText(styles.cardCycle)]} allowFontScaling={false}>
+              <Text
+                style={[styles.cardCycle, scaleText(styles.cardCycle)]}
+                allowFontScaling={false}
+              >
                 {`周期时间:${cycle}${CYCLE_UNITS[cycleUnit ?? ''] ?? ''}`}
               </Text>
             ) : null}
@@ -228,7 +231,11 @@ export function PlazaScreen({
             </View>
             <View style={styles.cardFooter}>
               <Text
-                style={[styles.price, isCompleted ? styles.priceDone : null, scaleText(styles.price)]}
+                style={[
+                  styles.price,
+                  isCompleted ? styles.priceDone : null,
+                  scaleText(styles.price),
+                ]}
                 allowFontScaling={false}
               >
                 <Text style={styles.priceUnit}>￥</Text>
@@ -251,18 +258,27 @@ export function PlazaScreen({
                 >
                   {({ pressed }) => (
                     <View style={[styles.chatBtn, pressed ? styles.chatBtnPressed : null]}>
-                      <Text style={[styles.chatBtnText, scaleText(styles.chatBtnText)]} allowFontScaling={false}>
+                      <Text
+                        style={[styles.chatBtnText, scaleText(styles.chatBtnText)]}
+                        allowFontScaling={false}
+                      >
                         聊一聊
                       </Text>
                     </View>
                   )}
                 </Pressable>
               ) : isCompleted ? (
-                <Text style={[styles.statusDone, scaleText(styles.statusDone)]} allowFontScaling={false}>
+                <Text
+                  style={[styles.statusDone, scaleText(styles.statusDone)]}
+                  allowFontScaling={false}
+                >
                   项目已完成
                 </Text>
               ) : isDeveloping ? (
-                <Text style={[styles.statusDev, scaleText(styles.statusDev)]} allowFontScaling={false}>
+                <Text
+                  style={[styles.statusDev, scaleText(styles.statusDev)]}
+                  allowFontScaling={false}
+                >
                   开发中...
                 </Text>
               ) : null}
@@ -369,7 +385,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     searchBar: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -387,7 +403,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     listContent: {
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       paddingBottom: 80,
     } as ViewStyle,
     columnsRow: {
@@ -427,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyBtn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing['2xl'],
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
@@ -523,7 +539,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.DEFAULT,
     } as TextStyle,
     chatBtn: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

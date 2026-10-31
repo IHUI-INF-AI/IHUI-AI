@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -17,13 +17,13 @@ export function createAboutStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    scroll: { padding: 12, paddingBottom: 32, gap: 12 },
-    hero: { alignItems: 'center', gap: 8, paddingTop: 8 },
+    scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
+    hero: { alignItems: 'center', gap: rnSpacing.sm, paddingTop: rnSpacing.sm },
     heroTitle: { fontSize: 28, fontWeight: '700', textAlign: 'center', color: tk.text.primary },
     bodyText: { fontSize: 13, lineHeight: 20, color: tk.text.secondary },
     itemLabel: { fontSize: 14, color: tk.text.primary },
@@ -33,8 +33,8 @@ export function createAboutStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       alignSelf: 'flex-start',
       gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.brandAccent.light,
     },
@@ -44,12 +44,12 @@ export function createAboutStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      padding: 12,
-      gap: 8,
+      padding: rnSpacing.md,
+      gap: rnSpacing.sm,
     },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     gridCell: { flexGrow: 1, flexBasis: '46%' },
-    cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     iconBox: {
       width: 32,
       height: 32,
@@ -60,11 +60,11 @@ export function createAboutStyles(tk: AppThemeTokens) {
     },
     cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
     cardDesc: { fontSize: 12, lineHeight: 19, color: tk.text.secondary },
-    statsCard: { gap: 12 },
-    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    statCell: { flexGrow: 1, flexBasis: '44%', alignItems: 'center', gap: 4 },
+    statsCard: { gap: rnSpacing.md },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
+    statCell: { flexGrow: 1, flexBasis: '44%', alignItems: 'center', gap: rnSpacing.xs },
     statValue: { fontSize: 24, fontWeight: '700', color: tk.brandAccent.deep },
-    ctaCard: { alignItems: 'center', paddingVertical: 18, gap: 10 },
+    ctaCard: { alignItems: 'center', paddingVertical: 18, gap: rnSpacing['sm-loose'] },
     ctaPrimary: {
       alignSelf: 'stretch',
       alignItems: 'center',

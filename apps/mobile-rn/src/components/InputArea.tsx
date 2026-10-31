@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: INPUT_AREA_STACK_GAP_PX,
     paddingBottom: INPUT_AREA_STACK_GAP_PX,
-    paddingTop: 2,
+    paddingTop: rnSpacing['2xs'],
     marginBottom: INPUT_AREA_STACK_GAP_PX,
   },
   thumbWrap: {
@@ -1014,7 +1014,7 @@ const styles = StyleSheet.create({
   docIcon: {
     // 遗留样式条目(未被渲染引用):与折叠 FAB 加号同墨迹档,数值入表以免端内抄裸数字
     fontSize: INPUT_AREA_GLYPH_LG_PX,
-    marginBottom: 2,
+    marginBottom: rnSpacing['2xs'],
   },
   docMarquee: {
     position: 'absolute',
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
     minHeight: INPUT_AREA_INPUT_MIN_HEIGHT_PX,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: rnSpacing['2xs'],
     paddingVertical: rnSpacing.xs,
   },
   transcribingRow: {
@@ -1321,7 +1321,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: INPUT_AREA_STACK_GAP_PX,
     paddingTop: INPUT_AREA_STACK_GAP_PX,
-    paddingBottom: 2,
+    paddingBottom: rnSpacing['2xs'],
   },
   paramItem: {
     flexDirection: 'column',

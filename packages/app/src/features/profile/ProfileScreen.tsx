@@ -136,12 +136,16 @@ function createStyles(tk: AppThemeTokens) {
     errorBar: {
       marginHorizontal: rnSpacing.lg,
       marginBottom: rnSpacing.sm,
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
     },
     errorText: { fontSize: rnType.body.size, color: tk.error.text },
-    body: { paddingHorizontal: 10, paddingVertical: rnSpacing.lg, gap: rnSpacing.md },
+    body: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.lg,
+      gap: rnSpacing.md,
+    },
     userCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -195,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
       minHeight: 60,
       paddingVertical: rnSpacing.lg,
       paddingHorizontal: rnSpacing.lg,
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
     },
     menuIcon: { fontSize: rnType.title.size },
     menuLabel: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },

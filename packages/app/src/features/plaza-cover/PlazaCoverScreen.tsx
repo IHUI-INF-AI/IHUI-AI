@@ -96,7 +96,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     } as ViewStyle,
@@ -139,7 +139,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       alignItems: 'center',
     } as ViewStyle,
     featureIcon: { fontSize: 32 } as TextStyle,
@@ -153,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
       textAlign: 'center',
     } as TextStyle,
-    actions: { gap: 10 } as ViewStyle,
+    actions: { gap: rnSpacing['sm-loose'] } as ViewStyle,
     primaryBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,

@@ -204,7 +204,7 @@ const indexStyles = StyleSheet.create({
   },
   info: {
     width: '100%',
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingTop: rnSpacing.sm,
     paddingBottom: rnSpacing.sm,
     justifyContent: 'space-between',
@@ -380,7 +380,7 @@ const uptodateStyles = StyleSheet.create({
     backgroundColor: rnCssLight.black30,
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
   },
   classificationText: {
     fontSize: rnType.caption.size,
@@ -393,7 +393,7 @@ const uptodateStyles = StyleSheet.create({
     backgroundColor: rnCssLight.black30,
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
   },
   classHourText: {
     fontSize: rnType.caption.size,
@@ -418,7 +418,7 @@ const uptodateStyles = StyleSheet.create({
     backgroundColor: tokens.warning.light,
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
   },
   vipText: {
     fontSize: rnType.caption.size,
@@ -433,8 +433,8 @@ const uptodateStyles = StyleSheet.create({
     backgroundColor: tokens.error.bg,
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 2,
-    marginRight: 6,
+    paddingVertical: rnSpacing['2xs'],
+    marginRight: rnSpacing['xs-loose'],
   },
   paidText: {
     fontSize: rnType.caption.size,

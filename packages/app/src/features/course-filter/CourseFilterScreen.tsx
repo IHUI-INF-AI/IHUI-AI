@@ -223,12 +223,12 @@ export function CourseFilterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     filterSection: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.muted,
     },
@@ -237,13 +237,17 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.medium,
       marginTop: rnSpacing.sm,
-      marginBottom: 6,
+      marginBottom: rnSpacing['xs-loose'],
     },
     // 某一轴在服务端当前没有可选值时的如实提示(不是错误态,故用 tertiary 而非 danger)
-    axisNotice: { fontSize: rnType.label.size, color: tk.text.tertiary, marginBottom: 6 },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    axisNotice: {
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+      marginBottom: rnSpacing['xs-loose'],
+    },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     chip: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
@@ -263,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
     resetText: { fontSize: rnType.body.size, color: tk.text.secondary },
     applyText: { fontSize: rnType.body.size, color: tk.surface.light },
     errorBar: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -282,7 +286,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    cardMetaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing['xs-loose'],
+    },
     priceText: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.brand.DEFAULT },
   })
 }

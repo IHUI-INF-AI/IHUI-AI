@@ -228,12 +228,12 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     summaryCard: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
     tabs: { paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
     tab: {
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
@@ -302,7 +302,11 @@ function createStyles(tk: AppThemeTokens) {
     // 取消结算(对齐 Uniapp 取消结算状态)
     statusCancelled: { color: tk.text.tertiary },
     // 下单人
-    cardBuyer: { fontSize: rnType.label.size, color: tk.text.secondary, marginTop: 6 },
+    cardBuyer: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      marginTop: rnSpacing['xs-loose'],
+    },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',

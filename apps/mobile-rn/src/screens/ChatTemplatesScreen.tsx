@@ -342,8 +342,8 @@ export default function ChatTemplatesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
-  header: { gap: 10 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
+  header: { gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: 13, color: tokens.text.secondary },
   input: {
     height: 42,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
   chip: {
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rnSpacing.sm,
   },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
   cardTitle: {
     flex: 1,
     fontSize: rnType.strong.size,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     color: tokens.text.secondary,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.bg,
   },
@@ -418,8 +418,8 @@ const styles = StyleSheet.create({
   badge: {
     fontSize: rnType.caption.size,
     color: tokens.text.secondary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['2xs'],
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     padding: rnSpacing.lg,
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     maxHeight: '80%',
   },
   sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   sheetLabel: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   sheetContentBox: {
-    padding: 10,
+    padding: rnSpacing['sm-loose'],
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.bg,
     maxHeight: 260,

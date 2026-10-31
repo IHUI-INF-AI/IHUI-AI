@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   msgErrorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.danger.light,
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息富内容:代码块(展开/收起 + 复制,对齐 ai_index2 code-block) ──
   codeBlock: {
-    marginVertical: 6,
+    marginVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.gray[800],
     overflow: 'hidden',
@@ -233,8 +233,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
     backgroundColor: tokens.gray[700],
   },
   codeBlockLang: {
@@ -253,14 +253,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rnSpacing.xs,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
   },
   codeBlockBtnText: {
     fontSize: rnType.caption.size,
     color: tokens.gray['200'],
   },
   codeBlockContent: {
-    padding: 10,
+    padding: rnSpacing['sm-loose'],
     fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.gray['200'],
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息富内容:思考过程(推理 reasoning,对齐 ai_index2 thinking-process) ──
   thinkingBlock: {
-    marginBottom: 6,
+    marginBottom: rnSpacing['xs-loose'],
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing.sm,
   },
   thinkingTitle: {
@@ -292,8 +292,8 @@ const styles = StyleSheet.create({
     marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing['sm-loose'],
     fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.text.secondary,

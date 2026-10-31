@@ -167,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 顶部导航行(对齐 NavBar:透明底、无下描边 ⇒ 透出 container 页面底色;状态栏区留白) */
     header: {
       // 状态栏区留白(对齐共享层 PaymentScreen 头部惯例)
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     headerRow: {
       flexDirection: 'row',
@@ -208,7 +208,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.danger.DEFAULT,
     },
     checking: {
-      marginTop: 10, // rpx(20)
+      marginTop: rnSpacing['sm-loose'], // rpx(20)
     },
     actions: {
       paddingHorizontal: 30, // rpx(60)

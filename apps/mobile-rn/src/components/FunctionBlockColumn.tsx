@@ -29,7 +29,7 @@ import { tokens as tk } from '../theme/active-tokens'
 import { Star } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 export interface FunctionBlock {
   id: string
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     color: tk.text.primary,
   } as TextStyle,
   description: {
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     fontSize: DESC_FONT_SIZE,
     color: tk.text.secondary,
   } as TextStyle,
