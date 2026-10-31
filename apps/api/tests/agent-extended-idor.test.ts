@@ -263,7 +263,10 @@ describe('agent-extended IDOR 防护', () => {
       expect(mocks.dbUpdate).not.toHaveBeenCalled()
     })
 
-    it('非 admin 改自己提现但传 status → status 被 Zod schema 剥离', async () => {
+    it('非 admin 改自己提现但传 status/amount/type → 三个字段全被 schema 剥离', async () => {
+      // 2026-10-31 安全强化第 10 批 R10 收紧：amount 与 type 也进了不可改集。
+      // 此前只剥离 status，owner 可把待审单金额从 1 元改成 10 万（审批人看到的就是
+      // 改后的行）—— 等于申请人自己决定打款金额。金额只应在创建时由服务端按余额定死。
       asRegular(USER_A)
       mocks.dbSelect.mockReturnValue(chain([{ userId: USER_A }]))
       const updateChain = chain([{ id: REC_ID, status: 'pending' }])
@@ -271,12 +274,13 @@ describe('agent-extended IDOR 防护', () => {
       const res = await server.inject({
         method: 'PUT',
         url: `/withdrawal/${REC_ID}`,
-        payload: { amount: 100, status: 'completed' },
+        payload: { amount: 100, type: 2, status: 'completed' },
       })
       expect(res.statusCode).toBe(200)
       const setArg = updateChain.set.mock.calls[0][0] as Record<string, unknown>
       expect(setArg.status).toBeUndefined()
-      expect(setArg.amount).toBeDefined()
+      expect(setArg.amount).toBeUndefined()
+      expect(setArg.type).toBeUndefined()
     })
 
     it('admin 改任意提现 → 200(特权放行)', async () => {
