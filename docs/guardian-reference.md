@@ -3286,7 +3286,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 167 | `—（待补充）` | 🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\ | check-turn-ordinal-lock.mjs |
 | 168 | `—（待补充）` | 🔀 合并复活已删文件对账(blocking,DR1 基底判定 + DR2 删除出处;默认只判未入 origin/main 的合并,每枚判一次) | check-merge-deletion-resurrection.mjs |
 | 171 | `—（待补充）` | AI 面板装载守门:GlobalShell/AISidePanel 的骨架占位几何一致 + 8 个重组件懒加载边界 + inferVendor 单一来源(首屏延迟根治防回潮,2026-09-30;门体随 d5c54f4499 入库,本枚重注册补对账) | check-ai-panel-mount-guards.mjs |
-| 173 | `—（待补充）` | 对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红) | check-doc-numbers.mjs |
+| 173 | `node scripts/scrub-doc-numbers.mjs`(默认 dry-run;`--apply` 才写盘:逐字节备份 + 规划↔写盘回读 CAS + 剩余 replace 必须为 0;三态分桶 replace/exempt/manual,历史叙述行走 exempt 挂 doc-num-exempt,框图行走 manual 一行不动)· 生成块走 `node scripts/gen-doc-numbers.mjs --markdown` · 镜像 `scripts/tests/scrub-doc-numbers.test.mjs` | 对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红) | check-doc-numbers.mjs |
 | 174 | `—（待补充）` | 诊断面脱敏守门(b76-08a票1配套):诊断/错误上报面不得携带未脱敏的密钥/令牌/邮箱/路径等敏感串,自检 --self-test 内嵌红绿对照 | check-diagnostic-redaction.mjs |
 | 175 | `—（待补充）` | 进程退出码归因守门(b76-08a票1配套):进程 exit 1/非零退出必须可归因到显式 failure kind/错误码,禁止无归因的裸退出,自检 --self-test 内嵌红绿对照 | check-process-exit-attribution.mjs |
 | 176 | `—（待补充）` | 能力位不得客户端自供守门(b76-08a票2配套):客户端不得自报 capability 字段(connectionId/clientMode/deliveryProfile/subscriberScope/workflowRunDeltas 名单),能力位只准服务端下发,自检 --self-test | check-capability-field-not-client-supplied.mjs |
