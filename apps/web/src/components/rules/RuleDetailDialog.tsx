@@ -166,7 +166,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">{t('ruleDetailTitle', { name: rule.name })}</span>
+          <span className="text-body font-semibold">{t('ruleDetailTitle', { name: rule.name })}</span>
           <CloseButton aria-label={tCommon('close')} onClick={onClose} />
         </div>
 

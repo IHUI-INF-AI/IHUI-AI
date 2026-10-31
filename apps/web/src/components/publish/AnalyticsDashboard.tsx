@@ -127,7 +127,7 @@ export function AnalyticsDashboard({
       <div className="grid grid-cols-1 gap-3 tablet-min-[1024px]:grid-cols-3">
         <Card className="tablet-min-[1024px]:col-span-2">
           <CardContent className="min-[640px]:p-3 p-3">
-            <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+            <h3 className="mb-3 text-label font-medium text-muted-foreground">
               {t('analytics.trend')}
             </h3>
             <TrendChart data={overview?.trend ?? []} />
@@ -135,7 +135,7 @@ export function AnalyticsDashboard({
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+            <h3 className="mb-3 text-label font-medium text-muted-foreground">
               {t('analytics.platformDistribution')}
             </h3>
             <PieChart data={overview?.platformDistribution ?? []} />
@@ -146,7 +146,7 @@ export function AnalyticsDashboard({
       {/* 失败原因 */}
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+          <h3 className="mb-3 text-label font-medium text-muted-foreground">
             {t('analytics.failureReasons')}
           </h3>
           <BarChart data={overview?.failureReasons ?? []} />
@@ -156,7 +156,7 @@ export function AnalyticsDashboard({
       {/* 账号健康度 */}
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+          <h3 className="mb-3 text-label font-medium text-muted-foreground">
             {t('analytics.accountHealth')}
           </h3>
           {accounts.length === 0 ? (

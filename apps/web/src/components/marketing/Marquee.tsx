@@ -36,7 +36,7 @@ export function Marquee({ items }: MarqueeProps) {
     // (父容器已无 max-w-7xl 限制,撑满营销区域 1962/2449px;
     // marquee 容器之前无 w-full,按内容收缩,导致右侧 25% 黑地)
     <div className="flex w-full items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2">
-      <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+      <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-label font-medium text-primary">
         <Megaphone className="h-3.5 w-3.5" />
         {t('label')}
       </span>

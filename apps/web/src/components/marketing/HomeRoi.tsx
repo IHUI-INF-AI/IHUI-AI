@@ -162,7 +162,7 @@ export function HomeRoi() {
         >
           04
         </div>
-        <h2 className="text-2xl font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
+        <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
