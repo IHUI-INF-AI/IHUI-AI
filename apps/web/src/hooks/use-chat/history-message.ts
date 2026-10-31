@@ -328,9 +328,16 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     createdAt: new Date(row.createdAt).getTime(),
     model: (meta?.model as string | null | undefined) ?? '',
     reasoning: row.reasoning,
-    // D24(2026-09-19 立):恢复工具卡与终端区(metadata 强制落库)
-    toolCalls: (meta?.toolCalls ?? undefined) as ChatMessage['toolCalls'],
-    terminalTasks: (meta?.terminalTasks ?? undefined) as ChatMessage['terminalTasks'],
+    // D24(2026-09-19 立):恢复工具卡与终端区(metadata 强制落库)。
+    // D35(2026-10-31):列表读面的九类已被投影成摘要信封(`{summary:true,count,bytes}`),
+    // 不是数组 ⇒ 不能直接 as 挂到消息上(渲染侧 `.map` 会崩)。这里只认数组,
+    // 摘要形态安静缺席,全文经 MessageItem 的懒取出口取。
+    toolCalls: Array.isArray(meta?.toolCalls)
+      ? (meta.toolCalls as ChatMessage['toolCalls'])
+      : undefined,
+    terminalTasks: Array.isArray(meta?.terminalTasks)
+      ? (meta.terminalTasks as ChatMessage['terminalTasks'])
+      : undefined,
     // planSteps 回放(2026-09-21 立):缺失时 undefined,不得造出空数组
     planSteps: readPlanStepsFromMetadata(meta?.planSteps),
     // G-165:档位徽章的数据源从"只在内存里"换成服务端盖章的 metadata.permissionMode。
@@ -380,6 +387,10 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // 差距⑤补全:轮次序号透传 —— 同样受"逐字段列清单"纪律约束,不列即静默丢掉,
     // 于是「分享此回合」入口在历史回放后消失。undefined/null/number 三态原样带走。
     turnOrdinal: row.turnOrdinal,
+    // D35(2026-10-31):原始 metadata 保留在消息上 —— MessageItem 靠它判
+    // "本地只有摘要"(hasSummarizedMetadata)并触发懒取;不保留这一份,
+    // 组件就只剩解析后的零散字段,判不出"九类正文没随列表下发"。
+    metadata: row.metadata ?? undefined,
   }
 }
 

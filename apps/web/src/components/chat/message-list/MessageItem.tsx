@@ -65,7 +65,10 @@ import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import {
   describeToolCall,
   hasRichAnchors,
+  hasSummarizedMetadata,
   humanizeToolText,
+  isChatMetadataKindSummary,
+  METADATA_PROCESS_KIND_KEYS,
   summarizeToolActivity,
 } from '@ihui/shared/chat'
 import {
@@ -111,6 +114,9 @@ import { MessageFeedbackActions } from '@/components/chat/message-list/message-f
 import { TraceReplay } from '@/components/ai/trace-replay'
 import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { useTts } from '@/hooks/use-tts'
+// D35(2026-10-31 接线):metadata 九类在列表读面只回摘要,展开时按消息懒取全文;
+// 失败状态由本钩子给出码,渲染位负责降级为占位(不抛、不白屏)。
+import { useLazyMessageMetadata } from '@/hooks/use-lazy-message-metadata'
 // D60(2026-09-23 渲染位):失败轮草稿保留提示与 toast 同源取词,不另立文案/状态
 import { resolvePersistTexts } from '@/hooks/use-chat/persistence'
 import { fetchApi } from '@/lib/api'
@@ -940,11 +946,23 @@ const MessageItem = React.memo(function MessageItem({
 
   // 3. 元数据 toggle(Code)— 原项目 toggleMetadata,展开/折叠 usage 细分面板
   const [metadataExpanded, setMetadataExpanded] = React.useState(false)
+  // D35(2026-10-31):列表读面九类只带摘要信封 ⇒ 展开时懒取该条全文。
+  // 摘要缺席(老消息/该轮无线程信息)不触发懒取 —— 缺席不等于被裁。
+  const summarizedMetadata = hasSummarizedMetadata(m.metadata)
+  const lazyMetadata = useLazyMessageMetadata(conversationId, m.id)
+  const loadLazyMetadata = lazyMetadata.load
   const handleToggleMetadata = React.useCallback(() => {
-    setMetadataExpanded((prev) => !prev)
-  }, [])
+    const next = !metadataExpanded
+    setMetadataExpanded(next)
+    if (next && summarizedMetadata) loadLazyMetadata()
+  }, [metadataExpanded, summarizedMetadata, loadLazyMetadata])
+  // Code 按钮显隐:老数据看 m.meta.usage;摘要行即使本地没有 usage 也必须留入口,
+  // 否则「懒取」结构上点不到 —— 按钮没了,全文永远取不回来。
   const hasMetadata =
-    Boolean(m.meta) && typeof m.meta === 'object' && 'usage' in (m.meta as Record<string, unknown>)
+    summarizedMetadata ||
+    (Boolean(m.meta) &&
+      typeof m.meta === 'object' &&
+      'usage' in (m.meta as Record<string, unknown>))
 
   // 4. 发布到社区(Megaphone)— 原项目 publishToCommunity
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false)
@@ -2057,13 +2075,55 @@ const MessageItem = React.memo(function MessageItem({
         </div>
       )}
       {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
-            展示 promptTokens / completionTokens / totalTokens 细分 */}
+            展示 promptTokens / completionTokens / totalTokens 细分。
+            D35(2026-10-31):列表读面的九类过程信息只有摘要信封 ⇒ 展开时懒取全文;
+            懒取失败只降级为一行占位(不抛、不白屏),下次展开可重试。 */}
       {!isUser && hasMetadata && metadataExpanded && (
         <div
           className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-xs"
           data-testid={`message-metadata-panel-${m.id}`}
         >
           <UsageBreakdown usage={m.meta?.usage} model={m.model} />
+          {summarizedMetadata && (
+            <div className="mt-1" data-testid={`message-metadata-lazy-${m.id}`}>
+              {lazyMetadata.status === 'failed' ? (
+                <p
+                  className="text-muted-foreground"
+                  data-testid={`message-metadata-lazy-failed-${m.id}`}
+                >
+                  {t('message.metadataUnavailable')}
+                </p>
+              ) : lazyMetadata.status === 'ready' ? (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                  {METADATA_PROCESS_KIND_KEYS.map((key) => {
+                    const value = lazyMetadata.metadata?.[key]
+                    const summary = isChatMetadataKindSummary(value) ? value : null
+                    const count = Array.isArray(value) ? value.length : summary?.count
+                    const present = value !== undefined && value !== null
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between gap-2"
+                        data-testid={`message-metadata-kind-${key}-${m.id}`}
+                      >
+                        <dt className="font-mono text-muted-foreground">{key}</dt>
+                        <dd className="tabular-nums">
+                          {present ? (count !== undefined ? String(count) : '·') : '—'}
+                        </dd>
+                      </div>
+                    )
+                  })}
+                </dl>
+              ) : (
+                <p
+                  className="text-muted-foreground"
+                  data-testid={`message-metadata-lazy-loading-${m.id}`}
+                >
+                  {t('message.metadataLoading')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
