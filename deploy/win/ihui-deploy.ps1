@@ -887,15 +887,33 @@ function Invoke-Probe {
 
 function Test-LlmGateway {
     # 返回值由旧布尔改为 pass/fail/unknown 三态(唯一调用方是 Test-HealthGate)
+    # 2026-10-31:本函数同时把**最后一枚探测的原文**(Verdict/Status/Reason)落到
+    # $script:LastLlmProbe —— 旧日志只记 `llm=fail` 一个词,401(探测令牌被拒)/404(新构建
+    # 里路由没了)/502(边缘)/15s 超时 在 deploy-loop.log 里完全同形,事后无从定论(§0.3 同族:
+    # 结论必须带着能复核它的读数一起落盘)。只加取证,三态映射一位未动。
+    $script:LastLlmProbe = $null
     $tok = Get-HcToken
-    if (-not $tok) { Log "HEALTH 未取得探测令牌(登录被限流或凭据缺失)→ llm 项按未知处理"; return 'unknown' }
+    if (-not $tok) {
+        $script:LastLlmProbe = @{ Verdict = 'unknown'; Status = 0; Reason = 'no-token' }
+        Log "HEALTH 未取得探测令牌(登录被限流或凭据缺失)→ llm 项按未知处理"; return 'unknown'
+    }
     $r = Invoke-Probe -Url "$PublicWeb/api/llm/providers/health" -Token $tok
     if ($r.Status -eq 401 -or $r.Status -eq 403) {
         $tok = Get-HcToken -Force          # 只有令牌确实失效才重登,正常轮次零登录
-        if (-not $tok) { return 'unknown' }
+        if (-not $tok) {
+            $script:LastLlmProbe = @{ Verdict = 'unknown'; Status = [int]$r.Status; Reason = 'auth-retry-no-token' }
+            return 'unknown'
+        }
         $r = Invoke-Probe -Url "$PublicWeb/api/llm/providers/health" -Token $tok
     }
+    $script:LastLlmProbe = @{ Verdict = [string]$r.Verdict; Status = [int]$r.Status; Reason = [string]$r.Reason }
     if ($r.Verdict -eq 'unknown') { Log "HEALTH llm 网关未取得结论:$($r.Reason) → 按未知处理,不据此回滚" }
+    elseif ($r.Verdict -eq 'fail') {
+        # 旧实现在 fail 分支一句话都不打 ⇒ 红得安静。401/403 尤其要能一眼分辨:那表示
+        # **探针自己的令牌被拒**(JWT_SECRET 与运行中服务不一致 / 契约变更),不是网关坏;
+        # 而它落在 fail 上会进 LastFails、在源站腿也不成立时直接触发回滚 —— 详见本轮 GATE-DIM 行。
+        Log "HEALTH llm 网关明确失败(HTTP $($r.Status) $($r.Reason))→ 进 fails;若状态是 401/403,先查探测令牌腿(JWT_SECRET)再谈回滚"
+    }
     return $r.Verdict
 }
 
@@ -922,8 +940,13 @@ function Test-HealthGate {
     $rounds = @()
     $script:HealthGateProven = $false
     $script:HealthGateUnproven = $false
+    # 2026-10-31:EntryBroken 此前只在拿到结论那一刻赋值,同进程第二次调用(Do-Rollback 的回滚后
+    # 复验,见下方 Do-Rollback 里那次 Test-HealthGate)会**继承上一次的 $true** —— 那是"状态量没在入口归零"的
+    # 标准形态(另外三个 flag 都在这里归零,唯独漏了它)。归零后每次调用的四个 flag 自成一套。
+    $script:HealthGateEntryBroken = $false
     $script:HealthGateFailDims = ''
     $script:HealthGateUnknownDims = ''
+    $script:LastLlmProbe = $null
     for ($i = 1; $i -le $Tries; $i++) {
         Update-DeployLockHeartbeat   # 门禁每轮续心跳(8 轮 × 12s + 探测超时,最长约 9.6 分钟)
         $iterStart = Get-Date       # 本轮起点(含 12s 退避),用于 GATE-ITER elapsed 与预算判定
@@ -940,7 +963,15 @@ function Test-HealthGate {
         $ao = Invoke-Probe -Url $OriginApi -Contains '"status":"ok"'
         $lo = Invoke-Probe -Url $AiServiceHealth   # 源站 llm 腿走 liveness(8803 /health,免鉴权瞬时):见上方 $AiServiceHealth 注释
         $fails = @(); $unknown = @()
-        if ($w.Verdict -eq 'fail') { $fails += "web(HTTP $($w.Status) $($w.Reason))" } elseif ($w.Verdict -ne 'pass' -and $wo.Verdict -ne 'pass') { $unknown += 'web' }
+        # web 维交给纯函数判(2026-10-31):判序与旧内联写法逐条等价(公网 fail ⇒ Fails;公网非 pass
+        # 且源站 pass ⇒ 折算为绿;公网非 pass 且源站非 pass ⇒ Unknown),只多识别一格
+        # "公网 pass 而源站 fail" —— 公网那一路由 TencentEdgeOne 缓存应答(本文件下面就绪等待那段
+        # 已实测 eo-cache-status=HIT),缓存命中的 pass 不证明源站在出页面。旧写法让它算绿,于是
+        # "三项全绿"可以由一份旧缓存拼出来 ⇒ 调用方打印部署成功,而源站其实没在服务。
+        # 方向:该型降为 Unknown(最多 pass-unproven,不据此回滚),判据本体见 Get-GateWebDimension。
+        $webDim = Get-GateWebDimension -Public $w -Origin $wo
+        if (@($webDim.Fails).Count) { $fails += @($webDim.Fails) }
+        if (@($webDim.Unknown).Count) { $unknown += @($webDim.Unknown) }
         if ($a.Verdict -eq 'fail') { $fails += "api(HTTP $($a.Status) $($a.Reason))" } elseif ($a.Verdict -ne 'pass' -and $ao.Verdict -ne 'pass') { $unknown += 'api' }
         if ($l -eq 'fail') { $fails += 'llm(网关接口未就绪)' } elseif ($l -ne 'pass' -and $lo.Verdict -ne 'pass') { $unknown += 'llm' }
         $rounds += @{ web = $w.Verdict; api = $a.Verdict; llm = $l; webOrigin = $wo.Verdict; apiOrigin = $ao.Verdict; llmOrigin = $lo.Verdict; fails = $fails; unknown = $unknown }
@@ -952,6 +983,21 @@ function Test-HealthGate {
         if ($a.Verdict -ne 'pass' -and $ao.Verdict -eq 'pass') { $rescued += 'api' }
         if ($l -ne 'pass' -and $lo.Verdict -eq 'pass') { $rescued += 'llm' }
         Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l 源站直探=web:$($wo.Verdict)/api:$($ao.Verdict)/llm:$($lo.Verdict)$tail"
+        # 取证行(2026-10-31,纯 ASCII):逐维带上 HTTP 状态与类别词。旧日志只有 pass/fail/unknown,
+        # 401(探测令牌被拒)/404(路由不在)/502(边缘)/15s 超时 在 deploy-loop.log 里完全同形 ——
+        # 2026-10-31 两轮回滚事后就只能看到 `llm=fail` 一个词,定不了论。这行是**纯 ASCII**,
+        # 中文经 LocalSystem 管道烂成 U+FFFD 之后仍逐字可读(GATE-ITER / GATE-UNPROVEN 同一条纪律)。
+        $llmProbeRec = $script:LastLlmProbe
+        if (-not $llmProbeRec) { $llmProbeRec = @{ Verdict = $l; Status = 0; Reason = 'noprobe' } }
+        Log (Format-GateProbeEvidence -Probes ([ordered]@{
+                    web       = $w
+                    api       = $a
+                    llm       = $llmProbeRec
+                    webOrigin = $wo
+                    apiOrigin = $ao
+                    llmOrigin = $lo
+                }))
+        if ($webDim.CacheBlind) { Log $webDim.Marker }
         if ($rescued.Count) { Log "GATE-GREEN-VIA-ORIGIN dims=[$($rescued -join ' ')](公网 unknown 但源站直探 pass ⇒ 折算为绿;只进日志,不进告警身份)" }
         # ASCII 标记:每完成一轮都打一行(含通过那一轮),便于事后按秒数复原分布、定位卡在哪一轮
         $iterSec = [int]((Get-Date) - $iterStart).TotalSeconds
