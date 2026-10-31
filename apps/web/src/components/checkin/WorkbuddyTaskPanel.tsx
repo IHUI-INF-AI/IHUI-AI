@@ -363,7 +363,10 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           </div>
 
           {error && (
-            <p className="mt-3 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+            <p
+              data-testid="wb-task-error"
+              className="mt-3 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+            >
               {error}
             </p>
           )}

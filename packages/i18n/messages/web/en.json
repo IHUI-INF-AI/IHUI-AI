@@ -25846,9 +25846,6 @@
     "title": "Help details",
     "answer": "Answer"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP license/registration No."
-  },
   "identityVerify": {
     "uploadFront": "Upload ID front",
     "uploadBack": "Upload ID back",
