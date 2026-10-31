@@ -9944,6 +9944,43 @@ async def _tool_notebook_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# advisor_consult(G-11 协议层收尾,2026-10-31 立):指定另一个模型就子问题作答。
+# 身份只认承载层注入的 __user_id / __session_id(LLM 不可控),复用 agent_comm 的
+# 单源校验器判"缺一即拒",缺身份时一次都不碰 LLM;预算 / 模型 fail-closed 的判据
+# 本体全在 app/services/advisor.py,本层只接线、不复算(§0.6)。
+# ---------------------------------------------------------------------------
+async def _tool_advisor_consult(arguments: dict[str, Any]) -> dict[str, Any]:
+    """advisor_consult:向指定模型咨询一个子问题(会话级次数预算 + 模型名 fail-closed)。"""
+    from .advisor import consult
+    from .agent_comm import _identity_or_error
+
+    _sid, _uid, identity_error = _identity_or_error(
+        arguments.get("__session_id"), arguments.get("__user_id")
+    )
+    if identity_error is not None:
+        return {
+            "tool": "advisor_consult", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED",
+            "error": "缺少宿主注入的调用者身份",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+    raw_max_uses = arguments.get("max_uses")
+    max_uses = (
+        raw_max_uses
+        if isinstance(raw_max_uses, int) and not isinstance(raw_max_uses, bool)
+        else None
+    )
+    result = await consult(
+        principal=_uid,
+        session_id=_sid,
+        prompt=str(arguments.get("prompt") or ""),
+        model=str(arguments.get("model") or "").strip() or None,
+        max_uses=max_uses,
+    )
+    return {"tool": "advisor_consult", **result}
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -12223,6 +12260,33 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== advisor 咨询(G-11 协议层补齐,2026-10-31 立)=====
+    # 身份 / 预算键不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,
+    # 模型自报即越权);max_uses 的 1..10 与 advisor.ADVISOR_MAX_USES_CAP 同值。
+    MCPTool(
+        name="advisor_consult",
+        description=(
+            "向指定的另一个模型咨询一个子问题(带会话级次数上限);未指定模型则用默认模型。"
+            "指定了模型就只认那一个:该模型不可用即回具名错误码 ADVISOR_MODEL_UNAVAILABLE,"
+            "绝不静默回落到默认模型。次数用尽回 ADVISOR_BUDGET_EXHAUSTED。"
+            "身份只认承载层注入,不接受模型自报。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "要咨询的子问题(必填,非空白,≤8000 字符)"},
+                "model": {"type": "string", "description": "咨询用的模型名(可选;缺省=网关默认模型)"},
+                "max_uses": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "本会话(属主+会话)的咨询次数上限(可选,默认 3,硬上限 10)",
+                },
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -12754,6 +12818,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "send_to_session": _tool_send_to_session,
     # Notebook 结构编辑(G-NotebookEdit,2026-11-01 立;与上方 _TOOLS 声明同批双射)
     "notebook_edit": _tool_notebook_edit,
+    "advisor_consult": _tool_advisor_consult,
 }
 
 
