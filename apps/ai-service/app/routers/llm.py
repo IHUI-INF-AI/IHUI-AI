@@ -7936,8 +7936,11 @@ def _is_allowed_callback_target(url: str) -> bool:
             return port
         return 443 if scheme == "https" else 80
 
+    # R8 复评发现5:scheme 一并比对 —— https 基底下放行 http 形态会把内部
+    # 密钥以明文发往同 host(MitM/同段嗅探面)。
     return (
-        (target.hostname or "").lower() == (base.hostname or "").lower()
+        target.scheme == base.scheme
+        and (target.hostname or "").lower() == (base.hostname or "").lower()
         and _default_port(target, target.scheme) == _default_port(base, base.scheme)
     )
 
