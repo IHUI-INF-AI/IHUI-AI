@@ -8,7 +8,7 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -136,11 +136,11 @@ export function CheckInScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
     statsCard: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
@@ -148,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statsCol: { flex: 1, alignItems: 'center', minWidth: 72 },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
-    statsLabel: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
+    statsLabel: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.brand.DEFAULT },
     signBtn: {
       marginTop: 14,
       height: 50,
@@ -161,18 +161,18 @@ function createStyles(tk: AppThemeTokens) {
     signBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     signBtnTextDisabled: { color: tk.text.secondary },
     calendarTitle: {
-      paddingHorizontal: 10,
-      paddingTop: 16,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingTop: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     },
     calendarGrid: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     calendarCell: {
       width: '13%',
@@ -194,12 +194,12 @@ function createStyles(tk: AppThemeTokens) {
     calendarDateSigned: { color: tk.surface.light },
     calendarDateUnsigned: { color: tk.text.primary },
     calendarMarkReward: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 10,
       color: tk.text.secondary,
     },
     errorInline: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       textAlign: 'center',
       fontSize: 14,
       color: tk.danger.DEFAULT,

@@ -228,14 +228,14 @@ export function ContextUsagePanel({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    wrap: { paddingHorizontal: rnSpacing.md, paddingTop: 6 },
+    wrap: { paddingHorizontal: rnSpacing.md, paddingTop: rnSpacing['xs-loose'] },
     summary: {
       fontSize: rnType.label.size,
       color: tk.text.secondary,
       fontVariant: ['tabular-nums'],
     },
     panel: {
-      marginTop: 6,
+      marginTop: rnSpacing['xs-loose'],
       padding: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.label.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 6,
+      marginBottom: rnSpacing['xs-loose'],
     },
     bar: {
       flexDirection: 'row',
@@ -252,23 +252,33 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xs,
       overflow: 'hidden',
       backgroundColor: tk.border.light,
-      marginBottom: 6,
+      marginBottom: rnSpacing['xs-loose'],
     },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: 3,
+    },
     dot: { width: 8, height: 8, borderRadius: rnRadius.xs },
     rowLabel: { fontSize: rnType.caption.size, color: tk.text.primary },
     topDetail: { flex: 1, fontSize: 10 },
     num: { fontSize: rnType.caption.size, color: tk.text.primary, fontVariant: ['tabular-nums'] },
     dim: { color: tk.text.secondary },
-    note: { fontSize: 10, paddingLeft: 14, paddingVertical: 2 },
+    note: { fontSize: 10, paddingLeft: 14, paddingVertical: rnSpacing['2xs'] },
     details: {
       marginLeft: 14,
       marginBottom: rnSpacing.xs,
-      padding: 6,
+      padding: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
     },
-    detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 1 },
+    detailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: 1,
+    },
     detailText: { flex: 1, fontSize: 10 },
   })
 }

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -12,19 +12,19 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    scroll: { padding: 12, paddingBottom: 32 },
+    scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      padding: 12,
-      gap: 10,
+      padding: rnSpacing.md,
+      gap: rnSpacing['sm-loose'],
     },
     cover: {
       width: '100%',
@@ -44,14 +44,14 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary, lineHeight: 28 },
     favBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: 5,
       borderRadius: rnRadius.sm,
       borderWidth: StyleSheet.hairlineWidth,
@@ -67,17 +67,17 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
     favBtnActiveText: { color: tk.brand.ctaForeground },
     favBtnTextPending: { opacity: 0.6 },
     favErrorText: { fontSize: 12, color: tk.danger.DEFAULT },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: rnSpacing.md },
     metaChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     metaText: { fontSize: 11, color: tk.text.tertiary },
     content: { fontSize: 14, lineHeight: 22, color: tk.text.medium },
     contentEmpty: { fontSize: 13, color: tk.text.tertiary },

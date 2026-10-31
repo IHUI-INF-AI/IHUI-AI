@@ -239,7 +239,11 @@ export function AiGroupScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingTop: rnSpacing.md, paddingBottom: rnSpacing.sm },
+    header: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
+    },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabRow: {
@@ -249,7 +253,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
-    searchRow: { marginHorizontal: rnSpacing.lg, marginTop: 10 },
+    searchRow: { marginHorizontal: rnSpacing.lg, marginTop: rnSpacing['sm-loose'] },
     searchInput: {
       height: 40,
       borderRadius: rnRadius.sm,
@@ -285,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 10,
+      marginRight: rnSpacing['sm-loose'],
     },
     cardIconText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     cardMain: { flex: 1 },
@@ -337,7 +341,7 @@ function createStyles(tk: AppThemeTokens) {
     detailHead: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -353,7 +357,7 @@ function createStyles(tk: AppThemeTokens) {
     metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     sectionTitle: {
       marginTop: rnSpacing.xl,
-      marginBottom: 10,
+      marginBottom: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
@@ -361,7 +365,7 @@ function createStyles(tk: AppThemeTokens) {
     memberItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: rnSpacing.md,
@@ -374,7 +378,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 10,
+      marginRight: rnSpacing['sm-loose'],
     },
     memberAvatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     memberMain: { flex: 1 },
@@ -388,7 +392,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     roleBadgeText: { fontSize: rnType.caption.size, color: tk.text.primary },
     previewBubble: {
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadiusFor.bubble,
       backgroundColor: tk.surface.card,
       marginBottom: rnSpacing.sm,
@@ -401,7 +405,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     previewText: { fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
     previewBubbleMine: {
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
       alignSelf: 'flex-end',

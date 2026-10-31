@@ -1,7 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -230,9 +231,9 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
     },
     titleText: {
       fontSize: 16,
@@ -246,21 +247,21 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 内容区 */
     scroll: {
-      paddingBottom: 16,
-      paddingHorizontal: 16,
-      paddingTop: 16,
+      paddingBottom: rnSpacing.lg,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.lg,
     },
     /* 统计卡片 */
     statRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     statCard: {
       flex: 1,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      padding: 12,
+      padding: rnSpacing.md,
     },
     statValue: {
       fontSize: 18,
@@ -268,13 +269,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     statLabel: {
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       fontSize: 10,
       color: tk.text.secondary,
     },
     /* 区块通用 */
     section: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
     },
     sectionLabel: {
       fontSize: 12,
@@ -282,22 +283,22 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     hintText: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       fontSize: 12,
       textAlign: 'center',
       color: tk.text.tertiary,
     },
     /* 最近压缩事件 */
     eventList: {
-      marginTop: 8,
-      gap: 8,
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
     },
     eventCard: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
     },
     eventHead: {
       flexDirection: 'row',
@@ -310,46 +311,46 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     eventTime: {
-      marginLeft: 8,
+      marginLeft: rnSpacing.sm,
       fontSize: 10,
       color: tk.text.tertiary,
     },
     eventMeta: {
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
       fontSize: 10,
       color: tk.text.secondary,
     },
     /* 提及检索 */
     searchInput: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       fontSize: 14,
       color: tk.text.primary,
     },
     mentionList: {
-      marginTop: 8,
-      gap: 8,
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
     },
     mentionCard: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
     },
     mentionHead: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     typeBadge: {
       borderRadius: rnRadius.md,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       backgroundColor: tk.warning.light,
     },
     typeBadgeText: {
@@ -363,7 +364,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     mentionDetail: {
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
       fontSize: 10,
       color: tk.text.tertiary,
     },
