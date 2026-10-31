@@ -25,35 +25,41 @@ export function AlertRules({ rules }: Props) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {rules.map((r) => (
-            <div
-              key={r.id}
-              className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-            >
-              <div>
-                <span className="font-medium">{r.name}</span>
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {r.metric} {r.operator} {r.threshold}
-                </span>
-              </div>
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
-                  r.enabled
-                    ? 'bg-success/10 text-success-deep-text'
-                    : 'bg-muted text-muted-foreground',
-                )}
+          {rules.map((r) => {
+            // 真列形状(suppression_rules):匹配条件 = matchSource + matchLabels,
+            // 生效开关 = isActive,抑制时长 = suppressMinutes;不存在 metric/operator/threshold。
+            const labelPairs = Object.entries(r.matchLabels).map(([k, v]) => `${k}=${String(v)}`)
+            return (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
               >
+                <div>
+                  <span className="font-medium">{r.name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    来源 {r.matchSource ?? '任意'} · 抑制 {r.suppressMinutes} 分钟
+                    {labelPairs.length > 0 ? ` · 标签 ${labelPairs.join(', ')}` : ''}
+                  </span>
+                </div>
                 <span
                   className={cn(
-                    'h-1.5 w-1.5 rounded-full',
-                    r.enabled ? 'bg-success' : 'bg-muted-foreground',
+                    'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                    r.isActive
+                      ? 'bg-success/10 text-success-deep-text'
+                      : 'bg-muted text-muted-foreground',
                   )}
-                />
-                {r.enabled ? '启用' : '禁用'}
-              </span>
-            </div>
-          ))}
+                >
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      r.isActive ? 'bg-success' : 'bg-muted-foreground',
+                    )}
+                  />
+                  {r.isActive ? '启用' : '禁用'}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </CardContent>
     </Card>

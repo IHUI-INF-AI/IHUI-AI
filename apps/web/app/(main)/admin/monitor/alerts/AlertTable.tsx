@@ -15,7 +15,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { LEVEL_STYLE, STATUS_LABEL, STATUS_STYLE } from './helpers'
+import { severityStyle, statusLabel, statusStyle } from './helpers'
 import type { Alert } from './types'
 import { formatDate } from '@/lib/date-utils'
 
@@ -65,7 +65,7 @@ export function AlertTable({
             </TableRow>
           ) : (
             list.map((a) => {
-              const st = LEVEL_STYLE[a.level]
+              const st = severityStyle(a.severity)
               const Icon = st.icon
               return (
                 <TableRow key={a.id}>
@@ -78,11 +78,11 @@ export function AlertTable({
                       )}
                     >
                       <Icon className="h-3 w-3" />
-                      {a.level}
+                      {st.label}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{a.title}</div>
+                    <div className="font-medium">{a.name}</div>
                     <div className="max-w-[300px] break-words text-xs text-muted-foreground">
                       {a.message}
                     </div>
@@ -92,19 +92,24 @@ export function AlertTable({
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
-                        STATUS_STYLE[a.status],
+                        statusStyle(a.status),
                       )}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {STATUS_LABEL[a.status]}
+                      {statusLabel(a.status)}
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {formatDate(a.createdAt)}
+                    <div>{formatDate(a.firedAt)}</div>
+                    {a.resolvedAt ? (
+                      <div className="text-[10px] leading-4 opacity-70">
+                        解决于 {formatDate(a.resolvedAt)}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-nowrap justify-end gap-1">
-                      {a.status === 'active' && (
+                      {a.status === 'firing' && (
                         <Button
                           size="sm"
                           variant="ghost"
