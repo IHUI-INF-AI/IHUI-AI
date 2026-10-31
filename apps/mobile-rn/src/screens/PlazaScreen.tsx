@@ -478,8 +478,7 @@ export function PlazaScreen() {
               },
             ]}
             rightAction={
-              <Pressable
-                style={undefined}
+              <Tappable
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 onPress={() => setShowSearch((v) => !v)}
                 accessibilityRole="button"
@@ -490,7 +489,7 @@ export function PlazaScreen() {
                 ) : (
                   <Search size={20} color={tokens.text.medium} />
                 )}
-              </Pressable>
+              </Tappable>
             }
           />
         </NavChrome>

@@ -210,15 +210,14 @@ export default function ImagePreviewModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={styles.closeBtn}>
-          <Pressable
-            style={undefined}
+          <Tappable
             onPress={onClose}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
           >
             <X size={30} color={HUD_COLOR} />
-          </Pressable>
+          </Tappable>
         </View>
         {/*
           手势面只在本端真的溢出时才打开(pointerEvents 由共享判据给值):
@@ -283,41 +282,37 @@ export default function ImagePreviewModal({
                 </Tappable>
               </>
             ) : null}
-            <Pressable
-              style={undefined}
+            <Tappable
               onPress={() => setZoom((z) => zoomStep(z, 'out'))}
               hitSlop={10}
               accessibilityRole="button"
             >
               <Minus size={22} color={HUD_COLOR} />
-            </Pressable>
+            </Tappable>
             <Text style={styles.hudText}>{`${Math.round(zoom * 100)}%`}</Text>
-            <Pressable
-              style={undefined}
+            <Tappable
               onPress={() => setZoom((z) => zoomStep(z, 'in'))}
               hitSlop={10}
               accessibilityRole="button"
             >
               <Plus size={22} color={HUD_COLOR} />
-            </Pressable>
+            </Tappable>
             {onTransfer ? (
               <>
-                <Pressable
-                  style={undefined}
+                <Tappable
                   onPress={() => void transfer('save')}
                   hitSlop={10}
                   accessibilityRole="button"
                 >
                   <Download size={22} color={HUD_COLOR} />
-                </Pressable>
-                <Pressable
-                  style={undefined}
+                </Tappable>
+                <Tappable
                   onPress={() => void transfer('copy')}
                   hitSlop={10}
                   accessibilityRole="button"
                 >
                   <Copy size={22} color={HUD_COLOR} />
-                </Pressable>
+                </Tappable>
               </>
             ) : null}
           </View>

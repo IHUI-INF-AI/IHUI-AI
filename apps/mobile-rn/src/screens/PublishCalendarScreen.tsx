@@ -17,7 +17,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -308,9 +307,9 @@ export default function PublishCalendarScreen() {
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.title}
               </Text>
-              <Pressable onPress={() => setPanel(null)} hitSlop={8} style={undefined}>
+              <Tappable onPress={() => setPanel(null)} hitSlop={8}>
                 <X size={18} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
             {panel ? (
               <>

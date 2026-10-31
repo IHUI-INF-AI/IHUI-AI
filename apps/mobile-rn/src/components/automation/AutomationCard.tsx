@@ -2,8 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Pressable, Text, View } from 'react-native'
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-native'
+import { Text, View } from 'react-native'
+import { Card, CardContent, CardHeader, CardTitle, Badge, Tappable } from '@ihui/ui-native'
 import type { BadgeVariant } from '@ihui/design-tokens'
 import type { UserAutomation, AutomationStatus } from '@ihui/api-client'
 import {
@@ -77,12 +77,10 @@ export function AutomationCard({ item, onSelect }: AutomationCardProps) {
 
   return (
     <Card className="mb-3">
-      <Pressable
+      <Tappable
         onPress={() => onSelect?.(item)}
         accessibilityRole="button"
         accessibilityLabel={item.name}
-
-        style={undefined}
       >
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="flex-1 pr-2" numberOfLines={1}>
@@ -110,7 +108,7 @@ export function AutomationCard({ item, onSelect }: AutomationCardProps) {
             <Text className="text-xs text-muted-foreground">{t('automations.noResult')}</Text>
           )}
         </CardContent>
-      </Pressable>
+      </Tappable>
     </Card>
   )
 }

@@ -17,7 +17,7 @@
 //  - 拒绝:直达终态且不带 values(拒绝零副作用),理由仅 reject 可带;
 //  - 上行失败/无会话锚点:显式 failed 态可重试,不得把"没发出去"读成"已处理"。
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CalendarDays, Check, Mail, X } from 'lucide-react-native'
 import { postFormResponse } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
@@ -312,13 +312,13 @@ function FormPanel({
                           </Text>
                         ))}
                         {fold.foldNeeded ? (
-                          <Pressable style={undefined} onPress={onFold} hitSlop={4}>
+                          <Tappable onPress={onFold} hitSlop={4}>
                             <Text style={s.fold}>
                               {entry.foldOpen
                                 ? t(`${NS}.${fold.collapseKey}`)
                                 : t(`${NS}.${fold.expandKey}`, { count: fold.overflowCount })}
                             </Text>
-                          </Pressable>
+                          </Tappable>
                         ) : null}
                       </View>
                     ) : null}

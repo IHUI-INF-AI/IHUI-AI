@@ -9,6 +9,7 @@ import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IcpRecordScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { Tappable } from '@ihui/ui-native'
 
 export type { IcpRecordScreenProps }
 
@@ -42,9 +43,9 @@ export function IcpRecordScreen({
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <Text style={styles.label}>{t('icpRecord.label0')}</Text>
-          <Pressable onPress={() => onCopy?.(ICP_NO)} disabled={!onCopy}>
+          <Tappable onPress={() => onCopy?.(ICP_NO)} disabled={!onCopy}>
             <Text style={styles.value}>{ICP_NO}</Text>
-          </Pressable>
+          </Tappable>
           {onCopy ? <Text style={styles.hint}>{t('icpRecord.copyHint')}</Text> : null}
         </View>
 

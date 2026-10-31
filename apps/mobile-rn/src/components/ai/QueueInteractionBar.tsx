@@ -25,6 +25,7 @@ import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * D38 队列语义完整交互 —— RN 队列项交互条(G-42;web 参照 apps/web 的
@@ -248,33 +249,36 @@ export function QueueInteractionBar({
                   testID={`queue-op-edit-input-${item.id}`}
                   multiline
                 />
-                <Pressable
+                <Tappable
                   accessibilityRole="button"
                   testID={`queue-op-edit-confirm-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={confirmEdit}
                 >
                   <Text style={styles.textBtnPrimary}>{t(qk('editConfirm'))}</Text>
-                </Pressable>
-                <Pressable
+                </Tappable>
+                <Tappable
                   accessibilityRole="button"
                   testID={`queue-op-edit-cancel-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={cancelEdit}
                 >
                   <Text style={styles.textBtnSecondary}>{t(qk('editCancel'))}</Text>
-                </Pressable>
+                </Tappable>
               </>
             ) : (
               <>
                 <Text style={styles.itemText} numberOfLines={1}>
                   {item.text}
                 </Text>
-                <Pressable
+                <Tappable
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !undoVerdict.allowed }}
                   testID={`queue-op-undo-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={() =>
                     undoVerdict.allowed
                       ? onUndo?.(item.id)
@@ -282,15 +286,16 @@ export function QueueInteractionBar({
                   }
                 >
                   <Text style={styles.textBtnSecondary}>{t(qk('undo'))}</Text>
-                </Pressable>
-                <Pressable
+                </Tappable>
+                <Tappable
                   accessibilityRole="button"
                   testID={`queue-op-edit-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={() => startEdit(item.id, item.text)}
                 >
                   <Text style={styles.textBtnSecondary}>{t(qk('edit'))}</Text>
-                </Pressable>
+                </Tappable>
               </>
             )}
           </View>
@@ -298,29 +303,31 @@ export function QueueInteractionBar({
       })}
 
       <View style={styles.footerRow}>
-        <Pressable
+        <Tappable
           accessibilityRole="button"
           accessibilityState={{ disabled: !interruptVerdict.allowed }}
           testID="queue-op-interrupt-and-run"
-          style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+          style={styles.textBtn}
+          pressedStyle={styles.textBtnPressed}
           onPress={handleInterrupt}
         >
           <Text style={styles.textBtnPrimary}>{t(qk('interruptAndRun'))}</Text>
-        </Pressable>
+        </Tappable>
         <Text style={styles.modeLabel}>{t(qk('mode.label'))}</Text>
         {(['steer', 'queue'] as const).map((m) => (
-          <Pressable
+          <Tappable
             key={m}
             accessibilityRole="radio"
             accessibilityState={{ selected: mode === m }}
             testID={`queue-op-mode-${m}`}
-            style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+            style={styles.textBtn}
+            pressedStyle={styles.textBtnPressed}
             onPress={() => onModeChange?.(m)}
           >
             <Text style={mode === m ? styles.modeTextActive : styles.modeText}>
               {t(qk(`mode.${m}`))}
             </Text>
-          </Pressable>
+          </Tappable>
         ))}
       </View>
 
