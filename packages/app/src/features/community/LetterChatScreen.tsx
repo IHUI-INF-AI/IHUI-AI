@@ -110,7 +110,13 @@ export function LetterChatScreen({
                   <Text style={item.mine ? styles.bubbleMineText : styles.bubbleTextTheirs}>
                     {item.content}
                   </Text>
-                  <Text style={item.mine ? [styles.bubbleMineText, styles.bubbleTimeMine] : styles.bubbleTimeTheirs}>
+                  <Text
+                    style={
+                      item.mine
+                        ? [styles.bubbleMineText, styles.bubbleTimeMine]
+                        : styles.bubbleTimeTheirs
+                    }
+                  >
                     {item.mine ? `${t('lettersPage.you')} · ` : ''}
                     {item.timeText}
                   </Text>
@@ -221,12 +227,12 @@ function createStyles(tk: AppThemeTokens) {
     bubbleMineText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     bubbleTextTheirs: { fontSize: rnType.body.size, color: tk.text.primary },
     bubbleTimeMine: {
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       textAlign: 'right',
       fontSize: rnType.caption.size,
     },
     bubbleTimeTheirs: {
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       textAlign: 'right',
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
@@ -242,7 +248,7 @@ function createStyles(tk: AppThemeTokens) {
     composerInput: {
       flex: 1,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,

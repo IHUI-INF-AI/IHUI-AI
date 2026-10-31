@@ -177,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       gap: rnSpacing.md,
     },
     nationTitle: { fontSize: rnType.body.size, color: tk.text.primary },

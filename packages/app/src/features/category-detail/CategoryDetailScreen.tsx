@@ -118,20 +118,20 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     tabsRow: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.sm,
     },
     tab: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brandAccent.foreground,
       fontWeight: '600',
     },
-    listContent: { paddingHorizontal: 10, paddingBottom: rnSpacing['2xl'] },
+    listContent: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xl'] },
     itemCard: {
       flexDirection: 'row',
       alignItems: 'center',

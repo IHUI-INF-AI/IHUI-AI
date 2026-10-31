@@ -78,7 +78,11 @@ export function CourseChapterScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: 22,

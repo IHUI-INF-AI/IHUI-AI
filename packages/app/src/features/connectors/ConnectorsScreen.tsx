@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnGeometry, rnRadiusFor } from '@ihui/design-tokens'
+import { rnGeometry, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -204,9 +204,9 @@ export function ConnectorsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: rnGeometry.textStrong,
       fontWeight: '600',
       color: tk.text.primary,
@@ -218,10 +218,10 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     body: { flex: 1 },
-    bodyContent: { padding: 12 },
+    bodyContent: { padding: rnSpacing.md },
     card: {
-      marginBottom: 12,
-      padding: 12,
+      marginBottom: rnSpacing.md,
+      padding: rnSpacing.md,
       borderRadius: rnRadiusFor.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -230,23 +230,27 @@ function createStyles(tk: AppThemeTokens) {
     cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     cardName: {
       flex: 1,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
       fontSize: rnGeometry.textBody,
       fontWeight: '600',
       color: tk.text.primary,
     },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadiusFor.chip },
+    badge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadiusFor.chip,
+    },
     badgeOn: { backgroundColor: tk.brand.DEFAULT },
     badgeOff: { backgroundColor: tk.surface.muted },
     badgeOnText: { fontSize: rnGeometry.textCaption, color: tk.brand.foreground },
     badgeOffText: { fontSize: rnGeometry.textCaption, color: tk.text.secondary },
-    meta: { marginTop: 4, fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
-    itemError: { marginTop: 8, fontSize: rnGeometry.textCaption, color: tk.error.text },
-    actions: { marginTop: 12, flexDirection: 'row', alignItems: 'center' },
+    meta: { marginTop: rnSpacing.xs, fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
+    itemError: { marginTop: rnSpacing.sm, fontSize: rnGeometry.textCaption, color: tk.error.text },
+    actions: { marginTop: rnSpacing.md, flexDirection: 'row', alignItems: 'center' },
     actionBtn: {
-      marginRight: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      marginRight: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadiusFor.control,
     },
     actionSolid: { backgroundColor: tk.brand.DEFAULT },
@@ -258,5 +262,4 @@ function createStyles(tk: AppThemeTokens) {
     actionOutlineText: { fontSize: rnGeometry.textCaption, color: tk.text.medium },
   })
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

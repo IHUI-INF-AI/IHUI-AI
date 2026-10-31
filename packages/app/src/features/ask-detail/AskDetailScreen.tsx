@@ -8,7 +8,7 @@ import { ChevronLeft, Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -82,48 +82,58 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
     },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    muted: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    error: {
+      fontSize: 14,
+      color: tk.danger.DEFAULT,
+      marginBottom: rnSpacing.sm,
+      textAlign: 'center',
+    },
     btn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 6,
-      marginBottom: 12,
+      marginTop: rnSpacing['xs-loose'],
+      marginBottom: rnSpacing.md,
     },
     author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
     meta: { fontSize: 11, color: tk.text.tertiary },
-    content: { fontSize: 16, lineHeight: 22, color: tk.text.medium, marginBottom: 16 },
-    sectionTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
+    content: { fontSize: 16, lineHeight: 22, color: tk.text.medium, marginBottom: rnSpacing.lg },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
     answer: {
       padding: 14,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     accepted: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     answerHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     acceptedTag: { fontSize: 11, color: tk.success.DEFAULT, fontWeight: '600' },
-    answerContent: { marginTop: 6, fontSize: 14, color: tk.text.medium },
+    answerContent: { marginTop: rnSpacing['xs-loose'], fontSize: 14, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

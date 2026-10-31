@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { rnHue, rnHueTintOnly, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
@@ -163,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -183,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
     meta: { flex: 1, gap: rnSpacing.xs },
     name: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     description: { fontSize: rnType.body.size, color: tk.text.secondary },
-    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     tag: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadius.md,
@@ -200,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: FREE_TINT,
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
     },
     freeTagText: { fontSize: rnType.caption.size, fontWeight: '700', color: tk.success.DEFAULT },
     footer: { marginTop: rnSpacing.sm },
