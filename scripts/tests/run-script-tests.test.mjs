@@ -143,7 +143,11 @@ test('discover:只认 *.test.mjs、排序稳定,目录不存在=空集', () => {
     writeFileSync(join(dir, 'deploy', 'tests', 'z-deploy.test.mjs'), 'export {}\n', 'utf8')
     const found2 = discover(dir).map((f) => f.split(/[\\/]/).pop())
     // 排序按**全路径**做:deploy\tests 在字母序上排在 scripts\tests 前面,所以它的条目整体在前。
-    assert.deepEqual(found2, ['z-deploy.test.mjs', 'a.test.mjs', 'b.test.mjs'], 'deploy\\tests 必须并入发现面且全量排序稳定')
+    assert.deepEqual(
+      found2,
+      ['z-deploy.test.mjs', 'a.test.mjs', 'b.test.mjs'],
+      'deploy\\tests 必须并入发现面且全量排序稳定',
+    )
     assert.deepEqual(discover(join(dir, 'nope')), [], '两个目录都不存在仍 ⇒ 空集')
   } finally {
     rmScratch(dir)
@@ -169,6 +173,31 @@ test('main(端到端):隔离目录 0 个测试 ⇒ 判红;放一个真测试 ⇒
       'utf8',
     )
     assert.equal(main([], dir), 1, '任一片红必须整体红')
+    // 2026-11-01 新增那一维:红必须能落到**文件**。此前 tap 被 Node 24 拍平,整份输出里
+    // 一个文件路径都没有 ⇒ 911 文件 252 红只能逐枚人工复跑定位,那片红因此无人收口。
+    const cap = capture(() => main(['--json'], dir))
+    assert.match(
+      cap.out,
+      /红项按文件归因[\s\S]*bad\.test\.mjs/,
+      `红项没报出所在文件 ⇒ 归因那一维没装车。实得:\n${cap.out.slice(-900)}`,
+    )
+    assert.doesNotMatch(
+      cap.out.split('红项按文件归因')[1] ?? '',
+      /sample\.test\.mjs/,
+      '绿的文件不得混进归因清单(否则这份归因不能用来选靶子)',
+    )
+    const jsonLine =
+      cap.out
+        .split('\n')
+        .filter((l) => l.startsWith('{'))
+        .pop() || ''
+    const parsed = JSON.parse(jsonLine)
+    assert.ok(Array.isArray(parsed.redFiles) && parsed.redFiles.length >= 1, '--json 缺 redFiles')
+    assert.equal(
+      parsed.redFiles[0].file.includes('bad.test.mjs'),
+      true,
+      JSON.stringify(parsed.redFiles),
+    )
   } finally {
     rmScratch(dir)
     rmSync(dir, { recursive: true, force: true })
