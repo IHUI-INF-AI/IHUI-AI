@@ -21,6 +21,11 @@ import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sweepAccountPool } from '../services/relay-account-pool-scheduler.js'
 import { describeQueueIsolation, relayAccountPoolQueueName } from '../services/relay-queue-name.js'
+import {
+  decideUnjudgedLog,
+  unjudgedReasonOf,
+  type UnjudgedNoiseState,
+} from '../services/relay-session-sync-noise.js'
 import { registerAllRelayAdapters } from '../services/upstream-adapters/index.js'
 
 /** 队列**基础名**;真实队列名由 relay-queue-name 按库身份解析(隔离库加后缀) */
@@ -38,6 +43,17 @@ const WORKBUDDY_SYNC_CRON_PATTERN = '*/10 * * * *'
 const MINIMAX_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
+
+/**
+ * 同因「未判定」降噪状态(进程内;重启即清,首轮必 warn)。
+ * qoder/workbuddy 两条腿在服务身份(LocalSystem)下结构上读不到交互用户的 APPDATA/DPAPI,
+ * 每回灌轮原因一字不变 —— 不降噪就是每 10 分钟一条同文 warn。判据见
+ * services/relay-session-sync-noise.ts(单一真相源),本处只持有状态。
+ */
+const unjudgedNoise = new Map<string, UnjudgedNoiseState>()
+const UNJUDGED_WARN_WINDOW_MS = Number(
+  process.env.RELAY_SYNC_UNJUDGED_WARN_WINDOW_MS || 6 * 60 * 60 * 1000,
+)
 
 interface ClientSyncOutcome {
   code: number
@@ -201,7 +217,30 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {
-          server.log.warn({ stderr: outcome.stderr }, `${job.name} 未判定(未写库)`)
+          const reason = unjudgedReasonOf(outcome.stderr)
+          const decision = decideUnjudgedLog(
+            unjudgedNoise.get(job.name),
+            reason,
+            Date.now(),
+            UNJUDGED_WARN_WINDOW_MS,
+          )
+          unjudgedNoise.set(job.name, decision.state)
+          if (decision.warn) {
+            server.log.warn(
+              {
+                stderr: outcome.stderr,
+                reason,
+                // 被压下的轮数随下一次 warn 一并报出,避免"降噪"把持续性藏起来
+                suppressedSinceLastWarn: decision.suppressed,
+              },
+              `${job.name} 未判定(未写库)`,
+            )
+          } else {
+            server.log.debug(
+              { reason, suppressed: decision.suppressed },
+              `${job.name} 未判定(同因已记过,降噪)`,
+            )
+          }
         } else if (outcome.code !== 0) {
           server.log.error({ code: outcome.code, stderr: outcome.stderr }, `${job.name} 落库失败`)
         } else {

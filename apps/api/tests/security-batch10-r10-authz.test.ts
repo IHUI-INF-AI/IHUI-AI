@@ -27,7 +27,7 @@
  * 判据纪律：本文件只做「接线是否还在 + 单源是否唯一」的结构断言，不复制任何业务判据
  * （AGENTS.md §0.6）。2FA 覆盖用"逐调用点向上找闸"的形态判据，避免漏数。
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -149,6 +149,9 @@ describe('R10-6 组池余额不可由客户端自报', () => {
 // ---------------------------------------------------------------------------
 describe('R10-8 2FA 单源闸覆盖所有登录支路', () => {
   const src = read('apps', 'api', 'src', 'routes', 'auth-extended.ts')
+  const routesDir = resolve(ROOT, 'apps', 'api', 'src', 'routes')
+  const routeFiles = readdirSync(routesDir).filter((f) => f.endsWith('.ts'))
+  const EXEMPT = '@token-issue-exempt:'
 
   it('单源函数存在且导出（供其他 auth 文件复用）', () => {
     expect(src).toContain('export async function twoFactorLoginGate(')
@@ -156,32 +159,39 @@ describe('R10-8 2FA 单源闸覆盖所有登录支路', () => {
     expect(src).toContain('challengeToken')
   })
 
-  it('逐调用点结构锁：每个 buildTokenPair 之前都有 2FA 闸或机器豁免标记', () => {
-    const lines = src.split('\n')
-    /** 机器令牌：`// @token-issue-exempt: <理由>` 必须紧贴调用点（向上 3 行内）。 */
-    const EXEMPT = '@token-issue-exempt:'
+  it('逐调用点结构锁：全仓每个 buildTokenPair 调用点之前都有 2FA 闸或机器豁免标记', () => {
     const offenders: string[] = []
 
-    lines.forEach((line, idx) => {
-      if (!line.includes('buildTokenPair(')) return
-      // 豁免标记：本行或向上 3 行（调用点可能是多行形式）
-      const near = lines.slice(Math.max(0, idx - 3), idx + 1).join('\n')
-      if (near.includes(EXEMPT)) return
-      // 向上 60 行找闸（单源函数或既有 twoFactorEnabled 分支）
-      const up = lines.slice(Math.max(0, idx - 60), idx).join('\n')
-      if (up.includes('twoFactorLoginGate(') || up.includes('twoFactorEnabled')) return
-      offenders.push(`line ${idx + 1}: ${line.trim()}`)
-    })
+    for (const file of routeFiles) {
+      const lines = readFileSync(resolve(routesDir, file), 'utf8').split('\n')
+      lines.forEach((line, idx) => {
+        const isCall =
+          line.includes('buildTokenPair(') && !/function\s+buildTokenPair\s*\(/.test(line)
+        if (!isCall) return
+        // 豁免标记：本行或向上 3 行（调用点可能是多行形式）
+        const near = lines.slice(Math.max(0, idx - 3), idx + 1).join('\n')
+        if (near.includes(EXEMPT)) return
+        // 向上 60 行找闸（单源函数或既有 twoFactorEnabled 分支）
+        const up = lines.slice(Math.max(0, idx - 60), idx).join('\n')
+        if (up.includes('twoFactorLoginGate(') || up.includes('twoFactorEnabled')) return
+        offenders.push(`${file}:${idx + 1}: ${line.trim()}`)
+      })
+    }
 
     expect(offenders, `以下发 token 点缺 2FA 闸且无豁免标记:\n${offenders.join('\n')}`).toEqual([])
   })
 
   it('豁免标记必须带理由（空标记 = 无声跳门，§0.10 禁令）', () => {
-    const marks = src.split('\n').filter((l) => l.includes('@token-issue-exempt:'))
+    const marks = routeFiles.flatMap((file) =>
+      readFileSync(resolve(routesDir, file), 'utf8')
+        .split('\n')
+        .filter((l) => l.includes(EXEMPT))
+        .map((l) => `${file}: ${l.trim()}`),
+    )
     expect(marks.length).toBeGreaterThan(0)
     for (const m of marks) {
-      const reason = m.split('@token-issue-exempt:')[1]?.trim() ?? ''
-      expect(reason.length, `豁免标记缺理由: ${m.trim()}`).toBeGreaterThan(8)
+      const reason = m.split(EXEMPT)[1]?.trim() ?? ''
+      expect(reason.length, `豁免标记缺理由: ${m}`).toBeGreaterThan(8)
     }
   })
 

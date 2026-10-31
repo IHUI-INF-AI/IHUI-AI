@@ -74,6 +74,16 @@ function dockTabsEqual(a: DockedBrowserTab[], b: DockedBrowserTab[]): boolean {
  * - 新:absolute inset-0 覆盖 GlobalShell work-area 的 children 区域(替换展示,非独立窗口)
  *   用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示"
  */
+/** 代理页 postMessage 携带的 URL 只允许 http/https（iframe 为 opaque origin，无法做同源校验）。 */
+function isHttpUrl(raw: string): boolean {
+  try {
+    const protocol = new URL(raw).protocol
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function WebWorkPanel() {
   const mounted = useMounted()
   const tw = useTranslations('workPanel')
@@ -563,7 +573,12 @@ export function WebWorkPanel() {
         // 文档就绪 / 重定向落点广播(每次代理文档加载都会发,url=最终落点)
         // → 只修正当前历史条目,绝不压栈(否则 302 落点二次压栈 + 后退弹回)
         onEmbedNavigation(d.url, title, 'loaded')
-      } else if (d.type === 'ihui-embed-newtab' && typeof d.url === 'string' && d.url) {
+      } else if (
+        d.type === 'ihui-embed-newtab' &&
+        typeof d.url === 'string' &&
+        d.url &&
+        isHttpUrl(d.url)
+      ) {
         // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 主流 AI IDE 浏览器)
         newTab(d.url)
       } else if (d.type === 'ihui-embed-proxy-error') {
