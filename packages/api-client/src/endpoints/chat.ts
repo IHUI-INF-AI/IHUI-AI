@@ -584,6 +584,26 @@ export function getMessages(id: string, params: GetMessagesParams = {}) {
   )
 }
 
+/**
+ * D35(2026-10-31 立):单条消息完整 metadata 的懒取出口。
+ *
+ * 消息列表(`getMessages` / `GET …/messages`)只回九类过程信息的摘要
+ * (`@ihui/shared/chat` 的 `ChatMetadataKindSummary` 信封);展开位需要全文时
+ * 按 (conversationId, messageId) 取这一条 —— 一次一条,不批量,避免把懒取做成
+ * 列表读面的第二个全量副本。
+ */
+export interface MessageMetadataResult {
+  messageId: string
+  /** 完整 metadata;null = 该消息确实没有 metadata(不是"服务端没给")。 */
+  metadata: ChatMessageMetadata | null
+}
+
+export function getMessageMetadata(conversationId: string, messageId: string) {
+  return fetchApi<MessageMetadataResult>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/metadata`,
+  )
+}
+
 /** 持久化一条消息
  *  P2 多端同步:metadata 参数用于标记 questionId/isAnswer(用户回答)或其他业务元数据 */
 export function sendMessage(

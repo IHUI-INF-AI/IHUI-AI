@@ -66,6 +66,12 @@ import {
 } from '../utils/sse-stream-registry.js'
 import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
 import { appendElementPackFrame } from '../db/element-pack-queries.js'
+// 票71 剩余缺口①:广播入参类型取 ws-broadcast 的发射契约(单源,不另抄形状)。
+// import type 编译后擦除 ⇒ 路由不因类型依赖把插件运行时(ioredis/rooms)拉进本模块。
+import type {
+  ChatMessageCreatedBroadcastInput,
+  ChatMessagePatchedBroadcastInput,
+} from '../plugins/ws-broadcast.js'
 // D64⑤:subagent 帧族收窄的唯一实现(与 sse-parse 的消费收窄同源)
 import { collectElementPackFrame } from '@ihui/shared/chat'
 
@@ -96,6 +102,137 @@ function terminalReasonFromFinishReason(finishReason: string | undefined): ChatS
   }
   if (finishReason === 'content_filter') return 'content_filter'
   return 'stop'
+}
+
+/**
+ * 票71 剩余缺口①(2026-10-31 立):SSE 生成腿的 chat-sync 帧发射器。
+ *
+ * 背景(docs/chat-sync-contract.md §7 第 4 项"残留"):终态帧已在 `finally` 发出,但
+ * created/patched 从未在这条腿上产生 —— 助手消息要等 ai-callback-worker 落库才进历史,
+ * 账本通常无行 ⇒ 终态 rev 常为 0,多端在生成期间看不到任何进展,错过终态只能靠 resync 自愈。
+ *
+ * 三条设计判据(不许漂):
+ *  1. **帧形状只来自 @ihui/types 的构造器**:本文件不手拼帧、不写第二份帧名/字段常量;
+ *     广播入口复用 ws-broadcast 的三枚装饰器(rev 分配仍由载体唯一负责)。
+ *  2. **只报全量 snapshot,不报 delta**:snapshot 自包含(契约 §2 第 3 条),丢一帧由下一帧
+ *     直接覆盖,不需要端侧缓存重投;delta 链一断就是 gap(而流未落库时 resync 拉不到快照)。
+ *  3. **按字符阈值聚合,不用定时器**:每累计 `minChars` 个字符发一帧,流收尾 flush 尾巴。
+ *     帧数 ≈ 内容长度/阈值,确定性可测;定时器会让"最后一帧"与终态帧的先后依赖调度。
+ *
+ * 生成端自己也会收到这些帧(广播按 userId 投递)。端侧的回声判定与"只推进内核面、
+ * 不投影渲染面"在 `apps/web/src/stores/chat.ts` 的 applyChatSync 里(SSE 面是生成端的权威本)。
+ */
+export const CHAT_SYNC_STREAM_FRAME_MIN_CHARS = 64
+
+export interface ChatSyncStreamFrameEmitter {
+  appendContent(delta: string): void
+  appendReasoning(delta: string): void
+  /**
+   * 冲掉未达阈值的尾巴并排空帧链。返回"已发帧全部落地"的 promise(永不 reject)——
+   * 终态帧必须排在它之后(终态 rev = 链头)。
+   */
+  flush(): Promise<void>
+}
+
+export function createChatSyncStreamFrameEmitter(input: {
+  conversationId: string
+  messageId: string
+  memberUserIds: readonly string[]
+  broadcastCreated: (input: ChatMessageCreatedBroadcastInput) => unknown
+  broadcastPatched: (input: ChatMessagePatchedBroadcastInput) => Promise<unknown>
+  minChars?: number
+  /** 诊断出口(帧发射失败);不得反噬主链 —— 下一帧 snapshot 天然自愈 */
+  onError?: (phase: 'created' | 'patched', err: unknown) => void
+}): ChatSyncStreamFrameEmitter {
+  const minChars = input.minChars ?? CHAT_SYNC_STREAM_FRAME_MIN_CHARS
+  let content = ''
+  let reasoning = ''
+  let sentContent = ''
+  let sentReasoning = ''
+  let createdSent = false
+  /** 帧链:rev 分配是服务端账户,乱序发帧会把端侧 rev 链打乱 ⇒ 逐帧串行 */
+  let chain: Promise<void> = Promise.resolve()
+
+  const report = (phase: 'created' | 'patched', err: unknown): void => {
+    try {
+      input.onError?.(phase, err)
+    } catch {
+      /* 诊断出口自身抛错不得反噬主链 */
+    }
+  }
+
+  const enqueueCreated = (): void => {
+    if (createdSent) return
+    createdSent = true
+    chain = chain.then(async () => {
+      try {
+        await input.broadcastCreated({
+          conversationId: input.conversationId,
+          memberUserIds: input.memberUserIds,
+          messageId: input.messageId,
+          role: 'assistant',
+          // 初面只声明"这条消息存在";内容由后续 snapshot 帧推进。空串不是缺省:
+          // created 的载荷是完整初面,此刻服务端确实还没有内容。
+          content: '',
+        })
+      } catch (err) {
+        // 广播失败 ⇒ 允许下一个 delta 重试(否则端侧永远等不到可应用的行)
+        createdSent = false
+        report('created', err)
+      }
+    })
+  }
+
+  const pendingChars = (): number =>
+    content.length - sentContent.length + (reasoning.length - sentReasoning.length)
+
+  const enqueuePatched = (): void => {
+    const nextContent = content
+    const nextReasoning = reasoning
+    if (nextContent === sentContent && nextReasoning === sentReasoning) return
+    chain = chain.then(async () => {
+      // 排队期间已被上一帧覆盖(两次入队捕获同一快照)⇒ 消耗 rev 但不改内容是无意义帧
+      if (nextContent === sentContent && nextReasoning === sentReasoning) return
+      try {
+        await input.broadcastPatched({
+          conversationId: input.conversationId,
+          memberUserIds: input.memberUserIds,
+          messageId: input.messageId,
+          kind: 'snapshot',
+          content: nextContent,
+          ...(nextReasoning.length > 0 ? { reasoning: nextReasoning } : {}),
+        })
+        sentContent = nextContent
+        sentReasoning = nextReasoning
+      } catch (err) {
+        // 不推进 sent* —— 下一帧仍带全量,自愈;若流已结束由 flush 的返回 promise 让调用方知情
+        report('patched', err)
+      }
+    })
+  }
+
+  const maybeSend = (): void => {
+    if (!createdSent) enqueueCreated()
+    if (pendingChars() >= minChars) enqueuePatched()
+  }
+
+  return {
+    appendContent(delta) {
+      if (delta.length === 0) return
+      content += delta
+      maybeSend()
+    },
+    appendReasoning(delta) {
+      if (delta.length === 0) return
+      reasoning += delta
+      maybeSend()
+    },
+    flush() {
+      if (!createdSent && (content.length > 0 || reasoning.length > 0)) enqueueCreated()
+      enqueuePatched()
+      return chain
+    },
+  }
 }
 
 /**
@@ -584,6 +721,36 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const controller = session.controller
+    // 票71 剩余缺口①(2026-10-31):SSE 生成腿的 chat-sync 帧发射器。
+    // 参与门槛与终态帧同一把尺(replayKey = 坐标齐备):降级流没有 (conversationId, messageId),
+    // 帧无处认领;插件未注册(裁剪部署/单测)时同样跳过 —— 发射器缺失不得让转发主链抛错。
+    const chatSyncMemberUserId = opts.metadata?.userId ?? request.userId
+    const chatSyncFrame =
+      replayKey &&
+      opts.metadata?.conversationId &&
+      opts.metadata?.messageId &&
+      chatSyncMemberUserId &&
+      typeof server.broadcastChatMessageCreated === 'function' &&
+      typeof server.broadcastChatMessagePatched === 'function'
+        ? createChatSyncStreamFrameEmitter({
+            conversationId: opts.metadata.conversationId,
+            messageId: opts.metadata.messageId,
+            memberUserIds: [chatSyncMemberUserId],
+            broadcastCreated: (frame) => server.broadcastChatMessageCreated(frame),
+            broadcastPatched: (frame) => server.broadcastChatMessagePatched(frame),
+            onError: (phase, err) => {
+              request.log.warn(
+                {
+                  err,
+                  phase,
+                  conversationId: opts.metadata?.conversationId,
+                  messageId: opts.metadata?.messageId,
+                },
+                'chat-sync SSE 帧发射失败(不阻塞 SSE 主链;下一帧全量 snapshot 自愈)',
+              )
+            },
+          })
+        : null
     // 服务端超时兜底:防 ai-service 卡死时连接无限挂起(5 分钟,正常对话远小于此)
     // timedOut 标记用于区分"服务端超时 abort" vs "客户端主动断开 abort"
     let timedOut = false
@@ -821,6 +988,33 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               /* 非 JSON data 行,透传,不取收尾原因 */
             }
           }
+          // 票71 剩余缺口①(2026-10-31):从**原样**转发线里采集主对话正文,聚合成 chat-sync
+          // message:patched(snapshot 全量)广播。只读不改帧 —— 下方所有透传分支逐字节照旧。
+          // 只认 `{"type":"chunk"|"reasoning","content":...}` 两型(ai-service 主格式,
+          // sse_contract.py 同源);子代理帧(agentId ≠ 本次绑定)不并入主消息 ——
+          // 与 api-client onAgentDelta / onDelta 的分流判据同源。persona 回贴的 agentId
+          // 由网关在 emit 前注入,这里看到的是上游原样行,故 persona 正文照常采集。
+          if (chatSyncFrame && line.startsWith('data:') && line.includes('"type"')) {
+            const rawData = line.slice(5).replace(/^\s/, '')
+            if (rawData.startsWith('{')) {
+              try {
+                const frame = JSON.parse(rawData) as Record<string, unknown>
+                const frameAgentId = typeof frame.agentId === 'string' ? frame.agentId : null
+                const belongsToMain = frameAgentId === null || frameAgentId === opts.agentId
+                if (belongsToMain) {
+                  if (frame.type === 'chunk' && typeof frame.content === 'string') {
+                    chatSyncFrame.appendContent(frame.content)
+                  } else if (frame.type === 'reasoning' && typeof frame.content === 'string') {
+                    chatSyncFrame.appendReasoning(frame.content)
+                  }
+                }
+                // done 帧到达即内容已完整:提前冲掉尾巴,终态帧(rev=链头)不必等 finally。
+                if (frame.type === 'done') void chatSyncFrame.flush()
+              } catch {
+                /* 非 JSON data 行,透传,不采集 */
+              }
+            }
+          }
           // D1(2026-09-19 立):usage 命名帧透传 —— `event: usage` 已暂存事件名时,
           // 将紧随的 `data:` 行配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲,
           // 重放后仍是合法命名帧,与 compaction 首事件同源机制)。usage 来自主聊天链路,
@@ -970,7 +1164,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // 票 B02 生产端终态切片:终态帧走 WS 房间广播(at-least-once),与 SSE 字节流正交,
       // 故在响应收尾之后 fire-and-forget。坐标缺一(降级流 / 无 metadata)⇒ 本就不参与
       // chat-sync(与 replayKey 同一条门槛),不发帧;发射失败只出声,绝不回写已完成的响应。
+      //
+      // 票71 剩余缺口①(2026-10-31):先冲掉 created/patched 的尾巴,再发终态 ——
+      // 终态的 rev = 终结时的链头(只读账本),排在未落地的 patched 之前会让端侧把终态判 stale。
+      const flushedFrames: Promise<void> = chatSyncFrame ? chatSyncFrame.flush() : Promise.resolve()
       if (terminalReason !== null && replayKey) {
+        // 收尾时刻快照:let 在 then 闭包里会丢窄化(闭包可能在后续赋值后才执行)
+        const reason = terminalReason
         const conversationId = opts.metadata?.conversationId
         const messageId = opts.metadata?.messageId
         const memberUserId = opts.metadata?.userId ?? request.userId
@@ -982,16 +1182,18 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           memberUserId &&
           typeof server.broadcastChatMessageTerminal === 'function'
         ) {
-          void server
-            .broadcastChatMessageTerminal({
-              conversationId,
-              memberUserIds: [memberUserId],
-              messageId,
-              reason: terminalReason,
-            })
+          void flushedFrames
+            .then(() =>
+              server.broadcastChatMessageTerminal({
+                conversationId,
+                memberUserIds: [memberUserId],
+                messageId,
+                reason,
+              }),
+            )
             .catch((err: unknown) => {
               request.log.warn(
-                { err, conversationId, messageId, reason: terminalReason },
+                { err, conversationId, messageId, reason },
                 'chat 消息终态房间广播发射失败(流已收尾,另一端退回打开会话时拉取)',
               )
             })
