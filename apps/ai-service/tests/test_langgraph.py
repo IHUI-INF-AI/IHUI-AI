@@ -205,6 +205,18 @@ def test_sse_format_default_str_for_non_serializable():
 # POST /canvas/run (D26:checkpointer 挂载 + 注册表)
 # =============================================================================
 
+def _req(user_id: str | None = None):
+    """端点新取 Request(第 16 批 canvas 归属闸)。
+
+    只需要 `request.state.user_id` 这一格;None = "没解析到身份"(与生产的匿名/内部腿同形),
+    归属闸对无主体的调用刻意不拒(见 _assert_canvas_access 的射程说明)。
+    """
+    from types import SimpleNamespace
+
+    return SimpleNamespace(state=SimpleNamespace(user_id=user_id))
+
+
+
 _CANVAS_DAG = {
     "nodes": [{"id": "n1", "type": "tool", "name": "工具节点"}],
     "edges": [],
@@ -225,7 +237,7 @@ async def test_post_canvas_run_success_with_checkpointer(
         return canvas_graph
 
     monkeypatch.setattr(lg, "build_canvas_graph", _fake_build)
-    resp = await post_canvas_run(
+    resp = await post_canvas_run(_req(),
         CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-canvas", input="初始输入")
     )
     assert resp["code"] == 0
@@ -254,7 +266,7 @@ async def test_post_canvas_run_saver_error_degrades_to_none(
         return _FakeGraph()
 
     monkeypatch.setattr(lg, "build_canvas_graph", _fake_build)
-    resp = await post_canvas_run(CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-canvas"))
+    resp = await post_canvas_run(_req(), CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-canvas"))
     assert resp["code"] == 0
     assert captured["checkpointer"] is None
     remove_canvas_graph("t-canvas")
@@ -269,7 +281,7 @@ async def test_post_canvas_run_generated_thread_id(_reset_graph_and_services, mo
         return _FakeGraph()
 
     monkeypatch.setattr(lg, "build_canvas_graph", _fake_build)
-    resp = await post_canvas_run(CanvasRunRequest(dag=_CANVAS_DAG))
+    resp = await post_canvas_run(_req(), CanvasRunRequest(dag=_CANVAS_DAG))
     run_id = resp["data"]["runId"]
     assert isinstance(run_id, str) and len(run_id) == 32
     assert get_canvas_graph_entry(run_id) is not None
@@ -279,7 +291,7 @@ async def test_post_canvas_run_generated_thread_id(_reset_graph_and_services, mo
 async def test_post_canvas_run_invalid_dag_400(_reset_graph_and_services):
     """DAG 校验失败 → 400,且不写注册表。"""
     with pytest.raises(HTTPException) as ei:
-        await post_canvas_run(CanvasRunRequest(dag={"nodes": [], "edges": []}))
+        await post_canvas_run(_req(), CanvasRunRequest(dag={"nodes": [], "edges": []}))
     assert ei.value.status_code == 400
     assert "dag.nodes" in ei.value.detail
     assert get_canvas_graph_entry("t-canvas") is None
@@ -293,7 +305,7 @@ async def test_post_canvas_run_build_failure_400(_reset_graph_and_services, monk
 
     monkeypatch.setattr(lg, "build_canvas_graph", _broken_build)
     with pytest.raises(HTTPException) as ei:
-        await post_canvas_run(CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-bad"))
+        await post_canvas_run(_req(), CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-bad"))
     assert ei.value.status_code == 400
     assert "canvas 图构建失败" in ei.value.detail
     assert get_canvas_graph_entry("t-bad") is None
@@ -307,7 +319,7 @@ async def test_post_canvas_run_build_failure_400(_reset_graph_and_services, monk
 async def test_post_interrupt_success(_reset_graph_and_services):
     manager = _reset_graph_and_services
     req = InterruptRequest(node_id="node-a", reason="需要用户确认", payload={"q": "?"})
-    resp = await post_interrupt("t1", req)
+    resp = await post_interrupt("t1", _req(), req)
     assert resp["code"] == 0
     assert resp["data"]["interruptId"] == "int-1"
     # 事件被持久化到 writes 表(channel=interrupt)
@@ -322,7 +334,7 @@ async def test_post_interrupt_persist_failure_not_blocking(_reset_graph_and_serv
     """save_write 失败只记 warning,不阻塞响应。"""
     manager = _reset_graph_and_services
     manager.save_write = _async_raise(Exception("db down"))
-    resp = await post_interrupt("t1", InterruptRequest(node_id="n", reason="r"))
+    resp = await post_interrupt("t1", _req(), InterruptRequest(node_id="n", reason="r"))
     assert resp["code"] == 0
     assert resp["data"]["interruptId"] == "int-1"
 
@@ -330,14 +342,14 @@ async def test_post_interrupt_persist_failure_not_blocking(_reset_graph_and_serv
 async def test_post_interrupt_runtime_error_503(_reset_graph_and_services, monkeypatch):
     monkeypatch.setattr(lg, "trigger_interrupt", _async_raise(RuntimeError("graph not ready")))
     with pytest.raises(HTTPException) as ei:
-        await post_interrupt("t1", InterruptRequest(node_id="n", reason="r"))
+        await post_interrupt("t1", _req(), InterruptRequest(node_id="n", reason="r"))
     assert ei.value.status_code == 503
 
 
 async def test_post_interrupt_value_error_400(_reset_graph_and_services, monkeypatch):
     monkeypatch.setattr(lg, "trigger_interrupt", _async_raise(ValueError("节点不存在")))
     with pytest.raises(HTTPException) as ei:
-        await post_interrupt("t1", InterruptRequest(node_id="n", reason="r"))
+        await post_interrupt("t1", _req(), InterruptRequest(node_id="n", reason="r"))
     assert ei.value.status_code == 400
 
 
@@ -351,7 +363,7 @@ async def test_post_resume_no_graph(_reset_graph_and_services, monkeypatch):
     # _ensure_graph 懒加载可能真的编译出默认图(2026-09-01 补实后);
     # 此处 mock 返回 None,真正模拟"无图可用"分支。
     monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
-    resp = await post_resume(ResumeRequest(thread_id="t1", interrupt_id="int-1"))
+    resp = await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="int-1"))
     assert resp["code"] == 0
     cmd = resp["data"]
     assert cmd["invoked"] is False
@@ -363,7 +375,7 @@ async def test_post_resume_with_graph_action_resume(_reset_graph_and_services, m
     graph = _FakeGraph()
     monkeypatch.setattr(lg, "_registered_graph", graph)
     req = ResumeRequest(thread_id="t1", interrupt_id="int-1", resume_value={"ok": True})
-    resp = await post_resume(req)
+    resp = await post_resume(_req(), req)
     cmd = resp["data"]
     assert cmd["invoked"] is True
     assert len(graph.calls) == 1
@@ -379,10 +391,10 @@ async def test_post_resume_action_rollback_and_cancel(_reset_graph_and_services,
     """rollback/cancel → 不调用 ainvoke,invoked=False。"""
     graph = _FakeGraph()
     monkeypatch.setattr(lg, "_registered_graph", graph)
-    resp = await post_resume(ResumeRequest(thread_id="t1", interrupt_id="i1", action="rollback"))
+    resp = await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="i1", action="rollback"))
     assert resp["data"]["invoked"] is False
     assert graph.calls == []
-    resp = await post_resume(ResumeRequest(thread_id="t1", interrupt_id="i1", action="cancel"))
+    resp = await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="i1", action="cancel"))
     assert resp["data"]["invoked"] is False
     assert graph.calls == []
 
@@ -396,7 +408,7 @@ async def test_post_resume_ainvoke_error(_reset_graph_and_services, monkeypatch)
 
     graph.ainvoke = _broken_ainvoke
     monkeypatch.setattr(lg, "_registered_graph", graph)
-    resp = await post_resume(ResumeRequest(thread_id="t1", interrupt_id="i1"))
+    resp = await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="i1"))
     cmd = resp["data"]
     assert cmd["invoked"] is False
     assert "graph crash" in cmd["invoke_error"]
@@ -414,7 +426,7 @@ async def test_post_resume_langgraph_not_installed(_reset_graph_and_services, mo
         return real_import(name, *a, **k)
 
     monkeypatch.setattr(builtins, "__import__", _no_langgraph)
-    resp = await post_resume(ResumeRequest(thread_id="t1", interrupt_id="i1"))
+    resp = await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="i1"))
     cmd = resp["data"]
     assert cmd["invoked"] is False
     assert cmd["invoke_skipped_reason"] == "langgraph 未安装"
@@ -423,14 +435,14 @@ async def test_post_resume_langgraph_not_installed(_reset_graph_and_services, mo
 async def test_post_resume_runtime_error_503(_reset_graph_and_services, monkeypatch):
     monkeypatch.setattr(lg, "resume_from_interrupt", _async_raise(RuntimeError("ckpt missing")))
     with pytest.raises(HTTPException) as ei:
-        await post_resume(ResumeRequest(thread_id="t1", interrupt_id="i1"))
+        await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="i1"))
     assert ei.value.status_code == 503
 
 
 async def test_post_resume_value_error_400(_reset_graph_and_services, monkeypatch):
     monkeypatch.setattr(lg, "resume_from_interrupt", _async_raise(ValueError("非法 action")))
     with pytest.raises(HTTPException) as ei:
-        await post_resume(ResumeRequest(thread_id="t1", interrupt_id="i1", action="evil"))
+        await post_resume(_req(), ResumeRequest(thread_id="t1", interrupt_id="i1", action="evil"))
     assert ei.value.status_code == 400
 
 
@@ -442,7 +454,7 @@ async def test_post_resume_value_error_400(_reset_graph_and_services, monkeypatc
 async def test_get_state_no_graph(_reset_graph_and_services, monkeypatch):
     """无图可用 → graphState=None(懒加载失败/未注册场景)。"""
     monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
-    resp = await get_state("t1")
+    resp = await get_state("t1", _req())
     assert resp["code"] == 0
     assert resp["data"]["threadId"] == "t1"
     assert resp["data"]["latestCheckpoint"] == {"checkpoint_id": "cp-1", "state": {"v": 1}}
@@ -451,7 +463,7 @@ async def test_get_state_no_graph(_reset_graph_and_services, monkeypatch):
 
 async def test_get_state_with_graph(_reset_graph_and_services, monkeypatch):
     monkeypatch.setattr(lg, "_registered_graph", _FakeGraph())
-    resp = await get_state("t1")
+    resp = await get_state("t1", _req())
     assert resp["data"]["graphState"] == {"values": {"x": 1}}
 
 
@@ -460,12 +472,12 @@ async def test_get_state_graph_state_failure_degrades(_reset_graph_and_services,
     manager = _reset_graph_and_services
     manager.graph_state_error = RuntimeError("graph state fail")
     monkeypatch.setattr(lg, "_registered_graph", _FakeGraph())
-    resp = await get_state("t1")
+    resp = await get_state("t1", _req())
     assert resp["code"] == 0
     assert resp["data"]["graphState"] is None
     # 普通 Exception 也降级
     manager.graph_state_error = ValueError("boom")
-    resp = await get_state("t1")
+    resp = await get_state("t1", _req())
     assert resp["data"]["graphState"] is None
 
 
@@ -473,7 +485,7 @@ async def test_get_state_latest_checkpoint_runtime_error_503(_reset_graph_and_se
     manager = _reset_graph_and_services
     manager.latest_error = "db down"
     with pytest.raises(HTTPException) as ei:
-        await get_state("t1")
+        await get_state("t1", _req())
     assert ei.value.status_code == 503
 
 
@@ -492,7 +504,7 @@ async def test_post_resume_prefers_canvas_registry_graph(
     canvas_graph = _FakeGraph()
     register_canvas_graph("t-canvas", canvas_graph)
     try:
-        resp = await post_resume(
+        resp = await post_resume(_req(),
             ResumeRequest(thread_id="t-canvas", interrupt_id="i1", resume_value={"ok": 1})
         )
     finally:
@@ -529,7 +541,7 @@ async def test_get_state_prefers_canvas_registry_graph(
 
     manager.get_graph_state = _spy_get_graph_state
     try:
-        resp = await get_state("t-canvas")
+        resp = await get_state("t-canvas", _req())
     finally:
         remove_canvas_graph("t-canvas")
     assert resp["code"] == 0
@@ -544,7 +556,7 @@ async def test_get_state_prefers_canvas_registry_graph(
 
 
 async def test_get_history_success(_reset_graph_and_services):
-    resp = await get_history("t1", limit=5)
+    resp = await get_history("t1", _req(), limit=5)
     assert resp["code"] == 0
     assert resp["data"]["threadId"] == "t1"
     assert resp["data"]["history"] == [{"checkpoint_id": "cp-1"}]
@@ -557,7 +569,7 @@ async def test_get_history_runtime_error_503(_reset_graph_and_services, monkeypa
 
     monkeypatch.setattr(lg, "_manager", lambda: types.SimpleNamespace(get_state_history=_broken_history))
     with pytest.raises(HTTPException) as ei:
-        await get_history("t1")
+        await get_history("t1", _req())
     assert ei.value.status_code == 503
 
 
