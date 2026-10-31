@@ -36,6 +36,9 @@
  *    域概念 ⇒ 过滤恒放行。「请求域」的取材 = 会话亲和命中账号所在域(亲和是
  *    唯一的会话域信号源);无亲和或账号无域 ⇒ 不做域过滤。过滤清空 ⇒ 回落全域
  *    并记标签(同第 4 条永不排空纪律)。
+ * 7. preferLowCredit(2026-10-31 立,台账票 O93 续):同优先级内让「积分更低」的号排前 ——
+ *    低分号先消耗,避免积分过期作废;读不到积分的号恒排最后(不偏爱也不饿死,§0.3)。
+ *    默认 false ⇒ 既有序零变化。
  *
  * 所有默认数字只住本文件 DEFAULT_RELAY_POOL_POLICY 一处;env 前缀
  * IHUI_RELAY_POOL_*(与既有 IHUI_RELAY_ACCOUNT_MAX_INFLIGHT 同族风格)。
@@ -62,6 +65,11 @@ export interface RelayPoolPolicy {
   preferExpiring: boolean
   /** 「临期」窗口(毫秒) */
   expiringSoonMs: number
+  /**
+   * 同优先级内让「积分更低」的号排前(低分号先消耗,避免积分过期作废)。
+   * 读不到积分的号一律排最后(不偏爱也不饿死,§0.3);默认 false。
+   */
+  preferLowCredit: boolean
   /** 积分地板(<=0 = 关闭过滤;号无积分信息一律保留) */
   creditFloor: number
   /** 全局在途并发上限(<=0 = 关闭闸;消费方 = shared-state 的闸) */
@@ -79,6 +87,7 @@ export const DEFAULT_RELAY_POOL_POLICY: RelayPoolPolicy = {
   idleWeightMax: 5,
   preferExpiring: false,
   expiringSoonMs: 168 * HOUR_MS,
+  preferLowCredit: false,
   creditFloor: 0,
   maxInFlightGlobal: 0,
   crossDomainFallback: false,
@@ -91,6 +100,7 @@ export const RELAY_POOL_ENV_KEYS = {
   idleWeightMax: 'IHUI_RELAY_POOL_IDLE_WEIGHT_MAX',
   preferExpiring: 'IHUI_RELAY_POOL_PREFER_EXPIRING',
   expiringSoonMs: 'IHUI_RELAY_POOL_EXPIRING_SOON_MS',
+  preferLowCredit: 'IHUI_RELAY_POOL_PREFER_LOW_CREDIT',
   creditFloor: 'IHUI_RELAY_POOL_CREDIT_FLOOR',
   maxInFlightGlobal: 'IHUI_RELAY_POOL_MAX_IN_FLIGHT_GLOBAL',
   crossDomainFallback: 'IHUI_RELAY_POOL_CROSS_DOMAIN_FALLBACK',
@@ -168,6 +178,10 @@ export function readRelayPoolPolicy(env: EnvLike = process.env): RelayPoolPolicy
       env[RELAY_POOL_ENV_KEYS.expiringSoonMs],
       DEFAULT_RELAY_POOL_POLICY.expiringSoonMs,
     ),
+    preferLowCredit: boolEnv(
+      env[RELAY_POOL_ENV_KEYS.preferLowCredit],
+      DEFAULT_RELAY_POOL_POLICY.preferLowCredit,
+    ),
     creditFloor: numEnv(
       env[RELAY_POOL_ENV_KEYS.creditFloor],
       DEFAULT_RELAY_POOL_POLICY.creditFloor,
@@ -239,6 +253,12 @@ export const RELAY_POOL_KNOB_SPECS: readonly RelayPoolKnobSpec[] = [
     envKey: RELAY_POOL_ENV_KEYS.expiringSoonMs,
     kind: 'number',
     description: '「临期」窗口(毫秒,默认 168 小时 = 604800000)',
+  },
+  {
+    name: 'preferLowCredit',
+    envKey: RELAY_POOL_ENV_KEYS.preferLowCredit,
+    kind: 'boolean',
+    description: '同优先级内让积分更低的号排前(低分号先消耗,避免积分过期浪费;读不到积分的号恒排最后)',
   },
   {
     name: 'creditFloor',
@@ -484,6 +504,15 @@ export function orderDeterministic<T extends PoolCandidateRow>(
   return [...rows].sort((a, b) => {
     const byPriority = a.priority - b.priority
     if (byPriority !== 0) return byPriority
+    if (policy.preferLowCredit) {
+      const ca = creditOfRow(a)
+      const cb = creditOfRow(b)
+      // 积分升序:低分号先跑。读不到积分(null)⇒ 视作 +∞ 排最后(不偏爱也不饿死)。
+      const va = ca === null ? Number.POSITIVE_INFINITY : ca
+      const vb = cb === null ? Number.POSITIVE_INFINITY : cb
+      const byCredit = va - vb
+      if (byCredit !== 0) return byCredit
+    }
     if (policy.preferExpiring) {
       const byExpiring =
         (isExpiringSoon(a, nowMs, policy) ? 0 : 1) - (isExpiringSoon(b, nowMs, policy) ? 0 : 1)
