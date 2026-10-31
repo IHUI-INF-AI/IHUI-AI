@@ -449,9 +449,18 @@ describe('ihui serve 入站鉴权:agent token 或机器凭据透传', () => {
     requireApiSecret: true,
   };
 
-  it('主机未配置任何凭据 → 保持无鉴权语义(行为不变)', () => {
+  it('主机未配置任何凭据 → 无 scope 请求(健康检查)仍匿名放行;带 scope 一律 401(2026-10-31 收窄)', () => {
     expect(hasInboundCredentials({})).toBe(false);
+    // 无 requiredScope(/health 探针):匿名放行(语义保留)
     expect(authenticateInbound({}, {})).toEqual({ ok: true, subject: 'anonymous' });
+    // 要求 scope 的请求:匿名通道已封死 —— 零凭据主机全 API 直通曾叠加 CORS * 与
+    // WS 无 Origin 校验,等于本机任意网页 drive-by 操纵 Agent
+    const denied = authenticateInbound({ requiredScope: 'chat:write' }, {});
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) {
+      expect(denied.status).toBe(401);
+      expect(denied.errorCode).toBe('CREDENTIAL_MISSING');
+    }
   });
 
   it('共享 agent token 通过(既有通道不变)', () => {
