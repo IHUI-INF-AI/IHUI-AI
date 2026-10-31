@@ -7,8 +7,8 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
-  padding-bottom: 48rpx;
+  padding: var(--spacing-md);
+  padding-bottom: var(--spacing-2xl);
 }
 
 .status {
@@ -20,8 +20,8 @@
   font-size: 26rpx;
 }
 .retry {
-  margin-top: 16rpx;
-  padding: 8rpx 32rpx;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) 32rpx;
   font-size: 24rpx;
   color: var(--color-primary);
 }
@@ -29,7 +29,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 
 .coupon {
@@ -46,7 +46,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
 }
 .c-amt-row {
   display: flex;
@@ -58,16 +58,16 @@
 }
 .c-unit {
   font-size: 26rpx;
-  margin-left: 4rpx;
+  margin-left: var(--spacing-2xs);
 }
 .c-type {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   opacity: 0.9;
 }
 .coupon-right {
   flex: 1;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -80,19 +80,19 @@
 }
 .c-thres {
   display: block;
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 .c-time {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
 .c-btn {
   align-self: flex-end;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 24rpx;
   color: var(--color-cta-foreground);
   background: var(--color-cta);

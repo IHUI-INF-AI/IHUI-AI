@@ -35,13 +35,13 @@
 }
 .msg-list {
   flex: 1;
-  padding: 24rpx 32rpx;
+  padding: var(--spacing-md) 32rpx;
 }
 /* D20 留尾2:加载更早消息入口(顶部居中,弱化视觉,不与气泡抢注意力) */
 .load-earlier {
   display: flex;
   justify-content: center;
-  padding: 8rpx 0 16rpx;
+  padding: var(--spacing-xs) 0 16rpx;
 }
 .load-earlier-text {
   font-size: 24rpx;
@@ -49,7 +49,7 @@
 }
 .welcome {
   text-align: center;
-  padding: 80rpx 0;
+  padding: var(--spacing-4xl) 0;
 }
 .welcome-title {
   display: block;
@@ -59,24 +59,24 @@
 }
 .welcome-desc {
   display: block;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
 .welcome-tip {
   display: block;
-  margin-top: 32rpx;
+  margin-top: var(--spacing-lg);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .suggest-list {
-  margin-top: 48rpx;
+  margin-top: var(--spacing-2xl);
 }
 .suggest-item {
   display: inline-block;
-  margin: 12rpx;
-  padding: 16rpx 28rpx;
+  margin: var(--spacing-xs-loose);
+  padding: var(--spacing-sm) 28rpx;
   background: var(--color-card);
   border-radius: var(--radius-2xl);
   font-size: 26rpx;
@@ -85,7 +85,7 @@
 .msg-item {
   display: flex;
   /* 对齐 RN msgRow marginVertical rpx(20)=20rpx */
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
   align-items: flex-start;
 }
 .msg-item.user {
@@ -111,7 +111,7 @@
 .bubble {
   max-width: 100%;
   margin: 0 20rpx;
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   border-radius: var(--radius-2xl);
   box-sizing: border-box;
 }
@@ -148,10 +148,10 @@
 .input-bar {
   display: flex;
   flex-direction: column;
-  padding: 12rpx 24rpx;
+  padding: var(--spacing-xs-loose) 24rpx;
   padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .input {
   flex: 1;
@@ -162,7 +162,7 @@
   font-size: 28rpx;
 }
 .send-btn {
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
   padding: 0 32rpx;
   height: 80rpx;
   line-height: 80rpx;
@@ -180,7 +180,7 @@
   align-items: center;
 }
 .nav-arrow {
-  margin-left: 8rpx;
+  margin-left: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -191,13 +191,13 @@
 .nav-agent {
   font-size: 26rpx;
   color: var(--color-primary);
-  margin-right: 24rpx;
+  margin-right: var(--spacing-md);
 }
 
 .tool-icons {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
   padding: 0 4rpx;
 }
 .tool-icon {
@@ -206,13 +206,13 @@
   line-height: 56rpx;
   text-align: center;
   font-size: 32rpx;
-  margin-right: 8rpx;
+  margin-right: var(--spacing-xs);
 }
 
 .material-tag {
   display: flex;
   align-items: center;
-  padding: 12rpx 32rpx;
+  padding: var(--spacing-xs-loose) 32rpx;
   background: var(--color-link-bg);
 }
 .material-tag-text {
@@ -230,8 +230,8 @@
 }
 
 .drawer-header {
-  padding: 24rpx 32rpx;
-  margin-bottom: 16rpx;
+  padding: var(--spacing-md) 32rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .drawer-title {
   font-size: 30rpx;
@@ -239,20 +239,20 @@
   color: var(--color-foreground);
 }
 .drawer-empty {
-  padding: 80rpx 0;
+  padding: var(--spacing-4xl) 0;
   text-align: center;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
 
 .material-list {
-  padding: 16rpx 32rpx;
+  padding: var(--spacing-sm) 32rpx;
 }
 .material-item {
   display: flex;
   align-items: center;
-  padding: 16rpx;
-  margin-bottom: 12rpx;
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs-loose);
   background: var(--color-background);
   border-radius: var(--radius-md);
 }
@@ -260,7 +260,7 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: var(--radius-sm);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   background: var(--color-secondary);
 }
 .material-title {
@@ -270,7 +270,7 @@
 }
 
 .agent-info {
-  padding: 24rpx 32rpx;
+  padding: var(--spacing-md) 32rpx;
 }
 .agent-header {
   display: flex;
@@ -281,7 +281,7 @@
   height: 80rpx;
   border-radius: var(--radius-lg);
   background: var(--color-secondary);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
 }
 .agent-avatar-default {
   display: flex;
@@ -301,13 +301,13 @@
 }
 .agent-desc {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 .agent-prompt-wrap {
-  margin-top: 24rpx;
-  padding: 20rpx;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm-loose);
   background: var(--color-background);
   border-radius: var(--radius-md);
 }
@@ -316,7 +316,7 @@
   font-size: 26rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .agent-prompt {
   font-size: 26rpx;
@@ -325,8 +325,8 @@
 }
 
 .reasoning-wrap {
-  margin-bottom: 12rpx;
-  padding: 12rpx 16rpx;
+  margin-bottom: var(--spacing-xs-loose);
+  padding: var(--spacing-xs-loose) 16rpx;
   background: var(--color-background);
   border-radius: var(--radius-sm);
 }
@@ -337,7 +337,7 @@
 }
 .reasoning-content {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
@@ -347,13 +347,13 @@
 .tishi-block {
   display: flex;
   align-items: center;
-  padding: 16rpx 24rpx;
-  margin: 12rpx 16rpx;
+  padding: var(--spacing-sm) 24rpx;
+  margin: var(--spacing-xs-loose) 16rpx;
   background: var(--color-card);
   border-radius: var(--radius-sm);
 }
 .tishi-block-icon {
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   font-size: 28rpx;
 }
 .tishi-block-text {
@@ -361,15 +361,15 @@
   color: var(--color-primary);
 }
 .tishi-box {
-  margin: 12rpx 16rpx;
-  padding: 20rpx;
+  margin: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-sm-loose);
   background: var(--color-card);
   border-radius: var(--radius-sm);
 }
 .tishi-title {
   display: flex;
   align-items: center;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 .tishi-title-icon {
   margin-right: 10rpx;
@@ -381,7 +381,7 @@
   font-weight: 500;
 }
 .tishi-content {
-  padding: 12rpx 16rpx;
+  padding: var(--spacing-xs-loose) 16rpx;
   background: var(--color-background);
   border-radius: var(--radius-xs);
 }
@@ -396,18 +396,18 @@
 .nav-history {
   font-size: 32rpx;
   padding: 0 12rpx;
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   color: var(--color-muted-foreground);
 }
 
 /* 历史对话抽屉列表(对标原 ai_assistant.vue 历史抽屉) */
 .history-list {
-  padding: 16rpx 32rpx;
+  padding: var(--spacing-sm) 32rpx;
   max-height: 50vh;
 }
 .history-item {
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
   background: var(--color-background);
   border-radius: var(--radius-md);
 }
@@ -421,20 +421,20 @@
   display: block;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .history-item-time {
   display: block;
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   opacity: 0.7;
 }
 
 /* 历史清空按钮(对标原 ai_assistant.vue clearHistory) */
 .history-clear-btn {
   text-align: center;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   color: var(--color-destructive);
   font-size: 28rpx;
 }
@@ -442,27 +442,27 @@
 /* 收藏按钮(对标原 ai_assistant.vue 收藏爱心图标) */
 .bubble-favorite {
   font-size: 24rpx;
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
 }
 
 /* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */
 .bubble-speak {
   font-size: 24rpx;
   color: var(--color-info);
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
 }
 
 /* 分享按钮(对标原 ai_assistant.vue 分享对话) */
 .bubble-share {
   font-size: 24rpx;
   color: var(--color-info);
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
 }
 
 /* 数字人跳转按钮(对标原 ai_assistant.vue 数字人跳转) */
 .digital-human-btn {
-  margin-top: 12rpx;
-  padding: 8rpx 16rpx;
+  margin-top: var(--spacing-xs-loose);
+  padding: var(--spacing-xs) 16rpx;
   background: var(--color-link-bg);
   color: var(--color-info);
   border-radius: var(--radius-sm);
@@ -475,8 +475,8 @@
 .voice-bubble {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  padding: 16rpx 24rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 24rpx;
   border-radius: var(--radius-2xl);
   margin-top: 10rpx;
 }
@@ -498,7 +498,7 @@
 .action-btn {
   width: 40rpx;
   height: 40rpx;
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
   flex-shrink: 0;
 }
 .action-btn:first-child {
@@ -510,7 +510,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   opacity: 0.5;
 }
 
@@ -627,7 +627,7 @@
   box-sizing: border-box;
   overflow-x: auto;
   flex: none;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
   white-space: nowrap;
 }
 .imgs-list-item {
@@ -818,7 +818,7 @@
   background: var(--color-muted);
   border-radius: var(--radius-sm); /* 项目不允许胶囊:进度容器取控件档 sm */
   overflow: hidden;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .thinking-progress-bar {
   position: relative;
@@ -862,8 +862,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
-  margin-right: 12rpx;
+  gap: var(--spacing-xs);
+  margin-right: var(--spacing-xs-loose);
 }
 .loader-dot {
   width: 12rpx;
@@ -935,12 +935,12 @@
   position: relative;
   z-index: 1;
   background: var(--color-card);
-  margin: 4rpx;
+  margin: var(--spacing-2xs);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 .agent-content1-title {
   font-size: 28rpx;
@@ -954,7 +954,7 @@
   background: var(--color-card);
   margin: 0 4rpx 4rpx;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   max-height: 40vh;
   overflow-y: auto;
   font-size: 26rpx;
@@ -975,7 +975,7 @@
   padding: 2rpx;
   background: linear-gradient(81deg, var(--color-ring) 54%, transparent 126%);
   border-radius: var(--radius-sm);
-  margin: 12rpx 16rpx;
+  margin: var(--spacing-xs-loose) 16rpx;
 }
 .tishi-box-inner {
   background: var(--color-card);
@@ -987,7 +987,7 @@
 .thinking-title {
   display: flex;
   align-items: center;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 
 /* ============ 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container + .quick-action-btn) ============ */
@@ -1002,12 +1002,12 @@
 }
 .quick-actions-wrapper {
   display: inline-flex;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
   padding: 0 10rpx;
 }
 .quick-action-btn {
   display: inline-block;
-  padding: 8rpx 16rpx;
+  padding: var(--spacing-xs) 16rpx;
   font-size: 26rpx;
   font-weight: bold;
   color: var(--color-foreground);
@@ -1038,7 +1038,7 @@
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
 }
 
 /* ============ 操作按钮容器(对标原 ai_assistant.vue .action-buttons) ============ */
@@ -1057,7 +1057,7 @@
   width: 40rpx;
   height: 40rpx;
   display: block;
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
   flex-shrink: 0;
 }
 .bubble-actions-right .action-btn-img:first-child {
@@ -1068,7 +1068,7 @@
 .share-btn {
   display: inline-block;
   position: relative;
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
   width: 40rpx;
   height: 40rpx;
 }
@@ -1127,7 +1127,7 @@
   padding: 28rpx 20rpx;
   float: left;
   max-width: 78%;
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
   box-sizing: border-box;
   word-break: break-word;
 }
@@ -1284,19 +1284,18 @@
   height: 23rpx;
   display: block;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
 
 /* 上下文占用归因条(消费共享引擎,样式只走 token 变量) */
 .ctx-usage {
-  padding: 8rpx 24rpx 0;
+  padding: var(--spacing-xs) 24rpx 0;
 }
 .ctx-usage-summary {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
 .ctx-usage-panel {
-  margin-top: 8rpx;
-  padding: 16rpx;
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-sm);
   border-radius: var(--radius-xl);
   background: var(--color-muted);
 }
@@ -1304,7 +1303,7 @@
   font-size: 22rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .ctx-usage-bar {
   display: flex;
@@ -1312,7 +1311,7 @@
   border-radius: var(--radius-xs);
   overflow: hidden;
   background: var(--color-muted-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .ctx-usage-bar-seg {
   height: 100%;
@@ -1321,8 +1320,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
-  padding: 4rpx 0;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-2xs) 0;
 }
 .ctx-usage-dot {
   width: 16rpx;
@@ -1355,12 +1354,12 @@
   font-size: 20rpx;
   color: var(--color-muted-foreground);
   padding-left: 28rpx;
-  padding-top: 4rpx;
+  padding-top: var(--spacing-2xs);
 }
 .ctx-usage-details {
   margin-left: 28rpx;
-  margin-bottom: 8rpx;
-  padding: 12rpx;
+  margin-bottom: var(--spacing-xs);
+  padding: var(--spacing-xs-loose);
   border-radius: var(--radius-md);
   background: var(--color-card);
 }
@@ -1368,7 +1367,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
   padding: 2rpx 0;
 }
 .ctx-usage-detail-text {
@@ -1383,7 +1382,7 @@
 /* D77(2026-10-17):业务表单卡锚定块(卡内样式住 BusinessFormCard.css;
    此处只放宿主级 wrapper 与 failed 留痕文本)。 */
 .business-form-block {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .business-form-send-failed {
   display: block;
@@ -1391,3 +1390,4 @@
   font-size: 20rpx;
   color: var(--color-danger);
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

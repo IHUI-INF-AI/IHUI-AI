@@ -21,7 +21,7 @@
 .rn-intro,
 .rn-status,
 .rn-card {
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
   padding: 28rpx;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
@@ -30,14 +30,14 @@
 }
 .rn-intro-title {
   display: block;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   font-size: 32rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
 .rn-intro-line {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 28rpx;
   line-height: 1.7;
   color: var(--color-foreground);
@@ -48,7 +48,7 @@
 }
 /* ===== 状态条(RN statusValue:600 danger;verified 深绿) ===== */
 .rn-status {
-  padding: 24rpx 28rpx;
+  padding: var(--spacing-md) 28rpx;
 }
 .rn-status-reviewing .rn-status-text {
   color: var(--color-warning-amber);
@@ -64,21 +64,21 @@
 }
 .rn-status-reason {
   display: block;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 28rpx;
   font-weight: 400;
   color: var(--color-danger);
 }
 /* ===== 表单卡片(RN label + input) ===== */
 .rn-field {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 .rn-field:first-child {
   margin-top: 0;
 }
 .rn-label {
   display: block;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
@@ -103,7 +103,7 @@
 }
 .rn-photo-row {
   display: flex;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 .rn-photo-box {
   position: relative;
@@ -133,7 +133,7 @@
   color: var(--color-text-tertiary);
 }
 .rn-photo-tip {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-text-tertiary);
 }
@@ -150,13 +150,13 @@
 }
 .rn-photo-hint {
   display: block;
-  padding-top: 16rpx;
+  padding-top: var(--spacing-sm);
   font-size: 22rpx;
   color: var(--color-text-tertiary);
 }
 /* ===== 提交按钮(RN submitBtn;disabled = tk.text.tertiary 底色,非透明度) ===== */
 .rn-submit {
-  margin: 8rpx 0 0;
+  margin: var(--spacing-xs) 0 0;
   width: 100%;
   height: 100rpx;
   line-height: 100rpx;
@@ -176,8 +176,8 @@
 }
 /* ===== 已认证结果 ===== */
 .rn-result-card {
-  margin: 80rpx 0;
-  padding: 64rpx 28rpx;
+  margin: var(--spacing-4xl) 0;
+  padding: var(--spacing-3xl) 28rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -199,23 +199,23 @@
   color: var(--color-foreground);
 }
 .rn-result-title {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   font-size: 32rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
 .rn-result-name {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 28rpx;
   color: var(--color-foreground);
 }
 .rn-result-sub {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 26rpx;
   color: var(--color-text-tertiary);
 }
 .rn-result-note {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   font-size: 24rpx;
   color: var(--color-text-tertiary);
 }

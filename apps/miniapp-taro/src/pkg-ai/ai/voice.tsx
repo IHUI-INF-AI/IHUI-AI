@@ -256,7 +256,7 @@ export default function VoicePage() {
                 </View>
               ) : (
                 <Text
-                  className={`text-[length:30rpx] leading-[40rpx] ${m.role === 'user' ? 'text-[var(--color-surface-light)]' : 'text-foreground'}`}
+                  className={`text-strong leading-[40rpx] ${m.role === 'user' ? 'text-[var(--color-surface-light)]' : 'text-foreground'}`}
                 >
                   {m.content}
                 </Text>

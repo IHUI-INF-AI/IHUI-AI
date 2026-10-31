@@ -12,11 +12,11 @@
 .vs-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 48rpx;
+  padding: var(--spacing-2xl);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24rpx;
+  gap: var(--spacing-md);
   box-sizing: border-box;
 }
 
@@ -59,10 +59,10 @@
   width: 100%;
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
+  padding: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
   box-sizing: border-box;
 }
 .vs-info-row {
@@ -74,7 +74,7 @@
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
-  margin-right: 24rpx;
+  margin-right: var(--spacing-md);
 }
 .vs-info-value {
   font-size: 32rpx;
@@ -91,8 +91,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
-  margin-top: 16rpx;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-sm);
 }
 .vs-btn-primary {
   width: 100%;

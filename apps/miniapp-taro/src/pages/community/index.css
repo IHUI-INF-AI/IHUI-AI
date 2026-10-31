@@ -164,14 +164,14 @@
 /* ===== 横向滚动智能体列表容器 ===== */
 
 .agent-h-scroll-container {
-  margin: 20rpx 0;
+  margin: var(--spacing-sm-loose) 0;
 }
 
 .agent-h-scroll-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 .agent-h-scroll-title {
@@ -185,8 +185,8 @@
 .team-button {
   display: flex;
   align-items: center;
-  gap: 4rpx;
-  padding: 8rpx 0;
+  gap: var(--spacing-2xs);
+  padding: var(--spacing-xs) 0;
 }
 
 .team-button-text {
@@ -201,8 +201,8 @@
 
 .agent-h-list {
   display: flex;
-  gap: 20rpx;
-  padding: 4rpx 0;
+  gap: var(--spacing-sm-loose);
+  padding: var(--spacing-2xs) 0;
 }
 
 .agent-h-item {
@@ -258,7 +258,7 @@
 .recent-agents-container {
   padding: 0;
   background: transparent;
-  margin: 20rpx 0;
+  margin: var(--spacing-sm-loose) 0;
 }
 
 .recent-header {
@@ -280,7 +280,7 @@
   display: flex;
   flex-direction: row;
   padding: 0;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .recent-item {
@@ -288,7 +288,7 @@
   flex-direction: column;
   align-items: center;
   min-width: 120rpx;
-  padding: 20rpx 10rpx;
+  padding: var(--spacing-sm-loose) 10rpx;
   border-radius: var(--radius-lg);
   background: var(--color-muted);
   transition: all 0.3s ease;
@@ -303,7 +303,7 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: var(--radius-sm);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
   background: var(--color-muted);
 }
 
@@ -315,7 +315,7 @@
   border-radius: var(--radius-sm);
   width: 80rpx;
   height: 80rpx;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .recent-item .agent-avatar-fallback-text {
@@ -339,7 +339,7 @@
 .my-agents-container {
   padding: 0;
   background: transparent;
-  margin: 20rpx 0;
+  margin: var(--spacing-sm-loose) 0;
 }
 
 .my-header {
@@ -364,7 +364,7 @@
   display: flex;
   flex-direction: row;
   padding: 0;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .my-item {
@@ -372,7 +372,7 @@
   flex-direction: column;
   align-items: center;
   min-width: 120rpx;
-  padding: 20rpx 10rpx;
+  padding: var(--spacing-sm-loose) 10rpx;
   border-radius: var(--radius-lg);
   background: var(--color-muted);
   transition: all 0.3s ease;
@@ -387,7 +387,7 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: var(--radius-sm);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
   background: var(--color-muted);
 }
 
@@ -399,7 +399,7 @@
   border-radius: var(--radius-sm);
   width: 80rpx;
   height: 80rpx;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .my-item .agent-avatar-fallback-text {
@@ -434,7 +434,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16rpx 20rpx;
+  padding: var(--spacing-sm) 20rpx;
   margin-bottom: 0;
 }
 
@@ -453,7 +453,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
+  gap: var(--spacing-2xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -488,7 +488,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 80rpx 0;
+  padding: var(--spacing-4xl) 0;
 }
 
 .community-empty-text {
@@ -500,7 +500,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20rpx 0;
+  padding: var(--spacing-sm-loose) 0;
 }
 
 .community-no-more-text {

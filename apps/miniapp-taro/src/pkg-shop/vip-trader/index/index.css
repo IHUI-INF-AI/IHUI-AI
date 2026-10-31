@@ -22,7 +22,7 @@
 
 /* ===== 操盘手头部(对齐 RN heroCard:深色卡 + 白字 + 金价)===== */
 .trader-header {
-  margin: 16rpx 32rpx 0;
+  margin: var(--spacing-sm) 32rpx 0;
   padding: 28rpx;
   background: var(--color-surface-dark);
   border-radius: var(--radius-xl);
@@ -36,7 +36,7 @@
   height: 120rpx;
   border-radius: var(--radius-xl);
   background: var(--color-muted);
-  margin-right: 20rpx;
+  margin-right: var(--spacing-sm-loose);
   flex-shrink: 0;
 }
 .trader-header-info {
@@ -56,8 +56,8 @@
 }
 .trader-badge {
   /* 对齐 RN heroBadge:金 tint 底 rgba(255,215,0,0.18) + amber 字;圆角按角色档 chip→md */
-  margin-left: 12rpx;
-  padding: 8rpx 20rpx;
+  margin-left: var(--spacing-xs-loose);
+  padding: var(--spacing-xs) 20rpx;
   background: var(--color-vip-gold-tint);
   border-radius: var(--radius-md);
 }
@@ -67,12 +67,12 @@
   font-weight: 600;
 }
 .trader-title-text {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 28rpx;
   color: var(--color-white-70);
 }
 .trader-price-wrap {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -87,19 +87,19 @@
   font-size: 48rpx;
   font-weight: 700;
   color: var(--color-warning);
-  margin-left: 4rpx;
+  margin-left: var(--spacing-2xs);
   line-height: 1;
 }
 .trader-price-suffix {
   /* 对齐 RN heroDesc:14dp→28rpx / white 70% */
-  margin-left: 8rpx;
+  margin-left: var(--spacing-xs);
   font-size: 28rpx;
   color: var(--color-white-70);
 }
 
 /* ===== 通用 Section(RN 卡片语言:白底 + 1px 边框)===== */
 .trader-section {
-  margin: 24rpx 32rpx;
+  margin: var(--spacing-md) 32rpx;
   padding: 28rpx;
   background: var(--color-card);
   border: 1px solid var(--color-border);
@@ -111,7 +111,7 @@
   font-weight: 600;
   color: var(--color-foreground);
   display: block;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 /* ===== 简介 ===== */
@@ -129,7 +129,7 @@
   display: block;
 }
 .trader-intro-toggle {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   text-align: right;
 }
 .trader-intro-toggle-text {
@@ -141,10 +141,10 @@
 .trader-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .trader-tag {
-  padding: 8rpx 20rpx;
+  padding: var(--spacing-xs) 20rpx;
   background: var(--color-muted);
   border-radius: var(--radius-md);
 }
@@ -157,12 +157,12 @@
 .trader-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .trader-metric {
   flex: 1;
   min-width: 40%;
-  padding: 16rpx;
+  padding: var(--spacing-sm);
   background: var(--color-muted);
   border-radius: var(--radius-md);
 }
@@ -179,13 +179,13 @@
   color: var(--color-destructive);
 }
 .trader-metric-label {
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   display: block;
 }
 .trader-chart {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -204,7 +204,7 @@
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 .trader-chart-label {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 20rpx;
   color: var(--color-muted-foreground);
 }
@@ -214,7 +214,7 @@
 .feature-list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 .feature-item {
   display: flex;
@@ -231,7 +231,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20rpx;
+  margin-right: var(--spacing-sm-loose);
   flex-shrink: 0;
   font-size: 32rpx;
 }
@@ -256,10 +256,10 @@
 .trader-packages {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .trader-package {
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -279,7 +279,7 @@
 }
 .trader-package-tag {
   /* 推荐 tag 对齐 RN 浅底深字语言(warning.amberLight/amberText) */
-  padding: 4rpx 12rpx;
+  padding: var(--spacing-2xs) 12rpx;
   background: var(--color-warning-amber-light);
   border-radius: var(--radius-md);
 }
@@ -289,13 +289,13 @@
   font-weight: 600;
 }
 .trader-package-period {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   display: block;
 }
 .trader-package-price-row {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   display: flex;
   align-items: baseline;
 }
@@ -308,10 +308,10 @@
   font-size: 40rpx;
   font-weight: 700;
   color: var(--color-warning);
-  margin-left: 4rpx;
+  margin-left: var(--spacing-2xs);
 }
 .trader-package-btn {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   height: 64rpx;
   line-height: 64rpx;
   padding: 0;
@@ -331,11 +331,11 @@
 .trader-reviews {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
 }
 .trader-review {
   display: flex;
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   background: var(--color-muted);
   border-radius: var(--radius-md);
 }
@@ -344,7 +344,7 @@
   height: 72rpx;
   border-radius: var(--radius-md);
   background: var(--color-muted);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   flex-shrink: 0;
 }
 .trader-review-main {
@@ -366,7 +366,7 @@
   color: var(--color-warning);
 }
 .trader-review-content {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
@@ -379,8 +379,8 @@
   left: 0;
   right: 0;
   display: flex;
-  gap: 16rpx;
-  padding: 20rpx 32rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm-loose) 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);

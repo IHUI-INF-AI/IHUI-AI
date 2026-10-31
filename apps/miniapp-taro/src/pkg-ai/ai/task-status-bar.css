@@ -28,8 +28,8 @@
 .task-status-bar-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 16rpx 20rpx;
+  gap: var(--spacing-xs-loose);
+  padding: var(--spacing-sm) 20rpx;
 }
 
 .task-status-bar-headline {
@@ -55,7 +55,7 @@
 }
 
 .tsb-lines-removed {
-  margin-left: 8rpx;
+  margin-left: var(--spacing-xs);
   color: var(--color-danger);
 }
 
@@ -70,7 +70,7 @@
 .task-status-step {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 .task-status-step-title {

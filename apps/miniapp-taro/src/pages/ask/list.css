@@ -18,14 +18,14 @@
 /* 分类 tab(小程序独有,active 用 --color-primary 对齐 RN 强调) */
 .tabs {
   display: flex;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .tab {
   flex: 1;
   text-align: center;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
 }
 .tab.active {
   color: var(--color-primary);
@@ -34,14 +34,14 @@
 
 /* ===== 卡片列表(RN card:padding 14 radius 12 border border.light bg surface.light)===== */
 .list {
-  padding: 8rpx 0 0;
+  padding: var(--spacing-xs) 0 0;
 }
 .item {
   background: var(--color-card);
   border-radius: var(--radius-xl);
   border: 1rpx solid var(--color-border);
   padding: 28rpx;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
   box-sizing: border-box;
 }
 /* RN cardTitle:fontSize 16 600 text.primary,2 行截断 */
@@ -60,7 +60,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 /* RN author:fontSize 11 text.tertiary */
 .author {
@@ -72,7 +72,7 @@
 }
 /* RN meta(answers·views):fontSize 11 text.tertiary;已采纳保留 success 语义色 */
 .answers {
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
   flex-shrink: 0;
   font-size: 22rpx;
   color: var(--color-text-tertiary);
@@ -84,7 +84,7 @@
 /* 空态(RN empty:paddingVertical 40 center;muted:fontSize 14 text.secondary) */
 .empty {
   text-align: center;
-  padding: 80rpx 0;
+  padding: var(--spacing-4xl) 0;
   color: var(--color-muted-foreground);
   font-size: 28rpx;
 }

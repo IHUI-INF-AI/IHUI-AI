@@ -215,7 +215,7 @@ export default function AiGroup() {
                         ) : null}
                       </View>
                       {desc ? (
-                        <Text className="block mt-[16rpx] text-[length:28rpx] leading-[36rpx] text-muted-foreground overflow-hidden ihui-ellipsis line-clamp-2">
+                        <Text className="block mt-[16rpx] text-body leading-[36rpx] text-muted-foreground overflow-hidden ihui-ellipsis line-clamp-2">
                           {desc}
                         </Text>
                       ) : null}
