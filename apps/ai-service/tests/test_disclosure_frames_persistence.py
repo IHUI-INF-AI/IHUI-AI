@@ -109,6 +109,11 @@ def _cb_env(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "ai_callback_secret", "test-secret")
+    # 2026-10-31 安全强化第 10 批:callback_url 是请求体里的用户可控字段,现只许与
+    # settings.api_service_url **同源**(否则等于把 X-Internal-Secret 连推理结果一起
+    # 投到攻击者服务器)。本文件锁的是帧内容持久化,故把基准地址设成测试回调自身;
+    # "异源不发"这条新语义由 TestCallbackTargetAllowlist 专项锁住。
+    monkeypatch.setattr(settings, "api_service_url", "http://cb")
     monkeypatch.setattr("app.routers.llm.httpx.AsyncClient", _FakeClient)
     _FakeClient.captured = []
 
@@ -122,6 +127,24 @@ async def _fire(**kwargs: object) -> dict:  # type: ignore[type-arg]
     )
     assert _FakeClient.captured, "回调未发出:测试夹具或 secret 配置失效"
     return _FakeClient.captured[0]
+
+
+class TestCallbackTargetAllowlist:
+    """callback_url 只能指向 API 侧自身(2026-10-31 安全强化第 10 批)。"""
+
+    async def test_foreign_target_never_sent(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from app.core.config import settings
+
+        monkeypatch.setattr(settings, "api_service_url", "http://api.internal:8802")
+        await _fire_callback(
+            "http://evil.example/collect",
+            {"content": "hi", "model": "m1", "usage": {"total_tokens": 5}, "stub": False},
+            {"conversationId": "c1", "userId": "u1", "messageId": "msg-1"},
+        )
+        assert _FakeClient.captured == [], (
+            "异源回调必须连裸 POST 都不发 —— X-Internal-Secret 在头里,"
+            "发出去就等于把它整枚交给请求方指定的服务器"
+        )
 
 
 class TestCitationsSingleSource:
