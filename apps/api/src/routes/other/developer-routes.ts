@@ -301,11 +301,32 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
     const params = z.object({ id: z.uuid() }).parse(request.params)
     // 由于路径中两个 :id 同名,Fastify 只保留最后一个(邀请 id)
     // 这里用邀请 id 删除
+    const [invitation] = await db
+      .select()
+      .from(teamInvitations)
+      .where(eq(teamInvitations.id, params.id))
+      .limit(1)
+    if (!invitation) return reply.status(404).send(error(404, '邀请不存在'))
+    // 归属闸(2026-10-31 安全强化第 11 批,IDOR 收口):仅被邀人本人、邀请人本人
+    // 或该团队 owner/admin 可删;此前任意登录用户枚举 UUID 即可删任意团队邀请
+    const isParty =
+      invitation.inviteeId === request.userId || invitation.inviterId === request.userId
+    if (!isParty) {
+      const [caller] = await db
+        .select()
+        .from(teamMembers)
+        .where(
+          and(eq(teamMembers.teamId, invitation.teamId), eq(teamMembers.userId, request.userId!)),
+        )
+        .limit(1)
+      if (!caller || (caller.role !== 'owner' && caller.role !== 'admin')) {
+        return reply.status(403).send(error(403, '无权操作该邀请'))
+      }
+    }
     const [deleted] = await db
       .delete(teamInvitations)
       .where(eq(teamInvitations.id, params.id))
       .returning()
-    if (!deleted) return reply.status(404).send(error(404, '邀请不存在'))
     return reply.send(success({ deleted: Boolean(deleted) }))
   })
 }
