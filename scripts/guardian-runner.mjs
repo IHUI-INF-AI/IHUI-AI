@@ -6589,6 +6589,29 @@ const checks = [
       '     也不要去 --unlock 挂长期豁免(§0.7 豁免必须验过才免且会到期)。',
     ],
   },
+  // --- 监控告警词表同值副本(1 项,blocking 差值棘轮)(2026-10-31 立)---
+  {
+    // 编号 275:注册前已核本文件 `id: '275'` 为 0(268 已被 PROJECT_PLAN 回捞件差值棘轮占用,2026-10-31 实测撞号后改号);现值以本文件为准。
+    // 立因:admin 监控崩溃族 ③ —— monitor_alerts.status/severity 是裸 varchar,消费侧曾三套词表并存,
+    // 副本必然漂移(§0.6),代价是渲染期 TypeError。canonical 已在 packages/types,本门给它装机器牙。
+    // 档位:差值棘轮(锚点=该文件 HEAD 面自身),存量只报数 —— 绝对档会因 HEAD 既有字面量恒红(§12e)。
+    id: '275',
+    label:
+      '🚨 监控告警词表同值副本门(blocking 差值棘轮;canonical = @ihui/types 的 MONITOR_ALERT_SEVERITIES/STATUSES,只拦新增同值数组,存量只报数)',
+    script: 'check-monitor-alert-vocabulary.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MONITOR_ALERT_VOCABULARY',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '  💡 红的意思是:这枚提交里新增了一份监控告警词表副本(status/severity 的同值数组)。',
+      '     ① 看清单:node scripts/check-monitor-alert-vocabulary.mjs --staged;',
+      '     ② 修法:删掉本地同值数组,改 import @ihui/types 的 MONITOR_ALERT_SEVERITIES/STATUSES;',
+      '        展示元数据(颜色/图标/文案)留在本地不算副本;',
+      '     ③ 判据本体:node scripts/check-monitor-alert-vocabulary.mjs --self-test。',
+      '     禁止为消红把门降档或往数组里塞无关值(那是锯尺子,§12e)。',
+    ],
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

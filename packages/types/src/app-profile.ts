@@ -11,9 +11,18 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
-import type { SharedAppInfo, SharedLocaleOption, SharedMenuItem, SharedMenuSection, SharedNotificationToggles, SharedThemeOption, SharedUser, SharedUserStatistics, TFunction } from './app-shared.js'
+import type {
+  SharedAppInfo,
+  SharedLocaleOption,
+  SharedMenuItem,
+  SharedMenuSection,
+  SharedNotificationToggles,
+  SharedThemeOption,
+  SharedUser,
+  SharedUserStatistics,
+  TFunction,
+} from './app-shared.js'
 import type { Gender } from './app-account.js'
-
 
 /** About 屏 props */
 export interface AboutScreenProps {
