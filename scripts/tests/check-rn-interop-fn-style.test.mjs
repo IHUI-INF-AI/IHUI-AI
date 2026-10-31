@@ -369,4 +369,69 @@ test('T10 遮罩双向对照:真代码违规必红 / 同一形态写进注释必
   }
 })
 
+/**
+ * T13 —— F3(命名函数形态 style)正反成对。
+ * 这一档存在的现场理由:BottomActionBar 的 `const style = ({pressed}) => […]` + `style={style}`
+ * 让聊天主按钮的整份内联样式从来没生效过,而 F1 的内联正则(要求 `style={` 后面就是箭头)
+ * 对它全盲 —— 没有 F3,下一次同样写法照样静默上线。
+ */
+test('T13 F3 正反成对:起名函数当 style 命中 / 对象·StyleSheet·Tappable·重绑·带原因豁免放过', () => {
+  const REG = new Set(['Pressable', 'View', 'Text'])
+  const named = [
+    'const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [',
+    '  baseStyle,',
+    '  pressed ? pressedStyle : null,',
+    ']',
+    '<Pressable',
+    '  onPress={handlePress}',
+    '  style={style}',
+    '/>',
+  ].join('\n')
+  const r = gate.findNamedFnStyleHits(named, REG)
+  assert.equal(r.hits.length, 1, '注册组件 + 本文件绑到箭头的标识符必须命中')
+  assert.equal(r.hits[0].ident, 'style')
+  assert.equal(
+    gate.findFnStyleHits(named, REG).hits.length,
+    0,
+    '阳性对照的另一半:F1 对这一型必须读 0 —— 读得到就不是漏判面而是重复计',
+  )
+  const decl = 'function styleFor(p) { return [a, b] }\n<Pressable style={styleFor} />'
+  assert.equal(gate.findNamedFnStyleHits(decl, REG).hits.length, 1, 'function 声明形态同样命中')
+  const obj = 'const style = StyleSheet.create({ card: { padding: 4 } })\n<View style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(obj, REG).hits.length, 0, 'StyleSheet 结果放过')
+  const member = 'const style = styles.card\n<Pressable style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(member, REG).hits.length, 0, '对象成员引用放过')
+  const tappable = 'const style = (p) => [a]\n<Tappable style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(tappable, REG).hits.length, 0, 'Tappable 不在注册表内,不收这一判')
+  const own = 'const style = (p) => [a]\n<MyCard style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(own, REG).hits.length, 0, '非注册组件是其自身契约')
+  const rebound = 'let style = (p) => [a]\nstyle = styles.card\n<Pressable style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(rebound, REG).hits.length, 0, '同名重绑成非函数 ⇒ 不确定就不报')
+  const exempted = 'const style = (p) => [a]\n<Pressable style={style} /> // interop-style-exempt: 探针带原因'
+  assert.equal(gate.findNamedFnStyleHits(exempted, REG).hits.length, 0, '带原因豁免放行')
+  const noTag = 'const style = (p) => [a]\n  style={style}'
+  const u = gate.findNamedFnStyleHits(noTag, REG)
+  assert.equal(u.hits.length, 0)
+  assert.equal(u.undetermined.length, 1, '回溯不到开标签 ⇒ 未判定点名,不得静默丢命中')
+})
+
+/** T14 —— F3 的委托形状锁:定义了不接线就是没有(§0.8),退出码必须消费 redF3。 */
+test('T14 F3 委托形状锁:analyze 调用判据函数、退出码含 redF3、报告行现读存量', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(
+    src,
+    /findNamedFnStyleHits\(text, registry\)/,
+    'analyze 必须把 F3 判据接进逐文件主循环(定义了不接线 = 没有,§0.8)',
+  )
+  assert.match(src, /redF3\.length/, '退出码必须消费 redF3(只存字段不参与判定 = F3 无牙)')
+  assert.match(
+    src,
+    /f3HeadCounts\.set\(f, findNamedFnStyleHits\(t, registry\)\.hits\.length\)/,
+    'F3 的棘轮锚点必须与 F1/F2 同口径取该文件 HEAD 自身存量,否则升档就成了恒红门(§0.2)',
+  )
+  const r = gate.analyze('head')
+  assert.ok(Number.isFinite(r.totalF3), 'head 面必须真读到 F3 计数(读数取不到就是没判)')
+  assert.equal(r.redF3.length, 0, 'head 面棘轮自锚必无红')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
