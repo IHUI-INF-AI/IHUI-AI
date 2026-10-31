@@ -18,7 +18,6 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * LLM 供应商设置(BYOK)共享屏 —— 渲染真相源(web 基准 = settings/llm:MVP 范围)。
@@ -177,7 +176,7 @@ export function LlmSettingsScreen({
                   <Pressable
                     key={p.code}
                     onPress={() => onSelectProvider(p.code)}
-                    style={pressFeedback([styles.chip, selectedCode === p.code && styles.chipOn])}
+                    style={[styles.chip, selectedCode === p.code && styles.chipOn]}
                     accessibilityRole="button"
                   >
                     <Text style={selectedCode === p.code ? styles.chipOnText : styles.chipText}>
@@ -211,7 +210,7 @@ export function LlmSettingsScreen({
                 />
                 <Pressable
                   onPress={() => setKeyVisible((v) => !v)}
-                  style={pressFeedback(styles.linkBtn)}
+                  style={styles.linkBtn}
                   accessibilityRole="button"
                 >
                   <Text style={styles.linkText}>

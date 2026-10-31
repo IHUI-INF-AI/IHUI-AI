@@ -37,7 +37,6 @@ import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -302,17 +301,13 @@ export default function PublishCalendarScreen() {
         onRequestClose={() => setPanel(null)}
       >
         <View style={styles.overlay}>
-          <Pressable style={pressFeedback(styles.mask)} onPress={() => setPanel(null)} />
+          <Pressable style={styles.mask} onPress={() => setPanel(null)} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.title}
               </Text>
-              <Pressable
-                onPress={() => setPanel(null)}
-                hitSlop={8}
-                style={pressFeedback(undefined)}
-              >
+              <Pressable onPress={() => setPanel(null)} hitSlop={8} style={undefined}>
                 <X size={18} color={tokens.text.secondary} />
               </Pressable>
             </View>
