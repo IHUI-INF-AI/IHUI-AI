@@ -36,6 +36,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { writePrivateFile } from './private-file.js';
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { DOC_TEXT_MUTED } from '@ihui/design-tokens';
 import {
   exchangeSsoCode as exchangeSsoCodeCore,
@@ -109,9 +110,14 @@ function openBrowser(targetUrl: string): void {
 /**
  * 启动本地 loopback HTTP 服务器,等待 SSO 回调。
  *
- * @returns Promise<string> 拿到 sso_code 后 resolve;超时/错误 reject
+ * `expectedState` 非空时,**只有 state 逐字相符的回调才被接受**;不符的一律 403 且
+ * 继续监听(不 resolve、不 close)—— 见 2026-10-31 第 21 批的立据:
+ * loopback 端口在等待窗内对本机任意进程与任意网页可达,谁都能往它投一枚自己的授权码,
+ * 没有 state 就等于"谁先投谁赢",用户会被换成攻击者的账户。
+ *
+ * @returns Promise<string> 拿到并校验通过的 sso_code 后 resolve;超时/错误 reject
  */
-function waitForCallback(): Promise<string> {
+function waitForCallback(expectedState?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       if (!req.url) {
@@ -128,6 +134,19 @@ function waitForCallback(): Promise<string> {
       }
       const code = parsed.query.sso_code;
       if (typeof code === 'string' && code) {
+        // 2026-10-31 第 21 批:先比对 state 再认这枚码。
+        // 不符 ⇒ 403 并且**不 resolve、不 close**:继续等真正的那次回调(超时兜底)。
+        const gotState = firstQueryValue(parsed.query.state);
+        if (expectedState && gotState !== expectedState) {
+          res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 回调被拒</title></head>' +
+              '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
+              '<h1>✗ 回调被拒</h1><p style="color:#c00;">授权响应与本次登录请求不匹配。</p>' +
+              '</body></html>',
+          );
+          return;
+        }
         // 成功拿到 code,返回友好提示给浏览器
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
@@ -191,8 +210,8 @@ function waitForCallback(): Promise<string> {
  * 构建 web SSO 登录中心 URL。
  * redirect 用 http://localhost:1738/callback(loopback),client_id=cli。
  */
-export function getSsoLoginUrl(): string {
-  return buildSsoLoginUrl(WEB_BASE, CALLBACK_URL, SSO_CLIENT_ID);
+export function getSsoLoginUrl(state?: string): string {
+  return buildSsoLoginUrl(WEB_BASE, CALLBACK_URL, SSO_CLIENT_ID, state);
 }
 
 /**
@@ -239,13 +258,18 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
  * @returns 成功返回 SsoTokenData;失败抛错
  */
 export async function loginWithSso(): Promise<SsoTokenData> {
-  const loginUrl = getSsoLoginUrl();
+  // 2026-10-31 第 21 批:每次登录生成新的随机 state,随授权 URL 发出并在回调比对。
+  const state = randomBytes(16).toString('hex');
+  const loginUrl = getSsoLoginUrl(state);
   // 提示用户即将打开浏览器
    
   console.info(`正在打开浏览器进行 SSO 授权登录...\n  回调地址: ${CALLBACK_URL}\n  登录页: ${loginUrl}\n`);
 
   // 并行:启动本地服务器 + 打开浏览器
-  const [code] = await Promise.all([waitForCallback(), Promise.resolve(openBrowser(loginUrl))]);
+  const [code] = await Promise.all([
+    waitForCallback(state),
+    Promise.resolve(openBrowser(loginUrl)),
+  ]);
 
   const tokenData = await exchangeSsoCode(code);
   if (!tokenData) {
