@@ -71,19 +71,64 @@ function git(args, opts = {}) {
 }
 
 /**
+ * a 相对 b 的多重集行差(a 有而 b 没有的行数;重复行按份数算)。
+ */
+export function minusCount(aText, bText) {
+  const pool = new Map()
+  for (const l of String(bText).split('\n')) pool.set(l, (pool.get(l) ?? 0) + 1)
+  let n = 0
+  for (const l of String(aText).split('\n')) {
+    const c = pool.get(l) ?? 0
+    if (c > 0) pool.set(l, c - 1)
+    else n += 1
+  }
+  return n
+}
+
+/**
+ * 部分回退判据(阈值单源,镜像测试与生产探针共用一把尺,§0.6/§22c)。
+ *
+ * 立因枚 f0572d64c4(2026-11-01 00:40,收编器自己那一枚):吃掉 2915 行翻译的那一轮,
+ * 盘上副本是**滞后编辑器缓冲 + 自身少量改动**的混血 —— 实测它到"最近祖先"的行距(584)
+ * 与到 HEAD 的行距一模一样 ⇒ 既不等于旧版也不等于新版,整片等值那一臂结构上看不见它。
+ *
+ * 阈值全部由**现读对照**定(第一版拍 `removed>=20 && added<=10`,拿真事故枚回放 15 枚文件
+ * 命中 0 条 —— 测试全绿而判据是空的,已作废):
+ *   事故 f0572d64c4  删占比 565/7698=7.3%、15/575=2.6%   增/删 19/565=3.4%、1/15=6.7%
+ *   合法死键清理 7cb6c064  删占比 28/7724=0.4%、5/7158=0.1%(增=0 ⇒ 单看"只删不增"会误杀它)
+ *   合法正常收编 49c3ecd3  删占比 45/29830=0.2%,增/删 43/45=96%
+ * ⇒ 分开两族的那一维是**删掉的行数占该文件全文的比例**(事故最小 2.6% vs 合法最大 0.4%,间隔 6.5 倍),
+ *   不是绝对行数,也不是"只删不增"。取 删占比 ≥2% ∧ 删 ≥15 行 ∧ 增 ≤ 删的 1/8,三条缺一不算。
+ *
+ * 判成滞后就留在工作树交显式处置(§0.10:失效方向必须"多要一次说明",绝不能"多放一次跳门");
+ * 有意的批量删除由归属席位自己提交 —— 收编器不替谁决定删掉别人刚入库的成百行。
+ */
+export function isPartialRevert(delta) {
+  if (!delta || typeof delta.removed !== 'number') return false
+  const removed = delta.removed
+  const added = delta.added
+  const total = delta.headLines
+  if (!(removed >= 15) || !(total > 0)) return false
+  if (removed * 100 < total * 2) return false // 删占比 <2% 全文:是有意的定点删除,不是缓冲回退
+  return added * 8 <= removed // 增不得盖过删:大量重写过的算新工作
+}
+
+/**
  * 滞后副本判据(纯函数;镜像测试直接用它,§22c)。
  *
  * 立因(2026-10-25 实测,不是推测):旁路落地(`object-space-land`)只推进 HEAD 与索引,**不写工作树**;
  * 本器 3 分钟后按工作树字节收编,就把那笔已入库的改动整份写回旧版。实测一枚 `chore(auto)` 在同一文件里
  * 回退了绑定手机/邮箱两端点 88 行与门 198 的 updatedAt 出口形态两处,HEAD 面行为锁 7/7 全红。
  *
- * 判据:工作树 blob ≠ HEAD blob,却等于该路径某个**祖先提交**的同路径 blob ⇒ 滞后副本。
+ * 判据一(整片):工作树 blob ≠ HEAD blob,却等于该路径某个**祖先提交**的同路径 blob ⇒ 滞后副本。
+ * 判据二(部分,2026-11-01 补):见 isPartialRevert —— 整片等值看不见"滞后缓冲+自身改动"的混血。
  * 失效方向刻意保持收编(任一探针取不到 ⇒ 当"不是滞后副本"),只有**证实**才跳过并点名,
  * 让"有意回退"由人显式提交(§0.10:失效方向必须是多要一次定向说明)。
  */
 export function partitionStaleCopies(paths, probes) {
   const kept = []
   const skipped = []
+  const why = new Map()
   for (const p of paths) {
     const wt = probes.worktree(p)
     const head = probes.head(p)
@@ -98,6 +143,7 @@ export function partitionStaleCopies(paths, probes) {
       // 证不到(探针取不到/无 A 记录)⇒ 按真新文件放行(失效方向保持原收编行为,不猜)。
       if (probes.everExisted?.(p)) {
         skipped.push(p)
+        why.set(p, '删除档死件回潮(HEAD 无此件,历史证得到曾入库)')
         continue
       }
       kept.push(p)
@@ -108,10 +154,25 @@ export function partitionStaleCopies(paths, probes) {
       continue
     }
     const ancestors = probes.ancestors(p) || []
-    if (ancestors.includes(wt)) skipped.push(p)
-    else kept.push(p)
+    if (ancestors.includes(wt)) {
+      skipped.push(p)
+      why.set(p, '整片等于该路径某个祖先版本(滞后副本)')
+      continue
+    }
+    // 部分回退臂(2026-11-01 补,立因枚 f0572d64c4):整片等值那一臂看不见
+    // "滞后编辑器缓冲 + 自身少量改动"的混血;阈值与其现读对照见 isPartialRevert。
+    const delta = probes.lineDelta?.(p)
+    if (isPartialRevert(delta)) {
+      skipped.push(p)
+      why.set(
+        p,
+        `部分回退嫌疑(HEAD 有而盘上无 ${delta.removed} 行=${((delta.removed / delta.headLines) * 100).toFixed(1)}% 全文 / 盘上新增仅 ${delta.added} 行)`,
+      )
+      continue
+    }
+    kept.push(p)
   }
-  return { kept, skipped }
+  return { kept, skipped, why }
 }
 
 /** git 探针(取不到一律返回 null ⇒ fail-open,保持原收编行为)。 */
@@ -138,6 +199,31 @@ function staleCopyProbes(p) {
         return git(['log', '--diff-filter=A', '-n', '1', '--format=%H', '--', p]).trim().length > 0
       } catch {
         return false
+      }
+    },
+    /**
+     * 行差(部分回退臂的输入):removed = HEAD 有而盘上没有的行数,added = 盘上新增的行数。
+     * 按**多重集**算(重复行按份数),否则一份 20 行的样板被复制两遍会被算成 0。
+     * 任一文本取不到(未入库/二进制/超大)⇒ 返回 null ⇒ 该臂不参与判断(fail-open 同上一臂)。
+     */
+    lineDelta: () => {
+      let headText = null
+      let wtText = null
+      try {
+        headText = git(['show', `HEAD:${p}`])
+      } catch {
+        return null
+      }
+      try {
+        wtText = readFileSync(join(ROOT, p), 'utf8')
+      } catch {
+        return null
+      }
+      if (headText === null || wtText === null) return null
+      return {
+        removed: minusCount(headText, wtText),
+        added: minusCount(wtText, headText),
+        headLines: headText.split('\n').length,
       }
     },
     ancestors: () => {
@@ -175,13 +261,19 @@ function staleCopyProbes(p) {
  * 失效方向仍是"少收编一次":判成滞后就跳过并逐条点名,人想显式提交随时可以(§0.10)。
  */
 function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
-  if (!stale.length) return { kept: stale, skipped: [] }
-  const { skipped } = partitionStaleCopies([...stale], {
+  if (!stale.length) return { kept: stale, skipped: [], why: new Map() }
+  // 探针必须**逐臂全递**:上一版这里漏递 `everExisted`,导致「删除档死件回潮」那一臂
+  // 在真实调用路径上永远是 `probes.everExisted?.()` ⇒ undefined ⇒ 按真新文件放行 ——
+  // 镜像测试直接构造 probes 传进 partitionStaleCopies,所以测试全绿而生产臂空转(§0.9:
+  // 判据必须在真跑它的那一刻才成立;2026-10-31 补的那一臂等于没补)。同批补递 lineDelta。
+  const { skipped, why } = partitionStaleCopies([...stale], {
     worktree: (p) => probeFactory(p).worktree(),
     head: (p) => probeFactory(p).head(),
+    everExisted: (p) => probeFactory(p).everExisted?.(),
+    lineDelta: (p) => probeFactory(p).lineDelta?.(),
     ancestors: (p) => probeFactory(p).ancestors(),
   })
-  return { kept: stale.filter((p) => !skipped.includes(p)), skipped }
+  return { kept: stale.filter((p) => !skipped.includes(p)), skipped, why }
 }
 
 /**
@@ -362,12 +454,19 @@ function writeDispositionSnapshot(file, snap) {
   try {
     const dir = join(ROOT, '.ihui-agent', 'tmp', 'auto-commit-quiet')
     mkdirSync(dir, { recursive: true })
-    const rel = join('.ihui-agent', 'tmp', 'auto-commit-quiet', `${basename(file)}.pre-merge.disposition`)
+    const rel = join(
+      '.ihui-agent',
+      'tmp',
+      'auto-commit-quiet',
+      `${basename(file)}.pre-merge.disposition`,
+    )
     const abs = join(ROOT, rel)
     writeFileSync(abs, snap)
     return rel
   } catch (e) {
-    log(`⚠️ 处置侧快照落盘失败(${file}):${String(e?.message || e)} ⇒ 本轮不启用归档批次维(退回原判据)`)
+    log(
+      `⚠️ 处置侧快照落盘失败(${file}):${String(e?.message || e)} ⇒ 本轮不启用归档批次维(退回原判据)`,
+    )
     return null
   }
 }
@@ -570,10 +669,12 @@ function main() {
         // 重复",判不出"HEAD 已勾的登记行在工作树副本里被原地写回 `- [ ]`"(行数不变、一行不丢,
         // 归并档结构性看不见);归档单调性只管 ✅ 标题复活,不管勾选态。
         // 两型回退源都在本闸射程内(根因与取证见 scripts/lib/ledger-closed-rows.mjs 头注):
-        // ① 混合体(旧副本⊕本地小改)——整份文本不等于任何祖先 blob,dropStaleCopies 结构上判不了;
+        // ① 混合体(旧副本⊕本地小改)——整份文本不等于任何祖先 blob,dropStaleCopies 的整片臂判不了
+        //    (2026-11-01 起多了一条 isPartialRevert 删占比臂,但它是"批量丢行"的尺寸启发式,
+        //    判不出"只勾了几行被写回 `- [ ]`"这种一行级回退 ⇒ 本闸对勾选态仍是唯一精确的那把尺);
         // ② 整份旧 blob 覆盖——dropStaleCopies 能拦(2026-10-29 起它审**全部**候选:旧的那条
         //    "已暂存=明确意图"豁免正是 b44ab834609 回退守卫②的入口,而落地走 safe-commit 的
-        //    `git add -A`,提交的是工作树字节,与谁暂存过无关),但它仍只回溯该路径最近 6 枚提交,
+        //    `git add -A`,提交的是工作树字节,与谁暂存过无关),但整片臂只回溯该路径最近 40 枚提交,
         //    而本闸按**盘上文本 vs HEAD blob** 判勾选态,不受"副本多老"影响。
         // 位置刻意选在**归并+复洁之后、safe-commit 之前**的最后一档:①候选文本此刻就是即将入库
         // 的那一份(复洁只剔 HEAD 面已不存在的行,动不到本闸的主键面);②放到归并之前会把"归并
@@ -625,9 +726,13 @@ function main() {
   //   ② HEAD 无此文件但 git log --diff-filter=A 证得到曾入库 ⇒ 删除档死件回潮(不再 fail-open)。
   // 失效方向仍是「少收编一次」:skipped 留在工作树,交删除意图账 / 归属席位显式处置(§0.10)。
   {
-    const { kept, skipped } = dropStaleCopies(stale, changes)
+    const { kept, skipped, why } = dropStaleCopies(stale, changes)
     if (skipped.length) {
-      log(`跳过滞后副本(留在工作树,交删除意图账/归属席位显式处置):${skipped.join(', ')}`)
+      log(
+        `跳过滞后副本(留在工作树,交删除意图账/归属席位显式处置):${skipped
+          .map((p) => `${p}${why?.get?.(p) ? ` [${why.get(p)}]` : ''}`)
+          .join(', ')}`,
+      )
       if (kept.length === 0) return
       stale.length = 0
       stale.push(...kept)
@@ -701,6 +806,8 @@ export const __test__ = {
   rollbackLedger,
   partitionStaleCopies,
   dropStaleCopies,
+  minusCount,
+  isPartialRevert,
   partitionI18nBatch,
   autoCommitMessages,
 }
