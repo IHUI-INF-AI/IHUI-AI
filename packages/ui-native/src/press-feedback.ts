@@ -7,6 +7,9 @@ import type { StyleProp, ViewStyle } from 'react-native'
 /** 按下时的不透明度。取 0.65:低于 0.5 在深色底上像"消失",高于 0.8 用户看不出来。 */
 const PRESSED_OPACITY = 0.65
 
+type PressState = { pressed: boolean }
+type StyleLike = StyleProp<ViewStyle> | ((state: PressState) => StyleProp<ViewStyle>)
+
 /**
  * 按压反馈的唯一口(与 `scaleText` 同一形态:机制住在共享层,端内只写一行调用)。
  * 触屏没有 hover,"按下去什么都不变"等于告诉用户"我没点上"——所以每个可点的 Pressable
@@ -14,14 +17,20 @@ const PRESSED_OPACITY = 0.65
  *
  *   style={pressFeedback(styles.row)}
  *
- * 两条边界:
+ * 三条边界:
  *  ① **只给 RN 原生 Pressable 用**。走 className 的组件由 cssInterop 接管,函数形态 style
  *     会被它吃掉(守门 131)——那种地方用 `active:` 变体。
  *  ② 小程序腿的 rn-compat Pressable 已支持函数形态(取未按下的那一档),不会因此变白板;
  *     但小程序本来就没有按压态反馈,这条只在 RN 侧生效。
+ *  ③ **入参本身是函数**(`style={style}` 且 style 的类型是 `({pressed}) => …`)时按组合处理:
+ *     先求值原函数再叠透明度。BottomActionBar 两枚 Pressable 就是这型 —— 直接当对象包进去
+ *     会得到 TS2345(函数不是 StyleProp),组合写法是唯一既保留原反馈又不动调用点的解。
  */
-export function pressFeedback(style: StyleProp<ViewStyle>) {
-  return ({ pressed }: { pressed: boolean }) => [style, pressed && { opacity: PRESSED_OPACITY }]
+export function pressFeedback(style: StyleLike) {
+  return ({ pressed }: PressState) => [
+    typeof style === 'function' ? style({ pressed }) : style,
+    pressed && { opacity: PRESSED_OPACITY },
+  ]
 }
 
 export const __test__ = { PRESSED_OPACITY }
