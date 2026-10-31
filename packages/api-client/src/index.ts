@@ -330,6 +330,8 @@ export {
   getWithdrawList,
   requestWithdraw,
   getDayMonthSummary,
+  type CommissionRatesResult,
+  getCommissionRates,
   // 分销团队(2026-08-21 建,TeamScreen/TeamDetailScreen 真实链路)
   type TeamStats,
   type TeamMemberItem,
@@ -348,6 +350,7 @@ export * from './endpoints/pricing-rules.js'
 export * from './endpoints/earnings.js'
 export * from './endpoints/edu.js'
 export * from './endpoints/exam.js'
+export * from './endpoints/algorithm-record.js'
 // 文件上传端点(2026-07-28 立,mobile-rn AigcPublishScreen 接入真实文件选择+上传)
 export * from './endpoints/files.js'
 // 商品端点(2026-09-04 立,GET /goods/select 购物车分页,mobile-rn CartScreen 跨端共享)

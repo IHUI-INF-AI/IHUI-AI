@@ -5,80 +5,90 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppPermissionScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
 export type { AppPermissionScreenProps }
 
-interface PermissionItem {
-  name: string
-  desc: string
-}
-
-const PERMISSIONS: PermissionItem[] = [
-  {
-    name: '相机',
-    desc: '用于拍摄照片、录制视频、扫描二维码、AI 图像识别与上传头像等场景。您可随时在系统设置中关闭该权限，关闭后相关功能将无法使用。',
-  },
-  {
-    name: '相册(照片/视频)',
-    desc: '用于从相册选择图片或视频进行上传、发布内容、更换头像、AI 创作素材等。您可随时在系统设置中关闭该权限。',
-  },
-  {
-    name: '位置信息',
-    desc: '用于提供基于地理位置的附近内容推荐、活动定位、打卡等功能。您可选择仅在使用期间允许或始终拒绝，关闭后不影响其他功能。',
-  },
-  {
-    name: '通知(推送)',
-    desc: '用于接收订单状态、系统消息、课程更新、互动提醒等推送通知。您可在系统设置中按类别开启或关闭，关闭后将无法及时收到相关提醒。',
-  },
-  {
-    name: '麦克风',
-    desc: '用于语音输入、AI 语音对话、录音、直播连麦等场景。您可随时在系统设置中关闭该权限，关闭后语音相关功能将无法使用。',
-  },
-  {
-    name: '存储(文件读取)',
-    desc: '用于读取或保存文件、缓存图片与视频、离线课程资料等。您可随时在系统设置中关闭该权限，关闭后部分离线功能将受限。',
-  },
-  {
-    name: '通讯录',
-    desc: '用于查找通讯录中的好友、邀请好友、便捷登录等场景（仅在您主动操作时触发）。您可随时在系统设置中关闭该权限。',
-  },
-  {
-    name: '生物识别(Face ID/指纹)',
-    desc: '用于快捷登录、支付验证等安全场景。仅在您主动开启后使用，可在 APP 安全设置中随时关闭。',
-  },
-]
+const PERMISSION_COUNT = 8
+const REQUIRED_FLAGS = [true, false, true, false, false, true, false, false]
 
 export function AppPermissionScreen({
   t,
   onBack,
+  statusByIndex,
+  onOpenSettings,
   colorScheme = 'light',
 }: AppPermissionScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
+  const items = Array.from({ length: PERMISSION_COUNT }, (_, index) => ({
+    name: t(`appPermission.name${index}`),
+    desc: t(`appPermission.desc${index}`),
+    required: REQUIRED_FLAGS[index] ?? false,
+    status: statusByIndex?.[index],
+  }))
+
+  const statusLabel = (status: 'granted' | 'denied' | 'unknown') =>
+    status === 'granted'
+      ? t('appPermission.granted')
+      : status === 'denied'
+        ? t('appPermission.denied')
+        : t('appPermission.unknown')
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('settings.appPermission', { fallback: '应用权限' })}</Text>
+        <Text style={styles.title}>{t('appPermission.title')}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Text style={styles.intro}>
-          {t('appPermission.intro', {
-            fallback:
-              '本 APP 严格遵循最小必要原则申请系统权限，所有权限均由您主动授权，您可随时在手机系统「设置 - 权限管理」中查看、调整或撤回授权。撤回非必要权限不影响 APP 其他功能的正常使用。',
-          })}
-        </Text>
-        {PERMISSIONS.map((item) => (
-          <View key={item.name} style={styles.card}>
-            <Text style={styles.permName}>{item.name}</Text>
-            <Text style={styles.permDesc}>{item.desc}</Text>
+        <Text style={styles.intro}>{t('appPermission.intro')}</Text>
+        {items.map((item, index) => (
+          <View key={index} style={styles.card}>
+            <View style={styles.rowTop}>
+              <View style={styles.rowMain}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.permName}>{item.name}</Text>
+                  <Text style={item.required ? styles.tagRequired : styles.tagOptional}>
+                    {item.required ? t('appPermission.required') : t('appPermission.optional')}
+                  </Text>
+                  {item.status ? (
+                    <Text
+                      style={[
+                        styles.tagStatus,
+                        item.status === 'granted'
+                          ? styles.statusGranted
+                          : item.status === 'denied'
+                            ? styles.statusDenied
+                            : styles.statusUnknown,
+                      ]}
+                    >
+                      {statusLabel(item.status)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.permDesc}>{item.desc}</Text>
+              </View>
+              {onOpenSettings ? (
+                <Pressable onPress={onOpenSettings} style={styles.settingButton}>
+                  <Text style={styles.settingText}>{t('appPermission.goSetting')}</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         ))}
+
+        {onOpenSettings ? (
+          <Pressable onPress={onOpenSettings} style={styles.openAll}>
+            <Text style={styles.openAllText}>{t('appPermission.openAllSetting')}</Text>
+          </Pressable>
+        ) : null}
+
+        <Text style={styles.footer}>{t('appPermission.footer')}</Text>
       </ScrollView>
     </View>
   )
@@ -110,11 +120,72 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    permName: {
-      fontSize: rnType.title.size,
-      fontWeight: '600',
-      color: tk.text.primary,
+    rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.md },
+    rowMain: { flex: 1 },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
       marginBottom: rnSpacing.sm,
+    },
+    permName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    tagRequired: {
+      fontSize: rnType.caption.size,
+      color: tk.error.text,
+      backgroundColor: tk.error.bg,
+      borderRadius: rnRadius.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 2,
+      overflow: 'hidden',
+    },
+    tagOptional: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      backgroundColor: tk.surface.muted,
+      borderRadius: rnRadius.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 2,
+      overflow: 'hidden',
+    },
+    tagStatus: {
+      fontSize: rnType.caption.size,
+      borderRadius: rnRadius.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 2,
+      overflow: 'hidden',
+    },
+    statusGranted: { color: tk.brandAccent.deep, backgroundColor: tk.brandAccent.light },
+    statusDenied: { color: tk.error.text, backgroundColor: tk.error.bg },
+    statusUnknown: { color: tk.text.tertiary, backgroundColor: tk.surface.muted },
+    settingButton: {
+      flexShrink: 0,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+    },
+    settingText: {
+      fontSize: rnType.label.size,
+      fontWeight: '500',
+      color: tk.brand.ctaForeground,
+    },
+    openAll: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    openAllText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    footer: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      textAlign: 'center',
+      paddingVertical: rnSpacing.sm,
     },
     permDesc: { fontSize: rnType.body.size, color: tk.text.secondary, lineHeight: 22 },
   })
