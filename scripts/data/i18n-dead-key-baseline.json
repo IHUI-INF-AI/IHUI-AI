@@ -1,12 +1,12 @@
 {
-  "note": "i18n 死 key 存量基线(2026-10-31 立,AGENTS §12e):本仓历史死键是判历史存量的格子,存量未归零前挂绝对零容忍 = 恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门。CI 全量档按此只拦新增(deadCount > maxDead 即红);提交链(--staged)不传本文件,仍是零容忍。清掉某端存量后必须同批下调该端数字,否则基线成了不会到期的豁免(§0.7)。数字是 2026-10-31 HEAD 面现读(c6c 复核:scripts/scan-dead-i18n-keys.mjs --target all)。",
-  "recordedAt": "2026-10-31",
-  "recordedFrom": "HEAD 面 node scripts/scan-dead-i18n-keys.mjs --target all 现读;web 2 / miniapp-taro 504 / mobile-rn 13 / cli 14 / extension 0",
+  "note": "i18n 死 key 存量基线。2026-10-31 立档时是存量棘轮(§12e:存量未归零前挂绝对零容忍=恒红门);2026-11-01 五端存量已逐族证明无动态取词消费方后全部摘除,实测归零 ⇒ 按本文件自订规矩(\"清掉某端存量后必须同批下调该端数字,否则基线成了不会到期的豁免\")把全档下调为 0,自此 CI 全量档等价于绝对零容忍。清零工序与自证:① scripts/scan-dead-i18n-keys.mjs --target all 出死键表;② 逐族核对:报告「动态 key 提示」段抓到的所有模板/拼接前缀(byok.stepN、appPermission.nameN、businessLicense.labelN、about.*、automations.terminalReason.*、ai.pane.*、vip.benefitList.*、eduParent.status.*、stepDecision.*、drawer.* 等)与 scripts/i18n-contract-keys.json 的契约声明,都不覆盖死键表里的任何一枚(byok.step*/appPermission.name*/businessLicense.label*/about.* 等动态族本就不在死键表内,已逐条反证);③ 行级区间删除器只切整行、JSON.parse+叶子集合守恒双断言(只许少目标键,少任何其他带值键即整批不落);④ 摘空的容器另跑一道;⑤ gen-i18n-compressed.mjs 重生成小程序离线包;⑥ packages/i18n 117 例、packages/shared waiting-keys 16 例、apps/web family-i18n-contract 233 例、check-i18n-keys parity 全绿。若某端再次积累存量,不得把本数字抬回去掩盖:要么当场清掉,要么按守门 108 的\"验过才免+会到期\"另立具名豁免。",
+  "recordedAt": "2026-11-01",
+  "recordedFrom": "工作树面 node scripts/scan-dead-i18n-keys.mjs --target all --worktree 现读:web 0 / miniapp-taro 0 / mobile-rn 0 / cli 0 / extension 0(五端全零)",
   "maxDead": {
-    "web": 2,
-    "miniapp-taro": 504,
-    "mobile-rn": 13,
-    "cli": 14,
+    "web": 0,
+    "miniapp-taro": 0,
+    "mobile-rn": 0,
+    "cli": 0,
     "extension": 0,
     "desktop": 0
   }
