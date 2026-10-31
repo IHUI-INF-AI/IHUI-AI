@@ -10,6 +10,8 @@
  * 合法第三方域。本文件同时钉"该放行的放行"与"该拒的拒"，防止下次再收窄时静默回归。
  */
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { isTrustedWebviewUrl } from '../src/utils/webview-trust'
 
 describe('isTrustedWebviewUrl', () => {
@@ -52,6 +54,15 @@ describe('isTrustedWebviewUrl', () => {
     expect(isTrustedWebviewUrl('javascript:alert(1)')).toBe(false)
     expect(isTrustedWebviewUrl('data:text/html,<script>alert(1)</script>')).toBe(false)
     expect(isTrustedWebviewUrl('')).toBe(false)
+  })
+
+  it('承载页对非信任 URL 走复制链接降级,应用内不加载', () => {
+    const src = readFileSync(resolve(__dirname, '../src/pages/webview/index.tsx'), 'utf8')
+    const guard = src.indexOf('if (!isTrustedWebviewUrl(decodedUrl))')
+    expect(guard).toBeGreaterThan(-1)
+    const branch = src.slice(guard, src.indexOf('} else {', guard))
+    expect(branch).toContain('setClipboardData({ data: decodedUrl })')
+    expect(branch).not.toContain('setUrl(')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
