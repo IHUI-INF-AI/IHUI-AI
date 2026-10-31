@@ -550,6 +550,9 @@ describe('parseReasoningEffort', () => {
     expect(parseReasoningEffort('low')).toBe('low')
     expect(parseReasoningEffort('medium')).toBe('medium')
     expect(parseReasoningEffort('high')).toBe('high')
+    // 2026-10-31 扩档(对齐对方 proto 七档):xhigh/max 与四旧档同路,合法即原样返回
+    expect(parseReasoningEffort('xhigh')).toBe('xhigh')
+    expect(parseReasoningEffort('max')).toBe('max')
   })
 
   it("非法值 / undefined 返回 undefined", () => {

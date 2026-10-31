@@ -3112,7 +3112,8 @@ class LLMCompleteRequest(BaseModel):
     # 由 scripts/check-model-capacity-parity.mjs C5/C6 对账)。非法值由 _resolve_reasoning_effort
     # 丢弃并落通知 —— Pydantic 直接 422 会把「用户选了个不支持的档」打成整轮请求失败。
     reasoning_effort: str | None = Field(
-        None, description="推理强度档位:minimal/low/medium/high(封闭集,非法值丢弃并回报回落)"
+        None,
+        description="推理强度档位:minimal/low/medium/high/xhigh/max(封闭集,非法值丢弃并回报回落)",
     )
     # D09(2026-10-24 立):意图自动路由专家包的三档开关。
     # 默认(None)= hint:只把分类结果作为 injection_applied 帧交代给用户,**不改工具、
