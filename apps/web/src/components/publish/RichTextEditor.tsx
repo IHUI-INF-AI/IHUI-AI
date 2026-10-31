@@ -118,10 +118,19 @@ function markdownToHtml(md: string): string {
   s = s.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>')
   s = s.replace(/\*([^\*]+)\*/g, '<em>$1</em>')
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+  // 2026-10-31 安全强化第 10 批:url/src 内的 `"` 会闭合属性注入 onmouseover 等
+  // 事件处理器 —— 转义后再进属性;链接目标只放行 http(s)/站内/锚点/mailto,
+  // javascript: 同族 scheme 一律降级为无 href 的 <a>。
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text: string, url: string) => {
+    const safeUrl = url.replace(/"/g, '%22')
+    const safeText = text.replace(/"/g, '&quot;')
+    if (!/^(https?:\/\/|\/|#|mailto:)/i.test(url)) return `<a>${safeText}</a>`
+    return `<a href="${safeUrl}">${safeText}</a>`
+  })
   s = s.replace(
     /!\[\]\(([^)]+)\)/g,
-    (_m, src: string) => '<img src="' + toMediaImageUrl(src) + '" alt="" />',
+    (_m, src: string) =>
+      '<img src="' + toMediaImageUrl(src).replace(/"/g, '%22') + '" alt="" />',
   )
   s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
   s = s.replace(/^---$/gm, '<hr/>')
