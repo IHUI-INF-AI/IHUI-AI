@@ -27,6 +27,7 @@ import {
   type Settings,
   type SamplerSettings,
 } from './settings.js';
+import { writePrivateFile } from '../lib/private-file.js';
 
 // === 允许通过 /config 修改的 key 白名单 ===
 
@@ -191,7 +192,7 @@ function parseValue(raw: string, type: ConfigValueType, enumValues?: readonly st
 function saveSettings(settings: Settings): void {
   const p = getSettingsPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+  writePrivateFile(p, JSON.stringify(settings, null, 2) + '\n');
 }
 
 // === 渲染 ===

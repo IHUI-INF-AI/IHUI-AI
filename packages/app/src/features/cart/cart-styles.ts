@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -18,18 +18,18 @@ export function createCartStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    listContent: { paddingBottom: 20, gap: 12 },
+    listContent: { paddingBottom: rnSpacing.xl, gap: rnSpacing.md },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      marginHorizontal: 12,
-      padding: 12,
+      gap: rnSpacing['sm-loose'],
+      marginHorizontal: rnSpacing.md,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
@@ -59,7 +59,7 @@ export function createCartStyles(tk: AppThemeTokens) {
     qtyRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
       alignSelf: 'flex-start',
     },
     qtyBtn: {
@@ -83,10 +83,10 @@ export function createCartStyles(tk: AppThemeTokens) {
     footer: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      paddingBottom: 20,
+      gap: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.xl,
       backgroundColor: tk.surface.card,
     },
     selectAll: { fontSize: 14, color: tk.text.primary },
@@ -95,7 +95,7 @@ export function createCartStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'baseline',
       justifyContent: 'flex-end',
-      gap: 4,
+      gap: rnSpacing.xs,
     },
     totalLabel: { fontSize: 13, color: tk.text.secondary },
     totalPrice: { fontSize: 18, fontWeight: '700', color: tk.danger.DEFAULT },

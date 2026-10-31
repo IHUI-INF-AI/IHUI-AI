@@ -74,14 +74,12 @@ jobs:
           # 清理本地 key 文件(artifact 已包含)
           rm -f ./ihui.key ./ihui.key.pub
 
-      - name: Upload secrets as artifact (1 day retention)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tauri-secrets
-          path: tauri-secrets.txt
-          retention-days: 1
-          overwrite: true
-
-      - name: Cleanup workspace
+      # R8 复评 B3:私钥不再以 artifact 发布 —— 24h 窗口内任何有 artifacts 读
+      # 权限的协作者/被攻陷 runner 会话曾可下载并签发被 updater 公钥接受的任意
+      # 恶意更新包。私钥只落 runner 临时文件并随 job 销毁;机主在本 workflow 的
+      # 运行日志(summary)按步骤提示从本地 `gh run download` 之外的途径——
+      # 正确做法:rerun 本 workflow 时在 runner 内直接 `gh secret set`,或用
+      # dispatch 后立即 SSH 到 runner 取件(均不产生持久 artifact)。
+      - name: Cleanup workspace (secrets never leave the runner)
         run: rm -f tauri-secrets.txt
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

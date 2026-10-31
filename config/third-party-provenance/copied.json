@@ -6,7 +6,7 @@
     "attributionBoundary 字段声明「同一 roots 目录内本仓自研文件不归属上游」,防止反向把自家代码也算成第三方。"
   ],
   "schemaVersion": 1,
-  "updatedOn": "2026-10-21",
+  "updatedOn": "2026-10-31",
   "entries": [
     {
       "id": "pdfjs-worker-6.x",
@@ -162,6 +162,36 @@
       "modificationNote": "逐行按 Qoder 实测语义重写(鉴权走 Bearer token、领取走 campaignId/CLAIMABLE 判据、风控走 Cosy-* 头族),并补了 token 到期自刷新与结构化 dict 契约对齐;不是逐字节拷贝,但契约与常量集合平移自上游,故整文件按第三方归属登记。",
       "attributionBoundary": "本条目只覆盖 checkin_qoder.py 一个文件;apps/ai-service/app/services/ 其余签到相关文件(checkin_engine.py 的 TRAE 引擎、调度器、records)为本仓自研,不在本条目 roots 内。",
       "obligations": "① 上游 commit 不可考,后续若能定位导入版本再回填 gitRevision(不许用登记日的分支顶点顶替);② 桌面端 apps/desktop 的 checkin_capture.rs Qoder 段是本仓自著的采集代码,不随本条目主张第三方来源。"
+    },
+    {
+      "id": "pele-1.3.0-vendored-esm-subset",
+      "kind": "copied",
+      "name": "Pele 1.3.0 ESM 构建产物(archify explainer vendored 子集)",
+      "purpose": ".ihui/skills/archify 技能的 explainer 在构建期把图表段(pie/xychart/quadrantChart/sankey/radar/venn)静态渲染成 SVG,渲染引擎是 vendored 的 Pele dist/esm 产物;交付页面不含 Pele 代码。归属叙述的仓内另两处:vendor 目录自带的 README.md 与 .ihui/skills/archify/THIRD_PARTY_NOTICES.md §Pele。",
+      "upstream": {
+        "project": "pele",
+        "repository": "https://github.com/obsidianmd/pele",
+        "acquisition": "取自 npm tarball pele-1.3.0.tgz(该 tarball 的 sha256 由 vendor 目录自带的 README.md 第一句自证:8c55d4f2335367c31e77550dfbbd00c99533c432b9323aa37730188c0a355da5),只挑 dist/esm/core.js、6 个 diagram 入口及其 import 的 14 个 chunk",
+        "version": "1.3.0",
+        "gitRevision": null,
+        "gitRevisionNote": "导入面是 npm tarball,产物不携带上游 commit,不可考 ⇒ 显式 null(P4):本条主张内容源自 pele-1.3.0.tgz(以 tarball sha256 自证),不主张等于上游仓库某个 commit。"
+      },
+      "license": {
+        "spdx": "MIT",
+        "texts": [
+          {
+            "form": "inRepo",
+            "inRepo": ".ihui/skills/archify/explainer/vendor/pele/LICENSE",
+            "sha256": "311bccc30de6f7b9cbfb64232bb0c911ccb2191abe316550813ae25b2c7925b9",
+            "byteLength": 1934
+          }
+        ]
+      },
+      "roots": [".ihui/skills/archify/explainer/vendor/pele"],
+      "modification": "unmodified-copy",
+      "modificationNote": "上游 22 枚构件(LICENSE + core.js + diagrams/ 6 枚 + chunks/ 14 枚)按 vendor README 的声明『copied, unmodified』原样入库;实测文件内无本仓编辑痕迹,也无我方水印横幅(vendor/** 因 watermark.mjs 的 SKIP_DIRS 从未被注入)。",
+      "attributionBoundary": "roots 目录内唯一非上游件是 README.md(本仓自著的 vendoring 说明,不属于 Pele 上游);其余 22 枚跟踪文件归 Pele。目录外的 explainer 宿主代码为本仓自研,不随本条目主张第三方来源。",
+      "obligations": "① 升级 Pele 时重抽 tarball,同笔更新本条 version / acquisition 里的 tarball sha256 / 许可原文的 sha256+byteLength(许可原文是 inRepo 内容寻址自证,文本一变 P3 当场判红);② 不得在本仓编辑 vendor 内的 .js(改了下次同步就丢,还毁掉『unmodified-copy』断言);③ 门 98 D4 对这批纯 JS 打包产物的误判问题不在本条射程,登记面只回答来源与许可。"
     }
   ]
 }

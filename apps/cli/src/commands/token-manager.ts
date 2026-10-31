@@ -28,6 +28,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { getSettingsPath, loadSettings, type Settings } from './settings.js';
+import { writePrivateFile } from '../lib/private-file.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { classifyCredential, isMachineCredential, decodeJwtClaims } from '../config/credentials.js';
 import {
@@ -97,7 +98,7 @@ function persistTokens(accessToken: string, refreshToken: string): boolean {
   if (existing.credentialKind === undefined || existing.credentialKind === 'auto') {
     existing.credentialKind = 'jwt';
   }
-  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
   return true;
 }
 

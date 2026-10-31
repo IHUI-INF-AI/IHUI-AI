@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   productPriceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     gap: rnSpacing.sm,
   } as ViewStyle,
   productPrice: {
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     width: '100%',
   } as ViewStyle,
   benefitText: {
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
   paymentLabel: {
     fontSize: rnType.label.size,
     color: tokens.text.tertiary,
-    marginBottom: 6,
+    marginBottom: rnSpacing['xs-loose'],
   } as TextStyle,
   paymentOption: {
     flexDirection: 'row',
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     borderWidth: 1,
     borderColor: 'transparent',
   } as ViewStyle,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   paymentName: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: rnSpacing['sm-loose'],
     fontSize: 13,
     color: tokens.text.primary,
   } as TextStyle,
@@ -548,11 +548,11 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   agreementRow: {
     width: '100%',
-    marginTop: 10,
+    marginTop: rnSpacing['sm-loose'],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   } as ViewStyle,
   agreementCheckbox: {
     width: CHECKBOX_SIZE,

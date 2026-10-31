@@ -15,6 +15,7 @@ import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * D136(2026-10-01 立,承 V4 #94 / D84):RN 端工具审批。
@@ -242,7 +243,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
         <Pressable
           accessibilityRole="button"
           testID="tool-approval-open"
-          style={styles.openPill}
+          style={pressFeedback(styles.openPill)}
           onPress={() => setPanelOpen(true)}
         >
           <ShieldAlert size={14} color={tokens.brand.ctaForeground} />
@@ -360,7 +361,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     accessibilityRole="button"
                     testID="tool-approval-reject"
                     disabled={sending}
-                    style={styles.rejectBtn}
+                    style={pressFeedback(styles.rejectBtn)}
                     onPress={() => void decide('reject')}
                   >
                     <Text style={styles.rejectText}>{t('toolApproval.reject')}</Text>
@@ -369,7 +370,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     accessibilityRole="button"
                     testID="tool-approval-approve"
                     disabled={sending}
-                    style={styles.approveBtn}
+                    style={pressFeedback(styles.approveBtn)}
                     onPress={requestApprove}
                   >
                     <Text style={styles.approveText}>{t('toolApproval.approve')}</Text>
@@ -399,7 +400,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
               {e.decided === 'reject' ? ` — ${t('toolApproval.rejectedNextNote')}` : ''}
             </Text>
           ))}
-          <Pressable
+          <Pressable style={pressFeedback(undefined)}
             accessibilityRole="button"
             testID="tool-approval-clear-history"
             onPress={dismissAnswered}

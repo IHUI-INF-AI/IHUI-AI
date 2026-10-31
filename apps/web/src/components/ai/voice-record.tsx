@@ -79,6 +79,11 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
       setIsRecording(true)
       setIsPaused(false)
       setDuration(0)
+      // 起新之前先停旧:重复 start 不得把旧句柄盖掉(旧 interval 会永不回收、回调叠加)
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
       timerRef.current = setInterval(() => {
         setDuration((d) => {
           if (d + 1 >= maxDuration) {

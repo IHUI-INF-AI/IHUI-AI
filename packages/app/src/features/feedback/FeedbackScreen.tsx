@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -219,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     typeBtn: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     },

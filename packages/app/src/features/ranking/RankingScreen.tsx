@@ -154,13 +154,13 @@ export function RankingScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     podiumRow: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.sm,
     },
@@ -197,8 +197,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     rankBadge: {
       marginTop: rnSpacing.sm,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
     rankBadgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    listInfo: { flex: 1, marginLeft: 10, marginRight: rnSpacing.sm },
+    listInfo: { flex: 1, marginLeft: rnSpacing['sm-loose'], marginRight: rnSpacing.sm },
     listName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     listMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     listPoints: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },

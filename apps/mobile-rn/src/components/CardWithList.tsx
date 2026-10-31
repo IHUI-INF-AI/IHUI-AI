@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     backgroundColor: tk.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: rnSpacing['xs-loose'],
   } as ViewStyle,
   iconText: {
     fontSize: ICON_FONT_SIZE,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   itemSubtitle: {
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     fontSize: ITEM_SUBTITLE_FONT_SIZE,
     color: tk.text.secondary,
     textAlign: 'center',

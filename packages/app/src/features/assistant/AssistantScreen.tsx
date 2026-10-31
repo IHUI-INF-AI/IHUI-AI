@@ -13,7 +13,7 @@ import type {
   AssistantTab,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -242,12 +242,12 @@ export function AssistantScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingVertical: 12 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
     headerTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     tabRow: {
       flexDirection: 'row',
-      marginHorizontal: 16,
-      padding: 4,
+      marginHorizontal: rnSpacing.lg,
+      padding: rnSpacing.xs,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
@@ -261,22 +261,27 @@ function createStyles(tk: AppThemeTokens) {
     tabItemActive: { backgroundColor: tk.surface.bg },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
-    subTabRow: { flexDirection: 'row', paddingHorizontal: 10, marginTop: 12, gap: 20 },
-    subTabItem: { paddingVertical: 4 },
+    subTabRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      marginTop: rnSpacing.md,
+      gap: rnSpacing.xl,
+    },
+    subTabItem: { paddingVertical: rnSpacing.xs },
     subTabText: { fontSize: 14, color: tk.text.secondary },
     subTabTextActive: { color: tk.text.primary, fontWeight: '600' },
-    searchRow: { paddingHorizontal: 10, marginTop: 12 },
+    searchRow: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
     searchInput: {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 14,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     errorText: { fontSize: 14, color: tk.brandAccent.deep },
     card: {
       padding: 14,
@@ -293,20 +298,29 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 10,
+      marginRight: rnSpacing['sm-loose'],
     },
     avatarText: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     cardMain: { flex: 1 },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     name: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: rnRadius.md },
+    badge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+    },
     badgeText: { fontSize: 11, fontWeight: '600' },
-    prologue: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
+    prologue: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    cardMeta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.md,
+      marginTop: rnSpacing['sm-loose'],
+    },
     metaText: { fontSize: 11, color: tk.text.tertiary },
-    cardActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+    cardActions: { flexDirection: 'row', gap: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
     actionPrimary: {
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
       height: 32,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
@@ -315,7 +329,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionPrimaryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     actionDanger: {
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
       height: 32,
       borderRadius: rnRadius.xl,
       borderWidth: 1,

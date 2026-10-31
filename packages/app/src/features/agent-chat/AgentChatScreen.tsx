@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentChatMessage, AgentChatScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -112,20 +112,24 @@ export function AgentChatScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      marginBottom: 8,
+      gap: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
     },
     title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
     list: { flex: 1 },
     msg: {
       maxWidth: '85%',
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.xl,
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
     },
     msgUser: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgAssistant: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
@@ -135,8 +139,8 @@ function createStyles(tk: AppThemeTokens) {
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingVertical: 8,
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.sm,
     },
     input: {
       flex: 1,
@@ -144,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 16,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
@@ -163,13 +167,13 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 16,
+      padding: rnSpacing.lg,
       backgroundColor: tk.surface.bg,
     },
-    error: { fontSize: 14, color: tk.error.text, textAlign: 'center', marginBottom: 8 },
+    error: { fontSize: 14, color: tk.error.text, textAlign: 'center', marginBottom: rnSpacing.sm },
     backBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -184,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
     actionRow: {
       flexDirection: 'row',
       gap: rnSpacing.sm,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.lg,
     },
     actionBtn: {
@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     customActionRow: {
       flexDirection: 'row',
       gap: rnSpacing.sm,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.lg,
     },
     customizeBtn: {

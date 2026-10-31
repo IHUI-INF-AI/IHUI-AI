@@ -303,7 +303,7 @@ export default function AgentCategoriesScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
       padding: 14,
@@ -313,7 +313,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
-    cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['sm-loose'] },
     iconBox: {
       width: 40,
       height: 40,
@@ -331,8 +331,8 @@ function makeStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 3,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.warning.amberLight,
     },
@@ -366,7 +366,7 @@ function makeStyles() {
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
     },
-    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sheetTitle: {
       flex: 1,
       fontSize: rnType.title.size,
@@ -376,7 +376,7 @@ function makeStyles() {
     sheetBody: { gap: rnSpacing.sm, paddingBottom: rnSpacing.lg },
     statusBadge: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.surface.muted,
     },
@@ -385,14 +385,18 @@ function makeStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 6,
+      marginTop: rnSpacing['xs-loose'],
     },
     cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
-    agentsEmpty: { alignItems: 'center', gap: 6, paddingVertical: rnSpacing.xl },
+    agentsEmpty: {
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing.xl,
+    },
     agentRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
     },
     agentAvatar: {
@@ -404,7 +408,7 @@ function makeStyles() {
       justifyContent: 'center',
       overflow: 'hidden',
     },
-    agentMain: { flex: 1, gap: 2 },
+    agentMain: { flex: 1, gap: rnSpacing['2xs'] },
     agentName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     price: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
     free: { color: tokens.success.deep },

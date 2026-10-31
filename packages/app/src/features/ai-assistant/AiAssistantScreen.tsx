@@ -157,11 +157,15 @@ export function AiAssistantScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    backBtn: { paddingHorizontal: 10, paddingTop: rnSpacing.md },
-    header: { paddingHorizontal: 10, paddingTop: rnSpacing.xs, paddingBottom: rnSpacing.sm },
+    backBtn: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing.md },
+    header: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingTop: rnSpacing.xs,
+      paddingBottom: rnSpacing.sm,
+    },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    searchRow: { paddingHorizontal: 10, marginTop: rnSpacing.sm },
+    searchRow: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.sm },
     searchInput: {
       height: 50,
       borderWidth: 1,
@@ -173,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     catScroll: { marginTop: rnSpacing.md, maxHeight: 40 },
-    catScrollContent: { paddingHorizontal: 10, gap: rnSpacing.sm },
+    catScrollContent: { paddingHorizontal: rnSpacing['sm-loose'], gap: rnSpacing.sm },
     catItem: {
       paddingHorizontal: 14,
       height: 32,
@@ -195,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     catMoreText: { fontSize: rnType.body.size, color: tk.text.secondary },
     errorBar: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.danger.light,
     },
@@ -215,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 10,
+      marginRight: rnSpacing['sm-loose'],
     },
     avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     cardMain: { flex: 1 },
@@ -226,7 +230,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       lineHeight: 18,
     },
-    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing['xs-loose'],
+      marginTop: rnSpacing['sm-loose'],
+    },
     tag: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,

@@ -166,7 +166,7 @@ export function RegisterScreen({
           <View style={styles.agreementRow}>
             <View style={styles.agreementRowMain}>
               <TouchableOpacity
-              hitSlop={10}
+                hitSlop={10}
                 style={[
                   styles.checkbox,
                   agreed ? styles.checkboxChecked : styles.checkboxUnchecked,
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
     header: {

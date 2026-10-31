@@ -132,7 +132,11 @@ function createStyles(tk: AppThemeTokens) {
     titleBox: { flex: 1 },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 2, fontSize: rnType.label.size, color: tk.text.secondary },
+    subtitle: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
     clearBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -160,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: rnSpacing.sm,
-      marginBottom: 24,
+      marginBottom: rnSpacing['2xl'],
     },
     row: {
       flexDirection: 'row',
@@ -169,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.md,
     },
-    rowMain: { flex: 1, gap: 2 },
+    rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowQuery: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
     rowMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
     deleteBtn: { padding: rnSpacing.xs },

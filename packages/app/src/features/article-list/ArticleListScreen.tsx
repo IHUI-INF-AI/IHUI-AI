@@ -131,12 +131,12 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    listBody: { padding: 10 },
+    listBody: { padding: rnSpacing['sm-loose'] },
     separator: { height: 12 },
     card: {
       padding: 14,

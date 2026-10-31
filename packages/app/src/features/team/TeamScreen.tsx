@@ -15,7 +15,7 @@ import type {
   TeamScreenProps,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import {
@@ -231,12 +231,12 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backBtn: { marginBottom: 8 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
     statsCard: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
@@ -244,29 +244,39 @@ function createStyles(tk: AppThemeTokens) {
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statItem: { alignItems: 'center', flex: 1, minWidth: 64 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
-    statLabel: { marginTop: 8, fontSize: 10, color: tk.success.deepText, textAlign: 'center' },
+    statLabel: {
+      marginTop: rnSpacing.sm,
+      fontSize: 10,
+      color: tk.success.deepText,
+      textAlign: 'center',
+    },
     contributionBox: {
-      marginTop: 12,
-      paddingVertical: 10,
+      marginTop: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.bg,
       alignItems: 'center',
     },
     contributionLabel: { fontSize: 11, color: tk.text.secondary },
-    contributionValue: { marginTop: 8, fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
-    searchRow: { paddingHorizontal: 10, paddingBottom: 8 },
+    contributionValue: {
+      marginTop: rnSpacing.sm,
+      fontSize: 20,
+      fontWeight: '700',
+      color: tk.success.DEFAULT,
+    },
+    searchRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     searchInput: {
       height: 40,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 14,
       color: tk.text.primary,
     },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
-    listBody: { padding: 14, paddingBottom: 32 },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       flexDirection: 'row',
@@ -287,23 +297,23 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
-    memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    memberInfo: { flex: 1, marginLeft: rnSpacing['sm-loose'], marginRight: rnSpacing.sm },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     memberName: { fontSize: 16, fontWeight: '600', color: tk.text.primary, flex: 1 },
     relationBadge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     relationDirect: { backgroundColor: tk.success.light },
     relationText: { fontSize: 10, color: tk.text.secondary },
-    memberMeta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    memberMeta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
     memberRight: { alignItems: 'flex-end' },
     contributionText: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
     statusBadge: {
-      marginTop: 8,
-      paddingHorizontal: 6,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
     },

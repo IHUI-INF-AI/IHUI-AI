@@ -687,6 +687,14 @@ def _validate_path_in_workspace(
         if not p.is_absolute():
             for root in roots:
                 candidate = (Path(root) / path).resolve(strict=False)
+                # R8 复评发现1(高):相对分支此前只判 exists() 无包含性复查 ——
+                # `..\..\api\src\x.ts` 解析到根外且存在即放行,role-0 可
+                # 读服务器任意非黑名单文件(跨服务源码/跨租户工作区)。补
+                # relative_to 包含性,与绝对/回退分支同判据。
+                try:
+                    candidate.relative_to(Path(root))
+                except ValueError:
+                    continue
                 if candidate.exists():
                     resolved_str = str(candidate)
                     return True, resolved_str
@@ -4620,11 +4628,13 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
             timeout=5,
         )
         try:
-            # 添加 LIMIT(若 SQL 未含 LIMIT)
-            if "LIMIT" not in sql_upper:
-                sql_with_limit = f"{sql.rstrip(';')} LIMIT {max_rows}"
-            else:
+            # 添加 LIMIT(若 SQL 未含 LIMIT)。R8 复评发现6:子串判断可被
+            # WHERE msg='UNLIMITED' 或行注释结尾绕过 ⇒ 词边界 + 行注释剥离。
+            _limit_probe = re.sub(r"--[^\n]*$", "", sql_upper).strip().rstrip(";")
+            if re.search(r"\bLIMIT\b", _limit_probe):
                 sql_with_limit = sql
+            else:
+                sql_with_limit = f"{sql.rstrip(';')} LIMIT {max_rows}"
 
             # 2026-10-31 安全强化第 10 批 R5:READ ONLY 事务兜底 —— 关键词黑名单
             # 是文本层判据,`WITH d AS (DELETE ... RETURNING ...) SELECT ...` 型

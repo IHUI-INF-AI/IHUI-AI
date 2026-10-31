@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBox: { marginTop: rnSpacing.md },
     searchInput: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
     error: { marginTop: rnSpacing.xl, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    listContent: { paddingTop: rnSpacing.sm, paddingBottom: 24 },
+    listContent: { paddingTop: rnSpacing.sm, paddingBottom: rnSpacing['2xl'] },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.DEFAULT,
     },
-    rowMain: { flex: 1, gap: 2 },
+    rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowTopLine: {
       flexDirection: 'row',
       alignItems: 'center',

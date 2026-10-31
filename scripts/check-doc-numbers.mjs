@@ -18,6 +18,11 @@
  *   DN2 散文里的同一数字 —— 块**外**凡是命中某指标措辞的数字,必须等于现算值。这条才是门牙:
  *       光有生成块,别人照样能在正文里写一个旧数("542 张表"就是这么活的)。
  *       措辞表是**封闭集**(CLAIMS),刻意不做相似度匹配 —— 认不准的宁可判"未判定"也不猜。
+ *       **差值棘轮(2026-10-31 立)**:`END RECENT UPDATES` 之后是历史快照副本区(现读 61098 条
+ *       违规里占 61048),按当前总量判它们 = 谁碰 README 都得先把六万行按今天的值重写一遍
+ *       (跑步机;实测一席被逼出手写收敛循环、改了 23900 行)。现在这一区只判**本枚真正带进来的行**
+ *       (该行内容不在基线面 ⇒ 判),存量只报数并在结论行点名盲区;活性区与生成块照旧全判。
+ *       判据纯函数 `splitArchiveStock`,基线面 = HEAD 档取 `HEAD^`、其余 `HEAD`,取不到 ⇒ 全判。
  *   DN3 简介面(可选输入)—— `--description <文件或 ->` 提供 GitHub repo description 时逐条判;
  *       没给输入 ⇒ 计「未判定」并点名(默认不影响退出码,`--strict` 下影响)。
  *       为什么刻意不做成默认必判:提交链里调 `gh api` = 每台每次联网,离线即恒红 ⇒ 逼人
@@ -297,6 +302,47 @@ export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, block
     }
   }
   return { violations, checked, danglingBlock: dangling }
+}
+
+/**
+ * DN2 差值棘轮(2026-10-31 立,§0.5 锚点纪律 —— 只拦"本次改动带进来的")。
+ *
+ * 为什么必须有这一层:README 的 `END RECENT UPDATES` 标记之后是**历史快照副本区**
+ * (现读 61098 条违规里占 61048 —— 自动维护器逐年粘进去的整段 hero/声明/表格拷贝)。
+ * 它们记的是当时的账,却用当前总量判据去判 ⇒ 任何碰到 README 的提交都得先把六万行
+ * 按今天的值重写一遍("跑步机":重钉完下一个指标一动又全过期)。2026-10-31 实测一席
+ * 就是被这台跑步机逼出手写收敛循环,改了 23900 行、差点吞掉别席已入库条目。
+ *
+ * 判据(纯函数,零 IO):
+ *   · 活性区(标记之前)+ 生成块 —— 不论本枚是否触及,一律照判(牙齿一格不少)。
+ *   · 历史区 —— 只判**本枚真正带进来的行**:该行内容不在基线面 ⇒ 判;在基线面逐字存在
+ *     ⇒ 记 stock(只报数、不阻断,并在结论行显式声明这块盲区)。
+ *   · 标记找不到 / 基线取不到 ⇒ 全判(失效方向 = 多要一次定向说明,绝不静默放宽)。
+ *
+ * @param {{line:number,key:string,found:number,want:number}[]} violations 门按行报的点(行号 1-based)
+ * @param {string} text 被审面正文
+ * @param {string|null} baselineText 基线面正文(HEAD 面档取 HEAD^,提交链/工作树档取 HEAD;取不到传 null)
+ */
+export function splitArchiveStock(violations, text, baselineText, { archiveMarker = UPDATES_END } = {}) {
+  const lines = text.split(/\r?\n/)
+  let archiveStart = -1
+  for (let i = 0; i < lines.length; i += 1) if (lines[i].includes(archiveMarker)) archiveStart = i
+  if (archiveStart < 0) {
+    return { actionable: violations, stock: [], archiveStart, why: '缺 END RECENT UPDATES 标记 ⇒ 分不出历史区,全判' }
+  }
+  if (baselineText === null || baselineText === undefined) {
+    return { actionable: violations, stock: [], archiveStart, why: '基线面取不到 ⇒ 全判(不静默放宽)' }
+  }
+  const baseline = new Set(baselineText.split(/\r?\n/))
+  const actionable = []
+  const stock = []
+  for (const v of violations) {
+    const idx = v.line - 1
+    const line = lines[idx] ?? ''
+    if (idx > archiveStart && baseline.has(line)) stock.push(v)
+    else actionable.push(v)
+  }
+  return { actionable, stock, archiveStart, why: null }
 }
 
 /**
@@ -608,6 +654,21 @@ export function selfTest() {
     'S24b 英文支假阳护栏:test files 下限≥3 位,裸 "WebSocket endpoints" 不算声明',
     s24b.checked === 0 && s24b.violations.length === 0,
   )
+  // S25 DN2 差值棘轮(2026-10-31):历史快照区存量只报数;活性区与本枚带进来的行照判。
+  const updatesOnly = `${UPDATES_BEGIN}\n- x\n${UPDATES_END}\n`
+  const archiveStale = `${updatesOnly}历史副本:542 张表 · 4393 API 路由\n`
+  // 基线里逐字已有 ⇒ 历史区那行属"存量未触及" ⇒ 只报数
+  const s25a = splitArchiveStock(findStaleClaims(archiveStale, numbers).violations, archiveStale, archiveStale)
+  ok('S25a 历史区未触及的存量 ⇒ 只报数(actionable=0, stock>0)', s25a.actionable.length === 0 && s25a.stock.length >= 2)
+  const s25b = splitArchiveStock(findStaleClaims(archiveStale, numbers).violations, archiveStale, '# 别的基线\n')
+  ok('S25b 同一行若是本枚带进来的(基线面没有)⇒ 照判', s25b.actionable.length >= 2)
+  const liveStale = `542 张表\n${updatesOnly}`
+  const s25c = splitArchiveStock(findStaleClaims(liveStale, numbers).violations, liveStale, liveStale)
+  ok('S25c 活性区即便基线逐字已存在 ⇒ 也照判', s25c.actionable.length >= 1 && s25c.stock.length === 0)
+  const s25d = splitArchiveStock(findStaleClaims(archiveStale, numbers).violations, archiveStale, null)
+  ok('S25d 基线取不到 ⇒ 全判(不静默放宽)', s25d.stock.length === 0 && s25d.actionable.length >= 2)
+  const s25e = splitArchiveStock(findStaleClaims('542 张表\n', numbers).violations, '542 张表\n', '542 张表\n')
+  ok('S25e 缺 END RECENT UPDATES 标记 ⇒ 全判并点名 why', s25e.actionable.length >= 1 && typeof s25e.why === 'string')
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -670,6 +731,20 @@ function main(argv) {
   // 未触及文档的偏差如实计入"漂移只报数",它被改动的那枚必判。
   const judgeAll = plan.enforce && (strict || face === 'worktree')
   const driftDocs = []
+  // DN2 差值棘轮取材:基线面 = HEAD 面档取 HEAD^、其余取 HEAD;取不到 ⇒ null(该篇全判,不静默放宽)。
+  const baselineRef = face === 'head' ? 'HEAD^' : 'HEAD'
+  const baselines = new Map()
+  let baselineWhy = null
+  try {
+    const bs = catBatch(root, AUDITED_DOCS.map((rel) => `${baselineRef}:${rel}`))
+    for (const rel of AUDITED_DOCS) {
+      const v = bs.get(`${baselineRef}:${rel}`)
+      if (typeof v === 'string') baselines.set(rel, v)
+    }
+  } catch (e) {
+    baselineWhy = `基线面 ${baselineRef} 取不到(${e?.message ?? e})⇒ 历史快照区按全判处理`
+  }
+  const archiveStock = []
   for (const [rel, text] of docsText) {
     const r = findStaleClaims(text, derived.numbers)
     const g = rel === 'README.md' ? checkGeneratedBlock(text, derived.numbers) : { ok: true, problems: [], checked: 0 }
@@ -679,9 +754,23 @@ function main(argv) {
       continue
     }
     candidates += r.checked + g.checked
-    for (const v of r.violations) violations.push({ ...v, file: rel })
+    const ratchet = splitArchiveStock(r.violations, text, baselines.get(rel) ?? null)
+    for (const v of ratchet.actionable) violations.push({ ...v, file: rel })
+    if (ratchet.why) archiveStock.push({ rel, n: ratchet.stock.length, why: ratchet.why })
+    else if (ratchet.stock.length) archiveStock.push({ rel, n: ratchet.stock.length, why: null })
     if (r.danglingBlock) blockProblems.push(`${rel}:生成块未闭合(有 begin 无 end)`)
     if (!g.ok) blockProblems.push(...g.problems.map((p) => `${rel}:${p}`))
+  }
+  const stockTotal = archiveStock.reduce((s, x) => s + x.n, 0)
+  for (const x of archiveStock) {
+    if (x.why) console.log(`⚠ ${x.rel}:${x.why}(存量 ${x.n} 处未分档)`)
+  }
+  if (stockTotal > 0) {
+    console.log(
+      `ℹ 历史快照区存量 ${stockTotal} 处(END RECENT UPDATES 之后、基线面逐字已在 ⇒ 本枚未触及):只报数不阻断;${
+        baselineWhy ? ' ⚠ ' + baselineWhy + ';' : ''
+      } 这块是 DN2 的已知盲区,清账出口 node scripts/scrub-doc-numbers.mjs --apply(默认 dry-run)`,
+    )
   }
 
   const descArg = readArg(argv, '--description')

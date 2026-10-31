@@ -207,17 +207,21 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.md,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.sm,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: rnSpacing.sm, paddingVertical: 2, borderRadius: rnRadius.md },
+    badge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
     badgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
-    errorWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.xs },
+    errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.xs },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     previewArea: {
       height: 176,
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.gray[900],
@@ -226,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     previewText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     sectionBox: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.md,
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
@@ -264,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     actionRow: {
       flexDirection: 'row',
       gap: rnSpacing.md,
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.md,
     },
     actionBtn: {

@@ -15,7 +15,7 @@ import {
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
@@ -441,13 +441,18 @@ export function TeamWorkspaceScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    scroll: { padding: 12, paddingBottom: 32, gap: 12 },
-    center: { alignItems: 'center', paddingVertical: 32, justifyContent: 'center', gap: 8 },
+    scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
+    center: {
+      alignItems: 'center',
+      paddingVertical: rnSpacing['3xl'],
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+    },
     infoCard: {
       padding: 14,
-      gap: 8,
+      gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -456,12 +461,12 @@ function createStyles(tk: AppThemeTokens) {
     infoName: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
     infoDesc: { fontSize: 13, color: tk.text.secondary },
     infoMeta: { fontSize: 11, color: tk.text.tertiary },
-    tabBody: { gap: 8 },
+    tabBody: { gap: rnSpacing.sm },
     rowCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      padding: 12,
+      gap: rnSpacing['sm-loose'],
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -476,33 +481,33 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     avatarInitial: { fontSize: 16, fontWeight: '600', color: tk.text.secondary },
-    rowMain: { flex: 1, gap: 2 },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    rowMain: { flex: 1, gap: rnSpacing['2xs'] },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     rowTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary, flexShrink: 1 },
     rowSub: { fontSize: 11, color: tk.text.tertiary },
-    rowActions: { flexDirection: 'row', gap: 4 },
+    rowActions: { flexDirection: 'row', gap: rnSpacing.xs },
     badge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
     },
     badgeText: { fontSize: 10, fontWeight: '600' },
     textBtn: {
-      paddingVertical: 8,
-      paddingHorizontal: 8,
+      paddingVertical: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
     textBtnText: { fontSize: 12, color: tk.text.primary },
     inviteCard: {
-      padding: 12,
-      gap: 8,
+      padding: rnSpacing.md,
+      gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    inviteRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    inviteRow: { flexDirection: 'row', gap: rnSpacing.sm, alignItems: 'center' },
     inviteBtn: {
       paddingHorizontal: 14,
       height: 44,
@@ -520,19 +525,19 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 14,
       color: tk.text.primary,
     },
     inputMultiline: {
       minHeight: 72,
-      paddingTop: 10,
-      paddingBottom: 10,
+      paddingTop: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       fontSize: 14,
       color: tk.text.primary,
       textAlignVertical: 'top',
@@ -548,7 +553,7 @@ function createStyles(tk: AppThemeTokens) {
     btnDisabled: { opacity: 0.6 },
     dangerCard: {
       padding: 14,
-      gap: 8,
+      gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.danger.light,
@@ -558,8 +563,8 @@ function createStyles(tk: AppThemeTokens) {
     dangerDesc: { fontSize: 12, color: tk.text.secondary },
     deleteBtn: {
       alignSelf: 'flex-start',
-      paddingVertical: 10,
-      paddingHorizontal: 16,
+      paddingVertical: rnSpacing['sm-loose'],
+      paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.danger.DEFAULT,
@@ -568,8 +573,8 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing['sm-loose'],
       height: 44,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,

@@ -138,13 +138,13 @@ export function CourseEnrollScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     searchRow: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       gap: rnSpacing.sm,
     },
@@ -160,25 +160,25 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     searchBtn: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     searchBtnText: { color: tk.surface.light, fontSize: rnType.title.size },
     toastText: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
       color: tk.success.DEFAULT,
     },
     errorText: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    list: { flex: 1, paddingHorizontal: 10 },
+    list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -201,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     badgeEnrolled: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.success.lighter,
     },
@@ -213,11 +213,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 10,
+      marginTop: rnSpacing['sm-loose'],
     },
     priceText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     enrollBtn: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

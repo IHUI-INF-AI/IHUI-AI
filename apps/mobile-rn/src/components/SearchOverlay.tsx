@@ -430,14 +430,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
     // 面板内左右留白(web SearchInput wrapperClassName p-1.5 ≈ 6px + 面板 p-1 的合成量级)
-    paddingTop: 6,
-    paddingHorizontal: 6,
+    paddingTop: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['xs-loose'],
     paddingBottom: rnSpacing.sm,
   },
   inputRow: {
     // 输入行落在面板内圈(web `p-1.5` 内边距的 RN 对位)
-    paddingHorizontal: 6,
-    marginBottom: 2,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    marginBottom: rnSpacing['2xs'],
   },
   bodyScroll: {
     flexGrow: 0,
@@ -523,8 +523,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: tokens.success.deepText,
     backgroundColor: tokens.success.light,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['2xs'],
     borderRadius: rnRadiusFor.chip,
     overflow: 'hidden',
   },
