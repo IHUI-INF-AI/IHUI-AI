@@ -320,6 +320,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
       startedAtRef.current = Date.now()
       durationSecRef.current = 0
       setDurationSec(0)
+      // 起新之前先停旧(统一的 stopTimer 出口):防重复 start 盖掉句柄致旧 interval 泄漏
+      stopTimer()
       timerRef.current = setInterval(() => {
         durationSecRef.current = Math.floor((Date.now() - startedAtRef.current) / 1000)
         setDurationSec(durationSecRef.current)
