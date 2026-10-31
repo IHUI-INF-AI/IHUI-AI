@@ -52,7 +52,7 @@ export function ParameterPanel({
   // 首次挂载从 localStorage 读取 apiKey
   React.useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(API_KEY_STORAGE_KEY)
+      const saved = window.sessionStorage.getItem(API_KEY_STORAGE_KEY)
       if (saved) onApiKeyChange(saved)
     } catch {
       // ignore
@@ -65,7 +65,7 @@ export function ParameterPanel({
     (key: string) => {
       onApiKeyChange(key)
       try {
-        window.localStorage.setItem(API_KEY_STORAGE_KEY, key)
+        window.sessionStorage.setItem(API_KEY_STORAGE_KEY, key)
       } catch {
         // ignore
       }

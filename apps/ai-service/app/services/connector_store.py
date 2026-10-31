@@ -64,6 +64,10 @@ OWNER_FIELD = "owner_user_id"
 _SECRET_CIPHER_PREFIX = "enc:v1:"
 
 
+class SecretCryptoUnavailable(Exception):
+    """app_secret 加密不可用(密钥未配置/密钥环缺失)—— 必须 fail-closed,绝不落明文。"""
+
+
 def _encrypt_secret(plain: str) -> str:
     if not plain or plain.startswith(_SECRET_CIPHER_PREFIX):
         return plain
@@ -71,9 +75,9 @@ def _encrypt_secret(plain: str) -> str:
         from app.services.publish.credentials_crypto import encrypt
 
         return _SECRET_CIPHER_PREFIX + encrypt({"app_secret": plain})
-    except Exception as e:  # noqa: BLE001 - 降级明文,不坏存储
-        logger.warning("[connector_store] app_secret 加密失败,降级明文落盘: %s", type(e).__name__)
-        return plain
+    except Exception as e:  # noqa: BLE001 - 加密不可用 → fail-closed 拒落明文
+        logger.warning("[connector_store] app_secret 加密不可用,拒绝落盘明文: %s", type(e).__name__)
+        raise SecretCryptoUnavailable(f"app_secret 加密不可用: {type(e).__name__}")
 
 
 def _decrypt_secret(value: str) -> str:
