@@ -190,8 +190,20 @@ const envSchema = z.object({
   ADMIN_TOTP_MODE: z.enum(['off', 'warn', 'enforce']).default('enforce'),
   // 鉴权默认拒绝的兜底闸(见 plugins/auth-default-deny.ts)。
   // 默认 observe:只记"不在公开名单且无凭据"的请求,不拦人 —— 名单不可能一次写全,
-  // 先观察真实流量再收紧。切 enforce 的前置:observe 满 24h 且日志里没有新的方法+路径。
-  AUTH_DEFAULT_DENY_MODE: z.enum(['off', 'observe', 'enforce']).default('observe'),
+  // 先观察真实流量再收紧。切 enforce 的前置:observe 满一个完整流量周期且日志里没有新的方法+路径。
+  // 2026-11-01 安全强化:**生产运行时默认改为 enforce**,非生产仍是 observe。
+  // 立因(现读实测,不是推测):本机线上那枚值只写在**不进仓**的
+  // `D:\DevEnv\ihui-prod\apps\api/.env`(`AUTH_DEFAULT_DENY_MODE=enforce`),仓内 `.env.example`
+  // 与整片 `deploy/` 对这一键零登记。于是"生产有没有这道兜底"取决于一个本地文件的存在:
+  // 一次 `.env` 整体替换(2026-09-26 实测过 55 键被清空)或一次新机重建,都会静默落回
+  // observe(= 不拦人)且什么都不响。把默认做成"生产即武装"之后,关掉必须**显式写** `off`,
+  // 而显式写 `off`/`observe` 依旧照办(那是有意的灰度/回退,缺省不夺权)。
+  // 同批配套:兜底闸现在认得"鉴权在 handler 内完成"的路由面(SELF_AUTHENTICATED_PREFIXES),
+  // 不会再抢在内部票/内部密钥/WS `?token=` 之前把第一方调用 401 掉 —— 实测本机
+  // `POST /api/ai/callback`(ai-service→api 回环调用)在 enforce 下真返回 401,就是这一格。
+  AUTH_DEFAULT_DENY_MODE: z
+    .enum(['off', 'observe', 'enforce'])
+    .default(runtimeEnv === 'production' ? 'enforce' : 'observe'),
   // 按用户限流(认证后计一层,补 IP 桶在 NAT/回环下的失真)。
   // 默认 600/min 远高于正常使用,只拦按用户维度的滥用;IP 层 100/min 仍在兜底。
   USER_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(600),
