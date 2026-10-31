@@ -59,8 +59,8 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **617 tables · 4653 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 3698 test files ·
+Headline claims (same source as the table below, all live-computed): **617 tables · 4656 API routes ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 3782 test files ·
 303 engineering gates · 51 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
