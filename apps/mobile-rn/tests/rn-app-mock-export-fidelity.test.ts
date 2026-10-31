@@ -73,17 +73,17 @@ function usedNames(files: Set<string>): Set<string> {
   return set
 }
 
+/**
+ * 走**别名**的那批套件(没有内联 '@ihui/rn-app' 工厂)1 跳 import 到的端内源文件。
+ * 为什么要按"走哪条路"分流:自带工厂的套件根本不经过替身,把它们的取用也算给替身,
+ * 就是拿 F1 造出两个永远补不完的假缺口(实测 MessageCenterScreen / LoginScreen 就是这么冒出来的)。
+ */
 function testLoadedSrcFiles(): Set<string> {
   const out = new Set<string>()
   for (const f of walk(TESTS)) {
     if (f === MOCK) continue
-    const code = strip(readFileSync(f, 'utf8'))
-    for (const m of code.matchAll(/from\s+['"](\.\.?\/[^'"]+)['"]/g)) {
-      const target = resolve(dirname(f), m[1] ?? '.')
-      for (const cand of [`${target}.ts`, `${target}.tsx`, target, join(target, 'index.ts')]) {
-        if (existsSync(cand) && statSync(cand).isFile() && cand.startsWith(SRC)) out.add(cand)
-      }
-    }
+    if (inlineFactoryKeysOf(f)) continue // 这条套件的供给方是它自己的工厂,由 F1b 管
+    for (const t of loadedFrom(f)) out.add(t)
   }
   return out
 }
@@ -104,25 +104,60 @@ function mockExports(): Set<string> {
   return names
 }
 
-/** 各套件内联 `vi.mock('@ihui/rn-app')` 工厂自己给的键(同一屏可能被这条路供给,不能算缺)。 */
-function inlineFactoryKeys(): Set<string> {
+/** 某个套件自己内联的 `vi.mock('@ihui/rn-app')` 工厂给了哪些键(没有内联工厂 ⇒ null)。 */
+function inlineFactoryKeysOf(file: string): Set<string> | null {
+  const code = strip(readFileSync(file, 'utf8'))
   const set = new Set<string>()
-  for (const f of walk(TESTS)) {
-    const code = strip(readFileSync(f, 'utf8'))
-    for (const m of code.matchAll(/vi\.mock\(\s*['"]@ihui\/rn-app['"][\s\S]*?\n\}\)/g)) {
-      const body = m[0] ?? ''
-      for (const k of body.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)) if (k[1]) set.add(k[1])
-      for (const k of body.matchAll(/return\s*\{([^}]*)\}/g))
-        for (const n of namedClause(k[1] ?? '')) set.add(n)
+  let saw = false
+  for (const m of code.matchAll(/vi\.mock\(\s*['"]@ihui\/rn-app['"][\s\S]*?\n\}\)/g)) {
+    saw = true
+    const body = m[0] ?? ''
+    for (const k of body.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)) if (k[1]) set.add(k[1])
+    for (const k of body.matchAll(/return\s*\{([^}]*)\}/g))
+      for (const n of namedClause(k[1] ?? '')) set.add(n)
+  }
+  return saw ? set : null
+}
+
+/**
+ * F1 的口径(第二版,第一版太松被实测打脸):
+ *  **逐套件**算覆盖 —— 一个自带 `vi.mock('@ihui/rn-app')` 工厂的套件**根本不经过别名替身**,
+ *  所以它的可用名字只有工厂自己返回的那些。上一版把"替身出口 ∪ 全部内联工厂键"并成一个集合再判,
+ *  于是 g958 / login-region 少了 `scaleText` 也被并集蒙混过去(同型第四次复发,尺子当场失守)。
+ */
+function perSuiteGaps(): Array<{ file: string; missing: string[] }> {
+  const doubleExports = mockExports()
+  const out: Array<{ file: string; missing: string[] }> = []
+  for (const tf of walk(TESTS)) {
+    if (tf === MOCK || !/\.(ts|tsx)$/.test(tf)) continue
+    const loaded = loadedFrom(tf)
+    const used = usedNames(loaded)
+    if (used.size === 0) continue
+    const factory = inlineFactoryKeysOf(tf)
+    const provided = factory ?? doubleExports
+    const missing = [...used].filter((n) => !provided.has(n))
+    if (missing.length) out.push({ file: tf.replace(`${ROOT}/`, ''), missing })
+  }
+  return out
+}
+
+/** 单个测试文件 1 跳 import 到的端内源文件。 */
+function loadedFrom(tf: string): Set<string> {
+  const out = new Set<string>()
+  const code = strip(readFileSync(tf, 'utf8'))
+  for (const m of code.matchAll(/from\s+['"](\.\.?\/[^'"]+)['"]/g)) {
+    const target = resolve(dirname(tf), m[1] ?? '.')
+    for (const cand of [`${target}.ts`, `${target}.tsx`, target, join(target, 'index.ts')]) {
+      if (existsSync(cand) && statSync(cand).isFile() && cand.startsWith(SRC)) out.add(cand)
     }
   }
-  return set
+  return out
 }
 
 describe('@ihui/rn-app 替身出口忠实度', () => {
   const loaded = testLoadedSrcFiles()
   const used = usedNames(loaded)
-  const provided = new Set<string>([...mockExports(), ...inlineFactoryKeys()])
+  const provided = mockExports()
 
   it('F0 覆盖面非空转(加载到的源文件与取用名字都要有量)', () => {
     expect(loaded.size).toBeGreaterThan(20)
@@ -130,12 +165,23 @@ describe('@ihui/rn-app 替身出口忠实度', () => {
     expect(provided.size).toBeGreaterThan(20)
   })
 
-  it('F1 端内具名取用的名字必须都被替身/内联工厂覆盖', () => {
+  it('F1 别名口径:端内具名取用必须都在替身出口里', () => {
     const missing = [...used].filter((n) => !provided.has(n))
     const probe = missing[0] ?? ''
     expect(
       missing,
       `替身 tests/__mocks__/ihui-rn-app.ts 缺出口:${missing.join(', ')} ⇒ 走别名的套件会抛 "No ${probe} export is defined on the mock"(端内代码是对的,红的是别人的套件;三个月内已复发三次)`,
+    ).toEqual([])
+  })
+
+  it('F1b 逐套件口径:自带内联 vi.mock 工厂的套件必须自己给齐它加载到的取用', () => {
+    const gaps = perSuiteGaps()
+    const probe = gaps[0]
+    expect(
+      gaps,
+      probe
+        ? `${probe.file} 的内联工厂缺:${probe.missing.join(', ')} —— 内联工厂**不经过**别名替身,并集成一份就是假通过(这一版就是这么被 g958 打脸的)`
+        : '',
     ).toEqual([])
   })
 

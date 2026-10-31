@@ -29,7 +29,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
-import { MoreLink } from '@ihui/rn-app'
+import { MoreLink, scaleText } from '@ihui/rn-app'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
@@ -123,7 +123,7 @@ function Stat({ icon: Icon, value }: StatProps) {
   return (
     <View style={styles.stat}>
       <Icon size={STAT_ICON_SIZE} color={tokens.text.secondary} strokeWidth={1.8} />
-      <Text style={styles.statText} allowFontScaling={false}>
+      <Text style={[styles.statText, scaleText(styles.statText)]} allowFontScaling={false}>
         {formatCount(value, t)}
       </Text>
     </View>
@@ -179,11 +179,11 @@ export function KnowledgePlanet({
                 </Text>
                 <View style={styles.metaRow}>
                   <View style={styles.authorBadge}>
-                    <Text style={styles.authorText} numberOfLines={1} allowFontScaling={false}>
+                    <Text style={[styles.authorText, scaleText(styles.authorText)]} numberOfLines={1} allowFontScaling={false}>
                       {author}
                     </Text>
                   </View>
-                  <Text style={styles.timeText} allowFontScaling={false}>
+                  <Text style={[styles.timeText, scaleText(styles.timeText)]} allowFontScaling={false}>
                     {formatRelativeTime(item.createdAt)}
                   </Text>
                 </View>
@@ -201,7 +201,7 @@ export function KnowledgePlanet({
                 <View style={styles.socialLeft}>
                   {item.category ? (
                     <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
+                      <Text style={[styles.categoryText, scaleText(styles.categoryText)]} numberOfLines={1} allowFontScaling={false}>
                         {item.category}
                       </Text>
                     </View>

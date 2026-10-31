@@ -627,7 +627,7 @@ function scanFontLock(text) {
     // 已经自己按倍率放大字号+行盒的(如 FloatBox),不再算"关掉缩放";窗口取前后是因为
     // style 覆盖通常写在 allowFontScaling 之前。普查口径,判红权不在这一维。
     const win = code.slice(Math.max(0, m.index - 420), m.index + 320)
-    const scaled = /fontScale|maxFontSizeMultiplier/.test(win)
+    const scaled = /fontScale|maxFontSizeMultiplier|scaleText\(/.test(win)
     const bare = inner.replace(/^\{\s*|\s*\}$/g, '').trim()
     const decoded = bare.startsWith("'") || bare.startsWith('"') || bare.startsWith('`')
       ? bare
@@ -986,6 +986,15 @@ function main() {
             .map((v) => `L${v.line} <${v.tag}> ${v.size}→实得 ${v.eff}`)
             .join(' / '),
       )
+    /**
+     * H4 = 内容文字**绝对零容忍**(2026-10-31 把 26 处接进 scaleText 后归零才升的档,§0.2)。
+     * 图标字形桶不判:× ✓ emoji 坐在定宽盒里,放大即破版 —— 那一桶合法,判它就是把人逼去跳门。
+     */
+    if (r.h4.content.length)
+      added.push(
+        `${rel} 内容文字钉死系统字号缩放 ${r.h4.content.length} 处(绝对零容忍):` +
+          r.h4.content.map((v) => `L${v.line}【${v.sample}】`).join(' / '),
+      )
     const headText = headTexts.get(`HEAD:${rel}`) ?? null
     const base = headText === null ? { h1: [], h2: [], h3: [] } : scanText(headText, minTap, rel)
 NaN
@@ -1000,6 +1009,10 @@ NaN
       `   改法:命中方块取档位 rnGeometry.tapBox(${minTap})(或给既有小图标补 hitSlop);` +
         '按压反馈用 onPressIn/onPressOut、children 函数形态 `{({ pressed })` 或 className `active:` 变体' +
         '(函数形态 style 会被 cssInterop 吃掉 —— 守门 131)。',
+    )
+    console.error(
+      '   H4 改法:`style={[styles.x, scaleText(styles.x)]}`(它按唯一口倍率同比放大 fontSize 与 lineHeight,' +
+        '倍率=1 时返回 {} ⇒ 默认观感零变化);图标字形(×/✓/emoji 坐在定宽盒里)不算内容文字,不判。',
     )
     console.error('   确属不该管(如纯装饰可点区):在行内写明原因并登记豁免,不要跳门。')
     return 1
