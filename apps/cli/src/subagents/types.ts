@@ -20,8 +20,8 @@ export type IsolationMode = 'none' | 'worktree' | 'subprocess'
 /** 能力模式:控制 subagent 工具白名单档位 */
 export type CapabilityMode = 'read-only' | 'read-write' | 'execute' | 'all'
 
-/** 推理强度:对齐 OpenAI/Anthropic reasoning effort 参数 */
-export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high'
+/** 推理强度:对齐 OpenAI/Anthropic reasoning effort 参数(xhigh/max 为 2026-10-31 对齐对方 proto 七档扩出) */
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 /** explicit 层:用户在 task 工具调用时显式传入的覆盖项 */
 export interface SubagentRuntimeOverrides {

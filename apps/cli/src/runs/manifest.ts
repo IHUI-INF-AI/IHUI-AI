@@ -71,7 +71,7 @@ export function projectIdOf(root: string | null): string | null {
 /** 读 CLI 版本号;任何形态异常(vitest 变换 / SEA / 打包缺失)一律记 null,不拖垮启动。 */
 function safeCliVersion(): string | null {
   try {
-    return readCliPackage()?.version ?? null
+    return readCliPackage(import.meta.url)?.version ?? null
   } catch {
     return null
   }

@@ -4061,6 +4061,46 @@ class LLMGateway:
         response = await litellm.aembedding(model=used_model, input=text)
         return cast(list[float], response.data[0]["embedding"])
 
+    # ---------------------------------------------------------------------------
+    # G7 本地 embedding 回落档(2026-10-31,goal-b42,对标 Trae ckg 的
+    # `-local_embedding -embedding_storage_type=sqlite_vec` 命令行常量,T2 §8-G7)。
+    # 对侧把本地向量化做成常开能力;本仓形态是"远端优先、离线可识别回落":
+    # pgvector 列固定 1536 维,非 1536 维的本地神经模型(bge 等)结构上不可入列,
+    # 因此零依赖回落 = char-trigram 哈希投影(hashing trick,确定性可测)。
+    # 语义精度远低于神经向量 —— 消费方必须把来源标注随行带出(local-hash),
+    # 不得冒充在线质量(§0.3);检索退化由 hybrid 的 keyword 腿兜底。
+    # ---------------------------------------------------------------------------
+
+    LOCAL_EMBEDDING_DIM = 1536
+    LOCAL_EMBEDDING_PROVIDER = "local-hash"
+
+    def embed_local_fallback(self, text: str) -> list[float]:
+        """本地确定性向量:char-trigram hashing 到 1536 维并 L2 归一化。
+
+        同一文本恒得同一向量(离线可复现);零派生进程、零网络、零第三方依赖。
+        空文本返回全零向量(调用方按 L2=0 判无效,如实落空,不编造方向)。
+        """
+        import hashlib
+        import math
+        import re as _re
+
+        dim = self.LOCAL_EMBEDDING_DIM
+        cleaned = _re.sub(r"[^0-9a-zA-Z一-鿿]+", " ", (text or "").lower())
+        padded = f" {cleaned.strip()} "
+        buckets = [0.0] * dim
+        trigrams = [padded[i : i + 3] for i in range(max(0, len(padded) - 2))]
+        if not trigrams:
+            return buckets
+        for tg in trigrams:
+            digest = hashlib.sha1(tg.encode("utf-8")).hexdigest()  # noqa: S324 — 非安全用途,哈希投影
+            idx = int(digest[:8], 16) % dim
+            sign = 1.0 if int(digest[8:10], 16) % 2 == 0 else -1.0
+            buckets[idx] += sign
+        norm = math.sqrt(sum(b * b for b in buckets))
+        if norm <= 0.0:
+            return [0.0] * dim
+        return [b / norm for b in buckets]
+
 
 llm_gateway = LLMGateway()
 

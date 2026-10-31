@@ -158,6 +158,9 @@ class CodeChunk:
     language: str | None = None
     symbol_name: str | None = None
     symbol_type: str | None = None
+    # G7(2026-10-31):本切片向量来源('remote'|'local-hash');None = 未生成。
+    # 随写面 payload 带给 api 侧落 embedding_provider 列,离线回落必须可识别不冒充。
+    embedding_provider: str | None = None
     embedding: list[float] | None = None
 
 
@@ -513,10 +516,19 @@ class CodebaseIndexer:
                 for j, emb in enumerate(embeddings):
                     if isinstance(emb, list) and len(emb) == 1536:
                         batch[j].embedding = emb
+                        batch[j].embedding_provider = "remote"
                         vectorized += 1
                     elif isinstance(emb, Exception):
+                        # G7 本地回落档:远端失败(离线/欠费/限流)不再让向量面整批落空,
+                        # 降级为本地确定性哈希向量并如实标注来源(local-hash)。
+                        fallback = llm_gateway.embed_local_fallback(
+                            batch[j].content[:MAX_CHUNK_CHARS]
+                        )
+                        batch[j].embedding = fallback
+                        batch[j].embedding_provider = llm_gateway.LOCAL_EMBEDDING_PROVIDER
+                        vectorized += 1
                         logger.debug(
-                            "embedding 生成失败(chunk %s): %s",
+                            "embedding 远端失败,已落本地回落档(chunk %s): %s",
                             batch[j].file_path,
                             emb,
                         )
@@ -546,6 +558,7 @@ class CodebaseIndexer:
                     "language": c.language,
                     "symbolName": c.symbol_name,
                     "symbolType": c.symbol_type,
+                    "embeddingProvider": c.embedding_provider,
                     "embedding": c.embedding,
                 }
                 for c in chunks
