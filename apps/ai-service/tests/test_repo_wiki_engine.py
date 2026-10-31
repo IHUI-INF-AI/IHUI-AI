@@ -36,8 +36,13 @@ def _fixture_workspace(tmp_path) -> str:
 
 
 @pytest.fixture
-def workspace(tmp_path):
-    return _fixture_workspace(tmp_path)
+def workspace(tmp_path, monkeypatch):
+    ws = _fixture_workspace(tmp_path)
+    # 2026-10-31 安全强化第 10 批 R6:ensure_wiki 的 workspace_path 是用户可控字段,
+    # 现只许落在 MCP_WORKSPACE_ROOTS 登记的根内(否则可指向服务器任意目录做文件探测)。
+    # 夹具目录是临时目录 ⇒ 把登记面指到它;那道闸的正向用例在安全批套里,不在本文件。
+    monkeypatch.setattr("app.services.mcp_server._get_workspace_roots", lambda: [ws])
+    return ws
 
 
 @pytest.fixture
@@ -188,7 +193,7 @@ def test_is_sensitive_path_fails_closed_on_bad_input(tmp_path):
     )
 
 
-def test_wiki_text_never_contains_sensitive_file_content(fake_llm, tmp_path):
+def test_wiki_text_never_contains_sensitive_file_content(fake_llm, tmp_path, monkeypatch):
     """端到端:即便 wiki 被显式开启,敏感文件的路径与正文都不得进入 wiki 文本。
 
     这里用**不经 LLM 的降级路径**(LLM 不可用 → 取文件首 N 字符原样入文本):
@@ -197,6 +202,11 @@ def test_wiki_text_never_contains_sensitive_file_content(fake_llm, tmp_path):
     降级路径下只要扫描集漏了 AGENTS.md,密钥样式串会原形毕露。
     """
     repo_wiki_engine.clear_wiki_cache()
+    # 同 workspace 夹具:第 10 批 R6 的登记面闸要求 workspace 落在 MCP_WORKSPACE_ROOTS 内,
+    # 否则 ensure_wiki 静默 None,这条"内容不外泄"的断言会变成对 None 做 in 运算。
+    monkeypatch.setattr(
+        "app.services.mcp_server._get_workspace_roots", lambda: [str(tmp_path)]
+    )
     (tmp_path / "README.md").write_text("# Project\npublic readme.\n", encoding="utf-8")
     (tmp_path / "AGENTS.md").write_text(
         "# Internal\nDB_PASSWORD=hunter2\nDEPLOY_KEY=AKIA-SECRET-VALUE\n", encoding="utf-8"
