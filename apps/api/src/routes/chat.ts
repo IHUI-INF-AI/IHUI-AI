@@ -2199,7 +2199,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       // 客户端断开导致的 AbortError 不写错误帧
       if (!(e instanceof Error && e.name === 'AbortError')) {
-        reply.raw.write(`data: ${JSON.stringify({ error: (e as Error).message })}\n\n`)
+        // 2026-10-31 安全强化第 13 批:错误帧固定文案 —— fetch/上游错误原文可能带
+        // 内网主机与上游响应片段,响应面不回传,细节进日志
+        request.log.error({ err: e }, '[coze-proxy] 流式转发失败')
+        reply.raw.write(`data: ${JSON.stringify({ error: '流式生成失败,请稍后重试' })}\n\n`)
       }
     } finally {
       clearTimeout(timeoutGuard)

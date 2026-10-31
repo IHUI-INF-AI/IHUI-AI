@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from .tool_context_boundary import scan_and_frame_tool_result
 from ..core.executor_switch import guard_loop_v2_pilot, take_loop_v2_handoff
 from ..core.llm_gateway import llm_gateway
 from ..core.permission_mode import (
@@ -1682,7 +1683,10 @@ class AgentOrchestrator:
                         "role": "tool",
                         "tool_call_id": tc.get("id", ""),
                         "name": tool_name,
-                        "content": str(exec_result)[:4000],
+                        # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
+                        "content": scan_and_frame_tool_result(
+                            str(exec_result)[:4000], tool_name=tool_name
+                        ),
                     })
                 if it == agent.max_iterations - 1:
                     # 最后一轮:让 LLM 总结
