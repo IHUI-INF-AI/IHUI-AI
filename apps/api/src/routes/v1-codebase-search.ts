@@ -90,9 +90,7 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     // 故这里无需再写一套解析器;取不到即视为未认证,拒绝(fail-closed)。
     const ownerUuid = req.userId
     if (!ownerUuid) {
-      return reply
-        .status(401)
-        .send(error(401, '无法确定调用者身份:代码索引按归属隔离,已拒绝查询'))
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离,已拒绝查询'))
     }
     try {
       const searchOpts = {
@@ -129,6 +127,44 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '统计查询失败'))
+    }
+  })
+
+  // GET /repo/:repoId/chunks - 路径投影元数据清单(2026-10-31 G2 立,
+  // knowledge_fs 虚拟文件系统的数据源;GET 只读面,随本路由族 preHandler 鉴权)
+  server.get('/repo/:repoId/chunks', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    if (!repoId) {
+      return reply.status(400).send(error(400, '缺少 repoId'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
+    try {
+      const rows = await codebaseIndexService.listPathIndex(repoId, req.userId)
+      return reply.send(success(rows))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '切片清单查询失败'))
+    }
+  })
+
+  // GET /repo/:repoId/file?path= - 单文件切片聚合(2026-10-31 G2 立,供 knowledge_fs read)
+  server.get('/repo/:repoId/file', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    const q = (req.query as { path?: string }) ?? {}
+    if (!repoId || !q.path) {
+      return reply.status(400).send(error(400, '缺少 repoId 或 path'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
+    try {
+      const chunks = await codebaseIndexService.readFileChunks(repoId, q.path, req.userId)
+      return reply.send(success({ filePath: q.path, chunks }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '文件切片查询失败'))
     }
   })
 

@@ -118,9 +118,14 @@ const DECLARATIONS = {
   // ===== 代码库语义索引(O3 已在 routes/v1-codebase-search.ts 就地登记,
   //       此处收拢为单一事实源;路由内既有闸幂等,不会二次鉴权)=====
   'codebase-search': {
-    description: '代码库语义检索与索引统计',
+    description: '代码库语义检索、索引统计与路径投影元数据(knowledge_fs 数据源,2026-10-31 G2)',
     methods: ['GET', 'POST'],
-    paths: ['/api/v1/codebase/search', '/api/v1/codebase/stats'],
+    paths: [
+      '/api/v1/codebase/search',
+      '/api/v1/codebase/stats',
+      '/api/v1/codebase/repo/:repoId/chunks',
+      '/api/v1/codebase/repo/:repoId/file',
+    ],
     scope: 'codebase:read',
   },
   'codebase-write': {
