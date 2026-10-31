@@ -41,13 +41,32 @@ README(逆向+真机验证)补证并填入默认值:`WORKBUDDY_TASKS_CLAIM_PATH=
 `WORKBUDDY_TASKS_LIVE_RUN=false` 双门控,写侧须显式开启;若运维把配置清空则回到"拒绝执行"。
 `www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
 
-族五/六 redeem(连签兑换)/ lottery(抽奖)于 2026-10-31 接入:读侧已真机验证
-(`/activity/growth/lottery/summary` GET 200、`redemption_status.tiers` 嵌在 streak 响应),
-写侧端点(`/activity/growth/redeem`、`/activity/growth/lottery/draw`)路由存在但
-**body 字段名未取证**(2026-10-28 真机对 `{}` / `{"code"}` / `{"task_code"}` / `{"codes"}`
-四形态一律 400)⇒ `WORKBUDDY_TASKS_REDEEM_FIELD` / `WORKBUDDY_TASKS_LOTTERY_DRAW_FIELD`
-留空即拒绝写(§0.3);兑换档位(`.._REDEEM_TIERS`)与抽奖次数(`.._LOTTERY_DRAW_COUNT`)
-须显式配置,绝不猜"哪个档可兑/抽几次"。
+族五/六 redeem(连签兑换)/ lottery(抽奖)**读写双侧均已真机实证(2026-10-31 报文级)**:
+
+- 读侧:`/activity/growth/streak` GET 200,`redemption_status` 真实形态为
+  `{tier_7d_count,tier_14d_count,tier_28d_count,tier_{7d,14d,28d}_status,remaining_days,
+  tiers:[{tier,days,credit,energy,cards,chances}]}` —— **档位解锁态在 `tier_<tier>_status`
+  平铺键上,不在 tiers[] 里**(locked/claimed/…;实测账号全 `locked`);
+  `/activity/growth/lottery/summary` GET 200 ⇒ `{"chances":N,"module":{"enabled":true}}`。
+- 写侧字段(逐字节实测,判据 = 400「invalid …request」为字段错、其它为字段对):
+  `POST /activity/growth/redeem` ⇒ body **`{"tier":"7d","client_token":"<任意非空串>"}`**;
+  给定未解锁档位回 **403 `连续登录天数不足…`**(= 字段被接受、业务拒绝);
+  换成 `clientToken` 驼峰或省掉 `client_token` 均回 **400 `invalid redemption request`**。
+  `POST /activity/growth/lottery/draw` ⇒ body **`{"client_token":"<任意非空串>"}`**;
+  次数为 0 时回 **400 `insufficient lottery chance balance`**(= 已过字段校验、走进次数校验);
+  空体回 **400 `invalid request`**。两处 `client_token` 取值实测 uuid 带连字符与 hex32 均可
+  ⇒ 本模块按幂等键语义每次请求现生成 uuid4(`_new_client_token`),同一档位重试复用同一值。
+- ⇒ 默认值已从"留空拒绝写"改为实证形态(`.._REDEEM_FIELD=tier`、
+  `.._LOTTERY_DRAW_FIELD=client_token`),**开箱即用**;仍保留 env 覆盖以应对上游改版。
+- 语义对齐竞品「连登管家」(幂等、未解锁静默跳过):不必配档位,自动兑**所有
+  `tier_*_status ∉ {locked,claimed}`** 的档;抽奖按 `chances` 自动抽完(受
+  `.._LOTTERY_DRAW_COUNT` 单轮上限约束)。业务拒绝(403 未解锁 / 400 次数不足)
+  记 `skipped` 而非失败,`unjudged=False`。
+
+**403 语义纠偏(真机实证的既存缺陷)**:上游把"业务性 403"(如 `连续登录天数不足`)与
+"鉴权 403"同用 HTTP 403。旧 `_failure_reason` 一律按 `workbuddy_classify_error` 判
+SessionDead ⇒ 会把"档位未解锁"误报成"令牌失效"。现改为:403 且信封 `msg` 非鉴权语义
+⇒ 交由信封 `code` 判定(业务拒绝,不判会话失效);仅 msg 缺失或含鉴权词时才判 SessionDead。
 
 blackcat 族无专属端点(取证结论):它是本地节律规则 —— 23:00–08:00(Asia/Shanghai,
 跨零点)窗口内对指定模型跑 N 次聊天补全以满足任务,窗口外跳过并报原因。补全面由
@@ -71,6 +90,7 @@ import asyncio
 import json
 import random
 import re
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any, Final
@@ -111,9 +131,35 @@ PATH_TRAVEL_STATUS: Final = "/activity/growth/buddy/travel/status"
 PATH_TRAVEL_DEPART: Final = "/activity/growth/buddy/travel/depart"
 PATH_TRAVEL_CLAIM: Final = "/activity/growth/buddy/travel/claim"
 
-# 族五/六 redeem / lottery 读侧路径(2026-10-31 接;真机 GET 均 200):
-# lottery/summary 为抽奖概览只读端点;redeem 的兑换档位读自 streak 的 redemption_status。
+# 族五/六 redeem / lottery(2026-10-31 真机读写双侧实证):
+# - lottery/summary GET 200 ⇒ {"chances":N,"module":{"enabled":true}}
+# - redeem 的档位与解锁态读自 streak 的 redemption_status(tier_<tier>_status 平铺键)
+# - 写侧 body 形态见下方 _CLIENT_TOKEN_FIELD 与各 run_*;client_token 为幂等键(任意非空串)
 PATH_GROWTH_LOTTERY_SUMMARY: Final = "/activity/growth/lottery/summary"
+PATH_GROWTH_LOTTERY_DRAW: Final = "/activity/growth/lottery/draw"
+PATH_GROWTH_REDEEM: Final = "/activity/growth/redeem"
+
+# 幂等键字段名(真机实证:驼峰 clientToken 与省缺均 400,仅下划线 client_token 被接受)
+_CLIENT_TOKEN_FIELD: Final = "client_token"
+
+# 档位"不可兑"状态集(README「已解锁 = 非 locked/非 claimed」;真机观测到 locked,
+# 其余按同义扩展,宁可多跳不误兑)
+_TIER_NOT_REDEEMABLE: Final = frozenset({"locked", "claimed", "redeemed", "used"})
+
+# 鉴权语义关键词:403/400 信封 msg 命中即按会话失效判;不命中 ⇒ 业务拒绝(交信封 code 判)
+# 注意 `登录` 不能单独作关键词 —— 真机业务拒绝原话是「连续**登录**天数不足」,会被误伤;
+# 只认"重新登录/登录态/未登录"这类确指凭证失效的词。
+_AUTH_MSG_RE: Final = re.compile(
+    r"unauthor|authenticat|token|session|expired|forbidden|please\s+login|login\s+(again|required)|"
+    r"重新登录|登录态|登录已过期|登录失效|未登录|鉴权|认证失败|凭证|会话|过期|失效",
+    re.IGNORECASE,
+)
+
+# 参数/格式错关键词:命中即"请求本身不对"(真失败),不得当成业务拒绝而静默跳过
+_FIELD_ERR_RE: Final = re.compile(
+    r"invalid|malformed|required|missing|bad\s*request|unsupported|格式|参数|不支持",
+    re.IGNORECASE,
+)
 
 # 活动遥测事件码(二进制逐字;上报路径与主机绑定为推断 ⇒ 全走配置)
 WB_ACTIVITY_EVENT_CODES: Final = (
@@ -178,6 +224,35 @@ def _envelope(payload: Any) -> tuple[int | None, Any]:
     if code is None:
         return None, None
     return code, payload.get("data")
+
+
+def _payload_msg(payload: Any) -> str | None:
+    """取信封 msg(真机业务拒绝形态 `{"code":403,"msg":"连续登录天数不足…","requestId":…}`)。
+
+    非空字符串才算;缺失/空串 ⇒ None。仅用于把上游原话带进 reason,不做语义改写。
+    """
+    if not isinstance(payload, dict):
+        return None
+    msg = _as_str(payload.get("msg")) or _as_str(payload.get("message"))
+    if msg is None:
+        return None
+    msg = msg.strip()
+    return msg or None
+
+
+def _new_client_token() -> str:
+    """生成一次性幂等键(真机实证:上游只要求非空串,uuid/hex32 均接受)。
+
+    同一逻辑动作的重试必须复用同一个值,否则幂等键失效、可能重复扣次数/重复兑换;
+    故生成点在调用方(每档/每次抽奖各一枚),重试沿用。
+    """
+    return str(uuid.uuid4())
+
+
+def _msg_suffix(payload: Any) -> str:
+    """reason 用:上游有 msg 就附上,便于定位(纯展示,不参与任何判定)。"""
+    msg = _payload_msg(payload)
+    return f": {msg}" if msg else ""
 
 
 # ---------------------------------------------------------------------------
@@ -308,18 +383,52 @@ async def _wb_request(
     return status, payload, "token"
 
 
+def _is_business_reject(status: int, payload: Any) -> bool:
+    """4xx + 原生信封(code 为 int) + msg 不含鉴权/参数错关键词 ⇒ 业务拒绝。
+
+    真机样本:`403 连续登录天数不足…`(redeem 档位未解锁)、`400 insufficient lottery
+    chance balance`(抽奖次数不足) —— 二者字段与鉴权都对,只是业务态不满足,必须交给
+    信封 code 判并记 skipped:既不能当传输层失败,更不能用 403⇒SessionDead 误杀账号。
+    反例(不算业务拒绝,仍按真失败报):`400 invalid redemption request`、`400 invalid request`。
+    """
+    if not (400 <= status < 500):
+        return False
+    code, _data = _envelope(payload)
+    if code is None:
+        return False
+    msg = _payload_msg(payload)
+    if msg is None:
+        return False
+    return not (_AUTH_MSG_RE.search(msg) or _FIELD_ERR_RE.search(msg))
+
+
 def _failure_reason(status: int, payload: Any, mode: str) -> str | None:
-    """把 (status,payload) 翻译成可读失败原因;None = 不是失败(继续按信封判)。"""
+    """把 (status,payload) 翻译成可读失败原因;None = 不是失败(继续按信封判)。
+
+    **403/400 必须分两类**(2026-10-31 真机实证的既存缺陷):上游对"业务性 4xx"
+    (如 redeem 未解锁 `连续登录天数不足`、抽奖 `insufficient lottery chance balance`)
+    与"鉴权/参数错"共用同一 HTTP 状态码。若一律按 `workbuddy_classify_error` 判
+    SessionDead / HTTP 失败,会把"档位没解锁"误报成"令牌失效"(进而让上层把好账号标死),
+    也会把"次数不足"记成真错误。故先过 `_is_business_reject`:是业务拒绝 ⇒ 返回 None,
+    交由调用方按信封 `code` 判;否则才落 SessionDead / HTTP 失败(带上游 msg 便于定位)。
+    """
     if status == 0:
         return "网络异常(超时)"
     if status == -1:
         return f"网络异常: {payload}"
     if status in (401, 403):
+        if _is_business_reject(status, payload):
+            return None  # 业务拒绝:交给信封 code 判,不让它冒充会话失效
         etype, _ = workbuddy_classify_error(status)
-        suffix = "会话/令牌已失效,请重新登录态采集" if etype == "SessionDead" else f"HTTP {status}"
+        suffix = (
+            "会话/令牌已失效,请重新登录态采集" if etype == "SessionDead" else f"HTTP {status}"
+        )
         return suffix
     if status >= 400:
-        return f"HTTP {status}"
+        if _is_business_reject(status, payload):
+            return None
+        msg = _payload_msg(payload)
+        return f"HTTP {status}: {msg}" if msg else f"HTTP {status}"
     return None
 
 
@@ -438,7 +547,7 @@ async def list_growth_tasks(
     if code is None:
         return _list_result([], f"信封不可解析(HTTP {status},响应缺 code 或非 JSON)", True, False)
     if code != _CODE_OK:
-        return _list_result([], f"上游 code={code} 非成功码", False, False)
+        return _list_result([], f"上游 code={code} 非成功码{_msg_suffix(payload)}", False, False)
     rows = _extract_rows(data)
     if rows is None:
         return _list_result([], "任务数组形态未识别(data 既非数组也无 tasks/list/items)", True, False)
@@ -629,7 +738,7 @@ async def _claim_one_web(
         return False, "信封不可解析", False
     if code == _CODE_OK:
         return True, "", False
-    return False, f"上游 code={code}", False
+    return False, f"上游 code={code}{_msg_suffix(payload)}", False
 
 
 async def run_growth(
@@ -746,7 +855,7 @@ async def _run_growth_inner(
                 elif code == _CODE_OK:
                     accepted = list(to_accept)
                 else:
-                    reasons.append(f"accept 上游 code={code}")
+                    reasons.append(f"accept 上游 code={code}{_msg_suffix(payload)}")
     claim_path_tmpl = (settings.workbuddy_tasks_claim_path or "").strip()
     if to_claim:
         if not claim_path_tmpl:
@@ -845,7 +954,12 @@ async def _run_travel_inner(
     if code is None:
         return _run_result("travel", ok=False, reason=f"travel/status 信封不可解析(HTTP {status})", unjudged=True)
     if code != _CODE_OK:
-        return _run_result("travel", ok=False, reason=f"travel/status 上游 code={code}", unjudged=False)
+        return _run_result(
+            "travel",
+            ok=False,
+            reason=f"travel/status 上游 code={code}{_msg_suffix(payload)}",
+            unjudged=False,
+        )
     state = parse_travel_state(data)
     if state is None:
         return _run_result(
@@ -1022,7 +1136,7 @@ async def run_activity(
             elif code == _CODE_OK:
                 sent.append(event_code)
             else:
-                reasons.append(f"{event_code}:code={code}")
+                reasons.append(f"{event_code}:code={code}{_msg_suffix(payload)}")
             if len(events) > 1:
                 await asyncio.sleep(random.uniform(0.5, 2.0))
         return _run_result(
@@ -1145,7 +1259,7 @@ async def run_blackcat(
 
 
 # ---------------------------------------------------------------------------
-# 族五:redeem(连签兑换;读 redemption_status,写侧 body 字段未取证 ⇒ 默认拒绝写)
+# 族五:redeem(连签档位兑换;读写双侧 2026-10-31 真机实证,见模块 docstring)
 # ---------------------------------------------------------------------------
 
 
@@ -1156,10 +1270,15 @@ async def fetch_redeem_tiers(
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any] | None:
-    """只读:GET streak 取 redemption_status(真机形态见 fetch_growth_streak)。
+    """只读:GET streak 取 redemption_status(真机形态见模块 docstring)。
 
-    返回 {"tiers": [...], "status": {...}};读不到 redemption_status ⇒ None(不编造)。
-    tiers[] 真形态项形如 {tier, days, credit, energy, cards, chances}。
+    返回 {"tiers": [...], "status": <raw>, "remaining_days": int|None};
+    读不到 redemption_status ⇒ None(不编造)。
+
+    tiers[] 每项在真机原始字段(tier/days/credit/energy/cards/chances)之外补两个**派生**
+    字段:`status`(取自 `tier_<tier>_status` 平铺键,真机形态)与 `redeemable`
+    (status 存在且 ∉ `_TIER_NOT_REDEEMABLE`)。status 键缺失 ⇒ status=None、
+    redeemable=False —— 不拿"没写状态"当"可兑"(§0.3 宁缺勿假)。
     """
     status, payload, _mode = await _wb_request(
         PATH_GROWTH_STREAK, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
@@ -1172,8 +1291,33 @@ async def fetch_redeem_tiers(
     rs = data.get("redemption_status")
     if not isinstance(rs, dict):
         return None
-    tiers = rs.get("tiers")
-    return {"tiers": tiers if isinstance(tiers, list) else [], "status": rs}
+    raw_tiers = rs.get("tiers")
+    tiers: list[dict[str, Any]] = []
+    for row in raw_tiers if isinstance(raw_tiers, list) else []:
+        if not isinstance(row, dict):
+            continue
+        name = _as_str(row.get("tier"))
+        if name is None:
+            continue
+        st = _as_str(rs.get(f"tier_{name}_status"))
+        st_norm = st.strip().lower() if st else None
+        tiers.append(
+            {
+                "tier": name,
+                "days": _as_int(row.get("days")),
+                "credit": _as_int(row.get("credit")),
+                "energy": _as_int(row.get("energy")),
+                "cards": _as_int(row.get("cards")),
+                "chances": _as_int(row.get("chances")),
+                "status": st_norm,
+                "redeemable": st_norm is not None and st_norm not in _TIER_NOT_REDEEMABLE,
+            }
+        )
+    return {
+        "tiers": tiers,
+        "status": rs,
+        "remaining_days": _as_int(rs.get("remaining_days")),
+    }
 
 
 async def run_redeem(
@@ -1184,10 +1328,17 @@ async def run_redeem(
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """redeem 族:连签兑换。读 redemption_status 列档(只读);写侧端点路由存在但 body
-    字段名未取证(2026-10-28 真机 {} / {"code"} / {"task_code"} / {"codes"} 四形态全 400)⇒
-    WORKBUDDY_TASKS_REDEEM_FIELD 留空即拒绝执行(§0.3 不猜字段);兑换档位由
-    WORKBUDDY_TASKS_REDEEM_TIERS 显式指定(空 = 只读不写,绝不猜哪个档可兑)。"""
+    """redeem 族:连签档位兑换(真机实证 body = `{tier, client_token}`,见模块 docstring)。
+
+    判据链(幂等,对齐竞品「连登管家」——未解锁静默跳过):
+    1. GET streak 取 redemption_status;读不到 ⇒ 未判定,一个写请求都不发;
+    2. 目标档位:配了 `WORKBUDDY_TASKS_REDEEM_TIERS` ⇒ 只兑清单内**且档位表里真实存在**
+       的档(清单里不存在的名字记入 reason 后忽略,不猜);未配 ⇒ **自动模式**,兑所有
+       `tier_<tier>_status ∉ {locked,claimed,redeemed,used}` 的档;
+    3. 逐档 POST,业务拒绝(如 403「连续登录天数不足」)⇒ 记 skipped,**不算失败也不算未判定**
+       (这是"已判定为当前不可兑"的正常态,重复跑幂等);
+    4. `client_token` 每档一枚 uuid4 幂等键(同一档重试复用同一值,不重复兑换)。
+    """
     eff_client, owned = (client, False) if client is not None else client_for(device_map)
     try:
         info = await fetch_redeem_tiers(jwt, device_map, client=eff_client, timeout=timeout)
@@ -1195,78 +1346,72 @@ async def run_redeem(
             return _run_result(
                 "redeem", ok=False, reason="redemption_status 读不到(未判定)", unjudged=True
             )
-        tiers = info["tiers"]
-        names = [
-            str(t.get("tier"))
-            for t in tiers
-            if isinstance(t, dict) and t.get("tier") is not None
+        tiers: list[dict[str, Any]] = info["tiers"]
+        by_name = {str(t["tier"]): t for t in tiers}
+        explicit = [
+            x.strip()
+            for x in (settings.workbuddy_tasks_redeem_tiers or "").split(",")
+            if x.strip()
         ]
+        unknown: list[str] = []
+        if explicit:
+            targets = [x for x in explicit if x in by_name]
+            unknown = [x for x in explicit if x not in by_name]
+        else:
+            targets = [str(t["tier"]) for t in tiers if t.get("redeemable")]
         if dry_run:
             return _run_result(
                 "redeem",
                 ok=True,
                 reason=(
-                    f"dry-run:redemption 档位 {len(tiers)} 个"
-                    f"({','.join(names) or '无'}),零写侧调用"
+                    f"dry-run:档位 {len(tiers)} 个,待兑 {len(targets)} 个"
+                    f"({','.join(targets) or '无'}),零写侧调用"
                 ),
                 unjudged=False,
             )
-        targets = [
-            t.strip()
-            for t in (settings.workbuddy_tasks_redeem_tiers or "").split(",")
-            if t.strip()
-        ]
         if not targets:
+            desc = ",".join(f"{t['tier']}={t.get('status') or '?'}" for t in tiers) or "无档位"
+            tail = f";清单内未知档位 {','.join(unknown)} 已忽略" if unknown else ""
             return _run_result(
-                "redeem",
-                ok=True,
-                reason=(
-                    f"redemption 档位 {len(tiers)} 个;未配 WORKBUDDY_TASKS_REDEEM_TIERS "
-                    "⇒ 只读不写(不猜哪个档可兑)"
-                ),
-                unjudged=False,
+                "redeem", ok=True, reason=f"无已解锁待兑档位({desc}){tail}", unjudged=False
             )
-        field = (settings.workbuddy_tasks_redeem_field or "").strip()
-        path = (settings.workbuddy_tasks_redeem_path or "").strip()
-        if not field:
-            return _run_result(
-                "redeem",
-                ok=False,
-                reason=(
-                    f"redeem {len(targets)} 档未执行:body 字段名未取证(2026-10-28 四形态全 400)"
-                    "⇒ WORKBUDDY_TASKS_REDEEM_FIELD 留空按 §0.3 拒绝猜字段"
-                ),
-                unjudged=True,
-            )
-        if not path:
-            return _run_result(
-                "redeem", ok=False, reason="redeem 路径未配置(§0.3 拒绝猜 URL)", unjudged=True
-            )
+        field = (settings.workbuddy_tasks_redeem_field or "").strip() or "tier"
+        path = (settings.workbuddy_tasks_redeem_path or "").strip() or PATH_GROWTH_REDEEM
         accepted: list[str] = []
+        skipped: list[str] = []
         reasons: list[str] = []
         unjudged = False
-        for tier in targets:
+        for idx, tier in enumerate(targets):
+            body = {field: tier, _CLIENT_TOKEN_FIELD: _new_client_token()}
             status, payload, mode = await _wb_request(
-                path, jwt, device_map, {field: tier}, client=eff_client, timeout=timeout
+                path, jwt, device_map, body, client=eff_client, timeout=timeout
             )
             fail = _failure_reason(status, payload, mode)
             if fail is not None:
                 reasons.append(f"redeem {tier} {fail}")
                 unjudged = unjudged or status in (0, -1)
-                continue
-            code, _data = _envelope(payload)
-            if code is None:
-                reasons.append(f"redeem {tier} 信封不可解析")
-                unjudged = True
-            elif code == _CODE_OK:
-                accepted.append(tier)
             else:
-                reasons.append(f"redeem {tier} code={code}")
+                code, _data = _envelope(payload)
+                msg = _payload_msg(payload)
+                if code is None:
+                    reasons.append(f"redeem {tier} 信封不可解析")
+                    unjudged = True
+                elif code == _CODE_OK:
+                    accepted.append(tier)
+                else:
+                    skipped.append(f"{tier}({msg or f'code={code}'})")
+            if idx + 1 < len(targets):
+                await asyncio.sleep(random.uniform(0.4, 1.2))
+        notes = list(reasons)
+        if skipped:
+            notes.append(f"跳过 {len(skipped)} 档:{';'.join(skipped)}")
+        if unknown:
+            notes.append(f"清单内未知档位已忽略:{','.join(unknown)}")
         return _run_result(
             "redeem",
-            ok=bool(accepted),
+            ok=not reasons,
             accepted=accepted,
-            reason=";".join(reasons) if reasons else None,
+            reason=";".join(notes) if notes else None,
             unjudged=unjudged,
         )
     finally:
@@ -1275,7 +1420,7 @@ async def run_redeem(
 
 
 # ---------------------------------------------------------------------------
-# 族六:lottery(抽奖;读 lottery/summary,写侧 body 字段未取证 ⇒ 默认拒绝写)
+# 族六:lottery(抽奖;读写双侧 2026-10-31 真机实证,见模块 docstring)
 # ---------------------------------------------------------------------------
 
 
@@ -1286,8 +1431,11 @@ async def fetch_lottery_summary(
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any] | None:
-    """只读:GET /activity/growth/lottery/summary(真机 200)。形态未全取证 ⇒ 原样返回
-    data dict,不做猜测性字段改写(§0.3);读不懂 ⇒ None。"""
+    """只读:GET /activity/growth/lottery/summary(真机 200)。
+
+    真机形态 `{"chances":N,"module":{"enabled":true}}` —— 原样返回 data dict,不改写字段
+    (§0.3);读不懂 ⇒ None。次数语义见 `lottery_chances`。
+    """
     status, payload, _mode = await _wb_request(
         PATH_GROWTH_LOTTERY_SUMMARY,
         jwt,
@@ -1305,6 +1453,13 @@ async def fetch_lottery_summary(
     return data
 
 
+def lottery_chances(summary: dict[str, Any] | None) -> int | None:
+    """从 summary 取剩余抽奖次数(真机键名 `chances`)。取不到 ⇒ None(不拿 0 冒充)。"""
+    if not isinstance(summary, dict):
+        return None
+    return _as_int(summary.get("chances"))
+
+
 async def run_lottery(
     jwt: str,
     device_map: dict[str, Any],
@@ -1313,75 +1468,93 @@ async def run_lottery(
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """lottery 族:抽奖。读 lottery/summary(只读,真机 200);写侧 lottery/draw 路由存在但
-    body 字段名未取证(2026-10-28 四形态全 400)⇒ WORKBUDDY_TASKS_LOTTERY_DRAW_FIELD 留空
-    即拒绝写(§0.3);抽奖次数 = WORKBUDDY_TASKS_LOTTERY_DRAW_COUNT(默认 1,0 = 不抽)。"""
+    """lottery 族:抽奖(真机实证 body = `{client_token}`,每次消耗 1 次机会)。
+
+    判据链(对齐竞品「连登管家」:有次数自动抽完,幂等):
+    1. GET lottery/summary 取 `chances`;读不到 ⇒ 未判定,一个写请求都不发;
+    2. 本轮计划 = min(chances, `WORKBUDDY_TASKS_LOTTERY_DRAW_COUNT` 单轮上限);
+       chances=0 ⇒ 正常返回"无抽奖次数"(幂等态,不是失败、不是未判定);
+    3. 逐次 POST `{<field>: <uuid4>}`,**每次一枚新幂等键**(抽奖是多次独立动作);
+       业务拒绝(`insufficient lottery chance balance` 等)⇒ 记 skipped 收尾,不算失败;
+    4. 传输层/信封不可解析 ⇒ 记 reasons 且 ok=False(该轮真异常)。
+    """
     eff_client, owned = (client, False) if client is not None else client_for(device_map)
     try:
         summary = await fetch_lottery_summary(jwt, device_map, client=eff_client, timeout=timeout)
+        chances = lottery_chances(summary)
+        if chances is None:
+            return _run_result(
+                "lottery",
+                ok=False,
+                reason=(
+                    "lottery/summary 读不到(未判定)"
+                    if summary is None
+                    else "lottery/summary 无 chances 字段(未判定)"
+                ),
+                unjudged=True,
+            )
+        limit = max(0, int(settings.workbuddy_tasks_lottery_draw_count))
+        plan = min(chances, limit)
         if dry_run:
             return _run_result(
                 "lottery",
                 ok=True,
                 reason=(
-                    "dry-run:lottery summary "
-                    f"{'已读' if summary is not None else '读不到(未判定)'},零写侧调用"
+                    f"dry-run:剩余 {chances} 次,本轮计划 {plan} 次(单轮上限 {limit}),零写侧调用"
                 ),
-                unjudged=summary is None,
+                unjudged=False,
             )
-        count = max(0, int(settings.workbuddy_tasks_lottery_draw_count))
-        if count == 0:
-            return _run_result(
-                "lottery", ok=True, reason="lottery 次数配置为 0 ⇒ 不抽", unjudged=False
-            )
-        field = (settings.workbuddy_tasks_lottery_draw_field or "").strip()
-        path = (settings.workbuddy_tasks_lottery_draw_path or "").strip()
-        if not field:
+        if plan <= 0:
             return _run_result(
                 "lottery",
-                ok=False,
+                ok=True,
                 reason=(
-                    f"lottery draw {count} 次未执行:body 字段名未取证(2026-10-28 四形态全 400)"
-                    "⇒ WORKBUDDY_TASKS_LOTTERY_DRAW_FIELD 留空按 §0.3 拒绝猜字段"
+                    "无抽奖次数"
+                    if chances == 0
+                    else f"单轮上限 WORKBUDDY_TASKS_LOTTERY_DRAW_COUNT={limit} ⇒ 本轮不抽"
                 ),
-                unjudged=True,
+                unjudged=False,
             )
-        if not path:
-            return _run_result(
-                "lottery",
-                ok=False,
-                reason="lottery/draw 路径未配置(§0.3 拒绝猜 URL)",
-                unjudged=True,
-            )
+        field = (settings.workbuddy_tasks_lottery_draw_field or "").strip() or _CLIENT_TOKEN_FIELD
+        path = (
+            settings.workbuddy_tasks_lottery_draw_path or ""
+        ).strip() or PATH_GROWTH_LOTTERY_DRAW
         drawn: list[str] = []
+        skipped: list[str] = []
         reasons: list[str] = []
         unjudged = False
-        for i in range(count):
+        for i in range(plan):
+            body = {field: _new_client_token()}
             status, payload, mode = await _wb_request(
-                path, jwt, device_map, {field: 1}, client=eff_client, timeout=timeout
+                path, jwt, device_map, body, client=eff_client, timeout=timeout
             )
             fail = _failure_reason(status, payload, mode)
             if fail is not None:
                 reasons.append(f"draw#{i + 1} {fail}")
                 unjudged = unjudged or status in (0, -1)
                 break
-            code, _data = _envelope(payload)
+            code, data = _envelope(payload)
+            msg = _payload_msg(payload)
             if code is None:
                 reasons.append(f"draw#{i + 1} 信封不可解析")
                 unjudged = True
                 break
             if code == _CODE_OK:
-                drawn.append(f"draw#{i + 1}")
+                prize = _as_str(data.get("draw_uuid")) if isinstance(data, dict) else None
+                drawn.append(f"draw#{i + 1}:{prize}" if prize else f"draw#{i + 1}")
             else:
-                reasons.append(f"draw#{i + 1} code={code}")
+                skipped.append(f"draw#{i + 1}({msg or f'code={code}'})")
                 break
-            if count > 1:
-                await asyncio.sleep(random.uniform(0.5, 2.0))
+            if i + 1 < plan:
+                await asyncio.sleep(random.uniform(0.5, 1.5))
+        notes = list(reasons)
+        if skipped:
+            notes.append(f"停止:{';'.join(skipped)}")
         return _run_result(
             "lottery",
-            ok=bool(drawn),
+            ok=not reasons,
             claimed=drawn,
-            reason=";".join(reasons) if reasons else None,
+            reason=";".join(notes) if notes else None,
             unjudged=unjudged,
         )
     finally:

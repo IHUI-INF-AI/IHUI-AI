@@ -8,13 +8,12 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import type { Redis, RedisKey } from 'ioredis'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { monitorAlerts } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
-import { isUuidString } from '../../utils/uuid.js'
 
 /* -------------------------------------------------------------------------- */
 /*  Redis INFO 解析 & 辅助函数                                                   */
@@ -134,24 +133,6 @@ export const monitorRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(row))
     },
   )
-  server.get('/admin/monitor/funnel/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
-    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
-    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
-    if (!isUuidString(id)) return reply.status(404).send(error(404, '记录不存在'))
-    // 基于现有 monitorAlerts 表按来源聚合生成漏斗数据
-    const rows = await db
-      .select({
-        source: monitorAlerts.source,
-        severity: monitorAlerts.severity,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(monitorAlerts)
-      .where(eq(monitorAlerts.id, id))
-      .groupBy(monitorAlerts.source, monitorAlerts.severity)
-    return reply.send(success({ funnel: rows, total: rows.reduce((s, r) => s + r.count, 0) }))
-  })
   server.get('/admin/monitoring/alerts', { preHandler: requireAdmin }, async (_request, reply) => {
     const list = await db
       .select()
