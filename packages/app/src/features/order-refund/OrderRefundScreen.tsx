@@ -102,6 +102,7 @@ export function OrderRefundScreen({
       ) : null}
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={orders}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: rnSpacing['3xl'] }}
