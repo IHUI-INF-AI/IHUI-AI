@@ -36,11 +36,14 @@ export function ProfileScreen({
   menuSections = [],
   onNavigate,
   onLogout,
+  realnameStatus,
   colorScheme = 'light',
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const fontMultiplier = useFontMultiplier()
+  // 实名徽标配色(见 realnameBadgeTone;取不到状态 ⇒ null ⇒ 不渲染,不猜默认态)
+  const badgeTone = realnameStatus ? realnameBadgeTone(tk, realnameStatus) : null
 
   if (loading) {
     return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
@@ -62,7 +65,16 @@ export function ProfileScreen({
             <Text style={styles.avatarText}>{initials(user?.nickname)}</Text>
           </View>
           <View style={styles.userMeta}>
-            <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
+            <View style={styles.nicknameRow}>
+              <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
+              {badgeTone && realnameStatus ? (
+                <View style={[styles.realnameBadge, badgeTone.container]}>
+                  <Text style={[styles.realnameBadgeText, badgeTone.text]}>
+                    {t(`realNameAuth.status_${realnameStatus}`)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
             {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
           </View>
@@ -113,6 +125,33 @@ export function ProfileScreen({
 function initials(name?: string): string {
   if (!name) return 'U'
   return name.trim().charAt(0).toUpperCase()
+}
+
+type RealnameStatus = NonNullable<ProfileScreenProps['realnameStatus']>
+
+/**
+ * 实名徽标配色(只用既有令牌,不新增色值/不做发光):
+ * - verified(后端 approved) = 品牌强调档:brandAccent.light 底 + brandAccent.deep 字
+ * - rejected = 错误档:error.bg 底 + error.text 字
+ * - pending / unverified(unknown 同档)= 中性档:surface.muted 底 + text.tertiary 字
+ */
+function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
+  if (status === 'verified') {
+    return {
+      container: { backgroundColor: tk.brandAccent.light },
+      text: { color: tk.brandAccent.deep },
+    }
+  }
+  if (status === 'rejected') {
+    return {
+      container: { backgroundColor: tk.error.bg },
+      text: { color: tk.error.text },
+    }
+  }
+  return {
+    container: { backgroundColor: tk.surface.muted },
+    text: { color: tk.text.tertiary },
+  }
 }
 
 function buildStatsCells(
@@ -166,7 +205,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
     userMeta: { flex: 1, gap: rnSpacing.xs },
-    nickname: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    nickname: { flexShrink: 1, fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    realnameBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    realnameBadgeText: { fontSize: rnType.label.size, fontWeight: '600' },
     subText: { fontSize: rnType.body.size, color: tk.text.secondary },
     statsGrid: {
       flexDirection: 'row',

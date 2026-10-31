@@ -821,13 +821,92 @@ export interface CarteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+/**
+ * 模型备案查询条件(受控:三格都由宿主持有,共享屏只回传变更)。
+ * kind 取值与后端 GET /algorithm-record/search 的枚举一致,空串 = 全部:
+ * '' / 'deep_synthesis'(深度合成)/ 'algorithm_recommend'(算法推荐)。
+ */
+export interface ModelRecordQuery {
+  keyword: string
+  kind: string
+  batch: string
+}
+
+/**
+ * 单条备案记录(字段逐名对齐 GET /algorithm-record/search 的 items,
+ * 与 web `settings/model-record` 页的 AlgorithmRecordItem、@ihui/api-client 的
+ * AlgorithmRecordItem 同形)。
+ */
+export interface ModelRecordItem {
+  id: string
+  kind: string
+  algName: string
+  category: string | null
+  provider: string
+  product: string | null
+  purpose: string | null
+  recordNo: string
+  batch: string | null
+  sourceUrl: string | null
+  /**
+   * 备案日期(可选桥接位)。当前后端 select 不返回该列 ⇒ 端上不造值,
+   * 取不到即整行不渲染(不写 '-' 冒充"有值但为空");后端补列后共享屏无需改动即可显示。
+   */
+  applyDate?: string | null
+}
+
+/** 统计卡数据(updatedAt 为 ISO 时刻,null = 未取到) */
+export interface ModelRecordStats {
+  totalAll: number
+  updatedAt: string | null
+}
+
+/** 类型计数(kind = 'deep_synthesis' | 'algorithm_recommend') */
+export interface ModelRecordKindCount {
+  kind: string
+  count: number
+}
+
+/** 一次查询结果(stats 可为 null:未取到时统计卡展示 '-',与 web 同口径) */
+export interface ModelRecordQueryResult {
+  items: ModelRecordItem[]
+  total: number
+  stats: ModelRecordStats | null
+  kindCounts: ModelRecordKindCount[]
+  batches: string[]
+}
+
+/**
+ * ModelRecordScreen props —— 数据全部由宿主注入(共享屏不 fetch)。
+ *
+ * 2026-11 扩展:原形态只有 4 张备案图片(静态合规公示),现补齐到与 web
+ * `apps/web/app/(main)/settings/model-record/page.tsx` 同等能力(统计/筛选/列表/分页/复制)。
+ * images / previewIndex / onPreviewIndexChange 三个原字段**保留且降为可选**,
+ * 原调用点(RN 壳)照旧可用,不构成破坏性变更。
+ */
 export interface ModelRecordScreenProps {
   t: TFunction
   onBack: () => void
   title?: string
-  images: (number | { uri: string })[]
-  previewIndex: number
-  onPreviewIndexChange: (index: number) => void
+  /** 查询条件(受控) */
+  query: ModelRecordQuery
+  onKeywordChange: (keyword: string) => void
+  onKindChange: (kind: string) => void
+  onBatchChange: (batch: string) => void
+  onSearch: () => void
+  /** 当前查询结果(空态判 items.length,不用 undefined 表达) */
+  result: ModelRecordQueryResult
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  loading: boolean
+  error: string
+  /** 复制备案编号(平台注入;共享屏自管「已复制」短提示) */
+  onCopy: (text: string) => void
+  /** 备案公示图片(合规公示,列表与分页之后渲染) */
+  images?: (number | { uri: string })[]
+  previewIndex?: number
+  onPreviewIndexChange?: (index: number) => void
   colorScheme?: 'light' | 'dark'
 }
 
