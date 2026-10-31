@@ -79,6 +79,7 @@ import {
   snapshotStagedDeleteIntent,
 } from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { formatUndeclaredLine, partitionUndeclaredStaged } from './lib/staged-ownership.mjs'
 // 2026-10-26:提交身份的唯一出口(与旁路落地器同源)。本机实测:`user.name/user.email` 只配在
 // 交互账户的 .gitconfig 里,而本脚本常由计划任务/服务/另一身份的会话派生 ⇒ git 报
 // `Author identity unknown` + exit 128;旧分诊把它当"索引锁争用",连跑 10 轮整条守门链
@@ -844,7 +845,22 @@ if (process.env.AGENT_NAME && !message.match(/^\[[\w-]+\]/)) {
   log('info', `自动加 agent 标识前缀 → ${C.cyan}${finalMessage.split('\n')[0]}${C.reset}`)
 }
 
+/** O67(2026-10-31):发令前只读点名「索引里非本票声明的已暂存件」—— 只警告、绝不拒发(§12e)。 */
+function reportUndeclaredStaged() {
+  try {
+    const staged = gitStagedPaths({ root: repoRoot })
+    const extra = partitionUndeclaredStaged(staged, expectedFiles)
+    const line = formatUndeclaredLine(extra)
+    if (line) log('warn', line)
+    else log('ok', `索引归属对账:${staged.length} 个已暂存件全部属于本票声明集(${expectedFiles.length} 个)`)
+  } catch (e) {
+    log('warn', `索引归属对账取不到索引(未判定,不拦发令):${e?.message ?? e}`)
+  }
+}
+
 if (dryRun) {
+  // O67:dry-run 也点名(票面验证:dry-run 输出含该行且纯净索引零误报)。
+  reportUndeclaredStaged()
   log('ok', `dry-run 通过,实际不会 commit`)
   process.exit(0)
 }
@@ -1046,6 +1062,8 @@ let hookOutput = ''
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
   rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
+  // O67:每次发令前复量一次「索引 ⊖ 声明集」,只点名不拦(拦在 Step 3)。
+  reportUndeclaredStaged()
   // O43建议②:发令前取**全量**索引快照作基线(含他人的已暂存水位 —— 只拦"窗口期新进",
   // 差值棘轮语义与 4-pre 完全一致),生成临时 hooksPath 逐文件转发 .husky 全部钩子;
   // pre-commit 成功后写树前再复量一次,钩子运行期(本机实测 ≈15 分钟)新进的外来件在这里
