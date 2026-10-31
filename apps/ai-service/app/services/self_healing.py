@@ -32,6 +32,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
+from .self_healing_sandbox import (
+    CaseExecutor,
+    _resolve_timeout,
+    run_cases_isolated,
+)
+
 logger = logging.getLogger(__name__)
 
 # Fallback category when no heuristic matches.
@@ -362,42 +368,55 @@ class HealOutcome:
 
 
 class StaticRunner:
-    """Deterministic offline runner: compiles setup/assertion and attributes.
+    """Deterministic offline runner: 在**隔离子进程**里跑 setup/assertion 并归因。
 
     Contract compatible with any injected runner: ``run(cases)`` returns a
     mapping with ``{"passed": [...ids], "failures": [{test_id, message,
     exception_type}]}``.
+
+    2026-10-31:执行面从"主进程 exec/eval"换成 ``self_healing_sandbox``(子进程 + 超时)。
+    setup/assertion 是 LLM 生成、且受外部文章内容影响的字符串,在主进程里跑等于把
+    `while True:` 与 SystemExit 直接交给线程池。executor 可注入(测试用),
+    默认走真子进程;子进程起不来 ⇒ SandboxUnavailable ⇒ run_and_diagnose 记 runner_error,
+    **绝不回落进程内执行**。
     """
 
+    def __init__(self, *, executor: CaseExecutor | None = None) -> None:
+        self._executor = executor or run_cases_isolated
+
     def run(self, test_cases: list[TestCase]) -> dict[str, Any]:
+        if not test_cases:
+            return {"passed": [], "failures": [], "coverage_hint": "static"}
+        payload = [
+            {"id": tc.id, "setup": tc.setup, "assertion": tc.assertion} for tc in test_cases
+        ]
+        records = self._executor(payload, _resolve_timeout(len(payload)))
+        by_id = {str(r.get("id", "")): r for r in records}
         passed: list[str] = []
         failures: list[dict[str, Any]] = []
         for tc in test_cases:
-            ns: dict[str, Any] = {"__name__": "selfhealing"}
-            try:
-                if tc.setup:
-                    exec(compile(tc.setup, f"<setup:{tc.id}>", "exec"), ns)
-            except Exception as exc:  # noqa: BLE001 - degrade setup errors
+            rec = by_id.get(tc.id)
+            if rec is None:
                 failures.append(
                     {
                         "test_id": tc.id,
-                        "message": f"setup error: {exc}",
-                        "exception_type": type(exc).__name__,
+                        "message": "runner produced no result for this case",
+                        "exception_type": "SandboxUnavailable",
                     }
                 )
                 continue
-            try:
-                ok = bool(eval(compile(tc.assertion, f"<assert:{tc.id}>", "eval"), ns))
-            except Exception as exc:  # noqa: BLE001 - degrade assertion errors
+            error_type = rec.get("errorType")
+            if error_type:
+                phase = "setup" if rec.get("phase") == "setup" else "assertion"
                 failures.append(
                     {
                         "test_id": tc.id,
-                        "message": f"assertion error: {exc}",
-                        "exception_type": type(exc).__name__,
+                        "message": f"{phase} error: {rec.get('errorMsg')}",
+                        "exception_type": str(error_type),
                     }
                 )
                 continue
-            if ok:
+            if rec.get("ok"):
                 passed.append(tc.id)
             else:
                 failures.append(
