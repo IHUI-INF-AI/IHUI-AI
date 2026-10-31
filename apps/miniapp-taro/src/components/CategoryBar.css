@@ -17,7 +17,7 @@
 .category-bar__inner {
   display: inline-flex;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 /* 静止态:card 底 + 完整描边 + secondary 文字(web ITEM_IDLE / RN styles.item) */
@@ -26,7 +26,7 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   height: 64rpx;
   padding: 0 24rpx;
   /* web ITEM_BASE 是 whitespace-nowrap 且**不封顶**(现读 packages/ui-react/src/components/

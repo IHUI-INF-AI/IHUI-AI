@@ -231,7 +231,7 @@ export default function OrderRefund() {
         </View>
 
         <Button
-          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-sm text-[length:32rpx] font-semibold text-center border-none p-0 ${
+          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-sm text-title font-semibold text-center border-none p-0 ${
             disabled ? 'opacity-50' : ''
           } bg-cta text-cta-foreground`}
           disabled={disabled}

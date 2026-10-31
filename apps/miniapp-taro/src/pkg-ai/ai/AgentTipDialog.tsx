@@ -73,10 +73,10 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
                 className="mr-[16rpx] mt-[4rpx]"
               />
               <View className="flex-1">
-                <Text className="block text-[length:28rpx] font-medium text-foreground leading-[1.5]">
+                <Text className="block text-body font-medium text-foreground leading-[1.5]">
                   {tip.title}
                 </Text>
-                <Text className="block text-[length:24rpx] text-muted-foreground leading-[1.5] mt-[4rpx]">
+                <Text className="block text-label text-muted-foreground leading-[1.5] mt-[4rpx]">
                   {tip.desc}
                 </Text>
               </View>

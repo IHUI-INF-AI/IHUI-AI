@@ -132,7 +132,7 @@ export default function VipDetailsPage() {
               </View>
               <View className="flex-1 flex flex-col">
                 <Text className="text-[length:32rpx] font-bold text-foreground">{b.title}</Text>
-                <Text className="mt-[16rpx] text-[length:28rpx] text-muted-foreground leading-[36rpx]">
+                <Text className="mt-[16rpx] text-body text-muted-foreground leading-[36rpx]">
                   {b.desc}
                 </Text>
               </View>
@@ -175,7 +175,7 @@ export default function VipDetailsPage() {
                     <Text className="text-[length:26rpx] text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
                       ¥
                     </Text>
-                    <Text className="text-[length:40rpx] text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
+                    <Text className="text-heading text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
                       {formatPrice(p.price)}
                     </Text>
                   </View>
@@ -188,7 +188,7 @@ export default function VipDetailsPage() {
                           color="var(--color-muted-foreground)"
                           className="mr-[12rpx]"
                         />
-                        <Text className="flex-1 text-[length:24rpx] text-foreground leading-[1.4]">
+                        <Text className="flex-1 text-label text-foreground leading-[1.4]">
                           {b}
                         </Text>
                       </View>
@@ -210,7 +210,7 @@ export default function VipDetailsPage() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold"
         onClick={goUpgrade}
       >
         {t('vip.details.upgrade')}

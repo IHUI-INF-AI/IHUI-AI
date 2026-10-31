@@ -848,7 +848,7 @@ export default function HistoryPage() {
             </Text>
             {!isFiltered ? (
               <Button
-                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-sm text-[length:32rpx] font-semibold"
+                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-sm text-title font-semibold"
                 onClick={() => goChat()}
               >
                 {tt('ai.historyPage.startNew', '开始新对话')}

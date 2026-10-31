@@ -285,7 +285,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-sm text-[length:24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-sm text-label font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -310,13 +310,13 @@ export default function VideoPage() {
             {resultUrl ? (
               <View className="flex gap-[16rpx] mt-[24rpx]">
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-sm border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-label rounded-sm border border-border bg-transparent text-muted-foreground"
                   onClick={onDownload}
                 >
                   {t('ai.video.download')}
                 </Button>
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-sm border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-label rounded-sm border border-border bg-transparent text-muted-foreground"
                   onClick={onShare}
                   openType="share"
                 >

@@ -10,7 +10,7 @@
 .aigc-list-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 48rpx;
+  padding-bottom: var(--spacing-2xl);
   box-sizing: border-box;
 }
 
@@ -20,16 +20,16 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 16rpx 20rpx;
+  padding: var(--spacing-sm) 20rpx;
 }
 .page-title {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 44rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
 .page-subtitle {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
@@ -42,12 +42,12 @@
 .category-inner {
   display: inline-flex;
   flex-wrap: nowrap;
-  gap: 16rpx;
-  padding: 16rpx 20rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 20rpx;
 }
 .category-chip {
   flex: none;
-  padding: 12rpx 28rpx;
+  padding: var(--spacing-xs-loose) 28rpx;
   border-radius: var(--radius-md);
   background: var(--color-card);
 }
@@ -70,13 +70,13 @@
 .media-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 24rpx;
+  gap: var(--spacing-md);
   padding: 0 24rpx;
 }
 .list-layout {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
   padding: 0 24rpx;
 }
 
@@ -121,7 +121,7 @@
   position: absolute;
   top: 16rpx;
   left: 16rpx;
-  padding: 8rpx 16rpx;
+  padding: var(--spacing-xs) 16rpx;
   border-radius: var(--radius-md);
   background: var(--color-scrim);
   z-index: 2;
@@ -131,7 +131,7 @@
   color: var(--color-surface-light);
 }
 .media-footer {
-  padding: 24rpx;
+  padding: var(--spacing-md);
 }
 .card-title {
   display: block;
@@ -149,7 +149,7 @@
   text-align: center;
 }
 .state-wrap.small {
-  padding: 32rpx 24rpx;
+  padding: var(--spacing-lg) 24rpx;
 }
 .state-text {
   color: var(--color-text-tertiary);
@@ -176,13 +176,13 @@
 .card-time {
   font-size: 22rpx;
   color: var(--color-text-tertiary);
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
   flex-shrink: 0;
 }
 /* 提示词(RN promptText:marginTop 8 fontSize 14 brand 色,单行) */
 .prompt-text {
   display: block;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 28rpx;
   color: var(--color-primary);
   overflow: hidden;
@@ -191,7 +191,7 @@
 }
 /* 正文(RN contentText:marginTop 8 fontSize 14 text.medium lineHeight 20,3 行截断) */
 .content-text {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 28rpx;
   color: var(--color-text-medium);
   line-height: 40rpx;
@@ -236,23 +236,23 @@
 }
 .audio-info {
   flex: 1;
-  margin-left: 24rpx;
+  margin-left: var(--spacing-md);
   overflow: hidden;
 }
 .audio-duration {
   display: block;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   font-size: 22rpx;
   color: var(--color-text-tertiary);
 }
 /* 播放按钮(RN audioPlayBtn:marginTop 8 padding 10/4 bg success.light;文字 brand 600;圆角按角色档 control→sm) */
 .audio-play-btn {
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   align-self: flex-start;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8rpx 20rpx;
+  padding: var(--spacing-xs) 20rpx;
   border-radius: var(--radius-sm);
   background: var(--color-success-light);
 }

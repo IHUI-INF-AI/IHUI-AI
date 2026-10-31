@@ -172,7 +172,7 @@ export default function MyStudy() {
                     <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
                   </View>
                   <View className="flex-1 ml-[16rpx] flex flex-col">
-                    <Text className="text-[length:32rpx] text-foreground font-bold leading-[1.4] overflow-hidden">
+                    <Text className="text-title text-foreground font-bold leading-[1.4] overflow-hidden">
                       {item.courseTitle || t('study.myStudy.courseFallback')}
                     </Text>
                     <View className="flex items-center mt-[16rpx]">

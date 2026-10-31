@@ -210,11 +210,11 @@ export default function RankingIndex() {
                     />
                   ) : null}
                   <View className="flex-1 ml-[20rpx] overflow-hidden flex flex-col gap-[16rpx]">
-                    <Text className="text-[length:32rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
+                    <Text className="text-title font-semibold text-foreground leading-[1.4] line-clamp-1">
                       {name || '-'}
                     </Text>
                     {desc ? (
-                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] leading-[1.5] line-clamp-2">
+                      <Text className="text-caption text-[var(--color-text-tertiary)] leading-[1.5] line-clamp-2">
                         {desc}
                       </Text>
                     ) : null}
