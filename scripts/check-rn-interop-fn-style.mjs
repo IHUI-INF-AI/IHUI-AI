@@ -24,7 +24,27 @@
  * 同一条:豁免/清单项若已不存在同样算红)。
  *
  * 判据 F1:JSX 属性 `style={({...}) => ...}` / `style={(x) => ...}` 落在注册表内的组件上。
- * 棘轮锚点 = **该文件在 HEAD 自身的 F1 数**(与 77/83/98/102/113 同族):存量只报数、新增才判红。
+ *
+ * 判据 F2(2026-10-31 补,机主实测定案):JSX 属性 `style=<调用>` 且**被调用名**命中
+ * 「已知返回函数形态 style 的 helper 名单」(FN_STYLE_HELPERS)时,同型判违规。立因:
+ *   F1 的正则只认**箭头字面量**(`style={(x) => ...}`),而函数形态完全可以是 helper 调用的
+ *   返回值 —— 本仓 `packages/ui-native/src/press-feedback.ts` 的 `pressFeedback(style)` 返回
+ *   `({pressed}) => [...]`,写成 `style={pressFeedback(...)}` 后 F1 全程失明,该形态一度铺到
+ *   249 处而门一路报绿。机制与 F1 同一条:RN 侧 JSX 经 `nativewind/babel`(实为
+ *   `react-native-css-interop/babel`)编译,importSource 被指到 `react-native-css-interop`,
+ *   `wrap-jsx` 对**每个** JSX 元素无条件 `interopComponents.get(type) ?? type`;
+ *   `cssInterop(Pressable, {className:'style'})` 经包内 `getNormalizeConfig` 得
+ *   `inlineProp='style'`,于是 `native-interop.js` 的收集**只看有没有传 style、与有没有
+ *   className 无关**:`collectInlineRules` 把未登记的函数值 push 进 normal,`applyRules` 的
+ *   非数组分支执行 `assignToTarget(props, { ...declaration })`,而 `{ ...函数 }` === `{}` ⇒
+ *   **该元素整份内联样式消失,布局退回默认**。正解 = `packages/ui-native/src/tappable.tsx`
+ *   (pressed 态由组件内部 useState 持有,交给原生 Pressable 的是数组形态)。
+ * 认 helper 的代价是**名单会腐烂**:名单外的新 helper 返回函数形态仍然逃逸,名单里的 helper
+ * 被删掉后条目又变成死射程。所以名单必须是**显式登记的数据**(不是写死在正则里的一次性
+ * 字符串)、可被点名,且名单为空/非法时 F2 落「未判定」而不是静默当作"没有这类 helper"。
+ * 新增成员的前置 = 先证明该调用确实返回函数形态 style(与 F1 同一机制),不得顺手加宽。
+ *
+ * 棘轮锚点 = **该文件在 HEAD 自身的 F1 数 / F2 数**(与 77/83/98/102/113 同族):存量只报数、新增才判红。
  * 这一型存量有 119 处 / 59 文件(2026-09-26 实测),当场判红就是一台与任何提交都无关的恒红门,
  * 唯一结局是逼人绕过钩子、连带废掉全部守门(§12e 那条本仓最高反面教训)。
  * 行内出口:`interop-style-exempt: <一句话原因>`(须带原因;已登记进守门 108 存活期表,30 天)。
@@ -78,6 +98,19 @@ const FALLBACK_REGISTRY = [
   'TouchableWithoutFeedback',
   'View',
 ]
+
+/**
+ * F2 的输入 —— 「已知返回函数形态 style 的 helper」名单(**数据,不是正则**)。
+ *
+ * 这条名单存在的原因:F1 只认箭头字面量 `style={(x) => ...}`,而 `style={pressFeedback(...)}`
+ * 这种 **helper 调用产出函数形态**的写法对 F1 完全隐形(实测曾铺到 249 处而门一路报绿)。
+ * 机制面与 F1 同一条 cssInterop 吃掉链(见头注 F2 段)。
+ * 新增成员的前置 = 先证明该调用确实返回函数形态 style;删除成员的前置 = 该 helper 已不在仓里
+ * 且不会再回来。名单为空/非法 ⇒ F2 判「未判定」并点名,绝不静默读成"没有这类 helper"(§0.3)。
+ * `pressFeedback` 即便 helper 本体被撤除也要**留在名单里** —— 防的是"造个新调用名回来"之外,
+ * 更防"同名复活"(它正是那个把整仓带进 249 处的名字)。
+ */
+const FN_STYLE_HELPERS = ['pressFeedback']
 
 /** 现读 interop 注册表:从包的 components.js 里抽注册语句的组件名。
  *
@@ -147,15 +180,64 @@ export function findFnStyleHits(text, registry) {
       (i > 0 && COMMENT_LINE.test(raw[i - 1]) && EXEMPT.test(raw[i - 1]))
     )
       continue
-    const before = code.slice(Math.max(0, i - 14), i + 1).join('\n')
-    const tags = [...before.matchAll(/<([A-Z][\w$]*)[\s\n/>]/g)].map((x) => x[1])
-    const tag = tags.length ? tags[tags.length - 1] : null
+    const tag = latestJsxTagBefore(code, i)
     if (!tag) {
       undetermined.push({ line: i + 1, reason: '回溯不到 JSX 开标签(不猜,只报数)' })
       continue
     }
     if (!registry.has(tag)) continue // 自定义组件收函数形态是它自己的契约,不算这一型
     hits.push({ line: i + 1, tag, text: line.trim().slice(0, 120) })
+  }
+  return { hits, undetermined }
+}
+
+/**
+ * 归属做法(F1/F2 共用,单份实现):命中处**向前回溯**最近的一个 JSX 开标签 `<Tag`。
+ * 与 F1 原样一致:回溯而不是全文配对(只需"离得最近的那个标签"),遮罩面保行号。
+ */
+function latestJsxTagBefore(codeLines, i) {
+  const before = codeLines.slice(Math.max(0, i - 14), i + 1).join('\n')
+  const tags = [...before.matchAll(/<([A-Z][\w$]*)[\s\n/>]/g)].map((x) => x[1])
+  return tags.length ? tags[tags.length - 1] : null
+}
+
+/**
+ * F2:找 `style={<名单内 helper>(...)}` 落在注册表内组件上的站点。
+ * 只看**被调用名**(点链取末段)是否命中名单 ⇒ `style={pressFeedback(styles.row)}`、
+ * `style={ns.pressFeedback(...)}` 都算;`style={[a, b]}` / `style={styles.a}` /
+ * `style={someOtherHelper(x)}` 都不算。箭头字面量归 F1 管,两档互不重复计。
+ * 名单为空/非法 ⇒ 整档落「未判定」,不静默放行(§0.3)。归属与豁免口径与 F1 完全同源。
+ */
+export function findHelperFnStyleHits(text, registry, helpers) {
+  const hits = []
+  const undetermined = []
+  if (typeof text !== 'string') return { hits, undetermined: [{ reason: '内容取不到' }] }
+  if (!Array.isArray(helpers) || helpers.length === 0)
+    return {
+      hits,
+      undetermined: [{ reason: 'F2 helper 名单为空/非法 ⇒ 不得静默当作"没有这类 helper"' }],
+    }
+  const raw = text.split('\n')
+  const code = maskCommentsAndStrings(text).split('\n')
+  const RE = /\bstyle=\{\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(/
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i]
+    const m = RE.exec(code[i] ?? '')
+    if (!m) continue
+    const callee = m[1].split('.').pop()
+    if (!helpers.includes(callee)) continue
+    if (
+      EXEMPT.test(line) ||
+      (i > 0 && COMMENT_LINE.test(raw[i - 1]) && EXEMPT.test(raw[i - 1]))
+    )
+      continue
+    const tag = latestJsxTagBefore(code, i)
+    if (!tag) {
+      undetermined.push({ line: i + 1, reason: 'F2 回溯不到 JSX 开标签(不猜,只报数)' })
+      continue
+    }
+    if (!registry.has(tag)) continue // 同 F1:非 interop 注册组件收函数形态是其自身契约
+    hits.push({ line: i + 1, tag, callee, text: line.trim().slice(0, 120) })
   }
   return { hits, undetermined }
 }
@@ -201,8 +283,14 @@ export function analyze(face) {
   const contents = readFace(files, face)
   const counts = new Map()
   const headCounts = new Map()
+  const f2Counts = new Map()
+  const f2HeadCounts = new Map()
   const undetermined = []
   const detail = []
+  const detailF2 = []
+  // 名单为空/非法 ⇒ 整档一次「未判定」点名(逐文件调只会刷几百条同因噪声)
+  const helpersUsable = Array.isArray(FN_STYLE_HELPERS) && FN_STYLE_HELPERS.length > 0
+  if (!helpersUsable) undetermined.push({ file: '(全局)', reason: 'F2 helper 名单为空/非法 ⇒ 本档未判定' })
   for (const f of files) {
     const text = contents.get(f)
     if (typeof text !== 'string') {
@@ -215,23 +303,39 @@ export function analyze(face) {
       counts.set(f, hits.length)
       for (const h of hits) detail.push({ file: f, ...h })
     }
+    if (helpersUsable) {
+      const h2 = findHelperFnStyleHits(text, registry, FN_STYLE_HELPERS)
+      for (const x of h2.undetermined) undetermined.push({ file: f, ...x })
+      if (h2.hits.length) {
+        f2Counts.set(f, h2.hits.length)
+        for (const h of h2.hits) detailF2.push({ file: f, ...h })
+      }
+    }
   }
   // 棘轮锚点:同一批文件在 **HEAD** 自身的数量。判 head 面时两者同一次读数 ⇒ 存量恒等于本轮,
-  // 这正是"全量档只报数"的语义;判 staged 面时才真读到上一枚提交。
+  // 这正是"全量档只报数"的语义;判 staged 面时才真读到上一枚提交。F2 同一条锚点口径。
   if (face === 'head') {
     for (const [f, n] of counts) headCounts.set(f, n)
+    for (const [f, n] of f2Counts) f2HeadCounts.set(f, n)
   } else {
     const headMap = readFace(files, 'head')
     for (const f of files) {
       const t = headMap.get(f)
       if (typeof t !== 'string') continue
       headCounts.set(f, findFnStyleHits(t, registry).hits.length)
+      if (helpersUsable)
+        f2HeadCounts.set(f, findHelperFnStyleHits(t, registry, FN_STYLE_HELPERS).hits.length)
     }
   }
   const red = []
   for (const [f, n] of [...counts].sort()) {
     const cap = headCounts.get(f) ?? 0
     if (n > cap) red.push({ file: f, n, cap })
+  }
+  const redF2 = []
+  for (const [f, n] of [...f2Counts].sort()) {
+    const cap = f2HeadCounts.get(f) ?? 0
+    if (n > cap) redF2.push({ file: f, n, cap })
   }
   /**
    * 空扫不得记绿:`head` 面枚举到 0 个候选文件,只可能是枚举/锚点坏了(仓库根错位、
@@ -253,11 +357,23 @@ export function analyze(face) {
     filesWithHits: counts.size,
     red,
     emptyScan,
+    // F2(与 F1 并列的差值棘轮档,独立计数;存量数字一律现读,不写死进任何文案)
+    helperListSize: helpersUsable ? FN_STYLE_HELPERS.length : 0,
+    stockF2: detailF2.filter((d) => !redF2.some((r) => r.file === d.file)),
+    totalF2: detailF2.length,
+    filesWithHitsF2: f2Counts.size,
+    redF2,
     // 注册表读不到**不影响退出码**:那是机器态(没装依赖 / 干净检出 / CI 未 install),
     // 提交者结构上满足不了 ⇒ 判红就是一台恒红门,唯一结局是逼人绕过钩子连带废掉全部守门
     // (守门 104/110 同一取向)。此时按内置清单判并在报告里点名"注册表未对账"。
-    // 只有"枚举说该文件在、内容却取不到"或"head 面空扫"才是真的无法判定 ⇒ exit 2。
-    exit: unreadable.length || emptyScan ? 2 : red.length || rot.length ? 1 : 0,
+    // 只有"枚举说该文件在、内容却取不到"、"head 面空扫"或"F2 名单为空/非法"才是真的无法判定
+    // ⇒ exit 2 —— 名单没了就是"没判",不得记绿也不得冒红(§0.3)。
+    exit:
+      unreadable.length || emptyScan || !helpersUsable
+        ? 2
+        : red.length || redF2.length || rot.length
+          ? 1
+          : 0,
   }
 }
 
@@ -366,6 +482,121 @@ function runSelfTest() {
       return !r || FALLBACK_REGISTRY.every((n) => r.has(n))
     })(),
   )
+  /**
+   * F2 —— helper 调用型函数形态 style(名单驱动)。正反成对,缺一例就是"遮罩/名单把判据关掉"。
+   */
+  const H = ['pressFeedback']
+  ok(
+    'F2 命中:注册组件 + style={pressFeedback(...)}(F1 正则对此形态全盲)',
+    findHelperFnStyleHits('<Pressable style={pressFeedback(styles.card)} />', REG, H).hits.length === 1,
+  )
+  ok(
+    'F2 命中:点链调用取末段比对名单',
+    findHelperFnStyleHits('<View style={ui.pressFeedback(styles.card)} />', REG, H).hits.length === 1,
+  )
+  ok(
+    'F2 放过:数组形态(interop 对数组逐元素合并,值保留)',
+    findHelperFnStyleHits('<Pressable style={[styles.a, styles.b]} />', REG, H).hits.length === 0,
+  )
+  ok(
+    'F2 放过:StyleSheet.create 结果的对象引用',
+    findHelperFnStyleHits('<Pressable style={styles.a} />', REG, H).hits.length === 0,
+  )
+  ok(
+    'F2 放过:名单外的调用(未知 helper 须先证明返回函数形态再入名单)',
+    findHelperFnStyleHits('<Pressable style={someOtherHelper(x)} />', REG, H).hits.length === 0,
+  )
+  ok(
+    'F2 放过:带原因的行内豁免(与 F1 同一豁免族)',
+    findHelperFnStyleHits(
+      '<Pressable style={pressFeedback(styles.card)} /> // interop-style-exempt: 该处不经 cssInterop',
+      REG,
+      H,
+    ).hits.length === 0,
+  )
+  ok(
+    'F2 放过:裸标记不带原因不得放行(同 F1 的收紧)',
+    findHelperFnStyleHits(
+      '<Pressable style={pressFeedback(styles.card)} // interop-style-exempt:\n/>',
+      REG,
+      H,
+    ).hits.length === 1,
+  )
+  ok(
+    'F2 放过:关键反向例 <Tappable style={styles.a} />(Tappable 的 style 只收对象/数组,pressed 态自持)',
+    findHelperFnStyleHits('<Tappable style={styles.a} />', REG, H).hits.length === 0,
+  )
+  ok(
+    'F2 非注册组件放过:函数形态落在自定义组件上是其自身契约(与 F1 同一条归属口径)',
+    findHelperFnStyleHits('<MyCard style={pressFeedback(styles.card)} />', REG, H).hits.length === 0,
+  )
+  ok(
+    'F2 注释里提及该形态不得计入(判据不能把自己写的说明读成违规)',
+    findHelperFnStyleHits(
+      '<Pressable>\n  {/* 早先这里写 style={pressFeedback(styles.row)},整份样式没了 */}\n  <View style={[styles.a]} />\n</Pressable>',
+      REG,
+      H,
+    ).hits.length === 0,
+  )
+  ok(
+    'F2 阳性对照:同一形态换成真代码必须命中',
+    findHelperFnStyleHits(
+      '<Pressable>\n  <View style={pressFeedback(styles.a)} />\n</Pressable>',
+      REG,
+      H,
+    ).hits.length === 1,
+  )
+  ok(
+    'F2 名单为空/非法 ⇒ 未判定点名,绝不静默当作"没有这类 helper"(§0.3)',
+    (() => {
+      const r = findHelperFnStyleHits('<Pressable style={pressFeedback(a)} />', REG, [])
+      const r2 = findHelperFnStyleHits('<Pressable style={pressFeedback(a)} />', REG, null)
+      return (
+        r.hits.length === 0 && r.undetermined.length === 1 && r2.undetermined[0].reason.includes('名单')
+      )
+    })(),
+  )
+  ok(
+    'F2 名单必须是显式登记的数据且首枚为 pressFeedback(撤除后也不得摘 —— 防同名复活)',
+    Array.isArray(FN_STYLE_HELPERS) &&
+      FN_STYLE_HELPERS.length > 0 &&
+      FN_STYLE_HELPERS.every((n) => typeof n === 'string' && n) &&
+      FN_STYLE_HELPERS.includes('pressFeedback'),
+  )
+  ok(
+    'F2 回溯不到开标签 ⇒ 计未判定(与 F1 同一条"看不见归属不静默丢命中")',
+    (() => {
+      const r = findHelperFnStyleHits('  style={pressFeedback(a)}', REG, H)
+      return r.hits.length === 0 && r.undetermined.length === 1
+    })(),
+  )
+  ok(
+    'F2 与 F1 互不重复计:箭头字面量不被 F2 抓、helper 调用不被 F1 抓',
+    (() => {
+      const arrow = '<Pressable style={({ pressed }) => [a, pressed && b]} />'
+      const call = '<Pressable style={pressFeedback(a)} />'
+      return (
+        findHelperFnStyleHits(arrow, REG, H).hits.length === 0 &&
+        findFnStyleHits(arrow, REG).hits.length === 1 &&
+        findHelperFnStyleHits(call, REG, H).hits.length === 1 &&
+        findFnStyleHits(call, REG).hits.length === 0
+      )
+    })(),
+  )
+  ok(
+    'F2 装车证明:analyze(head) 真把 F2 接入读数(redF2/totalF2/helperListSize 齐备,head 面棘轮自锚必无红;存量多少不写死 —— 清偿到 0 后本例仍须绿)',
+    (() => {
+      const r = analyze('head')
+      return (
+        Array.isArray(r.redF2) &&
+        r.redF2.length === 0 &&
+        Number.isFinite(r.totalF2) &&
+        r.totalF2 >= 0 &&
+        r.helperListSize === FN_STYLE_HELPERS.length &&
+        r.exit !== 1
+      )
+    })(),
+  )
   console.log(`--self-test: ${fail === 0 ? '全部通过' : `${fail} 条失败`}`)
   return fail
 }
@@ -424,6 +655,23 @@ function main() {
       `✅ F1 无新增。存量 ${r.total} 处 / ${r.filesWithHits} 文件按"HEAD 自身存量"棘轮只报数(清偿进度看这一行,别引用文档里的旧数)`,
     )
   }
+  if (r.helperListSize === 0)
+    console.log(
+      '❌ 未判定:F2 helper 名单(FN_STYLE_HELPERS)为空/非法 —— 不得静默当作"没有这类 helper"(§0.3)',
+    )
+  if (r.redF2.length) {
+    console.log(`❌ F2 新增(超出该文件 HEAD 自身存量)${r.redF2.length} 个文件:`)
+    for (const x of r.redF2)
+      console.log(`   ${x.file} 现 ${x.n} 处 > HEAD ${x.cap} 处(helper 调用产函数形态 style)`)
+    console.log(
+      `   出路:按压反馈改用 Tappable(packages/ui-native/src/tappable.tsx,pressed 态内部持有、` +
+        `交数组形态);确属例外写 \`interop-style-exempt: <原因>\`(与 F1 同一豁免族,守门 108 已登记)。`,
+    )
+  } else if (r.helperListSize > 0) {
+    console.log(
+      `✅ F2 无新增。存量 ${r.totalF2} 处 / ${r.filesWithHitsF2} 文件按"HEAD 自身存量"棘轮只报数;名单 ${r.helperListSize} 个 helper(名单现读自门体 FN_STYLE_HELPERS)`,
+    )
+  }
   console.log(`提示:本门射程 = ${STAGED_TRIGGER_HINT} 的 .tsx/.ts`)
   process.exitCode = r.exit
 }
@@ -436,6 +684,8 @@ if (
 
 export const __test__ = {
   findFnStyleHits,
+  findHelperFnStyleHits,
+  FN_STYLE_HELPERS,
   maskCommentsAndStrings,
   deriveInteropRegistry,
   readInteropSource,

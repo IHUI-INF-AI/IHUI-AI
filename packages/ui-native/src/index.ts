@@ -4,8 +4,8 @@
 
 // 按压反馈唯一口:pressed 态**必须**由组件内部持有 —— cssInterop 会把注册表组件(含 Pressable)的
 // 函数形态 style 换成 `{}`(守门 131 真机定案),所以 `style={fn}` 这一路连原样式一起丢。
+// 旧出口 pressFeedback 已整仓撤除并删除:它返回函数,属那一型;不要加回来。
 export { Tappable } from './tappable'
-export { pressFeedback } from './press-feedback'
 
 export { Button, buttonVariants, type ButtonProps } from './button'
 export { Input, type InputProps } from './input'
