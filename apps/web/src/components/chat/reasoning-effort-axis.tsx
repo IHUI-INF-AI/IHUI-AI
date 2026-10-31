@@ -58,6 +58,8 @@ const LABEL_KEY = {
   low: 'reasoningEffortLow',
   medium: 'reasoningEffortMedium',
   high: 'reasoningEffortHigh',
+  xhigh: 'reasoningEffortXhigh',
+  max: 'reasoningEffortMax',
 } as const satisfies Record<ReasoningEffort, string>
 
 export function ReasoningEffortAxis({
@@ -79,7 +81,11 @@ export function ReasoningEffortAxis({
     >
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">{t('reasoningEffortLabel')}</span>
-        <div className="flex items-center gap-1" role="radiogroup" aria-label={t('reasoningEffortLabel')}>
+        <div
+          className="flex items-center gap-1"
+          role="radiogroup"
+          aria-label={t('reasoningEffortLabel')}
+        >
           {REASONING_EFFORT_ORDER.map((effort) => {
             const active = value === effort
             const blocked = !selectable
