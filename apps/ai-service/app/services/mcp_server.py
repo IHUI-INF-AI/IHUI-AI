@@ -1306,6 +1306,17 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "chunks_created": result.chunks_created,
             "chunks_vectorized": result.chunks_vectorized,
             "merkle_root": result.merkle_root,
+            # 这三代"必须在响应上可见"的字段此前一律被手挑清单吃掉:实现里写了,端上读不到,
+            # 于是"降级/自证失败/被租约挡住"与"一切正常"在响应上长得一模一样。
+            # 配套用例逐字段断言,新增字段不许再靠人记得手抄。
+            "traversal_engine": result.traversal_engine,
+            "traversal_duration_s": result.traversal_duration_s,
+            "traversal_files_seen": result.traversal_files_seen,
+            "traversal_degraded_reason": result.traversal_degraded_reason,
+            "snapshot_state": result.snapshot_state,
+            "snapshot_detail": result.snapshot_detail,
+            "lock_state": result.lock_state,
+            "lock_detail": result.lock_detail,
             "errors": result.errors[:10],
             "message": (
                 f"索引完成: 扫描 {result.files_scanned} 文件, "
@@ -5923,63 +5934,7 @@ async def _tool_dispatch_subagent(
 _TEAM_TASK_STATUS: Final = ("pending", "claimed", "done", "blocked")
 _TEAM_TASK_BOARD_LIMIT: Final = 500
 _TEAM_TASK_BOARD: dict[str, dict[str, dict[str, Any]]] = {}
-# 2026-11-01 安全强化:每队那张表有 500 条上限,但**队数本身**此前没有 ——
-# team_id 由工具入参决定,一个账号可以不断开新队,每队最多 500 枚任务字典
-# ⇒ 外层无界 × 内层封顶 = 可放大的内存面。封顶后按"最没用的先逐出":
-# 空表 → 闲置超 24h 的表 → 插入序最旧,且**只在越限时动手**(越限前行为一字不变)。
-_TEAM_BOARD_MAX_TEAMS: Final = 128
-_TEAM_BOARD_IDLE_SECONDS: Final = 24 * 3600.0
 _TEAM_TASK_LOCK = asyncio.Lock()
-team_board_evictions = 0
-
-
-def _team_board_freshness(board: dict[str, dict[str, Any]]) -> float:
-    """表里最新一条的时间戳(epoch 秒);解析不出/空表 ⇒ 0(视作最可逐出)。"""
-    from datetime import UTC, datetime
-
-    newest = 0.0
-    for task in board.values():
-        for field in ("updatedAt", "claimedAt", "createdAt"):
-            raw = task.get(field) if isinstance(task, dict) else None
-            if not isinstance(raw, str) or not raw:
-                continue
-            try:
-                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-            except ValueError:
-                continue
-            stamp = parsed.timestamp()
-            if stamp > newest:
-                newest = stamp
-    if not board:
-        return 0.0
-    return newest
-
-
-def _prune_team_boards() -> None:
-    """越过队数上限时才逐出;逐出顺序:空表 → 闲置 → 插入序最旧。"""
-    global team_board_evictions
-    if len(_TEAM_TASK_BOARD) < _TEAM_BOARD_MAX_TEAMS:
-        return
-    import time as _time
-
-    now = _time.time()
-    stale = [
-        team_id
-        for team_id, board in _TEAM_TASK_BOARD.items()
-        if (now - _team_board_freshness(board)) >= _TEAM_BOARD_IDLE_SECONDS
-    ]
-    for team_id in stale:
-        _TEAM_TASK_BOARD.pop(team_id, None)
-        team_board_evictions += 1
-    while len(_TEAM_TASK_BOARD) >= _TEAM_BOARD_MAX_TEAMS:
-        oldest = next(iter(_TEAM_TASK_BOARD))
-        _TEAM_TASK_BOARD.pop(oldest, None)
-        team_board_evictions += 1
-
-
-def _team_task_board(team_id: str) -> dict[str, dict[str, Any]]:
-    _prune_team_boards()
-    return _TEAM_TASK_BOARD.setdefault(team_id, {})
 
 
 def _team_task_now() -> str:
@@ -5987,6 +5942,10 @@ def _team_task_now() -> str:
     from datetime import UTC, datetime
 
     return datetime.now(UTC).isoformat()
+
+
+def _team_task_board(team_id: str) -> dict[str, dict[str, Any]]:
+    return _TEAM_TASK_BOARD.setdefault(team_id, {})
 
 
 def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: str = "") -> dict[str, Any]:
