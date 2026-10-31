@@ -15,7 +15,7 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { readCliPackage } from '../util/pkg-version.js'
@@ -71,7 +71,6 @@ export function projectIdOf(root: string | null): string | null {
 /** 读 CLI 版本号;任何形态异常(vitest 变换 / SEA / 打包缺失)一律记 null,不拖垮启动。 */
 function safeCliVersion(): string | null {
   try {
-    // readCliPackage 需要 import.meta.url 定位包(与 crash-handler/index 同用法)
     return readCliPackage(import.meta.url)?.version ?? null
   } catch {
     return null
@@ -116,11 +115,12 @@ export function writeRunManifest(options: RunManifestOptions = {}): { dir: strin
     const dir = join(root, manifest.runId)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-    writeFileSync(
-      join(root, 'latest.json'),
-      `${JSON.stringify({ runId: manifest.runId, dir, startedAt: manifest.startedAt }, null, 2)}\n`,
-      'utf8',
-    )
+    // latest 用「临时文件 + rename」落盘:并发两个 CLI 进程同时启动时,直接覆写
+    // 会让读者读到半截 JSON(rename 在同卷上是原子的)。临时名带 pid,互不踩。
+    const latest = join(root, 'latest.json')
+    const tmp = `${latest}.${process.pid}.tmp`
+    writeFileSync(tmp, `${JSON.stringify({ runId: manifest.runId, dir, startedAt: manifest.startedAt }, null, 2)}\n`, 'utf8')
+    renameSync(tmp, latest)
     return { dir, manifest }
   } catch {
     return null
