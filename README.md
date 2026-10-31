@@ -3759,6 +3759,39 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   审批指纹覆盖的是「批准陈旧」不是「感知陈旧」,两者不互相抵充。对侧 `set_value`/`perform_secondary_action` 属 UIA 写值、
   非 enigo 原语,亦未做。
 - **口径纪律**:本节不得写成「Qoder 没有审批门」——原生件内 0 命中是观察,「门住宿主侧」是推断,详见 T8 册同一处更正(枚另有其号)。
+#### 32. 插件自动更新判据层 `checkUpdates` / `planUpdate`(验不过就不落·对齐 Qoder autoUpdate)(2026-11-01,所属端 cli)
+> 缺口矩阵 G-22 的残腿(主腿已在 `defaults.ts:50-51` 显式登记两档默认态)。对照物 = Qoder 装机的
+> `installed_plugins_v2.json` + `marketplaces/` + 同一插件多版本并存(`archives/<插件>/<sha256>.zip`,实测**文件名==该 zip 自身 sha256**)。
+- **能力**:`apps/cli/src/plugins/update-plan.ts` 出两份报告 —— 哪些插件有更新(`up-to-date / available / unjudged` 三态)、
+  以及**只出计划不落盘**的更新方案;出口 `plugin-updates` 命令(`commands/plugin-updates.ts`)。
+- **使用方式**:`ihui-cli plugin-updates --check` / `--plan`;退出码 `0 全绿 / 1 有 refused 或 available 未落 / 2 任何未判定`;
+  **默认零副作用**,`--apply` 明确未做(要接 safe-commit 五步法与 git 写锁,另票)。
+- **供应链判据(超越对照之处)**:①**验不过就不落** —— 落地前必须用门 277 的逐文件完整性判据验暂存副本,
+  混入未登记文件 ⇒ `staged-integrity-fail`、改字节 ⇒ `mismatch`,原目录逐字节不动;②**本地脏就停** ⇒ `local-drift-defers`
+  且暂存调用数为 0(绝不覆盖用户本地改动);③**取不到不冒充** ⇒ 市场未登记/远端不可达/无 commit pin 一律 `unjudged`,
+  `upToDate` 恒 0;④**一次只进一步** ⇒ `merge-base` 距离分档,跳两枚即 `not-direct-successor` 拒绝。
+- **判据单源纪律**:比对只用门 `scripts/check-plugin-manifest-integrity.mjs` 的 `judgeRecord`(运行时校验,
+  门不在手边即 `integrity-gate-unavailable` 而**绝不回落第二份 hash**),哈希只用写侧 `collectInstallFileDigests`;
+  形状锁同时钉住 src 与测试两侧不得出现 `createHash`/`node:crypto`/`sha256Hex`/`judge(`。
+- **守门**:`apps/cli/tests/plugin-update-plan.test.ts` 23 例(含"原目录快照逐字等值""stagerCalls==0"这类**副作用没发生**的断言),
+  `pnpm turbo typecheck --filter=ihui-cli --force` 8/8;邻档插件回归 176/176。
+- **口径纪律**:不得写成「Qoder 没有完整性校验」——它是否校验未取证到,标 [未知];本节说的是本仓多做出来的四道判据。
+
+#### 33. 安全扫描接进 hooks 两腿(编辑后告警 + 收场聚合审查·对齐 Qoder security-scan)(2026-11-01,所属端 cli)
+> 缺口矩阵 G-12。真缺口不是"缺扫描器",而是**判据住在 475 行命令壳里出不去**(`commands/security.ts` 当时只导出
+> `registerSecurityCommand`),任何内部调用方都用不上 ⇒ 先搬家再接线。
+- **能力**:`apps/cli/src/security/secret-scan.ts`(进程内 pattern 判据本体 `SECRET_SCAN_PATTERNS`)与
+  `audit-guards.ts`(自命令壳逐字节搬家的 5 枚类型守卫 + 3 枚校验);命令壳降到 319 行只留呈现面。
+- **使用方式**:无需新命令 —— 接进既有 hooks 事件面:编辑腿 `postToolCall`(命中 `Edit`/`Write`)出告警、
+  收场腿 `stop` 对整轮改动做聚合审查;钩子在 `apps/cli/src/hooks/index.ts` 两处派发。
+- **三条硬边界(超越轴)**:①**不外发用户代码**(对照侧深扫走远端,本仓刻意不做,把用户代码送出仓是新增数据出口);
+  ②**未判定不冒绿** —— 缺输入落 `undetermined` 并点名 `missing` + `not-judged-safe`,配有反向牙(改判成"安全"必翻红);
+  ③**守卫失败不伤用户动作** —— 扫描器自炸时 `proceed` 恒真,绝不因守卫问题拦人干活(§12e 同源的失效方向)。
+- **守门**:`apps/cli/tests/security-scan-hooks.test.ts` 15/15;`ihui-cli` typecheck 8/8;门 95 全部通过;
+  同批收掉本条线上一枚既有红(`hooks-trust-command` 4 例自 `0e3ad01c29` 起 mock 缺 `TRUSTED_FOLDERS_PATH` 导出)⇒ 现 8/8。
+- **如实边界**:云端 L2/L4 深度审查与 settings 开关刻意不做;`additionalContext` 并入模型输入的下游消费腿在 `agent.ts`
+  (取证时登记的边界,不在本格射程);对方 `qoder-hooks.json` 的 `Stop` 实为**空数组**(深扫挂 `PostToolUse` 的 `git push`),
+  即收场这一层本仓反而更完整。
 ### 🔍 全部细节能力功能清单(2026-07-31 Glob/Grep 实测)
 > 本节罗列 IHUI-AI 所有细节能力功能,供 AI 引擎深度索引和开发者逐项核对。每个数字均通过 Glob/Grep 实测验证。
 #### AI 对话与多模态生成(176 模型 + 18 Provider + 6 种生成)
