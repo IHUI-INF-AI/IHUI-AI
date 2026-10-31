@@ -13,7 +13,9 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const errorsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  level: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  // 参数名与库列真名一致(severity)。旧名 level 是前端自造的词(库里没有 level 列),
+  // 前后端各叫各的 ⇒ 筛选器看着在、请求打过去后端不认。2026-10-31 统一成 severity。
+  severity: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
   status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
 })
 
@@ -49,16 +51,16 @@ export const adminErrorDashboardRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // GET /error-dashboard/errors — 错误列表（支持 level/status 筛选）
+  // GET /error-dashboard/errors — 错误列表（支持 severity/status 筛选）
   server.get('/error-dashboard/errors', async (request, reply) => {
     const parsed = errorsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { page, pageSize, level, status } = parsed.data
+    const { page, pageSize, severity, status } = parsed.data
     const offset = (page - 1) * pageSize
     const conditions = []
-    if (level) conditions.push(eq(monitorAlerts.severity, level))
+    if (severity) conditions.push(eq(monitorAlerts.severity, severity))
     if (status) conditions.push(eq(monitorAlerts.status, status))
 
     const where = conditions.length > 0 ? and(...conditions) : undefined
