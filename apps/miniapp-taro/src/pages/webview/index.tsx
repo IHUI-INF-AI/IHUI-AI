@@ -10,6 +10,7 @@ import {
   setNavigationBarTitle,
   getStorageSync,
   reLaunch,
+  setClipboardData,
   showToast,
 } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -25,6 +26,7 @@ import {
 } from '@/utils/sso'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { isTrustedWebviewUrl } from '@/utils/webview-trust'
 
 /** 导航到 webview 页面并加载指定 URL(title 可选:带上后导航栏显示功能名而非空白) */
 export function navigateToWebView(url: string, title?: string): void {
@@ -55,16 +57,25 @@ export default function WebviewIndex() {
     // URL 参数处理(对标原项目 decodeURIComponent + 额外参数追加)
     if (params.url) {
       const decodedUrl = safeDecodeURIComponent(params.url)
-
-      // 追加除 url/title 外的其他参数到 URL query string
-      const h5Params: Record<string, string | undefined> = { ...params }
-      delete h5Params.url
-      delete h5Params.title
-      const paramString = Object.entries(h5Params)
-        .map(([k, v]) => `${k}=${encodeURIComponent(v ?? '')}`)
-        .join('&')
-      const separator = decodedUrl.includes('?') ? '&' : '?'
-      setUrl(paramString ? `${decodedUrl}${separator}${paramString}` : decodedUrl)
+      // 应用层 WebView 信任校验(纵深):仅 https 且 host 在受信白名单内才加载,
+      // 防深链把 WebView 引到白名单域外任意页(微信业务域名白名单之外的逃逸面)。
+      if (!isTrustedWebviewUrl(decodedUrl)) {
+        // 安全不回退:应用内不加载;保留可达性 —— 复制链接,由用户在自己浏览器打开。
+        console.warn('webview 拒绝加载非信任 URL,已改为复制链接:', decodedUrl)
+        void setClipboardData({ data: decodedUrl })
+          .then(() => showToast({ title: t('webview.untrustedCopied'), icon: 'none' }))
+          .catch(() => showToast({ title: t('webview.untrusted'), icon: 'none' }))
+      } else {
+        // 追加除 url/title 外的其他参数到 URL query string
+        const h5Params: Record<string, string | undefined> = { ...params }
+        delete h5Params.url
+        delete h5Params.title
+        const paramString = Object.entries(h5Params)
+          .map(([k, v]) => `${k}=${encodeURIComponent(v ?? '')}`)
+          .join('&')
+        const separator = decodedUrl.includes('?') ? '&' : '?'
+        setUrl(paramString ? `${decodedUrl}${separator}${paramString}` : decodedUrl)
+      }
     } else {
       console.warn('未接收到有效的URL参数')
     }

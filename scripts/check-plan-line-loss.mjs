@@ -124,6 +124,7 @@ import {
   malformedLine,
   MALFORMED_ID_RE,
   stripSidecarHeader,
+  compositeKeyOf,
 } from './lib/plan-task-index.mjs'
 
 const GIT_TIMEOUT = 60000
@@ -2335,7 +2336,7 @@ export function idExistsOnFace(targetSrc, id) {
 }
 
 
-export function healContent(targetSrc, missing) {
+export function healContent(targetSrc, missing, declared = null) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
   /**
@@ -2353,8 +2354,36 @@ export function healContent(targetSrc, missing) {
    * 插回一行 = 替台账长出一份重复登记(§1「一个编号只能有一行当前状态」),比少插一行更响。
    */
   const collectedCorpusForHeal = driftCollectedCorpus(targetSrc)
+  // 声明摘除刹车(2026-11-01):回捞侧此前只做幂等守卫,不看摘除台账 ⇒
+  // "正当摘行 → 门 71 判丢 → 自动回捞 → 再摘"无限循环(本轮 Z-1/RP-79 四行 48 秒内被捞回)。
+  // 判据与检测侧同源(declaredRows 的复合主键索引 + 整行集):主键曾在台账里 = 这件事已被
+  // 主动处置,不再插回。方向=宁可少插一行(上层点名 skippedDeclared),绝不把已声明删除的
+  // 行再变成开放登记。
+  const declaredRowSetLocal =
+    declared instanceof Set ? declared : declared && declared.set instanceof Set ? declared.set : null
+  const declaredKeyIndex =
+    declared && typeof declared === 'object' && declared.keyIndex instanceof Map
+      ? declared.keyIndex
+      : null
+  let skippedDeclared = 0
+  const candidatesDeclared = candidates0.filter((e) => {
+    if (typeof e.line === 'string') {
+      if (declaredRowSetLocal && declaredRowSetLocal.has(e.line)) {
+        skippedDeclared += 1
+        return false
+      }
+      if (declaredKeyIndex) {
+        const ck = compositeKeyOf(e.line)
+        if (ck && declaredKeyIndex.has(ck)) {
+          skippedDeclared += 1
+          return false
+        }
+      }
+    }
+    return true
+  })
   let skippedCollected = 0
-  const candidates = candidates0.filter((e) => {
+  const candidates = candidatesDeclared.filter((e) => {
     if (collectedInDriftComment(e, collectedCorpusForHeal).matched) {
       skippedCollected += 1
       return false
@@ -2398,7 +2427,7 @@ export function healContent(targetSrc, missing) {
       appended += 1
     }
   }
-  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId, skippedCollected }
+  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId, skippedCollected, skippedDeclared }
 }
 
 /**
@@ -3943,7 +3972,7 @@ function heal(commit) {
   let inserted = 0
   let appended = 0
   if (diskDoable.length) {
-    const healed = healContent(disk, diskDoable)
+    const healed = healContent(disk, diskDoable, declaredRowSet())
     inserted = healed.inserted
     appended = healed.appended
     console.warn(
@@ -4026,7 +4055,7 @@ function heal(commit) {
   mkdirSync(path.dirname(msgFile), { recursive: true })
   // 提交用的基线**必须是 HEAD**,不能用刚写盘的工作区内容 —— 工作区可能带着别人
   // 尚未提交的行,拿去建提交等于代收(§12 暂存区污染红线)。
-  const healedHead = healContent(head, headDoable).out
+  const healedHead = healContent(head, headDoable, declaredRowSet()).out
   if (healedHead === head) {
     console.log('   回捞后 HEAD 内容与当前一致,不建空提交')
     return 0

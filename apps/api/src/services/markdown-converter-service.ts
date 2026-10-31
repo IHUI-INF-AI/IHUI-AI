@@ -127,7 +127,14 @@ const MEDIA_EXTENSIONS: Record<string, string> = {
   'image/gif': '.gif',
   'image/webp': '.webp',
   'image/bmp': '.bmp',
-  'image/svg+xml': '.svg',
+  // 2026-10-31 安全强化第 10 批 R10：SVG **刻意不映射为 .svg**。
+  // 落盘目录是 uploads/public（对外静态可读，见 routes/files.ts extract-assets 的
+  // writeToDir = UPLOAD_DIR）。.svg 在那里是可执行文档：SVG 内 <script> 一旦被
+  // 顶层导航打开，即以 api 同源执行（/uploads 的 CSP sandbox 只挡住了直连这一条，
+  // 但任何"代理/预览/内嵌"第二跳都会重新打开它，ai-feed/image-proxy 就是实例）。
+  // 落到 .img（image/* 的默认扩展）⇒ 静态服务以 application/octet-stream + nosniff
+  // 返回，永不作为文档渲染；资产本身仍可取回（下载/再处理不受影响）。
+  'image/svg+xml': '.img',
   'image/tiff': '.tif',
   'image/x-icon': '.ico',
   'image/avif': '.avif',

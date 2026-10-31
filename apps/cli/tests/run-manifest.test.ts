@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+// arch-exempt: 夹具唯一落点 scripts/lib/scratch-dir.mjs(§15b 禁 os.tmpdir),测试面单向借用 tooling 层;正解=下沉可依赖包,期限 2027-01-31
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'
 import { buildRunManifest, findProjectRoot, projectIdOf, runsRootFor, writeRunManifest } from '../src/runs/manifest.js'
 

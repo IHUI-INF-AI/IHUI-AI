@@ -24,7 +24,7 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { apiKeyGroups, developerApiKeys } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
-import { requireAuth } from '../../plugins/require-permission.js'
+import { requireAuth, requireAdmin } from '../../plugins/require-permission.js'
 import {
   createGroup,
   addMember,
@@ -48,10 +48,15 @@ const idParamSchema = z.object({ id: z.uuid() })
 const createGroupBodySchema = z.object({
   name: z.string().min(1, '名称不能为空').max(64),
   description: z.transform(emptyToUndefined).pipe(z.string().max(500).optional()),
-  /** 共享 token 余额(-1 = 无限,默认 0) */
-  sharedTokenBalance: z.number().int().default(0),
-  /** 共享成本余额(分,-1 = 无限,默认 0) */
-  sharedCostBalanceCents: z.number().int().default(0),
+  // 2026-10-31 安全强化第 10 批 R10：**建组不再接受客户端自报余额**。
+  //
+  // 此前 `sharedTokenBalance: z.number().int().default(0)` 原样入库，而计费侧
+  // `relay-billing-service.ts` 把 `-1 && -1` 判为"无限额度直接放行" ⇒ 任意用户
+  // 建组时传 -1/-1 就得到无限免费调用（组池优先于个人余额）。这不是"参数没校验"，
+  // 是把计价权交给了客户端。
+  //
+  // 组池余额只有两个合法来源：① 管理员充值（本文件 /recharge，admin-only）；
+  // ② 未来的支付回调（届时在服务端按订单金额入账）。建组一律 0 起步。
   rateLimitQpm: z.number().int().min(1).max(10000).optional(),
   allowedModels: z.array(z.string()).nullable().optional(),
   allowedIps: z.array(z.string()).nullable().optional(),
@@ -62,8 +67,7 @@ const createGroupBodySchema = z.object({
 const updateGroupBodySchema = z.object({
   name: z.string().min(1).max(64).optional(),
   description: z.transform(emptyToUndefined).pipe(z.string().max(500).nullable().optional()),
-  sharedTokenBalance: z.number().int().optional(),
-  sharedCostBalanceCents: z.number().int().optional(),
+  // 余额字段刻意不在可改清单里（同 create 的理由）：改余额必须走 /recharge 且 admin-only。
   rateLimitQpm: z.number().int().min(1).max(10000).optional(),
   allowedModels: z.array(z.string()).nullable().optional(),
   allowedIps: z.array(z.string()).nullable().optional(),
@@ -72,15 +76,15 @@ const updateGroupBodySchema = z.object({
 
 const rechargeBodySchema = z
   .object({
-    tokenAmount: z.number().int().optional(),
-    costCents: z.number().int().optional(),
+    // 2026-10-31 安全强化第 10 批 R10：**必须为正**。此前只判"非 0"，负数可以"充值"
+    // 把组池打成负值，而 -1 在计费侧是"无限额度"的哨兵值 ⇒ `tokenAmount: -1` 一次
+    // 就把组池变成无限。上限 1e12 防整数溢出与误操作。
+    tokenAmount: z.number().int().min(1).max(1_000_000_000_000).optional(),
+    costCents: z.number().int().min(1).max(1_000_000_000_000).optional(),
   })
-  .refine(
-    (d) =>
-      (d.tokenAmount !== undefined && d.tokenAmount !== 0) ||
-      (d.costCents !== undefined && d.costCents !== 0),
-    { message: 'tokenAmount 或 costCents 至少填一个且非 0' },
-  )
+  .refine((d) => d.tokenAmount !== undefined || d.costCents !== undefined, {
+    message: 'tokenAmount 或 costCents 至少填一个',
+  })
 
 const joinBodySchema = z.object({
   inviteCode: z.string().min(1, '邀请码不能为空').max(16),
@@ -129,8 +133,9 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
         name: d.name,
         ownerId: userId,
         description: d.description,
-        sharedTokenBalance: d.sharedTokenBalance,
-        sharedCostBalanceCents: d.sharedCostBalanceCents,
+        // 建组一律 0 起步（schema 已不接受这两个字段，这里显式写死，防后来者顺手接回）
+        sharedTokenBalance: 0,
+        sharedCostBalanceCents: 0,
         rateLimitQpm: d.rateLimitQpm,
         allowedModels: d.allowedModels ?? null,
         allowedIps: d.allowedIps ?? null,
@@ -257,12 +262,6 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
         .set({
           ...(d.name !== undefined ? { name: d.name } : {}),
           ...(d.description !== undefined ? { description: d.description } : {}),
-          ...(d.sharedTokenBalance !== undefined
-            ? { sharedTokenBalance: d.sharedTokenBalance }
-            : {}),
-          ...(d.sharedCostBalanceCents !== undefined
-            ? { sharedCostBalanceCents: d.sharedCostBalanceCents }
-            : {}),
           ...(d.rateLimitQpm !== undefined ? { rateLimitQpm: d.rateLimitQpm } : {}),
           ...(d.allowedModels !== undefined ? { allowedModels: d.allowedModels } : {}),
           ...(d.allowedIps !== undefined ? { allowedIps: d.allowedIps } : {}),
@@ -365,39 +364,42 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 8. POST /api-key-groups/:id/recharge — 充值组池(token + cost) =====
-  server.post('/api-key-groups/:id/recharge', async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const parsed = rechargeBodySchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+  //
+  // 2026-10-31 安全强化第 10 批 R10：**改 admin-only**。
+  //
+  // 此前只要"是组 owner/admin"就能调用，而 `rechargeGroupBalance` 是纯加数字、
+  // 不扣任何资金来源（无支付单、无个人余额划转）。任意用户 → 建组 → 给自己
+  // recharge 任意额度 → 无限免费调用中转站。这是完整的经济面击穿，不是参数问题。
+  //
+  // 前端实测无任何"充值组池"消费点（grep sharedTokenBalance 在 apps/web 与 packages
+  // 下零命中），说明它从来就没有产品链路，只有 API 后门。改 admin-only 不破坏功能。
+  // 将来接支付时：由支付回调在服务端按订单金额入账，仍不应回到用户自助改数字。
+  server.post(
+    '/api-key-groups/:id/recharge',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const p = idParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      const parsed = rechargeBodySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    try {
-      const group = await getGroupById(p.data.id)
-      if (!group) return reply.status(404).send(error(404, '分组不存在'))
+      try {
+        const group = await getGroupById(p.data.id)
+        if (!group) return reply.status(404).send(error(404, '分组不存在'))
 
-      // 校验角色:owner 或 admin
-      const userApiKeyId = await getUserApiKeyInGroup(userId, p.data.id)
-      const isOwner = group.ownerId === userId
-      let role: 'owner' | 'admin' | 'member' | null = isOwner ? 'owner' : null
-      if (!role && userApiKeyId) {
-        role = await getMemberRole(p.data.id, userApiKeyId)
+        const d = parsed.data
+        const result = await rechargeGroupBalance(p.data.id, d.tokenAmount ?? 0, d.costCents ?? 0)
+        if (!result) return reply.status(404).send(error(404, '分组不存在'))
+        return reply.send(success({ balance: result }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '充值组池失败'))
       }
-      if (role !== 'owner' && role !== 'admin') {
-        return reply.status(403).send(error(403, '仅 owner 或 admin 可充值组池'))
-      }
-
-      const d = parsed.data
-      const result = await rechargeGroupBalance(p.data.id, d.tokenAmount ?? 0, d.costCents ?? 0)
-      if (!result) return reply.status(404).send(error(404, '分组不存在'))
-      return reply.send(success({ balance: result }))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '充值组池失败'))
-    }
-  })
+    },
+  )
 }
 
 export default developerApiKeyGroupsRoutes

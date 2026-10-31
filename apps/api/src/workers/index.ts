@@ -16,10 +16,8 @@ import {
   startRelayHealthCheckWorker,
   RELAY_HEALTH_CHECK_QUEUE_NAME,
 } from './relay-health-check-worker.js'
-import {
-  startRelayAccountPoolWorker,
-  RELAY_ACCOUNT_POOL_QUEUE_NAME,
-} from './relay-account-pool-worker.js'
+import { startRelayAccountPoolWorker } from './relay-account-pool-worker.js'
+import { relayAccountPoolQueueName } from '../services/relay-queue-name.js'
 import { startBatchWorker } from './batch-worker.js'
 import { startUsdtPaymentWorker, USDT_PAYMENT_QUEUE_NAME } from './usdt-payment-worker.js'
 
@@ -65,7 +63,8 @@ export function startWorkers(server: FastifyInstance): Worker[] {
         QUEUE_NAMES.notificationDispatch,
         REGISTRY_SYNC_QUEUE_NAME,
         RELAY_HEALTH_CHECK_QUEUE_NAME,
-        RELAY_ACCOUNT_POOL_QUEUE_NAME,
+        // 号池队列名带库身份后缀(隔离库实例不抢主库作业),日志必须报实际消费的队列
+        relayAccountPoolQueueName(),
         BATCH_QUEUE_NAME,
         USDT_PAYMENT_QUEUE_NAME,
       ],

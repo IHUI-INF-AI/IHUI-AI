@@ -133,16 +133,6 @@ export interface AgentWithdrawalListQuery {
   pageSize?: number
 }
 
-export interface AgentWithdrawalCreateInput {
-  userId: string
-  agentId?: string
-  amount: number
-  type: number // 1=微信 2=支付宝 3=其他
-  outBillNo?: string
-  orderIds?: string
-  bankInfo?: string
-}
-
 export interface AgentWithdrawalUpdateInput {
   amount?: number
   type?: number
@@ -197,15 +187,6 @@ export async function getAgentWithdrawalStats(
   userId?: string,
 ): Promise<ApiResult<AgentWithdrawalStats>> {
   return fetchApi(`${WITHDRAWAL_BASE}/stats/overview${buildQs(userId ? { userId } : {})}`)
-}
-
-export async function createAgentWithdrawal(
-  input: AgentWithdrawalCreateInput,
-): Promise<ApiResult<AgentWithdrawal>> {
-  return fetchApi<AgentWithdrawal>(WITHDRAWAL_BASE + '/create', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
 }
 
 export async function getAgentWithdrawal(id: string): Promise<ApiResult<AgentWithdrawal>> {

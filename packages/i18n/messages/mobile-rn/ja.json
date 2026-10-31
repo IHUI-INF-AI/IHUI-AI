@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "操作失敗"
-  },
-  "message": {
-    "deleted": "削除済み"
-  },
   "workflows": {
     "title": "ワークフロー",
     "empty": "ワークフローはまだありません",
@@ -929,8 +923,6 @@
     "checkUpdateUnsupported": "このビルドではアプリ内更新を利用できません",
     "changePhoneMissingUser": "ユーザー情報が不足しています",
     "logoutConfirm": "ログアウトしますか?",
-    "appPermission": "アプリ権限",
-    "icpRecord": "ICP備案",
     "usageRules": "利用規範",
     "changePassword": "パスワード変更",
     "oldPassword": "現在のパスワード",
@@ -1124,7 +1116,6 @@
     "network": "ネットワークエラー"
   },
   "common": {
-    "success": "成功",
     "backToTop": "一番上へ",
     "ok": "OK",
     "gotIt": "了解しました",
@@ -1240,7 +1231,6 @@
     "confirmBtn": "確定",
     "empty": "表紙がありません",
     "loadFailed": "読み込みに失敗しました",
-    "loading": "読み込み中...",
     "subtitle": "表紙を選択または生成",
     "title": "表紙",
     "workTitleDefault": "名称未設定の作品",
@@ -1318,7 +1308,6 @@
     "badgeRejected": "却下",
     "badgeReviewing": "レビュー中",
     "empty": "アシスタントがありません",
-    "loading": "読み込み中...",
     "metaAudience": "公開範囲",
     "metaCategory": "カテゴリ",
     "metaCycleForever": "永久",
@@ -1762,7 +1751,6 @@
     "title": "マイクーポン",
     "validUntil": "有効期限",
     "use": "今すぐ使う",
-    "useHint": "商品ページでご利用ください",
     "couponCenter": "クーポン受付"
   },
   "courseAnnex": {
@@ -1961,9 +1949,6 @@
     "fans": "ファン",
     "empty": "データなし",
     "unfollow": "フォロー解除"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案・許可番号"
   },
   "identityVerify": {
     "title": "本人確認",
@@ -4530,7 +4515,6 @@
     },
     "workflows": {
       "home": "ワークフロー",
-      "editor": "ワークフローエディタ",
       "automations": "自動化タスク",
       "orchestration": "オーケストレーション",
       "schedule": "スケジュールタスク"
@@ -5477,7 +5461,30 @@
     "poolSynced": "プール登録済み",
     "lastOk": "前回のチェックイン成功 +{credits}",
     "lastFailed": "前回のチェックイン失敗",
-    "actionFailed": "操作に失敗しました"
+    "actionFailed": "操作に失敗しました",
+    "taskTitle": "タスク自動実行",
+    "taskDesc": "WorkBuddy タスクセンターを一括巡回：タスク受諾、達成報酬の受け取り、連続ログイン交換、抽選、猫の旅、夜更かしチャット。",
+    "taskPick": "アカウント",
+    "taskList": "タスクを取得",
+    "taskDryRun": "ドライラン（書き込みなし）",
+    "taskRun": "全ファミリー実行",
+    "taskRunning": "実行中…",
+    "taskEmpty": "タスクなし、または未取得",
+    "taskResult": "実行結果",
+    "taskUnjudged": "上流の応答を解釈できず、今回の結果は未判定です（成功ではありません）",
+    "taskAutoTitle": "自動巡回",
+    "taskAutoLoading": "読み込み中…",
+    "taskAutoUnknown": "状態不明（サーバーが巡回状態を返していません。バックエンドのバージョンを確認してください）",
+    "taskAutoOn": "有効 · {minutes} 分ごとに自動巡回",
+    "taskAutoNext": "次回 {time}",
+    "taskAutoDry": "有効ですが演習モード（読み取り専用）：実際の受け取りは行いません。サーバーで WORKBUDDY_TASKS_LIVE_RUN=true を設定すると書き込みます。",
+    "taskAutoCronBlocked": "未実行：タスクスイッチは有効ですが、主スイッチ CHECKIN_CRON_ENABLED が無効です。",
+    "taskAutoOff": "無効：手動実行のみ。サーバーで WORKBUDDY_TASKS_ENABLED=true を設定して再起動すると有効になります。",
+    "taskAutoNotStarted": "設定は有効ですがスケジューラが起動していません:サーバーの .env を変更後は ai-service を再起動してください(プロセス内の start() は _started で短絡し、ホットリロードされません)。",
+    "taskAutoPaths": "報告/受け取りパスが未設定：報告のみで受け取りは行いません。",
+    "taskAutoLast": "前回の巡回 {time}",
+    "taskAutoLastStats": "{families} ファミリー · 受諾 {accepted} · 受取 {claimed}",
+    "taskAutoLastNever": "このプロセスでは未巡回"
   },
   "mat": {
     "unknown": "不明なエラー",
@@ -7054,12 +7061,10 @@
     "empty": "コンテンツはまだありません。おしみに",
     "pinned": "ピンめ",
     "publishedAt": "{date} に",
-    "viewCount": "{count}",
     "total": "合計 {total} 篇",
     "prev": "前のページ",
     "next": "次のページ",
-    "loading": "読み込み中...",
-    "error": "読み込み失敗"
+    "loading": "読み込み中..."
   },
   "searchHistoryPage": {
     "title": "検索履歴",
@@ -7118,10 +7123,7 @@
     "output": "最終出力",
     "runningHint": "実行中です。最終出力はまだありません",
     "noOutput": "出力なし",
-    "noTask": "タスクの説明なし",
-    "prev": "前へ",
-    "pagination": "{page} / {totalPages} ページ、合計 {total} 件",
-    "next": "次へ"
+    "noTask": "タスクの説明なし"
   },
   "chatWorkbenchPage": {
     "title": "会話",

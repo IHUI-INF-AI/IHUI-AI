@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-31T11:19:10.764Z",
+  "sealedAt": "2026-10-31T15:19:03.792Z",
   "sealedBy": "root-guard --seal",
-  "reason": "守门 268 撞号改 275(268 已被 PROJECT_PLAN 回捞件差值棘轮占用,2026-10-31 实测),AGENTS 点名与 runner 注册同步改号并重封清单",
+  "reason": "复核 4d51b4c8ce 对 guardian-runner 的守门276 注册改动(取材面档位 + 人工逃生舱,属已入库的合法注册变更);清单落后于 HEAD 面,按 root-guard 指定出口与规则文件对齐(2026-10-31 部署环 fail-closed 现场)",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "1a3f054b356bdb2e15b1f8195347e20a603cc0de90c74bfda2dd3a3b646f34d8"
+      "sha256": "c794c0f06bdc46c6e3655f8e812115818b7b2a5e0a446729592924d230e0ca8d"
     },
     {
       "id": "judgement-libs",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "9e37c4e8dc261242d4fea6bd7132410e6459a2c9f3342848e70ce45d21bbfded"
+      "sha256": "82cb17279f0826ea0ba82104fbab08968e113d6fae3a57314a1a267edca26988"
     }
   ]
 }

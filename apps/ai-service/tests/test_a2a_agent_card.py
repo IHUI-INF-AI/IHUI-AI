@@ -494,20 +494,61 @@ def test_task_create_requires_call_scope(task_client: TestClient) -> None:
 
 
 def test_legacy_agent_endpoints_shape_unchanged(task_client: TestClient) -> None:
-    """向后兼容:注册/列表两端的路径与响应形状未受影响。"""
+    """注册/列表两端的路径与响应形状未变;R12 起两端均需认证、列表按归属过滤。
+
+    2026-10-31 R12:生产环境禁止本地回环 endpoint(见下一条用例),这里用空 endpoint
+    的本地 agent 验形状;鉴权语义保持生产态(不 monkeypatch node_env)。
+    """
     registered = task_client.post(
         "/api/a2a/agents/register",
-        json={"id": "a1", "name": "A1", "capabilities": ["x"], "endpoint": "http://x"},
+        json={"id": "a1", "name": "A1", "capabilities": ["x"], "endpoint": ""},
+        headers=_internal_headers("user-a", "agents:call"),
     )
     assert registered.status_code == 200
     assert registered.json() == {
         "id": "a1",
         "name": "A1",
         "capabilities": ["x"],
-        "endpoint": "http://x",
+        "endpoint": "",
         "description": "",
     }
-    listing = task_client.get("/api/a2a/agents")
+    # 匿名列表 → 401(收权前的匿名可枚举面已关闭)
+    assert task_client.get("/api/a2a/agents").status_code == 401
+    listing = task_client.get("/api/a2a/agents", headers=_internal_headers("user-a", "agents:read"))
     assert listing.status_code == 200
     assert listing.json() == {"agents": [registered.json()], "count": 1}
+    # 他人列举看不到本人 agent(响应形状不变,集合按归属收窄)
+    other = task_client.get("/api/a2a/agents", headers=_internal_headers("user-b", "agents:read"))
+    assert other.status_code == 200
+    assert other.json() == {"agents": [], "count": 0}
+
+
+def test_local_endpoint_rejected_in_production(
+    task_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """2026-10-31 R12:生产环境注册本地回环 endpoint 一律 400(内网横向面)。
+
+    开发态放行保留(本地联调),空 endpoint 的本地 agent 不受影响(无远端派发)。
+    """
+    monkeypatch.setattr(settings, "node_env", "production")
+    for idx, endpoint in enumerate(
+        ("http://127.0.0.1", "http://localhost:8080", "https://[::1]:8443")
+    ):
+        resp = task_client.post(
+            "/api/a2a/agents/register",
+            json={
+                "id": f"local-{idx}",
+                "name": "L",
+                "capabilities": [],
+                "endpoint": endpoint,
+            },
+            headers=_internal_headers("user-a", "agents:call"),
+        )
+        assert resp.status_code == 400, endpoint
+    local = task_client.post(
+        "/api/a2a/agents/register",
+        json={"id": "local-empty", "name": "L", "capabilities": [], "endpoint": ""},
+        headers=_internal_headers("user-a", "agents:call"),
+    )
+    assert local.status_code == 200
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

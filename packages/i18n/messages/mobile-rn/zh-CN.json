@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "操作失败"
-  },
-  "message": {
-    "deleted": "已删除"
-  },
   "workflows": {
     "title": "工作流",
     "empty": "暂无工作流",
@@ -929,8 +923,6 @@
     "checkUpdateUnsupported": "当前环境不支持应用内更新",
     "changePhoneMissingUser": "用户信息缺失,无法更换手机号",
     "logoutConfirm": "确认退出当前账号?",
-    "appPermission": "应用权限",
-    "icpRecord": "ICP 备案",
     "usageRules": "使用规范",
     "changePassword": "修改密码",
     "oldPassword": "旧密码",
@@ -1124,7 +1116,6 @@
     "network": "网络错误,请稍后重试"
   },
   "common": {
-    "success": "成功",
     "backToTop": "回到顶部",
     "ok": "好的",
     "gotIt": "知道了",
@@ -1240,7 +1231,6 @@
     "confirmBtn": "确定",
     "empty": "暂无封面",
     "loadFailed": "加载失败",
-    "loading": "加载中...",
     "subtitle": "选择或生成封面",
     "title": "封面",
     "workTitleDefault": "未命名作品",
@@ -1318,7 +1308,6 @@
     "badgeRejected": "已拒绝",
     "badgeReviewing": "审核中",
     "empty": "暂无智能体",
-    "loading": "加载中...",
     "metaAudience": "可见范围",
     "metaCategory": "分类",
     "metaCycleForever": "永久有效",
@@ -1762,7 +1751,6 @@
     "title": "我的优惠券",
     "validUntil": "有效期至",
     "use": "立即使用",
-    "useHint": "请前往商品页使用",
     "couponCenter": "领券中心"
   },
   "courseAnnex": {
@@ -1961,9 +1949,6 @@
     "fans": "粉丝",
     "empty": "暂无数据",
     "unfollow": "取消关注"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP备案/许可证号"
   },
   "identityVerify": {
     "title": "身份认证",
@@ -4574,7 +4559,6 @@
     },
     "workflows": {
       "home": "工作流",
-      "editor": "工作流编辑器",
       "automations": "自动化任务",
       "orchestration": "编排中心",
       "schedule": "定时任务"
@@ -5477,7 +5461,30 @@
     "poolSynced": "已进号池",
     "lastOk": "上次签到成功 +{credits}",
     "lastFailed": "上次签到失败",
-    "actionFailed": "操作失败"
+    "actionFailed": "操作失败",
+    "taskTitle": "自动做任务",
+    "taskDesc": "一键巡检 WorkBuddy 任务中心：领任务、达标领奖、连登兑换、抽奖、猫猫旅行、夜猫子闲聊。",
+    "taskPick": "选择账号",
+    "taskList": "读取任务",
+    "taskDryRun": "预演（不写入）",
+    "taskRun": "一键做任务",
+    "taskRunning": "执行中…",
+    "taskEmpty": "暂无任务，或尚未读取",
+    "taskResult": "执行结果",
+    "taskUnjudged": "上游响应读不懂，本轮未判定（不构成成功）",
+    "taskAutoTitle": "自动巡检",
+    "taskAutoLoading": "读取中…",
+    "taskAutoUnknown": "状态未知（服务端未返回巡检状态，请确认后端版本）",
+    "taskAutoOn": "已启用 · 每 {minutes} 分钟自动巡检",
+    "taskAutoNext": "下次 {time}",
+    "taskAutoDry": "已启用但为演练模式（只读探针）：不会真实领奖。服务端设 WORKBUDDY_TASKS_LIVE_RUN=true 后才会写入。",
+    "taskAutoCronBlocked": "未运行：任务门已开，但总闸 CHECKIN_CRON_ENABLED 关闭。",
+    "taskAutoOff": "未启用：仅手动执行。服务端设 WORKBUDDY_TASKS_ENABLED=true 并重启后生效。",
+    "taskAutoNotStarted": "配置已开但调度器未启动：改完服务端 .env 必须重启 ai-service 才生效（进程内 start() 遇 _started 会短路，不热加载）。",
+    "taskAutoPaths": "上报/领奖路径未配置：只上报不领奖。",
+    "taskAutoLast": "上次巡检 {time}",
+    "taskAutoLastStats": "跑 {families} 族 · 新增 {accepted} · 领 {claimed}",
+    "taskAutoLastNever": "本进程尚未巡检"
   },
   "mat": {
     "unknown": "未知错误",
@@ -7054,12 +7061,10 @@
     "empty": "暂无资讯",
     "pinned": "置顶",
     "publishedAt": "发布于 {date}",
-    "viewCount": "{count} 阅读",
     "total": "共 {total} 篇",
     "prev": "上一页",
     "next": "下一页",
-    "loading": "加载中...",
-    "error": "加载失败"
+    "loading": "加载中..."
   },
   "searchHistoryPage": {
     "title": "搜索历史",
@@ -7118,10 +7123,7 @@
     "output": "最终输出",
     "runningHint": "仍在运行,暂无最终输出",
     "noOutput": "暂无输出",
-    "noTask": "无任务描述",
-    "prev": "上一页",
-    "pagination": "第 {page} / {totalPages} 页,共 {total} 条",
-    "next": "下一页"
+    "noTask": "无任务描述"
   },
   "chatWorkbenchPage": {
     "title": "对话",

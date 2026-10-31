@@ -297,6 +297,17 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const targetUserId = userId ?? request.userId!
+    // 2026-10-31 安全强化第 10 批 R10：**读他人提现单必须管理员**。
+    //
+    // 此前 `userId ?? request.userId` 直接当条件 —— 任何登录用户换一个 userId 就能读
+    // 别人的提现单，而提现单里带 `accountInfo`（收款账户/银行信息）。这是可直接变现的
+    // 个人信息泄露面（拿去冒充客服、做精准诈骗），不是"多看了个数字"。
+    // 读自己恒允许（前端"我的提现"就靠它）；指定他人一律过 admin 闸，判据走单源
+    // requireAdmin（与 approve/reject 同一条）。
+    if (userId && userId !== request.userId) {
+      await requireAdmin(request, reply)
+      if (reply.sent) return
+    }
     const conditions: SQL[] = [eq(withdrawalFlows.userId, targetUserId)]
     if (status !== undefined) conditions.push(eq(withdrawalFlows.status, status))
     const where = and(...conditions)

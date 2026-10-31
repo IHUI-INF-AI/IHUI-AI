@@ -34,7 +34,7 @@ import json
 import os
 import random
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -191,6 +191,51 @@ def _wb_tasks_sweep_minutes() -> int:
     return max(5, int(settings.workbuddy_tasks_sweep_minutes))
 
 
+# wb_tasks.not_running_reason 的机器枚举(三端按这个字符串分支,取值只此一份)
+WbTasksNotRunningReason = Literal[
+    "tasks_gate_off",
+    "cron_gate_off",
+    "scheduler_not_started",
+    "job_not_registered",
+]
+
+
+def _wb_tasks_not_running_reason(
+    *,
+    tasks_enabled: bool,
+    cron_enabled: bool,
+    started: bool,
+    job_registered: bool,
+) -> WbTasksNotRunningReason | None:
+    """WorkBuddy 任务巡检「为什么没在跑」的唯一判序(纯函数,自上而下第一个命中)。
+
+    抽成纯函数的原因:判序一旦只写在 status() 的 if 链里,文档与前端各抄一份
+    必然漂移(§0.6);用例直接喂参数验五档,不依赖真起调度器。
+
+    1. job 现在真注册着(且调度器已 start)⇒ None:没有"为什么没跑"可说;
+    2. 任务门关 ⇒ tasks_gate_off(WORKBUDDY_TASKS_ENABLED 是这条 job 的专闸,
+       排在总闸前:红牌先指"能当场整改的那一格",总闸同时关时也是它更该先动);
+    3. 任务门开而总闸关 ⇒ cron_gate_off(CHECKIN_CRON_ENABLED 关 ⇒ start() 直接
+       return,整条函数体都进不去);
+    4. 两门皆开但调度器没起来 ⇒ scheduler_not_started(建表失败 / start() 抛异常
+       被 main.py 的 lifespan 吞掉 / 压根没跑到 lifespan ⇒ 进程里没有 scheduler);
+    5. 调度器起来了但该 job 不在注册表 ⇒ job_not_registered(改完 .env 没重启这类
+       进程内不一致:start() 有 `if self._started: return` 短路,热改环境变量不会
+       补注册)。
+
+    四档非 None 都是「配置看起来开了但活儿不会干」,必须让人一眼分辨卡在哪一层。
+    """
+    if started and job_registered:
+        return None
+    if not tasks_enabled:
+        return "tasks_gate_off"
+    if not cron_enabled:
+        return "cron_gate_off"
+    if not started:
+        return "scheduler_not_started"
+    return "job_not_registered"
+
+
 class CheckinScheduler:
     """签到助手每日调度器(单例)。"""
 
@@ -333,14 +378,17 @@ class CheckinScheduler:
         wb_tasks(2026-10-31 补):WorkBuddy 任务巡检这条 job 此前对前端完全不可见
         ⇒ 用户看不到「自动做任务」在不在跑、下次何时跑。这里与 start() 同源暴露。
 
-        **enabled 必须是两门与,不是单门**(2026-10-31 修口径漂移):start() 整个
-        函数体套在 `if _cron_enabled()` 里,内层才是
-        `if settings.workbuddy_tasks_enabled`。只报后者 ⇒
-        WORKBUDDY_TASKS_ENABLED=true 而 CHECKIN_CRON_ENABLED=false 时前端显示
-        「已启用」但 job 永不注册(§0.3 的"没跑"绝不能写成"在跑")。故:
-        - `enabled`        = 任务门 ∧ 总闸 = 「这条 job 现在真会被注册」的唯一判据
-        - `tasks_enabled`  = 任务门原值(配置意图)
-        - `cron_enabled`   = 总闸原值(便于前端直说"被 CHECKIN_CRON_ENABLED 拦住")
+        **enabled 是观测态,不是配置意图的与**(2026-10-31 二修,前一轮的"两门与"
+        仍是假绿):两道闸都只回答"配置想不想跑",判不出"进程里到底有没有这条 job"。
+        可复现的反例——start() 里 ensure_tables 抛异常直接 return,而 main.py 的
+        lifespan 又把 start() 整包 try/except 忽略 ⇒ 进程里连 scheduler 都没有,
+        两门 env 全 true 时旧口径照样报 enabled=true,面板显示「已启用 · 每 180
+        分钟自动巡检」,而这条 job 永不执行(§0.3:没跑绝不写成在跑)。故:
+        - `enabled`             = self._started ∧ 该 job 在 scheduler 注册表里
+        - `tasks_enabled`       = WORKBUDDY_TASKS_ENABLED 原值(配置意图)
+        - `cron_enabled`        = CHECKIN_CRON_ENABLED 原值(配置意图)
+        - `not_running_reason`  = enabled 为 false 时点名卡在哪一层(机器枚举,
+          判序唯一实现见 _wb_tasks_not_running_reason;enabled 为 true 时恒 None)
 
         sweep_minutes 走 _wb_tasks_sweep_minutes() 单一真源;claim/activity 路径
         是否配置也让前端能直说「领奖路径未配置 ⇒ 不会领奖」,不用用户猜为什么
@@ -350,6 +398,9 @@ class CheckinScheduler:
         next_run_qoder: str | None = None
         next_run_probe: str | None = None
         next_run_wb_tasks: str | None = None
+        # 观测态取材:调度器不存在 ⇒ job 必然没注册(不回落成"按配置猜")
+        wb_job = self._scheduler.get_job(_JOB_ID_WB_TASKS) if self._scheduler is not None else None
+        wb_job_registered = wb_job is not None
         if self._started and self._scheduler is not None:
             job = self._scheduler.get_job(_JOB_ID)
             if job is not None:
@@ -369,25 +420,32 @@ class CheckinScheduler:
                 next_run_probe = (
                     next_run_time_p.isoformat() if next_run_time_p is not None else None
                 )
-            job_wb = self._scheduler.get_job(_JOB_ID_WB_TASKS)
-            if job_wb is not None:
-                next_run_time_w: datetime | None = job_wb.next_run_time
+            if wb_job is not None:
+                next_run_time_w: datetime | None = wb_job.next_run_time
                 next_run_wb_tasks = (
                     next_run_time_w.isoformat() if next_run_time_w is not None else None
                 )
+        wb_tasks_enabled = bool(settings.workbuddy_tasks_enabled)
+        wb_cron_enabled = _cron_enabled()
         return {
-            "enabled": _cron_enabled(),
+            "enabled": wb_cron_enabled,
             "started": self._started,
             "next_run": next_run,
             "next_run_qoder": next_run_qoder,
             "next_run_probe": next_run_probe,
             "next_run_wb_tasks": next_run_wb_tasks,
             "wb_tasks": {
-                # 两门与:只有同时满足,start() 才会真的注册这条 job。单报任务门
-                # 会造出「显示已启用、实际永不跑」的假绿(见 docstring)。
-                "enabled": bool(settings.workbuddy_tasks_enabled) and _cron_enabled(),
-                "tasks_enabled": bool(settings.workbuddy_tasks_enabled),
-                "cron_enabled": _cron_enabled(),
+                # 观测态:只有"调度器已 start ∧ 这条 job 真在注册表里"才算在跑。
+                # 配置意图另见 tasks_enabled / cron_enabled 与 not_running_reason。
+                "enabled": bool(self._started and wb_job_registered),
+                "tasks_enabled": wb_tasks_enabled,
+                "cron_enabled": wb_cron_enabled,
+                "not_running_reason": _wb_tasks_not_running_reason(
+                    tasks_enabled=wb_tasks_enabled,
+                    cron_enabled=wb_cron_enabled,
+                    started=self._started,
+                    job_registered=wb_job_registered,
+                ),
                 "live_run": bool(settings.workbuddy_tasks_live_run),
                 "sweep_minutes": _wb_tasks_sweep_minutes(),
                 "claim_path_configured": bool(

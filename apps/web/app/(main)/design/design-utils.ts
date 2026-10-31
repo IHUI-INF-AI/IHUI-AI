@@ -77,6 +77,7 @@ dragging=null;
 dragStarted=false;
 },true);
 window.addEventListener('message',function(e){
+if(e.source!==parent)return;
 var d=e.data;if(!d||d.__ihui!==true)return;
 if(d.type==='update-style'){if(selected){Object.keys(d.style).forEach(function(k){selected.style.setProperty(toKebab(k),d.style[k]);});}return;}
 if(d.type==='reset-style'){if(selected){PROPS.forEach(function(p){selected.style.removeProperty(toKebab(p));});notify();}return;}

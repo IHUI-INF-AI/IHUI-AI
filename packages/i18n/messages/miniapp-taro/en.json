@@ -106,14 +106,12 @@
     "empty": "No data",
     "failed": "Failed to load",
     "free": "Free",
-    "detecting": "Checking...",
     "loading": "Loading...",
     "loadingShort": "Loading...",
     "noMore": "No more",
     "retry": "Retry",
     "save": "Save",
     "success": "Success",
-    "uploading": "Uploading...",
     "user": "User",
     "more": "More",
     "discountAmount": "Discount",
@@ -135,28 +133,6 @@
     "getPhoneFail": "Failed to get phone number",
     "loginFailed": "Login failed, please try again",
     "wechatOneClick": "One-click WeChat Login",
-    "platformWechat": "WeChat",
-    "platformLark": "Lark",
-    "platformDingTalk": "DingTalk",
-    "platformWeCom": "WeCom",
-    "platformAlipay": "Alipay",
-    "webPreviewHint": "Web preview does not support WeChat or third-party login; use SMS code or account password.",
-    "webSsoNotSupported": "Web preview does not support one-click authorized login; use the mobile app, or sign in below with account and password",
-    "ssoCancelled": "Authorization cancelled",
-    "ssoNoCode": "SSO redirect did not include a code",
-    "ssoTokenFail": "SSO token exchange failed",
-    "carrierNotConfigured": "Carrier one-click login is not configured; switched to SMS code login",
-    "carrierOneClick": "One-click login with this number",
-    "carrierLaunching": "Launching carrier authorization...",
-    "closeCarrier": "Close carrier login",
-    "wechatH5Hint": "WeChat login requires the native app (install WeChat first).\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
-    "goWeb": "Open web login",
-    "wechatNotInstalled": "WeChat app not installed; please install WeChat first",
-    "appleNotConfigured": "Apple login is not configured; set EXPO_PUBLIC_APPLE_CLIENT_ID in .env, or install expo-apple-authentication (iOS).",
-    "googleNotConfigured": "Google login is not configured; set EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env.",
-    "sdkPending": "{name} login is only available on the web; the native SDK is not integrated on mobile.\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
-    "agree": "Agree",
-    "agreeTermsTitle": "Agree to the Terms of Service",
     "webAuthLogin": "Sign in via web authorization"
   },
   "forgot": {
@@ -210,7 +186,6 @@
     "contentText": "Text content",
     "boolYes": "Yes",
     "boolNo": "No",
-    "closePreview": "Close preview",
     "addCamera": "Camera",
     "addAlbum": "Album",
     "addLocalFile": "Local file",
@@ -238,7 +213,6 @@
     "highlights": "Course Highlights",
     "nextLesson": "Next: {title}",
     "startLearning": "Start learning",
-    "buyNow": "Buy now",
     "buyDeveloping": "Purchase is under development",
     "buyFirst": "Please purchase the course first",
     "signSuccess": "Checked in",
@@ -291,22 +265,17 @@
     "complete": "Mark Complete"
   },
   "live": {
-    "viewers": "{n} viewers",
-    "preview": "Preview",
     "replay": "Replay",
     "liveNow": "Live",
     "detail": {
       "loadFailed": "Live load failed",
-      "loading": "Loading live…",
       "notStarted": "Live not started yet",
       "ended": "Live ended",
       "connecting": "Connecting to live room…",
-      "enter": "Enter live room",
-      "anchor": "Host: {name}"
+      "enter": "Enter live room"
     },
     "subscribe": {
       "subscribe": "Subscribe",
-      "subscribed": "Subscribed",
       "subscribeSuccess": "Subscribed",
       "loadFailed": "Subscribe failed",
       "empty": "No subscriptions",
@@ -318,16 +287,6 @@
       "discover": "Discover live streams",
       "count": "Subscribed",
       "unit": "Live"
-    },
-    "history": {
-      "empty": "No past live sessions",
-      "loading": "Loading…",
-      "hour": "h",
-      "anchorLabel": "Anchor",
-      "watchDuration": "Watched",
-      "rewatch": "Rewatch",
-      "continue": "Continue watching",
-      "minutes": "min"
     },
     "calendar": {
       "loadFailed": "Calendar load failed",
@@ -359,8 +318,6 @@
     "statusIdle": "Not Started",
     "statusActive": "Live Now",
     "statusInactive": "Ended",
-    "cameraPreview": "Camera Preview",
-    "cameraPreviewActive": "Streaming",
     "streamTitle": "Stream Title",
     "streamTitlePlaceholder": "Enter stream title",
     "pushUrl": "Push URL",
@@ -369,13 +326,8 @@
     "endLive": "End Live",
     "starting": "Starting...",
     "ending": "Ending...",
-    "liveData": "Live Stats",
     "duration": "Duration",
-    "viewers": "Viewers",
-    "recvBytes": "Received",
-    "sendBytes": "Sent",
     "productManagement": "Products",
-    "addProduct": "+ Add Product",
     "addProductToast": "Product adding coming soon",
     "endLiveAlert": "Live Ended",
     "endLiveDurationPrefix": "This live duration: ",
@@ -395,14 +347,7 @@
   },
   "order": {
     "title": "Orders",
-    "cancel": "Cancel order",
     "loadFailed": "Order load failed",
-    "createTime": "Created at",
-    "orderType": "Order type",
-    "orderStatus": "Order status",
-    "orderAmount": "Order amount",
-    "goPay": "Pay now",
-    "applyRefund": "Request refund",
     "refund": {
       "title": "Request refund",
       "orderNo": "Order No.",
@@ -422,37 +367,9 @@
       "submitting": "Submitting..."
     },
     "refundList": {
-      "orderNo": "Order No.: {no}",
-      "empty": "No refund records",
-      "tabRefunding": "Refunding",
-      "tabRefunded": "Refunded",
-      "tabRejected": "Rejected",
-      "statusRefunding": "Refunding",
-      "statusRejected": "Rejected",
-      "stepApply": "Apply for refund",
-      "stepReview": "Under review",
-      "estimateTip": "Estimated arrival time",
-      "collapse": "Collapse progress",
-      "viewProgress": "View progress",
-      "viewOrder": "Order details",
-      "noMore": "No more",
-      "reason": "Refund Reason",
-      "statusRefunded": "Refunded",
-      "tabAll": "All"
+      "stepReview": "Under review"
     },
-    "cancelConfirm": "Are you sure you want to cancel this order?",
-    "cancelSuccess": "Order cancelled",
-    "cancelFailed": "Failed to cancel order",
     "list": {
-      "refundTime": "Refund time",
-      "applyRefund": "Apply for Refund",
-      "cancel": "Cancel",
-      "empty": "No orders yet",
-      "goPay": "Go to Pay",
-      "notFound": "No matching order found",
-      "orderNo": "Order No.",
-      "search": "Search",
-      "searchPlaceholder": "Search my orders",
       "title": "My Orders"
     },
     "orderNo": "Order No.",
@@ -484,21 +401,12 @@
         "contactService": "Contact customer service"
       },
       "tokenRate": "1 CNY = {n} IHUI points",
-      "activityTitle": "Limited-time event",
-      "activityPlaceholder": "Please enter the event recharge amount",
-      "activitySubmit": "Limited-time discount recharge",
       "guest": "Guest"
     },
     "withdrawal": {
       "amountLabel": "Withdrawal amount",
       "records": "Withdrawal records",
       "availableYuan": "Withdrawable Amount (CNY)"
-    },
-    "commission": {
-      "today": "Today's commission",
-      "available": "Available commission",
-      "records": "Commission records",
-      "title": "Commission Details"
     },
     "balance": "Balance",
     "frozen": "Frozen",
@@ -553,7 +461,6 @@
     "operationFailed": "Operation failed",
     "logoutConfirm": "Are you sure you want to log out?",
     "unboundPhone": "Not bound",
-    "account": "Account",
     "profile": "Profile",
     "notificationSetting": "Notifications",
     "clearCache": "Clear cache",
@@ -561,7 +468,6 @@
     "languageSetting": "Language",
     "themeSetting": "Theme",
     "aboutUs": "About us",
-    "logout": "Log out",
     "cache": {
       "current": "Current cache",
       "clearImage": "Clear image cache",
@@ -697,7 +603,6 @@
       "Write some code",
       "Translate this text"
     ],
-    "thinking": "Thinking…",
     "stop": "Stop",
     "clear": "Clear",
     "clearConfirm": "Clear the current conversation?",
@@ -733,14 +638,10 @@
       "permissionLoading": "Loading permissions…",
       "prologue": "Prologue",
       "promptLabel": "Prompt",
-      "ratingDistribution": "Rating distribution",
       "relatedAgents": "Related agents",
-      "reviewCount": "{n} reviews",
-      "reviews": "Reviews",
       "startChat": "Start chat",
       "tabRuntime": "Runtime",
       "unfavorite": "Unfavorite",
-      "useCount": "{n} uses",
       "vipExclusive": "VIP only",
       "vipPermissionDenied": "This agent requires VIP"
     },
@@ -771,14 +672,7 @@
     },
     "aiAssistant": {
       "copyFailed": "Copy failed",
-      "copySuccess": "Copied successfully",
-      "generateFailed": "Generation failed, please retry",
-      "goRecharge": "Insufficient tokens. Go to recharge?",
-      "insufficientTokens": "Insufficient tokens",
-      "nothingToCopy": "Nothing to copy",
-      "pleaseInputDesc": "Please enter a description",
-      "pleaseLogin": "Please log in first",
-      "pleaseWait": "Please wait"
+      "pleaseLogin": "Please log in first"
     },
     "chat": {
       "replayFailed": "Failed to load this conversation, please try again",
@@ -1308,36 +1202,16 @@
     "failed": "Account cancellation failed, please try again"
   },
   "ask": {
-    "search": "Search questions",
-    "tabs": {
-      "new": "Latest",
-      "hot": "Hot",
-      "unanswered": "Unanswered"
-    },
-    "answers": "{n} answers",
-    "empty": "No questions",
-    "detail": {
-      "me": "Me",
-      "justNow": "Just now",
-      "answered": "Answered",
-      "answerCount": "{n} answers",
-      "placeholder": "Type your answer…",
-      "answer": "Answer"
-    },
     "create": {
       "published": "Question published",
       "failed": "Publish failed, please retry",
       "titleLabel": "Title",
-      "titlePlaceholder": "Describe your question in one line",
-      "detailLabel": "Details",
-      "detailPlaceholder": "Describe your question in detail for better answers",
       "rewardLabel": "Reward points",
       "submit": "Publish",
       "draftRestored": "Draft restored",
       "maxImages": "Up to 3 images",
       "contentRequired": "Please enter your question",
       "contentTooShort": "Description must be at least 5 characters",
-      "pageTitle": "Ask",
       "categoryPlaceholder": "Select category",
       "imageLabel": "Image",
       "anonymousLabel": "Post anonymously",
@@ -1353,17 +1227,12 @@
     "publish": {
       "title": "Publish work",
       "titleLabel": "Title",
-      "titlePlaceholder": "Give your work a title",
       "descLabel": "Description",
-      "descPlaceholder": "Describe your work",
       "publish": "Publish",
       "published": "Published",
       "titleRequired": "Please enter a title",
       "maxFiles": "Up to 5 files",
-      "workLabel": "Work files",
-      "addImage": "+ Add image",
       "promptLabel": "Prompt",
-      "promptPlaceholder": "Enter the AI generation prompt",
       "descRequired": "Please enter a description",
       "promptRequired": "Please enter a prompt",
       "uploadOk": "Upload successful",
@@ -1403,18 +1272,17 @@
     "loadMore": "Load more",
     "noMore": "No more",
     "people": "people",
-    "sortByFollowed": "Follow time",
-    "sortByRecent": "Recently active",
     "followedAt": "Followed at",
     "searchEmpty": "No matching users found",
     "goDiscover": "Discover more",
     "following": "Followed",
-    "searchPlaceholder": "Search followed users",
-    "total": "Followed"
+    "searchPlaceholder": "Search followed users"
   },
   "webview": {
     "title": "Web page",
-    "missingUrl": "Missing link, cannot open"
+    "missingUrl": "Missing link, cannot open",
+    "untrustedCopied": "Link copied. Please open it in a browser",
+    "untrusted": "Link is not in the trusted list"
   },
   "carte": {
     "title": "ZHIHUI Community",
@@ -1427,23 +1295,11 @@
   "exam": {
     "attempts": "Attempts",
     "duration": "Duration",
-    "tabs": {
-      "all": "All",
-      "pending": "Pending",
-      "completed": "Completed"
-    },
     "questions": "{n} questions",
-    "minutes": "{n} min",
     "passScore": "Pass score",
     "totalScore": "Total score",
-    "removedPaper": "Paper removed",
     "passed": "Passed",
-    "notPassed": "Not passed",
-    "score": "Score {n}",
     "result": {
-      "loadFailed": "Result load failed",
-      "pass": "Congratulations, passed",
-      "notPass": "Not passed",
       "scoreValue": "{n} points",
       "rankValue": "#{n} of {total}",
       "goList": "View exam list",
@@ -1451,15 +1307,12 @@
       "reviewTitle": "Question review",
       "reviewCorrect": "Correct",
       "reviewWrong": "Wrong",
-      "myAnswer": "My answer",
-      "correctAnswer": "Correct answer",
       "analysis": "Analysis",
       "noReview": "No questions to review",
       "correct": "Correct",
       "correctValue": "{n} questions",
       "duration": "Duration",
       "durationValue": "{n} minutes",
-      "loading": "Loading...",
       "questionIdx": "Question {n}",
       "retry": "Take Test Again",
       "reviewScore": "{n} points",
@@ -1507,7 +1360,6 @@
         "True",
         "False"
       ],
-      "loadFailed": "Paper load failed",
       "answerPlaceholder": "Type your answer",
       "prev": "Previous",
       "next": "Next",
@@ -1533,12 +1385,6 @@
     "searchPlaceholder": "Search favorited content",
     "selectFirst": "Please select first",
     "total": "Favorited",
-    "tabCourse": "Courses",
-    "tabLive": "Live",
-    "tabPost": "Posts",
-    "tabAigc": "AI Works",
-    "tabNews": "News",
-    "deleteTitle": "Confirm delete",
     "title": "My Favorites"
   },
   "userFans": {
@@ -1561,7 +1407,6 @@
       "invalidAmount": "Please enter a valid amount",
       "insufficient": "Insufficient balance",
       "submitted": "Withdrawal submitted",
-      "available": "Available",
       "amountPlaceholder": "Enter withdrawal amount",
       "all": "Withdraw all",
       "method": "Withdrawal method",
@@ -1599,11 +1444,9 @@
       "rule3": "Commission is automatically settled to your account within 24 hours after your friend's payment succeeds",
       "rule4": "Withdraw to WeChat or Alipay when balance reaches 100 CNY",
       "introTitle": "Invite friends, earn commission",
-      "introDesc": "Join our commission plan, invite friends to register as members, and you will earn 20% commission on their membership fees",
       "totalEarnings": "Total earnings",
       "inviteCount": "Invites",
-      "rulesTitle": "Commission rules",
-      "openVipBtn": "Open VIP membership to join commission plan"
+      "rulesTitle": "Commission rules"
     },
     "memberDetail": {
       "loading": "Loading…",
@@ -1633,17 +1476,7 @@
       "noMore": "No more"
     },
     "company": {
-      "title": "My company",
-      "level": "Level {n}",
-      "totalEarnings": "Total earnings",
-      "available": "Available",
-      "teamMembers": "Team members",
-      "memberCount": "{n} members",
-      "empty": "No members",
-      "joinTime": "Joined: {time}",
-      "menuTeam": "Team",
-      "menuCommission": "Commission",
-      "menuWithdraw": "Withdraw"
+      "title": "My company"
     },
     "index": {
       "title": "My Company",
@@ -2268,10 +2101,8 @@
     "title": "Cart",
     "selectAll": "Select all",
     "checkout": "Checkout",
-    "loading": "Loading…",
     "product": "Product",
     "empty": "Cart is empty",
-    "checkoutToast": "Checkout is under development",
     "deleteConfirm": "Delete this item?",
     "selectFirst": "Please select items",
     "loadFailed": "Load failed",
@@ -2359,7 +2190,6 @@
       "infoTitle": "Developer info"
     },
     "n8nModel": {
-      "title": "N8N model",
       "defaultName": "Untitled model",
       "empty": "No models",
       "createTitle": "Create Agent",
@@ -2403,33 +2233,24 @@
     "modelEdit": {
       "title": "Edit model",
       "model": "Model",
-      "categoryLabel": "Categories (multi-select)",
       "departmentLabel": "Department",
-      "saleTypeLabel": "Sale type",
       "saleTypeFree": "Free",
       "saleTypeLimited": "Limited free",
       "saleTypePaid": "Paid",
-      "chargePeriodLabel": "Billing period",
       "chargePeriodMonthly": "Monthly",
       "chargePeriodQuarterly": "Quarterly",
       "chargePeriodYearly": "Yearly",
       "priceLabel": "Price",
       "pricePlaceholder": "Enter price",
-      "limitedDurationLabel": "Limited free duration",
       "limitedDuration1Day": "1 day",
       "limitedDuration3Day": "3 days",
       "limitedDuration7Day": "7 days",
       "limitedDuration30Day": "30 days",
-      "targetGroupLabel": "Target audience",
       "targetGroupIndividual": "Individual",
       "targetGroupEnterprise": "Enterprise",
-      "discountLabel": "Discount eligibility",
       "discountNone": "Not eligible",
       "discountPartial": "Partially eligible",
-      "discountFull": "Fully eligible",
-      "submitting": "Submitting…",
-      "submit": "Submit for review",
-      "mockSuccess": "API not yet available. Nothing was submitted"
+      "discountFull": "Fully eligible"
     }
   },
   "devSpace": {
@@ -2486,7 +2307,6 @@
     },
     "income": {
       "withdrawn": "Withdrawn",
-      "withdraw": "Withdraw Now",
       "withdrawPopup": "Withdraw",
       "withdrawAvailable": "Available Amount ¥",
       "withdrawPlaceholder": "Enter withdrawal amount",
@@ -2506,19 +2326,12 @@
       "tabAll": "All",
       "tabPending": "Pending",
       "tabSettled": "Settled",
-      "accumulatedYuan": "Accumulated income (CNY)",
-      "withdrawableYuan": "Withdrawable amount (CNY)",
-      "withdrawnAmountYuan": "Withdrawn amount (CNY)",
       "cashDetail": "Withdrawal details",
       "todayIncome": "Today income",
       "pendingSettlement": "Pending settlement",
       "feeTip": "Platform temporarily charges no service fee",
-      "empty": "No income records",
       "noMore": "No more",
-      "cashEmpty": "No withdrawal records",
-      "moreMethod": "More withdrawal methods in official APP",
-      "wechat": "WeChat",
-      "yuan": "RMB"
+      "cashEmpty": "No withdrawal records"
     },
     "index": {
       "subscribeTitle": "Subscription",
@@ -2543,18 +2356,7 @@
   },
   "modelPlaza": {
     "title": "Model plaza",
-    "empty": "No models",
-    "tabAll": "All",
-    "tabText": "Text",
-    "tabImage": "Image",
-    "tabAv": "Audio/Video",
-    "payMode": "Pay per use",
-    "modelCount": "{n} models",
-    "synced": "{n} synced",
-    "perKTokens": "per 1K tokens",
-    "noMore": "— No more —",
-    "contextLength": "Context",
-    "providerModel": "model"
+    "tabImage": "Image"
   },
   "news": {
     "search": "Search news",
@@ -2683,16 +2485,7 @@
     "saveFailed": "Failed to save"
   },
   "postDetail": {
-    "loadFailed": "Failed to load post",
-    "anonymous": "Anonymous",
-    "typesLabel": "Types",
-    "categoriesLabel": "Categories",
-    "taskStatusLabel": "Task status",
-    "reviewStatusLabel": "Review status",
-    "priceLabel": "Price",
-    "cycleLabel": "Cycle",
-    "closingTimeLabel": "Closing time",
-    "contactLabel": "Contact"
+    "loadFailed": "Failed to load post"
   },
   "announcementDetail": {
     "empty": "Announcement not found or deleted",
@@ -2764,17 +2557,12 @@
     "password": "Password",
     "passwordPlaceholder": "Set a password",
     "submit": "Sign up",
-    "agreeFirst": "Please read and agree to the User Agreement first",
     "phoneInvalid": "Please enter a valid phone number",
     "pwdLength": "Password must be 6-20 characters",
     "pageMissing": "Page not registered",
     "codePlaceholder": "Enter code",
     "hide": "Hide",
     "show": "Show",
-    "submitting": "Signing up…",
-    "agreePrefix": "I have read and agree to",
-    "userAgreement": "《User Agreement》",
-    "privacyPolicy": "《Privacy Policy》",
     "sendCodeFailed": "Failed to send code, please retry",
     "registering": "Signing up...",
     "confirmPassword": "Confirm password",
@@ -2808,20 +2596,9 @@
     "pinned": "Pinned",
     "deleted": "Deleted",
     "notFound": "No conversations found",
-    "center": "Message center",
     "settings": "Settings",
     "notificationSettings": "Notification settings",
     "close": "Close",
-    "demo": {
-      "zhangsan": "Zhang San",
-      "lisi": "Li Si",
-      "wangwu": "Wang Wu",
-      "likeNote": "liked your course note",
-      "replyComment": "replied to your comment: Great explanation!",
-      "followYou": "followed you",
-      "targetReact": "React Intro Lesson 3",
-      "targetAi": "AI LLM in Practice"
-    },
     "startConversation": "Start your conversation",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",
@@ -2855,48 +2632,24 @@
       "contactTitle": "Having issues?",
       "contactText": "Customer service WeChat: AIXHS_Service",
       "currentLevel": "Current Level",
-      "expire": "Expires",
       "expired": "Expired",
       "guest": "Guest",
-      "levelIntro": "Membership Level Introduction",
       "loading": "Loading...",
       "maxLevel": "Max Level Reached",
       "maxLevelHint": "You have reached the highest level",
       "nextLevelHint": "${nextThreshold - growth} away from ${nextTier?.name ?? ''}",
       "normalUser": "Regular User",
       "notOpened": "Not Activated",
-      "openNow": "Activate Now",
       "openVip": "Activate VIP Membership",
       "opened": "Activated",
       "privileges": "Member Privileges",
       "share": "Share and Earn Commission"
-    },
-    "integral": {
-      "current": "Current points",
-      "empty": "No point records",
-      "loading": "Loading…",
-      "loadFailed": "Load failed",
-      "noMore": "No more"
     },
     "benefits": {
       "empty": "No benefits",
       "myBenefits": "My exclusive benefits",
       "loadFailed": "Load failed",
       "tierCatalog": "Tier benefits"
-    },
-    "coupon": {
-      "unit": "CNY",
-      "empty": "No coupons",
-      "couponCenter": "Coupon center",
-      "useHint": "Use it on the product page",
-      "loadFailed": "Load failed",
-      "thresholdText": "Spend {threshold}+",
-      "expireText": "Valid until {time}",
-      "use": "Use now",
-      "loadMore": "Pull up to load more",
-      "unused": "Unused",
-      "used": "Used",
-      "expired": "Expired"
     },
     "couponList": {
       "received": "Claimed",
@@ -2938,13 +2691,9 @@
   },
   "pay": {
     "result": {
-      "pending": "Payment processing",
-      "paid": "Payment successful",
-      "failed": "Payment failed"
+      "paid": "Payment successful"
     },
     "backHome": "Back to home",
-    "viewOrders": "View orders",
-    "refresh": "Refresh",
     "orderAbnormal": "Order abnormal",
     "orderAmount": "Order amount",
     "selectMethod": "Select payment method",
@@ -3006,8 +2755,6 @@
       "addFailed": "Add failed",
       "target": "Target {n} min",
       "completed": "Completed {n} min",
-      "statusDone": "Done",
-      "statusInProgress": "In progress",
       "empty": "No study plans",
       "add": "Add plan"
     },
@@ -3019,25 +2766,10 @@
     },
     "recordPage": {
       "progress": "Progress {n}%",
-      "empty": "No study records",
-      "statusLearning": "Learning",
-      "statusAbandon": "Abandoned",
-      "statTotal": "Total study",
-      "unitMin": "min",
-      "statDays": "Streak days",
-      "unitDay": "days",
-      "statCourses": "Completed courses",
-      "unitCourse": "courses",
-      "statPoints": "Points earned",
-      "unitPoint": "pts",
-      "tabCompleted": "Completed",
-      "tabAbandoned": "Abandoned",
       "coverFallback": "Course",
       "continue": "Continue learning",
       "lastTime": "Last Studied",
-      "statusDone": "Completed",
-      "tabAll": "All",
-      "tabLearning": "Learning"
+      "tabAll": "All"
     },
     "videoDetail": {
       "me": "Me",
@@ -3146,12 +2878,9 @@
       "follow": "Follow",
       "followers": "{n} followers",
       "following": "Following",
-      "hoursAgo": "{n} hours ago",
-      "justNow": "Just now",
       "loadFailed": "Failed to load",
       "loading": "Loading...",
       "loadingMore": "Loading...",
-      "minutesAgo": "{n} minutes ago",
       "noMore": "No more",
       "publish": "Post"
     },
@@ -3170,7 +2899,6 @@
   },
   "token": {
     "balance": {
-      "empty": "No records",
       "title": "My tokens",
       "agentConsume": "Agent consumption",
       "ordersConsume": "Model consumption",
@@ -3251,11 +2979,9 @@
       "tooShort": "Password must be at least 6 characters",
       "mismatch": "Passwords do not match",
       "success": "Password changed",
-      "oldPassword": "Old password",
       "oldPlaceholder": "Enter the old password",
       "newPassword": "New password",
       "newPlaceholder": "Enter the new password",
-      "confirmPassword": "Confirm password",
       "confirmPlaceholder": "Enter the new password again",
       "submit": "Change password",
       "forgotOld": "Forgot the old password? Verify via phone",
@@ -3310,30 +3036,6 @@
       "phone": "Phone Number",
       "security": "Security Settings"
     },
-    "realname": {
-      "enterRealName": "Please enter your real name",
-      "idCardLength": "Invalid ID number length",
-      "authSuccess": "Verified",
-      "authed": "Already verified",
-      "realName": "Real name",
-      "realNamePlaceholder": "Enter your real name",
-      "idCard": "ID number",
-      "idCardPlaceholder": "Enter your ID number",
-      "submit": "Submit",
-      "uploadFailed": "Upload failed",
-      "uploadRequired": "Please upload both sides of your ID card",
-      "verifiedNote": "Real-name info is verified and cannot be modified",
-      "privacyPromise": "Your identity info is used only for real-name verification and kept strictly confidential",
-      "reviewing": "Under review, please wait",
-      "rejected": "Verification failed",
-      "idCardPhotos": "ID card photos",
-      "frontPhoto": "Front side",
-      "backPhoto": "Back side",
-      "uploadHint": "Please ensure photos are clear, complete and unobstructed",
-      "desc": "To ensure account security and compliance, some features require real-name verification before use",
-      "submitting": "Submitting...",
-      "title": "Real-name Verification"
-    },
     "member": "Member",
     "operator": "Operator",
     "confirm3": "Cancel membership? You will lose member benefits.",
@@ -3361,7 +3063,6 @@
     "expand": "Expand all",
     "capabilitySection": "Core capabilities",
     "performanceSection": "Track record",
-    "featureSection": "Trader benefits",
     "serviceSection": "Service packages",
     "reviewsSection": "User reviews",
     "consult": "Consult now",
@@ -3393,8 +3094,6 @@
     },
     "selectPlanFirst": "Please select a plan",
     "notOpened": "Not subscribed",
-    "expireTime": "Expires: {time}",
-    "openHint": "Subscribe now for exclusive benefits",
     "privileges": "Member benefits",
     "viewAllBenefits": "View all benefits",
     "plans": "Plans",
@@ -3464,23 +3163,17 @@
       "confirmPay": "Confirm Pay",
       "successTitle": "Activated",
       "successDesc": "Congratulations! VIP membership activated",
-      "viewBenefits": "View Benefits",
-      "brandTitle": "IHUI AI Membership"
+      "viewBenefits": "View Benefits"
     },
     "details": {
       "title": "VIP Benefits Comparison",
-      "feature": "Feature",
-      "normal": "Regular Member",
-      "vipColumn": "VIP Member",
       "upgrade": "Subscribe Now",
       "features": {
         "chatCount": "AI Chat Count",
         "drawCount": "AI Image Count",
-        "videoDuration": "Video Generation Duration",
         "modelAccess": "Model Access",
         "prioritySupport": "Priority Support",
         "exclusiveGroup": "Exclusive Group",
-        "adExperience": "Ad Experience",
         "vipColumn": "VIP Member"
       },
       "monthlyPlan": "Monthly Plan",
@@ -3601,23 +3294,12 @@
     }
   },
   "feedback": {
-    "types": {
-      "complaint": "Complaint",
-      "suggestion": "Suggestion",
-      "bug": "Bug",
-      "other": "Other"
-    },
-    "uploadFailed": "Upload failed",
     "content": "Content",
     "contact": "Contact",
     "contactPlaceholder": "Please enter contact information (optional)",
     "contentPlaceholder": "Please enter feedback details",
-    "enterContent": "Please enter feedback content",
-    "images": "Image (up to ${MAX_IMAGES})",
     "submit": "Submit Feedback",
-    "submitSuccess": "Feedback submitted",
-    "type": "Type",
-    "uploading": "Uploading"
+    "type": "Type"
   },
   "comment": {
     "loading": "Loading...",
@@ -3737,22 +3419,13 @@
     "holdToSpeak": "Hold to speak",
     "addFile": "Add file",
     "document": "Document",
-    "video": "Video",
-    "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
-    "compactTooFew": "Too few messages to compact",
-    "compactIncompressible": "Nothing left to compact in this context",
-    "compactFailed": "Compaction failed",
-    "compactNoSession": "Conversation not linked yet, compaction unavailable"
+    "video": "Video"
   },
   "toolbar": {
     "ai": "AI Chat"
   },
   "index": {
     "mock": {
-      "post1Title": "How to use React Hooks?",
-      "today": "Today",
-      "post2Title": "TypeScript Type Inference",
-      "post3Title": "Design Pattern Discussion",
       "yesterday": "Yesterday"
     },
     "feature": {
@@ -3799,7 +3472,6 @@
     "emailPlaceholder": "Enter your email",
     "forgotPassword": "Forgot password?",
     "getVerificationCode": "Get code",
-    "googleNotConfigured": "Google sign-in not configured",
     "loginBtn": "Sign in",
     "noAccount": "Don't have an account?",
     "password": "Password",
@@ -3810,7 +3482,6 @@
     "registerNow": "Sign up now",
     "resendCode": "Resend",
     "termsOfService": "Terms of Service",
-    "thirdPartyLogin": "Continue with",
     "loginFailed": "Login failed. Please try again."
   },
   "level": {
@@ -3957,71 +3628,12 @@
     "register1": "🎉 Welcome to IHUI AI Community! New users get 5000 IHUI credits on signup!",
     "text2": "Agent assistant page not configured",
     "save3": "Image saved",
-    "d1": "AI Writing Assistant",
-    "d2": "Helps you write high-quality articles, reports, and copy",
-    "d3": "Coding Assistant",
-    "d4": "Code writing, debugging, and optimization advice",
     "d5": "Development",
-    "d6": "Data Analyst",
-    "d7": "Data visualization and analysis insights",
-    "d8": "Analysis",
-    "d9": "Design Creative",
-    "d10": "Creative design and visual solutions",
     "d11": "Design",
-    "d12": "Translation Expert",
-    "d13": "Multilingual translation and localization",
-    "d14": "Tools",
-    "d15": "Text Generation",
-    "d16": "High-quality text content generation",
-    "d17": "Image Generation",
-    "d18": "AI painting and image creation",
-    "d19": "Video Production",
-    "d20": "AI video generation and editing",
-    "d21": "Audio Processing",
-    "d22": "Speech synthesis and audio editing",
-    "d23": "Code Generation",
-    "d24": "Automatic multilingual code generation",
-    "d25": "Data Analysis",
-    "d26": "Data analysis and visualization",
-    "d27": "AI Painting",
-    "d28": "Text-to-image and image-to-image creation",
-    "d29": "Video Editing",
-    "d30": "Smart video editing and effects",
-    "d31": "AI Painting Beginner's Guide",
-    "d32": "This article details the basics of AI painting and common tools...",
-    "d33": "Deep Learning Model Optimization Tips",
-    "d34": "How to optimize training speed and accuracy of deep learning models...",
-    "d35": "Prompt Engineering Best Practices",
-    "d36": "Master core prompt engineering skills to improve AI output quality...",
-    "d37": "Multimodal AI Use Cases",
-    "d38": "Explore multimodal AI applications in healthcare, education, finance...",
-    "d39": "Landscape Painting",
-    "d40": "City Night View",
-    "d41": "Abstract Art",
-    "d42": "AI Video Generation Tutorial",
-    "d43": "Digital Human Live Demo",
-    "d44": "AI Speech Synthesis Demo",
-    "d45": "TTS Voice Comparison",
-    "d46": "Voice Cloning Effect",
     "p1": "Image content",
     "p2": "Video content",
     "p3": "Audio content",
     "r1": "Save image to album"
-  },
-  "aiassistant": {
-    "text1": "Deep thinking...",
-    "failed2": "Generation failed, please retry",
-    "text3": "Enter your question below",
-    "text4": "Created by IHUI AI",
-    "text5": "Show answer",
-    "text6": "Generating at full speed",
-    "p1": "Generated image:",
-    "p2": "IHUI AI Assistant",
-    "p3": "Generating",
-    "y1": "· IHUI credits:{p1}",
-    "q1": "Generate a cat image",
-    "q2": "Recommend 3 good books",
-    "q3": "Explain quantum entanglement"
   },
   "aiAgent": {
     "text1": "AI App Store",
@@ -4240,23 +3852,6 @@
     "empty": "No works",
     "subtitle": "My AIGC works",
     "title": "AIGC Works",
-    "d1": "Cyberpunk City Night",
-    "d2": "IHUI Xiaofang",
-    "d3": "Aurora Wonderland",
-    "d4": "AI Creator",
-    "d5": "Machina Concept",
-    "d6": "Futurist",
-    "d7": "Quantum Verses",
-    "d10": "Data flood, digital age, poetry",
-    "d11": "Neon Pulse",
-    "d12": "Sound Artist",
-    "d13": "City of the Future",
-    "d14": "Digital Painter",
-    "d15": "The AI Awakening",
-    "d17": "Explore the human condition after AI awakens; generate a short philosophical essay.",
-    "d18": "AI awakening, consciousness, coexistence",
-    "d19": "Echoes of Deep Space",
-    "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation.",
     "playAudio": "Play audio",
     "publish": "Publish"
   },
@@ -4316,18 +3911,6 @@
     "r3": "Function",
     "r4": "Frontend",
     "r5": "Backend"
-  },
-  "courseplanet": {
-    "d1": "AI Painting 101: From Zero to Mastery",
-    "d2": "AI Research Team",
-    "d3": "Short Video Production Full Workflow",
-    "d4": "Mentor",
-    "d5": "ChatGPT Prompt Engineering",
-    "d6": "AI Research Team",
-    "d7": "AI Office Productivity Guide",
-    "d8": "Efficiency Expert",
-    "d9": "LLM App Development in Practice",
-    "d10": "Tech Expert"
   },
   "aiHistory": {
     "d1": "AI Image",
@@ -4523,31 +4106,17 @@
     "q1": "Loading data",
     "q2": "Follow action"
   },
-  "memberCoupon": {
-    "q1": "Get coupons"
-  },
   "userPhone": {
     "q1": "Get user info",
     "q2": "Send current phone verification code",
     "q3": "Check if phone is registered",
     "q4": "Send new phone verification code"
   },
-  "userRealname": {
-    "q1": "Get user info",
-    "q2": "Upload ID photo",
-    "q3": "Submit real-name verification"
-  },
   "vipUpgrade": {
     "q1": "Get VIP level",
     "q2": "Alipay VIP upgrade",
     "q3": "Upgrade VIP",
     "r1": "my.getAuthCode failed, falling back to mock mode"
-  },
-  "aboutUsagerules": {
-    "r1": "Prepared by: Jilin Aihui Zhi AI Artificial Intelligence Technology Co., Ltd.",
-    "r2": "Address: AI Talent Incubation Base, No. 107 Yueda Road, High-tech Zone, Changchun, Jilin",
-    "r3": "Service hotline: 19944894487",
-    "r4": "Official email: [REDACTED-EMAIL]"
   },
   "deventerModeledit": {
     "r1": "Copywriting",
@@ -4565,31 +4134,6 @@
     "q5": "Sales",
     "q6": "Load agent"
   },
-  "modelplaza": {
-    "r1": "Alibaba Cloud",
-    "r2": "Baidu",
-    "r3": "ByteDance",
-    "r4": "Zhipu"
-  },
-  "aboutBusinesslicense": {
-    "r1": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
-    "r2": "10 million RMB",
-    "r3": "2023-06-15 to long-term",
-    "r4": "Limited liability company",
-    "r5": "Guangzhou Municipal Market Supervision Administration",
-    "r6": "Technical services, technical development, technical consulting, technical exchange, technical transfer, technical promotion; software development; system integration services; IT consulting services; internet information services"
-  },
-  "aboutModelrecord": {
-    "r1": "IHUI AI Dialogue LLM",
-    "r2": "Ji ICP License No. 2025027274",
-    "r3": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
-    "r4": "Generative synthetic (deep synthesis)"
-  },
-  "aboutIcprecord": {
-    "r1": "Ji ICP License No. 2025027274",
-    "r2": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
-    "p1": "Ji ICP License No. 2025027274-7A"
-  },
   "StudyStats": {
     "y1": "h, completed"
   },
@@ -4597,7 +4141,6 @@
     "6": "No data",
     "7": "Retry",
     "8": "Loading...",
-    "9": "Enter a description",
     "10": "No withdrawal records",
     "11": "Selected model: {m}",
     "12": "Verification code sent to {m}",
@@ -4652,9 +4195,6 @@
   },
   "VipUpgradeToast": {
     "p1": "Upgrade to unlock more features"
-  },
-  "aboutApppermission": {
-    "q1": "Get permission status"
   },
   "aicareer": {
     "q1": "Interview",
@@ -4866,13 +4406,9 @@
   "profile": {
     "myCourses": "My courses",
     "copyFailRetry": "Copy failed, please retry",
-    "deleteBtn": "Delete",
     "dlgDelConvTitle": "Delete conversation",
     "dlgDelConvBody": "Delete this conversation?",
     "delFailedRetry": "Delete failed, please retry",
-    "userCard": {
-      "loginRequired": "Please log in first"
-    },
     "notLoggedIn": "Not signed in",
     "nickname": "No nickname yet",
     "logout": "Log Out",
@@ -5150,7 +4686,6 @@
     },
     "workflows": {
       "home": "Workflows",
-      "editor": "Workflow Editor",
       "automations": "Automations",
       "orchestration": "Orchestration",
       "schedule": "Scheduled Tasks"
@@ -5161,7 +4696,6 @@
   "accountPool": {
     "title": "My Account Pool",
     "subtitle": "Your own third-party AI account pool — the same accounts as Check-in Assistant, signed in daily, and used first for your own relay requests.",
-    "add": "Add account",
     "provider": "Platform",
     "name": "Name",
     "namePlaceholder": "Name this account",
@@ -5170,7 +4704,6 @@
     "optional": "Optional",
     "save": "Save",
     "cancel": "Cancel",
-    "loading": "Loading…",
     "empty": "No accounts yet",
     "emptyHint": "Accounts you add in Check-in Assistant will sync here automatically.",
     "enabled": "Enabled",
@@ -5185,7 +4718,6 @@
     "checkinSuccess": "Checked in",
     "addSuccess": "Account added",
     "actionFailed": "Action failed",
-    "loginRequired": "Sign in to manage your account pool",
     "addTitle": "Add account",
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
@@ -5194,17 +4726,14 @@
   "checkinAssistant": {
     "title": "Check-in Assistant",
     "subtitle": "Manage third-party accounts and check in daily. Synced with your personal account pool and used first for your own relay requests.",
-    "summary": "{total} accounts · {enabled} enabled · {synced} in pool",
     "empty": "No accounts yet",
     "emptyHint": "Add your first account using the form below.",
     "addTitle": "Add account",
     "add": "Add",
     "adding": "Adding…",
     "namePlaceholder": "Account name",
-    "tokenLabel": "Token",
     "tokenPlaceholder": "Paste access credential",
     "refreshTokenLabel": "Refresh token (optional)",
-    "optional": "Optional",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "enable": "Enable",
@@ -5215,7 +4744,30 @@
     "poolSynced": "In account pool",
     "lastOk": "Last check-in succeeded +{credits}",
     "lastFailed": "Last check-in failed",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "taskTitle": "Auto-run tasks",
+    "taskDesc": "One sweep of the WorkBuddy task center: accept tasks, claim rewards, redeem streak tiers, draw the lottery, cat travel, night-owl chat.",
+    "taskAutoTitle": "Auto sweep",
+    "taskAutoLoading": "Loading…",
+    "taskAutoUnknown": "Unknown (the server did not return the sweep status; check the backend version)",
+    "taskAutoOn": "Enabled · sweeps every {minutes} min",
+    "taskAutoNext": "next {time}",
+    "taskAutoDry": "Enabled but in dry-run (read-only probes): no real claims. Set WORKBUDDY_TASKS_LIVE_RUN=true on the server to write.",
+    "taskAutoCronBlocked": "Not running: the task switch is on but the master switch CHECKIN_CRON_ENABLED is off.",
+    "taskAutoOff": "Disabled: manual runs only. Set WORKBUDDY_TASKS_ENABLED=true on the server and restart.",
+    "taskAutoNotStarted": "Configured as enabled but the scheduler is not running: restart ai-service after editing the server .env (start() short-circuits on _started, so there is no hot reload).",
+    "taskAutoPaths": "Report/claim paths are not configured: reports only, no claims.",
+    "taskAutoLast": "Last sweep {time}",
+    "taskAutoLastStats": "{families} families · {accepted} accepted · {claimed} claimed",
+    "taskAutoLastNever": "No sweep yet in this process",
+    "taskPick": "Account",
+    "taskList": "Load tasks",
+    "taskDryRun": "Dry run (no writes)",
+    "taskRun": "Run all task families",
+    "taskRunning": "Running…",
+    "taskEmpty": "No tasks yet, or not loaded",
+    "taskResult": "Result",
+    "taskUnjudged": "Unjudged: the upstream response could not be parsed, so this run cannot be counted as success."
   },
   "developerInfo": {
     "title": "Developer info",
@@ -5354,35 +4906,6 @@
     "sectionObligations": "User Obligations",
     "sectionObligationsBody": "You must comply with applicable laws and regulations, and shall not publish illegal, non-compliant, or harmful content, nor infringe upon the legitimate rights and interests of others."
   },
-  "developerConversations": {
-    "title": "Relay Conversations",
-    "title2": "Conversation",
-    "model": "Model",
-    "messages": "Messages",
-    "tokens": "Tokens",
-    "cost": "Cost",
-    "lastActive": "Last active"
-  },
-  "dashboard": {
-    "usage": "Usage overview",
-    "cost": "Cost & revenue",
-    "bi": "BI overview",
-    "errors": "Error dashboard",
-    "totalUsers": "Total users",
-    "activeSessions": "Active sessions",
-    "uniqueUsers": "Active users (analytics)",
-    "todayEvents": "Today's events",
-    "todayRevenue": "Today's revenue",
-    "totalRevenue": "Total revenue",
-    "totalOrders": "Total orders",
-    "biTotalUsers": "BI total users",
-    "activeUsers": "Active users",
-    "errorTotal": "Total errors",
-    "errorToday": "Errors today",
-    "errorCritical": "Critical errors",
-    "errorResolved": "Resolved",
-    "loadFailed": "Failed to load dashboard"
-  },
   "connectors": {
     "notConfigured": "Not configured yet",
     "sync": "Sync",
@@ -5415,35 +4938,7 @@
     "empty": "No MCP servers"
   },
   "agentRuntime": {
-    "title": "Agent Runtime",
-    "empty": "No active sessions",
-    "loadFailed": "Failed to load",
-    "liveStatus": "Live status",
-    "messages": "{count} messages",
-    "model": "Model",
-    "probeTitle": "Permission probe",
-    "probeTool": "Tool name",
-    "probeToolPlaceholder": "Enter tool name to probe",
-    "probeMode": "Mode",
-    "probeLevel": "Risk level",
-    "probeCheck": "Check",
-    "probeChecking": "Checking…",
-    "probeDecision": "Decision",
-    "probeHint": "Pick a tool and mode, then tap Check",
-    "probeFailed": "Probe failed",
-    "actionFailed": "Action failed",
-    "resume": "Resume",
-    "cancel": "Cancel",
-    "cancelConfirmTitle": "Cancel this session?"
-  },
-  "developerNotifications": {
-    "title": "Notification Preferences",
-    "apiError": "API error alerts",
-    "quotaWarning": "Quota warnings",
-    "webhookFailure": "Webhook failure alerts",
-    "weeklyReport": "Weekly report",
-    "versionUpdate": "Version updates",
-    "billingReminder": "Billing reminders"
+    "title": "Agent Runtime"
   },
   "agentChat": {
     "empty": "No messages yet. Send the first one to start",
@@ -6344,14 +5839,12 @@
     "ranking": "Ranking"
   },
   "agentScreen": {
-    "loadFailed": "Failed to load agent",
     "title": "Agent",
     "rating": "Rating",
     "useCount": "Use count"
   },
   "aiAssistant": {
     "startChat": "Start Chat",
-    "vendorOther": "Other",
     "copyOkToast": "Link copied to clipboard",
     "empty": "No agents available",
     "favoriteCount": "{count} favorites",
@@ -6359,9 +5852,6 @@
     "subtitle": "Select an agent to start",
     "title": "AI Assistant",
     "useCount": "{count} uses"
-  },
-  "resources": {
-    "loadMore": "Load more"
   },
   "aiWorldDetailPage": {
     "title": "Details",
@@ -7192,7 +6682,6 @@
     "empty": "No data yet"
   },
   "quickNotes": {
-    "menuEntry": "Quick notes",
     "title": "Quick notes",
     "new": "New note",
     "edit": "Edit",
@@ -7205,31 +6694,8 @@
     "empty": "No notes yet"
   },
   "chatAlert": {
-    "compaction": {
-      "title": "Context Auto-Compacted",
-      "message": "{before} → {after} (removed {removed} messages)"
-    },
-    "loginBtn": "Log in",
-    "longPress": {
-      "myTitle": "My Message",
-      "aiTitle": "AI Message",
-      "message": "Screenshot generated",
-      "shareBtn": "Share"
-    },
     "errorTitle": "Request failed",
     "errorRetry": "Retry"
-  },
-  "mat": {
-    "unknown": "Unknown error",
-    "deleteTitle": "Delete material",
-    "deleteBody": "Delete \"{title}\"?",
-    "detailLabel": "Material details"
-  },
-  "selectionAnnotations": {
-    "addAnnotation": "Add annotation"
-  },
-  "slashCmd": {
-    "statusToast": "Model {model} · {count} messages · {state}"
   },
   "cloudRuns": {
     "title": "Cloud Agent Runs",
@@ -7336,8 +6802,7 @@
     "multi": "Multiple Choice",
     "prev": "Previous",
     "next": "Next",
-    "submit": "Submit",
-    "submitFailed": "Submit failed"
+    "submit": "Submit"
   },
   "follow": {
     "title": "Following & Followers",
@@ -7345,9 +6810,6 @@
     "fans": "Followers",
     "empty": "No data",
     "unfollow": "Unfollow"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP License No."
   },
   "income": {
     "title": "Earnings",
@@ -7386,8 +6848,6 @@
     "desc": "Choose which channels can reach you",
     "save": "Save",
     "saving": "Saving...",
-    "loadFailed": "Failed to load settings",
-    "saveFailed": "Failed to save",
     "saved": "Saved"
   },
   "payResult": {
@@ -7414,8 +6874,7 @@
     "progress": "Progress",
     "statusCompleted": "Completed",
     "statusInProgress": "In Progress",
-    "statusPaused": "Paused",
-    "loadFailed": "Failed to load study records"
+    "statusPaused": "Paused"
   },
   "team": {
     "title": "My Team",
@@ -7438,17 +6897,10 @@
     "searchPlaceholder": "Search team members"
   },
   "player": {
-    "noUrl": "No video URL available",
-    "exitFullscreen": "Exit fullscreen",
-    "fullscreen": "Fullscreen",
-    "pause": "Pause",
-    "play": "Play",
-    "rate": "Speed",
-    "seek": "Seek"
+    "noUrl": "No video URL available"
   },
   "vipBenefit": {
-    "title": "Membership Benefits",
-    "loadFailed": "Failed to load benefits"
+    "title": "Membership Benefits"
   },
   "wrongQuestions": {
     "title": "Wrong questions",
@@ -7472,7 +6924,6 @@
   "settings": {
     "oldPassword": "Current Password",
     "confirmPassword": "Confirm New Password",
-    "icpRecord": "ICP Record",
     "pwdFieldsRequired": "Please fill in all password fields",
     "pwdTooShort": "Password must be at least 6 characters",
     "pwdNotMatch": "Passwords do not match",

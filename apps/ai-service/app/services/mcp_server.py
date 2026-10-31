@@ -5093,15 +5093,41 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
                             "denialReason": _net_denial,
                         }
                     else:
-                        webhook_payload = arguments.get("webhook_payload", arguments)
-                        async with httpx.AsyncClient(timeout=15.0) as client:
-                            wresp = await client.post(webhook_url, json=webhook_payload)
+                        # 2026-10-31 安全强化第 32 批:webhook_url 是外部可控输入,
+                        # 而本服务能访问内网 —— "内网地址不可达兜底"不成立。出站前
+                        # 过同一把 SSRF 尺并钉定公网 IP(POST 不跟随重定向,只需首跳)。
+                        from .screenshot_service import (
+                            _validate_url_ssrf,
+                            resolve_pinned_target,
+                        )
+
+                        _webhook_ok, _webhook_reason = _validate_url_ssrf(webhook_url)
+                        _webhook_pinned = (
+                            resolve_pinned_target(webhook_url) if _webhook_ok else None
+                        )
+                        if not _webhook_ok or _webhook_pinned is None:
                             execution_result = {
-                                "ok": wresp.status_code < 400,
-                                "status_code": wresp.status_code,
-                                "response": wresp.text[:500],
+                                "ok": False, "errorCode": "SSRF_BLOCKED",
+                                "error": "webhook 目标不允许访问: "
+                                + (_webhook_reason or "无法钉定公网 IP"),
                             }
-                            executed = wresp.status_code < 400
+                            executed = False
+                        else:
+                            _pinned_url, _orig_host = _webhook_pinned
+                            webhook_payload = arguments.get("webhook_payload", arguments)
+                            async with httpx.AsyncClient(timeout=15.0) as client:
+                                wresp = await client.post(
+                                    _pinned_url,
+                                    json=webhook_payload,
+                                    headers={"Host": _orig_host},
+                                    extensions={"sni_hostname": _orig_host},
+                                )
+                                execution_result = {
+                                    "ok": wresp.status_code < 400,
+                                    "status_code": wresp.status_code,
+                                    "response": wresp.text[:500],
+                                }
+                                executed = wresp.status_code < 400
             else:
                 execution_result = {
                     "ok": False, "errorCode": "INVALID_PARAMS",
@@ -6153,19 +6179,27 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            resp = await client.get(
-                url,
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/120.0.0.0 Safari/537.36"
-                    ),
-                },
-            )
-        content_type = resp.headers.get("content-type", "")
-        body = resp.text
+        # 2026-10-31 安全强化第 32 批:逐跳 SSRF(此前 follow_redirects=True 可被
+        # 公网 302 → 内网/云元数据绕过;正文会原样回给模型)。
+        fetched = await _fetch_url_ssrf_safe(
+            url,
+            httpx,
+            timeout=15.0,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+            },
+        )
+        if fetched is None:
+            return {
+                "tool": "fetch_url", "ok": False, "url": url,
+                "error": "URL 抓取失败或被 SSRF 尺拒绝(重定向逐跳校验)",
+                "errorCode": "FETCH_FAILED",
+            }
+        _status, body, content_type, final_url = fetched
         title = ""
         truncated = False
 
@@ -6217,11 +6251,11 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
         return {
             "tool": "fetch_url",
             "ok": True,
-            "url": str(resp.url),
+            "url": final_url,
             "title": title,
             "content": content,
             "content_type": content_type,
-            "status_code": resp.status_code,
+            "status_code": _status,
             "fetched_at": datetime.now(UTC).isoformat(),
             "truncated": truncated,
             "message": f"抓取成功(mode={mode}, {len(content)} 字符)",
@@ -6628,6 +6662,113 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         "failover_attempts": attempts,
         "message": f"全部 {len(attempts)} 家图片 provider 均失败",
     }
+
+
+async def _fetch_url_ssrf_safe(
+    url: str,
+    httpx_mod: Any,
+    *,
+    timeout: float = 15.0,
+    headers: dict[str, str] | None = None,
+    max_hops: int = 5,
+    max_bytes: int = 5 * 1024 * 1024,
+) -> tuple[int, str, str, str] | None:
+    """SSRF 安全的逐跳 GET(返回 状态码/正文/content-type/最终 URL),2026-10-31 安全强化第 32 批。
+
+    缺陷:`_tool_fetch_url` 此前只有首跳 `_validate_url_ssrf` + `follow_redirects=True` ——
+    公网页 302 → `http://169.254.169.254/` 即绕过校验,正文原样回给模型。
+    现逐跳自管:每跳过同一把尺(screenshot_service 那份,不另立判据)并钉定公网 IP
+    (校验期与请求期两次 DNS 解析可不一致),任一跳被拒/钉不出 IP/异常/正文超限 ⇒ None。
+    """
+    from .screenshot_service import _validate_url_ssrf, resolve_pinned_target
+
+    if not url or url.startswith("data:"):
+        return None
+    current = url
+    try:
+        async with httpx_mod.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            for _hop in range(max_hops + 1):
+                ok, _reason = _validate_url_ssrf(current)
+                if not ok:
+                    logger.warning("mcp_server fetch_url 被 SSRF 尺拒绝: %s", current[:200])
+                    return None
+                pinned = resolve_pinned_target(current)
+                if pinned is None:
+                    logger.warning("mcp_server fetch_url 无法钉定公网 IP: %s", current[:200])
+                    return None
+                pinned_url, orig_host = pinned
+                resp = await client.get(
+                    pinned_url,
+                    headers={**(headers or {}), "Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
+                location = resp.headers.get("location")
+                # 用状态码判重定向(而不是 httpx 的 is_redirect 属性):测试桩只需
+                # 实现最小契约(status_code/headers/text/url),判据不依赖具体实现细节。
+                if 300 <= resp.status_code < 400 and location:
+                    current = str(resp.url.join(location))
+                    continue
+                body = resp.text
+                if len(body) > max_bytes:
+                    logger.warning("mcp_server fetch_url 正文超限: %s", current[:200])
+                    return None
+                return (
+                    resp.status_code,
+                    body,
+                    resp.headers.get("content-type", ""),
+                    str(resp.url),
+                )
+        return None
+    except Exception as e:
+        logger.warning("mcp_server fetch_url 失败: %s", e)
+        return None
+
+
+def _download_url_ssrf_safe_sync(
+    url: str,
+    httpx_mod: Any,
+    *,
+    timeout: float = 60.0,
+    max_hops: int = 5,
+) -> bytes | None:
+    """SSRF 安全的逐跳下载(同步版,供同步函数使用;2026-10-31 安全强化第 32 批)。
+
+    与 async 版 `_download_url_ssrf_safe` 同判据、同钉 IP 纪律;存在的理由只有一个:
+    `_audio_source_from_args` 是同步函数,不能 await async 版。
+    """
+    from .screenshot_service import _validate_url_ssrf, resolve_pinned_target
+
+    if not url or url.startswith("data:"):
+        return None
+    current = url
+    try:
+        with httpx_mod.Client(timeout=timeout, follow_redirects=False) as client:
+            for _hop in range(max_hops + 1):
+                ok, _reason = _validate_url_ssrf(current)
+                if not ok:
+                    logger.warning("mcp_server 同步下载被 SSRF 尺拒绝: %s", current[:200])
+                    return None
+                pinned = resolve_pinned_target(current)
+                if pinned is None:
+                    logger.warning("mcp_server 同步下载无法钉定公网 IP: %s", current[:200])
+                    return None
+                pinned_url, orig_host = pinned
+                resp = client.get(
+                    pinned_url,
+                    headers={"Host": orig_host},
+                    extensions={"sni_hostname": orig_host},
+                )
+                location = resp.headers.get("location")
+                if 300 <= resp.status_code < 400 and location:
+                    current = str(resp.url.join(location))
+                    continue
+                if resp.status_code >= 400:
+                    return None
+                return cast(bytes, resp.content)
+        return None
+    except Exception as e:
+        logger.warning("mcp_server 同步下载失败: %s", e)
+        return None
 
 
 async def _download_url_ssrf_safe(
@@ -7719,17 +7860,17 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
                 }
             import httpx as _httpx
 
-            try:
-                async with _httpx.AsyncClient(timeout=60, follow_redirects=True) as _c:
-                    _r = await _c.get(url)
-                    _r.raise_for_status()
-                    data = _r.content
-            except Exception as e:  # noqa: BLE001
+            # 2026-10-31 安全强化第 32 批:走 SSRF 安全下载单源(逐跳 + 钉 IP)。
+            # 此前 follow_redirects=True ⇒ 公网 302 → 内网即可把内网文件上传到外部存储。
+            fetched_data = await _download_url_ssrf_safe(url, _httpx, timeout=60.0)
+            if fetched_data is None:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
-                    "error": f"拉取远程文件失败: {e}"[:300], "errorCode": "FETCH_FAILED",
+                    "error": "拉取远程文件失败或被 SSRF 尺拒绝(重定向逐跳校验)",
+                    "errorCode": "FETCH_FAILED",
                     "file_url": None,
                 }
+            data = fetched_data
             if len(data) > 50 * 1024 * 1024:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
@@ -8055,13 +8196,11 @@ def _audio_source_from_args(
             return b"", "", f"URL 不允许访问: {reason}"
         import httpx as _httpx
 
-        try:
-            with _httpx.Client(timeout=60, follow_redirects=True) as _c:
-                _r = _c.get(url)
-                _r.raise_for_status()
-                data = _r.content
-        except Exception as e:  # noqa: BLE001
-            return b"", "", f"拉取远程音频失败: {e}"[:300]
+        # 2026-10-31 安全强化第 32 批:走同步版 SSRF 安全下载单源(逐跳 + 钉 IP)。
+        # 此前 follow_redirects=True ⇒ 公网 302 → 内网音频可被拉取。
+        data = _download_url_ssrf_safe_sync(url, _httpx, timeout=60.0)
+        if data is None:
+            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)"
         if len(data) >= 20 * 1024 * 1024:
             return b"", "", "远程音频超过官方 <20MiB 硬限制"
         return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None
@@ -8295,34 +8434,26 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
             }
         source = "data_uri"
     elif audio_in.lower().startswith(("http://", "https://")):
-        from .screenshot_service import _validate_url_ssrf
+        # 2026-10-31 R12:统一走逐跳 + 钉 IP 的下载单源。
+        # 此前只有首跳 _validate_url_ssrf,校验期与连接期两次 DNS 可被 rebinding 换掉。
+        import httpx as _httpx
 
-        ok_ssrf, reason = _validate_url_ssrf(audio_in)
-        if not ok_ssrf:
+        downloaded = await _download_url_ssrf_safe(audio_in, _httpx, timeout=60.0)
+        if downloaded is None:
             return {
                 "tool": "audio_transcription", "ok": False,
-                "error": f"URL 不允许访问: {reason}", "errorCode": "SSRF_BLOCKED",
+                "error": "URL 不允许访问或下载失败", "errorCode": "SSRF_BLOCKED",
                 "text": None,
             }
-        try:
-            from ..core.llm_gateway import get_http_client
-
-            client = get_http_client()
-            resp = await client.get(audio_in, timeout=60.0)
-            resp.raise_for_status()
-            audio_bytes = resp.content
-        except Exception as e:  # noqa: BLE001
-            return {
-                "tool": "audio_transcription", "ok": False,
-                "error": f"音频下载失败: {e}"[:300], "errorCode": "DOWNLOAD_FAILED",
-                "text": None,
-            }
+        audio_bytes = downloaded
         source = "url"
-        ctype = str(resp.headers.get("content-type", "")).lower()
-        for _ext in ("mpeg", "mp3", "wav", "ogg", "flac", "m4a", "webm", "aac"):
-            if _ext in ctype:
-                filename = f"audio.{'mp3' if _ext == 'mpeg' else _ext}"
-                break
+        _path_lower = urlparse(audio_in).path.lower()
+        _url_ext = _path_lower.rsplit(".", 1)[-1] if "." in _path_lower else ""
+        filename = (
+            f"audio.{_url_ext}"
+            if _url_ext in ("mp3", "wav", "ogg", "flac", "m4a", "webm", "aac")
+            else "audio.mp3"
+        )
     else:
         # 本地路径(如 voice_tts save_path 落地的音频)
         from pathlib import Path as _Path
@@ -9942,6 +10073,75 @@ async def _tool_notebook_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         "cellCount": len(cells),
         "bytesWritten": write_result.get("bytes_written"),
     }
+
+
+# ---------------------------------------------------------------------------
+# advisor_consult(G-11 协议层收尾,2026-10-31 立):指定另一个模型就子问题作答。
+# 身份只认承载层注入的 __user_id / __session_id(LLM 不可控),复用 agent_comm 的
+# 单源校验器判"缺一即拒",缺身份时一次都不碰 LLM;预算 / 模型 fail-closed 的判据
+# 本体全在 app/services/advisor.py,本层只接线、不复算(§0.6)。
+# ---------------------------------------------------------------------------
+async def _tool_advisor_consult(arguments: dict[str, Any]) -> dict[str, Any]:
+    """advisor_consult:向指定模型咨询一个子问题(会话级次数预算 + 模型名 fail-closed)。"""
+    from .advisor import consult
+    from .agent_comm import _identity_or_error
+
+    _sid, _uid, identity_error = _identity_or_error(
+        arguments.get("__session_id"), arguments.get("__user_id")
+    )
+    if identity_error is not None:
+        return {
+            "tool": "advisor_consult", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED",
+            "error": "缺少宿主注入的调用者身份",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+    raw_max_uses = arguments.get("max_uses")
+    max_uses = (
+        raw_max_uses
+        if isinstance(raw_max_uses, int) and not isinstance(raw_max_uses, bool)
+        else None
+    )
+    result = await consult(
+        principal=_uid,
+        session_id=_sid,
+        prompt=str(arguments.get("prompt") or ""),
+        model=str(arguments.get("model") or "").strip() or None,
+        max_uses=max_uses,
+    )
+    return {"tool": "advisor_consult", **result}
+
+
+# ---------------------------------------------------------------------------
+# run_workflow(逆向对齐补齐腿,2026-11-02 立):多节点 agent 工作流 +
+# resume_from_run_id 入参级续跑缓存。判据本体全在 app/services/workflow_runner.py
+# (幂等键/续跑存储/分派出口全部 import 复用 task_executors 单源,§0.6),
+# 本层只接线、不复算。身份只认承载层注入 __user_id(_identity_or_error 单源),
+# 主体缺失即 PRINCIPAL_REQUIRED,run 归属他人即 WORKFLOW_FORBIDDEN,均零执行。
+# ---------------------------------------------------------------------------
+async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    """run_workflow:执行工作流脚本;带 resume_from_run_id 时入参未变节点回缓存不重跑。"""
+    from .agent_comm import _identity_or_error
+    from .workflow_runner import run_workflow
+
+    _sid, _uid, identity_error = _identity_or_error(
+        arguments.get("__session_id"), arguments.get("__user_id")
+    )
+    if identity_error is not None:
+        return {
+            "tool": "run_workflow", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED",
+            "error": "缺少宿主注入的调用者身份",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+    resume_raw = arguments.get("resume_from_run_id")
+    resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
+    result = await run_workflow(
+        arguments.get("nodes"),
+        principal=_uid,
+        resume_from_run_id=resume,
+    )
+    return {"tool": "run_workflow", **result}
 
 
 _TOOLS: list[MCPTool] = [
@@ -12223,6 +12423,63 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== advisor 咨询(G-11 协议层补齐,2026-10-31 立)=====
+    # 身份 / 预算键不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,
+    # 模型自报即越权);max_uses 的 1..10 与 advisor.ADVISOR_MAX_USES_CAP 同值。
+    MCPTool(
+        name="advisor_consult",
+        description=(
+            "向指定的另一个模型咨询一个子问题(带会话级次数上限);未指定模型则用默认模型。"
+            "指定了模型就只认那一个:该模型不可用即回具名错误码 ADVISOR_MODEL_UNAVAILABLE,"
+            "绝不静默回落到默认模型。次数用尽回 ADVISOR_BUDGET_EXHAUSTED。"
+            "身份只认承载层注入,不接受模型自报。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "要咨询的子问题(必填,非空白,≤8000 字符)"},
+                "model": {"type": "string", "description": "咨询用的模型名(可选;缺省=网关默认模型)"},
+                "max_uses": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "本会话(属主+会话)的咨询次数上限(可选,默认 3,硬上限 10)",
+                },
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== 工作流续跑(G-逆向对齐 Workflow/RunWorkflow,2026-11-02 立)=====
+    # 身份不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权);
+    # 与 _TOOL_HANDLERS 里 "run_workflow" 同批双射,漏一侧即 test_tools_count_matches_registry 红。
+    MCPTool(
+        name="run_workflow",
+        description=(
+            "执行多节点 agent 工作流:nodes 为节点声明数组(id/agent/arguments/depends_on),"
+            "按拓扑序逐节点执行(agent 取已注册任务类型)。带 resume_from_run_id 续跑时,"
+            "入参未变的节点瞬时回缓存不重跑,只有入参变化或此前失败的节点真执行;"
+            "run 不存在/脚本非法/跨主体一律显式错误码且零执行。身份只认承载层注入,不接受模型自报。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "description": (
+                        "节点声明数组(必填,非空),每项 {id, agent, arguments?, depends_on?};"
+                        "id 唯一,depends_on 引用同批 id,存在环即拒绝"
+                    ),
+                },
+                "resume_from_run_id": {
+                    "type": "string",
+                    "description": "续跑的目标 run_id(可选;缺省=新建 run 全量执行)",
+                },
+            },
+            "required": ["nodes"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -12754,6 +13011,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "send_to_session": _tool_send_to_session,
     # Notebook 结构编辑(G-NotebookEdit,2026-11-01 立;与上方 _TOOLS 声明同批双射)
     "notebook_edit": _tool_notebook_edit,
+    "advisor_consult": _tool_advisor_consult,
+    # 工作流续跑(G-逆向对齐,2026-11-02 立;与上方 _TOOLS 声明同批双射)
+    "run_workflow": _tool_run_workflow,
 }
 
 

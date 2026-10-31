@@ -14,6 +14,28 @@
 > **表格内 `\|` 只是 Markdown 转义,复验时一律按裸 `|` 执行**(`git grep -E` 用裸竖线做择一;照抄 `\|` 会被 ERE 当字面竖线 ⇒ 假 0 命中)。本席**实跑的全部是裸 `|` 形态**,`\|` 只出现在为迁就表格而写的字面里;§5 复验轮另把两条**射程过宽**的模式(G-21/G-22)收窄到插件/市场目录,以免读者被同名噪声误导。
 > 原始 grep 流水落 `.ihui-agent/tmp/trae-rea/s3/greps-raw*.txt`、`g4.txt`…`g15.txt`。
 
+## -1. 时效告示（2026-11-01 主席回填，引用本表前必读）
+
+**本表是 `HEAD 4d1cd0d998…` 那一拍的读数，有效期只有小时级——本仓多会话并行落地的速度高于册子的撰写速度。**
+2026-11-01 已对 B/C 档做逐条现读复量（复量件 `.ihui-agent/tmp/rea-goal-b44/B-matrix-recheck.md`，
+结论册 `../2026-11/qoder-trae-rea-20261101/T7-matrix-recheck-and-sidecar-ore.md` §1），结果：
+
+| 本表结论 | 11-01 现读复量 | 一手证据（HEAD 面 `git grep … HEAD`） |
+| --- | --- | --- |
+| G-03 缺 `taskCreated`/`taskCompleted` 两档 | **已结清** | 字段在 `hooks/index.ts:157-160`，派发点在 `background-registry.ts:486`，`:650`/`:813`/`:814` 三处真调用 |
+| G-09 Elicitation「零调用方实锤」 | **已结清** | `agent_loop_v2.py:5590-5598` 已 import `_get_elicitation_service` 并传真值给 `tool_call_elicitation_enabled` |
+| G-07 跨会话通信未装车 | **已结清** | `mcp_server.py:9753` `_tool_send_team_message`、`:9779` `_tool_read_team_inbox` |
+| G-14 记忆写回未装车 | **已结清（票面边界内）** | `git-guardian.mjs:5354` 定义 `sweepLessonDraft`，`:10334`/`:10444` 两执行体各挂一处；写回 `AGENTS.md` 那一半**刻意不做**（不可变护栏 + 门 207 体积预算） |
+| G-18 run manifest 结构性缺失 | **已结清** | `apps/cli/src/runs/manifest.ts` 在 HEAD，`argv`/`ppid`/`env_flags`/`cli_version` 等 8 键命中 |
+| G-22 插件默认态未登记 | **主腿已结清** | `apps/cli/src/config/defaults.ts:50-51` 显式两档 `enabled:false` 且 `:48` 注记写明判据；`autoUpdate` 仍缺，属次级残腿 |
+| G-08 / G-10 / G-11 / G-17 | **已结清** | 详见复量件（worktree 工具双射、micro_compact 接进 `agent_loop_v2:3008`、advisor/investigate/output_schema 三腿、`inject_session_env` 两处实调） |
+| **G-21 逐文件 sha256 完整性** | **真缺口（唯一保留项）** | 已派落地；设计边界按 T7 §3 第 3 条 |
+| G-20 / G-26 | **形态不适用，不立票** | 命中项全在「采集/清理对方产品」一侧；本仓等价面 = npm 平台包 + tauri updater + 服务端影子档 |
+
+⇒ **不得把本表的 B/C 计数（「没装车 8 / 结构性缺失 7」）当作当前状态引用或派单**。
+按本表派单前，逐条重跑该行「一手证据」列的命令；复量后的读数若与本表冲突，**以复量为准并回填本节**。
+本表的价值在于**对照程序侧的行为规格**（对方那格具体是怎么做的），这部分未因本仓推进而失效。
+
 ## 0. 先纠正两条派单前提(现读)
 
 派单单里写「本仓 `apps/desktop` 实测只有 2 个文件」——**不成立**。现读:
@@ -189,4 +211,26 @@
 **rea 原生逐函数取证进展(补 T1 §0.3 深度)**:对 `sandbox/trae-sandbox.exe`(1.26MB,Go,非 37.8MB 量级)`pnpm rea analyze --json` **成功完成**:`procedure_count=6374`、`string_count=1194`、7 段(.text 794KB/.pdata 67KB)——即**逐函数级可达**,据此把"对方沙箱确为原生拦截 PE"从结构推断升为**观察**(confidence=derived, authority=shipped-artifact)。而 `libckg.dll`(37.8MB)/`ai_agent.dll`(282MB)/`harness.dll`(248MB)仍超 `analyze` 默认 load 预算(`provider_timeout` op=list_documents)⇒ **天花板按体积定量**:≲数MB 原生可逐函数,数十MB+ 受 load 预算挡,已如实登记(非"未做",是"工具时间盒所限"),要逐函数须单独立票并放宽 timeout/snapshot 续跑。
 
 **本批总判**:矩阵 + 内核五探的全部真·产品/内核缺口均已 A(本会话落 G-01/G-07/G-11 三枚 + 前批落 G-05/08/09/10/14/17/22 + 命令权限/压缩/隔离/fork/沙箱五族本已具备);余 G-18/20/25/26 属壳层,§4/§6 已判形态不适用/低性价比/合规冲突,不照抄。
+
+## 10. Advisor 协议层子项落地(2026-10-31 收尾批,主席亲核)
+
+§1 的 G-11 行原写「ChatPatch/Advisor 属协议层扩展,建议登记不急着做」。本批把 **Advisor** 落地为模型工具 `advisor_consult`(提交 `ace8fec86b`;功能名五语言 + TOOL_DISPLAY_KEYS 在 `6fd18ae83f`):
+
+- **能力**:`apps/ai-service/app/services/advisor.py` 单源 —— 指定另一个模型就一个子问题作答;`(属主, 会话)` 维度次数预算(`asyncio.Lock` 覆盖「判-记」,被拒那次不计数,并发 10 次 limit=3 恰好放行 3 次有用例钉);prompt 长度上限;prompt 原文不进日志/错误体。
+- **超越轴(相对对照产品)**:① 模型名 **fail-closed** —— 实测 `llm_gateway.complete` 主通道失败后会进 FallbackRouter/ComboRouter 自动改道(两处均以 `not _skip_fallback` 为闸),故指定模型时强制 `_skip_fallback=True`,并把 `result.model != 请求名` 同判 `ADVISOR_MODEL_UNAVAILABLE`,绝不把别的模型答案冒充成指定模型的;② stub 模式(未配 key)如实透出 `stub=true`,不冒充真答案。
+- **接线**:`mcp_server._TOOLS` + `_TOOL_HANDLERS` 双射各一条;身份只认宿主注入 `__user_id`/`__session_id`(复用 `agent_comm._identity_or_error`,未自造第二份)。
+- **验证**:`test_advisor_tool` 11 例 + 注册表单源 21 例 = 32/32;mypy `--strict` Success;watermark 2/2;`check-tool-name-display-coverage --worktree` 105/105。
+- **仍不做**:**ChatPatch**(请求级消息/工具补丁)保持原判「建议登记不急着做」—— 本仓按请求重建 messages,没有需要增量补丁的消费方;要做得先有消费场景,不凭空造协议。
+
+## 11. 残余四条复判(2026-10-31 续席;每条给可复跑判据,目的是杜绝下一席重复取证)
+
+| 残余 | 复判 | 一手证据(命令现跑即得) |
+|---|---|---|
+| 内部票 **jti 防重放**(上一席判「ai-service 只有发票口、没有验票口 ⇒ 要补」) | **假缺口 —— 判 A,且本仓在两条轴上更强** | 票的两半本就跨语言分置,不是缺半:发票 `apps/ai-service/app/core/internal_ticket.py`(`"jti": jti or uuid.uuid4().hex`);验票 `apps/api/src/plugins/internal-service-ticket.ts` 第 259 行 `const verdict = await deps.store.consume(payload.jti, remainingSeconds)`。用例已钉六格(复跑 `git show origin/main:apps/api/tests/internal-service-ticket.test.ts`):①同一 jti 连用两次 ⇒ 第二次 `replayed`;②登记表按 jti 的 **SHA-256** 存,Redis 里不得出现 jti 原文;③scope 不匹配时**不得把票烧掉**(防配置错误伪装成重放攻击);④store 为 null ⇒ `replay_store_unavailable`,不记通过;⑤反向锁「把 consume 摘掉 ⇒ 本条必红」;⑥fail-closed 写死在实现里。对照对方 HMAC+nonce:**nonce 原文不落盘** 与 **判序** 两条是对方没有的轴 ⇒ 记为超越,不是缺口 |
+| 关卡 41「单分支」恒红(点名 `origin/cursor/readme-opening-476a`) | **本轮已消,现读 RC=0** | 判据链走完才动手:`git cherry -v origin/main <分支>` 读 14 枚 patch 全 `+`(内容确不在 main ⇒ 排除出路 B);gh 读 `state=CLOSED, mergedAt=null`(无开放 PR 需要它);§22 前置 = 打 `backup/cleanup-2026-10-31-cursor-readme-opening-476a` 并**本地+远端双留**(`git ls-remote --tags` 复核 SHA 同一枚);然后才删远端分支 + `git fetch origin --prune`。复跑 `node scripts/check-single-branch.mjs` = `✅ 单分支检查通过:仅存在 main(及 goal/ 合法豁免分支)` |
+| 壳层四条不抄(G-18 逐进程清单 / G-20 远程 exe 分桶注册表 / G-25 内容寻址结果索引 / G-26 多版本目录+原子切版本) | **维持不抄;按 §1「台账只记真工作」不占票行** | 逐条撞线已在 §4 与 §6 钉死:G-26 撞 `desktop-artifact-single.mjs` 的「唯一产物」判据;G-20 撞 §15 工作区卫生 + §26 盘根写入;G-18/G-25 现读唯一需求面是 `summarize_artifacts`,判低性价比;真需求(灰度回滚)已由服务端影子档承担更便宜的等价面。本行只登记结论与复跑入口,不重开取证 |
+| G-07 跨进程 Redis 腿(`_get_redis` 零调用) | **刻意留空的可选持久层,非缺口** | 定界见 §8:矩阵口径是「跨**会话**」,本仓单进程 asyncio 承载多逻辑会话 ⇒ 矩阵范围已达成;与本仓「自进化能力四件套可落库而刻意多数不接线」同一条纪律。复跑 `git grep -n "_get_redis" origin/main -- apps/ai-service/app/services/agent_comm.py` 仍只见定义与这行说明 |
+
+**本续席净判**:上一轮交出的四条残余里,**1 条是被纠正的假缺口**(jti 防重放,已具备且有两轴超越)、**1 条已当场消除**(关卡 41)、**2 条维持原判并附复跑入口**。本册至此无未定性条目。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -212,12 +212,10 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
     { file: '../src/routes/payment-gateway.ts', gates: 2, sinks: ['getBalance', 'getBalance'] },
     { file: '../src/routes/developer-relay.ts', gates: 1, sinks: ['rotateSecret'] },
     { file: '../src/routes/agents.ts', gates: 1, sinks: ['findOAuthAppByClientId'] },
-    // 2026-10-29 补齐两处同族漏接：提现申请（agent 分佣提现）与创建分享（一次性回 shareToken = 出凭据）
-    {
-      file: '../src/routes/agent-extended.ts',
-      gates: 1,
-      sinks: ['insert(zhsAgentWithdrawalDetail)'],
-    },
+    // 2026-10-31（安全强化第 10 批 R10）：`agent-extended.ts` 的提现申请端点已**整条下线**
+    // —— 那张 `zhs_agent_withdrawal_detail` 没有资金侧对应（不校验可提现余额、不冻结），
+    // 提交即凭空生成待审提现单，安全全押在"审批人不误批"。下线比补闸更彻底：
+    // 补 step-up 只能防会话被窃，防不住"本人凭空提"。见本文件末尾的裁定记录断言。
     { file: '../src/routes/api-key-shares.ts', gates: 1, sinks: ['shareService.createShare'] },
   ]
 
@@ -254,6 +252,17 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
 
   it('裁定记录：oauth-keys/rotate 是非用户会话态的系统密钥轮转，不接用户闸（接了只会是假安全）', () => {
     expect(read('../src/routes/oauth-keys.ts')).not.toContain(GATE)
+  })
+
+  it('裁定记录：agent-extended 的提现申请端点已下线，不再落库、不再需要 step-up 闸', () => {
+    // 下线理由见上方 CASES 注释。这条钉两件事：① 不得把 insert 加回来（那等于恢复
+    // "凭空提现"）；② 端点必须回 410 并指向正规通道，不能悄悄变 404 让人以为路由写错。
+    const src = read('../src/routes/agent-extended.ts')
+    expect(src).not.toContain('insert(zhsAgentWithdrawalDetail)')
+    expect(src).toContain('410')
+    expect(src).toContain('/api/wallet/withdraw')
+    // 资金动作的 step-up 闸仍在正规链路里（不因为下线而整体消失）
+    expect(read('../src/routes/wallet.ts')).toContain(GATE)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

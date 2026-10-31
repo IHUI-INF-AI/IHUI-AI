@@ -36,6 +36,8 @@ import { appendFileSync, mkdirSync, readdirSync, existsSync, writeFileSync } fro
 import { homedir } from 'node:os'
 import { dirname, join, basename, extname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 锚点禁地判据单源(§0.6):本层不另写一份「什么算第三方私有目录」。
+import { findThirdPartyNodeToken } from './lib/task-node-anchor.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const LOG_DIR = join(ROOT, '.tmp-sync')
@@ -245,7 +247,16 @@ function psEncode(script) {
   return Buffer.from(script, 'utf16le').toString('base64')
 }
 
-/** 原位替换任务 action 为 wscript 隐藏包装(保留全部触发器/主体设置)。 */
+/**
+ * 原位替换任务 action 为 wscript 隐藏包装(保留全部触发器/主体设置)。
+ *
+ * 「保留主体」这句话 2026-10-31 起必须**自证**,不能再靠注释:本函数走的是
+ * `Set-ScheduledTask -Action`,而这一支在并发会话里曾把 S4U 守护任务静默改回 Interactive
+ * (今天 IHUI-DevStack 实测:watchdog 21:06 重装成 S4U,21:50 现读又变回 Interactive + wscript,
+ * 而 wscript 那条链一旦被安全策略拦下就是整条守护不出进程)。现在:取主体 ⇒ 回写时显式带上
+ * ⇒ 落地后读回比对,**不一致就判失败**(返回 null,由调用方打「❌ 修复失败…需人工处理」),
+ * 绝不把「包好了」交给一次没人核对过的主体漂移。
+ */
 function replaceActionWithWrapper(taskName, taskToRun) {
   mkdirSync(WRAPPER_DIR, { recursive: true })
   const vbsPath = join(WRAPPER_DIR, `${basename(taskName).replace(/[^a-z0-9_-]/gi, '-')}-${djb2(taskName)}-hidden.vbs`)
@@ -255,13 +266,22 @@ function replaceActionWithWrapper(taskName, taskToRun) {
     `$path = Split-Path '${taskName.replace(/'/g, "''")}'\n` +
     `$leaf = Split-Path '${taskName.replace(/'/g, "''")}' -Leaf\n` +
     `if ($path -eq '') { $path = '\\' }\n` +
-    `Set-ScheduledTask -TaskPath $path -TaskName $leaf -Action $a | Out-Null\n` +
-    `Write-Output OK`
+    `$before = (Get-ScheduledTask -TaskPath $path -TaskName $leaf).Principal\n` +
+    `Set-ScheduledTask -TaskPath $path -TaskName $leaf -Action $a -Principal $before | Out-Null\n` +
+    `$after = (Get-ScheduledTask -TaskPath $path -TaskName $leaf).Principal\n` +
+    `Write-Output ("OK LOGON_BEFORE=" + $before.LogonType + " LOGON_AFTER=" + $after.LogonType)`
   // powershell.exe(5.1)被本机 WDAC 拦 EPERM(从 node 派生时,与 EDID 脚本头注释同款病理),必须用 pwsh(PS7)
   const out = runCapture('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncode(ps)], 90_000)
-  const ok = /OK/.test(out)
-  if (!ok) log(`  替换失败输出: ${out.trim().split('\n').slice(-3).join(' | ')}`)
-  return ok ? vbsPath : null
+  const m = /OK LOGON_BEFORE=(\S+) LOGON_AFTER=(\S+)/.exec(out)
+  if (!m) {
+    log(`  替换失败输出(取不到 LOGON_BEFORE/AFTER 形状,不记成功): ${out.trim().split('\n').slice(-3).join(' | ')}`)
+    return null
+  }
+  if (m[1] !== m[2]) {
+    log(`  ❌ 包装后主体漂了 ${m[1]} → ${m[2]}:本次不算修好(留原样交人工),否则 S4U 根治形态会被静默改回可弹窗的交互形态`)
+    return null
+  }
+  return vbsPath
 }
 
 export function audit({ fix = false } = {}) {
@@ -270,6 +290,17 @@ export function audit({ fix = false } = {}) {
   // ① 计划任务:任一 action 直指控制台程序且非 session 0 账户 → 违规
   for (const t of tasks) {
     if (/disabled|禁用/i.test(t.state)) continue
+    // ①c 锚点禁地(2026-10-31 立):action 的可执行体、**或参数里被当可执行体用的 node**落在第三方
+    // 产品私有目录 ⇒ 逐条点名。这一型与「会不会弹窗」无关,所以排在 LogonType 豁免**之前** ——
+    // S4U 任务照样会因此停摆:今天实测两枚常驻守护长期烤着 `.workbuddy` 自带 node,对方一升级或
+    // 卸载,整棵 dev 树静默消失(没有窗口问题,只有没人)。不自动修:换锚点必须走该任务自己的
+    // 注册器(注册点见输出点名),本层只负责「看见」,判红权在人。
+    for (const a of t.actions) {
+      const bad = findThirdPartyNodeToken(a.exe) || findThirdPartyNodeToken(a.args || '')
+      if (bad) {
+        violations.push({ kind: 'anchor', name: t.name, detail: bad, ihui: IS_IHUI.test(t.name) })
+      }
+    }
     if (SESSION0_USER.test(t.runAs)) continue // SYSTEM/Service 跑在 session 0,无窗口能力
     // LogonType 枚举:Interactive / Token / Group 属"仅登录时运行"(有桌面,会弹窗);
     // S4U / Password / ServiceAccount 属"无论是否登录都运行"(session 0,无桌面) → 结构上无法弹窗,

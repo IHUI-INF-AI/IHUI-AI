@@ -5,8 +5,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, eq, desc, asc } from 'drizzle-orm'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { authenticate } from '../plugins/auth.js'
+import { fetchNewsStatus } from '../services/news-status-proxy.js'
 import { toggleLike, findLikeCounts } from '../db/resource-likes-queries.js'
 import { aiWorldItems, zhsAiModelInfo } from '@ihui/database'
 import { db } from '../db/index.js'
@@ -112,6 +113,21 @@ const topOrRecommendSchema = z.object({
 // =============================================================================
 
 export const newsRoutes: FastifyPluginAsync = async (server) => {
+  // GET /admin/news/status —— 资讯生成/发布统计(marketing 首页 magazine 板块 headerMeta)。
+  //
+  // 2026-10-31 安全强化第 31 批:此端点原先由 web 的 next.config rewrites
+  // (`/api/admin/news/:path*` → ai-service 8803)**绕过本服务**直连,连 requireAdmin
+  // 都不经过;同一条 rewrite 还把本服务已实现的 categories/articles/information 全吞成
+  // 404。根因修法 = 删那条 rewrite,由本服务统一出口:
+  //   · status 是首页公开统计(今日生成/发布数),保持"登录可见"(与 ai-service 现状同语义),
+  //     不进 admin 权限档 —— 否则普通用户首页的 headerMeta 会静默消失;
+  //   · 写/发布面(trigger-refresh 等)不进本服务,ai-service 已按 CONTENT_PUBLISH 授权。
+  server.get('/admin/news/status', { preHandler: requireAuth }, async (request, reply) => {
+    const result = await fetchNewsStatus(request)
+    if (result.ok) return reply.status(result.status).send(success(result.payload))
+    return reply.status(result.status).send(error(result.status, result.message))
+  })
+
   // GET /news - 最新资讯别名端点(公开, 2026-08-31 修复 404)
   // 前端 NewsSection(marketing/NewsSection.tsx:34)调用 /api/news?pageSize=6,
   // 与 /news/articles 同构,返回 {list,total}。零改动前端即可恢复。

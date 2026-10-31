@@ -1938,6 +1938,38 @@ function isPrivateOrReservedIp(hostname: string): boolean {
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024 // 20MB 上限
 
+/**
+ * 图片代理放行的 MIME 白名单（2026-10-31 安全强化第 10 批 R10）。
+ *
+ * 只列位图。**刻意不含 `image/svg+xml`**：SVG 是 XML 文档，可内嵌 `<script>` 与事件处理器，
+ * 浏览器对顶层导航的 `image/svg+xml` 会按文档渲染并执行脚本；本代理端点无 CSP 且回
+ * `Access-Control-Allow-Origin: *`，一旦放行 SVG 就等于给 api 域开一个同源 XSS 出口。
+ * 也不含 `image/*` 通配，防止未来新增的脚本承载型 MIME 自动继承信任。
+ */
+const RASTER_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'image/bmp',
+  'image/x-icon',
+  'image/vnd.microsoft.icon',
+  'image/apng',
+])
+
+/**
+ * 图片代理的 Content-Type 放行判据（导出以便测试直接钉住，避免测试复制一份判据
+ * —— AGENTS.md §0.6 单一真相源）。
+ *
+ * 取 `;` 前的裸 MIME 并小写归一（响应常带 `; charset=utf-8`）。
+ */
+export function isAllowedProxyImageMime(contentType: string): boolean {
+  const bare = (contentType.split(';')[0] ?? '').trim().toLowerCase()
+  return RASTER_IMAGE_MIME_TYPES.has(bare)
+}
+
 export async function proxyImage(url: string): Promise<{
   buffer: Buffer
   contentType: string
@@ -1987,11 +2019,17 @@ export async function proxyImage(url: string): Promise<{
   if (!result.ok) {
     throw new Error(formatPublicAssetFailure(result, '图片获取失败'))
   }
-  // 5) Content-Type 白名单
-  if (!/^image\//i.test(result.contentType)) {
-    throw new Error('响应内容不是图片')
+  // 5) Content-Type 白名单 —— 位图白名单，结构性排除矢量/可承载脚本的类型。
+  //    2026-10-31 安全强化第 10 批 R10：此前只判 `^image/`，`image/svg+xml` 直接通过。
+  //    本路由不设 CSP 且回 `Access-Control-Allow-Origin: *`，浏览器对**顶层导航**收到的
+  //    `image/svg+xml` 会当 SVG 文档渲染 ⇒ SVG 内 <script> 以 api.aizhs.top 同源执行
+  //    （同源 XSS：可读同源 API 与该域 cookie）。图床防盗链只服务位图，SVG 在本面
+  //    没有任何正当用途，故用白名单而非黑名单/而非只靠 CSP 兜底。
+  //    取 `;` 前的裸 MIME（响应可能带 charset）。
+  if (!isAllowedProxyImageMime(result.contentType)) {
+    throw new Error('响应内容不是受支持的图片格式')
   }
-  return { buffer: Buffer.from(result.bytes), contentType: result.contentType }
+  return { buffer: Buffer.from(result.bytes), contentType: (result.contentType.split(';')[0] ?? '').trim().toLowerCase() }
 }
 
 // =============================================================================

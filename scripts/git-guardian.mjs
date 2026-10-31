@@ -26,6 +26,10 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildAlertIdentity, watchPushDivergence } from './lib/push-divergence-watch.mjs'
+// 冷却量级与决定器同源(§0.6):本腿只问"上一次真派生是否已过冷却",不另造一个时钟。
+import { decideDevDbRotation, DEV_DB_ROTATION_COOLDOWN_MS } from './lib/dev-db-rotation-policy.mjs'
+// 窗口探测判据单源(§0.6):巡检腿与被派生的器物必须问同一把尺,各写一份必然漂移。
+import { liveServicePorts } from './rotate-local-dev-db-password.mjs'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
@@ -4901,6 +4905,209 @@ export function sweepHeadRecallRows(opts = {}) {
  */
 const EXPOSED_CRED_INTERVAL_MS = Number(process.env.IHUI_EXPOSED_CRED_INTERVAL_MS || 30 * 60 * 1000)
 
+/**
+ * 本机 dev 库口令轮换的巡检腿(票 O69,2026-11-01)。
+ *
+ * 口径照 `sweepExposedCredentialRotation` 同族,只把"节律"拆成两个**互不冒充**的维度:
+ *  ① `attemptAt` = 冷却锚,**只在真派生出结论时写**(成功 rc=0 / 真失败 rc=1 / 超时被杀 rc=null);
+ *     让路(window-busy)与未判定绝不写它 —— 否则"一次让路把随后出现的空闲窗口锁死 1 小时",
+ *     而"窗口出现在两轮之间"恰恰是本票要消灭的"靠人盯"(§0.10:失效方向必须是多要一次说明,
+ *     绝不能是多放一次跳门;这里是反方向:多拦一次该干的活)。
+ *  ② `probeAt` = 窗口探测节律(默认 5 分钟,与既有清扫族同量级),只压 netstat 的频次,
+ *     不进决定器的冷却档。
+ *
+ * 登记面取材(器物自己的账,现读接口零猜字段):
+ *  `.ihui-agent/state/dev-db-rotation-pending.json` —— 在位且解析得出非空条目 ⇒ 有欠账;
+ *  **不存在** ⇒ `no-pending`(零派生、零写盘、连 netstat 都不点);
+ *  在位但读不动/空文件/坏 JSON ⇒ `pending-unreadable` 未判定(不猜成"无条目"就永不轮换,§0.3)。
+ *  器物 `--apply` 成功后自己 rmSync 该标记 ⇒ 结清由器物闭环,本腿只在 rc=0 时代为删除。
+ *
+ * 窗口判据**不在本层复算**(§0.6):直接吃器物的 `liveServicePorts()`,让"派生侧"和"被派生侧"
+ * 问同一把尺 —— 两把尺判出不同结果时,guardian 会派生一个必然 exit 2 的子进程并把它记成失败。
+ *
+ * 结论行恒写 state,不写"成功/无需":换没换由器物自己的留痕(`dev-db-credential-rotation.jsonl`)
+ * 与其"旧值拒收 ∧ 新值通过"两行验证给,本腿无权替它宣布(§0.3)。
+ * 判机器状态 ⇒ 绝不进提交链(§12e)。
+ */
+const DEV_DB_PROBE_INTERVAL_MS = Number(process.env.IHUI_DEV_DB_ROTATION_PROBE_MS || 5 * 60 * 1000)
+
+export function sweepLocalDevDbRotation(opts = {}) {
+  const {
+    now = Date.now(),
+    root = dirname(dirname(fileURLToPath(import.meta.url))),
+    tickFile = join(dirname(LOG), 'dev-db-rotation-last.json'),
+    pendingFile = join(dirname(LOG), 'dev-db-rotation-pending.json'),
+    probeIntervalMs = DEV_DB_PROBE_INTERVAL_MS,
+    logger = log,
+    runner = null,
+    livePortsProbe = null,
+  } = opts
+  const script = join(root, 'scripts', 'rotate-local-dev-db-password.mjs')
+  if (!existsSync(script)) {
+    logger(
+      '⚠️ dev 库口令轮换:未判定 —— 器物不在位(scripts/rotate-local-dev-db-password.mjs)⇒ 本轮不派生,不记绿也不记红',
+    )
+    return { ran: false, ok: false, state: 'no-script', why: '器物不在位(未判定)' }
+  }
+  // 节流戳只借这一份读;写盘一律 merge,绝不用新字段把旧 attemptAt 洗掉。
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const writeTick = (patch) => {
+    const body = { ...(tick ?? {}), ...patch }
+    try {
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, JSON.stringify(body), 'utf8')
+      tick = body
+      return true
+    } catch (e) {
+      logger(
+        `⚠️ dev 库口令轮换:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+      )
+      return false
+    }
+  }
+
+  // ① 登记面:读得出才算"读过";读不到 ≠ 没有条目。
+  let pending = false
+  if (!existsSync(pendingFile)) {
+    // 无欠账 ⇒ 交给决定器的第一档,且**连窗口都不探测**(零派生、零写盘、零子进程)。
+    const verdict = decideDevDbRotation({ pending: false, livePorts: [], nowMs: now })
+    logger(`ℹ️ dev 库口令轮换:${verdict.state} —— ${verdict.why}(本轮零派生零写盘)`)
+    return { ran: false, ok: false, state: verdict.state, why: verdict.why, spawned: false }
+  }
+  try {
+    const raw = String(readFileSync(pendingFile, 'utf8')).trim()
+    const parsed = raw.length === 0 ? null : JSON.parse(raw)
+    const hasEntry =
+      parsed !== null &&
+      (Array.isArray(parsed)
+        ? parsed.length > 0
+        : typeof parsed === 'object'
+          ? Object.keys(parsed).length > 0
+          : Boolean(parsed))
+    if (!hasEntry) {
+      logger(
+        '⚠️ dev 库口令轮换:pending-unreadable —— 登记面在位但解析不出条目 ⇒ 未判定,不猜成"无条目"也不派生',
+      )
+      return { ran: false, ok: false, state: 'pending-unreadable', why: '登记面解析不出条目', spawned: false }
+    }
+    pending = true
+  } catch (e) {
+    logger(
+      `⚠️ dev 库口令轮换:pending-unreadable —— 登记面读不动(${String(e?.message ?? e).slice(0, 80)})⇒ 未判定`,
+    )
+    return { ran: false, ok: false, state: 'pending-unreadable', why: '登记面读不动', spawned: false }
+  }
+
+  // ② 窗口:有欠账才探测;探测本身按 probeIntervalMs 压频次(不进冷却档,只压 netstat)。
+  const probeAt = Number.isFinite(Date.parse(String(tick?.probeAt ?? '').trim()))
+    ? Date.parse(String(tick.probeAt))
+    : NaN
+  // 冷却到期那一轮**必须**优先于探测节律:否则"5 分钟前刚量过窗口"会把这一次合法重试再推后,
+  // 而窗口恰恰可能就在这一轮出现(本票要治的就是"窗口靠人盯")。
+  const lastAttemptAt = Number.isFinite(Date.parse(String(tick?.attemptAt ?? '').trim()))
+    ? Date.parse(String(tick.attemptAt))
+    : NaN
+  const retryDue =
+    Number.isFinite(lastAttemptAt) && now - lastAttemptAt >= DEV_DB_ROTATION_COOLDOWN_MS
+  if (!retryDue && Number.isFinite(probeAt) && now - probeAt < probeIntervalMs) {
+    const state = String(tick?.state ?? 'window-probe')
+    logger(`ℹ️ dev 库口令轮换:未到窗口探测节律(state=${state})⇒ 本轮不派生,不记绿`)
+    return { ran: false, ok: false, state: 'probe-throttled', why: '未到窗口探测节律', spawned: false }
+  }
+  let livePorts = null
+  try {
+    if (typeof livePortsProbe === 'function') {
+      const r = livePortsProbe()
+      livePorts = Array.isArray(r) ? r : Array.isArray(r?.live) && r?.ok !== false ? r.live : null
+    } else {
+      // 判据单源:用器物自己的 liveServicePorts。它 netstat 取不到时返回 {ok:false, live:[]} ——
+      // 那一档**必须**落成 null(未判定),按 live 取会把它读成"空闲"⇒ 正好是 §0.3 禁的那一型。
+      const probe = liveServicePorts()
+      livePorts = probe?.ok === true && Array.isArray(probe.live) ? probe.live : null
+    }
+  } catch {
+    livePorts = null
+  }
+  const verdict = decideDevDbRotation({
+    pending,
+    livePorts,
+    lastAttemptIso: tick?.attemptAt ?? null,
+    nowMs: now,
+  })
+  if (!verdict.act) {
+    // 让路/未判定/冷却中:只记探测节律,绝不写 attemptAt(那是冷却锚,让路不配占它)。
+    writeTick({ probeAt: new Date(now).toISOString(), state: verdict.state, why: verdict.why })
+    logger(`ℹ️ dev 库口令轮换:${verdict.state} —— ${verdict.why}(本轮未派生,不记绿)`)
+    return { ran: false, ok: false, state: verdict.state, why: verdict.why, spawned: false }
+  }
+
+  // ③ 窗口空闲且有欠账 ⇒ 派生 --apply(§12g:显式 stdio + windowsHide,走 runLegChild 同一把尺)。
+  writeTick({ probeAt: new Date(now).toISOString(), state: 'dispatched' })
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => runLegChild(script, ['--apply'], 5 * 60 * 1000)
+  const r = (() => {
+    try {
+      return run()
+    } catch (e) {
+      return {
+        status: typeof e?.status === 'number' ? e.status : null,
+        stdout: String(e?.stdout ?? ''),
+        stderr: String(e?.stderr ?? e?.message ?? e),
+      }
+    }
+  })()
+  const rc = typeof r?.status === 'number' ? r.status : null
+  const out = `${String(r?.stdout ?? '')}${String(r?.stderr ?? '')}`
+  const tail = out
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== '')
+    .slice(-3)
+    .join(' | ')
+    .slice(0, 300)
+  if (rc === 0) {
+    // 器物成功即自删标记;它没删成时本腿代删(否则下一轮会把已结清的欠账再派一次)。
+    try {
+      rmSync(pendingFile, { force: true })
+    } catch {
+      /* 删不掉就在结论里点名,不谎报结清 */
+    }
+    writeTick({
+      attemptAt: new Date(now).toISOString(),
+      state: 'applied',
+      rc,
+      outcome: 'rotated-by-device',
+    })
+    logger(`🔄 dev 库口令轮换:已派生并结清(state=applied rc=0)${tail ? ` —— ${tail}` : ''}`)
+    return { ran: true, ok: true, state: 'applied', rc, tail, spawned: true }
+  }
+  if (rc === 2) {
+    // 器物的 fail-closed(它自证窗口未到/输入取不到)⇒ 未判定,**不占冷却锚**:下轮探测到空闲即动。
+    writeTick({ state: 'device-refused', rc, why: '器物判窗口未到/输入取不到(未判定,不记绿)' })
+    logger(
+      `⚠️ dev 库口令轮换:未判定(state=device-refused rc=2)⇒ 器物 fail-closed 拒执行,不记绿也不记红${tail ? ` —— ${tail}` : ''}`,
+    )
+    return { ran: true, ok: false, state: 'device-refused', rc, tail, spawned: true }
+  }
+  // rc=1(换票失败/已回滚)或 rc=null(超时被杀、spawn 起不来)⇒ 真失败:写冷却锚,1 小时后可重试。
+  writeTick({
+    attemptAt: new Date(now).toISOString(),
+    state: 'failed',
+    rc,
+    why: '派生失败(冷却 1 小时后重试)',
+  })
+  logger(
+    `❌ dev 库口令轮换:失败(state=failed rc=${rc ?? 'null(被杀/起不来)'})⇒ 不记绿,按 1 小时冷却重试${tail ? ` —— ${tail}` : ''}`,
+  )
+  return { ran: true, ok: false, state: 'failed', rc, tail, spawned: true }
+}
+
 export function sweepExposedCredentialRotation(opts = {}) {
   const {
     now = Date.now(),
@@ -6001,6 +6208,186 @@ export function auditSmsChannelHealth(opts = {}) {
     )
     return { ran: false, why: '派发异常' }
   }
+}
+
+/**
+ * 客户端会话回灌计划任务的**常驻**派发点(尺子 = `scripts/check-qoder-session-sync-task.mjs`,2026-10-31 立)。
+ *
+ * 两条腿共用同一把尺子与同一份派发逻辑,只差任务名/日志/文案(§0.6):
+ * - qoder    : 登录态用 DPAPI 加密,服务身份(LocalSystem)读不到;
+ * - workbuddy: 令牌密钥只在 WorkBuddy 主进程 inspector,服务身份同样看不到,且要求客户端在运行。
+ * 两者的失效形态都是**安静** —— 池里那枚号照旧 healthy,直到票过期才发现没人续。
+ * 判机器状态 ⇒ 刻意不进提交链(§12e),本函数是它们唯一调度器。
+ * 未判定只写日志不喊人(§0.3);红项的出路直接给幂等重建命令(§5e-1 可整改性)。
+ */
+const CLIENT_SYNC_LEGS = {
+  qoder: {
+    label: 'Qoder',
+    taskName: 'IHUI-Qoder-Session-Sync',
+    logPath: 'D:\\DevEnv\\logs\\qoder-session-sync.log',
+    title: 'Qoder 号池保活腿失效(本机会话不再回灌)',
+    impact:
+      '运营池里本机 Qoder 号不再自动回灌客户端新票,池侧只剩「票过期后兜底刷新」;' +
+      '客户端长期不再续期时会掉号(池里其它 Qoder 号不受这条腿影响)。',
+    hint: '若报 Qoder 数据目录缺失,先确认 Qoder 客户端已在 Administrator 会话登录',
+    identityNote:
+      'DPAPI 绑定登录用户,任务身份必须是 InteractiveToken;改成 S4U/服务账号结构上读不到凭据。',
+  },
+  workbuddy: {
+    label: 'WorkBuddy',
+    taskName: 'IHUI-WorkBuddy-Session-Sync',
+    logPath: 'D:\\DevEnv\\logs\\workbuddy-session-sync.log',
+    title: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)',
+    impact:
+      '运营池里本机 WorkBuddy 号不再自动补「登录本机」配方三键;票面仍由池侧兜底,' +
+      '但客户端换机/重登后配方会过期,转发侧拿不到正确设备画像。',
+    hint: '该腿要求 WorkBuddy 客户端正在运行(令牌密钥只在主进程 inspector),先启动并登录 WorkBuddy',
+    identityNote:
+      'inspector 与登录态都绑定交互会话,任务身份必须是 InteractiveToken;S4U/服务账号看不到主进程。',
+  },
+}
+const CLIENT_SYNC_INTERVAL_MS = Number(
+  process.env.IHUI_CLIENT_SYNC_TASK_INTERVAL_MS ||
+    process.env.IHUI_QODER_SYNC_TASK_INTERVAL_MS ||
+    30 * 60 * 1000,
+)
+const CLIENT_SYNC_TIMEOUT_MS = Number(
+  process.env.IHUI_CLIENT_SYNC_TASK_TIMEOUT_MS ||
+    process.env.IHUI_QODER_SYNC_TASK_TIMEOUT_MS ||
+    60_000,
+)
+
+export function auditClientSyncTask(kind, opts = {}) {
+  const leg = CLIENT_SYNC_LEGS[kind]
+  if (!leg) throw new Error(`unknown client sync kind: ${kind}`)
+  const {
+    now = Date.now(),
+    intervalMs = CLIENT_SYNC_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', `${kind}-sync-task-tick.iso`),
+    lastFile = join(WORKTREE, '.ihui-agent', 'state', `${kind}-sync-task-last.json`),
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-qoder-session-sync-task.mjs')
+  if (!existsSync(script)) {
+    logger(
+      `ℹ️ ${leg.label} 回灌任务存续:尺子脚本不在位(scripts/check-qoder-session-sync-task.mjs)⇒ 本轮跳过`,
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(
+                process.execPath,
+                [script, '--json', '--task', leg.taskName, '--log', leg.logPath],
+                {
+                  cwd: WORKTREE,
+                  encoding: 'utf8',
+                  windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                  timeout: CLIENT_SYNC_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                  maxBuffer: 1 << 20,
+                  stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+                },
+              )
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || !parsed.dims || typeof parsed.dims !== 'object') {
+      logger(
+        `⚠️ ${leg.label} 回灌任务存续未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+          [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+        )
+          .split(/\r?\n/)[0]
+          .slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响告警本身 */
+    }
+    const breaches = Object.entries(parsed.dims).filter(
+      ([, d]) => String(d?.verdict) === 'breach',
+    )
+    const unjudged = Object.entries(parsed.dims).filter(
+      ([, d]) => String(d?.verdict) === 'unjudged',
+    )
+    if (breaches.length > 0) {
+      // 身份 = 腿 + 违规维名集合(排序),读数/耗时/计数不进指纹 —— 否则每轮刷新都像新故障
+      const dimNames = breaches.map(([k]) => k).sort().join(',')
+      const detail = breaches
+        .map(([k, d]) => `${k}: ${String(d?.reason || '')}${d?.reading ? ` (${d.reading})` : ''}`)
+        .join('\n')
+      notify(
+        leg.title,
+        `读数:\n${detail}\n` +
+          `影响:${leg.impact}\n` +
+          `尺子:scripts/check-qoder-session-sync-task.mjs(只读:计划任务 XML + 日志区段/新鲜度,不触库)\n` +
+          `取证:node scripts/check-qoder-session-sync-task.mjs --json --task "${leg.taskName}" --log "${leg.logPath}"` +
+          `(或读 .ihui-agent/state/${kind}-sync-task-last.json)\n` +
+          `出路:① 幂等重建任务+pwsh -File scripts/setup-qoder-session-sync-task.ps1 -Kind ${kind} -RunNow;` +
+          `② ${leg.hint};` +
+          `③ 复跑上面的取证命令直到 overall=ok。\n` +
+          `注意:${leg.identityNote}`,
+        { severity: 'warning', dedupKey: `${kind};dims=${dimNames}` },
+      )
+      logger(`❌ ${leg.label} 回灌任务存续:${dimNames}(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: breaches.length, unjudged: unjudged.length }
+    }
+    if (unjudged.length > 0) {
+      logger(
+        `ℹ️ ${leg.label} 回灌任务存续:未判定 —— ${unjudged
+          .map(([k, d]) => `${k}:${String(d?.reason || '')}`)
+          .join(';')
+          .slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    logger(`✅ ${leg.label} 回灌任务存续:${Object.keys(parsed.dims).length} 维全绿`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger(
+      `⚠️ ${leg.label} 回灌任务存续派发失败(不阻断其余守护): ` +
+        String((e && e.message) || e).slice(0, 160),
+    )
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+export function auditQoderSessionSyncTask(opts = {}) {
+  return auditClientSyncTask('qoder', opts)
+}
+
+export function auditWorkbuddySessionSyncTask(opts = {}) {
+  return auditClientSyncTask('workbuddy', opts)
 }
 
 /** 资产路径可达性 + 证书到期的**常驻**派发点(尺子 = `scripts/check-asset-path-health.mjs`,2026-10-28 立) */
@@ -10389,6 +10776,7 @@ function main() {
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
+    if (!CHECK_ONLY) sweepLocalDevDbRotation()
     // 永久保活腿(2026-11-01 立):号池巡检只活在 api 的 BullMQ worker 里,而本机 api 是 tsx
     // dev 进程(sc 里没有 api 服务)⇒ 进程一停,登记成永久保活的那枚 Trae 号没人续票。
     // 机主已不能靠验证码重登,"没人续"对它是终结不是降级。挂在本族同格(健康轮次早退之前
@@ -10463,6 +10851,12 @@ function main() {
     // 短信通道健康(2026-10-27 立,尺子 = scripts/check-sms-channel-health.mjs):判机器状态 ⇒
     // 不进提交链(§12e)。立因 = 当天阿里云欠费停机一整天、用户拿不到登录验证码,而全仓零门喊过。
     if (!CHECK_ONLY) auditSmsChannelHealth()
+    // Qoder 会话回灌计划任务存续(2026-10-31 立,尺子 = scripts/check-qoder-session-sync-task.mjs):
+    // 立因 = 回灌腿以交互用户身份跑(DPAPI 只能由登录用户解),它的失效形态全是安静 —— 任务被删/
+    // 禁用/改成 S4U/停摆都不会让池里那枚号立刻变红。判机器状态 ⇒ 不进提交链(§12e),本行是唯一调度器。
+    if (!CHECK_ONLY) auditQoderSessionSyncTask()
+    // WorkBuddy 回灌腿同族(令牌密钥只在主进程 inspector ⇒ 服务身份同样取不到),共用同一把尺子。
+    if (!CHECK_ONLY) auditWorkbuddySessionSyncTask()
     // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
     // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
     if (!CHECK_ONLY) auditAssetPathHealth()
@@ -11769,6 +12163,7 @@ export const __test__ = {
   // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
   // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。
   sweepExposedCredentialRotation,
+  sweepLocalDevDbRotation,
   // 永久保活派发腿(2026-11-01 接线;镜像测试 keepalive-forever-dispatch 按名 import 判据,
   // 不复制 §22c;不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepKeepAliveForever,
@@ -11787,6 +12182,9 @@ export const __test__ = {
   dispatchDepAdvisoryRadar,
   dispatchGateRot,
   dispatchRelayCapacity,
+  auditQoderSessionSyncTask,
+  auditWorkbuddySessionSyncTask,
+  auditClientSyncTask,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,
