@@ -53,9 +53,13 @@ interface RelayTask {
   schedulable: boolean
   sourceOk: boolean
   nextRunAt: string | null
+  /** tick 载体语义 = 心跳时刻;执行成败另走 lastRunOk 分栏(2026-11-01 心跳≠成功) */
   lastRunAt: string | null
+  /** null = 未判定(器物没自述执行结果/状态源读不到);绿/红只在真有结论时出现 */
   lastRunOk: boolean | null
   lastRunDetail: string | null
+  /** 心跳在位但超节律阈值:疑似停摆(仅 tick 载体且登记了节律才可能为 true) */
+  lastRunStale: boolean
   indeterminateReason: string | null
   /** 判过且判成"门关":点名的闸门 env 键与出路(与"未判定"分栏,2026-10-31) */
   disabledReason: string | null
@@ -179,6 +183,18 @@ export default function RelayTasksPage() {
                     )}
                     {t.lastRunOk === true && !t.indeterminateReason && (
                       <div className="text-xs text-emerald-600">正常</div>
+                    )}
+                    {/* 分栏诚实(2026-11-01):tick 载体的"心跳在位"绝不冒"执行成功"——
+                        器物没自述结果 = 未判定(琥珀),不是绿也不是红(§0.3) */}
+                    {t.lastRunOk === null &&
+                      t.sourceOk &&
+                      (t.carrier === 'guardian' || t.carrier === 'schtasks') && (
+                        <div className="text-xs text-amber-600">
+                          执行结果未判定(心跳在位≠跑成功)
+                        </div>
+                      )}
+                    {t.lastRunStale && (
+                      <div className="text-xs text-amber-600">心跳疑似停摆(超 3 个节律周期无新心跳)</div>
                     )}
                   </td>
                   <td className="text-muted-foreground px-3 py-2 text-xs">
