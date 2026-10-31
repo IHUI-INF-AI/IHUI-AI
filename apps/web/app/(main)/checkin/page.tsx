@@ -81,6 +81,7 @@ import { EChart } from '@/components/charts/EChart'
 import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
 import { Container } from '@/components/layout/Container'
+import { WorkbuddyTaskPanel } from '@/components/checkin/WorkbuddyTaskPanel'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -2095,6 +2096,11 @@ export default function CheckinPage() {
         </div>
       ) : (
         <>
+          {/* WorkBuddy 任务中心六族:一键巡检(领任务/达标领奖/兑换/抽奖/猫猫旅行/夜猫子)。
+              面板自带账号选择与 dry-run,只在有 WorkBuddy 账号时出现(自判空,不外泄空态)。 */}
+          <div className="mb-3">
+            <WorkbuddyTaskPanel accounts={accounts} />
+          </div>
           {/* 账号列表 */}
           {accounts.length === 0 ? (
             <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">

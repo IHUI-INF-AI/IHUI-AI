@@ -145,6 +145,20 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   debug_eval: 'toolDebugEval',
   debug_disconnect: 'toolDebugDisconnect',
   debug_list_sessions: 'toolDebugListSessions',
+  // 代码导航族(apps/cli/src/tools/lsp.ts,LSP_TOOLS:2026-10-31 起在 setupAgentTools 显式注册)
+  lsp_goto_definition: 'toolLspGotoDefinition',
+  lsp_find_references: 'toolLspFindReferences',
+  lsp_diagnostics: 'toolLspDiagnostics',
+  lsp_hover: 'toolLspHover',
+  lsp_server_status: 'toolLspServerStatus',
+  lsp_workspace_symbol: 'toolLspWorkspaceSymbol',
+  lsp_rename_symbol: 'toolLspRenameSymbol',
+  lsp_code_actions: 'toolLspCodeActions',
+  // 四层记忆族(apps/cli/src/tools/memory.ts,MEMORY_TOOLS:同上)
+  memory_recall: 'toolMemoryRecall',
+  memory_save: 'toolMemorySave',
+  memory_dream: 'toolMemoryDream',
+  memory_forget: 'toolMemoryForget',
   token6688_voice_clone: 'toolVendorVoiceClone',
   // V3 #63(2026-09-27 立):对话流业务表单请求工具(mcp_server._TOOLS 的
   // request_business_form)。守门 55 三方比对 `_TOOLS × 本表 × 五语言 taskStatus`,
