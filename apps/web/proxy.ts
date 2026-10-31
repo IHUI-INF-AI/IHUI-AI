@@ -117,6 +117,19 @@ function isNonHtmlPath(pathname: string): boolean {
  * per-request nonce 与共享缓存互斥(缓存件里的 nonce 会被跨用户复用),取舍全文见
  * `src/config/public-html-cache.ts` 头注。这里对它们原样放行,不加第二份策略。
  */
+/**
+ * 只在进程间存在的内部端点前缀(不允许从公网/浏览器到达)。
+ * 与 apps/api 的 `/api/internal/` 族、ai-service 的 `/ai-service/internal/` 族一一对应;
+ * 新增内部族必须同步这里与 apps/api 的 INTERNAL_ONLY_PREFIXES(两处都是显式列举,
+ * 不做正则兜底 —— 兜底会把同名静态子路由一起放行)。
+ */
+const INTERNAL_PATH_PREFIXES = ['/api/internal', '/ai-service/internal'] as const
+
+/** 命中判据:整段等于前缀,或其后紧跟 `/`。不做子串匹配(`/api/internal-audit` 不受影响)。 */
+function isInternalPath(pathname: string): boolean {
+  return INTERNAL_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
 function makeNonce(): string {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
@@ -134,6 +147,17 @@ export async function proxy(request: NextRequest) {
   }
 
   const { pathname, search } = request.nextUrl
+
+  // ── 内部服务端点边缘封禁(2026-10-31 安全强化第 14 批)──────────────────────
+  // 本机前门是 EdgeOne/Cloudflared → 本进程(8801) → rewrites → Fastify(8802)。
+  // `/api/:path*` 是通配 rewrite,所以 `/api/internal/*`(号池凭据回写、用户池
+  // upsert/delete、MCP 状态广播、工具调用台账摄入)结构上会从公网直达,防线只剩
+  // 单一 X-Internal-Secret。这些端点的语义是「本机进程间调用」,不经过本进程 ——
+  // 内部服务直连 127.0.0.1:8802,不经 8801,故此处拒绝一切外部到达。
+  // 第二层在 apps/api 的 network-segment `denyProxied`(与 IP 分类解耦,不信 XFF)。
+  if (isInternalPath(pathname)) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 
   // ── CSP nonce 分发(2026-10-30,机制与取舍见 makeNonce 头注)──
   // 两类路径不发 nonce:非 HTML 资产(纯浪费,还会污染 CDN 缓存键)、
