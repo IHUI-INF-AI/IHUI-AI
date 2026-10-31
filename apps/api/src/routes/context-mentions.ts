@@ -67,6 +67,15 @@ const enrichBodySchema = z.object({
     .optional(),
   totalBudget: z.coerce.number().int().min(500).max(32000).default(8000),
   userId: z.string().max(255).default(''),
+  // 编辑器状态(2026-11-01 立,web→api→ai-service 上报腿;可选,原样透传给
+  // contextEngineService.enrich,由服务层映射为 ai-service snake_case 键)
+  editorState: z
+    .object({
+      activeFile: z.string().min(1).max(512),
+      cursorLine: z.coerce.number().int().min(1).optional(),
+      selection: z.string().max(4000).optional(),
+    })
+    .optional(),
 })
 
 /** GET /visualization + GET /memory + GET /compression-stats 查询参数 schema(2026-07-22 深化立) */
@@ -202,7 +211,8 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { userMessage, conversationId, mentions, messages, totalBudget, userId } = parsed.data
+    const { userMessage, conversationId, mentions, messages, totalBudget, userId, editorState } =
+      parsed.data
     try {
       const enriched = await contextEngineService.enrich({
         userMessage,
@@ -210,6 +220,8 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
         mentions,
         messages,
         totalBudget,
+        // 编辑器状态:请求体给了就带上,没给保持不发(默认关语义)
+        ...(editorState ? { editorState } : {}),
         // 优先使用请求体 userId,为空时回退到 JWT 解析的 request.userId
         userId: userId || request.userId,
       })

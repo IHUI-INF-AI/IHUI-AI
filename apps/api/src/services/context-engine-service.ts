@@ -38,6 +38,7 @@ import type {
   MentionType,
   SymbolSearchItem,
 } from '@ihui/types'
+import type { ContextEditorState } from '@ihui/shared/context'
 
 /** 上下文源类型(history/codebase/mention/web/database,2026-07-22 立) */
 export type ContextSourceType = 'history' | 'codebase' | 'mention' | 'web' | 'database'
@@ -95,6 +96,12 @@ export interface EnrichOptions {
   totalBudget?: number
   /** 用户 ID(2026-07-22 深化立,行为学习 + 偏好持久化 key) */
   userId?: string
+  /**
+   * 编辑器状态(2026-11-01 立,web→api→ai-service 上报腿)。
+   * 可选;提供时映射为 ai-service 请求体 editorState 的 snake_case 键
+   * (active_file / cursor_line / selection),与 normalize_editor_state 对齐。
+   */
+  editorState?: ContextEditorState
 }
 
 /** token 可视化饼图单项(2026-07-22 深化立) */
@@ -487,7 +494,21 @@ class ContextEngineService {
       messages = [],
       totalBudget = 8000,
       userId = '',
+      editorState,
     } = opts
+
+    // editorState ⇒ ai-service 请求体形态(键 active_file / cursor_line / selection,
+    // 与 context_engine.normalize_editor_state 逐字段对齐;camelCase→snake_case 只在这
+    // 一映射点发生,web/api 面统一 camelCase)。activeFile 缺失或空白 ⇒ 整字段不发
+    // (与 ai-service「失效方向 = 丢弃」同构,不半发)。
+    const activeFile = editorState?.activeFile?.trim() ?? ''
+    const forwardedEditorState = activeFile
+      ? {
+          active_file: activeFile,
+          ...(editorState?.cursorLine !== undefined ? { cursor_line: editorState.cursorLine } : {}),
+          ...(editorState?.selection !== undefined ? { selection: editorState.selection } : {}),
+        }
+      : undefined
 
     try {
       const resp = await aiServiceFetch(null, '/api/context/enrich', {
@@ -500,6 +521,7 @@ class ContextEngineService {
           messages,
           totalBudget,
           userId,
+          ...(forwardedEditorState ? { editorState: forwardedEditorState } : {}),
         }),
         signal: AbortSignal.timeout(15_000),
       })

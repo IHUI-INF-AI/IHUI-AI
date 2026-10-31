@@ -21,6 +21,7 @@ import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
+import { WorkbuddyTaskSection } from '../components/WorkbuddyTaskSection'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -235,6 +236,10 @@ export default function CheckinAssistantScreen() {
             </View>
           ))
         )}
+
+        {/* 「自动做任务」区块:只有 platform==='workbuddy' 的账号才渲染(无该平台账号时组件自带零请求早退)。
+            账号级忙态复用本页 busyId,避免与签到/启停并发写同一账号。 */}
+        <WorkbuddyTaskSection accounts={list} busyAccountId={busyId} />
 
         <View style={styles.card}>
           <View style={styles.rowHead}>
