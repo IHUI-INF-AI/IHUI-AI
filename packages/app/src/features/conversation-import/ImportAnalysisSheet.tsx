@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 跨端共享 UI:不含平台 API。发起分析的**唯一出口**是 onSubmit 回调,由调用端(RN)接到既有 streamChat。
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -398,15 +399,15 @@ function createStyles(tk: AppThemeTokens) {
     errorBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       padding: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.danger.DEFAULT + '22',
     },
     errorText: { flex: 1, fontSize: rnType.caption.size, lineHeight: 16, color: tk.danger.DEFAULT },
     scenarioRow: {
-      padding: 10,
-      gap: 2,
+      padding: rnSpacing['sm-loose'],
+      gap: rnSpacing['2xs'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -415,17 +416,22 @@ function createStyles(tk: AppThemeTokens) {
     scenarioRowActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     scenarioTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
     scenarioSubtitle: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
-    browseToggle: { paddingVertical: 6 },
+    browseToggle: { paddingVertical: rnSpacing['xs-loose'] },
     browseBox: {
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       padding: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: rnSpacing.xs },
+    categoryRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing.xs,
+    },
     chip: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: 5,
       borderRadius: rnRadius.md,
       borderWidth: 1,
@@ -439,14 +445,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       borderWidth: 0,
       paddingHorizontal: 11,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
     },
     // 配对前景必须落进**与底同名前缀**的样式键(而不是行内 style),门 83 R3 才认得到兄弟配对:
     // chipActive × chipActiveText 成对 ⇒ 免债;叫 chipTextActive 时底那侧配不上,行内色它更看不见。
     chipActiveText: { color: tk.brand.ctaForeground },
     chipText: { fontSize: rnType.caption.size },
     linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
-    field: { gap: 2, marginBottom: 6 },
+    field: { gap: rnSpacing['2xs'], marginBottom: rnSpacing['xs-loose'] },
     fieldLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
     input: {
       height: 34,
@@ -469,7 +475,7 @@ function createStyles(tk: AppThemeTokens) {
     submit: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       paddingHorizontal: 14,
       height: 36,
       borderRadius: rnRadius.sm,

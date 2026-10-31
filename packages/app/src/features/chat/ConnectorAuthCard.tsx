@@ -198,7 +198,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.md,
       padding: rnSpacing.md,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     labelRow: {
       flexDirection: 'row',
@@ -234,8 +234,8 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     chip: {
       backgroundColor: tk.border.light,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
     },
     chipPressed: {
       backgroundColor: tk.border.medium,
@@ -246,8 +246,8 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     },
     flatChip: {
       borderRadius: rnRadius.md,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
     },
     flatChipPressed: {
       opacity: 0.7,
@@ -261,8 +261,8 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     },
     moreInfo: {
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
     },
     moreInfoText: {
       fontSize: rnType.caption.size,
