@@ -71,11 +71,11 @@ export function NewsletterContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="text-center">
-        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Mail className="h-3.5 w-3.5 text-primary" />
           {t('hero.badge')}
         </div>
-        <h1 className="mt-3 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+        <h1 className="mt-3 text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('hero.title')}
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -94,10 +94,10 @@ export function NewsletterContent(): React.JSX.Element {
         <Card className="mt-10 border-emerald-500/30">
           <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-4 p-3 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-            <h2 className="text-xl font-bold text-foreground">{t('success.title')}</h2>
+            <h2 className="text-heading font-bold text-foreground">{t('success.title')}</h2>
             <p className="text-sm text-muted-foreground">{t('success.desc')}</p>
             <div className="mt-4 w-full text-left">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">
+              <h3 className="mb-3 text-body font-semibold text-foreground">
                 {t('success.recommended')}
               </h3>
               <ul className="space-y-2">
@@ -121,7 +121,7 @@ export function NewsletterContent(): React.JSX.Element {
           {/* Benefits */}
           <Card className="border-border min-[768px]:col-span-2">
             <CardContent className="min-[640px]:p-3 p-3">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">{t('benefits.title')}</h2>
+              <h2 className="mb-3 text-body font-semibold text-foreground">{t('benefits.title')}</h2>
               <ul className="space-y-2.5">
                 {benefits.map((b, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">

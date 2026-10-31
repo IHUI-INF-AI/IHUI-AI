@@ -230,7 +230,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 80rpx;
+  height: var(--spacing-4xl);
   border-radius: var(--radius-lg);
   background: var(--color-card);
   border: 4rpx solid var(--color-border-list-item);
@@ -300,7 +300,7 @@
   bottom: 0;
   left: 20%;
   right: 20%;
-  height: 4rpx;
+  height: var(--spacing-2xs);
   background: var(--color-link);
   /* 装饰条族:半径取档位表最小档(2px),在 4rpx 高的条上仍等于条高一半 ⇒ 圆头端点;旧写法是档位外的字面量 */
   border-radius: var(--radius-xs);
@@ -409,8 +409,8 @@
   top: -8rpx;
   right: -8rpx;
   z-index: 2;
-  width: 32rpx;
-  height: 32rpx;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
 }
 
 .material-card-body {
@@ -449,11 +449,11 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  height: 80rpx;
+  height: var(--spacing-4xl);
 }
 
 .voice-wave-bar {
-  width: 8rpx;
+  width: var(--spacing-xs);
   height: 60rpx;
   background: var(--color-link);
   border-radius: var(--radius-xs);

@@ -73,18 +73,18 @@ export default function ConversationHistoryItem({
           <View className="flex items-center justify-between gap-[16rpx]">
             <Text
               key={`t-${id}`}
-              className="text-[length:30rpx] text-foreground font-semibold flex-1 truncate"
+              className="text-strong text-foreground font-semibold flex-1 truncate"
             >
               {title}
             </Text>
-            <Text className="text-[length:22rpx] text-muted-foreground flex-shrink-0">{time}</Text>
+            <Text className="text-caption text-muted-foreground flex-shrink-0">{time}</Text>
           </View>
           {preview ? (
             <Text className="block text-[length:26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
               {preview}
             </Text>
           ) : null}
-          <Text className="block text-[length:22rpx] text-muted-foreground mt-[12rpx]">
+          <Text className="block text-caption text-muted-foreground mt-[12rpx]">
             {countLabel}
           </Text>
         </View>
@@ -98,7 +98,7 @@ export default function ConversationHistoryItem({
           hoverClass="opacity-60"
         >
           <Text
-            className={`text-[length:22rpx] ${
+            className={`text-caption ${
               pinned ? 'text-foreground font-semibold' : 'text-muted-foreground'
             }`}
           >

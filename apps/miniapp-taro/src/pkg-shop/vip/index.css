@@ -133,8 +133,8 @@
 }
 .feature-icon {
   font-size: var(--text-heading);
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   background: var(--vip-card-bg-hover);
   border-radius: var(--radius-xl);
   display: flex;
@@ -438,8 +438,8 @@
   border-color: var(--color-brand-accent-deep);
 }
 .pp-pay-icon {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -468,8 +468,8 @@
   font-weight: 700;
 }
 .pp-success-icon {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   line-height: 96rpx;
   text-align: center;
   margin: 0 auto 24rpx;

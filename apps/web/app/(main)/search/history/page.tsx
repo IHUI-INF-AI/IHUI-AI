@@ -76,7 +76,7 @@ export default function HistoryPage() {
       <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <History className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -121,7 +121,7 @@ export default function HistoryPage() {
                 onClick={() => router.push(`/search?q=${encodeURIComponent(item.query)}`)}
                 className="min-w-0 flex-1 text-left"
               >
-                <p className="break-words text-sm font-medium">{item.query}</p>
+                <p className="break-words text-body font-medium">{item.query}</p>
                 <p className="text-xs text-muted-foreground">
                   {dateFmt.format(new Date(item.createdAt))} ·{' '}
                   {t('resultCount', { count: item.resultsCount })}

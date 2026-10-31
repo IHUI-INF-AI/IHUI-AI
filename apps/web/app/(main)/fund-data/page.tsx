@@ -102,7 +102,7 @@ export default function FundDataPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <TrendingUp className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -166,7 +166,7 @@ export default function FundDataPage() {
                       <td className="py-2.5 pr-4">
                         <span
                           className={cn(
-                            'rounded-md px-2 py-0.5 text-xs font-medium',
+                            'rounded-md px-2 py-0.5 text-label font-medium',
                             fund.status === 1
                               ? 'bg-emerald-500/10 text-emerald-600'
                               : 'bg-muted text-muted-foreground',

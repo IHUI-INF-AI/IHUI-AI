@@ -323,7 +323,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Cell({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
   return (
     <td
-      className={`px-3 py-2 align-top text-xs ${
+      className={`px-3 py-2 align-top text-label ${
         highlight
           ? 'bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
           : ''

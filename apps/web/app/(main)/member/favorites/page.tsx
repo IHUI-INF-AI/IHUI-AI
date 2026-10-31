@@ -78,7 +78,7 @@ export default function MemberFavoritesPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Heart className="h-5 w-5 text-primary" />
           收藏夹
         </h1>
@@ -91,7 +91,7 @@ export default function MemberFavoritesPage() {
             key={t.value}
             onClick={() => setTab(t.value)}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === t.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -129,7 +129,7 @@ export default function MemberFavoritesPage() {
                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {item.resourceType}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                <span className="min-w-0 flex-1 truncate text-body font-medium">
                   {item.title ?? item.resourceId}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">

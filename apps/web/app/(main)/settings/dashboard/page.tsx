@@ -53,7 +53,7 @@ export default function DashboardPage() {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
+                    <p className="text-body font-medium">{t(item.titleKey)}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
                   </div>
                 </CardContent>

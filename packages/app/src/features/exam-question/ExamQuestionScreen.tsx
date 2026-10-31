@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   ExamQuestionItem,
@@ -15,6 +15,7 @@ import type {
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 export type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps }
 
@@ -95,7 +96,7 @@ export function ExamQuestionScreen({
       : null
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title} numberOfLines={1}>
@@ -146,7 +147,7 @@ export function ExamQuestionScreen({
           {[true, false].map((value) => {
             const active = typeof raw === 'boolean' && raw === value
             return (
-              <Pressable
+              <Tappable
                 key={String(value)}
                 style={[styles.judgmentOption, active && styles.optionSelected]}
                 onPress={() => onAnswer?.(q.id, value)}
@@ -154,7 +155,7 @@ export function ExamQuestionScreen({
                 <Text style={[styles.judgmentText, active && styles.optionTextSelected]}>
                   {value ? t('examQuestion.judgmentTrue') : t('examQuestion.judgmentFalse')}
                 </Text>
-              </Pressable>
+              </Tappable>
             )
           })}
         </View>
@@ -162,7 +163,7 @@ export function ExamQuestionScreen({
         q.options.map((opt, idx) => {
           const active = selected.includes(idx)
           return (
-            <Pressable
+            <Tappable
               key={idx}
               style={[styles.option, active && styles.optionSelected]}
               onPress={() => onToggleOption(q.id, idx, q.type === 'multi')}
@@ -170,30 +171,30 @@ export function ExamQuestionScreen({
               <Text style={[styles.optionText, active && styles.optionTextSelected]}>
                 {String.fromCharCode(65 + idx)}. {opt}
               </Text>
-            </Pressable>
+            </Tappable>
           )
         })
       )}
       <View style={styles.actionRow}>
-        <Pressable
+        <Tappable
           style={[styles.navBtn, current === 0 && styles.navDisabled]}
           onPress={onPrev}
           disabled={current === 0}
         >
           <Text style={styles.navText}>{t('examQuestion.prev')}</Text>
-        </Pressable>
+        </Tappable>
         {isLast ? (
-          <Pressable
+          <Tappable
             style={[styles.submitBtn, submitting && styles.submitDisabled]}
             onPress={onSubmit}
             disabled={submitting}
           >
             <Text style={styles.submitText}>{t('examQuestion.submit')}</Text>
-          </Pressable>
+          </Tappable>
         ) : (
-          <Pressable style={styles.navBtn} onPress={onNext}>
+          <Tappable style={styles.navBtn} onPress={onNext}>
             <Text style={styles.navText}>{t('examQuestion.next')}</Text>
-          </Pressable>
+          </Tappable>
         )}
       </View>
     </ScrollView>

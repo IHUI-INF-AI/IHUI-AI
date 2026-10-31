@@ -154,7 +154,7 @@ function CronSection({ items }: { items: CronJobItem[] }) {
               >
                 <Clock className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{c.name}</p>
+                  <p className="break-words text-body font-medium">{c.name}</p>
                   <p className="break-words text-xs text-muted-foreground">
                     {c.schedule} · {c.task}
                   </p>
@@ -303,7 +303,7 @@ function WebhookSection({ items }: { items: WebhookItem[] }) {
               >
                 <Webhook className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{w.name}</p>
+                  <p className="break-words text-body font-medium">{w.name}</p>
                   <p className="break-words text-xs text-muted-foreground">
                     {w.endpoint}
                     {w.events ? ` · ${w.events}` : ''}
@@ -439,7 +439,7 @@ function HookSection({ items }: { items: HookItem[] }) {
               >
                 <Plug className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{h.name}</p>
+                  <p className="break-words text-body font-medium">{h.name}</p>
                   <p className="break-words text-xs text-muted-foreground">
                     {h.type} · {h.handler}
                   </p>

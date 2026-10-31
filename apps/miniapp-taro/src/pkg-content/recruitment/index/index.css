@@ -69,8 +69,8 @@
   padding: var(--spacing-sm) 0;
 }
 .req-dot {
-  width: 12rpx;
-  height: 12rpx;
+  width: var(--spacing-xs-loose);
+  height: var(--spacing-xs-loose);
   border-radius: 50%;
   background: var(--color-primary);
   margin-top: var(--spacing-xs-loose);
@@ -106,12 +106,12 @@
   align-items: center;
 }
 .priv-icon {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
 }
 .priv-icon-default {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   border-radius: var(--radius-lg);
   background: var(--color-warning-tint);
   display: flex;

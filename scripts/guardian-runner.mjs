@@ -1192,7 +1192,7 @@ const checks = [
   //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
   {
     id: '48',
-    label: '🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后)',
+    label: '🧩 GitHub Actions workflow 守门(步骤顺序 + 顶层 permissions 声明)',
     script: 'check-workflow-step-order.mjs',
     args: [],
     mode: 'blocking',
@@ -1201,7 +1201,7 @@ const checks = [
       '',
       '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
       '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
-      '',
+      '  💡 [permissions] 缺顶层 permissions: 块或写了 write-all ⇒ GITHUB_TOKEN 正拿仓库/组织默认档位(可能含写权)。修复: 顶层(第 0 列)逐条点名 scope,禁 write-all。取证: node --test scripts/tests/workflow-permissions-declaration.test.mjs',
     ].join('\n'),
   },
 

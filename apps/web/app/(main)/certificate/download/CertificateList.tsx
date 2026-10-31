@@ -80,7 +80,7 @@ export function CertificateList({
               </div>
               <span
                 className={cn(
-                  'inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                  'inline-flex shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                   STATUS_STYLE[cert.status] ?? STATUS_STYLE[1],
                 )}
               >

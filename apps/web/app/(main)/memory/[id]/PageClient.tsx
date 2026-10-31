@@ -121,7 +121,7 @@ export default function MemoryDetailPage() {
         </Button>
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">记忆详情</h1>
+          <h1 className="text-heading font-bold tracking-tight">记忆详情</h1>
         </div>
       </header>
 
@@ -154,7 +154,7 @@ export default function MemoryDetailPage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor={`${fid}-editCategory`}
-                  className="text-xs font-medium text-muted-foreground"
+                  className="text-label font-medium text-muted-foreground"
                 >
                   分类
                 </label>
@@ -168,7 +168,7 @@ export default function MemoryDetailPage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor={`${fid}-editText`}
-                  className="text-xs font-medium text-muted-foreground"
+                  className="text-label font-medium text-muted-foreground"
                 >
                   内容
                 </label>

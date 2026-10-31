@@ -586,7 +586,7 @@ export function ToolApprovalDialog() {
             className={
               // 与 ui-react Button default 定稿同档(h-9/px-4/rounded-sm);门的 panel 类别来自
               // "模态文件"的容器推断而非元素本身,逐档裁决见 PROJECT_PLAN 圆角线条目。
-              'inline-flex h-9 items-center gap-1.5 rounded-sm border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50'
+              'inline-flex h-9 items-center gap-1.5 rounded-sm border border-border bg-background px-4 text-body font-medium transition-colors hover:bg-accent disabled:opacity-50'
             }
           >
             <AlertTriangle className="h-4 w-4" />
@@ -600,7 +600,7 @@ export function ToolApprovalDialog() {
             className={
               // 同上:主按钮实底 + 前景已成对(bg-cta / text-cta-foreground,守门 83 R5 认这套),
               // 半径取控件档,门的 panel 类别来自"模态文件"的容器推断而非元素本身。
-              'inline-flex h-9 items-center gap-1.5 rounded-sm bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50'
+              'inline-flex h-9 items-center gap-1.5 rounded-sm bg-cta px-4 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50'
             }
           >
             {state.sending ? (
@@ -616,13 +616,13 @@ export function ToolApprovalDialog() {
       {current && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/30">
-            <span className="truncate font-mono text-sm font-medium">{current.toolName}</span>
-            <span className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
+            <span className="truncate font-mono text-body font-medium">{current.toolName}</span>
+            <span className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-label font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
               {current.dangerLevel}
             </span>
           </div>
           <div>
-            <div className="mb-1 text-xs font-medium text-muted-foreground">{t('argsPreview')}</div>
+            <div className="mb-1 text-label font-medium text-muted-foreground">{t('argsPreview')}</div>
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 p-2.5 font-mono text-xs leading-relaxed">
               {current.argsPreview || '{}'}
             </pre>
@@ -637,7 +637,7 @@ export function ToolApprovalDialog() {
               data-testid="tool-approval-decision"
             >
               <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-muted-foreground">
+                <div className="text-label font-medium text-muted-foreground">
                   {t('decisionLabel')}
                 </div>
                 <span
@@ -702,7 +702,7 @@ export function ToolApprovalDialog() {
               整块缺席(三个字段都没有)= 服务端回退开关关档 ⇒ 一行都不渲染。 */}
           {envReportPresent && (
             <div className="rounded-md border border-border bg-muted/30 p-2.5" data-testid="tool-approval-environment">
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
+              <div className="mb-1 text-label font-medium text-muted-foreground">
                 {t('envLabel')}
               </div>
               {!execEnv || execEnv.available === false ? (
@@ -755,7 +755,7 @@ export function ToolApprovalDialog() {
               )}
               {networkTarget && (
                 <div className="mt-1.5" data-testid="tool-approval-network-target">
-                  <div className="text-xs font-medium text-muted-foreground">
+                  <div className="text-label font-medium text-muted-foreground">
                     {t('envNetworkSection')}
                   </div>
                   <code
@@ -768,7 +768,7 @@ export function ToolApprovalDialog() {
               )}
               {current?.blockedNetworkTargets && current.blockedNetworkTargets.length > 0 && (
                 <div className="mt-1.5" data-testid="tool-approval-network-blocked">
-                  <div className="text-xs font-medium text-muted-foreground">
+                  <div className="text-label font-medium text-muted-foreground">
                     {t('envNetworkBlocked')}
                   </div>
                   <ul className="mt-0.5 space-y-0.5">
@@ -792,7 +792,7 @@ export function ToolApprovalDialog() {
           )}
           {/* D84:审批作用域(批准时生效;授权按 工具+参数 精确匹配,不放大到全局) */}
           <div>
-            <div className="mb-1 text-xs font-medium text-muted-foreground">{t('scopeLabel')}</div>
+            <div className="mb-1 text-label font-medium text-muted-foreground">{t('scopeLabel')}</div>
             <div
               className="flex gap-1"
               role="radiogroup"
@@ -807,7 +807,7 @@ export function ToolApprovalDialog() {
                   aria-checked={scope === opt.value}
                   onClick={() => setScope(opt.value)}
                   data-testid={`tool-approval-scope-${opt.value}`}
-                  className={`inline-flex h-7 items-center rounded-sm border px-2.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex h-7 items-center rounded-sm border px-2.5 text-label font-medium transition-colors ${
                     scope === opt.value
                       ? 'border-primary/40 bg-primary/10 text-primary'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -828,7 +828,7 @@ export function ToolApprovalDialog() {
                 aria-checked={grantRule}
                 onClick={() => setGrantRule((v) => !v)}
                 data-testid="tool-approval-grant-rule"
-                className={`inline-flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium transition-colors ${
+                className={`inline-flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-label font-medium transition-colors ${
                   grantRule
                     ? 'border-primary/40 bg-primary/10 text-primary'
                     : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -846,7 +846,7 @@ export function ToolApprovalDialog() {
           <div>
             <label
               htmlFor="tool-approval-reason"
-              className="mb-1 block text-xs font-medium text-muted-foreground"
+              className="mb-1 block text-label font-medium text-muted-foreground"
             >
               {t('reasonLabel')}
             </label>

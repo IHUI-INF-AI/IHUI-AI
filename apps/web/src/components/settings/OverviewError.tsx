@@ -25,7 +25,7 @@ export function OverviewError({ onRetry, message }: OverviewErrorProps) {
       <button
         type="button"
         onClick={onRetry}
-        className="flex items-center gap-1 rounded-md text-sm font-medium text-primary transition-colors hover:text-primary/80"
+        className="flex items-center gap-1 rounded-md text-body font-medium text-primary transition-colors hover:text-primary/80"
       >
         <RefreshCw className="h-3.5 w-3.5" />
         重试

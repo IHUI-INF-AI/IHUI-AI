@@ -66,7 +66,7 @@ export function SpecDiffView({ diff, loading }: SpecDiffViewProps) {
         return (
           <div key={i} className={`rounded-md p-3 ${style.cls}`}>
             <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-sm font-medium">{section.title}</span>
+              <span className="text-body font-medium">{section.title}</span>
               <span className="text-xs opacity-80">{style.label}</span>
             </div>
             {section.before !== undefined && (

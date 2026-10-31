@@ -169,13 +169,13 @@ export default function StatisticsPage() {
               return (
                 <Card key={c.label}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <CardTitle className="text-body font-medium text-muted-foreground">
                       {c.label}
                     </CardTitle>
                     <Icon className={`h-4 w-4 ${c.color}`} />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatNumber(c.value)}</div>
+                    <div className="text-display font-bold">{formatNumber(c.value)}</div>
                   </CardContent>
                 </Card>
               )

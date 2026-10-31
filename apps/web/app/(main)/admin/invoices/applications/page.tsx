@@ -157,7 +157,7 @@ export default function AdminInvoiceApplicationsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">发票申请管理</h1>
+        <h1 className="text-display font-bold tracking-tight">发票申请管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">审核用户发票申请并管理开票流程</p>
       </div>
 
@@ -170,7 +170,7 @@ export default function AdminInvoiceApplicationsPage() {
               setPage(1)
             }}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               status === tb.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -217,7 +217,7 @@ export default function AdminInvoiceApplicationsPage() {
                 return (
                   <TableRow key={a.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
+                      <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-label font-medium">
                         {typeLabel}
                       </span>
                     </TableCell>
@@ -230,7 +230,7 @@ export default function AdminInvoiceApplicationsPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                           sc.cls,
                         )}
                       >

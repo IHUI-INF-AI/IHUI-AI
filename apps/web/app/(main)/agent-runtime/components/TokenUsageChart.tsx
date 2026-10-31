@@ -97,15 +97,15 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
             <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">总消耗</div>
-                <div className="text-sm font-bold">{formatToken(total)}</div>
+                <div className="text-body font-bold">{formatToken(total)}</div>
               </div>
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">平均</div>
-                <div className="text-sm font-bold">{formatToken(avg)}</div>
+                <div className="text-body font-bold">{formatToken(avg)}</div>
               </div>
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">峰值</div>
-                <div className="text-sm font-bold">{formatToken(totals.peak)}</div>
+                <div className="text-body font-bold">{formatToken(totals.peak)}</div>
               </div>
             </div>
 

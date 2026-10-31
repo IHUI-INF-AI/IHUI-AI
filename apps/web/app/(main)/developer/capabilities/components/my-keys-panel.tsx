@@ -66,7 +66,7 @@ export function MyKeysPanel(): React.JSX.Element {
         <div className="flex items-center gap-2">
           <KeyRound className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold">{t('keysTitle')}</h2>
+            <h2 className="text-body font-semibold">{t('keysTitle')}</h2>
             <p className="text-xs text-muted-foreground">{t('keysSubtitle')}</p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export function MyKeysPanel(): React.JSX.Element {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 space-y-1">
-                      <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                      <p className="flex items-center gap-1.5 truncate text-body font-medium">
                         <span className="truncate">{apiKey.name}</span>
                         <span
                           className={cn(

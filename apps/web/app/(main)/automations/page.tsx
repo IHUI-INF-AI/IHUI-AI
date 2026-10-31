@@ -181,7 +181,7 @@ export default function AutomationsPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
+          <h1 className="text-heading font-semibold">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -225,7 +225,7 @@ export default function AutomationsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-medium">{a.name}</span>
+                    <span className="truncate text-body font-medium">{a.name}</span>
                     {a.status === 'active' ? (
                       <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15">
                         {t('status.active')}

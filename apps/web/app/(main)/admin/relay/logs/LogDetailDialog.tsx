@@ -105,7 +105,7 @@ function RawTextBlock({ title, readout }: { title: string; readout: RawTextReado
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium">{title}</span>
+        <span className="text-label font-medium">{title}</span>
         <span
           className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] ${RAW_STATE_CLASS[readout.state]}`}
         >
@@ -267,7 +267,7 @@ export function LogDetailDialog({
             <RawTextBlock title="Response 正文" readout={data.response} />
 
             <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+              <div className="flex flex-wrap items-center gap-2 text-label font-medium">
                 metadata
                 {data.metadataState === 'unjudged' && (
                   <span className="whitespace-nowrap rounded-md bg-red-500/10 px-2 py-0.5 text-[10px] text-red-600 dark:text-red-400">

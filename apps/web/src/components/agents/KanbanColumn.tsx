@@ -36,7 +36,7 @@ export function KanbanColumn({ column, onSelectTask }: KanbanColumnProps) {
             )}
             aria-hidden
           />
-          <span className="text-sm font-medium">
+          <span className="text-body font-medium">
             <CenteredText>{t(column.status)}</CenteredText>
           </span>
         </div>

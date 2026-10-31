@@ -129,7 +129,7 @@ export default function AgentCategoryDetailPage() {
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-1">
-              <h1 className="text-xl font-bold tracking-tight">{category.name}</h1>
+              <h1 className="text-heading font-bold tracking-tight">{category.name}</h1>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span
                   className={cn(
@@ -200,7 +200,7 @@ export default function AgentCategoryDetailPage() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1 space-y-1">
-                      <h3 className="line-clamp-2 text-sm font-medium group-hover:text-primary">
+                      <h3 className="line-clamp-2 text-body font-medium group-hover:text-primary">
                         {agent.name}
                       </h3>
                       <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -209,7 +209,7 @@ export default function AgentCategoryDetailPage() {
                       <div className="flex items-center gap-2 pt-1">
                         <span
                           className={cn(
-                            'text-xs font-semibold',
+                            'text-label font-semibold',
                             agent.isFree
                               ? 'text-emerald-600 dark:text-emerald-500'
                               : 'text-primary',

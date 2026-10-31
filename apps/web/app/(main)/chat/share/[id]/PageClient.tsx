@@ -106,7 +106,7 @@ export default function ChatSharePage() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Share2 className="h-6 w-6 text-primary" />
             {conversation?.title ?? t('shareConversation')}
           </h1>

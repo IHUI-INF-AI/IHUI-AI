@@ -27,8 +27,8 @@
 }
 
 .tdetail-avatar {
-  width: 128rpx;
-  height: 128rpx;
+  width: var(--spacing-6xl);
+  height: var(--spacing-6xl);
   border-radius: var(--radius-2xl);
   background: var(--color-muted);
   flex-shrink: 0;
@@ -263,8 +263,8 @@
 }
 
 .tdetail-review-avatar {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   border-radius: var(--radius-2xl);
   background: var(--color-muted);
   flex-shrink: 0;

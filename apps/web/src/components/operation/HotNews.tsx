@@ -105,7 +105,7 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
                   >
                     <span
                       className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-semibold',
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded text-label font-semibold',
                         topThree ? RANK_STYLES[rank] : 'bg-muted text-muted-foreground',
                       )}
                     >

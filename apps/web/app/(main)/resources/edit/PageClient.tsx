@@ -168,7 +168,7 @@ export default function ResourceEditPage() {
         {t('backToList')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight">
+      <h1 className="text-display font-bold tracking-tight">
         {id ? t('editTitle') : t('createTitle')}
       </h1>
 

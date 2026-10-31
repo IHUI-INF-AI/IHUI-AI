@@ -37,7 +37,7 @@ export default function ManualAiChatPage() {
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 02 章 · 使用说明手册</div>
-        <h1 className="text-2xl min-[768px]:text-3xl font-bold tracking-tight">AI 对话</h1>
+        <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">AI 对话</h1>
         <p className="text-sm text-muted-foreground min-[768px]:text-base">
           掌握 AI 对话的全部常用操作:发消息、上传文件、切模型、看历史、分享对话。
         </p>
@@ -45,7 +45,7 @@ export default function ManualAiChatPage() {
 
       {/* 新建对话 */}
       <section id="new-chat" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">2.1 新建对话</h2>
+        <h2 className="text-heading font-bold">2.1 新建对话</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li>方式一:左侧栏顶部"新建对话"按钮</li>
@@ -60,7 +60,7 @@ export default function ManualAiChatPage() {
 
       {/* 发送消息 */}
       <section id="send-message" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">2.2 发送消息</h2>
+        <h2 className="text-heading font-bold">2.2 发送消息</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Enter</kbd>:发送</li>
@@ -76,7 +76,7 @@ export default function ManualAiChatPage() {
 
       {/* 上传文件 */}
       <section id="upload-files" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">2.3 上传文件给 AI</h2>
+        <h2 className="text-heading font-bold">2.3 上传文件给 AI</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>点击输入框左侧📎(附件)按钮</li>
@@ -113,7 +113,7 @@ export default function ManualAiChatPage() {
 
       {/* 切换模型 */}
       <section id="switch-model" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">2.4 切换 AI 模型</h2>
+        <h2 className="text-heading font-bold">2.4 切换 AI 模型</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话区顶部点击模型名称(如"GPT-4o")</li>
@@ -136,7 +136,7 @@ export default function ManualAiChatPage() {
 
       {/* 历史对话 */}
       <section id="history" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">2.5 历史对话管理</h2>
+        <h2 className="text-heading font-bold">2.5 历史对话管理</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>查看</strong>:左侧栏"历史对话",按时间倒序排列</li>
@@ -151,7 +151,7 @@ export default function ManualAiChatPage() {
 
       {/* 分享对话 */}
       <section id="share" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">2.6 分享对话</h2>
+        <h2 className="text-heading font-bold">2.6 分享对话</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话右上角点击"分享"按钮</li>

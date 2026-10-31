@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
@@ -180,7 +180,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 32rpx;
+  width: var(--spacing-lg);
   flex-shrink: 0;
 }
 .refund-step-dot {
@@ -193,7 +193,7 @@
 .refund-step-line {
   width: 2rpx;
   flex: 1;
-  min-height: 32rpx;
+  min-height: var(--spacing-lg);
   background: var(--color-border);
   margin: 6rpx 0;
 }

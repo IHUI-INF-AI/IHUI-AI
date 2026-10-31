@@ -172,7 +172,7 @@ export default function PresetsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">预设主题</h1>
+        <h1 className="text-display font-bold tracking-tight">预设主题</h1>
         <p className="mt-1 text-sm text-muted-foreground">一键应用内置主题</p>
       </div>
 

@@ -1272,7 +1272,7 @@ export default function AdminRelayAccountPoolPage() {
       <BackButton />
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Users className="h-6 w-6 text-primary" />
             账号池管理
           </h1>
@@ -1523,17 +1523,17 @@ export default function AdminRelayAccountPoolPage() {
                             <div className="flex flex-wrap items-center gap-1 font-medium">
                               {k.name}
                               {k.ownerUserId && (
-                                <span className="whitespace-nowrap rounded-md bg-sky-500/10 px-1.5 py-0.5 text-xs font-normal text-sky-600 dark:text-sky-400">
+                                <span className="whitespace-nowrap rounded-md bg-sky-500/10 px-1.5 py-0.5 text-label font-normal text-sky-600 dark:text-sky-400">
                                   个人池
                                 </span>
                               )}
                               {k.expiresSoon === true && (
-                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-label font-normal text-amber-600 dark:text-amber-400">
                                   即将过期
                                 </span>
                               )}
                               {MASKED_PHONE_NAME.test(k.name) && (
-                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-label font-normal text-amber-600 dark:text-amber-400">
                                   待补全
                                 </span>
                               )}
@@ -2099,7 +2099,7 @@ export default function AdminRelayAccountPoolPage() {
                 <div className="flex min-w-0 items-center gap-2">
                   <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   <div className="min-w-0">
-                    <div className="text-sm font-medium leading-none">账号代理</div>
+                    <div className="text-body font-medium leading-none">账号代理</div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       仅对该账号生效，不进入共享代理池
                     </p>

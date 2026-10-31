@@ -167,8 +167,8 @@ export default async function SkillsPage() {
             type="button"
             className={
               i === 0
-                ? 'h-8 rounded-sm border border-brand-accent-deep bg-cta px-3 text-xs font-medium text-cta-foreground'
-                : 'h-8 rounded-sm border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+                ? 'h-8 rounded-sm border border-brand-accent-deep bg-cta px-3 text-label font-medium text-cta-foreground'
+                : 'h-8 rounded-sm border border-border bg-background px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
             }
           >
             {t(c)}
@@ -193,7 +193,7 @@ export default async function SkillsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="truncate text-sm font-semibold">{s.name}</h3>
+                      <h3 className="truncate text-body font-semibold">{s.name}</h3>
                       <span className="rounded bg-cta/8 px-2 py-0.5 text-[10px] font-medium text-primary">
                         {t('skills.featured')}
                       </span>
@@ -231,7 +231,7 @@ export default async function SkillsPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-lg">
                   <s.icon className="h-4 w-4" />
                 </div>
-                <h3 className="w-full truncate text-sm font-semibold">{s.name}</h3>
+                <h3 className="w-full truncate text-body font-semibold">{s.name}</h3>
                 <p className="text-[10px] text-muted-foreground">@{s.author}</p>
                 <p className="line-clamp-2 text-[11px] text-muted-foreground">{t(s.desc)}</p>
                 <div className="mt-auto flex w-full items-center justify-between pt-1">

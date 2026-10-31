@@ -433,7 +433,7 @@ export function UnifiedTaskDashboard() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Boxes className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{t('title')}</span>
+          <span className="text-body font-medium">{t('title')}</span>
         </div>
         <Button variant="outline" size="xs" onClick={refreshAll} disabled={refreshing}>
           <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
@@ -656,7 +656,7 @@ export function UnifiedTaskDashboard() {
           className="rounded-md border border-border bg-muted/20 px-2.5 py-2"
           data-testid="unified-task-messages"
         >
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
             <MessageSquare className="h-3.5 w-3.5" />
             {t('messagesTitle')}
           </div>

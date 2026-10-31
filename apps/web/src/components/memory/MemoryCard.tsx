@@ -25,7 +25,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
     <div className="group flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20 hover:bg-accent/30">
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm font-semibold leading-tight text-foreground">
+          <span className="text-body font-semibold leading-tight text-foreground">
             {entry.category}
           </span>
           <span

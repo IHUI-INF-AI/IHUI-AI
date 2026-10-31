@@ -322,7 +322,7 @@ export default function A2APage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Network className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -380,7 +380,7 @@ export default function A2APage() {
                 <Card key={agent.agent_id} className="transition-colors hover:bg-accent">
                   <CardContent className="space-y-2 p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-medium">{agent.name}</h3>
+                      <h3 className="text-body font-medium">{agent.name}</h3>
                       <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
                         {agent.agent_id}
                       </span>
@@ -585,10 +585,10 @@ export default function A2APage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium">{currentTask.name ?? '-'}</span>
+                  <span className="text-body font-medium">{currentTask.name ?? '-'}</span>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                       STATUS_CLASSES[currentTask.status],
                     )}
                   >
@@ -624,7 +624,7 @@ export default function A2APage() {
                   currentTask.result !== undefined &&
                   currentTask.result !== null && (
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">{t('result')}</p>
+                      <p className="text-label font-medium text-muted-foreground">{t('result')}</p>
                       <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-xs whitespace-pre-wrap">
                         {JSON.stringify(currentTask.result, null, 2)}
                       </pre>

@@ -101,7 +101,7 @@ export function DemandSquareTable({
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                       STATUS_CLASS[r.status] ?? STATUS_CLASS.pending,
                     )}
                   >

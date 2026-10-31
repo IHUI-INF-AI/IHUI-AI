@@ -16,7 +16,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
         <span className="text-xs text-muted-foreground">当前状态:</span>
         <span
           className={cn(
-            'rounded-md px-2 py-0.5 text-xs font-medium',
+            'rounded-md px-2 py-0.5 text-label font-medium',
             STATUS_BADGE[p.currentStatus] || STATUS_BADGE.draft,
           )}
         >
@@ -29,7 +29,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
             type="button"
             onClick={p.handleSubmitReview}
             disabled={p.reviewLoading}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
           >
             {p.reviewLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -45,7 +45,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
               type="button"
               onClick={p.handleApprove}
               disabled={p.reviewLoading}
-              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
+              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-green-600 px-3 text-label font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
             >
               {p.reviewLoading ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -58,7 +58,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
               type="button"
               onClick={p.handleReject}
               disabled={p.reviewLoading}
-              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-600/90 disabled:opacity-60"
+              className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm bg-red-600 px-3 text-label font-medium text-white hover:bg-red-600/90 disabled:opacity-60"
             >
               <Square className="h-3 w-3" />
               <span>拒绝</span>

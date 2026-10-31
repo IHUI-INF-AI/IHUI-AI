@@ -210,7 +210,7 @@ export default function BackupJobsPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <HardDriveDownload className="h-5 w-5" aria-hidden />
             数据库备份作业
           </h1>
@@ -240,7 +240,7 @@ export default function BackupJobsPage() {
       </div>
 
       <div className="rounded-lg border p-3">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
+        <h2 className="flex items-center gap-2 text-body font-medium">
           <Settings2 className="h-4 w-4" aria-hidden />
           备份配置
         </h2>

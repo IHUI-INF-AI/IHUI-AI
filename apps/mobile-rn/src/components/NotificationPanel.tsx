@@ -20,6 +20,7 @@ import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 通知面板(mobile-rn 端)。
@@ -208,7 +209,7 @@ export function PushBanner({
                     <Text style={styles.time}>{formatPushTime(timestamp, t)}</Text>
                   ) : null}
                 </View>
-                <Pressable
+                <Tappable
                   onPress={(e) => {
                     e.stopPropagation()
                     onClose?.()
@@ -219,7 +220,7 @@ export function PushBanner({
                   accessibilityLabel={t('common.close')}
                 >
                   <X size={14} color={tokens.text.tertiary} />
-                </Pressable>
+                </Tappable>
               </View>
               {content ? (
                 <View style={styles.body}>

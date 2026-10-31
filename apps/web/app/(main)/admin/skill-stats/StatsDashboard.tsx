@@ -175,7 +175,7 @@ export default function StatsDashboard() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
+          <h1 className="text-heading font-semibold">{t('title')}</h1>
           <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>{t('subtitle')}</span>
           </p>
@@ -211,7 +211,7 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('totalSkills')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">
+                  <span className="text-heading font-semibold tabular-nums">
                     {formatNumber(total!.totalSkills)}
                   </span>
                 </div>
@@ -226,7 +226,7 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('onlineCount')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">
+                  <span className="text-heading font-semibold tabular-nums">
                     {formatNumber(total!.onlineCount)}
                   </span>
                 </div>
@@ -241,7 +241,7 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('totalInstallCount')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">
+                  <span className="text-heading font-semibold tabular-nums">
                     {formatNumber(total!.totalInstallCount)}
                   </span>
                 </div>
@@ -256,7 +256,7 @@ export default function StatsDashboard() {
                   <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('avgRating')}</span>
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">{total!.avgRating}</span>
+                  <span className="text-heading font-semibold tabular-nums">{total!.avgRating}</span>
                 </div>
               </CardContent>
             </Card>
@@ -267,7 +267,7 @@ export default function StatsDashboard() {
             {/* 热门技能排行 */}
             <Card className="min-[1024px]:col-span-2">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">{t('topTitle')}</CardTitle>
+                <CardTitle className="text-body font-medium">{t('topTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -327,7 +327,7 @@ export default function StatsDashboard() {
               {/* 使用趋势 */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">{t('trendTitle')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('trendTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <TrendChart data={trendData} range={trendRange} onRangeChange={setTrendRange} />
@@ -337,7 +337,7 @@ export default function StatsDashboard() {
               {/* 分类分布 */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">{t('categoryDist')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('categoryDist')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CategoryDistChart data={categoryDist} />
@@ -347,7 +347,7 @@ export default function StatsDashboard() {
               {/* 可用率 */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">{t('availabilityRate')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('availabilityRate')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">

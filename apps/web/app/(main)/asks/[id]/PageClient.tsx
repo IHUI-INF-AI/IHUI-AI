@@ -164,7 +164,7 @@ export default function AskDetailPage() {
             <CardTitle className="text-xl">{ask.title}</CardTitle>
             <span
               className={cn(
-                'flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                'flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                 ask.isResolved
                   ? 'bg-emerald-500/10 text-emerald-600'
                   : 'bg-amber-500/10 text-amber-600',
@@ -208,7 +208,7 @@ export default function AskDetailPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">
           {tc('answers')}
-          <span className="ml-2 text-sm font-normal text-muted-foreground">({answers.length})</span>
+          <span className="ml-2 text-body font-normal text-muted-foreground">({answers.length})</span>
         </h2>
         {answersLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -225,7 +225,7 @@ export default function AskDetailPage() {
               <Card key={a.id} className={cn(a.isAccepted && 'border-emerald-500/40')}>
                 <CardContent className="min-[640px]:p-3 p-3">
                   {a.isAccepted && (
-                    <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                    <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-label font-medium text-emerald-600">
                       <CheckCircle2 className="h-3 w-3" />
                       {tc('accepted')}
                     </span>

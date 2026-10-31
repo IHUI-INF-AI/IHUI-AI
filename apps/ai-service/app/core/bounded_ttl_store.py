@@ -122,6 +122,23 @@ class BoundedTtlDict:
             self._store.pop(key, None)  # 重新入列尾,保持"首写序"单调
             self._store[key] = (now, value)
 
+    def __getitem__(self, key: str) -> Any:
+        """`store[k]` 走 dict 语义:缺失或**已过期**都抛 KeyError。
+
+        为什么补这一对运算符(2026-11-01):本类是用来**替掉**普通 dict 的,而那些存储的
+        既有读写点全部写成 `store[k] = v` / `store[k]["f"]`(生产与测试都有)。不支持下标
+        就等于要求每个读写点改形态 —— 而"改不动的那些"会被悄悄留在旧写法上,封顶就成了
+        口头承诺。过期条目在这里也算"不在",与 `__contains__` 同一条判序(不另起一套)。
+        """
+        missing = object()
+        value = self.get(key, missing)
+        if value is missing:
+            raise KeyError(key)
+        return value
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.set(key, value)
+
     def get(self, key: str, default: Any = None) -> Any:
         now = self._clock()
         with self._lock:

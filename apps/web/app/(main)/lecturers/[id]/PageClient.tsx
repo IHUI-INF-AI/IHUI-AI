@@ -106,7 +106,7 @@ export default function LecturerDetailPageClient() {
             className="h-20 w-20 text-2xl"
           />
           <div className="min-w-0 space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight">{lecturer.name}</h1>
+            <h1 className="text-display font-bold tracking-tight">{lecturer.name}</h1>
             {lecturer.title ? <p className="text-sm text-primary">{lecturer.title}</p> : null}
             {lecturer.intro ? (
               <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
@@ -136,7 +136,7 @@ export default function LecturerDetailPageClient() {
                   <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                     <PlayCircle className="h-10 w-10 text-primary/40" />
                     {channel.isLive && (
-                      <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                      <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-label font-medium text-white">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                         {tl('liveNow')}
                       </span>

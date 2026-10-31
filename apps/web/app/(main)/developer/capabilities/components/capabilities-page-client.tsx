@@ -24,7 +24,7 @@ export default function CapabilitiesPageClient(): React.JSX.Element {
     <TooltipProvider>
       <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
             <Boxes className="h-5 w-5 text-primary" aria-hidden />
             <span>{t('capabilities.title')}</span>
             <CountBadge count={CAPABILITY_CATALOG.length} />

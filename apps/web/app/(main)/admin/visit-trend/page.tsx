@@ -68,7 +68,7 @@ export default function VisitTrendPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <TrendingUp className="h-6 w-6 text-primary" />
             访问趋势
           </h1>
@@ -82,7 +82,7 @@ export default function VisitTrendPage() {
               type="button"
               onClick={() => setGranularity(g.value)}
               className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                'rounded-sm px-2.5 py-1 text-label font-medium transition-colors',
                 granularity === g.value
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -160,7 +160,7 @@ export default function VisitTrendPage() {
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {p.date.slice(5)}
                 </span>
-                <span className="text-xs font-semibold tabular-nums">{numFmt.format(p.pv)}</span>
+                <span className="text-label font-semibold tabular-nums">{numFmt.format(p.pv)}</span>
               </div>
             ))}
           </div>
@@ -216,7 +216,7 @@ export default function VisitTrendPage() {
                   className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-sm"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-label font-semibold text-primary">
                       {i + 1}
                     </span>
                     <span className="truncate font-mono text-xs">{p.path}</span>

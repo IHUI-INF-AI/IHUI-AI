@@ -100,7 +100,7 @@ export default function SsoMobileAuthPage() {
           <p className="max-w-md text-center text-sm text-muted-foreground">{errorMsg}</p>
           <Link
             href="/login"
-            className="text-sm font-medium text-primary underline underline-offset-4"
+            className="text-body font-medium text-primary underline underline-offset-4"
           >
             {t('backToLogin')}
           </Link>

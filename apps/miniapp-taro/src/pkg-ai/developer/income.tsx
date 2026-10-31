@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/model-income/ModelIncomeScreen.tsx
 
 import { useTt } from '@/i18n'
@@ -311,11 +312,11 @@ export default function DeveloperIncome() {
 
         {error ? (
           <View className="mx-[20rpx] mt-[16rpx] px-[20rpx] py-[16rpx] rounded-lg bg-[var(--color-danger-tint)] flex items-center justify-between">
-            <Text className="text-[length:24rpx] text-[var(--color-danger)]">
+            <Text className="text-label text-[var(--color-danger)]">
               {tt('common.failed', '加载失败')}
             </Text>
             <Text
-              className="text-[length:24rpx] font-semibold text-[var(--color-danger)]"
+              className="text-label font-semibold text-[var(--color-danger)]"
               onClick={reload}
             >
               {tt('modelIncome.retry', '重试')}
@@ -380,7 +381,7 @@ export default function DeveloperIncome() {
 
             {/* 对齐 RN 共享屏 summaryCard 下方那行 tip(modelIncome.tip):收益数据的更新节律 */}
             <View className="px-[24rpx] mt-[12rpx]">
-              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-caption text-[var(--color-text-tertiary)]">
                 {tt('modelIncome.tip', '收益数据每日更新')}
               </Text>
             </View>
@@ -442,7 +443,7 @@ export default function DeveloperIncome() {
         ) : (
           <View className="cash-list">
             {/* back-label-exempt: 面板内视图回退(提现明细→收入概览),非页面级返回键 until 2026-12-31 */}
-            <View onClick={backToIncome} hoverClass="opacity-60" style={{ marginBottom: '16rpx' }}>
+            <View onClick={backToIncome} hoverClass="opacity-60" style={{ marginBottom: 'var(--spacing-sm)' }}>
               <Text className="income-item-time">{tt('common.back', '返回')}</Text>
             </View>
             {!cashLoaded ? (
@@ -472,7 +473,7 @@ export default function DeveloperIncome() {
               onClick={(e) => e.stopPropagation()}
               hoverClass="opacity-60"
             >
-              <View style={{ display: 'flex', alignItems: 'center', marginBottom: '12rpx' }}>
+              <View style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--spacing-xs-loose)' }}>
                 <Text
                   style={{
                     width: '72rpx',
@@ -483,7 +484,7 @@ export default function DeveloperIncome() {
                     color: 'var(--color-primary-foreground)',
                     borderRadius: rnRadius.xl,
                     fontSize: '32rpx',
-                    marginRight: '16rpx',
+                    marginRight: 'var(--spacing-sm)',
                   }}
                 >
                   ¥
@@ -501,7 +502,7 @@ export default function DeveloperIncome() {
                   display: 'flex',
                   alignItems: 'center',
                   width: '100%',
-                  padding: '20rpx',
+                  padding: 'var(--spacing-sm-loose)',
                   background:
                     incomeType === 'wechat' ? 'var(--color-muted)' : 'var(--color-background)',
                   borderRadius: rnRadius.md,
@@ -521,7 +522,7 @@ export default function DeveloperIncome() {
                     color: 'var(--color-surface-light)',
                     borderRadius: rnRadius.xl,
                     fontSize: '32rpx',
-                    marginRight: '16rpx',
+                    marginRight: 'var(--spacing-sm)',
                   }}
                 >
                   微
@@ -543,7 +544,7 @@ export default function DeveloperIncome() {
                   ) : null}
                 </View>
               </View>
-              <View style={{ display: 'flex', width: '100%', gap: '20rpx' }}>
+              <View style={{ display: 'flex', width: '100%', gap: 'var(--spacing-sm-loose)' }}>
                 <View
                   style={{
                     flex: 1,
@@ -598,7 +599,7 @@ export default function DeveloperIncome() {
                   fontSize: '36rpx',
                   fontWeight: 600,
                   color: 'var(--color-foreground)',
-                  marginBottom: '24rpx',
+                  marginBottom: 'var(--spacing-md)',
                 }}
               >
                 {tt('developer.income.withdrawPopup', '提现')}
@@ -607,7 +608,7 @@ export default function DeveloperIncome() {
                 style={{
                   fontSize: '28rpx',
                   color: 'var(--color-muted-foreground)',
-                  marginBottom: '24rpx',
+                  marginBottom: 'var(--spacing-md)',
                 }}
               >
                 {tt('developer.income.withdrawAvailable', '可提现金额 ¥')}
@@ -622,7 +623,7 @@ export default function DeveloperIncome() {
                   borderRadius: rnRadius.xl,
                   padding: '16rpx 20rpx',
                   boxSizing: 'border-box',
-                  marginBottom: '16rpx',
+                  marginBottom: 'var(--spacing-sm)',
                 }}
               >
                 <Text
@@ -630,7 +631,7 @@ export default function DeveloperIncome() {
                     fontSize: '32rpx',
                     fontWeight: 600,
                     color: 'var(--color-foreground)',
-                    marginRight: '12rpx',
+                    marginRight: 'var(--spacing-xs-loose)',
                   }}
                 >
                   ¥
@@ -644,7 +645,7 @@ export default function DeveloperIncome() {
                 />
               </View>
               <View
-                style={{ alignSelf: 'flex-end', marginBottom: '32rpx' }}
+                style={{ alignSelf: 'flex-end', marginBottom: 'var(--spacing-lg)' }}
                 onClick={() => setAmount(String(available))}
                 hoverClass="opacity-60"
               >
@@ -652,7 +653,7 @@ export default function DeveloperIncome() {
                   {tt('developer.income.withdrawAll', '全部提现')}
                 </Text>
               </View>
-              <View style={{ display: 'flex', width: '100%', gap: '20rpx' }}>
+              <View style={{ display: 'flex', width: '100%', gap: 'var(--spacing-sm-loose)' }}>
                 <View
                   style={{
                     flex: 1,

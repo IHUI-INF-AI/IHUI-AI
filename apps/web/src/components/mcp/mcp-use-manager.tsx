@@ -108,7 +108,7 @@ function StatCard({ title, value, icon: Icon }: StatCardProps) {
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
+          <div className="text-display font-bold tracking-tight">{value}</div>
           <div className="break-words text-xs text-muted-foreground">{title}</div>
         </div>
       </CardContent>

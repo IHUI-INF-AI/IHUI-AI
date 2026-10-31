@@ -402,7 +402,7 @@ function TermDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">{editTerm ? t('editTerm') : t('createTerm')}</p>
+          <p className="text-body font-medium">{editTerm ? t('editTerm') : t('createTerm')}</p>
           <div className="grid gap-1.5">
             <Label>{t('termName')}</Label>
             <Input
@@ -507,7 +507,7 @@ function ClassDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">{t('createClass')}</p>
+          <p className="text-body font-medium">{t('createClass')}</p>
           <div className="grid gap-1.5">
             <Label>{t('className')}</Label>
             <Input
@@ -892,7 +892,7 @@ export default function SchedulePage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('description')}</p>
       </header>
 
@@ -1027,7 +1027,7 @@ export default function SchedulePage() {
           <>
             {/* Week navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-body font-medium">
                 {weekDays[0] && weekDays[6]
                   ? `${formatDate(weekDays[0])} ~ ${formatDate(weekDays[6])}`
                   : ''}
@@ -1065,7 +1065,7 @@ export default function SchedulePage() {
                     <div
                       key={key}
                       className={cn(
-                        'border-b border-r p-2 text-center text-xs font-medium',
+                        'border-b border-r p-2 text-center text-label font-medium',
                         isToday && 'bg-primary/5',
                       )}
                     >
@@ -1128,7 +1128,7 @@ export default function SchedulePage() {
           <>
             {/* Month navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-body font-medium">
                 {t('monthTitle', {
                   year: currentMonth.getFullYear(),
                   month: currentMonth.getMonth() + 1,
@@ -1158,7 +1158,7 @@ export default function SchedulePage() {
                 {WEEKDAY_KEYS.map((key) => (
                   <div
                     key={key}
-                    className="border-b border-r p-2 text-center text-xs font-medium text-muted-foreground"
+                    className="border-b border-r p-2 text-center text-label font-medium text-muted-foreground"
                   >
                     {t(key)}
                   </div>
@@ -1179,7 +1179,7 @@ export default function SchedulePage() {
                     >
                       <div
                         className={cn(
-                          'mb-1 text-xs font-medium',
+                          'mb-1 text-label font-medium',
                           isToday ? 'text-primary' : 'text-muted-foreground',
                         )}
                       >

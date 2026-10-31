@@ -111,7 +111,7 @@ export function PricingContent(): React.JSX.Element {
       <div className="rounded-lg border bg-card p-3">
         <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
           <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
               <Coins className="h-5 w-5 text-primary" />
               {t('title')}
             </h1>
@@ -184,7 +184,7 @@ export function PricingContent(): React.JSX.Element {
               <CardHeader className="px-4 py-2.5 pb-2">
                 <CardTitle className="flex items-center justify-between gap-2 text-sm">
                   <span className="min-w-0 truncate">{vendor}</span>
-                  <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
+                  <span className="shrink-0 whitespace-nowrap text-label font-normal text-muted-foreground tabular-nums">
                     {t('itemsCount', { count: items.length })}
                   </span>
                 </CardTitle>

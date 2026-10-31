@@ -108,7 +108,7 @@ export default function LiveDetailPage() {
     const endMs = channel.endTime ? new Date(channel.endTime).getTime() : NaN
     if (channel.isLive) {
       return (
-        <span className="flex items-center gap-1 ui-chip rounded-md bg-red-500 px-2.5 py-0.5 text-xs font-medium text-white">
+        <span className="flex items-center gap-1 ui-chip rounded-md bg-red-500 px-2.5 py-0.5 text-label font-medium text-white">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
           {t('liveNow')}
         </span>
@@ -116,14 +116,14 @@ export default function LiveDetailPage() {
     }
     if (!Number.isNaN(endMs) && now > endMs) {
       return (
-        <span className="ui-chip rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="ui-chip rounded-md bg-muted px-2.5 py-0.5 text-label font-medium text-muted-foreground">
           {t('ended')}
         </span>
       )
     }
     if (!Number.isNaN(startMs) && now < startMs) {
       return (
-        <span className="ui-chip rounded-md bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+        <span className="ui-chip rounded-md bg-primary/10 px-2.5 py-0.5 text-label font-medium text-primary">
           {t('upcoming')}
         </span>
       )
@@ -168,7 +168,7 @@ export default function LiveDetailPage() {
           </div>
         )}
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-          <h1 className="text-2xl font-bold tracking-tight">{channel.title}</h1>
+          <h1 className="text-display font-bold tracking-tight">{channel.title}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <span>{channel.lecturerName ?? t('unknownLecturer')}</span>
             <span className="flex items-center gap-1">

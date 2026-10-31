@@ -35,7 +35,7 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
       <nav className="flex items-center gap-1 rounded-md bg-muted/30 p-1">

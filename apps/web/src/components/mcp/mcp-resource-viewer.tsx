@@ -64,7 +64,7 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
         <span className="text-xs text-muted-foreground">{t('resourceUri')}:</span>
         <span className="break-all font-mono text-xs">{uri}</span>
         <span className="text-xs text-muted-foreground">·</span>
-        <span className="text-xs font-medium">{name}</span>
+        <span className="text-label font-medium">{name}</span>
         {mimeType && (
           <>
             <span className="text-xs text-muted-foreground">·</span>

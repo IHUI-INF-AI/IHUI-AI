@@ -168,7 +168,7 @@ export default function EduShopPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <ShoppingCart className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -218,7 +218,7 @@ export default function EduShopPage() {
                         </p>
                       )}
                       <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-                        <span className="text-sm font-semibold text-primary">
+                        <span className="text-body font-semibold text-primary">
                           {formatPrice(course.price, course.isFree)}
                         </span>
                         <Button
@@ -295,7 +295,7 @@ export default function EduShopPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
-                        <span className="text-sm font-semibold text-primary">
+                        <span className="text-body font-semibold text-primary">
                           {formatPrice(order.payAmount)}
                         </span>
                         <span
