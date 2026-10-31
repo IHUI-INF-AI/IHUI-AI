@@ -34,6 +34,14 @@
  *      tk.overlay.* 档)按下去的动作就是关层,再让它变暗等于全屏闪一下 —— 证据必须写在
  *      该元素自己的 props 或同文件样式键里,不透明黑底不算遮罩(否则遮罩就成了消红通道)。
  *      上一版把 957 枚 TouchableOpacity 一并算成"无反馈"—— 那是拿误报逼人补冗余代码。
+ *      2026-10-31 实测再补两档同类误报(各带反向自检例,防止它们变成消红通道):
+ *       - **满屏可点面** `style={StyleSheet.absoluteFill}` 且自闭合:这一层自己没有任何视觉
+ *         (absoluteFill 只有 position 与四边归零),按下叠透明度一个像素都变化不出来 —— 对它提
+ *         "要有反馈"是量不到东西。带 children 的、数组里追加了实底的照判。
+ *       - **吞点击容器** `onPress={(e) => e.stopPropagation()}` / 空实现 `onPress={() => undefined}`:
+ *         它存在的全部意义是"别把这一下冒泡给外层遮罩",按下去本来就不该有事发生。
+ *         真实动作(`onPress={() => open(id)}`)照判。
+ *       两档的放过数量必须出现在结论行里(静默放过 = 没量到,§0.3 同型)。
  *
  * 档位取 36 不取 44:本仓既定档就是 `tapBox: 36`(geometry.js 注明对齐 web 顶栏 `w-9`,
  * 两端已各自对齐到它)。另立一个 44 就是造第二份真相,比漏判更糟。要改档值须先改那张表。
@@ -84,7 +92,7 @@ const { face, error: faceErr } = selectFace({
 })
 
 const CLICKABLE_RE =
-  /<(TouchableOpacity|TouchableHighlight|TouchableWithoutFeedback|Pressable)\b/g
+  /<(TouchableOpacity|TouchableHighlight|TouchableWithoutFeedback|Pressable|Tappable)\b/g
 
 /**
  * 从 `src[i]`(应为 `{`)起做括号配平,返回闭括号下标;配不平返回 -1。
@@ -391,7 +399,9 @@ function resolveStyle(props, table) {
   }
 }
 
-const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w|pressFeedback\s*\(/
+// pressFeedback 不在这一列:它返回**函数**形态 style,而 cssInterop 会把注册表组件的函数形态
+// 换成 `{}`(守门 131 真机定案)⇒ 认它等于给"样式整份消失"的写法发免检。按压反馈走 <Tappable>。
+const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w/
 
 /**
  * 遮罩(scrim)不算"缺按压反馈":它按下去的**结果就是关掉整层**,若再让半透黑底跟着变暗,
@@ -431,6 +441,29 @@ function scrimByStyle(props, table) {
 }
 
 /**
+ * 满屏可点面(`style={StyleSheet.absoluteFill}` 且自闭合)。
+ * 这一层自己没有任何视觉 —— absoluteFill 只有 position 与四边归零,按下叠透明度在屏幕上
+ * 一个像素都变化不出来。对它提"要有按压反馈"是量不到东西的判据(与遮罩同一族:
+ * 它按下去的动作就是关层)。
+ * 收窄到两条同时成立:① style 属性区**逐字只有**这一个常量(数组追加/内联实底一律不算,
+ * 那种层有自己的视觉);② 自闭合(带 children 的层里面有可见内容,照判)。
+ */
+function isFillLayer(props, selfClosing) {
+  if (!selfClosing) return false
+  return /style=\{\s*StyleSheet\.absoluteFill(?:Object)?\s*\}/.test(props)
+}
+
+/**
+ * 吞点击的容器:`onPress` 只做 stopPropagation,或是空实现(`() => undefined` / `() => {}`)。
+ * 它存在的全部意义是"别把这一下冒泡给外层遮罩",按下去本来就不该有事发生 ⇒ 要反馈是反的。
+ * 只认这两种字面形态;`onPress={() => doIt(id)}` 那种真实动作照判。
+ */
+function isInertPress(props) {
+  if (/onPress=\{\s*\(\s*\)\s*=>\s*(?:undefined|null|void\s+undefined|\{\s*\})\s*\}/.test(props)) return true
+  return /onPress=\{\s*\(\s*[\w$]+\s*\)\s*=>\s*[\w$]+\.stopPropagation\(\s*\)\s*\}/.test(props)
+}
+
+/**
  * 按压反馈是否"由原语自带"。判错方向的代价不对称:
  *  - 把自带反馈的算成缺(上一版就是这么错的):1296 处里 957 处是 `TouchableOpacity`,
  *    它默认 `activeOpacity=0.2` ⇒ 按下即变暗,**本来就有反馈**。照判就是逼人补冗余
@@ -443,6 +476,9 @@ function scrimByStyle(props, table) {
  *  - `Pressable`:RN 不给任何默认态 ⇒ 必须有四形态之一。
  */
 function hasNativeFeedback(tag, props) {
+  // Tappable 自己持有 pressed ⇒ 结构上就有反馈;但它身上再叠 `pressFeedback(...)` 是双重包裹,
+  // 而且那正是会把样式吃掉的函数形态 ⇒ 那种写法照判,不让"换了组件"掩盖住旧机制的回潮。
+  if (tag === 'Tappable') return !/pressFeedback\s*\(/.test(props)
   if (tag === 'TouchableOpacity') return !/\bactiveOpacity\s*=\s*\{\s*1(?:\.0+)?\s*\}/.test(props)
   if (tag === 'TouchableHighlight') return true
   return false
@@ -461,6 +497,8 @@ function scanText(text, minTap, rel = '') {
   const h2 = []
   const slopOnly = []
   const skipped = []
+  const fillLayers = []
+  const inertPresses = []
   const crossEnd = !rel.startsWith('apps/mobile-rn/')
   for (const m of stripped.matchAll(CLICKABLE_RE)) {
     const line = stripped.slice(0, m.index).split('\n').length
@@ -480,8 +518,16 @@ function scanText(text, minTap, rel = '') {
     if (!r.hit) skipped.push(r.why)
     const after = stripped.slice(end, end + 160)
     const scrim = isScrim(props) || scrimByStyle(props, table)
+    // 自闭合的信号在标签闭合处(props 区不含 `/`),所以按 stripped 的 end-2 取
+    const selfClosing = stripped[end - 2] === '/'
+    const fillLayer = !scrim && isFillLayer(props, selfClosing)
+    const inert = !scrim && !fillLayer && isInertPress(props)
+    if (fillLayer) fillLayers.push({ line, tag })
+    if (inert) inertPresses.push({ line, tag })
     if (
       !scrim &&
+      !fillLayer &&
+      !inert &&
       !hasNativeFeedback(tag, props) &&
       !FEEDBACK_RE.test(props) &&
       !/\{\s*\(\s*\{/.test(after)
@@ -490,7 +536,7 @@ function scanText(text, minTap, rel = '') {
   }
   const h3 = scanKeyboard(text)
   const h4 = scanFontLock(text)
-  return { h1, h2, skipped, slopOnly, h3, h4 }
+  return { h1, h2, skipped, slopOnly, h3, h4, fillLayers, inertPresses }
 }
 
 /**
@@ -852,6 +898,37 @@ function runSelfTest() {
   const solidBlack = scan('<Pressable style={{ backgroundColor: \'#000000\' }} onPress={go} />')
   ok(solidBlack.h2.length === 1, 'H2 失守:不透明黑底不是遮罩(拿它当遮罩就等于给任何黑钮发免检)')
 
+  // 满屏可点面 / 吞点击容器:这两档都是"按下去没有东西可看"的形态,要反馈方向是反的。
+  // 反向例与放行例必须同钉 —— 带 children、追加实底、真实动作的照判,否则这两档就是消红通道。
+  const fillLayer = scan('<Pressable style={StyleSheet.absoluteFill} onPress={close} />')
+  ok(fillLayer.h2.length === 0, 'H2 过头:absoluteFill 满屏可点面自身没有视觉,叠透明度量不到变化')
+  ok(fillLayer.fillLayers.length === 1, '放过必须可计数:absoluteFill 档要能报出放过几处(静默放过=没量到)')
+  const fillWithChild = scan(
+    '<Pressable style={StyleSheet.absoluteFill} onPress={close}><Text>可见内容</Text></Pressable>',
+  )
+  ok(fillWithChild.h2.length === 1, 'H2 失守:absoluteFill 还带 children ⇒ 层里有可见内容,照判')
+  const fillPlusBg = scan(
+    '<Pressable style={[StyleSheet.absoluteFill, { backgroundColor: "#fff" }]} onPress={close} />',
+  )
+  ok(fillPlusBg.h2.length === 1, 'H2 失守:absoluteFill 追加了实底 ⇒ 这一层有自己的视觉,照判')
+  const inertStop = scan(
+    '<Pressable style={styles.card} onPress={(e) => e.stopPropagation()}><View /></Pressable>',
+  )
+  ok(inertStop.h2.length === 0, 'H2 过头:只做 stopPropagation 的是吞点击容器,按下去本来就不该有事')
+  const inertEmpty = scan('<Pressable style={styles.card} onPress={() => undefined}><View /></Pressable>')
+  ok(inertEmpty.h2.length === 0, 'H2 过头:空实现 onPress 同样是吞点击,不是控件')
+  const realPress = scan('<Pressable style={styles.card} onPress={() => open(id)}><View /></Pressable>')
+  ok(realPress.h2.length === 1, 'H2 失守:真实动作的 onPress 不得被吞点击档放过')
+
+  // Tappable 进可点原语表后,两个方向都要钉:自带反馈要放行,命中尺寸这一维不得对它失明。
+  const tappable = scan('<Tappable style={{ width: 40, height: 40 }} onPress={go}><Text>a</Text></Tappable>')
+  ok(tappable.h2.length === 0, 'H2 过头:Tappable 自己持有 pressed,结构上就有反馈')
+  ok(tappable.h1.length === 0, 'H1 误报:Tappable 的 40×40 该被解析到(它已在射程内)')
+  const tappableTiny = scan('<Tappable style={{ width: 20, height: 20 }} onPress={go} />')
+  ok(tappableTiny.h1.length === 1, 'H1 失守:Tappable 进入射程后,20×20 的命中尺寸必须被点名')
+  const tappableDouble = scan('<Tappable style={pressFeedback(styles.a)} onPress={go} />')
+  ok(tappableDouble.h2.length === 1, 'H2 失守:Tappable 上再叠 pressFeedback = 函数形态回潮,必须判')
+
   // H3 键盘点击穿透:承载 children 的滚动容器 / 子树里有输入框的滚动容器,必须声明该属性
   const carrier = scanKeyboard(
     '<Modal visible><KeyboardAvoidingView><ScrollView style={a}>{children}</ScrollView></KeyboardAvoidingView></Modal>',
@@ -998,6 +1075,8 @@ function main() {
   let undetermined = 0
   let blind = 0
   let slopOnlyTotal = 0
+  let fillLayerTotal = 0
+  let inertTotal = 0
   let h4Glyph = 0
   let h4Content = 0
   let h4Scaled = 0
@@ -1010,6 +1089,8 @@ function main() {
     const r = scanText(text, minTap, rel)
     blind += r.skipped.length
     slopOnlyTotal += r.slopOnly.length
+    fillLayerTotal += r.fillLayers.length
+    inertTotal += r.inertPresses.length
     h4Glyph += r.h4.glyph.length
     h4Content += r.h4.content.length
     h4Scaled += r.h4.scaled.length
@@ -1021,7 +1102,7 @@ function main() {
 
   if (!quiet) {
     console.log(
-      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(提交链绝对零容忍,2026-10-31 存量 34→0;闭标签配不平的候选不进这一维 ⇒ 落盲区不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查)`,
+      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(提交链绝对零容忍,2026-10-31 存量 34→0;闭标签配不平的候选不进这一维 ⇒ 落盲区不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查);满屏可点面(absoluteFill 自闭合)放过 ${fillLayerTotal} 处 / 吞点击容器放过 ${inertTotal} 处(两档各带反向自检例,带视觉或真实动作的照判)`,
     )
     if (argv.includes('--list')) {
       for (const [rel, r] of perFile)
@@ -1112,6 +1193,8 @@ export const __test__ = {
   isScrim,
   isTranslucentBlack,
   scrimByStyle,
+  isFillLayer,
+  isInertPress,
   scanKeyboard,
   elementRange,
   scanFontLock,
