@@ -133,9 +133,19 @@ async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
         .join('&')
     : ''
   const path = `${payload.path}${qs}`
+  // 2026-10-31 安全强化第 18 批(F4 纵深):headers 白名单 —— 当前调用面有
+  // sender.id 闸(外部扩展/网页进不来),但 content script 上下文一旦被页面
+  // 利用即可携带任意 Authorization/Cookie;鉴权一律由 background 的 callApi
+  // 自注入,透传头禁碰凭据类。
+  const FORBIDDEN_PROXY_HEADERS = /^(authorization|cookie|set-cookie|x-api-key)$/i
+  const passthroughHeaders: Record<string, string> = {}
+  for (const [k, v] of Object.entries(payload.headers ?? {})) {
+    if (FORBIDDEN_PROXY_HEADERS.test(k)) continue
+    passthroughHeaders[k] = String(v)
+  }
   const res = await callApi<unknown>(path, {
     method: payload.method,
-    headers: payload.headers,
+    headers: passthroughHeaders,
     body: payload.body !== undefined ? JSON.stringify(payload.body) : undefined,
   })
   if (!res.ok) {
