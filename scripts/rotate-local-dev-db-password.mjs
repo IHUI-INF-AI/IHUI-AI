@@ -29,7 +29,7 @@
  * 退出码:0 计划/执行/校验通过;1 执行失败(已回滚);2 未判定(窗口未到/取不到输入)。
  */
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from 'node:fs'
 import { createHash, randomBytes } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -297,6 +297,11 @@ function apply() {
     }) + '\n',
     'utf8',
   )
+  try {
+    rmSync(join(STATE_DIR, 'dev-db-rotation-pending.json'), { force: true })
+  } catch {
+    /* 标记删不掉时保留,下一轮 plan 会看到 noop */
+  }
   console.log(`✅ 轮换完成:旧值拒收=${oldRejected} 新值通过=${newAccepted};留痕 → ${LEDGER}`)
   console.log('⚠️ 在跑服务需重启才会读到新 DSN(本器只在窗口空闲时执行,故通常是下一次启动生效)。')
   return 0

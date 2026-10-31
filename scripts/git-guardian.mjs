@@ -26,6 +26,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildAlertIdentity, watchPushDivergence } from './lib/push-divergence-watch.mjs'
+import { decideDevDbRotation } from './lib/dev-db-rotation-policy.mjs'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
@@ -4900,6 +4901,107 @@ export function sweepHeadRecallRows(opts = {}) {
  * 判机器状态 ⇒ 绝不进提交链(§12e)。
  */
 const EXPOSED_CRED_INTERVAL_MS = Number(process.env.IHUI_EXPOSED_CRED_INTERVAL_MS || 30 * 60 * 1000)
+
+/**
+ * 本机 dev 库口令轮换的巡检腿(票 O69,2026-11-01)。
+ * 只在「登记面有未结清条目」时才会派生;窗口探测取不到 ⇒ 未判定不派生;失败只冷却不硬试。
+ * 结论行恒写状态(state)而不是「成功/通过」—— 换没换由器物自己的留痕与验证行给。
+ */
+export function sweepLocalDevDbRotation(opts = {}) {
+  const {
+    now = Date.now(),
+    root = dirname(dirname(fileURLToPath(import.meta.url))),
+    tickFile = join(dirname(LOG), 'dev-db-rotation-last.json'),
+    pendingFile = join(dirname(LOG), 'dev-db-rotation-pending.json'),
+    logger = log,
+    runner = null,
+    livePortsProbe = null,
+  } = opts
+  const script = join(root, 'scripts', 'rotate-local-dev-db-password.mjs')
+  if (!existsSync(script)) return { ran: false, state: 'no-script', why: '器物不在位' }
+  const pending = existsSync(pendingFile)
+  let livePorts = null
+  try {
+    if (typeof livePortsProbe === 'function') livePorts = livePortsProbe()
+    else {
+      const out = execFileSync('netstat', ['-ano'], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 20000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      const lines = out.split(String.fromCharCode(10))
+      livePorts = [8801, 8802, 8803].filter((p) =>
+        lines.some((ln) => ln.includes(':' + p) && ln.includes('LISTENING')),
+      )
+    }
+  } catch {
+    livePorts = null
+  }
+  let lastAttemptIso = null
+  try {
+    lastAttemptIso = JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? null
+  } catch {
+    /* 没跑过 */
+  }
+  const verdict = decideDevDbRotation({ pending, livePorts, lastAttemptIso, nowMs: now })
+  if (!verdict.act) {
+    if (verdict.state === 'window-busy' || verdict.state === 'undetermined') {
+      try {
+        mkdirSync(dirname(tickFile), { recursive: true })
+        writeFileSync(
+          tickFile,
+          JSON.stringify({ attemptAt: new Date(now).toISOString(), state: verdict.state }),
+          'utf8',
+        )
+      } catch {
+        /* 写不进就下轮再试 */
+      }
+    }
+    logger(`ℹ️ dev 库口令轮换:${verdict.state} —— ${verdict.why}(本轮不派生,不记绿)`)
+    return { ran: false, state: verdict.state, why: verdict.why }
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(
+      tickFile,
+      JSON.stringify({ attemptAt: new Date(now).toISOString(), state: 'dispatched' }),
+      'utf8',
+    )
+  } catch {
+    /* 节流写不进不阻断本轮派发 */
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : (args) =>
+          execFileSync(process.execPath, args, {
+            encoding: 'utf8',
+            windowsHide: true,
+            timeout: 300000,
+            stdio: ['ignore', 'pipe', 'pipe'],
+          })
+  let out = ''
+  let rc = 0
+  try {
+    out = String(run([script, '--apply']) ?? '')
+  } catch (e) {
+    rc = typeof e?.status === 'number' ? e.status : 1
+    out = String(e?.stdout ?? e?.message ?? e)
+  }
+  const lines = out.split(String.fromCharCode(10))
+  const tail = lines.slice(-3).join(' | ').slice(0, 300)
+  logger(`🔄 dev 库口令轮换:exit=${rc} ${tail}`)
+  if (rc === 0) {
+    try {
+      rmSync(pendingFile, { force: true })
+    } catch {
+      /* 标记删不掉时保留,下一轮 plan 会看到 noop */
+    }
+    return { ran: true, ok: true, rc, tail }
+  }
+  return { ran: true, ok: false, rc, tail }
+}
 
 export function sweepExposedCredentialRotation(opts = {}) {
   const {
@@ -10233,6 +10335,7 @@ function main() {
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
+    if (!CHECK_ONLY) sweepLocalDevDbRotation()
     // 悬空 commit 自动保活(2026-10-30 立):守门 30a 的「30 天窗」维是 blocking,而此前**没有任何
     // 自动腿**在悬空出现的当下给它打 lost-commit/<name> tag —— 手工打 10 枚修绿、几十分钟后再冒 2 枚,
     // 于是这台机器周期性重新制造「人人 --no-verify」那一型(§12e)。判据零复算:吃 30a 自己的
@@ -11608,6 +11711,7 @@ export const __test__ = {
   // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
   // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。
   sweepExposedCredentialRotation,
+  sweepLocalDevDbRotation,
   // 悬空 commit 自动保活派发腿(2026-10-30 立;镜像测试 dangling-commit-autotag-dispatch 按名 import,
   // 不复制判据 §22c;此条不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepDanglingCommitAutotag,
