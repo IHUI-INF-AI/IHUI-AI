@@ -77,6 +77,12 @@ vi.mock('../src/plugins/auth.js', () => ({
 vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: async () => undefined,
   assertSafeFetchUrl: async () => ({ safe: true }),
+  // n8n-proxy 现在经 safeFetch 出站(逐跳复检那一档)。mock 少列这一名 ⇒
+  // 调用处拿到 undefined ⇒ TypeError ⇒ 一律 502,7 条用例红的真实原因是这个,
+  // 与被测的地址归一/别名逻辑无关。转发到各用例本来 stub 的 globalThis.fetch
+  // (延迟取值:vi.mock 工厂在收集期执行,那时 test 里的 const 还没初始化)。
+  safeFetch: (input: string | URL, init?: RequestInit) =>
+    (globalThis.fetch as typeof fetch)(input as string, init),
 }))
 
 vi.mock('../src/db/index.js', () => ({
