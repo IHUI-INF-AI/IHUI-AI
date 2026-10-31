@@ -35,7 +35,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { loadHooks, getHooksPath, computeHookContentDigests } from '../hooks/index.js';
+import { loadHooks, getHooksPath, computeHookContentDigests, runHook } from '../hooks/index.js';
 import {
   listDiscoveredHooks,
   enableHook,
@@ -50,6 +50,7 @@ import {
   listTrustedFolders,
   normalizeFolderPath,
   gateHook,
+  TRUSTED_FOLDERS_PATH,
 } from '../hooks/trust.js';
 import { t } from '../i18n/index.js';
 
@@ -96,6 +97,25 @@ function describeTrustedFolderContent(folder: string): { summary: string; detail
         : `${same}/${names.length} 条一致 · 束摘要 ${digests.bundleDigest.slice(-12)}`,
     details,
   };
+}
+
+/**
+ * configChange 档派发出口(2026-10-31 第二笔):信任清单**真的被写过**之后,报一次
+ * "配置面变更"事件。两条诚实边界:
+ *  - 写没写成功的判据全在 trust.ts 一侧(trustFolder/untrustFolder 返回 true 才代表
+ *    确有一次落盘),"没发生"永不许被报成事件 —— 与 worktreeCreate 拒删路径不派发同形;
+ *  - 载荷里的路径**引用** trust.ts 现成的导出(2026-10-31 第三笔消除 §0.6 违规):
+ *    本文件曾重抄一份 join(homedir(), '.ihui', 'trusted-folders') 当"示值",载荷与
+ *    真正被写的文件是两次独立取值 —— 一旦有一侧改了,钩子会把 A 文件的变更报成 B 文件。
+ */
+/** 信任清单的一次真实变更 ⇒ 恰好派发一次 configChange(ASCII 载荷,不新增语言包键)。 */
+function dispatchConfigChange(kind: 'added' | 'modified' | 'removed'): void {
+  void runHook('configChange', {
+    configPath: TRUSTED_FOLDERS_PATH,
+    configChangeKind: kind,
+  }).catch(() => {
+    // 派发故障不回改已经写成功的信任动作(runHook 内部已自兜,这里只兜 promise rejection)
+  });
 }
 
 export function registerHooksCommand(program: Command): void {
@@ -233,7 +253,8 @@ export function registerHooksCommand(program: Command): void {
       const digests = computeHookContentDigests(target);
       // 只比束摘要(hookName 不传):判"这个目录现在这份配置,是不是当初批的那份"
       const probe = gateHook({ name: '<directory>', bundleDigest: digests.bundleDigest }, target);
-      if (isFolderTrusted(target) && probe.allowed) {
+      const alreadyTrusted = isFolderTrusted(target);
+      if (alreadyTrusted && probe.allowed) {
         console.info(chalk.dim(t('cli.hooks.trustAlready', { path: target })));
         return;
       }
@@ -241,6 +262,8 @@ export function registerHooksCommand(program: Command): void {
         console.info(chalk.red(t('cli.hooks.trustWriteFailed', { path: target })));
         return;
       }
+      // 清单确被写过 ⇒ 恰好派发一次 configChange(新增条目 added / 刷新既有条目 modified)
+      dispatchConfigChange(alreadyTrusted ? 'modified' : 'added');
       console.info(chalk.green(t('cli.hooks.trustOk', { path: target })));
       // 把"批准的是哪一份"打在屏幕上:内容再变就会被门拦下,而这里那串短值是当时唯一
       // 留存的凭据(完整摘要在 ~/.ihui/trusted-folders 里)。
@@ -265,6 +288,8 @@ export function registerHooksCommand(program: Command): void {
         console.info(chalk.dim(t('cli.hooks.untrustNotListed', { path: target })));
         return;
       }
+      // 撤销确被写过 ⇒ 恰好派发一次 configChange(removed)
+      dispatchConfigChange('removed');
       console.info(chalk.green(t('cli.hooks.untrustOk', { path: target })));
     });
 }
