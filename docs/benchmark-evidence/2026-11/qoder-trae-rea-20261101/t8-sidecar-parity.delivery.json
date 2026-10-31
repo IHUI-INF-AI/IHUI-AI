@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "7a63bc90-dce9-4bcb-bc7b-2aab5886338e",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.candidate.json",
+  "output": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+  "specification": {
+    "sha256": "8ab5659e47d18b9017c898ae89ea92fdd50557ab58d28bc6c409f1ceac64f28f",
+    "bytes": 10744
+  },
+  "artifact": {
+    "sha256": "ca9f339d8616a4ab3e081a56e47cc0f54bb6f26a163f30114f03ed258407d89a",
+    "bytes": 877006
+  }
+}
