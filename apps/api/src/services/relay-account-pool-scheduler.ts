@@ -20,7 +20,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -250,13 +250,28 @@ export function recredentialableCondition() {
  * (`healthStatusOf` 的产物)之间唯一的接缝:巡检写 down ⇒ 调度当场不再选它。
  * `unknown` 仍可选(新导入/未判定要给一次实测机会),`healthy`/`degraded` 照旧可选。
  */
-export function accountSchedulableCondition() {
+export function accountHealthyCondition() {
   return and(
     eq(aiRelayAccountPool.isEnabled, true),
     eq(aiRelayAccountPool.tempUnschedulable, false),
     // 健康态白名单单源 = stats 层的 ACCOUNT_SCHEDULABLE_HEALTH_STATES(JS 侧判据同源),
     // 不再本处另写字面量 'down' —— 两处各写一份就必然有一天不一致。
     inArray(aiRelayAccountPool.healthStatus, [...ACCOUNT_SCHEDULABLE_HEALTH_STATES]),
+  )
+}
+
+/**
+ * `accountHealthyCondition` 是巡检侧的候选面:**不看票面** —— 票过期恰恰是要刷新它的
+ * 理由,带上 tokenExpiresAt 就永远修不好那些号。
+ */
+
+/** 「这枚号现在能不能被调度选中」的唯一判据(含票面维);选号与读数共用这一把。 */
+export function accountSchedulableCondition(now: Date = new Date()) {
+  return and(
+    accountHealthyCondition(),
+    // 票已过期 ⇒ 现在调不通,不参与选号,也不计入大屏分子。
+    // 无票面(cookie 型/不限期)放行:那类号的失效只能靠上游当场拒收判 down。
+    or(isNull(aiRelayAccountPool.tokenExpiresAt), gt(aiRelayAccountPool.tokenExpiresAt, now)),
   )
 }
 
@@ -298,7 +313,8 @@ export async function markAccountAuthRejected(
  */
 export function expiringRefreshWhere(deadline: Date) {
   return and(
-    accountSchedulableCondition(),
+    // 候选面用「健康可用」而不是「可调度」:票过期正是要刷它的理由(2026-10-31 拆层)。
+    accountHealthyCondition(),
     recredentialableCondition(),
     lte(aiRelayAccountPool.tokenExpiresAt, deadline),
   )

@@ -403,8 +403,12 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
   it('临期刷新候选:已判死/已摘除的号必须被排除(2026-10-29 实测死号被打了 327 次)', async () => {
     const m = await import('../src/services/relay-account-pool-scheduler.js')
     const { text, params } = render(m.expiringRefreshWhere(new Date('2026-10-23T00:00:00Z')))
-    // 接缝单源:排除条件不得是这里再抄一份,而必须是 accountSchedulableCondition 本体
-    expect(text).toContain(render(m.accountSchedulableCondition()).text)
+    // 接缝单源:排除条件不得是这里再抄一份,而必须是 accountHealthyCondition 本体。
+    // 2026-10-31 拆层:这一档刻意**不用** accountSchedulableCondition —— 后者带票面条件,
+    // 接上来就等于「过期的号永远不进刷新候选」,票过期后结构性修不回来。
+    expect(text).toContain(render(m.accountHealthyCondition()).text)
+    // 反向牙:票面条件一旦出现在这一档,过期的号就永远进不了刷新候选(结构性修不回来)。
+    expect(text).not.toContain('is null or')
     expect(text).toContain('health_status')
     expect(text).toContain('temp_unschedulable')
     // 白名单单源(2026-10-30):排除 down 由 ACCOUNT_SCHEDULABLE_HEALTH_STATES 表达 ——
