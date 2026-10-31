@@ -60,6 +60,12 @@ class _FakeResponse:
         self._json = json_data if json_data is not None else {}
         self.text = text
         self.content = content
+        # 2026-10-31 第 10 批 R6 起,URL 下载走 _download_url_ssrf_safe:钉 IP 后逐跳复检,
+        # 会读 is_redirect / headers / url —— 假响应缺这几格时 AttributeError 会被
+        # 下载函数自己的 except 吞成 None,把"应拿到 bytes"读成"上游没给"。
+        self.is_redirect = False
+        self.headers: dict[str, str] = {}
+        self.url = ""
 
     def json(self):
         return self._json
@@ -87,7 +93,9 @@ class _FakeImageClient:
         self.post_calls.append((url, json, headers))
         return self._post_resp
 
-    async def get(self, url):
+    async def get(self, url, headers=None, extensions=None, **kwargs):
+        # httpx.AsyncClient.get 同形:钉 IP 后调用方会传 headers(Host)与
+        # extensions(sni_hostname),旧桩只收 url ⇒ TypeError 被吞成 None。
         self.get_calls.append(url)
         return self._get_resp
 
@@ -381,8 +389,17 @@ async def test_fetch_image_bytes_b64_json():
     assert result == original
 
 
-async def test_fetch_image_bytes_url_download():
+async def test_fetch_image_bytes_url_download(monkeypatch):
     """无 b64_json,有 URL → 下载返回 bytes。"""
+    # 2026-10-31 第 10 批 R6:下载前要钉公网 IP(防 DNS rebinding),钉不出即拒绝。
+    # 单测不出网 ⇒ DNS 面用桩:校验恒放行、钉定恒成功,被测的仍是下载链路本身。
+    monkeypatch.setattr(
+        "app.services.screenshot_service._validate_url_ssrf", lambda url: (True, "")
+    )
+    monkeypatch.setattr(
+        "app.services.screenshot_service.resolve_pinned_target",
+        lambda url: (url, "cdn.example.com"),
+    )
     item = {}
     image_url = "https://cdn.example.com/image.png"
 
@@ -393,7 +410,7 @@ async def test_fetch_image_bytes_url_download():
         async def __aexit__(self, *a):
             return None
 
-        async def get(self, url):
+        async def get(self, url, headers=None, extensions=None, **kwargs):
             return _FakeResponse(200, content=b"downloaded image bytes")
 
     fake_httpx = types.ModuleType("httpx")
@@ -415,7 +432,7 @@ async def test_fetch_image_bytes_url_download_404():
         async def __aexit__(self, *a):
             return None
 
-        async def get(self, url):
+        async def get(self, url, headers=None, extensions=None, **kwargs):
             return _FakeResponse(404, b"", "not found")
 
     fake_httpx = types.ModuleType("httpx")
@@ -791,6 +808,14 @@ async def test_image_gen_save_b64_to_file(
 async def test_image_gen_save_url_to_file(
     token6688_configured, monkeypatch, allow_workspace_path, tmp_path,
 ):
+    # 同 test_fetch_image_bytes_url_download:钉 IP 那步的 DNS 面用桩,单测不出网。
+    monkeypatch.setattr(
+        "app.services.screenshot_service._validate_url_ssrf", lambda url: (True, "")
+    )
+    monkeypatch.setattr(
+        "app.services.screenshot_service.resolve_pinned_target",
+        lambda url: (url, "cdn.example.com"),
+    )
     """save_path + URL → 下载并写入文件。"""
     image_bytes = b"downloaded image content here"
     post_resp = _FakeResponse(200, {
