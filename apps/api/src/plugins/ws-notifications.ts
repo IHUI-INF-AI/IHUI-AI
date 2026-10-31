@@ -7,7 +7,12 @@ import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { generateWsToken } from '@ihui/auth'
-import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
+import {
+  wsAuth,
+  wsUpgradeRequiresCredential,
+  WS_CLOSE,
+  WsUserConnectionLimiter,
+} from './ws-helpers.js'
 import { authenticate } from './auth.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
@@ -231,65 +236,69 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     return reply.send(success({ wsToken, expiresIn: 300 }))
   })
 
-  server.get('/ws/notifications', { websocket: true }, (socket, request) => {
-    // 从 query 提取 token
-    const token = (request.query as { token?: string }).token
+  server.get(
+    '/ws/notifications',
+    { websocket: true, preValidation: wsUpgradeRequiresCredential() },
+    (socket, request) => {
+      // 从 query 提取 token
+      const token = (request.query as { token?: string }).token
 
-    // wsAuth 统一鉴权(JWT + status),失败时已内部 close
-    ;(async () => {
-      let userId: string | null
-      try {
-        userId = await wsAuth(socket, token)
-      } catch {
+      // wsAuth 统一鉴权(JWT + status),失败时已内部 close
+      ;(async () => {
+        let userId: string | null
         try {
-          server.recordWsAuthFailure('invalid_token')
+          userId = await wsAuth(socket, token)
         } catch {
-          /* 指标采集失败不影响业务 */
+          try {
+            server.recordWsAuthFailure('invalid_token')
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+          return
         }
-        return
-      }
-      if (!userId) {
-        // 区分缺 token 与失效:wsAuth 已记录 close code,这里补充指标
-        try {
-          server.recordWsAuthFailure(token ? 'invalid_token' : 'missing_token')
-        } catch {
-          /* 指标采集失败不影响业务 */
+        if (!userId) {
+          // 区分缺 token 与失效:wsAuth 已记录 close code,这里补充指标
+          try {
+            server.recordWsAuthFailure(token ? 'invalid_token' : 'missing_token')
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+          return
         }
-        return
-      }
-      // 2026-08-02 P1 安全审计:单用户并发连接数限制
-      if (!userConnectionLimiter.acquire(userId)) {
-        server.log.warn({ userId }, 'ws-notifications 拒绝连接:单用户连接数超限')
-        try {
-          server.recordWsAuthFailure('too_many_connections')
-        } catch {
-          /* 指标采集失败不影响业务 */
+        // 2026-08-02 P1 安全审计:单用户并发连接数限制
+        if (!userConnectionLimiter.acquire(userId)) {
+          server.log.warn({ userId }, 'ws-notifications 拒绝连接:单用户连接数超限')
+          try {
+            server.recordWsAuthFailure('too_many_connections')
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+          socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+          return
         }
-        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
-        return
-      }
 
-      // 注册连接
-      if (!connections.has(userId)) connections.set(userId, new Set())
-      connections.get(userId)!.add(socket)
-      // 连接数递增并上报 Gauge
-      wsConnectionCount++
-      updateWsConnectionGauges()
+        // 注册连接
+        if (!connections.has(userId)) connections.set(userId, new Set())
+        connections.get(userId)!.add(socket)
+        // 连接数递增并上报 Gauge
+        wsConnectionCount++
+        updateWsConnectionGauges()
 
-      // 心跳：客户端发 ping，服务端回 pong
-      socket.on('message', (data: Buffer) => {
-        if (data.toString() === 'ping') socket.send('pong')
-      })
+        // 心跳：客户端发 ping，服务端回 pong
+        socket.on('message', (data: Buffer) => {
+          if (data.toString() === 'ping') socket.send('pong')
+        })
 
-      // 连接关闭时清理
-      socket.on('close', () => {
-        // 2026-09-26:递减一律由"真的摘掉了人"驱动(见 dropConnection 的注释)
-        dropConnection(userId, socket)
-        // 2026-08-02 P1 安全审计:释放连接槽位
-        userConnectionLimiter.release(userId)
-      })
-    })()
-  })
+        // 连接关闭时清理
+        socket.on('close', () => {
+          // 2026-09-26:递减一律由"真的摘掉了人"驱动(见 dropConnection 的注释)
+          dropConnection(userId, socket)
+          // 2026-08-02 P1 安全审计:释放连接槽位
+          userConnectionLimiter.release(userId)
+        })
+      })()
+    },
+  )
 
   getWsAutoRecoveryManager().setFastify(server)
   getWsAutoRecoveryManager().registerPlugin('ws-notifications', {

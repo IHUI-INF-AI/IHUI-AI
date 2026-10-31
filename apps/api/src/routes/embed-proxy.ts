@@ -71,6 +71,9 @@ import { isPrivateIPv4Literal as isPrivateIPv4 } from '../utils/ssrf-guard.js'
 
 import { isPrivateIPv6Literal as isPrivateIPv6 } from '../utils/ssrf-guard.js'
 
+import { fetch as undiciFetch } from 'undici'
+import { ssrfGuardedDispatcher } from '../utils/ssrf-guard.js'
+
 function isForbiddenHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
   if (
@@ -114,7 +117,14 @@ async function fetchFollowingRedirects(startUrl: string, init: RequestInit): Pro
   let url = startUrl
   let req: RequestInit = init
   for (let hop = 0; ; hop++) {
-    const resp = await fetch(url, { ...req, redirect: 'manual' })
+    // 2026-10-31 安全强化第 15 批(M3):建连接 guarded dispatcher(判定与建连共用
+    // 同一次解析)—— 此前逐跳 isForbidden 复检问的是一次解析,fetch 建连再解析一次,
+    // TTL=0 的 A 记录能让"校验时公网、建连时内网"。
+    const resp = (await undiciFetch(url, {
+      ...req,
+      redirect: 'manual',
+      dispatcher: ssrfGuardedDispatcher(),
+    })) as unknown as Response
     if (!REDIRECT_STATUSES.has(resp.status)) return resp
     const location = resp.headers.get('location')
     if (!location) return resp
