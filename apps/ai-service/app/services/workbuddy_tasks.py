@@ -63,7 +63,6 @@ import asyncio
 import json
 import random
 import re
-import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any, Final
@@ -610,7 +609,7 @@ async def run_growth(
     dry_run: bool = False,
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
-    activity_reporter: "ActivityReporter | None" = None,
+    activity_reporter: ActivityReporter | None = None,
 ) -> dict[str, Any]:
     """growth 族执行:列表(读)→ [上报计分]→ accept(写)→ claim(写,仅路径已配置时)→ 余额差量。
 
@@ -633,7 +632,7 @@ async def _run_growth_inner(
     dry_run: bool,
     client: httpx.AsyncClient,
     timeout: float,
-    activity_reporter: "ActivityReporter | None" = None,
+    activity_reporter: ActivityReporter | None = None,
 ) -> dict[str, Any]:
     # dry-run ⇒ 只打 list(读);余额探针虽也是读面,但合同把 dry-run 的读面收窄到
     # list/status,探针仅实跑档发。
