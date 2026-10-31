@@ -29,6 +29,9 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultModel: 'default',
   maxIterations: 25,
   ...DEFAULT_POLICY_OPTIONS,
+  // 2026-10-31 安全强化第 20 批(CLI Critical):工作区自带 mcp.json 的 stdio
+  // server 默认不加载(默认拒绝,显式信任才开)。见 Settings 类型注释。
+  mcpTrustProjectServers: false,
   sandbox: { profile: DEFAULT_SANDBOX_PROFILE },
   sampler: { temperature: 0.7, maxTokens: 4096 },
   locale: 'zh-CN',

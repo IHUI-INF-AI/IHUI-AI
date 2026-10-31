@@ -394,6 +394,19 @@ describe('createWorktree', () => {
     expect(fs.readFileSync(path.join(dst, 'README.md'), 'utf-8')).toBe('modified\n')
   })
 
+  // 2026-10-31 安全强化第 20 批(F4):ref 形状校验 —— 选项注入面必须在任何
+  // 副作用之前拒绝(不留半成品目录)
+  it('非法 ref 在复制前被拒,不产生 destination 目录', async () => {
+    for (const badRef of ['-b', '--orphan=x', 'main; rm -rf /', 'a b', 'x\ny']) {
+      const dst = path.join(tmpDir, `wt-badref-${Buffer.from(badRef).toString('hex')}`)
+      await expect(
+        createWorktree({ source: sourceRepo, destination: dst, ref: badRef }),
+      ).rejects.toThrow(/非法字符/)
+      // 零副作用:目录都没建
+      expect(fs.existsSync(dst)).toBe(false)
+    }
+  })
+
   it('preserveWorkingTree=false reset --hard 丢弃已跟踪文件的修改', async () => {
     // 修改已跟踪文件 README.md(未提交)
     fs.writeFileSync(path.join(sourceRepo, 'README.md'), 'modified\n', 'utf-8')

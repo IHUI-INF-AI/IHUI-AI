@@ -35,7 +35,7 @@ import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@
 // G-689:脱敏走共享层的**唯一出口**(票面点名)。不另写一套正则 ——
 // 对端 stderr 是任意内容,原样拼进 error.message 就等于把它泄进日志/上报链路。
 import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
-import { loadMcpConfig, type McpServer, type McpStdioFraming } from '../commands/mcp-config.js';
+import { loadMcpConfig, listProjectMcpConfigSources, type McpServer, type McpStdioFraming } from '../commands/mcp-config.js';
 import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mcp-stdio-framing.js';
 // G-690:进程树回收的**制造者**已经存在于 util/spawn-isolated.ts(机制 + export 都在那里,
 // 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
@@ -1442,9 +1442,39 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   };
 }
 
-export async function loadMcpTools(ctx: ToolContext): Promise<Tool[]> {
+export interface McpProjectTrustOptions {
+  /**
+   * 是否加载工作区来源(cwd / 仓库根)的 mcp.json。
+   * 缺省 false(安全默认):仓库自带的 `.ihui|.claude|.cursor/mcp.json` 里的
+   * stdio server 会以当前用户身份 spawn,clone 即执行。只有用户全局设置
+   * `mcpTrustProjectServers: true` 才放行。
+   */
+  allowProjectServers?: boolean;
+}
+
+/** 未信任工作区来源时,把"仓库想让你跑什么"点名到 stderr(一次,不刷屏)。 */
+function warnSkippedProjectMcpServers(ctx: ToolContext): void {
   try {
-    const config = loadMcpConfig(ctx.workspacePath);
+    const skipped = listProjectMcpConfigSources(ctx.workspacePath);
+    if (skipped.length === 0) return;
+    process.stderr.write(
+      `warning: 工作区自带 ${skipped.length} 个 mcp.json 未加载(默认不信任,防 clone 即执行):\n` +
+        skipped.map((p) => `  - ${p}\n`).join('') +
+        `  确认可信后,在 ~/.ihui/settings.json 设 "mcpTrustProjectServers": true\n`,
+    );
+  } catch {
+    // 提示失败不影响主流程
+  }
+}
+
+export async function loadMcpTools(
+  ctx: ToolContext,
+  opts: McpProjectTrustOptions = {},
+): Promise<Tool[]> {
+  try {
+    const allowProject = opts.allowProjectServers === true;
+    if (!allowProject) warnSkippedProjectMcpServers(ctx);
+    const config = loadMcpConfig(ctx.workspacePath, { includeProject: allowProject });
     const allTools: Tool[] = [];
 
     for (const server of config.servers ?? []) {
@@ -1469,9 +1499,14 @@ export async function loadMcpTools(ctx: ToolContext): Promise<Tool[]> {
  * 供 hub mcp-adapter 路径使用:adapter 直接基于 McpConnection 注册 ToolHandle 到 hub。
  * 单个 server 连接失败不阻塞其他(只 log warn 由调用方决定)。
  */
-export async function loadMcpConnections(ctx: ToolContext): Promise<McpConnection[]> {
+export async function loadMcpConnections(
+  ctx: ToolContext,
+  opts: McpProjectTrustOptions = {},
+): Promise<McpConnection[]> {
   try {
-    const config = loadMcpConfig(ctx.workspacePath);
+    const allowProject = opts.allowProjectServers === true;
+    if (!allowProject) warnSkippedProjectMcpServers(ctx);
+    const config = loadMcpConfig(ctx.workspacePath, { includeProject: allowProject });
     const conns: McpConnection[] = [];
 
     for (const server of config.servers ?? []) {

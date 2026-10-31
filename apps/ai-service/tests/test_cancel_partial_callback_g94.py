@@ -40,6 +40,9 @@ def _cb_env(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "ai_callback_secret", "test-secret")
+    # 同 test_llm_tool_persistence:第 10 批起 callback 只许与 api_service_url 同源。
+    # 本文件回地址是 http://api.test/api/ai/callback ⇒ 基准同源地址取 http://api.test。
+    monkeypatch.setattr(settings, "api_service_url", "http://api.test")
     monkeypatch.setattr("app.routers.llm.httpx.AsyncClient", _FakeClient)
     _FakeClient.captured = []
 

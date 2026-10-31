@@ -283,6 +283,10 @@ def _cb_env(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "ai_callback_secret", "test-secret")
+    # 2026-10-31 安全强化第 10 批:callback_url 只许与 settings.api_service_url 同源
+    # (否则 X-Internal-Secret 连推理结果一起投到攻击者服务器)。本文件锁的是回调载荷
+    # 形状,故把基准地址设成本文件用的 http://cb;"异源不发"由 disclosure 那份的正向用例覆盖。
+    monkeypatch.setattr(settings, "api_service_url", "http://cb")
     monkeypatch.setattr("app.routers.llm.httpx.AsyncClient", _FakeClient)
     _FakeClient.captured = []
 
