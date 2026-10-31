@@ -1404,7 +1404,9 @@ class TestAnydocDocumentIndexing:
                           new=AsyncMock(return_value=0)), \
              patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})), \
              patch.object(idx, "_save_snapshot"), \
-             patch.object(idx, "_load_snapshot", return_value={}):
+             patch.object(idx, "_load_snapshot_read", return_value=codebase_indexer.SnapshotRead(
+                {}, codebase_indexer.SNAPSHOT_STATE_ABSENT
+             )):
             if codebase_indexer._ANYDOC_OK:
                 result = await idx.index_repository(str(tmp_path), "repo-1", incremental=False)
                 assert result.files_indexed == 1  # main.py 正常
