@@ -8,6 +8,7 @@ import { SCREEN_STATES_STATE_MIN_HEIGHT_PX } from '@ihui/shared/ui/screen-states
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../theme/tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 屏幕状态四件套 —— 「细化美化」的共享底座。
