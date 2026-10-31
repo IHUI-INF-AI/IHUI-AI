@@ -123,7 +123,11 @@ export function LiveChatScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: 22,
@@ -133,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     list: { flex: 1 },
     msg: {
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       marginBottom: rnSpacing.sm,

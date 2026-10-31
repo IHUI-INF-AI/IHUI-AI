@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
     // 2 = 描述行距:该行本端独有(小程序该行装的是"用途分类"标签,不同元素),不经 spec
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   },
   rankBadge: {
     marginLeft: MODEL_LIST_BADGE_MARGIN_LEFT_PX,

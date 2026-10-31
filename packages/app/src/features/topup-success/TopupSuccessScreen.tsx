@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -137,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     primaryText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
-    faqLink: { paddingVertical: 6, alignSelf: 'center' },
+    faqLink: { paddingVertical: rnSpacing['xs-loose'], alignSelf: 'center' },
     faqText: { fontSize: rnType.body.size, color: tk.text.secondary },
   })
 }

@@ -187,12 +187,16 @@ export default function ArticleHotScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.sm },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary, marginBottom: 2 },
+  subtitle: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+    marginBottom: rnSpacing['2xs'],
+  },
   stateBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     padding: rnSpacing['2xl'],
   },
   muted: { fontSize: 13, color: tokens.text.secondary, textAlign: 'center' },
@@ -208,7 +212,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -217,7 +221,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     padding: rnSpacing.md,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -238,7 +242,12 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1, gap: 3 },
   title: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
   summary: { fontSize: rnType.label.size, color: tokens.text.secondary },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: rnSpacing['sm-loose'],
+  },
   meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   viewMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   cover: {

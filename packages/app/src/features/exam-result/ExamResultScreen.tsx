@@ -91,7 +91,7 @@ export function ExamResultScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { paddingHorizontal: 10, paddingBottom: rnSpacing['3xl'] },
+    content: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     title: {
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.md,
@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.sm },
     metaPill: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,

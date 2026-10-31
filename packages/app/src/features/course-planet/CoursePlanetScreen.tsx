@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -164,13 +164,13 @@ function createStyles(tk: AppThemeTokens) {
     scroll: { flex: 1 },
     typeTabsRow: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.sm,
     },
     typeTab: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
     },
     section: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.lg,
     },
     sectionTitle: {
@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
     courseCoverEmoji: { fontSize: 32 },
     courseInfo: {
       padding: rnSpacing.md,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     courseTitle: {
       fontSize: rnType.body.size,

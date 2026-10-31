@@ -112,9 +112,9 @@ const styles = StyleSheet.create({
   pickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,

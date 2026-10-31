@@ -220,7 +220,7 @@ export function VipTraderScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     heroCard: {
@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     heroBadge: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: rnCssLight.vipGoldTint,
@@ -254,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
     },
-    statCol: { width: '50%', paddingVertical: 6 },
+    statCol: { width: '50%', paddingVertical: rnSpacing['xs-loose'] },
     statLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
     statValue: {
       marginTop: rnSpacing.sm,
@@ -283,7 +283,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     sectionCount: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    featureList: { paddingHorizontal: 10, paddingTop: 10 },
+    featureList: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing['sm-loose'] },
     featureGap: { height: 12 },
     featureItem: {
       flexDirection: 'row',
@@ -300,7 +300,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 10,
+      marginRight: rnSpacing['sm-loose'],
     },
     featureIconText: { fontSize: rnType.subtitle.size },
     featureTitle: { flex: 1, fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
@@ -313,7 +313,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
       shadowColor: tk.gray.black,

@@ -458,7 +458,7 @@ export default function PublishAccountsScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
       padding: 14,
@@ -466,9 +466,9 @@ function makeStyles() {
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
-    itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    itemHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['sm-loose'] },
     avatar: {
       width: 36,
       height: 36,
@@ -478,13 +478,13 @@ function makeStyles() {
       justifyContent: 'center',
     },
     avatarText: { fontSize: rnType.title.size, fontWeight: '700', color: tokens.text.secondary },
-    itemMain: { flex: 1, gap: 2 },
+    itemMain: { flex: 1, gap: rnSpacing['2xs'] },
     itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     itemDesc: { fontSize: rnType.label.size, color: tokens.text.secondary },
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pill: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.surface.muted,
     },
@@ -513,12 +513,12 @@ function makeStyles() {
     sheet: {
       maxHeight: '85%',
       padding: rnSpacing.lg,
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
     },
-    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sheetTitle: {
       flex: 1,
       fontSize: rnType.title.size,
@@ -526,7 +526,7 @@ function makeStyles() {
       color: tokens.text.primary,
     },
     panelBody: { gap: rnSpacing.sm },
-    scanBox: { alignItems: 'center', gap: 10, paddingVertical: rnSpacing.sm },
+    scanBox: { alignItems: 'center', gap: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     qr: { width: 200, height: 200, borderRadius: rnRadius.md },
     outlineBtn: {
       height: 40,
@@ -537,7 +537,7 @@ function makeStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     primaryBtn: {
@@ -547,7 +547,7 @@ function makeStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     primaryBtnText: {
       fontSize: rnType.body.size,
@@ -557,7 +557,7 @@ function makeStyles() {
     dangerBtn: {
       height: 40,
       flexDirection: 'row',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       alignItems: 'center',
       justifyContent: 'center',
     },

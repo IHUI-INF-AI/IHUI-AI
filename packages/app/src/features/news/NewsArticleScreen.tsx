@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
@@ -320,7 +320,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagChip: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.light,
     },

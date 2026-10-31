@@ -349,7 +349,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagPill: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
