@@ -94,45 +94,32 @@ test.describe('全站导航 - 导航元素', () => {
     }
   })
 
-  test('侧边栏“我的学习”聚合菜单可展开并展示子页面链接', async ({ page }) => {
-    // 2026-10-20 前置修正:personalGroup 不在默认展开名单里(NavGroupSection.tsx:80-83 只
-    // 自动展开 hot/ai/admin),且 f5897c9d85 起收起动画跑完后组内 items 整体卸载(:126-133)
-    // ⇒ nav-myLearning 压根不在 DOM。按 icon-text-alignment.spec.ts:159-174 的既定写法,
-    // 在 goto 前预置「侧栏展开 + personalGroup 展开」。
-    // 只预置分组这一层:**不**预置 sidebar-expand-/favorites —— 子项必须由本用例点父项展开才出现,
-    // 否则"展开聚合菜单揭示子链接"这一覆盖点会被预置掉。
+  test('个人域入口页承载“我的学习”三子链接(P2 收敛后)', async ({ page }) => {
+    // 2026-10-31 重写:原用例断言「侧边栏 nav-myLearning 可展开出 favorites/following/
+    // subscriptions 三子项」。2026-10-23「P2 收敛第二批」把该 5 项(我的学习 + 3 子项 +
+    // /user/profile 等)整体移入 PERSONAL_HUB_ITEMS,主侧边栏只剩一个 /domains/personal
+    // 域入口(见 nav-data.ts 的 personalGroup 注释)⇒ 旧断言在结构上恒失败,属测试腐烂,
+    // 不是产品缺陷。覆盖点按新 IA 重钉两件事:
+    //   ① 侧边栏仍有个人域入口(nav-user,/domains/personal 的展开按钮);
+    //   ② 域入口页把「我的学习」三子项铺成卡片链接,href 仍是 /favorites|/following|/subscriptions
+    //      —— 即"页面一个不删、URL 一个不改"的 A 方案承诺。
     await page.addInitScript(() => {
       localStorage.setItem('sidebar-collapsed', 'false')
+      // personalGroup 不在默认展开名单(NavGroupSection 只自动展开 hot/ai/admin)
       localStorage.setItem('sidebar-group-v3-personalGroup', '1')
     })
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
     const aside = page.locator('aside').first()
-    if (await aside.isVisible({ timeout: 3000 }).catch(() => false)) {
-      const parent = page.getByTestId('nav-myLearning').first()
-      await expect(parent).toBeVisible()
+    if (!(await aside.isVisible({ timeout: 3000 }).catch(() => false))) return // 未登录:侧栏不渲染(同文件既有守卫)
 
-      await expect(page.getByTestId('nav-favorites')).toHaveCount(0)
-      await expect(page.getByTestId('nav-following')).toHaveCount(0)
-      await expect(page.getByTestId('nav-subscriptions')).toHaveCount(0)
+    await expect(page.getByTestId('nav-user').first()).toBeVisible()
 
-      // 2026-08-26 修复:click({ force: true }) 仍无法触发 onClick(子菜单的 useState
-      // 在 React 严格模式下与 force dispatch 兼容性差)。改用 dispatchEvent('click')
-      // 直接派发原生 click 事件,绕开 actionability + pointer event 检查。
-      await parent.dispatchEvent('click')
-      await page.waitForTimeout(300)
-
-      const favorites = page.getByTestId('nav-favorites').first()
-      const following = page.getByTestId('nav-following').first()
-      const subscriptions = page.getByTestId('nav-subscriptions').first()
-      await expect(favorites).toBeVisible()
-      await expect(following).toBeVisible()
-      await expect(subscriptions).toBeVisible()
-
-      // 收藏/关注/订阅是个人页面，需要登录才能访问；这里只验证链接指向正确路径
-      expect(await favorites.getAttribute('href')).toBe('/favorites')
-      expect(await following.getAttribute('href')).toBe('/following')
-      expect(await subscriptions.getAttribute('href')).toBe('/subscriptions')
+    await page.goto('/domains/personal')
+    await page.waitForLoadState('domcontentloaded')
+    for (const href of ['/favorites', '/following', '/subscriptions'] as const) {
+      const link = page.locator(`a[href="${href}"]`).first()
+      await expect(link, `个人域入口页应渲染 ${href} 卡片`).toBeVisible()
     }
   })
 
