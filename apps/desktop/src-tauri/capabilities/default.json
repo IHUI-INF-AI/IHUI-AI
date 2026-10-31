@@ -1,10 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。",
-  "windows": ["main", "admin"],
+  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。. 2026-10-31 安全强化第 10 批 R6:checkin/qoder/workbuddy 全族 33 项凭据采集与设备重置命令移出 remote 授权面 —— web 面零消费方(tauri-bridge 桥函数亦零引用),此前线上页面(含任意 XSS)可直调扫描其他 IDE 应用 leveldb/DPAPI 提取 JWT 与重置设备指纹;Rust 命令本体保留(本地通道仍可用),仅移除远程 webview 授权。键鼠/截屏/剪贴板为 agent-control 在用功能保留,其滥用面由服务端审批门缓解。",
+  "windows": [
+    "main",
+    "admin"
+  ],
   "remote": {
-    "urls": ["https://aizhs.top/*", "https://www.aizhs.top/*"]
+    "urls": [
+      "https://aizhs.top/*",
+      "https://www.aizhs.top/*"
+    ]
   },
   "permissions": [
     "core:default",
@@ -34,7 +40,14 @@
     {
       "identifier": "shell:allow-open",
       "description": "仅允许打开 http/https 外部 URL(SSO 等),禁止 file:/自定义协议",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }]
+      "allow": [
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://*"
+        }
+      ]
     },
     "allow-get-app-info",
     "allow-git-authorize-workspace",
@@ -78,39 +91,6 @@
     "allow-set-desktop-prefs",
     "allow-resolve-close-choice",
     "allow-set-desktop-badge",
-    "allow-take-pending-deep-links",
-    "allow-checkin-detect-trae-dir",
-    "allow-checkin-capture-jwts",
-    "allow-checkin-capture-qoder",
-    "allow-checkin-capture-workbuddy",
-    "allow-checkin-workbuddy-web-login-probe",
-    "allow-checkin-reset-device-ids",
-    "allow-checkin-get-public-ip",
-    "allow-checkin-one-click-reset",
-    "allow-checkin-audit-trae-residual",
-    "allow-checkin-audit-qoder-residual",
-    "allow-checkin-snapshot-backup",
-    "allow-checkin-snapshot-restore",
-    "allow-checkin-snapshot-list",
-    "allow-checkin-snapshot-delete",
-    "allow-qoder-reset-probe",
-    "allow-qoder-reset-plan",
-    "allow-qoder-reset-maintenance",
-    "allow-qoder-reset-logout",
-    "allow-qoder-reset-factory",
-    "allow-qoder-quarantine-list",
-    "allow-qoder-quarantine-restore",
-    "allow-qoder-quarantine-delete",
-    "allow-qoder-reset-history",
-    "allow-workbuddy-reset-probe",
-    "allow-workbuddy-reset-maintenance",
-    "allow-workbuddy-reset-logout",
-    "allow-workbuddy-reset-plan",
-    "allow-workbuddy-quarantine-list",
-    "allow-workbuddy-quarantine-restore",
-    "allow-workbuddy-quarantine-delete",
-    "allow-workbuddy-reset-history",
-    "allow-workbuddy-reset-factory",
-    "allow-checkin-one-click-reset-all"
+    "allow-take-pending-deep-links"
   ]
 }
