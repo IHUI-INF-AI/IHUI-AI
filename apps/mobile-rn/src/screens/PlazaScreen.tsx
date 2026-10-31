@@ -478,7 +478,8 @@ export function PlazaScreen() {
               },
             ]}
             rightAction={
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 onPress={() => setShowSearch((v) => !v)}
                 accessibilityRole="button"
