@@ -325,7 +325,7 @@ function main() {
         try {
           writeFileSync(
             R(rel) + '.tmp',
-            renderReusePage({ pageText: disk, route: r.page, shellText: safeShow(r.shell) || '' }),
+            renderReusePage({ pageText: disk, route: r.page, shellText: safeShow(r.shell, shellCache) || '' }),
             'utf8',
           )
           renameSync(R(rel) + '.tmp', R(rel))

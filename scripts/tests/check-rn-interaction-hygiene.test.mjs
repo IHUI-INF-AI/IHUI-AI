@@ -30,6 +30,20 @@ const run = (args) =>
     maxBuffer: 1 << 28,
   })
 
+/**
+ * 判序纯函数的函数体。镜像钉的是"每一维真的被这段代码引用",而不是文案里写了档位。
+ * 立因:2026-10-31 主流程内联判序时,一次改稿把 `if (r.h2.length > base.h2.length)` 吃成语句 `NaN`
+ * (ASI 合法 ⇒ 无语法错),H2 变成无条件报项 = 恒红门,而 41 组自检全绿 —— 判序不住在可测的地方,
+ * 就没人能证明它还按预期的方向拦。抽成函数后这段体就是唯一的问责面。
+ */
+function verdictBody() {
+  const at = GATE_SRC.indexOf('function stagedVerdict(')
+  assert.ok(at > 0, '判序函数不在了 ⇒ 有人把它内联回主流程,NaN 那一型就是这么漏进来的')
+  const end = GATE_SRC.indexOf('\n}\n', at)
+  assert.ok(end > at, '判序函数体读不到结尾 ⇒ 结构变了,这条锁要跟着重写而不是删')
+  return GATE_SRC.slice(at, end)
+}
+
 test('① 装车:runner 注册块存在,blocking + skipEnv + 三条 stagedTriggers 成套', () => {
   const at = RUNNER.indexOf("script: 'check-rn-interaction-hygiene.mjs'")
   assert.ok(at > 0, 'runner 里没有本门的注册块 ⇒ 头注自称已接线就是假的(门 89 R1/R2)')
@@ -219,7 +233,7 @@ test('⑭ 注册表文案不钉移动量:runner 的 label 里不得写死存量�
     'label 里写了死数字 ⇒ 下一次清理就会把进步判成文案漂移(别把移动量钉成健康期望)',
   )
 })
-test('⑯ H3 目前是普查维度:区间配不平就不判,且提交链不得因它红', () => {
+test('⑯ H3 已升绝对零容忍:资格锁 + 判序必须引用它 + 区间配不平仍落盲区', () => {
   const { scanKeyboard, elementRange } = __test__
   // 未闭合的区间不可信 ⇒ 必须读成盲区,不能把"后面全部文件"当成子树(上一版就是这么误报 HomeScreen 的)
   assert.equal(scanKeyboard('<ScrollView><View><TextInput /></View>').length, 0, '闭标签没配平却判了违规')
@@ -227,11 +241,23 @@ test('⑯ H3 目前是普查维度:区间配不平就不判,且提交链不得�
   const r = elementRange('<ScrollView a={1}>{x}</ScrollView>', 0, 'ScrollView')
   assert.equal(r.closed, true)
   assert.equal(elementRange('<ScrollView a={1}>{x}', 0, 'ScrollView').closed, false)
-  // 提交链口径里不得出现 r.h3 —— H3 只在结论行报数,升级它的前置是逐屏复核过那 34 处候选(§0.2)
-  const staged = GATE_SRC.slice(GATE_SRC.indexOf('// staged 档'))
-  assert.ok(staged.length > 200, '读不到提交链那段 ⇒ 结构变了,这条锁要跟着重写而不是删')
-  assert.doesNotMatch(staged, /r\.h3/, 'H3 已进提交链 ⇒ 候选还没逐屏核过就把门变红,那是逼人跳门')
-  assert.match(run([]).stdout, /只报数不判红/, '结论行必须自己说清 H3 的档位')
+  // 资格锁(§0.2:升 blocking 的前置 = 存量归零)。取工作树 = 本枚要落的内容,不取 HEAD ——
+  // HEAD 面上那 34 处正是本票要清的存量,拿它当资格就等于永远不许升档。
+  const wt = run(['--worktree']).stdout
+  const m = /keyboardShouldPersistTaps: (\d+) 处/.exec(wt)
+  assert.ok(m, `结论行读不到 H3 计数:${wt.slice(0, 200)}`)
+  assert.equal(
+    Number(m[1]),
+    0,
+    'H3 已是绝对零容忍 ⇒ 候选回潮先在这里响,而不是堵住所有触碰这些文件的 pre-commit',
+  )
+  // 判序必须真的引用这一维(否则"升了档"只写在文案里 = 假账)
+  assert.match(verdictBody(), /r\.h3\.length/, 'H3 升了档却不在判序里引用 ⇒ 文案与判据两份真相')
+  assert.match(
+    run([]).stdout,
+    /提交链绝对零容忍[\s\S]{0,40}闭标签配不平的候选不进这一维/,
+    '结论行必须自己说清 H3 的档位与盲区口径',
+  )
 })
 
 test('⑫ 射程枚举与门体常量同源(三根 src 都在枚举里)', () => {
@@ -262,6 +288,30 @@ test('⑰ H4 内容文字桶已升绝对零:资格锁 + 提交链必须真的引
   const m = /关系统字号缩放: (\d+) 处内容文字/.exec(out)
   assert.ok(m, `读不到 H4 内容桶计数:${out.slice(0, 200)}`)
   assert.equal(Number(m[1]), 0, 'H4 已是绝对零容忍 ⇒ 内容桶回潮先在这里响,而不是堵住所有人的 pre-commit')
-  const staged = GATE_SRC.slice(GATE_SRC.indexOf('// staged 档'))
-  assert.match(staged, /r\.h4\.content/, 'H4 升了档却不在提交链里引用 ⇒ 文案与判据两份真相')
+  assert.match(verdictBody(), /r\.h4\.content/, 'H4 升了档却不在判序里引用 ⇒ 文案与判据两份真相')
+})
+
+test('⑱ 判序住在可测的地方:主流程只许委托,方向锁不许被删', () => {
+  // 委托锁:staged 段不得再自己写档位判断(§0.6 单一真相源 + NaN 事故的直接防线)
+  const at = GATE_SRC.indexOf('// staged 档')
+  assert.ok(at > 0, '读不到提交链那段 ⇒ 结构变了,这条锁要跟着重写而不是删')
+  const staged = GATE_SRC.slice(at, GATE_SRC.indexOf('if (added.length)', at))
+  assert.ok(staged.length > 200, '提交链那段短到读不出内容 ⇒ 尺子失效')
+  assert.match(
+    staged,
+    /for \(const msg of stagedVerdict\(/,
+    '主流程没在委托判序 ⇒ 有人把档位判断内联回去了,自检就走不到它(NaN 那一型)',
+  )
+  assert.doesNotMatch(
+    staged,
+    /if \(r\.h[1234]/,
+    '提交链段里出现了内联的档位判断 ⇒ 与 stagedVerdict 两份真相,必有一份会漂',
+  )
+  // 方向锁必须在门内自检里(删断言比改判据更常见,所以钉文字而不是只钉"自检通过")
+  for (const key of ['H2 持平即红', 'H2 减少必须放行', 'H2 新增必须拦', '判序失效:四维全空'])
+    assert.ok(GATE_SRC.includes(key), `方向锁「${key}」不在了 ⇒ 这一维的方向又成了没人证的断言`)
+  const out = run(['--self-test'])
+  assert.equal(out.status, 0, out.stderr.slice(0, 400))
+  const n = Number(/自检 (\d+) 组通过/.exec(out.stdout)?.[1] ?? 0)
+  assert.ok(n >= 50, `自检只剩 ${n} 组(本票落地时 ≥50)⇒ 有断言被删掉了,不是判据变好了`)
 })

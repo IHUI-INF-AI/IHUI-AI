@@ -314,7 +314,7 @@ export function SupportScreen({
     return (
       <View style={styles.container}>
         {header}
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity
             style={styles.secondaryBtn}
             activeOpacity={0.85}
@@ -450,6 +450,7 @@ export function SupportScreen({
     <View style={styles.container}>
       {header}
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl

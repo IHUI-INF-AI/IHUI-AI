@@ -221,7 +221,7 @@ export default function PurchaseScreen() {
         <NavBar title={t('purchase.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.subtitle}>{t('purchase.subtitle')}</Text>
 
         <View style={styles.tabRow}>
