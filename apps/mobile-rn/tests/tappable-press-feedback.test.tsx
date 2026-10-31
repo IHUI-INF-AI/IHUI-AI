@@ -13,33 +13,56 @@
 // 不用 @testing-library/react-native —— 本端没装它(实跑报 resolve 失败)。
 import { describe, it, expect, vi } from 'vitest'
 import { createElement } from 'react'
+import type { ReactNode } from 'react'
 import { act, render } from '@testing-library/react'
 
 // 原生 Pressable 换成探针:记下每次渲染收到的 props,直接看 style 的形态。
-const seen = vi.hoisted(() => [])
+/** 探针收到的原生 Pressable props。刻意不用 any(本仓 TS 零技术债),只声明本测试要看的那几项。 */
+type Probe = {
+  style?: unknown
+  onPressIn?: (e: unknown) => void
+  onPressOut?: (e: unknown) => void
+  hitSlop?: unknown
+  accessibilityRole?: unknown
+  children?: unknown
+}
+
+// vi.hoisted 必须带返回类型,否则被推断成 never[] ⇒ push 处 TS2345(实跑踩过)。
+const seen = vi.hoisted((): Probe[] => [])
 vi.mock('react-native', () => ({
-  Pressable: (props) => {
+  Pressable: (props: Probe) => {
     seen.push(props)
-    return createElement('div', null, props.children ?? null)
+    return createElement('div', null, (props.children as ReactNode) ?? null)
   },
   StyleSheet: {
-    create: (s) => s,
-    flatten: (s) => s,
+    create: (s: Record<string, unknown>) => s,
+    flatten: (s: unknown) => s,
     hairlineWidth: 1,
     absoluteFill: {},
     absoluteFillObject: {},
   },
-  Platform: { OS: 'ios', Version: 18, select: (o) => o.ios },
+  Platform: { OS: 'ios', Version: 18, select: (o: Record<string, unknown>) => o.ios },
 }))
 
 const { Tappable } = await import('@ihui/ui-native')
 
-const base = { padding: 8, flexDirection: 'row' }
+const base: { padding: number; flexDirection: 'row' } = { padding: 8, flexDirection: 'row' }
 const evt = { nativeEvent: {} }
-const last = () => seen[seen.length - 1]
+/** 渲染没发生时必须报错，而不是把 undefined 一路带进断言（那会让"没渲染"看起来像"渲染对了"）。 */
+function last(): Probe {
+  const p = seen[seen.length - 1]
+  if (!p) throw new Error('探针没收到任何 Pressable 渲染')
+  return p
+}
 /** pressed 是 state ⇒ handler 必须在 act 里调，否则重渲染不会发生(实测踩过)。 */
-const pressIn = () => act(() => void last().onPressIn(evt))
-const pressOut = () => act(() => void last().onPressOut(evt))
+const pressIn = () =>
+  act(() => {
+    last().onPressIn?.(evt)
+  })
+const pressOut = () =>
+  act(() => {
+    last().onPressOut?.(evt)
+  })
 
 describe('Tappable 按压反馈', () => {
   it('未按下:原样式整体交给原生 Pressable，第二档是 falsy(不是函数)', () => {
@@ -62,12 +85,16 @@ describe('Tappable 按压反馈', () => {
 
   it('调用方自己的 onPressIn/onPressOut 仍被转调(包一层不能吃掉别人的回调)', () => {
     seen.length = 0
-    const log = []
+    const log: string[] = []
     render(
       createElement(Tappable, {
         style: base,
-        onPressIn: () => log.push('in'),
-        onPressOut: () => log.push('out'),
+        onPressIn: () => {
+          log.push('in')
+        },
+        onPressOut: () => {
+          log.push('out')
+        },
       }),
     )
     pressIn()
@@ -84,12 +111,15 @@ describe('Tappable 按压反馈', () => {
 
   it('入参本身是数组时整体保留(本仓有 18 枚 [a, cond ? b : null] 这一型)', () => {
     seen.length = 0
-    const arr = [base, { backgroundColor: '#0a0' }]
+    const arr: ({ padding: number; flexDirection: 'row' } | { backgroundColor: string })[] = [
+      base,
+      { backgroundColor: '#0a0' },
+    ]
     render(createElement(Tappable, { style: arr }))
     expect(last().style).toEqual([arr, false])
     pressIn()
-    expect(last().style[1]).toEqual({ opacity: 0.65 })
-    expect(last().style[0]).toBe(arr)
+    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.65 })
+    expect((last().style as [unknown, unknown])[0]).toBe(arr)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
