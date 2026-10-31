@@ -3,7 +3,7 @@
   "entries": [
     {
       "path": ".github/workflows/mirror-to-cn.yml",
-      "reason": "机主 2026-10-23 弃用国内代码镜像,裁决枚 d10db9132d7af7f1c679e74679839b43069db70b / 25b02eea97c4c2bb74df10093fe5ccff3a852d5e / 2f9def0ddd2c6910807d9fb1a6c5f9687aefcbf1 / 1250480412be051de6a3e2e86b429b81a364daca 已执行四次,第四次回潮枚 72769534b6 距 HEAD 866 枚;本轮摘除枚 adc64aeb6f15cf29ce50b53762cb67865d31cec0。AGENTS 口径:仓库只有 origin 一个远端,见残留即删不修。现读 gitcode 镜像仓 403『project not found』⇒ 该作业按 cron */20 向不存在的仓推送。",
+      "reason": "机主 2026-10-23 弃用国内代码镜像,裁决枚 d10db9132d7af7f1c679e74679839b43069db70b / 25b02eea97c4c2bb74df10093fe5ccff3a852d5e / 2f9def0ddd2c6910807d9fb1a6c5f9687aefcbf1 / 1250480412be051de6a3e2e86b429b81a364daca 已执行四次,第四次回潮枚 72769534b6 距 HEAD 866 枚;首次摘除枚 adc64aeb6f15cf29ce50b53762cb67865d31cec0。AGENTS 口径:仓库只有 origin 一个远端,见残留即删不修。现读 gitcode 镜像仓 403『project not found』⇒ 该作业按 cron 向不存在的仓推送。第五次回潮(2026-10-31,本清单装车后 15 分钟即咬到)由两枚并发 fix(ci) 维持:f119b0bbb48e9a056e2c718159635fab4e19a7b4 把 cron 从 */20 降到 2h、8b7552f55e613c02c2471bc1982910d2f4559bcd 改 Gitee 汇总口径 —— 两枚的改动面经 --name-only 核过**只含这一份文件**,属条令明令的『修而非删』反例,随退役一并退场,不另作保留理由。",
       "reviewBy": "2027-06-30"
     },
     {
