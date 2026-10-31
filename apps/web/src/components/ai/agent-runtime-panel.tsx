@@ -23,11 +23,7 @@ import { cn } from '@/lib/utils'
 // `/agents/execute/resume` —— 一次暂停会落两个检查点(`eager` 是按下暂停那一刻的快照,
 // 循环随后还在轮次边界落一个更完整的暂停点),按前者续跑会**重跑一轮已经执行过的工具调用**
 // (带副作用的工具重跑一次就是真实事故)。详见 api-client `AgentSessionCheckpointStage` 注释。
-import {
-  executeAgentRuntimeStream,
-  pauseAgentSession,
-  resumeAgentSession,
-} from '@ihui/api-client'
+import { executeAgentRuntimeStream, pauseAgentSession, resumeAgentSession } from '@ihui/api-client'
 import { permissionDecisionWord } from '@ihui/shared/chat'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 // 2026-09-14 接线 CollapsibleOutput 孤儿组件(规划 5.8 长输出折叠):运行时输出不再裸 pre-wrap 撑爆面板
@@ -317,11 +313,16 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
             </section>
           )}
 
-          {!plan && !output && !error && !permission && status !== 'cancelled' && status !== 'paused' && (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              {t('emptyState')}
-            </div>
-          )}
+          {!plan &&
+            !output &&
+            !error &&
+            !permission &&
+            status !== 'cancelled' &&
+            status !== 'paused' && (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t('emptyState')}
+              </div>
+            )}
         </div>
 
         <footer className="shrink-0 p-3">
@@ -398,5 +399,4 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
   )
 }
 
-export default AgentRuntimePanel
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

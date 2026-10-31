@@ -126,18 +126,9 @@ export type {
   LlmModel,
   FetchModelsResult,
   AgentPermission,
-  AgentPermissionType,
-  WalletBalance,
   VipLevel,
-  SignContractResponse,
-  SubscriptionStatus,
   WechatPayContract,
-  AuthUser,
-  PaymentStatus,
-  PaymentMethod,
-  AlipayMiniappPayResponse,
-  ExamQuestion,
-  // 共享类型(从 api-client 下沉,直接 re-export)
+  ExamQuestion, // 共享类型(从 api-client 下沉, 直接 re-export)
   Banner,
   Teacher,
   MemberInfo,
@@ -146,8 +137,6 @@ export type {
   StudyRecord,
   ExamPaper,
   ExamRecord,
-  ChatOptions,
-  ChatResult,
 } from '@ihui/api-client'
 // 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
 export type SignContractResult = SignContractResponse
