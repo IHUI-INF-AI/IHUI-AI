@@ -787,7 +787,7 @@ class CheckinScheduler:
             if cd_end is not None and cd_end > now:
                 continue
             device_map = dict(acc.get("device_map") or {})
-            for kind in ("growth", "travel", "activity", "blackcat"):
+            for kind in ("growth", "travel", "activity", "blackcat", "redeem", "lottery"):
                 try:
                     result = await workbuddy_tasks.run_family(
                         kind, acc["jwt"], device_map, dry_run=dry_run
