@@ -20,9 +20,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Request
 from pydantic import BaseModel, Field
 
+from ...core.inbound_identity import resolve_inbound_actor
 from ...services.knowledge_fs import knowledge_fs
 
 router = APIRouter()
@@ -37,24 +38,30 @@ class SearchRequest(BaseModel):
 
 
 def _identity(
+    request: Request,
     authorization: str | None,
-    x_user_id: str | None,
 ) -> tuple[str | None, str | None]:
-    """从请求头解析 (internal_user_id, api_token)。"""
+    """从**已验签**凭据解析 (internal_user_id, api_token)。
+
+    2026-11-01 安全强化:原先把 `Header(alias="X-User-Id")` 的字面值当身份,任何登录
+    用户带一枚受害者 uuid 就能读走对方代码库切片(ai-service 会以该 uuid 为 sub 签内网
+    票打到 apps/api)。主体现在只经 inbound_identity 这一份出口取(已验签内网头 ⇒
+    签名载荷的 sub;否则 ⇒ 中间件注入的 JWT 主体),明文头没有投票权。
+    """
     api_token = None
     if authorization and authorization.lower().startswith("bearer "):
         api_token = authorization[7:].strip() or None
-    return x_user_id, api_token
+    return resolve_inbound_actor(request), api_token
 
 
 @router.get("/list")
 async def list_dir(
     prefix: str,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """列目录。"""
-    user_id, api_token = _identity(authorization, x_user_id)
+    user_id, api_token = _identity(request, authorization)
     if not user_id and not api_token:
         return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
     return {"code": 0, "message": "ok", "data": await knowledge_fs.list_dir(prefix, user_id, api_token)}
@@ -63,11 +70,11 @@ async def list_dir(
 @router.get("/read")
 async def read_path(
     path: str,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """读内容。"""
-    user_id, api_token = _identity(authorization, x_user_id)
+    user_id, api_token = _identity(request, authorization)
     if not user_id and not api_token:
         return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
     return {"code": 0, "message": "ok", "data": await knowledge_fs.read(path, user_id, api_token)}
@@ -76,11 +83,11 @@ async def read_path(
 @router.get("/stat")
 async def stat_path(
     path: str,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """路径元数据。"""
-    user_id, api_token = _identity(authorization, x_user_id)
+    user_id, api_token = _identity(request, authorization)
     if not user_id and not api_token:
         return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
     return {"code": 0, "message": "ok", "data": await knowledge_fs.stat(path, user_id, api_token)}
@@ -89,11 +96,11 @@ async def stat_path(
 @router.post("/search")
 async def search(
     req: SearchRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """语义检索 → 虚拟路径投影。"""
-    user_id, api_token = _identity(authorization, x_user_id)
+    user_id, api_token = _identity(request, authorization)
     if not user_id and not api_token:
         return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
     return {

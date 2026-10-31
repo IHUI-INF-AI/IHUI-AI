@@ -1097,13 +1097,16 @@ export function analyze(P, files, opts = {}) {
         const id = [...ring].sort().join('|')
         if (!reported.has(id)) {
           reported.add(id)
-          add(
-            'module-cycle',
-            POLICY_REL,
-            0,
-            P.modules.get(ring[0]),
-            `现实 import 成环:${[...ring, n].join(' → ')} —— 声明表说它是 DAG,故表与现实脱节`,
-          )
+          // 2026-11-01:与其它规则一致,环违规也必须能被策略表 exceptions 逐条豁免。
+          // 此前直接 add ⇒ EX-D4-* 结构性永远不命中,门自己报"例外清单腐烂"(实测 EX-D4-1)。
+          if (!exPass('module-cycle', POLICY_REL))
+            add(
+              'module-cycle',
+              POLICY_REL,
+              0,
+              P.modules.get(ring[0]),
+              `现实 import 成环:${[...ring, n].join(' → ')} —— 声明表说它是 DAG,故表与现实脱节`,
+            )
         }
         return
       }
@@ -2143,6 +2146,24 @@ exceptions:
       f: F({ 'packages/kit/src/a.ts': imp('@ihui/demo'), 'apps/demo/src/b.ts': imp('@ihui/kit') }),
       red: 0,
       all: 4,
+    },
+    {
+      n: 'D4 表级例外生效:成环 + 例外登记 ⇒ 环那条不判红(只剩 3 条边违规)',
+      p: {
+        ...ON,
+        exceptions: [
+          {
+            id: 'EX-D4-T',
+            rule: 'module-cycle',
+            file: 'config/architecture-policy.yaml',
+            until: '2027-01-31',
+            reason: '自检夹具:环条目可被表级例外豁免',
+          },
+        ],
+      },
+      f: F({ 'packages/kit/src/a.ts': imp('@ihui/demo'), 'apps/demo/src/b.ts': imp('@ihui/kit') }),
+      red: 3,
+      all: 3,
     },
   ]
   let fail = 0
