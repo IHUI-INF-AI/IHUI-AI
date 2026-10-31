@@ -929,8 +929,6 @@
     "checkUpdateUnsupported": "目前環境不支援應用程式內更新",
     "changePhoneMissingUser": "使用者資訊缺失,無法更換手機號",
     "logoutConfirm": "確認退出當前帳號?",
-    "appPermission": "應用權限",
-    "icpRecord": "ICP 備案",
     "usageRules": "使用規範",
     "changePassword": "修改密碼",
     "oldPassword": "舊密碼",
@@ -1961,9 +1959,6 @@
     "fans": "粉絲",
     "empty": "暫無資料",
     "unfollow": "取消關注"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案/許可證號"
   },
   "identityVerify": {
     "title": "身分認證",
