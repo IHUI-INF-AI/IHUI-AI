@@ -2496,6 +2496,13 @@
       "when": 1793419200000,
       "tag": "20261031120000_codebase_embedding_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 360,
+      "version": "7",
+      "when": 1793422800000,
+      "tag": "20261031130000_langgraph_thread_owners",
+      "breakpoints": true
     }
   ]
 }
