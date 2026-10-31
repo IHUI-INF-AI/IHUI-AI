@@ -106,6 +106,42 @@ const MAX_PRIORITY = 100;
 const WORKSPACE_HOOK_DIRS = ['.ihui/hooks', '.agents/hooks', '.claude/hooks', '.cursor/hooks'];
 const USER_HOOK_DIR = '.ihui/hooks';
 
+// ── 工作区 hook 信任门(2026-10-31 安全强化第 10 批 R6)─────────────────
+// 克隆的恶意仓库自带 .claude/hooks/ 等目录,若发现器被接进自动执行链(serve/
+// agent loop),克隆即执行 = 任意代码执行。信任模型对标 git hooks / VS Code
+// tasks:工作区级 hook **默认不执行**,用户显式 `ihui hooks-auto trust` 后才
+// 生效;~/.ihui/hooks(用户家目录,主动放置)免信任。执行器(HookExecutor)
+// 只消费 enabled 字段,故把未信任 hook 的 enabled 落成 false 即结构性断开。
+/** 信任文件路径;IHUI_HOOKS_TRUST_FILE 供测试注入隔离路径(不污染真实家目录)。 */
+function hooksTrustFile(): string {
+  return (
+    process.env.IHUI_HOOKS_TRUST_FILE ?? path.join(os.homedir(), '.ihui', 'hooks-trust.json')
+  );
+}
+
+/** 读用户级信任集(工作区绝对路径);文件缺失/损坏一律视为空(fail-closed)。 */
+export function loadTrustedWorkspaces(): Set<string> {
+  try {
+    const raw = JSON.parse(fs.readFileSync(hooksTrustFile(), 'utf-8')) as { trusted?: string[] };
+    return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** 把工作区写入信任集(信任是显式动作,不提供删除出口——删除属 GC 范畴)。 */
+export function addTrustedWorkspace(workspacePath: string): void {
+  const abs = path.resolve(workspacePath);
+  const trusted = loadTrustedWorkspaces();
+  trusted.add(abs);
+  fs.mkdirSync(path.dirname(hooksTrustFile()), { recursive: true });
+  fs.writeFileSync(
+    hooksTrustFile(),
+    JSON.stringify({ trusted: [...trusted] }, null, 2) + String.fromCharCode(10),
+    'utf-8',
+  );
+}
+
 /** 文件扩展名 → scriptType 映射 */
 const EXT_SCRIPT_TYPE: Record<string, HookDefinition['scriptType']> = {
   '.js': 'javascript',
@@ -337,8 +373,23 @@ export class HookAutoDiscovery {
   /** 扫描所有 hook 目录,返回发现的 hooks(按 priority 降序) */
   discover(): HookDefinition[] {
     this.hooks.clear();
+    const trusted = loadTrustedWorkspaces();
+    const workspaceTrusted = trusted.has(path.resolve(this.workspacePath));
     for (const loc of this.getScanLocations()) {
-      this.scanDirectory(loc.dir, loc.sourceLabel);
+      // 信任门:工作区级 hook 在未信任工作区一律 enabled=false(执行器只认
+      // enabled ⇒ 结构性断开);global(~/.ihui/hooks)是用户主动放置,免信任。
+      this.scanDirectory(loc.dir, loc.sourceLabel, loc.sourceLabel === 'global' || workspaceTrusted);
+    }
+    if (!workspaceTrusted) {
+      const found = this.getHooks().length;
+      if (found > 0) {
+        console.warn(
+          chalk.yellow(
+            `⚠ 发现 ${found} 个工作区 hook 但该工作区未受信任,已全部禁用(防克隆仓库自带脚本自动执行)。` +
+            `确认可信后执行: ihui hooks-auto trust`,
+          ),
+        );
+      }
     }
     return this.getHooks();
   }
@@ -354,8 +405,8 @@ export class HookAutoDiscovery {
     return locs;
   }
 
-  /** 扫描单个目录下的 hook 文件(扁平,不递归) */
-  private scanDirectory(dir: string, sourceLabel: string): void {
+  /** 扫描单个目录下的 hook 文件(扁平,不递归);trusted=false 时全部禁用 */
+  private scanDirectory(dir: string, sourceLabel: string, trusted: boolean): void {
     if (!fs.existsSync(dir)) return;
     let entries: fs.Dirent[];
     try {
@@ -370,7 +421,9 @@ export class HookAutoDiscovery {
       if (!scriptType) continue;
       const fullPath = path.join(dir, entry.name);
       const hook = this.parseHookFile(fullPath, dir, sourceLabel, scriptType);
-      if (hook) this.hooks.set(hook.id, hook);
+      if (!hook) continue;
+      if (!trusted) hook.enabled = false;
+      this.hooks.set(hook.id, hook);
     }
   }
 
@@ -798,6 +851,18 @@ export function registerHooksAutoCommand(program: Command): void {
         console.info(`  ${chalk.yellow(`${c.type} @ priority ${c.priority}`)}: ${ids}`);
       }
       console.info('');
+    });
+
+  cmd.command('trust')
+    .description(
+      '把当前工作区加入 hook 信任集(~/.ihui/hooks-trust.json);' +
+        '信任后该工作区的自动发现 hooks 才会被执行(防克隆仓库自带脚本自动执行)',
+    )
+    .action(() => {
+      const workspace = process.cwd();
+      addTrustedWorkspace(workspace);
+      console.info(chalk.green(`✓ 已信任工作区: ${workspace}`));
+      console.info(chalk.dim('  该工作区 .{ihui,agents,claude,cursor}/hooks/ 下的脚本此后随发现链自动启用'));
     });
 
   cmd.command('test <id>')
