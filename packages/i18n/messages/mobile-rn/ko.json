@@ -1,10 +1,4 @@
 {
-  "setting": {
-    "operationFailed": "작업 실패"
-  },
-  "message": {
-    "deleted": "삭제됨"
-  },
   "workflows": {
     "title": "워크플로우",
     "empty": "워크플로우가 없습니다",
@@ -1122,7 +1116,6 @@
     "network": "네트워크 오류"
   },
   "common": {
-    "success": "성공",
     "backToTop": "맨 위로",
     "ok": "확인",
     "gotIt": "알겠습니다",
@@ -1238,7 +1231,6 @@
     "confirmBtn": "확인",
     "empty": "표지가 없습니다",
     "loadFailed": "불러오기 실패",
-    "loading": "불러오는 중...",
     "subtitle": "표지 선택 또는 생성",
     "title": "표지",
     "workTitleDefault": "이름 없는 작품",
@@ -1316,7 +1308,6 @@
     "badgeRejected": "거부됨",
     "badgeReviewing": "검토 중",
     "empty": "어시스턴트가 없습니다",
-    "loading": "불러오는 중...",
     "metaAudience": "공개 범위",
     "metaCategory": "카테고리",
     "metaCycleForever": "영구",
@@ -1760,7 +1751,6 @@
     "title": "내 쿠폰",
     "validUntil": "유효기간",
     "use": "지금 사용",
-    "useHint": "상품 페이지에서 사용해 주세요",
     "couponCenter": "쿠폰센터"
   },
   "courseAnnex": {
@@ -4525,7 +4515,6 @@
     },
     "workflows": {
       "home": "워크플로",
-      "editor": "워크플로 편집기",
       "automations": "자동화 작업",
       "orchestration": "오케스트레이션",
       "schedule": "예약 작업"
@@ -7072,12 +7061,10 @@
     "empty": "콘텐츠가 없습니다",
     "pinned": "고정됨",
     "publishedAt": "{date}에 게시",
-    "viewCount": "{count} 조회",
     "total": "총 {total}편",
     "prev": "이전",
     "next": "다음",
-    "loading": "로딩 중...",
-    "error": "로드 실패"
+    "loading": "로딩 중..."
   },
   "searchHistoryPage": {
     "title": "검색 기록",
@@ -7136,10 +7123,7 @@
     "output": "최종 출력",
     "runningHint": "아직 실행 중이며 최종 출력이 없습니다",
     "noOutput": "출력 없음",
-    "noTask": "작업 설명 없음",
-    "prev": "이전",
-    "pagination": "{page} / {totalPages} 페이지, 총 {total}건",
-    "next": "다음"
+    "noTask": "작업 설명 없음"
   },
   "chatWorkbenchPage": {
     "title": "대화",
