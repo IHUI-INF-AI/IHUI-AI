@@ -955,6 +955,7 @@
       "aiSessions": "AI アクティブセッション",
       "alertCount": "アラート {count}",
       "alertCountUnknown": "アラート数不明",
+      "alertCountAtLeast": "アラート ≥{count}",
       "alertStateActive": "アクティブ",
       "alertStateSuppressed": "抑制済み",
       "alertStateUnprocessed": "未処理",
@@ -1144,8 +1145,6 @@
       "visitHourlyPv": "アクセス数",
       "visitHourlyUv": "訪問者数",
       "panelRelayPool": "AI プール",
-      "pv5mNow": "5分間 {count} 回",
-      "firingRowsSplit": "firing {total} 行 / {names} 件",
       "pv24h": "24時間 PV",
       "uv24h": "24時間 UV",
       "humanPv": "人間のアクセス",
@@ -9233,6 +9232,10 @@
           "title": "実行するには確認が必要です",
           "action": "確認する"
         },
+        "SCHEDULER_ERROR": {
+          "title": "定期タスクのスケジュール処理に失敗しました",
+          "action": "しばらくしてから再試行"
+        },
         "SCHEME_REJECTED": {
           "title": "このアドレスへのアクセスは許可されていません",
           "action": "別のアドレスを指定して再試行"
@@ -11932,8 +11935,6 @@
       "showContent": "コンテンツを表示",
       "stopReadAloud": "読み上げ停止",
       "toggleMetadata": "メタデータ切替",
-      "metadataLoading": "メタデータを読み込み中…",
-      "metadataUnavailable": "メタデータを一時的に取得できません",
       "pin": "固定",
       "unpin": "固定を解除",
       "bookmark": "ブックマーク",

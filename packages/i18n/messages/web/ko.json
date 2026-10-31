@@ -955,6 +955,7 @@
       "aiSessions": "AI 활성 세션",
       "alertCount": "알림 {count}",
       "alertCountUnknown": "알림 수 미확인",
+      "alertCountAtLeast": "알림 ≥{count}",
       "alertStateActive": "활성",
       "alertStateSuppressed": "억제됨",
       "alertStateUnprocessed": "미처리",
@@ -1144,8 +1145,6 @@
       "visitHourlyPv": "페이지뷰",
       "visitHourlyUv": "방문자수",
       "panelRelayPool": "AI 풀",
-      "pv5mNow": "5분 {count} 회",
-      "firingRowsSplit": "firing {total} 행 / {names} 개",
       "pv24h": "24시간 PV",
       "uv24h": "24시간 UV",
       "humanPv": "사람 방문",
@@ -9233,6 +9232,10 @@
           "title": "실행하려면 확인이 필요합니다",
           "action": "확인하기"
         },
+        "SCHEDULER_ERROR": {
+          "title": "예약 작업 처리가 실패했습니다",
+          "action": "나중에 재시도"
+        },
         "SCHEME_REJECTED": {
           "title": "이 주소는 접근이 허용되지 않습니다",
           "action": "다른 주소로 재시도"
@@ -11932,8 +11935,6 @@
       "showContent": "콘텐츠 표시",
       "stopReadAloud": "읽기 중지",
       "toggleMetadata": "메타데이터 전환",
-      "metadataLoading": "메타데이터를 불러오는 중…",
-      "metadataUnavailable": "메타데이터를 일시적으로 사용할 수 없습니다",
       "pin": "고정",
       "unpin": "고정 해제",
       "bookmark": "북마크",

@@ -955,6 +955,7 @@
       "aiSessions": "AI Active Sessions",
       "alertCount": "Alerts {count}",
       "alertCountUnknown": "Alert count unknown",
+      "alertCountAtLeast": "Alerts ≥{count}",
       "alertStateActive": "Active",
       "alertStateSuppressed": "Suppressed",
       "alertStateUnprocessed": "Unprocessed",
@@ -1144,8 +1145,6 @@
       "visitHourlyPv": "Page views",
       "visitHourlyUv": "Visitors",
       "panelRelayPool": "AI pool",
-      "pv5mNow": "{count} views / 5m",
-      "firingRowsSplit": "{total} firing rows / {names} alerts",
       "pv24h": "Page views (24h)",
       "uv24h": "Visitors (24h)",
       "humanPv": "Human traffic",
@@ -9233,6 +9232,10 @@
           "title": "This action needs your confirmation first",
           "action": "Confirm now"
         },
+        "SCHEDULER_ERROR": {
+          "title": "Scheduled task operation failed",
+          "action": "Retry later"
+        },
         "SCHEME_REJECTED": {
           "title": "This address is not allowed",
           "action": "Use another address and retry"
@@ -11932,8 +11935,6 @@
       "showContent": "Show content",
       "stopReadAloud": "Stop reading",
       "toggleMetadata": "Toggle metadata",
-      "metadataLoading": "Loading metadata…",
-      "metadataUnavailable": "Metadata is temporarily unavailable",
       "pin": "Pin",
       "unpin": "Unpin",
       "bookmark": "Bookmark",

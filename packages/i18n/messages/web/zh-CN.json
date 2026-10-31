@@ -958,6 +958,7 @@
       "aiSessions": "AI 活跃会话",
       "alertCount": "告警 {count}",
       "alertCountUnknown": "告警数未知",
+      "alertCountAtLeast": "告警 ≥{count}",
       "alertStateActive": "活跃",
       "alertStateSuppressed": "已抑制",
       "alertStateUnprocessed": "未处理",
@@ -1148,8 +1149,6 @@
       "visitHourlyPv": "访问量",
       "visitHourlyUv": "访客数",
       "panelRelayPool": "AI 号池",
-      "pv5mNow": "近5分钟 {count} 次",
-      "firingRowsSplit": "firing {total} 行 / {names} 个告警名",
       "panelUptime": "进程运行时长",
       "panelSessionQuality": "会话质量",
       "sessionQualitySessions": "近24h 会话 {count}",
@@ -9229,6 +9228,10 @@
           "title": "需要确认后才会执行",
           "action": "去确认"
         },
+        "SCHEDULER_ERROR": {
+          "title": "定时任务调度失败",
+          "action": "稍后重试"
+        },
         "SCHEME_REJECTED": {
           "title": "该地址不被允许访问",
           "action": "更换地址后重试"
@@ -11932,8 +11935,6 @@
       "showContent": "显示内容",
       "stopReadAloud": "停止朗读",
       "toggleMetadata": "切换元数据",
-      "metadataLoading": "正在加载元数据…",
-      "metadataUnavailable": "元数据暂时不可用",
       "pin": "钉选",
       "unpin": "取消钉选",
       "bookmark": "收藏",
