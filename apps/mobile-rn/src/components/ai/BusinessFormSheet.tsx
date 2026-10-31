@@ -280,7 +280,11 @@ function FormPanel({
               {statusText ? <Text style={s.chipStatus}>{statusText}</Text> : null}
             </View>
 
-            <ScrollView style={s.body} contentContainerStyle={s.bodyInner}>
+            <ScrollView
+              style={s.body}
+              contentContainerStyle={s.bodyInner}
+              keyboardShouldPersistTaps="handled"
+            >
               {fields.map((f) => {
                 const err = entry.errors[f.key]
                 return (

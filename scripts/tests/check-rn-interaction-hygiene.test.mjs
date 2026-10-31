@@ -172,6 +172,68 @@ test('⑪ R4 点名义务:README 的守门索引里有本门名(文档面读 HEA
   )
 })
 
+test('⑬ 反馈判据认原语默认态:把 TouchableOpacity 的自带变暗算成缺反馈 = 957 枚误报', () => {
+  const { hasNativeFeedback } = __test__
+  assert.equal(hasNativeFeedback('TouchableOpacity', ' style={{}} '), true, '默认 activeOpacity=0.2 就是反馈')
+  assert.equal(hasNativeFeedback('TouchableOpacity', ' activeOpacity={1} '), false, '显式关掉才算关')
+  assert.equal(hasNativeFeedback('TouchableHighlight', ' '), true)
+  assert.equal(hasNativeFeedback('TouchableWithoutFeedback', ' '), false, '类名自述无反馈')
+  assert.equal(hasNativeFeedback('Pressable', ' '), false, 'Pressable 没有默认按压态')
+  // 反向对照(误报回归哨兵):判据被改回"只数 onPressIn"时,HEAD 面会从三位数涨回四位数。
+  // 这里刻意用**上界**而不是等值 —— 存量在减,钉死一个数就成了一枚会自己腐烂的钉。
+  const out = run([]).stdout
+  const m = /无按压反馈: (\d+) 处/.exec(out)
+  assert.ok(m, `结论行读不到反馈计数:${out.slice(0, 200)}`)
+  assert.ok(
+    Number(m[1]) < 700,
+    `无按压反馈读到 ${m[1]} 处 ⇒ 原语默认态那一条判据大概是被人删了(957 枚 TouchableOpacity 会被误报)`,
+  )
+})
+
+test('⑮ 遮罩不当"缺反馈":半透黑底按下去就是关层,要求变暗等于制造全屏闪', () => {
+  const { isScrim, isTranslucentBlack, scrimByStyle } = __test__
+  assert.equal(isScrim(' className="flex-1 bg-black/20" activeOpacity={1}'), true)
+  assert.equal(isScrim(" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}"), true)
+  assert.equal(isScrim(" style={{ backgroundColor: '#000000' }}"), false, '不透明黑不是遮罩')
+  assert.equal(isTranslucentBlack('#000000'), false)
+  assert.equal(isTranslucentBlack('#00000080'), true)
+  const table = __test__.styleTable(
+    "const styles = StyleSheet.create({ scrim: { backgroundColor: 'rgba(0,0,0,0.5)' }, card: { backgroundColor: '#ffffff' } })",
+  )
+  assert.equal(scrimByStyle(' style={styles.scrim} ', table), true)
+  assert.equal(scrimByStyle(' style={styles.card} ', table), false, '白底卡片不得被当成遮罩(否则遮罩成了消红通道)')
+})
+
+test('⑭ 注册表文案不钉移动量:runner 的 label 里不得写死存量数字', () => {
+  // 为什么反向钉:上一版这里比的是"label 写的处数 == 门现读的处数",而存量是一条一直在减的
+  // 移动量 —— 任何人修好一枚 H2,这条锁就把一次**进步**判成文案漂移(§0.2 同型:会自己腐烂的钉
+  // 只会逼人跳门)。现值由门自己在结论行打印,文案只写口径。
+  const label = maskComments(RUNNER)
+  const at = label.indexOf("script: 'check-rn-interaction-hygiene.mjs'")
+  assert.ok(at > 0)
+  const block = label.slice(Math.max(0, at - 900), at + 1400)
+  assert.match(block, /存量只报数/, 'label 应写口径,不写数字')
+  assert.doesNotMatch(
+    block,
+    /\d+ 处存量|棘轮\(\d+ 处/,
+    'label 里写了死数字 ⇒ 下一次清理就会把进步判成文案漂移(别把移动量钉成健康期望)',
+  )
+})
+test('⑯ H3 目前是普查维度:区间配不平就不判,且提交链不得因它红', () => {
+  const { scanKeyboard, elementRange } = __test__
+  // 未闭合的区间不可信 ⇒ 必须读成盲区,不能把"后面全部文件"当成子树(上一版就是这么误报 HomeScreen 的)
+  assert.equal(scanKeyboard('<ScrollView><View><TextInput /></View>').length, 0, '闭标签没配平却判了违规')
+  assert.equal(scanKeyboard('<ScrollView>{children}</ScrollView>').length, 1)
+  const r = elementRange('<ScrollView a={1}>{x}</ScrollView>', 0, 'ScrollView')
+  assert.equal(r.closed, true)
+  assert.equal(elementRange('<ScrollView a={1}>{x}', 0, 'ScrollView').closed, false)
+  // 提交链口径里不得出现 r.h3 —— H3 只在结论行报数,升级它的前置是逐屏复核过那 34 处候选(§0.2)
+  const staged = GATE_SRC.slice(GATE_SRC.indexOf('// staged 档'))
+  assert.ok(staged.length > 200, '读不到提交链那段 ⇒ 结构变了,这条锁要跟着重写而不是删')
+  assert.doesNotMatch(staged, /r\.h3/, 'H3 已进提交链 ⇒ 候选还没逐屏核过就把门变红,那是逼人跳门')
+  assert.match(run([]).stdout, /只报数不判红/, '结论行必须自己说清 H3 的档位')
+})
+
 test('⑫ 射程枚举与门体常量同源(三根 src 都在枚举里)', () => {
   assert.deepEqual(
     [...SRC_RELS].sort(),
@@ -182,3 +244,24 @@ test('⑫ 射程枚举与门体常量同源(三根 src 都在枚举里)', () => 
   assert.equal(TIER_KEY, 'tapBox', '档位键名换了就必须同步改本门取值处,不许就近吸附成第二个数')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('⑰ H4 内容文字桶已升绝对零:资格锁 + 提交链必须真的引用它', () => {
+  const { scanFontLock } = __test__
+  const r = scanFontLock(
+    `<Text style={styles.a} allowFontScaling={false}>{t('x.y')}</Text><Text style={styles.b} allowFontScaling={false}>{'×'}</Text>`,
+  )
+  assert.equal(r.content.length, 1, '内容文字必须进内容桶')
+  assert.equal(r.glyph.length, 1, '图标字形必须留在字形桶(判它即逼人跳门)')
+  const scaled = scanFontLock(
+    '<Text style={[styles.a, scaleText(styles.a)]} allowFontScaling={false}>{t("x.y")}</Text>',
+  )
+  assert.equal(scaled.content.length, 0, '已接 scaleText 的格子不得再算缺陷')
+  assert.equal(scaled.scaled.length, 1)
+  // 资格锁:工作树(=本枚要落的内容)内容桶必须为 0,否则这一维就是恒红门
+  const out = run(['--worktree']).stdout
+  const m = /关系统字号缩放: (\d+) 处内容文字/.exec(out)
+  assert.ok(m, `读不到 H4 内容桶计数:${out.slice(0, 200)}`)
+  assert.equal(Number(m[1]), 0, 'H4 已是绝对零容忍 ⇒ 内容桶回潮先在这里响,而不是堵住所有人的 pre-commit')
+  const staged = GATE_SRC.slice(GATE_SRC.indexOf('// staged 档'))
+  assert.match(staged, /r\.h4\.content/, 'H4 升了档却不在提交链里引用 ⇒ 文案与判据两份真相')
+})

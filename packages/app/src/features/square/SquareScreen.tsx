@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
+import { scaleText } from '../../hooks/scaled-text'
 import {
   FlatList,
   Pressable,
@@ -103,7 +104,7 @@ export function SquareScreen({
             <View style={styles.content}>
               {item.category ? (
                 <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
+                  <Text style={[styles.categoryText, scaleText(styles.categoryText)]} numberOfLines={1} allowFontScaling={false}>
                     {item.category}
                   </Text>
                 </View>
@@ -118,20 +119,20 @@ export function SquareScreen({
               ) : null}
               <View style={styles.metaRow}>
                 <View style={styles.authorBadge}>
-                  <Text style={styles.authorText} numberOfLines={1} allowFontScaling={false}>
+                  <Text style={[styles.authorText, scaleText(styles.authorText)]} numberOfLines={1} allowFontScaling={false}>
                     {author}
                   </Text>
                 </View>
                 {time ? (
-                  <Text style={styles.metaText} allowFontScaling={false}>
+                  <Text style={[styles.metaText, scaleText(styles.metaText)]} allowFontScaling={false}>
                     {time}
                   </Text>
                 ) : null}
-                <Text style={styles.metaText} allowFontScaling={false}>
+                <Text style={[styles.metaText, scaleText(styles.metaText)]} allowFontScaling={false}>
                   {`${views} 阅读`}
                 </Text>
               </View>
-              <Text style={styles.sourceText} allowFontScaling={false}>
+              <Text style={[styles.sourceText, scaleText(styles.sourceText)]} allowFontScaling={false}>
                 {sourceText}
               </Text>
             </View>
