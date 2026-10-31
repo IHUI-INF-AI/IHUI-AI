@@ -550,6 +550,24 @@ def classify_growth_tasks(tasks: list[dict[str, Any]]) -> tuple[list[str], list[
     return to_accept, to_claim
 
 
+def order_accounts_by_credit_urgency(
+    items: list[tuple[str, int | None]], mode: str
+) -> list[str]:
+    """纯函数:按积分紧迫度排任务中心巡检账号顺序(与兄弟席位同口径,固定不可漂移)。
+
+    items = [(account_id, balance_or_None), ...];mode ∈ {lowest_balance, highest_balance}。
+    - lowest_balance(默认紧迫语义):余额越低越先跑 —— 优先给"积分快枯竭"的号补分;
+    - highest_balance:余额越高越先跑 —— 优先消耗高产号的额度。
+    取不到余额(None)排最后(§0.3 不冒充 0,也不阻塞整轮);同值保持稳定序。
+    mode 非二者 ⇒ 原序返回(调用方只在显式开启时传合法值)。
+    """
+    if mode not in ("lowest_balance", "highest_balance"):
+        return [a for a, _ in items]
+    if mode == "highest_balance":
+        return [a for a, _ in sorted(items, key=lambda x: (x[1] is None, -(x[1] or 0)))]
+    return [a for a, _ in sorted(items, key=lambda x: (x[1] is None, x[1] or 0))]
+
+
 async def _claim_one_web(
     jwt: str,
     device_map: dict[str, Any],

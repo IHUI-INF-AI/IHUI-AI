@@ -730,6 +730,28 @@ class TestBlackcatRun:
 # ---------------------------------------------------------------------------
 
 
+class TestUrgencyOrder:
+    def test_none_mode_keeps_order(self):
+        items = [("a", 10), ("b", 5), ("c", None)]
+        assert wt.order_accounts_by_credit_urgency(items, "none") == ["a", "b", "c"]
+
+    def test_lowest_balance_first(self):
+        items = [("a", 10), ("b", 5), ("c", 1), ("d", None)]
+        assert wt.order_accounts_by_credit_urgency(items, "lowest_balance") == ["c", "b", "a", "d"]
+
+    def test_highest_balance_first(self):
+        items = [("a", 10), ("b", 5), ("c", 1), ("d", None)]
+        assert wt.order_accounts_by_credit_urgency(items, "highest_balance") == ["a", "b", "c", "d"]
+
+    def test_unknown_mode_keeps_order(self):
+        items = [("a", 10), ("b", 5)]
+        assert wt.order_accounts_by_credit_urgency(items, "bogus") == ["a", "b"]
+
+    def test_none_balance_sorted_last_stable(self):
+        items = [("a", None), ("b", None), ("c", 3)]
+        assert wt.order_accounts_by_credit_urgency(items, "lowest_balance") == ["c", "a", "b"]
+
+
 class TestRunFamily:
     async def test_contract_keysets(self, monkeypatch: pytest.MonkeyPatch):
         rec = Recorder({PATH_GROWTH_TASKS: ok_envelope({"tasks": []})})

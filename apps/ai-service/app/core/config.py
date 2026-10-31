@@ -353,6 +353,12 @@ class Settings(BaseSettings):
     workbuddy_tasks_blackcat_window: str = "23:00-08:00"  # 黑猫窗口(Asia/Shanghai,跨零点)
     workbuddy_tasks_blackcat_model: str = "glm-5.2"  # 黑猫窗口内需跑闲聊的具体模型(README 实证)
     workbuddy_tasks_blackcat_count: int = 3  # 每夜补全次数 N
+    # 按积分紧迫度轮换(可选,默认 off):任务中心巡检轮在跑四族前,先按账号积分余额重排顺序。
+    # - lowest_balance:余额越低越先跑(优先给"快枯竭"的号补分,防积分别过期作废);
+    # - highest_balance:余额越高越先跑(优先消耗高产号额度);
+    # - none(默认):沿用既有账号顺序,完全不改行为。
+    # 取不到余额(None)的号排最后(§0.3 不冒充 0);该维度仅在显式开启时生效。
+    workbuddy_tasks_urgency_order: str = "none"
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
