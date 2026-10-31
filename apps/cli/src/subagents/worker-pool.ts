@@ -64,6 +64,10 @@ import {
   isSubagentTerminalStatus,
   type SubagentLifecycleStatus,
 } from './types.js'
+// teammateIdle 档的派发出口(2026-10-31 第三笔)。接线方向是 pool → hooks:父进程派发,
+// 子进程(worker-entry)不感知钩子;hooks/index 的依赖面(sandbox / stream-tool-ledger /
+// prompt-boundary)不回头引本文件,故不构成环。
+import { runHook } from '../hooks/index.js'
 
 // ───────────────────────────── 常量 ─────────────────────────────
 
@@ -1030,6 +1034,10 @@ export class SubagentWorkerPool {
     entry: WorkerEntry,
     cause: 'idle' | 'absolute-cap',
   ): void {
+    // 幂等闸收进本函数(2026-10-31 第三笔):两个入口各自已经判过一次,但"恰好一次"
+    // 不该依赖调用方记得 —— teammateIdle 钩子就挂在这次跃迁上,漏一处守卫就是同一席
+    // 被报两次空闲。跃迁本身重复执行无害(set true / resolve 一次),重复**派发**有害。
+    if (entry.idleDetached) return;
     entry.idleDetached = true;
     entry.lifecycle = SUBAGENT_STATUS_DETACHED_IDLE;
     // 报名行刻意 ASCII(守门 70 棘轮:本文件中文行只减不增;机器码 SUBAGENT_DETACH_REASON 之外
@@ -1052,6 +1060,14 @@ export class SubagentWorkerPool {
       });
       entry.resolver = undefined;
     }
+    // teammateIdle 档(2026-10-31 第三笔):状态跃迁与前台落账都做完之后再派发 ——
+    // 钩子看到的必须是"已经转后台"的事实,排在写状态之前就成了预告。
+    // 载荷只带标识(id),不带任务正文/提示词/凭据:本钩子的语义是"这一席空了",
+    // 不是"这一席在做什么"。失败只落一行 ASCII stderr(§0.3:不许装作没发生,
+    // 也不许把派发故障回灌到已经完成的迁移里)。
+    void runHook('teammateIdle', { subagentId, teammateId: subagentId }).catch((e: unknown) => {
+      process.stderr.write(`[subagent ${subagentId}] teammateIdle hook failed: ${String(e)}\n`);
+    });
   }
 
   /** 心跳检查:超过 heartbeatTimeoutMs 无心跳 → 标记 dead,SIGKILL */

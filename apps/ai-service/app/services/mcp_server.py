@@ -24,6 +24,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
+# 会话寻址投递的 kind 值域单源(§0.6):工具 schema 的 enum 与 handler 校验同吃这一份白名单
+from app.services.agent_comm import _NAMABLE_MESSAGE_TYPES
+
 if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
 
@@ -602,6 +605,9 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 为可 import 的 source.py 并起 pytest 真执行(pytest 收集时即执行模块级代码),
     # 等价"提交任意 Python 代码由服务进程执行";留在 role 0 可用名单就是任意角色 RCE。
     "generate_test",
+    # 2026-11-01(G-NotebookEdit 补齐):notebook_edit 写盘(.ipynb 单元格级改写),
+    # 与 write_file/file_edit/resolve_conflict 同档;写回腿复用 _tool_write_file。
+    "notebook_edit",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -1742,6 +1748,11 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             content = f.read()
         # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
         _record_file_base(resolved_path, content)
+        # A 格读侧登记(2026-10-31 接线):编辑前脏判定的唯一凭据;失败绝不打断读取
+        try:
+            record_read(arguments.get("__session_id"), resolved_path, content)
+        except Exception:  # noqa: BLE001 - 登记层故障不得让读失败
+            pass
         return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
     except Exception as e:
         return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
@@ -1839,6 +1850,11 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 f.write(content)
             # 1-2:写盘后刷新 base(agent 视角最新内容)
             _record_file_base(resolved_path, content)
+            # C 格自我写入登记:本会话自己的改动不报成他席覆盖;失败不影响写
+            try:
+                record_self_write(arguments.get("__session_id"), resolved_path, content)
+            except Exception:  # noqa: BLE001 - 登记层故障不得让写失败
+                pass
             return {
                 "tool": "write_file",
                 "path": resolved_path,
@@ -1937,6 +1953,20 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     # 票78 串行化:写回段持 per-path 锁(读段在锁外,3-way base 检测兜底并发;
     # 写段与 base 刷新入锁,与 write_file/resolve_conflict 的写段互斥,缩小竞态窗口)
     async with get_path_write_lock(resolved_path):
+        # B 格编辑前脏判定(2026-10-31 接线):默认只在返回体点名(fresh/stale/never_read/
+        # undetermined 四档不并桶);显式严格档 ∧ stale 才拒写。判定层故障 ⇒ 不拦(§0.10)。
+        try:
+            read_state: Mapping[str, Any] | None = judge_read_state(
+                arguments.get("__session_id"), resolved_path, arguments=arguments
+            )
+        except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
+            read_state = None
+        if read_state is not None and read_state.get("blocking"):
+            return _err(
+                "STALE_READ_CONFIRMATION_REQUIRED",
+                str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
+                readState=read_state_field(read_state),
+            )
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
@@ -1957,10 +1987,13 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                     new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
         # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
         _record_file_base(resolved_path, new_content)
-    return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
+    result_payload: dict[str, Any] = {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
             "strategy": strategy,
             "diff_preview": "".join(diff[:20])}
+    if read_state is not None:
+        result_payload["readState"] = read_state_field(read_state)
+    return result_payload
 
 
 async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -9624,6 +9657,283 @@ async def _tool_read_team_inbox(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+async def _tool_send_to_session(
+    arguments: dict[str, Any], bus: Any | None = None
+) -> dict[str, Any]:
+    """send_to_session:按会话寻址投递一条消息(绝不广播,不跨属主)。
+
+    与 send_team_message 互补:那枚按「代理名」寻址(席间),本枚按「会话 id」寻址
+    (会话间),两者复用同一条 AgentMessageBus,不新造传输层(§0.6)。
+    """
+    from uuid import uuid4
+
+    from .agent_comm import AgentMessage, agent_message_bus
+    from .run_ownership import owner_of
+
+    caller_session = str(arguments.get("__session_id") or "")
+    caller_user = str(arguments.get("__user_id") or "")
+    if not caller_user or not caller_session:
+        missing = [
+            key
+            for key, value in (("__user_id", caller_user), ("__session_id", caller_session))
+            if not value
+        ]
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "missing_caller_identity",
+            "missingKeys": missing,
+            "delivered": False,
+            "sideEffects": "none",
+        }
+
+    caller_owner = owner_of(caller_session)
+    if caller_owner is not None and caller_owner != caller_user:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "forbidden_caller_session_mismatch",
+            "delivered": False,
+            "sideEffects": "none",
+        }
+
+    target = str(arguments.get("target_session_id") or "")
+    content = str(arguments.get("message") or "")
+    kind = str(arguments.get("kind") or "notification")
+    if not target:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "missing_target_session",
+            "delivered": False, "sideEffects": "none",
+        }
+    if target == "*":
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "broadcast_not_allowed",
+            "delivered": False, "sideEffects": "none",
+        }
+    if target == caller_session:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "self_target",
+            "delivered": False, "sideEffects": "none",
+        }
+    if not content.strip():
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "empty_message",
+            "delivered": False, "sideEffects": "none",
+        }
+    if kind not in _NAMABLE_MESSAGE_TYPES:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "unsupported_kind",
+            "supported": sorted(_NAMABLE_MESSAGE_TYPES),
+            "delivered": False, "sideEffects": "none",
+        }
+
+    target_owner = owner_of(target)
+    if target_owner is None:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "target_owner_unknown",
+            "delivered": False, "sideEffects": "none",
+        }
+    if target_owner != caller_user:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "forbidden_cross_owner",
+            "delivered": False, "sideEffects": "none",
+        }
+
+    b = bus if bus is not None else agent_message_bus
+    # 目标会话队列按需创建:放行路径才建,拒绝路径一条都不碰("零副作用"是可断言的)
+    b.register(target)
+    message_id = str(uuid4())
+    before = b.queue_depth(target) or 0
+    await b.send(
+        AgentMessage(
+            id=message_id,
+            fromAgent=caller_session,
+            toAgent=target,
+            type=kind,  # type: ignore[arg-type]
+            content=content,
+            requireReply=(kind == "request"),
+            ownerUserId=caller_user,
+            sessionId=caller_session,
+        )
+    )
+    after = b.queue_depth(target)
+    if after is None or after <= before:
+        return {
+            "tool": "send_to_session", "ok": False,
+            "code": "not_queued",
+            "delivered": False,
+            "messageId": message_id,
+            "sideEffects": "none",
+        }
+    return {
+        "tool": "send_to_session", "ok": True,
+        "code": "queued",
+        "delivered": True,
+        "toSessionId": target,
+        "queueDepth": after,
+        "messageId": message_id,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Notebook 结构编辑(G-NotebookEdit 补齐,2026-11-01 立;对标对方 NotebookEdit 的
+# cell_id/cell_type/edit_mode 三键,本仓 MCP/CLI 工具面此前 0 命中)
+# 写盘腿纪律:定位/改写只动目标 cell,回写一律走 _tool_write_file 的串行化腿
+# (per-path 锁 + 并发漂移判定 + base 刷新),不开第二条文件写/权限腿(§0.6)。
+# 身份闸与相邻写工具同档:只认宿主注入的 __user_id(call_tool 从 FastAPI request
+# 透传,LLM 不可控),缺失即 PRINCIPAL_REQUIRED 且一次都不碰磁盘(§5 认证≠授权)。
+# ---------------------------------------------------------------------------
+
+_NOTEBOOK_EDIT_MODES: Final[frozenset[str]] = frozenset({"replace", "insert", "delete"})
+_NOTEBOOK_CELL_TYPES: Final[frozenset[str]] = frozenset({"code", "markdown", "raw"})
+_NOTEBOOK_CELL_INDEX_RE: Final[re.Pattern[str]] = re.compile(r"^cell-(\d+)$")
+# 体积上限与 file_edit 同档(10MB);notebook 常内嵌 base64 输出,超限直接拒 edit。
+_NOTEBOOK_EDIT_MAX_BYTES: Final[int] = 10 * 1024 * 1024
+
+
+def _notebook_source_lines(text: str) -> list[str]:
+    """把新源码切成 ipynb 惯用的行数组(每行保留行尾换行符)。"""
+    return text.splitlines(keepends=True)
+
+
+async def _tool_notebook_edit(arguments: dict[str, Any]) -> dict[str, Any]:
+    """notebook_edit:按单元格结构编辑 .ipynb(replace/insert/delete)。
+
+    cell_id 两种形态:`cell-N`(0 基序号,对方 NotebookEdit 展示形)或 notebook 原生
+    cell 的 id 字段值。edit_mode=replace 改写目标 cell 的 source(可顺带改 cell_type);
+    insert 在目标 cell 之后插入新 cell(cell_type 必填);delete 删除目标 cell。
+    其余 cell 在同一次 JSON 序列化下逐字节保持不变(测试逐 cell dump 比对钉住)。
+    """
+    def _err(code: str, msg: str) -> dict[str, Any]:
+        return {"tool": "notebook_edit", "ok": False, "errorCode": code, "error": msg}
+
+    # 1. 身份闸最先判:拿不到宿主注入主体就拒绝,连路径校验都不做(零磁盘动作)。
+    host_user_id = arguments.get("__user_id")
+    if not isinstance(host_user_id, str) or not host_user_id:
+        return _err("PRINCIPAL_REQUIRED", "缺少宿主注入的调用者身份")
+
+    notebook_path = str(arguments.get("notebook_path") or "")
+    if not notebook_path.lower().endswith(".ipynb"):
+        return _err("NOT_A_NOTEBOOK", "notebook_path 必须指向 .ipynb 文件")
+    ok, info = _validate_write_path_in_workspace(notebook_path)
+    if not ok:
+        return _err("PATH_NOT_ALLOWED", info)
+    resolved_path = info
+
+    edit_mode = str(arguments.get("edit_mode") or "replace")
+    if edit_mode not in _NOTEBOOK_EDIT_MODES:
+        return _err("INVALID_EDIT_MODE", f"edit_mode 只接受 replace/insert/delete,收到: {edit_mode}")
+
+    cell_id = str(arguments.get("cell_id") or "").strip()
+    if not cell_id:
+        return _err("MISSING_PARAMS", "缺少 cell_id 参数")
+
+    new_source = arguments.get("new_source")
+    if edit_mode in ("replace", "insert") and (not isinstance(new_source, str) or not new_source):
+        return _err("MISSING_PARAMS", f"{edit_mode} 模式必须携带非空的 new_source")
+
+    cell_type = arguments.get("cell_type")
+    if cell_type is not None and str(cell_type) not in _NOTEBOOK_CELL_TYPES:
+        return _err("INVALID_CELL_TYPE", "cell_type 只接受 code/markdown/raw")
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", f"笔记本不存在: {resolved_path}")
+        if os.path.getsize(resolved_path) > _NOTEBOOK_EDIT_MAX_BYTES:
+            return _err("FILE_TOO_LARGE", "笔记本大于 10MB,拒绝编辑")
+        with open(resolved_path, encoding="utf-8") as f:
+            original_text = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    try:
+        nb: dict[str, Any] = json.loads(original_text)
+    except ValueError as e:
+        return _err("INVALID_NOTEBOOK", f".ipynb JSON 解析失败: {e}")
+    cells = nb.get("cells")
+    if not isinstance(nb, dict) or not isinstance(cells, list):
+        return _err("INVALID_NOTEBOOK", "cells 数组缺失或形态非法,不是有效笔记本")
+
+    # 2. 定位目标 cell:cell-N 优先按 0 基序号,否则按 notebook 原生 id 逐格匹配。
+    target_index: int | None = None
+    index_match = _NOTEBOOK_CELL_INDEX_RE.match(cell_id)
+    if index_match is not None:
+        ordinal = int(index_match.group(1))
+        if 0 <= ordinal < len(cells):
+            target_index = ordinal
+    else:
+        for i, cell in enumerate(cells):
+            if isinstance(cell, dict) and cell.get("id") == cell_id:
+                target_index = i
+                break
+    if target_index is None:
+        return _err("CELL_NOT_FOUND", f"未找到单元格: {cell_id}")
+
+    applied_cell_id = cell_id
+    if edit_mode == "replace":
+        target = cells[target_index]
+        if not isinstance(target, dict):
+            return _err("INVALID_NOTEBOOK", f"单元格 {cell_id} 内容不是对象,拒绝改写")
+        target["source"] = _notebook_source_lines(str(new_source))
+        if cell_type is not None:
+            ct = str(cell_type)
+            target["cell_type"] = ct
+            if ct == "code":
+                target.setdefault("execution_count", None)
+                target.setdefault("outputs", [])
+            else:
+                target.pop("execution_count", None)
+                target.pop("outputs", None)
+    elif edit_mode == "insert":
+        if cell_type is None:
+            return _err("MISSING_CELL_TYPE", "insert 模式必须携带 cell_type(code/markdown/raw)")
+        ct = str(cell_type)
+        new_cell: dict[str, Any] = {
+            "cell_type": ct,
+            "metadata": {},
+            "source": _notebook_source_lines(str(new_source)),
+        }
+        if ct == "code":
+            new_cell["execution_count"] = None
+            new_cell["outputs"] = []
+        # 对方语义:插到 cell_id 所指单元格之后(形态对齐 NotebookEdit edit_mode=insert)
+        cells.insert(target_index + 1, new_cell)
+        applied_cell_id = f"cell-{target_index + 1}"
+    else:  # delete
+        removed = cells.pop(target_index)
+        if isinstance(removed, dict) and removed.get("id"):
+            applied_cell_id = str(removed["id"])
+
+    nb["cells"] = cells
+    # nbformat 生态默认 writer 形态:indent=1 + 文件末尾换行;序列化确定性 = 跑两次同结果。
+    new_text = json.dumps(nb, ensure_ascii=False, indent=1) + "\n"
+
+    # 3. 回写复用 write_file 串行化腿:先以刚读到的快照刷新 base(读-改-写自洽),
+    #    写段内 classify 若读到外部改动即 drifted 拒写(失效方向=多要一次重读,不盲覆盖)。
+    _record_file_base(resolved_path, original_text)
+    write_result = await _tool_write_file({"path": resolved_path, "content": new_text})
+    if not write_result.get("ok"):
+        return {
+            "tool": "notebook_edit", "ok": False,
+            "errorCode": str(write_result.get("errorCode") or "WRITE_FAILED"),
+            "error": write_result.get("error"),
+            "write": write_result,
+        }
+    return {
+        "tool": "notebook_edit", "ok": True,
+        "editMode": edit_mode,
+        "cellId": applied_cell_id,
+        "notebookPath": resolved_path,
+        "cellCount": len(cells),
+        "bytesWritten": write_result.get("bytes_written"),
+    }
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -9851,7 +10161,7 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="image_search",
-        description="图片搜索(DuckDuckGo Images,无 API key;返回 imageUrl/thumbnailUrl/sourceUrl/尺寸)",
+        description="图片搜索(DuckDuckGo Images,无 API key)。每条结果带 trust={tier: official|trusted|unknown|unsafe, score, reasons} 来源可信度分档,结果按 score 降序;unsafe 会在 summary.message 里点名。",
         input_schema={
             "type": "object",
             "properties": {
@@ -11861,6 +12171,48 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    MCPTool(
+        name="send_to_session",
+        description=(
+            "按会话 id 向另一个会话投递一条消息(单播,绝不广播)。只可投给同一属主名下的"
+            "目标会话;目标无属主登记、跨属主、或调用方会话已登记为他人一律拒绝且零副作用。"
+            "身份只认承载层注入,不接受模型自报。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "target_session_id": {"type": "string", "description": "目标会话 id(必填,不可为 * 或自身)"},
+                "message": {"type": "string", "description": "消息正文(必填,非空白)"},
+                "kind": {"type": "string", "description": "消息类型(notification/request/handoff,默认 notification)", "enum": sorted(_NAMABLE_MESSAGE_TYPES)},
+            },
+            "required": ["target_session_id", "message"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== Notebook 结构编辑(G-NotebookEdit 补齐,2026-11-01 立)=====
+    # 对标对方 NotebookEdit 三键(cell_id/cell_type/edit_mode);身份不入 schema
+    # (ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权)。
+    MCPTool(
+        name="notebook_edit",
+        description=(
+            "按单元格结构编辑 .ipynb 笔记本:cell_id 定位(cell-N 0 基序号或 notebook 原生 id),"
+            "edit_mode=replace 改写目标 cell 的 source(可顺带改 cell_type)、insert 在其后插入新 cell"
+            "(cell_type 必填)、delete 删除目标 cell;其余 cell 逐字节不变。写回复用 write_file "
+            "串行化腿(路径白名单+并发漂移判定),越权/非属主一律拒绝且零磁盘副作用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "notebook_path": {"type": "string", "description": "目标 .ipynb 路径(必填,限工作区白名单内)"},
+                "cell_id": {"type": "string", "description": "目标单元格标识(必填):cell-N(0 基序号)或 notebook 原生 cell id"},
+                "cell_type": {"type": "string", "enum": ["code", "markdown", "raw"], "description": "单元格类型:insert 必填;replace 可选,用于改目标 cell 类型;delete 忽略"},
+                "new_source": {"type": "string", "description": "单元格新源码(replace/insert 必填非空;delete 忽略)"},
+                "edit_mode": {"type": "string", "enum": ["replace", "insert", "delete"], "description": "编辑模式(默认 replace)"},
+            },
+            "required": ["notebook_path", "cell_id"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -12388,6 +12740,10 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "investigate_codebase": _tool_investigate_codebase,
     "send_team_message": _tool_send_team_message,
     "read_team_inbox": _tool_read_team_inbox,
+    # 会话寻址投递(G-07 第二形态,2026-10-31 立;与上方 _TOOLS 声明同批双射)
+    "send_to_session": _tool_send_to_session,
+    # Notebook 结构编辑(G-NotebookEdit,2026-11-01 立;与上方 _TOOLS 声明同批双射)
+    "notebook_edit": _tool_notebook_edit,
 }
 
 

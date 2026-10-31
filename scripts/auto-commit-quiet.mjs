@@ -184,6 +184,31 @@ function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
   return { kept: stale.filter((p) => !skipped.includes(p)), skipped }
 }
 
+/**
+ * 收编批必须按 scope 门文档化的合法形态切两刀(2026-10-31,实测结构性死锁):
+ *   - R2 对「staged 含 packages/i18n/messages/ 且 scope≠i18n」无条件判红(R2 不走跨切白名单);
+ *   - R3 对「≥3 个 apps 子目录 + 显式 scope 不在端集合」判红,而 scope=null 的聚合 commit 明文合法。
+ * 旧的 `chore(auto)` 两头都撞:批里有 i18n 必红 R2、跨 ≥3 端必红 R3 ⇒ 收编器每轮同一条红原地
+ * 打转,改动永久悬挂(2026-10-31 实测 108 枚,十条日志轮同一出口)。不削判据,只把批次摆对:
+ * i18n messages 单独一枚 chore(i18n),其余走无 scope 的 chore: 聚合。
+ */
+const I18N_MESSAGES_PREFIX = 'packages/i18n/messages/'
+function autoCommitMessages(quietMin) {
+  return {
+    i18n: `chore(i18n): 收编停留≥${quietMin}分钟的 i18n 未提交改动`,
+    rest: `chore: 收编停留≥${quietMin}分钟的未提交改动`,
+  }
+}
+
+function partitionI18nBatch(paths) {
+  const i18n = []
+  const rest = []
+  for (const p of paths) {
+    ;(String(p).replace(/\\/g, '/').startsWith(I18N_MESSAGES_PREFIX) ? i18n : rest).push(p)
+  }
+  return { i18n, rest }
+}
+
 function log(line) {
   mkdirSync(dirname(LOG), { recursive: true })
   appendFileSync(LOG, `[${new Date().toISOString()}] ${line}\n`)
@@ -627,34 +652,36 @@ function main() {
     stale.push(...picked, ...keep)
   }
 
-  try {
-    const out = execFileSync(
-      process.execPath,
-      [
-        join(ROOT, 'scripts', 'safe-commit.mjs'),
-        '-m',
-        `chore(auto): 收编停留≥${QUIET_MIN}分钟的未提交改动`,
-        '--',
-        ...stale,
-      ],
-      {
-        cwd: ROOT,
-        encoding: 'utf8',
-        maxBuffer: 64 << 20,
-        windowsHide: true,
-        env: { ...process.env, AGENT_SCOPE: '' },
-      },
-    )
-    log(`✅ safe-commit 成功\n${String(out).trim().split('\n').slice(-4).join('\n')}`)
-  } catch (e) {
-    log(
-      `❌ safe-commit 失败(下一轮再试):${String(e.stdout || e.message)
-        .trim()
-        .split('\n')
-        .slice(-6)
-        .join('\n')}`,
-    )
+  const commitBatch = (paths, message) => {
+    if (!paths.length) return
+    try {
+      const out = execFileSync(
+        process.execPath,
+        [join(ROOT, 'scripts', 'safe-commit.mjs'), '-m', message, '--', ...paths],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          maxBuffer: 64 << 20,
+          windowsHide: true,
+          env: { ...process.env, AGENT_SCOPE: '' },
+        },
+      )
+      log(`✅ safe-commit 成功(${message})\n${String(out).trim().split('\n').slice(-4).join('\n')}`)
+    } catch (e) {
+      log(
+        `❌ safe-commit 失败(下一轮再试):${String(e.stdout || e.message)
+          .trim()
+          .split('\n')
+          .slice(-6)
+          .join('\n')}`,
+      )
+    }
   }
+
+  const { i18n: i18nPaths, rest: restPaths } = partitionI18nBatch(stale)
+  const msgs = autoCommitMessages(QUIET_MIN)
+  commitBatch(i18nPaths, msgs.i18n)
+  commitBatch(restPaths, msgs.rest)
 }
 
 // §22d:被 import 时不得触发 CLI 主流程(镜像测试要能用生产判据复算,§22c)。
@@ -674,5 +701,7 @@ export const __test__ = {
   rollbackLedger,
   partitionStaleCopies,
   dropStaleCopies,
+  partitionI18nBatch,
+  autoCommitMessages,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
