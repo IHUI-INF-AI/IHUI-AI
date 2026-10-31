@@ -143,25 +143,45 @@ export function generateTotp(secret: Buffer, options?: Partial<TotpOptions>): st
  *
  * @returns true=校验通过,false=token 错误或过期
  */
-export function verifyTotp(token: string, secret: Buffer, options?: Partial<TotpOptions>): boolean {
+/**
+ * 与 verifyTotp 同判据（±1 time step 防时钟漂移），但**返回命中的 time step**：
+ * 调用方用它做"同一步只兑付一次"的账本，防同一 6 位码在 90s 窗口内被重复换取 token。
+ *
+ * @returns 命中的 counter；校验失败返回 null
+ */
+export function verifyTotpCounter(
+  token: string,
+  secret: Buffer,
+  options?: Partial<TotpOptions>,
+): number | null {
   const algorithm = options?.algorithm ?? DEFAULT_ALGORITHM
   const digits = options?.digits ?? DEFAULT_DIGITS
   const period = options?.period ?? DEFAULT_PERIOD
 
   // 输入校验:必须是 digits 位数字
   if (!/^\d+$/.test(token) || token.length !== digits) {
-    return false
+    return null
   }
 
   const counter = Math.floor(Date.now() / 1000 / period)
   // ±1 time step 防时钟漂移
   for (const delta of [-1, 0, 1]) {
-    const expected = computeHotp(secret, counter + delta, algorithm, digits)
+    const candidate = counter + delta
+    const expected = computeHotp(secret, candidate, algorithm, digits)
     if (constantTimeEquals(token, expected)) {
-      return true
+      return candidate
     }
   }
-  return false
+  return null
+}
+
+export function verifyTotp(token: string, secret: Buffer, options?: Partial<TotpOptions>): boolean {
+  return verifyTotpCounter(token, secret, options) !== null
+}
+
+export const __test__ = {
+  computeHotp,
+  verifyTotpCounter,
 }
 
 /**

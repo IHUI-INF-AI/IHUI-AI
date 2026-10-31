@@ -1000,7 +1000,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
 
   // GET /settlement/list - 结算列表
-  server.get('/settlement/list', async (request, reply) => {
+  // 2026-10-31 R12:结算台账含佣金率/佣金金额,与 /settlement/:id 同源,同加 admin 闸。
+  server.get('/settlement/list', { preHandler: requireAdmin }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -1021,7 +1022,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /settlement/summary - 结算汇总
-  server.get('/settlement/summary', async (_request, reply) => {
+  // 2026-10-31 R12:财务汇总与 /settlement/list 同源,同加 admin 闸。
+  server.get('/settlement/summary', { preHandler: requireAdmin }, async (_request, reply) => {
     const summary = await findSettlementSummary()
     return reply.send(success(summary))
   })
@@ -1038,7 +1040,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /settlement/unsettled - 未结算记录
-  server.get('/settlement/unsettled', async (request, reply) => {
+  // 2026-10-31 R12:未结算台账与 /settlement/list 同源,同加 admin 闸。
+  server.get('/settlement/unsettled', { preHandler: requireAdmin }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
