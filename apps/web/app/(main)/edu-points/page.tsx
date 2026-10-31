@@ -100,7 +100,7 @@ export default function EduPointsPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Award className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -112,21 +112,21 @@ export default function EduPointsPage() {
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('activeChannels')}</CardTitle>
+            <CardTitle className="text-body font-medium">{t('activeChannels')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{list.length}</div>
+            <div className="text-display font-bold">{list.length}</div>
           </CardContent>
         </Card>
         {allow && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('myPoints')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('myPoints')}</CardTitle>
               <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{myPoints ?? 0}</div>
+              <div className="text-display font-bold">{myPoints ?? 0}</div>
             </CardContent>
           </Card>
         )}
@@ -222,9 +222,9 @@ export default function EduPointsPage() {
                             <Gift className="h-8 w-8" />
                           </div>
                         )}
-                        <p className="line-clamp-1 text-sm font-medium">{item.name}</p>
+                        <p className="line-clamp-1 text-body font-medium">{item.name}</p>
                         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-                          <span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-primary">
+                          <span className="flex items-center gap-1 text-body font-semibold tabular-nums text-primary">
                             <Coins className="h-4 w-4" />
                             {cost}
                           </span>

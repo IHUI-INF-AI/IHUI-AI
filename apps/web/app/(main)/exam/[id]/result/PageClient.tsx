@@ -134,7 +134,7 @@ export default function ExamResultPage() {
           </CardTitle>
           <p
             className={cn(
-              'text-sm font-medium',
+              'text-body font-medium',
               result.isPassed ? 'text-emerald-600' : 'text-destructive',
             )}
           >
@@ -189,7 +189,7 @@ export default function ExamResultPage() {
                         <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                       )}
                       <div className="min-w-0 flex-1 space-y-1">
-                        <p className="break-words text-sm font-medium">
+                        <p className="break-words text-body font-medium">
                           {i + 1}. {d.title}
                         </p>
                         <div className="grid grid-cols-1 gap-1 text-xs">

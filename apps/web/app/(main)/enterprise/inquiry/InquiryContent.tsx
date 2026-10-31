@@ -18,7 +18,7 @@ export function InquiryContent(): React.JSX.Element {
     <main className="mx-auto w-full max-w-6xl px-4 py-4">
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('enterpriseInquiry.title')}
         </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -56,7 +56,7 @@ export function InquiryContent(): React.JSX.Element {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Headphones className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-semibold">{t('enterpriseInquiry.sidebar.salesTitle')}</h3>
+              <h3 className="text-body font-semibold">{t('enterpriseInquiry.sidebar.salesTitle')}</h3>
               <p className="text-xs text-muted-foreground">
                 {t('enterpriseInquiry.sidebar.salesDesc')}
               </p>
@@ -67,7 +67,7 @@ export function InquiryContent(): React.JSX.Element {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Clock className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-semibold">
+              <h3 className="text-body font-semibold">
                 {t('enterpriseInquiry.sidebar.workHoursTitle')}
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -80,7 +80,7 @@ export function InquiryContent(): React.JSX.Element {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <ShieldCheck className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-semibold">{t('enterpriseInquiry.sidebar.slaTitle')}</h3>
+              <h3 className="text-body font-semibold">{t('enterpriseInquiry.sidebar.slaTitle')}</h3>
               <p className="text-xs text-muted-foreground">{t('enterpriseInquiry.sidebar.sla')}</p>
             </CardContent>
           </Card>

@@ -188,7 +188,7 @@ export default function AuthorizationsPage() {
                         </TableCell>
                         <TableCell>
                           {isCurrent ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                               <ShieldCheck className="h-3 w-3" />
                               {t('sessionCurrent')}
                             </span>

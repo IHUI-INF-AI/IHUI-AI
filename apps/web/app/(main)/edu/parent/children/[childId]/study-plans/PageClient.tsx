@@ -75,7 +75,7 @@ export default function ChildStudyPlansPage() {
     <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('child.studyPlans')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('child.studyPlans')}</h1>
         <p className="text-xs text-muted-foreground">{t('child.studyPlansHint')}</p>
       </header>
 

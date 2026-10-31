@@ -37,11 +37,11 @@ export function ProductsContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <ShoppingBag className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
           {t('heroTitle')}
         </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -63,7 +63,7 @@ export function ProductsContent(): React.JSX.Element {
                 <Icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-              <div className="mt-2 text-2xl font-bold text-primary">{t(`cards.${id}.price`)}</div>
+              <div className="mt-2 text-display font-bold text-primary">{t(`cards.${id}.price`)}</div>
               <p className="mt-2 text-sm text-muted-foreground">{t(`cards.${id}.desc`)}</p>
               <ul className="mt-4 space-y-2">
                 {[1, 2, 3].map((n) => (
@@ -86,7 +86,7 @@ export function ProductsContent(): React.JSX.Element {
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-3 text-center">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('ctaTitle')}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">

@@ -82,7 +82,7 @@ export default function NotificationsPage() {
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex min-w-0 items-center gap-2 text-display font-bold tracking-tight">
             <Bell className="h-6 w-6 shrink-0 text-primary" />
             <span className="truncate">{t('title')}</span>
           </h1>
@@ -117,7 +117,7 @@ export default function NotificationsPage() {
               key={p}
               onClick={() => setPartition(p)}
               className={cn(
-                'shrink-0 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+                'shrink-0 whitespace-nowrap rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
                 partition === p
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -134,7 +134,7 @@ export default function NotificationsPage() {
               key={tabItem.value}
               onClick={() => setTab(tabItem.value)}
               className={cn(
-                'shrink-0 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+                'shrink-0 whitespace-nowrap rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
                 tab === tabItem.value
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -148,7 +148,7 @@ export default function NotificationsPage() {
           <button
             onClick={() => setView('list')}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               view === 'list'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -159,7 +159,7 @@ export default function NotificationsPage() {
           <button
             onClick={() => setView('timeline')}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               view === 'timeline'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

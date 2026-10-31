@@ -477,7 +477,7 @@ export function ConversationImportPanel() {
       {/* Step 1: 选择来源 */}
       <Card>
         <CardContent className="space-y-3 p-3 min-[640px]:p-3">
-          <p className="text-sm font-medium">{t('sourcesTitle')}</p>
+          <p className="text-body font-medium">{t('sourcesTitle')}</p>
           <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-5">
             {IMPORT_SOURCES.map((s) => {
               const active = source === s.value
@@ -494,7 +494,7 @@ export function ConversationImportPanel() {
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  <span className="flex w-full items-center gap-2 text-xs font-medium">
+                  <span className="flex w-full items-center gap-2 text-label font-medium">
                     <span className="flex-1 truncate">{t(s.labelKey)}</span>
                     {active && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
                   </span>
@@ -510,7 +510,7 @@ export function ConversationImportPanel() {
       {source && (
         <Card>
           <CardContent className="space-y-3 p-3 min-[640px]:p-3">
-            <p className="text-sm font-medium">{t('upload')}</p>
+            <p className="text-body font-medium">{t('upload')}</p>
             <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
               <FileUp className="h-6 w-6 text-muted-foreground" />
@@ -549,7 +549,7 @@ export function ConversationImportPanel() {
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{t('previewTitle')}</p>
+                  <p className="text-body font-medium">{t('previewTitle')}</p>
                   <button
                     type="button"
                     onClick={toggleAll}
@@ -663,7 +663,7 @@ export function ConversationImportPanel() {
       {committed.length > 0 && (
         <Card data-testid="import-result-card">
           <CardContent className="space-y-3 p-3 min-[640px]:p-3">
-            <p className="flex items-center gap-2 text-sm font-medium">
+            <p className="flex items-center gap-2 text-body font-medium">
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
               {t('resultTitle', { count: committed.length })}
             </p>
@@ -755,7 +755,7 @@ export function ConversationImportPanel() {
       {/* Step 4: 导入历史 */}
       <Card>
         <CardContent className="space-y-3 p-3 min-[640px]:p-3">
-          <p className="flex items-center gap-2 text-sm font-medium">
+          <p className="flex items-center gap-2 text-body font-medium">
             <History className="h-4 w-4 text-muted-foreground" />
             {t('historyTitle')}
           </p>

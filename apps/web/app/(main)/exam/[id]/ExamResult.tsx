@@ -47,7 +47,7 @@ export function ExamResult({ paper, result }: Props) {
           </CardTitle>
           <p
             className={cn(
-              'text-sm font-medium',
+              'text-body font-medium',
               result.passed ? 'text-emerald-600' : 'text-destructive',
             )}
           >

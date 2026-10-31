@@ -71,7 +71,7 @@ export default function ChildMealsPage() {
     <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('child.meals')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('child.meals')}</h1>
         <p className="text-xs text-muted-foreground">{t('child.mealsHint')}</p>
       </header>
 
@@ -97,14 +97,14 @@ export default function ChildMealsPage() {
             return (
               <Card key={type}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="text-body font-medium">
                     {codeLabel(tParent, MEAL_TYPE_KEYS, type)}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {items.map((m) => (
                     <div key={m.id} className="rounded-lg border bg-card px-3 py-2">
-                      <p className="text-sm font-medium">{m.dishName}</p>
+                      <p className="text-body font-medium">{m.dishName}</p>
                       {m.ingredients && (
                         <p className="mt-1 text-xs text-muted-foreground">{m.ingredients}</p>
                       )}

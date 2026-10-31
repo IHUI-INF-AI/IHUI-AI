@@ -362,7 +362,7 @@ export default function AutomationPage() {
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
                       <ExIcon className="h-4 w-4" />
                     </div>
-                    <h4 className="text-sm font-semibold leading-tight">{t(ex.nameKey)}</h4>
+                    <h4 className="text-body font-semibold leading-tight">{t(ex.nameKey)}</h4>
                   </div>
                   <p className="line-clamp-2 text-xs text-muted-foreground">{t(ex.descKey)}</p>
                   <div className="space-y-1 text-[11px] text-muted-foreground">
@@ -405,14 +405,14 @@ export default function AutomationPage() {
                     <Clock className="h-4 w-4" />
                     <div>
                       <div className="font-semibold">{task.name}</div>
-                      <div className="text-xs font-normal text-muted-foreground">
+                      <div className="text-label font-normal text-muted-foreground">
                         {task.description}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {task.running && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         {t('running')}
                       </span>

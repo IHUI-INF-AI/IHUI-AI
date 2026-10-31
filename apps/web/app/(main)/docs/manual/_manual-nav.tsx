@@ -24,7 +24,7 @@ export function ManualNav({ prev, next }: ManualNavProps) {
           className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
         >
           <div className="text-xs font-mono text-muted-foreground">← 第 {prev.num} 章</div>
-          <div className="mt-1 text-sm font-medium">{prev.title}</div>
+          <div className="mt-1 text-body font-medium">{prev.title}</div>
         </Link>
       ) : (
         <div className="rounded-xl border bg-muted/20 p-3 opacity-50">
@@ -38,7 +38,7 @@ export function ManualNav({ prev, next }: ManualNavProps) {
           className="group rounded-lg border bg-card p-3 text-right transition-colors hover:bg-accent"
         >
           <div className="text-xs font-mono text-muted-foreground">第 {next.num} 章 →</div>
-          <div className="mt-1 text-sm font-medium">{next.title}</div>
+          <div className="mt-1 text-body font-medium">{next.title}</div>
         </Link>
       ) : (
         <div className="rounded-xl border bg-muted/20 p-3 text-right opacity-50">

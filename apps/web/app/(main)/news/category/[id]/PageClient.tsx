@@ -126,7 +126,7 @@ export default function NewsCategoryPageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <FolderOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{category.name}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{category.name}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -163,7 +163,7 @@ export default function NewsCategoryPageClient() {
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex items-center gap-2">
                       {item.isPinned && (
-                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                           <Pin className="h-3 w-3" />
                           {t('pinned')}
                         </span>

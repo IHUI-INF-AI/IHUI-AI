@@ -161,7 +161,7 @@ export default function PageClient() {
       <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t('channels.title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('channels.title')}</h1>
           <p className="text-xs text-muted-foreground">{t('channels.subtitle')}</p>
         </div>
         <Button size="sm" className="gap-1.5" onClick={openCreate}>

@@ -94,7 +94,7 @@ export default async function N8nAgentsPage() {
     <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-6">
       <BackButton />
       <header className="space-y-1 px-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Workflow className="h-7 w-7 text-primary" />
           N8N Agents
         </h1>

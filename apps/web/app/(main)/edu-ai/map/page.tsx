@@ -236,7 +236,7 @@ export default function EduAiLearnMapPage() {
       <BackButton fallbackHref="/edu" />
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <MapIcon className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -473,7 +473,7 @@ export default function EduAiLearnMapPage() {
                         key={node.id ?? `${idx}-${node.title ?? ''}`}
                         className="flex items-start gap-2"
                       >
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-medium text-primary">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-label font-medium text-primary">
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
@@ -526,7 +526,7 @@ export default function EduAiLearnMapPage() {
                   {t('topics')}
                 </span>
                 {topicDetail.price && Number(topicDetail.price) > 0 ? (
-                  <span className="flex items-center gap-1 text-xs font-medium text-primary">
+                  <span className="flex items-center gap-1 text-label font-medium text-primary">
                     <Sparkles className="h-3.5 w-3.5" />¥{topicDetail.price}
                   </span>
                 ) : null}
@@ -580,7 +580,7 @@ export default function EduAiLearnMapPage() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-1 text-sm font-medium">{lesson.title}</p>
+                          <p className="line-clamp-1 text-body font-medium">{lesson.title}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                             {lesson.lecturerName && (
                               <span className="line-clamp-1">{lesson.lecturerName}</span>

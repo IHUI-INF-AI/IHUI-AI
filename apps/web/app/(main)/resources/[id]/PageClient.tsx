@@ -136,7 +136,7 @@ export default function ResourceDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{resource.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{resource.title}</h1>
         {resource.intro && <p className="text-xs text-muted-foreground">{resource.intro}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {resource.categoryName && (

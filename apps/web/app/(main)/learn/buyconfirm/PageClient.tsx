@@ -125,7 +125,7 @@ function BuyConfirmContent() {
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
       </button>
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <ShoppingCart className="h-6 w-6 text-primary" />
         {t('title')}
       </h1>
@@ -150,7 +150,7 @@ function BuyConfirmContent() {
               <CardTitle className="text-base">{t('productInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="break-words text-sm font-medium">{course.title}</p>
+              <p className="break-words text-body font-medium">{course.title}</p>
               {course.description && (
                 <p className="line-clamp-2 text-xs text-muted-foreground">{course.description}</p>
               )}

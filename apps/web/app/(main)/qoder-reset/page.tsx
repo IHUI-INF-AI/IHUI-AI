@@ -438,7 +438,7 @@ export default function QoderResetPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-6">
       <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
+        <h1 className="text-heading font-semibold">{t('title')}</h1>
         <p className="text-muted-foreground mt-1 text-sm">{t('subtitle')}</p>
       </div>
 
@@ -567,7 +567,7 @@ export default function QoderResetPage() {
               )}
               <p className="text-muted-foreground text-xs">{t('wizardGuide')}</p>
               {wizardIpFailCount >= 3 && (
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                <p className="text-label font-medium text-amber-700 dark:text-amber-400">
                   {t('wizardIpFailMany')}
                 </p>
               )}
@@ -626,7 +626,7 @@ export default function QoderResetPage() {
           {/* 事后自检面板:只在真的扫过之后出现(未扫过时 wizardAudit 为 null) */}
           {wizardAudit && (
             <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
-              <p className="text-xs font-medium">{t('wizardAuditTitle')}</p>
+              <p className="text-label font-medium">{t('wizardAuditTitle')}</p>
               {wizardAuditing && (
                 <p className="text-muted-foreground text-xs">{t('wizardAuditScanning')}</p>
               )}
@@ -685,7 +685,7 @@ export default function QoderResetPage() {
           )}
           {wizardStep === 2 &&
             (wizardCriticalFail ? (
-              <p className="text-xs font-medium text-destructive">{t('wizardCriticalFailNote')}</p>
+              <p className="text-label font-medium text-destructive">{t('wizardCriticalFailNote')}</p>
             ) : (
               <p className="text-muted-foreground text-xs">{t('wizardOptionalNote')}</p>
             ))}

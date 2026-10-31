@@ -110,7 +110,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
   return (
     <aside className="space-y-1">
       <div className="flex items-center justify-between px-2 py-1">
-        <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
           <Layers className="h-3.5 w-3.5" />
           {t('title')}
         </h2>

@@ -759,7 +759,7 @@ export default function SchedulingPage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('description')}</p>
       </header>
 
@@ -903,7 +903,7 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3 text-xs">
                             {classMap.get(r.classId) ?? r.classId}
                           </td>
-                          <td className="px-4 py-3 text-xs font-medium">{r.subject}</td>
+                          <td className="px-4 py-3 text-label font-medium">{r.subject}</td>
                           <td className="px-4 py-3 text-xs">
                             {teacherMap.get(r.teacherId) ?? r.teacherId}
                           </td>
@@ -1008,7 +1008,7 @@ export default function SchedulingPage() {
                     <tbody>
                       {teacherSchedules.map((s) => (
                         <tr key={s.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">
+                          <td className="px-4 py-3 text-label font-medium">
                             {teacherMap.get(s.teacherId) ?? s.teacherId}
                           </td>
                           <td className="px-4 py-3 text-xs">{weekdayLabel(s.dayOfWeek)}</td>
@@ -1107,7 +1107,7 @@ export default function SchedulingPage() {
                     <tbody>
                       {changes.map((c) => (
                         <tr key={c.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{c.subject}</td>
+                          <td className="px-4 py-3 text-label font-medium">{c.subject}</td>
                           <td className="px-4 py-3 text-xs">
                             {fmtTime(c.originalWeekday, c.originalStartTime, c.originalEndTime)}
                           </td>
@@ -1201,7 +1201,7 @@ export default function SchedulingPage() {
             {conflicts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-green-600">
                 <CheckCircle2 className="mb-2 h-8 w-8" />
-                <p className="text-sm font-medium">{t('conflictDialog.noConflicts')}</p>
+                <p className="text-body font-medium">{t('conflictDialog.noConflicts')}</p>
               </div>
             ) : (
               <div className="space-y-2">

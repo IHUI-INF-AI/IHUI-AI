@@ -63,11 +63,11 @@ export function FreeAiContent() {
     <div className="mx-auto w-full max-w-4xl px-4 py-10" data-testid="free-ai-page">
       {/* Hero */}
       <div className="mb-8 text-center">
-        <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-cta/10 px-3 py-1 text-xs font-medium text-primary">
+        <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-cta/10 px-3 py-1 text-label font-medium text-primary">
           <Rocket className="h-3.5 w-3.5" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('heroTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight sm:text-3xl">{t('heroTitle')}</h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           {t('heroSub')}
         </p>
@@ -83,7 +83,7 @@ export function FreeAiContent() {
               ) : (
                 <Cpu className="h-5 w-5 text-primary" />
               )}
-              <h2 className="text-sm font-semibold">{t(card.titleKey)}</h2>
+              <h2 className="text-body font-semibold">{t(card.titleKey)}</h2>
             </div>
             <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t(card.descKey)}</p>
             <ol className="mb-4 flex-1 space-y-2">
@@ -101,7 +101,7 @@ export function FreeAiContent() {
                 href={card.linkUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-label font-medium text-primary hover:underline"
               >
                 {t(card.linkLabelKey)}
                 <ExternalLink className="h-3 w-3" />
@@ -128,7 +128,7 @@ export function FreeAiContent() {
       <div className="mt-6 text-center">
         <Link
           href="/chat"
-          className="inline-flex items-center gap-1.5 rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90"
         >
           <Rocket className="h-4 w-4" />
           {t('startChat')}

@@ -41,10 +41,10 @@ export function ExamAnswering({
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <div className="sticky top-0 z-20 flex items-center justify-between rounded-md border bg-background/95 px-4 py-2 backdrop-blur">
-        <span className="text-sm font-medium">{paper.title}</span>
+        <span className="text-body font-medium">{paper.title}</span>
         <span
           className={cn(
-            'flex items-center gap-1 text-sm font-semibold',
+            'flex items-center gap-1 text-body font-semibold',
             leftSec < 60 ? 'text-destructive' : 'text-muted-foreground',
           )}
         >
@@ -56,11 +56,11 @@ export function ExamAnswering({
       {paper.questions.map((q, i) => (
         <Card key={q.id}>
           <CardHeader className="p-3 pb-2">
-            <CardTitle className="flex items-start justify-between gap-2 text-sm font-medium">
+            <CardTitle className="flex items-start justify-between gap-2 text-body font-medium">
               <span className="min-w-0 break-words">
                 <span className="text-muted-foreground">{i + 1}.</span> {q.title}
               </span>
-              <span className="ml-2 shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
+              <span className="ml-2 shrink-0 whitespace-nowrap text-label font-normal text-muted-foreground tabular-nums">
                 ({q.score})
               </span>
             </CardTitle>

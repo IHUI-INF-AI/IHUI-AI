@@ -43,7 +43,7 @@ export function DesktopTrayMenuSection({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">{t('desktopMenuTitle')}</p>
+      <p className="text-body font-medium">{t('desktopMenuTitle')}</p>
       <div className="grid grid-cols-1 gap-1.5">
         {DESKTOP_TRAY_MENU_ITEM_KEYS.map((key) => {
           const locked = key === 'quit'

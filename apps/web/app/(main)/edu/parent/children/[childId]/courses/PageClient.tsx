@@ -68,7 +68,7 @@ export default function ChildCoursesPage() {
     <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('child.courses')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('child.courses')}</h1>
         <p className="text-xs text-muted-foreground">{t('child.coursesHint')}</p>
       </header>
 
@@ -94,7 +94,7 @@ export default function ChildCoursesPage() {
             return (
               <Card key={idx}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{tParent(dayKey)}</CardTitle>
+                  <CardTitle className="text-body font-medium">{tParent(dayKey)}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {dayCourses.map((c) => (
@@ -103,7 +103,7 @@ export default function ChildCoursesPage() {
                       className="rounded-lg border-l-4 bg-card px-3 py-2"
                       style={{ borderLeftColor: c.color ?? CHART_BLUE }}
                     >
-                      <p className="text-sm font-medium">{c.courseName}</p>
+                      <p className="text-body font-medium">{c.courseName}</p>
                       <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />

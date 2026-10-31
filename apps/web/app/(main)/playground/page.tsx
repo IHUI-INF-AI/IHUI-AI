@@ -22,7 +22,7 @@ export default async function PlaygroundPage() {
     <div className="px-4 py-4 mx-auto w-full space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">API Playground</h1>
+        <h1 className="text-display font-bold tracking-tight">API Playground</h1>
         <p className="text-xs text-muted-foreground">{t('pageDesc')}</p>
       </header>
       <PlaygroundClient />
