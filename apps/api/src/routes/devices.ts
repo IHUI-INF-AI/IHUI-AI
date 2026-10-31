@@ -52,6 +52,11 @@ export type RegisterDeviceTokenInput = z.infer<typeof registerDeviceTokenSchema>
 // 设备路由
 // =============================================================================
 
+/** pair-exchange 失败计数闸(第 12 批):TTL 窗口内每 IP 允许的失败尝试上限 */
+const PAIR_EXCHANGE_FAIL_LIMIT = 5
+/** 计数窗口(秒):与 PAIR_CODE_TTL_MS(5min)同量级 + 1min 缓冲 */
+const PAIR_EXCHANGE_WINDOW_SEC = 360
+
 export const devicesRoutes: FastifyPluginAsync = async (server) => {
   // PUT /api/devices/token - 注册/更新当前用户的推送设备令牌
   // 同一 token 在 device_tokens 表中唯一;重复上报时 upsert 刷新元数据并置为 active。
@@ -239,6 +244,25 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /api/devices/pair-exchange - 配对码兑换设备令牌(公开端点:码即凭据)
   server.post('/devices/pair-exchange', async (request, reply) => {
+    // 失败计数闸(2026-10-31 安全强化第 12 批):码即凭据的公开端点,TTL 5 分钟内
+    // 无 per-IP 失败上限 ⇒ 10^8 空间可被分布式在线爆破(兑换成功即签发长期设备
+    // 令牌并以受害者身份注册设备)。窗口与 PAIR_CODE_TTL 同量级;redis 不可用时
+    // fail-open 放行(限流是增强,不得因它掐死正常兑换)。
+    const redis = server.redis
+    const failKey = `pairx:fail:${request.ip}`
+    const readFails = async (): Promise<number> => {
+      if (!redis) return 0
+      try {
+        return parseInt((await redis.get(failKey)) ?? '0', 10)
+      } catch {
+        return 0
+      }
+    }
+    if ((await readFails()) >= PAIR_EXCHANGE_FAIL_LIMIT) {
+      return reply
+        .status(429)
+        .send(error(429, '尝试过于频繁,请稍后再试', 'PAIR_EXCHANGE_RATE_LIMITED'))
+    }
     const parsed = z
       .object({
         code: z.string().regex(/^\d{8}$/, '配对码为 8 位数字'),
@@ -254,8 +278,17 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
     }
     try {
       const { deviceToken, device } = await exchangePairCode(parsed.data)
+      if (redis) await redis.del(failKey).catch(() => {})
       return reply.send(success({ device_token: deviceToken, device_id: device.id }))
     } catch (e) {
+      if (redis) {
+        try {
+          const n = await redis.incr(failKey)
+          if (n === 1) await redis.expire(failKey, PAIR_EXCHANGE_WINDOW_SEC)
+        } catch {
+          /* 计数失败按未计数处理(fail-open) */
+        }
+      }
       return replyServiceError(reply, e)
     }
   })
