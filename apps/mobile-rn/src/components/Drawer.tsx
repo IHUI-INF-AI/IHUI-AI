@@ -94,7 +94,8 @@ import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
 // logo 取源:亮/暗双图(与 LoginScreen 主题感知同款资产;logo.png 同时是 App 图标流水线源,勿删)
 // 静态 import 走 declarations.d.ts 的图片模块声明(Metro 标准形态,无需 lint 抑制)
 import LOGO_LIGHT from '../../assets/images/logo.png' // icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标,web 同一资产,暂无矢量等价物) until 2027-01-15
-import LOGO_DARK from '../../assets/images/logo-dark.png' // icon-bitmap-exempt: 品牌多色插画 logo 暗主题版(同 LOGO_LIGHT 理由) until 2027-01-15
+import LOGO_DARK from '../../assets/images/logo-dark.png'
+import { Tappable } from '@ihui/ui-native' // icon-bitmap-exempt: 品牌多色插画 logo 暗主题版(同 LOGO_LIGHT 理由) until 2027-01-15
 
 // ── 类型定义(强类型,禁用 any) ──
 

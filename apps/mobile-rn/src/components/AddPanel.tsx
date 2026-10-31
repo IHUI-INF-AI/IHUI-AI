@@ -29,6 +29,7 @@ import { BottomPops } from './BottomPops'
 
 import { rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { Tappable } from '@ihui/ui-native'
 
 // ── PlusButton 统一加号按钮 ──────────────────────────────────────────────
 
