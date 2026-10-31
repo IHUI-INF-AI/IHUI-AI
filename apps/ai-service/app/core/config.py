@@ -321,14 +321,44 @@ class Settings(BaseSettings):
     workbuddy_tasks_live_run: bool = False  # 调度轮是否真写(领任务/出发/领取);false=只 dry-run
     workbuddy_tasks_sweep_minutes: int = 180  # 任务巡检间隔(分钟)
     workbuddy_tasks_actionable_statuses: str = "available"  # 任务行 status ∈ 此集 ⇒ 待 accept(真机实测值 available)
-    workbuddy_tasks_accept_field: str = ""  # accept 请求体的任务码字段名(未取证;留空=拒绝执行并点名)
-    workbuddy_tasks_claim_path: str = ""  # 领奖励路径(二进制只见 body 形未见路径;留空=拒绝执行)
-    workbuddy_tasks_activity_path: str = ""  # 活动遥测上报路径(未取证;留空=run_activity 未判定)
-    workbuddy_tasks_activity_hosts: str = ""  # JSON {"default":"https://...","<event_code>":"https://..."} 路径↔主机绑定,人工可覆盖
-    workbuddy_tasks_travel_depart_states: str = ""  # travel.state ∈ 此集才出发(真机实测态 "idle";留空=不自动出发)
+    workbuddy_tasks_claimable_statuses: str = "completed"  # 任务行 status ∈ 此集 ⇒ 可 claim(真机实测任务完成后态;上报计分后由 growth 重列判定)
+    # 2026-10-31 据竞品 workbuddy2api-panel README(已逆向并真机验证)补证:
+    # - accept body 字段名 = task_codes(README: POST /activity/growth/tasks/accept 体 {"task_codes":[...]})
+    # - claim 路径 = /activity/growth/tasks/{code}/claim,且**只在 Web 域 www.workbuddy.cn +
+    #   x-client-platform: web 成功**(README 明示 "非 CLI 域——这是领奖能成功的关键")
+    # - 活动计分 = POST /v2/report 行为上报,不同任务认不同客户端指纹(CLI www.codebuddy.cn /
+    #   desktop copilot.tencent.com / web www.workbuddy.cn);claim 用 web 指纹
+    # - travel 出发态 = idle(README: state=idle 且今日未派出)
+    # - 黑猫窗口模型 = glm-5.2(README: 窗口内补足 glm-5.2 短对话)
+    # 证据充分 ⇒ 填入默认值,使 WORKBUDDY_TASKS_ENABLED + LIVE_RUN 打开即生效;
+    # 仍保留 live_run 默认 false 双门控(写侧有副作用,须显式开启)。
+    workbuddy_tasks_accept_field: str = "task_codes"  # accept body 字段名(README 实证 task_codes)
+    workbuddy_tasks_claim_path: str = "/activity/growth/tasks/{code}/claim"  # 领奖路径模板({code} 占位);强制 Web 域 + x-client-platform: web
+    workbuddy_tasks_activity_path: str = "/v2/report"  # 活动行为上报计分端点(README 实证)
+    workbuddy_tasks_activity_hosts: str = (
+        '{"default":"https://www.codebuddy.cn",'
+        '"chat_request_send":"https://www.codebuddy.cn",'
+        '"chat_message_send":"https://www.codebuddy.cn",'
+        '"chat_3_times":"https://www.codebuddy.cn",'
+        '"template_used":"https://www.codebuddy.cn",'
+        '"agent_task_created_with_template":"https://www.codebuddy.cn",'
+        '"playbook_prompt_send":"https://www.codebuddy.cn",'
+        '"expert_actual_use":"https://copilot.tencent.com",'
+        '"buddyapp_show":"https://www.workbuddy.cn",'
+        '"buddyapp_enter_click":"https://www.workbuddy.cn",'
+        '"buddyapp_discover_click":"https://www.workbuddy.cn",'
+        '"school_open_day_2026":"https://www.workbuddy.cn"}'
+    )  # 事件码→主机指纹绑定(README:不同任务认不同客户端指纹)
+    workbuddy_tasks_travel_depart_states: str = "idle"  # travel.state ∈ 此集才出发(真机实测 idle)
     workbuddy_tasks_blackcat_window: str = "23:00-08:00"  # 黑猫窗口(Asia/Shanghai,跨零点)
-    workbuddy_tasks_blackcat_model: str = ""  # 黑猫窗口内需跑闲聊的具体模型(未配置=未判定)
+    workbuddy_tasks_blackcat_model: str = "glm-5.2"  # 黑猫窗口内需跑闲聊的具体模型(README 实证)
     workbuddy_tasks_blackcat_count: int = 3  # 每夜补全次数 N
+    # 按积分紧迫度轮换(可选,默认 off):任务中心巡检轮在跑四族前,先按账号积分余额重排顺序。
+    # - lowest_balance:余额越低越先跑(优先给"快枯竭"的号补分,防积分别过期作废);
+    # - highest_balance:余额越高越先跑(优先消耗高产号额度);
+    # - none(默认):沿用既有账号顺序,完全不改行为。
+    # 取不到余额(None)的号排最后(§0.3 不冒充 0);该维度仅在显式开启时生效。
+    workbuddy_tasks_urgency_order: str = "none"
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
