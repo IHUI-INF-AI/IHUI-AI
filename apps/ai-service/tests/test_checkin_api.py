@@ -1151,13 +1151,15 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动五字段缺省。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
     sched = checkin_scheduler_mod.CheckinScheduler()
-    assert sched.status() == {
-        "enabled": False,
-        "started": False,
-        "next_run": None,
-        "next_run_qoder": None,
-        "next_run_probe": None,
-    }
+    st0 = sched.status()
+    assert st0["enabled"] is False
+    assert st0["started"] is False
+    assert st0["next_run"] is None
+    assert st0["next_run_qoder"] is None
+    assert st0["next_run_probe"] is None
+    # 2026-10-31:WorkBuddy 任务巡检 job 也进 status(未启动同样为 None)
+    assert st0["next_run_wb_tasks"] is None
+    assert isinstance(st0["wb_tasks"], dict)
 
     nrt = datetime(2026, 10, 9, 8, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
     nrt_q = datetime(2026, 10, 9, 10, 5, tzinfo=checkin_scheduler_mod._CN_TZ)

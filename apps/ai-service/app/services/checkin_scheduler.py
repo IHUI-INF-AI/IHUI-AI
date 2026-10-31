@@ -182,6 +182,15 @@ def _cron_enabled() -> bool:
     return os.environ.get("CHECKIN_CRON_ENABLED", "false").lower() == "true"
 
 
+def _wb_tasks_sweep_minutes() -> int:
+    """WorkBuddy 任务巡检节拍(分钟):单一真源,start() 注册 job 与 status() 展示共用。
+
+    下限 5 分钟(六族一轮本身多次网络往返,再密就是自己打自己);上不封顶。
+    两处各写一遍 int()/max() 必然漂移(前端显示 180、实际跑 5 之类),故抽此函数。
+    """
+    return max(5, int(settings.workbuddy_tasks_sweep_minutes))
+
+
 class CheckinScheduler:
     """签到助手每日调度器(单例)。"""
 
@@ -192,6 +201,11 @@ class CheckinScheduler:
         self._wb_extract_at: float = 0.0
         # WorkBuddy 客户端内存令牌扫描节流(秒)
         self._wb_memory_scan_at: float = 0.0
+        # WorkBuddy 任务巡检「上一轮摘要」(2026-10-31 补):巡检结果原本只进日志,
+        # 前端无从得知「自动跑没跑、领到几分」。这里留一份进程内只读快照给
+        # status() 暴露。**进程内**语义:重启即清空(不是持久账本,不写 checkin_records
+        # —— 做任务 ≠ 每日签到,不混表);多 worker 部署下各进程各自一份。
+        self._wb_sweep_last: dict[str, Any] | None = None
 
     # ===== 启停(lifespan 钩子) =====
 
@@ -252,9 +266,7 @@ class CheckinScheduler:
         if settings.workbuddy_tasks_enabled:
             self._scheduler.add_job(
                 self._workbuddy_task_sweep,
-                trigger=IntervalTrigger(
-                    minutes=max(5, int(settings.workbuddy_tasks_sweep_minutes))
-                ),
+                trigger=IntervalTrigger(minutes=_wb_tasks_sweep_minutes()),
                 id=_JOB_ID_WB_TASKS,
                 replace_existing=True,
             )
@@ -314,13 +326,30 @@ class CheckinScheduler:
         """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。
 
         enabled 与 start() 读同一环境变量(_cron_enabled 单一来源);started
-        为本单例是否已 start;next_run / next_run_qoder 仅已启动时有值
-        (APScheduler job 的 next_run_time,带 Asia/Shanghai 时区的 ISO8601),
-        未启动为 None。
+        为本单例是否已 start;next_run / next_run_qoder / next_run_probe /
+        next_run_wb_tasks 仅已启动时有值(APScheduler job 的 next_run_time,
+        带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+
+        wb_tasks(2026-10-31 补):WorkBuddy 任务巡检这条 job 此前对前端完全不可见
+        ⇒ 用户看不到「自动做任务」在不在跑、下次何时跑。这里与 start() 同源暴露。
+
+        **enabled 必须是两门与,不是单门**(2026-10-31 修口径漂移):start() 整个
+        函数体套在 `if _cron_enabled()` 里,内层才是
+        `if settings.workbuddy_tasks_enabled`。只报后者 ⇒
+        WORKBUDDY_TASKS_ENABLED=true 而 CHECKIN_CRON_ENABLED=false 时前端显示
+        「已启用」但 job 永不注册(§0.3 的"没跑"绝不能写成"在跑")。故:
+        - `enabled`        = 任务门 ∧ 总闸 = 「这条 job 现在真会被注册」的唯一判据
+        - `tasks_enabled`  = 任务门原值(配置意图)
+        - `cron_enabled`   = 总闸原值(便于前端直说"被 CHECKIN_CRON_ENABLED 拦住")
+
+        sweep_minutes 走 _wb_tasks_sweep_minutes() 单一真源;claim/activity 路径
+        是否配置也让前端能直说「领奖路径未配置 ⇒ 不会领奖」,不用用户猜为什么
+        没领到分。
         """
         next_run: str | None = None
         next_run_qoder: str | None = None
         next_run_probe: str | None = None
+        next_run_wb_tasks: str | None = None
         if self._started and self._scheduler is not None:
             job = self._scheduler.get_job(_JOB_ID)
             if job is not None:
@@ -340,12 +369,37 @@ class CheckinScheduler:
                 next_run_probe = (
                     next_run_time_p.isoformat() if next_run_time_p is not None else None
                 )
+            job_wb = self._scheduler.get_job(_JOB_ID_WB_TASKS)
+            if job_wb is not None:
+                next_run_time_w: datetime | None = job_wb.next_run_time
+                next_run_wb_tasks = (
+                    next_run_time_w.isoformat() if next_run_time_w is not None else None
+                )
         return {
             "enabled": _cron_enabled(),
             "started": self._started,
             "next_run": next_run,
             "next_run_qoder": next_run_qoder,
             "next_run_probe": next_run_probe,
+            "next_run_wb_tasks": next_run_wb_tasks,
+            "wb_tasks": {
+                # 两门与:只有同时满足,start() 才会真的注册这条 job。单报任务门
+                # 会造出「显示已启用、实际永不跑」的假绿(见 docstring)。
+                "enabled": bool(settings.workbuddy_tasks_enabled) and _cron_enabled(),
+                "tasks_enabled": bool(settings.workbuddy_tasks_enabled),
+                "cron_enabled": _cron_enabled(),
+                "live_run": bool(settings.workbuddy_tasks_live_run),
+                "sweep_minutes": _wb_tasks_sweep_minutes(),
+                "claim_path_configured": bool(
+                    (settings.workbuddy_tasks_claim_path or "").strip()
+                ),
+                "activity_path_configured": bool(
+                    (settings.workbuddy_tasks_activity_path or "").strip()
+                ),
+                # 上一轮巡检摘要(进程内;None = 本进程还没跑过)。前端据此说
+                # 「上次跑了 N 家、领了 M 项」或「上次跳过:原因」,而不是一片空白。
+                "last_sweep": self._wb_sweep_last,
+            },
         }
 
     # ===== 每日任务 =====
@@ -732,24 +786,61 @@ class CheckinScheduler:
                 uid,
             )
 
+    def _record_wb_sweep(
+        self,
+        started_at: datetime,
+        dry_run: bool,
+        stats: dict[str, int],
+        note: str | None,
+    ) -> None:
+        """落一份「上一轮巡检」进程内快照,供 status() 给前端看(只读,不改业务态)。
+
+        note 非空 = 本轮没有真正跑完(出站暂停/账号读取失败/无账号/中途中止),
+        前端据此直说「上次巡检跳过:原因」,而不是显示一个空白的「已启用」。
+        """
+        self._wb_sweep_last = {
+            "at": started_at.isoformat(),
+            "finished_at": datetime.now(UTC).isoformat(),
+            "dry_run": dry_run,
+            **stats,
+            "note": note,
+        }
+
     async def _workbuddy_task_sweep(self) -> None:
-        """O68 WorkBuddy 任务赚积分巡检轮(四族)。
+        """O68 WorkBuddy 任务赚积分巡检轮(六族,顺序取 workbuddy_tasks.SWEEP_ORDER)。
 
         双门控已由 start() 把关(WORKBUDDY_TASKS_ENABLED);写侧再隔一层
         WORKBUDDY_TASKS_LIVE_RUN=false ⇒ dry-run(引擎合同保证 dry_run 零写侧调用)。
         冷却中账号跳过(与积分快照/状态探针同口径);单账号异常不中断整轮;
-        结果只进日志不落 checkin_records(做任务 ≠ 每日签到,语义不同不混表)。
+        结果不进 checkin_records(做任务 ≠ 每日签到,语义不同不混表),但会落一份
+        **进程内摘要** 到 self._wb_sweep_last,由 status() 暴露给前端 ——
+        否则自动巡检等于黑盒,用户只能看到日志文件。
         """
+        started_at = datetime.now(UTC)
+        dry_run = not bool(settings.workbuddy_tasks_live_run)
+        stats: dict[str, int] = {
+            "accounts": 0,
+            "families": 0,
+            "accepted": 0,
+            "claimed": 0,
+            "unjudged": 0,
+            "errors": 0,
+            "skipped_cooldown": 0,
+        }
         if checkin_outbound_gate.paused_remaining() > 0:
             logger.info("[checkin_scheduler] 出站限流暂停中,WorkBuddy 任务巡检本轮跳过")
+            self._record_wb_sweep(started_at, dry_run, stats, "出站限流暂停")
             return
         loaded = await self._load_accounts_and_cooldowns("WB任务巡检")
         if loaded is None:
+            self._record_wb_sweep(started_at, dry_run, stats, "账号读取失败")
             return
         accounts, cooldowns = loaded
         targets = [a for a in accounts if str(a.get("platform") or "") == "workbuddy"]
         if not targets:
+            self._record_wb_sweep(started_at, dry_run, stats, "无 WorkBuddy 账号")
             return
+        stats["accounts"] = len(targets)
         # 按积分紧迫度轮换(可选,默认 none = 沿用既有顺序,零行为变化)。开启后先在跑四族前
         # 按账号积分余额重排(lowest_balance=先补快枯竭的号 / highest_balance=先消耗高产号);
         # 取不到余额的号排最后(§0.3 不冒充 0),单账号探测失败不中断整轮。
@@ -779,12 +870,12 @@ class CheckinScheduler:
             by_id = {a["id"]: a for a in targets}
             targets = [by_id[i] for i in ordered_ids if i in by_id]
             logger.info("[checkin_scheduler] WB 任务巡检按 %s 排序: %s", urgency, ordered_ids)
-        dry_run = not bool(settings.workbuddy_tasks_live_run)
         now = datetime.now(UTC)
         summary: list[str] = []
         for acc in targets:
             cd_end = cooldowns.get(acc["id"])
             if cd_end is not None and cd_end > now:
+                stats["skipped_cooldown"] += 1
                 continue
             device_map = dict(acc.get("device_map") or {})
             # 族顺序取 workbuddy_tasks.SWEEP_ORDER 单一真源:activity 在 growth 之前,
@@ -797,6 +888,7 @@ class CheckinScheduler:
                     )
                 except OutboundPaused:
                     logger.warning("[checkin_scheduler] WB 任务巡检撞出站暂停,整轮中止")
+                    self._record_wb_sweep(started_at, dry_run, stats, "中途中止:出站限流")
                     return
                 except Exception as e:
                     logger.warning(
@@ -805,7 +897,13 @@ class CheckinScheduler:
                         kind,
                         e,
                     )
+                    stats["errors"] += 1
                     continue
+                stats["families"] += 1
+                stats["accepted"] += len(result.get("accepted") or [])
+                stats["claimed"] += len(result.get("claimed") or [])
+                if result.get("unjudged"):
+                    stats["unjudged"] += 1
                 summary.append(
                     f"{acc['id']}/{kind}:ok={result.get('ok')} "
                     f"accepted={len(result.get('accepted') or [])} "
@@ -820,6 +918,9 @@ class CheckinScheduler:
                         result.get("reason"),
                     )
                 await asyncio.sleep(random.uniform(2.0, 8.0))
+        self._record_wb_sweep(
+            started_at, dry_run, stats, None if stats["families"] else "无可用账号(全部冷却)"
+        )
         logger.info(
             "[checkin_scheduler] WB 任务巡检完成(dry_run=%s):%s",
             dry_run,
