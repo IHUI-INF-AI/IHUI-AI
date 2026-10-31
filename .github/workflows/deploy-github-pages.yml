@@ -46,7 +46,10 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        # 2026-11-01 供应链强化:Pages 是对外发布面,收口到 frozen 与 ci.yml 同口径
+        # (依据见 release-desktop.yml 同处注释:ci.yml 一直用 --frozen-lockfile 且为绿;
+        #  pnpm-lock.yaml 不存 tarball 主机名 ⇒ 注册表切换不会让锁失效)。
+        run: pnpm install --frozen-lockfile
 
       - name: Build workspace deps (topological closure)
         # @ihui/api-client 的 exports 全部映射到 ./dist/*，而 dist/ 不入库(.gitignore:67)。
