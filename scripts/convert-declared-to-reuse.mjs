@@ -95,10 +95,53 @@ function nsSet(text) {
   return out
 }
 
+/** 从 `@ihui/api-client` 具名导入的符号(花括号可跨行;`type X` 与 `X as Y` 都取左侧真名) */
+export function apiClientSymbols(text) {
+  const out = new Set()
+  for (const m of (text || '').matchAll(
+    /import\s+(?:type\s+)?\{([\s\S]*?)\}\s+from\s+['"]@ihui\/api-client['"]/g,
+  )) {
+    for (const part of m[1].split(',')) {
+      const name = part
+        .trim()
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/)[0]
+        .trim()
+      if (/^[A-Za-z_$][\w$]*$/.test(name)) out.add(name)
+    }
+  }
+  return out
+}
+
+/**
+ * 端点封装索引:api-client 导出符号 → 该函数体里出现过的端点字面量集合。
+ *
+ * 为什么必须有:壳的数据面走 `getCommissionList()` 这类封装,端点字面量在
+ * packages/api-client/src/endpoints/*.ts 里,壳文件里一条都看不见 ⇒ 旧判据只比字面量时,
+ * 「页有端点、壳没有」是被封装藏起来的**假缺口**(2026-10-31 实测两枚页面因此被误拒)。
+ * 只并"真解析到的那几个符号",解析不到的符号一条都不放宽(失效方向仍是多拒一次)。
+ */
+export function apiClientEndpointIndex(files) {
+  const index = new Map()
+  for (const src of files) {
+    const decls = [...(src.text || '').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+([A-Za-z_$][\w$]*)/g)]
+    for (let i = 0; i < decls.length; i++) {
+      const name = decls[i][1]
+      const start = decls[i].index
+      const end = i + 1 < decls.length ? decls[i + 1].index : src.text.length
+      const body = src.text.slice(start, end)
+      const eps = endpointSet(body)
+      if (eps.size === 0) continue
+      index.set(name, eps)
+    }
+  }
+  return index
+}
+
 /**
  * @returns {{verdict:string, page?:string, spec?:string, shell?:string, why?:string, missing?:string[], wxOnly?:string[]}}
  */
-export function judgePage({ route, pageText, registry, shellOf, specText }) {
+export function judgePage({ route, pageText, registry, shellOf, specText, apiEndpoints = new Map() }) {
   const mark = MARK_RE.exec(pageText)
   if (!mark) return { verdict: 'skip', why: '页面没有标记载体(不在本器射程)' }
   if (REUSE_RE.test(pageText)) return { verdict: 'skip', why: '已是真复用形制' }
@@ -135,6 +178,12 @@ export function judgePage({ route, pageText, registry, shellOf, specText }) {
   const pageEps = endpointSet(pageText)
   const shellEps =
     endpointSet(shellText).size > 0 ? endpointSet(shellText) : endpointSet(specText || '')
+  // 壳/共享屏的数据面可能整体走 @ihui/api-client 封装 ⇒ 把真解析到的符号端点并进能力集;
+  // 解析不到的符号不并(判据只增证据,不放宽阈值)。
+  for (const sym of apiClientSymbols(`${shellText}\n${specText || ''}`)) {
+    const eps = apiEndpoints.get(sym)
+    if (eps) for (const e of eps) shellEps.add(e)
+  }
   const missing = [...pageEps].filter(
     (p) => !shellEps.has(p) && ![...shellEps].some((s) => s.startsWith(p) || p.startsWith(s)),
   )
@@ -276,6 +325,19 @@ function main() {
   const json = argv.includes('--json')
   if (argv.includes('--self-test')) return selfTest()
   const registry = JSON.parse(git(['show', `HEAD:${REGISTRY}`])).entries
+  // 端点封装索引按 HEAD 面建:取不到就空表(结果只会多拒,不会放宽)
+  let apiEndpoints = new Map()
+  try {
+    const epFiles = git(['ls-tree', '-r', '--name-only', 'HEAD', 'packages/api-client/src/endpoints'])
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((f) => f.endsWith('.ts'))
+    apiEndpoints = apiClientEndpointIndex(
+      epFiles.map((rel) => ({ rel, text: git(['show', `HEAD:${rel}`]) })),
+    )
+  } catch {
+    apiEndpoints = new Map()
+  }
   const routes = collect('head')
   const rels = routes.map((r) => `${MP_SRC}/${r}.tsx`)
   const shellCache = new Map()
@@ -317,6 +379,7 @@ function main() {
       registry,
       shellOf,
       specText,
+      apiEndpoints,
     })
     results[r.verdict === 'plan' ? 'convertible' : r.verdict].push(r)
     if (apply && r.verdict === 'convertible') {
@@ -421,6 +484,47 @@ function selfTest() {
           shellOf: () => shellOk,
           specText: shellOk,
         }).verdict,
+    },
+    {
+      name: '端点藏在 api-client 封装里 ⇒ 解析符号后判可换(不再假拒)',
+      want: 'convertible',
+      got: () => {
+        const idx = apiClientEndpointIndex([
+          { rel: 'x.ts', text: `export async function getItems() {\n  return fetchApi('/items/1')\n}\n` },
+        ])
+        return judgePage({
+          route: 'pkg-a/a/index',
+          pageText: `// 镜像 packages/app/src/features/a/AScreen.tsx\nfetchApi('/items/1')\nt('a.title')`,
+          registry,
+          shellOf: () =>
+            `import { getItems } from '@ihui/api-client'\nexport function AScreen(){ t('a.title'); return getItems() }`,
+          specText: '',
+          apiEndpoints: idx,
+        }).verdict
+      },
+    },
+    {
+      name: '反向对照:不给索引(解析不到符号) ⇒ 仍拦,新判据只增证据不放宽',
+      want: 'blocked',
+      got: () =>
+        judgePage({
+          route: 'pkg-a/a/index',
+          pageText: `// 镜像 packages/app/src/features/a/AScreen.tsx\nfetchApi('/items/1')\nt('a.title')`,
+          registry,
+          shellOf: () =>
+            `import { getItems } from '@ihui/api-client'\nexport function AScreen(){ t('a.title'); return getItems() }`,
+          specText: '',
+        }).verdict,
+    },
+    {
+      name: 'apiClientSymbols 认跨行花括号与 type/as 形态',
+      want: 'A,b,c',
+      got: () =>
+        [
+          ...apiClientSymbols(
+            `import {\n  type A,\n  b as be,\n  c,\n} from '@ihui/api-client'`,
+          ),
+        ].join(','),
     },
     {
       name: '旧页用 requestPayment ⇒ 拦(微信独占,换过去丢功能)',
