@@ -77,7 +77,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -88,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
     },
     label: { fontSize: rnType.body.size, color: tk.text.secondary },
     price: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.danger.DEFAULT },

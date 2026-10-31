@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius, rnCssLight } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -139,29 +139,44 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    error: { fontSize: 14, color: tk.error.text, marginBottom: 8, textAlign: 'center' },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+    error: { fontSize: 14, color: tk.error.text, marginBottom: rnSpacing.sm, textAlign: 'center' },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
+    },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
-    msg: { padding: 10, borderRadius: rnRadius.xl, marginBottom: 8, maxWidth: '80%' },
+    msg: {
+      padding: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.xl,
+      marginBottom: rnSpacing.sm,
+      maxWidth: '80%',
+    },
     msgMine: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgPeer: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
     content: { fontSize: 16, color: tk.surface.light },
-    meta: { marginTop: 8, fontSize: 10, color: rnCssLight.white70 },
-    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+    meta: { marginTop: rnSpacing.sm, fontSize: 10, color: rnCssLight.white70 },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.sm,
+    },
     input: {
       flex: 1,
       height: 50,
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       fontSize: 16,
@@ -169,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sendBtn: {
       height: 50,
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
@@ -178,8 +193,8 @@ function createStyles(tk: AppThemeTokens) {
     sendDisabled: { backgroundColor: tk.text.tertiary },
     sendText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     btn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing.lg,
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

@@ -337,3 +337,28 @@ test('T10 RECENT UPDATES 块屏蔽:9fdbc207ba 曾把这条判据当"回退残留
   if (rBoth.violations.length !== 0 || rBoth.checked !== 0)
     throw new Error(`两型机器块都该挖净,实得 violations=${JSON.stringify(rBoth.violations)} checked=${rBoth.checked}`)
 })
+
+/**
+ * T11 DN2 差值棘轮的装车锁(2026-10-31,G-173 跑步机票)
+ *
+ * 病灶:历史快照区的六万条存量与活性声明共用一条判据 ⇒ 碰 README 的提交被逼整篇重写。
+ * 出路是 `splitArchiveStock` 把"本枚带进来的行"与"基线面逐字已在的行"分开。这条锁只问
+ * 一件事:**它是否真接在裁决路径上**。摘掉调用(存量重新变阻断)或写死基线面,本锁必须翻红。
+ * 反向控制在文件末尾:把调用名替换掉之后,同一把尺子必须至少有一格失灵 —— 否则本锁在自指。
+ */
+test('T11 差值棘轮接在裁决路径上,且盲区在结论行披露', () => {
+  const P = fileURLToPath(new URL('../check-doc-numbers.mjs', import.meta.url))
+  const src = readFileSync(P, 'utf8').replace(/\r\n/g, '\n')
+  const checks = [
+    [/export function splitArchiveStock\(/, 'splitArchiveStock 定义被摘 —— 棘轮不存在'],
+    [/const baselineRef = face === 'head' \? 'HEAD\^' : 'HEAD'/, '基线面未按档位取(HEAD 档要取 HEAD^)'],
+    [/splitArchiveStock\(r\.violations, text, baselines\.get\(rel\) \?\? null\)/, '裁决路径没接棘轮 ⇒ 历史区存量会重新变成阻断项'],
+    [/历史快照区存量 \$\{stockTotal\} 处/, '盲区没在结论行披露 ⇒ "没判"会被读成"判过了"(§0.3)'],
+  ]
+  for (const [re, why] of checks) {
+    if (!re.test(src)) throw new Error(why)
+  }
+  const stripped = src.replace(/splitArchiveStock\(r\.violations/g, 'notWired(r.violations')
+  const stillAllGreen = checks.every(([re]) => re.test(stripped))
+  if (stillAllGreen) throw new Error('把裁决路径的调用摘掉后本锁仍全绿 ⇒ 本锁在自指,不是装车证明')
+})

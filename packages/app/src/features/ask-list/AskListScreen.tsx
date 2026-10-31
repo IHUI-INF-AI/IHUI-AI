@@ -8,7 +8,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskListScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -86,23 +86,37 @@ export function AskListScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    error: {
+      fontSize: 14,
+      color: tk.danger.DEFAULT,
+      marginBottom: rnSpacing.sm,
+      textAlign: 'center',
+    },
     btn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      marginBottom: rnSpacing.md,
+    },
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     action: { fontSize: 24, color: tk.brand.DEFAULT, fontWeight: '600' },
     card: {
@@ -111,10 +125,10 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: rnSpacing.sm },
     author: { fontSize: 11, color: tk.text.tertiary },
     meta: { fontSize: 11, color: tk.text.tertiary },
   })

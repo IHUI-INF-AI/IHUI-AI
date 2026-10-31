@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: rnSpacing['3xl'],
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       // 占位高台与小程序 .ihui-state 同取 SCREEN_STATES_STATE_MIN_HEIGHT_PX(防 loading 期塌零)
       minHeight: SCREEN_STATES_STATE_MIN_HEIGHT_PX,
     },
@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     stateDesc: { fontSize: 13, color: tk.text.tertiary, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
-      marginTop: 6,
+      marginTop: rnSpacing['xs-loose'],
       paddingHorizontal: 18,
       paddingVertical: 9,
       borderRadius: rnRadius.sm,

@@ -122,7 +122,7 @@ export function McpStatusStrip() {
 const styles = StyleSheet.create({
   // 盒档与小程序端逐档同值(10/8/4 + 11/11 字号),圆角走角色表 chip→md
   strip: {
-    marginHorizontal: 10,
+    marginHorizontal: rnSpacing['sm-loose'],
     marginTop: rnSpacing.xs,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   hint: {
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     fontSize: rnType.caption.size,
     color: tokens.text.primary,
   },

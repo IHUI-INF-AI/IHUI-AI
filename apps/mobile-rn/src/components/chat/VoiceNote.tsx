@@ -65,7 +65,7 @@ import {
   setVoiceNoteArchived,
   updateVoiceNote,
 } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { pressFeedback } from '@ihui/ui-native'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
@@ -674,20 +674,20 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
 }
 
 const styles = StyleSheet.create({
-  trigger: { paddingHorizontal: 4, paddingVertical: 4 },
+  trigger: { paddingHorizontal: rnSpacing.xs, paddingVertical: rnSpacing.xs },
   backdrop: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'flex-end' },
   panel: {
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
     borderTopRightRadius: rnRadius.xl,
-    padding: 12,
+    padding: rnSpacing.md,
     maxHeight: '70%',
   },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
   panelTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
   phaseBadge: {
@@ -696,67 +696,77 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.md, // chip 档 md(6)
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginBottom: 8,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
+    marginBottom: rnSpacing.sm,
   },
   phaseText: { fontSize: 12, color: tokens.text.secondary },
-  phaseDuration: { marginLeft: 8, fontSize: 12, color: tokens.text.secondary },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: 8 },
-  pendingText: { fontSize: 12, color: tokens.text.tertiary, marginBottom: 8 },
+  phaseDuration: { marginLeft: rnSpacing.sm, fontSize: 12, color: tokens.text.secondary },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: rnSpacing.sm },
+  pendingText: { fontSize: 12, color: tokens.text.tertiary, marginBottom: rnSpacing.sm },
   transcriptBox: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    padding: 8,
-    marginBottom: 8,
+    padding: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
     maxHeight: 128,
   },
   transcriptText: { fontSize: 12, color: tokens.text.primary },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['xs-loose'],
+    marginBottom: rnSpacing.sm,
+  },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
   },
   stopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
   },
   primaryBtnText: { fontSize: 12, color: tokens.brand.ctaForeground },
   outlineBtn: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
   },
   outlineBtnText: { fontSize: 12, color: tokens.text.secondary },
   searchInput: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing['xs-loose'],
     fontSize: 12,
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
-  groupRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  groupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: rnSpacing.xs,
+    marginBottom: rnSpacing.sm,
+  },
   chip: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.md, // chip 档 md(6)
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 3,
   },
   // 选中胶囊走 RN 既有范式(ChatTemplatesScreen/ArticleEditScreen 同尺):brand.cta 底 +
@@ -768,24 +778,28 @@ const styles = StyleSheet.create({
   archiveItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 2,
+    gap: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['2xs'],
   },
   archiveDuration: { fontSize: 11, color: tokens.text.tertiary },
   archiveText: { flex: 1, fontSize: 12, color: tokens.text.primary },
   archiveAction: { fontSize: 11, color: tokens.text.secondary },
-  groupEditor: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 2 },
+  groupEditor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['2xs'],
+  },
   groupInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing.xs,
     fontSize: 12,
     color: tokens.text.primary,
   },
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tab: {
       flex: 1,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
@@ -210,7 +210,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.surface.light,
       fontWeight: '600',
     },
-    listContent: { paddingHorizontal: 10, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.md },
+    listContent: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['2xl'],
+      gap: rnSpacing.md,
+    },
     orderCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -226,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
     orderLabel: { flex: 1, fontSize: rnType.body.size, color: tk.text.primary },
     statusTag: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
     statusText: { fontSize: rnType.caption.size, color: tk.surface.light, fontWeight: '500' },
@@ -239,8 +243,8 @@ function createStyles(tk: AppThemeTokens) {
     footerLeft: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     amountText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     rateTag: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },

@@ -66,6 +66,66 @@ describe('sandbox/execute 登记根闸', () => {
   })
 })
 
+describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () => {
+  it('解释器命令非 admin ⇒ 126 拒绝', async () => {
+    const r = await sandboxExecutor.execute({
+      command: 'node -p process.version',
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(126)
+    expect(r.stderr).toContain('仅管理员可用')
+  })
+
+  it('解释器命令 admin ⇒ 照常执行(正向对照)', async () => {
+    const r = await sandboxExecutor.execute({
+      command: 'node -p process.version',
+      workspacePath: scratchRoot,
+      isAdmin: true,
+    })
+    expect(r.exitCode).toBe(0)
+  })
+
+  it('文件操作类参数路径越出登记根 ⇒ 126 拒绝', async () => {
+    const r = await sandboxExecutor.execute({
+      command: 'cat C:/Windows/win.ini',
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(126)
+    expect(r.stderr).toContain('参数路径越界')
+  })
+
+  it('文件操作类参数路径在登记根内 ⇒ 照常执行(正向对照)', async () => {
+    const inside = join(scratchRoot, 'readable.txt')
+    const { writeFileSync } = await import('node:fs')
+    writeFileSync(inside, 'hello', 'utf-8')
+    // parseShellCommand 拒绝反斜杠(shell 元字符),参数路径用正斜杠形态
+    const insideFwd = inside.split(String.fromCharCode(92)).join('/')
+    const r = await sandboxExecutor.execute({
+      command: `cat ${insideFwd}`,
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(0)
+    expect(r.stdout).toContain('hello')
+  })
+
+  it('cwd 指向另一个登记根 ⇒ 拒绝(同根约束)', async () => {
+    const otherRoot = mkdtempSync(join(tmpdir(), 'ihui-sbx-other-'))
+    try {
+      process.env.IHUI_WORKSPACE_ROOTS = `${scratchRoot};${otherRoot}`
+      const r = await sandboxExecutor.execute({
+        command: 'node -p 1',
+        workspacePath: scratchRoot,
+        cwd: otherRoot,
+        isAdmin: true,
+      })
+      expect(r.exitCode).toBe(126)
+      expect(r.stderr).toContain('不允许跨根执行')
+    } finally {
+      rmSync(otherRoot, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('sandbox/execute 环境净化', () => {
   it('danger-full-access 模式下敏感键不进子进程 env,非敏感键照常传递(正向对照)', async () => {
     process.env.IHUI_SBX_SECRET_TEST = 'top-secret-value'
@@ -76,6 +136,8 @@ describe('sandbox/execute 环境净化', () => {
         command: 'node -p process.env.IHUI_SBX_SECRET_TEST',
         workspacePath: scratchRoot,
         mode: 'danger-full-access',
+        // R8 起解释器族仅 admin;本用例靶面是 env 净化,显式带 admin 通行
+        isAdmin: true,
       })
       expect(result.exitCode).toBe(0)
       expect(result.stdout).not.toContain('top-secret-value')
@@ -84,6 +146,7 @@ describe('sandbox/execute 环境净化', () => {
       const plain = await sandboxExecutor.execute({
         command: 'node -p process.env.IHUI_SBX_PLAIN_TEST',
         workspacePath: scratchRoot,
+        isAdmin: true,
       })
       expect(plain.exitCode).toBe(0)
       expect(plain.stdout).toContain('plain-ok')
@@ -97,6 +160,7 @@ describe('sandbox/execute 环境净化', () => {
     const result = await sandboxExecutor.execute({
       command: 'node -p process.version',
       workspacePath: scratchRoot,
+      isAdmin: true,
     })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toMatch(/^v\d/)

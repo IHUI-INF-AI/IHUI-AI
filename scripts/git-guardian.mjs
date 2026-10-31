@@ -7891,6 +7891,114 @@ export function auditImmutableGuardNewCommits(opts = {}) {
   return { ran: true, state: 'clean', detail: parsed }
 }
 
+/** 根护栏清单同批对账的节流窗口(15 分钟:部署环每 60 秒判一次根护栏,停摆半小时内必须有人知道) */
+export const ROOT_GUARD_MANIFEST_AUDIT_INTERVAL_MS = 15 * 60 * 1000
+
+/**
+ * 根护栏清单自洽性巡检(2026-10-31 立)—— `check-root-guard-manifest-sync.mjs` 唯一的调度器。
+ *
+ * 立因:root-guard 清单绑住 guardian-runner 的 sha,而部署环每轮在 fetch/对齐**之前**跑
+ * `root-guard --check` ⇒ 只要有一枚提交改了 guardian-runner 没同批 --seal,prod 签出一对齐就
+ * 永久 fail-closed(重封又是一枚新提交,墙不会自己倒)。2026-10-31 一天内撞两次:07:17 的
+ * 10790ffb22 让 02:00 之后的提交全没上线,13:26 那轮同型复发。
+ *
+ * 为什么不挂提交链(§12e):它判的是「仓库当前是否自洽」这一**状态**,挂成 blocking 就把上一席
+ * 落下的漂移定责给下一席,而下一席结构上补不动(补 README 点名撞门 173 的活性声明开放集合,
+ * 补 AGENTS 点名撞门 207 的体积预算)⇒ 唯一能落地的档是守护 tick + 到人邮件。
+ *
+ * 三态不并桶:drift ⇒ 到人(可整改动作写进正文);unjudged ⇒ 只记日志不记绿(§0.3);
+ * ok ⇒ 静默,零写盘零派生。去重身份只取「类别 + 枚举态」,不含时刻/sha/计数(§5e-3)。
+ */
+export function auditRootGuardManifestSync(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = ROOT_GUARD_MANIFEST_AUDIT_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'root-guard-manifest-audit-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-root-guard-manifest-sync.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 根护栏清单巡检:尺子不在位(scripts/check-root-guard-manifest-sync.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 根护栏清单巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 2 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = 判出不自洽、exit 2 = 未判定;两种都**不是**尺子坏了,结论整份在 stdout。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger(
+      `⚠️ 根护栏清单巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};` +
+        `stderr 前 120:${stderr.slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"清单自洽"(§0.3)`,
+    )
+    return { ran: true, state: 'undetermined', why: '结论不可用' }
+  }
+  const names = (parsed.drift ?? []).map((d) => d.id).join(', ')
+  const tail = `面=${parsed.face ?? 'head'} / 不自洽 ${(parsed.drift ?? []).length} 目标 / advisory ${(parsed.advisory ?? []).length}`
+  if (parsed.state === 'drift') {
+    logger(`❌ 根护栏清单巡检:清单与规则文件脱钩 —— ${names || '(未点名)'} | ${tail}`)
+    notify(
+      '根护栏清单与规则文件脱钩(部署环正在 fail-closed)',
+      `root-guard 清单绑定的规则文件内容与清单本身不一致 ⇒ 部署环每轮在拉取更新**前**跑 \`root-guard --check\` 拿非 0 ⇒ **prod 不再上线任何提交**(2026-10-31 实测:02:00 与 12:56 两次停摆,合计约 6 小时的用户可见改动没发出去)。\n命中目标:${names || '(见 --json)'}\n\n下一步(可当场执行):① 复核 HEAD 面那份改动是否确属必要 —— node scripts/root-guard.mjs --check;② 确属必要就重封并**单独成枚**提交推送 —— node scripts/root-guard.mjs --seal --reason "<复核结论>" 然后 node scripts/safe-commit.mjs -m "chore(root-guard): 重新封存清单 …" -- scripts/data/root-guard-manifest.json;③ 若 prod 签出停在不自洽的那枚,把它对齐到自洽的 origin/main 后重启 IHUI-DEPLOYLOOP —— cd D:/DevEnv/ihui-prod && git fetch origin main && git merge --ff-only FETCH_HEAD。\n复跑:node scripts/check-root-guard-manifest-sync.mjs --json\n\n${tail}`,
+      { severity: 'critical', dedupKey: 'manifest-drift' },
+    )
+    return { ran: true, state: 'drift', detail: parsed }
+  }
+  if (parsed.state === 'unjudged') {
+    logger(
+      `⚠️ 根护栏清单巡检:未判定 —— ${String(parsed.reason ?? '').slice(0, 120) || '(未给原因)'} | ${tail}(不记绿,§0.3)`,
+    )
+    return { ran: true, state: 'undetermined', detail: parsed }
+  }
+  logger(`✅ 根护栏清单巡检:清单与规则文件自洽 —— ${tail}`)
+  return { ran: true, state: 'ok', detail: parsed }
+}
+
 /**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
@@ -9855,6 +9963,9 @@ function main() {
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
     if (!CHECK_ONLY) auditImmutableGuardNewCommits()
+    // 根护栏清单自洽性(2026-10-31 立;与 daemon tick 同一挂点语义,共用
+    // .ihui-agent/state/root-guard-manifest-audit-last.json 节流戳 ⇒ 双执行体并存只先到那个真跑)
+    if (!CHECK_ONLY) auditRootGuardManifestSync()
     if (!CHECK_ONLY) auditCrossEndParityDrift()
     if (!CHECK_ONLY) auditWebRnParity()
     if (!CHECK_ONLY) auditPushChannel()
@@ -9963,6 +10074,9 @@ function startDaemon() {
         // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .ihui-agent/state/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
+        // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
+        // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
+        auditRootGuardManifestSync()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
@@ -11032,6 +11146,7 @@ export const __test__ = {
   auditCrossEndParityDrift,
   // 判据面不可变护栏的派发腿(2026-10-30 接线;镜像测试按名 import,不复制判据 §22c)。
   auditImmutableGuardNewCommits,
+  auditRootGuardManifestSync,
   // 跨端驾驶舱派发腿(镜像测试 git-guardian-parity-cockpit 按名 import,不复制判据 §22c)。
   sweepParityCockpit,
   // 跨端文案漂移巡检腿(只读尺子的唯一调度器;镜像测试按名 import)。

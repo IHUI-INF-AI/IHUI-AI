@@ -397,6 +397,43 @@ const RULE_TEMPLATES_FALLBACK: RuleTemplateDto[] = [
   },
 ]
 
+/**
+ * ReDoS 静态检测(R8 复评 F2):嵌套量词(量词化的组内再含量词)是灾难性
+ * 回溯的最常见形态 —— `(a+)+b` 仅 7 字符即可对 10KB 输入指数级回溯,长度闸
+ * 拦不住。检测形如 `(…[*+]{…})[*+{]` 的模式;误杀面:正常业务正则极少嵌套
+ * 量词,命中者本就该改写为占有量词或分解。与长度闸互补,均在**匹配前**拒绝。
+ */
+export function hasNestedQuantifier(pattern: string): boolean {
+  let depth = 0
+  let groupQuantified = false
+  const groupStack: boolean[] = []
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i]
+    if (ch === String.fromCharCode(92)) {
+      i++
+      continue
+    }
+    if (ch === '(') {
+      groupStack.push(groupQuantified)
+      depth++
+      groupQuantified = false
+      continue
+    }
+    if (ch === ')') {
+      depth--
+      const wasInnerQuantified = groupQuantified
+      groupQuantified = groupStack.pop() ?? false
+      // 组关闭后看下一个字符是否量词化该组
+      const next = pattern[i + 1]
+      if (wasInnerQuantified && next && /[+*{]/.test(next)) return true
+      if (next && /[+*]/.test(next)) groupQuantified = true
+      continue
+    }
+    if (ch === '+' || ch === '*') groupQuantified = true
+  }
+  return false
+}
+
 class RulesService {
   private baseUrl: string
   /**
@@ -755,6 +792,10 @@ class RulesService {
         // ReDoS 运行闸(2026-10-31 安全强化第 10 批,与 webhooks-trigger 同口径):
         // 主线程同步正则,超长 pattern/超长被测值直接判不匹配,不给灾难性回溯机会
         if (rule.matchPattern.length > 200 || message.length > 10 * 1024) return false
+        // R8 复评 F2:长度闸挡不住短型灾难回溯((a+)+b 对 10KB 'a' 串指数级)——
+        // 嵌套量词静态检测:量词组内再含量词 = 灾难回溯的最常见形态,入库面已在
+        // routes/rules.ts 拦,这里是运行面兜底(存量行不经过入库闸)。
+        if (hasNestedQuantifier(rule.matchPattern)) return false
         try {
           return new RegExp(rule.matchPattern).test(message)
         } catch {

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
@@ -212,8 +213,8 @@ function createStyles(tk: AppThemeTokens) {
     categoryBadge: {
       marginLeft: rnSpacing.sm, // ml-2
       borderRadius: rnRadius.md, // rounded-sm
-      paddingHorizontal: 6, // px-1.5
-      paddingVertical: 2, // py-0.5
+      paddingHorizontal: rnSpacing['xs-loose'], // px-1.5
+      paddingVertical: rnSpacing['2xs'], // py-0.5
       backgroundColor: tk.surface.muted,
     },
     categoryText: {
@@ -230,12 +231,12 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm, // mt-2
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 6, // gap-1.5
+      gap: rnSpacing['xs-loose'], // gap-1.5
     },
     tagChip: {
       borderRadius: rnRadius.md, // rounded-sm
-      paddingHorizontal: 6, // px-1.5
-      paddingVertical: 2, // py-0.5
+      paddingHorizontal: rnSpacing['xs-loose'], // px-1.5
+      paddingVertical: rnSpacing['2xs'], // py-0.5
       backgroundColor: tk.warning.orangeLight,
     },
     tagText: {

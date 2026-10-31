@@ -353,7 +353,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     headerTitle: {
       flex: 1,
@@ -385,7 +385,7 @@ function createStyles(tk: AppThemeTokens) {
     statValue: {
       fontSize: rnType.title.size, // text-base
       fontWeight: '600',
-      marginTop: 2, // mt-0.5
+      marginTop: rnSpacing['2xs'], // mt-0.5
       color: tk.text.primary,
     },
     statLabelSuccess: {
@@ -428,7 +428,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: rnSpacing.sm, // px-2
-      paddingVertical: 2, // py-0.5
+      paddingVertical: rnSpacing['2xs'], // py-0.5
     },
     badgeText: {
       fontSize: rnType.label.size, // text-xs
@@ -436,17 +436,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardPlatforms: {
       fontSize: rnType.label.size, // text-xs
-      marginTop: 6, // mt-1.5
+      marginTop: rnSpacing['xs-loose'], // mt-1.5
       color: tk.text.secondary, // text-gray-500
     },
     cardTime: {
       fontSize: rnType.label.size, // text-xs
-      marginTop: 6, // mt-1.5
+      marginTop: rnSpacing['xs-loose'], // mt-1.5
       color: tk.text.tertiary, // text-gray-400
     },
     cardError: {
       fontSize: rnType.label.size, // text-xs
-      marginTop: 6, // mt-1.5
+      marginTop: rnSpacing['xs-loose'], // mt-1.5
       color: tk.danger.DEFAULT, // text-red-500
     },
     cardActions: {
@@ -456,7 +456,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionBtn: {
       borderRadius: rnRadius.sm, // rounded-sm
-      paddingHorizontal: 10, // px-2.5
+      paddingHorizontal: rnSpacing['sm-loose'], // px-2.5
       paddingVertical: rnSpacing.xs, // py-1
     },
     actionBtnGhost: {
