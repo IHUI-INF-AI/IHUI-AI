@@ -5496,6 +5496,7 @@
     "taskAutoDry": "已启用但为演练模式（只读探针）：不会真实领奖。服务端设 WORKBUDDY_TASKS_LIVE_RUN=true 后才会写入。",
     "taskAutoCronBlocked": "未运行：任务门已开，但总闸 CHECKIN_CRON_ENABLED 关闭。",
     "taskAutoOff": "未启用：仅手动执行。服务端设 WORKBUDDY_TASKS_ENABLED=true 并重启后生效。",
+    "taskAutoNotStarted": "配置已开但调度器未启动：改完服务端 .env 必须重启 ai-service 才生效（进程内 start() 遇 _started 会短路，不热加载）。",
     "taskAutoPaths": "上报/领奖路径未配置：只上报不领奖。",
     "taskAutoLast": "上次巡检 {time}",
     "taskAutoLastStats": "跑 {families} 族 · 新增 {accepted} · 领 {claimed}",
