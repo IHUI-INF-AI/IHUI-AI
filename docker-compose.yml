@@ -356,7 +356,7 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - '${JAEGER_UI_PORT:-8814}:16686'
+      - '127.0.0.1:${JAEGER_UI_PORT:-8814}:16686'
     networks:
       - ihui-net
     healthcheck:
@@ -377,8 +377,8 @@ services:
       - ./monitoring/otel-collector/config.yaml:/etc/otelcol/config.yaml
     command: ['--config=/etc/otelcol/config.yaml']
     ports:
-      - '${OTEL_COLLECTOR_PORT:-8813}:4318'
-      - '${OTEL_COLLECTOR_GRPC_PORT:-8812}:4317'
+      - '127.0.0.1:${OTEL_COLLECTOR_PORT:-8813}:4318'
+      - '127.0.0.1:${OTEL_COLLECTOR_GRPC_PORT:-8812}:4317'
     networks:
       - ihui-net
     depends_on:
@@ -412,9 +412,10 @@ services:
       - '--storage.tsdb.retention.time=30d'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      # --web.enable-lifecycle 已摘除(2026-11-01 安全强化):它打开的是无鉴权的
+      # POST /-/reload 与 admin API(可改写抓取配置、删时序数据)。配置变更改走重启容器。
     ports:
-      - '${PROMETHEUS_PORT:-8815}:9090'
+      - '127.0.0.1:${PROMETHEUS_PORT:-8815}:9090'
     networks:
       - ihui-net
     healthcheck:
@@ -436,7 +437,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
     ports:
-      - '${NODE_EXPORTER_PORT:-8817}:9100'
+      - '127.0.0.1:${NODE_EXPORTER_PORT:-8817}:9100'
     networks:
       - ihui-net
 
@@ -453,7 +454,7 @@ services:
       - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki-data:/loki-data
     ports:
-      - '${LOKI_PORT:-8818}:3100'
+      - '127.0.0.1:${LOKI_PORT:-8818}:3100'
     networks:
       - ihui-net
     healthcheck:
@@ -488,8 +489,9 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       # 宿主机 /var/log(只读,用于采集 Nginx 等系统日志)
       - /var/log:/var/log:ro
-      # Docker socket(用于 docker_sd_configs 自动发现容器)
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Docker socket 挂载已摘除(2026-11-01 安全强化):`:ro` 对 socket API 没有任何
+      # 约束力 —— 能写该 socket 就等于拿到宿主机 root(可再拉起一枚挂 / 的特权容器)。
+      # 容器发现改由静态 targets 承担,不给采集器留 root-equivalent 面。
       # API 应用日志目录(只读,需要在 docker-compose 服务中通过 volumes 共享 ./apps/api/logs)
       - ./apps/api/logs:/apps/api/logs:ro
       # Promtail 读取位置持久化(重启后不重复读取)
@@ -539,7 +541,7 @@ services:
       - ./monitoring/alertmanager/noise-rules.yml:/etc/alertmanager/noise-rules.yml:ro
       - alertmanager-data:/alertmanager
     ports:
-      - '${ALERTMANAGER_PORT:-9093}:9093'
+      - '127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093'
     networks:
       - ihui-net
     healthcheck:

@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 
+// arch-exempt: 测试面单向借用 miniapp 构建脚本的 __test__ 出口(脚本按 app.config 派生 entry,属该端私有栈);D4 环由策略表例外 EX-D4-1 登记,期限 2027-01-31
 import { __test__ as patch } from '../../apps/miniapp-taro/scripts/patch-entry-chunks.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 

@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-31T15:19:03.792Z",
+  "sealedAt": "2026-10-31T17:43:28.088Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 4d51b4c8ce 对 guardian-runner 的守门276 注册改动(取材面档位 + 人工逃生舱,属已入库的合法注册变更);清单落后于 HEAD 面,按 root-guard 指定出口与规则文件对齐(2026-10-31 部署环 fail-closed 现场)",
+  "reason": "复核 6f57e57fe6 对 guardian-runner 的守门277 注册改动(warn 档 + stagedTriggers + onFailHint 齐全,属已入库的合法注册变更);清单落后于 HEAD 面,按 root-guard 指定出口与规则文件对齐(2026-11-01 部署环 fail-closed 现场)",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "c794c0f06bdc46c6e3655f8e812115818b7b2a5e0a446729592924d230e0ca8d"
+      "sha256": "bf2a8b4fedd6b585e10abda745e162dc5d44878d6117301803f9be8df78e1f51"
     },
     {
       "id": "judgement-libs",
