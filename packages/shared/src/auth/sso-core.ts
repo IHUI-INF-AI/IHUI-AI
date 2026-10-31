@@ -94,22 +94,43 @@ export async function ssoLogout(apiBase: string, token: string): Promise<boolean
   }
 }
 
-/** 从 URL 提取 sso_code(RN deep link / web query 共用) */
-export function extractSsoCode(url: string): string | null {
+/**
+ * 从 URL 提取 sso_code(RN deep link / web query 共用)。
+ *
+ * 2026-10-31 安全强化第 21 批:新增可选 `expectedState`。SSO 回跳此前**没有任何绑定**——
+ * 端上开一个回环/深链监听等 sso_code,而任何人(网页里的一张 `<img>`、别的本地进程、
+ * 一次误触的同 scheme 链接)都能往那个落点投一枚**攻击者自己的**授权码,把用户登录态
+ * 换成攻击者账户。修法 = OAuth 标准 state:发起前生成随机值随 URL 发出,回调时比对;
+ * 不匹配一律当"没拿到码"。
+ *
+ * 传了 expectedState 而 URL 里没有 state / 两者不等 ⇒ 返回 null(调用方按"未授权"处理)。
+ * 不传 ⇒ 保持旧行为(未接入 state 的端不因此中断,可逐端接入)。
+ */
+export function extractSsoCode(url: string, expectedState?: string): string | null {
   try {
     const parsed = new URL(url)
+    if (expectedState !== undefined) {
+      const got = parsed.searchParams.get('state')
+      if (!got || got !== expectedState) return null
+    }
     return parsed.searchParams.get('sso_code')
   } catch {
     return null
   }
 }
 
-/** 构建 SSO 登录中心 URL(RN/taro 共用) */
-export function buildSsoLoginUrl(webBase: string, redirectUri: string, clientId: string): string {
+/**
+ * 构建 SSO 登录中心 URL(RN/taro 共用)。
+ *
+ * `state` 可选:传了就会被授权页原样回传给 redirect 目标(端上据此比对,见
+ * {@link extractSsoCode})。不传则与旧行为逐字一致。
+ */
+export function buildSsoLoginUrl(webBase: string, redirectUri: string, clientId: string, state?: string): string {
   const params = new URLSearchParams({
     redirect: redirectUri,
     client_id: clientId,
   })
+  if (state) params.set('state', state)
   return `${webBase}/sso/login?${params.toString()}`
 }
 
@@ -145,18 +166,22 @@ export function isSameOriginRelativePath(target: string): boolean {
  * 支持三种形态:相对路径(`/edu/x?y=1`)、绝对 URL(`https://sub/a?b=1`)、
  * 自定义协议深链(`ihui://sso`)。解析异常时退回最小拼接,不因解析失败丢掉 code。
  */
-export function buildSsoRedirectUrl(redirectUri: string, ssoCode: string): string {
+export function buildSsoRedirectUrl(redirectUri: string, ssoCode: string, state?: string): string {
   if (!redirectUri) return redirectUri
   // 相对路径需借占位 origin 交给 URL 解析,解析后必须还原为相对形态(不能带 origin)
   const isRelative = redirectUri.startsWith('/') && !redirectUri.startsWith('//')
   try {
     const parsed = new URL(redirectUri, isRelative ? 'https://sso.invalid' : undefined)
     parsed.searchParams.delete('sso_code')
+    // 2026-10-31 第 21 批:state 同样先删再加,保证与 sso_code 一起重入幂等
+    parsed.searchParams.delete('state')
     parsed.searchParams.append('sso_code', ssoCode)
+    if (state) parsed.searchParams.append('state', state)
     return isRelative ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString()
   } catch {
     const separator = redirectUri.includes('?') ? '&' : '?'
-    return `${redirectUri}${separator}sso_code=${encodeURIComponent(ssoCode)}`
+    const statePart = state ? `&state=${encodeURIComponent(state)}` : ''
+    return `${redirectUri}${separator}sso_code=${encodeURIComponent(ssoCode)}${statePart}`
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

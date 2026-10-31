@@ -151,10 +151,17 @@ async def test_instantiate_template_binds_creator(monkeypatch) -> None:
     captured: dict[str, Any] = {}
 
     async def _fake(
-        template_id: str, overrides: dict[str, Any], owner_id: str | None = None
+        template_id: str,
+        overrides: dict[str, Any],
+        owner_id: str | None = None,
+        allow_script: bool = False,
     ) -> dict[str, Any]:
+        # 2026-10-31 第 14 批:模板与 overrides 都可能带 script 动作,路由与手建同一档
+        # 传 allow_script=_is_admin(request);旧假引擎不收该参数 ⇒ TypeError 被路由
+        # 兜成 {data:None},断言读到的就是"模板创建失败"。
         captured["owner_id"] = owner_id
         captured["template_id"] = template_id
+        captured["allow_script"] = allow_script
         return {"id": "hk-new", "owner_id": owner_id}
 
     monkeypatch.setattr(eng, "instantiate_template", _fake)
@@ -168,6 +175,7 @@ async def test_instantiate_template_binds_creator(monkeypatch) -> None:
     )
     assert out["data"]["id"] == "hk-new"
     assert captured["owner_id"] == "alice", "模板创建的 hook 落成 owner_id=None = 系统级、人人可管"
+    assert captured["allow_script"] is False, "非管理员经此口创建不得放行 script 动作"
 
 
 async def test_timeline_and_forecast_gate_before_reading(monkeypatch) -> None:
