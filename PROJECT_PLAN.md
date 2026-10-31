@@ -6366,6 +6366,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
 
@@ -33536,3 +33537,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R10〕第 31 批(c6e20569d8ad051ff9b88eeb410c3597fe1b0304,origin=b0e506f31b5e6e672a9e2377a57269fd5900acfa)上传下载面/认证会话令牌面/业务越权竞态金额状态机面三轮并行侦察修复 9 项(5 P0 + 4 P1):OAuth JWT 无验签签发任意用户 token(结构性 501 + 审计留痕)、ai-feed image-proxy 位图 MIME 白名单 + CSP sandbox + nosniff + 文档 SVG 落 .img、平台币余额改他人(requireAdmin + 归属闸)、api-key-groups 结构性移除余额字段 + recharge admin-only、2FA 六条登录支路单源闸、提现面下线 410 + 财务提现 admin 闸、支付价格服务端反查、上传合并接 validateUploadHead(content_rejected 终态)。新增 69 用例 + 修正 3 套既有,六套 98 全绿;变异四组按预期转红还原复绿。落地器复跑三红臂处置:门 41 超窗旁支 tag 双留后删除、门 30a 悬空 commit tag 双留、门 4 types dist 属他席在飞中间态(非本批)。 -->
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R11〕第 32 批(548fb0c55c9d4806b3d0bba9e3b365787ab2766c,含 mcp 收尾;origin=b0e506f31b5e6e672a9e2377a57269fd5900acfa)A2A 注册鉴权 + endpoint SSRF 校验、连接器密钥失败封闭(encrypt/save fail-closed)、MCP 四处下载 SSRF(逐跳 + 钉 IP,webhook 首跳过闸)、web/miniapp 三处信任边界(DesignPage / ParameterPanel / webview)。R11 四套 pytest 84 全绿;变异自证三组(encrypt_secret fail-closed / save fail-closed / a2a endpoint 0.0.0.0 拒绝)转红复绿;iframe sandbox(PreviewCanvas.tsx:64)变异自证:删 sandbox ⇒ 红 expected null、恢复 ⇒ 绿。批次号注记:R10 标第 31 批与并发席 ab5417bdbf 撞号,实际时序 R10=31、ab5417bdbf=32、mcp 收尾=33。 -->
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R12〕第 33-35 批:714948f4b8(调度 webhook 与 A2A 派发补 SSRF 钉 IP、A2A agent 注册归属与列表收权、连接器写面诚实失败与不可解密密文保全)、9cb6d0efdd(并行席续修 12 项:微信登录补 2FA、TOTP 单次兑付、结算单 admin、小程序 webview 白名单补备案/微信签约域并修 R11 误伤、签约 signUrl、work-panel 协议、SVG 断源、A2A 生产禁回环、MCP 音频钉 IP、IM webhook 过 SSRF 尺)、66545ca044(画布消息源校验、Playground Key 清旧 localStorage 残值)、4b32f83f9c(message_bus 单跑必炸修复)。验证现读:ai-service 七文件 158 例、web vitest 3 例、miniapp vitest 6 例全绿;mypy --strict 674 文件零错误;web tsc 零错误;ruff 通过。终态 HEAD 与 origin/main 均为 4b32f83f9c(git ls-remote 现读)。遗留非本批:门 41 报 origin/wip/collect-20261029(他席 2026-10-29 未合并 WIP,超 48h);mobile-rn 两文件处于他席 staged 删除中间态(门 30c 直跑 RC=0)。 -->
+
+- [ ] B67 [auto-triage] API 5xx 错误签名聚类(GET /api/agents/list 503)(登记@2026-10-31/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 3 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/agents/list → 503 GET /api/agents/list -> 503 / FastifyError: Service Unavailable)
