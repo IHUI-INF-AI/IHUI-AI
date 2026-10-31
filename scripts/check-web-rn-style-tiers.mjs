@@ -38,6 +38,19 @@
  *   唯一调度器 = `scripts/parity-auto.mjs` 的 gate 组 + `scripts/git-guardian.mjs` 巡检轮,
  *   只在计数净增那一档经 §5e 到人。
  *
+ * 射程边界(2026-10-31 首跑现读,三条都是本尺自己看不见的地方,按 §0.8 由尺子自己披露):
+ *   ① **小程序端不在射程内**:`--spacing-*` 只住在 `tokens.css`,而
+ *      `apps/miniapp-taro/src/app.css` 现读 **0 个间距档** ⇒ 补档只对 web/RN 生效,小程序仍只能写
+ *      rpx 字面量(门 128 的 SL 维"单侧具名档"正是这一型)。出路 = 给 `sync-miniapp-tokens.mjs`
+ *      补非色档派生腿,并先解该腿 `healBlockedBy=写回会压平块外格式` 那条阻塞。
+ *   ② **值在表内 ≠ 屏幕真跟随**:inTier 那 1838 处里多数仍是 StyleSheet 裸数字而非
+ *      `rnSpacing.*`/`rnType.*` 引用 ⇒ 改档表不反映到屏幕。本尺量"值合不合法",量不到
+ *      "有没有走引用";补这一维需要一个"等值才改、档外不改"的 codemod(按 §5c 先 clean→改→inject)。
+ *   ③ 上面两格**未进 PROJECT_PLAN**(不是漏登,是取不到号):`live-doc-edit` 判 G 族池上限 1..99
+ *      且候选窗 9/9 全命中扫描面 ⇒ `pool-exhausted` 拒绝落地;而 `plan-tasks.mjs --next-id G`
+ *      按 max+1 报 1262603 —— **同一件事两把尺**(后者不认池上限),违 §0.6。按 §1
+ *      「修不掉的写进 commit message 交后手,不占台账行」处置,不得拿 --next-id 的读数当"号还够用"。
+ *
  * 复用(§0.6 单一真相源,本文件零复算档表):
  *   档表 ← `sync-css-tokens.mjs` 的 `parseTokenTables` / `buildEntries`(与守门 93 R9–R11 同一把尺)
  *   圆角 ← `packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS`(与守门 77 同一张表)
