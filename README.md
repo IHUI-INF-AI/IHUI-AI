@@ -110,7 +110,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | schema 文件 | 240 | `dbSchemaFiles` |
 | API 路由 | 4656 | `apiRoutes` |
 | 路由文件 | 656 | `apiRouteFiles` |
-| AI 服务路由 | 629 | `aiServiceRoutes` |
+| AI 服务路由 | 623 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -121,18 +121,16 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3753 | `testFiles` |
+| 测试文件 | 3752 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 308 | `guardianGates` |
 | — blocking | 282 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 18292 | `trackedFiles` |
+| 跟踪文件 | 18276 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
@@ -2040,7 +2038,7 @@ IHUI-AI/
 | **出口代理池**              | `/admin/relay/proxy-pool` + `ai_relay_proxy_pool` 表          | 每账号独立出口 IP 降风控:proxyUrl 限 http/https/socks5 协议、重复新增 409;list 分页 + status(active/dead/exhausted)过滤、PATCH 更新 status/boundAccountId/proxyUrl、DELETE 删除、`POST :id/check` 人工标记活性(markProxyChecked);管理员可见 proxyUrl 原样(含内嵌账密)                                                                                                                                                                                                                                                                             |
 | **账号上游余额点查**        | `POST /admin/relay/accounts/:id/quota`                        | 按需点查上游余额/积分(2026-10-23 立),**不进调度轮询**——只在 admin 点击时发一次上游请求,回包带 queriedAt;仅已实证余额端点的平台可用(现 trae / qoder / workbuddy 适配器实现 getQuota;2026-10-27 扩容八平台 codex/opencode/minimax/zcode/loomy/doubao/lingma/grokbot 适配器已注册,余额端点形状均未实证 ⇒ getQuota 一律如实未判定(401/403 回 authFailed,200 回响应键名清单,不猜字段)——workbuddy 2026-10-27 真号实弹闭环 billing summary;codearts 套餐/积分余额**无接口**(官方明细只在控制台 personal-usage 页,免费额度按月重置),适配器只挂了限时福利 balance 端点(opengw.developer…/api/v1/user/tokens/balance,2026-10-27 取证),其响应形状未实证 ⇒ 面板点查如实回未判定并带响应键名清单),未注册平台同样 400;取不到的一律留 null,不拿 0 冒充(0 在面板读成积分耗尽)                                                                                                                                                                                                                                                   |
 | **账号池转发回落**          | `apps/api/src/services/relay-account-forwarder.ts`            | `/v1` 公开链路在「渠道 key 池无候选」时由 relay-upstream-forwarder 回落到账号池,返回形状与渠道路径一致(v1-public 消费端零改动):模型→平台反查(60s 进程缓存)、选号 priority asc → weight desc → lastUsedAt asc、会话亲和 affinityKey+model 30 分钟、上限 3 号 failover;401 自愈(刷新凭证回写后用完整 messages 重放一次);分层熔断——连续 3 败 60s 冷却、rate 60s、credit 12h、risk 30 分钟起且连续命中翻倍                                                                                                                                            |
-| **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
+| **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **归属筛选(2026-10-31,机主令:运营池默认存量视图 / 我的个人池 `owner=me`=当前登录管理员 / 全部归属;个人池行名称列带"个人池"徽章;判据单源 `relay-pool-policy.ownerListCondition` 四分支镜像测试)** + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
 | **会话库只读盘点** | `pnpm relay:sessions` | 三面盘点(登录态 / 会话库 / wb-switch)+隔离判定;零写入、零上游、永不回显 token 与消息正文 |
 | **会话库备份** | `pnpm relay:sessions:backup --apply` | 源只读,快照到 `~/.wb-switch/backups/sessions/<ts>/` 并带逐文件 sha256 manifest;默认 dry-run ;`--gzip` 可选压缩(manifest 记 encoding,校验基准仍是解压后原文 sha256) |
 | **会话库恢复** | `pnpm relay:sessions:restore --snapshot <dir> --apply` | 逐文件 sha 校验后原子回填;`--undo <opId>` 单条回退、`--list-ops` 查历史;漂移未 `--force` 整批拒做 |
@@ -5738,6 +5736,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
+| API 路由 | 4616 | `apiRoutes` |
 | 路由文件 | 651 | `apiRouteFiles` |
 | AI 服务路由 | 613 | `aiServiceRoutes` |
 | CLI 命令文件 | 67 | `cliCommandFiles` |
@@ -17123,6 +17122,8 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 > **8 端代码 · 612 张数据库表 · 4451 个 API 路由。**
 > **8 端代码 · 612 张数据库表 · 4451 个 API 路由。**
 **2026-10-29**
+| API 路由 | 4654 | `apiRoutes` |
+| API 路由 | 4653 | `apiRoutes` |
 | 工程守门 | 305 | `guardianGates` |
 | — blocking | 279 | `guardianBlocking` |
 - 🐞 修复:账本生成器补上"写盘后紧随注入"这条腿 —— 并把被我自己洗掉的载荷落回去 (e7bd406d8b)
@@ -40546,39 +40547,3 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 📚 文档:切号条目口径按 2026-10-31 取证更正 + 补登统一入口与 MiniMax 回灌 (772eb33cca)
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs` `check-rn-interaction-hygiene.mjs`
-对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
-| API 路由 | 4616 | `apiRoutes` |
-| 测试文件 | 3607 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
-| 跟踪文件 | 17728 | `trackedFiles` |
-  <strong>612 张表 · 4616 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3607 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
-| **代码规模** | 8 端代码 / 205 schema 文件 / **612 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4616 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
-| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
-| **测试覆盖** | **3607 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
-→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
-**2026-10-30**
-**2026-10-30**
-**2026-10-30**
-**2026-10-30**
-**2026-10-29**
-**2026-10-30**
-**2026-10-30**
-**2026-10-30**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-**2026-10-29**
-| API 路由 | 4653 | `apiRoutes` |
-| 测试文件 | 3694 | `testFiles` |
-| 跟踪文件 | 18165 | `trackedFiles` |
-| 测试文件 | 3701 | `testFiles` |
-| 跟踪文件 | 18200 | `trackedFiles` |
-| 测试文件 | 3709 | `testFiles` |
-| 跟踪文件 | 18214 | `trackedFiles` |
-| API 路由 | 4654 | `apiRoutes` |
-| 测试文件 | 3732 | `testFiles` |
-| 跟踪文件 | 18244 | `trackedFiles` |
