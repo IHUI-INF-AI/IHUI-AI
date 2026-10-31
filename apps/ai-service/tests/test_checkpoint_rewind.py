@@ -116,8 +116,13 @@ def _reset_state():
 
 @pytest.fixture
 def workspace(tmp_path, monkeypatch):
-    """把 file_editor 工作区白名单指向临时目录。"""
+    """把 file_editor 与 MCP 侧的工作区白名单都指向临时目录。"""
     monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
+    # 2026-10-31 安全强化第 14 批(F3 纵深):checkpoint 的 impact/restore 也会复跑
+    # mcp_server 的 workspace 判据(记录 path 零再校验 ⇒ 任意文件读/任意写回)。
+    # 那条读的是 MCP_WORKSPACE_ROOTS;不登记的话"读"与"回滚"两侧都会被判越界,
+    # 表现为 readError 恒在 / file_changes 恒 0 —— 与本文件要锁的语义无关。
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
     return tmp_path
 
 
