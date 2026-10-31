@@ -104,8 +104,11 @@ function nsSet(text) {
 /** 从 `@ihui/api-client` 具名导入的符号(花括号可跨行;`type X` 与 `X as Y` 都取左侧真名) */
 export function apiClientSymbols(text) {
   const out = new Set()
+  // 花括号体用 `[^}]*` 而不是惰性的 `[\s\S]*?`:后者会从**前面**某条 import 的 `{` 起步,
+  // 一路吞到本条的 `}`(首个具名符号因此永远落进含换行的串里被丢弃;实测 EarnCommission
+  // 的 getCommissionRates 就是这样消失在符号表里的)。import 说明符本身不含 `}`,边界可靠。
   for (const m of (text || '').matchAll(
-    /import\s+(?:type\s+)?\{([\s\S]*?)\}\s+from\s+['"]@ihui\/api-client['"]/g,
+    /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]@ihui\/api-client['"]/g,
   )) {
     for (const part of m[1].split(',')) {
       const name = part
@@ -589,6 +592,26 @@ function selfTest() {
       name: '/api 归一形态:/api/auth/realname/my ⇒ /auth/realname/my',
       want: '/auth/realname/my',
       got: () => [...endpointSet(`fetchApi('/api/auth/realname/my')`)].join(','),
+    },
+    {
+      name: 'apiClientSymbols 不跨前置 import 吞并(首个具名符号必须保留)',
+      want: 'getCommissionRates,getOverview,CommissionOverview',
+      got: () =>
+        [
+          ...apiClientSymbols(
+            [
+              "import { useCallback, useState } from 'react'",
+              "import { View } from 'react-native'",
+              "import { getCommissionRates, getOverview, type CommissionOverview } from '@ihui/api-client'",
+            ].join('\n'),
+          ),
+        ].join(','),
+    },
+    {
+      name: 'apiClientSymbols 反向对照:别的包的 import 不贡献符号',
+      want: '',
+      got: () =>
+        [...apiClientSymbols("import { getOrders } from '@ihui/api-client-extra'")].join(','),
     },
     {
       name: 'apiClientSymbols 认跨行花括号与 type/as 形态',
