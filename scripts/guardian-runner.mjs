@@ -6439,7 +6439,7 @@ const checks = [
     // 编号 273:注册前已核本文件与 HEAD 面 `id: '273'` 均为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
     id: '273',
     label:
-      '👆 RN 触屏交互卫生对账(blocking;H1 命中尺寸绝对零容忍(立门当轮存量已清零才升的档)+ H2 按压反馈差值棘轮(存量只报数,现值由门自己打印;TouchableOpacity 默认 activeOpacity=0.2 自带变暗不计入);档位取 geometry.js 的 tapBox,门内从被审面现读)',
+      '👆 RN 触屏交互卫生对账(blocking;H1 命中尺寸 / H3 键盘点击穿透 / H4 内容文字缩放 = 绝对零容忍(三者的可见存量都先清零才升的档,§0.2)+ H2 按压反馈差值棘轮(存量只报数,现值由门自己打印;TouchableOpacity 默认 activeOpacity=0.2 自带变暗不计入);H3 只判闭标签配得平的区间,配不平的落盲区不判红;档位取 geometry.js 的 tapBox,门内从被审面现读;判序是纯函数 stagedVerdict,由 --self-test 逐维钉方向)',
     script: 'check-rn-interaction-hygiene.mjs',
     args: [],
     mode: 'blocking',
@@ -6457,6 +6457,11 @@ const checks = [
       '     被判的那枚是因为显式写了 `activeOpacity={1}` 把默认反馈关掉了 ⇒ 改回不写或写 <1 即可(枚数以门现读为准,文案不钉数)。',
       '     例外是**遮罩**:半透黑底(bg-black/α、rgba(0,0,0,α<1)、8 位带 alpha hex、tk.overlay.*)按下去就是关层,',
       '     本门不要求它变暗(那等于全屏闪一下)—— 别为了让门绿去给遮罩加 onPressIn。',
+      '  💡 H3 键盘点击穿透:滚动容器(ScrollView/FlatList/SectionList/KeyboardAwareScrollView)里会出现输入框时',
+      '     必须写 `keyboardShouldPersistTaps="handled"` —— 默认 never 让键盘弹起后的第一下点击只收键盘、',
+      '     不触发按钮,用户"填完再点提交"就像没反应。判据只认两条静态可证的口径:容器直接承载 `{children}`,',
+      '     或自己配平的子树里出现 `<TextInput`/`<TextField`(闭标签配不平 ⇒ 落盲区不判,不拿坏区间逼人改码)。',
+      '     小程序腿不受影响:rn-compat 的 ScrollView 逐个显式取用 props,这个 RN 原语不会漏进 Taro prop。',
       '  💡 判不了的(静态盲区,门头注已点名):padding/flex 撑出来的尺寸、跨文件样式、style={fn}。',
       '  💡 自检:node scripts/check-rn-interaction-hygiene.mjs --self-test | 存量口径:--strict',
       '  💡 紧急跳过(不推荐,须留痕):HUSKY_SKIP_RN_INTERACTION_HYGIENE=1 git commit ...',

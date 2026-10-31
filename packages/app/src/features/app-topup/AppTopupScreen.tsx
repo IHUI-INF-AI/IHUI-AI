@@ -72,6 +72,7 @@ export function AppTopupScreen({
         <Text style={styles.title}>充值</Text>
       </View>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         style={styles.scroll}
         refreshControl={
           <RefreshControl
