@@ -5030,6 +5030,135 @@ export function sweepExposedCredentialRotation(opts = {}) {
   return { ran: true, ok: false, state: 'undetermined', counts }
 }
 
+/**
+ * 永久保活腿(2026-11-01 立)—— 把号池续期从「只活在 api 进程里」解绑出来。
+ *
+ * 立因:号池巡检由 apps/api 的 BullMQ worker 每 5 分钟驱动,而本机 api 是 tsx dev 进程
+ * (2026-10-31 实测 `sc query` 只有 PostgreSQL16IHUI,没有 api 服务)⇒ 进程一停,登记成
+ * 永久保活的那枚 Trae 号就没人续。机主已不能靠验证码重登,「没人续」不是降级而是丢号。
+ * 唯一常驻的承载体就是本守护(计划任务每 2 分钟 + daemon),所以这一格挂在这里。
+ *
+ * 器物:`scripts/relay-account-keepalive.mjs --once`(它 spawn tsx 跑
+ * apps/api/scripts/relay-account-keepalive.ts,判据一律走调度层单源,本腿零复算)。
+ *
+ * 三态(§0.3):ok ⇒ 静默只留日志;alert ⇒ 也只留日志(喊人由器物自己经
+ * notify-deploy-failure 唯一出口完成,这里再 notify 就是同一故障两封信 §5e-3);
+ * undetermined ⇒ 这是「腿自己哑了」,与「号掉线」是两个身份 ⇒ 归本守护 notify。
+ * 失败只冷却 1 小时(成功才按 6 小时窗口),判机器状态 ⇒ 绝不进提交链(§12e)。
+ */
+const KEEPALIVE_FOREVER_INTERVAL_MS = Number(
+  process.env.IHUI_KEEPALIVE_FOREVER_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
+const KEEPALIVE_FOREVER_FAILURE_COOLDOWN_MS = 60 * 60 * 1000
+
+export function sweepKeepAliveForever(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = KEEPALIVE_FOREVER_INTERVAL_MS,
+    failureCooldownMs = KEEPALIVE_FOREVER_FAILURE_COOLDOWN_MS,
+    tickFile = join(dirname(LOG), 'keepalive-forever-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'relay-account-keepalive.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 永久保活:腿不在位(scripts/relay-account-keepalive.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '腿不在位' }
+  }
+  let last = NaN
+  let lastState = ''
+  try {
+    const rec = JSON.parse(readFileSync(tickFile, 'utf8'))
+    last = Date.parse(String(rec.attemptAt ?? '').trim())
+    lastState = String(rec.state ?? '')
+  } catch {
+    /* 没跑过 */
+  }
+  // 上一轮没判出来 ⇒ 只冷却一小时,不能让一次 Redis 抖动把保活停摆六小时
+  const window = lastState === 'undetermined' ? failureCooldownMs : intervalMs
+  if (Number.isFinite(last) && now - last < window) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 永久保活:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--once', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // 1 = 业务失败,2 = 未判定:两种都不是"尺子坏了",结论整份在输出里
+            return {
+              ok: false,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.stderr ?? e?.message ?? e),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const text = String(r.out ?? '')
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.match(/KEEPALIVE-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null)
+    .find(Boolean)
+  const state = line ? line[1] : null
+  const tail = line ? String(line[2]) : ''
+  const kv = (key) => {
+    const mm = tail.match(new RegExp(`\\b${key}=(\\S+)`))
+    return mm ? mm[1] : null
+  }
+  const counts = `registered=${kv('registered') ?? '?'} refreshed=${kv('refreshed') ?? '?'} refreshFailed=${kv('refreshFailed') ?? '?'} keepalive=${kv('keepalive') ?? '?'} heartbeat=${kv('heartbeat') ?? '?'} alerts=${kv('alerts') ?? '?'} mailed=${kv('mailed') ?? '?'}`
+  try {
+    writeFileSync(
+      tickFile,
+      JSON.stringify({ attemptAt: new Date(now).toISOString(), state: state ?? 'no-result-line' }),
+      'utf8',
+    )
+  } catch {
+    /* 台账二次写失败不遮蔽结论 */
+  }
+  if (state === null) {
+    logger('⚠️ 永久保活:未取到结论行(KEEPALIVE-RESULT)⇒ 本轮读数未判定,不等于"号池健康"(§0.3)')
+    notify(
+      '永久保活腿未判定',
+      `派发了 scripts/relay-account-keepalive.mjs --once 但没拿到结论行。这条腿是号池续期在 api 进程之外的唯一承载体,它哑了等于登记成永久保活的号(机主已无法验证码重登)没人续。\nstderr 前 200:${String(r.err ?? '').slice(0, 200) || '(空)'}\n\n可执行下一步:① node scripts/relay-account-keepalive.mjs --once;② node scripts/relay-account-keepalive.mjs --explain <uid> 逐闸读数。`,
+      { severity: 'warning', dedupKey: 'keepalive-forever;no-result-line', logger },
+    )
+    return { ran: true, ok: false, state: 'no-result-line' }
+  }
+  if (state === 'ok') {
+    logger(`✅ 永久保活:本轮已巡检(${counts})`)
+    return { ran: true, ok: true, state, counts }
+  }
+  if (state === 'alert') {
+    // 邮件由器物自己经唯一出口发过(mailed 就是它的投递计数),这里再 notify 就是双封信
+    logger(
+      `⚠️ 永久保活:有号需要人看(${counts})⇒ 邮件已由器物发出,本守护不重复投递(§5e-3)`,
+    )
+    return { ran: true, ok: false, state, counts }
+  }
+  logger(`⚠️ 永久保活:本轮未判定(${counts})⇒ 不记绿,下轮按一小时冷却重试`)
+  notify(
+    '永久保活腿未判定',
+    `器物交出 state=undetermined(号池巡检输入取不到 / 汇总行解析不出)。这不等于「号池健康」。\n${counts}\n\n可执行下一步:① node scripts/relay-account-keepalive.mjs --once 看完整 stderr;② 若 api 的库/Redis 都不在线,这条腿本来就只能报未判定。`,
+    { severity: 'warning', dedupKey: 'keepalive-forever;undetermined', logger },
+  )
+  return { ran: true, ok: false, state, counts }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -10233,6 +10362,11 @@ function main() {
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
+    // 永久保活腿(2026-11-01 立):号池巡检只活在 api 的 BullMQ worker 里,而本机 api 是 tsx
+    // dev 进程(sc 里没有 api 服务)⇒ 进程一停,登记成永久保活的那枚 Trae 号没人续票。
+    // 机主已不能靠验证码重登,"没人续"对它是终结不是降级。挂在本族同格(健康轮次早退之前
+    // + !CHECK_ONLY),6 小时节流;判机器状态 ⇒ 绝不进提交链(§12e)。
+    if (!CHECK_ONLY) sweepKeepAliveForever()
     // 悬空 commit 自动保活(2026-10-30 立):守门 30a 的「30 天窗」维是 blocking,而此前**没有任何
     // 自动腿**在悬空出现的当下给它打 lost-commit/<name> tag —— 手工打 10 枚修绿、几十分钟后再冒 2 枚,
     // 于是这台机器周期性重新制造「人人 --no-verify」那一型(§12e)。判据零复算:吃 30a 自己的
@@ -11608,6 +11742,9 @@ export const __test__ = {
   // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
   // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。
   sweepExposedCredentialRotation,
+  // 永久保活派发腿(2026-11-01 接线;镜像测试 keepalive-forever-dispatch 按名 import 判据,
+  // 不复制 §22c;不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
+  sweepKeepAliveForever,
   // 悬空 commit 自动保活派发腿(2026-10-30 立;镜像测试 dangling-commit-autotag-dispatch 按名 import,
   // 不复制判据 §22c;此条不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepDanglingCommitAutotag,
