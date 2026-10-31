@@ -1350,7 +1350,7 @@ def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
 
 
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
-    """search_codebase: 代码符号搜索(真实文件系统)。
+    """search_codebase: 代码符号搜索(关键词腿 + 语义腿并跑,RRF 融合)。
 
     专注于代码符号(函数/类/方法定义 + 引用)的搜索,支持:
     - query: 符号名或关键词(如函数名、类名)
@@ -1361,21 +1361,38 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     - 忽略常见依赖/构建/缓存目录
     - 忽略二进制文件
     - 返回: 文件路径 + 行号 + 符号类型 + 代码行 + 上下文预览
+
+    2026-11-01 票 #10(验收尺 `scripts/check-retrieval-quality.mjs`):两条腿**并发都跑**,
+    名次由 `reranker.rrf_fuse`(`k` 取 `rag.resolve_rrf_k()`)给出 —— 与 `rag._retrieve`
+    同一份融合实现、同一口径,旧契约「语义失败/无结果 ⇒ 静默回落 regex」已废除。
+    降级一律具名出声,`mode` 五档(命名与 rag 侧 `stats["mode"]` 同族):
+      rrf-fusion             两腿都取到、都给了结果,名次来自 RRF
+      single-source:vector   只有语义腿给出结果(另一腿空或取不到)
+      single-source:keyword  只有关键词腿给出结果(同上)
+      empty                  两腿都取到且都判空 —— "查过了,没有"
+      unjudged               至少一腿取不到,且没有任何腿给出结果 —— 判不出,不冒充 empty
+    `empty` 与 `unjudged` 分档是刻意的:前者是可以据此下"仓库里没有"结论的判定,
+    后者不能(§0.3「没判」绝不写成"判过")。
     """
     query = arguments.get("query", "")
     path = arguments.get("path", ".")
     pattern = arguments.get("pattern", "")
     max_results = int(arguments.get("max_results", 50))
     symbol_type = arguments.get("symbol_type", "").strip().lower()
-    # 2026-07-22 新增:语义搜索开关(默认 True,失败/无结果时 fallback 到 regex)
+    # 2026-11-01 票 #10:语义腿开关(默认 True)。False 是调用方的显式选择,
+    # 不当作"腿坏了"—— 它以 status=skipped 如实进 reasons,mode 落在 single-source:keyword。
     use_semantic = arguments.get("use_semantic", True)
     # V3 #75 后半:语义通道这一轮**为什么**没给结果,必须随响应回去。
+    # 2026-11-01 票 #10:异常分支同样赋值 —— 旧实现只在成功路径赋值,
+    # 于是语义腿炸掉时这一格恒 null,异常只剩一句 debug 日志(尺子点名的那一型)。
     # None = 没走到懒索引那一步;非 None 时 status/reason 一定可读。
     semantic_index_field: dict[str, Any] | None = None
     # 2026-10-03 数据出域合规整改:调用者身份(服务端注入,LLM 不可伪造)。
-    # 语义检索与懒索引都按归属隔离,不传则 api 侧 401 → 本轮降级为纯 regex 检索
-    # (功能降级但不泄露,且正则路径不碰数据库)。
+    # 语义检索与懒索引都按归属隔离,不传则 api 侧 401 → 语义腿拿不到结果,
+    # 关键词腿照常工作(功能降级但不泄露,且正则路径不碰数据库)。
     _caller_user_id = arguments.get("__user_id") or None
+    # 遥测出参(与 rag._retrieve 的 stats 同族):降级原因回到返回体,不许只留在日志里。
+    stats: dict[str, Any] = {}
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -1409,13 +1426,49 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "query": query,
             "path": path,
             "matches": [],
+            "mode": "unjudged",
+            "degraded": True,
+            "reasons": [
+                {"leg": "query", "status": "missing", "detail": "搜索关键词为空,两腿均未发起"},
+            ],
+            "stats": stats,
             "message": "搜索关键词为空",
             "ok": False,
         }
 
-    # 2026-07-22 新增:语义搜索路径(pgvector ANN,优先于 regex)
-    # 失败或无结果时静默 fallback 到下方 regex 路径
-    if use_semantic:
+    def _fusion_key(match: dict[str, Any]) -> str:
+        """融合去重键:位置 + 归一后的符号类型(行级命中,同文件不同行不得折成一枚)。
+
+        用的是 `rrf_fuse` 在册的 `key_fn` 扩展点,不是第二套融合判据:它的默认
+        `_default_key` 按 id→path→content 前缀取值,直接用在行级命中上会把一个
+        文件里的多处命中吃掉只剩第一处。
+        - 键里必须带符号类型:一行 `interface User {` 会被关键词腿同时记成
+          "class" 与 "interface" 两枚命中(同 path 同行),只按 path:line 取值
+          就把它们折成一枚(实测撞上的正是 TS interface 那一例)。
+        - 两腿的符号类型词汇表不同源(关键词腿 `_SYMBOL_PATTERNS` 用 def/func,
+          索引侧 `_SYMBOL_NODE_TYPES` 用 function),不归一就永远撞不到同一枚键,
+          融合退化成两腿并集;归一只作用在这把键上,不改任何一条腿的输出。
+        """
+        sym = str(match.get("symbol_type", ""))
+        sym = {"def": "function", "func": "function"}.get(sym, sym)
+        return f"loc:{match.get('path', '')}:{match.get('line', 0)}:{sym}"
+
+    async def _semantic_leg() -> dict[str, Any]:
+        """语义腿(pgvector ANN;空结果时走懒索引补救)。
+
+        归属判据一字未动:`internal_user_id` 仍只认服务端注入的 `__user_id`,
+        源码出域同意闸仍在 `_lazy_index_and_research` 内部把关(未同意 ⇒ 不建索引)。
+        本腿把异常转成 status/reason 交回装配层:一腿坏了不许带走整次检索,
+        但**必须**出声 —— 旧实现只写一句 debug 日志、异常分支连 `semantic_index_field`
+        都不赋值,于是响应里那一格恒 null(验收尺点名的 silent-degrade 载体)。
+        """
+        nonlocal semantic_index_field
+        if not use_semantic:
+            return {
+                "status": "skipped",
+                "matches": [],
+                "reason": "use_semantic=False(调用方显式关闭语义腿)",
+            }
         try:
             from .codebase_indexer import codebase_indexer
             # 2026-10-03:检索按归属隔离(见 _caller_user_id 处注释)
@@ -1434,204 +1487,299 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 )
                 semantic_results = lazy.results
                 semantic_index_field = lazy.as_response_field()
-            if semantic_results:
-                semantic_matches: list[dict[str, Any]] = []
-                for r in semantic_results[:max_results]:
-                    content_preview = r.get("content", "")
-                    if len(content_preview) > 500:
-                        content_preview = content_preview[:500]
-                    semantic_matches.append({
-                        "path": r.get("filePath", ""),
-                        "file": r.get("filePath", "").rsplit("/", 1)[-1],
-                        "line": r.get("lineStart", 0),
-                        "symbol_type": r.get("symbolType", "semantic"),
-                        "symbol_name": r.get("symbolName", ""),
-                        "code": content_preview[:200],
-                        "preview": content_preview,
-                        "score": round(r.get("score", 0), 4),
-                    })
-                return {
-                    "tool": "search_codebase",
-                    "query": query,
-                    "path": path,
-                    "use_semantic": True,
-                    "matches": semantic_matches,
-                    "total": len(semantic_matches),
-                    "truncated": False,
-                    "semantic_index": semantic_index_field,
-                    "message": f"语义搜索找到 {len(semantic_matches)} 个匹配(pgvector ANN)",
-                    "ok": True,
-                }
-        except Exception as e:
-            import logging as _logging
-            _logging.getLogger(__name__).debug(
-                "semantic search failed, fallback to regex: %s", e
+            leg_matches: list[dict[str, Any]] = []
+            for r in list(semantic_results)[:max_results]:
+                content_preview = r.get("content", "")
+                if len(content_preview) > 500:
+                    content_preview = content_preview[:500]
+                leg_matches.append({
+                    "path": r.get("filePath", ""),
+                    "file": r.get("filePath", "").rsplit("/", 1)[-1],
+                    "line": r.get("lineStart", 0),
+                    "symbol_type": r.get("symbolType", "semantic"),
+                    "symbol_name": r.get("symbolName", ""),
+                    "code": content_preview[:200],
+                    "preview": content_preview,
+                    "score": round(r.get("score", 0), 4),
+                })
+            return {
+                "status": "ok",
+                "matches": leg_matches,
+                "reason": semantic_index_field.get("reason") if semantic_index_field else None,
+            }
+        except TimeoutError as e:
+            semantic_index_field = {"status": "timeout", "reason": f"{type(e).__name__}: {e}"}
+            stats["vector_leg"] = "timeout"
+            return {
+                "status": "timeout",
+                "matches": [],
+                "reason": f"语义腿超时: {type(e).__name__}: {e}",
+            }
+        except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
+            semantic_index_field = {"status": "failed", "reason": f"{type(e).__name__}: {e}"}
+            stats["vector_leg"] = "failed"
+            logger.warning(
+                "search_codebase 语义腿失败(状态与原因已进返回体,不再静默回落): %s: %s",
+                type(e).__name__,
+                e,
             )
-
-    try:
-        import fnmatch
-        import os
-        from pathlib import Path
-
-        root = Path(path).resolve()
-        if not root.exists():
             return {
-                "tool": "search_codebase",
-                "query": query,
-                "path": path,
+                "status": "failed",
                 "matches": [],
-                "message": f"路径不存在: {path}",
-                "ok": False,
-            }
-        if not root.is_dir():
-            return {
-                "tool": "search_codebase",
-                "query": query,
-                "path": path,
-                "matches": [],
-                "message": f"路径不是目录: {path}",
-                "ok": False,
+                "reason": f"语义腿异常: {type(e).__name__}: {e}",
             }
 
-        # 构建 pattern 列表(支持逗号分隔多 pattern)
-        if pattern:
-            patterns = [p.strip() for p in pattern.split(",") if p.strip()]
-        else:
-            patterns = []  # 用扩展名过滤
+    async def _keyword_leg() -> dict[str, Any]:
+        """关键词腿(真实文件系统 regex 符号 + 引用扫描,不碰数据库)。"""
+        try:
+            import fnmatch
+            import os
+            from pathlib import Path
 
-        query_lower = query.lower()
-        matches: list[dict[str, Any]] = []
-        count = 0
+            root = Path(path).resolve()
+            if not root.exists():
+                return {
+                    "status": "unavailable",
+                    "matches": [],
+                    "truncated": False,
+                    "reason": f"路径不存在: {path}",
+                }
+            if not root.is_dir():
+                return {
+                    "status": "unavailable",
+                    "matches": [],
+                    "truncated": False,
+                    "reason": f"路径不是目录: {path}",
+                }
 
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-            dir_rels = [
-                os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                for d in dirnames
-            ]
-            file_rels = [
-                os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
-                for fname in filenames
-            ]
-            ignored = _git_check_ignore(root, dir_rels + file_rels)
-            if ignored:
-                dirnames[:] = [
-                    d
+            # 构建 pattern 列表(支持逗号分隔多 pattern)
+            if pattern:
+                patterns = [p.strip() for p in pattern.split(",") if p.strip()]
+            else:
+                patterns = []  # 用扩展名过滤
+
+            query_lower = query.lower()
+            matches: list[dict[str, Any]] = []
+            count = 0
+
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+                dir_rels = [
+                    os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
                     for d in dirnames
-                    if os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                    not in ignored
                 ]
-            for fname in filenames:
-                if count >= max_results:
-                    break
-                rel_posix = os.path.relpath(
-                    os.path.join(dirpath, fname), root
-                ).replace("\\", "/")
-                if rel_posix in ignored:
-                    continue
-                # pattern 或扩展名过滤
-                if patterns:
-                    if not any(fnmatch.fnmatch(fname, p) for p in patterns):
-                        continue
-                else:
-                    ext = os.path.splitext(fname)[1].lower()
-                    if ext not in _CODE_EXTS:
-                        continue
-
-                fpath = os.path.join(dirpath, fname)
-                try:
-                    with open(fpath, encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
-                except OSError:
-                    continue
-
-                lines = content.splitlines()
-                rel_path = os.path.relpath(fpath, root)
-
-                # 先快速过滤:文件内容必须含 query(大小写不敏感)
-                if query_lower not in content.lower():
-                    continue
-
-                # 1) 符号定义匹配:扫描每种符号模式
-                symbol_matches: list[tuple[int, str, str]] = []  # (line_no, sym_type, line_text)
-                for sym_type, sym_re in _SYMBOL_PATTERNS.items():
-                    if symbol_type and sym_type != symbol_type:
-                        continue
-                    for m in sym_re.finditer(content):
-                        sym_name = m.group(1)
-                        if sym_name.lower() == query_lower or query_lower in sym_name.lower():
-                            # 计算 line_no
-                            line_no = content.count("\n", 0, m.start()) + 1
-                            line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
-                            symbol_matches.append((line_no, sym_type, line_text))
-
-                # 2) 通用行匹配(任意包含 query 的行)
-                line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
-                for i, line_text in enumerate(lines):
-                    if query_lower in line_text.lower():
-                        line_matches.append((i + 1, line_text))
-
-                # 合并:符号匹配优先,再补通用行匹配(去重)
-                seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
-                for ln_no, ln_text in line_matches:
-                    if ln_no not in seen_lines:
-                        symbol_matches.append((ln_no, "reference", ln_text))
-                        seen_lines.add(ln_no)
-
-                if not symbol_matches:
-                    continue
-
-                # 限制每个文件最多 10 条匹配
-                for line_no, sym_type, line_text in symbol_matches[:10]:
-                    # 提取上下文(前后各 2 行)
-                    start = max(0, line_no - 3)
-                    end = min(len(lines), line_no + 2)
-                    preview = "\n".join(
-                        f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
-                    )
-                    matches.append({
-                        "path": rel_path,
-                        "file": fname,
-                        "line": line_no,
-                        "symbol_type": sym_type,
-                        "code": line_text.strip()[:200],
-                        "preview": preview[:500],
-                    })
-                    count += 1
+                file_rels = [
+                    os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
+                    for fname in filenames
+                ]
+                ignored = _git_check_ignore(root, dir_rels + file_rels)
+                if ignored:
+                    dirnames[:] = [
+                        d
+                        for d in dirnames
+                        if os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
+                        not in ignored
+                    ]
+                for fname in filenames:
                     if count >= max_results:
                         break
+                    rel_posix = os.path.relpath(
+                        os.path.join(dirpath, fname), root
+                    ).replace("\\", "/")
+                    if rel_posix in ignored:
+                        continue
+                    # pattern 或扩展名过滤
+                    if patterns:
+                        if not any(fnmatch.fnmatch(fname, p) for p in patterns):
+                            continue
+                    else:
+                        ext = os.path.splitext(fname)[1].lower()
+                        if ext not in _CODE_EXTS:
+                            continue
 
-            if count >= max_results:
-                break
+                    fpath = os.path.join(dirpath, fname)
+                    try:
+                        with open(fpath, encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                    except OSError:
+                        continue
 
-        return {
-            "tool": "search_codebase",
-            "query": query,
-            "path": path,
-            "pattern": pattern,
-            "symbol_type": symbol_type,
-            "matches": matches,
-            "total": len(matches),
-            "truncated": count >= max_results,
-            # V3 #75 后半:走到正则通道时,语义通道那一步的结论必须一起回去。
-            # 没有这一格,模型读到的就是"正则找到 N 个匹配",而看不见
-            # "语义索引压根没为这个目录建过(以及为什么没建)" —— 那正是旧契约
-            # 用 `return []` 冒充"没有结果"的形状。
-            "semantic_index": semantic_index_field,
-            "message": f"在 {path} 下找到 {len(matches)} 个匹配"
-                       + ("(已截断)" if count >= max_results else ""),
-            "ok": True,
-        }
-    except Exception as e:
+                    lines = content.splitlines()
+                    rel_path = os.path.relpath(fpath, root)
+
+                    # 先快速过滤:文件内容必须含 query(大小写不敏感)
+                    if query_lower not in content.lower():
+                        continue
+
+                    # 1) 符号定义匹配:扫描每种符号模式
+                    symbol_matches: list[tuple[int, str, str]] = []  # (line_no, sym_type, line_text)
+                    for sym_type, sym_re in _SYMBOL_PATTERNS.items():
+                        if symbol_type and sym_type != symbol_type:
+                            continue
+                        for m in sym_re.finditer(content):
+                            sym_name = m.group(1)
+                            if sym_name.lower() == query_lower or query_lower in sym_name.lower():
+                                # 计算 line_no
+                                line_no = content.count("\n", 0, m.start()) + 1
+                                line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
+                                symbol_matches.append((line_no, sym_type, line_text))
+
+                    # 2) 通用行匹配(任意包含 query 的行)
+                    line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
+                    for i, line_text in enumerate(lines):
+                        if query_lower in line_text.lower():
+                            line_matches.append((i + 1, line_text))
+
+                    # 合并:符号匹配优先,再补通用行匹配(去重)
+                    seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
+                    for ln_no, ln_text in line_matches:
+                        if ln_no not in seen_lines:
+                            symbol_matches.append((ln_no, "reference", ln_text))
+                            seen_lines.add(ln_no)
+
+                    if not symbol_matches:
+                        continue
+
+                    # 限制每个文件最多 10 条匹配
+                    for line_no, sym_type, line_text in symbol_matches[:10]:
+                        # 提取上下文(前后各 2 行)
+                        start = max(0, line_no - 3)
+                        end = min(len(lines), line_no + 2)
+                        preview = "\n".join(
+                            f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                        )
+                        matches.append({
+                            "path": rel_path,
+                            "file": fname,
+                            "line": line_no,
+                            "symbol_type": sym_type,
+                            "code": line_text.strip()[:200],
+                            "preview": preview[:500],
+                        })
+                        count += 1
+                        if count >= max_results:
+                            break
+
+                if count >= max_results:
+                    break
+
+            return {
+                "status": "ok",
+                "matches": matches,
+                "truncated": count >= max_results,
+                "reason": None,
+            }
+        except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
+            stats["keyword_leg"] = "failed"
+            logger.warning(
+                "search_codebase 关键词腿失败(状态与原因已进返回体): %s: %s",
+                type(e).__name__,
+                e,
+            )
+            return {
+                "status": "failed",
+                "matches": [],
+                "truncated": False,
+                "reason": f"关键词腿异常: {type(e).__name__}: {e}",
+            }
+
+    # 双腿并发启动(照 rag._retrieve 的先例:两条腿各自 create_task 再 await,
+    # 不是串行 await 两次把延迟叠成两倍)
+    vec_task = asyncio.create_task(_semantic_leg())
+    kw_task = asyncio.create_task(_keyword_leg())
+    vec = await vec_task
+    kw = await kw_task
+
+    reasons: list[dict[str, Any]] = [
+        {"leg": "vector", "status": vec["status"], "detail": vec["reason"]},
+        {"leg": "keyword", "status": kw["status"], "detail": kw["reason"]},
+    ]
+    answered = [
+        (label, leg)
+        for label, leg in (("vector", vec), ("keyword", kw))
+        if leg["status"] == "ok"
+    ]
+    missing_legs = [
+        label
+        for label, leg in (("vector", vec), ("keyword", kw))
+        if leg["status"] != "ok"
+    ]
+    hit_legs = [(label, leg["matches"]) for label, leg in answered if leg["matches"]]
+
+    if len(hit_legs) == 2:
+        mode = "rrf-fusion"
+    elif len(hit_legs) == 1:
+        mode = f"single-source:{hit_legs[0][0]}"
+    elif missing_legs:
+        # 有腿没答上 + 答上来的腿是空的 ⇒ 判不出"这里没有",不得冒充 empty(§0.3)
+        mode = "unjudged"
+    else:
+        mode = "empty"
+
+    degraded = mode not in ("rrf-fusion", "empty")
+    stats["mode"] = mode
+    stats["legs_answered"] = [label for label, _leg in answered]
+    stats["legs_unavailable"] = missing_legs
+    stats["degraded"] = degraded
+
+    if not hit_legs and kw["status"] in ("unavailable", "failed"):
+        # 入参层面的路径错误 / 关键词腿自身炸了,且语义腿也没给出结果:
+        # 沿用既有对外契约(ok=False + "搜索失败: …"),但 mode/reasons 一并回去。
+        detail = str(kw["reason"] or "关键词腿不可用")
         return {
             "tool": "search_codebase",
             "query": query,
             "path": path,
             "matches": [],
-            "message": f"搜索失败: {e}",
+            "total": 0,
+            "mode": mode,
+            "degraded": degraded,
+            "reasons": reasons,
+            "stats": stats,
+            "use_semantic": bool(use_semantic),
+            "semantic_index": semantic_index_field,
+            "message": f"搜索失败: {detail}",
             "ok": False,
-            "error": str(e),
+            "error": detail,
         }
+
+    from .rag import resolve_rrf_k
+    from .reranker import rrf_fuse
+
+    rankings: list[list[dict[str, Any]]] = [leg_matches for _label, leg_matches in hit_legs]
+    labels: list[str] = [label for label, _leg_matches in hit_legs]
+    fused = rrf_fuse(rankings, k=resolve_rrf_k(), labels=labels, key_fn=_fusion_key)
+
+    matches: list[dict[str, Any]] = []
+    for f in fused[:max_results]:
+        item = dict(f.item)
+        item["fused_from"] = "+".join(f.fused_from)
+        item["rrf_score"] = round(f.score, 6)
+        matches.append(item)
+
+    truncated = bool(kw.get("truncated")) or len(fused) > max_results
+    return {
+        "tool": "search_codebase",
+        "query": query,
+        "path": path,
+        "pattern": pattern,
+        "symbol_type": symbol_type,
+        "use_semantic": bool(use_semantic),
+        "matches": matches,
+        "total": len(matches),
+        "truncated": truncated,
+        "mode": mode,
+        "degraded": degraded,
+        "reasons": reasons,
+        "stats": stats,
+        # V3 #75 后半 + 票 #10:语义通道那一步的结论必须一起回去(异常分支也在册),
+        # 没有这一格,模型读到的就是"找到 N 个匹配"而看不见"语义腿压根没答上来"。
+        "semantic_index": semantic_index_field,
+        "message": f"代码检索命中 {len(matches)} 条(模式 {mode})"
+                   + ("(已截断)" if truncated else "")
+                   + ("" if not missing_legs else f";未答上来的腿={','.join(missing_legs)}"),
+        "ok": True,
+    }
 
 
 async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1822,6 +1970,63 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
         }
     except Exception as e:
         return {"tool": "list_files", "path": resolved, "ok": False, "error": str(e)}
+
+
+async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
+    """render_repo_tree: 按 token 预算渲染目录骨架(逆向复现超越 goal-b47,对齐 mtree renderTree)。
+
+    枚举不在此层重抄一遍:实现层 `repo_tree_render.render_workspace_tree` 吃
+    `rg_fallback_parity.enumerate_code_files` 单源出口,所以忽略目录/扩展名白名单/
+    文件数护栏与懒索引护栏是同一套;本层只做路径护栏 + 参数体检 + 核算面透传。
+    """
+    from pathlib import Path as _Path
+
+    from .repo_tree_render import DEFAULT_MAX_TOKENS, MIN_MAX_TOKENS, render_workspace_tree
+
+    path = arguments.get("path", ".")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {
+            "tool": "render_repo_tree",
+            "path": path,
+            "ok": False,
+            "error": info,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    resolved = info
+    if not os.path.isdir(resolved):
+        return {
+            "tool": "render_repo_tree",
+            "path": resolved,
+            "ok": False,
+            "error": f"{resolved} 不是目录,render_repo_tree 只渲染目录骨架。",
+            "errorCode": "NOT_A_DIRECTORY",
+        }
+    raw_budget = arguments.get("maxTokens", DEFAULT_MAX_TOKENS)
+    try:
+        max_tokens = int(raw_budget) if raw_budget is not None else DEFAULT_MAX_TOKENS
+    except (TypeError, ValueError):
+        return {
+            "tool": "render_repo_tree",
+            "path": resolved,
+            "ok": False,
+            "error": f"maxTokens 不是整数:{raw_budget!r}",
+            "errorCode": "BAD_MAX_TOKENS",
+        }
+    max_tokens = max(max_tokens, MIN_MAX_TOKENS)
+    raw_scope = arguments.get("scope")
+    scope = raw_scope if isinstance(raw_scope, str) and raw_scope.strip() else None
+    try:
+        out = render_workspace_tree(_Path(resolved), max_tokens=max_tokens, scope=scope)
+    except Exception as e:
+        return {
+            "tool": "render_repo_tree",
+            "path": resolved,
+            "ok": False,
+            "error": str(e),
+            "errorCode": "RENDER_FAILED",
+        }
+    return {"tool": "render_repo_tree", "path": resolved, "ok": True, **out.to_dict()}
 
 
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -10162,7 +10367,7 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
-        description="代码符号搜索(真实文件系统,支持 def/class/func/function/interface/type 符号 + 引用匹配)",
+        description="代码符号搜索(真实文件系统 + pgvector 语义腿并发,RRF 融合;支持 def/class/func/function/interface/type 符号 + 引用匹配,响应体 mode 点名本轮走的是融合还是单腿)",
         input_schema={
             "type": "object",
             "properties": {
@@ -10171,7 +10376,7 @@ _TOOLS: list[MCPTool] = [
                 "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
                 "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
                 "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
-                "use_semantic": {"type": "boolean", "description": "是否使用语义搜索(pgvector ANN,默认 True;失败/无结果时自动 fallback 到 regex)", "default": True},
+                "use_semantic": {"type": "boolean", "description": "是否启用语义腿(pgvector ANN,默认 True;False=显式只要关键词腿)。语义腿不可用不再静默回落:响应体 mode/reasons 会点名是哪条腿没答上来", "default": True},
             },
             "required": ["query"],
         },
@@ -10284,6 +10489,22 @@ _TOOLS: list[MCPTool] = [
         input_schema={
             "type": "object",
             "properties": {"path": {"type": "string", "description": "目录绝对或相对路径,默认当前目录"}},
+            "required": ["path"],
+        },
+    ),
+    MCPTool(
+        name="render_repo_tree",
+        description=(
+            "按 token 预算渲染仓库目录骨架(不是文件清单):预算不足时先保目录树、削掉的文件与"
+            "被 scope 排除的条目分别计数回报,complete/dropReason 说明这份骨架是全仓还是削过的"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "仓库根目录,默认当前目录;必须在工作区白名单内"},
+                "maxTokens": {"type": "integer", "description": "骨架的 token 预算,默认 2000"},
+                "scope": {"type": "string", "description": "只渲染该相对子树(如 apps/api);省略则全仓"},
+            },
             "required": ["path"],
         },
     ),
@@ -13053,6 +13274,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
     "list_files": _tool_list_files,
+    "render_repo_tree": _tool_render_repo_tree,
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
