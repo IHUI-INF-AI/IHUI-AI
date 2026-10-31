@@ -118,7 +118,8 @@ describe('collectRelayTaskStates(注入探针)', () => {
   it('Redis 不可用 ⇒ bullmq 族 indeterminate 点名 Redis,其余族照读', async () => {
     const tasks = await collectRelayTaskStates({
       deps: stubDeps({
-        readTickJson: async () => '2026-10-27T03:00:00Z',
+        // 新契约(2026-11-01 分栏):读整枚 tick 对象;guardian 的 attemptAt 无结果自述
+        readTickJson: async () => ({ attemptAt: '2026-10-27T03:00:00Z' }),
         fetchCheckinStatus: async () =>
           __test__.judgeCheckinSchedulerStatus({ kind: 'ok', status: 200, body: RUNNING_BODY }),
       }),
@@ -129,6 +130,9 @@ describe('collectRelayTaskStates(注入探针)', () => {
     const sentinel = tasks.find((t) => t.id === 'relay-capacity-sentinel')!
     expect(sentinel.lastRunAt).toBe('2026-10-27T03:00:00Z')
     expect(sentinel.sourceOk).toBe(true)
+    // 分栏口径:心跳在位绝不冒"执行成功";无自述结果 ⇒ null(不得为 true)
+    expect(sentinel.lastRunOk).toBeNull()
+    expect(sentinel.lastRunDetail).toMatch(/未判定/)
   })
 
   it('bullmq 全源在位 ⇒ schedulable + 上次/下次齐;上次失败透出 failedReason', async () => {
@@ -387,6 +391,103 @@ describe('judgeCheckinSchedulerStatus(纯判据,七种响应形态)', () => {
   })
 })
 
+describe('judgeTickCarrierRun(心跳在位 ≠ 执行成功,2026-11-01 分栏口径)', () => {
+  const judge = __test__.judgeTickCarrierRun
+  const NOW = Date.parse('2026-11-01T00:00:00Z')
+  const base = { atField: 'attemptAt', carrierLabel: 'guardian 派发', beatMs: 5 * 60 * 1000 }
+
+  it('心跳在位但无结果字段 ⇒ lastRunOk=null 且 detail 明写"未判定"(旧口径的 true 是假绿)', () => {
+    const r = judge({ attemptAt: '2026-11-01T00:00:00Z' }, { ...base, nowMs: NOW })
+    expect(r.sourceOk).toBe(true)
+    expect(r.lastRunOk).toBeNull()
+    expect(r.lastRunDetail).toMatch(/未判定/)
+    expect(r.lastRunDetail).toMatch(/不代表跑成功/)
+    expect(r.lastRunDetail).not.toMatch(/派发成功$/)
+    expect(r.stale).toBe(false)
+  })
+
+  it('器物自述 fail=0 ⇒ lastRunOk:true(有真实结果输入才给绿,不是无脑降级)', () => {
+    const r = judge({ ts: '2026-11-01T00:00:00Z', fail: 0 }, {
+      ...base,
+      atField: 'ts',
+      carrierLabel: '计划任务',
+      nowMs: NOW,
+    })
+    expect(r.sourceOk).toBe(true)
+    expect(r.lastRunOk).toBe(true)
+    expect(r.lastRunDetail).toMatch(/fail=0/)
+  })
+
+  it('器物自述 fail>0 ⇒ lastRunOk:false 并点名条数(正向对照,与上一例成对)', () => {
+    const r = judge({ ts: '2026-11-01T00:00:00Z', fail: 2 }, {
+      ...base,
+      atField: 'ts',
+      carrierLabel: '计划任务',
+      nowMs: NOW,
+    })
+    expect(r.lastRunOk).toBe(false)
+    expect(r.lastRunDetail).toMatch(/失败项 2 个/)
+  })
+
+  it('raw=null(文件读不到)⇒ sourceOk:false,走既有 indeterminate 路径,不出任何成败结论', () => {
+    const r = judge(null, { ...base, nowMs: NOW })
+    expect(r).toEqual({ sourceOk: false, lastRunAt: null, lastRunOk: null, lastRunDetail: null, stale: false })
+  })
+
+  it('文件在但时刻缺失/不可解析 ⇒ 与读不到同栏(sourceOk:false),不猜', () => {
+    for (const raw of [{}, { attemptAt: 42 }, { attemptAt: 'not-a-date' }, { ts: '2026-01-01T00:00:00Z' }]) {
+      const r = judge(raw, { ...base, nowMs: NOW })
+      expect(r.sourceOk, JSON.stringify(raw)).toBe(false)
+      expect(r.lastRunOk).toBeNull()
+    }
+  })
+
+  it('stale:超过 beatMs×3 个周期 ⇒ 点名"心跳疑似停摆"并带进 detail;阈值内不判', () => {
+    const fresh = new Date(NOW - base.beatMs * 2).toISOString()
+    const old = new Date(NOW - base.beatMs * 4).toISOString()
+    expect(judge({ attemptAt: fresh }, { ...base, nowMs: NOW }).stale).toBe(false)
+    const r = judge({ attemptAt: old }, { ...base, nowMs: NOW })
+    expect(r.stale).toBe(true)
+    expect(r.lastRunDetail).toMatch(/心跳疑似停摆/)
+    // 未判定与停摆两维并存时各说各的,不互相吞
+    expect(r.lastRunDetail).toMatch(/未判定/)
+  })
+
+  it('beatMs 未登记(推不出器物节律)⇒ 不开 stale 档,不造判据没有的档位', () => {
+    const ancient = new Date(NOW - 365 * 24 * 3600 * 1000).toISOString()
+    const r = judge({ attemptAt: ancient }, { ...base, beatMs: undefined, nowMs: NOW })
+    expect(r.stale).toBe(false)
+    expect(r.lastRunDetail).not.toMatch(/停摆/)
+    // 结果分栏仍按"没自述 ⇒ null",与 stale 档是否存在无关
+    expect(r.lastRunOk).toBeNull()
+  })
+
+  it('state:"dispatched" 是派发态不是执行结果 ⇒ 不得被读成成败(现读 guardian 侧的真实形态)', () => {
+    const r = judge({ attemptAt: '2026-11-01T00:00:00Z', state: 'dispatched' }, { ...base, nowMs: NOW })
+    expect(r.lastRunOk).toBeNull()
+    expect(r.lastRunDetail).toMatch(/没自述执行结果/)
+  })
+
+  it('聚合面:guardian 心跳在位无结果 ⇒ lastRunOk:null + 不占 indeterminateReason 栏;schtasks fail=0 ⇒ true', async () => {
+    const freshAt = new Date().toISOString()
+    const tasks = await collectRelayTaskStates({
+      deps: stubDeps({
+        readTickJson: async (relPath) =>
+          relPath.includes('credential-health')
+            ? { ts: freshAt, fail: 0 }
+            : { attemptAt: freshAt },
+      }),
+    })
+    const sentinel = tasks.find((t) => t.id === 'relay-capacity-sentinel')!
+    expect(sentinel.lastRunOk).toBeNull()
+    expect(sentinel.indeterminateReason).toBeNull()
+    expect(sentinel.lastRunDetail).toMatch(/未判定/)
+    const cred = tasks.find((t) => t.id === 'credential-health')!
+    expect(cred.lastRunOk).toBe(true)
+    expect(cred.lastRunStale).toBe(false)
+  })
+})
+
 describe('defaultProbeDeps.fetchCheckinStatus(真出口形状)', () => {
   /** deps 出口类型允许 null(= 压根没给结论);真实现必须回三态之一,拿到 null 就是缺陷 ⇒ 直接抛 */
   const fetchStatus = async () => {
@@ -506,3 +607,4 @@ describe('runRelayTaskById(触发分发,mock 执行体)', () => {
     }
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

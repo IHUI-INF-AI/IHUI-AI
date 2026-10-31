@@ -34,6 +34,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   getPluginInstallPath,
   getPluginDataDir,
@@ -122,6 +123,38 @@ export interface InstallRecord {
    * 所以存量 registry 不需要迁移,恢复/收尾对它们的行为与接线前逐字一致。
    */
   transactionId?: string;
+  /**
+   * 安装落位那一刻,安装目录 `destDir` 下**逐文件**的内容摘要(G-21 半腿,2026-11-01)。
+   *
+   * 立的因:对照程序把插件包逐文件 sha256 内联进 manifest,而本仓记录面只有"装过哪一代"
+   * (name / version / sourceUrl / sha),没有任何尺子能回答"安装目录里的字节还是不是当时那批"。
+   * 取源侧的 commit pin 只证明**源仓库**那一枚 commit 没变,证明不了**盘上副本**没被改。
+   *
+   * **可选,且"缺席"绝不等于"没有文件"**(判序与上面 transactionId 的 G-756 同一条规矩):
+   *  - 接线之前写的存量记录结构上拿不到这个键;
+   *  - 采集失败(读不动 / 撞上符号链接或特殊档形 / 超上限)时**整块不写** —— 写一份不完整的
+   *    清单比不写更危险:对账器会把"没登记的"读成"多出来的",把"没算的"读成"没变"。
+   * 所以对账侧(`scripts/check-plugin-manifest-integrity.mjs`)对缺席给 `unjudged`(老记录记
+   * `pending`),**既不判 ok 也不判 drift** —— 把"升级前本来没有台账"说成"被篡改",或说成
+   * "一致",两边都是假结论。存量因此无需迁移。
+   */
+  fileDigests?: InstallFileDigest[];
+}
+
+/**
+ * 一条已装文件的完整性条目。
+ *
+ * 这个形状是对账门的输入契约,改动即破坏已落盘的 registry.json:`path` 恒为**相对安装根**的
+ * POSIX 分隔路径(`a/b.json`,不含前导 `./`,不得越出安装根),`sha256` 为小写十六进制 64 位,
+ * `bytes` 为字节数。路径形态与采集判据的唯一实现见 `collectInstallFileDigests`。
+ */
+export interface InstallFileDigest {
+  /** 相对安装根的路径(POSIX 分隔,正斜杠) */
+  path: string;
+  /** 文件内容 sha256(小写十六进制) */
+  sha256: string;
+  /** 文件字节数 */
+  bytes: number;
 }
 
 /** 安装注册表 */
@@ -445,6 +478,97 @@ export async function installPlugin(
 }
 
 /**
+ * 逐文件摘要采集的上限。**超限一律"不可证"(整块不写),绝不静默截断**:
+ * 截断出来的清单会让对账器把没登记的文件读成"多出来的",这不是完整性判据而是造假日。
+ * 数值不是拍的:现读插件面(单个 plugin 目录)量级是数十文件 / 数百 KB,留两个数量级余量;
+ * 真撞到上限时该由人问"一个插件为什么要 2000 个文件 / 32 MB 单文件"。
+ */
+const DIGEST_LIMITS = {
+  maxFiles: 2000,
+  maxFileBytes: 32 * 1024 * 1024,
+  maxTotalBytes: 128 * 1024 * 1024,
+} as const;
+
+/**
+ * 采集 rootDir 下逐文件内容摘要 —— **装机面台账的唯一写侧实现**
+ * (`scripts/check-plugin-manifest-integrity.mjs` 是同一契约的读侧对账)。
+ *
+ * 三条纪律:
+ *  1. **不跟随符号链接 / junction**(AGENTS §26 junction 递归穿透事故史)。安装副本里本不该
+ *     出现链接:`copyDirRecursive` 已把树内链接**物化成真实文件**再落位,所以落位后的目录里
+ *     出现链接 = 盘上被改过,采集当场判"不可证"而不是把它当成普通文件抄进台账。
+ *  2. **档形只认目录与常规文件**。FIFO / 套接字等设备档形不采,整体判"不可证"。
+ *  3. **永不抛异常**。这一刻提交点已越过(新副本已生效、权威还没写),采集失败绝不能把安装
+ *     本身掀成异常;返回 null ⇒ 记录不写 `fileDigests` 键,对账侧落 `unjudged`。
+ *
+ * @param rootDir 安装目录绝对路径(落位后的 destDir)
+ * @returns 逐文件摘要(按 path 升序,便于逐次 diff);null = 不可证,调用方不写该字段
+ */
+export function collectInstallFileDigests(rootDir: string): InstallFileDigest[] | null {
+  const digests: InstallFileDigest[] = [];
+  let totalBytes = 0;
+
+  /** 一个根内目录条目的相对路径;算不出安全相对形(越根)⇒ null 由调用方判不可证。 */
+  const relOf = (abs: string): string | null => {
+    const rel = path.relative(rootDir, abs);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+    return rel.split(path.sep).join('/');
+  };
+
+  const walk = (dir: string): boolean => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+    for (const entry of entries) {
+      const abs = path.join(dir, entry.name);
+      // 链接(含 Windows junction)一律判不可证 —— 不跟随,也不"跳过当没有"
+      if (entry.isSymbolicLink()) return false;
+      if (entry.isDirectory()) {
+        if (!walk(abs)) return false;
+        continue;
+      }
+      if (!entry.isFile()) return false;
+      const rel = relOf(abs);
+      if (rel === null) return false;
+      let body: Buffer;
+      try {
+        body = fs.readFileSync(abs);
+      } catch {
+        return false;
+      }
+      if (body.length > DIGEST_LIMITS.maxFileBytes) return false;
+      totalBytes += body.length;
+      digests.push({
+        path: rel,
+        sha256: createHash('sha256').update(body).digest('hex'),
+        bytes: body.length,
+      });
+      if (digests.length > DIGEST_LIMITS.maxFiles || totalBytes > DIGEST_LIMITS.maxTotalBytes) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  try {
+    const st = fs.lstatSync(rootDir);
+    // 安装根本身是链接 / 不是目录 ⇒ 不可证(绝不跟随出去)
+    if (st.isSymbolicLink() || !st.isDirectory()) return null;
+    if (!walk(rootDir)) return null;
+  } catch {
+    return null;
+  }
+  // 枚到 0 个文件不是"清单为空",而是"这一面没法判" —— 交回 null 让对账侧落 unjudged,
+  // 绝不写一份"登记了零文件"的台账冒充已核对(§0.3「枚举到 0 个候选判死不记绿」)。
+  if (digests.length === 0) return null;
+  digests.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return digests;
+}
+
+/**
  * 把 sourceDir 落成 destDir —— 唯一的"复制到 staging → 落位 → **权威落盘** → 处置旧副本"实现。
  *
  * 提交序列在此显式编排,不再走 `commitStagedSwap`:那条序列的 land 与 finalize 之间
@@ -494,10 +618,14 @@ function installFromDirectory(
   // 落盘失败由 landStagedSwap 负责回位/保留归档并抛 DirectorySwapError
   landStagedSwap(swap);
   // ——— 提交点已越过:此后绝不回退,也不响应取消(回退抹掉的就是已生效的插件) ———
+  // 逐文件摘要排在权威落盘之前:此刻 destDir 就是刚落位的那一代,量到的字节与这条记录一一对应。
+  // 采不到就整个键不写(record 保持既有形态)—— 既不影响安装,也不给对账侧留一份假清单。
+  const fileDigests = collectInstallFileDigests(destDir);
   const record: InstallRecord = {
     ...recordFields,
     installedAt: new Date().toISOString(),
     transactionId: swap.transactionId,
+    ...(fileDigests ? { fileDigests } : {}),
   };
   // 权威落盘排在 finalize 之前:写不上就抛,绝不处置归档
   persistInstallAuthority(reg, record, swap);

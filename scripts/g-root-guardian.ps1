@@ -34,7 +34,6 @@
 #   - try-catch in event handler, never crash main loop
 # ============================================================================
 
-#Requires -Version 5.0
 
 $ErrorActionPreference = 'Continue'
 

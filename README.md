@@ -40698,3 +40698,27 @@ A: Yes. ~14839+ tests / 3782 test files / 67 e2e spec / 4656 API 路由 / 617 �
 核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 105 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3607 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
 |                   | MCP 工具协议        | 105 内置 MCP 工具(全量清单以 apps/ai-service/app/services/mcp_server.py 的 _TOOLS 为准;核心族:代码检索/知识库查询/文件读写/命令执行/网页与图片搜索/工作流触发与续跑/代码调查/团队点名消息/顾问咨询)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 |                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / **200+ services**(Glob 实测)/ **23 routers** / **18 LLM Providers**(openai/anthropic/gemini/qwen/dashscope/doubao/volcengine/zhipu/hunyuan/stepfun/kling/jimeng/ollama/lmstudio/llama_cpp/openrouter/luyala)/ **105 MCP 工具** / **38 发布适配器** / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 数据库表 | 617 | `dbTables` |
+| API 路由 | 4656 | `apiRoutes` |
+| 工程守门 | 308 | `guardianGates` |
+| — blocking | 282 | `guardianBlocking` |
+#### 30. 工作流脚本工具 `run_workflow`(节点级续跑回缓存 · 对标 Qoder Workflow/RunWorkflow)(2026-11-01,所属端 ai-service)
+> 逆向-复现-超越(AGENTS §0.12)本轮落地产物之一。对照物 = Qoder CN v0.5.1 agent SDK 的 `Workflow`/`RunWorkflow`;
+> 取证册 `docs/benchmark-evidence/2026-10/trae-rea-20261031/T3-gap-matrix.md`(G-01 判结构性缺失)与
+> `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T7-matrix-recheck-and-sidecar-ore.md`(现读复量)。
+- **能力**:`apps/ai-service/app/services/workflow_runner.py` 接收一段工作流脚本(一串 agent 节点),
+  先做 Kahn 拓扑校验(成环 / 重复 id / 空脚本一律拒绝),再逐节点执行。**核心是续跑语义**:带
+  `resume_from_run_id` 时入参逐字节未变的节点从 checkpoint 瞬时回缓存**不重跑**,只有入参变了的节点真执行。
+- **使用方式**:MCP 工具 `run_workflow`,入参 `{ nodes: [...], resume_from_run_id?: string }`;注册在
+  `apps/ai-service/app/services/mcp_server.py` 的 `_TOOLS` / `_TOOL_HANDLERS` 双射表(与既有工具族同形)。
+- **对齐轴**:与对照程序一致的「未变节点回缓存」重放语义。
+- **超越三条**(对照取证未证到的边界):
+  ① **失效方向恒为显式未判定**——run 不存在 / 脚本非法 / 主体缺失一律回具名错误码(`WORKFLOW_RUN_NOT_FOUND` 等)并
+  **零节点执行**,绝不「当作缓存命中」也绝不「当作没命中」(§0.3);
+  ② **归属主体不信客户端自报**——`principal` 必须由承载层显式注入,run 的 owner 持久在 checkpoint payload,
+  续跑时逐字比对,跨租户续跑直接 `WORKFLOW_FORBIDDEN`(§5「认证不等于授权」);
+  ③ **幂等键零分叉**——节点键复用全仓唯一出口 `task_executors.compute_idempotency_key` 与 `CheckpointStore`,
+  不新写第二套 hash(§0.6),与 `run_in_background` / DAG 三面结构上不会漂移。
+- **守门**:`apps/ai-service/tests/test_workflow_runner.py` 8 例 GREEN(含「同 run 二遍执行计数不增」与
+  「非法输入零执行」正反对照),mypy strict 0 错,ruff 全过;`test_mcp_server.py` 176 例复跑证明双射注册未被打断。
+- 插件/装机面: `check-plugin-manifest-integrity.mjs`(门 277,2026-11-01 立,G-21 半腿/逆向-复现-超越 §0.11:已装插件的逐文件内容完整性对账 —— 写侧 `apps/cli/src/plugins/installer.ts` 的 `collectInstallFileDigests` 在落位那一刻把 `{path,sha256,bytes}` 记进 `InstallRecord.fileDigests`(可选字段,存量记录无需迁移),本门读台账 ↔ 盘上三态 `ok/drift/unjudged` 并逐条点名;drift 三类**分开报**不并桶(mismatch 内容有变 / missing 被删 / unlisted 未登记混入),老记录无该字段恒落 `unjudged`+`pending`(既不判"已核对"也不判"被篡改"),目录读不到/台账形状坏/记录名含穿越一律未判定;不跟随符号链接与 junction(§26),登记路径当下是链接 ⇒ 无从证内容;链接判据由注入缝钉死并另做真链接对照。**档位 warn + 差值棘轮**(§12e:判机器装机态,存量 pending 结构上拿不到哈希 ⇒ 升 blocking 即恒红门;升档前置 = pending 归零),`--baseline <file>` 才分得出"新增 vs 存量",不给基线时 `new=null` 不拿 0 冒充"无新增";`--print-baseline` 只打 stdout,**本门绝不写盘/不自愈/不重装**;判据单源 = 门体(比对三分类与 sha 取算复用 `check-installed-asset-catalog.mjs` 的 `judge`/`sha256Hex`,零复算);`--staged` 被接受但判序与全量档同一把尺(判装机态,无仓内取材面);自检 `--self-test` 21 组 + 镜像 `check-plugin-manifest-integrity.test.mjs` 14 例;取源是 git clone 无解包面 ⇒ zip-bomb 那一维不适用)

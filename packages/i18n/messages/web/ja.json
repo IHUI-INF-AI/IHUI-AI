@@ -25797,7 +25797,6 @@
     "actionReedit": "再編集",
     "title": "マイエージェント",
     "searchPlaceholder": "エージェントを検索",
-    "loading": "読み込み中…",
     "empty": "エージェントはありません"
   },
   "certDetail": {
@@ -27109,7 +27108,6 @@
     "save": "保存"
   },
   "aigcCover": {
-    "loading": "読み込み中…",
     "title": "カバー設定",
     "subtitle": "「{title}」のカバーを生成",
     "empty": "カバーはありません",
