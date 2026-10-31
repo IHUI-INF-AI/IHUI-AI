@@ -5,10 +5,11 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppPermissionScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { Tappable } from '@ihui/ui-native'
 
 export type { AppPermissionScreenProps }
 
@@ -74,18 +75,18 @@ export function AppPermissionScreen({
                 <Text style={styles.permDesc}>{item.desc}</Text>
               </View>
               {onOpenSettings ? (
-                <Pressable onPress={onOpenSettings} style={styles.settingButton}>
+                <Tappable onPress={onOpenSettings} style={styles.settingButton}>
                   <Text style={styles.settingText}>{t('appPermission.goSetting')}</Text>
-                </Pressable>
+                </Tappable>
               ) : null}
             </View>
           </View>
         ))}
 
         {onOpenSettings ? (
-          <Pressable onPress={onOpenSettings} style={styles.openAll}>
+          <Tappable onPress={onOpenSettings} style={styles.openAll}>
             <Text style={styles.openAllText}>{t('appPermission.openAllSetting')}</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
 
         <Text style={styles.footer}>{t('appPermission.footer')}</Text>

@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IcpRecordScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -59,9 +59,9 @@ export function IcpRecordScreen({
         </View>
 
         {onQuery ? (
-          <Pressable onPress={onQuery} style={styles.queryButton}>
+          <Tappable onPress={onQuery} style={styles.queryButton}>
             <Text style={styles.queryText}>{t('icpRecord.query')}</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
 
         <Text style={styles.footer}>{t('icpRecord.footer')}</Text>
