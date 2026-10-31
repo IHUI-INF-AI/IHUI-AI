@@ -10,7 +10,7 @@ import { rnRadius, rnType } from '@ihui/design-tokens'
 // 且两处措辞/样式必然漂移)或抽成组件。这里选后者,并让取词键也从 `aiAssistantN8n.*`
 // 抬到 `chatDisclosure.*`(交代区不再是 N8n 屏专属,命名空间跟着归属走)。
 import { useState } from 'react'
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Linking, StyleSheet, Text, View } from 'react-native'
 import { ChevronDown, ChevronRight, Zap } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { sendToolApprovalResponse } from '@ihui/api-client'
@@ -18,6 +18,7 @@ import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 import type { MessageCitation, MessageInjection, SteerNotice } from '../utils/chat-render-model'
 import { permissionTierWordKeys } from '@ihui/shared/chat'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 引用来源列表:来源标签 + 条目文字。
@@ -47,7 +48,7 @@ export function CitationList({
         return (
           <View key={`${item.source}_${index}`} style={disclosureStyles.card}>
             {external && url ? (
-              <Pressable
+              <Tappable
                 style={disclosureStyles.cardHead}
                 accessibilityRole="link"
                 accessibilityLabel={url}
@@ -56,7 +57,7 @@ export function CitationList({
                 }}
               >
                 {body}
-              </Pressable>
+              </Tappable>
             ) : (
               <View style={disclosureStyles.cardHead}>{body}</View>
             )}
@@ -96,7 +97,7 @@ export function InjectionDisclosure({
             : undefined
         return (
           <View key={key} style={disclosureStyles.card}>
-            <Pressable
+            <Tappable
               style={disclosureStyles.cardHead}
               onPress={() => setOpenKeys((prev) => ({ ...prev, [key]: !open }))}
               accessibilityRole="button"
@@ -114,7 +115,7 @@ export function InjectionDisclosure({
               {typeof item.count === 'number' ? (
                 <Text style={disclosureStyles.meta}>{item.count}</Text>
               ) : null}
-            </Pressable>
+            </Tappable>
             {open && item.fullText ? (
               <View style={disclosureStyles.cardBody}>
                 <Text style={disclosureStyles.text}>{item.fullText}</Text>
@@ -237,24 +238,24 @@ export function ToolApprovalRow({
   }
   return (
     <View style={disclosureStyles.approvalRow}>
-      <Pressable
+      <Tappable
         style={disclosureStyles.approvalBtn}
         onPress={() => respond(APPROVAL_ACTION_WIRE.allowOnce)}
       >
         <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeOnce')}</Text>
-      </Pressable>
-      <Pressable
+      </Tappable>
+      <Tappable
         style={disclosureStyles.approvalBtn}
         onPress={() => respond(APPROVAL_ACTION_WIRE.alwaysAllow)}
       >
         <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeAlways')}</Text>
-      </Pressable>
-      <Pressable
+      </Tappable>
+      <Tappable
         style={disclosureStyles.approvalBtn}
         onPress={() => respond(APPROVAL_ACTION_WIRE.reject)}
       >
         <Text style={disclosureStyles.approvalText}>{t('common.cancel')}</Text>
-      </Pressable>
+      </Tappable>
     </View>
   )
 }

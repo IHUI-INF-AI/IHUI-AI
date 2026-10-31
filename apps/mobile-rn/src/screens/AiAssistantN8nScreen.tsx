@@ -176,6 +176,7 @@ import {
   type TerminalTaskItem,
   type ToolCallItem,
 } from '../utils/chat-render-model'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
@@ -392,7 +393,7 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
         const open = expandable && openIds[item.id] === true
         return (
           <View key={item.id} style={bubbleStyles.card}>
-            <Pressable
+            <Tappable
               style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [item.id]: !open }))}
               accessibilityRole="button"
@@ -418,7 +419,7 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
               {metricLine ? <Text style={bubbleStyles.cardMeta}>{metricLine}</Text> : null}
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
-            </Pressable>
+            </Tappable>
             {/* D113:流中 diff 预览 —— 仅 running 态且非空渲染(对齐 web tool-call-card
                 status==='running' && partialDiff;不新增文案标签,只显示服务端下发内容,
                 复用本端既有等宽样式 monoText) */}
@@ -615,7 +616,7 @@ export function TerminalTaskList({
         const open = openIds[task.id] ?? (task.status === 'running' && displayOutput !== undefined)
         return (
           <View key={task.id} style={bubbleStyles.card}>
-            <Pressable
+            <Tappable
               style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [task.id]: !open }))}
               accessibilityRole="button"
@@ -631,7 +632,7 @@ export function TerminalTaskList({
               </Text>
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
-            </Pressable>
+            </Tappable>
             {/* D151:命令停住等键盘输入时明写降级态(徽标一行 + 说明一行)。
                 刻意放在折叠判定之外 —— "在等人"必须不展开也看得见,否则仍是空转。
                 本端不渲染输入框(见 applyTerminalInteraction 头注),所以这里只有文案没有控件。 */}

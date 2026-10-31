@@ -15,6 +15,7 @@ import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * D136(2026-10-01 立,承 V4 #94 / D84):RN 端工具审批。
@@ -239,7 +240,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
       {/* 常驻入口:面板被收起(含硬件返回)后,待审批数必须仍可看见并可点开 ——
           这就是 AGENTS §30 说的"人工放行入口",关闭从不等于拒绝。 */}
       {pending.length > 0 && !panelOpen ? (
-        <Pressable
+        <Tappable
           accessibilityRole="button"
           testID="tool-approval-open"
           style={styles.openPill}
@@ -249,7 +250,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
           <Text style={styles.openPillText}>
             {t('toolApproval.openPanel', { count: pending.length })}
           </Text>
-        </Pressable>
+        </Tappable>
       ) : null}
 
       <Modal
@@ -299,7 +300,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     {SCOPE_OPTIONS.map((opt) => {
                       const active = scope === opt.value
                       return (
-                        <Pressable
+                        <Tappable
                           key={opt.value}
                           accessibilityRole="radio"
                           accessibilityState={{ selected: active }}
@@ -310,14 +311,14 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                           <Text style={active ? styles.scopeTextActive : styles.scopeText}>
                             {t(opt.labelKey)}
                           </Text>
-                        </Pressable>
+                        </Tappable>
                       )
                     })}
                   </View>
                 </View>
                 {showGrantRule ? (
                   <View style={styles.field}>
-                    <Pressable
+                    <Tappable
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: grantRule }}
                       testID="tool-approval-grant-rule"
@@ -334,7 +335,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                       <Text style={grantRule ? styles.scopeTextActive : styles.scopeText}>
                         {t('toolApproval.grantRuleToggle')}
                       </Text>
-                    </Pressable>
+                    </Tappable>
                     <Text style={styles.meta}>
                       {t('toolApproval.grantRuleDesc', { prefix: grantPrefix })}
                     </Text>
@@ -356,7 +357,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                   />
                 </View>
                 <View style={styles.actions}>
-                  <Pressable
+                  <Tappable
                     accessibilityRole="button"
                     testID="tool-approval-reject"
                     disabled={sending}
@@ -364,8 +365,8 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     onPress={() => void decide('reject')}
                   >
                     <Text style={styles.rejectText}>{t('toolApproval.reject')}</Text>
-                  </Pressable>
-                  <Pressable
+                  </Tappable>
+                  <Tappable
                     accessibilityRole="button"
                     testID="tool-approval-approve"
                     disabled={sending}
@@ -373,7 +374,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     onPress={requestApprove}
                   >
                     <Text style={styles.approveText}>{t('toolApproval.approve')}</Text>
-                  </Pressable>
+                  </Tappable>
                 </View>
               </>
             ) : (

@@ -43,6 +43,7 @@ import { useI18n } from '../i18n'
 import { API_BASE_URL } from '../lib/config'
 import { ensureFreshToken } from '../lib/token'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -368,7 +369,7 @@ export default function PublishAccountsScreen() {
 
       <Modal visible={panel !== null} transparent animationType="slide" onRequestClose={closePanel}>
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={closePanel} />
+          <Tappable style={styles.mask} onPress={closePanel} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>

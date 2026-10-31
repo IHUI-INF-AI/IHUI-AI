@@ -4,11 +4,12 @@
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
 
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 我的智能体列表共享屏(2026-10-29 立)。
@@ -75,7 +76,7 @@ export function MyAgentsScreen({
           <EmptyState title={t('myAgentsPage.empty')} colorScheme={colorScheme} />
         }
         renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => onPressItem(item.id, item.name)}>
+          <Tappable style={styles.row} onPress={() => onPressItem(item.id, item.name)}>
             <View style={styles.rowHead}>
               <Text style={styles.name} numberOfLines={1}>
                 {item.name}
@@ -88,7 +89,7 @@ export function MyAgentsScreen({
               </Text>
             ) : null}
             <Text style={styles.meta}>{item.priceText}</Text>
-          </Pressable>
+          </Tappable>
         )}
       />
     </View>

@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,6 +19,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * WrongQuestionsScreen — 跨端共享「错题本屏」(门 39 六屏共享化第二批)。
@@ -270,16 +270,16 @@ export function WrongQuestionsScreen({
         onRequestClose={onCloseExplanation}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={onCloseExplanation} />
+          <Tappable style={styles.mask} onPress={onCloseExplanation} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Sparkles size={16} color={tk.text.primary} />
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {t('wrongQuestions.aiExplain')} · {explanation?.title}
               </Text>
-              <Pressable onPress={onCloseExplanation} hitSlop={8}>
+              <Tappable onPress={onCloseExplanation} hitSlop={8}>
                 <X size={18} color={tk.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
             <Text style={styles.explainText}>{explanation?.text}</Text>
           </View>

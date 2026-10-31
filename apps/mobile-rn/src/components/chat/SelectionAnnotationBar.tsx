@@ -9,7 +9,7 @@
 // 文本一律走 t prop 注入(§19 禁止端内新增硬编码中文),由 ChatMessageItem 透传。
 
 import { useState, type ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { Eraser, MessageSquarePlus, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
@@ -21,6 +21,7 @@ import {
   setComment,
   useSelectionAnnotations,
 } from '../../lib/selection-annotations-store'
+import { Tappable } from '@ihui/ui-native'
 
 interface SelectionAnnotationBarProps {
   /** 消息 id */
@@ -147,7 +148,7 @@ export function SelectionAnnotationBar({
   return (
     <View style={styles.wrap}>
       <View style={styles.barRow}>
-        <Pressable
+        <Tappable
           onPress={() => setOpen((p) => !p)}
           style={styles.trigger}
           accessibilityRole="button"
@@ -157,15 +158,15 @@ export function SelectionAnnotationBar({
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{annotations.length}</Text>
           </View>
-        </Pressable>
-        <Pressable
+        </Tappable>
+        <Tappable
           onPress={() => removeAllAnnotations(conversationId, messageId)}
           style={styles.removeAll}
           accessibilityRole="button"
           accessibilityLabel={t('selectionAnnotations.removeAll')}
         >
           <Eraser size={14} color={tokens.text.secondary} />
-        </Pressable>
+        </Tappable>
       </View>
       {open ? (
         <View style={styles.panel}>
@@ -193,7 +194,7 @@ export function SelectionAnnotationBar({
                     placeholderTextColor={tokens.text.tertiary}
                     accessibilityLabel={t('selectionAnnotations.commentAriaLabel')}
                   />
-                  <Pressable
+                  <Tappable
                     disabled={!draft.trim()}
                     onPress={() => {
                       setComment(conversationId, messageId, a.id, draft.trim())
@@ -202,15 +203,15 @@ export function SelectionAnnotationBar({
                     style={styles.addBtn}
                   >
                     <Text style={styles.addBtnText}>{t('selectionAnnotations.addComment')}</Text>
-                  </Pressable>
-                  <Pressable
+                  </Tappable>
+                  <Tappable
                     onPress={() => removeAnnotation(conversationId, messageId, a.id)}
                     style={styles.removeOne}
                     accessibilityRole="button"
                     accessibilityLabel={t('selectionAnnotations.removeOne')}
                   >
                     <X size={14} color={tokens.text.secondary} />
-                  </Pressable>
+                  </Tappable>
                 </View>
               </View>
             )

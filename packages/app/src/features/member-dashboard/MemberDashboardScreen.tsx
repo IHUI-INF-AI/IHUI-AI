@@ -4,11 +4,12 @@
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 会员中心首页共享屏(2026-10-29 立)。
@@ -83,7 +84,7 @@ export function MemberDashboardScreen({
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.grid}>
           {cards.map((c) => (
-            <Pressable
+            <Tappable
               key={c.key}
               style={styles.card}
               onPress={() => onPressCard(c.key)}
@@ -93,7 +94,7 @@ export function MemberDashboardScreen({
                 {c.value}
               </Text>
               <Text style={styles.cardLabel}>{c.label}</Text>
-            </Pressable>
+            </Tappable>
           ))}
         </View>
 
@@ -103,17 +104,17 @@ export function MemberDashboardScreen({
               ? t('memberDashboard.expireAt', { date: expireAtText })
               : t('memberDashboard.noExpire')}
           </Text>
-          <Pressable onPress={() => onPressCard('level')} hitSlop={8}>
+          <Tappable onPress={() => onPressCard('level')} hitSlop={8}>
             <Text style={styles.bannerAction}>{t('memberDashboard.renew')}</Text>
-          </Pressable>
+          </Tappable>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={styles.sectionTitle}>{t('memberDashboard.recentOrders')}</Text>
-            <Pressable onPress={() => onPressCard('orders')} hitSlop={8}>
+            <Tappable onPress={() => onPressCard('orders')} hitSlop={8}>
               <Text style={styles.sectionAction}>{t('memberDashboard.viewAll')}</Text>
-            </Pressable>
+            </Tappable>
           </View>
           {recentOrders.length === 0 ? (
             <EmptyState title={t('memberDashboard.noOrders')} colorScheme={colorScheme} />

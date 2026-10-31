@@ -150,6 +150,7 @@ import { tabBarDockSpacer } from '../components/TabBar.styles'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -1919,7 +1920,7 @@ export function HomeScreen() {
                 </Text>
               </View>
               {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
-              <Pressable
+              <Tappable
                 onPress={() => {
                   if (showModelSearch) {
                     setShowModelSearch(false)
@@ -1938,7 +1939,7 @@ export function HomeScreen() {
                   size={18}
                   color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
                 />
-              </Pressable>
+              </Tappable>
               <Pressable
                 style={undefined}
                 onPress={closeModelModal}
@@ -1989,7 +1990,7 @@ export function HomeScreen() {
                 const active = !modelSearch.trim() && modelModalTab === mt.type
                 const Icon = mt.icon
                 return (
-                  <Pressable
+                  <Tappable
                     key={mt.type}
                     onPress={() => {
                       setModelSearch('')
@@ -2012,7 +2013,7 @@ export function HomeScreen() {
                     >
                       {mt.label}
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 )
               })}
             </ScrollView>
@@ -2115,13 +2116,13 @@ export function HomeScreen() {
               ) : materialDetailError ? (
                 <View style={shellStyles.detailDialogErrorWrap}>
                   <Text style={shellStyles.detailDialogErrorText}>{materialDetailError}</Text>
-                  <Pressable
+                  <Tappable
                     onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
                     style={shellStyles.detailDialogRetryBtn}
                     accessibilityRole="button"
                   >
                     <Text style={shellStyles.detailDialogRetryText}>{t('home.retryText')}</Text>
-                  </Pressable>
+                  </Tappable>
                 </View>
               ) : materialDetailData ? (
                 <ScrollView style={shellStyles.detailDialogScroll}>
@@ -2161,7 +2162,7 @@ export function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setQrCodeVisible(false)}
       >
-        <Pressable
+        <Tappable
           style={shellStyles.modalMask}
           onPress={() => setQrCodeVisible(false)}
           accessibilityRole="button"
@@ -2178,7 +2179,7 @@ export function HomeScreen() {
               <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
             </Pressable>
             <Text style={shellStyles.qrTitle}>{t('home.qrHint')}</Text>
-            <Pressable
+            <Tappable
               hitSlop={8}
               onPress={() => setQrCodeVisible(false)}
               style={shellStyles.qrClose}
@@ -2186,9 +2187,9 @@ export function HomeScreen() {
               accessibilityLabel={t('home.closeBtn')}
             >
               <Text style={shellStyles.qrCloseText}>×</Text>
-            </Pressable>
+            </Tappable>
           </Pressable>
-        </Pressable>
+        </Tappable>
       </Modal>
       {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup)
        *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +

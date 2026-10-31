@@ -45,6 +45,7 @@ import { rpx } from '../utils/rpx'
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -204,7 +205,7 @@ export function ArticleDetailScreen() {
         onRequestClose={() => setCommentVisible(false)}
       >
         <View style={styles.commentOverlay}>
-          <Pressable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
+          <Tappable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
           <View style={styles.commentSheet}>
             <View style={styles.commentHeader}>
               <Text style={styles.commentTitle}>评论</Text>

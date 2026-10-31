@@ -37,6 +37,7 @@ import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
 import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
@@ -257,7 +258,7 @@ export function VoiceInput({
     <View style={styles.container}>
       {/* 遮罩层:图片弹出层打开时,透明遮罩拦截点击以关闭(分离点击/长按) */}
       {showImagePopup ? (
-        <Pressable
+        <Tappable
           style={styles.mask}
           onPress={() => setShowImagePopup(false)}
           accessibilityLabel={t('voice.closeImgMenu')}
@@ -266,7 +267,7 @@ export function VoiceInput({
 
       {/* 图片弹出层入口(对齐原版 search-add 按钮) */}
       {showImagePicker ? (
-        <Pressable
+        <Tappable
           style={styles.imageToggleBtn}
           onPress={() => setShowImagePopup((v) => !v)}
           hitSlop={4}
@@ -276,7 +277,7 @@ export function VoiceInput({
           <Text style={styles.imageToggleIcon} allowFontScaling={false}>
             {'＋'}
           </Text>
-        </Pressable>
+        </Tappable>
       ) : null}
 
       {/* 语音按钮:长按录音,松开转写 */}
@@ -313,7 +314,7 @@ export function VoiceInput({
 
       {/* 清除按钮(有结果时显示,对齐原版 clearIcon) */}
       {showClear && lastResult !== '' ? (
-        <Pressable
+        <Tappable
           style={styles.clearBtn}
           onPress={handleClear}
           hitSlop={6}
@@ -323,14 +324,14 @@ export function VoiceInput({
           <Text style={styles.clearIcon} allowFontScaling={false}>
             {'×'}
           </Text>
-        </Pressable>
+        </Tappable>
       ) : null}
 
       {/* 图片弹出层:相机 / 相册 / 文件 */}
       {showImagePopup ? (
         <View style={styles.imagePopup}>
           {IMAGE_SOURCES.map((item) => (
-            <Pressable
+            <Tappable
               key={item.type}
               style={styles.popupItem}
               onPress={() => handleImagePick(item.type)}
@@ -341,7 +342,7 @@ export function VoiceInput({
               <Text style={styles.popupLabel} numberOfLines={1}>
                 {t(item.label)}
               </Text>
-            </Pressable>
+            </Tappable>
           ))}
         </View>
       ) : null}

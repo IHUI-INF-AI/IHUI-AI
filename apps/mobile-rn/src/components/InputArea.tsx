@@ -121,6 +121,7 @@ import {
   INPUT_AREA_LEGACY_SHADOW_OFFSET_PX,
   INPUT_AREA_LEGACY_GLYPH_LINE_PX,
 } from '@ihui/shared/ui/input-area-spec'
+import { Tappable } from '@ihui/ui-native'
 
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
@@ -471,7 +472,7 @@ export function InputArea({
   if (collapsible && isCollapsed) {
     return (
       <View style={[styles.collapsedWrap, { bottom: 24 + insets.bottom }]} pointerEvents="box-none">
-        <Pressable
+        <Tappable
           style={styles.collapsedFab}
           onPress={() => {
             setInternalCollapsed(false)
@@ -483,7 +484,7 @@ export function InputArea({
           accessibilityState={{ expanded: false }}
         >
           <Plus size={INPUT_AREA_GLYPH_LG_PX} color={tokens.brand.ctaForeground} />
-        </Pressable>
+        </Tappable>
       </View>
     )
   }
@@ -756,7 +757,7 @@ export function InputArea({
               </View>
             ) : null}
             {hasModelSelect && selectedModelName && onOpenModelConfig ? (
-              <Pressable
+              <Tappable
                 onPress={onOpenModelConfig}
                 hitSlop={4}
                 style={styles.configBtnInShell}
@@ -767,7 +768,7 @@ export function InputArea({
                   size={INPUT_AREA_CONTROL_GLYPH_PX}
                   color={tokens.text.secondary}
                 />
-              </Pressable>
+              </Tappable>
             ) : null}
             {/* 「+」按钮(对齐 Uniapp functionHandle → 底部滑出菜单;视觉统一走共享 PlusButton,
                 激活旋转 45° + 品牌高亮,面板由调用方渲染共享 AddPanel)。

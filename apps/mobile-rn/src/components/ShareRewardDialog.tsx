@@ -37,6 +37,7 @@ import { Gift, Sparkles, UserPlus, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 // ── 尺寸常量(对齐 IntroducePopup 命名常量惯例) ──
 /** 卡片水平内边距 */
@@ -148,7 +149,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
           </Svg>
 
           {/* 关闭 */}
-          <Pressable
+          <Tappable
             hitSlop={10}
             onPress={onClose}
             style={styles.close}
@@ -156,7 +157,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             accessibilityLabel={t('common.close')}
           >
             <X size={18} color={tokens.text.tertiary} />
-          </Pressable>
+          </Tappable>
 
           {/* Hero:金渐变奖励徽章(圆角方章,rx 引用 rnRadius 档位 —— 门 11 禁容器纯圆、
            *  门 77 禁 SVG rx 字面量;光环/章面/内环/高光全在 Svg 内,图标 absolute inset 0 居中) */}
