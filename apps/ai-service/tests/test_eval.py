@@ -16,6 +16,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.routers import eval as eval_router
+from app.core.rbac import Role
 from app.routers.eval import (
     CompareRunsRequest,
     CreateDatasetRequest,
@@ -30,6 +31,11 @@ from app.routers.eval import (
     list_eval_runs,
 )
 from app.services.eval_service import EvalResult, EvalRun
+
+
+def _principal(user_id: str = "user-1", role: Role = Role.MEMBER) -> types.SimpleNamespace:
+    """路由的 Principal 依赖替身(直接调函数时显式传入)。"""
+    return types.SimpleNamespace(user_id=user_id, role=role)
 
 
 def _make_run() -> EvalRun:
@@ -68,13 +74,17 @@ def _mock_eval_service(monkeypatch):
     """默认 mock eval_service 单例(返回假数据)。"""
     svc = types.SimpleNamespace(
         list_datasets=lambda: [{"name": "ds-1", "item_count": 2}],
-        create_dataset=lambda name, items, description: {
+        create_dataset=lambda name, items, description, owner_user_id=None: {
             "name": name,
             "description": description,
             "item_count": len(items),
+            "owner_user_id": owner_user_id,
         },
         get_dataset=lambda name: {"name": name, "item_count": 2} if name == "ds-1" else None,
         delete_dataset=lambda name: name == "ds-1",
+        delete_dataset_guarded=lambda name, *, actor_user_id=None, is_admin=False: (
+            "ok" if name == "ds-1" else "not_found"
+        ),
         list_runs=lambda: [{"id": "run-1", "model": "gpt-4"}],
         get_run=lambda run_id: _make_run() if run_id == "run-1" else None,
         compare_runs=lambda run_ids: {"runs": run_ids, "winner": "run-1"},
@@ -97,10 +107,16 @@ async def test_list_datasets(_mock_eval_service):
 
 async def test_create_dataset_success(_mock_eval_service):
     resp = await create_dataset(
-        CreateDatasetRequest(name="ds-2", items=[{"input": "i1"}], description="d")
+        CreateDatasetRequest(name="ds-2", items=[{"input": "i1"}], description="d"),
+        _principal("user-1"),
     )
     assert resp["code"] == 0
-    assert resp["data"] == {"name": "ds-2", "description": "d", "item_count": 1}
+    assert resp["data"] == {
+        "name": "ds-2",
+        "description": "d",
+        "item_count": 1,
+        "owner_user_id": "user-1",
+    }
 
 
 async def test_create_dataset_conflict_409(_mock_eval_service):
@@ -109,7 +125,7 @@ async def test_create_dataset_conflict_409(_mock_eval_service):
         ValueError("数据集已存在: ds-1")
     )
     with pytest.raises(HTTPException) as ei:
-        await create_dataset(CreateDatasetRequest(name="ds-1"))
+        await create_dataset(CreateDatasetRequest(name="ds-1"), _principal())
     assert ei.value.status_code == 409
     assert "数据集已存在" in ei.value.detail
 
@@ -128,13 +144,13 @@ async def test_get_dataset_not_found_404(_mock_eval_service):
 
 
 async def test_delete_dataset_success(_mock_eval_service):
-    resp = await delete_dataset("ds-1")
+    resp = await delete_dataset("ds-1", _principal())
     assert resp == {"code": 0, "message": "success", "data": {"deleted": True}}
 
 
 async def test_delete_dataset_not_found_404(_mock_eval_service):
     with pytest.raises(HTTPException) as ei:
-        await delete_dataset("missing")
+        await delete_dataset("missing", _principal())
     assert ei.value.status_code == 404
 
 
