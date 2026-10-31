@@ -6366,6 +6366,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] P89 〔千段租约〕 本机=lichunchuan-96818d62 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
 
@@ -33560,3 +33561,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] B67 [auto-triage] API 5xx 错误签名聚类(GET /api/agents/list 503)(登记@2026-10-31/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 3 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/agents/list → 503 GET /api/agents/list -> 503 / FastifyError: Service Unavailable)
 - [ ] B68 [auto-triage] API 5xx 错误签名聚类(GET /api/oauth-keys/list 503)(登记@2026-10-31/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 3 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/oauth-keys/list → 503 GET /api/oauth-keys/list -> 503 / FastifyError: Service Unavailable)
 - [ ] O67 (2026-11-01) 门 128 的 web 腿工具类未建模 ⇒ `min-h-0`/`min-w-0`/`resize-none`/`thin-scroll` 逐枚落"未判定",该腿对写成 Tailwind 工具类的档**零判据**:现状 = CSS 变量解值已由枚 88bd07c0c0e2370c2e7ddbae070706356bde07a5 落地(门认 `var(--*)`:两族 webWaivers 按条目自载了结条件摘除、主腿零分叉族 AgentRuntimePanel 的 counts/radiusCounts/elementRadiusCounts/waivers 按"永不可能被问责的免费额度"摘除,现读 `--self-test:124 通过 / 0 失败`、镜像 18/18、门全量档 RC=0 ⇒ 本行原点名的两条红都已结);**剩余这一格** = 全量档仍点名 `AgentRuntimePanel[web] apps/web/src/components/ai/agent-runtime-panel.tsx —— 未判定:min-h-0 / min-w-0 / resize-none(web 工具类未建模(无可解析的 Tailwind 配置))、thin-scroll(多处定义)`,而 `AgentRuntimePanel[miniapp]` 的 `ui-card` 同型未判定 ⇒ web/小程序两腿的类名取档都没接上,该族在 web 侧真有 32/120 对 10/16/28/48 的差异靠 webWaivers 一条在册问责,不是靠判据看得见。门自述的转判红条件(逐字):"web/rn 侧补上可解析的 Tailwind 配置 / 样式源,把'未判定'降到可判;两项都须先钉锚点再判红"。出路 = ①给 web 腿接一份**可解析**的工具类→px 源(与 §4 单一色值源/圆角单源同纪律:唯一实现放 `scripts/lib/`,门体零第二份表,禁在门里手敲类名字典);②按门自己的 emit 口径重锚 web 三键(webCounts/webRadiusCounts/webElementRadiusCounts)并逐条举证只降不升;③未判定名单必须仍然逐枚点名(§0.3),禁为消读数把类名当"该侧无档";④`thin-scroll` 这类"多处定义"要先定唯一取源再判。
+- [ ] P84 ai-service 索引面接 ignore 规则判据:骨架装配侧已装(枚 978b6f7854),索引枚举仍未过 `ignore_rules.filter_paths`。前置=先定"跟踪但被 `.gitignore` 覆盖"这一型路径(守门 236 的射程)的取舍口径,否则一口接进去会让这些文件静默从索引消失
+- [ ] P85 代码检索改名检测:T12 实测对侧把 `compute_simhash`/`hamming_distance` 作为原生一等导出、而 `diffTree` 只有三桶无 rename ⇒ 本仓在 `codebase_indexer` 的快照差集上补一枚纯函数改名候选(同 content-hash 直判 + 海明距离阈值),改名不再重嵌入
