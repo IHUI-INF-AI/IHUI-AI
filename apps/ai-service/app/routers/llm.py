@@ -31,6 +31,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.approval_replay import (
+    EXPIRY_RETENTION_SECONDS,
     approval_expiry_notice,
     chat_expired_approval_notices,
     record_approval_expiry,
@@ -79,10 +80,32 @@ from ..core.review_findings import (
 # 差距②(2026-10-30):帧水位四维同址 —— begin/end_stream_watermark 在流开/收处挂接每流序列态,
 # with_frame_watermark 与 traceId 注入同在 `_sse()` 单点出帧前推进,本路由不自建水位计数。
 from ..core.sse_frames import (
+    _stream_frame_seq,
     begin_stream_watermark,
     end_stream_watermark,
     with_frame_trace_id,
     with_frame_watermark,
+)
+
+# 差距①留痕 + 断流续传(2026-10-31 接线):准入留痕账本、恢复窗口与水位状态机的三个出口
+# (mark_admission_acked / begin_recovery / end_recovery)**唯一住在 `core/sse_contract.py`**。
+# 接线前两件事各有两套真相:本路由自持一份 `_admission_seen` dict(账本+判据都在路由),
+# 而契约面那三个出口零生产调用方 ⇒ "恢复态"从未被进入,票面写的"断流续传走状态机"是空话。
+# 现在本路由只经这些出口读写,不再自建第二份(§0.6);水位状态本身仍只在 `sse_frames` 那一个
+# ContextVar 里(本路由经 `_current_stream_watermark()` 读它,不另立)。
+# 写成绝对形态与该模块头注 SSE-CONTRACT-IMPORT-SITES 的现读口径一致(只数这一种写法)。
+from app.core.sse_contract import (
+    ADMISSION_SEEN,
+    StreamWatermark,
+    begin_recovery,
+    close_recovery_window,
+    end_recovery,
+    mark_admission_acked,
+    open_recovery_window,
+    peek_recovery_window,
+    recovery_clock_ms,
+    release_admission,
+    take_admission,
 )
 
 # 工具名单的**唯一**来源:前端 TS 真相源 → scripts/gen-tool-name-sets.mjs →
@@ -334,41 +357,97 @@ def _capabilities_payload(session_id: str | None) -> dict[str, bool]:
 
 # ── 差距①(2026-10-30):发送准入回执(admission 帧)留痕 ──────────────────────────
 #
-# duplicate 的判据是"该 inputId 在本会话已被准入过"—— 服务端按 conversationId 留痕
-# (dict 保序即 FIFO,逐会话封顶,防无界增长);未见过 ⇒ accepted 并登记。
-# rejected 本期无流内产出点:配额/参数拒收发生在**开流之前**(HTTP 429/422),
-# 流未开则无帧可发 —— 不造一条永远发不出的档位冒充覆盖。
+# duplicate 的判据是"该 inputId 在本会话已被准入过"。
+# 2026-10-31 收口:账本与判据整体搬进 `core/sse_contract.py`(ADMISSION_SEEN +
+# take_admission / release_admission),本路由**不再自持一份 dict**。接线前"账本在路由、
+# 状态机在契约却零调用方"是同一件事的两套真相,而断流续传不生效的直接原因就是后一套没人进。
 # 帧形状权威:packages/shared/src/chat/send-admission.ts L40-74(camelCase)。
-_admission_seen: dict[str, dict[str, None]] = {}
-_ADMISSION_SEEN_LIMIT = 256  # 单会话 inputId 留痕上限(FIFO 逐出)
+#: **指向单一来源账本的指针**(与 `sse_contract.ADMISSION_SEEN` 是同一个对象,不是第二份
+#: 账本;由 tests/test_sse_admission_recovery_single_source.py 用 `is` 钉住)。保留本名只为
+#: 既有读取方/测试不破,新代码一律走 `take_admission` / `release_admission` 出口。
+_admission_seen = ADMISSION_SEEN
+#: 单会话 inputId 留痕上限(FIFO 逐出)。上限属**调用方策略**,由本路由在判的那一刻传进
+#: 单一来源;`take_admission` 刻意不设默认值(设了这里就成了第二份真相)。
+_ADMISSION_SEEN_LIMIT = 256
 
 
 def _admission_disposition(conversation_id: str | None, input_id: str) -> str:
-    """准入判定唯一出口:本会话见过该 inputId ⇒ duplicate;否则 accepted 并留痕。
-
-    conversation_id 缺席(旧客户端不带 metadata.conversationId)⇒ 无从配对留痕,
-    恒 accepted 且不登记 —— 降级方向是现状(不冒充判过 duplicate)。
-    """
-    if conversation_id:
-        seen = _admission_seen.setdefault(conversation_id, {})
-        if input_id in seen:
-            return "duplicate"
-        seen[input_id] = None
-        while len(seen) > _ADMISSION_SEEN_LIMIT:
-            seen.pop(next(iter(seen)))
-    return "accepted"
+    """准入判定:转调 `sse_contract.take_admission`(判据与账本只有那一份实现)。"""
+    return take_admission(conversation_id, input_id, limit=_ADMISSION_SEEN_LIMIT)
 
 
 def _admission_unseen(conversation_id: str | None, input_id: str) -> None:
-    """差距③(2026-10-30):rejected 档撤销留痕 —— 拒收不是准入。
+    """差距③(2026-10-30):rejected 档撤销留痕 —— 拒收不是准入(同样转调单一来源)。"""
+    release_admission(conversation_id, input_id)
 
-    duplicate 的判据是"已被准入过";队列满/等待超时两条 rejected 出口都没准入,
-    不撤痕则同一 inputId 稍后重试会被误判 duplicate(方向恰好相反:那条明明没执行过)。
+
+# ── 断流续传(2026-10-31 接线):恢复态的唯一进出路 ──────────────────────────────
+#
+# 出站帧的水位状态全仓只有一份,住在 `core/sse_frames.py` 的那个 ContextVar 里。要进/出
+# 恢复态就必须作用在**同一个对象**上 —— 另立一份状态自说自话,与接线前那三个零调用方出口
+# 是同一型失效(账面有机制、运行时没人走)。
+def _current_stream_watermark() -> StreamWatermark | None:
+    """本流帧水位状态的读口:返回 sse_frames 那一份对象;无流上下文 ⇒ None(不造状态)。"""
+    holder = _stream_frame_seq.get()
+    return None if holder is None else holder.watermark
+
+
+def _mark_admission_acked() -> None:
+    """ACK 到达:仅在状态机上登记 admission,**不建立 base**(ACK≠base,票3 第一格)。
+
+    没有水位上下文(该流没有订阅身份)⇒ 整块不记:没有订阅就没人准入过,不冒充。
     """
-    if conversation_id:
-        seen = _admission_seen.get(conversation_id)
-        if seen is not None:
-            seen.pop(input_id, None)
+    state = _current_stream_watermark()
+    if state is not None:
+        mark_admission_acked(state)
+
+
+def _open_recovery_window_on_break(session_id: str | None) -> None:
+    """断流(客户端断开 / 任务被取消)⇒ 进入恢复态,并给该订阅开一个恢复窗口。
+
+    纯同步(取消作用域内可调用,绝不 yield)。窗口截止刻意复用
+    `core/approval_replay.EXPIRY_RETENTION_SECONDS` —— 那一期正是"重连还能 catch-up 到
+    什么"的上界:过了它待决审批与失效留痕都已过期,续传面为空,不该再冒充窗口开着。
+    没有订阅身份就不记(不造值冒充事实)。
+    """
+    if not session_id:
+        return
+    deadline_ms = recovery_clock_ms() + float(EXPIRY_RETENTION_SECONDS) * 1000.0
+    open_recovery_window(session_id, deadline_ms=deadline_ms)
+    state = _current_stream_watermark()
+    if state is not None:
+        begin_recovery(state, deadline_ms=deadline_ms)
+
+
+def _enter_recovery_on_reconnect(session_id: str | None) -> str | None:
+    """重连流:该订阅仍有开着的恢复窗口 ⇒ 经唯一出口进入恢复态。
+
+    返回真正进入的订阅 id(None = 未进入),收口处凭它成对调 `_end_recovery_window`。
+    窗口不存在 / 取不到水位状态 ⇒ 零动作(判定输入取不到就不猜,窗口留给下一次重连)。
+    进入点固定在**首个出帧之前**:`sse_frames` 的"流上第一帧恒为 owned snapshot"规则保证
+    catch-up 面不会把已 apply 的水位写脏,而窗口期内若真冒出增量,`apply_frame` 的 defer
+    分支会把它记成 post_recovery_gap_pending 而不是水位 —— 这正是"续传不丢增量"那一格。
+    """
+    if not session_id:
+        return None
+    deadline_ms = peek_recovery_window(session_id)
+    if deadline_ms is None:
+        return None
+    state = _current_stream_watermark()
+    if state is None:
+        return None
+    begin_recovery(state, deadline_ms=deadline_ms)
+    return session_id
+
+
+def _end_recovery_window(session_id: str | None) -> None:
+    """恢复 flight 收口(catch-up 面已发完):出态 + 清窗口,与 `_enter_recovery_on_reconnect` 成对。"""
+    if not session_id:
+        return
+    state = _current_stream_watermark()
+    if state is not None:
+        end_recovery(state)
+    close_recovery_window(session_id)
 
 
 # ── 差距③(2026-10-30):queued 上 wire —— 会话级流道(lane)+ FIFO 队列 ──────────────
@@ -4262,6 +4341,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 无 session 的流不挂 —— 没有订阅身份就不造值冒充,线格式逐字节保持现状。
             begin_stream_watermark(session_id)
 
+        # 断流续传(2026-10-31 接线):重连流若仍落在断流侧开的恢复窗口内 ⇒ 经 sse_contract
+        # 的唯一出口进入恢复态。位置固定在水位上下文挂上之后、**流上第一帧出帧之前**
+        # (第一帧恒为 owned snapshot,落地即自带出态;catch-up 面跑完再由下面收口一次)。
+        # 非重连 / 窗口已过期 / 无水位上下文 ⇒ 整块零动作,线格式逐字节保持现状。
+        _recovery_subscription = _enter_recovery_on_reconnect(session_id)
+
         # D34(2026-09-22,G-40):上下文注入交代帧必须是**流上最早的业务帧**(先于任何 chunk/工具帧),
         # 前端才能把它排在"本轮开始"处;每帧补 messageId,与 plan_updated/terminal_* 同一守卫口径。
         for _inj in injection_frames:
@@ -4305,6 +4390,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         if req.streamSessionId and session_id:
             for _approval_replay_frame in _approval_replay_frames(session_id, owner_uuid):
                 yield _approval_replay_frame
+        # catch-up 面(重放待决审批)到此发完 ⇒ 恢复 flight 收口:出态 + 清窗口。
+        # 非重连流 _recovery_subscription 恒 None,这一调用是显式 no-op(不进过就不出过)。
+        _end_recovery_window(_recovery_subscription)
 
         def _grants_bucket() -> str:
             """本轮审批授权的落点桶(见 `_grant_bucket_key` 头注)。
@@ -4439,6 +4527,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     yield _sse(SSE_ADMISSION, _admission_payload)
                     if _admission_payload["disposition"] == "rejected":
                         return
+                    # 差距①(2026-10-31 接线):准入回执已交到端上 ⇒ 经 sse_contract 的唯一
+                    # 出口登记 ACK。**ACK≠base** —— 这一格只置 admission_acked,基线仍要等
+                    # 首个 owned snapshot 原子 apply(票3 第一格;接线前 mark_admission_acked
+                    # 在生产面零调用方,账面写着"有准入状态"而运行时没人登记过任何一次)。
+                    # queued 同样算 ACK 已回(准入结论已交付),晋升后那条 accepted 再记一次
+                    # (同一状态对象的布尔位,幂等)。rejected 走上面 return,不登记。
+                    _mark_admission_acked()
                     if _queued_entry is not None:
                         # 排队等待:分段等待 + keepalive 注释行(姿势抄审批/表单等待)。
                         # 晋升由前流 finally 的 _conv_lane_release 完成(set event)。
@@ -4474,6 +4569,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if message_id:
                                 _start_payload["messageId"] = message_id
                             yield _sse(SSE_ADMISSION, _start_payload)
+                            # 晋升后这条 accepted 才是"本轮真被执行"的凭据,同一条状态出口登记。
+                            _mark_admission_acked()
                         else:
                             # 等待超时:摘除自身排队项 + 撤痕后显式拒收,不冒充"排到了再执行"。
                             _conv_lane_release(
@@ -6698,10 +6795,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # G-815975:客户端断开 ⇒ 生成器被 aclose,finally 里不允许 yield,
             # dropped 回报降级为日志留痕(先置位再放行)。
             _stream_exiting = True
+            # 断流续传(2026-10-31 接线):断流这一刻就是"恢复态"的进入点 —— 经 sse_contract
+            # 的唯一出口把本订阅标成"正在恢复",并记一个有期限的窗口供重连流认领。
+            # 纯同步(取消作用域内不 yield);无订阅身份 ⇒ 整块不记。
+            _open_recovery_window_on_break(session_id)
             raise
         except asyncio.CancelledError:
             _stream_exiting = True
             logger.info("SSE generator cancelled by client disconnect")
+            _open_recovery_window_on_break(session_id)
             raise
         except Exception as e:
             # 流内运行时错误(PROVIDER_NOT_IMPLEMENTED / LLM_ERROR)无法 pre-flight,
