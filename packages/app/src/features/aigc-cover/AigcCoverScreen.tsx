@@ -10,7 +10,7 @@ import type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps } from '../
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /** AIGC 封面选择共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps }
@@ -140,52 +140,57 @@ function createStyles(tk: AppThemeTokens) {
   const primary = tk.brand.DEFAULT
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: 10, paddingBottom: 16 },
+    scrollContent: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.lg },
     previewWrap: {
       position: 'relative',
       borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
-      marginBottom: 16,
+      marginBottom: rnSpacing.lg,
     },
     preview: { width: '100%', aspectRatio: 1, backgroundColor: tk.border.light },
     previewBadge: {
       position: 'absolute',
       bottom: 8,
       left: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     previewBadgeText: { fontSize: 12, color: tk.surface.light },
-    filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    filterRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     filterChip: {
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     filterChipActive: { backgroundColor: primary },
     filterText: { fontSize: 14, color: tk.text.medium },
     filterTextActive: { color: tk.surface.light, fontWeight: '600' },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     coverItem: {
       width: '48%',
       flexGrow: 1,
       borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
-      paddingBottom: 8,
+      paddingBottom: rnSpacing.sm,
       borderWidth: 2,
       borderColor: 'transparent',
     },
     coverItemActive: { borderColor: primary },
     coverImage: { width: '100%', aspectRatio: 1, backgroundColor: tk.border.light },
-    coverLabel: { marginTop: 6, paddingHorizontal: 8, fontSize: 14, color: tk.text.medium },
+    coverLabel: {
+      marginTop: rnSpacing['xs-loose'],
+      paddingHorizontal: rnSpacing.sm,
+      fontSize: 14,
+      color: tk.text.medium,
+    },
     selectedDot: {
       position: 'absolute',
       top: 6,
@@ -198,14 +203,18 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     aiGenBtn: {
-      marginTop: 16,
-      paddingVertical: 12,
+      marginTop: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',
     },
     aiGenText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
-    footer: { paddingHorizontal: 10, paddingVertical: 12, backgroundColor: tk.surface.light },
+    footer: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      backgroundColor: tk.surface.light,
+    },
     confirmBtn: {
       paddingVertical: 14,
       borderRadius: rnRadius.sm,

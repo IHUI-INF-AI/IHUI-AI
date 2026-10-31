@@ -142,7 +142,11 @@ export function AigcPublishScreen({
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
                 <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
-                <TouchableOpacity hitSlop={7} style={styles.fileRemove} onPress={() => onRemoveFile(f.id)}>
+                <TouchableOpacity
+                  hitSlop={7}
+                  style={styles.fileRemove}
+                  onPress={() => onRemoveFile(f.id)}
+                >
                   <Text style={styles.fileRemoveText}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -222,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.light,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.lg,
     },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
@@ -232,12 +236,17 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       marginBottom: rnSpacing.md,
     },
-    label: { marginTop: 14, fontSize: rnType.body.size, color: tk.text.secondary, marginBottom: 6 },
+    label: {
+      marginTop: 14,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing['xs-loose'],
+    },
     errorText: { fontSize: rnType.body.size, color: tk.error.text, marginTop: rnSpacing.sm },
     typeRow: { flexDirection: 'row', gap: rnSpacing.sm },
     typeChip: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
@@ -249,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChipDescActive: { color: tk.surface.light },
     input: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -267,7 +276,7 @@ function createStyles(tk: AppThemeTokens) {
     urlInput: {
       flex: 1,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -277,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     urlAddBtn: {
       paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
     },
@@ -290,21 +299,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 10,
+      marginBottom: rnSpacing['sm-loose'],
     },
     pickerBtnDisabled: {
       opacity: 0.6,
       borderColor: tk.text.tertiary,
       backgroundColor: tk.text.tertiary,
     },
-    pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     pickerBtnText: { color: primary, fontSize: rnType.body.size, fontWeight: '600' },
     pickerBtnTextUploading: {
       color: tk.surface.light,
       fontSize: rnType.body.size,
       fontWeight: '600',
     },
-    fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     fileItem: {
       width: 76,
       height: 76,
