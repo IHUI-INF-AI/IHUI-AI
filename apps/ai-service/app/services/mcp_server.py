@@ -6534,6 +6534,47 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _download_url_ssrf_safe(
+    url: str,
+    httpx_mod: Any,
+    *,
+    timeout: float = 60.0,
+) -> bytes | None:
+    """SSRF 安全的 URL 字节下载单源(2026-10-31 安全强化第 10 批)。
+
+    此前三处 URL 下载(_fetch_image_bytes / _resolve_image_source_bytes /
+    _download_media_bytes)直接 GET 用户/模型可控 URL:前两处连首跳
+    _validate_url_ssrf 都没有,且全部 follow_redirects=True 不复检落点 ——
+    公网 302 → http://169.254.169.254/ 即整条 SSRF。现统一:每跳(含重定向
+    逐跳)都过 _validate_url_ssrf,任一跳被禁整条失败(返回 None,由调用方
+    按既有错误码降级)。
+    """
+    from .screenshot_service import _validate_url_ssrf
+
+    if not url or url.startswith("data:"):
+        return None
+    current = url
+    try:
+        async with httpx_mod.AsyncClient(timeout=timeout, follow_redirects=False) as dl:
+            for _hop in range(6):
+                ok, _reason = _validate_url_ssrf(current)
+                if not ok:
+                    logger.warning("mcp_server URL 下载被 SSRF 尺拒绝: %s", current[:200])
+                    return None
+                resp = await dl.get(current)
+                location = resp.headers.get("location")
+                if resp.is_redirect and location:
+                    current = str(resp.url.join(location))
+                    continue
+                if resp.status_code < 400:
+                    return cast(bytes, resp.content)
+                return None
+        return None
+    except Exception as e:
+        logger.warning("mcp_server URL 下载失败: %s", e, exc_info=True)
+        return None
+
+
 async def _fetch_image_bytes(
     item: dict[str, Any], image_url: str, httpx_mod: Any
 ) -> bytes | None:
@@ -6548,29 +6589,17 @@ async def _fetch_image_bytes(
             logger.warning("mcp_server b64_json 解码失败: %s", e, exc_info=True)
             return None
     if image_url and not image_url.startswith("data:"):
-        try:
-            async with httpx_mod.AsyncClient(timeout=60.0) as dl:
-                dl_resp = await dl.get(image_url)
-            if dl_resp.status_code < 400:
-                return cast(bytes, dl_resp.content)
-        except Exception as e:
-            logger.warning("mcp_server 图片 URL 下载失败: %s", e, exc_info=True)
-            return None
+        # 2026-10-31 安全强化第 10 批:URL 下载统一走 SSRF 安全单源
+        return await _download_url_ssrf_safe(image_url, httpx_mod)
     return None
 
 
 async def _download_media_bytes(url: str, httpx_mod: Any) -> bytes | None:
-    """下载媒体字节(图片/视频统一),失败返回 None。"""
-    if not url or url.startswith("data:"):
-        return None
-    try:
-        async with httpx_mod.AsyncClient(timeout=300.0, follow_redirects=True) as dl:
-            resp = await dl.get(url)
-        if resp.status_code < 400:
-            return cast(bytes, resp.content)
-    except Exception as e:
-        logger.warning("mcp_server 媒体 URL 下载失败: %s", e, exc_info=True)
-    return None
+    """下载媒体字节(图片/视频统一),失败返回 None。
+
+    2026-10-31 安全强化第 10 批:改走 _download_url_ssrf_safe 单源
+    (此前 follow_redirects=True 不复检落点,重定向可绕过 SSRF)。"""
+    return await _download_url_ssrf_safe(url, httpx_mod, timeout=300.0)
 
 
 def _resolve_native_provider(provider: str) -> tuple[Any, str]:
@@ -6689,14 +6718,10 @@ async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | 
             return None, "INVALID_BASE64"
         return raw or None, None if raw else "INVALID_BASE64"
     if s.startswith("http://") or s.startswith("https://"):
-        try:
-            async with _httpx.AsyncClient(timeout=60.0, follow_redirects=True) as dl:
-                resp = await dl.get(s)
-            if resp.status_code >= 400:
-                return None, "DOWNLOAD_FAILED"
-            return resp.content, None
-        except Exception:  # noqa: BLE001
-            return None, "DOWNLOAD_FAILED"
+        # 2026-10-31 安全强化第 10 批:URL 下载统一走 SSRF 安全单源
+        # (此前连首跳 _validate_url_ssrf 都没有,follow_redirects=True 不复检落点)
+        fetched = await _download_url_ssrf_safe(s, _httpx)
+        return (fetched, None) if fetched else (None, "DOWNLOAD_FAILED")
     if len(s) > 40 and (s.startswith("data:") is False):
         # 可能是纯 base64(非 data URI)或本地路径
         try:
