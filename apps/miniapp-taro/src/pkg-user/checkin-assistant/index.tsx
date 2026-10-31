@@ -10,6 +10,9 @@ import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { rnRadius } from '@ihui/design-tokens'
+// 自动做任务(WorkBuddy 任务中心六族):与 web 端 WorkbuddyTaskPanel 同能力、同口径。
+// 组件自身只在存在 platform==='workbuddy' 账号时渲染,页面只负责挂载。
+import WorkbuddyTaskSection from './WorkbuddyTaskSection'
 
 const PLATFORMS = ['trae', 'workbuddy', 'qoder', 'minimax'] as const
 
@@ -207,6 +210,8 @@ export default function CheckinAssistant() {
               </View>
             ))
           )}
+
+          <WorkbuddyTaskSection accounts={list} t={t} />
 
           <View className="mt-[28rpx] rounded-lg border border-border bg-card p-[28rpx]">
             <Text className="block text-[length:30rpx] font-semibold text-foreground">
