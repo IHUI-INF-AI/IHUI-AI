@@ -275,14 +275,36 @@ _MAX_REGISTRY_SIZE = 64
 
 _canvas_graph_registry: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
+# threadId → 归属主体(2026-10-31 安全强化第 16 批)。
+# 与图注册表**分开**存:图表按 64 条淘汰,归属账不能跟着丢 —— 丢了就等于"谁都能接手"。
+# 容量给到 512,超出按最旧淘汰(与图表同为进程内生命周期:重启后画布会话本就不可恢复)。
+_CANVAS_OWNER_SIZE = 512
+_canvas_owner_registry: OrderedDict[str, str] = OrderedDict()
 
-def register_canvas_graph(thread_id: str, graph: Any, *, input_: str | None = None) -> None:
-    """注册已编译 canvas 图(threadId → {graph, input}),超出容量淘汰最旧。"""
+
+def register_canvas_graph(
+    thread_id: str, graph: Any, *, input_: str | None = None, owner: str | None = None
+) -> None:
+    """注册已编译 canvas 图(threadId → {graph, input}),超出容量淘汰最旧。
+
+    `owner` 是承载层注入的已验证主体(不是请求体字段)。登记后,该 thread 的
+    图执行/中断/恢复只认这个主体。
+    """
     _canvas_graph_registry[thread_id] = {"graph": graph, "input": input_}
     _canvas_graph_registry.move_to_end(thread_id)
     while len(_canvas_graph_registry) > _MAX_REGISTRY_SIZE:
         evicted, _ = _canvas_graph_registry.popitem(last=False)
         logger.info("canvas 图注册表容量淘汰 thread=%s", evicted)
+    if owner:
+        _canvas_owner_registry[thread_id] = owner
+        _canvas_owner_registry.move_to_end(thread_id)
+        while len(_canvas_owner_registry) > _CANVAS_OWNER_SIZE:
+            _canvas_owner_registry.popitem(last=False)
+
+
+def canvas_thread_owner(thread_id: str) -> str | None:
+    """该 canvas thread 的归属主体;未登记返回 None(历史条目/非 canvas 线程)。"""
+    return _canvas_owner_registry.get(thread_id)
 
 
 def get_canvas_graph_entry(thread_id: str) -> dict[str, Any] | None:
@@ -294,12 +316,14 @@ def get_canvas_graph_entry(thread_id: str) -> dict[str, Any] | None:
 
 
 def remove_canvas_graph(thread_id: str) -> None:
-    """移除 canvas 图注册项(不存在时静默)。"""
+    """移除 canvas 图注册项(不存在时静默)。归属账同步摘除。"""
     _canvas_graph_registry.pop(thread_id, None)
+    _canvas_owner_registry.pop(thread_id, None)
 
 
 __all__ = [
     "build_canvas_graph",
+    "canvas_thread_owner",
     "get_canvas_graph_entry",
     "register_canvas_graph",
     "remove_canvas_graph",
