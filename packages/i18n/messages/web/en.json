@@ -20213,6 +20213,7 @@
     "taskPanelAutoDry": "Enabled but in dry-run (read-only probes): no real claims. Set WORKBUDDY_TASKS_LIVE_RUN=true on the server to write.",
     "taskPanelAutoCronBlocked": "Not running: task switch is on but the master switch CHECKIN_CRON_ENABLED is off.",
     "taskPanelAutoOff": "Disabled: manual only. Set WORKBUDDY_TASKS_ENABLED=true on the server and restart.",
+    "taskPanelAutoNotStarted": "Configured as enabled but the scheduler is not running: restart ai-service after editing the server .env (start() short-circuits on _started, so there is no hot reload).",
     "taskPanelAutoPaths": "Report/claim paths not configured: reports only, no claims.",
     "taskPanelAutoLast": "Last sweep {time}",
     "taskPanelAutoLastStats": "{families} families · {accepted} accepted · {claimed} claimed",

@@ -5226,6 +5226,7 @@
     "taskAutoDry": "有効ですが演習モード（読み取り専用）：実際の受け取りは行いません。サーバーで WORKBUDDY_TASKS_LIVE_RUN=true を設定すると書き込みます。",
     "taskAutoCronBlocked": "未実行：タスクスイッチは有効ですが、主スイッチ CHECKIN_CRON_ENABLED が無効です。",
     "taskAutoOff": "無効：手動実行のみ。サーバーで WORKBUDDY_TASKS_ENABLED=true を設定して再起動すると有効になります。",
+    "taskAutoNotStarted": "設定は有効ですがスケジューラが起動していません:サーバーの .env を変更後は ai-service を再起動してください(プロセス内の start() は _started で短絡し、ホットリロードされません)。",
     "taskAutoPaths": "報告/受け取りパスが未設定：報告のみで受け取りは行いません。",
     "taskAutoLast": "前回の巡回 {time}",
     "taskAutoLastStats": "{families} ファミリー · 受諾 {accepted} · 受取 {claimed}",
