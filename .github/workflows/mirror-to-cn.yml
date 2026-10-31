@@ -223,7 +223,10 @@ jobs:
               SIZE_LINE=$(grep -aoE 'Repo size: [0-9.]+MB(, exceeds quota [0-9.]+MB)?' "$PUSH_OUT" | tail -1 || true)
               GC_LINE=$(grep -aoE 'https://gitee\.com[^ ]*settings#git-gc' "$PUSH_OUT" | tail -1 || true)
               QUOTA_SKIPPED=1
-              echo "::warning::Gitee 拒绝本轮全量推送(配额超限按 §12e 不再判红:它与本次提交内容无关,且收信人改代码也无法整改,唯一出路是仓库所有者点一次 Git GC)。服务端判词:${SIZE_LINE:-本轮未打出体积数}。远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签 —— 体积卡在服务端回收,不在 ref 清单。这一步**没有任何前置探测**(0 字节探针已于 2026-09-28 移除,它证明不了配额,详见本步上方注释),所以本轮对象已随上面的推送送出去了:被拒的包按 Gitee 口径仍计入体积 ⇒ 重试本身在把它推得更高,这是**已知代价**,不是遗漏。降体积只有服务端 GC 一条路(Gitee 无 GC API,housekeeping 不可由本 workflow 触发):${GC_LINE:-https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings#git-gc} —— 由仓库所有者点一次「Git GC」。GC 之前下一轮(20 分钟后)仍会照原样再试,改触发器/改判据都无效。"
+              # 供「同步结果汇总」如实写「未落地」——本步 exit 0 只是"不再让 CI 变红",
+              # 不等于镜像成功;把没落地渲染成 ✅ = 本仓禁止的假账(§30 无终态不得写完成)。
+              echo "quota_skipped=1" >> "$GITHUB_OUTPUT"
+              echo "::warning::Gitee 拒绝本轮全量推送(配额超限按 §12e 不再判红:它与本次提交内容无关,且收信人改代码也无法整改,唯一出路是仓库所有者点一次 Git GC)。服务端判词:${SIZE_LINE:-本轮未打出体积数}。远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签 —— 体积卡在服务端回收,不在 ref 清单。这一步**没有任何前置探测**(0 字节探针已于 2026-09-28 移除,它证明不了配额,详见本步上方注释),所以本轮对象已随上面的推送送出去了:被拒的包按 Gitee 口径仍计入体积 ⇒ 重试本身在把它推得更高,这是**已知代价**,不是遗漏。降体积只有服务端 GC 一条路(Gitee 无 GC API,housekeeping 不可由本 workflow 触发):${GC_LINE:-https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings#git-gc} —— 由仓库所有者点一次「Git GC」。GC 之前下一轮(2 小时后,见文件头 schedule)仍会照原样再试,改触发器/改判据都无效。"
             else
               # 拿不到配额判词的失败(实测 09-28 那轮 74 分钟后 curl 65 TLS 断开)必须与"配额"
               # 分开说:此时**无法判定**服务端是否收下并留下了本轮上传的对象,更无法判定配额是否
@@ -298,7 +301,15 @@ jobs:
         run: |
           echo "## 国内镜像同步结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          GITEE_RESULT="${{ (steps.gitee.outcome == 'success' || steps.gitee.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}"
+          # 配额跳过时本步 outcome=success(为了不让恒红门),但它**没有落地** ——
+          # 汇总必须照实写,不能借用 outcome 把"未落地"说成"成功"。
+          if [ "${{ steps.gitee.outputs.quota_skipped }}" = "1" ]; then
+            GITEE_RESULT="⚠️ 未落地（Gitee 体积超配额，需仓库所有者在控制台点一次 Git GC；详见上文 warning）"
+          elif [ "${{ steps.gitee.outcome }}" = "success" ] || [ "${{ steps.gitee.outcome }}" = "skipped" ]; then
+            GITEE_RESULT="✅ 成功"
+          else
+            GITEE_RESULT="❌ 失败（见上一步日志）"
+          fi
           GITCODE_RESULT="${{ (steps.gitcode.outcome == 'success' || steps.gitcode.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}"
           echo "- Gitee: $GITEE_RESULT" >> $GITHUB_STEP_SUMMARY
           echo "- GitCode: $GITCODE_RESULT" >> $GITHUB_STEP_SUMMARY
