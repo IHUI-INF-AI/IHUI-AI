@@ -5,7 +5,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import Script from 'next/script'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE,
@@ -232,6 +232,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
   const cookieLocale = isStaticExport ? undefined : (await cookies()).get(LOCALE_COOKIE)?.value
   const locale: LocaleCode = isSupportedLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE
+  // 逐请求 CSP nonce 的**消费端**(2026-10-30 立机制,2026-10-31 补消费):proxy.ts 把同一份
+  // nonce 同时写进请求头 x-nonce 与响应头 CSP;Next 只给**它自己**生成的脚本打标,本文件里
+  // 手写的 bootstrap 与 next-themes 的注入脚本必须自己消费 —— 否则 nonce 分支(按 CSP3 不带
+  // unsafe-inline)下这两段被浏览器拦掉,表现为主题闪烁 + --z-* / sidebar 宽度等 CSS 变量不生效。
+  // 静态导出无请求期(headers() 不可用):那一侧的 CSP 由托管层配静态策略(见 build-static.mjs
+  // 里 proxy.ts 的移出说明),这里与上面 cookies 同一短路口径。
+  const nonce = isStaticExport ? undefined : ((await headers()).get('x-nonce') ?? undefined)
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -246,6 +253,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           与 next-themes 的 suppressHydrationWarning 同模式:只设 CSS 变量,无 hydration mismatch。
         */}
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){var d=document.documentElement;d.style.setProperty('--z-base','1');d.style.setProperty('--z-sticky','990');d.style.setProperty('--z-modal','2000');d.style.setProperty('--z-popover','2001');d.style.setProperty('--z-notification','9999');d.style.setProperty('--z-max','10003');d.style.setProperty('--z-0','0');d.style.setProperty('--z-header','100');d.style.setProperty('--z-dropdown','1000');d.style.setProperty('--z-overlay','1000');d.style.setProperty('--z-loading','10000');try{var sw=localStorage.getItem('sidebar-width');if(sw){var sn=parseInt(sw,10);if(sn>=160&&sn<=180){d.style.setProperty('--sidebar-width',sn+'px');}else{d.style.setProperty('--sidebar-width','160px');}}else{d.style.setProperty('--sidebar-width','160px');}}catch(e){d.style.setProperty('--sidebar-width','160px');}try{if(localStorage.getItem('sidebar-collapsed')==='true'){d.style.setProperty('--sidebar-width','60px');}}catch(e){}try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){d.style.setProperty('--ai-panel-width',w+'px');d.style.setProperty('--ai-panel-occupy',(w+6)+'px');return;}}}catch(e){}d.style.setProperty('--ai-panel-width','480px');d.style.setProperty('--ai-panel-occupy','486px');try{var stored=localStorage.getItem('theme');if(stored!=='light'&&stored!=='dark'){var isTauri=('__TAURI_INTERNALS__' in window)||('__TAURI__' in window);if(isTauri){d.classList.add('dark');d.style.colorScheme='dark';}}}catch(e){}})();`,
           }}
@@ -541,6 +549,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <I18nProvider>
             <QueryProvider>
