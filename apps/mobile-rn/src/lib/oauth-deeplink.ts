@@ -23,6 +23,7 @@ import * as Linking from 'expo-linking'
 import type { QueryParams } from 'expo-linking'
 import {
   callOAuthCallback,
+  consumePendingOAuthState,
   OAUTH_APP_RETURN_URI,
   type OAuthPlatform,
   type OAuthRedirectResult,
@@ -101,6 +102,15 @@ export function subscribeOAuthDeepLink(
       callback({ success: false, error: 'OAuth deep link 缺少 platform 或 code' })
       return
     }
+    // 2026-10-31 安全强化第 18 批(F1):deep-link 旁路 state 绑定 —— 与本地
+    // 发起时持久化的 pending state 等值校验,不匹配/无 pending 一律拒绝。此前
+    // state 直接透传后端,攻击者自跑 OAuth 后诱导受害者 App 收到同 URL 即可
+    // 换出攻击者账号(登录 CSRF/会话固定)。
+    const pending = await consumePendingOAuthState()
+    if (!pending || pending !== state) {
+      callback({ success: false, error: 'OAuth state 校验失败(可能遭遇 CSRF 攻击)' })
+      return
+    }
     // 调后端 oauthCallback 换 JWT
     const result = await callOAuthCallback(platform, code, state ?? '')
     callback(result)
@@ -118,6 +128,9 @@ export async function getInitialOAuthDeepLink(): Promise<OAuthRedirectResult | n
     if (!url || !isOAuthDeepLink(url)) return null
     const { platform, code, state } = parseOAuthDeepLink(url)
     if (!platform || !code) return null
+    // 第 18 批 F1:冷启动入口同闸(无 pending state ⇒ 非本 App 发起的流程,拒绝)
+    const pending = await consumePendingOAuthState()
+    if (!pending || pending !== state) return null
     return await callOAuthCallback(platform, code, state ?? '')
   } catch {
     return null

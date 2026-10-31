@@ -335,8 +335,14 @@ export class JwtKeyRotator {
           audience: AUDIENCE,
           algorithms: [ALG],
         })
-        if (payload.type === 'refresh') {
-          throw new Error('refresh token 不能用作 access token')
+        if (payload.type === 'refresh' || payload.type === 'ws') {
+          // 2026-10-31 安全强化第 18 批(F3):ws ticket 与 refresh 一并拒 —— 单向
+          // 隔离是半成品,ticket 泄漏后可在 TTL 内当 access 打全 REST
+          throw new Error('refresh/ws ticket 不能用作 access token')
+        }
+        if (!payload.sub) {
+          // 与 jwt.ts verifyAccessToken 同口径:缺 subject 即拒(key-rotation 链此前连这层都没有)
+          throw new Error('invalid access token: missing subject')
         }
         return {
           userId: payload.sub ?? '',

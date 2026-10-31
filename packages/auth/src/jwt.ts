@@ -143,6 +143,16 @@ export async function verifyAccessToken(token: string): Promise<JWTPayload> {
     throw err
   }
 
+  // 2026-10-31 安全强化第 18 批(F3):type='ws' 的 5 分钟 WS ticket 同样拒绝 ——
+  // ws-auth 的隔离声明是双向的(access 被盗不能连 WS ⇔ ticket 泄漏不能打全 REST);
+  // 此前只拒 refresh,ticket 经 URL query 泄漏(WS 平台约束)后可在 TTL 内当
+  // Authorization: Bearer 打任意 REST 端点,危害面从 WS 扩大到全 REST。
+  if (payload.type === 'ws') {
+    const err = new Error('ws ticket 不能用作 access token')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
   // sub 是签发时 setSubject(userId) 写入,缺失说明 token 被篡改或格式错误,拒绝
   if (!payload.sub) {
     const err = new Error('invalid access token: missing subject')
