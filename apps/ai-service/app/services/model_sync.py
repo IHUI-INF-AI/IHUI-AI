@@ -1388,22 +1388,26 @@ class ModelSyncService:
             headers["x-api-key"] = api_key
             headers["anthropic-version"] = "2023-06-01"
         elif is_gemini:
-            # F4.4 Google Gemini: /v1beta/models?key={api_key}
+            # F4.4 Google Gemini: 原生 /v1beta/models,凭据走 x-goog-api-key 头
             # 2026-08-02 立:api_base 为 OpenAI 兼容端点(以 /openai 结尾,如
             # https://generativelanguage.googleapis.com/v1beta/openai)时,
-            # 直接拼 /models 且 key 走 Bearer header(原生 Gemini API 才用 query param)
+            # 直接拼 /models 且 key 走 Bearer header。
+            # 2026-11-01 安全强化:原生形态原先把 key 拼进 URL 查询串 ⇒ 同一枚服务端
+            # 密钥会随 URL 进 httpx DEBUG 逐请求日志、中间层访问日志与异常文本。Google
+            # 原生 REST 认 x-goog-api-key 头(本仓 Node 侧调同一端点已在用该头),
+            # 查询串形态只剩泄露面、没有收益。
             if url.endswith("/v1beta"):
                 url = f"{url}/models"
-                # key 通过 query param 传递
-                url = f"{url}?key={api_key}"
+                if api_key:
+                    headers["x-goog-api-key"] = api_key
             elif url.endswith("/openai") or url.endswith("/v1"):
                 url = f"{url}/models"
                 if api_key:
                     headers["Authorization"] = f"Bearer {api_key}"
             else:
                 url = f"{url}/v1beta/models"
-                # key 通过 query param 传递
-                url = f"{url}?key={api_key}"
+                if api_key:
+                    headers["x-goog-api-key"] = api_key
         else:
             # 默认 OpenAI 兼容: /v1/models
             # 2026-10-26:空 key(免鉴权目录端点 huggingface 等)不设 Authorization —— 发
