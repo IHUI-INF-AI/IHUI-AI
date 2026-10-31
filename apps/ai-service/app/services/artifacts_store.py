@@ -177,6 +177,17 @@ _VALID_TYPES = {"plan", "source", "tool_call_result", "screenshot", "file"}
 _ARTIFACT_BUCKET_TYPES = {"tool_call_result", "screenshot", "file"}
 
 
+def _stable_json_default(value: Any) -> Any:
+    """不可序列化值的**稳定**表示。
+
+    set/frozenset 的 str() 顺序随 PYTHONHASHSEED 变 ⇒ 同一内容两次进程算出不同摘要,
+    内容寻址直接失效。这里按元素的 str 排序后再序列化,保证跨进程可复现。
+    """
+    if isinstance(value, (set, frozenset)):
+        return sorted(str(v) for v in value)
+    return str(value)
+
+
 def payload_sha256_of(artifact: dict[str, Any]) -> str:
     """artifact 内容寻址摘要(G-25,2026-10-31)。
 
@@ -190,7 +201,13 @@ def payload_sha256_of(artifact: dict[str, Any]) -> str:
         "content": artifact.get("content", ""),
         "metadata": artifact.get("metadata") or {},
     }
-    raw = json.dumps(canonical, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
+    raw = json.dumps(
+        canonical,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=_stable_json_default,
+        separators=(",", ":"),
+    )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
