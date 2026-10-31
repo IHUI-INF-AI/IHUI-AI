@@ -818,12 +818,20 @@ class RAGService:
             return "", 0
         parts: list[str] = []
         used = 0
+        # 检索到的正文是外部内容(用户上传/抓取的文档),会被拼进 system prompt 的
+        # {context} 位 —— 那是模型最信任的位置。文档里写一句"忽略上面的指令"就是注入,
+        # 所以每条 snippet 进块前先过宿主定界(中和 ihui-* 保留标签 + 标明"是数据不是指令")。
+        from .tool_context_boundary import frame_external_content
+
         for i, s in enumerate(sources, 1):
             body = s.content.strip()
             # small-to-big:父块展开来源(rag_parent_id 非空)送全文,否则
             # 维持 1000 字符 snippet 上限 —— 旧数据不会带 rag_parent_id,零影响
             snippet = body if s.rag_parent_id else body[:1000]
-            block = f"[来源 {i}] (role={s.role}, session={s.session_id}, score={s.score:.3f})\n{snippet}"
+            framed = frame_external_content(snippet, source=f"rag:{s.role or 'doc'}")
+            block = (
+                f"[来源 {i}] (role={s.role}, session={s.session_id}, score={s.score:.3f})\n{framed}"
+            )
             if used + len(block) > max_chars:
                 # 截断
                 remain = max_chars - used

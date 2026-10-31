@@ -114,7 +114,9 @@ async def test_config_save_and_mask_secret(ac):
     assert item["configured"] is True
     assert "app_secret" not in item  # 脱敏:绝不返回明文
     assert "app_id" not in item
-    assert item["extra"] == {"user": "yuque", "repo": "developer"}
+    # 2026-10-31 安全强化第 11 批:extra 由原样回传改为「键保留、值布尔化」——
+    # 飞书 folder_token 等目录访问凭据此前会随列表直达客户端;落库仍存明文供同步
+    assert item["extra"] == {"user": True, "repo": True}
     # 落库字段仍保留明文(供同步时使用),并带上承载层注入的属主
     stored = connector_store.get(USER_A, "yuque:docs")
     assert stored is not None
