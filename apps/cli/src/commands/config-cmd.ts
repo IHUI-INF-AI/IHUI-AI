@@ -191,7 +191,7 @@ function parseValue(raw: string, type: ConfigValueType, enumValues?: readonly st
 function saveSettings(settings: Settings): void {
   const p = getSettingsPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(p, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
 }
 
 // === 渲染 ===

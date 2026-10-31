@@ -37,6 +37,7 @@ from ..core.approval_replay import (
 )
 from ..core.background_tasks import spawn
 from ..core.config import settings
+from ..services.tool_context_boundary import scan_and_frame_tool_result
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.jwt_auth import resolve_request_user_id
 from ..core.llm_gateway import llm_gateway, moa_router
@@ -5388,7 +5389,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     message_id=message_id,
                                 )
                                 # 回灌工具结果(简短提示,让 LLM 知道工具被跳过,完整结果见之前 tool 消息)
-                                result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                result_json = scan_and_frame_tool_result(
+                                    json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    tool_name=tool_name,
+                                )  # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
                                 messages.append({
                                     "role": "tool",
                                     "tool_call_id": tc.get("id", ""),
@@ -5463,7 +5467,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     message_id=message_id,
                                 )
                                 # 回灌工具结果 —— 模型据此换工具,而不是重试同一名字
-                                result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                result_json = scan_and_frame_tool_result(
+                                    json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    tool_name=tool_name,
+                                )  # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
                                 messages.append({
                                     "role": "tool",
                                     "tool_call_id": tc.get("id", ""),
@@ -5535,7 +5542,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "role": "tool",
                                         "tool_call_id": tc.get("id", ""),
                                         "name": tool_name,
-                                        "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                        "content": scan_and_frame_tool_result(
+                                        json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                        tool_name=tool_name,
+                                    ),  # 2026-10-31 安全强化第 10 批:宿主定界单源
                                     })
                                     continue
 
@@ -5660,7 +5670,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "role": "tool",
                                     "tool_call_id": tc.get("id", ""),
                                     "name": tool_name,
-                                    "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    "content": scan_and_frame_tool_result(
+                                        json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                        tool_name=tool_name,
+                                    ),  # 2026-10-31 安全强化第 10 批:宿主定界单源
                                 })
                                 continue
 
@@ -5954,7 +5967,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         message_id=message_id,
                                     )
                                     # 回灌工具结果 —— 模型据此改道(换工具/向用户解释),不重试同名工具
-                                    result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                    result_json = scan_and_frame_tool_result(
+                                    json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    tool_name=tool_name,
+                                )  # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
                                     messages.append({
                                         "role": "tool",
                                         "tool_call_id": tc.get("id", ""),
@@ -6038,7 +6054,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         explanation=f"工具 {tool_name} 委托超时",
                                         message_id=message_id,
                                     )
-                                    result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                    result_json = scan_and_frame_tool_result(
+                                    json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    tool_name=tool_name,
+                                )  # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
                                     messages.append({
                                         "role": "tool",
                                         "tool_call_id": tool_call_id,
@@ -6118,7 +6137,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     message_id=message_id,
                                 )
                                 # 回灌工具结果到 messages
-                                result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                result_json = scan_and_frame_tool_result(
+                                    json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    tool_name=tool_name,
+                                )  # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
                                 messages.append({
                                     "role": "tool",
                                     "tool_call_id": tool_call_id,
@@ -6369,7 +6391,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     )
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
-                            result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                            result_json = scan_and_frame_tool_result(
+                                    json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                    tool_name=tool_name,
+                                )  # 2026-10-31 安全强化第 10 批:进模型上下文前过宿主定界单源
                             if not ok:
                                 err_detail = exec_result.get("error") or exec_result.get("message") or "unknown error"
                                 err_code = exec_result.get("errorCode", "UNKNOWN")

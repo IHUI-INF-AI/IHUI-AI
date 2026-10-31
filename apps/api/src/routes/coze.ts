@@ -87,15 +87,18 @@ async function cozeRequest(
     )
     const data = await resp.json().catch(() => ({}))
     if (!resp.ok) {
-      reply
-        .status(502)
-        .send(error(502, `Coze 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 500)}`))
+      // 2026-10-31 安全强化第 13 批:上游响应体片段不再回传(其内容不可信,
+      // 可能含上游侧内部信息),状态码保留供排障;细节走服务端日志
+      reply.request.log.warn({ status: resp.status }, '[coze-proxy] 上游返回非 2xx')
+      reply.status(502).send(error(502, `Coze 调用失败(${resp.status})`))
       return null
     }
     return data
   } catch (e) {
-    const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
-    reply.status(502).send(error(502, `Coze 调用异常: ${msg}`))
+    // 同批:err.message(fetch 错误含内网主机/端口)不回传
+    reply.request.log.error({ err: e }, '[coze-proxy] 调用异常')
+    const msg = (e as Error).name === 'AbortError' ? '请求超时' : 'Coze 调用失败,请稍后重试'
+    reply.status(502).send(error(502, msg))
     return null
   }
 }
@@ -131,9 +134,7 @@ async function cozeUpload(
 }
 
 /** 读取 multipart 请求中的字段与单个文件。 */
-async function readMultipart(
-  request: FastifyRequest,
-): Promise<{
+async function readMultipart(request: FastifyRequest): Promise<{
   fields: Record<string, string>
   file: { buffer: Buffer; filename: string } | null
   tooLarge?: string
@@ -201,8 +202,11 @@ async function streamCozeSse(
     }
     if (buf.trim()) raw.write(`data: ${buf.trim()}\n\n`)
     raw.end()
-  } catch (e) {
-    raw.write(`data: ${JSON.stringify({ error: (e as Error).message })}\n\n`)
+  } catch {
+    // 2026-10-31 安全强化第 13 批:错误帧固定文案 —— fetch 错误原文可能带内网主机
+    // 与上游响应片段;此辅助函数无 request.log 可用,细节只到进程 stderr 不可达,
+    // 调用方路由层日志已覆盖请求面
+    raw.write(`data: ${JSON.stringify({ error: '流式生成失败,请稍后重试' })}\n\n`)
     raw.end()
   }
 }
@@ -912,29 +916,25 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
   // POST /files/upload  文件上传(multipart)
   // multipart 直传文件:吃全局 2MiB 会被静默 413,显式放开到单文件 100MiB 形态。
   // 本路由把整个文件读进内存,故下方必须显式闸大小(此前无任何校验)。
-  server.post(
-    '/files/upload',
-    { bodyLimit: FILE_UPLOAD_BODY_LIMIT },
-    async (request, reply) => {
-      const data = await request.file()
-      if (!data) return reply.status(400).send(error(400, '未检测到上传文件'))
-      const buffer = await data.toBuffer()
-      // 2026-10-28 安全加固:补大小闸(此前只有全局体限兜着,放开后必须自己判)
-      if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
-        return reply
-          .status(400)
-          .send(error(400, `文件大小超过 ${MAX_MULTIPART_UPLOAD_SIZE / 1024 / 1024}MB 限制`))
-      }
-      const result = await cozeUpload(
-        '/v1/files/upload',
-        reply,
-        {},
-        { buffer, filename: data.filename || 'upload' },
-      )
-      if (result === null) return
-      reply.send(success(result))
-    },
-  )
+  server.post('/files/upload', { bodyLimit: FILE_UPLOAD_BODY_LIMIT }, async (request, reply) => {
+    const data = await request.file()
+    if (!data) return reply.status(400).send(error(400, '未检测到上传文件'))
+    const buffer = await data.toBuffer()
+    // 2026-10-28 安全加固:补大小闸(此前只有全局体限兜着,放开后必须自己判)
+    if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+      return reply
+        .status(400)
+        .send(error(400, `文件大小超过 ${MAX_MULTIPART_UPLOAD_SIZE / 1024 / 1024}MB 限制`))
+    }
+    const result = await cozeUpload(
+      '/v1/files/upload',
+      reply,
+      {},
+      { buffer, filename: data.filename || 'upload' },
+    )
+    if (result === null) return
+    reply.send(success(result))
+  })
 
   // ===========================================================================
   // 7. review — 内容审核

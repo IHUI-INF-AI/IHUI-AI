@@ -1201,9 +1201,17 @@ pub async fn qoder_reset_plan(
 
 #[tauri::command(async)]
 pub async fn qoder_reset_maintenance(
+    app: tauri::AppHandle,
     kill_running: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    // 本仓自己的闸门规则(lib.rs require_native_confirm 注释):维护清理/出厂重置/登出重置/
+    // 隔离区删除都要原生确认。qoder 族里这条此前漏了 —— 它同样会杀进程并改写用户目录。
+    crate::require_native_confirm(
+        &app,
+        "Qoder 维护清理",
+        "将结束 Qoder 相关进程并清理其缓存/会话数据。确认执行?",
+    )?;
     q_reset_gate().map_err(IpcError::permission)?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
