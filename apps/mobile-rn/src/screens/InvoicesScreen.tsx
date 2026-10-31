@@ -165,7 +165,7 @@ export default function InvoicesScreen() {
         <NavBar title={t('invoices.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <Text style={styles.subtitle}>{t('invoices.subtitle')}</Text>
           <TouchableOpacity
