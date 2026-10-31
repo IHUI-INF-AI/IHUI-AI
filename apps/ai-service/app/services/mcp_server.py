@@ -4628,13 +4628,14 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
             timeout=5,
         )
         try:
-            # 添加 LIMIT(若 SQL 未含 LIMIT)。R8 复评发现6:子串判断可被
-            # WHERE msg='UNLIMITED' 或行注释结尾绕过 ⇒ 词边界 + 行注释剥离。
-            _limit_probe = re.sub(r"--[^\n]*$", "", sql_upper).strip().rstrip(";")
-            if re.search(r"\bLIMIT\b", _limit_probe):
-                sql_with_limit = sql
-            else:
-                sql_with_limit = f"{sql.rstrip(';')} LIMIT {max_rows}"
+            # R9 复评 N2:无条件外层包裹 LIMIT —— 探针形态(词边界/剥尾注释)
+            # 仍可被块注释 /* LIMIT */ 或字符串字面量 '%LIMIT%' 欺骗,判断面
+            # 越少越好:剥尾行注释后整体包一层 SELECT,外层 LIMIT 恒在且与
+            # 内层 LIMIT/ORDER BY/WITH 合法共存(READ ONLY 事务不变)。
+            _sql_body = re.sub(r"--[^\n]*$", "", sql).strip().rstrip(";")
+            sql_with_limit = (
+                "SELECT * FROM (" + _sql_body + ") AS _ihui_limited_query LIMIT " + str(max_rows)
+            )
 
             # 2026-10-31 安全强化第 10 批 R5:READ ONLY 事务兜底 —— 关键词黑名单
             # 是文本层判据,`WITH d AS (DELETE ... RETURNING ...) SELECT ...` 型
