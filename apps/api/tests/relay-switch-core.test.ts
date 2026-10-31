@@ -517,8 +517,11 @@ describe('内置目标注册表与外部目录装载(注入临时目录)', () =>
     expect(zcode.loginHints).toEqual(['enc:v1:'])
 
     const codearts = targets.find((t) => t.id === 'codearts-agent')!
-    expect(codearts.supported).toBe(false)
-    expect(codearts.unsupportedReason).toContain('sqlite SecretStorage 提取器未实现')
+    // 2026-10-30 解除 supported:false —— 重封配方已由 local-login 的 applyCodearts
+    // 装车实证(Local State 取钥 + SafeStorage blob 解密重封),该目标现为完全支持态,
+    // 不再携带 unsupportedReason 标注。
+    expect(codearts.supported ?? true).toBe(true)
+    expect(codearts.unsupportedReason).toBeUndefined()
 
     const codex = targets.find((t) => t.id === 'codex')!
     expect(codex.kind).toBe('cli')

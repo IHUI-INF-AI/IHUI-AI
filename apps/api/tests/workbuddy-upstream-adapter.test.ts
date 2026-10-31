@@ -12,7 +12,8 @@
  * - PrepareBody 改写:强制 stream、max_completion_tokens 翻译、GPT 下限 16、
  *   stream_options 补默认、tool_choice 归一化、developer→system、image_url 对象化
  * - SSE 帧翻译:透传 OpenAI chunk、[DONE]/非法 JSON→null、finish_reason 归一、usage 补全
- * - refreshToken:信封解析、缺省保留旧值、expiresIn 非法防刷新风暴、抛错不带凭证
+ * - refreshToken:信封解析、refreshToken 缺省保留旧值、expiresIn 解不出即 null(未知,
+ *   不沿用旧列也不编造未来时刻,立因 99db9d2412)、抛错不带凭证
  * - classifyUpstreamFailure / isAuthFailure 分类矩阵
  * - checkHealth / listModels(含 1h 缓存命中)
  *
@@ -420,19 +421,22 @@ describe('workbuddyAdapter.refreshToken', () => {
     expect(res?.refreshToken).toBe('RT-new')
   })
 
-  it('expiresIn 缺省/非正 → 沿用 row.tokenExpiresAt;row 也没有 → now+24h(防刷新风暴)', async () => {
+  it('expiresIn 缺省/非正 → null(未知);不沿用旧列也不编造未来时刻', async () => {
     const expiry = new Date('2030-01-01T00:00:00Z')
     vi.stubGlobal('fetch', async () =>
       jsonResponse({ code: 0, msg: 'ok', data: { accessToken: 'AT', expiresIn: 0 } }),
     )
+    // 立因 99db9d2412:adapter 只许取上游响应当场给出的到期值 —— 沿用旧列会让
+    // "换票成功"当场又变已过期(上游拒收后被收敛到过去的列),编造未来时刻则是冒充
+    // (原 `?? now+6h` 兜底已摘)。null 在调度器里 = 未知:选号侧 isNull 放行,
+    // 临期刷新侧 lte 不命中 ⇒ 不构成刷新风暴。
     const r1 = await workbuddyAdapter.refreshToken!(makeCtx({ tokenExpiresAt: expiry }))
-    expect(r1?.expiresAt).toEqual(expiry)
+    expect(r1?.expiresAt).toBeNull()
     vi.stubGlobal('fetch', async () =>
       jsonResponse({ code: 0, msg: 'ok', data: { accessToken: 'AT' } }),
     )
     const r2 = await workbuddyAdapter.refreshToken!(makeCtx({ tokenExpiresAt: null }))
-    const skew = Math.abs(r2!.expiresAt.getTime() - (Date.now() + 24 * 3600_000))
-    expect(skew).toBeLessThan(5000)
+    expect(r2?.expiresAt).toBeNull()
   })
 
   it('accessToken 为空 → 抛错且 message 不含凭证', async () => {

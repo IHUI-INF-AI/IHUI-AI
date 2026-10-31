@@ -87,6 +87,13 @@ vi.mock('@ihui/types', async (importOriginal) => {
 import { llmModelsRoutes } from '../src/routes/llm-models.js'
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 
+// 受限模型过滤自安全强化第 1 批起 fail-closed(isSystemAdminUser 查库,桩不返行 ⇒ false
+// ⇒ 清单被过滤成空)。本文件锁的是代理契约,不是过滤判据,故把该出口桩成管理员。
+vi.mock('../src/db/queries.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual, isSystemAdminUser: vi.fn(async () => true) }
+})
+
 const ADMIN_TOKEN = 'Bearer admin-token'
 
 function mockAdmin() {
