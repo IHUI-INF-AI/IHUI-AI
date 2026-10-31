@@ -13,14 +13,15 @@ import { Gift, Users, TrendingUp, Clock, Copy, Check, Crown } from 'lucide-react
 import {
   getOverview,
   getInviteInfo,
+  getCommissionRates,
   type CommissionOverview,
   type InviteInfo,
+  type CommissionRatesResult,
 } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { cn } from '@/lib/utils'
 import { formatPrice } from '@ihui/shared/utils/format'
 
 const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
@@ -37,11 +38,11 @@ async function apiInviteInfo(): Promise<InviteInfo> {
   return r.data
 }
 
-const LEVELS = [
-  { key: 'level1', rate: '10%' },
-  { key: 'level2', rate: '15%' },
-  { key: 'level3', rate: '20%' },
-]
+async function apiCommissionRates(): Promise<CommissionRatesResult> {
+  const r = await getCommissionRates()
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
 
 const RULES = [
   { key: 'rule1', titleKey: 'rule1Title' },
@@ -51,6 +52,8 @@ const RULES = [
 
 export default function CommissionPlanPage() {
   const t = useTranslations('commissionPlan')
+  // 分佣比例真值的空态/标题取自跨端共享词条(shared 词包,web 端由 i18n-provider 深合并)
+  const te = useTranslations('earnCommission')
   const [copied, setCopied] = React.useState(false)
 
   // 2026-09-30 登录态门:未登录不发注定 401 的请求
@@ -66,10 +69,21 @@ export default function CommissionPlanPage() {
     queryFn: apiInviteInfo,
     enabled: allow,
   })
+  // GET /distribution/commission-rates 同挂 distributionRoutes 的 authenticate preHandler ⇒ 挡门后
+  const ratesQ = useQuery({
+    queryKey: ['commission', 'plan', 'rates'],
+    queryFn: apiCommissionRates,
+    enabled: allow,
+  })
 
   const loading = overviewQ.isLoading || inviteQ.isLoading
   const inviteUrl = inviteQ.data?.inviteUrl ?? ''
   const inviteCode = inviteQ.data?.inviteCode ?? ''
+  // 空态/错误态都不以硬编比例顶位:键与值原样取自 system_configs(category=distribution)
+  const rateRows = Object.entries(ratesQ.data?.rates ?? {}).map(([level, rate]) => ({
+    level,
+    rate: String(rate ?? ''),
+  }))
 
   const stats = [
     {
@@ -175,33 +189,39 @@ export default function CommissionPlanPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Crown className="h-4 w-4 text-amber-500" />
-            {t('levelsTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-            {LEVELS.map((lv, idx) => (
-              <div
-                key={lv.key}
-                className={cn(
-                  'rounded-lg border p-3',
-                  idx === 1 && 'border-primary/40 bg-primary/5',
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">{t(lv.key)}</span>
-                  <span className="text-lg font-bold text-primary">{lv.rate}</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{t('commissionRate')}</p>
+      {/* 分佣比例:档位/比例逐行取自 GET /distribution/commission-rates 的在册配置;
+          未配置时如实渲染空态,不再以硬编 10/15/20% 顶位(与小程序 distribution/plan 同源) */}
+      {allow ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Crown className="h-4 w-4 text-amber-500" />
+              {t('levelsTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {ratesQ.isError ? (
+              <p className="text-xs text-destructive">
+                {ratesQ.error instanceof Error ? ratesQ.error.message : te('rateEmpty')}
+              </p>
+            ) : ratesQ.isLoading ? null : rateRows.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{te('rateEmpty')}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
+                {rateRows.map((row) => (
+                  <div key={row.level} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{row.level}</span>
+                      <span className="text-lg font-bold text-primary">{row.rate}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('commissionRate')}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex justify-center">
         <Link href="/vip">

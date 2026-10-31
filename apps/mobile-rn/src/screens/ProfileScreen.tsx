@@ -47,6 +47,7 @@ import type { UserInfo } from '@ihui/types'
 import {
   cancelRecurringContract,
   deleteConversation,
+  fetchApi,
   getOrders,
   getProfile,
   getSubscriptionStatus,
@@ -137,6 +138,22 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /** 首屏统计加载无响应多久后转为"超时+重试"(api-client 层无超时,不兜住就是无限转圈) */
 const PROFILE_LOAD_TIMEOUT_MS = 12000
+
+/** GET /auth/realname/my 的响应(字段名取证:同 RealNameAuthScreen 的 RealNameAuthMyResponse) */
+interface RealnameMyResponse {
+  authStatus?: 'unverified' | 'pending' | 'approved' | 'rejected'
+}
+
+/** 共享屏实名徽标状态(ProfileScreenProps.realnameStatus 的子集) */
+type RealnameBadgeStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
+
+/** authStatus → 徽标状态(approved 即已认证);未登记的值不传,不猜「已认证」 */
+const REALNAME_BADGE_STATUS: Record<string, RealnameBadgeStatus | undefined> = {
+  unverified: 'unverified',
+  pending: 'pending',
+  approved: 'verified',
+  rejected: 'rejected',
+}
 
 /**
  * 胶囊几何占高之外还必须让出的「淡出遮罩带」(px)。为什么 tabBarScrollReserve 不够(2026-10-30
@@ -242,6 +259,8 @@ export function ProfileScreen() {
   }, [])
   const [stats, setStats] = useState<UserStatistics | null>(null)
   const [orderCount, setOrderCount] = useState(0)
+  // 实名徽标状态(取不到/未登录 ⇒ undefined ⇒ 共享屏不渲染徽标)
+  const [realnameBadge, setRealnameBadge] = useState<RealnameBadgeStatus | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [loadTimedOut, setLoadTimedOut] = useState(false)
@@ -289,9 +308,11 @@ export function ProfileScreen() {
     setLoadTimedOut(false)
     if (loadTimerRef.current) clearTimeout(loadTimerRef.current)
     loadTimerRef.current = setTimeout(() => setLoadTimedOut(true), PROFILE_LOAD_TIMEOUT_MS)
-    const [statsRes, orderRes] = await Promise.all([
+    const [statsRes, orderRes, realnameRes] = await Promise.all([
       getUserStatistics(),
       getOrders({ page: 1, pageSize: 1 }),
+      // 实名状态仅作昵称旁徽标:失败不并入下面的红条(它不是首屏主数据)
+      fetchApi<RealnameMyResponse>('/auth/realname/my'),
     ])
     if (loadTimerRef.current) {
       clearTimeout(loadTimerRef.current)
@@ -299,6 +320,10 @@ export function ProfileScreen() {
     }
     if (statsRes.success) setStats(statsRes.data)
     if (orderRes.success) setOrderCount(orderRes.data.total)
+    // 取不到就不传:旧值一并清掉,避免登出后还挂着上一账号的徽标
+    setRealnameBadge(
+      realnameRes.success ? REALNAME_BADGE_STATUS[realnameRes.data?.authStatus ?? ''] : undefined,
+    )
     if (!statsRes.success && !orderRes.success) {
       // 原始 error 可能是英文/fetch failed 等,经 toUserFriendlyMessage 本地化后再弹红条,
       // 避免真机「我的」页暴露英文错误(G-925 走查发现)。
@@ -706,6 +731,7 @@ export function ProfileScreen() {
                 loading={false}
                 error={error}
                 colorScheme={resolvedTheme}
+                realnameStatus={realnameBadge}
                 menuSections={menuSections}
                 onNavigate={(key) => {
                   const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
@@ -1667,7 +1693,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             </Pressable>
             <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
             <TouchableOpacity
-            hitSlop={2}
+              hitSlop={2}
               onPress={onDownload}
               style={styles.audioDownloadBtn}
               activeOpacity={0.7}
@@ -1832,7 +1858,7 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
       <View style={styles.sharePopupOverlay}>
         <View style={styles.sharePopupCard}>
           <TouchableOpacity
-          hitSlop={3}
+            hitSlop={3}
             onPress={onClose}
             style={styles.sharePopupClose}
             activeOpacity={0.7}

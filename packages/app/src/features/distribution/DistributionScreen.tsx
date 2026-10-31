@@ -31,6 +31,7 @@ export function DistributionScreen({
   onRefresh,
   onWithdraw,
   onBack,
+  rates = [],
   colorScheme = 'light',
 }: DistributionScreenProps) {
   const tk = getTokens(colorScheme)
@@ -114,6 +115,23 @@ export function DistributionScreen({
         <Text style={styles.withdrawHint}>
           {t('distribution.withdrawMin', { amount: formatPrice(info.withdrawMin ?? 0) })}
         </Text>
+      </View>
+
+      {/* 分佣比例(真值来自 GET /distribution/commission-rates;无值如实给空态,不补默认档位) */}
+      <View style={styles.ratesCard}>
+        <Text style={styles.ratesTitle}>{t('earnCommission.rateTitle')}</Text>
+        {rates.length === 0 ? (
+          <Text style={styles.ratesEmpty}>{t('earnCommission.rateEmpty')}</Text>
+        ) : (
+          rates.map((row) => (
+            <View key={row.level} style={styles.rateRow}>
+              <Text style={styles.rateLevel} numberOfLines={1}>
+                {row.level}
+              </Text>
+              <Text style={styles.rateValue}>{row.rate}</Text>
+            </View>
+          ))
+        )}
       </View>
 
       <Text style={styles.sectionTitle}>{t('distribution.products')}</Text>
@@ -211,6 +229,29 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
       textAlign: 'center',
+    },
+    ratesCard: {
+      marginHorizontal: rnSpacing['sm-loose'],
+      marginTop: rnSpacing.md,
+      padding: 14,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    ratesTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    rateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
+    rateLevel: { flex: 1, fontSize: rnType.body.size, color: tk.text.secondary },
+    rateValue: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
+    ratesEmpty: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
     },
     sectionTitle: {
       paddingHorizontal: rnSpacing['sm-loose'],
