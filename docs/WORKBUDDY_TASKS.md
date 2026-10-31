@@ -42,12 +42,12 @@ WorkBuddy 任务中心有六族可赚积分的入口。「自动做任务」按�
 ```bash
 # 读任务列表(只读)
 curl -H "Authorization: Bearer <你的会话令牌>" \
-  "http://127.0.0.1:8000/api/checkin/accounts/7/tasks"
+  "http://127.0.0.1:8803/api/checkin/accounts/7/tasks"
 
 # 跑一轮(单族 / 全族)
 curl -X POST -H "Authorization: Bearer <你的会话令牌>" -H "Content-Type: application/json" \
   -d '{"kind":"all","dry_run":true}' \
-  "http://127.0.0.1:8000/api/checkin/accounts/7/task-run"
+  "http://127.0.0.1:8803/api/checkin/accounts/7/task-run"
 ```
 
 `kind` 取值:`activity` / `growth` / `travel` / `blackcat` / `redeem` / `lottery` / `all`。
@@ -75,7 +75,7 @@ WORKBUDDY_TASKS_LIVE_RUN=true
 WORKBUDDY_TASKS_SWEEP_MINUTES=180
 ```
 
-改完 `.env` 必须**重启 ai-service**(`start()` 有 `if self._started: return` 短路,热改环境变量不会补注册 job)。
+改完 `.env` 必须**重启 ai-service**(`start()` 有 `if self._started: return` 短路,热改环境变量不会补注册 job)。状态接口里的 `enabled` 是**观测态**(见第 3 节),所以它只会在真重启并注册成功之后才翻 `true`。
 
 为什么默认关:写侧会真实消耗账号的抽奖次数、真实提交领奖与上报。宁可让用户显式打开,也不要在第一次部署时替他把写请求打出去。
 
@@ -85,9 +85,10 @@ WORKBUDDY_TASKS_SWEEP_MINUTES=180
 
 | 字段 | 含义 | 怎么用 |
 | --- | --- | --- |
-| `enabled` | **任务门 ∧ 总闸** = 这条 job 现在真会被注册 | 只有它是 `true`,自动巡检才真的会跑 |
-| `tasks_enabled` | `WORKBUDDY_TASKS_ENABLED` 原值 | 为 `true` 而 `enabled` 为 `false` ⇒ 被总闸拦住 |
-| `cron_enabled` | `CHECKIN_CRON_ENABLED` 原值 | 同上,用于在界面上直说「被谁拦住」 |
+| `enabled` | **观测态** = 调度器已 start ∧ 这条 job 现在真在注册表里 | 只有它是 `true`,自动巡检才真的会跑;`false` 时读 `not_running_reason` 拿结论 |
+| `tasks_enabled` | `WORKBUDDY_TASKS_ENABLED` 原值(**配置意图**) | 意图 ≠ 事实:它为 `true` 而 `enabled` 为 `false`,说明卡在别处 |
+| `cron_enabled` | `CHECKIN_CRON_ENABLED` 原值(**配置意图**) | 同上,用于在界面上直说「被谁拦住」 |
+| `not_running_reason` | `enabled=false` 时卡在哪一层:`tasks_gate_off` / `cron_gate_off` / `scheduler_not_started` / `job_not_registered`;`enabled=true` 时恒为 `null`;旧服务端不返回该字段 | 按值给结论与出路(见第 4 节);取不到就是「未判定」,不得当成任何一种原因 |
 | `live_run` | 是否真实写侧 | `false` ⇒ 只跑探针,不会领奖 |
 | `sweep_minutes` | 节拍(分钟) | 与 job 注册用同一个函数算,不会出现「显示 30、实际 180」 |
 | `claim_path_configured` | 领奖路径是否配置 | `false` ⇒ 只上报不领奖 |
@@ -95,19 +96,25 @@ WORKBUDDY_TASKS_SWEEP_MINUTES=180
 | `next_run_wb_tasks` | 下次跑的时间(ISO 8601) | 未启动时为 `null` |
 | `last_sweep` | 上一轮摘要(进程内) | `null` = 本进程还没跑过;`note` 非空 = 本轮没跑完 |
 
+`enabled` 为什么不能是「两道闸的与」:两道闸都只回答「配置想不想跑」,判不出「进程里到底有没有这条 job」。`start()` 在建表(`checkin_store.ensure_tables`)抛异常时会直接 `return`,而 ai-service 的启动装配层又把 `start()` 整包 `try/except` 忽略 —— 于是进程里连调度器都没有,两门 env 全 `true` 却一件活儿不干。按意图报绿,面板就在说谎(AGENTS.md §0.3:没跑绝不能写成在跑)。判序的唯一实现是 `checkin_scheduler._wb_tasks_not_running_reason`,本文与前端都只描述/只分支,不再各算一遍。
+
 `last_sweep` 是**进程内快照**,不是持久账本:服务重启即清空,多 worker 部署下各进程各自一份。任务族的战果不写 `checkin_records`(做任务 ≠ 每日签到,不混表),要看历史请查日志里的 `[checkin_scheduler] WB 任务巡检完成`。
 
-## 4. 面板状态栏的四种颜色
+## 4. 面板状态栏有哪几种状态
 
-| 显示 | 含义 | 怎么办 |
+三端(Web `/checkin`、移动端签到助手、小程序签到助手)同一个契约、同一套判据。判据只看三个值:`enabled`(观测态)、`not_running_reason`、`live_run`:
+
+| 显示 | 判据 | 怎么办 |
 | --- | --- | --- |
-| 已启用 · 每 N 分钟自动巡检 | 两门都开 + 写侧开 | 无需操作 |
-| 已启用但为演练模式(只读探针) | 两门都开但 `LIVE_RUN=false` | 要真领奖就设 `WORKBUDDY_TASKS_LIVE_RUN=true` |
-| 未运行:任务门已开,但总闸 CHECKIN_CRON_ENABLED 关闭 | 被总闸拦住 | 设 `CHECKIN_CRON_ENABLED=true` |
-| 未启用:仅手动执行 | 任务门没开 | 设 `WORKBUDDY_TASKS_ENABLED=true` 并重启 |
-| 状态未知 | 服务端版本较旧不返回该字段,或请求失败 | 升级后端;看接口是否可达 |
+| 已启用 · 每 N 分钟自动巡检 | `enabled=true` 且 `live_run=true`(`not_running_reason` 恒为 `null`) | 无需操作 |
+| 已启用但为演练模式(只读探针) | `enabled=true` 且 `live_run=false` | 要真领奖就设 `WORKBUDDY_TASKS_LIVE_RUN=true` 并重启 |
+| 未运行:任务门没开 | `enabled=false` 且 `not_running_reason=tasks_gate_off` | 设 `WORKBUDDY_TASKS_ENABLED=true` 并重启 |
+| 未运行:任务门已开,但总闸 CHECKIN_CRON_ENABLED 关闭 | `enabled=false` 且 `not_running_reason=cron_gate_off` | 设 `CHECKIN_CRON_ENABLED=true` 并重启 |
+| **配置已开但调度器没起来** | `enabled=false` 且 `not_running_reason=scheduler_not_started`(两门 env 皆 `true`,进程里却没有调度器:建表异常 / 启动过程抛异常被吞 / 压根没跑到启动装配) | **重启 ai-service**;重启后仍是这一档 ⇒ 不是配置问题,查日志关键字 `[checkin] 建表异常`、`[checkin_scheduler] 启动失败`,那是数据库/依赖侧故障 |
+| 配置与运行态不一致(改完 env 没重启) | `enabled=false` 且 `not_running_reason=job_not_registered`(调度器在跑,这条 job 不在注册表) | 重启 ai-service(`start()` 有 `if self._started: return` 短路,不会补注册) |
+| 状态未知 | 服务端不返回 `wb_tasks`,或 `not_running_reason` 缺失(旧版本),或请求失败 | 升级后端;看接口是否可达 |
 
-「状态未知」永远不会被写成「未启用」—— 取不到输入就是未判定,不冒红也不冒绿(AGENTS.md §0.3)。
+「状态未知」永远不会被写成「未启用」—— 取不到输入就是未判定,不冒红也不冒绿(AGENTS.md §0.3)。同理,`not_running_reason` 缺失时**不得**回落成上面任何一档的具体原因。
 
 ## 5. 已知边界(不是 bug,别当 bug 修)
 
@@ -116,20 +123,23 @@ WORKBUDDY_TASKS_SWEEP_MINUTES=180
 - **`travel` 当天已走过** 会返回 `daily_limit_reached=true`,按「跳过」处理并写明原因,不拖垮整轮 `ok`。
 - **冷却中的账号整轮跳过**,并计入 `last_sweep.skipped_cooldown`。
 - **`blackcat` 只在 23:00–08:00 窗口内有效**,窗口外跑等于空转(配置项 `WORKBUDDY_TASKS_BLACKCAT_WINDOW`)。
+- **补签卡(makeup cards)只读、不自动使用。** `streak` 的读侧会带回 `makeup_cards{balance,max}`,但 `makeup-cards/use` 的写侧**没有**接进巡检:补签卡是稀缺资源,自动消耗它替你补一天连续登录,不是每个用户都愿意;而 `target_date` 的格式尚未取证(上游 400 会点名格式错),按 §0.3 不猜字段。要用补签卡请在官方 App 内手动使用;若将来要接,必须先真机取证 `target_date` 形态再落写侧。
 
 ## 6. 排障
 
-先看状态接口,它通常直接给出答案:
+先看状态接口,它通常直接给出答案(ai-service 监听端口以 `docs/port-management.md` 现读为准,本机 `.env` 的 `PORT=8803`;未登录会被鉴权挡下,所以要带会话令牌;服务没起来时 curl 直接连不上,先启动 ai-service 再敲):
 
 ```bash
 curl -s -H "Authorization: Bearer <令牌>" \
-  http://127.0.0.1:8000/api/checkin/scheduler/status | python -m json.tool
+  http://127.0.0.1:8803/api/checkin/scheduler/status | python -m json.tool
 ```
 
 | 现象 | 先查 |
 | --- | --- |
-| 面板显示「未启用」 | `wb_tasks.tasks_enabled` 与 `cron_enabled` 谁是 `false` |
-| 显示已启用但从不跑 | `next_run_wb_tasks` 是否为 `null`(job 没注册) → 是否改完 `.env` 没重启 |
+| 面板显示「未运行」 | `wb_tasks.not_running_reason` 是哪一档:`tasks_gate_off` / `cron_gate_off` 就是配置没开全 |
+| 两门都开着却没跑(`scheduler_not_started`) | 进程里没有调度器:`GET /scheduler/status` 顶层 `started` 也是 `false` → 重启 ai-service;重启后仍 `false` 就查日志 `[checkin] 建表异常` / `[checkin_scheduler] 启动失败` |
+| 改完 `.env` 没重启(`job_not_registered`) | 顶层 `started=true` 而 `wb_tasks.enabled=false` → 重启(热改环境变量不会补注册) |
+| 显示已启用但从不跑 | 新口径下 `enabled` 就是观测态,这一档不该再出现;若真出现(`enabled=true` 而 `next_run_wb_tasks` 为 `null`)是 bug,带上前三个字段值报出来 |
 | 跑了但没领到分 | `last_sweep.claimed` 与 `unjudged`;`claim_path_configured` |
 | `last_sweep.note` 是「出站限流暂停」 | 触发了全局 429 暂停,等冷却结束,不要手动重试 |
 | 单个族一直 `unjudged` | 上游响应形态变了,看该族 `reason` 原文,别盲改字段(§0.3) |
