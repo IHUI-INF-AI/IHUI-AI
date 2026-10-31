@@ -8623,24 +8623,28 @@ def _scan_pr_files_for_findings(
 
 
 # PR diff 缓存(进程内,TTL 1h,2026-07-24 review_pr 升级)
-_PR_DIFF_CACHE: dict[str, tuple[str, float]] = {}
+# 2026-11-01 安全强化:原实现"TTL 只在**重读同一键**时检查",于是从未被再读的条目永久驻留,
+# 且键数无上限 —— 而这里存的是**整份 PR diff(源码正文)**,由 `review_pr` 的参数决定键。
+# 换成有界原语:`slide_on_read=False`,因为这份 TTL 的语义是"内容还能用多久"的硬期限,
+# 读它不该把过期内容续成永生(会话/授权类才用滑动)。
 _PR_DIFF_CACHE_TTL = 3600.0  # 1 hour
+_PR_DIFF_CACHE_MAX_KEYS = 256
+_PR_DIFF_CACHE: BoundedTtlDict = BoundedTtlDict(
+    max_keys=_PR_DIFF_CACHE_MAX_KEYS,
+    ttl_seconds=_PR_DIFF_CACHE_TTL,
+    slide_on_read=False,
+)
 
 
 def _get_cached_pr_diff(key: str) -> str | None:
-    """读 PR diff 缓存:命中且未过期返回 diff 文本,否则 None。"""
-    if key not in _PR_DIFF_CACHE:
-        return None
-    diff_text, ts = _PR_DIFF_CACHE[key]
-    if time.time() - ts > _PR_DIFF_CACHE_TTL:
-        del _PR_DIFF_CACHE[key]
-        return None
-    return diff_text
+    """读 PR diff 缓存:命中且未过期返回 diff 文本,否则 None(过期即就地失效)。"""
+    cached = _PR_DIFF_CACHE.get(key)
+    return cast("str | None", cached)
 
 
 def _set_cached_pr_diff(key: str, diff_text: str) -> None:
-    """写 PR diff 缓存(TTL 在读时检查)。"""
-    _PR_DIFF_CACHE[key] = (diff_text, time.time())
+    """写 PR diff 缓存(满则逐出最旧键,逐出计数可观测)。"""
+    _PR_DIFF_CACHE.set(key, diff_text)
 
 
 def _parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:

@@ -55,14 +55,25 @@ class BoundedTtlDict:
         max_keys: int,
         ttl_seconds: float = 0.0,
         sweep_on_write: bool = True,
-        clock: Callable[[], float] = time.time,
+        slide_on_read: bool = True,
+        clock: Callable[[], float] | None = None,
     ) -> None:
+        """`slide_on_read` 区分两种合法语义,别用同一个默认值糊过去:
+
+        - True(会话/授权类):读一次即续期 ⇒ 活跃条目不被误逐,弃用的才消失;
+        - False(**新鲜度缓存**类):TTL 是"这份内容还能用多久"的硬期限,
+          读它不该让过期内容继续对外服务(否则 1 小时的 diff 缓存会被无限续成永生)。
+        """
         if max_keys < 1:
             raise ValueError("max_keys 必须 >= 1(0 键的存储不叫保护,叫禁用)")
         self._max_keys = int(max_keys)
         self._ttl = float(ttl_seconds)
         self._sweep_on_write = sweep_on_write
-        self._clock = clock
+        self._slide_on_read = bool(slide_on_read)
+        # 默认时钟**晚绑定**(不在形参默认值里抓 `time.time` 这个函数对象):
+        # 既有测试靠 monkeypatch `time.time` 来推进 TTL,若默认值在 import 时就绑死,
+        # 那条时间线对本类完全无效 —— 那会让"过期即失效"这一维在测试里根本测不到。
+        self._clock: Callable[[], float] = clock if clock is not None else (lambda: time.time())
         self._lock = threading.Lock()
         self._store: OrderedDict[str, tuple[float, Any]] = OrderedDict()
         # 可观测计数:逐出/拒绝都必须量得到,否则"有上限"只是口头承诺
@@ -85,6 +96,17 @@ class BoundedTtlDict:
     def keys(self) -> list[str]:
         with self._lock:
             return list(self._store.keys())
+
+    def __contains__(self, key: object) -> bool:
+        """按 dict 语义回答"在不在",但**过期的条目算不在**(否则 `k in store` 会谎报)。"""
+        now = self._clock()
+        with self._lock:
+            if not isinstance(key, str):
+                return False
+            entry = self._store.get(key)
+            if entry is None:
+                return False
+            return not is_expired(entry[0], self._ttl, now)
 
     def set(self, key: str, value: Any) -> None:
         now = self._clock()
@@ -111,8 +133,8 @@ class BoundedTtlDict:
                 self._store.pop(key, None)
                 self.expired_swept += 1
                 return default
-            if self._ttl > 0:
-                # 滑动续期:活跃条目不该因为"没人专门来扫"而被逐
+            if self._ttl > 0 and self._slide_on_read:
+                # 滑动续期:活跃条目不该因为"没人专门来扫"而被逐(仅会话/授权语义如此)
                 self._store[key] = (now, value)
             return value
 
