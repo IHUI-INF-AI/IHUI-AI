@@ -15,7 +15,20 @@
  * 判据不在本文件复制:端口/IP 段白名单全部来自 `utils/ssrf-guard.ts`(AGENTS.md §0.6)。
  */
 import { readFileSync } from 'node:fs'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * 出站替身必须 mock 'undici'(2026-10-31 安全强化第 15 批 M3 起):
+ * ssrf-guard.safeFetch 不再走 globalThis.fetch,而是 `import { fetch as undiciFetch }
+ * from 'undici'` + connect-time dispatcher(判定与建连共用同一次解析,收 DNS rebinding
+ * TOCTOU)。只桩 globalThis.fetch 的话,本文件那几档会**真的去连 1.1.1.1**,
+ * 用例既慢(实测 33s 网络退避)又违反 AGENTS §5 的隔离口径。
+ */
+const { outbound } = vi.hoisted(() => ({ outbound: vi.fn() }))
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('undici')>()
+  return { ...actual, fetch: outbound }
+})
 
 // callLLM 只做出站,不碰库/鉴权;把这几条依赖链截断,测试零连库、零 env 依赖。
 vi.mock('../src/db/index.js', () => ({ db: {} }))
@@ -32,63 +45,63 @@ const baseParams = {
   messages: [{ role: 'user', content: 'hi' }],
 }
 
+/** 两个出口都数:undici 是真出口,globalThis.fetch 留作"也不许被调用"的第二哨兵 */
+let globalFetch: ReturnType<typeof vi.fn>
+
+beforeEach(() => {
+  outbound.mockReset()
+  globalFetch = vi.fn()
+  vi.stubGlobal('fetch', globalFetch)
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+const assertNoOutbound = () => {
+  expect(globalFetch, 'globalThis.fetch 被调用').not.toHaveBeenCalled()
+  expect(outbound, 'undici.fetch 被调用(守卫应在建连前拒掉)').not.toHaveBeenCalled()
+}
+
 describe('callLLM:用户可控 baseUrl 必须过 SSRF 守卫', () => {
   it('回环地址(本机 API 8802)⇒ 拒,且一次请求都没发', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(callLLM({ ...baseParams, baseUrl: 'http://127.0.0.1:8802' })).rejects.toThrow(
       /SSRF blocked/,
     )
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 
   it('云元数据地址(169.254.169.254)⇒ 拒,且一次请求都没发', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(callLLM({ ...baseParams, baseUrl: 'http://169.254.169.254' })).rejects.toThrow(
       /SSRF blocked/,
     )
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 
   it('私网段(10.0.0.7)⇒ 拒,且一次请求都没发', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(callLLM({ ...baseParams, baseUrl: 'http://10.0.0.7' })).rejects.toThrow(
       /SSRF blocked/,
     )
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 
   it('非标准端口 ⇒ 拒(端口白名单来自 ssrf-guard,不在本文件复算)', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(callLLM({ ...baseParams, baseUrl: 'http://1.1.1.1:8080' })).rejects.toThrow(
       /SSRF blocked/,
     )
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 })
 
 describe('fetchUpstream:上游报错不得回显响应体', () => {
   it('500 时 message 只含状态码,原文只挂 upstreamBody 供服务端取证', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('INTERNAL_SECRET_PAGE', { status: 500 })),
-    )
+    outbound.mockResolvedValue(new Response('INTERNAL_SECRET_PAGE', { status: 500 }))
 
     const err = (await fetchUpstream('http://1.1.1.1/v1/chat/completions', {
       method: 'POST',
     }).catch((e: unknown) => e)) as Error & { statusCode?: number; upstreamBody?: string }
 
+    expect(outbound).toHaveBeenCalledTimes(1)
     expect(err.message).not.toContain('INTERNAL_SECRET_PAGE')
     expect(err.message).toContain('500')
     expect(err.statusCode).toBe(502)
