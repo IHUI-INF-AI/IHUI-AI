@@ -52,7 +52,7 @@ export function PlusButton({
 }: PlusButtonProps) {
   const { t } = useI18n()
   return (
-    <Pressable
+    <Tappable
       style={[styles.plusButton, active ? styles.plusButtonActive : null]}
       onPress={onPress}
       disabled={disabled}
@@ -67,7 +67,7 @@ export function PlusButton({
             前景与底不同档不是观感偏好问题:守门 83 的 R1/R7 就是把这一型判红的。 */}
         <Plus size={size} color={active ? tokens.brand.ctaForeground : tokens.text.secondary} />
       </View>
-    </Pressable>
+    </Tappable>
   )
 }
 

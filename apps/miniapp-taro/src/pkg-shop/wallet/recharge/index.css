@@ -64,7 +64,7 @@
   align-items: center;
   justify-content: center;
   color: var(--color-primary-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
 }
 .rc-user-info {
@@ -73,13 +73,13 @@
   flex-direction: column;
 }
 .rc-user-name {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   color: var(--color-cta-foreground);
   font-weight: 600;
 }
 .rc-user-sub {
   margin-top: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-cta-foreground);
   opacity: 0.7;
 }
@@ -93,7 +93,7 @@
 }
 .rc-section-title {
   display: block;
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: var(--spacing-md);
@@ -119,7 +119,7 @@
 }
 .rc-preset-text {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   font-weight: 600;
 }
@@ -139,7 +139,7 @@
 .rc-input {
   height: 100rpx;
   padding: 0 28rpx;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-muted);
@@ -158,7 +158,7 @@
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-card);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   box-sizing: border-box;
 }
@@ -181,7 +181,7 @@
 }
 .rc-activity-title {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: var(--spacing-sm);
@@ -196,7 +196,7 @@
 }
 .rc-activity-rate {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
   margin-bottom: var(--spacing-sm);
 }
@@ -209,7 +209,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
 }
 
@@ -245,7 +245,7 @@
 .rc-method-name {
   flex: 1;
   margin-left: var(--spacing-sm-loose);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
 }
 .rc-method--active .rc-method-name {
@@ -277,7 +277,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-xl);
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 600;
   padding: 0;
 }

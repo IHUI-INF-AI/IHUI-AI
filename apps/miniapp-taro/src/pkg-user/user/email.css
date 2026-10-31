@@ -25,7 +25,7 @@
 }
 .email-desc {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   text-align: center;
   margin-top: var(--spacing-sm);
@@ -50,7 +50,7 @@
   flex: 1;
   width: 100%;
   height: 100%;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
 }
 /* RN placeholderTextColor = tk.text.tertiary */
@@ -61,7 +61,7 @@
 .email-code-btn {
   flex-shrink: 0;
   margin-left: var(--spacing-md);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 700;
   color: var(--color-brand-accent-deep);
   white-space: nowrap;
@@ -78,7 +78,7 @@
   justify-content: center;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   border-radius: var(--radius-xl);
   margin-top: var(--spacing-sm);

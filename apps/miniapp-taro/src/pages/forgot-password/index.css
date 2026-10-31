@@ -39,7 +39,7 @@
 }
 
 .fp-title {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-foreground);
 }
@@ -54,7 +54,7 @@
 
 /* 步骤指示器(端内 2 步业务流程,RN 无此元素) */
 .fp-step {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -66,7 +66,7 @@
 }
 
 .fp-label {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-muted-foreground);
 }
 
@@ -91,7 +91,7 @@
   height: 100%;
   border: none;
   background: transparent;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
 }
 
@@ -121,7 +121,7 @@
 
 .fp-codebtn-text {
   color: var(--color-primary);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -145,7 +145,7 @@
 .btn-login {
   border-radius: var(--radius-xl);
   background-color: var(--color-cta);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-cta-foreground);
 }
@@ -167,7 +167,7 @@
 }
 
 .back-link {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -181,7 +181,7 @@
 }
 
 .password-toggle-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   margin-right: var(--spacing-xs);
   white-space: nowrap;
@@ -214,7 +214,7 @@
 }
 
 .input-area-code {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -254,13 +254,13 @@
 }
 
 .nation-name {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   flex-shrink: 0;
 }
 
 .nation-code {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }

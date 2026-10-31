@@ -35,7 +35,7 @@
 }
 
 .license-fallback-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -55,12 +55,12 @@
   margin-top: var(--spacing-sm);
 }
 .label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 .value {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   text-align: right;
   margin-left: var(--spacing-md);
@@ -71,7 +71,7 @@
 }
 .scope-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   font-weight: 500;
   margin-bottom: var(--spacing-sm);
@@ -85,7 +85,7 @@
   padding: var(--spacing-md) 32rpx;
 }
 .tips text {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   line-height: 1.7;
 }

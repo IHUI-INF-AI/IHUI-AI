@@ -31,19 +31,19 @@
 .rn-intro-title {
   display: block;
   margin-bottom: var(--spacing-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .rn-intro-line {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   line-height: 1.7;
   color: var(--color-foreground);
 }
 .rn-intro-muted {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 /* ===== 状态条(RN statusValue:600 danger;verified 深绿) ===== */
@@ -58,14 +58,14 @@
 }
 .rn-status-text {
   display: block;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-danger);
 }
 .rn-status-reason {
   display: block;
   margin-top: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 400;
   color: var(--color-danger);
 }
@@ -79,7 +79,7 @@
 .rn-label {
   display: block;
   margin-bottom: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .rn-input {
@@ -89,7 +89,7 @@
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   box-sizing: border-box;
 }
@@ -128,13 +128,13 @@
   align-items: center;
 }
 .rn-photo-plus {
-  font-size: 48rpx;
+  font-size: var(--text-display);
   line-height: 1;
   color: var(--color-text-tertiary);
 }
 .rn-photo-tip {
   margin-top: var(--spacing-xs);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 .rn-photo-loading {
@@ -143,7 +143,7 @@
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   /* 白色文字在半透明黑色遮罩上,需始终保持白色;用 white-98(恒白) */
   color: var(--color-white-98);
   background: var(--color-black-50);
@@ -151,7 +151,7 @@
 .rn-photo-hint {
   display: block;
   padding-top: var(--spacing-sm);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 /* ===== 提交按钮(RN submitBtn;disabled = tk.text.tertiary 底色,非透明度) ===== */
@@ -163,7 +163,7 @@
   text-align: center;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   border-radius: var(--radius-xl);
   padding: 0;
@@ -200,13 +200,13 @@
 }
 .rn-result-title {
   margin-top: var(--spacing-md);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
 }
 .rn-result-name {
   margin-top: var(--spacing-xs-loose);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .rn-result-sub {
@@ -216,7 +216,7 @@
 }
 .rn-result-note {
   margin-top: var(--spacing-md);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
