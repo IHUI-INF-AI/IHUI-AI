@@ -24,7 +24,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, getModelContextCapacity, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, formatSSEError, getModelContextCapacity, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+// 凭据注册单点(2026-10-31 恢复:裸 setTokenProvider 换 registerCliTokenProvider 工厂,cli-auth-refresh 锁口径)
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
@@ -86,6 +88,7 @@ import {
 } from '../provider/request-admission.js';
 import { isModelStreamIdleError } from '@ihui/shared/utils/stream-idle';
 import { resolveSandboxOptions } from '../sandbox/index.js';
+import { resolveCliPermissionAxisFromSettings } from '../sandbox/permission-axis-runtime.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
@@ -520,15 +523,29 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     settings.sandbox?.profile,
     settings.sandbox ?? {},
   );
+  // 79 号票:双轴运行时的唯一装配点。settings 里没写任何档 ⇒ resolveCliPermissionAxisFromSettings
+  // 会把 sandbox.profile 填成 DEFAULT_SANDBOX_PROFILE(严档默认),而不是"无限制";
+  // 显式 sandboxMode/approvalPolicy/profile 照办;认不出的值落更严一侧并在这里喊出来(不静默)。
+  const permissionAxis = resolveCliPermissionAxisFromSettings(settings);
+  for (const warning of permissionAxis.warnings) {
+    if (!opts.silent) console.warn(chalk.yellow(`  ⚠ ${warning}`));
+  }
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
     confirmDangerous: opts.confirmDangerous,
     allowDangerous: opts.allowDangerous,
-    sandbox: settings.sandbox ? {
+    // G-212:这里原来写作 `settings.sandbox ? {…} : undefined` —— 首跑/无 settings.json 的会话
+    // 走的是 V1 `loadSettings()`(它不并 DEFAULT_SETTINGS),`sandbox` 整块缺失 ⇒ ctx.sandbox
+    // 为 undefined ⇒ 白名单/凭据 env 屏蔽**一律不生效**,而默认档早已是严档 'limited'。
+    // 现在无条件按 resolveSandboxOptions 的结算注入:缺配置即默认档(唯一默认源 DEFAULT_SANDBOX_PROFILE),
+    // 用户在配置里显式写的宽松档与显式 opts 仍逐字照办(本行不替用户收权)。
+    sandbox: {
       commandAllowlist: resolvedSandbox.commandAllowlist,
       blockedEnvVars: resolvedSandbox.blockedEnvVars,
       allowedPaths: resolvedSandbox.allowedPaths,
-    } : undefined,
+    },
+    // 双轴(79 号票):写面/命令面/审批面的运行闸,判据在 @ihui/types,本处只注入生效对。
+    permissionAxis,
     folderTrust: settings.folderTrust,
     permissions: opts.permissions,
     permissionMode: opts.permissionMode,
@@ -2742,7 +2759,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
 
   setBaseUrl(opts.apiUrl);
   if (opts.apiKey) {
-    setTokenProvider({ getToken: () => opts.apiKey ?? null });
+    registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
   }
 
   // P1-5 输出格式:outputFormat 优先(显式 --output-format),否则按 jsonMode 决定(text / json)
