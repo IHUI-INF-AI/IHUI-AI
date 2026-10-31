@@ -73,7 +73,7 @@ export default function BackendHealthPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Activity className="h-6 w-6 text-primary" />
           {t('backendHealth.title')}
         </h1>
@@ -105,7 +105,7 @@ export default function BackendHealthPage() {
               return (
                 <Card key={s.name}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <CardTitle className="text-body font-medium text-muted-foreground">
                       {s.name}
                     </CardTitle>
                     <Icon className={cn('h-4 w-4', ok ? 'text-emerald-600' : 'text-red-600')} />
@@ -151,7 +151,7 @@ export default function BackendHealthPage() {
               {servicesList.map((s) => (
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{s.name}</div>
-                  <div className="mt-1 text-xl font-bold">{s.latency}ms</div>
+                  <div className="mt-1 text-heading font-bold">{s.latency}ms</div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                     <div
                       className={cn(
@@ -197,7 +197,7 @@ export default function BackendHealthPage() {
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                           e.level === 'error'
                             ? 'bg-red-500/10 text-red-600'
                             : e.level === 'warning'

@@ -394,7 +394,7 @@ export default function AdminRelayChannelsPage() {
       <BackButton />
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Layers className="h-6 w-6 text-primary" /> 渠道统一管理
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">聚合渠道组、一键测速与熔断状态可视化</p>
@@ -408,7 +408,7 @@ export default function AdminRelayChannelsPage() {
         {KPI.map((k) => (
           <Card key={k.label}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+              <CardTitle className="flex items-center justify-between gap-2 text-label font-medium text-muted-foreground">
                 <span className="min-w-0 truncate">{k.label}</span>
                 <k.icon className={`h-4 w-4 shrink-0 ${k.color}`} />
               </CardTitle>
@@ -417,7 +417,7 @@ export default function AdminRelayChannelsPage() {
               {isLoading ? (
                 <Skeleton className="h-7 w-16" />
               ) : (
-                <div className={`text-2xl font-bold tabular-nums ${k.color}`}>{k.value}</div>
+                <div className={`text-display font-bold tabular-nums ${k.color}`}>{k.value}</div>
               )}
             </CardContent>
           </Card>
@@ -443,7 +443,7 @@ export default function AdminRelayChannelsPage() {
             {selected.size > 0 && (
               <Card>
                 <CardContent className="flex flex-wrap items-center gap-2 py-3">
-                  <span className="text-sm font-medium">已选 {selected.size} 个</span>
+                  <span className="text-body font-medium">已选 {selected.size} 个</span>
                   <Button
                     size="sm"
                     variant="outline"

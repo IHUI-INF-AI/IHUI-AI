@@ -26,7 +26,7 @@ export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps)
   return (
     <div className="rounded-xl border bg-card">
       <div className="bg-muted/40 px-4 py-2.5">
-        <h3 className="text-sm font-semibold">例行程序</h3>
+        <h3 className="text-body font-semibold">例行程序</h3>
       </div>
       <ul className="space-y-1">
         {routines.length === 0 ? (
@@ -35,7 +35,7 @@ export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps)
           routines.map((routine) => (
             <li key={routine.id} className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium">{routine.name}</p>
+                <p className="break-words text-body font-medium">{routine.name}</p>
                 <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-0.5">
                     <Calendar className="h-3 w-3" />

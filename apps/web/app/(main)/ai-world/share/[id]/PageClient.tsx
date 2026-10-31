@@ -104,7 +104,7 @@ export default function AiWorldSharePage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Share2 className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -144,7 +144,7 @@ export default function AiWorldSharePage() {
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="space-y-2">
-            <p className="text-sm font-medium">{t('shareLink')}</p>
+            <p className="text-body font-medium">{t('shareLink')}</p>
             <div className="flex items-center gap-2">
               <input
                 readOnly

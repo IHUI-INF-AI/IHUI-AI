@@ -85,7 +85,7 @@ export default function EduReportsMemberStudyPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">会员学习报表</h1>
+        <h1 className="text-display font-bold tracking-tight">会员学习报表</h1>
         <p className="mt-1 text-sm text-muted-foreground">统计各会员的学习进度与时长</p>
       </div>
 
@@ -97,7 +97,7 @@ export default function EduReportsMemberStudyPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">本页学习课程</div>
-              <div className="mt-0.5 text-xl font-semibold">{totalCourses}</div>
+              <div className="mt-0.5 text-heading font-semibold">{totalCourses}</div>
             </div>
           </CardContent>
         </Card>
@@ -108,7 +108,7 @@ export default function EduReportsMemberStudyPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">已完成</div>
-              <div className="mt-0.5 text-xl font-semibold">{totalCompleted}</div>
+              <div className="mt-0.5 text-heading font-semibold">{totalCompleted}</div>
             </div>
           </CardContent>
         </Card>
@@ -119,7 +119,7 @@ export default function EduReportsMemberStudyPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">本页学习时长</div>
-              <div className="mt-0.5 text-xl font-semibold">{totalHours.toFixed(1)}h</div>
+              <div className="mt-0.5 text-heading font-semibold">{totalHours.toFixed(1)}h</div>
             </div>
           </CardContent>
         </Card>

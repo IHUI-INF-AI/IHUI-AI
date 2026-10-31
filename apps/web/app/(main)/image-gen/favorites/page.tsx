@@ -61,7 +61,7 @@ export default function ImageGenFavoritesPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Heart className="h-6 w-6 text-primary" />
           收藏的图片
         </h1>
@@ -92,7 +92,7 @@ export default function ImageGenFavoritesPage() {
                 <Image src={item.imageUrl} alt={item.prompt} fill className="object-cover" />
               </div>
               <CardContent className="min-[640px]:p-3 space-y-1 p-3">
-                <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>
+                <p className="line-clamp-2 text-label font-medium">{item.prompt}</p>
                 <p className="text-xs text-muted-foreground">{fmt(item.createdAt)}</p>
               </CardContent>
             </Card>

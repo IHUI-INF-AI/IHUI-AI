@@ -252,7 +252,7 @@ export function GoalCard() {
               data-testid="goal-edit-save"
               aria-label={t('editSave')}
               onClick={saveEditing}
-              className="shrink-0 rounded-sm bg-cta px-2 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="shrink-0 rounded-sm bg-cta px-2 py-1 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               {t('editSave')}
             </button>
@@ -410,7 +410,7 @@ export function GoalCard() {
               type="button"
               data-testid="goal-continue"
               onClick={handleContinue}
-              className="flex items-center gap-1 rounded-sm bg-cta px-2.5 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="flex items-center gap-1 rounded-sm bg-cta px-2.5 py-1.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               <Zap className="h-3 w-3" />
               {t('continue')}

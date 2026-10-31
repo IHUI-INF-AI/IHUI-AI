@@ -25,7 +25,7 @@ export default function UnreadBadge({
           size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
         }`}
       >
-        <Text className="text-[length:20rpx] text-muted-foreground">0</Text>
+        <Text className="text-badge text-muted-foreground">0</Text>
       </View>
     )
   }
@@ -44,7 +44,7 @@ export default function UnreadBadge({
       style={{ minWidth, height: size === 'sm' ? 16 : 20 }}
     >
       <Text
-        className={`text-destructive-foreground font-bold ${size === 'sm' ? 'text-[length:20rpx]' : 'text-xs'}`}
+        className={`text-destructive-foreground font-bold ${size === 'sm' ? 'text-badge' : 'text-xs'}`}
       >
         {display}
       </Text>

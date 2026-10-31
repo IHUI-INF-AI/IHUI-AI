@@ -28,7 +28,7 @@ export function FeedbackDetailBody({ fb }: Props) {
       {fb.adminReply && (
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-2 text-label font-semibold uppercase tracking-wide text-muted-foreground">
               {tc('adminReply')}
             </p>
             <MarkdownViewer content={fb.adminReply} />

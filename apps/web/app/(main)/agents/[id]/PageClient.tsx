@@ -248,11 +248,11 @@ export default function AgentDetailPage() {
                   className="-mt-8 h-16 w-16 text-xl border-4 border-background rounded-xl"
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <h1 className="break-words text-xl font-bold tracking-tight">{agent.name}</h1>
+                  <h1 className="break-words text-heading font-bold tracking-tight">{agent.name}</h1>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                         statusClass,
                       )}
                     >
@@ -267,7 +267,7 @@ export default function AgentDetailPage() {
                     )}
                     <span
                       className={cn(
-                        'text-sm font-semibold',
+                        'text-body font-semibold',
                         agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
                       )}
                     >
@@ -283,7 +283,7 @@ export default function AgentDetailPage() {
                   ) : permInfo ? (
                     <div
                       className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-label font-medium',
                         permInfo.hasPermission
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                           : 'bg-amber-500/10 text-amber-600 dark:text-amber-500',

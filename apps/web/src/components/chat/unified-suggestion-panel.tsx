@@ -301,7 +301,7 @@ export function UnifiedSuggestionPanel({
                     )}
                     <ItemIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm font-medium leading-tight">
+                      <span className="truncate text-body font-medium leading-tight">
                         {item.label}
                       </span>
                       {item.detail && (

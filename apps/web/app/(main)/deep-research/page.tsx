@@ -101,7 +101,7 @@ export default function DeepResearchPage() {
     <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-6 flex items-center gap-2">
         <Search className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
 
       {/* 历史任务回看 */}
@@ -135,7 +135,7 @@ export default function DeepResearchPage() {
           <button
             onClick={start}
             disabled={loading || !query.trim()}
-            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {t('start')}
@@ -149,7 +149,7 @@ export default function DeepResearchPage() {
       {/* 子问题清单 */}
       {state?.subquestions && state.subquestions.length > 0 && (
         <div className="mb-6 rounded-xl border p-3">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('subquestionsTitle')}
           </h2>
           <ul className="list-disc space-y-1 pl-5 text-sm">
@@ -163,7 +163,7 @@ export default function DeepResearchPage() {
       {/* 已检索证据 */}
       {state?.evidence && state.evidence.length > 0 && (
         <div className="mb-6 rounded-xl border p-3">
-          <h2 className="mb-2 text-sm font-semibold">
+          <h2 className="mb-2 text-body font-semibold">
             {t('evidenceTitle', { count: state.evidence.length })}
           </h2>
           <ul className="space-y-2 text-xs text-muted-foreground">
@@ -183,7 +183,7 @@ export default function DeepResearchPage() {
       {state?.markdown ? (
         <div className="mb-6 rounded-xl border bg-background">
           <div className="flex items-center justify-between bg-muted/40 px-4 py-3">
-            <h2 className="text-sm font-semibold">{t('reportTitle')}</h2>
+            <h2 className="text-body font-semibold">{t('reportTitle')}</h2>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               {t('sourceCount', { count: state.sources?.length ?? 0 })}
             </span>

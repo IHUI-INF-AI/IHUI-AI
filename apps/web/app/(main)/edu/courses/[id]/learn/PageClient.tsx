@@ -313,7 +313,7 @@ export default function EduCourseLearnPage() {
                 ) : (
                   (qaList ?? []).map((qa) => (
                     <div key={qa.id} className="rounded-md border p-2">
-                      <p className="text-xs font-medium">{qa.question}</p>
+                      <p className="text-label font-medium">{qa.question}</p>
                       {qa.answer && (
                         <p className="mt-1 text-xs text-muted-foreground">{qa.answer}</p>
                       )}

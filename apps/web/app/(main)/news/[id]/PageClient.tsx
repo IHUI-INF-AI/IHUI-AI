@@ -121,7 +121,7 @@ export default function NewsDetailPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
               <header className="space-y-3 pb-4">
-                <h1 className="text-2xl font-bold tracking-tight">{article.title}</h1>
+                <h1 className="text-display font-bold tracking-tight">{article.title}</h1>
                 {article.summary && (
                   <p className="text-xs text-muted-foreground">{article.summary}</p>
                 )}

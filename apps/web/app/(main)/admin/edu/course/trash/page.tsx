@@ -95,7 +95,7 @@ export default function EduCourseTrashPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -164,7 +164,7 @@ export default function EduCourseTrashPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'text-xs font-medium',
+                        'text-label font-medium',
                         c.isFree
                           ? 'text-sky-600 dark:text-sky-400'
                           : 'text-amber-600 dark:text-amber-400',

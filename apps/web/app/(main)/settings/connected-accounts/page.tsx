@@ -102,7 +102,7 @@ export default function ConnectedAccountsPage() {
             <Link2 className="h-4 w-4" />
           </div>
           <div className="space-y-0.5">
-            <p className="text-sm font-medium">{platform.label}</p>
+            <p className="text-body font-medium">{platform.label}</p>
             {isBound ? (
               <p className="text-xs text-muted-foreground">
                 {t('connectedAccountsBoundAt')}: {dateFmt.format(new Date(binding!.createdAt))}

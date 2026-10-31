@@ -84,7 +84,7 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
         <CardContent>
           <div className="flex items-baseline gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <span className="text-heading font-bold tracking-tight min-[768px]:text-display">
               {curFmt.format(stats.orderStats.totalAmount)}
             </span>
           </div>

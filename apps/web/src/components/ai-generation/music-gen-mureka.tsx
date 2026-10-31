@@ -151,7 +151,7 @@ export function MusicGenMureka() {
             checked={instrumental}
             onCheckedChange={(v) => setInstrumental(v === true)}
           />
-          <Label htmlFor="mureka-instrumental" className="cursor-pointer text-sm font-normal">
+          <Label htmlFor="mureka-instrumental" className="cursor-pointer text-body font-normal">
             {t('instrumental')}
           </Label>
         </div>

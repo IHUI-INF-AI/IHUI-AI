@@ -125,7 +125,7 @@ export default function UserExamPage() {
                     <div className="flex items-center gap-2">
                       {/* 后端无 title(见文件头字段映射说明):退回 paperId 前 8 位,
                           与管理员批改页 `r.paperTitle ?? r.paperId.slice(0, 8)` 同一口径。 */}
-                      <h3 className="truncate text-sm font-semibold">{e.paperId.slice(0, 8)}</h3>
+                      <h3 className="truncate text-body font-semibold">{e.paperId.slice(0, 8)}</h3>
                       {e.status ? (
                         <span
                           className={cn(
@@ -149,7 +149,7 @@ export default function UserExamPage() {
                   {inProgress ? (
                     <Link
                       href={`/exam/${e.paperId}`}
-                      className="shrink-0 rounded-md bg-cta px-3 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                      className="shrink-0 rounded-md bg-cta px-3 py-1 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                     >
                       {t('continue', { default: '继续考试' })}
                     </Link>

@@ -20,7 +20,6 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,6 +36,7 @@ import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -205,15 +205,15 @@ export default function AgentCategoriesScreen() {
         onRequestClose={() => setPanel(null)}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={() => setPanel(null)} />
+          <Tappable style={styles.mask} onPress={() => setPanel(null)} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.name}
               </Text>
-              <Pressable onPress={() => setPanel(null)} hitSlop={8} style={undefined}>
+              <Tappable onPress={() => setPanel(null)} hitSlop={8}>
                 <X size={18} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
             {panel ? (
               <ScrollView contentContainerStyle={styles.sheetBody}>

@@ -54,7 +54,7 @@ export function IncomeItem({ row }: { row: IncomeRow }) {
       <View className="wc-item-info">
         <View className="flex items-center justify-between">
           <Text className="wc-item-type flex-1 truncate">{row.title}</Text>
-          <Text className={`text-[length:22rpx] font-semibold ${STATUS_CLASS[row.status]}`}>
+          <Text className={`text-caption font-semibold ${STATUS_CLASS[row.status]}`}>
             {STATUS_TEXT[row.status]}
           </Text>
         </View>
@@ -76,7 +76,7 @@ export function IncomeItem({ row }: { row: IncomeRow }) {
               className="ml-[16rpx] px-[16rpx] py-[6rpx] rounded-sm border border-border"
               onClick={copyOrder}
             >
-              <Text className="text-[length:22rpx] text-primary">{t('income.copy')}</Text>
+              <Text className="text-caption text-primary">{t('income.copy')}</Text>
             </View>
           ) : null}
         </View>

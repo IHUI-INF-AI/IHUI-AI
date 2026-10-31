@@ -110,7 +110,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
         {/* 头部 */}
         <div className="flex items-start gap-2 bg-muted/30 px-5 py-4">
           <div className="min-w-0 flex-1 space-y-1">
-            <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{title}</h3>
+            <h3 className="line-clamp-2 text-body font-semibold leading-tight">{title}</h3>
             <p className="text-[10px] text-muted-foreground">{t('trendChart.subtitle')}</p>
           </div>
           <CloseButton aria-label={t('close')} onClick={onClose} />
@@ -123,7 +123,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
               key={w}
               type="button"
               onClick={() => setWindow(w)}
-              className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
                 window === w
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -152,16 +152,16 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
               {signal ? (
                 <div className="flex items-center gap-2">
                   {signal.trendTag === 'rising' ? (
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-2 py-0.5 text-label font-medium text-emerald-600 dark:text-emerald-400">
                       <TrendingUp className="h-3 w-3" />+{signal.growthPct?.toFixed(0)}%
                     </span>
                   ) : signal.trendTag === 'cooling' ? (
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-rose-500/10 px-2 py-0.5 text-label font-medium text-rose-600 dark:text-rose-400">
                       <TrendingDown className="h-3 w-3" />
                       {signal.growthPct?.toFixed(0)}%
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">
                       <Minus className="h-3 w-3" />
                       {t('trendChart.stable')}
                     </span>

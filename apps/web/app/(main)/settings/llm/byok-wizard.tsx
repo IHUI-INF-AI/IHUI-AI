@@ -299,7 +299,7 @@ export function ByokWizard() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 ui-control rounded-sm bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
+        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 ui-control rounded-sm bg-emerald-600 px-4 py-3 text-body font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
       >
         <Wand2 className="h-4 w-4" />
         {t('trigger')}
@@ -353,7 +353,7 @@ export function ByokWizard() {
                           : 'flex flex-col items-start gap-1 rounded-sm border border-border p-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-accent'
                       }
                     >
-                      <span className="text-sm font-medium">{p.name}</span>
+                      <span className="text-body font-medium">{p.name}</span>
                       <span
                         className={
                           p.free
@@ -459,7 +459,7 @@ export function ByokWizard() {
                     <div className="rounded-md bg-emerald-500/10 p-2">
                       <Check className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    <p className="text-body font-medium text-emerald-600 dark:text-emerald-400">
                       {t('verified')}
                     </p>
                   </div>
@@ -469,7 +469,7 @@ export function ByokWizard() {
                     <div className="rounded-md bg-red-500/10 p-2">
                       <X className="h-6 w-6 text-red-600 dark:text-red-400" />
                     </div>
-                    <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                    <p className="text-body font-medium text-red-600 dark:text-red-400">
                       {t('verifyFailed')}
                     </p>
                     {verifyMsg && <p className="text-xs text-muted-foreground">{verifyMsg}</p>}
@@ -483,7 +483,7 @@ export function ByokWizard() {
                     <div className="rounded-md bg-amber-500/10 p-2">
                       <HelpCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                     </div>
-                    <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    <p className="text-body font-medium text-amber-600 dark:text-amber-400">
                       {t('verifyUnavailable')}
                     </p>
                     <p className="text-xs text-muted-foreground">{t('verifyUnavailableDesc')}</p>

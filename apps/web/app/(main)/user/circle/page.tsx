@@ -75,7 +75,7 @@ export default function UserCirclePage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-semibold">{c.name}</h3>
+                  <h3 className="truncate text-body font-semibold">{c.name}</h3>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <Users className="h-3 w-3" />

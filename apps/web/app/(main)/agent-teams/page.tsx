@@ -93,7 +93,7 @@ export default function AgentTeamsPage() {
     <div className="mx-auto max-w-6xl px-4 py-4">
       <div className="mb-4 flex items-center gap-2">
         <UsersRound className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
         <button
           type="button"
           onClick={() => void refresh()}
@@ -171,7 +171,7 @@ export default function AgentTeamsPage() {
                           STATUS_DOT[d.status] ?? 'bg-muted-foreground/50',
                         )}
                       />
-                      <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                      <span className="min-w-0 flex-1 truncate text-label font-medium">
                         {d.goal || d.id}
                       </span>
                     </div>

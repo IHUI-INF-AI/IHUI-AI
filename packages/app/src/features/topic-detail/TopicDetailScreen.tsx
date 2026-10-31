@@ -18,6 +18,7 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createTopicDetailStyles } from './topic-detail-styles'
+import { Tappable } from '@ihui/ui-native'
 
 export interface TopicDetailPostView {
   id: string | number
@@ -158,7 +159,7 @@ export function TopicDetailScreen({
               {t('topic.detail.followers', { n: topic.followerCount ?? 0 })}
             </Text>
           </View>
-          <Pressable
+          <Tappable
             style={[styles.followBtn, topic.isFollowed ? styles.followBtnActive : null]}
             disabled={followBusy}
             onPress={onFollow}
@@ -169,7 +170,7 @@ export function TopicDetailScreen({
             >
               {topic.isFollowed ? t('topic.detail.following') : t('topic.detail.follow')}
             </Text>
-          </Pressable>
+          </Tappable>
         </View>
       ) : null}
       {topic.name ? (

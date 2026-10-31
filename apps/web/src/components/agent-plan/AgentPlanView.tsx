@@ -48,7 +48,7 @@ export function AgentPlanView({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">{t('planTitle')}</span>
+          <span className="text-body font-medium">{t('planTitle')}</span>
           {!busy && (
             <Button variant="ghost" size="sm" onClick={onToggleEdit} className="gap-1.5">
               {isEditing ? (
@@ -82,7 +82,7 @@ export function AgentPlanView({
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">{t('readonlyTools')}</span>
+        <span className="text-body font-medium">{t('readonlyTools')}</span>
         <div className="flex flex-wrap gap-2 rounded-md bg-muted p-3">
           {detail.readonly_tools.length === 0 ? (
             <span className="text-sm text-muted-foreground">—</span>

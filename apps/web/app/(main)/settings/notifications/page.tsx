@@ -132,7 +132,7 @@ export default function NotificationsPage() {
     <Container maxWidth="full" padding={false} className="px-4 flex h-full flex-col py-4">
       <BackButton />
       <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('notificationsTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('notificationsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('notificationsDesc')}</p>
       </div>
 

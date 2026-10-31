@@ -131,14 +131,14 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
-            <h3 className="truncate text-sm font-medium">{agent.name || t('card.unnamed')}</h3>
+            <h3 className="truncate text-body font-medium">{agent.name || t('card.unnamed')}</h3>
             <p className="truncate text-xs text-muted-foreground">
               {roleLabel} · {agent.model}
             </p>
           </div>
           <span
             className={cn(
-              'inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium',
+              'inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-label font-medium',
               badge.className,
             )}
           >

@@ -158,7 +158,7 @@ export default function CrewSessionDetailPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">{session?.title || '未命名会话'}</h1>
+            <h1 className="text-heading font-bold tracking-tight">{session?.title || '未命名会话'}</h1>
             <p className="text-xs text-muted-foreground">
               ID: {sessionId} · {session?.userId}
             </p>
@@ -183,11 +183,11 @@ export default function CrewSessionDetailPage() {
       </div>
 
       <div className="rounded-lg border bg-card p-3">
-        <p className="text-xs font-medium text-muted-foreground">输入</p>
+        <p className="text-label font-medium text-muted-foreground">输入</p>
         <p className="mt-1 whitespace-pre-wrap text-sm">{session?.inputMessage}</p>
         {session?.outputMessage && (
           <>
-            <p className="mt-3 text-xs font-medium text-muted-foreground">最终输出</p>
+            <p className="mt-3 text-label font-medium text-muted-foreground">最终输出</p>
             <p className="mt-1 whitespace-pre-wrap text-sm">{session.outputMessage}</p>
           </>
         )}
@@ -215,7 +215,7 @@ export default function CrewSessionDetailPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">#{t.taskIndex}</span>
-                        <span className="text-sm font-medium">{t.agentRole}</span>
+                        <span className="text-body font-medium">{t.agentRole}</span>
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs ${statusBadgeClass(t.status)}`}
                         >
@@ -253,9 +253,9 @@ export default function CrewSessionDetailPage() {
                     <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">{m.fromRole}</span>
+                        <span className="text-label font-medium">{m.fromRole}</span>
                         <span className="text-xs text-muted-foreground">→</span>
-                        <span className="text-xs font-medium">{m.toRole}</span>
+                        <span className="text-label font-medium">{m.toRole}</span>
                         <span className="ml-auto text-xs text-muted-foreground">
                           {fmtTime(m.createdAt)}
                         </span>
@@ -279,7 +279,7 @@ export default function CrewSessionDetailPage() {
                   <div key={a.id} className="p-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">{a.name}</span>
+                      <span className="text-body font-medium">{a.name}</span>
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                         {a.type}
                       </span>
@@ -300,7 +300,7 @@ export default function CrewSessionDetailPage() {
         <TabsContent value="logs" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             <div className="flex items-center justify-between px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium">
+              <span className="flex items-center gap-1.5 text-label font-medium">
                 <Terminal className="h-4 w-4" /> 实时日志
               </span>
               <span className="text-xs text-muted-foreground">

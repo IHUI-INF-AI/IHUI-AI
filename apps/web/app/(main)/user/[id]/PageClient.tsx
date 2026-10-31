@@ -124,7 +124,7 @@ export default function PublicUserProfilePage() {
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="break-words text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h1 className="break-words text-heading font-bold tracking-tight min-[768px]:text-display">
               {user.nickname || 'User'}
             </h1>
             {isSelf && (
@@ -172,7 +172,7 @@ export default function PublicUserProfilePage() {
             key={item.label}
             className="flex flex-col items-center justify-center rounded-lg border bg-card px-3 py-3"
           >
-            <span className="text-xl font-bold tabular-nums">{item.value}</span>
+            <span className="text-heading font-bold tabular-nums">{item.value}</span>
             <span className="mt-0.5 text-xs text-muted-foreground">{item.label}</span>
           </div>
         ))}

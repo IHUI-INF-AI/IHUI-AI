@@ -10,6 +10,7 @@ import { tokens } from '../../theme/active-tokens'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import AgentList, { type AgentListItem } from '../../components/AgentList'
+import { Tappable } from '@ihui/ui-native'
 
 const styles = StyleSheet.create({
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
@@ -137,13 +138,13 @@ export function AgentSelector({
   )
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalMask} onPress={onClose}>
+      <Tappable style={styles.modalMask} onPress={onClose}>
         <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>选择 Agent</Text>
-            <Pressable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
+            <Tappable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
               <X size={20} color={tokens.text.primary} />
-            </Pressable>
+            </Tappable>
           </View>
           {/* 当前人格:name + description(缺省回落 prologue);category/source 以胶囊补注 */}
           {personaItem && personaText ? (
@@ -179,7 +180,7 @@ export function AgentSelector({
             subtitleField={subtitleField}
           />
         </Pressable>
-      </Pressable>
+      </Tappable>
     </Modal>
   )
 }

@@ -248,10 +248,10 @@ export default function MemberIndexPage() {
         {/* ===== Header:用户信息 + VIP 状态 ===== */}
         <View className="member-header">
           {/* 标题区:对齐共享屏 VipScreen header 的 title + subtitle(本页此前只有原生导航栏标题) */}
-          <Text className="block text-[length:40rpx] font-semibold text-[var(--color-surface-light)]">
+          <Text className="block text-heading font-semibold text-[var(--color-surface-light)]">
             {tt('vip.title', '会员中心')}
           </Text>
-          <Text className="block text-[length:24rpx] text-[var(--color-white-70)] mt-[8rpx] mb-[24rpx]">
+          <Text className="block text-label text-[var(--color-white-70)] mt-[8rpx] mb-[24rpx]">
             {tt('vip.subtitle', '开通会员,尊享更多权益')}
           </Text>
           <View className="member-user">

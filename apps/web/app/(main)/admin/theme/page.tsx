@@ -66,7 +66,7 @@ export default function ThemeListPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">主题列表</h1>
+          <h1 className="text-display font-bold tracking-tight">主题列表</h1>
           <p className="mt-1 text-sm text-muted-foreground">管理站点主题与外观配置</p>
         </div>
         <Button size="sm" asChild>
@@ -105,7 +105,7 @@ export default function ThemeListPage() {
             <CardContent className="min-[640px]:p-3 space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-semibold">{t.name}</p>
+                  <p className="line-clamp-2 text-body font-semibold">{t.name}</p>
                   {t.description && (
                     <p className="truncate text-xs text-muted-foreground">{t.description}</p>
                   )}

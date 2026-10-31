@@ -38,6 +38,7 @@ import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 export type { StudyTrackCategory, StudyVideoItem }
 
 /** 赛道分类 */
@@ -161,14 +162,14 @@ export function StudyIndexScreen({
               <Text style={styles.tipText}>{TIP_TEXT}</Text>
             </Animated.View>
           </View>
-          <Pressable
+          <Tappable
             style={styles.tipMyModel}
             onPress={onPressMyModel}
             accessibilityRole="button"
             accessibilityLabel="我的合集"
           >
             <Text style={styles.tipMyModelText}>我的合集</Text>
-          </Pressable>
+          </Tappable>
         </View>
       </View>
     )

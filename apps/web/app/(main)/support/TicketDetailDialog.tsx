@@ -106,7 +106,7 @@ export function TicketDetailDialog({
             {t('statusPrefix')}
             <span
               className={cn(
-                'ml-1 inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                'ml-1 inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                 STATUS_BADGE[ticket.status],
               )}
             >
@@ -127,14 +127,14 @@ export function TicketDetailDialog({
           )}
 
           <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-            <div className="mb-1 text-xs font-medium text-muted-foreground">
+            <div className="mb-1 text-label font-medium text-muted-foreground">
               {t('descriptionLabel')}
             </div>
             <p className="whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-medium">{t('commentsLabel')}</div>
+            <div className="text-body font-medium">{t('commentsLabel')}</div>
             {comments.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('noComments')}</p>
             ) : (
@@ -191,7 +191,7 @@ export function TicketDetailDialog({
 
           {existingRating ? (
             <div className="rounded-md border px-3 py-2">
-              <div className="mb-1 flex items-center gap-1 text-sm font-medium">
+              <div className="mb-1 flex items-center gap-1 text-body font-medium">
                 <Star className="h-4 w-4 text-amber-500" />
                 {t('myRating')}
               </div>
@@ -214,7 +214,7 @@ export function TicketDetailDialog({
             </div>
           ) : canRate ? (
             <div className="space-y-2 rounded-md border px-3 py-2">
-              <div className="flex items-center gap-1 text-sm font-medium">
+              <div className="flex items-center gap-1 text-body font-medium">
                 <Star className="h-4 w-4 text-amber-500" />
                 {t('serviceRating')}
               </div>

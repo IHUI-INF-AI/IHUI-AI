@@ -103,7 +103,7 @@ export default function DarkModePage() {
     <form onSubmit={save} className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">暗色模式</h1>
+          <h1 className="text-display font-bold tracking-tight">暗色模式</h1>
           <p className="mt-1 text-sm text-muted-foreground">配置站点暗色主题</p>
         </div>
         <Button type="submit" size="sm" disabled={saving}>
@@ -117,7 +117,7 @@ export default function DarkModePage() {
           <div className="flex items-center gap-2">
             <Moon className="h-4 w-4 text-primary" />
             <div>
-              <p className="text-sm font-medium">全局启用暗色模式</p>
+              <p className="text-body font-medium">全局启用暗色模式</p>
               <p className="text-xs text-muted-foreground">关闭后用户无法切换至暗色</p>
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function DarkModePage() {
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4">
           <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
-            <p className="text-sm font-semibold">亮色模式</p>
+            <p className="text-body font-semibold">亮色模式</p>
             <p className="text-xs opacity-80">示例正文内容</p>
             <span className="inline-block rounded-md bg-cta px-2 py-1 text-xs text-cta-foreground">
               主按钮
@@ -166,7 +166,7 @@ export default function DarkModePage() {
               borderWidth: 1,
             }}
           >
-            <p className="text-sm font-semibold">暗色模式</p>
+            <p className="text-body font-semibold">暗色模式</p>
             <p className="text-xs opacity-80">示例正文内容</p>
             <span
               className="inline-block rounded-md px-2 py-1 text-xs text-white"

@@ -40,11 +40,11 @@ export function CoursesSection() {
 
   return (
     <section className="space-y-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
         {t('courses.label')}
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">{t('courses.title')}</h2>
+        <h2 className="text-heading font-bold tracking-tight">{t('courses.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('courses.subtitle')}</p>
       </div>
 
@@ -62,7 +62,7 @@ export function CoursesSection() {
                   : 'hover:bg-accent',
               )}
             >
-              <span className="text-xs font-bold text-muted-foreground">
+              <span className="text-label font-bold text-muted-foreground">
                 {String(i + 1).padStart(2, '0')}
               </span>
               <Icon className="h-4 w-4" />
@@ -82,7 +82,7 @@ export function CoursesSection() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground">{phase.tag}</span>
+                  <span className="text-label font-medium text-muted-foreground">{phase.tag}</span>
                   <h3 className="text-base font-semibold tracking-tight">{phase.title}</h3>
                   <p className="text-sm text-muted-foreground">{phase.description}</p>
                 </div>
@@ -98,7 +98,7 @@ export function CoursesSection() {
                     </span>
                     <span className="flex-1 text-sm">{course.name}</span>
                     {course.isNew && (
-                      <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
+                      <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-label font-medium text-destructive">
                         NEW
                       </span>
                     )}

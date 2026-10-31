@@ -355,14 +355,14 @@ export default function WorkflowDetailPage() {
             <Workflow className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">{wf.name}</h1>
+            <h1 className="text-heading font-bold tracking-tight">{wf.name}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">{wf.description || '-'}</p>
             <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
               {t(TRIGGER_KEYS[wf.triggerType] ?? 'triggers.unknown')}
               <span
                 className={cn(
-                  'ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                  'ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label font-medium',
                   wf.isActive
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                     : 'bg-muted text-muted-foreground',
@@ -438,7 +438,7 @@ export default function WorkflowDetailPage() {
                 if (k !== 'definition') setEditStepsMode(false)
               }}
               className={cn(
-                '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                '-mb-px border-b-2 px-3 py-2 text-body font-medium transition-colors',
                 tab === k
                   ? 'border-brand-accent-deep text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -471,7 +471,7 @@ export default function WorkflowDetailPage() {
                 >
                   <span
                     className={cn(
-                      'inline-flex rounded px-2 py-0.5 text-xs font-medium',
+                      'inline-flex rounded px-2 py-0.5 text-label font-medium',
                       STATUS_BADGE[i.status],
                     )}
                   >
@@ -553,7 +553,7 @@ export default function WorkflowDetailPage() {
         ) : editStepsMode ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
+              <span className="text-label font-semibold uppercase text-muted-foreground">
                 {t('editor.editSteps')}
               </span>
               <div className="flex items-center gap-2">
@@ -590,7 +590,7 @@ export default function WorkflowDetailPage() {
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
+              <span className="text-label font-semibold uppercase text-muted-foreground">
                 {t('detail.definition')}
               </span>
               <Button size="sm" variant="outline" onClick={handleStartEditSteps}>

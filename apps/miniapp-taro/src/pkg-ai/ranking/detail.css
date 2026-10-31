@@ -89,8 +89,8 @@
 }
 
 .logo {
-  width: 128rpx;
-  height: 128rpx;
+  width: var(--spacing-6xl);
+  height: var(--spacing-6xl);
   border-radius: var(--radius-xl);
   background: var(--color-muted);
   flex-shrink: 0;
@@ -259,7 +259,7 @@
 }
 
 .detail-bottom-spacer {
-  height: 40rpx;
+  height: var(--spacing-xl);
   flex-shrink: 0;
 }
 

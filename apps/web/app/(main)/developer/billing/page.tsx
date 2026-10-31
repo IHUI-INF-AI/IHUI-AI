@@ -95,7 +95,7 @@ export default function BillingPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Receipt className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -111,7 +111,7 @@ export default function BillingPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 space-y-3 p-3">
               <div className="flex items-center justify-between">
-                <p className="flex items-center gap-2 text-sm font-semibold">
+                <p className="flex items-center gap-2 text-body font-semibold">
                   <CreditCard className="h-4 w-4" />
                   {t('paymentMethods')}
                 </p>
@@ -156,7 +156,7 @@ export default function BillingPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="px-4 py-2.5 text-sm font-semibold">{t('billRecords')}</div>
+              <div className="px-4 py-2.5 text-body font-semibold">{t('billRecords')}</div>
               {isLoading ? (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -172,8 +172,8 @@ export default function BillingPage() {
                       <div key={b.id} className="flex items-center gap-3 px-4 py-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
-                            <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
+                            <p className="truncate text-body font-medium">{b.invoiceNo}</p>
+                            <span className={cn('rounded px-1.5 py-0.5 text-label font-medium', cls)}>
                               {t(BILL_STATUS_KEYS[b.status]!)}
                             </span>
                           </div>
@@ -181,7 +181,7 @@ export default function BillingPage() {
                             {b.period} · {dateFmt.format(new Date(b.createdAt))}
                           </p>
                         </div>
-                        <span className="shrink-0 text-sm font-medium">
+                        <span className="shrink-0 text-body font-medium">
                           {currencyFmt.format(b.amount)}
                         </span>
                         <Button

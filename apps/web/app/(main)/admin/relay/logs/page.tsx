@@ -131,7 +131,7 @@ export default function AdminRelayLogsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <FileText className="h-6 w-6 text-primary" />
           调用日志
         </h1>
@@ -141,7 +141,7 @@ export default function AdminRelayLogsPage() {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+            <CardTitle className="flex items-center justify-between gap-2 text-label font-medium text-muted-foreground">
               <span className="min-w-0 truncate">区间调用次数</span>
               <Clock className="h-4 w-4 shrink-0 text-primary" />
             </CardTitle>
@@ -150,13 +150,13 @@ export default function AdminRelayLogsPage() {
             {statsLoading ? (
               <Skeleton className="h-7 w-20" />
             ) : (
-              <div className="text-2xl font-bold tabular-nums">{numFmt.format(totalCalls)}</div>
+              <div className="text-display font-bold tabular-nums">{numFmt.format(totalCalls)}</div>
             )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+            <CardTitle className="flex items-center justify-between gap-2 text-label font-medium text-muted-foreground">
               <span className="min-w-0 truncate">区间 Token 总量</span>
               <Coins className="h-4 w-4 shrink-0 text-amber-600" />
             </CardTitle>
@@ -165,13 +165,13 @@ export default function AdminRelayLogsPage() {
             {statsLoading ? (
               <Skeleton className="h-7 w-24" />
             ) : (
-              <div className="text-2xl font-bold tabular-nums">{numFmt.format(totalTokens)}</div>
+              <div className="text-display font-bold tabular-nums">{numFmt.format(totalTokens)}</div>
             )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+            <CardTitle className="flex items-center justify-between gap-2 text-label font-medium text-muted-foreground">
               <span className="min-w-0 truncate">区间成本(¥)</span>
               <Coins className="h-4 w-4 shrink-0 text-emerald-600" />
             </CardTitle>
@@ -180,7 +180,7 @@ export default function AdminRelayLogsPage() {
             {statsLoading ? (
               <Skeleton className="h-7 w-24" />
             ) : (
-              <div className="text-2xl font-bold tabular-nums">
+              <div className="text-display font-bold tabular-nums">
                 {(totalCostCents / 100).toFixed(2)}
               </div>
             )}
@@ -241,7 +241,7 @@ export default function AdminRelayLogsPage() {
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between bg-muted/50 px-3 py-2">
-          <span className="text-xs font-medium uppercase text-muted-foreground">聚合统计</span>
+          <span className="text-label font-medium uppercase text-muted-foreground">聚合统计</span>
           <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'model' | 'day' | 'user')}>
             <SelectTrigger className={selectClass} aria-label="分组">
               <SelectValue />
@@ -312,7 +312,7 @@ export default function AdminRelayLogsPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="bg-muted/50 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+        <div className="bg-muted/50 px-3 py-2 text-label font-medium uppercase text-muted-foreground">
           调用明细
         </div>
         <div className="overflow-x-auto">

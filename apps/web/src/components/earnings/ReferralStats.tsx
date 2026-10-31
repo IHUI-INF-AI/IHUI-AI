@@ -39,10 +39,10 @@ export function ReferralStats({ data, loading }: Props) {
       <CardContent className="min-[640px]:p-3 p-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold">{t('referralStats')}</p>
+            <p className="text-body font-semibold">{t('referralStats')}</p>
             <p className="text-xs text-muted-foreground">{t('referralStatsDesc')}</p>
           </div>
-          <p className="text-sm font-bold">{total}</p>
+          <p className="text-body font-bold">{total}</p>
         </div>
 
         <div className="mt-4 space-y-3">

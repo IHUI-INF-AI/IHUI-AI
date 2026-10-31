@@ -86,7 +86,7 @@ export default async function OverviewPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('overview.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('overview.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('overview.subtitle')}</p>
       </header>
 
@@ -104,8 +104,8 @@ export default async function OverviewPage() {
                   <span
                     className={
                       s.changeType === 'up'
-                        ? 'flex items-center gap-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'
-                        : 'flex items-center gap-0.5 text-xs font-medium text-rose-600 dark:text-rose-400'
+                        ? 'flex items-center gap-0.5 text-label font-medium text-emerald-600 dark:text-emerald-400'
+                        : 'flex items-center gap-0.5 text-label font-medium text-rose-600 dark:text-rose-400'
                     }
                   >
                     <ArrowUpRight
@@ -114,7 +114,7 @@ export default async function OverviewPage() {
                     {s.change}
                   </span>
                 </div>
-                <div className="mt-3 text-2xl font-bold tracking-tight">{s.value}</div>
+                <div className="mt-3 text-display font-bold tracking-tight">{s.value}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
               </CardContent>
             </Card>
@@ -140,7 +140,7 @@ export default async function OverviewPage() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-background text-primary">
                     <Icon className="h-4 w-4" />
                   </div>
-                  <span className="text-xs font-medium">{a.label}</span>
+                  <span className="text-label font-medium">{a.label}</span>
                 </a>
               )
             })}

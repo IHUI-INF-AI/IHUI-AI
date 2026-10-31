@@ -38,7 +38,7 @@ export default function ApiGroupsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <FolderTree className="h-6 w-6 text-primary" />
           {t('apiGroups.title')}
         </h1>
@@ -77,7 +77,7 @@ export default function ApiGroupsPage() {
                     <TruncatedText value={g.description} className="max-w-[280px]" />
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                       {g.apiCount}
                     </span>
                   </td>

@@ -122,7 +122,7 @@ export default function CourseRatePage() {
         {t('backToCourse')}
       </Link>
 
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <Star className="h-6 w-6 text-primary" />
         {t('title')}
       </h1>
@@ -135,7 +135,7 @@ export default function CourseRatePage() {
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <span className="text-sm font-medium">{t('rating')}</span>
+              <span className="text-body font-medium">{t('rating')}</span>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -162,7 +162,7 @@ export default function CourseRatePage() {
               </div>
             </div>
             <div className="space-y-2">
-              <label htmlFor="rate-content" className="text-sm font-medium">
+              <label htmlFor="rate-content" className="text-body font-medium">
                 {t('contentLabel')}
               </label>
               <textarea
@@ -205,7 +205,7 @@ export default function CourseRatePage() {
                     <Avatar src={avatar ?? undefined} name={name} size="md" />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium">{name}</span>
+                        <span className="text-body font-medium">{name}</span>
                         {time && <span className="text-xs text-muted-foreground">{time}</span>}
                       </div>
                       <div className="flex items-center gap-0.5">

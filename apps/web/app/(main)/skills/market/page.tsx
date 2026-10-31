@@ -108,7 +108,7 @@ export default function SkillsMarketPage() {
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">{t('title')}</h1>
+            <h1 className="text-heading font-semibold">{t('title')}</h1>
             <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ function TagChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'whitespace-nowrap max-w-full truncate rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+        'whitespace-nowrap max-w-full truncate rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
         active
           ? 'bg-cta text-cta-foreground'
           : 'bg-muted text-muted-foreground hover:text-foreground',
@@ -519,11 +519,11 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-sm font-medium">{t('publishName')}</label>
+            <label className="text-body font-medium">{t('publishName')}</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="my-skill" />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium">{t('publishDescription')}</label>
+            <label className="text-body font-medium">{t('publishDescription')}</label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -532,7 +532,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">{t('publishTags')}</label>
+              <label className="text-body font-medium">{t('publishTags')}</label>
               <Input
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
@@ -540,7 +540,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">{t('publishAuthor')}</label>
+              <label className="text-body font-medium">{t('publishAuthor')}</label>
               <Input
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
@@ -550,7 +550,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">{t('publishVersion')}</label>
+              <label className="text-body font-medium">{t('publishVersion')}</label>
               <Input
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
@@ -558,7 +558,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">{t('publishLicense')}</label>
+              <label className="text-body font-medium">{t('publishLicense')}</label>
               <Input
                 value={license}
                 onChange={(e) => setLicense(e.target.value)}
@@ -567,7 +567,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium">{t('publishContent')}</label>
+            <label className="text-body font-medium">{t('publishContent')}</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}

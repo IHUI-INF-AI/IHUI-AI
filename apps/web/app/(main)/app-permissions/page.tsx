@@ -71,7 +71,7 @@ export default function AppPermissionPage() {
                 <p.icon className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-medium">{p.name}</h3>
+                <h3 className="text-body font-medium">{p.name}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{p.desc}</p>
               </div>
             </CardContent>

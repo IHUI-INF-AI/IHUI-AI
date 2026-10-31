@@ -68,11 +68,11 @@ export default function SelfHostPage() {
 
       {/* Hero */}
       <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Container className="h-3.5 w-3.5" />
           自托管部署
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           自托管部署智汇 AI
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -83,7 +83,7 @@ export default function SelfHostPage() {
 
       {/* 方式一:Docker Compose */}
       <section id="docker-compose" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-display font-bold tracking-tight">
           方式一:Docker Compose 单机版(5 分钟)
         </h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
@@ -141,7 +141,7 @@ open http://localhost:8801
 
       {/* 方式二:K8s */}
       <section id="kubernetes" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-display font-bold tracking-tight">
           方式二:Kubernetes Helm Chart(高可用)
         </h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
@@ -218,9 +218,9 @@ kubectl get ingress -n ihui`}</code>
 
       {/* 配置详解 */}
       <section id="config" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">核心配置项</h2>
+        <h2 className="text-display font-bold tracking-tight">核心配置项</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-xs font-semibold min-[768px]:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-3">
             <div>环境变量</div>
             <div>必填</div>
             <div className="col-span-2 min-[768px]:col-span-1">说明</div>
@@ -247,7 +247,7 @@ kubectl get ingress -n ihui`}</code>
 
       {/* 运维 */}
       <section id="ops" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">运维与监控</h2>
+        <h2 className="text-display font-bold tracking-tight">运维与监控</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
@@ -278,23 +278,23 @@ kubectl get ingress -n ihui`}</code>
 
       {/* 下一步 */}
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
+        <h2 className="text-display font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
             href="/docs/api"
-            className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+            className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
           >
             API 参考
           </a>
           <a
             href="/docs/team"
-            className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
           >
             团队协作
           </a>
           <a
             href="/docs/quickstart"
-            className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
           >
             返回快速开始
           </a>

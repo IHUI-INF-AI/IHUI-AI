@@ -84,7 +84,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           错误热力图
-          <span className="text-xs font-normal text-muted-foreground">共 {totalErrors} 次错误</span>
+          <span className="text-label font-normal text-muted-foreground">共 {totalErrors} 次错误</span>
         </CardTitle>
       </CardHeader>
       <CardContent>

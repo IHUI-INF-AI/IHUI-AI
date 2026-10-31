@@ -687,7 +687,7 @@ export function BatchScanLoginDialog({
           {/* 2026-09-15:浏览器选择(内置/外部),未运行时可切换 */}
           {!running && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t('accounts.batchScanModeLabel')}</label>
+              <label className="text-body font-medium">{t('accounts.batchScanModeLabel')}</label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -752,7 +752,7 @@ export function BatchScanLoginDialog({
               ) : (
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               )}
-              <p className="text-sm font-medium">
+              <p className="text-body font-medium">
                 {stopping
                   ? t('accounts.batchScanStopping')
                   : t('accounts.batchScanProgress', {
@@ -773,7 +773,7 @@ export function BatchScanLoginDialog({
 
           {done && (
             <div className="rounded-lg border bg-muted/30 p-3 text-center">
-              <p className="text-sm font-medium">{t('accounts.batchScanDone')}</p>
+              <p className="text-body font-medium">{t('accounts.batchScanDone')}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('accounts.batchScanSummary', {
                   success: successCount,

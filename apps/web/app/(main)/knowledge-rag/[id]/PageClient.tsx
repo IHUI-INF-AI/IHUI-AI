@@ -120,7 +120,7 @@ export default function KnowledgeRagDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{data.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{data.title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <FileText className="h-4 w-4" />
@@ -146,7 +146,7 @@ export default function KnowledgeRagDetailPage() {
       </header>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 text-body font-semibold text-muted-foreground">
           <Search className="h-4 w-4" />
           {t('related')}
         </h2>

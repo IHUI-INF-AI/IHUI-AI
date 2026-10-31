@@ -341,11 +341,11 @@ export default function CompareIndexPage() {
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Layers className="h-3.5 w-3.5 text-primary" />
             产品对比
           </div>
-          <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+          <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
             IHUI AI vs 主流 AI 平台
           </h1>
           <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -361,7 +361,7 @@ export default function CompareIndexPage() {
               className="group rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">IHUI AI vs {competitor}</h2>
+                <h2 className="text-heading font-semibold">IHUI AI vs {competitor}</h2>
                 <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{tagline}</p>
@@ -379,17 +379,17 @@ export default function CompareIndexPage() {
 
         {/* 综合对比表格 */}
         <section className="mt-12">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">综合对比表</h2>
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">综合对比表</h2>
           <p className="mt-1 text-sm text-muted-foreground">7 大平台 12 项指标一目了然</p>
           <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-sm">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="bg-muted/30">
-                  <th className="px-3 py-3 text-left text-sm font-semibold">特性</th>
+                  <th className="px-3 py-3 text-left text-body font-semibold">特性</th>
                   {TABLE_COLS.map((col, i) => (
                     <th
                       key={col}
-                      className={`px-3 py-3 text-center text-sm font-semibold ${i === 0 ? 'text-primary' : ''}`}
+                      className={`px-3 py-3 text-center text-body font-semibold ${i === 0 ? 'text-primary' : ''}`}
                     >
                       {col}
                     </th>
@@ -399,14 +399,14 @@ export default function CompareIndexPage() {
               <tbody>
                 {TABLE_ROWS.map((row, idx) => (
                   <tr key={row[0]} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
-                    <td className="px-3 py-3 text-sm font-medium">{row[0]}</td>
+                    <td className="px-3 py-3 text-body font-medium">{row[0]}</td>
                     {TABLE_COLS.map((_, ci) => {
                       const text = row[ci * 2 + 1]
                       const ok = row[ci * 2 + 2]
                       return (
                         <td
                           key={ci}
-                          className={`px-3 py-3 text-center text-sm ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}
+                          className={`px-3 py-3 text-center text-body ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}
                         >
                           <span className="inline-flex items-center gap-1.5">
                             {ok === true && (
@@ -429,12 +429,12 @@ export default function CompareIndexPage() {
 
         {/* 全部 36 个深度对比 */}
         <section className="mt-12">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">全部深度对比</h2>
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">全部深度对比</h2>
           <p className="mt-1 text-sm text-muted-foreground">IHUI-AI 与 36 个竞品的逐一深度对比</p>
           <div className="mt-6 space-y-4">
             {ALL_COMPARISONS.map(({ group, items }) => (
               <div key={group}>
-                <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>
+                <h3 className="text-body font-semibold text-muted-foreground">{group}</h3>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {items.map((slug) => (
                     <Link
@@ -454,7 +454,7 @@ export default function CompareIndexPage() {
         {/* CTA */}
         <section className="mt-12 rounded-lg border bg-primary/5 p-3 text-center">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
             立即开始使用 IHUI-AI
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">

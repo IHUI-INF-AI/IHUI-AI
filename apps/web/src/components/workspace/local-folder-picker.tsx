@@ -907,7 +907,7 @@ export function LocalFolderPicker({
                 <div className="min-w-0 flex-1">
                   <div
                     className={cn(
-                      'truncate text-sm font-medium',
+                      'truncate text-body font-medium',
                       selectedName ? 'text-foreground' : 'text-muted-foreground/60',
                     )}
                   >

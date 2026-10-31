@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
@@ -29,6 +29,7 @@ import {
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
+import { Tappable } from '@ihui/ui-native'
 
 /** 挂载后延迟检查的毫秒数:首屏资源/请求优先,更新检查让路。 */
 const CHECK_DELAY_MS = 3000
@@ -125,7 +126,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
             {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.readyBody')}
           </Text>
         </View>
-        <Pressable
+        <Tappable
           onPress={dismissOtaPrompt}
           hitSlop={10}
           style={styles.closeBtn}
@@ -133,7 +134,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
           accessibilityLabel={t('appUpdate.close')}
         >
           <X size={16} color={tokens.text.secondary} />
-        </Pressable>
+        </Tappable>
       </View>
       {downloading ? (
         <View style={styles.track}>
@@ -147,14 +148,15 @@ export function UpdatePrompt(): React.JSX.Element | null {
           </Text>
         </View>
         {downloading ? null : (
-          <Pressable
+          <Tappable
             onPress={() => void handleUpdate()}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={styles.actionBtn}
+            pressedStyle={styles.actionBtnPressed}
             accessibilityRole="button"
             accessibilityLabel={t('appUpdate.action')}
           >
             <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
-          </Pressable>
+          </Tappable>
         )}
       </View>
     </View>

@@ -125,7 +125,7 @@ export function AsksTable({
           return (
             <span
               className={cn(
-                'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                 meta.cls,
               )}
             >
@@ -220,12 +220,12 @@ export function AsksTable({
       renderExpandedRow={(row) => (
         <div className="space-y-2 text-sm">
           <div>
-            <div className="text-xs font-medium text-muted-foreground">内容</div>
+            <div className="text-label font-medium text-muted-foreground">内容</div>
             <div className="mt-1 whitespace-pre-wrap">{row.original.content || '-'}</div>
           </div>
           {row.original.tags && row.original.tags.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-muted-foreground">标签</div>
+              <div className="text-label font-medium text-muted-foreground">标签</div>
               <div className="mt-1 flex flex-wrap gap-1">
                 {row.original.tags.map((tag) => (
                   <span

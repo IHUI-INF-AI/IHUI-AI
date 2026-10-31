@@ -87,11 +87,11 @@ export function PricingContent(): React.JSX.Element {
     <main className="mx-auto w-full max-w-7xl px-4 py-4">
       <BackButton />
       <section className="space-y-3 text-center">
-        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           VIP 会员权益
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           选择适合你的方案
         </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -136,7 +136,7 @@ export function PricingContent(): React.JSX.Element {
                 )}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-cta px-3 py-1 text-xs font-medium text-cta-foreground">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-cta px-3 py-1 text-label font-medium text-cta-foreground">
                     <Sparkles className="mr-1 inline h-3 w-3" />
                     推荐
                   </span>
@@ -150,7 +150,7 @@ export function PricingContent(): React.JSX.Element {
                   </div>
 
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">
+                    <span className="text-heading font-bold tracking-tight min-[768px]:text-display text-primary">
                       {isFree ? '免费' : formatCNY(displayPrice)}
                     </span>
                     {!isFree && <span className="text-sm text-muted-foreground">/ 月</span>}
@@ -214,7 +214,7 @@ export function PricingContent(): React.JSX.Element {
       <Guarantee />
 
       <section className="mt-14 rounded-lg border border-primary/30 bg-cta/5 p-3 text-center">
-        <h2 className="text-xl font-bold tracking-tight text-foreground min-[768px]:text-2xl">
+        <h2 className="text-heading font-bold tracking-tight text-foreground min-[768px]:text-display">
           还不确定?免费试用 30 天
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">

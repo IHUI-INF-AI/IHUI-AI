@@ -113,7 +113,7 @@ export default function ClawdbotBotsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Bot className="h-6 w-6 text-primary" /> Bot 管理
         </h1>
         <Button size="sm" onClick={openCreate}>
@@ -171,7 +171,7 @@ export default function ClawdbotBotsPage() {
               <div key={b.id} className="flex items-center justify-between px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</p>
+                    <p className="min-w-0 flex-1 truncate text-body font-medium">{b.name}</p>
                     <span
                       className={cn(
                         'rounded px-1.5 py-0.5 text-xs',

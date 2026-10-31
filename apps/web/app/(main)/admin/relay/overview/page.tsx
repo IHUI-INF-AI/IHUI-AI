@@ -245,7 +245,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" />
             实时监控
           </h1>
@@ -273,7 +273,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
         {kpis.map((k) => (
           <Card key={k.label}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+              <CardTitle className="flex items-center justify-between gap-2 text-label font-medium text-muted-foreground">
                 <span className="min-w-0 truncate">{k.label}</span>
                 <k.icon className={`h-4 w-4 shrink-0 ${k.color}`} />
               </CardTitle>
@@ -282,7 +282,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
               {overviewQ.isLoading || k.value === undefined ? (
                 <Skeleton className="h-7 w-24" />
               ) : (
-                <div className={`text-2xl font-bold tabular-nums ${k.color}`}>{k.value}</div>
+                <div className={`text-display font-bold tabular-nums ${k.color}`}>{k.value}</div>
               )}
               {k.delta && <div className="mt-1">{k.delta}</div>}
             </CardContent>

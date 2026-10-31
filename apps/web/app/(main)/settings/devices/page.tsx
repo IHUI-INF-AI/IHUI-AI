@@ -339,7 +339,7 @@ export default function DevicesPage() {
                 <TableBody>
                   {devices.map((device) => (
                     <TableRow key={device.id} data-testid={`device-row-${device.id}`}>
-                      <TableCell className="text-xs font-medium">
+                      <TableCell className="text-label font-medium">
                         <span className="inline-flex items-center gap-2">
                           {device.name}
                           {device.revokedAt && (

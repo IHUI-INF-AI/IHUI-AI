@@ -37,7 +37,7 @@ export default function ManualAccountPage() {
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 06 章 · 使用说明手册</div>
-        <h1 className="text-2xl min-[768px]:text-3xl font-bold tracking-tight">账户设置</h1>
+        <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">账户设置</h1>
         <p className="text-sm text-muted-foreground min-[768px]:text-base">
           管理你的个人资料、登录安全、API Key、主题偏好和通知设置。
           本章覆盖账户相关的全部操作,含注销账号流程。
@@ -46,7 +46,7 @@ export default function ManualAccountPage() {
 
       {/* 个人资料 */}
       <section id="profile" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.1 个人资料</h2>
+        <h2 className="text-heading font-bold">6.1 个人资料</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>进入 <strong>设置 → 个人资料</strong>,可修改:</p>
           <ul className="ml-4 list-disc space-y-1">
@@ -62,7 +62,7 @@ export default function ManualAccountPage() {
 
       {/* 密码与安全 */}
       <section id="password" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.2 密码与登录安全</h2>
+        <h2 className="text-heading font-bold">6.2 密码与登录安全</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <h3 className="font-semibold text-foreground">修改密码</h3>
           <ol className="ml-4 list-decimal space-y-1">
@@ -89,7 +89,7 @@ export default function ManualAccountPage() {
 
       {/* 两步验证 */}
       <section id="2fa" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.3 两步验证(2FA)</h2>
+        <h2 className="text-heading font-bold">6.3 两步验证(2FA)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>开启 2FA 后,即使密码泄露,黑客也无法登录。强烈建议 Team / Enterprise 用户开启。</p>
           <ol className="ml-4 list-decimal space-y-1">
@@ -112,7 +112,7 @@ export default function ManualAccountPage() {
 
       {/* API Key */}
       <section id="api-key" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.4 API Key 管理</h2>
+        <h2 className="text-heading font-bold">6.4 API Key 管理</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>API Key 用于通过代码调用智汇 AI 接口(对话 / Agent / 知识库等)。</p>
           <ol className="ml-4 list-decimal space-y-1">
@@ -138,7 +138,7 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
 
       {/* 主题与语言 */}
       <section id="appearance" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.5 主题与语言</h2>
+        <h2 className="text-heading font-bold">6.5 主题与语言</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <h3 className="font-semibold text-foreground">主题</h3>
           <ul className="ml-4 list-disc space-y-1">
@@ -164,7 +164,7 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
 
       {/* 通知偏好 */}
       <section id="notifications" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.6 通知偏好</h2>
+        <h2 className="text-heading font-bold">6.6 通知偏好</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>设置 → 通知,可分别配置:</p>
           <div className="space-y-2">
@@ -191,7 +191,7 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
 
       {/* 注销账号 */}
       <section id="delete-account" className="mt-10 space-y-3">
-        <h2 className="text-xl font-bold">6.7 注销账号</h2>
+        <h2 className="text-heading font-bold">6.7 注销账号</h2>
         <div className="rounded-xl border bg-destructive/5 p-3 space-y-2 text-sm text-muted-foreground ring-1 ring-destructive/20">
           <p className="font-semibold text-destructive">⚠️ 注销后不可恢复,请谨慎操作</p>
           <p>注销账号会删除以下数据:</p>

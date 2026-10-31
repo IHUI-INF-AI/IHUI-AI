@@ -46,7 +46,7 @@ export default function AnnouncementsPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -75,7 +75,7 @@ export default function AnnouncementsPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
-                            'rounded-md px-2 py-0.5 text-xs font-medium',
+                            'rounded-md px-2 py-0.5 text-label font-medium',
                             ANN_TYPE_BADGE[a.type],
                           )}
                         >
@@ -91,7 +91,7 @@ export default function AnnouncementsPage() {
                           {fmt(a.publishedAt)}
                         </span>
                       </div>
-                      <h2 className="text-sm font-semibold">{a.title}</h2>
+                      <h2 className="text-body font-semibold">{a.title}</h2>
                       <p className="text-sm text-muted-foreground">{a.summary}</p>
                     </div>
                   </CardContent>

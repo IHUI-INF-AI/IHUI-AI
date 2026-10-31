@@ -79,7 +79,7 @@ export function CloudChatOpsCard({
       data-cloud-chat-ops-groups={groups.size}
       data-cloud-chat-ops-waiting={view.waitingOpCount}
     >
-      <span className="text-xs font-medium text-foreground">{t(CLOUD_CHAT_OPS_TITLE_KEY)}</span>
+      <span className="text-label font-medium text-foreground">{t(CLOUD_CHAT_OPS_TITLE_KEY)}</span>
       {[...groups.entries()].map(([op, rows]) => (
         <div key={op} className="flex flex-col gap-1" data-cloud-chat-op-group={op}>
           <span className="text-[11px] font-medium text-foreground">{opLabel[op]}</span>

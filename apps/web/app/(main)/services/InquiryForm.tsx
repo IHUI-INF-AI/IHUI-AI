@@ -153,7 +153,7 @@ export function InquiryForm(): React.JSX.Element {
       />
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">
+          <label className="text-body font-medium">
             {t('inquiry.fields.name')} <span className="text-destructive">*</span>
           </label>
           <Input
@@ -164,7 +164,7 @@ export function InquiryForm(): React.JSX.Element {
           {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">{t('inquiry.fields.company')}</label>
+          <label className="text-body font-medium">{t('inquiry.fields.company')}</label>
           <Input
             value={form.company}
             onChange={(e) => update('company', e.target.value)}
@@ -174,7 +174,7 @@ export function InquiryForm(): React.JSX.Element {
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">
+          <label className="text-body font-medium">
             {t('inquiry.fields.email')} <span className="text-destructive">*</span>
           </label>
           <Input
@@ -186,7 +186,7 @@ export function InquiryForm(): React.JSX.Element {
           {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">{t('inquiry.fields.phone')}</label>
+          <label className="text-body font-medium">{t('inquiry.fields.phone')}</label>
           <Input
             type="tel"
             value={form.phone}
@@ -219,7 +219,7 @@ export function InquiryForm(): React.JSX.Element {
         error={errors.timeline}
       />
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">
+        <label className="text-body font-medium">
           {t('inquiry.fields.description')} <span className="text-destructive">*</span>
         </label>
         <Textarea

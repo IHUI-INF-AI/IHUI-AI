@@ -35,7 +35,7 @@ function Avatar({ src, name }: { src?: string; name: string }) {
     return <Image src={src} alt={name} width={32} height={32} className="h-8 w-8 rounded-full" />
   }
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-medium">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-label font-medium">
       {(name[0] ?? 'U').toUpperCase()}
     </div>
   )
@@ -74,7 +74,7 @@ export function TeamMembersList({
             <Avatar src={m.avatar} name={m.nickname} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="break-words text-sm font-medium">{m.nickname}</span>
+                <span className="break-words text-body font-medium">{m.nickname}</span>
                 <span
                   className={cn(
                     'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',

@@ -122,7 +122,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                   <div key={i} className="space-y-1">
                     <div className="rounded-md bg-primary/10 px-2 py-1 text-xs">{m.ques}</div>
                     {m.content && (
-                      <div className="rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                      <div className="rounded-md bg-muted px-2 py-1 text-label font-medium">
                         {m.content}
                       </div>
                     )}

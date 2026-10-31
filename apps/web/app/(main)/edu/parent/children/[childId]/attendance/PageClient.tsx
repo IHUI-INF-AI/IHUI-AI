@@ -86,7 +86,7 @@ export default function ChildAttendancePage() {
     <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('child.attendance')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('child.attendance')}</h1>
         <p className="text-xs text-muted-foreground">{t('child.attendanceHint')}</p>
       </header>
 
@@ -110,31 +110,31 @@ export default function ChildAttendancePage() {
           <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-5">
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
-                <p className="text-2xl font-bold">{attendanceRate}%</p>
+                <p className="text-display font-bold">{attendanceRate}%</p>
                 <p className="text-xs text-muted-foreground">{t('attendance.rate')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
-                <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
+                <p className="text-display font-bold text-emerald-600">{stats.present}</p>
                 <p className="text-xs text-muted-foreground">{tParent('attendancePresent')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
-                <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
+                <p className="text-display font-bold text-amber-600">{stats.late}</p>
                 <p className="text-xs text-muted-foreground">{tParent('attendanceLate')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
-                <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+                <p className="text-display font-bold text-red-600">{stats.absent}</p>
                 <p className="text-xs text-muted-foreground">{tParent('attendanceAbsent')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
-                <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
+                <p className="text-display font-bold text-blue-600">{stats.leave}</p>
                 <p className="text-xs text-muted-foreground">{tParent('attendanceLeave')}</p>
               </CardContent>
             </Card>
@@ -143,7 +143,7 @@ export default function ChildAttendancePage() {
           {/* 签到记录列表 */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t('attendance.records')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('attendance.records')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -153,7 +153,7 @@ export default function ChildAttendancePage() {
                     className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-sm font-medium">{r.date}</div>
+                      <div className="text-body font-medium">{r.date}</div>
                       <Badge className={STATUS_VARIANTS[r.status] ?? ''}>
                         {codeLabel(tParent, ATTENDANCE_STATUS_KEYS, r.status)}
                       </Badge>

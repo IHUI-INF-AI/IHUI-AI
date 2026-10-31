@@ -21,7 +21,7 @@ export function InstanceTasks({ tasks, isLoading }: Props) {
   const t = useTranslations('workflows')
   return (
     <div className="space-y-2">
-      <h2 className="flex items-center gap-2 text-sm font-semibold">
+      <h2 className="flex items-center gap-2 text-body font-semibold">
         <ListChecks className="h-4 w-4 text-primary" />
         {t('instanceDetail.tasks')}
       </h2>
@@ -61,12 +61,12 @@ function TaskRow({ task }: { task: Task }) {
           <ChevronRight className="h-4 w-4 shrink-0" />
         )}
         <span className="w-8 shrink-0 text-xs text-muted-foreground">#{task.step}</span>
-        <span className="min-w-0 flex-1 break-words text-sm font-medium">{task.name}</span>
+        <span className="min-w-0 flex-1 break-words text-body font-medium">{task.name}</span>
         <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
           {task.type}
         </span>
         <span
-          className={cn('rounded px-1.5 py-0.5 text-xs font-medium', STATUS_BADGE[task.status])}
+          className={cn('rounded px-1.5 py-0.5 text-label font-medium', STATUS_BADGE[task.status])}
         >
           {t(INSTANCE_STATUS_KEYS[task.status] ?? 'instanceStatus.unknown')}
         </span>

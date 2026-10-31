@@ -57,6 +57,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
+import { Tappable } from '@ihui/ui-native'
 
 export interface VerifyCodeModalProps {
   visible: boolean
@@ -150,14 +151,14 @@ export function VerifyCodeModal({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.center}>
           <View style={styles.card}>
-            <Pressable
+            <Tappable
               style={styles.closeBtn}
               onPress={onClose}
               hitSlop={8}
               accessibilityLabel={t('verify.closeA11y')}
             >
               <Text style={styles.closeIcon}>×</Text>
-            </Pressable>
+            </Tappable>
 
             <Text style={styles.title}>{t('verify.getCode')}</Text>
             <Text style={styles.description}>{t('verify.desc')}</Text>
@@ -197,7 +198,7 @@ export function VerifyCodeModal({
               />
             </View>
 
-            <Pressable onPress={handleResend} disabled={remaining > 0} style={undefined}>
+            <Tappable onPress={handleResend} disabled={remaining > 0}>
               <Text
                 style={[
                   styles.countdown,
@@ -206,16 +207,16 @@ export function VerifyCodeModal({
               >
                 {remaining > 0 ? t('auth.resendCode', { seconds: remaining }) : t('verify.resend')}
               </Text>
-            </Pressable>
+            </Tappable>
 
-            <Pressable
+            <Tappable
               onPress={handleConfirm}
               disabled={!isComplete}
               accessibilityRole="button"
               style={[styles.confirm, !isComplete && styles.confirmDisabled]}
             >
               <Text style={styles.confirmText}>{t('verify.confirm')}</Text>
-            </Pressable>
+            </Tappable>
           </View>
         </View>
       </KeyboardAvoidingView>

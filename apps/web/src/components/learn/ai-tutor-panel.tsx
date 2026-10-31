@@ -122,7 +122,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
       <CardContent className="min-[640px]:p-3 flex h-full flex-col gap-4 p-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">{t('title')}</span>
+          <span className="text-body font-semibold">{t('title')}</span>
         </div>
 
         <div className="space-y-2">
@@ -159,7 +159,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
                     setMode(m.value)
                     resetResults()
                   }}
-                  className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-sm border text-xs font-medium leading-none transition-colors ${
+                  className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-sm border text-label font-medium leading-none transition-colors ${
                     active
                       ? 'border-primary/30 bg-primary/10 text-primary'
                       : 'border-border hover:bg-accent'
@@ -214,7 +214,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           {explain && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <div className="text-xs font-medium text-primary">{t('modeExplain')}</div>
+                <div className="text-label font-medium text-primary">{t('modeExplain')}</div>
                 <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-relaxed">
                   {explain.answer}
                 </div>
@@ -249,7 +249,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           {hint && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <div className="text-xs font-medium text-amber-600">{t('modeHint')}</div>
+                <div className="text-label font-medium text-amber-600">{t('modeHint')}</div>
                 <div className="whitespace-pre-wrap rounded-md bg-amber-500/5 p-3 text-sm leading-relaxed">
                   {hint.hint}
                 </div>
@@ -270,12 +270,12 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
 
           {quiz && quiz.quizzes && quiz.quizzes.length > 0 && (
             <div className="space-y-3">
-              <div className="text-xs font-medium text-emerald-600">
+              <div className="text-label font-medium text-emerald-600">
                 {t('quizCount', { count: quiz.quizzes.length })}
               </div>
               {quiz.quizzes.map((item, i) => (
                 <div key={i} className="space-y-1 rounded-md bg-muted/30 p-3">
-                  <div className="text-sm font-medium">
+                  <div className="text-body font-medium">
                     {i + 1}. {item.question_text}
                   </div>
                   {item.options && item.options.length > 0 && (

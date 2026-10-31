@@ -84,8 +84,8 @@ export default function UserCard({ onGoPage }: UserCardProps) {
                 <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
               </View>
               <View>
-                <Text className="block text-[length:32rpx] text-foreground">{item.title}</Text>
-                <Text className="block text-[length:28rpx] text-muted-foreground mt-[4rpx]">
+                <Text className="block text-title text-foreground">{item.title}</Text>
+                <Text className="block text-body text-muted-foreground mt-[4rpx]">
                   {item.desc}
                 </Text>
               </View>

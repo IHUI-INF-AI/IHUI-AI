@@ -98,7 +98,7 @@ export function SkillsPanel() {
                 >
                   <Package className="h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm font-medium">{s.name}</p>
+                    <p className="break-words text-body font-medium">{s.name}</p>
                     {s.description && (
                       <p className="break-words text-xs text-muted-foreground">{s.description}</p>
                     )}
@@ -159,7 +159,7 @@ export function SkillsPanel() {
                   >
                     <Package className="h-4 w-4 shrink-0 text-primary" />
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium">{s.name}</p>
+                      <p className="break-words text-body font-medium">{s.name}</p>
                       {s.description && (
                         <p className="break-words text-xs text-muted-foreground">{s.description}</p>
                       )}

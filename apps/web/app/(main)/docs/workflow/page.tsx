@@ -69,11 +69,11 @@ export default function WorkflowDocsPage() {
 
       {/* Hero */}
       <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Zap className="h-3.5 w-3.5" />
           工作流编排
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           工作流编排完整指南
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -84,7 +84,7 @@ export default function WorkflowDocsPage() {
 
       {/* 什么是工作流 */}
       <section id="what-is-workflow" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">什么是工作流?</h2>
+        <h2 className="text-display font-bold tracking-tight">什么是工作流?</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             <strong>工作流(Workflow)</strong>是把多个 AI 能力(对话 / 检索 / 工具调用 / 模型调用)
@@ -103,10 +103,10 @@ export default function WorkflowDocsPage() {
 
       {/* 节点类型 */}
       <section id="nodes" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">节点类型</h2>
+        <h2 className="text-display font-bold tracking-tight">节点类型</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-sm font-semibold"><Zap className="mr-1 inline h-4 w-4" />触发器(Trigger)</p>
+            <p className="text-body font-semibold"><Zap className="mr-1 inline h-4 w-4" />触发器(Trigger)</p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li><strong>Manual</strong>:手动点击"运行"触发</li>
               <li><strong>Schedule</strong>:Cron 定时(如每天 9 点)</li>
@@ -116,7 +116,7 @@ export default function WorkflowDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-sm font-semibold"><Bot className="mr-1 inline h-4 w-4" />AI 节点</p>
+            <p className="text-body font-semibold"><Bot className="mr-1 inline h-4 w-4" />AI 节点</p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li><strong>Chat</strong>:LLM 对话(单轮 / 多轮)</li>
               <li><strong>RAG</strong>:知识库检索 + 生成</li>
@@ -127,7 +127,7 @@ export default function WorkflowDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-sm font-semibold"><Wrench className="mr-1 inline h-4 w-4" />工具节点</p>
+            <p className="text-body font-semibold"><Wrench className="mr-1 inline h-4 w-4" />工具节点</p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li><strong>HTTP Request</strong>:调用任意 API</li>
               <li><strong>MCP Tool</strong>:调用 MCP Server 工具</li>
@@ -137,7 +137,7 @@ export default function WorkflowDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-sm font-semibold"><GitBranch className="mr-1 inline h-4 w-4" />控制流节点</p>
+            <p className="text-body font-semibold"><GitBranch className="mr-1 inline h-4 w-4" />控制流节点</p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li><strong>If</strong>:条件分支(if / else if / else)</li>
               <li><strong>Switch</strong>:多分支选择</li>
@@ -152,7 +152,7 @@ export default function WorkflowDocsPage() {
 
       {/* 创建工作流 */}
       <section id="create-workflow" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">创建第一个工作流</h2>
+        <h2 className="text-display font-bold tracking-tight">创建第一个工作流</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             示例:<strong>每日行业新闻 AI 摘要推送</strong>
@@ -184,7 +184,7 @@ export default function WorkflowDocsPage() {
 
       {/* 高级特性 */}
       <section id="advanced" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">高级特性</h2>
+        <h2 className="text-display font-bold tracking-tight">高级特性</h2>
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold"><Split className="mr-1.5 inline h-5 w-5" />并行执行</h3>
@@ -248,7 +248,7 @@ export default function WorkflowDocsPage() {
 
       {/* 监控 */}
       <section id="monitoring" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">监控与调试</h2>
+        <h2 className="text-display font-bold tracking-tight">监控与调试</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
           <ul className="ml-4 list-disc space-y-2 text-sm text-muted-foreground">
             <li><strong>实时执行日志</strong>:每个节点的输入 / 输出 / 耗时 / 状态实时显示</li>

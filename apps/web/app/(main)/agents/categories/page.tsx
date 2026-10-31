@@ -60,7 +60,7 @@ export default function AgentCategoriesPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Tag className="h-6 w-6 text-primary" />
           智能体分类
         </h1>
@@ -96,7 +96,7 @@ export default function AgentCategoriesPage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <h3 className="line-clamp-2 text-sm font-medium">{cat.name}</h3>
+                      <h3 className="line-clamp-2 text-body font-medium">{cat.name}</h3>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {cat.isPaid && (
                           <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">

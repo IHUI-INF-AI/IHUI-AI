@@ -61,7 +61,7 @@ export default function LearnMapPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <MapIcon className="h-7 w-7 text-primary" />
           {data?.title ?? t('defaultTitle')}
         </h1>
@@ -86,7 +86,7 @@ export default function LearnMapPage() {
                       style={{ width: `${clampPercent(totalProgress)}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium">{Math.round(totalProgress)}%</span>
+                  <span className="text-body font-medium">{Math.round(totalProgress)}%</span>
                 </div>
               </div>
             </CardContent>

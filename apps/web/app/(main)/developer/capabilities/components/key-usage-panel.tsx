@@ -107,7 +107,7 @@ export function KeyUsagePanel({ apiKey }: { apiKey: DeveloperApiKeyWithQuota }):
   return (
     <div className="ui-card space-y-3 rounded-lg bg-muted/60 p-3">
       <div className="flex flex-wrap items-center gap-1.5">
-        <h4 className="text-xs font-semibold">{t('usageTitle')}</h4>
+        <h4 className="text-label font-semibold">{t('usageTitle')}</h4>
         <span className="text-[11px] text-muted-foreground">{t('rateLimitNote')}</span>
       </div>
 

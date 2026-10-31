@@ -83,7 +83,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">{t('messageList')}</Label>
+          <Label className="text-body font-medium">{t('messageList')}</Label>
           <span className="text-xs text-muted-foreground">
             {t('messageCount', { n: messages.length })}
           </span>

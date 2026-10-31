@@ -77,7 +77,7 @@ export default function EventBusMonitorPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Webhook className="h-6 w-6 text-primary" />
           {t('eventBus.title')}
         </h1>
@@ -100,13 +100,13 @@ export default function EventBusMonitorPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardTitle className="text-body font-medium text-muted-foreground">
                     {c.label}
                   </CardTitle>
                   <c.icon className={cn('h-4 w-4', c.color)} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatNumber(c.value)}</div>
+                  <div className="text-display font-bold">{formatNumber(c.value)}</div>
                 </CardContent>
               </Card>
             ))}
@@ -146,14 +146,14 @@ export default function EventBusMonitorPage() {
                           ) : (
                             <Clock className="h-4 w-4 text-amber-600" />
                           )}
-                          <span className="font-mono text-xs font-medium">{e.name}</span>
+                          <span className="font-mono text-label font-medium">{e.name}</span>
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{e.source}</td>
                       <td className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                            'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                             st.bg,
                             st.text,
                           )}

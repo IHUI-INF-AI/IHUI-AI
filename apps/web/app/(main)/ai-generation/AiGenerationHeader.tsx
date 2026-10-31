@@ -30,7 +30,7 @@ export function AiGenerationHeader({ type, setType, currentMode, onSubTabClick }
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 shrink-0 text-primary" />
         <div>
-          <h1 className="text-xl font-bold tracking-tight">{t('pageTitle')}</h1>
+          <h1 className="text-heading font-bold tracking-tight">{t('pageTitle')}</h1>
           <p className="text-sm text-muted-foreground">{t('pageSubtitle')}</p>
         </div>
       </div>
@@ -46,7 +46,7 @@ export function AiGenerationHeader({ type, setType, currentMode, onSubTabClick }
                   type="button"
                   onClick={() => onSubTabClick(tab.value)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-xs font-medium transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-label font-medium transition-colors',
                     tab.value === currentMode
                       ? 'border-brand-accent-deep bg-primary/10 text-primary'
                       : 'border-border bg-card text-muted-foreground hover:bg-accent',

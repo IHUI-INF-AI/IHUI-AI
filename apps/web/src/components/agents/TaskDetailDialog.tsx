@@ -271,7 +271,7 @@ export function TaskDetailDialog({
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={cn(
-                  'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                  'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                   STATUS_BADGE_CLASS[task.status],
                 )}
               >
@@ -377,7 +377,7 @@ export function TaskDetailDialog({
             {/* 状态流转 */}
             {legalTargets?.length > 0 && (
               <div className="space-y-2 rounded-md border border-border p-2.5">
-                <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <Label className="flex items-center gap-1.5 text-label font-medium">
                   <ArrowRightCircle className="h-3.5 w-3.5" />
                   <CenteredText>{t('transition')}</CenteredText>
                 </Label>
@@ -392,7 +392,7 @@ export function TaskDetailDialog({
                         disabled={!isLegal}
                         onClick={() => setTransitionTo(status)}
                         className={cn(
-                          'inline-flex items-center rounded-sm px-2 py-1 text-xs font-medium transition-colors',
+                          'inline-flex items-center rounded-sm px-2 py-1 text-label font-medium transition-colors',
                           isSelected
                             ? STATUS_BADGE_CLASS[status]
                             : isLegal

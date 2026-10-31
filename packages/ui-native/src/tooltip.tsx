@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Animated, Modal, Pressable, Text, View, type ViewStyle } from 'react-native'
 import { cn } from '@ihui/design-tokens'
+import { Tappable } from './tappable'
 import {
   TOOLTIP_GAP_PX,
   TOOLTIP_PADDING_X_PX,
@@ -103,9 +104,9 @@ export function Tooltip({ children, content, side = 'top' }: TooltipProps) {
 
   return (
     <>
-      <Pressable ref={triggerRef} onLongPress={show} delayLongPress={300}>
+      <Tappable ref={triggerRef} onLongPress={show} delayLongPress={300}>
         {children}
-      </Pressable>
+      </Tappable>
       <Modal visible={visible} transparent animationType="none" onRequestClose={hide}>
         <Pressable className="flex-1" onPress={hide}>
           <Animated.View

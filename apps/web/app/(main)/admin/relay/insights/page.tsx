@@ -79,11 +79,11 @@ export default function InsightsPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <BrainCircuit className="h-5 w-5" aria-hidden />
             运营洞察
             {live && (
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-label font-normal text-emerald-600 dark:text-emerald-400">
                 <span
                   className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
                   aria-hidden
@@ -106,7 +106,7 @@ export default function InsightsPage() {
         <div className="grid grid-cols-3 gap-3">
           {(['critical', 'warning', 'info'] as const).map((s) => (
             <div key={s} className="rounded-lg border bg-card p-3 text-center">
-              <p className="text-2xl font-medium tabular-nums">{summary[s]}</p>
+              <p className="text-display font-medium tabular-nums">{summary[s]}</p>
               <p className={cn('mt-1 rounded-md px-2 py-0.5 text-xs', SEV_STYLE[s].badge)}>
                 {SEV_STYLE[s].label}
               </p>
@@ -138,13 +138,13 @@ export default function InsightsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(
-                      'rounded-md px-2 py-0.5 text-xs font-medium',
+                      'rounded-md px-2 py-0.5 text-label font-medium',
                       SEV_STYLE[i.severity].badge,
                     )}
                   >
                     {SEV_STYLE[i.severity].label}
                   </span>
-                  <p className="text-sm font-medium">{i.title}</p>
+                  <p className="text-body font-medium">{i.title}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">{i.detail}</p>
                 <p className="text-xs">

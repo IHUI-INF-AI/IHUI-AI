@@ -520,7 +520,7 @@ function DecisionsTab() {
     <div className="flex flex-col gap-3">
       {/* 决策历史 */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-label font-medium text-muted-foreground">
           {t('tabs.decisions')} · {decisions.length}
         </div>
         {decisions.length === 0 ? (
@@ -591,7 +591,7 @@ function DecisionsTab() {
 
       {/* Playbook 列表 */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-label font-medium text-muted-foreground">
           {t('decisions.playbooks')} · {playbooks.length}
         </div>
         {playbooks.length === 0 ? (
@@ -612,7 +612,7 @@ function DecisionsTab() {
                   )}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-medium">{pb.name ?? pb.id}</div>
+                  <div className="truncate text-label font-medium">{pb.name ?? pb.id}</div>
                   {(pb.trigger || pb.description) && (
                     <div className="truncate text-[10px] text-muted-foreground">
                       {t('decisions.trigger')}: {pb.trigger ?? pb.description}
@@ -695,7 +695,7 @@ function BudgetTab() {
     <div className="flex flex-col gap-3">
       {/* 顶部用量汇总 */}
       <div className="rounded-md border border-border bg-card/40 p-3 backdrop-blur-sm">
-        <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+        <div className="mb-2 flex items-center gap-1.5 text-label font-medium">
           <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
           <span>{t('budget.todayUsage')}</span>
         </div>
@@ -744,7 +744,7 @@ function BudgetTab() {
 
       {/* 7 天趋势 */}
       <div className="rounded-md border border-border bg-card/40 p-3 backdrop-blur-sm">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">{t('budget.trend')}</div>
+        <div className="mb-2 text-label font-medium text-muted-foreground">{t('budget.trend')}</div>
         {trend.length === 0 ? (
           <Unavailable message={t('unavailable')} />
         ) : (
@@ -774,7 +774,7 @@ function BudgetTab() {
 
       {/* 支柱预算 */}
       <div className="rounded-md border border-border bg-card/40 p-3 backdrop-blur-sm">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">
+        <div className="mb-2 text-label font-medium text-muted-foreground">
           {t('budget.pillarBudget')}
         </div>
         {Object.keys(pillars).length === 0 ? (
@@ -814,7 +814,7 @@ function BudgetTab() {
 
       {/* 成本分解 */}
       <div className="rounded-md border border-border bg-card/40 p-3 backdrop-blur-sm">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">
+        <div className="mb-2 text-label font-medium text-muted-foreground">
           {t('budget.costBreakdown')}
         </div>
         {!breakdown ? (
@@ -905,7 +905,7 @@ function TelemetryTab() {
     <div className="flex flex-col gap-3">
       {/* 支柱健康卡片 */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-label font-medium text-muted-foreground">
           {t('telemetry.pillarHealth')}
         </div>
         {pillars.length === 0 ? (
@@ -925,7 +925,7 @@ function TelemetryTab() {
                     <span className={cn('h-1.5 w-1.5 rounded-full', hs.dot)} />
                     <span
                       className={cn(
-                        'truncate text-xs font-medium',
+                        'truncate text-label font-medium',
                         pillarStyle(p.pillar).split(' ')[0],
                       )}
                     >
@@ -959,7 +959,7 @@ function TelemetryTab() {
 
       {/* 最近 Trace */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-label font-medium text-muted-foreground">
           {t('telemetry.recentTraces')}
         </div>
         {traces.length === 0 ? (
@@ -1036,7 +1036,7 @@ export function OrchestrationHubPanel() {
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cta text-cta-foreground">
           <Activity className="h-3.5 w-3.5" />
         </div>
-        <span className="text-sm font-semibold">{t('title')}</span>
+        <span className="text-body font-semibold">{t('title')}</span>
         <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           <span>{t('status.running')}</span>

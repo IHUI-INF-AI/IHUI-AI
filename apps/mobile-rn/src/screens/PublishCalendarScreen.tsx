@@ -17,7 +17,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,6 +36,7 @@ import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -301,15 +301,15 @@ export default function PublishCalendarScreen() {
         onRequestClose={() => setPanel(null)}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={() => setPanel(null)} />
+          <Tappable style={styles.mask} onPress={() => setPanel(null)} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.title}
               </Text>
-              <Pressable onPress={() => setPanel(null)} hitSlop={8} style={undefined}>
+              <Tappable onPress={() => setPanel(null)} hitSlop={8}>
                 <X size={18} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
             {panel ? (
               <>

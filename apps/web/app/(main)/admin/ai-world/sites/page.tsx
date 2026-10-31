@@ -75,7 +75,7 @@ export default function AdminAiWorldSitesPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Globe className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -111,11 +111,11 @@ export default function AdminAiWorldSitesPage() {
                     key={cat.id}
                     className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-label font-medium text-primary">
                       {isIconKey(cat.icon) ? t(ICON_LABEL_KEY[cat.icon]) : cat.icon}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{cat.name}</p>
+                      <p className="truncate text-body font-medium">{cat.name}</p>
                       <p className="text-xs text-muted-foreground">{cat.id}</p>
                     </div>
                   </div>

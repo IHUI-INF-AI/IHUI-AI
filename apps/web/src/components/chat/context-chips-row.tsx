@@ -114,7 +114,7 @@ export function ContextChipsRow({
         >
           <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-primary">
+            <p className="text-label font-medium text-primary">
               {quoted.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')}
             </p>
             <p className="truncate text-xs text-muted-foreground">{quoted.content}</p>

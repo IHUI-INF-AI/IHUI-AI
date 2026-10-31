@@ -42,7 +42,7 @@ export default function NewPlanPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">新建 Plan</h1>
+        <h1 className="text-display font-bold tracking-tight">新建 Plan</h1>
       </div>
 
       <div className="rounded-lg border bg-card p-3">

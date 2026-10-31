@@ -124,7 +124,7 @@ export function FullAccessConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-border bg-foreground/5 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="rounded-xl border border-border bg-foreground/5 px-4 py-2 text-body font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
           >
             {t('firstTimeConfirmCancel')}
           </button>
@@ -134,7 +134,7 @@ export function FullAccessConfirmDialog({
             disabled={!acknowledged}
             data-testid="full-access-confirm-button"
             className={cn(
-              'rounded-xl px-4 py-2 text-sm font-medium transition-colors',
+              'rounded-xl px-4 py-2 text-body font-medium transition-colors',
               acknowledged
                 ? 'bg-amber-500 text-white hover:bg-amber-600'
                 : 'cursor-not-allowed bg-muted text-muted-foreground/50',

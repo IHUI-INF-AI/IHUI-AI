@@ -80,7 +80,7 @@ export default function AgentRuntimePage() {
     <div className="mx-auto w-full max-w-[1240px] space-y-5 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Zap className="h-6 w-6 text-primary" />
           运行时可视化中心
         </h1>

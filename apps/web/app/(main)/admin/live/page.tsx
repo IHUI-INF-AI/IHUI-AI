@@ -98,7 +98,7 @@ export default function AdminLivePage() {
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">

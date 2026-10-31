@@ -459,7 +459,7 @@ export function Leaderboard({ entries }: Props) {
       {/* 头部 */}
       <div className="flex items-center gap-2 bg-cta/5 px-5 py-3">
         <Trophy className="h-4 w-4 text-primary" />
-        <h2 className="text-sm font-semibold">{t('leaderboard.title')}</h2>
+        <h2 className="text-body font-semibold">{t('leaderboard.title')}</h2>
         <span className="ml-auto text-[10px] text-muted-foreground">
           {t('leaderboard.subtitle')}
         </span>
@@ -472,7 +472,7 @@ export function Leaderboard({ entries }: Props) {
             key={tab.key}
             type="button"
             onClick={() => setActiveCategory(tab.key)}
-            className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
               activeCategory === tab.key
                 ? 'bg-cta text-cta-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -738,7 +738,7 @@ export function Leaderboard({ entries }: Props) {
                     </td>
                     {/* 模型名 — 单行竖向排列,核心亮点移至详情弹窗 */}
                     <td className="px-3 py-2.5">
-                      <span className="text-xs font-semibold leading-tight">
+                      <span className="text-label font-semibold leading-tight">
                         {highlight(entry.modelName, searchQuery)}
                       </span>
                     </td>
@@ -751,7 +751,7 @@ export function Leaderboard({ entries }: Props) {
                       <td className="px-3 py-2.5 text-right">
                         {entry.arenaScore ? (
                           <div className="flex flex-col items-end">
-                            <span className="text-xs font-bold tabular-nums">
+                            <span className="text-label font-bold tabular-nums">
                               {entry.arenaScore}
                             </span>
                             {entry.scoreCi ? (

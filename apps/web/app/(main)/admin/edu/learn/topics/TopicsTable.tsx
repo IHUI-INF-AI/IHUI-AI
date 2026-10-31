@@ -111,7 +111,7 @@ export function TopicsTable({
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         tp.isShowIndex
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                           : 'bg-muted text-muted-foreground',
@@ -123,7 +123,7 @@ export function TopicsTable({
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         st.cls,
                       )}
                     >

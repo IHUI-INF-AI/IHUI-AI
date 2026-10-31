@@ -107,7 +107,7 @@ export function SelectionAnnotationBar({
               const draft = drafts[a.id] ?? ''
               return (
                 <li key={a.id} data-testid={`selection-annotation-item-${messageId}-${index}`}>
-                  <div className="text-xs font-medium text-foreground">
+                  <div className="text-label font-medium text-foreground">
                     {t('selectionAnnotations.selectedText', { index })}
                   </div>
                   <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-muted-foreground">

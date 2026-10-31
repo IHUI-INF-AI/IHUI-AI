@@ -186,7 +186,7 @@ export default function ErrorRulesPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <ShieldAlert className="h-5 w-5" aria-hidden />
             上游错误透传规则
           </h1>

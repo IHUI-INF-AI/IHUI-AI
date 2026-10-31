@@ -70,7 +70,7 @@ export default function WorkspacePermissionsPage() {
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function WorkspacePermissionsPage() {
                 <ModeIcon className={cn('h-5 w-5 shrink-0', Mode.color)} />
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">{perm.name}</p>
+                    <p className="text-body font-medium truncate">{perm.name}</p>
                     <span
                       className={cn(
                         'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',

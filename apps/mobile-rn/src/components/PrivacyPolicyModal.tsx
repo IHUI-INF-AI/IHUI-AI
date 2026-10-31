@@ -20,7 +20,6 @@
  */
 import {
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,6 +35,7 @@ import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/pr
 
 import { rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { Tappable } from '@ihui/ui-native'
 
 export interface PrivacyPolicyModalProps {
   /** 是否显示弹窗 */
@@ -91,7 +91,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
       statusBarTranslucent
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.overlayPressable} onPress={handleDisagree} />
+        <Tappable style={styles.overlayPressable} onPress={handleDisagree} />
         <View style={[styles.card, { height: CARD_HEIGHT }]}>
           {/* 顶部:shield 图标 + 标题 + 副标题(对齐 web 端) */}
           <View style={styles.header}>

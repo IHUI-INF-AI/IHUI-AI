@@ -24,7 +24,7 @@ export function AiGenerationPreview({ lastImage, lastVideo, onClear }: Props) {
     <Card>
       <CardContent className="space-y-4 pt-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">{t('preview')}</p>
+          <p className="text-body font-semibold">{t('preview')}</p>
           <button
             type="button"
             onClick={onClear}

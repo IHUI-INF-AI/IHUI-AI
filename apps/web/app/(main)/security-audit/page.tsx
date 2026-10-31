@@ -99,7 +99,7 @@ export default function SecurityAuditPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <ShieldAlert className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -134,7 +134,7 @@ export default function SecurityAuditPage() {
                   return (
                     <TableRow key={ev.id}>
                       <TableCell className="px-4 py-2.5">
-                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                        <span className="flex items-center gap-1.5 text-body font-medium">
                           <Icon className="h-4 w-4 text-muted-foreground" />
                           {t(TYPE_KEY[type] ?? 'type.other')}
                         </span>

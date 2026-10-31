@@ -132,7 +132,7 @@ export default function EnglishHomePage() {
       <div className="mx-auto max-w-5xl px-6 py-12 md:py-16">
         {/* Hero Section */}
         <section className="mb-16 flex flex-col items-center text-center md:mb-24">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" />
             Open-source · Apache 2.0 · Self-hostable
           </div>
@@ -162,7 +162,7 @@ export default function EnglishHomePage() {
         {/* Key Features Grid */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Everything You Need to Ship AI
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -187,7 +187,7 @@ export default function EnglishHomePage() {
         {/* Supported Models Section */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               176+ AI Models, One API
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -201,7 +201,7 @@ export default function EnglishHomePage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Cpu className="h-5 w-5" />
                   </div>
-                  <span className="mt-2 text-sm font-medium text-foreground">{provider.name}</span>
+                  <span className="mt-2 text-body font-medium text-foreground">{provider.name}</span>
                   <span className="text-xs text-muted-foreground">{provider.count}</span>
                 </CardContent>
               </Card>
@@ -212,7 +212,7 @@ export default function EnglishHomePage() {
         {/* 8-End Platform Section */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
               Eight Platforms, One Codebase
             </h2>
             <p className="mt-3 text-muted-foreground">
@@ -226,7 +226,7 @@ export default function EnglishHomePage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <platform.icon className="h-5 w-5" />
                   </div>
-                  <span className="text-sm font-medium text-foreground">{platform.name}</span>
+                  <span className="text-body font-medium text-foreground">{platform.name}</span>
                   <span className="text-xs text-muted-foreground">{platform.desc}</span>
                 </CardContent>
               </Card>
@@ -242,7 +242,7 @@ export default function EnglishHomePage() {
                 <Code className="h-7 w-7" />
               </div>
               <div className="max-w-2xl">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
                   Open Source. Apache 2.0.
                 </h2>
                 <p className="mt-4 text-muted-foreground">
@@ -280,7 +280,7 @@ export default function EnglishHomePage() {
 
         {/* Footer CTA */}
         <section className="mb-8 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+          <h2 className="text-display font-bold tracking-tight text-foreground md:text-3xl">
             Ready to build your AI agent?
           </h2>
           <p className="mt-3 text-muted-foreground">Start free. No credit card required.</p>

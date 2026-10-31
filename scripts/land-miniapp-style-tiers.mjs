@@ -74,10 +74,38 @@ const argv = process.argv.slice(2)
 const apply = argv.includes('--apply')
 const jsonMode = argv.includes('--json')
 const fontSafe = argv.includes('--font-safe')
+const inlineSafe = argv.includes('--inline-safe')
+const fontAll = argv.includes('--font-all')
+const font400 = argv.includes('--font-400')
 const selfTest = argv.includes('--self-test')
 const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
 
-const SPACING_PROPS = ['padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'gap', 'row-gap', 'column-gap']
+// 间距属性 + 尺寸/定位属性:**都只做等值替换**,值等于某档才换。
+// 尺寸/定位这一族刻意**不含** max-width/max-height —— 那两个名字在 Tailwind 里有 container 语义,
+// 用 spacing 档表达会让后来者误读(且 max-w 的撞名问题已单独兜底),宁可留在字面量。
+const SPACING_PROPS = [
+  'padding',
+  'padding-top',
+  'padding-right',
+  'padding-bottom',
+  'padding-left',
+  'margin',
+  'margin-top',
+  'margin-right',
+  'margin-bottom',
+  'margin-left',
+  'gap',
+  'row-gap',
+  'column-gap',
+  'width',
+  'height',
+  'min-width',
+  'min-height',
+  'top',
+  'right',
+  'bottom',
+  'left',
+]
 const FONT_PROPS = ['font-size']
 
 /** 反向档名查表:值(px) → 档名。同值多档取**首个声明**(档表里先出现的语义更通用)。
@@ -165,7 +193,8 @@ function listSourceFiles() {
  * 只认 `className="…"` 与 `className={`…`}` 两种形态;`className={cn(…)}` 一类表达式不碰
  * (要解析 JS 表达式才安全,收益不值这个风险)。
  */
-export function rewriteClassNameTokens(text, rev) {
+export function rewriteClassNameTokens(text, rev, opts = {}) {
+  const requireLeading = opts.requireLeading !== false
   const masked = maskCommentsEqualLen(text)
   let changes = 0
   const samples = []
@@ -173,7 +202,7 @@ export function rewriteClassNameTokens(text, rev) {
   const out = text.replace(clsRe, (all, dq, tpl, offset) => {
     if (masked.slice(offset, offset + all.length) !== all) return all // 注释里的同形文本不动
     const body = dq ?? tpl ?? ''
-    if (!/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) return all // 没有行高覆盖 ⇒ 不换
+    if (requireLeading && !/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) return all // 默认档:无行高覆盖 ⇒ 不换(会改行高)
     const replaced = body.replace(/\btext-\[(?:length:)?(\d+(?:\.\d+)?)rpx\]/g, (m, n) => {
       const step = rev.type.get(Number(n) / 2)
       if (!step) return m // 档外值不猜
@@ -245,10 +274,40 @@ function runSelfTest() {
 }
 
 /**
+ * 纯函数:内联 `style={{ … }}` 里的间距/尺寸 rpx 字面量 → `var(--spacing-*)`。
+ *
+ * 可行性已实测(2026-10-31):小程序把内联 style 编译进 **JS 运行时**而不是 wxml 静态属性 ——
+ * `dist/pages/community/index.js` 里能直接读到 `var(--app-top-bar-color…)` 这类既存写法,
+ * 所以内联 `var()` 与 CSS 文件里同效,不需要额外处理。
+ *
+ * 只吃 `Prop: 'Nrpx'` 这种**带引号的纯值**;`rpx(24)` 函数调用、条件表达式、多值简写一律不动
+ * (要解析 JS 表达式才安全,收益不值这个风险)。
+ */
+export function rewriteInlineStyles(text, rev) {
+  const masked = maskCommentsEqualLen(text)
+  let changes = 0
+  const samples = []
+  const styleRe = /style=\{\{([\s\S]*?)\}\}/g
+  const propRe = /\b(padding|paddingTop|paddingRight|paddingBottom|paddingLeft|margin|marginTop|marginRight|marginBottom|marginLeft|gap|rowGap|columnGap|width|height|minWidth|minHeight|top|right|bottom|left)\s*:\s*(['"])(\d+(?:\.\d+)?)rpx\2/g
+  const out = text.replace(styleRe, (all, body, offset) => {
+    if (masked.slice(offset, offset + all.length) !== all) return all
+    const replaced = body.replace(propRe, (m, prop, quote, num) => {
+      const step = rev.spacing.get(Number(num) / 2)
+      if (!step) return m
+      changes++
+      if (samples.length < 6) samples.push(`${prop}: ${num}rpx → var(--spacing-${step})`)
+      return `${prop}: ${quote}var(--spacing-${step})${quote}`
+    })
+    return replaced === body ? all : `style={{${replaced}}}`
+  })
+  return { out, changes, samples }
+}
+
+/**
  * 字号面(`--font-safe`)主流程:与 CSS 面共用归属避让 / 水印 / 幂等三件套。
  * 只换"有 leading 覆盖"的字号任意值(零视觉变化),其余一律留给视觉验收。
  */
-function runFontSafe(_flag, rev) {
+function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINIAPP-FONT') {
   const files = listSourceFiles()
   if (!files.length) {
     console.error('❌ 未判定:字号面候选枚举到 0 个')
@@ -271,7 +330,7 @@ function runFontSafe(_flag, rev) {
       held.push(`${f}(工作树读不到)`)
       continue
     }
-    const r = rewriteClassNameTokens(src, rev)
+    const r = fn(src, rev)
     if (r.changes === 0) continue
     if (dirty.has(f)) {
       held.push(f)
@@ -283,7 +342,7 @@ function runFontSafe(_flag, rev) {
     if (apply) {
       watermark('clean', f)
       const cleaned = readWorktreeFile(ROOT, f)
-      const rr = rewriteClassNameTokens(cleaned, rev)
+      const rr = fn(cleaned, rev)
       if (rr.changes === 0) {
         watermark('inject', f)
         continue
@@ -301,7 +360,7 @@ function runFontSafe(_flag, rev) {
   if (results.length > 12) console.log(`  …另 ${results.length - 12} 个文件`)
   for (const s of samples) console.log(`  样例 ${s}`)
   if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
-  console.log(`结论:LAND-MINIAPP-FONT state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${total} held=${held.length}`)
+  console.log(`结论:${label} state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${total} held=${held.length}`)
 }
 
 function main() {
@@ -323,6 +382,15 @@ function main() {
   })
   const rev = buildReverse(tables.SPACING_STEPS, tables.TYPE_STEPS)
 
+  if (font400) {
+    // 只保留 **font-weight=400** 的字号档(body/label/caption/badge):它们的 font-weight 与文档默认一致,
+    // 替换后字重不变;而 title(600)/heading(700) 这些档会改字重 —— 那是视觉变更,不自动做。
+    const weightOf = new Map(Object.entries(tables.TYPE_STEPS).map(([k, v]) => [k.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase(), Number(v?.weight ?? 400)]))
+    const restricted = { ...rev, type: new Map([...rev.type].filter(([, step]) => weightOf.get(step) === 400)) }
+    return runFontSafe(font400, restricted, (tx, rv) => rewriteClassNameTokens(tx, rv, { requireLeading: false }), 'LAND-MINIAPP-FONT-400')
+  }
+  if (fontAll) return runFontSafe(fontAll, rev, (tx, rv) => rewriteClassNameTokens(tx, rv, { requireLeading: false }), 'LAND-MINIAPP-FONT-ALL')
+  if (inlineSafe) return runFontSafe(inlineSafe, rev, rewriteInlineStyles, 'LAND-MINIAPP-INLINE')
   if (fontSafe) return runFontSafe(fontSafe, rev)
 
   const files = listCssFiles()
@@ -405,5 +473,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { rewriteCss, rewriteClassNameTokens, buildReverse, SELF_TEST_CASES, listSourceFiles }
+export const __test__ = { rewriteCss, rewriteClassNameTokens, rewriteInlineStyles, buildReverse, SELF_TEST_CASES, listSourceFiles }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

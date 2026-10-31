@@ -309,7 +309,7 @@ export function SdkExamples(): React.JSX.Element {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Code2 className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold">{t('sdkExamplesTitle')}</p>
+            <p className="text-body font-semibold">{t('sdkExamplesTitle')}</p>
           </div>
           <button
             onClick={() => setReveal((v) => !v)}
@@ -344,7 +344,7 @@ export function SdkExamples(): React.JSX.Element {
                 const copied = copiedId === id
                 return (
                   <div key={id} className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">
+                    <p className="text-label font-medium text-muted-foreground">
                       {'titleKey' in ex ? t(ex.titleKey) : ex.title}
                     </p>
                     <div className="relative">

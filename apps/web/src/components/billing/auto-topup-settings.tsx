@@ -160,7 +160,7 @@ export function AutoTopupSettings({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col">
-          <span className="text-xs font-medium">{t('title')}</span>
+          <span className="text-label font-medium">{t('title')}</span>
           <span className="text-[11px] text-muted-foreground">{t('description')}</span>
         </div>
         <button
@@ -299,7 +299,7 @@ export function AutoTopupSettings({
           data-dialog={state.dialogContext ?? 'enable'}
           className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-background p-3"
         >
-          <span className="text-xs font-medium">{t('dialog.title')}</span>
+          <span className="text-label font-medium">{t('dialog.title')}</span>
           <p className="text-[11px] text-muted-foreground">{t('dialog.description')}</p>
           <div className="flex flex-wrap items-center gap-1">
             <button

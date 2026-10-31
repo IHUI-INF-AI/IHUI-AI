@@ -111,7 +111,7 @@ export function TermDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">{editTerm ? t('editTermTitle') : t('newTermTitle')}</p>
+          <p className="text-body font-medium">{editTerm ? t('editTermTitle') : t('newTermTitle')}</p>
           <div className="grid gap-1.5">
             <Label>{t('termName')}</Label>
             <Input

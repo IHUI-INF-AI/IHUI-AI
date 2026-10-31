@@ -69,7 +69,7 @@ export function SnapshotSourceCard({
       data-snapshot-state={view.state}
       data-snapshot-tone={view.tone}
     >
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
         <Camera className="h-3.5 w-3.5 shrink-0" />
         <span data-snapshot-label={view.state}>{t(view.labelKey)}</span>
       </div>
@@ -80,7 +80,7 @@ export function SnapshotSourceCard({
       ) : null}
       {guideNeeded ? (
         <div className="rounded-sm bg-primary/5 px-2 py-1" data-snapshot-guide="first-run">
-          <p className="text-xs font-medium text-primary">{t('firstRunGuideTitle')}</p>
+          <p className="text-label font-medium text-primary">{t('firstRunGuideTitle')}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">{t('firstRunGuideBody')}</p>
         </div>
       ) : null}
@@ -134,7 +134,7 @@ export function QueueCommandCard({
       data-testid={testId}
       data-input-source="queue"
     >
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
         <ListPlus className="h-3.5 w-3.5 shrink-0" />
         <span>{t('ariaLabel')}</span>
       </div>

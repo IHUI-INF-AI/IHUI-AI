@@ -143,7 +143,7 @@ export default function AdminResourceProductsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('productsTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('productsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('productsSubtitle')}</p>
       </div>
 

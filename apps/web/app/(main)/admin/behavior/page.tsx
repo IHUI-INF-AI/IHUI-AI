@@ -108,7 +108,7 @@ export default function BehaviorPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Eye className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -128,13 +128,13 @@ export default function BehaviorPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardTitle className="text-body font-medium text-muted-foreground">
                     {c.label}
                   </CardTitle>
                   <c.icon className={`h-4 w-4 ${c.color}`} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{c.value}</div>
+                  <div className="text-display font-bold">{c.value}</div>
                 </CardContent>
               </Card>
             ))}

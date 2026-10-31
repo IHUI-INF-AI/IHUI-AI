@@ -277,7 +277,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
           此前 text-xs 比所有邻居弱一档,视觉上像另一层东西。
           + 号按钮 24×24:20×20 低于 WCAG 2.5.8 最小目标尺寸,手指/鼠标都更难点中。 */}
       <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-1.5">
-        <span className="min-w-0 whitespace-nowrap text-left text-sm font-semibold uppercase tracking-wider text-muted-foreground/60">
+        <span className="min-w-0 whitespace-nowrap text-left text-body font-semibold uppercase tracking-wider text-muted-foreground/60">
           {t('customGroup')}
         </span>
         <button
@@ -297,7 +297,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
           type="button"
           onClick={openDialog}
           className={cn(
-            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors',
+            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
             'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}

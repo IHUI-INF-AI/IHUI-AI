@@ -51,7 +51,7 @@ export default function UserStatPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Users className="h-6 w-6 text-primary" />
           用户统计
         </h1>
@@ -143,7 +143,7 @@ export default function UserStatPage() {
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {p.date.slice(5)}
                 </span>
-                <span className="text-xs font-semibold tabular-nums">
+                <span className="text-label font-semibold tabular-nums">
                   {numFmt.format(p.newUsers)}
                 </span>
               </div>

@@ -208,7 +208,7 @@ export default function OrchestrationPage() {
     <div className="py-4 px-4 space-y-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Network className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -261,7 +261,7 @@ export default function OrchestrationPage() {
                 <p className="text-xs text-muted-foreground">{t('status')}</p>
                 <span
                   className={cn(
-                    'rounded-md px-2 py-0.5 text-xs font-medium',
+                    'rounded-md px-2 py-0.5 text-label font-medium',
                     status.running
                       ? 'bg-emerald-500/10 text-emerald-600'
                       : 'bg-muted text-muted-foreground',
@@ -273,19 +273,19 @@ export default function OrchestrationPage() {
               <div className={statItemClass}>
                 <Radio className="h-5 w-5 text-primary" />
                 <p className="text-xs text-muted-foreground">{t('total')}</p>
-                <span className="text-xl font-bold tabular-nums">{status.event_count}</span>
+                <span className="text-heading font-bold tabular-nums">{status.event_count}</span>
               </div>
               <div className={statItemClass}>
                 <Cpu className="h-5 w-5 text-primary" />
                 <p className="text-xs text-muted-foreground">{t('total')}</p>
-                <span className="text-xl font-bold tabular-nums">{status.decision_count}</span>
+                <span className="text-heading font-bold tabular-nums">{status.decision_count}</span>
               </div>
               <div className={statItemClass}>
                 <Database className="h-5 w-5 text-primary" />
                 <p className="text-xs text-muted-foreground">{t('module')}</p>
                 <span
                   className={cn(
-                    'rounded-md px-2 py-0.5 text-xs font-medium',
+                    'rounded-md px-2 py-0.5 text-label font-medium',
                     status.redis_mode
                       ? 'bg-emerald-500/10 text-emerald-600'
                       : 'bg-amber-500/10 text-amber-600',
@@ -320,20 +320,20 @@ export default function OrchestrationPage() {
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
                 {/* 事件统计 */}
                 <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-                  <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                  <h3 className="flex items-center gap-1.5 text-body font-medium">
                     <Radio className="h-4 w-4 text-primary" />
                     {t('events')}
                   </h3>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <p className="text-xs text-muted-foreground">{t('total')}</p>
-                      <p className="text-xl font-bold tabular-nums">
+                      <p className="text-heading font-bold tabular-nums">
                         {dashboard.event_stats.total_events}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t('success')}</p>
-                      <p className="text-xl font-bold tabular-nums text-emerald-600">
+                      <p className="text-heading font-bold tabular-nums text-emerald-600">
                         {Object.values(dashboard.event_stats.by_type ?? {}).reduce(
                           (sum, s) => sum + s.success,
                           0,
@@ -342,7 +342,7 @@ export default function OrchestrationPage() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t('failed')}</p>
-                      <p className="text-xl font-bold tabular-nums text-rose-600">
+                      <p className="text-heading font-bold tabular-nums text-rose-600">
                         {Object.values(dashboard.event_stats.by_type ?? {}).reduce(
                           (sum, s) => sum + s.failed,
                           0,
@@ -354,26 +354,26 @@ export default function OrchestrationPage() {
 
                 {/* 决策统计 */}
                 <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-                  <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                  <h3 className="flex items-center gap-1.5 text-body font-medium">
                     <Cpu className="h-4 w-4 text-primary" />
                     {t('status')}
                   </h3>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <p className="text-xs text-muted-foreground">{t('total')}</p>
-                      <p className="text-xl font-bold tabular-nums">
+                      <p className="text-heading font-bold tabular-nums">
                         {dashboard.decision_stats.total_decisions}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t('success')}</p>
-                      <p className="text-xl font-bold tabular-nums text-emerald-600">
+                      <p className="text-heading font-bold tabular-nums text-emerald-600">
                         {dashboard.decision_stats.completed}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t('failed')}</p>
-                      <p className="text-xl font-bold tabular-nums text-rose-600">
+                      <p className="text-heading font-bold tabular-nums text-rose-600">
                         {dashboard.decision_stats.failed}
                       </p>
                     </div>
@@ -387,7 +387,7 @@ export default function OrchestrationPage() {
 
               {/* 支柱健康 */}
               <div className="space-y-2">
-                <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                <h3 className="flex items-center gap-1.5 text-body font-medium">
                   <HeartPulse className="h-4 w-4 text-primary" />
                   {t('status')}
                 </h3>
@@ -395,10 +395,10 @@ export default function OrchestrationPage() {
                   {Object.entries(dashboard.pillar_health ?? {}).map(([pillar, health]) => (
                     <div key={pillar} className="space-y-1.5 rounded-lg border bg-muted/40 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">{PILLAR_LABELS[pillar] ?? pillar}</p>
+                        <p className="text-body font-medium">{PILLAR_LABELS[pillar] ?? pillar}</p>
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium',
+                            'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-label font-medium',
                             health.health === 'healthy'
                               ? 'bg-emerald-500/10 text-emerald-600'
                               : health.health === 'unhealthy'
@@ -470,7 +470,7 @@ export default function OrchestrationPage() {
                 >
                   <span
                     className={cn(
-                      'rounded-md px-1.5 py-0.5 font-mono text-xs font-medium',
+                      'rounded-md px-1.5 py-0.5 font-mono text-label font-medium',
                       SEVERITY_CLASSES[event.severity ?? 'info'] ?? SEVERITY_CLASSES.info,
                     )}
                   >

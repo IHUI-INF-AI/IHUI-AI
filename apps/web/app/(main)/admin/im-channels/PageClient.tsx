@@ -72,7 +72,7 @@ export default function PageClient() {
     <div className="space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <MessageSquare className="h-6 w-6 text-primary" />
           <span>IM 渠道管理</span>
         </h1>

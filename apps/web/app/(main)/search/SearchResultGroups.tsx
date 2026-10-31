@@ -55,7 +55,7 @@ function ResultGroup({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+      <h2 className="flex min-w-0 items-center gap-2 text-body font-semibold">
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="truncate whitespace-nowrap">{title}</span>
         <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
@@ -168,7 +168,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
               >
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">
+                  <p className="break-words text-body font-medium">
                     <Highlight text={f.name} keyword={q} />
                   </p>
                   <p className="text-xs text-muted-foreground">

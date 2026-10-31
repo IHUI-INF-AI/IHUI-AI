@@ -94,7 +94,7 @@ export default function AiAssistantN8n() {
     <View className="min-h-screen bg-background">
       {/* 对齐 RN header:px 10dp=20rpx / py 12dp=24rpx / 标题 20dp=40rpx w600 / 透出 root 背景 */}
       <View className="flex flex-row items-center px-[20rpx] py-[24rpx] bg-background">
-        <Text className="text-[length:40rpx] font-semibold text-foreground">
+        <Text className="text-heading font-semibold text-foreground">
           {t('aiAssistantN8n.title')}
         </Text>
       </View>
@@ -127,25 +127,25 @@ export default function AiAssistantN8n() {
                         <View
                           className={`w-[16rpx] h-[16rpx] ui-tiny rounded-xs mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
                         />
-                        <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
+                        <Text className="text-title font-semibold text-foreground flex-1 min-w-0 truncate">
                           {name}
                         </Text>
                       </View>
                       {/* 对齐 RN badge:11dp=22rpx w600 / px 8dp=16rpx py 3dp=6rpx / 12dp=24rpx 圆角 */}
                       <Text
-                        className={`py-[6rpx] px-[16rpx] rounded-xl text-[length:22rpx] font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
+                        className={`py-[6rpx] px-[16rpx] rounded-xl text-caption font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
                       >
                         {statusInfo.label}
                       </Text>
                     </View>
                     {desc ? (
-                      <Text className="block mt-[16rpx] text-[length:28rpx] text-muted-foreground line-clamp-2">
+                      <Text className="block mt-[16rpx] text-body text-muted-foreground line-clamp-2">
                         {desc}
                       </Text>
                     ) : null}
                     {/* 对齐 RN cardUrl:mt 8dp=16rpx / 11dp=22rpx / brand 色 */}
                     <View className="mt-[16rpx]">
-                      <Text className="text-[length:22rpx] text-[var(--color-brand)]">
+                      <Text className="text-caption text-[var(--color-brand)]">
                         {tt('aiAssistantN8n.openWorkflow', '打开工作流')} →
                       </Text>
                     </View>

@@ -197,14 +197,14 @@ export default function AiSkillDetailPage() {
         </div>
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight">{skill.name}</h1>
+            <h1 className="text-heading font-bold tracking-tight">{skill.name}</h1>
             <Badge variant={skill.available ? 'success' : 'default'}>
               {skill.available ? t('statusAvailable') : t('statusComingSoon')}
             </Badge>
             {skill.available && (
               <Link
                 href="/models/openclaw"
-                className="inline-flex items-center gap-1 rounded-md bg-cta px-2.5 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                className="inline-flex items-center gap-1 rounded-md bg-cta px-2.5 py-1 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
               >
                 <Bot className="h-3.5 w-3.5" />
                 {t('addToAgent')}
@@ -223,7 +223,7 @@ export default function AiSkillDetailPage() {
 
       {/* 元数据区 */}
       <section className="space-y-2 rounded-lg border bg-card p-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('sectionMeta')}
         </h2>
         <p className="text-sm leading-relaxed text-foreground/90">{skill.description}</p>
@@ -307,7 +307,7 @@ export default function AiSkillDetailPage() {
       {/* 调用区(available=true) */}
       {skill.available ? (
         <section className="space-y-3 rounded-lg border bg-card p-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
             {t('sectionInvoke')}
           </h2>
 
@@ -324,7 +324,7 @@ export default function AiSkillDetailPage() {
                   <label
                     htmlFor={`var-${key}`}
                     className={cn(
-                      'text-xs font-medium',
+                      'text-label font-medium',
                       isMissing ? 'text-destructive' : 'text-foreground',
                     )}
                   >
@@ -428,7 +428,7 @@ export default function AiSkillDetailPage() {
       ) : (
         /* 占位 skill:不显示调用区,显示引导 */
         <section className="space-y-2 rounded-lg border border-dashed bg-muted/30 p-3">
-          <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <div className="flex items-center gap-1.5 text-body font-medium text-foreground">
             <Sparkles className="h-4 w-4 text-primary" />
             {t('comingSoonTitle')}
           </div>
@@ -440,7 +440,7 @@ export default function AiSkillDetailPage() {
       {result && (
         <section className="space-y-2 rounded-lg border bg-card p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
               {t('result')}
             </div>
@@ -566,7 +566,7 @@ function FeedbackSection({
 
   return (
     <section className="space-y-3 rounded-lg border bg-card p-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
         {t('feedbackTitle')}
       </h2>
       {submitted ? (
@@ -578,7 +578,7 @@ function FeedbackSection({
         <div className="space-y-3">
           {/* 评分 */}
           <div className="space-y-1">
-            <span className="text-xs font-medium text-foreground">{t('feedbackRating')}</span>
+            <span className="text-label font-medium text-foreground">{t('feedbackRating')}</span>
             <div className="flex items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -604,7 +604,7 @@ function FeedbackSection({
           </div>
           {/* 评价 */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-foreground">{t('feedbackComment')}</label>
+            <label className="text-label font-medium text-foreground">{t('feedbackComment')}</label>
             <input
               type="text"
               value={comment}
@@ -661,7 +661,7 @@ function RecommendationsSection({
   return (
     <section className="space-y-3 rounded-lg border bg-card p-3">
       <div className="space-y-0.5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('relatedTitle')}
         </h2>
         <p className="text-[11px] text-muted-foreground/70">{t('relatedHint')}</p>
@@ -685,7 +685,7 @@ function RecommendationsSection({
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
                   <Wand2 className="h-4 w-4" />
                 </div>
-                <span className="truncate text-sm font-medium">{rec.name}</span>
+                <span className="truncate text-body font-medium">{rec.name}</span>
               </div>
               <p className="line-clamp-1 text-xs text-muted-foreground">{rec.description}</p>
               {rec.tags.length > 0 && (

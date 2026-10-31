@@ -34,7 +34,6 @@ import {
   View,
   type GestureResponderEvent,
   type ImageStyle,
-  type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -80,6 +79,7 @@ import {
 // O02 票④(2026-10-31 接线):发送方块控件走共享核心 BottomActionBarControl —— 方块边长唯一源
 // 在核心(boxPx),本壳只供视觉(底色/圆角/禁用态)与 RN 原语注入;与小程序壳同一份核心。
 import { BottomActionBarControl, type BottomActionBarPlatform } from '@ihui/shared/ui'
+import { Tappable } from '@ihui/ui-native'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -102,13 +102,9 @@ const rnPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEve
     accessibilityLabel,
     children,
   }) => (
-    <Pressable
-      style={({ pressed }) => [
-        boxStyle,
-        style,
-        disabled ? disabledStyle : null,
-        pressed ? styles.sendBtnPressed : null,
-      ]}
+    <Tappable
+      style={[boxStyle, style, disabled ? disabledStyle : null]}
+      pressedStyle={styles.sendBtnPressed}
       onPress={onActivate}
       disabled={disabled}
       hitSlop={4}
@@ -116,7 +112,7 @@ const rnPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEve
       accessibilityLabel={accessibilityLabel}
     >
       {children}
-    </Pressable>
+    </Tappable>
   ),
   Glyph: ({ name, size, color }) => {
     if (name === 'square') return <Square size={size} color={color} fill={color} />
@@ -388,20 +384,18 @@ function LabelButton({ action }: BottomActionBarItemProps) {
 
   const labelStyle: TextStyle = isPrimary ? styles.primaryButtonLabel : styles.secondaryButtonLabel
 
-  const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [
-    baseStyle,
-    pressed && !isDisabled && !isLoading ? pressedStyle : null,
-    isDisabled || isLoading ? disabledStyle : null,
-  ]
-
+  // 原写法是 `const style = ({pressed}) => [...]` 再 `style={style}`：函数形态喂进 cssInterop
+  // 注册的 Pressable 会被换成 `{}`，两个按钮的整份内联样式从来没生效过。disabled 时原生
+  // Pressable 不发 press 事件 ⇒ pressedStyle 天然只在可点时叠加，与原条件式等价。
   return (
-    <Pressable
+    <Tappable
       onPress={handlePress}
       disabled={isDisabled || isLoading}
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      style={style}
+      style={[baseStyle, (isDisabled || isLoading) && disabledStyle]}
+      pressedStyle={pressedStyle}
     >
       {isLoading ? (
         <ActivityIndicator
@@ -413,7 +407,7 @@ function LabelButton({ action }: BottomActionBarItemProps) {
           {action.label}
         </Text>
       )}
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -428,20 +422,15 @@ function IconButton({ action }: BottomActionBarItemProps) {
     }
   }
 
-  const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [
-    styles.iconButton,
-    pressed && !isDisabled && !isLoading ? styles.iconButtonPressed : null,
-    isDisabled || isLoading ? styles.buttonDisabled : null,
-  ]
-
   return (
-    <Pressable
+    <Tappable
       onPress={handlePress}
       disabled={isDisabled || isLoading}
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      style={style}
+      style={[styles.iconButton, (isDisabled || isLoading) && styles.buttonDisabled]}
+      pressedStyle={styles.iconButtonPressed}
     >
       {isLoading ? (
         <ActivityIndicator size="small" color={tokens.text.primary} />
@@ -450,7 +439,7 @@ function IconButton({ action }: BottomActionBarItemProps) {
           {icon}
         </Text>
       )}
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -601,7 +590,7 @@ function ChatInputBar(props: BottomActionBarProps) {
       {showModelBar ? (
         <View style={styles.modelBar}>
           {modelName !== undefined || onShowModelList !== undefined ? (
-            <Pressable
+            <Tappable
               style={styles.modelNameBtn}
               onPress={onShowModelList}
               onLongPress={
@@ -617,10 +606,10 @@ function ChatInputBar(props: BottomActionBarProps) {
                 {modelName ?? t('bab.pickModel')}
               </Text>
               <ChevronDown size={BOTTOM_ACTION_BAR_MODEL_BADGE_PX} color={tokens.text.tertiary} />
-            </Pressable>
+            </Tappable>
           ) : null}
           {onShowModelConfig !== undefined ? (
-            <Pressable
+            <Tappable
               style={styles.configBtn}
               onPress={onShowModelConfig}
               onLongPress={
@@ -633,7 +622,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityLabel={t('bab.modelConfig')}
             >
               <Settings size={16} color={tokens.text.secondary} />
-            </Pressable>
+            </Tappable>
           ) : null}
         </View>
       ) : null}
@@ -659,7 +648,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             <View key={index} style={styles.imagePreview}>
               <Image source={{ uri }} style={styles.imagePreviewImg} resizeMode="cover" />
               {onRemoveImage !== undefined ? (
-                <Pressable
+                <Tappable
                   style={styles.imageRemoveBtn}
                   onPress={() => onRemoveImage(index)}
                   hitSlop={4}
@@ -667,7 +656,7 @@ function ChatInputBar(props: BottomActionBarProps) {
                   accessibilityLabel={t('chat.imageDelete')}
                 >
                   <X size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX} color={tokens.brand.ctaForeground} />
-                </Pressable>
+                </Tappable>
               ) : null}
             </View>
           ))}
@@ -753,7 +742,7 @@ function ChatInputBar(props: BottomActionBarProps) {
         <View style={styles.secondaryRow}>
           {/* 添加附件(ChatScreen 传入 onAddFile → DocumentPicker + uploadFileMultipart 真实上传;
               未传 onAddFile 时降级为占位提示 Alert,保持向后兼容) */}
-          <Pressable
+          <Tappable
             style={styles.addFileBtn}
             onPress={() => {
               if (onAddFile) {
@@ -770,9 +759,9 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityLabel={t('messageInput.addFile')}
           >
             <Folder size={rnGeometry.glyphMd} color={tokens.text.secondary} />
-          </Pressable>
+          </Tappable>
           {onFunctionHandle !== undefined ? (
-            <Pressable
+            <Tappable
               style={styles.secondaryBtn}
               onPress={onFunctionHandle}
               hitSlop={4}
@@ -783,10 +772,10 @@ function ChatInputBar(props: BottomActionBarProps) {
                 size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
                 color={tokens.text.secondary}
               />
-            </Pressable>
+            </Tappable>
           ) : null}
           {onSourceHandle !== undefined ? (
-            <Pressable
+            <Tappable
               style={styles.secondaryBtn}
               onPress={onSourceHandle}
               hitSlop={4}
@@ -794,10 +783,10 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityLabel={t('bab.source')}
             >
               <Paperclip size={rnGeometry.glyphMd} color={tokens.text.secondary} />
-            </Pressable>
+            </Tappable>
           ) : null}
           {onFangda !== undefined ? (
-            <Pressable
+            <Tappable
               style={styles.secondaryBtn}
               onPress={onFangda}
               hitSlop={4}
@@ -805,12 +794,12 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityLabel={t('bab.enlarge')}
             >
               <Maximize size={rnGeometry.glyphMd} color={tokens.text.secondary} />
-            </Pressable>
+            </Tappable>
           ) : null}
           {/* 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input compactButton):
               ✂ 图标 + loading 态(ActivityIndicator),请求中禁用防重复点击 */}
           {onCompactContext !== undefined ? (
-            <Pressable
+            <Tappable
               style={styles.secondaryBtn}
               onPress={onCompactContext}
               disabled={compactContextLoading}
@@ -824,7 +813,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               ) : (
                 <Scissors size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               )}
-            </Pressable>
+            </Tappable>
           ) : null}
         </View>
       ) : null}

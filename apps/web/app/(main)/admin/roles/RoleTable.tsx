@@ -62,7 +62,7 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
                   {r.description || '-'}
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                     {r.permissionsCount ?? 0}
                   </span>
                 </td>

@@ -44,7 +44,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-cta text-cta-foreground shadow-md">
             <Sparkles className="h-6 w-6" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">IHUI AI</h1>
+          <h1 className="text-heading font-bold tracking-tight">IHUI AI</h1>
           <p className="mt-1 text-xs text-muted-foreground">AI SaaS Platform</p>
         </div>
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm">{children}</div>

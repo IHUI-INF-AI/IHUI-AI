@@ -125,8 +125,8 @@
   gap: var(--spacing-sm-loose);
 }
 .cd-aigc-cover {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
@@ -226,8 +226,8 @@
   gap: var(--spacing-sm);
 }
 .cd-comment-avatar {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
