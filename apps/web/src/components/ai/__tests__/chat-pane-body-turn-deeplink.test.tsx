@@ -154,7 +154,12 @@ describe('ChatPaneBody 窗格化 ?turn= 深链', () => {
       setTurnDeepLink('conv-deeplink-b', 9, 'pane-a')
     })
     await waitFor(() => expect(paneStore.getState().messages[0]?.id).toBe('m-9'))
-    expect(getConversationHistoryMock).toHaveBeenCalledTimes(2)
+    // D35 投影挂载(2026-10-31)后,本组件还会对同一端点发一次 direction:'newest' 的
+    // 投影首屏请求 —— 本用例判的是 **around 通道**被重锚了几次,不是历史端点总调用数。
+    const aroundCalls = getConversationHistoryMock.mock.calls.filter(
+      ([, opts]) => (opts as { aroundTurnId?: string } | undefined)?.aroundTurnId !== undefined,
+    )
+    expect(aroundCalls).toHaveLength(2)
     expect(getConversationHistoryMock).toHaveBeenLastCalledWith('conv-deeplink-b', {
       aroundTurnId: '9',
       aroundWindow: 5,
@@ -186,7 +191,12 @@ describe('ChatPaneBody 窗格化 ?turn= 深链', () => {
       direction: 'initial',
       pageSize: 50,
     })
-    expect(getConversationHistoryMock).not.toHaveBeenCalled()
+    // D35 投影的常规 newest 首屏不是 around 通道;本用例判的是"别窗格的深链不进取窗支"。
+    expect(
+      getConversationHistoryMock.mock.calls.some(
+        ([, opts]) => (opts as { aroundTurnId?: string } | undefined)?.aroundTurnId !== undefined,
+      ),
+    ).toBe(false)
     expect(paneStore.getState().messagesTurnWindowed).toBe(false)
     expect(getProgressJumpStoreForPane('pane-a').getState().pendingJumpToMessage).toBeNull()
   })

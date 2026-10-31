@@ -40,6 +40,10 @@ import { useAuthStore } from '@/stores/auth'
 import { getQueryClient } from '@/lib/query-client'
 import { toast } from '@/components/common'
 import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
+import { resyncChatSyncGaps } from '@/lib/chat-sync-resync'
+
+/** 空坐标表的稳定引用:selector 每次返回新数组会让 zustand 判定"值变了"→ 重渲染风暴 */
+const EMPTY_GAP_IDS: readonly string[] = []
 
 /** 侧栏/历史页缓存里那一行的最小形状(只声明本文件真的读的字段,不抄端内那份完整 interface) */
 interface ConversationRowLike {
@@ -254,6 +258,9 @@ export function useConversationBroadcastSync(): {
   // 票71 第二切片:消息面房间同步的订阅键。`subscribeChatSync` 在建订阅时把
   // conversationId 钉死(它不做会跟随的可变房间),所以切会话 = 本 effect 重建订阅。
   const conversationId = useChatStore((s) => s.conversationId)
+  // 票71 剩余缺口②(2026-10-31):gap 坐标的唯一读面。坐标由内核判 gap 时写入 store
+  // (`chatSyncGapMessageIds`),本 hook 只负责按坐标触发 resync —— 判据不在这里重写。
+  const gapMessageIds = useChatStore((s) => s.chatSyncGapMessageIds ?? EMPTY_GAP_IDS)
   const [undetermined, setUndetermined] = React.useState(0)
   const [connected, setConnected] = React.useState(false)
 
@@ -313,6 +320,23 @@ export function useConversationBroadcastSync(): {
       chatSub?.close()
     }
   }, [token, conversationId])
+
+  // 票71 剩余缺口②(2026-10-31):检测到 gap(内核四态裁定里唯一需要自愈的一档)⇒
+  // 按坐标拉服务端权威快照 → 走 store 的 applyChatSyncSnapshot 并回(判据全在内核与 store,
+  // 本处只做触发/取消,见 @/lib/chat-sync-resync 头注)。duplicate/stale 不产生坐标,
+  // 因此这里结构上不可能对正常路径发请求。
+  React.useEffect(() => {
+    if (!token || !conversationId || gapMessageIds.length === 0) return
+    let cancelled = false
+    void resyncChatSyncGaps({
+      conversationId,
+      messageIds: gapMessageIds,
+      isCancelled: () => cancelled,
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token, conversationId, gapMessageIds])
 
   return { connected, undetermined }
 }
