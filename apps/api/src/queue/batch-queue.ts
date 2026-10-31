@@ -20,12 +20,23 @@
  */
 import type { Redis } from 'ioredis'
 import { getBatchQueue } from './index.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
 // =============================================================================
 // 常量
 // =============================================================================
 
-export const BATCH_QUEUE_NAME = 'batch-queue'
+/**
+ * 队列名(2026-10-31 起经库身份解析)。
+ *
+ * 生产者 = `src/queue/index.ts` 的 `getBatchQueue()`(它 import 本常量),
+ * 消费者 = `src/workers/batch-worker.ts` 的 `new Worker(BATCH_QUEUE_NAME, …)`(同样 import 本常量)
+ * ⇒ 两侧同源,不可能一个投原名一个听新名。
+ * 主库(`ihui`、未设后缀)解析结果与旧字面量 `batch-queue` 逐字节相同 ⇒ 线上队列名零扰动。
+ */
+const BATCH_QUEUE_BASE_NAME = 'batch-queue'
+
+export const BATCH_QUEUE_NAME = queueNameWithDbIdentity(BATCH_QUEUE_BASE_NAME)
 
 /** Redis 任务 key 前缀(key = `batch:task:<taskId>`,TTL 30 天) */
 export const BATCH_KEY_PREFIX = 'batch:task:'

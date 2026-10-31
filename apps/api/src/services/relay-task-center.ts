@@ -40,7 +40,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { relayAccountPoolQueueName } from './relay-queue-name.js'
+import { relayAccountPoolQueueName, queueNameWithDbIdentity } from './relay-queue-name.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
 
 /** 单条任务的定义面(注册表唯一写点;聚合与触发都从这里读) */
@@ -121,7 +121,13 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 5 分钟(分钟位 3/8/13…,与 key 池 gauge 错峰)',
     cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *',
-    queue: 'scheduler',
+    // 队列名必须经解析器取:这张表的 `queue` 会被
+    // `routes/admin/relay-account-pool.ts` 直接喂给 `new Queue(queue, {connection})` 去读
+    // jobScheduler/作业(观测面)。写死字面量的话,隔离实例的面板读的是主库队列、主库的面板在
+    // 隔离实例里读自己看不见的队列 ⇒ 观测失真,与「换库不换队列」是同一件事。
+    // 基础名与归属模块(`plugins/scheduler.ts`)逐字节相同,配对由 tests/queue-name-db-identity.test.ts ③
+    // 钉住(本文件不 import 归属模块:那会把 db 拉进任务中心的测试导入链)。
+    queue: queueNameWithDbIdentity('scheduler'),
     schedulerId: 'relay-pool-gauge',
     jobName: 'relay-pool-gauge',
     triggerable: true,
@@ -132,7 +138,9 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     carrier: 'bullmq',
     schedule: '每 5 分钟',
     cron: '*/5 * * * *',
-    queue: 'relay-health-check-queue',
+    // 同上:实际队列名经解析器取(基础名与 `workers/relay-health-check-worker.ts` 同值,
+    // 由 tests/queue-name-db-identity.test.ts ③ 钉住)。这一族在 Redis 有 failed=500 的同族事故残留。
+    queue: queueNameWithDbIdentity('relay-health-check-queue'),
     schedulerId: 'relay-health-check-cron',
     jobName: 'check-all',
     triggerable: false,
