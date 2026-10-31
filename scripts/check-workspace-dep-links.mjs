@@ -767,7 +767,6 @@ function run(argv) {
     deepScanned = 0,
     tmpKeysSkipped = 0,
     missingExternal = [],
-    externalScanned = 0,
     skipped,
   } = audit({
     staged: argv.includes('--staged'),
