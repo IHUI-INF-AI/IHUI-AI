@@ -12,7 +12,7 @@
  *
  * 复用 knowledge-rag.ts 的 vector1536 customType + HNSW 索引模式。
  */
-import { pgTable, uuid, text, integer, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, varchar, integer, timestamp, index } from 'drizzle-orm/pg-core'
 import { vector1536 } from './knowledge-rag.js'
 
 /**
@@ -49,6 +49,12 @@ export const codebaseChunks = pgTable(
     content: text('content').notNull(),
     /** pgvector 1536 维向量;NULL 时降级为关键词检索 */
     embedding: vector1536('embedding'),
+    /**
+     * 本行向量来源通道(G7,2026-10-31):'remote' = 在线 provider;
+     * 'local-hash' = 离线/远端不可用时的本地确定性回落(无神经语义精度,
+     * 必须可识别不冒充在线质量);NULL = 存量行(迁移 20261031120000 前,不回填)。
+     */
+    embeddingProvider: varchar('embedding_provider', { length: 32 }),
     language: text('language'),
     symbolName: text('symbol_name'),
     symbolType: text('symbol_type'),
