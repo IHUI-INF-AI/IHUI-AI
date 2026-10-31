@@ -133,6 +133,10 @@ export interface HelpScreenProps {
   onToggle: (id: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 受控搜索词;给了 `onSearchChange` 才渲染搜索框(不过滤逻辑住在共享屏,两端同一套) */
+  searchValue?: string
+  onSearchChange?: (value: string) => void
+  searchPlaceholder?: string
 }
 
 /** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */
