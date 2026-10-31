@@ -40,7 +40,6 @@ import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { NavChrome } from '../components/NavChrome'
-import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -214,7 +213,8 @@ export function CircleIndexScreen() {
             {imgs.length ? (
               <View style={styles.imgRow}>
                 {imgs.slice(0, 3).map((img, i) => (
-                  <Pressable style={pressFeedback(undefined)}
+                  <Pressable
+                    style={undefined}
                     key={i}
                     onPress={() => setPreview({ urls: imgs, index: i })}
                     accessibilityRole="imagebutton"
@@ -224,7 +224,7 @@ export function CircleIndexScreen() {
                 ))}
                 {imgs.length > 3 ? (
                   <Pressable
-                    style={pressFeedback([styles.img, styles.imgMore])}
+                    style={[styles.img, styles.imgMore]}
                     onPress={() => setPreview({ urls: imgs, index: 2 })}
                   >
                     <Text style={styles.imgMoreText}>{`+${imgs.length - 3}`}</Text>
@@ -292,7 +292,7 @@ export function CircleIndexScreen() {
                 {hotTopics.map((topic) => (
                   <Pressable
                     key={String(topic.id)}
-                    style={pressFeedback(styles.topicChip)}
+                    style={styles.topicChip}
                     onPress={() => navigation.navigate('TopicDetail', { id: String(topic.id) })}
                     accessibilityRole="button"
                   >
@@ -362,7 +362,7 @@ export function CircleIndexScreen() {
               <Inbox size={40} color={tk.text.tertiary} />
               <Text style={styles.stateText}>{t('circle.empty')}</Text>
               <Pressable
-                style={pressFeedback(styles.emptyBtn)}
+                style={styles.emptyBtn}
                 onPress={() => navigation.navigate('CircleCreate')}
                 accessibilityRole="button"
               >
