@@ -103,7 +103,6 @@ interface HttpSnapshot {
   uptimeSeconds: Array<{ job: string; seconds: number }>
   wsConnections: number | null
   activeConnections: number | null
-  aiActiveSessions: number | null
 }
 
 interface RedisSnapshot {
@@ -189,6 +188,18 @@ interface BusinessSnapshot {
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
+  /** 近 14 日每日新增用户(上海日界,含今天);查询失败为 null */
+  userGrowth?: Array<{ date: string; count: number }> | null
+  /** 用户构成(全部即时计数,与 usersTotal 同一次查询) */
+  usersVip?: number | null
+  usersTrader?: number | null
+  /** 邀请注册(累计)/ 近 7 日邀请注册 */
+  usersInvited?: number | null
+  usersInvited7d?: number | null
+  /** 等级分布 [普通, 白银, 黄金, 钻石] */
+  usersByLevel?: [number, number, number, number] | null
+  /** 近 7 日签到去重用户数;null = 查询失败(不折成 0) */
+  activeUsers7d?: number | null
 }
 
 interface TrafficSnapshot {
@@ -1400,6 +1411,35 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [biz?.signIn?.last7d, isDark, t, locale])
 
+  /** 近 14 日新增用户(上海日界,后端逐日补齐):拉新节奏与总量是两件事。 */
+  const userGrowthOption = React.useMemo<EChartsOption>(() => {
+    const rows = biz?.userGrowth ?? []
+    return {
+      grid: { left: 26, right: 4, top: 8, bottom: 16 },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      xAxis: {
+        type: 'category',
+        data: rows.map((r) => r.date.slice(5)),
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9, interval: 2 },
+      },
+      yAxis: { type: 'value', ...AXIS(isDark) },
+      series: [
+        {
+          type: 'bar',
+          data: rows.map((r) => r.count),
+          barWidth: '58%',
+          itemStyle: { borderRadius: [2, 2, 0, 0], color: CHART_CYAN },
+        },
+      ],
+    }
+  }, [biz?.userGrowth, isDark])
+
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
     const rows = edge?.series ?? []
@@ -1924,12 +1964,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 tone="accent"
               />
               <StatCell
-                label={t('aiSessions')}
-                value={fmtInt(http?.aiActiveSessions)}
-                unit={t('unitSession')}
-                tone="accent"
-              />
-              <StatCell
                 label={t('apiCallsToday')}
                 value={fmtCompact(biz?.apiCallsToday)}
                 tone={biz ? 'ok' : 'unknown'}
@@ -2008,6 +2042,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       : t('mailWarn')}
                 </span>
                 <span>{t('dedupSuppressed', { count: fmtInt(bridge?.dedupSuppressed) })}</span>
+                {/* 库内 firing **行数** > 去重告警名数 ⇒ 同一告警正落在多个资源上(严重度信号,
+                    页头的「告警 N」按名去重看不见这一维)。2026-10-31 接线。 */}
+                {isNum(alerts?.firingTotal) &&
+                (alerts?.firingTotal ?? 0) > (alerts?.firingNames ?? []).length ? (
+                  <span>
+                    {t('firingRowsSplit', {
+                      total: fmtInt(alerts?.firingTotal),
+                      names: fmtInt((alerts?.firingNames ?? []).length),
+                    })}
+                  </span>
+                ) : null}
               </span>
             }
             bodyClassName="wb-split overflow-y-auto"
@@ -2343,6 +2388,45 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 />
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
+              </div>
+              {/* 用户构成 / 等级分布 / 近14日增长(2026-10-31 接线):后端早在算、文案与测试夹具
+                  也全齐,页面却一格没有 —— 同族"造好没装车"的最后一块。 */}
+              <div className="mt-2">
+                <div className="wb-cells grid gap-1.5">
+                  <StatCell label={t('usersVip')} value={fmtInt(biz?.usersVip)} tone="accent" />
+                  <StatCell label={t('usersTrader')} value={fmtInt(biz?.usersTrader)} />
+                  <StatCell label={t('usersInvited')} value={fmtInt(biz?.usersInvited)} />
+                  <StatCell label={t('usersInvited7d')} value={fmtInt(biz?.usersInvited7d)} />
+                  <StatCell label={t('activeUsers7d')} value={fmtInt(biz?.activeUsers7d)} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('levelDistTitle')}
+                </div>
+                <div className="space-y-1">
+                  {[t('level0'), t('level1'), t('level2'), t('level3')].map((label, i) => (
+                    <MeterRow
+                      key={label}
+                      label={label}
+                      value={fmtInt(biz?.usersByLevel?.[i] ?? null)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="relative mt-2">
+                <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
+                  {t('userGrowth14d')}
+                </div>
+                <EChart
+                  option={userGrowthOption}
+                  height={62}
+                  merge
+                  ariaLabel={t('userGrowth14d')}
+                />
+                {!biz || (biz.userGrowth ?? []).length === 0 ? (
+                  <ChartEmpty text={t('sourceUnreachable')} />
+                ) : null}
               </div>
               {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
               <div className="mt-2">
@@ -2684,6 +2768,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   <Dot tone="ok" />
                   {t('onlineNow', { count: fmtInt(traffic.online5m) })}
+                  {isNum(traffic.pv5m)
+                    ? ` · ${t('pv5mNow', { count: fmtInt(traffic.pv5m) })}`
+                    : ''}
                 </span>
               ) : null
             }
