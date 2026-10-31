@@ -26,7 +26,7 @@
 
 .ask-create-body {
   flex: 1;
-  padding: 24rpx 20rpx 160rpx;
+  padding: var(--spacing-md) 20rpx 160rpx;
   box-sizing: border-box;
 }
 
@@ -35,15 +35,15 @@
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
 }
 
 .ask-create-label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 /* 对齐 RN label: 14dp→28rpx / text.secondary */
@@ -63,7 +63,7 @@
   width: 100%;
   font-size: 32rpx;
   color: var(--color-foreground);
-  padding: 16rpx 24rpx;
+  padding: var(--spacing-sm) 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -73,7 +73,7 @@
 .ask-create-textarea {
   width: 100%;
   min-height: 240rpx;
-  padding: 16rpx 24rpx;
+  padding: var(--spacing-sm) 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -87,8 +87,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20rpx 24rpx;
-  margin-top: 8rpx;
+  padding: var(--spacing-sm-loose) 24rpx;
+  margin-top: var(--spacing-xs);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
@@ -106,13 +106,13 @@
 .ask-create-rewards {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
-  margin-top: 16rpx;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
 }
 
 .ask-create-reward {
   min-width: 80rpx;
-  padding: 12rpx 28rpx;
+  padding: var(--spacing-xs-loose) 28rpx;
   text-align: center;
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
@@ -132,8 +132,8 @@
 .ask-create-images {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
-  margin-top: 16rpx;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
 }
 
 .ask-create-img-item {
@@ -196,7 +196,7 @@
   display: block;
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
 }
 
 /* 底部按钮(对齐 RN submitBtn: bg brand / 圆角 24rpx / 字 32rpx 600) */
@@ -205,7 +205,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 20rpx;
+  padding: var(--spacing-sm-loose) 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;
@@ -254,7 +254,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 28rpx 32rpx;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 
 .ask-create-sheet-title {
@@ -287,3 +287,4 @@
   color: var(--color-brand);
   font-size: 28rpx;
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

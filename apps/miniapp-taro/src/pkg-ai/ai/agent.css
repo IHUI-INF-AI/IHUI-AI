@@ -16,8 +16,8 @@
   align-items: center;
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
-  margin-bottom: 24rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
 }
 .avatar {
   width: 100rpx;
@@ -27,7 +27,7 @@
 }
 .body {
   flex: 1;
-  margin-left: 24rpx;
+  margin-left: var(--spacing-md);
 }
 .name {
   display: block;
@@ -39,13 +39,13 @@
   display: block;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .uses {
   display: block;
   font-size: 22rpx;
   color: var(--color-primary);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .arrow {
   color: var(--color-muted-foreground);

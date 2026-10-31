@@ -46,7 +46,6 @@ import {
 } from '@ihui/shared/utils/image-preview-offset'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 盒尺寸(dp)。RN 的 onLayout / onLoad 给的都是这个量纲,与平移量同一坐标系。 */
 export interface ImagePreviewBox {
@@ -210,7 +209,8 @@ export default function ImagePreviewModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={styles.closeBtn}>
-          <Pressable style={pressFeedback(undefined)}
+          <Pressable
+            style={undefined}
             onPress={onClose}
             hitSlop={8}
             accessibilityRole="button"
@@ -282,7 +282,8 @@ export default function ImagePreviewModal({
                 </Pressable>
               </>
             ) : null}
-            <Pressable style={pressFeedback(undefined)}
+            <Pressable
+              style={undefined}
               onPress={() => setZoom((z) => zoomStep(z, 'out'))}
               hitSlop={10}
               accessibilityRole="button"
@@ -290,7 +291,8 @@ export default function ImagePreviewModal({
               <Minus size={22} color={HUD_COLOR} />
             </Pressable>
             <Text style={styles.hudText}>{`${Math.round(zoom * 100)}%`}</Text>
-            <Pressable style={pressFeedback(undefined)}
+            <Pressable
+              style={undefined}
               onPress={() => setZoom((z) => zoomStep(z, 'in'))}
               hitSlop={10}
               accessibilityRole="button"
@@ -299,14 +301,16 @@ export default function ImagePreviewModal({
             </Pressable>
             {onTransfer ? (
               <>
-                <Pressable style={pressFeedback(undefined)}
+                <Pressable
+                  style={undefined}
                   onPress={() => void transfer('save')}
                   hitSlop={10}
                   accessibilityRole="button"
                 >
                   <Download size={22} color={HUD_COLOR} />
                 </Pressable>
-                <Pressable style={pressFeedback(undefined)}
+                <Pressable
+                  style={undefined}
                   onPress={() => void transfer('copy')}
                   hitSlop={10}
                   accessibilityRole="button"

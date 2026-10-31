@@ -13,7 +13,7 @@
 .email-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 48rpx;
+  padding: var(--spacing-2xl);
   box-sizing: border-box;
 }
 .email-title {
@@ -28,12 +28,12 @@
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   text-align: center;
-  margin-top: 16rpx;
-  margin-bottom: 48rpx;
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-2xl);
 }
 /* RN inputWbox: 每行下距 16dp → 32rpx */
 .email-field {
-  margin-bottom: 32rpx;
+  margin-bottom: var(--spacing-lg);
 }
 /* RN inputBox */
 .email-input-box {
@@ -60,7 +60,7 @@
 /* RN sendBtn: 28rpx/700 品牌灰蓝;倒计时态 28rpx 次级色 */
 .email-code-btn {
   flex-shrink: 0;
-  margin-left: 24rpx;
+  margin-left: var(--spacing-md);
   font-size: 28rpx;
   font-weight: 700;
   color: var(--color-brand-accent-deep);
@@ -81,7 +81,7 @@
   font-size: 32rpx;
   font-weight: 700;
   border-radius: var(--radius-xl);
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 .email-submit.disabled {
   opacity: 0.6;

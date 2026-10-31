@@ -21,15 +21,15 @@
 
 /* 对齐 RN shell:personalInfoWrap paddingT 24 + paddingH 32,scrollContent paddingBottom 32 (dp→rpx 1:2) */
 .dist-content {
-  padding: 24rpx 32rpx 64rpx;
+  padding: var(--spacing-md) 32rpx 64rpx;
 }
 
 /* 对齐 RN 卡片:padding 16 (dp→rpx 1:2);RN 三类卡片均无描边;圆角按角色档 card→lg */
 .dist-card {
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  margin-bottom: 24rpx;
-  padding: 32rpx;
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-lg);
 }
 
 /* ===== 个人信息卡(对齐 RN PersonalInformationCard: header 昵称+头像) ===== */
@@ -41,7 +41,7 @@
   /* 对齐 RN avatar 36x32 / radius 4 (dp→rpx 1:2) */
   width: 72rpx;
   height: 64rpx;
-  margin-right: 24rpx;
+  margin-right: var(--spacing-md);
   flex-shrink: 0;
 }
 .dist-person-img {
@@ -77,13 +77,13 @@
   /* 对齐 RN legacyText fontSize 11 (dp→rpx 1:2);原图上白字改语义灰 */
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .dist-person-company {
   display: block;
   font-size: 22rpx;
   color: var(--color-text-tertiary);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -94,13 +94,13 @@
   /* 对齐 RN tabSwitcher: 无容器底,仅 Tab 胶囊 + marginBottom 16 (dp→rpx 1:2) */
   display: flex;
   align-items: center;
-  margin-bottom: 32rpx;
+  margin-bottom: var(--spacing-lg);
 }
 .dist-stats-tab {
   flex: 1;
   text-align: center;
   /* 对齐 RN tabItem paddingH 14 / paddingV 6 / radius 8 (dp→rpx 1:2) */
-  padding: 12rpx 28rpx;
+  padding: var(--spacing-xs-loose) 28rpx;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   border-radius: var(--radius-lg);
@@ -114,7 +114,7 @@
 .dist-stats-body {
   display: flex;
   /* 对齐 RN dataRow marginBottom 12 (dp→rpx 1:2) */
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 .dist-stats-item {
   flex: 1;
@@ -132,7 +132,7 @@
   /* 对齐 RN dataLabel fontSize 12 / marginTop 2 (dp→rpx 1:2) */
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
 }
 
 /* ===== 功能块列(对齐 RN FunctionBlockColumn columns=2: 双列卡片网格) ===== */
@@ -141,7 +141,7 @@
   padding: 0;
   background: transparent;
   border-radius: 0;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -154,7 +154,7 @@
   padding: 28rpx;
   background: var(--color-card);
   border-radius: var(--radius-xl);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
   box-sizing: border-box;
 }
 .dist-menu-item:active {
@@ -169,7 +169,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 24rpx;
+  margin-right: var(--spacing-md);
   flex-shrink: 0;
 }
 .dist-menu-icon {
@@ -199,7 +199,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48rpx;
+  padding: var(--spacing-2xl);
 }
 
 /* ===== 二维码弹窗 ===== */
@@ -207,7 +207,7 @@
   background: var(--color-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 32rpx;
+  padding: var(--spacing-lg);
   width: 100%;
   max-width: 600rpx;
 }
@@ -215,7 +215,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 .dist-qrpop-title {
   font-size: 32rpx;
@@ -252,10 +252,10 @@
   text-align: center;
   font-size: 20rpx;
   color: var(--color-muted-foreground);
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 .dist-qrpop-actions {
-  margin-top: 32rpx;
+  margin-top: var(--spacing-lg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -281,7 +281,7 @@
   text-align: center;
   font-size: 26rpx;
   color: var(--color-primary);
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 
 /* ===== 身份验证弹窗 ===== */
@@ -289,13 +289,13 @@
   background: var(--color-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 48rpx 32rpx;
+  padding: var(--spacing-2xl) 32rpx;
   width: 100%;
   max-width: 600rpx;
 }
 .dist-verify-header {
   text-align: center;
-  margin-bottom: 32rpx;
+  margin-bottom: var(--spacing-lg);
 }
 .dist-verify-title {
   font-size: 32rpx;
@@ -305,7 +305,7 @@
 .dist-verify-avatar {
   display: flex;
   justify-content: center;
-  margin-bottom: 32rpx;
+  margin-bottom: var(--spacing-lg);
 }
 .dist-verify-avatar-img {
   width: 120rpx;
@@ -321,7 +321,7 @@
   padding: 0 24rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
   box-sizing: border-box;
 }
 .dist-verify-copyright {
@@ -329,10 +329,10 @@
   text-align: center;
   font-size: 20rpx;
   color: var(--color-muted-foreground);
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 .dist-verify-btn {
-  margin-top: 32rpx;
+  margin-top: var(--spacing-lg);
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;

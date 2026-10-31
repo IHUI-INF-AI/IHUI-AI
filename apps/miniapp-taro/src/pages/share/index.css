@@ -39,12 +39,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 48rpx 32rpx 32rpx;
+  padding: var(--spacing-2xl) 32rpx 32rpx;
 }
 .share-rank-header-left {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .share-rank-title {
   font-size: 40rpx;
@@ -58,8 +58,8 @@
 .share-rank-enter {
   display: flex;
   align-items: center;
-  gap: 8rpx;
-  padding: 16rpx 28rpx;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 28rpx;
   background: var(--color-cta);
   border-radius: var(--radius-lg);
 }
@@ -84,7 +84,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 28rpx 0;
+  padding: var(--spacing-md) 28rpx 0;
 }
 .share-rank-card-title {
   font-size: 30rpx;
@@ -100,7 +100,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 20rpx 28rpx;
+  padding: var(--spacing-sm-loose) 28rpx;
   text-align: center;
 }
 .share-rank-more-text {
@@ -115,7 +115,7 @@
    (与 web packages/ui-react category-bar / RN CategoryInlineBar 同形同档)。
    原 card 底与静止态 chip 的 card 底同色会看不见,故铺页底 background 做对比。 */
 .share-tabs {
-  padding: 16rpx 20rpx;
+  padding: var(--spacing-sm) 20rpx;
   background: var(--color-background);
   box-sizing: border-box;
 }
@@ -123,7 +123,7 @@
 /* ===== 资讯列表(对齐 RN listContent:paddingHorizontal 10 → 20rpx,paddingVertical 12 → 24rpx;
    底部 96rpx 为触底加载预留,非 RN 项) ===== */
 .share-list {
-  padding: 24rpx 20rpx calc(120rpx + env(safe-area-inset-bottom));
+  padding: var(--spacing-md) 20rpx calc(120rpx + env(safe-area-inset-bottom));
 }
 
 /* 资讯卡片样式由 InformationItem 组件内联实现,此处仅保留空状态/加载样式 */
@@ -142,8 +142,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12rpx;
-  padding: 48rpx 0;
+  gap: var(--spacing-xs-loose);
+  padding: var(--spacing-2xl) 0;
 }
 .share-loading-dot {
   width: 12rpx;
@@ -176,7 +176,7 @@
 
 .share-nomore {
   text-align: center;
-  padding: 32rpx 0 48rpx;
+  padding: var(--spacing-lg) 0 48rpx;
 }
 .share-nomore-text {
   color: var(--color-muted-foreground);

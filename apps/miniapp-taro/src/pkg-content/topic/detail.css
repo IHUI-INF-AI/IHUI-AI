@@ -15,7 +15,7 @@
 
 .topic-detail-body {
   flex: 1;
-  padding-bottom: 40rpx;
+  padding-bottom: var(--spacing-xl);
   box-sizing: border-box;
 }
 
@@ -24,8 +24,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 24rpx;
-  padding: 24rpx;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--color-card);
 }
 
@@ -34,7 +34,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .topic-detail-name {
@@ -62,7 +62,7 @@
 .topic-detail-follow-btn {
   flex-shrink: 0;
   margin: 0;
-  padding: 12rpx 32rpx;
+  padding: var(--spacing-xs-loose) 32rpx;
   font-size: 26rpx;
   font-weight: 600;
   line-height: 1.4;
@@ -90,8 +90,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16rpx;
-  padding: 20rpx 24rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm-loose) 24rpx;
   background: var(--color-card);
 }
 
@@ -118,15 +118,15 @@
 
 /* ===== 帖子列表(RN listContent: padding24/pb40/gap16) ===== */
 .topic-detail-list {
-  padding: 24rpx 24rpx 40rpx;
+  padding: var(--spacing-md) 24rpx 40rpx;
 }
 
 /* 帖子卡(RN post: gap12/padding24/radius16 白底) */
 .topic-detail-post {
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
 }
 
 /* 帖子用户信息(RN postUser: row/center/gap16) */
@@ -134,8 +134,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16rpx;
-  margin-bottom: 12rpx;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .topic-detail-avatar {
@@ -151,7 +151,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: var(--spacing-2xs);
 }
 
 .topic-detail-author {
@@ -172,7 +172,7 @@
   color: var(--color-foreground);
   font-weight: 600;
   line-height: 1.4;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 /* 帖子内容(对齐共享屏 numberOfLines=3:三行截断) */
@@ -190,8 +190,8 @@
 .topic-detail-post-images {
   display: flex;
   flex-direction: row;
-  gap: 12rpx;
-  margin-top: 12rpx;
+  gap: var(--spacing-xs-loose);
+  margin-top: var(--spacing-xs-loose);
 }
 
 .topic-detail-post-img {
@@ -219,15 +219,15 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 32rpx;
-  margin-top: 12rpx;
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-xs-loose);
 }
 
 .topic-detail-post-stat {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .topic-detail-post-stat-icon {
@@ -255,7 +255,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
   color: var(--color-text-tertiary);
   font-size: 26rpx;
 }

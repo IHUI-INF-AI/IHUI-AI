@@ -21,7 +21,7 @@
 
 .exam-result-body {
   flex: 1;
-  padding: 20rpx;
+  padding: var(--spacing-sm-loose);
   padding-bottom: 180rpx;
   box-sizing: border-box;
 }
@@ -38,11 +38,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48rpx 28rpx;
+  padding: var(--spacing-2xl) 28rpx;
   border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 
 .exam-result-hero.passed {
@@ -69,7 +69,7 @@
 .exam-result-status {
   font-size: 32rpx;
   font-weight: 600;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 .exam-result-hero.passed .exam-result-status {
@@ -84,19 +84,19 @@
   font-size: 72rpx;
   color: var(--color-foreground);
   font-weight: 700;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 .exam-result-total {
   font-size: 22rpx;
   color: var(--color-text-tertiary);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 .exam-result-rank {
   font-size: 22rpx;
   color: var(--color-text-tertiary);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 /* 答题统计(RN 无 4 格统计,沿用卡片语言 + 语义色) */
@@ -107,7 +107,7 @@
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: 28rpx 16rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .exam-result-stat-item {
@@ -115,7 +115,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12rpx 0;
+  padding: var(--spacing-xs-loose) 0;
 }
 
 .exam-result-stat-value {
@@ -142,7 +142,7 @@
 .exam-result-stat-label {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 /* 通用卡片 */
@@ -151,7 +151,7 @@
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 28rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .exam-result-card-title {
@@ -159,23 +159,23 @@
   font-size: 36rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 /* 题目回顾 */
 .exam-result-review-item {
-  padding: 20rpx 0;
+  padding: var(--spacing-sm-loose) 0;
 }
 
 .exam-result-review-item:not(:last-child) {
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 .exam-result-review-header {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  margin-bottom: 12rpx;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .exam-result-review-idx {
@@ -186,7 +186,7 @@
 
 .exam-result-review-status {
   font-size: 22rpx;
-  padding: 4rpx 16rpx;
+  padding: var(--spacing-2xs) 16rpx;
   border-radius: var(--radius-sm);
 }
 
@@ -212,19 +212,19 @@
   font-weight: 500;
   color: var(--color-foreground);
   line-height: 1.5;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .exam-result-review-row {
   display: flex;
   align-items: baseline;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 
 .exam-result-review-label {
   font-size: 22rpx;
   color: var(--color-text-tertiary);
-  margin-right: 8rpx;
+  margin-right: var(--spacing-xs);
   flex-shrink: 0;
 }
 
@@ -244,8 +244,8 @@
 .exam-result-review-analysis {
   background: var(--color-background);
   border-radius: var(--radius-md);
-  padding: 16rpx;
-  margin-top: 12rpx;
+  padding: var(--spacing-sm);
+  margin-top: var(--spacing-xs-loose);
 }
 
 .exam-result-review-analysis-label {
@@ -253,7 +253,7 @@
   font-size: 24rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 
 .exam-result-review-analysis-text {
@@ -268,7 +268,7 @@
   text-align: center;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  padding: 32rpx 0;
+  padding: var(--spacing-lg) 0;
 }
 
 /* 底部按钮(h100rpx / 圆角 24rpx;主按钮 bg-primary 白字,修复原黑底黑字) */
@@ -278,8 +278,8 @@
   left: 0;
   right: 0;
   display: flex;
-  gap: 16rpx;
-  padding: 20rpx 24rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm-loose) 24rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;

@@ -1,13 +1,13 @@
 /*
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
 /* ============ 流式执行过程卡片根容器 ============ */
 .ai-card-root {
-  margin: 12rpx 16rpx;
-  padding: 16rpx 20rpx;
+  margin: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-sm) 20rpx;
   background: var(--color-streamed-container-bg);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -19,22 +19,22 @@
 }
 .ai-card-root-title {
   flex: 1;
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 40rpx;
 }
 .ai-card-root-chevron {
-  margin-left: 8rpx;
+  margin-left: var(--spacing-xs);
   flex-shrink: 0;
 }
 .ai-card-root-body {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
 }
 
 /* ============ 区块通用头 ============ */
 .ai-card-section {
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .ai-card-section:last-child {
   margin-bottom: 0;
@@ -52,7 +52,7 @@
   line-height: 40rpx;
 }
 .ai-card-section-count {
-  margin-left: 8rpx;
+  margin-left: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
@@ -70,24 +70,24 @@
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   line-height: 34rpx;
-  padding: 4rpx 0;
+  padding: var(--spacing-2xs) 0;
 }
 .ai-card-steer-more {
   display: block;
   font-size: 20rpx;
   color: var(--color-muted-foreground);
   opacity: 0.7;
-  padding: 4rpx 0;
+  padding: var(--spacing-2xs) 0;
 }
 
 /* ============ 计划步骤卡片 ============ */
 .ai-card-plan-list {
-  padding-left: 4rpx;
+  padding-left: var(--spacing-2xs);
 }
 .ai-card-plan-item {
   display: flex;
   align-items: flex-start;
-  padding: 12rpx 0;
+  padding: var(--spacing-xs-loose) 0;
 }
 .ai-card-plan-item:last-child {
   border-bottom: none;
@@ -130,21 +130,21 @@
 }
 .ai-card-plan-explain {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .ai-card-plan-duration {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
 
 /* ============ 工具调用卡片 ============ */
 .ai-card-tool-list {
-  padding-left: 4rpx;
+  padding-left: var(--spacing-2xs);
 }
 .ai-card-tool-item {
   display: flex;
@@ -208,7 +208,7 @@
 }
 
 .ai-card-tool-source {
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   background: var(--color-muted);
@@ -232,7 +232,7 @@
 
 /* 结果度量("128 行" / "2 个结果"):11px 档 + 等宽数字,与 web StreamMetric 同档 */
 .ai-card-tool-metric {
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   font-variant-numeric: tabular-nums;
@@ -240,7 +240,7 @@
 
 /* 写类工具的 ± 行数:绿增红减沿用 --color-success / --color-danger(与状态条同色档) */
 .ai-card-tool-lines {
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 22rpx;
   font-variant-numeric: tabular-nums;
 }
@@ -248,11 +248,11 @@
   color: var(--color-success);
 }
 .ai-card-tool-lines-removed {
-  margin-left: 8rpx;
+  margin-left: var(--spacing-xs);
   color: var(--color-danger);
 }
 .ai-card-tool-duration {
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
@@ -300,12 +300,12 @@
   flex: 1;
   display: flex;
   align-items: flex-start;
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
 }
 .ai-card-term-prompt {
   font-size: 24rpx;
   color: var(--color-success);
-  margin-right: 8rpx;
+  margin-right: var(--spacing-xs);
   font-family: monospace;
 }
 .ai-card-term-command {
@@ -344,7 +344,7 @@
   position: relative;
   background: var(--color-muted);
   border-radius: var(--radius-sm);
-  padding: 16rpx 16rpx;
+  padding: var(--spacing-sm) 16rpx;
 }
 .ai-card-term-output {
   display: block;
@@ -354,7 +354,7 @@
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
-  padding-right: 80rpx;
+  padding-right: var(--spacing-4xl);
 }
 .ai-card-term-copy {
   position: absolute;
@@ -364,22 +364,22 @@
   align-items: center;
   background: var(--color-card);
   border-radius: var(--radius-sm);
-  padding: 4rpx 10rpx;
+  padding: var(--spacing-2xs) 10rpx;
 }
 .ai-card-term-copy-text {
-  margin-left: 4rpx;
+  margin-left: var(--spacing-2xs);
   font-size: 20rpx;
   color: var(--color-muted-foreground);
 }
 .ai-card-term-error {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-danger);
 }
 .ai-card-term-truncated {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
@@ -387,7 +387,7 @@
    刻意不新立字号 —— 终端卡内的次要说明只有这一档) */
 .ai-card-term-waiting {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 .ai-card-term-waiting-title {
   display: block;
@@ -396,13 +396,13 @@
 }
 .ai-card-term-waiting-prompt {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
 .ai-card-term-waiting-hint {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 22rpx;
   color: var(--color-danger);
 }
@@ -411,7 +411,7 @@
 .ai-card-spinner {
   display: flex;
   align-items: center;
-  gap: 4rpx;
+  gap: var(--spacing-2xs);
 }
 .ai-card-spinner-dot {
   width: 8rpx;
@@ -447,8 +447,8 @@
 .ai-card-subagent-item {
   display: flex;
   align-items: flex-start;
-  padding: 16rpx;
-  margin-top: 12rpx;
+  padding: var(--spacing-sm);
+  margin-top: var(--spacing-xs-loose);
   border-left: 6rpx solid var(--color-muted-foreground);
   border-radius: var(--radius-sm);
   background: var(--color-muted);
@@ -469,8 +469,8 @@
   border-left-color: var(--color-danger);
 }
 .ai-card-subagent-icon {
-  margin-right: 12rpx;
-  padding-top: 4rpx;
+  margin-right: var(--spacing-xs-loose);
+  padding-top: var(--spacing-2xs);
 }
 .ai-card-subagent-body {
   flex: 1;
@@ -521,3 +521,4 @@
 .ai-card-subagent-hint.is-danger {
   color: var(--color-danger);
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

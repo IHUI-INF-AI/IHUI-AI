@@ -27,9 +27,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 32rpx 16rpx;
+  padding: var(--spacing-md) 32rpx 16rpx;
   background: var(--color-card);
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .pza-page-title {
@@ -42,13 +42,13 @@
 .pza-nav-btns {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 /* 头部按钮对齐 RN chip 视觉语言:px 10dp→20rpx / py 6dp→12rpx / bg surface.muted /
    border border.light / 字 14dp→28rpx text.secondary;圆角按角色档 control→sm(它们是动作按钮,不是选中项) */
 .pza-nav-btn {
-  padding: 12rpx 20rpx;
+  padding: var(--spacing-xs-loose) 20rpx;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   background: var(--color-muted);
@@ -62,14 +62,14 @@
    原 hairline 底边属纯分割线,按 AGENTS §4 禁止分割线一并移除)。 */
 .pza-tabs {
   white-space: nowrap;
-  padding: 24rpx 20rpx;
+  padding: var(--spacing-md) 20rpx;
   box-sizing: border-box;
 }
 
 /* 列表对齐 RN listContent:padding 10dp→20rpx / paddingBottom 80dp→160rpx(bottom-space) */
 .pza-scroll {
   flex: 1;
-  padding: 20rpx 20rpx 0;
+  padding: var(--spacing-sm-loose) 20rpx 0;
   box-sizing: border-box;
 }
 
@@ -77,7 +77,7 @@
 .pza-cols {
   display: flex;
   align-items: flex-start;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 
 /* 卡片纵向间距对齐 RN card marginBottom 9dp→18rpx */
@@ -95,7 +95,7 @@
   background: var(--color-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
+  padding: var(--spacing-md);
   box-sizing: border-box;
 }
 
@@ -110,7 +110,7 @@
   width: 100%;
   height: 320rpx;
   border-radius: var(--radius-lg);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 .pza-info {
@@ -124,7 +124,7 @@
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.4;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   -webkit-line-clamp: 2;
@@ -137,7 +137,7 @@
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   line-height: 1.4;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   -webkit-line-clamp: 3;
@@ -148,8 +148,8 @@
 .pza-meta {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 /* 头像 fallback 对齐 RN avatarWrap+avatarFallback:24dp→48rpx 圆 / bg surface.muted */
@@ -197,21 +197,21 @@
 .pza-tags {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .pza-track {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   background: var(--color-muted);
-  padding: 4rpx 12rpx;
+  padding: var(--spacing-2xs) 12rpx;
   border-radius: var(--radius-sm);
 }
 
 .pza-attention {
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .pza-attention-count {
@@ -226,8 +226,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 96rpx 0;
-  gap: 24rpx;
+  padding: var(--spacing-5xl) 0;
+  gap: var(--spacing-md);
 }
 
 /* 强调行对齐 RN emptyTextStrong:字 20dp→40rpx / 700 / brandAccent */
@@ -248,8 +248,8 @@
 /* 发布按钮对齐 RN emptyBtn:mt 12dp→24rpx / px 24dp→48rpx / py 10dp→20rpx / bg brand.DEFAULT;
    圆角按角色档 control→sm */
 .pza-empty-btn {
-  margin-top: 24rpx;
-  padding: 20rpx 48rpx;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm-loose) 48rpx;
   border-radius: var(--radius-sm);
   background: var(--color-brand);
 }
@@ -266,7 +266,7 @@
 .pza-load-more {
   display: block;
   text-align: center;
-  padding: 32rpx 0;
+  padding: var(--spacing-lg) 0;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
@@ -324,7 +324,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 28rpx;
+  padding: var(--spacing-md) 28rpx;
 }
 
 .pza-drawer-title {
@@ -341,15 +341,15 @@
 
 .pza-track-scroll {
   white-space: nowrap;
-  padding: 8rpx 28rpx 28rpx;
+  padding: var(--spacing-xs) 28rpx 28rpx;
 }
 
 .pza-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12rpx 20rpx;
-  margin-right: 24rpx;
+  padding: var(--spacing-xs-loose) 20rpx;
+  margin-right: var(--spacing-md);
   background: var(--color-muted);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -386,8 +386,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 28rpx;
-  gap: 16rpx;
+  padding: var(--spacing-md) 28rpx;
+  gap: var(--spacing-sm);
 }
 
 .pza-center-title {
@@ -411,7 +411,7 @@
   display: block;
   width: 100%;
   border-radius: var(--radius-md);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .pza-center-desc {
@@ -419,14 +419,14 @@
   font-size: 26rpx;
   color: var(--color-foreground);
   line-height: 1.6;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .pza-center-meta {
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  margin-bottom: 12rpx;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .pza-center-label {

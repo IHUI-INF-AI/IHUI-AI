@@ -17,8 +17,8 @@
  */
 
 .tac-card {
-  margin: 12rpx 20rpx 0;
-  padding: 20rpx;
+  margin: var(--spacing-xs-loose) 20rpx 0;
+  padding: var(--spacing-sm-loose);
   border: 1rpx solid var(--color-border-medium);
   border-radius: var(--radius-lg);
   background: var(--color-card);
@@ -45,7 +45,7 @@
 
 .tac-desc {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   line-height: 34rpx;
   color: var(--color-muted-foreground);
@@ -56,7 +56,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   margin-top: 14rpx;
   padding: 10rpx 16rpx;
   border: 1rpx solid var(--color-border);
@@ -96,7 +96,7 @@
 .tac-args {
   display: block;
   max-height: 160rpx;
-  padding: 12rpx;
+  padding: var(--spacing-xs-loose);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-muted);
@@ -135,8 +135,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12rpx;
-  margin-top: 16rpx;
+  gap: var(--spacing-xs-loose);
+  margin-top: var(--spacing-sm);
 }
 
 .tac-reject,
@@ -146,7 +146,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
   padding: 14rpx 0;
   border-radius: var(--radius-md);
   font-size: 24rpx;
@@ -169,7 +169,7 @@
 
 /* 已处理记录:住在卡外(页级 state 驱动),卡片不挂载时仍在 */
 .tac-records {
-  margin: 12rpx 20rpx 0;
+  margin: var(--spacing-xs-loose) 20rpx 0;
   padding: 14rpx 16rpx;
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -178,7 +178,7 @@
 
 .tac-records-title {
   display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
   font-size: 20rpx;
   color: var(--color-text-tertiary);
 }
@@ -188,8 +188,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 12rpx;
-  padding: 8rpx 0;
+  gap: var(--spacing-xs-loose);
+  padding: var(--spacing-xs) 0;
 }
 
 .tac-record-main {
@@ -239,7 +239,7 @@
 
 .tac-override-desc {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 18rpx;
   line-height: 26rpx;
   color: var(--color-muted-foreground);

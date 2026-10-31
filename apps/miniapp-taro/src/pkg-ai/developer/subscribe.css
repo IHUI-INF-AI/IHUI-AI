@@ -14,9 +14,9 @@
 .dev-header {
   display: flex;
   align-items: flex-start;
-  gap: 24rpx;
-  padding: 32rpx 28rpx;
-  margin: 24rpx;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) 28rpx;
+  margin: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -45,7 +45,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .dev-name {
   font-size: 34rpx;
@@ -59,7 +59,7 @@
 }
 .dev-sub-btn {
   align-self: flex-start;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   padding: 0 28rpx;
   height: 60rpx;
   line-height: 60rpx;
@@ -86,7 +86,7 @@
 .dev-stats {
   display: flex;
   margin: 0 24rpx;
-  padding: 24rpx 0;
+  padding: var(--spacing-md) 0;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -96,7 +96,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .dev-stat-num {
   font-size: 36rpx;
@@ -110,27 +110,27 @@
 
 /* ===== 通用区块 ===== */
 .dev-section {
-  margin: 24rpx;
+  margin: var(--spacing-md);
 }
 .dev-section-title {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 /* ===== 模型列表 ===== */
 .dev-model-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .dev-model-card {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  padding: 24rpx;
+  gap: var(--spacing-sm-loose);
+  padding: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -157,13 +157,13 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 .dev-model-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 .dev-model-name {
   font-size: 28rpx;
@@ -197,11 +197,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .dev-notify-label {
   font-size: 28rpx;
@@ -212,10 +212,10 @@
 .dev-post-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .dev-post-card {
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -228,21 +228,21 @@
 }
 .dev-post-content {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .dev-post-time {
   display: block;
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
 
 /* ===== 联系开发者 / 状态文案 ===== */
 .dev-contact-btn {
-  margin: 24rpx;
+  margin: var(--spacing-md);
   height: 84rpx;
   line-height: 84rpx;
   font-size: 30rpx;
@@ -266,6 +266,6 @@
   text-align: center;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  padding: 40rpx 0;
+  padding: var(--spacing-xl) 0;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
