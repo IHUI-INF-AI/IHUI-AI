@@ -148,6 +148,23 @@ export const langgraphWrites = pgTable(
 )
 
 /**
+ * LangGraph 线程归属表(langgraph_thread_owners)— 2026-10-31 安全强化第 26 批。
+ *
+ * 线程图状态(values 含整段对话与工具结果)住在 LangGraph saver 自己的表里,而归属
+ * 此前只存在进程内存(canvas_graph 的 owner 账):进程重启即失忆,重启后任何人拿到
+ * threadId 都能经 /api/langgraph/{id}/state 读走 graphState。本表是归属的**持久**
+ * 真相源 —— 执行类入口首次接触时登记,读取类入口只比对、不登记。
+ * - thread_id: 与 langgraph_checkpoints.thread_id 同宽(varchar 100)
+ * - user_id:   uuid(主体形态)。系统身份(system-worker)与开发占位(dev-anonymous)
+ *   不是 uuid ⇒ 由应用层拒绝登记,DB 列类型是第二道防线。
+ */
+export const langgraphThreadOwners = pgTable('langgraph_thread_owners', {
+  threadId: varchar('thread_id', { length: 100 }).primaryKey(),
+  userId: uuid('user_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+/**
  * Agent loop checkpoints 表(agent_checkpoints)。
  *
  * agent_loop_v2 主链路 checkpoint 持久层(D26 双轨收敛:主链路 checkpoint 从
@@ -183,6 +200,8 @@ export type LanggraphCheckpoint = typeof langgraphCheckpoints.$inferSelect
 export type NewLanggraphCheckpoint = typeof langgraphCheckpoints.$inferInsert
 export type LanggraphWrite = typeof langgraphWrites.$inferSelect
 export type NewLanggraphWrite = typeof langgraphWrites.$inferInsert
+export type LanggraphThreadOwner = typeof langgraphThreadOwners.$inferSelect
+export type NewLanggraphThreadOwner = typeof langgraphThreadOwners.$inferInsert
 export type AgentCheckpoint = typeof agentCheckpoints.$inferSelect
 export type NewAgentCheckpoint = typeof agentCheckpoints.$inferInsert
 
