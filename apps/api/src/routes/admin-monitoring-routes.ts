@@ -41,10 +41,14 @@ async function getPerf() {
   return {
     cpu: cpuUsage,
     memory: Number((((totalMem - freeMem) / totalMem) * 100).toFixed(2)),
-    qps: 0,
-    avgResponse: 0,
-    // diskUsage:无跨平台磁盘检测库,保持 0(如需真实数据可引入 node-disk-info)
-    diskUsage: 0,
+    /**
+     * 2026-10-31(admin 监控崩溃族 ⑤):这三项**后端没有数据源**,旧实现硬编码 0。
+     * 0 会被前端读成"实测就是 0"(假读数,还会把灯刷绿);null 才是"取不到",
+     * 前端据此显式落「未判定」。真要有数,得先有采集源(见 monitor/ops-wallboard 的 Prometheus 腿)。
+     */
+    qps: null,
+    avgResponse: null,
+    diskUsage: null,
   }
 }
 
@@ -70,18 +74,20 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
 
   /** 服务健康检测:DB(SELECT 1)、Redis(ping);api/web/ai-service 标记运行中 */
   async function checkServiceHealth(srv: typeof server) {
-    const services: { name: string; status: string; latency: number }[] = []
+    // latency:null = 未测到(不是 0ms)。api/web/ai-service 是"当前进程存活"的自报状态,
+    // 没做过延迟测量 ⇒ 旧实现写 0,前端会把它显示成"0ms"(假读数)。
+    const services: { name: string; status: string; latency: number | null }[] = []
     // api/web/ai-service:当前进程标记运行中
-    services.push({ name: 'api', status: 'running', latency: 0 })
-    services.push({ name: 'web', status: 'running', latency: 0 })
-    services.push({ name: 'ai-service', status: 'running', latency: 0 })
+    services.push({ name: 'api', status: 'running', latency: null })
+    services.push({ name: 'web', status: 'running', latency: null })
+    services.push({ name: 'ai-service', status: 'running', latency: null })
     // postgres:SELECT 1 检查连通性
     try {
       const start = Date.now()
       await db.execute(sql`SELECT 1`)
       services.push({ name: 'postgres', status: 'healthy', latency: Date.now() - start })
     } catch {
-      services.push({ name: 'postgres', status: 'unhealthy', latency: 0 })
+      services.push({ name: 'postgres', status: 'unhealthy', latency: null })
     }
     // redis:尝试 ping(若插件未注册则 ping 调用抛异常,捕获后标记 unhealthy)
     try {
@@ -89,7 +95,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
       await srv.redis.ping()
       services.push({ name: 'redis', status: 'healthy', latency: Date.now() - start })
     } catch {
-      services.push({ name: 'redis', status: 'unhealthy', latency: 0 })
+      services.push({ name: 'redis', status: 'unhealthy', latency: null })
     }
     return services
   }

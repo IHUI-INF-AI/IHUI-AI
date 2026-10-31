@@ -34,12 +34,23 @@ deploy-feedback 条目与本模块无关,不要据此推断本族的状态)。
   ⇒ accept 走 **WORKBUDDY_TASKS_ACCEPT_FIELD** 显式配置,留空即拒绝执行并点名四种试过的
   形态都 400 —— 宁可不做,不猜字段名。
 
-claim(领任务奖励)**路径**与 activity **路径↔主机绑定**已于 2026-10-31 据 workbuddy2api
-README(逆向+真机验证)补证并填入默认值:`WORKBUDDY_TASKS_CLAIM_PATH=/activity/growth/tasks/{code}/claim`
-(**仅在 Web 域 www.workbuddy.cn + `x-client-platform: web` 成功**,见 `_claim_one_web`)、
-`WORKBUDDY_TASKS_ACTIVITY_PATH=/v2/report`(事件码↔主机指纹见 config 表)。二者仍保留
-`WORKBUDDY_TASKS_LIVE_RUN=false` 双门控,写侧须显式开启;若运维把配置清空则回到"拒绝执行"。
+claim(领任务奖励)与 activity **已于 2026-10-31 报文级真机实证**(不再只是读 README):
+`WORKBUDDY_TASKS_CLAIM_PATH=/activity/growth/tasks/{code}/claim` —— 任务码在 **URL 路径**,
+body 无关(空体/`{code}`/`{task_code}` 对未完成任务一律回同一句 400 `task not completed`);
+**Web 域 与 令牌域都通**(README 说"仅 Web 域"已被真机否证),故实现为「有 web_cookie 走
+Web 域 + `x-client-platform: web`,无则走令牌域」,见 `_claim_one_web`。
+`WORKBUDDY_TASKS_ACTIVITY_PATH=/v2/report` 的 body 为 **`{eventCode(驼峰), timestamp(毫秒),
+userId}`** —— 发蛇形 `event_code` 或漏 `timestamp` 会被上游 400 `10001` 打回(其余事件码↔
+主机指纹见 config 表)。二者仍保留 `WORKBUDDY_TASKS_LIVE_RUN=false` 双门控,写侧须显式开启;
+若运维把配置清空则回到"拒绝执行"。
 `www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
+
+**上报 200 ≠ 计分(真机实测,2026-10-31)**:11 枚事件码全部 POST 200 后,任务列表仍
+`status=available`(progress 字段上游不返回)。原因见竞品 README:网关按任务类别校验
+「客户端指纹 + 判据事件链」(CLI / 桌面 `WorkBuddy/5.5.6` / Web 三套),单纯遥测上报不足以
+达标。故本模块的定位是「**把能自动化的腿全部自动化**(领任务 / 达标领奖 / 兑换 / 抽奖 /
+猫猫旅行 / 夜猫子),真行为类任务(如 `first_chat` 需真实发起对话)由其自身行为触发,
+不在服务端伪造 —— 伪造判据链属平台风控对抗,明确不做。
 
 族五/六 redeem(连签兑换)/ lottery(抽奖)**读写双侧均已真机实证(2026-10-31 报文级)**:
 
@@ -90,6 +101,7 @@ import asyncio
 import json
 import random
 import re
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -101,7 +113,7 @@ import httpx
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, client_for
-from app.services.checkin_outbound import checkin_outbound_gate
+from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 from app.services.checkin_workbuddy import (
     PATH_CHECKIN_STATUS,
     PATH_WEB_CHECKIN_STATUS,
@@ -696,11 +708,16 @@ async def _claim_one_web(
     client: httpx.AsyncClient,
     timeout: float,
 ) -> tuple[bool, str, bool]:
-    """单任务领奖:强制走 Web 域(www.workbuddy.cn)+ /v2 前缀 + `x-client-platform: web`。
+    """单任务领奖。任务码在 **URL 路径**里,body 无关(2026-10-31 真机:空体 / `{code}` /
+    `{task_code}` 三种 body 对未完成任务一律回同一句 400 `task not completed` ⇒ 证明
+    路径与鉴权都已通过,差异只在 body 之外)。
 
-    2026-10-31 据 workbuddy2api README 补证:claim **只在 Web 域 + 该头成功**
-    (原文「非 CLI 域——这是领奖能成功的关键」)。故不复用 `_wb_request` 的 token/web
-    自动分流(令牌域会 404/401),直接打 `WB_WEB_BASE + _webify(模板)`。
+    双域策略(真机纠偏 README 的"仅 Web 域"说法):用**令牌域** `copilot.tencent.com`
+    打同一路径同样回业务错误 `task not completed`(而非 404/401)⇒ 令牌域也通。
+    旧实现"强制 Web 域 + 无 web_cookie 即跳过"会让**所有令牌模式账号(默认采集形态)
+    永远领不到奖**,是生产级缺陷。
+    现改为:有 web_cookie ⇒ Web 域 + `x-client-platform: web`(README 形态);无 web_cookie
+    ⇒ 走 `_wb_request` 原生域(令牌域);Web 域非业务失败时再兜底令牌域。
     返回 (ok, 原因, 是否网络失败):网络失败 ⇒ 调用方置 unjudged;会话/业务失败 ⇒ 不误判。
     """
     claim_path_tmpl = (settings.workbuddy_tasks_claim_path or "").strip()
@@ -709,33 +726,42 @@ async def _claim_one_web(
     if "{code}" not in claim_path_tmpl:
         return False, "claim 路径模板缺 {code} 占位符", False
     rel = claim_path_tmpl.format(code=code_item)
-    url = WB_WEB_BASE.rstrip("/") + _webify(rel)
     web_cookie = workbuddy_web_cookie(jwt, device_map)
-    if not web_cookie:
-        return (
-            False,
-            "claim 仅 Web 域 + x-client-platform:web 可用,本账号无 web_cookie(需网页登录态)⇒ 跳过",
-            False,
+
+    if web_cookie:
+        url = WB_WEB_BASE.rstrip("/") + _webify(rel)
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "user-agent": workbuddy_web_ua(device_map),
+            "cookie": web_cookie,
+            "x-client-platform": "web",
+        }
+        status, payload = await _post_once(
+            url, headers, {}, timeout=timeout, http=client, method="POST"
         )
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "user-agent": workbuddy_web_ua(device_map),
-        "cookie": web_cookie,
-        "x-client-platform": "web",
-    }
-    status, payload = await _post_once(
-        url, headers, {}, timeout=timeout, http=client, method="POST"
+        if status in (0, -1):
+            return False, "网络异常" if status == 0 else f"网络异常:{payload}", True
+        if status in (401, 403):
+            return False, f"HTTP {status}(Web 域会话失效,请重抽网页 Cookie)", False
+        if status < 400:
+            code, _data = _envelope(payload)
+            if code is None:
+                return False, "信封不可解析", False
+            if code == _CODE_OK:
+                return True, "", False
+            return False, f"上游 code={code}{_msg_suffix(payload)}", False
+        # Web 域非业务失败(404 等)⇒ 落令牌域再试一次(双域兜底,不丢这一档)
+
+    status, payload, mode = await _wb_request(
+        rel, jwt, device_map, {}, client=client, timeout=timeout
     )
-    if status in (0, -1):
-        return False, "网络异常" if status == 0 else f"网络异常:{payload}", True
-    if status in (401, 403):
-        return False, f"HTTP {status}(Web 域会话失效,请重抽网页 Cookie)", False
-    if status >= 400:
-        return False, f"HTTP {status}", False
+    fail = _failure_reason(status, payload, mode)
+    if fail is not None:
+        return False, fail, status in (0, -1)
     code, _data = _envelope(payload)
     if code is None:
-        return False, "信封不可解析", False
+        return False, "信封不可解析", True
     if code == _CODE_OK:
         return True, "", False
     return False, f"上游 code={code}{_msg_suffix(payload)}", False
@@ -1010,7 +1036,12 @@ async def _run_travel_inner(
                 reasons.append(f"travel/claim 上游 code={c_code}")
     else:
         depart_states = _status_set(settings.workbuddy_tasks_travel_depart_states)
-        if not depart_states:
+        if state.get("daily_limit_reached") is True:
+            # 真机(2026-10-31):status 的 daily_limit_reached=true 表示当日出发次数已用尽,
+            # 此时再打 depart 必失败。旧实现无条件出发 ⇒ 每轮巡检记一条假失败并标 unjudged,
+            # 把整族 ok 拖成 False。已用尽属正常态,跳过而不是报错。
+            reasons.append("今日出发次数已用尽(daily_limit_reached=true)⇒ 不出发")
+        elif not depart_states:
             reasons.append("出发触发态未取证且未配置 ⇒ 本轮不出发(拒绝猜 state 值域)")
         elif state["state"] in depart_states:
             d_status, d_payload, d_mode = await _wb_request(
@@ -1112,9 +1143,18 @@ async def run_activity(
             # Web 域事件带 x-client-platform: web 指纹头(README 实证 web 域需要,与 claim 同源)。
             url_path = path
             extra: dict[str, str] | None = {"x-client-platform": "web"} if base == WB_WEB_BASE else None
-            body = {"event_code": event_code}
+            # body 形态 2026-10-31 真机取证(此前发 event_code 在线上 100% 失败,故曾全族报错):
+            #   缺 eventCode  ⇒ 400 10001「eventCode is empty or not string」
+            #   缺 timestamp ⇒ 400 10001「event missing both reportDelay and timestamp fields」
+            #   秒级时间戳   ⇒ 400 10001「timestamp is too far from now」⇒ 必须毫秒
+            #   {eventCode, timestamp:<ms>} ⇒ 200 {"code":0,"msg":"OK"}
+            # 故字段名是驼峰 eventCode,且必须带毫秒级 timestamp(或 reportDelay)。
+            body: dict[str, Any] = {
+                "eventCode": event_code,
+                "timestamp": int(time.time() * 1000),
+            }
             if uid:
-                body["user_id"] = uid
+                body["userId"] = uid
             status, payload, mode = await _wb_request(
                 path,
                 jwt,
@@ -1578,6 +1618,12 @@ _FAMILY_RUNNERS: Final[dict[str, Callable[..., Awaitable[dict[str, Any]]]]] = {
 VALID_FAMILY_KINDS: Final = tuple(_FAMILY_RUNNERS)
 
 
+# 生产巡检顺序(单一真源:调度器与"一键全族"共用,杜绝两处顺序漂移)。
+# activity 必须排在 growth 之前 —— 上报计分先落地,growth 拉列表时才能看到
+# 「刚因计分达标」的任务并在同一轮 claim;反序则要等下一轮(默认 180 分钟)。
+SWEEP_ORDER: Final = ("activity", "growth", "travel", "blackcat", "redeem", "lottery")
+
+
 async def run_family(
     kind: str,
     jwt: str,
@@ -1585,14 +1631,109 @@ async def run_family(
     *,
     dry_run: bool = False,
     chat_completion: ChatCompletion | None = None,
+    activity_reporter: ActivityReporter | None = None,
+    events: tuple[str, ...] | None = None,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """按族派发到唯一实现;blackcat 的 chat_completion 注入点在此透传。"""
+    """按族派发到唯一实现。
+
+    注入点在此统一透传,否则生产侧(路由/调度)永远拿不到 —— 曾经
+    `activity_reporter` 只存在于测试调用里、growth 的「上报→重判→claim」闭环
+    在线上是死代码,即此漏:
+    - blackcat: `chat_completion`(补全回调)
+    - growth: `activity_reporter`(任务计分回调,用于达标后同轮 claim)
+    - activity: `events`(指定事件码子集,默认全部在册事件)
+    - `client`/`timeout`:复用同一 HTTP 连接与超时(一键全族时避免每族重开连接)
+    `kind="all"` ⇒ 按 SWEEP_ORDER 顺序跑完全部族。
+    """
+    if kind == "all":
+        return await run_all_families(jwt, device_map, dry_run=dry_run, client=client, timeout=timeout)
     runner = _FAMILY_RUNNERS.get(kind)
     if runner is None:
         return _run_result(kind, ok=False, reason=f"未知任务族:{kind}", unjudged=True)
     if kind == "blackcat":
-        return await runner(jwt, device_map, dry_run=dry_run, chat_completion=chat_completion)
-    return await runner(jwt, device_map, dry_run=dry_run)
+        return await runner(
+            jwt,
+            device_map,
+            dry_run=dry_run,
+            chat_completion=chat_completion,
+            client=client,
+            timeout=timeout,
+        )
+    if kind == "growth":
+        return await runner(
+            jwt,
+            device_map,
+            dry_run=dry_run,
+            activity_reporter=activity_reporter,
+            client=client,
+            timeout=timeout,
+        )
+    if kind == "activity" and events is not None:
+        return await runner(
+            jwt, device_map, dry_run=dry_run, events=events, client=client, timeout=timeout
+        )
+    return await runner(jwt, device_map, dry_run=dry_run, client=client, timeout=timeout)
+
+
+async def run_all_families(
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    dry_run: bool = False,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
+    """按 SWEEP_ORDER 顺序跑完全部族,返回聚合结果(键集与单族一致 + families 明细)。
+
+    - 单族异常不中断整轮(记进该族 reason,unjudged=True),与调度器同口径;
+    - 复用同一 client ⇒ 六个族只建一次连接池(调度器逐族调用时为六次);
+    - 任一族撞 `OutboundPaused` 直接上抛,由调用方按限流语义处理(不吞)。
+    """
+    eff_client, owned = (client, False) if client is not None else client_for(device_map)
+    families: dict[str, Any] = {}
+    accepted: list[str] = []
+    claimed: list[str] = []
+    reasons: list[str] = []
+    unjudged = False
+    try:
+        for kind in SWEEP_ORDER:
+            try:
+                res = await run_family(
+                    kind, jwt, device_map, dry_run=dry_run, client=eff_client, timeout=timeout
+                )
+            except OutboundPaused:
+                raise
+            except Exception as e:  # noqa: BLE001 — 单族异常不中断整轮
+                logger.warning("[workbuddy_tasks] 全族执行 %s 异常: %s", kind, e)
+                families[kind] = _run_result(
+                    kind, ok=False, reason=f"执行异常:{e}", unjudged=True
+                )
+                unjudged = True
+                reasons.append(f"{kind}:异常")
+                continue
+            families[kind] = res
+            accepted.extend(res.get("accepted") or [])
+            claimed.extend(res.get("claimed") or [])
+            if res.get("unjudged"):
+                unjudged = True
+            if res.get("reason"):
+                reasons.append(f"{kind}:{res['reason']}")
+        return {
+            "ok": all(bool(r.get("ok")) for r in families.values()) if families else False,
+            "kind": "all",
+            "accepted": accepted,
+            "claimed": claimed,
+            "credit_delta": families.get("growth", {}).get("credit_delta"),
+            "energy_delta": None,
+            "reason": "; ".join(reasons) if reasons else None,
+            "unjudged": unjudged,
+            "families": families,
+        }
+    finally:
+        if owned:
+            await eff_client.aclose()
 
 
 # 说明:travel/status 与 growth 列表均为 POST 读;checkin-status 双路径
