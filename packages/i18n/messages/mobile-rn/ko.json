@@ -929,8 +929,6 @@
     "checkUpdateUnsupported": "이 빌드에서는 앱 내 업데이트를 사용할 수 없습니다",
     "changePhoneMissingUser": "사용자 정보가 누락되었습니다",
     "logoutConfirm": "로그아웃하시겠습니까?",
-    "appPermission": "앱 권한",
-    "icpRecord": "ICP 신고",
     "usageRules": "이용 규정",
     "changePassword": "비밀번호 변경",
     "oldPassword": "기존 비밀번호",
@@ -1961,9 +1959,6 @@
     "fans": "팔로워",
     "empty": "데이터 없음",
     "unfollow": "팔로우 취소"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 신고/허가 번호"
   },
   "identityVerify": {
     "title": "본인 인증",

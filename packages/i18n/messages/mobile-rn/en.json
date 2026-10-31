@@ -929,8 +929,6 @@
     "checkUpdateUnsupported": "In-app updates are not available in this build",
     "changePhoneMissingUser": "Missing user info, cannot change phone",
     "logoutConfirm": "Confirm logout?",
-    "appPermission": "App Permissions",
-    "icpRecord": "ICP Record",
     "usageRules": "Usage Rules",
     "changePassword": "Change Password",
     "oldPassword": "Current Password",
@@ -1961,9 +1959,6 @@
     "fans": "Followers",
     "empty": "No data",
     "unfollow": "Unfollow"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP License No."
   },
   "identityVerify": {
     "title": "Identity Verification",

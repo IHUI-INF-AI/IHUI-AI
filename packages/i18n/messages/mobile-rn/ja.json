@@ -929,8 +929,6 @@
     "checkUpdateUnsupported": "このビルドではアプリ内更新を利用できません",
     "changePhoneMissingUser": "ユーザー情報が不足しています",
     "logoutConfirm": "ログアウトしますか?",
-    "appPermission": "アプリ権限",
-    "icpRecord": "ICP備案",
     "usageRules": "利用規範",
     "changePassword": "パスワード変更",
     "oldPassword": "現在のパスワード",
@@ -1961,9 +1959,6 @@
     "fans": "ファン",
     "empty": "データなし",
     "unfollow": "フォロー解除"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案・許可番号"
   },
   "identityVerify": {
     "title": "本人確認",
