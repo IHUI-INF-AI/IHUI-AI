@@ -500,4 +500,22 @@ def test_request_host_of_strips_port_and_keeps_ipv6() -> None:
     assert export.request_host_of({"host": "[::1]:8000"}) == "[::1]"
     assert export.request_host_of({"host": "::1"}) == "::1"
     assert export.request_host_of({}) == ""
+
+
+def test_stdio_marker_absent_keeps_http_gate_closed() -> None:
+    """标记不在场 ⇒ 无请求上下文仍走 HTTP 凭据闸(生产档 401),绝不回落本地主体。"""
+    assert export._local_stdio_active is False
+    with pytest.raises(cg.PrincipalAuthError) as exc:
+        export._resolve_principal(None)
+    assert exc.value.http_status == 401
+
+
+def test_stdio_marker_on_grants_local_principal_but_http_stays_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """标记在场:stdio(无请求上下文)取本地主体;携带 HTTP 请求仍必须自带凭据。"""
+    monkeypatch.setattr(export, "_local_stdio_active", True)
+    assert export._resolve_principal(None).kind == "local-stdio"
+    with pytest.raises(cg.PrincipalAuthError):
+        export._resolve_principal(_http_request({}))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

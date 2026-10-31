@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
 import { checkAuth } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
+import { config } from '../config/index.js'
+import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import { findConversationById, findMessageById } from '../db/chat-queries.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
@@ -88,10 +90,8 @@ function writeSseHeaders(request: FastifyRequest, reply: FastifyReply): void {
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
   }
-  if (origin) {
-    headers['Access-Control-Allow-Origin'] = origin
-    headers['Access-Control-Allow-Credentials'] = 'true'
-  }
+  // 2026-10-31 R10 安全强化:回显前过 evaluateOriginAllowance 同一判据,防 CORS 凭证绕过。
+  Object.assign(headers, buildSseCorsHeaders(origin, config.CORS_ORIGIN, config.EXTENSION_IDS))
   reply.raw.writeHead(200, headers)
 }
 

@@ -488,9 +488,19 @@ from .skills import skill_registry
 
 
 def _get_workspace_roots() -> list[str]:
-    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。"""
-    raw = os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd())
-    return [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
+    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。
+
+    2026-10-31 修:空值回落 cwd —— 与 `app/services/sandbox.py::_workspace_roots`
+    的既有口径对齐(那份注释明写"空值按 config.py 契约回落 cwd",是同一配置键的
+    正确解析)。此前的 `os.environ.get(KEY, cwd)` 只在**键缺失**时回落,而本仓
+    `.env` 与 `.env.example` 都写着 `MCP_WORKSPACE_ROOTS=`(键在、值为空)⇒ 返回
+    空列表 ⇒ `routers/patch.py` 的 fail-closed 把**全部补丁请求**打成 503,
+    生产上补丁应用功能完全不可用。回落目标仍是服务端自身工作目录(有界根),
+    不是放行任意路径。
+    """
+    raw = (os.environ.get("MCP_WORKSPACE_ROOTS", "") or "").strip()
+    roots = [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
+    return roots or [os.path.abspath(os.getcwd())]
 
 
 # ---------------------------------------------------------------------------

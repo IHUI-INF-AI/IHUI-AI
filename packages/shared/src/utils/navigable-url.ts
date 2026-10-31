@@ -16,7 +16,7 @@
  * 两条实现路径,协议判据只许一份(§0.6 同类判据第二份必然漂移)。
  * 协议表复用 ssrf-guard 的 `ALLOWED_FETCH_PROTOCOLS`,不另抄一份 http/https。
  */
-import { ALLOWED_FETCH_PROTOCOLS } from './ssrf-guard.js'
+import { ALLOWED_FETCH_PROTOCOLS } from './fetch-protocols.js'
 
 /**
  * 除 http/https 外唯一允许的导航目标:空白占位页。

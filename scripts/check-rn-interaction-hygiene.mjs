@@ -404,6 +404,16 @@ function resolveStyle(props, table) {
 const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w/
 
 /**
+ * 遮罩 token 名单（由主流程从被审面注入）。默认空集 = 这一档不生效 ⇒ 判据只会更严不会更松，
+ * 读不到 rn-tokens 时不会静默放过任何元素。
+ */
+let SCRIM_TOKENS = new Set()
+export function setScrimTokens(names) {
+  SCRIM_TOKENS = names instanceof Set ? names : new Set(names || [])
+  return SCRIM_TOKENS.size
+}
+
+/**
  * 遮罩(scrim)不算"缺按压反馈":它按下去的**结果就是关掉整层**,若再让半透黑底跟着变暗,
  * 用户看到的是全屏闪一下 —— 那是观感缺陷,不是反馈。2026-10-31 现读 13 枚 `activeOpacity={1}`
  * 里 12 枚正是这种遮罩(`bg-black/20…50` + `onPress` 关层 + 内层 stopPropagation)。
@@ -436,6 +446,37 @@ function scrimByStyle(props, table) {
   for (const m of props.matchAll(/styles\.([A-Za-z_$][\w$]*)/g)) {
     const e = table.get(m[1])
     if (e && Array.isArray(e.bg) && e.bg.some(isTranslucentBlack)) return true
+  }
+  return false
+}
+
+/**
+ * 从 rn-tokens.ts 现读"值为半透明黑"的 token 名（含一层嵌套，如 overlay: { modal: rgba(...) }）。
+ * 为什么要有这一档：遮罩证据本来要求写在元素自己的 props 里，但本仓大量遮罩写的是
+ * style={rnCssLight.black20} 或 tk.overlay.modal —— 颜色在命名常量里，
+ * 旧版只解 styles 表，一跳之外的 token 认不出 ⇒ 16 枚自闭合满屏遮罩被计入"缺按压反馈"，
+ * 逼人在遮罩上叠 active 变体，那正是"点空白全屏闪一下"的观感缺陷。
+ * 名单必须现读，不许把颜色表抄进本门（§0.6：抄一份必然与源头漂开）。
+ */
+export function scrimTokenNames(text) {
+  if (typeof text !== "string") return new Set()
+  const names = new Set()
+  const re = /(\w+)\s*:\s*['"]([^'"]+)['"]/g
+  for (const m of text.matchAll(re)) {
+    const color = m[2].trim()
+    const rgba = /^rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*(0?\.\d+|1(?:\.0+)?)\s*\)$/.exec(color)
+    const hex8 = /^#000000([0-9a-fA-F]{2})$/.exec(color)
+    if ((rgba && Number(rgba[1]) < 1) || (hex8 && parseInt(hex8[1], 16) < 255)) names.add(m[1])
+  }
+  return names
+}
+
+/** props 里出现"现读确认为半透明黑"的 token 名 ⇒ 该元素自己就把遮罩证据写在 props 里。 */
+function isScrimToken(props, tokenNames) {
+  if (!tokenNames || tokenNames.size === 0) return false
+  for (const name of tokenNames) {
+    const re = new RegExp('[.^\\w]\\s*' + name + '\\b')
+    if (re.test(props)) return true
   }
   return false
 }
@@ -517,7 +558,7 @@ function scanText(text, minTap, rel = '') {
     }
     if (!r.hit) skipped.push(r.why)
     const after = stripped.slice(end, end + 160)
-    const scrim = isScrim(props) || scrimByStyle(props, table)
+    const scrim = isScrim(props) || scrimByStyle(props, table) || isScrimToken(props, SCRIM_TOKENS)
     // 自闭合的信号在标签闭合处(props 区不含 `/`),所以按 stripped 的 end-2 取
     const selfClosing = stripped[end - 2] === '/'
     const fillLayer = !scrim && isFillLayer(props, selfClosing)
@@ -900,6 +941,16 @@ function runSelfTest() {
 
   // 满屏可点面 / 吞点击容器:这两档都是"按下去没有东西可看"的形态,要反馈方向是反的。
   // 反向例与放行例必须同钉 —— 带 children、追加实底、真实动作的照判,否则这两档就是消红通道。
+  // 遮罩色写在命名 token 里：名单由 rn-tokens 现读；认得出才算遮罩，认不出照判（更严方向）。
+  setScrimTokens(new Set([
+    'black20',
+    'modal',
+  ]))
+  const scrimToken = scan('<Pressable style={rnCssLight.black20} onPress={close} />')
+  ok(scrimToken.h2.length === 0, 'H2 过头：遮罩色在现读确认的 token 里，证据仍写在元素自己的 props 上')
+  const unknownToken = scan('<Pressable style={rnCssLight.brandBg} onPress={go} />')
+  ok(unknownToken.h2.length === 1, 'H2 失守：名单外的 token 不得当遮罩（否则任何命名样式都成了免检）')
+  setScrimTokens(new Set())
   const fillLayer = scan('<Pressable style={StyleSheet.absoluteFill} onPress={close} />')
   ok(fillLayer.h2.length === 0, 'H2 过头:absoluteFill 满屏可点面自身没有视觉,叠透明度量不到变化')
   ok(fillLayer.fillLayers.length === 1, '放过必须可计数:absoluteFill 档要能报出放过几处(静默放过=没量到)')
@@ -1080,6 +1131,23 @@ function main() {
   let h4Glyph = 0
   let h4Content = 0
   let h4Scaled = 0
+  const TOKENS_REL = 'packages/design-tokens/src/rn-tokens.ts'
+  try {
+    // 按被审面显式取（与档位同一基准 §0.4）：head→HEAD:、staged→索引 :、worktree→盘上。
+    const spec = face === 'head' ? `HEAD:${'${TOKENS_REL}'}` : face === 'staged' ? `:${'${TOKENS_REL}'}` : null
+    const tokenSrc = spec
+      ? (catBatch(ROOT, [spec], { maxBuffer: 1 << 26, timeout: 120000 }).get(spec) ?? null)
+      : readWorktreeFile(ROOT, TOKENS_REL)
+    if (typeof tokenSrc !== "string") throw new Error("取不到被审面的 rn-tokens")
+    const n = setScrimTokens(scrimTokenNames(tokenSrc))
+    if (!quiet && n === 0)
+      console.log(
+        "ℹ️ rn-tokens 里没现读到半透明黑 token ⇒ 遮罩 token 档不生效（判据更严方向，安全）",
+      )
+  } catch {
+    if (!quiet) console.log('ℹ️ rn-tokens 取不到 ⇒ 遮罩 token 档不生效（判据更严方向，安全）')
+  }
+
   for (const rel of files) {
     const text = get(rel)
     if (text === null || text === undefined) {
@@ -1193,6 +1261,9 @@ export const __test__ = {
   isScrim,
   isTranslucentBlack,
   scrimByStyle,
+  scrimTokenNames,
+  setScrimTokens,
+  isScrimToken,
   isFillLayer,
   isInertPress,
   scanKeyboard,

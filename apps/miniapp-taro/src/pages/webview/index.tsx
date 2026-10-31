@@ -17,7 +17,12 @@ import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
 import { getRefreshToken, getToken, getUserInfo } from '@/utils/auth'
 import { useUserStore } from '@/stores/user'
-import { consumeSsoCode, extractSsoCodeFromWebviewMessages } from '@/utils/sso'
+import {
+  clearMiniappSsoState,
+  consumeSsoCode,
+  extractSsoCodeFromWebviewMessages,
+  peekMiniappSsoState,
+} from '@/utils/sso'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -88,12 +93,18 @@ export default function WebviewIndex() {
     logger.info('webview', 'message', String(e))
     if (ssoReturnInflightRef.current) return
     const detail = (e as { detail?: { data?: unknown } })?.detail
-    const code = extractSsoCodeFromWebviewMessages(detail?.data)
+    // 2026-10-31 第 24 批:必须存在本次登录发起时记下的 state,才认 web-view 回传的码。
+    // 没有待处理登录(用户没在这里点过网页授权)⇒ 任何码都不采信,直接忽略。
+    const expectedState = peekMiniappSsoState()
+    if (!expectedState) return
+    const code = extractSsoCodeFromWebviewMessages(detail?.data, expectedState)
     if (!code) return
     ssoReturnInflightRef.current = true
     void consumeSsoCode(code, () => t('login.loginSuccess'))
       .then((ok) => {
         if (ok) {
+          // 2026-10-31 第 24 批:这次登录已完结,清掉 state(避免它驻留被复用)
+          clearMiniappSsoState()
           // 登录完成 = storage + store 双写(与 utils/wechat-login、utils/miniapp-login 同一惯例)。
           // consumeSsoCode 只落 storage,而 app 级的通知 WS(UserBroadcastHandler →
           // useUserBroadcastSync)只订阅 useUserStore.token —— 缺这一步时"登录成功但通知通道

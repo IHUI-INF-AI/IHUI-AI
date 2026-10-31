@@ -31,7 +31,7 @@ import DrawerComponent, {
 } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
-import { getSsoLoginUrl, SSO_REDIRECT_URI } from '@/utils/sso'
+import { beginMiniappSso, getSsoLoginUrl, SSO_REDIRECT_URI } from '@/utils/sso'
 import { navigateToWebView } from '@/pages/webview/index'
 import StudyBar from '@/components/StudyBar'
 import { FloatBox, VideoPlayer } from '@/components'
@@ -1016,10 +1016,18 @@ export default function UserIndex() {
             // pages/webview 的 onMessage 换登录态后 reLaunch 首页(回传腿已接管)。
             // 收弹窗再跳,避免返回时弹窗还挂在「我的」页上。
             setShowLoginPopup(false)
-            navigateToWebView(
-              getSsoLoginUrl(SSO_REDIRECT_URI),
-              tf('login.webAuthLogin', '网页授权登录'),
-            )
+            // 2026-10-31 第 24 批:先生成并记下 state(随机源拿不到会抛),再带上它跳转;
+            // 回传侧按同一份 state 比对,别人投的码不认。
+            void beginMiniappSso()
+              .then((state) => {
+                navigateToWebView(
+                  getSsoLoginUrl(SSO_REDIRECT_URI, state),
+                  tf('login.webAuthLogin', '网页授权登录'),
+                )
+              })
+              .catch(() => {
+                Taro.showToast({ title: tf('login.loginFailed', '登录失败'), icon: 'none' })
+              })
           }}
           onOneClickLogin={async ({ loginCode, phoneCode }) => {
             try {
