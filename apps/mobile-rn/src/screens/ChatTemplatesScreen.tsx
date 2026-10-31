@@ -299,7 +299,7 @@ export default function ChatTemplatesScreen() {
         animationType="fade"
         onRequestClose={closePreview}
       >
-        <Pressable style={styles.overlay} onPress={closePreview}>
+        <Pressable style={pressFeedback(styles.overlay)} onPress={closePreview}>
           <Pressable style={pressFeedback(styles.sheet)} onPress={() => undefined}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={2}>

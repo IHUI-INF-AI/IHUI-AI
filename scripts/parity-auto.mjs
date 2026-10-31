@@ -252,6 +252,20 @@ export const STAGES = [
     // 盲区重新留给下一轮 `--fast`(同 gate-drift 那条论证,不另立口径)。
   },
   {
+    id: 'gate-miniapp-style-tiers',
+    group: 'gate',
+    title: '小程序非色档三桶对账(项目档 / Tailwind默认 / 字面量)',
+    script: 'check-miniapp-style-tiers.mjs',
+    args: [],
+    applyArgs: [],
+    tier: null,
+    wt: false,
+    // 立因(2026-10-31 现读):RN 侧有档位尺 + 落档器 + guardian 自愈轮,小程序侧此前**零判据**。
+    // 上一枚(f5db1221ae)把项目具名档注册进小程序 @theme 后,"能生成类"仍不等于"有人在用":
+    // 实测项目档消费率 14.8%,Tailwind 默认档 26.5%,裸 rpx 字面量 58.6%。本腿把这三桶持续量出来,
+    // 并给出"可等值落档"处数(落档器射程上界)。只读报告器,tier: null。
+  },
+  {
     id: 'gate-drift',
     group: 'gate',
     title: '跨端漂移哨兵(产物级缺陷绝对值出声)',

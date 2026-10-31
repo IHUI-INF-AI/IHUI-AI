@@ -19,6 +19,8 @@ import { execFileSync } from 'node:child_process'
 import test from 'node:test'
 
 import { __test__ as V } from '../check-verbatim-resurrection.mjs'
+// 形状尺一律 import,不在本文件复算(§22c):清单与豁免台账用的是同一份 parseAllowlist / entryDefect
+import { entryDefect, parseAllowlist } from '../lib/deletion-intent.mjs'
 
 const GIT = (args) =>
   execFileSync('git', ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
@@ -91,10 +93,49 @@ test('T3 阳性对照:事故枚上必须量得到那型回潮(钉 sha 不钉 HEA
 })
 
 test('T4 形状锁:派发腿直接取的键都在出参里(漂了当场红)', () => {
-  const need = ['ref', 'window', 'commits', 'candidates', 'allowEntries', 'hits', 'undetermined']
+  const need = ['ref', 'window', 'commits', 'candidates', 'allowEntries', 'hits', 'undetermined', 'retiredEntries', 'retiredPresent']
   const sample = V.auditVerbatim({ ref: 'no-such-ref-xyz', window: 1 })
   for (const k of need) assert.ok(k in sample, `出参缺键 ${k}(git-guardian 的正文直接取这些字段)`)
   assert.equal(typeof V.LOOKUP_CAP, 'number', '取证上限必须是数字(它进未判定文案)')
+  assert.match(V.RETIRED_FILE, /^scripts\/data\/.+\.json$/, '退役清单必须是仓库相对路径(它按 `git show <ref>:<路径>` 取,绝对路径等于永远取不到)')
   assert.match(V.formatReport(sample), /未判定/, '未判定的面必须被 formatReport 大声报出')
+  assert.match(V.formatReport(sample), /退役清单=/, '结论行必须报出清单这一维的条数(不许只报窗口维就自称判过)')
+  // 清单维的命中经合并带回时结构上没有单父 A 枚 ⇒ addedBy/deletedBy 为 null;结论行拿 null 直接 .slice 会抛
+  const nullish = { ...sample, unjudged: false, hits: [{ path: 'p', addedBy: null, deletedBy: null, why: 'w' }] }
+  assert.doesNotThrow(() => V.formatReport(nullish), 'addedBy/deletedBy 为 null 时结论行不得抛(派发腿正是这么取数的)')
+  assert.match(V.formatReport(nullish), /经合并带回/, '取不到枚时必须明写"经合并带回",不得印成空串冒充"没删过"')
+})
+
+test('T5 退役清单形状锁:HEAD 面每条都过同一把尺(字段齐 + 理由成句 + 未过期)', () => {
+  let text = null
+  try {
+    text = GIT(['show', `HEAD:${V.RETIRED_FILE}`])
+  } catch {
+    text = null
+  }
+  if (text === null) {
+    console.log('  ⓘ T5 跳过:HEAD 面还没有 ' + V.RETIRED_FILE + ' ⇒ 本例未判定(不记绿)')
+    return
+  }
+  const parsed = parseAllowlist(text)
+  assert.equal(parsed.broken, null, `清单形状坏:${parsed.broken}`)
+  assert.ok(parsed.entries.length >= 1, '清单已在面上却零条目 ⇒ 这一维空转(要么补条目,要么连尺子一起摘)')
+  const today = new Date().toISOString().slice(0, 10)
+  const defects = parsed.entries.map((e) => [e.path, entryDefect(e, today)]).filter(([, d]) => d)
+  assert.deepEqual(defects, [], `清单条目不合格:${JSON.stringify(defects)}`)
+  const dup = parsed.entries.map((e) => e.path).filter((p, i, a) => a.indexOf(p) !== i)
+  assert.deepEqual(dup, [], `同一路径登记两条(${JSON.stringify(dup)})⇒ 一条裁决只许一个出处`)
+})
+
+test('T6 装车锁:尺子读到的清单条数 == 该面文件里的条目数(两半真接上了)', () => {
+  let n = 0
+  try {
+    n = parseAllowlist(GIT(['show', `HEAD:${V.RETIRED_FILE}`])).entries.length
+  } catch {
+    n = 0
+  }
+  const res = V.auditVerbatim({ ref: 'HEAD', window: 5 })
+  assert.equal(res.retiredEntries, n, `尺子读到 ${res.retiredEntries} 条,面上清单有 ${n} 条 ⇒ 读取那一半没接线`)
+  assert.ok(res.retiredPresent <= res.retiredEntries, `在面数(${res.retiredPresent})不得超过条目数(${res.retiredEntries})`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

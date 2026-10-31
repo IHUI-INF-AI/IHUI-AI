@@ -35,6 +35,14 @@
  * `1250480412b` 显式摘掉——按"曾经回潮"判,这道门从那天起对每一枚无关提交都红,唯一结局是逼人
  * `--no-verify` 并连带废掉全部守门(§12e/§12f)。失效方向恒为"少报",不是"多拦"。
  *
+ * **两维取证(2026-10-31 补第二维)**:
+ *  ① 窗口档 —— 扫「最近 `window` 枚单父提交的新增」里"祖先被显式删除又被带回"的路径;
+ *  ② 退役清单档(`scripts/data/retired-paths.json`)—— 与窗口无关,只问"裁决过必须退役的路径,此刻在不在面上"。
+ * 立 ② 的现读理由(不是假想):2026-10-31 实测本仓 24h = 560 枚提交 ⇒ 守护那班的窗口 300 只回看约 13
+ * 小时,而当天 `mirror-to-cn.yml` 的回潮枚距 HEAD **866 枚**,①在同一张面上报的是 `hits: []` —— "没扫到"
+ * 于是被账面读成"没有回潮"。②不复制①的判据(同一份 `parseAllowlist`/`entryDefect` 形状尺、同一份
+ * 成员性问法),只多一个取证面;两维命中同一路径时去重报一条(同一笔债,不是两笔)。
+ *
  * 三态与退出码(§0.3:「没判」绝不写成「判过」):
  *   0 = 判过且零命中(计数照常报出);
  *   1 = 命中 ≥1 条活回潮;
@@ -48,7 +56,8 @@
  *   node scripts/check-verbatim-resurrection.mjs --self-test            # 判据自检(正反例成对)
  *   node scripts/check-verbatim-resurrection.mjs --root <dir>           # 测试/换仓通道(夹具唯一进入口)
  * 修复出口(每条命中就地打印,不用另查):走本仓唯一删除档 `object-space-land.mjs` 的
- *   LAND_REMOVE_PATHS,或在 deletion-survival-allowlist.json 逐条登记 path+reason+reviewBy。
+ *   LAND_REMOVE_PATHS,或在 deletion-survival-allowlist.json 逐条登记 path+reason+reviewBy;
+ *   命中若来自**退役清单**而该件确已被重新采纳(有真消费者),出路是删掉清单里那一条,不是改判据措辞。
  *
  * 调度器:本器不在提交链注册表里;唯一常驻班次 = `scripts/git-guardian.mjs` 的巡检腿
  * `auditVerbatimResurrection()`(节流现值见该函数;命中经 `notifyGuardRed()` 走 §5e 邮件单通道,
@@ -67,6 +76,19 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
 /** 一次被审面最多查多少条"删除出处"——超出即未判定并点名余额(照守门 168 的取证上限规矩)。 */
 export const LOOKUP_CAP = Number(process.env.IHUI_VERBATIM_LOOKUP_CAP || 400)
+
+/**
+ * 「必须保持退役」清单在被审面上的路径(2026-10-31 立)。
+ *
+ * 为什么窗口档不够(现读反例,不是假想):本器只扫「最近 `window` 枚的新增」,而 2026-10-31 实测
+ * 本仓 24h = 560 枚提交 ⇒ 守护那班(`VERBATIM_WINDOW`,现值 300)只回看约 13 小时;当天 `mirror-to-cn.yml`
+ * 的回潮枚 72769534b6 距 HEAD **866 枚**,窗口档报的是 `hits: []` —— 于是"没查到"被账面读成"没有回潮",
+ * 正是 §0.3 禁的那一型安静失效。清单这一维与窗口无关:只问「裁决过必须退役的路径,此刻在不在这张面上」。
+ *
+ * 形状尺**复用** `lib/deletion-intent.mjs` 的 `parseAllowlist` / `entryDefect`(与豁免台账同一份实现,
+ * 字段恰为 path+reason+reviewBy),本器不另立第二把尺子(§0.6)。
+ */
+export const RETIRED_FILE = 'scripts/data/retired-paths.json'
 
 function git(args, root) {
   return gitRaw(args, root)
@@ -115,6 +137,34 @@ export function blobOf(rev, path, root) {
 }
 
 /**
+ * 该路径在 ref 可达范围内最近一次「被删除」/「被新增」的枚;问不到 ⇒ null(不折成"没有")。
+ *
+ * **必须带 `--full-history`**:git 对单路径默认做历史简化,一枚真实删掉过该路径的祖先提交会被整枚
+ * 藏掉。2026-10-31 实测两条:同一枚删除用默认姿势查 `interjection-capability.ts` 与
+ * `assistant-release-upload.yml` 都得空串,加 `--full-history` 才点出名 —— 少这三个字符,证据行就写成
+ * "删于 (空)",看着像"从来没被删过"(AGENTS §0.3:取不到绝不写成判过)。
+ */
+function lastCommitTouching(path, ref, root, filter) {
+  if (!path || path.includes('\n')) return null
+  try {
+    const out = String(
+      git(['log', '--full-history', '-1', '--format=%H', `--diff-filter=${filter}`, ref, '--', path], root),
+    ).trim()
+    return /^[0-9a-f]{40}$/.test(out) ? out : null
+  } catch {
+    return null
+  }
+}
+
+export function lastDeleteCommitOf(path, ref, root) {
+  return lastCommitTouching(path, ref, root, 'D')
+}
+
+export function lastAddCommitOf(path, ref, root) {
+  return lastCommitTouching(path, ref, root, 'A')
+}
+
+/**
  * 判据本体。出参(镜像测试钉住这些键):
  * { ref, window, unjudged?, reason?, commits, commitsSkippedNotSingleParent, addRows,
  *   candidates, looked, undetermined[], hits[], exempt[], allowEntries }
@@ -142,6 +192,8 @@ export function auditVerbatim({
       hits: [],
       exempt: [],
       allowEntries: 0,
+      retiredEntries: 0,
+      retiredPresent: 0,
     }
   }
 
@@ -221,6 +273,77 @@ export function auditVerbatim({
   }
   if (live.length > looked) undetermined.push(`候选 ${live.length} 条超出取证上限 ${lookupCap} ⇒ 其余 ${live.length - looked} 条未判定(不是"没有")`)
 
+  // ─── 退役清单这一维(与窗口无关;与被审面同面同轮取,§0.4)────────────────────
+  let retiredText = null
+  try {
+    retiredText = String(git(['show', `${ref}:${RETIRED_FILE}`], root))
+  } catch {
+    retiredText = null // 该面没这份清单 = absent ⇒ 按零条目判并照常报数;只有坏 JSON 才走未判定
+  }
+  const retiredParsed = parseAllowlist(retiredText)
+  if (retiredParsed.broken)
+    undetermined.push(`退役清单 ${RETIRED_FILE} 在 ${ref} 面形状坏:${retiredParsed.broken} ⇒ 整维未判定`)
+  const retiredEntries = retiredParsed.entries
+  let retiredPresent = 0
+  if (retiredEntries.length > 0) {
+    const rp = membership(
+      ref,
+      retiredEntries.map((e) => e.path ?? ''),
+      root,
+    )
+    if (rp.failed) {
+      undetermined.push(`${ref} 的退役清单成员性问不到(${retiredEntries.length} 条)⇒ 整维未判定`)
+    } else {
+      if (rp.skipped > 0) undetermined.push(`${rp.skipped} 条退役路径含换行,无法作为 batch 规格 ⇒ 未判定`)
+      for (const e of retiredEntries) {
+        const here = rp.map.get(e.path)
+        if (here === undefined) {
+          undetermined.push(`退役路径 ${e.path} 的成员性问不到 ⇒ 该条未判定(不折成"不在面上")`)
+          continue
+        }
+        if (!here) continue // 不在面上 = 裁决仍然成立,本维零动作
+        retiredPresent++
+        const defect = entryDefect(e, today)
+        const allow = allowByPath.get(e.path) ?? null
+        if (allow && !entryDefect(allow, today)) {
+          hits.push({
+            path: e.path,
+            addedBy: null,
+            deletedBy: null,
+            kind: 'retired',
+            exempt: true,
+            verbatim: false,
+            why: `退役清单命中,但豁免台账已裁该复活可接受(复核日 ${allow.reviewBy})⇒ 只报数;清单与台账并存时以台账为准,清单里这条该删`,
+          })
+          continue
+        }
+        const del = lastDeleteCommitOf(e.path, ref, root)
+        const add = lastAddCommitOf(e.path, ref, root)
+        const verbatim = Boolean(del && blobOf(ref, e.path, root) === blobOf(`${del}^`, e.path, root))
+        hits.push({
+          path: e.path,
+          addedBy: add,
+          deletedBy: del,
+          kind: 'retired',
+          code: defect ? 'retired-ledger-defect' : 'retired-artifact-present',
+          verbatim,
+          why: defect
+            ? `退役清单条目自身不合格(${defect}),而该路径此刻又在面上 —— 坏条目既遮不了复活,也撑不起"必须退役"的裁决`
+            : `裁决过必须退役而它仍在面上${verbatim ? '(与被删前逐字节相同 = 纯回潮)' : '(与被删版本已不同 = 带回后又被改写,需逐条读两侧)'};裁决:${(e.reason || '').slice(0, 70)}`,
+        })
+      }
+    }
+  }
+
+  // 同一枚债在两维各命中一次时只报一条(窗口档与清单档是同一笔债的两个取证面,不是两笔债)
+  const seenPath = new Set()
+  const deduped = []
+  for (const h of hits) {
+    if (seenPath.has(h.path)) continue
+    seenPath.add(h.path)
+    deduped.push(h)
+  }
+
   return {
     ref,
     window,
@@ -231,9 +354,11 @@ export function auditVerbatim({
     candidates: live.length,
     looked,
     undetermined,
-    hits: hits.filter((h) => !h.exempt),
-    exempt: hits.filter((h) => h.exempt),
+    hits: deduped.filter((h) => !h.exempt),
+    exempt: deduped.filter((h) => h.exempt),
     allowEntries: allowEntries.length,
+    retiredEntries: retiredEntries.length,
+    retiredPresent,
   }
 }
 
@@ -246,17 +371,21 @@ export function exitCodeOf(res) {
 
 export function formatReport(res) {
   const L = []
+  const who = (s) => (s ? String(s).slice(0, 11) : '经合并带回(无单父 A 枚)')
   L.push(
-    `[verbatim-resurrection] 被审面=${res.ref} 窗口=${res.window} 提交=${res.commits}(非单父跳过 ${res.commitsSkippedNotSingleParent ?? 0}) 新增行=${res.addRows} 在面候选=${res.candidates} 已查=${res.looked ?? 0} 台账条目=${res.allowEntries}`,
+    `[verbatim-resurrection] 被审面=${res.ref} 窗口=${res.window} 提交=${res.commits}(非单父跳过 ${res.commitsSkippedNotSingleParent ?? 0}) 新增行=${res.addRows} 在面候选=${res.candidates} 已查=${res.looked ?? 0} 豁免台账=${res.allowEntries} 条 退役清单=${res.retiredEntries ?? 0} 条(在面 ${res.retiredPresent ?? 0})`,
   )
   if (res.unjudged) {
     L.push(`❔ 未判定:${res.reason}`)
     return L.join('\n')
   }
-  for (const h of res.hits) L.push(`  ❌ ${h.path}\n       加回于 ${h.addedBy.slice(0, 11)} ← 删除于 ${h.deletedBy.slice(0, 11)}  ${h.why}`)
+  for (const h of res.hits) L.push(`  ❌ ${h.path}\n       加回于 ${who(h.addedBy)} ← 删除于 ${who(h.deletedBy)}  ${h.why}`)
   for (const h of res.exempt) L.push(`  ⚪ 已裁决只报数:${h.path} —— ${h.why}`)
   for (const u of res.undetermined) L.push(`  ❔ 未判定:${u}`)
-  if (res.hits.length === 0 && res.undetermined.length === 0) L.push('✅ 零活回潮(窗口内每条"祖先显式删除又被带回"的路径都已核对)')
+  if (res.hits.length === 0 && res.undetermined.length === 0)
+    L.push(
+      `✅ 零活回潮(两维都判过:窗口内 ${res.candidates} 条"祖先显式删除又被带回"逐条核对;退役清单 ${res.retiredEntries ?? 0} 条无一在面)`,
+    )
   if (res.hits.length > 0) {
     const paths = res.hits.map((h) => h.path).join(';')
     L.push('')
@@ -264,6 +393,7 @@ export function formatReport(res) {
     L.push('   ① 就地再摘一次(推荐,走本仓唯一删除档,不碰共享工作树):')
     L.push(`      LAND_REMOVE_PATHS="${paths}" LAND_MSG="chore(retire): 摘净回潮件 <附逐枚凭据>" node scripts/object-space-land.mjs`)
     L.push('   ② 确有保留理由 → 在 scripts/data/deletion-survival-allowlist.json 逐条登记 path+reason+reviewBy(必须逐条读过两侧内容)')
+    L.push('   ③ 命中来自退役清单、而该件确已重新采纳(拿消费者举证)→ 删 scripts/data/retired-paths.json 里那一条并同批改 ②;不得改措辞绕尺(§12f)')
   }
   return L.join('\n')
 }
@@ -278,6 +408,11 @@ export async function runSelfTest({ scratchDir }) {
   const ok = (name, cond, extra = '') => rows.push({ name, pass: Boolean(cond), extra })
   // 裁决短语按运行时拼接:源码里写出那串字面量本身就会成为"文档里的可执行形态"(§0.8/门 238 同训)
   const MARKER = 'intentional-delete' + ':'
+  /** 夹具用的退役清单正文(字段与形状尺与真清单一字形:reason ≥20 字、reviewBy 为 ISO 且未到期)。 */
+  const retiredJson = (p, over = {}) =>
+    JSON.stringify({
+      entries: [{ path: p, reason: '夹具:本路径按裁决必须保持退役,再出现在面上就是回潮', reviewBy: '2099-12-31', ...over }],
+    })
   const env = { ...process.env }
   const g = (root, args) =>
     execFileSync('git', ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args], {
@@ -389,8 +524,59 @@ export async function runSelfTest({ scratchDir }) {
   ok('⑨ 同面 cap 放开后命中 3 条(证明⑨扣住的是取证量而不是判据)', capFull.hits.length === 3, JSON.stringify({ h: capFull.hits.length }))
 
   // ⑩ 出参形状锁:镜像测试直接按这些键取数
-  const shape = ['commits', 'addRows', 'candidates', 'looked', 'undetermined', 'hits', 'exempt', 'allowEntries'].filter((k) => !(k in capFull))
+  const shape = ['commits', 'addRows', 'candidates', 'looked', 'undetermined', 'hits', 'exempt', 'allowEntries', 'retiredEntries', 'retiredPresent'].filter((k) => !(k in capFull))
   ok('⑩ 出参形状锁(键齐备)', shape.length === 0, JSON.stringify({ missing: shape }))
+
+  // ⑪ 退役清单这一维的正控 —— 关键是证明它咬住的是**窗口档够不着**的那一型:
+  //    带回枚放在窗口之外(window=1 只看得见最新那枚"登记清单"的提交)⇒ 窗口档零候选,清单档 1 命中。
+  //    这就是 2026-10-31 现读的失效型镜像:回潮枚距 HEAD 866 枚,而守护窗口 300 只回看约 13 小时。
+  r = mk()
+  addCommit(r, 'chore: 建底座', { 'README.md': '# t\n' })
+  addCommit(r, 'feat: 加', { 'tools/r1.mjs': 'x\n' })
+  delCommit(r, 'chore: 按退役令摘', ['tools/r1.mjs'])
+  addCommit(r, 'feat: 又带回', { 'tools/r1.mjs': 'x\n' })
+  addCommit(r, 'chore: 登记退役裁决', { [RETIRED_FILE]: retiredJson('tools/r1.mjs') })
+  res = auditVerbatim({ ref: 'HEAD', window: 1, root: r })
+  ok(
+    '⑪ 窗口够不着而清单命中,且命中确属清单维(kind=retired)',
+    res.hits.length === 1 && res.hits[0].path === 'tools/r1.mjs' && res.hits[0].kind === 'retired' && res.retiredPresent === 1 && res.candidates <= 1,
+    JSON.stringify({ h: res.hits.map((x) => [x.path, x.kind]), rp: res.retiredPresent, c: res.candidates }),
+  )
+  ok('⑪b 命中行带裁决理由(不得只报路径不报为什么必须退役)', /夹具/.test(res.hits[0].why || ''), String(res.hits[0].why || '').slice(0, 60))
+
+  // ⑫ 反控:清单在册而路径**不在面上** ⇒ 零命中(退役仍然成立,不得把它当成一条债挂红)
+  r = mk()
+  addCommit(r, 'chore: 建底座', { 'README.md': '# t\n', [RETIRED_FILE]: retiredJson('tools/gone.mjs') })
+  addCommit(r, 'feat: 加', { 'tools/gone.mjs': 'g\n' })
+  delCommit(r, 'chore: 摘净', ['tools/gone.mjs'])
+  res = auditVerbatim({ ref: 'HEAD', window: 50, root: r })
+  ok('⑫ 反控 在册而不在面 ⇒ 命中 0 而 retiredEntries=1', res.hits.length === 0 && res.retiredEntries === 1 && res.retiredPresent === 0 && exitCodeOf(res) === 0, JSON.stringify({ h: res.hits.length, re: res.retiredEntries, rc: exitCodeOf(res) }))
+
+  // ⑬ 清单坏 JSON ⇒ 整维未判定(exit 2),绝不静默当空表放过(§0.3)
+  r = mk()
+  addCommit(r, 'chore: 建底座', { 'README.md': '# t\n', [RETIRED_FILE]: '{ "entries": [ 坏' })
+  res = auditVerbatim({ ref: 'HEAD', window: 50, root: r })
+  ok('⑬ 清单形状坏 ⇒ 未判定优先于绿', res.undetermined.some((s) => /退役清单/.test(s)) && exitCodeOf(res) === 2, JSON.stringify({ u: res.undetermined, rc: exitCodeOf(res) }))
+
+  // ⑭ 到期条目 + 路径在面 ⇒ 判红并点名"条目自身不合格"(过期不是放行,§0.7)
+  r = mk()
+  addCommit(r, 'chore: 建底座', { 'README.md': '# t\n' })
+  addCommit(r, 'feat: 加', { 'tools/exp.mjs': 'e\n' })
+  delCommit(r, 'chore: 摘', ['tools/exp.mjs'])
+  addCommit(r, 'feat: 带回', { 'tools/exp.mjs': 'e\n' })
+  addCommit(r, 'chore: 登记一条已过期的裁决', { [RETIRED_FILE]: retiredJson('tools/exp.mjs', { reviewBy: '2020-01-01' }) })
+  res = auditVerbatim({ ref: 'HEAD', window: 1, root: r })
+  ok('⑭ 过期条目遮不了复活 ⇒ code=retired-ledger-defect', res.hits.length === 1 && res.hits[0].code === 'retired-ledger-defect', JSON.stringify(res.hits.map((x) => [x.path, x.code])))
+
+  // ⑮ 同一枚债两维各命中一次 ⇒ 只报一条(两维是同一笔债的两个取证面,不是两笔债)
+  r = mk()
+  addCommit(r, 'chore: 建底座', { 'README.md': '# t\n' })
+  addCommit(r, 'feat: 加', { 'tools/both.mjs': 'b\n' })
+  delCommit(r, 'chore: 摘', ['tools/both.mjs'])
+  addCommit(r, 'feat: 带回', { 'tools/both.mjs': 'b\n' })
+  addCommit(r, 'chore: 同时登记退役清单', { [RETIRED_FILE]: retiredJson('tools/both.mjs') })
+  res = auditVerbatim({ ref: 'HEAD', window: 50, root: r })
+  ok('⑮ 两维命中同一路径 ⇒ 去重后 1 条', res.hits.length === 1 && res.hits[0].path === 'tools/both.mjs', JSON.stringify(res.hits.map((x) => [x.path, x.kind ?? 'window'])))
 
   const bad = rows.filter((x) => !x.pass)
   for (const x of rows) console.log(`${x.pass ? '✅' : '❌'} ${x.name}${x.extra ? '  ' + x.extra : ''}`)
@@ -457,7 +643,19 @@ async function main() {
   process.exit(exitCodeOf(res))
 }
 
-export const __test__ = { auditVerbatim, exitCodeOf, addedPathsOf, commitsIn, formatReport, blobOf, runSelfTest, LOOKUP_CAP }
+export const __test__ = {
+  auditVerbatim,
+  exitCodeOf,
+  addedPathsOf,
+  commitsIn,
+  formatReport,
+  blobOf,
+  runSelfTest,
+  LOOKUP_CAP,
+  RETIRED_FILE,
+  lastDeleteCommitOf,
+  lastAddCommitOf,
+}
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
