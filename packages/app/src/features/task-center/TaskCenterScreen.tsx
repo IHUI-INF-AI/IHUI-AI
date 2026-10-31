@@ -152,18 +152,18 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     tab: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
     errorBar: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -201,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rewardBadge: {
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.success.light,
     },
@@ -230,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     progressText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     actionBtn: {
-      marginTop: 10,
+      marginTop: rnSpacing['sm-loose'],
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

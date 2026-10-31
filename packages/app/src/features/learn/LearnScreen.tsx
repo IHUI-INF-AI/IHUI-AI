@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.border.light,
     } as ImageStyle,
     pathTitle: {
-      padding: 10,
+      padding: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,

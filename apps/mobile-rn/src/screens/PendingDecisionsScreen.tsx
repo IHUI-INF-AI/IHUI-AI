@@ -207,7 +207,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
-    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     countBadge: {
       minWidth: 18,
@@ -233,9 +233,9 @@ function makeStyles() {
     },
     outlineText: { fontSize: rnType.body.size, color: tokens.text.primary },
     itemRow: {
-      gap: 6,
-      paddingVertical: 10,
-      paddingHorizontal: 10,
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['sm-loose'],
+      paddingHorizontal: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
     },
@@ -248,8 +248,8 @@ function makeStyles() {
     },
     // 超时未审:红边 + 红底醒目(纯前端按 createdAt 距今 >30min 计算)
     overdueBadge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.danger.DEFAULT,
@@ -258,7 +258,7 @@ function makeStyles() {
     overdueText: { fontSize: 10, fontWeight: '700', color: tokens.danger.DEFAULT },
     itemMetaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     typeChip: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,

@@ -204,13 +204,13 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     searchInput: {
-      marginHorizontal: 10,
+      marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.xs,
       marginBottom: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
@@ -222,11 +222,15 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.primary,
     },
-    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
     // 上拉分页 footer:对齐 Uniapp loadMore 底部加载提示
     footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
-    listBody: { padding: 10 },
+    listBody: { padding: rnSpacing['sm-loose'] },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -257,8 +261,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     badge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },

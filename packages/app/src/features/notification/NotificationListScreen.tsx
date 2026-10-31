@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
 import { BackChevron } from '../../components/BackChevron'
@@ -138,22 +138,22 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 10 },
+    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
+    listBody: { padding: rnSpacing['sm-loose'] },
     segment: {
       flexDirection: 'row',
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingBottom: 8,
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.sm,
     },
     segmentItem: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.light,
     },

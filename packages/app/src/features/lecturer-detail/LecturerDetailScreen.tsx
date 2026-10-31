@@ -396,7 +396,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     headerTitle: {
       flex: 1,
@@ -436,7 +436,7 @@ function createStyles(tk: AppThemeTokens) {
     nameRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6, // rpx(12)
+      gap: rnSpacing['xs-loose'], // rpx(12)
     },
     name: {
       fontSize: rnType.subtitle.size,
@@ -445,8 +445,8 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 1,
     },
     goldBadge: {
-      paddingHorizontal: 6, // rpx(12)
-      paddingVertical: 2, // rpx(4)
+      paddingHorizontal: rnSpacing['xs-loose'], // rpx(12)
+      paddingVertical: rnSpacing['2xs'], // rpx(4)
       borderRadius: rnRadius.md, // rpx(12)
       backgroundColor: tk.vip.gold,
     },
@@ -461,7 +461,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     followBtn: {
       paddingHorizontal: 14, // rpx(28)
-      paddingVertical: 6, // rpx(12)
+      paddingVertical: rnSpacing['xs-loose'], // rpx(12)
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
@@ -520,8 +520,8 @@ function createStyles(tk: AppThemeTokens) {
     /* 主讲课程 */
     courseCard: {
       flexDirection: 'row',
-      gap: 10, // rpx(20)
-      padding: 10, // rpx(20)
+      gap: rnSpacing['sm-loose'], // rpx(20)
+      padding: rnSpacing['sm-loose'], // rpx(20)
       borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
@@ -534,7 +534,7 @@ function createStyles(tk: AppThemeTokens) {
     courseBody: {
       flex: 1,
       justifyContent: 'space-between',
-      gap: 6, // rpx(12)
+      gap: rnSpacing['xs-loose'], // rpx(12)
     },
     courseTitle: {
       fontSize: rnType.body.size,
@@ -562,8 +562,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 学员评价 */
     reviewCard: {
-      gap: 6, // rpx(12)
-      padding: 10, // rpx(20)
+      gap: rnSpacing['xs-loose'], // rpx(12)
+      padding: rnSpacing['sm-loose'], // rpx(20)
       borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
@@ -590,7 +590,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     starRow: {
       flexDirection: 'row',
-      gap: 2,
+      gap: rnSpacing['2xs'],
     },
     reviewContent: {
       fontSize: 13,

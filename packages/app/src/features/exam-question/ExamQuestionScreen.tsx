@@ -124,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
     header: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },

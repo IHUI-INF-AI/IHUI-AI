@@ -292,7 +292,7 @@ export function WrongQuestionsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.display.size,
@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      gap: 2,
+      gap: rnSpacing['2xs'],
     },
     statLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
@@ -325,14 +325,18 @@ function createStyles(tk: AppThemeTokens) {
     chipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipOnText: { color: tk.brand.ctaForeground, fontWeight: '600' },
-    listBody: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    listBody: {
+      padding: rnSpacing.md,
+      gap: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
+    },
     card: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     itemHead: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
     itemTitle: {
@@ -343,7 +347,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: 20,
     },
     badge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
@@ -381,12 +385,12 @@ function createStyles(tk: AppThemeTokens) {
     sheet: {
       maxHeight: '70%',
       padding: rnSpacing.lg,
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
-    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sheetTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     explainText: { fontSize: rnType.body.size, lineHeight: 22, color: tk.text.secondary },
   })

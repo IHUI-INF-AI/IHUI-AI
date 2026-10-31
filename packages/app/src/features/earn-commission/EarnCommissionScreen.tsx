@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -167,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       marginTop: rnSpacing.sm,
     },
-    statsItem: { alignItems: 'center', gap: 6 },
+    statsItem: { alignItems: 'center', gap: rnSpacing['xs-loose'] },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
     sectionCard: {
@@ -200,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
     },
     rateLevel: { flex: 1, fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
     rateValue: {
