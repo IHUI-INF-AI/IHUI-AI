@@ -123,6 +123,14 @@ jobs:
       - name: Build type-consumable workspace deps (topological closure, prerequisite of typecheck)
         id: build-types-deps
         run: pnpm --filter "@ihui/api-client..." run build
+      # 下面那条 `wxt prepare` 解析的是 extension 的**全部** workspace 入口,而上一步
+      # `@ihui/api-client...` 闭包不含 @ihui/i18n / @ihui/ui-react / @ihui/browser-platform 等
+      # extension 直连依赖 ⇒ 干净检出上仍会报 `Failed to resolve entry for package "@ihui/i18n"`
+      # (2026-10-31 实测 run 41150575693 / 41150575738)。`@ihui/extension^...` = 它的 workspace
+      # 依赖闭包(不含自身),与 Dockerfile.web:73 的 `@ihui/web^...` 同一写法。
+      - name: Build extension workspace deps (wxt prepare 的解析面)
+        id: build-ext-deps
+        run: pnpm --filter "@ihui/extension^..." run build
       # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
       # 缺此步 -> .wxt/ 被 gitignore 未入库 -> tsc 读不到 → TS5083 + 200+ 级联错误(2026-09-10 实测)。
       # **必须在上面那条建包步之后**:`wxt prepare` 会经 vite 解析 `@ihui/i18n` 入口,而该包
@@ -144,11 +152,12 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install build-types-deps prepare-wxt typecheck typecheck-e2e
+          TRIAGE_IDS: checkout install build-types-deps build-ext-deps prepare-wxt typecheck typecheck-e2e
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_PREPARE_WXT: ${{ steps.prepare-wxt.outcome }}
           O_BUILD_TYPES_DEPS: ${{ steps.build-types-deps.outcome }}
+          O_BUILD_EXT_DEPS: ${{ steps.build-ext-deps.outcome }}
           O_TYPECHECK: ${{ steps.typecheck.outcome }}
           O_TYPECHECK_E2E: ${{ steps.typecheck-e2e.outcome }}
         run: bash scripts/ci-failure-triage.sh

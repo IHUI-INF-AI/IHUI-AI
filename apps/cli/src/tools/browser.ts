@@ -9,6 +9,8 @@
  *   - 连接:优先 IHUI_BROWSER_CDP_URL(http://127.0.0.1:9222);否则探测已运行实例;
  *     都没有则自动发现 Chrome/Edge 可执行文件,以 --headless=new --remote-debugging-port 拉起
  *   - 工具:navigate / snapshot / screenshot / click / type / press_key / evaluate / close
+ *   - 语义句柄:snapshot 给每个出表交互元素发会话级 ref(e1/e2…),click/type 可直接按 ref 定位;
+ *     同一文档内同一元素同 ref,页面导航后旧 ref 显式失效(报错要求重新快照,绝不静默点错)
  *   - 真实输入:click 用 Input.dispatchMouseEvent(坐标级),type 用 Input.insertText,
  *     press_key 用 Input.dispatchKeyEvent — 非 evaluate 伪造
  *   - 单例会话:进程内复用一条 ws 连接;browser_close 时关闭会话并终止自拉起的浏览器
@@ -394,6 +396,8 @@ export async function getBrowserSession(): Promise<{ session: CdpSession; port: 
   }
   activeSession?.close();
   activeSession = undefined;
+  // 会话换了,上一轮发出的 ref 一律作废(不许跨会话复用编号)。
+  resetBrowserRefBook();
   const ep = resolveEndpoint();
   if (!(await isCdpAlive(ep.port, ep.host))) {
     if (ep.host !== '127.0.0.1') {
@@ -407,32 +411,235 @@ export async function getBrowserSession(): Promise<{ session: CdpSession; port: 
   return { session, port: ep.port };
 }
 
-/** 页面内一次性取 title/url/可见文本/交互元素大纲(供 LLM 选择器决策)。 */
-async function collectPageSnapshot(
+// ==================== 语义快照句柄(会话级 ref) ====================
+
+/**
+ * 页内句柄注册表键。
+ *
+ * 为什么账挂在页面里而不是宿主:同一元素在两次快照之间必须拿到同一个 ref,而 DOM 重排、
+ * 组件重建之后靠 CSS 路径或坐标反查都认不出"还是那个元素";`WeakMap<Element, ref>` 才是
+ * "同一个元素"的唯一判据。文档级(挂 window)而不是会话级:页面导航后 window 换新,旧账
+ * 随文档一起消失,天然兑现"跨文档旧 ref 失效";SPA 的 pushState 不换 window,同文档内
+ * ref 继续有效。
+ */
+const REF_REGISTRY_KEY = '__ihuiBrowserRefRegistry';
+const REF_REGISTRY_VERSION = 1;
+/** 作废 ref 的记忆上限:只用于把"导航前的旧 ref"与"从未发出过的 ref"分别给出说明。 */
+const REF_EXPIRED_KEEP = 400;
+
+interface BrowserRefBook {
+  session: CdpSession;
+  docToken: string;
+  alive: Set<string>;
+  expired: Set<string>;
+}
+
+/** 会话级句柄账。只有这里认得的 ref 才会被派发;作废/未知一律显式失败。 */
+let activeRefBook: BrowserRefBook | undefined;
+
+/** 句柄账整体清空(browser_close / 会话重建时调用 —— 旧 ref 不得跨会话复用)。 */
+function resetBrowserRefBook(): void {
+  activeRefBook = undefined;
+}
+
+/**
+ * 把"当前文档令牌"同步进会话账。
+ *
+ * 文档换了 ⇒ 旧账里活着的 ref 整批转入 `expired`(而不是直接丢弃),这样"导航后拿旧 ref"
+ * 能报"失效"而不是"未知" —— 两种说明对应两种处置,不能并成一句。
+ *
+ * 注意:换文档时 `alive` 一律清空,**由快照重新发号**。原因是编号按文档重置:navigate 内部
+ * 那次采集虽然也跑在页面上,但模型从没见到那批号,若让它直接算数,"导航前 e1 是提交按钮、
+ * 导航后 e1 变成删除按钮"就会被静默点中 —— 这正是句柄体系要防的那一种错。
+ */
+function syncRefDocument(session: CdpSession, docToken: string): void {
+  if (!docToken) return;
+  const sameSession = activeRefBook?.session === session;
+  if (activeRefBook && sameSession && activeRefBook.docToken === docToken) return;
+  const expired = sameSession ? new Set(activeRefBook!.expired) : new Set<string>();
+  if (sameSession) {
+    for (const ref of activeRefBook!.alive) expired.add(ref);
+    while (expired.size > REF_EXPIRED_KEEP) {
+      const oldest = expired.values().next();
+      if (oldest.done) break;
+      expired.delete(oldest.value);
+    }
+  }
+  activeRefBook = { session, docToken, alive: new Set(), expired };
+}
+
+/** 只有 `browser_snapshot` 调用它:把模型真正看到的那批 ref 记为可用。 */
+function publishRefs(session: CdpSession, docToken: string, refs: string[]): void {
+  // 取不到文档令牌 = 这一轮的"属于哪个文档"没判定,不发号(§0.3 未判定不冒充)。
+  if (!docToken) return;
+  syncRefDocument(session, docToken);
+  if (!activeRefBook) return;
+  for (const ref of refs) {
+    activeRefBook.expired.delete(ref);
+    activeRefBook.alive.add(ref);
+  }
+}
+
+/** 宿主侧先把关:未登记过的 ref 连浏览器都不必碰。 */
+function gateRef(ref: string): { ok: true } | { ok: false; message: string } {
+  if (activeRefBook?.alive.has(ref)) return { ok: true };
+  if (activeRefBook?.expired.has(ref)) {
+    return {
+      ok: false,
+      message: `元素句柄 ${ref} 已失效:页面已导航或重新加载(跨文档),旧句柄整批作废。请重新调用 browser_snapshot 获取新的 [eN]。`,
+    };
+  }
+  return {
+    ok: false,
+    message: `未知元素句柄 ${ref}:本会话没有发出过该 ref(或浏览器会话已重建)。请先调用 browser_snapshot 获取 [eN]。`,
+  };
+}
+
+function markRefExpired(ref: string): void {
+  if (!activeRefBook) return;
+  activeRefBook.alive.delete(ref);
+  activeRefBook.expired.add(ref);
+}
+
+/** 页内查不到句柄时的说明:三类成因各自点名,出路都是"重新快照"。 */
+function refFailureMessage(ref: string, code: 'NO_REGISTRY' | 'UNKNOWN_REF' | 'DISCONNECTED'): string {
+  if (code === 'DISCONNECTED') {
+    return `元素句柄 ${ref} 已失效:元素已从页面上移除。请重新调用 browser_snapshot 获取新的 [eN]。`;
+  }
+  return `元素句柄 ${ref} 已失效:当前页面已不是发出该 ref 的文档(导航/重载或页面自行重建)。请重新调用 browser_snapshot 获取新的 [eN]。`;
+}
+
+/** 页内句柄查找的统一表达式:查不到/已移除一律返回结构化 code,不抛异常。 */
+function refExpression(ref: string, body: string): string {
+  return `(() => {
+    const reg = window[${JSON.stringify(REF_REGISTRY_KEY)}];
+    if (!reg || reg.version !== ${REF_REGISTRY_VERSION}) return JSON.stringify({ code: 'NO_REGISTRY' });
+    const el = reg.byRef.get(${JSON.stringify(ref)});
+    if (!el) return JSON.stringify({ code: 'UNKNOWN_REF' });
+    if (!el.isConnected) return JSON.stringify({ code: 'DISCONNECTED' });
+    ${body}
+  })()`;
+}
+
+type RefLookupFailure = { ok: false; code: 'NO_REGISTRY' | 'UNKNOWN_REF' | 'DISCONNECTED' };
+
+async function evalOnRef(
   session: CdpSession,
-  textLimit: number,
-): Promise<{ title: string; url: string; text: string; outline: string[] }> {
-  const expression = `(() => {
-    const interactive = [...document.querySelectorAll('a[href],button,input,select,textarea,[role="button"]')]
+  ref: string,
+  body: string,
+): Promise<{ ok: true; value: Record<string, unknown> } | RefLookupFailure> {
+  const res = await session.send<{ result: { value?: string | null }; exceptionDetails?: unknown }>(
+    'Runtime.evaluate',
+    { expression: refExpression(ref, body), returnByValue: true },
+  );
+  if (res.exceptionDetails) {
+    throw new Error(`ref ${ref} 解析失败: ${JSON.stringify(res.exceptionDetails).slice(0, 300)}`);
+  }
+  const raw = res.result.value;
+  if (typeof raw !== 'string') return { ok: false, code: 'UNKNOWN_REF' };
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return { ok: false, code: 'UNKNOWN_REF' };
+  }
+  const code = parsed.code;
+  if (code === 'NO_REGISTRY' || code === 'UNKNOWN_REF' || code === 'DISCONNECTED') {
+    return { ok: false, code };
+  }
+  return { ok: true, value: parsed };
+}
+
+/** ref ⇒ 滚动后的矩形(click / type 定位共用)。 */
+async function resolveRefBox(
+  session: CdpSession,
+  ref: string,
+): Promise<{ ok: true; box: { x: number; y: number; w: number; h: number } } | RefLookupFailure> {
+  const resolved = await evalOnRef(
+    session,
+    ref,
+    `el.scrollIntoView({ block: 'center' });
+    const r = el.getBoundingClientRect();
+    return JSON.stringify({ x: r.x, y: r.y, w: r.width, h: r.height });`,
+  );
+  if (!resolved.ok) return resolved;
+  const box = {
+    x: Number(resolved.value.x),
+    y: Number(resolved.value.y),
+    w: Number(resolved.value.w),
+    h: Number(resolved.value.h),
+  };
+  if (!Number.isFinite(box.x) || !Number.isFinite(box.y)) {
+    return { ok: false, code: 'DISCONNECTED' };
+  }
+  return { ok: true, box };
+}
+
+interface PageSnapshot {
+  title: string;
+  url: string;
+  text: string;
+  outline: string[];
+  refs: string[];
+  docToken: string;
+}
+
+/**
+ * 采集表达式:一次往返取标题/URL/正文/可交互元素大纲,并给每个出表元素分配文档内稳定的 ref。
+ *
+ * ref 只发给**出表的那几行**(先按原有 `length > 3` 过滤再编号):被过滤掉的空标签元素
+ * 不占号,号段与模型看到的行一一对应。
+ */
+function buildSnapshotExpression(textLimit: number): string {
+  return `(() => {
+    const KEY = ${JSON.stringify(REF_REGISTRY_KEY)};
+    const VERSION = ${REF_REGISTRY_VERSION};
+    let reg = window[KEY];
+    if (!reg || reg.version !== VERSION) {
+      reg = window[KEY] = {
+        version: VERSION,
+        token: Date.now().toString(36) + Math.random().toString(36).slice(2, 10),
+        next: 1,
+        byRef: new Map(),
+        byEl: new WeakMap(),
+      };
+    }
+    const refOf = (el) => {
+      let ref = reg.byEl.get(el);
+      if (!ref) {
+        ref = 'e' + reg.next++;
+        reg.byEl.set(el, ref);
+        reg.byRef.set(ref, el);
+      }
+      return ref;
+    };
+    const rows = [...document.querySelectorAll('a[href],button,input,select,textarea,[role="button"]')]
       .slice(0, 60)
       .map((el) => {
         const tag = el.tagName.toLowerCase();
         const id = el.id ? '#' + el.id : '';
         const name = el.getAttribute('name') ? '[name=' + el.getAttribute('name') + ']' : '';
         const label = ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) ? el.value : el.textContent) ?? '';
-        return tag + id + name + ': ' + label.trim().replace(/\\s+/g, ' ').slice(0, 60);
+        return { el, body: tag + id + name + ': ' + label.trim().replace(/\\s+/g, ' ').slice(0, 60) };
       })
-      .filter((s) => s.length > 3);
+      .filter((row) => row.body.length > 3);
+    const refs = rows.map((row) => refOf(row.el));
     return JSON.stringify({
       title: document.title,
       url: location.href,
       text: (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n').slice(0, ${textLimit}),
-      outline: interactive,
+      outline: rows.map((row, i) => '[' + refs[i] + '] ' + row.body),
+      refs: refs,
+      docToken: reg.token,
     });
   })()`;
+}
+
+/** 页面内一次性取 title/url/可见文本/交互元素大纲(每行带会话级 ref,供 click/type 直接引用)。 */
+async function collectPageSnapshot(session: CdpSession, textLimit: number, publish = false): Promise<PageSnapshot> {
   const res = await session.send<{ result: { value?: string }; exceptionDetails?: unknown }>(
     'Runtime.evaluate',
-    { expression, returnByValue: true },
+    { expression: buildSnapshotExpression(textLimit), returnByValue: true },
   );
   if (res.exceptionDetails) {
     throw new Error(`页面快照执行失败: ${JSON.stringify(res.exceptionDetails).slice(0, 300)}`);
@@ -442,12 +649,25 @@ async function collectPageSnapshot(
     url?: string;
     text?: string;
     outline?: string[];
+    refs?: string[];
+    docToken?: string;
   };
+  const refs = Array.isArray(parsed.refs) ? parsed.refs.filter((r): r is string => typeof r === 'string') : [];
+  const docToken = typeof parsed.docToken === 'string' ? parsed.docToken : '';
+  // 换文档时旧账在模型下一次动作之前就已经标成作废(navigate/click 收尾的采集也走这里);
+  // 但"发号"只认 browser_snapshot —— 内部采集拿到的号模型没见过,不得先算数。
+  if (publish) {
+    publishRefs(session, docToken, refs);
+  } else {
+    syncRefDocument(session, docToken);
+  }
   return {
     title: parsed.title ?? '',
     url: parsed.url ?? '',
     text: parsed.text ?? '',
     outline: parsed.outline ?? [],
+    refs,
+    docToken,
   };
 }
 
@@ -459,6 +679,41 @@ function requireString(args: Record<string, unknown>, key: string): string {
     throw new Error(`缺少必填参数 ${key}(string)`);
   }
   return v;
+}
+
+interface TargetChoice {
+  kind: 'selector' | 'ref';
+  value: string;
+}
+
+/**
+ * 定位参数二选一(click / type 共用)。
+ *
+ * 同时给两个 / 一个都不给都必须当场拒绝:静默取其中一个,就等于把"模型以为点了 A、
+ * 实际点了 B"写成一条成功日志。失败文案原样进 ToolResult.error,不抛异常。
+ */
+function parseTargetChoice(
+  args: Record<string, unknown>,
+): { ok: true; target: TargetChoice } | { ok: false; message: string } {
+  // selector 仍按旧口径取:非空字符串才算给了;空串/非字符串视为未提供。
+  const selector = typeof args.selector === 'string' ? args.selector : '';
+  const ref = typeof args.ref === 'string' ? args.ref.trim() : '';
+  if (selector.length > 0 && ref.length > 0) {
+    return {
+      ok: false,
+      message:
+        '参数错误:ref 与 selector 只能二选一,本次同时提供了两个。请只保留一个(优先用 browser_snapshot 给出的 ref)。',
+    };
+  }
+  if (selector.length === 0 && ref.length === 0) {
+    return {
+      ok: false,
+      message:
+        '参数错误:必须提供 ref 或 selector 之一(ref 来自 browser_snapshot 的 [eN];selector 为 CSS 选择器)。',
+    };
+  }
+  if (ref.length > 0) return { ok: true, target: { kind: 'ref', value: ref } };
+  return { ok: true, target: { kind: 'selector', value: selector } };
 }
 
 function ok(output: string): { success: true; output: string } {
@@ -506,7 +761,7 @@ const browserNavigate: Tool = {
 const browserSnapshot: Tool = {
   name: 'browser_snapshot',
   description:
-    '获取当前浏览器页面的可读快照:标题、URL、可见文本(截断)与交互元素大纲(a/button/input 等,含 id/name 定位线索),用于后续 click/type 选择器决策。',
+    '获取当前浏览器页面的可读快照:标题、URL、可见文本(截断)与交互元素大纲(a/button/input 等,含 id/name 定位线索),用于后续 click/type 选择器决策。每个出表交互元素带会话级句柄 [eN]:同一文档内重复快照同一元素仍是同一 ref,可直接作为 browser_click / browser_type 的 ref 参数;页面导航后旧 ref 整批失效,需重新快照。',
   parameters: {
     text_limit: { type: 'number', description: '可见文本最大字符数,默认 4000' },
   },
@@ -516,7 +771,7 @@ const browserSnapshot: Tool = {
     try {
       const { session } = await getBrowserSession();
       const textLimit = Math.min(Math.max(Number(args.text_limit) || 4000, 200), 20_000);
-      const snap = await collectPageSnapshot(session, textLimit);
+      const snap = await collectPageSnapshot(session, textLimit, true);
       const outline = snap.outline.length > 0 ? `\n交互元素:\n${snap.outline.map((s) => `- ${s}`).join('\n')}` : '';
       return ok(`标题: ${snap.title}\nURL: ${snap.url}\n\n${snap.text}${outline}`);
     } catch (err) {
@@ -573,14 +828,53 @@ const browserScreenshot: Tool = {
 const browserClick: Tool = {
   name: 'browser_click',
   description:
-    '在当前页面点击元素。用 CSS 选择器定位,自动滚动到可见区域,并以真实鼠标事件(Input.dispatchMouseEvent)在元素中心按下并释放。',
+    '在当前页面点击元素。用 browser_snapshot 给出的 ref(如 e3)或 CSS 选择器定位(两者二选一),自动滚动到可见区域,并以真实鼠标事件(Input.dispatchMouseEvent)在元素中心按下并释放。ref 是会话级句柄:同一文档内稳定,页面导航后失效,需重新快照。',
   parameters: {
-    selector: { type: 'string', description: '目标元素的 CSS 选择器,如 #submit-btn 或 a.login' },
+    selector: { type: 'string', description: '目标元素的 CSS 选择器,如 #submit-btn 或 a.login(与 ref 二选一)' },
+    ref: { type: 'string', description: 'browser_snapshot 交互元素行里的句柄,如 e3(与 selector 二选一)' },
   },
-  required: ['selector'],
+  required: [],
   dangerLevel: 'write',
   async execute(args) {
     try {
+      const choice = parseTargetChoice(args);
+      if (!choice.ok) return fail(new Error(choice.message), 'param_invalid');
+      if (choice.target.kind === 'ref') {
+        const ref = choice.target.value;
+        // 先问宿主账本:未登记/已作废的 ref 连浏览器都不必碰(更不许落到空选择器上)。
+        const gate = gateRef(ref);
+        if (!gate.ok) return fail(new Error(gate.message), 'stale_ref');
+        const { session } = await getBrowserSession();
+        const resolved = await resolveRefBox(session, ref);
+        if (!resolved.ok) {
+          markRefExpired(ref);
+          return fail(new Error(refFailureMessage(ref, resolved.code)), 'stale_ref');
+        }
+        const { x, y, w, h } = resolved.box;
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        await session.send('Input.dispatchMouseEvent', {
+          type: 'mousePressed',
+          x: cx,
+          y: cy,
+          button: 'left',
+          buttons: 1,
+          clickCount: 1,
+        });
+        await session.send('Input.dispatchMouseEvent', {
+          type: 'mouseReleased',
+          x: cx,
+          y: cy,
+          button: 'left',
+          buttons: 0,
+          clickCount: 1,
+        });
+        await new Promise((r) => setTimeout(r, 300));
+        const snap = await collectPageSnapshot(session, 800);
+        return ok(
+          `已点击 ref ${ref}(中心坐标 ${Math.round(cx)},${Math.round(cy)})\n当前页面: ${snap.url} — ${snap.title}`,
+        );
+      }
       const selector = requireString(args, 'selector');
       const { session } = await getBrowserSession();
       const expression = `(() => {
@@ -628,18 +922,57 @@ const browserClick: Tool = {
 const browserType: Tool = {
   name: 'browser_type',
   description:
-    '向输入框输入文本。用 CSS 选择器定位,聚焦后以真实键盘事件(Input.insertText)输入;可选先清空已有内容。',
+    '向输入框输入文本。用 browser_snapshot 给出的 ref(如 e3)或 CSS 选择器定位(两者二选一),聚焦后以真实键盘事件(Input.insertText)输入;可选先清空已有内容。ref 是会话级句柄:同一文档内稳定,页面导航后失效,需重新快照。',
   parameters: {
-    selector: { type: 'string', description: '目标输入元素的 CSS 选择器' },
+    selector: { type: 'string', description: '目标输入元素的 CSS 选择器(与 ref 二选一)' },
+    ref: { type: 'string', description: 'browser_snapshot 交互元素行里的句柄,如 e3(与 selector 二选一)' },
     text: { type: 'string', description: '要输入的文本' },
     clear: { type: 'boolean', description: '输入前是否清空已有内容,默认 false' },
   },
-  required: ['selector', 'text'],
+  required: ['text'],
   dangerLevel: 'write',
   async execute(args) {
     try {
-      const selector = requireString(args, 'selector');
+      const choice = parseTargetChoice(args);
+      if (!choice.ok) return fail(new Error(choice.message), 'param_invalid');
       const text = requireString(args, 'text');
+      if (choice.target.kind === 'ref') {
+        const ref = choice.target.value;
+        const gate = gateRef(ref);
+        if (!gate.ok) return fail(new Error(gate.message), 'stale_ref');
+        const { session } = await getBrowserSession();
+        const focused = await evalOnRef(session, ref, `el.focus();
+    return JSON.stringify({ ok: true });`);
+        if (!focused.ok) {
+          markRefExpired(ref);
+          return fail(new Error(refFailureMessage(ref, focused.code)), 'stale_ref');
+        }
+        if (args.clear === true) {
+          const cleared = await evalOnRef(
+            session,
+            ref,
+            `if ('value' in el) {
+      el.value = '';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return JSON.stringify({ ok: true });`,
+          );
+          if (!cleared.ok) {
+            markRefExpired(ref);
+            return fail(new Error(refFailureMessage(ref, cleared.code)), 'stale_ref');
+          }
+        }
+        await session.send('Input.insertText', { text });
+        await new Promise((r) => setTimeout(r, 150));
+        const valueRes = await evalOnRef(
+          session,
+          ref,
+          `return JSON.stringify({ ok: true, value: ('value' in el) ? String(el.value) : document.body.innerText.slice(0, 200) });`,
+        );
+        const current = valueRes.ok ? String(valueRes.value.value ?? '') : '';
+        return ok(`已向 ref ${ref} 输入 ${text.length} 字符\n当前值: ${current.slice(0, 120)}`);
+      }
+      const selector = requireString(args, 'selector');
       const { session } = await getBrowserSession();
       const focusExpr = `(() => {
         const el = document.querySelector(${JSON.stringify(selector)});
@@ -795,6 +1128,8 @@ const browserClose: Tool = {
         activeSession.close();
         activeSession = undefined;
       }
+      // 句柄账随会话一起清空:关掉浏览器之后旧 ref 不得在新会话里撞上同号元素。
+      resetBrowserRefBook();
       if (spawnedChild) {
         try {
           spawnedChild.kill();
