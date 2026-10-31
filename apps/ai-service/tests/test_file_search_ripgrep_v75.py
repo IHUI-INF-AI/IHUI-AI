@@ -43,6 +43,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services import rg_fallback_parity as rgp  # noqa: E402
+
+# 本机没装 ripgrep 时,下面五条对账/速度用例**取不到 rg 一侧的输入**(生产侧在
+# provenance.degraded_reason 里已写明"本结果不可用于对账")。按 §0.3 如实 skip 并点名,
+# 不拿"应该也一致"冒充判过;判据本身不变 —— 装了 rg 的机器上照旧全跑。
+_RG_SKIP = pytest.mark.skipif(
+    rgp.resolve_rg_binary().path == "",
+    reason="本机无 ripgrep:双通道对账缺 rg 一侧输入(生产已用 degraded_reason 标明)",
+)
 from app.services.codebase_indexer import (  # noqa: E402
     _EXT_TO_LANG,
     _IGNORED_DIRS,
@@ -122,6 +130,7 @@ def _legacy_collect(root: Path) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
+@_RG_SKIP
 def test_two_channels_agree_on_fixture(repo_fixture: Path) -> None:
     """ripgrep 通道与串行 Python 通道在受控夹具上**集合相等**。"""
     diff = rgp.compare_enumerations(
@@ -192,6 +201,7 @@ def test_missing_binary_degrades_without_claiming_rg(monkeypatch: pytest.MonkeyP
 # ---------------------------------------------------------------------------
 
 
+@_RG_SKIP
 def test_content_channel_parity_including_regex_metacharacters(repo_fixture: Path) -> None:
     """字面量子串语义下,含正则元字符的 query 两侧命中与**行号**必须逐字相同。
 
@@ -218,6 +228,7 @@ def test_content_channel_parity_including_regex_metacharacters(repo_fixture: Pat
         assert via_rg.unparsed_lines == 0, "有命中行解析不出来 —— 通道不可信却仍报结果"
 
 
+@_RG_SKIP
 def test_content_channel_actually_uses_rg_on_real_hits(repo_fixture: Path) -> None:
     """反向对照:确有命中时 engine 必须是 ripgrep。
 
@@ -362,6 +373,7 @@ def _tracked_code_files(root: Path) -> set[str]:
     return kept
 
 
+@_RG_SKIP
 def test_real_repo_enumeration_is_faster_than_serial_walk() -> None:
     """在真 monorepo 上给出前(串行 os.walk)/后(ripgrep)两组读数并断言更快。
 
@@ -478,6 +490,7 @@ async def _call_file_search(root: str, pattern: str) -> dict:
     return await _tool_file_search({"path": root, "pattern": pattern, "query": "", "max_results": 200})
 
 
+@_RG_SKIP
 def test_tool_channel_parity_two_channels_return_same_file_set(tmp_path, monkeypatch):
     """V3 #75 接线段的判据:**工具级**两通道结果集必须等价。
 
