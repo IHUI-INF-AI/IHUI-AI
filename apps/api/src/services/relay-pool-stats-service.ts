@@ -99,16 +99,26 @@ export const ACCOUNT_SCHEDULABLE_HEALTH_STATES = RELAY_POOL_HEALTH_STATES.filter
   (state) => state !== 'down',
 ) as readonly Exclude<RelayPoolHealthState, 'down'>[]
 
-/** 账号池一行可调度性判定:与调度侧 `accountSchedulableCondition()` 同口径。 */
-export function isRelayAccountRowSchedulable(row: {
-  isEnabled: boolean | null
-  tempUnschedulable: boolean | null
-  healthStatus?: string | null
-}): boolean {
+/**
+ * 账号池一行可调度性判定:与调度侧 `accountSchedulableCondition()` 同口径。
+ *
+ * 2026-10-31 补票面维:此前只判启用/摘除/健康态 ⇒ 票过期 70 小时的 minimax 被算成
+ * 「可调度」,既污染大屏分子,又让它有机会被选号撞上游 401。无票面(cookie 型)放行。
+ */
+export function isRelayAccountRowSchedulable(
+  row: {
+    isEnabled: boolean | null
+    tempUnschedulable: boolean | null
+    healthStatus?: string | null
+    tokenExpiresAt?: Date | null
+  },
+  nowMs: number = Date.now(),
+): boolean {
   return (
     isRelayPoolRowSchedulable(row) &&
     typeof row.healthStatus === 'string' &&
-    (ACCOUNT_SCHEDULABLE_HEALTH_STATES as readonly string[]).includes(row.healthStatus)
+    (ACCOUNT_SCHEDULABLE_HEALTH_STATES as readonly string[]).includes(row.healthStatus) &&
+    (!row.tokenExpiresAt || row.tokenExpiresAt.getTime() > nowMs)
   )
 }
 
@@ -122,6 +132,8 @@ export interface RelayPoolCapacityRow {
    * 账号池容量必须读它 —— 判据见 `isRelayAccountRowSchedulable`。
    */
   healthStatus?: string | null
+  /** 票面到期时刻。账号池容量同样要读:票过期的号没有容量(与选号同一把尺子)。 */
+  tokenExpiresAt?: Date | null
 }
 
 /**
