@@ -57,6 +57,28 @@ export function isThirdPartyNodePath(p) {
 }
 
 /**
+ * 从一段任意文本(任务参数、VBS 正文)里揪出**被当可执行体用的 node 路径**是否落在禁地。
+ *
+ * 为什么必须查文本而不只查 `Action.Execute`:2026-10-31 实测的病形态是
+ * `wscript.exe → VBS → pwsh Start-Process -FilePath '<第三方捆绑 node>'`,
+ * 任务 action 面上看是 wscript/pwsh,**锚点藏在参数里**;只判 Execute 会整型漏判。
+ * 取值只认「以 node.exe / node 结尾且前面还有路径段」的 token,免得把
+ * `C:\Users\x\.workbuddy\sessions\*.json` 这类正当的数据路径误判成锚点(§12e 反恒红)。
+ *
+ * @returns {string|null} 命中的那枚 token;没命中 ⇒ null
+ */
+export function findThirdPartyNodeToken(text) {
+  const s = String(text ?? '')
+  if (!s) return null
+  const hits = s.match(/[\w.:\\/~-]*[\\/][Nn]ode(\.exe)?/g)
+  if (!hits) return null
+  for (const hit of hits) {
+    if (isThirdPartyNodePath(hit)) return hit
+  }
+  return null
+}
+
+/**
  * 解析这一轮注册该烤进任务 action 的 node 可执行体。
  *
  * @param {object} opts
@@ -121,5 +143,10 @@ export function resolveTaskNodeAnchor({
   }
 }
 
-export const __test__ = { resolveTaskNodeAnchor, isThirdPartyNodePath, THIRD_PARTY_NODE_DIR_MARKERS }
+export const __test__ = {
+  resolveTaskNodeAnchor,
+  isThirdPartyNodePath,
+  findThirdPartyNodeToken,
+  THIRD_PARTY_NODE_DIR_MARKERS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

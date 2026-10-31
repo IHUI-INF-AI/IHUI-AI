@@ -12,7 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { __test__ as ANCHOR } from '../lib/task-node-anchor.mjs';
 
-const { resolveTaskNodeAnchor, isThirdPartyNodePath } = ANCHOR;
+const { resolveTaskNodeAnchor, isThirdPartyNodePath, findThirdPartyNodeToken } = ANCHOR;
 
 const WIN_SYS = 'C:/Program Files/nodejs/node.exe'
 // 锚点产出按平台原生分隔符(要嵌进 PowerShell 单引号),所以断言期望也用反斜杠形态。
@@ -121,5 +121,39 @@ test('第三方私有目录识别:反斜杠/大写/另一种布局都要命中',
   for (const p of [WIN_SYS, '/usr/local/bin/node', '', undefined]) {
     assert.equal(isThirdPartyNodePath(p), false, `不该命中:${String(p)}`);
   }
+});
+
+// 今天真实的病形态:任务 action 面上是 wscript/pwsh,第三方捆绑 node 藏在**参数**里。
+// 只判 Execute 会整型漏判,所以判据必须能在任意文本里认出「被当可执行体用的 node」。
+test('参数里藏着的捆绑 node 要命中(VBS/pwsh 包装形态)', () => {
+  const vbs =
+    `shell.Run """C:\\Program Files\\PowerShell\\7\\pwsh.exe"" -Command ""Start-Process -FilePath ` +
+    `'C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe' " """, 0, False`;
+  const hit = findThirdPartyNodeToken(vbs);
+  assert.ok(hit, 'VBS 参数里的捆绑 node 必须被认出来');
+  assert.match(hit, /\.workbuddy/i);
+});
+
+test('正当数据路径不得误判成锚点(§12e 反恒红:巡检天天误报就等于不报)', () => {
+  for (const text of [
+    'node scripts/migrate-workbuddy-sessions.mjs --src C:\\Users\\Admin\\.workbuddy\\sessions\\chat-2026.json',
+    'C:/Users/Admin/.trae/docs/notes.md',
+    `node.exe ${'G:\\IHUI-AI\\scripts\\git-guardian.mjs'} --status`,
+    '',
+    undefined,
+  ]) {
+    assert.equal(findThirdPartyNodeToken(text), null, `不该命中:${String(text).slice(0, 60)}`);
+  }
+});
+
+test('参数里的系统 node 不算禁地(否则本机每条正常任务都会翻红)', () => {
+  assert.equal(
+    findThirdPartyNodeToken('"C:\\Program Files\\nodejs\\node.exe" G:\\IHUI-AI\\scripts\\dev-stack.mjs --watch'),
+    null,
+  );
+  assert.match(
+    String(findThirdPartyNodeToken('C:\\x\\.codebuddy\\bin\\node.exe -e 1')),
+    /codebuddy/i,
+  );
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
