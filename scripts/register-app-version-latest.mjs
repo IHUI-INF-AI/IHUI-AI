@@ -259,6 +259,15 @@ export function loadPostgresDriver() {
 }
 
 /**
+ * 连接形态单一源(2026-10-31 Y-14b):main() 与发布链(publish-mobile-apk.mjs 的登记腿)
+ * 必须开同一种连接——参数漂移的排查成本永远落在下一次事故上。调用方负责 sql.end()。
+ */
+export function openDbConnection(dbUrl) {
+  const postgres = loadPostgresDriver()
+  return postgres(dbUrl, { max: 1, idle_timeout: 5, connect_timeout: 15, prepare: false })
+}
+
+/**
  * @param {{sql:Function, platform:string, version:string, buildNumber:number, downloadUrl:string, apply:boolean}} p
  * 幂等:先读全部行 → buildPlan;noop 直接返回;否则单事务「降级其它 latest → 升格/INSERT」。
  */
@@ -397,8 +406,7 @@ async function main() {
     )
     return 2
   }
-  const postgres = loadPostgresDriver()
-  const sql = postgres(args.dbUrl, { max: 1, idle_timeout: 5, connect_timeout: 15, prepare: false })
+  const sql = openDbConnection(args.dbUrl)
   try {
     const r = await applyViaDb({ sql, ...args })
     if (!r.wrote) console.log('[dry-run] 未写任何数据(加 --apply 才执行)')
