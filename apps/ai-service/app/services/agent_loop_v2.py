@@ -2795,6 +2795,83 @@ class AgentLoopV2:
         self._compaction_events.append(info)
         return compressed
 
+    def _maybe_micro_compact(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """micro 前置档(2026-10-31,q1 / S2§10-10 对齐):整窗摘要压缩之前先回收陈旧工具结果。
+
+        对标外部 CLI 同族已装车实现:apps/cli/src/compaction-v2.ts:437
+        ``reclaimStaleToolResults``(经 apps/cli/src/commands/agent.ts:1462
+        ``decideCompaction`` 接线)——回收是摘要压缩的 step 0:旧工具结果占的体积是
+        "免费"的,先就地拿回来;单靠回收就能把占用压到摘要触发线以下时,整条摘要
+        路径都不必走(省一次模型请求,且不损失推理链 —— 摘要会把决策压掉,回收只压掉
+        已有结论的原始工具输出)。本仓 py 执行器侧此前缺这一档:micro_compact_messages
+        已实现已测却零生产调用方,本方法把它接入 ``_maybe_compact_context``。
+
+        数字单源(禁第三套):
+        - 触发线 = RECLAIM_WINDOW_RATIO_TRIGGER(app/core/tunables.py:78,跨端唯一真源,
+          与 packages/context-compaction/src/reclaim.ts:52 逐值一致,= 0.6),远低于本
+          执行器摘要触发线 DEFAULT_COMPACTION_TRIGGER_RATIO(0.85):到 0.6 就先做免费的;
+        - 回收量阈值(keep_recent_rounds / min_result_tokens / min_saved_tokens)一律取
+          micro_compact_messages 的 tunables 默认(RECLAIM_KEEP_RECENT_ROUNDS /
+          RECLAIM_MIN_RESULT_TOKENS / RECLAIM_MIN_SAVED_TOKENS),本方法不传参、
+          本文件不再写第二份数字字面量;
+        - 压力评估基准 trigger_ratio 复用执行器既有常量 DEFAULT_COMPACTION_TRIGGER_RATIO。
+
+        降级语义(与接入前逐零差异):未达触发线 / 无可回收 / 收益不足 / token 估算异常 /
+        回收异常 ⇒ 原样返回 messages,不改 fail_streak、不发事件、不报指标;只有真正
+        回收才发 trigger='micro' 事件 + 指标,并把回收后的消息交给后续摘要腿(若仍需摘要)。
+        纯确定性、零 LLM、零时钟 ⇒ 同输入两次调用产出逐字节相同(可离线复现)。
+        """
+        from app.core.context_compaction import (
+            estimate_messages_tokens,
+            micro_compact_messages,
+        )
+        from app.core.tunables import RECLAIM_WINDOW_RATIO_TRIGGER
+
+        if self._compaction_context_limit <= 0:
+            return messages
+        try:
+            tokens = estimate_messages_tokens(messages)
+        except Exception as e:  # noqa: BLE001 - 估不动就不做免费回收,交给后续摘要腿
+            logger.debug("[agent-loop] micro 前置档 token 估算失败(跳过): %s", e)
+            return messages
+        # 触发线用跨端唯一真源(0.6),不是摘要线(0.85):到 0.6 就先做免费的回收。
+        if tokens / self._compaction_context_limit < RECLAIM_WINDOW_RATIO_TRIGGER:
+            return messages
+        started = time.perf_counter()
+        try:
+            reclaimed, info = micro_compact_messages(
+                messages,
+                context_limit=self._compaction_context_limit,
+                trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
+            )
+        except Exception as e:  # noqa: BLE001 - 免费档失败绝不影响摘要主腿
+            logger.warning("[agent-loop] micro 前置回收异常(跳过,不影响摘要): %s", e)
+            return messages
+        if not info.get("compressed"):
+            # 无达标工具结果 / 收益不足(micro_compact_messages 已整批不落)⇒ 原样交给摘要腿。
+            return messages
+        duration_ms = (time.perf_counter() - started) * 1000
+        self._compaction_events.append(
+            {
+                "iteration": self._current_iteration,
+                "original_tokens": info.get("original_tokens"),
+                "compressed_tokens": info.get("compressed_tokens"),
+                "removed_count": 0,
+                "trigger": "micro",
+                "tools_kept": info.get("tools_kept"),
+                "tools_removed": info.get("tools_removed"),
+            }
+        )
+        self._record_compaction_metric(info, duration_ms)
+        logger.info(
+            "[agent-loop] micro 前置回收: %s -> %s tokens(回收 %s 条工具结果, iter %s)",
+            info.get("original_tokens"),
+            info.get("compressed_tokens"),
+            info.get("tools_removed"),
+            self._current_iteration,
+        )
+        return reclaimed
+
     async def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """1-8 上下文超限压缩(2026-09-07 立):占用 ≥ context_limit*0.85 时压缩旧消息。
 
@@ -2817,6 +2894,12 @@ class AgentLoopV2:
             self._new_context_window_requested = False
             logger.info("new_context 请求生效:本轮跳过摘要压缩,直接截断开新窗")
             return messages
+        # micro 前置档(2026-10-31,q1/S2§10-10 对齐 CLI reclaimStaleToolResults):到跨端
+        # 触发线 RECLAIM_WINDOW_RATIO_TRIGGER(0.6)就先做免费的旧工具结果回收,再把回收后的
+        # 消息交给下面的整窗摘要腿(若回收已把占用压到摘要线 DEFAULT_COMPACTION_TRIGGER_RATIO
+        # 以下,下面 compress_messages_if_needed 自然判 compressed=False 直接返回回收产物)。
+        # 复用现有 enabled/limit/fail_streak/new_context 四道守卫,不新增开关、不新增 env。
+        messages = self._maybe_micro_compact(messages)
         started = time.perf_counter()
         try:
             if llm_enabled:

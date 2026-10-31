@@ -15,15 +15,30 @@
  *   - sessionEnd:会话结束时执行,失败不阻塞退出(始终 swallow)
  *   - 钩子通过环境变量接收上下文(IHUI_TOOL / IHUI_TOOL_INPUT / IHUI_TOOL_OUTPUT / IHUI_WORKSPACE / IHUI_SESSION_ID)
  *   - matchTool 支持正则匹配工具名,省略则匹配所有工具
+ *   - async:长耗时钩子转后台跑、不阻塞回合;其 exit 2 经**既有** prompt-queue 的
+ *     'task-notification' 通知组回灌唤醒模型(2026-10-31 补,对齐上游 async/asyncRewake)。
+ *     两条边界:① `blockOnError` 生效为 true 时 async **被忽略**(仍同步跑并点名一次)——
+ *     一个性能标记不得把声明了的阻断能力废掉;② 唤醒队列由宿主经 `setHookRewakeQueue`
+ *     接线,未接线时提示落 stderr 审计行 + `droppedNoQueue` 计数,不静默丢。
+ *   - 事件全集是**一份**清单:`HOOK_EVENT_KEYS`(运行时)派生出 `HookEvent`(类型),
+ *     `HooksConfig` 键集由编译期双向锁钉住与它们恒等 ⇒ 三处不可能各抄各的漏一档。
+ *     其中 2026-10-31 补的 8 档(setup/configChange/fileChanged/cwdChanged/
+ *     instructionsLoaded/teammateIdle/elicitation/elicitationResult)**已具备完整载荷契约**
+ *     (配置可声明、条目会被加载与盖章、载荷→环境变量映射齐),但**派发点还在别的席位**:
+ *     事件源分别在 commands/agent.ts 的 FsEventSource、commands/ 的 cwd 变更、context.ts 的
+ *     指令装载、subagents/ 的席位空闲、ai-service 的 elicitation_pause.py(跨语言无桥)。
+ *     在那一行接线落地前,声明这些事件**一条也不会派发**(不会假装跑过)—— 如实标"待第二笔"。
  *
- * 配置示例 (~/.ihui/hooks.json):
+ * 配置示例 (~/.ihui/hooks.json;严格 JSON,不支持注释 —— 下面每段的说明写在 JSON 之外):
  * {
  *   "preToolCall": [
  *     { "name": "block-rm-rf", "command": "echo 'blocked' && exit 1", "matchTool": "bash", "blockOnError": true }
  *   ],
  *   "postToolCall": [
  *     { "name": "notify-feishu", "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
- *       "body": "{\"event\":\"{{event}}\",\"tool\":\"{{toolName}}\"}", "blockOnError": false }
+ *       "body": "{\"event\":\"{{event}}\",\"tool\":\"{{toolName}}\"}", "blockOnError": false },
+ *     { "name": "slow-audit", "command": "node ./audit.mjs", "blockOnError": false, "async": true,
+ *       "rewakeMessage": "audit blocked the artifact, see findings above", "rewakeSummary": "slow-audit exit 2" }
  *   ],
  *   "sessionStart": [
  *     { "name": "load-ctx", "command": "cat ~/.ihui/context.md" }
@@ -32,6 +47,12 @@
  *     { "name": "notify", "command": "echo 'session ended' >> ~/.ihui/sessions.log" }
  *   ]
  * }
+ *   - preToolCall 段:同步阻断(matchTool 只盯 bash)。
+ *   - postToolCall 段第二条就是 async 的正确写法:`blockOnError: false` 显式声明不阻断,
+ *     后台跑到 exit 2 时把 `rewakeMessage`(+ 钩子自己的 stderr)经 task-notification
+ *     回灌唤醒模型;`rewakeSummary` 是短摘要,两者都过唯一成形出口(脱敏→中和→截断)。
+ *     同一条写成 `"async": true` + `blockOnError: true`(或不写,取 preToolCall 的默认 true)
+ *     会被**拒绝转后台**,因为那等于让 async 废掉阻断。
  */
 
 import * as fs from 'node:fs';
@@ -49,6 +70,11 @@ import { redactCrashText } from '@ihui/shared/utils/redact';
 // 回传通道进的是模型上下文 ⇒ 钩子文本里冒充宿主的保留标签必须中和。
 // 唯一出口住 ../utils/prompt-boundary.js(只调用,不修改那个文件,守门 129 的机制清单)。
 import { neutralizeBoundaries } from '../utils/prompt-boundary.js';
+// 回灌唤醒模型走**既有**提示队列的类型面(§0.6 不造第二套队列):`'task-notification'` 是
+// prompt-queue.ts 通知组里"可被运行中回合 inline 吸收"那一档,本模块只借用它的类型与
+// enqueue 契约,不 import 它的运行时(那是 `tools/background-registry.ts` 已经反向 import
+// 本模块形成的环 —— 用 `import type` 把依赖留在编译期,运行时零环)。
+import type { PromptQueue, PromptQueueKind } from '../prompt-queue.js';
 
 export interface HookEntry {
   name: string;
@@ -66,6 +92,28 @@ export interface HookEntry {
   blockOnError?: boolean;
   /** 超时毫秒(command 与 webhook 共用,默认 10000) */
   timeout?: number;
+  /**
+   * 转后台执行(2026-10-31 补,对齐上游 `async`/`asyncRewake`):`true` 时本条钩子
+   * **不阻塞回合** —— 派发方立即放行,钩子在后台跑,收口时按下面的规则回灌唤醒模型。
+   * 三条边界(其中第一条是本仓相对对照程序多出来的一格):
+   *  - `blockOnError` 的**生效值**为 true(含 preToolCall / sessionStart 的默认值)时
+   *    **不转后台**:声明了阻断的钩子不能因一个 async 标记就失去拦截能力。失效方向恒为
+   *    "多要一次定向说明"(stderr 点名一次 + 照同步路径逐字执行),绝不是"多放一次跳门"
+   *    (AGENTS §0.10)。想同时拿到"不阻塞"与"exit 2 唤醒",必须显式写 `blockOnError: false`。
+   *  - 只有**退出码 2**(上游的唤醒约定)才回灌;其余非成功终态只落 stderr 审计行、
+   *    不叫醒模型 —— 把"钩子坏了"折成一次唤醒等于谎报。
+   *  - 本轮 `HookResult` 因此拿不到该条的终态 ⇒ 如实记 `result_unknown`
+   *    (AGENTS §30:没有终态不得渲染成"完成"),并在 feedback 里留一行 ASCII 机器码说明。
+   */
+  async?: boolean;
+  /**
+   * async 钩子 exit 2 时回灌唤醒模型的提示正文。缺省 = 该条的 stderr/stdout/退出码原文。
+   * 进模型上下文前与 feedback **共用唯一成形出口** `redactThenClip`
+   * (脱敏 → 中和宿主保留标签 → 按码点截断),不得绕开。
+   */
+  rewakeMessage?: string;
+  /** 同上一条的短摘要(同一份成形出口;ASCII 机器码形态,不新增语言包键 ⇒ 不碰 i18n)。 */
+  rewakeSummary?: string;
   /** 来源标记,由 loadHooksConfig 按配置文件落点盖章:
    *  - `'project'` = 工作区里带的配置(clone 下来的仓库可写)→ command 形态必须过目录信任门
    *  - `'user'`    = 用户主目录下的配置 → 行为与接线前完全一致
@@ -77,43 +125,17 @@ export interface HookEntry {
   sourceFolder?: string;
 }
 
-export type HookEvent =
-  | 'preToolCall'
-  | 'postToolCall'
-  | 'sessionStart'
-  | 'sessionEnd'
-  | 'userPromptSubmit'
-  | 'preCompact'
-  | 'postCompact'
-  | 'notification'
-  | 'stop'
-  | 'stopFailure'
-  | 'postToolUseFailure'
-  | 'permissionDenied'
-  // G-916424:PermissionRequest 应答面 —— 确认窗弹出前派发,钩子可产出 deny/allow/ask/
-  // modify 四形状应答(与 permissionDenied 不同:那只是事后通知,本事件是事前裁决输入)。
-  | 'permissionRequest'
-  | 'subagentStart'
-  | 'subagentStop'
-  // 后台任务生命周期两档(对齐 Qoder/Trae 的 TaskCreated/TaskCompleted 钩子面)。
-  // 事件源本仓早就存在(background-registry 的登记口与终态收口),此前缺的只是钩子:
-  // 用户能听到子代理起停,却听不到"我把一条命令转后台了 / 它跑完了"。
-  | 'taskCreated'
-  | 'taskCompleted'
-  // 隔离 worktree 生命周期两档(对齐 Qoder/Trae 的 WorktreeCreate/WorktreeRemove 钩子面)。
-  // 事件源 = 会话级 enter_worktree / exit_worktree 工具(创建成功、回收成功后各派发一次;
-  // 拒删路径不派发 —— 没发生的事不许报成事件)。
-  | 'worktreeCreate'
-  | 'worktreeRemove'
-  // P2-4 agent-lifecycle Turn 级事件(4 种):
-  // - turnStart:每次 LLM 调用 + 工具循环开始(每轮触发,粒度细于 sessionStart)
-  // - turnEnd:每轮成功结束(无论是否调用工具)
-  // - turnError:本轮出错(单轮失败,不等于 agent 终止)
-  // - turnComplete:agent 完成所有轮次(成功或失败都触发,与 stop 配对)
-  | 'turnStart'
-  | 'turnEnd'
-  | 'turnError'
-  | 'turnComplete';
+/**
+ * 钩子事件全集(类型视角)。
+ *
+ * **单一真相源(2026-10-31 收口)**:本类型由下方运行时清单 `HOOK_EVENT_KEYS` 派生。
+ * 旧写法把同一份清单抄在两处(union 与 `HOOK_EVENT_KEYS`,那处注释自陈"新增事件只改一处
+ * 就会静默漏掉另一处"),补事件时必然一边漏;今天两者是同一个值的两个视角,漂移不可表达。
+ * `HooksConfig` 的键集由紧随其后的编译期双向锁钉住与本类型恒等 ⇒ 三处同批,或由 tsc 当场红。
+ *
+ * 档数现读 = `HOOK_EVENT_KEYS.length`;全集逐条点名见 `apps/cli/tests/hook-events-parity.test.ts`。
+ */
+export type HookEvent = (typeof HOOK_EVENT_KEYS)[number];
 
 export interface HooksConfig {
   preToolCall?: HookEntry[];
@@ -145,7 +167,39 @@ export interface HooksConfig {
   turnEnd?: HookEntry[];
   turnError?: HookEntry[];
   turnComplete?: HookEntry[];
+  // ---- 2026-10-31 对齐上游补齐的 8 档(与 HOOK_EVENT_KEYS 同批;载荷字段见 HookContext) ----
+  /** 一次性初始化/装载时刻派发(上游 `Setup` 档)。本仓事件源尚未接线 ⇒ 见交付报告"待第二笔"。 */
+  setup?: HookEntry[];
+  /** 配置面变更时派发(上游 `ConfigChange` 档,载荷 = 变更来源 + 路径)。 */
+  configChange?: HookEntry[];
+  /** 被监听文件变更时派发(上游 `FileChanged` 档;事件源 = fs-watcher 的 FsEventSource)。 */
+  fileChanged?: HookEntry[];
+  /** 工作目录变更时派发(上游 `CwdChanged` 档,载荷 = 旧/新目录)。 */
+  cwdChanged?: HookEntry[];
+  /** 指令/AGENTS 类文件被装载时派发(上游 `InstructionsLoaded` 档)。 */
+  instructionsLoaded?: HookEntry[];
+  /** 协作席(subagent/teammate)空闲时派发(上游 `TeammateIdle` 档)。 */
+  teammateIdle?: HookEntry[];
+  /** 向人发问/征询(elicitation)开始时派发(上游 `Elicitation` 档)。 */
+  elicitation?: HookEntry[];
+  /** elicitation 收口(accept/decline/cancel + 内容)时派发(上游 `ElicitationResult` 档)。 */
+  elicitationResult?: HookEntry[];
 }
+
+// 编译期双向锁:`HooksConfig` 的键集必须与 `HookEvent`(= HOOK_EVENT_KEYS)**恒等**。
+// 三处清单旧写法靠注释提醒"必漏",这里把它改成 tsc 拦:漏登记 ⇒ 类型是那个对象字面量,
+// 赋 `true` 当场红并点名缺哪几个;多登记(键不在事件全集里)同一条锁拦下。
+// 锁的标签一律 ASCII:门 70(硬编码中文)判的是代码行,类型标签也是代码行 —— 只有注释免检。
+type HooksConfigMissingEvents = Exclude<HookEvent, keyof HooksConfig>;
+type HooksConfigForeignKeys = Exclude<keyof HooksConfig, HookEvent>;
+const _hooksConfigCoversEveryEvent: [HooksConfigMissingEvents] extends [never]
+  ? true
+  : { 'HooksConfig is missing these hook events - add them together with HOOK_EVENT_KEYS': HooksConfigMissingEvents } = true;
+const _hooksConfigHasNoForeignKeys: [HooksConfigForeignKeys] extends [never]
+  ? true
+  : { 'HooksConfig has keys that are not HookEvent values': HooksConfigForeignKeys } = true;
+void _hooksConfigCoversEveryEvent;
+void _hooksConfigHasNoForeignKeys;
 
 export interface HookResult {
   proceed: boolean;
@@ -513,6 +567,33 @@ export interface HookContext {
   worktreeBranch?: string;
   /** 回收档专用:是否走了 force(越过"未合并 / 有未提交改动"拒删判据) */
   worktreeForced?: boolean;
+  // ---- 2026-10-31 补 8 档事件的载荷字段(与 HOOK_EVENT_KEYS 同批;env 映射见 buildHookEnv) ----
+  /** setup:装载来源标识(如 `init` / `migrate`),区分"给谁做的装载"。 */
+  setupSource?: string;
+  /** configChange:变更命中的配置文件绝对路径。 */
+  configPath?: string;
+  /** configChange:变更档位(`added` / `modified` / `removed` 之类的事实描述)。 */
+  configChangeKind?: string;
+  /** fileChanged:变更命中的文件绝对路径(事件源 = fs-watcher 的 FsEventSource)。 */
+  filePath?: string;
+  /** fileChanged:变更档位,值域与 fs-watcher 的 FsEventKind 同形(create/modify/delete/rename)。 */
+  fileChangeKind?: string;
+  /** cwdChanged:变更前的工作目录。 */
+  cwdFrom?: string;
+  /** cwdChanged:变更后的工作目录。 */
+  cwdTo?: string;
+  /** instructionsLoaded:被装载的指令文件绝对路径(AGENTS.md / 规则件之类)。 */
+  instructionsPath?: string;
+  /** teammateIdle:空闲的那一席 id。 */
+  teammateId?: string;
+  /** elicitation:本次征询的 id(与 elicitationResult 成对配对的键)。 */
+  elicitationId?: string;
+  /** elicitation:向人提出的问题正文。 */
+  elicitationMessage?: string;
+  /** elicitationResult:收口档位(accept / decline / cancel)。**不是**退出码语义。 */
+  elicitationAction?: string;
+  /** elicitationResult:应答内容(已序列化的文本形态;原样进 env,由钩子自己判读)。 */
+  elicitationContent?: string;
 }
 
 /**
@@ -525,19 +606,49 @@ export function buildWebhookBody(template: string, vars: Record<string, string>)
   });
 }
 
-/** HooksConfig 的全部事件键 —— 合并与来源盖章两处共用一份清单
- *  (两处各抄一份时,新增事件只改一处就会静默漏掉另一处)。 */
-const HOOK_EVENT_KEYS: Array<keyof HooksConfig> = [
+/**
+ * 钩子事件全集 —— **唯一**运行时清单(类型 `HookEvent` 由它派生,见文件上方)。
+ * 合并(deepMergeHooks)、来源盖章(stampConfigSource)、摘要面(computeHookContentDigests)
+ * 三处共用这一份,不再各抄一份。
+ *
+ * 追加顺序 = 登记顺序:**新事件一律追加在末尾**,不得按字母/主题重排 —— 单条摘要登记表
+ * `declarations[name]` 是"先读到的赢"(见该函数注),重排会改动既有配置的摘要归属,
+ * 等于把已批准的钩子打回重批(那不是重构,是骚扰)。
+ */
+export const HOOK_EVENT_KEYS = [
   'preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd',
   'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
   'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
+  // G-916424:PermissionRequest 应答面 —— 确认窗弹出前派发,钩子可产出 deny/allow/ask/
+  // modify 四形状应答(与 permissionDenied 不同:那只是事后通知,本事件是事前裁决输入)。
   'permissionRequest',
   'subagentStart', 'subagentStop',
+  // 后台任务生命周期两档(对齐 Qoder/Trae 的 TaskCreated/TaskCompleted 钩子面)。
+  // 事件源本仓早就存在(background-registry 的登记口与终态收口),此前缺的只是钩子:
+  // 用户能听到子代理起停,却听不到"我把一条命令转后台了 / 它跑完了"。
   'taskCreated', 'taskCompleted',
+  // 隔离 worktree 生命周期两档(对齐 Qoder/Trae 的 WorktreeCreate/WorktreeRemove 钩子面)。
+  // 事件源 = 会话级 enter_worktree / exit_worktree 工具(创建成功、回收成功后各派发一次;
+  // 拒删路径不派发 —— 没发生的事不许报成事件)。
   'worktreeCreate', 'worktreeRemove',
-  // P2-4 Turn 级事件
+  // P2-4 agent-lifecycle Turn 级事件(4 种):
+  // - turnStart:每次 LLM 调用 + 工具循环开始(每轮触发,粒度细于 sessionStart)
+  // - turnEnd:每轮成功结束(无论是否调用工具)
+  // - turnError:本轮出错(单轮失败,不等于 agent 终止)
+  // - turnComplete:agent 完成所有轮次(成功或失败都触发,与 stop 配对)
   'turnStart', 'turnEnd', 'turnError', 'turnComplete',
-];
+  // 2026-10-31 对齐上游补的 8 档(上游同名档用 PascalCase:Setup / ConfigChange /
+  // FileChanged / CwdChanged / InstructionsLoaded / TeammateIdle / Elicitation /
+  // ElicitationResult;本仓键名沿用既有 camelCase 惯例 —— hooks.json 是用户手写的配置面,
+  // 同一文件里混两种大小写形态才是会被抄漏的那一格)。逐档的事件源与接线状态见
+  // HookContext 字段注 + 交付报告:能复用既有触发点的接上,接不到的如实标"事件源待第二笔",
+  // 不在本模块内硬造触发器(造出来的"每 5 分钟扫一次"那种定时器就是无中生有的事件源)。
+  'setup', 'configChange', 'fileChanged', 'cwdChanged',
+  'instructionsLoaded', 'teammateIdle', 'elicitation', 'elicitationResult',
+] as const;
+
+/** 事件名的集合视角(摘要面判"根级还有哪些键不属于事件"用;由同一份清单派生,不另立清单)。 */
+const HOOK_EVENT_KEY_SET: ReadonlySet<string> = new Set(HOOK_EVENT_KEYS);
 
 /**
  * 深合并两个 HooksConfig:b 的标量/数组与 a 合并。
@@ -545,7 +656,7 @@ const HOOK_EVENT_KEYS: Array<keyof HooksConfig> = [
  */
 export function deepMergeHooks(a: HooksConfig, b: HooksConfig): HooksConfig {
   const result: HooksConfig = {};
-  const keys: Array<keyof HooksConfig> = HOOK_EVENT_KEYS;
+  const keys: readonly (keyof HooksConfig)[] = HOOK_EVENT_KEYS;
   for (const k of keys) {
     const av = a[k];
     const bv = b[k];
@@ -739,7 +850,7 @@ export function computeHookContentDigests(
     // 事件数组之外的键(若有人往根上塞了 version/timeout 之类)整体计入束摘要
     const root: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(bundle.raw)) {
-      if (!(HOOK_EVENT_KEYS as string[]).includes(k)) root[k] = v;
+      if (!HOOK_EVENT_KEY_SET.has(k)) root[k] = v;
     }
     roots.push(root);
     for (const event of HOOK_EVENT_KEYS) {
@@ -1249,6 +1360,254 @@ async function dispatchHookEntry(
   return { result, state, outcome };
 }
 
+// ============================================================================
+// 后台派发与回灌唤醒腿(2026-10-31 补,对齐上游 async / asyncRewake)
+//
+// 与对照程序的差一格(本仓的"超越轴",不是抄):上游让 async 直接吞掉阻断能力;这里
+// 把"声明了阻断的钩子"挡在 async 之外 —— 一个标记不得把 preToolCall 的拦截悄悄废掉。
+// 唤醒腿复用既有原语,不新开队列(§0.6):
+//   - 载体 = `prompt-queue.ts` 通知组的 `'task-notification'`(它是**唯一**能被运行中回合
+//     inline 吸收的两档之一,见该文件 isInlineableKind),宿主把**会话那份** PromptQueue
+//     经 `setHookRewakeQueue` 交进来即可,本模块不自建队列实例;
+//   - 结算纪律 = `tools/background-registry.ts` 的 `notifySettled`:claim 先行、一次派发
+//     恰好一次播报、播报出口不可用时**留痕 + 计数**而不是静默丢(那文件已 import 本模块,
+//     运行时不反向 import 它 —— 形态对齐,依赖不成环)。
+// ============================================================================
+
+/** async 条目对本轮**唯一**的诚实说明(ASCII 机器码,与 hook-state:* 同族,不进语言包)。 */
+export const HOOK_ASYNC_DEFER_NOTE =
+  'async hook dispatched to background; no terminal result this turn (hook-state:result-unknown-not-complete, this is NOT "complete"); exit 2 will be rewoken via prompt-queue kind=task-notification';
+
+/** 一条 async 钩子转后台时,本轮 feedback 面唯一该留的那一行。 */
+function hookAsyncDeferralLine(event: string, entry: HookEntry): string {
+  return buildHookFeedback({
+    event,
+    hookName: entry.name,
+    state: 'result_unknown',
+    note: HOOK_ASYNC_DEFER_NOTE,
+  });
+}
+
+/** 已登记但尚未收口的后台派发(测试与退出前 drain 用;每条自摘自己)。 */
+const pendingAsyncHookRuns = new Set<Promise<void>>();
+/** async 与阻断声明冲突时只点名一次(与 announcedSkips 同一条去重纪律,不每轮刷屏)。 */
+const announcedAsyncConflicts = new Set<string>();
+
+/**
+ * 本条钩子是否"转后台"派发 —— 六个批处理循环共用的**唯一**判据(不在调用点各判一遍)。
+ * 判据两条:① 声明了 `async: true`;② 生效的 `blockOnError` 为 false。
+ * ②不成立时不改写 async 意图而是**照同步跑**并点名:阻断声明是用户要的安全面,
+ * 一个性能标记不得把它降级(§0.10:失效方向恒为"多要一次定向说明")。
+ */
+function defersToBackground(entry: HookEntry, blockOnError: boolean): boolean {
+  if (entry.async !== true) return false;
+  if (!blockOnError) return true;
+  const key = `${entry.source ?? 'unstamped'}::${entry.name}`;
+  if (!announcedAsyncConflicts.has(key)) {
+    announcedAsyncConflicts.add(key);
+    warnOnce(
+      `⚠ [hooks] async ignored: hook "${entry.name}" declares async together with blocking ` +
+        `(effective blockOnError=${String(entry.blockOnError)}) — running it synchronously; an async flag must ` +
+        `not downgrade the block gate. For "do not block the turn + wake on exit 2" set blockOnError:false`,
+    );
+  }
+  return false;
+}
+
+/** 登记一次后台派发:内部收口、自摘账、抛错只喊不传导(它已经不在主流程链上了)。 */
+function scheduleAsyncHookDispatch(
+  hookEvent: string,
+  entry: HookEntry,
+  env: Record<string, string>,
+  blockOnError: boolean,
+  parentSignal?: AbortSignal,
+): void {
+  const tracked: Promise<void> = runAsyncHookDispatch(hookEvent, entry, env, blockOnError, parentSignal)
+    .catch((err: unknown) => {
+      const note = err instanceof Error ? err.message : String(err);
+      warnOnce(
+        `⚠ [hooks] async hook "${entry.name}" (${hookEvent}) crashed while settling in background` +
+          ` — hook-state:result-unknown-not-complete: ${note}`,
+      );
+    })
+    .finally(() => {
+      pendingAsyncHookRuns.delete(tracked);
+    });
+  pendingAsyncHookRuns.add(tracked);
+}
+
+/**
+ * 后台派发的一条完整生命周期:仍经 `dispatchHookEntry` 这**同一个**收口点(所以
+ * "每条派发的钩子恰好一对 started/terminal"的事件不变式对 async 同样成立),收口后:
+ *  - exit 2 ⇒ 回灌唤醒模型(一次派发只醒一次);
+ *  - 其余非成功终态 ⇒ 只落 stderr 审计行,不叫醒模型("钩子坏了"不得折成一次唤醒);
+ *  - 成功且静默 ⇒ 不出声(async 成功钩子的 stdout 没有本轮通道可挂,与同步面的
+ *    additionalContext 是两条路,不冒充)。
+ */
+async function runAsyncHookDispatch(
+  hookEvent: string,
+  entry: HookEntry,
+  env: Record<string, string>,
+  blockOnError: boolean,
+  parentSignal?: AbortSignal,
+): Promise<void> {
+  const dispatched = await dispatchHookEntry(hookEvent, entry, env, blockOnError, parentSignal);
+  if (dispatched.result.exitCode === 2) {
+    emitHookRewake(hookEvent, entry, dispatched.result, dispatched.state);
+    return;
+  }
+  if (dispatched.state !== 'succeeded') {
+    warnOnce(
+      `⚠ [hooks] async hook "${entry.name}" (${hookEvent}) settled as ` +
+        `${describeHookTerminal(dispatched.state)} — model NOT rewoken (only exit 2 rewakes):` +
+        ` ${feedbackForEntry(hookEvent, entry, dispatched.state, dispatched.result)}`,
+    );
+  }
+}
+
+/** 回灌唤醒的入队契约:结构上就是 PromptQueue.enqueue 的那一格(见下方编译期锁)。 */
+export interface HookRewakeQueueLike {
+  enqueue(prompt: string, kind: 'task-notification'): unknown;
+}
+
+/** 唤醒用的队列档位(与 prompt-queue.ts 的通知组同值;改名当场 tsc 红)。 */
+export const HOOK_REWAKE_QUEUE_KIND = 'task-notification' as const;
+
+/** 唤醒条目前缀(机器码,与 HOOK_FEEDBACK_LINE_PREFIX 同纪律,不依赖语言包)。 */
+export const HOOK_REWAKE_LINE_PREFIX = 'hook-rewake v1';
+
+/**
+ * 编译期锁:真 PromptQueue 必须满足本契约(证明复用的是现成队列,不是本模块自立的一个
+ * "看起来一样"的接口);同时钉住 `'task-notification'` 仍是 PromptQueueKind 的合法值域成员。
+ * 锁的标签一律 ASCII:门 70 判的是**代码行**里的中文,类型标签也是代码行(注释才免检)。
+ */
+const _promptQueueSatisfiesRewakeContract: PromptQueue extends HookRewakeQueueLike
+  ? true
+  : { 'rewake leg broken: PromptQueue no longer satisfies HookRewakeQueueLike - do NOT build a second queue': never } = true;
+const _rewakeQueueKindIsPromptQueueKind: PromptQueueKind = HOOK_REWAKE_QUEUE_KIND;
+void _promptQueueSatisfiesRewakeContract;
+void _rewakeQueueKindIsPromptQueueKind;
+
+/** 当前接线到的唤醒队列(null = 未接线;唯一写点 = `setHookRewakeQueue`)。 */
+let hookRewakeQueue: HookRewakeQueueLike | null = null;
+
+/**
+ * 宿主接线口:把**会话已有**的 PromptQueue 交进来(REPL/agent 的 state.promptQueue 那一枚)。
+ * 传 `null` = 撤线,回灌改走 stderr 审计行 + 计数,绝不静默丢。
+ * 接线点本身在 `commands/repl.ts` / `commands/agent.ts`,不在本模块独占范围内 ⇒ 见交付报告。
+ */
+export function setHookRewakeQueue(queue: HookRewakeQueueLike | null): void {
+  hookRewakeQueue = queue;
+}
+
+/** 现读当前是否已接线(null = 未接线,唤醒只会落 stderr)。 */
+export function getHookRewakeQueue(): HookRewakeQueueLike | null {
+  return hookRewakeQueue;
+}
+
+/** 唤醒面计数(诚实性出口:未接线不得被读成"没有要唤醒的事")。 */
+export interface HookRewakeStats {
+  /** 成功入队的条数 */
+  enqueued: number;
+  /** 未接线而被改道 stderr 审计的条数 */
+  droppedNoQueue: number;
+  /** enqueue 自身抛错(空正文等)的条数 */
+  rejected: number;
+}
+
+const rewakeStats: HookRewakeStats = { enqueued: 0, droppedNoQueue: 0, rejected: 0 };
+
+/** 现读唤醒面计数(返回副本,不给内部对象)。 */
+export function getHookRewakeStats(): HookRewakeStats {
+  return { ...rewakeStats };
+}
+
+/** 一条 async 派发的回灌正文:头部机器码行 + 正文(两条都过唯一成形出口)。 */
+function buildHookRewakePrompt(
+  hookEvent: string,
+  entry: HookEntry,
+  r: HookExecResult,
+  state: HookTerminalState,
+): string {
+  const summary = redactThenClip(
+    entry.rewakeSummary ?? `${HOOK_REWAKE_LINE_PREFIX} ${entry.name} blocked with exit 2 during ${hookEvent}`,
+  );
+  const body = redactThenClip(entry.rewakeMessage ?? r.stderr ?? '');
+  const head =
+    `${HOOK_REWAKE_LINE_PREFIX} | hook=${redactThenClip(entry.name)} | event=${redactThenClip(hookEvent)}` +
+    ` | exit=${r.exitCode} | state=${state} | origin=${HOOK_FEEDBACK_UNTRUSTED_ORIGIN}` +
+    ` | queue-kind=${HOOK_REWAKE_QUEUE_KIND}`;
+  return body === '' ? `${head}\n${summary}` : `${head}\n${summary}\n${body}`;
+}
+
+/**
+ * 回灌唤醒的唯一发射点:一次调用恰好入队一次(claim 先行)。
+ * 未接线 ⇒ 走 stderr 审计行 + `droppedNoQueue`,并在行里写清"没进队列"这件事本身 ——
+ * 静默丢弃就是下一次"没人知道丢过什么"(与 background-registry 的 stale_branch_dropped 同型)。
+ */
+function emitHookRewake(
+  hookEvent: string,
+  entry: HookEntry,
+  r: HookExecResult,
+  state: HookTerminalState,
+): void {
+  const prompt = buildHookRewakePrompt(hookEvent, entry, r, state);
+  const queue = hookRewakeQueue;
+  if (queue === null) {
+    rewakeStats.droppedNoQueue += 1;
+    warnOnce(
+      `⚠ [hooks] rewake NOT enqueued (kind=${HOOK_REWAKE_QUEUE_KIND}): no queue registered —` +
+        ` call setHookRewakeQueue(state.promptQueue) to wire the wake-up leg.` +
+        ` hook="${entry.name}" event=${hookEvent} exit 2 notice fell to this audit line, model NOT rewoken:\n${prompt}`,
+    );
+    return;
+  }
+  try {
+    queue.enqueue(prompt, HOOK_REWAKE_QUEUE_KIND);
+    rewakeStats.enqueued += 1;
+  } catch (err) {
+    rewakeStats.rejected += 1;
+    const note = err instanceof Error ? err.message : String(err);
+    warnOnce(`⚠ [hooks] rewake enqueue rejected (kind=${HOOK_REWAKE_QUEUE_KIND}, hook="${entry.name}"):${note}`);
+  }
+}
+
+/** 等待全部在飞后台派发收口(测试与"退出前 drain"用;超时不抛,只报还剩几条)。 */
+export async function awaitPendingAsyncHooks(timeoutMs = 10_000): Promise<{ settled: boolean; remaining: number }> {
+  const deadline = Date.now() + timeoutMs;
+  while (pendingAsyncHookRuns.size > 0 && Date.now() < deadline) {
+    await Promise.allSettled([...pendingAsyncHookRuns]);
+  }
+  return { settled: pendingAsyncHookRuns.size === 0, remaining: pendingAsyncHookRuns.size };
+}
+
+/** 现读在飞后台派发条数。 */
+export function pendingAsyncHookCount(): number {
+  return pendingAsyncHookRuns.size;
+}
+
+/** 测试通道:计数归零 + 撤线(生产代码不调;与 background-registry 的 setTerminalNoticeSink 同格)。 */
+function resetHookRewakeState(): void {
+  rewakeStats.enqueued = 0;
+  rewakeStats.droppedNoQueue = 0;
+  rewakeStats.rejected = 0;
+  hookRewakeQueue = null;
+  announcedAsyncConflicts.clear();
+}
+
+export const __test__ = {
+  /** 本轮 async 派发该留的 feedback 行(判据与循环内共用一份实现) */
+  hookAsyncDeferralLine,
+  defersToBackground,
+  buildHookRewakePrompt,
+  awaitPendingAsyncHooks,
+  pendingAsyncHookCount,
+  resetHookRewakeState,
+  getHookRewakeStats,
+  /** 事件载荷 → 环境变量的唯一映射(用例直接问它,不在测试里抄第二份判据,§22c) */
+  buildHookEnv,
+};
+
 /** 钩子文本(阻断 reason 与回传 feedback 共用的**唯一**上限常量,上一票立的原样保留)。 */
 export const HOOK_REASON_MAX_CHARS = 4000
 
@@ -1373,17 +1732,19 @@ export async function runPreToolCall(toolName: string, input: unknown, signal?: 
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
     const blockOnError = entry.blockOnError ?? true;
-    const { result: r, state } = await dispatchHookEntry(
-      'preToolCall',
-      entry,
-      {
-        IHUI_HOOK_TYPE: 'preToolCall',
-        IHUI_TOOL: toolName,
-        IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
-      },
-      blockOnError,
-      signal,
-    );
+    const env = {
+      IHUI_HOOK_TYPE: 'preToolCall',
+      IHUI_TOOL: toolName,
+      IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
+    };
+    // async 条目:转后台、不阻塞本轮(判据与记账的唯一出口见"后台派发与回灌唤醒腿"区)
+    if (defersToBackground(entry, blockOnError)) {
+      scheduleAsyncHookDispatch('preToolCall', entry, env, blockOnError, signal);
+      worst = worseTerminal(worst, 'result_unknown');
+      feedbackLines.push(hookAsyncDeferralLine('preToolCall', entry));
+      continue;
+    }
+    const { result: r, state } = await dispatchHookEntry('preToolCall', entry, env, blockOnError, signal);
     if (state !== 'succeeded') {
       worst = worseTerminal(worst, state);
       feedbackLines.push(feedbackForEntry('preToolCall', entry, state, r));
@@ -1490,6 +1851,14 @@ export async function runPermissionRequest(
     for (const entry of hooks) {
       if (!matchesTool(entry, toolName)) continue;
       const blockOnError = entry.blockOnError ?? false;
+      // async 条目:后台跑 ⇒ 本条**不产生应答**(应答只从成功退出的 stdout 解析),
+      // 调用方照旧落回人工窗 —— 把"还没跑完"折成 allow/deny 就是三态混流。
+      if (defersToBackground(entry, blockOnError)) {
+        scheduleAsyncHookDispatch('permissionRequest', entry, env, blockOnError, signal);
+        worst = worseTerminal(worst, 'result_unknown');
+        feedbackLines.push(hookAsyncDeferralLine('permissionRequest', entry));
+        continue;
+      }
       const { result: r, state } = await dispatchHookEntry('permissionRequest', entry, env, blockOnError, signal);
       if (state !== 'succeeded') {
         worst = worseTerminal(worst, state);
@@ -1560,17 +1929,19 @@ export async function runPostToolCall(toolName: string, output: unknown, signal?
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
     const blockOnError = entry.blockOnError ?? false;
-    const { result: r, state } = await dispatchHookEntry(
-      'postToolCall',
-      entry,
-      {
-        IHUI_HOOK_TYPE: 'postToolCall',
-        IHUI_TOOL: toolName,
-        IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
-      },
-      blockOnError,
-      signal,
-    );
+    const env = {
+      IHUI_HOOK_TYPE: 'postToolCall',
+      IHUI_TOOL: toolName,
+      IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
+    };
+    // async 条目:转后台、不阻塞本轮(唯一判据与记账见"后台派发与回灌唤醒腿"区)
+    if (defersToBackground(entry, blockOnError)) {
+      scheduleAsyncHookDispatch('postToolCall', entry, env, blockOnError, signal);
+      worst = worseTerminal(worst, 'result_unknown');
+      feedbackLines.push(hookAsyncDeferralLine('postToolCall', entry));
+      continue;
+    }
+    const { result: r, state } = await dispatchHookEntry('postToolCall', entry, env, blockOnError, signal);
     if (state !== 'succeeded') {
       worst = worseTerminal(worst, state);
       feedbackLines.push(feedbackForEntry('postToolCall', entry, state, r));
@@ -1602,17 +1973,20 @@ export async function runSessionStartHooks(config: HooksConfig | null, ctx: Sess
   let worst: HookTerminalState = 'succeeded';
   for (const entry of config.sessionStart) {
     const blockOnError = entry.blockOnError ?? true;
-    const { result: r, state } = await dispatchHookEntry(
-      'sessionStart',
-      entry,
-      {
-        IHUI_HOOK_TYPE: 'sessionStart',
-        IHUI_WORKSPACE: ctx.workspacePath,
-        IHUI_SESSION_ID: ctx.sessionId ?? '',
-      },
-      blockOnError,
-      signal,
-    );
+    const env = {
+      IHUI_HOOK_TYPE: 'sessionStart',
+      IHUI_WORKSPACE: ctx.workspacePath,
+      IHUI_SESSION_ID: ctx.sessionId ?? '',
+    };
+    // async 条目:sessionStart 的 blockOnError 默认为 true ⇒ 不显式写 false 就仍按同步阻断跑
+    // (见 defersToBackground 注);显式写了 false 才转后台。
+    if (defersToBackground(entry, blockOnError)) {
+      scheduleAsyncHookDispatch('sessionStart', entry, env, blockOnError, signal);
+      worst = worseTerminal(worst, 'result_unknown');
+      feedbackLines.push(hookAsyncDeferralLine('sessionStart', entry));
+      continue;
+    }
+    const { result: r, state } = await dispatchHookEntry('sessionStart', entry, env, blockOnError, signal);
     if (state !== 'succeeded') {
       worst = worseTerminal(worst, state);
       feedbackLines.push(feedbackForEntry('sessionStart', entry, state, r));
@@ -1643,17 +2017,23 @@ export async function runSessionEndHooks(config: HooksConfig | null, ctx: Sessio
   for (const entry of config.sessionEnd) {
     try {
       const blockOnError = entry.blockOnError ?? false;
-      const { result: r, state } = await dispatchHookEntry(
-        'sessionEnd',
-        entry,
-        {
-          IHUI_HOOK_TYPE: 'sessionEnd',
-          IHUI_WORKSPACE: ctx.workspacePath,
-          IHUI_SESSION_ID: ctx.sessionId ?? '',
-        },
-        blockOnError,
-        signal,
-      );
+      const env = {
+        IHUI_HOOK_TYPE: 'sessionEnd',
+        IHUI_WORKSPACE: ctx.workspacePath,
+        IHUI_SESSION_ID: ctx.sessionId ?? '',
+      };
+      // async 条目:sessionEnd 没有返回面可记终态 ⇒ 只能把"已转后台、此刻尚无结果"喊在
+      // stderr 上(§30:没有终态不得当成完成);会话正在收场,唤醒腿大概率无人再接,
+      // 未接线时它自己会落 stderr 审计行 + droppedNoQueue 计数,不静默。
+      if (defersToBackground(entry, blockOnError)) {
+        scheduleAsyncHookDispatch('sessionEnd', entry, env, blockOnError, signal);
+        warnOnce(
+          `⚠ [hooks] sessionEnd async hook "${entry.name}" dispatched to background;` +
+            ` no terminal observed yet (hook-state:result-unknown-not-complete) — this is NOT "complete"`,
+        );
+        continue;
+      }
+      const { result: r, state } = await dispatchHookEntry('sessionEnd', entry, env, blockOnError, signal);
       if (state !== 'succeeded') {
         // sessionEnd 今天没有返回面 —— 终态只能喊在 stderr 上,静默吞掉正是 §30 那一型。
         warnOnce(
@@ -1708,6 +2088,20 @@ function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string
   if (ctx.worktreePath !== undefined) env.IHUI_WORKTREE_PATH = ctx.worktreePath;
   if (ctx.worktreeBranch !== undefined) env.IHUI_WORKTREE_BRANCH = ctx.worktreeBranch;
   if (ctx.worktreeForced !== undefined) env.IHUI_WORKTREE_FORCED = String(ctx.worktreeForced);
+  // 2026-10-31 补的 8 档事件字段(缺字段不写空串:未提供 ≠ 提供了空值,钩子侧要能分辨)
+  if (ctx.setupSource !== undefined) env.IHUI_SETUP_SOURCE = ctx.setupSource;
+  if (ctx.configPath !== undefined) env.IHUI_CONFIG_PATH = ctx.configPath;
+  if (ctx.configChangeKind !== undefined) env.IHUI_CONFIG_CHANGE_KIND = ctx.configChangeKind;
+  if (ctx.filePath !== undefined) env.IHUI_FILE_PATH = ctx.filePath;
+  if (ctx.fileChangeKind !== undefined) env.IHUI_FILE_CHANGE_KIND = ctx.fileChangeKind;
+  if (ctx.cwdFrom !== undefined) env.IHUI_CWD_FROM = ctx.cwdFrom;
+  if (ctx.cwdTo !== undefined) env.IHUI_CWD_TO = ctx.cwdTo;
+  if (ctx.instructionsPath !== undefined) env.IHUI_INSTRUCTIONS_PATH = ctx.instructionsPath;
+  if (ctx.teammateId !== undefined) env.IHUI_TEAMMATE_ID = ctx.teammateId;
+  if (ctx.elicitationId !== undefined) env.IHUI_ELICITATION_ID = ctx.elicitationId;
+  if (ctx.elicitationMessage !== undefined) env.IHUI_ELICITATION_MESSAGE = ctx.elicitationMessage;
+  if (ctx.elicitationAction !== undefined) env.IHUI_ELICITATION_ACTION = ctx.elicitationAction;
+  if (ctx.elicitationContent !== undefined) env.IHUI_ELICITATION_CONTENT = ctx.elicitationContent;
   return env;
 }
 
@@ -1736,6 +2130,13 @@ export async function runHook(event: HookEvent, ctx: HookContext, options?: RunH
     for (const entry of hooks) {
       if (isToolEvent(event) && ctx.toolName && !matchesTool(entry, ctx.toolName)) continue;
       const blockOnError = entry.blockOnError ?? defaultBlockOnError(event);
+      // async 条目:转后台、不阻塞本轮;本轮如实记 result_unknown(§30 同一格)
+      if (defersToBackground(entry, blockOnError)) {
+        scheduleAsyncHookDispatch(event, entry, env, blockOnError, signal);
+        worst = worseTerminal(worst, 'result_unknown');
+        feedbackLines.push(hookAsyncDeferralLine(event, entry));
+        continue;
+      }
       const { result: r, state } = await dispatchHookEntry(event, entry, env, blockOnError, signal);
       if (state !== 'succeeded') {
         worst = worseTerminal(worst, state);
