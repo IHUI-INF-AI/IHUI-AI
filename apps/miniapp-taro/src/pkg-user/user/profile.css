@@ -110,8 +110,8 @@
 }
 .pf-avatar-wrap {
   position: relative;
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   border-radius: var(--radius-2xl);
   overflow: hidden;
   flex-shrink: 0;
@@ -127,7 +127,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 32rpx;
+  height: var(--spacing-lg);
   line-height: 32rpx;
   text-align: center;
   font-size: var(--text-badge);

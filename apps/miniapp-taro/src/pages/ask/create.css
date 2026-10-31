@@ -111,7 +111,7 @@
 }
 
 .ask-create-reward {
-  min-width: 80rpx;
+  min-width: var(--spacing-4xl);
   padding: var(--spacing-xs-loose) 28rpx;
   text-align: center;
   background: var(--color-card);

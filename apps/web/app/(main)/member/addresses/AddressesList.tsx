@@ -41,10 +41,10 @@ export function AddressesList({
           <CardContent className="min-[640px]:p-3 space-y-1 p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{a.name}</span>
+                <span className="text-body font-medium">{a.name}</span>
                 <span className="text-xs text-muted-foreground">{a.phone}</span>
                 {a.isDefault && (
-                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                     默认
                   </span>
                 )}

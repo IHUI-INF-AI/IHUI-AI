@@ -144,10 +144,10 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-medium">{task.title}</span>
+              <span className="truncate text-body font-medium">{task.title}</span>
               <span
                 className={cn(
-                  'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                  'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                   STATUS_STYLE[statusKey],
                 )}
               >

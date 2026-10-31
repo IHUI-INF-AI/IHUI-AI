@@ -52,11 +52,11 @@ export function SponsorContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Heart className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
           {t('heroTitle')}
         </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -73,7 +73,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Why sponsor */}
       <section className="mt-16">
-        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-center text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('whyTitle')}
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -82,7 +82,7 @@ export function SponsorContent(): React.JSX.Element {
               <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Icon className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="mt-4 text-sm font-semibold">{t(`${key}Title`)}</h3>
+              <h3 className="mt-4 text-body font-semibold">{t(`${key}Title`)}</h3>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {t(`${key}Desc`)}
               </p>
@@ -93,7 +93,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Tiers */}
       <section className="mt-16">
-        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-center text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('tiersTitle')}
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -106,7 +106,7 @@ export function SponsorContent(): React.JSX.Element {
                 <Icon className="h-8 w-8" />
               </div>
               <h3 className="mt-3 text-lg font-semibold">{t(`tiers.${id}.name`)}</h3>
-              <div className="mt-2 text-2xl font-bold text-primary">{t(`tiers.${id}.price`)}</div>
+              <div className="mt-2 text-display font-bold text-primary">{t(`tiers.${id}.price`)}</div>
               <ul className="mt-4 space-y-2">
                 {[1, 2, 3].map((n) => (
                   <li key={n} className="flex items-start gap-2 text-sm">
@@ -129,7 +129,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Existing sponsors */}
       <section className="mt-16 ui-hero rounded-2xl border bg-card p-3 text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('sponsorsTitle')}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -139,7 +139,7 @@ export function SponsorContent(): React.JSX.Element {
           {['A', 'B', 'C', 'D'].map((initial) => (
             <div
               key={initial}
-              className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
+              className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-body font-semibold text-primary"
             >
               {initial}
             </div>
@@ -150,7 +150,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Online donations: PayPal + Ko-fi */}
       <section className="mt-16 ui-hero rounded-2xl border bg-card p-3 text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('onlineTitle')}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">

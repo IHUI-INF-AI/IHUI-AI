@@ -168,7 +168,7 @@ export function Select({
   return (
     <div className={cn('w-full space-y-1.5', className)}>
       {label && (
-        <label id={`${listboxId}-label`} className="text-sm font-medium leading-none">
+        <label id={`${listboxId}-label`} className="text-body font-medium leading-none">
           {label}
         </label>
       )}

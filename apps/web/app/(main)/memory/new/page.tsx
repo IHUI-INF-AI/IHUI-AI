@@ -30,7 +30,7 @@ export default function NewMemoryPage() {
         </Button>
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">新建记忆</h1>
+          <h1 className="text-heading font-bold tracking-tight">新建记忆</h1>
         </div>
       </header>
 

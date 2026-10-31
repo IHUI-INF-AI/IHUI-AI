@@ -165,7 +165,7 @@ export default function KnowledgeGraphPage() {
           </Button>
           <div className="flex items-center gap-2">
             <Network className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold">{t('title')}</h1>
+            <h1 className="text-heading font-semibold">{t('title')}</h1>
           </div>
         </div>
         <div className="text-sm text-muted-foreground">

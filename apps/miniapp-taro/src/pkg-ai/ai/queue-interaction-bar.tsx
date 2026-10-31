@@ -206,21 +206,21 @@ export default function QueueInteractionBar({
             {editing ? (
               <>
                 <Input
-                  className="min-w-0 flex-1 rounded-sm bg-card px-[8rpx] py-[4rpx] text-[length:22rpx] text-foreground"
+                  className="min-w-0 flex-1 rounded-sm bg-card px-[8rpx] py-[4rpx] text-caption text-foreground"
                   value={editDraft}
                   data-testid={`queue-op-edit-input-${item.id}`}
                   onInput={(e) => setEditDraft(e.detail.value)}
                 />
                 <Text
                   data-testid={`queue-op-edit-confirm-${item.id}`}
-                  className="ml-[12rpx] text-[length:22rpx] text-primary"
+                  className="ml-[12rpx] text-caption text-primary"
                   onClick={confirmEdit}
                 >
                   {t(qk('editConfirm'))}
                 </Text>
                 <Text
                   data-testid={`queue-op-edit-cancel-${item.id}`}
-                  className="ml-[12rpx] text-[length:22rpx] text-muted-foreground"
+                  className="ml-[12rpx] text-caption text-muted-foreground"
                   onClick={cancelEdit}
                 >
                   {t(qk('editCancel'))}
@@ -230,13 +230,13 @@ export default function QueueInteractionBar({
               <>
                 <Text
                   data-testid="queue-item-text"
-                  className="min-w-0 flex-1 text-[length:22rpx] text-foreground"
+                  className="min-w-0 flex-1 text-caption text-foreground"
                 >
                   {item.text}
                 </Text>
                 <Text
                   data-testid={`queue-op-undo-${item.id}`}
-                  className="ml-[12rpx] text-[length:22rpx] text-muted-foreground"
+                  className="ml-[12rpx] text-caption text-muted-foreground"
                   onClick={() => {
                     if (!undoVerdict.allowed) {
                       setDeniedHint({ action: 'undo', reason: 'emptyQueue' })
@@ -249,7 +249,7 @@ export default function QueueInteractionBar({
                 </Text>
                 <Text
                   data-testid={`queue-op-edit-${item.id}`}
-                  className="ml-[12rpx] text-[length:22rpx] text-muted-foreground"
+                  className="ml-[12rpx] text-caption text-muted-foreground"
                   onClick={() => startEdit(item.id, item.text)}
                 >
                   {t(qk('edit'))}
@@ -263,12 +263,12 @@ export default function QueueInteractionBar({
       <View className="mt-[4rpx] flex flex-row items-center">
         <Text
           data-testid="queue-op-interrupt-and-run"
-          className="text-[length:22rpx] text-primary"
+          className="text-caption text-primary"
           onClick={handleInterrupt}
         >
           {t(qk('interruptAndRun'))}
         </Text>
-        <Text className="ml-[16rpx] text-[length:20rpx] text-muted-foreground">
+        <Text className="ml-[16rpx] text-badge text-muted-foreground">
           {t(qk('mode.label'))}
         </Text>
         {(['steer', 'queue'] as const).map((m) => (
@@ -276,7 +276,7 @@ export default function QueueInteractionBar({
             key={m}
             data-testid={`queue-op-mode-${m}`}
             data-mode={m}
-            className={`ml-[12rpx] text-[length:22rpx] ${mode === m ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+            className={`ml-[12rpx] text-caption ${mode === m ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
             onClick={() => onModeChange?.(m)}
           >
             {t(qk(`mode.${m}`))}
@@ -289,7 +289,7 @@ export default function QueueInteractionBar({
         <Text
           data-testid="queue-denied-notice"
           data-denied-key={deniedNoticeText}
-          className="mt-[4rpx] block text-[length:20rpx] text-muted-foreground"
+          className="mt-[4rpx] block text-badge text-muted-foreground"
         >
           {`${t(nk(deniedNoticeText))} · ${t(nk(deniedCauseNotice(deniedHint.reason)))}`}
         </Text>
@@ -300,7 +300,7 @@ export default function QueueInteractionBar({
         <Text
           data-testid="queue-mode-degraded"
           data-mode-degraded={modeResolution.degradedKey}
-          className="mt-[4rpx] block text-[length:20rpx] text-warning"
+          className="mt-[4rpx] block text-badge text-warning"
         >
           {t(qk(modeResolution.degradedKey))}
         </Text>
@@ -308,3 +308,4 @@ export default function QueueInteractionBar({
     </View>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

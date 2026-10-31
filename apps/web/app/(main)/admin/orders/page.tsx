@@ -34,7 +34,7 @@ export default function AdminOrdersPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -50,7 +50,7 @@ export default function AdminOrdersPage() {
             key={tb.value}
             onClick={() => setTab(tb.value)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === tb.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

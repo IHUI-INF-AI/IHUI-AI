@@ -101,7 +101,7 @@ export default function PlatformList({
             )}
           >
             <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-label font-medium"
               aria-hidden
             >
               {v.icon ?? v.displayName.slice(0, 1)}

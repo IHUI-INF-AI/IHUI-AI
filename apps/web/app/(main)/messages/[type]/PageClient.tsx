@@ -174,7 +174,7 @@ export default function MessageTypePage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div>
-        <h2 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+        <h2 className="flex min-w-0 items-center gap-2 text-heading font-bold tracking-tight">
           <Icon className="h-5 w-5 shrink-0 text-primary" />
           <span className="whitespace-nowrap">{headerLabel}</span>
         </h2>
@@ -211,7 +211,7 @@ export default function MessageTypePage() {
                 <Avatar src={item.avatar ?? undefined} name={item.title} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{item.title}</p>
+                    <p className="truncate text-body font-medium">{item.title}</p>
                     {!item.isRead && (
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                     )}

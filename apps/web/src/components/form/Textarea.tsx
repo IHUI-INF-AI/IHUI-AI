@@ -56,7 +56,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="text-sm font-medium leading-none whitespace-nowrap"
+            className="text-body font-medium leading-none whitespace-nowrap"
           >
             {label}
           </label>

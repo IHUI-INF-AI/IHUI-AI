@@ -4,21 +4,14 @@
 
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * SpecScreen 规范模板库(共享层)
@@ -73,14 +66,14 @@ export function SpecScreen({
         onBack={onBack}
         styles={styles}
         right={
-          <Pressable
+          <Tappable
             onPress={onReload}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={t('common.retry')}
           >
             <Text style={styles.headerAction}>{t('common.retry')}</Text>
-          </Pressable>
+          </Tappable>
         }
       />
 
@@ -88,14 +81,14 @@ export function SpecScreen({
       <View style={styles.hintBar}>
         <Text style={styles.hintText}>{t('spec.desktopHint')}</Text>
         {onGenerate ? (
-          <Pressable
+          <Tappable
             onPress={onGenerate}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={t('spec.generateEntry')}
           >
             <Text style={styles.hintAction}>{t('spec.generateEntry')}</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
       </View>
 
@@ -148,14 +141,14 @@ function Header({
 }) {
   return (
     <View style={styles.headerBar}>
-      <Pressable
+      <Tappable
         style={styles.headerBackBtn}
         onPress={onBack}
         accessibilityRole="button"
         accessibilityLabel="back"
       >
         <ChevronLeft size={22} color={styles.headerIcon.color} />
-      </Pressable>
+      </Tappable>
       <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>

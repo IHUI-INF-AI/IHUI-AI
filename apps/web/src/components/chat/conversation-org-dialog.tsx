@@ -93,7 +93,7 @@ export function ConversationOrgDialog({
         )}
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+            <label className="flex items-center gap-1 text-body font-medium text-muted-foreground">
               <FolderOpen className="h-3.5 w-3.5" />
               {t('folderLabel')}
             </label>
@@ -123,7 +123,7 @@ export function ConversationOrgDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <label className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+            <label className="flex items-center gap-1 text-body font-medium text-muted-foreground">
               <Tag className="h-3.5 w-3.5" />
               {t('tagsLabel')}
             </label>

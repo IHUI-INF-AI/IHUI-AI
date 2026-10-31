@@ -67,7 +67,7 @@ export function McpViewFailure({
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={cn(
-                  'text-sm font-medium',
+                  'text-body font-medium',
                   resolution.isFallback && 'text-muted-foreground',
                 )}
               >

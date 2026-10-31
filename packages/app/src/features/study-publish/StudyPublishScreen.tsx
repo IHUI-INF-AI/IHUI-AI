@@ -18,6 +18,7 @@ import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import type { StageOption, StudyCategory, StudyPublishScreenProps } from '@ihui/types'
+import { Tappable } from '@ihui/ui-native'
 export type { StageOption, StudyCategory, StudyPublishScreenProps }
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
@@ -536,7 +537,7 @@ export function StudyPublishScreen({
           const active = mode === m
           const label = m === 'group' ? '合集' : '视频'
           return (
-            <Pressable
+            <Tappable
               key={m}
               onPress={() => onModeChange(m)}
               style={[styles.tabItem, active ? styles.tabItemActive : null]}
@@ -544,7 +545,7 @@ export function StudyPublishScreen({
               accessibilityLabel={label}
             >
               <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>{label}</Text>
-            </Pressable>
+            </Tappable>
           )
         })}
       </View>

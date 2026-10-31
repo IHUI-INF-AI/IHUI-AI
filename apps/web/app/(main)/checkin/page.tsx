@@ -1885,7 +1885,7 @@ export default function CheckinPage() {
         <div>
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
-            <h1 className="text-2xl font-bold">{t('title')}</h1>
+            <h1 className="text-display font-bold">{t('title')}</h1>
           </div>
           {scheduler && (
             <div className="mt-1 flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground">
@@ -2532,7 +2532,7 @@ export default function CheckinPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <div className="rounded-xl border p-3">
-                      <p className="mb-2 text-sm font-medium">{t('boardRankingTitle')}</p>
+                      <p className="mb-2 text-body font-medium">{t('boardRankingTitle')}</p>
                       <EChart
                         height={260}
                         option={{
@@ -2556,7 +2556,7 @@ export default function CheckinPage() {
                     </div>
                     <div className="rounded-xl border p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">
+                        <p className="text-body font-medium">
                           {hasDailySeries
                             ? t('boardTrendTitle')
                             : t('boardTodayGain', { delta: board.todayGain })}
@@ -2658,7 +2658,7 @@ export default function CheckinPage() {
                 className="space-y-2 rounded-sm border bg-muted/40 p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">{t('addSmartTitle')}</p>
+                  <p className="text-body font-medium">{t('addSmartTitle')}</p>
                   <Button
                     variant="ghost"
                     size="xs"
@@ -2683,7 +2683,7 @@ export default function CheckinPage() {
 
                     {scanTrae.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs font-medium">
+                        <p className="text-label font-medium">
                           {t('addSmartTraeFound', { count: scanTrae.length })}
                         </p>
                         {scanTrae.map((item) => (
@@ -2711,7 +2711,7 @@ export default function CheckinPage() {
                     )}
                     {scanQoder.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs font-medium">
+                        <p className="text-label font-medium">
                           {t('addSmartQoderFound', { count: scanQoder.length })}
                         </p>
                         {scanQoder.map((item) => {
@@ -2737,7 +2737,7 @@ export default function CheckinPage() {
                     )}
                     {scanMinimax.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs font-medium">
+                        <p className="text-label font-medium">
                           {t('addSmartMinimaxFound', { count: scanMinimax.length })}
                         </p>
                         {scanMinimax.map((item) => {
@@ -3172,7 +3172,7 @@ export default function CheckinPage() {
             <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{t('captureWbWebTitle')}</p>
+                  <p className="text-body font-medium">{t('captureWbWebTitle')}</p>
                   <p className="text-xs text-muted-foreground">{t('captureWbWebDescription')}</p>
                 </div>
                 {wbWebLoginState === 'waiting' ? (
@@ -3343,7 +3343,7 @@ export default function CheckinPage() {
             <div className="space-y-3">
               {/* 一键解决风控向导(傻瓜式主入口,2026-10-10) */}
               <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
-                <p className="text-sm font-medium">{t('wizardTitle')}</p>
+                <p className="text-body font-medium">{t('wizardTitle')}</p>
                 {/* 24h 冷却常驻条:只要处于冷却期(无论哪个 Step)都显示,反复提醒"别登录" */}
                 {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -3382,7 +3382,7 @@ export default function CheckinPage() {
                     )}
                     <p className="text-xs text-muted-foreground">{t('wizardGuide')}</p>
                     {wizardIpFailCount >= 3 && (
-                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                      <p className="text-label font-medium text-amber-700 dark:text-amber-400">
                         {t('wizardIpFailMany')}
                       </p>
                     )}
@@ -3446,7 +3446,7 @@ export default function CheckinPage() {
                 {/* 残留指纹审计面板:只在真的扫过之后出现(未扫过时 wizardAudit 为 null) */}
                 {wizardAudit && (
                   <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
-                    <p className="text-xs font-medium">{t('wizardAuditTitle')}</p>
+                    <p className="text-label font-medium">{t('wizardAuditTitle')}</p>
                     {wizardAuditing && (
                       <p className="text-xs text-muted-foreground">{t('wizardAuditScanning')}</p>
                     )}
@@ -3517,7 +3517,7 @@ export default function CheckinPage() {
                 )}
                 {wizardStep === 2 &&
                   (wizardCriticalFail ? (
-                    <p className="text-xs font-medium text-destructive">
+                    <p className="text-label font-medium text-destructive">
                       {t('wizardCriticalFailNote')}
                     </p>
                   ) : (
@@ -3593,7 +3593,7 @@ export default function CheckinPage() {
                 </pre>
               )}
               <div>
-                <p className="mb-1 text-sm font-medium">{t('snapshotsTitle')}</p>
+                <p className="mb-1 text-body font-medium">{t('snapshotsTitle')}</p>
                 {snapshots.length === 0 ? (
                   <p className="text-xs text-muted-foreground">{t('snapshotsEmpty')}</p>
                 ) : (

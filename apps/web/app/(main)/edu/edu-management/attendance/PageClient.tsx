@@ -738,7 +738,7 @@ export default function AttendancePage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
         <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
@@ -991,7 +991,7 @@ export default function AttendancePage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <CardTitle className="text-body font-medium text-muted-foreground">
                       {t('statsTotal')}
                     </CardTitle>
                   </CardHeader>
@@ -1001,7 +1001,7 @@ export default function AttendancePage() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <CardTitle className="text-body font-medium text-muted-foreground">
                       {t('statsAttendanceRate')}
                     </CardTitle>
                   </CardHeader>
@@ -1011,7 +1011,7 @@ export default function AttendancePage() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <CardTitle className="text-body font-medium text-muted-foreground">
                       {t('statsNormalAttendance')}
                     </CardTitle>
                   </CardHeader>
@@ -1023,7 +1023,7 @@ export default function AttendancePage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm font-medium">{t('statusDistribution')}</CardTitle>
+                  <CardTitle className="text-body font-medium">{t('statusDistribution')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -1058,7 +1058,7 @@ export default function AttendancePage() {
               {stats.periodBreakdown.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm font-medium">{t('trend')}</CardTitle>
+                    <CardTitle className="text-body font-medium">{t('trend')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
@@ -1095,7 +1095,7 @@ export default function AttendancePage() {
                             )
                             .map((group) => (
                               <tr key={group.period} className="hover:bg-muted/30">
-                                <td className="px-3 py-2 text-xs font-medium">{group.period}</td>
+                                <td className="px-3 py-2 text-label font-medium">{group.period}</td>
                                 {ATTENDANCE_STATUS.map((s) => (
                                   <td key={s.value} className="px-3 py-2 text-right text-xs">
                                     {group.breakdown[s.value] ?? 0}

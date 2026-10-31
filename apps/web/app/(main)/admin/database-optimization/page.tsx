@@ -80,7 +80,7 @@ export default function DatabaseOptimizationPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Database className="h-6 w-6 text-primary" />
           {t('dbOpt.title')}
         </h1>
@@ -116,7 +116,7 @@ export default function DatabaseOptimizationPage() {
               <tbody>
                 {tablesList.map((tb) => (
                   <tr key={tb.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-mono text-xs font-medium">{tb.name}</td>
+                    <td className="px-4 py-2.5 font-mono text-label font-medium">{tb.name}</td>
                     <td className="px-4 py-2.5">{formatNumber(tb.rows)}</td>
                     <td className="px-4 py-2.5">{tb.size}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{tb.indexSize}</td>
@@ -187,7 +187,7 @@ export default function DatabaseOptimizationPage() {
                       <CardTitle className="text-sm">{s.title}</CardTitle>
                       <span
                         className={cn(
-                          'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                           style.bg,
                           style.text,
                         )}

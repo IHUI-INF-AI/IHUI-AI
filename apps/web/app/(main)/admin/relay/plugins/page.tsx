@@ -50,7 +50,7 @@ function Badge({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        'rounded-md px-2 py-0.5 text-xs font-medium',
+        'rounded-md px-2 py-0.5 text-label font-medium',
         BADGE[status] ?? 'bg-muted text-muted-foreground',
       )}
     >
@@ -134,7 +134,7 @@ export default function RelayPluginsPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Blocks className="h-5 w-5" aria-hidden />
             插件系统
           </h1>
@@ -151,7 +151,7 @@ export default function RelayPluginsPage() {
 
       {/* 安装表单 */}
       <div className="rounded-lg border bg-card p-3 space-y-2">
-        <p className="text-sm font-medium">安装/覆盖插件</p>
+        <p className="text-body font-medium">安装/覆盖插件</p>
         <div className="grid gap-2 min-[640px]:grid-cols-3">
           <Input
             placeholder="插件键(小写字母/数字/_/-)"
@@ -198,7 +198,7 @@ export default function RelayPluginsPage() {
           {(q.data ?? []).map((p) => (
             <div key={p.id} className="rounded-lg border bg-card p-3 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium">{p.name}</p>
+                <p className="text-body font-medium">{p.name}</p>
                 <Badge status={p.status} />
                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs">
                   {TYPE_LABEL[p.pluginType] ?? p.pluginType}

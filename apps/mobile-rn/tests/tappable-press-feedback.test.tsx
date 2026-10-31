@@ -78,7 +78,7 @@ describe('Tappable 按压反馈', () => {
     seen.length = 0
     render(createElement(Tappable, { style: base }))
     pressIn()
-    expect(last().style).toEqual([base, { opacity: 0.65 }])
+    expect(last().style).toEqual([base, { opacity: 0.6 }])
     pressOut()
     expect(last().style).toEqual([base, false])
   })
@@ -118,8 +118,29 @@ describe('Tappable 按压反馈', () => {
     render(createElement(Tappable, { style: arr }))
     expect(last().style).toEqual([arr, false])
     pressIn()
-    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.65 })
+    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.6 })
     expect((last().style as [unknown, unknown])[0]).toBe(arr)
+  })
+
+  // pressedStyle 档存在的理由:28 枚函数形态站点里,pressed 档多为设计档(换背景色而非改透明度)。
+  // 若仍叠默认不透明度,同一元素会同时吃两套按压观感 —— 那是把"修样式"做成"改样式"。
+  it('给了 pressedStyle:按下只叠设计档,不再叠默认不透明度', () => {
+    seen.length = 0
+    const pressedStyle: { backgroundColor: string } = { backgroundColor: '#333' }
+    render(createElement(Tappable, { style: base, pressedStyle }))
+    expect(last().style).toEqual([base, false])
+    pressIn()
+    expect(last().style).toEqual([base, pressedStyle])
+    pressOut()
+    expect(last().style).toEqual([base, false])
+  })
+
+  it('没给 pressedStyle 时才走默认不透明度(两档互斥,不是叠加)', () => {
+    seen.length = 0
+    render(createElement(Tappable, { style: base }))
+    pressIn()
+    expect(JSON.stringify(last().style)).not.toContain('backgroundColor')
+    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.6 })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

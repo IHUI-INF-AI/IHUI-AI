@@ -134,7 +134,7 @@ export default function NotificationPage() {
         </View>
         {/* 分组标题沿用共享 SettingsScreen sectionTitle 视觉:14dp→28rpx(text.secondary) */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-body text-muted-foreground">
             {tt('setting.notification.categoryTitle', '通知分类')}
           </Text>
           {/* 卡片对齐 RN card: 圆角 12dp→24rpx + padding 12dp→24rpx + surface.light→--color-card
@@ -149,7 +149,7 @@ export default function NotificationPage() {
                 <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                   <View className="mr-[16rpx] flex-1">
                     {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-[length:28rpx] text-muted-foreground">
+                    <Text className="text-body text-muted-foreground">
                       {channelLabel(item.key, item.title)}
                     </Text>
                   </View>
@@ -168,7 +168,7 @@ export default function NotificationPage() {
         </View>
 
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-body text-muted-foreground">
             {tt('setting.notification.moreTitle', '更多')}
           </Text>
           <View className="rounded-lg bg-card p-[24rpx]">
@@ -178,7 +178,7 @@ export default function NotificationPage() {
               hoverClass="opacity-60"
             >
               <View className="mr-[16rpx] flex-1">
-                <Text className="text-[length:28rpx] text-muted-foreground">
+                <Text className="text-body text-muted-foreground">
                   {tt('setting.notification.wxSubscribe', '微信催费提醒')}
                 </Text>
                 <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
@@ -197,7 +197,7 @@ export default function NotificationPage() {
               hoverClass="opacity-60"
             >
               <View className="mr-[16rpx] flex-1">
-                <Text className="text-[length:28rpx] text-muted-foreground">
+                <Text className="text-body text-muted-foreground">
                   {tt('setting.notification.myBills', '我的学费账单')}
                 </Text>
                 <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
@@ -213,7 +213,7 @@ export default function NotificationPage() {
               hoverClass="opacity-60"
             >
               <View className="mr-[16rpx] flex-1">
-                <Text className="text-[length:28rpx] text-muted-foreground">
+                <Text className="text-body text-muted-foreground">
                   {tt('setting.notification.detail', '通知详情')}
                 </Text>
                 <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">

@@ -71,6 +71,7 @@ import { rpx } from '../utils/rpx'
 import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import type { StudyVideoItem } from '@ihui/types'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -163,14 +164,14 @@ function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
             <Text style={styles.tipText}>{TIP_TEXT}</Text>
           </Animated.View>
         </View>
-        <Pressable
+        <Tappable
           style={styles.tipMyModel}
           onPress={onPressMyModel}
           accessibilityRole="button"
           accessibilityLabel="我的合集"
         >
           <Text style={styles.tipMyModelText}>我的合集</Text>
-        </Pressable>
+        </Tappable>
       </View>
     </View>
   )
@@ -504,20 +505,18 @@ export function StudyIndexScreen() {
             { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) },
           ]}
           rightAction={
-            <Pressable
+            <Tappable
               hitSlop={BACK_HIT_SLOP}
               onPress={() => setShowSearch((v) => !v)}
               accessibilityRole="button"
               accessibilityLabel="搜索"
-
-              style={undefined}
             >
               {showSearch ? (
                 <X size={20} color={tk.text.medium} />
               ) : (
                 <Search size={20} color={tk.text.medium} />
               )}
-            </Pressable>
+            </Tappable>
           }
         />
       </NavChrome>
@@ -662,9 +661,9 @@ export function StudyIndexScreen() {
             error ? (
               <View style={styles.centerWrap}>
                 <Text style={styles.errorText}>{error}</Text>
-                <Pressable style={styles.retryBtn} onPress={() => void load({ reset: true })}>
+                <Tappable style={styles.retryBtn} onPress={() => void load({ reset: true })}>
                   <Text style={styles.retryText}>{t('common.ok')}</Text>
-                </Pressable>
+                </Tappable>
               </View>
             ) : (
               <Empty text="暂无学习视频" icon={Film} />

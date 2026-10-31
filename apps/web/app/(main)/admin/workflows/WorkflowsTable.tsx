@@ -97,7 +97,7 @@ export function WorkflowsTable({
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label font-medium',
                         TRIGGER_BADGE[w.triggerType] ?? TRIGGER_BADGE.manual,
                       )}
                     >
@@ -113,7 +113,7 @@ export function WorkflowsTable({
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                         sc.cls,
                       )}
                     >

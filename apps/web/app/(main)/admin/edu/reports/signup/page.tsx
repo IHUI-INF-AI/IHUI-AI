@@ -77,7 +77,7 @@ export default function EduReportsSignupPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">报名报表</h1>
+        <h1 className="text-display font-bold tracking-tight">报名报表</h1>
         <p className="mt-1 text-sm text-muted-foreground">统计各课程/考试的报名与收入情况</p>
       </div>
 
@@ -89,7 +89,7 @@ export default function EduReportsSignupPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">本页报名总数</div>
-              <div className="mt-0.5 text-xl font-semibold">{totalSignups}</div>
+              <div className="mt-0.5 text-heading font-semibold">{totalSignups}</div>
             </div>
           </CardContent>
         </Card>
@@ -100,7 +100,7 @@ export default function EduReportsSignupPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">已支付</div>
-              <div className="mt-0.5 text-xl font-semibold">{totalPaid}</div>
+              <div className="mt-0.5 text-heading font-semibold">{totalPaid}</div>
             </div>
           </CardContent>
         </Card>
@@ -111,7 +111,7 @@ export default function EduReportsSignupPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">本页收入</div>
-              <div className="mt-0.5 text-xl font-semibold">¥{totalRevenue.toFixed(2)}</div>
+              <div className="mt-0.5 text-heading font-semibold">¥{totalRevenue.toFixed(2)}</div>
             </div>
           </CardContent>
         </Card>

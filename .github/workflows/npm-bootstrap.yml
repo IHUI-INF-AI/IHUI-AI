@@ -27,6 +27,18 @@ concurrency:
   group: npm-bootstrap
   cancel-in-progress: false
 
+# 2026-11-01 安全强化:显式最小权限(此前不声明 ⇒ 拿仓库/组织默认档位,可能含写权)。
+# 逐枚按需给,多一枚都不给:
+#   contents: read  —— 两个 job(browser / publish)各自的 actions/checkout@v4。
+#   actions: write  —— browser job 的 actions/upload-artifact@v4。声明块一旦写上,
+#                      未列出的 scope 一律变 none,漏了这条那一步会**当场失败**
+#                      (同 release-desktop.yml 为读产物显式补 actions: read 那条教训的反向)。
+# 不给 packages/deployments/id-token:本作业发包用的是 npm 用户名+口令(NPM_BOOT_* 系列
+# secrets),不用 GITHUB_TOKEN,也不用 OIDC 可信发布(现读全文对 GITHUB_TOKEN/gh api 零命中)。
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   browser:
     if: github.event.inputs.action != 'publish'

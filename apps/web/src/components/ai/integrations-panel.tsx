@@ -284,7 +284,7 @@ export function IntegrationsPanel() {
       {/* 转发日志 */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium">{t('forwardLog')}</span>
+          <span className="text-label font-medium">{t('forwardLog')}</span>
           <button
             type="button"
             data-testid="integrations-log-clear"

@@ -136,7 +136,7 @@ export default function AdminEventsPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -181,7 +181,7 @@ export default function AdminEventsPage() {
                 </span>
                 <span
                   className={cn(
-                    'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                    'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                     LEVEL_BADGE[delTarget.level],
                   )}
                 >

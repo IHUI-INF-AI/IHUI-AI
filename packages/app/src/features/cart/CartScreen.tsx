@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { FlatList, Image, Pressable, Text, View } from 'react-native'
+import { FlatList, Image, Text, View } from 'react-native'
 import { Check, Minus, Package, Plus, Trash2 } from 'lucide-react-native'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createCartStyles } from './cart-styles'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 购物车跨端共享屏 —— RN 端与小程序端的唯一渲染真相源。
@@ -87,7 +88,7 @@ export function CartScreen({
 
   const renderItem = ({ item }: { item: CartItemView }) => (
     <View style={styles.card}>
-      <Pressable
+      <Tappable
         style={[styles.checkbox, item.selected ? styles.checkboxChecked : null]}
         onPress={() => onToggleItem(item.id)}
         accessibilityRole="checkbox"
@@ -95,7 +96,7 @@ export function CartScreen({
         accessibilityLabel={item.title}
       >
         {item.selected ? <Check size={12} color={tk.surface.light} strokeWidth={3} /> : null}
-      </Pressable>
+      </Tappable>
       {item.coverUrl ? (
         <Image source={{ uri: item.coverUrl }} style={styles.cover} />
       ) : (
@@ -109,7 +110,7 @@ export function CartScreen({
         </Text>
         <Text style={styles.price}>¥{item.price.toFixed(2)}</Text>
         <View style={styles.qtyRow}>
-          <Pressable
+          <Tappable
             style={[styles.qtyBtn, item.quantity <= 1 ? styles.qtyBtnDisabled : null]}
             disabled={item.quantity <= 1}
             onPress={() => onQuantityChange(item.id, -1)}
@@ -117,26 +118,26 @@ export function CartScreen({
             accessibilityLabel="-"
           >
             <Minus size={14} color={item.quantity <= 1 ? tk.text.tertiary : tk.text.secondary} />
-          </Pressable>
+          </Tappable>
           <Text style={styles.qtyValue}>{item.quantity}</Text>
-          <Pressable
+          <Tappable
             style={styles.qtyBtn}
             onPress={() => onQuantityChange(item.id, 1)}
             accessibilityRole="button"
             accessibilityLabel="+"
           >
             <Plus size={14} color={tk.text.secondary} />
-          </Pressable>
+          </Tappable>
         </View>
       </View>
-      <Pressable
+      <Tappable
         style={styles.deleteBtn}
         onPress={() => onRemove(item.id)}
         accessibilityRole="button"
         accessibilityLabel={t('common.delete')}
       >
         <Trash2 size={18} color={tk.danger.DEFAULT} strokeWidth={2} />
-      </Pressable>
+      </Tappable>
     </View>
   )
 
@@ -170,7 +171,7 @@ export function CartScreen({
       />
       {items.length > 0 ? (
         <View style={styles.footer}>
-          <Pressable
+          <Tappable
             style={[styles.checkbox, allSelected ? styles.checkboxChecked : null]}
             onPress={onToggleAll}
             accessibilityRole="checkbox"
@@ -178,7 +179,7 @@ export function CartScreen({
             accessibilityLabel={t('cart.selectAll')}
           >
             {allSelected ? <Check size={12} color={tk.surface.light} strokeWidth={3} /> : null}
-          </Pressable>
+          </Tappable>
           <Text style={styles.selectAll} onPress={onToggleAll}>
             {t('cart.selectAll')}
           </Text>
@@ -186,7 +187,7 @@ export function CartScreen({
             <Text style={styles.totalLabel}>{t('cart.total')}:</Text>
             <Text style={styles.totalPrice}>¥{totalPrice.toFixed(2)}</Text>
           </View>
-          <Pressable
+          <Tappable
             style={[styles.checkoutBtn, totalCount === 0 ? styles.checkoutBtnDisabled : null]}
             onPress={onCheckout}
             accessibilityRole="button"
@@ -195,7 +196,7 @@ export function CartScreen({
             <Text style={styles.checkoutText}>
               {t('cart.checkout')}({totalCount})
             </Text>
-          </Pressable>
+          </Tappable>
         </View>
       ) : null}
     </View>

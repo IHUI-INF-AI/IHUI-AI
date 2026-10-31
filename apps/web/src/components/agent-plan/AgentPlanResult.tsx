@@ -19,7 +19,7 @@ interface Props {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-label font-medium text-muted-foreground">{label}</span>
       <span className="break-words font-mono text-sm">{value}</span>
     </div>
   )
@@ -43,7 +43,7 @@ export function AgentPlanResult({ detail, onReset }: Props) {
 
       {isRejected ? (
         <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
-          <span className="text-sm font-medium">{t('rejectedTitle')}</span>
+          <span className="text-body font-medium">{t('rejectedTitle')}</span>
           <span className="text-sm text-muted-foreground">{t('rejectedDesc')}</span>
         </div>
       ) : (
@@ -55,7 +55,7 @@ export function AgentPlanResult({ detail, onReset }: Props) {
             </div>
             {result.error ? <Field label={t('error')} value={String(result.error)} /> : null}
             <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="text-label font-medium text-muted-foreground">
                 {t('finalResponse')}
               </span>
               <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-sm">

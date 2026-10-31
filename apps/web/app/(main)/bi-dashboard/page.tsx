@@ -65,7 +65,7 @@ export default function BiDashboardPage() {
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
@@ -89,7 +89,7 @@ export default function BiDashboardPage() {
                 </div>
                 <div className="space-y-0.5">
                   <div className="text-sm text-muted-foreground">{label}</div>
-                  <div className="text-2xl font-bold tracking-tight">{value}</div>
+                  <div className="text-display font-bold tracking-tight">{value}</div>
                 </div>
               </CardContent>
             </Card>

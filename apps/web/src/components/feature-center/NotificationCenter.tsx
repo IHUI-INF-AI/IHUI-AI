@@ -102,7 +102,7 @@ export function NotificationCenter({
         <div className="px-3 pb-2" data-testid="decision-inbox-section">
           <div className="flex items-center gap-2 py-1">
             <ListTodo className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="text-label font-medium text-muted-foreground">
               {t('myPendingDecisions')}
             </span>
             {pendingDecisions.length > 0 && (
@@ -134,7 +134,7 @@ export function NotificationCenter({
                   className="flex cursor-pointer gap-2 rounded-sm p-2 transition-colors hover:bg-muted/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
+                    <p className="truncate text-body font-medium">
                       {item.summary || decisionTypeLabel(item.type)}
                     </p>
                     {item.threadId && (
@@ -180,7 +180,7 @@ export function NotificationCenter({
                   className={'mt-0.5 h-2 w-2 shrink-0 rounded-full ' + TYPE_COLORS[item.type]}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{item.title}</p>
+                  <p className="break-words text-body font-medium">{item.title}</p>
                   {item.description && (
                     <p className="break-words text-xs text-muted-foreground">{item.description}</p>
                   )}

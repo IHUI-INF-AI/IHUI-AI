@@ -39,6 +39,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
 export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
@@ -132,7 +133,7 @@ function emptyTextForCategory(key: string, t: (k: string) => string): string {
 function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element {
   const { t } = useI18n()
   return (
-    <Pressable
+    <Tappable
       hitSlop={6}
       onPress={(e) => {
         e.stopPropagation()
@@ -143,7 +144,7 @@ function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element 
       accessibilityLabel={t('material.detailA11y')}
     >
       <Text style={styles.detailBtnText}>{t('mat.btnDetail')}</Text>
-    </Pressable>
+    </Tappable>
   )
 }
 

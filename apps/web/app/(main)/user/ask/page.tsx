@@ -89,7 +89,7 @@ export default function AskPage() {
             >
               <div className="space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="truncate text-sm font-semibold">{item.title}</p>
+                  <p className="truncate text-body font-semibold">{item.title}</p>
                   {item.status ? (
                     <span
                       className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${

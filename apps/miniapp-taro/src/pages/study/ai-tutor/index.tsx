@@ -109,7 +109,7 @@ export default function AiTutor() {
               onClick={() => setMode(m)}
             >
               <Text
-                className={`text-[length:28rpx] ${
+                className={`text-body ${
                   mode === m ? 'text-primary-foreground' : 'text-muted-foreground'
                 }`}
               >
@@ -121,7 +121,7 @@ export default function AiTutor() {
 
         {current.length > 0 && (
           <View className="mx-[20rpx] rounded-lg bg-card p-[28rpx] border border-solid border-border">
-            <Text className="text-[length:30rpx] text-foreground">{current}</Text>
+            <Text className="text-strong text-foreground">{current}</Text>
           </View>
         )}
 
@@ -131,11 +131,11 @@ export default function AiTutor() {
               key={item.id}
               className="bg-card rounded-lg p-[28rpx] mb-[20rpx] border border-solid border-border"
             >
-              <Text className="text-[length:32rpx] font-bold text-foreground text-ellipsis-2">
+              <Text className="text-title font-bold text-foreground text-ellipsis-2">
                 {item.question}
               </Text>
               {formatAnswer(item.answer).length > 0 && (
-                <Text className="mt-[12rpx] text-[length:28rpx] text-muted-foreground text-ellipsis-2">
+                <Text className="mt-[12rpx] text-body text-muted-foreground text-ellipsis-2">
                   {formatAnswer(item.answer)}
                 </Text>
               )}
@@ -143,7 +143,7 @@ export default function AiTutor() {
           ))}
           {history.length === 0 && (
             <View className="flex justify-center py-[80rpx]">
-              <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-body text-[var(--color-text-tertiary)]">
                 {t('ai.history.empty')}
               </Text>
             </View>
@@ -170,7 +170,7 @@ export default function AiTutor() {
             hoverClass="opacity-60"
             onClick={handleSend}
           >
-            <Text className="text-[length:28rpx] text-primary-foreground">
+            <Text className="text-body text-primary-foreground">
               {sending ? t('common.loading') : '发送'}
             </Text>
           </View>

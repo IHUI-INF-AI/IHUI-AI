@@ -47,7 +47,7 @@ export default function SubagentDispatchPage() {
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">新建 Subagent 派单</h1>
+        <h1 className="text-display font-bold tracking-tight">新建 Subagent 派单</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           按需配置 Agent 角色 / 编排模式 / 优先级 / DAG / 资源配额
         </p>

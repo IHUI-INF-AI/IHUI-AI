@@ -78,7 +78,7 @@ export default function RefundPage() {
       <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <RotateCcw className="h-6 w-6 text-primary" />
             {t('listTitle')}
           </h1>
@@ -113,7 +113,7 @@ export default function RefundPage() {
                     <span className="font-mono text-xs text-muted-foreground">{item.orderNo}</span>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                         sc.cls,
                       )}
                     >

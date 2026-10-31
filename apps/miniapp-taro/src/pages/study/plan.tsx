@@ -102,10 +102,10 @@ export default function StudyPlan() {
             {list.map((p) => (
               <View key={p.id} className="bg-card rounded-lg border border-border p-[28rpx]">
                 <View className="flex justify-between items-center">
-                  <Text className="flex-1 text-[length:36rpx] text-foreground font-bold overflow-hidden">
+                  <Text className="flex-1 text-subtitle text-foreground font-bold overflow-hidden">
                     {p.title}
                   </Text>
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
+                  <Text className="text-caption text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
                     {t('study.planPage.target', { n: p.target })}
                   </Text>
                 </View>
@@ -116,14 +116,14 @@ export default function StudyPlan() {
                   />
                 </View>
                 <View className="flex justify-between items-center mt-[16rpx]">
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-caption text-[var(--color-text-tertiary)]">
                     {t('study.planPage.completed', { n: p.minutes ?? 0 })}
                   </Text>
                   {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx),
                       三档 active/completed/overdue 由进度与截止日推出(共享屏词表的「暂停」在本端
                       结构上取不到数据源,已撤,理由见 ./plan-card 头注);完成带 ✓ */}
                   <Text
-                    className={`text-[length:20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm flex-shrink-0 ${statusClass(statusOf(p))}`}
+                    className={`text-badge font-semibold px-[12rpx] py-[8rpx] rounded-sm flex-shrink-0 ${statusClass(statusOf(p))}`}
                   >
                     {statusLabel(t, statusOf(p))}
                   </Text>
@@ -152,19 +152,19 @@ export default function StudyPlan() {
               hoverClass="opacity-60"
               onClick={(e) => e.stopPropagation()}
             >
-              <Text className="block text-[length:32rpx] text-foreground font-semibold mb-[24rpx]">
+              <Text className="block text-title text-foreground font-semibold mb-[24rpx]">
                 {t('study.planPage.add')}
               </Text>
               {/* 输入框对齐 RN fieldStyles.input:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted */}
               <FocusInput
-                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground mb-[24rpx]"
+                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-title text-foreground mb-[24rpx]"
                 placeholder={t('study.publish.titlePlaceholder')}
                 value={newTitle}
                 onInput={(e) => setNewTitle(e.detail.value)}
               />
               <View className="flex items-center mb-[24rpx]">
                 <FocusInput
-                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
+                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-title text-foreground"
                   type="number"
                   placeholder={t('study.planPage.target', { n: 30 })}
                   value={newTarget}

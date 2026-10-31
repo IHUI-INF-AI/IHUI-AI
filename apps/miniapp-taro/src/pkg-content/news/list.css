@@ -23,7 +23,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   padding: var(--spacing-xs-loose) 24rpx;
   margin-right: var(--spacing-sm);
   background: var(--color-surface-light);
@@ -56,8 +56,8 @@
 }
 .pinned-tag {
   position: absolute;
-  top: 16rpx;
-  right: 16rpx;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
   padding: var(--spacing-2xs) 12rpx;
   background: var(--color-brand-accent-tint);
   border: 2rpx solid var(--color-brand-accent-tint-strong);
@@ -134,8 +134,8 @@
   gap: var(--spacing-xs);
 }
 .unread-dot {
-  width: 12rpx;
-  height: 12rpx;
+  width: var(--spacing-xs-loose);
+  height: var(--spacing-xs-loose);
   background: var(--color-brand-accent);
   border-radius: var(--radius-sm);
   flex-shrink: 0;

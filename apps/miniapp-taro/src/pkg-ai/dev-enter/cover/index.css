@@ -31,8 +31,8 @@
 }
 /* RN logo: 64dp=128rpx 正圆(radius 32dp=64rpx);logoBody mb rpx(16) */
 .dc-avatar {
-  width: 128rpx;
-  height: 128rpx;
+  width: var(--spacing-6xl);
+  height: var(--spacing-6xl);
   border-radius: var(--radius-2xl);
   margin-bottom: var(--spacing-sm);
   background: var(--color-muted);
@@ -99,8 +99,8 @@
 }
 /* RN iconBody: 48dp=96rpx 正圆,bg surface.muted */
 .dc-entry-icon {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   display: flex;
   align-items: center;
   justify-content: center;

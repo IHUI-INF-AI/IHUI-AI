@@ -218,7 +218,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
         <div className="grid grid-cols-1 gap-4 px-5 py-4 min-[768px]:grid-cols-2">
           {/* 左:核心参数 */}
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground">{t('coreParams')}</h4>
+            <h4 className="text-label font-semibold text-muted-foreground">{t('coreParams')}</h4>
             <div className="space-y-1.5">
               {paramRows.map((row) => (
                 <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
@@ -237,7 +237,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
 
           {/* 右:能力雷达图 */}
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground">{t('capabilityRadar')}</h4>
+            <h4 className="text-label font-semibold text-muted-foreground">{t('capabilityRadar')}</h4>
             {caps ? (
               <div className="rounded-md bg-muted/20 p-3">
                 <CapabilityRadar capabilities={caps} size={200} />
@@ -255,7 +255,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
           <div className="mx-5 mb-5 rounded-lg border bg-muted/20 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 space-y-1.5">
-                <h4 className="text-xs font-semibold text-muted-foreground">
+                <h4 className="text-label font-semibold text-muted-foreground">
                   {t('officialResources')}
                 </h4>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -316,7 +316,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                 <button
                   type="button"
                   onClick={handleQuickImport}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                 >
                   <Zap className="h-3 w-3" />
                   <span>{t('quickImport')}</span>

@@ -351,7 +351,7 @@ export function PluginMarketplace() {
                 type="button"
                 onClick={() => setUiPrefs((prev) => ({ ...prev, sort: s }))}
                 className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+                  'rounded-sm px-2.5 py-1 text-label font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
                   sort === s
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -374,7 +374,7 @@ export function PluginMarketplace() {
             type="button"
             onClick={() => setUiPrefs((prev) => ({ ...prev, filter: cat.key }))}
             className={cn(
-              'inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+              'inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-label font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
               filter === cat.key
                 ? 'bg-foreground/10 text-foreground'
                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -395,7 +395,7 @@ export function PluginMarketplace() {
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm font-medium text-muted-foreground">{t('emptyTitle')}</p>
+          <p className="text-body font-medium text-muted-foreground">{t('emptyTitle')}</p>
           <p className="mt-1 text-xs text-muted-foreground/70">{t('emptyDesc')}</p>
           <button
             type="button"
@@ -403,7 +403,7 @@ export function PluginMarketplace() {
               setQueryInput('')
               setUiPrefs((prev) => ({ ...prev, filter: 'all' }))
             }}
-            className="mt-4 rounded-sm bg-foreground/10 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-foreground/15"
+            className="mt-4 rounded-sm bg-foreground/10 px-3 py-1.5 text-label font-medium text-foreground hover:bg-foreground/15"
           >
             {t('emptyReset')}
           </button>
@@ -494,7 +494,7 @@ function SectionHeader({ title, desc, count }: { title: string; desc: string; co
         <h2 className="text-lg font-semibold leading-tight">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
       </div>
-      <span className="shrink-0 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      <span className="shrink-0 rounded-md bg-muted/60 px-2 py-1 text-label font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <span>{count}</span>
       </span>
     </div>
@@ -625,7 +625,7 @@ function ProjectPluginCard({
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold leading-tight">{plugin.name}</h3>
+            <h3 className="truncate text-body font-semibold leading-tight">{plugin.name}</h3>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
                 <Shield className="mr-0.5 h-3 w-3" />
@@ -659,7 +659,7 @@ function ProjectPluginCard({
             </span>
           ))}
         </div>
-        <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[var(--text-vcenter-offset)]">
+        <div className="flex items-center justify-end text-label font-medium text-primary [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span>{openLabel}</span>
           <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </div>
@@ -760,7 +760,7 @@ function MarketPluginCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold leading-tight">{plugin.name}</h3>
+          <h3 className="truncate text-body font-semibold leading-tight">{plugin.name}</h3>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
             {plugin.official && (
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
@@ -843,7 +843,7 @@ function MarketPluginCard({
         ))}
       </div>
       {/* 底部行动条:dialog 模式显示"调用"(Zap 图标),external 模式显示"访问"(ExternalLink 图标) */}
-      <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      <div className="flex items-center justify-end text-label font-medium text-primary [&>span]:translate-y-[var(--text-vcenter-offset)]">
         {isDialogMode ? (
           <>
             <span>{invokeLabel}</span>

@@ -43,7 +43,7 @@ export function McpQualityDashboard() {
     <section className="space-y-3">
       <div className="flex items-center gap-1.5">
         <Gauge className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">{t('dashboardTitle')}</h2>
+        <h2 className="text-body font-semibold">{t('dashboardTitle')}</h2>
         <Badge variant="default">{data.count}</Badge>
       </div>
       <p className="text-xs text-muted-foreground">{t('dashboardSubtitle')}</p>

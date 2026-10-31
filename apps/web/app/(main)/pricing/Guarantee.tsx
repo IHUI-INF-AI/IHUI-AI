@@ -27,7 +27,7 @@ export function Guarantee(): React.JSX.Element {
   return (
     <section className="mx-auto mt-14 max-w-5xl">
       <div className="text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('guarantee.title')}
         </h2>
       </div>
@@ -36,7 +36,7 @@ export function Guarantee(): React.JSX.Element {
           <Card key={titleKey} className="border-border">
             <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-3 p-3 text-center">
               <Icon className="h-7 w-7 text-primary" />
-              <h3 className="text-sm font-semibold text-foreground">{t(titleKey)}</h3>
+              <h3 className="text-body font-semibold text-foreground">{t(titleKey)}</h3>
               <p className="text-xs leading-relaxed text-muted-foreground">{t(descKey)}</p>
             </CardContent>
           </Card>

@@ -55,7 +55,7 @@ export default function TagsPage() {
     <div className="px-4 py-4 mx-auto max-w-4xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Hash className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -96,7 +96,7 @@ export default function TagsPage() {
 
           {tags.length > 0 && (
             <div className="rounded-lg border p-3">
-              <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
+              <h2 className="mb-3 flex items-center gap-1.5 text-body font-semibold">
                 <Hash className="h-4 w-4 text-primary" />
                 {t('popular')}
               </h2>

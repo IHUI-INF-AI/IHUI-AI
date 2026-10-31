@@ -68,7 +68,7 @@ function StatCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="mt-0.5 text-xl font-semibold leading-none">{value}</div>
+          <div className="mt-0.5 text-heading font-semibold leading-none">{value}</div>
           {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
         </div>
       </CardContent>
@@ -149,7 +149,7 @@ export default function ReviewPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Brain className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -209,7 +209,7 @@ export default function ReviewPage() {
                         size="sm"
                         disabled={submitting}
                         onClick={() => handleQuality(opt.value)}
-                        className={`rounded-sm border border-transparent px-3 text-xs font-medium ${opt.tone}`}
+                        className={`rounded-sm border border-transparent px-3 text-label font-medium ${opt.tone}`}
                       >
                         {t(opt.labelKey)}
                       </Button>

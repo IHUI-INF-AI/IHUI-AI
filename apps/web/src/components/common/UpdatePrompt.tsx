@@ -133,7 +133,7 @@ export function UpdatePrompt() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold leading-tight text-foreground">
+              <p className="text-body font-semibold leading-tight text-foreground">
                 {status === 'error'
                   ? t('error')
                   : status === 'up-to-date'
@@ -164,14 +164,14 @@ export function UpdatePrompt() {
           <div className="mt-3.5 flex items-center gap-2.5">
             {status === 'up-to-date' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-green-600/10 px-4">
-                <span className="text-sm font-medium text-green-600">{t('upToDateDesc')}</span>
+                <span className="text-body font-medium text-green-600">{t('upToDateDesc')}</span>
               </div>
             )}
 
             {status === 'available' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm font-medium text-primary">{t('preparing')}</span>
+                <span className="text-body font-medium text-primary">{t('preparing')}</span>
               </div>
             )}
 
@@ -201,7 +201,7 @@ export function UpdatePrompt() {
                     className="text-primary transition-[stroke-dashoffset] duration-300 ease-out"
                   />
                 </svg>
-                <span className="text-sm font-medium text-primary tabular-nums">{percent}%</span>
+                <span className="text-body font-medium text-primary tabular-nums">{percent}%</span>
                 {total > 0 && (
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {formatFileSize(downloaded)} / {formatFileSize(total)}
@@ -213,14 +213,14 @@ export function UpdatePrompt() {
             {status === 'installing' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm font-medium text-primary">{t('installing')}</span>
+                <span className="text-body font-medium text-primary">{t('installing')}</span>
               </div>
             )}
 
             {status === 'done' && (
               <div className="flex flex-col gap-2">
                 <div className="flex h-9 items-center justify-center gap-2 rounded-lg bg-green-600/10 px-4">
-                  <span className="text-sm font-medium text-green-600 tabular-nums">
+                  <span className="text-body font-medium text-green-600 tabular-nums">
                     {t('autoRestartIn', { countdown: restartCountdown })}
                   </span>
                 </div>
@@ -228,14 +228,14 @@ export function UpdatePrompt() {
                   <button
                     type="button"
                     onClick={() => void postponeRestart()}
-                    className="h-8 flex-1 rounded-sm border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="h-8 flex-1 rounded-sm border border-border bg-card px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {t('restartLater')}
                   </button>
                   <button
                     type="button"
                     onClick={() => void restartNow()}
-                    className="h-8 flex-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                    className="h-8 flex-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                   >
                     {t('restartNow')}
                   </button>
@@ -248,10 +248,10 @@ export function UpdatePrompt() {
                 {retryCount < maxRetries ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin text-red-500" />
-                    <span className="text-sm font-medium text-red-500">{t('autoRetrying')}</span>
+                    <span className="text-body font-medium text-red-500">{t('autoRetrying')}</span>
                   </>
                 ) : (
-                  <span className="text-sm font-medium text-red-500">{errorText}</span>
+                  <span className="text-body font-medium text-red-500">{errorText}</span>
                 )}
               </div>
             )}

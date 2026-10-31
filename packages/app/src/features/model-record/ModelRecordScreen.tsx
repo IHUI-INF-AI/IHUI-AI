@@ -207,7 +207,11 @@ export function ModelRecordScreen({
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* 统计概览:4 卡(两列自适应,最小宽兜住读数不折行) */}
         <View style={styles.statRow}>
           {statCards.map((card) => (

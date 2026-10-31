@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { ChevronDown, ChevronUp } from 'lucide-react-native'
 import {
   QUEUE_OPS_NAMESPACE,
@@ -25,6 +25,7 @@ import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * D38 队列语义完整交互 —— RN 队列项交互条(G-42;web 参照 apps/web 的
@@ -46,7 +47,8 @@ import { rpx } from '../../utils/rpx'
  * 此前硬编码 false **逐字节一致**(零回归);声明一旦到达即自动生效,本组件不用再改。
  * 显式传 false 与"不传"同效,不额外分支。
  *
- * 平台特有:RN 无 hover ⇒ 全部用按压态(Pressable style 函数);web 的拖拽重排
+ * 平台特有:RN 无 hover ⇒ 全部用按压态(Tappable 的 pressedStyle 档;函数形态 style 会被
+ * cssInterop 吃掉,见 packages/ui-native/src/tappable.tsx);web 的拖拽重排
  * 在触屏上退化为 ↑/↓ 按钮重排(同一 reorderQueue 语义,流式中同样被锁)。
  */
 
@@ -189,15 +191,15 @@ export function QueueInteractionBar({
         const editing = editingId === item.id
         return (
           <View key={item.id} style={styles.row}>
-            <Pressable
+            <Tappable
               accessibilityRole="button"
               accessibilityLabel={t(qk('reorderAria'))}
               accessibilityState={{ disabled: !reorderVerdict.allowed || index === 0 }}
               testID={`queue-op-reorder-up-${index}`}
-              style={({ pressed }) => [
-                styles.opBtn,
-                (pressed || index === 0 || !reorderVerdict.allowed) && styles.opBtnMuted,
-              ]}
+              // pressed 与"到顶/不允许"共切同一个 opBtnMuted ⇒ 布尔并集等价拆法：
+              // 常态条件进 style，按下态进 pressedStyle。原函数形态整份被 cssInterop 吃掉。
+              style={[styles.opBtn, (index === 0 || !reorderVerdict.allowed) && styles.opBtnMuted]}
+              pressedStyle={styles.opBtnMuted}
               onPress={() => {
                 if (!reorderVerdict.allowed) {
                   // D38 收口:重排被拒显式说因(流式中锁定;组合矩阵里 reorder 只认
@@ -210,19 +212,19 @@ export function QueueInteractionBar({
               }}
             >
               <ChevronUp size={14} color={tokens.text.secondary} />
-            </Pressable>
-            <Pressable
+            </Tappable>
+            <Tappable
               accessibilityRole="button"
               accessibilityLabel={t(qk('reorderAria'))}
               accessibilityState={{
                 disabled: !reorderVerdict.allowed || index === items.length - 1,
               }}
               testID={`queue-op-reorder-down-${index}`}
-              style={({ pressed }) => [
+              style={[
                 styles.opBtn,
-                (pressed || index === items.length - 1 || !reorderVerdict.allowed) &&
-                  styles.opBtnMuted,
+                (index === items.length - 1 || !reorderVerdict.allowed) && styles.opBtnMuted,
               ]}
+              pressedStyle={styles.opBtnMuted}
               onPress={() => {
                 if (!reorderVerdict.allowed) {
                   setDeniedHint({ action: 'reorder', reason: 'streaming' })
@@ -233,7 +235,7 @@ export function QueueInteractionBar({
               }}
             >
               <ChevronDown size={14} color={tokens.text.secondary} />
-            </Pressable>
+            </Tappable>
             {editing ? (
               <>
                 {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);
@@ -248,33 +250,36 @@ export function QueueInteractionBar({
                   testID={`queue-op-edit-input-${item.id}`}
                   multiline
                 />
-                <Pressable
+                <Tappable
                   accessibilityRole="button"
                   testID={`queue-op-edit-confirm-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={confirmEdit}
                 >
                   <Text style={styles.textBtnPrimary}>{t(qk('editConfirm'))}</Text>
-                </Pressable>
-                <Pressable
+                </Tappable>
+                <Tappable
                   accessibilityRole="button"
                   testID={`queue-op-edit-cancel-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={cancelEdit}
                 >
                   <Text style={styles.textBtnSecondary}>{t(qk('editCancel'))}</Text>
-                </Pressable>
+                </Tappable>
               </>
             ) : (
               <>
                 <Text style={styles.itemText} numberOfLines={1}>
                   {item.text}
                 </Text>
-                <Pressable
+                <Tappable
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !undoVerdict.allowed }}
                   testID={`queue-op-undo-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={() =>
                     undoVerdict.allowed
                       ? onUndo?.(item.id)
@@ -282,15 +287,16 @@ export function QueueInteractionBar({
                   }
                 >
                   <Text style={styles.textBtnSecondary}>{t(qk('undo'))}</Text>
-                </Pressable>
-                <Pressable
+                </Tappable>
+                <Tappable
                   accessibilityRole="button"
                   testID={`queue-op-edit-${item.id}`}
-                  style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+                  style={styles.textBtn}
+                  pressedStyle={styles.textBtnPressed}
                   onPress={() => startEdit(item.id, item.text)}
                 >
                   <Text style={styles.textBtnSecondary}>{t(qk('edit'))}</Text>
-                </Pressable>
+                </Tappable>
               </>
             )}
           </View>
@@ -298,29 +304,31 @@ export function QueueInteractionBar({
       })}
 
       <View style={styles.footerRow}>
-        <Pressable
+        <Tappable
           accessibilityRole="button"
           accessibilityState={{ disabled: !interruptVerdict.allowed }}
           testID="queue-op-interrupt-and-run"
-          style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+          style={styles.textBtn}
+          pressedStyle={styles.textBtnPressed}
           onPress={handleInterrupt}
         >
           <Text style={styles.textBtnPrimary}>{t(qk('interruptAndRun'))}</Text>
-        </Pressable>
+        </Tappable>
         <Text style={styles.modeLabel}>{t(qk('mode.label'))}</Text>
         {(['steer', 'queue'] as const).map((m) => (
-          <Pressable
+          <Tappable
             key={m}
             accessibilityRole="radio"
             accessibilityState={{ selected: mode === m }}
             testID={`queue-op-mode-${m}`}
-            style={({ pressed }) => [styles.textBtn, pressed && styles.textBtnPressed]}
+            style={styles.textBtn}
+            pressedStyle={styles.textBtnPressed}
             onPress={() => onModeChange?.(m)}
           >
             <Text style={mode === m ? styles.modeTextActive : styles.modeText}>
               {t(qk(`mode.${m}`))}
             </Text>
-          </Pressable>
+          </Tappable>
         ))}
       </View>
 

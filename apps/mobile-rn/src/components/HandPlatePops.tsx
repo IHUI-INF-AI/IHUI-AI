@@ -48,6 +48,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 
 export interface HandPlatePaymentMethod {
   id: string
@@ -350,7 +351,7 @@ export function HandPlatePops({
                   {payOptions.map((m) => {
                     const active = m.id === selectedPayMethod
                     return (
-                      <Pressable
+                      <Tappable
                         key={m.id}
                         style={[
                           styles.purchasePaymentOption,
@@ -369,14 +370,14 @@ export function HandPlatePops({
                         <View style={[styles.radio, active ? styles.radioActive : null]}>
                           {active ? <View style={styles.radioDot} /> : null}
                         </View>
-                      </Pressable>
+                      </Tappable>
                     )
                   })}
                 </View>
 
                 {hasAgreement ? (
                   <View style={styles.purchaseAgreement}>
-                    <Pressable
+                    <Tappable
                       style={[styles.checkbox, isAgreed ? styles.checkboxChecked : null]}
                       onPress={toggleAgree}
                       accessibilityRole="checkbox"
@@ -384,18 +385,18 @@ export function HandPlatePops({
                       accessibilityLabel={purchase.agreementText}
                     >
                       {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
-                    </Pressable>
-                    <Pressable
+                    </Tappable>
+                    <Tappable
                       style={styles.purchaseAgreementTextWrap}
                       onPress={purchase.onAgreementPress}
                       disabled={!purchase.onAgreementPress}
                     >
                       <Text style={styles.purchaseAgreementText}>{purchase.agreementText}</Text>
-                    </Pressable>
+                    </Tappable>
                   </View>
                 ) : null}
 
-                <Pressable
+                <Tappable
                   style={[
                     styles.purchasePayBtn,
                     payDisabled ? styles.purchasePayBtnDisabled : null,
@@ -412,7 +413,7 @@ export function HandPlatePops({
                       {purchase.payText ?? `${t('purchase.payNow')} ¥${formatYuan(purchase.price)}`}
                     </Text>
                   )}
-                </Pressable>
+                </Tappable>
               </View>
             ) : (
               children

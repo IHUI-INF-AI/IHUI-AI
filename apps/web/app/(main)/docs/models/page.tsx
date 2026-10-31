@@ -69,11 +69,11 @@ export default function ModelsDocsPage() {
 
       {/* Hero */}
       <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <span>🧠</span>
           多模型调度
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           多模型调度完整指南
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -84,10 +84,10 @@ export default function ModelsDocsPage() {
 
       {/* 支持的模型 */}
       <section id="supported-models" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">支持的模型(100+)</h2>
+        <h2 className="text-display font-bold tracking-tight">支持的模型(100+)</h2>
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-sm font-semibold">🌍 国际厂商</p>
+            <p className="text-body font-semibold">🌍 国际厂商</p>
             <div className="mt-3 space-y-2">
               {[
                 ['OpenAI', 'GPT-5、GPT-4.1、GPT-4o、o3-mini、o1、GPT-4 Turbo', '通用 / 推理 / 视觉'],
@@ -109,7 +109,7 @@ export default function ModelsDocsPage() {
           </div>
 
           <div className="rounded-2xl border bg-card p-3">
-            <p className="text-sm font-semibold">🇨🇳 国产模型</p>
+            <p className="text-body font-semibold">🇨🇳 国产模型</p>
             <div className="mt-3 space-y-2">
               {[
                 ['阿里通义千问', 'Qwen3-Max、Qwen3-235B、Qwen-Plus、Qwen-Turbo', '中文 / 代码 / 推理'],
@@ -134,7 +134,7 @@ export default function ModelsDocsPage() {
           </div>
 
           <div className="rounded-2xl border bg-card p-3">
-            <p className="flex items-center text-sm font-semibold">
+            <p className="flex items-center text-body font-semibold">
               <Monitor className="mr-1.5 inline h-4 w-4" />
               本地 / 开源
             </p>
@@ -161,7 +161,7 @@ export default function ModelsDocsPage() {
 
       {/* Provider 健康检查 */}
       <section id="provider-health" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">Provider 健康检查(独家)</h2>
+        <h2 className="text-display font-bold tracking-tight">Provider 健康检查(独家)</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             智汇 AI 每 5 分钟探测所有 Provider,自动剔除"账户没钱 / Key 失效 / 接不通"的 Provider,
@@ -191,7 +191,7 @@ export default function ModelsDocsPage() {
 
       {/* 自动 Fallback */}
       <section id="fallback" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">自动 Fallback(高可用)</h2>
+        <h2 className="text-display font-bold tracking-tight">自动 Fallback(高可用)</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             配置 fallback 链,主模型失败时自动切换备用模型,用户无感知:
@@ -224,14 +224,14 @@ export default function ModelsDocsPage() {
 
       {/* Combo 链 */}
       <section id="combo-chain" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">Combo 链(组合调用)</h2>
+        <h2 className="text-display font-bold tracking-tight">Combo 链(组合调用)</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             把多个模型串联 / 并联调用,实现单模型无法完成的能力:
           </p>
           <div className="space-y-3">
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-sm font-semibold">📌 串联(Priority 策略)</p>
+              <p className="text-body font-semibold">📌 串联(Priority 策略)</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 按顺序尝试,前一个失败才用下一个 — <strong>等价于 fallback</strong>
               </p>
@@ -240,7 +240,7 @@ export default function ModelsDocsPage() {
               </pre>
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="flex items-center text-sm font-semibold">
+              <p className="flex items-center text-body font-semibold">
                 <Coins className="mr-1.5 inline h-4 w-4" />
                 串联(Cheapest 策略)
               </p>
@@ -252,7 +252,7 @@ export default function ModelsDocsPage() {
               </pre>
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-sm font-semibold">🔀 并联(Fusion 策略)</p>
+              <p className="text-body font-semibold">🔀 并联(Fusion 策略)</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 多模型同时回答,Judge 模型打分选最佳 — <strong>质量最高但贵</strong>
               </p>
@@ -267,7 +267,7 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}</code>
 
       {/* Token 压缩 */}
       <section id="token-compaction" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">Token 压缩(降本利器)</h2>
+        <h2 className="text-display font-bold tracking-tight">Token 压缩(降本利器)</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             长对话自动压缩历史消息,降低 Token 消耗 60%+,质量损失 &lt; 5%:
@@ -301,7 +301,7 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}</code>
 
       {/* 统一积分池 */}
       <section id="credits" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">统一积分池</h2>
+        <h2 className="text-display font-bold tracking-tight">统一积分池</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             不用每个厂商单独充值,智汇 AI 统一积分池,一套账单全模型通用:

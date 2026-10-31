@@ -48,7 +48,7 @@ export function HomeScenarios() {
         >
           03
         </div>
-        <h2 className="text-2xl font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
+        <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
@@ -75,7 +75,7 @@ export function HomeScenarios() {
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary transition-all duration-300 group-hover:scale-110 group-hover:bg-primary/18 min-[640px]:h-14 min-[640px]:w-14">
                 <Icon className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h3 className="text-lg font-bold leading-tight min-[640px]:text-xl">{title}</h3>
+              <h3 className="text-lg font-bold leading-tight min-[640px]:text-heading">{title}</h3>
             </div>
 
             {/* 痛点 → 收益 */}

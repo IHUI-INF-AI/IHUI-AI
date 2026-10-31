@@ -81,7 +81,7 @@ export function TeamSettingsPanel({
           </Button>
         </form>
         <div className="mt-8 mt-6 pt-6">
-          <h3 className="text-sm font-semibold text-destructive">{t('dangerZone')}</h3>
+          <h3 className="text-body font-semibold text-destructive">{t('dangerZone')}</h3>
           <p className="mt-1 text-xs text-muted-foreground">{t('deleteTeamDesc')}</p>
           <Button
             variant="outline"

@@ -120,7 +120,7 @@ export default function LiveHostPage() {
       {created ? (
         <Card className="mb-4">
           <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-            <h3 className="text-sm font-medium">{t('streamInfo')}</h3>
+            <h3 className="text-body font-medium">{t('streamInfo')}</h3>
             {created.pushUrl ? (
               <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
                 <span className="truncate font-mono text-xs">{created.pushUrl}</span>
@@ -147,7 +147,7 @@ export default function LiveHostPage() {
         <AuthGatePrompt message="请先登录后查看我的直播" />
       ) : (
         <>
-          <h3 className="mb-3 text-sm font-medium">{t('myStreams')}</h3>
+          <h3 className="mb-3 text-body font-medium">{t('myStreams')}</h3>
 
           {myStreamsQ.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -166,7 +166,7 @@ export default function LiveHostPage() {
                 <Card key={stream.id}>
                   <CardContent className="min-[640px]:p-3 flex items-center justify-between gap-3 p-3">
                     <div className="min-w-0">
-                      <h4 className="truncate text-sm font-medium">{stream.title}</h4>
+                      <h4 className="truncate text-body font-medium">{stream.title}</h4>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {stream.status === 'active' ? t('statusActive') : t('statusInactive')}
                       </p>

@@ -157,7 +157,7 @@ export function MoveToWorktreeDialog({
           ) : null}
 
           <fieldset className="space-y-1" data-slot="target-group">
-            <legend className="text-xs font-medium text-muted-foreground" data-slot="target-label">
+            <legend className="text-label font-medium text-muted-foreground" data-slot="target-label">
               {t('targetLabel')}
             </legend>
             <div className="flex gap-2" role="radiogroup" aria-label={t('targetLabel')}>
@@ -182,7 +182,7 @@ export function MoveToWorktreeDialog({
               {}
               <label
                 htmlFor="m2w-branch-input"
-                className="text-xs font-medium"
+                className="text-label font-medium"
                 data-slot="branch-label"
               >
                 {t('worktreeBranchLabel')}

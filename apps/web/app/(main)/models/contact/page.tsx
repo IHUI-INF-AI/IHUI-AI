@@ -42,7 +42,7 @@ export default async function ContactPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('contact.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('contact.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('contact.subtitle')}</p>
       </header>
 
@@ -57,7 +57,7 @@ export default async function ContactPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="mt-3 text-xs text-muted-foreground">{c.label}</div>
-                <div className="mt-0.5 text-sm font-semibold">{c.value}</div>
+                <div className="mt-0.5 text-body font-semibold">{c.value}</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">{c.desc}</div>
               </CardContent>
             </Card>
@@ -109,7 +109,7 @@ export default async function ContactPage() {
       {/* 工作时间 */}
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <h3 className="text-sm font-semibold">{t('contact.hours.title')}</h3>
+          <h3 className="text-body font-semibold">{t('contact.hours.title')}</h3>
           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
             <div className="flex justify-between">
               <span>{t('contact.hours.weekday')}</span>

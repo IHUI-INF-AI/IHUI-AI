@@ -143,7 +143,7 @@ export function DeptTree({ selectedId, onSelect }: Props) {
 
   return (
     <div className="flex h-full flex-col rounded-md border border-border bg-card/30">
-      <div className="flex h-9 shrink-0 items-center px-3 text-xs font-medium text-muted-foreground">
+      <div className="flex h-9 shrink-0 items-center px-3 text-label font-medium text-muted-foreground">
         部门
       </div>
       <div className="shrink-0 p-2">

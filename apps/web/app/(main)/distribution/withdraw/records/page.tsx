@@ -112,7 +112,7 @@ export default function WithdrawRecordsPage() {
       </div>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <ArrowDownToLine className="h-7 w-7 text-primary" />
           {t('withdrawRecordsTitle')}
         </h1>
@@ -173,7 +173,7 @@ export default function WithdrawRecordsPage() {
                       <TableCell className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                             STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
                           )}
                         >

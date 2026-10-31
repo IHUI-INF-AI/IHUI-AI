@@ -94,7 +94,7 @@ export default function VipPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1 text-center">
-        <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center justify-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('title')}
         </h1>
@@ -188,7 +188,7 @@ export default function VipPage() {
                 )}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-3 py-1 text-label font-medium text-white shadow">
                     <Sparkles className="mr-1 inline h-3 w-3" />
                     {t('popular')}
                   </span>
@@ -198,7 +198,7 @@ export default function VipPage() {
                 </CardHeader>
                 <CardContent className="min-[640px]:p-3 flex flex-1 flex-col p-3 pt-0">
                   <div className="mb-4 flex flex-wrap items-baseline gap-1">
-                    <span className="text-2xl min-[768px]:text-3xl font-bold">
+                    <span className="text-display min-[768px]:text-3xl font-bold">
                       {formatCNY(level.price)}
                     </span>
                     <span className="text-sm text-muted-foreground">

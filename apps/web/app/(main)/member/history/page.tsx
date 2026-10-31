@@ -60,7 +60,7 @@ export default function MemberHistoryPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+          <h1 className="flex min-w-0 items-center gap-2 text-heading font-bold tracking-tight">
             <History className="h-5 w-5 shrink-0 text-primary" />
             <span className="whitespace-nowrap">浏览历史</span>
           </h1>
@@ -121,7 +121,7 @@ export default function MemberHistoryPage() {
                 <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {item.targetType}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                <span className="min-w-0 flex-1 truncate text-body font-medium">
                   {item.title ?? item.targetId}
                 </span>
                 <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">

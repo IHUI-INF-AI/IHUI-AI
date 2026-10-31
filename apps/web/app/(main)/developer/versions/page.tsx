@@ -74,7 +74,7 @@ export default function VersionsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <GitBranch className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -103,12 +103,12 @@ export default function VersionsPage() {
                 <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-md border px-2 py-0.5 font-mono text-sm font-semibold">
+                      <span className="rounded-md border px-2 py-0.5 font-mono text-body font-semibold">
                         v{v.version}
                       </span>
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                           cls,
                         )}
                       >

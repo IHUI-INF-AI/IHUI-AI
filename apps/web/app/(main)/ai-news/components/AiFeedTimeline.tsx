@@ -268,7 +268,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                   key={ch.key || 'channel-all'}
                   type="button"
                   onClick={() => setActiveChannel(ch.key)}
-                  className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
                     isActive
                       ? 'bg-cta text-cta-foreground'
                       : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -311,7 +311,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                 key={cat.key || 'category-all'}
                 type="button"
                 onClick={() => setActiveCategory(cat.key)}
-                className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
                   isActive
                     ? 'bg-primary/10 text-primary font-semibold'
                     : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
@@ -360,7 +360,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
             return (
               <div key={group.day} className="space-y-2">
                 <div className="flex items-center gap-2 pt-2">
-                  <span className="text-xs font-semibold text-muted-foreground">
+                  <span className="text-label font-semibold text-muted-foreground">
                     {formatDayLabel(firstDate, t, locale)}
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">
@@ -425,7 +425,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                           ) : null}
                         </div>
 
-                        <h3 className="line-clamp-2 text-sm font-semibold leading-tight transition-colors group-hover:text-primary">
+                        <h3 className="line-clamp-2 text-body font-semibold leading-tight transition-colors group-hover:text-primary">
                           {it.url ? (
                             <a
                               href={it.url}
@@ -466,7 +466,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                       {hot ? (
                         <div className="flex w-14 shrink-0 flex-col items-end justify-start pt-0.5">
                           <Flame className="h-3.5 w-3.5 text-orange-500/80" />
-                          <span className="text-sm font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                          <span className="text-body font-bold tabular-nums text-orange-600 dark:text-orange-400">
                             {hot}
                           </span>
                         </div>

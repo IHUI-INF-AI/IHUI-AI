@@ -250,11 +250,11 @@ export default function QuickstartPage() {
 
       {/* Hero */}
       <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <BookOpen className="h-3.5 w-3.5" />
           快速开始
         </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           5 分钟上手智汇 AI
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
@@ -281,7 +281,7 @@ export default function QuickstartPage() {
 
       {/* 在线版 5 步 */}
       <section id="step-1" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-display font-bold tracking-tight">
           方式一:在线版(5 分钟上手)
         </h2>
 
@@ -416,7 +416,7 @@ export default function QuickstartPage() {
 
       {/* 自托管 */}
       <section id="self-host" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-display font-bold tracking-tight">
           方式二:自托管(5 分钟 Docker 部署)
         </h2>
         <div className="rounded-2xl border bg-card p-3 space-y-4">
@@ -458,32 +458,32 @@ open http://localhost:8801`}</code>
 
       {/* 下一步 */}
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
+        <h2 className="text-display font-bold tracking-tight">下一步</h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
           上手后,深入探索智汇 AI 的更多能力。
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
             href="https://aizhs.top/agents"
-            className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+            className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
           >
             浏览 Agent 市场
           </a>
           <a
             href="https://aizhs.top/docs/api"
-            className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
           >
             API 文档
           </a>
           <a
             href="https://aizhs.top/docs/mcp"
-            className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
           >
             MCP 工具集成
           </a>
           <a
             href="https://aizhs.top/pricing"
-            className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
           >
             查看定价
           </a>

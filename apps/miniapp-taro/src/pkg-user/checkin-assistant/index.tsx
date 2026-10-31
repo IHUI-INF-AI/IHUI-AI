@@ -136,7 +136,7 @@ export default function CheckinAssistant() {
     <ThemeRoot>
       <ScrollView scrollY className="min-h-screen bg-background">
         <View className="px-[28rpx] pt-[24rpx] pb-[64rpx]">
-          <Text className="block text-[length:40rpx] font-bold text-foreground">
+          <Text className="block text-heading font-bold text-foreground">
             {t('checkinAssistant.title')}
           </Text>
           <Text className="mt-[8rpx] block text-[length:26rpx] leading-[38rpx] text-muted-foreground">
@@ -144,12 +144,12 @@ export default function CheckinAssistant() {
           </Text>
 
           {loading ? (
-            <Text className="block py-[64rpx] text-center text-[length:28rpx] text-muted-foreground">
+            <Text className="block py-[64rpx] text-center text-body text-muted-foreground">
               {t('common.loading')}
             </Text>
           ) : list.length === 0 ? (
             <View className="mt-[24rpx] rounded-lg border border-border bg-card p-[28rpx]">
-              <Text className="block text-[length:30rpx] font-semibold text-foreground">
+              <Text className="block text-strong font-semibold text-foreground">
                 {t('checkinAssistant.empty')}
               </Text>
               <Text className="mt-[8rpx] block text-[length:26rpx] text-muted-foreground">
@@ -163,25 +163,25 @@ export default function CheckinAssistant() {
                 className="mt-[20rpx] rounded-lg border border-border bg-card p-[24rpx]"
               >
                 <View className="flex flex-wrap items-center justify-between gap-[12rpx]">
-                  <Text className="text-[length:30rpx] font-semibold text-foreground">
+                  <Text className="text-strong font-semibold text-foreground">
                     {acc.name}
                   </Text>
                   <View className="flex flex-wrap items-center gap-[8rpx]">
-                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-[length:22rpx] text-muted-foreground">
+                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-caption text-muted-foreground">
                       {acc.platform}
                     </Text>
-                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-[length:22rpx] text-muted-foreground">
+                    <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-caption text-muted-foreground">
                       {acc.enabled ? t('checkinAssistant.enabled') : t('checkinAssistant.disabled')}
                     </Text>
                     {acc.device_map?.pool_account_id ? (
-                      <Text className="rounded-md bg-[var(--color-muted)] px-[10rpx] py-[4rpx] text-[length:22rpx] text-foreground">
+                      <Text className="rounded-md bg-[var(--color-muted)] px-[10rpx] py-[4rpx] text-caption text-foreground">
                         {t('checkinAssistant.poolSynced')}
                       </Text>
                     ) : null}
                   </View>
                 </View>
                 {acc.last_record ? (
-                  <Text className="mt-[8rpx] block text-[length:24rpx] text-muted-foreground">
+                  <Text className="mt-[8rpx] block text-label text-muted-foreground">
                     {acc.last_record.ok
                       ? t('checkinAssistant.lastOk', { credits: acc.last_record.credits ?? 0 })
                       : t('checkinAssistant.lastFailed')}
@@ -189,19 +189,19 @@ export default function CheckinAssistant() {
                 ) : null}
                 <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-foreground"
+                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
                     onClick={() => void checkin(acc)}
                   >
                     {t('checkinAssistant.checkin')}
                   </Text>
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-foreground"
+                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
                     onClick={() => void toggle(acc)}
                   >
                     {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
                   </Text>
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-muted-foreground"
+                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-muted-foreground"
                     onClick={() => remove(acc)}
                   >
                     {t('checkinAssistant.delete')}
@@ -214,14 +214,14 @@ export default function CheckinAssistant() {
           <WorkbuddyTaskSection accounts={list} t={t} />
 
           <View className="mt-[28rpx] rounded-lg border border-border bg-card p-[28rpx]">
-            <Text className="block text-[length:30rpx] font-semibold text-foreground">
+            <Text className="block text-strong font-semibold text-foreground">
               {t('checkinAssistant.addTitle')}
             </Text>
             <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
               {PLATFORMS.map((p) => (
                 <Text
                   key={p}
-                  className={`rounded-lg px-[20rpx] py-[10rpx] text-[length:24rpx] ${
+                  className={`rounded-lg px-[20rpx] py-[10rpx] text-label ${
                     platform === p
                       ? 'bg-[var(--color-cta)] text-[var(--color-cta-foreground)]'
                       : 'bg-muted text-muted-foreground'
@@ -257,7 +257,7 @@ export default function CheckinAssistant() {
               }`}
               onClick={() => void submit()}
             >
-              <Text className="text-[length:30rpx] font-semibold text-[var(--color-cta-foreground)]">
+              <Text className="text-strong font-semibold text-[var(--color-cta-foreground)]">
                 {busy ? t('checkinAssistant.adding') : t('checkinAssistant.add')}
               </Text>
             </View>

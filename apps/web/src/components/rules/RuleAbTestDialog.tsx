@@ -31,7 +31,7 @@ function AbTestSide({
     <div className="space-y-1.5 rounded-md border border-border bg-background p-2.5">
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-muted-foreground">{label}</span>
-        <span className="truncate text-xs font-medium">{data.name}</span>
+        <span className="truncate text-label font-medium">{data.name}</span>
         <span
           className={cn(
             'shrink-0 rounded-sm px-1 py-0 text-[10px]',
@@ -88,7 +88,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
     >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">
+          <span className="text-body font-semibold">
             <FlaskConical className="mr-1 inline h-3.5 w-3.5" />
             {t('abTest')}
           </span>

@@ -22,7 +22,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleRunPipeline}
           disabled={p.pipelineLoading || !p.result?.spec}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-label font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             (p.pipelineLoading || !p.result?.spec) && 'cursor-not-allowed opacity-60',
           )}
@@ -81,7 +81,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
           {stages.map((stage, idx) => (
             <div key={idx} className="rounded-md bg-muted/40 p-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-foreground">
+                <span className="text-label font-medium text-foreground">
                   {idx + 1}. {p.stageLabel[stage.name] || stage.name}
                 </span>
                 <span

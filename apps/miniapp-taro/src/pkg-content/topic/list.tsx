@@ -175,25 +175,25 @@ export default function TopicListPage() {
                     ) : (
                       <View className="w-[100rpx] h-[100rpx] rounded-md bg-muted shrink-0 flex items-center justify-center">
                         {/* RN coverHash:fontSize 20dp→40rpx / 700 / text.primary→foreground */}
-                        <Text className="text-[length:40rpx] font-bold text-foreground">#</Text>
+                        <Text className="text-heading font-bold text-foreground">#</Text>
                       </View>
                     )}
                     <View className="flex-1 ml-[24rpx] min-w-0">
-                      <Text className="block text-[length:30rpx] text-foreground font-semibold overflow-hidden ihui-ellipsis whitespace-nowrap">
+                      <Text className="block text-strong text-foreground font-semibold overflow-hidden ihui-ellipsis whitespace-nowrap">
                         #{item.name}
                       </Text>
                       {item.description ? (
-                        <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden ihui-ellipsis whitespace-nowrap">
+                        <Text className="block text-label text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden ihui-ellipsis whitespace-nowrap">
                           {item.description}
                         </Text>
                       ) : null}
                       <View className="flex gap-[16rpx] mt-[8rpx]">
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {tt('topic.list.participants', '{n} 人参与', {
                             n: item.participantCount || 0,
                           })}
                         </Text>
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {tt('topic.list.posts', '{n} 篇内容', { n: item.count || 0 })}
                         </Text>
                       </View>

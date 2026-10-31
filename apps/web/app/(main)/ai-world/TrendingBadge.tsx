@@ -63,7 +63,7 @@ export function TrendingBadge({ score, metrics, updatedAt }: Props) {
   return (
     <Tooltip content={tipParts.join(' · ')}>
       <span
-        className={`inline-flex h-5 items-center gap-0.5 rounded-sm px-1.5 text-xs font-medium ${tier}`}
+        className={`inline-flex h-5 items-center gap-0.5 rounded-sm px-1.5 text-label font-medium ${tier}`}
       >
         <Flame className="h-3 w-3" />
         <span>{s}</span>

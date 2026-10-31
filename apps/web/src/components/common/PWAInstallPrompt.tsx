@@ -57,7 +57,7 @@ export function PWAInstallPrompt({ className, promptEvent }: PWAInstallPromptPro
       </div>
       <button
         onClick={handleInstall}
-        className="rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground hover:bg-cta/90"
+        className="rounded-sm bg-cta px-3 py-1.5 text-label font-medium text-cta-foreground hover:bg-cta/90"
       >
         {t('action')}
       </button>

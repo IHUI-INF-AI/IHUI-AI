@@ -34,7 +34,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
 
   return (
     <div className="flex w-52 shrink-0 flex-col bg-card">
-      <div className="bg-muted/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="bg-muted/40 px-3 py-2.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
         {t('paletteTitle')}
       </div>
       <div className="flex flex-col gap-2 p-3">
@@ -64,7 +64,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
                 <div className={cn('flex h-6 w-6 items-center justify-center rounded', meta.badge)}>
                   <Icon className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-sm font-medium">
+                <span className="text-body font-medium">
                   {t(type === 'agent' ? 'typeAgent' : type === 'tool' ? 'typeTool' : 'typeReview')}
                 </span>
               </div>

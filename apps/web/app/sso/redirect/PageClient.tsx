@@ -157,7 +157,7 @@ export default function SsoRedirectPageClient() {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
         <div className="text-center space-y-2">
-          <h1 className="text-xl font-semibold">{t('notAllowed')}</h1>
+          <h1 className="text-heading font-semibold">{t('notAllowed')}</h1>
           <p className="text-muted-foreground text-sm">{t('notAllowedDesc')}</p>
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function SsoRedirectPageClient() {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
         <div className="text-center space-y-2">
-          <h1 className="text-xl font-semibold">{t('unavailable')}</h1>
+          <h1 className="text-heading font-semibold">{t('unavailable')}</h1>
           <p className="text-muted-foreground text-sm">{t('unavailableDesc')}</p>
         </div>
       </div>

@@ -9733,7 +9733,6 @@ export function sweepWebStyleTiers(opts = {}) {
   return { ran: true, ok: true, state, files, changes, held, failed, truncated }
 }
 
-
 export function sweepCrossEndShellPages(opts = {}) {
   const {
     now = Date.now(),
@@ -11071,10 +11070,11 @@ function main() {
     // 链条按依赖序派:先补 RN 薄壳,再落小程序页 —— 下游三腿判据要问的就是"RN 腿在不在"。
     if (!CHECK_ONLY) sweepRnHostShells()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
-    // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
     // 三端非色档落档自愈:源头(web)先补,再 RN,再小程序 —— 只写工作树,落库交给 auto-commit-quiet。
     if (!CHECK_ONLY) sweepWebStyleTiers()
+    // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
     if (!CHECK_ONLY) sweepRnStyleTiers()
+    // 小程序那一侧同一条腿:三端里只要有一端停在"没人调度",同源门就每天新长一笔分叉。
     if (!CHECK_ONLY) sweepMiniappStyleTiers()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。

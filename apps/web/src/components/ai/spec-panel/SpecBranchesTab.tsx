@@ -43,7 +43,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleCreateBranch}
           disabled={p.branchLoading || !p.newBranchName.trim()}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-label font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             (p.branchLoading || !p.newBranchName.trim()) && 'cursor-not-allowed opacity-60',
           )}
@@ -129,7 +129,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
             <div key={`${b.specId}-${b.name}-${idx}`} className="rounded-md bg-muted/40 p-2">
               <div className="flex flex-wrap items-center gap-2">
                 <GitBranch className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground">{b.name}</span>
+                <span className="text-label font-medium text-foreground">{b.name}</span>
                 <span
                   className={cn(
                     'rounded px-1.5 py-0.5 text-[10px] font-bold',
@@ -194,7 +194,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
       {/* 合并冲突提示 */}
       {p.mergeConflicts && p.mergeConflicts.length > 0 && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2">
-          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+          <p className="text-label font-medium text-amber-700 dark:text-amber-400">
             合并冲突({p.mergeConflicts.length} 处,已用 LLM 自动解决)
           </p>
           <ul className="mt-1 space-y-0.5">
@@ -211,7 +211,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
       {p.branchDiffResult?.diff && (
         <div className="rounded-md border border-border bg-background p-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-foreground">
+            <span className="text-label font-medium text-foreground">
               {p.branchDiffTarget} vs main
             </span>
             <span className="text-[10px] text-green-600">+{p.branchDiffResult.addedLines}</span>

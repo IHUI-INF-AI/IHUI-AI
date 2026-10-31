@@ -38,14 +38,14 @@ export function PoolRowCard({
   return (
     <View className="rounded-lg border border-border bg-card p-[24rpx]">
       <View className="flex flex-wrap items-center gap-[12rpx]">
-        <Text className="rounded-sm bg-muted px-[12rpx] py-[4rpx] text-[length:22rpx] text-muted-foreground">
+        <Text className="rounded-sm bg-muted px-[12rpx] py-[4rpx] text-caption text-muted-foreground">
           {row.providerCode}
         </Text>
-        <Text className="max-w-[380rpx] shrink basis-0 truncate text-[length:28rpx] font-medium text-foreground">
+        <Text className="max-w-[380rpx] shrink basis-0 truncate text-body font-medium text-foreground">
           {row.name}
         </Text>
         <Text
-          className={`rounded-sm px-[12rpx] py-[4rpx] text-[length:22rpx] ${
+          className={`rounded-sm px-[12rpx] py-[4rpx] text-caption ${
             row.isEnabled
               ? 'bg-[var(--color-success-light)] text-[var(--color-success-text)]'
               : 'bg-muted text-muted-foreground'
@@ -54,29 +54,29 @@ export function PoolRowCard({
           {row.isEnabled ? t('accountPool.enabled') : t('accountPool.disabled')}
         </Text>
         {row.checkinPending ? (
-          <Text className="rounded-sm bg-[var(--color-warning-amber-light)] px-[12rpx] py-[4rpx] text-[length:22rpx] text-[var(--color-warning-amber-text)]">
+          <Text className="rounded-sm bg-[var(--color-warning-amber-light)] px-[12rpx] py-[4rpx] text-caption text-[var(--color-warning-amber-text)]">
             {t('accountPool.syncPending')}
           </Text>
         ) : null}
       </View>
-      <Text className="mt-[8rpx] block truncate text-[length:24rpx] text-muted-foreground">
+      <Text className="mt-[8rpx] block truncate text-label text-muted-foreground">
         {t('accountPool.uid')}: {row.uid}
       </Text>
       <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
         <Text
-          className="rounded-md bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-foreground"
+          className="rounded-md bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
           onClick={() => onCheckin(row)}
         >
           {t('accountPool.checkin')}
         </Text>
         <Text
-          className="rounded-md bg-muted px-[20rpx] py-[10rpx] text-[length:24rpx] text-foreground"
+          className="rounded-md bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
           onClick={() => onToggle(row)}
         >
           {row.isEnabled ? t('accountPool.disable') : t('accountPool.enable')}
         </Text>
         <Text
-          className={`rounded-md px-[20rpx] py-[10rpx] text-[length:24rpx] ${
+          className={`rounded-md px-[20rpx] py-[10rpx] text-label ${
             confirming
               ? 'bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)]'
               : 'bg-muted text-muted-foreground'

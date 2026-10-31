@@ -71,7 +71,7 @@ export default function RelaySubscriptionsPage() {
     <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">API 订阅</h1>
+        <h1 className="text-display font-bold tracking-tight">API 订阅</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           选择适合的订阅方案,token 配额自动写入你的活跃 API Key
         </p>
@@ -83,10 +83,10 @@ export default function RelaySubscriptionsPage() {
         <Card className="bg-emerald-500/5 border-emerald-500/30">
           <CardContent className="min-[640px]:p-3 flex items-center justify-between gap-3 p-3">
             <div className="flex items-center gap-2">
-              <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-label font-medium text-emerald-600 dark:text-emerald-400">
                 当前订阅
               </span>
-              <span className="text-sm font-medium">{activePlan.name}</span>
+              <span className="text-body font-medium">{activePlan.name}</span>
             </div>
             <div className="text-sm text-muted-foreground">
               剩余{' '}
@@ -122,7 +122,7 @@ export default function RelaySubscriptionsPage() {
                   <div className="flex items-center gap-2">
                     <div className="rounded-md bg-muted p-1.5">{planIcon(plan.name)}</div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{plan.name}</p>
+                      <p className="truncate text-body font-semibold">{plan.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {plan.billingPeriod === 'month' ? '月付' : plan.billingPeriod}
                       </p>
@@ -130,7 +130,7 @@ export default function RelaySubscriptionsPage() {
                   </div>
 
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold tabular-nums">
+                    <span className="text-display font-bold tabular-nums">
                       {formatPrice(plan.price)}
                     </span>
                     <span className="text-xs text-muted-foreground">/月</span>

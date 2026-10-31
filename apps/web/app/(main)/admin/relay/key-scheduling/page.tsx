@@ -160,7 +160,7 @@ export default function KeySchedulingPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Gauge className="h-5 w-5" aria-hidden />
           号池调度精细控制
         </h1>
@@ -286,7 +286,7 @@ export default function KeySchedulingPage() {
       <RelayPoolPolicyCard />
 
       <p className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Label className="text-xs font-normal">说明</Label>
+        <Label className="text-label font-normal">说明</Label>
         「临时摘除」不改变健康状态,仅让选路跳过该账号,适合上游抖动但不想打健康牌的场景;
       </p>
 

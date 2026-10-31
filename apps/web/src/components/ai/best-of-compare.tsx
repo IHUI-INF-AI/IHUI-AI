@@ -185,7 +185,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
               )}
             >
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold">#{c.candidate_id}</span>
+                <span className="text-body font-semibold">#{c.candidate_id}</span>
                 {isWinner && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                 {c.ok ? (
                   <span

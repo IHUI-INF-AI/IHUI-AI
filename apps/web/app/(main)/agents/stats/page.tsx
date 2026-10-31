@@ -106,7 +106,7 @@ export default function AgentStatsPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <BarChart3 className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -135,7 +135,7 @@ export default function AgentStatsPage() {
                     <span className="text-xs text-muted-foreground">{t(STAT_KEY[card.key])}</span>
                     <Icon className={`h-4 w-4 ${card.color}`} />
                   </div>
-                  <p className={`text-2xl font-bold ${card.color}`}>
+                  <p className={`text-display font-bold ${card.color}`}>
                     {typeof card.value === 'number' ? numFmt.format(card.value) : card.value}
                   </p>
                 </CardContent>

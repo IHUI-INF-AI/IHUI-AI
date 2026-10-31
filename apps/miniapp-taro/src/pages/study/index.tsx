@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/study-index/StudyIndexScreen.tsx
 
 import { aizhsUrl } from '@/constants/icon-urls'
@@ -96,13 +97,13 @@ export default function StudyIndex() {
         <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.todayMinutes}</Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.todayMinutes')}
             </Text>
           </View>
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.totalMinutes}</Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.totalMinutes')}
             </Text>
           </View>
@@ -110,13 +111,13 @@ export default function StudyIndex() {
             <Text className="text-[length:44rpx] font-bold text-success">
               {info.continuousDays}
             </Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.continuousDays')}
             </Text>
           </View>
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.courses}</Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.courses')}
             </Text>
           </View>
@@ -136,7 +137,7 @@ export default function StudyIndex() {
               ) : (
                 <Text>{e.icon}</Text>
               )}
-              <Text className="flex-1 ml-[24rpx] text-[length:28rpx] text-foreground">
+              <Text className="flex-1 ml-[24rpx] text-body text-foreground">
                 {t(e.labelKey)}
               </Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
@@ -145,12 +146,12 @@ export default function StudyIndex() {
         </View>
 
         {/* 继续学习对齐 RN sectionTitle(18dp→36rpx/700)+ 课程进度卡(card: p 28rpx / 圆角 24rpx / 边框;标题 16dp→32rpx/600;进度条 h 6dp→12rpx,fill success;meta 11dp→22rpx text.tertiary) */}
-        <Text className="block text-[length:36rpx] font-bold text-foreground mb-[16rpx]">
+        <Text className="block text-subtitle font-bold text-foreground mb-[16rpx]">
           {t('study.continueLearning')}
         </Text>
         {loading ? (
           <View className="text-center py-[48rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
+            <Text className="text-body text-muted-foreground">{t('common.loading')}</Text>
           </View>
         ) : recent.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
@@ -161,7 +162,7 @@ export default function StudyIndex() {
                 hoverClass="opacity-60"
                 onClick={() => goVideo(r)}
               >
-                <Text className="block text-[length:32rpx] font-semibold text-foreground">
+                <Text className="block text-title font-semibold text-foreground">
                   {r.courseTitle}
                 </Text>
                 <View className="h-[12rpx] bg-card ui-tiny rounded-xs overflow-hidden mt-[16rpx]">
@@ -170,7 +171,7 @@ export default function StudyIndex() {
                     style={{ width: `${r.progress}%` }}
                   />
                 </View>
-                <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[16rpx] text-caption text-[var(--color-text-tertiary)]">
                   {`${t('study.recordPage.progress').replace(/\s*\{\{n\}\}\s*%?/, '')} ${r.progress}%`}
                 </Text>
               </View>
@@ -178,7 +179,7 @@ export default function StudyIndex() {
           </View>
         ) : (
           <View className="text-center py-[48rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {t('study.emptyCourse')}
             </Text>
           </View>
@@ -186,7 +187,7 @@ export default function StudyIndex() {
 
         {/* FAB 对齐 RN FloatingActionButton:48×48dp→96rpx / 圆角 12dp→24rpx / bg brand / 图标 24dp→48rpx */}
         <View
-          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-cta text-cta-foreground rounded-xl flex items-center justify-center text-[length:48rpx] shadow-md"
+          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-cta text-cta-foreground rounded-xl flex items-center justify-center text-display shadow-md"
           hoverClass="opacity-60"
           onClick={() => navigate('/pages/study/publish/index')}
         >

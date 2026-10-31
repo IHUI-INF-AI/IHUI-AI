@@ -223,7 +223,7 @@ export default function BillingPage() {
           {/* 透明性公式:每笔扣费的三个乘数一律可在下方规则里找到出处 */}
           <p
             data-testid="billing-formula"
-            className="rounded-md bg-muted/50 px-3 py-2 text-xs font-medium"
+            className="rounded-md bg-muted/50 px-3 py-2 text-label font-medium"
           >
             {t('billing.formula')}
           </p>
@@ -250,7 +250,7 @@ export default function BillingPage() {
                   className="space-y-2 rounded-lg border p-3"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{rule.displayName}</span>
+                    <span className="text-body font-medium">{rule.displayName}</span>
                     <Badge variant="outline" data-testid={`pricing-rule-mode-${rule.id}`}>
                       {t(`billing.mode_${rule.mode}`)}
                     </Badge>
@@ -268,7 +268,7 @@ export default function BillingPage() {
 
                   {/* 档位系数表:未知档位按 ×1(服务端 tierMultipliers 只列显式档位) */}
                   <div>
-                    <p className="mb-1 text-xs font-medium">{t('billing.tierTitle')}</p>
+                    <p className="mb-1 text-label font-medium">{t('billing.tierTitle')}</p>
                     {Object.keys(rule.tierMultipliers ?? {}).length === 0 ? (
                       <p className="text-xs text-muted-foreground">{t('billing.tierNone')}</p>
                     ) : (
@@ -295,7 +295,7 @@ export default function BillingPage() {
 
                   {/* 错峰窗口:人话说明由服务端拼好(timeOfDayDescriptions),直接渲染 */}
                   <div>
-                    <p className="mb-1 text-xs font-medium">{t('billing.offPeakTitle')}</p>
+                    <p className="mb-1 text-label font-medium">{t('billing.offPeakTitle')}</p>
                     {rule.timeOfDayDescriptions.length > 0 ? (
                       <ul
                         data-testid={`pricing-rule-offpeak-${rule.id}`}
@@ -349,7 +349,7 @@ export default function BillingPage() {
 
           {/* 按日:积分(credits)消耗,UTC 分桶缺日补零 */}
           <div>
-            <p className="mb-2 text-sm font-medium">{t('billing.dailyTitle')}</p>
+            <p className="mb-2 text-body font-medium">{t('billing.dailyTitle')}</p>
             {dailyUsageQuery.isLoading ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
                 {t('billingLoading')}
@@ -389,7 +389,7 @@ export default function BillingPage() {
 
           {/* 按模型:token 用量与花费(数据源 = ai-service /api/v1/ai/usage/stats) */}
           <div>
-            <p className="mb-2 text-sm font-medium">{t('billing.modelTitle')}</p>
+            <p className="mb-2 text-body font-medium">{t('billing.modelTitle')}</p>
             {aiUsageQuery.isLoading ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
                 {t('billingLoading')}

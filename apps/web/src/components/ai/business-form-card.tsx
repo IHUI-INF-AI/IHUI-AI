@@ -176,7 +176,7 @@ export function BusinessFormCard({
       data-form-request-id={requestId}
       data-form-response-state={responseState}
     >
-      <span className="text-xs font-medium text-muted-foreground">{t(`aria.${kind}`)}</span>
+      <span className="text-label font-medium text-muted-foreground">{t(`aria.${kind}`)}</span>
 
       <div className="flex flex-col gap-2">
         {fields.map((field) => (

@@ -363,7 +363,7 @@ function StatBody({
         {shown.map((s, i) => (
           <div key={i} className="rounded-lg bg-muted/60 px-3 py-2">
             <div className="truncate text-[11px] text-muted-foreground">{s.name}</div>
-            <div className="mt-0.5 font-mono text-2xl font-semibold tabular-nums text-info-text">
+            <div className="mt-0.5 font-mono text-display font-semibold tabular-nums text-info-text">
               {fmtValue(s.value, unit)}
             </div>
           </div>

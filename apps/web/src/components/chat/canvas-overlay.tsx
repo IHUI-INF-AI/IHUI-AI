@@ -165,7 +165,7 @@ export function CanvasOverlay() {
     <div className="fixed inset-0 z-modal flex flex-col bg-background">
       <div className="flex shrink-0 items-center justify-between gap-2 bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
-          <span className="max-w-[200px] truncate text-xs font-medium">
+          <span className="max-w-[200px] truncate text-label font-medium">
             {title || t('artifactPreview')}
           </span>
           {turnNav.count > 0 && (

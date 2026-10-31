@@ -43,8 +43,8 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                   <Avatar src={m.avatar} name={m.nickname} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">{m.nickname}</p>
-                      <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cfg.cls)}>
+                      <p className="truncate text-body font-medium">{m.nickname}</p>
+                      <span className={cn('rounded px-1.5 py-0.5 text-label font-medium', cfg.cls)}>
                         {cfg.label}
                       </span>
                     </div>

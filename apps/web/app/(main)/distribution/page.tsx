@@ -132,7 +132,7 @@ export default function DistributionHomePage() {
             unoptimized
           />
           <div className="min-w-0 space-y-1">
-            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
               <Gift className="h-7 w-7 text-primary" />
               {t('title')}
             </h1>
@@ -168,7 +168,7 @@ export default function DistributionHomePage() {
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
                         <Icon className="h-6 w-6 text-primary" />
-                        <span className="text-sm font-medium">{e.label}</span>
+                        <span className="text-body font-medium">{e.label}</span>
                       </CardContent>
                     </Card>
                   </Link>
@@ -195,7 +195,7 @@ export default function DistributionHomePage() {
                   {inviteeQ.isLoading ? (
                     <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
                   ) : (
-                    <div className="mt-1 text-2xl font-bold">
+                    <div className="mt-1 text-display font-bold">
                       {inviteeQ.data?.totalInvitees ?? 0}
                     </div>
                   )}
@@ -205,7 +205,7 @@ export default function DistributionHomePage() {
                   {inviteeQ.isLoading ? (
                     <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
                   ) : (
-                    <div className="mt-1 text-2xl font-bold">{inviteeQ.data?.vipInvitees ?? 0}</div>
+                    <div className="mt-1 text-display font-bold">{inviteeQ.data?.vipInvitees ?? 0}</div>
                   )}
                 </div>
               </div>

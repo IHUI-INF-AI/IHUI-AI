@@ -102,7 +102,7 @@ export function LoginHistory() {
                 ) : null}
               </p>
             </div>
-            <span className="flex items-center gap-1 text-sm font-medium text-primary">
+            <span className="flex items-center gap-1 text-body font-medium text-primary">
               {t('history.viewAll')}
               <ChevronRight className="h-4 w-4" />
             </span>

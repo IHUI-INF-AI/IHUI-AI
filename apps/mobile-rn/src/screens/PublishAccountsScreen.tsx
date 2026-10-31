@@ -23,7 +23,6 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,6 +42,7 @@ import { useI18n } from '../i18n'
 import { API_BASE_URL } from '../lib/config'
 import { ensureFreshToken } from '../lib/token'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -368,15 +368,15 @@ export default function PublishAccountsScreen() {
 
       <Modal visible={panel !== null} transparent animationType="slide" onRequestClose={closePanel}>
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={closePanel} />
+          <Tappable style={styles.mask} onPress={closePanel} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {scan ? t('publishAccounts.scanTitle') : panel?.displayName}
               </Text>
-              <Pressable onPress={closePanel} hitSlop={8} style={undefined}>
+              <Tappable onPress={closePanel} hitSlop={8}>
                 <X size={18} color={tokens.text.secondary} />
-              </Pressable>
+              </Tappable>
             </View>
 
             {scan ? (

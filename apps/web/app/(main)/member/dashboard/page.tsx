@@ -116,7 +116,7 @@ export default function MemberDashboardPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
@@ -163,7 +163,7 @@ export default function MemberDashboardPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-2.5">
-            <h2 className="text-sm font-semibold">{t('recentOrders')}</h2>
+            <h2 className="text-body font-semibold">{t('recentOrders')}</h2>
             <Link
               href="/orders"
               className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
@@ -184,12 +184,12 @@ export default function MemberDashboardPage() {
               {orders.map((o) => (
                 <li key={o.id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{o.targetTitle ?? o.orderNo}</p>
+                    <p className="truncate text-body font-medium">{o.targetTitle ?? o.orderNo}</p>
                     <p className="text-xs text-muted-foreground">
                       {dateFmt.format(new Date(o.createdAt))}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-medium">
+                  <span className="shrink-0 text-body font-medium">
                     {currencyFmt.format(Number(o.payAmount))}
                   </span>
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">

@@ -103,13 +103,13 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
                     onCheckedChange={toggleAll}
                   />
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                <th className="px-3 py-2 text-left text-label font-medium text-muted-foreground">
                   用户名
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                <th className="px-3 py-2 text-left text-label font-medium text-muted-foreground">
                   昵称
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                <th className="px-3 py-2 text-left text-label font-medium text-muted-foreground">
                   手机号
                 </th>
               </tr>

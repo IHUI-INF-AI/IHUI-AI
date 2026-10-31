@@ -260,7 +260,7 @@ export function SidebarUserRow({
         <div className="flex items-center gap-2 px-1 py-1">
           <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{user?.nickname ?? 'User'}</div>
+            <div className="truncate text-body font-medium">{user?.nickname ?? 'User'}</div>
             {user?.phone && (
               <div className="truncate text-xs text-muted-foreground">{user.phone}</div>
             )}
@@ -338,7 +338,7 @@ export function SidebarUserRow({
         // 首帧 showAuthed=false 渲染矮一号的登录按钮,rehydrate 后换成高的用户行,整条底栏上下跳 8px。
         // 这里改 h-9 + px-1:与 userTrigger、与导航项行高(NavLink h-9)三方严格同高,
         // 既消除位移,也顺带修掉「登录按钮比旁边导航项矮一截」的观感不一致。
-        'flex h-9 w-full items-center justify-center gap-1.5 rounded-sm px-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'flex h-9 w-full items-center justify-center gap-1.5 rounded-sm px-1 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
       )}
     >
       <LogIn className="h-3.5 w-3.5 shrink-0" />
@@ -374,7 +374,7 @@ export function SidebarUserRow({
       {!collapsed && (
         <span
           className={cn(
-            'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
+            'min-w-0 truncate text-body font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
           )}
         >
           {user?.nickname ?? 'User'}

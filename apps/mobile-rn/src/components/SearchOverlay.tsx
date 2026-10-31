@@ -52,6 +52,7 @@ import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 import { useSearchHistory } from '../hooks/use-search-history'
 import { useAppFrameWidth } from './Carousel'
+import { Tappable } from '@ihui/ui-native'
 
 /** 面板水平留白(对应 web `calc(100% - 2rem)` 的 2×16px) */
 const PANEL_SCREEN_MARGIN = 16
@@ -296,16 +297,14 @@ export const SearchOverlay = memo(function SearchOverlay({
                   <View>
                     <View style={styles.sectionHead}>
                       <Text style={styles.sectionLabel}>{t('common.searchHistory')}</Text>
-                      <Pressable
+                      <Tappable
                         onPress={clearHistory}
                         hitSlop={8}
                         accessibilityRole="button"
                         accessibilityLabel={t('searchHistory.clearAll')}
-
-                        style={undefined}
                       >
                         <Text style={styles.sectionAction}>{t('searchHistory.clearAll')}</Text>
-                      </Pressable>
+                      </Tappable>
                     </View>
                     {history.map((item) => (
                       <WordRow

@@ -13,6 +13,16 @@ on:
   schedule:
     - cron: '17 */6 * * *'
 
+# 2026-11-01 安全强化:显式最小权限。这三枚里本文件最该收 —— 它由 `watch: started`
+# 触发,即**任何一个 GitHub 用户给仓库点星**都会拉起它,而它拿 GITHUB_TOKEN 写 issue。
+# 此前不声明 permissions ⇒ 它用的是仓库/组织默认档位(可能是"Read and write all"),
+# 等于让外部可触发的作业带着写权跑。声明之后未列出的 scope 一律降为 none。
+# 现读全文用到的接口只有 issues 一族(create / createComment / createLabel / getLabel /
+# listComments / listForRepo / update),且**没有** actions/checkout ⇒ 只给 issues: write,
+# 连 contents: read 都不必给(少一枚是一枚)。
+permissions:
+  issues: write
+
 jobs:
   thank:
     if: github.event_name == 'watch'

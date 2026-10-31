@@ -129,7 +129,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
   )
 
   const Title = (
-    <h3 className={`line-clamp-2 font-medium ${layout === 'grid' ? 'text-sm' : 'text-sm'}`}>
+    <h3 className={`line-clamp-2 font-medium ${layout === 'grid' ? 'text-body' : 'text-body'}`}>
       {item.title}
     </h3>
   )

@@ -169,7 +169,7 @@ export function CustomNavDialog({
         type="button"
         onClick={() => (added ? onRemove(c.href) : onAdd(c.href))}
         className={cn(
-          'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium leading-none transition-colors',
+          'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 text-body font-medium leading-none transition-colors',
           'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           indented && 'pl-7',
           added ? 'text-foreground' : 'text-foreground/70',
@@ -234,7 +234,7 @@ export function CustomNavDialog({
                   <div key={bucket.groupLabel} className="flex flex-col gap-1">
                     <div
                       data-testid={`nav-custom-group-${bucket.groupLabel}`}
-                      className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+                      className="px-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/60"
                     >
                       {bucket.groupLabel}
                     </div>
@@ -256,7 +256,7 @@ export function CustomNavDialog({
                 <div key={bucket.groupLabel} className="flex flex-col gap-1">
                   <div
                     data-testid={`nav-custom-group-${bucket.groupLabel}`}
-                    className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+                    className="px-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/60"
                   >
                     {bucket.groupLabel}
                   </div>

@@ -225,7 +225,7 @@ export default function CircleDetailPage() {
         <ScrollView scrollY className="cd-scroll">
           {error ? (
             <View className="mx-[24rpx] mt-[24rpx] p-[28rpx] bg-card border-[length:2rpx] border-border rounded-lg">
-              <Text className="block text-[length:28rpx] text-destructive">{error}</Text>
+              <Text className="block text-body text-destructive">{error}</Text>
             </View>
           ) : null}
 

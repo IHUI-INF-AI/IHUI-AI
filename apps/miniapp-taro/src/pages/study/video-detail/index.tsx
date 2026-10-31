@@ -279,10 +279,10 @@ export default function VideoDetailPage() {
           />
         ) : (
           <View className="flex h-[420rpx] flex-col items-center justify-center px-[32rpx] bg-[var(--color-black)]">
-            <Text className="text-[length:28rpx] font-semibold text-[var(--color-surface-light)]">
+            <Text className="text-body font-semibold text-[var(--color-surface-light)]">
               {t('player.noUrl')}
             </Text>
-            <Text className="mt-[12rpx] text-[length:24rpx] text-[var(--color-muted-foreground)]">
+            <Text className="mt-[12rpx] text-label text-[var(--color-muted-foreground)]">
               {t('course.player')}
             </Text>
           </View>
@@ -314,7 +314,7 @@ export default function VideoDetailPage() {
           {/* 对齐 RN 共享屏 body 的「学习进度」块:进度条 + 已学节数 + 标记学完/已学完 */}
           {totalSections > 0 ? (
             <View className="mx-[24rpx] mt-[24rpx] bg-card border border-border rounded-lg p-[28rpx]">
-              <Text className="block text-[length:30rpx] font-semibold text-foreground">
+              <Text className="block text-strong font-semibold text-foreground">
                 {t('course.progress')}
               </Text>
               <View className="mt-[20rpx] h-[12rpx] w-full overflow-hidden rounded-md bg-muted">
@@ -324,7 +324,7 @@ export default function VideoDetailPage() {
                 />
               </View>
               <View className="mt-[16rpx] flex flex-row items-center justify-between">
-                <Text className="text-[length:24rpx] text-muted-foreground">
+                <Text className="text-label text-muted-foreground">
                   {t('course.progressLessons', {
                     completed: doneSectionsCount,
                     total: totalSections,
@@ -333,7 +333,7 @@ export default function VideoDetailPage() {
                 {lessonCompleted ? (
                   <View className="flex flex-row items-center gap-[8rpx] rounded-md bg-[var(--color-success-light)] px-[16rpx] py-[6rpx]">
                     <LineIcon name="check" size={24} color="var(--color-success)" />
-                    <Text className="text-[length:24rpx] font-semibold text-[var(--color-success)]">
+                    <Text className="text-label font-semibold text-[var(--color-success)]">
                       {t('course.completed')}
                     </Text>
                   </View>
@@ -343,7 +343,7 @@ export default function VideoDetailPage() {
                     hoverClass="opacity-60"
                     onClick={handleComplete}
                   >
-                    <Text className="text-[length:24rpx] font-semibold text-cta-foreground">
+                    <Text className="text-label font-semibold text-cta-foreground">
                       {completing ? t('common.loading') : t('course.complete')}
                     </Text>
                   </View>

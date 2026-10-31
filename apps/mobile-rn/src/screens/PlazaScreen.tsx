@@ -71,6 +71,7 @@ import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -477,8 +478,7 @@ export function PlazaScreen() {
               },
             ]}
             rightAction={
-              <Pressable
-                style={undefined}
+              <Tappable
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 onPress={() => setShowSearch((v) => !v)}
                 accessibilityRole="button"
@@ -489,7 +489,7 @@ export function PlazaScreen() {
                 ) : (
                   <Search size={20} color={tokens.text.medium} />
                 )}
-              </Pressable>
+              </Tappable>
             }
           />
         </NavChrome>
@@ -558,7 +558,7 @@ export function PlazaScreen() {
         animationType="fade"
         onRequestClose={() => setIdentityVisible(false)}
       >
-        <Pressable
+        <Tappable
           style={styles.categoryMask}
           onPress={() => setIdentityVisible(false)}
           accessibilityLabel={t('plaza.index.closeIdentity')}
@@ -582,7 +582,7 @@ export function PlazaScreen() {
               </View>
             </View>
             <View style={styles.identityButtons}>
-              <Pressable
+              <Tappable
                 style={[styles.identityBtn, styles.identityBtnOutline]}
                 onPress={() => {
                   // 对齐原项目 toSet:写身份 userStatus='nomal' + 关弹窗(切换发布路径视图)
@@ -595,8 +595,8 @@ export function PlazaScreen() {
                 <Text style={styles.identityBtnTextOutline}>
                   {t('plaza.index.identityFindDemander')}
                 </Text>
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
                 onPress={() => {
                   setIdentityVisible(false)
@@ -609,9 +609,9 @@ export function PlazaScreen() {
                 accessibilityLabel={t('plaza.index.identityImDev')}
               >
                 <Text style={styles.identityBtnTextPrimary}>{t('plaza.index.identityImDev')}</Text>
-              </Pressable>
+              </Tappable>
             </View>
-            <Pressable
+            <Tappable
               style={styles.identityFooter}
               onPress={() => {
                 setIdentityVisible(false)
@@ -622,9 +622,9 @@ export function PlazaScreen() {
             >
               <Text style={styles.identityFooterTitle}>{t('plaza.index.devNoticeTitle')}</Text>
               <Text style={styles.identityFooterText}>{t('plaza.index.footerDesc')}</Text>
-            </Pressable>
+            </Tappable>
           </Pressable>
-        </Pressable>
+        </Tappable>
       </Modal>
       {/* 开发者须知弹窗(对齐原项目 plaza/index.vue L110-150,5 条规则文案逐字) */}
       <Modal
@@ -633,7 +633,7 @@ export function PlazaScreen() {
         animationType="fade"
         onRequestClose={() => setNoticeVisible(false)}
       >
-        <Pressable
+        <Tappable
           style={styles.categoryMask}
           onPress={() => setNoticeVisible(false)}
           accessibilityLabel={t('plaza.index.closeDevNotice')}
@@ -662,16 +662,16 @@ export function PlazaScreen() {
                 {t('plaza.index.n5b')}
               </Text>
             </View>
-            <Pressable
+            <Tappable
               style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
               onPress={() => setNoticeVisible(false)}
               accessibilityRole="button"
               accessibilityLabel={t('common.gotIt')}
             >
               <Text style={styles.identityBtnTextPrimary}>{t('common.gotIt')}</Text>
-            </Pressable>
+            </Tappable>
           </Pressable>
-        </Pressable>
+        </Tappable>
       </Modal>
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="plaza" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />

@@ -59,7 +59,7 @@ export function LifecycleTimeline({
           <li key={meta.value} className="flex gap-3">
             <div className="flex flex-col items-center">
               <span
-                className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium ${
+                className={`flex h-6 w-6 items-center justify-center rounded-md text-label font-medium ${
                   completed ? meta.color : 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -74,7 +74,7 @@ export function LifecycleTimeline({
             </div>
             <div className="flex-1 min-w-0 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">{meta.label}</span>
+                <span className="text-body font-medium text-foreground">{meta.label}</span>
                 {isCurrent && (
                   <span className={`rounded-md px-1.5 py-0.5 text-xs ${meta.color}`}>当前</span>
                 )}

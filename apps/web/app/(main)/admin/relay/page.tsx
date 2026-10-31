@@ -187,7 +187,7 @@ export default function AdminRelayOverviewPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Server className="h-6 w-6 text-primary" />
           模型中转站
         </h1>
@@ -200,7 +200,7 @@ export default function AdminRelayOverviewPage() {
         {STATS.map((s) => (
           <Card key={s.key}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+              <CardTitle className="flex items-center justify-between gap-2 text-label font-medium text-muted-foreground">
                 <span className="min-w-0 truncate">{s.label}</span>
                 <s.icon className={`h-4 w-4 shrink-0 ${s.color}`} />
               </CardTitle>
@@ -209,7 +209,7 @@ export default function AdminRelayOverviewPage() {
               {isLoading ? (
                 <Skeleton className="h-7 w-24" />
               ) : (
-                <div className={`text-2xl font-bold tabular-nums ${s.color}`}>
+                <div className={`text-display font-bold tabular-nums ${s.color}`}>
                   {numFmt.format(stats[s.key])}
                 </div>
               )}
@@ -229,7 +229,7 @@ export default function AdminRelayOverviewPage() {
             {isLoading ? (
               <Skeleton className="h-7 w-32" />
             ) : (
-              <div className="text-2xl font-bold tabular-nums">
+              <div className="text-display font-bold tabular-nums">
                 {numFmt.format(stats.last30dTokens)}
               </div>
             )}
@@ -366,7 +366,7 @@ export default function AdminRelayOverviewPage() {
             <div className="flex items-center gap-2">
               <entry.icon className="h-5 w-5 text-primary" />
               <div>
-                <div className="text-sm font-medium">{entry.label}</div>
+                <div className="text-body font-medium">{entry.label}</div>
                 <div className="text-xs text-muted-foreground">{entry.desc}</div>
               </div>
             </div>

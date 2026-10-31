@@ -74,7 +74,7 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
                 href={`/news/${item.id}`}
                 className="block rounded-md p-1.5 transition-colors hover:bg-accent"
               >
-                <p className="text-sm font-medium leading-snug">{item.title}</p>
+                <p className="text-body font-medium leading-snug">{item.title}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t('publishedAt', { date: fmtDate(item.publishedAt) })}
                 </p>

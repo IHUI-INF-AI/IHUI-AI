@@ -46,7 +46,7 @@ export default function I18nDashboardPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Globe className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">国际化数据看板</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">国际化数据看板</h1>
         </div>
         <p className="text-xs text-muted-foreground">
           5 种语言翻译进度概览 · 平均完成度 {avgCompletionText}
@@ -56,35 +56,35 @@ export default function I18nDashboardPage() {
       <section className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">语言数量</CardTitle>
+            <CardTitle className="text-body font-medium text-muted-foreground">语言数量</CardTitle>
             <Globe className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{d.languages.length}</div>
+            <div className="text-display font-bold">{d.languages.length}</div>
             <p className="text-xs text-muted-foreground">支持的语言种类</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-body font-medium text-muted-foreground">
               缺失 Key 总数
             </CardTitle>
             <AlertCircle className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{d.totalMissing}</div>
+            <div className="text-display font-bold text-amber-600">{d.totalMissing}</div>
             <p className="text-xs text-muted-foreground">待翻译 Key 总量</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">平均完成度</CardTitle>
+            <CardTitle className="text-body font-medium text-muted-foreground">平均完成度</CardTitle>
             <Clock className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{avgCompletionText}</div>
+            <div className="text-display font-bold text-emerald-600">{avgCompletionText}</div>
             <p className="text-xs text-muted-foreground">所有语言平均</p>
           </CardContent>
         </Card>
@@ -148,7 +148,7 @@ export default function I18nDashboardPage() {
                 className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
               >
                 <span
-                  className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium"
+                  className="shrink-0 rounded px-1.5 py-0.5 text-label font-medium"
                   style={{
                     background: `${LOCALE_COLORS[u.locale] ?? CHART_BLUE}20`,
                     color: LOCALE_COLORS[u.locale] ?? CHART_BLUE,

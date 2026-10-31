@@ -123,7 +123,7 @@ export default function FeedbackPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -149,7 +149,7 @@ export default function FeedbackPage() {
             type="button"
             onClick={() => setTab(v)}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === v
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

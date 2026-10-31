@@ -18,8 +18,8 @@
   position: absolute;
   top: -8rpx;
   right: -16rpx;
-  width: 32rpx;
-  height: 32rpx;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
   background-color: var(--color-card);
   border-radius: var(--radius-sm);
   display: flex;

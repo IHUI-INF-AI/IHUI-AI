@@ -105,7 +105,7 @@ export function McpPromptManager() {
             <Card key={prompt.name}>
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-medium">{prompt.name}</span>
+                  <span className="font-mono text-body font-medium">{prompt.name}</span>
                   <div className="flex gap-1">
                     <Tooltip content={t('preview')}>
                       <Button variant="ghost" size="icon" onClick={() => setPreviewPrompt(prompt)}>
@@ -151,7 +151,7 @@ export function McpPromptManager() {
           )}
           {previewPrompt?.arguments && previewPrompt.arguments.length > 0 && (
             <div className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t('parameters')}</span>
+              <span className="text-label font-medium text-muted-foreground">{t('parameters')}</span>
               {previewPrompt.arguments.map((arg) => (
                 <div key={arg.name} className="text-xs">
                   <span className="font-mono">{arg.name}</span>
@@ -194,7 +194,7 @@ export function McpPromptManager() {
               )}
               {execMutation.isSuccess && (
                 <div className="space-y-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{t('result')}</span>
+                  <span className="text-label font-medium text-muted-foreground">{t('result')}</span>
                   <McpResultPreview result={execMutation.data} />
                 </div>
               )}

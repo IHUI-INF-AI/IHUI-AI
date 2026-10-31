@@ -124,7 +124,7 @@ export default function NotificationChannelsPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Bell className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>

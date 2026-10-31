@@ -11,7 +11,7 @@ export function MembersHeader() {
   const t = useTranslations('members')
   return (
     <header className="space-y-1">
-      <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+      <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
         <Users className="h-7 w-7 text-primary" />
         {t('title')}
       </h1>

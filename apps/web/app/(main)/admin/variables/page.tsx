@@ -115,7 +115,7 @@ export default function AdminVariablesPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">变量管理</h1>
+        <h1 className="text-display font-bold tracking-tight">变量管理</h1>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           {t('create')}

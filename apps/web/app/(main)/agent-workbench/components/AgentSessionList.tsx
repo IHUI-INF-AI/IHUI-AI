@@ -130,9 +130,9 @@ export function AgentSessionList({ agentId }: Props) {
 
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
-      <div className="px-3 py-2 text-sm font-medium">
+      <div className="px-3 py-2 text-body font-medium">
         会话历史
-        <span className="ml-2 text-xs font-normal text-muted-foreground">{sessions.length}</span>
+        <span className="ml-2 text-label font-normal text-muted-foreground">{sessions.length}</span>
       </div>
       <div className="flex-1 overflow-auto px-2 py-1">
         {loading ? (

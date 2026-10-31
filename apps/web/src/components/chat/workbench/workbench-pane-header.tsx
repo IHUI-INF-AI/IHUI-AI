@@ -41,7 +41,7 @@ export function WorkbenchPaneHeader({
       className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border px-4"
       data-workbench-header=""
     >
-      <span className="min-w-0 truncate text-sm font-medium" title={title}>
+      <span className="min-w-0 truncate text-body font-medium" title={title}>
         {title}
       </span>
       <div className="flex shrink-0 items-center gap-2">
