@@ -84,7 +84,7 @@ export function DeviceManager() {
                 ? `${t('device.lastLoginLabel')}: ${dateFormatter.format(new Date(lastLogin))}`
                 : t('device.empty')}
             </span>
-            <span className="flex items-center gap-1 text-sm font-medium text-primary">
+            <span className="flex items-center gap-1 text-body font-medium text-primary">
               {t('device.manage')}
               <ChevronRight className="h-4 w-4" />
             </span>

@@ -240,7 +240,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">{t('groups.title')}</h3>
+          <h3 className="text-body font-semibold">{t('groups.title')}</h3>
           {groups.length > 0 && (
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {groups.length}
@@ -279,14 +279,14 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                       )}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{g.name}</div>
+                      <div className="truncate text-body font-medium">{g.name}</div>
                       {g.description && (
                         <div className="truncate text-xs text-muted-foreground">
                           {g.description}
                         </div>
                       )}
                     </div>
-                    <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                    <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                       {g.memberCount}
                     </span>
                   </button>

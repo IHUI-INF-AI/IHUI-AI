@@ -80,7 +80,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
     >
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">{t('templateLibraryTitle')}</span>
+          <span className="text-body font-semibold">{t('templateLibraryTitle')}</span>
           <CloseButton aria-label={tCommon('close')} onClick={onClose} />
         </div>
 
@@ -104,7 +104,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
                 className="space-y-1.5 rounded-md border border-border bg-background px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{template.name}</span>
+                  <span className="truncate text-body font-medium">{template.name}</span>
                   <span className="shrink-0 rounded-sm bg-muted px-2 py-1 text-[10px] text-muted-foreground">
                     {matchTypeLabel(template.matchType)}
                   </span>

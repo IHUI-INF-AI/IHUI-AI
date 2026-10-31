@@ -27,7 +27,7 @@ export function ProgressStats({ stats, className, compact = false }: ProgressSta
             style={{ width: `${completionPercent}%` }}
           />
         </div>
-        <span className="text-xs font-medium tabular-nums text-muted-foreground">
+        <span className="text-label font-medium tabular-nums text-muted-foreground">
           {completionPercent}%
         </span>
       </div>

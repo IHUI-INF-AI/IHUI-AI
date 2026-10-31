@@ -113,7 +113,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
     >
       <div className="flex max-h-[85vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">{t('conflictDetectTitle')}</span>
+          <span className="text-body font-semibold">{t('conflictDetectTitle')}</span>
           <CloseButton aria-label={tCommon('close')} onClick={onClose} />
         </div>
 

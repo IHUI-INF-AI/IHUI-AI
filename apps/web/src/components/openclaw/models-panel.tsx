@@ -48,7 +48,7 @@ export function ModelsPanel() {
                 >
                   <Cpu className="h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm font-medium">{m.name}</p>
+                    <p className="break-words text-body font-medium">{m.name}</p>
                     {m.provider && (
                       <p className="break-words text-xs text-muted-foreground">{m.provider}</p>
                     )}

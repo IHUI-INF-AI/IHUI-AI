@@ -95,7 +95,7 @@ function RuleEditDialog() {
     >
       <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">
+          <span className="text-body font-semibold">
             {editingRule ? t('editRuleTitle') : t('newRule')}
           </span>
           <CloseButton aria-label={tCommon('close')} onClick={closeEditor} />

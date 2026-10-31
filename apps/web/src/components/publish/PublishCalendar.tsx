@@ -141,7 +141,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
             <Button type="button" variant="ghost" size="icon" onClick={prevMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-semibold">{monthLabel}</span>
+            <span className="text-body font-semibold">{monthLabel}</span>
             <Button type="button" variant="ghost" size="icon" onClick={nextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -225,7 +225,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
         {selectedDate && (
           <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/20 p-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">
+              <span className="text-label font-medium">
                 {selectedDate} · {t('calendar.taskCount', { count: selectedTasks.length })}
               </span>
               <Button

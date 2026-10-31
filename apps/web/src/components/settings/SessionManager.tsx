@@ -72,7 +72,7 @@ export function SessionManager() {
             <span className="text-sm text-muted-foreground">
               {t('session.activeCount', { count })}
             </span>
-            <span className="flex items-center gap-1 text-sm font-medium text-primary">
+            <span className="flex items-center gap-1 text-body font-medium text-primary">
               {t('session.manage')}
               <ChevronRight className="h-4 w-4" />
             </span>

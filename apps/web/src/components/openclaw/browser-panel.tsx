@@ -127,7 +127,7 @@ export function BrowserPanel() {
 
           {screenshot && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('browserView')}</p>
+              <p className="text-body font-medium">{t('browserView')}</p>
               <div className="relative h-80 overflow-hidden rounded-md border border-border bg-background">
                 <Image
                   src={toMediaImageUrl(
@@ -175,7 +175,7 @@ export function BrowserPanel() {
                 >
                   <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm font-medium">{tool.name}</p>
+                    <p className="break-words text-body font-medium">{tool.name}</p>
                     {tool.description && (
                       <p className="break-words text-xs text-muted-foreground">
                         {tool.description}

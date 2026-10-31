@@ -35,7 +35,7 @@ export function PlanVersionSwitcher({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <History className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Versions</span>
+          <span className="text-body font-medium">Versions</span>
           {versions.length > 0 && (
             <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
               {versions.length}
@@ -69,7 +69,7 @@ export function PlanVersionSwitcher({
               const v = e.target.value
               onSelect(v === 'latest' ? null : Number(v))
             }}
-            className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-xs font-medium outline-none"
+            className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-label font-medium outline-none"
             aria-label="Select version"
           >
             <option value="latest">Latest</option>

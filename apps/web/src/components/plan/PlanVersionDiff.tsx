@@ -73,7 +73,7 @@ export function PlanVersionDiff({
   return (
     <div className="space-y-3 rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">Compare versions</span>
+        <span className="text-body font-medium">Compare versions</span>
         <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close version diff">
           <X className="h-3.5 w-3.5" />
           <span>Close</span>
@@ -87,7 +87,7 @@ export function PlanVersionDiff({
             const v = e.target.value
             setFromVersion(v === 'live' ? null : Number(v))
           }}
-          className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-xs font-medium outline-none"
+          className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-label font-medium outline-none"
           aria-label="Diff source version"
         >
           {versions.map((v) => renderOption(v.version, v.label))}
@@ -100,7 +100,7 @@ export function PlanVersionDiff({
             const v = e.target.value
             setToVersion(v === 'live' ? null : Number(v))
           }}
-          className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-xs font-medium outline-none"
+          className="h-7 cursor-pointer rounded-sm border border-input bg-background px-2.5 text-label font-medium outline-none"
           aria-label="Diff target version"
         >
           {versions.map((v) => renderOption(v.version, v.label))}
@@ -151,7 +151,7 @@ export function PlanVersionDiff({
                   className={cn('rounded-md border-l-2 p-2.5', meta.cls)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">{change.title}</span>
+                    <span className="truncate text-body font-medium">{change.title}</span>
                     <span className="shrink-0 text-xs opacity-80">{meta.label}</span>
                   </div>
                   <p className="mt-0.5 text-xs opacity-80">{change.detail}</p>

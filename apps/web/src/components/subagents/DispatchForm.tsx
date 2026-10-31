@@ -250,7 +250,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       </div>
 
       <details className="rounded-md border">
-        <summary className="flex cursor-pointer select-none items-center gap-1 px-3 py-2 text-sm font-medium hover:bg-accent">
+        <summary className="flex cursor-pointer select-none items-center gap-1 px-3 py-2 text-body font-medium hover:bg-accent">
           <ChevronDown className="h-4 w-4" />
           {t('retryQuotaSummary')}
         </summary>
@@ -321,14 +321,14 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       </details>
 
       <details className="rounded-md border">
-        <summary className="flex cursor-pointer select-none items-center gap-1 px-3 py-2 text-sm font-medium hover:bg-accent">
+        <summary className="flex cursor-pointer select-none items-center gap-1 px-3 py-2 text-body font-medium hover:bg-accent">
           <ChevronDown className="h-4 w-4" />
           {t('dagEditorTitle')}
         </summary>
         <div className="space-y-3 p-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{t('dagNodes')}</span>
+              <span className="text-label font-medium text-muted-foreground">{t('dagNodes')}</span>
               <Button
                 type="button"
                 variant="outline"
@@ -396,7 +396,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{t('dagEdges')}</span>
+              <span className="text-label font-medium text-muted-foreground">{t('dagEdges')}</span>
               <Button
                 type="button"
                 variant="outline"

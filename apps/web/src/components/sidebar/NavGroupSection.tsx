@@ -200,7 +200,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
     return (
       <div className={isFirst ? '' : 'pt-2'}>
         {!collapsed && group.label && (
-          <div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+          <div className="px-2.5 pb-1 pt-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/60">
             {groupLabel}
           </div>
         )}
@@ -219,7 +219,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         aria-controls={contentId}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
-        className="group/grp flex w-full items-center gap-1.5 px-2.5 pb-1.5 pt-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+        className="group/grp flex w-full items-center gap-1.5 px-2.5 pb-1.5 pt-1.5 text-body font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         {group.label === 'hotGroupLabel' ? (
           <>

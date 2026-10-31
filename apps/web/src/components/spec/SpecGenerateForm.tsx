@@ -129,7 +129,7 @@ export function SpecGenerateForm({
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  <div className="text-sm font-medium">{opt.label}</div>
+                  <div className="text-body font-medium">{opt.label}</div>
                   <div className="text-xs opacity-70">{opt.desc}</div>
                 </button>
               ))}
@@ -193,7 +193,7 @@ export function SpecGenerateForm({
                       : 'border-border bg-background hover:bg-accent'
                   }`}
                 >
-                  <div className="text-sm font-medium text-foreground">{tpl.name}</div>
+                  <div className="text-body font-medium text-foreground">{tpl.name}</div>
                   <div className="text-xs text-muted-foreground">{tpl.description}</div>
                 </button>
               ))}

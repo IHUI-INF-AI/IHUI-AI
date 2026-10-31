@@ -79,11 +79,11 @@ export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
                     : undefined
                 }
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-xs font-medium tabular-nums text-muted-foreground">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-label font-medium tabular-nums text-muted-foreground">
                   {entry.position}
                 </span>
                 <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${PRIORITY_BADGE[entry.priority]}`}
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-label font-medium ${PRIORITY_BADGE[entry.priority]}`}
                 >
                   {PRIORITY_LABEL[entry.priority]}
                 </span>

@@ -338,7 +338,7 @@ export function SiteFooter({ className }: { className?: string }) {
               - 公司信息用 space-y-1,按钮用 flex flex-wrap gap-x-2 gap-y-1 */}
           <div className="flex flex-col justify-between gap-1">
             <div className="space-y-1">
-              <h3 className="text-xs font-semibold">{t('companyName')}</h3>
+              <h3 className="text-label font-semibold">{t('companyName')}</h3>
               <p className="text-[11px] leading-snug text-muted-foreground">
                 {t('addressLine1')}
                 <br />

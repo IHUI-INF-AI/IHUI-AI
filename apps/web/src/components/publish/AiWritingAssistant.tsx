@@ -268,7 +268,7 @@ export function AiWritingAssistant({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-1 text-label font-medium text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5" />
         {t('ai.title')}
       </div>

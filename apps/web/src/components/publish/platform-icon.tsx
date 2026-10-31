@@ -127,7 +127,7 @@ export function PlatformIcon({ platform, platformName, size = 28, className }: P
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary',
+        'flex shrink-0 items-center justify-center rounded bg-primary/10 text-label font-semibold text-primary',
         className,
       )}
       style={{ width: size, height: size }}

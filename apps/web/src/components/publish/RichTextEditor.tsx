@@ -548,7 +548,7 @@ export function RichTextEditor({
           data-placeholder={placeholder}
           className={cn(
             'min-h-[260px] w-full px-3 py-2.5 text-sm leading-relaxed focus-visible:outline-none',
-            '[&_.h1]:text-lg [&_.h1]:font-bold [&_.h2]:text-base [&_.h2]:font-semibold [&_.h3]:text-sm [&_.h3]:font-semibold',
+            '[&_.h1]:text-lg [&_.h1]:font-bold [&_.h2]:text-base [&_.h2]:font-semibold [&_.h3]:text-body [&_.h3]:font-semibold',
             '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground',
             '[&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:text-xs',
             '[&_img]:max-w-full [&_img]:rounded-md',

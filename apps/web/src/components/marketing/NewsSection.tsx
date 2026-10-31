@@ -46,7 +46,7 @@ export function NewsSection() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-bold tracking-tight">{t('title')}</h2>
+          <h2 className="text-heading font-bold tracking-tight">{t('title')}</h2>
         </div>
         <ViewMoreLink label={tc('more')} href="/news" />
       </div>
@@ -83,7 +83,7 @@ export function NewsSection() {
                 )}
               </div>
               <div className="space-y-1 p-3">
-                <h3 className="line-clamp-2 text-sm font-medium leading-snug">{n.title}</h3>
+                <h3 className="line-clamp-2 text-body font-medium leading-snug">{n.title}</h3>
                 {(n.authorName || n.createdAt) && (
                   <p className="line-clamp-1 text-xs text-muted-foreground">
                     {[n.authorName, n.createdAt].filter(Boolean).join(' · ')}

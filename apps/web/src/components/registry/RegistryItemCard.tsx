@@ -87,7 +87,7 @@ export function RegistryItemCard({
             <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className="shrink-0 text-xs font-medium text-muted-foreground"
+                className="shrink-0 text-label font-medium text-muted-foreground"
               >
                 {TYPE_LABEL[item.sourceType]}
               </Badge>
@@ -99,7 +99,7 @@ export function RegistryItemCard({
               <p className="line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
             )}
           </div>
-          <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-xs font-medium', st.cls)}>
+          <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-label font-medium', st.cls)}>
             {st.label}
           </span>
         </div>

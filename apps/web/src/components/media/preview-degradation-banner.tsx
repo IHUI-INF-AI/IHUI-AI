@@ -202,7 +202,7 @@ export function PreviewFileUpdatedBar({
       data-preview-state="file-updated"
       className="flex items-center justify-between gap-2 bg-card px-3 py-1"
     >
-      <span className="inline-flex h-4 items-center gap-1 text-xs font-medium leading-none">
+      <span className="inline-flex h-4 items-center gap-1 text-label font-medium leading-none">
         <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground" />
         <span>{copy('previewFileUpdated')}</span>
       </span>

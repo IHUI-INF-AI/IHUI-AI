@@ -153,7 +153,7 @@ export function IntegrationsPanel() {
                       <Plug className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium">{c.name}</p>
+                      <p className="break-words text-body font-medium">{c.name}</p>
                       <p className="break-words text-xs text-muted-foreground">{c.type}</p>
                     </div>
                     <span

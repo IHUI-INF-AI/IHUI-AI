@@ -112,7 +112,7 @@ export function McpToolParameterForm({
           <Label htmlFor={`param-${p.name}`} className="flex items-center gap-1">
             <span>{p.name}</span>
             {p.required && <span className="text-destructive">*</span>}
-            <span className="text-xs font-normal text-muted-foreground">({p.type})</span>
+            <span className="text-label font-normal text-muted-foreground">({p.type})</span>
           </Label>
           {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
           {p.enum ? (

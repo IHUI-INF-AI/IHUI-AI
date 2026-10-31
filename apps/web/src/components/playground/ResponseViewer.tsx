@@ -195,7 +195,7 @@ export function ResponseViewer({
                     className="space-y-1 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/50"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-medium">
+                      <span className="truncate text-label font-medium">
                         {item.params.model || t('unknownModel')}
                       </span>
                       <div className="flex items-center gap-1">
@@ -256,7 +256,7 @@ function StatChip({ icon, label, value }: StatChipProps) {
       <span className="text-muted-foreground">{icon}</span>
       <div className="flex flex-col">
         <span className="text-[10px] leading-none text-muted-foreground">{label}</span>
-        <span className="text-xs font-medium tabular-nums">{value}</span>
+        <span className="text-label font-medium tabular-nums">{value}</span>
       </div>
     </div>
   )

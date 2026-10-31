@@ -87,7 +87,7 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
           className="rounded-md"
         />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">{schema.platformName}</div>
+          <div className="text-body font-medium">{schema.platformName}</div>
           <div className="text-xs text-muted-foreground">{schema.helpText}</div>
         </div>
         <Badge className={cn('shrink-0 border-transparent', AUTH_BADGE_STYLE[schema.authType])}>
@@ -125,7 +125,7 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
         <CollapsibleContent className="space-y-2 pt-2">
           {FAQ_ITEMS.map((item) => (
             <div key={item.q} className="rounded-md bg-muted/50 p-2">
-              <div className="text-xs font-medium text-foreground">{item.q}</div>
+              <div className="text-label font-medium text-foreground">{item.q}</div>
               <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
                 {item.a}
               </div>

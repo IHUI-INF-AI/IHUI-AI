@@ -45,7 +45,7 @@ function RuleTestDialog() {
     >
       <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">
+          <span className="text-body font-semibold">
             {t('testRuleTitle', { name: testDialogRule.name })}
           </span>
           <CloseButton aria-label={tCommon('close')} onClick={closeTestDialog} />

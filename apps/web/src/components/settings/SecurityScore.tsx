@@ -133,7 +133,7 @@ export function SecurityScore() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold" style={{ color }}>
+                <span className="text-display font-bold" style={{ color }}>
                   {total}
                 </span>
                 <span className="text-xs text-muted-foreground">/{maxScore}</span>
@@ -141,7 +141,7 @@ export function SecurityScore() {
             </div>
 
             <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color }}>
+              <div className="flex items-center gap-1.5 text-body font-medium" style={{ color }}>
                 {levelLabel(data.level)}
               </div>
               {items.map((item) => (

@@ -154,7 +154,7 @@ export const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['com
   h2: ({ children }: { children?: React.ReactNode }) => {
     const text = String(children ?? '')
     return (
-      <h2 id={slugify(text)} className="mt-8 scroll-mt-20 text-xl font-semibold">
+      <h2 id={slugify(text)} className="mt-8 scroll-mt-20 text-heading font-semibold">
         {children}
       </h2>
     )

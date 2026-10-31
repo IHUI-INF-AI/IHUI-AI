@@ -91,7 +91,7 @@ export function HomePage4Pricing() {
     // 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
     <section className="w-full px-4 py-4 min-[640px]:py-6">
       <RevealOnView as="div" className="mb-4 text-center min-[640px]:mb-5">
-        <h2 className="text-xl font-bold tracking-tight min-[640px]:text-2xl">{t('title')}</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[640px]:text-display">{t('title')}</h2>
         <h3 className="font-edix mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
         </h3>
@@ -136,12 +136,12 @@ export function HomePage4Pricing() {
                 </div>
 
                 <div className="mb-3 flex items-baseline gap-1">
-                  <span className="text-sm font-semibold text-muted-foreground">¥</span>
+                  <span className="text-body font-semibold text-muted-foreground">¥</span>
                   <span
                     className={
                       isRecommended
-                        ? 'bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-2xl font-bold leading-none tracking-tight text-transparent'
-                        : 'text-2xl font-bold leading-none tracking-tight'
+                        ? 'bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-display font-bold leading-none tracking-tight text-transparent'
+                        : 'text-display font-bold leading-none tracking-tight'
                     }
                   >
                     {plan.price}
