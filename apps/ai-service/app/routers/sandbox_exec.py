@@ -33,10 +33,10 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core.jwt_auth import get_current_user_id
+from app.core.jwt_auth import get_current_user_id, resolve_request_role_id
 from app.services.os_sandbox import (
     BACKEND_LINUX_BWRAP,
     BACKEND_MAC_SEATBELT,
@@ -122,13 +122,26 @@ def _workspace_roots() -> list[str]:
 @router.post("/run")
 def sandbox_run(
     body: SandboxRunRequest,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """在 OS 沙箱内执行命令,返回 ExecResult + 所用后端 + 实际生效档位。
 
     ``user_id`` 是承载层注入的已验证身份,只用于**归因**(谁在服务器上起了子进程、
     谁试图自带宽松策略),不参与档位判定 —— 档位的授予源在本仓尚不存在(见交付报告)。
+
+    2026-10-31 安全强化第 10 批 R4:admin 收敛。本端点等价"以服务身份起进程"
+    (与 run_command 同级语义):档位只限资源,不限网络与文件系统 —— Windows
+    Job Object 无法限制网络与文件 ACL,Linux 无 bwrap 时更弱。对普通用户开放
+    = 任意登录账号拿登记工作区里的 .venv/Scripts/python.exe 起 ``-c <payload>``
+    即服务身份代码执行且网络可达。角色判定走 jwt_auth.resolve_request_role_id
+    单源(fail-closed,取不到按 0)。
     """
+    if resolve_request_role_id(request) < 1:
+        logger.warning(
+            "sandbox run 被拒(非管理员) actor=%s", user_id
+        )
+        raise HTTPException(status_code=403, detail="OS 沙箱执行仅管理员可用")
     actor = user_id
     roots = _workspace_roots()
     try:

@@ -1208,7 +1208,6 @@ class WinJobBackend:
         child_env = build_child_env(self.policy, merged_env)
         start = time.monotonic()
         timed_out = False
-        token_degraded = False
         job = WinJob.create()
         tmpdir = ""
         try:
@@ -1228,10 +1227,18 @@ class WinJobBackend:
                     cmd, cwd, child_env, (in_fd, out_fd, err_fd), token,
                 )
                 if proc_handle == 0 and token:
-                    # 受限令牌下 CreateProcessW 失败 → 回退原始令牌重试(标记降级)
-                    token_degraded = True
-                    proc_handle, thread_handle, _pid = self._spawn(
-                        cmd, cwd, child_env, (in_fd, out_fd, err_fd), 0,
+                    # 2026-10-31 安全强化第 10 批 R4:fail-closed —— 受限令牌下
+                    # CreateProcessW 失败即拒绝执行。原实现回退原始令牌重试(仅
+                    # stderr 标记 token_degraded):令牌降权是档位声明的安全边界,
+                    # 降权后跑不起来就按未降权身份跑 = 沙箱失效静默降级(fail-open)。
+                    # 受限令牌创建成功但 spawn 失败,通常是档位约束与命令不兼容
+                    # → 显式报错让调用方换档,绝不悄悄放开权限。
+                    close_win_handle(token)
+                    token = 0
+                    raise WinApiError(
+                        "受限令牌下 CreateProcessW 失败:档位要求令牌降权,"
+                        "降权后无法启动该命令(fail-closed,不回退原始令牌)",
+                        winerror=_winerr(),
                     )
                 if proc_handle == 0:
                     raise WinApiError("CreateProcessW 失败", winerror=_winerr())
@@ -1259,8 +1266,6 @@ class WinJobBackend:
                         os.close(fd)
             stdout_text = self._read_file(out_path)
             stderr_text = self._read_file(err_path)
-            if token_degraded:
-                stderr_text += "\n[win_job] 受限令牌降级:CreateProcessW 回退原始令牌"
             killed = (not timed_out) and self._killed_by_limit(exit_code, stderr_text)
             return ExecResult(
                 cmd=cmd,
