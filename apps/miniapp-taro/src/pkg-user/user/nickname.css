@@ -28,14 +28,14 @@
   justify-content: space-between;
 }
 .nick-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-muted-foreground);
 }
 .nick-value {
   flex: 1;
   text-align: right;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 400;
   color: var(--color-foreground);
 }
@@ -46,7 +46,7 @@
   margin-bottom: var(--spacing-sm);
 }
 .nick-count {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-text-tertiary);
 }
 .nick-input {
@@ -56,7 +56,7 @@
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   box-sizing: border-box;
 }
@@ -71,7 +71,7 @@
 }
 .nick-random-text {
   padding: var(--spacing-xs-loose) 24rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-primary);
   background: var(--color-muted);
   border-radius: var(--radius-xl);
@@ -85,13 +85,13 @@
 .nick-rules-title {
   display: block;
   margin-bottom: var(--spacing-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-muted-foreground);
 }
 .nick-rules-line {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   line-height: 1.9;
   color: var(--color-text-tertiary);
 }
@@ -103,7 +103,7 @@
   text-align: center;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   border-radius: var(--radius-xl);
   padding: 0;

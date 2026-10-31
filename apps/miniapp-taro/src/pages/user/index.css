@@ -63,14 +63,14 @@
 }
 
 .share-popup-title {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--color-foreground);
   text-align: center;
 }
 
 .share-popup-subtitle {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   text-align: center;
 }
@@ -81,7 +81,7 @@
   line-height: 88rpx;
   text-align: center;
   border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   background: var(--color-primary, var(--color-primary));
   color: var(--color-primary-foreground, var(--color-foreground));
@@ -137,7 +137,7 @@
 }
 
 .membership-benefits-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }

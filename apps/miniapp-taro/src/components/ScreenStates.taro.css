@@ -89,7 +89,7 @@
 }
 
 .ihui-state-btn-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-primary-foreground);
 }

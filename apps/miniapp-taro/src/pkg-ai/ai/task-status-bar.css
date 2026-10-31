@@ -35,7 +35,7 @@
 .task-status-bar-headline {
   flex: 1;
   min-width: 0;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 500;
   color: var(--color-foreground);
   overflow: hidden;
@@ -45,7 +45,7 @@
 
 .task-status-bar-meta {
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   font-variant-numeric: tabular-nums;
 }
@@ -74,7 +74,7 @@
 }
 
 .task-status-step-title {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   overflow: hidden;
   white-space: nowrap;

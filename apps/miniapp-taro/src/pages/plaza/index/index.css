@@ -33,7 +33,7 @@
 }
 
 .pza-page-title {
-  font-size: 36rpx;
+  font-size: var(--text-subtitle);
   font-weight: 600;
   color: var(--color-foreground);
   flex: 1;
@@ -49,7 +49,7 @@
    border border.light / 字 14dp→28rpx text.secondary;圆角按角色档 control→sm(它们是动作按钮,不是选中项) */
 .pza-nav-btn {
   padding: var(--spacing-xs-loose) 20rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   border: 1px solid var(--color-border);
@@ -120,7 +120,7 @@
 /* 标题对齐 RN cardTitle:字 16dp→32rpx / 600 / text.primary / mb 8dp→16rpx / 两行截断 */
 .pza-title {
   display: -webkit-box;
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.4;
@@ -134,7 +134,7 @@
 /* 描述对齐 RN cardDesc:字 14dp→28rpx / text.secondary / mb 8dp→16rpx / 三行截断 */
 .pza-desc {
   display: -webkit-box;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   line-height: 1.4;
   margin-bottom: var(--spacing-sm);
@@ -166,7 +166,7 @@
 }
 
 .pza-avatar-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
   line-height: 1;
 }
@@ -175,7 +175,7 @@
 .pza-author {
   flex: 1;
   min-width: 0;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,7 +185,7 @@
 /* 状态字对齐 RN footer 右侧状态:字 11dp→22rpx;已完成→success,其余→text.secondary */
 .pza-status {
   flex: none;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 
@@ -201,7 +201,7 @@
 }
 
 .pza-track {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   padding: var(--spacing-2xs) 12rpx;
@@ -215,7 +215,7 @@
 }
 
 .pza-attention-count {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   line-height: 1;
 }
@@ -232,7 +232,7 @@
 
 /* 强调行对齐 RN emptyTextStrong:字 20dp→40rpx / 700 / brandAccent */
 .pza-empty-main {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-brand-accent-deep);
   text-align: center;
@@ -240,7 +240,7 @@
 
 /* 普通行对齐 RN emptyText:字 16dp→32rpx / text.secondary */
 .pza-empty-sub {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-muted-foreground);
   text-align: center;
 }
@@ -257,7 +257,7 @@
 /* 按钮文字对齐 RN emptyBtnText:字 16dp→32rpx / 600;RN 原值 text.primary 在黑底上
    对比度不可读,按 RN chipTextActive 同规则(brand 底上用 surface.light→primary-foreground) */
 .pza-empty-btn-text {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-primary-foreground);
   font-weight: 600;
 }
@@ -267,7 +267,7 @@
   display: block;
   text-align: center;
   padding: var(--spacing-lg) 0;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -328,13 +328,13 @@
 }
 
 .pza-drawer-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
 
 .pza-drawer-close {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   color: var(--color-muted-foreground);
   line-height: 1;
 }
@@ -356,7 +356,7 @@
 }
 
 .pza-chip text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
@@ -392,13 +392,13 @@
 
 .pza-center-title {
   flex: 1;
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
 
 .pza-center-close {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   color: var(--color-muted-foreground);
   line-height: 1;
 }
@@ -430,7 +430,7 @@
 }
 
 .pza-center-label {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
@@ -448,7 +448,7 @@
 }
 
 .pza-center-detail-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-primary-foreground);
 }
 
@@ -468,7 +468,7 @@
 }
 
 .pza-sheet-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -478,7 +478,7 @@
 }
 
 .pza-sheet-item text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
