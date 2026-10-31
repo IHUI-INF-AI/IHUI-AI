@@ -352,8 +352,11 @@
   /* css-tokens:managed:begin */
   /* 间距档(源:spacing.ts 的 SPACING_STEPS)→ p-md / gap-md / m-md / size-md */
   --spacing-none: 0px;
+  --spacing-2xs: 2px;
   --spacing-xs: 4px;
+  --spacing-xs-loose: 6px;
   --spacing-sm: 8px;
+  --spacing-sm-loose: 10px;
   --spacing-md: 12px;
   --spacing-lg: 16px;
   --spacing-xl: 20px;
