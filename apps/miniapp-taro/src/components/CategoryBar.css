@@ -27,7 +27,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-xs-loose);
-  height: 64rpx;
+  height: var(--spacing-3xl);
   padding: 0 24rpx;
   /* web ITEM_BASE 是 whitespace-nowrap 且**不封顶**(现读 packages/ui-react/src/components/
      category-bar.tsx 的 ITEM_BASE);此前这里有一条 max-width 上限 ⇒ 同名分类在手机上被截、
@@ -51,8 +51,8 @@
 
 .category-bar__icon {
   flex-shrink: 0;
-  width: 32rpx;
-  height: 32rpx;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
 }
 
 .category-bar__label {
@@ -76,8 +76,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 32rpx;
-  min-width: 32rpx;
+  height: var(--spacing-lg);
+  min-width: var(--spacing-lg);
   padding: 0 8rpx;
   border-radius: var(--radius-md);
   background: var(--color-muted);

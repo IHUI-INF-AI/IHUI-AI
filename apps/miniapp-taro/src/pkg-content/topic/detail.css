@@ -139,8 +139,8 @@
 }
 
 .topic-detail-avatar {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
   border-radius: var(--radius-2xl);
   background: var(--color-muted);
   flex-shrink: 0;

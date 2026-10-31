@@ -136,8 +136,8 @@
 
 /* 勾选框(对齐 RN checkbox:16×16 圆角 4,勾选态 brand 底 + 对比色勾) */
 .reg-checkbox {
-  width: 32rpx;
-  height: 32rpx;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   margin-top: var(--spacing-sm);
@@ -220,8 +220,8 @@
 }
 
 .eye-icon {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
 }
 
 /* ===== 区号选择器(PhoneAreaCodePicker 组件用,RN 无此控件,按输入框同族样式收敛到 token) ===== */

@@ -186,8 +186,8 @@
   border-radius: var(--radius-lg);
 }
 .rn-result-icon {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   display: flex;
   align-items: center;
   justify-content: center;
