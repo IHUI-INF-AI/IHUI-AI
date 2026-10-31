@@ -28,8 +28,8 @@
 .cd-head {
   display: flex;
   align-items: center;
-  padding: 24rpx 20rpx 16rpx;
-  gap: 20rpx;
+  padding: var(--spacing-md) 20rpx 16rpx;
+  gap: var(--spacing-sm-loose);
 }
 .cd-avatar {
   width: 88rpx;
@@ -75,14 +75,14 @@
 
 /* ===== 帖子正文(对齐 RN: title 22dp→44rpx 600 primary / content 16dp→32rpx lh 22dp text.medium) ===== */
 .cd-body {
-  padding: 8rpx 20rpx 0;
+  padding: var(--spacing-xs) 20rpx 0;
 }
 .cd-title {
   display: block;
   font-size: 44rpx;
   color: var(--color-foreground);
   font-weight: 600;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 .cd-content {
   display: block;
@@ -97,8 +97,8 @@
 .cd-images {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
-  margin-top: 16rpx;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
 }
 .cd-images-single .cd-img {
   width: 420rpx;
@@ -117,12 +117,12 @@
 .cd-aigc-card {
   display: flex;
   align-items: center;
-  margin-top: 16rpx;
-  padding: 20rpx;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
 }
 .cd-aigc-cover {
   width: 96rpx;
@@ -153,8 +153,8 @@
 .cd-topic {
   display: inline-flex;
   align-items: center;
-  margin-top: 16rpx;
-  padding: 4rpx 12rpx;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-2xs) 12rpx;
   background: var(--color-card);
   border-radius: var(--radius-sm);
 }
@@ -167,16 +167,16 @@
 .cd-actions {
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  margin-top: 32rpx;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
   padding: 0 20rpx;
 }
 .cd-action {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
-  padding: 12rpx 24rpx;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs-loose) 24rpx;
   background: var(--color-card);
   border-radius: var(--radius-xl);
 }
@@ -194,14 +194,14 @@
 
 /* ===== 评论区域(扁平铺底,对齐 RN 无白卡) ===== */
 .cd-comments-section {
-  margin-top: 32rpx;
+  margin-top: var(--spacing-lg);
   padding: 0 20rpx 32rpx;
 }
 .cd-comments-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 .cd-comments-title {
   font-size: 28rpx;
@@ -212,18 +212,18 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
+  gap: var(--spacing-2xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 .cd-comments {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: var(--spacing-md);
 }
 .cd-comment {
   display: flex;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .cd-comment-avatar {
   width: 64rpx;
@@ -254,7 +254,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
 }
 .cd-comment-time {
   font-size: 22rpx;
@@ -265,7 +265,7 @@
   color: var(--color-muted-foreground);
 }
 .cd-comments-empty {
-  padding: 40rpx 0;
+  padding: var(--spacing-xl) 0;
   text-align: center;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
@@ -279,8 +279,8 @@
   bottom: 0;
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  padding: 20rpx 20rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm-loose) 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);
@@ -311,3 +311,4 @@
   background: var(--color-text-tertiary);
   color: var(--color-card);
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

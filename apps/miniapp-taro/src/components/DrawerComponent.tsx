@@ -241,7 +241,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 )}
                 <Text
                   className="mt-[8rpx]"
-                  style={{ fontSize: rpx(taroGeometry.textLabel), color: 'var(--color-foreground)' }}
+                  style={{
+                    fontSize: rpx(taroGeometry.textLabel),
+                    color: 'var(--color-foreground)',
+                  }}
                 >
                   {item.label}
                 </Text>
@@ -300,7 +303,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             {groupedData.length === 0 ? (
               <View style={{ padding: '40rpx 23rpx' }} className="text-center">
                 <Text
-                  style={{ fontSize: rpx(taroGeometry.textLabel), color: 'var(--color-muted-foreground)' }}
+                  style={{
+                    fontSize: rpx(taroGeometry.textLabel),
+                    color: 'var(--color-muted-foreground)',
+                  }}
                 >
                   {tt('DrawerComponent.empty1', '暂无历史对话')}
                 </Text>
@@ -313,7 +319,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                     {modelGroup.modelLogo ? (
                       <Image
                         src={modelGroup.modelLogo}
-                        style={{ width: rpx(taroGeometry.glyphMd), height: rpx(taroGeometry.glyphMd) }}
+                        style={{
+                          width: rpx(taroGeometry.glyphMd),
+                          height: rpx(taroGeometry.glyphMd),
+                        }}
                         mode="aspectFit"
                       />
                     ) : (
@@ -406,15 +415,18 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               }}
             >
               <View className="flex items-center">
-                {/* 头像 = 真圆族:与 RN 端 rounded-full 同形;正方盒(60×60)+ 50% 由守门 77 量形放行 */}
+                {/* 头像 = 真圆族:与 RN 端 rounded-full 同形;正方盒(48×48=24)与 web h-6 / RN USER_AVATAR_SIZE 同值 */}
                 <Image
                   src={userinfo.avatar || daixaodimingPng}
-                  style={{ width: rpx(60), height: rpx(60), borderRadius: rnRadius['2xl'] }}
+                  style={{ width: rpx(48), height: rpx(48), borderRadius: rnRadius['2xl'] }}
                   mode="aspectFill"
                 />
                 <Text
                   className="ml-[12rpx]"
-                  style={{ fontSize: rpx(taroGeometry.textStrong), color: 'var(--color-foreground)' }}
+                  style={{
+                    fontSize: rpx(taroGeometry.textStrong),
+                    color: 'var(--color-foreground)',
+                  }}
                 >
                   {userinfo.nickname || tt('profileEdit.notLoggedIn', '未登录')}
                 </Text>

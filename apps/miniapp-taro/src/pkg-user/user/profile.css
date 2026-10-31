@@ -14,7 +14,7 @@
 .pf-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx 20rpx 48rpx;
+  padding: var(--spacing-md) 20rpx 48rpx;
   box-sizing: border-box;
 }
 
@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8rpx 8rpx 24rpx;
+  padding: var(--spacing-xs) 8rpx 24rpx;
 }
 .pf-identity-label {
   font-size: 28rpx;
@@ -32,7 +32,7 @@
 .pf-identity-tags {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 .pf-tag {
   padding: 6rpx 16rpx;
@@ -99,14 +99,14 @@
 .pf-item-value {
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 /* ===== 头像行(RN 头像 48dp → 96rpx 圆形 + 半透明编辑提示) ===== */
 .pf-item-avatar {
-  padding: 24rpx;
+  padding: var(--spacing-md);
 }
 .pf-avatar-wrap {
   position: relative;
@@ -138,6 +138,6 @@
   flex: 1;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-left: 24rpx;
+  margin-left: var(--spacing-md);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

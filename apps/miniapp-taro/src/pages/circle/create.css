@@ -21,7 +21,7 @@
 .cc-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx 20rpx 200rpx;
+  padding: var(--spacing-md) 20rpx 200rpx;
   box-sizing: border-box;
 }
 
@@ -30,11 +30,11 @@
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
 }
 .cc-main {
-  padding: 24rpx;
+  padding: var(--spacing-md);
 }
 
 /* ===== 内容输入(对齐 RN input: 16dp→32rpx / text.primary;textarea minH 120dp→240rpx) ===== */
@@ -48,8 +48,8 @@
 .cc-counter {
   display: flex;
   justify-content: flex-end;
-  gap: 4rpx;
-  margin-top: 8rpx;
+  gap: var(--spacing-2xs);
+  margin-top: var(--spacing-xs);
 }
 .cc-counter-num {
   font-size: 24rpx;
@@ -65,14 +65,14 @@
   display: block;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 /* ===== 图片网格(RN 无对应区块,保留既有结构;占位底对齐页面底色) ===== */
 .cc-images {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .cc-img-item {
   position: relative;
@@ -111,7 +111,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
   background: var(--color-background);
   border: 2rpx dashed var(--color-border-medium);
   border-radius: var(--radius-md);
@@ -133,7 +133,7 @@
   align-items: center;
   height: 56rpx;
   padding: 0 24rpx;
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-md);
@@ -143,15 +143,15 @@
 }
 .cc-topic-chip-active {
   border-color: var(--color-brand);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .cc-topic-x {
-  margin-left: 12rpx;
+  margin-left: var(--spacing-xs-loose);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
 .cc-topic-more {
-  gap: 4rpx;
+  gap: var(--spacing-2xs);
   color: var(--color-muted-foreground);
 }
 .cc-topic-scroll {
@@ -161,14 +161,14 @@
 .cc-topic-list {
   display: inline-flex;
   align-items: center;
-  padding: 4rpx 0;
+  padding: var(--spacing-2xs) 0;
 }
 
 /* ===== AIGC 作品(白底行浮于 muted 输入块上) ===== */
 .cc-aigc-pick {
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-card);
@@ -195,7 +195,7 @@
   white-space: nowrap;
 }
 .cc-aigc-x {
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
@@ -243,8 +243,8 @@
 .cc-aigc-option {
   display: flex;
   align-items: center;
-  padding: 20rpx 0;
-  gap: 20rpx;
+  padding: var(--spacing-sm-loose) 0;
+  gap: var(--spacing-sm-loose);
 }
 .cc-aigc-cover {
   width: 96rpx;
@@ -262,7 +262,7 @@
   white-space: nowrap;
 }
 .cc-aigc-empty {
-  padding: 80rpx 0;
+  padding: var(--spacing-4xl) 0;
   text-align: center;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
@@ -273,11 +273,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16rpx 0;
-  gap: 16rpx;
+  padding: var(--spacing-sm) 0;
+  gap: var(--spacing-sm);
 }
 .cc-row + .cc-row {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 /* 对齐 RN label: 14dp→28rpx / text.secondary */
 .cc-label {
@@ -286,7 +286,7 @@
 }
 .cc-vis {
   display: flex;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -321,7 +321,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 20rpx 20rpx;
+  padding: var(--spacing-sm-loose) 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);
@@ -342,3 +342,4 @@
   background: var(--color-text-tertiary);
   color: var(--color-card);
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -14,13 +14,13 @@
 .member-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 64rpx; /* RN body paddingBottom 32 → 64rpx */
+  padding-bottom: var(--spacing-3xl); /* RN body paddingBottom 32 → 64rpx */
   box-sizing: border-box;
 }
 
 /* ===== Header:用户信息 + VIP 状态(对齐 RN membershipCard:深色会员卡) ===== */
 .member-header {
-  margin: 32rpx; /* RN marginHorizontal/marginTop 16 → 32rpx */
+  margin: var(--spacing-lg); /* RN marginHorizontal/marginTop 16 → 32rpx */
   padding: 28rpx; /* RN padding 14 → 28rpx */
   border-radius: var(--radius-xl);
   /* RN backgroundColor gray.800(#262626,明暗同值)→ --color-vip-card */
@@ -35,7 +35,7 @@
   height: 120rpx;
   border-radius: var(--radius-2xl);
   background: var(--color-muted);
-  margin-right: 24rpx;
+  margin-right: var(--spacing-md);
   flex-shrink: 0;
 }
 .member-user-detail {
@@ -47,7 +47,7 @@
   font-size: 40rpx; /* RN membershipLevel 20 → 40rpx */
   font-weight: 600;
   color: var(--color-surface-light); /* tk.surface.light(深色卡上对比白字) */
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -62,9 +62,9 @@
   color: var(--color-vip-card);
   font-size: 24rpx; /* RN 12 → 24rpx */
   font-weight: 600;
-  padding: 4rpx 16rpx;
+  padding: var(--spacing-2xs) 16rpx;
   border-radius: var(--radius-lg);
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
 }
 .member-vip-expire {
   font-size: 24rpx; /* RN membershipMetaText 12 → 24rpx */
@@ -88,19 +88,19 @@
   font-size: 40rpx; /* RN levelsTitle 20 → 40rpx */
   font-weight: 600;
   color: var(--color-foreground); /* tk.text.primary */
-  margin-bottom: 24rpx; /* RN marginBottom 12 → 24rpx */
+  margin-bottom: var(--spacing-md); /* RN marginBottom 12 → 24rpx */
 }
 
 /* ===== 会员等级梯度 ===== */
 .member-level-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .member-level-item {
   flex: 1 1 calc(50% - 16rpx);
   min-width: 260rpx;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -120,13 +120,13 @@
   font-size: 28rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .member-level-threshold {
   display: block;
   font-size: 22rpx; /* RN durationText 12 → 24rpx 同族细字 */
   color: var(--color-muted-foreground); /* tk.text.secondary */
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .member-level-perks {
   display: block;
@@ -156,7 +156,7 @@
   font-size: 48rpx; /* RN priceText 24 → 48rpx */
   font-weight: 700;
   color: var(--color-primary);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .member-stat-label {
   display: block;
@@ -168,12 +168,12 @@
 .member-benefits {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .member-benefit-item {
   display: flex;
   align-items: center;
-  padding: 16rpx;
+  padding: var(--spacing-sm);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -182,7 +182,7 @@
 .member-benefit-icon {
   width: 56rpx;
   height: 56rpx;
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   background: var(--color-border);
   border-radius: var(--radius-lg);
   display: flex;
@@ -207,7 +207,7 @@
   display: block;
   font-size: 24rpx; /* RN 12 → 24rpx */
   color: var(--color-muted-foreground);
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -216,7 +216,7 @@
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
 }
 .member-benefit-active {
   color: var(--color-primary);
@@ -233,20 +233,20 @@
   border-radius: var(--radius-lg);
 }
 .member-vip-info {
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 .member-vip-title {
   display: block;
   font-size: 32rpx; /* RN cardLevelName 16 → 32rpx */
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .member-vip-desc {
   display: block;
   font-size: 24rpx; /* RN durationText 12 → 24rpx */
   color: var(--color-muted-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .member-vip-price {
   display: flex;
@@ -256,7 +256,7 @@
   display: block;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 .member-price-display {
   display: flex;
@@ -267,7 +267,7 @@
   font-weight: 700;
   /* RN tk.vip.gold(#FFD700)→ --color-vip-gold-start */
   color: var(--color-vip-gold-start);
-  margin-right: 16rpx;
+  margin-right: var(--spacing-sm);
 }
 /* RN purchaseBtn:height 50 → 100rpx,gold 底 + gray.800 深字;圆角按角色档 control→sm */
 .member-vip-button,
@@ -295,12 +295,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .member-crown {
   font-size: 40rpx;
   color: var(--color-vip-card);
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
 }
 .member-permanent-text {
   font-size: 32rpx;
@@ -336,7 +336,7 @@
 /* ===== 联系客服 ===== */
 .member-contact {
   margin: 0 20rpx;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   text-align: center;
 }
 .member-contact-title {
@@ -344,7 +344,7 @@
   font-size: 28rpx;
   font-weight: 700;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: var(--spacing-xs);
 }
 .member-contact-text {
   font-size: 26rpx;
@@ -353,7 +353,7 @@
 
 /* ===== Loading ===== */
 .member-loading {
-  padding: 40rpx;
+  padding: var(--spacing-xl);
   text-align: center;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
@@ -361,7 +361,7 @@
 
 /* ===== 成长值进度条(对齐原项目 VIP 升级进度条) ===== */
 .member-progress {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 .member-progress-header {
   display: flex;
@@ -369,7 +369,7 @@
   align-items: center;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 .member-progress-current {
   font-size: 28rpx;
@@ -392,10 +392,9 @@
 }
 .member-progress-hint {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   text-align: right;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

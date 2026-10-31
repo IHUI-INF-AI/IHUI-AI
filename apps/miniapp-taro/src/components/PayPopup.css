@@ -17,8 +17,8 @@
 .pp-benefits {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
-  padding: 16rpx 20rpx;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 20rpx;
   background: var(--color-muted);
   border-radius: var(--radius-md);
 }

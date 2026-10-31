@@ -174,7 +174,7 @@ export default function PrivacySettingPage() {
                 {/* 「去设置」为小程序端补充动作(RN 无对应元素):次级 chip,
                     secondary 底 + border.light 描边,圆角对齐 card 12dp→24rpx 的一半(16rpx) */}
                 <Button
-                  className="m-0 ml-[16rpx] h-[56rpx] shrink-0 rounded-sm border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-secondary px-[24rpx] text-[length:24rpx] leading-[56rpx] text-secondary-foreground"
+                  className="m-0 ml-[16rpx] h-[56rpx] shrink-0 rounded-sm border-[length:1rpx] border-solid border-[color:var(--color-border)] bg-secondary px-[24rpx] text-label leading-[56rpx] text-secondary-foreground"
                   size="mini"
                   onClick={onOpenSetting}
                 >
@@ -196,7 +196,7 @@ export default function PrivacySettingPage() {
               <View key={item.key} className="flex items-center justify-between py-[20rpx]">
                 <View className="mr-[16rpx] min-w-0 flex-1">
                   <Text className="text-[length:28rpx] text-muted-foreground">{item.label}</Text>
-                  <Text className="mt-[4rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                  <Text className="mt-[4rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
                     {item.desc}
                   </Text>
                 </View>

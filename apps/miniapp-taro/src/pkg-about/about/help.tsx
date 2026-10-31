@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/help/HelpScreen.tsx
 
 import { useI18n } from '@/i18n'
@@ -158,7 +159,7 @@ export default function HelpPage() {
                   </Text>
                 </View>
                 {opened === h.id ? (
-                  <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-medium)] leading-[36rpx]">
+                  <Text className="block mt-[16rpx] text-body text-[var(--color-text-medium)] leading-[36rpx]">
                     {h.content}
                   </Text>
                 ) : null}
@@ -217,11 +218,11 @@ export default function HelpPage() {
               onInput={(e) => updateField('context', e.detail.value)}
             />
           </View>
-          <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] leading-[1.6] mb-[24rpx]">
+          <Text className="block text-caption text-[var(--color-text-tertiary)] leading-[1.6] mb-[24rpx]">
             {tt('about.help.submitTip', '您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理')}
           </Text>
           <Button
-            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-[length:32rpx] font-semibold rounded-sm m-0 after:border-0 disabled:opacity-60"
+            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-title font-semibold rounded-sm m-0 after:border-0 disabled:opacity-60"
             disabled={feedbackState === 'submitting'}
             onClick={submit}
           >
