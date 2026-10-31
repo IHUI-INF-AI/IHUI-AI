@@ -391,7 +391,7 @@ function resolveStyle(props, table) {
   }
 }
 
-const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w/
+const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w|pressFeedback\s*\(/
 
 /**
  * 遮罩(scrim)不算"缺按压反馈":它按下去的**结果就是关掉整层**,若再让半透黑底跟着变暗,
