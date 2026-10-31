@@ -188,14 +188,21 @@ test.describe('icon + 文字垂直对齐守门', () => {
     // 侧边栏收敛中已移出主侧边栏(edu 收进 /domains/edu 域入口、settings 归设置页统一管理),
     // 不再是 sidebar 顶层 nav 项 ⇒ 旧 testid 命中 0 元素 → "element(s) not found"。
     // 改用当前仍在主侧边栏的同型项:eduHubTitle(edu 域入口,icon+span)、help(个人组分组的
-    // 顶层项)。重点回归位点 nav-favorites(/favorites)与 nav-myLearning 保持不变。
+    // 顶层项)。
+    // 2026-10-31 修正(第三轮):nav-myLearning / nav-chatHistory 也已在 2026-10-23
+    // 「P2 收敛第二批」移出主侧边栏 —— 前者进 PERSONAL_HUB_ITEMS(/domains/personal),
+    // 后者进 AI_HUB_ITEMS(/domains/ai),nav-help 同批进 PERSONAL_HUB_ITEMS,
+    // nav-favorites 是 myLearning 的子项、随之不在顶层。旧清单在此全灭 ⇒ 换成当前
+    // 主侧边栏仍在的全部单列举:六个域入口 + 首页。它们与被删项同型(icon + span),
+    // 覆盖点(默认/hover/active 三态对齐)一个不减。
     const targetItems = [
       'nav-home',
-      'nav-chatHistory',
-      'nav-eduHubTitle', // 取代已移除的 nav-learn(edu 域入口,同型 icon+span)
-      'nav-myLearning', // ★ 重点回归位点
-      'nav-favorites',
-      'nav-help', // 取代已移除的 nav-settings(个人组顶层项)
+      'nav-ecosystemHub', // 热门组域入口
+      'nav-aiGroupLabel', // AI 域入口(2026-10-23 收敛)
+      'nav-eduHubTitle', // 教育域入口
+      'nav-contentHubTitle', // 内容域入口(2026-10-19 收敛)
+      'nav-tradeHubTitle', // 交易域入口(2026-10-19 收敛)
+      'nav-user', // 个人域入口(2026-10-23 收敛,原 myLearning 所在域)
     ]
 
     for (const testid of targetItems) {
@@ -228,17 +235,14 @@ test.describe('icon + 文字垂直对齐守门', () => {
       await page.waitForTimeout(100)
     }
 
-    // active 态:点击 /favorites 触发,然后回到其它位置
-    await scrollIntoNavSafeSpot(page, 'aside#main-sidebar [data-testid="nav-myLearning"]')
-    await page.locator('aside#main-sidebar [data-testid="nav-myLearning"]').click()
+    // active 态:点个人域入口(P2 收敛后 myLearning 所在域的顶层项)触发
+    await scrollIntoNavSafeSpot(page, 'aside#main-sidebar [data-testid="nav-user"]')
+    await page.locator('aside#main-sidebar [data-testid="nav-user"]').click()
     await page.waitForTimeout(200)
-    const activeResult = await measureAlignment(
-      page,
-      'aside#main-sidebar [data-testid="nav-myLearning"]',
-    )
+    const activeResult = await measureAlignment(page, 'aside#main-sidebar [data-testid="nav-user"]')
     expect(
       Math.abs(activeResult.delta - activeResult.expectedOffset),
-      `nav-myLearning active 态: |delta−offset| ${Math.abs(activeResult.delta - activeResult.expectedOffset).toFixed(3)}px 应 ≤ ${DELTA_THRESHOLD_PX}px`,
+      `nav-user active 态: |delta−offset| ${Math.abs(activeResult.delta - activeResult.expectedOffset).toFixed(3)}px 应 ≤ ${DELTA_THRESHOLD_PX}px`,
     ).toBeLessThanOrEqual(DELTA_THRESHOLD_PX)
   })
 
@@ -250,7 +254,7 @@ test.describe('icon + 文字垂直对齐守门', () => {
     })
     await page.waitForTimeout(200)
 
-    const testid = 'nav-myLearning'
+    const testid = 'nav-user' // 2026-10-31:原 nav-myLearning 已随 P2 收敛移出主侧边栏
     const result = await measureAlignment(page, `aside#main-sidebar [data-testid="${testid}"]`)
     expect(
       Math.abs(result.delta - result.expectedOffset),
