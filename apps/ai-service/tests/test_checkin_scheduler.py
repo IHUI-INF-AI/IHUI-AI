@@ -506,5 +506,322 @@ async def test_wb_sync_does_not_downgrade_token(monkeypatch):
     assert jwt_updates == []
 
 
+# ---------------------------------------------------------------------------
+# status():WorkBuddy 任务巡检 job 的可见性(2026-10-31)
+# 前端要能显示「自动做任务」在不在跑 / 下次何时跑 / 为什么没领奖,
+# 故 status() 补 next_run_wb_tasks + wb_tasks 五字段;这里锁口径不漂移。
+# ---------------------------------------------------------------------------
+
+
+class _FakeJob:
+    """APScheduler Job 的最小替身(只被读 next_run_time)。"""
+
+    def __init__(self, next_run_time: datetime | None) -> None:
+        self.next_run_time = next_run_time
+
+
+class _FakeAsyncIOScheduler:
+    """AsyncIOScheduler 的最小替身:只登记 job,不真起事件循环 / 线程。
+
+    get_job 按注册的 trigger 现算 next_run_time(IntervalTrigger 未 start 时
+    next_run_time 为 None,这里补算一次,让 status() 的取值路径可被断言)。
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.jobs: dict[str, dict[str, Any]] = {}
+
+    def add_job(
+        self, func: Any, *, trigger: Any, id: str, replace_existing: bool = False
+    ) -> None:
+        self.jobs[id] = {"func": func, "trigger": trigger}
+
+    def get_job(self, job_id: str) -> Any:
+        entry = self.jobs.get(job_id)
+        if entry is None:
+            return None
+        nrt = entry["trigger"].get_next_fire_time(None, datetime.now(cs._CN_TZ))
+        return _FakeJob(nrt)
+
+    def start(self) -> None:
+        return None
+
+    def shutdown(self, wait: bool = False) -> None:
+        return None
+
+
+async def _noop_async() -> None:
+    return None
+
+
+def test_status_wb_tasks_shape_when_not_started(monkeypatch):
+    """未 start:next_run_wb_tasks=None,wb_tasks 五字段齐全且类型正确。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", False)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_live_run", False)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_sweep_minutes", 180)
+    st = cs.CheckinScheduler().status()
+    assert st["next_run_wb_tasks"] is None
+    wb = st["wb_tasks"]
+    assert set(wb) == {
+        "enabled",
+        "tasks_enabled",
+        "cron_enabled",
+        "live_run",
+        "sweep_minutes",
+        "claim_path_configured",
+        "activity_path_configured",
+        "last_sweep",
+    }
+    assert isinstance(wb["enabled"], bool)
+    assert isinstance(wb["tasks_enabled"], bool)
+    assert isinstance(wb["cron_enabled"], bool)
+    assert isinstance(wb["live_run"], bool)
+    assert isinstance(wb["sweep_minutes"], int)
+    assert isinstance(wb["claim_path_configured"], bool)
+    assert isinstance(wb["activity_path_configured"], bool)
+    assert wb["enabled"] is False  # 默认 off(安全设计:不配就不跑)
+    assert wb["tasks_enabled"] is False
+    assert wb["cron_enabled"] is False
+
+
+def test_status_wb_tasks_enabled_is_both_gates(monkeypatch):
+    """enabled 必须是「任务门 ∧ 总闸」:只开任务门而总闸关 ⇒ 报 False。
+
+    这是 2026-10-31 修的口径漂移 —— start() 整个函数体套在 `if _cron_enabled()` 里,
+    内层才是 `if settings.workbuddy_tasks_enabled`。若 enabled 只报后者,前端会显示
+    「已启用」而 job 永不注册(把"没跑"写成"在跑")。
+    """
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", True)
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
+    wb = cs.CheckinScheduler().status()["wb_tasks"]
+    assert wb["tasks_enabled"] is True
+    assert wb["cron_enabled"] is False
+    assert wb["enabled"] is False  # 总闸关 ⇒ 真不会跑
+
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    wb = cs.CheckinScheduler().status()["wb_tasks"]
+    assert wb["enabled"] is True  # 两门都开才算启用
+
+
+def test_status_wb_tasks_disabled_by_setting(monkeypatch):
+    """workbuddy_tasks_enabled=False ⇒ wb_tasks.enabled=False(与 start() 同源)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")  # 签到门打开也不影响这条 job 的门
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", False)
+    st = cs.CheckinScheduler().status()
+    assert st["enabled"] is True
+    assert st["wb_tasks"]["enabled"] is False
+
+
+def test_wb_tasks_sweep_minutes_clamped_single_source(monkeypatch):
+    """节拍 clamp 只有一处(_wb_tasks_sweep_minutes):<5 抬到 5,正常值原样。"""
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_sweep_minutes", 1)
+    assert cs._wb_tasks_sweep_minutes() == 5
+    assert cs.CheckinScheduler().status()["wb_tasks"]["sweep_minutes"] == 5
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_sweep_minutes", 180)
+    assert cs._wb_tasks_sweep_minutes() == 180
+    assert cs.CheckinScheduler().status()["wb_tasks"]["sweep_minutes"] == 180
+
+
+def test_status_wb_paths_blank_not_configured(monkeypatch):
+    """领奖/上报路径置空 ⇒ configured=False(前端据此解释「为什么没领奖」)。"""
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_claim_path", "")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_activity_path", "   ")
+    wb = cs.CheckinScheduler().status()["wb_tasks"]
+    assert wb["claim_path_configured"] is False
+    assert wb["activity_path_configured"] is False
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_claim_path", "/a/{code}/claim")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_activity_path", "/v2/report")
+    wb2 = cs.CheckinScheduler().status()["wb_tasks"]
+    assert wb2["claim_path_configured"] is True
+    assert wb2["activity_path_configured"] is True
+
+
+def test_status_next_run_wb_tasks_when_started(monkeypatch):
+    """已启动单例:next_run_wb_tasks 取 get_job(_JOB_ID_WB_TASKS).next_run_time 的 ISO8601。"""
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", True)
+    nrt = datetime(2026, 10, 31, 12, 30, tzinfo=cs._CN_TZ)
+
+    class _Aps:
+        def get_job(self, job_id: str):
+            if job_id == cs._JOB_ID_WB_TASKS:
+                return _FakeJob(nrt)
+            return None
+
+    sched = cs.CheckinScheduler()
+    sched._scheduler = _Aps()  # 注入 fake,不真起调度器(无网络/DB)
+    sched._started = True
+    st = sched.status()
+    assert st["next_run_wb_tasks"] == "2026-10-31T12:30:00+08:00"
+    assert st["wb_tasks"]["enabled"] is True
+
+
+async def test_start_registers_wb_job_with_status_same_interval(monkeypatch):
+    """start() 注册的间隔 == status() 展示的 sweep_minutes(单一真源,不许两处各算)。
+
+    ensure_tables / _restore_outbound_pause 打桩,调度器换 fake ⇒ 无 DB / 无线程。
+    """
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", True)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_sweep_minutes", 1)  # 会被抬到 5
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+    assert sched._started is True
+    assert isinstance(sched._scheduler, _FakeAsyncIOScheduler)
+    entry = sched._scheduler.jobs.get(cs._JOB_ID_WB_TASKS)
+    assert entry is not None
+    assert entry["trigger"].interval == timedelta(minutes=5)
+    st = sched.status()
+    assert st["wb_tasks"]["sweep_minutes"] == 5
+    assert st["next_run_wb_tasks"] is not None  # fake 按 trigger 现算,证明取值路径通
+    await sched.stop()
+
+
+async def test_start_skips_wb_job_when_disabled(monkeypatch):
+    """workbuddy_tasks_enabled=False ⇒ start() 不注册该 job,status 两个字段同步为空/False。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", False)
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+    assert isinstance(sched._scheduler, _FakeAsyncIOScheduler)
+    assert cs._JOB_ID_WB_TASKS not in sched._scheduler.jobs
+    st = sched.status()
+    assert st["next_run_wb_tasks"] is None
+    assert st["wb_tasks"]["enabled"] is False
+    await sched.stop()
+
+
+async def test_wb_sweep_records_note_when_outbound_paused(monkeypatch):
+    """出站暂停 ⇒ 本轮跳过也要留摘要,前端才能说「上次跳过:出站限流」。"""
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 42.0)
+    await sched._workbuddy_task_sweep()
+    last = sched.status()["wb_tasks"]["last_sweep"]
+    assert last is not None
+    assert last["note"] == "出站限流暂停"
+    assert last["families"] == 0
+
+
+async def test_wb_sweep_records_note_when_no_workbuddy_account(monkeypatch):
+    """只有非 WorkBuddy 账号 ⇒ note 点名,不冒充「跑过」。"""
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+
+    async def _fake_load(label):
+        return ([{"id": 1, "platform": "trae", "jwt": "x", "device_map": {}}], {})
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    await sched._workbuddy_task_sweep()
+    last = sched.status()["wb_tasks"]["last_sweep"]
+    assert last["note"] == "无 WorkBuddy 账号"
+    assert last["accounts"] == 0
+
+
+async def test_wb_sweep_records_counts_on_success(monkeypatch):
+    """正常一轮:六族全跑,accepted/claimed 累计,note 为 None(真跑完了)。"""
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_live_run", True)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_urgency_order", "none")
+    # 节流等 0 秒:只改 random 的取值,不动全局 asyncio.sleep。
+    monkeypatch.setattr(cs.random, "uniform", lambda a, b: 0.0)
+
+    async def _fake_load(label):
+        return ([{"id": 3, "platform": "workbuddy", "jwt": "j", "device_map": {}}], {})
+
+    async def _fake_run(kind, jwt, dm, dry_run=False):
+        return {
+            "ok": True,
+            "kind": kind,
+            "accepted": ["a1"],
+            "claimed": ["a1"] if kind == "growth" else [],
+            "credit_delta": 0,
+            "energy_delta": None,
+            "reason": None,
+            "unjudged": kind == "lottery",
+        }
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(cs.workbuddy_tasks, "run_family", _fake_run)
+    await sched._workbuddy_task_sweep()
+
+    last = sched.status()["wb_tasks"]["last_sweep"]
+    assert last["note"] is None
+    assert last["dry_run"] is True or last["dry_run"] is False  # 布尔即可
+    assert last["families"] == len(cs.workbuddy_tasks.SWEEP_ORDER)
+    assert last["accepted"] == len(cs.workbuddy_tasks.SWEEP_ORDER)
+    assert last["claimed"] == 1
+    assert last["unjudged"] == 1
+    assert last["errors"] == 0
+
+
+async def test_wb_sweep_counts_errors_and_keeps_going(monkeypatch):
+    """单族异常 ⇒ errors+1 且不中断整轮(后续族照跑),note 仍为 None。"""
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_live_run", False)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_urgency_order", "none")
+    monkeypatch.setattr(cs.random, "uniform", lambda a, b: 0.0)
+
+    async def _fake_load(label):
+        return ([{"id": 5, "platform": "workbuddy", "jwt": "j", "device_map": {}}], {})
+
+    calls: list[str] = []
+
+    async def _fake_run(kind, jwt, dm, dry_run=False):
+        calls.append(kind)
+        if kind == "travel":
+            raise RuntimeError("boom")
+        return {
+            "ok": True,
+            "kind": kind,
+            "accepted": [],
+            "claimed": [],
+            "credit_delta": None,
+            "energy_delta": None,
+            "reason": None,
+            "unjudged": False,
+        }
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(cs.workbuddy_tasks, "run_family", _fake_run)
+    await sched._workbuddy_task_sweep()
+
+    last = sched.status()["wb_tasks"]["last_sweep"]
+    assert last["errors"] == 1
+    assert last["families"] == len(cs.workbuddy_tasks.SWEEP_ORDER) - 1
+    # travel 之后的族仍被执行(顺序来自 SWEEP_ORDER 单一真源)
+    assert calls[len(calls) - 1] == cs.workbuddy_tasks.SWEEP_ORDER[-1]
+    assert last["note"] is None
+
+
+async def test_wb_sweep_records_abort_note_on_outbound_pause_midway(monkeypatch):
+    """跑到一半撞出站暂停 ⇒ 摘要写「中途中止」并立刻 return,不继续打网络。"""
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_live_run", True)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_urgency_order", "none")
+    monkeypatch.setattr(cs.random, "uniform", lambda a, b: 0.0)
+
+    async def _fake_load(label):
+        return ([{"id": 6, "platform": "workbuddy", "jwt": "j", "device_map": {}}], {})
+
+    async def _fake_run(kind, jwt, dm, dry_run=False):
+        raise cs.OutboundPaused(30.0)
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(cs.workbuddy_tasks, "run_family", _fake_run)
+    await sched._workbuddy_task_sweep()
+
+    last = sched.status()["wb_tasks"]["last_sweep"]
+    assert last["note"] == "中途中止:出站限流"
+    assert last["families"] == 0
+
+
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

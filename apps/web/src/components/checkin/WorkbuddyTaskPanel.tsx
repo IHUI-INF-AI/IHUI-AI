@@ -1,13 +1,16 @@
-'use client'
-
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, ListChecks, Loader2, PlayCircle, RefreshCw } from 'lucide-react'
 
 import { Button, Label } from '@ihui/ui-react'
+import type { CheckinSchedulerStatusResponse } from '@ihui/types'
 
 import { fetchAiServiceJson } from '@/lib/api'
 
@@ -84,6 +87,37 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
   const [busy, setBusy] = React.useState<'list' | 'dry' | 'run' | null>(null)
   const [result, setResult] = React.useState<TaskRunResponse | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  // 自动巡检状态(2026-10-31):此前这条 job 对前端完全不可见,用户以为「没有自动做任务」。
+  // undefined = 还没取到;null = 服务端版本较旧不返回该字段 ⇒ 按「状态未知」呈现,
+  // 绝不把「取不到」写成「未启用」(§0.3)。
+  const [sweep, setSweep] = React.useState<CheckinSchedulerStatusResponse | null | undefined>(
+    undefined,
+  )
+  const [sweepError, setSweepError] = React.useState<string | null>(null)
+
+  const loadSweep = React.useCallback(async () => {
+    setSweepError(null)
+    try {
+      const res = await fetchAiServiceJson<CheckinSchedulerStatusResponse>(
+        '/api/checkin/scheduler/status',
+      )
+      if (!res.success || res.data === undefined) {
+        // 取不到 ≠ 未启用:标成 null 交给渲染层说「状态未知」。
+        setSweep(null)
+        setSweepError(res.error || null)
+        return
+      }
+      setSweep(res.data)
+    } catch (e) {
+      setSweep(null)
+      setSweepError(e instanceof Error ? e.message : String(e))
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (!open) return
+    void loadSweep()
+  }, [open, loadSweep])
 
   // 账号上下线时纠偏选中项:当前选中已不在列表(被删/切平台)⇒ 落回第一个可用的。
   React.useEffect(() => {
@@ -148,6 +182,42 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
     [accountId, loadTasks],
   )
 
+  // 巡检态渲染决策(纯函数式,不调 hook):把「配了却没跑」的四种情形分开说,
+  // 不让用户对着一个灰点猜。enabled 已是两门与,这里再按两门原值细分原因。
+  const sweepView = React.useMemo<{
+    tone: 'on' | 'warn' | 'off' | 'unknown'
+    text: string
+    pathsMissing: boolean
+    next: string | null
+  }>(() => {
+    if (sweep === undefined) {
+      return { tone: 'unknown', text: t('taskPanelAutoLoading'), pathsMissing: false, next: null }
+    }
+    const wt = sweep?.wb_tasks
+    if (!wt) {
+      return {
+        tone: 'unknown',
+        text: sweepError ? `${t('taskPanelAutoUnknown')}: ${sweepError}` : t('taskPanelAutoUnknown'),
+        pathsMissing: false,
+        next: null,
+      }
+    }
+    const pathsMissing = !wt.claim_path_configured || !wt.activity_path_configured
+    // 纯字符串截断(不走 toLocaleString):避免 SSR/CSR 时区差造成 hydration 抖动。
+    const iso = sweep?.next_run_wb_tasks
+    const next = iso ? iso.slice(0, 16).replace('T', ' ') : null
+    if (!wt.enabled) {
+      if (wt.tasks_enabled && !wt.cron_enabled) {
+        return { tone: 'warn', text: t('taskPanelAutoCronBlocked'), pathsMissing, next: null }
+      }
+      return { tone: 'off', text: t('taskPanelAutoOff'), pathsMissing, next: null }
+    }
+    if (!wt.live_run) {
+      return { tone: 'warn', text: t('taskPanelAutoDry'), pathsMissing, next }
+    }
+    return { tone: 'on', text: t('taskPanelAutoOn', { minutes: wt.sweep_minutes }), pathsMissing, next }
+  }, [sweep, sweepError, t])
+
   if (wbAccounts.length === 0) {
     return (
       <section className="rounded-lg border border-border bg-card px-4 py-3">
@@ -178,6 +248,50 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
       {open && (
         <div className="border-t border-border px-4 py-3">
           <p className="text-xs text-muted-foreground">{t('taskPanelDesc')}</p>
+
+          {/* 自动巡检态:让「有没有在自动跑、为什么没跑」在界面上直接可读,
+              而不是让用户去翻 .env。tone=unknown 时明确说「状态未知」不冒充未启用。 */}
+          <div
+            className={`mt-2 rounded-md border px-2 py-1.5 text-[11px] ${
+              sweepView.tone === 'on'
+                ? 'border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
+                : sweepView.tone === 'warn'
+                  ? 'border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-500'
+                  : 'border-border bg-muted/40 text-muted-foreground'
+            }`}
+            data-testid="wb-task-sweep-status"
+            data-tone={sweepView.tone}
+          >
+            <span className="font-medium">{t('taskPanelAutoTitle')}：</span>
+            <span>{sweepView.text}</span>
+            {sweepView.next && (
+              <span className="ml-1.5 font-mono">
+                {t('taskPanelAutoNext', { time: sweepView.next })}
+              </span>
+            )}
+            {sweepView.pathsMissing && (
+              <span className="mt-0.5 block">{t('taskPanelAutoPaths')}</span>
+            )}
+            {/* 上一轮巡检的战果:自动跑完却没有回执,用户等于在盲飞。note 非空
+                = 本轮未跑完(出站暂停/无账号/中途中止),原样摆出来不粉饰。 */}
+            {sweep?.wb_tasks && (
+              <span className="mt-0.5 block">
+                {(() => {
+                  const last = sweep.wb_tasks?.last_sweep
+                  if (!last) return t('taskPanelAutoLastNever')
+                  const head = t('taskPanelAutoLast', {
+                    time: last.at.slice(0, 16).replace('T', ' '),
+                  })
+                  const stats = t('taskPanelAutoLastStats', {
+                    families: last.families,
+                    accepted: last.accepted,
+                    claimed: last.claimed,
+                  })
+                  return `${head} · ${stats}${last.note ? ` · ${last.note}` : ''}`
+                })()}
+              </span>
+            )}
+          </div>
 
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <div className="min-w-[12rem]">
@@ -266,9 +380,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
                         {task.reward_credit !== null && (
                           <span className="font-mono">+{task.reward_credit}</span>
                         )}
-                        <span className="rounded bg-muted px-1.5 py-0.5">
-                          {task.status ?? '—'}
-                        </span>
+                        <span className="rounded bg-muted px-1.5 py-0.5">{task.status ?? '—'}</span>
                       </span>
                     </li>
                   ))}
@@ -316,3 +428,4 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
     </section>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

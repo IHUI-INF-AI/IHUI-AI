@@ -190,4 +190,53 @@ class HookRuntime:
                 outcome.denial_reason = (
                     reason if isinstance(reason, str) and reason else f"denied by hook '{reg.name}'"
                 )
+
+
+# ---------------------------------------------------------------------------
+# 进程级生命周期钩子登记表(接线批 2026-11-01 立)
+#
+# 背景:HookRuntime 自批 30 移植后**消费侧判据面已全量装车**(agent_loop_v2 的
+# PRE_TOOL_USE deny / additional_contexts 注入链),但构造/注入方全仓为 0 ——
+# 三处生产构造入口(agents._new_v2_loop 唯一构造入口 / engine 主循环工厂 /
+# agent_plan 计划执行)都不传 hook_runtime,`self._hook_runtime` 恒 None,
+# pre-tool-use 可编程拦截从未真正生效。本节补的正是缺失的"登记→构造→注入"一环:
+# - 登记表是进程级(代码级)唯一真相源,只许服务端 import 后
+#   `register_lifecycle_hook()` 登记;**客户端请求面拿不到这个口**,注入路径
+#   不构成任何可信主体绕过(属主 = 登记动作所在的服务端部署代码本身);
+# - 三处构造入口统一经 `build_registered_hook_runtime()` 取 runtime,不在
+#   路由层各写一份 register 时序(§0.6 单一真相源);
+# - 登记表为空 ⇒ 构造出"无钩子的 HookRuntime",run() 返回空 outcome,与
+#   接线前(self._hook_runtime=None 时的零行为变化)逐零等价。
+# ---------------------------------------------------------------------------
+
+_LIFECYCLE_HOOK_REGISTRY: list[tuple[HookKind, HookFunc, str | None, float]] = []
+
+
+def register_lifecycle_hook(
+    kind: HookKind,
+    func: HookFunc,
+    *,
+    name: str | None = None,
+    timeout: float = DEFAULT_HOOK_TIMEOUT_SECS,
+) -> None:
+    """登记一枚进程级生命周期钩子;此后每次构造 runtime 时重放 register()。"""
+    _LIFECYCLE_HOOK_REGISTRY.append((kind, func, name, float(timeout)))
+
+
+def clear_lifecycle_hook_registry() -> None:
+    """清空登记表(测试隔离唯一出口;生产热重装载亦走此处再重登记)。"""
+    _LIFECYCLE_HOOK_REGISTRY.clear()
+
+
+def lifecycle_hook_registry_size() -> int:
+    """登记表当前条目数(只读,供巡检/测试断言,不作判权输入)。"""
+    return len(_LIFECYCLE_HOOK_REGISTRY)
+
+
+def build_registered_hook_runtime() -> HookRuntime:
+    """按登记表构造 HookRuntime —— 生产三构造入口共用的唯一取 runtime 出口。"""
+    runtime = HookRuntime()
+    for kind, func, name, timeout in list(_LIFECYCLE_HOOK_REGISTRY):
+        runtime.register(kind, func, name=name, timeout=timeout)
+    return runtime
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
