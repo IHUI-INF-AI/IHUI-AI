@@ -29,7 +29,6 @@ import {
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 挂载后延迟检查的毫秒数:首屏资源/请求优先,更新检查让路。 */
 const CHECK_DELAY_MS = 3000
@@ -129,7 +128,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
         <Pressable
           onPress={dismissOtaPrompt}
           hitSlop={10}
-          style={pressFeedback(styles.closeBtn)}
+          style={styles.closeBtn}
           accessibilityRole="button"
           accessibilityLabel={t('appUpdate.close')}
         >

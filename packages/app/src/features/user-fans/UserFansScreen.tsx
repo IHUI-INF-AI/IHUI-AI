@@ -9,7 +9,6 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createUserFansStyles } from './user-fans-styles'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 粉丝列表跨端共享屏 —— RN 端(及后续任何承载端)的唯一渲染真相源。
@@ -120,10 +119,10 @@ export function UserFansScreen({
                   </View>
                 ) : (
                   <Pressable
-                    style={pressFeedback([
+                    style={[
                       styles.followBtn,
                       pendingUserId === fan.userId ? styles.btnDisabled : null,
-                    ])}
+                    ]}
                     onPress={() => onFollowBack(fan.userId)}
                     disabled={pendingUserId !== null}
                     accessibilityRole="button"
@@ -137,7 +136,7 @@ export function UserFansScreen({
             ))}
             {rows.length < total ? (
               <Pressable
-                style={pressFeedback(styles.moreBtn)}
+                style={styles.moreBtn}
                 onPress={onLoadMore}
                 disabled={loadingMore}
                 accessibilityRole="button"

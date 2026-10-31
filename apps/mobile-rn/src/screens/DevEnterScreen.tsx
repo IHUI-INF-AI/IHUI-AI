@@ -52,7 +52,6 @@ import { rpx } from '../utils/rpx'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
-import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -362,14 +361,14 @@ export default function DevEnterScreen() {
             <Text style={styles.promptContent}>{t('devEnter.offlineConfirmBody')}</Text>
             <View style={styles.promptFooter}>
               <Pressable
-                style={pressFeedback([styles.promptBtn, styles.promptCancel])}
+                style={[styles.promptBtn, styles.promptCancel]}
                 onPress={() => setOfflineTarget(null)}
                 disabled={offlining}
               >
                 <Text style={styles.promptCancelText}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable
-                style={pressFeedback([styles.promptBtn, styles.promptConfirm])}
+                style={[styles.promptBtn, styles.promptConfirm]}
                 onPress={() => void confirmOffline()}
                 disabled={offlining}
               >

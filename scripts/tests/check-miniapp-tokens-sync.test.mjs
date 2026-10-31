@@ -37,6 +37,9 @@ import { gitBinary, Undetermined } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-miniapp-tokens-sync.mjs'
 import { __test__ as gen } from '../sync-miniapp-tokens.mjs'
 
+// 注册区块头有两种形态(@theme / @theme static),统一走生成器导出的选择器清单 —— 不在测试里复制判断。
+const themeRanges = (css) => gen.THEME_SELECTORS.flatMap((s) => gen.topLevelRanges(css, s)).sort((a, b) => a.open - b.open)
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const SCRIPTS_DIR = resolve(REPO, 'scripts')
@@ -88,7 +91,9 @@ function tamperRegionFirstDecl(css, selector, action, onlyNames = null) {
 
 /** 注册区第一条声明被删/被改 ⇒ 只可能红在 @theme 面。 */
 function tamperThemeRegion(css, action) {
-  return tamperRegionFirstDecl(css, '@theme', action)
+  // 块头两形态(@theme / @theme static),按**实有**的那一种取材 —— 与生成器共用同一份选择器清单。
+  const sel = gen.THEME_SELECTORS.find((s) => gen.topLevelRanges(css, s).length > 0) ?? gen.THEME_SELECTORS[0]
+  return tamperRegionFirstDecl(css, sel, action)
 }
 
 /** 真仓两面的受管档清单(生成器那侧算出来的),所有断言都以它为基准,不手抄数字。 */
@@ -275,7 +280,7 @@ test('T2a 真仓派生态(GENERATED)三对面必须全绿 —— 否则本门是
   assert.deepEqual(r.rgbInTheme, [], `脏档:${JSON.stringify(r.rgbInTheme)}`)
   // 阳性对照:派生态里真的有注册区且恰好一块 —— 否则上面三条是空转
   assert.ok(GENERATED.includes(gen.THEME_REGION_MARK), '生成器没产出注册区 ⇒ 本条断言失去意义')
-  assert.equal(gen.topLevelRanges(GENERATED, '@theme').length, 1)
+  assert.equal(themeRanges(GENERATED).length, 1)
 })
 
 test('T2b 真仓现状:红只可能来自尚未落地的 @theme 面(:root/.dark 两维不得因本票变红)', () => {
@@ -292,7 +297,7 @@ test('T2b 真仓现状:红只可能来自尚未落地的 @theme 面(:root/.dark 
 })
 
 test('T2c 注册区整族缺失 ⇒ 缺档数恰等于注册集(门不得因为"副本没有这个区"而记绿)', () => {
-  const b = gen.topLevelRanges(GENERATED, '@theme')[0]
+  const b = themeRanges(GENERATED)[0]
   const markAt = GENERATED.lastIndexOf(gen.THEME_REGION_MARK, b.open)
   assert.ok(markAt >= 0, '标记注释在块之前 —— 取不到就说明首次落地的块与标记脱开了')
   const noRegion = GENERATED.slice(0, markAt) + GENERATED.slice(b.end + 1)
@@ -301,7 +306,7 @@ test('T2c 注册区整族缺失 ⇒ 缺档数恰等于注册集(门不得因为"
   const r = gate.compare({ tokensCss: TOKENS, appCss: noRegion })
   assert.equal(r.missing.length, want, JSON.stringify(r.missing.slice(0, 3)))
   assert.ok(r.missing.every((m) => m.block === '@theme'))
-  assert.equal(gen.topLevelRanges(noRegion, '@theme').length, 0, '夹具里注册区应当真的不存在')
+  assert.equal(themeRanges(noRegion).length, 0, '夹具里注册区应当真的不存在')
 })
 
 // ─── T3 判据错的那一侧:非受管档绝不得算缺(255 红点里的 88 条即此) ───
@@ -372,7 +377,7 @@ test('T5b 注册档值不等 ⇒ 必判漂移、点名 @theme 面与档名(任�
 
 // ─── T5c 反向:@theme 里塞进 -rgb ⇒ 判脏档,而不得顺手把该档算成"注册区缺它" ───
 test('T5c 注册区混入 alpha 三元组 ⇒ 判脏档且 missing/mismatches 不受污染', () => {
-  const b = gen.topLevelRanges(GENERATED, '@theme')[0]
+  const b = themeRanges(GENERATED)[0]
   const rgbName = gen.deriveMiniappManaged(TOKENS, 'light').find((d) => gen.isAlphaRgbTriple(d.name)).name
   const dirty = `${GENERATED.slice(0, b.bodyStart)}\n  ${rgbName}: 1, 2, 3;${GENERATED.slice(b.bodyStart)}`
   const r = gate.compare({ tokensCss: TOKENS, appCss: dirty })
@@ -931,7 +936,7 @@ test('T21 注册区的写回侧与判定侧各自的装车点必须在位', () =
   assert.match(bodyOfMerge, /planAppCssRegions\(withTheme/, '区间必须在插入之后重算(沿用旧下标就是越界改写)')
   // 判定侧(区):planAppCssRegions 必须按**标记**定位注册区,而不是"第几个块数"
   assert.match(genSrc, /markerRange\(css, THEME_REGION_MARK/, '注册区必须走标记定位(与另外 5 区同一套路)')
-  assert.match(genSrc, /topLevelRanges\(css, '@theme'\)/, '注册区块体必须走注释感知的 topLevelRanges(否则散文里的 @theme 会被当块)')
+  assert.match(genSrc, /THEME_SELECTORS\.flatMap\(\(s\) => topLevelRanges\(css, s\)\)/, '注册区块体必须走注释感知的 topLevelRanges(否则散文里的 @theme 会被当块),且两形态选择器走同一份清单')
   // 判定侧(门):必须 import 生成器的两个出口,不得自己再筛一遍。
   // "不得再筛一遍"只能在**代码面**上判(剥注释 + 剥字符串):门里的散文与报错文案
   // 本来就要写出 `-rgb` 这个词,按全文判会把"解释这条禁令本身"当成违规。
@@ -948,7 +953,7 @@ test('T21 注册区的写回侧与判定侧各自的装车点必须在位', () =
   assert.equal(gateCode.includes('-rgb'), false, "门里不得出现第二份 '-rgb' 字面量/正则(第二份真相)")
   // 标记只有一份,且派生态里恰好一块
   assert.equal(genSrc.includes("export const THEME_REGION_MARK = '/* ===== v4 色档注册(自动同步自'"), true)
-  assert.equal(gen.topLevelRanges(GENERATED, '@theme').length, 1, '派生态里注册块必须恰好一个')
+  assert.equal(themeRanges(GENERATED).length, 1, '派生态里注册块必须恰好一个')
   // buildAppCssMaps 的 theme 集 == deriveThemeRegistryDecls(写回面与派生出口同一份)
   // 直接对账出口本身,不在测试里重算"色档剔 -rgb ∪ 非色档"——重算就是第二份判据(§22c)。
   const maps = gen.buildAppCssMaps(TOKENS)
