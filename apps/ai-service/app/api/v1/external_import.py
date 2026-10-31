@@ -17,9 +17,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
+from ...core.inbound_identity import resolve_inbound_actor
 from ...services.external_runtime_import import apply_bundle, parse_external_bundle
 
 router = APIRouter()
@@ -37,19 +38,19 @@ class ImportBundleRequest(BaseModel):
 @router.post("/bundle")
 async def import_bundle(
     req: ImportBundleRequest,
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
-    authorization: str | None = Header(default=None),
+    request: Request,
 ) -> dict[str, Any]:
     """导入一个外部运行时 bundle(memory/automations 两维真写,capabilities 声明,sessions 让位)。"""
-    # 身份链:只认内部通道 X-User-Id(经 internal_ticket 中间件注入,LLM 不可控);
-    # Bearer JWT 的主体裁决在 api 侧,本端点不从 JWT 自行解主体(§5:身份不得
-    # 从客户端可整写面反推)。import authorization 仅防未用形参告警。
-    _ = authorization
-    user_id = x_user_id
+    # 身份链(2026-11-01 安全强化):主体只经 inbound_identity 这一份出口取 ——
+    # 已验签内网头的签名载荷 sub,或已验签 JWT 的主体。原实现读 `Header(alias="X-User-Id")`
+    # 的字面值并注释称"经 internal_ticket 中间件注入":本进程从无此注入,那枚头就是客户端
+    # 可整写字段,任何登录用户带 `X-User-Id: <受害者 uuid>` 即可把导入产物写成他人归属
+    # (AGENTS §5「身份不得住客户端可整写字段」)。形状校验保留,但作用在已验证主体上。
+    user_id = resolve_inbound_actor(request)
     if not user_id or not _USER_ID_RE.fullmatch(user_id):
         return {
             "code": 401,
-            "message": "无法确定调用者身份:导入产物必须归属到人(内部通道 X-User-Id)",
+            "message": "无法确定调用者身份:导入产物必须归属到已验签的主体",
             "data": None,
         }
     parsed = parse_external_bundle(req.bundle)

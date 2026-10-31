@@ -18,9 +18,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Request
 from pydantic import BaseModel, Field
 
+from ...core.inbound_identity import inbound_actor_or_401
 from ...services.knowledge_writer import knowledge_writer
 
 router = APIRouter()
@@ -50,11 +51,15 @@ class LinkRequest(BaseModel):
     unlink: bool = False
 
 
-def _require_internal(user_id: str | None) -> tuple[str | None, dict[str, Any]]:
-    """内部通道身份窄化;不合格返回 (None, 401 响应)。"""
-    if not user_id:
-        return None, {"code": 401, "message": "无法确定调用者身份:知识写面必须归属到人", "data": None}
-    return user_id, {}
+def _require_internal(request: Request) -> tuple[str | None, dict[str, Any]]:
+    """内部通道身份窄化;不合格返回 (None, 401 响应)。
+
+    2026-11-01 安全强化:主体只经 `resolve_inbound_actor`(已验签内网头 / 已验签 JWT)
+    取得。原实现把 `Header(alias="X-User-Id")` 的字面值直接当身份,并注释称该头由
+    internal_ticket 中间件注入 —— 本进程从无此注入,明文头即客户端可整写,于是任何
+    登录用户都能带 `X-User-Id: <受害者 uuid>` 以他人归属写/改/删知识卡。
+    """
+    return inbound_actor_or_401(request)
 
 
 def _bearer_token(authorization: str | None) -> str | None:
@@ -66,10 +71,10 @@ def _bearer_token(authorization: str | None) -> str | None:
 @router.post("/cards")
 async def write_card(
     req: WriteCardRequest,
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    request: Request,
 ) -> dict[str, Any]:
     """创建知识卡片(内部通道;api 侧标 source='agent')。"""
-    user_id, deny = _require_internal(x_user_id)
+    user_id, deny = _require_internal(request)
     if deny:
         return deny
     out = await knowledge_writer.write_card(
@@ -90,11 +95,11 @@ async def write_card(
 async def update_card(
     card_id: str,
     req: UpdateCardRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """更新卡片(Bearer「仅本人」通道)。"""
-    user_id, deny = _require_internal(x_user_id)
+    user_id, deny = _require_internal(request)
     if deny:
         return deny
     api_token = _bearer_token(authorization)
@@ -115,11 +120,11 @@ async def update_card(
 @router.delete("/cards/{card_id}")
 async def delete_card(
     card_id: str,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """删除卡片(Bearer「仅本人」)。"""
-    user_id, deny = _require_internal(x_user_id)
+    user_id, deny = _require_internal(request)
     if deny:
         return deny
     api_token = _bearer_token(authorization)
@@ -132,11 +137,11 @@ async def delete_card(
 async def link_cards(
     card_id: str,
     req: LinkRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, Any]:
     """链接/解除链接(Bearer;读改写 context.links)。"""
-    user_id, deny = _require_internal(x_user_id)
+    user_id, deny = _require_internal(request)
     if deny:
         return deny
     api_token = _bearer_token(authorization)
