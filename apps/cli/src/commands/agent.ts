@@ -47,6 +47,7 @@ import {
   getHubRemoteToolDangerLevel,
   enableToolHub,
   setHubRemoteRegistry,
+  WORKTREE_TOOLS,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
@@ -401,6 +402,9 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     agentId: opts.agentId,
   }));
   const settings = loadSettings();
+  // 会话级 worktree 隔离(enter_worktree / exit_worktree):与子代理隔离腿同一套创建/回收实现。
+  // 无条件注册:是否真的需要隔离由模型按任务决定,注册面不能替它预判(与 git 族同档)。
+  registerTools(WORKTREE_TOOLS);
   if (opts.subagentParent) {
     registerTools([createSubagentTool({
       modelId: opts.subagentParent.modelId,

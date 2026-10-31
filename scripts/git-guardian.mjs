@@ -5073,6 +5073,115 @@ export function sweepStaleClaimMarks(opts = {}) {
   }
 }
 
+const LESSON_DRAFT_INTERVAL_MS = Number(process.env.IHUI_LESSON_DRAFT_INTERVAL_MS || 5 * 60 * 1000)
+const LESSON_DRAFT_COOLDOWN_MS = Number(
+  process.env.IHUI_LESSON_DRAFT_COOLDOWN_MS || 60 * 60 * 1000,
+)
+const LESSON_DRAFT_WINDOW_HOURS = Number(process.env.IHUI_LESSON_DRAFT_WINDOW_HOURS || 24)
+const LESSON_DRAFT_LIMIT = 50
+/** 候选稿落点:gitignored(§15);写回面(AGENTS.md / memory)结构上不碰,只报候选。 */
+const LESSON_DRAFT_OUT_REL = '.ihui-agent/tmp/lesson-draft'
+
+/**
+ * 经验提炼派发腿(2026-10-31 立,与 sweepBannedBuckets / sweepStaleClaimMarks 同型)。
+ *
+ * 立因:器物 `scripts/lesson-draft.mjs` 早已造好(只读 git log、只写候选稿、frontmatter 恒
+ * `writeBack: immutable-exempt-required`),但全仓**没有任何调度器调用它** —— 只能人工敲,
+ * 于是"每次改动/事故后提炼教训"这一步结构上永远不发生(§0.9:造好没装车 = 没有)。
+ *
+ * 边界(与票面一致):本腿只把候选稿落到 `.ihui-agent/tmp/lesson-draft/`,**写回 AGENTS.md /
+ * memory 仍归人工**(AGENTS.md 在 immutable-guard 的 rule-doc 面 + 96,000 B 体积门;那里自动
+ * 写一步等于同时绕过两道护栏)。所以本函数体内只有 tickFile 一个写盘目标,不出现任何写回面。
+ *
+ * 三态读数只认器物自己的 `LESSON-DRAFT-RESULT` 结论行(§0.3,不复制器物判据):
+ *  `state=ok` ⇒ 产出候选(drafted);`undetermined + reason=no-extractable-lesson` ⇒ 跑通了但
+ *  零可提炼(clean,零写);其余(取不到 git / 区间为空 / 读不到结论行)⇒ 未判定,不记绿。
+ * `state=empty` 按未判定处理:区间内 0 枚提交是"没取到输入",不是"没有教训"。
+ *
+ * 节流(照 scrub-temp-fixtures 2026-10-30 的教训):戳**只在判完之后**写 —— 先写后判会把
+ * "整轮没跑成"记成"刚跑过";未判定档冷却 1 小时,判过档 5 分钟。器物不在位 ⇒ 明报跳过,
+ * 不写戳(补回器物后下一轮立刻能跑)。
+ */
+export function sweepLessonDraft(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = LESSON_DRAFT_INTERVAL_MS,
+    cooldownMs = LESSON_DRAFT_COOLDOWN_MS,
+    windowHours = LESSON_DRAFT_WINDOW_HOURS,
+    limit = LESSON_DRAFT_LIMIT,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'lesson-draft-sweep-last.json'),
+    outDir = join(WORKTREE, '.ihui-agent', 'tmp', 'lesson-draft'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script = scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'lesson-draft.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 经验提炼:器物不在位(scripts/lesson-draft.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const lastAt = tick ? Date.parse(String(tick.attemptAt ?? '').trim()) : NaN
+  const lastJudged = tick?.judged === true
+  if (Number.isFinite(lastAt) && now - lastAt < (lastJudged ? intervalMs : cooldownMs)) {
+    return { ran: false, why: lastJudged ? '未到节流窗口' : '未判定冷却中' }
+  }
+  // 窗口用固定回看(器物只接受 ISO 单点时刻,相对时间不可复现);同名候选稿覆盖写,幂等。
+  const since = new Date(now - windowHours * 3600 * 1000).toISOString()
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--since', since, '--out', outDir, '--limit', String(limit)], 5 * 60 * 1000)
+  const resultLine = String(r.stdout ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.match(/LESSON-DRAFT-RESULT\s+state=([A-Za-z-]+)(.*)$/))
+    .find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const drafted = state === 'ok'
+  const clean = state === 'undetermined' && kv('reason') === 'no-extractable-lesson'
+  const judged = drafted || clean
+  const tickBody = {
+    attemptAt: new Date(now).toISOString(),
+    judged,
+    state: drafted ? 'drafted' : clean ? 'clean' : 'undetermined',
+    since,
+    commits: kv('commits') ?? null,
+    written: drafted ? Number(kv('written') ?? 0) : 0,
+    reason: judged ? null : (kv('reason') ?? state ?? 'no-result-line'),
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify(tickBody), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 经验提炼:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  if (drafted) {
+    logger(
+      `✅ 经验提炼:产出 ${tickBody.written} 条候选稿(commits=${kv('commits') ?? '?'} skipped=${kv('skipped') ?? '?'}),落 ${LESSON_DRAFT_OUT_REL}(写回仍须人工)`,
+    )
+    return { ran: true, judged: true, ok: true, state: 'drafted', written: tickBody.written }
+  }
+  if (clean) {
+    logger(
+      `ℹ️ 经验提炼:判过,零可提炼候选(commits=${kv('commits') ?? '?'} skipped=${kv('skipped') ?? '?'})⇒ 零写`,
+    )
+    return { ran: true, judged: true, ok: true, state: 'clean' }
+  }
+  logger(
+    `⚠️ 经验提炼:未判定(state=${state ?? '读不到结论行'} reason=${kv('reason') ?? '?'})⇒ 不记通过,${Math.round(cooldownMs / 60000)} 分钟后重试`,
+  )
+  return { ran: true, judged: false, ok: false, state: 'undetermined' }
+}
+
 const DANGLING_AUTOTAG_INTERVAL_MS = Number(
   process.env.IHUI_DANGLING_AUTOTAG_INTERVAL_MS || 15 * 60 * 1000,
 )
@@ -9577,6 +9686,10 @@ function main() {
     // 维三以「HEAD 面无此行」为前提,结构上打不到这一型 ⇒ 由本腿 5 分钟级自动摘回并留痕;
     // 与守门 268(check-head-recall-stock,差值棘轮)同批 —— 只拦不清会留假读数窗口,只清不拦下轮照带。
     if (!CHECK_ONLY) sweepHeadRecallRows()
+    // 经验提炼(2026-10-31 立):器物 scripts/lesson-draft.mjs 早已造好却零调度器 ⇒ 只能人工敲,
+    // "每次改动/事故后提炼教训"结构上永不发生。本腿 5 分钟节流产出候选稿到 gitignored 目录;
+    // 写回 AGENTS.md / memory 仍留人工(那边是 rule-doc + 体积门,自动写即绕护栏)。
+    if (!CHECK_ONLY) sweepLessonDraft()
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
@@ -9674,6 +9787,9 @@ function main() {
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
     // 正在干活的席位会续租 ⇒ 天然落在射程外;裸标记由器物自己按 CL4 同批依据代摘。
     if (!CHECK_ONLY) sweepStaleClaimMarks()
+    // 经验提炼(与上方清扫族同格:同 tick、同"读不到记未判定"口径):候选稿只落盘不写回,
+    // 未判定档 1 小时冷却 —— 挂进 CHECK_ONLY 早退分支等于永不执行(本文件已踩过两次)。
+    if (!CHECK_ONLY) sweepLessonDraft()
     // 清扫背离巡检(2026-10-23 立,机主令"要"):上面两把清扫器的节流台账都在动、摘除留痕
     // 却静默 > 2h 且 HEAD 面还有本轮真会动手的可清存量 ⇒ 器物在仓、派发点在、就是干不成活
     // (10-22 护栏③整批让路 / 10-23 摘除不写留痕,两度实证)。只读探针,不改退出码、不喊人
@@ -10924,6 +11040,9 @@ export const __test__ = {
   sweepBannedBuckets,
   sweepHeadRecallRows,
   sweepStaleClaimMarks,
+  // 经验提炼派发腿(2026-10-31 接线;镜像测试 lesson-draft-dispatch 按名 import,不复制判据 §22c;
+  // 不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
+  sweepLessonDraft,
   // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
   // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。
   sweepExposedCredentialRotation,

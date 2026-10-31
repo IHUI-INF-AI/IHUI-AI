@@ -41,6 +41,11 @@ export const DEFAULT_SETTINGS: Settings = {
   fsWatcher: { enabled: false },
   announcements: { enabled: false },
   clipboard: { enabled: false },
+  // G-22:插件两档显式登记默认态(此前缺省未声明,判不出默认值)。取值与消费方
+  // `settings.plugins?.enabled === true` / `settings.pluginMarketplace?.enabled === true`
+  // 的实际行为一致 —— 只是把"未声明即关闭"变成可读的契约,不改变任何默认。
+  pluginMarketplace: { enabled: false },
+  plugins: { enabled: false },
   // P2-6 Voice STT:默认开启(2026-07-28 改,ai-service 已用 faster-whisper 本地推理,零成本)
   voice: { enabled: true, durationSec: 5 },
   // P3-1 Mermaid 渲染:默认关闭(零回归)

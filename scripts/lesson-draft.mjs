@@ -43,8 +43,8 @@ export const RESULT_TAG = 'LESSON-DRAFT-RESULT'
 export const SELFTEST_TAG = 'LESSON-DRAFT-SELFTEST'
 export const WRITE_BACK = 'immutable-exempt-required'
 
-/** git 记录格式:四段字段,末段是 --name-only 的路径块(见 parseLogOutput 的注释)。 */
-export const LOG_FORMAT = `--format=%H%x1f%s%x1f%b%x1f%x1e`
+/** git 记录格式:**分隔符前置**(见 parseLogOutput 的注释)。 */
+export const LOG_FORMAT = `--format=%x1e%H%x1f%s%x1f%b%x1f`
 
 const USAGE = [
   '用法:node scripts/lesson-draft.mjs --since <ISO> [--out <file|dir>] [--json] [--limit N]',
@@ -53,10 +53,11 @@ const USAGE = [
 ].join('\n')
 
 /**
- * 解析 `git log --name-only --format=%H\x1f%s\x1f%b\x1f\x1e` 的输出。
- * 记录布局:每个 chunk 被 \x1e 切成 `<sha>\x1f<subject>\x1f<body>\x1f\n\n<names>\n`
- * —— 路径块落在**本记录的 \x1e 之后**,所以字段分隔符必须在 \x1e 之前再写一枚,否则
- * 路径会被读进下一条记录(这正是 --name-only 与自定义 --format 混用的老坑)。
+ * 解析 `git log --name-only --format=%x1e%H\x1f%s\x1f%b\x1f` 的输出。
+ * 记录布局:每 chunk = `<sha>\x1f<subject>\x1f<body>\x1f\n\n<names>\n` —— `%x1e` 必须写在
+ * 格式串**开头**:`git log` 恒把 `--name-only` 的路径块打在本条 format 输出**之后**,所以
+ * 分隔符若写在结尾,路径就落进下一 chunk、本条 changedFiles 恒为空、下一条又被路径污染到
+ * sha 校验失败而整条丢弃(G-14 接线实测:24h 内明明有提交却永远报 empty-interval)。
  */
 export function parseLogOutput(raw) {
   const records = []
@@ -143,19 +144,18 @@ export function isShaLike(value) {
 /** 读 git log(只读)。返回 {records} 或抛 Undetermined(取不到面就明确未判定,不回落空集)。 */
 export function readCommits({ since, commit, limit }) {
   if (commit) {
-    const full = String(
-      gitRaw(['rev-parse', '--verify', `${commit}^{commit}`], ROOT).stdout ?? '',
-    ).trim()
+    // gitRaw 在 utf8 下**直接返回字符串**(不是 {stdout});此前这里多取了一层 `.stdout`,
+    // 于是 `--commit` 与 `--since` 两路都恒取到空集、永远报 empty-interval —— 器物造好却
+    // 零调度,这个缺陷一直没人撞见(G-14 接线时实测抓出)。取值形态与全仓其它调用方一致。
+    const full = String(gitRaw(['rev-parse', '--verify', `${commit}^{commit}`], ROOT) ?? '').trim()
     if (!/^[0-9a-f]{40}$/i.test(full)) {
       throw new Undetermined(`--commit 解析不到提交对象: ${commit}`)
     }
-    const raw = String(
-      gitRaw(['log', '-1', LOG_FORMAT, '--name-only', full], ROOT).stdout ?? '',
-    )
+    const raw = String(gitRaw(['log', '-1', LOG_FORMAT, '--name-only', full], ROOT) ?? '')
     return parseLogOutput(raw)
   }
   const args = ['log', LOG_FORMAT, '--name-only', `--since=${since}`, '-n', String(limit)]
-  const raw = String(gitRaw(args, ROOT).stdout ?? '')
+  const raw = String(gitRaw(args, ROOT) ?? '')
   return parseLogOutput(raw)
 }
 
@@ -444,8 +444,8 @@ function runSelfTest() {
     assert(fm.fields.writeBack === WRITE_BACK, `writeBack=${fm.fields.writeBack}`)
   })
 
-  check('⑥ git 记录解析:路径块不串到下一条', () => {
-    const raw = `${SHA}${FIELD_SEP}subj A${FIELD_SEP}body A${FIELD_SEP}\n\nscripts/a.mjs\n${RECORD_SEP}${'b'.repeat(40)}${FIELD_SEP}subj B${FIELD_SEP}body B${FIELD_SEP}\n\nscripts/b.mjs\n${RECORD_SEP}`
+  check('⑥ git 记录解析:路径块与本条字段同 chunk,不串到下一条', () => {
+    const raw = `${RECORD_SEP}${SHA}${FIELD_SEP}subj A${FIELD_SEP}body A${FIELD_SEP}\n\nscripts/a.mjs\n${RECORD_SEP}${'b'.repeat(40)}${FIELD_SEP}subj B${FIELD_SEP}body B${FIELD_SEP}\n\nscripts/b.mjs\n`
     const recs = parseLogOutput(raw)
     assert(recs.length === 2, `records=${recs.length}`)
     assert(recs[0].changedFiles.join(',') === 'scripts/a.mjs', JSON.stringify(recs[0].changedFiles))
