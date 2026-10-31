@@ -424,7 +424,12 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       if (!ext) return reply.code(404).send()
       const filePath = join(DOCS_DIR, normalized)
       const buf = await readFile(filePath)
-      return reply.type(MIME_MAP[`.${ext[1]}`] ?? 'application/octet-stream').send(buf)
+      // 2026-10-31 R12:SVG 可承载脚本,顶层直出必须断源 + 禁嗅探(与 ai-feed sandbox 口径同源)。
+      return reply
+        .type(MIME_MAP[`.${ext[1]}`] ?? 'application/octet-stream')
+        .header('X-Content-Type-Options', 'nosniff')
+        .header('Content-Security-Policy', 'sandbox')
+        .send(buf)
     } catch {
       return reply.code(404).send()
     }

@@ -1414,7 +1414,9 @@
   },
   "webview": {
     "title": "Web page",
-    "missingUrl": "Missing link, cannot open"
+    "missingUrl": "Missing link, cannot open",
+    "untrustedCopied": "Link copied. Please open it in a browser",
+    "untrusted": "Link is not in the trusted list"
   },
   "carte": {
     "title": "ZHIHUI Community",

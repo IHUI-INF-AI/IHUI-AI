@@ -443,8 +443,11 @@ class A2AServer:
         from .screenshot_service import resolve_pinned_target
 
         host = (urlparse(endpoint).hostname or "").lower()
-        pinned = None if host in {"localhost", "127.0.0.1", "::1"} else resolve_pinned_target(endpoint)
-        if host not in {"localhost", "127.0.0.1", "::1"} and pinned is None:
+        # 生产环境已在 validate_a2a_endpoint 拒掉本地回环;此处保持同一条判据,
+        # 防止将来有人绕过校验直接调本方法。
+        is_local = host in {"localhost", "127.0.0.1", "::1"} and settings.node_env != "production"
+        pinned = None if is_local else resolve_pinned_target(endpoint)
+        if not is_local and pinned is None:
             raise ValueError("endpoint 无法钉定公网 IP,拒绝派发")
         base = pinned[0] if pinned else endpoint
 
@@ -511,10 +514,13 @@ def validate_a2a_endpoint(endpoint: str) -> str:
     host = (parsed.hostname or "").lower()
     if not host:
         raise ValueError("endpoint 缺少 host")
-    # 本地开发回环:放行(http/https 皆可),不解析、不判私网。
+    # 本地开发回环:仅非生产环境放行(http/https 皆可),不解析、不判私网。
+    # 生产环境放行 = 服务端可被指派 POST 本机任意端口(内网横向面),故一律拒。
     # 注意:0.0.0.0 是 unspecified 地址,**不**作本地放行(归入下方 IP 段校验,必拒)。
     local_hosts = {"localhost", "127.0.0.1", "::1"}
     if host in local_hosts:
+        if settings.node_env == "production":
+            raise ValueError("生产环境禁止本地回环 endpoint")
         return endpoint.rstrip("/")
     # 其余必须 https
     if parsed.scheme != "https":

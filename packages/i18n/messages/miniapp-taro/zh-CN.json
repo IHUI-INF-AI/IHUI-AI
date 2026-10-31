@@ -1414,7 +1414,9 @@
   },
   "webview": {
     "title": "网页",
-    "missingUrl": "链接缺失,无法打开网页"
+    "missingUrl": "链接缺失,无法打开网页",
+    "untrustedCopied": "链接已复制,请在浏览器打开",
+    "untrusted": "链接不在信任范围内"
   },
   "carte": {
     "title": "智汇社社群",

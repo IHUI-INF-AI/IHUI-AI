@@ -734,6 +734,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
 
+      // @token-issue-exempt: 注册成功即登录(账号刚创建,twoFactorEnabled 必为 false,无第二因子可绕)
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -1276,6 +1277,24 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           platform: 'wechat',
         })
       }
+      // 2FA 一致性(2026-10-31 R12 修旁路):微信 App 登录同样必须过 TOTP,
+      // 否则已开两步验证的账号可凭一次微信授权直接拿 token,绕过第二因子。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
@@ -1521,6 +1540,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 5. 用同一 familyId 签发新 token 对
       request.skipResponseSanitization = true
+      // @token-issue-exempt: refresh token 轮转(令牌本身即已认证会话的续期,再过 2FA 会死锁)
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -2133,6 +2153,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 判定用的是扫码那台已登录设备的来源 IP；PC 端取回执的 /qr/status 腿看不见它的 IP
       const gate = await gateLoginIpWhitelist(request, reply, userId)
       if (!gate.allowed) return gate.reply
+      // @token-issue-exempt: 扫码确认由已登录设备发起(设备侧已过 2FA),PC 端取回执不重复要码
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
