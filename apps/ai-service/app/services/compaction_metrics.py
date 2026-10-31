@@ -130,8 +130,9 @@ def record_compaction_event(
 
     Args:
         session_id: 会话标识(报告聚合维度)。
-        info: compress_messages_if_needed / compact_with_llm 返回的 info dict,
-            读取 compressed/original_tokens/trigger/llm_summary/quality 字段。
+        info: compress_messages_if_needed / micro_compact_messages / compact_with_llm
+            返回的 info dict,读取 compressed/original_tokens/trigger/llm_summary/
+            quality 字段;micro 档另读 tools_kept / tools_removed(缺失记 None)。
         source: 采集点标识("agent_loop" 主循环 / "llm_router" llm.py 兜底压缩)。
         run_id: agent run 标识(把事件与 run outcome 关联;路由层采集可空)。
         duration_ms: 本次压缩耗时(毫秒)。
@@ -170,6 +171,19 @@ def record_compaction_event(
             raw_rr = rr.get("retention_ratio")
             if isinstance(raw_rr, int | float):
                 reasoning_retention = round(float(raw_rr), 4)
+        # micro 档的工具结果计数(2026-10-31):并进既有事件维度,不新建第二套指标。
+        # 缺失 = 该事件从不携带该维度(legacy 压缩)⇒ None;0 是有效读数(该事件确实
+        # 0 件工具),不得用 0 冒充「没有该维度」。
+        tools_kept_raw = info.get("tools_kept")
+        tools_removed_raw = info.get("tools_removed")
+        tools_kept = (
+            int(tools_kept_raw) if isinstance(tools_kept_raw, int | float) else None
+        )
+        tools_removed = (
+            int(tools_removed_raw)
+            if isinstance(tools_removed_raw, int | float)
+            else None
+        )
         metric: dict[str, Any] = {
             "event_id": f"cme-{uuid.uuid4().hex[:12]}",
             "session_id": session_id,
@@ -184,6 +198,8 @@ def record_compaction_event(
             "retention_ratio": retention,
             "decision_chain_entries": chain_entries,
             "reasoning_retention_ratio": reasoning_retention,
+            "tools_kept": tools_kept,
+            "tools_removed": tools_removed,
             "recorded_at": time.time(),
         }
         # Prometheus 通道
@@ -275,7 +291,7 @@ def get_compaction_metrics_report(limit: int = 50) -> dict[str, Any]:
     Returns:
         {events_total, avg_ratio, avg_duration_ms, avg_retention_ratio,
          avg_reasoning_retention_ratio, chain_injected_events, avg_decision_chain_entries,
-         by_trigger, recall: {queries, hits, hit_rate},
+         by_trigger, tools: {events, kept, removed}, recall: {queries, hits, hit_rate},
          runs: {total, success, success_rate},
          recent_events(最新 limit 条)}。
     """
@@ -309,6 +325,8 @@ def get_compaction_metrics_report(limit: int = 50) -> dict[str, Any]:
         by_trigger[str(e.get("trigger", "unknown"))] = (
             by_trigger.get(str(e.get("trigger", "unknown")), 0) + 1
         )
+    # micro 档工具计数聚合:只统计携带该维度的事件(legacy 事件记 None,不进分母)
+    tool_events = [e for e in events if isinstance(e.get("tools_kept"), int | float)]
     runs_total = len(outcomes)
     runs_success = sum(1 for r in outcomes if r.get("success"))
     queries = totals["recall_queries"]
@@ -325,6 +343,11 @@ def get_compaction_metrics_report(limit: int = 50) -> dict[str, Any]:
         "chain_injected_events": len(reasoning_retentions),
         "avg_decision_chain_entries": _avg(chain_entries),
         "by_trigger": by_trigger,
+        "tools": {
+            "events": len(tool_events),
+            "kept": sum(int(e.get("tools_kept") or 0) for e in tool_events),
+            "removed": sum(int(e.get("tools_removed") or 0) for e in tool_events),
+        },
         "recall": {
             "queries": queries,
             "hits": hits,

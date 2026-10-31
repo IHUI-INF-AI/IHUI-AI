@@ -10,7 +10,6 @@
 //    这正是 HTTP 码做不到而命名码做得到的那一格;
 // ③ 未收录的码 ⇒ null(零兜底),`isRetryableErrorCode` 返回 null 而不是 false;
 // ④ 15 类分类学全覆盖(类型层面 Record<ViewFailureKind,…> 已强制,这里再运行期钉一次)。
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- 形状判据必须能跑坏输入 */
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -152,7 +151,8 @@ describe('动作档闭集与文案键', () => {
 
   it('isStreamErrorAction 表外恒 false', () => {
     for (const a of STREAM_ERROR_ACTIONS) expect(isStreamErrorAction(a), a).toBe(true)
-    for (const bad of ['ok', '', null, 1, {}]) expect(isStreamErrorAction(bad), String(bad)).toBe(false)
+    for (const bad of ['ok', '', null, 1, {}])
+      expect(isStreamErrorAction(bad), String(bad)).toBe(false)
   })
 
   it('文案键单源:`action.<档>`,与词包键逐字对应', () => {
@@ -202,7 +202,8 @@ describe('词包:streamErrors 五语言同批且非空', () => {
         const value = ns[group]
         // 分组可以是对象(动作/准入态),也可以是标量(nextStepLabel)
         if (value && typeof value === 'object' && !Array.isArray(value)) {
-          for (const leaf of Object.keys(value as Record<string, unknown>)) keys.push(`${group}.${leaf}`)
+          for (const leaf of Object.keys(value as Record<string, unknown>))
+            keys.push(`${group}.${leaf}`)
         } else {
           keys.push(group)
         }

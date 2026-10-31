@@ -4,15 +4,15 @@
 
 import { config as dotenvConfig } from 'dotenv'
 import { randomBytes } from 'node:crypto'
-import { resolve } from 'node:path'
-import { existsSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // 测试环境启动时加载 .env.test,与生产/开发的 .env 完全隔离
 // dotenv 默认不覆盖已有 env(vitest 会注入 NODE_ENV=test),只补缺失项
-// 兼容两种 cwd:cd apps/api 或仓库根目录
-const envTestPath = existsSync(resolve(process.cwd(), '.env.test'))
-  ? resolve(process.cwd(), '.env.test')
-  : resolve(process.cwd(), 'apps/api/.env.test')
+// 落点由本文件自身位置推导(本文件恒在 apps/api/tests/),不信 cwd(§15):
+// 旧版按 `cwd + 'apps/api/.env.test'` 兜底,当 cwd 已是 apps/api 时拼成
+// apps/api/apps/api/.env.test(双拼,结构上永远命中不了)。
+const envTestPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', '.env.test')
 const dotenvResult = dotenvConfig({ path: envTestPath })
 
 // G-1105298(2026-10-09 诊断票)补的失败可见性 —— **不改任何取值、不放宽任何校验**。
@@ -29,10 +29,7 @@ if ((dotenvResult.error || !dotenvResult.parsed) && !process.env.IHUI_SETUP_ENV_
   process.env.IHUI_SETUP_ENV_WARNED = '1'
   console.error(
     `[setup-env] .env.test 未生效:${String(dotenvResult.error ?? 'dotenv 未返回 parsed')}` +
-      ` (cwd=${process.cwd()} , 试过的两个落点=${resolve(process.cwd(), '.env.test')} / ${resolve(
-        process.cwd(),
-        'apps/api/.env.test',
-      )})⇒ DATABASE_URL / JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY / REDIS_URL ` +
+      ` (cwd=${process.cwd()} , 落点=${envTestPath})⇒ DATABASE_URL / JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY / REDIS_URL ` +
       '取的是本文件兜底值;若收集期出现 config 相关 TypeError 或 "Invalid environment variables",' +
       ' 先核对这些兜底值能否过 apps/api/src/config/index.ts 的 envSchema。',
   )
