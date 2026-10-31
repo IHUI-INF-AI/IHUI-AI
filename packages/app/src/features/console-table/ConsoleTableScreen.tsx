@@ -3,19 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 通用控制台列表屏 —— 61 条控制台类页面(models/developer 网关族)的规模化杠杆:
@@ -112,10 +105,11 @@ export function ConsoleTableScreen({
         ) : (
           <View style={styles.list}>
             {rows.map((row) => (
-              <Pressable
+              <Tappable
                 key={row.id}
                 onPress={onRowPress ? () => onRowPress(row) : undefined}
-                style={({ pressed }) => [styles.card, pressed && styles.btnPressed]}
+                style={styles.card}
+                pressedStyle={styles.btnPressed}
                 accessibilityRole={onRowPress ? 'button' : undefined}
               >
                 {columns.map((col) => {
@@ -139,16 +133,17 @@ export function ConsoleTableScreen({
                     </View>
                   )
                 })}
-              </Pressable>
+              </Tappable>
             ))}
             {hasMore && onLoadMore ? (
-              <Pressable
+              <Tappable
                 onPress={onLoadMore}
-                style={({ pressed }) => [styles.moreBtn, pressed && styles.btnPressed]}
+                style={styles.moreBtn}
+                pressedStyle={styles.btnPressed}
                 accessibilityRole="button"
               >
                 <Text style={styles.moreBtnText}>{t('common.loadMore')}</Text>
-              </Pressable>
+              </Tappable>
             ) : null}
           </View>
         )}

@@ -120,9 +120,9 @@ export function ScanLoginScreen() {
         >
           <Text style={styles.ctaButtonText}>{t('common.login')}</Text>
         </Tappable>
-        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={undefined}>
+        <Tappable onPress={() => navigation.goBack()} accessibilityRole="button">
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-        </Pressable>
+        </Tappable>
       </SafeAreaView>
     )
   }
@@ -149,9 +149,9 @@ export function ScanLoginScreen() {
             <Text style={styles.ctaButtonText}>{t('scanLogin.grant')}</Text>
           </Tappable>
         )}
-        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={undefined}>
+        <Tappable onPress={() => navigation.goBack()} accessibilityRole="button">
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-        </Pressable>
+        </Tappable>
       </SafeAreaView>
     )
   }

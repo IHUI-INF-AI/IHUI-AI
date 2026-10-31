@@ -3,15 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Check, KeyRound, Wand2, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -106,14 +98,15 @@ export function LlmSettingsScreen({
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('llmSettings.title')}</Text>
-        <Pressable
+        <Tappable
           onPress={onWizardOpen}
-          style={({ pressed }) => [styles.fab, pressed && styles.btnPressed]}
+          style={styles.fab}
+          pressedStyle={styles.btnPressed}
           accessibilityRole="button"
         >
           <Wand2 size={16} color={tk.brand.ctaForeground} />
           <Text style={styles.fabText}>{t('byok.fab')}</Text>
-        </Pressable>
+        </Tappable>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         {loading ? (
@@ -155,13 +148,14 @@ export function LlmSettingsScreen({
         <View style={styles.wizardContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>{t('byok.title')}</Text>
-            <Pressable
+            <Tappable
               onPress={onWizardClose}
-              style={({ pressed }) => [styles.minorBtn, pressed && styles.btnPressed]}
+              style={styles.minorBtn}
+              pressedStyle={styles.btnPressed}
               accessibilityRole="button"
             >
               <X size={16} color={tk.text.primary} />
-            </Pressable>
+            </Tappable>
           </View>
           <View style={styles.stepRow}>
             {[0, 1, 2, 3].map((i) => (
@@ -174,7 +168,7 @@ export function LlmSettingsScreen({
             {wizardStep === 0 ? (
               <View style={styles.chipWrap}>
                 {wizardProviders.map((p) => (
-                  <Pressable
+                  <Tappable
                     key={p.code}
                     onPress={() => onSelectProvider(p.code)}
                     style={[styles.chip, selectedCode === p.code && styles.chipOn]}
@@ -183,7 +177,7 @@ export function LlmSettingsScreen({
                     <Text style={selectedCode === p.code ? styles.chipOnText : styles.chipText}>
                       {p.name}
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 ))}
               </View>
             ) : null}
@@ -261,7 +255,7 @@ export function LlmSettingsScreen({
           </ScrollView>
 
           <View style={styles.wizardFooter}>
-            <Pressable
+            <Tappable
               onPress={
                 wizardStep === 3
                   ? onWizardClose
@@ -277,11 +271,8 @@ export function LlmSettingsScreen({
                 (wizardStep === 1 && !apiKey.trim()) ||
                 (wizardStep === 2 && !(verifyState === 'success' || verifyState === 'unavailable'))
               }
-              style={({ pressed }) => [
-                styles.primaryBtn,
-                pressed && styles.btnPressed,
-                actionPending && styles.btnDisabled,
-              ]}
+              style={[styles.primaryBtn, actionPending && styles.btnDisabled]}
+              pressedStyle={styles.btnPressed}
               accessibilityRole="button"
             >
               {actionPending ? (
@@ -299,7 +290,7 @@ export function LlmSettingsScreen({
                   )}
                 </Text>
               )}
-            </Pressable>
+            </Tappable>
           </View>
         </View>
       </Modal>

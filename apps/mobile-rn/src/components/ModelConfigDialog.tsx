@@ -673,8 +673,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
               style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.card }}
             >
               {voiceList.map((tb) => (
-                <Pressable
-                  style={undefined}
+                <Tappable
                   key={tb.id}
                   onPress={() => {
                     update({ timbre: tb.id })
@@ -691,7 +690,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
                   >
                     {tb.name}
                   </Text>
-                </Pressable>
+                </Tappable>
               ))}
             </View>
           ) : null}
@@ -752,11 +751,11 @@ function BasicModelConfigDialog({
             <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
               {t('agent.config')}
             </Text>
-            <Pressable style={undefined} onPress={onClose} hitSlop={8}>
+            <Tappable onPress={onClose} hitSlop={8}>
               <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                 {t('common.cancel')}
               </Text>
-            </Pressable>
+            </Tappable>
           </View>
 
           <ScrollView className="max-h-[60%] px-4 pb-2">
@@ -899,11 +898,11 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
             <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
               {t('agent.config')}
             </Text>
-            <Pressable style={undefined} onPress={onClose} hitSlop={8}>
+            <Tappable onPress={onClose} hitSlop={8}>
               <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                 {t('common.cancel')}
               </Text>
-            </Pressable>
+            </Tappable>
           </View>
 
           <ScrollView className="max-h-[60%] px-4 pb-2">
@@ -1247,11 +1246,11 @@ function ModelSelecterDialog({
             <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
               选择模型
             </Text>
-            <Pressable style={undefined} onPress={onClose} hitSlop={8}>
+            <Tappable onPress={onClose} hitSlop={8}>
               <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                 {t('common.cancel')}
               </Text>
-            </Pressable>
+            </Tappable>
           </View>
 
           {/* 模型列表 */}

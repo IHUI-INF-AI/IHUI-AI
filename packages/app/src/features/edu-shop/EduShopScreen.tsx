@@ -3,21 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Package, ShoppingCart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 教育商城共享屏 —— 渲染真相源(web 基准 = apps/web/app/(main)/edu/shop/page.tsx)。
@@ -109,7 +101,7 @@ export function EduShopScreen({
         <Text style={styles.title}>{t('eduShop.title')}</Text>
       </View>
       <View style={styles.tabRow}>
-        <Pressable
+        <Tappable
           onPress={() => setTab('courses')}
           style={[styles.tab, tab === 'courses' && styles.tabOn]}
           accessibilityRole="tab"
@@ -117,8 +109,8 @@ export function EduShopScreen({
           <Text style={tab === 'courses' ? styles.tabOnText : styles.tabText}>
             {t('eduShop.courses')}
           </Text>
-        </Pressable>
-        <Pressable
+        </Tappable>
+        <Tappable
           onPress={() => setTab('orders')}
           style={[styles.tab, tab === 'orders' && styles.tabOn]}
           accessibilityRole="tab"
@@ -126,7 +118,7 @@ export function EduShopScreen({
           <Text style={tab === 'orders' ? styles.tabOnText : styles.tabText}>
             {t('eduShop.orders')}
           </Text>
-        </Pressable>
+        </Tappable>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         {tab === 'courses' ? (
@@ -175,32 +167,30 @@ export function EduShopScreen({
                           ) : null}
                         </>
                       )}
-                      <Pressable
+                      <Tappable
                         onPress={() => onBuy(c)}
                         disabled={actionPending}
-                        style={({ pressed }) => [
-                          styles.buyBtn,
-                          pressed && styles.btnPressed,
-                          actionPending && styles.btnDisabled,
-                        ]}
+                        style={[styles.buyBtn, actionPending && styles.btnDisabled]}
+                        pressedStyle={styles.btnPressed}
                         accessibilityRole="button"
                       >
                         <ShoppingCart size={14} color={tk.brand.ctaForeground} />
                         <Text style={styles.buyBtnText}>{t('eduShop.buy')}</Text>
-                      </Pressable>
+                      </Tappable>
                     </View>
                   </View>
                 </View>
               ))}
               {coursesLoading ? <ActivityIndicator color={tk.brand.cta} /> : null}
               {hasMoreCourses && !coursesLoading ? (
-                <Pressable
+                <Tappable
                   onPress={onLoadMoreCourses}
-                  style={({ pressed }) => [styles.moreBtn, pressed && styles.btnPressed]}
+                  style={styles.moreBtn}
+                  pressedStyle={styles.btnPressed}
                   accessibilityRole="button"
                 >
                   <Text style={styles.moreBtnText}>{t('eduShop.loadMore')}</Text>
-                </Pressable>
+                </Tappable>
               ) : null}
             </View>
           )
@@ -231,26 +221,28 @@ export function EduShopScreen({
                 <View style={styles.priceRow}>
                   <Text style={styles.price}>{o.payAmount ?? '—'}</Text>
                   {o.status === 'pending' ? (
-                    <Pressable
+                    <Tappable
                       onPress={() => setCancelTarget(o)}
-                      style={({ pressed }) => [styles.minorBtn, pressed && styles.btnPressed]}
+                      style={styles.minorBtn}
+                      pressedStyle={styles.btnPressed}
                       accessibilityRole="button"
                     >
                       <Text style={styles.minorBtnText}>{t('eduShop.cancelOrder')}</Text>
-                    </Pressable>
+                    </Tappable>
                   ) : null}
                 </View>
               </View>
             ))}
             {ordersLoading ? <ActivityIndicator color={tk.brand.cta} /> : null}
             {hasMoreOrders && !ordersLoading ? (
-              <Pressable
+              <Tappable
                 onPress={onLoadMoreOrders}
-                style={({ pressed }) => [styles.moreBtn, pressed && styles.btnPressed]}
+                style={styles.moreBtn}
+                pressedStyle={styles.btnPressed}
                 accessibilityRole="button"
               >
                 <Text style={styles.moreBtnText}>{t('eduShop.loadMore')}</Text>
-              </Pressable>
+              </Tappable>
             ) : null}
           </View>
         )}
@@ -269,23 +261,25 @@ export function EduShopScreen({
               {t('eduShop.cancelConfirmDesc')} {cancelTarget?.targetTitle ?? ''}
             </Text>
             <View style={styles.modalActions}>
-              <Pressable
+              <Tappable
                 onPress={() => setCancelTarget(null)}
-                style={({ pressed }) => [styles.minorBtn, pressed && styles.btnPressed]}
+                style={styles.minorBtn}
+                pressedStyle={styles.btnPressed}
                 accessibilityRole="button"
               >
                 <Text style={styles.minorBtnText}>{t('common.cancel')}</Text>
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 onPress={() => {
                   if (cancelTarget) onCancelOrder(cancelTarget.id)
                   setCancelTarget(null)
                 }}
-                style={({ pressed }) => [styles.dangerBtn, pressed && styles.btnPressed]}
+                style={styles.dangerBtn}
+                pressedStyle={styles.btnPressed}
                 accessibilityRole="button"
               >
                 <Text style={styles.dangerBtnText}>{t('eduShop.cancelOrder')}</Text>
-              </Pressable>
+              </Tappable>
             </View>
           </View>
         </View>

@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
@@ -148,14 +148,15 @@ export function UpdatePrompt(): React.JSX.Element | null {
           </Text>
         </View>
         {downloading ? null : (
-          <Pressable
+          <Tappable
             onPress={() => void handleUpdate()}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={styles.actionBtn}
+            pressedStyle={styles.actionBtnPressed}
             accessibilityRole="button"
             accessibilityLabel={t('appUpdate.action')}
           >
             <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
-          </Pressable>
+          </Tappable>
         )}
       </View>
     </View>

@@ -3,20 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { MessageCircle, User, UserCheck, UserPlus } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 他人主页共享屏 —— 渲染真相源(web 基准 = apps/web/app/(main)/user/[id]/PageClient.tsx)。
@@ -151,14 +144,14 @@ export function UserPublicScreen({
 
             {!isSelf ? (
               <View style={styles.actions}>
-                <Pressable
+                <Tappable
                   onPress={onToggleFollow}
                   disabled={followPending || following === null}
-                  style={({ pressed }) => [
+                  style={[
                     following ? styles.followBtnOn : styles.followBtn,
                     (followPending || following === null) && styles.btnDisabled,
-                    pressed && styles.btnPressed,
                   ]}
+                  pressedStyle={styles.btnPressed}
                   accessibilityRole="button"
                 >
                   {followPending ? (
@@ -171,15 +164,16 @@ export function UserPublicScreen({
                   <Text style={following ? styles.followBtnTextOn : styles.followBtnText}>
                     {following ? t('userPublic.following') : t('userPublic.follow')}
                   </Text>
-                </Pressable>
-                <Pressable
+                </Tappable>
+                <Tappable
                   onPress={onMessage}
-                  style={({ pressed }) => [styles.messageBtn, pressed && styles.btnPressed]}
+                  style={styles.messageBtn}
+                  pressedStyle={styles.btnPressed}
                   accessibilityRole="button"
                 >
                   <MessageCircle size={16} color={tk.text.primary} />
                   <Text style={styles.messageBtnText}>{t('userPublic.message')}</Text>
-                </Pressable>
+                </Tappable>
               </View>
             ) : null}
           </View>

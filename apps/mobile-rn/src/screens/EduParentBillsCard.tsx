@@ -9,11 +9,12 @@
  * 本卡不做任何减法;账目未就绪的期写"—",取数失败写原因,不拿 0 冒充"没欠费"。
  * 布局走 `EduParentUi.createParentStyles` 的共享读数行(守门 241)。
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '@ihui/rn-app'
 import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { createParentStyles, type ParentT } from './EduParentUi'
 import type { ParentBillGroup } from '../lib/edu-parent-bills'
+import { Tappable } from '@ihui/ui-native'
 
 interface Props {
   t: ParentT
@@ -28,10 +29,11 @@ export function EduParentBillsCard({ t, colorScheme, group, fmtDate, onPress }: 
   const styles = createParentStyles(tk)
   const own = createOwnStyles(tk)
   return (
-    <Pressable
+    <Tappable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={styles.card}
+      pressedStyle={styles.pressed}
     >
       <View style={styles.row}>
         <Text style={styles.strong} numberOfLines={1}>
@@ -90,7 +92,7 @@ export function EduParentBillsCard({ t, colorScheme, group, fmtDate, onPress }: 
           </View>
         ))
       )}
-    </Pressable>
+    </Tappable>
   )
 }
 

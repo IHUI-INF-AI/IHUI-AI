@@ -13,19 +13,12 @@
  *    "我几个孩子各欠多少、哪个最近到期"(单孩子明细仍走 EduChildBills)。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { appAlert } from '../components/BottomPops'
 import { fetchApi } from '@ihui/api-client'
 import { BackChevron, getTokens } from '@ihui/rn-app'
-import { Tabs } from '@ihui/ui-native'
+import { Tabs, Tappable } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -146,9 +139,7 @@ function EduParentScreen() {
       )
     }
     if (children.length === 0) {
-      return (
-        <EduParentStateView t={t} colorScheme={resolvedTheme} message={t('common.empty')} />
-      )
+      return <EduParentStateView t={t} colorScheme={resolvedTheme} message={t('common.empty')} />
     }
     return (
       <ScrollView
@@ -157,11 +148,12 @@ function EduParentScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {children.map((child) => (
-          <Pressable
+          <Tappable
             key={child.bindingId}
             onPress={() => onRowPress(child)}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+            style={styles.card}
+            pressedStyle={styles.pressed}
           >
             <View style={styles.row}>
               <Text style={styles.strong} numberOfLines={1}>
@@ -185,7 +177,7 @@ function EduParentScreen() {
               <Text style={styles.rowLabel}>{t('eduParent.relationship')}</Text>
               <Text style={styles.rowValue}>{child.relationship}</Text>
             </View>
-          </Pressable>
+          </Tappable>
         ))}
       </ScrollView>
     )

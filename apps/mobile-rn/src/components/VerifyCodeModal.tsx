@@ -198,7 +198,7 @@ export function VerifyCodeModal({
               />
             </View>
 
-            <Pressable onPress={handleResend} disabled={remaining > 0} style={undefined}>
+            <Tappable onPress={handleResend} disabled={remaining > 0}>
               <Text
                 style={[
                   styles.countdown,
@@ -207,7 +207,7 @@ export function VerifyCodeModal({
               >
                 {remaining > 0 ? t('auth.resendCode', { seconds: remaining }) : t('verify.resend')}
               </Text>
-            </Pressable>
+            </Tappable>
 
             <Tappable
               onPress={handleConfirm}

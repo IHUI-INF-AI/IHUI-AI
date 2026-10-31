@@ -103,13 +103,9 @@ const rnPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEve
     accessibilityLabel,
     children,
   }) => (
-    <Pressable
-      style={({ pressed }) => [
-        boxStyle,
-        style,
-        disabled ? disabledStyle : null,
-        pressed ? styles.sendBtnPressed : null,
-      ]}
+    <Tappable
+      style={[boxStyle, style, disabled ? disabledStyle : null]}
+      pressedStyle={styles.sendBtnPressed}
       onPress={onActivate}
       disabled={disabled}
       hitSlop={4}
@@ -117,7 +113,7 @@ const rnPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEve
       accessibilityLabel={accessibilityLabel}
     >
       {children}
-    </Pressable>
+    </Tappable>
   ),
   Glyph: ({ name, size, color }) => {
     if (name === 'square') return <Square size={size} color={color} fill={color} />
