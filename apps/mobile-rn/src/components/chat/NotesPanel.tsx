@@ -13,6 +13,7 @@ import { tokens } from '../../theme/active-tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
+import { pressFeedback } from '@ihui/ui-native'
 
 /** durationMs → `m:ss`;0/负值视为「无时长」(回空串,行上只留创建时间) */
 function formatDuration(durationMs: number): string {
@@ -209,14 +210,14 @@ export function NotesPanel({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalMask} onPress={onClose}>
+      <Pressable style={pressFeedback(styles.modalMask)} onPress={onClose}>
         <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>语音笔记</Text>
             <Pressable
               hitSlop={8}
               onPress={onClose}
-              style={styles.listDialogClose}
+              style={pressFeedback(styles.listDialogClose)}
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
             >
@@ -245,7 +246,7 @@ export function NotesPanel({
               <Text style={styles.errorText}>{error}</Text>
               <Pressable
                 onPress={() => void load()}
-                style={styles.retryBtn}
+                style={pressFeedback(styles.retryBtn)}
                 accessibilityRole="button"
                 accessibilityLabel={t('common.retryShort')}
               >
@@ -283,7 +284,7 @@ export function NotesPanel({
 
           <Pressable
             onPress={onClose}
-            style={[styles.panelCancelBtn, styles.notesCancelBtn]}
+            style={pressFeedback([styles.panelCancelBtn, styles.notesCancelBtn])}
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
           >
