@@ -207,7 +207,16 @@ def _fastapi_app():
     """从 socketio.ASGIApp 包装层取真实 FastAPI 实例(解包链与 conftest 一致)。"""
     from app.main import app as root_app
 
-    return getattr(root_app, "other_asgi_app", None) or root_app
+    node = getattr(root_app, "other_asgi_app", None) or root_app
+    # 中间件链里还有 WsConnGuardMiddleware(持有 _app):只解一层会停在包装层上,
+    # 而模板链里没有任何 ASGIApp 需要路由表。逐层解到带 openapi 的那个为止。
+    seen: set[int] = set()
+    while node is not None and id(node) not in seen:
+        if hasattr(node, "openapi"):
+            return node
+        seen.add(id(node))
+        node = getattr(node, "_app", None) or getattr(node, "app", None)
+    return node
 
 
 async def test_route_and_global_middleware_are_wired(client: AsyncClient) -> None:

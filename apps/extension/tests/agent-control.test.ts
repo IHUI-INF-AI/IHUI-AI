@@ -162,6 +162,25 @@ describe('executeBackgroundAction', () => {
     expect(res.errorCode).toBe('TARGET_NOT_CONNECTED')
   })
 
+  // 2026-10-31 安全强化第 21 批:agent 指令可被页面内容间接注入操纵,
+  // file:// 会被 chrome.tabs.update 正常渲染,随后的快照动作把本地文件正文读回。
+  it('navigate 拒绝非 http(s) 协议并给结构化错误码(不触达 tabs.update)', async () => {
+    tabsQuery.mockResolvedValue([{ id: 42, windowId: 1 }])
+    for (const badUrl of [
+      'file:///C:/Users/Administrator/.ihui/settings.json',
+      'chrome://history',
+      'javascript:alert(1)',
+      'data:text/html,<h1>x</h1>',
+    ]) {
+      const res = await executeBackgroundAction('navigate', { url: badUrl }, 1000)
+      expect(res.success, `${badUrl} 必须拒绝`).toBe(false)
+      expect(res.errorCode).toBe('PERMISSION_DENIED')
+      expect(String(res.error)).toMatch(/协议/)
+    }
+    // 关键断言:一次都没把非法 URL 交给浏览器
+    expect(tabsUpdate).not.toHaveBeenCalled()
+  })
+
   it('switch_tab 切换到指定 index 的 tab', async () => {
     tabsQuery.mockResolvedValue([
       { id: 1, url: 'https://a.com', title: 'A' },

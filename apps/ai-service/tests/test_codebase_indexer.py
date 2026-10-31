@@ -670,14 +670,21 @@ class TestGenerateEmbeddingsBatch:
         assert chunks[0].embedding == mock_emb
 
     @pytest.mark.asyncio
-    async def test_embedding_exception_skipped(self):
+    async def test_embedding_exception_falls_back_to_local(self):
+        """远端 embed 抛错 ⇒ G7 本地确定性回落档接管(不是丢弃),来源标注如实。"""
+        from app.core import llm_gateway as _lg
+
         idx = CodebaseIndexer.__new__(CodebaseIndexer)
         chunks = [CodeChunk("a.py", 1, 5, "content", "python")]
         with patch("app.services.codebase_indexer.llm_gateway.embed",
                    new=AsyncMock(side_effect=RuntimeError("api error"))):
             count = await idx._generate_embeddings_batch(chunks)
-        assert count == 0
-        assert chunks[0].embedding is None
+        # G7(2026-10-31):离线/欠费/限流时向量面不再整批落空 —— 本地 hash 向量顶上,
+        # 维度与列一致但无语义精度,必须可识别(provider 标注是判据的一部分)。
+        assert count == 1
+        assert chunks[0].embedding is not None
+        assert len(chunks[0].embedding) == 1536
+        assert chunks[0].embedding_provider == _lg.llm_gateway.LOCAL_EMBEDDING_PROVIDER
 
     @pytest.mark.asyncio
     async def test_wrong_dimension_skipped(self):
@@ -738,9 +745,14 @@ class TestGenerateEmbeddingsBatch:
         with patch("app.services.codebase_indexer.llm_gateway.embed",
                    new=fake_embed):
             count = await idx._generate_embeddings_batch(chunks)
-        assert count == 1
+        # G7:失败的那条走本地回落档 ⇒ 两条都有向量;成功那条来源 remote,回落那条 local-hash。
+        from app.core import llm_gateway as _lg
+
+        assert count == 2
         assert chunks[0].embedding == mock_emb
-        assert chunks[1].embedding is None
+        assert chunks[0].embedding_provider == "remote"
+        assert chunks[1].embedding is not None
+        assert chunks[1].embedding_provider == _lg.llm_gateway.LOCAL_EMBEDDING_PROVIDER
 
 
 # ============================================================
@@ -834,8 +846,19 @@ class TestWriteToApi:
         idx = CodebaseIndexer.__new__(CodebaseIndexer)
         idx._api_base_url = "http://localhost:8801"
         chunks = [
-            CodeChunk("a.py", 1, 5, "content", "python", "foo", "function",
-                      [0.1] * 1536)
+            # 位置参数到此为止:G7 在 symbol_type 与 embedding 之间插了
+            # embedding_provider,继续用 8 个位置实参会把 [0.1]*1536 喂给 provider、
+            # 而 embedding 仍是 None(实测就是这么红的)。
+            CodeChunk(
+                file_path="a.py",
+                line_start=1,
+                line_end=5,
+                content="content",
+                language="python",
+                symbol_name="foo",
+                symbol_type="function",
+                embedding=[0.1] * 1536,
+            )
         ]
 
         mock_resp = MagicMock()
