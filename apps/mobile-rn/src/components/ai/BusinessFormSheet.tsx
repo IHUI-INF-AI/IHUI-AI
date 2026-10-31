@@ -338,7 +338,11 @@ function FormPanel({
             </ScrollView>
 
             <View style={s.chrome}>
-              <Pressable style={[s.action, s.reject]} onPress={onReject} disabled={busy || decided}>
+              <Pressable
+                style={pressFeedback([s.action, s.reject])}
+                onPress={onReject}
+                disabled={busy || decided}
+              >
                 <X size={16} color={tokens.text.primary} />
                 <Text style={s.actionText}>{t(`${NS}.action.reject`)}</Text>
               </Pressable>

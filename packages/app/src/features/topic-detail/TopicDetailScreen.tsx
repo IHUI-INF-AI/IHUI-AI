@@ -18,6 +18,7 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createTopicDetailStyles } from './topic-detail-styles'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface TopicDetailPostView {
   id: string | number
@@ -159,7 +160,10 @@ export function TopicDetailScreen({
             </Text>
           </View>
           <Pressable
-            style={[styles.followBtn, topic.isFollowed ? styles.followBtnActive : null]}
+            style={pressFeedback([
+              styles.followBtn,
+              topic.isFollowed ? styles.followBtnActive : null,
+            ])}
             disabled={followBusy}
             onPress={onFollow}
             accessibilityRole="button"

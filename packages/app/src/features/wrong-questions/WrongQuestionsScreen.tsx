@@ -20,6 +20,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * WrongQuestionsScreen — 跨端共享「错题本屏」(门 39 六屏共享化第二批)。
@@ -270,7 +271,7 @@ export function WrongQuestionsScreen({
         onRequestClose={onCloseExplanation}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.mask} onPress={onCloseExplanation} />
+          <Pressable style={pressFeedback(styles.mask)} onPress={onCloseExplanation} />
           <View style={styles.sheet}>
             <View style={styles.sheetHead}>
               <Sparkles size={16} color={tk.text.primary} />
