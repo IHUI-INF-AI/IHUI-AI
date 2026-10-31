@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-      "title": "号池选号策略档(全局默认)",
-      "refresh": "刷新",
-      "loading": "读取策略档…",
-      "loadFailed": "读取失败",
-      "badgeAllDefault": "全部默认档",
-      "badgeDeviated": "偏离默认 {n} 枚",
-      "badgeInvalid": "脏值回落 {n} 枚",
-      "badgeRegistryBroken": "登记表不完整",
-      "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
-      "defaultIs": "默认 {v}",
-      "invalidFellBack": "脏值已回落默认",
-      "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
+        "title": "号池选号策略档(全局默认)",
+        "refresh": "刷新",
+        "loading": "读取策略档…",
+        "loadFailed": "读取失败",
+        "badgeAllDefault": "全部默认档",
+        "badgeDeviated": "偏离默认 {n} 枚",
+        "badgeInvalid": "脏值回落 {n} 枚",
+        "badgeRegistryBroken": "登记表不完整",
+        "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
+        "defaultIs": "默认 {v}",
+        "invalidFellBack": "脏值已回落默认",
+        "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
     },
     "relayTasks": {
-      "wbTitle": "WorkBuddy 任务自动化",
-      "wbAccount": "账号",
-      "wbAccountEmpty": "暂无 WorkBuddy 账号",
-      "wbDryRun": "预览(干跑)",
-      "wbRefresh": "刷新",
-      "wbNoAccount": "请先选择账号",
-      "wbLoading": "读取任务清单…",
-      "wbReadFailed": "读取失败",
-      "wbUnjudged": "未判定",
-      "wbNoTasks": "没有可执行任务",
-      "wbColTask": "任务",
-      "wbColProgress": "进度",
-      "wbColStatus": "状态",
-      "wbColReward": "奖励",
-      "wbKindGrowth": "成长",
-      "wbKindTravel": "旅行",
-      "wbKindActivity": "活跃",
-      "wbKindBlackcat": "黑猫(夜间)",
-      "wbRunOk": "任务已执行",
-      "wbRunFailed": "执行失败",
-      "wbAccepted": "已接取",
-      "wbClaimed": "已领取",
-      "wbCreditDelta": "积分变化",
-      "wbEnergyDelta": "体力变化",
-      "wbNeverRun": "尚未执行"
+        "wbTitle": "WorkBuddy 任务自动化",
+        "wbAccount": "账号",
+        "wbAccountEmpty": "暂无 WorkBuddy 账号",
+        "wbDryRun": "预览(干跑)",
+        "wbRefresh": "刷新",
+        "wbNoAccount": "请先选择账号",
+        "wbLoading": "读取任务清单…",
+        "wbReadFailed": "读取失败",
+        "wbUnjudged": "未判定",
+        "wbNoTasks": "没有可执行任务",
+        "wbColTask": "任务",
+        "wbColProgress": "进度",
+        "wbColStatus": "状态",
+        "wbColReward": "奖励",
+        "wbKindGrowth": "成长",
+        "wbKindTravel": "旅行",
+        "wbKindActivity": "活跃",
+        "wbKindBlackcat": "黑猫(夜间)",
+        "wbRunOk": "任务已执行",
+        "wbRunFailed": "执行失败",
+        "wbAccepted": "已接取",
+        "wbClaimed": "已领取",
+        "wbCreditDelta": "积分变化",
+        "wbEnergyDelta": "体力变化",
+        "wbNeverRun": "尚未执行"
     },
     "smsOperations": {
       "page": {
@@ -1212,9 +1212,7 @@
       "trafficAggAge": "聚合于 {ago}前",
       "poolKey": "密钥池",
       "poolAccount": "账号池",
-      "wsConnections": "长连接",
-      "pv5mNow": "近5分钟 {count} 次",
-      "firingRowsSplit": "firing {total} 行 / {names} 个告警名"
+      "wsConnections": "长连接"
     },
     "aboutUs": {
       "add": "新增",
@@ -7949,7 +7947,7 @@
           "hookName": "Hook 名称",
           "event": "触发事件",
           "evidence": "证据明细",
-          "dismiss": "关闭此卡片"
+            "dismiss": "关闭此卡片"
         },
         "hint": {
           "retryScheduled": "系统会在稍后自动重试,无需操作。",
@@ -9229,10 +9227,6 @@
         "RISK_CONFIRM_REQUIRED": {
           "title": "需要确认后才会执行",
           "action": "去确认"
-        },
-        "SCHEDULER_ERROR": {
-          "title": "定时任务调度失败",
-          "action": "稍后重试"
         },
         "SCHEME_REJECTED": {
           "title": "该地址不被允许访问",
@@ -11935,8 +11929,9 @@
       "shareTurn": "分享此回合",
       "shareTurnCopied": "回合链接已复制",
       "showContent": "显示内容",
-      "stopReadAloud": "停止朗读",
       "toggleMetadata": "切换元数据",
+      "metadataLoading": "正在加载元数据…",
+      "metadataUnavailable": "元数据暂时不可用",
       "pin": "钉选",
       "unpin": "取消钉选",
       "bookmark": "收藏",
@@ -12765,6 +12760,8 @@
     "reasoningEffortLow": "快速",
     "reasoningEffortMedium": "均衡",
     "reasoningEffortHigh": "深思",
+    "reasoningEffortXhigh": "极深",
+    "reasoningEffortMax": "极限",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",
