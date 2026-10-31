@@ -19,6 +19,7 @@ function mk(id: string, over: Partial<SearchResult> = {}): SearchResult {
     language: 'typescript',
     symbolName: 'foo',
     symbolType: 'function',
+    embeddingProvider: null,
     score: 0.9,
     ...over,
   }

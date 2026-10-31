@@ -910,7 +910,7 @@ _MODEL_PARAM_ALIASES: dict[str, str] = {
 _VALID_MODEL_PARAM_KEYS: frozenset[str] = frozenset(
     {*_MODEL_PARAM_NUMERIC, *_MODEL_PARAM_INTEGRAL, "stop"}
 )
-_REASONING_EFFORTS: tuple[str, ...] = ("minimal", "low", "medium", "high")
+_REASONING_EFFORTS: tuple[str, ...] = ("minimal", "low", "medium", "high", "xhigh", "max")
 _REASONING_SUMMARIES: tuple[str, ...] = ("auto", "concise", "detailed")
 _VALID_PLAN_STATUSES: tuple[str, ...] = ("pending", "in_progress", "completed")
 

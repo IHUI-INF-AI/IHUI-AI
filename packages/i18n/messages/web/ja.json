@@ -11932,6 +11932,8 @@
       "showContent": "コンテンツを表示",
       "stopReadAloud": "読み上げ停止",
       "toggleMetadata": "メタデータ切替",
+      "metadataLoading": "メタデータを読み込み中…",
+      "metadataUnavailable": "メタデータを一時的に取得できません",
       "pin": "固定",
       "unpin": "固定を解除",
       "bookmark": "ブックマーク",
