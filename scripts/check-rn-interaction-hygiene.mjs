@@ -402,7 +402,14 @@ function resolveStyle(props, table) {
 
 // pressFeedback 不在这一列:它返回**函数**形态 style,而 cssInterop 会把注册表组件的函数形态
 // 换成 `{}`(守门 131 真机定案)⇒ 认它等于给"样式整份消失"的写法发免检。按压反馈走 <Tappable>。
-const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w/
+/**
+ * props 区里"结构上就有按压反馈"的证据。
+ * 刻意不含 pressed 字面量：函数形态 style 的字面里也有 pressed，而它正是守门 131 判红、
+ * 实测被 cssInterop 换成 {} 使整份内联样式消失的那一型 —— 把它当"已有反馈"等于两门互相打脸
+ * （一门的缺陷成了另一门的免检凭证）。children 函数形态不靠这一支，由 scanText 里独立的
+ * after 窗口判据认（`{({`）。
+ */
+const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|active:\w/
 
 /**
  * 遮罩 token 名单（由主流程从被审面注入）。默认空集 = 这一档不生效 ⇒ 判据只会更严不会更松，
@@ -863,7 +870,8 @@ function runSelfTest() {
   const fnStyle = scan(
     '<Pressable style={({ pressed }) => [{ width: 44, height: 44 }, pressed && a]} onPress={go} />',
   )
-  ok(fnStyle.h2.length === 0, 'H2 误报:函数形态 style 的按压入参也算反馈')
+  // 断言方向反转：旧断言把缺陷锁成规矩。children 函数形态另有判据，下一条用例钉它不受影响。
+  ok(fnStyle.h2.length === 1, 'H2 失守：函数形态 style 不得算已有反馈（与守门 131 同判）')
 
   // StyleSheet 表驱动:命中尺寸藏在同文件的 create 块里
   const sheet = scan(
