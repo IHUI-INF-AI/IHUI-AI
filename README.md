@@ -40577,3 +40577,52 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs` `check-rn-interaction-hygiene.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-web-rn-parity.mjs`(web↔RN 跨端对账,warn;自检 `node scripts/check-web-rn-parity.mjs`;跳过 `HUSKY_SKIP_WEB_RN_PARITY`) `check-web-rn-style-tiers.mjs`(2026-10-31 立;**web↔RN 非色档档位对账尺**:257 头注自述样式维只调颜色令牌、128 的 `SIDES` 只有 miniapp/rn,两处叠出字号/间距/圆角**零判据格**;判两端取值相对唯一档表 SPACING_STEPS/TYPE_STEPS/RADIUS_STEPS(档表 import `sync-css-tokens.mjs` 出口零复算)落 inTier / missingTier(表外但对端同值在用 = 档表缺位,出路=补表,零端内改动) / fork(表外且对端零同值 = 真分叉)三桶;只读报告器**刻意不进提交链**(RN 存量 2231 处与本次提交无关, 挂 blocking = §12e 恒红门),唯一调度器 = `parity-auto.mjs` 的 `gate-style-tiers` 腿(**不标 slow**,否则 `--fast` 档重开这一格盲区);取值集枚举到 0 落 exit 2 未判定不记绿;自检 `--self-test` 12 例 + 镜像 `scripts/tests/check-web-rn-style-tiers.test.mjs` 4 例) `check-ui-spec-mirror.mjs`(259,blocking;同名配对组件的 RN 壳↔小程序壳 spec **消费面**必须相等,差集逐条点名;例外走具名台账 `scripts/data/ui-mirror-waivers.json`,判序单源 `scripts/lib/ui-mirror-waivers.mjs`——到期回队列、被审面不再命中判清单腐烂、行形态不合格免不了任何东西;取证 = 门体 `--self-test` 13 例。**配套派生器 `gen-ui-mirror.mjs` 判另一半:同档位的「档→类」映射两端逐字相等(取值漂移本门看不见),它是写盘器物、恒读工作树,刻意不入提交链**)
+对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
+| 测试文件 | 3607 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
+| 跟踪文件 | 17728 | `trackedFiles` |
+  <strong>612 张表 · 4616 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3607 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **612 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4616 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
+| **测试覆盖** | **3607 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+**2026-10-30**
+**2026-10-30**
+**2026-10-30**
+**2026-10-30**
+**2026-10-29**
+**2026-10-30**
+**2026-10-30**
+**2026-10-30**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
+| 测试文件 | 3694 | `testFiles` |
+| 跟踪文件 | 18165 | `trackedFiles` |
+| 测试文件 | 3701 | `testFiles` |
+| 跟踪文件 | 18200 | `trackedFiles` |
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (adf8244981)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (37ca28af71)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7b434d031)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3bd0be64c9)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (39d0793928)
+| 测试文件 | 3709 | `testFiles` |
+| 跟踪文件 | 18214 | `trackedFiles` |
+| AI 服务路由 | 618 | `aiServiceRoutes` |
+| 测试文件 | 3732 | `testFiles` |
+| 跟踪文件 | 18244 | `trackedFiles` |
+| 测试文件 | 3748 | `testFiles` |
+| 跟踪文件 | 18275 | `trackedFiles` |
+| AI 服务路由 | 629 | `aiServiceRoutes` |
+| 测试文件 | 3753 | `testFiles` |
+| 跟踪文件 | 18292 | `trackedFiles` |
+|                   | 知识文件系统        | knowledge_fs 只读虚拟路径 `/repo/<repoId>/<file>#<symbol>`(list/read/stat/search 四出口,代码切片投影,对齐 Trae ckg Cfs* 读半边)+ external_import 外部运行时 4 维导入(memory→长期记忆 / automations→调度器幂等键 / capabilities 声明 / sessions 让位 relay 腿)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| AI 服务路由 | 623 | `aiServiceRoutes` |
+| 测试文件 | 3752 | `testFiles` |
+| 跟踪文件 | 18276 | `trackedFiles` |
