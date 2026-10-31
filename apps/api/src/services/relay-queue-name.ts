@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 号池队列名 × 数据库身份(2026-10-31 立)。
+ * BullMQ 队列名 × 数据库身份(2026-10-31 立,同日推广到全部队列族)。
  *
  * 不变量:**队列属于数据库,队列名必须能表达库身份;换库不换队列 = 跨库抢作业。**
  *
@@ -17,6 +17,14 @@
  * 判据:队列名 = 基础名 + 库身份后缀。只有「一次性/隔离库」才加后缀,主库保持既有队列名
  * 零扰动(否则滚动发布期新旧实例会互相看不见对方的作业)。三条规则按顺序短路:
  *   1. 显式 `RELAY_QUEUE_SUFFIX`(人工强隔离)> 2. 隔离库名特征 > 3. 原名。
+ *
+ * 适用范围(2026-10-31 推广):本模块是**全仓所有 BullMQ 队列名**的唯一解析出口。
+ * 取证件 `.ihui-agent/tmp/queue-proof/PROOF.md` §3b 量到同族事故在 email / notification /
+ * ai-callback / notification-dispatch / registry-sync / registry-cleanup / scheduler /
+ * batch-queue / relay-health-check / usdt-payment 各族上仍然成立(写死字面量 ⇒ 隔离栈照吃
+ * 主库作业;`relay-health-check-queue` 那一族 Redis 里就有 failed=500 的残留)。
+ * 中立出口 = `queueNameWithDbIdentity(base)`;`relayQueueName` 是号池一族的旧名,继续复用同一实现,
+ * **不得**在别处写第二份规则表(AGENTS §0.6 单一真相源)。
  *
  * 纯函数 + 常量,不 import 任何重型依赖(零副作用、零 IO,测试可直接 import 生产判据)。
  */
@@ -119,13 +127,31 @@ function resolve(base: string, opts: ResolveOpts = {}): QueueIsolation {
 }
 
 /**
+ * **全仓所有 BullMQ 队列的基础名 → 本进程实际队列名**(语义中立的唯一出口)。
+ *
+ * 名字不带 relay 是因为这条不变量不属于号池一族:email / notification / ai-callback /
+ * notification-dispatch / registry-sync / registry-cleanup / scheduler / batch-queue /
+ * relay-health-check / usdt-payment 全都得过。
+ *
+ * **在模块加载时求值**(与 `QUEUE_NAMES` 等导出的队列名常量同生命周期)。进程的环境变量
+ * 在入口 `import 'dotenv/config'`(`src/index.ts` / `src/worker-entry.ts` 第 5-6 行)之后
+ * 才被别人读走,队列名常量随之定死 —— 这正是想要的行为:同一个进程里生产者与消费者
+ * 只能听见同一个队列名,不会因运行中途改 env 而分家。测试要换 env 必须重新导入模块。
+ */
+export function queueNameWithDbIdentity(base: string, opts: ResolveOpts = {}): string {
+  return resolve(base, opts).queue
+}
+
+/**
  * 解析某个队列基础名在**当前进程环境**下应该用的真实队列名。
  *
  * `relayQueueName('relay-account-pool-queue')` 在主库 ⇒ 原名;
  * 在 `ihui_e2e` 隔离库 ⇒ `relay-account-pool-queue-ihui_e2e`。
+ *
+ * 号池一族的历史名字,等价于 `queueNameWithDbIdentity`(薄封装,不另写规则)。
  */
 export function relayQueueName(base: string, opts: ResolveOpts = {}): string {
-  return resolve(base, opts).queue
+  return queueNameWithDbIdentity(base, opts)
 }
 
 /** 号池队列名(worker / 任务中心 / 启动日志三处共用同一判据) */
