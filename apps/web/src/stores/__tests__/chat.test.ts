@@ -800,6 +800,80 @@ describe('useChatStore', () => {
       expect('chatSync' in persisted).toBe(false)
       expect('chatSyncResyncPending' in persisted).toBe(false)
     })
+
+    // 票71 剩余缺口①(2026-10-31):SSE 生成腿开始发 created/patched 后,端侧必须认两种回声,
+    // 否则生成端会出现"两条同 id 消息"或"文本被上一帧快照回退"。
+    it('created 帧到达时渲染面已有同 id(历史水合/本端 SSE 占位)⇒ 只补判据面,不重复增行', () => {
+      useChatStore.setState({
+        messages: [{ id: 'm-1', role: 'assistant', content: '本地已有', createdAt: 1 }],
+      })
+      const out = useChatStore.getState().applyChatSync(created('m-1', ''))
+      expect(out.applied).toBe(true)
+      const s = useChatStore.getState()
+      expect(s.messages).toHaveLength(1)
+      expect(s.messages[0]?.content).toBe('本地已有')
+      expect(s.chatSync.messages.has('m-1')).toBe(true)
+    })
+
+    it('本地生成端(streamingAssistantId 命中)收到 patch 帧 ⇒ 只推进判据面,不回退渲染面', () => {
+      useChatStore.setState({
+        messages: [{ id: 'm-1', role: 'assistant', content: 'SSE 已推到更远', createdAt: 1 }],
+        isStreaming: true,
+        streamingAssistantId: 'm-1',
+      })
+      // 内核面从空开始:created 补达(空初面)⇒ patched snapshot 落在旧内容上
+      useChatStore.getState().applyChatSync(created('m-1', ''))
+      const out = useChatStore.getState().applyChatSync(snapshot('m-1', 3, '服务端快照'))
+      expect(out.applied).toBe(true)
+      const s = useChatStore.getState()
+      // 渲染面保持 SSE 权威内容
+      expect(s.messages[0]?.content).toBe('SSE 已推到更远')
+      // 判据面推进到服务端链头(终态帧之后可落在同一 rev 上)
+      expect(s.chatSync.appliedRevs.get('m-1')).toBe(3)
+    })
+
+    it('非生成端(未在流式)收到同样的 snapshot ⇒ 照旧投影到渲染面', () => {
+      useChatStore.setState({
+        messages: [{ id: 'm-1', role: 'assistant', content: '旧', createdAt: 1 }],
+        isStreaming: false,
+        streamingAssistantId: null,
+      })
+      useChatStore.getState().applyChatSync(created('m-1', ''))
+      useChatStore.getState().applyChatSync(snapshot('m-1', 3, '服务端快照'))
+      expect(useChatStore.getState().messages[0]?.content).toBe('服务端快照')
+    })
+
+    it('本地生成端:terminal 仍投影终态标记(回声只拦 created/patched,不拦状态位)', () => {
+      useChatStore.setState({
+        messages: [{ id: 'm-1', role: 'assistant', content: 'SSE 内容', createdAt: 1 }],
+        isStreaming: true,
+        streamingAssistantId: 'm-1',
+      })
+      useChatStore.getState().applyChatSync(created('m-1', ''))
+      useChatStore.getState().applyChatSync(snapshot('m-1', 3, '服务端快照'))
+      const out = useChatStore.getState().applyChatSync(terminal('m-1', 3, 'stop'))
+      expect(out.applied).toBe(true)
+      const msg = useChatStore.getState().messages[0]
+      expect(msg?.content).toBe('SSE 内容')
+      expect(msg?.terminal).toEqual({ rev: 3, reason: 'stop' })
+    })
+
+    it('dropChatSyncGap:摘单条坐标、其余保留;摘空时 resync 旗一并复位', () => {
+      useChatStore.setState({
+        chatSyncResyncPending: true,
+        chatSyncGapMessageIds: ['m-1', 'm-2'],
+      })
+      useChatStore.getState().dropChatSyncGap('m-1')
+      expect(useChatStore.getState().chatSyncGapMessageIds).toEqual(['m-2'])
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
+      useChatStore.getState().dropChatSyncGap('m-2')
+      expect(useChatStore.getState().chatSyncGapMessageIds).toEqual([])
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(false)
+      // 未知 id ⇒ 零变化(不误清旗)
+      useChatStore.setState({ chatSyncResyncPending: true })
+      useChatStore.getState().dropChatSyncGap('m-unknown')
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
+    })
   })
 
   // ============ B02 第三切片(2026-10-25)resync 快照:applyChatSyncSnapshot ============

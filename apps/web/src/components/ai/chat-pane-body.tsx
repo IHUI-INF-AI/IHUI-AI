@@ -29,6 +29,10 @@ import { MessageInput } from '@/components/chat/message-input'
 import { MessageList } from '@/components/chat/message-list/MessageList'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { useChat } from '@/hooks/use-chat'
+// D35(2026-10-31 挂载):长会话分页投影钩子此前是"建好没装车"的形态(实现/单测在位,
+// 零生产入口)。本窗格是它接入的第一处真实消费面:首屏 loadLatest 拿 turn 分片投影,
+// 流式结束后 refreshNewer 走增量续读,投影行按 id 去重补进本窗格 store。
+import { useChatHistoryProjection } from '@/hooks/use-chat-history-projection'
 import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
 import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
 import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
@@ -63,6 +67,10 @@ const AiSidePanelTools = dynamic(
   () => import('@/components/ai/ai-side-panel-tools').then((m) => m.AiSidePanelTools),
   { ssr: false },
 )
+
+/** D35 投影每页取的 turn 数:与 MessageList 首屏 50 条消息同量级(一轮 ≈2 条),
+ *  与 API 的 historyListSchema 默认 20 同档 —— 不为投影另立一套分页常量。 */
+const PROJECTION_PAGE_TURNS = 25
 
 export interface ChatPaneBodyProps {
   /** 布局树叶 id(= chat-panes 注册表键) */
@@ -133,6 +141,57 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   // 「用场景分析」开合(与根窗格同判据:只有导入会话才有入口,自建会话不挂空壳弹窗)
   const [analysisOpen, setAnalysisOpen] = React.useState(false)
   const requestSeqRef = React.useRef(0)
+
+  // ── D35 长会话分页投影挂载(2026-10-31) ──────────────────────────────────
+  // 之前 `use-chat-history-projection` 只有实现与单测、没有任何页面消费(§0.9 造好没装车)。
+  // 本窗格把它接到真实消费面,三件事:
+  //  ① 历史结算后 loadLatest:拿 turn 分片投影与 newer 端断点(投影判据全在 @ihui/shared/chat);
+  //  ② 流式结束后 refreshNewer:增量续读补回中途进入会话时看到的"半截最新轮";
+  //  ③ 投影行按 id 去重补进本窗格 store —— 已有行(流式在途/本地乐观)一律优先,
+  //     投影只补 store 里没有的 id,不覆盖任何本地现场。
+  // 上翻仍走既有 getMessages keyset 通道:它的游标与投影的 turn 游标不是同一空间,
+  // 两套游标混灌就是"上翻丢帧"(hook 头注同一条纪律),故不在此把 loadOlder 接进列表。
+  const projection = useChatHistoryProjection(conversationId)
+  const projectionStartedForRef = React.useRef<string | null>(null)
+  const projectionWasStreamingRef = React.useRef(false)
+  React.useEffect(() => {
+    // 历史结算后才接管;缓存命中时 loadingHistory 恒 false,切会话即生效。
+    if (loadingHistory) return
+    if (projectionStartedForRef.current === conversationId) return
+    projectionStartedForRef.current = conversationId
+    void projection.loadLatest(PROJECTION_PAGE_TURNS)
+  }, [conversationId, loadingHistory, projection])
+
+  React.useEffect(() => {
+    if (isStreaming) {
+      projectionWasStreamingRef.current = true
+      return
+    }
+    // 只判「流式结束」这一个沿:初次挂载/store 空闲时 newerCursor 恒 null,不空发请求。
+    if (!projectionWasStreamingRef.current) return
+    projectionWasStreamingRef.current = false
+    if (!projection.boundary.newerCursor) return
+    void projection.refreshNewer(PROJECTION_PAGE_TURNS)
+  }, [isStreaming, projection])
+
+  React.useEffect(() => {
+    const current = chatStore.getState()
+    if (current.conversationId !== conversationId) return
+    const known = new Set(current.messages.map((message) => message.id))
+    const missing = projection.turns.flatMap((turn) =>
+      turn.messages
+        .filter((message) => !known.has(message.id))
+        .map((message) => {
+          known.add(message.id)
+          return { ...message, turnOrdinal: turn.turnOrdinal }
+        }),
+    )
+    if (missing.length === 0) return
+    const merged = [...current.messages, ...hydrateHistoryMessages(missing)].sort(
+      (a, b) => a.createdAt - b.createdAt,
+    )
+    chatStore.setState({ messages: merged })
+  }, [projection, chatStore, conversationId])
   // P1-6 续接(片3,2026-10-21):与根主体共用同一份编排出口 useResumeBranch ——
   // 捕获/结算后续接/中止三条时序只在一处实现(§0.6),本窗格只负责在历史 effect 里挂三个点。
   const resume = useResumeBranch(chatStore, paneId, t)
