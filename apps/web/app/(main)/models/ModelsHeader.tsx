@@ -77,7 +77,7 @@ export function ModelsHeader({ total, freeCount, providerCount, highlightCount }
     <header className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <Bot className="h-7 w-7 text-primary" />
             <span>{t('title')}</span>
           </h1>

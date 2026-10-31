@@ -233,7 +233,7 @@ export function ProviderCardV2({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="truncate text-sm font-semibold">{provider.name}</h3>
+              <h3 className="truncate text-body font-semibold">{provider.name}</h3>
               <Badge
                 variant={provider.enabled ? 'default' : 'secondary'}
                 className="shrink-0 whitespace-nowrap text-xs"
@@ -323,7 +323,7 @@ export function ProviderCardV2({
         {/* Models list (子表) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
-            <p className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
+            <p className="min-w-0 flex-1 truncate text-label font-medium text-muted-foreground">
               {t('modelsCount', { count: models.length })}
             </p>
             <Button

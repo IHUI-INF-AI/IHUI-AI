@@ -167,7 +167,7 @@ export default function TrendPage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('trendTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('trendTitle')}</h1>
         <p className="text-xs text-muted-foreground">
           {t('trendSubtitle', { studentId: studentId?.slice(0, 8) ?? '' })}
         </p>
@@ -196,7 +196,7 @@ export default function TrendPage() {
       {/* Score Trend Line Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <CardTitle className="flex items-center gap-2 text-body font-medium">
             <TrendingUp className="h-4 w-4" />
             {t('scoreTrend')}
           </CardTitle>
@@ -245,7 +245,7 @@ export default function TrendPage() {
       {/* Subject Breakdown Radar Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <CardTitle className="flex items-center gap-2 text-body font-medium">
             <BookOpen className="h-4 w-4" />
             {t('subjectScoreDistribution')}
           </CardTitle>
@@ -279,7 +279,7 @@ export default function TrendPage() {
       {/* Weakness List */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <CardTitle className="flex items-center gap-2 text-body font-medium">
             <AlertTriangle className="h-4 w-4" />
             {t('weaknesses')}
           </CardTitle>

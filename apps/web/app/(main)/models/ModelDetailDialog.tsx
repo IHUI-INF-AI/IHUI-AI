@@ -253,7 +253,7 @@ export function ModelDetailDialog({
 
           {model.features.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+              <div className="flex items-center gap-1.5 text-label font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <Tags className="h-3 w-3" />
                 <span>{t('detail.capabilities')}</span>
               </div>
@@ -321,7 +321,7 @@ function DetailStat({
         {icon}
         <span>{label}</span>
       </div>
-      <div className="mt-1 truncate text-sm font-semibold text-foreground">{value}</div>
+      <div className="mt-1 truncate text-body font-semibold text-foreground">{value}</div>
       {hint && <div className="mt-0.5 truncate text-[10px] text-muted-foreground/70">{hint}</div>}
     </div>
   )

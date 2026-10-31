@@ -311,7 +311,7 @@ export default function HomeworkPage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
         <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
@@ -377,7 +377,7 @@ export default function HomeworkPage() {
                     <Icon className={cn('h-4 w-4', card.color)} />
                     <span className="text-xs text-muted-foreground">{card.label}</span>
                   </div>
-                  <p className="mt-1 text-2xl font-bold">
+                  <p className="mt-1 text-display font-bold">
                     {statsLoading ? (
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     ) : (
@@ -394,7 +394,7 @@ export default function HomeworkPage() {
       {/* Submissions List */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium">{t('submissionsTitle')}</CardTitle>
+          <CardTitle className="text-body font-medium">{t('submissionsTitle')}</CardTitle>
           <div className="flex items-center gap-2">
             <Select
               value={statusFilter}
@@ -463,7 +463,7 @@ export default function HomeworkPage() {
                 <tbody>
                   {submissions.map((s) => (
                     <tr key={s.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3 text-xs font-medium">{s.studentName}</td>
+                      <td className="px-4 py-3 text-label font-medium">{s.studentName}</td>
                       <td className="px-4 py-3 text-xs">
                         <TruncatedText value={s.content} className="max-w-[200px]" />
                       </td>
@@ -489,7 +489,7 @@ export default function HomeworkPage() {
                           {submissionStatusLabel(s.status)}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium">
+                      <td className="px-4 py-3 text-label font-medium">
                         {s.score !== null ? (
                           <span className={cn(s.score >= 60 ? 'text-green-600' : 'text-red-600')}>
                             {s.score}

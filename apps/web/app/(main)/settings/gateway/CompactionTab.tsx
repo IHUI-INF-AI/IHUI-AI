@@ -174,7 +174,7 @@ export function CompactionTab() {
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs font-medium">{t('compressedPreview')}</p>
+                <p className="text-label font-medium">{t('compressedPreview')}</p>
                 <pre className="max-h-[180px] overflow-y-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] leading-relaxed">
                   {expanded ? compressedText : compressedText.slice(0, PREVIEW_LIMIT)}
                   {!expanded && compressedText.length > PREVIEW_LIMIT && '…'}
@@ -197,7 +197,7 @@ export function CompactionTab() {
               </p>
 
               <Collapsible open={showDecompressed} onOpenChange={setShowDecompressed}>
-                <CollapsibleTrigger className="inline-flex h-7 w-auto items-center justify-center rounded-md border px-3 text-xs font-medium transition-colors hover:bg-accent">
+                <CollapsibleTrigger className="inline-flex h-7 w-auto items-center justify-center rounded-md border px-3 text-label font-medium transition-colors hover:bg-accent">
                   <ChevronDown
                     className={`mr-1 h-3.5 w-3.5 transition-transform ${showDecompressed ? 'rotate-180' : ''}`}
                   />

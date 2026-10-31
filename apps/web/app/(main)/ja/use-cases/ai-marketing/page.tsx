@@ -222,7 +222,7 @@ export default function AiMarketingPage() {
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         {/* Hero */}
         <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
             <Megaphone className="h-3.5 w-3.5 text-primary" />
             マーケティングコンテンツ
           </div>
@@ -236,7 +236,7 @@ export default function AiMarketingPage() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">
+                <div className="text-display font-bold text-primary min-[768px]:text-3xl">
                   {m.value}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
@@ -251,7 +251,7 @@ export default function AiMarketingPage() {
         <section className="mt-16 rounded-lg border bg-card p-3">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               マーケティングチームの生産性ボトルネック
             </h2>
           </div>
@@ -270,13 +270,13 @@ export default function AiMarketingPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="text-center text-heading font-bold tracking-tight min-[768px]:text-display">
             6 つのコア能力
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-lg border bg-card p-3 shadow-sm">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-sm font-semibold text-primary">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-body font-semibold text-primary">
                   {i + 1}
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">{c.title}</h3>
@@ -288,7 +288,7 @@ export default function AiMarketingPage() {
 
         {/* 事例 */}
         <section className="mt-16 rounded-2xl border bg-cta/5 p-3">
-          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="text-center text-heading font-bold tracking-tight min-[768px]:text-display">
             導入事例
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
@@ -305,7 +305,7 @@ export default function AiMarketingPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h2 className="text-center text-heading font-bold tracking-tight min-[768px]:text-display">
               技術スタックとツールチェーン
             </h2>
           </div>
@@ -317,7 +317,7 @@ export default function AiMarketingPage() {
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
               <div key={i} className="rounded-lg border bg-card p-3">
-                <h3 className="text-sm font-semibold">{t.name}</h3>
+                <h3 className="text-body font-semibold">{t.name}</h3>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t.purpose}</p>
               </div>
             ))}
@@ -327,7 +327,7 @@ export default function AiMarketingPage() {
         {/* お問い合わせ / CTA */}
         <section className="mt-16 rounded-lg border bg-card p-3 text-center">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
             AI マーケティングコンテンツアシスタントの構築を始めましょう
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -337,13 +337,13 @@ export default function AiMarketingPage() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/sso/register"
-              className="inline-flex h-11 items-center justify-center rounded-md bg-cta px-8 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+              className="inline-flex h-11 items-center justify-center rounded-md bg-cta px-8 text-body font-medium text-cta-foreground hover:bg-cta/90"
             >
               無料登録
             </Link>
             <Link
               href="/use-cases"
-              className="inline-flex h-11 items-center justify-center rounded-sm border border-input bg-background px-8 text-sm font-medium hover:bg-accent"
+              className="inline-flex h-11 items-center justify-center rounded-sm border border-input bg-background px-8 text-body font-medium hover:bg-accent"
             >
               他のユースケースを見る <ArrowRight className="ml-2 h-4 w-4" />
             </Link>

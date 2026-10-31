@@ -67,7 +67,7 @@ export default function McpDocsPage() {
 
       {/* 什么是 MCP */}
       <section id="what-is-mcp" className="space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">什么是 MCP?</h2>
+        <h2 className="text-display font-bold tracking-tight">什么是 MCP?</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             <strong>Model Context Protocol(MCP)</strong>是 Anthropic 主导的 AI 工具连接开放标准,
@@ -87,7 +87,7 @@ export default function McpDocsPage() {
 
       {/* 预置 Server */}
       <section id="preset-servers" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">100+ 预置 MCP Server</h2>
+        <h2 className="text-display font-bold tracking-tight">100+ 预置 MCP Server</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">📁 文件与存储</h3>
@@ -133,7 +133,7 @@ export default function McpDocsPage() {
 
       {/* 接入预置 Server */}
       <section id="use-preset" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">接入预置 Server</h2>
+        <h2 className="text-display font-bold tracking-tight">接入预置 Server</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             在 Agent 编排页面 → 工具 → 添加 MCP Server,选择预置项,填入凭据即可。
@@ -161,7 +161,7 @@ Agent: [调用 GitHub MCP] 找到 23 个 bug 标签的 Issue...`}</code>
 
       {/* 自定义 Server */}
       <section id="custom-server" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">开发自定义 MCP Server</h2>
+        <h2 className="text-display font-bold tracking-tight">开发自定义 MCP Server</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             企业内部系统(ERP/OA/CRM)可封装为 MCP Server,让 Agent 安全调用。
@@ -175,7 +175,7 @@ pip install mcp
 mcp create my-server`}</code>
           </pre>
 
-          <p className="text-sm font-semibold pt-2">示例:查询订单的 MCP Server(TypeScript)</p>
+          <p className="text-body font-semibold pt-2">示例:查询订单的 MCP Server(TypeScript)</p>
           <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`import { McpServer } from '@modelcontextprotocol/sdk'
 import { z } from 'zod'
@@ -220,7 +220,7 @@ await server.connect()`}</code>
 
       {/* 安全 */}
       <section id="security" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">安全与权限</h2>
+        <h2 className="text-display font-bold tracking-tight">安全与权限</h2>
         <div className="rounded-2xl border bg-card p-3">
           <ul className="ml-4 list-disc space-y-2 text-sm text-muted-foreground">
             <li><strong>用户显式授权</strong>:Agent 调用工具前,用户必须在 UI 点击允许(除非标记为 trusted)</li>
@@ -233,11 +233,11 @@ await server.connect()`}</code>
       </section>
 
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
+        <h2 className="text-display font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/docs/agent" className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90">Agent 开发</Link>
-          <Link href="/docs/workflow" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">工作流编排</Link>
-          <Link href="/docs/api" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">API 参考</Link>
+          <Link href="/docs/agent" className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90">Agent 开发</Link>
+          <Link href="/docs/workflow" className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent">工作流编排</Link>
+          <Link href="/docs/api" className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent">API 参考</Link>
         </div>
       </section>
     </div>

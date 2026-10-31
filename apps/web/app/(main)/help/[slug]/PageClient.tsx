@@ -93,7 +93,7 @@ export default function HelpArticlePage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{a.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{a.title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <BookOpen className="h-4 w-4" />
@@ -122,7 +122,7 @@ export default function HelpArticlePage() {
               {toc.length > 0 && (
                 <Card>
                   <CardContent className="min-[640px]:p-3 p-3">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="mb-3 text-label font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('toc')}
                     </p>
                     <nav className="space-y-1">
@@ -145,7 +145,7 @@ export default function HelpArticlePage() {
               {relatedItems.length > 0 && (
                 <Card>
                   <CardContent className="min-[640px]:p-3 p-3">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="mb-3 text-label font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('related')}
                     </p>
                     <nav className="space-y-1">

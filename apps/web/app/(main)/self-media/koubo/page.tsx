@@ -309,8 +309,8 @@ export default function KouboPage() {
               <div
                 className={
                   result.ok
-                    ? 'text-sm font-medium text-emerald-600'
-                    : 'text-sm font-medium text-rose-600'
+                    ? 'text-body font-medium text-emerald-600'
+                    : 'text-body font-medium text-rose-600'
                 }
               >
                 {result.ok ? (
@@ -348,7 +348,7 @@ export default function KouboPage() {
                       className="rounded-md border border-border bg-background p-3"
                     >
                       <div className="mb-2 flex items-center justify-between">
-                        <h4 className="text-xs font-semibold">
+                        <h4 className="text-label font-semibold">
                           {t('articleNumber', { n: a.index })}
                         </h4>
                         <Button

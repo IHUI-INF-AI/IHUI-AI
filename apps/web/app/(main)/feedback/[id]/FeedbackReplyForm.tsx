@@ -51,14 +51,14 @@ export function FeedbackReplyForm({
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 p-3">
-        <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <p className="mb-3 flex items-center gap-2 text-body font-semibold">
           <MessageSquare className="h-4 w-4" />
           {tc('replyTitle')}
         </p>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="fb-status">
+              <label className="text-body font-medium" htmlFor="fb-status">
                 {t('field_status')}
               </label>
               <Select value={status} onValueChange={(v) => setStatus(v as FeedbackStatus)}>
@@ -75,7 +75,7 @@ export function FeedbackReplyForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="fb-priority">
+              <label className="text-body font-medium" htmlFor="fb-priority">
                 {t('field_priority')}
               </label>
               <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
@@ -94,7 +94,7 @@ export function FeedbackReplyForm({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="fb-reply">
+            <label className="text-body font-medium" htmlFor="fb-reply">
               {tc('replyContent')}
             </label>
             <textarea

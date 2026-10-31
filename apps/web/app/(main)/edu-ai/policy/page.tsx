@@ -179,7 +179,7 @@ export default function EduAiPolicyPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu-ai" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Landmark className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -236,7 +236,7 @@ export default function EduAiPolicyPage() {
                   </p>
                   <span
                     className={cn(
-                      'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                       levelClass(item.policyLevel),
                     )}
                   >
@@ -330,7 +330,7 @@ export default function EduAiPolicyPage() {
               ) : (
                 contentSections.map((s) => (
                   <section key={s.label} className="space-y-1">
-                    <h3 className="text-sm font-semibold">{s.label}</h3>
+                    <h3 className="text-body font-semibold">{s.label}</h3>
                     <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                       {s.value}
                     </p>

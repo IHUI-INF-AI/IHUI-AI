@@ -123,7 +123,7 @@ export default function MemberSettingsPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Settings className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -132,13 +132,13 @@ export default function MemberSettingsPage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <div className="flex items-center gap-2 pb-2 text-sm font-semibold">
+          <div className="flex items-center gap-2 pb-2 text-body font-semibold">
             <Bell className="h-4 w-4" />
             {t('notifTitle')}
           </div>
           {NOTIF_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between gap-3">
-              <Label className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
+              <Label className="min-w-0 flex-1 truncate text-body font-normal text-muted-foreground">
                 {t(NOTIF_KEY[key] ?? 'notif.unknown')}
               </Label>
               <div className="shrink-0">
@@ -151,13 +151,13 @@ export default function MemberSettingsPage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <div className="flex items-center gap-2 pb-2 text-sm font-semibold">
+          <div className="flex items-center gap-2 pb-2 text-body font-semibold">
             <Shield className="h-4 w-4" />
             {t('privacyTitle')}
           </div>
           {PRIVACY_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between gap-3">
-              <Label className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
+              <Label className="min-w-0 flex-1 truncate text-body font-normal text-muted-foreground">
                 {t(PRIVACY_KEY[key] ?? 'privacy.unknown')}
               </Label>
               <div className="shrink-0">

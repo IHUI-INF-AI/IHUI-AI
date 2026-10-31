@@ -40,7 +40,7 @@ export function StudyPlanList({
   return (
     <Card className="lg:col-span-1">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">
+        <CardTitle className="text-body font-medium">
           {t('planListTitle')}
           {parentPlans.length > 0 && (
             <span className="ml-2 text-xs text-muted-foreground">({parentPlans.length})</span>
@@ -78,7 +78,7 @@ export function StudyPlanList({
                         <div className="flex items-center gap-2">
                           <p
                             className={cn(
-                              'text-sm font-medium truncate',
+                              'text-body font-medium truncate',
                               plan.status === 'completed' && 'line-through text-muted-foreground',
                             )}
                           >
