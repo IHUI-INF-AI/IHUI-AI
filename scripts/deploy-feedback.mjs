@@ -14,9 +14,14 @@
  *  - 达标簇构造「台账登记行」,标题含 action 与稳定 route,证据含 dims/action/时间窗;行宽 ≤400;
  *    行内 7~64 位 hex 一律过 `sanitizeHexRuns`(守门 117 会把短 sha 判住、整块拒落);
  *  - 编号**只写 live-doc-edit 的取号令牌**,不在本器拼号。族前缀现读 `scripts/lib/plan-task-index.mjs`
- *    的 usedIdsOfPrefix/nextTaskIdLabel 验证可行;`{{NEXT_ID:G}}` 现读已满,不使用。
+ *    的 usedIdsOfPrefix/nextTaskIdLabel 先筛「族在册 + 有余号」;只过这一关不够 —— 还要问
+ *    **可发性探针**(`auto-triage.pickRegistrationFamily`,判据 = live-doc-edit.resolveIdTokens
+ *    现跑,零写盘)。2026-10-31 实测:O 族「空闲 42 枚、无连续 10 号租约窗」,--apply 被
+ *    live-doc-edit 以 NO_CONTIGUOUS_LEASE_WINDOW 拒发号,建单跳卡死;探针把这一维纳入后按
+ *    D/B/A 顺序退到真发得出号的族并点名逐族成因。探针不含远端那一维(排序器不是担保,
+ *    真落地仍由 live-doc-edit 每轮 CAS 现算)。
  *    `O65` 是自进化系列的总纲标题,live-doc-edit 的令牌族只吃 `[A-Za-z]+`(数字不可进族名),
- *    故落成 `{{NEXT_ID:O}}`;若 O 族现读不可用,按 D/B/A 顺序退一个有余量的族并点名依据。
+ *    故落成 `{{NEXT_ID:O}}`。
  *  - 登记唯一入口 = `scripts/live-doc-edit.mjs` 子进程(LIVE_DOC / LIVE_BLOCK_FILE / LIVE_MSG),
  *    默认 dry-run 只打印行、不 spawn;`--apply` 才真登记,每轮最多 `--max-per-run` 条(默认 3);
  *  - 去重台账 `.ihui-agent/state/deploy-feedback-ledger.jsonl`:同身份(identityOf)24h 内结果
@@ -37,7 +42,13 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 import { gitBinary } from './lib/face-reader.mjs'
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
 import { clusterSignals, identityOf, loadContract, minCountForSource, validateSignal } from './lib/incident-cluster.mjs'
-import { nextTaskIdLabel, usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { keyOfRow, nextTaskIdLabel, usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { ticketKeyOf } from './lib/ticket-key.mjs'
+// 取号族「可发性」判据与第一发号出口同一份(§0.6):auto-triage 已把它收口成
+// `pickRegistrationFamily`(内部 = live-doc-edit.resolveIdTokens 现跑),本器只调用不复制。
+// 为什么必须问它:现判据(usedIdsOfPrefix/nextTaskIdLabel)只说明"族在册且有余号",说明不了
+// "发得出号"——O 族实测空闲 42 枚却无连续 10 号租约窗,live-doc-edit 当场拒发。
+import { pickRegistrationFamily } from './auto-triage.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -258,13 +269,14 @@ export function buildRegistrationLine({ token, title, evidence, date }) {
 }
 
 /**
- * 取号族现读:先 O65(自进化系列),再 D/B/A。返回 {ok, requested, family, token, nextLabel, ...}。
- * `requested` 可带数字(如 O65),但 live-doc-edit 的令牌族只吃字母 ⇒ family/token 用剥数字后的族字母。
+ * 候选族逐族的「现判据」读数(族在册 ∧ 有余号);不判可发性 —— 那一维归可发性探针。
+ * 单列成函数是为了让 chooseIdFamily 的两档(不探 / 探)共用同一份现读,不重扫计划文本。
  */
-export function chooseIdFamily(content) {
+export function scanIdFamilies(content) {
   if (typeof content !== 'string' || content.trim() === '') {
-    return { ok: false, why: 'PROJECT_PLAN.md 内容读不到 ⇒ 无法现读取号族' }
+    return { ok: false, why: 'PROJECT_PLAN.md 内容读不到 ⇒ 无法现读取号族', candidates: [], reasons: [] }
   }
+  const candidates = []
   const reasons = []
   for (const requested of FAMILY_CANDIDATES) {
     const family = String(requested).replace(/[^A-Za-z]/g, '').toUpperCase()
@@ -272,20 +284,114 @@ export function chooseIdFamily(content) {
     const used = usedIdsOfPrefix(content, requested)
     if (!used) {
       reasons.push(`${requested} 族现读无登记行 ⇒ 取号不可行`)
+      candidates.push({ ok: false, requested, family, why: 'no-rows' })
       continue
     }
     const nextLabel = nextTaskIdLabel(content, requested)
     if (!nextLabel) {
       reasons.push(`${requested} 族无空闲号`)
+      candidates.push({ ok: false, requested, family, why: 'no-free-id', usedMax: used.max, usedCount: used.used })
       continue
     }
     const token = `{{NEXT_ID:${family}}}`
     const basis =
       `${requested}${requested !== family ? `(族字母 ${family}:live-doc-edit 令牌只吃 [A-Za-z]+)` : ''}` +
       ` 现读 max=${used.max} used=${used.used} 下一号=${nextLabel}`
-    return { ok: true, requested, family, token, nextLabel, usedMax: used.max, usedCount: used.used, basis }
+    candidates.push({ ok: true, requested, family, token, nextLabel, usedMax: used.max, usedCount: used.used, basis })
   }
-  return { ok: false, why: `无可用取号族(${reasons.join(';')})` }
+  return { ok: true, why: '', candidates, reasons }
+}
+
+/**
+ * 取号族现读:先 O65(自进化系列),再 D/B/A。
+ * `probe` 未给 ⇒ 只按现判据取第一个「族在册 + 有余号」的族(保留旧行为,供纯文本测试/离线读);
+ * 给了 ⇒ 还必须过可发性探针,第一个「真发得出号」的族才返回。探针未判定 / 异常 / 无候选可发
+ * ⇒ ok:false 并点名,绝不拿「预判可行」冒充「发得出号」(§0.3)。
+ * `requested` 可带数字(如 O65),但 live-doc-edit 的令牌族只吃字母 ⇒ family/token 用剥数字后的族字母。
+ */
+export function chooseIdFamily(content, { probe = null, root = ROOT } = {}) {
+  // 现判据读数(工作区 PLAN 面):无探针档的唯一依据;有探针档只作参考读数附在返回值里。
+  const scan = scanIdFamilies(content)
+  if (typeof probe !== 'function') {
+    if (!scan.ok) return { ok: false, why: scan.why, candidates: [], readings: [] }
+    const first = scan.candidates.find((c) => c.ok) ?? null
+    if (first) return { ...first, candidates: scan.candidates, readings: [], probeStatus: 'not-probed' }
+    return {
+      ok: false,
+      why: `无可用取号族(${scan.reasons.join(';')})`,
+      candidates: scan.candidates,
+      readings: [],
+      probeStatus: 'not-probed',
+    }
+  }
+  const candidates = scan.candidates ?? []
+  let pr
+  try {
+    pr = probe({ root })
+  } catch (e) {
+    return { ok: false, why: `取号族可发性探针异常:${e?.message ?? e}(不发号,不猜)`, candidates, readings: [] }
+  }
+  const readings = Array.isArray(pr?.readings) ? pr.readings : []
+  // 读数裁剪:探针的 exhaustion.scanHits 可带整页片段(实测 --json 输出 128KB)⇒ 只留判据字段。
+  const slimReadings = readings.map((r) => ({
+    family: r?.family ?? null,
+    ok: Boolean(r?.ok),
+    status: r?.status ?? null,
+    label: r?.label ?? null,
+    reason: r?.reason ?? null,
+    stage: r?.exhaustion?.stage ?? null,
+  }))
+  if (!pr || typeof pr.ok !== 'boolean' || pr.undetermined === true) {
+    return {
+      ok: false,
+      why: `取号族可发性未判定:${pr?.why ?? '探针未给出结论'}`,
+      candidates,
+      readings: slimReadings,
+      faceNotes: Array.isArray(pr?.faceNotes) ? pr.faceNotes : [],
+    }
+  }
+  // 探针档的取证面 = HEAD ⊕ 归档件(与 live-doc-edit 同源),**不是**工作区 PLAN:候选族
+  // 「在不在册」以 readings 为准。2026-10-31 实测 B 族只在归档面、工作区 PLAN 无行 ⇒ 若沿用
+  // 工作区面会判 no-rows,把唯一真可发的族漏掉而继续在 O 族的租约窗上撞死。
+  const byFamily = new Map(readings.map((r) => [String(r?.family ?? '').toUpperCase(), r]))
+  const rejected = []
+  for (const requested of FAMILY_CANDIDATES) {
+    const family = String(requested).replace(/[^A-Za-z]/g, '').toUpperCase()
+    if (!family) continue
+    const r = byFamily.get(family)
+    if (!r) {
+      rejected.push(`${family}:探针无该族读数`)
+      continue
+    }
+    if (!r.ok) {
+      const stage = r?.exhaustion?.stage ? `/${r.exhaustion.stage}` : ''
+      rejected.push(`${family}:${r.status ?? 'rejected'}${stage}`)
+      continue
+    }
+    const label = r.label ?? null
+    return {
+      ok: true,
+      requested,
+      family,
+      token: `{{NEXT_ID:${family}}}`,
+      nextLabel: label ?? '(探针未给首号)',
+      probeStatus: r.status ?? 'issuable',
+      probeLabel: label,
+      basis:
+        `${requested}${requested !== family ? `(族字母 ${family}:live-doc-edit 令牌只吃 [A-Za-z]+)` : ''}` +
+        ` 可发性探针现读可发${label ? ` 首号=${label}` : ''}(取证面=HEAD⊕归档,与 live-doc-edit 同源)`,
+      candidates,
+      readings: slimReadings,
+      faceNotes: Array.isArray(pr.faceNotes) ? pr.faceNotes : [],
+    }
+  }
+  return {
+    ok: false,
+    why: `无候选族现读可发号(${rejected.join(';')};候选族 ${FAMILY_CANDIDATES.join('/')})`,
+    candidates,
+    readings: slimReadings,
+    faceNotes: Array.isArray(pr.faceNotes) ? pr.faceNotes : [],
+  }
 }
 
 /** 读本器台账(坏行跳过;文件不存在 = 空账,不是未判定)。 */
@@ -487,6 +593,10 @@ export function runRound({
   spawn = defaultSpawn,
   tmpDir = TMP_DIR,
   readPlanHead = null,
+  // 取号族可发性探针(默认 = auto-triage.pickRegistrationFamily,判据单源 = live-doc-edit.resolveIdTokens)。
+  // 注入 planContent 的调用 = 测试/离线档(纯文本夹具),默认不探(退回"只看现判据");
+  // 生产 CLI main() 不传 planContent ⇒ 默认真探针。显式传 null/false 亦可关闭。
+  familyProbe = planContent === undefined ? pickRegistrationFamily : null,
   log = console.log,
   warn = (...a) => console.error(...a),
 } = {}) {
@@ -610,7 +720,7 @@ export function runRound({
       return out
     }
   }
-  const family = chooseIdFamily(content)
+  const family = chooseIdFamily(content, { probe: familyProbe })
   out.family = family
   if (!family.ok) {
     out.why = `取号不可行:${family.why}`
@@ -630,7 +740,10 @@ export function runRound({
     out.code = 2
     return out
   }
-  log(`取号族现读:${family.basis} 令牌=${family.token}`)
+  log(
+    `取号族现读:${family.basis} 令牌=${family.token}` +
+      (family.probeLabel ? ` 可发性探针首号=${family.probeLabel}` : ''),
+  )
 
   const ledger = readLedger(ledgerPath, readFile)
   let attempts = 0
@@ -696,8 +809,19 @@ export function runRound({
       continue
     }
     log(`✅ 已登记:${cand.title}`)
-    // landed 读回才写 ticketLine;读不到 ⇒ 条目退回无键形态(status 判 undetermined 并点名),不伪造对齐键。
-    if (!record('registered', reg.landed ? { ticketLine: reg.landed } : {})) break
+    // landed 读回才写对齐键;读不到 ⇒ 条目退回无键形态(status 判 undetermined 并点名),不伪造对齐键。
+    // 对齐键两项都走单源:票号 = keyOfRow(编号主键唯一判据,与 plan-task-index 同把尺子;
+    // 2026-10-31 实测取号族退位到 B 后,decision-chain-sources 的 ticketNoPatterns 只登记
+    // G/D/P/W/O ⇒ 票号从 patterns 面取不到,此行把它按「登记行行首编号」记实);
+    // 票键 = ticketKeyOf(与 auto-evolve 派单行同一份实现,同票跨台账才串得上)。
+    const extra = {}
+    if (reg.landed) {
+      extra.ticketLine = reg.landed
+      const no = keyOfRow(reg.landed)
+      if (no) extra.ticketNo = no
+      extra.ticketKey = ticketKeyOf(reg.landed)
+    }
+    if (!record('registered', extra)) break
   }
 
   if (out.code === 3) {
@@ -728,6 +852,8 @@ export function statusReport({
   minutes = DEFAULT_MINUTES,
   now = new Date(),
   readFile = readFileDefault,
+  // 只读探针(零写盘);注入 planContent 的测试/离线档默认不探,显式传 null 亦可关闭。
+  familyProbe = planContent === undefined ? pickRegistrationFamily : null,
 } = {}) {
   const lines = []
   const rep = { code: 0, status: 'judged', why: null, lines, contract: null, family: null, input: null, ledger: [] }
@@ -776,9 +902,15 @@ export function statusReport({
       content = ''
     }
   }
-  const family = chooseIdFamily(content)
+  const family = chooseIdFamily(content, { probe: familyProbe })
   rep.family = family
-  lines.push(`取号族: ${family.ok ? `${family.basis} 令牌=${family.token}` : `未判定(${family.why})`}`)
+  lines.push(
+    `取号族: ${
+      family.ok
+        ? `${family.basis} 令牌=${family.token}${family.probeLabel ? ` 可发性探针首号=${family.probeLabel}` : ''}`
+        : `未判定(${family.why})`
+    }`,
+  )
   if (!family.ok) {
     rep.code = 2
     rep.why = rep.why ?? `取号不可行:${family.why}`
@@ -809,6 +941,15 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
     else {
       console.error(`  ❌ ${name}`)
       failed++
+    }
+  }
+  /** 判据型用例:抛错即红,并把人读原因带进用例名(与 feedback-loop-status 的自检同形)。 */
+  const t = (name, fn) => {
+    try {
+      fn()
+      ok(name, true)
+    } catch (e) {
+      ok(`${name} — ${e?.message ?? e}`, false)
     }
   }
   const { mkScratch, rmScratch } = await import('./lib/scratch-dir.mjs')
@@ -848,6 +989,13 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
     })
 
     const planText = ['- [ ] O88 假登记行', '- [ ] D16 另一族'].join('\n')
+    // 可发性探针假体(密闭):self-test 绝不读真 HEAD/归档面;生产默认探针 = pickRegistrationFamily。
+    const PROBE_O = () => ({
+      ok: true,
+      family: 'O',
+      readings: [{ family: 'O', ok: true, status: 'issuable', label: 'O89' }],
+      faceNotes: [],
+    })
     const fam = chooseIdFamily(planText)
     ok('取号族现读可行且不使用 G 族', fam.ok === true && fam.family !== 'G' && /^\{\{NEXT_ID:[A-Za-z]+\}\}$/.test(fam.token))
     ok('O65 系列落成字母族令牌、下一号现读', fam.token === '{{NEXT_ID:O}}' && fam.nextLabel === 'O89')
@@ -876,6 +1024,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       ledgerPath: ledgerA,
       planContent: planText,
       tmpDir: tmpA,
+      familyProbe: PROBE_O,
       spawn: () => {
         dryCalls++
         return { status: 0, stdout: '', stderr: '' }
@@ -904,6 +1053,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       planContent: planText,
       tmpDir: tmpB,
       apply: true,
+      familyProbe: PROBE_O,
       spawn: fakeSpawn,
       // 密闭夹具:self-test 绝不触真 git;给一棵「已落地」假 HEAD 面,同时钉 ticketLine 带回链。
       readPlanHead: () => `- [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] rollback post /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-26/deploy-feedback;来源:deploy_outcome;证据:dims=web action=rollback route=post /api/deploy/release sample="x"）\n`,
@@ -914,6 +1064,10 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
     ok('registered 条目带 ticketLine 回读(闭环对齐键)', (() => {
       const e = readLedger(ledgerB).find((x) => x.result === 'registered')
       return Boolean(e?.ticketLine) && e.ticketLine.includes('[deploy-feedback]') && /^[O]\d+/.test(e.ticketLine.replace('- [ ] ', '').trim())
+    })())
+    ok('registered 条目带票号与票键(票号 = keyOfRow 单源,票键 = ticketKeyOf 单源)', (() => {
+      const e = readLedger(ledgerB).find((x) => x.result === 'registered')
+      return e?.ticketNo === 'O67' && /^[0-9a-f]{16}$/.test(String(e?.ticketKey ?? ''))
     })())
     ok(
       'live-doc-edit 调用参数(LIVE_DOC/LIVE_BLOCK_FILE/LIVE_MSG/令牌族)',
@@ -936,6 +1090,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       ledgerPath: ledgerC,
       planContent: planText,
       apply: true,
+      familyProbe: PROBE_O,
       spawn: () => {
         dedupCalls++
         return { status: 0, stdout: '✅ 回读', stderr: '' }
@@ -945,7 +1100,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
     })
     ok('同身份 24h 内已登记 ⇒ 跳过不 spawn', dedup.code === 0 && dedup.results[0]?.result === 'skip' && dedupCalls === 0)
 
-    const missing = runRound({ inputPath: join(dir, 'nope.jsonl'), contract: V2, now, ledgerPath: join(dir, 'ledger-d.jsonl'), log: () => {}, warn: () => {} })
+    const missing = runRound({ inputPath: join(dir, 'nope.jsonl'), contract: V2, now, ledgerPath: join(dir, 'ledger-d.jsonl'), familyProbe: PROBE_O, log: () => {}, warn: () => {} })
     ok('输入缺失 ⇒ exit 2 未判定', missing.code === 2 && missing.status === 'undetermined' && /读不到/.test(missing.why ?? ''))
 
     // —— 门槛只问契约(2026-10-29 补):契约写 minCountBySource.deploy_outcome=1 才允许单条成单 ——
@@ -963,6 +1118,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       now,
       ledgerPath: join(dir, 'ledger-gate.jsonl'),
       planContent: planText,
+      familyProbe: PROBE_O,
       log: () => {},
       warn: () => {},
     })
@@ -974,13 +1130,14 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       now,
       ledgerPath: join(dir, 'ledger-nogate.jsonl'),
       planContent: planText,
+      familyProbe: PROBE_O,
       log: () => {},
       warn: () => {},
     })
     ok('契约缺门槛 ⇒ 未判定(不猜阈值)', noGateRun.code === 2 && /门槛不可判定/.test(noGateRun.why ?? ''))
 
     const ledgerE = join(dir, 'ledger-e.jsonl')
-    const status = statusReport({ contract: V2, inputPath, ledgerPath: ledgerE, planContent: planText, now })
+    const status = statusReport({ contract: V2, inputPath, ledgerPath: ledgerE, planContent: planText, now, familyProbe: PROBE_O })
     ok('--status 只读:不创建台账/不 spawn', status.code === 0 && readLedger(ledgerE).length === 0 && !existsSync(ledgerE))
     ok('--status 末行含取号族与台账读数', status.lines.some((l) => l.startsWith('取号族:')) && status.lines.some((l) => l.startsWith('台账:')))
 
@@ -996,6 +1153,47 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       ok('真实 PROJECT_PLAN.md 现读取号可行(非 G)', realFam.ok === true && realFam.family !== 'G')
       if (realFam.ok) log(`  取号族现读:${realFam.basis} 令牌=${realFam.token}`)
     }
+
+    t('⑪ 可发性探针:O 族租约窗拒发 ⇒ 按 D/B/A 退到真发得出号的族', () => {
+      const plan3 = ['- [ ] O88 假登记行', '- [ ] D16 另一族', '- [ ] B66 第三族'].join('\n')
+      const probe = () => ({
+        ok: true,
+        family: 'B',
+        readings: [
+          { family: 'O', ok: false, status: 'exhausted', exhaustion: { stage: 'NO_CONTIGUOUS_LEASE_WINDOW' } },
+          { family: 'D', ok: false, status: 'exhausted', exhaustion: { stage: 'POOL_FULL' } },
+          { family: 'B', ok: true, status: 'issuable', label: 'B67' },
+        ],
+      })
+      const got = chooseIdFamily(plan3, { probe })
+      if (!got.ok || got.family !== 'B' || got.token !== '{{NEXT_ID:B}}' || got.nextLabel !== 'B67') {
+        throw new Error(
+          `应退到 B 族(令牌 {{NEXT_ID:B}}/下一号 B67),实得 ${JSON.stringify({ ok: got.ok, family: got.family, token: got.token, next: got.nextLabel, why: got.why })}`,
+        )
+      }
+      if (got.probeLabel !== 'B67') throw new Error(`probeLabel 应回 B67,实得 ${got.probeLabel}`)
+      if (!/NO_CONTIGUOUS_LEASE_WINDOW|POOL_FULL/.test(JSON.stringify(got.readings))) throw new Error('读数未保留逐族成因')
+    })
+    t('⑫ 探针未判定/异常/全拒 ⇒ 不拿「预判可行」冒充可发(§0.3)', () => {
+      const plan2 = '- [ ] O88 假登记行'
+      const und = chooseIdFamily(plan2, { probe: () => ({ ok: false, undetermined: true, why: '占用面判不出', readings: [] }) })
+      if (und.ok || !/未判定/.test(und.why || '')) throw new Error(`未判定探针应拒绝发号,实得 ok=${und.ok} why=${und.why}`)
+      const boom = chooseIdFamily(plan2, {
+        probe: () => {
+          throw new Error('git 不可用')
+        },
+      })
+      if (boom.ok || !/异常/.test(boom.why || '')) throw new Error(`探针异常应拒绝发号,实得 ok=${boom.ok} why=${boom.why}`)
+      const none = chooseIdFamily(plan2, {
+        probe: () => ({
+          ok: false,
+          readings: [{ family: 'O', ok: false, status: 'exhausted', exhaustion: { stage: 'NO_CONTIGUOUS_LEASE_WINDOW' } }],
+        }),
+      })
+      if (none.ok || !/无候选族现读可发号/.test(none.why || '')) {
+        throw new Error(`全拒应点名逐族成因,实得 ok=${none.ok} why=${none.why}`)
+      }
+    })
   } finally {
     try {
       rmScratch(dir)
@@ -1086,6 +1284,7 @@ export const __test__ = {
   buildTitle,
   buildEvidence,
   buildRegistrationLine,
+  scanIdFamilies,
   chooseIdFamily,
   readLedger,
   appendLedger,

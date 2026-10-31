@@ -33,9 +33,20 @@
  * 用法:
  *   node scripts/publish-mobile-apk.mjs --apk <path> --version 0.0.9 --version-code 26102816
  *   node scripts/publish-mobile-apk.mjs --apk <path> --version 0.0.9 --version-code 26102816 --dry-run
- *   node scripts/publish-mobile-apk.mjs --apk <path> --version 0.0.9 --version-code 26102816 --no-latest
  *
- * 退出码:0 成功 / 1 失败(落盘或公网自证不过) / 2 未判定(缺参数、APK 或站点落点取不到)
+ * 发布链最后一环 = 登记 app_versions 的 latest 行(Y-14 结构性根因,2026-10-31 立):
+ * 线上更新卡读 `GET /api/app-version/latest?platform=android`,判据是 `status='latest'` 行本身;
+ * 表里没有 ⇒ 端点 200 回空 data ⇒ 用户没有可点的下载按钮,而监控侧永远是一条 200。此前本脚本
+ * 全文零处引用 app_versions ⇒ 发布链只推包、从不登记,手工登记一次下次发布照样空。
+ * 三态判据(noop/update/create)、参数校验与写后自证**全部复用** register-app-version-latest.mjs
+ * 的出口(buildPlan 经 applyViaDb/applyViaApi 单源执行,§0.6/§22c,本文件不复抄)。
+ * 选腿(env 实有凭据,db 优先):DATABASE_URL ⇒ `--via db` 腿;否则 IHUI_ADMIN_TOKEN ⇒ api 腿;
+ * 两者皆无 ⇒ 站点腿照常落地,但打印「未登记 + 缺哪条凭据 + 唯一可复制整改命令」并**以 1 退出**
+ * (§0.10:失效方向恒为"多喊一次",绝不静默成功——静默正是本票的病根)。
+ * 〔原头注登记的 `--no-latest` 示例 parseArgs 从未实现,按 §0.8 删除死出路〕
+ *
+ * 退出码:0 成功(站点腿 + 登记腿都落地或本就 noop)/ 1 失败(落盘、公网自证不过,或
+ *        app_versions 未登记/登记执行失败)/ 2 未判定(缺参数、APK、站点落点,或参数做不出合法登记行)
  */
 import { createHash } from 'node:crypto'
 import { copyFileSync, createReadStream, existsSync, statSync, writeFileSync } from 'node:fs'
@@ -43,6 +54,12 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { devEnvRoot } from './seal-c-root-stray.mjs'
+import {
+  applyViaApi,
+  applyViaDb,
+  openDbConnection,
+  validateDesired,
+} from './register-app-version-latest.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..')
@@ -154,6 +171,110 @@ export function versionKey(version, versionCode) {
   return `ihui-ai-${v}-${c}.apk`
 }
 
+// =============================================================================
+// 登记腿(Y-14 结构性根因:发布链必须把包登记进 app_versions,判据单源见头注)
+// =============================================================================
+
+/**
+ * 从发布进程环境选登记腿:DATABASE_URL(db 腿)优先,其次 IHUI_ADMIN_TOKEN(api 腿)。
+ * 只回凭据**名**;值仅用于传给登记器物自身的腿,永不进日志/告警正文(§5e:输出恒脱敏)。
+ */
+export function registerLegFromEnv(env = process.env) {
+  const dbUrl = String(env.DATABASE_URL ?? '').trim()
+  if (dbUrl) return { leg: 'db', credential: 'DATABASE_URL', value: dbUrl }
+  const token = String(env.IHUI_ADMIN_TOKEN ?? '').trim()
+  if (token) return { leg: 'api', credential: 'IHUI_ADMIN_TOKEN', value: token }
+  return { leg: null, credential: null, value: '' }
+}
+
+/** 唯一可复制整改命令:只含参数与 env 名,绝不含凭据值。 */
+export function registerRemediationCommand({ version, versionCode }) {
+  return (
+    'node scripts/register-app-version-latest.mjs --apply --via db --db-url "$DATABASE_URL"' +
+    ` --version ${version} --build-number ${versionCode} --download-url ${siteLegUrl(LATEST_KEY)}`
+  )
+}
+
+/**
+ * 站点腿落地后的登记动作。三态/校验/写后自证全部委托 register-app-version-latest.mjs
+ * (buildPlan 只在它那一处实现,§0.6);本函数只做"选腿 + 调用 + 归一结论"。
+ * 返回:
+ *   {status:'registered'|'noop', leg, plan} —— 登记已落地 / 数据本就一致不写一字节
+ *   {status:'unregistered', leg:null}      —— 两腿凭据皆无 ⇒ 调用方必须非零退出并喊人
+ * 有凭据但执行失败 ⇒ throw(由 publishRegisterStep 归一为「包已发+登记失败+命令」的喊法)。
+ * deps 仅供测试注入(openDb/applyViaDb/applyViaApi),生产路径全用登记器导出的真出口。
+ */
+export async function registerAppVersionAfterPublish({
+  version,
+  versionCode,
+  platform = 'android',
+  downloadUrl = siteLegUrl(LATEST_KEY),
+  baseUrl = SITE_LEG.PublicBase,
+  env = process.env,
+  deps = {},
+} = {}) {
+  const buildNumber = Number(versionCode)
+  const bad = validateDesired({ platform, version, buildNumber, downloadUrl })
+  if (bad.length > 0) throw new Error(`登记参数不合规: ${bad.join('; ')}`)
+  const sel = (deps.registerLegFromEnv ?? registerLegFromEnv)(env)
+  if (!sel.leg) return { status: 'unregistered', leg: null }
+  const desired = { platform, version, buildNumber, downloadUrl }
+  if (sel.leg === 'db') {
+    const sql = (deps.openDb ?? openDbConnection)(sel.value)
+    try {
+      const r = await (deps.applyViaDb ?? applyViaDb)({ sql, ...desired, apply: true })
+      return { status: r.wrote ? 'registered' : 'noop', leg: 'db', plan: r.plan }
+    } finally {
+      if (typeof sql?.end === 'function') {
+        try {
+          await sql.end({ timeout: 5 })
+        } catch {
+          /* 关连接失败不改变登记结论(登记器 main 同款收尾) */
+        }
+      }
+    }
+  }
+  const r = await (deps.applyViaApi ?? applyViaApi)({ baseUrl, token: sel.value, ...desired, apply: true })
+  return { status: r.wrote ? 'registered' : 'noop', leg: 'api', plan: r.plan }
+}
+
+/**
+ * main 的登记步包装:成功打 ✓,「未登记 / 登记执行失败」都打点名缺什么 + 唯一可复制命令。
+ * 返回 {ok:false,...} 时 main 必须以 1 退出——这条契约由镜像测试 W4/W8 钉住。
+ */
+export async function publishRegisterStep({
+  version,
+  versionCode,
+  env = process.env,
+  out = (m) => console.log(m),
+  err = (m) => console.error(m),
+  deps = {},
+} = {}) {
+  const cmd = registerRemediationCommand({ version, versionCode })
+  let r
+  try {
+    r = await registerAppVersionAfterPublish({ version, versionCode, env, deps })
+  } catch (e) {
+    err(
+      `[publish] ✗ app_versions 登记执行失败(站点腿已落地,禁止重发整包补登记): ${String(e?.message ?? e).slice(0, 300)}\n` +
+        `          修好凭据/网络后只跑登记这一条(幂等):\n          ${cmd}`,
+    )
+    return { ok: false, status: 'register-error' }
+  }
+  if (r.status === 'unregistered') {
+    err(
+      `[publish] ✗ app_versions 未登记:站点腿已发布,但本进程既无 DATABASE_URL(db 腿)也无 IHUI_ADMIN_TOKEN(api 腿) ⇒\n` +
+        `          App 内更新卡(GET /api/app-version/latest?platform=android)仍是空/旧,用户没有可点的下载按钮。\n` +
+        `          备好任一凭据后,唯一整改命令(幂等,与发布链同一三态判据):\n          ${cmd}`,
+    )
+    return { ok: false, status: 'unregistered' }
+  }
+  out(
+    `[publish] ✓ app_versions 登记${r.status === 'noop' ? '无需写(已是唯一 latest,noop)' : '已落地'} leg=${r.leg} plan=${r.plan.action}`,
+  )
+  return { ok: true, status: r.status, leg: r.leg, plan: r.plan }
+}
+
 function parseArgs(argv) {
   const out = { apk: '', version: '', versionCode: '', dryRun: false }
   for (let i = 0; i < argv.length; i++) {
@@ -182,6 +303,17 @@ async function main() {
     console.error(`未判定: APK 不存在 ${args.apk}`)
     return 2
   }
+  // 做不出合法登记行的参数,要在落 85MB 包之前就地未判定(而不是站点腿翻完指针才发现登记不了)
+  const regBad = validateDesired({
+    platform: 'android',
+    version: args.version,
+    buildNumber: Number(args.versionCode),
+    downloadUrl: siteLegUrl(LATEST_KEY),
+  })
+  if (regBad.length > 0) {
+    console.error('未判定: 发布参数做不出合法 app_versions 登记行 ⇒ 拒绝落包\n  - ' + regBad.join('\n  - '))
+    return 2
+  }
   const size = statSync(args.apk).size
   const sha = await sha256File(args.apk)
   const plan = siteLegPlan()
@@ -198,7 +330,13 @@ async function main() {
   console.log(`[publish]   站点腿固定地址指针 ${LATEST_KEY}.redirect.json → ${siteLegUrl(LATEST_KEY)}`)
 
   if (args.dryRun) {
+    const sel = registerLegFromEnv()
     console.log('[publish] --dry-run: 只打印计划,未落盘')
+    console.log(
+      sel.leg
+        ? `[publish]   --dry-run: app_versions 登记腿 = ${sel.leg}(凭据 ${sel.credential} 在位,正式发布后才执行)`
+        : '[publish]   --dry-run: app_versions 登记凭据缺失(DATABASE_URL / IHUI_ADMIN_TOKEN 皆无)⇒ 正式发布时站点腿落地后仍会以 1 退出喊人,更新卡不会自己变绿',
+    )
     return 0
   }
 
@@ -208,6 +346,10 @@ async function main() {
   console.log(`[publish] ✓ 指针已翻 → ${site.pointer.url}`)
   const live = await verifySiteLegLive({ expectSize: size, expectVersionCode: args.versionCode })
   console.log(`[publish] ✓ 公网自证 HTTP ${live.status} content-range 大小 ${live.size} → ${live.location}`)
+
+  // 登记步(Y-14):没有它,发布链就是"只推包、从不登记"——手工补一次,下次发布照样空。
+  const step = await publishRegisterStep({ version: args.version, versionCode: args.versionCode })
+  if (!step.ok) return 1
 
   console.log(`\n下载地址(固定): ${siteLegUrl(LATEST_KEY)}`)
   console.log(`本次版本副本: ${siteLegUrl(vKey)}`)
@@ -234,5 +376,10 @@ export const __test__ = {
   sha256File,
   SITE_LEG,
   LATEST_KEY,
+  // 登记腿(Y-14;判据本体在 register-app-version-latest.mjs,这里只是接线出口)
+  registerLegFromEnv,
+  registerRemediationCommand,
+  registerAppVersionAfterPublish,
+  publishRegisterStep,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

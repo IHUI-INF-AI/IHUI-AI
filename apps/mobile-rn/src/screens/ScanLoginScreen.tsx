@@ -17,6 +17,7 @@ import { selectIsAuthenticated, useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { pressFeedback } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -113,7 +114,7 @@ export function ScanLoginScreen() {
         <Text style={styles.safeTitle}>{t('scanLogin.title')}</Text>
         <Text style={styles.safeHint}>{t('scanLogin.needLogin')}</Text>
         <Pressable
-          style={styles.ctaButton}
+          style={pressFeedback(styles.ctaButton)}
           onPress={() => navigation.navigate('Login')}
           accessibilityRole="button"
         >
@@ -141,7 +142,7 @@ export function ScanLoginScreen() {
           </Pressable>
         ) : (
           <Pressable
-            style={styles.ctaButton}
+            style={pressFeedback(styles.ctaButton)}
             onPress={() => void requestPermission()}
             accessibilityRole="button"
           >

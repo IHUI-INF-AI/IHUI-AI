@@ -386,17 +386,115 @@ export function smsProviderOrder(provider: SmsProvider): Array<'tencent' | 'aliy
   }
 }
 
+/** 三档通道的名字。与 SmsDeliveryLogEntry.provider 同一闭集(去掉 none)。 */
+export type SmsChannel = 'tencent' | 'aliyun' | 'proxy'
+
+/** 声明顺序里"确实配齐"的那几档,保持声明优先级。
+ *  §0.6:选道只许这一份实现 —— pickConfiguredSmsChannel 与 dispatchSms 的换道序列
+ *  都从它取,另拼一份 filter 迟早会漂移(一处走腾讯、一处不走)。 */
+export function configuredSmsOrder(
+  provider: SmsProvider,
+  configured: { tencent: boolean; aliyun: boolean; proxy: boolean },
+): SmsChannel[] {
+  return smsProviderOrder(provider).filter((p) => configured[p])
+}
+
 /** 在声明的优先级里挑第一个"确实配齐"的通道;全都没配 ⇒ null。
  *  抽成纯函数是为了让"腾讯云没配齐要自动落回阿里云"这条 fallback 有夹具可钉 ——
- *  它住在 dispatchSms 里就得真发一次网络请求才测得到。 */
+ *  它住在 dispatchSms 里就得真发一次网络请求才测得到。
+ *  实现走 configuredSmsOrder(单一真相源),只取首档。 */
 export function pickConfiguredSmsChannel(
   provider: SmsProvider,
   configured: { tencent: boolean; aliyun: boolean; proxy: boolean },
-): 'tencent' | 'aliyun' | 'proxy' | null {
-  for (const p of smsProviderOrder(provider)) {
-    if (configured[p]) return p
+): SmsChannel | null {
+  return configuredSmsOrder(provider, configured)[0] ?? null
+}
+
+/** 这一档失败后,能不能**安全地**换下一档再发一次(2026-10-31 G-20 补)。
+ *
+ *  分界线不是"失败严不严重",而是**云侧到底有没有收下这条**:
+ *   - 明确没进队列 ⇒ 换道安全:`not_configured:*`(请求都没发出)、
+ *     `aliyun|tencent|proxy_rejected:<code>`(厂商明文拒收)、`aliyun_sdk_unavailable`(没发出);
+ *   - 不确定发没发出去 ⇒ **一律停**:`*_call_failed:*`(超时/断连 —— 请求可能已被受理,
+ *     只是回包丢了)、`*_response_unparsable`(回了包但认不出结果)、`proxy_http_*`(网关报错
+ *     不代表它没转发)。这几档再发一条就是**重复短信**,营销/通知类会直接变成骚扰与投诉。
+ *  失效方向按 §0.10:判不出来时宁可少发一次(本次回失败、调用方能看到),也不要多塞一条。 */
+export function judgeSmsFailover(reason?: string): 'try_next' | 'stop' {
+  const r = (reason ?? '').trim()
+  if (!r) return 'stop'
+  return /^(not_configured\b|aliyun_sdk_unavailable$|(?:aliyun|tencent|proxy)_rejected:)/.test(r)
+    ? 'try_next'
+    : 'stop'
+}
+
+/** 失败行的 reason 后缀:降级发生时可被 SQL 直接计数(`reason like '%fallback_to=%'`)。
+ *  原始错误码保持在最前 —— 只读哨兵的停机族正则(OUT_OF_SERVICE / isv. / SIGN / TEMPLATE)
+ *  照旧命中,不会被这个后缀改判。列宽 160,超出截断(错误码在头部,不会先被切掉)。 */
+export function withFallbackMark(reason: string | undefined, next: SmsChannel): string {
+  const head = (reason ?? '').trim() || 'failed'
+  return `${head} | fallback_to=${next}`.slice(0, 160)
+}
+
+export interface SmsChannelAttempt {
+  channel: SmsChannel
+  delivery: SmsDeliveryResult
+  /** 本档失败且已决定换道时点名下一档;最后一档/停手时为 undefined。 */
+  fallbackTo?: SmsChannel
+}
+
+export interface SmsDispatchOutcome {
+  /** 最终落定的通道(null = 一个候选都没有)。 */
+  channel: SmsChannel | null
+  /** 最终一档的投递结论。最后一次尝试失败 ⇒ sent:false(调用方据此判 UNDELIVERED)。 */
+  delivery: SmsDeliveryResult
+  attempts: SmsChannelAttempt[]
+}
+
+/** 按给定顺序逐档尝试,只有在"安全换道"判据放行时才继续。
+ *  `record` 每档各写一行审计(失败的档也要写 —— 那正是降级可观测、可计数的凭据)。
+ *  抽成公开函数是为了让"主通道失败 → 第二通道"与"全部不可用 → 判失败"能在单测里
+ *  用注入的 sender 真跑这条生产代码路径(§22c:不复制判据)。 */
+export async function attemptSmsChannels(input: {
+  candidates: readonly SmsChannel[]
+  send: (channel: SmsChannel) => Promise<SmsDeliveryResult>
+  record: (attempt: SmsChannelAttempt) => Promise<void> | void
+  onFallback?: (from: SmsChannel, to: SmsChannel, reason: string) => void
+}): Promise<SmsDispatchOutcome> {
+  const attempts: SmsChannelAttempt[] = []
+  const candidates = [...input.candidates]
+  if (candidates.length === 0) {
+    return {
+      channel: null,
+      delivery: { sent: false, reason: 'no_configured_channel' },
+      attempts,
+    }
   }
-  return null
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const channel = candidates[i]!
+    const next = candidates[i + 1]
+    let delivery: SmsDeliveryResult
+    try {
+      delivery = await input.send(channel)
+    } catch (e) {
+      // 发送器本应自己兜住异常;万一漏到这里,按"结果不明"处理(不换道,避免重复短信)
+      delivery = { sent: false, reason: `channel_threw:${providerErrorCode(e)}` }
+    }
+    const canFallBack =
+      !delivery.sent && Boolean(next) && judgeSmsFailover(delivery.reason) === 'try_next'
+    const attempt: SmsChannelAttempt = canFallBack
+      ? { channel, delivery, fallbackTo: next }
+      : { channel, delivery }
+    attempts.push(attempt)
+    await input.record(attempt)
+    if (!canFallBack || !next) {
+      return { channel, delivery, attempts }
+    }
+    input.onFallback?.(channel, next, delivery.reason ?? '')
+  }
+
+  const last = attempts[attempts.length - 1]!
+  return { channel: last.channel, delivery: last.delivery, attempts }
 }
 
 async function dispatchSms(
@@ -405,32 +503,49 @@ async function dispatchSms(
   scene?: SmsScene,
 ): Promise<SmsDeliveryResult> {
   const declared = (env.SMS_PROVIDER ?? 'auto') as SmsProvider
-  const channel = pickConfiguredSmsChannel(declared, {
+  const candidates = configuredSmsOrder(declared, {
     tencent: isTencentSmsConfigured(),
     aliyun: isAliyunSmsConfigured(),
     proxy: Boolean(env.SMS_API_BASE_URL),
   })
-  if (channel) {
-    const delivery =
-      channel === 'tencent'
-        ? await sendViaTencent(phone, code, scene)
-        : channel === 'aliyun'
-          ? await sendViaAliyun(phone, code, scene)
-          : await sendViaProxy(phone, code)
-    // 验证码也进审计:回执对账同样需要 request_id/serial_no,不能只给营销留流水。
-    await recordSmsDelivery({
-      provider: channel,
-      category: 'code',
-      templateKey: scene ?? 'main',
-      templateId: delivery.templateId,
-      phone,
-      status: delivery.sent ? 'accepted' : 'failed',
-      reason: delivery.reason,
-      requestId: delivery.requestId,
-      serialNo: delivery.serialNo,
-      bizType: 'sms-code',
-    } satisfies SmsDeliveryLogEntry)
-    return delivery
+  if (candidates.length > 0) {
+    // 2026-10-31 G-20:选道之后还要**真降级**。旧写法挑中一档就只发一次,
+    // 主通道被云侧拒收(欠费停机 / 模板未过审)时第二通道根本没被碰过 ——
+    // "接了第二通道"与"主通道挂了还能发"是两件事,这里把后者接上。
+    const outcome = await attemptSmsChannels({
+      candidates,
+      send: (channel) =>
+        channel === 'tencent'
+          ? sendViaTencent(phone, code, scene)
+          : channel === 'aliyun'
+            ? sendViaAliyun(phone, code, scene)
+            : sendViaProxy(phone, code),
+      // 验证码也进审计:回执对账同样需要 request_id/serial_no,不能只给营销留流水。
+      // 换道时**每档各落一行** —— 失败档的 reason 带 fallback_to 后缀,降级次数可被 SQL 直接数。
+      record: (attempt) =>
+        recordSmsDelivery({
+          provider: attempt.channel,
+          category: 'code',
+          templateKey: scene ?? 'main',
+          templateId: attempt.delivery.templateId,
+          phone,
+          status: attempt.delivery.sent ? 'accepted' : 'failed',
+          reason: attempt.fallbackTo
+            ? withFallbackMark(attempt.delivery.reason, attempt.fallbackTo)
+            : attempt.delivery.reason,
+          requestId: attempt.delivery.requestId,
+          serialNo: attempt.delivery.serialNo,
+          bizType: 'sms-code',
+        } satisfies SmsDeliveryLogEntry),
+      onFallback: (from, to, reason) =>
+        logger.warn('短信主通道未发出 ⇒ 换下一档重试', {
+          phone: maskPhone(phone),
+          from,
+          to,
+          reason,
+        }),
+    })
+    return outcome.delivery
   }
   // 三档通道全未配置 ⇒ 这一轮没有真发送,必须让它响。
   logger.warn('SMS 没有任何已配置的发送通道 ⇒ 本轮没有真发送', {
@@ -648,12 +763,14 @@ async function sendViaAliyunNotify(phone: string, content: string): Promise<SmsD
 }
 
 /** 通知/营销模板走哪条通道:按 SMS_PROVIDER 声明的顺序逐个判"模板 + 凭据 + 兜底正文"。
- *  抽成纯函数是为了让「腾讯模板未过审时回落阿里云」这条有夹具可钉,也供后台状态页复用。 */
+ *  抽成纯函数是为了让「腾讯模板未过审时回落阿里云」这条有夹具可钉,也供后台状态页复用。
+ *  `exclude` 供失败换道时二次解析用:已试过的档不再返回(同一档重试没有意义)。 */
 export function resolveTemplatedSmsChannel(
   category: 'notice' | 'marketing',
   templateKey: SmsTemplateKey,
   declared: SmsProvider,
   hasFallbackContent: boolean,
+  exclude: readonly SmsChannel[] = [],
 ): {
   channel: 'tencent' | 'aliyun' | 'proxy' | null
   templateId?: string
@@ -679,6 +796,7 @@ export function resolveTemplatedSmsChannel(
       : smsProviderOrder(declared)
 
   for (const p of order) {
+    if (exclude.includes(p)) continue
     if (p === 'tencent' && isTencentSmsConfigured() && templateId) {
       return { channel: 'tencent', templateId, envKey }
     }
@@ -966,47 +1084,81 @@ export async function sendTemplatedSms(
   }
   if (bizKey) inflightTemplatedBiz.add(bizKey)
   try {
-    let delivery: SmsDeliveryResult
-    if (resolved.channel === 'tencent') {
-      delivery = await sendViaTencentTemplate(phone, resolved.templateId!, [])
-    } else if (resolved.channel === 'aliyun') {
-      delivery = resolved.templateId
-        ? await sendViaAliyunSms(phone, resolved.templateId)
-        : await sendViaAliyunNotify(phone, options.fallbackContent!)
-    } else {
-      const base = env.SMS_API_BASE_URL!
-      try {
-        const res = await fetchWithTimeout(`${base}/sms/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, content: options.fallbackContent }),
-        })
-        delivery = res.ok ? { sent: true } : { sent: false, reason: `proxy_http_${res.status}` }
-      } catch (e) {
-        delivery = { sent: false, reason: `proxy_call_failed:${providerErrorCode(e)}` }
+    // 单档投递:通道与模板成对给出。腾讯走专用固定文案模板;阿里云按是否回填了用途模板,
+    // 在「专用模板」与「{content} 兜底通知模板」之间选;代理只发兜底正文。
+    const sendOnce = (ch: SmsChannel, tid: string | undefined): Promise<SmsDeliveryResult> => {
+      if (ch === 'tencent') return sendViaTencentTemplate(phone, tid!, [])
+      if (ch === 'aliyun') {
+        return tid
+          ? sendViaAliyunSms(phone, tid)
+          : sendViaAliyunNotify(phone, options.fallbackContent!)
       }
+      const base = env.SMS_API_BASE_URL!
+      return fetchWithTimeout(`${base}/sms/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, content: options.fallbackContent }),
+      }).then(
+        (res): SmsDeliveryResult =>
+          res.ok ? { sent: true } : { sent: false, reason: `proxy_http_${res.status}` },
+        (e): SmsDeliveryResult => ({
+          sent: false,
+          reason: `proxy_call_failed:${providerErrorCode(e)}`,
+        }),
+      )
     }
 
-    await recordSmsDelivery({
-      provider: resolved.channel,
-      category,
-      templateKey,
-      templateId: resolved.templateId ?? delivery.templateId,
-      phone,
-      status: delivery.sent ? 'accepted' : 'failed',
-      reason: delivery.reason,
-      requestId: delivery.requestId,
-      serialNo: delivery.serialNo,
-      bizType: options.bizType,
-      bizId: options.bizId,
-    } satisfies SmsDeliveryLogEntry)
+    // 2026-10-31 G-20:失败换道。判据与验证码路径同一份(judgeSmsFailover):
+    // 只有"云侧明确没收到"才换下一档;超时/不可解析一律停手 —— 宁少发一条,不重复发。
+    const tried: SmsChannel[] = []
+    let channel: SmsChannel = resolved.channel
+    let templateId = resolved.templateId
+    let delivery: SmsDeliveryResult = { sent: false, reason: 'no_configured_channel' }
+    for (;;) {
+      tried.push(channel)
+      delivery = await sendOnce(channel, templateId)
+      let next: ReturnType<typeof resolveTemplatedSmsChannel> | null = null
+      if (!delivery.sent && judgeSmsFailover(delivery.reason) === 'try_next') {
+        const candidate = resolveTemplatedSmsChannel(
+          category,
+          templateKey,
+          declared,
+          Boolean(options.fallbackContent),
+          tried,
+        )
+        next = candidate.channel ? candidate : null
+      }
+      // 每档各落一行:失败档 reason 带 fallback_to 后缀,降级次数可用 SQL 直接数
+      await recordSmsDelivery({
+        provider: channel,
+        category,
+        templateKey,
+        templateId: templateId ?? delivery.templateId,
+        phone,
+        status: delivery.sent ? 'accepted' : 'failed',
+        reason: next ? withFallbackMark(delivery.reason, next.channel!) : delivery.reason,
+        requestId: delivery.requestId,
+        serialNo: delivery.serialNo,
+        bizType: options.bizType,
+        bizId: options.bizId,
+      } satisfies SmsDeliveryLogEntry)
+      if (!next?.channel) break
+      logger.warn('通知/营销短信主通道未发出 ⇒ 换下一档重试', {
+        phone: maskPhone(phone),
+        from: channel,
+        to: next.channel,
+        reason: delivery.reason,
+      })
+      channel = next.channel
+      templateId = next.templateId
+    }
 
     return {
       success: delivery.sent,
       error: delivery.reason,
-      provider: resolved.channel,
+      provider: channel,
       requestId: delivery.requestId,
-      templateId: resolved.templateId ?? delivery.templateId,
+      templateId: templateId ?? delivery.templateId,
     }
   } finally {
     if (bizKey) inflightTemplatedBiz.delete(bizKey)
@@ -1135,5 +1287,8 @@ export const __test__ = {
   loadAliyunSdk,
   pickTemplateCode,
   SCENE_TEMPLATE_ENV_KEYS,
+  // G-20(2026-10-31):换道链是"选道对了但没降级"这一型的唯一出口 —— 测试要真跑
+  // 这条生产路径(含真实 sender),不能在用例里另拼一份候选序。
+  dispatchSms,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
