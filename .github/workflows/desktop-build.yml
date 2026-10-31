@@ -34,13 +34,13 @@ jobs:
             artifact: windows
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       - name: Cache Rust build
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: apps/desktop/src-tauri
 
@@ -60,7 +60,7 @@ jobs:
             librsvg2-dev
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload Linux artifacts (deb + AppImage)
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ihui-ai-${{ matrix.artifact }}
           path: |
@@ -85,7 +85,7 @@ jobs:
 
       - name: Upload macOS artifact (dmg)
         if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ihui-ai-${{ matrix.artifact }}
           path: |
@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload Windows artifact (nsis exe)
         if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ihui-ai-${{ matrix.artifact }}
           path: |

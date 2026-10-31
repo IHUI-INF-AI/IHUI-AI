@@ -43,16 +43,16 @@ jobs:
     # macos-15(Xcode 16/Swift 6.1)不满足 → 2026-08-17 实测 BUILD FAILED,改用 macos-26
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
         # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
         # 显式 version 会触发 "Multiple versions of pnpm specified" 错误(2026-08-17 实测)
         # 不叠加 setup-node:pnpm/action-setup 自带 node,安卓 workflow 同模式验证可行
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: 'pnpm'
@@ -154,7 +154,7 @@ jobs:
           ls -lh ihui-ai-latest.ipa
 
       - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ihui-ai-latest-ipa
           path: ihui-ai-latest.ipa
@@ -163,7 +163,7 @@ jobs:
         # iOS 使用固定 tag ios-nightly,不设 make_latest(避免与 Android nightly 竞争 latest)
         # 下载页 iOS 地址:releases/tags/ios-nightly/download/ihui-ai-latest.ipa
         # tag 触发 → 发布到该 tag;手动/push → 发布到 ios-nightly 固定 tag
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'ios-nightly' }}
           files: ihui-ai-latest.ipa
