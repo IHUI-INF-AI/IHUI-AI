@@ -63,7 +63,6 @@ import { SelectionAnnotationBar } from './SelectionAnnotationBar'
 import { ActionAnchorChip, extractActionAnchors, type ActionAnchor } from './action-anchor'
 import { type FloatBoxType } from '../../components/FloatBox'
 import type { MessageRating } from '@ihui/api-client'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * D135(承 G-46):消息列表执行帧的唯一折叠出口。
@@ -456,10 +455,7 @@ export function ChatMessageItem({
           }}
           onLongPress={() => void handleLongPressMessage(item)}
           delayLongPress={500}
-          style={pressFeedback([
-            styles.msgBubble,
-            isUser ? styles.msgBubbleUser : styles.msgBubbleAi,
-          ])}
+          style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
         >
           {isFailed ? (
             // 失败轮:错误卡片(警示头 + 正文 + 重试出口),整块替换正文 —— 与 web D22 /
@@ -488,7 +484,7 @@ export function ChatMessageItem({
           ) : thinkingView ? (
             <View style={styles.thinkingBlock}>
               <Pressable
-                style={pressFeedback(styles.thinkingHeader)}
+                style={styles.thinkingHeader}
                 hitSlop={6}
                 onPress={() =>
                   setExpandedThinking((prev) => {
@@ -538,7 +534,7 @@ export function ChatMessageItem({
                   <Pressable
                     key={`${item.id}-img-${segIndex}`}
                     onPress={() => setPreviewImageUrl(seg.url)}
-                    style={pressFeedback(styles.msgImageWrap)}
+                    style={styles.msgImageWrap}
                   >
                     <Image
                       source={{ uri: seg.url }}

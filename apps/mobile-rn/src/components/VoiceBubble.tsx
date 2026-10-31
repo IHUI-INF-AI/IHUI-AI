@@ -21,7 +21,6 @@ import { rnRadiusFor, rnType } from '@ihui/design-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 波形指示条数(静态装饰条,点亮数 = 播放进度) */
 const VOICE_BUBBLE_BAR_COUNT = 16
@@ -67,7 +66,7 @@ export function VoiceBubble({
   return (
     <View style={styles.row}>
       <Pressable
-        style={pressFeedback([styles.playBtn, { backgroundColor: btnBg }])}
+        style={[styles.playBtn, { backgroundColor: btnBg }]}
         onPress={onToggle}
         hitSlop={6}
         accessibilityRole="button"

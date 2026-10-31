@@ -37,7 +37,6 @@ import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
 import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
@@ -259,7 +258,7 @@ export function VoiceInput({
       {/* 遮罩层:图片弹出层打开时,透明遮罩拦截点击以关闭(分离点击/长按) */}
       {showImagePopup ? (
         <Pressable
-          style={pressFeedback(styles.mask)}
+          style={styles.mask}
           onPress={() => setShowImagePopup(false)}
           accessibilityLabel={t('voice.closeImgMenu')}
         />
@@ -268,7 +267,7 @@ export function VoiceInput({
       {/* 图片弹出层入口(对齐原版 search-add 按钮) */}
       {showImagePicker ? (
         <Pressable
-          style={pressFeedback(styles.imageToggleBtn)}
+          style={styles.imageToggleBtn}
           onPress={() => setShowImagePopup((v) => !v)}
           hitSlop={4}
           accessibilityRole="button"
@@ -315,7 +314,7 @@ export function VoiceInput({
       {/* 清除按钮(有结果时显示,对齐原版 clearIcon) */}
       {showClear && lastResult !== '' ? (
         <Pressable
-          style={pressFeedback(styles.clearBtn)}
+          style={styles.clearBtn}
           onPress={handleClear}
           hitSlop={6}
           accessibilityRole="button"
@@ -333,7 +332,7 @@ export function VoiceInput({
           {IMAGE_SOURCES.map((item) => (
             <Pressable
               key={item.type}
-              style={pressFeedback(styles.popupItem)}
+              style={styles.popupItem}
               onPress={() => handleImagePick(item.type)}
               accessibilityRole="button"
               accessibilityLabel={t(item.label)}

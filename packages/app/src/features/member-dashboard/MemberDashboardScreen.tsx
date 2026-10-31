@@ -9,7 +9,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 会员中心首页共享屏(2026-10-29 立)。
@@ -86,7 +85,7 @@ export function MemberDashboardScreen({
           {cards.map((c) => (
             <Pressable
               key={c.key}
-              style={pressFeedback(styles.card)}
+              style={styles.card}
               onPress={() => onPressCard(c.key)}
               accessibilityRole="button"
             >

@@ -21,7 +21,6 @@ import {
   type SlashCommand,
 } from '../../lib/slash-commands'
 import { SlashCommandPalette } from './SlashCommandPalette'
-import { pressFeedback } from '@ihui/ui-native'
 
 /**
  * 触发钮底距(相对屏底,safe-area 之外另加):输入条容器是 absolute bottom:0,
@@ -89,7 +88,7 @@ export function ChatInputBar(props: ChatInputBarProps) {
       <BottomActionBar {...props} />
       {onOpenSlashCommands === undefined ? null : (
         <Pressable
-          style={pressFeedback([styles.slashFab, { bottom: insets.bottom + SLASH_FAB_BOTTOM }])}
+          style={[styles.slashFab, { bottom: insets.bottom + SLASH_FAB_BOTTOM }]}
           onPress={openPalette}
           hitSlop={4}
           accessibilityRole="button"
