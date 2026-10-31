@@ -12767,6 +12767,8 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortXhigh": "極深",
     "reasoningEffortMax": "最大",
+    "message.metadataLoading": "メタデータを読み込み中…",
+    "message.metadataUnavailable": "メタデータは一時的に利用できません",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
     "analysisOpen": "シナリオ分析を見る",

@@ -12767,6 +12767,8 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortXhigh": "极深",
     "reasoningEffortMax": "极限",
+    "message.metadataLoading": "正在加载元数据…",
+    "message.metadataUnavailable": "元数据暂时不可用",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",

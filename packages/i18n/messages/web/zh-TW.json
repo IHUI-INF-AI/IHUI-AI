@@ -12767,6 +12767,8 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortXhigh": "極深",
     "reasoningEffortMax": "極限",
+    "message.metadataLoading": "正在載入中繼資料…",
+    "message.metadataUnavailable": "中繼資料暫時無法取得",
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析",

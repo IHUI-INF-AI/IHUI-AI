@@ -12767,6 +12767,8 @@
     "reasoningEffortHigh": "Deep",
     "reasoningEffortXhigh": "Extra deep",
     "reasoningEffortMax": "Maximum",
+    "message.metadataLoading": "Loading metadata…",
+    "message.metadataUnavailable": "Metadata is temporarily unavailable",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis",

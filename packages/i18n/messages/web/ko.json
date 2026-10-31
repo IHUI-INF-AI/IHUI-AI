@@ -12767,6 +12767,8 @@
     "reasoningEffortHigh": "심층",
     "reasoningEffortXhigh": "매우 심층",
     "reasoningEffortMax": "최대",
+    "message.metadataLoading": "메타데이터를 불러오는 중…",
+    "message.metadataUnavailable": "메타데이터를 일시적으로 사용할 수 없습니다",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
     "analysisOpen": "시나리오 분석 보기",
