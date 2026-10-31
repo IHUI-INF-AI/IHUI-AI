@@ -125,11 +125,11 @@ export default function FollowingPage() {
       {/* 顶部:当前 tab 统计 + 搜索 */}
       <View className="flex flex-col gap-[16rpx]">
         <View className="flex items-baseline">
-          <Text className="text-[length:28rpx] text-muted-foreground">
+          <Text className="text-body text-muted-foreground">
             {tab === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
           </Text>
           <Text className="mx-[8rpx] text-[length:40rpx] font-bold text-primary">{totalCount}</Text>
-          <Text className="text-[length:24rpx] text-muted-foreground">
+          <Text className="text-label text-muted-foreground">
             {tt('following.people', '人')}
           </Text>
         </View>
@@ -153,7 +153,7 @@ export default function FollowingPage() {
             onClick={() => setTab(k)}
           >
             <Text
-              className={`text-[length:28rpx] ${tab === k ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+              className={`text-body ${tab === k ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
             >
               {k === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
             </Text>
@@ -205,12 +205,12 @@ export default function FollowingPage() {
                       ) : null}
                     </View>
                     {item.bio ? (
-                      <Text className="text-[length:22rpx] text-muted-foreground truncate">
+                      <Text className="text-caption text-muted-foreground truncate">
                         {item.bio}
                       </Text>
                     ) : null}
                     <View className="flex items-center justify-between">
-                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-caption text-[var(--color-text-tertiary)]">
                         {tab === 'following' ? `${tt('following.followedAt', '关注于')} ` : ''}
                         {formatDateByTemplate(item.followedAt ?? item.createdAt, 'YYYY-MM-DD') ||
                           '-'}
@@ -218,7 +218,7 @@ export default function FollowingPage() {
                       {/* 对齐 RN unfollowBtn(仅关注 tab 显示):paddingHorizontal 12dp/paddingVertical 6dp/radius 12dp/描边 border.light/字 text.primary */}
                       {tab === 'following' ? (
                         <Text
-                          className="py-[12rpx] px-[24rpx] text-[length:28rpx] text-foreground bg-background border-[length:2rpx] border-border rounded-xl"
+                          className="py-[12rpx] px-[24rpx] text-body text-foreground bg-background border-[length:2rpx] border-border rounded-xl"
                           onClick={() => handleUnfollow(item)}
                         >
                           {tt('following.delete', '取消关注')}
@@ -237,7 +237,7 @@ export default function FollowingPage() {
       {displayList.length === 0 && !loading ? (
         <View className="py-[96rpx] flex flex-col items-center">
           <LineIcon name="message-circle" size={80} color="var(--color-muted-foreground)" />
-          <Text className="mt-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="mt-[16rpx] text-body text-muted-foreground">
             {searchText
               ? tt('following.searchEmpty', '未找到匹配用户')
               : tt('follow.empty', '暂无数据')}
@@ -257,12 +257,12 @@ export default function FollowingPage() {
       {/* 首屏加载:骨架屏,与 RN 端 ScreenSkeleton 同形同周期 */}
       {loading && displayList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}
       {loading && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-caption text-muted-foreground">
           <Text>{tt('following.loadMore', '加载更多')}</Text>
         </View>
       ) : null}
       {!loading && !hasMore && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-caption text-muted-foreground">
           <Text>{tt('following.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

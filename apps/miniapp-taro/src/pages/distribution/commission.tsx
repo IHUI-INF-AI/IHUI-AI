@@ -84,7 +84,7 @@ export default function DistributionCommission() {
     <ThemeRoot className="min-h-screen bg-background">
       {/* 对齐 RN IncomeScreen summaryCard:白卡 + 次级标签 + 大号数值 */}
       <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-lg p-[28rpx]">
-        <Text className="text-[length:28rpx] text-muted-foreground">
+        <Text className="text-body text-muted-foreground">
           {t('distribution.commission.total')}
         </Text>
         <Text className="block text-[length:40rpx] text-foreground font-bold mt-[16rpx]">
@@ -101,7 +101,7 @@ export default function DistributionCommission() {
               <Text className="block text-[length:32rpx] font-semibold text-foreground">
                 {r.type}
               </Text>
-              <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[12rpx]">
+              <Text className="block text-caption text-[var(--color-text-tertiary)] mt-[12rpx]">
                 {r.time}
                 {r.nickname ? ` · ${r.nickname}` : ''}
               </Text>
@@ -117,12 +117,12 @@ export default function DistributionCommission() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+        <View className="text-center py-[120rpx] text-body text-[var(--color-text-tertiary)]">
           <Text>{t('distribution.commission.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[40rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+        <View className="text-center py-[40rpx] text-body text-[var(--color-text-tertiary)]">
           <Text>{t('distribution.commission.loading')}</Text>
         </View>
       )}

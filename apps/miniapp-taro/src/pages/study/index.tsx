@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/study-index/StudyIndexScreen.tsx
 
 import { aizhsUrl } from '@/constants/icon-urls'
@@ -96,13 +97,13 @@ export default function StudyIndex() {
         <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.todayMinutes}</Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.todayMinutes')}
             </Text>
           </View>
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.totalMinutes}</Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.totalMinutes')}
             </Text>
           </View>
@@ -110,13 +111,13 @@ export default function StudyIndex() {
             <Text className="text-[length:44rpx] font-bold text-success">
               {info.continuousDays}
             </Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.continuousDays')}
             </Text>
           </View>
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
             <Text className="text-[length:44rpx] font-bold text-success">{info.courses}</Text>
-            <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.courses')}
             </Text>
           </View>
@@ -136,7 +137,7 @@ export default function StudyIndex() {
               ) : (
                 <Text>{e.icon}</Text>
               )}
-              <Text className="flex-1 ml-[24rpx] text-[length:28rpx] text-foreground">
+              <Text className="flex-1 ml-[24rpx] text-body text-foreground">
                 {t(e.labelKey)}
               </Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
@@ -150,7 +151,7 @@ export default function StudyIndex() {
         </Text>
         {loading ? (
           <View className="text-center py-[48rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
+            <Text className="text-body text-muted-foreground">{t('common.loading')}</Text>
           </View>
         ) : recent.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
@@ -170,7 +171,7 @@ export default function StudyIndex() {
                     style={{ width: `${r.progress}%` }}
                   />
                 </View>
-                <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[16rpx] text-caption text-[var(--color-text-tertiary)]">
                   {`${t('study.recordPage.progress').replace(/\s*\{\{n\}\}\s*%?/, '')} ${r.progress}%`}
                 </Text>
               </View>
@@ -178,7 +179,7 @@ export default function StudyIndex() {
           </View>
         ) : (
           <View className="text-center py-[48rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {t('study.emptyCourse')}
             </Text>
           </View>

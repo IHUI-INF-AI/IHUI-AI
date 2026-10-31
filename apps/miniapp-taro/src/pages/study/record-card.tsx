@@ -80,7 +80,7 @@ export function RecordCard({ row, onOpen }: { row: StudyRecordRow; onOpen: () =>
         />
       ) : (
         <View className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0 flex items-center justify-center">
-          <Text className="text-[length:22rpx] text-muted-foreground">
+          <Text className="text-caption text-muted-foreground">
             {tt('study.recordPage.coverFallback', '课程')}
           </Text>
         </View>

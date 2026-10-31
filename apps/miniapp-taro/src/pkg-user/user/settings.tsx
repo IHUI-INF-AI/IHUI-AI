@@ -164,7 +164,7 @@ export default function Settings() {
       <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[48rpx] box-border">
         {/* 账号与安全 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
             {tt('setting.accountSecurity', '账号与安全')}
           </Text>
           <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
@@ -176,7 +176,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.changePhone', '更换手机号')}
               </Text>
-              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-[length:28rpx] text-muted-foreground">
+              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-body text-muted-foreground">
                 {maskedPhone}
               </Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
@@ -226,7 +226,7 @@ export default function Settings() {
 
         {/* 通用设置 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
             {tt('setting.general', '通用设置')}
           </Text>
           <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
@@ -272,7 +272,7 @@ export default function Settings() {
 
         {/* 帮助与反馈 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
             {tt('setting.helpFeedback', '帮助与反馈')}
           </Text>
           <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
@@ -331,7 +331,7 @@ export default function Settings() {
 
         {/* 隐私与权限 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
             {tt('setting.privacyPermission', '隐私与权限')}
           </Text>
           <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
@@ -360,7 +360,7 @@ export default function Settings() {
 
         {/* 其他 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
             {tt('setting.other', '其他')}
           </Text>
           <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
@@ -378,7 +378,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.version', '当前版本号')}
               </Text>
-              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-[length:24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-label text-[var(--color-text-tertiary)]">
                 {VERSION}
               </Text>
             </View>

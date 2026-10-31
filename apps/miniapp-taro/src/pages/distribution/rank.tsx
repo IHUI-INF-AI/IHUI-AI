@@ -85,14 +85,14 @@ export default function DistributionRank() {
                     mode="aspectFill"
                   />
                 </View>
-                <Text className="text-[length:28rpx] font-semibold text-foreground mt-[16rpx] max-w-full truncate">
+                <Text className="text-body font-semibold text-foreground mt-[16rpx] max-w-full truncate">
                   {item.nickname}
                 </Text>
-                <Text className="text-[length:28rpx] text-[var(--color-success)] mt-[16rpx]">
+                <Text className="text-body text-[var(--color-success)] mt-[16rpx]">
                   ¥{item.commission}
                 </Text>
                 <Text
-                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[length:22rpx] text-[var(--color-surface-light)]"
+                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-caption text-[var(--color-surface-light)]"
                   style={{ backgroundColor: badge }}
                 >
                   {rank}
@@ -130,7 +130,7 @@ export default function DistributionRank() {
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-[120rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
+        <View className="text-center py-[120rpx] text-body text-[var(--color-text-tertiary)]">
           <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
         </View>
       )}

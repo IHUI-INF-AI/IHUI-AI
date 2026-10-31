@@ -254,7 +254,7 @@ export default function ExamAnswer() {
           <Text className="text-[length:32rpx] text-[var(--color-danger)] font-bold">
             {formatTime(remain)}
           </Text>
-          <Text className="text-[length:28rpx] text-[var(--color-success)] font-semibold">
+          <Text className="text-body text-[var(--color-success)] font-semibold">
             {currentIdx + 1}/{questions.length}
           </Text>
         </View>
@@ -265,7 +265,7 @@ export default function ExamAnswer() {
                 (判断题/填空/主观题不是单多选),故只在选择题上渲染,避免贴错题型 */}
             {current.type === 'single_choice' || current.type === 'multi_choice' ? (
               <View className="mt-[16rpx] flex">
-                <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-[length:22rpx] font-semibold text-[var(--color-success)]">
+                <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-caption font-semibold text-[var(--color-success)]">
                   {current.type === 'multi_choice'
                     ? t('examQuestion.multi')
                     : t('examQuestion.single')}

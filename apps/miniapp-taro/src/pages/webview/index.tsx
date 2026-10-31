@@ -151,7 +151,7 @@ export default function WebviewIndex() {
             </Text>
           </View>
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {t('webview.missingUrl')}
             </Text>
           </View>

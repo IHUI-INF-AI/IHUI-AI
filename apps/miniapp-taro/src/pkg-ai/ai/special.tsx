@@ -271,7 +271,7 @@ export default function SpecialModelsPage() {
                 <Text className="block mt-[12rpx] text-[length:26rpx] text-foreground font-medium max-w-full overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {m.name}
                 </Text>
-                <Text className="block mt-[4rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[4rpx] text-caption text-[var(--color-text-tertiary)]">
                   {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                 </Text>
               </View>
@@ -301,7 +301,7 @@ export default function SpecialModelsPage() {
                   <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden ihui-ellipsis whitespace-nowrap">
                     {m.name}
                   </Text>
-                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] flex-shrink-0">
+                  <Text className="text-caption text-[var(--color-text-tertiary)] flex-shrink-0">
                     {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                   </Text>
                 </View>

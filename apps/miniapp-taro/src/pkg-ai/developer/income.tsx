@@ -312,11 +312,11 @@ export default function DeveloperIncome() {
 
         {error ? (
           <View className="mx-[20rpx] mt-[16rpx] px-[20rpx] py-[16rpx] rounded-lg bg-[var(--color-danger-tint)] flex items-center justify-between">
-            <Text className="text-[length:24rpx] text-[var(--color-danger)]">
+            <Text className="text-label text-[var(--color-danger)]">
               {tt('common.failed', '加载失败')}
             </Text>
             <Text
-              className="text-[length:24rpx] font-semibold text-[var(--color-danger)]"
+              className="text-label font-semibold text-[var(--color-danger)]"
               onClick={reload}
             >
               {tt('modelIncome.retry', '重试')}
@@ -381,7 +381,7 @@ export default function DeveloperIncome() {
 
             {/* 对齐 RN 共享屏 summaryCard 下方那行 tip(modelIncome.tip):收益数据的更新节律 */}
             <View className="px-[24rpx] mt-[12rpx]">
-              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-caption text-[var(--color-text-tertiary)]">
                 {tt('modelIncome.tip', '收益数据每日更新')}
               </Text>
             </View>

@@ -139,7 +139,7 @@ export default function ContactPage() {
           <Text className="block text-[length:40rpx] font-bold text-foreground">
             {tt('about.contact.title', '联系我们')}
           </Text>
-          <Text className="block text-[length:28rpx] text-muted-foreground mt-[12rpx]">
+          <Text className="block text-body text-muted-foreground mt-[12rpx]">
             {tt('about.contact.headerSub', '我们随时为您提供帮助')}
           </Text>
         </View>
@@ -165,14 +165,14 @@ export default function ContactPage() {
                   <Text className="text-[length:40rpx] flex-shrink-0">{item.icon}</Text>
                 )}
                 <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-                  <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="block text-caption text-[var(--color-text-tertiary)]">
                     {item.label}
                   </Text>
-                  <Text className="block text-[length:28rpx] text-foreground mt-[4rpx] break-all">
+                  <Text className="block text-body text-foreground mt-[4rpx] break-all">
                     {item.value}
                   </Text>
                 </View>
-                <Text className="text-[length:28rpx] text-primary flex-shrink-0">
+                <Text className="text-body text-primary flex-shrink-0">
                   {item.actionType === 'call'
                     ? tt('about.contact.callBtn', '拨打')
                     : tt('about.contact.copyBtn', '复制')}
@@ -195,14 +195,14 @@ export default function ContactPage() {
                 mode="aspectFit"
               />
               <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-                <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block text-caption text-[var(--color-text-tertiary)]">
                   {tt('about.contact.address', '地址')}
                 </Text>
-                <Text className="block text-[length:28rpx] text-foreground mt-[4rpx] break-all">
+                <Text className="block text-body text-foreground mt-[4rpx] break-all">
                   {info.address}
                 </Text>
               </View>
-              <Text className="text-[length:28rpx] text-primary flex-shrink-0">
+              <Text className="text-body text-primary flex-shrink-0">
                 {tt('about.contact.copyBtn', '复制')}
               </Text>
             </View>
@@ -211,18 +211,18 @@ export default function ContactPage() {
 
         <View className="bg-card rounded-lg border border-border overflow-hidden mb-[24rpx]">
           <View className="flex justify-between items-center py-[28rpx] px-[28rpx]">
-            <Text className="text-[length:28rpx] text-[var(--color-text-medium)]">
+            <Text className="text-body text-[var(--color-text-medium)]">
               {tt('about.contact.workTimeLabel', '工作时间')}
             </Text>
-            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)] text-right">
+            <Text className="text-body text-[var(--color-text-tertiary)] text-right">
               {tt('about.contact.workTime', '周一至周五 9:00-18:00')}
             </Text>
           </View>
           <View className="flex justify-between items-center py-[28rpx] px-[28rpx] mt-[16rpx]">
-            <Text className="text-[length:28rpx] text-[var(--color-text-medium)]">
+            <Text className="text-body text-[var(--color-text-medium)]">
               {tt('about.contact.responseLabel', '响应时间')}
             </Text>
-            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)] text-right">
+            <Text className="text-body text-[var(--color-text-tertiary)] text-right">
               {tt('about.contact.responseTime', '工作日内 24 小时内回复')}
             </Text>
           </View>
@@ -240,7 +240,7 @@ export default function ContactPage() {
         ) : null}
 
         <View className="text-center pt-[16rpx]">
-          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-caption text-[var(--color-text-tertiary)]">
             {tt('about.contact.footer', '感谢您选择智汇 AI')}
           </Text>
         </View>

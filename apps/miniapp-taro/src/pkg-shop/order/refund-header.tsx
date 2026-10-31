@@ -18,7 +18,7 @@ export default function RefundHeader() {
       <View className="text-[length:32rpx] font-semibold text-foreground">
         {tt('order.refund.title', '申请退款')}
       </View>
-      <View className="mt-[16rpx] text-[length:28rpx] text-muted-foreground">
+      <View className="mt-[16rpx] text-body text-muted-foreground">
         {tt('orderRefund.subtitle', '选择订单,提交退款申请')}
       </View>
     </View>

@@ -75,6 +75,8 @@ const apply = argv.includes('--apply')
 const jsonMode = argv.includes('--json')
 const fontSafe = argv.includes('--font-safe')
 const inlineSafe = argv.includes('--inline-safe')
+const fontAll = argv.includes('--font-all')
+const font400 = argv.includes('--font-400')
 const selfTest = argv.includes('--self-test')
 const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
 
@@ -191,7 +193,8 @@ function listSourceFiles() {
  * 只认 `className="…"` 与 `className={`…`}` 两种形态;`className={cn(…)}` 一类表达式不碰
  * (要解析 JS 表达式才安全,收益不值这个风险)。
  */
-export function rewriteClassNameTokens(text, rev) {
+export function rewriteClassNameTokens(text, rev, opts = {}) {
+  const requireLeading = opts.requireLeading !== false
   const masked = maskCommentsEqualLen(text)
   let changes = 0
   const samples = []
@@ -199,7 +202,7 @@ export function rewriteClassNameTokens(text, rev) {
   const out = text.replace(clsRe, (all, dq, tpl, offset) => {
     if (masked.slice(offset, offset + all.length) !== all) return all // 注释里的同形文本不动
     const body = dq ?? tpl ?? ''
-    if (!/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) return all // 没有行高覆盖 ⇒ 不换
+    if (requireLeading && !/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) return all // 默认档:无行高覆盖 ⇒ 不换(会改行高)
     const replaced = body.replace(/\btext-\[(?:length:)?(\d+(?:\.\d+)?)rpx\]/g, (m, n) => {
       const step = rev.type.get(Number(n) / 2)
       if (!step) return m // 档外值不猜
@@ -379,6 +382,14 @@ function main() {
   })
   const rev = buildReverse(tables.SPACING_STEPS, tables.TYPE_STEPS)
 
+  if (font400) {
+    // 只保留 **font-weight=400** 的字号档(body/label/caption/badge):它们的 font-weight 与文档默认一致,
+    // 替换后字重不变;而 title(600)/heading(700) 这些档会改字重 —— 那是视觉变更,不自动做。
+    const weightOf = new Map(Object.entries(tables.TYPE_STEPS).map(([k, v]) => [k.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase(), Number(v?.weight ?? 400)]))
+    const restricted = { ...rev, type: new Map([...rev.type].filter(([, step]) => weightOf.get(step) === 400)) }
+    return runFontSafe(font400, restricted, (tx, rv) => rewriteClassNameTokens(tx, rv, { requireLeading: false }), 'LAND-MINIAPP-FONT-400')
+  }
+  if (fontAll) return runFontSafe(fontAll, rev, (tx, rv) => rewriteClassNameTokens(tx, rv, { requireLeading: false }), 'LAND-MINIAPP-FONT-ALL')
   if (inlineSafe) return runFontSafe(inlineSafe, rev, rewriteInlineStyles, 'LAND-MINIAPP-INLINE')
   if (fontSafe) return runFontSafe(fontSafe, rev)
 

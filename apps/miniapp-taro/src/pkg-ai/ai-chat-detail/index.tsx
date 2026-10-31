@@ -311,13 +311,13 @@ export default function AiChatDetail() {
       <ScrollView scrollY className="flex-1 min-h-0" scrollTop={scrollTop} scrollWithAnimation>
         {loading ? (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-[length:28rpx]">
+            <Text className="text-center text-muted-foreground text-body">
               {t('common.loading')}
             </Text>
           </View>
         ) : error ? (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-[length:28rpx]">
+            <Text className="text-center text-muted-foreground text-body">
               {tt('aiChatDetail.loadFailed', '加载失败')}
             </Text>
             <View
@@ -325,7 +325,7 @@ export default function AiChatDetail() {
               onClick={loadData}
               hoverClass="opacity-60"
             >
-              <Text className="text-[length:28rpx] text-primary-foreground">
+              <Text className="text-body text-primary-foreground">
                 {t('common.retry')}
               </Text>
             </View>
@@ -358,7 +358,7 @@ export default function AiChatDetail() {
           </View>
         ) : (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-[length:28rpx]">
+            <Text className="text-center text-muted-foreground text-body">
               {t('aiChatDetail.empty')}
             </Text>
           </View>
@@ -367,7 +367,7 @@ export default function AiChatDetail() {
 
       {inputError ? (
         <View className="px-[32rpx] pb-[16rpx]">
-          <Text className="text-[length:28rpx] text-destructive">{inputError}</Text>
+          <Text className="text-body text-destructive">{inputError}</Text>
         </View>
       ) : null}
 
@@ -411,7 +411,7 @@ export default function AiChatDetail() {
               {t('messageInput.fullscreenBack')}
             </Text>
           </View>
-          <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-label text-[var(--color-text-tertiary)]">
             {t('messageInput.fullscreenHint')}
           </Text>
         </View>
@@ -419,7 +419,7 @@ export default function AiChatDetail() {
 
       {isVoiceMode ? (
         <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx]">
-          <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)] mb-[12rpx]">
+          <Text className="text-label text-[var(--color-text-tertiary)] mb-[12rpx]">
             {isRecording ? t('messageInput.recording') : t('messageInput.voiceHint')}
           </Text>
           <View
@@ -429,7 +429,7 @@ export default function AiChatDetail() {
             onTouchCancel={() => setIsRecording(false)}
           >
             <Text
-              className={`text-[length:28rpx] ${isRecording ? 'text-[var(--color-success-deep-text)]' : 'text-muted-foreground'}`}
+              className={`text-body ${isRecording ? 'text-[var(--color-success-deep-text)]' : 'text-muted-foreground'}`}
             >
               {isRecording
                 ? tt('messageInput.releaseToSend', '松开发送')
@@ -509,7 +509,7 @@ export default function AiChatDetail() {
                 onClick={sendMessage}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[length:28rpx] font-semibold text-primary-foreground">
+                <Text className="text-body font-semibold text-primary-foreground">
                   {sending ? tt('aiChatDetail.sending', '发送中…') : t('chat.send')}
                 </Text>
               </View>

@@ -126,7 +126,7 @@ export default function OrderRefund() {
       <ThemeRoot>
         <View className="min-h-screen bg-background p-[20rpx]">
           <View className="flex flex-col items-center gap-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card px-[24rpx] py-[80rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {orderNo
                 ? tt('order.loadFailed', '订单信息加载失败')
                 : tt('orderRefund.empty', '暂无可退款的订单')}
@@ -165,21 +165,21 @@ export default function OrderRefund() {
         </View>
 
         <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-          <Text className="block text-[length:28rpx] font-medium text-foreground mb-[20rpx]">
+          <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.refundAmount', '退款金额')}
           </Text>
           <View className="flex items-center justify-between">
             <Text className="text-[length:36rpx] font-semibold text-[var(--color-success)]">
               ¥{refundAmount.toFixed(2)}
             </Text>
-            <Text className="text-[length:22rpx] text-[var(--color-warning-amber-text)] px-[16rpx] py-[6rpx] bg-[var(--color-warning-amber-light)] rounded-sm">
+            <Text className="text-caption text-[var(--color-warning-amber-text)] px-[16rpx] py-[6rpx] bg-[var(--color-warning-amber-light)] rounded-sm">
               {tt('order.refund.amountReadOnly', '不可修改')}
             </Text>
           </View>
         </View>
 
         <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-          <Text className="block text-[length:28rpx] font-medium text-foreground mb-[20rpx]">
+          <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.reason', '退款原因')}
           </Text>
           <RadioGroup
@@ -189,7 +189,7 @@ export default function OrderRefund() {
             {REASONS(tt).map((r) => (
               <View key={r.key} className="flex items-center gap-[16rpx]">
                 <Radio value={r.key} checked={reason === r.key} color={radioInk} />
-                <Text className="text-[length:28rpx] text-foreground">{tt(r.key, r.fb)}</Text>
+                <Text className="text-body text-foreground">{tt(r.key, r.fb)}</Text>
               </View>
             ))}
           </RadioGroup>
@@ -206,7 +206,7 @@ export default function OrderRefund() {
         </View>
 
         <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-          <Text className="block text-[length:28rpx] font-medium text-foreground mb-[20rpx]">
+          <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.descLabel', '退款说明')}
           </Text>
           <FocusTextarea
@@ -219,7 +219,7 @@ export default function OrderRefund() {
         </View>
 
         <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-          <Text className="block text-[length:28rpx] font-medium text-foreground mb-[20rpx]">
+          <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.contactLabel', '联系方式')}
           </Text>
           <FocusInput

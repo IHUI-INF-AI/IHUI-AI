@@ -134,7 +134,7 @@ export default function AiCircle() {
                         {author}
                       </Text>
                       {createTime ? (
-                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-caption text-[var(--color-text-tertiary)]">
                           {createTime}
                         </Text>
                       ) : null}
@@ -164,7 +164,7 @@ export default function AiCircle() {
                     <View className="flex items-center gap-[32rpx]">
                       <View className="flex items-center gap-[8rpx]">
                         <LineIcon name="heart" size={26} color="var(--color-text-tertiary)" />
-                        <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-label text-[var(--color-text-tertiary)]">
                           {likes}
                         </Text>
                       </View>
@@ -174,7 +174,7 @@ export default function AiCircle() {
                           size={26}
                           color="var(--color-text-tertiary)"
                         />
-                        <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-label text-[var(--color-text-tertiary)]">
                           {comments}
                         </Text>
                       </View>

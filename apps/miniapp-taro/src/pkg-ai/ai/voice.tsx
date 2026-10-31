@@ -241,7 +241,7 @@ export default function VoicePage() {
                     size={32}
                     color="var(--color-muted-foreground)"
                   />
-                  <Text className="text-[length:24rpx] text-foreground">
+                  <Text className="text-label text-foreground">
                     {fmtDuration(m.duration || 0)}
                   </Text>
                   <View className="flex items-center gap-[4rpx] h-[40rpx]">
@@ -289,13 +289,13 @@ export default function VoicePage() {
 
       <View className="py-[16rpx] px-[32rpx] bg-card">
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
-          <Text className="text-[length:24rpx] text-muted-foreground w-[64rpx]">
+          <Text className="text-label text-muted-foreground w-[64rpx]">
             {tt('ai.voice.speed', '语速')}
           </Text>
           {SPEEDS.map((s) => (
             <Text
               key={s}
-              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-label ${speed === s ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
             >
               {tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}
@@ -303,13 +303,13 @@ export default function VoicePage() {
           ))}
         </View>
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
-          <Text className="text-[length:24rpx] text-muted-foreground w-[64rpx]">
+          <Text className="text-label text-muted-foreground w-[64rpx]">
             {tt('ai.voice.timbre', '音色')}
           </Text>
           {TIMBRES.map((tb) => (
             <Text
               key={tb}
-              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-label ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
             >
               {tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}
@@ -337,7 +337,7 @@ export default function VoicePage() {
             </View>
           ) : null}
           <Text
-            className={`text-[length:28rpx] ${recording ? 'text-[var(--color-danger-foreground)]' : 'text-foreground'}`}
+            className={`text-body ${recording ? 'text-[var(--color-danger-foreground)]' : 'text-foreground'}`}
           >
             {recording
               ? `${tt('ai.voice.releaseToSend', '松开发送')} · ${fmtDuration(displayDuration)}`

@@ -125,23 +125,23 @@ export default function NewsDetailPage() {
             </Text>
             {/* metaRow:发布时间(左)/阅读数(右),对齐 RN author + publishedAt */}
             <View className="flex flex-row items-center justify-between mt-[12rpx] mb-[12rpx]">
-              <Text className="text-[length:28rpx] font-medium text-muted-foreground">
+              <Text className="text-body font-medium text-muted-foreground">
                 {news.createTime}
               </Text>
-              <Text className="text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
+              <Text className="text-caption text-[color:var(--color-text-tertiary)]">
                 {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
               </Text>
             </View>
             {/* statRow:阅读/点赞 chip(白底圆角),对齐 RN statRow */}
             <View className="flex flex-row items-center gap-[16rpx] mb-[24rpx]">
               <View className="flex flex-row items-center bg-card px-[16rpx] py-[4rpx] rounded-lg">
-                <Text className="text-[length:22rpx] text-muted-foreground">
+                <Text className="text-caption text-muted-foreground">
                   {tt('articleDetail.views', '阅读量')} {news.views || 0}
                 </Text>
               </View>
               <View className="flex flex-row items-center gap-[8rpx] bg-card px-[16rpx] py-[4rpx] rounded-lg">
                 <LineIcon name="heart" size={11} color="var(--color-muted-foreground)" />
-                <Text className="text-[length:22rpx] text-muted-foreground">{likes}</Text>
+                <Text className="text-caption text-muted-foreground">{likes}</Text>
               </View>
             </View>
             {/* 正文:直接铺在页面底色上(RN content 无卡片) */}
@@ -175,10 +175,10 @@ export default function NewsDetailPage() {
                       {r.title}
                     </Text>
                     <View className="flex gap-[16rpx] mt-[12rpx]">
-                      <Text className="text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
+                      <Text className="text-caption text-[color:var(--color-text-tertiary)]">
                         {r.createTime}
                       </Text>
-                      <Text className="text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
+                      <Text className="text-caption text-[color:var(--color-text-tertiary)]">
                         {tt('news.readCount', '{n}阅读', { n: r.views || 0 })}
                       </Text>
                     </View>

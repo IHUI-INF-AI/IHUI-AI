@@ -173,7 +173,7 @@ export default function SettingIndexPage() {
                 {user.nickname || t('profile.nickname')}
               </Text>
               {/* 副行对齐 RN subText: 14dp→28rpx + text.secondary;间距对齐 userMeta gap 2dp→4rpx */}
-              <Text className="mt-[4rpx] block text-[length:28rpx] text-muted-foreground">
+              <Text className="mt-[4rpx] block text-body text-muted-foreground">
                 {t('profile.editProfile')}
               </Text>
             </View>
@@ -202,7 +202,7 @@ export default function SettingIndexPage() {
         {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx;
             且同 RN 的 `appVersion ? … : null` —— 拿不到真实版本号时这一行不出现 */}
         {appVersion ? (
-          <Text className="mt-[8rpx] block text-center text-[length:24rpx] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-label text-[color:var(--color-text-tertiary)]">
             {t('settings.version')} {appVersion}
           </Text>
         ) : null}

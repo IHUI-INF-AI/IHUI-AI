@@ -145,7 +145,7 @@ export default function LearnDevelop() {
                 <Text className="text-[length:30rpx] font-semibold text-foreground">
                   {tt(path.nameKey, path.name)}
                 </Text>
-                <Text className="text-[length:24rpx] text-muted-foreground mt-[8rpx]">
+                <Text className="text-label text-muted-foreground mt-[8rpx]">
                   {path.courses} {tt('learnDevelop.coursesUnit', '门课')} ·{' '}
                   {tt('learnDevelop.progress', '进度')} {path.progress}%
                 </Text>
@@ -197,13 +197,13 @@ export default function LearnDevelop() {
                     {item.title}
                   </Text>
                   {item.teacher ? (
-                    <Text className="text-[length:24rpx] text-muted-foreground mt-[8rpx]">
+                    <Text className="text-label text-muted-foreground mt-[8rpx]">
                       {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
                     </Text>
                   ) : null}
                   {item.price !== null && item.price !== undefined ? (
                     <Text
-                      className={`text-[length:24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
+                      className={`text-label font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
                     >
                       {item.price === 0
                         ? tt('learnDevelop.free', '免费')
@@ -228,7 +228,7 @@ export default function LearnDevelop() {
                 className="w-[40rpx] h-[40rpx] mr-[16rpx]"
                 mode="aspectFit"
               />
-              <Text className="text-[length:28rpx] text-foreground font-semibold">
+              <Text className="text-body text-foreground font-semibold">
                 {tt('learnDevelop.rankEntry', '学习排行榜')}
               </Text>
             </View>

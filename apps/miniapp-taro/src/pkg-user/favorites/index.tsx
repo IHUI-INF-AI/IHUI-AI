@@ -170,15 +170,15 @@ export default function FavoritesPage() {
       {/* 顶部:统计 + 搜索 + 管理按钮 */}
       <View className="flex flex-col gap-[16rpx]">
         <View className="flex items-baseline">
-          <Text className="text-[length:28rpx] text-muted-foreground">
+          <Text className="text-body text-muted-foreground">
             {tt('favorites.total', '已收藏')}
           </Text>
           <Text className="mx-[8rpx] text-[length:40rpx] font-bold text-primary">{totalCount}</Text>
-          <Text className="text-[length:24rpx] text-muted-foreground">
+          <Text className="text-label text-muted-foreground">
             {tt('favorites.itemsUnit', '项')}
           </Text>
           <Text
-            className="ml-auto py-[8rpx] px-[20rpx] text-[length:24rpx] text-primary bg-primary/10 border-[length:2rpx] border-primary/30 rounded-xl"
+            className="ml-auto py-[8rpx] px-[20rpx] text-label text-primary bg-primary/10 border-[length:2rpx] border-primary/30 rounded-xl"
             onClick={() => {
               setManageMode((v) => !v)
               setSelectedIds(new Set())
@@ -234,7 +234,7 @@ export default function FavoritesPage() {
             </Text>
           </View>
           <Text
-            className={`py-[8rpx] px-[20rpx] text-[length:24rpx] text-destructive-foreground bg-destructive rounded-xl ${selectedIds.size === 0 ? 'text-muted-foreground bg-muted' : ''}`}
+            className={`py-[8rpx] px-[20rpx] text-label text-destructive-foreground bg-destructive rounded-xl ${selectedIds.size === 0 ? 'text-muted-foreground bg-muted' : ''}`}
             onClick={handleBatchCancel}
           >
             {tt('favorites.batchCancel', '批量取消')} ({selectedIds.size})
@@ -279,18 +279,18 @@ export default function FavoritesPage() {
                     <Text className="text-[length:32rpx] font-semibold text-foreground truncate">
                       {item.title}
                     </Text>
-                    <Text className="text-[length:22rpx] text-muted-foreground">
+                    <Text className="text-caption text-muted-foreground">
                       {item.resourceType}
                     </Text>
                     <View className="flex items-center justify-between">
-                      <Text className="text-[length:22rpx] text-muted-foreground">
+                      <Text className="text-caption text-muted-foreground">
                         {tt('favorites.collectedAt', '收藏于')}{' '}
                         {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD') || '-'}
                       </Text>
                       {!manageMode ? (
                         <Text
                           /* 对齐 RN deleteBtn:paddingHorizontal 12dp/paddingVertical 6dp/radius 12dp/描边 border.light/字 text.primary */
-                          className="py-[12rpx] px-[24rpx] text-[length:28rpx] text-foreground bg-background border-[length:2rpx] border-border rounded-xl"
+                          className="py-[12rpx] px-[24rpx] text-body text-foreground bg-background border-[length:2rpx] border-border rounded-xl"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleCancel(item)
@@ -312,7 +312,7 @@ export default function FavoritesPage() {
       {displayList.length === 0 && !loading ? (
         <View className="py-[96rpx] flex flex-col items-center">
           <LineIcon name="star" size={80} color="var(--color-muted-foreground)" />
-          <Text className="mt-[16rpx] text-[length:28rpx] text-muted-foreground">
+          <Text className="mt-[16rpx] text-body text-muted-foreground">
             {searchText || activeTab !== 'all'
               ? tt('favorites.searchEmpty', '未找到匹配内容')
               : tt('favorites.empty', '暂无收藏')}
@@ -332,12 +332,12 @@ export default function FavoritesPage() {
       {/* 首屏加载:骨架屏,与 RN 端 ScreenSkeleton 同形同周期 */}
       {loading && displayList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}
       {loading && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-caption text-muted-foreground">
           <Text>{tt('favorites.loadMore', '加载更多')}</Text>
         </View>
       ) : null}
       {!loading && !hasMore && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-caption text-muted-foreground">
           <Text>{tt('favorites.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

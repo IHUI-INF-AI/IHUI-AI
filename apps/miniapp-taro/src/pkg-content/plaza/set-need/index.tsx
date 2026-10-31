@@ -86,7 +86,7 @@ export default function SetNeed() {
         <Text className="block text-[length:32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.directionTitle')}
         </Text>
-        <Text className="block text-[length:24rpx] text-muted-foreground mt-[8rpx]">
+        <Text className="block text-label text-muted-foreground mt-[8rpx]">
           {t('plaza.setNeed.directionDesc')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">

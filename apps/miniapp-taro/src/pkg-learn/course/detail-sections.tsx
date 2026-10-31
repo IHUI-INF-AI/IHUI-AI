@@ -39,12 +39,12 @@ export function CourseMetaTags({ level, studentCount }: { level?: string; studen
     <View className="flex flex-row flex-wrap gap-[12rpx] px-[24rpx] py-[16rpx]">
       {level ? (
         <View className="px-[16rpx] py-[4rpx] rounded-md bg-muted">
-          <Text className="text-[length:22rpx] text-muted-foreground">{level}</Text>
+          <Text className="text-caption text-muted-foreground">{level}</Text>
         </View>
       ) : null}
       {studentCount === null || studentCount === undefined ? null : (
         <View className="px-[16rpx] py-[4rpx] rounded-md bg-muted">
-          <Text className="text-[length:22rpx] text-muted-foreground">
+          <Text className="text-caption text-muted-foreground">
             {t('courseDetail.studentCount', { count: studentCount })}
           </Text>
         </View>
@@ -77,14 +77,14 @@ export function CourseActionBar({
           </Text>
         ) : (
           <>
-            <Text className="text-[length:28rpx] font-bold text-primary">¥</Text>
+            <Text className="text-body font-bold text-primary">¥</Text>
             <Text className="text-[length:40rpx] font-bold text-primary">{price.toFixed(2)}</Text>
           </>
         )}
       </View>
       {enrolled ? (
         <View className="px-[20rpx] py-[8rpx] rounded-md bg-[var(--color-success-lighter)]">
-          <Text className="text-[length:24rpx] text-[var(--color-success-deep-text)]">
+          <Text className="text-label text-[var(--color-success-deep-text)]">
             {t('courseDetail.enrolled')}
           </Text>
         </View>
@@ -120,7 +120,7 @@ export function LessonsSection({
         <Text className="text-[length:32rpx] font-semibold text-foreground">
           {t('courseDetail.lessons')}
         </Text>
-        <Text className="text-[length:22rpx] text-muted-foreground">{lessons.length}</Text>
+        <Text className="text-caption text-muted-foreground">{lessons.length}</Text>
       </View>
       {lessons.length === 0 ? (
         <EmptyState title={t('common.empty')} />
@@ -133,12 +133,12 @@ export function LessonsSection({
             onClick={() => onLessonClick(lesson, idx)}
           >
             <Text
-              className={`flex-1 text-[length:28rpx] text-foreground ${lesson.current ? 'font-semibold' : ''}`}
+              className={`flex-1 text-body text-foreground ${lesson.current ? 'font-semibold' : ''}`}
             >
               {lesson.title}
             </Text>
             {lesson.completed ? (
-              <Text className="ml-2 text-[length:24rpx] text-[var(--color-success)]">
+              <Text className="ml-2 text-label text-[var(--color-success)]">
                 {t('courseDetail.completed')}
               </Text>
             ) : null}

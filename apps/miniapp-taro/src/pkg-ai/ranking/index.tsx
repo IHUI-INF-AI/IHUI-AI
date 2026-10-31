@@ -172,7 +172,7 @@ export default function RankingIndex() {
               hoverClass="opacity-60"
             >
               <Text
-                className={`text-[length:28rpx] ${
+                className={`text-body ${
                   fileType === tab.key ? 'text-primary-foreground' : 'text-muted-foreground'
                 }`}
               >
@@ -219,13 +219,13 @@ export default function RankingIndex() {
                       </Text>
                     ) : null}
                     <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx]">
-                      <Text className="text-[length:22rpx] text-muted-foreground">
+                      <Text className="text-caption text-muted-foreground">
                         {tt('ranking.detail.attention', '关注度')}: {attention || '-'}
                       </Text>
-                      <Text className="text-[length:22rpx] text-muted-foreground">
+                      <Text className="text-caption text-muted-foreground">
                         {tt('ranking.detail.category', '类别')}: {category}
                       </Text>
-                      <Text className="text-[length:22rpx] text-[var(--color-success)]">
+                      <Text className="text-caption text-[var(--color-success)]">
                         {tt('ranking.detail.price', '价格')}: {price}
                       </Text>
                     </View>

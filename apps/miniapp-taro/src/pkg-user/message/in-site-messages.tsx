@@ -69,14 +69,14 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
 
   if (loading) {
     return (
-      <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+      <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
         {t('common.loading')}
       </Text>
     )
   }
   if (!rows.length) {
     return (
-      <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+      <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
         {t('message.empty')}
       </Text>
     )
@@ -86,7 +86,7 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
       {rows.map((row) => (
         <View key={row.id} className="py-[20rpx] px-[16rpx] rounded-xl">
           <View className="flex flex-row items-center gap-[12rpx]">
-            <Text className="px-[10rpx] py-[2rpx] rounded-md bg-muted text-[length:22rpx] font-semibold text-muted-foreground">
+            <Text className="px-[10rpx] py-[2rpx] rounded-md bg-muted text-caption font-semibold text-muted-foreground">
               {typeLabel(row.msgType)}
             </Text>
             <Text className="flex-1 text-[length:30rpx] font-semibold text-foreground truncate">
@@ -98,7 +98,7 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
               {row.content}
             </Text>
           ) : null}
-          <Text className="block mt-[4rpx] text-[length:22rpx] text-muted-foreground">
+          <Text className="block mt-[4rpx] text-caption text-muted-foreground">
             {row.createdAt}
           </Text>
         </View>

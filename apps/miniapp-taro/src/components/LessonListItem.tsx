@@ -102,11 +102,11 @@ export default function LessonListItem({
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
           style={{ marginLeft: 'var(--spacing-sm-loose)' }}
         >
-          <Text className="text-[length:28rpx] font-bold text-foreground truncate">
+          <Text className="text-body font-bold text-foreground truncate">
             {data.title}
           </Text>
           {data.subtitle && (
-            <Text className="text-[length:24rpx] text-muted-foreground truncate">
+            <Text className="text-label text-muted-foreground truncate">
               {data.subtitle}
             </Text>
           )}
@@ -122,12 +122,12 @@ export default function LessonListItem({
           )}
           <View className="flex items-center">
             {data.duration && (
-              <Text className="text-[length:24rpx] text-muted-foreground mr-[20rpx]">
+              <Text className="text-label text-muted-foreground mr-[20rpx]">
                 {data.duration}
               </Text>
             )}
             {data.likes !== undefined && (
-              <Text className="text-[length:24rpx] text-muted-foreground font-bold">
+              <Text className="text-label text-muted-foreground font-bold">
                 {data.likes}
                 {tt('LessonListItem.z1', '人已学习')}
               </Text>
@@ -166,11 +166,11 @@ export default function LessonListItem({
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
           style={{ marginLeft: 'var(--spacing-sm-loose)' }}
         >
-          <Text className="text-[length:28rpx] font-bold text-foreground truncate">
+          <Text className="text-body font-bold text-foreground truncate">
             {data.title}
           </Text>
           {data.subtitle && (
-            <Text className="text-[length:24rpx] text-muted-foreground truncate">
+            <Text className="text-label text-muted-foreground truncate">
               {data.subtitle}
             </Text>
           )}
@@ -201,12 +201,12 @@ export default function LessonListItem({
           )}
           <View className="flex items-center">
             {data.duration && (
-              <Text className="text-[length:24rpx] text-muted-foreground mr-[20rpx]">
+              <Text className="text-label text-muted-foreground mr-[20rpx]">
                 {data.duration}
               </Text>
             )}
             {data.likes !== undefined && (
-              <Text className="text-[length:24rpx] text-muted-foreground font-bold">
+              <Text className="text-label text-muted-foreground font-bold">
                 {data.likes}
                 {tt('LessonListItem.z2', '人已学习')}
               </Text>
@@ -241,11 +241,11 @@ export default function LessonListItem({
             )}
           </View>
         )}
-        <Text className="text-[length:28rpx] text-foreground mt-[10rpx] truncate">
+        <Text className="text-body text-foreground mt-[10rpx] truncate">
           {data.title}
         </Text>
         {data.subtitle && (
-          <Text className="text-[length:24rpx] text-muted-foreground mt-[10rpx] truncate">
+          <Text className="text-label text-muted-foreground mt-[10rpx] truncate">
             {data.subtitle}
           </Text>
         )}

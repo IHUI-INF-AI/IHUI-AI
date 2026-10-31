@@ -652,7 +652,7 @@ export default function ModelConfigDialog({
                     </View>
                   )}
                 </View>
-                <Text className="text-[length:24rpx] text-muted-foreground mt-1">
+                <Text className="text-label text-muted-foreground mt-1">
                   {it.name || it.label}
                 </Text>
               </View>

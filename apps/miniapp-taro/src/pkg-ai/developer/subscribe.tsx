@@ -209,7 +209,7 @@ export default function DeveloperSubscribePage() {
             <Text className="text-[length:32rpx] font-semibold text-foreground">
               {stats.subscribers}
             </Text>
-            <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-label text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statSubscribers', '订阅人数')}
             </Text>
           </View>
@@ -217,7 +217,7 @@ export default function DeveloperSubscribePage() {
             <Text className="text-[length:32rpx] font-semibold text-foreground">
               {stats.modelCount}
             </Text>
-            <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-label text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statModels', '模型数')}
             </Text>
           </View>
@@ -225,7 +225,7 @@ export default function DeveloperSubscribePage() {
             <Text className="text-[length:32rpx] font-semibold text-foreground">
               {stats.totalUses}
             </Text>
-            <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-label text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statUses', '总使用次数')}
             </Text>
           </View>
@@ -257,10 +257,10 @@ export default function DeveloperSubscribePage() {
                   </View>
                   <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                     <View className="flex items-baseline justify-between gap-[12rpx]">
-                      <Text className="text-[length:28rpx] font-semibold text-foreground">
+                      <Text className="text-body font-semibold text-foreground">
                         {m.name}
                       </Text>
-                      <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)] flex-shrink-0">
+                      <Text className="text-label text-[var(--color-text-tertiary)] flex-shrink-0">
                         {tt('developer.subscribe.uses', '使用')} {m.uses}
                       </Text>
                     </View>
@@ -269,7 +269,7 @@ export default function DeveloperSubscribePage() {
                     </Text>
                   </View>
                   <Text
-                    className="flex-shrink-0 px-[24rpx] py-[12rpx] text-[length:24rpx] font-medium text-[var(--color-brand-accent-deep)] border-[length:2rpx] border-[var(--color-brand-accent-deep)] rounded-xl"
+                    className="flex-shrink-0 px-[24rpx] py-[12rpx] text-label font-medium text-[var(--color-brand-accent-deep)] border-[length:2rpx] border-[var(--color-brand-accent-deep)] rounded-xl"
                     onClick={() => handleUseModel(m)}
                   >
                     {tt('developer.subscribe.use', '使用')}
@@ -278,7 +278,7 @@ export default function DeveloperSubscribePage() {
               ))}
             </View>
           ) : (
-            <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+            <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
               {tt('developer.subscribe.noModels', '暂无模型')}
             </Text>
           )}
@@ -289,7 +289,7 @@ export default function DeveloperSubscribePage() {
             {tt('developer.subscribe.notifyTitle', '通知设置')}
           </Text>
           <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
-            <Text className="text-[length:28rpx] text-foreground">
+            <Text className="text-body text-foreground">
               {tt('developer.subscribe.notifyNew', '新模型发布提醒')}
             </Text>
             <Switch
@@ -299,7 +299,7 @@ export default function DeveloperSubscribePage() {
             />
           </View>
           <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
-            <Text className="text-[length:28rpx] text-foreground">
+            <Text className="text-body text-foreground">
               {tt('developer.subscribe.notifyUpdate', '模型更新提醒')}
             </Text>
             <Switch
@@ -318,20 +318,20 @@ export default function DeveloperSubscribePage() {
             <View className="flex flex-col gap-[16rpx]">
               {posts.map((p) => (
                 <View key={p.id} className="p-[20rpx] bg-card rounded-lg">
-                  <Text className="block text-[length:28rpx] font-semibold text-foreground">
+                  <Text className="block text-body font-semibold text-foreground">
                     {p.title}
                   </Text>
                   <Text className="block mt-[12rpx] text-[length:26rpx] text-muted-foreground leading-[1.5]">
                     {p.content}
                   </Text>
-                  <Text className="block mt-[12rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="block mt-[12rpx] text-caption text-[var(--color-text-tertiary)]">
                     {p.createTime}
                   </Text>
                 </View>
               ))}
             </View>
           ) : (
-            <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+            <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
               {tt('developer.subscribe.noPosts', '暂无动态')}
             </Text>
           )}
@@ -346,7 +346,7 @@ export default function DeveloperSubscribePage() {
         </Button>
 
         {loading && (
-          <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[40rpx]">
+          <Text className="block text-center text-body text-muted-foreground py-[40rpx]">
             {tt('common.loading', '加载中…')}
           </Text>
         )}

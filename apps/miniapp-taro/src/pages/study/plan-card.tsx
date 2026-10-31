@@ -93,10 +93,10 @@ export function statusClass(status: PlanStatus): string {
 export function PlanFoot({ item, t }: { item: PlanItem; t: TranslateFn }) {
   return (
     <View className="flex flex-wrap justify-between items-center mt-[16rpx] gap-x-[16rpx] gap-y-[8rpx]">
-      <Text className="text-[length:22rpx] font-semibold text-foreground">
+      <Text className="text-caption font-semibold text-foreground">
         {t('studyPlan.progress')}: {item.progress}%
       </Text>
-      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+      <Text className="text-caption text-[var(--color-text-tertiary)]">
         {t('studyPlan.deadline')}: {deadlineOf(item)}
       </Text>
     </View>
