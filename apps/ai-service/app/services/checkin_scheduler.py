@@ -787,7 +787,10 @@ class CheckinScheduler:
             if cd_end is not None and cd_end > now:
                 continue
             device_map = dict(acc.get("device_map") or {})
-            for kind in ("growth", "travel", "activity", "blackcat", "redeem", "lottery"):
+            # 族顺序取 workbuddy_tasks.SWEEP_ORDER 单一真源:activity 在 growth 之前,
+            # 上报计分先落地,growth 同轮列表即可看到「刚达标」的任务并在本轮 claim;
+            # 反序(旧 growth→activity)要等下一轮(默认 180 分钟)才领,白丢一轮积分。
+            for kind in workbuddy_tasks.SWEEP_ORDER:
                 try:
                     result = await workbuddy_tasks.run_family(
                         kind, acc["jwt"], device_map, dry_run=dry_run

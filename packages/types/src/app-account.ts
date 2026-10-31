@@ -409,9 +409,15 @@ export interface IdentityVerifyScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+export type AppPermissionStatus = 'granted' | 'denied' | 'unknown'
+
 export interface AppPermissionScreenProps {
   t: TFunction
   onBack: () => void
+  /** 平台侧权限状态(按共享清单下标);缺省 = 不渲染状态徽标 */
+  statusByIndex?: Record<number, AppPermissionStatus>
+  /** 打开系统设置(平台适配:小程序 Taro.openSetting / RN Linking.openSettings) */
+  onOpenSettings?: () => void
   colorScheme?: 'light' | 'dark'
 }
 

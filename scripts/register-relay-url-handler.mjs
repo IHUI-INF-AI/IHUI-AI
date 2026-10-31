@@ -33,7 +33,11 @@ const EXPECTED_CMD = `pwsh.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$
 
 function regQuery(key) {
   try {
-    return execFileSync('reg', ['query', key], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    return execFileSync('reg', ['query', key], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    })
   } catch {
     return null
   }
@@ -42,6 +46,7 @@ function regQuery(key) {
 function regAdd(key, valueName, value, type = 'REG_SZ') {
   execFileSync('reg', ['add', key, '/v', valueName, '/t', type, '/d', value, '/f'], {
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 }
 
@@ -83,7 +88,7 @@ export function registerHandler() {
 }
 
 export function removeHandler() {
-  execFileSync('reg', ['delete', KEY, '/f'], { stdio: ['ignore', 'pipe', 'ignore'] })
+  execFileSync('reg', ['delete', KEY, '/f'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })
   const st = handlerStatus()
   if (st.registered) {
     console.error('注销后仍查询到注册表项(未判定)')
