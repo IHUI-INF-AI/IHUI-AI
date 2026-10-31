@@ -18,10 +18,19 @@ tags: [rea, reverse, reproduce]
 凡任务是在做一项外部程序里已经有的能力（功能、交互、协议、算法、架构），开工顺序固定：
 
 1. 定位对照物。用户给的路径优先。没有就在本机已安装软件或可获取的公开实现里选最贴的一个，写明绝对路径。对不上就写「无外部对照」，然后直接做，不空跑逆向。
-2. 用 `rea` 的工具，或 `run_command` 调 `pnpm rea` 取证，不凭记忆补实现。Electron / ASAR / 前端包：`pnpm rea -- analyze-javascript-application <绝对路径> --json`。先看命令帮助：`pnpm rea -- --help`。结论分成观察、推断、未知。做不到的标未知。
+2. 用 `rea` 的工具，或调 `pnpm rea` 取证，不凭记忆补实现。Electron / ASAR / 前端包：`pnpm rea analyze-javascript-application <绝对路径> --json`。看命令清单：`pnpm rea --help`；看单条命令参数：`pnpm rea <命令> --help`。**`pnpm rea` 后面不要再写 `--`**：根脚本是 `npx -y rea-agents@6.4.0`，`--` 会被当位置参数透传给 rea，除了 `--help` 侥幸能吃之外，其余命令一律回 `COMMAND_NOT_FOUND: '--' is not a command for 'rea'`（2026-10-31 实测）。结论分成观察、推断、未知。做不到的标未知。
 3. 在本仓用现有栈把该能力写出来。复现的是行为和设计，代码是我们自己的，并用测试把行为钉住。
 4. 至少在一个轴上超过对照：贴合本仓架构、可测性、缺的边界、失败时的行为。交付时写明超过了哪一轴。
 5. 取证结论与架构关系用本仓 `archify` 技能（`.ihui/skills/archify/`，v3.2.0，纯 Node 内置依赖）画成可交互 HTML 架构图随附交付。
 
 边界：不把对方专有源码原样粘进仓库，不破解许可证，不绕过付费，不提取凭据，不做破坏或未授权访问。原生反编译器装机状态（2026-10-30）：Ghidra 12.1.4 已装于 `D:\DevEnv\ghidra_12.1.4`，与 REA 6.4.0 验证版本一致，原生 PE 反编译可用；IDA/Hopper 未装——任务需要未装的反编译器时只做不依赖它的分析，并写明这个缺口。
+
+**CLI 直跑原生分析的 env 前置（2026-10-31 实测）**：`GHIDRA_INSTALL_DIR` 与 `JAVA_HOME` 只写在 `.ihui/mcp.json` 的 `env` 里，走 MCP 传输才生效；用 `pnpm rea analyze <pe> --json` 直跑时若不带这两个变量，返回的是 `provider_unavailable` + `rejections[].provider_id=ghidra, code=not_configured`，看起来像"Ghidra 没装"，其实是 env 没透到子进程。正确形态：
+
+```bash
+GHIDRA_INSTALL_DIR="D:/DevEnv/ghidra_12.1.4" JAVA_HOME="C:/Program Files/Java/jdk-21-temp/jdk-21.0.2+13" \
+  pnpm rea doctor --format json    # ghidra / ghidra-headless / java 应全为 healthy
+```
+
+`rea doctor` 在 win32 上 `"healthy": false` 是**预期**（Hopper 官方不支持 win32，`provider_id=hopper, code=unsupported_host`）；判装配可用性只看 ghidra 那一组检查项，不要拿顶层 `healthy` 一票否决。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
