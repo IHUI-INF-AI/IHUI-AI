@@ -106,7 +106,6 @@
     "empty": "暫無資料",
     "failed": "載入失敗",
     "free": "免費",
-    "detecting": "檢測中...",
     "loading": "載入中...",
     "loadingShort": "載入中...",
     "noMore": "沒有更多了",
@@ -2815,7 +2814,6 @@
     "notificationSettings": "通知設定",
     "close": "關閉",
     "demo": {
-      "zhangsan": "張三",
       "lisi": "李四",
       "wangwu": "王五",
       "likeNote": "讚了你的課程筆記",
@@ -4573,25 +4571,6 @@
     "r3": "字節",
     "r4": "智譜"
   },
-  "aboutBusinesslicense": {
-    "r1": "吉林省愛智匯人工智能科技有限公司",
-    "r2": "1000萬元人民幣",
-    "r3": "2023-06-15 至 長期",
-    "r4": "有限責任公司",
-    "r5": "廣州市市場監督管理局",
-    "r6": "技術服務、技術開發、技術諮詢、技術交流、技術轉讓、技術推廣；軟體開發；資訊系統整合服務；資訊技術諮詢服務；網際網路資訊服務"
-  },
-  "aboutModelrecord": {
-    "r1": "智匯AI對話大模型",
-    "r2": "粵網信備4401060000001號",
-    "r3": "吉林省愛智匯人工智能科技有限公司",
-    "r4": "生成合成類(深度合成)"
-  },
-  "aboutIcprecord": {
-    "r1": "吉ICP備2025027274號",
-    "r2": "吉林省愛智匯人工智能科技有限公司",
-    "p1": "吉ICP備2025027274號-7A"
-  },
   "StudyStats": {
     "y1": "h,已完成"
   },
@@ -4654,9 +4633,6 @@
   },
   "VipUpgradeToast": {
     "p1": "升級會員解鎖更多功能"
-  },
-  "aboutApppermission": {
-    "q1": "獲取權限狀態"
   },
   "aicareer": {
     "q1": "面試",
@@ -7371,9 +7347,6 @@
     "empty": "暫無資料",
     "unfollow": "取消關注"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案/許可證號"
-  },
   "income": {
     "title": "收益",
     "today": "今日收益",
@@ -7497,7 +7470,6 @@
   "settings": {
     "oldPassword": "舊密碼",
     "confirmPassword": "確認新密碼",
-    "icpRecord": "ICP 備案",
     "pwdFieldsRequired": "請填寫完整的密碼資訊",
     "pwdTooShort": "新密碼至少 6 位",
     "pwdNotMatch": "兩次輸入的密碼不一致",
