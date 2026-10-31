@@ -1273,7 +1273,10 @@ export function LoginScreen() {
         onRequestClose={closeAgreementModal}
         statusBarTranslucent
       >
-        <Pressable style={styles.agreementModalOverlay} onPress={closeAgreementModal}>
+        <Pressable
+          style={pressFeedback(styles.agreementModalOverlay)}
+          onPress={closeAgreementModal}
+        >
           {/* 内层 Pressable 拦截卡片区域点击,避免点卡片误关弹窗(对齐历史 @click.stop) */}
           <Pressable style={pressFeedback(styles.agreementModalCard)} onPress={() => {}}>
             <View style={styles.agreementModalHeader}>
