@@ -12765,6 +12765,8 @@
     "reasoningEffortLow": "快速",
     "reasoningEffortMedium": "均衡",
     "reasoningEffortHigh": "深思",
+    "reasoningEffortXhigh": "极深",
+    "reasoningEffortMax": "极限",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",

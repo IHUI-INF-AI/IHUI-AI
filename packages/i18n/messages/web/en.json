@@ -12765,6 +12765,8 @@
     "reasoningEffortLow": "Fast",
     "reasoningEffortMedium": "Balanced",
     "reasoningEffortHigh": "Deep",
+    "reasoningEffortXhigh": "Extra deep",
+    "reasoningEffortMax": "Maximum",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis",
