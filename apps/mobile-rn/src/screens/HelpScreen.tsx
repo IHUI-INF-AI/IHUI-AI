@@ -23,6 +23,7 @@ export function HelpScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setError('')
@@ -72,6 +73,8 @@ export function HelpScreen() {
       onToggle={onToggle}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      searchValue={query}
+      onSearchChange={setQuery}
     />
   )
 }
