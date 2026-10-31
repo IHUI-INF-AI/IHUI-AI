@@ -14,8 +14,8 @@
 /* ===== Banner ===== */
 .special-banner {
   position: relative;
-  margin: 24rpx;
-  padding: 32rpx;
+  margin: var(--spacing-md);
+  padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
@@ -41,7 +41,7 @@
 }
 .special-banner-desc {
   display: block;
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
@@ -51,9 +51,9 @@
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 8rpx;
-  margin-top: 24rpx;
-  padding: 12rpx 20rpx;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-xs-loose) 20rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
   border-radius: var(--radius-sm);
@@ -75,7 +75,7 @@
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .special-featured-scroll {
   white-space: nowrap;
@@ -86,8 +86,8 @@
   flex-direction: column;
   align-items: center;
   width: 200rpx;
-  margin-right: 16rpx;
-  padding: 24rpx 16rpx;
+  margin-right: var(--spacing-sm);
+  padding: var(--spacing-md) 16rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -105,7 +105,7 @@
 }
 .special-featured-name {
   display: block;
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 26rpx;
   color: var(--color-foreground);
   font-weight: 500;
@@ -116,7 +116,7 @@
 }
 .special-featured-uses {
   display: block;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
@@ -125,7 +125,7 @@
 .special-tabs {
   white-space: nowrap;
   padding: 0 24rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .special-tab {
   display: inline-flex;
@@ -133,7 +133,7 @@
   gap: 6rpx;
   height: 64rpx;
   padding: 0 24rpx;
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -160,11 +160,11 @@
   padding: 0 24rpx;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 .special-card {
   display: flex;
-  padding: 24rpx;
+  padding: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -183,7 +183,7 @@
 .special-card-body {
   flex: 1;
   min-width: 0;
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
   display: flex;
   flex-direction: column;
 }
@@ -191,7 +191,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 .special-card-name {
   font-size: 30rpx;
@@ -210,14 +210,14 @@
 }
 .special-card-desc {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   line-height: 1.4;
 }
 .special-card-btn {
   align-self: flex-start;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
   padding: 10rpx 28rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
@@ -236,20 +236,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
+  padding: var(--spacing-4xl) 0;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
 .special-empty-icon {
   font-size: 56rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .special-empty-text {
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
 .special-retry {
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
   font-size: 26rpx;
   color: var(--color-primary);
 }

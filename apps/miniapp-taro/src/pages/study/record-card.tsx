@@ -107,7 +107,7 @@ export function RecordCard({ row, onOpen }: { row: StudyRecordRow; onOpen: () =>
           </Text>
         </View>
         <View className="mt-[12rpx] self-end py-[16rpx] px-[32rpx] bg-cta rounded-xl">
-          <Text className="text-[length:28rpx] font-semibold text-cta-foreground leading-[1.4]">
+          <Text className="text-body font-semibold text-cta-foreground leading-[1.4]">
             {tt('study.recordPage.continue', '继续学习')}
           </Text>
         </View>

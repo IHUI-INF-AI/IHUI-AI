@@ -115,7 +115,7 @@ export default function DistributionWithdraw() {
             placeholder-style="color: var(--color-text-tertiary)"
           />
           <Button
-            className="text-[length:24rpx] text-[var(--color-brand-accent-deep)] bg-transparent border-none leading-[48rpx] p-0 min-h-0"
+            className="text-label text-[var(--color-brand-accent-deep)] bg-transparent border-none leading-[48rpx] p-0 min-h-0"
             onClick={fillAll}
           >
             {t('distribution.withdraw.all')}
@@ -156,7 +156,7 @@ export default function DistributionWithdraw() {
       </View>
       {/* 对齐 RN submitBtn:brand 底(语义 primary)+ 100rpx 高 + 24rpx 圆角;disabled 取 text-tertiary */}
       <Button
-        className={`mx-[20rpx] mt-[40rpx] rounded-sm text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-cta text-cta-foreground'}`}
+        className={`mx-[20rpx] mt-[40rpx] rounded-sm text-title font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-cta text-cta-foreground'}`}
         disabled={submitting}
         onClick={onSubmit}
       >

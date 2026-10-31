@@ -43,7 +43,27 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { parseTokenTables } from './sync-css-tokens.mjs'
-import { maskComments } from './lib/code-mask.mjs'
+import { maskComments, scanSpans } from './lib/code-mask.mjs'
+
+/**
+ * **等长**的注释遮罩(只抹注释、保留字符串)。
+ *
+ * 为什么不直接用 `maskComments`:它对**行注释是整段删除**(长度变短),而本器物要拿遮罩
+ * 与原文做**同 offset 的逐字比对**来判断"这段在不在代码面" —— 一旦长度漂了,后面每一处
+ * 比对都恒假,器物会安静地一处都不改(实测:tsx 面 99 处候选被判成 0 处)。
+ * 块注释那一档 `maskComments` 本就等长,所以 CSS 面没暴露这个坑(TSX 里 `//` 才是常客)。
+ */
+function maskCommentsEqualLen(src) {
+  let out = ''
+  let pos = 0
+  for (const s of scanSpans(src)) {
+    if (s.kind !== 'line' && s.kind !== 'block') continue
+    out += src.slice(pos, s.start)
+    out += src.slice(s.start, s.end).replace(/[^\n]/g, ' ')
+    pos = s.end
+  }
+  return out + src.slice(pos)
+}
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
@@ -53,18 +73,26 @@ const DERIVED_EXCLUDE = new Set(['apps/miniapp-taro/src/app.css'])
 const argv = process.argv.slice(2)
 const apply = argv.includes('--apply')
 const jsonMode = argv.includes('--json')
+const fontSafe = argv.includes('--font-safe')
 const selfTest = argv.includes('--self-test')
 const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
 
 const SPACING_PROPS = ['padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'gap', 'row-gap', 'column-gap']
 const FONT_PROPS = ['font-size']
 
-/** 反向档名查表:值(px) → 档名。同值多档取**首个声明**(档表里先出现的语义更通用)。 */
+/** 反向档名查表:值(px) → 档名。同值多档取**首个声明**(档表里先出现的语义更通用)。
+ *  **两种输入形态都要收**:`TYPE_STEPS` 真实形态是 `{ step: { size, lineHeight, weight } }`,
+ *  而自检夹具给的是 `{ step: number }`。首版只写了 `Number(v)` —— 对真实形态得到 NaN,
+ *  字号映射整表为空 ⇒ 器物在 tsx 面一处都不改、在 CSS 面只改间距不改字号,而对拍的自检
+ *  用简化输入照样全绿(自检形态与生产形态不一致时,绿是假的)。 */
 export function buildReverse(spacingPx, typeSizes) {
   const spacing = new Map()
   for (const [k, v] of Object.entries(spacingPx)) if (!spacing.has(Number(v))) spacing.set(Number(v), k)
   const type = new Map()
-  for (const [k, v] of Object.entries(typeSizes)) if (!type.has(Number(v))) type.set(Number(v), k)
+  for (const [k, v] of Object.entries(typeSizes)) {
+    const px = typeof v === 'number' ? v : Number(v?.size)
+    if (Number.isFinite(px) && !type.has(px)) type.set(px, k)
+  }
   return { spacing, type }
 }
 
@@ -112,11 +140,57 @@ function listCssFiles() {
     .filter((p) => p.endsWith('.css') && !DERIVED_EXCLUDE.has(p) && !/\.test\./.test(p))
 }
 
-/** 工作树脏 ⇒ 归属未知 ⇒ 跳过(与 land-rn-style-tiers 同一条避让)。 */
-function dirtySet(paths) {
+/** 字号面(tsx/ts)的候选清单 —— 与 CSS 面同一套归属避让与水印流程。 */
+function listSourceFiles() {
+  if (fileArgs.length) return fileArgs
+  const text = String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', SRC_DIR], ROOT))
+  return text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((p) => /\.(tsx|ts)$/.test(p) && !/\.test\./.test(p) && !/\.generated\.|\.d\.ts$/.test(p))
+}
+
+/**
+ * 纯函数:把 className 里的**字号任意值**换成语义档类,但**只在同一 className 有显式
+ * `leading-*` 覆盖行高时**才换 —— 那一刻 `text-*` 自带的 line-height 被 leading 压住,
+ * 剩下的只有 font-size,而 font-size 的值与档值**恰好相等** ⇒ 零视觉变化。
+ *
+ * 为什么必须加这条闸(而不是像 CSS 面那样只看值):`text-[length:28rpx]` 只设 font-size、
+ * 行高走继承;而 `text-body` 会同时设 line-height(40rpx)。没有 leading 覆盖时替换会改行高,
+ * 那是视觉变更,归视觉验收,不归本器物。
+ *
+ * 只认 `className="…"` 与 `className={`…`}` 两种形态;`className={cn(…)}` 一类表达式不碰
+ * (要解析 JS 表达式才安全,收益不值这个风险)。
+ */
+export function rewriteClassNameTokens(text, rev) {
+  const masked = maskCommentsEqualLen(text)
+  let changes = 0
+  const samples = []
+  const clsRe = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g
+  const out = text.replace(clsRe, (all, dq, tpl, offset) => {
+    if (masked.slice(offset, offset + all.length) !== all) return all // 注释里的同形文本不动
+    const body = dq ?? tpl ?? ''
+    if (!/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) return all // 没有行高覆盖 ⇒ 不换
+    const replaced = body.replace(/\btext-\[(?:length:)?(\d+(?:\.\d+)?)rpx\]/g, (m, n) => {
+      const step = rev.type.get(Number(n) / 2)
+      if (!step) return m // 档外值不猜
+      changes++
+      if (samples.length < 6) samples.push(`${m} → text-${step}`)
+      return `text-${step}`
+    })
+    if (replaced === body) return all
+    return dq !== undefined ? `className="${replaced}"` : `className={\`${replaced}\`}`
+  })
+  return { out, changes, samples }
+}
+
+/** 工作树脏 ⇒ 归属未知 ⇒ 跳过(与 land-rn-style-tiers 同一条避让)。
+ *  **全量取一次 status**:候选可达数百个路径,`status -- <paths>` 会把命令行撑爆(实测 800+ 路径直接失败);
+ *  全量取回后在内存里比对,语义不变。 */
+function dirtySet() {
   const out = new Set()
   try {
-    const text = String(gitRaw(['status', '--porcelain', '--', ...paths], ROOT))
+    const text = String(gitRaw(['status', '--porcelain'], ROOT))
     for (const l of text.split('\n')) {
       const p = l.slice(3).trim().replace(/^"|"$/g, '')
       if (p) out.add(p)
@@ -167,6 +241,66 @@ function runSelfTest() {
   process.exit(fail === 0 ? 0 : 1)
 }
 
+/**
+ * 字号面(`--font-safe`)主流程:与 CSS 面共用归属避让 / 水印 / 幂等三件套。
+ * 只换"有 leading 覆盖"的字号任意值(零视觉变化),其余一律留给视觉验收。
+ */
+function runFontSafe(_flag, rev) {
+  const files = listSourceFiles()
+  if (!files.length) {
+    console.error('❌ 未判定:字号面候选枚举到 0 个')
+    process.exit(2)
+  }
+  const dirty = dirtySet(files)
+  if (dirty === null) {
+    console.error('❌ 未判定:git status 取不到,归属未知不猜')
+    process.exit(2)
+  }
+  const held = []
+  const results = []
+  const samples = []
+  let total = 0
+  for (const f of files) {
+    let src
+    try {
+      src = readWorktreeFile(ROOT, f)
+    } catch {
+      held.push(`${f}(工作树读不到)`)
+      continue
+    }
+    const r = rewriteClassNameTokens(src, rev)
+    if (r.changes === 0) continue
+    if (dirty.has(f)) {
+      held.push(f)
+      continue
+    }
+    results.push({ file: f, changes: r.changes })
+    total += r.changes
+    for (const s of r.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
+    if (apply) {
+      watermark('clean', f)
+      const cleaned = readWorktreeFile(ROOT, f)
+      const rr = rewriteClassNameTokens(cleaned, rev)
+      if (rr.changes === 0) {
+        watermark('inject', f)
+        continue
+      }
+      writeFileSync(join(ROOT, f), rr.out)
+      watermark('inject', f)
+      watermark('verify', f)
+    }
+  }
+  if (jsonMode) {
+    console.log(JSON.stringify({ mode: 'font-safe', scanned: files.length, files: results.length, changes: total, held: held.length, applied: apply, detail: results, samples }, null, 0))
+    return
+  }
+  for (const r of results.slice(0, 12)) console.log(`  ${r.file}  ${r.changes} 处`)
+  if (results.length > 12) console.log(`  …另 ${results.length - 12} 个文件`)
+  for (const s of samples) console.log(`  样例 ${s}`)
+  if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
+  console.log(`结论:LAND-MINIAPP-FONT state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${total} held=${held.length}`)
+}
+
 function main() {
   if (selfTest) runSelfTest()
   const refs = ['packages/design-tokens/src/spacing.ts', 'packages/design-tokens/src/typography.ts', 'packages/design-tokens/src/elevation.ts']
@@ -185,6 +319,8 @@ function main() {
     elevation: texts.get(refs[2]),
   })
   const rev = buildReverse(tables.SPACING_STEPS, tables.TYPE_STEPS)
+
+  if (fontSafe) return runFontSafe(fontSafe, rev)
 
   const files = listCssFiles()
   if (!files.length) {
@@ -266,5 +402,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { rewriteCss, buildReverse, SELF_TEST_CASES }
+export const __test__ = { rewriteCss, rewriteClassNameTokens, buildReverse, SELF_TEST_CASES, listSourceFiles }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

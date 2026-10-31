@@ -193,7 +193,7 @@ export default function LearnDevelop() {
                   </View>
                 )}
                 <View className="flex-1 px-[24rpx] py-[16rpx] flex flex-col justify-between min-h-[160rpx]">
-                  <Text className="text-[length:28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
+                  <Text className="text-body text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
                     {item.title}
                   </Text>
                   {item.teacher ? (

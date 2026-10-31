@@ -143,7 +143,7 @@ export default function ThemePage() {
                       {tt(th.labelKey, th.label)}
                     </Text>
                     {/* 副行(说明)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
-                    <Text className="mt-[4rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                    <Text className="mt-[4rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
                       {tt(th.descKey, th.desc)}
                     </Text>
                   </View>
@@ -165,13 +165,13 @@ export default function ThemePage() {
 
         {/* 主题说明对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="block text-center text-label leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.hintTitle', '主题说明')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-label leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.switchHint', '切换主题后将立即保存并应用到全局界面')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-label leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.autoHint', '「跟随系统」将随设备深浅色设置自动变化')}
           </Text>
         </View>

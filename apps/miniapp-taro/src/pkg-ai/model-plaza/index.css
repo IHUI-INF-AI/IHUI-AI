@@ -11,12 +11,12 @@
 .model-plaza-page {
   min-height: 100vh;
   background: var(--color-muted);
-  padding-bottom: 64rpx;
+  padding-bottom: var(--spacing-3xl);
 }
 
 /* ===== 顶部导航(RN header:paddingH 16 paddingT 12 paddingB 8 bg surface.bg)===== */
 .page-header {
-  padding: 24rpx 32rpx 16rpx;
+  padding: var(--spacing-md) 32rpx 16rpx;
   background: var(--color-background);
 }
 .page-title {
@@ -28,7 +28,7 @@
 /* ===== 厂商分类(RN providerSection:bg surface.muted paddingT 10 paddingB 6)===== */
 .provider-section {
   background: var(--color-muted);
-  padding: 20rpx 0 12rpx;
+  padding: var(--spacing-sm-loose) 0 12rpx;
 }
 /* RN sectionLabel:fontSize 14 text.secondary marginBottom 8 marginH 12 */
 .section-label {
@@ -44,8 +44,8 @@
 /* RN providerScrollContent:paddingH 12 gap 8 paddingV 6 */
 .provider-tabs-inner {
   display: inline-flex;
-  gap: 16rpx;
-  padding: 12rpx 24rpx;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs-loose) 24rpx;
 }
 /* RN providerTab:paddingH 14 height 36 radius 16 bg surface.bg + shadowSoft(0 2rpx 8rpx rgba(0,0,0,0.04));
  * active bg rgba(0,0,0,0.08) → --color-black-8 */
@@ -54,7 +54,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   padding: 0 28rpx;
   height: 72rpx;
   border-radius: var(--radius-2xl);
@@ -108,7 +108,7 @@
 /* RN providerMeta:marginTop 4 fontSize 14 text.tertiary */
 .provider-meta {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 28rpx;
   color: var(--color-text-tertiary);
 }
@@ -119,21 +119,21 @@
    与 web packages/ui-react category-bar / RN CategoryInlineBar 同形同档;
    原 .type-tab 独有的"暗井"选中语言已归一为 primary 填充) */
 .type-tabs {
-  padding: 20rpx 24rpx;
+  padding: var(--spacing-sm-loose) 24rpx;
   background: var(--color-muted);
   box-sizing: border-box;
 }
 
 /* ===== 模型卡片列表(RN listBody:paddingH 10 paddingT 12 paddingB 32;separator 12)===== */
 .model-list {
-  padding: 24rpx 20rpx 0;
+  padding: var(--spacing-md) 20rpx 0;
 }
 /* RN modelCard:padding 12 radius 10 bg surface.bg + shadowCard */
 .model-card {
   background: var(--color-background);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
-  margin-bottom: 24rpx;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
   display: flex;
   flex-direction: column;
   box-shadow: 0 2rpx 12rpx var(--color-black-4);
@@ -146,7 +146,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 /* RN modelName:flex1 fontSize 16 600 text.primary */
 .model-name {
@@ -166,7 +166,7 @@
   padding: 6rpx 14rpx;
   border-radius: var(--radius-md);
   flex-shrink: 0;
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
 }
 .model-type-tag.type-text {
   background: var(--color-model-type-text-bg);
@@ -186,8 +186,8 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12rpx;
-  margin-bottom: 12rpx;
+  gap: var(--spacing-xs-loose);
+  margin-bottom: var(--spacing-xs-loose);
 }
 /* RN priceLabel:fontSize 14 text.tertiary */
 .price-label {
@@ -217,7 +217,7 @@
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   line-height: 36rpx;
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -230,7 +230,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 /* RN cardTag:paddingH 6 paddingV 3 radius 3 bg surface.muted */
 .tag-item {
@@ -249,11 +249,11 @@
 
 /* 状态文案(RN empty:center paddingVertical 48;emptyText fontSize 14 text.tertiary) */
 .state-wrap {
-  padding: 96rpx 24rpx;
+  padding: var(--spacing-5xl) 24rpx;
   text-align: center;
 }
 .state-wrap.small {
-  padding: 32rpx 24rpx;
+  padding: var(--spacing-lg) 24rpx;
 }
 .state-text {
   color: var(--color-text-tertiary);

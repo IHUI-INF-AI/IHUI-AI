@@ -136,7 +136,7 @@ export default function StudyPlan() {
         {loading && list.length === 0 && <ScreenSkeleton variant="list" count={4} />}
         {!loading && list.length === 0 && <EmptyState title={t('study.planPage.empty')} />}
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold text-center"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
           onClick={onAdd}
         >
           {t('study.planPage.add')}
@@ -173,13 +173,13 @@ export default function StudyPlan() {
               </View>
               <View className="flex gap-[16rpx]">
                 <Button
-                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-sm text-[length:32rpx] text-center"
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-sm text-title text-center"
                   onClick={() => setShowAdd(false)}
                 >
                   {t('common.cancel')}
                 </Button>
                 <Button
-                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold text-center"
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
                   loading={saving}
                   disabled={saving}
                   onClick={submitAdd}

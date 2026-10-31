@@ -354,7 +354,7 @@ export default function DeveloperIndex() {
                     {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
                   {agent.prologue ? (
-                    <Text className="block text-[length:24rpx] text-[var(--color-text-medium)] leading-[36rpx] mt-[8rpx] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
+                    <Text className="block text-label text-[var(--color-text-medium)] leading-[36rpx] mt-[8rpx] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
                       {agent.prologue}
                     </Text>
                   ) : null}

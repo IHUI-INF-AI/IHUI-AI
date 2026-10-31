@@ -1419,7 +1419,7 @@ export default function UserIndex() {
         {/* 退出登录 */}
         {isLogin ? (
           <View
-            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-brand-accent-deep text-primary rounded-lg text-[length:30rpx]"
+            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-brand-accent-deep text-primary rounded-lg text-strong"
             hoverClass="opacity-60"
             onClick={handleLogout}
           >

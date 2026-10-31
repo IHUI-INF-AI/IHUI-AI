@@ -227,7 +227,7 @@ export default function SpecialModelsPage() {
           <Text className="block text-[length:38rpx] font-bold text-foreground leading-[1.4]">
             {tt('ai.special.bannerTitle', 'AI 专题聚合')}
           </Text>
-          <Text className="block mt-[12rpx] text-[length:24rpx] text-muted-foreground leading-[1.5]">
+          <Text className="block mt-[12rpx] text-label text-muted-foreground leading-[1.5]">
             {tt(
               'ai.special.bannerDesc',
               '一站式聚合 AI 对话/绘图/视频/语音/智能体/模型广场,精选推荐能力即时使用',
@@ -305,7 +305,7 @@ export default function SpecialModelsPage() {
                     {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                   </Text>
                 </View>
-                <Text className="block mt-[8rpx] text-[length:28rpx] text-muted-foreground leading-[36rpx]">
+                <Text className="block mt-[8rpx] text-body text-muted-foreground leading-[36rpx]">
                   {m.desc}
                 </Text>
                 <View

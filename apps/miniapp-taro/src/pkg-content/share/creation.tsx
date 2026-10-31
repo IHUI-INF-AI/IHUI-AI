@@ -170,7 +170,7 @@ export default function ShareCreationPage() {
               padding rpx(28)/rpx(20),fontSize 15dp → 30rpx/lineHeight 40rpx) */}
           <View className="flex justify-end">
             <View className="max-w-[78%] bg-primary rounded-2xl px-[28rpx] py-[20rpx]">
-              <Text className="text-[length:30rpx] leading-[40rpx] text-[var(--color-primary-foreground)]">
+              <Text className="text-strong leading-[40rpx] text-[var(--color-primary-foreground)]">
                 {content.question}
               </Text>
             </View>
@@ -190,14 +190,14 @@ export default function ShareCreationPage() {
                   </Text>
                 </View>
                 {/* 对齐 thinkingContent(12dp → 24rpx,lineHeight 17 → 34rpx) */}
-                <Text className="block px-[20rpx] pb-[20rpx] text-[length:24rpx] leading-[34rpx] text-muted-foreground whitespace-pre-wrap">
+                <Text className="block px-[20rpx] pb-[20rpx] text-label leading-[34rpx] text-muted-foreground whitespace-pre-wrap">
                   {answer.thinking}
                 </Text>
               </View>
             ) : null}
             {/* 正文:对齐 msgTextAi(15dp → 30rpx,lineHeight 20 → 40rpx) */}
             {answer.text ? (
-              <Text className="block text-[length:30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
+              <Text className="block text-strong leading-[40rpx] text-foreground whitespace-pre-wrap">
                 {answer.text}
               </Text>
             ) : null}
@@ -249,7 +249,7 @@ export default function ShareCreationPage() {
                     {item.type === 'image' ? (
                       <Image className="w-full rounded-lg" src={item.content} mode="widthFix" />
                     ) : (
-                      <Text className="block text-[length:30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
+                      <Text className="block text-strong leading-[40rpx] text-foreground whitespace-pre-wrap">
                         {item.content}
                       </Text>
                     )}
