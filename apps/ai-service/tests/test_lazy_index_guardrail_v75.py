@@ -42,6 +42,15 @@ from app.services.rg_fallback_parity import (
     SizeProbe,
     enumerate_code_files,
     probe_code_file_count,
+    resolve_rg_binary,
+)
+
+# 本机没装 ripgrep 时,"双通道对探测数字必须同形"取不到 rg 一侧的输入(生产侧在
+# provenance.degraded_reason 里已写明"本结果不可用于对账")。按 §0.3 如实 skip 并点名,
+# 不拿"应该也一致"冒充判过;装了 rg 的机器上照旧全跑。
+_RG_SKIP = pytest.mark.skipif(
+    resolve_rg_binary().path == "",
+    reason="本机无 ripgrep:双通道对账缺 rg 一侧输入(生产已用 degraded_reason 标明)",
 )
 
 
@@ -204,6 +213,7 @@ class TestBoundedProbe:
         assert probe.is_lower_bound is True, "撞上限必须说'至少',不得冒充精确值"
         assert "至少" in probe.describe()
 
+    @_RG_SKIP
     def test_two_channels_agree_on_the_probe_numbers(self, small_tree: Path) -> None:
         """票面前半的遗产:两条通道对探测**数字**必须同形(精确值/下界的判定也一样)。
 

@@ -142,8 +142,10 @@ async def test_manager_cancel_kills_running_process_record() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_test_suite_reports_real_counts_and_failure_detail(tmp_path: Path) -> None:
+async def test_test_suite_reports_real_counts_and_failure_detail(tmp_path: Path, monkeypatch) -> None:
     """真跑嵌套 pytest:计数与被生成的用例数逐一对上,并点名失败用例。"""
+    # 2026-10-31 第 11 批:test_suite 执行器按 IHUI_WORKSPACE_ROOTS 校验工作项目录。
+    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(tmp_path))
     (tmp_path / "test_v351_pass.py").write_text(
         "def test_one():\n    assert True\n\n\ndef test_two():\n    assert True\n",
         encoding="utf-8",
