@@ -21,6 +21,7 @@
 import type { Command } from 'commander';
 import chalk from 'chalk';
 import { AgentCore, startAgentServer, attachWsBridge } from '../server/index.js';
+import { isLoopbackHost } from '../server/http-server.js';
 import { loadSettings, resolveEffectiveConfig } from './settings.js';
 import { envBool } from '../config/env.js';
 import {
@@ -31,6 +32,7 @@ import {
   preflightCredentialCheck,
   resolveOutboundCredential,
   setCapabilityGate,
+  hasInboundCredentials,
   type AuthErrorCode,
   type MachineKeyEntry,
   type ResolvedCredential,
@@ -39,6 +41,7 @@ import type { ApiKeyPermission } from '@ihui/types';
 
 interface ServeOptions {
   port: string;
+  host?: string;
   workspace: string;
   model: string;
   apiUrl: string;
@@ -74,6 +77,7 @@ export function registerServeCommand(program: Command): void {
     .command('serve')
     .description('启动 Agent 内核 HTTP/WS server,支持远程驱动(端口 8841,strictPort)')
     .option('-p, --port <port>', '端口(strictPort,占用即失败不回退)', '8841')
+    .option('--host <host>', '绑定地址(默认 127.0.0.1;2026-10-31 起非回环面必须配置入站凭据)', '127.0.0.1')
     .option('-w, --workspace <path>', '工作区路径', process.cwd())
     .option('-m, --model <model>', '模型 ID', 'default')
     .option('--api-url <url>', '后端 API 地址', process.env.IHUI_API_URL || 'http://localhost:8803')
@@ -177,9 +181,26 @@ export function registerServeCommand(program: Command): void {
         apiUrl: cfg.apiUrl,
         apiKey: outbound?.token,
       });
+      // 2026-10-31 安全强化第 10 批:非回环绑定是显式选择的远程暴露面,必须配套
+      // 入站凭据 —— 否则局域网内任何人可无凭据驱动 Agent 全量工具链。
+      const bindHost = opts.host ?? '127.0.0.1';
+      const loopbackBind = isLoopbackHost(bindHost);
+      const inboundConfigured = hasInboundCredentials({
+        agentToken: opts.token ?? process.env.IHUI_AGENT_TOKEN,
+        machineKeys,
+      });
+      if (!loopbackBind && !inboundConfigured) {
+        console.error(
+          chalk.red(
+            `✗ 绑定地址 ${bindHost} 是非回环暴露面,必须配置入站凭据(--token / IHUI_AGENT_TOKEN / --machine-key)后才能启动`,
+          ),
+        );
+        process.exit(1);
+      }
       try {
         const handle = await startAgentServer(core, {
           port,
+          host: bindHost,
           token: opts.token,
           machineKeys,
           requireApiSecret,
