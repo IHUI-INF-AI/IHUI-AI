@@ -3956,6 +3956,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       path: '/',
       sameSite: 'lax',
       httpOnly: true,
+      // 2026-10-31 安全强化第 11 批:补 secure —— 同文件其余 cookie(csrf.ts:296)均按
+      // 档位设 secure,此处遗漏会在 HTTPS 部署下让 state 可经明文 HTTP 被截获重放
+      secure: !(config.isDevelopmentRuntime ?? config.NODE_ENV === 'development'),
       maxAge: OAUTH_STATE_TTL_SECONDS,
     })
   }
