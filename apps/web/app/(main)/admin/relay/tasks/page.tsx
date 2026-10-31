@@ -57,6 +57,8 @@ interface RelayTask {
   lastRunOk: boolean | null
   lastRunDetail: string | null
   indeterminateReason: string | null
+  /** 判过且判成"门关":点名的闸门 env 键与出路(与"未判定"分栏,2026-10-31) */
+  disabledReason: string | null
 }
 
 const CARRIER_LABEL: Record<RelayTask['carrier'], string> = {
@@ -153,7 +155,11 @@ export default function RelayTasksPage() {
                         ⚠ 未判定:{t.indeterminateReason}
                       </div>
                     )}
-                    {!t.indeterminateReason && t.lastRunDetail && (
+                    {/* 门关 ≠ 未判定:判过了就点名是哪道闸、该怎么开(可整改,§5e-1) */}
+                    {t.disabledReason && !t.indeterminateReason && (
+                      <div className="mt-1 text-xs text-red-600">已停用:{t.disabledReason}</div>
+                    )}
+                    {!t.indeterminateReason && !t.disabledReason && t.lastRunDetail && (
                       <div className="text-muted-foreground mt-1 text-xs">{t.lastRunDetail}</div>
                     )}
                     {t.note && (

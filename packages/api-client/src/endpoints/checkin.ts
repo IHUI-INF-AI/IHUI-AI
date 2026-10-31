@@ -12,10 +12,14 @@
  *   DELETE /accounts/{id}         删除(级联 records / error_counts)
  *   PATCH  /accounts/{id}/enabled 启用/停用
  *   PATCH  /accounts/{id}/jwt     更新 JWT(重录凭证,响应含新 jwt_exp)
- *   POST   /accounts/{id}/checkin 手动签到(无视冷却)
+ *   POST   /accounts/{id}/checkin 手动签到(尊重冷却与全局限流,命中即 429)
+ *   GET    /accounts/{id}/tasks   WorkBuddy growth 任务列表(只读)
+ *   POST   /accounts/{id}/task-run WorkBuddy 任务族执行(kind=dry_run 可选;出站暂停/冷却中 429)
  *   GET    /records               签到记录倒序分页
  *   GET    /credits/history       积分流水
- *   GET    /scheduler/status      调度器状态(enabled/started/next_run)
+ *   GET    /credits/daily         每日快照三线序列
+ *   GET    /scheduler/status      调度器状态(enabled/started 为顶层两维;wb_tasks.enabled
+ *                                 是「巡检 job 现在真注册着」的观测态,不是配置意图)
  * 响应为裸 JSON(无 {code,data} 包装),走 fetchAiServiceJson。
  * 类型契约见 @ihui/types(checkin.ts,镜像 checkin_store.py 序列化形态)。
  */
@@ -133,7 +137,9 @@ export async function updateCheckinAccountName(
   )
 }
 
-/** 手动触发签到:尊重冷却与全局限流(命中返回 429),结果照写 records */export async function manualCheckinAccount(accountId: number): Promise<ManualCheckinResponse> {
+/** 手动触发签到:尊重冷却与全局限流(命中返回 429),结果照写 records */ export async function manualCheckinAccount(
+  accountId: number,
+): Promise<ManualCheckinResponse> {
   return unwrap<ManualCheckinResponse>(
     await fetchAiServiceJson<ManualCheckinResponse>(
       `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/checkin`,
