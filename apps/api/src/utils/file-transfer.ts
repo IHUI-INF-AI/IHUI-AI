@@ -18,6 +18,7 @@ import { Readable } from 'node:stream'
 import { extname } from 'node:path'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { logger } from './logger.js'
+import { ensureSafeFetchUrl } from './ssrf-guard.js'
 
 // =============================================================================
 // 常量
@@ -128,6 +129,13 @@ export function guessContentType(filename: string): string {
 export async function downloadFileFromUrl(url: string): Promise<DownloadResult | null> {
   try {
     logger.info(`[file-transfer] downloading: ${url}`)
+
+    // 2026-11-01 安全强化:出网前先过 ssrf-guard(与仓内其余 30+ 出网点同一把尺子)。
+    // 本文件现读在 src 内**零调用方**(只有 tests 引用),所以今天不是活敞口;
+    // 但它是已导出的通用工具,任何一个新路由接上它就直接得到一枚"服务端替我出连 +
+    // 落盘"的原语(内网元数据、只绑回环的管理端口都在射程)。闸必须住在工具自己这里,
+    // 而不是指望每个未来的调用方都记得自己判一遍。
+    await ensureSafeFetchUrl(url)
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS)
@@ -286,6 +294,11 @@ async function uploadFromNetworkUrl(url: string): Promise<string | null> {
   }
 
   try {
+    // 2026-11-01 安全强化:这枚 url 会被**原样转发**给内部转存服务去抓取,
+    // 也就是"我这里不出网,但下游会替我出连"⇒ 不在入口判,等于把 SSRF 决策推给
+    // 一个看不到调用上下文的组件。判据住在入口这一侧(与 downloadFileFromUrl 同一条尺子)。
+    await ensureSafeFetchUrl(url)
+
     logger.info(`[file-transfer] network transfer: ${url}`)
 
     const controller = new AbortController()

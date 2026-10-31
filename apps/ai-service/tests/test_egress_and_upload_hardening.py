@@ -80,11 +80,25 @@ def test_anonymous_heavy_endpoints_are_rate_limited() -> None:
     assert window > 0
 
 
-def test_mcp_registration_gates_url_transport_to_admin() -> None:
-    """url 型传输 = 让服务端替调用者出连 ⇒ 与 stdio 同档(仅管理员),并校验协议族。"""
+def test_mcp_url_transport_keeps_user_access_but_checks_scheme() -> None:
+    """第 8 批的更正:远程 MCP 注册**不限管理员**,但协议族必须是 http(s)。
+
+    为什么这条断言反过来写:普通用户自登记远程连接器是设计能力,由更早那批装的反向牙
+    `test_sse_register_untouched_by_stdio_gate` 钉着(第 8 批那道"仅管理员"把它打红了)。
+    所以这里两头都锁:
+      · 不得再出现"仅管理员可注册 url 型传输"的角色闸(那是砍在用能力);
+      · 协议族校验必须留着(非 http(s) 拒),摘掉即红。
+    行为侧由上面那枚既有契约用例覆盖;内网落点策略作为**已登记的开放项**写在 mcp.py 注记里。
+    """
     src = inspect.getsource(mcp_router)
-    assert "外部 MCP Server(url 型传输)只能由管理员注册" in src, "注册面的角色闸被摘掉了"
     assert 'not in ("http", "https")' in src, "协议族校验被摘掉了"
+    assert "外部 MCP 仅允许 http(s) 落点" in src
+    # 只在 **url 传输那一段** 里查角色闸:stdio 段本来就有"stdio 的 MCP Server 只能由管理员注册"
+    # (那是第 3 批的正确结论),整文件 grep 会把它误读成回潮 —— 判据要按段判,不按全文撞字符串。
+    url_block = src[src.index("if req.url.strip():") : src.index("manager = get_mcp_client_manager()")]
+    assert "只能由管理员注册" not in url_block, (
+        "又给远程 MCP 加了角色闸 ⇒ 会打红 test_sse_register_untouched_by_stdio_gate"
+    )
 
 
 def test_mcp_client_connect_site_validates_scheme_only() -> None:
