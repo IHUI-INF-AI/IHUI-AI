@@ -108,6 +108,42 @@ try {
     }
   })
 
+  // 2026-11-01 立因(实测,不是臆想):lib/outbound-route-registrations.mjs 的**注释**里举例如
+  // `export { X } from './p.js'`,被抽取器当成真边收进闭包 ⇒ 装了这份 lib 的门造夹具时统一报
+  // 「闭包里的 lib/p.js 不存在」,一型毒红 8 枚用例。正反两向都得钉:注释里的不算边,真边一条不许少
+  // (反向的那颗牙是"顺手改成遮字符串"——那会把真说明符一起抹掉,闭包退化成空集,比误收更难查)。
+  check('注释里的举例 import 不进闭包,而同一文件里的真 import 一条不许少', () => {
+    const d = mkScratch('closure-cmt-')
+    try {
+      const w = (rel, text) => {
+        const p = join(d, rel)
+        mkdirSync(dirname(p), { recursive: true })
+        writeFileSync(p, text, 'utf8')
+      }
+      w(
+        'gate.mjs',
+        [
+          "import { real } from './lib/real.mjs'",
+          '/**',
+          " * barrel re-export(`export { X } from './p.js'`):举例用的假边,不该进闭包",
+          ' */',
+          "// 动态导入边 `import('./also-fake.js')` 同样不算",
+          'export const go = () => real',
+          '',
+        ].join('\n'),
+      )
+      w('lib/real.mjs', 'export const real = 1\n')
+      const got = [...relativeImportClosure(d, 'gate.mjs')].sort()
+      assert.deepEqual(
+        got,
+        ['gate.mjs', 'lib/real.mjs'],
+        `注释里的举例被当真边收了:${got.join(', ')}`,
+      )
+    } finally {
+      rmScratch(d)
+    }
+  })
+
   // 装车证明:本仓真门 `check-rn-global-css-sync.mjs` 的闭包里必须有共用层 ——
   // 没有这一条,工具就只是"被写过一次",而它的**存在理由**(迁移后夹具不用手改)无人看守。
   check('装车证明:真门的闭包推导结果含 lib/face-reader.mjs,且被测门真的 import 了本工具', () => {
