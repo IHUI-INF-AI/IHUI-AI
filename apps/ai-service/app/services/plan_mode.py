@@ -201,6 +201,10 @@ class PlanRecord:
     # 每个条目: {version, reason, channel, plan_md, created_at}(含当前版本,末项即最新)
     version_history: list[dict[str, Any]] = field(default_factory=list)
     tasks: list[dict[str, Any]] = field(default_factory=list)
+    # 2026-10-31 安全强化第 27 批:计划归属主体(创建时由承载层写入,不是请求体字段)。
+    # None = 内部创建/无身份开发态 —— 归属闸按"未登记"处理(放行),真正的射程是
+    # "已知属于他人"这一格(与 langgraph 线程归属同一口径)。
+    owner_user_id: str | None = None
 
 
 class PlanStore:
@@ -231,6 +235,22 @@ class PlanStore:
         self._cleanup()
         rec = self._store.get(plan_id)
         if rec is None:
+            raise KeyError(plan_id)
+        return rec
+
+    def get_owned(self, plan_id: str, owner_user_id: str | None) -> PlanRecord:
+        """按 plan_id 取记录并校验归属:别人的与不存在的一样 KeyError。
+
+        归属判据只此一份(路由族统一走本方法)。放行条件与 langgraph 线程归属同口径:
+        记录无主(内部创建)或调用方主体缺失时不拒 —— 本存储是进程内账(TTL 2h),
+        不存在跨进程历史数据,真正要拦的是"已知属于他人"这一格。
+        """
+        rec = self.get(plan_id)
+        if (
+            rec.owner_user_id is not None
+            and owner_user_id is not None
+            and rec.owner_user_id != owner_user_id
+        ):
             raise KeyError(plan_id)
         return rec
 
@@ -294,6 +314,7 @@ async def create_draft(
     goal: str,
     session_id: str | None = None,
     model: str | None = None,
+    owner_user_id: str | None = None,
 ) -> PlanRecord:
     """创建计划草稿(只读阶段,不执行任何工具)。
 
@@ -304,7 +325,8 @@ async def create_draft(
         goal: 用户目标/任务描述
         session_id: 关联会话 id(可选)
         model: 指定模型(可选)
-
+        owner_user_id: 计划归属主体(承载层注入,不是请求体字段);None = 内部创建
+    
     Returns:
         PlanRecord: 刚创建的草稿(状态 pending_approval,暂停待审批)
     """
@@ -337,6 +359,7 @@ async def create_draft(
                 "created_at": created_at,
             }
         ],
+        owner_user_id=owner_user_id,
     )
     plan_store.save(record)
     return record

@@ -197,6 +197,17 @@ async def get_current_user_id(request: Request) -> str:
     return cast(str, user_id)
 
 
+def actor_user_id(request: Request) -> str | None:
+    """中间件注入的已验证主体;没有则 None(不猜、不默认放开成"人人相同")。
+
+    与 `get_current_user_id` 读同一来源、**只在"没有时"分道**:那个是必须登录的依赖项
+    (401 关死),本函数给"能解析就收紧"的归属比对面用(资源归属闸)。两处各写一份
+    `getattr(request.state, "user_id", None)` 就是两份判据,将来只改一处必然漂移。
+    """
+    raw = getattr(request.state, "user_id", None)
+    return raw if isinstance(raw, str) and raw else None
+
+
 def get_current_user_id_sync(request: Request) -> str:
     """同步版：供非依赖项上下文(内部 helper)直接取 user_id。
 

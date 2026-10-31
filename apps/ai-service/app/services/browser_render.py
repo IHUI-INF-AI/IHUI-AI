@@ -15,6 +15,12 @@ ideogram / sora / perplexity / the-information 等)纯 HTTP fetch 返回 403,
 - Cloudflare 挑战检测("Just a moment" / cf-challenge 等),挑战未通过抛异常
 - 代理:PLAYWRIGHT_PROXY_URL > HTTPS_PROXY > HTTP_PROXY(本机为 Clash 7897),
   在 context 级传入(Chromium 不读环境变量代理)
+- SSRF(2026-10-31 安全强化第 29 批):本服务会把目标页面的 HTML 原样回传,等于一个
+  "带浏览器语义的 HTTP 客户端"。此前只判 url.startswith(http(s)://),Playwright 随后
+  自行跟随重定向、加载任意子资源 ⇒ `url=http://169.254.169.254/latest/meta-data/` 这类
+  内网/云元数据目标可被读走。现在两道:路由层拦初始 URL(进浏览器之前),context.route
+  对**每个**请求(重定向 + 子资源 + XHR)逐条重过同一把尺(screenshot_service._validate_url_ssrf,
+  不另立判据);非 http(s) 协议(data:/blob:/about:)不联网,直接放行。
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+from .screenshot_service import _validate_url_ssrf
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +95,23 @@ def _render_page_sync(url: str, timeout_ms: int = 30000) -> dict[str, Any]:
     return _render_page_locked(url, timeout_ms)
 
 
+def _guard_request(route: Any) -> None:
+    """Playwright 层 SSRF 闸:重定向与子资源同样逐请求校验。
+
+    初始 URL 的校验在路由层(进浏览器之前);这里兜的是"页面自己再发出去的请求" ——
+    服务端 302 到 169.254.169.254、img.src 指向 127.0.0.1:6379、fetch 打内网网关,
+    走的都是同一条 route。只校验 http(s):data:/blob:/about: 不联网,不构成 SSRF 通道。
+    """
+    url = route.request.url
+    if url.startswith(("http://", "https://")):
+        ok, reason = _validate_url_ssrf(url)
+        if not ok:
+            logger.warning("[browser_render] 拦截非公网请求 %s: %s", url, reason)
+            route.abort()
+            return
+    route.continue_()
+
+
 def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
     browser = _ensure_browser()
     context_kwargs: dict[str, Any] = {
@@ -101,6 +126,7 @@ def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
     }
 
     context = browser.new_context(**context_kwargs)
+    context.route("**/*", _guard_request)
     page = context.new_page()
     try:
         resp = page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)

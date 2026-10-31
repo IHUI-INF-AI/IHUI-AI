@@ -32,6 +32,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.jwt_auth import actor_user_id
 from app.core.sse_frames import with_frame_trace_id
 from app.services.canvas_graph import (
     build_canvas_graph,
@@ -157,12 +158,6 @@ class CanvasRunRequest(BaseModel):
 _MAX_THREAD_ID_LEN = 100
 
 
-def _actor_user_id(request: Request) -> str | None:
-    """中间件注入的已验证主体;没有则 None(不猜、不默认放开成"人人相同")。"""
-    raw = getattr(request.state, "user_id", None)
-    return raw if isinstance(raw, str) and raw else None
-
-
 def _normalize_principal(principal: str | None) -> str | None:
     """把已验证主体规范成 uuid 标准形态;非 uuid 形态返回 None。
 
@@ -251,7 +246,7 @@ async def post_canvas_run(request: Request, req: CanvasRunRequest) -> dict[str, 
     # 否则"把攻击者的 DAG 注册到受害者正在用的 runId"这一步就成立了(见上面判据注释)。
     # 第 26 批:归属判据从进程内 canvas 账扩到持久账 —— 重启后仍认得这是谁的线程。
     thread_id = req.thread_id or uuid4().hex
-    actor_norm = _normalize_principal(_actor_user_id(request))
+    actor_norm = _normalize_principal(actor_user_id(request))
     if actor_norm is not None:
         prev_owner = await _thread_owner(thread_id)
         if prev_owner is not None and prev_owner != actor_norm:
@@ -310,7 +305,7 @@ async def post_interrupt(
     2026-10-31 第 16 批:canvas 线程只准归属主体操作;第 26 批把归属落库,重启后仍可对账
     (见 _assert_thread_access)。
     """
-    await _assert_thread_access(thread_id, _actor_user_id(request), claim=True)
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=True)
     try:
         event = await trigger_interrupt(
             thread_id=thread_id,
@@ -349,7 +344,7 @@ async def post_resume(request: Request, req: ResumeRequest) -> dict[str, Any]:
     返回 ResumeCommand;若已注册 graph,后续由调用方通过 /stream(graph_input=null)
     继续 astream。本端点不直接驱动 graph(避免阻塞),只构造恢复指令。
     """
-    await _assert_thread_access(req.thread_id, _actor_user_id(request), claim=True)
+    await _assert_thread_access(req.thread_id, actor_user_id(request), claim=True)
     try:
         command = await resume_from_interrupt(
             thread_id=req.thread_id,
@@ -402,7 +397,7 @@ async def post_resume(request: Request, req: ResumeRequest) -> dict[str, Any]:
 async def get_state(thread_id: str, request: Request) -> dict[str, Any]:
     """查询线程当前状态:自定义表最新 checkpoint + graph StateSnapshot(若已注册)。"""
     # 读取类:只比对归属,不登记 —— 读一次就取得归属等于把线程送给猜中 id 的人。
-    await _assert_thread_access(thread_id, _actor_user_id(request), claim=False)
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=False)
     manager = _manager()
     try:
         latest = await manager.get_latest_checkpoint(thread_id)
@@ -444,7 +439,7 @@ async def get_history(
     limit: int = Query(100, ge=1, le=1000, description="返回条数上限"),
 ) -> dict[str, Any]:
     """查询线程历史 checkpoint 列表(Time Travel 用),按 created_at 升序。"""
-    await _assert_thread_access(thread_id, _actor_user_id(request), claim=False)
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=False)
     manager = _manager()
     try:
         history = await manager.get_state_history(thread_id, limit=limit)
@@ -563,7 +558,7 @@ async def get_stream(
 
     SSE 输出:`event: <type>\\ndata: <json>\\n\\n`
     """
-    await _assert_thread_access(thread_id, _actor_user_id(request), claim=True)
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=True)
     graph_input: dict[str, Any] | None = None
     if input:
         try:
@@ -591,7 +586,7 @@ async def post_stream(
     供 apps/api langgraph 代理调用(其 streamAgentExecution 以 POST + JSON body
     转发图输入);body 为空对象时视为未传输入(canvas 图回填注册时输入)。
     """
-    await _assert_thread_access(thread_id, _actor_user_id(request), claim=True)
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=True)
     return _stream_response(
         thread_id, request, payload or None, _parse_stream_modes(stream_modes)
     )
