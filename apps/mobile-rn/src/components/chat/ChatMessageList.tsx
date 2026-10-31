@@ -34,6 +34,7 @@ import { tokens } from '../../theme/active-tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { VoiceBubble } from '../../components/VoiceBubble'
+import { VideoPlayer } from '../VideoPlayer'
 import { parseMessageContent } from '../../utils/message-parse'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import {
@@ -221,6 +222,14 @@ const styles = StyleSheet.create({
     width: 180,
     height: 140,
     backgroundColor: tokens.surface.muted,
+  },
+  // 视频段容器:限宽(播放器 w-full + 16:9 ⇒ 高约 135),长列表里单条高度有界
+  msgVideoWrap: {
+    marginVertical: rnSpacing.xs,
+    borderRadius: rnRadius.lg,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    width: 240,
   },
   // ── 消息富内容:代码块(展开/收起 + 复制,对齐 ai_index2 code-block) ──
   codeBlock: {
@@ -527,6 +536,15 @@ export function ChatMessageItem({
                     durationSec={seg.durationSec}
                     isUser={isUser}
                   />
+                )
+              }
+              if (seg.type === 'video') {
+                // 视频消息(web 发送侧拍平的 <video> 附件):容器限宽 240 + 播放器自带
+                // 16:9 出图 ⇒ 单条高度有界(约 135px),长列表里不会因视频条撑爆一屏。
+                return (
+                  <View key={`${item.id}-video-${segIndex}`} style={styles.msgVideoWrap}>
+                    <VideoPlayer url={seg.url} />
+                  </View>
                 )
               }
               if (seg.type === 'image') {

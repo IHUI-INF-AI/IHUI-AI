@@ -3,20 +3,23 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { StyleSheet, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, listConversations, setConversationPinned } from '@ihui/api-client'
+import {
+  deleteConversation,
+  fetchApi,
+  listConversations,
+  markMessageRead,
+  setConversationPinned,
+} from '@ihui/api-client'
 import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
 import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ihui/rn-app'
-import { SearchInput } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -24,6 +27,9 @@ interface MessagePage {
   list: MessageCenterItem[]
   total: number
 }
+
+/** 与 load / handleLoadMore 共用同一页大小;后端默认 20,显式下发避免两处口径漂移 */
+const PAGE_SIZE = 20
 
 /**
  * 对齐 Uniapp pagesA/message/index.vue(消息):
@@ -36,14 +42,6 @@ const UNIAPP_TEXT: Record<string, string> = {
   'messageCenter.title': '消息',
   'messageCenter.empty': '暂无消息',
 }
-
-/** 搜索栏样式(对齐 Uniapp message/index.vue L23-41 搜索栏:胶囊容器 + 内部 SearchInput) */
-const searchStyles = StyleSheet.create({
-  bar: {
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(16),
-  },
-})
 
 /** listConversations 返回项(对齐 @ihui/api-client ConversationDetail 字段) */
 interface ConversationItem {
@@ -87,6 +85,10 @@ export function MessageCenterScreen() {
   const [conversations, setConversations] = useState<MessageConversationItem[]>([])
   // 搜索关键词(对齐 Uniapp message/index.vue L23-41 搜索栏 searchKeyword)
   const [searchKeyword, setSearchKeyword] = useState('')
+  // 站内消息分页(GET /api/messages 返回 { list, total },page/pageSize 已由 schema 声明)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   // t 包装:Uniapp 对齐文案优先,其余回落 i18n
   const uniappT = useCallback(
@@ -98,11 +100,14 @@ export function MessageCenterScreen() {
     setError('')
     try {
       const [msgRes, convRes] = await Promise.all([
-        fetchApi<MessagePage>(`/api/messages?type=${activeTab}`),
+        fetchApi<MessagePage>(`/api/messages?type=${activeTab}&page=1&pageSize=${PAGE_SIZE}`),
         listConversations({ page: 1, pageSize: 20 }),
       ])
       if (!msgRes.success) throw new Error()
       setItems(msgRes.data.list ?? [])
+      // total 是「加载更多」的唯一判据(后端 findEduMessages 同时回 list 与 total)
+      setTotal(msgRes.data.total ?? 0)
+      setPage(1)
       // 会话列表(listConversations 返回 { conversations },字段 title/lastMessageAt/updatedAt)
       if (convRes.success && convRes.data) {
         const convList: ConversationItem[] = Array.isArray(convRes.data.conversations)
@@ -189,41 +194,116 @@ export function MessageCenterScreen() {
       )
     : items
 
+  /**
+   * 标记单条站内消息已读:网络出口 = @ihui/api-client markMessageRead
+   * (PUT /api/messages/:id/read,后端按 memberId 校验属主);成功后只回写真行,
+   * 失败 appAlert 显式喊出,不做「先翻 UI 再补请求」的假成功。
+   */
+  const handleMarkRead = useCallback(
+    async (item: MessageCenterItem) => {
+      try {
+        const res = await markMessageRead(item.id)
+        if (!res.success) throw new Error()
+        setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, read: true } : it)))
+      } catch {
+        appAlert(uniappT('messageCenter.title'), t('common.failed'))
+      }
+    },
+    [t, uniappT],
+  )
+
+  /**
+   * 删除会话:数据源就是 listConversations(chat_conversations),删除出口同源 =
+   * @ihui/api-client deleteConversation(DELETE /api/chat/conversations/:id,级联删消息)。
+   * 破坏性动作先经 appAlert(端内自绘确认层,非原生弹窗)二次确认,失败显式喊出。
+   */
+  const handleDeleteConversation = useCallback(
+    (conv: MessageConversationItem) => {
+      appAlert(uniappT('messageCenter.title'), t('messageCenter.deleteConv'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                const res = await deleteConversation(conv.id)
+                if (!res.success) throw new Error()
+                setConversations((prev) => prev.filter((c) => c.id !== conv.id))
+              } catch {
+                appAlert(uniappT('messageCenter.title'), t('common.failed'))
+              }
+            })()
+          },
+        },
+      ])
+    },
+    [t, uniappT],
+  )
+
+  /**
+   * 加载下一页站内消息:GET /api/messages 本就分页(page/pageSize/total 均在 schema 内),
+   * 以 items.length < total 作 hasMore;按 id 去重防重入追加;失败喊出而不是静默吞掉。
+   */
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore) return
+    const nextPage = page + 1
+    setLoadingMore(true)
+    try {
+      const res = await fetchApi<MessagePage>(
+        `/api/messages?type=${activeTab}&page=${nextPage}&pageSize=${PAGE_SIZE}`,
+      )
+      if (!res.success) throw new Error()
+      const incoming = res.data.list ?? []
+      setItems((prev) => {
+        const seen = new Set(prev.map((it) => it.id))
+        return [...prev, ...incoming.filter((it) => !seen.has(it.id))]
+      })
+      setTotal(res.data.total ?? 0)
+      setPage(nextPage)
+    } catch {
+      appAlert(uniappT('messageCenter.title'), t('messageCenter.loadFailed'))
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, page, activeTab, t, uniappT])
+
+  const hasMore = total > 0 && items.length < total
+
   return (
-    <View style={{ flex: 1 }}>
-      {/* 顶部搜索框(对齐 Uniapp message L23-41 搜索栏,placeholder 同原 L38;
-          shared 屏组件无搜索插槽,wrapper 层渲染并过滤列表;原页无语音入口故 voiceEnabled 关闭) */}
-      <View style={searchStyles.bar}>
-        <SearchInput
-          value={searchKeyword}
-          onChangeText={setSearchKeyword}
-          placeholder={t('messageCenter.searchPh')}
-          colorScheme={resolvedTheme}
-          voiceEnabled={false}
-        />
-      </View>
-      <SharedMessageCenterScreen
-        t={uniappT}
-        items={filteredItems}
-        activeTab={activeTab}
-        onSelectTab={onSelectTab}
-        loading={loading}
-        refreshing={refreshing}
-        error={error}
-        onRefresh={() => {
-          setRefreshing(true)
-          void load()
-        }}
-        onPressItem={onPressItem}
-        conversations={filteredConversations}
-        onPressConversation={(conv) =>
-          navigation.navigate('MessageChat', { peerId: conv.id, name: conv.name })
-        }
-        onTogglePin={(conv) => void handleTogglePin(conv)}
-        onBack={() => navigation.goBack()}
-        colorScheme={resolvedTheme}
-      />
-    </View>
+    <SharedMessageCenterScreen
+      t={uniappT}
+      items={filteredItems}
+      activeTab={activeTab}
+      onSelectTab={onSelectTab}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onPressItem={onPressItem}
+      conversations={filteredConversations}
+      onPressConversation={(conv) =>
+        navigation.navigate('MessageChat', { peerId: conv.id, name: conv.name })
+      }
+      onTogglePin={(conv) => void handleTogglePin(conv)}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+      search={{
+        value: searchKeyword,
+        placeholder: t('messageCenter.searchPh'),
+        onChangeText: setSearchKeyword,
+      }}
+      onPressSettings={() => navigation.navigate('NotificationSettings')}
+      onMarkRead={(item) => void handleMarkRead(item)}
+      onDeleteConversation={handleDeleteConversation}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={() => void handleLoadMore()}
+      emptyText={keyword ? t('messageCenter.notFound') : undefined}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

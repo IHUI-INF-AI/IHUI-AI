@@ -13,7 +13,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, getCommissionRates } from '@ihui/api-client'
 import { DistributionScreen as SharedDistributionScreen, type DistributionInfo } from '@ihui/rn-app'
 import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
 import PersonalInformationCard from '../components/PersonalInformationCard'
@@ -53,6 +53,8 @@ export function DistributionScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
+  // 分佣比例真值(GET /distribution/commission-rates 的 key→value 原样映射;取不到保持空数组)
+  const [rates, setRates] = useState<{ level: string; rate: string }[]>([])
   // HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue)
   const [withdrawDetailVisible, setWithdrawDetailVisible] = useState(false)
   // BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层)
@@ -194,7 +196,19 @@ export function DistributionScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const res = await fetchApi<DistributionInfo>('/distribution/overview')
+      const [res, ratesRes] = await Promise.all([
+        fetchApi<DistributionInfo>('/distribution/overview'),
+        // 分佣比例独立取数:失败只清空列表(共享屏给空态),不影响主信息块
+        getCommissionRates(),
+      ])
+      setRates(
+        ratesRes.success
+          ? Object.entries(ratesRes.data.rates ?? {}).map(([level, rate]) => ({
+              level,
+              rate: String(rate ?? ''),
+            }))
+          : [],
+      )
       if (!res.success) {
         setError(t('distribution.loadFailed'))
         setLoading(false)
@@ -328,6 +342,7 @@ export function DistributionScreen() {
           refreshing={refreshing}
           error={error}
           withdrawing={withdrawing}
+          rates={rates}
           onRefresh={() => void load(true)}
           onWithdraw={handleWithdraw}
           onBack={() => navigation.goBack()}

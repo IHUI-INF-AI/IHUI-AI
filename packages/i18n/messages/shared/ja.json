@@ -70,9 +70,9 @@
     "waiting": "タスクの開始を待っています",
     "toolIndexCodebase": "コードベースをインデックス",
     "toolImageSearch": "画像検索",
-    "toolListScheduledTasks": "スケジュール一覧",
-    "toolScheduleWakeup": "ウェイクアップ設定",
-    "toolCancelScheduledTask": "スケジュールキャンセル",
+    "toolListScheduledTasks": "定期タスクを一覧表示",
+    "toolScheduleWakeup": "遅延ウェイクアップを設定",
+    "toolCancelScheduledTask": "定期タスクをキャンセル",
     "toolInvestigateCodebase": "コードベース調査",
     "toolSendTeamMessage": "チームメッセージ送信",
     "toolReadTeamInbox": "受信箱の読み取り",
@@ -695,13 +695,16 @@
     "title": "マイ証明書"
   },
   "messageCenter": {
-    "empty": "メッセージがありません",
+    "empty": "メッセージなし",
     "loadFailed": "メッセージの読み込みに失敗しました",
     "tab": {
       "course": "コース",
       "order": "注文",
       "social": "ソーシャル",
-      "system": "システム"
+      "system": "システム",
+      "all": "すべて",
+      "interaction": "やり取り",
+      "private": "ダイレクト"
     },
     "title": "メッセージセンター",
     "type": {
@@ -710,7 +713,19 @@
       "social": "ソーシャル",
       "system": "システム"
     },
-    "conversations": "会話"
+    "conversations": "会話",
+    "search": "チャットを検索",
+    "searchPh": "チャット/連絡先/サービスを検索",
+    "settings": "設定",
+    "markRead": "既読にする",
+    "notFound": "会話が見つかりません",
+    "pin": "会話を固定",
+    "unpin": "固定を解除",
+    "pinFailed": "ピン留めに失敗しました。再試行してください",
+    "unpinFailed": "ピン留め解除に失敗しました。再試行してください",
+    "loadMore": "さらに読み込む",
+    "conversationFallback": "会話",
+    "deleteConv": "会話削除"
   },
   "messageDirect": {
     "title": "ダイレクトメッセージ",
@@ -1517,7 +1532,24 @@
     "expireTime": "有効期限",
     "daysRemaining": "残日数",
     "purchase": "加入する",
-    "purchasing": "処理中..."
+    "purchasing": "処理中...",
+    "details": {
+      "benefitsTitle": "特典の詳細",
+      "benefit": {
+        "chatDesc": "最高峰のモデルを無制限で利用可能",
+        "draw": "AI画像生成",
+        "drawDesc": "1日100回、高画質・透かしなし",
+        "video": "動画生成",
+        "videoDesc": "60分の動画生成時間",
+        "modelDesc": "すべての有料モデルを解放",
+        "support": "優先サポート",
+        "supportDesc": "7×24時間の専用サービス",
+        "group": "専用コミュニティ",
+        "groupDesc": "VIP会員専用コミュニティ",
+        "chat": "AI会話無制限",
+        "model": "全モデル"
+      }
+    }
   },
   "login": {
     "title": "ログイン",
@@ -2599,5 +2631,121 @@
       "unconfirmed": "サーバーが受信したか確認できません。再送前にご確認ください"
     },
     "nextStepLabel": "次の操作"
+  },
+  "icpRecord": {
+    "title": "ICP届出情報",
+    "query": "MIITで照会",
+    "copyHint": "番号をクリックしてコピー",
+    "footer": "MIIT登録システムより",
+    "label0": "備案番号",
+    "label1": "備案主体",
+    "label2": "主体タイプ",
+    "label3": "備案時間",
+    "label4": "備案リンク",
+    "label5": "備案範囲"
+  },
+  "businessLicense": {
+    "scopeTitle": "事業範囲",
+    "footer": "参考用、登記が優先",
+    "title": "営業許可証",
+    "label0": "統一社会信用コード",
+    "label1": "名称",
+    "label2": "類型",
+    "label3": "登録資本金",
+    "label4": "設立日",
+    "label5": "営業期間",
+    "label6": "登記機関",
+    "scopeValue": "技術サービス、技術開発、技術コンサルティング、技術交流、技術移転、技術普及;ソフトウェア開発;システムインテグレーション;情報技術コンサルティング;インターネット情報サービス"
+  },
+  "appPermission": {
+    "intro": "IHUI AIは完全機能のために以下の権限が必要",
+    "required": "必須",
+    "optional": "任意",
+    "footer": "システム設定で管理可能",
+    "goSetting": "設定へ",
+    "openAllSetting": "システム設定を開く",
+    "denied": "拒否済み",
+    "granted": "許可済み",
+    "title": "アプリの権限",
+    "unknown": "未許可",
+    "name0": "アルバム権限",
+    "name1": "カメラ権限",
+    "name2": "マイク権限",
+    "name3": "位置権限",
+    "name4": "通知権限",
+    "name5": "ストレージ(ファイル読み取り)",
+    "name6": "連絡先",
+    "name7": "生体認証(Face ID/指紋)",
+    "desc0": "画像をアルバムに保存・アップロード",
+    "desc1": "写真撮影・動画録画",
+    "desc2": "音声入力・録音機能",
+    "desc3": "地理位置情報の取得",
+    "desc4": "メッセージプッシュ通知の受信",
+    "desc5": "ファイルの読み書き、画像・動画のキャッシュ、オフライン教材などに使用します。システム設定でいつでもオフにできます。オフにすると一部のオフライン機能が制限されます。",
+    "desc6": "連絡先の友達の検索、招待、簡単ログインなどに使用します(ご自身の操作時のみ)。システム設定でいつでもオフにできます。",
+    "desc7": "簡単ログインや支払い認証などの安全なシーンに使用します。ご自身で有効にした後でのみ使用され、アプリのセキュリティ設定でいつでもオフにできます。"
+  },
+  "modelRecord": {
+    "algorithmType": "アルゴリズムタイプ",
+    "applicant": "備案申請者",
+    "applyDate": "備案日",
+    "batch": "批次",
+    "cardTitle": "全ネットのモデル・アルゴリズム届出検索",
+    "desc": "AI大モデルアルゴリズム届出情報を表示",
+    "notice": "このページのデータは、国家インターネット情報弁公室が公開した「中国国内深層合成サービスアルゴリズム届出」および「インターネット情報サービスアルゴリズム届出」のリストに基づき、全国の届出済みモデル・アルゴリズムを一括検索できます。",
+    "status": "備案ステータス",
+    "statusFiled": "届出済み",
+    "title": "モデル届出情報",
+    "count": "届出記録 全 {total} 件",
+    "empty": "条件に一致する届出記録が見つかりません",
+    "kindAll": "すべてのタイプ",
+    "kindDeep": "深層合成",
+    "kindRecommend": "アルゴリズム推奨",
+    "loading": "読み込み中…",
+    "next": "次へ",
+    "pageInfo": "{page} / {totalPages} ページ",
+    "prev": "前へ",
+    "product": "応用製品",
+    "purpose": "主な用途",
+    "search": "検索",
+    "searchPlaceholder": "モデル名 / 申請者名 / 備案番号を入力",
+    "loadFailed": "検索に失敗しました。後ほど再試行してください",
+    "statsTotal": "Web公開の届出総数",
+    "statsDeep": "深層合成",
+    "statsRecommend": "アルゴリズム推薦",
+    "updatedAt": "最終更新",
+    "filterAllBatch": "全バッチ",
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "source": "出典告知"
+  },
+  "examQuestion": {
+    "loadFailed": "試験問題の読み込みに失敗しました",
+    "single": "単一選択",
+    "multi": "複数選択",
+    "prev": "前の問題",
+    "next": "次の問題",
+    "submit": "提出",
+    "submitFailed": "送信に失敗",
+    "answerPlaceholder": "答えを入力",
+    "fill": "穴埋め問題",
+    "subjective": "記述問題",
+    "subjectivePlaceholder": "回答内容を入力してください",
+    "timeLeft": "残り {time}",
+    "timeUp": "試験時間終了。自動的に提出されました",
+    "judgmentTrue": "正しい",
+    "judgmentFalse": "間違い"
+  },
+  "realNameAuth": {
+    "status_unverified": "未認証",
+    "status_pending": "審査中",
+    "status_verified": "認証済み",
+    "status_rejected": "却下"
+  },
+  "earnCommission": {
+    "title": "コミッションプラン",
+    "rateTitle": "コミッション比率",
+    "openVip": "VIP 会員を開通してコミッションプランに参加",
+    "rateEmpty": "コミッション率はまだありません"
   }
 }

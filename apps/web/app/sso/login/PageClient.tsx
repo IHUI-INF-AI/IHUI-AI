@@ -61,6 +61,9 @@ export default function SsoLoginPage() {
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
   const clientId = searchParams.get('client_id') || 'web'
+  // 2026-10-31 第 21 批:授权页只做**原样透传** —— state 由发起端生成并在回调时比对,
+  // 本页不理解也不校验它(在服务端/页面侧再实现一次比对只会变成第二套真相)。
+  const ssoState = searchParams.get('state') || undefined
   const rawRedirect = searchParams.get('redirect')
   // 「本站自己人」判据 = web 客户端 **且** URL 没带显式 redirect。
   // 带 redirect 的是子项目/桌面深链跳来的授权页,「授权」口径本身就是它回跳契约的一部分;
@@ -181,7 +184,7 @@ export default function SsoLoginPage() {
         }
         // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重),
         // 防守卫打回重入导致 ?sso_code=A&sso_code=B 递归膨胀。
-        const finalUrl = buildSsoRedirectUrl(target, r.data.code)
+        const finalUrl = buildSsoRedirectUrl(target, r.data.code, ssoState)
         // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
         // router.push 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
         const isCustomScheme =

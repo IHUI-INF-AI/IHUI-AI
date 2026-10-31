@@ -4,6 +4,7 @@
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { Check } from 'lucide-react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../types'
 
@@ -38,6 +39,7 @@ export function VipScreen({
   onRefresh,
   onPurchase,
   onBack,
+  benefitItems,
   colorScheme = 'light',
 }: VipScreenProps) {
   const tk = getTokens(colorScheme)
@@ -97,6 +99,22 @@ export function VipScreen({
         </View>
       ) : null}
 
+      {/* 权益卡(平台注入 benefitItems 时渲染;无则不出现,不影响原有等级列表) */}
+      {benefitItems && benefitItems.length > 0 ? (
+        <View style={styles.benefitsSection}>
+          <Text style={styles.benefitsTitle}>{t('vip.details.benefitsTitle')}</Text>
+          {benefitItems.map((item) => (
+            <View key={item.key} style={styles.benefitCard}>
+              <Check size={16} color={tk.success.DEFAULT} style={styles.benefitIcon} />
+              <View style={styles.benefitTextWrap}>
+                <Text style={styles.benefitTitle}>{item.title}</Text>
+                {item.desc ? <Text style={styles.benefitDesc}>{item.desc}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.levelsSection}>
         <Text style={styles.levelsTitle}>{t('vip.levelsTitle')}</Text>
         {levels.length === 0 ? (
@@ -106,7 +124,7 @@ export function VipScreen({
             const isCurrent = membership?.level === level.levelValue
             const isPurchasing = purchasingId === level.id
             const canPurchase = !isCurrent && level.status === 1
-            const benefitsCount = level.benefits ? Object.keys(level.benefits).length : 0
+            const benefitsCount = level.benefits?.length ?? 0
             return (
               <View key={level.id} style={styles.cardSpacing}>
                 <View style={styles.card}>
@@ -188,6 +206,27 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     membershipMetaText: { fontSize: rnType.label.size, color: rnCssLight.white70 },
+    benefitsSection: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.lg },
+    benefitsTitle: {
+      marginBottom: rnSpacing.md,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    benefitCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: rnSpacing.sm,
+      padding: 14,
+      marginBottom: rnSpacing.sm,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    benefitIcon: { marginTop: 2 },
+    benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
+    benefitTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    benefitDesc: { fontSize: rnType.label.size, lineHeight: 20, color: tk.text.secondary },
     levelsSection: {
       paddingHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.lg,
