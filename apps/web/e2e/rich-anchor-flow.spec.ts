@@ -387,6 +387,25 @@ test.describe('D04 · 消息串内富文本动作锚点(浏览器级验收)', ()
     })
 
     // 锚点腿:锚点**确实渲染成了元素**(否则"没执行"只是因为整段没渲染)
+    // 2026-10-31 修:a3/a4 是同轮两条连续助手消息 ⇒ 投影层把这段收进同一个 thinkingAgent
+    // 容器(turn-presentation.ts:173-182 的 run.length > 1),a3 是容器内**非末条** ⇒
+    // blockIsProcessNarration 为真(presentation-units.ts:137-143);历史已终态 ⇒
+    // resolveProcessTextInitialOpen 返回 false(fold-policy.ts:161-168)⇒ MessageItem 把正文
+    // 套进 StreamGroup 且默认收起,而 StreamGroup 收起时 children 整棵不渲染
+    // (stream-ui.tsx:399 `{open && …}`)⇒ message-rich-anchors-a3 不在 DOM。
+    // 本用例要的是"锚点确实渲染成元素",故先按真实用户路径展开 a3 自己的过程段组;
+    // 断言(span 在场 / script 与 img 为 0 / 载荷原文逐字)一条不减。
+    const a3ProcessGroup = page.locator('[data-testid="message-process-text-group-a3"]')
+    if ((await a3ProcessGroup.count()) > 0) {
+      const a3ProcessTrigger = a3ProcessGroup.locator('[data-stream-group-trigger="true"]')
+      if ((await a3ProcessTrigger.getAttribute('aria-expanded')) === 'false') {
+        await a3ProcessTrigger.click()
+      }
+      await expect(
+        a3ProcessTrigger,
+        '过程段组必须能展开(否则折叠态下正文结构上不可达)',
+      ).toHaveAttribute('aria-expanded', 'true')
+    }
     const bubble = anchorBubble(page, 'a3')
     await expect(bubble.locator('span').first()).toBeVisible()
     await expect(bubble.locator('script')).toHaveCount(0)
@@ -528,7 +547,10 @@ test.describe('D04 · 消息串内富文本动作锚点(浏览器级验收)', ()
     })
 
     // 词包值:…你在 <link>/developer/keys</link> 创建的密钥…(inner text 就是 URL ⇒ 过 SAFE_HREF)
-    const tip = page.locator('p').filter({ has: page.locator('a[href="/developer/keys"]') }).first()
+    const tip = page
+      .locator('p')
+      .filter({ has: page.locator('a[href="/developer/keys"]') })
+      .first()
     await expect(
       tip,
       'examplesTip 的 <link> 锚点没渲染成 <a> ⇒ 词包腿没有可点击载体(验收①的字面要求)',
