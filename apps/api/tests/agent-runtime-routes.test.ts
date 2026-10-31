@@ -373,5 +373,86 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
     const body = res.json()
     expect(body.code).toBe(401)
   })
+
+  // ==========================================================================
+  // 归属校验(§5「认证不等于授权」,2026-10-31 收口)
+  // 此前 /sessions、/sessions/:id、/execute(sessionId 来自 body)、/:id/status、
+  // /:id/cancel 一律只按 sessionId 取数、从不比对主体 ⇒ 任一登录用户可读他人完整对话、
+  // 往他人会话追加消息、并 cancel 别人正在跑的会话。
+  // 每条越权断言都配正向对照(同一主体自己做得动),证明拦的是"跨用户"而不是把功能关掉。
+  // ==========================================================================
+  describe('跨用户访问一律 404(与"不存在"同形,不给出"这 id 属于别人"的信号)', () => {
+    const VICTIM = '00000000-0000-4000-8000-000000000001'
+    const ATTACKER = '00000000-0000-4000-8000-000000000099'
+
+    async function createVictimSession(): Promise<string> {
+      mockAuthed(VICTIM)
+      const res = await server.inject({
+        method: 'POST',
+        url: `${PREFIX}/execute`,
+        payload: { message: 'victim-secret-context' },
+      })
+      expect(res.statusCode).toBe(200)
+      return res.json().data.sessionId as string
+    }
+
+    it('详情:他人 sessionId 读不到,且响应体不含其上下文', async () => {
+      const sessionId = await createVictimSession()
+      mockAuthed(ATTACKER)
+      const res = await server.inject({ method: 'GET', url: `${PREFIX}/sessions/${sessionId}` })
+      expect(res.statusCode).toBe(404)
+      expect(res.body).not.toContain('victim-secret-context')
+      // 正向对照:本人读得到
+      mockAuthed(VICTIM)
+      const own = await server.inject({ method: 'GET', url: `${PREFIX}/sessions/${sessionId}` })
+      expect(own.statusCode).toBe(200)
+      expect(JSON.stringify(own.json().data)).toContain('victim-secret-context')
+    })
+
+    it('execute 带他人 sessionId ⇒ 404 且消息没被追加进他人会话', async () => {
+      const sessionId = await createVictimSession()
+      mockAuthed(ATTACKER)
+      const inject = await server.inject({
+        method: 'POST',
+        url: `${PREFIX}/execute`,
+        payload: { sessionId, message: 'attacker-injected' },
+      })
+      expect(inject.statusCode).toBe(404)
+      mockAuthed(VICTIM)
+      const status = await server.inject({ method: 'GET', url: `${PREFIX}/${sessionId}/status` })
+      expect(status.statusCode).toBe(200)
+      // 副作用没发生:受害者会话仍只有受害者那 1 条消息
+      expect(status.json().data.messageCount).toBe(1)
+    })
+
+    it('cancel 他人会话 ⇒ 404 且他人会话状态没被改写成终态', async () => {
+      const sessionId = await createVictimSession()
+      mockAuthed(ATTACKER)
+      const kill = await server.inject({
+        method: 'POST',
+        url: `${PREFIX}/${sessionId}/cancel`,
+        payload: {},
+      })
+      expect(kill.statusCode).toBe(404)
+      mockAuthed(VICTIM)
+      const status = await server.inject({ method: 'GET', url: `${PREFIX}/${sessionId}/status` })
+      expect(status.json().data.status).toBe('active')
+    })
+
+    it('列表:只交本人会话(他人的既不在条目里,也不计入 total)', async () => {
+      const sessionId = await createVictimSession()
+      mockAuthed(ATTACKER)
+      const attackerList = await server.inject({ method: 'GET', url: `${PREFIX}/sessions` })
+      expect(attackerList.statusCode).toBe(200)
+      const attackerIds = (attackerList.json().data.sessions as Array<{ id: string }>).map(
+        (s) => s.id,
+      )
+      expect(attackerIds).not.toContain(sessionId)
+      mockAuthed(VICTIM)
+      const victimList = await server.inject({ method: 'GET', url: `${PREFIX}/sessions` })
+      const victimIds = (victimList.json().data.sessions as Array<{ id: string }>).map((s) => s.id)
+      expect(victimIds).toContain(sessionId)
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

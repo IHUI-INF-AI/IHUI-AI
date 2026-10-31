@@ -43,6 +43,20 @@ process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui
 process.env.JWT_SECRET ??= randomBytes(32).toString('hex')
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= randomBytes(32).toString('hex')
 process.env.REDIS_URL ??= 'redis://localhost:8811/1'
+// §5 测试隔离铁律:AGENTS 明令"测试一律禁止连生产库(PG 8810 / Redis 8811)",
+// 而上面两行兜底里 DATABASE_URL 特意挑了 ihui_test 库,**REDIS_URL 却直接钉在生产 8811**。
+// 2026-10-30 auth 链路起真 IORedis 客户端之后,没 mock ioredis 的用例就在往生产 db1
+// 真写 INCR/EXISTS —— 测试流量吃的是真用户的按用户限流额度(现读由并行取证席量到)。
+// 本行不擅自改端口:换到没人监听的端口会把"瞬间连上"变成每次 ~10s 重连退避,
+// 影响面是整个套件(含 CI),那一步得配一个专用测试 Redis 一起做。
+// 这里先把静默变成点名 —— 谁再往这条兜底上加不 mock 的用例,当场能看见自己在写生产。
+if (process.env.REDIS_URL.includes(':8811')) {
+  console.warn(
+    '[setup-env] ⚠ REDIS_URL 兜底指向**生产 Redis 8811**(§5 明令禁止的落点)。' +
+      '任何会 await redis 的测试必须 vi.mock("ioredis")(先例 tests/helpers/fake-redis.ts),' +
+      '否则本用例正在对生产实例写命令。',
+  )
+}
 // 测试档必须显式钉死:ZCODE_RUNTIME_ENV 优先级高于 NODE_ENV(config 唯一出口的解析顺序),
 // 宿主 shell 若导出了 production(真机现测存在),真 config 的"生产守卫"会在测试里误开
 // (如 agents.ts 的 COZE_WEBHOOK_SECRET 拒绝启动)。与下面 NODE_ENV 同性质:强制,非补缺。

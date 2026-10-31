@@ -36,9 +36,72 @@ passed, report = fact_check(article_dict)
 """
 from __future__ import annotations
 
+import ast
+import operator
 import re
 from collections.abc import Callable
 from typing import Any, cast
+
+# ---------------------------------------------------------------------------
+# 计算类声明求值:白名单 AST,结构上不使用 eval
+# ---------------------------------------------------------------------------
+
+_CALC_MAX_CHARS = 200
+_CALC_BIN_OPS: dict[type[ast.operator], Callable[[Any, Any], Any]] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+}
+_CALC_UNARY_OPS: dict[type[ast.unaryop], Callable[[Any], Any]] = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
+
+
+def _calc_node(node: ast.expr) -> Any:
+    """递归求值白名单节点;其余节点形态一律拒绝。"""
+    if isinstance(node, ast.Constant):
+        # bool 是 int 的子类:必须先挡掉,否则 True 会被当成 1 参与计算
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise ValueError('只允许数字字面量')
+        return node.value
+    if isinstance(node, ast.BinOp):
+        fn = _CALC_BIN_OPS.get(type(node.op))
+        if fn is None:
+            raise ValueError(f'不允许的运算符: {type(node.op).__name__}')
+        return fn(_calc_node(node.left), _calc_node(node.right))
+    if isinstance(node, ast.UnaryOp):
+        unary_fn = _CALC_UNARY_OPS.get(type(node.op))
+        if unary_fn is None:
+            raise ValueError(f'不允许的一元运算符: {type(node.op).__name__}')
+        return unary_fn(_calc_node(node.operand))
+    raise ValueError(f'不允许的表达式节点: {type(node).__name__}')
+
+
+def arithmetic_from_expression(expr: str) -> Any:
+    """按白名单求值一条算术表达式;任何越界形态抛 ValueError(调用方按"算不了"处理)。
+
+    为什么不能留 `eval(calc, {"__builtins__": {}}, {})`:calc 取自 LLM 产出的
+    claims_registry,而 LLM 的输出又受外部文章内容影响 ⇒ 这是"外部输入进求值器"。
+    空 builtins 挡不住靠属性链的逃逸(`().__class__.__mro__[-1].__subclasses__()`
+    一个也不依赖 builtins),`2**9**9**9` 还能把进程拖死。本出口结构上只认
+    数字字面量与 + - * / // %,其余(Attribute / Call / Subscript / Name / Pow / …)当场拒。
+    """
+    if not isinstance(expr, str):
+        raise ValueError('表达式必须是字符串')
+    text = expr.strip()
+    if not text:
+        raise ValueError('表达式为空')
+    if len(text) > _CALC_MAX_CHARS:
+        raise ValueError(f'表达式过长(> {_CALC_MAX_CHARS} 字符)')
+    try:
+        tree = ast.parse(text, mode='eval')
+    except SyntaxError as e:
+        raise ValueError(f'表达式语法错误: {e}') from e
+    return _calc_node(tree.body)
 
 # ===== 严重级别 =====
 HIGH = 'HIGH'
@@ -428,7 +491,7 @@ def check_math_consistency(article: dict[str, Any], texts: list[tuple[str, str]]
         calc = claim.get('calculation', '')
         if calc:
             try:
-                result = eval(calc, {"__builtins__": {}}, {})
+                result = arithmetic_from_expression(calc)
                 stated = claim.get('value')
                 if stated is not None and abs(float(result) - float(stated)) > 1:
                     issues.append({

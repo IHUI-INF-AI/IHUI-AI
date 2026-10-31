@@ -132,14 +132,14 @@ describe('G-815983 ②:listPersistedSessionPage 装车(取数必须带探测行)
   it('⑧ 缺省上限的取数实参是 appliedLimit + PAGE_PROBE_ROWS,不是无名 clamp', async () => {
     const chain = selectChain(fakeRows(2))
     mockDb.select.mockReturnValue(chain.step)
-    await listPersistedSessionPage()
+    await listPersistedSessionPage({ userId: 'user_1' })
     expect(chain.captured.limitArg).toBe(DEFAULT_SESSION_LIST_LIMIT + PAGE_PROBE_ROWS)
   })
 
   it('⑨ 显式 limit=5 ⇒ 取 6 行、交 5 行,truncated 如实', async () => {
     const chain = selectChain(fakeRows(6))
     mockDb.select.mockReturnValue(chain.step)
-    const page = await listPersistedSessionPage({ limit: 5 })
+    const page = await listPersistedSessionPage({ userId: 'user_1', limit: 5 })
     expect(chain.captured.limitArg).toBe(6)
     expect(page.sessions).toHaveLength(5)
     expect(page.truncated).toBe(true)
@@ -150,7 +150,7 @@ describe('G-815983 ②:listPersistedSessionPage 装车(取数必须带探测行)
   it('⑩ 恰好取到 limit 行(无探测行)⇒ truncated=false 且交付 limit 行(精确到底)', async () => {
     const chain = selectChain(fakeRows(DEFAULT_SESSION_LIST_LIMIT))
     mockDb.select.mockReturnValue(chain.step)
-    const page = await listPersistedSessionPage()
+    const page = await listPersistedSessionPage({ userId: 'user_1' })
     expect(page.truncated).toBe(false)
     expect(page.sessions).toHaveLength(DEFAULT_SESSION_LIST_LIMIT)
     expect(page.fetchedCount).toBe(DEFAULT_SESSION_LIST_LIMIT)
@@ -159,14 +159,14 @@ describe('G-815983 ②:listPersistedSessionPage 装车(取数必须带探测行)
   it('⑪ 读失败 ⇒ fetchedCount 落 null(判不了)而不是 0(判过且为空);第二跳走库不可用分支同样 null', async () => {
     const failing = selectChain([], { fail: true })
     mockDb.select.mockReturnValue(failing.step)
-    const page = await listPersistedSessionPage({ limit: 10 })
+    const page = await listPersistedSessionPage({ userId: 'user_1', limit: 10 })
     expect(page.fetchedCount).toBeNull()
     expect(page.truncated).toBe(false)
     expect(page.sessions).toHaveLength(0)
     expect(page.appliedLimit).toBe(10)
 
     // 失败已置 dbDisabled ⇒ 这一跳取不到库(同一个三态出口,不得被写成"没有更多")
-    const second = await listPersistedSessionPage({ limit: 10 })
+    const second = await listPersistedSessionPage({ userId: 'user_1', limit: 10 })
     expect(second.fetchedCount).toBeNull()
     expect(second.sessions).toEqual([])
   })
@@ -174,7 +174,7 @@ describe('G-815983 ②:listPersistedSessionPage 装车(取数必须带探测行)
   it('⑫ 向后兼容:listPersistedSessions 仍是 page 出口的投影,只交 sessions', async () => {
     const chain = selectChain(fakeRows(3))
     mockDb.select.mockReturnValue(chain.step)
-    const list = await listPersistedSessions({ limit: 2 })
+    const list = await listPersistedSessions({ userId: 'user_1', limit: 2 })
     expect(Array.isArray(list)).toBe(true)
     expect(list).toHaveLength(2)
     expect(list[0]).toMatchObject({ id: 'sess_g815983_0', status: 'active' })
@@ -184,12 +184,11 @@ describe('G-815983 ②:listPersistedSessionPage 装车(取数必须带探测行)
   it('⑬ 非法 limit(NaN / 负数)归到具名默认上限,不产出 LIMIT -1 这种库里必炸的形状', async () => {
     const chain = selectChain(fakeRows(1))
     mockDb.select.mockReturnValue(chain.step)
-    const page = await listPersistedSessionPage({ limit: -5 })
+    const page = await listPersistedSessionPage({ userId: 'user_1', limit: -5 })
     expect(page.appliedLimit).toBe(DEFAULT_SESSION_LIST_LIMIT)
     expect(chain.captured.limitArg).toBe(DEFAULT_SESSION_LIST_LIMIT + PAGE_PROBE_ROWS)
   })
 })
-
 
 // ── ③ 源码级锁 ─────────────────────────────────────────────────────────────
 // 这把尺子的口径(2026-10-11 现读校准,全源面命中 8 处 / 5 文件):
@@ -236,7 +235,8 @@ function listSourceFiles(dir: string, acc: string[] = []): string[] {
     if (['node_modules', 'dist', 'build'].includes(e.name) || e.name.startsWith('.')) continue
     const p = join(dir, e.name)
     if (e.isDirectory()) listSourceFiles(p, acc)
-    else if (/\.tsx?$/.test(e.name) && !/\.d\.ts$/.test(e.name) && !/\.test\.ts$/.test(e.name)) acc.push(p)
+    else if (/\.tsx?$/.test(e.name) && !/\.d\.ts$/.test(e.name) && !/\.test\.ts$/.test(e.name))
+      acc.push(p)
   }
   return acc
 }
@@ -244,7 +244,9 @@ function listSourceFiles(dir: string, acc: string[] = []): string[] {
 /** `export function resolveTruncation` 的函数体行区间(含首尾;括号计数,不看缩进)。 */
 function outletLineRange(src: string): { start: number; end: number } {
   const lines = src.split('\n')
-  const declIdx = lines.findIndex((l) => /^export function resolveTruncation\b/.test(stripComment(l)))
+  const declIdx = lines.findIndex((l) =>
+    /^export function resolveTruncation\b/.test(stripComment(l)),
+  )
   if (declIdx < 0) throw new Error('resolveTruncation 声明不在面上')
   let depth = 0
   let started = false
@@ -308,7 +310,8 @@ describe('G-815983 ③:唯一出口的源码级锁(第二份手写形态出现�
 
   it('⑰ resolveTruncation 的导出声明全仓只许有一份(第二份出口 = 第二个真相)', () => {
     const files: string[] = []
-    for (const r of [resolve(API_ROOT, 'src'), resolve(REPO_ROOT, 'packages')]) listSourceFiles(r, files)
+    for (const r of [resolve(API_ROOT, 'src'), resolve(REPO_ROOT, 'packages')])
+      listSourceFiles(r, files)
     const decls: string[] = []
     for (const f of files) {
       if (/^export function resolveTruncation\b/m.test(readFileSync(f, 'utf8'))) {

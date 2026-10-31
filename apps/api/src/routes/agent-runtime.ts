@@ -22,19 +22,33 @@ import type { Session } from '../services/clawdbot/session-manager.js'
 
 const sessionManager = new SessionManager()
 
-// 会话解析:内存命中 → 内存 miss 时从 DB 惰性恢复(重启不丢上下文,P0 修复)
-async function resolveSession(sessionId: string): Promise<Session> {
+/**
+ * 会话解析:内存命中 → 内存 miss 时从 DB 惰性恢复(重启不丢上下文,P0 修复)。
+ *
+ * 2026-10-31 收口(§5「认证不等于授权」):本函数此前**完全不比对主体**,只按 sessionId 取,
+ * 而 sessionId 来自客户端(body/query 皆可)⇒ 任一登录用户可读他人完整对话上下文、
+ * 往他人会话里追加消息(/execute 那条 appendMessageAndPersist 走的就是它),
+ * 还能 cancel 掉别人正在跑的会话。现在两条路径都必须过归属这一关:
+ * 不是本人 ⇒ 抛与"不存在"**同一句话**,调用侧统一 404 —— 不能用 403,那等于替人
+ * 确认"这个 id 确实存在且属于别人",sessionId 就变成可枚举资源。
+ */
+async function resolveSession(sessionId: string, userId: string): Promise<Session> {
+  let session: Session
   try {
-    return sessionManager.get(sessionId)
+    session = sessionManager.get(sessionId)
   } catch {
-    // fall through: 内存未命中,尝试 DB 恢复
+    // 内存未命中,尝试 DB 恢复(取数本身已带归属谓词)
+    const restored = await loadSessionFromDb(sessionId, userId)
+    if (!restored) {
+      throw new Error(`会话不存在: ${sessionId}`)
+    }
+    sessionManager.adopt(restored)
+    return restored
   }
-  const restored = await loadSessionFromDb(sessionId)
-  if (!restored) {
+  if (session.userId !== userId) {
     throw new Error(`会话不存在: ${sessionId}`)
   }
-  sessionManager.adopt(restored)
-  return restored
+  return session
 }
 
 // 追加用户消息并写透 DB(失败自动降级内存,不打断对话流)
@@ -66,7 +80,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
     let session: Session
     if (sessionId) {
       try {
-        session = await resolveSession(sessionId)
+        session = await resolveSession(sessionId, req.userId!)
       } catch {
         return reply.code(404).send(error(404, '会话不存在'))
       }
@@ -103,7 +117,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       let session: Session
       if (sessionId) {
         try {
-          session = await resolveSession(sessionId)
+          session = await resolveSession(sessionId, req.userId!)
         } catch {
           reply.raw.write(`event: error\ndata: ${JSON.stringify({ message: '会话不存在' })}\n\n`)
           return reply.raw.end()
@@ -203,9 +217,12 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
   app.get('/sessions', async (req) => {
     const { limit = '20', offset = '0' } = req.query as { limit?: string; offset?: string }
     // 内存会话 + DB 持久化会话合并(重启后内存为空,列表仍完整;按 id 去重,内存态优先)
+    // 两条来源都按**主体**过滤:此前两侧一律全表取,任一登录用户在列表里看到所有人的会话
+    // 对象(含 context.messages 全量消息)。
+    const owner = req.userId!
     const [memoryList, persisted] = await Promise.all([
-      Promise.resolve(sessionManager.listActive()),
-      listPersistedSessions(),
+      Promise.resolve(sessionManager.listActive().filter((s) => s.userId === owner)),
+      listPersistedSessions({ userId: owner }),
     ])
     const seen = new Set(memoryList.map((s) => s.id))
     const merged = [...memoryList, ...persisted.filter((s) => !seen.has(s.id))]
@@ -217,7 +234,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
   app.get('/sessions/:sessionId', async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string }
     try {
-      const session = await resolveSession(sessionId)
+      const session = await resolveSession(sessionId, req.userId!)
       return success(session)
     } catch {
       return reply.code(404).send(error(404, '会话不存在'))
@@ -227,7 +244,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/sessions/:sessionId/resume', async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string }
     try {
-      const session = await resolveSession(sessionId)
+      const session = await resolveSession(sessionId, req.userId!)
       sessionManager.resume(sessionId)
       void persistSession(session)
       return success({ sessionId, status: 'running' })
@@ -239,7 +256,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
   app.get('/:sessionId/status', async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string }
     try {
-      const session = await resolveSession(sessionId)
+      const session = await resolveSession(sessionId, req.userId!)
       return success({
         sessionId: session.id,
         status: session.status,
@@ -253,7 +270,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/:sessionId/cancel', async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string }
     try {
-      const session = await resolveSession(sessionId)
+      const session = await resolveSession(sessionId, req.userId!)
       sessionManager.close(sessionId)
       void persistSession(session)
       return success({ sessionId, status: 'cancelled' })

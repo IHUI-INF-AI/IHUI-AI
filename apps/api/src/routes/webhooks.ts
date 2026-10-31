@@ -8,6 +8,7 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { webhooks, webhookEvents } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
+import { safeFetch } from '../utils/ssrf-guard.js'
 import { success, error } from '../utils/response.js'
 
 // =============================================================================
@@ -37,19 +38,28 @@ async function deliverWebhook(
   body: unknown,
   _secret?: string,
 ): Promise<{ code: number; ok: boolean; message: string }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10000)
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10000)
-    const resp = await fetch(url, {
+    // 投递目标由用户提供 ⇒ 必须走带 SSRF 守卫的出站出口(逐跳复检 + 拦内网/保留段)。
+    // 裸 fetch 可被指向 169.254.169.254 / 127.0.0.1,把服务器变成打内网的跳板。
+    const resp = await safeFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: controller.signal,
     })
-    clearTimeout(timer)
     return { code: resp.status, ok: resp.ok, message: resp.ok ? '投递成功' : `HTTP ${resp.status}` }
   } catch (e) {
-    return { code: 0, ok: false, message: (e as Error).message || '投递失败' }
+    const message = (e as Error).message || '投递失败'
+    // SSRF 拦截原因可以回显(它只说"这个目标不让访问");其余错误原文可能含内网地址/端口。
+    return {
+      code: 0,
+      ok: false,
+      message: message.startsWith('SSRF blocked:') ? message : '投递失败',
+    }
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -105,11 +115,13 @@ const webhooksRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const [deleted] = await db.delete(webhooks).where(eq(webhooks.id, parsed.data.id)).returning()
+    // 归属条件必须在 DELETE 的 WHERE 里:原先"先删再比 userId",越权行已被物理删除才回 403,
+    // 副作用已经发生 —— 这正是 §5「越权用例要断言副作用没发生」点名的形态。
+    const [deleted] = await db
+      .delete(webhooks)
+      .where(and(eq(webhooks.id, parsed.data.id), eq(webhooks.userId, userId)))
+      .returning()
     if (!deleted) return reply.status(404).send(error(404, 'webhook 不存在'))
-    if (deleted.userId !== userId) {
-      return reply.status(403).send(error(403, '无权删除此 webhook'))
-    }
     return reply.send(success({ ok: true }))
   })
 

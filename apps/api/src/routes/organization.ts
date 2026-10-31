@@ -15,11 +15,7 @@ import { authenticate } from '../plugins/auth.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 const createOrgSchema = z.object({
   name: z.string().min(1, '组织名称不能为空').max(200),
