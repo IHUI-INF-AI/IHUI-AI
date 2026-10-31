@@ -78,7 +78,7 @@ describe('Tappable 按压反馈', () => {
     seen.length = 0
     render(createElement(Tappable, { style: base }))
     pressIn()
-    expect(last().style).toEqual([base, { opacity: 0.65 }])
+    expect(last().style).toEqual([base, { opacity: 0.6 }])
     pressOut()
     expect(last().style).toEqual([base, false])
   })
@@ -118,7 +118,7 @@ describe('Tappable 按压反馈', () => {
     render(createElement(Tappable, { style: arr }))
     expect(last().style).toEqual([arr, false])
     pressIn()
-    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.65 })
+    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.6 })
     expect((last().style as [unknown, unknown])[0]).toBe(arr)
   })
 
@@ -140,7 +140,7 @@ describe('Tappable 按压反馈', () => {
     render(createElement(Tappable, { style: base }))
     pressIn()
     expect(JSON.stringify(last().style)).not.toContain('backgroundColor')
-    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.65 })
+    expect((last().style as [unknown, unknown])[1]).toEqual({ opacity: 0.6 })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
