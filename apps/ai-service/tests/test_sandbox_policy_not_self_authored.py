@@ -111,10 +111,14 @@ def roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
+def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     app = FastAPI()
     app.include_router(sandbox_exec_module.router, prefix="/api")
     app.dependency_overrides[get_current_user_id] = lambda: "sandbox-audit-user"
+    # 2026-10-31 安全强化第 10 批把 OS 沙箱执行面收窄为管理员(非 admin 一律 403):
+    # 任意登录账号拿登记工作区里的解释器起 -c 即服务身份 RCE,故闸排在策略校验之前。
+    # 本文件十几条用例锁的是"策略不许请求方自写",必须先过这道闸;新语义下方有正向用例。
+    monkeypatch.setattr(sandbox_exec_module, "resolve_request_role_id", lambda request: 1)
     yield TestClient(app)
 
 
@@ -125,6 +129,26 @@ def _run(client: TestClient, payload: dict[str, Any]) -> Any:
 def _last_policy() -> os_sandbox.SandboxPolicy:
     assert _StubHandle.instances, "沙箱执行侧根本没被走到 —— 断言无意义"
     return _StubHandle.instances[-1].policy
+
+
+def test_non_admin_rejected_before_any_policy_work(
+    stub_handle: type[_StubHandle], monkeypatch: pytest.MonkeyPatch, roots: list[str]
+) -> None:
+    """角色闸放在最前:非管理员 ⇒ 403,且一次都没执行。
+
+    2026-10-31 安全强化第 10 批收窄(任意登录账号拿登记工作区解释器起 -c 即服务身份
+    RCE)。这条与下面的"策略不许自写"是两道**不同**的闸,不能互相顶替 ——
+    闸在策略校验之前,判红时读到的必须是 403 而不是 400。
+    """
+    monkeypatch.setattr(sandbox_exec_module, "resolve_request_role_id", lambda request: 0)
+    app = FastAPI()
+    app.include_router(sandbox_exec_module.router, prefix="/api")
+    app.dependency_overrides[get_current_user_id] = lambda: "sandbox-audit-user"
+    with TestClient(app) as c:
+        res = _run(c, {})
+    assert res.status_code == 403
+    assert "管理员" in res.json()["detail"]
+    assert stub_handle.instances == [], "角色闸被拒时执行侧不许被走到"
 
 
 # ---------------------------------------------------------------------------

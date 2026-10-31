@@ -161,6 +161,10 @@ SANDBOX_RULE_IDS: frozenset[str] = frozenset(
 #: 撞不上稳定形态的标识折到这里(宁丢维度不造抖动时序)。
 UNDETERMINED_IDENTITY = "unclassified"
 _SAFE_IDENTITY_RE = re.compile(r"^[a-z0-9][a-z0-9_.:;-]{0,63}$")
+#: 纯数字(含小数)不算稳定身份:pid、时间戳、GetLastError 编号都会抖,只是它们恰好
+#: 落在上面的形态集里。2026-10-31 现读:'1793389285.4535432'(秒级时间戳)能过形态闸,
+#: 于是每个样本一个新标签 —— 正是本模块头注要杜绝的"会抖的时序"。
+_NUMERIC_IDENTITY_RE = re.compile(r"^[0-9][0-9_.]*$")
 
 # ── 指标(照 middleware/agent_metrics.py 的注册形态;名称一经上线即为契约)──
 sandbox_decisions_total = Counter(
@@ -207,7 +211,7 @@ def metrics_enabled() -> bool:
 def _safe_identity(raw: object, *, stage: str) -> str:
     """把标签值收成稳定形态;不合形态 ⇒ unclassified + 落一枚 undetermined。"""
     text = str(raw)
-    if _SAFE_IDENTITY_RE.match(text):
+    if _SAFE_IDENTITY_RE.match(text) and not _NUMERIC_IDENTITY_RE.match(text):
         return text
     _inc_undetermined(f"{stage}_volatility")
     return UNDETERMINED_IDENTITY
