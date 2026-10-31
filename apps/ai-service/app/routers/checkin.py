@@ -19,7 +19,7 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - PATCH  /accounts/{id}/name    重命名展示名
 - POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
 - GET    /accounts/{id}/tasks   O68 WorkBuddy growth 任务列表(只读)
-- POST   /accounts/{id}/task-run O68 执行任务族(growth/travel/activity/blackcat,dry_run 可选)
+- POST   /accounts/{id}/task-run O68 执行任务族(growth/travel/activity/blackcat/redeem/lottery,dry_run 可选)
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
 - GET    /scheduler/status      调度器运行状态(enabled / started / next_run / next_run_qoder)
@@ -110,7 +110,7 @@ class UpdateDeviceMapIn(BaseModel):
 class TaskRunIn(BaseModel):
     """O68 任务赚积分执行入参(四族固定;dry_run=true ⇒ 零写侧调用)。"""
 
-    kind: Literal["growth", "travel", "activity", "blackcat"]
+    kind: Literal["growth", "travel", "activity", "blackcat", "redeem", "lottery"]
     dry_run: bool = False
 
 
