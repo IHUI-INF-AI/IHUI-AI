@@ -6366,6 +6366,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] O73 〔千段租约〕 本机=lichunchuan-96818d62 段=O64~O73(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
 
@@ -33537,3 +33538,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R10〕第 31 批(c6e20569d8a,origin=b0e506f31b5)上传下载面/认证会话令牌面/业务越权竞态金额状态机面三轮并行侦察修复 9 项(5 P0 + 4 P1):OAuth JWT 无验签签发任意用户 token(结构性 501 + 审计留痕)、ai-feed image-proxy 位图 MIME 白名单 + CSP sandbox + nosniff + 文档 SVG 落 .img、平台币余额改他人(requireAdmin + 归属闸)、api-key-groups 结构性移除余额字段 + recharge admin-only、2FA 六条登录支路单源闸、提现面下线 410 + 财务提现 admin 闸、支付价格服务端反查、上传合并接 validateUploadHead(content_rejected 终态)。新增 69 用例 + 修正 3 套既有,六套 98 全绿;变异四组按预期转红还原复绿。落地器复跑三红臂处置:门 41 超窗旁支 tag 双留后删除、门 30a 悬空 commit tag 双留、门 4 types dist 属他席在飞中间态(非本批)。 -->
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R11〕第 32 批(548fb0c55c,含 mcp 收尾;origin=b0e506f31b5)A2A 注册鉴权 + endpoint SSRF 校验、连接器密钥失败封闭(encrypt/save fail-closed)、MCP 四处下载 SSRF(逐跳 + 钉 IP,webhook 首跳过闸)、web/miniapp 三处信任边界(DesignPage / ParameterPanel / webview)。R11 四套 pytest 84 全绿;变异自证三组(encrypt_secret fail-closed / save fail-closed / a2a endpoint 0.0.0.0 拒绝)转红复绿;iframe sandbox(PreviewCanvas.tsx:64)变异自证:删 sandbox ⇒ 红 expected null、恢复 ⇒ 绿。批次号注记:R10 标第 31 批与并发席 ab5417bdbf 撞号,实际时序 R10=31、ab5417bdbf=32、mcp 收尾=33。 -->
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R10+R11〕R10(第 31 批,提交 c6e20569d8a,18 文件):5 P0 + 4 P1 全部入库 —— OAuth 未验签签发 token 下线(501+审计)、image-proxy 位图 MIME 白名单 + CSP sandbox、平台币/结算单 admin 闸、api-key-group 余额字段结构性移除、6 条登录支路统一 2FA 闸、提现面 410/admin 闸、createOrder 服务端价格反查、上传魔数闸;回归读数见 loop-run-log 的 R10 终态条。R11(提交 548fb0c55c,12 文件):A2A 注册鉴权 + endpoint SSRF 校验、connector_store 加密不可用 fail-closed、mcp_server 四处 URL 出口逐跳 + 钉 IP(含 automation webhook 首跳)、设计器 postMessage e.source 校验、参数面板 API Key 改 sessionStorage、小程序 webview https + host 白名单。本席现读验证:R11 pytest 五文件 93 用例全绿;PreviewCanvas sandbox 变异自证(加 allow-same-origin ⇒ 用例转红,恢复 ⇒ 转绿,恢复后文件哈希与 HEAD 一致)。收敛终态(2026-10-31 22:2x 现读):本机 HEAD 与 `git ls-remote origin refs/heads/main` 同为 b0e506f31b5e(含 R10/R11 两枚;远端先前读数 6747dfe9473 为其祖先,非丢失)。批次撞号如实记录:R10 与并发席 ab5417bdbf 均标「第 31 批」,按落地时序 R10=31、ab5417bdbf=32、mcp 收尾=33。 -->
+
+- [ ] O67 [auto-triage] API 5xx 错误签名聚类(POST /api/visit-tracking/visit-log 503)(登记@2026-10-31/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 2 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:POST /api/visit-tracking/visit-log → 503 POST /api/visit-tracking/visit-log -> 503 / FastifyError: Service Unavailable)
