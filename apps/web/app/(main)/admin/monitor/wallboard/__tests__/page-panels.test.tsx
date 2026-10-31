@@ -13,6 +13,8 @@
  */
 // @vitest-environment jsdom
 import * as React from 'react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -529,8 +531,17 @@ describe('WallboardView 使用数据面板', () => {
             },
           }) as never)
     const view = renderWallboard()
+    // 措辞的唯一真相源是语言包(措辞会随 i18n 同批调整),本用例锁的是「两个读数都上了屏」:
+    // 按消息模板插值出期望串,不在测试里抄第二份文案。
+    const messages = JSON.parse(
+      readFileSync(resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json'), 'utf8'),
+    ) as { admin: { wallboard: Record<string, string> } }
+    const expected = (messages.admin.wallboard.firingRowsSplit ?? '')
+      .replace('{total}', '3')
+      .replace('{names}', '1')
+    expect(expected).not.toBe('')
     await waitFor(() =>
-      expect(within(view.container).getAllByText(/firing 3 行 \/ 1 个告警名/).length).toBeGreaterThan(0),
+      expect(within(view.container).getAllByText(expected).length).toBeGreaterThan(0),
     )
   })
 
