@@ -205,6 +205,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return
       const d = e.data
       if (!d || d.__ihui !== true || d.type !== 'select') return
       setSelected({
@@ -222,6 +223,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   // P1-c: 拖拽消息处理 — 接收 iframe 拖拽位置,计算参考线 + 吸附,回传 iframe 绘制
   useEffect(() => {
     const handler = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return
       const d = e.data
       if (!d || d.__ihui !== true) return
       if (d.type === 'drag-move' && d.rect && d.others) {
