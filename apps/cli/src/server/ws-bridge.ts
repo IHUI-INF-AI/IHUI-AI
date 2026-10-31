@@ -108,7 +108,9 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     // 防线是 Origin 校验 —— drive-by 网页发起的握手必带本页 Origin,非回环来源直接
     // 拒绝(带凭据也不放行);非浏览器客户端可不带 Origin,不受影响。
     const origin = headerValue(headers.origin);
-    if (origin !== undefined && origin !== 'null') {
+    // R8 复评 O2:Origin: null(沙箱 iframe/file://)同样不属回环来源,一并拒 ——
+    // 该形态曾跳过主机名校验直入鉴权;凭据面虽仍闸住,方向是多拒一次(fail-closed)。
+    if (origin !== undefined) {
       let originHost = '';
       try {
         originHost = new URL(origin).hostname.toLowerCase();
