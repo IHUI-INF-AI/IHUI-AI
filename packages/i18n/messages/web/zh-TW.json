@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-      "title": "號池選號策略檔(全域預設)",
-      "refresh": "重新整理",
-      "loading": "讀取策略檔…",
-      "loadFailed": "讀取失敗",
-      "badgeAllDefault": "全部預設檔",
-      "badgeDeviated": "偏離預設 {n} 枚",
-      "badgeInvalid": "髒值回落 {n} 枚",
-      "badgeRegistryBroken": "登記表不完整",
-      "readOnlyHint": "唯讀:改鈕寫 .env 後重啟 apps/api 生效",
-      "defaultIs": "預設 {v}",
-      "invalidFellBack": "髒值已回落預設",
-      "registryDiff": "未登記鈕:{missing};孤立登記:{orphan}"
+        "title": "號池選號策略檔(全域預設)",
+        "refresh": "重新整理",
+        "loading": "讀取策略檔…",
+        "loadFailed": "讀取失敗",
+        "badgeAllDefault": "全部預設檔",
+        "badgeDeviated": "偏離預設 {n} 枚",
+        "badgeInvalid": "髒值回落 {n} 枚",
+        "badgeRegistryBroken": "登記表不完整",
+        "readOnlyHint": "唯讀:改鈕寫 .env 後重啟 apps/api 生效",
+        "defaultIs": "預設 {v}",
+        "invalidFellBack": "髒值已回落預設",
+        "registryDiff": "未登記鈕:{missing};孤立登記:{orphan}"
     },
     "relayTasks": {
-      "wbTitle": "WorkBuddy 任務自動化",
-      "wbAccount": "帳號",
-      "wbAccountEmpty": "暫無 WorkBuddy 帳號",
-      "wbDryRun": "預覽(乾跑)",
-      "wbRefresh": "重新整理",
-      "wbNoAccount": "請先選擇帳號",
-      "wbLoading": "讀取任務清單…",
-      "wbReadFailed": "讀取失敗",
-      "wbUnjudged": "未判定",
-      "wbNoTasks": "沒有可執行任務",
-      "wbColTask": "任務",
-      "wbColProgress": "進度",
-      "wbColStatus": "狀態",
-      "wbColReward": "獎勵",
-      "wbKindGrowth": "成長",
-      "wbKindTravel": "旅行",
-      "wbKindActivity": "活躍",
-      "wbKindBlackcat": "黑貓(夜間)",
-      "wbRunOk": "任務已執行",
-      "wbRunFailed": "執行失敗",
-      "wbAccepted": "已接取",
-      "wbClaimed": "已領取",
-      "wbCreditDelta": "積分變化",
-      "wbEnergyDelta": "體力變化",
-      "wbNeverRun": "尚未執行"
+        "wbTitle": "WorkBuddy 任務自動化",
+        "wbAccount": "帳號",
+        "wbAccountEmpty": "暫無 WorkBuddy 帳號",
+        "wbDryRun": "預覽(乾跑)",
+        "wbRefresh": "重新整理",
+        "wbNoAccount": "請先選擇帳號",
+        "wbLoading": "讀取任務清單…",
+        "wbReadFailed": "讀取失敗",
+        "wbUnjudged": "未判定",
+        "wbNoTasks": "沒有可執行任務",
+        "wbColTask": "任務",
+        "wbColProgress": "進度",
+        "wbColStatus": "狀態",
+        "wbColReward": "獎勵",
+        "wbKindGrowth": "成長",
+        "wbKindTravel": "旅行",
+        "wbKindActivity": "活躍",
+        "wbKindBlackcat": "黑貓(夜間)",
+        "wbRunOk": "任務已執行",
+        "wbRunFailed": "執行失敗",
+        "wbAccepted": "已接取",
+        "wbClaimed": "已領取",
+        "wbCreditDelta": "積分變化",
+        "wbEnergyDelta": "體力變化",
+        "wbNeverRun": "尚未執行"
     },
     "smsOperations": {
       "page": {
@@ -935,6 +935,8 @@
       }
     },
     "wallboard": {
+      "firingRowsSplit": "{total} 條告警依名稱聚合為 {names} 條",
+      "pv5mNow": "近 5 分鐘 {count} 次瀏覽",
       "edgeControlLeg": "未走加速的對照",
       "edgeHeadlineHit": "國內加速命中率",
       "edgeHeadlineMs": "首頁現在開啟耗時",
@@ -1212,9 +1214,7 @@
       "panelVisitTransition": "頁面流轉",
       "visitTransitionMoves": "近24小時 跳轉 {count} 次",
       "visitTransitionTop": "最常走的路徑(近24小時)",
-      "visitTransitionNoData": "近24小時 無頁面流轉",
-      "pv5mNow": "近5分鐘 {count} 次",
-      "firingRowsSplit": "firing {total} 列 / {names} 個告警名"
+      "visitTransitionNoData": "近24小時 無頁面流轉"
     },
     "aboutUs": {
       "add": "新增",
@@ -7949,7 +7949,7 @@
           "hookName": "Hook 名稱",
           "event": "觸發事件",
           "evidence": "證據明細",
-          "dismiss": "關閉此卡片"
+            "dismiss": "關閉此卡片"
         },
         "hint": {
           "retryScheduled": "系統會在稍後自動重試,無需操作。",
@@ -9229,10 +9229,6 @@
         "RISK_CONFIRM_REQUIRED": {
           "title": "需要確認後才會執行",
           "action": "前往確認"
-        },
-        "SCHEDULER_ERROR": {
-          "title": "排程任務調度失敗",
-          "action": "稍後重試"
         },
         "SCHEME_REJECTED": {
           "title": "該位址不被允許存取",
@@ -11914,8 +11910,6 @@
       "removeLabel": "移除 {label}"
     },
     "message": {
-      "metadataLoading": "正在載入中繼資料…",
-      "metadataUnavailable": "中繼資料暫時無法取得",
       "copy": "複製",
       "delete": "刪除",
       "downloadImages": "下載圖片",
@@ -11939,6 +11933,8 @@
       "showContent": "顯示內容",
       "stopReadAloud": "停止朗讀",
       "toggleMetadata": "切換元數據",
+      "metadataLoading": "正在載入中繼資料…",
+      "metadataUnavailable": "中繼資料暫時無法取得",
       "pin": "釘選",
       "unpin": "取消釘選",
       "bookmark": "收藏",
@@ -20212,6 +20208,18 @@
     "wizardAuditScope": "掃描範圍：{cn} 與 {roaming}，共 {files} 個檔案。"
   },
   "checkin": {
+    "taskPanelTitle": "自動做任務",
+    "taskPanelDesc": "一鍵巡檢 WorkBuddy 任務中心:接任務、達標領獎、連登兌換、抽獎、貓貓旅行、夜貓子閒聊。",
+    "taskPanelPick": "選擇帳號",
+    "taskPanelList": "讀取任務",
+    "taskPanelDryRun": "預演(不寫入)",
+    "taskPanelRun": "一鍵做任務",
+    "taskPanelRunning": "執行中…",
+    "taskPanelEmpty": "暫無任務,或尚未讀取",
+    "taskPanelResult": "執行結果",
+    "taskPanelNoAccount": "暫無 WorkBuddy 帳號,請先在上方加入",
+    "taskPanelTaskCode": "任務",
+    "taskPanelStatus": "狀態",
     "title": "簽到助手",
     "addAccount": "新增帳號",
     "addAccountTitle": "新增簽到帳號",
