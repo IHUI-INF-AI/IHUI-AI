@@ -33,7 +33,7 @@ import tempfile
 from threading import Lock
 from typing import Any
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,30 @@ def _transcribe_sync(model: Any, tmp_path: str, language: str | None) -> str:
     return "".join(segment.text for segment in segments).strip()
 
 
+# 2026-11-01 安全强化:匿名可调端点的上传上限(见 stt 端点头注)。
+MAX_STT_UPLOAD_BYTES = 25 * 1024 * 1024
+_STT_READ_CHUNK_BYTES = 1024 * 1024
+
+
+async def _read_capped(file: Any, limit: int) -> bytes | None:
+    """分块读到 limit 为止;**超限返回 None**,而不是先把整包读进内存再判长度。
+
+    先 `read()` 再 `len()` 的写法(本仓 media_tasks 那处就是)对"上限本身"仍造成峰值占用:
+    攻击者送 2GB 时,判定发生在内存已经吃到 2GB 之后。这里边读边断,峰值受限于 limit + 一块。
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        piece = await file.read(_STT_READ_CHUNK_BYTES)
+        if not piece:
+            break
+        total += len(piece)
+        if total > limit:
+            return None
+        chunks.append(piece)
+    return b"".join(chunks)
+
+
 @router.post("/voice/stt", response_model=STTResponse)
 async def voice_stt(
     file: UploadFile = File(..., description="音频文件(wav/mp3/m4a/webm 等)"),
@@ -159,7 +183,16 @@ async def voice_stt(
         STTResponse: { text, stub, model }
     """
     # 读取上传的音频字节
-    audio_bytes = await file.read()
+    # 2026-11-01 安全强化:本端点在 JWT_PUBLIC_PATHS 里(**匿名可调**),而后面接的是本地
+    # faster-whisper CPU 推理。原先 `await file.read()` 无上限 ⇒ 任何人不登录就能用一枚
+    # 多 GB 的 multipart 体把进程内存吃光,并让每次请求都排进 CPU 队列(DoS)。
+    # 分块读到上限即断,不先把整包读进内存再判长度(那样上限本身已经造成了峰值占用)。
+    audio_bytes = await _read_capped(file, MAX_STT_UPLOAD_BYTES)
+    if audio_bytes is None:
+        raise HTTPException(
+            status_code=413,
+            detail=f"音频超过 {MAX_STT_UPLOAD_BYTES // (1024 * 1024)}MB 上限",
+        )
     if not audio_bytes:
         return STTResponse(text="", stub=True, model=_DEFAULT_STT_MODEL)
 
