@@ -112,6 +112,7 @@
     "retry": "再試行",
     "save": "保存",
     "success": "成功",
+    "uploading": "アップロード中…",
     "user": "ユーザー",
     "more": "もっと見る",
     "discountAmount": "割引",
@@ -133,6 +134,28 @@
     "getPhoneFail": "電話番号の取得に失敗しました",
     "loginFailed": "ログインに失敗しました。もう一度お試しください",
     "wechatOneClick": "WeChatワンタップログイン",
+    "platformWechat": "微信",
+    "platformLark": "飛書",
+    "platformDingTalk": "DingTalk",
+    "platformWeCom": "WeCom",
+    "platformAlipay": "Alipay",
+    "webPreviewHint": "Webプレビューは微信・サードパーティアカウントに未対応。SMSコードまたはアカウントパスワードでログインしてください。",
+    "webSsoNotSupported": "Webプレビューはワンクリック権限ログイン未対応。スマホアプリか下のアカウントパスワードをご利用ください",
+    "ssoCancelled": "ユーザーが権限付与をキャンセルしました",
+    "ssoNoCode": "SSOリダイレクトにcodeが含まれません",
+    "ssoTokenFail": "SSOのtoken交換に失敗しました",
+    "carrierNotConfigured": "通信キャリアワンクリックログインは未設定のためSMSコードログインに切り替えました",
+    "carrierOneClick": "この番号でワンクリックログイン",
+    "carrierLaunching": "キャリア認証を起動中...",
+    "closeCarrier": "キャリアログインを閉じる",
+    "wechatH5Hint": "微信ログインはネイティブアプリでのみ利用可能です（微信アプリのインストールが必要）。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
+    "goWeb": "Web版へ",
+    "wechatNotInstalled": "微信アプリが未インストールです。先にインストールしてください",
+    "appleNotConfigured": "Appleログイン未設定。.env で EXPO_PUBLIC_APPLE_CLIENT_ID を設定、または expo-apple-authentication（iOS）をインストールしてください。",
+    "googleNotConfigured": "Googleログイン未設定。.env で EXPO_PUBLIC_GOOGLE_CLIENT_ID を設定してください。",
+    "sdkPending": "{name}ログインはWeb版のみ対応。モバイルにはネイティブSDKが未統合です。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
+    "agree": "同意",
+    "agreeTermsTitle": "サービス条項への同意確認",
     "webAuthLogin": "Web認証ログイン"
   },
   "forgot": {
@@ -186,6 +209,7 @@
     "contentText": "テキストコンテンツ",
     "boolYes": "はい",
     "boolNo": "いいえ",
+    "closePreview": "プレビューを閉じる",
     "addCamera": "カメラ",
     "addAlbum": "アルバム",
     "addLocalFile": "ローカルファイル",
@@ -213,6 +237,7 @@
     "highlights": "コースハイライト",
     "nextLesson": "次: {title}",
     "startLearning": "学習開始",
+    "buyNow": "今すぐ購入",
     "buyDeveloping": "購入機能は開発中",
     "buyFirst": "コースを先に購入してください",
     "signSuccess": "チェックイン成功",
@@ -265,17 +290,22 @@
     "complete": "修了にする"
   },
   "live": {
+    "viewers": "{n} 人視聴",
+    "preview": "予告",
     "replay": "リプレイ",
     "liveNow": "配信中",
     "detail": {
       "loadFailed": "ライブの読み込みに失敗",
+      "loading": "ライブ読み込み中…",
       "notStarted": "ライブ未開始",
       "ended": "ライブ終了",
       "connecting": "ライブルームに接続中…",
-      "enter": "ライブルームに入る"
+      "enter": "ライブルームに入る",
+      "anchor": "配信者: {name}"
     },
     "subscribe": {
       "subscribe": "通知を購読",
+      "subscribed": "購読済み",
       "subscribeSuccess": "購読しました",
       "loadFailed": "購読操作に失敗",
       "empty": "購読なし",
@@ -287,6 +317,16 @@
       "discover": "ライブを発見する",
       "count": "購読済み",
       "unit": "回"
+    },
+    "history": {
+      "empty": "過去のライブなし",
+      "loading": "読み込み中…",
+      "hour": "時間",
+      "anchorLabel": "配信者",
+      "watchDuration": "視聴",
+      "rewatch": "もう一度視聴",
+      "continue": "視聴を続ける",
+      "minutes": "分"
     },
     "calendar": {
       "loadFailed": "カレンダーの読み込みに失敗",
@@ -318,6 +358,8 @@
     "statusIdle": "未開始",
     "statusActive": "ライブ中",
     "statusInactive": "終了",
+    "cameraPreview": "カメラプレビュー",
+    "cameraPreviewActive": "配信中",
     "streamTitle": "配信タイトル",
     "streamTitlePlaceholder": "配信タイトルを入力してください",
     "pushUrl": "配信URL",
@@ -326,8 +368,13 @@
     "endLive": "配信終了",
     "starting": "開始中...",
     "ending": "終了中...",
+    "liveData": "配信データ",
     "duration": "配信時間",
+    "viewers": "視聴者数",
+    "recvBytes": "受信バイト",
+    "sendBytes": "送信バイト",
     "productManagement": "商品管理",
+    "addProduct": "+ 商品を追加",
     "addProductToast": "商品追加機能は準備中です",
     "endLiveAlert": "配信が終了しました",
     "endLiveDurationPrefix": "今回の配信時間: ",
@@ -347,7 +394,14 @@
   },
   "order": {
     "title": "注文",
+    "cancel": "注文をキャンセル",
     "loadFailed": "注文の読み込みに失敗",
+    "createTime": "作成日時",
+    "orderType": "注文タイプ",
+    "orderStatus": "注文ステータス",
+    "orderAmount": "注文金額",
+    "goPay": "今すぐ支払う",
+    "applyRefund": "返金申請",
     "refund": {
       "title": "返金申請",
       "orderNo": "注文番号",
@@ -367,9 +421,37 @@
       "submitting": "送信中…"
     },
     "refundList": {
-      "stepReview": "審査中"
+      "orderNo": "注文番号: {no}",
+      "empty": "返金記録なし",
+      "tabRefunding": "返金処理中",
+      "tabRefunded": "返金済み",
+      "tabRejected": "却下済み",
+      "statusRefunding": "返金処理中",
+      "statusRejected": "却下済み",
+      "stepApply": "返金申請",
+      "stepReview": "審査中",
+      "estimateTip": "入金予定日時",
+      "collapse": "進捗を折りたたむ",
+      "viewProgress": "進捗を表示",
+      "viewOrder": "注文詳細",
+      "noMore": "これ以上はありません",
+      "reason": "返金理由",
+      "statusRefunded": "返金済み",
+      "tabAll": "すべて"
     },
+    "cancelConfirm": "この注文をキャンセルしますか?",
+    "cancelSuccess": "注文をキャンセルしました",
+    "cancelFailed": "注文のキャンセルに失敗しました",
     "list": {
+      "refundTime": "返金日時",
+      "applyRefund": "返金申請",
+      "cancel": "キャンセル",
+      "empty": "注文がまだありません",
+      "goPay": "支払う",
+      "notFound": "該当する注文が見つかりません",
+      "orderNo": "注文番号",
+      "search": "検索",
+      "searchPlaceholder": "自分の注文を検索",
       "title": "注文一覧"
     },
     "orderNo": "注文番号",
@@ -401,12 +483,21 @@
         "contactService": "カスタマーサービスに連絡"
       },
       "tokenRate": "1元 = {n} IHUIポイント",
+      "activityTitle": "期間限定キャンペーン",
+      "activityPlaceholder": "キャンペーンチャージ金額を入力してください",
+      "activitySubmit": "期間限定お得なチャージ",
       "guest": "ゲスト"
     },
     "withdrawal": {
       "amountLabel": "出金金額",
       "records": "出金記録",
       "availableYuan": "出金可能額(元)"
+    },
+    "commission": {
+      "today": "本日のコミッション",
+      "available": "出金可能コミッション",
+      "records": "コミッション記録",
+      "title": "コミッション明細"
     },
     "balance": "残高",
     "frozen": "凍結金額",
@@ -461,6 +552,7 @@
     "operationFailed": "操作失敗",
     "logoutConfirm": "ログアウトしますか?",
     "unboundPhone": "未登録",
+    "account": "アカウント",
     "profile": "プロフィール",
     "notificationSetting": "通知設定",
     "clearCache": "キャッシュクリア",
@@ -468,6 +560,7 @@
     "languageSetting": "言語設定",
     "themeSetting": "テーマ設定",
     "aboutUs": "私たちについて",
+    "logout": "ログアウト",
     "cache": {
       "current": "現在のキャッシュ",
       "clearImage": "画像キャッシュをクリア",
@@ -603,6 +696,7 @@
       "コードを書いて",
       "この文章を翻訳して"
     ],
+    "thinking": "考え中…",
     "stop": "停止",
     "clear": "クリア",
     "clearConfirm": "現在の会話をクリアしますか?",
@@ -638,10 +732,14 @@
       "permissionLoading": "権限読み込み中…",
       "prologue": "プロローグ",
       "promptLabel": "プロンプト",
+      "ratingDistribution": "評価分布",
       "relatedAgents": "関連エージェント",
+      "reviewCount": "{n}件のレビュー",
+      "reviews": "レビュー",
       "startChat": "チャット開始",
       "tabRuntime": "ランタイム",
       "unfavorite": "お気に入り解除",
+      "useCount": "{n}人が使用",
       "vipExclusive": "VIP限定",
       "vipPermissionDenied": "このエージェントにはVIPが必要"
     },
@@ -672,7 +770,14 @@
     },
     "aiAssistant": {
       "copyFailed": "コピーに失敗しました",
-      "pleaseLogin": "先にログインしてください"
+      "copySuccess": "コピーしました",
+      "generateFailed": "生成失敗、再試行してください",
+      "goRecharge": "トークンが不足しています。チャージしますか?",
+      "insufficientTokens": "トークンが不足しています",
+      "nothingToCopy": "コピーする内容がありません",
+      "pleaseInputDesc": "説明を入力してください",
+      "pleaseLogin": "先にログインしてください",
+      "pleaseWait": "お待ちください"
     },
     "chat": {
       "replayFailed": "この会話の読み込みに失敗しました。もう一度お試しください",
@@ -1202,16 +1307,36 @@
     "failed": "アカウント解除に失敗しました。もう一度お試しください"
   },
   "ask": {
+    "search": "質問を検索",
+    "tabs": {
+      "new": "最新",
+      "hot": "人気",
+      "unanswered": "未回答"
+    },
+    "answers": "{n} 件の回答",
+    "empty": "質問なし",
+    "detail": {
+      "me": "自分",
+      "justNow": "たった今",
+      "answered": "回答しました",
+      "answerCount": "{n} 件の回答",
+      "placeholder": "回答を入力…",
+      "answer": "回答"
+    },
     "create": {
       "published": "質問を公開しました",
       "failed": "公開失敗、再試行してください",
       "titleLabel": "タイトル",
+      "titlePlaceholder": "質問を一行で",
+      "detailLabel": "詳細",
+      "detailPlaceholder": "詳細を書くほど回答が得やすい",
       "rewardLabel": "報酬ポイント",
       "submit": "質問を公開",
       "draftRestored": "下書きを復元しました",
       "maxImages": "最大3枚",
       "contentRequired": "問題の内容を入力してください",
       "contentTooShort": "5文字以上入力してください",
+      "pageTitle": "質問",
       "categoryPlaceholder": "カテゴリーを選択",
       "imageLabel": "画像",
       "anonymousLabel": "匿名で投稿",
@@ -1227,12 +1352,17 @@
     "publish": {
       "title": "作品を公開",
       "titleLabel": "タイトル",
+      "titlePlaceholder": "タイトル",
       "descLabel": "説明",
+      "descPlaceholder": "作品の説明",
       "publish": "公開",
       "published": "公開しました",
       "titleRequired": "タイトルを入力",
       "maxFiles": "最大5ファイルまで",
+      "workLabel": "作品ファイル",
+      "addImage": "+ 画像追加",
       "promptLabel": "プロンプト",
+      "promptPlaceholder": "AI生成プロンプトを入力",
       "descRequired": "作品説明を入力",
       "promptRequired": "プロンプトを入力",
       "uploadOk": "アップロード成功",
@@ -1272,11 +1402,14 @@
     "loadMore": "もっと読み込む",
     "noMore": "これ以上なし",
     "people": "人",
+    "sortByFollowed": "フォロー日時",
+    "sortByRecent": "最近のアクティビティ",
     "followedAt": "フォロー日:",
     "searchEmpty": "一致するユーザーが見つかりません",
     "goDiscover": "もっと発見する",
     "following": "フォロー済み",
-    "searchPlaceholder": "フォローしたユーザーを検索"
+    "searchPlaceholder": "フォローしたユーザーを検索",
+    "total": "フォロー中"
   },
   "webview": {
     "title": "ウェブページ",
@@ -1295,11 +1428,23 @@
   "exam": {
     "attempts": "受験回数",
     "duration": "所要時間",
+    "tabs": {
+      "all": "すべて",
+      "pending": "未完了",
+      "completed": "完了済み"
+    },
     "questions": "{n} 問",
+    "minutes": "{n} 分",
     "passScore": "合格点",
     "totalScore": "総得点",
+    "removedPaper": "試験は削除されました",
     "passed": "合格",
+    "notPassed": "不合格",
+    "score": "得点 {n}",
     "result": {
+      "loadFailed": "結果の読み込み失敗",
+      "pass": "おめでとう、合格",
+      "notPass": "不合格",
       "scoreValue": "{n} 点",
       "rankValue": "{total} 人中 {n} 位",
       "goList": "試験一覧を見る",
@@ -1307,12 +1452,15 @@
       "reviewTitle": "問題の振り返り",
       "reviewCorrect": "正解",
       "reviewWrong": "不正解",
+      "myAnswer": "私の回答",
+      "correctAnswer": "正解",
       "analysis": "解説",
       "noReview": "問題の振り返りはありません",
       "correct": "正解",
       "correctValue": "{n} 問",
       "duration": "所要時間",
       "durationValue": "{n} 分",
+      "loading": "読み込み中…",
       "questionIdx": "第 {n} 問",
       "retry": "もう一度受験",
       "reviewScore": "{n} 点",
@@ -1360,6 +1508,7 @@
         "正しい",
         "間違い"
       ],
+      "loadFailed": "問題の読み込み失敗",
       "answerPlaceholder": "答えを入力",
       "prev": "前の問題",
       "next": "次の問題",
@@ -1385,6 +1534,12 @@
     "searchPlaceholder": "コレクションしたコンテンツを検索",
     "selectFirst": "先に選択してください",
     "total": "コレクション済み",
+    "tabCourse": "コース",
+    "tabLive": "ライブ",
+    "tabPost": "投稿",
+    "tabAigc": "AI作品",
+    "tabNews": "ニュース",
+    "deleteTitle": "削除の確認",
     "title": "マイお気に入り"
   },
   "userFans": {
@@ -1407,6 +1562,7 @@
       "invalidAmount": "有効な金額を入力",
       "insufficient": "残高不足",
       "submitted": "出金申請を送信しました",
+      "available": "出金可能",
       "amountPlaceholder": "出金金額を入力",
       "all": "全額出金",
       "method": "出金方法",
@@ -1444,9 +1600,11 @@
       "rule3": "コミッションは友達の支払い成功後24時間以内に自動的にアカウントへ精算されます",
       "rule4": "残高が100元に達するとWeChatまたはAlipayに引き出し申請できます",
       "introTitle": "友達を招待してコミッションを獲得",
+      "introDesc": "私たちのコミッションプランに参加し、友達を会員として招待すると、会員費の20%のコミッションが得られます",
       "totalEarnings": "累計収益",
       "inviteCount": "招待数",
-      "rulesTitle": "コミッション規則"
+      "rulesTitle": "コミッション規則",
+      "openVipBtn": "VIP会員を開通、コミッションプランに参加"
     },
     "memberDetail": {
       "loading": "読み込み中…",
@@ -1476,7 +1634,17 @@
       "noMore": "これ以上なし"
     },
     "company": {
-      "title": "マイカンパニー"
+      "title": "マイカンパニー",
+      "level": "レベル {n}",
+      "totalEarnings": "累計収益",
+      "available": "出金可能",
+      "teamMembers": "チームメンバー",
+      "memberCount": "{n} 人",
+      "empty": "メンバーなし",
+      "joinTime": "参加: {time}",
+      "menuTeam": "チーム管理",
+      "menuCommission": "コミッション",
+      "menuWithdraw": "出金申請"
     },
     "index": {
       "title": "マイカンパニー",
@@ -2101,8 +2269,10 @@
     "title": "カート",
     "selectAll": "すべて選択",
     "checkout": "精算",
+    "loading": "読み込み中…",
     "product": "商品",
     "empty": "カートは空",
+    "checkoutToast": "精算機能は開発中",
     "deleteConfirm": "この商品を削除しますか?",
     "selectFirst": "商品を選択してください",
     "loadFailed": "読み込み失敗",
@@ -2190,6 +2360,7 @@
       "infoTitle": "開発者情報"
     },
     "n8nModel": {
+      "title": "N8Nモデル",
       "defaultName": "無題モデル",
       "empty": "モデルなし",
       "createTitle": "エージェント作成",
@@ -2233,24 +2404,33 @@
     "modelEdit": {
       "title": "モデル編集",
       "model": "モデル",
+      "categoryLabel": "カテゴリ(複数選択)",
       "departmentLabel": "部門",
+      "saleTypeLabel": "販売方式",
       "saleTypeFree": "無料",
       "saleTypeLimited": "期間限定無料",
       "saleTypePaid": "有料",
+      "chargePeriodLabel": "課金周期",
       "chargePeriodMonthly": "月額",
       "chargePeriodQuarterly": "四半期",
       "chargePeriodYearly": "年額",
       "priceLabel": "価格",
       "pricePlaceholder": "価格を入力",
+      "limitedDurationLabel": "期間限定無料の期限",
       "limitedDuration1Day": "1日",
       "limitedDuration3Day": "3日",
       "limitedDuration7Day": "7日",
       "limitedDuration30Day": "30日",
+      "targetGroupLabel": "対象グループ",
       "targetGroupIndividual": "個人",
       "targetGroupEnterprise": "企業",
+      "discountLabel": "割引参加",
       "discountNone": "不参加",
       "discountPartial": "一部参加",
-      "discountFull": "全て参加"
+      "discountFull": "全て参加",
+      "submitting": "送信中…",
+      "submit": "審査に提出",
+      "mockSuccess": "APIは未対応です。送信されませんでした"
     }
   },
   "devSpace": {
@@ -2307,6 +2487,7 @@
     },
     "income": {
       "withdrawn": "出金済み",
+      "withdraw": "即時出金",
       "withdrawPopup": "出金",
       "withdrawAvailable": "出金可能金額 ¥",
       "withdrawPlaceholder": "出金金額を入力",
@@ -2326,12 +2507,19 @@
       "tabAll": "すべて",
       "tabPending": "精算待ち",
       "tabSettled": "精算済み",
+      "accumulatedYuan": "累計収入(元)",
+      "withdrawableYuan": "出金可能金額(元)",
+      "withdrawnAmountYuan": "出金済み金額(元)",
       "cashDetail": "出金明細",
       "todayIncome": "本日収入",
       "pendingSettlement": "精算待ち金額",
       "feeTip": "プラットフォームは期間限定でサービス手数料無料",
+      "empty": "収入記録なし",
       "noMore": "これ以上ありません",
-      "cashEmpty": "出金記録なし"
+      "cashEmpty": "出金記録なし",
+      "moreMethod": "その他の出金方法は公式APPで",
+      "wechat": "WeChat",
+      "yuan": "元"
     },
     "index": {
       "subscribeTitle": "サブスク",
@@ -2356,7 +2544,18 @@
   },
   "modelPlaza": {
     "title": "モデル広場",
-    "tabImage": "画像"
+    "empty": "モデルなし",
+    "tabAll": "全て",
+    "tabText": "テキスト",
+    "tabImage": "画像",
+    "tabAv": "音声/動画",
+    "payMode": "従量課金",
+    "modelCount": "{n}個のモデル",
+    "synced": "{n}件同期済み",
+    "perKTokens": "千トークン",
+    "noMore": "— これ以上ありません —",
+    "contextLength": "コンテキスト",
+    "providerModel": "モデル"
   },
   "news": {
     "search": "ニュース検索",
@@ -2485,7 +2684,16 @@
     "saveFailed": "保存に失敗"
   },
   "postDetail": {
-    "loadFailed": "投稿の読み込みに失敗"
+    "loadFailed": "投稿の読み込みに失敗",
+    "anonymous": "匿名",
+    "typesLabel": "タイプ",
+    "categoriesLabel": "カテゴリ",
+    "taskStatusLabel": "タスク状態",
+    "reviewStatusLabel": "審査状態",
+    "priceLabel": "価格",
+    "cycleLabel": "期間",
+    "closingTimeLabel": "締切日時",
+    "contactLabel": "連絡先"
   },
   "announcementDetail": {
     "empty": "お知らせが見つからないか、削除されました",
@@ -2557,12 +2765,17 @@
     "password": "パスワード",
     "passwordPlaceholder": "パスワード設定",
     "submit": "登録",
+    "agreeFirst": "利用規約を読み、同意してください",
     "phoneInvalid": "正しい電話番号を入力",
     "pwdLength": "パスワードは6〜20文字",
     "pageMissing": "ページ未登録",
     "codePlaceholder": "認証コードを入力",
     "hide": "非表示",
     "show": "表示",
+    "submitting": "登録中…",
+    "agreePrefix": "読み同意しました",
+    "userAgreement": "《利用規約》",
+    "privacyPolicy": "《プライバシーポリシー》",
     "sendCodeFailed": "認証コードの送信に失敗しました",
     "registering": "登録中...",
     "confirmPassword": "パスワードを確認",
@@ -2596,9 +2809,19 @@
     "pinned": "ピン留め",
     "deleted": "削除済み",
     "notFound": "会話が見つかりません",
+    "center": "メッセージセンター",
     "settings": "設定",
     "notificationSettings": "通知設定",
     "close": "閉じる",
+    "demo": {
+      "lisi": "李四",
+      "wangwu": "王五",
+      "likeNote": "があなたの学習ノートにいいねしました",
+      "replyComment": "があなたのコメントに返信しました:とても分かりやすい!",
+      "followYou": "があなたをフォローしました",
+      "targetReact": "React 入門 第3回",
+      "targetAi": "AI 大モデル実戦"
+    },
     "startConversation": "会話を始めましょう",
     "inputPlaceholder": "メッセージを入力...",
     "sendBtn": "送信",
@@ -2632,24 +2855,48 @@
       "contactTitle": "お困りですか?",
       "contactText": "カスタマーサービスWeChat:AIXHS_Service",
       "currentLevel": "現在のレベル",
+      "expire": "期限",
       "expired": "期限切れ",
       "guest": "ゲスト",
+      "levelIntro": "会員レベル紹介",
       "loading": "読み込み中…",
       "maxLevel": "最高レベル到達",
       "maxLevelHint": "最高レベルに到達しました",
       "nextLevelHint": "${nextTier?.name ?? ''} まであと ${nextThreshold - growth}",
       "normalUser": "一般ユーザー",
       "notOpened": "未開通",
+      "openNow": "今すぐ開通",
       "openVip": "VIP会員を開通",
       "opened": "開通済み",
       "privileges": "会員特典",
       "share": "シェアして報酬を獲得"
+    },
+    "integral": {
+      "current": "現在ポイント",
+      "empty": "記録なし",
+      "loading": "読み込み中…",
+      "loadFailed": "読み込み失敗",
+      "noMore": "これ以上なし"
     },
     "benefits": {
       "empty": "特典なし",
       "myBenefits": "マイ特典",
       "loadFailed": "読み込み失敗",
       "tierCatalog": "等級特典"
+    },
+    "coupon": {
+      "unit": "元",
+      "empty": "クーポンなし",
+      "couponCenter": "クーポンセンター",
+      "useHint": "商品ページでご利用ください",
+      "loadFailed": "読み込み失敗",
+      "thresholdText": "満{threshold}で利用可",
+      "expireText": "有効期限: {time}",
+      "use": "今すぐ使用",
+      "loadMore": "スライドして読み込む",
+      "unused": "未使用",
+      "used": "使用済み",
+      "expired": "期限切れ"
     },
     "couponList": {
       "received": "受け取り成功",
@@ -2691,9 +2938,13 @@
   },
   "pay": {
     "result": {
-      "paid": "支払い成功"
+      "pending": "支払い処理中",
+      "paid": "支払い成功",
+      "failed": "支払い失敗"
     },
     "backHome": "ホームへ戻る",
+    "viewOrders": "注文を見る",
+    "refresh": "更新",
     "orderAbnormal": "注文異常",
     "orderAmount": "注文金額",
     "selectMethod": "支払い方法選択",
@@ -2755,6 +3006,8 @@
       "addFailed": "追加失敗",
       "target": "目標 {n} 分",
       "completed": "完了 {n} 分",
+      "statusDone": "完了",
+      "statusInProgress": "進行中",
       "empty": "計画なし",
       "add": "計画追加"
     },
@@ -2766,10 +3019,25 @@
     },
     "recordPage": {
       "progress": "進捗 {n}%",
+      "empty": "記録なし",
+      "statusLearning": "学習中",
+      "statusAbandon": "リタイア済み",
+      "statTotal": "累計学習",
+      "unitMin": "分",
+      "statDays": "連続日数",
+      "unitDay": "日",
+      "statCourses": "完了コース",
+      "unitCourse": "コース",
+      "statPoints": "獲得ポイント",
+      "unitPoint": "pt",
+      "tabCompleted": "完了済み",
+      "tabAbandoned": "リタイア済み",
       "coverFallback": "コース",
       "continue": "学習を続ける",
       "lastTime": "前回の学習",
-      "tabAll": "すべて"
+      "statusDone": "完了済み",
+      "tabAll": "すべて",
+      "tabLearning": "学習中"
     },
     "videoDetail": {
       "me": "自分",
@@ -2878,9 +3146,12 @@
       "follow": "フォロー",
       "followers": "{n} 人がフォロー中",
       "following": "フォロー中",
+      "hoursAgo": "{n} 時間前",
+      "justNow": "たった今",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中…",
       "loadingMore": "読み込み中…",
+      "minutesAgo": "{n} 分前",
       "noMore": "これ以上はありません",
       "publish": "投稿する"
     },
@@ -2899,6 +3170,7 @@
   },
   "token": {
     "balance": {
+      "empty": "記録なし",
       "title": "マイトークン",
       "agentConsume": "エージェント消費",
       "ordersConsume": "大規模モデル消費",
@@ -2979,9 +3251,11 @@
       "tooShort": "6文字以上必要",
       "mismatch": "パスワード不一致",
       "success": "パスワード変更成功",
+      "oldPassword": "旧パスワード",
       "oldPlaceholder": "旧パスワード入力",
       "newPassword": "新パスワード",
       "newPlaceholder": "新パスワード入力",
+      "confirmPassword": "確認",
       "confirmPlaceholder": "再入力",
       "submit": "変更",
       "forgotOld": "旧パスワードをお忘れですか?電話番号認証で変更",
@@ -3036,6 +3310,30 @@
       "phone": "携帯電話番号",
       "security": "セキュリティ設定"
     },
+    "realname": {
+      "enterRealName": "本名入力",
+      "idCardLength": "ID番号の長さ不正",
+      "authSuccess": "認証成功",
+      "authed": "認証済み",
+      "realName": "本名",
+      "realNamePlaceholder": "本名入力",
+      "idCard": "ID番号",
+      "idCardPlaceholder": "ID番号入力",
+      "submit": "提出",
+      "uploadFailed": "アップロード失敗",
+      "uploadRequired": "身分証の表裏両面の写真をアップロードしてください",
+      "verifiedNote": "実名情報は認証済みのため変更できません",
+      "privacyPromise": "あなたの身分情報は実名認証にのみ使用し、厳密に保護され、他の目的には使用されません",
+      "reviewing": "審査中です。お待ちください",
+      "rejected": "認証不合格",
+      "idCardPhotos": "身分証写真",
+      "frontPhoto": "顔写真面",
+      "backPhoto": "国徽面",
+      "uploadHint": "写真が鮮明で完全に、隠れなく撮影されていることを確認してください",
+      "desc": "アカウントの安全性とコンプライアンス確保のため、一部機能は本人確認の完了後に利用できます",
+      "submitting": "送信中…",
+      "title": "本人確認"
+    },
     "member": "会員",
     "operator": "オペレーター",
     "confirm3": "会員を退会しますか?退会後は会員特典を失います。",
@@ -3063,6 +3361,7 @@
     "expand": "すべて展開",
     "capabilitySection": "コア能力",
     "performanceSection": "過去の実績",
+    "featureSection": "トレーダー特典",
     "serviceSection": "サービスパッケージ",
     "reviewsSection": "ユーザーレビュー",
     "consult": "今すぐ相談",
@@ -3094,6 +3393,8 @@
     },
     "selectPlanFirst": "プラン選択",
     "notOpened": "未契約",
+    "expireTime": "期限: {time}",
+    "openHint": "今すぐ契約で特典",
     "privileges": "会員特典",
     "viewAllBenefits": "全特典を見る",
     "plans": "プラン",
@@ -3163,17 +3464,23 @@
       "confirmPay": "支払い確認",
       "successTitle": "契約成功",
       "successDesc": "VIP会員契約が完了しました",
-      "viewBenefits": "特典を見る"
+      "viewBenefits": "特典を見る",
+      "brandTitle": "IHUI AI 会員"
     },
     "details": {
       "title": "VIP特典比較",
+      "feature": "特典",
+      "normal": "通常会員",
+      "vipColumn": "VIP会員",
       "upgrade": "今すぐ契約",
       "features": {
         "chatCount": "AIチャット回数",
         "drawCount": "AI画像回数",
+        "videoDuration": "動画生成時間",
         "modelAccess": "モデルアクセス",
         "prioritySupport": "優先サポート",
         "exclusiveGroup": "専用グループ",
+        "adExperience": "広告体験",
         "vipColumn": "VIP会員"
       },
       "monthlyPlan": "月額会員",
@@ -3294,12 +3601,23 @@
     }
   },
   "feedback": {
+    "types": {
+      "complaint": "苦情",
+      "suggestion": "提案",
+      "bug": "Bug",
+      "other": "その他"
+    },
+    "uploadFailed": "アップロード失敗",
     "content": "内容",
     "contact": "連絡先",
     "contactPlaceholder": "連絡先を入力してください(任意)",
     "contentPlaceholder": "フィードバックの詳細を入力してください",
+    "enterContent": "フィードバック内容を入力してください",
+    "images": "画像(最大${MAX_IMAGES}枚)",
     "submit": "フィードバックを送信",
-    "type": "タイプ"
+    "submitSuccess": "フィードバック完了",
+    "type": "タイプ",
+    "uploading": "アップロード中"
   },
   "comment": {
     "loading": "読み込み中...",
@@ -3419,13 +3737,22 @@
     "holdToSpeak": "押して話す",
     "addFile": "添付ファイルを追加",
     "document": "ドキュメント",
-    "video": "動画"
+    "video": "動画",
+    "compactSuccess": "コンテキストを圧縮しました: {before} → {after} トークン（{saved} 節約）",
+    "compactTooFew": "メッセージが少ないため圧縮は不要です",
+    "compactIncompressible": "圧縮できるコンテキストはもうありません",
+    "compactFailed": "圧縮に失敗しました",
+    "compactNoSession": "会話が未連携のため圧縮できません"
   },
   "toolbar": {
     "ai": "AIチャット"
   },
   "index": {
     "mock": {
+      "post1Title": "React Hooksの使い方は?",
+      "today": "今日",
+      "post2Title": "TypeScript型推論",
+      "post3Title": "デザインパターン討論",
       "yesterday": "昨日"
     },
     "feature": {
@@ -3472,6 +3799,7 @@
     "emailPlaceholder": "メールアドレスを入力",
     "forgotPassword": "パスワードをお忘れですか",
     "getVerificationCode": "コードを取得",
+    "googleNotConfigured": "Google ログインが設定されていません",
     "loginBtn": "ログイン",
     "noAccount": "アカウントをお持ちでない方は",
     "password": "パスワード",
@@ -3482,6 +3810,7 @@
     "registerNow": "今すぐ登録",
     "resendCode": "再送",
     "termsOfService": "利用規約",
+    "thirdPartyLogin": "他の方法でログイン",
     "loginFailed": "ログインに失敗しました。再試行"
   },
   "level": {
@@ -3628,12 +3957,71 @@
     "register1": "🎉 智匯AIコミュニティへようこそ!新規登録で5000智匯値をプレゼント!",
     "text2": "エージェントアシスタントページ未設定",
     "save3": "画像を保存しました",
+    "d1": "AI文章作成アシスタント",
+    "d2": "高品質な文章・レポート・コピー作成を支援",
+    "d3": "プログラミングアシスタント",
+    "d4": "コード作成・デバッグ・最適化アドバイス",
     "d5": "開発",
+    "d6": "データアナリスト",
+    "d7": "データ可視化と分析インサイト",
+    "d8": "分析",
+    "d9": "デザインクリエイター",
+    "d10": "クリエイティブデザインとビジュアルソリューション",
     "d11": "デザイン",
+    "d12": "翻訳マスター",
+    "d13": "多言語翻訳とローカライゼーション",
+    "d14": "ツール",
+    "d15": "テキスト生成",
+    "d16": "高品質テキストコンテンツ生成",
+    "d17": "画像生成",
+    "d18": "AI絵画と画像創作",
+    "d19": "動画制作",
+    "d20": "AI動画生成と編集",
+    "d21": "音声処理",
+    "d22": "音声合成と音声編集",
+    "d23": "コード生成",
+    "d24": "多言語コード自動生成",
+    "d25": "データ分析",
+    "d26": "データ分析と可視化",
+    "d27": "AI絵画",
+    "d28": "テキスト生成画像と画像生成画像",
+    "d29": "動画編集",
+    "d30": "スマート動画編集とエフェクト",
+    "d31": "AI絵画入門ガイド",
+    "d32": "本記事ではAI絵画の基礎知識とよく使うツールを詳しく紹介...",
+    "d33": "深層学習モデル最適化テクニック",
+    "d34": "深層学習モデルの学習速度と精度を最適化する方法...",
+    "d35": "プロンプトエンジニアリングベストプラクティス",
+    "d36": "プロンプトエンジニアリングの核心テクニックを習得し、AI出力品質を向上...",
+    "d37": "マルチモーダルAI応用シーン",
+    "d38": "医療・教育・金融などにおけるマルチモーダルAI応用を探索...",
+    "d39": "山水風景画",
+    "d40": "都市の夜景",
+    "d41": "抽象芸術作品",
+    "d42": "AI動画生成チュートリアル",
+    "d43": "デジタル人ライブデモ",
+    "d44": "AI音声合成デモ",
+    "d45": "TTS音色比較",
+    "d46": "音声クローン効果",
     "p1": "画像コンテンツ",
     "p2": "動画コンテンツ",
     "p3": "音声コンテンツ",
     "r1": "アルバムに保存"
+  },
+  "aiassistant": {
+    "text1": "深く思考中...",
+    "failed2": "生成に失敗しました、再試行してください",
+    "text3": "下に質問を入力してください",
+    "text4": "智匯AIが生成",
+    "text5": "回答を表示",
+    "text6": "高速生成中",
+    "p1": "生成画像:",
+    "p2": "智匯AIアシスタント",
+    "p3": "生成中",
+    "y1": "· 智匯値:{p1}",
+    "q1": "猫の画像を生成",
+    "q2": "おすすめの本を3冊",
+    "q3": "量子もつれを説明"
   },
   "aiAgent": {
     "text1": "AIアプリストア",
@@ -3852,6 +4240,23 @@
     "empty": "作品がありません",
     "subtitle": "マイ AIGC 作品",
     "title": "AIGC 作品",
+    "d1": "サイバー都市の夜景",
+    "d2": "智匯小方",
+    "d3": "オーロラ幻想",
+    "d4": "AI創作家",
+    "d5": "メカ少女コンセプト",
+    "d6": "未来派",
+    "d7": "量子詩篇",
+    "d10": "データ洪水 デジタル時代 詩",
+    "d11": "ネオンパルス",
+    "d12": "サウンドアーティスト",
+    "d13": "未来都市",
+    "d14": "デジタル画家",
+    "d15": "AI覚醒録",
+    "d17": "AI覚醒後の人類の状況を探り、短い哲学的エッセイを生成。",
+    "d18": "AI覚醒 意識 共存",
+    "d19": "深空のこだま",
+    "r1": "データの奔流の中で、コードを筆に、アルゴリズムをインクにして、デジタル時代の詩と遠い地平を描く。すべての文章は思考の延長であり、すべての生成は創造の始まりである。",
     "playAudio": "音声を再生",
     "publish": "公開"
   },
@@ -3911,6 +4316,18 @@
     "r3": "函数",
     "r4": "前端",
     "r5": "后端"
+  },
+  "courseplanet": {
+    "d1": "AI絵画入門:ゼロからマスターへ",
+    "d2": "AI教研グループ",
+    "d3": "ショート動画制作フル実践",
+    "d4": "実践メンター",
+    "d5": "ChatGPT プロンプトエンジニアリング",
+    "d6": "AI教研グループ",
+    "d7": "AIオフィス効率向上ガイド",
+    "d8": "効率エキスパート",
+    "d9": "大規模モデルアプリ開発実践",
+    "d10": "技術エキスパート"
   },
   "aiHistory": {
     "d1": "AI画像",
@@ -4106,17 +4523,31 @@
     "q1": "データを読み込み中",
     "q2": "フォロー操作"
   },
+  "memberCoupon": {
+    "q1": "クーポンを取得"
+  },
   "userPhone": {
     "q1": "ユーザー情報を取得",
     "q2": "現在の電話番号に認証コードを送信",
     "q3": "電話番号の登録有無を確認",
     "q4": "新しい電話番号に認証コードを送信"
   },
+  "userRealname": {
+    "q1": "ユーザー情報を取得",
+    "q2": "身分証写真をアップロード",
+    "q3": "実名認証を送信"
+  },
   "vipUpgrade": {
     "q1": "VIPレベルを取得",
     "q2": "支付宝でVIPアップグレード",
     "q3": "VIPにアップグレード",
     "r1": "my.getAuthCode 失敗、mock モードに降格"
+  },
+  "aboutUsagerules": {
+    "r1": "制定者:吉林省愛智匯人工智能科技有限公司",
+    "r2": "会社住所:吉林省長春市高新技術産業開発区越達路107号人工智能人才育成基地",
+    "r3": "カスタマーサポート:19944894487",
+    "r4": "公式メール:[REDACTED-EMAIL]"
   },
   "deventerModeledit": {
     "r1": "コピーライティング",
@@ -4134,6 +4565,12 @@
     "q5": "営業部",
     "q6": "エージェントを読み込み"
   },
+  "modelplaza": {
+    "r1": "阿里雲",
+    "r2": "百度",
+    "r3": "ByteDance",
+    "r4": "智谱"
+  },
   "StudyStats": {
     "y1": "h、完了"
   },
@@ -4141,6 +4578,7 @@
     "6": "データなし",
     "7": "再試行",
     "8": "読み込み中...",
+    "9": "説明を入力",
     "10": "出金記録なし",
     "11": "選択モデル: {m}",
     "12": "認証コードを {m} に送信しました",
@@ -4406,9 +4844,13 @@
   "profile": {
     "myCourses": "マイコース",
     "copyFailRetry": "コピーに失敗しました。再試行してください",
+    "deleteBtn": "削除",
     "dlgDelConvTitle": "会話を削除",
     "dlgDelConvBody": "この会話を削除しますか？",
     "delFailedRetry": "削除に失敗しました。再試行してください",
+    "userCard": {
+      "loginRequired": "先にログインしてください"
+    },
     "notLoggedIn": "未ログアウト",
     "nickname": "ニックネーム未設定",
     "logout": "ログアウト",
@@ -4686,6 +5128,7 @@
     },
     "workflows": {
       "home": "ワークフロー",
+      "editor": "ワークフローエディタ",
       "automations": "自動化タスク",
       "orchestration": "オーケストレーション",
       "schedule": "スケジュールタスク"
@@ -4696,6 +5139,7 @@
   "accountPool": {
     "title": "マイアカウントプール",
     "subtitle": "あなた専用のサードパーティ AI アカウントプール。チェックインアシスタントと同じアカウントで毎日自動チェックインし、自分のリレーリクエストで優先的に使用されます。",
+    "add": "アカウントを追加",
     "provider": "プラットフォーム",
     "name": "名前",
     "namePlaceholder": "アカウントに名前を付ける",
@@ -4704,6 +5148,7 @@
     "optional": "任意",
     "save": "保存",
     "cancel": "キャンセル",
+    "loading": "読み込み中…",
     "empty": "アカウントがありません",
     "emptyHint": "チェックインアシスタントで追加したアカウントは自動的にここへ同期されます。",
     "enabled": "有効",
@@ -4718,6 +5163,7 @@
     "checkinSuccess": "チェックインしました",
     "addSuccess": "アカウントを追加しました",
     "actionFailed": "操作に失敗しました",
+    "loginRequired": "ログインしてアカウントプールを管理",
     "addTitle": "アカウントを追加",
     "adding": "追加中…",
     "deleteConfirm": "{name} を削除しますか？",
@@ -4726,14 +5172,17 @@
   "checkinAssistant": {
     "title": "チェックインアシスタント",
     "subtitle": "サードパーティアカウントを管理して毎日自動チェックイン。個人アカウントプールと連携し、自分のリレーリクエストで優先使用されます。",
+    "summary": "全 {total} 件 · 有効 {enabled} · プール登録 {synced}",
     "empty": "アカウントがありません",
     "emptyHint": "下のフォームから最初のアカウントを追加してください。",
     "addTitle": "アカウントを追加",
     "add": "追加",
     "adding": "追加中…",
     "namePlaceholder": "アカウント名",
+    "tokenLabel": "トークン",
     "tokenPlaceholder": "アクセス資格情報を貼り付け",
     "refreshTokenLabel": "リフレッシュトークン（任意）",
+    "optional": "任意",
     "enabled": "有効",
     "disabled": "無効",
     "enable": "有効化",
@@ -4906,6 +5355,35 @@
     "sectionObligations": "ユーザーの義務",
     "sectionObligationsBody": "関連法令・規制を遵守し、違法・規約違反・有害な情報を公開せず、他者の合法的権利を侵害してはなりません。"
   },
+  "developerConversations": {
+    "title": "リレー会話ログ",
+    "title2": "会話",
+    "model": "モデル",
+    "messages": "メッセージ",
+    "tokens": "Tokens",
+    "cost": "費用(元)",
+    "lastActive": "最終アクティブ"
+  },
+  "dashboard": {
+    "usage": "利用状況",
+    "cost": "コストと収益",
+    "bi": "BI 概要",
+    "errors": "エラーダッシュボード",
+    "totalUsers": "総ユーザー数",
+    "activeSessions": "アクティブセッション",
+    "uniqueUsers": "アクティブユーザー (分析)",
+    "todayEvents": "今日のイベント",
+    "todayRevenue": "今日の収益",
+    "totalRevenue": "総収益",
+    "totalOrders": "総注文数",
+    "biTotalUsers": "BI 総ユーザー",
+    "activeUsers": "アクティブユーザー",
+    "errorTotal": "エラー総数",
+    "errorToday": "今日のエラー",
+    "errorCritical": "重大なエラー",
+    "errorResolved": "解決済み",
+    "loadFailed": "ダッシュボードの読み込みに失敗しました"
+  },
   "connectors": {
     "notConfigured": "未設定(先に設定してください)",
     "sync": "同期",
@@ -4938,7 +5416,35 @@
     "empty": "MCPサーバーはありません"
   },
   "agentRuntime": {
-    "title": "エージェント実行"
+    "title": "エージェント実行",
+    "empty": "実行中のセッションはありません",
+    "loadFailed": "読み込み失敗",
+    "liveStatus": "ライブ状態",
+    "messages": "{count} 件のメッセージ",
+    "model": "モデル",
+    "probeTitle": "権限プローブ",
+    "probeTool": "ツール名",
+    "probeToolPlaceholder": "調査するツール名を入力",
+    "probeMode": "モード",
+    "probeLevel": "リスクレベル",
+    "probeCheck": "チェック",
+    "probeChecking": "チェック中…",
+    "probeDecision": "決定",
+    "probeHint": "ツールとモードを選びチェック",
+    "probeFailed": "チェック失敗",
+    "actionFailed": "操作失敗",
+    "resume": "再開",
+    "cancel": "キャンセル",
+    "cancelConfirmTitle": "このセッションをキャンセルしますか？"
+  },
+  "developerNotifications": {
+    "title": "通知設定",
+    "apiError": "API エラー通知",
+    "quotaWarning": "クォータ警告",
+    "webhookFailure": "Webhook 失敗通知",
+    "weeklyReport": "週次レポート",
+    "versionUpdate": "バージョン更新",
+    "billingReminder": "請求リマインダー"
   },
   "agentChat": {
     "empty": "まだメッセージはありません。最初の投稿をしましょう",
@@ -5839,12 +6345,14 @@
     "ranking": "ランキング"
   },
   "agentScreen": {
+    "loadFailed": "エージェントの読み込みに失敗",
     "title": "エージェント",
     "rating": "評価",
     "useCount": "利用回数"
   },
   "aiAssistant": {
     "startChat": "チャット開始",
+    "vendorOther": "その他",
     "copyOkToast": "リンクをクリップボードにコピーしました",
     "empty": "エージェントがありません",
     "favoriteCount": "{count} 件のお気に入り",
@@ -5852,6 +6360,9 @@
     "subtitle": "エージェントを選んで対話を開始",
     "title": "AIアシスタント",
     "useCount": "{count} 回使用"
+  },
+  "resources": {
+    "loadMore": "もっと読み込む"
   },
   "aiWorldDetailPage": {
     "title": "詳細",
@@ -6682,6 +7193,7 @@
     "empty": "データがありません"
   },
   "quickNotes": {
+    "menuEntry": "クイックノート",
     "title": "クイックノート",
     "new": "新規ノート",
     "edit": "編集",
@@ -6694,8 +7206,31 @@
     "empty": "ノートはまだありません"
   },
   "chatAlert": {
+    "compaction": {
+      "title": "コンテキストを自動圧縮しました",
+      "message": "{before} → {after}({removed} 件の履歴を削除)"
+    },
+    "loginBtn": "ログインへ",
+    "longPress": {
+      "myTitle": "自分のメッセージ",
+      "aiTitle": "AI メッセージ",
+      "message": "スクリーンショットを生成しました",
+      "shareBtn": "共有"
+    },
     "errorTitle": "リクエストエラー",
     "errorRetry": "再試行"
+  },
+  "mat": {
+    "unknown": "不明なエラー",
+    "deleteTitle": "素材削除",
+    "deleteBody": "「{title}」を削除しますか？",
+    "detailLabel": "素材詳細"
+  },
+  "selectionAnnotations": {
+    "addAnnotation": "注釈を追加"
+  },
+  "slashCmd": {
+    "statusToast": "モデル {model} · メッセージ {count} 件 · {state}"
   },
   "cloudRuns": {
     "title": "クラウドエージェント実行",
@@ -6802,7 +7337,8 @@
     "multi": "複数選択",
     "prev": "前の問題",
     "next": "次の問題",
-    "submit": "提出"
+    "submit": "提出",
+    "submitFailed": "送信に失敗"
   },
   "follow": {
     "title": "フォローとフォロワー",
@@ -6848,6 +7384,8 @@
     "desc": "必要に応じて通知チャンネルを有効化。重要な情報をお見逃しなく",
     "save": "保存",
     "saving": "保存中...",
+    "loadFailed": "設定の読み込みに失敗",
+    "saveFailed": "保存に失敗",
     "saved": "保存しました"
   },
   "payResult": {
@@ -6874,7 +7412,8 @@
     "progress": "進捗",
     "statusCompleted": "完了",
     "statusInProgress": "進行中",
-    "statusPaused": "一時停止中"
+    "statusPaused": "一時停止中",
+    "loadFailed": "学習記録の読み込みに失敗"
   },
   "team": {
     "title": "マイチーム",
@@ -6897,10 +7436,17 @@
     "searchPlaceholder": "メンバーを検索"
   },
   "player": {
-    "noUrl": "再生URLがありません"
+    "noUrl": "再生URLがありません",
+    "exitFullscreen": "フルスクリーン終了",
+    "fullscreen": "フルスクリーン",
+    "pause": "一時停止",
+    "play": "再生",
+    "rate": "再生速度",
+    "seek": "シーク"
   },
   "vipBenefit": {
-    "title": "会員権益"
+    "title": "会員権益",
+    "loadFailed": "会員特典の読み込みに失敗"
   },
   "wrongQuestions": {
     "title": "間違いノート",
