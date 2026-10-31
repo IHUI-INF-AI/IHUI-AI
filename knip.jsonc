@@ -49,7 +49,13 @@
     "pbpaste",
     "xclip",
     "xsel",
-    "uv"
+    "uv",
+    // 2026-11-01:`reg`(Windows 注册表命令行)与上面 where/tasklist/fsutil/rd 同族 ——
+    // apps/api/scripts/relay-account-switch.ts:745 用 execFileSync('reg', ['query', …]) 读
+    // 装机位置(注册表是该脚本设计上唯一的"客户端装在哪"真相源,换不掉)。它不是未声明依赖,
+    // 是 OS 自带工具,knip 的 binaries 维度结构上无法区分二者 ⇒ 与上面同档登记。
+    // 到期复核 2027-05-01:若该脚本改用配置/清单文件承载安装位置,应删本条。
+    "reg"
   ],
   "workspaces": {
     "apps/api": {
@@ -563,6 +569,13 @@
         "@rn-shells/*": ["../mobile-rn/src/screens/*"],
         "@ihui/rn-app/*": ["../../packages/app/src/*"],
       },
+      // 2026-11-01:`@ihui/ui-native` 在本端 src 里确实零条静态 import,但它不是未用依赖 ——
+      // config/index.ts:580 的 `compile.include` 把 `packages/app/src` 整片编进小程序产物,
+      // 而那些源码 import '@ihui/ui-native',模块解析要由**本端**的 package.json 承载
+      // (f5db1221ae 补这条声明就是为了修真实构建失败 "Cannot find module '@ihui/ui-native'")。
+      // knip 只沿静态 import 走,看不见 webpack 装载链 ⇒ 与 mobile-rn 那侧 lucide-react 同档。
+      // 到期复核 2027-05-01:若 compile.include 改成端内自带出口(不再需要本端声明),删本条。
+      "ignoreDependencies": ["@ihui/ui-native"],
       "project": ["**/*.{ts,tsx}"],
       // 2026-10-20:Taro 页面发现机制 = app.config.ts 的 pages 数组按**字符串路径**引用
       // ('about/web-portal/index',见 app.config.ts:165),knip 静态 import 面看不见该形态,
