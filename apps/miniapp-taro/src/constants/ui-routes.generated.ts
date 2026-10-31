@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 17a1d4583604fd79ff19deeee2e45151dff641e3
-// inputsSha256: 238b4ff7422d508fa8bc6fdfcb8d17ce9b36dd967dddc08d029e3c69ff15dca4
+// sourceCommit: 9aefb514190d6ab33a2e815af98079e3c7ce3c1c
+// inputsSha256: 4028e4c5c7aa0f8658a2a9a4e8130ea36ffac4d10850aa919b39b28976fe8b65
 // input: apps/miniapp-taro/src/api/index.ts 1377aa876aecdbc9c9afd879b13f9a852eca35cc3610b8dd86161065bb390dbe
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts d49f8d705e8c3d86642c2b0d6cf794bd9caacb67996f4d1a38b02c626d3a2810
@@ -738,11 +738,11 @@
 // input: apps/miniapp-taro/src/utils/upload-image.ts 084bd5bf25cbd7cc994d6dc76dd0bc16860cbe2d86ec289db310884e73129c4e
 // input: apps/miniapp-taro/src/utils/visit-tracker.ts 4e697e43cc43753d79fd5d883ddfadea19ad34dbc591cb2e644cd39ac561f759
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
-// input: apps/miniapp-taro/src/utils/webview-trust.ts efe7cfc8409a8bcc216cf2a20c7cd12093e1fe2d7494fb667e32900beb571ac2
+// input: apps/miniapp-taro/src/utils/webview-trust.ts 6cfd058e107011b5e3c1037c3fc0b92d4600e178d96d4882e8d4dca690ab1fdc
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 606 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=205(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-31T17:44:33.175Z
+// generatedAt: 2026-10-31T19:30:56.430Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
