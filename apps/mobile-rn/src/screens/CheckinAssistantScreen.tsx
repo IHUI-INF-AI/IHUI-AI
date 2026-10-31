@@ -157,6 +157,7 @@ export default function CheckinAssistantScreen() {
         <NavBar title={t('checkinAssistant.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.body}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />

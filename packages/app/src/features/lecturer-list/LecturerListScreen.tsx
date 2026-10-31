@@ -141,6 +141,7 @@ export function LecturerListScreen({
         styles={styles}
       />
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={items}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}

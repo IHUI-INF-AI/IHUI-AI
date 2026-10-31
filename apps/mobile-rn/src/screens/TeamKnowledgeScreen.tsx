@@ -268,6 +268,7 @@ export function TeamKnowledgeScreen() {
       </NavChrome>
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
