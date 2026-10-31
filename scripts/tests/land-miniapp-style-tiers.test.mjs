@@ -103,3 +103,8 @@ test('T11 字号面:只有 leading 覆盖时才换,且注释/档外值不动', (
   const idem = land.rewriteClassNameTokens(a.out, rev)
   assert.equal(idem.changes, 0, '幂等')
 })
+
+test('T12 档名必须转 kebab:TYPE_STEPS 的 displayLg ↔ CSS 变量 --text-display-lg', () => {
+  const r = land.buildReverse({}, { displayLg: { size: 30 } })
+  assert.equal(r.type.get(30), 'display-lg', '首版用了 camelCase 原键 ⇒ 产出 var(--text-displayLg),那是个不存在的变量')
+})

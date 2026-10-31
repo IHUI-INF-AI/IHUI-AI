@@ -20,7 +20,7 @@
 .ai-card-root-title {
   flex: 1;
   margin-left: var(--spacing-xs-loose);
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   line-height: 40rpx;
 }
@@ -46,20 +46,20 @@
 }
 .ai-card-section-title {
   margin-left: 10rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 40rpx;
 }
 .ai-card-section-count {
   margin-left: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-section-note {
   display: block;
   margin-bottom: 10rpx;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   line-height: 32rpx;
 }
@@ -67,14 +67,14 @@
 /* ============ D106:引导已生效(Steer 中途引导交代) ============ */
 .ai-card-steer-item {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   line-height: 34rpx;
   padding: var(--spacing-2xs) 0;
 }
 .ai-card-steer-more {
   display: block;
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-muted-foreground);
   opacity: 0.7;
   padding: var(--spacing-2xs) 0;
@@ -131,14 +131,14 @@
 .ai-card-plan-explain {
   display: block;
   margin-top: var(--spacing-2xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .ai-card-plan-duration {
   display: block;
   margin-top: var(--spacing-2xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 
@@ -180,7 +180,7 @@
 .ai-card-tool-name {
   flex-shrink: 0;
   max-width: 45%;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   line-height: 1.5;
 }
@@ -189,7 +189,7 @@
 .ai-card-tool-subject {
   flex: 1;
   min-width: 0;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   line-height: 1.5;
   overflow: hidden;
@@ -209,7 +209,7 @@
 
 .ai-card-tool-source {
   margin-left: var(--spacing-xs-loose);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   border-radius: var(--radius-sm);
@@ -217,7 +217,7 @@
   flex-shrink: 0;
 }
 .ai-card-tool-status {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-tool-status.running {
@@ -233,7 +233,7 @@
 /* 结果度量("128 行" / "2 个结果"):11px 档 + 等宽数字,与 web StreamMetric 同档 */
 .ai-card-tool-metric {
   margin-left: var(--spacing-xs-loose);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   font-variant-numeric: tabular-nums;
 }
@@ -241,7 +241,7 @@
 /* 写类工具的 ± 行数:绿增红减沿用 --color-success / --color-danger(与状态条同色档) */
 .ai-card-tool-lines {
   margin-left: var(--spacing-xs-loose);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .ai-card-tool-lines-added {
@@ -253,7 +253,7 @@
 }
 .ai-card-tool-duration {
   margin-left: var(--spacing-xs-loose);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 
@@ -272,7 +272,7 @@
 .ai-card-tool-partial-diff-text {
   display: block;
   font-family: Menlo, Consolas, 'Courier New', monospace;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   line-height: 32rpx;
   color: var(--color-foreground);
   white-space: pre-wrap;
@@ -303,14 +303,14 @@
   margin-right: var(--spacing-xs-loose);
 }
 .ai-card-term-prompt {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-success);
   margin-right: var(--spacing-xs);
   font-family: monospace;
 }
 .ai-card-term-command {
   flex: 1;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   font-family: monospace;
   line-height: 1.5;
@@ -322,7 +322,7 @@
   flex-shrink: 0;
 }
 .ai-card-term-status {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-term-status.running {
@@ -336,7 +336,7 @@
 }
 .ai-card-term-duration {
   margin-left: 10rpx;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-term-output-wrap {
@@ -348,7 +348,7 @@
 }
 .ai-card-term-output {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-foreground);
   font-family: monospace;
   line-height: 1.6;
@@ -368,19 +368,19 @@
 }
 .ai-card-term-copy-text {
   margin-left: var(--spacing-2xs);
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-muted-foreground);
 }
 .ai-card-term-error {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-danger);
 }
 .ai-card-term-truncated {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 /* D151:命令「等待键盘输入」的交代块(与上方 truncated 同一档 muted 小字,
@@ -391,19 +391,19 @@
 }
 .ai-card-term-waiting-title {
   display: block;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-term-waiting-prompt {
   display: block;
   margin-top: var(--spacing-2xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-term-waiting-hint {
   display: block;
   margin-top: var(--spacing-2xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-danger);
 }
 
@@ -483,7 +483,7 @@
 }
 .ai-card-subagent-status {
   margin-left: auto;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-subagent-status.is-info {
@@ -501,7 +501,7 @@
 .ai-card-subagent-task {
   display: block;
   margin-top: 6rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   line-height: 1.5;
   word-break: break-all;
@@ -509,13 +509,13 @@
 .ai-card-subagent-phase {
   display: block;
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-subagent-hint {
   display: block;
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .ai-card-subagent-hint.is-danger {

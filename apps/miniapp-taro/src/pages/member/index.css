@@ -44,7 +44,7 @@
 }
 .member-nickname {
   display: block;
-  font-size: 40rpx; /* RN membershipLevel 20 → 40rpx */
+  font-size: var(--text-heading); /* RN membershipLevel 20 → 40rpx */
   font-weight: 600;
   color: var(--color-surface-light); /* tk.surface.light(深色卡上对比白字) */
   margin-bottom: var(--spacing-xs-loose);
@@ -60,18 +60,18 @@
   /* RN currentBadge: tk.vip.gold 底 + gray.800 深字,paddingH 8/paddingV 2,radius 8 */
   background: var(--color-vip-gold-start);
   color: var(--color-vip-card);
-  font-size: 24rpx; /* RN 12 → 24rpx */
+  font-size: var(--text-label); /* RN 12 → 24rpx */
   font-weight: 600;
   padding: var(--spacing-2xs) 16rpx;
   border-radius: var(--radius-lg);
   margin-right: var(--spacing-xs-loose);
 }
 .member-vip-expire {
-  font-size: 24rpx; /* RN membershipMetaText 12 → 24rpx */
+  font-size: var(--text-label); /* RN membershipMetaText 12 → 24rpx */
   color: var(--color-white-70); /* RN rgba(255,255,255,0.7) */
 }
 .member-normal-user {
-  font-size: 28rpx; /* RN membershipLabel 14 → 28rpx */
+  font-size: var(--text-body); /* RN membershipLabel 14 → 28rpx */
   color: var(--color-white-80); /* RN rgba(255,255,255,0.8) */
 }
 
@@ -85,7 +85,7 @@
 }
 .member-card-title {
   display: block;
-  font-size: 40rpx; /* RN levelsTitle 20 → 40rpx */
+  font-size: var(--text-heading); /* RN levelsTitle 20 → 40rpx */
   font-weight: 600;
   color: var(--color-foreground); /* tk.text.primary */
   margin-bottom: var(--spacing-md); /* RN marginBottom 12 → 24rpx */
@@ -117,20 +117,20 @@
 }
 .member-level-name {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);
 }
 .member-level-threshold {
   display: block;
-  font-size: 22rpx; /* RN durationText 12 → 24rpx 同族细字 */
+  font-size: var(--text-caption); /* RN durationText 12 → 24rpx 同族细字 */
   color: var(--color-muted-foreground); /* tk.text.secondary */
   margin-bottom: var(--spacing-xs);
 }
 .member-level-perks {
   display: block;
-  font-size: 24rpx; /* RN benefitsText 12 → 24rpx */
+  font-size: var(--text-label); /* RN benefitsText 12 → 24rpx */
   color: var(--color-muted-foreground);
 }
 .member-level-silver .member-level-name {
@@ -153,14 +153,14 @@
 }
 .member-stat-num {
   display: block;
-  font-size: 48rpx; /* RN priceText 24 → 48rpx */
+  font-size: var(--text-display); /* RN priceText 24 → 48rpx */
   font-weight: 700;
   color: var(--color-primary);
   margin-bottom: var(--spacing-xs);
 }
 .member-stat-label {
   display: block;
-  font-size: 28rpx; /* RN label 14 → 28rpx */
+  font-size: var(--text-body); /* RN label 14 → 28rpx */
   color: var(--color-muted-foreground);
 }
 
@@ -196,7 +196,7 @@
 }
 .member-benefit-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 600; /* RN cardLevelName 600 */
   color: var(--color-foreground);
   overflow: hidden;
@@ -205,7 +205,7 @@
 }
 .member-benefit-desc {
   display: block;
-  font-size: 24rpx; /* RN 12 → 24rpx */
+  font-size: var(--text-label); /* RN 12 → 24rpx */
   color: var(--color-muted-foreground);
   margin-top: var(--spacing-2xs);
   overflow: hidden;
@@ -213,7 +213,7 @@
   white-space: nowrap;
 }
 .member-benefit-status {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
   margin-left: var(--spacing-sm);
@@ -237,14 +237,14 @@
 }
 .member-vip-title {
   display: block;
-  font-size: 32rpx; /* RN cardLevelName 16 → 32rpx */
+  font-size: var(--text-title); /* RN cardLevelName 16 → 32rpx */
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);
 }
 .member-vip-desc {
   display: block;
-  font-size: 24rpx; /* RN durationText 12 → 24rpx */
+  font-size: var(--text-label); /* RN durationText 12 → 24rpx */
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-sm);
 }
@@ -254,7 +254,7 @@
 }
 .member-price-label {
   display: block;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-xs-loose);
 }
@@ -263,7 +263,7 @@
   align-items: center;
 }
 .member-current-price {
-  font-size: 48rpx; /* RN priceText 24 → 48rpx */
+  font-size: var(--text-display); /* RN priceText 24 → 48rpx */
   font-weight: 700;
   /* RN tk.vip.gold(#FFD700)→ --color-vip-gold-start */
   color: var(--color-vip-gold-start);
@@ -277,7 +277,7 @@
   color: var(--color-vip-card);
   height: 100rpx;
   line-height: 100rpx;
-  font-size: 32rpx; /* RN 16 → 32rpx */
+  font-size: var(--text-title); /* RN 16 → 32rpx */
   font-weight: 700;
   border-radius: var(--radius-sm);
 }
@@ -298,19 +298,19 @@
   margin-bottom: var(--spacing-sm);
 }
 .member-crown {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   color: var(--color-vip-card);
   margin-right: var(--spacing-xs-loose);
 }
 .member-permanent-text {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--color-vip-card);
 }
 .member-cta-text {
   display: block;
   text-align: center;
-  font-size: 24rpx; /* RN benefitsText 12 → 24rpx */
+  font-size: var(--text-label); /* RN benefitsText 12 → 24rpx */
   color: var(--color-muted-foreground);
 }
 
@@ -327,7 +327,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 32rpx;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 .member-menu-item + .member-menu-item {
@@ -341,7 +341,7 @@
 }
 .member-contact-title {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 700;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);
@@ -367,12 +367,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-xs-loose);
 }
 .member-progress-current {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 700;
   color: var(--color-gold);
 }
@@ -393,7 +393,7 @@
 .member-progress-hint {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   text-align: right;
 }

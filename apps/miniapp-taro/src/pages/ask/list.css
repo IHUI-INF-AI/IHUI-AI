@@ -23,7 +23,7 @@
 .tab {
   flex: 1;
   text-align: center;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   padding: var(--spacing-md) 0;
 }
@@ -46,7 +46,7 @@
 }
 /* RN cardTitle:fontSize 16 600 text.primary,2 行截断 */
 .title {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-foreground);
   font-weight: 600;
   display: -webkit-box;
@@ -64,7 +64,7 @@
 }
 /* RN author:fontSize 11 text.tertiary */
 .author {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -74,7 +74,7 @@
 .answers {
   margin-left: var(--spacing-sm);
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-text-tertiary);
 }
 .answers.adopted {
@@ -86,7 +86,7 @@
   text-align: center;
   padding: var(--spacing-4xl) 0;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 
 /* 发布 FAB(对应 RN header "+" onCreate 入口;brand 底 + primary-foreground 字) */
@@ -101,7 +101,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
-  font-size: 48rpx;
+  font-size: var(--text-display);
   font-weight: 600;
   box-shadow: 0 4rpx 20rpx var(--color-black-20);
 }

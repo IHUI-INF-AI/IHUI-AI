@@ -23,17 +23,17 @@
   align-items: baseline;
 }
 .following-stats-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .following-stats-num {
   margin: 0 8rpx;
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-primary);
 }
 .following-stats-suffix {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .following-search {
@@ -47,13 +47,13 @@
 }
 .following-search-icon {
   margin-right: var(--spacing-xs-loose);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 .following-search-input {
   flex: 1;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
@@ -109,7 +109,7 @@
   justify-content: center;
 }
 .following-avatar-text {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-primary);
 }
@@ -126,7 +126,7 @@
   justify-content: space-between;
 }
 .following-nickname {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -140,11 +140,11 @@
   border-radius: var(--radius-sm);
 }
 .following-status-text {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-primary);
 }
 .following-bio {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -156,12 +156,12 @@
   justify-content: space-between;
 }
 .following-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .following-unfollow-btn {
   padding: var(--spacing-xs) 20rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-destructive);
   background: var(--color-danger-tint);
   border: 2rpx solid var(--color-danger-tint-strong);
@@ -180,7 +180,7 @@
 }
 .following-empty-text {
   margin-top: var(--spacing-sm-loose);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .following-empty-btn {
@@ -200,7 +200,7 @@
 .following-no-more {
   text-align: center;
   padding: var(--spacing-xl) 0;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

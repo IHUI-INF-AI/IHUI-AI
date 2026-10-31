@@ -23,23 +23,23 @@
   align-items: baseline;
 }
 .favorites-stats-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .favorites-stats-num {
   margin: 0 8rpx;
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-primary);
 }
 .favorites-stats-suffix {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .favorites-manage-btn {
   margin-left: auto;
   padding: var(--spacing-xs) 20rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-primary);
   background: var(--color-border);
   border: 2rpx solid var(--color-border);
@@ -56,13 +56,13 @@
 }
 .favorites-search-icon {
   margin-right: var(--spacing-xs-loose);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 .favorites-search-input {
   flex: 1;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-foreground);
 }
 
@@ -117,7 +117,7 @@
   justify-content: center;
   width: 40rpx;
   height: 40rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: transparent;
   background: var(--color-background);
   border: 2rpx solid var(--color-ring);
@@ -131,7 +131,7 @@
 }
 .favorites-batch-btn {
   padding: var(--spacing-xs) 20rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
   background: var(--color-destructive);
   border-radius: var(--radius-sm);
@@ -170,7 +170,7 @@
   justify-content: center;
 }
 .favorites-cover-text {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
   color: var(--color-muted-foreground);
 }
 .favorites-main {
@@ -181,7 +181,7 @@
   gap: var(--spacing-xs);
 }
 .favorites-title {
-  font-size: 30rpx;
+  font-size: var(--text-strong);
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -189,7 +189,7 @@
   white-space: nowrap;
 }
 .favorites-source {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .favorites-meta {
@@ -198,12 +198,12 @@
   justify-content: space-between;
 }
 .favorites-time {
-  font-size: 22rpx;
+  font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }
 .favorites-cancel-btn {
   padding: var(--spacing-xs) 20rpx;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-destructive);
   background: var(--color-danger-tint);
   border: 2rpx solid var(--color-danger-tint-strong);
@@ -222,7 +222,7 @@
 }
 .favorites-empty-text {
   margin-top: var(--spacing-sm-loose);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 .favorites-empty-btn {
@@ -242,7 +242,7 @@
 .favorites-no-more {
   text-align: center;
   padding: var(--spacing-xl) 0;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

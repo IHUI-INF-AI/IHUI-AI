@@ -20,7 +20,7 @@
   background: var(--color-background);
 }
 .page-title {
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-foreground);
 }
@@ -33,7 +33,7 @@
 /* RN sectionLabel:fontSize 14 text.secondary marginBottom 8 marginH 12 */
 .section-label {
   display: block;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   margin: 0 24rpx 16rpx;
 }
@@ -77,11 +77,11 @@
   overflow: hidden;
 }
 .provider-icon {
-  font-size: 20rpx;
+  font-size: var(--text-badge);
 }
 /* RN providerText:fontSize 16 text.secondary;active brand + 600 */
 .provider-name {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
@@ -100,7 +100,7 @@
 }
 .provider-header .provider-name {
   display: block;
-  font-size: 40rpx;
+  font-size: var(--text-heading);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: 0;
@@ -109,7 +109,7 @@
 .provider-meta {
   display: block;
   margin-top: var(--spacing-xs);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-tertiary);
 }
 
@@ -150,7 +150,7 @@
 }
 /* RN modelName:flex1 fontSize 16 600 text.primary */
 .model-name {
-  font-size: 32rpx;
+  font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
   flex: 1;
@@ -161,7 +161,7 @@
 /* RN typeBadge:paddingH 7 paddingV 3 marginL 8;文字 12 600,配色走模型类型 token(明暗同值);
    圆角按角色档 chip→md */
 .model-type-tag {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   font-weight: 600;
   padding: 6rpx 14rpx;
   border-radius: var(--radius-md);
@@ -191,30 +191,30 @@
 }
 /* RN priceLabel:fontSize 14 text.tertiary */
 .price-label {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-text-tertiary);
 }
 /* RN priceValue:fontSize 14 600 brand */
 .price-value {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-primary);
   font-weight: 600;
 }
 /* RN priceDivider:fontSize 14 border.medium marginH 6 */
 .price-divider {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-border-medium);
   margin: 0 12rpx;
 }
 /* RN priceExtra:fontSize 12 text.tertiary */
 .price-extra {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
 /* 描述(RN cardDesc:fontSize 14 text.secondary lineHeight 18 marginBottom 6,2 行截断) */
 .card-desc {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   line-height: 36rpx;
   margin-bottom: var(--spacing-xs-loose);
@@ -234,7 +234,7 @@
 }
 /* RN cardTag:paddingH 6 paddingV 3 radius 3 bg surface.muted */
 .tag-item {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   padding: 6rpx 12rpx;
@@ -243,7 +243,7 @@
 /* RN payMode:marginLeft auto fontSize 12 text.tertiary */
 .pay-mode {
   margin-left: auto;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-text-tertiary);
 }
 
@@ -257,6 +257,6 @@
 }
 .state-text {
   color: var(--color-text-tertiary);
-  font-size: 28rpx;
+  font-size: var(--text-body);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
