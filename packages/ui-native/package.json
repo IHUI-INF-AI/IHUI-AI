@@ -25,12 +25,13 @@
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
-    "react-native": "^0.74.0",
+    "react-native": "^0.74.0 || ^0.76.0 || ^0.79.0 || ^0.86.0",
     "nativewind": "^4.0.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "^19.0.0",
+    "react-native": "^0.86.0",
     "typescript": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
