@@ -10,7 +10,11 @@ import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl } from '@ihui/shared'
-import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import {
+  ensureSsoRedirectAllowed,
+  firstPartyAllowedOrigins,
+  resolveSafeRedirectTarget,
+} from '@/lib/sso-redirect-guard'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Loader2, ArrowRight, Check } from 'lucide-react'
@@ -64,7 +68,12 @@ export default function SsoRegisterPage() {
       // 所以 `javascript:` / `/\evil.com` 此前会被原样喂给 router.push(Next 对跨 origin 目标
       // 执行整页导航 ⇒ 在刚建会话的本源里执行)。现与 /sso/login、/sso/redirect、/sso/mobile-auth
       // 共用同一把尺子;deep-link 按本页回跳契约继续放行。
-      const target = resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true })
+      // 2026-11-01 安全强化:与 /sso/login 同型 —— `?redirect=` 未配 origin 白名单时
+      // 任意外站绝对 URL 都被放过(本页刚建会话,这一跳是钓鱼落点)。收敂到同源 ∪ env。
+      const target = resolveSafeRedirectTarget(redirectUrl, {
+        allowDeepLink: true,
+        allowedOrigins: firstPartyAllowedOrigins(),
+      })
       const allowed = await ensureSsoRedirectAllowed(target)
       router.push(allowed ? target : '/')
     })()

@@ -12,7 +12,11 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl, SSO_CLIENT_IDS } from '@ihui/shared'
-import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import {
+  ensureSsoRedirectAllowed,
+  firstPartyAllowedOrigins,
+  resolveSafeRedirectTarget,
+} from '@/lib/sso-redirect-guard'
 import { handOffSsoCodeToMiniapp, isWechatMiniProgramHost } from './miniapp-bridge'
 import { protectedPathOf } from '@/lib/protected-paths'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
@@ -122,7 +126,14 @@ export default function SsoLoginPage() {
       // 约束),它**不是**协议闸 —— 所以这一跳此前可以把 `javascript:` / `/\evil.com` 原样喂给
       // router.push(Next 对跨 origin 的目标执行整页导航 ⇒ 在本站源里执行 = 同源 XSS)。
       // 现与其余三处回跳落点共用同一把尺子,deep-link 按本页既有契约继续放行。
-      const target = resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true })
+      // 2026-11-01 安全强化:`?redirect=` 是完全面向用户的入参,原先只传 allowDeepLink
+      // 而不传 allowedOrigins ⇒ 任意绝对外站 URL 按"只判协议"的原语义放过,受害者刚由
+      // 企业 SSO 建好会话就被本站 URL 栏一路带到仿冒页(下方 effect 无需点击即触发)。
+      // 现在落点收敂到"同源 ∪ env 白名单";深链契约不受影响(走协议族另一支)。
+      const target = resolveSafeRedirectTarget(redirectUrl, {
+        allowDeepLink: true,
+        allowedOrigins: firstPartyAllowedOrigins(),
+      })
       const allowed = await ensureSsoRedirectAllowed(target)
       router.push(allowed ? target : '/')
     })()
