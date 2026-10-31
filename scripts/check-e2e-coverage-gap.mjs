@@ -41,7 +41,10 @@ import {
   findTestlessModules,
   inRoot,
   isTestFile,
+  isUnitTestFile,
   normalizePath,
+  stemMatches,
+  testCoreOf,
   testCoversModule,
 } from './lib/e2e-coverage-gap.mjs'
 
@@ -121,6 +124,14 @@ export function loadScope(root = REPO_ROOT, today = todayIso()) {
  * 内容:HEAD/staged 走 `catBatch`(批量,不逐文件派生 git);worktree 读盘(人工档)。
  * 只读**源码形态**的正文:资源/未知扩展名的正文判不了任何东西,分类器按路径就能判。
  */
+/**
+ * 规则⑤ 的证据取材:只有**限定式**测试(`x.<限定词>.test.*`)需要正文(判据层要核 import)。
+ * 普通 `x.test.ts` 靠名字就成立,不必读 —— 只读这几十份,门的耗时不被测试面拖垮。
+ */
+export function listQualifierTests(tests) {
+  return tests.filter((p) => isUnitTestFile(p) && testCoreOf(p).includes('.'))
+}
+
 export function collectFace(root, face, opts = {}) {
   const roots = opts.roots ?? []
   const list = opts.listFiles ?? ((repoRoot, which) => listFaceFiles(repoRoot, which))
@@ -150,8 +161,24 @@ export function collectFace(root, face, opts = {}) {
       for (const p of sourceFiles) contents.set(p, got.get(`${rev}:${p}`) ?? null)
     }
   }
+  const testTexts = new Map()
+  const qualifierTests = listQualifierTests(tests)
+  if (qualifierTests.length > 0) {
+    if (face === 'worktree') {
+      for (const p of qualifierTests) testTexts.set(p, readWorktreeFile(root, p))
+    } else {
+      const rev = face === 'staged' ? '' : 'HEAD'
+      let got
+      try {
+        got = catBatch(root, qualifierTests.map((p) => `${rev}:${p}`), { timeout: 120_000 })
+      } catch (e) {
+        throw e instanceof Undetermined ? e : new Undetermined(`${face} 面限定式测试 blob 取不到:${e?.message ?? e}`)
+      }
+      for (const p of qualifierTests) testTexts.set(p, got.get(`${rev}:${p}`) ?? null)
+    }
+  }
   const files = inRoots.map((p) => (contents.has(p) ? { path: p, text: contents.get(p) } : { path: p }))
-  return { files, tests, scanned: inRoots.length, sourceCount: sourceFiles.length }
+  return { files, tests, testTexts, scanned: inRoots.length, sourceCount: sourceFiles.length }
 }
 
 export function evaluateFace(root, face, roots, opts = {}) {
@@ -159,6 +186,7 @@ export function evaluateFace(root, face, roots, opts = {}) {
   const result = findTestlessModules({
     files: collected.files,
     testFiles: collected.tests,
+    testTexts: collected.testTexts,
     roots,
   })
   return { ...result, face, sourceCount: collected.sourceCount }
@@ -322,6 +350,33 @@ function selfTest() {
   const oneRoot = baseWeb2([M('apps/web/src/a/solo.ts')], ['apps/web/tests/solo.test.ts'])
   check('㉝③同名唯一(同包全根计数后只剩一枚)⇒ 认', oneRoot.gapCount === 0)
 
+  // 规则⑤(点限定词 + import 证据,2026-10-31 立):正反成对,失效方向全部指向"多要一次说明"。
+  const withTexts = (files, tests, texts) =>
+    L({ files, testFiles: tests, testTexts: texts, roots: ['apps/web/src', 'apps/api/src'] })
+  const imp = (from) => `import { a } from '${from}'\n`
+  const qSameDir = withTexts([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll.authority.test.ts'], [
+    { path: 'apps/web/src/a/scroll.authority.test.ts', text: imp('./scroll') },
+  ])
+  check('㉞⑤同目录点限定式 + import 证据 ⇒ 认', qSameDir.gapCount === 0)
+  const qNoText = withTexts([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll.authority.test.ts'], [])
+  check('㉟⑤点限定式取不到正文 ⇒ 不认(落回缺口,§0.10)', qNoText.gapCount === 1)
+  const qNoImport = withTexts([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll.authority.test.ts'], [
+    { path: 'apps/web/src/a/scroll.authority.test.ts', text: imp('@/lib/other') },
+  ])
+  check('㊱⑤点限定式没 import 本模块(复刻逻辑)⇒ 不认', qNoImport.gapCount === 1)
+  const qDash = withTexts([M('apps/web/src/a/scroll.ts')], ['apps/web/src/a/scroll-extra.test.ts'], [
+    { path: 'apps/web/src/a/scroll-extra.test.ts', text: imp('./scroll') },
+  ])
+  check('㊲⑤连字符/下划线不做限定词(x-extra 仍不盖 x)', qDash.gapCount === 1)
+  const qCollection = withTexts([M('apps/api/src/db/billing-queries.ts')], ['apps/api/tests/billing-queries.real.test.ts'], [
+    { path: 'apps/api/tests/billing-queries.real.test.ts', text: imp('../src/db/billing-queries.js') },
+  ])
+  check('㊳⑤收集目录限定式 + ESM 后缀式 import 证据 ⇒ 认', qCollection.gapCount === 0)
+  check(
+    '㊴⑤空限定词不认 / 名字近似不认',
+    stemMatches('x.', 'x') === false && stemMatches('xy', 'x') === false && stemMatches('x.real', 'x') === true,
+  )
+
   let fail = 0
   for (const [name, ok] of cases) {
     if (!ok) fail += 1
@@ -434,5 +489,6 @@ export const __test__ = {
   evaluateFace,
   judgeExit,
   todayIso,
+  listQualifierTests,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

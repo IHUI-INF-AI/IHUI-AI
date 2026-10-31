@@ -26,6 +26,9 @@
  * 口径细节:
  *   - `suppressed`(营销关闭/重复/退订)**不是通道故障**,一律不计入尝试;把它算成失败
  *     就等于让一次重复点击把整条通道报红(恒红门的典型成因而非信号)。
+ *   - 降级次数(`fallbacks`)= 失败行 reason 里带 `fallback_to=` 的条数(2026-10-31 G-20 起
+ *     换道时由 `apps/api/src/services/sms.ts` 的 withFallbackMark 写入)。只报数,不进三态判定 ——
+ *     降级后成功的发送是**健康**的证据。近 24h 该值为 0 且主通道有拒收,才是"第二通道没接上"。
  *   - 表字段:packages/database/src/schema/sms-delivery.ts(status/reason/created_at)。
  *
  * 用法:
@@ -48,6 +51,10 @@ const BREACH_REASON = /OUT_OF_SERVICE|isv\.|BUSINESS_LIMIT|SIGN|TEMPLATE|busi/i
 const ATTEMPT_STATUSES = new Set(['accepted', 'failed', 'delivered', 'delivery_failed'])
 const SUCCESS_STATUSES = new Set(['accepted', 'delivered'])
 
+/** 降级留痕(2026-10-31 G-20):主通道失败换下一档时,失败行的 reason 带这个后缀。
+ *  数它 = 数"这一小时主通道让路了几次",是"第二通道到底有没有在用"的唯一凭据。 */
+const FALLBACK_MARK = /fallback_to=/
+
 const HOUR_MS = 3600_000
 const DAY_MS = 24 * HOUR_MS
 
@@ -69,7 +76,15 @@ export function judgeSmsChannelHealth({ rows, now = new Date() }) {
   const attempts = norm.filter((r) => ATTEMPT_STATUSES.has(r.status))
   const success = attempts.filter((r) => SUCCESS_STATUSES.has(r.status))
   const lastHour = attempts.filter((r) => nowMs - r.at <= HOUR_MS)
-  const base = { attempts: attempts.length, success: success.length, lastHourAttempts: lastHour.length }
+  // 降级次数:失败行 reason 里的 fallback_to 后缀(换道时代码自己写的)。只报数,不参与三态判定 ——
+  // 一次成功的降级是**健康**的证据,不是故障。
+  const fallbacks = attempts.filter((r) => FALLBACK_MARK.test(r.reason)).length
+  const base = {
+    attempts: attempts.length,
+    success: success.length,
+    lastHourAttempts: lastHour.length,
+    fallbacks,
+  }
 
   if (attempts.length === 0) {
     return {
@@ -144,7 +159,8 @@ function resolveDatabaseUrl() {
 /** 观测面:近 24h 投递行。取不到 ⇒ null(交调用方判「未判定」,不回落成空集)。 */
 async function fetchRows() {
   const { url, from } = resolveDatabaseUrl()
-  if (!url) return { rows: null, why: 'DATABASE_URL 取不到(process.env 与 apps/api/.env 两处都没有)' }
+  if (!url)
+    return { rows: null, why: 'DATABASE_URL 取不到(process.env 与 apps/api/.env 两处都没有)' }
   const postgres = await loadPostgres()
   if (!postgres) {
     return { rows: null, why: `postgres 驱动不可解析(根与 apps/api 两处都取不到;DSN 来源=${from})` }
@@ -159,7 +175,9 @@ async function fetchRows() {
       order by created_at desc
       limit 5000
     `
-    return { rows: rows.map((r) => ({ status: r.status, reason: r.reason, createdAt: r.created_at })) }
+    return {
+      rows: rows.map((r) => ({ status: r.status, reason: r.reason, createdAt: r.created_at })),
+    }
   } catch (e) {
     return { rows: null, why: `查询失败:${e instanceof Error ? e.message : String(e)}` }
   } finally {
@@ -223,13 +241,30 @@ function selfTest() {
       ],
       want: 'ok',
     },
+    {
+      // G-20:降级可观测 —— 失败档带 fallback_to、次档 accepted,判 ok 且降级计数=1
+      name: '主通道失败并降级、次档成功 ⇒ ok,且 fallbacks 数到 1',
+      rows: [
+        {
+          status: 'failed',
+          reason: 'isv.OUT_OF_SERVICE | fallback_to=tencent',
+          createdAt: at(5),
+        },
+        { status: 'accepted', reason: null, createdAt: at(5) },
+      ],
+      want: 'ok',
+      wantFallbacks: 1,
+    },
   ]
   let failed = 0
   for (const c of cases) {
     const r = judgeSmsChannelHealth({ rows: c.rows, now })
-    const ok = r.verdict === c.want
+    const ok =
+      r.verdict === c.want && (c.wantFallbacks === undefined || r.fallbacks === c.wantFallbacks)
     if (!ok) failed += 1
-    console.log(`${ok ? 'PASS' : 'FAIL'}  ${c.name} —— want=${c.want} got=${r.verdict}(${r.detail})`)
+    console.log(
+      `${ok ? 'PASS' : 'FAIL'}  ${c.name} —— want=${c.want} got=${r.verdict}(${r.detail})`,
+    )
   }
   console.log(`\nself-test: pass ${cases.length - failed} / fail ${failed} (共 ${cases.length} 例)`)
   return failed === 0
@@ -239,17 +274,29 @@ async function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return selfTest() ? 0 : 1
   const json = argv.includes('--json')
   const { rows, why } = await fetchRows()
-  const result = rows === null
-    ? { verdict: 'unjudged', detail: why ?? '观测面取不到', attempts: 0, success: 0, lastHourAttempts: 0 }
-    : judgeSmsChannelHealth({ rows })
+  const result =
+    rows === null
+      ? {
+          verdict: 'unjudged',
+          detail: why ?? '观测面取不到',
+          attempts: 0,
+          success: 0,
+          lastHourAttempts: 0,
+          fallbacks: 0,
+        }
+      : judgeSmsChannelHealth({ rows })
   if (json) {
     process.stdout.write(`${JSON.stringify({ ...result, at: new Date().toISOString() })}\n`)
   } else {
     const icon = result.verdict === 'ok' ? '✅' : result.verdict === 'breach' ? '❌' : '⚠️'
     console.log(`${icon} 短信通道 ${result.verdict}:${result.detail}`)
-    console.log(`   近 24h 尝试=${result.attempts} 成功=${result.success};近 1h 尝试=${result.lastHourAttempts}`)
+    console.log(
+      `   近 24h 尝试=${result.attempts} 成功=${result.success};近 1h 尝试=${result.lastHourAttempts};降级=${result.fallbacks}`,
+    )
     if (result.verdict === 'breach') {
-      console.log('   出路:去阿里云费用中心充值 / 购买短信套餐包,然后确认 sender 恢复;这是唯一能让尺子转绿的整改动作')
+      console.log(
+        '   出路:去阿里云费用中心充值 / 购买短信套餐包,然后确认 sender 恢复;这是唯一能让尺子转绿的整改动作',
+      )
     }
   }
   return result.verdict === 'ok' ? 0 : result.verdict === 'breach' ? 1 : 2

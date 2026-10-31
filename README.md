@@ -40668,3 +40668,12 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 A: Yes. ~14839+ tests / 3782 test files / 67 e2e spec / 4656 API 路由 / 617 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 > **8 端代码 · 617 张数据库表 · 4451 个 API 路由。**
 > **8 端代码 · 617 张数据库表 · 4451 个 API 路由。**
+| API 路由 | 4616 | `apiRoutes` |
+| 路由文件 | 651 | `apiRouteFiles` |
+| AI 服务路由 | 613 | `aiServiceRoutes` |
+| CLI 命令文件 | 67 | `cliCommandFiles` |
+| 数据库表 | 612 | `dbTables` |
+| schema 文件 | 237 | `dbSchemaFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
+| 工程守门 | 299 | `guardianGates` |
+| — blocking | 273 | `guardianBlocking` |
