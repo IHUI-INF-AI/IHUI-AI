@@ -554,7 +554,7 @@ async def _noop_async() -> None:
 
 
 def test_status_wb_tasks_shape_when_not_started(monkeypatch):
-    """未 start:next_run_wb_tasks=None,wb_tasks 五字段齐全且类型正确。"""
+    """未 start:next_run_wb_tasks=None,wb_tasks 字段齐全且类型正确。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
     monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", False)
     monkeypatch.setattr(cs.settings, "workbuddy_tasks_live_run", False)
@@ -566,6 +566,7 @@ def test_status_wb_tasks_shape_when_not_started(monkeypatch):
         "enabled",
         "tasks_enabled",
         "cron_enabled",
+        "not_running_reason",
         "live_run",
         "sweep_minutes",
         "claim_path_configured",
@@ -582,14 +583,19 @@ def test_status_wb_tasks_shape_when_not_started(monkeypatch):
     assert wb["enabled"] is False  # 默认 off(安全设计:不配就不跑)
     assert wb["tasks_enabled"] is False
     assert wb["cron_enabled"] is False
+    # 两门都关而未 start ⇒ 先点名任务门(它才是这条 job 的专闸,能当场整改)
+    assert wb["not_running_reason"] == "tasks_gate_off"
 
 
-def test_status_wb_tasks_enabled_is_both_gates(monkeypatch):
-    """enabled 必须是「任务门 ∧ 总闸」:只开任务门而总闸关 ⇒ 报 False。
+def test_status_wb_tasks_enabled_is_observed_state_not_gate_and(monkeypatch):
+    """enabled 是观测态(job 现在真注册着),不是「两门与」的配置意图。
 
-    这是 2026-10-31 修的口径漂移 —— start() 整个函数体套在 `if _cron_enabled()` 里,
-    内层才是 `if settings.workbuddy_tasks_enabled`。若 enabled 只报后者,前端会显示
-    「已启用」而 job 永不注册(把"没跑"写成"在跑")。
+    2026-10-31 二修:上一轮把 enabled 从单门改成「任务门 ∧ 总闸」仍是假绿 ——
+    那两道闸都是**配置意图**,判不出"进程里到底有没有这条 job"。反例可复现:
+    start() 里 ensure_tables 抛异常就 return(main.py 又把 start() 整包
+    try/except 忽略)⇒ 进程里连 scheduler 都没有,两门 env 皆 true 时旧口径照样
+    报 enabled=true,面板显示「已启用 · 每 180 分钟自动巡检」而这条 job 永不执行。
+    意图仍原样报在 tasks_enabled / cron_enabled 里,由 not_running_reason 说明卡在哪。
     """
     monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", True)
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
@@ -597,10 +603,96 @@ def test_status_wb_tasks_enabled_is_both_gates(monkeypatch):
     assert wb["tasks_enabled"] is True
     assert wb["cron_enabled"] is False
     assert wb["enabled"] is False  # 总闸关 ⇒ 真不会跑
+    assert wb["not_running_reason"] == "cron_gate_off"
 
+    # 两门都开但本进程从未 start ⇒ 依旧不是「已启用」(旧版这里假绿,已改判)
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
     wb = cs.CheckinScheduler().status()["wb_tasks"]
-    assert wb["enabled"] is True  # 两门都开才算启用
+    assert wb["tasks_enabled"] is True
+    assert wb["cron_enabled"] is True
+    assert wb["enabled"] is False
+    assert wb["not_running_reason"] == "scheduler_not_started"
+
+
+# ---------------------------------------------------------------------------
+# wb_tasks.not_running_reason:五档机器枚举的判序(实现与文档不许各写一份)
+# ---------------------------------------------------------------------------
+
+
+def test_wb_tasks_not_running_reason_pure_five_slots():
+    """纯函数逐档喂参数验判序:自上而下第一个命中,且 enabled=true 恒为 None。"""
+    reason = cs._wb_tasks_not_running_reason
+    # ① job 真注册着 ⇒ 没有"为什么没跑"可说
+    assert (
+        reason(tasks_enabled=True, cron_enabled=True, started=True, job_registered=True) is None
+    )
+    # ② 任务门关(它专管这条 job,排在总闸前:红牌先指能当场改的那一格)
+    assert (
+        reason(tasks_enabled=False, cron_enabled=True, started=True, job_registered=False)
+        == "tasks_gate_off"
+    )
+    # ③ 任务门开、总闸关
+    assert (
+        reason(tasks_enabled=True, cron_enabled=False, started=False, job_registered=False)
+        == "cron_gate_off"
+    )
+    # ④ 两门皆开但调度器没起来(建表失败 / start() 抛异常 / lifespan 没跑到)
+    assert (
+        reason(tasks_enabled=True, cron_enabled=True, started=False, job_registered=False)
+        == "scheduler_not_started"
+    )
+    # ⑤ 调度器起来了而这条 job 不在注册表(改完 env 没重启的进程内不一致)
+    assert (
+        reason(tasks_enabled=True, cron_enabled=True, started=True, job_registered=False)
+        == "job_not_registered"
+    )
+    # 边界:两门双关且没 start ⇒ 仍落任务门,不越级报 scheduler_not_started
+    assert (
+        reason(tasks_enabled=False, cron_enabled=False, started=False, job_registered=False)
+        == "tasks_gate_off"
+    )
+
+
+async def test_status_wb_tasks_ensure_tables_failure_is_not_enabled(monkeypatch):
+    """建表异常 ⇒ start() 提前 return ⇒ 两门全开也必须报未运行(假绿的根反例)。
+
+    main.py 的 lifespan 把 start() 整包 try/except 忽略,所以这条路径在生产里
+    是"服务照常起、功能全没起"。status() 若按配置意图报绿,面板就在说谎。
+    """
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", True)
+
+    async def _boom() -> None:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _boom)
+    sched = cs.CheckinScheduler()
+    await sched.start()  # 不抛(fail-open)
+    assert sched._started is False
+    wb = sched.status()["wb_tasks"]
+    assert wb["enabled"] is False
+    assert wb["not_running_reason"] == "scheduler_not_started"
+    assert wb["tasks_enabled"] is True and wb["cron_enabled"] is True
+
+
+async def test_status_wb_tasks_started_but_job_missing(monkeypatch):
+    """调度器在跑而这条 job 不在注册表 ⇒ job_not_registered(改 env 未重启型)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", False)
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+    # 运行期把任务门改成 true(等价于改了 .env 而进程没重启)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_enabled", True)
+    st = sched.status()
+    assert st["started"] is True
+    assert cs._JOB_ID_WB_TASKS not in sched._scheduler.jobs  # type: ignore[union-attr]
+    wb = st["wb_tasks"]
+    assert wb["enabled"] is False
+    assert wb["not_running_reason"] == "job_not_registered"
+    await sched.stop()
 
 
 def test_status_wb_tasks_disabled_by_setting(monkeypatch):
@@ -653,6 +745,7 @@ def test_status_next_run_wb_tasks_when_started(monkeypatch):
     st = sched.status()
     assert st["next_run_wb_tasks"] == "2026-10-31T12:30:00+08:00"
     assert st["wb_tasks"]["enabled"] is True
+    assert st["wb_tasks"]["not_running_reason"] is None
 
 
 async def test_start_registers_wb_job_with_status_same_interval(monkeypatch):
@@ -676,6 +769,9 @@ async def test_start_registers_wb_job_with_status_same_interval(monkeypatch):
     st = sched.status()
     assert st["wb_tasks"]["sweep_minutes"] == 5
     assert st["next_run_wb_tasks"] is not None  # fake 按 trigger 现算,证明取值路径通
+    # 观测态:job 真在注册表里 ⇒ enabled=true 且没有"为什么没跑"可说
+    assert st["wb_tasks"]["enabled"] is True
+    assert st["wb_tasks"]["not_running_reason"] is None
     await sched.stop()
 
 
@@ -693,6 +789,7 @@ async def test_start_skips_wb_job_when_disabled(monkeypatch):
     st = sched.status()
     assert st["next_run_wb_tasks"] is None
     assert st["wb_tasks"]["enabled"] is False
+    assert st["wb_tasks"]["not_running_reason"] == "tasks_gate_off"
     await sched.stop()
 
 
