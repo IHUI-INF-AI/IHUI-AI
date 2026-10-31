@@ -91,4 +91,25 @@ test('锚点禁地判据已接进 audit(),且排在 S4U 豁免之前、两半都
     'Execute 与参数必须都问(病藏在参数里)',
   )
 })
+
+// 包装器改的是任务的 action,而 action 与 principal 在同一次 Set-ScheduledTask 里交付。
+// 本机实测过这一型的代价:守护任务被 watchdog 重装成 S4U 之后又被包回 wscript,现读主体
+// 变回 Interactive —— 自愈把「无桌面所以结构性不可能弹窗」这一根治改回了「靠 SW_HIDE 逐点传参」。
+// 所以「保留主体」不能再是注释里的承诺:必须取→带→读回比对,不一致就判失败。
+test('包装器可证地保留运行主体:取→带→读回比对,漂移即判失败', () => {
+  const src = readFileSync(new URL('../ensure-silent-tasks.mjs', import.meta.url), 'utf8')
+  const start = src.indexOf('function replaceActionWithWrapper')
+  const fn = src.slice(start, src.indexOf('export function audit', start))
+  assert.ok(start > 0 && fn.length > 0, '包装器函数体必须取得到(本锁的基准已漂)')
+  assert.match(fn, /\$before = \(Get-ScheduledTask[^\n]*\)\.Principal/, '必须先取回原主体')
+  assert.match(fn, /-Action \$a -Principal \$before/, '回写必须显式带上原主体,不能只交 action')
+  assert.match(fn, /LOGON_BEFORE=/, '必须把前后主体都打出来(结论要能被日志核对)')
+  assert.match(fn, /if \(m\[1\] !== m\[2\]\)/, '主体不一致必须走失败分支')
+  assert.doesNotMatch(
+    fn,
+    /-Action \$a \| Out-Null/,
+    '旧形态(只给 -Action、不回读主体)必须已消失:它会静默把 S4U 改回 Interactive',
+  )
+  assert.doesNotMatch(fn, /const ok = \/OK\/\.test\(out\)/, '裸 /OK/ 成功判据必须已换成形状+比对')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

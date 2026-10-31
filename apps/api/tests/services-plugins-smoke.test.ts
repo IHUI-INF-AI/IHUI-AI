@@ -193,9 +193,14 @@ describe('plugins smoke 测试', () => {
       expect(scheduler).toBeDefined()
     })
 
-    it('SCHEDULER_QUEUE_NAME 是字符串 scheduler', () => {
+    it('SCHEDULER_QUEUE_NAME 以基础名 scheduler 起头且不含冒号', () => {
+      // 2026-10-31 起队列名带库身份后缀(隔离库起的实例不抢主库作业):本套件吃的是隔离测试库
+      // DATABASE_URL ⇒ 现值形如 `scheduler-ihui_test`。**「主库必须逐字节等于原名 scheduler」
+      // 这条契约不在这里判**,由 tests/queue-name-db-identity.test.ts 契约① 在主库 DSN 下重新
+      // 加载模块后逐字比对(这里只判运行时形状:BullMQ 的 QueueBase 见冒号即抛)。
       expect(typeof SCHEDULER_QUEUE_NAME).toBe('string')
-      expect(SCHEDULER_QUEUE_NAME).toBe('scheduler')
+      expect(SCHEDULER_QUEUE_NAME.startsWith('scheduler')).toBe(true)
+      expect(SCHEDULER_QUEUE_NAME.includes(':')).toBe(false)
     })
 
     it('SCHEDULED_JOBS 是非空数组', () => {

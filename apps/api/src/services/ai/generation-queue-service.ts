@@ -18,6 +18,7 @@
 import { createHash } from 'node:crypto'
 import { Queue, type Job, type JobState } from 'bullmq'
 import { config } from '../../config/index.js'
+import { queueNameWithDbIdentity } from '../relay-queue-name.js'
 
 export type GenerationTaskType = 'text' | 'image' | 'video' | 'audio' | 'multimodal'
 
@@ -39,7 +40,16 @@ const PRIORITY_MAP: Record<GenerationPriority, number> = {
   low: 1,
 }
 
-const QUEUE_NAME = 'ai-generation'
+/**
+ * 队列名(2026-10-31 起经库身份解析)。
+ *
+ * 主库(`ihui`、未设后缀)解析结果与旧字面量 `ai-generation` **逐字节相同** ⇒ 线上零扰动;
+ * 隔离实例(设了 `RELAY_QUEUE_SUFFIX` 或库名命中隔离特征)拿到的名字带库身份,不会与主库同名互抢。
+ * 本仓内 `new Worker('ai-generation')` 现读零命中(消费端身份仍未判定,见交付报告残余格),
+ * 因此这一改不构成生产/消费分家:两侧要么都原名,要么都不存在本仓消费者。
+ */
+const QUEUE_BASE_NAME = 'ai-generation'
+const QUEUE_NAME = queueNameWithDbIdentity(QUEUE_BASE_NAME)
 
 let queue: Queue<GenerationJobData> | null = null
 

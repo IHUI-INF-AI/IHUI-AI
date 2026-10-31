@@ -7,6 +7,7 @@ import fp from 'fastify-plugin'
 import { Queue, type ConnectionOptions } from 'bullmq'
 import { config } from '../config/index.js'
 import { processOutbox } from '../utils/outbox.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
 /**
  * 定时任务调度器插件。
@@ -17,8 +18,14 @@ import { processOutbox } from '../utils/outbox.js'
  * 2. BullMQ 按 repeat key 对 repeatable job 幂等去重，进程重启重复注册不会产生多份调度。
  * 3. 实际任务执行逻辑在 workers/scheduler-worker.ts，本插件只负责调度基础设施。
  * 4. 与 queue.ts 一致，使用独立 ConnectionOptions（maxRetriesPerRequest: null）。
+ * 5. 队列名带库身份(2026-10-31):生产者 = 本插件下面的 `new Queue`,消费者 =
+ *    workers/scheduler-worker.ts 经 `createWorker(server, SCHEDULER_QUEUE_NAME, …)`,
+ *    两侧读同一枚常量 ⇒ 隔离库实例不会替主库跑 17 个 cron 任务。
+ *    主库(`ihui`、未设后缀)解析结果与旧字面量逐字节相同 ⇒ 线上队列名零扰动。
  */
-export const SCHEDULER_QUEUE_NAME = 'scheduler'
+const SCHEDULER_QUEUE_BASE_NAME = 'scheduler'
+
+export const SCHEDULER_QUEUE_NAME = queueNameWithDbIdentity(SCHEDULER_QUEUE_BASE_NAME)
 
 export type ScheduledJobName =
   | 'expired-order-cleanup'
