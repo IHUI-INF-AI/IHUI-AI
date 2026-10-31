@@ -621,13 +621,13 @@ const nextConfig: NextConfig = {
           source: '/api/prompts/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/prompts/:path*`,
         },
-        // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
-        // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
-        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/admin/news/:path*',
-          destination: `${IHUI_AI_PROXY_TARGET}/api/admin/news/:path*`,
-        },
+        // 2026-08-12 新增、2026-10-31 安全强化第 31 批**删除**:
+        // 原规则把 `/api/admin/news/:path*` 整段直连 ai-service 8803。
+        // 它有两个后果:① 浏览器请求绕过 apps/api,连 adminNewsRoutes 的 requireAdmin
+        // 都不经过(ai-service 侧只有全局 JWT = 登录即可);② 同一条 rewrite 把 apps/api
+        // 已实现的 categories/articles/information 全吞到 8803(那边没有这些路由 ⇒ 404)。
+        // 现由 apps/api 统一出口:status 走 newsRoutes(登录可见),其余 admin 端点走
+        // adminNewsRoutes(requireAdmin)。此处不得再加回整段通配。
         // 2026-09-01 新增:Artifact 预览 API 路由转发到 ai-service 8803
         // 原因:artifacts router 注册在 ai-service(prefix="/api",路径 /api/artifacts/*),
         // 覆盖 token 签发端点(JWT 保护,前端 fetchAiServiceJson 带 Bearer)与签名 token
