@@ -14,6 +14,8 @@ import logging
 import sys
 from typing import Any
 
+from .log_redaction import structlog_redaction_processor
+
 # 软依赖:structlog 缺失时降级为 stdlib logging。
 # 用 importlib.import_module 避免直接 import 触发 mypy 的 Module 类型绑定,
 # 否则 except 中 structlog = None 会与 Module 类型不兼容。
@@ -39,6 +41,11 @@ def _configure_structlog() -> None:
             structlog.processors.TimeStamper(fmt="iso", utc=False),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
+            # 2026-11-01 安全强化:本工厂是 PrintLoggerFactory(file=sys.stderr)——它**直写
+            # 流**,结构上不经 stdlib handler,所以 main.py 装的那道凭据脱敏闸覆盖不到这里。
+            # 尺子仍是同一份(output_cleaning.redact_secrets),只是每条落盘链各接一次。
+            # 必须排在 format_exc_info 之后:那个处理器才把异常渲染成可脱敏的字符串。
+            structlog_redaction_processor,
             structlog.dev.ConsoleRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),

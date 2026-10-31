@@ -15,6 +15,7 @@
  */
 
 import { serializeError } from '@ihui/types'
+import { redactCredentialStrings, redactCredentialText } from './redact-credential-text.js'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -69,17 +70,27 @@ export function serializeErrorFields(meta: object | undefined): object | undefin
 
 function log(level: LogLevel, msg: string, rawMeta?: object): void {
   const meta = serializeErrorFields(rawMeta)
+  // 2026-11-01 安全强化:落盘前打码凭据(出口在 utils/redact-credential-text.ts,
+  // 规则单源仍是共享层 @ihui/shared/utils/redact)。
+  //
+  // 为什么必须接在**这一层**:`plugins/log-sanitizer.ts` 的 Proxy 只包 `request.log`,
+  // 而它是 onRequest 钩子里按请求装的 ⇒ 全仓 169 个 `import { logger }` 的模块级日志
+  // 结构上不经那道 Proxy。实测后果不是理论:file-transfer.ts 就写着
+  // `logger.info('[file-transfer] downloading: ' + url)`,而那条 url 带 `?token=`。
+  // 闸住在唯一落盘口,而不是指望每个未来的调用方记得自己判一遍。
+  const safeMsg = redactCredentialText(msg)
+  const safeMeta = meta === undefined || meta === null ? meta : redactCredentialStrings(meta)
   if (fastifyInstance) {
     // pino 签名：fastify.log.info(meta, msg)
-    fastifyInstance.log[level](meta ?? {}, msg)
+    fastifyInstance.log[level](safeMeta ?? {}, safeMsg)
   } else {
     // 回退到 console（测试环境/未初始化）
     const prefix = `[${level.toUpperCase()}]`
     const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.info
-    if (meta) {
-      fn(`${prefix} ${msg}`, meta)
+    if (safeMeta) {
+      fn(`${prefix} ${safeMsg}`, safeMeta)
     } else {
-      fn(`${prefix} ${msg}`)
+      fn(`${prefix} ${safeMsg}`)
     }
   }
 }

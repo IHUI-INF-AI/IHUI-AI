@@ -39,6 +39,7 @@ from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.conn_guard import WsConnGuardMiddleware, ws_conn_gate
 from app.core.jwt_auth import JWTAuthMiddleware
+from app.core.log_redaction import install_stdlib_secret_redaction
 from app.core.schema_check import check_schema, log_report
 from app.middleware.audit import setup_audit_middleware
 from app.middleware.input_sanitizer import (
@@ -172,6 +173,16 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 
+# 2026-11-01 安全强化:凭据进日志的收口闸(判据单源 = output_cleaning.redact_secrets)。
+# 逐调用点堵不成立:仓里若干外网点的凭据**协议上只能**放在 URL 查询串(Etherscan
+# &apikey=、Gitee ?access_token=、下载签名链 ?token=),而"URL 进日志"的入口有无数个
+# (httpx 逐请求行、uvicorn.access、异常文本里的 request.url、我们自己写的 f-string)。
+# structlog 那一半走 PrintLoggerFactory 直写 stderr,不经 stdlib handler,由
+# app/core/logging.py 的处理器链接同一条尺子 —— 只装这里会假绿。
+# 此刻 uvicorn/gunicorn 自己的 handler 尚未配好(它们在应用 import 之后才建),
+# 故 app 启动钩子里再调一次(同一函数幂等)。
+install_stdlib_secret_redaction()
+
 # 同步 settings 关键变量到 os.environ,确保用 os.getenv() 读取的模块(如 agent_runtime)
 # 能拿到 .env 配置(pydantic-settings 只加载到 Settings 对象,不同步到 os.environ)。
 # 仅在变量未设置时 setdefault,不覆盖运行时注入的值(如测试 monkeypatch)。
@@ -301,6 +312,16 @@ async def lifespan(app: FastAPI) -> Any:
     启动时执行 ai_model_config 字段对照校验(防止 ai-service 与 TS schema 漂移),
     字段缺失仅记录 warning,不阻塞启动(生产可用性优先)。
     """
+    # 凭据脱敏闸的第二次安装(第一次在 import 期):uvicorn/gunicorn 的 handler 是在
+    # 应用 import **之后**才建好的,而 uvicorn.access / uvicorn.error 默认
+    # propagate=False —— 它们的行不经 root,只装 import 期那一次会整片漏掉 access 日志
+    # (access 恰好是最常带完整 URL 的那一类)。同一函数幂等,新挂数为 0 即已覆盖。
+    _redaction_installed = install_stdlib_secret_redaction()
+    logger.info(
+        "[log-redaction] 启动补挂脱敏 filter:新增覆盖 %s 个 handler(0=import 期已全覆盖)",
+        _redaction_installed,
+    )
+
     try:
         result = await check_schema()
         log_report(result)

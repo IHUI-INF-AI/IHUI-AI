@@ -447,8 +447,14 @@ async def test_complete_success_returns_text():
     assert result["stub"] is False
 
 
-async def test_complete_url_contains_api_key_and_model():
-    """complete URL 含 api_key 查询参数 + 模型名。"""
+async def test_complete_puts_key_in_header_not_in_url():
+    """complete:模型名进 URL,api key **只进请求头**(2026-11-01 安全强化改的契约)。
+
+    本用例原先的名字与断言是 `url_contains_api_key` —— 它把泄露面钉成了契约。
+    新形态已由真实端点验证:去掉 `?key=` 后 Google 返回的是 `API_KEY_INVALID`
+    (值不对),而不是"未提供凭据"⇒ x-goog-api-key 头确实被读到。
+    两条断言必须成对:只查"URL 没 key"会把"鉴权整个丢了"也判成绿。
+    """
     p = GeminiProvider(api_key="gem-key")
 
     fake_resp = MagicMock()
@@ -461,9 +467,11 @@ async def test_complete_url_contains_api_key_and_model():
     with _patch_http_client(fake_client):
         await p.complete([{"role": "user", "content": "x"}], "gemini-1.5-pro")
 
-    args, _ = fake_client.request.call_args
+    args, kwargs = fake_client.request.call_args
     url = args[1]
-    assert "key=gem-key" in url
+    sent_headers = kwargs.get("headers") or {}
+    assert "key=" not in url, f"URL 仍带凭据:{url}"
+    assert sent_headers.get("x-goog-api-key") == "gem-key"
     assert "models/gemini-1.5-pro:generateContent" in url
 
 
