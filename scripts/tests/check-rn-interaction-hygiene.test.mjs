@@ -104,11 +104,22 @@ test('④ 判据行为锁:命中尺寸按"补满才算过",反馈四形态任一
     '<Pressable style={{ width: 24, height: 24 }} onPress={go} onPressOut={q} />',
     '<Pressable style={{ width: 24, height: 24 }} onPress={go}>{({ pressed }) => <View />}</Pressable>',
     '<Pressable className="active:opacity-60" style={{ width: 24, height: 24 }} onPress={go} />',
-    // 唯一口 pressFeedback():机制住在 @ihui/ui-native,端内只写一行 style={pressFeedback(styles.x)}。
-    // 判据不认它 ⇒ 修了也读成"没修" ⇒ 逼人回去抄内联函数形态(§0.6 两份真相)。
-    '<Pressable style={pressFeedback(styles.a)} onPress={go} />',
+    // 唯一口 Tappable:pressed 态由组件内部持有,交给原生 Pressable 的是**数组**形态 style。
+    '<Tappable style={{ width: 24, height: 24 }} onPress={go} />',
   ])
     assert.equal(scanText(form, T).h2.length, 0, `反馈形态漏认:【${form.slice(0, 46)}…】`)
+  // 反向锁:pressFeedback 返回函数形态 style,会被 cssInterop 换成 `{}`(守门 131 真机定案)。
+  // 它从合法形态里摘掉后必须判红 —— 否则这一维还在给"样式整份消失"的写法发免检。
+  assert.equal(
+    scanText('<Pressable style={pressFeedback(styles.a)} onPress={go} />', T).h2.length,
+    1,
+    'pressFeedback 仍被认作有反馈 ⇒ 函数形态回潮被放行',
+  )
+  assert.equal(
+    scanText('<Tappable style={pressFeedback(styles.a)} onPress={go} />', T).h2.length,
+    1,
+    'Tappable 上叠 pressFeedback(双重包裹)必须照判 ⇒ 换了组件不能掩盖旧机制回潮',
+  )
 })
 
 test('⑤ 跨端源的 hitSlop 只补到 RN 腿 ⇒ 进 slopOnly 普查,不得读成两端都过关', () => {
