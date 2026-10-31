@@ -34,9 +34,11 @@ deploy-feedback 条目与本模块无关,不要据此推断本族的状态)。
   ⇒ accept 走 **WORKBUDDY_TASKS_ACCEPT_FIELD** 显式配置,留空即拒绝执行并点名四种试过的
   形态都 400 —— 宁可不做,不猜字段名。
 
-仍未取证的两格(保持默认关):claim(领任务奖励)**路径**未见,
-`WORKBUDDY_TASKS_CLAIM_PATH` 留空 ⇒ 拒绝执行;activity 族只有事件码清单与三个候选主机,
-**路径↔主机绑定**未证 ⇒ `WORKBUDDY_TASKS_ACTIVITY_PATH` 留空 ⇒ run_activity 未判定。
+claim(领任务奖励)**路径**与 activity **路径↔主机绑定**已于 2026-10-31 据 workbuddy2api
+README(逆向+真机验证)补证并填入默认值:`WORKBUDDY_TASKS_CLAIM_PATH=/activity/growth/tasks/{code}/claim`
+(**仅在 Web 域 www.workbuddy.cn + `x-client-platform: web` 成功**,见 `_claim_one_web`)、
+`WORKBUDDY_TASKS_ACTIVITY_PATH=/v2/report`(事件码↔主机指纹见 config 表)。二者仍保留
+`WORKBUDDY_TASKS_LIVE_RUN=false` 双门控,写侧须显式开启;若运维把配置清空则回到"拒绝执行"。
 `www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
 
 blackcat 族无专属端点(取证结论):它是本地节律规则 —— 23:00–08:00(Asia/Shanghai,
@@ -78,6 +80,7 @@ from app.services.checkin_workbuddy import (
     WB_BASE,
     WB_WEB_BASE,
     workbuddy_classify_error,
+    workbuddy_extract_uid,
     workbuddy_is_web_mode,
     workbuddy_query_credits,
     workbuddy_web_cookie,
@@ -120,6 +123,11 @@ _CODE_OK: Final = 0
 
 # 聊天补全回调形态:入参 = 模型名,抛异常视为该次失败
 ChatCompletion = Callable[[str], Awaitable[None]]
+
+# 活动计分回调:入参 = 任务 code,执行使该任务达标所需的计分动作(具体事件码↔任务映射
+# 由注入方持有,本模块不猜字段/映射,见 §0.3)。无异常视作已尝试计分;注入 None ⇒
+# growth 跳过计分,仅按上游已 completed 态 claim(常规调度未接线时即此路径)。
+ActivityReporter = Callable[[str], Awaitable[None]]
 
 # ---------------------------------------------------------------------------
 # 基础解析助手(全部宁缺勿假:取不到 ⇒ None,调用方落 unjudged)
@@ -173,6 +181,7 @@ async def _post_once(
     timeout: float,
     http: httpx.AsyncClient,
     method: str = "POST",
+    extra_headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
     """单发。返回 (status, parsed|None);0=超时 -1=网络异常(payload=描述)。
 
@@ -182,6 +191,8 @@ async def _post_once(
     "404 page not found",⇒ 404 是"路由不存在"的可靠标记,不是网关兜底)。
     GET 不带请求体。
     """
+    if extra_headers:
+        headers = {**headers, **extra_headers}
     await checkin_outbound_gate.before_request("workbuddy")
     try:
         if method == "GET":
@@ -210,6 +221,7 @@ async def _wb_request(
     client: httpx.AsyncClient | None = None,
     absolute_url: str | None = None,
     method: str = "POST",
+    extra_headers: dict[str, str] | None = None,
 ) -> tuple[int, Any, str]:
     """打一个任务族端点,返回 (http_status, payload, mode),mode ∈ {"token","web","url"}。
 
@@ -243,7 +255,8 @@ async def _wb_request(
     if absolute_url is not None:
         headers = _web_headers() if (web_cookie and workbuddy_is_web_mode(device_map)) else _token_headers()
         status, payload = await _post_once(
-            absolute_url, headers, body, timeout=timeout, http=http, method=method
+            absolute_url, headers, body, timeout=timeout, http=http, method=method,
+            extra_headers=extra_headers,
         )
         return status, payload, "url"
 
@@ -255,6 +268,7 @@ async def _wb_request(
             timeout=timeout,
             http=http,
             method=method,
+            extra_headers=extra_headers,
         )
         return status, payload, "web"
 
@@ -265,6 +279,7 @@ async def _wb_request(
         timeout=timeout,
         http=http,
         method=method,
+        extra_headers=extra_headers,
     )
     if status in (401, 403) and web_cookie:
         status2, payload2 = await _post_once(
@@ -274,6 +289,7 @@ async def _wb_request(
             timeout=timeout,
             http=http,
             method=method,
+            extra_headers=extra_headers,
         )
         if status2 not in (0, -1):
             return status2, payload2, "web"
@@ -500,14 +516,27 @@ def classify_growth_tasks(tasks: list[dict[str, Any]]) -> tuple[list[str], list[
     判据按 2026-10-28 真机形态重定:列表行只有 `status`(实测值 `available`),
     旧判据(`accept_status == "0"` / `progress >= target`)在真数据上**恒不成立** ⇒
     整族永远 0 项,看起来像"没任务可做",实际是尺子读不到字段。
-    - claim:仅当某行真带了 progress/target 且达标(上游后续补字段即自动生效);
-    - accept:status ∈ WORKBUDDY_TASKS_ACTIONABLE_STATUSES(默认 `available`)。
+
+    2026-10-31 补强:真实任务完成态不暴露 progress/target(审计字段恒 None),
+    故新增 `WORKBUDDY_TASKS_CLAIMABLE_STATUSES`(默认 `completed`)作为 claim 判定面 ——
+    上报计分后任务 status 流转到 claimable 集即触发领取,与 workbuddy2api 的
+    "达标即自动领奖"同语义。progress>=target 仍作兜底(上游若补字段自动生效)。
+    - claim:status ∈ claimable 集,或 progress>=target;
+    - accept:status ∈ actionable 集(默认 `available`)且未达 claimable。
     """
     action_set = _status_set(settings.workbuddy_tasks_actionable_statuses)
+    claimable_set = _status_set(settings.workbuddy_tasks_claimable_statuses)
     to_accept: list[str] = []
     to_claim: list[str] = []
     for t in tasks:
+        code = str(t.get("task_code") or "")
+        if not code:
+            continue
+        status = str(t.get("status") or "")
         progress, target = t.get("progress"), t.get("target")
+        if status in claimable_set:
+            to_claim.append(code)
+            continue
         if (
             isinstance(progress, int)
             and isinstance(target, int)
@@ -515,10 +544,80 @@ def classify_growth_tasks(tasks: list[dict[str, Any]]) -> tuple[list[str], list[
             and target > 0
             and progress >= target
         ):
-            to_claim.append(str(t["task_code"]))
-        elif str(t.get("status") or "") in action_set:
-            to_accept.append(str(t["task_code"]))
+            to_claim.append(code)
+        elif status in action_set:
+            to_accept.append(code)
     return to_accept, to_claim
+
+
+def order_accounts_by_credit_urgency(
+    items: list[tuple[str, int | None]], mode: str
+) -> list[str]:
+    """纯函数:按积分紧迫度排任务中心巡检账号顺序(与兄弟席位同口径,固定不可漂移)。
+
+    items = [(account_id, balance_or_None), ...];mode ∈ {lowest_balance, highest_balance}。
+    - lowest_balance(默认紧迫语义):余额越低越先跑 —— 优先给"积分快枯竭"的号补分;
+    - highest_balance:余额越高越先跑 —— 优先消耗高产号的额度。
+    取不到余额(None)排最后(§0.3 不冒充 0,也不阻塞整轮);同值保持稳定序。
+    mode 非二者 ⇒ 原序返回(调用方只在显式开启时传合法值)。
+    """
+    if mode not in ("lowest_balance", "highest_balance"):
+        return [a for a, _ in items]
+    if mode == "highest_balance":
+        return [a for a, _ in sorted(items, key=lambda x: (x[1] is None, -(x[1] or 0)))]
+    return [a for a, _ in sorted(items, key=lambda x: (x[1] is None, x[1] or 0))]
+
+
+async def _claim_one_web(
+    jwt: str,
+    device_map: dict[str, Any],
+    code_item: str,
+    client: httpx.AsyncClient,
+    timeout: float,
+) -> tuple[bool, str, bool]:
+    """单任务领奖:强制走 Web 域(www.workbuddy.cn)+ /v2 前缀 + `x-client-platform: web`。
+
+    2026-10-31 据 workbuddy2api README 补证:claim **只在 Web 域 + 该头成功**
+    (原文「非 CLI 域——这是领奖能成功的关键」)。故不复用 `_wb_request` 的 token/web
+    自动分流(令牌域会 404/401),直接打 `WB_WEB_BASE + _webify(模板)`。
+    返回 (ok, 原因, 是否网络失败):网络失败 ⇒ 调用方置 unjudged;会话/业务失败 ⇒ 不误判。
+    """
+    claim_path_tmpl = (settings.workbuddy_tasks_claim_path or "").strip()
+    if not claim_path_tmpl:
+        return False, "claim 路径未配置(§0.3 拒绝猜 URL)", False
+    if "{code}" not in claim_path_tmpl:
+        return False, "claim 路径模板缺 {code} 占位符", False
+    rel = claim_path_tmpl.format(code=code_item)
+    url = WB_WEB_BASE.rstrip("/") + _webify(rel)
+    web_cookie = workbuddy_web_cookie(jwt, device_map)
+    if not web_cookie:
+        return (
+            False,
+            "claim 仅 Web 域 + x-client-platform:web 可用,本账号无 web_cookie(需网页登录态)⇒ 跳过",
+            False,
+        )
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": workbuddy_web_ua(device_map),
+        "cookie": web_cookie,
+        "x-client-platform": "web",
+    }
+    status, payload = await _post_once(
+        url, headers, {}, timeout=timeout, http=client, method="POST"
+    )
+    if status in (0, -1):
+        return False, "网络异常" if status == 0 else f"网络异常:{payload}", True
+    if status in (401, 403):
+        return False, f"HTTP {status}(Web 域会话失效,请重抽网页 Cookie)", False
+    if status >= 400:
+        return False, f"HTTP {status}", False
+    code, _data = _envelope(payload)
+    if code is None:
+        return False, "信封不可解析", False
+    if code == _CODE_OK:
+        return True, "", False
+    return False, f"上游 code={code}", False
 
 
 async def run_growth(
@@ -528,11 +627,18 @@ async def run_growth(
     dry_run: bool = False,
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
+    activity_reporter: ActivityReporter | None = None,
 ) -> dict[str, Any]:
-    """growth 族执行:列表(读)→ accept(写)→ claim(写,仅路径已配置时)→ 余额差量。"""
+    """growth 族执行:列表(读)→ [上报计分]→ accept(写)→ claim(写,仅路径已配置时)→ 余额差量。
+
+    activity_reporter: 可选注入(调度器接 run_activity),用于为本轮待做任务补计分事件,
+    再重新拉列表判定有无因上报而达标可领的任务(与 workbuddy2api "上报→达标→领奖"同语义)。
+    """
     eff_client, owned = (client, False) if client is not None else client_for(device_map)
     try:
-        return await _run_growth_inner(jwt, device_map, dry_run, eff_client, timeout)
+        return await _run_growth_inner(
+            jwt, device_map, dry_run, eff_client, timeout, activity_reporter=activity_reporter
+        )
     finally:
         if owned:
             await eff_client.aclose()
@@ -544,6 +650,7 @@ async def _run_growth_inner(
     dry_run: bool,
     client: httpx.AsyncClient,
     timeout: float,
+    activity_reporter: ActivityReporter | None = None,
 ) -> dict[str, Any]:
     # dry-run ⇒ 只打 list(读);余额探针虽也是读面,但合同把 dry-run 的读面收窄到
     # list/status,探针仅实跑档发。
@@ -569,6 +676,33 @@ async def _run_growth_inner(
     claimed: list[str] = []
     reasons: list[str] = []
     unjudged = False
+
+    # 上报→重判→claim 闭环(与 workbuddy2api "上报→达标→领奖"同语义):若注入了活动计分
+    # 回调,先为本轮 to_accept 任务补计分事件,再重新拉列表判定有无因上报而达标、进入
+    # claimable 集的任务。回调为 None ⇒ 跳过(§0.3 不假造 task_code↔event_code 映射,
+    # 也不空转刷次数);常规调度未接线时 growth 仅按上游已 completed 态 claim。
+    if activity_reporter is not None and to_accept:
+        scored = 0
+        for code_item in to_accept:
+            try:
+                await activity_reporter(code_item)
+                scored += 1
+            except Exception as e:  # noqa: BLE001 — 单任务计分失败不中断整轮
+                logger.warning("[workbuddy_tasks] growth 计分回调异常 task=%s: %s", code_item, e)
+                unjudged = True
+        if scored:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            lst2 = await list_growth_tasks(jwt, device_map, client=client, timeout=timeout)
+            if lst2["ok"]:
+                to_accept, to_claim2 = classify_growth_tasks(lst2["tasks"])
+                to_claim = list(dict.fromkeys(to_claim + to_claim2))
+                reasons.append(
+                    f"计分 {scored} 项后重判:待 accept {len(to_accept)} / 可 claim {len(to_claim)}"
+                )
+            else:
+                reasons.append(f"计分后重列失败:{lst2['reason']}")
+                unjudged = True
+
     accept_field = (settings.workbuddy_tasks_accept_field or "").strip()
     if to_accept:
         if not accept_field:
@@ -601,35 +735,23 @@ async def _run_growth_inner(
                     accepted = list(to_accept)
                 else:
                     reasons.append(f"accept 上游 code={code}")
-    claim_path = (settings.workbuddy_tasks_claim_path or "").strip()
+    claim_path_tmpl = (settings.workbuddy_tasks_claim_path or "").strip()
     if to_claim:
-        if not claim_path:
+        if not claim_path_tmpl:
             reasons.append(
-                f"claim {len(to_claim)} 项未执行:claim 路径未取证且未配置"
+                f"claim {len(to_claim)} 项未执行:claim 路径未配置"
                 "(WORKBUDDY_TASKS_CLAIM_PATH 留空 ⇒ 按 §0.3 拒绝猜 URL)"
             )
         else:
             for code_item in to_claim:
-                status, payload, mode = await _wb_request(
-                    claim_path,
-                    jwt,
-                    device_map,
-                    {"task_code": code_item},
-                    client=client,
-                    timeout=timeout,
+                ok_claim, why, is_net = await _claim_one_web(
+                    jwt, device_map, code_item, client, timeout
                 )
-                if _failure_reason(status, payload, mode) is not None:
-                    reasons.append(f"claim {code_item} 失败({status})")
-                    unjudged = unjudged or status in (0, -1)
-                    continue
-                code, _data = _envelope(payload)
-                if code is None:
-                    reasons.append(f"claim {code_item} 信封不可解析")
-                    unjudged = True
-                elif code == _CODE_OK:
+                if ok_claim:
                     claimed.append(code_item)
                 else:
-                    reasons.append(f"claim {code_item} 上游 code={code}")
+                    reasons.append(f"claim {code_item} 失败({why})")
+                    unjudged = unjudged or is_net
     streak = await fetch_growth_streak(jwt, device_map, client=client, timeout=timeout)
     if isinstance(streak, dict) and streak.get("days") is not None:
         reasons.append(f"streak_days={streak['days']}")
@@ -855,19 +977,27 @@ async def run_activity(
         reasons: list[str] = []
         unjudged = False
         web_ctx = workbuddy_is_web_mode(device_map)
+        uid = workbuddy_extract_uid(jwt)
         for event_code in events:
             base = hosts.get(event_code) or hosts.get("default") or WB_BASE
-            url_path = _webify(path) if base == WB_WEB_BASE or (web_ctx and base == WB_BASE) else path
             if web_ctx and base == WB_BASE:
                 base = WB_WEB_BASE
+            # activity_path 配置已是完整端点(/v2/report),不再叠 /v2(原 _webify 会双前缀,已修);
+            # Web 域事件带 x-client-platform: web 指纹头(README 实证 web 域需要,与 claim 同源)。
+            url_path = path
+            extra: dict[str, str] | None = {"x-client-platform": "web"} if base == WB_WEB_BASE else None
+            body = {"event_code": event_code}
+            if uid:
+                body["user_id"] = uid
             status, payload, mode = await _wb_request(
                 path,
                 jwt,
                 device_map,
-                {"event_code": event_code},
+                body,
                 client=eff_client,
                 timeout=timeout,
                 absolute_url=base + url_path,
+                extra_headers=extra,
             )
             if _failure_reason(status, payload, mode) is not None:
                 reasons.append(f"{event_code}:{status}")
