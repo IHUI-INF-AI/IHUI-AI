@@ -4,10 +4,12 @@
 
 'use client'
 
+import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 
+import { AlertFilter } from './AlertFilter'
 import { AlertTable } from './AlertTable'
 import { AlertRules } from './AlertDialog'
 import { apiOrThrow } from '@/lib/api'
@@ -16,15 +18,22 @@ import { BackButton } from '@/components/common'
 
 export default function AdminMonitorAlertsPage() {
   const qc = useQueryClient()
+  const [severity, setSeverity] = React.useState('all')
+  const [status, setStatus] = React.useState('all')
 
-  // 2026-10-31 摘除 level/status 两个筛选 Select:后端 `registerCrud` 的 GET 只解析
-  // page/pageSize/search(_shared.ts 的 paginationSchema),`level=` / `status=` 会被
-  // zod 静默剥掉 ⇒ 这两个筛选器今天是完全空转的假功能,故整体摘掉(不冒充能筛)。
-  // AlertFilter.tsx 保留为"后端支持服务端筛选后再接回"的词表正确组件,当前不渲染。
   const { data: alerts = [], isLoading } = useQuery({
-    queryKey: ['admin', 'monitor', 'alerts'],
-    queryFn: () =>
-      apiOrThrow<{ list: Alert[] }>('/api/admin/monitor/alerts').then((d) => d.list ?? []),
+    queryKey: ['admin', 'monitor', 'alerts', severity, status],
+    queryFn: () => {
+      // 筛选参数由后端**真的**按列过滤(旧写法把 level=/status= 发给
+      // registerCrud 的 GET,而它只解析 page/pageSize/search ⇒ 两个筛选器从未生效)。
+      const qs = new URLSearchParams()
+      if (severity !== 'all') qs.set('severity', severity)
+      if (status !== 'all') qs.set('status', status)
+      const query = qs.toString()
+      return apiOrThrow<{ list: Alert[] }>(
+        `/api/admin/monitoring/alerts${query ? `?${query}` : ''}`,
+      ).then((d) => d.list ?? [])
+    },
   })
 
   const { data: rules = [] } = useQuery({
@@ -44,8 +53,7 @@ export default function AdminMonitorAlertsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'monitor', 'alerts'] }),
   })
 
-  // 状态词表与库侧一致(schema/monitor.ts:默认 firing,ack 写 suppressed),
-  // 旧 'active' 永不命中 ⇒ 三张卡此前恒为 0。
+  // 汇总口径与库内真值对齐:firing=触发中(旧写法的 'active' 全仓不存在 ⇒ 恒 0)。
   const activeCount = alerts.filter((a) => a.status === 'firing').length
   const criticalCount = alerts.filter(
     (a) => a.severity === 'critical' && a.status === 'firing',
@@ -91,6 +99,13 @@ export default function AdminMonitorAlertsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertFilter
+        severity={severity}
+        setSeverity={setSeverity}
+        status={status}
+        setStatus={setStatus}
+      />
 
       <AlertTable
         list={alerts}
