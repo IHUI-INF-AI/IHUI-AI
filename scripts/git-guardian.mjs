@@ -8539,7 +8539,12 @@ export function auditLandedReverts(opts = {}) {
   )
   for (const h of hits.slice(0, 20))
     logger(
-      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ 与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`,
+      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ ` +
+        // 判语必须跟着臂次走:部分回退那型 via 恒空,写"与祖先  逐字同形"是把另一臂的话套在本臂上
+        // (2026-11-01 首轮生产日志就出现这种张冠李戴的行,人读了会去查根本不该查的等值关系)
+        (h.kind === 'partial'
+          ? `部分回退嫌疑:删 ${h.removed} 行=${((h.removed / (h.headLines || 1)) * 100).toFixed(1)}% 全文、仅补 ${h.added} 行`
+          : `与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`),
     )
   if (hits.length > 20)
     logger(`   …另有 ${hits.length - 20} 处,见台账 .ihui-agent/state/landed-revert-audit.jsonl`)
