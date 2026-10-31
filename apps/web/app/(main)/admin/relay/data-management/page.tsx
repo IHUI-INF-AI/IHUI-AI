@@ -117,7 +117,7 @@ export default function DataManagementPage() {
       <BackButton />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Database className="h-5 w-5" aria-hidden />
             数据保留与清理
           </h1>
@@ -240,7 +240,7 @@ export default function DataManagementPage() {
       )}
 
       <div className="space-y-1 text-xs text-muted-foreground">
-        <Label className="text-xs font-normal">注意事项</Label>
+        <Label className="text-label font-normal">注意事项</Label>
         <p>单批删除上限 50000 行,超量请重复执行;清理按 created_at 判定,不可撤销。</p>
         <p>llm_call_logs 是计费与对账依据,请确认保留期符合对账周期后再清理。</p>
       </div>

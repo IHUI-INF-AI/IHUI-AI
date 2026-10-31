@@ -114,7 +114,7 @@ export default function WebhooksPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
             <Webhook className="h-5 w-5 text-primary" />
             Webhook 配置
           </h1>

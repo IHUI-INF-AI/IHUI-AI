@@ -38,7 +38,7 @@ export default function ContextCompressionPage() {
             <ArrowLeft className="h-3 w-3" />
             返回上下文总览
           </Link>
-          <h1 className="mt-1 text-xl font-bold tracking-tight">压缩统计</h1>
+          <h1 className="mt-1 text-heading font-bold tracking-tight">压缩统计</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             查看平均压缩比、平均质量分与最近 10 次压缩详情
           </p>

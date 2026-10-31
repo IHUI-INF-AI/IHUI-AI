@@ -37,7 +37,7 @@ export function SourcesPanel({ sources }: SourcesPanelProps) {
   if (sources.length === 0) return null
   return (
     <div className="rounded-xl border p-3">
-      <h2 className="mb-2 text-sm font-semibold">{t('sourcesTitle')}</h2>
+      <h2 className="mb-2 text-body font-semibold">{t('sourcesTitle')}</h2>
       <ul className="space-y-2">
         {sources.map((s, i) => (
           <li key={s.url} className="text-xs">

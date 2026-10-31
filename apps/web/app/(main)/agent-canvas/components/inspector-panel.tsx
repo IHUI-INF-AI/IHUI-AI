@@ -72,7 +72,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
   if (!node || !nodeId) {
     return (
       <div className="flex w-72 shrink-0 flex-col bg-card">
-        <div className="bg-muted/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="bg-muted/40 px-3 py-2.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('inspectorTitle')}
         </div>
         <div className="flex flex-1 items-center justify-center p-3 text-center text-xs text-muted-foreground">
@@ -88,7 +88,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
   return (
     <div className="flex w-72 shrink-0 flex-col bg-card">
       <div className="flex items-center justify-between bg-muted/40 px-3 py-2.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('inspectorTitle')}
         </span>
         <Badge className={cn('border-0', meta.badge)}>{meta.title}</Badge>
@@ -167,7 +167,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-3">
-        <span className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="mb-1.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('logsTitle')}
         </span>
         <div className="min-h-0 flex-1">

@@ -109,7 +109,7 @@ export default function DistributionTeamPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <Users className="h-7 w-7 text-primary" />
           {t('teamTitle')}
         </h1>
@@ -131,7 +131,7 @@ export default function DistributionTeamPage() {
                     {teamQ.isLoading ? (
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     ) : (
-                      <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                      <div className="text-heading font-bold tracking-tight min-[768px]:text-display">
                         {s.value}
                       </div>
                     )}
@@ -193,7 +193,7 @@ export default function DistributionTeamPage() {
                                 className="h-6 w-6 rounded-md"
                               />
                             ) : (
-                              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-medium">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-label font-medium">
                                 {(it.nickname ?? 'U')[0]?.toUpperCase()}
                               </div>
                             )}
@@ -203,7 +203,7 @@ export default function DistributionTeamPage() {
                         <TableCell className="px-4 py-2.5">
                           <span
                             className={cn(
-                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                               it.isVip >= 1
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
                                 : 'bg-muted text-muted-foreground',

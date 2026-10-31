@@ -271,7 +271,7 @@ export default function RelayKeysPage() {
       <div className="px-4 py-4 space-y-4">
         <BackButton />
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Key className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -287,7 +287,7 @@ export default function RelayKeysPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Key className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -319,10 +319,10 @@ export default function RelayKeysPage() {
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium">{k.name}</p>
+                        <p className="text-body font-medium">{k.name}</p>
                         <span
                           className={cn(
-                            'rounded-md px-2 py-0.5 text-xs font-medium',
+                            'rounded-md px-2 py-0.5 text-label font-medium',
                             k.status === 'active'
                               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                               : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',

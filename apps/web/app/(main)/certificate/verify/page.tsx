@@ -89,7 +89,7 @@ export default function CertVerifyPage() {
         <Card>
           <CardContent className="flex flex-col items-center py-8 text-center">
             <ShieldCheck className="mb-2 h-8 w-8 text-destructive" />
-            <p className="text-sm font-medium">{t('notFound')}</p>
+            <p className="text-body font-medium">{t('notFound')}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t('notFoundHint')}</p>
           </CardContent>
         </Card>
@@ -97,7 +97,7 @@ export default function CertVerifyPage() {
         <Card>
           <CardContent className="flex flex-col items-center py-8 text-center">
             <BadgeCheck className="mb-2 h-8 w-8 text-green-600" />
-            <p className="text-sm font-medium">{t('verified')}</p>
+            <p className="text-body font-medium">{t('verified')}</p>
             <div className="mt-4 w-full space-y-2 text-left text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">{t('certTitle')}</span>

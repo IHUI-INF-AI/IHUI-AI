@@ -359,7 +359,7 @@ export default function ConnectorsPageClient() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Library className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+            <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
             {allow && !isLoading && !error && (
               <Badge variant="primary">
                 {t('count', { count: list?.count ?? connectors.length })}
@@ -610,7 +610,7 @@ function ConnectorCard({
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-semibold leading-tight text-foreground">
+            <span className="text-body font-semibold leading-tight text-foreground">
               {entry.name}
             </span>
             <Badge variant="primary">{entry.type}</Badge>

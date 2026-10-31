@@ -80,7 +80,7 @@ export default function ReferrerPage() {
         <div className="space-y-4">
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
-              <h3 className="mb-2 text-sm font-medium">{t('myReferrer')}</h3>
+              <h3 className="mb-2 text-body font-medium">{t('myReferrer')}</h3>
               {info.referrerName ? (
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -101,7 +101,7 @@ export default function ReferrerPage() {
           {!info.referrerName && (
             <Card>
               <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-                <h3 className="text-sm font-medium">{t('bindTitle')}</h3>
+                <h3 className="text-body font-medium">{t('bindTitle')}</h3>
                 <div className="space-y-1.5">
                   <Label htmlFor="invite-code">{t('codeLabel')}</Label>
                   <Input

@@ -159,7 +159,7 @@ export default function CardSharePage() {
             </div>
           )}
           <div className="min-w-0 flex-1 space-y-1">
-            <h2 className="text-xl font-bold">{card.name}</h2>
+            <h2 className="text-heading font-bold">{card.name}</h2>
             {card.title && <p className="text-sm opacity-80">{card.title}</p>}
             {card.company && <p className="text-sm opacity-80">{card.company}</p>}
             {card.bio && <p className="pt-1 text-sm opacity-70">{card.bio}</p>}

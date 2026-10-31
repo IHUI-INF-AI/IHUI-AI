@@ -79,7 +79,7 @@ export default function CirclePostPage() {
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+      <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">{t('post.cardTitle')}</CardTitle>
@@ -107,7 +107,7 @@ export default function CirclePostPage() {
             rows={8}
           />
           <div className="space-y-1.5">
-            <span className="text-sm font-medium leading-none">{t('post.images')}</span>
+            <span className="text-body font-medium leading-none">{t('post.images')}</span>
             <ImageUpload
               value={images}
               onChange={(v) => setImages(v as string[])}

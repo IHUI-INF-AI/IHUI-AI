@@ -238,18 +238,18 @@ export default function DeveloperHomePageClient() {
           <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
             <div>
               <p className="text-xs text-muted-foreground">{t('currentPlan')}</p>
-              <p className="mt-0.5 text-sm font-semibold">{summary.planName}</p>
+              <p className="mt-0.5 text-body font-semibold">{summary.planName}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">{t('quotaUsage')}</p>
-                <p className="whitespace-nowrap tabular-nums text-sm font-medium">
+                <p className="whitespace-nowrap tabular-nums text-body font-medium">
                   {numFmt.format(summary.quotaUsed ?? 0)} / {numFmt.format(summary.quotaTotal ?? 0)}
                 </p>
               </div>
               <Link
                 href="/developer/subscription"
-                className="rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                className="rounded-md bg-primary/10 px-3 py-1.5 text-label font-medium text-primary transition-colors hover:bg-primary/20"
               >
                 {t('upgrade')}
               </Link>
@@ -268,7 +268,7 @@ export default function DeveloperHomePageClient() {
               {tDash('dashboard.actualCost')}
             </span>
           </div>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
+          <p className="mt-1 text-display font-semibold tabular-nums">
             {todayUsageQ.isLoading ? '—' : `¥${(todayCostCents / 100).toFixed(2)}`}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">{tDash('dashboard.todayCostHint')}</p>
@@ -278,7 +278,7 @@ export default function DeveloperHomePageClient() {
       {/* 余额窗口:日/周/月额度进度 + 重置倒计时,复用订阅接口 windows */}
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <p className="mb-3 text-sm font-semibold">{tDash('dashboard.balanceWindows')}</p>
+          <p className="mb-3 text-body font-semibold">{tDash('dashboard.balanceWindows')}</p>
           {windows.length === 0 ? (
             <p className="text-xs text-muted-foreground">{tDash('dashboard.noSubscription')}</p>
           ) : (
@@ -322,14 +322,14 @@ export default function DeveloperHomePageClient() {
       {/* 快捷操作入口 */}
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <p className="mb-3 text-sm font-semibold">{tDash('dashboard.quickActions')}</p>
+          <p className="mb-3 text-body font-semibold">{tDash('dashboard.quickActions')}</p>
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
             <Link
               href="/developer/relay/keys"
               className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <KeyRound className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-              <p className="mt-1 text-sm font-medium">{tDash('dashboard.createKey')}</p>
+              <p className="mt-1 text-body font-medium">{tDash('dashboard.createKey')}</p>
               <p className="line-clamp-2 text-xs text-muted-foreground">
                 {tDash('dashboard.createKeyDesc')}
               </p>
@@ -339,7 +339,7 @@ export default function DeveloperHomePageClient() {
               className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <Coins className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-              <p className="mt-1 text-sm font-medium">{tDash('dashboard.buyCredit')}</p>
+              <p className="mt-1 text-body font-medium">{tDash('dashboard.buyCredit')}</p>
               <p className="line-clamp-2 text-xs text-muted-foreground">
                 {tDash('dashboard.buyCreditDesc')}
               </p>
@@ -349,7 +349,7 @@ export default function DeveloperHomePageClient() {
               className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <Activity className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-              <p className="mt-1 text-sm font-medium">{tDash('dashboard.viewUsage')}</p>
+              <p className="mt-1 text-body font-medium">{tDash('dashboard.viewUsage')}</p>
               <p className="line-clamp-2 text-xs text-muted-foreground">
                 {tDash('dashboard.viewUsageDesc')}
               </p>
@@ -360,7 +360,7 @@ export default function DeveloperHomePageClient() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="px-4 py-2.5 text-sm font-semibold">{t('quickEntries')}</div>
+          <div className="px-4 py-2.5 text-body font-semibold">{t('quickEntries')}</div>
           <div className="grid grid-cols-2 gap-px bg-border/40 min-[1024px]:grid-cols-5">
             {quickEntries.map((q) => {
               const Icon = q.icon
@@ -371,7 +371,7 @@ export default function DeveloperHomePageClient() {
                   className="group flex flex-col gap-1 bg-card p-3 transition-colors hover:bg-accent"
                 >
                   <Icon className="h-5 w-5 shrink-0 text-primary" />
-                  <p className="mt-1 text-sm font-medium break-words">{q.label}</p>
+                  <p className="mt-1 text-body font-medium break-words">{q.label}</p>
                   <p className="line-clamp-2 text-xs text-muted-foreground">{q.desc}</p>
                 </Link>
               )
@@ -387,7 +387,7 @@ export default function DeveloperHomePageClient() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
                 <KeyRound className="h-4 w-4 shrink-0 text-primary" />
-                <span className="whitespace-nowrap text-sm font-semibold">
+                <span className="whitespace-nowrap text-body font-semibold">
                   {tByok('cardTitle')}
                 </span>
               </div>
