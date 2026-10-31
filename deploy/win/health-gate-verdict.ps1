@@ -128,4 +128,126 @@ function Get-HealthGateVerdict {
         Markers     = $markers
     }
 }
+
+# =============================================================================
+# 取证面的两把纯尺子(2026-10-31 立;零判定改动,Get-HealthGateVerdict 判序一位未动)
+# =============================================================================
+# 立因(现读):2026-10-31 两轮(11:02 / 11:16)门禁在新构建上 8×12s 内未全过 ⇒ 自动回滚,
+# 而事后唯一能拿到的读数只有一句
+#   「健康门禁 第 N/8 轮: web=pass api=pass llm=fail 源站直探=web:pass/api:pass/llm:pass」
+# llm 那一格到底是 401(探测令牌被拒,探针自己没资格)、403(同上,角色不匹配)、
+# 404(新构建里路由没了)、502(边缘/隧道)还是 15s 操作超时,这句话结构上分辨不出来 ——
+# 判据给了红,却没留下能定论的那一条读数,等于把"为什么红"永久丢失(§0.3 同族:
+# 结论与证据必须一起落盘)。回滚链本身是好的,坏的是取证面沉默。
+#
+# 本段只产**证据**,不参与任何 Decision:
+#   · Get-GateProbeClass      —— 把一个探测结果压成一个 ASCII 类别词(auth/http502/neterr/…)
+#   · Format-GateProbeEvidence —— 六个探测结果 → 一行单行纯 ASCII 的 GATE-DIM 行
+#   · Get-GateWebDimension    —— 公网 web 与源站直探的折算,**逐字等价**于 ihui-deploy.ps1
+#                                原内联三行,只多识别"公网 pass 而源站 fail"(EdgeOne 缓存刷绿)
+# 为什么必须是纯 ASCII:部署日志经 LocalSystem 子进程管道后中文会烂成 U+FFFD(实测
+# deploy-loop.log),取证行必须能在烂掉之后仍逐字可读 —— 与 GATE-ITER / GATE-UNPROVEN 同一条纪律。
+
+function Get-GateProbeClass {
+    # 输入 = Invoke-Probe 的返回(@{ Verdict; Status; Reason })。输出恒为 ASCII 短词,永不抛。
+    [CmdletBinding()]
+    param([object]$Probe)
+
+    if (-not $Probe) { return 'noprobe' }
+    $verdict = ''
+    $reason = ''
+    try { $verdict = [string]$Probe.Verdict } catch { $verdict = '' }
+    try { $reason = [string]$Probe.Reason } catch { $reason = '' }
+    $status = 0
+    try { $status = [int]$Probe.Status } catch { $status = 0 }
+
+    if ($status -eq 429) { return 'ratelimit' }
+    # 401/403 = 探针自己的凭据被拒,不是网关坏。这一格必须能从日志里一眼分辨:
+    # 2026-10-27 那场"admin 口令轮换 ⇒ 门禁恒 401"就是靠这一格定论的。
+    if ($status -eq 401 -or $status -eq 403) { return 'auth' }
+    if ($status -ge 400) { return "http$status" }
+    if ($status -ge 200 -and $status -lt 400) {
+        # 200 但内容不符 ⇒ Invoke-Probe 判 fail 且 Reason 带「应答不含」;那是构建不对,不是网络不对
+        if ($verdict -eq 'fail') { return 'content' }
+        return 'ok'
+    }
+    # Status=0:传输层没拿到应答(Invoke-Probe 把这类一律判 unknown)
+    if ($verdict -eq 'unknown') { return 'neterr' }
+    return 'nostatus'
+}
+
+function Format-GateProbeEvidence {
+    # 六个探测结果 → 一行取证行。形状:
+    #   GATE-DIM web=pass(200/ok) api=fail(502/http502) llm=fail(401/auth) origin=web:pass(200/ok)/api:pass(200/ok)/llm:pass(200/ok)
+    # 任何取不到的输入都写成 noprobe(§0.3:取不到不记绿,也不假装有读数),绝不抛、绝不换行。
+    [CmdletBinding()]
+    param(
+        [object]$Probes = @{},
+        [string]$Prefix = 'GATE-DIM'
+    )
+
+    $hit = { param($k) ($Probes -and ($Probes.Keys -contains $k)) }
+    $cell = {
+        param($k)
+        $p = if (& $hit $k) { $Probes[$k] } else { $null }
+        $v = if ($p) { [string]$p.Verdict } else { 'noprobe' }
+        if (-not $v) { $v = 'noprobe' }
+        $s = 0
+        try { $s = [int]$p.Status } catch { $s = 0 }
+        "$k=$v($s/$(Get-GateProbeClass $p))"
+    }
+    $main = @('web', 'api', 'llm') | ForEach-Object { & $cell $_ }
+    $orig = @('webOrigin', 'apiOrigin', 'llmOrigin') | ForEach-Object {
+        $short = ($_ -replace 'Origin$', '')
+        $p = if (& $hit $_) { $Probes[$_] } else { $null }
+        $v = if ($p) { [string]$p.Verdict } else { 'noprobe' }
+        if (-not $v) { $v = 'noprobe' }
+        $s = 0
+        try { $s = [int]$p.Status } catch { $s = 0 }
+        "$short`:$v($s/$(Get-GateProbeClass $p))"
+    }
+    $line = "$Prefix " + ($main -join ' ') + ' origin=' + ($orig -join '/')
+    # 单行 + ASCII 净化:控制字符/中文会让这一行在坏日志里读不出来(§5f 同族实测)
+    $line = ($line -replace "[\r\n\t]", ' ')
+    $line = ($line -replace '[^\x20-\x7E]', '?')
+    return $line.TrimEnd()
+}
+
+function Get-GateWebDimension {
+    # 公网 web 维 × 源站直探的折算。判据与 ihui-deploy.ps1 原内联写法逐条等价:
+    #   公网 fail                      ⇒ 进 Fails(明确证据,原样回滚判序输入)
+    #   公网非 pass 且源站 pass        ⇒ Rescued(折算为绿,原样)
+    #   公网非 pass 且源站非 pass      ⇒ 进 Unknown(原样)
+    # 唯一新增:公网 **pass** 而源站 **fail** ⇒ 进 Unknown + CacheBlind。
+    # 立因:公网 web 探的是 https://www.aizhs.top,该页由 TencentEdgeOne 缓存应答
+    # (本仓 2026-10-28 实测 eo-cache-status=HIT、age=11506 秒,见 ihui-deploy.ps1 切流后
+    # 就绪等待那段头注)⇒ 缓存命中时的 pass **不构成"源站正在出页面"的证据**。旧写法让这一型
+    # 直接算绿,于是"三项全绿"可以由一份旧缓存 + 两条正常腿拼出来,调用方随即打印部署成功。
+    # 方向 = fail-closed 的取证侧:降为 Unknown ⇒ 最多走到 pass-unproven(GATE-UNPROVEN +
+    # 到人告警 + 不打印成功),**不据此回滚**(单条 unknown 不进 LastFails)。
+    [CmdletBinding()]
+    param([object]$Public, [object]$Origin)
+
+    $pv = if ($Public) { [string]$Public.Verdict } else { 'unknown' }
+    $ov = if ($Origin) { [string]$Origin.Verdict } else { 'unknown' }
+    $res = @{ Fails = @(); Unknown = @(); Rescued = $false; CacheBlind = $false; Marker = '' }
+
+    if ($pv -eq 'fail') {
+        $res.Fails = @("web(HTTP $($Public.Status) $($Public.Reason))")
+        return $res
+    }
+    if ($pv -ne 'pass') {
+        if ($ov -eq 'pass') { $res.Rescued = $true } else { $res.Unknown = @('web') }
+        return $res
+    }
+    if ($ov -eq 'fail') {
+        $res.Unknown = @('web')
+        $res.CacheBlind = $true
+        $cls = Get-GateProbeClass $Origin
+        $st = 0
+        try { $st = [int]$Origin.Status } catch { $st = 0 }
+        $res.Marker = "GATE-CACHE-BLIND dim=web public=pass($([int]$Public.Status)) origin=fail($st/$cls) -- public reading may come from EdgeOne cache; treating web as NOT proven (no rollback from this alone)"
+    }
+    return $res
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

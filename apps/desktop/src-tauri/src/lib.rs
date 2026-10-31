@@ -1102,11 +1102,32 @@ fn parse_key(key: &str) -> Result<Key, String> {
     }
 }
 
+/// 2026-10-31 安全强化第 10 批 R7:电脑控制命令统一闸(默认关)。
+/// 这组命令等价"程序替人操作电脑"——capability 层曾对线上页面全量开放,
+/// 任意 XSS 即可静默截屏/键鼠注入。agent-control 功能用户显式设
+/// IHUI_DESKTOP_COMPUTER_CONTROL=1 后才解锁(与 api 侧 ComputerUseService 的
+/// IHUI_COMPUTER_USE_ENABLED 同型)。
+fn computer_control_enabled() -> bool {
+    matches!(std::env::var("IHUI_DESKTOP_COMPUTER_CONTROL").as_deref(), Ok("1"))
+}
+
+fn require_computer_control() -> Result<(), String> {
+    if computer_control_enabled() {
+        Ok(())
+    } else {
+        Err(
+            "电脑控制未启用:请在桌面端配置 IHUI_DESKTOP_COMPUTER_CONTROL=1 并重启(agent-control 功能需要;默认关闭以防网页脚本滥用键鼠/截屏)"
+                .into(),
+        )
+    }
+}
+
 #[tauri::command]
 async fn screenshot_screen(
     display_index: Option<usize>,
     region: Option<Vec<f64>>,
 ) -> Result<ScreenshotResult, String> {
+    require_computer_control()?;
     let screens = Screen::all().map_err(|e| e.to_string())?;
     let idx = display_index.unwrap_or(0);
     let screen = screens
@@ -1140,6 +1161,7 @@ async fn screenshot_screen(
 
 #[tauri::command]
 async fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, String> {
+    require_computer_control()?;
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     let coord = if absolute.unwrap_or(true) {
         Coordinate::Abs
@@ -1159,6 +1181,7 @@ async fn mouse_click(
     button: Option<String>,
     count: Option<u32>,
 ) -> Result<OkResult, String> {
+    require_computer_control()?;
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     enigo
         .move_mouse(x as i32, y as i32, Coordinate::Abs)
@@ -1181,6 +1204,7 @@ async fn mouse_click(
 
 #[tauri::command]
 async fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
+    require_computer_control()?;
     // 2026-07-22 P1 鲁棒性加固:防止超长 text 卡死 UI
     const MAX_TEXT_LEN: usize = 10000;
     if text.chars().count() > MAX_TEXT_LEN {
@@ -1219,6 +1243,7 @@ async fn mouse_scroll(
     x: Option<f64>,
     y: Option<f64>,
 ) -> Result<OkResult, String> {
+    require_computer_control()?;
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     if let (Some(x), Some(y)) = (x, y) {
         enigo
@@ -1233,6 +1258,7 @@ async fn mouse_scroll(
 
 #[tauri::command]
 async fn keyboard_press(key: String) -> Result<OkResult, String> {
+    require_computer_control()?;
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     let k = parse_key(&key)?;
     enigo.key(k, Direction::Click).map_err(|e| e.to_string())?;
@@ -1241,6 +1267,7 @@ async fn keyboard_press(key: String) -> Result<OkResult, String> {
 
 #[tauri::command]
 async fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
+    require_computer_control()?;
     // 2026-07-22 P1 鲁棒性加固:防止超多 keys 长时间占用
     if keys.len() > 10 {
         return Err("too many keys: max 10".to_string());

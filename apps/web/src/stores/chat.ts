@@ -800,6 +800,15 @@ export interface ChatState {
   /** resync 拉取成功(或确认无缺口)后清旗;消费面 = use-conversation-broadcast-sync 的 gap 拉取 effect */
   markChatSyncResynced: () => void
   /**
+   * 票71 剩余缺口②(2026-10-31):摘除单条 gap 坐标(不进内核)。
+   *
+   * 唯一消费面 = resync 编排(`@/lib/chat-sync-resync`):服务端明确说"补不齐"
+   * (404 消息不存在/不属于该会话、409 角色不在契约封闭集)或重试耗尽时调用。
+   * 与 `applyChatSyncSnapshot` 的自动摘除分工:那条是"拿到了权威回答",这条是
+   * "确认没有可拿的回答" —— 都不写判据面内容。全部摘下时旗一并复位。
+   */
+  dropChatSyncGap: (messageId: string) => void
+  /**
    * B02 第三切片(2026-10-25):把 resync 拉回的权威快照(`ChatSyncMessageSnapshot`)
    * 应用进状态面。**两步全走契约内核,零旁路**(契约 §4:created 补达 → 链恢复,用例⑧):
    * ① 判据面缺行 ⇒ 先喂 created(已有时内核判 duplicate,不覆盖已收面 —— 用例①);
@@ -1229,7 +1238,22 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     }
     const surface = state.messages.get(result.messageId)
     if (!surface) return result
+    // 票71 剩余缺口①(2026-10-31):SSE 生成腿现在也发 created/patched —— 本端若就是这条流的
+    // 生成端(`streamingAssistantId` 由 send-message 钉死为 metadata.messageId),SSE 单播面
+    // 才是本端权威:WS 帧只推进判据面(rev 链),**不投影渲染面**。照帧替换会把本地
+    // appendToMessage 已推远的内容回退到上一个 snapshot(契约 §2 第 3 条要防的同一型)。
+    // 非生成端(echo=false)照旧投影;terminal 不在回声射程内 —— 终态标记必须落到渲染面。
+    const localStreamEcho =
+      (event.type === 'message:created' || event.type === 'message:patched') &&
+      get().isStreaming &&
+      get().streamingAssistantId === event.messageId
     if (event.type === 'message:created') {
+      // 渲染面已有同 id(本端 SSE 已 addMessage / 历史已含水合的那条)⇒ 不重复增行,
+      // created 只作判据面补达(否则 SSE 腿的新帧会让生成端出现两条同 id 消息)。
+      if (localStreamEcho || messages.some((m) => m.id === surface.id)) {
+        set({ chatSync: state })
+        return result
+      }
       set({
         chatSync: state,
         messages: [
@@ -1243,6 +1267,10 @@ const buildChatState: ChatStateCreator = (set, get) => ({
           },
         ],
       })
+      return result
+    }
+    if (localStreamEcho) {
+      set({ chatSync: state })
       return result
     }
     const idx = messages.findIndex((m) => m.id === surface.id)
@@ -1278,6 +1306,15 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     return result
   },
   markChatSyncResynced: () => set({ chatSyncResyncPending: false }),
+  dropChatSyncGap: (messageId) =>
+    set((s) => {
+      const remaining = s.chatSyncGapMessageIds.filter((id) => id !== messageId)
+      if (remaining.length === s.chatSyncGapMessageIds.length) return s
+      return {
+        chatSyncGapMessageIds: remaining,
+        ...(remaining.length === 0 ? { chatSyncResyncPending: false } : {}),
+      }
+    }),
   applyChatSyncSnapshot: (snap) => {
     const { conversationId, chatSync, messages } = get()
     if (snap.conversationId !== conversationId) {

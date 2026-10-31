@@ -49,6 +49,9 @@
       "desktop": {
         "schemes": ["ihui"]
       }
+    },
+    "shell": {
+      "open": "^https://(www\\.)?aizhs\\.top(/.*)?$|^http://localhost(:\\d+)?(/.*)?$"
     }
   },
   "bundle": {

@@ -61,9 +61,10 @@ const DEFAULT_MAX_RETRIES = 3
 const MAX_TRIGGERS = 100
 const MAX_EVENTS = 1000
 
-/** regex 条件的 pattern 与被测值长度上限(主线程同步执行,防 ReDoS 放大) */
-const MAX_REGEX_PATTERN_LENGTH = 200
-const MAX_REGEX_SUBJECT_LENGTH = 10 * 1024
+/** regex 条件的 pattern 与被测值长度上限(主线程同步执行,防 ReDoS 放大)。
+ *  2026-10-31 安全强化第 16 批起导出为全仓同口径单源(relay-param-ops 消费)。 */
+export const MAX_REGEX_PATTERN_LENGTH = 200
+export const MAX_REGEX_SUBJECT_LENGTH = 10 * 1024
 
 // =============================================================================
 // Zod schemas

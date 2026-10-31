@@ -43,9 +43,10 @@ goal 同字重发时的逐条对撞(本席开批审计,防重复劳动):
 - **Config = RouteRule 路由表**:`map[string]VNodeConfig`(虚拟路径名 → 节点配置),每节点 `{prefix, kind}`;**默认路由只挂一条:`"history"` → kind `"remote"`** —— 会话历史默认投影自远端 provider(与 T2 §1.4 的 RemoteFs 对上),其余挂载点由 IDE 侧经 RPC 动态下发行。
 - 结论:ContextFS 的挂载形态 = **静态默认路由 + 动态 RPC 挂载**的组合;本仓 knowledge_fs 单后端投影的差距面(T4 §3.3)进一步收窄为「动态挂载协议」一格,登记不落地(无真实多后端需求)。
 
-### 2.3 toolhost.dll(95MB)Ghidra headless 反编译
+### 2.3 toolhost.dll(95MB)Ghidra headless 反编译 [未知·进行中未完成]
 
-〔本节由后台任务回填;脚本 `toolhost_surface.java`(导出/命令域分布/dispatch 反编译 ≤40)。〕
+- headless 任务已启动(脚本 `toolhost_surface.java`:导出/命令域分布/dispatch 反编译 ≤40)并完成导入与自动分析,但**逐函数反编译段截至本报告收口(启动后 65+ 分钟)仍未出产物** —— Go 大函数的 DecompInterface 逐个 30s 预算 × 40 目标,时间盒内不可达。按 §0.3 如实登记「未完成」,不冒充已挖穿;产物目录 `D:/DevEnv/Temp/ihui-scratch/goal-b42-ghidra/`(scratch,6h 老化),后续席位按 T4 §3 同款流程回填。
+- 结论口径:toolhost 的最底层事实**本轮未取得**,维持 T1 字符串层结论(120 命令全集);「挖到最底层」在 toolhost 这一件上为**部分达成**(分析层完成、反编译层未完成)。
 
 ## 3. G7 落地:本地 embedding 回落档(先对齐再超越)[观察]
 

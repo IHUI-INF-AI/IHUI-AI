@@ -12,7 +12,20 @@
  *   2) 302 落点指向私网 ⇒ 落点发出前被拒,首跳只发一次;
  *   3) 消费方(crew-tools、clawdbot browser)确实接到了这个出口上。
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * 出站替身必须 mock 'undici'(2026-10-31 安全强化第 15 批 M3 起):safeFetch 不再走
+ * globalThis.fetch,而是 `import { fetch as undiciFetch } from 'undici'` + connect-time
+ * dispatcher(判定与建连共用同一次解析,收 DNS rebinding TOCTOU)。只桩 globalThis.fetch
+ * ⇒ 本文件那几档会真连公网(实测 32s 退避),既慢又违反 AGENTS §5 隔离口径。
+ * globalThis.fetch 仍留作第二哨兵:任何一条被调用都说明有代码绕开了单一出口。
+ */
+const { outbound } = vi.hoisted(() => ({ outbound: vi.fn() }))
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('undici')>()
+  return { ...actual, fetch: outbound }
+})
 
 // crew-tools 的另外两个工具依赖 DB / LLM 侧装配;本文件只守 browser_fetch 的出站闸,
 // 故截断这两条依赖链(不连库、不出网)。
@@ -35,56 +48,58 @@ const redirectTo = (location: string, status = 302): Response =>
     text: async () => '',
   }) as unknown as Response
 
+let globalFetch: ReturnType<typeof vi.fn>
+
+beforeEach(() => {
+  outbound.mockReset()
+  globalFetch = vi.fn()
+  vi.stubGlobal('fetch', globalFetch)
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** 两条出口都必须零调用 = "守卫在建连之前就把这次请求拒了"的副作用证明 */
+const assertNoOutbound = () => {
+  expect(globalFetch, 'globalThis.fetch 被调用').not.toHaveBeenCalled()
+  expect(outbound, 'undici.fetch 被调用(守卫应在建连前拒掉)').not.toHaveBeenCalled()
+}
+
 describe('safeFetch:每一次实际请求(含重定向落点)前都过守卫', () => {
   it('私网 IPv4 首跳即拒,且一次请求都没发', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(safeFetch('http://192.168.1.10/admin')).rejects.toThrow(/SSRF blocked/)
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 
   it('localhost 拒,且一次请求都没发(DNS 失败同样 fail-closed)', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(safeFetch('http://localhost/')).rejects.toThrow(/SSRF blocked/)
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 
   it('302 落点指向私网 ⇒ 落点发出前被拒,只发出首跳', async () => {
-    const fetchMock = vi.fn(async () => redirectTo('http://10.0.0.7/secret'))
-    vi.stubGlobal('fetch', fetchMock)
+    outbound.mockImplementation(async () => redirectTo('http://10.0.0.7/secret'))
 
     await expect(safeFetch('http://8.8.8.8/page')).rejects.toThrow(/SSRF blocked/)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://8.8.8.8/page')
+    expect(globalFetch, '落点请求不得改走 globalThis.fetch').not.toHaveBeenCalled()
+    expect(outbound).toHaveBeenCalledTimes(1)
+    expect(String(outbound.mock.calls[0]?.[0])).toBe('http://8.8.8.8/page')
   })
 })
 
 describe('消费方接线(用户可控 URL 的服务端 fetch)', () => {
   it('crew-tools browser_fetch 私网 URL 被拒,不发请求', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     const result = await executeCrewTool('browser_fetch', { url: 'http://10.0.0.5/' })
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/SSRF blocked/)
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 
   it('clawdbot navigate 私网 URL 被拒,不发请求', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-
     await expect(new BrowserAutomation().navigate('http://127.0.0.1:80/')).rejects.toThrow(
       /SSRF blocked/,
     )
-    expect(fetchMock).not.toHaveBeenCalled()
+    assertNoOutbound()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

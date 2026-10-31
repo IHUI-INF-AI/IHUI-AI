@@ -15,8 +15,28 @@
  *   if (!userId) return  // 连接已 close
  */
 import type { WebSocket } from '@fastify/websocket'
+import type { FastifyRequest, FastifyReply } from 'fastify'
 import { verifyAccessToken, verifyWsToken } from '@ihui/auth'
 import { getUserStatus } from '../db/usercenter-queries.js'
+
+/**
+ * WS 升级 fail-fast(2026-10-31 安全强化第 15 批):升级**前**拒绝连凭据都不带的
+ * 握手。wsAuth 的验签/注销态/并发限速语义不变(那些必须在升级后做);本闸只管
+ * "无凭据探测/洪水连接"不再消耗 accept 与内存。有凭据但错 ⇒ 仍走升级后 close,
+ * 与 ticket 换票流程兼容。挂法:`{ websocket: true, preValidation: wsUpgradeRequiresCredential() }`
+ * —— @fastify/websocket 的 preValidation 在连接建立前执行,reply 401 即拒绝升级。
+ */
+export function wsUpgradeRequiresCredential(
+  paramNames: readonly string[] = ['token'],
+): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+  return async (request, reply) => {
+    const q = request.query as Record<string, string | undefined> | undefined
+    const hasCredential = paramNames.some((name) => (q?.[name] ?? '').length > 0)
+    if (!hasCredential) {
+      await reply.status(401).send({ code: 401, message: 'WS 连接缺少凭据' })
+    }
+  }
+}
 
 /** 注入式状态查询,默认从 usercenter 表读取(便于测试覆盖) */
 export type UserStatusFetcher = (userId: string) => Promise<number | undefined>

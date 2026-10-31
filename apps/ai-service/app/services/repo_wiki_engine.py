@@ -275,6 +275,22 @@ async def ensure_wiki(
         if not wp or not os.path.isdir(wp):
             return None
 
+        # 2026-10-31 安全强化第 10 批 R6:工作区登记白名单 —— workspace_path 是
+        # 请求体用户可控字段,不设闸则可指向服务器任意目录(_inject_workspace_memory
+        # 会读目标目录的 CLAUDE.md/AGENTS.md/memory.md 注入 system prompt ⇒ 跨租户
+        # 文件探测与内容注入面)。判据与 mcp_server._get_workspace_roots 同一登记源
+        # (MCP_WORKSPACE_ROOTS);登记缺失/为空 fail-closed —— wiki 静默降级 None,
+        # 主聊天热路径不受影响(本函数纪律:任何分支异常静默返回 None)。
+        try:
+            from .mcp_server import _get_workspace_roots
+
+            roots = [os.path.abspath(str(r)) for r in _get_workspace_roots()]
+        except Exception:  # noqa: BLE001 - 登记面故障同 fail-closed
+            return None
+        abs_wp = os.path.abspath(wp)
+        if not any(abs_wp == r or abs_wp.startswith(r + os.sep) for r in roots):
+            return None
+
         ns = namespace or wp
 
         # 60s 内存 TTL 防抖:命中直接返回上次文本

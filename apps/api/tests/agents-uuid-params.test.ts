@@ -36,6 +36,17 @@ vi.mock('../src/plugins/auth.js', () => ({
     return true
   }),
 }))
+// 结算/审核族路由的 preHandler 自 2026-10 起走 require-admin(roleId>=1)与
+// isSystemAdmin 单源;本文件锁的是「畸形 uuid 在进 SQL 前 400」,鉴权腿按管理员放行,
+// 否则 401 会先于参数校验返回、把被测的那一格挡住。形态照 admin-batch-missed-ids。
+vi.mock('../src/plugins/require-permission.js', () => ({
+  requireAdmin: async (request: { userId?: string; jwtPayload?: { roleId?: number } }) => {
+    request.userId = 'admin-1'
+    request.jwtPayload = { roleId: 1 }
+  },
+  isSystemAdmin: (request: { jwtPayload?: { roleId?: number } }) =>
+    (request.jwtPayload?.roleId ?? 0) >= 1,
+}))
 vi.mock('../src/services/agent-service.js', () => ({
   getAgentDetail: vi.fn(),
   listAgents: vi.fn(),
