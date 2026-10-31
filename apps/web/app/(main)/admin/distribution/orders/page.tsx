@@ -77,7 +77,7 @@ export default function AdminDistributionOrdersPage() {
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">分销订单</h1>
+        <h1 className="text-display font-bold tracking-tight">分销订单</h1>
         <p className="mt-1 text-sm text-muted-foreground">查看佣金订单明细与状态</p>
       </div>
 

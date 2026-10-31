@@ -82,7 +82,7 @@ export default function ClawdbotMessagesPage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" /> 消息记录
       </h1>
 
@@ -155,7 +155,7 @@ export default function ClawdbotMessagesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-2.5">
-              <p className="text-sm font-medium">消息详情</p>
+              <p className="text-body font-medium">消息详情</p>
               <CloseButton aria-label="关闭" onClick={() => setSelected(null)} />
             </div>
             <div className="space-y-3 p-3 text-sm">

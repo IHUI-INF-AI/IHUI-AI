@@ -135,7 +135,7 @@ export default function EduLearnPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -163,7 +163,7 @@ export default function EduLearnPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">{t('totalCourses')}</div>
-              <div className="mt-1 text-2xl font-semibold">{total}</div>
+              <div className="mt-1 text-display font-semibold">{total}</div>
             </div>
           </CardContent>
         </Card>
@@ -174,7 +174,7 @@ export default function EduLearnPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">{t('totalCategories')}</div>
-              <div className="mt-1 text-2xl font-semibold">{categories.length}</div>
+              <div className="mt-1 text-display font-semibold">{categories.length}</div>
             </div>
           </CardContent>
         </Card>
@@ -185,7 +185,7 @@ export default function EduLearnPage() {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">{t('totalSignups')}</div>
-              <div className="mt-1 text-2xl font-semibold">
+              <div className="mt-1 text-display font-semibold">
                 {lessons.reduce((a, l) => a + l.signupCount, 0)}
               </div>
             </div>

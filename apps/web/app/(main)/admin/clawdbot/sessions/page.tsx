@@ -96,7 +96,7 @@ export default function ClawdbotSessionsPage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" /> 会话管理
       </h1>
 
@@ -111,7 +111,7 @@ export default function ClawdbotSessionsPage() {
               <div key={s.id} className="flex items-center justify-between px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{s.id}</p>
+                    <p className="min-w-0 flex-1 truncate text-body font-medium">{s.id}</p>
                     <span className={cn('rounded px-1.5 py-0.5 text-xs', STATUS_CLS[s.status])}>
                       {s.status}
                     </span>
@@ -146,7 +146,7 @@ export default function ClawdbotSessionsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-2.5">
-              <p className="text-sm font-medium">会话详情 · {selected.id}</p>
+              <p className="text-body font-medium">会话详情 · {selected.id}</p>
               <CloseButton aria-label="关闭" onClick={() => setSelected(null)} />
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
@@ -168,7 +168,7 @@ export default function ClawdbotSessionsPage() {
                 </div>
               </div>
               <div className="mt-3 pt-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">消息记录</p>
+                <p className="mb-2 text-label font-medium text-muted-foreground">消息记录</p>
                 {(selected.context?.messages ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground">暂无消息</p>
                 ) : (

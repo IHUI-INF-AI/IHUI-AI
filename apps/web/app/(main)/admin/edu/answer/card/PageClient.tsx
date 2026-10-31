@@ -81,7 +81,7 @@ function CardContent2() {
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild variant="ghost" size="sm">
@@ -95,23 +95,23 @@ function CardContent2() {
       <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         <div className="rounded-lg border p-3">
           <div className="text-xs text-muted-foreground">{t('statTotal')}</div>
-          <div className="mt-1 text-2xl font-semibold">{total}</div>
+          <div className="mt-1 text-display font-semibold">{total}</div>
         </div>
         <div className="rounded-lg border p-3">
           <div className="text-xs text-muted-foreground">{t('statSubmitted')}</div>
-          <div className="mt-1 text-2xl font-semibold text-primary">
+          <div className="mt-1 text-display font-semibold text-primary">
             {records.filter((r: AnswerRecord) => r.status !== 'pending').length}
           </div>
         </div>
         <div className="rounded-lg border p-3">
           <div className="text-xs text-muted-foreground">{t('statGraded')}</div>
-          <div className="mt-1 text-2xl font-semibold text-emerald-600">
+          <div className="mt-1 text-display font-semibold text-emerald-600">
             {records.filter((r) => r.status === 'graded').length}
           </div>
         </div>
         <div className="rounded-lg border p-3">
           <div className="text-xs text-muted-foreground">{t('statPassed')}</div>
-          <div className="mt-1 text-2xl font-semibold text-emerald-600">
+          <div className="mt-1 text-display font-semibold text-emerald-600">
             {records.filter((r) => r.isPassed).length}
           </div>
         </div>
@@ -166,7 +166,7 @@ function CardContent2() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                           st.cls,
                         )}
                       >

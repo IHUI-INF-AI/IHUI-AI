@@ -55,7 +55,7 @@ export default function AdminLotteryPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex min-w-0 items-center gap-2 text-display font-bold tracking-tight">
           <Gift className="h-6 w-6 shrink-0 text-primary" />
           <span className="truncate">抽奖活动</span>
         </h1>

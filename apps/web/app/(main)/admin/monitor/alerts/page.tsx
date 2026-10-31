@@ -66,7 +66,7 @@ export default function AdminMonitorAlertsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <AlertTriangle className="h-6 w-6 text-primary" />
           告警管理
         </h1>
@@ -76,26 +76,26 @@ export default function AdminMonitorAlertsPage() {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">活跃告警</CardTitle>
+            <CardTitle className="text-label font-medium text-muted-foreground">活跃告警</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-danger-text">{activeCount}</div>
+            <div className="text-display font-bold text-danger-text">{activeCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">严重告警</CardTitle>
+            <CardTitle className="text-label font-medium text-muted-foreground">严重告警</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-danger-text">{criticalCount}</div>
+            <div className="text-display font-bold text-danger-text">{criticalCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">警告</CardTitle>
+            <CardTitle className="text-label font-medium text-muted-foreground">警告</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning-text">{warningCount}</div>
+            <div className="text-display font-bold text-warning-text">{warningCount}</div>
           </CardContent>
         </Card>
       </div>

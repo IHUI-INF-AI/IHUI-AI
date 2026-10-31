@@ -97,7 +97,7 @@ export default function PerformanceDashboardPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Gauge className="h-6 w-6 text-primary" />
           {t('performance.title')}
         </h1>
@@ -120,13 +120,13 @@ export default function PerformanceDashboardPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardTitle className="text-body font-medium text-muted-foreground">
                     {c.label}
                   </CardTitle>
                   <c.icon className={cn('h-4 w-4', c.color)} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{c.value}</div>
+                  <div className="text-display font-bold">{c.value}</div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full rounded-md bg-primary"
@@ -166,7 +166,7 @@ export default function PerformanceDashboardPage() {
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex rounded px-2 py-0.5 text-xs font-medium',
+                          'inline-flex rounded px-2 py-0.5 text-label font-medium',
                           METHOD_COLOR[e.method] ?? 'bg-muted text-muted-foreground',
                         )}
                       >

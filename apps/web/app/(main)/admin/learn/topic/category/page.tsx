@@ -75,7 +75,7 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
         enabled
           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
           : 'bg-muted text-muted-foreground',
@@ -257,7 +257,7 @@ export default function AdminLearnTopicCategoryPage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">学习专题分类</h1>
+        <h1 className="text-display font-bold tracking-tight">学习专题分类</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           管理学习专题下的分类,支持排序与状态切换
         </p>

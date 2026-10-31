@@ -28,7 +28,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
               <Server className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('monitor.services')}</span>
             </span>
-            <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
+            <span className="shrink-0 whitespace-nowrap text-label font-normal text-muted-foreground tabular-nums">
               {t('monitor.healthyCount', { healthy: healthyCount, total: services.length })}
             </span>
           </CardTitle>
@@ -45,7 +45,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
                 >
                   <div className="flex items-center gap-2">
                     <Icon className={cn('h-4 w-4', ok ? 'text-emerald-600' : 'text-red-600')} />
-                    <span className="text-sm font-medium">{s.name}</span>
+                    <span className="text-body font-medium">{s.name}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {ok ? (
@@ -76,7 +76,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
             {perfCards.map((c) => (
               <div key={c.label} className="rounded-md border p-3">
                 <div className="text-xs text-muted-foreground">{c.label}</div>
-                <div className={cn('mt-1 text-xl font-bold', c.color)}>{c.value}</div>
+                <div className={cn('mt-1 text-heading font-bold', c.color)}>{c.value}</div>
               </div>
             ))}
           </div>

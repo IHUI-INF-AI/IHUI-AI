@@ -132,7 +132,7 @@ export function DeveloperCozeTable({
                     >
                       <SelectTrigger
                         className={cn(
-                          'h-7 w-24 border-0 px-2 text-xs font-medium',
+                          'h-7 w-24 border-0 px-2 text-label font-medium',
                           COZE_STATUS_CLASS[c.status],
                         )}
                         aria-label={t('statusAriaLabel')}

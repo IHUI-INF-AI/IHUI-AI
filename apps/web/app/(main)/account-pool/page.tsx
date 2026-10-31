@@ -102,7 +102,7 @@ export default function AccountPoolPage() {
         </Button>
       </div>
       <div>
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
@@ -171,7 +171,7 @@ export default function AccountPoolPage() {
             <p className="text-sm text-muted-foreground">{t('loading')}</p>
           ) : rows.length === 0 ? (
             <div className="rounded-lg border border-border bg-card p-8 text-center">
-              <p className="text-sm font-medium">{t('empty')}</p>
+              <p className="text-body font-medium">{t('empty')}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t('emptyHint')}</p>
             </div>
           ) : (
@@ -186,7 +186,7 @@ export default function AccountPoolPage() {
                       <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">
                         {row.providerCode}
                       </span>
-                      <span className="truncate text-sm font-medium">{row.name}</span>
+                      <span className="truncate text-body font-medium">{row.name}</span>
                       <span
                         className={cn(
                           'rounded-sm px-1.5 py-0.5 text-xs',

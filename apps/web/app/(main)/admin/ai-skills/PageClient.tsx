@@ -119,7 +119,7 @@ export default function AdminAiSkillStatsPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -154,7 +154,7 @@ export default function AdminAiSkillStatsPage() {
 
       {/* 调用量趋势图(最近 7 天) */}
       <section className="space-y-3 rounded-lg border bg-card p-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('callTrend')}
         </h2>
         {isLoading ? (
@@ -211,7 +211,7 @@ export default function AdminAiSkillStatsPage() {
 
       {/* 每个 skill 的统计表格 */}
       <section className="space-y-3 rounded-lg border bg-card p-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('perSkillTable')}
         </h2>
         <DataTable<PerSkillStats>
@@ -227,7 +227,7 @@ export default function AdminAiSkillStatsPage() {
         <section className="space-y-3 rounded-lg border bg-card p-3">
           <div className="flex items-center gap-1.5">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
               {t('failedSkills')}
             </h2>
           </div>

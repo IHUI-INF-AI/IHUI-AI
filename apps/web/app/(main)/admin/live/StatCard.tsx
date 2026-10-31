@@ -32,7 +32,7 @@ export function StatCard({
         </div>
         <div className="min-w-0">
           <div className="text-sm whitespace-nowrap text-muted-foreground">{label}</div>
-          <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{value}</div>
+          <div className="mt-1 text-display font-semibold tabular-nums tracking-tight">{value}</div>
         </div>
       </CardContent>
     </Card>

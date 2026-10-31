@@ -150,7 +150,7 @@ function FaceBadge({ scope }: { scope: 'public' | 'admin' | 'auth' }) {
   if (scope === 'public') return null
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${FACE_BADGE_CLASS[scope]}`}
+      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-label font-medium ${FACE_BADGE_CLASS[scope]}`}
     >
       {FACE_LABEL[scope]}
     </span>
@@ -282,7 +282,7 @@ export default function BiDashboardPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold">BI 仪表板</h1>
+        <h1 className="text-display font-bold">BI 仪表板</h1>
         <p className="mt-1 text-sm text-muted-foreground">业务核心指标与趋势可视化</p>
       </div>
 
@@ -298,13 +298,13 @@ export default function BiDashboardPage() {
           return (
             <Card key={c.key}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-body font-medium text-muted-foreground">
                   {c.label}
                 </CardTitle>
                 <Icon className={`h-4 w-4 ${c.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-display font-bold">
                   {isLoading ? '—' : formatNumber(d[c.key] as number)}
                 </div>
               </CardContent>
@@ -321,13 +321,13 @@ export default function BiDashboardPage() {
           return (
             <Card key={c.key}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-body font-medium text-muted-foreground">
                   {c.label}
                 </CardTitle>
                 <Icon className="h-4 w-4 text-sky-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{isLoading ? '—' : formatNumber(main)}</div>
+                <div className="text-display font-bold">{isLoading ? '—' : formatNumber(main)}</div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {c.sub} {isLoading ? '—' : formatNumber(sub)}
                 </p>
@@ -403,7 +403,7 @@ export default function BiDashboardPage() {
                 return (
                   <div key={p.url} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[p.platform]}`}
+                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[p.platform]}`}
                     >
                       {PLATFORM_LABEL[p.platform]}
                     </span>
@@ -447,7 +447,7 @@ export default function BiDashboardPage() {
                 return (
                   <div key={s.page} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[s.platform]}`}
+                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[s.platform]}`}
                     >
                       {PLATFORM_LABEL[s.platform]}
                     </span>
@@ -488,9 +488,9 @@ export default function BiDashboardPage() {
           ) : (
             <div className="space-y-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tabular-nums">{audience.newUv}</span>
+                <span className="text-display font-semibold tabular-nums">{audience.newUv}</span>
                 <span className="text-xs text-muted-foreground">新访客</span>
-                <span className="ml-auto text-2xl font-semibold tabular-nums">
+                <span className="ml-auto text-display font-semibold tabular-nums">
                   {audience.returningUv}
                 </span>
                 <span className="text-xs text-muted-foreground">回访</span>
@@ -589,7 +589,7 @@ export default function BiDashboardPage() {
                 return (
                   <div key={key} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex w-[26%] items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[key]}`}
+                      className={`inline-flex w-[26%] items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[key]}`}
                     >
                       {PLATFORM_LABEL[key]}
                     </span>
@@ -630,7 +630,7 @@ export default function BiDashboardPage() {
                 return (
                   <div key={key} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex w-[22%] shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${FACE_BADGE_CLASS[key]}`}
+                      className={`inline-flex w-[22%] shrink-0 items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${FACE_BADGE_CLASS[key]}`}
                     >
                       {FACE_LABEL[key]}
                     </span>

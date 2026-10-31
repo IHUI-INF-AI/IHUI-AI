@@ -69,7 +69,7 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
                   <TruncatedText value={c.value || '-'} className="max-w-[240px]" mono />
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
+                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-label font-medium">
                     {c.type}
                   </span>
                 </td>
@@ -79,7 +79,7 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                       c.isPublic
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                         : 'bg-muted text-muted-foreground',

@@ -139,7 +139,7 @@ export function AdminDataMonitor() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">热门页面 Top 5</CardTitle>
+            <CardTitle className="text-body font-medium">热门页面 Top 5</CardTitle>
             <Link
               href="/admin/visit-trend"
               className="flex items-center gap-1 text-xs text-primary hover:underline"
@@ -164,7 +164,7 @@ export function AdminDataMonitor() {
                 className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">{i + 1}</span>
+                  <span className="text-label font-semibold text-muted-foreground">{i + 1}</span>
                   <span className="truncate">{p.url}</span>
                 </span>
                 <span className="shrink-0 text-muted-foreground">{numFmt.format(p.pv)} 次</span>
@@ -175,7 +175,7 @@ export function AdminDataMonitor() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">数据监测快捷入口</CardTitle>
+            <CardTitle className="text-body font-medium">数据监测快捷入口</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2">
             {QUICK_LINKS.map((link) => (
@@ -188,7 +188,7 @@ export function AdminDataMonitor() {
                   <link.icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-medium">{link.label}</div>
+                  <div className="text-body font-medium">{link.label}</div>
                   <div className="truncate text-xs text-muted-foreground">{link.desc}</div>
                 </div>
               </Link>

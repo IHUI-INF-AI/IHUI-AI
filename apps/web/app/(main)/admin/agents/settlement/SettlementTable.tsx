@@ -84,7 +84,7 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-label font-medium',
                       STATUS_CLASS[r.status] ?? STATUS_CLASS.unsettled,
                     )}
                   >

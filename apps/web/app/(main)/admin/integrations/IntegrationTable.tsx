@@ -60,7 +60,7 @@ export function IntegrationTable({
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-body font-semibold text-primary">
                   {PROVIDER_INITIAL[i.provider] ?? i.provider[0]?.toUpperCase()}
                 </div>
                 <div>
@@ -72,7 +72,7 @@ export function IntegrationTable({
               </div>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                   i.isEnabled
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                     : 'bg-muted text-muted-foreground',

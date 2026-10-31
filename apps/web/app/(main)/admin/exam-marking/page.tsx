@@ -145,7 +145,7 @@ export default function ExamMarkingPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">考试答题批阅</h1>
+        <h1 className="text-display font-bold tracking-tight">考试答题批阅</h1>
         <div className="flex items-center gap-2">
           <SearchInput
             value={keyword}
@@ -270,7 +270,7 @@ export default function ExamMarkingPage() {
                   {current.answers.map((a, idx) => (
                     <div key={a.questionId} className="rounded-md border p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">题目 {idx + 1}</span>
+                        <span className="text-body font-medium">题目 {idx + 1}</span>
                         <span className="text-xs text-muted-foreground">
                           {a.questionId.slice(0, 8)}
                         </span>

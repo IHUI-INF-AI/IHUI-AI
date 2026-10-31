@@ -164,7 +164,7 @@ export default function DemandSquareDetailPage() {
               {t('title')}
               <span
                 className={cn(
-                  'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                  'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                   STATUS_CLASS[rec.status] ?? STATUS_CLASS.pending,
                 )}
               >

@@ -146,7 +146,7 @@ export default function ActivityDetailPage() {
       <div className="space-y-4 rounded-lg border bg-card p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{a.title}</h1>
+            <h1 className="text-display font-bold tracking-tight">{a.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
@@ -162,7 +162,7 @@ export default function ActivityDetailPage() {
           </div>
           <span
             className={cn(
-              'shrink-0 rounded-md px-2.5 py-0.5 text-xs font-medium',
+              'shrink-0 rounded-md px-2.5 py-0.5 text-label font-medium',
               STATUS_STYLE[computedStatus],
             )}
           >
@@ -172,7 +172,7 @@ export default function ActivityDetailPage() {
 
         {a.description && (
           <div>
-            <h2 className="mb-1.5 text-sm font-semibold text-muted-foreground">
+            <h2 className="mb-1.5 text-body font-semibold text-muted-foreground">
               {t('descriptionLabel')}
             </h2>
             <p className="whitespace-pre-line text-sm leading-relaxed">{a.description}</p>
@@ -181,7 +181,7 @@ export default function ActivityDetailPage() {
 
         {a.rules && Object.keys(a.rules).length > 0 && (
           <div>
-            <h2 className="mb-1.5 text-sm font-semibold text-muted-foreground">
+            <h2 className="mb-1.5 text-body font-semibold text-muted-foreground">
               {t('rulesLabel')}
             </h2>
             <pre className="overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">

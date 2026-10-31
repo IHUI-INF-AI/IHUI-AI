@@ -86,7 +86,7 @@ function MetricCell({ label, value, danger }: MetricItem) {
   return (
     <div className="rounded-md border border-border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('mt-1 text-xl font-semibold tabular-nums', danger && 'text-red-600')}>
+      <p className={cn('mt-1 text-heading font-semibold tabular-nums', danger && 'text-red-600')}>
         {value}
       </p>
     </div>
@@ -184,7 +184,7 @@ export default function AiMetricsPage() {
     <div className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>

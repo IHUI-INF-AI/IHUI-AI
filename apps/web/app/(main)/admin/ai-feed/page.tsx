@@ -167,7 +167,7 @@ export default function AiFeedHealthPage() {
                 <div key={s.id} className="flex flex-wrap items-center gap-3 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">{s.sourceName}</span>
+                      <span className="truncate text-body font-medium">{s.sourceName}</span>
                       <Badge variant="outline">{s.sourceCode}</Badge>
                       <Badge variant={statusVariant(s.lastFetchStatus)}>
                         {STATUS_LABEL[s.lastFetchStatus ?? ''] ?? s.lastFetchStatus ?? '未采集'}
@@ -204,7 +204,7 @@ function SummaryCard({ label, value, danger }: { label: string; value: number; d
     <Card className={danger ? 'border-destructive/60' : undefined}>
       <CardContent className="py-3">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`mt-1 text-2xl font-semibold ${danger ? 'text-destructive' : ''}`}>{value}</p>
+        <p className={`mt-1 text-display font-semibold ${danger ? 'text-destructive' : ''}`}>{value}</p>
       </CardContent>
     </Card>
   )

@@ -38,7 +38,7 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
             <div className="flex items-center gap-3">
               <span
                 className={cn(
-                  'inline-flex rounded-md px-2.5 py-0.5 text-sm font-medium',
+                  'inline-flex rounded-md px-2.5 py-0.5 text-body font-medium',
                   response.status >= 200 && response.status < 300
                     ? 'bg-emerald-500/10 text-emerald-600'
                     : response.status >= 400
@@ -51,7 +51,7 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
               <span className="text-xs text-muted-foreground">{response.latency}ms</span>
             </div>
             <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">
+              <div className="text-label font-medium text-muted-foreground">
                 {t('apiDebug.respHeaders')}
               </div>
               <pre className="max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-xs">
@@ -59,7 +59,7 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
               </pre>
             </div>
             <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">
+              <div className="text-label font-medium text-muted-foreground">
                 {t('apiDebug.respBody')}
               </div>
               <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-2 text-xs">

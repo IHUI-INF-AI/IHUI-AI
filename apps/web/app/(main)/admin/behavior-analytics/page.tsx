@@ -142,7 +142,7 @@ export default function BehaviorAnalyticsPage() {
       <BackButton />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">行为埋点分析</h1>
+          <h1 className="text-heading font-semibold">行为埋点分析</h1>
           <p className="text-sm text-muted-foreground">
             用户行为事件统计:点击 / 搜索 / 下载 / 表单 / 停留
           </p>
@@ -211,7 +211,7 @@ export default function BehaviorAnalyticsPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">事件类型排行</CardTitle>
+                <CardTitle className="text-body font-medium">事件类型排行</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {rank.length === 0 && (
@@ -240,7 +240,7 @@ export default function BehaviorAnalyticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">页面行为热度 Top 10</CardTitle>
+                <CardTitle className="text-body font-medium">页面行为热度 Top 10</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {pages.length === 0 && (
@@ -252,7 +252,7 @@ export default function BehaviorAnalyticsPage() {
                     className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <span className="text-xs font-semibold text-muted-foreground">{i + 1}</span>
+                      <span className="text-label font-semibold text-muted-foreground">{i + 1}</span>
                       <span className="truncate">{p.path}</span>
                     </span>
                     <span className="shrink-0 text-muted-foreground">{numFmt.format(p.pv)} 次</span>
@@ -264,7 +264,7 @@ export default function BehaviorAnalyticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">按天事件趋势</CardTitle>
+              <CardTitle className="text-body font-medium">按天事件趋势</CardTitle>
             </CardHeader>
             <CardContent>
               {(() => {
@@ -301,7 +301,7 @@ export default function BehaviorAnalyticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">最近事件明细</CardTitle>
+              <CardTitle className="text-body font-medium">最近事件明细</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>

@@ -70,7 +70,7 @@ export function LevelTable({ rows, isLoading, error, onEdit, onDelete, deletePen
             rows.map((l) => (
               <TableRow key={l.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5">
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 text-label font-bold text-amber-600 dark:text-amber-400">
                     L{l.level}
                   </span>
                 </TableCell>

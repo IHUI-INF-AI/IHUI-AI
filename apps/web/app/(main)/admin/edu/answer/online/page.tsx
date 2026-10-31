@@ -111,7 +111,7 @@ function AnswerOnlineContent() {
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild variant="ghost" size="sm">
@@ -182,7 +182,7 @@ function AnswerOnlineContent() {
                             ? t(TYPE_LABEL_KEY[q.type] ?? 'typeLabel.unknown')
                             : q.type}
                         </span>
-                        <span className="text-sm font-medium">{q.title}</span>
+                        <span className="text-body font-medium">{q.title}</span>
                       </div>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {t('scorePoints', { score: Number(q.score) })}

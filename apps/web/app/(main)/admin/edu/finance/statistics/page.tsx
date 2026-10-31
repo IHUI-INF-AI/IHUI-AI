@@ -57,7 +57,7 @@ export default function EduFinanceStatisticsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{tc('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{tc('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{tc('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -104,7 +104,7 @@ export default function EduFinanceStatisticsPage() {
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{tc('totalRevenue')}</div>
-                  <div className="mt-1 text-2xl font-semibold">
+                  <div className="mt-1 text-display font-semibold">
                     ¥{stats.totalRevenue.toFixed(2)}
                   </div>
                 </div>
@@ -117,7 +117,7 @@ export default function EduFinanceStatisticsPage() {
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{tc('totalOrders')}</div>
-                  <div className="mt-1 text-2xl font-semibold">{stats.totalOrders}</div>
+                  <div className="mt-1 text-display font-semibold">{stats.totalOrders}</div>
                 </div>
               </CardContent>
             </Card>
@@ -128,7 +128,7 @@ export default function EduFinanceStatisticsPage() {
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{tc('paidOrders')}</div>
-                  <div className="mt-1 text-2xl font-semibold">{stats.paidOrders}</div>
+                  <div className="mt-1 text-display font-semibold">{stats.paidOrders}</div>
                 </div>
               </CardContent>
             </Card>
@@ -139,7 +139,7 @@ export default function EduFinanceStatisticsPage() {
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{tc('refundedAmount')}</div>
-                  <div className="mt-1 text-2xl font-semibold">
+                  <div className="mt-1 text-display font-semibold">
                     ¥{stats.refundedAmount.toFixed(2)}
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export default function EduFinanceStatisticsPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-medium">{tc('avgOrderAmount')}</span>
+                <span className="text-body font-medium">{tc('avgOrderAmount')}</span>
                 <span className="text-lg font-semibold text-primary">
                   ¥{stats.avgOrderAmount.toFixed(2)}
                 </span>

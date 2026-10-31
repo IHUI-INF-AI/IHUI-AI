@@ -137,7 +137,7 @@ export default function AdminLogsPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <ScrollText className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -151,7 +151,7 @@ export default function AdminLogsPage() {
 
       <div className="space-y-3 rounded-lg border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
+          <div className="flex items-center gap-2 text-body font-medium">
             <BarChart3 className="h-4 w-4 text-primary" />
             {t('statsTitle')}
           </div>
@@ -161,7 +161,7 @@ export default function AdminLogsPage() {
                 key={d}
                 onClick={() => setStatsDays(d)}
                 className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                  'rounded-sm px-2.5 py-1 text-label font-medium transition-colors',
                   statsDays === d
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -314,7 +314,7 @@ export default function AdminLogsPage() {
                       type="button"
                       onClick={() => setCleanupDays(d)}
                       className={cn(
-                        'rounded-sm border px-3 py-1.5 text-sm font-medium transition-colors',
+                        'rounded-sm border px-3 py-1.5 text-body font-medium transition-colors',
                         cleanupDays === d
                           ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:text-foreground',

@@ -78,7 +78,7 @@ export default function ActivitiesPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Gift className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -131,7 +131,7 @@ export default function ActivitiesPage() {
                     <h2 className="text-base font-semibold">{a.title}</h2>
                     <span
                       className={cn(
-                        'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                         STATUS_STYLE[displayStatus],
                       )}
                     >

@@ -107,7 +107,7 @@ export default function AdminApiPlatformUsagePage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <BarChart3 className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -131,13 +131,13 @@ export default function AdminApiPlatformUsagePage() {
           return (
             <Card key={c.key}>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <CardTitle className="flex items-center gap-2 text-label font-medium text-muted-foreground">
                   <Icon className="h-3.5 w-3.5" />
                   {c.label}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={cn('text-2xl font-bold', c.cls)}>
+                <div className={cn('text-display font-bold', c.cls)}>
                   {typeof c.value === 'number' ? formatNumber(c.value) : c.value}
                 </div>
                 {c.key === 'success' && (

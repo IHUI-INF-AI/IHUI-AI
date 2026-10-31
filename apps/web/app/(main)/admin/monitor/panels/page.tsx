@@ -421,7 +421,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         {/* 顶栏:标题 + 呈现切换固定在同一行首,工具组靠右;窄容器时工具组整体换行,顺序不乱 */}
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 bg-card px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
+            <h2 className="min-w-0 truncate text-body font-semibold text-foreground">
               {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
             </h2>
             {dashboard && (

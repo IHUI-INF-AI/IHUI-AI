@@ -82,7 +82,7 @@ export default function AdminMemberUnauditedPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Users className="h-6 w-6 text-primary" />
           未审核会员
         </h1>

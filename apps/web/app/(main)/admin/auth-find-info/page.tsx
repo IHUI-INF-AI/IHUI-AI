@@ -110,7 +110,7 @@ export default function AuthFindInfoPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <CreditCard className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>

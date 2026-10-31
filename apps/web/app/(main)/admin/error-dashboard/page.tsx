@@ -161,7 +161,7 @@ export default function ErrorDashboardPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Bug className="h-6 w-6 text-primary" />
           {t('errorDash.title')}
         </h1>
@@ -181,10 +181,10 @@ export default function ErrorDashboardPage() {
               <Card key={c.label}>
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-muted-foreground">{c.label}</span>
+                    <span className="text-body font-medium text-muted-foreground">{c.label}</span>
                     <c.icon className={cn('h-4 w-4', c.color)} />
                   </div>
-                  <div className="mt-1 text-2xl font-bold">{c.value}</div>
+                  <div className="mt-1 text-display font-bold">{c.value}</div>
                 </CardContent>
               </Card>
             ))}
@@ -288,7 +288,7 @@ export default function ErrorDashboardPage() {
                       <td className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                            'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                             sev.bg,
                             sev.text,
                           )}
@@ -299,7 +299,7 @@ export default function ErrorDashboardPage() {
                       <td className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                            'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                             st.bg,
                             st.text,
                           )}

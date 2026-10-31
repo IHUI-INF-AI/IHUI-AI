@@ -55,13 +55,13 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
                   </span>
                   <span
                     className={cn(
-                      'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                      'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
                       LEVEL_BADGE[ev.level],
                     )}
                   >
                     {t(LEVEL_KEY[ev.level] ?? 'levels.unknown')}
                   </span>
-                  <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                     {t(TYPE_KEY[ev.type] ?? 'types.unknown')}
                   </span>
                 </div>

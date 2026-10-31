@@ -106,7 +106,7 @@ export default function AdminLearnSignupBatchPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">批量报名管理</h1>
+        <h1 className="text-display font-bold tracking-tight">批量报名管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">管理批量报名记录,支持导入与导出</p>
       </div>
 
@@ -183,7 +183,7 @@ export default function AdminLearnSignupBatchPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                           sc.cls,
                         )}
                       >

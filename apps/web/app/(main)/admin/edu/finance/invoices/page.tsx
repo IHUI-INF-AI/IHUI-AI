@@ -107,7 +107,7 @@ export default function EduFinanceInvoicesPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -187,7 +187,7 @@ export default function EduFinanceInvoicesPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                         )}
                       >
                         {t(TYPE_KEY[inv.type] ?? 'type.unknown')}
@@ -197,7 +197,7 @@ export default function EduFinanceInvoicesPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                           cls,
                         )}
                       >

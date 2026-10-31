@@ -99,7 +99,7 @@ export default function ClawdbotHealthPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Activity className="h-6 w-6 text-primary" /> 健康检查
         </h1>
         <Button variant="outline" size="sm" onClick={() => void load(true)} disabled={refreshing}>
@@ -132,7 +132,7 @@ export default function ClawdbotHealthPage() {
 
       <div className="rounded-lg border bg-card">
         <div className="px-4 py-2.5">
-          <p className="text-sm font-medium">依赖检查</p>
+          <p className="text-body font-medium">依赖检查</p>
         </div>
         <div className="space-y-2">
           {report.dependencies.length === 0 ? (
@@ -148,7 +148,7 @@ export default function ClawdbotHealthPage() {
                   <div className="flex items-center gap-3">
                     <DepIcon className={cn('h-4 w-4', cfg.cls)} />
                     <div>
-                      <p className="text-sm font-medium">{dep.name}</p>
+                      <p className="text-body font-medium">{dep.name}</p>
                       {dep.message && (
                         <p className="text-xs text-muted-foreground">{dep.message}</p>
                       )}

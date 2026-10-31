@@ -161,7 +161,7 @@ export default function KnowledgeRagPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <BookOpen className="h-6 w-6 text-primary" /> RAG 知识库
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -193,21 +193,21 @@ export default function KnowledgeRagPage() {
             <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
           )}
           <div>
-            <p className="text-sm font-semibold">{healthOk ? '服务正常' : '检查中...'}</p>
+            <p className="text-body font-semibold">{healthOk ? '服务正常' : '检查中...'}</p>
             <p className="text-xs text-muted-foreground">{health?.status ?? '?'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <Database className="h-5 w-5 text-primary" />
           <div>
-            <p className="text-sm font-semibold">{docs.length} 文档</p>
+            <p className="text-body font-semibold">{docs.length} 文档</p>
             <p className="text-xs text-muted-foreground">我的知识库</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <FileText className="h-5 w-5 text-sky-600" />
           <div>
-            <p className="text-sm font-semibold">
+            <p className="text-body font-semibold">
               {docs.reduce((s, d) => s + d.chunkCount, 0)} 切片
             </p>
             <p className="text-xs text-muted-foreground">总块数</p>
@@ -217,7 +217,7 @@ export default function KnowledgeRagPage() {
 
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between px-4 py-2.5">
-          <p className="text-sm font-medium">文档列表</p>
+          <p className="text-body font-medium">文档列表</p>
           {selected.size > 0 && (
             <Button
               variant="outline"
@@ -249,7 +249,7 @@ export default function KnowledgeRagPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{d.title}</p>
+                    <p className="truncate text-body font-medium">{d.title}</p>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                       {d.sourceType}
                     </span>
@@ -285,7 +285,7 @@ export default function KnowledgeRagPage() {
 
       <div className="rounded-lg border bg-card">
         <div className="px-4 py-2.5">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
+          <p className="flex items-center gap-1.5 text-body font-medium">
             <Search className="h-4 w-4" /> 检索测试
           </p>
         </div>
@@ -363,7 +363,7 @@ export default function KnowledgeRagPage() {
                   <span className="text-xs text-muted-foreground">
                     doc #{h.docId} · chunk #{h.chunkIndex}
                   </span>
-                  <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-600">
+                  <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-label font-medium text-emerald-600">
                     {fmtScore(h.score)}
                   </span>
                 </div>

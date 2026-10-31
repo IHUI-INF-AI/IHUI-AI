@@ -105,7 +105,7 @@ export default function ClawdbotAnalyticsPage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <BarChart className="h-6 w-6 text-primary" /> 分析统计
       </h1>
 
@@ -123,7 +123,7 @@ export default function ClawdbotAnalyticsPage() {
 
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         <div className="rounded-lg border bg-card p-3">
-          <p className="mb-3 text-sm font-medium">热门意图</p>
+          <p className="mb-3 text-body font-medium">热门意图</p>
           {summary.topIntents.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无数据</p>
           ) : (
@@ -147,7 +147,7 @@ export default function ClawdbotAnalyticsPage() {
         </div>
 
         <div className="rounded-lg border bg-card p-3">
-          <p className="mb-3 text-sm font-medium">Bot 调用量</p>
+          <p className="mb-3 text-body font-medium">Bot 调用量</p>
           {summary.callsByBot.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无数据</p>
           ) : (

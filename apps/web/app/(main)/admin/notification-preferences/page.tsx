@@ -81,7 +81,7 @@ function SwitchRow({
 }) {
   return (
     <div className="flex items-center justify-between py-2">
-      <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
+      <Label htmlFor={id} className="cursor-pointer text-body font-normal">
         {label}
       </Label>
       <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
@@ -165,7 +165,7 @@ export default function NotificationPreferencesPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Bell className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>

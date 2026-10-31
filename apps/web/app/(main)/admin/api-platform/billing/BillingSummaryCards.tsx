@@ -28,13 +28,13 @@ export function BillingSummaryCards({ cards }: Props) {
         return (
           <Card key={c.label}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <CardTitle className="flex items-center gap-2 text-label font-medium text-muted-foreground">
                 <Icon className="h-3.5 w-3.5" />
                 {c.label}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={cn('text-2xl font-bold', c.cls)}>
+              <div className={cn('text-display font-bold', c.cls)}>
                 ¥{formatCurrency(c.value / 100)}
               </div>
             </CardContent>

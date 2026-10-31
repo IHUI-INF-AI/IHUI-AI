@@ -69,7 +69,7 @@ export default function GithubAppAdminPage() {
       {/* 标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <GitBranch className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
@@ -200,7 +200,7 @@ function ConfigCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+        <CardTitle className="flex items-center gap-2 text-body font-medium">
           {icon}
           {title}
         </CardTitle>
@@ -208,7 +208,7 @@ function ConfigCard({
           <TooltipTrigger asChild>
             <span
               className={cn(
-                'inline-flex cursor-default items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium',
+                'inline-flex cursor-default items-center gap-1 rounded-md px-2.5 py-0.5 text-label font-medium',
                 configured ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600',
               )}
             >
