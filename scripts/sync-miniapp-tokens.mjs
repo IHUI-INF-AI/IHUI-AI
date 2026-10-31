@@ -148,13 +148,15 @@ export const MINIAPP_SKIP_PREFIXES = [
   '--z-',
   '--global-box-shadow',
   '--shadow-premium',
-  // 2026-10-28 新增三条(与 scripts/sync-css-tokens.mjs 的受管块同笔):
-  // --spacing-* / --text-*(含 --text-<step>--line-height / --font-weight) / --shadow-elevation-*
-  // 是 **Tailwind v4 的 theme 语义键**,只在 web(globals.css @import tokens.css 走 v4)里生成
-  // p-md / gap-lg / text-body / shadow-elevation-md 这类工具类。小程序是 Tailwind v3,没有这套
-  // 命名空间;它消费的间距/字号/阴影是 TS 派的 taroSpacing / taroType / taroElevation(rpx 数值),
-  // 压根不读这些 CSS 变量 ⇒ 搬进 app.css 只会多 43 行零消费的档位,还让"小程序副本"多背一份要跟随的账。
-  // 注意 `--font-weight-*` 已被上面的 `--font-` 覆盖,这里不重复登记。
+  // --spacing-* / --text-* / --shadow-elevation-* 不进 **:root/.dark 副本**(本表的原职责),
+  // 改由下面的 `@theme` 注册区承接 —— 2026-10-31 改判,原注释"小程序是 Tailwind v3,
+  // 没有这套命名空间"的前提**不成立**:现读 `apps/miniapp-taro/tailwind.config.ts` 的版本事实
+  // (2026-10-25 复核)= 产物引擎是 weapp-tailwindcss@5.2.9 vendored 的 **Tailwind v4**,
+  // package.json 的 tailwindcss ^3.4.17 只服务本文件的 content/theme 工具链。
+  // 小程序的真实产物里已有 `.p-3{padding:calc(var(--spacing)*3)}` 与 `--text-xs:24rpx`
+  // (v4 默认档),同一条 v4 通道也会把 `@theme` 里的项目具名档生成 `p-md`/`text-body`。
+  // 之所以仍留在这张表里:它们**只写 @theme 区、不写 :root 副本**,一张表管两件事。
+  // 值在此处按 1 逻辑 px = 2 rpx 换算(与 taroSpacing/taroType 的派生口径同源,见 deriveThemeSemanticDecls)。
   '--spacing-',
   '--text-',
   '--shadow-elevation-',
@@ -201,7 +203,44 @@ export function deriveMiniappManaged(tokensCss, kind) {
 export const THEME_REGION_MARK = '/* ===== v4 色档注册(自动同步自'
 
 /**
- * `@theme` 区应有的档 = `deriveMiniappManaged(light)` **剔除 `-rgb` 三元组**。
+ * v4 theme 语义档(非色)的注册面 —— 项目具名档进小程序 `@theme` 的唯一出口。
+ *
+ * 为什么要有(2026-10-31 立,`check-web-rn-style-tiers.mjs` 射程边界① 的对应修法):
+ * 小程序产物现读只有 v4 **默认**档(`--spacing:8rpx` 基值 + `--text-xs/sm/base…`),
+ * 项目档名(`--text-body` / `--spacing-md` / `--shadow-elevation-md`)一个都不在 ⇒
+ * web 侧 `--text-body: 14px` 改档时小程序**结构上无法跟随**(它没有这个键,端内只能写
+ * `text-[length:28rpx]` 任意值)。注册进 `@theme` 后 v4 生成 `.text-body` / `.p-md` /
+ * `.shadow-elevation-md`,键名与 web 逐字同形,"改档表 ⇒ 两端一起动"才对小程序成立。
+ *
+ * 换算口径:**1 逻辑 px = 2 rpx**,与 `taroSpacing`(=SPACING_STEPS×2)/`taroType`(×2)
+ * 同一条派生规则;档表本身仍是唯一源(`tokens.css` 的 css-tokens:managed 受管块),
+ * 这里只做量纲换算,不复制第二份档值。
+ *
+ * 排除项:`--text-vcenter-offset`(0.3px 是 web 中文图标垂直补偿,不是字号档;
+ * 进 @theme 会长出 `.text-vcenter-offset` 脏档)。`--font-weight-*` 不搬:值与 v4 默认
+ * 逐字相同(400/500/600/700)且不随档表变化,搬它只会多一份要跟随的账。
+ */
+const THEME_SEMANTIC_EXCLUDE = new Set(['--text-vcenter-offset'])
+
+export function isThemeSemanticKey(name) {
+  if (THEME_SEMANTIC_EXCLUDE.has(name)) return false
+  return name.startsWith('--spacing-') || name.startsWith('--text-') || name.startsWith('--shadow-elevation-')
+}
+
+/** px → rpx(唯一换算点;`0.05` 这类无单位成分不受影响,只吃 `<数>px`) */
+export function toTaroRpxLen(value) {
+  return value.replace(/(-?\d*\.?\d+)px\b/g, (_, n) => `${Number(n) * 2}rpx`)
+}
+
+export function deriveThemeSemanticDecls(tokensCss) {
+  return [...collectVars(tokensCss, ['@theme']).values()]
+    .filter((d) => isThemeSemanticKey(d.name))
+    .map((d) => ({ name: d.name, value: toTaroRpxLen(d.value) }))
+}
+
+/**
+ * `@theme` 区应有的档 = `deriveMiniappManaged(light)` **剔除 `-rgb` 三元组**
+ * ∪ `deriveThemeSemanticDecls`(项目非色档,2026-10-31 追加;同一条 v4 通道生成工具类)。
  *
  * 两条都是实测逼出的,不是洁癖:
  * 1. 档位集合必须由 `deriveMiniappManaged` 那**同一个谓词**派生(见本文件头注第 1 条)——
@@ -215,7 +254,8 @@ export const THEME_REGION_MARK = '/* ===== v4 色档注册(自动同步自'
  * 而命名布局档(`.flex`/`.p-3`)有 —— 症状精确到"只有色档没落地"(见 PROJECT_PLAN O62附⑧补)。
  */
 export function deriveThemeRegistryDecls(tokensCss) {
-  return deriveMiniappManaged(tokensCss, 'light').filter((d) => !isAlphaRgbTriple(d.name))
+  const colors = deriveMiniappManaged(tokensCss, 'light').filter((d) => !isAlphaRgbTriple(d.name))
+  return [...colors, ...deriveThemeSemanticDecls(tokensCss)]
 }
 
 /**
@@ -1261,6 +1301,9 @@ export const __test__ = {
   isManagedForMiniapp,
   deriveMiniappManaged,
   deriveThemeRegistryDecls,
+  deriveThemeSemanticDecls,
+  isThemeSemanticKey,
+  toTaroRpxLen,
   isAlphaRgbTriple,
   THEME_REGION_MARK,
   filterTokens,

@@ -45,6 +45,7 @@
     "@ihui/rn-app": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
+    "@ihui/ui-native": "workspace:*",
     "@tarojs/components": "4.2.1",
     "@tarojs/helper": "4.2.1",
     "@tarojs/plugin-framework-react": "4.2.1",
