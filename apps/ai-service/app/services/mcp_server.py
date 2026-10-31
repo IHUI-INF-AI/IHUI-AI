@@ -10112,6 +10112,38 @@ async def _tool_advisor_consult(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "advisor_consult", **result}
 
 
+# ---------------------------------------------------------------------------
+# run_workflow(逆向对齐补齐腿,2026-11-02 立):多节点 agent 工作流 +
+# resume_from_run_id 入参级续跑缓存。判据本体全在 app/services/workflow_runner.py
+# (幂等键/续跑存储/分派出口全部 import 复用 task_executors 单源,§0.6),
+# 本层只接线、不复算。身份只认承载层注入 __user_id(_identity_or_error 单源),
+# 主体缺失即 PRINCIPAL_REQUIRED,run 归属他人即 WORKFLOW_FORBIDDEN,均零执行。
+# ---------------------------------------------------------------------------
+async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
+    """run_workflow:执行工作流脚本;带 resume_from_run_id 时入参未变节点回缓存不重跑。"""
+    from .agent_comm import _identity_or_error
+    from .workflow_runner import run_workflow
+
+    _sid, _uid, identity_error = _identity_or_error(
+        arguments.get("__session_id"), arguments.get("__user_id")
+    )
+    if identity_error is not None:
+        return {
+            "tool": "run_workflow", "ok": False,
+            "errorCode": "PRINCIPAL_REQUIRED",
+            "error": "缺少宿主注入的调用者身份",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+    resume_raw = arguments.get("resume_from_run_id")
+    resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
+    result = await run_workflow(
+        arguments.get("nodes"),
+        principal=_uid,
+        resume_from_run_id=resume,
+    )
+    return {"tool": "run_workflow", **result}
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -12418,6 +12450,36 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== 工作流续跑(G-逆向对齐 Workflow/RunWorkflow,2026-11-02 立)=====
+    # 身份不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权);
+    # 与 _TOOL_HANDLERS 里 "run_workflow" 同批双射,漏一侧即 test_tools_count_matches_registry 红。
+    MCPTool(
+        name="run_workflow",
+        description=(
+            "执行多节点 agent 工作流:nodes 为节点声明数组(id/agent/arguments/depends_on),"
+            "按拓扑序逐节点执行(agent 取已注册任务类型)。带 resume_from_run_id 续跑时,"
+            "入参未变的节点瞬时回缓存不重跑,只有入参变化或此前失败的节点真执行;"
+            "run 不存在/脚本非法/跨主体一律显式错误码且零执行。身份只认承载层注入,不接受模型自报。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "description": (
+                        "节点声明数组(必填,非空),每项 {id, agent, arguments?, depends_on?};"
+                        "id 唯一,depends_on 引用同批 id,存在环即拒绝"
+                    ),
+                },
+                "resume_from_run_id": {
+                    "type": "string",
+                    "description": "续跑的目标 run_id(可选;缺省=新建 run 全量执行)",
+                },
+            },
+            "required": ["nodes"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -12950,6 +13012,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # Notebook 结构编辑(G-NotebookEdit,2026-11-01 立;与上方 _TOOLS 声明同批双射)
     "notebook_edit": _tool_notebook_edit,
     "advisor_consult": _tool_advisor_consult,
+    # 工作流续跑(G-逆向对齐,2026-11-02 立;与上方 _TOOLS 声明同批双射)
+    "run_workflow": _tool_run_workflow,
 }
 
 

@@ -14,6 +14,28 @@
 > **表格内 `\|` 只是 Markdown 转义,复验时一律按裸 `|` 执行**(`git grep -E` 用裸竖线做择一;照抄 `\|` 会被 ERE 当字面竖线 ⇒ 假 0 命中)。本席**实跑的全部是裸 `|` 形态**,`\|` 只出现在为迁就表格而写的字面里;§5 复验轮另把两条**射程过宽**的模式(G-21/G-22)收窄到插件/市场目录,以免读者被同名噪声误导。
 > 原始 grep 流水落 `.ihui-agent/tmp/trae-rea/s3/greps-raw*.txt`、`g4.txt`…`g15.txt`。
 
+## -1. 时效告示（2026-11-01 主席回填，引用本表前必读）
+
+**本表是 `HEAD 4d1cd0d998…` 那一拍的读数，有效期只有小时级——本仓多会话并行落地的速度高于册子的撰写速度。**
+2026-11-01 已对 B/C 档做逐条现读复量（复量件 `.ihui-agent/tmp/rea-goal-b44/B-matrix-recheck.md`，
+结论册 `../2026-11/qoder-trae-rea-20261101/T7-matrix-recheck-and-sidecar-ore.md` §1），结果：
+
+| 本表结论 | 11-01 现读复量 | 一手证据（HEAD 面 `git grep … HEAD`） |
+| --- | --- | --- |
+| G-03 缺 `taskCreated`/`taskCompleted` 两档 | **已结清** | 字段在 `hooks/index.ts:157-160`，派发点在 `background-registry.ts:486`，`:650`/`:813`/`:814` 三处真调用 |
+| G-09 Elicitation「零调用方实锤」 | **已结清** | `agent_loop_v2.py:5590-5598` 已 import `_get_elicitation_service` 并传真值给 `tool_call_elicitation_enabled` |
+| G-07 跨会话通信未装车 | **已结清** | `mcp_server.py:9753` `_tool_send_team_message`、`:9779` `_tool_read_team_inbox` |
+| G-14 记忆写回未装车 | **已结清（票面边界内）** | `git-guardian.mjs:5354` 定义 `sweepLessonDraft`，`:10334`/`:10444` 两执行体各挂一处；写回 `AGENTS.md` 那一半**刻意不做**（不可变护栏 + 门 207 体积预算） |
+| G-18 run manifest 结构性缺失 | **已结清** | `apps/cli/src/runs/manifest.ts` 在 HEAD，`argv`/`ppid`/`env_flags`/`cli_version` 等 8 键命中 |
+| G-22 插件默认态未登记 | **主腿已结清** | `apps/cli/src/config/defaults.ts:50-51` 显式两档 `enabled:false` 且 `:48` 注记写明判据；`autoUpdate` 仍缺，属次级残腿 |
+| G-08 / G-10 / G-11 / G-17 | **已结清** | 详见复量件（worktree 工具双射、micro_compact 接进 `agent_loop_v2:3008`、advisor/investigate/output_schema 三腿、`inject_session_env` 两处实调） |
+| **G-21 逐文件 sha256 完整性** | **真缺口（唯一保留项）** | 已派落地；设计边界按 T7 §3 第 3 条 |
+| G-20 / G-26 | **形态不适用，不立票** | 命中项全在「采集/清理对方产品」一侧；本仓等价面 = npm 平台包 + tauri updater + 服务端影子档 |
+
+⇒ **不得把本表的 B/C 计数（「没装车 8 / 结构性缺失 7」）当作当前状态引用或派单**。
+按本表派单前，逐条重跑该行「一手证据」列的命令；复量后的读数若与本表冲突，**以复量为准并回填本节**。
+本表的价值在于**对照程序侧的行为规格**（对方那格具体是怎么做的），这部分未因本仓推进而失效。
+
 ## 0. 先纠正两条派单前提(现读)
 
 派单单里写「本仓 `apps/desktop` 实测只有 2 个文件」——**不成立**。现读:
