@@ -8,6 +8,7 @@ import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 
 // =============================================================================
 // Zod schemas
@@ -258,72 +259,82 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
 
   // -------------------------------------------------------------------------
   // POST /organizations/:id/members - 添加成员
-  // -------------------------------------------------------------------------
-  server.post('/organizations/:id/members', async (request, reply) => {
-    await authenticate(request)
-    const paramParsed = idParamSchema.safeParse(request.params)
-    if (!paramParsed.success) {
-      return reply.status(400).send(error(400, '无效的组织 ID'))
-    }
-    const parsed = addMemberSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { id } = paramParsed.data
-    const { userId, role, title, department } = parsed.data
-    try {
-      // 检查组织是否存在
-      const orgRows = await db.execute(
-        sql`SELECT id FROM organizations WHERE "id"::text = ${id} LIMIT 1`,
-      )
-      if ((orgRows as Record<string, unknown>[]).length === 0) {
-        return reply.status(404).send(error(404, '组织不存在'))
+  // 2026-10-31 安全强化第 12 批:成员管理此前仅 authenticate(任意登录用户可给任意
+  // 组织加/删成员、改角色);本文件生产注册面为零(仅测试引用,属死代码地雷),
+  // 照 admin 副本语义补 requireAdmin 拆雷
+  server.post(
+    '/organizations/:id/members',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      await authenticate(request)
+      const paramParsed = idParamSchema.safeParse(request.params)
+      if (!paramParsed.success) {
+        return reply.status(400).send(error(400, '无效的组织 ID'))
       }
-      // 检查是否已是成员
-      const existing = await db.execute(
-        sql`SELECT id FROM organization_members
+      const parsed = addMemberSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { id } = paramParsed.data
+      const { userId, role, title, department } = parsed.data
+      try {
+        // 检查组织是否存在
+        const orgRows = await db.execute(
+          sql`SELECT id FROM organizations WHERE "id"::text = ${id} LIMIT 1`,
+        )
+        if ((orgRows as Record<string, unknown>[]).length === 0) {
+          return reply.status(404).send(error(404, '组织不存在'))
+        }
+        // 检查是否已是成员
+        const existing = await db.execute(
+          sql`SELECT id FROM organization_members
             WHERE org_id::text = ${id} AND user_id::text = ${userId} LIMIT 1`,
-      )
-      if ((existing as Record<string, unknown>[]).length > 0) {
-        return reply.status(409).send(error(409, '该用户已是组织成员'))
-      }
-      const rows = await db.execute(
-        sql`INSERT INTO organization_members (org_id, user_id, role, title, department, status, joined_at, created_at, updated_at)
+        )
+        if ((existing as Record<string, unknown>[]).length > 0) {
+          return reply.status(409).send(error(409, '该用户已是组织成员'))
+        }
+        const rows = await db.execute(
+          sql`INSERT INTO organization_members (org_id, user_id, role, title, department, status, joined_at, created_at, updated_at)
             VALUES (${id}, ${userId}, ${role}, ${title ?? null}, ${department ?? null}, 1, NOW(), NOW(), NOW())
             RETURNING id, org_id, user_id, role, title, department, status, joined_at, created_at, updated_at`,
-      )
-      const row = (rows as Record<string, unknown>[])[0]
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '添加成员失败'))
-    }
-  })
+        )
+        const row = (rows as Record<string, unknown>[])[0]
+        return reply.status(201).send(success(row))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '添加成员失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // DELETE /organizations/:id/members/:userId - 移除成员
   // -------------------------------------------------------------------------
-  server.delete('/organizations/:id/members/:userId', async (request, reply) => {
-    await authenticate(request)
-    const params = z.object({ id: z.string(), userId: z.string() }).parse(request.params)
-    if (!params.id || !params.userId) {
-      return reply.status(400).send(error(400, '组织 ID 和用户 ID 不能为空'))
-    }
-    try {
-      const rows = await db.execute(
-        sql`DELETE FROM organization_members
+  server.delete(
+    '/organizations/:id/members/:userId',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      await authenticate(request)
+      const params = z.object({ id: z.string(), userId: z.string() }).parse(request.params)
+      if (!params.id || !params.userId) {
+        return reply.status(400).send(error(400, '组织 ID 和用户 ID 不能为空'))
+      }
+      try {
+        const rows = await db.execute(
+          sql`DELETE FROM organization_members
             WHERE org_id::text = ${params.id} AND user_id::text = ${params.userId}
             RETURNING id`,
-      )
-      if ((rows as Record<string, unknown>[]).length === 0) {
-        return reply.status(404).send(error(404, '成员不存在'))
+        )
+        if ((rows as Record<string, unknown>[]).length === 0) {
+          return reply.status(404).send(error(404, '成员不存在'))
+        }
+        return reply.send(success({ userId: params.userId, removed: true }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '移除成员失败'))
       }
-      return reply.send(success({ userId: params.userId, removed: true }))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '移除成员失败'))
-    }
-  })
+    },
+  )
 
   // -------------------------------------------------------------------------
   // GET /organizations/:id/tree - 组织架构树
@@ -382,35 +393,39 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // PUT /organizations/:id/members/:userId/role - 修改成员角色
   // -------------------------------------------------------------------------
-  server.put('/organizations/:id/members/:userId/role', async (request, reply) => {
-    await authenticate(request)
-    const params = z.object({ id: z.string(), userId: z.string() }).parse(request.params)
-    if (!params.id || !params.userId) {
-      return reply.status(400).send(error(400, '组织 ID 和用户 ID 不能为空'))
-    }
-    const parsed = updateMemberRoleSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { role, title, department } = parsed.data
-    const sets: SQL[] = [sql`"role" = ${role}`]
-    if (title !== undefined) sets.push(sql`"title" = ${title}`)
-    if (department !== undefined) sets.push(sql`"department" = ${department}`)
-    sets.push(sql`"updated_at" = NOW()`)
-    try {
-      const rows = await db.execute(
-        sql`UPDATE organization_members
+  server.put(
+    '/organizations/:id/members/:userId/role',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      await authenticate(request)
+      const params = z.object({ id: z.string(), userId: z.string() }).parse(request.params)
+      if (!params.id || !params.userId) {
+        return reply.status(400).send(error(400, '组织 ID 和用户 ID 不能为空'))
+      }
+      const parsed = updateMemberRoleSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { role, title, department } = parsed.data
+      const sets: SQL[] = [sql`"role" = ${role}`]
+      if (title !== undefined) sets.push(sql`"title" = ${title}`)
+      if (department !== undefined) sets.push(sql`"department" = ${department}`)
+      sets.push(sql`"updated_at" = NOW()`)
+      try {
+        const rows = await db.execute(
+          sql`UPDATE organization_members
             SET ${sql.join(sets, sql`, `)}
             WHERE org_id::text = ${params.id} AND user_id::text = ${params.userId}
             RETURNING id, org_id, user_id, role, title, department, status, joined_at, updated_at`,
-      )
-      const row = (rows as Record<string, unknown>[])[0]
-      if (!row) return reply.status(404).send(error(404, '成员不存在'))
-      return reply.send(success(row))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '修改成员角色失败'))
-    }
-  })
+        )
+        const row = (rows as Record<string, unknown>[])[0]
+        if (!row) return reply.status(404).send(error(404, '成员不存在'))
+        return reply.send(success(row))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '修改成员角色失败'))
+      }
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
