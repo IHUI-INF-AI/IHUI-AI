@@ -10,7 +10,6 @@ import { tokens } from '../../theme/active-tokens'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import AgentList, { type AgentListItem } from '../../components/AgentList'
-import { pressFeedback } from '@ihui/ui-native'
 
 const styles = StyleSheet.create({
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
@@ -138,14 +137,11 @@ export function AgentSelector({
   )
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={pressFeedback(styles.modalMask)} onPress={onClose}>
-        <Pressable
-          style={pressFeedback(styles.listDialogContent)}
-          onPress={(e) => e.stopPropagation()}
-        >
+      <Pressable style={styles.modalMask} onPress={onClose}>
+        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>选择 Agent</Text>
-            <Pressable hitSlop={8} onPress={onClose} style={pressFeedback(styles.listDialogClose)}>
+            <Pressable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
           </View>

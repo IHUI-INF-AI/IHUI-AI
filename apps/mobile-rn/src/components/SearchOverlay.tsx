@@ -52,7 +52,6 @@ import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 import { useSearchHistory } from '../hooks/use-search-history'
 import { useAppFrameWidth } from './Carousel'
-import { pressFeedback } from '@ihui/ui-native'
 
 /** 面板水平留白(对应 web `calc(100% - 2rem)` 的 2×16px) */
 const PANEL_SCREEN_MARGIN = 16
@@ -303,7 +302,7 @@ export const SearchOverlay = memo(function SearchOverlay({
                         accessibilityRole="button"
                         accessibilityLabel={t('searchHistory.clearAll')}
 
-                        style={pressFeedback(undefined)}
+                        style={undefined}
                       >
                         <Text style={styles.sectionAction}>{t('searchHistory.clearAll')}</Text>
                       </Pressable>
