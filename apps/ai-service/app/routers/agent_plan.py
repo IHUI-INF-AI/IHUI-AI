@@ -26,8 +26,10 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from ..core.jwt_auth import actor_user_id
 
 from ..core.llm_gateway import llm_gateway
 from ..core.token_baseline import CHAIN_MAIN
@@ -239,12 +241,20 @@ def _resolve_requested_tools(tools: list[str] | None) -> frozenset[str]:
 
 
 @router.post("/agent-plan")
-async def create_plan(req: CreatePlanRequest) -> dict[str, Any]:
+async def create_plan(req: CreatePlanRequest, request: Request) -> dict[str, Any]:
     """创建计划草稿(只读阶段)。
+
+    2026-10-31 安全强化第 27 批:计划归属主体在创建时由承载层写入(不是请求体字段);
+    此后该计划的读/改/批准只认这个主体(见 plan_store.get_owned)。
 
     返回 data: {plan_id, plan_md, readonly_tools}
     """
-    record = await create_draft(goal=req.goal, session_id=req.session_id, model=req.model)
+    record = await create_draft(
+        goal=req.goal,
+        session_id=req.session_id,
+        model=req.model,
+        owner_user_id=actor_user_id(request),
+    )
     return {
         "code": 0,
         "message": "ok",
@@ -257,10 +267,10 @@ async def create_plan(req: CreatePlanRequest) -> dict[str, Any]:
 
 
 @router.get("/agent-plan/{plan_id}")
-async def get_plan(plan_id: str) -> dict[str, Any]:
-    """查询计划状态与内容。"""
+async def get_plan(plan_id: str, request: Request) -> dict[str, Any]:
+    """查询计划状态与内容(只认计划归属主体;别人的与不存在的一样 404)。"""
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
     return {
@@ -288,10 +298,10 @@ async def get_plan(plan_id: str) -> dict[str, Any]:
 
 
 @router.get("/agent-plan/{plan_id}/versions")
-async def list_plan_versions(plan_id: str) -> dict[str, Any]:
+async def list_plan_versions(plan_id: str, request: Request) -> dict[str, Any]:
     """列出计划版本历史(含当前版本,按 version 升序)。"""
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
     return {
@@ -308,12 +318,13 @@ async def list_plan_versions(plan_id: str) -> dict[str, Any]:
 @router.get("/agent-plan/{plan_id}/versions/diff")
 async def diff_plan_versions(
     plan_id: str,
+    request: Request,
     from_version: int,
     to_version: int | None = None,
 ) -> dict[str, Any]:
     """对两个历史版本做轻量行级 diff。"""
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
     target = rec.version if to_version is None else to_version
@@ -339,10 +350,10 @@ async def diff_plan_versions(
 
 
 @router.post("/agent-plan/{plan_id}/tasks/sync")
-async def sync_plan_tasks(plan_id: str) -> dict[str, Any]:
+async def sync_plan_tasks(plan_id: str, request: Request) -> dict[str, Any]:
     """按当前计划内容(重新)展开为可勾选 task 序列,保留同名任务已有状态。"""
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
     sync_tasks(rec)
@@ -351,10 +362,10 @@ async def sync_plan_tasks(plan_id: str) -> dict[str, Any]:
 
 
 @router.get("/agent-plan/{plan_id}/tasks")
-async def get_plan_tasks(plan_id: str) -> dict[str, Any]:
+async def get_plan_tasks(plan_id: str, request: Request) -> dict[str, Any]:
     """查询计划的 task 列表与进度摘要。"""
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
     return _tasks_response(rec)
@@ -362,11 +373,11 @@ async def get_plan_tasks(plan_id: str) -> dict[str, Any]:
 
 @router.post("/agent-plan/{plan_id}/tasks/{task_id}/status")
 async def set_plan_task_status(
-    plan_id: str, task_id: str, req: TaskStatusRequest
+    plan_id: str, task_id: str, req: TaskStatusRequest, request: Request
 ) -> dict[str, Any]:
     """更新单个 task 状态(done/pending/blocked)。"""
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
     ok = update_task_status(rec, task_id, req.status)
@@ -397,7 +408,9 @@ def _tasks_response(rec: Any) -> dict[str, Any]:
 
 
 @router.post("/agent-plan/{plan_id}/decision")
-async def decide_plan(plan_id: str, req: PlanDecisionRequest) -> dict[str, Any]:
+async def decide_plan(
+    plan_id: str, req: PlanDecisionRequest, request: Request
+) -> dict[str, Any]:
     """批准/拒绝/改签计划(审批门控闭环)。
 
     动作分发(action):
@@ -411,9 +424,12 @@ async def decide_plan(plan_id: str, req: PlanDecisionRequest) -> dict[str, Any]:
 
     带修改指示时(revise / approve 且提供 edited_plan_md),先 refine_plan 产生新版本,
     保证"最终执行的是哪个版本、为何"可追溯。
+
+    2026-10-31 安全强化第 27 批:归属校验排在一切动作之前 —— 批准会真的驱动
+    AgentLoopV2 执行只读工具,不能先认领再发现是别人的计划。
     """
     try:
-        rec = plan_store.get(plan_id)
+        rec = plan_store.get_owned(plan_id, actor_user_id(request))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"计划不存在或已过期: {plan_id}") from None
 

@@ -67,9 +67,18 @@ class EvalService:
         self._dataset_metadata: dict[str, dict[str, str]] = {}
 
     def create_dataset(
-        self, name: str, items: list[dict[str, Any]], description: str = ""
+        self,
+        name: str,
+        items: list[dict[str, Any]],
+        description: str = "",
+        owner_user_id: str | None = None,
     ) -> dict[str, Any]:
-        """创建评估数据集。"""
+        """创建评估数据集。
+
+        2026-10-31 安全强化第 30 批:记录创建者归属。数据集是**共享**资源(人人可读、
+        人人可跑),但"删别人的数据集"不是共享语义 —— 归属只用于删除授权,
+        以及列表/详情里的可审计标注。``None`` = 内部创建(归属闸按未登记处理)。
+        """
         if name in self._datasets:
             raise ValueError(f"数据集已存在: {name}")
         eval_items = [
@@ -77,11 +86,16 @@ class EvalService:
             for item in items
         ]
         self._datasets[name] = eval_items
-        self._dataset_metadata[name] = {"name": name, "description": description}
+        self._dataset_metadata[name] = {
+            "name": name,
+            "description": description,
+            "owner_user_id": owner_user_id or "",
+        }
         return {
             "name": name,
             "description": description,
             "item_count": len(eval_items),
+            "owner_user_id": owner_user_id,
         }
 
     def get_dataset(self, name: str) -> dict[str, Any] | None:
@@ -98,6 +112,7 @@ class EvalService:
                 for item in items
             ],
             "item_count": len(items),
+            "owner_user_id": meta.get("owner_user_id") or None,
         }
 
     def list_datasets(self) -> list[dict[str, Any]]:
@@ -107,17 +122,40 @@ class EvalService:
                 "name": name,
                 "description": self._dataset_metadata.get(name, {}).get("description", ""),
                 "item_count": len(items),
+                "owner_user_id": self._dataset_metadata.get(name, {}).get("owner_user_id") or None,
             }
             for name, items in self._datasets.items()
         ]
 
     def delete_dataset(self, name: str) -> bool:
-        """删除数据集。"""
+        """删除数据集(底层,不做归属判定 —— 带归属的删除走 delete_dataset_guarded)。"""
         if name not in self._datasets:
             return False
         del self._datasets[name]
         self._dataset_metadata.pop(name, None)
         return True
+
+    def delete_dataset_guarded(
+        self,
+        name: str,
+        *,
+        actor_user_id: str | None = None,
+        is_admin: bool = False,
+    ) -> str:
+        """带归属的删除:返回 ``"ok"`` / ``"not_found"`` / ``"forbidden"``。
+
+        归属判据**只此一份**(路由不再"先 get 再 delete" —— 那两步之间是竞态窗):
+        - 数据集不存在 ⇒ not_found(与"别人的"在路由层同形 404);
+        - 无主(归属改造前的存量 / 内部创建)或调用方主体缺失 ⇒ 不拒(与第 26/27 批同口径);
+        - 属主本人或管理员 ⇒ ok;其余 ⇒ forbidden。
+        """
+        if name not in self._datasets:
+            return "not_found"
+        owner = self._dataset_metadata.get(name, {}).get("owner_user_id") or None
+        if owner and actor_user_id and owner != actor_user_id and not is_admin:
+            return "forbidden"
+        self.delete_dataset(name)
+        return "ok"
 
     async def run_eval(
         self,

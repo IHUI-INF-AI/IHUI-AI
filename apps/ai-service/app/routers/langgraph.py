@@ -26,12 +26,13 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.jwt_auth import actor_user_id
 from app.core.sse_frames import with_frame_trace_id
 from app.services.canvas_graph import (
     build_canvas_graph,
@@ -52,6 +53,7 @@ from app.services.langgraph_stream import (
     SSEEvent,
     stream_agent_execution,
 )
+from app.services.thread_owner_store import claim_thread_owner, load_thread_owner
 
 logger = logging.getLogger(__name__)
 
@@ -149,36 +151,74 @@ class CanvasRunRequest(BaseModel):
 
 
 # ----------------------------------------------------------------------
-# 线程归属(2026-10-31 安全强化第 16 批)
+# 线程归属(2026-10-31 安全强化第 16 批 / 第 26 批持久化)
 # ----------------------------------------------------------------------
 
-
-def _actor_user_id(request: Request) -> str | None:
-    """中间件注入的已验证主体;没有则 None(不猜、不默认放开成"人人相同")。"""
-    raw = getattr(request.state, "user_id", None)
-    return raw if isinstance(raw, str) and raw else None
+# thread_id 列宽(langgraph_thread_owners 与 langgraph_checkpoints 同宽)。
+_MAX_THREAD_ID_LEN = 100
 
 
-def _assert_canvas_access(thread_id: str, actor: str | None) -> None:
-    """canvas 线程只准归属主体操作;别人的与不存在的一样 404(不区分存在性)。
+def _normalize_principal(principal: str | None) -> str | None:
+    """把已验证主体规范成 uuid 标准形态;非 uuid 形态返回 None。
 
-    此前本路由族**一个身份依赖都没挂**:任何登录用户拿到(或猜到)一个 runId,就能
-      · GET /{id}/state、/{id}/history 读走他人整图的 checkpoint 与执行历史;
-      · POST /{id}/interrupt、/resume 打断/续跑他人正在执行的 DAG;
-      · 最严重的一格:POST /canvas/run 的 `thread_id` 是客户端自报字段,而注册表按
-        threadId 直接覆盖 ⇒ 攻击者可把自己的 DAG 注册到**他人正在用的 runId** 上,
-        受害者下一次 stream 执行的就是攻击者的图。
-
-    主体为 None 时**不拒**(放行),原因是本链路的身份是"能解析就收紧"而不是硬闸:
-    stream 由 apps/api 代理,前端 EventSource 那条腿不带 Authorization,挂硬依赖会把
-    画布整片 401 打断(实测风险,见交付报告)。已登记 owner 且解析到主体的组合
-    才构成本闸的射程;要把这一格升成硬闸,前置是先让代理腿稳定携带用户身份。
-
-    未登记的 thread(历史条目 / 默认 agent 图)不在此闸射程内 —— 那批 thread 的归属
-    需要 checkpoint 表带 user_id 才能对账,见交付报告遗留项。
+    系统身份(apps/api 的 utils/system-access-token.ts 用固定 sub='system-worker')
+    与开发占位(dev-anonymous)都不是 uuid —— 既不得取得线程归属,也不参与归属比对。
+    判据取**形态**而不是身份黑名单:将来新增一个非 uuid 的服务身份不会漏判。
     """
+    if not principal:
+        return None
+    try:
+        return str(UUID(principal))
+    except ValueError:
+        return None
+
+
+async def _thread_owner(thread_id: str) -> str | None:
+    """线程归属:进程内 canvas 账优先,其次持久账;都没有返回 None(未登记)。"""
     owner = canvas_thread_owner(thread_id)
-    if owner is not None and actor is not None and owner != actor:
+    if owner is not None:
+        return owner
+    try:
+        return await load_thread_owner(thread_id)
+    except Exception as e:  # noqa: BLE001 - 归属读取失败按未登记处理,不放大权限
+        logger.warning("线程归属读取失败(按未登记处理) thread=%s: %s", thread_id, e)
+        return None
+
+
+async def _claim_thread(thread_id: str, actor: str) -> str | None:
+    """把 thread 登记给 actor;已登记则原样返回既有归属(绝不覆盖)。"""
+    try:
+        return await claim_thread_owner(thread_id, actor)
+    except Exception as e:  # noqa: BLE001 - 登记失败不阻塞执行,但本次不取得归属
+        logger.warning("线程归属登记失败 thread=%s: %s", thread_id, e)
+        return None
+
+
+async def _assert_thread_access(thread_id: str, actor: str | None, *, claim: bool) -> None:
+    """线程图状态只准归属主体读写;别人的与不存在的一样 404(不区分存在性)。
+
+    第 16 批只覆盖 canvas 注册表 —— 它是**进程内存**,重启即失忆,而 LangGraph saver
+    表里的线程状态还在:重启后任何人拿到 threadId 就能经 /state 读走 graphState。
+    第 26 批把归属落进 langgraph_thread_owners,重启后依然可对账。
+
+    射程与语义:
+
+    - `claim=True`(执行类:canvas/run、stream、interrupt、resume):首次接触且尚无
+      归属时把线程登记给当前主体 —— 执行者证明自己发起了这次执行;
+    - `claim=False`(读取类:state、history):只比对,绝不登记 —— 读一次就取得归属
+      等于把"猜到 threadId 的人"变成主人;
+    - 主体不是 uuid 形态(system-worker / dev-anonymous / 未解析到):不比对也不登记,
+      内部系统调用与开发态不该被这道闸误伤,它们也不是用户可控身份;
+    - 归属账整体取不到(DB 不可用)按未登记处理(不拒):与第 16 批同为"能解析就收紧"
+      而不是硬闸 —— 硬闸的前置是全部调用腿都稳定携带用户身份,内部系统调用仍需放行。
+    """
+    if not thread_id or len(thread_id) > _MAX_THREAD_ID_LEN:
+        raise HTTPException(status_code=404, detail=f"thread 不存在: {thread_id}")
+    actor_norm = _normalize_principal(actor)
+    owner = await _thread_owner(thread_id)
+    if owner is None and claim and actor_norm is not None:
+        owner = await _claim_thread(thread_id, actor_norm)
+    if owner is not None and actor_norm is not None and owner != actor_norm:
         raise HTTPException(status_code=404, detail=f"thread 不存在: {thread_id}")
 
 
@@ -204,14 +244,23 @@ async def post_canvas_run(request: Request, req: CanvasRunRequest) -> dict[str, 
 
     # 客户端自报的 thread_id 只准**复用属于自己的**线程:已被他人登记的一律换发新 id,
     # 否则"把攻击者的 DAG 注册到受害者正在用的 runId"这一步就成立了(见上面判据注释)。
+    # 第 26 批:归属判据从进程内 canvas 账扩到持久账 —— 重启后仍认得这是谁的线程。
     thread_id = req.thread_id or uuid4().hex
-    prev_owner = canvas_thread_owner(thread_id)
-    actor = _actor_user_id(request)
-    if prev_owner is not None and actor is not None and prev_owner != actor:
-        logger.warning(
-            "canvas run 拒绝复用他人线程 actor=%s thread=%s", actor, thread_id
-        )
-        thread_id = uuid4().hex
+    actor_norm = _normalize_principal(actor_user_id(request))
+    if actor_norm is not None:
+        prev_owner = await _thread_owner(thread_id)
+        if prev_owner is not None and prev_owner != actor_norm:
+            logger.warning(
+                "canvas run 拒绝复用他人线程 actor=%s thread=%s", actor_norm, thread_id
+            )
+            thread_id = uuid4().hex
+            prev_owner = None
+        if prev_owner is None:
+            claimed = await _claim_thread(thread_id, actor_norm)
+            if claimed is not None and claimed != actor_norm:
+                raise HTTPException(
+                    status_code=404, detail=f"thread 不存在: {thread_id}"
+                )
     try:
         checkpointer: Any | None = await _manager().get_saver()
     except Exception as e:
@@ -225,7 +274,9 @@ async def post_canvas_run(request: Request, req: CanvasRunRequest) -> dict[str, 
         logger.warning("canvas 图构建失败 thread=%s: %s", thread_id, e)
         raise HTTPException(status_code=400, detail=f"canvas 图构建失败: {e}") from None
 
-    register_canvas_graph(thread_id, graph, input_=req.input, owner=_actor_user_id(request))
+    # owner 只认 uuid 形态主体:系统身份不得写进 canvas 内存账(那会让后续系统调用
+    # 把该线程当成"已登记且相同")。
+    register_canvas_graph(thread_id, graph, input_=req.input, owner=actor_norm)
     logger.info(
         "canvas 图已注册 thread=%s nodes=%d edges=%d",
         thread_id,
@@ -251,9 +302,10 @@ async def post_interrupt(
     实际 interrupt() 调用须在 graph 节点函数内执行;本端点构造并持久化 interrupt event,
     供前端轮询 / SSE 消费。若已注册 graph 且节点已通过 interrupt() 暂停,本端点仅记录元数据。
 
-    2026-10-31 第 16 批:canvas 线程只准归属主体操作(见 _assert_canvas_access)。
+    2026-10-31 第 16 批:canvas 线程只准归属主体操作;第 26 批把归属落库,重启后仍可对账
+    (见 _assert_thread_access)。
     """
-    _assert_canvas_access(thread_id, _actor_user_id(request))
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=True)
     try:
         event = await trigger_interrupt(
             thread_id=thread_id,
@@ -292,7 +344,7 @@ async def post_resume(request: Request, req: ResumeRequest) -> dict[str, Any]:
     返回 ResumeCommand;若已注册 graph,后续由调用方通过 /stream(graph_input=null)
     继续 astream。本端点不直接驱动 graph(避免阻塞),只构造恢复指令。
     """
-    _assert_canvas_access(req.thread_id, _actor_user_id(request))
+    await _assert_thread_access(req.thread_id, actor_user_id(request), claim=True)
     try:
         command = await resume_from_interrupt(
             thread_id=req.thread_id,
@@ -344,7 +396,8 @@ async def post_resume(request: Request, req: ResumeRequest) -> dict[str, Any]:
 @router.get("/{thread_id}/state")
 async def get_state(thread_id: str, request: Request) -> dict[str, Any]:
     """查询线程当前状态:自定义表最新 checkpoint + graph StateSnapshot(若已注册)。"""
-    _assert_canvas_access(thread_id, _actor_user_id(request))
+    # 读取类:只比对归属,不登记 —— 读一次就取得归属等于把线程送给猜中 id 的人。
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=False)
     manager = _manager()
     try:
         latest = await manager.get_latest_checkpoint(thread_id)
@@ -386,7 +439,7 @@ async def get_history(
     limit: int = Query(100, ge=1, le=1000, description="返回条数上限"),
 ) -> dict[str, Any]:
     """查询线程历史 checkpoint 列表(Time Travel 用),按 created_at 升序。"""
-    _assert_canvas_access(thread_id, _actor_user_id(request))
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=False)
     manager = _manager()
     try:
         history = await manager.get_state_history(thread_id, limit=limit)
@@ -505,7 +558,7 @@ async def get_stream(
 
     SSE 输出:`event: <type>\\ndata: <json>\\n\\n`
     """
-    _assert_canvas_access(thread_id, _actor_user_id(request))
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=True)
     graph_input: dict[str, Any] | None = None
     if input:
         try:
@@ -533,7 +586,7 @@ async def post_stream(
     供 apps/api langgraph 代理调用(其 streamAgentExecution 以 POST + JSON body
     转发图输入);body 为空对象时视为未传输入(canvas 图回填注册时输入)。
     """
-    _assert_canvas_access(thread_id, _actor_user_id(request))
+    await _assert_thread_access(thread_id, actor_user_id(request), claim=True)
     return _stream_response(
         thread_id, request, payload or None, _parse_stream_modes(stream_modes)
     )

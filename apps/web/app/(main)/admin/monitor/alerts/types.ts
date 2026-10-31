@@ -3,19 +3,20 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * `/api/admin/monitor/alerts` 的真实行形状(后端 `registerCrud` 的 GET 走 `db.select()` 全列)。
- * 字段名逐字对齐 `packages/database/src/schema/monitor.ts` 的 `monitorAlerts`:
- * 没有 `level`、没有 `title`(标题列真名是 `name`)。
- * 库侧 `severity` / `status` 是裸 varchar(无 CHECK),合法值分别见
- * `@ihui/types` 的 `MONITOR_ALERT_SEVERITIES` / `MONITOR_ALERT_STATUSES`;
- * 读侧一律经 `helpers.severityStyle` / `statusStyle` / `statusLabel` 的兜底出口取用。
- * 时刻列由 Fastify JSON 序列化为 ISO 字符串。
+ * 库内 `monitor_alerts` 的一行(后端走 `db.select()` 全列 ⇒ 列名与
+ * packages/database/src/schema/monitor.ts 逐字一致)。
+ *
+ * 两个字段取 `string` 而不是词表联合类型,是因为库列是**裸 varchar(无 CHECK)**:
+ * 类型断言假装它一定是合法值,等于把"词表外"这一类行藏起来(而那一类正是崩表的来源)。
+ * 词表真值与"词表外 ⇒ 未判定"的判定在 `@/lib/admin/monitor-alert-vocabulary`。
  */
 export interface Alert {
   id: string
   name: string
   source: string
+  /** 严重级别:真值 info / warning / critical(词表见 monitor-alert-vocabulary)。 */
   severity: string
+  /** 状态:真值 firing / suppressed / resolved(词表见 monitor-alert-vocabulary)。 */
   status: string
   message: string | null
   labels: Record<string, unknown>
@@ -26,9 +27,9 @@ export interface Alert {
 }
 
 /**
- * `/api/admin/monitor/alert-rules` 的真实行形状。
- * 字段名逐字对齐 `schema/monitor.ts` 的 `suppressionRules`(抑制规则,不是阈值规则):
- * 没有 `metric` / `operator` / `threshold` / `enabled`(启用开关真名是 `isActive`)。
+ * 库内 `suppression_rules` 的一行(告警抑制规则)。
+ * 旧形态写成 metric/threshold/operator/enabled —— 那是**库里根本不存在的列**,
+ * 于是规则卡永远显示 "undefined undefined undefined" 且徽章恒「禁用」(enabled 取不到 ⇒ 假读数)。
  */
 export interface AlertRule {
   id: string
@@ -37,7 +38,5 @@ export interface AlertRule {
   matchSource: string | null
   isActive: boolean
   suppressMinutes: number
-  createdAt: string
-  updatedAt: string
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

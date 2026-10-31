@@ -55,6 +55,9 @@ class Permission(StrEnum):
     # 内容类
     CONTENT_READ = "content:read"
     CONTENT_WRITE = "content:write"
+    # 对外发布(新闻/资讯这类会出现在站外可见面的动作):属于运营动作,只给管理档。
+    # MEMBER 只写自己的内容,不得把内容批量推到已发布态 —— 2026-10-31 第 28 批立。
+    CONTENT_PUBLISH = "content:publish"
     # 管理类
     AUDIT_READ = "audit:read"
     MEMBER_MANAGE = "member:manage"
