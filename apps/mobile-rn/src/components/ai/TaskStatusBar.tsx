@@ -173,8 +173,6 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
   )
 }
 
-export default TaskStatusBar
-
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: rnSpacing.lg, marginBottom: rnSpacing.sm },
   card: {
