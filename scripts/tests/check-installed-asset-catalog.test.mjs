@@ -18,8 +18,15 @@ import { Buffer } from 'node:buffer'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-installed-asset-catalog.mjs'
 
-const { sha256Hex, parseLsTree, parseCatFileBatch, parseCatalog, judge, computeWorktreeCatalog } =
-  __test__
+const {
+  sha256Hex,
+  parseLsTree,
+  parseCatFileBatch,
+  parseCatalog,
+  judge,
+  computeWorktreeCatalog,
+  computeInstallCatalog,
+} = __test__
 
 const LIMITS = { maxEntries: 100, maxExpandedBytes: 1024 }
 
@@ -142,6 +149,63 @@ test('worktree 档只认 git 可见面:.gitignore 掉的渲染示例不算 unlis
       catalog.entries.map((e) => e.path),
       ['.ihui/skills/archify/SKILL.md'],
     )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('安装副本面:相对路径重新挂回 ASSET_ROOT 前缀', () => {
+  const dir = mkScratch('asset-install-')
+  try {
+    mkdirSync(join(dir, 'archify'), { recursive: true })
+    writeFileSync(join(dir, 'archify', 'SKILL.md'), 'x')
+    const cat = computeInstallCatalog(dir)
+    assert.deepEqual(
+      cat.entries.map((e) => e.path),
+      ['.ihui/skills/archify/SKILL.md'],
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('安装副本与清单一致 ⇒ ok;缺一件 ⇒ missing', () => {
+  const dir = mkScratch('asset-install-')
+  try {
+    mkdirSync(join(dir, 'a'), { recursive: true })
+    writeFileSync(join(dir, 'a', 'SKILL.md'), 'x')
+    const install = computeInstallCatalog(dir)
+    assert.equal(judge({ entries: install.entries }, install, LIMITS).verdict, 'ok')
+    const r = judge(
+      {
+        entries: [
+          ...install.entries,
+          { path: '.ihui/skills/a/gone.md', sha256: '0'.repeat(64), bytes: 1 },
+        ],
+      },
+      install,
+      LIMITS,
+    )
+    assert.deepEqual(r.missing, ['.ihui/skills/a/gone.md'])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('安装副本多出文件 ⇒ unlisted;内容不同 ⇒ mismatch', () => {
+  const dir = mkScratch('asset-install-')
+  try {
+    mkdirSync(join(dir, 'a'), { recursive: true })
+    writeFileSync(join(dir, 'a', 'SKILL.md'), 'installed')
+    writeFileSync(join(dir, 'a', 'stray.md'), 'stray')
+    const install = computeInstallCatalog(dir)
+    const want = [
+      { path: '.ihui/skills/a/SKILL.md', sha256: sha256Hex(Buffer.from('source')), bytes: 6 },
+    ]
+    const r = judge({ entries: want }, install, LIMITS)
+    assert.deepEqual(r.unlisted, ['.ihui/skills/a/stray.md'])
+    assert.equal(r.mismatch.length, 1)
+    assert.equal(r.mismatch[0].path, '.ihui/skills/a/SKILL.md')
   } finally {
     rmScratch(dir)
   }

@@ -7,7 +7,7 @@
   "releaseTrigger": {
     "tag": "sdk-v<semver>",
     "repo": "origin",
-    "note": "唯一触发器(on.push.tags: sdk-v*)。推 tag 是 owner 动作,对所有通道共享,不构成任何单一通道的 blocker。Go 通道的发布物本体是另一枚 tag packages/sdk/go/v<semver>(子目录模块约定),由 CI 的 go-publish job 负责推。"
+    "note": "唯一触发器(on.push.tags: sdk-v*)。推 tag 是 owner 动作,对所有通道共享,不构成任何单一通道的 blocker。Go 通道的发布物本体是另一枚 tag packages/sdk/go/v<semver>(子目录模块约定),由 CI 的 go-publish job 负责推。⚠️ 2026-10-31 现读:push 事件没有 language 入参 ⇒ gate 步 LANGUAGE 缺省=all ⇒ 任一通道缺 secret 时整轮在 gate 判红、五个 *-publish job 全部不执行(现读缺 PYPI_TOKEN / MAVEN_USERNAME / MAVEN_TOKEN / NUGET_API_KEY 四项)。单通道首发路径 = gh workflow run release-sdk.yml + tag=<sdk-vX.Y.Z> + dry_run=false + confirm_real_release=yes + language=<通道 id>(gate 只判被选通道)。"
   },
   "outOfScopeNotes": [
     "homebrew cask 的 sha256 回填需要真实 release 资产(gh release 产物)才能做,属发布后动作,不在本台账五通道判据内。",
@@ -19,9 +19,9 @@
       "id": "npm",
       "job": "npm-publish",
       "coordinate": "@ihui-ai/sdk",
-      "status": "blocked-by-external-ownership",
-      "blocker": "npmjs.com 上 `@ihui` org **根本不存在**(2026-10-21 现读:registry `-/org/org:ihui/user` → HTTP 404;`@ihui-ai/sdk` → 404;对照 `ihui-cli` → 200)—— 这是账号侧硬阻塞,补一条 secret 解不了。凭据侧**已不再缺**:gh secret list 2026-10-21 现读 21 项,含 CLI 通道同枚 `NPM_PUBLISH_TOKEN`(2026-10-19 建),release-sdk.yml 已于 2026-10-21 就地改名由它取值(此前登记的 `NPM_TOKEN` 那一枚从未存在,是本台账旧文的错误)。故 gate 步 real 模式对 npm 的『secret 非空』判据已满足;org 一旦建成并首发,本条即应翻账。",
-      "unblockAction": "① 建 org:走 CI 通道 `.github/workflows/npm-bootstrap.yml` 的 `action=org_create`(真 Chrome+xvfb 网页代行,本机/生产机出口被 www.npmjs.com 403)—— 运行命令 `gh workflow run npm-bootstrap.yml -f action=org_create`;卡邮箱 OTP 时补 `-f otp_code=<李总邮件里的验证码>`,卡 reCAPTCHA 时按 rc-live 分支截图识别。② 凭据**无需新建**:复用已入库 secrets 的 `NPM_PUBLISH_TOKEN`(granular + read-write + 勾 Bypass 2FA)。⛔ 不启用 2FA、不登记 trusted publisher(用户 2026-10-19 定案,详见 AGENTS.md §0 第 11 条),故本通道永久走 token,不存在『以后再切 OIDC』这一步。",
+      "status": "ready",
+      "blocker": null,
+      "unblockAction": "无需解除命名空间/凭据(2026-10-31 现读):① `npm whoami --registry=https://registry.npmjs.org/` = ihui-ai —— secrets.NPM_PUBLISH_TOKEN 真实鉴权调用通过;② scope `@ihui-ai` 由账号 ihui-ai 持有:registry `/-/org/ihui-ai/user` → 「ihui-ai:owner」,乱名对照 `/-/org/zzzz-nonexistent-98765/user` → 「Scope not found」(证明不是查法失效);③ 包本体 `@ihui-ai/sdk` 首发后现读 present(0.1.0),首发前的 404 已翻账。⛔ 不启用 2FA、不登记 trusted publisher(granular token 永久腿,用户 2026-10-19 定案)。**唯一未证项**:granular token 对『新包』的写权限无法在不上传的前提下探测(与 PyPI/NuGet 同族困境),判据 = 首发 registry 回读(release-sdk.yml 的 npm-publish 已内置发布后 12 轮轮询回读,查不到即判红)。版本 0.1.0 的发布来源 = run 41185016746(workflow_dispatch + language=npm;未推 git tag —— 理由见 releaseTrigger.note,对外事实以 registry + sigstore logIndex=3612314245 为准)。",
       "requiredSecrets": ["NPM_PUBLISH_TOKEN"],
       "verifyCommand": "npm view @ihui-ai/sdk version --registry=https://registry.npmjs.org/",
       "probe": {
@@ -30,8 +30,8 @@
         "presentOn": [200],
         "absentOn": [404, 410]
       },
-      "statusVerifiedAt": "2026-10-21",
-      "lastRealProbe": "absent(HTTP 404,registry 现读 2026-10-21;org 端点同为 404,ihui-cli 对照 200)"
+      "statusVerifiedAt": "2026-10-31",
+      "lastRealProbe": "present(HTTP 200,registry 现读 2026-10-31:version=0.1.0、dist-tags.latest=0.1.0 —— 首发已落地;run 41185016746 日志 published via OIDC provenance、sigstore logIndex=3612314245);身份/命名空间三读同上:whoami=ihui-ai、org 端点 owner=ihui-ai、ihui-cli@1.0.0 maintainer=ihui-ai"
     },
     {
       "id": "pypi",

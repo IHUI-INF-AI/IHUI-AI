@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "browser-check",
+  "evidenceKind": "automated-browser",
+  "status": "fail",
+  "visualReview": "not-requested",
+  "provenance": "current",
+  "deliveryReceiptId": "8e7c7c80-9d32-4da5-ac68-f7c18f5a17be",
+  "artifact": {
+    "path": "G:\\IHUI-AI\\goal-b43-wikix.html",
+    "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+    "bytes": 853682
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/browser-check-runtime",
+      "severity": "error",
+      "message": "browser-check could not complete its Chrome inspection.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\goal-b43-wikix.html"
+      },
+      "evidence": {
+        "reason": "Chrome DevTools event timeout failed: Page.loadEventFired: event timed out after 15000ms\nChrome process: still running.\nChrome transport: Node v24.19.0, libuv 1.52.1, win32; pid=25836, exitCode=null, signalCode=null.\nChrome read pipe: readable=true, ended=false, destroyed=false, receivedBytes=3764, messages=16, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=6, writtenBytes=709, bufferedBytes=0."
+      },
+      "supportedFixes": ["resolve the reported Chrome inspection error, then rerun browser-check"]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "policy": "fit-or-reader-declared-readable-vertical-scroll",
+    "viewports": []
+  },
+  "themeStates": {
+    "status": "fail",
+    "viewports": []
+  },
+  "readability": {
+    "status": "fail",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "fail",
+    "viewports": []
+  },
+  "captures": {
+    "status": "not-requested",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "directory": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-3",
+    "receipt": "goal-b43-wikix.browser-check.json",
+    "files": []
+  },
+  "error": "Chrome DevTools event timeout failed: Page.loadEventFired: event timed out after 15000ms\nChrome process: still running.\nChrome transport: Node v24.19.0, libuv 1.52.1, win32; pid=25836, exitCode=null, signalCode=null.\nChrome read pipe: readable=true, ended=false, destroyed=false, receivedBytes=3764, messages=16, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=6, writtenBytes=709, bufferedBytes=0."
+}

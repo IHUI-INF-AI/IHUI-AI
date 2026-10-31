@@ -46,7 +46,10 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
-from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+# `DEFAULT_TIMEOUT as DEFAULT_TIMEOUT` 是**显式再导出**:checkin_scheduler 按
+# `checkin_workbuddy.DEFAULT_TIMEOUT` 取值,而 mypy --strict 的 no_implicit_reexport
+# 不把裸 import 当导出(HEAD 实测 1 error 挡住全队提交)。
+from app.services.checkin_engine import DEFAULT_TIMEOUT as DEFAULT_TIMEOUT, get_http_client
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)

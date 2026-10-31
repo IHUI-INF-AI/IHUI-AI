@@ -22,6 +22,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawn, type ChildProcess } from 'node:child_process';
 import WebSocket from 'ws';
+import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url';
 import type { Tool } from './index.js';
 
 // ==================== CDP HTTP 发现层 ====================
@@ -743,8 +744,15 @@ const browserNavigate: Tool = {
   async execute(args) {
     try {
       const url = requireString(args, 'url');
+      // 2026-10-31 安全强化第 21 批:协议白名单(单一真相源 @ihui/shared)。
+      // url 来自模型工具参数,可被页面内容间接注入操纵;`file://` 会被 CDP 正常
+      // 渲染,随后 browser_snapshot 把本地文件正文回传 —— 本地任意文件读链。
+      const navigable = checkNavigableUrl(url);
+      if (!navigable.ok) {
+        return fail(new Error(navigable.reason), 'permission');
+      }
       const { session } = await getBrowserSession();
-      await session.send('Page.navigate', { url }, 60_000);
+      await session.send('Page.navigate', { url: navigable.url }, 60_000);
       try {
         await session.waitEvent('Page.loadEventFired', undefined, 60_000);
       } catch {

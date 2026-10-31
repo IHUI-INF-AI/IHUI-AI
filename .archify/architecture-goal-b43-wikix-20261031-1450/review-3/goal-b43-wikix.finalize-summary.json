@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+    "sha256": "89461f0ded9bfa067aa020505a5db40cf980c65397a4025de26879be98b969aa",
+    "bytes": 4472
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\goal-b43-wikix.html",
+    "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+    "bytes": 853682
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/browser-check-runtime",
+      "severity": "error",
+      "message": "browser-check could not complete its Chrome inspection.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\goal-b43-wikix.html"
+      },
+      "evidence": {
+        "reason": "Chrome DevTools event timeout failed: Page.loadEventFired: event timed out after 15000ms\nChrome process: still running.\nChrome transport: Node v24.19.0, libuv 1.52.1, win32; pid=25836, exitCode=null, signalCode=null.\nChrome read pipe: readable=true, ended=false, destroyed=false, receivedBytes=3764, messages=16, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=6, writtenBytes=709, bufferedBytes=0."
+      },
+      "supportedFixes": ["resolve the reported Chrome inspection error, then rerun browser-check"]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-3\\goal-b43-wikix.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-3\\goal-b43-wikix.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\review-3\\goal-b43-wikix.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 23406,
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  }
+}

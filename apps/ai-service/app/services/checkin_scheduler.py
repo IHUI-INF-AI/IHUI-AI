@@ -750,6 +750,35 @@ class CheckinScheduler:
         targets = [a for a in accounts if str(a.get("platform") or "") == "workbuddy"]
         if not targets:
             return
+        # 按积分紧迫度轮换(可选,默认 none = 沿用既有顺序,零行为变化)。开启后先在跑四族前
+        # 按账号积分余额重排(lowest_balance=先补快枯竭的号 / highest_balance=先消耗高产号);
+        # 取不到余额的号排最后(§0.3 不冒充 0),单账号探测失败不中断整轮。
+        urgency = (settings.workbuddy_tasks_urgency_order or "none").strip().lower()
+        if urgency in ("lowest_balance", "highest_balance"):
+            balances: dict[str, int | None] = {}
+            for acc in targets:
+                try:
+                    probe = await checkin_workbuddy.workbuddy_query_credits(
+                        acc["jwt"],
+                        dict(acc.get("device_map") or {}),
+                        timeout=checkin_workbuddy.DEFAULT_TIMEOUT,
+                    )
+                    rem = probe.get("remaining")
+                    balances[acc["id"]] = (
+                        rem if isinstance(rem, int) and not isinstance(rem, bool) else None
+                    )
+                except Exception as e:  # noqa: BLE001 — 单账号余额探测失败不中断整轮
+                    logger.warning(
+                        "[checkin_scheduler] WB 任务巡检余额探测失败 account=%s: %s",
+                        acc["id"], e,
+                    )
+                    balances[acc["id"]] = None
+            ordered_ids = workbuddy_tasks.order_accounts_by_credit_urgency(
+                [(a["id"], balances.get(a["id"])) for a in targets], urgency
+            )
+            by_id = {a["id"]: a for a in targets}
+            targets = [by_id[i] for i in ordered_ids if i in by_id]
+            logger.info("[checkin_scheduler] WB 任务巡检按 %s 排序: %s", urgency, ordered_ids)
         dry_run = not bool(settings.workbuddy_tasks_live_run)
         now = datetime.now(UTC)
         summary: list[str] = []
@@ -758,7 +787,7 @@ class CheckinScheduler:
             if cd_end is not None and cd_end > now:
                 continue
             device_map = dict(acc.get("device_map") or {})
-            for kind in ("growth", "travel", "activity", "blackcat"):
+            for kind in ("growth", "travel", "activity", "blackcat", "redeem", "lottery"):
                 try:
                     result = await workbuddy_tasks.run_family(
                         kind, acc["jwt"], device_map, dry_run=dry_run
