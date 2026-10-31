@@ -60,6 +60,7 @@
  * 逐条依据必须能在判定面里核验(文件存在 / 行号在范围内 / 该行含被引用的标识符),不成立即判红
  * (全量档 = HEAD;--staged 档 = 索引面;两档都是"提交真正会带上的那一份",不是磁盘巧合)。
  */
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -96,6 +97,7 @@ function parseArgs(argv) {
     target: 'web',
     staged: false,
     worktree: false,
+    baseline: null,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -104,6 +106,7 @@ function parseArgs(argv) {
     else if (a === '--exit') {
       args.exitOnDead = argv[++i] === '1'
     } else if (a === '--out') args.out = argv[++i]
+    else if (a === '--baseline') args.baseline = argv[++i]
     else if (a === '--staged') args.staged = true
     else if (a === '--worktree') args.worktree = true
     else if (a === '--root')
@@ -137,6 +140,8 @@ function printHelp() {
   node scripts/scan-dead-i18n-keys.mjs --target web --dry-run       # 只打印统计
   node scripts/scan-dead-i18n-keys.mjs --out <path>                 # 自定义输出路径
   node scripts/scan-dead-i18n-keys.mjs --exit 1                     # 发现死 key 则 exit 1
+  node scripts/scan-dead-i18n-keys.mjs --target all --exit 1 \\
+    --baseline scripts/data/i18n-dead-key-baseline.json            # 存量棘轮档:只拦超过基线的增量(CI 用)
   node scripts/scan-dead-i18n-keys.mjs --worktree                   # 显式声明磁盘档(人工逃生舱,不作提交门禁)
   node scripts/scan-dead-i18n-keys.mjs --root <dir>                 # 显式仓库根(测试/夹具通道)
   node scripts/scan-dead-i18n-keys.mjs --help                       # 帮助
@@ -171,6 +176,28 @@ const args = parseArgs(process.argv.slice(2))
 if (args.help) {
   printHelp()
   process.exit(0)
+}
+
+// 存量死键基线(2026-10-31,AGENTS §12e):CI 全量档按此只拦新增;提交链/未传时保持零容忍。
+// 取不到或形状不合法 ⇒ exit 2 未判定(既不冒绿也不冒红),绝不回落到 0 假装"没有存量"。
+let baselineMaxDead = null
+if (args.baseline) {
+  try {
+    const parsed = JSON.parse(readFileSync(path.resolve(ROOT, args.baseline), 'utf8'))
+    const map = parsed?.maxDead
+    if (!map || typeof map !== 'object' || Array.isArray(map)) {
+      throw new Error('缺少 maxDead 对象')
+    }
+    for (const [k, v] of Object.entries(map)) {
+      if (!Number.isInteger(v) || v < 0) throw new Error(`maxDead.${k} 必须是非负整数,实际 ${String(v)}`)
+    }
+    baselineMaxDead = map
+  } catch (e) {
+    console.error(
+      `[scan-dead-i18n-keys] --baseline 取不到或形状不合法:${e?.message ?? e} ⇒ 未判定(exit 2)`,
+    )
+    process.exit(2)
+  }
 }
 
 // 判定面选择(与守门 70/103/118 同一条 selectFace:两面旗同给 = 自相矛盾,判死不取任何一面)
@@ -238,6 +265,7 @@ for (const n of names) {
     outputPattern,
     dryRun: args.dryRun,
     exitOnDead: args.exitOnDead,
+    maxDead: baselineMaxDead?.[n] ?? 0,
     out: args.target === 'all' ? null : args.out,
     scriptName: 'scan-dead-i18n-keys',
     face: FACE,

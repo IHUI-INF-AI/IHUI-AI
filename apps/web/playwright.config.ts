@@ -46,6 +46,12 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // 2026-10-31:CI runner 的出网地址是回环/私网,API 的 login-region 判不出国家
+    // (apps/api/src/services/login-region.ts:125 读 cf-ipcountry,取不到再落 geoip),
+    // 前端按 locale 兜底 domestic ⇒ 登录首屏主推 tab=qr ⇒ login-form 自动弹协议对话框
+    // 拦死后续点击(实测 37/51 例失败,日志原文 dialog ... intercepts pointer events)。
+    // 显式声明海外:让首屏走非 qr 分支,用例才测的是产品逻辑而不是 CI 的出网位置。
+    extraHTTPHeaders: { 'CF-IPCountry': 'US' },
   },
   projects: [
     {
