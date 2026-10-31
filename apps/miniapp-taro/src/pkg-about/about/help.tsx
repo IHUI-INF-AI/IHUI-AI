@@ -151,10 +151,10 @@ export default function HelpPage() {
                 hoverClass="opacity-60"
               >
                 <View className="flex justify-between items-center">
-                  <Text className="text-[length:32rpx] font-bold text-foreground flex-1">
+                  <Text className="text-title font-bold text-foreground flex-1">
                     {h.title}
                   </Text>
-                  <Text className="text-success text-[length:40rpx] ml-[16rpx]">
+                  <Text className="text-success text-heading ml-[16rpx]">
                     {opened === h.id ? '−' : '+'}
                   </Text>
                 </View>
@@ -171,7 +171,7 @@ export default function HelpPage() {
         {!loading && !filtered.length ? (
           <View className="text-center py-[96rpx]">
             {/* 空态标题对齐 RN HelpScreen EmptyState(共享键 help.empty) */}
-            <Text className="block text-[length:30rpx] font-semibold text-foreground">
+            <Text className="block text-strong font-semibold text-foreground">
               {tt('help.empty', '暂无帮助')}
             </Text>
           </View>

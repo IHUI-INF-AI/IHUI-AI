@@ -169,7 +169,7 @@ export default function SettingIndexPage() {
             />
             <View className="min-w-0 flex-1">
               {/* 昵称对齐 RN nickname: 16dp→32rpx semibold + text.primary;无昵称落「未设置昵称」 */}
-              <Text className="block text-[length:32rpx] text-foreground font-semibold">
+              <Text className="block text-title text-foreground font-semibold">
                 {user.nickname || t('profile.nickname')}
               </Text>
               {/* 副行对齐 RN subText: 14dp→28rpx + text.secondary;间距对齐 userMeta gap 2dp→4rpx */}
@@ -192,7 +192,7 @@ export default function SettingIndexPage() {
             文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
             上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
         <Button
-          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-card text-[length:32rpx] font-semibold dark:bg-muted"
+          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-card text-title font-semibold dark:bg-muted"
           style={{ color: 'var(--color-danger)' }}
           onClick={onLogout}
         >

@@ -268,15 +268,15 @@ export default function VoicePage() {
           <View className="flex mb-[20rpx] items-start">
             <View className="max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] ui-bubble rounded-2xl bg-card">
               <View className="flex gap-[8rpx] items-center">
-                <Text className="text-[length:40rpx] text-muted-foreground animate-pulse">·</Text>
+                <Text className="text-heading text-muted-foreground animate-pulse">·</Text>
                 <Text
-                  className="text-[length:40rpx] text-muted-foreground animate-pulse"
+                  className="text-heading text-muted-foreground animate-pulse"
                   style={{ animationDelay: '0.2s' }}
                 >
                   ·
                 </Text>
                 <Text
-                  className="text-[length:40rpx] text-muted-foreground animate-pulse"
+                  className="text-heading text-muted-foreground animate-pulse"
                   style={{ animationDelay: '0.4s' }}
                 >
                   ·

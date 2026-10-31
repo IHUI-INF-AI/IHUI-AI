@@ -25,7 +25,7 @@ export default function NotificationSaveBar({ saving, onSave }: NotificationSave
         hoverClass="opacity-60"
       >
         <Text
-          className={`text-[length:32rpx] font-semibold ${
+          className={`text-title font-semibold ${
             saving ? 'text-muted-foreground' : 'text-cta-foreground'
           }`}
         >

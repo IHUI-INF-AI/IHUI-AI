@@ -202,7 +202,7 @@ export default function Phone() {
                 style={ffOldCode.focusStyle}
               >
                 <Input
-                  className="h-full flex-1 text-[length:32rpx] text-foreground"
+                  className="h-full flex-1 text-title text-foreground"
                   {...ffOldCode.spread}
                   type="number"
                   maxlength={6}
@@ -229,7 +229,7 @@ export default function Phone() {
               hoverClass="opacity-60"
               onClick={onVerifyOld}
             >
-              <Text className="text-[length:32rpx] font-bold text-[var(--color-surface-light)]">
+              <Text className="text-title font-bold text-[var(--color-surface-light)]">
                 {tt('user.phone.next', '下一步')}
               </Text>
             </View>
@@ -252,7 +252,7 @@ export default function Phone() {
                 style={ffNewPhone.focusStyle}
               >
                 <Input
-                  className="h-full flex-1 text-[length:32rpx] text-foreground"
+                  className="h-full flex-1 text-title text-foreground"
                   {...ffNewPhone.spread}
                   type="number"
                   maxlength={11}
@@ -268,7 +268,7 @@ export default function Phone() {
                 style={ffNewCode.focusStyle}
               >
                 <Input
-                  className="h-full flex-1 text-[length:32rpx] text-foreground"
+                  className="h-full flex-1 text-title text-foreground"
                   {...ffNewCode.spread}
                   type="number"
                   maxlength={6}
@@ -299,7 +299,7 @@ export default function Phone() {
               hoverClass="opacity-60"
               onClick={onSubmit}
             >
-              <Text className="text-[length:32rpx] font-bold text-[var(--color-surface-light)]">
+              <Text className="text-title font-bold text-[var(--color-surface-light)]">
                 {submitting ? tt('user.phone.binding', '绑定中…') : tt('user.phone.bind', '绑定')}
               </Text>
             </View>

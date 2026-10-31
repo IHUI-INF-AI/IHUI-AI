@@ -148,7 +148,7 @@ export default function Orders() {
                 onClick={() => goDetail(item)}
               >
                 <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="flex-1 truncate text-[length:32rpx] font-semibold text-foreground">
+                  <Text className="flex-1 truncate text-title font-semibold text-foreground">
                     {item.title}
                   </Text>
                   <View
@@ -174,7 +174,7 @@ export default function Orders() {
                     {item.type}
                   </Text>
                   <View className="flex items-center gap-[24rpx]">
-                    <Text className="text-[length:36rpx] font-bold text-foreground">
+                    <Text className="text-subtitle font-bold text-foreground">
                       ¥{item.amount}
                     </Text>
                     {item.status === 'pending' ? (

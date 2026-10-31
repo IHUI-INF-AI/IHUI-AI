@@ -72,13 +72,13 @@ export function CourseActionBar({
     <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex flex-row items-center justify-between px-4 shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
       <View className="flex-1 flex flex-row items-baseline">
         {isFree ? (
-          <Text className="text-[length:32rpx] font-bold text-[var(--color-success)]">
+          <Text className="text-title font-bold text-[var(--color-success)]">
             {t('courseDetail.free')}
           </Text>
         ) : (
           <>
             <Text className="text-body font-bold text-primary">¥</Text>
-            <Text className="text-[length:40rpx] font-bold text-primary">{price.toFixed(2)}</Text>
+            <Text className="text-heading font-bold text-primary">{price.toFixed(2)}</Text>
           </>
         )}
       </View>
@@ -117,7 +117,7 @@ export function LessonsSection({
   return (
     <View className="mx-3 my-3 bg-card rounded-lg overflow-hidden">
       <View className="flex flex-row items-center justify-between px-4 py-3">
-        <Text className="text-[length:32rpx] font-semibold text-foreground">
+        <Text className="text-title font-semibold text-foreground">
           {t('courseDetail.lessons')}
         </Text>
         <Text className="text-caption text-muted-foreground">{lessons.length}</Text>

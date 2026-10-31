@@ -81,7 +81,7 @@ export default function StudyPublish() {
           input 语言:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted / 字号 16dp→32rpx;提交按钮 h 50dp→100rpx / radius 15dp→30rpx */}
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[180rpx] flex flex-col gap-[28rpx]">
         <FocusInput
-          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
+          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-title text-foreground"
           placeholder={t('study.publish.titlePlaceholder')}
           maxlength={50}
           value={title}
@@ -90,7 +90,7 @@ export default function StudyPublish() {
 
         <View className="flex flex-col gap-[12rpx]">
           <FocusTextarea
-            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
+            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-title text-foreground"
             placeholder={t('study.publish.contentPlaceholder')}
             maxlength={2000}
             value={content}

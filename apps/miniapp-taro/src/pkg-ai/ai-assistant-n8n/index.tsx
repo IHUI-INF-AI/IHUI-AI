@@ -94,7 +94,7 @@ export default function AiAssistantN8n() {
     <View className="min-h-screen bg-background">
       {/* 对齐 RN header:px 10dp=20rpx / py 12dp=24rpx / 标题 20dp=40rpx w600 / 透出 root 背景 */}
       <View className="flex flex-row items-center px-[20rpx] py-[24rpx] bg-background">
-        <Text className="text-[length:40rpx] font-semibold text-foreground">
+        <Text className="text-heading font-semibold text-foreground">
           {t('aiAssistantN8n.title')}
         </Text>
       </View>
@@ -127,7 +127,7 @@ export default function AiAssistantN8n() {
                         <View
                           className={`w-[16rpx] h-[16rpx] ui-tiny rounded-xs mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
                         />
-                        <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
+                        <Text className="text-title font-semibold text-foreground flex-1 min-w-0 truncate">
                           {name}
                         </Text>
                       </View>

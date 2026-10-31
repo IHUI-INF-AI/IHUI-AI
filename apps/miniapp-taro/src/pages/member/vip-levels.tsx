@@ -51,7 +51,7 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
 
   return (
     <View className="mx-[20rpx] mb-[24rpx] p-[28rpx] bg-background border border-border rounded-lg">
-      <Text className="block text-[length:40rpx] font-semibold text-foreground mb-[24rpx]">
+      <Text className="block text-heading font-semibold text-foreground mb-[24rpx]">
         {tt('vip.plans', '套餐选择')}
       </Text>
       {error ? (
@@ -82,7 +82,7 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
                 <Text className="text-caption text-muted-foreground">
                   {benefitsCount > 0 ? t('vip.benefitsCount', { count: benefitsCount }) : ''}
                 </Text>
-                <Text className="text-[length:36rpx] font-bold text-[var(--color-vip-gold-start)]">
+                <Text className="text-subtitle font-bold text-[var(--color-vip-gold-start)]">
                   ¥ {formatPrice(level.price)}
                 </Text>
               </View>

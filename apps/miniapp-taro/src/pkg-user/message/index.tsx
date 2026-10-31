@@ -384,7 +384,7 @@ export default function MessageIndex() {
                   {/* 头像(首字母占位,对齐 RN convAvatar 44dp/radius 10dp) */}
                   <View className="relative shrink-0">
                     <View className="w-[88rpx] h-[88rpx] rounded-lg bg-muted flex items-center justify-center">
-                      <Text className="text-[length:32rpx] font-semibold text-foreground">
+                      <Text className="text-title font-semibold text-foreground">
                         {(room.name || '?').charAt(0).toUpperCase()}
                       </Text>
                     </View>
@@ -395,7 +395,7 @@ export default function MessageIndex() {
                     )}
                   </View>
                   <View className="flex-1 min-w-0">
-                    <Text className="text-[length:30rpx] font-semibold text-foreground truncate">
+                    <Text className="text-strong font-semibold text-foreground truncate">
                       {room.name || t('message.unnamedRoom')}
                     </Text>
                     <Text className="mt-[4rpx] text-[length:26rpx] text-muted-foreground truncate">

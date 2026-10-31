@@ -130,7 +130,7 @@ export default function DeveloperWithdrawal() {
       <View className="min-h-screen bg-background p-[20rpx]">
         {/* 页头 — 对齐 RN WithdrawScreen header(backText/title:text.primary 20 600) */}
         <View className="pb-[24rpx]">
-          <Text className="text-[length:40rpx] font-semibold text-foreground">
+          <Text className="text-heading font-semibold text-foreground">
             {t('developer.withdrawal.title')}
           </Text>
         </View>
@@ -165,7 +165,7 @@ export default function DeveloperWithdrawal() {
                 className="flex items-center justify-between bg-card border-[length:2rpx] border-border rounded-lg p-[24rpx] mb-[20rpx]"
               >
                 <View className="flex-1">
-                  <Text className="block text-[length:32rpx] text-foreground font-semibold mb-[8rpx]">
+                  <Text className="block text-title text-foreground font-semibold mb-[8rpx]">
                     ¥{item.amount}
                   </Text>
                   <Text className="block text-caption text-[var(--color-text-tertiary)]">

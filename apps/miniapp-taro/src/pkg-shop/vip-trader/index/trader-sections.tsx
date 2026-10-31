@@ -75,7 +75,7 @@ export function TraderHero({ amount, durationDays }: { amount: number; durationD
   return (
     <View>
       <View className="px-[32rpx] pt-[24rpx]">
-        <Text className="block text-[length:40rpx] font-bold text-foreground">
+        <Text className="block text-heading font-bold text-foreground">
           {tt('vipTrader.title', 'VIP 操盘手')}
         </Text>
         <Text className="block mt-[8rpx] text-[length:26rpx] text-muted-foreground">
@@ -154,7 +154,7 @@ export function BenefitsHead({ count }: { count: number }) {
   // 区头与下方行数同批同源;不拿后端 benefits 长度来填,那样数字会大于可见行数。
   return (
     <View className="flex flex-row items-center justify-between mb-[20rpx]">
-      <Text className="text-[length:32rpx] font-semibold text-foreground">
+      <Text className="text-title font-semibold text-foreground">
         {tt('vipTrader.benefits', '专属权益')}
       </Text>
       <Text className="text-caption text-muted-foreground">

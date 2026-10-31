@@ -214,7 +214,7 @@ export default function DistributionOrderList() {
                     {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
                   </Text>
                 </View>
-                <Text className="text-[length:32rpx] font-semibold text-foreground">
+                <Text className="text-title font-semibold text-foreground">
                   {o.product}
                 </Text>
                 <View className="flex flex-row justify-between items-center">
@@ -225,7 +225,7 @@ export default function DistributionOrderList() {
                     <Text className="text-caption text-muted-foreground">
                       {tt('distribution.orderList.commission', '佣金')}
                     </Text>
-                    <Text className="text-[length:32rpx] font-semibold text-[var(--color-danger)]">
+                    <Text className="text-title font-semibold text-[var(--color-danger)]">
                       ¥{o.commission}
                     </Text>
                   </View>

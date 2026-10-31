@@ -44,7 +44,7 @@ interface TokenPackagesProps {
 export default function TokenPackages({ tt, onSelect }: TokenPackagesProps) {
   return (
     <View className="px-[20rpx]">
-      <Text className="block mt-[40rpx] mb-[24rpx] text-[length:32rpx] font-semibold text-foreground">
+      <Text className="block mt-[40rpx] mb-[24rpx] text-title font-semibold text-foreground">
         {tt('tokenValue.packagesTitle', '充值套餐')}
       </Text>
       <ScrollView scrollX enhanced showScrollbar={false}>
@@ -60,12 +60,12 @@ export default function TokenPackages({ tt, onSelect }: TokenPackagesProps) {
             >
               <View className="h-[32rpx] flex items-center justify-center">
                 {p.popular ? (
-                  <Text className="px-[16rpx] py-[2rpx] rounded-md bg-cta text-cta-foreground text-[length:20rpx] font-semibold">
+                  <Text className="px-[16rpx] py-[2rpx] rounded-md bg-cta text-cta-foreground text-badge font-semibold">
                     {tt('tokenValue.popular', '热门')}
                   </Text>
                 ) : null}
               </View>
-              <Text className="mt-[16rpx] text-[length:40rpx] font-bold text-foreground">
+              <Text className="mt-[16rpx] text-heading font-bold text-foreground">
                 {formatTokenValue(p.tokens)}
               </Text>
               <Text className="mt-[8rpx] text-caption text-muted-foreground">

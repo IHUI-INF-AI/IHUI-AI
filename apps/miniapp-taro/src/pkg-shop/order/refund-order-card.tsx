@@ -50,7 +50,7 @@ export default function RefundOrderCard({
         <Text className="text-body text-muted-foreground shrink-0">
           {tt('order.refund.amountLabel', '订单金额')}
         </Text>
-        <Text className="text-[length:36rpx] font-semibold text-[var(--color-success)] text-right break-all">
+        <Text className="text-subtitle font-semibold text-[var(--color-success)] text-right break-all">
           ¥{refundAmount.toFixed(2)}
         </Text>
       </View>

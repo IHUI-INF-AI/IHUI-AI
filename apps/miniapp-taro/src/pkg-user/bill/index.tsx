@@ -224,7 +224,7 @@ export default function Bill() {
         {/* 顶部:订阅催费提醒 */}
         <View className="mx-[20rpx] mt-[20rpx] flex items-center justify-between rounded-xl bg-primary px-[28rpx] py-[24rpx]">
           <View className="flex-1 pr-[16rpx]">
-            <Text className="text-[length:30rpx] font-semibold text-[var(--color-surface-light)]">
+            <Text className="text-strong font-semibold text-[var(--color-surface-light)]">
               {tt('bill.wxSubscribe', '微信催费提醒')}
             </Text>
             <Text className="mt-[6rpx] block text-caption text-[var(--color-surface-light)] opacity-80">
@@ -262,7 +262,7 @@ export default function Bill() {
                   className="mb-[20rpx] rounded-lg border border-[var(--color-border)] bg-card p-[24rpx]"
                 >
                   <View className="flex items-center justify-between gap-[16rpx]">
-                    <Text className="flex-1 truncate text-[length:32rpx] font-semibold text-foreground">
+                    <Text className="flex-1 truncate text-title font-semibold text-foreground">
                       {item.className}
                     </Text>
                     <View className="shrink-0 rounded-sm bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
@@ -287,7 +287,7 @@ export default function Bill() {
                       })}
                     </Text>
                     <Text
-                      className={`text-[length:30rpx] font-bold ${
+                      className={`text-strong font-bold ${
                         due > 0
                           ? 'text-[var(--color-danger)]'
                           : 'text-[var(--color-success-deep-text)]'
@@ -355,7 +355,7 @@ export default function Bill() {
                       {p.receiptNo ? ` · ${tt('bill.receiptNo', '单号 {no}', { no: p.receiptNo })}` : ''}
                     </Text>
                   </View>
-                  <Text className="text-[length:30rpx] font-bold text-foreground">
+                  <Text className="text-strong font-bold text-foreground">
                     ¥{p.amount.toLocaleString()}
                   </Text>
                 </View>

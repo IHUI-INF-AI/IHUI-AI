@@ -121,7 +121,7 @@ export default function AiTutor() {
 
         {current.length > 0 && (
           <View className="mx-[20rpx] rounded-lg bg-card p-[28rpx] border border-solid border-border">
-            <Text className="text-[length:30rpx] text-foreground">{current}</Text>
+            <Text className="text-strong text-foreground">{current}</Text>
           </View>
         )}
 
@@ -131,7 +131,7 @@ export default function AiTutor() {
               key={item.id}
               className="bg-card rounded-lg p-[28rpx] mb-[20rpx] border border-solid border-border"
             >
-              <Text className="text-[length:32rpx] font-bold text-foreground text-ellipsis-2">
+              <Text className="text-title font-bold text-foreground text-ellipsis-2">
                 {item.question}
               </Text>
               {formatAnswer(item.answer).length > 0 && (

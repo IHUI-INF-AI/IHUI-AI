@@ -87,7 +87,7 @@ export function RecordCard({ row, onOpen }: { row: StudyRecordRow; onOpen: () =>
       )}
       <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
         <View className="flex items-center justify-between">
-          <Text className="flex-1 min-w-0 mr-[12rpx] text-[length:32rpx] font-bold text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
+          <Text className="flex-1 min-w-0 mr-[12rpx] text-title font-bold text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
             {title}
           </Text>
           <Text className={`${STATUS_BASE} ${statusClass}`}>{statusLabel}</Text>

@@ -316,7 +316,7 @@ export default function BenefitsPage() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background p-[28rpx] pb-[64rpx]">
-        <View className="text-[length:32rpx] font-bold text-foreground mt-[8rpx] mb-[24rpx]">
+        <View className="text-title font-bold text-foreground mt-[8rpx] mb-[24rpx]">
           {tt('member.benefits.myBenefits', '我的专属权益')}
         </View>
         {loading ? (
@@ -335,7 +335,7 @@ export default function BenefitsPage() {
                 className="bg-card border border-[var(--color-border)] rounded-lg p-[28rpx]"
               >
                 {b.icon ? (
-                  <Text className="block text-[length:48rpx]">{b.icon}</Text>
+                  <Text className="block text-display">{b.icon}</Text>
                 ) : (
                   <LineIcon
                     name="star-fill"
@@ -348,7 +348,7 @@ export default function BenefitsPage() {
                 {b.icon && isImagePath(b.icon) ? (
                   <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />
                 ) : null}
-                <Text className="block mt-[12rpx] text-[length:32rpx] font-bold text-foreground">
+                <Text className="block mt-[12rpx] text-title font-bold text-foreground">
                   {b.title}
                 </Text>
                 <Text className="block mt-[16rpx] text-body text-muted-foreground leading-[36rpx]">
@@ -361,7 +361,7 @@ export default function BenefitsPage() {
           <EmptyState title={tt('member.benefits.empty', '暂无权益')} />
         )}
 
-        <View className="text-[length:32rpx] font-bold text-foreground mt-[32rpx] mb-[24rpx]">
+        <View className="text-title font-bold text-foreground mt-[32rpx] mb-[24rpx]">
           {tt('member.benefits.tierCatalog', '等级权益')}
         </View>
         {TIERS.map((tier) => (
@@ -373,9 +373,9 @@ export default function BenefitsPage() {
               {isImagePath(tier.icon) ? (
                 <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
               ) : (
-                <Text className="text-[length:40rpx] mr-[16rpx]">{tier.icon}</Text>
+                <Text className="text-heading mr-[16rpx]">{tier.icon}</Text>
               )}
-              <Text className="text-[length:32rpx] font-bold">{tt(tier.nk, tier.nf)}</Text>
+              <Text className="text-title font-bold">{tt(tier.nk, tier.nf)}</Text>
             </View>
             <View className="py-[8rpx]">
               {tier.benefits.map((b, i) => (
@@ -383,7 +383,7 @@ export default function BenefitsPage() {
                   {isImagePath(b.icon) ? (
                     <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
                   ) : (
-                    <Text className="text-[length:36rpx] w-[48rpx] text-center flex-shrink-0">
+                    <Text className="text-subtitle w-[48rpx] text-center flex-shrink-0">
                       {b.icon}
                     </Text>
                   )}

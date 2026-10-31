@@ -136,7 +136,7 @@ export default function ContactPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
         <View className="pt-[32rpx] px-[8rpx] pb-[32rpx] text-center">
-          <Text className="block text-[length:40rpx] font-bold text-foreground">
+          <Text className="block text-heading font-bold text-foreground">
             {tt('about.contact.title', '联系我们')}
           </Text>
           <Text className="block text-body text-muted-foreground mt-[12rpx]">
@@ -162,7 +162,7 @@ export default function ContactPage() {
                     mode="aspectFit"
                   />
                 ) : (
-                  <Text className="text-[length:40rpx] flex-shrink-0">{item.icon}</Text>
+                  <Text className="text-heading flex-shrink-0">{item.icon}</Text>
                 )}
                 <View className="flex-1 ml-[24rpx] mr-[16rpx]">
                   <Text className="block text-caption text-[var(--color-text-tertiary)]">

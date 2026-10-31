@@ -167,7 +167,7 @@ export default function TokenBalance() {
   return (
     <View className="token-page">
       <View className="flex items-center px-[20rpx] pt-[24rpx]">
-        <Text className="text-[length:40rpx] font-semibold text-foreground">
+        <Text className="text-heading font-semibold text-foreground">
           {tt('tokenValue.title', '智汇值')}
         </Text>
       </View>
@@ -191,7 +191,7 @@ export default function TokenBalance() {
       />
 
       <View className="records-section">
-        <Text className="block mb-[24rpx] text-[length:32rpx] font-semibold text-foreground">
+        <Text className="block mb-[24rpx] text-title font-semibold text-foreground">
           {tt('tokenValue.recordsTitle', '交易记录')}
         </Text>
         {showEmpty ? (

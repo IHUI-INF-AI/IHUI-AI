@@ -109,7 +109,7 @@ export default function DistributionRank() {
               key={u.id}
               className="flex flex-row items-center p-[28rpx] rounded-xl border border-border bg-[var(--color-background)]"
             >
-              <Text className="w-[72rpx] text-[length:32rpx] font-bold text-[var(--color-muted-foreground)]">
+              <Text className="w-[72rpx] text-title font-bold text-[var(--color-muted-foreground)]">
                 {i + 4}
               </Text>
               <View className="w-[88rpx] h-[88rpx] rounded-2xl border-[length:3rpx] border-[var(--color-muted-foreground)] bg-[var(--color-muted)] overflow-hidden">
@@ -119,10 +119,10 @@ export default function DistributionRank() {
                   mode="aspectFill"
                 />
               </View>
-              <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-[length:32rpx] font-semibold text-foreground truncate">
+              <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-title font-semibold text-foreground truncate">
                 {u.nickname}
               </Text>
-              <Text className="text-[length:32rpx] font-bold text-[var(--color-success)]">
+              <Text className="text-title font-bold text-[var(--color-success)]">
                 ¥{u.commission}
               </Text>
             </View>

@@ -126,7 +126,7 @@ export default function MemberDetail() {
         {/* 对齐 RN TeamDetailScreen statsRow:card 底 + 24rpx 圆角 + 品牌色数值 */}
         <View className="flex flex-row rounded-lg bg-card p-[28rpx] gap-[16rpx]">
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
+            <Text className="text-subtitle font-semibold text-[var(--color-primary)]">
               {stats.teamCount}
             </Text>
             <Text className="text-body text-muted-foreground">
@@ -134,7 +134,7 @@ export default function MemberDetail() {
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
+            <Text className="text-subtitle font-semibold text-[var(--color-primary)]">
               {stats.monthNew}
             </Text>
             <Text className="text-body text-muted-foreground">
@@ -142,7 +142,7 @@ export default function MemberDetail() {
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
+            <Text className="text-subtitle font-semibold text-[var(--color-primary)]">
               ¥{stats.totalCommission}
             </Text>
             <Text className="text-body text-muted-foreground">
@@ -178,10 +178,10 @@ export default function MemberDetail() {
                   )}
                   <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                     <View className="flex flex-row items-center gap-[12rpx]">
-                      <Text className="flex-1 text-[length:32rpx] font-semibold text-foreground truncate">
+                      <Text className="flex-1 text-title font-semibold text-foreground truncate">
                         {m.nickname}
                       </Text>
-                      <Text className="flex-shrink-0 px-[12rpx] py-[2rpx] rounded-lg bg-[var(--color-muted)] text-[length:20rpx] text-muted-foreground">
+                      <Text className="flex-shrink-0 px-[12rpx] py-[2rpx] rounded-lg bg-[var(--color-muted)] text-badge text-muted-foreground">
                         V{m.level}
                       </Text>
                     </View>

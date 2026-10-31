@@ -30,7 +30,7 @@ export default function LevelsSection({
   const { t } = useI18n()
   return (
     <View className="px-[40rpx] pb-[40rpx]">
-      <Text className="block text-[length:32rpx] font-bold text-foreground mb-[32rpx]">
+      <Text className="block text-title font-bold text-foreground mb-[32rpx]">
         {t('vip.levelsTitle')}
       </Text>
       {!loaded ? null : levels.length === 0 ? (
@@ -49,11 +49,11 @@ export default function LevelsSection({
                 className="bg-card border-[length:2rpx] border-border rounded-lg p-[24rpx]"
               >
                 <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="text-[length:32rpx] font-semibold text-foreground">
+                  <Text className="text-title font-semibold text-foreground">
                     {level.levelName}
                   </Text>
                   {isCurrent ? (
-                    <Text className="px-[16rpx] py-[4rpx] rounded-md bg-[var(--color-vip-gold-start)] text-[length:20rpx] font-semibold text-[var(--color-vip-card)]">
+                    <Text className="px-[16rpx] py-[4rpx] rounded-md bg-[var(--color-vip-gold-start)] text-badge font-semibold text-[var(--color-vip-card)]">
                       {t('vip.currentBadge')}
                     </Text>
                   ) : null}
@@ -62,7 +62,7 @@ export default function LevelsSection({
                   <Text className="text-label text-muted-foreground">
                     {t('vip.duration', { days: level.durationDays })}
                   </Text>
-                  <Text className="text-[length:32rpx] font-bold text-[var(--color-vip-gold-start)]">
+                  <Text className="text-title font-bold text-[var(--color-vip-gold-start)]">
                     ¥ {formatPrice(level.price)}
                   </Text>
                 </View>

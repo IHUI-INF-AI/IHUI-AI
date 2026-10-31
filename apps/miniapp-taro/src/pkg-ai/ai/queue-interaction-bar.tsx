@@ -268,7 +268,7 @@ export default function QueueInteractionBar({
         >
           {t(qk('interruptAndRun'))}
         </Text>
-        <Text className="ml-[16rpx] text-[length:20rpx] text-muted-foreground">
+        <Text className="ml-[16rpx] text-badge text-muted-foreground">
           {t(qk('mode.label'))}
         </Text>
         {(['steer', 'queue'] as const).map((m) => (
@@ -289,7 +289,7 @@ export default function QueueInteractionBar({
         <Text
           data-testid="queue-denied-notice"
           data-denied-key={deniedNoticeText}
-          className="mt-[4rpx] block text-[length:20rpx] text-muted-foreground"
+          className="mt-[4rpx] block text-badge text-muted-foreground"
         >
           {`${t(nk(deniedNoticeText))} · ${t(nk(deniedCauseNotice(deniedHint.reason)))}`}
         </Text>
@@ -300,7 +300,7 @@ export default function QueueInteractionBar({
         <Text
           data-testid="queue-mode-degraded"
           data-mode-degraded={modeResolution.degradedKey}
-          className="mt-[4rpx] block text-[length:20rpx] text-warning"
+          className="mt-[4rpx] block text-badge text-warning"
         >
           {t(qk(modeResolution.degradedKey))}
         </Text>

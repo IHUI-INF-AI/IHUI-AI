@@ -266,7 +266,7 @@ export default function AccountCancel() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[24rpx]">
-          <Text className="text-[length:40rpx] font-bold text-foreground">
+          <Text className="text-heading font-bold text-foreground">
             {t('accountCancel.title')}
           </Text>
         </View>
@@ -323,7 +323,7 @@ export default function AccountCancel() {
                 hoverClass="opacity-60"
                 onClick={onSubmit}
               >
-                <Text className="text-[length:36rpx] font-semibold text-[var(--color-danger-foreground)]">
+                <Text className="text-subtitle font-semibold text-[var(--color-danger-foreground)]">
                   {submitText}
                 </Text>
               </View>
