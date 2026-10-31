@@ -25821,9 +25821,6 @@
     "title": "說明詳情",
     "answer": "答案"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP 備案/許可證號"
-  },
   "identityVerify": {
     "uploadFront": "上傳身分證人像面",
     "uploadBack": "上傳身分證國徽面",

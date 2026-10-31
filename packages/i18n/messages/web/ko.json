@@ -25849,9 +25849,6 @@
     "title": "도움말 상세",
     "answer": "답변"
   },
-  "icpRecord": {
-    "licenseLabel": "ICP 등록/허가 번호"
-  },
   "identityVerify": {
     "uploadFront": "신분증 앞면 업로드",
     "uploadBack": "신분증 뒷면 업로드",
