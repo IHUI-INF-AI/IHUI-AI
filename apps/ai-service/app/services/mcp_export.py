@@ -405,6 +405,25 @@ def _as_http_request(raw_request: object) -> Request | None:
     return raw_request if isinstance(raw_request, Request) else None
 
 
+# 2026-10-31:stdio 通道标记 —— **只在 `_run_stdio` 真正拉起 stdio 时置位**。
+# 不按"request is None"猜:那同时命中 SSE 后台任务(上下文已脱离)与 SDK 替身上下文,
+# 一律放行会连带打开 HTTP 入口(实测 4 条回归:受限主体可见 run_command、资源不收紧、
+# 两条 DID NOT RAISE)。标记是进程内代码状态,不可被外部环境继承或伪造。
+_local_stdio_active = False
+
+
+def _resolve_principal(raw_request: object) -> _gate.Principal:
+    """统一入口:stdio 本进程 + 无 HTTP 请求上下文 ⇒ 本地宿主主体;否则走 HTTP 凭据闸。
+
+    失效方向恒为"多要一次凭据":HTTP 流程、SSE 后台任务、替身上下文都仍走
+    `resolve_principal_from_request`,无凭据在生产档一律 401。
+    """
+    request = _as_http_request(raw_request)
+    if request is None and _local_stdio_active:
+        return _gate.local_stdio_principal()
+    return _gate.resolve_principal_from_request(request)
+
+
 def principal_for_call(
     context: Context[LifespanContextT, RequestT] | None,
 ) -> _gate.Principal:
@@ -419,12 +438,12 @@ def principal_for_call(
             raw_request = context.request_context.request
         except ValueError:  # 无请求上下文(如 stdio 直调)
             raw_request = None
-    return _gate.resolve_principal_from_request(_as_http_request(raw_request))
+    return _resolve_principal(raw_request)
 
 
 def principal_for_list(ctx: ServerRequestContext[object, object]) -> _gate.Principal:
     """tools/list 侧凭据解析(与 call 同一信任模型,同样显式取头)。"""
-    return _gate.resolve_principal_from_request(_as_http_request(ctx.request))
+    return _resolve_principal(ctx.request)
 
 
 def _denied_to_mcp_error(
@@ -801,7 +820,12 @@ def handler_stdio(server: MCPServer | None = None) -> Any:
     srv = server or get_mcp_server()
 
     def _run_stdio(*_a: Any, **_k: Any) -> None:
-        srv.run(transport="stdio")
+        global _local_stdio_active
+        _local_stdio_active = True
+        try:
+            srv.run(transport="stdio")
+        finally:
+            _local_stdio_active = False
 
     return _run_stdio
 
