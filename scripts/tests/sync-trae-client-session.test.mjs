@@ -67,4 +67,35 @@ test('⑤ 载荷恒 providerCode=trae,且提取结果的 meta 原样透传', () 
   assert.equal(payload.providerCode, 'trae')
   assert.equal(payload.meta.accessTokenLength, 6)
 })
+
+test('⑥ 心跳三态方向:false 才不写,true/null 同向写(代价不对称)', () => {
+  const at = '2026-11-01T00:00:00.000Z'
+  // 明确「没在跑」⇒ 不送心跳(让池侧自然过期,由池接管续期)
+  assert.equal(S.heartbeatOf(false, at), null)
+  // 探测未知(null)必须与「在跑」同向:误判在跑 = 本轮少刷一次,误判静默 = 把机主正在用的
+  // 客户端顶下线,而他已不能靠验证码登回来 ⇒ 方向反过来就是事故型(2026-10-24 实测过)。
+  assert.equal(S.heartbeatOf(true, at), at)
+  assert.equal(S.heartbeatOf(null, at), at)
+  // 取不到时刻一律不写(不得用空串/当前时间冒充「客户端在跑」的证据)
+  assert.equal(S.heartbeatOf(true, ''), null)
+  assert.equal(S.heartbeatOf(true, null), null)
+})
+
+test('⑦ 探测关掉进程控制时落 false,不得伪装成 true(未知与未跑是两个桶)', () => {
+  // IHUI_TRAE_PROCESS_CONTROL=0 ⇒ listProductPids 返回 [](明确无),而不是 null(未知)
+  assert.equal(S.probeClientActive({ IHUI_TRAE_PROCESS_CONTROL: '0' }), false)
+})
+
+test('⑧ 载荷只在有心跳时带 clientActiveAt 键(键缺席 = ts 侧本轮不写心跳)', () => {
+  const at = '2026-11-01T00:00:00.000Z'
+  const acc = { uid: 'u', token: 'T' }
+  assert.equal(S.buildPayload({ accounts: [acc], meta: {} }, at).clientActiveAt, at)
+  assert.equal('clientActiveAt' in S.buildPayload({ accounts: [acc], meta: {} }, null), false)
+  assert.equal('clientActiveAt' in S.buildPayload({ accounts: [acc], meta: {} }), false)
+  // 心跳时刻不进 accounts(凭据面与探针面各走各的键)
+  assert.deepEqual(Object.keys(S.buildPayload({ accounts: [acc], meta: {} }, at).accounts[0]), [
+    'uid',
+    'token',
+  ])
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
