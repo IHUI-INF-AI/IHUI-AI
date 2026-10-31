@@ -119,6 +119,22 @@ function tail(file, lines = 15) {
   }
 }
 
+// 启动链自检失败的可判定分支(2026-10-31):
+// 启动中间层(dev-stack-launch.mjs)在「wscript 被安全策略拦截、已降级 cmd」或
+// 「强制 wscript 但链不可用」时会往 err 日志写一行 `[dev-stack-launch:<name>] …`。
+// 有这个标记就说明**不是服务自己起不来,是启动链压根没把进程拉出来** —— 必须与普通
+// 冷启动超时分开报,否则 hint 把人往 apps/api 上引(真实事故:本地 API 长期没拉起,
+// 号池巡检停摆 7 天,而日志里其实只有一条降级/失败诊断)。
+// 读全文而不是 tail(15):诊断行写在下一次服务输出之前,长日志会把它挤出尾部窗口;
+// 每次启动都会截断日志,这里的读取只发生在 start-timeout 分支,不构成常态开销。
+function errHasLaunchDiag(file) {
+  try {
+    return fs.readFileSync(file, 'utf8').includes('[dev-stack-launch:');
+  } catch {
+    return false;
+  }
+}
+
 // Windows 下必须真正脱离父进程:非 detached 的子进程会随本脚本/会话退出被回收
 // (实测 Metro/API 均这样死过)。
 // 日志方案(2026-09-22 实测定型):detached 链路里 cmd 重定向对外部 exe 的输出
@@ -182,17 +198,30 @@ function killTree(pid) {
   }
 }
 
+// 探活身份判据(纯函数,挂 __test__ 供镜像测试 import,不复制逻辑)。
+// 为什么要它:端口有人应答 ≠ 那是我们的服务。实测 8802 被另一个会话的假 API 桩
+// (.ihui-agent/tmp/mobile-walk/capture-8802.cjs,对任何请求回 200)占着时,旧探活
+// 只看 statusCode<500 ⇒ dev-stack 报 api「up」,真 API 死了也无人察觉(号池巡检随之停摆)。
+function healthMatches(body, expect) {
+  if (!expect) return true;
+  return typeof body === 'string' && body.includes(expect);
+}
+
 // 重拉前清掉同名服务的旧进程树:tsx watch/expo/next 父进程在子服务死后仍存活且
 // 不占端口(isUp 探不到),不清就无限堆积(实测 API 假死后父进程残留半日)。
 // postgres 走 Windows 服务无 pid 文件,天然跳过。
 // 2026-10-12 零弹窗第四阶段起,pid 文件记的是隐藏控制台链的树根(wscript,见
-// dev-stack-launch.mjs);旧基线存的可能是服务 node 本体(直启链)。两种形态都认,
-// 否则存量旧树(含带可见窗口的 tsx 链)永远没人收。
+// dev-stack-launch.mjs);2026-10-31 起 wscript 被安全策略拦截时会降级成 cmd 直启,
+// 此时 pid 文件记的是 cmd(它持隐藏控制台并等 exe 退出)。旧基线存的还可能是服务
+// node 本体(直启链)。三种形态都必须认,否则降级形态的旧树永远杀不到:端口被旧
+// 树的孤儿占着 ⇒ 新树绑不上 ⇒ 每轮 start-timeout,而 killStale 还"看不见"它。
+const STALE_ROOT_NAMES = ['wscript.exe', 'cmd.exe', path.basename(process.execPath)];
+
 function killStale(svc) {
   const pidFile = path.join(LOG_DIR, `dev-stack-${svc.name}.pid`);
   try {
     const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
-    if (pidAlive(pid, 'wscript.exe') || pidAlive(pid, path.basename(process.execPath))) killTree(pid);
+    if (STALE_ROOT_NAMES.some((n) => pidAlive(pid, n))) killTree(pid);
     fs.rmSync(pidFile, { force: true });
   } catch {
     /* 无 pid 文件 = 旧启动方式拉起的,无从清理,不影响 */
@@ -240,12 +269,25 @@ const SERVICES = [
     required: true,
     probe: 'http',
     path: '/health',
+    // 身份标记取自 apps/api 的 /health 应答({"status":"ok","service":"@ihui/api"});
+    // 没有它就分不清"真 API"与"占着 8802 的任意 200 桩"(2026-10-31 实测踩过)
+    healthExpect: '@ihui/api',
     describe: 'Fastify API(移动端 / web 主依赖)',
+    // 2026-10-31 换掉 `tsx watch`(实测两种形态在本机都不成立,逐条有据):
+    //  ① `node <tsx cli> watch src/index.ts` ⇒ 子进程落到系统 node v24.19.0,启动即
+    //     `ERR_MODULE_NOT_FOUND .../routes/miniapp-pay-routes.js`(文件真实存在,.ts→.js
+    //     的 ESM 解析在 watch 链里没生效)⇒ 进程秒退 ⇒ dev-stack 每轮判 down,日志被截断,
+    //     看起来像"启动链静默失败"(这正是本地 API 长期没人拉起、号池巡检停摆 7 天的直接原因)。
+    //  ② `node --import tsx --watch src/index.ts` ⇒ 启动后反复 `Restarting 'src/index.ts'`,
+    //     永远到不了就绪(Node 原生 watch 与 tsx loader 在本机互踢)。
+    // 实测唯一稳定形态:`node --import tsx src/index.ts`(以 apps/api 为 cwd),冷启动约 75s。
+    // 代价是没有文件热重载 —— 改完代码重跑 `node scripts/dev-stack.mjs --only=api` 即可
+    // (killStale 会先杀掉旧树);这比"看起来在跑其实一直在崩"划算得多。
     start: () =>
-      launchDetached(NODE_EXE, [TSX_ENTRY, 'watch', 'src/index.ts'], API_DIR, 'api', {
+      launchDetached(NODE_EXE, ['--import', 'tsx', 'src/index.ts'], API_DIR, 'api', {
         NODE_ENV: 'development',
       }),
-    hint: 'apps/api 启动失败:优先确认 .env 存在(缺失是已发生过的事故),再看 .tmp-sync/dev-stack-api.log',
+    hint: 'apps/api 启动失败:先看 .tmp-sync/dev-stack-api.err.log 头部(那段才是真错误);常见两种:ERR_MODULE_NOT_FOUND(启动形态/依赖)与 EADDRINUSE(端口被占)',
   },
   {
     // Metro 单实例铁律(头注「2026-10-15 立」):不再有独立 metro(8081)服务槽。
@@ -411,25 +453,47 @@ function tcpOpen(port, timeout = 1200) {
   return (async () => (await tryHost('127.0.0.1')) || (await tryHost('::1')))();
 }
 
-function httpOk(host, port, urlPath = '/health', timeout = 2500) {
+// 2026-10-31:探活不只判"有人应答",还要判"应答的是不是我们自己"。
+// 事故:8802 被另一个会话的假 API 桩(.ihui-agent/tmp/mobile-walk/capture-8802.cjs,
+// 对任何请求回 200)占用 ⇒ 旧 httpOk 只看 statusCode<500 ⇒ dev-stack 判 api「up」,
+// 真 API 早已死掉却无人知道(号池巡检随之停摆)。凡是"端口有人占着就算健康"的探活,
+// 都会把占位者当成服务本体 —— 所以声明了 healthExpect 的服务必须校验应答体身份标记。
+function httpProbe(host, port, urlPath = '/health', timeout = 2500) {
   return new Promise((resolve) => {
     const req = http.get({ host, port, path: urlPath, timeout }, (res) => {
-      res.resume();
-      resolve(res.statusCode < 500);
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        if (body.length < 8192) body += chunk;
+      });
+      res.on('end', () => resolve({ ok: res.statusCode < 500, status: res.statusCode, body }));
+      res.once('error', () => resolve({ ok: false, status: 0, body: '' }));
     });
     req.once('timeout', () => {
       req.destroy();
-      resolve(false);
+      resolve({ ok: false, status: 0, body: '' });
     });
-    req.once('error', () => resolve(false));
+    req.once('error', () => resolve({ ok: false, status: 0, body: '' }));
   });
 }
+
+// 身份判据独立成纯函数(挂 __test__),镜像测试直接 import,不复制逻辑
+
+// 端口被"不是本服务"的东西占着时记在这里:ensure 据此给准确诊断,而不是盲启动+干等超时
+const FOREIGN_PORT_HOLDERS = new Map();
 
 async function isUp(svc) {
   const host = await tcpOpen(svc.port);
   if (!host) return false;
-  if (svc.probe === 'http') return httpOk(host, svc.port, svc.path || '/health');
-  return true;
+  if (svc.probe !== 'http') return true;
+  const r = await httpProbe(host, svc.port, svc.path || '/health');
+  if (!r.ok) return false;
+  if (healthMatches(r.body, svc.healthExpect)) {
+    FOREIGN_PORT_HOLDERS.delete(svc.name);
+    return true;
+  }
+  FOREIGN_PORT_HOLDERS.set(svc.name, { status: r.status, sample: r.body.slice(0, 200) });
+  return false;
 }
 
 async function waitReady(svc, timeoutMs = readyTimeoutMs) {
@@ -507,6 +571,24 @@ async function ensure(svc, results) {
     results.push({ name: svc.name, port: svc.port, status: 'up', action: 'none' });
     return true;
   }
+  // 端口有人占着,但应答的不是本服务(身份标记对不上) ⇒ 盲启动只会撞 EADDRINUSE 干等超时,
+  // 而且排障会被引到「服务自身起不来」的错方向。这里直接指名占位者该被清掉。
+  const foreign = FOREIGN_PORT_HOLDERS.get(svc.name);
+  if (foreign) {
+    results.push({
+      name: svc.name,
+      port: svc.port,
+      status: 'down',
+      action: 'port-foreign',
+      hint: [
+        `端口 :${svc.port} 被"不是本服务"的进程占着(HTTP ${foreign.status || '?'},应答片段: ${JSON.stringify(foreign.sample)})`,
+        `      本服务身份标记=${JSON.stringify(svc.healthExpect)},应答里没有 ⇒ 不盲启动。`,
+        `      定位占位者:Get-NetTCPConnection -LocalPort ${svc.port} -State Listen | Select OwningProcess → Get-Process -Id <pid>`,
+        `      占位者若是抓包桩/临时夹具,先停掉它再来;真 API 起不来再看 .tmp-sync/dev-stack-${svc.name}.log`,
+      ].join('\n'),
+    });
+    return false;
+  }
   if (checkOnly) {
     results.push({ name: svc.name, port: svc.port, status: 'down', action: 'skipped(check)', hint: svc.hint });
     return false;
@@ -530,6 +612,10 @@ async function ensure(svc, results) {
   }
   if (child && typeof child.unref === 'function') child.unref();
   const ok = await waitReady(svc);
+  const { out: outLog, err: errLog } = logPaths(svc.name);
+  // 启动链自检失败 ≠ 服务起不来:前者连进程都没有,后者至少写了几行启动输出。
+  // 两者混报会把排障引向 apps/*(真实事故:本地 API 长期没拉起却一直按"API 慢"查)。
+  const chainDiag = errHasLaunchDiag(errLog);
   results.push({
     name: svc.name,
     port: svc.port,
@@ -537,7 +623,16 @@ async function ensure(svc, results) {
     action: ok ? 'started' : 'start-timeout',
     hint: ok
       ? ''
-      : `${svc.hint}\n      当前启动等待上限 readyTimeoutMs=${readyTimeoutMs}(${Math.round(readyTimeoutMs / 1000)}s)内未探到就绪。冷启动较慢(如 api tsx watch 首编译 >120s)时加 --timeout=600 重跑\n      最近日志:\n${tail(logPaths(svc.name).err) || tail(logPaths(svc.name).out) || '(空)'}`,
+      : [
+          svc.hint,
+          `当前启动等待上限 readyTimeoutMs=${readyTimeoutMs}(${Math.round(readyTimeoutMs / 1000)}s)内未探到就绪。冷启动较慢(如 api tsx watch 首编译 >120s)时加 --timeout=600 重跑`,
+          chainDiag
+            ? '启动链自检失败(可能 wscript 被安全策略拦截),见该 err 日志;可用 DEV_STACK_LAUNCH_MODE=cmd 强制降级'
+            : '',
+          `最近日志:\n${tail(errLog) || tail(outLog) || '(空)'}`,
+        ]
+          .filter(Boolean)
+          .join('\n      '),
   });
   return ok;
 }
@@ -807,12 +902,15 @@ function reclaimForeignLegs({ dryRun = false } = {}) {
 // §22d 双形态守卫:CLI 直跑才执行 main(),被 import(测试/工具)零副作用
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
+// 只看不动:打印每个目标端口的占位者与本守护的裁决(运维取证口)。
+// 单独成一条守卫(不嵌在 main 的分支里),保持 `if (isDirectRun) { main()… }` 的形状
+// —— 那条形状是 dev-stack-timeout.test.mjs 的形状锁,嵌一层 nested if 就会把它判红。
+if (isDirectRun && process.argv.includes('--preempt-check')) {
+  console.log(JSON.stringify(reclaimForeignLegs({ dryRun: true }), null, 2));
+  process.exit(0);
+}
+
 if (isDirectRun) {
-  if (process.argv.includes('--preempt-check')) {
-    // 只看不动:打印每个目标端口的占位者与本守护的裁决(运维取证口)
-    console.log(JSON.stringify(reclaimForeignLegs({ dryRun: true }), null, 2));
-    process.exit(0);
-  }
   main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`);
     process.exit(2);
@@ -824,5 +922,10 @@ export const __test__ = {
   parsePositiveInt,
   shouldPreemptForeignLeg,
   FOREIGN_LEG_DISABLED_FLAG,
+  // 2026-10-31 启动链降级(新增键,既有键不动)
+  STALE_ROOT_NAMES,
+  errHasLaunchDiag,
+  // 2026-10-31 探活身份校验:纯判据供镜像测试 import(不复制逻辑)
+  healthMatches,
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
