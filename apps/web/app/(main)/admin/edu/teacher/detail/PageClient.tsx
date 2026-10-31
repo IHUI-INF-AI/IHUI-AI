@@ -96,7 +96,7 @@ export default function EduTeacherDetailPage() {
         <div className="flex items-center gap-4">
           <Avatar name={data.nickname} size="xl" />
           <div>
-            <h1 className="text-2xl font-bold">{data.nickname}</h1>
+            <h1 className="text-display font-bold">{data.nickname}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {data.title} · {data.phone ?? t('noContact')}
             </p>
@@ -110,7 +110,7 @@ export default function EduTeacherDetailPage() {
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('courseCount')}</div>
-              <div className="text-xl font-semibold">{data.courseCount}</div>
+              <div className="text-heading font-semibold">{data.courseCount}</div>
             </div>
           </CardContent>
         </Card>
@@ -119,7 +119,7 @@ export default function EduTeacherDetailPage() {
             <Users className="h-8 w-8 text-emerald-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('studentCount')}</div>
-              <div className="text-xl font-semibold">{data.studentCount}</div>
+              <div className="text-heading font-semibold">{data.studentCount}</div>
             </div>
           </CardContent>
         </Card>
@@ -128,7 +128,7 @@ export default function EduTeacherDetailPage() {
             <Star className="h-8 w-8 text-amber-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('rating')}</div>
-              <div className="text-xl font-semibold">{data.rating.toFixed(1)}</div>
+              <div className="text-heading font-semibold">{data.rating.toFixed(1)}</div>
             </div>
           </CardContent>
         </Card>

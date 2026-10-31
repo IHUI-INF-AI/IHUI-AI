@@ -76,7 +76,7 @@ export default function AdminDistributionWithdrawalsPage() {
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">提现申请</h1>
+        <h1 className="text-display font-bold tracking-tight">提现申请</h1>
         <p className="mt-1 text-sm text-muted-foreground">审核用户提现请求</p>
       </div>
 

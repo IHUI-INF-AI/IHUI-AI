@@ -102,7 +102,7 @@ export default function I18nMissingPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <AlertCircle className="h-6 w-6 text-amber-500" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">缺失 Key 列表</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">缺失 Key 列表</h1>
         </div>
         <p className="text-xs text-muted-foreground">共 {d.total} 个 Key 待翻译</p>
       </header>
@@ -114,7 +114,7 @@ export default function I18nMissingPage() {
             type="button"
             onClick={() => setLocale(l.value)}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               locale === l.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -156,7 +156,7 @@ export default function I18nMissingPage() {
                     ) : (
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
-                    <span className="font-mono text-sm font-medium">{ns}</span>
+                    <span className="font-mono text-body font-medium">{ns}</span>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                       {keys.length}
                     </span>
@@ -169,7 +169,7 @@ export default function I18nMissingPage() {
                           className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/30"
                         >
                           <span
-                            className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium"
+                            className="shrink-0 rounded px-1.5 py-0.5 text-label font-medium"
                             style={{
                               background: `${LOCALE_COLORS[k.locale] ?? CHART_BLUE}20`,
                               color: LOCALE_COLORS[k.locale] ?? CHART_BLUE,

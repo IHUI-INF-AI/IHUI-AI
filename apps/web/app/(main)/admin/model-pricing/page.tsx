@@ -66,7 +66,7 @@ export default function ModelPricingPage() {
       </div>
       <div className="flex items-center gap-2">
         <Coins className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <h1 className="text-display font-bold">{t('title')}</h1>
         {coverage && (
           <span className="ml-2 inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
             <BadgeCheck className="h-3 w-3" />
@@ -91,29 +91,29 @@ export default function ModelPricingPage() {
           <div className="grid grid-cols-3 gap-3">
             <Card>
               <CardHeader className="pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CardTitle className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
                   <Layers className="h-3.5 w-3.5" /> {t('modelCount')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-xl font-bold">{data.coverage.model_count}</CardContent>
+              <CardContent className="text-heading font-bold">{data.coverage.model_count}</CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CardTitle className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
                   <Boxes className="h-3.5 w-3.5" /> {t('providerCount')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-xl font-bold">
+              <CardContent className="text-heading font-bold">
                 {data.coverage.provider_count}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CardTitle className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
                   <BadgeCheck className="h-3.5 w-3.5" /> {t('overrideCount')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-xl font-bold">
+              <CardContent className="text-heading font-bold">
                 {data.coverage.override_count}
               </CardContent>
             </Card>

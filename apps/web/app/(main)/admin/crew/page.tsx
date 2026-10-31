@@ -134,7 +134,7 @@ export default function CrewPage() {
     <div className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Bot className="h-6 w-6 text-primary" /> Crew 多智能体协作
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -167,31 +167,31 @@ export default function CrewPage() {
             <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
           )}
           <div>
-            <p className="text-sm font-semibold">{health.ok ? '服务正常' : '检查中...'}</p>
+            <p className="text-body font-semibold">{health.ok ? '服务正常' : '检查中...'}</p>
             <p className="text-xs text-muted-foreground">{health.service ?? 'crew-service'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <Users className="h-5 w-5 text-primary" />
           <div>
-            <p className="text-sm font-semibold">{agents.length} 角色</p>
+            <p className="text-body font-semibold">{agents.length} 角色</p>
             <p className="text-xs text-muted-foreground">已注册智能体</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <Activity className="h-5 w-5 text-sky-600" />
           <div>
-            <p className="text-sm font-semibold">{sessions.length} 会话</p>
+            <p className="text-body font-semibold">{sessions.length} 会话</p>
             <p className="text-xs text-muted-foreground">最近 50 条</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <TrendingUp className="h-5 w-5 text-emerald-600" />
           <div>
-            <p className="text-sm font-semibold">
+            <p className="text-body font-semibold">
               {successRate !== null ? `${successRate}%` : '-'}
               {avgDurationMs !== null && (
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                <span className="ml-1.5 text-label font-normal text-muted-foreground">
                   · {(avgDurationMs / 1000).toFixed(1)}s
                 </span>
               )}
@@ -204,13 +204,13 @@ export default function CrewPage() {
       {agentsQ.data && agents.length > 0 && (
         <div className="rounded-lg border bg-card">
           <div className="px-4 py-2.5">
-            <p className="text-sm font-medium">角色配置</p>
+            <p className="text-body font-medium">角色配置</p>
           </div>
           <div className="grid grid-cols-1 gap-2 p-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {agents.map((a) => (
               <div key={a.role} className="rounded border p-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{a.role}</span>
+                  <span className="text-body font-medium">{a.role}</span>
                   <span className="text-xs text-muted-foreground">{a.llmModelId || '默认'}</span>
                 </div>
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.goal}</p>
@@ -234,7 +234,7 @@ export default function CrewPage() {
 
       <div className="rounded-lg border bg-card">
         <div className="px-4 py-2.5">
-          <p className="text-sm font-medium">会话列表</p>
+          <p className="text-body font-medium">会话列表</p>
         </div>
         {sessionsQ.isLoading ? (
           <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
@@ -254,7 +254,7 @@ export default function CrewPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">
+                    <p className="truncate text-body font-medium">
                       {s.title || s.inputMessage.slice(0, 40)}
                     </p>
                     <span className={`rounded px-1.5 py-0.5 text-xs ${statusBadgeClass(s.status)}`}>

@@ -120,7 +120,7 @@ export default function AdminDistributionSettlementsPage() {
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">结算记录</h1>
+        <h1 className="text-display font-bold tracking-tight">结算记录</h1>
         <p className="mt-1 text-sm text-muted-foreground">佣金结算单与周期记录</p>
       </div>
 
@@ -173,7 +173,7 @@ export default function AdminDistributionSettlementsPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                         STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
                       )}
                     >

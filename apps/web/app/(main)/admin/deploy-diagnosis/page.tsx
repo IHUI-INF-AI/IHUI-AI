@@ -120,7 +120,7 @@ export default function DeployDiagnosisPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Bot className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -140,7 +140,7 @@ export default function DeployDiagnosisPage() {
           return (
             <Card key={s.key}>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                <CardTitle className="flex items-center gap-2 text-body font-medium">
                   <Icon className="h-4 w-4 text-primary" />
                   {t(s.labelKey)}
                 </CardTitle>
@@ -197,21 +197,21 @@ export default function DeployDiagnosisPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t('rootCause')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('rootCause')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">{report.rootCause || '-'}</CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t('impact')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('impact')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">{report.impact || '-'}</CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-body font-medium">
                 {t('fixCommands')}
                 {report.fixCommands.length === 0 ? ' (0)' : ` (${report.fixCommands.length})`}
               </CardTitle>
@@ -248,7 +248,7 @@ export default function DeployDiagnosisPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t('summary')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('summary')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">{report.summary || '-'}</CardContent>
           </Card>

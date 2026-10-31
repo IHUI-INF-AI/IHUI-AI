@@ -260,7 +260,7 @@ export default function HomeSchemaEditorPage() {
       {/* 标题 + 操作按钮组 */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <LayoutGrid className="h-6 w-6 text-primary" />
             首页布局编辑
           </h1>

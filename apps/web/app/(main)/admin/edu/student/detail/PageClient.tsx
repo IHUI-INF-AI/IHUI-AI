@@ -186,7 +186,7 @@ export default function EduStudentDetailPage() {
         <div className="flex items-center gap-4">
           <Avatar name={data.nickname} size="xl" />
           <div>
-            <h1 className="text-2xl font-bold">{data.nickname}</h1>
+            <h1 className="text-display font-bold">{data.nickname}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {data.phone ?? t('noPhone')} · {data.email ?? t('noEmail')} ·{' '}
               <span
@@ -215,7 +215,7 @@ export default function EduStudentDetailPage() {
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('signupCourses')}</div>
-              <div className="text-xl font-semibold">{data.signupCount}</div>
+              <div className="text-heading font-semibold">{data.signupCount}</div>
             </div>
           </CardContent>
         </Card>
@@ -224,7 +224,7 @@ export default function EduStudentDetailPage() {
             <TrendingUp className="h-8 w-8 text-emerald-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('learnHours')}</div>
-              <div className="text-xl font-semibold">{data.learnHours}h</div>
+              <div className="text-heading font-semibold">{data.learnHours}h</div>
             </div>
           </CardContent>
         </Card>
@@ -233,7 +233,7 @@ export default function EduStudentDetailPage() {
             <Award className="h-8 w-8 text-amber-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('examCount')}</div>
-              <div className="text-xl font-semibold">{data.examCount}</div>
+              <div className="text-heading font-semibold">{data.examCount}</div>
             </div>
           </CardContent>
         </Card>
@@ -242,7 +242,7 @@ export default function EduStudentDetailPage() {
             <Award className="h-8 w-8 text-purple-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('certCount')}</div>
-              <div className="text-xl font-semibold">{data.certCount}</div>
+              <div className="text-heading font-semibold">{data.certCount}</div>
             </div>
           </CardContent>
         </Card>

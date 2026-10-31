@@ -168,7 +168,7 @@ export default function AdminChannelQuotaPage() {
       <div className="space-y-4 px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">渠道配额管理</h1>
+            <h1 className="text-heading font-semibold">渠道配额管理</h1>
             <p className="text-sm text-muted-foreground">管理各渠道的调用与 Token 配额上限</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
@@ -192,7 +192,7 @@ export default function AdminChannelQuotaPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">渠道配额管理</h1>
+          <h1 className="text-heading font-semibold">渠道配额管理</h1>
           <p className="text-sm text-muted-foreground">管理各渠道的调用与 Token 配额上限</p>
         </div>
         <div className="flex items-center gap-2">
