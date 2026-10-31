@@ -164,7 +164,10 @@ services:
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_USER=${BOARD_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${BOARD_ADMIN_PASSWORD:-admin}
+      # 2026-10-31 安全强化第 11 批:弱默认口令封口 —— 此前漏配 BOARD_ADMIN_PASSWORD
+      # 时 Grafana 落成 admin/admin(与根 compose 的 ${VAR:?} 必填口径一致,漏网补齐);
+      # 端口虽仅绑 localhost,容器被打通后弱口令即横向跳板
+      - GF_SECURITY_ADMIN_PASSWORD=${BOARD_ADMIN_PASSWORD:?BOARD_ADMIN_PASSWORD 未配置}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer

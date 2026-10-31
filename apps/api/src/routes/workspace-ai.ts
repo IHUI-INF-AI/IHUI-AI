@@ -281,7 +281,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .object({
         path: z.string(),
         workspacePath: z.string(),
-        pattern: z.string(),
+        // ReDoS 入库闸(2026-10-31 安全强化第 11 批):与 rules/webhooks-trigger 同口径,
+        // pattern 会在主线程对每个文件逐行同步回溯
+        pattern: z.string().max(200),
         glob: z.string().optional(),
         outputMode: z.string().optional(),
       })
