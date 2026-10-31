@@ -10,8 +10,8 @@
  *  - GET /api/security/anomalies       → { total, list: AnomalyEvent[] }(admin 级,异常事件扫描)
  *  - GET /api/security/threat-dashboard → ThreatStats(admin 级,威胁监控仪表盘)
  *
- * 类型契约:SecurityLog 来自 @ihui/database;AnomalyEvent / ThreatStats 本地定义,
- * 与 apps/api/src/services/anomaly-detector.ts + apps/api/src/plugins/threat-detector.ts 对齐。
+ * 类型契约:SecurityLog 来自 @ihui/database;AnomalyEvent / ThreatStats 与后端对齐,
+ * 判据本体住 src/security/audit-guards.ts(类型守卫 + 参数校验,单一真相源)。
  * 实现模板复用 memory.ts 的 resolveBaseUrl / resolveApiKeyAsync / apiRequest / extractData / handleError。
  *
  * 用法:
@@ -25,183 +25,27 @@ import chalk from 'chalk';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 import { missingTokenHint } from './token-manager.js';
+// 判据单一真相源(AGENTS §0.6/§22c):类型契约/类型守卫/参数校验全部住
+// src/security/audit-guards.ts,本文件只是命令壳 + 呈现面,不再持有第二份判据。
+import {
+  isAnomalyEvent,
+  isAnomalyListData,
+  isAuditListData,
+  isSecurityLogEntry,
+  isThreatStats,
+  parseNonNegativeInt,
+  parsePositiveInt,
+  parseScore,
+  type AnomalyRecommendation,
+  type AuditOptions,
+  type ReportOptions,
+  type ScanOptions,
+} from '../security/audit-guards.js';
 
 const API_PREFIX = '/api/security';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const apiRequest = createApiRequest(API_PREFIX, DEFAULT_TIMEOUT_MS);
 const ACTION_TRUNCATE_LEN = 60;
-
-// === 请求 / 响应类型(本地定义,与后端 anomaly-detector.ts / threat-detector.ts 对齐) ===
-
-/** 安全审计日志条目(对应 security_logs 表,$inferSelect)。 */
-interface SecurityLogEntry {
-  id: string;
-  userId: string;
-  action: string;
-  ip: string | null;
-  userAgent: string | null;
-  metadata: unknown;
-  createdAt: string;
-}
-
-interface AuditListData {
-  list: SecurityLogEntry[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-type AnomalyRecommendation = 'allow' | 'monitor' | 'challenge' | 'block';
-
-interface AnomalyDimension {
-  name: string;
-  score: number;
-  weight: number;
-}
-
-interface AnomalyEvent {
-  timestamp: number;
-  ip: string;
-  userId?: string;
-  url: string;
-  score: number;
-  recommendation: AnomalyRecommendation;
-  dimensions: AnomalyDimension[];
-}
-
-interface AnomalyListData {
-  total: number;
-  list: AnomalyEvent[];
-}
-
-interface WatchedIp {
-  ip: string;
-  score: number;
-  reasons: string[];
-}
-
-interface RecentBlock {
-  ip: string;
-  score: number;
-  duration: string;
-  timestamp: number;
-}
-
-interface ThreatStats {
-  totalChecks: number;
-  totalAutoBlocks: number;
-  totalWarnings: number;
-  watchedIps: WatchedIp[];
-  recentBlocks: RecentBlock[];
-}
-
-// === CLI options 类型 ===
-
-interface AuditOptions {
-  page?: string;
-  pageSize?: string;
-  json?: boolean;
-}
-
-interface ScanOptions {
-  path?: string;
-  limit?: string;
-  offset?: string;
-  minScore?: string;
-  json?: boolean;
-}
-
-interface ReportOptions {
-  json?: boolean;
-}
-
-// === 类型守卫 ===
-
-function isSecurityLogEntry(v: unknown): v is SecurityLogEntry {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'id' in v &&
-    typeof (v as { id: unknown }).id === 'string' &&
-    'userId' in v &&
-    typeof (v as { userId: unknown }).userId === 'string' &&
-    'action' in v &&
-    typeof (v as { action: unknown }).action === 'string' &&
-    'createdAt' in v
-  );
-}
-
-function isAuditListData(v: unknown): v is AuditListData {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'list' in v &&
-    Array.isArray((v as { list: unknown }).list) &&
-    'total' in v
-  );
-}
-
-function isAnomalyEvent(v: unknown): v is AnomalyEvent {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'ip' in v &&
-    typeof (v as { ip: unknown }).ip === 'string' &&
-    'score' in v &&
-    typeof (v as { score: unknown }).score === 'number' &&
-    'recommendation' in v
-  );
-}
-
-function isAnomalyListData(v: unknown): v is AnomalyListData {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'list' in v &&
-    Array.isArray((v as { list: unknown }).list) &&
-    'total' in v
-  );
-}
-
-function isThreatStats(v: unknown): v is ThreatStats {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'totalChecks' in v &&
-    typeof (v as { totalChecks: unknown }).totalChecks === 'number' &&
-    'totalAutoBlocks' in v &&
-    typeof (v as { totalAutoBlocks: unknown }).totalAutoBlocks === 'number'
-  );
-}
-
-// === 参数校验 ===
-
-function parsePositiveInt(v: string | undefined, fallback: number, max: number, label: string): number {
-  if (v === undefined) return fallback;
-  const n = Number(v);
-  if (!Number.isInteger(n) || n < 1) {
-    throw new Error(`无效的 ${label} "${v}",必须为正整数`);
-  }
-  return Math.min(n, max);
-}
-
-function parseNonNegativeInt(v: string | undefined, fallback: number, label: string): number {
-  if (v === undefined) return fallback;
-  const n = Number(v);
-  if (!Number.isInteger(n) || n < 0) {
-    throw new Error(`无效的 ${label} "${v}",必须为非负整数`);
-  }
-  return n;
-}
-
-function parseScore(v: string | undefined, label: string): number | undefined {
-  if (v === undefined) return undefined;
-  const n = Number(v);
-  if (!Number.isFinite(n) || n < 0 || n > 100) {
-    throw new Error(`无效的 ${label} "${v}",合法范围 0-100`);
-  }
-  return n;
-}
 
 // === 格式化工具 ===
 
