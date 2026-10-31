@@ -265,7 +265,9 @@ export async function syncPoolSnapshots(deps: SyncDeps = {}): Promise<SyncOutcom
 
 export async function syncMain(argv: string[], deps: SyncDeps = {}): Promise<number> {
   const apply = argv.includes('--apply') || (deps.apply ?? false)
-  const now = deps.now ?? new Date()
+  // 2026-10-31 安全强化第 10 批顺手清:局部 `now` 在本函数从未被读取(TS6133,
+  // bcaf7f58d2 引入);真正消费方是 syncPoolSnapshots,deps.now 已随 {...deps}
+  // 原样透传,本层不需要再落地一份。
   let outcome: SyncOutcome
   try {
     outcome = await syncPoolSnapshots({ ...deps, apply })
