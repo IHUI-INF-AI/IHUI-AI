@@ -375,7 +375,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
           <View style={styles.panel} testID="voice-note-panel">
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={pressFeedback(undefined)}
                 onPress={closePanel}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -584,7 +585,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         {note.transcript ?? t('chat.voiceNote.title')}
                       </Text>
                       {voiceNoteHasInsertableText(note) && (
-                        <Pressable style={pressFeedback(undefined)}
+                        <Pressable
+                          style={pressFeedback(undefined)}
                           onPress={() => onInsert(note.transcript ?? '')}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -597,7 +599,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                         </Pressable>
                       )}
                       {/* 改分组:分组键只落服务端,输入框开在本行下方 */}
-                      <Pressable style={pressFeedback(undefined)}
+                      <Pressable
+                        style={pressFeedback(undefined)}
                         onPress={() => {
                           setGroupEditing(note.id)
                           setGroupDraft('')
@@ -611,7 +614,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                       </Pressable>
                       {/* 归档/恢复:方向由当前分区决定 */}
                       {partition === 'active' ? (
-                        <Pressable style={pressFeedback(undefined)}
+                        <Pressable
+                          style={pressFeedback(undefined)}
                           onPress={() => void toggleArchived(note.id, true)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -621,7 +625,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           <Archive size={14} color={tokens.text.secondary} />
                         </Pressable>
                       ) : (
-                        <Pressable style={pressFeedback(undefined)}
+                        <Pressable
+                          style={pressFeedback(undefined)}
                           onPress={() => void toggleArchived(note.id, false)}
                           hitSlop={6}
                           accessibilityRole="button"
@@ -631,7 +636,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           <ArchiveRestore size={14} color={tokens.text.secondary} />
                         </Pressable>
                       )}
-                      <Pressable style={pressFeedback(undefined)}
+                      <Pressable
+                        style={pressFeedback(undefined)}
                         onPress={() => void removeNote(note.id)}
                         hitSlop={6}
                         accessibilityRole="button"
@@ -652,7 +658,8 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           placeholderTextColor={tokens.text.tertiary}
                           testID="voice-note-group-input"
                         />
-                        <Pressable style={pressFeedback(undefined)}
+                        <Pressable
+                          style={pressFeedback(undefined)}
                           onPress={() => void assignGroup(note.id, groupDraft)}
                           hitSlop={6}
                           accessibilityRole="button"

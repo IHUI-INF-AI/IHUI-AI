@@ -2870,28 +2870,32 @@ export function ChatScreen() {
           title="智汇AI"
           rightAction={
             <View style={styles.navRight}>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={() => setDrawerVisible(true)}
                 accessibilityLabel={t('chat.topBarMenu')}
               >
                 <PanelLeftRounded size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={showAgentList}
                 accessibilityLabel={t('chat.topBarAgent')}
               >
                 <Bot size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={goToMyPage}
                 accessibilityLabel={t('chat.topBarProfile')}
               >
                 <Share2 size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
-              <Pressable style={pressFeedback(undefined)}
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={showQrCode}
                 accessibilityLabel={t('chat.topBarCommunity')}

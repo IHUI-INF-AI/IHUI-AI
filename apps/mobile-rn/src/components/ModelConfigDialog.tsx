@@ -673,7 +673,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
               style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.card }}
             >
               {voiceList.map((tb) => (
-                <Pressable style={pressFeedback(undefined)}
+                <Pressable
+                  style={pressFeedback(undefined)}
                   key={tb.id}
                   onPress={() => {
                     update({ timbre: tb.id })
