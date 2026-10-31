@@ -33,13 +33,13 @@ export function AlertRules({ rules }: Props) {
               <div>
                 <span className="font-medium">{r.name}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
-                  {r.metric} {r.operator} {r.threshold}
+                  来源 {r.matchSource ?? '全部'} · 抑制 {r.suppressMinutes} 分钟
                 </span>
               </div>
               <span
                 className={cn(
                   'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
-                  r.enabled
+                  r.isActive
                     ? 'bg-success/10 text-success-deep-text'
                     : 'bg-muted text-muted-foreground',
                 )}
@@ -47,10 +47,10 @@ export function AlertRules({ rules }: Props) {
                 <span
                   className={cn(
                     'h-1.5 w-1.5 rounded-full',
-                    r.enabled ? 'bg-success' : 'bg-muted-foreground',
+                    r.isActive ? 'bg-success' : 'bg-muted-foreground',
                   )}
                 />
-                {r.enabled ? '启用' : '禁用'}
+                {r.isActive ? '启用' : '停用'}
               </span>
             </div>
           ))}

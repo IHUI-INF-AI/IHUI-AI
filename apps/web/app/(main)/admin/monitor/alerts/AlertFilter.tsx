@@ -5,27 +5,37 @@
 'use client'
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
-import { selectClass, STATUS_LABEL } from './helpers'
+import {
+  selectClass,
+  MONITOR_ALERT_SEVERITIES,
+  MONITOR_ALERT_STATUSES,
+  monitorAlertSeverityMeta,
+  monitorAlertStatusMeta,
+} from './helpers'
 
 interface Props {
-  level: string
-  setLevel: (v: string) => void
+  /** severity 取值或 'all'(选项真值见 monitor-alert-vocabulary)。 */
+  severity: string
+  setSeverity: (v: string) => void
+  /** status 取值或 'all'(选项真值见 monitor-alert-vocabulary)。 */
   status: string
   setStatus: (v: string) => void
 }
 
-export function AlertFilter({ level, setLevel, status, setStatus }: Props) {
+export function AlertFilter({ severity, setSeverity, status, setStatus }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={level} onValueChange={setLevel}>
-        <SelectTrigger className={selectClass} aria-label="级别">
+      <Select value={severity} onValueChange={setSeverity}>
+        <SelectTrigger className={selectClass} aria-label="严重级别">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">全部级别</SelectItem>
-          <SelectItem value="critical">严重</SelectItem>
-          <SelectItem value="warning">警告</SelectItem>
-          <SelectItem value="info">信息</SelectItem>
+          {MONITOR_ALERT_SEVERITIES.map((s) => (
+            <SelectItem key={s} value={s}>
+              {monitorAlertSeverityMeta(s).label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Select value={status} onValueChange={setStatus}>
@@ -34,9 +44,9 @@ export function AlertFilter({ level, setLevel, status, setStatus }: Props) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">全部状态</SelectItem>
-          {Object.entries(STATUS_LABEL).map(([k, v]) => (
-            <SelectItem key={k} value={k}>
-              {v}
+          {MONITOR_ALERT_STATUSES.map((s) => (
+            <SelectItem key={s} value={s}>
+              {monitorAlertStatusMeta(s).label}
             </SelectItem>
           ))}
         </SelectContent>
