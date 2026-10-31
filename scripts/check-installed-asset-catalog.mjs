@@ -117,7 +117,13 @@ const GIT_MAX_BUFFER = 128 * 1024 * 1024
 
 function runGit(args, { cwd, input } = {}) {
   const stdio = input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  const r = spawnSync('git', args, { cwd, input, stdio, maxBuffer: GIT_MAX_BUFFER })
+  const r = spawnSync('git', args, {
+    cwd,
+    input,
+    stdio,
+    maxBuffer: GIT_MAX_BUFFER,
+    windowsHide: true,
+  })
   if (r.error) throw new Error(`git ${args.join(' ')} 派生失败: ${r.error.message}`)
   if (r.status !== 0) {
     throw new Error(`git ${args.join(' ')} exit ${r.status}: ${r.stderr.toString('utf8').trim()}`)
