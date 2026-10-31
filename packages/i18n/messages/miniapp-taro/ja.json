@@ -1414,7 +1414,9 @@
   },
   "webview": {
     "title": "ウェブページ",
-    "missingUrl": "リンクなし、開けません"
+    "missingUrl": "リンクなし、開けません",
+    "untrustedCopied": "リンクをコピーしました。ブラウザで開いてください",
+    "untrusted": "リンクは信頼リストにありません"
   },
   "carte": {
     "title": "ZHIHUI コミュニティ",

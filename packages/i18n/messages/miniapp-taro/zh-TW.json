@@ -1414,7 +1414,9 @@
   },
   "webview": {
     "title": "網頁",
-    "missingUrl": "連結缺失,無法開啟網頁"
+    "missingUrl": "連結缺失,無法開啟網頁",
+    "untrustedCopied": "連結已複製,請在瀏覽器開啟",
+    "untrusted": "連結不在信任範圍內"
   },
   "carte": {
     "title": "智匯社社群",

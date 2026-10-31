@@ -1414,7 +1414,9 @@
   },
   "webview": {
     "title": "웹페이지",
-    "missingUrl": "링크 없음, 열 수 없습니다"
+    "missingUrl": "링크 없음, 열 수 없습니다",
+    "untrustedCopied": "링크가 복사되었습니다. 브라우저에서 열어 주세요",
+    "untrusted": "링크가 신뢰 목록에 없습니다"
   },
   "carte": {
     "title": "ZHIHUI 커뮤니티",

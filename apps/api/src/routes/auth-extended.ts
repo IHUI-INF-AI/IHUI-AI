@@ -54,6 +54,7 @@ import { publicUser, resolveUserPermissions } from './auth.js'
 import {
   generateSecret,
   verifyTotp,
+  verifyTotpCounter,
   buildOtpauthUri,
   generateQrCodeDataUrl,
   generateBackupCodes,
@@ -68,7 +69,7 @@ import {
   getLockRemainingMs,
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
-import { STEP_UP_WINDOW_SEC, recordTwoFactorStepUp } from '../services/two-factor-step-up-store.js'
+import { STEP_UP_WINDOW_SEC, recordTwoFactorStepUp, consumeTotpCounter } from '../services/two-factor-step-up-store.js'
 import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import {
   findUserByPhone,
@@ -3825,8 +3826,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (token) {
         // TOTP 路径
         const secret = decryptTwoFactorSecret(user.twoFactorSecret)
-        if (secret && verifyTotp(token, secret)) {
-          verified = true
+        if (secret) {
+          const totpCounter = verifyTotpCounter(token, secret)
+          // 同一步只兑付一次：同一 6 位码在 ±1 窗口内不能再换一份 token（防重放）。
+          if (
+            totpCounter !== null &&
+            (await consumeTotpCounter(userId, totpCounter, request.server.redis))
+          ) {
+            verified = true
+          }
         }
       } else if (backupCode) {
         // backup code 路径:校验通过后立即从数组移除(单次使用)
