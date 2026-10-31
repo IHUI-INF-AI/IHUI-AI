@@ -2051,30 +2051,43 @@ def _spill_tool_overflow(overflow: str) -> str | None:
         return None
 
 
-def bound_tool_result_for_context(payload: Any) -> str:
+def bound_tool_result_for_context(
+    payload: Any,
+    *,
+    tool_name: str | None = None,
+    session_id: str | None = None,
+) -> str:
     """把工具结果收成 role:tool 正文。预算复用 mcp_server 的工具输出上限。
 
     未超预算原样 json。超出部分落临时文件,正文留截断说明和文件指针。
+
+    2026-10-31:截断完之后还要过一层**宿主定界**。工具结果是外部世界(网页、MCP server、
+    文件、命令输出)写进模型上下文的路径,原样拼接时模型分不清"宿主的话"和"捞回来的一段字",
+    内容里一句"忽略上面的指令"或直接伪造 `<ihui-system-reminder>` 就成了指令注入。
+    定界块内正文的保留标签会被中和,因此外部内容闭合不出自己的宿主块。
     """
     from .mcp_server import _estimate_tokens_len, _get_tool_output_max_tokens
+    from .tool_context_boundary import scan_and_frame_tool_result
 
     try:
         text = json.dumps(payload, ensure_ascii=False, default=str)
     except (TypeError, ValueError):
         text = json.dumps({"error": "tool result not serializable"}, ensure_ascii=False)
     max_tokens = _get_tool_output_max_tokens()
-    if _estimate_tokens_len(text) <= max_tokens:
-        return text
-    keep_chars = max_tokens * 4
-    overflow = text[keep_chars:]
-    spilled = _spill_tool_overflow(overflow)
-    dropped = _estimate_tokens_len(overflow)
-    if spilled:
-        note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
-    else:
-        note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
-    head_len = max(0, keep_chars - len(note))
-    return text[:head_len] + note
+    if _estimate_tokens_len(text) > max_tokens:
+        keep_chars = max_tokens * 4
+        overflow = text[keep_chars:]
+        spilled = _spill_tool_overflow(overflow)
+        dropped = _estimate_tokens_len(overflow)
+        if spilled:
+            note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
+        else:
+            note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
+        head_len = max(0, keep_chars - len(note))
+        text = text[:head_len] + note
+    return scan_and_frame_tool_result(
+        text, source="tool", tool_name=tool_name, session_id=session_id
+    )
 
 
 class AgentLoopV2:
@@ -4910,7 +4923,8 @@ class AgentLoopV2:
                             "tool_call_id": tr.tool_call_id,
                             "name": tr.name,
                             "content": bound_tool_result_for_context(
-                                tr.result if not tr.error else {"error": tr.error}
+                                tr.result if not tr.error else {"error": tr.error},
+                                tool_name=tr.name,
                             ),
                         }
                     )

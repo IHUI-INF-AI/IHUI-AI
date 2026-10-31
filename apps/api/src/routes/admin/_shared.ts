@@ -12,6 +12,7 @@ import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import { db } from '../../db/index.js'
 import type { FastifyInstance } from 'fastify'
 import { emptyToUndefined, success, error } from '../../utils/response.js'
+import { pageQuerySchema, pageSizeQuerySchema } from '../../utils/paging.js'
 import { batchWriteOutcome } from '../../utils/batch-outcome.js'
 
 // Drizzle CRUD 工厂接受的表类型:PgTable 且含 id/createdAt 列。
@@ -23,8 +24,8 @@ type CrudTable = PgTable & {
   createdAt: PgColumn
 }
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  page: pageQuerySchema,
+  pageSize: pageSizeQuerySchema,
   search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 

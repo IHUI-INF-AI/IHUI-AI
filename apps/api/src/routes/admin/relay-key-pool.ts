@@ -26,7 +26,7 @@ import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import { encryptJSON } from '../../utils/crypto.js'
-import { checkSingleKey } from '../../services/relay-health-check-service.js'
+import { checkSingleKey, CF_KEY } from '../../services/relay-health-check-service.js'
 import { isUuidString } from '../../utils/uuid.js'
 
 const listQuerySchema = paginationSchema.extend({
@@ -46,6 +46,10 @@ const createBodySchema = z.object({
 
 const updateBodySchema = z.object({
   name: z.string().min(1).max(128).optional(),
+  // 换 Key 出口(2026-10-24 立,见 tests/admin-relay-key-pool-rotate.test.ts 头注):
+  // 此前"换一把 key"只能新增一条 + 手工删旧,漏做后半截就让退役行永久挂在池子里,
+  // 大屏「异常 Key」按行计数 ⇒ 一把好 key 都没坏,格子却永久红。
+  apiKey: z.string().min(1).optional(),
   priority: z.number().int().optional(),
   weight: z.number().int().min(1).optional(),
   isEnabled: z.boolean().optional(),
@@ -195,7 +199,7 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // ===== 3. PUT /admin/relay/key-pool/:id — 更新(不更新 apiKeyEnc) =====
+  // ===== 3. PUT /admin/relay/key-pool/:id — 更新(带 apiKey 时同批改密文并复位健康态) =====
   server.put('/admin/relay/key-pool/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
@@ -213,6 +217,24 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
     if (d.remark !== undefined) setData.remark = d.remark
 
     try {
+      if (d.apiKey !== undefined) {
+        // 换密文与复位健康态必须同批落:只覆盖 apiKeyEnc,上一轮的 down/熔断计数会继续挂在新 key 上,
+        // 大屏「异常 Key」就会把一把好 key 读成异常。
+        const [cur] = await db
+          .select({ extraMetadata: aiRelayKeyPool.extraMetadata })
+          .from(aiRelayKeyPool)
+          .where(eq(aiRelayKeyPool.id, p.data.id))
+          .limit(1)
+        if (!cur) return reply.status(404).send(error(404, 'Key 不存在'))
+        const meta = (cur.extraMetadata ?? {}) as Record<string, unknown>
+        setData.apiKeyEnc = JSON.stringify(encryptJSON(d.apiKey))
+        setData.keyPrefix = makeKeyPrefix(d.apiKey)
+        setData.healthStatus = 'unknown'
+        setData.healthCheckedAt = null
+        setData.lastErrorMessage = null
+        // 计数键名走巡检服务的 CF_KEY 单源,不在路由里复写字面量(§0.6)
+        setData.extraMetadata = { ...meta, [CF_KEY]: 0 }
+      }
       const [updated] = await db
         .update(aiRelayKeyPool)
         .set(setData)
@@ -220,6 +242,7 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
         .returning({
           id: aiRelayKeyPool.id,
           name: aiRelayKeyPool.name,
+          keyPrefix: aiRelayKeyPool.keyPrefix,
           priority: aiRelayKeyPool.priority,
           weight: aiRelayKeyPool.weight,
           isEnabled: aiRelayKeyPool.isEnabled,
@@ -227,6 +250,8 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
           updatedAt: aiRelayKeyPool.updatedAt,
         })
       if (!updated) return reply.status(404).send(error(404, 'Key 不存在'))
+      // 与 POST 同档:keyPrefix 是脱敏形态,过响应脱敏会被误伤
+      request.skipResponseSanitization = true
       return reply.send(success(updated))
     } catch (e) {
       request.log.error(e)

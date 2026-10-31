@@ -72,11 +72,7 @@ const listLogsQuery = z.object({
   endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 // =============================================================================
 // 路由

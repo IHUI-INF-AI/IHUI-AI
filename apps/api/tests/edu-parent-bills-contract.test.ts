@@ -341,6 +341,15 @@ function accessToken(userId: string, extraClaims: Record<string, unknown> = {}):
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
+  // 承载层由端点自己经 checkAuthOrInternalService 调用(见 handler 首行),
+  // 与生产 server.ts 的全局链路同源;测试只需装配路由与错误信封。
+  app.setErrorHandler((err, _request, reply) => {
+    const statusCode =
+      typeof (err as { statusCode?: number }).statusCode === 'number'
+        ? (err as { statusCode: number }).statusCode
+        : 500
+    reply.status(statusCode).send({ code: statusCode, message: err.message })
+  })
   await app.register(eduAiManagementRoutes, { prefix: PREFIX })
   await app.ready()
   return app

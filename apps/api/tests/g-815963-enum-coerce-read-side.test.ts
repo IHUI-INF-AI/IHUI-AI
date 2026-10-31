@@ -134,14 +134,14 @@ describe('G-815963①:agent-runtime session-store 读侧同型收敛', () => {
 
   it('未来值 status=aborted 兜到终态 closed', async () => {
     mockDb.select.mockReturnValue(selectChain([agentRuntimeRow('aborted')]))
-    const session = await loadSessionFromDb('sess_g815963')
+    const session = await loadSessionFromDb('sess_g815963', 'user_1')
     expect(session).not.toBeNull()
     expect(session!.status).toBe('closed')
   })
 
   it('已知值 paused 原样透传;读路径零写副作用', async () => {
     mockDb.select.mockReturnValue(selectChain([agentRuntimeRow('paused')]))
-    const session = await loadSessionFromDb('sess_g815963')
+    const session = await loadSessionFromDb('sess_g815963', 'user_1')
     expect(session!.status).toBe('paused')
     expect(mockDb.insert).not.toHaveBeenCalled()
     expect(mockDb.update).not.toHaveBeenCalled()

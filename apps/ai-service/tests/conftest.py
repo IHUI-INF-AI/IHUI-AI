@@ -245,12 +245,11 @@ def _reset_rate_limit_buckets():
     用例收到 429(2026-09-13 CI 实证:test_gemini_invalid_json_returns_400
     断言 400 实得 429;同代码前一轮通过,属时序敏感偶发,非代码回归)。
 
-    逐层解包找到 RateLimitMiddleware 实例并清空桶。解包链(2026-09-13 实测):
-    app.main.app 是 socketio.ASGIApp 包装器 → other_asgi_app = FastAPI 实例 →
-    middleware_stack = 已构建的中间件链根 → 各层中间件经 .app 逐级下钻。
-    三种属性名按序尝试,兼容包装层/框架层/中间件层各自不同的持有字段。
-    找不到实例(栈尚未构建 / 中间件被移除)则无事可做 —— 没有活动限流器
-    就不会产生跨测试 429,安全跳过。限流中间件自身行为由
+    逐层解包找到 RateLimitMiddleware 实例并清空桶。解包按**广度**走:包装层/框架层/
+    中间件层各自用不同字段名持有内层(other_asgi_app / middleware_stack / application /
+    app / _app),旧版只取第一个命中的字段并在断链处静默收尾,实测从未清过桶。
+    找不到实例 ⇒ **当场报错**,不再"安全跳过":悄悄放行等于把隔离保证写成假的,
+    而它的表现永远是别的用例偶发 429(最难查的那一型)。限流中间件自身行为由
     test_middleware.py::TestRateLimitMiddleware 与 test_input_sanitizer.py
     (独立最小 app + monkeypatch RATE_RULES)专项覆盖,不依赖共享桶状态,
     故清空不影响任何限流断言。
@@ -265,19 +264,49 @@ def _reset_rate_limit_buckets():
 
     from app.middleware.input_sanitizer import RateLimitMiddleware
 
-    def _next(n):
-        for attr in ("other_asgi_app", "middleware_stack", "app"):
+    # 旧实现用"取第一个非 None 属性"的单链下行,候选名只有
+    # (other_asgi_app, middleware_stack, app):解包在 WsConnGuardMiddleware 处断掉
+    # (它把内层存在 **_app**),而 app.main 正是用 socketio.ASGIApp(other_asgi_app=
+    # WsConnGuardMiddleware(...)) 包的 ⇒ 循环走两步就没路了,限流器从未被清过 ——
+    # 这条 autouse 夹具一直是结构性空转(全量档 test_fim 拿到 429 就是它的后果)。
+    CANDIDATE_ATTRS = ("other_asgi_app", "middleware_stack", "application", "app", "_app")
+
+    def _children(n: object) -> list:
+        out = []
+        for attr in CANDIDATE_ATTRS:
             v = getattr(n, attr, None)
-            if v is not None:
-                return v
-        return None
+            if v is not None and v is not n:
+                out.append(v)
+        return out
 
     node = _get_app()
-    while node is not None:
-        if isinstance(node, RateLimitMiddleware):
-            node._buckets.clear()
+    # Starlette 的中间件链是**首次请求时**才建的;夹具跑在用例之前,不显式建就永远找不到。
+    if getattr(node, "middleware_stack", "absent") is None and hasattr(
+        node, "build_middleware_stack"
+    ):
+        node.middleware_stack = node.build_middleware_stack()
+
+    seen: set[int] = set()
+    stack = [node]
+    limiter = None
+    while stack:
+        cur = stack.pop()
+        if id(cur) in seen:
+            continue
+        seen.add(id(cur))
+        if isinstance(cur, RateLimitMiddleware):
+            limiter = cur
             break
-        node = _next(node)
+        stack.extend(_children(cur))
+
+    if limiter is None:
+        # 失效方向必须是"多要一次说明",绝不能是"静默跳过"(§0.3 / §0.10)。
+        raise AssertionError(
+            "限流隔离夹具没找到 RateLimitMiddleware ⇒ 「每测试前桶为空」这条保证是假的。"
+            "要么中间件真的被摘了(那就该由主应用面解释),要么解包链又漂了"
+            "(新增的包装层用了别的持有字段名)—— 两种都得改,不许悄悄放行。"
+        )
+    limiter._buckets.clear()
     yield
 
 

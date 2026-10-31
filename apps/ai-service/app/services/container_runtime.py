@@ -328,7 +328,11 @@ class ContainerRuntime:
         run.ended_at = _now_iso()
         handle.events.put_nowait({"event": "exit", "status": run.status, "exit_code": None})
         self._get_store().complete(
-            run.run_id, status="error", output="", error=run.error,
+            run.run_id,
+            user_id=run.user_id,
+            status="error",
+            output="",
+            error=run.error,
         )
         self._persist()
         handle.done_event.set()
@@ -645,6 +649,7 @@ class ContainerRuntime:
             store_status = "done" if run.status == "done" else "error"
             self._get_store().complete(
                 run.run_id,
+                user_id=run.user_id,
                 status=store_status,
                 output=run.output,
                 error=run.error or (run.status if run.status != "done" else ""),

@@ -60,11 +60,7 @@ const videoTaskCreateBodySchema = z.object({
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
 // =============================================================================
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 // 允许的 ORDER BY 白名单（key → 安全 SQL 片段，防止 sql.raw(order) 注入）
 const ALLOWED_ORDERS: Record<string, string> = {

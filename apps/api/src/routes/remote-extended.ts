@@ -51,11 +51,7 @@ const asrSchema = z.object({
   model: z.string().max(64).optional(),
 })
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 // =============================================================================
 // 路由
@@ -133,27 +129,31 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /remote/business-card/upload - 名片上传
   // -------------------------------------------------------------------------
-  server.post('/remote/business-card/upload', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = businessCardSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, name, company, title, phone, email, rawData } = parsed.data
-    try {
-      const rows = await db.execute(
-        sql`INSERT INTO business_cards (user_id, image_url, name, company, title, phone, email, raw_data, created_at)
+  server.post(
+    '/remote/business-card/upload',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = businessCardSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { imageUrl, name, company, title, phone, email, rawData } = parsed.data
+      try {
+        const rows = await db.execute(
+          sql`INSERT INTO business_cards (user_id, image_url, name, company, title, phone, email, raw_data, created_at)
             VALUES (${request.userId!}, ${imageUrl}, ${name ?? null}, ${company ?? null},
                     ${title ?? null}, ${phone ?? null}, ${email ?? null}, ${rawData ? JSON.stringify(rawData) : null}, NOW())
             RETURNING id, image_url, name, company, title, phone, email, created_at`,
-      )
-      const row = (rows as Record<string, unknown>[])[0]
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '名片上传失败'))
-    }
-  })
+        )
+        const row = (rows as Record<string, unknown>[])[0]
+        return reply.status(201).send(success(row))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '名片上传失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // GET /remote/agent/favorites - Agent 收藏列表
@@ -262,70 +262,74 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /remote/tencent/asr - 腾讯云语音识别
   // -------------------------------------------------------------------------
-  server.post('/remote/tencent/asr', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = asrSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { audioUrl, language, model } = parsed.data
-    try {
-      // 调用腾讯云 ASR 服务（通过 ai-vendors 代理或直接调用）
-      // 此处返回识别结果占位，实际由调用方注入 TENCENT_SECRET_ID / TENCENT_SECRET_KEY
-      const tencentSecretId = process.env.TENCENT_SECRET_ID
-      const tencentSecretKey = process.env.TENCENT_SECRET_KEY
+  server.post(
+    '/remote/tencent/asr',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = asrSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { audioUrl, language, model } = parsed.data
+      try {
+        // 调用腾讯云 ASR 服务（通过 ai-vendors 代理或直接调用）
+        // 此处返回识别结果占位，实际由调用方注入 TENCENT_SECRET_ID / TENCENT_SECRET_KEY
+        const tencentSecretId = process.env.TENCENT_SECRET_ID
+        const tencentSecretKey = process.env.TENCENT_SECRET_KEY
 
-      if (!tencentSecretId || !tencentSecretKey) {
-        // 无密钥时返回 mock 数据
+        if (!tencentSecretId || !tencentSecretKey) {
+          // 无密钥时返回 mock 数据
+          return reply.send(
+            success({
+              audioUrl,
+              language: language ?? 'zh',
+              model: model ?? '16k_zh',
+              text: '',
+              status: 'no_credentials',
+              mock: true,
+              reason: '未配置腾讯云密钥（TENCENT_SECRET_ID / TENCENT_SECRET_KEY）',
+            }),
+          )
+        }
+
+        // 调用腾讯云 ASR 一句话识别 API
+        const resp = await fetch('https://asr.tencentcloudapi.com/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-TC-Action': 'SentenceRecognition',
+            'X-TC-Region': 'ap-guangzhou',
+            Authorization: `Bearer ${tencentSecretId}`,
+          },
+          body: JSON.stringify({
+            EngSerViceType: language === 'en' ? 2 : 1,
+            SourceType: 0,
+            Url: audioUrl,
+            VoiceFormat: 'wav',
+          }),
+        })
+
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '腾讯云 ASR 服务调用失败'))
+        }
+
+        const result = (await resp.json()) as Record<string, unknown>
         return reply.send(
           success({
             audioUrl,
             language: language ?? 'zh',
             model: model ?? '16k_zh',
-            text: '',
-            status: 'no_credentials',
-            mock: true,
-            reason: '未配置腾讯云密钥（TENCENT_SECRET_ID / TENCENT_SECRET_KEY）',
+            text: (result.Response as { Result?: string })?.Result ?? '',
+            raw: result,
           }),
         )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '语音识别失败'))
       }
-
-      // 调用腾讯云 ASR 一句话识别 API
-      const resp = await fetch('https://asr.tencentcloudapi.com/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-TC-Action': 'SentenceRecognition',
-          'X-TC-Region': 'ap-guangzhou',
-          Authorization: `Bearer ${tencentSecretId}`,
-        },
-        body: JSON.stringify({
-          EngSerViceType: language === 'en' ? 2 : 1,
-          SourceType: 0,
-          Url: audioUrl,
-          VoiceFormat: 'wav',
-        }),
-      })
-
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '腾讯云 ASR 服务调用失败'))
-      }
-
-      const result = (await resp.json()) as Record<string, unknown>
-      return reply.send(
-        success({
-          audioUrl,
-          language: language ?? 'zh',
-          model: model ?? '16k_zh',
-          text: (result.Response as { Result?: string })?.Result ?? '',
-          raw: result,
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '语音识别失败'))
-    }
-  })
+    },
+  )
 
   // -------------------------------------------------------------------------
   // GET /remote/withdrawal/switch - 提现开关状态

@@ -23,6 +23,20 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
+// auth 链路(2026-10-30 起)在模块层自建 IORedis 客户端(吊销名单 + 按用户限流),
+// 而这里把 REDIS_URL 指向没人监听的 6379 ⇒ 每条认证 inject 付两次重连退避(~10.2s),
+// 137 条用例根本跑不完(实测 10 分钟只走完 28 条,红是超时不是断言)。
+// 用仓内既有内存替身(先例 tests/auth-access-token-revocation.test.ts)。
+const redisState = vi.hoisted(() => ({
+  store: new Map<string, { value: string; expiresAt: number }>(),
+  calls: [] as Array<{ cmd: string; args: unknown[] }>,
+  failures: new Set<string>(),
+}))
+vi.mock('ioredis', async () => {
+  const { makeFakeRedisClass } = await import('./helpers/fake-redis.js')
+  return { default: makeFakeRedisClass(redisState) }
+})
+
 // Mock @ihui/auth：默认返回 admin（roleId=1），具体测试可覆盖
 // 同时暴露 db 写操作的 returning/where mock，便于 404 场景用 mockResolvedValueOnce 覆盖
 const {

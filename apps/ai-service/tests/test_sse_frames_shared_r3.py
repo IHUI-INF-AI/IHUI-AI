@@ -42,7 +42,15 @@ def _llm_source() -> str:
 def test_注入点只有一份实现() -> None:
     src = _llm_source()
     # llm 路由必须引用共享实现,且不得再留第二份函数体(留着就会与 core 那份漂开)
-    assert "from ..core.sse_frames import with_frame_trace_id" in src
+    # 引用形态有两种合法写法:单行 import 与括号多行 import —— 判据必须认形状,
+    # 只比字面串会把合规代码读成违规(实测 llm.py 用括号形态,本条一直在误报)。
+    references_shared = bool(
+        re.search(
+            r"from \.\.core\.sse_frames import[ \t]*\(?[^)]*\bwith_frame_trace_id\b",
+            src,
+        )
+    )
+    assert references_shared, "llm.py 未引用 core.sse_frames 的共享实现"
     assert "def _with_frame_trace_id(" not in src, "llm.py 里仍有第二份注入实现"
 
 
