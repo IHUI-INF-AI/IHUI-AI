@@ -955,6 +955,7 @@
       "aiSessions": "AI 活躍工作階段",
       "alertCount": "告警 {count}",
       "alertCountUnknown": "告警數未知",
+      "alertCountAtLeast": "告警 ≥{count}",
       "alertStateActive": "活躍",
       "alertStateSuppressed": "已抑制",
       "alertStateUnprocessed": "未處理",
@@ -1144,8 +1145,6 @@
       "visitHourlyPv": "訪問量",
       "visitHourlyUv": "訪客數",
       "panelRelayPool": "AI 號池",
-      "pv5mNow": "近5分鐘 {count} 次",
-      "firingRowsSplit": "firing {total} 列 / {names} 個告警名",
       "pv24h": "近24h 訪問量",
       "uv24h": "近24h 訪客數",
       "humanPv": "真人訪問",
@@ -9229,6 +9228,10 @@
           "title": "需要確認後才會執行",
           "action": "前往確認"
         },
+        "SCHEDULER_ERROR": {
+          "title": "排程任務調度失敗",
+          "action": "稍後重試"
+        },
         "SCHEME_REJECTED": {
           "title": "該位址不被允許存取",
           "action": "更換位址後重試"
@@ -11932,8 +11935,6 @@
       "showContent": "顯示內容",
       "stopReadAloud": "停止朗讀",
       "toggleMetadata": "切換元數據",
-      "metadataLoading": "正在載入中繼資料…",
-      "metadataUnavailable": "中繼資料暫時無法取得",
       "pin": "釘選",
       "unpin": "取消釘選",
       "bookmark": "收藏",
