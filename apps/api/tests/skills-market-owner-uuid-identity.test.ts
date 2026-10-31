@@ -56,6 +56,21 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
+// auth 链路(2026-10-30 起)会**自己 new IORedis(config.REDIS_URL)**做吊销名单与按用户限流,
+// 上面这个 6379 在本机没人监听 ⇒ 每条认证 inject 付两次重连退避(实测 ~10.2s),
+// 有 ≥2 次认证请求的用例全部撞 testTimeout —— 与业务断言无关。
+// 本文件头注早已声明"全程 mock redis",这一格就是那句承诺的兑现;
+// 出口用仓内既有替身(不 raise testTimeout、不 mock 掉 checkUserRateLimit/黑名单本身)。
+const redisState = vi.hoisted(() => ({
+  store: new Map<string, { value: string; expiresAt: number }>(),
+  calls: [] as Array<{ cmd: string; args: unknown[] }>,
+  failures: new Set<string>(),
+}))
+vi.mock('ioredis', async () => {
+  const { makeFakeRedisClass } = await import('./helpers/fake-redis.js')
+  return { default: makeFakeRedisClass(redisState) }
+})
+
 import { skillsRoutes } from '../src/routes/skills.js'
 import { verifyAccessToken } from '@ihui/auth'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'

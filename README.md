@@ -40408,3 +40408,98 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 📚 文档:切号条目口径按 2026-10-31 取证更正 + 补登统一入口与 MiniMax 回灌 (772eb33cca)
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-modal-keyboard-avoid.mjs` `check-rn-interaction-hygiene.mjs`
+对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 3607 测试文件 · 299 道工程守门 · 50 CI workflows ·
+| 数据库表 | 612 | `dbTables` |
+| schema 文件 | 237 | `dbSchemaFiles` |
+| API 路由 | 4616 | `apiRoutes` |
+| 路由文件 | 651 | `apiRouteFiles` |
+| AI 服务路由 | 613 | `aiServiceRoutes` |
+| CLI 命令文件 | 67 | `cliCommandFiles` |
+| 测试文件 | 3607 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
+| 工程守门 | 299 | `guardianGates` |
+| — blocking | 273 | `guardianBlocking` |
+| 跟踪文件 | 17728 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
+  <strong>612 张表 · 4616 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3607 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **612 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4616 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
+| **测试覆盖** | **3607 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4616 API 路由 / 3607 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+**2026-10-29**
+**2026-10-29**
+**2026-10-29**
+- 🐞 修复:底部胶囊的毛玻璃模糊半径收成单一源头 —— 两端各写一份 24 靠注释对齐 (5493867cd7)
+- 🐞 修复:消掉上一枚落地后复跑暴露的三处简体残留 —— 否则这道门就是我造的恒红门 (c306cfaa2a)
+- 🐞 修复:底部胶囊的 Android 真模糊强度调到可见档 —— 接线补齐后仍看不出模糊 (57dd6758c5)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b7f6a03017)
+- 🔧 工程/其他:把 ruff/mypy 两面存量红(19 + 4)清到 0,让号池之外的 Python 门重新有牙 (2b981bd839)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b06c8b01c7)
+**2026-10-29**
+- 🐞 修复:secure-store 存量令牌一次性迁移 —— 修复后不必重登 (1b84801d41)
+- 🐞 修复:小程序端词包补 pdfToolsPage —— 这一屏渲染得出,但它每句话都取不到词条 (59a760a603)
+- 📚 文档:自动同步缺口账本到现读口径(镜像 260 · 缺口 11) (28283deb24)
+- 🔧 工程/其他:把 apps/api/scripts 装进 typecheck 射程,并清掉这面 35 枚从未被看见的存量类型错 (1362cec462)
+**2026-10-29**
+- 🐞 修复:dev-stack 重入锁 + 重拉冷却 + pid 文件删除收紧 —— 治三条腿反复「重拉失败」 (899b685541)
+- 🐞 修复:secure-store 回潮重放 + 三屏模糊接线 + 两处 View 直挂裸文本 (ffbe506f9e)
+- 📚 文档:账本追平 —— PDF 工具台从未判定转已承载,缺口候选 10→9 (7758eabfee)
+- 🐞 修复:选中态样式键写反了 —— HEAD 面既有的类型红,不修则 RN 包谁都推不动 (bd41560d83)
+- 🐞 修复:结清 web api 壳迁移票——主体234份已在HEAD(349e116a66),末枚admin/sms/operations已迁 (9b30e5b362)
+- 🚀 新功能/改进:侧栏补 /tools/pdf 入口(重放版) (c148782a0a)
+- 🔧 工程/其他:ui-routes 产物追上 app.config(重放版) (20c2d8755e)
+- 🚀 新功能/改进:给 PDF 工具台补入口 + ui-routes 追上(重放版) (d2f1080548)
+- 🚀 新功能/改进:PDF 工具台全链落地(页 + 路由 + 入口 + 判据 + 派生) —— 重放版 (6e3584b69f)
+- 🚀 新功能/改进:web 侧栏补 nav.pdfTools 五语言(重放:上一版被并发 ref 移动挪出 main) (2315183140)
+- 🐞 修复:智汇AI 首页收口 —— 同数据源堆叠与随之失效的死码一并清掉 (55c75ae60b)
+- 🐞 修复:侧栏滚动淡出遮罩双层错修复 —— 它从来没显示过 (e3daebc7f6)
+- ♻️ 重构:收尾最后一枚 api<T> 委托壳 —— admin/sms/operations 迁 apiOrThrow(web 本地 api<T> 声明归零) (7ac88bb579)
+- 🚀 新功能/改进:僵尸弹窗与撤销轮次两键五语言词包 (e13b707b2b)
+- 🐞 修复:/chat/abort 清除 conversation.metadata.pendingQuestion (5c1bbb7c02)
+- 🐞 修复:补 memory.refresh 三方 parity 漂移 + 承接上一枚提交信息事故说明 (79d4713885)
+- 🔧 工程/其他:-- (bf5355699b)
+- 🐞 修复:后端工具名单从前端真相源派生 —— 消除第二把尺子与存量漏计 (a06099ba76)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (15eaa6f61c)
+- 🚀 新功能/改进:落 RP 族 RP-1 首行 —— 26 枚「未取号」票的迁移与文案改正线 (c842abf2b7)
+**2026-10-29**
+- 🐞 修复:账本生成器补上"写盘后紧随注入"这条腿 —— 并把被我自己洗掉的载荷落回去 (e7bd406d8b)
+- 🐞 修复:账本生成器补上"写盘后紧随注入"这条腿 —— 并把被我自己洗掉的载荷落回去 (1414862c10)
+- 📚 文档:清偿 13c 归档器的文档↔代码脱节(4 文档 44 行)——文档在号召恢复退役件,这才是回潮的驱动力 (40c9ab3e53)
+- 🐞 修复:补齐守门 52 存量 22 处 visible-spawn 缺 windowsHide —— 11 个文件全纯追加(零行为变更) (7c624aa224)
+- 🔧 工程/其他:recover docked-browser panel wiring + cross-panel revealAt/CodeEditorHandle + ticket-60 pane chat-store addressing (d801061d98)
+- 🐞 修复:回灌腿补归属闸、任务中心断链修复,并把 WorkBuddy 第三条腿真正装车 (c3d5b63ca5)
+- 🐞 修复:secure-store 探测改同步取模块 —— dev bundle 的 lazy chunk 404 让刷新令牌永远落不了盘 (87a16d748a)
+- 🐞 修复:给守门 26 的存量开一条排水口——清扫器新增具名族 parent-pollution-strays(判据 import 门体,不抄第二份) (c86f69d8e1)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e0acf77c41)
+- 🐞 修复:「我的」页菜单去掉重复的收藏入口 + 三组同屏撞名文案区分 (3dc363cd82)
+- 🚀 新功能/改进:工具摘要三档维度五语言词包(directories/edits/terminalCommands) (1dfe9bb132)
+- 🚀 新功能/改进:活动级几何虚拟化 + 工具摘要三档维度补齐 (80d97436e2)
+- 🚀 新功能/改进:轮次呈现投影层建立并装车 —— 消灭「造好没装车」 (1f3e7bd27b)
+- 🐞 修复:「我的」页菜单去掉重复的收藏入口 + 三组同屏撞名文案区分 (3dc363cd82)
+- 🚀 新功能/改进:工具摘要三档维度五语言词包(directories/edits/terminalCommands) (1dfe9bb132)
+- 🚀 新功能/改进:活动级几何虚拟化 + 工具摘要三档维度补齐 (80d97436e2)
+- 🚀 新功能/改进:轮次呈现投影层建立并装车 —— 消灭「造好没装车」 (1f3e7bd27b)
+- 🐞 修复:「我的」页菜单「会员中心」撞名 + 抽屉键错位 + 底部条目被淡出遮罩压暗 (3ac7b5859b)
+- 🐞 修复:增强跨端无硬边淡出遮罩强度 (dd34b4bbfa)
+- 🐞 修复:屏幕侧配对前景键词序写反 —— filterChip/chip/tab 三键按样式工厂约定回正 (876c4cb418)
+- 🚀 新功能/改进:D05设计稿落地现状对齐 + 清偿器补守门130落地前自查(F4/F4b/F9三维,g30 s9/s2) (316beddb12)
+- 🔧 工程/其他:登记会话导出件族豁免 —— 门 47 缺口归零 (599baad8fa)
+- 🐞 修复:补回富文本锚点 link 族的 <a href> 渲染 —— 事故提交 9fdbc207ba 把 renderLink 当残留删掉导致 role=link 全失效 (8fa512f9bb)
+- 🐞 修复:修复 spacing 受管块压塌全站 max-w 命名档 —— AI 面板 32px 塌缩回归 (4394b6b490)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (20dc73c828)
+- 🔧 工程/其他:goal-b25 结清四票并补 G-07 进展注记 —— 门8未判定桶/F9判据/基线差值矛盾/滞台副本末枚 (427938a586)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3355d2fb25)
+- 🐞 修复:智汇AI 首页移除与 AI 应用商店重复的四块内容 (f571b65018)
+- 🐞 修复:结清 L28260 api-client 假绿灯票——判死现读 0,清账链 bd5ce8a101 已在 HEAD (a781529720)
+- 🐞 修复:部署环 ff 竞态锁正则跟上实现演进 + 门 11h 评分星补实心填充 + 水印复注 (2c6838d169)
+- 🐞 修复:结清三票(G-109四格全闭合/G-924死键已清零/G-689 stderr尾缓冲已装车) (5d9d115a2f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3e240a1407)
+- 🐞 修复:结清两枚前提腐烂票(dot-source传递闭包3d31e4c499已装车/六屏下沉411646ee58等已全量) (13c1bdaec1)
+- 🐞 修复:结清 L5646 门116型B行——前提已腐烂(该文件裸git派生实测0,清偿枚949195bcb5早已是祖先) (b8ede2328e)
+| 测试文件 | 3694 | `testFiles` |
+| 工程守门 | 305 | `guardianGates` |
+| — blocking | 279 | `guardianBlocking` |
+| 跟踪文件 | 18165 | `trackedFiles` |
+| 测试文件 | 3701 | `testFiles` |
+| 跟踪文件 | 18200 | `trackedFiles` |

@@ -161,10 +161,12 @@ catalog:
 # pnpm 11 不再读取 package.json 的 pnpm 字段,overrides/peerDependencyRules
 # 必须迁移到 pnpm-workspace.yaml(https://pnpm.io/settings)
 
-# minimumReleaseAge:pnpm 11 默认启用供应链策略(拒绝发布<24h 的包)。
-# 项目 2026-08-03 从 pnpm 9 升级到 11,此策略会阻止 fastify 5.11.2 等新发布包。
-# 显式设 0 禁用,恢复 pnpm 9 安全级别(项目已有 onlyBuiltDependencies 白名单兜底)。
-minimumReleaseAge: 0
+# minimumReleaseAge:pnpm 11 的供应链策略 —— 拒绝安装"发布不足 N 分钟"的包,
+# 用来挡住投毒包在被人发现的窗口期(新包刚发布就被装进来的那一类)。
+# 2026-08-03 从 pnpm 9 升 11 时为了放行 fastify 5.11.2 设成 0(等于关掉);
+# 现读 lock 里是 fastify 5.12.7(apps/api/package.json ^5.12.7),当时的理由已过期 ⇒ 恢复 24h。
+# 确实需要当天上线的新包,用 minimumReleaseAgeExclude 显式点名放行,不要整体关回 0。
+minimumReleaseAge: 1440
 
 # 原 package.json pnpm.overrides 迁移至此:
 overrides:

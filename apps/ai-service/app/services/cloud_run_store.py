@@ -200,15 +200,18 @@ class CloudRunStore:
         self,
         run_id: str,
         *,
+        user_id: str,
         status: str = "done",
         output: str = "",
         error: str = "",
     ) -> CloudRun | None:
-        """结束一次运行(更新状态/最终输出/结束时间)。幂等;记录不存在则忽略。"""
+        """结束一次运行(更新状态/最终输出/结束时间)。幂等;记录不存在**或不属于该
+        user_id** 都返回 None —— 两者同形,调用方一律 404,不得从差异里枚举他人 run_id。
+        user_id 无默认值:归属型写入必须显式说清"以谁的身份",漏传编译期即失败(§5)。"""
         with self._lock:
             self._load()
             run = self._runs.get(run_id)
-            if run is None:
+            if run is None or run.user_id != user_id:
                 return None
             run.status = status if status in ("done", "error") else "done"
             if output:
@@ -221,24 +224,28 @@ class CloudRunStore:
 
     # ---------------- 读取 ----------------
 
-    def get(self, run_id: str) -> CloudRun | None:
-        """按 run_id 取单条记录(深拷贝返回,避免调用方污染内部)。"""
+    def get(self, run_id: str, *, user_id: str) -> CloudRun | None:
+        """按 run_id 取单条记录(深拷贝返回,避免调用方污染内部)。
+        只返回属于 user_id 的那条;不是本人的一律 None(与"不存在"同形,防枚举)。"""
         with self._lock:
             self._load()
             run = self._runs.get(run_id)
-            return CloudRun(**asdict(run)) if run else None
+            if run is None or run.user_id != user_id:
+                return None
+            return CloudRun(**asdict(run))
 
     def list(
         self,
         *,
+        user_id: str,
         page: int = 1,
         page_size: int = 20,
         status: str | None = None,
     ) -> dict[str, Any]:
-        """列出运行记录(新→旧分页,可选 status 过滤)。"""
+        """列出**该 user_id 的**运行记录(新→旧分页,可选 status 过滤)。"""
         with self._lock:
             self._load()
-            items = list(self._runs.values())
+            items = [r for r in self._runs.values() if r.user_id == user_id]
         if status:
             items = [r for r in items if r.status == status]
         items.sort(key=lambda r: r.started_at, reverse=True)

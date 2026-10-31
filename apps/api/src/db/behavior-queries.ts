@@ -119,12 +119,10 @@ export async function findWatchList(
 }
 
 /**
- * 删除浏览记录。可选传入 userId 校验归属。返回是否删除。
+ * 删除浏览记录。userId 必填 ⇒ 归属条件结构上不可能被漏带(返回是否删除)。
  */
-export async function deleteWatch(id: string, userId?: string): Promise<boolean> {
-  const where = userId
-    ? and(eq(behaviorWatchRecords.id, id), eq(behaviorWatchRecords.userId, userId))
-    : eq(behaviorWatchRecords.id, id)
+export async function deleteWatch(id: string, userId: string): Promise<boolean> {
+  const where = and(eq(behaviorWatchRecords.id, id), eq(behaviorWatchRecords.userId, userId))
   const rows = await db.delete(behaviorWatchRecords).where(where).returning()
   return rows.length > 0
 }

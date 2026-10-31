@@ -16,11 +16,7 @@ const idParamSchema = z.object({ id: z.string().min(1) })
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
 // =============================================================================
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 // 允许访问的表名白名单（防止 sql.raw 拼接 table 参数时引入注入风险）
 const ALLOWED_TABLES = new Set(['zhs_category_dictionary'])

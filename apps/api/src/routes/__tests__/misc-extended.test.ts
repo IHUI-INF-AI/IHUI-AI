@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type * as dns from 'node:dns'
+import type * as dnsPromises from 'node:dns/promises'
 // 鉴权 mock 辅助(2026-09-09 第九轮安全修复后,/remote/proxy 等路由收权为 admin)。
 // 注意:必须内联,勿 import tests/helpers/mock-auth —— 该文件在 tsconfig rootDir(src)外,
 // tsc 顺藤摸瓜报 TS6059,级联 typecheck/build/Docker/e2e 全挂(2026-09-10 CI 实证)。
@@ -56,6 +57,21 @@ vi.mock('node:dns', async () => {
       ...actual.promises,
       lookup: vi.fn().mockImplementation(async () => [{ address: '8.8.8.8', family: 4 }]),
     },
+  }
+})
+
+// utils/ssrf-guard.ts 用的是子模块说明符 `node:dns/promises`(直接 import { lookup }),
+// 上面那条 mock 覆盖不到它 ⇒ 本用例此前会走真 DNS。两侧都必须钉成公网 IP,
+// 否则"unreachable.example.com 解析失败"会被守卫判成 unsafe 提前 400,量不到 502 那一档。
+vi.mock('node:dns/promises', async () => {
+  const actual = await vi.importActual<typeof dnsPromises>('node:dns/promises')
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      lookup: vi.fn().mockImplementation(async () => [{ address: '8.8.8.8', family: 4 }]),
+    },
+    lookup: vi.fn().mockImplementation(async () => [{ address: '8.8.8.8', family: 4 }]),
   }
 })
 
@@ -144,6 +160,46 @@ describe('Misc Extended API — POST /remote/proxy', () => {
       'https://example.com/api',
       expect.objectContaining({ method: 'GET' }),
     )
+  })
+
+  // 本路由自带的一套 isPrivateIPv4 缺下面这些族(收口到 utils/ssrf-guard.ts 之前实测可穿透)。
+  // 摘掉路由里对 assertSafeFetchUrl / safeFetch 的调用,这三条即翻红 —— 本票的变异自证。
+  it.each([
+    ['CGNAT 100.64.0.0/10', 'http://100.64.0.1/latest/meta-data'],
+    ['组播 224.0.0.0/4', 'http://224.0.0.1/latest/meta-data'],
+    ['v4-mapped IPv6 内嵌回环', 'http://[::ffff:127.0.0.1]:8080/'],
+  ])('SSRF 判据补齐族:%s 直接 400 且一次都不出站', async (_label, url) => {
+    global.fetch = vi.fn() as unknown as typeof fetch
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/remote/proxy',
+      payload: { url, method: 'GET' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().message).toContain('SSRF')
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('重定向落点复检:302 指向元数据地址时,内网那跳绝不被请求', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (u: string) =>
+        String(u).startsWith('https://redirects.example.com')
+          ? new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/' } })
+          : new Response('SHOULD NOT BE REACHED', { status: 200 }),
+      )
+    global.fetch = fetchMock as unknown as typeof fetch
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/remote/proxy',
+      payload: { url: 'https://redirects.example.com/api', method: 'GET' },
+    })
+    const urlsCalled = fetchMock.mock.calls.map((c) => String(c[0]))
+    // 关键断言:副作用没发生 —— 元数据地址一次都没被请求(§5 认证不等于授权同一条纪律)
+    expect(urlsCalled.some((u) => u.includes('169.254.169.254'))).toBe(false)
+    // 正向对照:首跳确实发出去了(不是"整条路由没跑")
+    expect(urlsCalled.some((u) => u.includes('redirects.example.com'))).toBe(true)
+    expect(res.statusCode).toBe(502)
   })
 
   it('无 body 参数返回 400 参数错误', async () => {

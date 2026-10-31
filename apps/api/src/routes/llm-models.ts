@@ -58,10 +58,13 @@ const SPECIAL_UUIDS = (process.env.SPECIAL_UUIDS || '')
   .map((s) => s.trim())
   .filter(Boolean)
 
-/** 从请求中读取用户 UUID(已通过 authenticate 注入) */
+/**
+ * 从请求中读取用户 UUID。
+ * 身份的唯一写入点是 plugins/auth.ts 的 authenticate()（`request.userId`）；
+ * 旧实现读 `request.user`，那个字段本仓无人赋值，于是恒返空串。
+ */
 function getUserUuid(request: FastifyRequest): string {
-  const user = (request as FastifyRequest & { user?: { id?: string; sub?: string } }).user
-  return user?.id ?? user?.sub ?? ''
+  return request.userId ?? ''
 }
 
 /** 从请求头读取课程平台标识(用于 COURSE-PLATFORM=wechat 过滤) */
@@ -278,8 +281,10 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
     // 以下全部是本仓自己的逻辑:任何异常都是本仓缺陷,交全局 errorHandler 记 500 INTERNAL_ERROR,
     // 不再像旧实现那样盖成 502 "AI service unavailable"(B67:别把本仓缺陷记到上游账上)。
     // 2026-08-05 安全红线:非系统内置管理员过滤受限模型(真实付费 key 模型)
+    // 2026-10-31 补:判定改为 fail-closed —— 身份取不到时同样过滤。
+    // 原写法 `if (userUuid && ...)` 让"身份缺失"落到不过滤分支,等于把受限清单发给任何人。
     const userUuid = getUserUuid(request)
-    if (userUuid && !(await isSystemAdminUser(userUuid))) {
+    if (!userUuid || !(await isSystemAdminUser(userUuid))) {
       const raw = data as { models?: Array<{ id?: string }> }
       if (Array.isArray(raw.models)) {
         raw.models = raw.models.filter((m) => !m.id || !isRestrictedModel(m.id))

@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { notFound } from 'next/navigation'
+
 // D 盘历史路径兼容:通用 provider 别名路由
 // 将 dt/wx/wechat/feishu/lark/github/google/apple/alipay 等别名映射到 /sso/auth?platform=<canonical>
 // output:'export' 模式:generateStaticParams 预生成已知别名,服务端组件渲染静态 HTML + 内联 JS 重定向
@@ -28,7 +30,10 @@ interface PageProps {
 
 export default async function SsoProviderCompatPage({ params }: PageProps) {
   const { provider } = await params
-  const canonical = PROVIDER_ALIASES[provider] || provider
+  // 别名必须逐字命中常量表。原先的 `|| provider` 把 URL 路径段原样插进下面那段内联脚本:
+  // `%27` 解码后即可闭合字符串往页面里注入 JS(公开缓存分支的 script-src 含 'unsafe-inline')。
+  const canonical = PROVIDER_ALIASES[provider]
+  if (!canonical) notFound()
   return (
     <>
       <script

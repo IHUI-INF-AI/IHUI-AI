@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * D166 链接预览探测路由(2026-09-30 立,承 V4 §9.4③)。
  *
@@ -69,40 +68,9 @@ export interface UrlPreviewProbeOptions {
 // SSRF 防护(口径对齐 embed-proxy:数值化 IP 判定 + 解析级复检,fail-closed)
 // ─────────────────────────────────────────────────────────────
 
-function isPrivateIPv4(ip: string): boolean {
-  // 只接受两种可无歧义还原的形式,其余一律 fail-closed(混合进制绕过直接拒绝)。
-  let parts: number[]
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
-    parts = ip.split('.').map(Number)
-  } else if (/^(0[xX][0-9a-fA-F]+|\d+)$/.test(ip)) {
-    const n = Number(ip)
-    if (!Number.isInteger(n) || n < 0 || n > 0xffffffff) return true
-    parts = [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]
-  } else {
-    return true
-  }
-  if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true
-  const [a = -1, b = -1] = parts
-  if (a === 0 || a === 10 || a === 127) return true
-  if (a === 169 && b === 254) return true
-  if (a === 172 && b >= 16 && b <= 31) return true
-  if (a === 192 && b === 168) return true
-  if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
-  if (a >= 224) return true // 组播/保留
-  return false
-}
+import { isPrivateIPv4Literal as isPrivateIPv4 } from '../utils/ssrf-guard.js'
 
-function isPrivateIPv6(ip: string): boolean {
-  const v = ip.toLowerCase()
-  if (v === '::' || v === '::1') return true
-  const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapped?.[1]) return isPrivateIPv4(mapped[1])
-  if (v.startsWith('::ffff:')) return true // mapped 但非点分 → 一律禁止
-  if (v.startsWith('fe80:') || v.startsWith('fc') || v.startsWith('fd')) return true
-  if (v.startsWith('ff')) return true // 组播
-  if (v.startsWith('64:ff9b:') || v.startsWith('100::')) return true // NAT64 / 保留
-  return false
-}
+import { isPrivateIPv6Literal as isPrivateIPv6 } from '../utils/ssrf-guard.js'
 
 function isForbiddenHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
@@ -158,7 +126,10 @@ function extractTitle(html: string): string | undefined {
   return raw.length > 0 ? raw : undefined
 }
 
-function extractMetaContent(html: string, key: 'description' | 'og:description'): string | undefined {
+function extractMetaContent(
+  html: string,
+  key: 'description' | 'og:description',
+): string | undefined {
   const patterns = [
     new RegExp(
       `<meta[^>]+(?:name|property)=["']${key}["'][^>]*content=["']([^"']{0,300})["']`,

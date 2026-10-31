@@ -107,6 +107,8 @@ const requireEduView: (request: FastifyRequest, reply: FastifyReply) => Promise<
 // =============================================================================
 
 const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+/** `:childId` 形态的同一把形状闸(与 uuidParamSchema 同判据,只换键名)。 */
+const childIdParamSchema = z.object({ childId: z.string().uuid('无效的 childId') })
 
 // =============================================================================
 // 1. 学期管理 (edu_term)
@@ -2966,12 +2968,18 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
    * 3. 只读:家长侧不得经本端点写缴费(缴费是机构动作,走 POST /payment-record 且需 edu:manage)。
    */
   server.get('/parent/children/:childId/bills', async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
-    const idParsed = uuidParamSchema.safeParse(request.params)
+    // 承载层出口(§5):此前这里是端点手写的 `if (!request.userId) 401`,而该端点
+    // 自身没有任何 preHandler ⇒ request.userId 恒空、每条请求都是 401「未登录」,
+    // 且身份来源不可变(内部服务通道永远进不来)。与同文件 5578 那处同形归位。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
+    // 参数名是 childId,不是 id:此前套用只认 `id` 键的那把形状闸 ⇒ 每条请求都
+    // 400 "expected string, received undefined",整个端点在生产上从未成功过一次。
+    const idParsed = childIdParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const childId = idParsed.data.id
+    const childId = idParsed.data.childId
 
     const [bound] = await db
       .select({ id: eduParentStudentBinding.id })
