@@ -10,17 +10,18 @@
 // 与 status: firing|suppressed|resolved(前端旧表自造 open|resolved|ignored),
 // `LEVEL_STYLE[e.level]` / `STATUS_STYLE[e.status]` 拿到 undefined 再取 .bg ⇒ ≥1 行即崩表;
 // 且客户端筛选拿恒 undefined 的 e.level 比较 ⇒ 任何非 all 筛选恒空。
-// 词表合法值只认 packages/types/src/monitor-vocabulary.ts 的 canonical 声明(§0.6 单一真相源)。
+// 词表合法值与展示元数据的唯一真相源 = `@/lib/admin/monitor-alert-vocabulary`
+// (它从 packages/types/src/monitor-vocabulary.ts 的 canonical 派生,§0.6)。
+// 词表外的脏值(库列是裸 varchar 无 CHECK)显式「未判定」:不崩表,也不冒充任何已知档。
 import * as React from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const fetchApiMock = vi.hoisted(() => vi.fn())
-const apiOrThrowMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/api', () => {
-  return { fetchApi: fetchApiMock, apiOrThrow: apiOrThrowMock }
+  return { fetchApi: fetchApiMock, apiOrThrow: vi.fn() }
 })
 
 vi.mock('next-intl', () => ({
@@ -70,7 +71,7 @@ const ALERT_ROWS = [
     resolvedAt: '2026-10-29T09:00:00.000Z',
     createdAt: '2026-10-29T08:00:00.000Z',
   },
-  // 库里 severity/status 是裸 varchar(无 CHECK):未知值必须走兜底显示裸值,不得崩
+  // 库里 severity/status 是裸 varchar(无 CHECK):未知值必须显式「未判定」,不得崩
   {
     id: 'a4',
     name: 'weird-alert',
@@ -84,13 +85,20 @@ const ALERT_ROWS = [
   },
 ]
 
+/** 后端按 severity/status 真过滤(不是前端过滤,也不是空转的假筛选)。 */
 function stubApi() {
   fetchApiMock.mockImplementation(async (url: string) => {
     if (url.endsWith('/stats')) {
       return { success: true, data: { total: 4, today: 2, critical: 1, resolved: 1 } }
     }
+    const u = new URL(url, 'http://localhost')
+    const severity = u.searchParams.get('severity')
+    const status = u.searchParams.get('status')
+    const list = ALERT_ROWS.filter(
+      (r) => (!severity || r.severity === severity) && (!status || r.status === status),
+    )
     // 后端信封是 success({ list, page, pageSize }),不是裸数组
-    return { success: true, data: { list: ALERT_ROWS, page: 1, pageSize: 20 } }
+    return { success: true, data: { list, page: 1, pageSize: 20 } }
   })
 }
 
@@ -112,6 +120,12 @@ async function renderLoaded() {
   return view
 }
 
+function tbodyOf(view: { container: HTMLElement }) {
+  const tbody = view.container.querySelector('tbody')
+  expect(tbody).toBeTruthy()
+  return within(tbody as HTMLElement)
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -127,56 +141,62 @@ describe('/admin/error-dashboard 真列名契约', () => {
     }
   })
 
-  it('状态/严重度按 canonical 词表渲染文案(firing|suppressed|resolved + info|warning|critical)', async () => {
+  it('状态/严重度按 canonical 词表渲染中文文案(info/warning/critical + firing/suppressed/resolved)', async () => {
     const view = await renderLoaded()
     // 徽章文案与下拉选项同名(都出自同一 canonical 词表)⇒ 断言范围收到表格体内
-    const tbody = view.container.querySelector('tbody')
-    expect(tbody).toBeTruthy()
-    const rows = within(tbody as HTMLElement)
-    expect(rows.getByText('Critical')).toBeTruthy()
-    expect(rows.getByText('Firing')).toBeTruthy()
-    expect(rows.getByText('Warning')).toBeTruthy()
-    expect(rows.getByText('Suppressed')).toBeTruthy()
-    expect(rows.getByText('Info')).toBeTruthy()
-    expect(rows.getByText('Resolved')).toBeTruthy()
+    const rows = tbodyOf(view)
+    expect(rows.getByText('严重')).toBeTruthy()
+    expect(rows.getByText('触发中')).toBeTruthy()
+    expect(rows.getByText('警告')).toBeTruthy()
+    expect(rows.getByText('已抑制')).toBeTruthy()
+    expect(rows.getByText('信息')).toBeTruthy()
+    expect(rows.getByText('已恢复')).toBeTruthy()
   })
 
-  it('message=null 与 firedAt=null 走显式 —,不渲染 undefined/null 字样', async () => {
-    await renderLoaded()
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2)
+  it('message=null 与 firedAt=null 走显式占位,不渲染 undefined/null 字样', async () => {
+    const view = await renderLoaded()
+    expect(tbodyOf(view).getAllByText('-').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText(/undefined/)).toBeNull()
     expect(screen.queryByText('null')).toBeNull()
   })
 
-  it('筛选按真列名 severity 生效:选 Critical 只剩 api-5xx-rate;选 Suppressed 只剩 redis-latency', async () => {
+  it('筛选按真列名 severity/status 走到服务端查询,只回该档行', async () => {
     await renderLoaded()
     const [sevSelect, statusSelect] = screen.getAllByRole('combobox')
-    expect(sevSelect).toBeTruthy()
-    expect(statusSelect).toBeTruthy()
 
     fireEvent.change(sevSelect, { target: { value: 'critical' } })
-    await waitFor(() => expect(screen.queryByText('redis-latency')).toBeNull())
-    expect(screen.getByText('api-5xx-rate')).toBeTruthy()
+    // 切筛选会先清空表格再回填 ⇒ 等到目标行真的出现,别在空窗期断言
+    await waitFor(() => expect(screen.getByText('api-5xx-rate')).toBeTruthy())
+    expect(screen.queryByText('redis-latency')).toBeNull()
+    expect(
+      fetchApiMock.mock.calls.some(([url]) => String(url).includes('/errors?severity=critical')),
+    ).toBe(true)
 
     fireEvent.change(sevSelect, { target: { value: 'all' } })
     await waitFor(() => expect(screen.getByText('redis-latency')).toBeTruthy())
 
     fireEvent.change(statusSelect, { target: { value: 'suppressed' } })
-    await waitFor(() => expect(screen.queryByText('api-5xx-rate')).toBeNull())
-    expect(screen.getByText('redis-latency')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('redis-latency')).toBeTruthy())
+    expect(screen.queryByText('api-5xx-rate')).toBeNull()
+    expect(fetchApiMock.mock.calls.some(([url]) => String(url).includes('status=suppressed'))).toBe(
+      true,
+    )
   })
 
-  it('未知枚举值走兜底裸值(urgent/paused 原样显示),不折成已知档也不崩', async () => {
-    await renderLoaded()
-    expect(screen.getByText('urgent')).toBeTruthy()
-    expect(screen.getByText('paused')).toBeTruthy()
+  it('词表外的值(severity=urgent / status=paused)显式「未判定」,不渲染裸值也不冒充已知档', async () => {
+    const view = await renderLoaded()
+    const rows = tbodyOf(view)
+    // 同一行两格(严重度 + 状态)都落「未判定」
+    expect(rows.getAllByText('未判定').length).toBe(2)
+    expect(rows.queryByText('urgent')).toBeNull()
+    expect(rows.queryByText('paused')).toBeNull()
   })
 
   it('筛选下拉的选项值只来自 canonical 词表(页面内不得再写一份合法值数组)', async () => {
     await renderLoaded()
     const [sevSelect, statusSelect] = screen.getAllByRole('combobox')
-    const sevValues = Array.from(sevSelect.options).map((o) => o.value)
-    const statusValues = Array.from(statusSelect.options).map((o) => o.value)
+    const sevValues = Array.from((sevSelect as HTMLSelectElement).options).map((o) => o.value)
+    const statusValues = Array.from((statusSelect as HTMLSelectElement).options).map((o) => o.value)
     expect(sevValues).toEqual(['all', 'info', 'warning', 'critical'])
     expect(statusValues).toEqual(['all', 'firing', 'suppressed', 'resolved'])
   })
