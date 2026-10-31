@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     sectionAction: { fontSize: rnType.caption.size, color: tk.brandAccent.deep },
     orderRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    orderMain: { flex: 1, gap: 2 },
+    orderMain: { flex: 1, gap: rnSpacing['2xs'] },
     orderTitle: { fontSize: rnType.body.size, color: tk.text.primary },
     orderMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     orderAmount: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },

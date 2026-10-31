@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamItem, ExamScreenProps, ExamStatus } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -166,17 +166,22 @@ export function ExamScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    toastText: { paddingHorizontal: 10, paddingVertical: 4, fontSize: 14, color: tk.brand.DEFAULT },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    toastText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
+      fontSize: 14,
+      color: tk.brand.DEFAULT,
+    },
     errorText: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
       fontSize: 14,
       color: tk.danger.DEFAULT,
     },
-    listBody: { padding: 14, paddingBottom: 32 },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 10 },
     card: {
       padding: 14,
@@ -189,23 +194,32 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     cardTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: tk.text.primary },
     statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     statusText: { fontSize: 11 },
-    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    metaWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    metaWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.md,
+      marginTop: rnSpacing.sm,
+    },
     metaText: { fontSize: 14, color: tk.text.secondary },
-    actionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
+    actionRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginTop: rnSpacing['sm-loose'],
+    },
     startBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

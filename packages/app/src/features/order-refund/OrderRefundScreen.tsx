@@ -188,7 +188,7 @@ export function OrderRefundScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.display.size,
@@ -196,13 +196,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    errorWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm },
+    errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    successWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm },
+    successWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
     outlineBtn: {
       marginTop: rnSpacing.sm,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,

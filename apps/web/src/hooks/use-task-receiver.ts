@@ -171,6 +171,11 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     }
 
     void register()
+    // 起新之前先停旧:句柄被覆盖会使旧心跳 interval 永不回收(重复注册叠加)
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current)
+      heartbeatRef.current = null
+    }
     heartbeatRef.current = setInterval(() => {
       void register()
     }, HEARTBEAT_INTERVAL_MS)

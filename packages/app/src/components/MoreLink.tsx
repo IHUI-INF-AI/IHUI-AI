@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: GAP,
     paddingVertical: rnSpacing.xs,
-    paddingHorizontal: 2,
+    paddingHorizontal: rnSpacing['2xs'],
   },
   pressed: {
     opacity: 0.6,

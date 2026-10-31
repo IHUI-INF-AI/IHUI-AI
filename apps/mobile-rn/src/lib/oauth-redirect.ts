@@ -59,9 +59,30 @@ const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID
 const ALIPAY_APP_ID = process.env.EXPO_PUBLIC_ALIPAY_APP_ID
 const DINGTALK_CLIENT_ID = process.env.EXPO_PUBLIC_DINGTALK_CLIENT_ID
 
-/** 生成随机 state(防 CSRF,16 位 base36) */
+/** 生成随机 state(防 CSRF,16 位 base36)。
+ *  2026-10-31 第 18 批 F1 注:state 的 CSRF 防护主闸已改为「设备本地 pending
+ *  绑定校验」(见 OAUTH_PENDING_STATE_KEY)—— 等值比较在受害者设备本地完成,
+ *  攻击者无法伪造其 pending 值,校验正确性不依赖 state 熵;CSPRNG(需引入
+ *  expo-crypto)降级为纵深,不在本批引新依赖。 */
 function generateState(): string {
   return Math.random().toString(36).slice(2, 18)
+}
+
+/** deep-link 旁路用的 pending state 存储键与拒绝哨兵(导出给 oauth-deeplink 消费) */
+export const OAUTH_PENDING_STATE_KEY = 'oauth_pending_state'
+export const OAUTH_STATE_DENIED_SENTINEL = '__oauth_state_binding_unavailable__'
+
+/** 读取并清除 pending state(deep-link 旁路专用:一次性消费) */
+export async function consumePendingOAuthState(): Promise<string | null> {
+  try {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
+    const pending = await AsyncStorage.getItem(OAUTH_PENDING_STATE_KEY)
+    await AsyncStorage.removeItem(OAUTH_PENDING_STATE_KEY)
+    if (!pending || pending === OAUTH_STATE_DENIED_SENTINEL) return null
+    return pending
+  } catch {
+    return null
+  }
 }
 
 /** 从回调 URL 解析 code 和 state(支持 query string)。
@@ -129,6 +150,24 @@ export async function openOAuthAndLogin(
   const urlWithState = authUrl.includes('state=')
     ? authUrl
     : `${authUrl}${separator}state=${encodeURIComponent(state)}`
+
+  // 2026-10-31 安全强化第 18 批(F1):state 持久化到设备本地 —— deep-link 旁路
+  // (oauth-deeplink.ts)在系统把 ihui://oauth/callback 转给 App 时没有本函数的
+  // 进程内 state 可比对,此前直接透传后端 = 登录 CSRF/会话固定(攻击者自跑
+  // OAuth 得 code+state,诱导受害者 App 收到同 URL 即换出攻击者账号)。
+  // 持久化后旁路 handler 以「本地 pending state」为唯一信任锚做等值校验。
+  try {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
+    await AsyncStorage.setItem(OAUTH_PENDING_STATE_KEY, state)
+  } catch {
+    // 持久化失败 ⇒ 旁路无法校验 ⇒ 置空哨兵让旁路拒绝(宁拒勿放)
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
+      await AsyncStorage.setItem(OAUTH_PENDING_STATE_KEY, OAUTH_STATE_DENIED_SENTINEL)
+    } catch {
+      /* 双重失败极罕见;旁路侧读不到 pending 同样按拒绝处理 */
+    }
+  }
 
   // 协议同意必须先于授权会话落地:服务端回调侧没有补记录的窗口
   if (opts?.consentPlatform) {

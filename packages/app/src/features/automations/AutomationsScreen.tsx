@@ -268,7 +268,7 @@ function createStyles(tk: RnThemeTokens) {
       },
       badge: {
         paddingHorizontal: rnSpacing.sm,
-        paddingVertical: 2,
+        paddingVertical: rnSpacing['2xs'],
         borderRadius: rnRadius.md,
         marginLeft: rnSpacing.sm,
       },

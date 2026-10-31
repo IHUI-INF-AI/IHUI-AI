@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     width: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
+    marginRight: rnSpacing['xs-loose'],
   },
   rankBadge: {
     width: 24,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   rankChange: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   },
   rankChangeIcon: {
     width: 10,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 44,
     borderRadius: rnRadius.xl,
-    marginHorizontal: 10,
+    marginHorizontal: rnSpacing['sm-loose'],
   },
   avatarPlaceholder: {
     backgroundColor: tokens.border.light,
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   company: {
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   },
   attentionCol: {
     alignItems: 'center',
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   attentionLabel: {
     fontSize: rnType.caption.size,
     color: tokens.text.secondary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   },
   valueWrap: {
     flexDirection: 'row',
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    marginLeft: 2,
+    marginLeft: rnSpacing['2xs'],
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

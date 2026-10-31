@@ -377,8 +377,8 @@ export default function KnowledgeRagManageScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
-  header: { gap: 10, paddingBottom: 2 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
+  header: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },
   subtitle: { fontSize: 13, color: tokens.text.secondary },
   input: {
     height: 42,
@@ -416,8 +416,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rnSpacing.xs,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     padding: rnSpacing.lg,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   cardChecked: { borderColor: tokens.brandAccent.deep },
-  checkHit: { paddingVertical: 2 },
+  checkHit: { paddingVertical: rnSpacing['2xs'] },
   checkbox: {
     width: 20,
     height: 20,
@@ -482,8 +482,8 @@ const styles = StyleSheet.create({
   badge: {
     fontSize: rnType.caption.size,
     color: tokens.text.secondary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['2xs'],
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },

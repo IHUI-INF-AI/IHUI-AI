@@ -337,7 +337,7 @@ export default function LearnReviewScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: {
     alignItems: 'center',
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
   },
-  statCell: { flex: 1, alignItems: 'center', gap: 2 },
+  statCell: { flex: 1, alignItems: 'center', gap: rnSpacing['2xs'] },
   statLabel: { fontSize: 10, color: tokens.text.tertiary, textAlign: 'center' },
   statValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tokens.text.primary },
   finishedCard: {
@@ -405,13 +405,13 @@ const styles = StyleSheet.create({
   questionProgress: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   typeBadge: {
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   typeBadgeText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   questionBox: {
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     padding: rnSpacing.md,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
@@ -420,17 +420,17 @@ const styles = StyleSheet.create({
   questionText: { fontSize: rnType.strong.size, lineHeight: 22, color: tokens.text.primary },
   answerArea: { gap: rnSpacing.sm },
   answerLabel: { fontSize: rnType.label.size, color: tokens.text.secondary },
-  qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
   qualityBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: 7,
     borderRadius: rnRadius.sm,
   },
   qualityText: { fontSize: rnType.label.size, fontWeight: '600' },
   disabled: { opacity: 0.5 },
-  inlineLoading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  resultArea: { gap: 10 },
-  resultGrid: { flexDirection: 'row', gap: 6 },
+  inlineLoading: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
+  resultArea: { gap: rnSpacing['sm-loose'] },
+  resultGrid: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
   resultCell: {
     flex: 1,
     alignItems: 'center',
@@ -453,7 +453,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },
-  progressLine: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 2 },
+  progressLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingTop: rnSpacing['2xs'],
+  },
   progressText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

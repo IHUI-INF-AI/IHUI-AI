@@ -133,9 +133,19 @@ async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
         .join('&')
     : ''
   const path = `${payload.path}${qs}`
+  // 2026-10-31 安全强化第 18 批(F4 纵深):headers 白名单 —— 当前调用面有
+  // sender.id 闸(外部扩展/网页进不来),但 content script 上下文一旦被页面
+  // 利用即可携带任意 Authorization/Cookie;鉴权一律由 background 的 callApi
+  // 自注入,透传头禁碰凭据类。
+  const FORBIDDEN_PROXY_HEADERS = /^(authorization|cookie|set-cookie|x-api-key)$/i
+  const passthroughHeaders: Record<string, string> = {}
+  for (const [k, v] of Object.entries(payload.headers ?? {})) {
+    if (FORBIDDEN_PROXY_HEADERS.test(k)) continue
+    passthroughHeaders[k] = String(v)
+  }
   const res = await callApi<unknown>(path, {
     method: payload.method,
-    headers: payload.headers,
+    headers: passthroughHeaders,
     body: payload.body !== undefined ? JSON.stringify(payload.body) : undefined,
   })
   if (!res.ok) {
@@ -294,7 +304,13 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
         return reply(msg.requestId, data)
       }
       case 'token.get': {
-        return reply(msg.requestId, { accessToken: getToken(), refreshToken: getRefreshToken() })
+        // 2026-10-31 安全强化第 17 批:此前把 refreshToken 一起回给调用方。
+        // refreshToken 是"能换出新 accessToken 的长期凭据",它的作用域应当只在后台
+        // (doRefresh/token.refresh 那条腿);把它交给任一消息发送方,等于把续期能力
+        // 外溢到 popup/侧栏/content script 乃至被注入的页面脚本。
+        // 全仓现读:生产代码零消费方(只有 tests/message-router.test.ts 拿它当消息形状),
+        // 因此摘掉该字段不破坏任何功能面。需要续期请走 token.refresh,由后台自持凭据完成。
+        return reply(msg.requestId, { accessToken: getToken() })
       }
       case 'token.refresh': {
         const ok = await doRefresh()
@@ -456,8 +472,17 @@ function registerInstallHook(): void {
 }
 
 function registerMessageListener(): void {
-  chrome.runtime.onMessage.addListener((msg: ExtMessage, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((msg: ExtMessage, sender, sendResponse) => {
     if (!msg || typeof msg !== 'object' || !('type' in msg) || !('requestId' in msg)) {
+      return false
+    }
+    // 2026-10-31 安全强化第 17 批:消息路由此前**完全不看 sender**,而 `token.get` 会把
+    // accessToken + refreshToken 原样回给任何发信方。MV3 下 `sender.id === chrome.runtime.id`
+    // 才等价"来自本扩展自己的上下文"(popup/sidepanel/options 与已注入的 content script);
+    // 外部扩展/被 externally_connectable 放开的网页其 sender.id 是**对方**的 id。
+    // 这一格是纯收紧的来源闸,不改任何响应形状 ⇒ 既有功能面不受影响。
+    if (sender.id !== chrome.runtime.id) {
+      console.warn('[IHUI AI] 丢弃非本扩展来源的消息', msg.type, sender.id)
       return false
     }
     void routeMessage(msg).then(sendResponse)

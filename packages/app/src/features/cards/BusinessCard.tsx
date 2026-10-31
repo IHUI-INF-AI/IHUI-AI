@@ -200,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
     contactBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
     },
     contactBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },

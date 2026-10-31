@@ -500,7 +500,7 @@ function createStyles(tk: AppThemeTokens) {
     tabChip: {
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
     },
     tabChipActive: {
       backgroundColor: tk.brand.cta,
@@ -552,7 +552,7 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       backgroundColor: tk.surface.muted,
     },
     chipActive: {
@@ -636,7 +636,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
     },
     rankBadge: {
       width: 32,
@@ -671,7 +671,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     rankProvider: {
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
@@ -685,7 +685,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.warning.DEFAULT,
     },
     rankVotes: {
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },

@@ -144,21 +144,26 @@ export function LiveListScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    tabs: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: rnSpacing.sm, gap: 6 },
+    tabs: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing['xs-loose'],
+    },
     tab: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
-    listBody: { padding: 10, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     card: {
       padding: rnSpacing.md,
@@ -175,7 +180,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginRight: rnSpacing.sm,
     },
-    statusBadge: { paddingHorizontal: rnSpacing.sm, paddingVertical: 2, borderRadius: rnRadius.md },
+    statusBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
     statusText: { fontSize: rnType.caption.size, color: tk.surface.light },
     cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: rnSpacing.sm },

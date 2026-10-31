@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     cardHeaderRow: {
       flexDirection: 'row',
@@ -163,7 +163,11 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    statusTag: { paddingHorizontal: rnSpacing.sm, paddingVertical: 2, borderRadius: rnRadius.md },
+    statusTag: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
     statusTagActive: { backgroundColor: tk.success.light },
     statusTagPaused: { backgroundColor: tk.surface.muted },
     statusTagText: { fontSize: rnType.label.size, color: tk.text.primary },

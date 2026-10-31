@@ -596,6 +596,53 @@ const MAX_STDERR = 3000
  * 仅允许执行以下工具集合,任何不在白名单内的命令被拒绝
  * 防止用户通过 sandbox/execute 端点执行任意系统命令(RCE)
  */
+/**
+ * 解释器族(2026-10-31 安全强化第 10 批 R8 复评 F1 收窄):node/python 等解释器
+ * 本质是"执行任意代码",其 -e/-c 代码串无法静态判读写面 —— 普通用户可先经
+ * /fs/write 在登记根内落脚本再执行,等价 RCE(读磁盘 .env 绕过 cleanEnv 的
+ * 环境净化、任意出网)。解释器命令现在仅 admin 可用;普通用户的代码块运行
+ * (code-block-run)按安全满分目标降级为非解释器命令面。
+ */
+const SANDBOX_INTERPRETER_BINARIES = new Set<string>([
+  'node',
+  'npm',
+  'pnpm',
+  'yarn',
+  'npx',
+  'python',
+  'python3',
+  'pip',
+  'pip3',
+  'tsc',
+  'eslint',
+  'prettier',
+  'vitest',
+  'jest',
+])
+
+/** 文件操作类(参数路径必须落登记根内;判据与 FSBridge.resolvePath 同源) */
+const SANDBOX_FILE_TOOL_BINARIES = new Set<string>([
+  'cat',
+  'head',
+  'tail',
+  'cp',
+  'mv',
+  'tee',
+  'touch',
+  'mkdir',
+  'rmdir',
+  'find',
+  'grep',
+  'rg',
+  'sed',
+  'awk',
+  'tar',
+  'zip',
+  'unzip',
+  'gzip',
+  'gunzip',
+])
+
 const SANDBOX_BINARY_WHITELIST = new Set<string>([
   'node',
   'npm',
@@ -740,6 +787,8 @@ class SandboxExecutor {
     cwd?: string
     mode?: SandboxMode
     timeoutMs?: number
+    /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
+    isAdmin?: boolean
   }): Promise<{ stdout: string; stderr: string; exitCode: number; mode: SandboxMode }> {
     const mode = params.mode ?? 'workspace-write'
     // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
@@ -747,6 +796,16 @@ class SandboxExecutor {
     // 任意文件。fail-closed:env 未登记任何根 ⇒ 一律拒绝(与 FSBridge 同语义同单源)。
     const root = assertWithinRegisteredRoots(params.workspacePath, '工作区')
     const cwd = params.cwd ? assertWithinRegisteredRoots(params.cwd, '执行目录') : root
+    // 2026-10-31 R8 复评 F1:cwd 不再允许指向另一个登记根(workspacePath 过权限
+    // 闸而 cwd 只过登记根闸 ⇒ 越过权限梯在未授权工作区执行)。
+    if (params.cwd && cwd !== root) {
+      return {
+        stdout: '',
+        stderr: '执行目录必须与工作区一致(不允许跨根执行)',
+        exitCode: 126,
+        mode,
+      }
+    }
 
     if (this.checkNetworkCommand(params.command, mode)) {
       return {
@@ -777,6 +836,41 @@ class SandboxExecutor {
         stderr: `命令不在白名单内: ${binary}。仅允许: ${Array.from(SANDBOX_BINARY_WHITELIST).slice(0, 10).join(', ')}...`,
         exitCode: 126,
         mode,
+      }
+    }
+    // 2026-10-31 R8 复评 F1:解释器仅 admin(签名 params.isAdmin 由路由层传;
+    // 代码串无法静态判读写面,普通用户可先 /fs/write 落脚本再跑 ⇒ 等价 RCE)。
+    if (SANDBOX_INTERPRETER_BINARIES.has(binary) && !params.isAdmin) {
+      return {
+        stdout: '',
+        stderr: `解释器命令(${binary})仅管理员可用:普通账户可先写脚本再执行,等价任意代码执行`,
+        exitCode: 126,
+        mode,
+      }
+    }
+    // 2026-10-31 R8 复评 F1:文件操作类的路径参数必须落在登记根内(此前闸只判
+    // cwd,`cat /etc/passwd`、`tee /任意路径` 等参数路径原样通过)。逐参数
+    // realpathOrResolve + isInsideRoot,与 FSBridge.resolvePath 同判据。
+    if (SANDBOX_FILE_TOOL_BINARIES.has(binary)) {
+      for (const arg of tokens.slice(1)) {
+        if (!arg || arg.startsWith('-')) continue
+        // 路径形态:盘符(C:/ 或 C:\)、绝对(/ 或 \)、相对(./ 或 ../)。用 RegExp 构造避开字面量转义在评审工具链里的二次解释。
+        const looksLikePath = new RegExp('^([A-Za-z]:[/' + String.fromCharCode(92) + '/]|[/' + String.fromCharCode(92) + ']|\.\.?[/' + String.fromCharCode(92) + '/])').test(arg)
+        if (!looksLikePath) continue
+        let abs: string
+        try {
+          abs = isAbsolute(arg) ? realpathOrResolve(arg) : realpathOrResolve(resolve(cwd, arg))
+        } catch {
+          return { stdout: '', stderr: `参数路径无法解析: ${arg}`, exitCode: 126, mode }
+        }
+        if (!isInsideRoot(abs, root)) {
+          return {
+            stdout: '',
+            stderr: `参数路径越界(仅允许工作区登记根内): ${arg}`,
+            exitCode: 126,
+            mode,
+          }
+        }
       }
     }
 
@@ -2939,6 +3033,8 @@ class FSBridge {
     cwd?: string
     timeoutMs?: number
     mode?: SandboxMode
+    /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
+    isAdmin?: boolean
   }): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     return sandboxExecutor.execute({
       command: params.command,
@@ -2946,6 +3042,7 @@ class FSBridge {
       cwd: params.cwd,
       mode: params.mode ?? 'workspace-write',
       timeoutMs: params.timeoutMs,
+      isAdmin: params.isAdmin,
     })
   }
 
