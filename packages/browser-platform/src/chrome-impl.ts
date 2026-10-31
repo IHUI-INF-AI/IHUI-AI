@@ -32,6 +32,7 @@ import type {
 // 2026-10-31 安全强化第 21 批:导航协议白名单(与 CLI 的 browser_navigate 同源,
 // 判据只在 @ihui/shared 一份 —— CLI 走 CDP、扩展走 chrome.tabs,两条实现路径
 // 不许各写一套)。
+// arch-exempt: navigable-url 是 CLI/扩展唯一判据源,平台层反向登记 requires 会撞 T1 层序;正解=下沉 contract 层,期限 2027-01-31
 import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url'
 
 // ===== Storage Adapter =====

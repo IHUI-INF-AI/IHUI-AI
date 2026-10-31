@@ -285,6 +285,9 @@ constraints:
     - '**/*.d.ts'
     - '**/*.gen.ts'
     - '**/*.generated.ts'
+    # 2026-11-01(门 103 C1 清偿):archify 是 vendored 的第三方单文件 CLI(bin 直接指向它),
+    # 拆文件会撞上游升级;它也不属于本仓契约面 ⇒ 整目录不进扫描射程。
+    - '.ihui/skills/archify/**'
   # 深导入判据的测试面豁免:D3 不咬测试/夹具/mock 文件(按路径 import 实现细节去 mock
   # 是合法形态,HEAD 实测这类共 16 处,全部落在 tests/ 与 __mocks__/ 下)。
   # D1/C2/C3 不受此豁免影响,照旧判。
@@ -560,6 +563,9 @@ modules:
       # 三个入口在 packages/shared 的 package.json#exports 里真实存在(精确名 + 通配,与 ./ui 同构)。
       - './ui-control'
       - './ui-control/*'
+      # 2026-11-01(门 103 D3 清偿):apps/api 与 apps/web 的 artifacts 面从
+      # '@ihui/shared/artifact' 取类型,该入口在 packages/shared 的 exports 里真实存在。
+      - './artifact'
 
   - id: 'packages/app'
     package: '@ihui/rn-app'
@@ -572,8 +578,14 @@ modules:
       - 'packages/design-tokens'
       - 'packages/types'
       - 'packages/shared'
+      # 2026-11-01(门 103 D1 清偿):ScreenStates 使用 @ihui/ui-native,真实依赖边。
+      - 'packages/ui-native'
     public_entrypoints:
       - '.'
+      # 2026-11-01(门 103 D3 清偿):共享屏以小包深入口被 web(shared-pilot)与
+      # miniapp(about/ai-assistant 六屏)消费;exports 已补 './features/*' 通配。
+      - './pilot'
+      - './features/*'
 
   - id: 'packages/ui-react'
     package: '@ihui/ui-react'
@@ -620,6 +632,8 @@ modules:
       - 'packages/types'
       - 'packages/design-tokens'
       - 'packages/i18n'
+      # 2026-11-01(门 103 D1 清偿):(pilot)/shared-pilot 页复用 @ihui/rn-app/pilot。
+      - 'packages/app'
     public_entrypoints: []
 
   - id: 'apps/api'
@@ -692,6 +706,8 @@ modules:
       - 'packages/design-tokens'
       - 'packages/api-client'
       - 'packages/i18n'
+      # 2026-11-01(门 103 D1 清偿):about/ai-assistant 六屏复用 packages/app 共享实现。
+      - 'packages/app'
     public_entrypoints: []
 
   - id: 'apps/mobile-rn'
