@@ -161,7 +161,7 @@ class RateLimitExceeded(Exception):
 class Principal:
     """一次 MCP 调用解析出的调用主体。"""
 
-    kind: Literal["jwt", "internal", "dev-anonymous"]
+    kind: Literal["jwt", "internal", "dev-anonymous", "local-stdio"]
     sub: str | None
     role: int
     scopes: frozenset[str]
@@ -331,6 +331,28 @@ def _dev_fallback_principal() -> Principal:
             "(role=0,权限矩阵兜底);生产部署必须配置凭据通道"
         )
     return Principal(kind="dev-anonymous", sub=None, role=0, scopes=frozenset({ALL_SCOPES}))
+
+
+def local_stdio_principal() -> Principal:
+    """stdio 通道的**本地宿主**主体(只由 mcp_export 的 stdio 拉起入口显式置位后取用)。
+
+    stdio 对端是任意第三方 Host(Claude Desktop/Cursor 之类,能写 fd 就能调工具),
+    所以权面必须与"第三方可用"同一把尺:**不取通配 ALL_SCOPES** —— 从能力清单取
+    `third_party_eligible ∧ dataClass≠platform ∧ risk≠critical` 的 scope 集合
+    (现读 52/63 档,天然排除 run_command / computer:operate / diff:apply 等高危);
+    清单缺失或缺字段时取空集(fail-closed),只剩自诊断三件套。
+    """
+    manifest = load_capability_manifest()
+    if manifest is None:
+        return Principal(kind="local-stdio", sub=None, role=0, scopes=frozenset())
+    allowed = frozenset(
+        scope
+        for scope, meta in manifest.scope_meta.items()
+        if meta.third_party_eligible
+        and meta.data_class != "platform"
+        and meta.risk != "critical"
+    )
+    return Principal(kind="local-stdio", sub=None, role=0, scopes=allowed)
 
 
 def resolve_principal_from_headers(headers: Mapping[str, str]) -> Principal:
@@ -577,7 +599,7 @@ def check_tool_access(principal: Principal, tool_name: str) -> ToolAccessDecisio
     """
     manifest = load_capability_manifest()
     if manifest is None:
-        if principal.kind == "jwt":
+        if principal.kind in ("jwt", "local-stdio"):
             return ToolAccessDecision(
                 allowed=False,
                 required_scope=None,

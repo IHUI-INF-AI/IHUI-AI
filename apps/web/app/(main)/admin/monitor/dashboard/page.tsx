@@ -11,66 +11,53 @@ import {
   LayoutDashboard,
   Server,
   Cpu,
+  Globe,
   Activity,
   Database,
   Brain,
-  Globe,
   CheckCircle2,
   XCircle,
-  CircleDot,
 } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
 
+/**
+ * 系统监控概览(admin 监控子页)。
+ *
+ * 读数纪律(2026-10-31,admin 监控崩溃族 ⑤):
+ *   - 服务灯认 `running`(后端对 api/web/ai-service 自报 running、只认 healthy ⇒ 三盏灯恒红、
+ *     头部恒 2/5);`unhealthy`/`stopped` 才是异常。
+ *   - **取不到就写「未判定」**:后端对未测量的项回 null(延迟、QPS、平均响应、磁盘占用),
+ *     页面不得拿 0 冒充读数,也不得用 Math.random() 画一条假曲线。
+ */
 interface ServiceItem {
   name: string
-  /**
-   * 后端 apps/api/src/routes/admin-monitoring-routes.ts 的 checkServiceHealth 实际只有三态:
-   * · 'healthy' / 'unhealthy' = postgres(SELECT 1)/ redis(ping) **经探测验证**;
-   * · 'running' = api / web / ai-service **进程自报**,未经探测,latency 恒为 0。
-   * 后端声明为 string(非封闭联合),前端同样按字符串读、经下方谓词判定,
-   * 不得再把 'running' 当 'healthy' 渲染成绿勾(那是撒谎),也不得判成红叉。
-   */
-  status: string
-  latency: number
-}
-
-/** 「在跑」= 已探测健康 或 自报运行中;与「已探测健康」严格区分(头部读数用) */
-function isServiceUp(s: Pick<ServiceItem, 'status'>): boolean {
-  return s.status === 'healthy' || s.status === 'running'
-}
-
-/** 「经探测验证的状态」(postgres/redis);其余形态一律视为自报或未知 */
-function isProbedStatus(status: string): boolean {
-  return status === 'healthy' || status === 'unhealthy'
+  status: 'healthy' | 'running' | 'unhealthy' | 'stopped'
+  /** 毫秒;null = 后端未做延迟测量(不是 0ms)。 */
+  latency: number | null
 }
 
 interface PerfItem {
+  /** CPU / 内存:真实测量值(os.cpus / os.totalmem)。 */
   cpu: number
   memory: number
-  qps: number
-  avgResponse: number
-  diskUsage: number
+  /** QPS / 平均响应 / 磁盘占用:后端无数据源 ⇒ null(未判定),不是 0。 */
+  qps: number | null
+  avgResponse: number | null
+  diskUsage: number | null
 }
 
-interface PerfCard {
-  label: string
-  value: number | undefined
-  unit: string
-  /** 后端是否有真实探测;diskUsage/qps/avgResponse 被 getPerf() 硬编码为 0(注释自认未接入)⇒ 未判定 */
-  measured: boolean
-  /** 百分比上限(仅 measured 时有意义) */
-  max?: number
-  cls: string
+/** 服务是否正常:healthy(实测通过)与 running(进程存活)都算正常。 */
+function isServiceOk(status: ServiceItem['status']): boolean {
+  return status === 'healthy' || status === 'running'
 }
 
-// 键必须是后端 checkServiceHealth 推的真 name(旧表键 API/DB/Redis/AI-Service 五枚全不命中,
-// 每行都退成兜底 Server 图标)。
+// 键必须与后端 checkServiceHealth 返回的 name 逐字一致(api/web/ai-service/postgres/redis) ——
+// 旧表用的是展示名(API/DB/Redis/AI-Service),五枚全不命中、每行都退成兜底 Server。
 const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   api: Server,
   web: Globe,
@@ -90,34 +77,26 @@ export default function AdminMonitorDashboardPage() {
     queryFn: () => apiOrThrow<PerfItem>('/api/admin/monitor/perf'),
   })
 
-  const upCount = services.filter(isServiceUp).length
-  const perfCards: PerfCard[] = [
-    { label: 'CPU', value: perf?.cpu, unit: '%', max: 100, cls: 'text-primary', measured: true },
+  const okCount = services.filter((s) => isServiceOk(s.status)).length
+  const perfCards = [
+    { label: 'CPU', value: perf?.cpu ?? null, unit: '%', max: 100, cls: 'text-primary' },
+    { label: '内存', value: perf?.memory ?? null, unit: '%', max: 100, cls: 'text-primary' },
+    { label: '磁盘', value: perf?.diskUsage ?? null, unit: '%', max: 100, cls: 'text-primary' },
     {
-      label: '内存',
-      value: perf?.memory,
-      unit: '%',
-      max: 100,
-      cls: 'text-primary',
-      measured: true,
+      label: 'QPS',
+      value: perf?.qps ?? null,
+      unit: '',
+      max: 0,
+      cls: 'text-success-text',
+      raw: true,
     },
-    // 后端 getPerf() 把这三项硬编码为 0(源码注释自认"无跨平台磁盘检测库,保持 0"):
-    // 渲染成 0 = 把没有探测的量冒充成"测到了 0",显式标「未判定」。
-    {
-      label: '磁盘',
-      value: perf?.diskUsage,
-      unit: '%',
-      max: 100,
-      cls: 'text-primary',
-      measured: false,
-    },
-    { label: 'QPS', value: perf?.qps, unit: '', cls: 'text-success-text', measured: false },
     {
       label: '平均响应',
-      value: perf?.avgResponse,
+      value: perf?.avgResponse ?? null,
       unit: 'ms',
+      max: 0,
       cls: 'text-warning-text',
-      measured: false,
+      raw: true,
     },
   ]
 
@@ -130,7 +109,7 @@ export default function AdminMonitorDashboardPage() {
           系统监控概览
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          CPU / 内存实时探测 · QPS / 平均响应 / 磁盘未判定(探测未接入)
+          CPU / 内存 / 请求 监控(无数据源的项标未判定)
         </p>
       </div>
 
@@ -143,7 +122,7 @@ export default function AdminMonitorDashboardPage() {
                 <span className="truncate">服务状态</span>
               </span>
               <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
-                {upCount}/{services.length} 在跑
+                {okCount}/{services.length} 正常
               </span>
             </CardTitle>
           </CardHeader>
@@ -158,17 +137,7 @@ export default function AdminMonitorDashboardPage() {
               <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
                 {services.map((s) => {
                   const Icon = SERVICE_ICONS[s.name] ?? Server
-                  const up = isServiceUp(s)
-                  const probed = isProbedStatus(s.status)
-                  // 三形视觉分家:healthy=绿勾 / unhealthy(及未知)=红叉 / running(自报未探测)=蓝调圆点
-                  const tone =
-                    s.status === 'healthy'
-                      ? 'text-success-text'
-                      : up
-                        ? 'text-info-text'
-                        : 'text-danger-text'
-                  const StateIcon =
-                    s.status === 'healthy' ? CheckCircle2 : up && !probed ? CircleDot : XCircle
+                  const ok = isServiceOk(s.status)
                   return (
                     <div
                       key={s.name}
@@ -176,22 +145,21 @@ export default function AdminMonitorDashboardPage() {
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', tone)} />
+                        <Icon
+                          className={cn('h-4 w-4', ok ? 'text-success-text' : 'text-danger-text')}
+                        />
                         <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {up && !probed ? (
-                          <Tooltip content="进程自报运行中:未经探测验证(latency 恒为 0)">
-                            <span
-                              className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-medium')}
-                            >
-                              自报
-                            </span>
-                          </Tooltip>
-                        ) : null}
-                        <StateIcon className={cn('h-3.5 w-3.5', tone)} />
-                        <span className={cn('text-xs tabular-nums', tone)}>
-                          {s.latency > 0 ? `${s.latency}ms` : '—'}
+                        {ok ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success-text" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 text-danger-text" />
+                        )}
+                        <span
+                          className={cn('text-xs', ok ? 'text-success-text' : 'text-danger-text')}
+                        >
+                          {s.latency === null ? '未判定' : `${s.latency}ms`}
                         </span>
                       </div>
                     </div>
@@ -211,38 +179,32 @@ export default function AdminMonitorDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
-              {perfCards.map((c) => {
-                const numValue = c.measured ? c.value : undefined
-                const hasValue = typeof numValue === 'number'
-                return (
-                  <div key={c.label} className="rounded-md border p-3">
-                    <div className="text-xs text-muted-foreground">{c.label}</div>
-                    <div className={cn('mt-1 text-xl font-bold tabular-nums', c.cls)}>
-                      {hasValue ? `${formatNumber(numValue)}${c.unit}` : '—'}
-                    </div>
-                    {!c.measured ? (
-                      <div className="mt-1 text-[10px] text-muted-foreground">
-                        未判定(探测未接入)
-                      </div>
-                    ) : null}
-                    {hasValue && c.max ? (
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-xs bg-muted">
-                        <div
-                          className={cn(
-                            'h-full rounded-md',
-                            numValue > 90
-                              ? 'bg-danger'
-                              : numValue > 70
-                                ? 'bg-warning'
-                                : 'bg-success',
-                          )}
-                          style={{ width: `${Math.min(numValue, 100)}%` }}
-                        />
-                      </div>
-                    ) : null}
+              {perfCards.map((c) => (
+                <div key={c.label} className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">{c.label}</div>
+                  <div className={cn('mt-1 text-xl font-bold', c.cls)}>
+                    {c.value === null ? (
+                      <span className="text-base font-medium text-muted-foreground">未判定</span>
+                    ) : (
+                      <>
+                        {formatNumber(c.value)}
+                        {c.unit}
+                      </>
+                    )}
                   </div>
-                )
-              })}
+                  {!c.raw && c.max > 0 && c.value !== null && (
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-xs bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-md',
+                          c.value > 90 ? 'bg-danger' : c.value > 70 ? 'bg-warning' : 'bg-success',
+                        )}
+                        style={{ width: `${Math.min(c.value, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -251,19 +213,18 @@ export default function AdminMonitorDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Activity className="h-4 w-4" />
+            <Cpu className="h-4 w-4" />
             实时 QPS
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* 旧实现柱高来自 Math.random(),而后端 getPerf() 的 qps 恒为硬编码 0 ——
-              随机曲线 + 恒定 0 都是"把不存在的量渲染成存在的量"(参照 a2ecdb806a3
-              消除 mock 数据冒充的定档),整卡显式标未判定,不画假曲线。 */}
-          <div
-            data-qps-unjudged
-            className="flex h-32 items-center justify-center rounded-md border border-dashed px-4 text-center text-sm text-muted-foreground"
-          >
-            未判定:QPS 时序数据源未接入(后端 qps 为占位 0,非实测值)
+          {/* 旧实现是 Math.random() 画的 48 根假柱子(读数恒随机、与后端无关)。
+              后端至今没有 QPS 时序数据源 ⇒ 这里显式「未判定」,不画假曲线。 */}
+          <div className="py-6 text-center" data-qps-unjudged>
+            <div className="text-2xl font-bold text-muted-foreground">未判定</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              后端暂无 QPS 时序数据源,此处不冒充读数(旧实现为随机生成的假曲线)。
+            </p>
           </div>
         </CardContent>
       </Card>

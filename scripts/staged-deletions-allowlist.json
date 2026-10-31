@@ -56,6 +56,10 @@
     {
       "path": "apps/cli/tests/argument-repair.test.ts",
       "reason": "随被测件同批退役(2026-10-31):本测试的被测符号 normalizeSubmit / createArgumentRepairSession / REPAIR_ATTEMPTS / NUDGE_ATTEMPTS 全部住在同批删除的 apps/cli/src/tools/argument-repair-loop.ts(证据:git grep 这四个符号 HEAD -- apps/cli/src 只命中该文件;本批改写后的工作树 src 零命中),修复行为锁由 tests/argument-repair-loop-adjudication.test.ts 的『② 留存实现:telemetry 连续窗』段承接(TOOL_ARG_REPAIR_MAX_ATTEMPTS 常量单源为 3 + 时序断言)。本门 E1『它测的模块仍在 apps/cli/src/tools/index.ts』是误判形态:该测试对 index.js 只 import 了 type ToolSchema 类型标注,并非被测主体;门按 import 文件存在即判『被测模块仍在』,识别不出『仅类型 import + 被测符号全数退役』。本条豁免记录该形态,不改门判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;承接锁 apps/cli 内 pnpm exec vitest run tests/argument-repair-loop-adjudication.test.ts(4/4)。"
+    },
+    {
+      "path": "scripts/tests/check-monitor-vocabulary-single-source.test.mjs",
+      "reason": "2026-10-31 有意删除:本文件测的实现在同一枚里一并删除 —— 它是本席 19:20 落地的词表尺子(未注册、头注自称尚未接提交链),而并席 19:53 已落地等价的 check-monitor-alert-vocabulary.mjs(编号 268、blocking、差值棘轮、已注册进 guardian-runner、已完成 AGENTS 点名)⇒ 两份实现同一件事违反 §0.6「同类判据全仓只许一份,第二份必然漂移」。被删源文件在门 99 自身结论里判 [no-reference](不计红),本测试随之删除。关于门报的「它测的模块仍在 ../lib/face-reader.mjs 与 ../lib/scratch-dir.mjs」:那两个是**被它使用的公共 lib**,不是仍在引用它的消费者 —— 门 99 对被删件取的是「谁 import 我」这一反向,而本轮取证行给的是「我 import 了谁」,该维对被删测试恒成立、不构成存续证据(判据方向问题另记,不在本枚削判据)。保留方 268 的镜像与自检:node scripts/check-monitor-alert-vocabulary.mjs --self-test。"
     }
   ]
 }
