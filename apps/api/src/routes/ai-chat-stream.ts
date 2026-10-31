@@ -29,6 +29,8 @@ import { mapUpstreamOutbound, UPSTREAM_AUTH_FAILED_MESSAGE } from '../errors/ups
 import { ErrorCode } from '../errors/codes.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
+import { config } from '../config/index.js'
+import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import {
   bindConversationWorkspace,
   createMessage,
@@ -571,7 +573,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     const raw = reply.raw
     // 2026-07-27 修复跨域 SSE:reply.hijack() 绕过 @fastify/cors 插件,
     // 实际 POST 响应头缺少 Access-Control-Allow-Origin,浏览器跨域 fetch 阻止响应(Failed to fetch)。
-    // 手动回显 Origin + Allow-Credentials(preflight OPTIONS 已由 cors 插件处理,origin 已校验)。
+    // 手动回显 Origin + Allow-Credentials(preflight OPTIONS 已由 cors 插件处理)。
+    // 2026-10-31 R10 安全强化:回显前必须过 evaluateOriginAllowance 同一判据,否则任意站点可带用户
+    // 凭据跨域读取其 SSE 流(CORS 凭证绕过,CWE-346)。逻辑收敛到 buildSseCorsHeaders(单一真源)。
     const origin = request.headers.origin as string | undefined
     const sseHeaders: Record<string, string> = {
       'Content-Type': 'text/event-stream',
@@ -579,10 +583,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     }
-    if (origin) {
-      sseHeaders['Access-Control-Allow-Origin'] = origin
-      sseHeaders['Access-Control-Allow-Credentials'] = 'true'
-    }
+    Object.assign(sseHeaders, buildSseCorsHeaders(origin, config.CORS_ORIGIN, config.EXTENSION_IDS))
     raw.writeHead(200, sseHeaders)
 
     // #22(2026-09-16 立)SSE 事件 id + Last-Event-ID 标准重放:
