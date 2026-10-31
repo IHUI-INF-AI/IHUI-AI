@@ -82,7 +82,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     shareBtn: {
       marginTop: rnSpacing.lg,
       paddingHorizontal: rnSpacing.xl,
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

@@ -98,7 +98,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
     },
     title: {
       marginTop: rnSpacing.sm,
@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     badge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       marginLeft: rnSpacing.sm,

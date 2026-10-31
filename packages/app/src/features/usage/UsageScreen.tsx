@@ -261,7 +261,7 @@ export function UsageScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.display.size,
@@ -277,12 +277,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
-    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     quotaRow: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
-    quotaCell: { flex: 1, gap: 2 },
+    quotaCell: { flex: 1, gap: rnSpacing['2xs'] },
     metric: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     track: {
       height: 6,
@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     trackFill: { height: '100%', borderRadius: rnRadius.xs },
     statsGrid: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
-    statCell: { flex: 1, gap: 2 },
+    statCell: { flex: 1, gap: rnSpacing['2xs'] },
     barRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     barLabel: { width: 38, fontSize: rnType.caption.size, color: tk.text.tertiary },
     barTrack: {

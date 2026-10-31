@@ -36,7 +36,7 @@ import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
   } as ViewStyle,
   mask: {
     ...StyleSheet.absoluteFill,
@@ -382,8 +382,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // 角色档 control(按住说话 = 按钮)→ sm(4)
     borderRadius: rnRadiusFor.control,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.surface.muted,
   } as ViewStyle,
   voiceBtnRecording: {
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   waveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: rnSpacing['2xs'],
   } as ViewStyle,
   bar: {
     width: 3,
@@ -442,8 +442,8 @@ const styles = StyleSheet.create({
     bottom: '110%',
     left: 0,
     flexDirection: 'row',
-    gap: 4,
-    padding: 8,
+    gap: rnSpacing.xs,
+    padding: rnSpacing.sm,
     // 角色档 popover(贴锚点的轻量浮层,不是弹窗体也不是卡片)→ md(6)
     borderRadius: rnRadiusFor.popover,
     borderWidth: 1,
@@ -459,8 +459,8 @@ const styles = StyleSheet.create({
   popupItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
   } as ViewStyle,
   popupEmoji: {
     fontSize: 20,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   popupLabel: {
     fontSize: 11,
     color: tokens.text.secondary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   } as TextStyle,
 })
 

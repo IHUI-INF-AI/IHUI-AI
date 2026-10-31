@@ -98,11 +98,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.md,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 10 },
+    body: { padding: rnSpacing['sm-loose'] },
     liveTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     meta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     intro: {

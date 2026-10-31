@@ -464,7 +464,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     chipsRowTight: {
-      marginTop: 6, // mt-1.5
+      marginTop: rnSpacing['xs-loose'], // mt-1.5
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: rnSpacing.sm,
@@ -472,7 +472,7 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
     },
     chipActive: {
       backgroundColor: tk.brand.cta,
@@ -501,7 +501,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     },
     categoryText: {
       fontSize: rnType.title.size,
@@ -511,8 +511,8 @@ function createStyles(tk: AppThemeTokens) {
     miniTag: {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
     },
     miniTagText: {
       fontSize: 10,

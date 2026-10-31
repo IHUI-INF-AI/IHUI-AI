@@ -75,7 +75,7 @@ export function ArticleDetailScreen() {
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentError, setCommentError] = useState('')
 
-    const [reloadKey, setReloadKey] = useState(0)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     // 详见 scripts/check-sheet-flex-contract.mjs)
     flexShrink: 0,
     paddingHorizontal: rnSpacing.lg,
-    paddingBottom: 10,
+    paddingBottom: rnSpacing['sm-loose'],
   } as ViewStyle,
   commentTitle: {
     fontSize: rnType.title.size,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentItem: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   } as ViewStyle,
   commentAvatar: {
     width: 32,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: rnSpacing['sm-loose'],
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     lineHeight: 20,
     color: tokens.text.primary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   } as TextStyle,
   commentTime: {
     fontSize: rnType.caption.size,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
     padding: rnSpacing.md,
   } as ViewStyle,
   commentInput: {

@@ -246,7 +246,7 @@ function Chip({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   card: {
     gap: rnSpacing.md,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
   },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   field: { gap: 5 },
   label: { fontSize: rnType.label.size, color: tokens.text.secondary },
@@ -273,10 +273,10 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   textarea: { minHeight: 120, lineHeight: 21 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },

@@ -158,7 +158,10 @@ export function MessageCenterScreen({
                         {conv.name}
                       </Text>
                       {conv.time ? (
-                        <Text style={[styles.convTime, scaleText(styles.convTime)]} allowFontScaling={false}>
+                        <Text
+                          style={[styles.convTime, scaleText(styles.convTime)]}
+                          allowFontScaling={false}
+                        >
                           {conv.time}
                         </Text>
                       ) : null}
@@ -215,15 +218,19 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    tabs: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
+    tabs: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
     tab: {
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
@@ -232,10 +239,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    listBody: { padding: 10 },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: { padding: rnSpacing['sm-loose'] },
     // ── 会话列表区块(对齐 Uniapp message 页聊天列表) ──
-    convSection: { marginBottom: 6 },
+    convSection: { marginBottom: rnSpacing['xs-loose'] },
     convTitle: {
       fontSize: 13,
       fontWeight: '700',
@@ -246,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing['sm-loose'],
       borderRadius: rnRadius.xl,
       gap: rnSpacing.md,
     },
@@ -281,7 +292,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     convName: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     convTime: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    convPreview: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
+    convPreview: { marginTop: rnSpacing['2xs'], fontSize: 13, color: tk.text.secondary },
     convPinBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
   })
 }

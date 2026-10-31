@@ -332,9 +332,9 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   header: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingTop: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing['xs-loose'],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   listContent: {
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingBottom: rnSpacing.md,
   },
   // 行改卡片(2026-10-18 美化):白卡 + md 圆角 + 间距,去 hairline 分割线(AGENTS 禁分割线)
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: rnSpacing['sm-loose'],
   },
   rowTitle: {
     flex: 1,
@@ -382,14 +382,14 @@ const styles = StyleSheet.create({
   },
   rowTime: {
     flexShrink: 0,
-    marginLeft: 6,
+    marginLeft: rnSpacing['xs-loose'],
     fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   detailBtn: {
     marginLeft: rnSpacing.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['2xs'],
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   footer: {
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   },
   loadingMore: {
     textAlign: 'center',

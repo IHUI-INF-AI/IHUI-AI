@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: rnSpacing['sm-loose'],
     marginBottom: rnSpacing.xs,
   },
   subtitle: {
@@ -206,13 +206,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     backgroundColor: SAFE_BAR_BG,
     // 角色档 chip(提示条 = 中等元素/chip 族)→ md(6)
     borderRadius: rnRadiusFor.chip,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
+    marginTop: rnSpacing['sm-loose'],
     marginBottom: rnSpacing.sm,
   } as ViewStyle,
   safeBarText: {
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     backgroundColor: AGREE_BUTTON_COLOR,
   } as ViewStyle,
   disagreeText: {

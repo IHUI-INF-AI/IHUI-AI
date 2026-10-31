@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
-    shareBtnWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.md },
+    shareBtnWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
     shareBtn: {
       paddingVertical: 15,
       borderRadius: rnRadius.sm,
