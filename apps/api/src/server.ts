@@ -300,6 +300,14 @@ export async function buildServer(): Promise<FastifyInstance> {
     )
   }
 
+  /**
+   * 归一 routeOptions.config.network 的既有声明,供本例按前缀追加更严的键。
+   * 旧实现写 `existingConfig.network ?? {...}` —— 路由自己声明过 network 时整份覆盖会
+   * 把这份更严的策略静默丢掉;这里改为合并后显式覆盖要收紧的两枚键。
+   */
+  const toNetworkConfig = (value: unknown): Record<string, unknown> =>
+    typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
+
   // 敏感业务路由前缀(需网络分段保护,但允许公网访问;strict 模式下 unknown IP 拒绝)
   const SENSITIVE_BUSINESS_PREFIXES = [
     '/api/auth/',
@@ -343,21 +351,31 @@ export async function buildServer(): Promise<FastifyInstance> {
     // 而 ai-service 侧 debug.py 无鉴权、无 userId 作用域隔离。
     // 入口已收为「管理员」(debug.ts 用 requireAdmin),此处再叠加「强制内网」,公网一律 403。
     // 根因修复(ai-service 侧按 userId 隔离 + 限定 program/cwd 在项目目录内)完成前,不对公网开放。
+    // 2026-10-31 第 14 批:再叠 denyProxied —— 本机前门是 Next rewrite,经它进来 request.ip
+    // 恒为 127.0.0.1(XFF 可整写),仅靠 allowExternal:false 结构上挡不住公网。
     if (url.startsWith('/api/debug/') || url === '/api/debug') {
       routeOptions.config = {
         ...existingConfig,
-        network: existingConfig.network ?? { allowExternal: false },
+        network: {
+          ...toNetworkConfig(existingConfig.network),
+          allowExternal: false,
+          denyProxied: true,
+        },
       }
       return
     }
 
     const INTERNAL_ONLY_PREFIXES = ['/api/internal/']
 
-    // 内部服务路由:强制内网(公网不可达),不追加 mTLS(见上方立据)
+    // 内部服务路由:强制内网(公网不可达)+ 拒绝经代理转发,不追加 mTLS(见上方立据)
     if (INTERNAL_ONLY_PREFIXES.some((p) => url.startsWith(p))) {
       routeOptions.config = {
         ...existingConfig,
-        network: existingConfig.network ?? { allowExternal: false },
+        network: {
+          ...toNetworkConfig(existingConfig.network),
+          allowExternal: false,
+          denyProxied: true,
+        },
       }
       return
     }

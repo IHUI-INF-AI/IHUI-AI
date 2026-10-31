@@ -418,7 +418,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (q.agent_id) conds.push(sql`"agent_id" = ${q.agent_id}`)
     if (q.biz_type) conds.push(sql`"biz_type" = ${q.biz_type}`)
     if (q.file_type) conds.push(sql`"file_type" = ${q.file_type}`)
-    if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
+    // 2026-10-31 安全强化第 14 批:与 /usedetail/list 的 Bug 7 同型 —— 此前 user_id 直接
+    // 进条件,任何登录用户传别人的 user_id 就能列出他人上传记录(file_url/文件名/归属)。
+    // 非 admin 强制按承载层主体过滤,忽略传入值(admin 才可指定)。
+    const isAdminUpload = (req.jwtPayload?.roleId ?? 0) >= 1
+    const effectiveUploadUserId = isAdminUpload ? (q.user_id ?? req.userId) : req.userId
+    if (effectiveUploadUserId) conds.push(sql`"user_id" = ${effectiveUploadUserId}`)
     try {
       const result = await rawList('agent_upload', { page, pageSize, conds })
       return reply.send(success(result))
@@ -1034,7 +1039,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
    * @body 可更新字段: agent_id, user_id, price, duration, expires_at, status, payment_method, payment_id
    * @returns 更新后的记录
    */
-  server.put('/buy/:id', async (request, reply) => {
+  server.put('/buy/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     const bodyParsed = buyUpdateSchema.safeParse(request.body ?? {})
@@ -1056,7 +1061,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
    * @params id 购买记录 ID
    * @returns { id, deleted }
    */
-  server.delete('/buy/:id', async (request, reply) => {
+  server.delete('/buy/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
@@ -1076,26 +1081,31 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
    * @params id 购买记录 ID
    * @returns { recalculated, expiresAt, order }
    */
-  server.post('/buy/:id/recalculate-expiration', async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawById('zhs_agent_buy', parsed.data.id)
-      if (!row) return reply.status(404).send(error(404, '购买记录不存在'))
-      const duration = Number(row['duration']) || 0
-      const createdAtRaw = row['created_at']
-      const createdAt = createdAtRaw instanceof Date ? createdAtRaw : new Date(String(createdAtRaw))
-      const newExpiresAt = new Date(createdAt.getTime() + duration * 86400000)
-      const rows = await db.execute(
-        sql`UPDATE ${sql.raw('"zhs_agent_buy"')} SET "expires_at" = ${newExpiresAt}, "updated_at" = NOW() WHERE "id"::text = ${parsed.data.id} RETURNING *`,
-      )
-      const updated = (rows as Record<string, unknown>[])[0]
-      return reply.send(success({ recalculated: true, expiresAt: newExpiresAt, order: updated }))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '重新计算到期时间失败'))
-    }
-  })
+  server.post(
+    '/buy/:id/recalculate-expiration',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+      try {
+        const row = await rawById('zhs_agent_buy', parsed.data.id)
+        if (!row) return reply.status(404).send(error(404, '购买记录不存在'))
+        const duration = Number(row['duration']) || 0
+        const createdAtRaw = row['created_at']
+        const createdAt =
+          createdAtRaw instanceof Date ? createdAtRaw : new Date(String(createdAtRaw))
+        const newExpiresAt = new Date(createdAt.getTime() + duration * 86400000)
+        const rows = await db.execute(
+          sql`UPDATE ${sql.raw('"zhs_agent_buy"')} SET "expires_at" = ${newExpiresAt}, "updated_at" = NOW() WHERE "id"::text = ${parsed.data.id} RETURNING *`,
+        )
+        const updated = (rows as Record<string, unknown>[])[0]
+        return reply.send(success({ recalculated: true, expiresAt: newExpiresAt, order: updated }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '重新计算到期时间失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // Agent 规则 CRUD (Drizzle schema agent_rule)
@@ -1326,7 +1336,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '更新规则参数失败'))
     }
   })
-  server.delete('/rule-params/:id', async (req, reply) => {
+  server.delete('/rule-params/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
