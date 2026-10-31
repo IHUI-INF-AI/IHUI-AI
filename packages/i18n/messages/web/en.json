@@ -26311,6 +26311,7 @@
     "invitedCount": "People invited",
     "rules": "Commission rules",
     "rateTitle": "Commission rate",
+    "rateEmpty": "No commission rates yet",
     "openVip": "Get VIP membership and join the commission plan"
   },
   "examQuestion": {
