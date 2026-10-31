@@ -25798,7 +25798,6 @@
     "actionReedit": "重新编辑",
     "title": "我的智能体",
     "searchPlaceholder": "搜索智能体",
-    "loading": "加载中…",
     "empty": "暂无智能体"
   },
   "certDetail": {
@@ -27110,7 +27109,6 @@
     "save": "保存"
   },
   "aigcCover": {
-    "loading": "加载中…",
     "title": "封面设置",
     "subtitle": "为「{title}」生成封面",
     "empty": "暂无封面",

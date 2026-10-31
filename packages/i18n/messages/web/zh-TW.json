@@ -25769,7 +25769,6 @@
     "actionReedit": "重新編輯",
     "title": "我的智慧體",
     "searchPlaceholder": "搜尋智慧體",
-    "loading": "載入中…",
     "empty": "暫無智慧體"
   },
   "certDetail": {
@@ -27081,7 +27080,6 @@
     "save": "儲存"
   },
   "aigcCover": {
-    "loading": "載入中…",
     "title": "封面設定",
     "subtitle": "為「{title}」生成封面",
     "empty": "暫無封面,請先生成",
