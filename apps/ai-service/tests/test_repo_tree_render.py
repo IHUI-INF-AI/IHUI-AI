@@ -123,6 +123,31 @@ def test_workspace_enumeration_uses_single_source_and_respects_ignore(tmp_path):
     assert out.enumerated >= 1
 
 
+def test_ignore_rules_prune_build_artifacts_and_name_the_rule(tmp_path):
+    # 刻意用 generated/ 而非 dist/ 或 build/:后者已在枚举出口的目录剪枝表里,
+    # 那种条目根本到不了 ignore 这一层,拿它们测就会把"没判"读成"判过了"。
+    (tmp_path / "generated").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / ".gitignore").write_text("generated/\n", encoding="utf-8")
+    (tmp_path / "generated" / "bundle.ts").write_text("x\n", encoding="utf-8")
+    (tmp_path / "src" / "a.ts").write_text("y\n", encoding="utf-8")
+    out = render_workspace_tree(tmp_path, max_tokens=512)
+    assert "bundle.ts" not in out.text, "被 .gitignore 吃掉的生成产物不许占骨架预算"
+    assert "a.ts" in out.text
+    assert out.files_ignored == 1
+    assert ".gitignore:1" in out.ignored_by, "剪枝要答得出是哪枚规则文件哪一行判的"
+    assert "ignore" in str(out.drop_reason)
+    assert out.enumerated == 2, "分母仍是枚举量到的两条(剪了多少看得见,不是把分母也削掉)"
+
+
+def test_repo_without_ignore_files_reports_zero_pruned(tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.ts").write_text("y\n", encoding="utf-8")
+    out = render_workspace_tree(tmp_path, max_tokens=512)
+    assert out.files_ignored == 0 and out.ignored_by == []
+    assert out.complete is True
+
+
 def test_teeth_overcounting_estimator_cannot_produce_a_breaching_render(monkeypatch):
     """变异牙:估算器恒报 1000 ⇒ 一枚目录都装不下,渲染必须空手而归而不是超预算输出。"""
 

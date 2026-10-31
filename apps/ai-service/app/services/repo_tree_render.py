@@ -26,6 +26,7 @@ from typing import Any
 
 from ..core.context_compaction import estimate_tokens
 from .codebase_indexer import _EXT_TO_LANG, _IGNORED_DIRS, MAX_FILES_PER_INDEX
+from .ignore_rules import DEFAULT_IGNORE_FILENAMES, filter_paths, load_ignore_set
 from .rg_fallback_parity import enumerate_code_files
 
 INDENT = "  "
@@ -58,6 +59,7 @@ class TreeRender:
     files_dropped: int = 0
     files_scoped_out: int = 0
     duplicates_collapsed: int = 0
+    files_ignored: int = 0
     enumerated: int = 0
     complete: bool = False
     drop_reason: str | None = None
@@ -66,6 +68,7 @@ class TreeRender:
     fallback_detail: str | None = None
     scope: str | None = None
     notes: list[str] = field(default_factory=list)
+    ignored_by: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +81,8 @@ class TreeRender:
             "filesDropped": self.files_dropped,
             "filesScopedOut": self.files_scoped_out,
             "duplicatesCollapsed": self.duplicates_collapsed,
+            "filesIgnored": self.files_ignored,
+            "ignoredBy": list(self.ignored_by),
             "enumerated": self.enumerated,
             "complete": self.complete,
             "dropReason": self.drop_reason,
@@ -202,6 +207,8 @@ def render_rows(
     engine: str = "",
     degraded_reason: str | None = None,
     fallback_detail: str | None = None,
+    files_ignored: int = 0,
+    ignored_by: list[str] | None = None,
 ) -> TreeRender:
     """纯渲染档(不碰磁盘):路径清单进、骨架文本与核算出。夹具与判据都吃这一层。"""
     budget = max(int(max_tokens), MIN_MAX_TOKENS)
@@ -242,6 +249,8 @@ def render_rows(
         reason = "budget" if reason is None else reason + "+budget"
     if degraded_reason:
         reason = "enum-degraded" if reason is None else reason + "+enum-degraded"
+    if files_ignored:
+        reason = "ignore" if reason is None else reason + "+ignore"
 
     notes: list[str] = []
     if counts["bad"]:
@@ -257,6 +266,8 @@ def render_rows(
         files_dropped=files_dropped,
         files_scoped_out=files_scoped_out,
         duplicates_collapsed=counts["duplicates"],
+        files_ignored=files_ignored,
+        ignored_by=list(ignored_by or []),
         enumerated=total_enum,
         complete=(dirs_dropped == 0 and files_dropped == 0 and files_scoped_out == 0),
         drop_reason=reason,
@@ -274,11 +285,16 @@ def render_workspace_tree(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     scope: str | None = None,
     max_files: int | None = MAX_FILES_PER_INDEX,
+    ignore_filenames: tuple[str, ...] | None = DEFAULT_IGNORE_FILENAMES,
 ) -> TreeRender:
     """落地档:枚举走单源出口,其余交回纯渲染层。
 
     `enumerated` 取枚举出口自报的 `counted`(不是渲染行数)⇒ "被预算削掉多少"的分母
     始终是"这次到底量到了多少文件",与懒索引护栏同一个数。
+
+    ignore 剪枝**刻意只落在上下文装配这一层,没有同时改索引面**:本仓存在"跟踪但被
+    `.gitignore` 覆盖"的路径(守门 236 就是为这一型立的),把规则一口气接进索引枚举
+    会让这些文件静默从索引里消失 —— 那一格要单独开票带证据做。骨架侧吃掉构建产物是纯收益。
     """
     rel_paths, prov = enumerate_code_files(
         root,
@@ -286,15 +302,34 @@ def render_workspace_tree(
         suffixes=tuple(_EXT_TO_LANG),
         max_files=max_files,
     )
-    return render_rows(
-        rel_paths,
+    notes_extra: list[str] = []
+    files_ignored = 0
+    ignored_by: list[str] = []
+    kept_paths = rel_paths
+    if ignore_filenames:
+        ignore = load_ignore_set(root, filenames=tuple(ignore_filenames))
+        if ignore.rules:
+            kept_paths, pruned = filter_paths(rel_paths, ignore)
+            files_ignored = len(pruned)
+            seen: set[str] = set()
+            for _path, where in pruned:
+                if where not in seen and len(seen) < 12:
+                    seen.add(where)
+                    ignored_by.append(where)
+        notes_extra.extend(f"ignore 规则读不动:{e}" for e in ignore.errors)
+    out = render_rows(
+        kept_paths,
         max_tokens=max_tokens,
         scope=scope,
         enumerated=prov.counted,
         engine=prov.engine,
         degraded_reason=prov.degraded_reason,
         fallback_detail=prov.fallback_detail,
+        files_ignored=files_ignored,
+        ignored_by=ignored_by,
     )
+    out.notes.extend(notes_extra)
+    return out
 
 
 __test__ = {
