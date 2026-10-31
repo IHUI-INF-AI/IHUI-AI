@@ -8,7 +8,7 @@
 .rc-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 24rpx;
+  padding-bottom: var(--spacing-md);
 }
 
 .rc-loading-mask {
@@ -30,7 +30,7 @@
   animation: rc-spin 0.8s linear infinite;
 }
 .rc-loading-text {
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
   font-size: 26rpx;
   color: var(--color-primary-foreground);
 }
@@ -45,8 +45,8 @@
 .rc-user-card {
   display: flex;
   align-items: center;
-  margin: 20rpx;
-  padding: 32rpx;
+  margin: var(--spacing-sm-loose);
+  padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
   background: var(--color-cta);
 }
@@ -68,7 +68,7 @@
   font-weight: 700;
 }
 .rc-user-info {
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
   display: flex;
   flex-direction: column;
 }
@@ -78,7 +78,7 @@
   font-weight: 600;
 }
 .rc-user-sub {
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   font-size: 24rpx;
   color: var(--color-cta-foreground);
   opacity: 0.7;
@@ -87,7 +87,7 @@
 /* 区块容器 — 对齐 RN section(透明底 + paddingHorizontal 10) */
 .rc-card {
   padding: 0 20rpx;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
   background: transparent;
   border: none;
 }
@@ -96,14 +96,14 @@
   font-size: 36rpx;
   color: var(--color-foreground);
   font-weight: 600;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 /* 金额档位 — 对齐 RN amountGrid(gap 10/mb 12)+ amountCard(30% 宽/paddingY 14/radius 12) */
 .rc-presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
-  margin-bottom: 24rpx;
+  gap: var(--spacing-sm-loose);
+  margin-bottom: var(--spacing-md);
 }
 .rc-preset {
   width: calc((100% - 40rpx) / 3);
@@ -127,13 +127,13 @@
   color: var(--color-primary);
 }
 .rc-custom {
-  margin-top: 24rpx;
+  margin-top: var(--spacing-md);
 }
 .rc-custom-label {
   display: block;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 /* 自定义金额 — 对齐 RN customInput(bg muted/height 50/radius 12/fontSize 16) */
 .rc-input {
@@ -153,8 +153,8 @@
 /* 充值比例提示 — 对齐 RN rateBox(边框白卡/内距 10/radius 12/gap 4,单行化) */
 .rc-token-tip {
   display: block;
-  margin-top: 24rpx;
-  padding: 20rpx;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm-loose);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-card);
@@ -177,14 +177,14 @@
   display: block;
 }
 .rc-activity-body {
-  padding: 24rpx;
+  padding: var(--spacing-md);
 }
 .rc-activity-title {
   display: block;
   font-size: 32rpx;
   color: var(--color-foreground);
   font-weight: 600;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .rc-activity-rule {
   display: block;
@@ -192,20 +192,20 @@
   color: var(--color-muted-foreground);
   line-height: 1.6;
   white-space: pre-wrap;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .rc-activity-rate {
   display: block;
   font-size: 24rpx;
   color: var(--color-text-tertiary);
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 .rc-activity-input {
   width: 100%;
   box-sizing: border-box;
 }
 .rc-activity-btn {
-  margin-top: 20rpx;
+  margin-top: var(--spacing-sm-loose);
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
@@ -221,7 +221,7 @@
   border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 .rc-method--active {
   border-color: var(--color-brand-accent-deep);
@@ -244,7 +244,7 @@
 }
 .rc-method-name {
   flex: 1;
-  margin-left: 20rpx;
+  margin-left: var(--spacing-sm-loose);
   font-size: 32rpx;
   color: var(--color-foreground);
 }
@@ -271,7 +271,7 @@
 
 /* 提交按钮 — 对齐 RN submitBtn(marginHorizontal 10/height 50/radius 12/brand 底) */
 .rc-submit {
-  margin: 20rpx 20rpx 24rpx;
+  margin: var(--spacing-sm-loose) 20rpx 24rpx;
   height: 100rpx;
   line-height: 100rpx;
   background: var(--color-cta);

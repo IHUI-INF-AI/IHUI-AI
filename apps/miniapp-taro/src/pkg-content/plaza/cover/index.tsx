@@ -185,15 +185,15 @@ export default function PlazaCover() {
             {profile?.nickname || tt('plaza.cover.guest', '游客')}
           </Text>
           {waitting ? (
-            <Text className="text-[length:28rpx] text-warning text-center leading-[38rpx]">
+            <Text className="text-body text-warning text-center leading-[38rpx]">
               {tt('plaza.cover.opening', '专属开发者空间开通中…')}
             </Text>
           ) : isDev ? (
-            <Text className="text-[length:28rpx] text-success text-center leading-[38rpx]">
+            <Text className="text-body text-success text-center leading-[38rpx]">
               {tt('plaza.cover.opened', '开发者空间已开通')}
             </Text>
           ) : (
-            <Text className="text-[length:28rpx] text-muted-foreground text-center leading-[38rpx]">
+            <Text className="text-body text-muted-foreground text-center leading-[38rpx]">
               {tt('plaza.cover.notOpened', '未开通')}
             </Text>
           )}
@@ -217,7 +217,7 @@ export default function PlazaCover() {
             <Text className="block text-[length:32rpx] font-semibold text-foreground">
               {tt('plaza.cover.entryTitle', '成为开发者')}
             </Text>
-            <Text className="block text-[length:28rpx] leading-[38rpx] text-[var(--color-text-tertiary)]">
+            <Text className="block text-body leading-[38rpx] text-[var(--color-text-tertiary)]">
               {tt('plaza.cover.entryDesc', '开通专属开发者空间,上架智能体获取收益')}
             </Text>
             <View

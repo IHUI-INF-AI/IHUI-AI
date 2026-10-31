@@ -351,7 +351,7 @@ export default function BenefitsPage() {
                 <Text className="block mt-[12rpx] text-[length:32rpx] font-bold text-foreground">
                   {b.title}
                 </Text>
-                <Text className="block mt-[16rpx] text-[length:28rpx] text-muted-foreground leading-[36rpx]">
+                <Text className="block mt-[16rpx] text-body text-muted-foreground leading-[36rpx]">
                   {b.desc}
                 </Text>
               </View>

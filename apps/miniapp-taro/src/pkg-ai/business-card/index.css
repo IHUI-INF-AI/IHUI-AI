@@ -18,8 +18,8 @@
 .page-header {
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  padding: 20rpx 20rpx 24rpx;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm-loose) 20rpx 24rpx;
 }
 .page-title {
   flex: 1;
@@ -32,8 +32,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 20rpx 30rpx;
-  gap: 12rpx;
+  padding: var(--spacing-sm-loose) 30rpx;
+  gap: var(--spacing-xs-loose);
 }
 .card-entry-icon {
   font-size: 32rpx;
@@ -44,7 +44,7 @@
 }
 .card-content {
   flex: 1;
-  padding: 20rpx 30rpx 60rpx;
+  padding: var(--spacing-sm-loose) 30rpx 60rpx;
 }
 /* 名片卡(RN card:卡底 / 圆角16 / 描边 border-light / padding14) */
 .card-preview {
@@ -62,7 +62,7 @@
 .card-actions {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
   margin-top: 28rpx;
 }
 .action-btn {
@@ -85,7 +85,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20rpx;
+  gap: var(--spacing-sm-loose);
   padding: 120rpx 30rpx;
   background: var(--color-card);
   border: 2rpx dashed var(--color-border-medium);

@@ -65,7 +65,7 @@ export function RecordStats({ stats }: { stats: StudyStats | null }) {
         <View key={i} className="flex">
           {row.map((cell) => (
             <View key={cell.key} className="flex-1 flex flex-col items-center">
-              <Text className="text-[length:40rpx] font-bold text-foreground leading-[1.2]">
+              <Text className="text-heading font-bold text-foreground leading-[1.2]">
                 {cell.value}
               </Text>
               <Text className="mt-[16rpx] text-[length:22rpx] text-muted-foreground text-center">

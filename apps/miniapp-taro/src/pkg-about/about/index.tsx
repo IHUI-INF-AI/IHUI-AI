@@ -56,7 +56,7 @@ function FeatureCard({ feature, title, desc }: { feature: AboutFeature; title: s
         </View>
         <Text className="flex-1 text-[length:30rpx] font-semibold text-foreground">{title}</Text>
       </View>
-      <Text className="block text-[length:24rpx] leading-[38rpx] text-muted-foreground">{desc}</Text>
+      <Text className="block text-label leading-[38rpx] text-muted-foreground">{desc}</Text>
     </View>
   )
 }

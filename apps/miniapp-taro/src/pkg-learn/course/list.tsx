@@ -113,7 +113,7 @@ export default function CourseList() {
             onClear={() => setKeyword('')}
           />
           <View
-            className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-[length:28rpx]"
+            className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-body"
             hoverClass="opacity-60"
             onClick={onSearch}
           >

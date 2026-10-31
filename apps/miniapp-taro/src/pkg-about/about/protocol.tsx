@@ -537,7 +537,7 @@ export default function ProtocolPage() {
                       {p.title}
                     </Text>
                   ) : null}
-                  <Text className="block text-[length:28rpx] text-[var(--color-text-medium)] leading-[36rpx] text-justify">
+                  <Text className="block text-body text-[var(--color-text-medium)] leading-[36rpx] text-justify">
                     {p.text}
                   </Text>
                 </View>

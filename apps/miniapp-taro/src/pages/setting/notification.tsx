@@ -128,7 +128,7 @@ export default function NotificationPage() {
       <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
         {/* 对齐 RN 顶部 card:说明文案(notificationSettings.desc) */}
         <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx]">
-          <Text className="text-[length:28rpx] leading-[1.5] text-[color:var(--color-text-medium)]">
+          <Text className="text-body leading-[1.5] text-[color:var(--color-text-medium)]">
             {t('notificationSettings.desc')}
           </Text>
         </View>
@@ -181,7 +181,7 @@ export default function NotificationPage() {
                 <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.wxSubscribe', '微信催费提醒')}
                 </Text>
-                <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
                   {/* 原写法取 `setting.notification.wxSubscribeDesc` —— 该键在五语言词包里
                       **都不存在** ⇒ tt() 的中文兜底恒被渲染(非中文环境也是中文)。
                       改指同义且已在册的 `bill.wxSubscribeDesc`(本屏下方就跳 bill 页)。 */}
@@ -200,7 +200,7 @@ export default function NotificationPage() {
                 <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.myBills', '我的学费账单')}
                 </Text>
-                <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
                   {tt('setting.notification.myBillsDesc', '查看应缴/已缴/欠费并在线缴费')}
                 </Text>
               </View>
@@ -216,7 +216,7 @@ export default function NotificationPage() {
                 <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.detail', '通知详情')}
                 </Text>
-                <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
                   {tt('setting.notification.detailDesc', '查看历史通知消息')}
                 </Text>
               </View>

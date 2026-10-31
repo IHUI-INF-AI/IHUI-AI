@@ -237,7 +237,7 @@ export default function CoursePlanet() {
                 )}
                 {/* 对齐 RN infoWrap:paddingH 12dp→24rpx / paddingV 8dp→16rpx / justify-between */}
                 <View className="flex-1 px-[24rpx] py-[16rpx] flex flex-col justify-between min-h-[160rpx]">
-                  <Text className="text-[length:28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
+                  <Text className="text-body text-foreground font-semibold leading-[1.4] line-clamp-2">
                     {item.title}
                   </Text>
                   {item.teacher ? (

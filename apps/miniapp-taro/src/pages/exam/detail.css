@@ -38,7 +38,7 @@
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: 28rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .exam-detail-title {
@@ -54,7 +54,7 @@
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   line-height: 1.6;
-  margin-top: 16rpx;
+  margin-top: var(--spacing-sm);
 }
 
 /* 统计信息(RN 无对应,沿用卡片语言) */
@@ -65,7 +65,7 @@
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: 28rpx 16rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .exam-detail-stat-item {
@@ -73,7 +73,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12rpx 0;
+  padding: var(--spacing-xs-loose) 0;
 }
 
 .exam-detail-stat-value {
@@ -85,7 +85,7 @@
 .exam-detail-stat-label {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 /* 通用卡片 */
@@ -94,7 +94,7 @@
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 28rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 .exam-detail-card-title {
@@ -102,7 +102,7 @@
   font-size: 28rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-sm-loose);
 }
 
 /* 参与情况(RN 无对应,沿用卡片语言) */
@@ -130,14 +130,14 @@
 .exam-detail-participant-label {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 /* 考试规则 */
 .exam-detail-rule-item {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 16rpx;
+  margin-bottom: var(--spacing-sm);
 }
 
 .exam-detail-rule-item:last-child {
@@ -147,7 +147,7 @@
 .exam-detail-rule-dot {
   font-size: 28rpx;
   color: var(--color-primary);
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   line-height: 1.6;
 }
 
@@ -163,24 +163,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20rpx 0;
+  padding: var(--spacing-sm-loose) 0;
 }
 
 .exam-detail-history-item:not(:last-child) {
-  margin-bottom: 12rpx;
+  margin-bottom: var(--spacing-xs-loose);
 }
 
 .exam-detail-history-info {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .exam-detail-history-status {
   font-size: 22rpx;
   font-weight: 600;
-  padding: 8rpx 12rpx;
+  padding: var(--spacing-xs) 12rpx;
   border-radius: var(--radius-sm);
 }
 
@@ -210,7 +210,7 @@
   text-align: center;
   font-size: 28rpx;
   color: var(--color-muted-foreground);
-  padding: 32rpx 0;
+  padding: var(--spacing-lg) 0;
 }
 
 /* 错误状态 */
@@ -218,7 +218,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 96rpx 0;
+  padding: var(--spacing-5xl) 0;
 }
 
 .exam-detail-error-text {
@@ -229,7 +229,7 @@
 .exam-detail-error-retry {
   font-size: 28rpx;
   color: var(--color-primary);
-  margin-top: 12rpx;
+  margin-top: var(--spacing-xs-loose);
 }
 
 /* 底部按钮(对齐 SharedExamScreen startBtn:圆角 24rpx / bg primary / 字 28rpx/600 白) */
@@ -238,7 +238,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 28rpx;
+  padding: var(--spacing-sm-loose) 28rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;
