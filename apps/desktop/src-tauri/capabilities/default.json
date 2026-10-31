@@ -2,15 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。. 2026-10-31 安全强化第 10 批 R6:checkin/qoder/workbuddy 全族 33 项凭据采集与设备重置命令移出 remote 授权面 —— web 面零消费方(tauri-bridge 桥函数亦零引用),此前线上页面(含任意 XSS)可直调扫描其他 IDE 应用 leveldb/DPAPI 提取 JWT 与重置设备指纹;Rust 命令本体保留(本地通道仍可用),仅移除远程 webview 授权。键鼠/截屏/剪贴板为 agent-control 在用功能保留,其滥用面由服务端审批门缓解。",
-  "windows": [
-    "main",
-    "admin"
-  ],
+  "windows": ["main", "admin"],
   "remote": {
-    "urls": [
-      "https://aizhs.top/*",
-      "https://www.aizhs.top/*"
-    ]
+    "urls": ["https://aizhs.top/*", "https://www.aizhs.top/*"]
   },
   "permissions": [
     "core:default",
@@ -39,13 +33,16 @@
     "log:default",
     {
       "identifier": "shell:allow-open",
-      "description": "仅允许打开 http/https 外部 URL(SSO 等),禁止 file:/自定义协议",
+      "description": "仅允许打开实测在用的外部 URL(SSO 登录链路):生产 https://aizhs.top 与 https://www.aizhs.top、开发 http://localhost:8801。2026-10-31 安全强化:白名单从 {url:https://*}/{url:http://*} 通配(放行任意站)收窄为显式域清单,声明面堵「被 XSS 的远程页可调起系统浏览器打开任意 URL(钓鱼链)」。已知边界:tauri-plugin-shell 2.3.5 的 open 命令仅消费 tauri.conf.json plugins.shell.open 的校验正则(未配置时默认放行全部 http(s)/mailto/tel),capability 的 url scope 条目当前无命令签名取用(CommandScope 仅接线在 execute/spawn);运行时收口须在 plugins.shell.open 配显式正则,本条先收声明面并以 apps/desktop/tests/capabilities-allow-open.test.mjs 钉住。",
       "allow": [
         {
-          "url": "https://*"
+          "url": "https://aizhs.top/*"
         },
         {
-          "url": "http://*"
+          "url": "https://www.aizhs.top/*"
+        },
+        {
+          "url": "http://localhost:8801/*"
         }
       ]
     },
