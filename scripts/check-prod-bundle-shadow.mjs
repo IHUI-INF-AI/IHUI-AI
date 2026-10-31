@@ -237,6 +237,19 @@ export const PAIRS = [
 const sha1 = (buf) => createHash('sha1').update(buf).digest('hex')
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
 
+/** a 相对 b 的**多重集**差(a 有而 b 没有的行数,重复行按份数算)。S3 的诚实读数用它。 */
+export function multisetCountDiff(aLines, bLines) {
+  const pool = new Map()
+  for (const l of bLines) pool.set(l, (pool.get(l) ?? 0) + 1)
+  let n = 0
+  for (const l of aLines) {
+    const c = pool.get(l) ?? 0
+    if (c > 0) pool.set(l, c - 1)
+    else n += 1
+  }
+  return n
+}
+
 // ── E1 / 目录摘要 / reviewRequired 的常量(G-405)─────────────────────────────
 // 盲区目录的被审侧根路径(与 PAIRS 里 runner 的前缀逐字同源,T2 已钉"runner 必须落在这里")。
 export const BUNDLE_REL = 'deploy/prod-bundle'
@@ -547,7 +560,14 @@ export function audit(root, pairs, opts = {}) {
       const rl = rb.toString('utf8').split('\n')
       let diff = 0
       for (let i = 0; i < Math.max(tl.length, rl.length); i += 1) if (tl[i] !== rl[i]) diff += 1
-      lines.push(`  ❌ S3 影子漂移 ${p.runner}(${diff} 行与入库源不同)`)
+      // 位置比对一位偏,后面整段都跟着偏 ⇒ `diff` 能把 11 行真差顶成 213 行(2026-11-01 本机实测
+      // deploy.sh 就是这样)。判红条件一个没动(sha 不等即红),但读数必须把「位移」与「内容差」
+      // 分开说:人按这两个多重集差才判断得了要核哪几行,拿被顶大的数当量级就是假读数(§0 数字诚实)。
+      const onlyTracked = multisetCountDiff(tl, rl)
+      const onlyRunner = multisetCountDiff(rl, tl)
+      lines.push(
+        `  ❌ S3 影子漂移 ${p.runner}(位置比对 ${diff} 行不等;内容真差:入库源独有 ${onlyTracked} 行、运行副本独有 ${onlyRunner} 行 —— 前者含整段位移放大,后两个数才是该核的行)`,
+      )
       lines.push(`        入库源: ${p.tracked}`)
       lines.push(`        生产跑的是被忽略的那一份 ⇒ 二者不一致时,线上行为与仓内代码无关`)
       ok = false
@@ -671,6 +691,27 @@ function selfTest() {
     drift2.ok === false && d2.includes('S3') && d2.includes(R),
   )
   writeFileSync(join(root, T), "Write-Host 'one'\n")
+  // 位移读数的诚实性(2026-11-01 本机实测):运行副本只在开头多插一行,位置比对会把后面整段
+  // 都算成"不等" —— 真仓那枚 deploy.sh 逐行只差 11 行,却被读成「213 行与入库源不同」。
+  // 判红条件一个没动(sha 不等即红),要修的是**读数**:位移与内容差必须分列,
+  // 否则人拿着被顶大的数量级决定"要不要核",那就是假读数指挥真决策。
+  const BASE = ['a', 'b', 'c', 'd', 'e'].map((x) => `Write-Host '${x}'\n`).join('')
+  writeFileSync(join(root, T), BASE)
+  writeFileSync(join(root, R), `Write-Host 'inserted'\n${BASE}`)
+  g('add', '-f', '--', T)
+  gc('shift')
+  const shift = audit(root, pairs)
+  const sm = /位置比对 (\d+) 行不等;内容真差:入库源独有 (\d+) 行、运行副本独有 (\d+) 行/.exec(
+    shift.lines.join('\n'),
+  )
+  check(
+    '纯位移 ⇒ S3 照判红,内容真差读成 0/1(位置数被顶大是事实,但不当量级报)',
+    shift.ok === false && Boolean(sm) && Number(sm?.[1]) > 1 && sm?.[2] === '0' && sm?.[3] === '1',
+  )
+  writeFileSync(join(root, T), "Write-Host 'one'\n")
+  writeFileSync(join(root, R), "Write-Host 'one'\n")
+  g('add', '-f', '--', T)
+  gc('restore')
   // 把入库源从跟踪集里摘掉 ⇒ S1 必须判红(而不是"看不见就算过")
   g('rm', '--cached', '-q', '--', T)
   gc('untrack')
@@ -897,6 +938,7 @@ export const __test__ = {
   isIgnored,
   sha1,
   sha256,
+  multisetCountDiff,
   BUNDLE_REL,
   SCRIPT_EXTS,
   INTEGRITY_BASENAME,
