@@ -18,7 +18,7 @@ import { checkNavigableUrl, NAVIGABLE_INTERNAL_URLS } from '../navigable-url.js'
 import { ALLOWED_FETCH_PROTOCOLS } from '../ssrf-guard.js'
 
 describe('checkNavigableUrl:协议白名单', () => {
-  it('http/https 放行并归一化(阳性对照:策略不是"什么都别导航")', () => {
+  it('http/https 放行且原样返回(阳性对照:策略不是"什么都别导航")', () => {
     for (const url of [
       'https://example.com/a?b=1',
       'http://localhost:8911/',
@@ -26,10 +26,18 @@ describe('checkNavigableUrl:协议白名单', () => {
     ]) {
       const d = checkNavigableUrl(url)
       expect(d.ok, `${url} 应放行`).toBe(true)
-      if (d.ok) expect(d.url).toMatch(/^https?:\/\//)
+      // 不归一化:守卫只判协议,不得把目标改写成另一个字符串
+      // (new URL().toString() 会补尾斜杠/重编码查询串,曾让扩展既有用例失败)
+      if (d.ok) expect(d.url).toBe(url)
     }
     // 判据与出站协议表同源:两侧都只认 http/https
     expect([...ALLOWED_FETCH_PROTOCOLS]).toEqual(['http:', 'https:'])
+  })
+
+  it('首尾空白被裁掉后原样返回(不引入其他改写)', () => {
+    const d = checkNavigableUrl('  https://example.com/a?x=1|2  ')
+    expect(d.ok).toBe(true)
+    if (d.ok) expect(d.url).toBe('https://example.com/a?x=1|2')
   })
 
   it('about:blank 放行(CLI 建新标签的内部占位页,拦掉会砸开标签流程)', () => {
