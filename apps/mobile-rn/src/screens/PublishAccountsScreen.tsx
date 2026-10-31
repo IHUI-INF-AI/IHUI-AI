@@ -375,7 +375,7 @@ export default function PublishAccountsScreen() {
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {scan ? t('publishAccounts.scanTitle') : panel?.displayName}
               </Text>
-              <Pressable onPress={closePanel} hitSlop={8}>
+              <Pressable onPress={closePanel} hitSlop={8} style={pressFeedback(undefined)}>
                 <X size={18} color={tokens.text.secondary} />
               </Pressable>
             </View>
