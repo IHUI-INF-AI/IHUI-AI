@@ -16,8 +16,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 
-/** 计划步骤状态(与 todo-write 的 TodoItem.status 同词表,可直接映射) */
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed';
+/**
+ * 计划步骤状态(与 todo-write 的 TodoItem.status 同词表,可直接映射)。
+ * 2026-10 扩五态:新增 cancelled/blocked(对齐对方词表,值追加末尾不重排既有);
+ * 与 commands/tasks.ts TaskStatus、tools/todo-write.ts TodoItem.status 同批同词表。
+ */
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
 
 /** 计划步骤操作类型 */
 type PlanStepAction = 'create' | 'edit' | 'delete' | 'read' | 'run' | 'verify';
@@ -48,7 +52,7 @@ export interface StructuredPlanInput {
 }
 
 const VALID_ACTIONS: ReadonlySet<string> = new Set(['create', 'edit', 'delete', 'read', 'run', 'verify']);
-const VALID_STATUSES: ReadonlySet<string> = new Set(['pending', 'in_progress', 'completed']);
+const VALID_STATUSES: ReadonlySet<string> = new Set(['pending', 'in_progress', 'completed', 'cancelled', 'blocked']);
 
 /** 计划持久化路径:<workspace>/.ihui/plan-<sessionId>.json */
 export function planFilePath(workspacePath: string, sessionId: string): string {

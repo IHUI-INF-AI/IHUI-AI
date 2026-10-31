@@ -29,9 +29,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.hook_runtime import build_registered_hook_runtime
 from ..core.llm_gateway import llm_gateway
 from ..core.token_baseline import CHAIN_MAIN
-from ..services.agent_loop_v2 import AgentLoopV2, ToolDefinition
+from ..services.agent_loop_v2 import (
+    AgentLoopV2,
+    ToolDefinition,
+    instructional_inputs_from_env,
+)
 from ..services.plan_mode import (
     READONLY_TOOLS,
     TASK_STATUSES,
@@ -196,12 +201,19 @@ async def _execute_plan(rec: Any, tool_names: frozenset[str]) -> dict[str, Any]:
             enable_checkpoint=False,
             enable_memory=False,
             approval_enabled=False,
+            # 接线批(2026-11-01):生命周期钩子运行时注入(与 agents._new_v2_loop /
+            # engine 工厂同一出口;登记表为空 ⇒ 无钩子 runtime ⇒ 与注入前逐零差异;
+            # 计划执行只读工具集同样经 pre_tool_use deny 可编程拦截)。
+            hook_runtime=build_registered_hook_runtime(),
             # G-941 写账侧(2026-10-26):计划执行是**主链**用户请求的延续(批准人
             # 就是发起这次对话的人),链标签取 core.token_baseline 的唯一常量源。
             # 漏传不再是"看不出来的那格":agent_loop_v2 自本票起把缺省收成 None,
             # 漏传 ⇒ 当场 warning + 用量落「未判定」桶(绝不并入主链),
             # 增量基线(G-816021)因此永远读不到这一族 llm 步。
             chain=CHAIN_MAIN,
+            # 装载口补齐批(2026-11-01):参数化指令片段的声明面(唯一读口 = 服务端 env
+            # AGENT_INSTRUCTIONAL_INPUTS;未设置 ⇒ {}= 八枚全不注入,与接线前逐零差异)。
+            instructional_inputs=instructional_inputs_from_env(),
         )
         loop_result = await loop.run(
             [

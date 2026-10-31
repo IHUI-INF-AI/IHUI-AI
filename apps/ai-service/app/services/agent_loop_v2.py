@@ -56,7 +56,7 @@ import threading
 import time
 import uuid
 import weakref
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -1878,6 +1878,101 @@ def _instructional_fragments_enabled_from_env() -> bool:
     ).strip().lower() in ("on", "1", "true", "yes")
 
 
+# ---------------------------------------------------------------------------
+# 装载口补齐批(2026-11-01):参数化指令片段的**声明面**(承载层 → 构造入参)
+# ---------------------------------------------------------------------------
+# 键名/形态的唯一契约写在 AgentLoopV2._inject_instructional_fragments 的 docstring;
+# 本层只做"顶层类型闸"——形态明显不对的值直接丢掉(绝不 str(...) 强转、绝不用空串
+# 冒充内容、绝不替调用方补一段正文)。builder 自己的语义判据(档位合法性 / source
+# 正则 / 10k 上限 / 400 token 截断 / 未安装插件截断)一律仍由 instructional_fragments
+# 的 build_* 判定,本层**不抄第二份**(§0.6 单一真相源)。
+INSTRUCTIONAL_INPUTS_ENV = "AGENT_INSTRUCTIONAL_INPUTS"
+
+#: 取值须为**非空字符串**的键(空白串视同未声明 —— "空"不是"有内容")。
+_INSTRUCTIONAL_STR_KEYS: frozenset[str] = frozenset(
+    {
+        "managed_developer_instructions",
+        "multi_agent_mode",
+        "multi_agent_custom_text",
+        "multi_agent_usage_hint",
+        "persistent_instructions_template",
+        "plugin_instruction",
+    }
+)
+
+#: 取值须为**非空 str 序列**的键(元素级过滤仍在装载口做,那里已有判据)。
+_INSTRUCTIONAL_SEQ_KEYS: frozenset[str] = frozenset(
+    {"recommended_plugins", "unsupported_media"}
+)
+
+
+def normalize_instructional_inputs(raw: Any) -> dict[str, Any]:
+    """把声明面归一成 `instructional_inputs`;**取不到的键直接缺席**(= 该枚不注入)。
+
+    只判顶层形态,不判语义(语义归 build_*)。非 dict 入参 ⇒ `{}`:未声明与声明坏了
+    在本层同义(唯一后果是片段不注入),绝不猜一份内容顶上(§0.3)。
+    """
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, Any] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            continue
+        if key in _INSTRUCTIONAL_STR_KEYS:
+            if isinstance(value, str) and value.strip():
+                out[key] = value
+        elif key in _INSTRUCTIONAL_SEQ_KEYS:
+            if isinstance(value, (list, tuple)) and len(value) > 0:
+                out[key] = list(value)
+        elif key == "send_user_message_async_available":
+            if isinstance(value, bool):
+                out[key] = value
+        elif key == "internal_model_context":
+            if isinstance(value, dict):
+                source = value.get("source")
+                body = value.get("body")
+                if (
+                    isinstance(source, str)
+                    and source
+                    and isinstance(body, str)
+                    and body
+                ):
+                    out[key] = {"source": source, "body": body}
+    return out
+
+
+def instructional_inputs_from_env(
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """声明面唯一读口:服务端 env `AGENT_INSTRUCTIONAL_INPUTS`(JSON 对象)。
+
+    为什么是服务端配置而不是请求字段:这些键渲染进 developer/user 消息,等于把
+    「开发者通道正文」交给输入方 —— 客户端可自报即自授权(与 capability 自报同一型)。
+    故只从进程环境读,不新开任何请求键。
+
+    未设置 / 空白 ⇒ `{}`(8 枚参数化片段全部不注入,与接线前逐零差异);
+    不是合法 JSON 对象 ⇒ 同样 `{}`,并以 warning 点名(不抛、不阻塞回合,也不
+    用坏配置顶一份正文)。
+    """
+    source_env: Mapping[str, str] = os.environ if env is None else env
+    raw = source_env.get(INSTRUCTIONAL_INPUTS_ENV)
+    if raw is None or not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.warning("%s 不是合法 JSON(%s),按未声明处理", INSTRUCTIONAL_INPUTS_ENV, e)
+        return {}
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "%s 须为 JSON 对象,收到 %s,按未声明处理",
+            INSTRUCTIONAL_INPUTS_ENV,
+            type(parsed).__name__,
+        )
+        return {}
+    return normalize_instructional_inputs(parsed)
+
+
 def _startup_prewarm_enabled_from_env() -> bool:
     """会话启动预热开关(env AGENT_STARTUP_PREWARM_ENABLED)。
 
@@ -2217,6 +2312,12 @@ class AgentLoopV2:
         # 不写回会话/checkpoint,绑定会话不会被永久视为 automation 执行上下文。
         deny_tools: Sequence[str] | None = None,
         turn_denylist: Iterable[str] | None = None,
+        # 装载口补齐批(2026-11-01):参数化指令片段的承载层输入。None/缺键 ⇒ 对应
+        # 片段不注入(与接线前逐零差异)。唯一装载口仍是 _inject_instructional_fragments,
+        # 唯一开关仍是 env AGENT_INSTRUCTIONAL_FRAGMENTS_ENABLED —— 本参数只提供
+        # builder 的构造入参(与 network_rule_amendments 喂 build_network_rule_saved_fragment
+        # 同款方式),**不是第二份注入路径**。键与形态见该方法注释。
+        instructional_inputs: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -2509,6 +2610,11 @@ class AgentLoopV2:
         # 批58(接线):指令片段构造(对标 codex core/src/context/*_instructions.rs)。
         # 默认 off:不注入任何指令片段,与现状逐零差异。
         self._instructional_fragments_enabled: bool = _instructional_fragments_enabled_from_env()
+        # 装载口补齐批(2026-11-01):参数化片段的承载层输入(校验同 model_params 一档:
+        # 非 dict 构造期即 raise;None ⇒ 空 dict ⇒ 所有参数化片段不注入)。
+        if instructional_inputs is not None and not isinstance(instructional_inputs, dict):
+            raise ValueError("instructional_inputs 须为 dict")
+        self._instructional_inputs: dict[str, Any] = dict(instructional_inputs or {})
         # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
         # 默认 off:不发起预热、不兑现,首回合零额外延迟,与现状逐零差异。
         self._startup_prewarm_enabled: bool = _startup_prewarm_enabled_from_env()
@@ -7183,11 +7289,30 @@ class AgentLoopV2:
             logger.debug("session_prefix 注入异常(降级跳过): %s", e)
 
     def _inject_instructional_fragments(self, messages: list[dict[str, Any]]) -> None:
-        """批58(接线):指令片段构造注入(对标 codex core/src/context/*_instructions.rs)。
+        """批58(接线)+ 2026-11-01 装载口补齐:指令片段构造注入(对标 codex core/src/context/*_instructions.rs)。
 
-        开关关闭时直接返回(零片段、与现状逐零差异)。开启时注入一组参数无关、低风险的
-        指令片段(apps/plugins/environments/user_verification);逐条失败不影响其余片段;
-        返回空则不追加;整体异常隔离,不阻塞回合。
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时注入两族:
+        1. 参数无关四枚(apps/plugins/environments/user_verification,批58 既有面,
+           逐字保留);
+        2. 参数化八枚(managed_developer/multi_agent_mode/multi_agent_usage_hint/
+           persistent_mode/plugin_instruction/recommended_plugins/internal_model_context/
+           unsupported_media):参数一律现读构造入参 `instructional_inputs`
+           (承载层声明面,与 network_rule_amendments 喂 build_network_rule_saved_fragment
+           同款方式);**未声明/形态非法 ⇒ 该枚不注入,绝不伪造正文**。键形态:
+           - managed_developer_instructions: str(空 ⇒ builder 返回 None;超 10k token
+             由 builder 抛 ValueError ⇒ 落入本函数既有整批异常隔离)
+           - multi_agent_mode: str(explicit_request_only|proactive|custom)+
+             multi_agent_custom_text: str
+           - multi_agent_usage_hint: str
+           - persistent_instructions_template: str(仅 model_params.reasoning_effort==
+             "persistent" 时 builder 产出;send_user_message_async_available: bool 可选)
+           - plugin_instruction: str
+           - recommended_plugins: list[[name, id]](非二元组/非字符串项逐条剔除)
+           - internal_model_context: {"source": str, "body": str}(source 非法 ⇒ builder
+             抛 ValueError ⇒ 同落整批隔离)
+           - unsupported_media: list[str],仅收 image|audio 两值(其余值跳过,不注入)
+        build_network_rule_saved_fragment 不在此处(经 network_rule_amendments 在规则
+        保存点装载)。整体异常隔离(单 try 包住全批,与批58 接线前语义一致),不阻塞回合。
         """
         if not self._instructional_fragments_enabled:
             return
@@ -7196,9 +7321,18 @@ class AgentLoopV2:
                 build_apps_instructions_fragment,
                 build_available_plugins_instructions_fragment,
                 build_environments_instructions_fragment,
+                build_internal_model_context_fragment,
+                build_managed_developer_instructions_fragment,
+                build_multi_agent_mode_fragment,
+                build_multi_agent_usage_hint_fragment,
+                build_persistent_mode_fragment,
+                build_plugin_instruction_fragment,
+                build_recommended_plugins_instructions_fragment,
+                build_unsupported_media_fragment,
                 build_user_verification_notice_fragment,
             )
 
+            _frag: dict[str, Any] | None = None
             for _builder in (
                 build_apps_instructions_fragment,
                 build_available_plugins_instructions_fragment,
@@ -7208,6 +7342,82 @@ class AgentLoopV2:
                 _frag = _builder()
                 if _frag:
                     messages.append(_frag)
+
+            _inp = self._instructional_inputs
+
+            # 参数化八枚:逐枚"取不到 ⇒ 不注入"(与既有 `if _frag:` 同一形态纪律)。
+            _managed = _inp.get("managed_developer_instructions")
+            if isinstance(_managed, str) and _managed:
+                _frag = build_managed_developer_instructions_fragment(_managed)
+                if _frag:
+                    messages.append(_frag)
+
+            _mode = _inp.get("multi_agent_mode")
+            if isinstance(_mode, str) and _mode:
+                _custom = _inp.get("multi_agent_custom_text")
+                _frag = build_multi_agent_mode_fragment(
+                    _mode, _custom if isinstance(_custom, str) else ""
+                )
+                if _frag:
+                    messages.append(_frag)
+
+            _hint = _inp.get("multi_agent_usage_hint")
+            if isinstance(_hint, str) and _hint:
+                _frag = build_multi_agent_usage_hint_fragment(_hint)
+                if _frag:
+                    messages.append(_frag)
+
+            _ptpl = _inp.get("persistent_instructions_template")
+            if isinstance(_ptpl, str) and _ptpl:
+                _frag = build_persistent_mode_fragment(
+                    self._model_params.get("reasoning_effort"),
+                    _ptpl,
+                    send_user_message_async_available=_inp.get(
+                        "send_user_message_async_available"
+                    )
+                    is True,
+                )
+                if _frag:
+                    messages.append(_frag)
+
+            _plugin_text = _inp.get("plugin_instruction")
+            if isinstance(_plugin_text, str) and _plugin_text:
+                _frag = build_plugin_instruction_fragment(_plugin_text)
+                if _frag:
+                    messages.append(_frag)
+
+            _reco = _inp.get("recommended_plugins")
+            if isinstance(_reco, (list, tuple)) and _reco:
+                _pairs: list[tuple[str, str]] = []
+                for _item in _reco:
+                    if (
+                        isinstance(_item, (list, tuple))
+                        and len(_item) == 2
+                        and isinstance(_item[0], str)
+                        and isinstance(_item[1], str)
+                    ):
+                        _pairs.append((_item[0], _item[1]))
+                if _pairs:
+                    _frag = build_recommended_plugins_instructions_fragment(_pairs)
+                    if _frag:
+                        messages.append(_frag)
+
+            _imc = _inp.get("internal_model_context")
+            if isinstance(_imc, dict):
+                _src = _imc.get("source")
+                _body = _imc.get("body")
+                if isinstance(_src, str) and isinstance(_body, str) and _src and _body:
+                    _frag = build_internal_model_context_fragment(_src, _body)
+                    if _frag:
+                        messages.append(_frag)
+
+            _um = _inp.get("unsupported_media")
+            if isinstance(_um, (list, tuple)):
+                for _media in _um:
+                    if isinstance(_media, str) and _media in ("image", "audio"):
+                        _frag = build_unsupported_media_fragment(_media)
+                        if _frag:
+                            messages.append(_frag)
         except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
             logger.debug("instructional_fragments 注入异常(降级跳过): %s", e)
 
