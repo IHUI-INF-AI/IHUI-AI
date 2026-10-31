@@ -694,6 +694,23 @@ async def call_external_tool(
 # ---------------------------------------------------------------------------
 
 
+def _stdio_live_state(server_name: str) -> tuple[bool, list[str]]:
+    """取该 server 在 stdio 单例池里的**运行态**:(是否已热挂载, 实际注入的工具名)。
+
+    此前这一面只回持久化记录里的 `tool_count`:热挂载幂等跳过时 `add_stdio_server_tool`
+    返回 0,于是"装了 3 个工具的 server"在商店里显示成 0 个;而"已热挂载(运行中)"与
+    "仅持久化但已停用"在进程里是两件事,列表却只有一个 `enabled` 位。判据一律取自
+    `mcp_stdio_bridge` 的两个只读出口,本层不复算第二份(§0.6)。
+    """
+    from ..services.mcp_stdio_bridge import (
+        get_stdio_server_tools,
+        is_stdio_server_registered,
+    )
+
+    registered = bool(is_stdio_server_registered(server_name))
+    return registered, list(get_stdio_server_tools(server_name))
+
+
 def _store_mutate_gate(
     name: str, user_id: str, request: Request, *, denied_error: str, needs_admin_error: str
 ) -> JSONResponse | None:
@@ -735,6 +752,8 @@ async def list_mcp_store() -> dict[str, Any]:
 
     2026-09-12(1-4/2-5):每条附 scoring(质量分+安全分摘要,契约对齐
     api-client McpScoringSummary)与 review_status(市场审核状态)。
+    每条另附 running/tools/tool_count 三个**运行态**字段,真值取自 stdio 单例池
+    (`_stdio_live_state`),不再只回持久化记录里那个会腐烂的计数。
     """
     try:
         from ..services import mcp_market_review, mcp_quality, mcp_store
@@ -745,6 +764,10 @@ async def list_mcp_store() -> dict[str, Any]:
         servers: list[dict[str, Any]] = []
         for e in entries:
             rec = installed_map.get(e["key"])
+            # 在册(已热挂载)时工具数以 stdio 池的真值为准;仅有持久化记录(停用/重启后
+            # 未挂载)时回落到记录值,免得把"曾经装了几个"抹成 0。
+            registered, live_tools = _stdio_live_state(e["key"])
+            tool_count = len(live_tools) if registered else int((rec or {}).get("tool_count") or 0)
             servers.append(
                 {
                     "key": e["key"],
@@ -759,7 +782,11 @@ async def list_mcp_store() -> dict[str, Any]:
                     "env_required": e["env_required"],
                     "installed": bool(rec and rec.get("installed")),
                     "enabled": bool(rec and rec.get("enabled")),
-                    "tool_count": int((rec or {}).get("tool_count") or 0),
+                    # running=进程里真在册(与 enabled 这个持久化位分开:重启后记录仍是
+                    # enabled=True 而子进程已不在)
+                    "running": registered,
+                    "tools": live_tools,
+                    "tool_count": tool_count,
                     "last_error": str((rec or {}).get("last_error") or ""),
                     "scoring": mcp_quality.scoring_summary(e["key"], e["name"]),
                     "review_status": mcp_market_review.get_status(e["key"]),
@@ -864,6 +891,8 @@ async def install_mcp_store_server(
                 status_code=409,
                 content={"error": f"MCP Server 已安装且启用: {name}"},
             )
+        registered = False
+        live_tools: list[str] = []
         try:
             tool_count = await add_stdio_server_tool(
                 name=name,
@@ -872,6 +901,11 @@ async def install_mcp_store_server(
                 env=cfg_dict.get("env") or {},
                 description=entry.description,
             )
+            # 热挂载幂等跳过时 add 返回 0(server 已在册),而"这次没新增"不等于
+            # "它没有工具"——以池里的真值为准,持久化与响应都不再落那个 0。
+            registered, live_tools = _stdio_live_state(name)
+            if registered and live_tools:
+                tool_count = len(live_tools)
         except Exception as e:
             logger.error("商店安装热挂载失败(%s): %s", name, e)
             return JSONResponse(
@@ -896,7 +930,13 @@ async def install_mcp_store_server(
         }
         mcp_store.save_installed(record)
         logger.info("商店安装成功: %s(工具 %d)", name, tool_count)
-        return {"ok": True, "name": name, "tool_count": tool_count}
+        return {
+            "ok": True,
+            "name": name,
+            "tool_count": tool_count,
+            "running": registered,
+            "tools": live_tools,
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -959,12 +999,18 @@ async def enable_mcp_store_server(
         if gate is not None:
             return gate
         if rec.get("enabled"):
+            # 记录说"已启用":在册就以池里的真值回,不在册(重启后子进程已没)才回落记录值
+            registered, live_tools = _stdio_live_state(name)
             return {
                 "ok": True,
                 "name": name,
                 "enabled": True,
-                "tool_count": int(rec.get("tool_count") or 0),
+                "running": registered,
+                "tools": live_tools,
+                "tool_count": len(live_tools) if registered else int(rec.get("tool_count") or 0),
             }
+        registered = False
+        live_tools = []
         try:
             tool_count = await add_stdio_server_tool(
                 name=name,
@@ -972,6 +1018,10 @@ async def enable_mcp_store_server(
                 args=list(rec.get("args") or []),
                 env=dict(rec.get("env") or {}),
             )
+            # 与安装腿同一处幂等语义:已在册时 add 返回 0,真值以池为准(见 _stdio_live_state)
+            registered, live_tools = _stdio_live_state(name)
+            if registered and live_tools:
+                tool_count = len(live_tools)
         except Exception as e:
             logger.error("启用 MCP Server 失败(%s): %s", name, e)
             mcp_store.save_installed({**rec, "last_error": str(e)})
@@ -982,7 +1032,14 @@ async def enable_mcp_store_server(
             updated["last_error"] = ""
             mcp_store.save_installed(updated)
         logger.info("启用 MCP Server 成功: %s(工具 %d)", name, tool_count)
-        return {"ok": True, "name": name, "enabled": True, "tool_count": tool_count}
+        return {
+            "ok": True,
+            "name": name,
+            "enabled": True,
+            "running": registered,
+            "tools": live_tools,
+            "tool_count": tool_count,
+        }
     except Exception as e:
         logger.error("启用 MCP Server 失败(%s): %s", name, e)
         return JSONResponse(status_code=500, content={"error": f"启用 MCP Server 失败: {e}"})
