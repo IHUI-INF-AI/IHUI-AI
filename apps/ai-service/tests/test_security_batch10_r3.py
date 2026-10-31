@@ -84,6 +84,7 @@ class TestProxyFollowingRedirects:
         from unittest.mock import patch
 
         import app.routers.media_tasks as mt
+        import app.services.screenshot_service as ss_mod
 
         asked: list[str] = []
 
@@ -97,11 +98,18 @@ class TestProxyFollowingRedirects:
 
             async def send(self, req: tuple) -> httpx.Response:
                 url = req[1]
-                if url == "https://public.example/a":
+                # 钉 IP 后连接 URL 的 host 是解析 IP(非域名),按路径判跳
+                if url.endswith("/a"):
                     return _redirect_response("https://public.example/b", url)
                 return httpx.Response(200, text="ok", request=httpx.Request("GET", url))
 
-        with patch.object(mt, "_validate_url_ssrf", side_effect=_fake_validate):
+        public_addr = [(2, 1, 6, "", ("93.184.216.34", 0))]
+        with (
+            patch.object(mt, "_validate_url_ssrf", side_effect=_fake_validate),
+            # 2026-10-31 R6 起 helper 每跳还要 resolve_pinned_target(钉 IP),
+            # 真实 DNS 解析不了 example 域 ⇒ mock 之
+            patch.object(ss_mod.socket, "getaddrinfo", return_value=public_addr),
+        ):
             resp = await mt._send_following_redirects(_FakeClient(), "https://public.example/a")  # type: ignore[arg-type]
 
         assert resp.status_code == 200
@@ -132,7 +140,8 @@ class TestDownloadUrlSsrfSafe:
 
             async def get(self, url: str) -> httpx.Response:
                 sent.append(url)
-                if url.startswith("https://public.example"):
+                # 钉 IP 后连接 URL 的 host 是解析 IP(非域名),按路径判跳
+                if url.endswith("/img.png"):
                     return _redirect_response("http://10.0.0.5/internal", url)
                 return httpx.Response(200, content=b"secret", request=httpx.Request("GET", url))
 
@@ -180,7 +189,8 @@ class TestDownloadUrlSsrfSafe:
             async def __aexit__(self, *a: Any) -> None:
                 return None
 
-            async def get(self, url: str) -> httpx.Response:
+            async def get(self, url: str, headers=None, extensions=None) -> httpx.Response:
+                # helper 钉 IP 后会带 Host 头与 sni_hostname extensions
                 return httpx.Response(200, content=b"png-bytes", request=httpx.Request("GET", url))
 
         class _FakeHttpx:
@@ -189,9 +199,14 @@ class TestDownloadUrlSsrfSafe:
         # SSRF 尺 mock 成全放(example 域真实 DNS 解析不了;拒绝路径由
         # test_redirect_bypass_blocked / test_first_hop_private_blocked 反向覆盖)。
         # helper 内是延迟 import from .screenshot_service ⇒ patch 其模块属性即生效。
+        # 2026-10-31 R6 起 helper 还要 resolve_pinned_target(钉 IP)⇒ getaddrinfo 同 mock。
         import app.services.screenshot_service as ss
 
-        with patch.object(ss, "_validate_url_ssrf", lambda url: (True, "")):
+        public_addr = [(2, 1, 6, "", ("93.184.216.34", 0))]
+        with (
+            patch.object(ss, "_validate_url_ssrf", lambda url: (True, "")),
+            patch.object(ss.socket, "getaddrinfo", return_value=public_addr),
+        ):
             result = await _download_url_ssrf_safe("https://cdn.example/i.png", _FakeHttpx)
 
         assert result == b"png-bytes"
