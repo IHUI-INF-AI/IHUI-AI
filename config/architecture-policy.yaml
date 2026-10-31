@@ -812,4 +812,13 @@ exceptions:
     file: 'packages/api-client/src/client.ts'
     until: 2026-11-14
     reason: 拆分前置=把 SSE 错误格式化块(SSEErrorInfo/FormattedSSEError/getSSEErrorInfo/formatSSEError)抽 packages/api-client/src/sse-error.ts,client.ts 以 re-export 保公开面逐名等值(照 EX-C2-1 清偿先例的拆法);到期末拆 ⇒ C1 红上加重,由 X2 到期对账追,不得再挂第二条例外续期
+  # 2026-11-01(门 103 D4 清偿):scripts/tests 单测直接 import miniapp 构建脚本的 __test__ 出口,
+  # 形成 repo-tooling → apps/miniapp-taro → repo-tooling 的现实环(声明表是 DAG ⇒ 按例外登记)。
+  # 正解=把 patch-entry-chunks 的纯函数下沉 scripts/lib/,与小程序构建链同批;到期前处理。
+  - id: EX-D4-1
+    rule: 'module-cycle'
+    module: repo-tooling
+    file: 'config/architecture-policy.yaml'
+    until: 2027-01-31
+    reason: '测试面单向借用小程序构建脚本(patch-entry-chunks 的 __test__ 出口,端私有栈)形成的现实环;正解=纯函数下沉 scripts/lib 与端构建链同批,到期前处理'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
