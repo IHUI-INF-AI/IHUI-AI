@@ -21,8 +21,10 @@
    发布。MVP 阶段可由前端按 createdAt desc 拉所有数据,不受 status 影响
 3. 不重复生成(同主题去重):LLM 收到 prompt 含"已存在标题列表",让 LLM
    自动避让;不依赖 embedding 等复杂去重
-4. 用 admin 路径保护(本任务先无鉴权,后续 P1 加 jwt_auth 中间件,
-   当前与 meta_learning / health 端点保持一致风格)
+4. 用 admin 路径 + 角色授权保护:P1 的 JWT 中间件只保证"必须登录",写/发布/调度面
+   另挂 require_permission(CONTENT_PUBLISH) —— 普通登录用户不得触发生成/发布
+   (2026-10-31 第 28 批;此前 /api/admin/news 被 web rewrite 直连 8803,连 apps/api
+   的 requireAdmin 都不经过,任何登录用户都能把自己的草稿批量推到已发布态)
 
 后续 P1(下轮):加 cron 自动调度(每天 0 点 UTC+8)+ admin UI 按钮
 """
@@ -34,12 +36,13 @@ import re
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.config import settings
 from app.core.db_pool import get_shared_pool
 from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
+from app.core.rbac import Permission, Principal, require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +180,10 @@ async def get_status() -> dict[str, Any]:
 
 
 @router.post("/refresh-daily")
-async def refresh_daily(count: int = 6) -> dict[str, Any]:
+async def refresh_daily(
+    count: int = 6,
+    _principal: Principal = Depends(require_permission(Permission.CONTENT_PUBLISH)),
+) -> dict[str, Any]:
     """调 LLM 生成今日新闻,直接写入 news_articles 表(status=0 draft)。
 
     Args:
@@ -315,7 +321,10 @@ async def refresh_daily(count: int = 6) -> dict[str, Any]:
 
 
 @router.post("/publish-recent")
-async def publish_recent(hours: int = 24) -> dict[str, Any]:
+async def publish_recent(
+    hours: int = 24,
+    _principal: Principal = Depends(require_permission(Permission.CONTENT_PUBLISH)),
+) -> dict[str, Any]:
     """把最近 N 小时内 status=0 (draft) 的 article 批量发布。
 
     Args:
@@ -345,7 +354,9 @@ async def publish_recent(hours: int = 24) -> dict[str, Any]:
 
 
 @router.post("/trigger-refresh")
-async def trigger_refresh() -> dict[str, Any]:
+async def trigger_refresh(
+    _principal: Principal = Depends(require_permission(Permission.CONTENT_PUBLISH)),
+) -> dict[str, Any]:
     """手动触发调度器立即执行每日刷新(不影响下次定时触发)。
 
     由 news_scheduler 接管 refresh-daily + publish-recent 的完整流程,
@@ -358,7 +369,9 @@ async def trigger_refresh() -> dict[str, Any]:
 
 
 @router.get("/scheduler-status")
-async def scheduler_status() -> dict[str, Any]:
+async def scheduler_status(
+    _principal: Principal = Depends(require_permission(Permission.CONTENT_PUBLISH)),
+) -> dict[str, Any]:
     """返回调度器当前状态(运行中 / 上次执行日期 / 历史记录)。"""
     from app.services.news_scheduler import news_scheduler
 
