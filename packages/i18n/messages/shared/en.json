@@ -223,6 +223,7 @@
     "toolMemorySave": "Save memory",
     "toolMemoryDream": "Consolidate memories",
     "toolMemoryForget": "Forget memories",
+    "toolAdvisorConsult": "Consult another model",
     "toolVendorVoiceClone": "Clone a voice",
     "toolRequestBusinessForm": "Request a business form",
     "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
