@@ -11,14 +11,7 @@
 // 本测试钉住:①真仓当前不变量;②夹具正/反对照(缺链接必红、补上必绿);
 // ③**装车证明** —— guardian-runner 必须真的注册了这道门(§22c「造好没装车」教训)。
 import { execFileSync } from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -26,6 +19,7 @@ import assert from 'node:assert/strict'
 
 import { __test__ as gate } from '../check-workspace-dep-links.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { __test__ as lockLib } from '../lib/pnpm-lock-platform.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -305,13 +299,13 @@ test('落点证明(深扫,2026-09-24):deep 开关默认 false、只由 strict �
   const src = readFileSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), 'utf8')
   assert.match(
     src,
-    /export function findGuttedLinks\(rootDir, pkgDirs, \{ deep = false \} = \{\}\)/,
-    '深扫开关必须显式默认 false(不带参数 = 与改前逐字等值)',
+    /export function findGuttedLinks\(\s*rootDir,\s*pkgDirs,\s*\{ deep = false, lockFace = null, host = null \} = \{\},?\s*\)/,
+    '深扫开关必须显式默认 false(不带参数 = 与改前逐字等值);豁免入参同样默认 null ⇒ 不接线时结构与改前等值',
   )
   assert.match(
     src,
-    /findGuttedLinks\(root, targets, \{ deep: strict \}\)/,
-    'audit 未把 strict 接到 deep ⇒ 深扫造好没装车',
+    /findGuttedLinks\(root, targets, \{\s*deep: strict,\s*lockFace,\s*host:/,
+    'audit 未把 strict 接到 deep ⇒ 深扫造好没装车;或未把 lock 面/本机平台接进去 ⇒ 豁免写了没人调(§0.9)',
   )
   assert.match(
     src,
@@ -341,12 +335,92 @@ test('自检入口可用(--self-test 退出码 0)', () => {
   const out = execFileSync(
     process.execPath,
     [join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), '--self-test'],
-    { encoding: 'utf8', windowsHide: true, timeout: 120_000,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'] },
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   assert.match(out, /--self-test \d+\/\d+ 通过/)
   assert.doesNotMatch(out, /❌ .*— /, '自检存在失败用例')
   assert.ok(existsSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs')))
+})
+
+test('豁免腿双向夹具(2026-11-01):对侧平台的 optional 变体不冒红，本机该装那一枚必红', () => {
+  // 401 条「悬空」红的病根是 pnpm 只给本机平台物化 store 目录、对侧变体只建链接。
+  // 本用例不靠真仓读数说话:自己在盘上造两枚悬空链接(同形态),一枚标对侧平台、一枚标本机,
+  // 再拿 lockFace=null 复跑 —— 三条断言缺一条就不是"豁免"而是"消音"。
+  const root = mkScratch('ihui-plat-exempt-')
+  try {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'r', dependencies: {} }))
+    const ownerNm = join(root, 'node_modules', '.pnpm', 'demo-owner@1.0.0', 'node_modules')
+    mkdirSync(ownerNm, { recursive: true })
+    const FOREIGN_OS = process.platform === 'win32' ? 'darwin' : 'win32'
+    const FOREIGN_ARCH = process.arch === 'x64' ? 'arm64' : 'x64'
+    const dangle = (key) =>
+      symlinkSync(
+        join('..', '..', '..', `${key}@1.0.0`, 'node_modules', key),
+        join(ownerNm, key),
+        'dir',
+      )
+    dangle('foreign-opt') // 对侧平台:pnpm 永不物化 ⇒ 链接恒悬空
+    dangle('native-opt') // 本机平台:悬空 = 安装残缺,必须照旧判红
+
+    const face = lockLib.parseLockPlatformFace(
+      [
+        "lockfileVersion: '9.0'",
+        '',
+        'packages:',
+        `  foreign-opt@1.0.0:`,
+        `    os: [${FOREIGN_OS}]`,
+        `    cpu: [${FOREIGN_ARCH}]`,
+        '',
+        '  native-opt@1.0.0:',
+        `    os: [${process.platform}]`,
+        `    cpu: [${process.arch}]`,
+        '',
+        'snapshots:',
+        '  foreign-opt@1.0.0:',
+        '    optional: true',
+        '',
+        '  native-opt@1.0.0:',
+        '    optional: true',
+        '',
+      ].join('\n'),
+    )
+    assert.ok(face instanceof Map, '合成 lock 建不出档 ⇒ 本用例前提不成立')
+    const host = { platform: process.platform, arch: process.arch, libc: null }
+
+    const r = gate.findGuttedLinks(root, [], { deep: true, lockFace: face, host })
+    const links = r.gutted.map((x) => x.link)
+    assert.equal(
+      links.filter((l) => l.endsWith('foreign-opt')).length,
+      0,
+      `对侧平台的 optional 变体仍被判红 ⇒ 恒红门没修掉: ${JSON.stringify(links)}`,
+    )
+    assert.equal(r.platformSkipped, 1, `豁免计数应为 1, got ${r.platformSkipped}`)
+    assert.equal(
+      links.filter((l) => l.endsWith('native-opt')).length,
+      1,
+      `本机平台该装的变体悬空被豁免掉了 ⇒ 2026-09-24「store 被掏空」那型重新埋回去`,
+    )
+
+    // lock 面取不到 ⇒ 一条也不豁免(失效方向是多判一次红,绝不是多放一次)
+    const r2 = gate.findGuttedLinks(root, [], { deep: true, lockFace: null, host })
+    assert.equal(r2.platformSkipped, 0, '没有 lock 面却报豁免 = 拿猜的当判据')
+    assert.equal(
+      r2.gutted.length,
+      2,
+      `lockFace=null 时两条悬空都必须判红, got ${JSON.stringify(r2.gutted.map((x) => x.link))}`,
+    )
+
+    // 不接线(改前形态)必须与改前逐字等值 ⇒ 证明新入参默认值没改变旧行为
+    const r3 = gate.findGuttedLinks(root, [], { deep: true })
+    assert.equal(r3.gutted.length, 2, '默认不带 lockFace 时行为必须与改前一致')
+  } finally {
+    rmScratch(root)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
