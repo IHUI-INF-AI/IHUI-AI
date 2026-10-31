@@ -160,4 +160,39 @@ def test_manifest_missing_fails_safe_for_external_and_keeps_matrix_for_internal(
     assert cg.check_tool_access(jwt_principal, "read_file").allowed is False
     internal = cg.Principal(kind="internal", sub="u", role=0, scopes=frozenset({cg.ALL_SCOPES}))
     assert cg.check_tool_access(internal, "read_file").matrix_fallback is True
+
+
+def test_local_stdio_principal_narrows_to_third_party_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """stdio 对端是任意第三方 Host:scope 不取通配,按「第三方可用 ∧ 非 platform ∧ 非 critical」收紧。"""
+    m = _manifest(
+        tool_scope={"read_file": "files:read"},
+        scope_meta={
+            "files:read": ("scoped-read", True),
+            "chat:write": ("compute", True),
+            "sandbox:run": ("compute", False),
+            "computer:operate": ("platform", True),
+        },
+    )
+    m.scope_meta["admin:operate"] = cg.ScopeMeta(
+        data_class="compute", risk="critical", third_party_eligible=True
+    )
+    monkeypatch.setattr(cg, "load_capability_manifest", lambda: m)
+    principal = cg.local_stdio_principal()
+    assert principal.kind == "local-stdio"
+    assert principal.sub is None
+    assert principal.scopes == frozenset({"files:read", "chat:write"})
+
+
+def test_local_stdio_principal_fail_closed_when_manifest_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """清单缺失 ⇒ 空 scope,且 tools/call 与 jwt 同档拒绝(不走 matrix_fallback 放行)。"""
+    monkeypatch.setattr(cg, "load_capability_manifest", lambda: None)
+    principal = cg.local_stdio_principal()
+    assert principal.scopes == frozenset()
+    decision = cg.check_tool_access(principal, "read_file")
+    assert decision.allowed is False
+    assert decision.error_code == "SCOPE_DENIED"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
