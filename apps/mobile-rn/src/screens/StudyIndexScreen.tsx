@@ -510,6 +510,8 @@ export function StudyIndexScreen() {
               onPress={() => setShowSearch((v) => !v)}
               accessibilityRole="button"
               accessibilityLabel="搜索"
+
+              style={pressFeedback(undefined)}
             >
               {showSearch ? (
                 <X size={20} color={tk.text.medium} />
@@ -661,7 +663,10 @@ export function StudyIndexScreen() {
             error ? (
               <View style={styles.centerWrap}>
                 <Text style={styles.errorText}>{error}</Text>
-                <Pressable style={styles.retryBtn} onPress={() => void load({ reset: true })}>
+                <Pressable
+                  style={pressFeedback(styles.retryBtn)}
+                  onPress={() => void load({ reset: true })}
+                >
                   <Text style={styles.retryText}>{t('common.ok')}</Text>
                 </Pressable>
               </View>

@@ -12,6 +12,7 @@ import {
   type AutomationTerminalTone,
 } from '@ihui/shared/utils/automation-terminal-reason'
 import { useI18n } from '../../i18n'
+import { pressFeedback } from '@ihui/ui-native'
 
 export interface AutomationCardProps {
   item: UserAutomation
@@ -81,6 +82,8 @@ export function AutomationCard({ item, onSelect }: AutomationCardProps) {
         onPress={() => onSelect?.(item)}
         accessibilityRole="button"
         accessibilityLabel={item.name}
+
+        style={pressFeedback(undefined)}
       >
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="flex-1 pr-2" numberOfLines={1}>

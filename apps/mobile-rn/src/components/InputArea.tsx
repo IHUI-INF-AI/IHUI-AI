@@ -748,6 +748,8 @@ export function InputArea({
                     hitSlop={4}
                     accessibilityRole="button"
                     accessibilityLabel={t('chat.clearModel')}
+
+                    style={pressFeedback(undefined)}
                   >
                     <X size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
                   </Pressable>
