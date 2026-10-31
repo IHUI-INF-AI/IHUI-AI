@@ -1522,7 +1522,7 @@ export function SidebarChatHistory({
             <DialogDescription>{tc('renameDialog.description')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
+            <label className="text-body font-medium text-muted-foreground">
               {tc('renameDialog.label')}
             </label>
             <Input

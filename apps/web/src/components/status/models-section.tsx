@@ -86,7 +86,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
     outage: '服务中断',
   }
   return (
-    <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', styles[status])}>
+    <span className={cn('rounded-md px-2 py-0.5 text-label font-medium', styles[status])}>
       {labels[status]}
     </span>
   )
@@ -159,7 +159,7 @@ export function ModelsSection({
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">模型可用性 ({total})</p>
+          <p className="text-body font-semibold">模型可用性 ({total})</p>
         </div>
         {list.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">暂无公开模型</p>
@@ -172,7 +172,7 @@ export function ModelsSection({
                   className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm font-medium">{m.displayName ?? m.modelId}</span>
+                    <span className="text-body font-medium">{m.displayName ?? m.modelId}</span>
                     <span className="ml-2 text-xs text-muted-foreground">
                       {m.providerCode}/{m.modelId}
                     </span>

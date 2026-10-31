@@ -131,7 +131,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
         className={`rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 ${className ?? ''}`}
         data-testid="keepalive-center-disabled"
       >
-        <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+        <div className="flex items-center gap-2 text-body font-medium text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4" aria-hidden />
           {t('disabledTitle')}
         </div>
@@ -152,7 +152,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h2 className="text-sm font-medium">{t('title')}</h2>
+          <h2 className="text-body font-medium">{t('title')}</h2>
           <span className="text-xs text-muted-foreground">
             {t('interval', { hours: data.config.interval_hours })}
           </span>
@@ -188,7 +188,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
 
       {needsAttention.length > 0 ? (
         <div className="mt-3">
-          <h3 className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <h3 className="flex items-center gap-1 text-label font-medium text-muted-foreground">
             <AlertTriangle className="h-3 w-3" aria-hidden />
             {t('needsAttention', { count: needsAttention.length })}
           </h3>
@@ -229,7 +229,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
 
       {expiring.length > 0 ? (
         <div className="mt-3">
-          <h3 className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <h3 className="flex items-center gap-1 text-label font-medium text-muted-foreground">
             <Clock className="h-3 w-3" aria-hidden />
             {t('expiringSoon', { count: expiring.length })}
           </h3>

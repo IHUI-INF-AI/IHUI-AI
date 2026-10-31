@@ -107,10 +107,10 @@ function TypewriterHero() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <h1 className="font-edix text-2xl font-bold tracking-tight text-primary min-[768px]:text-3xl min-[1024px]:text-5xl min-[1280px]:text-6xl">
+      <h1 className="font-edix text-display font-bold tracking-tight text-primary min-[768px]:text-3xl min-[1024px]:text-5xl min-[1280px]:text-6xl">
         WELCOME IHUI INF . AI
       </h1>
-      <p className="mt-2 text-sm font-semibold tracking-tight text-foreground/90 min-[768px]:mt-3 min-[768px]:text-base">
+      <p className="mt-2 text-body font-semibold tracking-tight text-foreground/90 min-[768px]:mt-3 min-[768px]:text-base">
         {tw('brandSubtitle')}
       </p>
       <p className="mt-4 min-h-[1.75rem] text-base text-foreground/80 min-[768px]:mt-6 min-[768px]:text-lg">
@@ -170,7 +170,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pb-3">
-          <span className="text-sm font-semibold">{t('title')}</span>
+          <span className="text-body font-semibold">{t('title')}</span>
           <CloseButton aria-label="close" onClick={onClose} />
         </div>
         <div className="flex flex-col items-center gap-3 pt-2">

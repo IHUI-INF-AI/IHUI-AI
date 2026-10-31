@@ -167,7 +167,7 @@ export function WorkspacePermissionDialog({
 
         {/* 三种模式卡片 */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">{t('selectMode')}</Label>
+          <Label className="text-body font-medium">{t('selectMode')}</Label>
           <div className="grid grid-cols-1 gap-2">
             {MODE_OPTIONS.map((opt) => {
               const Icon = opt.icon
@@ -199,7 +199,7 @@ export function WorkspacePermissionDialog({
                   />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{tierText.title}</span>
+                      <span className="text-body font-medium">{tierText.title}</span>
                       {opt.risk === 'high' && (
                         <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
                           {t('highRisk')}
