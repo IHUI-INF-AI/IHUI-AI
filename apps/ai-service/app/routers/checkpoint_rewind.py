@@ -163,6 +163,18 @@ def _rollback_files(
             continue
         seen.add(path)
         requested_paths.append(path)
+        # 2026-10-31 安全强化第 14 批(F3 纵深复验,与 impact 预览读出口同判据):
+        # 回滚会把快照内容写到记录 path —— 写出口同样对路径复跑 workspace 判据,
+        # 不过 ⇒ missed_paths 点名,不执行回滚(防御未来未过白名单的快照写入方)。
+        from ..services.mcp_server import _validate_path_in_workspace, get_session_extra_roots
+
+        _ws_ok, _ws_info = _validate_path_in_workspace(
+            str(path), extra_roots=get_session_extra_roots(str(fv.get("session_id") or session_id))
+        )
+        if not _ws_ok:
+            missed_paths.append({"path": path, "reason": "path_outside_workspace"})
+            logger.warning("checkpoint_rewind 回滚拒绝工作区外路径 %s", path)
+            continue
         try:
             result = file_editor.rollback_file(
                 session_id=session_id,
@@ -363,12 +375,26 @@ async def checkpoint_impact(
         # 当前磁盘内容(恢复前)。G-814423:"读不到"≠"空文件" —— 磁盘侧读失败时不再
         # 折叠成空串(旧行为会把恢复预览渲染成整文件新增),改带 readError 标记,
         # 且增删行数置 0(与空文件伪比对得出的整文件行数是伪造的统计)。
-        try:
-            disk = Path(path).read_text(encoding="utf-8", errors="replace")
-            disk_error = False
-        except Exception:  # noqa: BLE001 - 读失败必须显式标记,不得猜合法空文件
-            disk = ""
+        # 2026-10-31 安全强化第 14 批(F3 纵深复验):本读出口此前对记录 path 零再
+        # 校验 —— 当下写入口(MCP 白名单/自愈链)都过校验,但任何未来新增的未过
+        # 白名单的快照写入方都会把这里升级成任意文件读(读到的内容原样返回会话
+        # 属主)。复跑一次与写入口同源的 workspace 判据(白名单根 ⊕ 该会话附加集),
+        # 不过 ⇒ 走现有 readError 形态标记,不猜合法空文件。
+        from ..services.mcp_server import _validate_path_in_workspace, get_session_extra_roots
+
+        _ws_ok, _ws_info = _validate_path_in_workspace(
+            str(path), extra_roots=get_session_extra_roots(str(owner_session))
+        )
+        disk = ""
+        disk_error = False
+        if not _ws_ok:
             disk_error = True
+        else:
+            try:
+                disk = Path(path).read_text(encoding="utf-8", errors="replace")
+            except Exception:  # noqa: BLE001 - 读失败必须显式标记,不得猜合法空文件
+                disk = ""
+                disk_error = True
         # 快照内容(恢复后)。版本内容取不到同样折叠过空串(会被渲染成整文件删除),
         # 同票改为显式 snapshotError 标记 + 统计置 0。
         snapshot = file_editor.get_file_version_content(owner_session, path, version_id)
