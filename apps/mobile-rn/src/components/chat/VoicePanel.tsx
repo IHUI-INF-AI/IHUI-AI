@@ -239,7 +239,10 @@ export function VoicePanel({
           if (!loading) onClose()
         }}
       >
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={pressFeedback(styles.listDialogContent)}
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>转语音</Text>
             <Pressable

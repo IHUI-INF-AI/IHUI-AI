@@ -139,7 +139,10 @@ export function AgentSelector({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={pressFeedback(styles.modalMask)} onPress={onClose}>
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={pressFeedback(styles.listDialogContent)}
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>选择 Agent</Text>
             <Pressable hitSlop={8} onPress={onClose} style={pressFeedback(styles.listDialogClose)}>
