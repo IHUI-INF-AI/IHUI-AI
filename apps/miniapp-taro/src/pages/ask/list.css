@@ -92,10 +92,10 @@
 /* 发布 FAB(对应 RN header "+" onCreate 入口;brand 底 + primary-foreground 字) */
 .fab {
   position: fixed;
-  right: 40rpx;
+  right: var(--spacing-xl);
   bottom: 60rpx;
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   line-height: 96rpx;
   text-align: center;
   background: var(--color-cta);

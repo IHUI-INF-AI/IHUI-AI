@@ -378,7 +378,7 @@
 }
 .member-progress-bar {
   width: 100%;
-  height: 16rpx;
+  height: var(--spacing-sm);
   background: var(--color-border);
   border-radius: var(--radius-sm);
   overflow: hidden;

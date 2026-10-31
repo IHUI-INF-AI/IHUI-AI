@@ -188,8 +188,8 @@
 }
 
 .eye-icon {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
 }
 
 /* ===== 区号选择器(PhoneAreaCodePicker 组件用,RN 无此控件,按输入框同族样式收敛到 token) ===== */

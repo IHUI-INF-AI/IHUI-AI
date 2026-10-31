@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 镜像 packages/app/src/features/chat/ChatScreen.tsx
 
 import { aizhsUrl } from '@/constants/icon-urls'
@@ -1705,7 +1706,7 @@ export default function ChatPage() {
             style={{
               fontSize: '22rpx',
               color: 'var(--color-muted-foreground)',
-              marginRight: '8rpx',
+              marginRight: 'var(--spacing-xs)',
             }}
           >
             {t('chat.modelLabel')}:
@@ -1963,7 +1964,7 @@ export default function ChatPage() {
                 {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
               </Text>
               {streamActivityExpanded ? (
-                <View style={{ marginTop: '8rpx' }}>
+                <View style={{ marginTop: 'var(--spacing-xs)' }}>
                   {streamActivities.map((a) => (
                     <Text
                       key={a.id}
@@ -2000,7 +2001,7 @@ export default function ChatPage() {
               {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
               <View
                 className="thinking-progress-container"
-                style={{ position: 'relative', marginTop: '8rpx', height: '36rpx' }}
+                style={{ position: 'relative', marginTop: 'var(--spacing-xs)', height: '36rpx' }}
               >
                 <View
                   className="thinking-progress-bar"
@@ -2255,7 +2256,7 @@ export default function ChatPage() {
               maxHeight: '50vh',
               background: 'var(--color-card)',
               borderRadius: rnRadius.lg,
-              padding: '20rpx',
+              padding: 'var(--spacing-sm-loose)',
               overflow: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -2266,7 +2267,7 @@ export default function ChatPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '12rpx',
+                marginBottom: 'var(--spacing-xs-loose)',
               }}
             >
               <Text

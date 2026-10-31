@@ -209,7 +209,7 @@ export default function MyStudy() {
                   name="book-open"
                   size={80}
                   color="var(--color-text-tertiary)"
-                  style={{ marginBottom: '16rpx' }}
+                  style={{ marginBottom: 'var(--spacing-sm)' }}
                 />
                 <Text className="block text-center text-[length:28rpx] text-muted-foreground">
                   {getEmptyText(activeTab)}

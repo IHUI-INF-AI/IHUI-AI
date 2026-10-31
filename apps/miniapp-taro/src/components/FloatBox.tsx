@@ -110,7 +110,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
             left: isOpen ? '-161rpx' : '-37rpx',
             top: '50%',
             transform: 'translateY(-50%)',
-            width: '40rpx',
+            width: 'var(--spacing-xl)',
             height: '100rpx',
             display: 'flex',
             alignItems: 'center',

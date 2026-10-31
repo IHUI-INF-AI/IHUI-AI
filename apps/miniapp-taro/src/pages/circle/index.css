@@ -32,7 +32,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   border-radius: var(--radius-lg);
   background: var(--color-muted);
 }
@@ -70,7 +70,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6rpx;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   padding: 0 24rpx;
   background: var(--color-card);
   border-radius: var(--radius-md);
@@ -128,8 +128,8 @@
 
 /* 对齐 RN userAvatar:96×96 / radius 48(圆) / bg surface.muted */
 .ci-user-avatar {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   border-radius: var(--radius-2xl);
   background: var(--color-muted);
 }
@@ -375,8 +375,8 @@
 /* ===== 悬浮发布按钮(对齐 RN fab:right 48 / bottom 64 / 104×104 / radius 52 / bg brand,无阴影) ===== */
 .ci-fab {
   position: fixed;
-  right: 48rpx;
-  bottom: 64rpx;
+  right: var(--spacing-2xl);
+  bottom: var(--spacing-3xl);
   width: 104rpx;
   height: 104rpx;
   display: flex;

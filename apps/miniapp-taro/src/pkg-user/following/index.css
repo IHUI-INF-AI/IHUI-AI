@@ -68,7 +68,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
@@ -96,8 +96,8 @@
   border-radius: var(--radius-lg);
 }
 .following-avatar {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   border-radius: var(--radius-md);
   background: var(--color-muted);
   margin-right: var(--spacing-sm-loose);

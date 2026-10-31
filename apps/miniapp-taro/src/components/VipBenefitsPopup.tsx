@@ -428,21 +428,21 @@ export default function VipBenefitsPopup({
 
           {/* 权益列表 */}
           <ScrollView scrollY className="flex-1 mb-5" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <View className="flex flex-col" style={{ gap: '12rpx' }}>
+            <View className="flex flex-col" style={{ gap: 'var(--spacing-xs-loose)' }}>
               {list.map((b) => (
                 <View
                   key={b.id}
                   className="flex items-start"
                   style={{
                     border: '1px solid var(--color-border)',
-                    padding: '8rpx',
+                    padding: 'var(--spacing-xs)',
                     borderRadius: rnRadius.lg,
                     fontSize: '28rpx',
                     color: 'var(--color-foreground)',
                   }}
                 >
                   {variant !== 'advisory' && (
-                    <Text className="font-bold" style={{ paddingRight: '8rpx' }}>
+                    <Text className="font-bold" style={{ paddingRight: 'var(--spacing-xs)' }}>
                       {typeof b.id === 'number' ? b.id : b.id}.
                     </Text>
                   )}
@@ -483,7 +483,7 @@ export default function VipBenefitsPopup({
                 className="flex justify-center items-center"
                 style={{
                   width: '356rpx',
-                  height: '80rpx',
+                  height: 'var(--spacing-4xl)',
                   borderRadius: rnRadius['2xl'],
                   margin: '20rpx auto',
                   fontSize: '30rpx',
@@ -540,7 +540,7 @@ export default function VipBenefitsPopup({
             <View
               className="relative"
               style={{
-                padding: '20rpx',
+                padding: 'var(--spacing-sm-loose)',
                 borderRadius: rnRadius['2xl'],
                 background: 'var(--color-card)',
                 backdropFilter: 'blur(10px)',
@@ -557,7 +557,7 @@ export default function VipBenefitsPopup({
                     width: '100%',
                     height: '411rpx',
                     borderRadius: rnRadius['2xl'],
-                    marginBottom: '16rpx',
+                    marginBottom: 'var(--spacing-sm)',
                   }}
                   src={mingpianImg}
                   mode="aspectFill"

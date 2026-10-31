@@ -89,8 +89,8 @@
   position: absolute;
   top: -12rpx;
   right: -12rpx;
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -247,8 +247,8 @@
   gap: var(--spacing-sm-loose);
 }
 .cc-aigc-cover {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   border-radius: var(--radius-md);
   background: var(--color-background);
   flex-shrink: 0;

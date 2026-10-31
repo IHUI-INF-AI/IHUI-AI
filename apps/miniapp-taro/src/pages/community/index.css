@@ -300,8 +300,8 @@
 }
 
 .recent-item .agent-avatar {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-sm);
   margin-bottom: var(--spacing-xs-loose);
   background: var(--color-muted);
@@ -313,8 +313,8 @@
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border-radius: var(--radius-sm);
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   margin-bottom: var(--spacing-xs-loose);
 }
 
@@ -384,8 +384,8 @@
 }
 
 .my-item .agent-avatar {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-sm);
   margin-bottom: var(--spacing-xs-loose);
   background: var(--color-muted);
@@ -397,8 +397,8 @@
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border-radius: var(--radius-sm);
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   margin-bottom: var(--spacing-xs-loose);
 }
 
@@ -528,7 +528,7 @@
 /* 浮动盒子 — fixed 定位右下角 */
 .community-float-box {
   position: fixed;
-  right: 20rpx;
+  right: var(--spacing-sm-loose);
   bottom: 9%;
   width: 118rpx;
   min-height: 340rpx;
@@ -549,7 +549,7 @@
 
 /* 箭头 — 始终在 box 左侧，收起时可见 */
 .community-float-arrow {
-  width: 40rpx;
+  width: var(--spacing-xl);
   height: 100rpx;
   display: flex;
   align-items: center;

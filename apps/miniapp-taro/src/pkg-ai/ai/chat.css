@@ -155,7 +155,7 @@
 }
 .input {
   flex: 1;
-  height: 80rpx;
+  height: var(--spacing-4xl);
   padding: 0 24rpx;
   background: var(--color-background);
   border-radius: var(--radius-sm);
@@ -164,7 +164,7 @@
 .send-btn {
   margin-left: var(--spacing-sm);
   padding: 0 32rpx;
-  height: 80rpx;
+  height: var(--spacing-4xl);
   line-height: 80rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
@@ -201,8 +201,8 @@
   padding: 0 4rpx;
 }
 .tool-icon {
-  width: 48rpx;
-  height: 48rpx;
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
   line-height: 56rpx;
   text-align: center;
   font-size: var(--text-title);
@@ -221,8 +221,8 @@
   color: var(--color-primary);
 }
 .material-tag-close {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   line-height: 40rpx;
   text-align: center;
   font-size: var(--text-title);
@@ -257,8 +257,8 @@
   border-radius: var(--radius-md);
 }
 .material-cover {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-sm);
   margin-right: var(--spacing-sm);
   background: var(--color-secondary);
@@ -277,8 +277,8 @@
   align-items: center;
 }
 .agent-avatar {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-lg);
   background: var(--color-secondary);
   margin-right: var(--spacing-sm);
@@ -496,8 +496,8 @@
 
 /* ============ 操作按钮图标(对标原 ai_assistant.vue .action-btn) ============ */
 .action-btn {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   margin-left: var(--spacing-sm-loose);
   flex-shrink: 0;
 }
@@ -595,12 +595,12 @@
 .textarea-input {
   height: calc(100% - 68rpx) !important;
   position: absolute !important;
-  top: 12rpx !important;
+  top: var(--spacing-xs-loose) !important;
   left: 0 !important;
   width: calc(100% - 44rpx) !important;
 }
 .textarea-int {
-  height: 40rpx !important;
+  height: var(--spacing-xl) !important;
 }
 
 /* ============ 加号旋转激活态(对标原项目 .rotate-icon + .search-box2-img transition) ============ */
@@ -697,7 +697,7 @@
   justify-content: center;
   gap: 2px;
   width: 300rpx;
-  height: 40rpx;
+  height: var(--spacing-xl);
   flex: none;
   margin: 0 auto;
 }
@@ -866,8 +866,8 @@
   margin-right: var(--spacing-xs-loose);
 }
 .loader-dot {
-  width: 12rpx;
-  height: 12rpx;
+  width: var(--spacing-xs-loose);
+  height: var(--spacing-xs-loose);
   border-radius: 50%;
   background: var(--color-card);
   animation: loaderpulse 1.5s infinite ease-in-out;
@@ -1027,7 +1027,7 @@
 /* ============ 用户消息复用按钮(对标原 ai_assistant.vue .fuyong-btn) ============ */
 .fuyong-btn {
   width: 100rpx;
-  height: 40rpx;
+  height: var(--spacing-xl);
   margin-right: 10rpx;
   flex-shrink: 0;
 }
@@ -1054,8 +1054,8 @@
   align-items: center;
 }
 .bubble-actions-right .action-btn-img {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   display: block;
   margin-left: var(--spacing-sm-loose);
   flex-shrink: 0;
@@ -1069,19 +1069,19 @@
   display: inline-block;
   position: relative;
   margin-left: var(--spacing-sm-loose);
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
 }
 .share-button {
   opacity: 0;
   position: relative;
   z-index: 1;
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
 }
 .share-icon {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   display: inline-block;
   position: absolute;
   left: 0;
@@ -1217,7 +1217,7 @@
 }
 .search-box1-img {
   width: 38rpx;
-  height: 40rpx;
+  height: var(--spacing-xl);
   display: block;
 }
 
@@ -1280,7 +1280,7 @@
   align-items: center;
 }
 .search-box3-img {
-  width: 40rpx;
+  width: var(--spacing-xl);
   height: 23rpx;
   display: block;
 }
@@ -1307,7 +1307,7 @@
 }
 .ctx-usage-bar {
   display: flex;
-  height: 12rpx;
+  height: var(--spacing-xs-loose);
   border-radius: var(--radius-xs);
   overflow: hidden;
   background: var(--color-muted-foreground);
@@ -1324,8 +1324,8 @@
   padding: var(--spacing-2xs) 0;
 }
 .ctx-usage-dot {
-  width: 16rpx;
-  height: 16rpx;
+  width: var(--spacing-sm);
+  height: var(--spacing-sm);
   border-radius: var(--radius-xs);
 }
 .ctx-usage-row-label {

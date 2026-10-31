@@ -83,8 +83,8 @@
 /* 复选框(RN checkboxChecked:success 绿底白勾 + border-medium 描边;
    圆角守门:RN 为 20rpx 圆形,小程序按 AGENTS §4 禁 50% 降为 8rpx 方形圆角) */
 .checkbox {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   border: 3rpx solid var(--color-border-medium);
   border-radius: var(--radius-sm);
   display: flex;
@@ -148,8 +148,8 @@
   align-self: flex-start;
 }
 .quantity-btn {
-  width: 48rpx;
-  height: 48rpx;
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -164,7 +164,7 @@
   color: var(--color-text-tertiary);
 }
 .quantity-value {
-  min-width: 40rpx;
+  min-width: var(--spacing-xl);
   text-align: center;
   font-size: var(--text-body);
   color: var(--color-foreground);

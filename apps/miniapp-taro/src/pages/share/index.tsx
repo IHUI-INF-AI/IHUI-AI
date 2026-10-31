@@ -617,7 +617,7 @@ export default function ShareIndexPage() {
                   name="chevron-right"
                   size={24}
                   color="var(--color-muted-foreground)"
-                  style={{ marginLeft: '4rpx' }}
+                  style={{ marginLeft: 'var(--spacing-2xs)' }}
                 />
               </View>
             ) : null}

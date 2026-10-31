@@ -118,9 +118,9 @@
 }
 .btn {
   position: fixed;
-  bottom: 32rpx;
-  left: 32rpx;
-  right: 32rpx;
+  bottom: var(--spacing-lg);
+  left: var(--spacing-lg);
+  right: var(--spacing-lg);
   height: 88rpx;
   line-height: 88rpx;
   background: var(--color-cta);

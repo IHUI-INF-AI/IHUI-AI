@@ -94,8 +94,8 @@
   vertical-align: top;
 }
 .special-featured-icon {
-  width: 80rpx;
-  height: 80rpx;
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,7 +131,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6rpx;
-  height: 64rpx;
+  height: var(--spacing-3xl);
   padding: 0 24rpx;
   margin-right: var(--spacing-xs-loose);
   background: var(--color-card);
@@ -170,8 +170,8 @@
   border-radius: var(--radius-lg);
 }
 .special-card-icon {
-  width: 96rpx;
-  height: 96rpx;
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
   display: flex;
   align-items: center;
   justify-content: center;
