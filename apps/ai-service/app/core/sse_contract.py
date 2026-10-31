@@ -8,9 +8,13 @@
 由 scripts/check-agent-event-parity.mjs 断言对齐。
 
 本模块不承担序列化职责,但它**确实被运行时依赖**:全仓运行时 import 现读为
-SSE-CONTRACT-IMPORT-SITES = 3(app/routers/llm.py 三处函数内 import:
-`_sse()` 取 SSE_EVENT_CONTRACTS、`_capabilities_payload()` 取能力声明键名常量、
-`_approval_replay_frames()` 取 D690 重放标记键名常量)。
+SSE-CONTRACT-IMPORT-SITES = 4(全在 app/routers/llm.py:模块顶层一处取准入留痕出口
+`take_admission`/`release_admission` 与恢复态三出口 `mark_admission_acked`/`begin_recovery`/
+`end_recovery` 及 `ADMISSION_SEEN` 账本指针;函数内三处 —— `_sse()` 取 SSE_EVENT_CONTRACTS、
+`_capabilities_payload()` 取能力声明键名常量、`_approval_replay_frames()` 取 D690 重放标记键名常量)。
+2026-10-31 补:顶层那一处治的是"准入留痕与恢复态各有两套真相"——路由自持的 `_admission_seen`
+dict 与本模块零调用方的水位状态机各写各的,断流续传因此看着有、其实没人进(判据见下方
+"差距①留痕的单一来源"与 apps/ai-service/tests/test_sse_admission_recovery_single_source.py)。
 这里曾写过一句"零行为变化、运行时不需要它"的自述,与上面那行 grep 结果矛盾 —— 模块自述的
 依赖关系一旦与实况分叉,读注释的人就会以为改它没有影响。该等式由
 apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 != 现读数即失败),
@@ -555,7 +559,108 @@ def begin_recovery(state: StreamWatermark, *, deadline_ms: float | None = None) 
 
 
 def end_recovery(state: StreamWatermark) -> None:
+    """退出恢复 flight(与 begin_recovery 成对;owned snapshot 落地时 apply_frame 自行出态,
+    本出口给的是"catch-up 面跑完但没落快照"那条显式收口路径,两者都把 recovering 归 False)。
+    """
     state.recovering = False
+
+
+# ── 差距①留痕的单一来源 + 断流续传的跨流恢复窗口(2026-10-31 接线)──────────────
+#
+# 接线前的实况(一手现读,`git grep -n ... HEAD -- apps/ai-service`):
+#   · `mark_admission_acked` / `begin_recovery` / `end_recovery` 三个出口**零生产调用方**
+#     (只有 tests/test_sse_stream_watermark_b76_08a.py 直接调前两个)⇒ "恢复态"从未被进入,
+#     票面上那句"断流续传走状态机"是空话;
+#   · 而 app/routers/llm.py 另立了一份模块级 `_admission_seen: dict` 自写准入留痕 ——
+#     同一件事的第二份真相(§0.6:同类判据/清单/取值实现全仓只许一份,第二份必然漂移)。
+# 现在:账本与恢复窗口都只住在本模块,路由层只许指过来读、经下面的出口改。
+# 对外协议语义一字未动(admission 帧的形状/档位仍按 packages/shared/src/chat/send-admission.ts)。
+
+#: 会话 -> 已准入 inputId 的有序留痕(保序即 FIFO;逐会话封顶的上限由调用方传入)。
+#: **这份账本的唯一持有者** —— 判据在 `take_admission`/`release_admission`,不再散写于路由层。
+ADMISSION_SEEN: dict[str, dict[str, None]] = {}
+
+#: 订阅(流会话身份)-> 恢复窗口的装配截止(ms,`recovery_clock_ms()` 同一基准)。
+#: 断流那条流的状态对象随流一起消失,而"这里断过一次"是**跨流事实**,故记在这里;
+#: 重连流据此进入恢复态(把 online 增量交给 apply_frame 的 defer 分支),收口即清。
+RECOVERY_WINDOWS: dict[str, float] = {}
+
+#: 恢复窗口登记条数上限(FIFO 逐出,防无界增长;与准入留痕的封顶同纪律)。
+RECOVERY_WINDOWS_LIMIT: int = 256
+
+
+def recovery_clock_ms() -> float:
+    """恢复窗口/截止的统一时钟(毫秒,**单调**基准)。
+
+    刻意不用 `time.time()`:挂钟会被 NTP/时区拽回,窗口于是可能"永远不到期"或"当场到期"。
+    与 `StreamWatermark.assembly_deadline_ms` 同基准,两侧才能直接比。
+    """
+    return time.monotonic() * 1000
+
+
+def take_admission(conversation_id: str | None, input_id: str, *, limit: int) -> str:
+    """准入判定唯一出口:本会话见过该 inputId ⇒ duplicate;否则 accepted 并登记留痕。
+
+    conversation_id 缺席(旧客户端不带 metadata.conversationId)⇒ 无从配对留痕,
+    恒 accepted 且不登记 —— 降级方向是现状(不冒充判过 duplicate)。
+    `limit` 由调用方按自己的封顶策略传入且**没有默认值**:默认值一旦落在这里,
+    调用方那个上限就成了第二份真相(两侧数值必然分叉)。
+    """
+    if conversation_id:
+        seen = ADMISSION_SEEN.setdefault(conversation_id, {})
+        if input_id in seen:
+            return "duplicate"
+        seen[input_id] = None
+        while len(seen) > limit:
+            seen.pop(next(iter(seen)))
+    return "accepted"
+
+
+def release_admission(conversation_id: str | None, input_id: str) -> None:
+    """rejected 档撤痕 —— 拒收不是准入。
+
+    duplicate 的判据是"已被准入过";队列满/等待超时两条 rejected 出口都没准入,
+    不撤痕则同一 inputId 稍后重试会被误判 duplicate(方向恰好相反:那条明明没执行过)。
+    """
+    if conversation_id:
+        seen = ADMISSION_SEEN.get(conversation_id)
+        if seen is not None:
+            seen.pop(input_id, None)
+
+
+def open_recovery_window(subscription_id: str, *, deadline_ms: float) -> None:
+    """给该订阅开一个断流恢复窗口(唯一写口;断流侧调用)。
+
+    subscription_id 空 ⇒ 整块不记:没有订阅身份就没有"谁断了"这件事,不造值冒充。
+    """
+    if not subscription_id:
+        return
+    RECOVERY_WINDOWS[subscription_id] = deadline_ms
+    while len(RECOVERY_WINDOWS) > RECOVERY_WINDOWS_LIMIT:
+        RECOVERY_WINDOWS.pop(next(iter(RECOVERY_WINDOWS)))
+
+
+def peek_recovery_window(subscription_id: str | None) -> float | None:
+    """读该订阅当前**仍开着**的恢复窗口截止;不存在或已过期 ⇒ None。
+
+    过期即顺手摘除(留着就是腐烂),并让"过期"与"没有窗口"落在同一个出口上:
+    超过装配截止还没重连 ⇒ 按新流走整段重同步,不再冒充续传。
+    """
+    if not subscription_id:
+        return None
+    deadline_ms = RECOVERY_WINDOWS.get(subscription_id)
+    if deadline_ms is None:
+        return None
+    if deadline_ms < recovery_clock_ms():
+        RECOVERY_WINDOWS.pop(subscription_id, None)
+        return None
+    return deadline_ms
+
+
+def close_recovery_window(subscription_id: str | None) -> None:
+    """收口恢复窗口(catch-up 面跑完即清;不存在也静默,不抛)。"""
+    if subscription_id:
+        RECOVERY_WINDOWS.pop(subscription_id, None)
 
 
 def apply_frame(

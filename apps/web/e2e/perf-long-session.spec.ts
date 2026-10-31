@@ -304,8 +304,25 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
     await page.addInitScript(() => {
       // goal-b39-s4:除时刻/时长外把 attribution 一并落账 —— 判"长任务是 dev 按需编译
       // (chunk 脚本装载)还是产品渲染"时,靠 src/type 两格分桶;浏览器不给归因时留空串。
-      const sink: Array<{ startTime: number; duration: number; src: string; type: string }> = []
-      ;(window as unknown as { __h20LongTasks: typeof sink }).__h20LongTasks = sink
+      // 2026-10-31(#5 perf5)采集面更正:Long Tasks 的 attribution 里 containerSrc **只在
+      // iframe/frame/embed/object 容器上才有值**;顶层窗口任务的 containerType 恒为
+      // 'window' 且 containerSrc 恒为 ''(W3C Long Tasks 规范)⇒ 旧读数「带归因=0」量的
+      // 其实是"有没有 iframe",对顶层窗口**结构上永远是 0**,既不能证明采集坏了,也不能
+      // 证明长任务来自哪段代码。要归因到具体脚本/调用点需 Long Animation Frames
+      // (Chrome 123+):每条长帧自带 scripts[].sourceURL / invoker / invokerType /
+      // duration。故并存两个 sink:长任务计数仍走 longtask(断言面一字不动),
+      // 脚本级归因走 LoAF(只读数,不参与断言,取不到即"未判定"不冒充 0)。
+      type LongTaskEntry = { startTime: number; duration: number; src: string; type: string }
+      type LoafEntry = {
+        startTime: number
+        duration: number
+        blockingDuration: number
+        scripts: Array<{ src: string; invoker: string; invokerType: string; duration: number }>
+      }
+      const sink: LongTaskEntry[] = []
+      ;(window as unknown as { __h20LongTasks: LongTaskEntry[] }).__h20LongTasks = sink
+      const loafSink: LoafEntry[] = []
+      ;(window as unknown as { __h20Loaf: LoafEntry[] }).__h20Loaf = loafSink
       try {
         const obs = new PerformanceObserver((list) => {
           for (const e of list.getEntries()) {
@@ -333,6 +350,35 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
         obs.observe({ type: 'longtask', buffered: true })
       } catch {
         /* 环境不支持 longtask:计数保持空,断言按空通过 */
+      }
+      try {
+        type LoafTiming = PerformanceEntry & {
+          blockingDuration?: number
+          scripts?: Array<{
+            sourceURL?: string
+            invoker?: string
+            invokerType?: string
+            duration?: number
+          }>
+        }
+        const loaf = new PerformanceObserver((list) => {
+          for (const e of list.getEntries() as LoafTiming[]) {
+            loafSink.push({
+              startTime: e.startTime,
+              duration: e.duration,
+              blockingDuration: e.blockingDuration ?? 0,
+              scripts: (e.scripts ?? []).map((s) => ({
+                src: (s.sourceURL ?? '').slice(-120),
+                invoker: (s.invoker ?? '').slice(0, 80),
+                invokerType: s.invokerType ?? '',
+                duration: s.duration ?? 0,
+              })),
+            })
+          }
+        })
+        loaf.observe({ type: 'long-animation-frame', buffered: true } as PerformanceObserverInit)
+      } catch {
+        /* 内核无 LoAF(Chrome<123):脚本归因**未判定**,保持空数组,不冒充「无脚本」 */
       }
     })
 
@@ -415,7 +461,7 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
     const during = await page.evaluate((t0) => {
       const all = (
         window as unknown as {
-          __h20LongTasks: Array<{ startTime: number; duration: number; src: string }>
+          __h20LongTasks: Array<{ startTime: number; duration: number; src: string; type: string }>
         }
       ).__h20LongTasks
       return all.filter((e) => e.startTime >= t0)
@@ -429,9 +475,49 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
           .map((r) => ({ name: r.name.split('/').pop() ?? '', dur: Math.round(r.duration) })),
       sendT0,
     )
-    const withAttribution = during.filter((e) => e.src).length
+    // 脚本级归因(LoAF,只读数不参与断言):窗口内长帧 + 其中带 scripts 的帧。
+    // 取不到(内核不支持)时数组为空 ⇒ 下面读数为 0/0 并显式标"未判定",不冒充"无脚本"。
+    const loafDuring = await page.evaluate((t0) => {
+      const all = (
+        window as unknown as {
+          __h20Loaf: Array<{
+            startTime: number
+            duration: number
+            blockingDuration: number
+            scripts: Array<{ src: string; invoker: string; invokerType: string; duration: number }>
+          }>
+        }
+      ).__h20Loaf
+      // 与长任务窗口同口径:与 [t0, ∞) 有重叠即算窗口内
+      return all.filter((e) => e.startTime + e.duration >= t0)
+    }, sendT0)
+    const loafWithScripts = loafDuring.filter((e) => e.scripts.length > 0)
+    // 容器归因 = longtask.attribution 存在(顶层窗口恒为 containerType='window');
+    // 脚本级归因 = 该长任务与任一"带 scripts 的 LoAF 长帧"在时间上重叠。
+    const withContainerAttribution = during.filter((e) => e.type).length
+    const withScriptAttribution = during.filter((task) =>
+      loafWithScripts.some(
+        (f) =>
+          f.startTime < task.startTime + task.duration && f.startTime + f.duration > task.startTime,
+      ),
+    ).length
+    const byScript = new Map<string, number>()
+    for (const f of loafWithScripts) {
+      for (const s of f.scripts) {
+        const key = s.src ? (s.src.split('/').pop() ?? s.src) : '(inline)'
+        byScript.set(key, (byScript.get(key) ?? 0) + s.duration)
+      }
+    }
+    const topScripts = [...byScript.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
     console.log(
-      `[perf-long-session] ②流式窗口 >50ms 长任务=${during.length}(预算 0), rAF=${rafFrames}帧/500ms, 带归因=${withAttribution}/${during.length}, 窗口内新装载脚本=${scriptsAfterSend.length}`,
+      `[perf-long-session] ②流式窗口 >50ms 长任务=${during.length}(预算 0), rAF=${rafFrames}帧/500ms, 带归因(容器)=${withContainerAttribution}/${during.length}, 带归因(脚本/LoAF)=${withScriptAttribution}/${during.length}, 窗口内新装载脚本=${scriptsAfterSend.length}`,
+    )
+    console.log(
+      `[perf-long-session] ②LoAF 长帧=${loafDuring.length}(预算口径同为 0;带 scripts=${loafWithScripts.length}), 脚本累计用时 top${topScripts.length}: ${
+        topScripts.length > 0
+          ? topScripts.map(([name, ms]) => `${name}(${Math.round(ms)}ms)`).join(', ')
+          : '(无脚本归因数据)'
+      }`,
     )
     if (during.length > 0) {
       const top = [...during].sort((a, b) => b.duration - a.duration).slice(0, 5)
@@ -449,6 +535,22 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
             .slice(0, 3)
             .map((s) => `${s.name}(${s.dur}ms)`)
             .join(', ')}`,
+        )
+      }
+      const topLoaf = [...loafWithScripts]
+        .sort((a, b) => b.blockingDuration - a.blockingDuration)
+        .slice(0, 5)
+      if (topLoaf.length > 0) {
+        console.log(
+          `[perf-long-session] ②LoAF 阻塞最长 5 帧: ${topLoaf
+            .map((f) => {
+              const worst = [...f.scripts].sort((a, b) => b.duration - a.duration)[0]
+              const who = worst
+                ? `${worst.src ? (worst.src.split('/').pop() ?? worst.src) : '(inline)'}@${worst.invokerType || '?'}${worst.invoker ? `:${worst.invoker}` : ''}`
+                : '(无 scripts)'
+              return `blocking=${Math.round(f.blockingDuration)}ms/frame=${Math.round(f.duration)}ms ${who}`
+            })
+            .join(' | ')}`,
         )
       }
     }
