@@ -26327,6 +26327,7 @@
     "invitedCount": "邀请人数",
     "rules": "分佣规则",
     "rateTitle": "分佣比例",
+    "rateEmpty": "暂无分佣比例",
     "openVip": "开通 VIP 会员 参与分佣计划"
   },
   "examQuestion": {

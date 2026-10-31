@@ -26326,6 +26326,7 @@
     "invitedCount": "초대 인원",
     "rules": "커미션 규칙",
     "rateTitle": "커미션 비율",
+    "rateEmpty": "수수료 비율이 없습니다",
     "openVip": "VIP 회원을 열어 커미션 플랜에 참여하세요"
   },
   "examQuestion": {
