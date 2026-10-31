@@ -46,6 +46,8 @@ const indexSchema = z.object({
         symbolName: z.string().optional(),
         symbolType: z.string().optional(),
         embedding: z.array(z.number()).nullable().optional(),
+        // G7(2026-10-31):向量来源标注。白名单双值,杜绝自由文本冒充通道身份。
+        embeddingProvider: z.enum(['remote', 'local-hash']).optional(),
       }),
     )
     .min(1)

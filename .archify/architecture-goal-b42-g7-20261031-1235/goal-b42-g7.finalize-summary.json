@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\candidate.json",
+    "sha256": "92ced3ebdfbdfd5779253a2079e65af43e75e797a1811aa8a4fea0fcadabb19a",
+    "bytes": 5520
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\goal-b42-g7.html",
+    "sha256": "359f5d49f1c04a424d6229b93e32d6f72a68f0dfe452bc334ce14bc57df12229",
+    "bytes": 855130
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\goal-b42-g7.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\goal-b42-g7.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\goal-b42-g7.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 10162,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 1,
+      "routesOverSuggestedBends": 2
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "c1",
+            "from": "trae-const",
+            "to": "indexer",
+            "label": "对齐:常开→回落档",
+            "collectionIndex": 0,
+            "artifactIndex": 1
+          },
+          "right": {
+            "id": "c10",
+            "from": "evidence",
+            "to": "trae-const",
+            "label": "T5 §2",
+            "collectionIndex": 9,
+            "artifactIndex": 10
+          },
+          "point": [
+            306,
+            118.04999999999973
+          ],
+          "sharedNode": "trae-const"
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "c1",
+            "from": "trae-const",
+            "to": "indexer",
+            "label": "对齐:常开→回落档",
+            "collectionIndex": 0,
+            "artifactIndex": 1
+          },
+          "bends": 3,
+          "stretch": 1.218
+        },
+        {
+          "relationship": {
+            "id": "c4",
+            "from": "fallback",
+            "to": "api-write",
+            "label": "local-hash 标注",
+            "collectionIndex": 3,
+            "artifactIndex": 4
+          },
+          "bends": 3,
+          "stretch": 1.233
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "trae-const → indexer and evidence → trae-const cross next to trae-const: move node indexer or evidence so the two reach trae-const from different sides (for example one level with it, one directly above or below it).",
+      "trae-const → indexer needs 3 bends: move node trae-const or indexer so they share a row or column with matching centers, or sit diagonally with a clear corner.",
+      "fallback → api-write needs 3 bends: move node fallback or api-write so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}
