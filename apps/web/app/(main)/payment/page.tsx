@@ -48,7 +48,7 @@ export default function PaymentPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1 text-center">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
@@ -72,7 +72,7 @@ export default function PaymentPage() {
               )}
             >
               {plan.highlighted && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-cta px-3 py-0.5 text-xs font-medium text-cta-foreground">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-cta px-3 py-0.5 text-label font-medium text-cta-foreground">
                   {t('popular')}
                 </span>
               )}
@@ -82,7 +82,7 @@ export default function PaymentPage() {
                 </div>
                 <CardTitle className="text-lg">{t(PLAN_NAME_KEY[plan.id])}</CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                  <span className="text-heading font-bold tracking-tight min-[768px]:text-display">
                     {priceLabel}
                   </span>
                   {!isEnterprise && (

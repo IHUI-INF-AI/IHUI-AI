@@ -45,11 +45,11 @@ export function AffiliatesContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Wrench className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
           {t('heroTitle')}
         </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">

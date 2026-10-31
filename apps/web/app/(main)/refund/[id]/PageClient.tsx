@@ -163,7 +163,7 @@ export default function RefundDetailPage() {
       </Link>
 
       <div className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <RotateCcw className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -173,7 +173,7 @@ export default function RefundDetailPage() {
       {statusKey && StatusIcon && (
         <div
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium',
+            'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-body font-medium',
             statusKey.cls,
           )}
         >
@@ -240,7 +240,7 @@ export default function RefundDetailPage() {
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
+                      <span className="text-body font-medium">
                         {record.action === 'approve'
                           ? t('auditAction.approve')
                           : record.action === 'reject'

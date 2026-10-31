@@ -101,7 +101,7 @@ function PlanCard({
         <div className="flex items-center gap-2">
           <div className="rounded-md bg-muted p-1.5">{planIcon(plan.name)}</div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{plan.name}</p>
+            <p className="truncate text-body font-medium">{plan.name}</p>
             <p className="text-xs text-muted-foreground">
               {t('validityDays', { days: plan.validityDays })}
             </p>
@@ -109,7 +109,7 @@ function PlanCard({
         </div>
 
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-medium tabular-nums">{formatCents(plan.price)}</span>
+          <span className="text-display font-medium tabular-nums">{formatCents(plan.price)}</span>
           {hasOriginal && (
             <span className="text-xs text-muted-foreground line-through tabular-nums">
               {formatCents(plan.originalPrice)}
@@ -220,10 +220,10 @@ export function SubscribeTab() {
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-label font-medium text-emerald-600">
                   {t('currentSubscription')}
                 </span>
-                <span className="text-sm font-medium">{subscription.planName}</span>
+                <span className="text-body font-medium">{subscription.planName}</span>
               </div>
               <span className="text-xs text-muted-foreground">
                 {t('expiresAt')} {formatDate(subscription.endAt)}

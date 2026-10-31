@@ -140,7 +140,7 @@ export default function LivePage() {
         </Link>
       </div>
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Radio className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -212,12 +212,12 @@ export default function LivePage() {
                   <PlayCircle className="h-10 w-10 text-primary/40" />
                 )}
                 {channel.isLive ? (
-                  <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                  <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-label font-medium text-white">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                     {t('liveNow')}
                   </span>
                 ) : isUpcoming(channel) ? (
-                  <span className="absolute left-2 top-2 rounded-md bg-primary/90 px-2 py-0.5 text-xs font-medium text-white">
+                  <span className="absolute left-2 top-2 rounded-md bg-primary/90 px-2 py-0.5 text-label font-medium text-white">
                     {t('upcoming')}
                   </span>
                 ) : null}
@@ -284,12 +284,12 @@ export default function LivePage() {
             <DialogTitle className="flex flex-wrap items-center gap-2 pr-8">
               {selected?.title}
               {selected?.isLive ? (
-                <span className="flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                <span className="flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-label font-medium text-white">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                   {t('liveNow')}
                 </span>
               ) : selected && isUpcoming(selected) ? (
-                <span className="rounded-md bg-primary/90 px-2 py-0.5 text-xs font-medium text-white">
+                <span className="rounded-md bg-primary/90 px-2 py-0.5 text-label font-medium text-white">
                   {t('upcoming')}
                 </span>
               ) : null}

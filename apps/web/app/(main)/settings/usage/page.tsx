@@ -144,12 +144,12 @@ export default function UsagePage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <CardTitle className="flex items-center gap-2 text-body font-medium">
               <Zap className="h-4 w-4 text-primary" /> 总 Token
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatTokens(totalTokens)}</p>
+            <p className="text-display font-bold">{formatTokens(totalTokens)}</p>
             <p className="text-xs text-muted-foreground">
               输入: {formatTokens(stats?.total_input_tokens ?? 0)} / 输出:{' '}
               {formatTokens(stats?.total_output_tokens ?? 0)}
@@ -158,23 +158,23 @@ export default function UsagePage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <CardTitle className="flex items-center gap-2 text-body font-medium">
               <DollarSign className="h-4 w-4 text-green-500" /> 总花费
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">${totalCost.toFixed(4)}</p>
+            <p className="text-display font-bold">${totalCost.toFixed(4)}</p>
             <p className="text-xs text-muted-foreground">共 {totalCalls} 次调用</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <CardTitle className="flex items-center gap-2 text-body font-medium">
               <BarChart3 className="h-4 w-4 text-blue-500" /> 本月用量
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatTokens(quota?.used_tokens ?? 0)}</p>
+            <p className="text-display font-bold">{formatTokens(quota?.used_tokens ?? 0)}</p>
             <p className="text-xs text-muted-foreground">
               剩余 {formatTokens(quota?.remaining ?? 0)}
             </p>
@@ -182,12 +182,12 @@ export default function UsagePage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <CardTitle className="flex items-center gap-2 text-body font-medium">
               <Gauge className="h-4 w-4 text-orange-500" /> 配额使用率
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{usagePercent.toFixed(1)}%</p>
+            <p className="text-display font-bold">{usagePercent.toFixed(1)}%</p>
             <div className="mt-2 h-2 w-full rounded-xs bg-muted">
               <div
                 className={cn(
@@ -207,7 +207,7 @@ export default function UsagePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <CardTitle className="flex items-center gap-2 text-body font-medium">
             <BarChart3 className="h-4 w-4" /> 日用量趋势(近 30 天)
           </CardTitle>
         </CardHeader>
@@ -222,7 +222,7 @@ export default function UsagePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <CardTitle className="flex items-center gap-2 text-body font-medium">
             模型用量分布
           </CardTitle>
         </CardHeader>

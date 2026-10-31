@@ -383,8 +383,8 @@ export default function WechatPage() {
               <div
                 className={
                   result.ok
-                    ? 'text-sm font-medium text-emerald-600'
-                    : 'text-sm font-medium text-rose-600'
+                    ? 'text-body font-medium text-emerald-600'
+                    : 'text-body font-medium text-rose-600'
                 }
               >
                 {result.ok ? (

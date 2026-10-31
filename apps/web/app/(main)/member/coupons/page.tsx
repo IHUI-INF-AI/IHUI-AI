@@ -74,7 +74,7 @@ export default function MemberCouponsPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <Ticket className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -87,7 +87,7 @@ export default function MemberCouponsPage() {
             key={v}
             onClick={() => setTab(v)}
             className={cn(
-              'flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'flex-1 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === v
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -126,7 +126,7 @@ export default function MemberCouponsPage() {
                 <span className="text-xs">{t('yuan')}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{c.name}</p>
+                <p className="truncate text-body font-medium">{c.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {t('minSpend', { amount: currencyFmt.format(c.minSpend) })}
                 </p>

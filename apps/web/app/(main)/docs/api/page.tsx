@@ -66,10 +66,10 @@ export default function ApiDocsPage() {
 
       {/* Base URL + 认证 */}
       <section id="auth" className="space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">基础信息</h2>
+        <h2 className="text-display font-bold tracking-tight">基础信息</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <div>
-            <p className="text-sm font-semibold">Base URL</p>
+            <p className="text-body font-semibold">Base URL</p>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               <code>{`https://api.aizhs.top/v1          # 生产
 https://api-staging.aizhs.top/v1  # 预发
@@ -77,7 +77,7 @@ http://localhost:8802/v1          # 自托管`}</code>
             </pre>
           </div>
           <div>
-            <p className="text-sm font-semibold">认证方式</p>
+            <p className="text-body font-semibold">认证方式</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li><strong>JWT</strong>:用户登录态,<code className="rounded bg-muted px-1">Authorization: Bearer &lt;jwt&gt;</code></li>
               <li><strong>API Key</strong>:服务端调用,<code className="rounded bg-muted px-1">X-API-Key: &lt;key&gt;</code>,在 /settings/api-keys 生成</li>
@@ -85,7 +85,7 @@ http://localhost:8802/v1          # 自托管`}</code>
             </ul>
           </div>
           <div>
-            <p className="text-sm font-semibold">速率限制</p>
+            <p className="text-body font-semibold">速率限制</p>
             <p className="text-sm text-muted-foreground">
               默认 60 req/min,Pro 200/min,Team 500/min。超限返回 <code className="rounded bg-muted px-1">429</code>,响应头含:
             </p>
@@ -100,7 +100,7 @@ X-RateLimit-Reset: 1699900000`}</code>
 
       {/* 对话 API */}
       <section id="chat" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">AI 对话 API</h2>
+        <h2 className="text-display font-bold tracking-tight">AI 对话 API</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">POST /v1/chat/completions</h3>
           <p className="text-sm text-muted-foreground">
@@ -144,9 +144,9 @@ data: [DONE]`}</code>
 
       {/* Agent API */}
       <section id="agent-api" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">Agent 管理 API</h2>
+        <h2 className="text-display font-bold tracking-tight">Agent 管理 API</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-xs font-semibold min-[768px]:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-3">
             <div>方法</div>
             <div>路径</div>
             <div className="col-span-2 min-[768px]:col-span-1">说明</div>
@@ -173,7 +173,7 @@ data: [DONE]`}</code>
 
       {/* 错误码 */}
       <section id="errors" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">错误码</h2>
+        <h2 className="text-display font-bold tracking-tight">错误码</h2>
         <div className="rounded-lg border bg-card p-3">
           <p className="text-sm text-muted-foreground">统一响应格式:</p>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
@@ -184,7 +184,7 @@ data: [DONE]`}</code>
 }`}</code>
           </pre>
           <div className="mt-4 space-y-2">
-            <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-xs font-semibold min-[768px]:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-3">
               <div>HTTP</div>
               <div>code</div>
               <div className="col-span-2 min-[768px]:col-span-1">说明</div>
@@ -213,7 +213,7 @@ data: [DONE]`}</code>
 
       {/* SDK */}
       <section id="sdk" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">SDK</h2>
+        <h2 className="text-display font-bold tracking-tight">SDK</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">JavaScript</h3>
@@ -250,11 +250,11 @@ client.Chat(ctx, "你好")`}</code>
       </section>
 
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
+        <h2 className="text-display font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/docs/mcp" className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90">MCP 工具集成</Link>
-          <Link href="/docs/agent" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">Agent 开发</Link>
-          <Link href="/docs/quickstart" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">返回快速开始</Link>
+          <Link href="/docs/mcp" className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90">MCP 工具集成</Link>
+          <Link href="/docs/agent" className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent">Agent 开发</Link>
+          <Link href="/docs/quickstart" className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent">返回快速开始</Link>
         </div>
       </section>
     </div>

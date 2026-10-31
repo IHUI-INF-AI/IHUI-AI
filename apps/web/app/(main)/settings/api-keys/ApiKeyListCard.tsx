@@ -129,7 +129,7 @@ export function ApiKeyListCard({
             <div className="rounded-md bg-muted p-3">
               <KeyRound className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">{t('apiKeysPage.emptyTitle')}</p>
+            <p className="text-body font-medium">{t('apiKeysPage.emptyTitle')}</p>
             <p className="text-xs text-muted-foreground">{t('apiKeysPage.emptyHint')}</p>
           </div>
         ) : (
@@ -139,7 +139,7 @@ export function ApiKeyListCard({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">{k.name}</span>
+                      <span className="truncate text-body font-medium">{k.name}</span>
                       <Badge
                         variant="outline"
                         className={cn(

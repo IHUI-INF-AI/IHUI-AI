@@ -87,7 +87,7 @@ export default function MemberAddressesPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
             <MapPin className="h-5 w-5 text-primary" />
             收货地址
           </h1>

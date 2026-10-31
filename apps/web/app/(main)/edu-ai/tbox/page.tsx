@@ -173,7 +173,7 @@ export default function TboxPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Cpu className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -239,7 +239,7 @@ export default function TboxPage() {
               >
                 <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
+                    <span className="truncate text-body font-medium">
                       {d.deviceName || d.deviceNo}
                     </span>
                     <span className={badge(d.status, STATUS_STYLES)}>{t(d.status)}</span>
@@ -376,7 +376,7 @@ export default function TboxPage() {
                         className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium">{t(c.command)}</span>
+                          <span className="text-label font-medium">{t(c.command)}</span>
                           <span className={badge(c.status, CMD_STATUS_STYLES)}>{t(c.status)}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">

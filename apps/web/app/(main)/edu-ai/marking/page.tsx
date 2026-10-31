@@ -137,7 +137,7 @@ export default function EduAiMarkingPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <PenLine className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -247,7 +247,7 @@ export default function EduAiMarkingPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 space-y-4 p-3">
               <div className="space-y-1">
-                <h3 className="text-sm font-medium">{t('comment')}</h3>
+                <h3 className="text-body font-medium">{t('comment')}</h3>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                   {result.comment}
                 </p>
@@ -258,7 +258,7 @@ export default function EduAiMarkingPage() {
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
             <Card>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                <h3 className="flex items-center gap-1.5 text-body font-medium">
                   <CheckCircle className="h-4 w-4 text-emerald-600" />
                   {t('strengths')}
                 </h3>
@@ -271,7 +271,7 @@ export default function EduAiMarkingPage() {
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                <h3 className="flex items-center gap-1.5 text-body font-medium">
                   <XCircle className="h-4 w-4 text-rose-600" />
                   {t('weaknesses')}
                 </h3>
@@ -280,7 +280,7 @@ export default function EduAiMarkingPage() {
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <h3 className="flex items-center gap-1.5 text-sm font-medium">
+                <h3 className="flex items-center gap-1.5 text-body font-medium">
                   <Lightbulb className="h-4 w-4 text-amber-600" />
                   {t('suggestions')}
                 </h3>

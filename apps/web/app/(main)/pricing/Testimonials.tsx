@@ -32,7 +32,7 @@ export function Testimonials(): React.JSX.Element {
   return (
     <section className="mx-auto mt-14 max-w-5xl">
       <div className="text-center">
-        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('testimonials.title')}
         </h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -50,11 +50,11 @@ export function Testimonials(): React.JSX.Element {
               </div>
               <p className="text-sm leading-relaxed text-foreground">{item.text}</p>
               <div className="mt-1 flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-label font-semibold text-primary">
                   {getInitials(item.name)}
                 </span>
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-foreground">{item.name}</span>
+                  <span className="text-body font-medium text-foreground">{item.name}</span>
                   <span className="text-xs text-muted-foreground">
                     {item.role} @ {item.company}
                   </span>

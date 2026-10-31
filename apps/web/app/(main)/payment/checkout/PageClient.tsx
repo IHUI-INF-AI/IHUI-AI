@@ -149,7 +149,7 @@ function CheckoutContent() {
         {t('checkout.back')}
       </Link>
 
-      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+      <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
         {t('checkout.title')}
       </h1>
 
@@ -367,7 +367,7 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
         <ArrowLeft className="h-4 w-4" />
         {t('checkout.back')}
       </Link>
-      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+      <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
         {t('checkout.title')}
       </h1>
       <Card>

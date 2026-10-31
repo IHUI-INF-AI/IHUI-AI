@@ -160,7 +160,7 @@ export function ModelsPricingContent(): React.JSX.Element {
     <main className="mx-auto w-full max-w-6xl px-4 py-4">
       <BackButton />
       <header className="space-y-2 text-center">
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           模型定价
         </h1>
         <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
@@ -199,7 +199,7 @@ export function ModelsPricingContent(): React.JSX.Element {
               <CardHeader className="p-3 pb-3">
                 <CardTitle className="flex items-center justify-between gap-2 text-base">
                   <span className="min-w-0 truncate">{vendor}</span>
-                  <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
+                  <span className="shrink-0 whitespace-nowrap text-label font-normal text-muted-foreground tabular-nums">
                     {items.length} 个模型
                   </span>
                 </CardTitle>

@@ -67,7 +67,7 @@ export default function ImageGenGalleryPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Images className="h-6 w-6 text-primary" />
           公开画廊
         </h1>
@@ -109,7 +109,7 @@ export default function ImageGenGalleryPage() {
                     />
                   </div>
                   <CardContent className="min-[640px]:p-3 space-y-1 p-3">
-                    <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>
+                    <p className="line-clamp-2 text-label font-medium">{item.prompt}</p>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="truncate">{item.authorName ?? '匿名'}</span>
                       <span>{fmt(item.createdAt)}</span>

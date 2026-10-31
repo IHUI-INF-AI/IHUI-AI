@@ -172,7 +172,7 @@ export default function EduAICoursesPage() {
       typeof value === 'boolean' ? (value ? t('required') : t('elective')) : String(value)
     return (
       <div className="ui-card rounded-lg border bg-muted/40 p-3">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="text-label font-medium text-muted-foreground">{label}</p>
         <p className="mt-1 text-sm whitespace-pre-wrap">{display}</p>
       </div>
     )
@@ -186,11 +186,11 @@ export default function EduAICoursesPage() {
           <CardContent className="min-[640px]:p-3 space-y-2 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={cn('rounded-md px-2 py-0.5 text-xs font-medium', stageClass(k.stage))}
+                className={cn('rounded-md px-2 py-0.5 text-label font-medium', stageClass(k.stage))}
               >
                 {stageLabel(k.stage)}
               </span>
-              <h3 className="flex-1 text-sm font-medium">{k.courseName}</h3>
+              <h3 className="flex-1 text-body font-medium">{k.courseName}</h3>
               {k.courseType && (
                 <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
                   {k.courseType}
@@ -219,10 +219,10 @@ export default function EduAICoursesPage() {
       <Card key={item.id} className="transition-colors hover:bg-accent">
         <CardContent className="min-[640px]:p-3 space-y-2 p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="flex-1 text-sm font-medium">{u.courseName}</h3>
+            <h3 className="flex-1 text-body font-medium">{u.courseName}</h3>
             <span
               className={cn(
-                'rounded-md px-2 py-0.5 text-xs font-medium',
+                'rounded-md px-2 py-0.5 text-label font-medium',
                 required ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600',
               )}
             >
@@ -293,7 +293,7 @@ export default function EduAICoursesPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <BookOpen className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>

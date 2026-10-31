@@ -893,7 +893,7 @@ export default function EnrollmentPage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">招生管理</h1>
+        <h1 className="text-display font-bold tracking-tight">招生管理</h1>
         <p className="text-xs text-muted-foreground">管理线索、试听预约和报名记录</p>
       </header>
 
@@ -1020,7 +1020,7 @@ export default function EnrollmentPage() {
                     <tbody>
                       {leads.map((lead) => (
                         <tr key={lead.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{lead.name}</td>
+                          <td className="px-4 py-3 text-label font-medium">{lead.name}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{lead.phone}</td>
                           <td className="px-4 py-3 text-xs">{lead.studentName}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -1142,7 +1142,7 @@ export default function EnrollmentPage() {
                     <tbody>
                       {trials.map((t) => (
                         <tr key={t.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{t.studentName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{t.studentName}</td>
                           <td className="px-4 py-3 text-xs">{t.parentName}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {t.parentPhone}
@@ -1325,11 +1325,11 @@ export default function EnrollmentPage() {
                     <tbody>
                       {enrollments.map((e) => (
                         <tr key={e.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{e.studentName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{e.studentName}</td>
                           <td className="px-4 py-3 text-xs">{e.className}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{e.termName}</td>
                           <td className="px-4 py-3 text-xs">{e.enrollDate}</td>
-                          <td className="px-4 py-3 text-xs font-medium">
+                          <td className="px-4 py-3 text-label font-medium">
                             {e.totalFee.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-xs">{e.paidAmount.toLocaleString()}</td>
@@ -1497,7 +1497,7 @@ export default function EnrollmentPage() {
                     <tbody>
                       {roster.map((r) => (
                         <tr key={r.enrollmentId} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
+                          <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {r.studentPhone ?? '-'}
                           </td>
@@ -1510,7 +1510,7 @@ export default function EnrollmentPage() {
                           <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
                           <td
                             className={cn(
-                              'px-4 py-3 text-xs font-medium',
+                              'px-4 py-3 text-label font-medium',
                               r.dueAmount > 0 ? 'text-red-600' : 'text-muted-foreground',
                             )}
                           >

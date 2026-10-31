@@ -560,7 +560,7 @@ export default function GradesPage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
         <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
@@ -638,7 +638,7 @@ export default function GradesPage() {
       {activeTab === 'entry' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">{t('tabEntry')}</CardTitle>
+            <CardTitle className="text-body font-medium">{t('tabEntry')}</CardTitle>
             <div className="flex items-center gap-2">
               <Input
                 className="h-8 w-36"
@@ -689,7 +689,7 @@ export default function GradesPage() {
       {activeTab === 'list' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">{t('tabList')}</CardTitle>
+            <CardTitle className="text-body font-medium">{t('tabList')}</CardTitle>
             <div className="flex items-center gap-2">
               <Select value={filterSubject} onValueChange={setFilterSubject}>
                 <SelectTrigger className="h-8 w-32">
@@ -809,7 +809,7 @@ export default function GradesPage() {
       {activeTab === 'ranking' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">{t('classRanking')}</CardTitle>
+            <CardTitle className="text-body font-medium">{t('classRanking')}</CardTitle>
             <div className="flex items-center gap-2">
               <Select value={selectedExamName} onValueChange={setSelectedExamName}>
                 <SelectTrigger className="h-8 w-36">
@@ -863,7 +863,7 @@ export default function GradesPage() {
                         <td className="px-3 py-2">
                           <span
                             className={cn(
-                              'inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium',
+                              'inline-flex h-6 w-6 items-center justify-center rounded-md text-label font-medium',
                               r.rank <= 3
                                 ? 'bg-amber-100 text-amber-700'
                                 : 'bg-muted text-muted-foreground',
@@ -917,7 +917,7 @@ export default function GradesPage() {
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">{t('avgScore')}</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold">{statsData?.avgScore ?? '-'}</p>
+                <p className="mt-1 text-display font-bold">{statsData?.avgScore ?? '-'}</p>
               </CardContent>
             </Card>
             <Card>
@@ -926,7 +926,7 @@ export default function GradesPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">{t('maxScore')}</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold text-green-600">
+                <p className="mt-1 text-display font-bold text-green-600">
                   {statsData?.maxScore ?? '-'}
                 </p>
               </CardContent>
@@ -937,7 +937,7 @@ export default function GradesPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">{t('minScore')}</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold text-red-600">{statsData?.minScore ?? '-'}</p>
+                <p className="mt-1 text-display font-bold text-red-600">{statsData?.minScore ?? '-'}</p>
               </CardContent>
             </Card>
             <Card>
@@ -946,7 +946,7 @@ export default function GradesPage() {
                   <Trophy className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">{t('passRate')}</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold">{statsData?.passRate ?? '-'}%</p>
+                <p className="mt-1 text-display font-bold">{statsData?.passRate ?? '-'}%</p>
               </CardContent>
             </Card>
           </div>
@@ -954,7 +954,7 @@ export default function GradesPage() {
           {/* Score Distribution */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">{t('scoreDistribution')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('scoreDistribution')}</CardTitle>
             </CardHeader>
             <CardContent>
               {statsData?.distribution && statsData.distribution.length > 0 ? (
@@ -981,7 +981,7 @@ export default function GradesPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">{t('top5')}</CardTitle>
+                <CardTitle className="text-body font-medium">{t('top5')}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {rankWithChange.slice(0, 5).map((r) => (
@@ -1006,7 +1006,7 @@ export default function GradesPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">{t('bottom5')}</CardTitle>
+                <CardTitle className="text-body font-medium">{t('bottom5')}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {rankWithChange

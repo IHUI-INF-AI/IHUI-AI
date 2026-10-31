@@ -33,17 +33,17 @@ export function ArchitectureSection() {
 
   return (
     <section className="space-y-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
         {t('architecture.label')}
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">{t('architecture.title')}</h2>
+        <h2 className="text-heading font-bold tracking-tight">{t('architecture.title')}</h2>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-center gap-2">
-              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                 LAYER 01
               </span>
               <h3 className="text-base font-semibold">{t('architecture.physicalTitle')}</h3>
@@ -57,7 +57,7 @@ export function ArchitectureSection() {
                       <Icon className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium">{item.title}</h4>
+                      <h4 className="text-body font-medium">{item.title}</h4>
                       <p className="text-xs text-muted-foreground">{item.desc}</p>
                     </div>
                   </div>
@@ -70,14 +70,14 @@ export function ArchitectureSection() {
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-center gap-2">
-              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                 LAYER 02
               </span>
               <h3 className="text-base font-semibold">{t('architecture.infoTitle')}</h3>
             </div>
             <div className="space-y-3">
               <div>
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-label font-medium text-muted-foreground">
                   {t('architecture.infoBasicLabel')}
                 </span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -92,7 +92,7 @@ export function ArchitectureSection() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-label font-medium text-muted-foreground">
                   {t('architecture.infoAdvancedLabel')}
                 </span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -113,7 +113,7 @@ export function ArchitectureSection() {
         <Card className="border-primary/20">
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-center gap-2">
-              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">
                 LAYER 03
               </span>
               <h3 className="text-base font-semibold">{t('architecture.effectTitle')}</h3>
@@ -127,7 +127,7 @@ export function ArchitectureSection() {
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Icon className="h-4 w-4" />
                       </div>
-                      <span className="text-xs font-medium">{label}</span>
+                      <span className="text-label font-medium">{label}</span>
                     </div>
                     {i < effectFlow.length - 1 && (
                       <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />

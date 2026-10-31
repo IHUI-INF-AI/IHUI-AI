@@ -31,7 +31,7 @@ export default async function OpenClawPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('openclaw.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('openclaw.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('openclaw.subtitle')}</p>
       </header>
 
@@ -84,10 +84,10 @@ export default async function OpenClawPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {steps.map((s) => (
               <div key={s.num} className="relative">
-                <div className="text-2xl min-[768px]:text-3xl font-bold text-primary/20">
+                <div className="text-display min-[768px]:text-3xl font-bold text-primary/20">
                   {s.num}
                 </div>
-                <h3 className="mt-1 text-sm font-semibold">{s.title}</h3>
+                <h3 className="mt-1 text-body font-semibold">{s.title}</h3>
                 <p className="mt-1 text-xs text-muted-foreground">{s.desc}</p>
               </div>
             ))}

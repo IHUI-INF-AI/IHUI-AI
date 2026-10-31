@@ -217,7 +217,7 @@ export default function DocsIndexPage() {
                     href={item.href}
                     className="block rounded-lg border bg-background p-3 transition-colors hover:bg-accent"
                   >
-                    <div className="font-medium text-sm">{item.name}</div>
+                    <div className="font-medium text-body">{item.name}</div>
                     <div className="text-xs text-muted-foreground">{item.desc}</div>
                   </a>
                 </li>

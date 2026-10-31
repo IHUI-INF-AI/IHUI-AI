@@ -330,7 +330,7 @@ export default function McpStorePageClient() {
         <header className="space-y-1">
           <div className="flex items-center gap-2">
             <Store className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+            <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
             {!isLoading && !error && (
               <Badge variant="primary">
                 {t('count', { count: store?.count ?? servers.length })}
@@ -379,7 +379,7 @@ export default function McpStorePageClient() {
         <section className="space-y-3">
           <div className="flex items-center gap-1.5">
             <Server className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">{t('registeredTitle')}</h2>
+            <h2 className="text-body font-semibold">{t('registeredTitle')}</h2>
             {registeredServers.length > 0 && (
               <Badge variant="default">{registeredServers.length}</Badge>
             )}
@@ -397,7 +397,7 @@ export default function McpStorePageClient() {
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <Plug className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="truncate text-sm font-medium text-foreground">{srv.name}</span>
+                    <span className="truncate text-body font-medium text-foreground">{srv.name}</span>
                     <span className="text-xs text-muted-foreground">{srv.transport}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -585,7 +585,7 @@ function DirectoryCard({
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-semibold leading-tight text-foreground">
+            <span className="text-body font-semibold leading-tight text-foreground">
               {entry.name}
             </span>
             <Badge variant={entry.source === 'official' ? 'primary' : 'default'}>

@@ -80,7 +80,7 @@ export default function SignInPage() {
   if (!allow) {
     return (
       <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
         <AuthGatePrompt message="请先登录后签到并查看记录" />
       </div>
     )
@@ -122,7 +122,7 @@ export default function SignInPage() {
               className="h-8 w-8 rounded-md object-cover"
               unoptimized
             />
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -211,7 +211,7 @@ export default function SignInPage() {
       )}
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 whitespace-nowrap text-body font-semibold text-muted-foreground">
           <Calendar className="h-4 w-4 shrink-0" />
           {t('weekCalendar')}
         </h2>
@@ -232,7 +232,7 @@ export default function SignInPage() {
                 </span>
                 <span
                   className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium tabular-nums',
+                    'flex h-8 w-8 items-center justify-center rounded-lg text-label font-medium tabular-nums',
                     isSigned ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground',
                   )}
                 >
@@ -254,7 +254,7 @@ export default function SignInPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 whitespace-nowrap text-body font-semibold text-muted-foreground">
           <Flame className="h-4 w-4 shrink-0" />
           {t('history')}
         </h2>

@@ -520,7 +520,7 @@ function TemplateDialog({
                     >
                       <div className="flex items-center gap-2">
                         <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{name}</span>
+                        <span className="text-body font-medium">{name}</span>
                         <Badge variant="outline" className="text-[10px]">
                           {t('template.itemCount', { count })}
                         </Badge>
@@ -565,9 +565,9 @@ function TemplateDialog({
               <div className="min-w-[600px]">
                 {/* Header row */}
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
-                  <div className="p-1.5 text-xs font-medium text-muted-foreground" />
+                  <div className="p-1.5 text-label font-medium text-muted-foreground" />
                   {WEEKDAY_KEYS.map((key) => (
-                    <div key={key} className="bg-muted/40 p-1.5 text-center text-xs font-medium">
+                    <div key={key} className="bg-muted/40 p-1.5 text-center text-label font-medium">
                       {t(key)}
                     </div>
                   ))}
@@ -576,7 +576,7 @@ function TemplateDialog({
                 {/* Meal type rows */}
                 {MEAL_TYPES.map((mt) => (
                   <div key={mt.value} className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
-                    <div className="flex items-center gap-1 bg-muted/40 p-1.5 text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1 bg-muted/40 p-1.5 text-label font-medium text-muted-foreground">
                       {t(mt.labelKey)}
                     </div>
                     {Array.from({ length: 7 }, (_, i) => {
@@ -1021,7 +1021,7 @@ export default function MealPage() {
         <div className="mb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
-            <span className="text-xs font-medium">{mtLabelKey ? t(mtLabelKey) : mealType}</span>
+            <span className="text-label font-medium">{mtLabelKey ? t(mtLabelKey) : mealType}</span>
           </div>
           <button
             type="button"
@@ -1081,7 +1081,7 @@ export default function MealPage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('page.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('page.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('page.subtitle')}</p>
       </header>
 
@@ -1164,7 +1164,7 @@ export default function MealPage() {
           <>
             {/* Day navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">{formatDate(currentDay)}</CardTitle>
+              <CardTitle className="text-body font-medium">{formatDate(currentDay)}</CardTitle>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setDayOffset((o) => o - 1)}>
                   <ChevronLeft className="h-4 w-4" />
@@ -1200,7 +1200,7 @@ export default function MealPage() {
           <>
             {/* Week navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-body font-medium">
                 {weekDays[0] && weekDays[6]
                   ? `${formatDate(weekDays[0])} ~ ${formatDate(weekDays[6])}`
                   : ''}
@@ -1242,7 +1242,7 @@ export default function MealPage() {
                         <div
                           key={key}
                           className={cn(
-                            'border-b border-r p-2 text-center text-xs font-medium',
+                            'border-b border-r p-2 text-center text-label font-medium',
                             isToday && 'bg-primary/5',
                           )}
                         >
@@ -1260,7 +1260,7 @@ export default function MealPage() {
                     const Icon = MEAL_ICONS[mt.value]
                     return (
                       <div key={mt.value} className="grid grid-cols-[60px_repeat(7,1fr)]">
-                        <div className="flex items-center gap-1 bg-background p-2 text-xs font-medium text-muted-foreground">
+                        <div className="flex items-center gap-1 bg-background p-2 text-label font-medium text-muted-foreground">
                           {Icon && <Icon className="h-3 w-3" />}
                           <span>{t(mt.labelKey)}</span>
                         </div>
@@ -1304,7 +1304,7 @@ export default function MealPage() {
           <>
             {/* Month navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-body font-medium">
                 {t('page.monthLabel', {
                   year: currentMonth.getFullYear(),
                   month: currentMonth.getMonth() + 1,
@@ -1341,7 +1341,7 @@ export default function MealPage() {
                     {WEEKDAY_KEYS.map((key) => (
                       <div
                         key={key}
-                        className="border-b border-r p-2 text-center text-xs font-medium text-muted-foreground"
+                        className="border-b border-r p-2 text-center text-label font-medium text-muted-foreground"
                       >
                         {t(key)}
                       </div>
@@ -1362,7 +1362,7 @@ export default function MealPage() {
                         >
                           <div
                             className={cn(
-                              'mb-1 text-xs font-medium',
+                              'mb-1 text-label font-medium',
                               isToday ? 'text-primary' : 'text-muted-foreground',
                             )}
                           >
@@ -1426,7 +1426,7 @@ export default function MealPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <Card>
                     <CardContent className="min-[640px]:p-3 flex flex-col items-center justify-center p-3">
-                      <span className="text-2xl font-bold text-orange-500">
+                      <span className="text-display font-bold text-orange-500">
                         {nutritionQuery.data.summary.totalCalories}
                       </span>
                       <span className="text-xs text-muted-foreground">
@@ -1436,7 +1436,7 @@ export default function MealPage() {
                   </Card>
                   <Card>
                     <CardContent className="min-[640px]:p-3 flex flex-col items-center justify-center p-3">
-                      <span className="text-2xl font-bold text-blue-500">
+                      <span className="text-display font-bold text-blue-500">
                         {nutritionQuery.data.summary.totalProtein}g
                       </span>
                       <span className="text-xs text-muted-foreground">
@@ -1446,7 +1446,7 @@ export default function MealPage() {
                   </Card>
                   <Card>
                     <CardContent className="min-[640px]:p-3 flex flex-col items-center justify-center p-3">
-                      <span className="text-2xl font-bold text-green-500">
+                      <span className="text-display font-bold text-green-500">
                         {nutritionQuery.data.summary.totalCarbs}g
                       </span>
                       <span className="text-xs text-muted-foreground">
@@ -1466,13 +1466,13 @@ export default function MealPage() {
 
                 {/* By meal type breakdown */}
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium">{t('nutrition.byTypeTitle')}</h4>
+                  <h4 className="text-body font-medium">{t('nutrition.byTypeTitle')}</h4>
                   {nutritionQuery.data.byType.map((type) => {
                     const typeLabelKey = MEAL_TYPE_LABEL_KEY_MAP.get(type.mealType)
                     return (
                       <div key={type.mealType} className="rounded-md border p-3">
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium">
+                          <span className="text-body font-medium">
                             {typeLabelKey ? t(typeLabelKey) : type.mealType}
                           </span>
                           <span className="text-xs text-muted-foreground">
@@ -1537,7 +1537,7 @@ export default function MealPage() {
                     >
                       <div className="flex items-center gap-2">
                         <ChefHat className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{item.ingredient}</span>
+                        <span className="text-body font-medium">{item.ingredient}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">
@@ -1550,7 +1550,7 @@ export default function MealPage() {
               )}
               {shoppingListData.shoppingList.length > 0 && (
                 <div className="rounded-md bg-muted/30 p-3">
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  <p className="mb-1 text-label font-medium text-muted-foreground">
                     {t('shopping.involvedDishes')}
                   </p>
                   <div className="flex flex-wrap gap-1">

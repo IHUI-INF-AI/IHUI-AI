@@ -107,7 +107,7 @@ export default function WithdrawPage() {
         {tc('back')}
       </Link>
 
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
         <ArrowDownToLine className="h-7 w-7 text-primary" />
         {t('withdrawTitle')}
       </h1>
@@ -129,7 +129,7 @@ export default function WithdrawPage() {
                     {(availableQ.error as Error).message}
                   </div>
                 ) : (
-                  <div className="mt-1 text-2xl font-bold">{fmtYuan(available)}</div>
+                  <div className="mt-1 text-display font-bold">{fmtYuan(available)}</div>
                 )}
               </div>
 

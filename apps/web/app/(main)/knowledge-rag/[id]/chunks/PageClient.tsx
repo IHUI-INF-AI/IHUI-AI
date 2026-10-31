@@ -105,7 +105,7 @@ export default function KnowledgeRagChunksPage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{doc.title}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{doc.title}</h1>
         <p className="text-xs text-muted-foreground">
           {t('totalCount', { count: doc.chunkCount })}
         </p>
@@ -126,7 +126,7 @@ export default function KnowledgeRagChunksPage() {
               <Card key={c.id}>
                 <CardContent className="min-[640px]:p-3 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <div className="flex items-center gap-1.5 text-body font-medium">
                       <Hash className="h-4 w-4 text-muted-foreground" />
                       {t('chunkIndex', { index: c.chunkIndex + 1 })}
                     </div>

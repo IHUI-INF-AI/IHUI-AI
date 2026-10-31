@@ -211,7 +211,7 @@ export default function PlanDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => setEditing(false)} aria-label="返回">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">编辑 Plan</h1>
+          <h1 className="text-display font-bold tracking-tight">编辑 Plan</h1>
         </div>
         <div className="rounded-lg border bg-card p-3">
           <PlanForm
@@ -247,7 +247,7 @@ export default function PlanDetailPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="truncate text-2xl font-bold tracking-tight">{plan.title}</h1>
+          <h1 className="truncate text-display font-bold tracking-tight">{plan.title}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
@@ -272,7 +272,7 @@ export default function PlanDetailPage() {
             value={plan.status}
             onChange={(e) => handlePlanStatusChange(e.target.value as PlanDocument['status'])}
             className={cn(
-              'h-7 cursor-pointer rounded-sm border-0 px-2.5 text-xs font-medium outline-none',
+              'h-7 cursor-pointer rounded-sm border-0 px-2.5 text-label font-medium outline-none',
               PLAN_STATUS_COLOR[plan.status],
             )}
             aria-label="计划状态"
@@ -294,7 +294,7 @@ export default function PlanDetailPage() {
           {plan.constraints && <Field label="约束边界" content={plan.constraints} />}
           {plan.tags && plan.tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">标签</span>
+              <span className="text-label font-medium text-muted-foreground">标签</span>
               {plan.tags.map((tag) => (
                 <span
                   key={tag}
@@ -361,7 +361,7 @@ function noop(): void {
 function Field({ label, content }: { label: string; content: string }) {
   return (
     <div className="space-y-1">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-label font-medium text-muted-foreground">{label}</span>
       <p className="whitespace-pre-wrap text-sm">{content}</p>
     </div>
   )

@@ -83,7 +83,7 @@ export default function FavoritesPage() {
     <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Star className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -96,7 +96,7 @@ export default function FavoritesPage() {
             key={tabItem.value}
             onClick={() => setTab(tabItem.value)}
             className={cn(
-              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === tabItem.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -134,7 +134,7 @@ export default function FavoritesPage() {
                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {item.resourceType}
                 </span>
-                <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                <span className="min-w-0 flex-1 break-words text-body font-medium">
                   {item.title || item.resourceId}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">

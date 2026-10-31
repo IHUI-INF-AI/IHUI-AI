@@ -28,7 +28,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-4">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
@@ -46,7 +46,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-2 rounded-md px-3 py-2 text-body transition-colors ${
                   isActive
                     ? 'bg-primary/10 font-medium text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'

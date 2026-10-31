@@ -195,7 +195,7 @@ export function DesktopSettingsCard() {
 
           {/* 全局快捷键说明 */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
+            <div className="flex items-center gap-2 text-body font-medium">
               <Keyboard className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="whitespace-nowrap">{t('desktopShortcutsTitle')}</span>
             </div>
@@ -221,7 +221,7 @@ export function DesktopSettingsCard() {
 
           {/* 窗口控制快捷入口 */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">{t('desktopWindowTitle')}</p>
+            <p className="text-body font-medium">{t('desktopWindowTitle')}</p>
             <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
               <Button
                 variant="outline"

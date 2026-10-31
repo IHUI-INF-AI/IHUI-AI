@@ -198,7 +198,7 @@ export default function EduAiAigcToolsPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Wrench className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -343,7 +343,7 @@ export default function EduAiAigcToolsPage() {
             <DialogTitle className="flex flex-wrap items-center gap-2 pr-8">
               {detail?.name}
               {detail?.nameCn && (
-                <span className="text-sm font-normal text-muted-foreground">{detail.nameCn}</span>
+                <span className="text-body font-normal text-muted-foreground">{detail.nameCn}</span>
               )}
             </DialogTitle>
             <DialogDescription className="flex flex-wrap items-center gap-2">

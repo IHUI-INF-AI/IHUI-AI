@@ -281,7 +281,7 @@ export default function AccountsPage() {
             <button
               type="button"
               onClick={() => setQuickScanOpen(true)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-sm bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-sm bg-orange-500 px-2.5 py-1 text-label font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
             >
               <QrCode className="h-3.5 w-3.5" />
               <span>{t('accounts.batchScanBtn')}</span>
@@ -289,7 +289,7 @@ export default function AccountsPage() {
                 {pendingPlatforms.length}
               </span>
             </button>
-            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+            <span className="text-label font-medium text-orange-600 dark:text-orange-400">
               待配置平台 — 也可点击下方平台逐个配置
             </span>
           </div>
@@ -361,7 +361,7 @@ export default function AccountsPage() {
                         />
                         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                           <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-medium">
+                            <span className="truncate text-body font-medium">
                               {nameParts.name || a.displayName}
                             </span>
                             {subtitle ? (

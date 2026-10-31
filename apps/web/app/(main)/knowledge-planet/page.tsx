@@ -71,7 +71,7 @@ export default function KnowledgePlanetPage() {
         </Card>
       ) : null}
 
-      <h3 className="mb-3 text-sm font-medium">{t('latestNews')}</h3>
+      <h3 className="mb-3 text-body font-medium">{t('latestNews')}</h3>
 
       {newsQ.isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -107,7 +107,7 @@ export default function KnowledgePlanetPage() {
                     />
                   ) : null}
                   <div className="min-w-0">
-                    <h4 className="line-clamp-2 text-sm font-medium">{item.title}</h4>
+                    <h4 className="line-clamp-2 text-body font-medium">{item.title}</h4>
                     {item.summary ? (
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                         {item.summary}

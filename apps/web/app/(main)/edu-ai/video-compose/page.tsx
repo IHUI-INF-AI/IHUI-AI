@@ -157,7 +157,7 @@ function StepResultView({ step }: { step: ComposeStep }) {
     if (urls.length > 0) {
       return (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">{t(titleKey)}</p>
+          <p className="text-label font-medium text-muted-foreground">{t(titleKey)}</p>
           {step.name === 'compose' ? (
             /* eslint-disable-next-line jsx-a11y/media-has-caption -- AI 合成视频，无可用字幕 */
             <video src={urls[0]} controls className="max-h-64 w-full rounded-md bg-black" />
@@ -185,7 +185,7 @@ function StepResultView({ step }: { step: ComposeStep }) {
   if (text) {
     return (
       <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground">{t(titleKey)}</p>
+        <p className="text-label font-medium text-muted-foreground">{t(titleKey)}</p>
         <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed">{text}</pre>
       </div>
     )
@@ -299,7 +299,7 @@ export default function EduAiVideoComposePage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <Clapperboard className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -366,7 +366,7 @@ export default function EduAiVideoComposePage() {
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <p className="min-w-0 flex-1 truncate text-sm font-medium">{viewTask.prompt}</p>
+              <p className="min-w-0 flex-1 truncate text-body font-medium">{viewTask.prompt}</p>
               <span
                 className={cn(
                   'inline-flex items-center rounded-md px-2 py-0.5 text-xs',
@@ -411,7 +411,7 @@ export default function EduAiVideoComposePage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                        <span className="flex items-center gap-1.5 text-body font-medium">
                           <StepIcon className="h-4 w-4 text-muted-foreground" />
                           {t(`step${stepKey.charAt(0).toUpperCase()}${stepKey.slice(1)}`)}
                         </span>

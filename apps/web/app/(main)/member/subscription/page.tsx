@@ -80,7 +80,7 @@ export default function MemberSubscriptionPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <CreditCard className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -116,7 +116,7 @@ export default function MemberSubscriptionPage() {
                 </div>
                 <span
                   className={cn(
-                    'rounded-md px-2 py-0.5 text-xs font-medium',
+                    'rounded-md px-2 py-0.5 text-label font-medium',
                     STATUS_CLS[sub.status],
                   )}
                 >

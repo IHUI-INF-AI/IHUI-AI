@@ -59,7 +59,7 @@ export default function InvoicesPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <BackButton fallbackHref="/settings/billing" />
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold">{ti('title')}</h1>
+        <h1 className="text-heading font-semibold">{ti('title')}</h1>
         <p className="text-sm text-muted-foreground">{ti('subtitle')}</p>
       </header>
       {allow ? (

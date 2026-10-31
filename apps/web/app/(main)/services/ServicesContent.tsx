@@ -38,11 +38,11 @@ export function ServicesContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('hero.cta')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+        <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('hero.title')}
         </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -73,7 +73,7 @@ export function ServicesContent(): React.JSX.Element {
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">{t(`cards.${key}.desc`)}</p>
                 <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-2xl font-bold tracking-tight text-primary">
+                  <span className="text-display font-bold tracking-tight text-primary">
                     {t(`cards.${key}.price`)}
                   </span>
                   <span className="text-sm text-muted-foreground">{t(`cards.${key}.unit`)}</span>
@@ -104,7 +104,7 @@ export function ServicesContent(): React.JSX.Element {
         ].map(({ value, suffix, labelKey }) => (
           <Card key={labelKey}>
             <CardContent className="min-[640px]:p-3 p-3 text-center">
-              <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">
+              <div className="text-heading font-bold tracking-tight min-[768px]:text-display text-primary">
                 <AnimatedNumber value={value} suffix={suffix} duration={1500} />
               </div>
               <div className="mt-1 text-sm text-muted-foreground">{t(labelKey)}</div>
@@ -115,7 +115,7 @@ export function ServicesContent(): React.JSX.Element {
 
       {/* FAQ */}
       <section className="mt-12 space-y-4">
-        <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h2 className="text-center text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('faq.title')}
         </h2>
         <div className="mx-auto max-w-3xl space-y-3">
@@ -125,7 +125,7 @@ export function ServicesContent(): React.JSX.Element {
               className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold min-[768px]:text-base">{item.q}</h3>
+                <h3 className="text-body font-semibold min-[768px]:text-base">{item.q}</h3>
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
               </summary>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
@@ -137,7 +137,7 @@ export function ServicesContent(): React.JSX.Element {
       {/* 询价表单 */}
       <section id="inquiry" className="mt-12 scroll-mt-20">
         <div className="mx-auto max-w-2xl space-y-2 text-center">
-          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             {t('inquiry.title')}
           </h2>
           <p className="text-sm text-muted-foreground">{t('inquiry.subtitle')}</p>

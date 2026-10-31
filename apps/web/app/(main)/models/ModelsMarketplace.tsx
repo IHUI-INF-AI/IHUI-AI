@@ -556,7 +556,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-sm border px-2.5 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+        'inline-flex h-7 items-center gap-1 rounded-sm border px-2.5 text-label font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
         active
           ? 'border-brand-accent-deep bg-cta text-cta-foreground'
           : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -635,7 +635,7 @@ function ModelCardGrid({
           <BrandIcon vendor={model.provider} size={20} />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-1.5 text-sm font-semibold leading-tight [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <h3 className="flex items-center gap-1.5 text-body font-semibold leading-tight [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span className="truncate">
               {model.name.startsWith('model.') ? t(model.name) : model.name}
             </span>
@@ -878,7 +878,7 @@ function ModelCardList({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 [&>span]:translate-y-[var(--text-vcenter-offset)]">
-          <span className="truncate text-sm font-semibold">
+          <span className="truncate text-body font-semibold">
             {model.name.startsWith('model.') ? t(model.name) : model.name}
           </span>
           {model.highlight && (
@@ -1291,7 +1291,7 @@ function RelayPeakWindowsBar({ windows }: { windows: RelayPeakWindow[] }) {
     `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
   return (
     <div className="rounded-md border border-sky-500/25 bg-sky-500/5 px-3 py-2">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-400 [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      <p className="flex items-center gap-1.5 text-label font-medium text-sky-700 dark:text-sky-400 [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <Clock className="h-3 w-3" aria-hidden />
         <span>{t('relay.timeRules')}</span>
       </p>

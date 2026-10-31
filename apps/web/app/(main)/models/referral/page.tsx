@@ -38,14 +38,14 @@ export default async function ReferralPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 邀请链接 */}
       <Card className="border-primary/40 bg-primary/5">
         <CardContent className="min-[640px]:p-3 p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+          <div className="flex items-center gap-2 text-body font-semibold">
             <Share2 className="h-4 w-4 text-primary" />
             {t('link.title')}
           </div>
@@ -75,7 +75,7 @@ export default async function ReferralPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>
-                <div className="mt-3 text-2xl font-bold tracking-tight">{s.value}</div>
+                <div className="mt-3 text-display font-bold tracking-tight">{s.value}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
               </CardContent>
             </Card>

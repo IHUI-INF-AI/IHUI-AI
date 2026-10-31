@@ -55,7 +55,7 @@ export function StudyPlanStatsDialog({
               <div className="grid grid-cols-3 gap-3">
                 <Card>
                   <CardContent className="min-[640px]:p-3 flex flex-col items-center justify-center p-3">
-                    <span className="text-2xl font-bold text-primary">
+                    <span className="text-display font-bold text-primary">
                       {query.data.overallRate}%
                     </span>
                     <span className="text-xs text-muted-foreground">{t('overallRate')}</span>
@@ -63,7 +63,7 @@ export function StudyPlanStatsDialog({
                 </Card>
                 <Card>
                   <CardContent className="min-[640px]:p-3 flex flex-col items-center justify-center p-3">
-                    <span className="text-2xl font-bold text-green-600">
+                    <span className="text-display font-bold text-green-600">
                       {query.data.totalCompleted}
                     </span>
                     <span className="text-xs text-muted-foreground">{t('statusCompleted')}</span>
@@ -71,7 +71,7 @@ export function StudyPlanStatsDialog({
                 </Card>
                 <Card>
                   <CardContent className="min-[640px]:p-3 flex flex-col items-center justify-center p-3">
-                    <span className="text-2xl font-bold text-muted-foreground">
+                    <span className="text-display font-bold text-muted-foreground">
                       {query.data.totalItems}
                     </span>
                     <span className="text-xs text-muted-foreground">{t('totalItems')}</span>
@@ -81,7 +81,7 @@ export function StudyPlanStatsDialog({
 
               {/* Per-plan breakdown */}
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">{t('planDetails')}</h4>
+                <h4 className="text-body font-medium">{t('planDetails')}</h4>
                 {query.data.plans.length === 0 ? (
                   <p className="py-2 text-center text-sm text-muted-foreground">
                     {t('noPlanData')}
@@ -112,7 +112,7 @@ export function StudyPlanStatsDialog({
                           </span>
                           <span
                             className={cn(
-                              'text-sm font-semibold',
+                              'text-body font-semibold',
                               plan.completionRate >= 80
                                 ? 'text-green-600'
                                 : plan.completionRate >= 50

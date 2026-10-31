@@ -61,7 +61,7 @@ export default function ChildGradesPage() {
     <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('child.grades')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('child.grades')}</h1>
         <p className="text-xs text-muted-foreground">{t('child.gradesHint')}</p>
       </header>
 
@@ -86,11 +86,11 @@ export default function ChildGradesPage() {
             {subjectAvgs.map((s) => (
               <Card key={s.subject}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{s.subject}</CardTitle>
+                  <CardTitle className="text-body font-medium">{s.subject}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold">{s.avg}</span>
+                    <span className="text-display font-bold">{s.avg}</span>
                     <span className="text-sm text-muted-foreground">/ {s.totalScore}</span>
                     {s.percentage >= 80 ? (
                       <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -121,7 +121,7 @@ export default function ChildGradesPage() {
           {/* 成绩明细 */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t('grades.detail')}</CardTitle>
+              <CardTitle className="text-body font-medium">{t('grades.detail')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -134,7 +134,7 @@ export default function ChildGradesPage() {
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{g.subject}</span>
+                          <span className="text-body font-medium">{g.subject}</span>
                           <span className="text-xs text-muted-foreground">{g.examName}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">{g.examDate}</p>

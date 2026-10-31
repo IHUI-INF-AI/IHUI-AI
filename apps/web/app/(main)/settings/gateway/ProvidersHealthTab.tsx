@@ -242,7 +242,7 @@ export function ProvidersHealthTab() {
         <CardContent className="min-[640px]:p-3 space-y-2 p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{tm('title')}</p>
+              <p className="text-body font-medium">{tm('title')}</p>
               <p className="truncate text-[11px] text-muted-foreground">
                 {syncStatus?.last_sync_at ? (
                   <>
@@ -501,7 +501,7 @@ function ProviderRow({
     <Card>
       <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-2 p-3">
         <div className="min-w-[140px] flex-1">
-          <p className="text-sm font-medium">{provider.display_name || provider.provider}</p>
+          <p className="text-body font-medium">{provider.display_name || provider.provider}</p>
           <p className="text-[11px] text-muted-foreground">{provider.provider}</p>
         </div>
         {/* H4 Phase B:ProviderStatusBadge(圆点 + 状态文字 + tooltip 延迟/模型数) */}
@@ -730,7 +730,7 @@ function SyncHealthPanel() {
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-2 p-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">{tm('health')}</p>
+          <p className="text-body font-medium">{tm('health')}</p>
           <span className="text-[11px] text-muted-foreground">
             {tm('threshold')}: {threshold}
           </span>
@@ -911,7 +911,7 @@ function SummaryCard({
     <Card>
       <CardContent className="min-[640px]:p-3 p-3">
         <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className={`text-xl font-bold tabular-nums ${toneClass}`}>{value}</p>
+        <p className={`text-heading font-bold tabular-nums ${toneClass}`}>{value}</p>
       </CardContent>
     </Card>
   )
@@ -1017,7 +1017,7 @@ function SyncConfigPanel() {
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-        <p className="text-sm font-medium">{tm('config')}</p>
+        <p className="text-body font-medium">{tm('config')}</p>
         <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
           <div className="space-y-1">
             <label className="text-[11px] text-muted-foreground">{tm('interval')}</label>
@@ -1103,7 +1103,7 @@ function SyncStatsCard() {
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-2 p-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">{tm('stats')}</p>
+          <p className="text-body font-medium">{tm('stats')}</p>
           <div className="flex gap-1">
             {dayOptions.map((opt) => (
               <Button
@@ -1168,7 +1168,7 @@ function SyncStatsGrid({ data, timeFmt }: { data: SyncStatsResult; timeFmt: Intl
           <div key={s.label} className="rounded bg-muted/40 p-2">
             <p className="text-[10px] text-muted-foreground">{s.label}</p>
             <p
-              className={`text-sm font-semibold tabular-nums ${
+              className={`text-body font-semibold tabular-nums ${
                 s.tone === 'emerald'
                   ? 'text-emerald-600 dark:text-emerald-500'
                   : s.tone === 'red'

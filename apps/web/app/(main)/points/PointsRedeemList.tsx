@@ -49,8 +49,8 @@ export function PointsRedeemList() {
       {(redeemQ.data ?? []).map((item) => (
         <Card key={item.id} className="transition-colors hover:bg-accent">
           <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-            <p className="line-clamp-2 text-sm font-medium">{item.name}</p>
-            <p className="text-sm font-semibold tabular-nums text-primary">
+            <p className="line-clamp-2 text-body font-medium">{item.name}</p>
+            <p className="text-body font-semibold tabular-nums text-primary">
               {t('pointsUnit', { n: item.points })}
             </p>
             <Button variant="outline" size="sm" className="w-full whitespace-nowrap">

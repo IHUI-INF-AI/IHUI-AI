@@ -150,7 +150,7 @@ export default function OrderDetailPage() {
       </Button>
 
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <TruncatedText
           value={order.orderNo}
           className="max-w-full font-mono text-sm text-muted-foreground"
@@ -159,7 +159,7 @@ export default function OrderDetailPage() {
 
       <div
         className={cn(
-          'inline-flex shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium',
+          'inline-flex shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-body font-medium',
           sc.cls,
         )}
       >

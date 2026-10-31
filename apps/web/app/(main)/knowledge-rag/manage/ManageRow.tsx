@@ -47,7 +47,7 @@ export function ManageRow({
         <Checkbox checked={checked} onCheckedChange={onToggle} aria-label={deleteLabel} />
         <Link href={`/knowledge-rag/${doc.id}`} className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="line-clamp-1 text-sm font-medium">{doc.title}</span>
+            <span className="line-clamp-1 text-body font-medium">{doc.title}</span>
             <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {srcLabel}
             </span>

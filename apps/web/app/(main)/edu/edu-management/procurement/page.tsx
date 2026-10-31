@@ -309,7 +309,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap',
+        'inline-flex items-center rounded-md px-2 py-0.5 text-label font-semibold whitespace-nowrap',
         meta?.className ?? 'bg-muted text-muted-foreground',
       )}
     >
@@ -361,7 +361,7 @@ function RankList({
               </span>
               <span className="shrink-0 tabular-nums font-medium">
                 {fmtAmount(amount)}
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                <span className="ml-2 text-label font-normal text-muted-foreground">
                   {countLabel} {count}
                 </span>
               </span>
@@ -704,7 +704,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-sm border border-dashed bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50 disabled:opacity-50"
             >
               <Camera className="h-10 w-10" />
-              <span className="text-sm font-medium">{t('ai.clickToSelect')}</span>
+              <span className="text-body font-medium">{t('ai.clickToSelect')}</span>
               <span className="text-xs">{t('ai.supportedFormats')}</span>
             </button>
           )}
@@ -1210,7 +1210,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
             <Receipt className="h-4 w-4" />
             {t('tabs.ledger')}
             {data && (
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-label font-normal text-muted-foreground">
                 {t('ledger.totalCount', { total: String(data.total) })}
               </span>
             )}
@@ -1417,7 +1417,7 @@ function ReceiptDetailDialog({
 
             {/* 明细 */}
             <div>
-              <h4 className="mb-2 text-sm font-semibold">{t('detail.itemsTitle')}</h4>
+              <h4 className="mb-2 text-body font-semibold">{t('detail.itemsTitle')}</h4>
               <div className="overflow-x-auto rounded-md border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
@@ -1473,7 +1473,7 @@ function ReceiptDetailDialog({
             {/* AI 核对记录 */}
             {verifications.length > 0 && (
               <div>
-                <h4 className="mb-2 text-sm font-semibold">
+                <h4 className="mb-2 text-body font-semibold">
                   {t('detail.verifyRecordsTitle', { count: String(verifications.length) })}
                 </h4>
                 <div className="space-y-2">
@@ -1540,7 +1540,7 @@ function ReceiptDetailDialog({
             {/* 小票原图 */}
             {hasImage && (
               <div>
-                <h4 className="mb-2 text-sm font-semibold">{t('detail.imageTitle')}</h4>
+                <h4 className="mb-2 text-body font-semibold">{t('detail.imageTitle')}</h4>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.receiptImageUrl ?? undefined}
@@ -1844,7 +1844,7 @@ function ProcurementEditDialog({
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-semibold">{t('edit.itemsTitle')}</h4>
+                <h4 className="text-body font-semibold">{t('edit.itemsTitle')}</h4>
                 <Button
                   variant="outline"
                   size="xs"
@@ -2066,7 +2066,7 @@ function SupplierTab() {
             <Truck className="h-4 w-4" />
             {t('supplier.profile')}
             {data && (
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-label font-normal text-muted-foreground">
                 {t('supplier.totalCount', { total: String(data.total) })}
               </span>
             )}
@@ -2305,7 +2305,7 @@ export default function CanteenProcurementPage() {
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
         <p className="text-sm text-muted-foreground">{t('pageDescription')}</p>
       </header>
 

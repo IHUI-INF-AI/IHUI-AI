@@ -163,10 +163,10 @@ export function DownloadDetailContent({
               <Icon className="h-7 w-7" />
             </div>
             <div className="min-w-0">
-              <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+              <h1 className="flex items-center gap-2 text-heading font-semibold text-foreground">
                 <span>{label}</span>
                 {meta.version && (
-                  <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  <span className="rounded-sm bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">
                     v{meta.version}
                   </span>
                 )}
@@ -199,7 +199,7 @@ export function DownloadDetailContent({
       {hasAssets ? (
         // 已接入:显示下载资源列表
         <section className="mb-6">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <h2 className="mb-3 text-body font-semibold uppercase tracking-wider text-muted-foreground/70">
             {t('downloadAssets')}
           </h2>
           <div className="grid gap-3">
@@ -259,7 +259,7 @@ export function DownloadDetailContent({
       {/* 安装指南(CLI 显示 npm 命令 / Mobile 显示构建说明 / 其他显示通用步骤) */}
       {meta.installGuideKey && (
         <section className="mb-6">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <h2 className="mb-3 text-body font-semibold uppercase tracking-wider text-muted-foreground/70">
             {t('downloadInstallGuide')}
           </h2>
           <Card className="p-3">
@@ -271,7 +271,7 @@ export function DownloadDetailContent({
       {/* 系统要求 */}
       {meta.systemRequirementsKey && (
         <section className="mb-6">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <h2 className="mb-3 text-body font-semibold uppercase tracking-wider text-muted-foreground/70">
             {t('downloadSystemRequirements')}
           </h2>
           <Card className="p-3">
@@ -360,7 +360,7 @@ function DownloadAssetCard({
         rel={isExternal ? 'noopener noreferrer' : undefined}
         onClick={() => trackDownload(platform, 'detail_page', asset.href)}
         className={cn(
-          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-cta px-4 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         )}
       >
         <Download className="h-4 w-4" />

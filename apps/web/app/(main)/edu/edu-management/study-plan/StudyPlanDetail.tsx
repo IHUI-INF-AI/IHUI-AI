@@ -257,7 +257,7 @@ export function StudyPlanDetail({
       <CardContent className="space-y-4">
         {/* Add item button */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">
+          <h3 className="text-body font-medium">
             {isStudentMode ? t('studentTasks') : t('planItems')}
             {totalCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>
@@ -276,7 +276,7 @@ export function StudyPlanDetail({
           <div>
             {/* Week navigation */}
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-medium">
+              <div className="text-body font-medium">
                 {weekDays[0] && weekDays[6]
                   ? `${formatDate(weekDays[0])} ~ ${formatDate(weekDays[6])}`
                   : ''}
@@ -321,7 +321,7 @@ export function StudyPlanDetail({
                     >
                       <div
                         className={cn(
-                          'mb-2 text-xs font-medium',
+                          'mb-2 text-label font-medium',
                           isToday(day) ? 'text-primary' : 'text-muted-foreground',
                         )}
                       >
@@ -406,7 +406,7 @@ export function StudyPlanDetail({
                       <div className="flex items-start justify-between gap-2">
                         <p
                           className={cn(
-                            'text-sm font-medium',
+                            'text-body font-medium',
                             item.completed && 'line-through text-muted-foreground',
                           )}
                         >

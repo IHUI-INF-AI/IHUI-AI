@@ -119,7 +119,7 @@ export default function InvitationsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <UserPlus className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -138,7 +138,7 @@ export default function InvitationsPage() {
       )}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">{t('myCodes')}</h2>
+        <h2 className="text-body font-semibold text-muted-foreground">{t('myCodes')}</h2>
         {codesQ.isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -159,7 +159,7 @@ export default function InvitationsPage() {
                     </code>
                     <span
                       className={cn(
-                        'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'shrink-0 rounded-md px-2 py-0.5 text-label font-medium',
                         STATUS_STYLE[c.status],
                       )}
                     >
@@ -201,7 +201,7 @@ export default function InvitationsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 text-body font-semibold text-muted-foreground">
           <Users className="h-4 w-4" />
           {t('invitees')}
         </h2>

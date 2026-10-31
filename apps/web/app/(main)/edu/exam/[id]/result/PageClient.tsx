@@ -136,7 +136,7 @@ export default function EduExamResultPage() {
           </CardTitle>
           <p
             className={cn(
-              'text-sm font-medium',
+              'text-body font-medium',
               result.passed ? 'text-emerald-600' : 'text-destructive',
             )}
           >

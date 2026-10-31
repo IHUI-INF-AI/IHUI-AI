@@ -60,7 +60,7 @@ export default function EduSchedulePage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
           <CalendarDays className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>

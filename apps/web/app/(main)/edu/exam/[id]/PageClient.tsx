@@ -160,7 +160,7 @@ export default function EduExamTakePage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-          <p className="text-sm font-medium">
+          <p className="text-body font-medium">
             {t('questionProgress', { current: current + 1, total: questions.length })}
             <span className="ml-2 text-xs text-muted-foreground">
               {q.type === 'single' ? t('single') : t('multiple')}

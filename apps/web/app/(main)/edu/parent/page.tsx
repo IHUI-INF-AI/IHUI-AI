@@ -243,7 +243,7 @@ export default function ParentPortalPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
         <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
@@ -326,7 +326,7 @@ function ChildrenListView({
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-12">
         <Users className="h-12 w-12 text-muted-foreground" />
         <div className="text-center">
-          <p className="text-sm font-medium">{t('emptyNoChildren')}</p>
+          <p className="text-body font-medium">{t('emptyNoChildren')}</p>
           <p className="text-xs text-muted-foreground">{t('emptyNoChildrenHint')}</p>
         </div>
       </div>
@@ -342,11 +342,11 @@ function ChildrenListView({
           className="group rounded-sm border bg-card p-3 text-left transition-colors hover:bg-accent"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-body font-bold text-primary">
               {child.studentId.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium">{child.studentId}</p>
+              <p className="text-body font-medium">{child.studentId}</p>
               <p className="text-xs text-muted-foreground">
                 {codeLabel(t, RELATIONSHIP_LABEL_KEYS, child.relationship)}
               </p>
@@ -398,11 +398,11 @@ function ChildDetailView({
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-body font-bold text-primary">
             {childId.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-medium">{childId}</p>
+            <p className="text-body font-medium">{childId}</p>
             <p className="text-xs text-muted-foreground">{relationship}</p>
           </div>
         </div>
@@ -497,7 +497,7 @@ function CoursesView({ childId }: { childId: string }) {
         return (
           <Card key={idx}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t(dayKey)}</CardTitle>
+              <CardTitle className="text-body font-medium">{t(dayKey)}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {dayCourses.map((c) => (
@@ -506,7 +506,7 @@ function CoursesView({ childId }: { childId: string }) {
                   className="rounded-lg border-l-4 bg-card px-3 py-2"
                   style={{ borderLeftColor: c.color ?? CHART_BLUE }}
                 >
-                  <p className="text-sm font-medium">{c.courseName}</p>
+                  <p className="text-body font-medium">{c.courseName}</p>
                   <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -584,14 +584,14 @@ function MealsView({ childId }: { childId: string }) {
         return (
           <Card key={type}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-body font-medium">
                 {codeLabel(t, MEAL_TYPE_KEYS, type)}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {items.map((m) => (
                 <div key={m.id} className="rounded-lg border bg-card px-3 py-2">
-                  <p className="text-sm font-medium">{m.dishName}</p>
+                  <p className="text-body font-medium">{m.dishName}</p>
                   {m.ingredients && (
                     <p className="mt-1 text-xs text-muted-foreground">{m.ingredients}</p>
                   )}
@@ -686,7 +686,7 @@ function BillsView({ childId }: { childId: string }) {
                 <span
                   className={
                     ledger && ledger.arrears > 0
-                      ? 'rounded-sm bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive'
+                      ? 'rounded-sm bg-destructive/10 px-2 py-0.5 text-label font-medium text-destructive'
                       : 'rounded-sm bg-muted px-2 py-0.5 text-xs text-muted-foreground'
                   }
                 >
@@ -868,11 +868,11 @@ function GradesView({ childId }: { childId: string }) {
         {subjectAvgs.map((s) => (
           <Card key={s.subject}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{s.subject}</CardTitle>
+              <CardTitle className="text-body font-medium">{s.subject}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold">{s.avg}</span>
+                <span className="text-display font-bold">{s.avg}</span>
                 <span className="text-sm text-muted-foreground">/ {s.totalScore}</span>
                 {s.percentage >= 80 ? (
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -901,7 +901,7 @@ function GradesView({ childId }: { childId: string }) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{t('gradeDetails')}</CardTitle>
+          <CardTitle className="text-body font-medium">{t('gradeDetails')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -914,7 +914,7 @@ function GradesView({ childId }: { childId: string }) {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{g.subject}</span>
+                      <span className="text-body font-medium">{g.subject}</span>
                       <span className="text-xs text-muted-foreground">{g.examName}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">{g.examDate}</p>
@@ -1000,31 +1000,31 @@ function AttendanceView({ childId }: { childId: string }) {
       <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-5">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
-            <p className="text-2xl font-bold">{attendanceRate}%</p>
+            <p className="text-display font-bold">{attendanceRate}%</p>
             <p className="text-xs text-muted-foreground">{t('attendanceRate')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
-            <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
+            <p className="text-display font-bold text-emerald-600">{stats.present}</p>
             <p className="text-xs text-muted-foreground">{t('attendancePresent')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
-            <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
+            <p className="text-display font-bold text-amber-600">{stats.late}</p>
             <p className="text-xs text-muted-foreground">{t('attendanceLate')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
-            <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+            <p className="text-display font-bold text-red-600">{stats.absent}</p>
             <p className="text-xs text-muted-foreground">{t('attendanceAbsent')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
-            <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
+            <p className="text-display font-bold text-blue-600">{stats.leave}</p>
             <p className="text-xs text-muted-foreground">{t('attendanceLeave')}</p>
           </CardContent>
         </Card>
@@ -1032,7 +1032,7 @@ function AttendanceView({ childId }: { childId: string }) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{t('checkInRecords')}</CardTitle>
+          <CardTitle className="text-body font-medium">{t('checkInRecords')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -1042,7 +1042,7 @@ function AttendanceView({ childId }: { childId: string }) {
                 className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="text-sm font-medium">{r.date}</div>
+                  <div className="text-body font-medium">{r.date}</div>
                   <Badge className={ATTENDANCE_STATUS_STYLES[r.status] ?? ''}>
                     {codeLabel(t, ATTENDANCE_STATUS_KEYS, r.status)}
                   </Badge>
@@ -1162,7 +1162,7 @@ function BindingsManagement() {
         <CardContent>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('studentIdLabel')}</p>
+              <p className="text-body font-medium">{t('studentIdLabel')}</p>
               <Input
                 value={studentId}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStudentId(e.target.value)}
@@ -1170,7 +1170,7 @@ function BindingsManagement() {
               />
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('relationshipField')}</p>
+              <p className="text-body font-medium">{t('relationshipField')}</p>
               <select
                 value={relationship}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -1227,7 +1227,7 @@ function BindingsManagement() {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{b.studentId}</span>
+                      <span className="text-body font-medium">{b.studentId}</span>
                       <Badge className={BINDING_STATUS_STYLES[b.status] ?? ''}>
                         {codeLabel(t, BINDING_STATUS_KEYS, b.status)}
                       </Badge>

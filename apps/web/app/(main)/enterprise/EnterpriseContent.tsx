@@ -93,7 +93,7 @@ export function EnterpriseContent() {
               {t('header.backHome')}
             </Link>
           </Button>
-          <span className="rounded-md bg-cta/10 px-3 py-1 text-xs font-medium text-primary">
+          <span className="rounded-md bg-cta/10 px-3 py-1 text-label font-medium text-primary">
             {t('header.badge')}
           </span>
         </div>
@@ -105,10 +105,10 @@ export function EnterpriseContent() {
         <HeroCarousel slides={ENTERPRISE_SLIDES} namespace="enterprise.carousel" />
 
         <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="inline-flex items-center gap-2 text-label font-medium uppercase tracking-wider text-muted-foreground">
             {t('hero.brandLabel')}
           </div>
-          <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
             {t('hero.title')}
           </h1>
           <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -116,24 +116,24 @@ export function EnterpriseContent() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             <div className="text-center">
-              <div className="text-2xl font-bold tracking-tight">
+              <div className="text-display font-bold tracking-tight">
                 <AnimatedNumber value={18000} prefix="¥" duration={2000} />
               </div>
               <div className="text-xs text-muted-foreground">{t('hero.priceStandard')}</div>
             </div>
             <div className="text-center">
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold tracking-tight text-primary">
+                <span className="text-display font-bold tracking-tight text-primary">
                   <AnimatedNumber value={6000} prefix="¥" duration={2000} />
                 </span>
-                <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-label font-medium text-destructive">
                   -67%
                 </span>
               </div>
               <div className="text-xs text-muted-foreground">{t('hero.priceEarlyBird')}</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold tracking-tight">
+              <div className="text-display font-bold tracking-tight">
                 <AnimatedNumber value={18} duration={1500} />
               </div>
               <div className="text-xs text-muted-foreground">{t('hero.earlyBirdSlots')}</div>
@@ -154,7 +154,7 @@ export function EnterpriseContent() {
         </section>
 
         <section className="space-y-4">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
             {t('positioning.label')}
           </div>
           <Card className="overflow-hidden">
@@ -169,7 +169,7 @@ export function EnterpriseContent() {
                   {positioningTags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-md border bg-muted/50 px-3 py-1 text-xs font-medium"
+                      className="rounded-md border bg-muted/50 px-3 py-1 text-label font-medium"
                     >
                       {tag}
                     </span>
@@ -181,7 +181,7 @@ export function EnterpriseContent() {
         </section>
 
         <section className="space-y-4">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
             {t('modules.label')}
           </div>
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
@@ -195,7 +195,7 @@ export function EnterpriseContent() {
                   }`}
                 >
                   {MODULE_FEATURED[i] && (
-                    <span className="absolute right-3 top-3 rounded-md bg-cta px-2 py-0.5 text-xs font-medium text-cta-foreground">
+                    <span className="absolute right-3 top-3 rounded-md bg-cta px-2 py-0.5 text-label font-medium text-cta-foreground">
                       {t('modules.coreServiceBadge')}
                     </span>
                   )}
@@ -204,7 +204,7 @@ export function EnterpriseContent() {
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-primary">
                         <Icon className="h-5 w-5" />
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground">{m.tag}</span>
+                      <span className="text-label font-medium text-muted-foreground">{m.tag}</span>
                     </div>
                     <h3 className="text-base font-semibold tracking-tight">{m.title}</h3>
                     <p className="text-sm text-muted-foreground">{m.description}</p>
@@ -234,19 +234,19 @@ export function EnterpriseContent() {
         <NewsSection />
 
         <section className="space-y-4">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
             {t('join.label')}
           </div>
           <Card className="overflow-hidden border-primary/20">
             <CardContent className="min-[640px]:p-3 space-y-5 p-3">
               <div className="flex flex-col items-start justify-between gap-4 min-[768px]:flex-row min-[768px]:items-center">
                 <div className="space-y-1">
-                  <h2 className="text-xl font-bold tracking-tight">{t('join.title')}</h2>
+                  <h2 className="text-heading font-bold tracking-tight">{t('join.title')}</h2>
                   <p className="text-sm text-muted-foreground">{t('join.subtitle')}</p>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground line-through">¥18000</div>
-                  <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">
+                  <div className="text-heading font-bold tracking-tight min-[768px]:text-display text-primary">
                     ¥6000
                   </div>
                   <div className="text-xs text-muted-foreground">{t('join.perYear')}</div>

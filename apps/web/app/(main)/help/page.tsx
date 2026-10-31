@@ -68,7 +68,7 @@ export default function HelpPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <HelpCircle className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -132,7 +132,7 @@ export default function HelpPage() {
                   <Card className="transition-colors hover:bg-accent">
                     <CardContent className="min-[640px]:p-3 p-3">
                       <div className="flex items-start justify-between gap-2">
-                        <h2 className="text-sm font-semibold">{a.title}</h2>
+                        <h2 className="text-body font-semibold">{a.title}</h2>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {fmt(a.updatedAt)}
                         </span>

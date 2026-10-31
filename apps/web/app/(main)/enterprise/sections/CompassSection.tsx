@@ -23,13 +23,13 @@ export function CompassSection() {
 
   return (
     <section className="space-y-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
         {t('compass.label')}
       </div>
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Compass className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-bold tracking-tight">{t('compass.title')}</h2>
+          <h2 className="text-heading font-bold tracking-tight">{t('compass.title')}</h2>
         </div>
         <p className="text-sm text-muted-foreground">{t('compass.subtitle')}</p>
       </div>
@@ -43,7 +43,7 @@ export function CompassSection() {
               <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label font-bold text-primary">
                       {q.tag}
                     </span>
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">

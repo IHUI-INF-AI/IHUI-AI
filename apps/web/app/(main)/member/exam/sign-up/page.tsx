@@ -159,7 +159,7 @@ export default function MemberExamSignUpPage() {
     <div className="px-4 space-y-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight">
           <ClipboardList className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
@@ -178,7 +178,7 @@ export default function MemberExamSignUpPage() {
       ) : denied ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Lock className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm font-medium">{t('adminOnly.title')}</p>
+          <p className="text-body font-medium">{t('adminOnly.title')}</p>
           <p className="text-sm text-muted-foreground">{t('adminOnly.description')}</p>
         </div>
       ) : rows.length === 0 ? (
@@ -224,7 +224,7 @@ export default function MemberExamSignUpPage() {
                       <td className="px-3 py-2">
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-label font-medium',
                             sc,
                           )}
                         >

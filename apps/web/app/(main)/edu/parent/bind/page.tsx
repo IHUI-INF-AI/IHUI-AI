@@ -123,7 +123,7 @@ export default function ParentBindPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('bind.title')}</h1>
+        <h1 className="text-display font-bold tracking-tight">{t('bind.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('bind.subtitle')}</p>
       </header>
 
@@ -138,7 +138,7 @@ export default function ParentBindPage() {
         <CardContent>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('bind.studentIdLabel')}</p>
+              <p className="text-body font-medium">{t('bind.studentIdLabel')}</p>
               <Input
                 value={studentId}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStudentId(e.target.value)}
@@ -146,7 +146,7 @@ export default function ParentBindPage() {
               />
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('bind.relationshipLabel')}</p>
+              <p className="text-body font-medium">{t('bind.relationshipLabel')}</p>
               <select
                 value={relationship}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -205,7 +205,7 @@ export default function ParentBindPage() {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{b.studentId}</span>
+                      <span className="text-body font-medium">{b.studentId}</span>
                       <Badge className={STATUS_VARIANTS[b.status] ?? ''}>
                         {tParent(STATUS_KEYS[b.status] ?? b.status)}
                       </Badge>

@@ -136,7 +136,7 @@ export default function WrongQuestionsPage() {
       <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
         <BackButton />
         <header className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
             <FileText className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
@@ -181,7 +181,7 @@ export default function WrongQuestionsPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
           <FileText className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -194,7 +194,7 @@ export default function WrongQuestionsPage() {
             <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
               <div>
                 <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-2xl font-bold">{value}</p>
+                <p className="text-display font-bold">{value}</p>
               </div>
               <Icon className={`h-8 w-8 ${tone}`} />
             </CardContent>
@@ -312,7 +312,7 @@ export default function WrongQuestionsPage() {
         <Card>
           <CardContent className="space-y-2 p-4">
             <div className="flex items-center justify-between gap-2">
-              <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+              <p className="flex min-w-0 items-center gap-2 text-body font-semibold">
                 <Sparkles className="h-4 w-4 shrink-0 text-primary" />
                 <span className="truncate">
                   {t('aiExplain')} · {explanation.title}

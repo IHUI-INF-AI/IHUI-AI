@@ -164,7 +164,7 @@ export default function CourseDetailPage() {
             {activeSection?.videoUrl && playError && (
               <p className="text-xs text-destructive">{tc('loadFailed')}</p>
             )}
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               {lesson.title}
             </h1>
             <p className="text-sm text-muted-foreground">{lesson.description}</p>
@@ -196,7 +196,7 @@ export default function CourseDetailPage() {
               <div className="space-y-2">
                 {chapters.map((chapter) => (
                   <details key={chapter.id} className="group rounded-lg border">
-                    <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-accent">
+                    <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-body font-medium transition-colors hover:bg-accent">
                       <span>{chapter.title}</span>
                       <span className="text-xs text-muted-foreground">
                         {chapter.sections.length}

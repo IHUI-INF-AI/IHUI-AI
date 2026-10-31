@@ -52,7 +52,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
                       <CardTitle className="text-base">{a.title}</CardTitle>
                       <span
                         className={cn(
-                          'flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                          'flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
                           a.isResolved
                             ? 'bg-emerald-500/10 text-emerald-600'
                             : 'bg-amber-500/10 text-amber-600',

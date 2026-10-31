@@ -45,7 +45,7 @@ export function SwitchRow(props: {
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
-          <p className="whitespace-nowrap text-sm font-medium">{title}</p>
+          <p className="whitespace-nowrap text-body font-medium">{title}</p>
           <p className="line-clamp-2 text-xs text-muted-foreground">{desc}</p>
         </div>
       </div>
@@ -78,7 +78,7 @@ export function ChoiceRow<T extends string>(props: {
   const { icon: Icon, title, value, options, disabledValue, disabledHint, disabled, onSelect } = props
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-sm font-medium">
+      <div className="flex items-center gap-2 text-body font-medium">
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="whitespace-nowrap">{title}</span>
       </div>

@@ -155,7 +155,7 @@ export function UploadDialog({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">{t('titleLabel')}</label>
+          <label className="text-body font-medium">{t('titleLabel')}</label>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -166,7 +166,7 @@ export function UploadDialog({
 
         {mode === 'file' ? (
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('fileLabel')}</label>
+            <label className="text-body font-medium">{t('fileLabel')}</label>
             <div className="rounded-md border border-dashed p-3">
               <input
                 type="file"
@@ -184,7 +184,7 @@ export function UploadDialog({
           </div>
         ) : (
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('textLabel')}</label>
+            <label className="text-body font-medium">{t('textLabel')}</label>
             <Textarea
               value={text}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value)}
