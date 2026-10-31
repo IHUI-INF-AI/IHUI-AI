@@ -1,6 +1,5 @@
 {
   "counts": {
-    "AgentRuntimePanel": 1,
     "BottomActionBar": 13,
     "Carousel": 6,
     "DrawerComponent": 13,
@@ -16,7 +15,6 @@
     "SectionHeader": 1
   },
   "radiusCounts": {
-    "AgentRuntimePanel": 0,
     "BottomActionBar": 3,
     "Carousel": 0,
     "DrawerComponent": 2,
@@ -32,7 +30,6 @@
     "VoiceInput": 3
   },
   "elementRadiusCounts": {
-    "AgentRuntimePanel": 0,
     "BottomActionBar": 0,
     "Carousel": 0,
     "DrawerComponent": 0,
@@ -84,6 +81,10 @@
     "VideoPlayer": 0
   },
   "waivers": {
+    "SectionHeader": {
+      "reason": "本族唯一一档 2 是同值异文件的归属假分叉,不是视觉差异:常量 SECTION_HEADER_ARROW_MARGIN_LEFT_PX = 2(packages/shared/src/ui/section-header-spec.ts:85)在 RN 侧由 packages/app/src/components/MoreLink.tsx:16 以 GAP 别名 import 并落在「更多」箭头上,而小程序覆写 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx 把同一常量经 toRpx() 直接写进本页 LineIcon 的 style ⇒ 配对器按「组件自己的文件」取值时,RN 那一侧的文件里读不到 2,于是报出仅小程序 [2]。两端屏幕上这段箭头间距由同一个常量给出,改 spec 一处两端同动(与 §4 圆角/非色档同源同口径),登记本条是为了让 2 这个数不再被当成端内私写数字。复核出路:若哪天 RN 把箭头间距挪回 SectionHeader 本体,本豁免的命中面随之消失,按 §0.7 清单腐烂同样算红。",
+      "until": "2027-03-27"
+    },
     "BottomActionBar": {
       "reason": "O02 票④(2026-10-25)复核并下调 16→13:卡盒 80×75 / 卡内墨迹 35 / 标文字号 10 / 图文距 6 / 行衬 0-10-5 已从端内搬进 packages/shared/src/ui/bottom-action-bar-spec.ts 并由 bottom-action-bar-core 渲染,两端壳不再各持一份(证据:两端组件都 import @ihui/shared/ui 的同一核心;两壳内已无 rpx(160)/rpx(150)/'0 20rpx 10rpx' 与卡盒数字,别的文件里的同值属别的元素)。余 13 全属一端多元素、非同一元素双值:小程序 6 = 切换 chip 纵向衬(12rpx),RN 用固定高 TOGGLE_CHIP_HEIGHT=32 表达,机制不同;RN 独有 2/3(图片预览删除钮偏移、录音浮层波形条)、18(emoji 图标档)、20(次级按钮 lineHeight)、24(面板项图标墨迹,小程序同功能是 AddPanel 内联 PNG 卡)、28(模型条高 + 配置钮)、36(rnGeometry.tapBox 次级按钮)、44(actions 旧模式行 ACTION_BUTTON_HEIGHT/ICON_BUTTON_SIZE/INPUT_MIN_HEIGHT;OrderDetailScreen:245 真传 actions)、48(IMAGE_PREVIEW_SIZE,小程序该元素属 InputArea)、100(多行输入生长上限,机制量非档)、200(面板 maxWidth);10 在 HEAD 被小程序 '0 20rpx 10rpx' 的同值遮住,该串收编后显形,是 RN 独有行的 gap:10,不是新增端内数字。",
       "until": "2027-03-27"
