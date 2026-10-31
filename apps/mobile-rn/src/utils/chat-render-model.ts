@@ -468,7 +468,7 @@ export type McpToolRowInput = Pick<ToolCallItem, 'name' | 'status' | 'serverSour
  * (server×tool → server → tool → 功能名 → 码名 五级回落 + 双时态 + 带上下文档),
  * web(`task-status-bar.tsx` / `tool-call-card.tsx`)与小程序(`cards/tool-line.ts`)
  * 已各自接上;本函数把同一份链接到本端的工具卡片行标题上,键一律在
- * `taskStatus` 命名空间下取(与本端 `t('taskStatus.xxx')` 的既有点号全路径一致)。
+ * `taskStatus` 命名空间下取(与本端 `t(\`taskStatus.xxx\`)` 的既有点号全路径一致)。
  *
  * 返回 `null` 表示"这一行没有可渲染的定制/通用措辞",调用方必须沿用既有功能名口径:
  * - 非 MCP(`serverSource !== 'mcp'`)—— 内置工具走 `describeToolCall` 的功能名,不归本层管;
@@ -564,10 +564,7 @@ export function foldElementPackFrames(frames: readonly ElementPackFrame[]): Suba
  * 八态里同族三态:done→completed / failed→failed / 无 end→running,不另造第二套状态词)+
  * 失败原因或最后工具。一行一代理,与既有 execRowText 行形态同族。
  */
-export function subagentReplayRow(
-  item: SubagentReplayItem,
-  t: (key: string) => string,
-): string {
+export function subagentReplayRow(item: SubagentReplayItem, t: (key: string) => string): string {
   const head = item.task || item.agentName || item.id
   const statusKey =
     item.status === 'failed'
