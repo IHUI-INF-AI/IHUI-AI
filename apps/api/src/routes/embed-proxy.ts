@@ -313,7 +313,24 @@ function mergeProxyQuery(target: URL, query: unknown): URL {
   return merged
 }
 
+/**
+ * 同源代理响应的强制沙箱(2026-10-31 安全强化第 10 批)。
+ *
+ * 修复前安全论证只覆盖 WorkPanel 内嵌场景(iframe 的 sandbox 属性),浏览器**直接
+ * 导航**到 /raw?url=<第三方页> 时没有 sandbox —— 第三方页脚本以 API 同源身份执行,
+ * 可带登录态取 CSRF token 并以受害者身份发起任意状态变更(反射型同源 XSS)。
+ * 该头与前端 iframe 档(allow-scripts/forms/popups,无 allow-same-origin)语义一致:
+ * 页面照常渲染,但永远拿不到本站源身份。onSend 挂插件级,错误页/流式响应一并覆盖;
+ * STRIP_HEADERS 已剥上游 CSP,本头是唯一生效策略。
+ */
+export const EMBED_PROXY_CSP = 'sandbox allow-scripts allow-forms allow-popups'
+
 export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('content-security-policy', EMBED_PROXY_CSP)
+    return payload
+  })
+
   // GET:页面/子资源加载 + GET 表单;POST:POST 表单同源提交(method/body 原样转发)
   server.route({
     method: ['GET', 'POST'],

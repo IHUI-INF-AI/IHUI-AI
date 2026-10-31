@@ -79,7 +79,9 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     priority: z.number().int().min(0).max(100).default(50),
     enabled: z.boolean().default(true),
     matchType: z.enum(['always', 'keyword', 'regex', 'semantic']).default('always'),
-    matchPattern: z.string().optional(),
+    // ReDoS 入库闸(2026-10-31 安全强化第 10 批):regex 模式的 matchPattern 会在
+    // 消息热路径上同步回溯,长度与 webhooks-trigger 的 MAX_REGEX_PATTERN_LENGTH 同口径。
+    matchPattern: z.string().max(200).optional(),
   })
 
   const ruleUpdateSchema = z.object({
@@ -91,7 +93,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     priority: z.number().int().min(0).max(100).optional(),
     enabled: z.boolean().optional(),
     matchType: z.enum(['always', 'keyword', 'regex', 'semantic']).optional(),
-    matchPattern: z.string().optional(),
+    matchPattern: z.string().max(200).optional(),
   })
 
   const ruleTestSchema = z.object({
