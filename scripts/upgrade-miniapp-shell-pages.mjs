@@ -305,8 +305,12 @@ function main() {
     return apply || land || batch.length === 0 ? 0 : 1
   }
 
+  // 0 落地 ≠ 落地失败(2026-11-01 现读:batch=0 时落地器根本没被调用,旧三目却报 land-failed,
+  // 会让巡检/人读把"无可落地"当成"写盘腿坏了")。三态:land-empty / landed / land-failed。
   console.log(
-    `UPGRADE-SHELL state=${land ? (landed?.ok ? 'landed' : 'land-failed') : apply ? 'applied' : 'preview'} 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
+    `UPGRADE-SHELL state=${
+      land ? (batch.length === 0 ? 'land-empty' : landed?.ok ? 'landed' : 'land-failed') : apply ? 'applied' : 'preview'
+    } 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
   )
   for (const x of batch) console.log(`  ${x.route} | ${x.shell} | ${x.beforeLines}→${x.afterLines} 行`)
   for (const x of res.refused) console.log(`  拒 ${x.route} | ${x.why}`)
