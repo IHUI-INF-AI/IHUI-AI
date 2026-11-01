@@ -82,7 +82,7 @@ export function ExamHistoryScreen({
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.score}>
-                {item.score}/{item.totalScore}
+                {item.score}/{item.totalScore ?? '—'}
               </Text>
               <Text style={styles.metaTime}>{item.submittedAt}</Text>
             </View>

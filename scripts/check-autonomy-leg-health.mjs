@@ -50,23 +50,18 @@ const FACE_TXT = {
   worktree: '工作树(人工逃生舱,提交链不走这档)',
 }
 
-/** 按被审面取任意仓库内文件(与 readGatesFace 同一口径,不另写第二份取面逻辑)。 */
-export function readFaceText(rel, face = FACE_SEL.face, root = ROOT) {
+/** 按被审面取闸门配置;取不到抛 Undetermined,由调用方折成 exit 2 —— 不回落另一个面。 */
+export function readGatesFace(face = FACE_SEL, root = ROOT) {
   if (face === 'worktree') {
-    const t = readWorktreeFile(root, rel)
-    if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+    const t = readWorktreeFile(root, GATES_REL)
+    if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${GATES_REL}`)
     return t
   }
-  const spec = (face === 'staged' ? ':' : 'HEAD:') + rel
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + GATES_REL
   const got = catBatch(root, [spec], { maxBuffer: 1 << 26 })
   const t = got.get(spec)
-  if (t === null || t === undefined) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
+  if (t === null || t === undefined) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${GATES_REL}`)
   return t
-}
-
-/** 闸门配置(仓库内容,按被审面取)。 */
-export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
-  return readFaceText(GATES_REL, face, root)
 }
 
 /** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。 */
@@ -159,7 +154,7 @@ export function judgeWhitelist(events, whitelist) {
   }
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve } = {}) {
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit } = {}) {
   const dims = []
   let gates
   try {
@@ -169,7 +164,6 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   }
   dims.push(judgePreflight(gates.sessionCommandTemplate, repoRoot))
   if (transit) dims.push(transit)
-  if (valve) dims.push(valve)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -228,53 +222,6 @@ export function resolveTransitBases({ apiBase, aiBase } = {}) {
   return {
     apiBase: apiBase || process.env.IHUI_AUTONOMY_API_BASE || 'http://127.0.0.1:8802',
     aiBase: aiBase || process.env.IHUI_AUTONOMY_AI_BASE || 'http://127.0.0.1:8803',
-  }
-}
-
-/**
- * A6 人工阀闸是否真在派发路径上被问(2026-11-01 立)。
- * 立因(回源实测):`human-gates.mjs` 的 classify 与 `lib/human-valve.mjs` 的 classifyAction
- * 在派发路径上原本**零调用** —— 调度层只打印"自决 4 / 停机等人 7"这句计数,
- * 7 条停机条款既没进票 prompt 也没在任何动作前被问。闸住在被约束者手里 = 没有闸。
- * 所以这一维量的不是"配置对不对",而是"有没有人真去问过它":
- *  - 有派发尝试而零 valve-* 留痕 ⇒ 哑闸 ⇒ drift;
- *  - observe 档 ⇒ 报命中分布,并给"切 enforce 的前置条件"(未判定必须为 0、命中族必须见过);
- *  - 档位取值非法 ⇒ drift(不猜档)。
- */
-export function judgeValveGate(events, { mode, headSource } = {}) {
-  if (headSource === null || headSource === undefined) {
-    return { dim: 'A6-human-valve-gate', state: 'unjudged', readout: '派发器源码在被审面取不到 ⇒ 接线与否判不出(不用"取不到"冒充"没接线")', next: '核 scripts/auto-evolve.mjs 是否在被审面上' }
-  }
-  const attempted = events.filter((e) => ['session-ok', 'session-failed', 'runner-unavailable', 'session-timeout'].includes(e.action)).length
-  const valveRows = events.filter((e) => String(e.action ?? '').startsWith('valve-'))
-  const stopRows = valveRows.filter((e) => e.action === 'valve-observe-stop' || e.action === 'valve-block')
-  const unjudged = valveRows.filter((e) => e.action === 'valve-unjudged' || e.action === 'valve-unjudged-block')
-  const wired = typeof headSource === 'string' && headSource.includes('gateTicketByHumanValve({')
-  if (!wired) {
-    return { dim: 'A6-human-valve-gate', state: 'drift', readout: '派发路径上没有闸的调用点(classifyAction 从未被问)⇒ 停机条款只是打印出来的装饰', next: '在真派之前对票面调 gateTicketByHumanValve,并把结论记进台账' }
-  }
-  if (mode !== 'observe' && mode !== 'enforce') {
-    return { dim: 'A6-human-valve-gate', state: 'drift', readout: `humanValveMode 取值非法(${JSON.stringify(mode)})⇒ 不猜档`, next: '改成 observe 或 enforce 之一' }
-  }
-  if (attempted > 0 && valveRows.length === 0) {
-    return { dim: 'A6-human-valve-gate', state: 'drift', readout: `有 ${attempted} 轮真派发尝试却零 valve-* 留痕 ⇒ 闸是哑的(代码在而没被走到)`, next: '核派发循环里闸的调用点是否在白名单判定之后、真派之前' }
-  }
-  const byRule = {}
-  for (const r of stopRows) byRule[r.ruleId ?? '(无 id)'] = (byRule[r.ruleId ?? '(无 id)'] ?? 0) + 1
-  const dist = Object.entries(byRule).map(([k, v]) => `${k}×${v}`).join(' ') || '(尚无命中)'
-  if (mode === 'observe') {
-    return {
-      dim: 'A6-human-valve-gate',
-      state: unjudged.length > 0 ? 'drift' : 'ok',
-      readout: `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条(${dist})/ 未判定 ${unjudged.length} 条`,
-      next: unjudged.length > 0 ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0` : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
-    }
-  }
-  return {
-    dim: 'A6-human-valve-gate',
-    state: unjudged.length > 0 ? 'drift' : 'ok',
-    readout: `enforce 档:尝试 ${attempted} / 拦下 ${stopRows.filter((e) => e.action === 'valve-block').length} / 未判定 ${unjudged.length}`,
-    next: unjudged.length > 0 ? 'enforce 档下的未判定 = fail-closed 停派,须先修清单可读性' : '',
   }
 }
 
@@ -375,26 +322,6 @@ async function selfTest() {
       return false
     }
   })())
-  const wiredSrc = 'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
-  ok('H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)', judgeValveGate([], { mode: 'observe', headSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')
-  ok('H22 被审面取不到 ⇒ unjudged,不用"取不到"冒充"没接线"', judgeValveGate([], { mode: 'observe', headSource: null }).state === 'unjudged')
-  ok('H23 有真派发尝试而零 valve 留痕 ⇒ drift(代码在却没被走到)', judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }).state === 'drift')
-  ok('H24 observe 档有留痕 ⇒ ok 且报命中分布与切 enforce 的前置', (() => {
-    const ev = [
-      { action: 'session-ok', ticketKey: 'k' },
-      { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'production-deploy' },
-      { action: 'valve-allow', ticketKey: 'k2', ruleId: 'code-and-docs' },
-    ]
-    const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc })
-    return r.state === 'ok' && r.readout.includes('production-deploy×1') && r.next.includes('完整流量周期')
-  })())
-  ok('H25 变异:observe 期出现未判定 ⇒ drift(enforce 前置未满足,不能放量)', judgeValveGate([{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-unjudged', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }).state === 'drift')
-  ok('H26 档位取值非法 ⇒ drift(不猜档)', judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift')
-  ok('H27 A6 的 drift 必须顶起整尺(闸哑了尺子不能报绿)', (() => {
-    const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'], humanValveMode: 'observe' })
-    const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ text: 'a', line: 1 }], valve: judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }) })
-    return r.state === 'drift' && r.dims.some((d) => d.dim === 'A6-human-valve-gate')
-  })())
   console.log(fail === 0 ? `autonomy-leg-health self-test: ${pass} 例全绿` : `autonomy-leg-health self-test: ${pass} 绿 / ${fail} 红`)
   return fail === 0 ? 0 : 1
 }
@@ -434,20 +361,7 @@ async function main() {
     aiBase: ARGS.includes('--ai-base') ? ARGS[ARGS.indexOf('--ai-base') + 1] : undefined,
   })
   const transit = await judgeBackendTransit(bases)
-  let gatesObj = null
-  try {
-    gatesObj = JSON.parse(gatesText)
-  } catch {
-    gatesObj = null
-  }
-  let valveSource = null
-  try {
-    valveSource = readFaceText('scripts/auto-evolve.mjs', FACE_SEL.face, repoRoot)
-  } catch {
-    valveSource = null
-  }
-  const valve = gatesObj ? judgeValveGate(events.ok ? events.events : [], { mode: gatesObj.humanValveMode, headSource: valveSource }) : null
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {
@@ -461,5 +375,5 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents }
+export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, resolveTransitBases, readGatesFace, evaluateAll, alertIdentity, readLedgerEvents }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

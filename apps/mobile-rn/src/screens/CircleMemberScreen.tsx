@@ -14,10 +14,13 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 interface ApiMember {
   id: string
+  /** 后端 SELECT 直出 snake_case 行(circles.ts:cm.id, cm.user_id, ...),user_id 才能跳用户主页 */
+  user_id?: string
   nickname: string
   avatar?: string
   role: 'owner' | 'admin' | 'member'
-  joinedAt: string
+  joinedAt?: string
+  created_at?: string
 }
 
 type Route = RouteProp<RootStackParamList, 'CircleMember'>
@@ -46,11 +49,13 @@ export function CircleMemberScreen() {
       if (res.success) {
         setItems(
           (res.data?.list ?? []).map((m) => ({
-            id: m.id,
+            // 成员行的 id 是 circle_members 主键,不是 user id;点击要跳用户主页,
+            // 所以列表键与 onPressItem 的载荷统一用 user_id(缺失时回落行 id 兜底)。
+            id: m.user_id || m.id,
             name: m.nickname,
             avatar: m.avatar,
             role: m.role,
-            joinedAt: m.joinedAt,
+            joinedAt: m.created_at ?? m.joinedAt ?? '',
           })),
         )
       } else {
@@ -79,7 +84,7 @@ export function CircleMemberScreen() {
         setRefreshing(true)
         void load()
       }}
-      onPressItem={() => {}}
+      onPressItem={(memberId) => navigation.navigate('UserPublic', { userId: memberId })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />
