@@ -25,6 +25,7 @@ import type {
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
+import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'
 
 /**
  * 直播详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
@@ -131,6 +132,11 @@ export function LiveDetailScreen({
               {live.isLive ? t('liveDetail.ongoing') : t('liveDetail.upcoming')}
             </Text>
           </View>
+          {live.startTime ? (
+            <View style={styles.badgeMuted}>
+              <Text style={styles.badgeMutedText}>{formatDateByTemplate(live.startTime)}</Text>
+            </View>
+          ) : null}
           {live.lecturerName ? (
             <View style={styles.badgeMuted}>
               <Text style={styles.badgeMutedText}>

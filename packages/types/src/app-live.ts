@@ -124,6 +124,8 @@ export interface LiveDetailItem {
   viewCount: number
   playUrl?: string | null
   intro?: string | null
+  /** 开播时间(原样传 ISO 串)。端内手写页在标题下渲染 formatDate(live.startTime),屏不渲染就是转壳丢信息 */
+  startTime?: string
   /** 分享卡封面。RN 侧源字段是 `Live.coverImage`,端内叫 `coverUrl` —— 屏拿不到就没有封面图 */
   coverUrl?: string
 }
