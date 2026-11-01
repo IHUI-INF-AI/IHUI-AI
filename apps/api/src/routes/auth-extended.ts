@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
-import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+import { hashPassword, verifyLoginPassword, verifyPassword } from '../utils/password-crypto.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq } from 'drizzle-orm'
@@ -69,7 +69,11 @@ import {
   getLockRemainingMs,
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
-import { STEP_UP_WINDOW_SEC, recordTwoFactorStepUp, consumeTotpCounter } from '../services/two-factor-step-up-store.js'
+import {
+  STEP_UP_WINDOW_SEC,
+  recordTwoFactorStepUp,
+  consumeTotpCounter,
+} from '../services/two-factor-step-up-store.js'
 import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import {
   findUserByPhone,
@@ -888,7 +892,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const user = await findUserByUsername(username)
-      if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+      // 等代价校验(防账号枚举,CWE-204):原先的 `!user || !user.passwordHash || !(await
+      // verifyPassword(...))` 在"账号不存在"这一支短路掉了 argon2id —— 文案是统一的,
+      // 但耗时差几十到几百毫秒,掐表就能列账号。判据与出路见 password-crypto 的
+      // verifyLoginPassword 注释。
+      const passwordMatches = await verifyLoginPassword(user, password)
+      // `!user.passwordHash` 只做类型收窄(下面透明升级要非空哈希):等代价校验已在
+      // 上一行无条件跑过,这里不再产生第二条可分辨的出口。
+      if (!user || !user.passwordHash || !passwordMatches) {
         const remaining = await recordLoginFailure(username, ip)
         recordAuthLoginFailed(ip)
         if (remaining === 0) {
