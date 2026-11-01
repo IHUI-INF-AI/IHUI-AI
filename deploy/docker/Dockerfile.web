@@ -31,6 +31,10 @@ COPY packages/i18n/package.json ./packages/i18n/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/types/package.json ./packages/types/
+# 2026-11-01:`packages/app`(@ihui/rn-app)声明了 `@ihui/ui-native: workspace:*`。
+# 这一行漏 COPY 时,容器内 workspace 清单里没有该包 ⇒ `pnpm install` 直接拒装
+# ("Package ... not found in the workspace"),Build Docker 连红六轮;业务代码无关。
+COPY packages/ui-native/package.json ./packages/ui-native/
 COPY packages/ui-react/package.json ./packages/ui-react/
 # apps/web 的 postinstall(node scripts/copy-monaco-to-public.mjs)在 deps 阶段即执行,
 # 只装 package.json 缺该脚本必挂 Cannot find module(2026-09-10)
