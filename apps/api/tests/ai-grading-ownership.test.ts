@@ -21,6 +21,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type * as DrizzleOrmModule from 'drizzle-orm'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -33,7 +34,7 @@ const { eqCalls, mockAiServiceFetch } = vi.hoisted(() => ({
 }))
 
 vi.mock('drizzle-orm', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('drizzle-orm')>()
+  const actual = await importOriginal<typeof DrizzleOrmModule>()
   return {
     ...actual,
     eq: (column: { name?: string }, value: unknown) => {
