@@ -190,9 +190,11 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     }
     const nextMessages = [...history, userMsg, assistantMsg]
     if (existing) {
+      // nextMessages 必比库里多这两条真消息(先取过 history 现值,守门 198 出口形态,展开名固定 changed)
+      const changed = { messages: nextMessages }
       await db
         .update(agentRuntimeSessions)
-        .set({ messages: nextMessages, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(agentRuntimeSessions.id, existing.id))
     } else {
       await db.insert(agentRuntimeSessions).values({
