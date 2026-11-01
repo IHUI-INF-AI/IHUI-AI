@@ -57,11 +57,14 @@ async def parse_session_import(
                 f"(允许: {', '.join(sorted(_ALLOWED_EXTENSIONS))})"
             ),
         )
-    data = await file.read()
-    if len(data) > _MAX_UPLOAD_BYTES:
+    # 2026-11-01 安全强化:分块读到 20MiB 上限即断(原先先整包 read 再量长度)
+    from app.utils.upload_read import read_capped
+
+    data = await read_capped(file, _MAX_UPLOAD_BYTES)
+    if data is None:
         raise HTTPException(
             status_code=413,
-            detail=f"file too large: {len(data)} bytes > max {_MAX_UPLOAD_BYTES} bytes (20MiB)",
+            detail=f"file too large > max {_MAX_UPLOAD_BYTES} bytes (20MiB)",
         )
 
     # 函数内惰性导入:importers 包由独立任务实现,缺失时不阻塞应用启动(同 image_edit 风格)
