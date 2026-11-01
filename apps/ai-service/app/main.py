@@ -1063,6 +1063,8 @@ def create_app() -> FastAPI:
 
     # CORS — 启动时校验(生产环境必填,任何环境禁止 "*" 通配符)
     settings.validate_cors_origin()
+    # 签名密钥 — 生产档 JWT_SECRET 必填(2026-11-01:此前无人校验,漏配会静默落回公开常量)
+    settings.validate_secrets()
     # mTLS — 启动时 fail-fast 校验(MTLS_ENABLED=true 但证书缺失/不存在 → 抛异常阻止启动)
     settings.validate_mtls_config()
     # CORS 的 add_middleware 调用已移到本函数末尾(见 setup_rate_limit_middleware 之后),
