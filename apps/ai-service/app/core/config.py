@@ -28,9 +28,18 @@ if TYPE_CHECKING:
 class Settings(BaseSettings):
     """AI 服务配置,从环境变量加载。"""
 
-    # 运行环境
+    # 应用标识
     app_name: str = "IHUI AI Service"
-    node_env: str = "development"
+    # 运行环境。2026-11-01 安全强化(高危):默认值由 "development" 改为 "production" ——
+    # 缺省必须是最严的那一档。原先的 "development" 让**漏配 NODE_ENV** 的部署自动落进
+    # "开放 /docs、跳过鉴权"的分支(见 core/jwt_auth.py 与 main.py 的文档开关),
+    # 一次 .env 漏配就把归属隔离整条拿掉。
+    node_env: str = "production"
+    # 显式开发放行开关(2026-11-01):"不做鉴权"只能由这个开关**显式**打开,
+    # 不再由"jwt_secret 为空"推导。默认 False ⇒ 缺 secret 时 fail-closed(中间件回 500)。
+    # 语义:仅当 ``AI_DEV_NO_AUTH=1`` 且 ``JWT_SECRET`` 为空时才放行(见 jwt_auth.dev_auth_bypass_enabled);
+    # 配置了真实 secret 时照样验签 —— "开关开着"不等于"关掉验签"。
+    ai_dev_no_auth: bool = False
     debug: bool = False
     port: int = 8803
     host: str = "0.0.0.0"
