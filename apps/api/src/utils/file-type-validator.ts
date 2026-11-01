@@ -60,8 +60,18 @@ const EXT_MIME_MAP: Record<string, string[]> = {
 
 export const ALLOWED_EXTENSIONS = Object.keys(EXT_MIME_MAP)
 
-/** 提取小写无点扩展名。 */
-export function extractExt(filename: string): string {
+/**
+ * 提取小写无点扩展名。
+ *
+ * 2026-11-01 改为全函数(nullish ⇒ 空串):此前签名写 `string` 却真会收到 `null/undefined`
+ * —— `uploadSessions.fileName` 在库里可为空,而分片合并链把会话行原样交进来
+ * (`chunked-upload.ts` 的 `validateUploadHead(head, session.fileName, …)`)。Node 的
+ * `path.extname(undefined)` 抛 `ERR_INVALID_ARG_TYPE`,那个 throw 被合并段的
+ * `catch` 折成 500 ⇒ **内容类型闸本该 fail-closed(415 + 删产物),却折成了 fail-open
+ * 的半成品留盘**。判"没有扩展名"是业务结论,不该是崩溃。
+ */
+export function extractExt(filename: string | null | undefined): string {
+  if (!filename) return ''
   return extname(filename).toLowerCase().replace(/^\./, '')
 }
 
@@ -227,12 +237,12 @@ export type ValidationResult = ValidationResultOk | ValidationResultErr
  * （后者内部复用它，AGENTS.md §0.6 单一真相源）。
  *
  * @param head         文件前若干字节（建议 ≥ 4096，覆盖全部已定义魔数的最长前缀）
- * @param filename     原始文件名（用于提取扩展名）
+ * @param filename     原始文件名（用于提取扩展名）；nullish 按"无扩展名"拒绝，不抛
  * @param declaredMime 客户端声明的 MIME；空串表示"未声明"（跳过一致性判，只验魔数）
  */
 export function validateUploadHead(
   head: Buffer,
-  filename: string,
+  filename: string | null | undefined,
   declaredMime: string,
 ): ValidationResult {
   if (head.length === 0) {
