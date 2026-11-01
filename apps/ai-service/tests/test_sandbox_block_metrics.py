@@ -37,9 +37,10 @@ import sys
 
 import pytest
 
+from app.core.sandbox_metrics import CATEGORY_PROCESS, METRICS_ENABLED_ENV
+
 # 源模块唯一判据出口 —— 测试内不得再抄一份规则常量/分类算式(§22c)。
 from app.core.sandbox_metrics import __test__ as SM
-from app.core.sandbox_metrics import METRICS_ENABLED_ENV, CATEGORY_PROCESS
 from app.services.os_sandbox import (
     BACKEND_MAC_SEATBELT,
     BACKEND_WIN_JOB,
@@ -463,7 +464,7 @@ def test_backends_declared_match_os_sandbox_constants():
     """后端维声明集必须与 os_sandbox 的 BACKEND_* 现读一致(抄一份就会漂)。"""
     from app.core.sandbox_metrics import SANDBOX_BACKENDS
 
-    assert SANDBOX_BACKENDS == {"none", BACKEND_WIN_JOB, BACKEND_MAC_SEATBELT, "linux_bwrap"}
+    assert {"none", BACKEND_WIN_JOB, BACKEND_MAC_SEATBELT, "linux_bwrap"} == SANDBOX_BACKENDS
 
 
 # =============================================================================

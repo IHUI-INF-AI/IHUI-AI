@@ -30,10 +30,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from .tool_context_boundary import scan_and_frame_tool_result
 from ..core.llm_gateway import llm_gateway
 from .mcp_server import mcp_server
 from .memory import memory_store
+from .tool_context_boundary import scan_and_frame_tool_result
 
 logger = logging.getLogger(__name__)
 

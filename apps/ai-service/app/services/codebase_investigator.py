@@ -27,9 +27,10 @@
 """
 
 import os
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from .rg_fallback_parity import ContentScanResult, EnumerationProvenance
 
@@ -68,7 +69,7 @@ def build_default_deps() -> InvestigatorDeps:
     """
 
     def _enumerate(root: Path) -> tuple[list[str], EnumerationProvenance]:
-        from .codebase_indexer import _IGNORED_DIRS, _EXT_TO_LANG
+        from .codebase_indexer import _EXT_TO_LANG, _IGNORED_DIRS
         from .rg_fallback_parity import enumerate_code_files
 
         suffixes = tuple(sorted(_EXT_TO_LANG.keys()))
