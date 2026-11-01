@@ -38,6 +38,10 @@ import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
 // 票键唯一实现(§0.6 单一真相源):本器不再自持一份,改从 lib 收口处取,转出保持既有导出面不变。
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 export { ticketKeyOf }
+// 发起腿的「执行体存续」判据单源(2026-11-01 立):盘符归一 + 派发前核验 + 失败分型。
+// 本层零复算判据(§0.6),只做接线。
+import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
+export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -487,12 +491,29 @@ function pickTickets() {
   return rows
 }
 
+/** 失败文本取证:两流各取自己的头尾并标来源,不先拼再截(拼起来截尾会把先拼的那条整段挤掉)。 */
+export function excerptBothEnds(stderr, stdout, max = 150) {
+  const one = (label, raw) => {
+    const s = String(raw ?? '').replace(/\s+/g, ' ').trim()
+    if (!s) return null
+    return s.length <= max * 2 ? `${label}=${s}` : `${label}=${s.slice(0, max)} …〔中略 ${s.length - max * 2} 字〕… ${s.slice(-max)}`
+  }
+  const parts = [one('stderr', stderr), one('stdout', stdout)].filter(Boolean)
+  return parts.length ? parts.join(' | ') : '(两流皆空)'
+}
+
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
     return { action: 'template-empty', why: 'sessionCommandTemplate 未配置 ⇒ 本轮只取票记账,不冒充执行(§0.3)' }
   }
   if (dryRun) return { action: 'dryrun-ticket', why: 'dry-run 不真派' }
+  // 命令行一律经当次仓根归一(§0:盘符是现读机器事实)。取不到仓根 ⇒ 判未判定,
+  // 绝不把原模板(可能钉着别机盘符)直接交给 cmd.exe 去撞运气。
+  const resolved = resolveSessionCommand(gates.sessionCommandTemplate, ROOT)
+  if (resolved === null) {
+    return { action: 'runner-undetermined', why: '当次仓根取不到 ⇒ 命令行无法归一,本轮不派(§0.3)' }
+  }
   mkdirSync(TMP_DIR, { recursive: true })
   const promptFile = join(TMP_DIR, `prompt-${key}-${Date.now()}.md`)
   writeFileSync(
@@ -514,7 +535,7 @@ function dispatchSession(gates, ticket, dryRun) {
     ].join('\n'),
     'utf8'
   )
-  const cmd = fillTemplate(gates.sessionCommandTemplate, { promptFile, ticketLine: ticket.text, ticketKey: key })
+  const cmd = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
   const t0 = Date.now()
   // windowsVerbatimArguments 必带(同 probe:node 对 cmd.exe 的默认引用改写会毁模板内引号)
   const r = spawnSync('cmd.exe', ['/d', '/s', '/c', cmd], {
@@ -539,11 +560,18 @@ function dispatchSession(gates, ticket, dryRun) {
   if (r.error?.killed || (r.signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
     return { action: 'session-timeout', exitCode: null, durationMs, why: `超过 maxSessionMinutes=${gates.maxSessionMinutes}`, tokens, tokensMeasured, costUsd }
   }
-  if (r.error) return { action: 'session-failed', exitCode: null, durationMs, why: r.error.message, tokens, tokensMeasured, costUsd }
-  if (r.status !== 0) {
-    return { action: 'session-failed', exitCode: r.status, durationMs, why: `exit=${r.status} ${String(r.stderr ?? '').slice(-200)}`, tokens, tokensMeasured, costUsd }
+  if (r.error) {
+    const kind = classifySessionFailure({ status: null, stderr: '', error: r.error.message })
+    return { action: 'session-failed', failureKind: kind.kind, sign: kind.sign, exitCode: null, durationMs, why: r.error.message, tokens, tokensMeasured, costUsd }
   }
-  return { action: 'session-ok', exitCode: 0, durationMs, why: '', tokens, tokensMeasured, costUsd }
+  if (r.status !== 0) {
+    // 真因常在头部(ERR_MODULE_NOT_FOUND 的前两行),只截尾会把 "der:639:32" 这类
+    // 中段残渣当成原因寄出去 —— 比没有原因更贵。各取头尾并标来源。
+    const errText = excerptBothEnds(r.stderr, r.stdout)
+    const kind = classifySessionFailure({ status: r.status, stderr: `${r.stderr ?? ''}\n${r.stdout ?? ''}` })
+    return { action: 'session-failed', failureKind: kind.kind, sign: kind.sign, exitCode: r.status, durationMs, why: `exit=${r.status} ${errText}`, tokens, tokensMeasured, costUsd }
+  }
+  return { action: 'session-ok', failureKind: 'ok', exitCode: 0, durationMs, why: '', tokens, tokensMeasured, costUsd }
 }
 
 async function runOnce({ dryRun = false, noDecide = false } = {}) {
@@ -600,6 +628,25 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     return
   }
   try {
+    // ---- 派发前闸(2026-11-01 立):执行体不在位 ⇒ 整轮不派,不拿真票去撞 ----
+    // 病灶:这条腿 2026-10-25 起在本机死了 6 天(48 轮仅 1 成功),而台账里每一枚失败
+    // 都被记成「票失败」并计入连败,3 次即封票 48h —— 调度器自伤却把债摊派给真工作。
+    const pf = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+    if (!dryRun && pf.state !== 'ready' && pf.state !== 'template-empty') {
+      record({ mode: 'dispatch', action: `runner-preflight-${pf.state}`, why: pf.why, missing: pf.missing ?? [] })
+      console.error(`⛔ 派发前闸未过(state=${pf.state}):${pf.why}${pf.missing?.length ? `｜不在位:${pf.missing.join(', ')}` : ''}`)
+      if (!escapeThrottled()) {
+        markEscape()
+        sendEscapeMail(
+          gates,
+          'auto-evolve:runner-preflight',
+          '[auto-evolve] 自开发发起腿不可用(派发前闸拦停)',
+          `判据:scripts/lib/autonomy-runner.mjs preflightSessionRunner\nstate=${pf.state}｜${pf.why}\n逐枚核验:${(pf.checked ?? []).map((c) => `${c.inPlace ? '✓' : '✗'} ${c.token}`).join('\n')}\n出路:改 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate(仓根写 \${REPO_ROOT} 令牌,别钉盘符),或补齐缺失产物。本轮未派任何票,票面连败计数未受影响。`
+        )
+      }
+      process.exitCode = 2
+      return
+    }
     const allRows = pickTickets()
     let rows = allRows
     let decisionReadout = '台账序(无候选评估文件)'
@@ -702,6 +749,19 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         return
       }
       dispatched++
+      // ---- 故障分型(2026-11-01 立):发起腿级失败 ≠ 票面失败 ----
+      // 环境级(ERR_MODULE_NOT_FOUND/ENOENT/路径不存在)是调度器自己的腿断了:
+      // 计进票连败 = 每换一次机就把整张派单面逐枚封禁 48h,而真因一行也没被点名。
+      if (isNonTicketFailure(res.failureKind) || res.action === 'runner-undetermined') {
+        record({ mode: 'dispatch', action: 'runner-unavailable', ticketKey: key, ticketLine: ticket.text.slice(0, 200), why: res.why })
+        console.error(`⛔ 发起腿故障(分型=${res.failureKind ?? res.action},不计票连败、不封票):${res.why}`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(gates, `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`, `[auto-evolve] 起会话失败已分型为调度器侧(${res.failureKind ?? res.action}),已停派本轮`, `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`)
+        }
+        process.exitCode = 2
+        return
+      }
       if (res.action === 'session-failed' || res.action === 'session-timeout') {
         const streak = failureStreakOf(readLedger(), key)
         if (streak >= gates.failureStreakLimit) {
@@ -751,7 +811,14 @@ async function probeSession({ gates, dryRun = false } = {}) {
       ['只读自检任务(禁止创建或修改任何文件):', '', '运行 `node scripts/auto-evolve.mjs --self-test`,', '然后原样报告其输出的最后一行(形如 "self-test: 全绿" 或 "self-test: N 例红")。'].join('\n'),
       'utf8'
     )
-    const cmd = fillTemplate(gates.sessionCommandTemplate, { promptFile, ticketLine: 'probe 自检', ticketKey: 'probe' })
+    const resolvedProbe = resolveSessionCommand(gates.sessionCommandTemplate, ROOT)
+    if (resolvedProbe === null) {
+      record({ mode: 'probe', action: 'probe-undetermined', why: '当次仓根取不到 ⇒ 模板无法归一,不冒充已探测' })
+      console.error('❌ 未判定:当次仓根取不到 ⇒ probe 不做(不回落原模板)')
+      process.exitCode = 2
+      return
+    }
+    const cmd = fillTemplate(resolvedProbe, { promptFile, ticketLine: 'probe 自检', ticketKey: 'probe' })
     const t0 = Date.now()
     // windowsVerbatimArguments 必带:node 对 cmd.exe 有默认引用改写,会把模板里的引号拼进
     // 模块路径(实测 'D:\IHUI-AI\"D:\...\"' 型报错);verbatim + 模板零内嵌引号 = 双保险
@@ -797,7 +864,14 @@ function printStatus() {
     if (Number.isFinite(until) && until > Date.now()) quarantined.push({ key: e.ticketKey, until: e.until, line: e.ticketLine })
   }
   console.log(`闸门:enabled=${gates.enabled} 预算 ${dispatched}/${gates.dailyDispatchBudget} 轮(今日) 连败阈值 ${gates.failureStreakLimit} 封禁 ${gates.quarantineHours}h 会话上限 ${gates.maxSessionMinutes}min`)
-  console.log(`起会话通路:${gates.sessionCommandTemplate.trim() ? '已配置' : '未配置(空 ⇒ 只 dry-run,不冒充执行)'}`)
+  const pfStatus = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+  const pfReadout =
+    pfStatus.state === 'ready'
+      ? `在位核验 ${pfStatus.checked.length} 枚全通过 ⇒ 可派`
+      : pfStatus.state === 'template-empty'
+        ? '未配置(空 ⇒ 只 dry-run,不冒充执行)'
+        : `state=${pfStatus.state}:${pfStatus.why}${pfStatus.missing?.length ? `｜不在位 ${pfStatus.missing.join(', ')}` : ''} ⇒ 本轮会被派发前闸拦停`
+  console.log(`起会话通路:${gates.sessionCommandTemplate.trim() ? '已配置;' : ''}${pfReadout}`)
   console.log(`白名单(${gates.ticketWhitelist.length}):${gates.ticketWhitelist.join(' / ')}`)
   // O6504 / O6502 现读:调度层真的把这两份清单读进来了,而不是只写在文档里。
   try {
