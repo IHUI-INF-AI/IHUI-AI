@@ -4,6 +4,7 @@
 
 import { eq, ne, and, or, isNull, desc, asc, ilike, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   sysMenus,
   sysRoleMenu,
@@ -191,8 +192,8 @@ export async function findLogininforList(
 ): Promise<{ list: SysLogininfor[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.loginName) conds.push(ilike(sysLogininfor.loginName, `%${query.loginName}%`))
-  if (query.ipaddr) conds.push(ilike(sysLogininfor.ipaddr, `%${query.ipaddr}%`))
+  if (query.loginName) conds.push(ilike(sysLogininfor.loginName, asContainsTerm(query.loginName)))
+  if (query.ipaddr) conds.push(ilike(sysLogininfor.ipaddr, asContainsTerm(query.ipaddr)))
   if (query.status) conds.push(eq(sysLogininfor.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
 
@@ -260,7 +261,7 @@ export async function findNoticeList(
 ): Promise<{ list: SysNotice[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.noticeTitle) conds.push(ilike(sysNotices.noticeTitle, `%${query.noticeTitle}%`))
+  if (query.noticeTitle) conds.push(ilike(sysNotices.noticeTitle, asContainsTerm(query.noticeTitle)))
   if (query.noticeType) conds.push(eq(sysNotices.noticeType, query.noticeType))
   if (query.createBy) conds.push(eq(sysNotices.createBy, query.createBy))
   const where = conds.length > 0 ? and(...conds) : undefined
@@ -346,7 +347,7 @@ export async function findJobList(
 ): Promise<{ list: SysJob[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.jobName) conds.push(ilike(sysJobs.jobName, `%${query.jobName}%`))
+  if (query.jobName) conds.push(ilike(sysJobs.jobName, asContainsTerm(query.jobName)))
   if (query.jobGroup) conds.push(eq(sysJobs.jobGroup, query.jobGroup))
   if (query.status) conds.push(eq(sysJobs.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
@@ -445,7 +446,7 @@ export async function findJobLogList(
 ): Promise<{ list: SysJobLog[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.jobName) conds.push(ilike(sysJobLogs.jobName, `%${query.jobName}%`))
+  if (query.jobName) conds.push(ilike(sysJobLogs.jobName, asContainsTerm(query.jobName)))
   if (query.jobGroup) conds.push(eq(sysJobLogs.jobGroup, query.jobGroup))
   if (query.status) conds.push(eq(sysJobLogs.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
@@ -506,7 +507,7 @@ export interface DeptListQuery extends ListQuery {
 
 export async function findDeptList(query: DeptListQuery = {}): Promise<SysDept[]> {
   const conds = []
-  if (query.deptName) conds.push(ilike(sysDepts.deptName, `%${query.deptName}%`))
+  if (query.deptName) conds.push(ilike(sysDepts.deptName, asContainsTerm(query.deptName)))
   if (query.status) conds.push(eq(sysDepts.status, query.status))
   conds.push(eq(sysDepts.delFlag, '0'))
   const where = and(...conds)
@@ -574,8 +575,8 @@ export async function findPostList(
 ): Promise<{ list: SysPost[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.postCode) conds.push(ilike(sysPosts.postCode, `%${query.postCode}%`))
-  if (query.postName) conds.push(ilike(sysPosts.postName, `%${query.postName}%`))
+  if (query.postCode) conds.push(ilike(sysPosts.postCode, asContainsTerm(query.postCode)))
+  if (query.postName) conds.push(ilike(sysPosts.postName, asContainsTerm(query.postName)))
   if (query.status) conds.push(eq(sysPosts.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
 
@@ -655,8 +656,8 @@ export async function findConfigList(
 ): Promise<{ list: SysConfig[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.configName) conds.push(ilike(sysConfigs.configName, `%${query.configName}%`))
-  if (query.configKey) conds.push(ilike(sysConfigs.configKey, `%${query.configKey}%`))
+  if (query.configName) conds.push(ilike(sysConfigs.configName, asContainsTerm(query.configName)))
+  if (query.configKey) conds.push(ilike(sysConfigs.configKey, asContainsTerm(query.configKey)))
   if (query.configType) conds.push(eq(sysConfigs.configType, query.configType))
   const where = conds.length > 0 ? and(...conds) : undefined
 
@@ -746,8 +747,8 @@ export async function findDictTypeList(
 ): Promise<{ list: SysDictType[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.dictName) conds.push(ilike(sysDictTypes.dictName, `%${query.dictName}%`))
-  if (query.dictType) conds.push(ilike(sysDictTypes.dictType, `%${query.dictType}%`))
+  if (query.dictName) conds.push(ilike(sysDictTypes.dictName, asContainsTerm(query.dictName)))
+  if (query.dictType) conds.push(ilike(sysDictTypes.dictType, asContainsTerm(query.dictType)))
   if (query.status) conds.push(eq(sysDictTypes.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
 
@@ -831,7 +832,7 @@ export async function findDictDataList(
   const { pageSize, offset } = paginate(query)
   const conds = []
   if (query.dictType) conds.push(eq(sysDictData.dictType, query.dictType))
-  if (query.dictLabel) conds.push(ilike(sysDictData.dictLabel, `%${query.dictLabel}%`))
+  if (query.dictLabel) conds.push(ilike(sysDictData.dictLabel, asContainsTerm(query.dictLabel)))
   if (query.status) conds.push(eq(sysDictData.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
 
@@ -933,9 +934,9 @@ export async function findOperlogList(
 ): Promise<{ list: SysOperlog[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.title) conds.push(ilike(sysOperlog.title, `%${query.title}%`))
+  if (query.title) conds.push(ilike(sysOperlog.title, asContainsTerm(query.title)))
   if (query.businessType !== undefined) conds.push(eq(sysOperlog.businessType, query.businessType))
-  if (query.operName) conds.push(ilike(sysOperlog.operName, `%${query.operName}%`))
+  if (query.operName) conds.push(ilike(sysOperlog.operName, asContainsTerm(query.operName)))
   if (query.status !== undefined) conds.push(eq(sysOperlog.status, query.status))
   const where = conds.length > 0 ? and(...conds) : undefined
 
@@ -1073,13 +1074,13 @@ function buildRoleUserConds(query: RoleUserListQuery, allocated: boolean) {
   if (query.userName) {
     conds.push(
       or(
-        ilike(users.username, `%${query.userName}%`),
-        ilike(users.nickname, `%${query.userName}%`),
+        ilike(users.username, asContainsTerm(query.userName)),
+        ilike(users.nickname, asContainsTerm(query.userName)),
       ),
     )
   }
   if (query.phonenumber) {
-    conds.push(ilike(users.phone, `%${query.phonenumber}%`))
+    conds.push(ilike(users.phone, asContainsTerm(query.phonenumber)))
   }
   return and(...conds)
 }
