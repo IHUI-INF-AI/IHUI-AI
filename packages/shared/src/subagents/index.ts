@@ -40,9 +40,15 @@ export type DispatchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'c
 
 /**
  * 派单扩展状态(对齐 apps/api/src/services/subagent-dispatch-service.ts 的 ExtendedDispatchStatus,
- * 在 DispatchStatus 基础上增加 preempted(被抢占)/ quota_exceeded(超限))。
+ * 在 DispatchStatus 基础上增加 preempted(被抢占)/ quota_exceeded(超限)/ interrupted(重启中断))。
+ * `interrupted` 是启动恢复的过渡态:进程重启后把 Redis 仍是 running 的记录标记为它,
+ * 随即自动转 pending 重新入队;若自动恢复失败,记录停在 interrupted 且可被 resume 接受。
  */
-export type ExtendedDispatchStatus = DispatchStatus | 'preempted' | 'quota_exceeded'
+export type ExtendedDispatchStatus =
+  | DispatchStatus
+  | 'preempted'
+  | 'quota_exceeded'
+  | 'interrupted'
 
 /** DAG 节点定义 */
 export interface DagNode {
