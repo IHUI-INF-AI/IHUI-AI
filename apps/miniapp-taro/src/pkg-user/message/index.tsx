@@ -13,6 +13,10 @@ import {
   getPrivateMessages,
   getNotificationPreferences,
   updateNotificationPreferences,
+  markMessageRead,
+  markPrivateRead,
+  deleteMessage,
+  deletePrivateMessage,
   type AggregateMessages,
   type NotificationPreferences,
 } from '@/api'
@@ -47,9 +51,21 @@ interface Room {
   unreadCount?: number
   unread?: number
   isUnread?: boolean
+  /**
+   * 聚合行的数据源类别(loadAggregate 三条轨道逐条标):'private' 走行室兼容端点,
+   * 'announcement'/'system' 走 edu_messages 主端点 —— 已读/删除按真实归属选出口,
+   * 不做"一个端点打天下"的猜测(§0.3:拿不准就不给动作)。
+   */
+  kind?: 'announcement' | 'system' | 'private'
 }
 
 const { menuButton } = getTopBarMetrics()
+
+/** 行可动作判据:'private'/'announcement'/'system' 三类各自有真实端点才给入口(§0.3 拿不准就不给) */
+const canActRoom = (room: Room): boolean => Boolean(room.id) && Boolean(room.kind)
+/** 未读判据:与渲染红点同一取值序,不给"标了已读但红点还在"的错账 */
+const roomHasUnread = (room: Room): boolean =>
+  (room.unreadCount ?? room.unread ?? 0) > 0 || room.isUnread === true
 
 const DEFAULT_SYSTEM: SystemNoticeItem[] = []
 const DEFAULT_PRIVATE: PrivateMessageItem[] = []
@@ -113,6 +129,7 @@ export default function MessageIndex() {
           name: ann.title,
           lastMessage: ann.content || '',
           unreadCount: 0,
+          kind: 'announcement',
         })
       }
       for (const priv of res.privateMessages || []) {
@@ -122,6 +139,7 @@ export default function MessageIndex() {
           lastMessage: priv.content,
           unreadCount: priv.isRead ? 0 : 1,
           isUnread: !priv.isRead,
+          kind: 'private',
         })
       }
       for (const sys of res.systemNotices || []) {
@@ -130,6 +148,7 @@ export default function MessageIndex() {
           name: sys.title,
           lastMessage: sys.content || '',
           unreadCount: 0,
+          kind: 'system',
         })
       }
       setList(rooms)
@@ -250,6 +269,53 @@ export default function MessageIndex() {
 
   const onTabChange = (k: string) => setActiveTab(k)
 
+  /**
+   * 标记会话行已读(对齐 RN/spec handleMarkRead):成功只回写真行,失败显式喊出
+   * (common.failed),**不做「先翻 UI 再补请求」的假成功**。出口按行来源分轨:
+   * 私信 = POST /messages/private/:pid/read;公告/系统 = PUT /messages/:id/read。
+   */
+  const onRoomMarkRead = (room: Required<Pick<Room, 'id'>> & Room) => {
+    const call = room.kind === 'private' ? markPrivateRead(room.id) : markMessageRead(room.id)
+    void call
+      .then(() => {
+        setList((prev) =>
+          prev.map((r) =>
+            r.id === room.id ? { ...r, unreadCount: 0, unread: 0, isUnread: false } : r,
+          ),
+        )
+      })
+      .catch(() => {
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      })
+  }
+
+  /**
+   * 删除会话行(对齐 RN/spec handleDeleteConversation):破坏性动作先经端内确认层
+   * (Taro.showModal 为小程序标准模态,非 Web 原生提示窗),确认后才发请求;
+   * 成功摘除本行,失败显式喊出。与 markRead 同源分轨。
+   */
+  const onRoomDelete = (room: Required<Pick<Room, 'id'>> & Room) => {
+    void Taro.showModal({
+      // 端内无现成「删除确认」共享键(搜遍 shared 五语言 0 命中),新键按 §19 须与词包同批
+      // 落地会撞 scope 门 R2 ⇒ 弹窗以行名为正文:确认语义由 title(删除会话)+
+      // 系统 destructive 按钮承载,零新增措辞、不借无关键冒充正文(宁缺毋滥)。
+      title: t('messageCenter.deleteConv'),
+      content: room.name || t('messageCenter.conversations'),
+      confirmText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+    }).then((res) => {
+      if (!res.confirm) return
+      const call = room.kind === 'private' ? deletePrivateMessage(room.id) : deleteMessage(room.id)
+      void call
+        .then(() => {
+          setList((prev) => prev.filter((r) => r.id !== room.id))
+        })
+        .catch(() => {
+          Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        })
+    })
+  }
+
   const onOpenPrivate = async (item: PrivateMessageItem) => {
     setSelectedPrivate(item)
     setDetailMessages([])
@@ -359,7 +425,7 @@ export default function MessageIndex() {
         <View className="p-[20rpx]">
           <SearchBar
             value={keyword}
-            placeholder={t('message.search')}
+            placeholder={t('messageCenter.searchPh')}
             onInput={setKeyword}
             onClear={() => setKeyword('')}
           />
@@ -402,15 +468,20 @@ export default function MessageIndex() {
                       {room.lastMessage || t('message.empty')}
                     </Text>
                   </View>
-                  <MessageActions
-                    onMarkRead={() =>
-                      Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
-                    }
-                    onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
-                    onDelete={() =>
-                      Taro.showToast({ title: t('message.deleted'), icon: 'success' })
-                    }
-                  />
+                  {/* 操作区(对齐共享屏 spec):「标记已读」只在未读行出现(onMarkRead 不传整块不渲染);
+                      置顶需真实会话身份(本聚合行是公告/私信,无置顶语义)⇒ 不给假入口 */}
+                  {canActRoom(room) ? (
+                    <MessageActions
+                      onMarkRead={
+                        roomHasUnread(room)
+                          ? () => onRoomMarkRead(room as { id: string } & Room)
+                          : undefined
+                      }
+                      onDelete={() => onRoomDelete(room as { id: string } & Room)}
+                      markReadLabel={t('messageCenter.markRead')}
+                      deleteLabel={t('messageCenter.deleteConv')}
+                    />
+                  ) : null}
                 </View>
               )
             })
