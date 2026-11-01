@@ -409,6 +409,38 @@ export default function VipIndexPage() {
           onPurchase={onLevelPurchase}
         />
 
+        {/* 权益详情(对齐 RN benefitsSection:标题 + 逐项「✓ 标题 / 描述」卡片;
+            benefits 为空则不渲染,与 RN「无 benefitItems 则不出现」同向) */}
+        {benefits.length > 0 ? (
+          <View className="mt-[24rpx]">
+            <Text className="block px-[28rpx] text-title font-semibold text-foreground">
+              {t('vip.details.benefitsTitle')}
+            </Text>
+            <View className="px-[28rpx] mt-[16rpx]">
+              {benefits.map((item) => (
+                <View
+                  key={item.id}
+                  className="flex flex-row items-start gap-[16rpx] bg-card ui-card rounded-lg p-[24rpx] mb-[16rpx]"
+                >
+                  <LineIcon name="check" size={16} color="var(--color-success)" />
+                  <View className="flex-1">
+                    {item.title ? (
+                      <Text className="block text-body font-medium text-foreground">
+                        {item.title}
+                      </Text>
+                    ) : null}
+                    {item.desc ? (
+                      <Text className="block text-caption text-muted-foreground mt-[8rpx]">
+                        {item.desc}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
         <View className="plans-card">
           <View className="section-title">{t('vip.plans')}</View>

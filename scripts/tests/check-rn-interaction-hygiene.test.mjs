@@ -332,3 +332,27 @@ test('⑱ 判序住在可测的地方:主流程只许委托,方向锁不许被�
   const n = Number(/自检 (\d+) 组通过/.exec(out.stdout)?.[1] ?? 0)
   assert.ok(n >= 50, `自检只剩 ${n} 组(本票落地时 ≥50)⇒ 有断言被删掉了,不是判据变好了`)
 })
+
+test('⑲ 遮罩三格补档正反成对:改名表键/唯一子元素TWF/透明承接层,真按钮照判', () => {
+  const S = (t) => scanText(t, 36)
+  __test__.setScrimTokens(new Set(['black50']))
+  // 格一:样式对象改名(newStyles.)不得让表键失联 —— UserInfoCard:282 实证
+  const sheet = "const newStyles = StyleSheet.create({\n  modalOverlay: { flex: 1, backgroundColor: rk.black50 },\n})\n"
+  assert.equal(S(sheet + '<TouchableOpacity style={newStyles.modalOverlay} activeOpacity={1} onPress={close}><Text>卡</Text></TouchableOpacity>').h2.length, 0, '改名表键失联:遮罩又计成缺反馈')
+  assert.equal(S("const newStyles = StyleSheet.create({\n  modalOverlay: { flex: 1, backgroundColor: '#000000' },\n})\n<TouchableOpacity style={newStyles.modalOverlay} activeOpacity={1} onPress={close}><Text>卡</Text></TouchableOpacity>").h2.length, 1, '改名档反例:实底不透明黑必须照判')
+  assert.equal(S('<TouchableOpacity activeOpacity={1} style={{ width: 60, height: 40, backgroundColor: "#fff" }} onPress={go}><Text>提交</Text></TouchableOpacity>').h2.length, 1, 'activeOpacity={1} 的真按钮不得被整档放过(现读 12 枚里 7 枚坐真按钮)')
+  // 格二:证据写在唯一子元素上的 TouchableWithoutFeedback —— ProfileScreen:1924 实证
+  const twfSheet = "const styles = StyleSheet.create({\n  videoModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)' },\n})\n"
+  assert.equal(S(twfSheet + '<TouchableWithoutFeedback onPress={close}><View style={styles.videoModalOverlay}><Text>内容</Text></View></TouchableWithoutFeedback>').h2.length, 0, 'TWF 不接 style(RN 契约),证据在唯一子 View 上必须认')
+  assert.equal(S(twfSheet + '<TouchableWithoutFeedback onPress={close}><View style={styles.videoModalOverlay} /><View /></TouchableWithoutFeedback>').h2.length, 1, '子树多于一枚必须拒(收窄条件反例)')
+  assert.equal(S("const styles = StyleSheet.create({\n  sheetCard: { flex: 1, backgroundColor: '#ffffff' },\n})\n<TouchableWithoutFeedback onPress={close}><View style={styles.sheetCard} /></TouchableWithoutFeedback>").h2.length, 1, '白底子元素不是遮罩,照判')
+  // 格三:满屏透明承接层 —— tooltip:111 实证
+  assert.equal(S('<Pressable className="flex-1" onPress={hide}><Animated.View pointerEvents="none"><Text>气泡</Text></Animated.View></Pressable>').h2.length, 0, '全透明承接层按下量不到像素,必须放过')
+  assert.equal(S('<Pressable className="flex-1 bg-card" onPress={go}><Text>提交</Text></Pressable>').h2.length, 1, 'flex-1 带可见底子是自己的视觉,满屏不是豁免(反向例)')
+  assert.equal(S('<Pressable className="flex-1" onPress={go}><View><Text>提交</Text><View pointerEvents="none">装饰</View></View></Pressable>').h2.length, 1, 'pointerEvents 深藏在子树不算承接层(反向例)')
+  __test__.setScrimTokens(new Set())
+  // 放过必须可计数(静默放过=没量到,§0.3):两桶都要在返回结构里
+  const counted = S(twfSheet + '<TouchableWithoutFeedback onPress={close}><View style={styles.videoModalOverlay} /></TouchableWithoutFeedback><Pressable className="flex-1" onPress={hide}><Animated.View pointerEvents="none"></Animated.View></Pressable>')
+  assert.equal(counted.childScrims.length, 1, 'childScrims 桶必须报数')
+  assert.equal(counted.fillLayers.filter((v) => v.kind === "transparentHitLayer").length, 1, 'transparentHitLayer 子桶必须报数')
+})
