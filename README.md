@@ -40638,3 +40638,14 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 - **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
 - **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
 - **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+| API 路由 | 4670 | `apiRoutes` |
+| 路由文件 | 658 | `apiRouteFiles` |
+| CLI 命令文件 | 69 | `cliCommandFiles` |
+| 测试文件 | 3902 | `testFiles` |
+| 工程守门 | 312 | `guardianGates` |
+| — blocking | 284 | `guardianBlocking` |
+| — warn | 30 | `guardianWarn` |
+| 跟踪文件 | 18623 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-01。
+- 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
+- 安全/回跳(2026-11-01 立,blocking,runner id '278'): `check-redirect-target-origin-pinned.mjs`(判 `apps/web` 每枚 `resolveSafeRedirectTarget(...)`/`isSafeNavigationTarget(...)` 的 options 实参必须是**字面量对象且含 `allowedOrigins`**——`isSafeNavigationTarget` 缺该键时走"只判协议"支,任意 http(s) 外站点照过,同日实测四处真命中含两枚授权码签发路径;options 为变量/展开 ⇒ 未判定按 §0.3 exit 2,豁免 = 具名台账且带到期)
