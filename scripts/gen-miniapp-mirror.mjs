@@ -57,6 +57,7 @@ import { execFileSync } from 'node:child_process'
 
 import { catBatch, listFaceFiles, readWorktreeFile } from './lib/face-reader.mjs'
 import { shellExportShapeOf } from './lib/rn-shell-refs.mjs'
+import { maskComments } from './lib/code-mask.mjs'
 import { walkClosure, aliasKeysOf, uncoveredNativePackages } from './lib/rn-shell-closure.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { VERDICTS_PATH, indexVerdicts, parseVerdictRows } from './lib/cross-end-verdicts.mjs'
@@ -622,11 +623,26 @@ export function rendersSharedIn(text, symbol) {
   return false
 }
 
+/**
+ * 屏侧是否真的发布分享正文(2026-11-01 立,承载面分享的唯一判据出口)。
+ *
+ * 为什么判「屏发布」而不是「页注册」:小程序的转发卡在页面级注册,而卡上的标题/封面只有屏
+ * 取到数据才算得出。壳承载后页面不再自己写正文 ⇒ 若屏没把正文交给宿主,转壳就会把
+ * 「分享这条内容」静默降成「分享首页默认文案」(实测 news/detail 的 `news.title`、
+ * course/detail 的 `course.title` 就是这一型)。所以宿主注册只在屏真发布时才产出。
+ * 遮注释:注释里提一句 `usePublishShareIntent` 不算实现(假销账比误拒危险)。
+ */
+export function screenPublishesShare(sharedText, shellText) {
+  const src = `${maskComments(String(sharedText ?? ''))}\n${maskComments(String(shellText ?? ''))}`
+  return /usePublishShareIntent\s*\(/.test(src)
+}
+
 export function buildShellPage({
   spec,
   base,
   shellText = '',
   shellName = null,
+  sharedText = '',
   navTitle = null,
   navTitleHook = 'useDidShow',
   navTitleDeps = null,
@@ -670,13 +686,29 @@ export function buildShellPage({
   // 标题原来住在哪条钩子就按哪条生成(2026-11-01):useEffect + 依赖数组是"随语言切换重设"的节律,
   // 统一改写成 useDidShow 会把标题冻在进屏那一刻的语言上 —— 转壳的等价性就破在这里。
   const titleViaEffect = navTitleHook === 'useEffect'
-  if (navTitle) {
-    L.push(
-      titleViaEffect
-        ? "import Taro from '@tarojs/taro'"
-        : "import Taro, { useDidShow } from '@tarojs/taro'",
-    )
+  // 分享:屏发布正文 ⇒ 宿主补页面级注册(转发/朋友圈/右上角菜单三条),正文由 shareHost.read() 现读
+  const withShare = screenPublishesShare(sharedText, shellText)
+  if (navTitle || withShare) {
+    const names = []
+    if (navTitle && !titleViaEffect) names.push('useDidShow')
+    if (withShare) names.push('useDidShow', 'useRouter', 'useShareAppMessage', 'useShareTimeline')
+    const uniq = [...new Set(names)]
+    if (navTitle) {
+      L.push(
+        titleViaEffect && !withShare
+          ? "import Taro from '@tarojs/taro'"
+          : `import Taro, { ${uniq.join(', ')} } from '@tarojs/taro'`,
+      )
+    } else {
+      L.push(`import { ${uniq.join(', ')} } from '@tarojs/taro'`)
+    }
     if (titleViaEffect) L.push("import { useEffect } from 'react'")
+    if (withShare) {
+      L.push("import { useShareIntentHost } from '@ihui/shared/share'")
+      L.push(
+        "import { currentPageSharePath, currentPageShareQuery, getShareInfo, getTimelineShareInfo, showShareMenu } from '@/utils/share'",
+      )
+    }
     if (usesT) L.push("import { useI18n } from '@/i18n'")
     if (usesTt) L.push("import { useTt } from '@/i18n'")
   }
@@ -689,11 +721,41 @@ export function buildShellPage({
     L.push(`    Taro.setNavigationBarTitle({ title: ${navTitle} })`)
     L.push(titleViaEffect ? (navTitleDeps ? `  }, ${navTitleDeps})` : '  })') : '  })')
   }
+  if (withShare) {
+    L.push('  const shareHost = useShareIntentHost()')
+    L.push('  const ShareWrap = shareHost.Wrapper')
+    L.push('  const router = useRouter()')
+    L.push('  useShareAppMessage(() => {')
+    L.push('    const intent = shareHost.read()')
+    L.push(
+      '    return getShareInfo(intent?.path ?? currentPageSharePath(router), intent?.title, intent?.imageUrl)',
+    )
+    L.push('  })')
+    L.push('  useShareTimeline(() => {')
+    L.push('    const intent = shareHost.read()')
+    L.push(
+      '    const info = getTimelineShareInfo(intent?.timelineTitle ?? intent?.title, intent?.imageUrl)',
+    )
+    L.push('    const own = intent?.query ?? currentPageShareQuery(router)')
+    L.push("    return { ...info, query: [own, info.query].filter(Boolean).join('&') }")
+    L.push('  })')
+    L.push('  useDidShow(() => showShareMenu())')
+  }
   L.push('  return (')
   L.push('    <ThemeRoot>')
-  if (authGate) L.push('      <AuthReadyGate>')
-  L.push(authGate ? `        <${jsxTag} />` : `      <${jsxTag} />`)
-  if (authGate) L.push('      </AuthReadyGate>')
+  // 宿主把自己的分享槽包在屏外面:屏的 usePublishShareIntent 才落得到这一页
+  const wrapOpen = withShare ? ['ShareWrap'] : []
+  if (authGate) wrapOpen.push('AuthReadyGate')
+  let depth = 3
+  for (const tag of wrapOpen) {
+    L.push(`${'  '.repeat(depth)}<${tag}>`)
+    depth += 1
+  }
+  L.push(`${'  '.repeat(depth)}<${jsxTag} />`)
+  for (let i = wrapOpen.length - 1; i >= 0; i -= 1) {
+    depth -= 1
+    L.push(`${'  '.repeat(depth)}</${wrapOpen[i]}>`)
+  }
   L.push('    </ThemeRoot>')
   L.push('  )')
   L.push('}')
@@ -1917,6 +1979,7 @@ export const __test__ = {
   insertRegistryEntry,
   buildPage,
   buildShellPage,
+  screenPublishesShare,
   workDiverges,
   planGeneration,
   applyGeneration,

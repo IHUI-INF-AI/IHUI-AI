@@ -14,6 +14,7 @@ import {
 } from '../../components/ScreenStates'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 
 /**
  * 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
@@ -40,6 +41,13 @@ export function CourseDetailScreen({
 }: CourseDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)。
+  // 两张卡原页各取一个文案键,加载前后也不同键回落 ⇒ 逐分支复刻,不靠宿主兜底。
+  usePublishShareIntent({
+    title: item ? t('share.courseTitle', { title: item.title }) : t('share.appTitle'),
+    timelineTitle: item ? t('share.courseTitle', { title: item.title }) : t('share.timelineTitle'),
+    imageUrl: item?.coverUrl,
+  })
 
   if (loading) {
     return (

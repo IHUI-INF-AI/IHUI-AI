@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VideoPlayerProgress, VideoPlayerScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -36,6 +37,12 @@ export function VideoPlayerScreen({
 }: VideoPlayerScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 原页只 Taro.showShareMenu 开了右上角菜单、未自定义正文 ⇒ 转壳后按同族(列表/详情族)口径发布
+  // 应用级两枚文案,落点由宿主按本页 router 兜底;不发布就会让这一屏的卡与同族屏分裂成两种形态。
+  usePublishShareIntent({
+    title: t('share.appTitle'),
+    timelineTitle: t('share.timelineTitle'),
+  })
 
   if (loading) {
     return (
