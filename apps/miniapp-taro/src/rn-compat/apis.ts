@@ -223,9 +223,22 @@ type Animatable = unknown
 export const Animated = {
   Value: AnimatedValue,
   ValueXY: AnimatedValueXY,
+  // 配置类型必须是 RN `Animated.TimingAnimationConfig` 的**超集**:本层是 react-native 的
+  // 替身,消费方写的是标准 RN 配置(`duration` / `useNativeDriver` / `easing` / `delay`)。
+  // 此前只声明 toValue/callback ⇒ 跨端共享包(ui-native 的 tooltip)在小程序宿主下编不过
+  // (TS2353: 'duration' does not exist)。语义上本层忽略这些字段(见 runToEnd 直接推终值),
+  // 但类型面必须收得住,否则「一份源码两端编」这条 §4 的结构性承诺就破了。
   timing: (
     value: AnimatedValue | AnimatedValueXY,
-    config?: { toValue?: unknown; callback?: (r: { finished: boolean }) => void },
+    config?: {
+      toValue?: unknown
+      duration?: number
+      delay?: number
+      easing?: unknown
+      useNativeDriver?: boolean
+      iterations?: number
+      callback?: (r: { finished: boolean }) => void
+    },
   ) => {
     // 立即把目标推到终值,再返回一个可 start() 的句柄
     if (config && 'toValue' in config) {
@@ -237,9 +250,28 @@ export const Animated = {
     }
     return runToEnd(config)
   },
+  // 同 timing:必须是 RN `SpringAnimationConfig` 的超集。packages/app 的 ScreenStates 等
+  // 直接用 `{ toValue, useNativeDriver, speed }` 写法,窄类型会让跨端共享包在小程序宿主下编不过。
   spring: (
     _value: Animatable,
-    config?: { toValue?: unknown; callback?: (r: { finished: boolean }) => void },
+    config?: {
+      toValue?: unknown
+      speed?: number
+      bounciness?: number
+      tension?: number
+      friction?: number
+      stiffness?: number
+      damping?: number
+      mass?: number
+      overshootClamping?: boolean
+      restDisplacementThreshold?: number
+      restSpeedThreshold?: number
+      delay?: number
+      easing?: unknown
+      useNativeDriver?: boolean
+      iterations?: number
+      callback?: (r: { finished: boolean }) => void
+    },
   ) => runToEnd(config),
   decay: (
     _value: Animatable,
