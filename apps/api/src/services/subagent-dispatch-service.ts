@@ -61,6 +61,8 @@ const REDIS_KEY_CHECKPOINT = 'subagent:checkpoint:' // hash(stepId → JSON)
 const REDIS_KEY_QUEUE = 'subagent:dispatch:queue' // zset(priority score)
 /** F3(2026-11-02)thread 索引:每个会话一条 zset(score=createdAt,member=dispatchId) */
 const REDIS_KEY_THREAD = 'subagent:dispatch:thread:'
+/** F4(2026-11-02)Inline & Spill:上游长结果的全文产物(id = `${dispatchId}:${stepId}`) */
+const REDIS_KEY_ARTIFACT = 'subagent:artifact:'
 
 /** 日志最大保留条数(LTRIM) */
 const LOG_MAX_ENTRIES = 500
@@ -72,6 +74,14 @@ const LOG_MAX_ENTRIES = 500
 const THREAD_CONTEXT_INLINE_ENTRIES = 3
 const THREAD_CONTEXT_ENTRY_MAX_CHARS = 800
 const THREAD_CONTEXT_MAX_CHARS = 4000
+
+/**
+ * F4 上游结果预算:不超过该长度的整段 inline;超出部分落可寻址产物,
+ * prompt 只给「摘要 + 引用」,不再用 slice(0, 500) 截断丢弃。
+ * ARTIFACT_MAX_CHARS 是单条产物的存储上限(长度保护);超过时按上限截存并标记 truncated。
+ */
+const UPSTREAM_CONTEXT_INLINE_CHARS = 800
+const ARTIFACT_MAX_CHARS = 200_000
 
 /**
  * 全局并发硬上限(F2 2026-11-02:保护值,不再作为「拒绝」依据 —— 满额落 queued 等槽位)。
@@ -465,6 +475,21 @@ export type SetAttentionResult =
   | { ok: true; dispatch: SubagentDispatch }
   | { ok: false; reason: 'not_found' | 'terminal' }
 
+/**
+ * F4:落库的上游产物(全文)。
+ * `truncated=true` 表示原文超过 ARTIFACT_MAX_CHARS 的存储上限,产物只保留前 N 字符 ——
+ * 这是长度保护,不是运行时截断丢弃;prompt 里的引用始终可用。
+ */
+export interface DispatchArtifact {
+  /** 全局寻址 id:`${dispatchId}:${stepId}` */
+  id: string
+  dispatchId: string
+  stepId: string
+  content: string
+  truncated: boolean
+  createdAt: string
+}
+
 /** dispatch 运行时扩展(统计 + 日志 + 重试 + DAG + 优先级 + 配额 + checkpoint + 通信) */
 interface DispatchRuntime {
   dispatch: SubagentDispatch
@@ -495,6 +520,8 @@ interface DispatchRuntime {
   messages: CommunicationMessage[]
   /** DAG 节点执行状态(stepId → status) */
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
+  /** F4:上游结果产物缓存(stepId → artifact;全文同时落 Redis,进程内留一份便于即时取回) */
+  artifacts: Map<string, DispatchArtifact>
   /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
   agentTaskId?: string
   /** ai-service 编排原始结果(D27 交付清单聚合数据源,仅成功分支赋值;DAG/多轮通信无单一编排结果时为 null) */
@@ -1885,6 +1912,69 @@ export class SubagentDispatchService {
   }
 
   /**
+   * F4 Inline & Spill:把上游全文落可寻址存储,返回产物记录。
+   *
+   * 目标:prompt 里只放摘要 + 引用,不再用 `slice(0, 500)` 把长结果截断丢弃。
+   * - 内存 runtime 留一份(本进程即时可读;重启后它没了,Redis 仍在);
+   * - Redis 键 `subagent:artifact:{dispatchId}:{stepId}` 存全文 JSON,跨重启可寻址;
+   * - 超过 ARTIFACT_MAX_CHARS 时只存前 N 字符并置 truncated(长度保护,不是运行时丢内容)。
+   * Redis 写入失败时降级内存,不抛异常(与 checkpoint 同口径)。
+   */
+  private async _spillArtifact(
+    dispatchId: string,
+    stepId: string,
+    fullText: string,
+  ): Promise<DispatchArtifact> {
+    const capped =
+      fullText.length > ARTIFACT_MAX_CHARS ? fullText.slice(0, ARTIFACT_MAX_CHARS) : fullText
+    const artifact: DispatchArtifact = {
+      id: `${dispatchId}:${stepId}`,
+      dispatchId,
+      stepId,
+      content: capped,
+      truncated: capped.length < fullText.length,
+      createdAt: nowIso(),
+    }
+    this.runtimes.get(dispatchId)?.artifacts.set(stepId, artifact)
+    if (this.redisClient) {
+      try {
+        await this.redisClient.set(`${REDIS_KEY_ARTIFACT}${artifact.id}`, JSON.stringify(artifact))
+      } catch {
+        // Redis 不可用 → 内存降级,不抛异常
+      }
+    }
+    return artifact
+  }
+
+  /**
+   * F4:按 id 取回上游产物全文(路由 `GET /subagents/:id/artifacts/:stepId` 的唯一读点)。
+   * 读序 = 进程内 runtime(含刚写完) → Redis(跨重启);都没有 ⇒ null(路由给 404)。
+   * 归属判据不在本方法内 —— 路由层先过 dispatch-ownership.ts 的唯一出口再调这里。
+   */
+  async getArtifact(dispatchId: string, stepId: string): Promise<DispatchArtifact | null> {
+    const cached = this.runtimes.get(dispatchId)?.artifacts.get(stepId)
+    if (cached) return cached
+    if (!this.redisClient) return null
+    try {
+      const raw = await this.redisClient.get(`${REDIS_KEY_ARTIFACT}${dispatchId}:${stepId}`)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as DispatchArtifact
+      // 只认自家写出的形状;坏数据当「取不到」,不把半个对象交出去
+      if (
+        parsed &&
+        parsed.dispatchId === dispatchId &&
+        parsed.stepId === stepId &&
+        typeof parsed.content === 'string'
+      ) {
+        return parsed
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * 初始化时从 Redis 加载所有活跃 dispatch,并把「中断的 running」重新入队。
    *
    * F1(2026-11-02)崩溃自愈:旧实现只把 pending/running 装回内存,不重新执行;
@@ -1967,6 +2057,8 @@ export class SubagentDispatchService {
           dagNodeStatus: new Map(
             parseJsonOr<Array<[string, ExtendedDispatchStatus]>>(raw.dagNodeStatus, []),
           ),
+          // F4:产物不随 hash 恢复 —— 全文在独立的 artifact 键里,getArtifact 按需读 Redis
+          artifacts: new Map(),
           agentTaskId: raw.agentTaskId || undefined,
         }
         this.runtimes.set(id, runtime)
@@ -2251,6 +2343,7 @@ export class SubagentDispatchService {
       checkpoints: new Map(),
       messages: [],
       dagNodeStatus: new Map(),
+      artifacts: new Map(),
     }
     this.runtimes.set(pending.id, runtime)
     // 2026-08-06: 派单轨迹持久化 — 带 agentId 的派单写入 agent_tasks(agents 详情页 5 Tab 运行时数据源)
@@ -2637,13 +2730,29 @@ export class SubagentDispatchService {
         await this._persistDispatch(id)
 
         // 构造 prompt:原始 + 上游结果
+        //
+        // F4(2026-11-02)Inline & Spill:短结果整段 inline;超出 UPSTREAM_CONTEXT_INLINE_CHARS 的
+        // 长结果只 inline 摘要,全文落可寻址产物并在 prompt 里给 id + 取回地址 ——
+        // 旧实现 `slice(0, 500)` 会把下游永远拿不到的内容直接丢掉。
         const upstreamEdges = dag.edges.filter((e) => e.to === nodeId)
-        const upstreamContext = upstreamEdges
-          .map((e) => {
-            const upstreamResult = results.get(e.from) ?? ''
-            return `[上游 ${e.from} 结果]: ${upstreamResult.slice(0, 500)}`
-          })
-          .join('\n')
+        const upstreamContext = (
+          await Promise.all(
+            upstreamEdges.map(async (e) => {
+              const upstreamResult = results.get(e.from) ?? ''
+              if (upstreamResult.length <= UPSTREAM_CONTEXT_INLINE_CHARS) {
+                return `[上游 ${e.from} 结果]: ${upstreamResult}`
+              }
+              const artifact = await this._spillArtifact(id, e.from, upstreamResult)
+              return (
+                `[上游 ${e.from} 结果摘要]: ${upstreamResult.slice(0, UPSTREAM_CONTEXT_INLINE_CHARS)}…\n` +
+                `[上游 ${e.from} 全文引用]: id=${artifact.id} · GET /api/subagents/${id}/artifacts/${e.from}` +
+                (artifact.truncated
+                  ? `(产物超过 ${ARTIFACT_MAX_CHARS} 字符存储上限,已按上限截存)`
+                  : '')
+              )
+            }),
+          )
+        ).join('\n')
         const nodePrompt = upstreamContext
           ? `${prompt}\n\n${upstreamContext}\n\n请处理当前节点任务: ${node.task}`
           : `${prompt}\n\n请处理当前节点任务: ${node.task}`
