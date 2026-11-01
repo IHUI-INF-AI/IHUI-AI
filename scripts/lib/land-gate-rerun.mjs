@@ -15,6 +15,9 @@
  * 形态(与 rerunLedgerHeal 同族,但退出码语义不同):
  *  - 选择面:按本次落地面路径选受影响门 ——
  *    ① 内置最低三件(票面点名):python 面 mypy、ts 面 tsc、同名函数族重复定义扫描;
+ *       〔2026-11-01 MARKERS 票补第四件〕**冲突标记自证臂**:直接复跑守门 79 的 `--rev HEAD` 档,
+ *       不走路径映射 —— 79 的注册条目刻意没有 stagedTriggers,按②选门它在本通道结构上永不复跑,
+ *       而"旁路落地把合并脚手架带进正文"正是本通道唯一没人复查的那一型(臂 5,详见该臂注)。
  *    ② 注册表映射:现读 scripts/guardian-runner.mjs 的门注册条目,凡声明了 stagedTriggers
  *      且被落地面触及的门,都算"受影响门",复跑其**全量档**(判 HEAD 面 = 落地面;
  *      取材面纪律与守门 70/77/83/98/103/118 同口径)。无 stagedTriggers 的门**不参与**路径映射
@@ -614,6 +617,43 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         )
       }
     }
+  }
+
+  // —— 臂 5:冲突标记自证(2026-11-01 立,MARKERS 票)——
+  // 为什么它是**常备臂**而不是注册表映射的一臂:守门 79 的注册条目刻意**不带 stagedTriggers**
+  // (全量/索引扫描本身就是它的判据面,见门体头注「当前接入」),而本器的选门只认 stagedTriggers ⇒
+  // 79 在这条通道上**结构上永不复跑**(它就在 countUntriggered 量出来的 missing 那一截里)。
+  // 实测后果:AGENTS.md 那三条空冲突区标记 2026-11-01 被合流枚带回 HEAD/索引/工作树/origin 四面,
+  // 而落地后的"受影响判据复跑"报的是绿 —— 绿行覆盖不到它,而这一型恰是旁路通道的立项现场。
+  // 判 HEAD 面 = 落地面(`--rev HEAD`,§0.4 取材面纪律);rc=1 ⇒ verdict 1;rc=2 ⇒ verdict 2(未判定≠通过)。
+  // 换仓通道(镜像测试的 mkScratch 现场)按 mypy/tsc 同一条规矩:只承认桩,不拿本仓门体冒充别仓结论。
+  const markerStub = String(env.LAND_GATE_RERUN_CONFLICT_MARKERS ?? '').trim()
+  const markerGate = markerStub || join(REPO_ROOT, 'scripts', 'check-no-conflict-markers.mjs')
+  if (!markerStub && !inHomeRepo) {
+    res.notes.push(
+      '冲突标记自证臂:被审根不是本器所在仓且未给桩(LAND_GATE_RERUN_CONFLICT_MARKERS)⇒ 本轮未跑,已点名(不是"跑过且绿")',
+    )
+  } else if (!existsSync(markerGate)) {
+    res.undetermined.push({
+      kind: 'conflict-markers',
+      why: `门体取不到:${markerGate}(未判定不等于通过)`,
+    })
+  } else {
+    const r = spawnGate(markerGate, ['--rev', 'HEAD'], root, GATE_TIMEOUT_MS, env)
+    if (r.rc === 0) res.ran.push({ kind: 'conflict-markers', rev: 'HEAD' })
+    else if (r.rc === 1)
+      res.failed.push({
+        kind: 'conflict-markers',
+        why: '落地面(HEAD 树)仍带成对冲突标记 ⇒ 旁路落地把合并脚手架带进了正文(守门 79 的 P1/P4)',
+        out: r.out,
+      })
+    else
+      res.undetermined.push({
+        kind: 'conflict-markers',
+        rc: r.rc,
+        out: r.out,
+        why: '门体自身未能判定(取不到内容/git 不可用)⇒ 不记绿',
+      })
   }
 
   if (res.dupFindings.length > 0) {
