@@ -359,6 +359,9 @@ export async function runOnce(opts = {}) {
       `ROTATE-SKIP 无未结清暴露条目(清单 ${led.entries.length} 枚,全部有终态处置)⇒ 本轮零派生零写入`,
     )
     logger(resultLine(v, led.rot.length))
+    // §T2 根治:--json 档必须把结论 JSON 写进 stdout(守门从 stdout 解析 state)。
+    // 原空转分支在此直接 return,跳过了末尾的 stdout JSON 输出,导致守门永远拿不到 state ⇒ 误报"未判定"。
+    if (json) process.stdout.write(`${JSON.stringify({ state: v.state, counts: v.counts, why: v.why, pending: 0, rot: led.rot.length, rows: [], ok: true })}\n`)
     return { code: 0, verdict: v, rows: [], pending: 0 }
   }
   const spawn = invoke(buildRequest(pending, dryRun), dryRun)

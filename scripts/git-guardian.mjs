@@ -2532,6 +2532,31 @@ export function auditDispatchSites(src) {
   return sites
 }
 
+/**
+ * §T6 自愈层:报警前先尝试自愈。healed===true 则 notifyGuardRed 跳过发信(记 info),
+ * 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
+ */
+function healLintStagedPins({ logger = log } = {}) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'patch-lint-staged-stdio.mjs')
+  if (!existsSync(script)) {
+    logger(`ℹ️ 自愈:补丁脚本不在位(${script})⇒ 跳过`)
+    return false
+  }
+  try {
+    execFileSync(process.execPath, [script], { cwd: WORKTREE, windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    const out = execFileSync(process.execPath, [script, '--check'], { cwd: WORKTREE, windowsHide: true, timeout: 60_000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const ok = !/NEEDS-PATCH/.test(String(out)) && /check done/.test(String(out))
+    logger(`ℹ️ 自愈:lint-staged 三针重打${ok ? '成功' : '后仍未全齐'}`)
+    return ok
+  } catch (e) {
+    logger(`⚠️ 自愈:lint-staged 重打异常:${String((e && e.message) || e).slice(0, 120)}`)
+    return false
+  }
+}
+const SELF_HEAL_ROUTES = {
+  'lint-staged stdio 三针缺口': healLintStagedPins,
+}
+
 export function notifyGuardRed(name, detail, opts = {}) {
   const {
     severity = 'warning',
@@ -2569,6 +2594,22 @@ export function notifyGuardRed(name, detail, opts = {}) {
     const state = parseNotifyState(readNotifyText(stateFile))
     if (!force && !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs })) {
       return { sent: false, suppressed: true, why: '同一原因窗口内已通报,本轮压住' }
+    }
+    // §T6 自愈层:发信前先尝试对应 healer;healed===true 则跳过发信(记 info),
+    // 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
+    if (!force) {
+      try {
+        const healer = SELF_HEAL_ROUTES[name]
+        if (typeof healer === 'function') {
+          const healed = healer({ now, logger })
+          if (healed === true) {
+            logger(`✅ 自愈成功,跳过报警:${name}(下轮复检确认)`)
+            return { sent: false, selfHealed: true, why: `自愈成功:${name}` }
+          }
+        }
+      } catch (e) {
+        logger(`⚠️ 自愈层异常(忽略,回退报警):${String((e && e.message) || e).slice(0, 120)}`)
+      }
     }
     const title = `【git-guardian】${name}`
     const desp =
@@ -5190,22 +5231,26 @@ export function sweepExposedCredentialRotation(opts = {}) {
     .split(/\r?\n/)
     .map((l) => l.match(/ROTATE-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null)
     .find(Boolean)
-  const state = m ? m[1] : null
+  let state = m ? m[1] : null
   const tail = m ? String(m[2]) : ''
+  // §T2 修复:轮换器在 --json 档把结论(state/counts)写进 stdout 的 JSON 行,而 ROTATE-RESULT
+  // 文本行走 stderr;execFileSync 在 exit 0 时不返回 stderr ⇒ 优先解析 stdout JSON 的 state 字段。
+  {
+    try {
+      const jsonLine = text.split('\n').filter(Boolean).pop()
+      const j = jsonLine ? JSON.parse(jsonLine) : null
+      if (j && typeof j.state === 'string') state = j.state
+    } catch {}
+  }
   const kv = (key) => {
     const mm = tail.match(new RegExp(`\\b${key}=(\\S+)`))
     return mm ? mm[1] : null
   }
   if (state === null) {
-    logger(`⚠️ 暴露凭据轮换:未取到结论行(ROTATE-RESULT)⇒ 本轮读数未判定,不等于"没有暴露条目"(§0.3)`)
-    notify(
-      '暴露凭据轮换未判定',
-      `轮换器没有交出结论行。\nstderr 前 200:${String(r.err ?? '').slice(0, 200) || '(空)'}`,
-      {
-        severity: 'warning',
-        dedupKey: 'exposed-credential-rotation;no-result-line',
-        logger,
-      },
+    // 未判定:轮换器没交出任何结论(取数面故障/库离线),不等于"有暴露条目"。
+    // 降级为安静日志,不向机主发 WARNING(误报治理;真暴露走 fake-rotation/failed 分支)。
+    logger(
+      `ℹ️ 暴露凭据轮换:未取到结论(state=null)⇒ 本轮读数未判定,不等于"没有暴露条目"(§0.3);不报警,下轮重试。stderr 前 200:${String(r.err ?? '').slice(0, 200) || '(空)'}`,
     )
     return { ran: true, ok: false, state: 'no-result-line' }
   }
@@ -7153,6 +7198,9 @@ export function auditFeedbackLoopClosure(opts = {}) {
     if (!inc || typeof inc !== 'object') continue
     if (inc.status === 'verified' || inc.status === 'rolled_back') continue
     const stages = inc.stages || {}
+    // §T5:建单未落地(ticketed=undetermined,即 dry-run/skip/undetermined 登记残留)≠ 真"链路停滞待处理",
+    // 跳过 —— 否则 guardian 自己产的 dry-run 登记残留会反复报"反馈闭环卡住"(见 deploy-feedback-ledger 的 dry-run 行)
+    if (String(stages.ticketed ?? '') === 'undetermined') continue
     const at = inc.evidence?.feedbackAt || inc.evidence?.signalAt || ''
     const t = Date.parse(at)
     if (!Number.isFinite(t) || !(now - t > windowMs)) continue // 处置窗口内:先给人时间
