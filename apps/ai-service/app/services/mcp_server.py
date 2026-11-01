@@ -4637,7 +4637,22 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
         import os
         import subprocess
 
-        repo_path = os.path.abspath(repo)
+        # 2026-11-01 安全强化:`repo` 是工具入参(模型可控),旧实现直接 abspath 就当 cwd,
+        # 于是 role=0 的"只读 git 面"能对服务器任意目录跑 status/ls-files/log/diff ⇒ 跨目录
+        # 信息泄露。同文件 :685 那把尺子(_validate_path_in_workspace)本来就是本模块的路径
+        # 归属单源,13 个调用点都在问它 —— 这一格漏挂不是"没有判据",是"判据没被问"。
+        ok_repo, repo_resolved = _validate_path_in_workspace(repo)
+        if not ok_repo:
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"仓库路径不在工作区白名单内:{repo_resolved}",
+                "ok": False,
+                "error": "PATH_NOT_IN_WORKSPACE",
+            }
+        repo_path = repo_resolved
         if not os.path.isdir(repo_path):
             return {
                 "tool": "git_operations",

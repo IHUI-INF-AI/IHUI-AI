@@ -168,6 +168,12 @@ export default function SsoLoginPage() {
       // 在那条规则下成立、在浏览器里却解析成 https://evil.com(WHATWG 把 special scheme 下的
       // 反斜杠等值当斜杠),于是"过了服务端校验的 code"会被送到外站。落点判据统一走
       // @/lib/sso-redirect-guard 这一把尺子,不在此另写一份 origin 判断(AGENTS §3)。
+      // 门 278 具名豁免(台账 scripts/data/redirect-origin-pinned-exemptions.json):
+      // 这里刻意**不**传 allowedOrigins。理由:本 target 是 POST /api/auth/sso/code 的 redirectUri,
+      // 权威落点集在服务端 zod refine(apps/api/src/routes/auth-sso.ts 的 isSafeRedirectUri =
+      // 站内相对 ∪ localhost ∪ env SSO_ALLOWED_ORIGINS ∪ chromiumapp ∪ 深链 scheme)—— 站在此处再
+      // 收一层"仅第一方"会把 CLI 的 localhost 回调与扩展的 chromiumapp 回跳一起砍断,而那是该页的
+      // 产品契约;服务端拒签时 r.success=false ⇒ 本页根本不导航,所以外站值拿不到 sso_code。
       const target = resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true })
       // 2026-10-22 修复"已登录却误报登录失效":
       // ensureSsoRedirectAllowed 完全依赖 auth_token cookie(页面守卫只认 cookie、不认内存 Bearer)。
@@ -246,7 +252,12 @@ export default function SsoLoginPage() {
       // 票 A3/G-413 的"那一处裸用":这一跳此前**不经过任何判据**(既不走 ensureSsoRedirectAllowed
       // 的守卫探测,也不走导航安全判据),redirect 参数由客户端整条可控 —— 而它正发生在
       // "刚完成企业 SSO、会话已落 cookie"的那一刻。现与其余落点共用同一把尺子。
-      router.push(resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true }))
+      router.push(
+        resolveSafeRedirectTarget(resolveLoginTarget(), {
+          allowDeepLink: true,
+          allowedOrigins: firstPartyAllowedOrigins(),
+        }),
+      )
     }
   }, [fromOidc, token, user, resolveLoginTarget, router])
 
@@ -265,7 +276,10 @@ export default function SsoLoginPage() {
     autoReturnTriedRef.current = true
     let cancelled = false
     void (async () => {
-      const target = resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true })
+      const target = resolveSafeRedirectTarget(resolveLoginTarget(), {
+        allowDeepLink: true,
+        allowedOrigins: firstPartyAllowedOrigins(),
+      })
       // 探测 + 被拦时续种 cookie(后端 /auth/refresh 会重下 httpOnly auth_token)后复测。
       const allowed = await ensureSsoRedirectAllowed(target)
       if (cancelled || !allowed) return

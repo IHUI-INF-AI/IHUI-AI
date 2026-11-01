@@ -109,6 +109,12 @@ const trackVisualizationBodySchema = z.object({
 })
 
 export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
+  // 2026-11-01 安全强化:身份一律取令牌主体(request.userId),**不再**接受
+  // `body/query.userId || request.userId` 这种"客户端自报优先"的写法。
+  // 立因(AGENTS §5「认证不等于授权」的同一条禁令):这四处的 `userId` 来自请求体/查询串,
+  // 是客户端可整写的字段 —— 攻击者填别人的 uuid 就能读/写他人上下文(检索结果、可视化、
+  // 压缩统计、会话记忆含偏好)。请求形状不动(schema 仍接受该字段,老客户端不炸),但值只作
+  // 展示、不作归属;归属由承载层显式入参传入,这正是"令牌主体不得被丢弃"那条要求的形状。
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
@@ -211,7 +217,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { userMessage, conversationId, mentions, messages, totalBudget, userId, editorState } =
+    const { userMessage, conversationId, mentions, messages, totalBudget, editorState } =
       parsed.data
     try {
       const enriched = await contextEngineService.enrich({
@@ -222,8 +228,8 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
         totalBudget,
         // 编辑器状态:请求体给了就带上,没给保持不发(默认关语义)
         ...(editorState ? { editorState } : {}),
-        // 优先使用请求体 userId,为空时回退到 JWT 解析的 request.userId
-        userId: userId || request.userId,
+        // 身份只认令牌主体(见文件顶部 2026-11-01 注记);请求体里的 userId 不再参与归属。
+        userId: request.userId,
       })
       return reply.send(success(enriched))
     } catch (e) {
@@ -298,12 +304,9 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { conversationId, userId } = parsed.data
+    const { conversationId } = parsed.data
     try {
-      const data = await contextEngineService.getVisualization(
-        conversationId,
-        userId || request.userId,
-      )
+      const data = await contextEngineService.getVisualization(conversationId, request.userId)
       return reply.send(success(data))
     } catch (e) {
       request.log.error(e)
@@ -322,9 +325,8 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { userId } = parsed.data
     try {
-      const data = await contextEngineService.getCompressionStats(userId || request.userId)
+      const data = await contextEngineService.getCompressionStats(request.userId)
       return reply.send(success(data))
     } catch (e) {
       request.log.error(e)
@@ -343,12 +345,9 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { conversationId, userId } = parsed.data
+    const { conversationId } = parsed.data
     try {
-      const data = await contextEngineService.getSessionMemory(
-        conversationId,
-        userId || request.userId,
-      )
+      const data = await contextEngineService.getSessionMemory(conversationId, request.userId)
       return reply.send(success(data))
     } catch (e) {
       request.log.error(e)
