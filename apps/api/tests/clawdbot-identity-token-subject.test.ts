@@ -11,7 +11,8 @@
  *    ⇒ 自报他人 userId 即可读他人历史、并把回复写进他人的桶;
  *  · `POST /clawdbot/pairing/confirm` 同型:自报 userId 成为 `PairingSession.userId`(属主),
  *    `pairing/request` 的可选自报值随后被 confirm 继承。
- * 本面整体挂 `requireAdmin`(`:163` 插件级 preHandler),所以暴露对象是"管理员席之间/持管理员
+ * 本面整体挂插件级 `server.addHook('preHandler', requireAdminRouteGuard)`(存续由
+ * `clawdbot-admin-gate-wiring.test.ts` 钉),所以暴露对象是"管理员席之间/持管理员
  * 令牌者",不是任意登录用户 —— 但**主体仍必须来自令牌**:管理后台代客操作在这套实现里
  * 没有任何"代客"语义(chat/pairing 都只往那个键里写)。
  *
@@ -65,6 +66,20 @@ vi.mock('../src/plugins/auth.js', () => ({
 vi.mock('../src/plugins/require-permission.js', () => ({
   // 与生产同形:requireAdmin 内部先 authenticate(无凭据 ⇒ 401),再过 roleId(不足 ⇒ 403)。
   requireAdmin: vi.fn(async (request: any, reply: any) => {
+    const principal = principalOf(request)
+    if (!principal) {
+      return reply.status(401).send({ code: 401, message: 'Authentication required' })
+    }
+    request.userId = principal.userId
+    request.jwtPayload = principal
+    if (principal.roleId < 1) {
+      return reply.status(403).send({ code: 403, message: 'Admin required' })
+    }
+  }),
+  // 2026-11-01 本面档位对齐到 requireAdminRouteGuard(= 上面那枚 + requireActiveUser)。
+  // 整片替换式替身**少一枚名字就是 undefined**,Fastify 会拿 undefined 当 hook ⇒ 本文件
+  // 全部用例在收集期就崩(与 verifyLoginPassword / requireAuth 两次同型事故一条毛)。
+  requireAdminRouteGuard: vi.fn(async (request: any, reply: any) => {
     const principal = principalOf(request)
     if (!principal) {
       return reply.status(401).send({ code: 401, message: 'Authentication required' })
