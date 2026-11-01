@@ -4829,14 +4829,24 @@
     },
     {
       "path": ".release-it.mjs",
-      "status": "unread",
+      "status": "deep",
       "files": 1,
-      "read": 0
+      "read": 1,
+      "verified": "agent",
+      "evidence": [".release-it.mjs:7-33"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": ".release-it.mjs",
+          "lines": 34
+        }
+      ],
+      "notes": "release-it 配置:commit/tag 模板走 conventionalcommits、changelog 由 scripts/release-it/changelog-writer.mjs 生成;github/gitlab/npm 发布全部关闭(14-22),即只做 git 侧打标。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
     },
     {
       "path": "packages",
       "status": "unread",
-      "notes": "兜底:未被上面具体切片吃掉的 packages 内文件(配置壳等)。",
+      "notes": "兜底:未被上面具体切片吃掉的 packages 内文件(配置壳等)。｜S-COVER 2026-11-01 现读校正:本兜底现仅剩 2 份未读 —— packages/desktop/electron-builder.config.js(769 行)、packages/desktop/scripts/bundle.mjs(764 行);同批 40 份已各自单文件入表(见本表末段 S-COVER 切片)。",
       "read": 0
     },
     {
@@ -19445,6 +19455,726 @@
         }
       ],
       "notes": "体积遥测状态文件读写:严格校验字段类型、ENOENT 视为无状态、写入走 临时文件+rename 原子替换且失败清理。可迁移:状态文件必须原子写。｜10-30 g35-s21 逐枚整读到体入账(58L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/native/macos-window-bounds/main.swift",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/native/macos-window-bounds/main.swift:1-13",
+        "packages/desktop/native/macos-window-bounds/main.swift:29-47"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/native/macos-window-bounds/main.swift",
+          "lines": 59
+        }
+      ],
+      "notes": "独立 Swift 二进制:用 CGWindowListCopyWindowInfo 取系统设置窗口 bounds,该 API 不需要 TCC 权限(取窗口图像才需要),正好满足授权引导时无权限的前提;常驻每 interval 打一行 JSON,setvbuf 行缓冲避免父进程读不到;多语言进程名白名单(21)。消费方只认 layer 0,否则会吸附到工具提示等辅助层。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/app-asar-repack.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/app-asar-repack.mjs:14-24",
+        "packages/desktop/scripts/app-asar-repack.mjs:50-60"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/app-asar-repack.mjs",
+          "lines": 67
+        }
+      ],
+      "notes": "app.asar 重打包:先写候选 .next 再原子替换 archive 与 .unpacked sidecar,finally 清候选;unpack glob 去掉了 **/,because @electron/asar 用绝对路径匹配不跨隐藏目录(CI TMPDIR 在 .tmp 下),否则 native 会被写回 asar 形成物理双份。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/audit-bundle-size.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/audit-bundle-size.mjs:22-29",
+        "packages/desktop/scripts/audit-bundle-size.mjs:45-49"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/audit-bundle-size.mjs",
+          "lines": 49
+        }
+      ],
+      "notes": "发布产物体积闸:按扩展名给 500MiB 上限,超限 stderr 报错并 exit 1;--artifact-path 必填否则当场抛。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/build-macos-window-bounds.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/build-macos-window-bounds.mjs:37-41",
+        "packages/desktop/scripts/build-macos-window-bounds.mjs:46-62"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/build-macos-window-bounds.mjs",
+          "lines": 70
+        }
+      ],
+      "notes": "非 darwin 直接 exit 0;缺 swiftc 只 warn 后 exit 0(吸附是观感增强,浮窗 fail-open 到屏幕底部仍可用);arm64 与 x86_64 各编一份再用 lipo 合成 universal。构建失败同样 exit 0 —— 刻意不让桌面构建因可选产物变脆。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/conversation-docker-plan.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/scripts/conversation-docker-plan.mjs:3-22"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/conversation-docker-plan.mjs",
+          "lines": 23
+        }
+      ],
+      "notes": "往 Docker 套件文档表格里插一行 verified:已有该行则幂等返回 inserted:false,找不到 end marker 则返回 error 而不乱写。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/koffi-package-assets.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/koffi-package-assets.mjs:9-34",
+        "packages/desktop/scripts/koffi-package-assets.mjs:40-66"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/koffi-package-assets.mjs",
+          "lines": 79
+        }
+      ],
+      "notes": "CUA MCP server 的 koffi 原生运行时:从 pnpm 虚拟 store 逐个 koffi@* 候选里按 package.json.name 反查真实安装根,只把目标平台的 koffi.node + index.js/package.json/index.d.ts 拷进 glm/node_modules/koffi;verifyStagedKoffi 复查产物。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/node-pty-package-assets.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/node-pty-package-assets.mjs:7-41",
+        "packages/desktop/scripts/node-pty-package-assets.mjs:43-59"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/node-pty-package-assets.mjs",
+          "lines": 71
+        }
+      ],
+      "notes": "Linux 打包 beforePack 阶段把 @lydell/node-pty-linux-* 的 pty.node 复制进 node-pty/prebuilds/<key>,否则安装包缺 pty.node 导致终端启动失败;因 exports 只暴露 lib/index.js,解析路径靠从入口向上找 prebuilds 而不是 resolve package.json。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/powershell-command.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/powershell-command.mjs:18-30",
+        "packages/desktop/scripts/powershell-command.mjs:32-37"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/powershell-command.mjs",
+          "lines": 37
+        }
+      ],
+      "notes": "Windows 调用约定:动态值先 base64 再拼进 -EncodedCommand,避免 Program Files 空格/引号/分号被 PowerShell 二次解析成脚本;Security 模块从当前 powershell.exe 的 $PSHOME 显式加载,免得继承 pwsh 的 PSModulePath 后加载到不兼容模块。取舍:-EncodedCommand 让命令行审计看不到脚本正文,安全性与可审计性此消彼长。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/prepare-runtime-assets.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/prepare-runtime-assets.mjs:29-34",
+        "packages/desktop/scripts/prepare-runtime-assets.mjs:51-60"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/prepare-runtime-assets.mjs",
+          "lines": 64
+        }
+      ],
+      "notes": "打包期本地运行时资产编排:prepare:agent-bundle 必跑,native-search/browser-import-helper/macos-window-bounds 按平台与显式开关条件挂;ZCODE_SKIP_REMOTE_ASSETS=1 可跳过 remote 资产(Windows job 不需要,避免串行下载逼近 CI 1 小时上限);每个子脚本打 start/end 计时。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/stage-agent-bundle.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/stage-agent-bundle.mjs:16-24",
+        "packages/desktop/scripts/stage-agent-bundle.mjs:31-50"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/stage-agent-bundle.mjs",
+          "lines": 51
+        }
+      ],
+      "notes": "agent bundle 暂存唯一实现:dev 链与打包链共用,清空 glm 目录后拷 zcode.cjs 并写 .node-bundle-meta.json。清空是刻意的 —— 本地残留的上一次打包原生二进制会被 electron-builder 整目录拷进安装包。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/target-platform.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/target-platform.mjs:3-35",
+        "packages/desktop/scripts/target-platform.mjs:37-53"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/target-platform.mjs",
+          "lines": 57
+        }
+      ],
+      "notes": "目标平台归一化:os 认 mac/macos/darwin/osx→darwin 等,arch 认 x64/amd64/x86_64→x64;不支持的值直接抛。linux 额外补 npmLibc=glibc,否则跨平台 prepare 只传 --os/--cpu 时 npm 按宿主机 libc 判不匹配。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/ttft-otlp-receiver.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/scripts/ttft-otlp-receiver.mjs:13-52"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/ttft-otlp-receiver.mjs",
+          "lines": 55
+        }
+      ],
+      "notes": "本地验收用 OTLP 接收器:解 gzip、按 /v1/traces 与其余走不同 codec 解码、records 上限 512、body 上限 4MB、只 listen 127.0.0.1;可用 argv[3] 延迟响应来测 TTFT。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/write-dev-ready-marker.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/scripts/write-dev-ready-marker.mjs:6-17"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/write-dev-ready-marker.mjs",
+          "lines": 25
+        }
+      ],
+      "notes": "dev 构建就绪标记:main/host/preload/scheduler 四个白名单 target,未知 target 直接抛(旧白名单缺 scheduler 曾让 production build 在 bundle 成功后仍失败);每个 config 自写 marker,dev.mjs 才敢启动 Electron。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/server/build-remote.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/server/build-remote.ts:19-28",
+        "packages/server/build-remote.ts:40-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/server/build-remote.ts",
+          "lines": 58
+        }
+      ],
+      "notes": "remote 单文件 bundle:esbuild CJS 输出,.node 全 external 交给运行期按 ./build/Release/pty.node 解析;banner 注入 __import_meta_url/__import_meta_dirname 并 define 替换 import.meta.*;产物过 validateRemoteServerBundle 后附第三方声明。成本:cwd 必须落在 packages/server(读 ../../package.json 与 outfile 都是相对路径)。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/server/buildRemoteValidation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/server/buildRemoteValidation.ts:6-18"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/server/buildRemoteValidation.ts",
+          "lines": 19
+        }
+      ],
+      "notes": "校验 remote 产物里没有残留裸 undici 运行时导入(remote 只上传单个 cjs,残留即等于远端还要 node_modules)。观察:入参接口声明了 bundledInputs,函数体只解构 source ⇒ 该字段是全文件的死参数,不参与任何判定。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/server/tsup.config.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/server/tsup.config.ts:30-49", "packages/server/tsup.config.ts:61-72"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/server/tsup.config.ts",
+          "lines": 76
+        }
+      ],
+      "notes": "HTTP server 构建:workspace 包(@zcode/*)全内联,ssh2/node-pty native 与一堆 CJS 依赖(node-forge/yauzl/yazl 等)必须外置,否则 ESM bundle 里命中动态 require 直接崩;tsconfig 单独指向 tsconfig.build.json 消除 es2025 warning。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/zcode-server-cli/scripts/verify-remote-ssh-target.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/zcode-server-cli/scripts/verify-remote-ssh-target.mjs:3-16",
+        "packages/zcode-server-cli/scripts/verify-remote-ssh-target.mjs:18-22"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/zcode-server-cli/scripts/verify-remote-ssh-target.mjs",
+          "lines": 22
+        }
+      ],
+      "notes": "验证目标白名单:显式 --target 只接受 linux-x64/linux-arm64(正则),否则抛;未指定时按宿主 arch 推导并对不支持的 arch 报错;再映射成 docker 的 linux/amd64|arm64。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/zcode-server-cli/tsup.config.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/zcode-server-cli/tsup.config.ts:16-31",
+        "packages/zcode-server-cli/tsup.config.ts:32-47"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/zcode-server-cli/tsup.config.ts",
+          "lines": 48
+        }
+      ],
+      "notes": "server-cli 两个入口;ESM 产物里没有 __dirname/banner 注入等价变量;native 与 @lydell/node-pty-* 平台包全外置。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/ui/vite/pdfJsCMapsPlugin.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/vite/pdfJsCMapsPlugin.ts:36-44",
+        "packages/ui/vite/pdfJsCMapsPlugin.ts:45-78"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/vite/pdfJsCMapsPlugin.ts",
+          "lines": 81
+        }
+      ],
+      "notes": "PDF.js 预定义 CMap 双路提供:build 期 emitFile,dev 期自建中间件发 bcmap(否则 ReportLab 生成的 STSong-Light 中文在应用内预览里整段丢失)。正向对照:中间件先做 fileName !== basename(fileName) 校验再 join,dev 静态读盘这一面是有目录穿越防护的。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/build-windows-browser-import-helper.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/build-windows-browser-import-helper.mjs:34-48",
+        "packages/desktop/scripts/build-windows-browser-import-helper.mjs:52-60"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/build-windows-browser-import-helper.mjs",
+          "lines": 88
+        }
+      ],
+      "notes": "用系统 csc.exe 编 C# helper(非 win32 直接 skip);arm64 必须显式 ZCODE_CSC_PATH 指向 arm64 能力编译器;AssemblyVersion 由 package.json version 生成,生成前用正则校验 version 与 commit,避免把非法值注入 C# 源码。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/desktop-product-identity.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/desktop-product-identity.mjs:40-51",
+        "packages/desktop/scripts/desktop-product-identity.mjs:53-76"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/desktop-product-identity.mjs",
+          "lines": 94
+        }
+      ],
+      "notes": "安装包身份(flavor)与后端环境(ZCODE_ENV)分两轴:test 一律 Preview,production 默认正式身份、ZCODE_PREVIEW_IDENTITY=1 才转 Preview;开关只认字符串 \"1\",true 之类直接抛错(防 YAML 路由层漏匹配却被打成生产包);打包态 AUMID 必须复用 electron-builder appId,否则快捷方式/开始菜单/进程被 Windows 认成三个应用。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/desktop-native-package-policy.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/desktop-native-package-policy.mjs:16-33",
+        "packages/desktop/scripts/desktop-native-package-policy.mjs:59-99"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/desktop-native-package-policy.mjs",
+          "lines": 100
+        }
+      ],
+      "notes": "桌面包原生资产策略:剪枝掉 @napi-rs/canvas、@lydell/node-pty-* 源包、安装机现场编译物与非目标平台 prebuild;再解析 asar list 的 pack/unpack 状态,凡 native 文件仍以 packed 留在 app.asar 即记违规(检查面与剪枝面同源,双保险)。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/run-production-build.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/run-production-build.mjs:26-38",
+        "packages/desktop/scripts/run-production-build.mjs:89-101"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/run-production-build.mjs",
+          "lines": 107
+        }
+      ],
+      "notes": "生产构建:先清 out/main|host|preload|renderer 与三个 ready marker(否则旧 chunk 会被 electron-builder 的 out/**/* 打进 asar,重新暴露未压缩 JS 与 sourcemap 尾注),再并行跑 tsup 与 vite;ZCODE_E2E_KEEP_BUILD_CACHE=1 可跳过清理。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/runtime-dependency-closure.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/scripts/runtime-dependency-closure.mjs:58-101"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/runtime-dependency-closure.mjs",
+          "lines": 108
+        }
+      ],
+      "notes": "运行时依赖闭包:递归收集 dependencies/optionalDependencies(optional 缺失不算错),且必须从父包 package.json 相对解析而非固定 lookup roots —— pnpm 多版本下 yazl 要 buffer-crc32@1.x,取第一个目录会拷到错误版本。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/patch-nsis-install-section.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/scripts/patch-nsis-install-section.mjs:24-82"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/patch-nsis-install-section.mjs",
+          "lines": 101
+        }
+      ],
+      "notes": "给 electron-builder 的 installSection.nsh 补可见阶段:不复制整份上游模板,而是每次打包必须命中五处结构锚点(SetDetailsPrint none / SHELL_CONTEXT cleanup / HKEY_CURRENT_USER cleanup / installApplicationFiles / 快捷方式),锚点漂移立即抛错提醒重新对齐;靠 marker 幂等,并按原 EOL 回写。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/build-metadata.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/build-metadata.mjs:113-125",
+        "packages/desktop/scripts/build-metadata.mjs:82-95"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/build-metadata.mjs",
+          "lines": 136
+        }
+      ],
+      "notes": "构建元数据单一来源:version/commit/buildTime/electron-builder 版本统一落 out/metadata/build-meta.json,tsup 与 vite 都读同一份 —— 两个独立进程各算一次时间点会让 About 展示的信息对不上同一产物;commit 取不到时回落 ZCODE_COMMIT。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/packaged-sourcemap-cleanup.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/packaged-sourcemap-cleanup.mjs:15-25",
+        "packages/desktop/scripts/packaged-sourcemap-cleanup.mjs:79-117"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/packaged-sourcemap-cleanup.mjs",
+          "lines": 117
+        }
+      ],
+      "notes": "发布产物 sourcemap 清除:只匹配行首的 sourceMappingURL 注释 —— 压缩 bundle 的模板字符串里可能内嵌这段文本(如内嵌 TS 编译器源码),行中匹配会把该行剩余内容整段吞掉产成语法损坏的产物;asar 走解包→清理→重打包,resources 目录就地清。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/devElectronAppBundle.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/devElectronAppBundle.mjs:44-49",
+        "packages/desktop/scripts/devElectronAppBundle.mjs:98-113"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/devElectronAppBundle.mjs",
+          "lines": 119
+        }
+      ],
+      "notes": "macOS dev 副本:只改启动副本的 Info.plist,不污染 node_modules 里的 Electron;补 CFBundleURLTypes 让 zcode:// 不再被 LaunchServices 交给 com.github.Electron;用源二进制 size+mtime 指纹代替整份读内存比对(且刻意不比副本 mtime —— cp 会丢亚毫秒精度);cp 必须 verbatimSymlinks,否则 framework 相对链接被改写后 GPU 进程被沙箱拦成 “GPU process isnt usable”。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/ensure-local-runtime-assets.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/ensure-local-runtime-assets.mjs:40-70",
+        "packages/desktop/scripts/ensure-local-runtime-assets.mjs:106-130"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/ensure-local-runtime-assets.mjs",
+          "lines": 130
+        }
+      ],
+      "notes": "dev 启动前自检本地 runtime 资产:embedded search 复用正式 verifier 判定(不只看路径存在),校验失败即删产物逼下次重新解压;macOS window-bounds 二进制被 .gitignore 排除,新 checkout/换 worktree 后缺失只会静默 fail-open,所以 dev 侧也必须 ensure。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/node-pty-rebuild.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/node-pty-rebuild.mjs:19-43",
+        "packages/desktop/scripts/node-pty-rebuild.mjs:100-113"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/node-pty-rebuild.mjs",
+          "lines": 119
+        }
+      ],
+      "notes": "node-pty 重编译决策:win32 若已有目标 prebuild 就跳过 electron-rebuild —— electron-rebuild 在 Windows 强制 build-from-source,会把 CI 绑到 VS Spectre 库上导致安装失败;非 win32 一律 rebuild。决策函数是纯函数(existingPaths 注入),便于构造面证明。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/dev.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/dev.mjs:20-37",
+        "packages/desktop/scripts/dev.mjs:59-107"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/dev.mjs",
+          "lines": 211
+        }
+      ],
+      "notes": "dev 启动编排:显式解析本地 electron 二进制而不赌 PATH(pnpm+PowerShell 下常只拿到 node);必须等三个 ready marker + main bundle 齐,再轮询 localhost/127.0.0.1/[::1] 三个回环地址找 Vite;Electron 放进独立进程组,SIGINT/SIGTERM 后 1.5s 强杀、5s 硬退出,防 macOS 上 orphan 到 ppid=1。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/scripts/prepare-agent-node-bundle.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/scripts/prepare-agent-node-bundle.mjs:237-265",
+        "packages/desktop/scripts/prepare-agent-node-bundle.mjs:267-295"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/scripts/prepare-agent-node-bundle.mjs",
+          "lines": 295
+        }
+      ],
+      "notes": "打包态 agent 运行时:agent 无原生插件,改由 Electron 内置 Node 执行 zcode.cjs(单平台 ~180MB→~16MB);同时把两个官方插件(browser-use-plugin / node-repl-host)与 bundled-skills 按 bootstrap 的 rootCandidates 期望 stage 到 glm/packages/*。缺陷:stageOfficialPlugins 第255 行读 plugin.requiredSeedPaths ?? [],而两个插件对象只定义了 requiredRuntimePaths ⇒ 该 seed 复查恒为空,等于死校验(stage 后无法发现 dist 漏拷)。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/tsup.config.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/tsup.config.ts:67-95",
+        "packages/desktop/tsup.config.ts:130-181"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/tsup.config.ts",
+          "lines": 266
+        }
+      ],
+      "notes": "四个 target(main/preload/host/scheduler):生产 minify+keepNames、关 sourcemap、legalComments=none(默认会留 license 注释);chunkNames 按 target 分目录,防 main/host 共享 out 根时互相覆盖 chunk 导致“缺少命名导出”;E2E coverage build 例外保留 map。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/vite.config.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/vite.config.ts:53-107",
+        "packages/desktop/vite.config.ts:143-209"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/vite.config.ts",
+          "lines": 236
+        }
+      ],
+      "notes": "renderer 三入口(main/resource-manager/cua-permission-panel);生产用 hidden sourcemap(不在产物暴露映射入口);E2E 覆盖在原始 TS/TSX AST 上预插桩并落 baseline —— post-transform 插桩会把覆盖点反投影到 import/interface 行;依赖别名用 Node 解析真实安装根,避免硬编码 node_modules 子路径。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/zcode-server-cli/scripts/verify-remote-ssh.mjs",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/zcode-server-cli/scripts/verify-remote-ssh.mjs:234-267",
+        "packages/zcode-server-cli/scripts/verify-remote-ssh.mjs:269-286"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/zcode-server-cli/scripts/verify-remote-ssh.mjs",
+          "lines": 311
+        }
+      ],
+      "notes": "远程验证编排:一次性 ssh 密钥 + ubuntu22 sshd 容器 + ssh -L 隧道,验证 daemon 只绑远端 127.0.0.1、/ws 可升级、/ws/host 无 ticket 401 且 ticket 一次性(重放必须 401)、node-pty 在真实目标平台可 spawn、生命周期 ready→stop→stopped;docker build 走 stdin Dockerfile 且 context 用空临时目录,避免把 dist-release 几百 MB 传给 daemon。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/services/test/importedClaudeRecovery.test.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/services/test/importedClaudeRecovery.test.ts:17-30",
+        "packages/services/test/importedClaudeRecovery.test.ts:116-135"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/services/test/importedClaudeRecovery.test.ts",
+          "lines": 138
+        }
+      ],
+      "notes": "回归测试:导入的 Claude 历史在 desktop-continuous 与 web-remote-replayable 两种 clientMode 下都要恢复成真会话(createSession 带 importedHistory、persistence=immediate),且旧 snapshot 文件内容逐字节不变。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/services/test/providerConfigMigration.test.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/services/test/providerConfigMigration.test.ts:67-97",
+        "packages/services/test/providerConfigMigration.test.ts:99-137"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/services/test/providerConfigMigration.test.ts",
+          "lines": 137
+        }
+      ],
+      "notes": "三个反例即判据:①旧 config.json 迁移进 personal.json 且源文件不动、旧文件只读一次;②personal.json 已存在时完全不读旧文件(readCount=0);③旧配置非法时保留原文件并报 stage=json,绝不提交空 personal 配置。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/services/test/nonCliAcpRetirement.test.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/services/test/nonCliAcpRetirement.test.ts:88-110",
+        "packages/services/test/nonCliAcpRetirement.test.ts:135-152"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/services/test/nonCliAcpRetirement.test.ts",
+          "lines": 246
+        }
+      ],
+      "notes": "退役 ACP 面回归:①打开任务索引不得改写退役的 acp_session_id 列与用户行;②有合法 ACP snapshot 但 owner 报 not found 时必须原样抛 owner error(不能被旧快照掩盖);③Desktop 与 replayable 两类投影差异只体现在 pendingElicitations(undefined vs [])。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/ui/test/nonCliAcpRetirement.test.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/test/nonCliAcpRetirement.test.ts:28-45",
+        "packages/ui/test/nonCliAcpRetirement.test.ts:47-64"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/test/nonCliAcpRetirement.test.ts",
+          "lines": 110
+        }
+      ],
+      "notes": "退役 Agent 面回归:第三方 provider 身份(claude/codex/gemini/opencode)被 zcodeTaskMetaSchema 拒收、退役设置字段被剥离但当前偏好保留、Claude ACP 的文本输出不再被当成 ask-user-question 答案、错误文案只认当前 status 而不吃旧 rawOutput。｜S-COVER 2026-11-01 逐枚整读到体(克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
     }
   ],
   "ticketIndex": {
