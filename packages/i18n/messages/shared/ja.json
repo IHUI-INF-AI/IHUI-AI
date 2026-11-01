@@ -789,6 +789,8 @@
     "contentRequired": "フィードバック内容を入力してください",
     "contact": "連絡先",
     "contactPlaceholder": "任意、ご連絡のため",
+    "namePlaceholder": "名前を入力してください",
+    "tip": "いただいたご意見は製品・サービスの改善に活用します。送信後は処理をお待ちください。",
     "empty": "フィードバック記録がありません",
     "failed": "送信に失敗しました、後でもう一度お試しください",
     "fieldContact": "連絡先",
@@ -1392,6 +1394,8 @@
     "enterprise": "エンタープライズ"
   },
   "share": {
+    "appTitle": "IHUI AI — 学習をより効率的に",
+    "timelineTitle": "IHUI AI、スマート学習アシスタント",
     "title": "共有",
     "remark": "備考",
     "remarkPlaceholder": "備考を入力してください(任意)",
@@ -2754,5 +2758,79 @@
     "rateTitle": "コミッション比率",
     "openVip": "VIP 会員を開通してコミッションプランに参加",
     "rateEmpty": "コミッション率はまだありません"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "VIP会員になると分潤プランに参加できます。",
+      "rule2": "友達が会員になると、会員費の20%をコミッションとして獲得できます。",
+      "rule3": "コミッションは友達の支払い成功後24時間以内にアカウントへ自動決済されます。",
+      "rule4": "アカウント残高が100元以上になるとWeChatまたはAlipayへ出金申請できます。"
+    }
+  },
+  "orderRefund": {
+    "d1": "不要になった",
+    "d2": "誤注文・重複注文",
+    "d3": "品質問題",
+    "d4": "説明と異なる",
+    "d5": "その他の理由"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "よくある質問"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "特典はまだありません",
+      "myBenefits": "マイ専用特典",
+      "loadFailed": "読み込みに失敗しました",
+      "tierCatalog": "等級別特典",
+      "tier": {
+        "normal": "一般会員",
+        "silver": "シルバー会員",
+        "gold": "ゴールド会員",
+        "diamond": "ダイヤモンド会員"
+      },
+      "b": {
+        "discount": "ショッピング割引",
+        "points": "ポイント加速",
+        "gift": "新規会員特典",
+        "sign": "毎日チェックイン",
+        "news": "お得情報",
+        "pointsMul": "ポイント倍率",
+        "birthday": "誕生日ギフト",
+        "shipping": "送料無料特典",
+        "coupon": "専用クーポン",
+        "service": "専属サポート",
+        "preview": "優先体験",
+        "event": "特別イベント",
+        "discountD1": "全商品 5%オフ",
+        "pointsD1": "1円で1ポイント",
+        "giftD": "登録限定ギフト",
+        "signD": "毎日チェックインでポイント獲得",
+        "newsD": "キャンペーン通知",
+        "discountD2": "全商品 10%オフ",
+        "pointsMulD2": "1.2倍ポイント加速",
+        "birthdayD": "誕生日限定ギフト",
+        "shippingD2": "毎月3回送料無料",
+        "couponD2": "毎月2枚のクーポン",
+        "signD2": "チェックインで2倍ポイント",
+        "discountD3": "全商品 15%オフ",
+        "pointsMulD3": "1.5倍ポイント加速",
+        "birthdayD3": "誕生日ダブルギフト",
+        "shippingD3": "送料無料無制限",
+        "serviceD": "1対1専属サービス",
+        "couponD3": "毎月5枚のクーポン",
+        "previewD": "新機能の優先体験",
+        "discountD4": "全商品 20%オフ",
+        "pointsMulD4": "2倍ポイント加速",
+        "birthdayD4": "誕生日プレミアムギフト",
+        "shippingD4": "送料無料無制限",
+        "serviceD4": "24時間専属コンシェルジュ",
+        "couponD4": "毎月10枚のクーポン",
+        "previewD4": "新機能の先行体験",
+        "eventD": "オフライン限定イベント"
+      }
+    }
   }
 }

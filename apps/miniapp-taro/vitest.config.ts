@@ -9,6 +9,15 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, 'src') },
+      // RN 壳目录(与 config/index.ts 的构建别名同源,2026-11-01 补):壳承载页以
+      // `@rn-shells/<Name>` 直引 apps/mobile-rn/src/screens/*。构建侧早就配了这条,
+      // 测试侧漏配 ⇒ vitest 解析不到,CI 实测 FAIL tests/dev-space-page-render.test.tsx
+      // "Cannot find package '@rn-shells/DeveloperScreen'"。两处必须同源,否则"能构建、
+      // 不能测"这种半边绿会一直存在。
+      {
+        find: '@rn-shells',
+        replacement: path.resolve(__dirname, '../../apps/mobile-rn/src/screens'),
+      },
       // 强制 react / react-dom 单实例(dual React 问题):
       // @ihui/shared 源码从 packages/shared 上下文解析 react → react@19.0.0,
       // 而 react-dom@18.3.1 从 apps/miniapp-taro 上下文解析 react → react@18.3.1。

@@ -36,6 +36,8 @@ import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
+// 活跃状态判据的唯一出口(2026-11-01,S-ACTIVE):listActive 与并发计数共用一份
+import { isActiveDispatchStatus } from '../utils/dispatch-status.js'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -161,6 +163,12 @@ export interface ExtendedDispatchInput extends DispatchInput {
   quotas?: QuotaConfig
   /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
   agentId?: string
+  /**
+   * 租户归属 = 鉴权后的 request.userId。**只由路由从鉴权结果注入**,不从请求体读
+   * (dispatchSchema 里没有该字段 ⇒ 客户端自报会被 Zod 剥掉)。
+   * 落在派单记录上并随 Redis 持久化,供 GET /subagents/all 按租户口径过滤。
+   */
+  ownerUserId?: string
 }
 
 /** 全局统计 */
@@ -362,10 +370,6 @@ interface DispatchRuntime {
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
   /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
   agentTaskId?: string
-  /** G-998156:该 run 的累加读数已被全局统计消费到的步骤水位(已计入 _stats 的 steps 数)。
-   *  undefined/0 = 尚未进账(界下);>0 = 该 run 曾进过账,此后 steps 只会因重试/续跑追加
-   *  —— 即「曾溢出/重放」的那一位(上游 workflow-runs-eviction.ts 的 truncated 同位)。 */
-  statsConsumedSteps?: number
   /** ai-service 编排原始结果(D27 交付清单聚合数据源,仅成功分支赋值;DAG/多轮通信无单一编排结果时为 null) */
   orchestration?: AiOrchestrationResult | null
 }
@@ -628,6 +632,9 @@ function buildDispatch(
     // 路由层不另存映射表(§0.6)。入口没有会话上下文时 input.conversationId 为 undefined,
     // 记录上就不带这个字段 ⇒ 载荷里也没有 ⇒ 消费方按「未归属会话」渲染(不塞常量)。
     conversationId: input.conversationId,
+    // 租户归属随派单记录一起落库(同 conversationId:落点唯一 = 派单记录本身)。
+    // 入口没带(非路由入口 / 旧调用)⇒ undefined ⇒ 记录不带该字段 ⇒ 列表按「未标注」处理。
+    ownerUserId: input.ownerUserId,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   }
@@ -1278,11 +1285,6 @@ class SubagentDispatchService {
   private runtimes = new Map<string, DispatchRuntime>()
   private redisClient: Redis | null = null
   private readonly _maxConcurrent = DEFAULT_MAX_CONCURRENT
-  private _stats = {
-    totalDispatches: 0,
-    totalTokens: 0,
-    totalDurationMs: 0,
-  }
 
   constructor(redisClient?: Redis | null) {
     if (redisClient) {
@@ -1329,6 +1331,8 @@ class SubagentDispatchService {
         dag: runtime.dag ? JSON.stringify(runtime.dag) : '',
         priority: runtime.priority,
         quotas: runtime.quotas ? JSON.stringify(runtime.quotas) : '',
+        // 租户归属随记录落 Redis:进程重启后从 hash 恢复仍能按租户过滤(不因重启丢归属)
+        ownerUserId: d.ownerUserId ?? '',
       })
       await this.redisClient.sadd(REDIS_KEY_IDS, id)
       // 优先级队列
@@ -1533,6 +1537,8 @@ class SubagentDispatchService {
           result: raw.result || undefined,
           createdAt: raw.createdAt || nowIso(),
           updatedAt: raw.updatedAt || nowIso(),
+          // 旧 hash 没有该字段 ⇒ undefined ⇒ 「未标注」,不塞常量顶替
+          ownerUserId: raw.ownerUserId || undefined,
         }
         const retry = raw.retry ? (JSON.parse(raw.retry) as RetryConfig) : undefined
         const dag = raw.dag ? (JSON.parse(raw.dag) as DagConfig) : undefined
@@ -1649,8 +1655,6 @@ class SubagentDispatchService {
       event: 'dispatch_created',
       data: { mode, role, retry, priority, hasDag: !!dag, hasQuotas: !!quotas },
     })
-
-    this._stats.totalDispatches++
 
     // 异步调 ai-service(不 await,立即返回 pending)
     // with_communication 需要 Redis client
@@ -1785,7 +1789,6 @@ class SubagentDispatchService {
         dispatch.result = quotaError
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1824,7 +1827,6 @@ class SubagentDispatchService {
         runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1845,7 +1847,6 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1872,7 +1873,6 @@ class SubagentDispatchService {
         dispatch.status = 'failed'
         dispatch.result = result.message
         runtime.completedAt = Date.now()
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2033,7 +2033,6 @@ class SubagentDispatchService {
     dispatch.result = allResults
     runtime.completedAt = Date.now()
     runtime.hasFailed = hasFailed
-    this._updateStats(runtime)
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
@@ -2113,7 +2112,6 @@ class SubagentDispatchService {
         runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2129,7 +2127,6 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2148,7 +2145,6 @@ class SubagentDispatchService {
         dispatch.status = 'failed'
         dispatch.result = result.message
         runtime.completedAt = Date.now()
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2159,30 +2155,6 @@ class SubagentDispatchService {
         return
       }
     }
-  }
-
-  /**
-   * 更新全局统计。
-   *
-   * G-998156:照上游 workflow-runs-eviction.ts `admitsNewEntry(run, live)` 的形状收紧累加型
-   * 读数 —— `runtime.steps.reduce` 的全量每次都在,**重复进账**(同一 run 的 steps 被再次喂给
-   * 本函数:续跑/重放/多终态分支)会把旧步骤的 token 再加一遍。收紧条件**只挂在坏过的样本上**:
-   *  - `statsConsumedSteps > 0`(该 run 曾进账 = 曾溢出/重放)⇒ 只累计**越过已消费水位**的新增
-   *    步骤(live = 步数越过水位,与上游 advancesWaterMark 同形);
-   *  - 界下(首次进账)一律放行,与旧实现逐字同形 —— 健康路径一条都不动。
-   */
-  private _updateStats(runtime: DispatchRuntime): void {
-    const durationMs = (runtime.completedAt ?? 0) - (runtime.startedAt ?? 0)
-    const consumedFrom = runtime.statsConsumedSteps ?? 0
-    const truncated = consumedFrom > 0
-    const live = runtime.steps.length > consumedFrom
-    const admitsNewEntry = truncated !== true || live
-    const tokens = admitsNewEntry
-      ? runtime.steps.slice(consumedFrom).reduce((acc, s) => acc + s.tokenUsage.total, 0)
-      : 0
-    this._stats.totalTokens += tokens
-    this._stats.totalDurationMs += durationMs
-    runtime.statsConsumedSteps = runtime.steps.length
   }
 
   /** 取消派单:仅 pending/running 可取消 */
@@ -2207,7 +2179,7 @@ class SubagentDispatchService {
   listActive(): SubagentDispatch[] {
     return Array.from(this.runtimes.values())
       .map((r) => r.dispatch)
-      .filter((d) => d.status === 'pending' || d.status === 'running')
+      .filter((d) => isActiveDispatchStatus(d.status))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
@@ -2218,22 +2190,55 @@ class SubagentDispatchService {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
-  /** 全局统计 */
-  getStats(): DispatchStats {
-    const all = Array.from(this.runtimes.values()).map((r) => r.dispatch)
-    const active = all.filter((d) => d.status === 'pending' || d.status === 'running').length
+  /**
+   * 取单条派单(只读,不改任何状态)。
+   *
+   * S-ACL(2026-11-01):按 id 的 6 个端点原先直接调 cancel/resume/getDispatchStats/...,
+   * 路由层拿不到记录就无法判归属 ⇒ 知道 id 即可跨租户读/取消。
+   * 这里只补一个**读**出口给路由层做归属闸;鉴权判据留在路由(§22c:判据单一份)。
+   * **不**给 cancel/resume 塞 owner 参数 —— 那两个方法还背着并发上限与状态机语义。
+   */
+  findById(id: string): SubagentDispatch | null {
+    return this.runtimes.get(id)?.dispatch ?? null
+  }
+
+  /**
+   * 统计读数(六个字段同源:都从 `runtimes` 的同一个集合派生)。
+   *
+   * S-STATS(2026-11-01):原实现的 total / totalTokens / avgDurationMs 读自进程级累加器
+   * `_stats`(无租户维度)⇒ 任何登录用户拿到的是**全站**派单数与 token 总量。
+   * 传 `visible` 就只算该调用方可见的记录;判据仍由路由提供(isDispatchVisibleTo),
+   * 本类不持有租户表达(§22c:判据单一份)。
+   *
+   * 为什么删掉累加器而不是按 owner 再开一份桶:
+   *  - token/时长本来就在记录上(`runtime.steps[].tokenUsage` / `startedAt|completedAt`),
+   *    累加器只是同一份数据的**第二份副本** —— 副本与记录生命周期脱钩正是 G-998156 那一族
+   *    (重复进账/续跑重放)缺陷的根;按需聚合后这类漂移结构上不存在。
+   *  - 分桶累加还要在 3 个写点上各带 owner,任何一处漏带就静默落进别人的桶;
+   *    按需聚合没有写点,只有一处读口径。
+   *
+   * 口径与旧实现对齐:total = 记录数(旧 `totalDispatches` 在创建时 +1,而 runtimes 只增不减 ⇒ 等价);
+   * avgDurationMs 的分母仍是 total(未终态记录按 0 时长参与分母,与旧实现一致)。
+   */
+  getStats(visible?: (dispatch: SubagentDispatch) => boolean): DispatchStats {
+    const runtimes = Array.from(this.runtimes.values()).filter(
+      (r) => !visible || visible(r.dispatch),
+    )
+    const all = runtimes.map((r) => r.dispatch)
+    const active = all.filter((d) => isActiveDispatchStatus(d.status)).length
     const completed = all.filter((d) => d.status === 'completed').length
     const failed = all.filter((d) => d.status === 'failed').length
-    const total = this._stats.totalDispatches
-    const avgDurationMs = total > 0 ? Math.round(this._stats.totalDurationMs / total) : 0
-    return {
-      active,
-      completed,
-      failed,
-      total,
-      avgDurationMs,
-      totalTokens: this._stats.totalTokens,
+    const total = all.length
+    let totalTokens = 0
+    let totalDurationMs = 0
+    for (const r of runtimes) {
+      totalTokens += r.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
+      if (r.startedAt !== undefined && r.completedAt !== undefined) {
+        totalDurationMs += r.completedAt - r.startedAt
+      }
     }
+    const avgDurationMs = total > 0 ? Math.round(totalDurationMs / total) : 0
+    return { active, completed, failed, total, avgDurationMs, totalTokens }
   }
 
   /** 单个 dispatch 资源统计 */
@@ -2392,9 +2397,16 @@ class SubagentDispatchService {
 
   // ---------- 优先级队列 ----------
 
-  /** 获取调度队列(按优先级排序) */
-  getQueue(): QueueEntry[] {
+  /**
+   * 获取调度队列(按优先级排序)。
+   *
+   * S-ACL(2026-11-01):`visible` 是**调用方给的可见性谓词**(默认不过滤 = 旧行为)。
+   * 判据本体只有一份(路由里的 isDispatchVisibleTo),service 不认识租户字段 —— 避免
+   * routes → service 的反向 import 造成环,也避免同一口径在两个文件各写一遍。
+   */
+  getQueue(visible?: (dispatch: SubagentDispatch) => boolean): QueueEntry[] {
     const entries = Array.from(this.runtimes.values())
+      .filter((r) => (visible ? visible(r.dispatch) : true))
       .filter((r) => {
         // 队列准入:未知/未来值兜 'failed'(不在准入集内 ⇒ 不会被当可调度项排进队列)
         const s = coerceKnownOr(
@@ -2520,9 +2532,14 @@ class SubagentDispatchService {
 
   // ---------- 拓扑推导 ----------
 
-  /** 推导拓扑:支持 DAG / critique / with_communication / debate / vote / 普通模式 */
-  getTopology(): RichSwarmTopology {
-    const all = this.listAll()
+  /**
+   * 推导拓扑:支持 DAG / critique / with_communication / debate / vote / 普通模式。
+   *
+   * S-ACL(2026-11-01):`visible` 同 getQueue —— 由路由传入 isDispatchVisibleTo,
+   * service 不复制租户口径。
+   */
+  getTopology(visible?: (dispatch: SubagentDispatch) => boolean): RichSwarmTopology {
+    const all = visible ? this.listAll().filter(visible) : this.listAll()
     const nodes: RichTopologyNode[] = []
     const edges: TopologyEdge[] = []
 

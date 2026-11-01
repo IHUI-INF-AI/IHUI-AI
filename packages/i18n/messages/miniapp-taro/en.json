@@ -578,6 +578,10 @@
     "copied": "Copied"
   },
   "ai": {
+    "messageVersion": {
+      "history": "History",
+      "regenerateFailed": "Failed to regenerate"
+    },
     "contextUsage": {
       "title": "Context Usage",
       "segSystem": "System prompt",
