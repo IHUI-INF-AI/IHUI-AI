@@ -905,6 +905,48 @@ export function barrelFullyCovered(pageText, sharedText, shellText, from = '@/co
 }
 
 /**
+ * 页侧「选项列表 / 确认弹窗」的文案键,是否都被承载壳的按钮组取用(2026-11-01 立)。
+ *
+ * 为什么不能只看"壳里有 appAlert(":表里已有的「用户提示」规则认 `appAlert(` 形态,那是给
+ * showToast 用的;拿同一句去销 showActionSheet/showModal 会把"壳用 appAlert 做的是另一件事"
+ * 的页放过(实测 pages/distribution/plan/index 的开通确认步壳侧真没有,而它同屏也有别的 appAlert)。
+ * 所以这里比的是**同一组键**:页的 itemList / showModal 文案键 ⊆ 壳 appAlert·Alert.alert
+ * 按钮数组里取的键。任一侧解析不出 ⇒ 返回 false(保守拒,误拒只是不动手)。
+ */
+export function confirmOptionsCovered(pageText, shellText) {
+  const p = maskComments(String(pageText ?? ''))
+  const pageKeys = new Set()
+  for (const m of p.matchAll(/showActionSheet\s*\(\s*\{[\s\S]{0,600}?itemList:\s*\[([\s\S]{0,400}?)\]/g))
+    for (const k of m[1].matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g)) pageKeys.add(k[1])
+  for (const m of p.matchAll(/showModal\s*\(\s*\{([\s\S]{0,600}?)\}\s*\)/g))
+    for (const k of m[1].matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g)) pageKeys.add(k[1])
+  if (pageKeys.size === 0) return false
+  const s = maskComments(String(shellText ?? ''))
+  // 括号配平取实参段:appAlert(title, msg, [{ text: t('…') }]) 里有嵌套括号,
+  // 用惰性 `\)` 正则会截在第一个右括号上 ⇒ 按钮数组整个读不到,对账恒判"没覆盖"(实测踩过)。
+  const shellKeys = new Set()
+  for (const m of s.matchAll(/\b(?:appAlert|Alert\.alert)\s*(?=\()/g)) {
+    const open = s.indexOf('(', m.index)
+    if (open < 0) continue
+    let depth = 0
+    for (let i = open; i < s.length; i++) {
+      const c = s[i]
+      if (c === '(') depth += 1
+      else if (c === ')') {
+        depth -= 1
+        if (depth === 0) {
+          for (const k of s.slice(open + 1, i).matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g))
+            shellKeys.add(k[1])
+          break
+        }
+      }
+    }
+  }
+  if (shellKeys.size === 0) return false
+  return [...pageKeys].every((k) => shellKeys.has(k))
+}
+
+/**
  * 这一页相对「共享屏本体 ∪ RN 壳」多出来的能力符号。空集 ⇒ 页面没带私有行为,可转。
  * pageTokens/sharedTokens/shellTokens 均为 Set|string(字符串现算)。
  */
@@ -1077,6 +1119,14 @@ export function judgeConversion({
   }
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
   shellCapabilityCovered(pageTokens, shellText, sharedText)
+  // 选项列表/确认弹窗(2026-11-01 立):按**同一组文案键**对账,不走符号名 ——
+  // 实测 pkg-learn/teacher/detail 端内 `showActionSheet({itemList:[tt('teacher.detail.contactMessage'),
+  // tt('teacher.detail.contactPhone')…]})`,承载壳 TeacherDetailScreen.tsx 用
+  // `appAlert(t('teacher.detail.contact'), undefined, [{ text: t('teacher.detail.contact…') }…])`
+  // —— RN 的按钮组就是同一件事,键同名同值;而 pages/distribution/plan/index 那两页的确认步
+  // 壳侧真没有对应键,这条对账会把它们留在拦下(不是靠 appAlert 出现过就放过)。
+  for (const t of ['Taro.showActionSheet', 'Taro.showModal'])
+    if (pageTokens.has(t) && confirmOptionsCovered(pageText, shellText)) pageTokens.delete(t)
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -1664,6 +1714,21 @@ function main(argv) {
         '',
       ),
     ], [true, false, false, false])
+    // S33(2026-11-01 立):选项/确认弹窗按**同一组文案键**对账。三臂钉死"不许靠 appAlert 出现过就放过"。
+    P('S33 确认弹窗对账:选项键全被壳按钮取用才销;壳按钮取别的键不销;页侧解析不出键不销', [
+      confirmOptionsCovered(
+        `Taro.showActionSheet({ itemList: [tt('a.contactMessage','发消息'), tt('a.contactPhone','打电话')] })`,
+        `const onContact = () => appAlert(t('a.contact'), undefined, [{ text: t('a.contactMessage') }, { text: t('a.contactPhone') }])`,
+      ),
+      confirmOptionsCovered(
+        `Taro.showActionSheet({ itemList: [tt('a.contactMessage','发消息'), tt('a.contactPhone','打电话')] })`,
+        `appAlert(t('a.contact'), undefined, [{ text: t('common.confirm') }])`,
+      ),
+      confirmOptionsCovered(
+        `Taro.showActionSheet({ itemList: options })`,
+        `appAlert(t('a.contact'), undefined, [{ text: t('a.contactMessage') }])`,
+      ),
+    ], [true, false, false])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
@@ -1787,6 +1852,7 @@ export const __test__ = {
   capabilityTokens,
   barrelNamedImports,
   barrelFullyCovered,
+  confirmOptionsCovered,
   navBarOnlyChrome,
   navBarCoveredOnScreen,
   pageOnlyCapabilities,
