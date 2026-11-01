@@ -17,7 +17,7 @@ import {
   type BackChevronPressableProps,
 } from '@ihui/shared/ui'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
-import { readFontMultiplier } from './MoreLink'
+import { useFontMultiplier } from './MoreLink'
 
 /**
  * 页头返回键(RN 端唯一实现,packages/app 各屏与 apps/mobile-rn 共用)——
@@ -40,13 +40,13 @@ import { readFontMultiplier } from './MoreLink'
  *    立项那一型,真机 A/B 定案),所以这里严格走数组形态,与改动前逐字同结构。
  *  - 按压态:`BACK_CHEVRON_PRESSED_OPACITY`(0.6),由共享核心恒定供出、映射到子 View opacity。
  *  - 图标字形:lucide-react-native `ChevronLeft`(守门 102 的 S0 机制清单按该字面量判矢量出口)。
- *  - 字号倍率:`readFontMultiplier`(系统字号缩放),墨迹边长 = glyphPx × 倍率。
+ *  - 字号倍率:`useFontMultiplier`(系统字号缩放),墨迹边长 = glyphPx × 倍率。
  */
 /// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;数字与居中结构在 BackChevronCore。
 const RN_PLATFORM: BackChevronPlatform<number, StyleProp<ViewStyle>, GestureResponderEvent> = {
   toUnit: (px) => px,
   glyphUnit: (px) => px,
-  readFontMultiplier,
+  useFontMultiplier,
   Pressable: function RnPressable({
     onActivate,
     accessibilityLabel,
