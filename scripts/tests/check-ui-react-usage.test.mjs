@@ -318,14 +318,12 @@ describe('check-ui-react-usage · §22c 镜像测试(判据一律走门体导出
     const rel = gate.toRel(join(REPO, ...WARN_HIT_REL.split('/')))
     assert.equal(rel, WARN_HIT_REL, `真面相对路径不逐字相等:${rel}`)
     assert.ok(!rel.includes('\\'), `相对路径里不得留反斜杠:${rel}`)
-    const outside = mkScratch('ihui-ui-react-usage-t5-')
-    try {
-      const far = gate.toRel(join(outside, 'x.tsx'))
-      assert.ok(far.startsWith('..'), `仓外路径必须带 ..(伪装成仓内就等于把别人的文件算进账):${far}`)
-      assert.ok(!far.includes('\\'), `仓外相对路径也得给正斜杠:${far}`)
-    } finally {
-      rmScratch(outside, { bestEffort: true })
-    }
+    // 2026-11-01 对齐 G-158 现形:mkScratch 批准根已入仓内 .DevEnv ⇒ 它不再是"仓外"样本。
+    // toRel 是纯路径数学(不触盘),用真仓的**兄弟路径**构造仓外样本即可,无需任何夹具。
+    const outside = join(dirname(REPO), 'ihui-ui-react-usage-t5-outside', 'x.tsx')
+    const far = gate.toRel(outside)
+    assert.ok(far.startsWith('..'), `仓外路径必须带 ..(伪装成仓内就等于把别人的文件算进账):${far}`)
+    assert.ok(!far.includes('\\'), `仓外相对路径也得给正斜杠:${far}`)
   })
 
   it('T6 CLI 装车(临时仓):FAIL 面 exit 1 / 补 import exit 0 / WARN 面默认档 exit 0 而 --strict exit 1', () => {

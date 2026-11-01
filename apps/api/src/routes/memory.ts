@@ -24,6 +24,8 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
+// G-815966:百分比裁剪走具名唯一出口,不再内联手搓(棘轮门基线 0)
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
 import {
   agentMetaLessons,
@@ -95,7 +97,7 @@ function parseRangeMs(range: string | undefined): number {
 function normalizeImportance(score: number | null | undefined): number {
   if (score === null || score === undefined || Number.isNaN(score)) return 0
   const v = score <= 1 ? score * 100 : score
-  return Math.max(0, Math.min(100, Math.round(v)))
+  return Math.round(clampPercent(v))
 }
 
 function toIso(ts: Date | null | undefined): string {

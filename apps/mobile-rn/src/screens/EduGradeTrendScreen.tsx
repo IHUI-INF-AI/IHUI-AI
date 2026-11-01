@@ -7,6 +7,8 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
+// G-815966:百分比裁剪走具名唯一出口,不再内联手搓(棘轮门基线 0)
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import {
   EduGradeTrendScreen as SharedEduGradeTrendScreen,
   type EduGradeTrendEntry,
@@ -101,7 +103,7 @@ function toWeakness(row: WeaknessRawRow): EduGradeWeaknessItem {
   const computed = totalScore > 0 ? (avgScore / totalScore) * 100 : 0
   const percentage =
     row.percentage !== null && row.percentage !== undefined ? toNumber(row.percentage) : computed
-  const clamped = Math.min(100, Math.max(0, percentage))
+  const clamped = clampPercent(percentage)
   const isWeak =
     typeof row.isWeak === 'boolean'
       ? row.isWeak
