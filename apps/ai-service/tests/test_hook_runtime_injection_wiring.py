@@ -236,9 +236,9 @@ async def test_agent_plan_execute_plan_injects_runtime(
 # 5. 静态源锁:三处构造点都经同一出口取 runtime(§0.6 单一真相源)
 # ---------------------------------------------------------------------------
 def test_all_three_construction_sites_use_single_outlet() -> None:
+    import app.routers.agent_plan as _p
     import app.routers.agents as _a
     import app.routers.engine as _e
-    import app.routers.agent_plan as _p
 
     for mod in (_a, _e, _p):
         src = inspect.getsource(mod)

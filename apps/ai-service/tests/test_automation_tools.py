@@ -147,7 +147,7 @@ class TestArgumentValidation:
 
     async def test_scheduled_at_requires_offset(self, monkeypatch):
         monkeypatch.setattr(at, "_api_request", _Recorder())
-        once = dict(schedule_type="once", rrule=None)
+        once = {"schedule_type": "once", "rrule": None}
         assert (await create_automation(_args(**once, scheduled_at="2026-11-01T09:00:00")))[
             "errorCode"
         ] == "INVALID_SCHEDULED_AT"  # 裸本地时间会被按服务器时区误读 ⇒ 拒
@@ -264,7 +264,7 @@ class TestRegistration:
         assert "create_automation" in tools_all
 
     def test_mcp_server_registration(self):
-        from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS
+        from app.services.mcp_server import _TOOL_HANDLERS, _TOOLS
 
         tool = next((t for t in _TOOLS if t.name == "create_automation"), None)
         assert tool is not None

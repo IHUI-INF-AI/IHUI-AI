@@ -18,8 +18,6 @@ from __future__ import annotations
 import socket
 from unittest.mock import patch
 
-import pytest
-
 
 class TestResolvePinnedTarget:
     def test_ip_literal_url_passthrough_shape(self):
