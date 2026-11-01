@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: rnSpacing['sm-loose'],
   } as ViewStyle,
   decorLeft: {
     width: 76,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     fontSize: BENEFIT_FONT_SIZE,
     lineHeight: BENEFIT_FONT_SIZE + 6,
     color: tokens.text.primary,
-    marginRight: 6,
+    marginRight: rnSpacing['xs-loose'],
   } as TextStyle,
   benefitText: {
     flex: 1,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     color: tokens.text.medium,
   } as TextStyle,
   moreBenefits: {
-    marginTop: 10,
+    marginTop: rnSpacing['sm-loose'],
     fontSize: MORE_FONT_SIZE,
     lineHeight: MORE_FONT_SIZE + 4,
     color: tokens.danger.DEFAULT,
@@ -516,9 +516,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.md,
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing.xs,
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
   } as ViewStyle,
   levelBadgeText: {
     fontSize: LEVEL_BADGE_FONT_SIZE,
