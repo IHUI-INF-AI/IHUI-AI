@@ -54,7 +54,13 @@ jobs:
 
       - name: Upgrade npm (Trusted Publishing 需 npm >= 11.5.1)
         # Node 22 自带的 npm 10.x 不认识 OIDC 换取流程,会直接按未登录处理。
-        run: npm install -g npm@^11.15.0
+        #
+        # 2026-11-01 供给链:`npm@^11.15.0` 是**区间**,而这一步发生在握着 NPM_TOKEN 与
+        # id-token 的发布链第一格 —— 区间意味着"任意一枚 11.x 新版本一旦上线,下一次发布
+        # 就自动跑在它上面",而 npm 自身的发布供应链并不在本仓的可信边界内。改成逐字钉版
+        # (现读 npm view npm@11 最新补丁档 11.21.1,仍满足 >= 11.5.1 的 OIDC 要求),
+        # 升级必须由人发起、可在 diff 里看见。
+        run: npm install -g npm@11.21.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

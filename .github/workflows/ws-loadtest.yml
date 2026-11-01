@@ -40,7 +40,10 @@ jobs:
           node-version: 22
 
       - name: Install autocannon
-        run: npm install -g autocannon
+        # 逐字钉版(现读 npm view autocannon = 8.0.0):`npm install -g autocannon` 每次拉最新,
+        # 同一枚提交的压测结果能在两个时间点之间不可比 —— 而这条作业产出的数字正是要拿来判
+        # "吞吐有没有退"的。版本来源不写死,升级必须由人在 diff 里发起。
+        run: npm install -g autocannon@8.0.0
 
       - name: Run WebSocket load test
         run: |
