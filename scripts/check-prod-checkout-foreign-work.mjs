@@ -24,8 +24,10 @@
  *          是 `<root>` 或 `<root>\\deploy\\prod-bundle`,直接当根用会漏)。
  *   通道 B nssm get(次通道,仅当 A 没给出根 ∧ 服务在位):nssm.exe 的位置按该服务 `ImagePath`
  *          现读(§5e"判断执行的是哪份文件按实际路径"),`NSSM_CANDIDATES` 只作兜底候选。
- *   通道 C 约定目录(兜底):`<devEnvRoot>/ihui-prod`(出口复用 seal-c-root-stray 的 `devEnvRoot`,
- *          §0.6 单一真相源)。这一条管"签出躺在盘上但承载体已被拆"那一格 —— 只按服务发现会瞎。
+ *   通道 C 约定目录(兜底):`prodCheckoutRoot(repoRoot)`(单源 `lib/prod-checkout-root.mjs`,
+ *          §0.6 单一真相源 —— 本器**不再自拼** `<devEnvRoot>/ihui-prod`,见 RP-90:那一写法在
+ *          "仓内 `.DevEnv` 在、`ihui-prod` 留盘根侧"的机器上候选恒缺,通道 C 被读成"量过·无此目录")。
+ *          这一条管"签出躺在盘上但承载体已被拆"那一格 —— 只按服务发现会瞎。
  *   通道 D 人工/复核:`--prod-root <path>` 或 `IHUI_PROD_CHECKOUT_ROOT`(阳性对照与"发现了但没判"
  *          时的定向复核出口;§0.8 写进文档的每条出路都必须真跑得通,已由镜像测试实跑钉住)。
  *   自我让路:解出的根若等于**本仓工作树根**,不计入判定面(记 `self-excluded`)。这不是漏判 ——

@@ -67,6 +67,7 @@ import {
   main as runScan,
   loadContractFile,
   unknownContractTargets,
+  panelVerdictOf,
   CONTRACT_FILE_REL,
 } from './_i18n-scan-helpers.mjs'
 // 判定面取材的唯一出口。本入口自己就要用 `catBatch` 读契约(--staged 档)与 `readWorktreeFile`
@@ -150,6 +151,9 @@ function printHelp() {
 cat-file --batch 读满,清单与内容同面同轮,盘上并行改动不参与判定);--staged ⇒ 索引 blob(提交链门禁);
 --worktree ⇒ 工作树磁盘(人工逃生舱)。任何 git 面取不到 ⇒ exit 2 未判定且**不回退磁盘**;两面旗同给 ⇒ exit 2。
 退出码:0 通过/跳过;1 --exit 1 下的死 key 或契约声明失效;2 无法判定(未判定,既非通过也非违规)。
+逐面板结论(2026-11-01 立):每端 token 形如 「端=ok(死键N)」/「端=exit 1(死键N,基线M)」/
+「端=ok(死键N,带--exit1则红)」/「端=ok(跳过:…)」/「端=未判定(exit 2)」,all 档与单档共用同一拼装
+实现 —— 死键计数与旗态编进结论本体,不带旗也不得把红端印成裸 ok(旧形态与 all --exit 1 相互矛盾)。
 
 支持 target(5 端):
   web          (默认,代码扫描含 web/miniapp-taro/mobile-rn,因 web i18n 跨端共享)
@@ -258,6 +262,8 @@ for (const n of names) {
     n === 'web'
       ? `.ihui-agent/tmp/i18n-dead-keys-${TODAY}.md`
       : `.ihui-agent/tmp/i18n-dead-keys-${TODAY}-${n}.md`
+  // 判定凭据逐面板独立(一枚对象一端一份,不复用 —— 复用就是本次缺陷的同型隐患)。
+  const report = {}
   const code = runScan({
     name: n,
     messagesPath: `${targetCfg.localeDir}/zh-CN.json`,
@@ -271,21 +277,22 @@ for (const n of names) {
     face: FACE,
     root: ROOT,
     contractPreload: contractRaw,
+    report,
   })
-  const label = code === 0 ? 'ok' : code === 2 ? '未判定(exit 2)' : `exit ${code}`
-  verdicts.push(`${n}=${label}`)
+  // 结论拼装只有一份实现(panelVerdictOf,住在公共层):all 档与单档共用,同码同面同输入
+  // 必然逐字同值。旧写法 `code===0?'ok':...` 把"死键 43 但没带 --exit 1"印成 `ok`,
+  // 与 all --exit 1 的 `exit 1` 互相矛盾(2026-11-01 实测:单档不带旗 = 缺陷本体)。
+  verdicts.push(panelVerdictOf(n, code, report))
   // 取最大值而不是"最后一次不等就覆盖":否则前一端 exit 1、后端 exit 0 会把红点吞成绿。
   // 2(未判定)> 1(死 key):任何一端取材失败都拒绝出具"全部已判"合格证,由末行如实点名。
   worst = Math.max(worst, code)
 }
-if (args.target === 'all') {
-  // 结论必须逐端可见:只报一个总 exit 会让"某一端根本没被扫"看起来像全绿
-  console.log(`[scan-dead-i18n-keys] all → ${verdicts.join(' ')}`)
-  if (skipped.length) console.log(`[scan-dead-i18n-keys] 无 JS 扫描面,未计入:${skipped.join(', ')}`)
-} else {
-  console.log(
-    `[scan-dead-i18n-keys] ${args.target} → ${verdicts.join(' ')}(判定面:${FACE_LABEL[FACE]})`,
-  )
-}
+// 末行只有一条拼装路径:all 与单端共用同一份逐面板 verdicts 串(旧写法两条分支文案不同形,
+// "判定面"后缀只在单端档出现,拿 all 的末行和单档末行并排比必然对不上 —— 同族缺陷第二格)。
+console.log(
+  `[scan-dead-i18n-keys] ${args.target} → ${verdicts.join(' ')}(判定面:${FACE_LABEL[FACE]})`,
+)
+if (args.target === 'all' && skipped.length)
+  console.log(`[scan-dead-i18n-keys] 无 JS 扫描面,未计入:${skipped.join(', ')}`)
 process.exit(worst)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

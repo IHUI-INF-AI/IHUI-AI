@@ -289,7 +289,10 @@ export const getOrderList = (params?: { page?: number; pageSize?: number; status
  * (向前翻页按 id 去重的唯一锚点,见 pkg-ai/ai/server-chat-replay.ts 的 mapServerMessage)。
  * 注:api-client chat.ts 有 ConversationMessage(DB 持久化层),与此处 UI 层 ChatMessage 语义不同。
  */
-export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 'role'> {
+export interface ChatMessage extends Omit<
+  BaseChatMessage,
+  'id' | 'createdAt' | 'role' | 'parentMessageId'
+> {
   /** Miniapp 端只使用 user / assistant 两种角色(不发送 system) */
   role: 'user' | 'assistant'
   /** 服务端消息 id;端内流式行在拿到落库 id 前为空,故不得当必填读 */
@@ -312,6 +315,14 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 
   /** #12 小程序 AI 增强:工具卡片渲染数据(计划 / 工具 / 终端),
    *  由 SSE 事件累积写入助手消息,随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks */
   aiCards?: AICardsData
+  /**
+   * 版本族坐标(服务端盖章;端内 live 行没有这两个字段)。
+   * 族根 = `parentMessageId ?? id`,成员按 `siblingIndex` 升序 —— 判族/枚举的唯一入口是
+   * `@ihui/shared/chat/message-version-family` 的 `hasVersionFamilyCoords` / `versionFamilyMembers`,
+   * 端内**不得**另写一套判据(§22c)。
+   */
+  parentMessageId?: string | null
+  siblingIndex?: number | null
 }
 
 // ChatOptions / ChatResult 已下沉到 @ihui/api-client(endpoints/chat.ts),上方 re-export

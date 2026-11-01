@@ -24,6 +24,7 @@ import * as os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import type * as HooksModule from '../src/hooks/index.js';
+import type * as TrustModule from '../src/hooks/trust.js';
 
 const runHookSpy = vi.hoisted(() =>
   vi.fn<(event: string, ctx: Record<string, unknown>) => Promise<{ proceed: boolean }>>(
@@ -45,7 +46,7 @@ const normalizeFolderPath = vi.hoisted(() => (p: string): string => {
 });
 
 vi.mock('../src/hooks/trust.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/hooks/trust.js')>();
+  const actual = await importOriginal<typeof TrustModule>();
   return {
   ...actual,
   normalizeFolderPath,

@@ -6737,6 +6737,37 @@ const checks = [
       '     取证:node scripts/check-like-wildcard-escape.mjs --self-test(14 例,含变异自证)',
     ].join('\n'),
   },
+  // 编号 280:注册前现读全仓门号 280 出现 0 次(上一枚是 279;本仓无 plan-id-lease 之类的
+  // 门号租赁器物 —— `scripts/lib/plan-id-lease.mjs` 管的是 PROJECT_PLAN 的票号,不是门号 ⇒ 取号规则
+  // 就是"注册前现读最大 + 1",见上一行注释体例)。
+  // 立因(票 O69,2026-11-01):`scripts/rotate-local-dev-db-password.mjs` 已入库(自检 7/7、换前备份、
+  // 换后"旧口令被 PG 拒收 ∧ 新口令全消费面 PING_OK"、jsonl 留痕 90 天老化),但它的 `--apply` 要求
+  // 8801/8802/8803 全空才肯动 ⇒ 活服务在跑就永远轮不上,窗口只能靠人盯。本门把"窗口到没到"变成
+  // 巡检里的一行读数:超期(读器物留痕末条 ts,30 天)∧ 三口全空 ⇒ `due` 并打印
+  // `would run: node scripts/rotate-local-dev-db-password.mjs --apply`。
+  // 三档读数 skip / deferred / due / undetermined,**本门恒 exit 0**:
+  //   - 真派发不在提交链上(git-guardian 的 sweepLocalDevDbRotation 是唯一 spawner),本门默认**零 spawn**,
+  //     只在人给 `--trigger`/`IHUI_ROTATE_DEV_DB=1` 时才真跑 —— "巡检顺手换一次库口令"是比"没轮换"更坏的
+  //     失效方向;
+  //   - 端口探测走 node:net connect(300ms 上限,三口并行),不用 netstat 硬解析、不起 Windows 原生 exe;
+  //   - 取不到留痕/坏行/端口判不了 ⇒ undetermined 且仍 0:机器证不出窗口空就是没空,但不许因此把提交拖红
+  //     (§12e:机器状态判据不阻塞提交)。
+  {
+    id: '280',
+    label: '🔑 本机 dev 库口令轮换窗口(非阻塞读数;超期∧8801/8802/8803 全空 ⇒ would-run,默认不换)',
+    script: 'check-dev-db-rotation-window.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_DEV_DB_ROTATION_WINDOW',
+    onFailHint: [
+      '  💡 本门只读数、恒 exit 0;打印 state=due 不等于"该在这里换口令",而是提示"窗口刚空出来"。',
+      '     真跑(风险自担,会改本机 dev 库口令):node scripts/check-dev-db-rotation-window.mjs --trigger',
+      '     或 IHUI_ROTATE_DEV_DB=1 node scripts/check-dev-db-rotation-window.mjs。',
+      '  💡 state=undetermined = 取不到输入(留痕缺失/坏行、端口探测未判定)⇒ 未判定,不给绿灯也不拦提交;',
+      '     留痕缺失通常是"本机从未成功轮换过",先看 node scripts/rotate-local-dev-db-password.mjs --plan。',
+      '     取证:node --test scripts/tests/check-dev-db-rotation-window.test.mjs(9 例,含两条变异自证)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

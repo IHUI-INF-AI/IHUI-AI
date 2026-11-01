@@ -264,13 +264,8 @@
         ]
       },
       "topic.detail.loading": {
-        "reason": "c72a93dda9 为「跨端同屏同字」补五语言该键:同一屏 pkg-content/topic 的 loading 文案在小程序端 static 取(apps/miniapp-taro/src/pkg-content/topic/detail.tsx:200),RN 端共享屏改走骨架/loadingMore 故本端无静态引用。该键同时被本端测试钉成形状键:apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单(:163-179,含 :165)逐语言断言 topic.detail.* 15 键取到非空且不等于键名 —— 删键必须与该测试同批,单删本端词包即判 5 红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "reason": "形状键契约:生产端**当前无静态取词点**(2026-11-01 现读 packages/app/src/features/topic-detail/TopicDetailScreen.tsx 只取 pageTitle/following/publish/loadingMore/noMore/anonymous 等,不含本键;小程序 pkg-content/topic/detail.tsx 已从 200+ 行重构为 43 行,旧依据「detail.tsx:200 static 取」不再成立,故本轮把它从证据里摘掉而不是留在账上冒充核验过)。本键由 apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单逐语言钉住(topic.detail.* 15 键取到非空且不等于键名)—— 单删本端词包即 5 红,删键必须与该测试同批。c72a93dda9 立它时的跨端同屏同字前提已随重构变化,现按实测重述。",
         "evidence": [
-          {
-            "file": "apps/miniapp-taro/src/pkg-content/topic/detail.tsx",
-            "line": 200,
-            "contains": "topic.detail.loading"
-          },
           {
             "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
             "line": 175,

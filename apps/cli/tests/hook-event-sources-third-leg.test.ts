@@ -30,6 +30,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type * as HooksModule from '../src/hooks/index.js';
+
 const runHookSpy = vi.hoisted(() =>
   vi.fn<(event: string, ctx: Record<string, unknown>) => Promise<{ proceed: boolean }>>(
     async () => ({ proceed: true }),
@@ -37,7 +39,7 @@ const runHookSpy = vi.hoisted(() =>
 );
 
 vi.mock('../src/hooks/index.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/hooks/index.js')>();
+  const actual = await importOriginal<typeof HooksModule>();
   return { ...actual, runHook: runHookSpy };
 });
 

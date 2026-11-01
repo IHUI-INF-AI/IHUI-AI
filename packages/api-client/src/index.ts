@@ -299,7 +299,6 @@ export * from './endpoints/ai-media.js'
 export * from './endpoints/auth.js'
 export * from './endpoints/banner.js'
 export * from './endpoints/business.js'
-export * from './endpoints/category.js'
 export * from './endpoints/chat.js'
 // D179:会话 Issue 绑定流出口(searchIssues / bindIssue / unbindIssue)
 export * from './endpoints/issue-binding.js'

@@ -31,6 +31,21 @@ import { settleSubagentOnParentTurnEnd } from '@ihui/shared/subagents/parent-tur
 import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import type { QueueSendOutcome } from '@ihui/shared/chat/input-notices'
+// D75 侧任务生命周期最小真实腿(2026-11-01 装腿):四态 / 运行位置 / 过期与批量清理判定
+// **一律取共享模块这一份**,端内不得再写 `Date.now() - createdAt > 24h` 这类第二套过期算式
+// (保留窗口 = 共享的 DEFAULT_SIDE_TASK_TTL_MS,由 isSideTaskExpired 内部取值)。
+import {
+  collectExpiredSideTasks,
+  type CleanedSideTaskEntry,
+  type SideTaskRunLocation,
+  type SideTaskState,
+} from '@ihui/shared/chat/side-task-lifecycle'
+// 条目 → 任务投影与「是否待答」判据的单一出处(住在 lib:组件测试 mock 掉 store 也 mock 不掉判据)
+import {
+  SIDE_QUESTION_RUN_LOCATION,
+  isPendingSideQueueItem,
+  sideTaskFromQueueItem,
+} from '@/lib/side-task-projection'
 import type { InterjectionDeclaration } from '@/hooks/use-chat/runtime-capabilities'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 // 票71(V2 #23)第二切片(2026-10-24):chat 多端同步 —— 裁定的唯一实现是契约内核,
@@ -194,6 +209,19 @@ export interface SideQueueItem {
   text: string
   /** 入队时间戳(Date.now()) */
   createdAt: number
+  /**
+   * D75 生命周期态(2026-11-01 装腿):取值唯一出处 = 共享 `SIDE_TASK_LIFECYCLE_STATES`。
+   * 三个瞬间点写入(见 `hooks/use-chat/slash-commands.ts` 的 answerSideQuestion):
+   * 入队 → running / 补答起答 → running(幂等重申"正在产出")/ 流末答案落地 → completed。
+   * 缺省 = 本字段落地前已持久化的老快照,投影时按 running 处理(不臆造已完成)。
+   */
+  state?: SideTaskState
+  /**
+   * D75 并行运行位置:取值唯一出处 = 共享 `SIDE_TASK_RUN_LOCATIONS`。
+   * 侧问走 `runBestOfN(question, 1)` 单副本 REST 即答,只写本地消息流、不碰工作区文件,
+   * 与主任务共用同一会话环境且**不另开检出** ⇒ 本端实测事实恒为 sameEnvironment。
+   */
+  location?: SideTaskRunLocation
 }
 
 /**
@@ -716,6 +744,18 @@ export interface ChatState {
   removeSideQuestion: (conversationId: string, id: string) => void
   /** D28 快速侧问:出队指定会话桶的队首一条(流结束自动补答时调用);桶空返回 null */
   shiftSideQuestion: (conversationId: string) => SideQueueItem | null
+  /** D75(2026-11-01 装腿)瞬间②/③:就地改写某条侧问的生命周期态。
+   *  条目不存在 ⇒ no-op(补答路径可能已被「撤回」摘走,不复活条目)。 */
+  setSideTaskState: (conversationId: string, itemId: string, state: SideTaskState) => void
+  /** D75 瞬间③(即答路径,无队列条目):把已产出的侧问回答登记为 completed 条目,
+   *  让「临时任务关闭后消失」这条显式声明有真实承载体;空文本 / 无会话 ⇒ no-op。 */
+  recordSideTaskAnswer: (conversationId: string, text: string) => void
+  /** D75:取队首**尚未产出回答**(running)的一条,不移除(消费权交给补答执行器,
+   *  由它在流末写 completed);桶里没有待答项 ⇒ null。 */
+  peekPendingSideQuestion: (conversationId: string) => SideQueueItem | null
+  /** D75 清理:按共享判据 `collectExpiredSideTasks` 收走过期条目并**返回**被收走项
+   *  (渲染件据此显示「来自已清理的 {标题}」);running 条目结构上收不走(共享判据 L183/L229)。 */
+  cleanupExpiredSideTasks: (conversationId: string, now: number) => CleanedSideTaskEntry[]
   /** D38 队列语义完整交互(2026-09-24 立,对标 Codex followUpQueueMode)四动作。
    *  **W27 纪律**:只作用于尚未消费的队列项(重排/移除/编辑),队首选择逻辑
    *  (shiftSideQuestion + message-input.tsx 流结束 effect + use-message-send.ts 短路)一行不动。 */
@@ -1969,10 +2009,14 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     set((s) => {
       const trimmed = text.trim()
       if (!conversationId || !trimmed) return s
+      // D75 瞬间①「入队」:侧问任务一登记就是 running —— 此刻答案尚未产出,
+      // 共享判据对 running 不适用保留窗口(side-task-lifecycle.ts:183),排队中的问题不会被误清。
       const entry: SideQueueItem = {
         id: genId(),
         text: trimmed,
         createdAt: Date.now(),
+        state: 'running',
+        location: SIDE_QUESTION_RUN_LOCATION,
       }
       const bucket = s.sideQueueByConversation[conversationId] ?? []
       return {
@@ -2005,6 +2049,60 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       return { sideQueueByConversation: nextMap }
     })
     return head
+  },
+
+  // ── D75 侧任务生命周期最小真实腿(2026-11-01 装车)────────────────────────────
+  // 约定:本层只做「状态搬运」,过期 / 清理 / 关闭确认的**判据一律在共享模块**
+  // (`@ihui/shared/chat/side-task-lifecycle`);这里不出现任何 TTL 算术。
+  setSideTaskState: (conversationId, itemId, state) =>
+    set((s) => {
+      const bucket = s.sideQueueByConversation[conversationId]
+      if (!bucket?.some((q) => q.id === itemId)) return s
+      const next = bucket.map((q) => (q.id === itemId ? { ...q, state } : q))
+      return {
+        sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
+      }
+    }),
+
+  recordSideTaskAnswer: (conversationId, text) =>
+    set((s) => {
+      const trimmed = text.trim()
+      if (!conversationId || !trimmed) return s
+      const entry: SideQueueItem = {
+        id: genId(),
+        text: trimmed,
+        createdAt: Date.now(),
+        state: 'completed',
+        location: SIDE_QUESTION_RUN_LOCATION,
+      }
+      const bucket = s.sideQueueByConversation[conversationId] ?? []
+      return {
+        sideQueueByConversation: {
+          ...s.sideQueueByConversation,
+          [conversationId]: [...bucket, entry],
+        },
+      }
+    }),
+
+  peekPendingSideQuestion: (conversationId) =>
+    (get().sideQueueByConversation[conversationId] ?? []).find(isPendingSideQueueItem) ?? null,
+
+  cleanupExpiredSideTasks: (conversationId, now) => {
+    const bucket = get().sideQueueByConversation[conversationId] ?? []
+    // 判据只读:哪几枚被收走由共享 collectExpiredSideTasks 决定(端内不重算过期)
+    const cleaned = collectExpiredSideTasks(bucket.map(sideTaskFromQueueItem), now)
+    if (cleaned.length === 0) return cleaned
+    const ids = new Set(cleaned.map((e) => e.id))
+    set((s) => {
+      const current = s.sideQueueByConversation[conversationId]
+      if (!current) return s
+      const next = current.filter((q) => !ids.has(q.id))
+      const nextMap = { ...s.sideQueueByConversation }
+      if (next.length > 0) nextMap[conversationId] = next
+      else delete nextMap[conversationId]
+      return { sideQueueByConversation: nextMap }
+    })
+    return cleaned
   },
 
   // D38 队列语义完整交互(2026-09-24 立):重排/移除/编辑/打断预备四动作。
@@ -2056,10 +2154,14 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     }),
 
   interruptAndRun: (conversationId) => {
-    const head = get().sideQueueByConversation[conversationId]?.[0]
+    const bucket = get().sideQueueByConversation[conversationId] ?? []
+    // D75 装腿后桶里可能留着已产出(completed)的条目:「打断并执行」只针对**待答**首条,
+    // 不得把已经回答过的问题再发一遍(无 state 的老快照按 running 处理 ⇒ 行为与装腿前一致)。
+    const head = bucket.find(isPendingSideQueueItem)
     if (!head) return null
     set((s) => {
-      const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
+      const current = s.sideQueueByConversation[conversationId] ?? []
+      const next = current.filter((q) => q.id !== head.id)
       const nextMap = { ...s.sideQueueByConversation }
       if (next.length > 0) nextMap[conversationId] = next
       else delete nextMap[conversationId]
