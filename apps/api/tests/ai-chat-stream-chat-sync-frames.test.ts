@@ -367,5 +367,34 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
       restore()
     }
   })
+
+  it('⑦ 越权负控:伪造 metadata.userId ⇒ 三帧投递对象仍是认证身份,伪造收件人零帧', async () => {
+    // 票71 越权纪律(2026-11-01):metadata.userId 是客户端可整写字段,曾经被
+    // `opts.metadata?.userId ?? request.userId` 优先采纳 ⇒ 任何人可把携带会话消息全文的
+    // 帧投递到任意在线用户连接。修复后投递对象只取承载层认证身份。
+    // 正向对照:用例①(自报值 == 认证值)路径不变。
+    const SPOOFED = '99999999-9999-4999-8999-999999999999'
+    mockUser()
+    const restore = mockAIServiceSSE([JSON.stringify({ type: 'chunk', content: '内容' })])
+    try {
+      await injectStream(server, {
+        conversationId: CONV_ID,
+        messageId: MESSAGE_ID,
+        userId: SPOOFED,
+      })
+      // 副作用没发生:没有任何一帧投递给被伪造的收件人
+      for (const frame of timeline) {
+        const members = frame.input.memberUserIds as readonly string[]
+        expect(members).not.toContain(SPOOFED)
+      }
+      // 三帧都到达且全部落在认证身份上
+      expect(timeline.map((f) => f.kind)).toEqual(['created', 'patched', 'terminal'])
+      for (const frame of timeline) {
+        expect(frame.input.memberUserIds).toEqual([USER_ID])
+      }
+    } finally {
+      restore()
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
