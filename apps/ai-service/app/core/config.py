@@ -374,6 +374,25 @@ class Settings(BaseSettings):
     workbuddy_tasks_lottery_draw_count: int = 5
     model_config = {"env_file": ".env", "extra": "ignore"}
 
+    def validate_secrets(self) -> None:
+        """启动时校验签名密钥(fail-fast,2026-11-01 安全强化)。
+
+        `JWT_SECRET` 是产物访问 token(`app/routers/artifacts.py` 的 HS256 签名)与内部票的
+        共同取密钥处。此前生产档没有任何启动校验器看它一眼 —— `validate_cors_origin` /
+        `validate_mtls_config` 都不管 —— 于是漏配时是**静默**落回代码里那个公开字面量
+        (`ihui-artifacts-dev-key`,在公开仓里可读),而不是报错。`/api/artifacts/f/` 又在
+        `JWT_PUBLIC_PATHS` 名单里(匿名可达,唯一门槛就是那枚签名 token),所以静默回落等于
+        "任何人可凭公开常量伪造 token 读取白名单目录内任意文件"。
+
+        非生产档允许空(本地开发),但取密钥那一侧会当场拒绝签/验(见 `_signing_key`),
+        不留"空值 + 公开常量"这条可走的路。
+        """
+        if self.node_env == "production" and not (self.jwt_secret or "").strip():
+            raise ValueError(
+                "生产环境 JWT_SECRET 必填且不得为空(产物签名 token 与内部票都取这一份;"
+                "空值会让签名密钥退化,而退化面是匿名可达的文件读端点)"
+            )
+
     def validate_cors_origin(self) -> None:
         """启动时校验 CORS_ORIGIN:任何环境禁止 "*" 通配符,生产环境禁止空值。"""
         origins = [o.strip() for o in self.cors_origin.split(",") if o.strip()]
