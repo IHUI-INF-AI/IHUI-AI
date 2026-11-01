@@ -620,23 +620,45 @@ export async function tryHandleBtwSlash(
  *   (submit 空闲路径恢复输入框供重试 / 流结束补答路径 toast sideAnswerFailed),
  *   由调用方决定失败兜底;成功后不弹 toast(回答立即可见,入队路径已提示过 sideEnqueued)。
  * - t: next-intl 'chat' 翻译函数 */
+/** D75 生命周期挂点(2026-11-01 装腿):调用方把手交给即答执行器,由它写状态、端内不再判过期。
+ *  - `conversationId`:落在哪个会话的侧问桶(缺省 ⇒ 本条不落任何生命周期记录,行为同装腿前);
+ *  - `itemId`:桶里已存在的条目(补答路径);即答路径没有条目 ⇒ 留空,流末另登记一枚。 */
+export interface SideAnswerLifecycleHandle {
+  conversationId?: string
+  itemId?: string
+}
+
 export async function answerSideQuestion(
   question: string,
   t: (key: string, vars?: Record<string, string>) => string,
   // 票60 步序四:侧问回答写调用方的 store 实例(默认单例,零回归)
   chatStore: ChatStore = useChatStore,
+  lifecycle?: SideAnswerLifecycleHandle,
 ): Promise<void> {
+  const conversationId = lifecycle?.conversationId
+  const itemId = lifecycle?.itemId
+  const store = chatStore.getState()
+  // 瞬间②「补答起答」:显式重申 running(幂等)。此刻答案尚未落地,写 running 后
+  // 即便这次请求失败,条目仍留在桶里等下一轮流末重试 —— 不会被当成"已产出待取走"误清。
+  if (conversationId && itemId) store.setSideTaskState(conversationId, itemId, 'running')
   // 单副本直调:不走 LLM chat 流,不写主线历史
   const d = await runBestOfN(question, 1)
   const c = d.candidates[0]
   const answer = c?.content || t('btwNoAnswer')
-  const store = chatStore.getState()
-  store.addMessage({
+  const after = chatStore.getState()
+  after.addMessage({
     role: 'assistant',
     content: `> 💬 **${t('sideBadge')}** · ${question}\n\n${answer}`,
-    model: c?.model ?? store.currentModel,
+    model: c?.model ?? after.currentModel,
     meta: { sidechat: true },
   })
+  // 瞬间③「流末答案落地」:上面这条 sidechat 消息就是该侧问任务的全部产物,
+  // 自此进入 completed —— 共享判据只对 completed 起算保留窗口(running 永不过期)。
+  // 补答路径就地翻态;即答路径(无 itemId)登记一枚 completed 条目承载后续交代。
+  if (conversationId) {
+    if (itemId) after.setSideTaskState(conversationId, itemId, 'completed')
+    else after.recordSideTaskAnswer(conversationId, question)
+  }
 }
 
 /** D28 快速侧问 · /side 前缀识别(2026-09-20 立,纯解析无副作用):
