@@ -3207,6 +3207,43 @@ if ($webBg) {
     Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
 
+    # ── 灰度对照的"基线/候选"在换流前落盘(2026-11-01 CANARYWIN2)──────────────────
+    # 治的是对照判据的 C2 缺口("基线/候选构建身份取不到 ⇒ 没有证据证明对比过")。
+    # 基线来源不是新造的:Get-WebActiveBuildDir 就是全仓唯一那把"当前在服务的是哪份构建"的尺子,
+    # 它按 deploy\run\web-bluegreen.json 的 active 返回 $WebDir\.next-<active>;而这一行还排在
+    # 编排器调用之前 ⇒ 状态文件未切、目录未动 ⇒ 读到的必然是**旧色**的构建身份。
+    # 候选 = 本轮刚镜像的 .next-canary(灰度实例只认那一份)。
+    # 落盘沿用既有 run 目录(与 state-file 同目录),不新增顶层目录。
+    $webContrastBaseFile = Join-Path (Split-Path -Parent $WebBgStateFile) 'web-canary-baseline.json'
+    $oldBuildDir = Get-WebActiveBuildDir
+    $oldBuildId  = ''
+    if (Test-Path -LiteralPath (Join-Path $oldBuildDir 'BUILD_ID')) {
+        $oldBuildId = ((Get-Content -LiteralPath (Join-Path $oldBuildDir 'BUILD_ID') -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
+    }
+    $candBuildId = ''
+    if (Test-Path -LiteralPath (Join-Path $grayCanaryDist 'BUILD_ID')) {
+        $candBuildId = ((Get-Content -LiteralPath (Join-Path $grayCanaryDist 'BUILD_ID') -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
+    }
+    # 冷启动 = 旧色目录里**根本没有** BUILD_ID(全新主机 / 从未部署过)。这是"保护对象不存在",
+    # 与"该有基线却取不到"(文件在、内容空 / 读失败)是两件事:前者首轮无旧色可比,后者必须
+    # 按 C2 未判定拦下。判据落在这里而不在下游,因为只有部署环知道本机此前有没有在服务的构建。
+    $coldStart = -not (Test-Path -LiteralPath (Join-Path $oldBuildDir 'BUILD_ID'))
+    try {
+        @{
+            activeColor    = $webActive
+            targetColor    = $webTarget
+            baselineDir    = $oldBuildDir
+            baselineBuildId = $(if ($oldBuildId) { $oldBuildId } else { $null })
+            candidateDir   = $grayCanaryDist
+            candidateBuildId = $(if ($candBuildId) { $candBuildId } else { $null })
+            recordedAt     = (Get-Date).ToString('o')
+        } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $webContrastBaseFile -Encoding UTF8
+        Log "对比基线已落盘:旧色=$webActive BUILD_ID=$(if ($oldBuildId) { $oldBuildId } else { '取不到' }) 候选=$webTarget BUILD_ID=$(if ($candBuildId) { $candBuildId } else { '取不到' })(file=$webContrastBaseFile)"
+    } catch {
+        # 落盘失败不阻断部署,但必须留痕:下一轮判 C2 时会读到"取不到",不会静默当绿。
+        Log "WARN  对比基线落盘失败(不阻断部署,但 C2 将按未判定处理):$($_.Exception.Message)"
+    }
+
     # 起目标色 → 健康 → 原子切流 → 排空 → 停旧色(复用同一份编排器,不另写一份)
     # 2026-10-29 换执行面(Node 版),与 api 蓝绿同因同解:
     #   ① `& powershell -File ihui-api-bluegreen.ps1` 是嵌套解释器,本机策略把它限成几乎
@@ -3220,13 +3257,44 @@ if ($webBg) {
     if (-not ($bgNode -and (Test-Path -LiteralPath $bgMjs))) {
         Fail "web 蓝绿编排器不可用(node=$bgNode, mjs=$bgMjs)⇒ 不切流,保持当前在线版本" -Reason "web-bluegreen missing-runner"
     }
+    # ── 切流前置闸(2026-11-01 CANARYWIN2):把"有没有真对照"的判定移到换流之前 ──────
+    # 为什么非要在编排器里跑:2026-11-01 现读到的对照缺陷是"观察窗排在换流之后"
+    # (deploy-loop.ps1 的 Invoke-CanaryGate 在整轮部署跑完之后才执行 ⇒ 观察期 stable 槽位
+    # 已是新色,升档依据退化成"新 vs 新")。而"旧色仍在服务、候选也在自己端口跑着"这一刻只
+    # 存在于编排器内部(目标色健康通过之后、原子切流之前),所以闸只能由编排器代跑。
+    # 判定逻辑一律走既有出口(ihui-canary-artifact.mjs 的 --contrast),本 ps1 不内联任何判据(§22c)。
+    $gateMjs = Join-Path $Root 'deploy\win\ihui-canary-artifact.mjs'
+    $bgGate = ''
+    if (-not (Test-Path -LiteralPath $gateMjs)) {
+        Log "WARN  对照判据入口缺失($gateMjs)⇒ 本轮不启用切流前置闸(灰度判定将按既有路径未判定)"
+    } else {
+        $gateParts = @(('"{0}"' -f $bgNode), ('"{0}"' -f $gateMjs), '--contrast')
+        if ($oldBuildId)  { $gateParts += @('--baseline-build-id', ('"{0}"' -f $oldBuildId)) }
+        if ($candBuildId) { $gateParts += @('--candidate-build-id', ('"{0}"' -f $candBuildId)) }
+        if ($coldStart)   { $gateParts += @('--cold-start') }
+        $gateParts += @('--sampled-from', 'canary')
+        $bgGate = ($gateParts -join ' ')
+        Log "切流前置闸:--contrast(基线=$(if ($oldBuildId) { $oldBuildId } else { if ($coldStart) { '冷启动无旧色' } else { '取不到' } }) 候选=$(if ($candBuildId) { $candBuildId } else { '取不到' }))"
+    }
+    $bgGateArgs = @()
+    if ($bgGate) { $bgGateArgs = @('--gate-cmd', $bgGate, '--gate-timeout', '300') }
     $bgOut = & $bgNode $bgMjs --target $webTarget `
         --svc-blue 'IHUI-WEB-BLUE' --svc-green 'IHUI-WEB-GREEN' `
         --port-blue 8851 --port-green 8852 `
         --health-path '/' --health-match '<!DOCTYPE html' `
-        --state-file $WebBgStateFile --log-file $WebBgLogFile 2>&1
+        --state-file $WebBgStateFile --log-file $WebBgLogFile @bgGateArgs 2>&1
     $bgRc = $LASTEXITCODE
     $bgOut | ForEach-Object { Log "  [bg] $_" }
+    if ($bgRc -eq 9) {
+        # 闸判红:未切流、未停旧色、状态文件未改 ⇒ 线上无损,按失败收口并点名是"对照不成立"。
+        [void](Write-DeployDecision -Action 'swap-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "灰度对照判据判红(闸 rc=9)⇒ 未切流,保持当前在线版本")
+        Fail "切流前置闸判红(rc=9):本轮没有真实对照 ⇒ 未切流,旧实例仍在服务(线上无损)" -Detail ($bgOut -join '; ') -Reason "web-bluegreen contrast-gate rc=9"
+    }
+    if ($bgRc -eq 10) {
+        # 闸超时 = 未判定(§0.3 取不到不是通过),同样不切流。
+        [void](Write-DeployDecision -Action 'swap-fail' -Sha $buildSha -GateVerdict 'unknown' -Reason "灰度对照判据超时未判定(闸 rc=10)⇒ 未切流,保持当前在线版本")
+        Fail "切流前置闸超时未判定(rc=10)⇒ 未切流,旧实例仍在服务(线上无损)" -Detail ($bgOut -join '; ') -Reason "web-bluegreen contrast-gate rc=10"
+    }
     if ($bgRc -ne 0) {
         # 目标色起不来 ⇒ 状态文件未改、旧色/单实例仍在服务 ⇒ 线上无损,按失败收口
         [void](Write-DeployDecision -Action 'swap-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "web 蓝绿切换失败,未切流,保持当前在线版本")
