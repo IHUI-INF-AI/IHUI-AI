@@ -12,7 +12,7 @@ import { __test__ as scrubTool } from '../scrub-declared-removals.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS } = scrubTool
+const { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS, SELF_CERTIFYING_SWEEP_SEATS } = scrubTool
 
 const ROW = '- [ ] G-900 已被台账摘除的登记行'
 const HEAD = ['- [ ] G-901 在册行', '- [x] G-902 已勾在册行'].join('\n')
@@ -421,4 +421,102 @@ it('结清行被扫掉(stale-closed-sweep,前像已勾)⇒ 必须进维三;同 k
   } finally {
     rmScratch(dir)
   }
+})
+
+// ── 自证闭环闸(2026-11-01 立) ────────────────────────────────────────────────
+// 病型现读取证:head-recall-sweep 每轮把摘掉的行按 form:'dropped' 写回同一本台账,下一轮清扫再读
+// 这本台账 ⇒ 它自己上一轮的产出成了这一轮的凭据。实测 2026-11-01 08:59 那枚(a03bc21b6d)一次
+// 摘 32 行,其中 10 行的最新凭据就是清扫器自己更早的几枚。本组夹具把四个方向全部钉住。
+describe('自证闭环闸:自动清扫席位不得引用自己的产出当凭据', () => {
+  const SWEEP_OPEN = '- [ ] Z-900 清扫器自己写下的未勾前像'
+  const SEAT_OPEN = '- [ ] Z-901 真实结清席位写下的未勾前像'
+  const SWEEP_DONE = '- [x] Z-902 清扫器扫掉的已勾行'
+
+  const build = (dir) => {
+    mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
+    writeFileSync(
+      path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
+      [
+        JSON.stringify({
+          rowBefore: SWEEP_OPEN,
+          seat: 'head-recall-sweep',
+          kind: 'head-recall-sweep',
+          form: 'dropped',
+          at: '2026-11-01T00:59:01.649Z',
+        }),
+        JSON.stringify({
+          rowBefore: SEAT_OPEN,
+          seat: 'live-doc-edit',
+          kind: 'closed-row-reclose-open-form',
+          form: 'dropped',
+          at: '2026-11-01T00:45:46.253Z',
+        }),
+        JSON.stringify({
+          rowBefore: SWEEP_DONE,
+          seat: 'head-recall-sweep',
+          kind: 'head-recall-sweep',
+          form: 'dropped',
+          at: '2026-11-01T00:59:01.649Z',
+        }),
+      ].join('\n') + '\n',
+      'utf8',
+    )
+    return ['.ihui-agent/state/drop.jsonl']
+  }
+
+  it('加闸后:清扫席位写的未勾前像不算凭据(否则它每轮都能给自己的下一轮供证)', () => {
+    const dir = mkScratch('scrub-selfcert-on')
+    try {
+      const files = build(dir)
+      const d = declaredRows(dir, files, { excludeSeats: SELF_CERTIFYING_SWEEP_SEATS })
+      assert.equal(
+        d.dropTitleFps.has(titleFpOf(SWEEP_OPEN)),
+        false,
+        '未勾前像 + 生产者是自动清扫席位 ⇒ 必须被剔掉',
+      )
+      assert.equal(d.selfCertifiedExcluded, 1, '被剔记录数要报出来(与 SWEEP_DONE 那条已勾的不混算)')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('真实结清席位写的未勾前像照旧有效(闸只针对自动清扫席位,不放走真凭据)', () => {
+    const dir = mkScratch('scrub-selfcert-seat')
+    try {
+      const files = build(dir)
+      const d = declaredRows(dir, files, { excludeSeats: SELF_CERTIFYING_SWEEP_SEATS })
+      assert.ok(
+        d.dropTitleFps.has(titleFpOf(SEAT_OPEN)),
+        'live-doc-edit 那条是人工结清留下的,必须仍是凭据 —— 闸若把它也剔了,存量清偿会全线失效',
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('前像是已勾行的记录不受影响(那一行真被结清过,凭据成立)', () => {
+    const dir = mkScratch('scrub-selfcert-done')
+    try {
+      const files = build(dir)
+      const d = declaredRows(dir, files, { excludeSeats: SELF_CERTIFYING_SWEEP_SEATS })
+      assert.ok(
+        d.dropTitleFps.has(titleFpOf(SWEEP_DONE)),
+        '已勾前像 = 结清凭据,与生产者是谁无关(2026-10-30 定的形态维不能被本闸推翻)',
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('不传 excludeSeats ⇒ 语义一字不动(其余所有调用方零回归)', () => {
+    const dir = mkScratch('scrub-selfcert-off')
+    try {
+      const files = build(dir)
+      const d = declaredRows(dir, files)
+      assert.ok(d.dropTitleFps.has(titleFpOf(SWEEP_OPEN)), '默认档必须保持既有行为')
+      assert.equal(d.selfCertifiedExcluded, 0, '未启用该闸时不得报告剔除了任何记录')
+    } finally {
+      rmScratch(dir)
+    }
+  })
 })

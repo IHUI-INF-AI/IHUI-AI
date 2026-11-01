@@ -96,6 +96,24 @@ export const LEDGERS = [
   '.ihui-agent/state/plan-row-drop.jsonl',
 ]
 
+/**
+ * 「自动清扫席位」名单(2026-11-01 立,治**自证闭环**)。
+ *
+ * 病型(当天现读取证,非推演):`head-recall-sweep` 每次清扫都把摘掉的行按 `form:'dropped'`
+ * 写回同一本 `plan-row-drop.jsonl`;下一轮清扫再用题面指纹维读这本台账 ⇒ **它自己上一轮的产出
+ * 成了这一轮的"声明凭据"**,于是任何曾被扫过一次的题面在后续每一轮都是候选,永不可能"洗白"。
+ * 实测 2026-11-01 08:59 那一枚(提交 a03bc21b6d)一次摘掉 32 行,其中 10 行的最新凭据就是
+ * 清扫器自己更早的几枚(9c3c4ce549 / 3232aba019 / 0b1340a5be / 8f349478fe),不是任何一次真结清
+ * ⇒ 判据闭环、行只减不增,且**每一次都会给下一轮再供一次凭据**。
+ *
+ * 处置方向恒为「多留一份」:清扫器不得引用**自己这一族**写下的记录当凭据。真实结清留下的
+ * 记录(席位 = live-doc-edit / 各结清席,或前像本身就是已勾行 `- [x]`)一律照旧有效 —— 本名单
+ * 只针对「前像是未勾行 且 生产者是自动清扫器」这一格,不动任何既有判据的常规射程。
+ *
+ * 为什么放在这里而不是各调用方:台账解析全仓只许一份(§0.6/§22c),名单同理。
+ */
+export const SELF_CERTIFYING_SWEEP_SEATS = new Set(['head-recall-sweep', 'stale-closed-sweep'])
+
 /** 勾选态取自单源解析器(非登记行 ⇒ null;本器不判"什么算复选框行")。 */
 export function rowStateOf(line) {
   const rows = parseTaskRows(String(line ?? ''))
@@ -191,9 +209,16 @@ export function buildDeclared(rowTexts) {
  *  `filesSeen` = 两份台账中**实际在位**的份数(0 = 台账整体缺失,调用方不得当成"没有声明过",§0.3)。
  *  〔2026-10-26 再补两字段,同样只加不改语义〕`keyIndex`(见 `buildDeclared`)与
  *  `dropTitleRows`(题面指纹 → 台账原文,证据面;判据面仍是 `dropTitleFps`)。 */
-export function declaredRows(root = ROOT, files = LEDGERS) {
+export function declaredRows(root = ROOT, files = LEDGERS, opts = {}) {
+  // `excludeSeats`(2026-11-01):把「自动清扫席位」自己写下的记录从证据面里剔掉,断掉自证闭环。
+  // 默认空集 ⇒ 其余所有调用方语义一字不动(只加不改)。语义细节见 `SELF_CERTIFYING_SWEEP_SEATS`。
+  const excludeSeats =
+    opts?.excludeSeats instanceof Set
+      ? opts.excludeSeats
+      : new Set(Array.isArray(opts?.excludeSeats) ? opts.excludeSeats : [])
   const rows = []
   const dropRows = []
+  let excluded = 0
   let malformed = 0
   const malformedLines = []
   let filesSeen = 0
@@ -213,6 +238,15 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
       }
       for (const key of ['rowBefore', 'before']) {
         if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) {
+          // 自证闭环闸(2026-11-01):前像是**未勾行**、而生产者是自动清扫席位 ⇒ 这条记录不算凭据。
+          // 前像是已勾行(`- [x]`)的记录不受影响 —— 那一行真被结清过,凭据成立(见下 beforeIsDone)。
+          const beforeIsDone = /^\s*- \[[xX]\]/.test(o[key])
+          const selfCertified =
+            !beforeIsDone && excludeSeats.size > 0 && excludeSeats.has(String(o.seat || ''))
+          if (selfCertified) {
+            excluded++
+            continue
+          }
           rows.push(o[key])
           // f12-purge(2026-10-25,等条件禁令清偿批)与 f11-purge 同一条兜底射程:摘的是未勾行,
           // 回捞通道(收编器/union 行级回补)同一批,射程不同就会像 f11 立项前一样 100% 回潮。
@@ -231,7 +265,7 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
           // 于是"扫掉的结清行被回捞、再扫、再回捞"可以无限循环(实测 24h 内 834 次来自 union-converge)。
           // 判据改成形态:前像本身是**已勾行** ⇒ 它就是一条"声明为删除"的凭据(那一行已被结清)。
           // 这不是放宽:`- [ ]` 前像仍然一律不进维三(见上一段),被豁免的只有"曾经真勾过"的行。
-          const beforeIsDone = /^\s*- \[[xX]\]/.test(o[key])
+          // (beforeIsDone 已在上面自证闭环闸处求值,此处不再重复声明。)
           if (
             o.kind === 'f11-purge' ||
             o.seat === 'f11-purge-20261025' ||
@@ -265,6 +299,8 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
     malformed,
     malformedLines,
     filesSeen,
+    // 因「自证闭环闸」被剔掉的记录条数(只报数,供调用方在报告里点名;默认 0 = 未启用该闸)。
+    selfCertifiedExcluded: excluded,
   }
 }
 
@@ -678,6 +714,8 @@ export const __test__ = {
   titleFpOf,
   main,
   LEDGERS,
+  // 自证闭环闸(2026-11-01)的席位名单与调用方共用同一份常量;镜像测试必须从生产实现取,不得自写一份。
+  SELF_CERTIFYING_SWEEP_SEATS,
   // 维五(2026-10-28)的分桶与参数解析也必须由生产实现提供:镜像测试不得自己再写一份(§22c)。
   viaBucket,
   dispositionArg,
