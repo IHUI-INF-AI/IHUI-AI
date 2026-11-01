@@ -70,6 +70,30 @@ export function getTimelineShareInfo(title?: string, imageUrl?: string): Timelin
   })
 }
 
+/** 本页自己的分享 query(壳承载页默认分享本屏:参数原样带上,分享落地仍是同一条内容) */
+export function currentPageShareQuery(
+  router: { params?: Record<string, unknown> } | undefined,
+): string {
+  const params = router?.params ?? {}
+  const parts: string[] = []
+  for (const [key, raw] of Object.entries(params)) {
+    // Taro 把内部字段($taroParams 等)混在同一个 params 对象里,不是页面参数
+    if (key.startsWith('$') || raw === undefined || raw === null) continue
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(raw))}`)
+  }
+  return parts.join('&')
+}
+
+/** 本页自己的分享路径(path ⊕ 现读参数);取不到 path 时回落端默认入口 */
+export function currentPageSharePath(
+  router: { path?: string; params?: Record<string, unknown> } | undefined,
+): string {
+  const path = String(router?.path ?? '')
+  const query = currentPageShareQuery(router)
+  if (!path) return shareConfig.fallbackPath
+  return query ? `${path}?${query}` : path
+}
+
 export function showShareMenu(
   withShareTicket = true,
   showShareItems: string[] = ['shareAppMessage', 'shareTimeline'],
