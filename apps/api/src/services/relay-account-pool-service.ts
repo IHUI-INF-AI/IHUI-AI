@@ -64,6 +64,14 @@ import { encryptAccountProxyUrl, resolveAccountProxyUrl } from './relay-proxy-po
 /** 导入 JSON 里的单账号形状(与账号导出工具/浏览器插件格式对齐,字段宽松) */
 export interface ImportAccountInput {
   name?: string
+  /**
+   * 官方绑定手机号(O66 统一名第一优先级)。键位在
+   * `relay-account-format.ts` 的 `RELAY_ACCOUNT_PHONE_KEYS` 里逐平台登记(全仓唯一一份),
+   * 形态判据(全号/掩码)一律交还 `resolveRelayAccountName`,调用方不得自判一遍;
+   * WorkBuddy 这类"手机号住在票内 `preferred_username` 而不在载荷字段上"的平台由服务端
+   * 解票后经 `extraPhoneCandidates` 补喂。
+   */
+  phone?: string
   /** 显式上游 uid(签到助手反向同步时以 identity_key 为权威;缺省则从 token 解析) */
   uid?: string
   token?: string
