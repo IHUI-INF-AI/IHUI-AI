@@ -1601,11 +1601,19 @@ export default function ChatPage() {
               : m,
           ),
         )
-        // 上行历史截到最后一个用户问题(含),旧回复不进模型上下文但仍留在列表
-        void sendMessage(undefined, messages.slice(0, lastUserIdx + 1), {
-          rootId,
-          siblingIndex: nextSiblingIndex,
-        })
+        // 上行历史截到**族根之前**(与 web send-message.ts 的 historySource 同口径):
+        // 被重生成那一版的旧正文与其后的轮次都不得混进新回复的上下文。
+        // 族根不在本地列表(分页切割/局部回放)⇒ 回落截到最后一次用户提问(含) ——
+        // 宁可多带一轮上下文,不可无声丢半段历史(同读投影"族根缺席则整族保留"的失效方向)。
+        const rootCut = messages.findIndex((m) => m.id === rootId)
+        void sendMessage(
+          undefined,
+          rootCut === -1 ? messages.slice(0, lastUserIdx + 1) : messages.slice(0, rootCut),
+          {
+            rootId,
+            siblingIndex: nextSiblingIndex,
+          },
+        )
       } catch (e) {
         logger.warn(
           'pkg-ai/ai/chat',
