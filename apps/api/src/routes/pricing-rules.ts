@@ -194,9 +194,15 @@ export const pricingRulesRoutes: FastifyPluginAsync = async (server) => {
       const { id } = request.params as { id: string }
       const [existing] = await db.select().from(pricingRules).where(eq(pricingRules.id, id))
       if (!existing) return reply.status(404).send(error(404, '定价规则不存在'))
+      // 先取现值比较(守门 198/G-998153 纪律):已下线的二次 DELETE ⇒ 真变化不存在,
+      // 不发 UPDATE、不盖 updatedAt、不再无谓 version+1,幂等返回当前版本。
+      if (existing.enabled === false) {
+        return reply.send(success({ id, disabled: true, version: existing.version }))
+      }
+      const changed = { enabled: false, version: existing.version + 1 }
       const [row] = await db
         .update(pricingRules)
-        .set({ enabled: false, version: existing.version + 1, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(pricingRules.id, id))
         .returning()
       if (!row) return reply.status(404).send(error(404, '定价规则不存在'))

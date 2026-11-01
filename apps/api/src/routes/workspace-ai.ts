@@ -1144,14 +1144,17 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!body.command || !body.workspacePath)
       return reply.status(400).send(error(400, 'command 和 workspacePath 不能为空'))
     try {
-      const mode = body.mode ? sandboxExecutor.resolveMode(body.mode) : undefined
       // 2026-10-31 安全强化第 10 批:两道闸补齐 ——
       // ① danger-full-access 仅管理员:此前任意登录用户自报该档即可放行 curl/wget
       //   并拿到全量进程环境(等价于整台服务器的凭据外传通道);
       // ② 工作区权限闸:与 /fs/run 同型 —— workspace_permissions 未配置 ⇒ 401 引导
       //   先走 /fs/open setup,已配置但不覆盖该路径 ⇒ 403。
+      // 注意:sandboxMode 是**沙箱轴**(packages/types/src/permission-axis.ts 的
+      // SANDBOX_MODES 成员),不是权限档(单轴注册表 permission-mode.ts),
+      // 故变量名不得叫 `mode`(那是本文件权限档比较面的登记名,守门 68 R3)。
+      const sandboxMode = body.mode ? sandboxExecutor.resolveMode(body.mode) : undefined
       if (
-        mode === 'danger-full-access' &&
+        sandboxMode === 'danger-full-access' &&
         resolveAdminRoleId(request, { includeInternalChannel: false }) < ADMIN_ROLE_ID
       ) {
         return reply.status(403).send(error(403, 'danger-full-access 沙箱模式仅管理员可用'))
@@ -1169,7 +1172,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         workspacePath: body.workspacePath,
         cwd: body.cwd,
         timeoutMs: body.timeoutMs,
-        mode,
+        mode: sandboxMode,
         isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
       })
       return reply.send(success(result))

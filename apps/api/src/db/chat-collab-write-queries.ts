@@ -135,9 +135,12 @@ export async function releaseCollabLock(input: {
     }
     const base = normalizeMetadataBase(row.metadata)
     const { collabLock: _dropped, ...rest } = base
+    // 走到这里 collabLock 必存在(上方 current 判空已回),metadata 必真变;
+    // 现值比较 = 本事务 FOR UPDATE 读到的 row.metadata(守门 198 出口形态,展开名 fixed changed)。
+    const changed = { metadata: rest }
     await tx
       .update(chatConversations)
-      .set({ metadata: rest, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(chatConversations.id, input.conversationId))
     return { released: true, previousHolder: current.holderUserId }
   })
@@ -163,9 +166,12 @@ export async function clearCollabLockIfHeldBy(
     if (!current || current.holderUserId !== userId) return null
     const base = normalizeMetadataBase(row.metadata)
     const { collabLock: _dropped, ...rest } = base
+    // 走到这里锁必由被撤销人持有(上方 current 比较已回),metadata 必真变;
+    // 现值比较 = 本事务 FOR UPDATE 读到的 row.metadata(守门 198 出口形态,展开名固定 changed)。
+    const changed = { metadata: rest }
     await tx
       .update(chatConversations)
-      .set({ metadata: rest, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(chatConversations.id, conversationId))
     return userId
   })
