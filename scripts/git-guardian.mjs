@@ -106,6 +106,13 @@ import {
 // = 没有」票面不成立。窗口三态/待做盘点/apply 判据全部 import 自本体(§0.6 单一真相源),
 // 本文件只挂点:默认只 probe 留痕,真搬须 scripts/data/devenv-migrate-arm.json enabled=true。
 import { devenvMigratePatrol } from './devenv-migrate.mjs'
+// 告警投递降噪策略(2026-11-02):规则表在 scripts/data/alert-delivery-policy.json,本层只读不改判据。
+// 目的:把「同一环境类告警族」的寄信窗口拉长到 24h 并汇总抑制次数,而不是逐封轰炸(§5e-1)。
+import {
+  ALERT_DELIVERY_POLICY_FILE as ALERT_POLICY_REL,
+  loadAlertDeliveryPolicy,
+  matchAlertDeliveryPolicy,
+} from './lib/alert-delivery-policy.mjs'
 
 // 纯判据层(2026-10-21 原样搬出:守门 103 C1 行数上限;实现单源在 lib/git-guardian-pure.mjs)
 import {
@@ -2566,7 +2573,7 @@ export function notifyGuardRed(name, detail, opts = {}) {
     dispatch = dispatchGuardMail,
     stateFile = NOTIFY_STATE,
     undelFile = NOTIFY_UNDEL,
-    windowMs = notifyWindowMs(),
+    windowMs: windowMsIn = notifyWindowMs(),
     failCooldownMs = notifyFailCooldownMs(),
     dedupKey = '',
     force = false,
@@ -2579,6 +2586,19 @@ export function notifyGuardRed(name, detail, opts = {}) {
       logger(`ℹ️ 仅登记不发信(severity=info):${name}`)
       return { sent: false, suppressed: true, why: 'log-only severity=info' }
     }
+    // 降噪策略(2026-11-02):同族 24h 窗口 + 抑制计数。只改"多久寄一封",不改正文/判据;
+    // 策略表到期 ⇒ 自动回到默认窗口(多喊一次),绝不因配置陈旧而静默。
+    const policyHit = force
+      ? null
+      : matchAlertDeliveryPolicy(name, loadAlertDeliveryPolicy(ALERT_DELIVERY_POLICY_FILE).entries, {
+          today: new Date(now).toISOString().slice(0, 10),
+        })
+    const policyEntry = policyHit && !policyHit.expired ? policyHit.entry : null
+    if (policyHit?.expired)
+      logger(
+        `⚠️ 告警降噪策略已到期(${policyHit.entry.id} reviewBy=${policyHit.entry.reviewBy})⇒ 本轮按默认窗口,不再压:${name}`,
+      )
+    const windowMs = Math.max(windowMsIn, policyEntry ? policyEntry.cooldownMs : 0)
     if (!force) {
       // --check 是 CI 口径(零副作用),通知归真巡检轮;显式开关只关"要不要发",不关"发几封"
       if (process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1')
@@ -2600,8 +2620,44 @@ export function notifyGuardRed(name, detail, opts = {}) {
     }
     const fp = dedupKey ? stableAlertFingerprint(name, dedupKey) : alertFingerprint(name, detail)
     const state = parseNotifyState(readNotifyText(stateFile))
-    if (!force && !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs })) {
-      return { sent: false, suppressed: true, why: '同一原因窗口内已通报,本轮压住' }
+    const prevEntry = state[name]
+    // 族级窗口(2026-11-02):策略命中的告警按「族前缀」冷却,而不是按指纹 —— 同一段外部线路
+    // 故障的 sev 档会在 90% 阈值上下抖(2↔3),指纹抖动不得把 24h 窗口绕成 1.5~2h 一封。
+    // 首次上线还没有族标记时,用同族已有告警的最晚 ts 作窗口起点(升级后不补寄一封)。
+    const policyLedgerKey = policyEntry ? `__policy__:${policyEntry.id}` : ''
+    let familyMark = policyLedgerKey ? state[policyLedgerKey] : null
+    if (policyLedgerKey && !(familyMark && Number.isFinite(familyMark.ts))) {
+      let latest = 0
+      for (const [k, v] of Object.entries(state)) {
+        if (k === policyLedgerKey || !k.startsWith(policyEntry.prefix)) continue
+        const ts = Number(v && v.ts)
+        if (Number.isFinite(ts) && ts > latest) latest = ts
+      }
+      if (latest > 0) familyMark = { fp: name, ts: latest, delivered: true, n: 0 }
+    }
+    const policyHold = Boolean(
+      policyEntry && familyMark && now - Number(familyMark.ts) < policyEntry.cooldownMs,
+    )
+    if (!force && (policyHold || !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs }))) {
+      // 压住不是丢弃:同一窗口内每次重报都计数落盘,下一封正文给"已压住 N 次"的汇总读数。
+      const counter = policyHold ? familyMark : prevEntry
+      const n = (Number(counter && counter.n) || 0) + 1
+      try {
+        if (policyHold)
+          writeNotifyJson(stateFile, { ...state, [policyLedgerKey]: { ...familyMark, fp: name, n } })
+        else if (prevEntry && prevEntry.fp === fp)
+          writeNotifyJson(stateFile, { ...state, [name]: { ...prevEntry, n } })
+      } catch {
+        /* 计数写不进去只影响下一封的汇总读数,不影响压住本身 */
+      }
+      logger(
+        `ℹ️ 同类身份窗口内已通报,本轮压住(本窗口累计 ${n} 次):${name}${policyEntry ? ` [策略 ${policyEntry.id}]` : ''}`,
+      )
+      return {
+        sent: false,
+        suppressed: true,
+        why: `同一原因窗口内已通报,本轮压住(累计 ${n} 次${policyHold ? `,族窗口 ${Math.round(policyEntry.cooldownMs / 3600000)}h` : ''})`,
+      }
     }
     // §T6 自愈层:发信前先尝试对应 healer;healed===true 则跳过发信(记 info),
     // 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
@@ -2620,8 +2676,13 @@ export function notifyGuardRed(name, detail, opts = {}) {
       }
     }
     const title = `【git-guardian】${name}`
+    // 策略命中的族用族计数(它才是"本窗口共压住几次"的真相源);其余沿用同名计数。
+    const suppressedCount = Number((policyEntry && familyMark ? familyMark.n : prevEntry && prevEntry.n) || 0)
     const desp =
       `${detail}\n\n` +
+      (suppressedCount > 0
+        ? `本窗口内同族重报已压住 ${suppressedCount} 次(只计数、不逐封寄;下一次汇总在窗口届满时)。\n`
+        : '') +
       `来源:git-guardian 周期守护(计划任务 "${TASK_NAME}",每 2 分钟一趟)@ ${hostname()}。\n` +
       `去重:同指纹 ${Math.round(windowMs / 60000)} 分钟窗口内只寄一封(按身份去重、无总量封顶);` +
       `内容变化视为新故障立即重报。投递失败按 ${Math.round(failCooldownMs / 60000)} 分钟退避重试并留 UNDELIVERED 标记。\n` +
@@ -2666,7 +2727,9 @@ export function notifyGuardRed(name, detail, opts = {}) {
     }
     const r = callDispatch()
     if (r.ok) {
-      writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, true))
+      const sentState = withAlertMark(state, name, fp, now, true, { n: 0 })
+      if (policyLedgerKey) sentState[policyLedgerKey] = { fp: name, ts: now, delivered: true, n: 0 }
+      writeNotifyJson(stateFile, sentState)
       rmSync(undelFile, { force: true }) // 下一次成功投递自动清除失败标记(§5e)
       logger(`✅ 判红通报已寄出: ${name} → ${maskEmail(resolveAlertTo())}`)
     } else {
@@ -3740,6 +3803,15 @@ const PUBLIC_PROBE_STREAK_TTL_MS = Number(
   process.env.IHUI_PUBLIC_PROBE_STREAK_TTL_MS || 24 * 60 * 60 * 1000,
 )
 /**
+ * 严重度峰值档案(2026-11-02 立):同一段 breach 内 sev 档**只升不降**。
+ * 实测 B/公网·常态·入口段 的慢样本率在 90% 阈值上下抖,sev=2↔3 各成身份 ⇒
+ * 4h 窗口被绕成 1.5~2h 一封(13f98cfd04ff/c2d8e516ff26 交替)。峰值钉住后:
+ * 同段内回落不再产生新身份,真恶化(2→4)仍换身份立即重报。
+ */
+const PUBLIC_PROBE_SEV_PEAK = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-sev-peak.json')
+/** 降噪策略表(只决定"同族多久最多一封",不改判据;到期自动失效) */
+const ALERT_DELIVERY_POLICY_FILE = join(WORKTREE, ALERT_POLICY_REL)
+/**
  * 元运维巡检节流:尺子要开 PowerShell 问服务/任务/时钟,还要走一遍 Temp(4.8 万条目),
  * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
  * 两个执行体(2 分钟计划任务 + 常驻 daemon)**共用这一个戳**,谁先到谁干活。
@@ -4506,6 +4578,7 @@ export function auditPublicPathProbe(opts = {}) {
     tickFile = PUBLIC_PROBE_TICK,
     lastFile = PUBLIC_PROBE_LAST,
     streakFile = PUBLIC_PROBE_STREAK_FILE,
+    peakFile = PUBLIC_PROBE_SEV_PEAK,
     requiredStreak = PUBLIC_PROBE_STREAK_REQUIRED,
     streakTtlMs = PUBLIC_PROBE_STREAK_TTL_MS,
     minGapMs = Math.floor(PUBLIC_PROBE_INTERVAL_MS / 2),
@@ -4636,6 +4709,20 @@ export function auditPublicPathProbe(opts = {}) {
     }
     let breaches = 0
     let unjudged = 0
+    // 严重度峰值档案(见 PUBLIC_PROBE_SEV_PEAK 注释):同段 breach 内只升不降。
+    let sevPeaks = {}
+    try {
+      const parsedPeaks = JSON.parse(readFileSync(peakFile, 'utf8'))
+      if (parsedPeaks && typeof parsedPeaks === 'object' && !Array.isArray(parsedPeaks)) sevPeaks = parsedPeaks
+      else logger(`⚠️ 公网探测严重度峰值档案形状不对 ⇒ 本轮从零起算,不沿用旧峰值`)
+    } catch (e) {
+      if (String(e?.code || '') !== 'ENOENT')
+        logger(
+          `⚠️ 公网探测严重度峰值档案读不出(${String(e?.code || e?.message || e).slice(0, 60)})⇒ 本轮按现读档,不沿用峰值`,
+        )
+    }
+    // 同轮多择项合并成一封摘要(2026-11-02):逐个择项单独寄信 = 收件人被同一件事刷屏。
+    const dueAlerts = []
     for (const [key, r] of Object.entries(results)) {
       const verdict = String(r?.verdict || '')
       const reasons = Array.isArray(r?.reasons) ? r.reasons : []
@@ -4683,26 +4770,59 @@ export function auditPublicPathProbe(opts = {}) {
           nowMs: now,
           leg,
         })
-        notify(
-          `公网路径探测越阈值:${key}`,
-          `成因与档位:${alertId.why}\n同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
-            `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
-            exitLine,
-          {
-            severity: 'warning',
-            // dedupKey(§5e-1 配套):numbers 里 `最长连续不可用 13.5s` 这类**带小数点**的值,
-            // 数字归一 `\d+ → #` 吃不掉小数点 ⇒ 13s 与 13.5s 撞成两个身份,4 小时窗口被绕成虚设
-            // (实测 B/公网 12 封里 7 个间隔短于 4h,最短 0.53h = 两倍 30 分钟节流 = 刚跑完又寄)。
-            // 身份只取"序列 + 成因档",实时读数仍进正文。
-            dedupKey: `seq=${key};verdict=${verdict};${alertId.identity}`,
-            // 同因同档的持续态:日级最多一封(跨档即刻重报,不受本窗口约束 —— 那是另一个身份)。
-            windowMs: Math.max(notifyWindowMs(), 24 * 60 * 60 * 1000),
-          },
-        )
+        // 峰值钉住(2026-11-02):同段 breach 内 sev 档回落不产生新身份,真恶化仍立即重报。
+        const anchor = String(st.firstAt || '')
+        const prevPeak =
+          sevPeaks[key] && String(sevPeaks[key].firstAt || '') === anchor ? Number(sevPeaks[key].peak) || 0 : 0
+        const peak = Math.max(prevPeak, alertId.sevTier)
+        if (peak !== prevPeak) sevPeaks[key] = { firstAt: anchor, peak }
+        if (peak > alertId.sevTier)
+          logger(
+            `ℹ️ 公网探测 ${key} 严重度档从 ${alertId.sevTier} 回落到本段峰值档 ${peak}(沿用峰值,防 90% 阈值抖动把同一故障刷成新身份)`,
+          )
+        dueAlerts.push({
+          key,
+          st,
+          alertId,
+          numbers: String(r?.numbers || '(无读数控)'),
+          reasons,
+          exitLine,
+          identity: `${alertId.causeKey};sev=${peak};held=${alertId.heldTier}`,
+        })
       } else if (verdict === 'unjudged') {
         unjudged += 1
         logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
       }
+    }
+    // 一封摘要覆盖本轮全部 due 项(2026-11-02):此前是每项一封,多择项同轮 = 连发 N 封。
+    if (dueAlerts.length) {
+      const names = dueAlerts.map((a) => a.key)
+      const blocks = dueAlerts.map(
+        (a) =>
+          `【${a.key}】\n成因与档位:${a.alertId.why}\n同一身份连续第 ${a.st.streak}/${a.st.required} 轮越阈(门槛 ${a.st.required} 轮,单轮尖峰不寄信)。\n${a.numbers}\n${a.reasons.join('\n')}\n` +
+          `尺子:scripts/check-public-path-probe.mjs 序列 ${a.key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n${a.exitLine}`,
+      )
+      notify(`公网路径探测越阈值:${names.join('+')}`, `本轮共 ${dueAlerts.length} 项越阈,合并为一封摘要:\n\n${blocks.join('\n\n')}`, {
+        severity: 'warning',
+        // 身份 = 本轮出现的键集合 × 每键「成因 × 峰值严重度 × 持续档」(不含实时读数,防小数抖动)。
+        // 窗口由 scripts/data/alert-delivery-policy.json 的 public-entry-env 给(同族 24h);
+        // 策略表缺失/到期时回退默认窗口。
+        dedupKey: `seq=${names.join('+')};verdict=breach;${dueAlerts.map((a) => a.identity).join('|')}`,
+      })
+      if (dueAlerts.length > 1) logger(`ℹ️ 公网探测本轮 ${dueAlerts.length} 项越阈 ⇒ 合并为 1 封摘要:${names.join('+')}`)
+    }
+    // 峰值档案只保留仍 breach 的键:恢复/消失即摘,防陈旧峰值把真恶化压回旧身份。
+    const liveKeys = new Set(
+      Object.entries(results)
+        .filter(([, r]) => String(r?.verdict) === 'breach')
+        .map(([k]) => k),
+    )
+    for (const k of Object.keys(sevPeaks)) if (!liveKeys.has(k)) delete sevPeaks[k]
+    try {
+      mkdirSync(dirname(peakFile), { recursive: true })
+      writeFileSync(peakFile, JSON.stringify(sevPeaks, null, 1), 'utf8')
+    } catch (e) {
+      logger(`⚠️ 公网探测严重度峰值档案写失败(下轮从零起算,只多寄一次,不影响判据):${String(e?.message || e).slice(0, 60)}`)
     }
     if (breaches === 0 && unjudged === 0)
       logger(
