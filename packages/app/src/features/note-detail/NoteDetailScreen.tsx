@@ -62,7 +62,9 @@ export function NoteDetailScreen({
         <Text style={styles.author}>{item.author}</Text>
         <Text style={styles.meta}>
           {/* views 不在 /api/notes/:id 投影里 ⇒ 缺失时不渲染该段,只显示时间 */}
-          {item.views != null ? `${t('noteDetail.views', { count: item.views })} · ` : ''}
+          {item.views !== null && item.views !== undefined
+            ? `${t('noteDetail.views', { count: item.views })} · `
+            : ''}
           {item.createdAt}
         </Text>
       </View>
@@ -77,7 +79,7 @@ export function NoteDetailScreen({
       ) : null}
       <Text style={styles.content}>{item.content}</Text>
       {/* likes 同为可选字段:后端没给就不渲染点赞统计,不以 0 顶位 */}
-      {item.likes != null ? (
+      {item.likes !== null && item.likes !== undefined ? (
         <View style={styles.statRow}>
           <View style={styles.stat}>
             <Heart size={12} color={tk.text.medium} />

@@ -789,6 +789,8 @@
     "contentRequired": "Please enter feedback content",
     "contact": "Contact",
     "contactPlaceholder": "Optional, so we can reach you",
+    "namePlaceholder": "Please enter your name",
+    "tip": "Your feedback helps us improve our products and services. Please wait for processing after submitting.",
     "empty": "No feedback records",
     "failed": "Submission failed, please try again later",
     "fieldContact": "Contact",
@@ -1392,6 +1394,8 @@
     "enterprise": "Enterprise"
   },
   "share": {
+    "appTitle": "IHUI AI — Learn smarter",
+    "timelineTitle": "IHUI AI, your smart learning assistant",
     "title": "Share",
     "remark": "Remark",
     "remarkPlaceholder": "Enter remark (optional)",
@@ -2754,5 +2758,79 @@
     "rateTitle": "Commission Rates",
     "openVip": "Get VIP to Join the Program",
     "rateEmpty": "No commission rates yet"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "Become a VIP member to join the commission plan.",
+      "rule2": "Invite friends to become members and earn 20% of their membership fee as commission.",
+      "rule3": "Commission is credited to your account within 24 hours after your friend's successful payment.",
+      "rule4": "You can withdraw to WeChat or Alipay once your balance reaches ¥100."
+    }
+  },
+  "orderRefund": {
+    "d1": "No longer needed",
+    "d2": "Wrong item / duplicate order",
+    "d3": "Quality issue",
+    "d4": "Not as described",
+    "d5": "Other reason"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "FAQ"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "No benefits yet",
+      "myBenefits": "My exclusive benefits",
+      "loadFailed": "Failed to load",
+      "tierCatalog": "Tier benefits",
+      "tier": {
+        "normal": "Normal Member",
+        "silver": "Silver Card Member",
+        "gold": "Gold Card Member",
+        "diamond": "Diamond Member"
+      },
+      "b": {
+        "discount": "Shopping discount",
+        "points": "Point boost",
+        "gift": "Newcomer gift pack",
+        "sign": "Daily check-in",
+        "news": "Deal alerts",
+        "pointsMul": "Point multiplier",
+        "birthday": "Birthday gift pack",
+        "shipping": "Free shipping",
+        "coupon": "Exclusive coupons",
+        "service": "Dedicated support",
+        "preview": "Priority access",
+        "event": "Premium events",
+        "discountD1": "5% off all products",
+        "pointsD1": "Earn 1 point per ¥1 spent",
+        "giftD": "Exclusive welcome gift pack",
+        "signD": "Earn points with daily check-in",
+        "newsD": "Promo and event alerts",
+        "discountD2": "10% off all products",
+        "pointsMulD2": "1.2x point boost",
+        "birthdayD": "Exclusive birthday gift pack",
+        "shippingD2": "3 free shipments per month",
+        "couponD2": "2 coupons per month",
+        "signD2": "Double points on check-in",
+        "discountD3": "15% off all products",
+        "pointsMulD3": "1.5x point boost",
+        "birthdayD3": "Double birthday gift pack",
+        "shippingD3": "Unlimited free shipping",
+        "serviceD": "1-on-1 dedicated service",
+        "couponD3": "5 coupons per month",
+        "previewD": "Priority access to new features",
+        "discountD4": "20% off all products",
+        "pointsMulD4": "2x point boost",
+        "birthdayD4": "Deluxe birthday gift pack",
+        "shippingD4": "Unlimited free shipping",
+        "serviceD4": "24/7 dedicated concierge",
+        "couponD4": "10 coupons per month",
+        "previewD4": "First access to new features",
+        "eventD": "Premium offline events"
+      }
+    }
   }
 }

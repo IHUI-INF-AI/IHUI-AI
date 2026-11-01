@@ -63,6 +63,9 @@ export function TokenValueScreen({
   onRefresh,
   onRecharge,
   onBack,
+  onLoadMore,
+  loadingMore,
+  hasMore,
   colorScheme = 'light',
 }: TokenValueScreenProps) {
   const tk = getTokens(colorScheme)
@@ -89,6 +92,8 @@ export function TokenValueScreen({
         data={list}
         keyExtractor={(i) => i.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.3}
         ListHeaderComponent={
           <View>
             <View style={styles.balanceCard}>
@@ -163,6 +168,13 @@ export function TokenValueScreen({
           ) : (
             <EmptyState title={t('tokenValue.empty')} colorScheme={colorScheme} />
           )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <Text style={styles.footerText}>{t('common.loading')}</Text>
+          ) : hasMore === false && list.length > 0 ? (
+            <Text style={styles.footerText}>{t('common.noMore')}</Text>
+          ) : null
         }
         renderItem={({ item }) => (
           <View style={styles.recordItem}>
@@ -273,6 +285,12 @@ function createStyles(tk: AppThemeTokens) {
     pkgPrice: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
     tabRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     errorText: { color: tk.brandAccent.deep, fontSize: 14 },
+    footerText: {
+      paddingVertical: rnSpacing.md,
+      textAlign: 'center',
+      fontSize: 12,
+      color: tk.text.tertiary,
+    },
     recordItem: {
       flexDirection: 'row',
       alignItems: 'center',

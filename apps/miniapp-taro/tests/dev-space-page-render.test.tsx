@@ -2,139 +2,86 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 开发者空间落地页(pkg-ai/dev-space)渲染测试:把「与 RN 共享屏逐元素同形」钉成机器判据。
-// 判据对象是跨端最易漂移的三件事:段落顺序、分段数据来源(共享表)、圆角/描边/CTA 取档。
-// 夹具里的 mock 只用于切断平台依赖,不改变被测构成本身。
+/**
+ * 开发者空间页(pkg-ai/dev-space)形制锁 —— 2026-11-01 随「壳承载」迁移重写(枚 0fb91af8f8)。
+ *
+ * 旧版判的是端内手写实现:段落顺序 / 四入口 / 逐档圆角 / 取词键顺序。该实现已被
+ * `scripts/gen-miniapp-mirror.mjs` 以壳承载形制**生成件**取代(端内不写布局、不写数据),
+ * 旧判据的对象不复存在 —— 它现在判到的是 RN 壳的内部源码,而壳的正确性归 apps/mobile-rn
+ * 自身的测试与构建。留着只会把"改源头"这个正确重构判红。
+ *
+ * 本册改判迁移后的真不变量,每条都能被破坏、破了就红:
+ *  ① 壳真被渲染 —— import 了必须挂进树里("引了没用"是本仓最高频失效型);
+ *  ② 主题根仍包在壳外层 —— 取词/主题接回端内真相源,不许壳自己读;
+ *  ③ 端内不得偷偷长出第二份实现(入口表 / 取词键 / View 布局 / 圆角档一律不得回潮);
+ *  ④ 生成件保持可再生成的干净形态(无 any、无浏览器弹窗、带生成器指纹);
+ *  ⑤ 头注仍指向共享屏源头(改这一页的行为要去改源头,不是改生成件)。
+ */
 import { describe, it, expect, vi } from 'vitest'
 import { createElement, type ReactNode } from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  DEVELOPER_SPACE_ENTRIES,
-  DEVELOPER_SPACE_PROBLEMS,
-} from '@ihui/shared/constants/developer-space'
 
-vi.mock('@tarojs/taro', () => {
-  const Taro = {
-    setNavigationBarTitle: vi.fn(),
-    navigateTo: vi.fn(),
-    setClipboardData: vi.fn(),
-    showToast: vi.fn(),
-    getStorageSync: () => '',
-    setStorageSync: () => {},
-    useDidShow: vi.fn(),
-  }
-  return { default: Taro, ...Taro }
-})
-
-vi.mock('@tarojs/components', () => {
-  const make = (tag: string) => {
-    const Comp = (props: Record<string, unknown>) => createElement(tag, props)
-    Comp.displayName = `TaroStub_${tag}`
-    return Comp
-  }
-  return {
-    View: make('div'),
-    Text: make('span'),
-    Image: make('img'),
-    ScrollView: make('div'),
-  }
-})
-
-// 取词一律回吐键名:渲染层必须逐字使用共享屏的取词键,否则本断言当场失效
-vi.mock('@/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'zh-CN' }),
-  useTt: () => (key: string, fb: string) => `${key}::${fb}`,
-  t: (key: string) => key,
-}))
-
-vi.mock('@/api', () => ({
-  getProfile: () => Promise.resolve(null),
-  getMyDeveloperSubscription: () => Promise.resolve(null),
-}))
-
-vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }))
-
-vi.mock('@/components/ThemeRoot', () => {
-  const Stub = (props: { children?: ReactNode }) => createElement('div', null, props.children)
-  Stub.displayName = 'ThemeRootStub'
+// 壳边界桩:RN 壳是 Flow / React Native 形态,vitest 的 esbuild 管不了(实测
+// `Parse failure: Expected 'from', got 'typeOf'` 打在 react-native/index.js)。
+// 本册判的是**页面有没有把壳接上**,不是壳内部实现 ⇒ 在边界处切断。
+vi.mock('@rn-shells/DeveloperScreen', () => {
+  const Stub = () => createElement('div', { 'data-shell': 'developer-screen' })
+  Stub.displayName = 'DeveloperScreenShellStub'
   return { default: Stub }
 })
 
-// LineIcon 用 mask-image 绘字形(与本端真实实现同形),夹具只把字形名暴露成 data 属性
-vi.mock('@/components/LineIcon', () => {
-  const Stub = (props: { name?: string }) => createElement('i', { 'data-glyph': props.name ?? '' })
-  Stub.displayName = 'LineIconStub'
+vi.mock('@tarojs/taro', () => {
+  const Taro = { setNavigationBarTitle: vi.fn() }
+  return { default: Taro, ...Taro }
+})
+
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key, locale: 'zh-CN' }),
+}))
+
+vi.mock('@/components/ThemeRoot', () => {
+  const Stub = (props: { children?: ReactNode }) =>
+    createElement('div', { 'data-theme-root': '' }, props.children)
+  Stub.displayName = 'ThemeRootStub'
   return { default: Stub }
 })
 
 import DevSpace from '../src/pkg-ai/dev-space/index'
 
-const PAGE_FILE = resolve('src/pkg-ai/dev-space/index.tsx')
-const PAGE_SOURCE = readFileSync(PAGE_FILE, 'utf8')
+const PAGE_SOURCE = readFileSync(resolve('src/pkg-ai/dev-space/index.tsx'), 'utf8')
 
-describe('开发者空间落地页与共享屏逐元素同形', () => {
+describe('开发者空间页(壳承载形制)', () => {
   const html = renderToStaticMarkup(createElement(DevSpace))
 
-  it('段落顺序 = 用户卡 CTA → 四入口 → 问题解答标题 → 客服卡', () => {
-    const order = [
-      'developer.becomeDeveloper::成为开发者',
-      'devSpace.entryMyAgents',
-      'devSpace.faqHeading',
-      'devSpace.contactHeading',
-    ].map((marker) => html.indexOf(marker))
-    expect(order.every((i) => i >= 0)).toBe(true)
-    expect(order).toEqual([...order].sort((a, b) => a - b))
+  it('① 壳真被渲染:引了 @rn-shells/DeveloperScreen 且确实挂进树里', () => {
+    expect(PAGE_SOURCE).toContain("from '@rn-shells/DeveloperScreen'")
+    expect(html).toContain('data-shell="developer-screen"')
   })
 
-  it('四入口构成/顺序/取词键全部取自共享表,端内没有第二份表', () => {
-    expect(DEVELOPER_SPACE_ENTRIES.map((e) => `>${e.labelKey}<`)).toHaveLength(4)
-    for (const entry of DEVELOPER_SPACE_ENTRIES) {
-      expect(html).toContain(`>${entry.labelKey}<`)
-    }
-    const positions = DEVELOPER_SPACE_ENTRIES.map((e) => html.indexOf(`>${e.labelKey}<`))
-    expect(positions).toEqual([...positions].sort((a, b) => a - b))
-    expect(PAGE_SOURCE).toContain("from '@ihui/shared/constants/developer-space'")
-    expect(PAGE_SOURCE).not.toContain('entryMyAgents:')
+  it('② 主题根包在壳外层(取词/主题接回端内真相源,不由壳自取)', () => {
+    const theme = html.indexOf('data-theme-root')
+    const shell = html.indexOf('data-shell="developer-screen"')
+    expect(theme).toBeGreaterThanOrEqual(0)
+    expect(shell).toBeGreaterThan(theme)
   })
 
-  it('两张问题卡按 titleKey/descKey/btnKey 取词,顺序同共享表', () => {
-    expect(DEVELOPER_SPACE_PROBLEMS).toHaveLength(2)
-    const keys = DEVELOPER_SPACE_PROBLEMS.flatMap((p) => [p.titleKey, p.descKey, p.btnKey])
-    const positions = keys.map((k) => html.indexOf(`>${k}<`))
-    expect(positions.every((i) => i >= 0)).toBe(true)
-    expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  it('③ 端内不写布局/数据:第二份入口表、取词键、View 布局、圆角档一律不得回潮', () => {
+    expect(PAGE_SOURCE).not.toContain('DEVELOPER_SPACE_ENTRIES')
+    expect(PAGE_SOURCE).not.toContain('entryMyAgents')
+    expect(PAGE_SOURCE).not.toMatch(/devSpace\.(entry|faq|contact)/)
+    expect(PAGE_SOURCE).not.toMatch(/<View\b/)
+    expect(PAGE_SOURCE).not.toMatch(/rounded-/)
   })
 
-  it('无头像时回落共享表的默认 logo,未登录回落 devSpace.notLoggedIn', () => {
-    expect(html).toContain('xtk/devlogo.png')
-    expect(html).toContain('>devSpace.notLoggedIn<')
-  })
-
-  it('主按钮取 cta 成对档,圆角一律走标准档,全页无描边/分割线', () => {
-    expect(html).toContain('rounded-sm bg-cta')
-    expect(html).toContain('text-cta-foreground')
-    const radius = [...html.matchAll(/rounded-[a-z0-9]*/g)].map((m) => m[0])
-    expect(
-      radius.every((r) =>
-        ['rounded-sm', 'rounded-md', 'rounded-lg', 'rounded-xl', 'rounded-2xl'].includes(r),
-      ),
-    ).toBe(true)
-    expect(html).not.toMatch(/rounded-\[/)
-    expect(html).not.toMatch(/border-[a-z]/)
-    expect(html).not.toContain('<hr')
-    expect(html).not.toMatch(/divide-/)
-  })
-
-  it('图标走本端 LineIcon(lucide 名),端内不出现字符箭头与 emoji', () => {
-    expect(html).toContain('data-glyph="bot"')
-    expect(html).not.toMatch(/[›»→‹←]/)
-    expect(PAGE_SOURCE).not.toMatch(/\balert\(|\bconfirm\(|\bprompt\(|title="/)
+  it('④ 生成件干净:无 any、无浏览器弹窗、带生成器指纹', () => {
     expect(PAGE_SOURCE).not.toMatch(/: any\b|as any\b/)
+    expect(PAGE_SOURCE).not.toMatch(/\balert\(|\bconfirm\(|\bprompt\(/)
+    expect(PAGE_SOURCE).toContain('scripts/gen-miniapp-mirror.mjs')
   })
 
-  it('头注首行(剥掉水印横幅后)是真实指向的共享屏路径', () => {
+  it('⑤ 头注(剥掉水印横幅后)仍指向共享屏源头', () => {
     const firstContentLine = PAGE_SOURCE.split('\n')
       .map((l) => l.trim())
       .find(
@@ -144,9 +91,10 @@ describe('开发者空间落地页与共享屏逐元素同形', () => {
           !l.startsWith('// Provenance') &&
           !l.includes('[IHUI-AI-PROVENANCE]'),
       )
-    expect(firstContentLine).toBe(
-      '// 对齐目标(RN 共享屏): packages/app/src/features/developer/DeveloperScreen.tsx',
+    expect(firstContentLine).toContain(
+      'packages/app/src/features/developer/DeveloperScreen.tsx',
     )
   })
 })
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

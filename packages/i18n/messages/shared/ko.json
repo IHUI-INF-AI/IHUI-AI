@@ -789,6 +789,8 @@
     "contentRequired": "피드백 내용을 입력해 주세요",
     "contact": "연락처",
     "contactPlaceholder": "선택 사항, 연락용",
+    "namePlaceholder": "이름을 입력하세요",
+    "tip": "보내주신 피드백은 제품과 서비스 개선에 사용됩니다. 제출 후 처리를 기다려 주세요.",
     "empty": "피드백 기록이 없습니다",
     "failed": "제출 실패, 잠시 후 다시 시도해 주세요",
     "fieldContact": "연락처",
@@ -1392,6 +1394,8 @@
     "enterprise": "엔터프라이즈"
   },
   "share": {
+    "appTitle": "IHUI AI — 더 스마트한 학습",
+    "timelineTitle": "IHUI AI, 스마트 학습 어시스턴트",
     "title": "공유",
     "remark": "메모",
     "remarkPlaceholder": "메모 입력(선택)",
@@ -2754,5 +2758,79 @@
     "rateTitle": "커미션 비율",
     "openVip": "VIP 멤버십을 개통해 커미션 플랜에 참여하세요",
     "rateEmpty": "수수료 비율이 없습니다"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "VIP 회원이 되면 수익 분배 플랜에 참여할 수 있습니다.",
+      "rule2": "친구가 회원이 되면 회원비의 20%를 커미션으로 받습니다.",
+      "rule3": "커미션은 친구 결제 성공 후 24시간 이내에 계정에 자동 정산됩니다.",
+      "rule4": "계정 잔액이 100위안 이상이면 위챗 또는 알리페이로 출금 신청할 수 있습니다."
+    }
+  },
+  "orderRefund": {
+    "d1": "필요 없음",
+    "d2": "잘못 주문/중복 주문",
+    "d3": "품질 문제",
+    "d4": "설명과 다름",
+    "d5": "기타 이유"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "자주 묻는 질문"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "아직 혜택이 없습니다",
+      "myBenefits": "나의 전용 혜택",
+      "loadFailed": "불러오기 실패",
+      "tierCatalog": "등급별 혜택",
+      "tier": {
+        "normal": "일반 회원",
+        "silver": "실버 회원",
+        "gold": "골드 회원",
+        "diamond": "다이아몬드 회원"
+      },
+      "b": {
+        "discount": "쇼핑 할인",
+        "points": "포인트 가속",
+        "gift": "신규 회원 선물",
+        "sign": "매일 출석",
+        "news": "혜택 알림",
+        "pointsMul": "포인트 배수",
+        "birthday": "생일 선물",
+        "shipping": "무료 배송",
+        "coupon": "전용 쿠폰",
+        "service": "전담 고객 지원",
+        "preview": "우선 체험",
+        "event": "프리미엄 이벤트",
+        "discountD1": "전 상품 5% 할인",
+        "pointsD1": "1위안당 1포인트",
+        "giftD": "가입 전용 선물",
+        "signD": "매일 출석 포인트",
+        "newsD": "할인 이벤트 알림",
+        "discountD2": "전 상품 10% 할인",
+        "pointsMulD2": "1.2배 포인트 가속",
+        "birthdayD": "생일 전용 선물",
+        "shippingD2": "월 3회 무료 배송",
+        "couponD2": "월 2장 쿠폰",
+        "signD2": "출석 2배 포인트",
+        "discountD3": "전 상품 15% 할인",
+        "pointsMulD3": "1.5배 포인트 가속",
+        "birthdayD3": "생일 더블 선물",
+        "shippingD3": "무제한 무료 배송",
+        "serviceD": "1:1 전담 서비스",
+        "couponD3": "월 5장 쿠폰",
+        "previewD": "신기능 우선 체험",
+        "discountD4": "전 상품 20% 할인",
+        "pointsMulD4": "2배 포인트 가속",
+        "birthdayD4": "생일 프리미엄 선물",
+        "shippingD4": "무제한 무료 배송",
+        "serviceD4": "7×24 전담 컨시어지",
+        "couponD4": "월 10장 쿠폰",
+        "previewD4": "신기능 우선 체험",
+        "eventD": "오프라인 프리미엄 이벤트"
+      }
+    }
   }
 }

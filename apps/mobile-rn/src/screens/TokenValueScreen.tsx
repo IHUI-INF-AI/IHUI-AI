@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
-import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { tokens } from '../theme/active-tokens'
@@ -13,13 +12,14 @@ import {
   getTokenFlows,
   getTopUpRecords,
   type TokenBalance,
+  type TokenFlowItem,
+  type TopUpOrder,
 } from '@ihui/api-client'
 import {
   CategoryInlineBar,
   TokenValueScreen as SharedTokenValueScreen,
   type TokenRecordType,
   type TokenValueBalance,
-  type TokenValuePackage,
   type TokenValueRecord,
 } from '@ihui/rn-app'
 import { formatShortDateTime } from '../utils/date-utils'
@@ -43,13 +43,14 @@ const RANGE_ITEMS: readonly { key: RangeKey; labelKey: string }[] = [
 /** 各范围的天数(a=全部不设限) */
 const RANGE_DAYS: Record<RangeKey, number> = { w: 7, m: 30, y: 365, a: Number.POSITIVE_INFINITY }
 
-function formatToken(
-  n: number,
-  t: (k: string, v?: Record<string, string | number>) => string,
-): string {
-  if (Math.abs(n) >= 100000000) return t('tokenValue.unitYi', { v: (n / 100000000).toFixed(2) })
-  if (Math.abs(n) >= 10000) return t('tokenValue.unitWan', { v: (n / 10000).toFixed(1) })
-  return `${n}`
+/** 单页记录条数(与端内 /token/records 的 PAGE_SIZE 对齐) */
+const PAGE_SIZE = 20
+
+/** 记录 + 原始 ISO 时间(排序/时间范围过滤的键;TokenValueRecord 不含原始时间) */
+type TaggedRecord = { iso: string; rec: TokenValueRecord }
+
+function byTimeDesc(a: { iso: string }, b: { iso: string }): number {
+  return a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0
 }
 
 export default function TokenValueScreen() {
@@ -58,37 +59,24 @@ export default function TokenValueScreen() {
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<TokenRecordType>('all')
   const [balance, setBalance] = useState<TokenValueBalance | null>(null)
-  // 全量记录 + 平行时间戳数组(分类条按时间范围过滤用;TokenValueRecord 类型不含原始时间)
-  const [allRecords, setAllRecords] = useState<TokenValueRecord[]>([])
-  const [allTimes, setAllTimes] = useState<number[]>([])
+  // 记录与原始 ISO 时间同行(分类条按时间范围过滤用;TokenValueRecord 类型不含原始时间)
+  const [tagged, setTagged] = useState<TaggedRecord[]>([])
+  // 已加载到第几页 + 是否还有下一页(触底分页状态)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   // 时间范围(对齐 Uniapp token_value.vue type 默认 'w' 7天)
   const [range, setRange] = useState<RangeKey>('w')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
-    setError('')
-    try {
-      const [balRes, flowRes, topUpRes] = await Promise.all([
-        getTokenBalance(),
-        getTokenFlows({ page: 1, pageSize: 50 }),
-        getTopUpRecords({ page: 1, pageSize: 50 }),
-      ])
-
-      if (balRes.success) {
-        const bal: TokenBalance = balRes.data
-        // TokenBalance API 不返回 frozen 字段,占位 0(保留 UI 结构)
-        setBalance({ balance: bal.balance, frozen: 0, totalUsed: bal.totalUsed })
-      }
-
-      const flowItems = flowRes.success ? (flowRes.data.list ?? []) : []
-      const topUpItems = topUpRes.success ? (topUpRes.data.list ?? []) : []
-
-      // 用 ISO 时间戳排序,合并消耗与充值记录(倒序)
-      const tagged: Array<{ iso: string; rec: TokenValueRecord }> = []
+  /** 把一页「消耗流水 + 充值记录」并成按时间倒序的记录行 */
+  const tagPage = useCallback(
+    (flowItems: TokenFlowItem[], topUpItems: TopUpOrder[]): TaggedRecord[] => {
+      const rows: TaggedRecord[] = []
       for (const f of flowItems) {
-        tagged.push({
+        rows.push({
           iso: f.createdAt,
           rec: {
             id: f.id,
@@ -100,7 +88,7 @@ export default function TokenValueScreen() {
         })
       }
       for (const r of topUpItems) {
-        tagged.push({
+        rows.push({
           iso: r.createdAt,
           rec: {
             id: r.orderId,
@@ -111,16 +99,69 @@ export default function TokenValueScreen() {
           },
         })
       }
-      tagged.sort((a, b) => (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0))
-      setAllRecords(tagged.map((item) => item.rec))
-      setAllTimes(tagged.map((item) => new Date(item.iso).getTime()))
+      return rows.sort(byTimeDesc)
+    },
+    [t],
+  )
+
+  /** 取第 p 页记录;任一端点还有剩余即「还有下一页」 */
+  const fetchPage = useCallback(
+    async (p: number) => {
+      const [flowRes, topUpRes] = await Promise.all([
+        getTokenFlows({ page: p, pageSize: PAGE_SIZE }),
+        getTopUpRecords({ page: p, pageSize: PAGE_SIZE }),
+      ])
+      const flowItems = flowRes.success ? (flowRes.data.list ?? []) : []
+      const topUpItems = topUpRes.success ? (topUpRes.data.list ?? []) : []
+      const flowTotal = flowRes.success ? (flowRes.data.total ?? 0) : 0
+      const topUpTotal = topUpRes.success ? (topUpRes.data.total ?? 0) : 0
+      return {
+        rows: tagPage(flowItems, topUpItems),
+        hasMore: flowTotal > p * PAGE_SIZE || topUpTotal > p * PAGE_SIZE,
+      }
+    },
+    [tagPage],
+  )
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const [balRes, first] = await Promise.all([getTokenBalance(), fetchPage(1)])
+
+      if (balRes.success) {
+        const bal: TokenBalance = balRes.data
+        // TokenBalance API 不返回 frozen 字段,占位 0(保留 UI 结构)
+        setBalance({ balance: bal.balance, frozen: 0, totalUsed: bal.totalUsed })
+      }
+
+      setTagged(first.rows)
+      setPage(1)
+      setHasMore(first.hasMore)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('tokenValue.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
+      setLoadingMore(false)
     }
-  }, [t])
+  }, [fetchPage, t])
+
+  // 触底加载下一页(共享屏 FlatList 的 onEndReached 由此接上)
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const next = page + 1
+      const res = await fetchPage(next)
+      setTagged((prev) => [...prev, ...res.rows].sort(byTimeDesc))
+      setPage(next)
+      setHasMore(res.hasMore)
+    } catch {
+      // 下一页取失败时保留已加载的分页,由下拉刷新重新对齐
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [fetchPage, hasMore, loading, loadingMore, page])
 
   useEffect(() => {
     void load()
@@ -131,31 +172,16 @@ export default function TokenValueScreen() {
     void load()
   }
 
-  const handleRecharge = (p: TokenValuePackage) =>
-    appAlert(
-      t('tokenValue.recharge.title'),
-      t('tokenValue.recharge.message', { tokens: formatToken(p.tokens, t), price: p.price }),
-      [
-        { text: t('common.cancel') },
-        {
-          text: t('tokenValue.recharge.payBtn'),
-          onPress: () =>
-            appAlert(
-              t('tokenValue.recharge.success.title'),
-              t('tokenValue.recharge.success.message', {
-                tokens: formatToken(p.tokens + p.bonus, t),
-              }),
-            ),
-        },
-      ],
-    )
+  // 套餐卡片只落到统一充值页(在册路由 Recharge → AppTopupScreen 真实支付链);
+  // 端内同样只跳 /pkg-shop/wallet/recharge/index,不按套餐伪造选中态(后端无在册套餐下单端点)
+  const handleRecharge = () => navigation.navigate('Recharge')
 
   // 时间范围过滤(对齐 Uniapp token_value.vue onTabChange → type 参数重新拉取;此处前端过滤已加载记录)
   const records = useMemo(() => {
-    if (range === 'a') return allRecords
+    if (range === 'a') return tagged.map((item) => item.rec)
     const cutoff = Date.now() - RANGE_DAYS[range] * 24 * 60 * 60 * 1000
-    return allRecords.filter((_, i) => (allTimes[i] ?? 0) >= cutoff)
-  }, [allRecords, allTimes, range])
+    return tagged.filter((item) => new Date(item.iso).getTime() >= cutoff).map((item) => item.rec)
+  }, [tagged, range])
 
   return (
     <View style={styles.container}>
@@ -182,6 +208,9 @@ export default function TokenValueScreen() {
           onRefresh={onRefresh}
           onRecharge={handleRecharge}
           onBack={() => navigation.goBack()}
+          onLoadMore={loadMore}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
           colorScheme={resolvedTheme}
         />
       </View>
