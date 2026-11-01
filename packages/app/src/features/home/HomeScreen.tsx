@@ -13,7 +13,7 @@ import type {
   HomeMenuItem,
   HomeScreenProps,
 } from '../../types'
-import { useFontMultiplier } from '../../components/MoreLink'
+import { readFontMultiplier } from '../../components/MoreLink'
 import { SectionHeader } from '../../components/SectionHeader'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -61,7 +61,7 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const fontMultiplier = useFontMultiplier()
+  const fontMultiplier = readFontMultiplier()
 
   if (loading) {
     return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />

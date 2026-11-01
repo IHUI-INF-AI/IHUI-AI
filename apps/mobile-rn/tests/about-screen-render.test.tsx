@@ -25,7 +25,7 @@ vi.mock('react-native', () => {
       return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
     }
   return {
-    // 共享返回键的核心会按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
+    // 共享返回键的核心会按字体缩放取档(packages/shared/src/ui/back-chevron-core → readFontMultiplier)
     PixelRatio: {
       getFontScale: () => 1,
       getPixelSizeForLayoutSize: (n: number) => n,
