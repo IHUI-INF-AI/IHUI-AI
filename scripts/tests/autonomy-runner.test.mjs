@@ -22,6 +22,7 @@ import {
   extractAbsPathTokens,
   preflightSessionRunner,
   classifySessionFailure,
+  gateTicketByHumanValve,
   REPO_ROOT_TOKEN,
 } from '../lib/autonomy-runner.mjs'
 
@@ -117,6 +118,19 @@ ok('T19 活配置自证:gates.json 的模板经 preflight 必须 ready(病灶真
   if (pf.state !== 'ready') console.log(`     现读 state=${pf.state} missing=${pf.missing.join(',')} why=${pf.why}`)
   return pf.state === 'ready'
 })())
+
+// ---- 人工阀前置闸(判据 import lib,human-valve.mjs 的分类器;本文件只验接线语义) ----
+const valveText = readFileSync(join(ROOT, 'scripts', 'data', 'human-valve-list.json'), 'utf8')
+ok('T20 命中停机类 + enforce ⇒ block(闸真的拦得住)', gateTicketByHumanValve({ ticketText: '替换生产模型密钥并重启发信服务', mode: 'enforce', valveListText: valveText }).action === 'block')
+ok('T21 同一张票 + observe ⇒ 只记账不拦(放量前先看命中分布)', gateTicketByHumanValve({ ticketText: '替换生产模型密钥并重启发信服务', mode: 'observe', valveListText: valveText }).action === 'observe-stop')
+ok('T22 自决类 ⇒ allow(闸不能把日常改代码也停掉)', (() => {
+  const v = gateTicketByHumanValve({ ticketText: '给 check-xxx.mjs 补一条镜像测试并跑守门', mode: 'enforce', valveListText: valveText })
+  return v.action === 'allow'
+})())
+ok('T23 变异:动作不在已知清单 ⇒ enforce 下必须 block(fail-closed 不被放宽)', gateTicketByHumanValve({ ticketText: '把这批东西按神秘方式咕一下', mode: 'enforce', valveListText: valveText }).action === 'block')
+ok('T24 清单取不到 ⇒ unjudged,不猜成放行也不猜成拦', gateTicketByHumanValve({ ticketText: 'x', mode: 'enforce', valveListText: '' }).action === 'unjudged')
+ok('T25 档位取值非法 ⇒ unjudged(缺省档只能由调用方显式决定)', gateTicketByHumanValve({ ticketText: 'x', mode: 'yolo', valveListText: valveText }).action === 'unjudged')
+ok('T26 空票面 ⇒ 落停机而非放行', gateTicketByHumanValve({ ticketText: '   ', mode: 'enforce', valveListText: valveText }).action === 'block')
 
 console.log(fail === 0 ? `autonomy-runner: ${pass} 例全绿` : `autonomy-runner: ${pass} 绿 / ${fail} 红`)
 process.exitCode = fail === 0 ? 0 : 1
