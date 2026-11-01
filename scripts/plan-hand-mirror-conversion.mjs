@@ -783,6 +783,63 @@ export function capabilityTokens(text) {
 }
 
 /**
+ * 这一页的 `@/components` 是否**只装了一枚导航条、且只用返回键(+可选标题)**(2026-11-01 立)。
+ *
+ * 为什么必须这么窄:`@/components` 是一个 barrel token,页里可能只 import { NavBar }(实测
+ * pkg-content/news/detail、pkg-content/topic/detail),也可能一次装 11 枚业务组件(实测
+ * pkg-learn/course/detail 的 CourseHeader/TeacherCard/…)。按 token 名整枚销会把后者一起放过 ——
+ * 那就是假销账(比误拒危险:误拒只是不动手,假销账把丢功能判成零差别)。
+ * NavBarProps 上 title/showBack 之外的属性一律不认:rightText/onRightClick/notification/
+ * variant='ai-home'/onMenuClick/onJoinClick/bgColor/textColor 在屏侧都没有等价物
+ * (共享屏那一层只有 <BackChevron> 加一个标题行)。默认导入、多枚具名、别名带别的东西同样不认。
+ */
+export function navBarOnlyChrome(pageText) {
+  const t = maskComments(String(pageText ?? ''))
+  const specs = [
+    ...t.matchAll(
+      /import\s+([A-Za-z0-9_]+)\s*,\s*\{[^}]*\}\s*from\s*['"]@\/components['"]|import\s*\{([^}]*)\}\s*from\s*['"]@\/components['"]/g,
+    ),
+  ]
+  if (specs.length !== 1) return { ok: false, hasTitle: false }
+  if (specs[0][1]) return { ok: false, hasTitle: false } // 带默认导入 ⇒ 这枚 barrel 的取用面不止导航条
+  const named = String(specs[0][2] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (named.length !== 1) return { ok: false, hasTitle: false }
+  const alias = /^NavBar\s+as\s+([A-Za-z0-9_]+)$/.exec(named[0])
+  if (!alias && named[0] !== 'NavBar') return { ok: false, hasTitle: false }
+  const tag = alias ? alias[1] : 'NavBar'
+  const uses = [...t.matchAll(new RegExp(`<${tag}([^>]*?)\\/>`, 'g'))]
+  if (uses.length === 0) return { ok: false, hasTitle: false }
+  let hasTitle = false
+  for (const u of uses) {
+    for (const a of u[1].matchAll(/([A-Za-z][A-Za-z0-9_]*)\s*(?:=|(?=[\s/]))/g)) {
+      if (a[1] === 'showBack') continue
+      if (a[1] === 'title') {
+        hasTitle = true
+        continue
+      }
+      return { ok: false, hasTitle: false }
+    }
+  }
+  return { ok: true, hasTitle }
+}
+
+/**
+ * 屏/壳能不能承接这枚导航条:返回件必须真渲染,页上带标题时还得有一个真标题来源
+ * (屏自己的标题行,或壳设原生导航标题)。判面遮注释 —— 注释里写 BackChevron 不算实现。
+ */
+export function navBarCoveredOnScreen(sharedText, shellText, hasTitle) {
+  const shared = maskComments(String(sharedText ?? ''))
+  if (!/<BackChevron\b/.test(shared)) return false
+  if (!hasTitle) return true
+  return /navTitle|setNavigationBarTitle/.test(
+    `${shared}\n${maskComments(String(shellText ?? ''))}`,
+  )
+}
+
+/**
  * 这一页相对「共享屏本体 ∪ RN 壳」多出来的能力符号。空集 ⇒ 页面没带私有行为,可转。
  * pageTokens/sharedTokens/shellTokens 均为 Set|string(字符串现算)。
  */
@@ -940,6 +997,13 @@ export function judgeConversion({
     }
     if (shareTokens.every((t) => SHARE_EMITTED[t].test(emitted)))
       for (const t of shareTokens) pageTokens.delete(t)
+  }
+  // 页面导航条(2026-11-01 立):页里那枚 '@/components' 若只装 NavBar 且只用返回键(+可选标题),
+  // 而屏真渲染 <BackChevron>(带标题时另有标题来源)⇒ 端内这一处是重复接线,转壳无可见差别。
+  if (pageTokens.has('@/components')) {
+    const nav = navBarOnlyChrome(pageText)
+    if (nav.ok && navBarCoveredOnScreen(sharedText, shellText, nav.hasTitle))
+      pageTokens.delete('@/components')
   }
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
   shellCapabilityCovered(pageTokens, shellText, sharedText)
@@ -1453,6 +1517,37 @@ function main(argv) {
       s29Hits(`appAlert(t('absent.key'))`, ''),
       s29Hits(``, `return t('demo.body')`),
     ], [false, true, false])
+    // S30(2026-11-01 立):`@/components` 是 barrel —— 页里可能只装一枚 NavBar(实测
+    // pkg-content/news/detail 的 `<NavBar showBack />` 与 pkg-content/topic/detail 的
+    // `<NavBar title={tt('topic.detail.pageTitle')} showBack />`,屏侧对应
+    // <BackChevron> + navRow/navTitle 同键同实现),也可能一次装 11 枚业务组件(实测
+    // pkg-learn/course/detail)⇒ 整 token 一律销会把后者判成零差别(假销账)。窄到
+    // 「具名集恰为 NavBar + 只用 title/showBack + 屏真渲染返回件(+标题来源)」才动。
+    const s30 = (page, shared, shell = '') => {
+      const nav = navBarOnlyChrome(page)
+      return nav.ok && navBarCoveredOnScreen(shared, shell, nav.hasTitle)
+    }
+    const S30_NAV = `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar showBack /> }`
+    P('S30 导航条销账的三道窄:barrel 只装 NavBar、只用 title/showBack、屏真渲染返回件与标题来源', [
+      s30(S30_NAV, '<BackChevron onPress={onBack} label={t("common.back")} />'),
+      s30(
+        `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar title={x} showBack /> }`,
+        '<View style={styles.navRow}><BackChevron /><Text style={styles.navTitle}>{t("topic.detail.pageTitle")}</Text></View>',
+      ),
+      s30(S30_NAV, 'export function S(){ return <View /> }'),
+      s30(
+        `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar rightText="分享" onRightClick={f} showBack /> }`,
+        '<BackChevron />',
+      ),
+      s30(
+        `import { NavBar, CourseHeader } from '@/components'\nexport default function P(){ return <NavBar showBack /> }`,
+        '<BackChevron />',
+      ),
+      s30(
+        `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar title={x} showBack /> }`,
+        '<BackChevron />',
+      ),
+    ], [true, true, false, false, false, false])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
@@ -1574,6 +1669,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   capabilityTokens,
+  navBarOnlyChrome,
+  navBarCoveredOnScreen,
   pageOnlyCapabilities,
   judgeConversion,
   plan,
