@@ -1193,10 +1193,66 @@ async def list_enabled_accounts() -> list[dict[str, Any]]:
     return _accounts_from_rows(rows)
 
 
+# 号池↔签到同步的**身份/版本锚点**键(2026-11-01 立)。
+# 这六个键由号池推送写入(D2/D4),是「这一行属于号池哪一行、凭证到第几版、启用态如何」
+# 的唯一凭据;丢了它,对账收敛器认不回该账号(判号池行缺失→另建一行,历史记录留在旧行),
+# CAS 防降级同时失效。故 save_device_map 的整体替换语义必须给它们开一条保护通道。
+_POOL_ANCHOR_KEYS: Final = (
+    "pool_account_id",
+    "pool_uid",
+    "pool_cred_version",
+    "pool_enabled",
+    "pool_name",
+    "pool_synced_at",
+)
+
+
+def anchor_preserving_patch(
+    existing: Any, incoming: dict[str, Any]
+) -> dict[str, Any]:
+    """整体替换前要并回的号池锚点键(纯函数,单测锁行为)。
+
+    仅在「库里这行已有 pool_account_id,而传入的 dm 没有」时生效 —— 其余情况一律
+    返回空 dict,让原有整行替换语义(含删键,如 PATCH /device_map 顶掉旧 web_cookie、
+    writeback 清 pool_pending_cred)一字不变。
+
+    立因(2026-11-01 实测事故):一条 pytest 用例漏打桩,拿假行 `id=7` 走真实
+    save_device_map,把 qoder 号池账号的 device_map 整体换成 WorkBuddy 测试数据,
+    pool_account_id / pool_uid / pool_cred_version 全丢且全程无日志。锚点是同步的
+    根,不允许被"某个不完整的 dm"顺手抹掉。
+    """
+    if isinstance(existing, str):
+        try:
+            existing = json.loads(existing or "{}")
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    if not isinstance(existing, dict):
+        return {}
+    if "pool_account_id" not in existing:
+        return {}
+    if "pool_account_id" in incoming:
+        return {}
+    return {k: existing[k] for k in _POOL_ANCHOR_KEYS if k in existing}
+
+
 async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
-    """引擎对 device_map 原位补齐缺失设备标识后,由调用方写回。"""
+    """引擎对 device_map 原位补齐缺失设备标识后,由调用方写回。
+
+    **号池锚点保护(2026-11-01 立)**:本函数是整行替换语义(见 PATCH 契约),但
+    pool_* 是号池↔签到同步的唯一锚点。目标行已有锚点而传入 dm 没有时,把旧锚点键
+    并回(其余键仍按整行替换,删键语义不变),并打一条 warning 留痕 —— 事故当时
+    最大的问题是"抹了也没人知道"。
+
+    真要解绑请走既有语义:`apply_pool_state(..., 'pool_deleted')` 保留锚点只置
+    enabled=false;彻底解绑 = 删账号行。没有任何合法路径需要"留下行、抹掉锚点"。
+    """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
+        existing = await conn.fetchval(
+            "SELECT device_map FROM checkin_accounts WHERE id = $1", account_id
+        )
+        patch = anchor_preserving_patch(existing, device_map)
+        payload = {**device_map, **patch} if patch else device_map
         await conn.execute(
             """
             UPDATE checkin_accounts
@@ -1204,7 +1260,14 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
             WHERE id = $1
             """,
             account_id,
-            json.dumps(device_map, ensure_ascii=False),
+            json.dumps(payload, ensure_ascii=False),
+        )
+    if patch:
+        logger.warning(
+            "[checkin_store] device_map 写入试图抹掉号池锚点,已回填 id=%s 键=%s"
+            "(传入 dm 不含 pool_account_id;对账锚点不允许被顺手删掉)",
+            account_id,
+            ",".join(sorted(patch)),
         )
 
 
@@ -1653,6 +1716,39 @@ async def list_records(
                 limit,
             )
     return [_record_row(r) for r in rows]
+
+
+async def list_records_since(since: datetime) -> list[dict[str, Any]]:
+    """按时间下界取**跨属主**全量签到记录(只读;Qoder 补跑轮判「今日是否已有结果」用)。
+
+    与 list_records 的三点差异(刻意,不是重复实现):
+    - 跨 owner + 不分页:调度轮要一次判完全部 enabled 账号,不需要属主面;
+    - 只要判定所需四列(id / account_id / ok / created_at),不把 message 等
+      业务字段拖出来;
+    - created_at 回 **datetime 原值**(不是 isoformat 串)—— 日界换算
+      (Asia/Shanghai 自然日)留在调用方的纯函数里,可脱离 DB 单测;此处只做
+      时间下界过滤,不猜时区、不改写时刻。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, account_id, ok, created_at
+            FROM checkin_records
+            WHERE created_at >= $1
+            ORDER BY created_at DESC, id DESC
+            """,
+            since,
+        )
+    return [
+        {
+            "id": r["id"],
+            "account_id": r["account_id"],
+            "ok": r["ok"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
 
 
 async def credits_history(
