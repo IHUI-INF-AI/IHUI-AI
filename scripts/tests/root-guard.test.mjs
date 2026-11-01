@@ -162,7 +162,14 @@ import { dirname, join, resolve } from 'node:path'
 
 const RG_CLI = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'root-guard.mjs')
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const git = (...a) => execFileSync('git', a.flat(), { cwd: ROOT, encoding: 'utf8' }).trim()
+const git = (...a) =>
+  execFileSync('git', a.flat(), {
+    cwd: ROOT,
+    encoding: 'utf8',
+    // §12g:本机派生 git 必须显式接管 stdio(不写稳定 EBUSY),绝对路径不是豁免。
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).trim()
 
 test('⑥ 候选面取不到一律 unknown —— 没判成绝不读成放行', () => {
   for (const rev of ['', 'abc123', '0'.repeat(40), git('rev-list', '--max-parents=0', 'HEAD')]) {
