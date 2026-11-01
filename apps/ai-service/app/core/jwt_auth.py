@@ -37,7 +37,18 @@ logger = logging.getLogger(__name__)
 _ALWAYS_PUBLIC: tuple[str, ...] = ("/.well-known/agent.json", "/.well-known/agent-card.json")
 
 # router 根:该前缀下的任何条目(含精确到端点的写法)都不允许匿名可达
-_NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents", "/api/rules")
+_NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents", "/api/rules", "/api/context")
+# `/api/context` 于 2026-11-01 入列(现读依据,不是猜):那张 router 就在
+# `app/services/context_engine.py`(`router = APIRouter()`),挂到 `main.py` 的
+# `include_router(context_engine_router, prefix="/api/context")`。它的 7 个端点**无一处**
+# 带端点级身份依赖(`grep Depends` 于该 router 零命中),身份全靠调用方**自报** query/body 里的
+# `userId`,而 `GET /memory`、`DELETE /memory`、`GET /visualization` 连自报值都不看 —— 键只按
+# `conversationId` 派生。本机上 8803 绑 `127.0.0.1`(同网段容器与宿主机进程可达),api→ai-service
+# 这一腿又统一走系统票(`ai-service-fetch.ts` 那 8 处全传 `request=null`),所以"按主体收口"必须
+# 先改出站形态,不能在这一格顺手做。本条入列挡的是**当下就能发生的那一格**:一份把
+# JWT_PUBLIC_PATHS 整串替换成含 `/api/context` 的陈旧 .env,会让这些摘要/可视化面匿名可读
+# (2026-10-29 的 trigger-refresh / scheduler-status 与 2026-10-29 的 /api/agents 是同一形态)。
+# 本机现读 `apps/ai-service/.env:175` 仍是注释态(`# JWT_PUBLIC_PATHS=`)⇒ 对今天的行为零影响。
 # `/api/rules` 于 2026-11-01 入列:那张 router 里有五格(LLM 仲裁冲突、规则试跑、效果预测、
 # 学习反馈、匹配)不带端点级身份依赖 —— 一旦某份 .env 把 JWT_PUBLIC_PATHS 整串替换成含
 # `/api/rules`,匿名请求就能直接驱动模型消耗并写规则反馈面(与 2026-10-29 那两条同型)。
