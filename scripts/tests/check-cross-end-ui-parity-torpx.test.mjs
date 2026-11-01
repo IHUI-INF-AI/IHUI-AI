@@ -19,6 +19,11 @@ import test from 'node:test'
 
 import { __test__ as src } from '../check-cross-end-ui-parity.mjs'
 import { lengthConstsOf, radiusItemsInLine, radiusSetOf } from '../lib/radius-tokens.mjs'
+import {
+  WEB_UTILITY_CLOSURE_EXTRA,
+  WEB_UTILITY_ENTRY_REL,
+  webUtilityDeclarations,
+} from '../lib/web-utility-classes.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GATE = join(ROOT, 'scripts', 'check-cross-end-ui-parity.mjs')
@@ -534,6 +539,61 @@ test('C13 档表读不到的成员 ⇒ 报名未判定,不静默入账(§0.3 没
     ),
     `未判定没点名:${JSON.stringify(g.unreadable)}`,
   )
+})
+
+test('C18 web 工具类模型(票 O67):真 HEAD 面取源可解 / 三态分清 / 取不到一律未判定', () => {
+  /**
+   * 这条锁钉的是"web 腿对 Tailwind 工具类有没有判据"这一格。取材面必须是**真 HEAD blob**
+   * (夹具自造一份 CSS 只能证明函数会算,证明不了这份取源在真仓接得上)。
+   * 判据一律走 lib 与门自己的出口,本件不复制任何一条(§0.6)。
+   */
+  const listR = spawnSync('git', ['-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD', 'apps/web'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  assert.equal(listR.status, 0, '取不到 apps/web 清单 ⇒ 这条锁自己先瞎了')
+  const files = {}
+  for (const rel of listR.stdout.split(/\r?\n/).filter((x) => /\.(css|scss|less)$/.test(x)))
+    files[rel] = headBlob(rel)
+  for (const rel of WEB_UTILITY_CLOSURE_EXTRA) files[rel] = headBlob(rel)
+  assert.ok(
+    typeof files[WEB_UTILITY_ENTRY_REL] === 'string',
+    '前提:web 全局样式入口必须在被审面上',
+  )
+  const model = webUtilityDeclarations({
+    repoRoot: ROOT,
+    files,
+    candidates: ['min-h-0', 'min-w-0', 'resize-none', 'accent-primary', 'appearance-none', 'underline', 'thin-scroll', 'min-h-4'],
+  })
+  assert.equal(model.available, true, `模型没建起来:${model.why}`)
+  // ① 真仓面:被名单点到的类必须由编译器产出,且值是"该主题"的档(不是 Tailwind 默认 0.25rem 猜的)
+  assert.equal(model.decls.get('min-h-0'), 'min-height: 0px;')
+  assert.equal(model.decls.get('min-w-0'), 'min-width: 0px;')
+  assert.equal(model.decls.get('resize-none'), 'resize: none;')
+  assert.match(model.decls.get('accent-primary') ?? '', /accent-color: var\(--color-primary\)/)
+  // 刻度档用主题变量解:`min-h-4` = --spacing(0.25rem) × 4 = 16px
+  assert.equal(model.decls.get('min-h-4'), 'min-height: 16px;', '主题刻度没解成 px')
+  // ② 普通 CSS 类(thin-scroll)不该被"编译器产出"——它由样式表定义,归类臂维另一条路
+  assert.ok(model.missing.includes('thin-scroll'), 'thin-scroll 被当成 Tailwind 产物')
+  // ③ 行级三态:0 档 / 无盒档 与 正档必须分得开,且都不是"未判定"
+  assert.equal(src.webUtilityRow('min-h-0', model, { conditional: false }).verdict, 'modeled')
+  assert.equal(src.webUtilityRow('resize-none', model, { conditional: false }).verdict, 'modeled')
+  const pos = src.webUtilityRow('min-h-4', model, { conditional: false })
+  assert.equal(pos.verdict, 'resolved')
+  assert.equal(pos.body, 'min-height: 16px;')
+  // ④ 取不到 / 未生成 / 条件取用三种 ⇒ 未判定(不得折成"该侧无档")
+  const noModel = src.webUtilityRow('min-h-4', null, { conditional: false })
+  assert.equal(noModel.verdict, 'undetermined')
+  assert.match(noModel.reason ?? '', /模型未生效/)
+  const absent = src.webUtilityRow('no-such-util', model, { conditional: false })
+  assert.equal(absent.verdict, 'undetermined')
+  const conditional = src.webUtilityRow('min-h-4', model, { conditional: true })
+  assert.equal(conditional.verdict, 'undetermined')
+  assert.match(conditional.reason ?? '', /条件取用/)
+  // ⑤ 输入端缺入口样式表 ⇒ 模型不可用(绝不返回空表冒充"该侧没有工具类")
+  const noEntry = webUtilityDeclarations({ repoRoot: ROOT, files: {}, candidates: ['min-h-0'] })
+  assert.equal(noEntry.available, false)
+  assert.match(noEntry.why ?? '', /不在被审面/)
 })
 
 test('C8b 单源投影:空态徽章圆角两端同取 2xl 档(小程序不得再写 64rpx 真圆)', () => {
