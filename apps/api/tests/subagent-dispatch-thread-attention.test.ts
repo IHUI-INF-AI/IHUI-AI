@@ -79,7 +79,7 @@ import { SubagentDispatchService } from '../src/services/subagent-dispatch-servi
 
 const KEY_DISPATCH = 'subagent:dispatch:'
 const KEY_IDS = 'subagent:dispatch:ids'
-const KEY_LOGS = 'subagent:logs:'
+const _KEY_LOGS = 'subagent:logs:'
 const KEY_THREAD = 'subagent:dispatch:thread:'
 
 /** 最小 Redis 假件(含 F3 thread 索引需要的 zrevrange;数值贴 ioredis 行为) */
