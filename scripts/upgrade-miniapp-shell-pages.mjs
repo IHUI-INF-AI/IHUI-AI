@@ -35,7 +35,13 @@ import { __test__ as gate } from './check-miniapp-mirror-fidelity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { buildShellPage } from './gen-miniapp-mirror.mjs'
 import { pickCarrierShell } from './lib/rn-shell-refs.mjs'
-import { navTitleExpr, needsAuthGate, plan, titleOnlyLifecycle } from './plan-hand-mirror-conversion.mjs'
+import {
+  navTitleExpr,
+  needsAuthGate,
+  plan,
+  staticTitleEffect,
+  titleOnlyLifecycle,
+} from './plan-hand-mirror-conversion.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const MP_DIR = 'apps/miniapp-taro/src'
@@ -114,12 +120,18 @@ export function planUpgrades(face = 'head') {
       continue
     }
     const pageRel = `${MP_DIR}/${r.route}.tsx`
+    // 标题通道与规划器同口径(判据单源 = plan-hand-mirror-conversion,这里只是调用):
+    // 漏了 useEffect 那一形,落地器会把只卡静态标题的页转成**没有标题**的壳承载页。
+    const titleEffect = staticTitleEffect(pageText)
+    const viaLifecycle = titleOnlyLifecycle(pageText)
     const body = buildShellPage({
       spec: r.spec,
       base: name.replace(/Screen$/, ''),
       shellText: rnTexts.get(carrier.rel),
       shellName: carrier.name,
-      navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : null,
+      navTitle: viaLifecycle ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
+      navTitleHook: !viaLifecycle && titleEffect ? 'useEffect' : 'useDidShow',
+      navTitleDeps: !viaLifecycle && titleEffect ? (titleEffect.deps ?? null) : null,
       authGate: needsAuthGate(pageText),
     })
     if (body?.error) {
