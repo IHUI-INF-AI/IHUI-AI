@@ -76,7 +76,100 @@ const CARRIER_PERMISSIONS = [
   'android.permission.CHANGE_WIFI_STATE',
 ]
 
-function withCarrierAndroidManifest(config) {
+/** 允许明文的域名必须是纯主机名(可含通配前缀 `*.`)—— 别的形态一律拒,防止把 URL/路径/换行塞进 XML。 */
+const CLEARTEXT_HOST_RE =
+  /^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i
+
+/** env/props 里的逗号分隔清单 → 去空、去重、逐条验形;不合法的一律丢并点名。 */
+function parseCleartextHosts(raw) {
+  const list = Array.isArray(raw) ? raw : String(raw ?? '').split(',')
+  const ok = []
+  const rejected = []
+  for (const item of list) {
+    const h = String(item ?? '').trim()
+    if (!h) continue
+    if (!CLEARTEXT_HOST_RE.test(h)) {
+      rejected.push(h)
+      continue
+    }
+    const lower = h.toLowerCase()
+    if (!ok.includes(lower)) ok.push(lower)
+  }
+  if (rejected.length) {
+    console.warn(
+      '[withCarrier] 忽略非法的明文例外域名(只接受主机名或 *.主机名):',
+      rejected.join(', '),
+    )
+  }
+  return ok
+}
+
+/**
+ * 把"明文范围"写到 <application> 上:基础档关死 + 指向 nsc。
+ *
+ * 刻意**覆盖**旧的 true:那一格是"整 App 允许明文"。已存在的属性值不是"别人已经配好了"的
+ * 证据(本插件自己写的就是它),留着不覆盖等于把这次收口原地作废。
+ */
+function applyCleartextPolicy(application, cleartextHosts) {
+  if (!application || !application.$) return application
+  application.$['android:usesCleartextTraffic'] = 'false'
+  application.$['android:networkSecurityConfig'] = '@xml/network_security_config'
+  void cleartextHosts // 例外集住在 nsc 文件里,manifest 这两枚只负责"关死 + 指路"
+  return application
+}
+
+/** nsc 正文(纯函数,便于脱机断言)。debug-overrides 刻意不写:那等于给 release 留后门。 */
+function buildNetworkSecurityConfigXml(hosts) {
+  const lines = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<!-- 由 plugins/withCarrier.cjs 派生(单一来源:env EXPO_PUBLIC_CARRIER_CLEARTEXT_HOSTS)。手改必被下次 prebuild 洗掉。 -->',
+    '<network-security-config>',
+    '    <base-config cleartextTrafficPermitted="false" />',
+  ]
+  for (const h of hosts) {
+    lines.push('    <domain-config cleartextTrafficPermitted="true">')
+    lines.push(
+      `        <domain includeSubdomains="${h.startsWith('*.') ? 'true' : 'false'}">${h.replace(/^\*\./, '')}</domain>`,
+    )
+    lines.push('    </domain-config>')
+  }
+  lines.push('</network-security-config>')
+  lines.push('')
+  return lines.join('\n')
+}
+
+/** 落 res/xml/network_security_config.xml(与桥接模板同一套 withDangerousMod 落点取法)。 */
+function withCarrierNetworkSecurityConfig(config, cleartextHosts) {
+  return withDangerousMod(config, [
+    'android',
+    (modConfig) => {
+      const projRoot =
+        modConfig._modSourcePath ||
+        modConfig.platformProjectRoot ||
+        modConfig.modRequest?.platformProjectRoot ||
+        ''
+      if (!projRoot) {
+        console.warn('[withCarrier] 跳过 network_security_config.xml:无法获取 Android 项目根')
+        return modConfig
+      }
+      const dir = path.join(projRoot, 'app', 'src', 'main', 'res', 'xml')
+      const file = path.join(dir, 'network_security_config.xml')
+      const body = buildNetworkSecurityConfigXml(cleartextHosts)
+      try {
+        fs.mkdirSync(dir, { recursive: true })
+        // 幂等:内容一致就不写(避免每次 prebuild 都把 mtime 顶新,连带触发全量重编)
+        if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== body) {
+          fs.writeFileSync(file, body, 'utf8')
+        }
+      } catch (e) {
+        console.warn('[withCarrier] network_security_config.xml 写入失败(不阻断 prebuild):', e)
+      }
+      return modConfig
+    },
+  ])
+}
+
+function withCarrierAndroidManifest(config, cleartextHosts = []) {
   return withAndroidManifest(config, (mod) => {
     const manifest = mod.modResults
     const application = manifest.manifest.application[0]
@@ -92,10 +185,17 @@ function withCarrierAndroidManifest(config) {
       }
     }
 
-    // 2) application:cleartextTraffic(闪验网关 http 支持)
-    if (application.$ && !application.$['android:usesCleartextTraffic']) {
-      application.$['android:usesCleartextTraffic'] = 'true'
-    }
+    // 2) application:明文流量范围(2026-11-01 安全强化,方向从"整 App 放开"改成"按域放开")
+    //
+    // 旧实现在 <application> 上写 android:usesCleartextTraffic="true" —— 那是对**整个 APK**
+    // 授权 http:access/refresh token、手机号、下单与支付回跳全都能在同网段被降级嗅探,而需要
+    // 明文的只有闪验网关一家。Android 自己给的收口件就是 network_security_config:
+    // 基础档关死(cleartextTrafficPermitted=false),再逐个域名开例外。
+    // 例外集由 props.cleartextHosts(= env EXPO_PUBLIC_CARRIER_CLEARTEXT_HOSTS)供值:
+    // 厂商网关域名住在未入库的 .aar 里,本仓静态拿不到,所以**不猜清单**;没供值就只有基础档,
+    // 后果是"一键登录失败 ⇒ 按本插件既有的降级设计走短信验证码"(头注写明这条路),
+    // 而不是"默认给整 App 开明文"。失效方向必须是少一个便利功能,绝不能是多放一次明文。
+    applyCleartextPolicy(application, cleartextHosts)
 
     // 3) 授权页/协议页 Activity(去重)
     if (!application.activity) application.activity = []
@@ -112,7 +212,10 @@ function withCarrierAndroidManifest(config) {
     }
     if (!has('com.chuanglan.shanyan_sdk.view.CTCCPrivacyProtocolActivity')) {
       application.activity.push({
-        $: { 'android:name': 'com.chuanglan.shanyan_sdk.view.CTCCPrivacyProtocolActivity', ...actAttrs },
+        $: {
+          'android:name': 'com.chuanglan.shanyan_sdk.view.CTCCPrivacyProtocolActivity',
+          ...actAttrs,
+        },
       })
     }
     return mod
@@ -127,7 +230,7 @@ function withCarrierAppBuildGradle(config) {
   return withAppBuildGradle(config, (mod) => {
     let contents = mod.modResults.contents
     const dependencyLine = "  implementation fileTree(include: ['*.aar'], dir: 'libs')"
-    if (contents.includes('dir: \'libs\'')) {
+    if (contents.includes("dir: 'libs'")) {
       return mod
     }
     // 插入到 dependencies 块(找不到则追加到文件末尾)
@@ -217,7 +320,9 @@ function withCarrierMainApplication(config, { androidPackage }) {
       }
       void nonblockInsert
     } else {
-      console.warn('[withCarrier] 无法识别 MainApplication.getPackages 结构,请在原生工程手动注册 CarrierOneClickPackage')
+      console.warn(
+        '[withCarrier] 无法识别 MainApplication.getPackages 结构,请在原生工程手动注册 CarrierOneClickPackage',
+      )
     }
 
     mod.modResults.contents = contents
@@ -233,7 +338,7 @@ function withCarrierPodfile(config, { appId }) {
   return withPodfile(config, (mod) => {
     if (!appId) return mod
     let contents = mod.modResults
-    if (contents.includes('pod \'CL_ShanYanSDK\'')) return mod
+    if (contents.includes("pod 'CL_ShanYanSDK'")) return mod
     // 插到 use_expo_modules! 之后(该行必存在于 Expo Podfile)
     const marker = 'use_expo_modules!'
     const idx = contents.indexOf(marker)
@@ -264,7 +369,8 @@ function withCarrierIosNative(config) {
         return modConfig
       }
       // 目标目录:ios/<Project>(优先用含 .xcodeproj 的目录名,回退到应用目录名)
-      const appName = resolveIosAppDir(projRoot) || path.basename(modConfig.modRequest?.projectRoot || 'IHUIAI')
+      const appName =
+        resolveIosAppDir(projRoot) || path.basename(modConfig.modRequest?.projectRoot || 'IHUIAI')
       const targetDir = path.join(projRoot, appName)
       const swift = readTemplate('ios/CarrierOneClickTurboModule.swift', null)
       fs.mkdirSync(targetDir, { recursive: true })
@@ -281,7 +387,8 @@ function withCarrierXcodeProject(config) {
     if (!projRoot) {
       return mod
     }
-    const appName = resolveIosAppDir(projRoot) || path.basename(mod.modRequest?.projectRoot || 'IHUIAI')
+    const appName =
+      resolveIosAppDir(projRoot) || path.basename(mod.modRequest?.projectRoot || 'IHUIAI')
     const relPath = `${appName}/CarrierOneClickTurboModule.swift`
     const absPath = path.join(projRoot, relPath)
     if (!fs.existsSync(absPath)) {
@@ -291,7 +398,10 @@ function withCarrierXcodeProject(config) {
     try {
       const pbxproj = mod.modResults
       // addSourceFile 会创建 PBXFileReference 并入默认 group & Sources 构建阶段(非幂等则先查)
-      if (!pbxproj.pbxFileReferenceSection || Object.keys(pbxproj.pbxFileReferenceSection() || {}).length === 0) {
+      if (
+        !pbxproj.pbxFileReferenceSection ||
+        Object.keys(pbxproj.pbxFileReferenceSection() || {}).length === 0
+      ) {
         pbxproj.addSourceFile(relPath, null, null)
       } else {
         let found = false
@@ -327,7 +437,8 @@ function withCarrierInfoPlist(config) {
 // 主入口
 // =============================================================================
 module.exports = function withCarrier(config, props) {
-  const { appId, webSdkUrl, androidPackage } = props || {}
+  const { appId, webSdkUrl, androidPackage, cleartextHosts: rawHosts } = props || {}
+  const cleartextHosts = parseCleartextHosts(rawHosts)
 
   if (!appId && !webSdkUrl) {
     console.warn(
@@ -337,14 +448,25 @@ module.exports = function withCarrier(config, props) {
   }
 
   // 桥接模板落盘与注册不依赖 appId(反射/条件编译非阻断),但 manifest 权限与 pod 仅在需要时注入
-  config = withCarrierAndroidManifest(config)
+  config = withCarrierNetworkSecurityConfig(config, cleartextHosts)
+  config = withCarrierAndroidManifest(config, cleartextHosts)
   config = withCarrierAppBuildGradle(config)
   config = withCarrierAndroidNative(config, { androidPackage: androidPackage || 'ai.ihui.mobile' })
-  config = withCarrierMainApplication(config, { androidPackage: androidPackage || 'ai.ihui.mobile' })
+  config = withCarrierMainApplication(config, {
+    androidPackage: androidPackage || 'ai.ihui.mobile',
+  })
   config = withCarrierPodfile(config, { appId })
   config = withCarrierIosNative(config)
   config = withCarrierXcodeProject(config)
   config = withCarrierInfoPlist(config)
   return config
+}
+
+// 测试出口(§22c:判据只有一份,镜像测试 import 这一份,不在测试里复算)
+module.exports.__test__ = {
+  CLEARTEXT_HOST_RE,
+  parseCleartextHosts,
+  applyCleartextPolicy,
+  buildNetworkSecurityConfigXml,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
