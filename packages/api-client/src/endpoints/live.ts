@@ -64,6 +64,18 @@ export type LiveListQuery = {
   pageSize?: number
   status?: string
   keyword?: string
+  /** 分类筛选(GET /live/channels 后端 listChannelsQuery 已支持,live.ts:81) */
+  categoryId?: string
+}
+
+/** 直播分类(GET /live/categories 公开接口) */
+export interface LiveCategory {
+  id: string
+  name: string
+  pid?: string | null
+  sort?: number
+  status?: number
+  [key: string]: unknown
 }
 
 /** 直播回放列表项(GET /live/history 返回的简化字段) */
@@ -78,6 +90,11 @@ export interface LiveHistoryItem {
 
 export async function getLiveList(query: LiveListQuery = {}): Promise<ApiResult<PageData<Live>>> {
   return fetchApi<PageData<Live>>(`/api/live/channels${buildQs(query)}`)
+}
+
+/** 直播分类列表(公开)— GET /api/live/categories,响应 { list } */
+export async function getLiveCategories(): Promise<ApiResult<{ list: LiveCategory[] }>> {
+  return fetchApi<{ list: LiveCategory[] }>(`/api/live/categories`)
 }
 
 /** 直播回放列表(isLive=false && isPublished=true)— GET /api/live/history */

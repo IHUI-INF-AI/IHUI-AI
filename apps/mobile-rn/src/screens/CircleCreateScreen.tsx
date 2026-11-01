@@ -34,7 +34,9 @@ export function CircleCreateScreen() {
     }
     setSaving(true)
     setError('')
-    const res = await fetchApi<{ id: string }>('/api/circles', {
+    // POST /api/circles 回 201 + success({ circle: created })(community/circles.ts:683),
+    // id 在 envelope 内层的 circle 上,直接读 res.data.id 恒 undefined。
+    const res = await fetchApi<{ circle: { id: string } | null }>('/api/circles', {
       method: 'POST',
       body: JSON.stringify({
         name: name.trim(),
@@ -45,8 +47,10 @@ export function CircleCreateScreen() {
       }),
     })
     setSaving(false)
-    if (res.success && res.data) {
-      navigation.replace('CircleDetail', { id: res.data.id })
+    // ApiResult 是可辨识联合:data 只在 success 分支上,先收窄再解包 circle
+    const createdId = res.success ? res.data?.circle?.id : undefined
+    if (createdId) {
+      navigation.replace('CircleDetail', { id: createdId })
     } else if (!res.success) {
       setError(apiFailureToText(res, t('circleCreate.saveFailed')))
     }

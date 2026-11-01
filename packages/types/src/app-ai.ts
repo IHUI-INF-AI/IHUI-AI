@@ -96,9 +96,11 @@ export interface AgentMarketItem {
   id: string
   name: string
   description: string
-  category: string
+  /** 公开面只有 categoryId(uuid,无名称),无分类名来源 ⇒ 可选 */
+  category?: string
   uses: number
-  rating: number
+  /** 公开面 PUBLIC_AGENT_KEYS 不含评分 ⇒ 可选,渲染处判空 */
+  rating?: number
   isFree: boolean
 }
 
@@ -628,6 +630,8 @@ export interface AIMultimodalScreenProps {
   t: TFunction
   userName: string
   mode: AiMultimodalMode
+  /** 不可用的模式(后端契约未覆盖时由壳传入,共享屏置灰展示) */
+  disabledModes?: AiMultimodalMode[]
   models: string[]
   model: string
   messages: AiMultimodalMessage[]
@@ -665,12 +669,22 @@ export interface AgentReviewDetailScreenProps {
 
 /** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 
-/** Agent 统计数据 */
+/** Agent 统计数据
+ * 字段契约(2026-11-01 对齐 GET /agents/stats 实际返回):后端只给
+ * totalAgents/totalUsers/totalCalls/publishedCount/pendingCount/avgRating
+ * (apps/api/src/routes/agents.ts handleAgentStats);conversations/messages/tokens
+ * 是历史视图模型,当前后端无对应来源,故全部可选,渲染处判空。
+ */
 export interface AgentStatData {
-  conversations: number
-  messages: number
-  tokens: number
-  avgRating: number
+  totalAgents?: number
+  totalUsers?: number
+  totalCalls?: number
+  publishedCount?: number
+  pendingCount?: number
+  avgRating?: number
+  conversations?: number
+  messages?: number
+  tokens?: number
 }
 
 /** AgentStatScreen props */

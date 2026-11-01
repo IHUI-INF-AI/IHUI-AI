@@ -288,10 +288,13 @@ export interface PointsRecordScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 邀请信息(对齐 mobile-rn InviteScreen InviteInfo) */
+/** 邀请信息(对齐 mobile-rn InviteScreen InviteInfo)
+ *  inviteUrl 可选:现无任何端点下发邀请链接(/distribution/invite-info 也回 null),
+ *  端上用 inviteCode 按既有模式(mobile-rn DistributionScreen)拼 /register?inviteCode=;
+ *  无 inviteCode 时字段缺省,不造空串。 */
 export interface InviteInfo {
   inviteCode: string
-  inviteUrl: string
+  inviteUrl?: string
   totalInvited: number
   totalReward: number
 }
@@ -299,8 +302,10 @@ export interface InviteRecordItem {
   id: string
   nickname: string
   invitedAt: string
-  reward: number
-  status: 'pending' | 'completed'
+  /** 每条邀请的奖励:后端 /distribution/invited-users 不下发该字段 ⇒ 可选,缺失不渲染 */
+  reward?: number
+  /** 邀请状态:同上,不下发 ⇒ 可选,缺失不渲染徽章 */
+  status?: 'pending' | 'completed'
 }
 export interface InviteScreenProps {
   t: TFunction

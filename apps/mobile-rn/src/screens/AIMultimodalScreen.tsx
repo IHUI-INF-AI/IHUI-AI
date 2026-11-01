@@ -85,6 +85,8 @@ export function AIMultimodalScreen() {
       t={t}
       userName={user?.nickname || user?.username || ''}
       mode={mode}
+      // 后端 chatSchema 仅认 {message, model?}(ai-user-model-chat.ts:79-89),image/audio 无上传通道,先置灰不提供假入口
+      disabledModes={['image', 'audio']}
       models={models}
       model={model}
       messages={sharedMessages}

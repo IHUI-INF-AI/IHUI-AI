@@ -159,38 +159,40 @@ export function HandoffPackageCard({
             </>
           ) : null}
 
-          {section === 'fixSteps'
-            ? pkg.fixSteps.empty
-              ? renderEmpty('fixSteps')
-              : pkg.fixSteps.lines.map((line, index) => (
-                  <p
-                    key={index}
-                    className="text-[11px] text-muted-foreground"
-                    data-handoff-fix-step={index}
-                  >
-                    {line}
-                  </p>
-                ))
-            : null}
+          {section === 'fixSteps' ? (
+            pkg.fixSteps.empty ? (
+              renderEmpty('fixSteps')
+            ) : (
+              pkg.fixSteps.lines.map((line, index) => (
+                <p
+                  key={index}
+                  className="text-[11px] text-muted-foreground"
+                  data-handoff-fix-step={index}
+                >
+                  {line}
+                </p>
+              ))
+            )
+          ) : null}
 
-          {section === 'evidence'
-            ? pkg.evidence.empty
-              ? renderEmpty('evidence')
-              : pkg.evidence.lines.map((line, index) => (
-                  <p
-                    key={index}
-                    className="whitespace-pre-wrap break-all text-[11px] text-muted-foreground"
-                    data-handoff-evidence={index}
-                    data-handoff-evidence-label={line.label}
-                    data-handoff-evidence-truncated={line.truncatedChars}
-                  >
-                    {`${line.label}：${line.text}`}
-                    {line.truncatedChars > 0
-                      ? ` (${t('truncated', { count: line.truncatedChars })})`
-                      : ''}
-                  </p>
-                ))
-            : null}
+          {section === 'evidence' ? (
+            pkg.evidence.empty ? (
+              renderEmpty('evidence')
+            ) : (
+              pkg.evidence.lines.map((line, index) => (
+                <p
+                  key={index}
+                  className="whitespace-pre-wrap break-all text-[11px] text-muted-foreground"
+                  data-handoff-evidence={index}
+                  data-handoff-evidence-label={line.label}
+                  data-handoff-evidence-truncated={line.truncatedChars}
+                >
+                  {`${line.label}：${line.text}`}
+                  {line.truncatedChars > 0 ? ` (${t('truncated', { count: line.truncatedChars })})` : ''}
+                </p>
+              ))
+            )
+          ) : null}
 
           {section === 'productSurface' ? (
             <>

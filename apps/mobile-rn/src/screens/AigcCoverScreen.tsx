@@ -87,12 +87,10 @@ export default function AigcCoverScreen() {
     }
   }, [t])
 
-  const onConfirm = (selected: AigcCoverOption) => {
-    appAlert(
-      t('aigcCover.applied.title'),
-      t('aigcCover.applied.message', { title: workTitle, label: selected.label }),
-      [{ text: t('common.ok'), onPress: () => navigation.goBack() }],
-    )
+  // 后端没有任何「写回作品封面」的端点(aigc works 无 UPDATE/PATCH 路由)——
+  // 此前弹「封面已应用」是假成功,现如实提示暂未开放,不做任何保存、不假装返回。
+  const onConfirm = (_selected: AigcCoverOption) => {
+    appAlert(t('aigcCover.title'), t('aigcCover.aiGen.message'))
   }
 
   const onGenerateAi = () => {

@@ -1275,7 +1275,7 @@
   "aiGroup": {
     "join": {
       "title": "グループに参加",
-      "message": "「{name}」への参加を申請しました"
+      "message": "「{name}」に参加しました"
     },
     "cardMembers": "メンバー",
     "detailEnter": "チャットに入る",
@@ -1656,6 +1656,11 @@
   },
   "agentStat": {
     "title": "エージェント統計",
+    "totalAgents": "エージェント総数",
+    "totalUsers": "作成者数",
+    "totalCalls": "呼び出し回数",
+    "publishedCount": "公開済み",
+    "pendingCount": "審査待ち",
     "conversations": "会話数",
     "messages": "メッセージ数",
     "tokens": "トークン消費",
@@ -3282,7 +3287,10 @@
     "twoFactor": "二段階認証",
     "loginAlert": "ログイン通知",
     "desc": "アカウントログインに関するスイッチを管理",
-    "loadFailed": "セキュリティ設定の読み込みに失敗"
+    "loadFailed": "セキュリティ設定の読み込みに失敗",
+    "readOnlyHint": "以下は現在のサーバー側の状態です。変更にはまだ対応していません",
+    "stateOn": "オン",
+    "stateOff": "オフ"
   },
   "settingsAccount": {
     "title": "アカウント管理",

@@ -91,7 +91,10 @@ export function KnowledgePlanetScreen() {
 
   const onItemClick = useCallback(
     (id: string) => {
-      navigation.navigate('AnnouncementDetail', { id })
+      // 列表数据集是 newsArticles(GET /api/knowledge-planet/news),详情必须同源跳新闻详情
+      // (NewsArticle → GET /api/news/articles/{id});此前跳 AnnouncementDetail 读的是
+      // announcements 表,id 对不上 ⇒ 恒落「公告不存在」(web 对齐跳 /news/[id])。
+      navigation.navigate('NewsArticle', { id })
     },
     [navigation],
   )
