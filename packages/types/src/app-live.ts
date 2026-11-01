@@ -124,6 +124,8 @@ export interface LiveDetailItem {
   viewCount: number
   playUrl?: string | null
   intro?: string | null
+  /** 分享卡封面。RN 侧源字段是 `Live.coverImage`,端内叫 `coverUrl` —— 屏拿不到就没有封面图 */
+  coverUrl?: string
 }
 
 /** LiveDetailScreen props(注入式:wrapper 保留 WebSocket/API 调用) */
