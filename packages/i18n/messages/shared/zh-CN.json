@@ -1394,6 +1394,8 @@
     "enterprise": "企业版"
   },
   "share": {
+    "appTitle": "智汇 AI - 让学习更高效",
+    "timelineTitle": "智汇 AI,你的智能学习助手",
     "title": "分享",
     "remark": "备注",
     "remarkPlaceholder": "请输入备注(选填)",
@@ -2776,10 +2778,6 @@
     "docs": {
       "faq": "常见问题"
     }
-  },
-  "share": {
-    "appTitle": "智汇 AI - 让学习更高效",
-    "timelineTitle": "智汇 AI,你的智能学习助手"
   },
   "member": {
     "benefits": {
