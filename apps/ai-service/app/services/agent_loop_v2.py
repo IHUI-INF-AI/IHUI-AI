@@ -83,6 +83,10 @@ from ..core.agent_failure_vocabulary import (
     stall_stage_for_error_family as _stall_stage_for_error_family,
 )
 
+# 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
+# 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
+from ..core.background_tasks import spawn
+
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
 # 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
 from ..core.permission_axis_gate import (
@@ -6029,9 +6033,12 @@ class AgentLoopV2:
         while next_index < len(tool_calls) or inflight:
             while next_index < len(tool_calls) and can_start(tool_calls[next_index]):
                 tc = tool_calls[next_index]
-                inflight.append(
-                    (next_index, tc, asyncio.create_task(self._execute_single(tc)))
-                )
+                # 守门 247:原为裸 `asyncio.create_task(...)` 塞进元组后 append,
+                # 持有判据落在那枚局部 `inflight` 列表上(liveness 链级判不了,W2 只报数)。
+                # 改走唯一出口:`spawn` 内部即 asyncio.create_task,起任务的时刻、传参、
+                # 返回值全部不变,只是额外挂一层模块级强引用(完成回调自摘)。
+                # 这里不能 await:并行派发是本函数的前提,await 会把并发度打回串行。
+                inflight.append((next_index, tc, spawn(self._execute_single(tc))))
                 next_index += 1
             if not inflight:
                 break
