@@ -11,8 +11,12 @@
  *
  * 断言落的是**实际跳转目标**(不是"守卫被调用过"):
  *  - 不安全形态 ⇒ 目标被改写为站内 `/`,外部/自执行的字符串一次都没出现在 push 参数里;
- *  - 正向对照 ⇒ 站内相对路径、白名单外的外站 http(s)(WebView/子项目回跳的设计意图)、
- *    `ihui://` 深链(AGENTS §9 的 SSO 契约)三条都逐字不变。
+ *  - 正向对照 ⇒ 站内相对路径、`ihui://` 深链(AGENTS §9 的 SSO 契约)逐字不变。
+ *
+ * 〔2026-11-01 改判〕原第三档正向对照声称"白名单外的外站 http(s) 也是合法落点"。它钉住的正是洞:
+ * OIDC 这一跳不经服务端(后端只 302 回 `…/sso/login?sso=oidc`,不带 redirect),而外站落点的真契约
+ * 住在签发腿(`/sso/login` 的 generateCodeAndRedirect → 服务端 isSafeRedirectUri)。自动跳转 + 刚落地
+ * 的会话 = 无需点击的钓鱼出口,故该档按证据改为"未登记外站回落 /",并配一条"登记进 env 后恢复放行"。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, waitFor, cleanup } from '@testing-library/react'
@@ -136,19 +140,40 @@ describe('/sso/login 的 redirect 落点(OIDC 自动回跳)', () => {
     })
   })
 
-  it('正向对照:外站 http(s) 与 ihui:// 深链仍是合法落点(不砍断子项目/App 回跳)', async () => {
+  it('正向对照:ihui:// 深链仍是合法落点(App 回跳契约不变)', async () => {
+    queryRef.current = 'sso=oidc&redirect=ihui%3A%2F%2Fsso%2Fcallback'
+    restoreLocation = captureLocationHref()
+    render(<SsoLoginPage />)
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('ihui://sso/callback')
+    })
+  })
+
+  // 〔改判留痕@2026-11-01 安全强化〕本档此前把"外站 http(s) 仍是合法落点"当正向对照钉着,
+  // 而那正是洞的形状:OIDC 自动回跳这一跳**不经服务端**(后端只 302 回 `${webOrigin}/sso/login?sso=oidc`,
+  // 连 redirect 参数都不带 —— 见 apps/api/src/routes/auth-extended.ts 的 sso=oidc 那一行),
+  // 所以"子项目回跳的设计意图"在这里没有消费者:子项目的落点契约住在签发腿(:171,门 278 具名豁免,
+  // 由服务端 zod refine 判),不住在这一跳。受害者刚由企业 SSO 建好会话就被本站 URL 栏送到仿冒页,
+  // 且无需点击。现按同页 :133 已上线的口径收敂:未登记的第一方之外一律回落 '/'。
+  // 真需要外站落点的部署:显式设 NEXT_PUBLIC_SSO_ALLOWED_ORIGINS(下面那条配对用例证明这条路是活的)。
+  it('未登记的外站绝对地址:OIDC 自动回跳被改写为站内首页(原正向对照已按证据改判)', async () => {
+    queryRef.current = 'sso=oidc&redirect=https%3A%2F%2Fedu.example.com%2Fdashboard'
+    restoreLocation = captureLocationHref()
+    render(<SsoLoginPage />)
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/')
+    })
+    const targets = [...pushedTargets(), ...locationHrefRef.writes]
+    expect(targets.some((t) => t.includes('edu.example.com'))).toBe(false)
+  })
+
+  it('出路是活的:登记进 NEXT_PUBLIC_SSO_ALLOWED_ORIGINS 后同一目标恢复放行', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SSO_ALLOWED_ORIGINS', 'https://edu.example.com')
     queryRef.current = 'sso=oidc&redirect=https%3A%2F%2Fedu.example.com%2Fdashboard'
     restoreLocation = captureLocationHref()
     render(<SsoLoginPage />)
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith('https://edu.example.com/dashboard')
-    })
-
-    pushMock.mockClear()
-    queryRef.current = 'sso=oidc&redirect=ihui%3A%2F%2Fsso%2Fcallback'
-    render(<SsoLoginPage />)
-    await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith('ihui://sso/callback')
     })
   })
 

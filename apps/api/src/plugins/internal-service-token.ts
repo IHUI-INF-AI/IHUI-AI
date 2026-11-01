@@ -20,6 +20,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { config } from '../config/index.js'
+import { logger } from '../utils/logger.js'
 import { error } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
 import { db } from '../db/index.js'
@@ -58,6 +59,41 @@ function internalAuthMode(): 'ticket' | 'dual' | 'legacy' {
     (config as unknown as { INTERNAL_SERVICE_AUTH_MODE?: string }).INTERNAL_SERVICE_AUTH_MODE
   const v = (raw ?? 'dual').trim().toLowerCase()
   return v === 'ticket' || v === 'legacy' ? v : 'dual'
+}
+
+/**
+ * 老门(常驻共享密钥)使用留痕(2026-11-01 立)。
+ *
+ * 为什么必须量:这道门放行的是"**持一把不轮换的全局密钥 ⇒ 可自报 `x-user-id`**"——
+ * 拿到密钥就等于拿到任意用户身份,而不是"这一个调用方的身份"。新通道(短期票)
+ * 每票绑定主体与 TTL,所以正确姿势是把它关掉。但 `INTERNAL_SERVICE_AUTH_MODE=ticket`
+ * 是一个会造成内部调用链 401 的运维动作,**没有证据不能翻**(本仓刚在
+ * `auth-default-deny` 上抓到过一次"加固把第一方回环调用整片 401"的实测教训)。
+ * 留着这道门的唯一理由只能是"还有调用方只发老头",那就让它自己报出来:
+ * 每个 (方法+路径) 60s 一条,带累计次数;连续一个完整流量周期读不到 ⇒ 才有资格关。
+ * 日志走 `utils/logger.js` 那一道 sink 级脱敏闸(2026-11-01),不会把凭据写进盘。
+ */
+let legacyDoorUses = 0
+const legacyDoorLastLoggedAt = new Map<string, number>()
+const LEGACY_DOOR_LOG_INTERVAL_MS = 60_000
+
+function noteLegacyDoorUse(request: FastifyRequest): void {
+  legacyDoorUses += 1
+  const endpoint = `${request.method} ${(request.url.split('?')[0] ?? request.url) || '/'}`
+  const now = Date.now()
+  const prev = legacyDoorLastLoggedAt.get(endpoint)
+  if (prev !== undefined && now - prev < LEGACY_DOOR_LOG_INTERVAL_MS) return
+  legacyDoorLastLoggedAt.set(endpoint, now)
+  logger.warn(
+    `[internal-auth] 老门(常驻共享密钥)仍在使用: ${endpoint} —— ` +
+      '持该密钥即可自报 x-user-id;关闭出路:该调用方改发短期票后把 INTERNAL_SERVICE_AUTH_MODE=ticket',
+    { event: 'internal_auth_legacy_door_used', endpoint, legacyDoorUses },
+  )
+}
+
+/** 累计计数(供测试与健康面读取;不做绝对断言,只断增量)。 */
+export function internalAuthLegacyDoorUses(): number {
+  return legacyDoorUses
 }
 
 /** 票档的 TTL 封顶由验票侧读配置(缺省 300,见 MAX_TICKET_TTL_SECONDS)。 */
@@ -176,6 +212,8 @@ export async function checkInternalServiceToken(
     return false
   }
 
+  // 关掉这道门之前,得先知道"还有谁在用它"—— 依据只能来自这里(2026-11-01)。
+  noteLegacyDoorUse(request)
   return await injectVerifiedUser(request, reply, requestedUserId)
 }
 
