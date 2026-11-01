@@ -168,6 +168,8 @@ export const DISPATCH_STATUS_LITERALS: readonly string[] = [
   'paused',
   'preempted',
   'quota_exceeded',
+  // F1(2026-11-02):重启中断的过渡态(自动重入队前的留痕),筛选纯增量,不改变既有 8 档语义
+  'interrupted',
 ] as const
 
 /** 一次最多回多少行:必须 ≥ 消费者契约(agent-teams 页 getAllSubagentDispatches({limit:200})),否则页面被削 */

@@ -93,8 +93,19 @@ const ALL_ROLES: SubagentRole[] = ['researcher', 'coder', 'reviewer', 'architect
 // 扩展类型(深化新增)
 // ---------------------------------------------------------------------------
 
-/** 扩展 dispatch 状态(增加 preempted / quota_exceeded) */
-export type ExtendedDispatchStatus = DispatchStatus | 'preempted' | 'quota_exceeded'
+/**
+ * 扩展 dispatch 状态(增加 preempted / quota_exceeded / interrupted)。
+ *
+ * `interrupted`(2026-11-02,F1 崩溃自愈):**只由启动恢复写入** —— 进程重启时发现
+ * Redis 里仍是 running 的记录(说明执行态已随进程消失),先标记 interrupted 留痕,
+ * 随即转 pending 重新入队执行。它不是终态,也不参与并发计数;若重新入队失败
+ * (例如 ai-service 不可用),记录停在 interrupted 且 `resume` 接受该态(见 resume 注释)。
+ */
+export type ExtendedDispatchStatus =
+  | DispatchStatus
+  | 'preempted'
+  | 'quota_exceeded'
+  | 'interrupted'
 
 /**
  * 写侧状态视图:`SubagentDispatch.status` 的声明面是基础联合(不含 preempted / quota_exceeded),
@@ -342,6 +353,24 @@ interface TokenUsage {
   total: number
 }
 
+/**
+ * 投递重试日志(outbox 式,2026-11-02 F1)。
+ *
+ * 旧实现的重试只是 `runDispatch` 里的 `await sleep()` —— 进程在等待窗口内重启,
+ * 「已失败一次、还剩几次、下次何时可试」这条状态就没了,恢复后只能从头再来。
+ * 这里把**重试意图**随 dispatch 落 Redis(`outbox` 字段):
+ *  - `attempt` = 已经执行过的尝试序号(恢复时从 attempt+1 继续,不重复执行已失败那次);
+ *  - `nextRetryAt` = 下一次允许投递的时间(epoch ms,恢复时若已过则立即试,未到则等到点);
+ *  - `lastError` = 上次失败原因(排障用)。
+ * 终态 / 成功后清空该字段。
+ */
+interface RetryJournal {
+  attempt: number
+  maxAttempts: number
+  nextRetryAt: number
+  lastError?: string
+}
+
 /** dispatch 运行时扩展(统计 + 日志 + 重试 + DAG + 优先级 + 配额 + checkpoint + 通信) */
 interface DispatchRuntime {
   dispatch: SubagentDispatch
@@ -349,6 +378,10 @@ interface DispatchRuntime {
   dag?: DagConfig
   priority: DispatchPriority
   quotas?: QuotaConfig
+  /** 本次派单的最终 prompt(建单时算一次并落 Redis;恢复时直接复用,不重新拼装) */
+  prompt?: string
+  /** outbox 式重试状态(见 RetryJournal;落 Redis hash 的 `outbox` 字段) */
+  outbox?: RetryJournal
   steps: Array<{
     agent: string
     durationMs: number
@@ -672,6 +705,20 @@ function buildAgentPrompt(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * 容错 JSON 解析(2026-11-02,F1):Redis hash 是同一份记录跨版本共享的持久层,
+ * 旧版本写入的字段可能缺字段/格式漂移。恢复流程不能用裸 JSON.parse 把整个
+ * 启动恢复直接 catch 掉(一条坏记录会让其余在途派单全部不被接管)。
+ */
+function parseJsonOr<T>(raw: string | undefined | null, fallback: T): T {
+  if (raw === undefined || raw === null || raw === '') return fallback
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1281,10 +1328,17 @@ async function callAiServiceWithCommunication(
  *  - Redis 持久化 + 失败重试 + 并发控制 + debate/vote
  *  - 资源消耗统计
  */
-class SubagentDispatchService {
+export class SubagentDispatchService {
   private runtimes = new Map<string, DispatchRuntime>()
   private redisClient: Redis | null = null
   private readonly _maxConcurrent = DEFAULT_MAX_CONCURRENT
+  /**
+   * 本进程内正在飞的 dispatch。启动恢复只接管「进程外的 running」,
+   * 不许把本进程还在执行(第二次 setRedisClient / 重复 load)的记录误判成中断。
+   */
+  private inFlight = new Set<string>()
+  /** 防止 _loadActiveDispatches 重入(构造器 + setRedisClient 可能连续触发) */
+  private _loading = false
 
   constructor(redisClient?: Redis | null) {
     if (redisClient) {
@@ -1303,7 +1357,7 @@ class SubagentDispatchService {
 
   // ---------- Redis 持久化(降级内存) ----------
 
-  /** dispatch 状态变更时写入 Redis hash */
+  /** dispatch 状态变更时写入 Redis hash(字段必须覆盖「重启后能重建执行」的粒度) */
   private async _persistDispatch(id: string): Promise<void> {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
@@ -1333,6 +1387,24 @@ class SubagentDispatchService {
         quotas: runtime.quotas ? JSON.stringify(runtime.quotas) : '',
         // 租户归属随记录落 Redis:进程重启后从 hash 恢复仍能按租户过滤(不因重启丢归属)
         ownerUserId: d.ownerUserId ?? '',
+        // F1(2026-11-02)崩溃自愈:以下字段是「重启后足以重建执行」的最小集,
+        // 少了任何一项,恢复都只能从头再来或直接失忆(agent_tasks 关联/耗时/step 全丢):
+        //  - prompt:建单时算一次,恢复时原样复用(不依赖 build 函数的未来变更改变在途任务语义)
+        //  - conversationId:会话归属(重启不能丢,否则 thread 归属漂移)
+        //  - agentTaskId:轨迹关联,恢复后终态仍能写回同一条 agent_tasks(不新建)
+        //  - steps/startedAt/completedAt:统计与看板口径
+        //  - dagNodeStatus:已完成节点,与 checkpoint 互补(DAG 进度可读)
+        //  - messages:with_communication 已产生的通信消息
+        //  - outbox:投递失败的重试意图(attempt/nextRetryAt)
+        prompt: runtime.prompt ?? '',
+        conversationId: d.conversationId ?? '',
+        agentTaskId: runtime.agentTaskId ?? '',
+        steps: JSON.stringify(runtime.steps),
+        startedAt: runtime.startedAt !== undefined ? String(runtime.startedAt) : '',
+        completedAt: runtime.completedAt !== undefined ? String(runtime.completedAt) : '',
+        dagNodeStatus: JSON.stringify(Array.from(runtime.dagNodeStatus.entries())),
+        messages: JSON.stringify(runtime.messages),
+        outbox: runtime.outbox ? JSON.stringify(runtime.outbox) : '',
       })
       await this.redisClient.sadd(REDIS_KEY_IDS, id)
       // 优先级队列
@@ -1395,10 +1467,19 @@ class SubagentDispatchService {
         tokenUsage: s.tokenUsage,
         error: s.error,
       }))
+      const [taskRow] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
+      // F1(2026-11-02)幂等:恢复路径可能对同一条派单再次走到终态(例如 checkpoint 已 ok、
+      // 重启后又从断点完成)。agent_tasks 已经是该终态 ⇒ 不再 update、不再广播 ——
+      // 否则同一任务会出现第二条完成时间/第二次 SSE(外部消费方看到"完成两次")。
+      if (taskRow?.status === terminalStatus) {
+        logger.info(
+          `[subagent-dispatch] agent_tasks ${taskId} 已是 ${terminalStatus},跳过重复终态写回`,
+        )
+        return
+      }
       // P0-2(2026-09-11):终态前统一释放工作区锁(停心跳 + 凭 token 释放 +
       // 清 lockedBy 审计字段 + 广播 workspace_lock_released),防止锁悬挂
       await releaseTaskLockByTaskId(taskId, releaseOutcome)
-      const [taskRow] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
       // D27(2026-09-20):completed 时聚合交付清单(deliverables)合并进 result ——
       // 保留既有 result 中的其他键,不破坏 output/steps;deliverables 为 null 时不加该键
       const deliverables =
@@ -1512,12 +1593,26 @@ class SubagentDispatchService {
     return result
   }
 
-  /** 初始化时从 Redis 加载所有活跃 dispatch */
+  /**
+   * 初始化时从 Redis 加载所有活跃 dispatch,并把「中断的 running」重新入队。
+   *
+   * F1(2026-11-02)崩溃自愈:旧实现只把 pending/running 装回内存,不重新执行;
+   * 而 `resume` 又拒绝 running ⇒ 进程重启后正在跑的派单既不动也 resume 不了(僵尸)。
+   * 现在:
+   *  - 先把**足以重建执行**的字段全部恢复(prompt/agentTaskId/steps/dagNodeStatus/messages/outbox);
+   *  - running ⇒ 标记 interrupted 留痕,再转 pending 重新入队(不是静默装回内存);
+   *  - pending ⇒ 直接重新入队(它本来就还没开始);
+   *  - 已在本进程 inFlight 的记录不重复接管(防止重复 load 把活任务误判成中断)。
+   */
   private async _loadActiveDispatches(): Promise<void> {
-    if (!this.redisClient) return
+    if (!this.redisClient || this._loading) return
+    this._loading = true
+    const toRecover: string[] = []
     try {
       const ids = await this.redisClient.smembers(REDIS_KEY_IDS)
       for (const id of ids) {
+        // 本进程已持有(构造器已 load / 重复 setRedisClient)⇒ 不覆盖、不重判
+        if (this.runtimes.has(id)) continue
         const key = `${REDIS_KEY_DISPATCH}${id}`
         const raw = await this.redisClient.hgetall(key)
         if (!raw || !raw.id) continue
@@ -1526,9 +1621,9 @@ class SubagentDispatchService {
         const dispatch: SubagentDispatch = {
           id: raw.id,
           goal: raw.goal || '',
-          affectedFiles: JSON.parse(raw.affectedFiles || '[]'),
-          forbidden: JSON.parse(raw.forbidden || '[]'),
-          verifyCommands: JSON.parse(raw.verifyCommands || '[]'),
+          affectedFiles: parseJsonOr<string[]>(raw.affectedFiles, []),
+          forbidden: parseJsonOr<string[]>(raw.forbidden, []),
+          verifyCommands: parseJsonOr<string[]>(raw.verifyCommands, []),
           constraints: raw.constraints || '',
           deliverables: raw.deliverables || '',
           agentRole: (raw.agentRole || 'coder') as SubagentRole,
@@ -1539,28 +1634,118 @@ class SubagentDispatchService {
           updatedAt: raw.updatedAt || nowIso(),
           // 旧 hash 没有该字段 ⇒ undefined ⇒ 「未标注」,不塞常量顶替
           ownerUserId: raw.ownerUserId || undefined,
+          // conversationId 同理:旧 hash 没有就保持未归属
+          conversationId: raw.conversationId || undefined,
         }
-        const retry = raw.retry ? (JSON.parse(raw.retry) as RetryConfig) : undefined
-        const dag = raw.dag ? (JSON.parse(raw.dag) as DagConfig) : undefined
+        const retry = raw.retry ? parseJsonOr<RetryConfig | undefined>(raw.retry, undefined) : undefined
+        const dag = raw.dag ? parseJsonOr<DagConfig | undefined>(raw.dag, undefined) : undefined
         const priority = (raw.priority as DispatchPriority) || 'normal'
-        const quotas = raw.quotas ? (JSON.parse(raw.quotas) as QuotaConfig) : undefined
-        this.runtimes.set(id, {
+        const quotas = raw.quotas ? parseJsonOr<QuotaConfig | undefined>(raw.quotas, undefined) : undefined
+        const runtime: DispatchRuntime = {
           dispatch,
           retry,
           dag,
           priority,
           quotas,
-          steps: [],
+          prompt: raw.prompt || undefined,
+          outbox: raw.outbox ? parseJsonOr<RetryJournal | undefined>(raw.outbox, undefined) : undefined,
+          steps: parseJsonOr<DispatchRuntime['steps']>(raw.steps, []),
           logs: [],
+          startedAt: raw.startedAt ? Number(raw.startedAt) : undefined,
+          completedAt: raw.completedAt ? Number(raw.completedAt) : undefined,
           hasFailed: false,
           checkpoints: new Map(),
-          messages: [],
-          dagNodeStatus: new Map(),
-        })
+          messages: parseJsonOr<CommunicationMessage[]>(raw.messages, []),
+          dagNodeStatus: new Map(
+            parseJsonOr<Array<[string, ExtendedDispatchStatus]>>(raw.dagNodeStatus, []),
+          ),
+          agentTaskId: raw.agentTaskId || undefined,
+        }
+        this.runtimes.set(id, runtime)
+        // checkpoint 是独立 hash(redis 优先,内存为空)⇒ 恢复已完成步骤/断点
+        runtime.checkpoints = await this._loadCheckpoints(id)
+        toRecover.push(id)
       }
-    } catch {
-      // Redis 不可用 → 降级内存,不抛异常
+    } catch (err) {
+      logger.warn(`[subagent-dispatch] _loadActiveDispatches 失败(降级内存): ${String(err)}`)
+    } finally {
+      this._loading = false
     }
+    // 读取全部完成后再发起执行:避免在 Redis 读循环里穿插写/跑
+    for (const id of toRecover) {
+      await this._recoverInterruptedDispatch(id)
+    }
+  }
+
+  /**
+   * 接管一条重启前未终态的派单。
+   * running ⇒ interrupted(留痕)⇒ pending ⇒ 重新入队;
+   * pending ⇒ 保持 pending 直接重新入队。
+   * 已在 inFlight ⇒ 跳过(本进程正在执行,不是中断)。
+   */
+  private async _recoverInterruptedDispatch(id: string): Promise<void> {
+    const runtime = this.runtimes.get(id)
+    if (!runtime || this.inFlight.has(id)) return
+    const wasRunning = runtime.dispatch.status === 'running'
+    if (wasRunning) {
+      statusWriteView(runtime.dispatch).status = 'interrupted'
+      runtime.dispatch.updatedAt = nowIso()
+      await this._persistDispatch(id)
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: 'warn',
+        event: 'dispatch_interrupted',
+        data: {
+          reason: 'process_restart',
+          // 已有 checkpoint 的步骤不会重跑(resume 时按 status=ok 跳过)
+          checkpointedSteps: Array.from(runtime.checkpoints.values()).filter((cp) => cp.status === 'ok')
+            .length,
+          outbox: runtime.outbox ?? null,
+        },
+      })
+    }
+    runtime.dispatch.status = 'pending'
+    runtime.dispatch.updatedAt = nowIso()
+    await this._persistDispatch(id)
+    await this._persistLog(id, {
+      ts: nowIso(),
+      level: 'info',
+      event: 'dispatch_recovered',
+      data: { from: wasRunning ? 'interrupted' : 'pending', hasDag: Boolean(runtime.dag) },
+    })
+    this._scheduleExecution(id, runtime.dag !== undefined && (runtime.dispatch.orchestration ?? 'parallel') === 'parallel')
+  }
+
+  /**
+   * 把一条 runtimes 记录交给对应的执行器(dispatch / resume / 启动恢复共用一条入口)。
+   * 维护 inFlight 集合,既是「重复接管」的保护,也是「本进程内活任务」的判据。
+   *
+   * `preferDag` 由调用方按**建单时的执行模式**传入(dispatch 只在 dag+parallel 时走 DAG;
+   * resume 沿用既有语义:有 dag 就走 DAG)—— 恢复不能改变在途任务的执行语义。
+   */
+  private _scheduleExecution(id: string, preferDag: boolean): boolean {
+    if (this.inFlight.has(id)) return false
+    const runtime = this.runtimes.get(id)
+    if (!runtime) return false
+    const dispatch = runtime.dispatch
+    const mode = dispatch.orchestration ?? 'parallel'
+    const role = dispatch.agentRole ?? 'coder'
+    const prompt = runtime.prompt ?? buildAgentPrompt(dispatch)
+    runtime.prompt = prompt
+    this.inFlight.add(id)
+    const execution = preferDag && runtime.dag
+      ? this.runDispatchDag(id, prompt, runtime.retry, runtime.quotas)
+      : mode === 'with_communication'
+        ? this.runDispatchWithCommunication(id, role, prompt, runtime.retry, runtime.quotas)
+        : this.runDispatch(id, mode, role, prompt, runtime.retry, runtime.quotas)
+    void execution
+      .catch((err) => {
+        logger.warn(`[subagent-dispatch] 执行器异常(不抛出): ${String(err)}`)
+      })
+      .finally(() => {
+        this.inFlight.delete(id)
+      })
+    return true
   }
 
   // ---------- 主方法 ----------
@@ -1638,6 +1823,8 @@ class SubagentDispatchService {
       dag,
       priority,
       quotas,
+      // prompt 建单时算一次并落 Redis(F1):恢复时原样复用,不受 build 函数未来变更影响
+      prompt,
       steps: [],
       logs: [],
       hasFailed: false,
@@ -1656,16 +1843,8 @@ class SubagentDispatchService {
       data: { mode, role, retry, priority, hasDag: !!dag, hasQuotas: !!quotas },
     })
 
-    // 异步调 ai-service(不 await,立即返回 pending)
-    // with_communication 需要 Redis client
-    if (mode === 'with_communication') {
-      void this.runDispatchWithCommunication(pending.id, role, prompt, retry, quotas)
-    } else if (dag && mode === 'parallel') {
-      // DAG 模式:按拓扑排序执行
-      void this.runDispatchDag(pending.id, prompt, retry, quotas)
-    } else {
-      void this.runDispatch(pending.id, mode, role, prompt, retry, quotas)
-    }
+    // 异步调 ai-service(不 await,立即返回 pending);与启动恢复共用同一执行入口
+    this._scheduleExecution(pending.id, dag !== undefined && mode === 'parallel')
 
     return { dispatch: pending, outcome: 'ok' }
   }
@@ -1716,16 +1895,40 @@ class SubagentDispatchService {
     if (!runtime) return
     const dispatch = runtime.dispatch
 
+    // F1(2026-11-02)断点完成:进程可能在 AI 返回后、写终态前重启,但 checkpoint
+    // 已经落 Redis(status=ok)。恢复时直接按已完成收尾,不再调一次 AI(不重复执行)。
+    // 只认本执行器写的 `step-N`;DAG 节点 id / with_communication 的 comm-N 不在此列。
+    const completedCheckpoint = Array.from((await this._loadCheckpoints(id)).values())
+      .filter((cp) => cp.status === 'ok' && /^step-\d+$/.test(cp.stepId))
+      .sort((a, b) => a.stepId.localeCompare(b.stepId))
+      .pop()
+    if (completedCheckpoint) {
+      dispatch.status = 'completed'
+      dispatch.result = completedCheckpoint.result ?? ''
+      dispatch.updatedAt = nowIso()
+      runtime.completedAt = runtime.completedAt ?? Date.now()
+      runtime.hasFailed = false
+      runtime.outbox = undefined
+      await this._persistDispatch(id)
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: 'info',
+        event: 'dispatch_recovered_from_checkpoint',
+        data: { stepId: completedCheckpoint.stepId, resumedFrom: 'checkpoint' },
+      })
+      return
+    }
+
     // 标记 running
     dispatch.status = 'running'
     dispatch.updatedAt = nowIso()
-    runtime.startedAt = Date.now()
+    runtime.startedAt = runtime.startedAt ?? Date.now()
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
       level: 'info',
       event: 'dispatch_started',
-      data: { mode, role },
+      data: { mode, role, recoveredOutbox: runtime.outbox ?? null },
     })
 
     const maxAttempts =
@@ -1736,8 +1939,24 @@ class SubagentDispatchService {
     const timeoutMs = quotas?.timeoutMs ?? 0
     const tokenQuota = quotas?.tokenQuota ?? 0
 
-    let attempt = 0
-    while (attempt < maxAttempts) {
+    // outbox 式续跑:恢复时从「已执行过的尝试序号」继续,并等下一次允许投递的时间;
+    // 旧实现只有一个内存里的 attempt 变量,重启即失忆(从头再来 ⇒ 重复执行已失败的那次)。
+    let attempt = runtime.outbox?.attempt ?? 0
+    const journaledMax = runtime.outbox?.maxAttempts ?? 0
+    const effectiveMaxAttempts = Math.max(maxAttempts, journaledMax)
+    if (runtime.outbox) {
+      const waitMs = runtime.outbox.nextRetryAt - Date.now()
+      if (waitMs > 0) {
+        await this._persistLog(id, {
+          ts: nowIso(),
+          level: 'info',
+          event: 'dispatch_retry_wait_restored',
+          data: { attempt, waitMs, maxAttempts: effectiveMaxAttempts },
+        })
+        await sleep(waitMs)
+      }
+    }
+    while (attempt < effectiveMaxAttempts) {
       attempt++
       const stepStart = Date.now()
 
@@ -1796,6 +2015,7 @@ class SubagentDispatchService {
         dispatch.result = quotaError
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1834,6 +2054,7 @@ class SubagentDispatchService {
         runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1854,6 +2075,7 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1865,13 +2087,28 @@ class SubagentDispatchService {
       }
 
       // failed → 检查是否还有重试机会
-      if (attempt < maxAttempts) {
+      if (attempt < effectiveMaxAttempts) {
         const waitMs = delayMs * 2 ** (attempt - 1)
+        // outbox:把「重试意图」落 Redis 后再等 —— 等待窗口内进程重启,恢复时
+        // 从 attempt+1 继续,不会把已经失败的那次再执行一遍。
+        runtime.outbox = {
+          attempt,
+          maxAttempts: effectiveMaxAttempts,
+          nextRetryAt: Date.now() + waitMs,
+          lastError: result.message,
+        }
+        await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
           level: 'warn',
           event: 'step_retry',
-          data: { attempt, error: result.message, waitMs },
+          data: {
+            attempt,
+            error: result.message,
+            waitMs,
+            nextRetryAt: runtime.outbox.nextRetryAt,
+            maxAttempts: effectiveMaxAttempts,
+          },
         })
         await sleep(waitMs)
       } else {
@@ -1880,12 +2117,13 @@ class SubagentDispatchService {
         dispatch.status = 'failed'
         dispatch.result = result.message
         runtime.completedAt = Date.now()
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
           level: 'error',
           event: 'dispatch_failed',
-          data: { attempt, error: result.message, maxAttempts },
+          data: { attempt, error: result.message, maxAttempts: effectiveMaxAttempts },
         })
         return
       }
@@ -1906,13 +2144,13 @@ class SubagentDispatchService {
 
     dispatch.status = 'running'
     dispatch.updatedAt = nowIso()
-    runtime.startedAt = Date.now()
+    runtime.startedAt = runtime.startedAt ?? Date.now()
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
       level: 'info',
       event: 'dag_started',
-      data: { nodes: dag.nodes.length, edges: dag.edges.length },
+      data: { nodes: dag.nodes.length, edges: dag.edges.length, recoveredOutbox: runtime.outbox ?? null },
     })
 
     // 拓扑排序(已在 dispatch 入口校验无环)
@@ -1921,6 +2159,7 @@ class SubagentDispatchService {
       dispatch.status = 'failed'
       dispatch.result = 'DAG 存在循环依赖'
       runtime.completedAt = Date.now()
+      runtime.outbox = undefined
       await this._persistDispatch(id)
       return
     }
@@ -2040,6 +2279,7 @@ class SubagentDispatchService {
     dispatch.result = allResults
     runtime.completedAt = Date.now()
     runtime.hasFailed = hasFailed
+    runtime.outbox = undefined
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
@@ -2061,22 +2301,58 @@ class SubagentDispatchService {
     if (!runtime) return
     const dispatch = runtime.dispatch
 
+    // F1:与 runDispatch 同口径 —— 已有 ok checkpoint 就不再重跑 AI
+    const completedCheckpoint = Array.from((await this._loadCheckpoints(id)).values())
+      .filter((cp) => cp.status === 'ok' && /^comm-\d+$/.test(cp.stepId))
+      .sort((a, b) => a.stepId.localeCompare(b.stepId))
+      .pop()
+    if (completedCheckpoint) {
+      dispatch.status = 'completed'
+      dispatch.result = completedCheckpoint.result ?? ''
+      dispatch.updatedAt = nowIso()
+      runtime.completedAt = runtime.completedAt ?? Date.now()
+      runtime.hasFailed = false
+      runtime.outbox = undefined
+      await this._persistDispatch(id)
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: 'info',
+        event: 'dispatch_recovered_from_checkpoint',
+        data: { stepId: completedCheckpoint.stepId, resumedFrom: 'checkpoint' },
+      })
+      return
+    }
+
     dispatch.status = 'running'
     dispatch.updatedAt = nowIso()
-    runtime.startedAt = Date.now()
+    runtime.startedAt = runtime.startedAt ?? Date.now()
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
       level: 'info',
       event: 'with_communication_started',
-      data: { rounds: DEFAULT_COMM_ROUNDS },
+      data: { rounds: DEFAULT_COMM_ROUNDS, recoveredOutbox: runtime.outbox ?? null },
     })
 
     const maxAttempts = retry?.maxAttempts ?? 1
     const delayMs = retry?.delayMs ?? 1000
 
-    let attempt = 0
-    while (attempt < maxAttempts) {
+    let attempt = runtime.outbox?.attempt ?? 0
+    const journaledMax = runtime.outbox?.maxAttempts ?? 0
+    const effectiveMaxAttempts = Math.max(maxAttempts, journaledMax)
+    if (runtime.outbox) {
+      const waitMs = runtime.outbox.nextRetryAt - Date.now()
+      if (waitMs > 0) {
+        await this._persistLog(id, {
+          ts: nowIso(),
+          level: 'info',
+          event: 'dispatch_retry_wait_restored',
+          data: { attempt, waitMs, maxAttempts: effectiveMaxAttempts },
+        })
+        await sleep(waitMs)
+      }
+    }
+    while (attempt < effectiveMaxAttempts) {
       attempt++
       const stepStart = Date.now()
 
@@ -2119,6 +2395,7 @@ class SubagentDispatchService {
         runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2134,6 +2411,7 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2144,20 +2422,34 @@ class SubagentDispatchService {
         return
       }
 
-      if (attempt < maxAttempts) {
+      if (attempt < effectiveMaxAttempts) {
         const waitMs = delayMs * 2 ** (attempt - 1)
+        runtime.outbox = {
+          attempt,
+          maxAttempts: effectiveMaxAttempts,
+          nextRetryAt: Date.now() + waitMs,
+          lastError: result.message,
+        }
+        await this._persistDispatch(id)
+        await this._persistLog(id, {
+          ts: nowIso(),
+          level: 'warn',
+          event: 'step_retry',
+          data: { attempt, error: result.message, waitMs, mode: 'with_communication' },
+        })
         await sleep(waitMs)
       } else {
         runtime.hasFailed = true
         dispatch.status = 'failed'
         dispatch.result = result.message
         runtime.completedAt = Date.now()
+        runtime.outbox = undefined
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
           level: 'error',
           event: 'dispatch_failed',
-          data: { attempt, error: result.message },
+          data: { attempt, error: result.message, maxAttempts: effectiveMaxAttempts },
         })
         return
       }
@@ -2173,6 +2465,8 @@ class SubagentDispatchService {
     d.status = 'cancelled'
     d.updatedAt = nowIso()
     runtime.completedAt = Date.now()
+    // 终态:清掉 outbox 重试意图(否则下轮启动会把已取消的派单当"待重试"恢复)
+    runtime.outbox = undefined
     void this._persistDispatch(id)
     void this._persistLog(id, {
       ts: nowIso(),
@@ -2268,6 +2562,7 @@ class SubagentDispatchService {
           'paused',
           'preempted',
           'quota_exceeded',
+          'interrupted',
         ],
         'failed',
       ),
@@ -2309,6 +2604,7 @@ class SubagentDispatchService {
             'paused',
             'preempted',
             'quota_exceeded',
+            'interrupted',
           ],
           'failed',
         ),
@@ -2329,10 +2625,12 @@ class SubagentDispatchService {
       return { dispatchId: id, resumed: false, skippedSteps: [], error: '派单不存在' }
     }
     const dispatch = runtime.dispatch
-    // 读侧收敛:放行档只有 failed / preempted / quota_exceeded。未知/未来值兜**终态**
+    // 读侧收敛:放行档 failed / preempted / quota_exceeded / interrupted。未知/未来值兜**终态**
     // 'cancelled'(同样落到下方 resume 拒绝分支,不产生"把未知态重置成 running 再执行"的副作用)。
     // 不兜 'pending':门 205 的口径是"未知值不许落可写/初始档";也不兜 'failed'(它是放行档,
     // 兜它会把未知态当可恢复放行执行)。
+    // interrupted(F1):启动自动重入队失败时(例如执行器抛错)记录会停在该态,这里必须接受,
+    // 否则又回到"既不动也 resume 不了"的僵尸面。
     const status = coerceKnownOr(
       dispatch.status,
       [
@@ -2344,15 +2642,21 @@ class SubagentDispatchService {
         'paused',
         'preempted',
         'quota_exceeded',
+        'interrupted',
       ],
       'cancelled',
     )
-    if (status !== 'failed' && status !== 'preempted' && status !== 'quota_exceeded') {
+    if (
+      status !== 'failed' &&
+      status !== 'preempted' &&
+      status !== 'quota_exceeded' &&
+      status !== 'interrupted'
+    ) {
       return {
         dispatchId: id,
         resumed: false,
         skippedSteps: [],
-        error: `派单状态为 ${dispatch.status},仅 failed/preempted/quota_exceeded 可恢复`,
+        error: `派单状态为 ${dispatch.status},仅 failed/preempted/quota_exceeded/interrupted 可恢复`,
       }
     }
 
@@ -2379,20 +2683,9 @@ class SubagentDispatchService {
       data: { skippedSteps, resumedFromStep },
     })
 
-    // 重新执行(DAG 模式会自动跳过已完成 checkpoint)
-    const mode = dispatch.orchestration ?? 'parallel'
-    const role = dispatch.agentRole ?? 'coder'
-    const prompt = buildAgentPrompt(dispatch)
-    const retry = runtime.retry
-    const quotas = runtime.quotas
-
-    if (runtime.dag) {
-      void this.runDispatchDag(id, prompt, retry, quotas)
-    } else if (mode === 'with_communication') {
-      void this.runDispatchWithCommunication(id, role, prompt, retry, quotas)
-    } else {
-      void this.runDispatch(id, mode, role, prompt, retry, quotas)
-    }
+    // 重新执行(DAG 模式会自动跳过已完成 checkpoint);与启动恢复共用执行入口
+    // (resume 沿用既有语义:有 dag 就走 DAG)
+    this._scheduleExecution(id, true)
 
     return {
       dispatchId: id,
@@ -2427,6 +2720,7 @@ class SubagentDispatchService {
             'paused',
             'preempted',
             'quota_exceeded',
+            'interrupted',
           ],
           'failed',
         )
@@ -2447,6 +2741,7 @@ class SubagentDispatchService {
           'paused',
           'preempted',
           'quota_exceeded',
+          'interrupted',
         ],
         'failed',
       ),
@@ -2565,6 +2860,7 @@ class SubagentDispatchService {
           'paused',
           'preempted',
           'quota_exceeded',
+          'interrupted',
         ],
         'failed',
       )
