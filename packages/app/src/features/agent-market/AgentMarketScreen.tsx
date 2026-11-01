@@ -92,7 +92,8 @@ export function AgentMarketScreen({
               {/* category 可选:公开面只有 categoryId(uuid),无名称时不渲染 */}
               {item.category ? <Text style={styles.category}>{item.category}</Text> : null}
               <Text style={styles.meta}>
-                ★ {item.rating != null ? item.rating.toFixed(1) : '—'} · {item.uses}
+                ★ {item.rating !== null && item.rating !== undefined ? item.rating.toFixed(1) : '—'}{' '}
+                · {item.uses}
                 {t('agentMarket.uses')}
               </Text>
               <Text style={styles.price}>
