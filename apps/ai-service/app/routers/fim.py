@@ -602,9 +602,6 @@ async def report_fim_metrics(req: FIMMetricsReport) -> dict[str, Any]:
                     "data": {"model": model, "scene": scene, "capped": True},
                 }
             slot = _METRICS_BY_MODEL.setdefault(key, {**_METRICS_ZERO_SLOT, "latencies": []})
-        # 新建桶时的一次性告警(每 model×scene 至多一条,不随上报刷屏):
-        # scene 拼错会静默分裂出一个新桶 ⇒ 读数为二却无人知道哪条是真的。
-        if slot is _METRICS_BY_MODEL[key] and scene not in KNOWN_METRICS_SCENES:
         slot["requests"] += req.requestCount
         slot["suggestions"] += req.suggestionCount
         slot["accepted"] += req.acceptedCount
