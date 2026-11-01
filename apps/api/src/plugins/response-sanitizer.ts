@@ -38,6 +38,21 @@ export const DEFAULT_SENSITIVE_KEYS = [
   'token',
   'secret',
   'apikey', // 2026-07-24 安全加固:补 apiKey/api_key 脱敏,防 LLM provider key 泄露
+  // 2026-11-01 安全强化:补齐注释里承诺过、但**从未生效**的键。
+  //
+  // 成因值得记一笔:上面那行注释写着"补 apiKey/api_key 脱敏",而判据是**子串包含**
+  // (`lower.includes(k)`)。`'api_key'.includes('apikey')` === false —— 下划线把两个词
+  // 断开了,所以 `api_key` 从来没被这条规则命中过。注释承诺与代码行为在同一个常量上
+  // 分叉,而没有任何测试会红:它只是"少遮了一个名字"。
+  //
+  // 同一族还缺 authorization / cookie / dsn / private_key / credential —— 响应面原先
+  // **只有字段名这一维**(日志面另有按形状兜的 SECRET_RULES),漏一个名字就整值出仓。
+  'api_key',
+  'authorization',
+  'private_key',
+  'cookie',
+  'dsn',
+  'credential',
 ] as const
 
 /**

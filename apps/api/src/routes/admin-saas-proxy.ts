@@ -29,6 +29,21 @@ const ADMIN_SAAS_API_KEY = process.env.ADMIN_SAAS_API_KEY ?? ''
 const METHODS_WITH_BODY = new Set(['POST', 'PATCH', 'PUT'])
 
 async function proxyToAdminApi(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  // 2026-11-01:密钥缺失必须在本进程短路。
+  //
+  // 原写法把 `ADMIN_SAAS_API_KEY ?? ''` 的空串照样塞进 x-admin-api-key 发出去 ——
+  // 对上游是"拿一把空钥匙敲门",结果既拿不到数据,又把一次**配置事故**伪装成一次
+  // 普通的上游 401/403。排障时会一路怀疑上游鉴权,而真相是本进程没配 env。
+  // 缺配置是可判定的本地状态,就该在本地用 503 说清楚(同族范本见 ai-extended.ts 的
+  // "AI 服务未配置(AI_SERVICE_URL)")。
+  if (!ADMIN_SAAS_API_KEY) {
+    return reply
+      .status(503)
+      .send(
+        error(503, 'admin-api 代理未配置(缺 ADMIN_SAAS_API_KEY)', 'SAAS_PROXY_NOT_CONFIGURED'),
+      )
+  }
+
   // 解析路径(去掉 /api/admin-saas/ 前缀)
   const rest = request.url.replace(/^\/api\/admin-saas\//, '')
   const qIndex = rest.indexOf('?')
