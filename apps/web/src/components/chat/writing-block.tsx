@@ -139,15 +139,7 @@ export function WritingBlockCard({
       }
       onAction?.(action, blockId)
     },
-    [
-      actionLabel.accept,
-      actionLabel.acceptAll,
-      actionLabel.revert,
-      blocks,
-      onAction,
-      pushVersion,
-      state,
-    ],
+    [actionLabel.accept, actionLabel.acceptAll, actionLabel.revert, blocks, onAction, pushVersion, state],
   )
 
   const handleOpenInChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

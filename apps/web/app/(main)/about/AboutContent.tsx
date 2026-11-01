@@ -91,9 +91,7 @@ export function AboutContent(): React.JSX.Element {
           <BookOpen className="h-3.5 w-3.5" />
           {t('storyBadge')}
         </div>
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
-          {t('storyTitle')}
-        </h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('storyTitle')}</h2>
         <div className="mt-4 space-y-4 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
           <p>{t('storyP1')}</p>
           <p>{t('storyP2')}</p>

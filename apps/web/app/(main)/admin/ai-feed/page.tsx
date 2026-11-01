@@ -204,9 +204,7 @@ function SummaryCard({ label, value, danger }: { label: string; value: number; d
     <Card className={danger ? 'border-destructive/60' : undefined}>
       <CardContent className="py-3">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`mt-1 text-display font-semibold ${danger ? 'text-destructive' : ''}`}>
-          {value}
-        </p>
+        <p className={`mt-1 text-display font-semibold ${danger ? 'text-destructive' : ''}`}>{value}</p>
       </CardContent>
     </Card>
   )

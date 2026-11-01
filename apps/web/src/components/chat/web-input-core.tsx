@@ -11,12 +11,10 @@ import { cn } from '@/lib/utils'
 import {
   applyPredictedEditActions,
   fetchPredictiveEdit,
-  passesEditIntentThreshold,
   usePredictiveEditMetricSettlement,
   PREDICTIVE_EDIT_LANGUAGE,
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
-import { usePredictiveEditEnabled } from '@/stores/predictive-edit'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
@@ -142,13 +140,8 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       model?: string
       latencyMs?: number
     } | null>(null)
-    // 开关位(两把钥匙之一):用户意志,来自持久化 store;门槛位是机器条件(见下)。
-    const userEnabled = usePredictiveEditEnabled()
     React.useEffect(() => {
-      // 两把钥匙(票面 V3 #82):isStreaming/门槛(`passesEditIntentThreshold`)是
-      // 机器条件位,userEnabled 是用户意志位(store)。任一关 ⇒ 不请求 ⇒ 不产生
-      // 后端三态;"关了没建议"与"模型判了 no_action"因此永远可分辨。
-      if (isStreaming || !userEnabled || !passesEditIntentThreshold(text)) return
+      if (isStreaming || text.trim().length === 0) return
       const snapshot = text
       const controller = new AbortController()
       const timer = setTimeout(() => {
@@ -176,7 +169,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         clearTimeout(timer)
         controller.abort()
       }
-    }, [text, isStreaming, userEnabled])
+    }, [text, isStreaming])
     // 接受率埋点(B01 票挖出的缺口,2026-10-27 接线):看板的 edit_intent 桶此前**没有生产者**
     // (全仓唯一上报点 CodeEditor.tsx:256 不带 scene ⇒ 全落缺省 completion 桶),
     // 因后端 `rate = accepted/suggestions` 且 suggestions 恒 0 ⇒ 预测器接受率恒空。

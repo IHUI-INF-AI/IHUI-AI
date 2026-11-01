@@ -58,9 +58,7 @@ export function EcosystemHub() {
               >
                 <span className="flex items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="text-body font-medium">
-                    {t(`bundles.${pack.titleKey}.title`)}
-                  </span>
+                  <span className="text-body font-medium">{t(`bundles.${pack.titleKey}.title`)}</span>
                 </span>
                 <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                   {t(`bundles.${pack.titleKey}.desc`)}
@@ -90,7 +88,11 @@ export function EcosystemHub() {
             {t('skillsSection')}
           </h2>
           <CountBadge count={counts.skillsMarket} />
-          <ViewMoreLink label={more('more')} href={MARKETS.skillsMarket.href} className="ms-auto" />
+          <ViewMoreLink
+            label={more('more')}
+            href={MARKETS.skillsMarket.href}
+            className="ms-auto"
+          />
         </div>
         {skills.status === 'failed' ? (
           // 取数失败时正文区不得完全空白:整段没有一行文字,用户读到的是"这个市场没有东西",
@@ -126,7 +128,11 @@ export function EcosystemHub() {
             {t('connectorsSection')}
           </h2>
           <CountBadge count={counts.connectors} />
-          <ViewMoreLink label={more('more')} href={MARKETS.connectors.href} className="ms-auto" />
+          <ViewMoreLink
+            label={more('more')}
+            href={MARKETS.connectors.href}
+            className="ms-auto"
+          />
         </div>
         <p className="mb-2 text-xs text-muted-foreground">{t('connectorsHint')}</p>
         {connectors.status === 'failed' ? (

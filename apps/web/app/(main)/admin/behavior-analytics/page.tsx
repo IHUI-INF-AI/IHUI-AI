@@ -252,9 +252,7 @@ export default function BehaviorAnalyticsPage() {
                     className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <span className="text-label font-semibold text-muted-foreground">
-                        {i + 1}
-                      </span>
+                      <span className="text-label font-semibold text-muted-foreground">{i + 1}</span>
                       <span className="truncate">{p.path}</span>
                     </span>
                     <span className="shrink-0 text-muted-foreground">{numFmt.format(p.pv)} 次</span>

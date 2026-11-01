@@ -13,13 +13,15 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { TruncatedText, BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+// 共享词表唯一真相源(canonical,§0.6 单一真相源:页面内不得再写一份合法值数组)。
 import {
   MONITOR_ALERT_SEVERITIES,
   MONITOR_ALERT_STATUSES,
-  monitorAlertSeverityMeta,
-  monitorAlertStatusMeta,
-} from '@/lib/admin/monitor-alert-vocabulary'
-import { formatDate } from '@/lib/date-utils'
+  isMonitorAlertSeverity,
+  isMonitorAlertStatus,
+  type MonitorAlertSeverity,
+  type MonitorAlertStatus,
+} from '@ihui/types'
 
 interface ErrorStats {
   total: number
@@ -29,22 +31,75 @@ interface ErrorStats {
 }
 
 /**
- * 库里 `monitor_alerts` 的一行(后端走全列 select ⇒ 列名与 schema 逐字一致)。
- * 旧形态写成 type/endpoint/level/time —— 那些列**库里不存在**(真列是
- * name/source/severity/firedAt),于是 LEVEL_STYLE[e.level] 取到 undefined
- * 就在渲染期抛 TypeError;status 侧用的又是库里不存在的 open/resolved/ignored。
+ * 后端 /api/admin/error-dashboard/errors 的真实行形状:
+ * `select * from monitor_alerts`(packages/database/src/schema/monitor.ts 列名逐字同名)。
+ * 旧前端自造的 `level`(真列是 severity)与 `endpoint`(真列是 source)/`open|ignored`
+ * 状态在这一族数据上恒为 undefined ⇒ `LEVEL_STYLE[e.level]` 取到 undefined 再取属性即崩表。
+ * 库里 severity/status 是裸 varchar(无 CHECK),值按 string 读、经词表谓词判定,未知值走兜底。
  */
-interface ErrorItem {
+interface AlertRow {
   id: string
   name: string
   source: string
   severity: string
   status: string
   message: string | null
-  firedAt: string
+  firedAt: string | null
+  resolvedAt: string | null
+  createdAt: string
+}
+
+/** 后端 success({ list, page, pageSize }) 信封(旧前端把 data 当裸数组用,同样是契约错位) */
+interface AlertsResponse {
+  list: AlertRow[]
+  page: number
+  pageSize: number
 }
 
 const DEFAULT_STATS: ErrorStats = { total: 0, today: 0, critical: 0, resolved: 0 }
+
+interface BadgeStyle {
+  bg: string
+  text: string
+  label: string
+}
+
+const SEVERITY_STYLE: Record<MonitorAlertSeverity, BadgeStyle> = {
+  info: { bg: 'bg-sky-500/10', text: 'text-sky-600', label: 'Info' },
+  warning: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Warning' },
+  critical: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Critical' },
+}
+const STATUS_STYLE: Record<MonitorAlertStatus, BadgeStyle> = {
+  firing: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Firing' },
+  suppressed: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Suppressed' },
+  resolved: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', label: 'Resolved' },
+}
+const NEUTRAL_BADGE: Pick<BadgeStyle, 'bg' | 'text'> = {
+  bg: 'bg-muted',
+  text: 'text-muted-foreground',
+}
+
+/** 带兜底的取用出口:未知枚举不抛错、不折成已知档,原样显示裸值(空值显示 —) */
+function severityBadge(value: string): BadgeStyle {
+  if (isMonitorAlertSeverity(value)) return SEVERITY_STYLE[value]
+  return { ...NEUTRAL_BADGE, label: value.trim() === '' ? '—' : value }
+}
+function statusBadge(value: string): BadgeStyle {
+  if (isMonitorAlertStatus(value)) return STATUS_STYLE[value]
+  return { ...NEUTRAL_BADGE, label: value.trim() === '' ? '—' : value }
+}
+
+const FIRED_AT_FMT = new Intl.DateTimeFormat('zh-CN', {
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+function formatFiredAt(value: string | null): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? value : FIRED_AT_FMT.format(d)
+}
 
 const th = 'px-4 py-2.5 font-medium'
 const selectClass =
@@ -53,8 +108,8 @@ const selectClass =
 export default function ErrorDashboardPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
-  const [severityFilter, setSeverityFilter] = React.useState('all')
-  const [statusFilter, setStatusFilter] = React.useState('all')
+  const [severityFilter, setSeverityFilter] = React.useState<'all' | MonitorAlertSeverity>('all')
+  const [statusFilter, setStatusFilter] = React.useState<'all' | MonitorAlertStatus>('all')
 
   const { data: stats = DEFAULT_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'error-dashboard', 'stats'],
@@ -64,20 +119,20 @@ export default function ErrorDashboardPage() {
       return DEFAULT_STATS
     },
   })
-  const { data: errors = [] } = useQuery({
-    // 筛选进 queryKey ⇒ 改筛选真的重新取数(后端按 severity/status 列过滤)。
-    queryKey: ['admin', 'error-dashboard', 'errors', severityFilter, statusFilter],
+  const { data: alerts = [] } = useQuery<AlertRow[]>({
+    queryKey: ['admin', 'error-dashboard', 'errors'],
     queryFn: async () => {
-      const qs = new URLSearchParams()
-      if (severityFilter !== 'all') qs.set('severity', severityFilter)
-      if (statusFilter !== 'all') qs.set('status', statusFilter)
-      const query = qs.toString()
-      const r = await fetchApi<{ list: ErrorItem[] }>(
-        `/api/admin/error-dashboard/errors${query ? `?${query}` : ''}`,
-      )
-      // 响应体是 {list,page,pageSize};旧写法把整个对象当数组用(⇒ errors.filter 崩)。
-      return r.success && r.data?.list ? r.data.list : []
+      const r = await fetchApi<AlertsResponse>('/api/admin/error-dashboard/errors')
+      const payload = r.success ? r.data : undefined
+      return payload && Array.isArray(payload.list) ? payload.list : []
     },
+  })
+
+  // 筛选真列名:旧实现拿 e.level(后端无此列,恒 undefined)比较 ⇒ 任何非 all 筛选恒空
+  const filtered = alerts.filter((a) => {
+    if (severityFilter !== 'all' && a.severity !== severityFilter) return false
+    if (statusFilter !== 'all' && a.status !== statusFilter) return false
+    return true
   })
 
   const cards = [
@@ -144,14 +199,19 @@ export default function ErrorDashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('errorDash.filterLevel')}</span>
               <select
+                aria-label={t('errorDash.filterLevel')}
                 value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  // 收窄走词表谓词(不用 as 强绕类型):非法值直接忽略
+                  if (v === 'all' || isMonitorAlertSeverity(v)) setSeverityFilter(v)
+                }}
                 className={selectClass}
               >
                 <option value="all">{t('errorDash.all')}</option>
-                {MONITOR_ALERT_SEVERITIES.map((s) => (
-                  <option key={s} value={s}>
-                    {monitorAlertSeverityMeta(s).label}
+                {MONITOR_ALERT_SEVERITIES.map((v) => (
+                  <option key={v} value={v}>
+                    {SEVERITY_STYLE[v].label}
                   </option>
                 ))}
               </select>
@@ -159,14 +219,18 @@ export default function ErrorDashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('errorDash.filterStatus')}</span>
               <select
+                aria-label={t('errorDash.filterStatus')}
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === 'all' || isMonitorAlertStatus(v)) setStatusFilter(v)
+                }}
                 className={selectClass}
               >
                 <option value="all">{t('errorDash.all')}</option>
-                {MONITOR_ALERT_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {monitorAlertStatusMeta(s).label}
+                {MONITOR_ALERT_STATUSES.map((v) => (
+                  <option key={v} value={v}>
+                    {STATUS_STYLE[v].label}
                   </option>
                 ))}
               </select>
@@ -189,7 +253,7 @@ export default function ErrorDashboardPage() {
       {/* 错误列表 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('errorDash.errorList')}</h2>
-        {errors.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('errorDash.noData')}
           </div>
@@ -207,20 +271,19 @@ export default function ErrorDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {errors.map((e) => {
-                  // 词表真值在 monitor-alert-vocabulary(唯一一份);词表外的值落「未判定」。
-                  const sev = monitorAlertSeverityMeta(e.severity)
-                  const st = monitorAlertStatusMeta(e.status)
+                {filtered.map((a) => {
+                  const sev = severityBadge(a.severity)
+                  const st = statusBadge(a.status)
                   return (
-                    <tr key={e.id} className="transition-colors hover:bg-muted/30">
+                    <tr key={a.id} className="transition-colors hover:bg-muted/30">
                       <td className="px-4 py-2.5">
-                        <code className="font-mono text-xs">{e.name}</code>
+                        <code className="font-mono text-xs">{a.name}</code>
                       </td>
                       <td className="px-4 py-2.5">
-                        <TruncatedText value={e.message ?? ''} className="max-w-[260px]" />
+                        <TruncatedText value={a.message ?? '—'} className="max-w-[260px]" />
                       </td>
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                        {e.source}
+                        {a.source}
                       </td>
                       <td className="px-4 py-2.5">
                         <span
@@ -245,7 +308,7 @@ export default function ErrorDashboardPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                        {formatDate(e.firedAt)}
+                        {formatFiredAt(a.firedAt)}
                       </td>
                     </tr>
                   )

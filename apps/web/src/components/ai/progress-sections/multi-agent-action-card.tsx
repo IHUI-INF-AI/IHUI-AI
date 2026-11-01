@@ -19,7 +19,10 @@ import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { type AgentAction, type AgentActionPhase } from '@ihui/shared/chat'
+import {
+  type AgentAction,
+  type AgentActionPhase,
+} from '@ihui/shared/chat'
 
 export interface MultiAgentActionEntry {
   /** 动作(六动作之一) */

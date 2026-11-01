@@ -15,7 +15,6 @@ import type {
   SessionMemory,
   TrackVisualizationInput,
   ContextType,
-  ContextEditorState,
 } from '@ihui/shared/context/index'
 
 export function fetchMentions(
@@ -48,46 +47,8 @@ export function fetchSymbols(
   return apiOrThrow(`/api/context/symbols?${qs.toString()}`)
 }
 
-/**
- * POST /api/context/enrich — 上下文增强(enrich)。
- *
- * input.editorState(2026-11-01 立,web→api→ai-service 上报腿)随整个入参
- * 一并序列化透传;apps/api 路由(zod 白名单)与服务层(camelCase→snake_case
- * 映射)逐字段接住后转发 ai-service editorState {active_file, cursor_line?,
- * selection?},与 normalize_editor_state 对齐,全链路不丢字段。
- */
 export function enrichContext(input: EnrichInput): Promise<EnrichResult> {
   return apiOrThrow('/api/context/enrich', { method: 'POST', body: JSON.stringify(input) })
-}
-
-/**
- * 组装编辑器状态入参(2026-11-01 立,入参就绪腿)。
- *
- * 供调用 enrichContext 的会话发送链路用「当前活动文件 + 光标行 + 选中文本」
- * 构造 input.editorState。失效方向 = 丢弃:not-a-activeFile(缺失/空白)⇒
- * 返回 undefined ⇒ 整个 editorState 不发 —— 与 ai-service
- * normalize_editor_state 的丢弃语义同构;cursorLine 仅接受 ≥1 整数,
- * selection 仅接受非空白文本。
- */
-export function buildEditorState(parts: {
-  activeFile: string
-  cursorLine?: number
-  selection?: string
-}): ContextEditorState | undefined {
-  const activeFile = parts.activeFile?.trim() ?? ''
-  if (!activeFile) return undefined
-  const state: ContextEditorState = { activeFile }
-  if (
-    typeof parts.cursorLine === 'number' &&
-    Number.isInteger(parts.cursorLine) &&
-    parts.cursorLine >= 1
-  ) {
-    state.cursorLine = parts.cursorLine
-  }
-  if (parts.selection && parts.selection.trim()) {
-    state.selection = parts.selection
-  }
-  return state
 }
 
 /** GET /sources 响应(含用户偏好合并后的源列表 + 默认预算) */

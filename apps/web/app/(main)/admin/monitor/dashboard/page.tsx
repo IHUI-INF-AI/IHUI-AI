@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Server,
   Cpu,
+  Globe,
   Activity,
   Database,
   Brain,
@@ -55,11 +56,14 @@ function isServiceOk(status: ServiceItem['status']): boolean {
   return status === 'healthy' || status === 'running'
 }
 
+// 键必须与后端 checkServiceHealth 返回的 name 逐字一致(api/web/ai-service/postgres/redis) ——
+// 旧表用的是展示名(API/DB/Redis/AI-Service),五枚全不命中、每行都退成兜底 Server。
 const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  API: Server,
-  DB: Database,
-  Redis: Cpu,
-  'AI-Service': Brain,
+  api: Server,
+  web: Globe,
+  'ai-service': Brain,
+  postgres: Database,
+  redis: Cpu,
 }
 
 export default function AdminMonitorDashboardPage() {
@@ -137,6 +141,7 @@ export default function AdminMonitorDashboardPage() {
                   return (
                     <div
                       key={s.name}
+                      data-service={s.name}
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
@@ -215,7 +220,7 @@ export default function AdminMonitorDashboardPage() {
         <CardContent>
           {/* 旧实现是 Math.random() 画的 48 根假柱子(读数恒随机、与后端无关)。
               后端至今没有 QPS 时序数据源 ⇒ 这里显式「未判定」,不画假曲线。 */}
-          <div className="py-6 text-center">
+          <div className="py-6 text-center" data-qps-unjudged>
             <div className="text-display font-bold text-muted-foreground">未判定</div>
             <p className="mt-1 text-xs text-muted-foreground">
               后端暂无 QPS 时序数据源,此处不冒充读数(旧实现为随机生成的假曲线)。

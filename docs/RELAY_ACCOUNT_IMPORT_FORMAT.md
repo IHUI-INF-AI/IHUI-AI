@@ -59,8 +59,8 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `name` | string ≤128 | 否 | 载荷自带展示名(客户端昵称/第三方导出件里的名)。**运营池统一名不由它决定**:只有取不到手机号时它才作第一退化档(链 = `phone` → 平台特化名 → 平台映射名 → `#序号`,判据单源 `resolveRelayAccountName`,2026-10-30 O66 收口)。个人池(`POST /api/account-pool`:路由构造的载荷结构上没有 `phone` 键)的用户自取名,在「载荷没给手机号 **且** token 票内 `preferred_username` 也不是手机号形态」时原样入库 |
-| `phone` | string ≤128 | 否 | **统一名第一优先级**(机主 2026-10-28 令「名称应该都统一为手机号,所有平台都是」):12 平台一律先认顶层 `phone`,另认有实证的嵌套位 `user.phone`(Qoder)/`account.phone`(CodeArts)。全号与掩码(`153****7579`)都采信,同给时全号优先;既非 11 位大陆全号也非掩码的候选**一律不入名**。掩码入库即落 `extraMetadata.phoneMask`,由 complete-phone / match-phone 补全成对账链 |
+| `name` | string ≤128 | 否 | 展示名;缺省按 `phone` → 平台特化字段 → `#序号` 兜底(2026-10-28 O66 统一口径) |
+| `phone` | string ≤128 | 否 | 全平台通用展示名兜底(手机号优先):`name` 缺省时先于平台昵称/标签生效 |
 | `token` | string | trae/workbuddy/qoder 必填 | JWT access token(trae/workbuddy)或 Qoder opaque 串(dt- 前缀);codearts 见 §3 |
 | `refreshToken` | string ≤128 | 否 | 缺失时过期号入库即摘除 |
 | `deviceId` | string ≤128 | 否 | 设备指纹;web 聊天链路不强制 |
@@ -69,16 +69,6 @@
 | `cookies` | array | 否 | Chrome 导出格式,见 §4 |
 | `proxyUrl` | string ≤512 | 否 | 账号级出口代理,`http(s)://` 或 `socks5://` |
 | 其他字段 | any | 否 | 原样透传进 `extraMetadata`(平台扩展用) |
-
-**统一名归因(O66,不退化静默)**:预检条目与导入结果项都带三键 ——
-`nameSource`(`phone` / `payload-name` / `platform-name` / `sequence`)、
-`nameFallback`(`phone-absent` = 没给出手机号候选,`phone-not-shape` = 给了但形态不合,
-`null` = 采信了手机号)、`nameFallbackReason`(人话说明)。
-判据表 `RELAY_ACCOUNT_PHONE_KEYS`(手机号键位)与 `RELAY_ACCOUNT_NAME_KEYS`
-(手机号取不到时的名字键位,数组顺序即优先级)是**全仓唯一一份**,CLI 预检
-(`validateAccountExport`)与服务端落库(`importAccounts`)共用同一个
-`resolveRelayAccountName`;任何一面都不许再各写一条链。
-PII 纪律:`nameFallbackReason` 只报码与去向,**永不回显手机号/候选原值**(手机号只进 `name` 列本身)。
 
 ### 2.1 第三方工具导出形状(2026-10-26 立,自适应)
 
@@ -124,8 +114,8 @@ Qoder 桌面端(`com.qodercn.app.*`/`com.qoder.app.*`)登录态:token 是 27 字
 | `uid` | 否* | 账号唯一 id(auth.v1.dat 的 `user.id`);缺省时按 token 哈希去重 |
 | `expiresAt` | 否* | access token 到期:ISO 8601 字符串(如 `2026-11-21T11:38:26Z`)或 epoch 秒;缺省则无过期时间、不临期刷新 |
 | `refreshTokenExpiresAt` | 否 | refreshToken 到期(ISO/epoch),落 `extraMetadata.refreshTokenExpiresAt` |
-| `nickname` | 否 | 载荷名兜底第一档(平台特化键序 `nickname` → `name`);**仅在取不到手机号时**才成为统一名 |
-| `phone` | 否 | 统一名第一优先级(§2 通用字段):顶层 `phone` 与内联 `user.phone`(桌面端会话导出 `user{id,name,phone,email}`)都认;给了手机号就以它为准,`nickname`/`name` 只作退化位 |
+| `nickname` | 否 | `name`/`phone` 均缺省时的展示名兜底 |
+| `phone` | 否 | 展示名兜底(§2 通用字段,手机号优先于 `nickname`) |
 | `machineToken` / `machineCode` / `machineType` / `version` | 否 | Cosy-* 设备头族(客户端 `runtime-info.exe` 产出),落 `extraMetadata.cosy`,刷新/健康检查时带上 |
 
 \* 不填不阻塞导入,但 uid 退化为 `auto:sha256(token)[:32]`、无过期时刻——桌面端捕获的会话应尽量带全。
@@ -186,16 +176,6 @@ Unix 毫秒 = floor(expires_utc / 1000) - 11644473600000
 7. **先归一再落库**(2026-10-26):服务端与预检共用 `normalizeForeignAccountShape` ⇒ 第三方
    导出形状在两个面得到同一结论(不在任何一面另写别名表);`tokenExpiresAt` 取值顺序 =
    平台映射 → JWT `exp` → 显式 `expiresAt`(ISO),三面同口径。
-8. **统一名 = 官方绑定手机号**(2026-10-28 机主令,O66;2026-10-30 收口到 12 平台全覆盖):
-   入库名与预检名共用 `resolveRelayAccountName`,优先级 `phone`(全号 > 掩码,含票内
-   JWT `preferred_username` 候选)→ 平台特化载荷名 → 平台映射名(`minimax:cn` /
-   `codex:<id8>` 这类合成名)→ `#序号`。**只有拿不到手机号才会退化**,且退化必须带归因
-   三键(见 §2),不许把"退化了"报成"没退化"。覆盖导入的 `preserveMissingRefresh` 档
-   (网页一键重登)只有 `source` 为 `phone` 或 `payload-name` 才写 `name` 列(退化成平台
-   映射名/`#序号` 的一批不写,免得重登把库里已有的统一名抹成 `#1`)。
-   **手机号候选对运营池与个人池同判**(判据不分档):票内 `preferred_username` 是手机号的
-   Trae/WorkBuddy 票,即使走个人池手工录入,统一名同样取手机号 —— 个人池"起名自由"落在
-   §2 `name` 那一档(没有任何手机号候选时生效)。
 
 ## 6. 导入前预检
 
