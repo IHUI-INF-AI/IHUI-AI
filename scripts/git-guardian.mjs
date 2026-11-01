@@ -5776,6 +5776,12 @@ const LESSON_DRAFT_COOLDOWN_MS = Number(
 )
 const LESSON_DRAFT_WINDOW_HOURS = Number(process.env.IHUI_LESSON_DRAFT_WINDOW_HOURS || 24)
 const LESSON_DRAFT_LIMIT = 50
+/** 经验归档腿(2026-11-01 立):候选稿此前只落 gitignored 临时目录,全仓无 applier ⇒
+ *  提炼出来的教训既不归档也不去重,机器侧永不沉淀。本腿把它们提升进正式经验库
+ *  `.ihui-agent/lessons/`(仍不碰 AGENTS.md —— 那边是 rule-doc + 体积门,写回必须人工带
+ *  immutable-exempt)。 */
+const LESSON_APPLY_INTERVAL_MS = Number(process.env.IHUI_LESSON_APPLY_INTERVAL_MS || 15 * 60 * 1000)
+const LESSON_APPLY_COOLDOWN_MS = Number(process.env.IHUI_LESSON_APPLY_COOLDOWN_MS || 60 * 60 * 1000)
 /** 候选稿落点:gitignored(§15);写回面(AGENTS.md / memory)结构上不碰,只报候选。 */
 const LESSON_DRAFT_OUT_REL = '.ihui-agent/tmp/lesson-draft'
 
@@ -5875,6 +5881,89 @@ export function sweepLessonDraft(opts = {}) {
   }
   logger(
     `⚠️ 经验提炼:未判定(state=${state ?? '读不到结论行'} reason=${kv('reason') ?? '?'})⇒ 不记通过,${Math.round(cooldownMs / 60000)} 分钟后重试`,
+  )
+  return { ran: true, judged: false, ok: false, state: 'undetermined' }
+}
+
+/**
+ * 经验归档腿(2026-11-01 立)。
+ * 立因:提炼腿(sweepLessonDraft)把候选稿落进 gitignored 的 `.ihui-agent/tmp/lesson-draft/`,
+ * 而全仓**没有任何 applier** —— 那些稿子既不去重也不进库,机器侧永不沉淀,只是临时目录里的
+ * 一堆文件。本腿按指纹把它们提升进 `.ihui-agent/lessons/` 并维护索引。
+ * 边界:绝不碰 AGENTS.md / memory —— 那边是 immutable rule-doc + 96KB 体积门,写回必须人工
+ * 带 `immutable-exempt:`;本腿只解决"提炼出来的东西没人收"。
+ */
+export function sweepLessonApply(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = LESSON_APPLY_INTERVAL_MS,
+    cooldownMs = LESSON_APPLY_COOLDOWN_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'lesson-apply-sweep-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script = scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'lesson-apply.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 经验归档:器物不在位(scripts/lesson-apply.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const lastAt = tick ? Date.parse(String(tick.attemptAt ?? '').trim()) : NaN
+  const lastJudged = tick?.judged === true
+  if (Number.isFinite(lastAt) && now - lastAt < (lastJudged ? intervalMs : cooldownMs)) {
+    return { ran: false, why: lastJudged ? '未到节流窗口' : '未判定冷却中' }
+  }
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--apply'], 5 * 60 * 1000)
+  const resultLine = String(r.stdout ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.match(/LESSON-APPLY-RESULT\s+state=([A-Za-z-]+)(.*)$/))
+    .find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const promoted = state === 'ok'
+  // empty(临时目录空)与 none(全被跳过)都是"判过了、没有可提升的" —— 记通过,避免每轮重扫。
+  const clean = state === 'empty' || state === 'none'
+  const judged = promoted || clean
+  const tickBody = {
+    attemptAt: new Date(now).toISOString(),
+    judged,
+    state: promoted ? 'promoted' : clean ? 'clean' : 'undetermined',
+    scanned: kv('scanned') ?? null,
+    promoted: promoted ? Number(kv('promoted') ?? 0) : 0,
+    duplicate: kv('duplicate') ?? null,
+    invalid: kv('invalid') ?? null,
+    reason: judged ? null : (kv('reason') ?? state ?? 'no-result-line'),
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify(tickBody), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 经验归档:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  if (promoted) {
+    logger(
+      `✅ 经验归档:提升 ${tickBody.promoted} 枚进 .ihui-agent/lessons/(scanned=${kv('scanned') ?? '?'} dup=${kv('duplicate') ?? '0'} invalid=${kv('invalid') ?? '0'};写回 AGENTS.md 仍须人工)`,
+    )
+    return { ran: true, judged: true, ok: true, state: 'promoted', promoted: tickBody.promoted }
+  }
+  if (clean) {
+    logger(`ℹ️ 经验归档:判过,无可提升候选(state=${state} scanned=${kv('scanned') ?? '?'})⇒ 零写`)
+    return { ran: true, judged: true, ok: true, state: 'clean' }
+  }
+  logger(
+    `⚠️ 经验归档:未判定(state=${state ?? '读不到结论行'} reason=${kv('reason') ?? '?'})⇒ 不记通过,${Math.round(cooldownMs / 60000)} 分钟后重试`,
   )
   return { ran: true, judged: false, ok: false, state: 'undetermined' }
 }
@@ -11219,6 +11308,8 @@ async function main() {
     // "每次改动/事故后提炼教训"结构上永不发生。本腿 5 分钟节流产出候选稿到 gitignored 目录;
     // 写回 AGENTS.md / memory 仍留人工(那边是 rule-doc + 体积门,自动写即绕护栏)。
     if (!CHECK_ONLY) sweepLessonDraft()
+    // 经验归档(2026-11-01 立):提炼出的候选稿必须有人收,否则"经验自动提炼"只是往临时目录堆文件。
+    if (!CHECK_ONLY) sweepLessonApply()
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
@@ -11342,6 +11433,8 @@ async function main() {
     // 经验提炼(与上方清扫族同格:同 tick、同"读不到记未判定"口径):候选稿只落盘不写回,
     // 未判定档 1 小时冷却 —— 挂进 CHECK_ONLY 早退分支等于永不执行(本文件已踩过两次)。
     if (!CHECK_ONLY) sweepLessonDraft()
+    // 经验归档(2026-11-01 立):提炼出的候选稿必须有人收,否则"经验自动提炼"只是往临时目录堆文件。
+    if (!CHECK_ONLY) sweepLessonApply()
     // 清扫背离巡检(2026-10-23 立,机主令"要"):上面两把清扫器的节流台账都在动、摘除留痕
     // 却静默 > 2h 且 HEAD 面还有本轮真会动手的可清存量 ⇒ 器物在仓、派发点在、就是干不成活
     // (10-22 护栏③整批让路 / 10-23 摘除不写留痕,两度实证)。只读探针,不改退出码、不喊人
