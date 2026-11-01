@@ -29,6 +29,7 @@ AST 解析失败时降级为固定行数切片(100 行/片,50 行重叠)。
 
 import asyncio
 import copy
+import gzip
 import hashlib
 import json
 import logging
@@ -313,6 +314,46 @@ SNAPSHOT_STATES: tuple[str, ...] = (
     SNAPSHOT_STATE_TRUNCATED,
     SNAPSHOT_STATE_SKIPPED,
 )
+
+# ==========================================================================
+# 快照压缩落盘(T12 缺口表 #8,2026-11-01)
+# ==========================================================================
+
+#: 压缩开关 env:默认开(写 gzip);"0"/"false"/"off"(大小写不敏感)关闭 ⇒ 写明文。
+#: 只影响**写侧**;读侧不认这个开关 —— 读侧只看文件头魔数,双形态都认,
+#: 所以"关了重写明文"和"开着写压缩"对读侧是同一种东西,不存在迁移问题。
+SNAPSHOT_COMPRESS_ENV = "IHUI_SNAPSHOT_COMPRESS"
+_SNAPSHOT_COMPRESS_OFF_VALUES = frozenset({"0", "false", "off"})
+_SNAPSHOT_COMPRESS_ON_VALUES = frozenset({"1", "true", "on"})
+#: gzip 魔数:压缩档的文件头两字节。读侧靠它自识别形态(明文档头两字节不会撞上)。
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
+def _snapshot_compress_enabled() -> bool:
+    """解析压缩开关 env:缺省/空 ⇒ 开;关词 ⇒ 关;开词 ⇒ 开;非法值 ⇒ **出声**回落默认(开)。
+
+    非法值不许安静吃掉:运维本想关压缩写错了值,安静回落开会让"明文应急"落空,
+    排查时在日志里能一眼看到取值没被认出来。
+    """
+    raw = os.environ.get(SNAPSHOT_COMPRESS_ENV)
+    if raw is None or not raw.strip():
+        return True
+    value = raw.strip().lower()
+    if value in _SNAPSHOT_COMPRESS_OFF_VALUES:
+        return False
+    if value in _SNAPSHOT_COMPRESS_ON_VALUES:
+        return True
+    logger.warning(
+        "%s=%r 不在认得的取值里(off 词:0/false/off;on 词:1/true/on),回落默认:压缩开启",
+        SNAPSHOT_COMPRESS_ENV,
+        raw,
+    )
+    return True
+
+
+def _is_gzip_compressed(data: bytes) -> bool:
+    """魔数自识别:文件头两字节是否 gzip 魔数 \\x1f\\x8b(空档/明文档都不命中)。"""
+    return data[:2] == _GZIP_MAGIC
 
 
 INDEX_LEASE_ACQUIRED = "acquired"
@@ -959,13 +1000,37 @@ class CodebaseIndexer:
         """
         path = self._snapshot_path(repo_id, root)
         try:
-            raw = path.read_text(encoding="utf-8")
+            raw = path.read_bytes()
         except FileNotFoundError:
             return SnapshotRead({}, SNAPSHOT_STATE_ABSENT)
         except OSError as e:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"快照读不动: {type(e).__name__}")
+        # 形态自识别(T12 缺口表 #8,2026-11-01):文件头是 gzip 魔数 ⇒ 解压;否则按明文走原路径。
+        # 旧明文档完全兼容:不迁移、不报错,读侧双形态都认,开关只影响写。
+        if _is_gzip_compressed(raw):
+            try:
+                text = gzip.decompress(raw).decode("utf-8")
+            except Exception as e:
+                # 解压失败/截断 ⇒ 判坏档并写明原委,**绝不 crash、也绝不静默当"无快照"**
+                #(§0.3:把"判过"写成"没判"与"没判"写成"判过"同样不可 —— 这里若当 ABSENT,
+                # 幽灵切片就永不清理)。魔数命中却解不开,几乎只有截断/损坏一种原委。
+                return SnapshotRead(
+                    {},
+                    SNAPSHOT_STATE_CORRUPT,
+                    f"gzip 解压失败(档被截断或损坏): {type(e).__name__}: {str(e)[:120]}",
+                )
+        else:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError as e:
+                # 既非 gzip 也非合法 UTF-8 ⇒ 谁也不认,判坏档出原委(原先这一格会 crash 出去)。
+                return SnapshotRead(
+                    {},
+                    SNAPSHOT_STATE_CORRUPT,
+                    f"快照既非 gzip 也非合法 UTF-8 明文: {str(e)[:120]}",
+                )
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(text)
         except Exception as e:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"JSON 解析失败: {str(e)[:120]}")
         if not isinstance(parsed, dict):
@@ -1049,10 +1114,13 @@ class CodebaseIndexer:
             }
             if dir_rhashes is not None:
                 payload["dirRhashes"] = dict(dir_rhashes)
-            tmp.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=0),
-                encoding="utf-8",
-            )
+            # 压缩层只包 IO(T12 缺口表 #8,2026-11-01):payload 结构与自证判据一字不动,
+            # 只在落盘前把 JSON 字节 gzip 一道;关闭时逐字节保持明文现状。
+            text = json.dumps(payload, ensure_ascii=False, indent=0)
+            if _snapshot_compress_enabled():
+                tmp.write_bytes(gzip.compress(text.encode("utf-8")))
+            else:
+                tmp.write_text(text, encoding="utf-8")
             tmp.replace(path)
             tmp = None
         except Exception as e:
