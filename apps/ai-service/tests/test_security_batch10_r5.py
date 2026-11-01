@@ -24,7 +24,6 @@ from app.services.mcp_server import _assert_safe_git_arg
 class TestDbQueryKeywordBoundary:
     def _assert_rejected(self, sql: str) -> None:
         """不连库的静态拒绝面:构造到关键词检查即返回 ok=False。"""
-        from app.services.mcp_server import _tool_db_query
 
         result = _run_without_db(lambda: _run_db_query(sql))
         assert result["ok"] is False

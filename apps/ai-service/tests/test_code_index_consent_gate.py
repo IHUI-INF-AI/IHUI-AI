@@ -26,11 +26,10 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from app.services.codebase_indexer import IndexResult
-
 import pytest
 
 from app.services import code_index_consent as cic
+from app.services.codebase_indexer import IndexResult
 
 # ---------------------------------------------------------------------------
 # 夹具:把持久层指向 tmp,并重置进程内状态

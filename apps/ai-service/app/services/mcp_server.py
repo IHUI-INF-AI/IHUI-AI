@@ -41,13 +41,13 @@ if TYPE_CHECKING:
 # 默认只在返回体点名(fresh/stale/never_read/undetermined 四档不并桶),显式严格档才拒写。
 # 会话身份只取 call_tool 覆盖注入的 `__session_id`(承载层写入,模型自报会被覆盖);
 # 判据本体在 app/core/file_read_state.py,本模块只接线、不复算(§0.6)。
+from app.core.bounded_ttl_store import BoundedTtlDict
 from app.core.file_read_state import (
     judge_read_state,
     read_state_field,
     record_read,
     record_self_write,
 )
-from app.core.bounded_ttl_store import BoundedTtlDict
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
 
@@ -93,6 +93,11 @@ from .session_security import (
 from .session_security import (
     get_vault_store as _get_vault_store,
 )
+
+# 工具面能力门(缺口表 #7,2026-11-01):列表面与执行面共用同一把尺(单源在 tool_surface,
+# 它只依赖 capability_matrix ⇒ 与本模块无回环)。
+from .tool_surface import capability_denial as _tool_capability_denial
+from .tool_surface import filter_visible_tools as _filter_visible_tools
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
@@ -1317,6 +1322,16 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "snapshot_detail": result.snapshot_detail,
             "lock_state": result.lock_state,
             "lock_detail": result.lock_detail,
+            # P84:ignore 剪枝回执(剪了多少 / 谁判的 / 哪些"跟踪但被忽略"被保留)
+            "files_ignored": result.files_ignored,
+            "ignored_by": result.ignored_by,
+            "files_tracked_ignored_kept": result.files_tracked_ignored_kept,
+            "tracked_ignored_kept": result.tracked_ignored_kept,
+            "ignore_notes": result.ignore_notes,
+            # P85:改名判定(精确改名不重嵌入;近同候选只改"删+增"的读法)
+            "files_renamed": result.files_renamed,
+            "rename_candidates": result.rename_candidates,
+            "rename_note": result.rename_note,
             "errors": result.errors[:10],
             "message": (
                 f"索引完成: 扫描 {result.files_scanned} 文件, "
@@ -13083,6 +13098,12 @@ async def _tool_get_tool_schema(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": f"未找到工具: {name}",
             "available": list_deferred_tool_names(),
         }
+    # 缺口表 #7:反查面与列表面同尺。被能力门摘掉的工具若在这里照旧交回完整 schema,
+    # 模型会拿到一份"看起来能调、一调就被拒"的定义 —— 那正是 D145 那一型双广告面漂移。
+    # 这里给具名回执(不是"未找到":工具在注册表里,只是本次调用方形态无权使用)。
+    _denial = _tool_capability_denial(name)
+    if _denial is not None:
+        return {"ok": False, "tool": name, "schema": None, **_denial}
     return {"ok": True, "tool": name, "schema": schema}
 
 
@@ -13741,7 +13762,11 @@ class MCPServer:
                     )
             except Exception as e:  # noqa: BLE001 - 合并失败绝不改变工具清单
                 logger.warning("world_state_tools 合并失败(降级跳过): %s", e)
-        return tools
+        # 缺口表 #7(2026-11-01,对标对侧 products.<form> 能力表):列表面收口。
+        # 零扰动:未设任何 env 时声明族的能力键都取台账默认(开),本步与入参逐字同序同集
+        # (tests/test_tool_surface_gate.py ① 是反向对照,不是口头保证)。
+        # `deferred:<ns>` 一族不命中任何族前缀 ⇒ 不受影响。
+        return _filter_visible_tools(tools)
 
     async def call_tool(
         self,
@@ -13810,6 +13835,14 @@ class MCPServer:
                 "error": f"工具 '{name}' 需要 admin 权限(role >= 1),当前 role={user_role}",
                 "errorCode": "PERMISSION_DENIED",
             }
+        # 缺口表 #7:能力门具名拒绝。位置刻意选在这里 ——
+        # ① 在角色矩阵**之后** ⇒ 普通用户调 admin 工具仍先拿 PERMISSION_DENIED(既有行为零扰动,
+        #    也不因能力门提前泄露"这枚工具存在且有能力要求");
+        # ② 在 handler 查找**之后** ⇒ 不把"未知工具"改写成"能力不足"(两件事不许同形);
+        # ③ 在 `try:` **之前** ⇒ 被摘掉的工具绝不进入执行链(测试③ 断言零副作用)。
+        _capability_denial = _tool_capability_denial(name)
+        if _capability_denial is not None:
+            return dict(_capability_denial)
         try:
             # Wave 8:注入 __user_role 供 handler 内的写操作权限校验使用
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)

@@ -178,5 +178,12 @@ export const StyleSheet = {
 export type ViewStyle = Record<string, unknown>
 export type TextStyle = Record<string, unknown>
 export type ImageStyle = Record<string, unknown>
-export type StyleProp<T> = T | T[] | false | null | undefined
+/**
+ * 与 RN 的 `StyleProp<T>` 同形:**递归**数组与 falsy 都要收。
+ * 2026-11-01:此前写成 `T | T[]`,只认一层数组;而 RN 侧写法常是
+ * `style={[a, cond && b, [c]]}`(嵌套数组)—— 跨端共享包(packages/app / ui-native)
+ * 在小程序宿主下因此成片 TS2322。递归化只是把类型面补齐,没有放宽键检查
+ * (元素仍必须是 T)。RN 的 `RegisteredStyle<number>` 一支不收:Taro 没有注册表式样式位。
+ */
+export type StyleProp<T> = T | false | null | undefined | ReadonlyArray<StyleProp<T>>
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

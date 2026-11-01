@@ -16,11 +16,9 @@
 
 from __future__ import annotations
 
-import os
 from unittest.mock import patch
 
 import pytest
-
 
 # =============================================================================
 # ① generate_test 权限档
@@ -132,9 +130,10 @@ class TestCallbackTargetAllowlist:
 
     def test_port_mismatch_rejected(self):
         """同 host 不同端口 = 另一个服务,不在允许集(fail-closed)。"""
+        from urllib.parse import urlsplit
+
         from app.core.config import settings
         from app.routers.llm import _is_allowed_callback_target
-        from urllib.parse import urlsplit
 
         base = urlsplit(settings.api_service_url)
         host = base.hostname or "localhost"

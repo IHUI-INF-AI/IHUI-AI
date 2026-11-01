@@ -15,8 +15,8 @@ import types
 import pytest
 from fastapi import HTTPException
 
-from app.routers import eval as eval_router
 from app.core.rbac import Role
+from app.routers import eval as eval_router
 from app.routers.eval import (
     CompareRunsRequest,
     CreateDatasetRequest,

@@ -118,12 +118,31 @@ export function Text(props: RNBaseProps) {
 
 export const TouchableOpacity = View
 
-export function Pressable(props: RNBaseProps) {
+/**
+ * Pressable 的类型面必须收得住 RN 的**函数式** `children` / `style`:
+ * 实现在下面本来就支持(运行时按 `{pressed:false}` 求值),但 `RNBaseProps` 只声明了
+ * `ReactNode` / `StyleProp`,于是跨端共享包(ui-native 的 Tappable、packages/app 的
+ * BackChevron/MoreLink)在小程序宿主下编不过(TS2322/TS7031)。
+ * 只给 Pressable 放宽,View/Text 仍按原样(它们本来就不接受函数形态)。
+ */
+export type RNPressableProps = Omit<RNBaseProps, 'style' | 'children'> & {
+  style?:
+    | StyleProp<ViewStyle | TextStyle>
+    | ((state: { pressed: boolean }) => StyleProp<ViewStyle | TextStyle>)
+  children?: ReactNode | ((state: { pressed: boolean }) => ReactNode)
+}
+
+export function Pressable(props: RNPressableProps) {
   const pressedStyle = props.style as ((state: { pressed: boolean }) => ViewStyle) | undefined
   const childrenFn = props.children as ((state: { pressed: boolean }) => ReactNode) | undefined
   const resolved =
     typeof pressedStyle === 'function' ? pressedStyle({ pressed: false }) : pressedStyle
-  const child = typeof childrenFn === 'function' ? childrenFn({ pressed: false }) : props.children
+  // 取反分支后 props.children 仍是「ReactNode | 函数」联合(TypeScript 无法把它收窄到非函数支),
+  // 故显式断言成 ReactNode —— 运行时分支已保证走到这里的不是函数。
+  const child =
+    typeof childrenFn === 'function'
+      ? childrenFn({ pressed: false })
+      : (props.children as ReactNode)
   return (
     <View {...props} style={resolved}>
       {child}
