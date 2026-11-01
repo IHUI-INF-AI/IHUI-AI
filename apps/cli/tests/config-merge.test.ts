@@ -402,11 +402,12 @@ describe('loadConfig', () => {
       path.join(tmpHome, '.ihui', 'settings.json'),
       JSON.stringify({ apiUrl: 'http://global', maxIterations: 10 }),
     )
-    // project: apiUrl + allowDangerous=false
+    // project: 用非敏感键 maxIterations 演示「project 层覆盖 global 层」。
+    // apiUrl 为敏感键，受项目层策略静默拒绝，故不再在此写入。
     fs.mkdirSync(path.join(tmpCwd, '.ihui'), { recursive: true })
     fs.writeFileSync(
       path.join(tmpCwd, '.ihui', 'settings.json'),
-      JSON.stringify({ apiUrl: 'http://project', allowDangerous: false }),
+      JSON.stringify({ maxIterations: 20 }),
     )
     // session: allowDangerous=true(覆盖 project 的 false)
     setSessionConfig({ allowDangerous: true })
@@ -424,10 +425,10 @@ describe('loadConfig', () => {
     expect(r.locale).toBe('en')
     // session 层覆盖 project 层
     expect(r.allowDangerous).toBe(true)
-    // project 层覆盖 global 层
-    expect(r.apiUrl).toBe('http://project')
-    // global 层未被覆盖的字段保留
-    expect(r.maxIterations).toBe(10)
+    // project 层覆盖 global 层：maxIterations 为非敏感键，可被项目层写入并覆盖 global
+    expect(r.maxIterations).toBe(20)
+    // 安全策略：apiUrl 是敏感键，项目层策略静默拒绝写入，停留在 global 层
+    expect(r.apiUrl).toBe('http://global')
     // defaults 层未被覆盖的字段保留
     expect(r.auditEnabled).toBe(true)
     expect(r.permissionMode).toBe('default')
