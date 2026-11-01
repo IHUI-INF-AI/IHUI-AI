@@ -34,8 +34,30 @@ export function AgentMarketScreen() {
     const url = kw
       ? `/api/agents?keyword=${encodeURIComponent(kw)}&${PAGE}`
       : `/api/agents?${PAGE}`
-    const res = await fetchApi<{ list: AgentMarketItem[] }>(url)
-    if (res.success) setAgents(res.data?.list ?? [])
+    // 后端 GET /agents(handleListAgents,与 web /agents/list 同一 handler)对公开面
+    // 经 PUBLIC_AGENT_KEYS 逐键重建:只给 agentId/name/description/categoryId/
+    // usageCount/isFree...,没有 id/rating/category。显式投影成共享屏 AgentMarketItem:
+    //  · id ← agentId(否则 key/跳转全 undefined)
+    //  · uses ← usageCount;rating 公开面无来源 → 不投影(共享屏渲染 '—')
+    //  · category 只有 categoryId(uuid),不当分类名展示 → 不投影
+    type PublicAgentRow = {
+      agentId: string
+      name?: string
+      description?: string
+      usageCount?: number
+      isFree?: boolean
+    }
+    const res = await fetchApi<{ list: PublicAgentRow[] }>(url)
+    if (res.success)
+      setAgents(
+        (res.data?.list ?? []).map((row) => ({
+          id: row.agentId,
+          name: row.name ?? '',
+          description: row.description ?? '',
+          uses: row.usageCount ?? 0,
+          isFree: row.isFree ?? false,
+        })),
+      )
     else setError(apiFailureToText(res, t('agentMarket.loadFailed')))
     setLoading(false)
   }
