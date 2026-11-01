@@ -24,6 +24,8 @@ import * as React from 'react'
 import { TurnStatusBadge } from '@/components/ai/turn-status-badge'
 import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
+// 「待答侧问」计数判据单源 = web 侧投影 lib 的 isPendingSideQueueItem(端内不另判 state)
+import { isPendingSideQueueItem } from '@/lib/side-task-projection'
 import { isActiveTurnState, type TurnState } from '@ihui/shared/chat/turn-status'
 
 /** 投影输入:全部是 store 里已经存在的事实,本模块不引入任何新状态。 */
@@ -107,7 +109,9 @@ function useTurnFacts(): TurnFacts {
   const queuedSideQuestions = chatStore((s) => {
     const cid = s.conversationId
     if (!cid) return 0
-    return s.sideQueueByConversation[cid]?.length ?? 0
+    // D75 装腿后桶里会留着已产出的侧问任务(等用户 close / cleanup),
+    // 「排队中的侧问」只数尚未产出回答的那些;无 state 的老快照按待答处理。
+    return (s.sideQueueByConversation[cid] ?? []).filter(isPendingSideQueueItem).length
   })
   const awaitingApproval = useToolApprovalPending()
   return { streaming, runningTool, awaitingApproval, queuedSideQuestions, lastAssistantErrored }

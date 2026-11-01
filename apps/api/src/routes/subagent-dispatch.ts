@@ -144,6 +144,80 @@ export function buildFleetRow(
   return { ...dispatch, conversationId, metrics }
 }
 
+// ---------------------------------------------------------------------------
+// G-02①(2026-11-01,S-G02):GET /subagents/all 的分页/筛选口径
+// ---------------------------------------------------------------------------
+//
+// 现状反查(G-299① 落地后):路由只吃单值 status + 无上界 limit + 无 offset,
+// 且记录上没有租户维度。下面三个纯函数把「口径」集中成一份,路由只做拼装:
+// 纯函数 ⇒ 判据可直接引源(apps/api/tests/subagents-all-route.test.ts),不在测试里另抄一份。
+
+/** 状态取值唯一来源 = shared 的 DispatchStatus/ExtendedDispatchStatus(不在此处另立枚举) */
+export const DISPATCH_STATUS_LITERALS: readonly string[] = [
+  'pending',
+  'running',
+  'completed',
+  'failed',
+  'cancelled',
+  'paused',
+  'preempted',
+  'quota_exceeded',
+] as const
+
+/** 一次最多回多少行:必须 ≥ 消费者契约(agent-teams 页 getAllSubagentDispatches({limit:200})),否则页面被削 */
+export const SUBAGENTS_ALL_MAX_LIMIT = 500
+/** 未传 limit 时的默认页大小(有界,不默认拉全表) */
+export const SUBAGENTS_ALL_DEFAULT_LIMIT = 100
+
+/**
+ * 解析 status 筛选:`?status=a,b` 与重复参数 `?status=a&status=b` 等价。
+ * - 未传 / 全空 ⇒ null(不过滤);
+ * - 传了但没有任何合法字面量 ⇒ 返回空数组(⇒ 结果必然为空,而不是悄悄退化成"不过滤"
+ *   把全量当筛选结果交回去);
+ * - 未知字面量丢弃(状态集以 shared 为准,路由不猜近义词)。
+ */
+export function parseDispatchStatusFilter(raw: unknown): string[] | null {
+  if (raw === undefined || raw === null) return null
+  const pieces = (Array.isArray(raw) ? raw : [raw])
+    .filter((v): v is string => typeof v === 'string')
+    .flatMap((v) => v.split(','))
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0)
+  if (pieces.length === 0) return null
+  return pieces.filter((v) => DISPATCH_STATUS_LITERALS.includes(v))
+}
+
+/**
+ * limit 夹取:非法/非正 ⇒ 默认页大小;超上界 ⇒ 夹到上界(**不 400**,
+ * 与文件内既有「透传式」参数风格一致:客户端多要只给上界,不因多要而报错)。
+ */
+export function clampDispatchLimit(raw: unknown): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 1) return SUBAGENTS_ALL_DEFAULT_LIMIT
+  return Math.min(Math.floor(n), SUBAGENTS_ALL_MAX_LIMIT)
+}
+
+/** offset 夹取:非法/负数 ⇒ 0 */
+export function clampDispatchOffset(raw: unknown): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.floor(n)
+}
+
+/**
+ * 租户可见性(单一口径)。
+ *
+ * - 记录带归属 ⇒ 只有本人可见(跨租户不可见);
+ * - 记录无归属(本字段落地前的在途记录 / Redis 旧 hash)⇒ 按「未标注」照旧公开,
+ *   **不隐藏历史**:把没标注写成"已隔离"与把泄漏写成"已修"是同一类错(§0.3)。
+ *   该档是已知残余,已在 .ihui-agent/seats/S-G02.md 记明。
+ */
+export function isDispatchVisibleTo(dispatch: SubagentDispatch, userId: string): boolean {
+  const owner = (dispatch as SubagentDispatch & { ownerUserId?: unknown }).ownerUserId
+  if (typeof owner !== 'string' || owner.length === 0) return true
+  return owner === userId
+}
+
 export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 注入 Redis 客户端(fastify.decorate 挂载后,服务初始化时从 app 拿取)
   try {
@@ -519,7 +593,12 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     try {
       // 会话归属透传:schema 已声明 conversationId,service 的 buildDispatch 抄进派单记录,
       // GET /subagents/all 原样回读 ⇒ 前端「按会话分组」即刻生效,路由层无需再改。
-      const result = await subagentDispatchService.dispatch(input)
+      // 租户归属**只从鉴权结果注入**(dispatchSchema 无该字段 ⇒ 请求体自报会被 Zod 剥掉),
+      // 由 buildDispatch 落进记录并随 Redis 持久化,GET /subagents/all 据此隔离。
+      const result = await subagentDispatchService.dispatch({
+        ...input,
+        ownerUserId: request.userId,
+      })
 
       // 并发超限 → 429
       if (result.outcome === 'concurrent_limit') {
@@ -538,12 +617,20 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ---------- GET /subagents/active ----------
-
+  // S-ACTIVE(2026-11-01)收口:原实现直接 `listActive()` 全量返回 —— 记录上带 ownerUserId 之后,
+  // 这就是跨租户读(A 的 pending/running 派单连同 goal/constraints/deliverables 一起给对方看)。
+  // 修法与 /all **同源**:复用 isDispatchVisibleTo,不另写一份(§22c)。
+  // 语义不动:活跃集仍只 pending/running(由 service.listActive 提供),这里只加可见性一层。
+  // 过滤放在路由而**不是** service.listActive —— 后者还是并发上限(dispatch/_tryPreempt)的计数口径,
+  // 按租户过滤会变成"每人 3 个并发"的隐性变更(越权票不承担该语义变更)。
   server.get('/subagents/active', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const dispatches = subagentDispatchService.listActive()
+    const dispatches = subagentDispatchService
+      .listActive()
+      .filter((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success({ dispatches }))
   })
 
@@ -551,27 +638,35 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // G-299①(2026-09-28):agent-teams 页(apps/web/app/(main)/agent-teams/page.tsx)要**全量**
   // 派单历史(含 completed/failed/cancelled),/subagents/active 只是 pending/running 子集 ——
   // 客户端改道 active 会把"页面少了历史"写成"已修",所以补这条真面。
-  // 形状与 active 同({dispatches}),排序取新→旧(消费方按列表直读);status/limit 透传自查询串。
-  // D08 ③(2026-10-27):逐行挂「运行指标」(per-agent token / 步骤进度)与「会话归属」——
-  // 指标口径来自 service 自己的统计,会话归属读派单记录本身(记录上没有 ⇒ 载荷里就没有,
-  // 前端按「未归属会话」渲染;不拿别处反推、不塞常量)。
+  // 形状与 active 同({dispatches}),排序取新→旧(消费方按列表直读)。
+  // G-02①(2026-11-01,S-G02)收口:status 支持逗号/重复参数多值、limit 有上界(500)、offset 分页、
+  // 按租户(ownerUserId)过滤;口径全部收在文件头纯函数里,测试直接引源,不另抄。
+  // 注意:不复制 /active 的实现 —— 两者口径必须真的不同(/active 只 pending/running 且不分页)。
   server.get('/subagents/all', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const q = request.query as { status?: string; limit?: string }
+    const q = request.query as { status?: unknown; limit?: unknown; offset?: unknown }
+    const statuses = parseDispatchStatusFilter(q.status)
+    const limit = clampDispatchLimit(q.limit)
+    const offset = clampDispatchOffset(q.offset)
+
     let dispatches = subagentDispatchService.listAll().slice().reverse()
-    if (q.status) dispatches = dispatches.filter((d) => d.status === q.status)
-    const limit = Number(q.limit)
-    if (Number.isFinite(limit) && limit >= 1) dispatches = dispatches.slice(0, limit)
-    const rows: FleetDispatchRow[] = dispatches.map((d) =>
+    dispatches = dispatches.filter((d) => isDispatchVisibleTo(d, userId))
+    if (statuses) dispatches = dispatches.filter((d) => statuses.includes(d.status))
+
+    // total = 过滤后、分页前(消费方据此判断"还有没有下一页");分页只切窗口,不改口径
+    const total = dispatches.length
+    const page = dispatches.slice(offset, offset + limit)
+    const rows: FleetDispatchRow[] = page.map((d) =>
       buildFleetRow(
         d,
         subagentDispatchService.getDispatchStats(d.id),
         subagentDispatchService.getDag(d.id),
       ),
     )
-    return reply.send(success({ dispatches: rows }))
+    return reply.send(success({ dispatches: rows, total }))
   })
 
   // ---------- POST /subagents/:id/cancel ----------
@@ -747,5 +842,9 @@ export default subagentDispatchRoutes
 export const __test__ = {
   buildFleetRow,
   readConversationId,
+  parseDispatchStatusFilter,
+  clampDispatchLimit,
+  clampDispatchOffset,
+  isDispatchVisibleTo,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

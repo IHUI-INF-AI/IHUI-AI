@@ -36,6 +36,8 @@ import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
+// 活跃状态判据的唯一出口(2026-11-01,S-ACTIVE):listActive 与并发计数共用一份
+import { isActiveDispatchStatus } from '../utils/dispatch-status.js'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -161,6 +163,12 @@ export interface ExtendedDispatchInput extends DispatchInput {
   quotas?: QuotaConfig
   /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
   agentId?: string
+  /**
+   * 租户归属 = 鉴权后的 request.userId。**只由路由从鉴权结果注入**,不从请求体读
+   * (dispatchSchema 里没有该字段 ⇒ 客户端自报会被 Zod 剥掉)。
+   * 落在派单记录上并随 Redis 持久化,供 GET /subagents/all 按租户口径过滤。
+   */
+  ownerUserId?: string
 }
 
 /** 全局统计 */
@@ -628,6 +636,9 @@ function buildDispatch(
     // 路由层不另存映射表(§0.6)。入口没有会话上下文时 input.conversationId 为 undefined,
     // 记录上就不带这个字段 ⇒ 载荷里也没有 ⇒ 消费方按「未归属会话」渲染(不塞常量)。
     conversationId: input.conversationId,
+    // 租户归属随派单记录一起落库(同 conversationId:落点唯一 = 派单记录本身)。
+    // 入口没带(非路由入口 / 旧调用)⇒ undefined ⇒ 记录不带该字段 ⇒ 列表按「未标注」处理。
+    ownerUserId: input.ownerUserId,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   }
@@ -1329,6 +1340,8 @@ class SubagentDispatchService {
         dag: runtime.dag ? JSON.stringify(runtime.dag) : '',
         priority: runtime.priority,
         quotas: runtime.quotas ? JSON.stringify(runtime.quotas) : '',
+        // 租户归属随记录落 Redis:进程重启后从 hash 恢复仍能按租户过滤(不因重启丢归属)
+        ownerUserId: d.ownerUserId ?? '',
       })
       await this.redisClient.sadd(REDIS_KEY_IDS, id)
       // 优先级队列
@@ -1533,6 +1546,8 @@ class SubagentDispatchService {
           result: raw.result || undefined,
           createdAt: raw.createdAt || nowIso(),
           updatedAt: raw.updatedAt || nowIso(),
+          // 旧 hash 没有该字段 ⇒ undefined ⇒ 「未标注」,不塞常量顶替
+          ownerUserId: raw.ownerUserId || undefined,
         }
         const retry = raw.retry ? (JSON.parse(raw.retry) as RetryConfig) : undefined
         const dag = raw.dag ? (JSON.parse(raw.dag) as DagConfig) : undefined
@@ -2207,7 +2222,7 @@ class SubagentDispatchService {
   listActive(): SubagentDispatch[] {
     return Array.from(this.runtimes.values())
       .map((r) => r.dispatch)
-      .filter((d) => d.status === 'pending' || d.status === 'running')
+      .filter((d) => isActiveDispatchStatus(d.status))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
@@ -2221,7 +2236,7 @@ class SubagentDispatchService {
   /** 全局统计 */
   getStats(): DispatchStats {
     const all = Array.from(this.runtimes.values()).map((r) => r.dispatch)
-    const active = all.filter((d) => d.status === 'pending' || d.status === 'running').length
+    const active = all.filter((d) => isActiveDispatchStatus(d.status)).length
     const completed = all.filter((d) => d.status === 'completed').length
     const failed = all.filter((d) => d.status === 'failed').length
     const total = this._stats.totalDispatches

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { TextStyle } from 'react-native'
-import { useFontMultiplier } from '../components/MoreLink'
+import { fontMultiplier } from '../components/MoreLink'
 
 /**
  * 把一条文字样式的**字号与行盒按系统字号同比放大**,返回可直接拼进 `style={[…]}` 的覆盖对象。
@@ -13,7 +13,9 @@ import { useFontMultiplier } from '../components/MoreLink'
  *  26 处内容文字直接写 `allowFontScaling={false}` —— 结果是用户在系统设置里把字号调到最大,
  *  这些字(按钮文案、价格、作者名、提示条)仍然不给放大:治了症状、废掉了无障碍通道。
  * 逐屏手写 `Math.round(BASE * m)` 会把"倍率"与"基准 + 行高差值"的算式复制到 26 个地方(第二份真相),
- *  所以收成一个出口:数值只从**被放大那条样式自己**读,倍率只从 `useFontMultiplier()` 读。
+ *  所以收成一个出口:数值只从**被放大那条样式自己**读,倍率只从 `fontMultiplier()` 读。
+ *  (2026-11-01:`fontMultiplier()` 是纯取值口,不是 hook —— 本函数会被 `.map()` 的渲染回调
+ *   直接调用,取 hook 名会踩 `react-hooks/rules-of-hooks`;倍率的唯一真相仍只在 MoreLink 一处。)
  *
  * 性质(都被 scaled-text 的自检钉住):
  *  - 倍率 = 1 时返回 `{}` ⇒ 默认设置下渲染数值与改动前逐字相同(不产生任何观感变化);
@@ -21,7 +23,7 @@ import { useFontMultiplier } from '../components/MoreLink'
  *  - 与 `allowFontScaling={false}` 配套使用:缩放由本函数负责,RN 不再乘第二次。
  */
 export function scaleText(style: TextStyle | undefined | null): TextStyle {
-  const m = useFontMultiplier()
+  const m = fontMultiplier()
   if (m === 1 || !style || typeof style !== 'object') return {}
   const out: TextStyle = {}
   if (typeof style.fontSize === 'number') out.fontSize = Math.round(style.fontSize * m)

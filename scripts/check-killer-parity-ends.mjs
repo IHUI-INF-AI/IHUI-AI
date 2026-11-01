@@ -155,6 +155,15 @@ const EXEMPT = [
     rule: '压缩目标比率 0.6 二次写死(须 import DEFAULT_TARGET_RATIO)',
     reason: '滚动跳转按钮按下态不透明度,与压缩目标比率同值不同义;该文件本身就是把三端 0.6 收进一处的单源',
   },
+  {
+    // 同族第三条(2026-11-01 实测:`pnpm check:all` 第 17 步 rc=1 就报这一行)。
+    // `PRESSED_OPACITY` 是 RN `Pressable` 的按下态不透明度,与本门要拦的"压缩目标比率"
+    // 只是同值不同义。刻意**不**改成 `import { DEFAULT_TARGET_RATIO }`:那会把一个交互
+    // 透明度焊到压缩算法的比率上(改比率即改手感),是用假耦合换读数归绿。
+    file: /packages[\\/]ui-native[\\/]src[\\/]tappable\.tsx$/,
+    rule: '压缩目标比率 0.6 二次写死(须 import DEFAULT_TARGET_RATIO)',
+    reason: 'RN Tappable 按下态不透明度,与压缩目标比率同值不同义(2026-11-01 现读 tappable.tsx:14 与 Pressable 用法)',
+  },
 ]
 
 /**
