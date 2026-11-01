@@ -56,7 +56,7 @@ const fake = vi.hoisted(() => {
   const textOf = (c: Chunk): string => (c.value as string[]).join('')
   const snakeToCamel = (s: string): string =>
     s.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase())
-  const camelToSnake = (s: string): string => s.replace(/[A-Z]/g, (ch) => `_${ch.toLowerCase()}`)
+  const _camelToSnake = (s: string): string => s.replace(/[A-Z]/g, (ch) => `_${ch.toLowerCase()}`)
   const tableName = (t: unknown): string => {
     const name = (t as Record<symbol, string>)[Symbol.for('drizzle:Name')]
     if (typeof name !== 'string') throw new Error('假库: 拿不到表名')
