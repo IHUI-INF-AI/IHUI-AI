@@ -674,6 +674,161 @@ export function diffGaps(face, base) {
   return { newGaps, stock }
 }
 
+/**
+ * 缺口分档(2026-11-01 立,S-E2E 席位)。**只报数,不改缺口判定** ——
+ * `findTestlessModules` 的 gaps 一个都不动,rc 也不动;本层回答的是票面
+ * 「存量缺口归零」这个前置该按什么口径量(见 `.ihui-agent/seats/S-E2E.md`)。
+ *
+ * 为什么只报数不改判:3852 枚缺口里能被"结构判定"洗掉的只有 34 枚(0.9%),
+ * 而"被既有单测直接值导入"的 684 枚只是**证据**,不是覆盖 —— 导入了不等于断言了。
+ * 把证据当覆盖是假绿(§12f),故本层只把它们分层报出来,免测仍须人判。
+ *
+ * 分档规则(全部只看代码结构,不看人工目测;方向统一"宁可留在 must-test"):
+ *   · `data-only` —— 遮注释/字符串、去掉 import/指令/`export … from`/类型声明后,
+ *     剩余顶层语句全是 `export const|let|var NAME = <无函数/无分支表达式>`。纯数据表没有行为可测;
+ *     反向:带箭头函数、带 `if/?:`、带 JSX 的一律不是本档。
+ *   · `framework-thin` —— Next App Router 约定文件名(`page/layout/route/...`)且
+ *     **无 hook 调用、无控制流、无 await/fetch、无自有函数声明**的纯装配壳;
+ *     反向:任一行为标记出现即落 `framework-behavior`(页面里带 state 的一大片都在那)。
+ *   · `framework-behavior` —— 框架约定名但带行为。**不免测**,单列只是为了量清票面前置。
+ *   · `must-test` —— 其余一律;这是"确实该补测试"的那一档。
+ *   · `unknown` —— 取不到正文(与分类器的 undetermined 同向,不记绿)。
+ */
+export const FRAMEWORK_ENTRY_BASENAMES = Object.freeze([
+  'page',
+  'layout',
+  'loading',
+  'error',
+  'global-error',
+  'not-found',
+  'route',
+  'template',
+  'default',
+  'sitemap',
+  'robots',
+  'manifest',
+  'icon',
+  'apple-icon',
+  'opengraph-image',
+  'twitter-image',
+  'instrumentation',
+  'middleware',
+  'head',
+  'viewport',
+])
+
+export const GAP_TIERS = Object.freeze(['must-test', 'framework-behavior', 'framework-thin', 'data-only', 'unknown'])
+
+const TIER_BEHAVIOR_RE =
+  /\b(?:useState|useEffect|useReducer|useMemo|useCallback|useRef|useContext|useLayoutEffect|useSyncExternalStore|useQuery|useMutation|useSWR)\s*\(|\b(?:if|for|while|switch|catch|throw)\s*\(|\bawait\b|\bfetch\s*\(|\bnew\s+[A-Z]|\?[^:]*:/;
+const TIER_DECL_RE = /^[ \t]*export\s+(?:default\s+)?(?:async\s+)?(?:function|class)\b/m;
+
+/** 顶层语句骨架:去掉 import / 副作用 import / 指令 / `export … from`,只留自有实现。 */
+function tierBodyOf(text) {
+  return maskCommentsAndStrings(String(text ?? ''))
+    .replace(RE_EXPORT_STMT_RE, '')
+    .replace(IMPORT_STMT_RE, '')
+    .replace(SIDE_EFFECT_IMPORT_RE, '')
+    .replace(DIRECTIVE_RE, '')
+    // 掩码层会把字符串连引号一起抹掉,上面几条"必须带 ['"]"的规则因此在掩码文本上失效;
+    // 这里补按行剥离(单行形态)。多行 import/export-from 剥不净 ⇒ 后续解析判负 ⇒ 落 must-test,
+    // 方向仍是"多要一次说明"。
+    .replace(/^[ \t]*import\b[^\n]*$/gm, '')
+    .replace(/^[ \t]*export\s+(?:type\s+)?(?:\*|\{[\s\S]*?\})\s*(?:as\s+[A-Za-z_$][\w$]*\s*)?from\b[^\n]*/gm, '')
+    .trim()
+}
+
+/** 纯数据表:剩余语句全是 `export const|let|var NAME = <无函数/无分支的表达式>`。 */
+export function isDataOnlyModule(text) {
+  let rest = tierBodyOf(text)
+  if (!rest) return false
+  // 只按行剔掉类型/接口声明(单行;多行块留下缩进体会让下面的语句循环判负 ⇒ 落 must-test,
+  // 方向是"多要一次说明",不会把带实现的文件误当数据表)。
+  rest = rest
+    .split(/\r?\n/)
+    .filter((line) => !/^[ \t]*(?:export\s+)?(?:declare\s+)?(?:type|interface)\b/.test(line))
+    .join('\n')
+    .trim()
+  if (!rest) return false
+  let guard = 0
+  while (rest.length > 0) {
+    if (guard++ > 500) return false
+    const m = /^export\s+(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*(?::[^=]+)?=\s*/.exec(rest)
+    if (!m) return false
+    let i = m[0].length
+    let depth = 0
+    let str = null
+    for (; i < rest.length; i += 1) {
+      const c = rest[i]
+      if (str) {
+        if (c === '\\') i += 1
+        else if (c === str) str = null
+        continue
+      }
+      if (c === '"' || c === "'" || c === '`') {
+        str = c
+        continue
+      }
+      if ('([{'.includes(c)) depth += 1
+      else if (')]}'.includes(c)) {
+        depth -= 1
+        if (depth < 0) return false
+      } else if (c === '\n' && depth === 0) {
+        // 顶层换行即声明结束;下一行以续行符开头则还没完
+        if (/^[.[(,?:+\-*/|&]/.test(rest.slice(i + 1).trimStart())) continue
+        break
+      }
+    }
+    const expr = rest.slice(m[0].length, i)
+    // 表达式里出现函数/类/分支(三元)/JSX ⇒ 不是纯数据
+    if (/=>/.test(expr) || /\bfunction\b/.test(expr) || /\bclass\b/.test(expr)) return false
+    if (/\?[^:]*:/.test(expr)) return false
+    if (TIER_BEHAVIOR_RE.test(expr)) return false
+    if (/<[A-Za-z_$][\w$.]*[\s/>]/.test(expr)) return false
+    rest = rest.slice(i).trim()
+    if (rest.startsWith(';')) rest = rest.slice(1).trim()
+  }
+  return true
+}
+
+/** 框架约定入口:文件名命中 Next App Router 约定且位于 `…/app/` 之下。 */
+export function isFrameworkEntry(rel) {
+  const p = normalizePath(rel)
+  const stem = basename(p).replace(/\.[^.]*$/, '')
+  if (!FRAMEWORK_ENTRY_BASENAMES.includes(stem)) return false
+  return /(?:^|\/)app\//.test(p)
+}
+
+/**
+ * 单条缺口分档。返回 `GAP_TIERS` 之一。
+ * 顺序有意义:数据档先判(纯数据不管叫不叫 page 都没有行为),再判框架名,最后 must-test。
+ */
+export function classifyGapTier(entry) {
+  const rel = normalizePath(typeof entry === 'string' ? entry : entry?.path)
+  const text = typeof entry === 'string' ? undefined : entry?.text
+  if (!rel) return 'unknown'
+  if (typeof text !== 'string') return 'unknown'
+  if (isDataOnlyModule(text)) return 'data-only'
+  if (!isFrameworkEntry(rel)) return 'must-test'
+  const body = tierBodyOf(text)
+  // 自有 function/class 声明 ⇒ 有实现体,装配壳这一档只留"没有自有函数"的
+  if (TIER_DECL_RE.test(body)) return 'framework-behavior'
+  if (TIER_BEHAVIOR_RE.test(body)) return 'framework-behavior'
+  return 'framework-thin'
+}
+
+/** 按档聚合,给 `--tiers` 与席位读数用。 */
+export function countByTier(list) {
+  const map = new Map(GAP_TIERS.map((t) => [t, 0]))
+  for (const item of list ?? []) {
+    const raw = item?.tier
+    // 非本表取值一律折进 unknown:分档合计必须恒等于输入长,否则读数会被悄悄吞掉。
+    const t = GAP_TIERS.includes(raw) ? raw : 'unknown'
+    map.set(t, (map.get(t) ?? 0) + 1)
+  }
+  return GAP_TIERS.map((t) => [t, map.get(t) ?? 0])
+}
+
 /** 按 reason 前缀聚合,给结论行与 JSON 一个稳定的读数口径。 */
 export function countByReason(list) {
   const map = new Map()
@@ -687,6 +842,12 @@ export function countByReason(list) {
 export const __test__ = {
   analyzeExports,
   classifyFile,
+  classifyGapTier,
+  countByTier,
+  isDataOnlyModule,
+  isFrameworkEntry,
+  FRAMEWORK_ENTRY_BASENAMES,
+  GAP_TIERS,
   testCoversModule,
   collectionTestCovers,
   collectionRootOf,
