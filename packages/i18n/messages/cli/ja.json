@@ -135,21 +135,7 @@
       "storeEncrypted": "MCP 認証情報は暗号化して保存されています（バックエンド：{backend}）",
       "migrationFailed": "認証情報の移行が完了していません。元のファイルを保持し上書きしていません（{reason}）"
     },
-    "agentFailureTerminated": "実行終了:結末={outcome}｜停止位置={stage}",
-    "failureOutcomeRetryable": "再試行可",
-    "failureOutcomeTerminal": "終了(再試行不可)",
-    "failureOutcomeUndetermined": "未判定",
-    "agentStallLlmRequest": "LLM リクエスト",
-    "agentStallToolExecution": "ツール実行",
-    "agentStallApprovalWait": "承認待ち",
-    "agentStallElicitationWait": "追加質問待ち",
-    "agentStallStreamChannel": "ストリームチャネル",
-    "agentStallQueueDispatch": "キュー投入",
-    "agentStallPermissionGate": "権限ゲート",
-    "agentStallBudgetGovernance": "予算ガバナンス",
-    "agentStallHookPipeline": "フックパイプライン",
-    "agentStallDoomLoopGuard": "デッドループ監視",
-    "agentStallUndetermined": "未判定"
+    "agentFailureTerminated": "実行終了:結末={outcome}｜停止位置={stage}"
   },
   "waiting": {
     "agent": {

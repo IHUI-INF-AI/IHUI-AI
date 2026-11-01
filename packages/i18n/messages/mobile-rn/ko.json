@@ -1275,7 +1275,7 @@
   "aiGroup": {
     "join": {
       "title": "그룹 가입",
-      "message": "「{name}」 가입을 신청했습니다"
+      "message": "「{name}」에 가입했습니다"
     },
     "cardMembers": "멤버",
     "detailEnter": "채팅 입장",
@@ -1656,6 +1656,11 @@
   },
   "agentStat": {
     "title": "에이전트 통계",
+    "totalAgents": "에이전트 총수",
+    "totalUsers": "제작자 수",
+    "totalCalls": "호출 횟수",
+    "publishedCount": "게시됨",
+    "pendingCount": "심사 대기",
     "conversations": "대화 수",
     "messages": "메시지 수",
     "tokens": "Token 소비",
@@ -3282,7 +3287,10 @@
     "twoFactor": "2단계 인증",
     "loginAlert": "로그인 알림",
     "desc": "계정 보안 관련 설정 관리",
-    "loadFailed": "보안 설정 불러오기 실패"
+    "loadFailed": "보안 설정 불러오기 실패",
+    "readOnlyHint": "아래는 현재 서버 상태이며 변경은 아직 지원되지 않습니다",
+    "stateOn": "켜짐",
+    "stateOff": "꺼짐"
   },
   "settingsAccount": {
     "title": "계정 관리",
