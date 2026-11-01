@@ -2181,3 +2181,71 @@ test('T56 允许差异:到期项必须重新报红(白名单不得自动续期)'
   assert.equal(pv.expired.length, 1, '平台差异到期同样必须进 expired')
   assert.equal(pv.red.length, 1, '平台差异到期必须重新报红')
 })
+
+/**
+ * T66 —— 档引用必须与字面量同一口径(跨端对齐 Phase 3「几何判据识别 token 引用」)。
+ * 立因:落档后 RN 屏只剩 `fontSize: rnType.bodySm.size` / `...rnType.body`,几何维词汇表此前
+ * 只认字面量 ⇒ 该侧 fontSize 读成空集,已对齐的屏被读成 one-sided(web↔RN 覆盖 80→68)。
+ * 钉法:同一张档表下,引用写法与字面量写法必须读出**同一集合**;表外成员逐枚未判定,不静默。
+ */
+test('T66 档引用与字面量等价(rnType / rnSpacing / rnRadius)', () => {
+  const tiers = {
+    'rnType.bodySm.size': 13,
+    'rnType.bodySm.lineHeight': 18,
+    'rnSpacing.md': 16,
+    'rnRadius.lg': 8,
+  }
+  const dims = (code) => [...src.readGeometry(code, 'rn', tiers).dims.fontSize]
+  assert.deepEqual(dims('const s = { fontSize: rnType.bodySm.size }'), dims('const s = { fontSize: 13 }'))
+  assert.deepEqual(
+    dims('const s = { title: { ...rnType.bodySm, color: 1 } }'),
+    [13],
+    '整对象展开等价于 fontSize:size(行高/字重不入几何维)',
+  )
+  assert.deepEqual(dims('const s = { lineHeight: rnType.bodySm.lineHeight }'), [], '行高引用与字面量同一口径:不入字号维')
+  const spacing = (code) => [...src.readGeometry(code, 'rn', tiers).dims.spacing]
+  assert.deepEqual(spacing('const s = { gap: rnSpacing.md }'), spacing('const s = { gap: 16 }'))
+  const box = (code) => [...src.readGeometry(code, 'rn', tiers).dims.widthHeight]
+  assert.deepEqual(box('const s = { width: rnRadius.lg }'), box('const s = { width: 8 }'))
+  assert.deepEqual(box('const s = { borderRadius: rnRadius.lg }'), [], 'borderRadius 是圆角维地盘,不进几何维')
+  const g = src.readGeometry('const s = { fontSize: rnType.ghost.size }', 'rn', tiers)
+  assert.ok(
+    g.unreadable.some((u) => u.raw === 'rnType.ghost.size'),
+    '表外字号档必须逐枚点名(不得折成"该侧无字号档")',
+  )
+  /**
+   * 小程序投影面(`taroType.<step>.fontSize`,同表 ×2 rpx):读出的逻辑 px 必须与 rnType 同值。
+   * 不钉这一条,`ScreenStates` 的 taroType.strong.fontSize(30rpx=15) 在小程序侧隐形,
+   * 已对齐的 15 会被读成"仅 RN 档"假分叉。
+   */
+  const taroTiers = { 'taroType.strong.fontSize': 15, 'taroType.strong.lineHeight': 22 }
+  const taroDims = (code) => [...src.readGeometry(code, 'miniapp', taroTiers).dims.fontSize]
+  assert.deepEqual(taroDims('const s = { fontSize: taroType.strong.fontSize }'), [15])
+  assert.deepEqual(
+    taroDims('const s = { lineHeight: taroType.strong.lineHeight }'),
+    [],
+    '行高投影与字面量同一口径:不入字号维',
+  )
+})
+
+/**
+ * T67 —— 同值下"写引用"与"写字面量"的可判对数必须一致(口径一致的端到端锁)。
+ * 只钉口径,不碰取值:两侧 same ⇒ 零分叉、零 one-sided;引用写法不得让覆盖面塌掉。
+ */
+test('T67 引用写法不得把 web↔RN 覆盖数读塌(与字面量夹具同数)', () => {
+  const tiers = { 'rnType.bodySm.size': 13, 'rnType.body.size': 14 }
+  const webSrc = 'const s = { fontSize: 13, gap: 8 }\n'
+  const run = (rnSrc) =>
+    src.webRnGeometryAudit(
+      [{ name: 'x', web: 'w.tsx', rn: 'r.tsx', evidence: 'r.tsx:1' }],
+      { 'w.tsx': webSrc, 'r.tsx': rnSrc },
+      null,
+      tiers,
+      null,
+    )
+  const lit = run('const s = { fontSize: 13, gap: 8 }\n')
+  const ref = run('const s = { fontSize: rnType.bodySm.size, gap: 8 }\n')
+  assert.equal(ref.dimCoverage.fontSize, lit.dimCoverage.fontSize, '引用写法不得让可判对数塌掉')
+  assert.equal(ref.oneSided.length, lit.oneSided.length, '引用不得把"已对齐"读成 one-sided')
+  assert.equal(ref.findings.length, 0, '同值时引用写法不得报分叉')
+})
