@@ -86,6 +86,12 @@ class EnumerationProvenance:
     degraded_reason: str | None = None
     #: rg 通道跑了但被判不可信(输出解析异常等)而回退 Python 时,原委记这里。
     fallback_detail: str | None = None
+    #: 带 `max_files` 的枚举是**数到上限就收手** ⇒ `counted` 是下界,不是这棵树的规模。
+    #: P84 的护栏分母要靠这一格区分"本轮量到 N"与"树远大于 N";让调用方自己去比
+    #: `counted == max_files` 等于把同一判据写第二遍(§0.6),所以由通道自报。
+    #: 触顶时两条通道各自在**自己的遍历序**上收手,截出来的子集不保证同形 ——
+    #: 这一格也是"本轮索引面可能是静默子集"的唯一机器凭据。
+    saturated: bool = False
 
 
 @dataclass
@@ -295,6 +301,7 @@ def enumerate_with_rg(
         )
 
     paths: set[str] = set()
+    saturated = False
     for line in proc.stdout.splitlines():
         if not line.strip():
             continue
@@ -313,6 +320,7 @@ def enumerate_with_rg(
             continue
         paths.add(rel)
         if max_files is not None and len(paths) >= max_files:
+            saturated = True
             break
     return (
         paths,
@@ -321,6 +329,7 @@ def enumerate_with_rg(
             duration_s=time.perf_counter() - t0,
             counted=len(paths),
             rg_source=binary.source,
+            saturated=saturated,
         ),
     )
 
@@ -392,6 +401,7 @@ def enumerate_with_walk(
                         engine=ENGINE_PYTHON_WALK,
                         duration_s=time.perf_counter() - t0,
                         counted=len(results),
+                        saturated=True,
                     ),
                 )
     return (

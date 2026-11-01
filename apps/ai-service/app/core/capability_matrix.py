@@ -903,6 +903,34 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "写侧是否真跑:false=_workbuddy_task_sweep 以 dry_run=True 只算不发;true 才真实 POST 领任务/领奖/上报/兑换/抽奖(外部写,有副作用),须与 enabled 双双显式开启",
         "settings_field": "workbuddy_tasks_live_run",
     },
+    # ============ 工具面能力门(缺口表 #7,2026-11-01 立)============
+    # 这两枚的**读取点就是本台账**(current_for_entry):声明面(env 字面量)住在
+    # app/services/tool_surface.py,取数只有这一条通道 ⇒ 列表面与执行面不可能一把尺读
+    # env、另一把尺读台账。门 J1 的"源码里真实存在"取证由 tool_surface 的常量行满足。
+    {
+        # 桌面 OS 自动化族(computer_*)的存续闸门:浏览器/小程序/无头宿主结构上没有这条
+        # 通道,列表面按 tool_surface 的族前缀摘掉,被直接调用走 CAPABILITY_DISABLED 具名拒。
+        "key": "computer_automation",
+        "env": "MCP_COMPUTER_TOOLS_ENABLED",
+        "default": "true",
+        "category": "门控类",
+        "owner_module": "app.services.tool_surface",
+        "doc_ref": "app/services/tool_surface.py:COMPUTER_AUTOMATION_ENV",
+        "reason_if_off": "",
+    },
+    {
+        # 产品形态轴(对标对侧 products.<form>{…} 一型,行为与形状复现、字节不复刻):
+        # 取值型旋钮而非开关 —— tool_surface.PRODUCT_FORM_CAPABILITY_OVERRIDES 按该值
+        # 决定哪些能力键在当前形态视为不具备;default `server` 在覆盖表里不摘任何能力,
+        # ⇒ 未设置时可见工具集与接线前逐字相同(零扰动由测试 ① 钉,不是口头保证)。
+        "key": "mcp_tool_surface_product_form",
+        "env": "MCP_TOOL_SURFACE_PRODUCT_FORM",
+        "default": "server",
+        "category": "开关类",
+        "owner_module": "app.services.tool_surface",
+        "doc_ref": "app/services/tool_surface.py:PRODUCT_FORM_ENV",
+        "reason_if_off": "取值型旋钮(非布尔开关):未设置即 server 形态,能力覆盖表为空 ⇒ 列表面零扰动;取值不在覆盖表键集时该轴整体不生效(判不出不隐藏)",
+    },
 ]
 
 # 合法类别集合(测试与对账门共同引用的语义域)
