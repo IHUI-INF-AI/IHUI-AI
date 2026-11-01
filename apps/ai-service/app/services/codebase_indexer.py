@@ -258,6 +258,14 @@ def apply_index_ignore_rules(
     ignore = load_ignore_set(root, filenames=DEFAULT_IGNORE_FILENAMES)
     report.errors.extend(f"ignore 规则读不动:{e}" for e in ignore.errors)
     if not ignore.rules:
+        if ignore.errors:
+            # 读不动 ≠ 没有规则。这里按「多留一份」一条都不剪,但**必须把这一轮
+            # 是未判定、文件面按全量处理**写出来(§0.3):只留一句"已跳过"会被读成
+            # "这棵树本来就没有 ignore 规则",于是剪枝回执与真·无规则长得一样。
+            report.errors.append(
+                f"规则面未判定({len(ignore.errors)} 处读不动)⇒ 本轮一条都不剪,"
+                f"{len(rel_paths)} 条全部按全量进入索引面"
+            )
         return list(rel_paths), report
     _probe_kept, probe_pruned = filter_paths(rel_paths, ignore)
     if not probe_pruned:
@@ -269,13 +277,22 @@ def apply_index_ignore_rules(
         )
     kept, pruned, tracked_kept = filter_paths_for_index(rel_paths, ignore, tracked=tracked)
     report.files_ignored = len(pruned)
-    seen: set[str] = set()
-    for _path, where in pruned:
-        if where not in seen and len(seen) < 12:
-            seen.add(where)
-            report.ignored_by.append(where)
+    # 点名清单是**样本**、计数才是真值:排序后截断(枚举序在两通道/两轮之间本就会抖,
+    # 不排序会让"谁被点名"随轮次变),超出 12 枚必须出声,否则读起来像"出处就这 12 枚"。
+    pruned_sources = sorted({where for _p, where in pruned})
+    report.ignored_by = pruned_sources[:12]
+    if len(pruned_sources) > len(report.ignored_by):
+        report.errors.append(
+            f"剪枝出处点名按 12 枚截断(命中出处共 {len(pruned_sources)} 枚、"
+            f"剪掉 {len(pruned)} 条)⇒ 总数只以 files_ignored 为准"
+        )
     report.tracked_kept = len(tracked_kept)
-    report.tracked_kept_paths = [p for p, _where in tracked_kept][:12]
+    report.tracked_kept_paths = sorted(p for p, _where in tracked_kept)[:12]
+    if len(tracked_kept) > len(report.tracked_kept_paths):
+        report.errors.append(
+            f"「跟踪但被忽略」点名按 12 枚截断(共 {len(tracked_kept)} 枚)"
+            "⇒ 总数只以 files_tracked_ignored_kept 为准"
+        )
     return kept, report
 
 
@@ -759,6 +776,17 @@ class CodebaseIndexer:
                 logger.warning("枚举出口返回了白名单外的扩展名,已跳过: %s", rel)
                 continue
             collected.append((root / Path(*rel.split("/")), lang))
+        if prov.saturated:
+            # 护栏分母的诚实性:触顶判定与"索引到多少文件"必须是**同一条枚举**上的三个数,
+            # 而且要说清 N 是下界(被剪掉的不算进分母、也不从分母里抹掉)。不写这一句,
+            # "索引进 2000 条 < 上限 5000"会被读成"整仓索引好了"。
+            ignore_report.errors.append(
+                f"枚举触顶:本轮量到 {prov.counted} 条(= 上限 MAX_FILES_PER_INDEX="
+                f"{MAX_FILES_PER_INDEX},下界,真仓更大)、剪掉 {ignore_report.files_ignored} 条、"
+                f"索引进 {len(collected)} 条 ⇒ 本轮索引面是静默子集;"
+                "两通道触顶时各按自己的遍历序收手,换通道不保证同一个子集,"
+                "要全仓请对子目录显式调用 index_codebase"
+            )
         return collected, prov, ignore_report
 
     def _collect_code_files(self, root: Path) -> list[tuple[Path, str]]:

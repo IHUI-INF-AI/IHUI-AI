@@ -326,7 +326,7 @@ async def create_draft(
         session_id: 关联会话 id(可选)
         model: 指定模型(可选)
         owner_user_id: 计划归属主体(承载层注入,不是请求体字段);None = 内部创建
-    
+
     Returns:
         PlanRecord: 刚创建的草稿(状态 pending_approval,暂停待审批)
     """

@@ -20,6 +20,12 @@
  * 故本脚本按「uid(载荷显式给出时)> secrets.recordKey(导入时已落库、轮换前后不变,本机实证)」
  * 两级匹配;两级都不中才走 `importAccounts` 自动入池。uid 列本身不改写(它是签到/台账的引用键)。
  *
+ * 归属收窄(2026-11-01 收口,与 trae/qoder/workbuddy 同型):候选查询**不再带
+ * `owner_user_id IS NULL`**——本机客户端号若已被某用户个人池持有,回灌必须看得见它,
+ * 否则会走自动入池再建一条运营池行(同一上游号两行并存,与 qoder 事故同型)。两级命中出的
+ * 候选集交 `chooseSyncTargetRow` 定归属(运营池唯一行优先 / 个人池唯一行 / 多行 ambiguous 拒写);
+ * 写库一律按主键 `eq(id)`。判据单源在 `relay-session-sync-target.ts`,本文件不复算。
+ *
  * 编排上游 = `scripts/sync-minimax-client-session.mjs`(提取本机 auth.json → stdin)。
  * 退出码:0 全部处理完(含 skip/自动入池)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
  * 任何输出面不得含凭据明文(只报 uid / 区域 / 到期 / 计数)。
@@ -34,7 +40,7 @@ const API_DIR = resolvePath(SCRIPT_DIR, '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, isNull, sql } = await import('drizzle-orm')
+const { eq, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
@@ -42,6 +48,9 @@ const { db } = await import('../src/db/index.js')
 const traeSync = await import('./relay-trae-session-sync.js')
 const decideSync = traeSync.__test__.decideSync
 const parseIso = traeSync.__test__.parseIso
+// 目标行选择单源(2026-11-01 第四条腿收口):运营池优先 / 个人池唯一行 / 多行拒写。
+// 候选查询去掉 owner 过滤,本机号落个人池时不再走自动入池造重复行(与 qoder 事故同型)。
+const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
 
 import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
@@ -84,6 +93,8 @@ export interface PoolRowSlice {
   healthStatus: string
   refreshFailureCount: number
   tempUnschedulable: boolean
+  /** 归属:null=运营池,非 null=某用户个人池。chooseSyncTargetRow 定归属用(2026-11-01 加) */
+  ownerUserId: string | null
 }
 
 /** 健康态恢复补丁(只上行不下行) */
@@ -167,6 +178,28 @@ export function matchPoolRow(
   const recordKey = cstr(candidate.recordKey)
   if (!recordKey) return null
   return rows.find((r) => recordKeyOfSecrets(r.secrets) === recordKey) ?? null
+}
+
+/**
+ * 候选收窄(归属感知,判据单源 §0.6):先按 uid / recordKey 两级命中候选集 —— 这是 minimax
+ * 平台特有的稳定身份键(uid 随 token 旋转而变、recordKey 轮换前后不变) —— 再交
+ * chooseSyncTargetRow 定归属:运营池唯一行优先;运营池无行而个人池恰好一行则写该行;
+ * 多行 = 归属未判定 ⇒ ambiguous,调用方拒写并点名(同号多行写穿他人副本)。
+ * 候选查询已去掉 owner 过滤,故个人池行进得了候选集(否则本机号落个人池时仍走自动入池
+ * 造重复行,与 qoder 事故同型)。
+ */
+function pickTargetRow(
+  poolRows: ReadonlyArray<PoolRowSlice>,
+  candidate: { uid?: string | null; recordKey?: string | null },
+): ReturnType<typeof chooseSyncTargetRow<PoolRowSlice>> {
+  const uid = cstr(candidate.uid)
+  const recordKey = cstr(candidate.recordKey)
+  const candidates = poolRows.filter((r) => {
+    if (uid && r.uid === uid) return true
+    if (recordKey && recordKeyOfSecrets(r.secrets) === recordKey) return true
+    return false
+  })
+  return chooseSyncTargetRow(candidates)
 }
 
 /**
@@ -266,7 +299,10 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
-/** 读运营池的 minimax 行(owner IS NULL;个人池行结构上不进本腿的射程) */
+/** 读全部 minimax 行(运营池 + 个人池,**不带 owner 过滤**):
+ *  候选面必须与归属无关 —— 本机客户端号若已被某用户个人池持有,回灌必须看得见它
+ *  (否则会走自动入池再建一条运营池行,同一上游号两行并存,与 qoder 事故同型)。
+ *  归属由 chooseSyncTargetRow 在 pickTargetRow 里定。 */
 async function loadPoolRows(): Promise<{ rows: PoolRowSlice[]; undecryptable: number }> {
   const raw = await db
     .select({
@@ -279,11 +315,10 @@ async function loadPoolRows(): Promise<{ rows: PoolRowSlice[]; undecryptable: nu
       healthStatus: aiRelayAccountPool.healthStatus,
       refreshFailureCount: aiRelayAccountPool.refreshFailureCount,
       tempUnschedulable: aiRelayAccountPool.tempUnschedulable,
+      ownerUserId: aiRelayAccountPool.ownerUserId,
     })
     .from(aiRelayAccountPool)
-    .where(
-      and(eq(aiRelayAccountPool.providerCode, 'minimax'), isNull(aiRelayAccountPool.ownerUserId)),
-    )
+    .where(eq(aiRelayAccountPool.providerCode, 'minimax'))
   let undecryptable = 0
   const rows = raw.map((r) => {
     let secrets: Record<string, unknown> | null = null
@@ -365,8 +400,13 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         })
         continue
       }
-      const row = matchPoolRow(await ensurePool(), { uid: uidIn, recordKey })
-      if (!row) {
+      // 候选收窄(归属感知单源):按 uid/recordKey 命中候选集,再交 chooseSyncTargetRow 定归属。
+      // none ⇒ 池内无此号走自动入池;ambiguous ⇒ 同号多行拒写点名;row ⇒ 写该行。
+      const decision = pickTargetRow(await ensurePool(), {
+        uid: uidIn,
+        recordKey: cstr(acc.recordKey),
+      })
+      if (decision.kind === 'none') {
         // 池内无此号 ⇒ 自动入池:与手动导入同一落库出口(运营池行、credVersion+1、
         // 唯一索引只圈运营池 ⇒ 结构上碰不到个人池行)。并发撞索引按 failed 点名,绝不冒绿。
         const autoInput = buildMinimaxAutoImportInput(acc)
@@ -411,6 +451,18 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         }
         continue
       }
+      if (decision.kind === 'ambiguous') {
+        // 同号多行(运营池 + 个人池并存)⇒ 拒写点名:挑一行写就是写穿他人副本。
+        summary.failed++
+        summary.rows.push({
+          uid: label,
+          decision: 'apply',
+          applied: false,
+          error: `归属未判定(同号 ${decision.count} 行,需人工归并后再回灌)`,
+        })
+        continue
+      }
+      const row = decision.row
 
       const final = decideSync({
         poolToken: row.tokenPlain,
@@ -458,7 +510,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
           ...(revival ?? {}),
           updatedAt: now,
         })
-        .where(and(eq(aiRelayAccountPool.id, row.id), isNull(aiRelayAccountPool.ownerUserId)))
+        .where(eq(aiRelayAccountPool.id, row.id))
       summary.applied++
       if (revival) summary.revived++
       summary.rows.push({ uid: row.uid, decision: final.reason, applied: true })
