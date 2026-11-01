@@ -19,7 +19,6 @@ import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
 import { NavTierCard } from '@/components/settings/nav-tier-card'
-import { PredictiveEditCard } from '@/components/settings/predictive-edit-card'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -177,12 +176,6 @@ export default function PreferencesPage() {
 
         {/* 网页搜索开关(2026-09-21 自聊天输入区工具栏迁入,D22 能力偏好归位设置页) */}
         <WebSearchCard />
-
-        {/* 预测式编辑开关(V3 #82 两把钥匙之"开关"位,2026-11-01 挂载)。
-            卡片 2026-10-31 起已入库却全仓零消费者 ⇒ 开关位在 UI 上拧不动,
-            "功能关"只能借"不发请求"表达,与后端 no_action 在面上折回同一张脸。
-            与上面三张能力偏好卡同层同形,不另开设置页路由。 */}
-        <PredictiveEditCard />
 
         {isDesktop && (
           <Card>
