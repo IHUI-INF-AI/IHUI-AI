@@ -1078,14 +1078,15 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 带鉴权钩子的页,其 useDidShow 若只做 waitUntilReady(...) ⇒ 由 AuthReadyGate 承担"就绪后再渲染"
   if (authGateCoversDidShow(pageText)) for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
-  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账
-  if (toastFullyCovered(pageText, shellText, sharedText)) pageTokens.delete('Taro.showToast')
-  else if (
-    !toastCovered(pageText, shellText, sharedText) &&
-    toastOnlyInCatch(pageText) &&
-    SHELL_FEEDBACK_RE.test(String(shellText ?? ''))
-  )
-    pageTokens.delete('Taro.showToast')
+  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账。
+  // 两条精确路径都判负时记 gap:否则下方"用户提示"整族销账会因壳里出现过任意 appAlert( 而放行,
+  // 与 2026-11-01 修掉的导航/取数假绿同型(成功提示在壳侧没有对应出口 ⇒ 转壳后静默消失)。
+  const toastPreciseCovered =
+    toastFullyCovered(pageText, shellText, sharedText) ||
+    (!toastCovered(pageText, shellText, sharedText) &&
+      toastOnlyInCatch(pageText) &&
+      SHELL_FEEDBACK_RE.test(String(shellText ?? '')))
+  if (toastPreciseCovered) pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
@@ -1154,6 +1155,9 @@ export function judgeConversion({
     !apiEndpointsCovered(pageText, shellText, apiModuleText)
   )
     blanketGaps.push('取数')
+  // ③ 用户提示族:上面两条精确判据(toastFullyCovered / catch 兜底)都判负时,壳里出现任意
+  //    appAlert( 不得再整族销账 —— 否则页面独有的成功提示(如"已关注")静默消失。
+  if (pageTokens.has('Taro.showToast') && !toastPreciseCovered) blanketGaps.push('用户提示')
   shellCapabilityCovered(pageTokens, shellText, sharedText, blanketGaps)
   // 选项列表(2026-11-01 立):沿用 **同一个** modalCovered 谓词的第二档(键集合对账),不另立实现
   // (§0.6 单一真相源:Taro.showModal 在上方已由 modalCovered(shellText) 销,这里只补 showActionSheet
