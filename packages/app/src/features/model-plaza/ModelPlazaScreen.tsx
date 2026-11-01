@@ -335,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing['xs-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 36,
       borderRadius: rnRadius['2xl'],
       borderWidth: 0,
@@ -365,7 +365,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: rnSpacing.md,
       marginBottom: rnSpacing.md,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       backgroundColor: tk.surface.bg,
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       ...shadowCard,
@@ -374,9 +374,9 @@ function createStyles(tk: AppThemeTokens) {
     providerMeta: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.tertiary },
     providerDesc: {
       marginTop: rnSpacing['xs-loose'],
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     },
     errorBar: {
       paddingHorizontal: rnSpacing.lg,
@@ -392,7 +392,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     typeTab: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 34,
       borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.bg,

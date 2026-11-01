@@ -141,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     statsCard: {
       marginHorizontal: rnSpacing['sm-loose'],
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
@@ -150,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
     signBtn: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,

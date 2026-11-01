@@ -19,7 +19,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
     },
     rowHead: {

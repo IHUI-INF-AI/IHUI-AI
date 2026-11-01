@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     statCard: {
       flex: 1,
       minWidth: '45%',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -139,7 +139,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

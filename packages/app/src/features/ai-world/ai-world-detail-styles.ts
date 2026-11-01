@@ -46,7 +46,13 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary, lineHeight: 28 },
+    title: {
+      flex: 1,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      lineHeight: rnType.heading.lineHeight,
+    },
     favBtn: {
       flexDirection: 'row',
       alignItems: 'center',

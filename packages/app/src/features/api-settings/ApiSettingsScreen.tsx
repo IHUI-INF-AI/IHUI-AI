@@ -182,7 +182,7 @@ export function ApiSettingsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    content: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -193,7 +193,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,

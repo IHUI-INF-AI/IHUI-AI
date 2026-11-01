@@ -379,7 +379,7 @@ function createStyles(tk: AppThemeTokens) {
 
     // 区块
     section: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     } as ViewStyle,

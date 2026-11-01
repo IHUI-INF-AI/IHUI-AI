@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     label: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       fontSize: rnType.body.size,
       color: tk.text.secondary,
       marginBottom: rnSpacing['xs-loose'],
@@ -285,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     urlAddBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
@@ -358,7 +358,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtn: {
       marginTop: rnSpacing['2xl'],
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',

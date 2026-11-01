@@ -476,7 +476,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing['xs-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 36,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

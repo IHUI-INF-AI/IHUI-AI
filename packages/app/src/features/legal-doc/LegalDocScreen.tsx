@@ -125,9 +125,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -139,7 +139,11 @@ function createStyles(tk: AppThemeTokens) {
     sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     sectionBody: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
     docTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
-    introText: { fontSize: 14, color: tk.text.medium, lineHeight: 20 },
+    introText: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.body.lineHeight,
+    },
     groupIntro: {
       marginTop: rnSpacing['xs-loose'],
       fontSize: 12,

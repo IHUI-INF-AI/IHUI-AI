@@ -87,9 +87,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       alignItems: 'center',
       backgroundColor: tk.surface.light,

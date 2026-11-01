@@ -288,8 +288,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     summary: {
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: rnType.body.size,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
     } as TextStyle,
     metaRow: {

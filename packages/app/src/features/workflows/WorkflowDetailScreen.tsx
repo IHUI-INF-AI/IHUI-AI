@@ -688,7 +688,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -734,7 +734,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     secondaryBtn: {
       alignSelf: 'center',
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: StyleSheet.hairlineWidth,
@@ -782,7 +782,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     tabRow: { flexDirection: 'row', gap: rnSpacing.sm },
     tab: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,

@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
     formInput: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,

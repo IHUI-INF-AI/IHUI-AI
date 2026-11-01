@@ -178,9 +178,9 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     retryText: { fontSize: rnType.body.size, color: tk.text.primary },
-    list: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    list: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

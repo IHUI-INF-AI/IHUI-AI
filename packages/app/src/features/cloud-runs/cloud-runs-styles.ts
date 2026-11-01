@@ -86,7 +86,7 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.xs,
       paddingVertical: rnSpacing.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.light,
       borderWidth: StyleSheet.hairlineWidth,
