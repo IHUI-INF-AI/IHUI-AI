@@ -27,7 +27,6 @@ from app.routers import context_compaction as cc
 from app.services import injection_event_recorder as ier
 from app.services import mcp_server
 
-
 # ------------------------------------------------------------------ 原语本身
 
 
@@ -181,7 +180,7 @@ def test_compaction_history_outer_key_cap_and_ttl() -> None:
 
 def test_compaction_still_trims_per_session() -> None:
     """既有内限(每会话 ≤MAX_PER_SESSION)未被本枚改坏。"""
-    for i in range(cc.MAX_PER_SESSION + 20):
+    for _ in range(cc.MAX_PER_SESSION + 20):
         cc.record_compaction("big", original_tokens=10, compressed_tokens=1, user_id="u")
     assert len(cc.list_compaction_events("big", limit=cc.MAX_PER_SESSION)) == cc.MAX_PER_SESSION
 

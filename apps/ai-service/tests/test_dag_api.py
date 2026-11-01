@@ -50,8 +50,8 @@ def _bypass_dag_admin():
     跳过路径下不注入 role_id ⇒ 闸会判 0。用依赖覆写放行,鉴权面由
     tests/test_security_batch14_dag_admin.py 单独钉死(含非 admin 403)。
     """
-    from app.main import fastapi_app as real_app
     from app.api import dag
+    from app.main import fastapi_app as real_app
 
     real_app.dependency_overrides[dag._require_admin] = lambda: None
     yield

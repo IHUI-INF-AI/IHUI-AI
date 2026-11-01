@@ -88,14 +88,14 @@ from app.routers import (
 # D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
 from app.routers import decisions as decisions_router
 
-# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
-from app.routers import knowledge as knowledge_router
-
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
 from app.routers import eval as eval_router
 
 # D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项):MCP Issue 搜索端点
 from app.routers import issue_search as issue_search_router
+
+# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
+from app.routers import knowledge as knowledge_router
 
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
