@@ -77,6 +77,40 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'PROVIDER_BUSY.action',
     category: 'backendTimeout',
   },
+  // —— 守门 94(R1)补录:顾问子模型五码,产出点 apps/ai-service/app/services/advisor.py 的 consult。
+  //   分档依据(逐条对齐既有同族,不另立分类):ADVISOR_PROMPT_EMPTY 是"送进去的内容不合契约"
+  //   (invalidResponse,与 EMPTY_TASKS / EMPTY_RESULT 同档);ADVISOR_PROMPT_TOO_LONG 与
+  //   ADVISOR_BUDGET_EXHAUSTED 是撞上限(前者字符上限、后者 per-会话次数上限),与 TEXT_TOO_LONG /
+  //   BUDGET_EXHAUSTED 同档(resourceLimitExceeded);ADVISOR_IDENTITY_REQUIRED 是承载层没注入
+  //   属主与会话标识 —— 拿不到身份时**绝不猜一个公共预算桶**,与 INTERNAL_AUTH_UNAVAILABLE 同档
+  //   (authForbidden,动作是重新登录而不是原地重试);ADVISOR_MODEL_UNAVAILABLE 是"上游报错且
+  //   刻意不回落默认模型"(指定模型本身存在,故不是 capabilityNotOffered),与 ENGINE_UNAVAILABLE /
+  //   LLM_ERROR 同档(runtimeException)。
+  ADVISOR_BUDGET_EXHAUSTED: {
+    titleKey: 'ADVISOR_BUDGET_EXHAUSTED.title',
+    actionKey: 'ADVISOR_BUDGET_EXHAUSTED.action',
+    category: 'resourceLimitExceeded',
+  },
+  ADVISOR_IDENTITY_REQUIRED: {
+    titleKey: 'ADVISOR_IDENTITY_REQUIRED.title',
+    actionKey: 'ADVISOR_IDENTITY_REQUIRED.action',
+    category: 'authForbidden',
+  },
+  ADVISOR_MODEL_UNAVAILABLE: {
+    titleKey: 'ADVISOR_MODEL_UNAVAILABLE.title',
+    actionKey: 'ADVISOR_MODEL_UNAVAILABLE.action',
+    category: 'runtimeException',
+  },
+  ADVISOR_PROMPT_EMPTY: {
+    titleKey: 'ADVISOR_PROMPT_EMPTY.title',
+    actionKey: 'ADVISOR_PROMPT_EMPTY.action',
+    category: 'invalidResponse',
+  },
+  ADVISOR_PROMPT_TOO_LONG: {
+    titleKey: 'ADVISOR_PROMPT_TOO_LONG.title',
+    actionKey: 'ADVISOR_PROMPT_TOO_LONG.action',
+    category: 'resourceLimitExceeded',
+  },
   // —— D08① 团队任务表六码闭集(2026-10-24 补录;产出点 apps/ai-service/app/services/mcp_server.py
   // 的 _team_task_* 族)——
   // 语义分档:BOARD_FULL 是表容量上限(resourceLimitExceeded);TASK_NOT_FOUND 是条目不存在
@@ -93,6 +127,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     titleKey: 'API_BRIDGE_ERROR.title',
     actionKey: 'API_BRIDGE_ERROR.action',
     category: 'backendExited',
+  },
+  // 产出点 apps/ai-service/app/services/mcp_server.py 的 render_repo_tree:maxTokens 收不成整数
+  // 就没预算可言 —— 与 BAD_PARAMS 同档(invalidResponse),因为报的是"入参不合契约",不是渲染本身失败
+  // (那一枚是下面那枚 RENDER_FAILED)。
+  BAD_MAX_TOKENS: {
+    titleKey: 'BAD_MAX_TOKENS.title',
+    actionKey: 'BAD_MAX_TOKENS.action',
+    category: 'invalidResponse',
   },
   BAD_PARAMS: {
     titleKey: 'BAD_PARAMS.title',
@@ -324,6 +366,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'INTERNAL_ERROR.action',
     category: 'runtimeException',
   },
+  // 产出点 apps/ai-service/app/services/mcp_server.py 的 workflow_instance_status:实例不存在
+  // **或对当前身份不可见**两种形态在引擎里同形(分了就是存在性 oracle),取到的都是"这一条拿不到",
+  // 与 NO_FILE_VERSIONS / VERSION_NOT_FOUND 同档(resourceNotFound)。
+  INSTANCE_NOT_VISIBLE: {
+    titleKey: 'INSTANCE_NOT_VISIBLE.title',
+    actionKey: 'INSTANCE_NOT_VISIBLE.action',
+    category: 'resourceNotFound',
+  },
   INVALID_ARGS: {
     titleKey: 'INVALID_ARGS.title',
     actionKey: 'INVALID_ARGS.action',
@@ -514,6 +564,15 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'PERMISSION_DENIED.action',
     category: 'authForbidden',
   },
+  // 产出点 apps/ai-service/app/services/mcp_server.py 的 agent_control / workflow_* 族:主语必须取
+  // 宿主注入的已验证主体,读 arguments 里的 __user_id 等于让模型自报身份(自报即越权),因此
+  // 取不到身份时**直接拒发**而不是退回"同 category 最近活跃"。归 authForbidden(与
+  // INTERNAL_AUTH_UNAVAILABLE / PERMISSION_DENIED 同档):要修的是身份,不是参数。
+  PRINCIPAL_REQUIRED: {
+    titleKey: 'PRINCIPAL_REQUIRED.title',
+    actionKey: 'PRINCIPAL_REQUIRED.action',
+    category: 'authForbidden',
+  },
   PROVIDER_ERROR: {
     titleKey: 'PROVIDER_ERROR.title',
     actionKey: 'PROVIDER_ERROR.action',
@@ -539,6 +598,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'RATE_LIMITED.action',
     category: 'resourceLimitExceeded',
   },
+  // 产出点 apps/ai-service/app/services/mcp_server.py 的 render_repo_tree:路径与 maxTokens 都已通过,
+  // 是渲染器自己抛异常(与 SCREENSHOT_FAILED / CAPTURE_FAILED 同族 ⇒ runtimeException),
+  // 不是入参问题(BAD_MAX_TOKENS)、也不是目录不存在(NOT_A_DIRECTORY)。
+  RENDER_FAILED: {
+    titleKey: 'RENDER_FAILED.title',
+    actionKey: 'RENDER_FAILED.action',
+    category: 'runtimeException',
+  },
   REQUEST_TIMEOUT: {
     titleKey: 'REQUEST_TIMEOUT.title',
     actionKey: 'REQUEST_TIMEOUT.action',
@@ -553,6 +620,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     titleKey: 'RISK_CONFIRM_REQUIRED.title',
     actionKey: 'RISK_CONFIRM_REQUIRED.action',
     category: 'authForbidden',
+  },
+  // 产出点 apps/ai-service/app/services/mcp_server.py 的 list_scheduled_tasks:判据全住
+  // scheduler_service.list_tasks(Redis 扫描 / 内存降级 / stub 三态),本层只是把它的异常具名回灌,
+  // 因此归 runtimeException(服务端读取报错),不归 backendTimeout(没有时限被超出这件事)。
+  SCHEDULER_ERROR: {
+    titleKey: 'SCHEDULER_ERROR.title',
+    actionKey: 'SCHEDULER_ERROR.action',
+    category: 'runtimeException',
   },
   SCHEME_REJECTED: {
     titleKey: 'SCHEME_REJECTED.title',
@@ -678,6 +753,15 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     titleKey: 'VIDEO_FETCH_FAILED.title',
     actionKey: 'VIDEO_FETCH_FAILED.action',
     category: 'backendExited',
+  },
+  // 产出点 apps/ai-service/app/services/mcp_server.py 的 workflow_trigger:引擎返回空实例时,
+  // "不存在 / 非本人可见 / 已禁用 / 已有实例在跑"四种成因**刻意不分家**(分了就是存在性 oracle)。
+  // 因此不抄 resourceNotFound,而是与 TASK_CLOSED / ALREADY_CLAIMED / INVALID_STATUS 同族
+  // (invalidResponse):请求对这份工作流当前的状态不适用,换一条工作流而不是拿同一个 id 重试。
+  WORKFLOW_NOT_TRIGGERABLE: {
+    titleKey: 'WORKFLOW_NOT_TRIGGERABLE.title',
+    actionKey: 'WORKFLOW_NOT_TRIGGERABLE.action',
+    category: 'invalidResponse',
   },
   WRITE_FAILED: {
     titleKey: 'WRITE_FAILED.title',

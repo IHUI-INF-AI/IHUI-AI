@@ -111,7 +111,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         params,
       })
     },
-    [messages, locale],
+    [locale],
   )
 
   const setLocaleStable = useCallback(

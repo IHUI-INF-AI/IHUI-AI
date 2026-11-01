@@ -1062,18 +1062,18 @@ export function HomeScreen() {
    * skills tab 渲染真实智能体列表(AgentList),不走模型过滤(搜索态除外)。
    * 两个分支统一走 foldLegacyGroups:legacy 档收编进尾部「历史模型(N)」分组。
    */
-  /** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词 */
-  const localizePlaceholderGroups = (gs: ModelListGroup[]): ModelListGroup[] =>
-    gs.map((g) => ({
-      ...g,
-      vendor: g.vendor ? t(g.vendor) : g.vendor,
-      models: g.models.map((m) => ({
-        ...m,
-        name: t(m.name),
-        description: m.description ? t(m.description) : m.description,
-      })),
-    }))
   const modalModelGroups = useMemo<ModelListGroup[]>(() => {
+    /** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词 */
+    const localizePlaceholderGroups = (gs: ModelListGroup[]): ModelListGroup[] =>
+      gs.map((g) => ({
+        ...g,
+        vendor: g.vendor ? t(g.vendor) : g.vendor,
+        models: g.models.map((m) => ({
+          ...m,
+          name: t(m.name),
+          description: m.description ? t(m.description) : m.description,
+        })),
+      }))
     const q = modelSearch.trim().toLowerCase()
     if (q) {
       const hit = realModelGroups
@@ -1103,7 +1103,7 @@ export function HomeScreen() {
       : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab]), (n) =>
           t('home.historyGroupCount', { count: n }),
         )
-  }, [modelModalTab, realModelGroups, modelSearch, t, localizePlaceholderGroups])
+  }, [modelModalTab, realModelGroups, modelSearch, t])
   const modalModelCount = useMemo(
     () => modalModelGroups.reduce((n, g) => n + g.models.length, 0),
     [modalModelGroups],

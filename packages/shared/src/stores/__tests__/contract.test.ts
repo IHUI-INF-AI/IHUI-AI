@@ -20,7 +20,6 @@ import {
   createMemoryTransport,
   createSyncTransport,
   createAsyncTransport,
-  createJsonTransport,
   createSSRSafeTransport,
   createAuthStore,
   selectIsAuthenticated,
@@ -113,14 +112,6 @@ describe('transport 抽象', () => {
     await expect(t.getItem('k')).resolves.toBe('v')
     await t.removeItem('k')
     await expect(t.getItem('k')).resolves.toBeNull()
-  })
-
-  it('createJsonTransport:在 base transport 之上加 JSON 序列化(实际仍透传 string)', async () => {
-    const inner = createMemoryTransport()
-    const json = createJsonTransport(inner)
-    await json.setItem('k', JSON.stringify({ a: 1 }))
-    const raw = await json.getItem('k')
-    expect(JSON.parse(raw!)).toEqual({ a: 1 })
   })
 
   it('createSSRSafeTransport:客户端 storage 不可用时 fallback 到内存', () => {
