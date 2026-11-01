@@ -38,6 +38,7 @@ function mapLive(live: Live): LiveDetailItem {
     viewCount: live.viewCount,
     playUrl: live.playUrl,
     intro: live.intro,
+    coverUrl: live.coverImage ?? undefined,
   }
 }
 

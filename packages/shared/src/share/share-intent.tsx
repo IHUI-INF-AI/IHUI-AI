@@ -22,6 +22,12 @@ import * as React from 'react'
 export interface ShareIntent {
   /** 转发卡标题(通常 = 内容标题) */
   title?: string
+  /**
+   * 朋友圈卡标题。原手写页这两张卡取的是**不同文案键**(实测 share.appTitle ⇄ share.timelineTitle、
+   * share.courseTitle ⇄ share.timelineTitle),只给一枚 title 会把朋友圈卡静默换成转发卡的文案。
+   * 不给时宿主回落 title。
+   */
+  timelineTitle?: string
   /** 分享落点;不给时宿主用本页 path?query */
   path?: string
   /** 朋友圈 query;不给时宿主用本页参数 */
@@ -67,12 +73,13 @@ export function useShareIntentHost(): ShareIntentHost {
 export function usePublishShareIntent(intent: ShareIntent | null): void {
   const publish = React.useContext(ShareIntentContext)
   const title = intent?.title
+  const timelineTitle = intent?.timelineTitle
   const path = intent?.path
   const query = intent?.query
   const imageUrl = intent?.imageUrl
   React.useEffect(() => {
     if (!publish) return
-    publish({ title, path, query, imageUrl })
-  }, [publish, title, path, query, imageUrl])
+    publish({ title, timelineTitle, path, query, imageUrl })
+  }, [publish, title, timelineTitle, path, query, imageUrl])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
