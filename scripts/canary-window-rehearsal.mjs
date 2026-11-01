@@ -38,7 +38,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { createSplitServer, createHealthCache } from '../deploy/win/ihui-canary-split.mjs'
+import { createLaneStatsWriter, createSplitServer, createHealthCache } from '../deploy/win/ihui-canary-split.mjs'
 import { loadTrafficPolicy, parseTrafficPercent, selectTrafficLane } from './canary-traffic.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -209,11 +209,21 @@ export async function advanceStage({ policyPath, verdict, current, sha, contract
 
 /** 派发 N 枚带路由键的请求穿过分流器,按响应头里的车道计数(真进程、真转发)。
  *
- * `stablePortFallback` 是契约缺失/形状坏时的现网回调端口 —— 不传就只剩 503 那条路,
+ * `stablePortFallback` 是契约缺失/形状坏时的现网端口(由调用方从策略 slots.stable.port 给出) —— 不传就只剩 503 那条路,
  * 传了才等于把「契约坏 ⇒ 全部回 stable」这条承诺一起量了。
+ *
+ * `statsPath`(2026-11-01 立):把生产面那枚**车道计数落盘出口**一起接上,跑完读回持久计数,
+ * 与客户端逐车道读数对账。这一步量的是"灰度期到底放过多少量有没有持久产物":
+ * 摘掉落盘出口 ⇒ 这里必须拿不到产物并判失败(镜像测试钉这条),而不是只验响应头。
  */
-export async function measureSplit({ contractPath, keys = 400, concurrency = 20, healthTtlMs = 1, stablePortFallback = 0 }) {
-  const split = createSplitServer({ contractPath, health: createHealthCache({ ttlMs: healthTtlMs }), stablePortFallback })
+export async function measureSplit({ contractPath, keys = 400, concurrency = 20, healthTtlMs = 1, stablePortFallback = 0, statsPath = null } = {}) {
+  const stats = statsPath ? createLaneStatsWriter({ statsPath }) : null
+  const split = createSplitServer({
+    contractPath,
+    health: createHealthCache({ ttlMs: healthTtlMs }),
+    stablePortFallback,
+    onLane: stats ? stats.observe : null,
+  })
   await new Promise((ok, bad) => {
     split.once('error', bad)
     split.listen(0, '127.0.0.1', ok)
@@ -243,6 +253,22 @@ export async function measureSplit({ contractPath, keys = 400, concurrency = 20,
     await new Promise((r) => split.close(() => r()))
   }
   tally.canaryShare = tally.total ? tally.canary / tally.total : 0
+  if (!stats) {
+    tally.persisted = null
+    return tally
+  }
+  stats.flush()
+  try {
+    const doc = JSON.parse(readFileSync(statsPath, 'utf8'))
+    tally.persisted = {
+      lanes: { stable: doc?.lanes?.stable ?? null, canary: doc?.lanes?.canary ?? null },
+      contractPercent: doc?.contractPercent ?? null,
+      contractMissing: doc?.contractMissing ?? null,
+      updatedAt: doc?.updatedAt ?? null,
+    }
+  } catch {
+    tally.persisted = null
+  }
   return tally
 }
 
@@ -346,6 +372,7 @@ async function main() {
         contractPath,
         keys,
         stablePortFallback: stable.port,
+        statsPath: join(outDir, `split-stats-${name}.json`),
       })
       check(`用例 ${name}:判定 ${expect.verdict}(exit=${expect.exitCode})`,
         d.payload?.verdict === expect.verdict && d.rc === expect.exitCode,
@@ -355,6 +382,14 @@ async function main() {
       check(`用例 ${name}:分流实测落在 ${(expect.share[0] * 100).toFixed(0)}%~${(expect.share[1] * 100).toFixed(0)}%`,
         split.canaryShare >= expect.share[0] && split.canaryShare <= expect.share[1],
         `canary=${split.canary}/${split.total} share=${(split.canaryShare * 100).toFixed(1)}% 状态=${JSON.stringify(split.statuses)}`)
+      // 持久计数(2026-11-01 立):灰度期"放过多少量"必须是**落盘的产物**,不能只在客户端内存里。
+      // 摘掉分流器的车道计数出口 ⇒ 这一格必须 FAIL(演练随之 exit 1),而不是"响应头还在就当量过了"。
+      check(`用例 ${name}:持久车道计数存在且与客户端读数一致`,
+        !!split.persisted &&
+          split.persisted.lanes.canary === split.canary &&
+          split.persisted.lanes.stable === split.stable &&
+          !!split.persisted.updatedAt,
+        `持久=${JSON.stringify(split.persisted)} 客户端=canary ${split.canary}/stable ${split.stable}`)
       cases.push({
         name,
         fixtureMode: mode,

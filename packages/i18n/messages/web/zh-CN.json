@@ -9405,6 +9405,50 @@
         "invalid_arguments": {
           "title": "提交的信息有误",
           "action": "检查后重试"
+        },
+        "ADVISOR_BUDGET_EXHAUSTED": {
+          "title": "本次会话的顾问咨询次数已用尽",
+          "action": "在新会话里继续，或联系管理员提高咨询上限"
+        },
+        "ADVISOR_IDENTITY_REQUIRED": {
+          "title": "顾问咨询缺少属主与会话标识",
+          "action": "重新登录后再发起咨询"
+        },
+        "ADVISOR_MODEL_UNAVAILABLE": {
+          "title": "指定的顾问咨询模型调用失败",
+          "action": "改用其他模型，或稍后重试"
+        },
+        "ADVISOR_PROMPT_EMPTY": {
+          "title": "顾问咨询内容为空",
+          "action": "补上要咨询的问题后重试"
+        },
+        "ADVISOR_PROMPT_TOO_LONG": {
+          "title": "顾问咨询内容超出长度上限",
+          "action": "精简或拆分问题后重新咨询"
+        },
+        "BAD_MAX_TOKENS": {
+          "title": "maxTokens 参数不是整数",
+          "action": "填入一个正整数后重新渲染目录树"
+        },
+        "INSTANCE_NOT_VISIBLE": {
+          "title": "工作流实例不存在或对你不可见",
+          "action": "核对实例 ID，或改用该实例所属的账号"
+        },
+        "PRINCIPAL_REQUIRED": {
+          "title": "缺少调用者身份，已拒绝操作他人的设备",
+          "action": "重新登录后由本人重新发起该操作"
+        },
+        "RENDER_FAILED": {
+          "title": "目录树渲染失败",
+          "action": "缩小目录范围或调低 maxTokens 后重试"
+        },
+        "SCHEDULER_ERROR": {
+          "title": "定时任务列表读取失败",
+          "action": "稍后重试；持续失败请联系管理员检查调度服务"
+        },
+        "WORKFLOW_NOT_TRIGGERABLE": {
+          "title": "该工作流当前无法触发",
+          "action": "确认工作流存在、已启用且没有实例正在运行后重试"
         }
       },
       "worktree": {

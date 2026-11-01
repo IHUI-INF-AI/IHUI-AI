@@ -1,12 +1,13 @@
 {
-  "$comment": "O6502 成本熔断上限(机读闭集)。窗口为滚动窗口:perHour = 近 60 分钟,perDay / minutesPerDay = 近 24 小时。tokensPerSession / tokensPerDay 为第 3 期④ token 双闸(单会话闸 + 24 小时累计闸),取数口 = 起会话 CLI --json 终态行 usage.totalTokens。改上限属于人工阀 budget-cap-change(仅上调需人拍板;收紧可由守门侧自主落)。",
+  "$comment": "O6502 成本熔断上限(机读闭集)。窗口为滚动窗口:perHour = 近 60 分钟,perDay / minutesPerDay = 近 24 小时。tokensPerSession / tokensPerDay 为第 3 期④ token 双闸(单会话闸 + 24 小时累计闸),取数口 = 起会话 CLI --json 终态行 usage.totalTokens。改上限属于人工阀 budget-cap-change(仅上调需人拍板;收紧可由守门侧自主落)。failChargeCapMinutes 不是上限而是**记账口径**(2026-11-01 立):失败轮(没产出可用构建)的墙钟按此封顶计入 minutesPerDay,实墙钟逐条留在台账 minutesWall;它必须 < minutesPerDay(cost-breaker loadCaps 形状锁),改它等于改熔断灵敏度,同样属人工阀。",
   "version": 2,
   "issuesAt": "2026-10-25",
   "kinds": {
     "deploy": {
       "perHour": 8,
       "perDay": 60,
-      "minutesPerDay": 480
+      "minutesPerDay": 480,
+      "failChargeCapMinutes": 10
     },
     "session": {
       "perHour": 3,

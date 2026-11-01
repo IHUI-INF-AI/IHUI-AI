@@ -361,4 +361,36 @@ test('T13 rerunAnchor 门以锚点档复跑;未声明的门不得被塞锚点', 
   )
   assert.equal(commented.rerunAnchor, false, '注释里的散文被当成了能力声明')
 })
+
+// ── T14 臂 5 冲突标记自证(2026-11-01,MARKERS 票):常备跑 + argv 记账 + rc 三态分流 ──
+test('T14 冲突标记自证臂:桩真被 spawn 且 argv 是 --rev HEAD;rc=1⇒verdict=1 / rc=2⇒verdict=2 / rc=0⇒ran', (t) => {
+  const dir = makeRepo(t)
+  const stub = writeStub(dir, 'stub-markers.mjs')
+  const marker = join(dir, 'marker-markers.txt')
+  const run = (rc) =>
+    rerunAffectedGates({
+      root: dir,
+      paths: ['AGENTS.md'],
+      env: { LAND_GATE_RERUN_CONFLICT_MARKERS: stub, STUB_RC: String(rc), STUB_MARKER: marker },
+    })
+  const r1 = run(1)
+  assert.equal(readFileSync(marker, 'utf8'), '--rev HEAD', '自证臂必须判落地面(HEAD 树),不是工作区副本')
+  assert.equal(r1.verdict, 1, '落地面还带着成对标记 ⇒ 拒绝报绿')
+  assert.ok(r1.failed.some((f) => f.kind === 'conflict-markers'))
+  const r2 = run(2)
+  assert.equal(r2.verdict, 2, '未判定不得读成通过')
+  assert.ok(r2.undetermined.some((f) => f.kind === 'conflict-markers'))
+  const r0 = run(0)
+  assert.equal(r0.verdict, 0)
+  assert.ok(r0.ran.some((f) => f.kind === 'conflict-markers'))
+})
+
+// ── T15 换仓通道下自证臂不得静默:没给桩 ⇒ 点名未跑,而不是跑过且绿 ──
+test('T15 冲突标记自证臂:被审根不是本仓且未给桩 ⇒ 逐条点名未跑(与 mypy/tsc 同一保守向)', (t) => {
+  const dir = makeRepo(t)
+  const res = rerunAffectedGates({ root: dir, paths: ['AGENTS.md'], env: {} })
+  assert.ok(res.notes.some((n) => n.includes('冲突标记自证臂') && n.includes('未跑')))
+  assert.equal(res.ran.some((f) => f.kind === 'conflict-markers'), false, '没跑却记成 ran = 把没判写成判过')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
