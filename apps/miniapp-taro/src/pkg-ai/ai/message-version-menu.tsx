@@ -43,18 +43,17 @@ export default function MessageVersionMenu({
 }: MessageVersionMenuProps) {
   const { t } = useI18n()
   const pos = messageId ? versionFamilyPosition(messages, messageId) : null
-  // 族内只有一条不渲染(1/1 切换器只会骗用户去点,与 web 同判据)
-  if (!pos) return null
-
-  const prev = pos.members[pos.index - 1]
-  const next = pos.members[pos.index + 1]
+  // hooks 必须无条件按同序调用 ⇒ 早退挪到全部 useCallback 之后(判据:rules-of-hooks)
+  const prev = pos ? pos.members[pos.index - 1] : undefined
+  const next = pos ? pos.members[pos.index + 1] : undefined
   const step = useCallback(
     (member: VersionMenuMessage | undefined): void => {
-      if (member) onSwitch(pos.rootId, member.id)
+      if (member && pos) onSwitch(pos.rootId, member.id)
     },
-    [onSwitch, pos.rootId],
+    [onSwitch, pos],
   )
   const openHistory = useCallback((): void => {
+    if (!pos) return
     void Taro.showActionSheet({
       itemList: pos.members.map(
         (m, i) => `${i + 1}/${pos.total} ${m.content.slice(0, 20).replace(/\n/g, ' ') || '—'}`,
@@ -65,6 +64,8 @@ export default function MessageVersionMenu({
       },
     })
   }, [onSwitch, pos])
+  // 族内只有一条不渲染(1/1 切换器只会骗用户去点,与 web 同判据);早退已挪到 hooks 之后
+  if (!pos) return null
 
   return (
     <View className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5">
