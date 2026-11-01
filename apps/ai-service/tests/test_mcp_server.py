@@ -734,8 +734,9 @@ async def test_tool_file_search_no_pattern_match(tmp_path):
 # 工具实现: git_operations (真实 git 命令)
 # =============================================================================
 
-async def test_tool_git_operations_status_on_real_repo():
+async def test_tool_git_operations_status_on_real_repo(monkeypatch):
     """在 IHUI-AI 仓库执行 git status(真实 git 命令)。"""
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", _REPO)
     out = await _tool_git_operations({"action": "status", "repo": _REPO})
     assert out["tool"] == "git_operations"
     assert out["action"] == "status"
@@ -746,16 +747,18 @@ async def test_tool_git_operations_status_on_real_repo():
     assert isinstance(out["output"], str)
 
 
-async def test_tool_git_operations_log_on_real_repo():
+async def test_tool_git_operations_log_on_real_repo(monkeypatch):
     """在 IHUI-AI 仓库执行 git log。"""
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", _REPO)
     out = await _tool_git_operations({"action": "log", "repo": _REPO})
     assert out["ok"] is True
     # log 输出应包含 commit 信息
     assert len(out["output"]) > 0
 
 
-async def test_tool_git_operations_branch_on_real_repo():
+async def test_tool_git_operations_branch_on_real_repo(monkeypatch):
     """在 IHUI-AI 仓库执行 git branch。"""
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", _REPO)
     out = await _tool_git_operations({"action": "branch", "repo": _REPO})
     assert out["ok"] is True
 
@@ -768,22 +771,30 @@ async def test_tool_git_operations_disallowed_action():
     assert "status" in out["message"]  # 列出允许的操作
 
 
-async def test_tool_git_operations_nonexistent_repo():
-    """仓库路径不存在时返回 ok=False。"""
-    out = await _tool_git_operations({"action": "status", "repo": "/nonexistent/repo/xyz"})
+async def test_tool_git_operations_nonexistent_repo(monkeypatch):
+    """仓库路径不存在时返回 ok=False。
+
+    2026-11-01 安全强化后路径校验先于存在性校验,白名单外的路径会先吃
+    PATH_NOT_IN_WORKSPACE;本用例判的是"白名单内但不存在"这一格,所以把
+    不存在的仓放回白名单内构造。
+    """
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", _REPO)
+    out = await _tool_git_operations({"action": "status", "repo": _os.path.join(_REPO, "nonexistent-repo-xyz")})
     assert out["ok"] is False
     assert "不存在" in out["message"]
 
 
-async def test_tool_git_operations_default_action():
+async def test_tool_git_operations_default_action(monkeypatch):
     """不传 action 时默认 status。"""
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", _REPO)
     out = await _tool_git_operations({"repo": _REPO})
     assert out["action"] == "status"
     assert out["ok"] is True
 
 
-async def test_tool_git_operations_show_with_ref():
+async def test_tool_git_operations_show_with_ref(monkeypatch):
     """show 操作使用 ref 参数。"""
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", _REPO)
     out = await _tool_git_operations({"action": "show", "repo": _REPO, "ref": "HEAD"})
     assert out["action"] == "show"
     # show HEAD 应成功

@@ -1158,14 +1158,24 @@ export const getExamList = (params?: {
   categoryId?: string
   paperType?: 'normal' | 'random' | 'mock' | 'exam'
 }) => get<{ list: Exam[]; total: number }>('/exam/papers', params)
-export type QuestionType =
-  'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
-// ExamPaper 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
-// ExamQuestion 已 re-export 自 @ihui/api-client(见文件顶部)
-// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder }
-// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null }
-// 后端 /exam/papers/:id/questions 实际返回与 api-client 一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)
-// QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
+// 题型词表与作答判据的单一来源:@ihui/api-client(endpoints/exam.ts) 的
+// ShellQuestionType / toShellQuestionType / toShellOptionTexts / toShellOptionKeys /
+// serializeExamAnswers,三端同一份。端内不再自留 'multi_choice'/'fill_blank' 那套旧词表 ——
+// 它与后端实际返回值不符,曾让 answer.tsx 的 typeLabel 五种题型全部落进 default(一律显示"单选题"),
+// 并让作答按下标提交(题库 answer 存的是选项 key "A"/["A","B"],下标恒判错)。
+export {
+  serializeExamAnswers,
+  toShellOptionKeys,
+  toShellOptionTexts,
+  toShellQuestionType,
+  type ExamAnswerValue,
+  type ShellQuestionType,
+} from '@ihui/api-client'
+// ExamPaper / ExamQuestion 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export。
+// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder };
+// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null },
+// 与后端 /exam/papers/:id/questions 的实际返回一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)。
+// ⇒ 本端一律吃 api-client 的原始形状,渲染时才用 toShellQuestionType/toShellOptionTexts 投影。
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
   get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then((r) => ({
@@ -1449,6 +1459,29 @@ export const getPrivateMessages = (params?: { page?: number; pageSize?: number }
 export const getRoomHistory = (roomId: string, page = 1) =>
   get(`/messages/rooms/${roomId}/history`, { page })
 export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
+/** 站内消息分页(GET /messages;参数名 msgType 与后端 schema 现读对齐,RN 屏旧写法 `type=` 不在 schema 内) */
+export const getMessages = (params: { page?: number; pageSize?: number; msgType?: string }) =>
+  get<{
+    list: Array<{
+      id: string
+      title: string | null
+      content: string | null
+      msgType: string
+      isRead: boolean
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+    total: number
+  }>('/messages', params)
+/** 标记单条站内消息已读(PUT /messages/:id/read,后端按属主校验) */
+export const markMessageRead = (id: string) => put(`/messages/${id}/read`)
+/** 删除单条站内消息(DELETE /messages/:id) */
+export const deleteMessage = (id: string) => del(`/messages/${id}`)
+/** 标记私信已读(POST /messages/private/:pid/read) */
+export const markPrivateRead = (pid: string) => post(`/messages/private/${pid}/read`)
+/** 删除私信(DELETE /messages/private/:pid) */
+export const deletePrivateMessage = (pid: string) => del(`/messages/private/${pid}`)
 
 /* ============ 通知偏好 ============ */
 export interface NotificationPreferences {

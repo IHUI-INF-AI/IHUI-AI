@@ -163,10 +163,14 @@ function renderSource(names, rows) {
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
 import { makeIcon } from './icons-runtime'
-import type { CompatIconProps } from './icons-runtime'
 
-/** lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里 */
-export type LucideIcon = (props: CompatIconProps) => ReturnType<typeof makeIcon>
+/**
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
+ */
+export type LucideIcon = ReturnType<typeof makeIcon>
 
 const S = {
 ${rows.join('\n')}
@@ -199,6 +203,18 @@ ${declared.join('\n')}
  */
 const RN_NAVIGATOR = 'apps/mobile-rn/src/navigation/RootNavigator.tsx'
 const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
+/**
+ * 第三桶:RN 独有屏(共享层没有同物)的「路由名 → 小程序镜像页」补充声明。
+ *
+ * 为什么另一张表而不是往登记表塞:登记表按定义只收「shared 在
+ * packages/app/src/index.ts 有同名导出」的三元组(见其 comment 字段,R1 逐条核验),
+ * RN 独有屏永远进不去。而这类路由在小程序端确实有镜像页 —— 例如 DevEnterScreen ↔
+ * pkg-ai/developer/index(该页头注已写明"我的智能体列表,RN 同物是端内屏 DevEnterScreen,
+ * 共享层还没有这一族屏")。不补这一桶,那个入口在壳化后就是"点了不动":
+ * navigation 垫片拿不到路径只 console.warn。声明本身不构成证据 —— 导航器里该路由名
+ * 必须真的挂在声明的那个壳文件上、小程序页必须真的在盘上,对不上的逐条点名且不入表。
+ */
+const RN_ONLY_SUPPLEMENT = 'scripts/data/rn-route-supplement.json'
 const ROUTE_OUT_REL = 'apps/miniapp-taro/src/rn-compat/route-map.generated.ts'
 
 function headBlob(rel) {
@@ -212,13 +228,51 @@ function headBlob(rel) {
 }
 
 function buildRouteMap() {
-  return buildRouteMapFromText(headBlob(RN_NAVIGATOR), JSON.parse(headBlob(REGISTRY)).entries)
+  const accepted = []
+  const rejected = []
+  for (const item of readSupplementEntries()) {
+    const miniapp = String(item?.miniapp ?? '')
+    if (!miniapp || !existsSync(R(`apps/miniapp-taro/src/${miniapp}.tsx`))) {
+      rejected.push(`小程序页不在盘上:${miniapp || '(空)'}`)
+      continue
+    }
+    accepted.push(item)
+  }
+  const info = buildRouteMapFromText(
+    headBlob(RN_NAVIGATOR),
+    JSON.parse(headBlob(REGISTRY)).entries,
+    accepted,
+  )
+  return { ...info, supplementProblems: [...rejected, ...info.supplementProblems] }
+}
+
+/**
+ * 读补充声明。事实源恒为 HEAD(§0.4,与导航器/登记表同面);只有「该文件尚未进 HEAD」时
+ * 才回落到工作树 —— 否则首次引入它的那一轮 `--write` 永远看不见自己刚写的声明。
+ */
+function readSupplementEntries() {
+  let text = null
+  try {
+    text = headBlob(RN_ONLY_SUPPLEMENT)
+  } catch {
+    try {
+      text = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+    } catch {
+      return []
+    }
+  }
+  try {
+    const parsed = JSON.parse(text)
+    return Array.isArray(parsed?.entries) ? parsed.entries : []
+  } catch {
+    return []
+  }
 }
 
 /**
  * 纯函数版(镜像测试直接打,不碰 git 也不写盘):导航器正文 + 登记表 entries ⇒ 路由映射三桶。
  */
-export function buildRouteMapFromText(nav, registryEntries) {
+export function buildRouteMapFromText(nav, registryEntries, supplementEntries = []) {
   const regRows = (registryEntries || []).filter((e) => e.rn && e.miniapp)
   const byRn = new Map(regRows.map((e) => [e.rn, e.miniapp]))
   /**
@@ -273,6 +327,7 @@ export function buildRouteMapFromText(nav, registryEntries) {
   const map = new Map()
   const unmapped = []
   const unbound = []
+  const routeToFile = new Map()
   for (const m of nav.matchAll(/\.Screen\s*\n?\s*name=["']([\w-]+)["']\s+component=\{(\w+)\}/g)) {
     const [, routeName, comp] = [m[0], m[1], m[2]]
     const file = compToFile.get(comp)
@@ -282,6 +337,8 @@ export function buildRouteMapFromText(nav, registryEntries) {
       unbound.push(`${routeName}(component=${comp})`)
       continue
     }
+    // 路由名 ↔ 壳文件:供补充声明核对「声明的壳文件是否真是导航器挂的那个」
+    routeToFile.set(routeName, file)
     const miniapp = byRn.get(file)
     if (!miniapp) {
       unmapped.push(`${routeName}(${comp})`)
@@ -289,7 +346,40 @@ export function buildRouteMapFromText(nav, registryEntries) {
     }
     map.set(routeName, `/${miniapp}`)
   }
-  return { map, unmapped, unbound, rnCollisions, total: compToFile.size }
+  // RN 独有屏补充声明:登记表已覆盖的路由名一律以登记表为准(补充表不抢登记表),
+  // 导航器里查无此名、或声明挂的壳文件与导航器实际挂的不一致 ⇒ 逐条点名且不入表。
+  const supplementProblems = []
+  let supplementApplied = 0
+  for (const item of supplementEntries || []) {
+    const route = String(item?.route ?? '')
+    const rnFile = String(item?.rn ?? '')
+    const miniapp = String(item?.miniapp ?? '')
+    if (!route || !rnFile || !miniapp) {
+      supplementProblems.push(`字段不全:${JSON.stringify(item)}`)
+      continue
+    }
+    const actual = routeToFile.get(route)
+    if (!actual) {
+      supplementProblems.push(`${route}:导航器里没有这条路由名`)
+      continue
+    }
+    if (actual !== rnFile) {
+      supplementProblems.push(`${route}:声明挂在 ${rnFile},导航器实际挂 ${actual}`)
+      continue
+    }
+    if (map.has(route)) continue
+    map.set(route, `/${miniapp}`)
+    supplementApplied += 1
+  }
+  return {
+    map,
+    unmapped,
+    unbound,
+    rnCollisions,
+    supplementProblems,
+    supplementApplied,
+    total: compToFile.size,
+  }
 }
 
 /**
@@ -417,9 +507,11 @@ function renderRouteMap(map) {
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
  *
- * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对,
- * 两条现读事实 join(取名规则猜路径必然漂移)。不在表里的路由名 = 小程序端尚无对应页,
- * 由 rn-compat/navigation 运行时点名"这一跳未执行",绝不跳到一个像的名字上去。
+ * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对
+ * ∪ RN 独有屏的补充声明(scripts/data/rn-route-supplement.json,逐条核「声明的壳文件是否真是
+ * 导航器挂的那个」与「小程序页是否真在盘上」),三处现读事实 join(取名规则猜路径必然漂移)。
+ * 不在表里的路由名 = 小程序端尚无对应页,由 rn-compat/navigation 运行时点名"这一跳未执行",
+ * 绝不跳到一个像的名字上去。
  */
 export const RN_ROUTE_MAP: Record<string, string> = {
 ${lines.join('\n')}
@@ -591,6 +683,15 @@ async function main() {
   if (routeInfo.rnCollisions.length > 0) {
     console.error(
       `⚠️ 登记表同 rn 撞键共 ${routeInfo.rnCollisions.length} 组(只报数不判红:存量未归零前升档即 §12e 恒红门;逐组核 shared↔rn 同名并真机走查后才谈收口)`,
+    )
+  }
+  // 补充声明单独出声:被拒的条目是"声明与现读事实不符",不能静默吞掉当没写过。
+  if (routeInfo.supplementApplied > 0 || routeInfo.supplementProblems.length > 0) {
+    console.log(
+      `RN 独有屏补充声明:${routeInfo.supplementApplied} 条入表` +
+        (routeInfo.supplementProblems.length
+          ? ` / ${routeInfo.supplementProblems.length} 条被拒(逐条:${routeInfo.supplementProblems.join('; ')})`
+          : ''),
     )
   }
   if (write) {

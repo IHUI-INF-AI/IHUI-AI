@@ -51,7 +51,12 @@ export type { ViewStyle, TextStyle, ImageStyle, StyleProp } from './style'
 export type ColorValue = string
 export type ImageSourcePropType =
   string | number | { uri?: string; width?: number; height?: number }
-export type GestureResponderEvent = { nativeEvent: unknown }
+/**
+ * RN 的 GestureResponderEvent = NativeSyntheticEvent<NativeTouchEvent>,合成事件自带
+ * stopPropagation/preventDefault 两枚。共享层(ui-native/sheet)真的会调 `e.stopPropagation()`,
+ * 缺这一格是 TS2339。小程序端这几条事件不派发(PanResponder 已点名降级),故只有类型位。
+ */
+export type GestureResponderEvent = { nativeEvent: unknown; stopPropagation: () => void }
 export type LayoutChangeEvent = {
   nativeEvent: { layout: { x: number; y: number; width: number; height: number } }
 }
@@ -93,7 +98,17 @@ export type NativeScrollEvent = {
   velocityY?: number
 }
 export type NativeScrollEventLike = NativeScrollEvent
-export type ImageLoadEventData = { width: number; height: number; uri?: string }
+/**
+ * RN 的 onLoad 事件把原图信息放在 `nativeEvent.source` 里(宽/高/uri)。
+ * 漏这一支的现场:共享屏按 `e.nativeEvent.source.width` 算宽高比,BusinessLicenseScreen
+ * 在小程序宿主下整块 TS2339 —— 不是可选项,是 RN 事件契约的一半。
+ */
+export type ImageLoadEventData = {
+  source: { width: number; height: number; uri: string }
+  width: number
+  height: number
+  uri?: string
+}
 export type TextInputSubmitEditingEventData = { text: string }
 export type PanResponderInstance = { panHandlers: Record<string, unknown> }
 export type GestureState = {

@@ -11,6 +11,7 @@
 import Taro from '@tarojs/taro'
 
 import { Image as CompatImage, ScrollView, Text, View } from './primitives'
+import type { RNBaseProps } from './primitives'
 
 /** Dimensions:RN 的 dp 与小程序的 px 同为逻辑像素,直接取系统信息 */
 export const Dimensions = {
@@ -320,10 +321,13 @@ export const Animated = {
     },
   // Animated.* 一律**照常渲染内容**,只丢弃补间样式(动画不播、终值正确)。
   // 返回 null 会让共享层的入场动画包裹层整块消失 —— 那是功能缺陷,不是降级。
-  View: (props: Record<string, unknown>) => View(props as never),
-  Text: (props: Record<string, unknown>) => Text(props as never),
-  ScrollView: (props: Record<string, unknown>) => ScrollView(props as never),
-  Image: (props: Record<string, unknown>) => CompatImage(props as never),
+  // 入参取 RNBaseProps 而非 Record<string, unknown>:后者把每一枚回调都上下文定型成 unknown ⇒
+  // 形参退回隐式 any(ui-native/sheet 的 `onResponderRelease={(e) => e.stopPropagation()}` 当场 TS7006);
+  // 兜底键仍由 RNBaseProps 的索引签名接住,自定义属性照旧可传。
+  View: (props: RNBaseProps) => View(props as never),
+  Text: (props: RNBaseProps) => Text(props as never),
+  ScrollView: (props: RNBaseProps) => ScrollView(props as never),
+  Image: (props: RNBaseProps) => CompatImage(props as never),
 }
 
 export const Layout = {

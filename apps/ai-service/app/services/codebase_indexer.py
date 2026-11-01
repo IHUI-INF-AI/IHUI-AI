@@ -43,6 +43,7 @@ from typing import Any, cast
 from ..core.internal_ticket import internal_service_headers
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
+from .dir_rhash import diff_dir_rhash, dir_rhash_map
 from .ignore_rules import (
     DEFAULT_IGNORE_FILENAMES,
     filter_paths,
@@ -354,6 +355,10 @@ class SnapshotRead:
     #: 的自证(自证仍是 fileCount + 重算 merkleRoot 那两把尺);形态坏才判坏档(见 `_snapshot_extras`)。
     fingerprints: dict[str, str] = field(default_factory=dict)
     aliases: dict[str, str] = field(default_factory=dict)
+    #: 目录级递归前像(T12 缺口表 #1 后半程,2026-11-01):`dir -> rhash`。
+    #: `None` = 上一轮**没有这一维**(旧档/坏档)⇒ 本轮的「未变/搬家」两桶判不出,
+    #: 只能从下一轮起判 —— 这与"判过且干净"必须长得不一样,所以不用空 dict 冒充缺席。
+    dir_rhashes: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         if self.state not in SNAPSHOT_STATES:
@@ -416,15 +421,21 @@ class IndexResult:
     files_renamed: int = 0
     rename_candidates: list[dict[str, Any]] = field(default_factory=list)
     rename_note: str | None = None
+    # T12 缺口表 #1 后半程(2026-11-01):目录级递归前像差分回执。
+    # `dirs_moved` = 整枝搬家点名(只报最浅一枝,ancestor 已报的后代不重复;歧义族不报)。
+    # `dir_rhash_note` 为 None = 本轮没做这一维(非增量轮 / 上一轮档坏或缺这一维)。
+    dir_rhash_note: str | None = None
+    dirs_moved: list[dict[str, str]] = field(default_factory=list)
 
 
 def _snapshot_extras(
     parsed: dict[str, Any],
-) -> tuple[dict[str, str], dict[str, str], str | None]:
-    """读快照里的两枚附加表(指纹 / 改名别名)→ (指纹, 别名, 坏形态原委)。
+) -> tuple[dict[str, str], dict[str, str], dict[str, str] | None, str | None]:
+    """读快照里的三枚附加表(指纹 / 改名别名 / 目录前像)→ (指纹, 别名, 目录前像, 坏形态原委)。
 
-    - **缺席**(旧版档、或这一轮没算过指纹)⇒ 空表,**不判坏档**:它们不参与
-      `fileCount` / 重算 `merkleRoot` 这条自证链,缺了只降级"本轮只判精确改名";
+    - **缺席**(旧版档、或这一轮没算过指纹)⇒ 空表 / `None`,**不判坏档**:它们不参与
+      `fileCount` / 重算 `merkleRoot` 这条自证链,缺了只降级"本轮只判精确改名"
+      (目录前像缺席则降级为"本轮起才有这一维");
     - **在场但形态坏** ⇒ 返回原委,由调用方判 `CORRUPT`(见 `_load_snapshot_read`
       里"别名一丢就等于静默丢内容"那条)。
     """
@@ -433,20 +444,31 @@ def _snapshot_extras(
     raw_fp = parsed.get("simhashes")
     if raw_fp is not None:
         if not isinstance(raw_fp, dict):
-            return {}, {}, "simhashes 字段形态不合"
+            return {}, {}, None, "simhashes 字段形态不合"
         for key, value in raw_fp.items():
             if not isinstance(key, str) or not isinstance(value, str):
-                return {}, {}, "simhashes 条目形态不合"
+                return {}, {}, None, "simhashes 条目形态不合"
             fingerprints[key] = value
     raw_alias = parsed.get("aliases")
     if raw_alias is not None:
         if not isinstance(raw_alias, dict):
-            return {}, {}, "aliases 字段形态不合"
+            return {}, {}, None, "aliases 字段形态不合"
         for key, value in raw_alias.items():
             if not isinstance(key, str) or not isinstance(value, str):
-                return {}, {}, "aliases 条目形态不合"
+                return {}, {}, None, "aliases 条目形态不合"
             aliases[key] = value
-    return fingerprints, aliases, None
+    raw_dirs = parsed.get("dirRhashes")
+    dir_rhashes: dict[str, str] | None = None
+    if raw_dirs is not None:
+        if not isinstance(raw_dirs, dict) or not raw_dirs:
+            return {}, {}, None, "dirRhashes 字段形态不合"
+        for key, value in raw_dirs.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                return {}, {}, None, "dirRhashes 条目形态不合"
+            if dir_rhashes is None:
+                dir_rhashes = {}
+            dir_rhashes[key] = value
+    return fingerprints, aliases, dir_rhashes, None
 
 
 def _resolve_alias_source(path: str, aliases: dict[str, str], *, limit: int = 16) -> str:
@@ -954,7 +976,7 @@ class CodebaseIndexer:
         ):
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, "files 字段形态不合")
         version = parsed.get("schemaVersion")
-        fingerprints, aliases, extras_err = _snapshot_extras(parsed)
+        fingerprints, aliases, prev_dirs, extras_err = _snapshot_extras(parsed)
         if extras_err is not None:
             # 附加表形态坏 ⇒ 判坏档而不是"当没有":别名一丢,那条"行仍在源路径下"的记录
             # 就没了 ⇒ 下一轮会把源路径当"已删除"去清切片,改名后的文件从索引里静默消失。
@@ -967,6 +989,7 @@ class CodebaseIndexer:
                 "旧版档无 schemaVersion/fileCount ⇒ 坏档无法自证,本轮起按 v2 重写",
                 fingerprints,
                 aliases,
+                prev_dirs,
             )
         if version != SNAPSHOT_SCHEMA_VERSION:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"schemaVersion={version!r} 不在认得的档位里")
@@ -986,7 +1009,12 @@ class CodebaseIndexer:
                 "merkleRoot 与 files 重算值不符 ⇒ 档被改写过或尾部缺失",
             )
         return SnapshotRead(
-            cast(dict[str, str], files), SNAPSHOT_STATE_OK, None, fingerprints, aliases
+            cast(dict[str, str], files),
+            SNAPSHOT_STATE_OK,
+            None,
+            fingerprints,
+            aliases,
+            prev_dirs,
         )
 
     def _save_snapshot(
@@ -997,31 +1025,32 @@ class CodebaseIndexer:
         *,
         fingerprints: dict[str, str] | None = None,
         aliases: dict[str, str] | None = None,
+        dir_rhashes: dict[str, str] | None = None,
     ) -> None:
         """持久化本轮快照(原子写:先写逐轮唯一的临时件,再 replace 落位)。
 
         `fingerprints` / `aliases` 是**附加输入**(P85):前者供下一轮判近同改名,
-        后者记录"精确改名后行仍留在源路径下"这件事。两者都不参与 `files` 的自证,
-        所以旧版读侧只是不认这两枚键,不会把档判坏。
+        后者记录"精确改名后行仍留在源路径下"这件事。`dir_rhashes` 是目录级递归前像
+        (T12 缺口表 #1,2026-11-01),供下一轮做整枝比对与整枝搬家识别。
+        三者都不参与 `files` 的自证,所以旧版读侧只是不认这几枚键,不会把档判坏。
         """
         tmp: Path | None = None
         try:
             _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
             path = self._snapshot_path(repo_id, root)
             tmp = path.with_name(f"{path.name}.{os.getpid()}-{uuid.uuid4().hex[:8]}.tmp")
+            payload: dict[str, Any] = {
+                "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
+                "merkleRoot": _merkle_root(file_hashes),
+                "fileCount": len(file_hashes),
+                "files": file_hashes,
+                "simhashes": dict(fingerprints or {}),
+                "aliases": dict(aliases or {}),
+            }
+            if dir_rhashes is not None:
+                payload["dirRhashes"] = dict(dir_rhashes)
             tmp.write_text(
-                json.dumps(
-                    {
-                        "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
-                        "merkleRoot": _merkle_root(file_hashes),
-                        "fileCount": len(file_hashes),
-                        "files": file_hashes,
-                        "simhashes": dict(fingerprints or {}),
-                        "aliases": dict(aliases or {}),
-                    },
-                    ensure_ascii=False,
-                    indent=0,
-                ),
+                json.dumps(payload, ensure_ascii=False, indent=0),
                 encoding="utf-8",
             )
             tmp.replace(path)
@@ -1286,6 +1315,14 @@ class CodebaseIndexer:
                 new_fingerprints[rel_path] = fingerprint
             changed.append((file_path, rel_path, language))
 
+        # --- 目录级递归前像(T12 缺口表 #1 后半程):本轮算一次,差分与落盘共用 ---
+        # 缺口表 #1 的补法建议里有"rhash 相同的目录整枝跳过"这一档,但本仓的逐文件
+        # 判据(上行)已经以同样的读盘成本做到"未变文件零重嵌入",目录级前置剪在这里
+        # 省不出第二遍 IO —— 所以本维的真实增量价值在**整枝搬家识别**(读数回执),
+        # 不冒充"还省了一轮扫描"。差分只读不改:不参与上面任何"删/留/别名"决策,
+        # 与 P85 改名判定各说各的,两维不许互相冒充。
+        cur_dir_rhashes = dir_rhash_map(new_hashes)
+
         # --- 改名别名:精确改名之后,那批切片**行仍留在源路径下**(P85) ---
         # 只保留"新路径还在、源路径没复活"的别名。源路径复活 ⇒ 两枚文件会共用同一批行,
         # 必须当场拆开:别名作废,新路径强制重新入索引(见下面 revived_targets)。
@@ -1324,6 +1361,15 @@ class CodebaseIndexer:
         )
         result.snapshot_state = snapshot.state
         result.snapshot_detail = snapshot.detail
+        # 目录前像差分:只在上一轮档**自证通过**(ok)或可用(legacy)时做;坏/截断档的
+        # files 已被清空,拿它差分等于拿垃圾读数,这一轮宁可报"没做"。
+        if incremental and snapshot.state in (SNAPSHOT_STATE_OK, SNAPSHOT_STATE_LEGACY):
+            dir_diff = diff_dir_rhash(snapshot.dir_rhashes, cur_dir_rhashes)
+            result.dir_rhash_note = dir_diff.as_note()
+            result.dirs_moved = [
+                {"newPath": new_path, "oldPath": old_path}
+                for new_path, old_path in sorted(dir_diff.moved.items())
+            ]
         if incremental and snapshot.state in (SNAPSHOT_STATE_CORRUPT, SNAPSHOT_STATE_TRUNCATED):
             # 坏档派生的"已删除集"不可信:宁可这一轮不清幽灵切片,也不拿一份自证失败的档
             # 去删活文件的切片。上一轮这条是安静退化成 prev={} 的,于是"没清理"被读成"清理完了"。
@@ -1454,6 +1500,7 @@ class CodebaseIndexer:
                 new_hashes,
                 fingerprints=new_fingerprints,
                 aliases=live_aliases,
+                dir_rhashes=cur_dir_rhashes,
             )
             return result
 
@@ -1469,13 +1516,14 @@ class CodebaseIndexer:
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
 
-        # 持久化快照(下轮增量对比基准;附指纹与改名别名)
+        # 持久化快照(下轮增量对比基准;附指纹、改名别名与目录前像)
         self._save_snapshot(
             repo_id,
             root,
             new_hashes,
             fingerprints=new_fingerprints,
             aliases=live_aliases,
+            dir_rhashes=cur_dir_rhashes,
         )
         return result
 

@@ -1332,6 +1332,9 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "files_renamed": result.files_renamed,
             "rename_candidates": result.rename_candidates,
             "rename_note": result.rename_note,
+            # T12 缺口表 #1:目录级递归前像差分(整枝搬家只报最浅一枝;歧义族不报)
+            "dir_rhash_note": result.dir_rhash_note,
+            "dirs_moved": result.dirs_moved,
             "errors": result.errors[:10],
             "message": (
                 f"索引完成: 扫描 {result.files_scanned} 文件, "
