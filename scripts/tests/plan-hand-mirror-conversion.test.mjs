@@ -229,6 +229,23 @@ test('M17 跨端通用能力按类别销账:壳侧确有该类实现才销,平�
   assert.equal(t4.size, 4)
 })
 
+test('M17b 精确核对判负的族不得被整族销账(导航目标/取数端点不重合即真差异)', () => {
+  // 2026-11-01 立:此前"壳里有 navigation.navigate( ⇒ 整族导航销账"会放过
+  // 「页面跳三个壳里根本没有的入口」这一型(pkg-learn/live/list 的开播/日历/我的订阅),
+  // 「壳里有 fetchApi( ⇒ 整族取数销账」会放过「页面取 /live/channels、壳取 /live/list」。
+  const shell =
+    "import { fetchApi } from '@ihui/api-client'\nnavigation.navigate('X')\nappAlert('保存失败')"
+  const t1 = new Set(['Taro.navigateTo', '@/api', 'Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t1, shell, '', ['导航']), ['取数', '用户提示'])
+  assert.ok(t1.has('Taro.navigateTo'), '导航族已判负 ⇒ 不许被整族销账')
+  const t2 = new Set(['Taro.navigateTo', '@/api', 'Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t2, shell, '', ['取数']), ['导航', '用户提示'])
+  assert.ok(t2.has('@/api'), '取数族已判负 ⇒ 不许被整族销账')
+  // 反面:不传 gaps(精确谓词判不了)⇒ 维持旧口径,两族照旧销
+  const t3 = new Set(['Taro.navigateTo', '@/api', 'Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t3, shell), ['取数', '导航', '用户提示'])
+})
+
 test('M18 提示能力认"error 交给共享屏渲染"这一形:共享屏不渲染就不销(本票重构引入过的回归)', () => {
   const mk = () => new Set(['Taro.showToast'])
   // 2026-10-29 把 wrapper 重构成 usePaginatedList 后,壳里不再有 setError 字面量,
