@@ -891,6 +891,36 @@ export function judgeConversion({
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
   if (apiEndpointsCovered(pageText, shellText, apiModuleText))
     for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
+  // 页面级分享(2026-11-01 立):小程序的转发/朋友圈卡在**页面级**注册,而卡上标题/封面只有屏
+  // 取到数据才算得出。转壳后端内不再自己写这两句 ⇒ 除非①屏用共享层 `usePublishShareIntent`
+  // 把当下正文交给宿主,且②生成器**真在宿主页里产出**对应注册句,否则就是静默把「分享这条内容」
+  // 降成「分享首页默认文案」。两条都从生成器现读(判据出口单源 = gen-miniapp-mirror,§0.6),
+  // 不写符号白名单 —— 生成器哪天不再产出这一句,销账当场失效,而不是继续放页面过去。
+  const shareTokens = ['useShareAppMessage', 'useShareTimeline', 'Taro.showShareMenu'].filter((t) =>
+    pageTokens.has(t),
+  )
+  if (shareTokens.length > 0 && gen.screenPublishesShare(sharedText, shellText)) {
+    const probe = gen.buildShellPage({
+      spec,
+      base: name.replace(/Screen$/, ''),
+      shellText,
+      shellName,
+      sharedText,
+      navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
+      navTitleHook: titleEffect && !titleOnlyLifecycle(pageText) ? 'useEffect' : 'useDidShow',
+      navTitleDeps: titleEffect && !titleOnlyLifecycle(pageText) ? (titleEffect.deps ?? null) : null,
+      authGate,
+    })
+    const emitted = typeof probe === 'string' ? probe : String(probe?.content ?? '')
+    const SHARE_EMITTED = {
+      useShareAppMessage: /\buseShareAppMessage\s*\(/,
+      useShareTimeline: /\buseShareTimeline\s*\(/,
+      // 端内 showShareMenu() 是 Taro.showShareMenu 的单一出口薄封装(带 no-permission 静默兜底)
+      'Taro.showShareMenu': /\bshowShareMenu\s*\(/,
+    }
+    if (shareTokens.every((t) => SHARE_EMITTED[t].test(emitted)))
+      for (const t of shareTokens) pageTokens.delete(t)
+  }
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
   shellCapabilityCovered(pageTokens, shellText, sharedText)
   const extras = pageOnlyCapabilities({
