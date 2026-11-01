@@ -266,6 +266,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   VipLevel: '/pkg-mirror3/vip-level/index',
   VipTrader: '/pkg-shop/vip-trader/index/index',
   Wallet: '/pkg-shop/wallet/index',
+  WebView: '/pages/webview/index',
   Withdraw: '/pages/distribution/withdraw',
   WorkflowDetail: '/pkg-mirror3/workflow-detail/index',
   WorkflowInstanceDetail: '/pkg-mirror3/workflow-instance-detail/index',

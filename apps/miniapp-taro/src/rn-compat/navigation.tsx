@@ -20,11 +20,23 @@ import { RN_ROUTE_MAP } from './route-map.generated'
 
 type RouteParams = Record<string, unknown>
 
+/**
+ * URL query 只能承载标量:对象/数组经 String(v) 会拼成 '[object Object]' 这类垃圾
+ * (实测 navigate('RankingDetail', {id, item}) 的 item 对象把详情页参数全部打坏)。
+ * 非标量值一律不进 query —— RN 端走原生导航仍能拿到完整对象;壳化端需要对象数据时
+ * 应由目标屏按标量 id(如 params.id)自行取数,而不是指望 URL 透传。
+ */
+function isScalar(v: unknown): boolean {
+  return (
+    typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint'
+  )
+}
+
 function toPath(name: string, params: RouteParams = {}): string | null {
   const path = RN_ROUTE_MAP[name]
   if (!path) return null
   const query = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null)
+    .filter(([, v]) => v !== undefined && v !== null && isScalar(v))
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
     .join('&')
   return query ? `${path}?${query}` : path
