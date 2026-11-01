@@ -2792,6 +2792,7 @@ export function verifyUnion(
   const foldCredited = []
   const foldUndetermined = []
   const supCredits = []
+  const dropLedgerCredited = []
   for (const p of listPaths(ours, cwd)) {
     if (M.has(p)) continue
     /**
@@ -2972,6 +2973,16 @@ export function verifyUnion(
     // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
     const cb = bt !== null ? counter(bt) : null
     const ca = counter(a)
+    // 本侧按摘除台账**正当删除且已逐字留痕**的那些行(判据同源 declaredDropCaps:
+    // 逐字命中台账 ∧ 本侧 0 份 ∧ 登记行形,三条缺一不成集)。台账从**判定面同一个根**取(cwd):
+    // 生产面 cwd 就是仓根 ⇒ 与改前逐字同形;夹具面能自带一份台账,这条放行才可被测。
+    // 台账读不到 ⇒ 空集 = 一条都不放行(照旧硬拒),安全方向永远是"多挡一次"而不是"多放一次"。
+    let dropCaps = new Set()
+    try {
+      dropCaps = declaredDropCaps(a, declaredRows(cwd).set)
+    } catch {
+      dropCaps = new Set()
+    }
     /**
      * 折叠"复原"账(2026-10-20):折叠层把**本侧独有**的改写版折进了基底那一行(「改写者优先」的反面 ——
      * 改写版并入注记后与基底行逐字同形时,keeper 就是基底行)。此时归并产物里出现基底行不是"旧行被复活":
@@ -3013,6 +3024,24 @@ export function verifyUnion(
           // 判据随即判它复活。这一型唯一合法的收法是声明"语义现在住在哪一行"并过四问举证,
           // 之前这里一处出口都没有 ⇒ 每个会话走到这格只能停,或去裸做 git 手术绕过全部断言。
           if (creditSupersede(l, '旧行被复活', (m.get(l) || 0) - (want.get(l) || 0))) continue
+          // 摘除台账已**逐字声明正当删除**的行(2026-11-01 接进本闸)。
+          // 为什么必须在这里认它,而不是逼人工再写一份 --supersede 声明档:
+          //   · 台账 `plan-row-drop.jsonl` 的 `rowBefore` 就是这条删除的既成留痕,`declaredDropCaps`
+          //     还额外要求「本侧 0 份 ∧ 是登记行形」两个条件才成立 —— 拿它放行不比人工声明档更宽;
+          //   · 本闸只挡正牌收敛通道,普通 `git merge` 结构上不走这里(实测 2026-11-01 那枚 8c9d77f9ef
+          //     正是"普通 merge 把旧台账侧带回来 → head-recall 兜底轮再摘掉"的产物),所以这道硬拒
+          //     **没有挡住 hazard,只挡住了安全通道**,每次撞上都要各席手工绕一次(§12f:只判不修
+          //     逼人绕过,这条对工具自己同样成立);
+          //   · 放行不静默:逐行点名进 `dropLedgerCredited`,随报告面打印并写进合并提交信息,
+          //     且这一型由兜底轮继续负责真正摘除(本器不假装已经把行删掉了)。
+          if (dropCaps.has(l)) {
+            dropLedgerCredited.push({
+              doc: p,
+              line: l,
+              copies: (m.get(l) || 0) - (want.get(l) || 0),
+            })
+            continue
+          }
           bad.push(
             `${p} 旧行被复活(本侧已改写/删除):重数 ${m.get(l)} > 期望 ${want.get(l) || 0} —— ${l.slice(0, 50)}`,
           )
@@ -3029,6 +3058,7 @@ export function verifyUnion(
     }
   }
   bad.superseded = supCredits
+  bad.dropLedgerCredited = dropLedgerCredited
   bad.moved = moved
   bad.pointerCaps = pointerCaps
   bad.moveAware = moveAware
@@ -5594,6 +5624,19 @@ async function main() {
   const foldCopies = (p.folded || []).reduce((s, e) => s + e.copies, 0)
   // 声明式取代(G-310)同样必须报名:放过的每一行都要说清"它现在住在合并稿哪一行、为什么",
   // 因为这条判据的失效方向和它守的那条律一样 —— 安静地放行比判红更危险。
+  // 摘除台账放行也必须报名(2026-11-01):放过的每一行逐条点名,并说明"这一型由兜底轮继续真正摘除",
+  // 免得"落地了"被读成"台账已经生效"。判据同源 declaredDropCaps,本器不复算任何一条。
+  const dropCredited = p.dropLedgerCredited || []
+  if (dropCredited.length) {
+    console.log(
+      `  · 摘除台账已声明正当删除、本闸不再硬拒 ${dropCredited.length} 行(逐字命中台账 ∧ 本侧 0 份 ∧ 登记行形;逐条如下)`,
+    )
+    for (const d of dropCredited)
+      console.log(
+        `      [${d.doc}] 旧行被复活销账 ×${d.copies} ← ${JSON.stringify(String(d.line).slice(0, 72))}` +
+          ` | 这一型由 head-recall 兜底轮继续摘除,本器不在此处写台账`,
+      )
+  }
   const supCredits = p.superseded || []
   if (supCredits.length) {
     console.log(
