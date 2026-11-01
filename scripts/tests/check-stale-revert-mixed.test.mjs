@@ -254,4 +254,70 @@ test('M7 形状锁:理由短语与行级差集只引 lib 那一份,门体不得�
   )
   assert.match(code, /function auditInner\(repoRoot, opts = \{\}\)/, 'audit 必须能接 message 面')
 })
+
+test('M8 纯新增文件(HEAD 侧无此路径)⇒ R1s 按定义不判,不冒红也不落未判定', () => {
+  const { dir, run } = repo()
+  try {
+    buildChain(dir, run)
+    put(dir, 'brand-new.txt', [...rows(20, 25), NEW_LINE].join('\n') + '\n')
+    run('add', '--', 'brand-new.txt')
+    const r = G.audit(dir, { staged: true })
+    const out = r.lines.join('\n')
+    assert.equal(r.code, 0, `纯新增必须放行,实际:${out}`)
+    assert.doesNotMatch(out, /❌ \[R1s\]/, '新增文件没有"HEAD 有而暂存无"的行 ⇒ 不得判红')
+    assert.doesNotMatch(out, /\[R1s 未判定\]/, '按定义不判 ≠ 没判成')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M9 纯删除整文件 ⇒ 走既有 warn 口径(rc=0),不得被 R1s 读成"丢行"', () => {
+  const { dir, run } = repo()
+  try {
+    buildChain(dir, run)
+    put(dir, 'obsolete.txt', [...rows(40, 46)].join('\n') + '\n')
+    run('add', '--', 'obsolete.txt')
+    run('commit', '-qm', 'E: 加一枚待删文件', '--', 'obsolete.txt')
+    run('rm', '-q', '--', 'obsolete.txt')
+    const r = G.audit(dir, { staged: true })
+    const out = r.lines.join('\n')
+    assert.equal(r.code, 0, `纯删除整文件是合法操作,实际:${out}`)
+    assert.match(out, /本次暂存删除 1 个 HEAD 中存在的路径/, '既有的删除告警必须仍在')
+    assert.doesNotMatch(out, /\[R1s/, '整文件删除不进入 R1s 的任何一桶(不是"混合底稿")')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M10 反向例:提交信息只写"具名理由"字样、无逐行证据 ⇒ 仍判红(不是文案门)', () => {
+  const { dir, run } = repo()
+  try {
+    const { A } = buildChain(dir, run)
+    stageMixed(dir, run, A)
+    // 票面举例的形态:有票号、有区间、有"票已结清",但没有任何一行能被机械复核。
+    const message = 'chore: PROJECT_PLAN 摘除 L12345-12400 票已结清\n'
+    const r = G.audit(dir, { staged: true, message })
+    const out = r.lines.join('\n')
+    assert.equal(r.code, 1, `没有逐行证据的"说法"不得放行,实际:${out}`)
+    assert.match(out, /❌ \[R1s\] 检出 1 个路径/)
+    assert.match(out, /↳ [0-9a-f]{12}/, '必须给出可复核的指纹形态,而不是叫人去补一句理由')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M11 信息面在场但无 `intentional-delete:` 段 ⇒ 与"信息面取不到"不同,仍按无理由判红', () => {
+  const { dir, run } = repo()
+  try {
+    const { A } = buildChain(dir, run)
+    stageMixed(dir, run, A)
+    const r = G.audit(dir, { staged: true, message: 'feat: 只是普通提交信息\n' })
+    const out = r.lines.join('\n')
+    assert.equal(r.code, 1)
+    assert.match(out, /❌ \[R1s\]/)
+    assert.doesNotMatch(out, /本轮\*\*提交信息面取不到\*\*/, '信息面明明在场,不得报成取不到')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
