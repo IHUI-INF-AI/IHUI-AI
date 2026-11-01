@@ -789,6 +789,8 @@
     "contentRequired": "請輸入反饋內容",
     "contact": "聯絡方式",
     "contactPlaceholder": "選填,方便我們聯絡您",
+    "namePlaceholder": "請輸入姓名",
+    "tip": "您的回饋將用於改進我們的產品與服務,發送後請耐心等待處理",
     "empty": "暫無反饋記錄",
     "failed": "提交失敗,請稍後重試",
     "fieldContact": "聯絡方式",
@@ -1392,6 +1394,8 @@
     "enterprise": "企業版"
   },
   "share": {
+    "appTitle": "智匯 AI - 讓學習更高效",
+    "timelineTitle": "智匯 AI,你的智慧學習助手",
     "title": "分享",
     "remark": "備註",
     "remarkPlaceholder": "請輸入備註(選填)",
@@ -2754,5 +2758,79 @@
     "rateTitle": "分傭比例",
     "openVip": "開通 VIP 會員 參與分傭計畫",
     "rateEmpty": "暫無分傭比例"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "成為VIP會員後可參與分佣計劃",
+      "rule2": "邀請好友成為會員,您將獲得會員費20%的佣金",
+      "rule3": "佣金將在好友支付成功後24小時內自動結算到您的賬戶",
+      "rule4": "賬戶餘額滿100元可申請提現到微信或支付寶"
+    }
+  },
+  "orderRefund": {
+    "d1": "不想要了",
+    "d2": "拍錯/多拍",
+    "d3": "品質問題",
+    "d4": "與描述不符",
+    "d5": "其他原因"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "常見問題"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "暫無權益",
+      "myBenefits": "我的專屬權益",
+      "loadFailed": "載入失敗",
+      "tierCatalog": "等級權益",
+      "tier": {
+        "normal": "普通會員",
+        "silver": "銀卡會員",
+        "gold": "金卡會員",
+        "diamond": "鑽石會員"
+      },
+      "b": {
+        "discount": "購物折扣",
+        "points": "積分加速",
+        "gift": "新人禮包",
+        "sign": "每日簽到",
+        "news": "優惠資訊",
+        "pointsMul": "積分倍數",
+        "birthday": "生日禮包",
+        "shipping": "免運特權",
+        "coupon": "專屬優惠券",
+        "service": "專屬客服",
+        "preview": "優先體驗",
+        "event": "尊享活動",
+        "discountD1": "全場商品 95 折",
+        "pointsD1": "消費 1 元得 1 積分",
+        "giftD": "註冊專享禮包",
+        "signD": "每日簽到領積分",
+        "newsD": "優惠活動通知",
+        "discountD2": "全場商品 9 折",
+        "pointsMulD2": "1.2 倍積分加速",
+        "birthdayD": "生日專享禮包",
+        "shippingD2": "每月 3 次免運",
+        "couponD2": "每月 2 張優惠券",
+        "signD2": "簽到領雙倍積分",
+        "discountD3": "全場商品 85 折",
+        "pointsMulD3": "1.5 倍積分加速",
+        "birthdayD3": "生日雙倍禮包",
+        "shippingD3": "無限次免運",
+        "serviceD": "1 對 1 專屬服務",
+        "couponD3": "每月 5 張優惠券",
+        "previewD": "新功能優先體驗",
+        "discountD4": "全場商品 8 折",
+        "pointsMulD4": "2 倍積分加速",
+        "birthdayD4": "生日豪華禮包",
+        "shippingD4": "無限次免運",
+        "serviceD4": "7×24 專屬管家",
+        "couponD4": "每月 10 張優惠券",
+        "previewD4": "新功能首發體驗",
+        "eventD": "線下高端活動"
+      }
+    }
   }
 }
