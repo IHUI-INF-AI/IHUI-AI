@@ -126,6 +126,64 @@ export function titleOnlyLifecycle(text) {
 }
 
 /**
+ * 「只设一个静态导航标题」的 useEffect 块(2026-11-01 立)。
+ *
+ * 为什么单独开一条、不扩 `lifecycleBlocks`:把 useEffect 混进 titleOnlyLifecycle 的 every() 里,
+ * 会让"另一个 useEffect 在取数"的页整体翻成 false —— 那是**收紧**既有行为,回归面不可控。
+ * 本条只销 `Taro.setNavigationBarTitle` 这一枚 token,useDidShow 那一族照旧走原路(零回归)。
+ *
+ * 为什么 useEffect 形态此前没被认:实测 3 页(news/list / dev-space / teacher/detail)都写在
+ * `useEffect` 里(随语言切换或每次渲染重设),而旧判据只扫 useDid(Show|Hide) ⇒ 同一件事的另一种
+ * 写法被当成"页面私有能力"拒转。
+ *
+ * 失效方向保守(拿不准就是拒,不是放行):
+ *  - 标题表达式必须**纯 i18n**(`t('a.b')` / `tt('a.b','兜底')`)。依赖数据的标题
+ *    (`teacher?.name || tt(…)` 这一型,实测 teacher/detail)一律不认 —— 那种标题要随数据变,
+ *    壳的导航栏通道带不走,销账就是真丢行为。
+ *  - 块体只许这一句(带 `.catch()` 吞错的链式写法也不认,那要逐例看语义)。
+ *  - 页面里若还有别的 setNavigationBarTitle 调用落在块外 ⇒ 整页不认(防漏判动态标题)。
+ *
+ * @returns {{title:string, deps:string|null}|null} deps = 原依赖数组字面(生成器按它保留重设节律)
+ */
+export function staticTitleEffect(text) {
+  const t = maskComments(String(text ?? ''))
+  if (!t.includes('setNavigationBarTitle')) return null
+
+  const blocks = []
+  for (const m of t.matchAll(/useEffect\s*\(\s*\(\s*\)\s*=>\s*\{/g)) {
+    let i = m.index + m[0].length
+    let depth = 1
+    const start = i
+    while (i < t.length && depth > 0) {
+      if (t[i] === '{') depth++
+      else if (t[i] === '}') depth--
+      i++
+    }
+    // 块尾之后紧跟的依赖数组:`}, [tt])` / `})` 两种都取回原文,交给生成器保留节律
+    const depsMatch = /^\s*,\s*(\[[^\]]*\])/.exec(t.slice(i))
+    blocks.push({ body: t.slice(start, i - 1).trim(), span: [m.index, i], deps: depsMatch ? depsMatch[1] : null })
+  }
+
+  const TITLE_ONLY = /^Taro\.setNavigationBarTitle\s*\(\s*\{\s*title:\s*([^}]+?)\s*\}\s*\);?$/
+  // 纯 i18n 标题:t('命名空间.键') 或 tt('键','兜底文案') —— 不接受任何变量、?.、|| 或模板插值
+  const PURE_I18N = /^(?:t|tt)\(\s*'[\w.]+'(?:\s*,\s*'[^']*')?\s*\)$/
+
+  const hits = blocks
+    .map((b) => ({ ...b, m: TITLE_ONLY.exec(b.body) }))
+    .filter((b) => b.m && PURE_I18N.test(b.m[1].trim()))
+
+  if (hits.length === 0) return null
+  const titles = new Set(hits.map((h) => h.m[1].trim()))
+  if (titles.size !== 1) return null // 多个块给不同标题 ⇒ 不认
+
+  // 对账:页面里的 setNavigationBarTitle 调用数必须 == 已认块数,块外还有一处就不认(防漏判动态标题)
+  const callCount = (t.match(/setNavigationBarTitle\s*\(/g) || []).length
+  if (callCount !== hits.length) return null
+
+  return { title: [...titles][0], deps: hits[0].deps }
+}
+
+/**
  * 页面里的硬编码中文量(**只数字符串字面量**,注释不算)。判"转壳会丢正文"请用
  * `hardcodedCjkNotInMessages` —— 总量本身不是缺口(兜底文案在词包里都有)。
  */
@@ -781,8 +839,12 @@ export function judgeConversion({
       why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${missingCjk} 字不在该屏消费的键下(转壳会丢内容)`,
     }
   // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
+  const titleEffect = staticTitleEffect(pageText)
   if (titleOnlyLifecycle(pageText))
     for (const tok of ['useDidShow', 'useDidHide', 'Taro.setNavigationBarTitle']) pageTokens.delete(tok)
+  // useEffect 里只设一个静态 i18n 标题 = 同一件事的另一种写法(2026-11-01)。
+  // 只销标题这一枚 token:钩子里一旦还有别的语句、或标题依赖数据,一律不销(拿不准就是拒)。
+  else if (titleEffect) pageTokens.delete('Taro.setNavigationBarTitle')
   // 跳转全部被壳覆盖 ⇒ 页面那几处 navigateTo 是重复实现(route-map 反查 + 壳正文出现该路由名)
   if (routeMap) {
     const nav = coveredNavigation(pageText, shellText, routeMap)
@@ -850,7 +912,11 @@ export function judgeConversion({
     base: name.replace(/Screen$/, ''),
     shellText,
     shellName,
-    navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : null,
+    navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
+    // 原页用哪条钩子承载标题就按哪条生成:useEffect 带依赖数组是"随语言切换重设"的节律,
+    // 改写成 useDidShow 会把标题冻在进屏那一刻的语言上(实测 news/list 的 `[tt]`、dev-space 的无数组形)。
+    navTitleHook: titleEffect && !titleOnlyLifecycle(pageText) ? 'useEffect' : 'useDidShow',
+    navTitleDeps: titleEffect && !titleOnlyLifecycle(pageText) ? (titleEffect.deps ?? null) : null,
     authGate,
   })
   if (body?.error) return { spec, kind: 'undetermined', why: `壳承载出口形态不合:${body.error}` }
@@ -1062,6 +1128,40 @@ function main(argv) {
       'S7b 钩子里还有别的语句 ⇒ 仍算(必须人工)',
       titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); refresh() })`),
       false,
+    )
+    // S7c–S7f:useEffect 那一族此前没人认(实测 news/list / dev-space / teacher/detail 三页被误拒)
+    P(
+      'S7c useEffect 只设一个带兜底的静态 i18n 标题 ⇒ 认,并带回原依赖数组(实测 news/list 的 [tt])',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: tt('articleList.title', '文章') }) }, [tt])`,
+      ),
+      { title: `tt('articleList.title', '文章')`, deps: '[tt]' },
+    )
+    P(
+      'S7d 无依赖数组的 useEffect 也认(deps=null ⇒ 生成器不写数组)',
+      staticTitleEffect(`useEffect(() => { Taro.setNavigationBarTitle({ title: t('devSpace.title') }) })`),
+      { title: `t('devSpace.title')`, deps: null },
+    )
+    P(
+      'S7e 标题依赖数据(讲师名回落)⇒ 不认:那种标题要随数据变,壳的导航栏通道带不走(实测 teacher/detail)',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: teacher?.name || tt('teacher.list.title', '讲师') }) }, [teacher?.name, tt])`,
+      ),
+      null,
+    )
+    P(
+      'S7f 块里还有别的语句 ⇒ 不认(与 S7b 同一条保守方向)',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); load() }, [t])`,
+      ),
+      null,
+    )
+    P(
+      'S7g 块外还有一处 setNavigationBarTitle(动态标题)⇒ 整页不认,防漏判',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: t('a.b') }) }, [t])\nconst rename = (n) => Taro.setNavigationBarTitle({ title: n })`,
+      ),
+      null,
     )
     const rm = routeMapFrom(`export const RN_ROUTE_MAP = { Detail: '/pkg-a/detail/index' }`)
     P(
@@ -1396,6 +1496,7 @@ export const __test__ = {
   lifecycleBlocks,
   navTitleExpr,
   titleOnlyLifecycle,
+  staticTitleEffect,
   hardcodedCjkCount,
   hardcodedCjkNotInMessages,
   screenConsumedKeys,
