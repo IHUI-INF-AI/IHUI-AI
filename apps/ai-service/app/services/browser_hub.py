@@ -43,6 +43,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
+from urllib.parse import urlparse
 
 from playwright.sync_api import (
     Browser,
@@ -57,6 +58,59 @@ from ..core.logging import get_logger
 logger = get_logger(__name__)
 
 _T = TypeVar("_T")
+
+
+# ---------------------------------------------------------------------------
+# 导航 URL 的 SSRF 闸(2026-11-01 安全强化,高危)
+# ---------------------------------------------------------------------------
+# 缺陷:`NavigateRequest.url` 是裸 str,`create_session(url=...)` 同样不校验 ⇒ 任意登录
+# 用户可让服务端 Chromium 打开 `http://169.254.169.254/latest/meta-data/`、内网
+# Redis/管理面,再用 `/screenshot` 或 title/url 把内容读回,也能靠报错做端口探测。
+#
+# 判据复用:协议/端口/IP/DNS 一律走 `screenshot_service._validate_url_ssrf`(与
+# `fetch_url` 同一把尺子,本模块不复制第二份"什么算内网")。
+# 额外两条本面独有的收紧:
+#   ① 本服务自身端口段 8800-8810 一律拒(8801 在既有 `_ALLOWED_PORTS` 里,而它正是
+#      本机 web/后端进程段 —— 浏览器不需要回访自己的控制面);
+#   ② 目标解析/IP 判定沿用同一函数(它已覆盖 169.254.0.0/16 云元数据、127.0.0.0/8、
+#      ::1 与 RFC1918),这里不另列一份网段表,避免两处漂移。
+#
+# 重定向:Playwright 的 `page.goto` 会自己跟 302/303/307,入口校验只看首跳 ⇒ 逐跳复检
+# 必须放在**请求层**。选 route 拦截(而不是 goto 前用 httpx 预探):预探看到的重定向链
+# 与 Chromium 实际走的链可能不同(UA/Cookie/JS 跳转),且预探本身是第二条网络路径与
+# 第二份判据;route 层复用的是既有 `_route_ssrf_guard`,每次真实请求(含重定向与子资源)
+# 都过同一把尺子。
+_BROWSER_SELF_PORT_RANGE = (8800, 8810)
+
+
+def _validate_browser_navigate_url(url: str) -> tuple[bool, str]:
+    """浏览器导航前的 SSRF 准入。返回 ``(ok, reason)``;ok=False 时调用方不得 goto。"""
+    from .screenshot_service import _validate_url_ssrf
+
+    if not isinstance(url, str) or not url.strip():
+        return False, "导航 URL 为空"
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        return False, reason
+    try:
+        parsed = urlparse(url)
+        port = parsed.port
+    except ValueError as e:
+        return False, f"URL 端口非法: {e}"
+    low, high = _BROWSER_SELF_PORT_RANGE
+    if port is not None and low <= port <= high:
+        return False, f"端口 {port} 属于本服务自身端口段({low}-{high}),禁止浏览器访问"
+    return True, ""
+
+
+def _ssrf_route_filter(route: Any) -> None:
+    """Playwright route 处理器:逐请求过 SSRF 尺,合法则放行(continue_)。"""
+    from .screenshot_service import _route_ssrf_guard
+
+    if _route_ssrf_guard(route):
+        return
+    route.continue_()
+
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +557,21 @@ class BrowserSession:
         timeout: int = 30000,
     ) -> dict[str, Any]:
         """导航到指定 URL。"""
+        # 2026-11-01 安全强化:goto 之前先过 SSRF 闸(与 fetch_url 同一判据)。
+        # 被拒时**不触碰 page**(不产生任何网络请求),按既有错误形状返回。
+        allowed, reason = _validate_browser_navigate_url(url)
+        if not allowed:
+            logger.warning(
+                f"[browser_hub] session {self.session_id} 导航被 SSRF 闸拒绝: {url} - {reason}"
+            )
+            return {
+                "url": url,
+                "title": "",
+                "status": None,
+                "error": reason[:200],
+                "errorCode": "SSRF_BLOCKED",
+            }
+
         def _sync() -> dict[str, Any]:
             try:
                 response = self._page.goto(url, wait_until=wait_until, timeout=timeout)
@@ -1007,6 +1076,13 @@ class BrowserHub:
             await self.start()
         assert self._browser is not None
 
+        # 2026-11-01 安全强化:初始 URL 与 navigate 同闸(创建会话即导航,等价入口)。
+        # 放在幂等去重**之前**:被拒的请求不得命中已有会话,也不得写进去重表。
+        if url:
+            allowed, reason = _validate_browser_navigate_url(url)
+            if not allowed:
+                raise ValueError(f"URL 不允许访问: {reason}")
+
         # ---- 幂等去重:同一 URL 短时间内的重复请求返回已有会话 ----
         if url:
             import time as _time
@@ -1087,6 +1163,10 @@ class BrowserHub:
             # headless Playwright 默认 webdriver=true 会被风控拦截)
             context.add_init_script(_ANTI_DETECT_SCRIPT)
             page = context.new_page()
+            # 2026-11-01 安全强化:逐跳/逐子资源 SSRF(page.goto 内部会跟 302,
+            # 入口校验只看首跳)。route 层装不上就**不建会话**(fail-closed)——
+            # 少了这层等于把重定向绕过重新放回生产。
+            page.route("**/*", _ssrf_route_filter)
             return context, page
 
         session: BrowserSession | None = None
