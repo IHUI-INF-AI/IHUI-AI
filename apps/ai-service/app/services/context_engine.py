@@ -34,10 +34,11 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, TypedDict, cast
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ..core.context_compaction import SUMMARY_MARKER
+from ..core.jwt_auth import require_request_user_id
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -1913,12 +1914,18 @@ router = APIRouter()
 
 
 @router.post("/enrich")
-async def enrich_endpoint(req: EnrichRequest) -> dict[str, Any]:
+async def enrich_endpoint(
+    req: EnrichRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any]:
     """POST /api/context/enrich — @ 提及结果 + RAG 检索两层集成。
 
-    输入:@ 提及结果 mentions + conversationId + query + messages(可选)+ totalBudget + userId
-        + editorState(可选,2026-10-31 立,受 ENGINE_EDITOR_STATE_ENABLED 门控)
+    输入(主体取自注入身份):@ 提及结果 mentions + conversationId + query + messages(可选)
+        + totalBudget + editorState(可选,2026-10-31 立,受 ENGINE_EDITOR_STATE_ENABLED 门控)
     输出:{ code, message, data: { enrichedContext, tokenCount, sources, conversationId, taskType } }
+
+    主体(2026-11-01 安全强化):**只认注入的 user_id**,不认请求体里的 userId。
+    EnrichRequest.userId 字段保留是为了不破坏既有调用方的序列化,但它从此只是一个
+    被忽略的字段 —— 自报身份不得当身份用(与 core/inbound_identity.py 同一条纪律)。
 
     流程:
     1. mentions 转为统一上下文条目(type=mention, relevance=1.0)
@@ -1934,7 +1941,7 @@ async def enrich_endpoint(req: EnrichRequest) -> dict[str, Any]:
             query=req.query,
             messages=req.messages or [],
             total_budget=req.totalBudget,
-            user_id=req.userId,
+            user_id=user_id,
             # 边界处收敛一次:请求体是 dict,内部一律走 EditorState(取不到即 None)
             editor_state=normalize_editor_state(req.editorState),
         )
@@ -1964,11 +1971,11 @@ async def _load_user_source_prefs(user_id: str) -> dict[str, Any]:
 
 
 @router.get("/sources")
-async def sources_endpoint(user_id: str = "") -> dict[str, Any]:
+async def sources_endpoint(user_id: str = Depends(require_request_user_id)) -> dict[str, Any]:
     """GET /api/context/sources — 返回可用上下文源类型 + 预算分配规则。
 
     输出:{ code, message, data: { sources: [...], defaultBudget: 8000 } }
-    - 每项含 budgetPercent(0-100)与 enabled;传入 user_id 时合并用户持久化偏好
+    - 每项含 budgetPercent(0-100)与 enabled;主体取自注入身份,合并该用户的持久化偏好
     """
     prefs = await _load_user_source_prefs(user_id)
     source_defs: list[dict[str, Any]] = [
@@ -2036,9 +2043,13 @@ class UpdateSourcesRequest(BaseModel):
 
 @router.put("/sources")
 async def update_sources_endpoint(
-    req: UpdateSourcesRequest, user_id: str = ""
+    req: UpdateSourcesRequest, user_id: str = Depends(require_request_user_id)
 ) -> dict[str, Any]:
-    """PUT /api/context/sources — 持久化用户上下文源偏好(Redis context:sources:{userId})。"""
+    """PUT /api/context/sources — 持久化用户上下文源偏好(Redis context:sources:{userId})。
+
+    主体取自注入身份(2026-11-01):此前是 `user_id: str = ""` 从 query 取,而 api 侧传的是
+    camelCase 的 `?userId=`,名字对不上 ⇒ 这个端点的偏好持久化其实一直没落到具体用户名下。
+    """
     if not user_id:
         return {"code": 400, "message": "缺少 userId", "data": None}
     valid_updates: dict[str, dict[str, Any]] = {}
@@ -2100,6 +2111,7 @@ class TrackVisualizationRequest(BaseModel):
 @router.post("/visualization/track")
 async def track_visualization_endpoint(
     req: TrackVisualizationRequest,
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """POST /api/context/visualization/track — 记录当前会话 token 分布(前端定期调用)。
 
@@ -2126,18 +2138,18 @@ async def track_visualization_endpoint(
 @router.get("/visualization")
 async def visualization_endpoint(
     conversationId: str = "",
-    userId: str = "",
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """GET /api/context/visualization — 返回可视化数据(饼图 + 历史趋势 + 压缩事件)。
 
     Query:
         conversationId: 会话 ID(用于读取 token 分布历史)
-        userId: 用户 ID(用于读取压缩事件,可空)
 
+    主体(2026-11-01):取注入身份,不再读 query 里的 userId(自报值不得当身份用)。
     输出:{ code, message, data: { pie: [...], trend: [...], compressions: [...] } }
     """
     try:
-        data = await context_engine.get_visualization(conversationId, userId)
+        data = await context_engine.get_visualization(conversationId, user_id)
         return {"code": 0, "message": "ok", "data": data}
     except Exception as e:
         logger.exception("visualization_endpoint failed: %s", e)
@@ -2145,16 +2157,15 @@ async def visualization_endpoint(
 
 
 @router.get("/compression-stats")
-async def compression_stats_endpoint(userId: str = "") -> dict[str, Any]:
+async def compression_stats_endpoint(user_id: str = Depends(require_request_user_id)) -> dict[str, Any]:
     """GET /api/context/compression-stats — 返回压缩统计(2026-07-22 深化立)。
 
-    Query:
-        userId: 用户 ID(为空时使用全局统计)
+    主体(2026-11-01):取注入身份;此前 `userId: str = ""` 是 query 自报值。
 
     输出:{ code, message, data: { totalEvents, avgCompressionRatio, avgQualityScore, recentEvents } }
     """
     try:
-        data = await context_engine._get_compression_stats(userId)
+        data = await context_engine._get_compression_stats(user_id)
         return {"code": 0, "message": "ok", "data": data}
     except Exception as e:
         logger.exception("compression_stats_endpoint failed: %s", e)
@@ -2164,18 +2175,22 @@ async def compression_stats_endpoint(userId: str = "") -> dict[str, Any]:
 @router.get("/memory")
 async def memory_endpoint(
     conversationId: str = "",
-    userId: str = "",
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """GET /api/context/memory — 返回会话记忆(summary + 用户偏好,2026-07-22 深化立)。
 
     Query:
         conversationId: 会话 ID(读取 summary)
-        userId: 用户 ID(读取偏好,可空)
+
+    主体(2026-11-01):取注入身份。此前 userId 是 query 自报值,而这个端点的 summary 只按
+    conversationId 派生键 —— 也就是说,任何知道会话 ID 的调用方都能读到别人的摘要。
+    「这个人能不能看这个会话」的判据在 api 侧(getConversationAccess),本服务只负责
+    「以谁的身份读」,不复制第二份归属规则。
 
     输出:{ code, message, data: { conversationId, summary, preferences: [...] } }
     """
     try:
-        data = await context_engine._get_session_memory(conversationId, userId)
+        data = await context_engine._get_session_memory(conversationId, user_id)
         return {"code": 0, "message": "ok", "data": data}
     except Exception as e:
         logger.exception("memory_endpoint failed: %s", e)
@@ -2183,11 +2198,17 @@ async def memory_endpoint(
 
 
 @router.delete("/memory")
-async def clear_memory_endpoint(conversationId: str = "") -> dict[str, Any]:
+async def clear_memory_endpoint(
+    conversationId: str = "",
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """DELETE /api/context/memory — 清除会话记忆(2026-07-22 深化立)。
 
     Query:
         conversationId: 会话 ID(指定要清除 summary 的会话)
+
+    主体(2026-11-01):取注入身份。清除是**破坏性**动作,可达性判据在 api 侧
+    (context-mentions.ts 的 getConversationAccess),这里只保证"这次调用有主体"。
 
     输出:{ code, message, data: { cleared: bool } }
     """

@@ -12,7 +12,6 @@
  */
 import type { FastifyRequest, FastifyReply } from 'fastify'
 
-import { signAccessToken } from '@ihui/auth'
 import { error } from '../utils/response.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与各 v1 路由本地定义一致)。 */
@@ -34,10 +33,13 @@ export function getUserId(request: FastifyRequest, reply: FastifyReply): string 
   return apiKey.userId
 }
 
-/** 用 apiKey.userId 签发短期内部 JWT,模拟内部调用满足 /api/* 的 JWT 鉴权。 */
-export function mintInternalJwt(userId: string): Promise<string> {
-  return signAccessToken({ userId, phone: '', familyId: `apikey-${userId}`, roleId: 0 })
-}
+/** 用 apiKey.userId 签发短期内部 JWT,模拟内部调用满足 /api/* 的 JWT 鉴权。
+ *
+ * 2026-11-01:实现下沉到 utils/internal-jwt.ts —— services 层(context engine)也要用它,
+ * 而 services→routes 是反向依赖。这里保留 re-export,既有调用点一个都不用改,
+ * 签发规则仍然只有一份。
+ */
+export { mintInternalJwt } from '../utils/internal-jwt.js'
 
 /** 构造 JSON 请求 init。 */
 export function jsonInit(body: unknown, method: 'POST' | 'PUT' | 'DELETE' = 'POST'): RequestInit {
