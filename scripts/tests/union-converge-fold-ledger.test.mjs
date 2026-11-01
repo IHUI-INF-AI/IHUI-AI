@@ -33,7 +33,14 @@ import { __test__ as U } from '../union-converge.mjs'
 
 const GIT = resolveGitBin() || 'git'
 const HERE = dirname(fileURLToPath(import.meta.url))
-const srcMasked = () => maskComments(readFileSync(join(HERE, '..', 'union-converge.mjs'), 'utf8'))
+// 2026-11-01 纯搬运拆分:foldDedupe 等折叠判据族已逐字搬入 lib/union-converge-judgments.mjs
+// ⇒ 源码级锁的被审面改为两文件拼接(锁判的内容一条不减,计数与搬出前同值)。
+const srcMasked = () =>
+  maskComments(
+    readFileSync(join(HERE, '..', 'union-converge.mjs'), 'utf8') +
+      '\n' +
+      readFileSync(join(HERE, '..', 'lib', 'union-converge-judgments.mjs'), 'utf8'),
+  )
 
 /**
  * 夹具行:两行**同一件事**(同一枚标题指纹)、票号不同,其中一行带独有注记。
