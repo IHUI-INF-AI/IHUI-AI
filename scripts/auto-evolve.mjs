@@ -1222,7 +1222,12 @@ async function probeSession({ gates, dryRun = false } = {}) {
     }
     mkdirSync(TMP_DIR, { recursive: true })
     const promptFile = join(TMP_DIR, `probe-${Date.now()}.md`)
-    const promptText = ['只读自检任务(禁止创建或修改任何文件):', '', '运行 `node scripts/auto-evolve.mjs --self-test`,', '然后原样报告其输出的最后一行(形如 "self-test: 全绿" 或 "self-test: N 例红")。'].join('\n')
+    const promptText = [
+      '只读自检任务(禁止创建或修改任何文件;禁止运行任何命令——本会话无审批人,run_command 等需确认的操作会被拒绝,被拒也不要重试):',
+      '',
+      '用 read_file 读取 scripts/lib/session-transcript.mjs 的第 1~30 行,',
+      '然后原样报告其中以 `export const TRANSCRIPT_DIR` 开头的那一行(逐字,不要改写)。',
+    ].join('\n')
     writeFileSync(promptFile, promptText, 'utf8')
     const resolvedProbe = resolveSessionCommand(gates.sessionCommandTemplate, ROOT)
     if (resolvedProbe === null) {
@@ -1249,7 +1254,12 @@ async function probeSession({ gates, dryRun = false } = {}) {
       /* 用完即删 */
     }
     const durationMs = Date.now() - t0
-    const passed = r.status === 0 && String(r.stdout ?? '').includes('"stopReason":"end_turn"') && String(r.stdout ?? '').includes('self-test: 全绿')
+    // 2026-11-01 改判:旧 probe 派「跑 --self-test」,但 run_command 对任意 node 脚本判
+    // autoApprovable:false,headless(无审批人)被正确拒签 ⇒ 模型空手重试 3 次 ⇒ DOOM_LOOP 击杀
+    // (transcript 20261101T151837251-probe-probe-probe-fail 实证)。probe 的职责是验「起会话通路」,
+    // 不是验「能跑危险命令」——后者是自动会话的结构性边界(A7 维已登记)。改为确定性只读校验:
+    // read_file 在 headless 下自动放行,回显行是机器可判的固定标记,弱模型也无发挥空间。
+    const passed = r.status === 0 && String(r.stdout ?? '').includes('"stopReason":"end_turn"') && String(r.stdout ?? '').includes('export const TRANSCRIPT_DIR')
     // 第 4 格·会话全文落盘:probe 同样要留证据(它跑通说明通路健康,跑挂说明哪一步断)。
     const transcript = persistTranscript({
       mode: 'probe',
