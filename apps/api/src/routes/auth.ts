@@ -7,7 +7,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
-import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+import { hashPassword, verifyLoginPassword, verifyPassword } from '../utils/password-crypto.js'
 import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import { config } from '../config/index.js'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
@@ -837,15 +837,13 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const user = await findUserByAccount(account)
-      if (!user || !user.passwordHash) {
-        await recordLoginFailure(account, ip)
-        recordAuthLoginFailed(ip)
-        return reply.status(401).send(error(401, '用户不存在或密码错误'))
-      }
-
-      // 2026-07-24 国安级升级:argon2id 替代 bcrypt(抗 GPU/ASIC),兼容老 bcrypt 透明升级
-      const ok = await verifyPassword(password, user.passwordHash)
-      if (!ok) {
+      // 等代价校验 + 单一失败出口(为什么必须合:见 verifyLoginPassword 的说明)。
+      // 原先"账号不存在"是一条独立的短返回:不跑 argon2、文案不带剩余次数、也永不升 429,
+      // 于是"这个人存不存在"同时从耗时与响应形状两个面漏出去。
+      const ok = await verifyLoginPassword(user, password)
+      // 条件里的 `!user.passwordHash` 只做**类型收窄**(下面透明升级要非空哈希):
+      // 等代价校验已在上一行无条件跑过,这一格不再产生第二条可分辨的出口。
+      if (!user || !user.passwordHash || !ok) {
         const remaining = await recordLoginFailure(account, ip)
         if (remaining === 0) {
           recordAuthLoginFailed(ip)
@@ -1027,15 +1025,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const user = await findUserByPhone(phone)
-      if (!user || !user.passwordHash) {
-        await recordLoginFailure(phone, ip)
-        recordAuthLoginFailed(ip)
-        return reply.status(401).send(error(401, '用户不存在或密码错误'))
-      }
-
-      // 2026-07-24 国安级升级:argon2id 替代 bcrypt(抗 GPU/ASIC),兼容老 bcrypt
-      const ok = await verifyPassword(password, user.passwordHash)
-      if (!ok) {
+      // 同 /login:等代价校验 + 单一失败出口(见 verifyLoginPassword)。
+      const ok = await verifyLoginPassword(user, password)
+      // 条件里的 `!user.passwordHash` 只做**类型收窄**(下面透明升级要非空哈希):
+      // 等代价校验已在上一行无条件跑过,这一格不再产生第二条可分辨的出口。
+      if (!user || !user.passwordHash || !ok) {
         const remaining = await recordLoginFailure(phone, ip)
         if (remaining === 0) {
           recordAuthLoginFailed(ip)
