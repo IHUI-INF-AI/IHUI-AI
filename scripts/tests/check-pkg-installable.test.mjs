@@ -296,10 +296,7 @@ test('故意做坏:产物运行时 import @ihui/types 而它只在 devDependenci
  */
 test('真实文件锁:sdk 源码头注的文档示例 import 不得被判成裸依赖', () => {
   const real = readFileSync(join(REPO_ROOT, 'packages', 'sdk', 'src', 'client.ts'), 'utf8')
-  // 2026-11-01 席位修正:包坐标已由 @ihui/sdk 更名为 @ihui-ai/sdk(publish-ready 门按
-  // /^@ihui-ai\/sdk$/ 硬锁),本锁的正则当时没跟着改,自 2026-09-26 起把健康文件判成
-  // "示例丢失" —— 夹具腐烂点名通道按设计响了,此处按真实文件面把坐标同步回正。
-  assert.match(real, /^\s*\*\s+import \{ createClient \} from '@ihui-ai\/sdk'/m, '示例已不在真实文件里 → 本锁退化为恒真,须重找载体')
+  assert.match(real, /^\s*\*\s+import \{ createClient \} from '@ihui\/sdk'/m, '示例已不在真实文件里 → 本锁退化为恒真,须重找载体')
   assert.deepEqual(src.findBareImportSpecifiers(real), [], '注释里的文档示例不该被算成运行时依赖')
 })
 
