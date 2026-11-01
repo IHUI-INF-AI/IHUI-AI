@@ -39,6 +39,14 @@ export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type DispatchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused'
 
 /**
+ * 人工注意力(F3 2026-11-02):派单在无人值守执行之外,需要一个人给出回答或复核。
+ * `awaiting_answer` = 等回答(缺信息,继续执行会瞎猜);`awaiting_review` = 等复核(结果需人工确认)。
+ * 它是**正交于 status 的标记**(不改变执行状态机):进入 = 记录上出现该字段,退出 = 字段删除。
+ * 缺省(无该字段)= 不需要人,不要用空字符串/常量冒充「已判过」。
+ */
+export type DispatchAttention = 'awaiting_answer' | 'awaiting_review'
+
+/**
  * 派单扩展状态(对齐 apps/api/src/services/subagent-dispatch-service.ts 的 ExtendedDispatchStatus,
  * 在 DispatchStatus 基础上增加 preempted(被抢占)/ quota_exceeded(超限)/ interrupted(重启中断)/
  * queued(排队等待槽位))。
@@ -174,6 +182,15 @@ export interface SubagentDispatch {
    * 列表口径按既有行为公开,不新造隔离假象也不隐藏历史(细则见 routes/subagent-dispatch.ts)。
    */
   ownerUserId?: string
+  /**
+   * 所属 thread 的上一条派单 id(F3 2026-11-02)。
+   * 同一 conversationId 的后续派单默认挂到该会话最近一条派单上(会话连续的最小表达);
+   * 会话第一条派单**没有该字段**(它是 thread 的起点,不塞自身 id 冒充父节点)。
+   * 只由服务端在建单时解析并落库,请求体里没有该字段(客户端不能自报 lineage)。
+   */
+  parentDispatchId?: string
+  /** 人工注意力(F3 2026-11-02);缺省 = 不需要人(语义见 DispatchAttention) */
+  attention?: DispatchAttention
 }
 
 /** 派单结果 */
