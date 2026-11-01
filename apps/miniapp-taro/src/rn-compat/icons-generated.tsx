@@ -14,10 +14,14 @@
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
 import { makeIcon } from './icons-runtime'
-import type { CompatIconProps } from './icons-runtime'
 
-/** lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里 */
-export type LucideIcon = (props: CompatIconProps) => ReturnType<typeof makeIcon>
+/**
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
+ */
+export type LucideIcon = ReturnType<typeof makeIcon>
 
 const S = {
   Activity:
