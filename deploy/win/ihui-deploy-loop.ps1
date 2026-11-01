@@ -622,13 +622,24 @@ function Invoke-PollOnce {
         # 旧实现就在此处(拿锁后、前置闸前)删除 marker。2026-10-28 实测吞请求:
         #   23:37:12 检测到 → 23:37:12 已消费 → 23:37:12 成本熔断 40/40 ⇒ return
         # 结果 marker 没了、部署没跑、会话侧却看到"已消费"误以为请求已受理。
-        # 删 marker 的充分条件是「本轮**确定**会走到部署」,而 1b) 两道前置闸都可能
+        # 删 marker 的充分条件是「本轮**确定**会走到部署」,而 1b) 的前置闸可能
         # return ⇒ 消费必须排在它们都通过之后。此处只留占位说明,不做动作。
-        # ---- 1b) 自进化 P0 前置闸(O65 O6501/O6502,2026-10-25 立)----
-        # 两道闸都是 fail-closed:取不到判据 ⇒ 本轮不部署,绝不回落成"没改动所以放行"(§0.3)。
-        #   ① 根护栏(root-guard --check):守门执行器/判据单一真源/AGENTS 铁律段被改动且无人工解锁 ⇒ 拒推进;
-        #   ② 成本熔断(cost-breaker --check --kind deploy):滚动窗口内部署次数/墙钟超限 ⇒ 软停机(exit 3),留响声非故障。
+        # ---- 1b) 自进化 P0 前置闸(O65 O6502,2026-10-25 立)----
+        # 闸 fail-closed:取不到判据 ⇒ 本轮不部署,绝不回落成"没改动所以放行"(§0.3)。
+        #   根护栏(root-guard --check)**已不在本处跑**(2026-11-01 后移,见下条说明);
+        #   成本熔断(cost-breaker --check --kind deploy):滚动窗口内部署次数/墙钟超限 ⇒ 软停机(exit 3),留响声非故障。
+        # ── 根护栏为什么必须挪走(不许挪回来)──────────────────────────────────────────
+        # ① 位置错:根护栏过去在这里 = ff **之前** ⇒ 被审面是换流前那面旧 HEAD。生产机上"把清单
+        #    修对的那枚提交"只存在于远端那一面,于是旧面永远对不上 ⇒ 门越守越锁(2026-11-01 实测
+        #    连续 44 轮 FAIL,一次都走不到 fetch/ff)。
+        # ② 现在是**单面**:根护栏已后移到 ihui-deploy.ps1 的 `git merge --ff-only` 成功之后、
+        #    备份/构建/切流之前,判的是"刚被 ff 到、即将被构建与切流"的那一面。本处若再跑一次,
+        #    就是两处各判一面 = 两面判据(§22c 违例),而本处那面在生产上必是旧面。
+        # ③ 为什么不是"把本处闸面改成远端那面":生产机上 origin/main 这个嵌套 remote-tracking ref
+        #    会被宿主清理层吞掉、永不更新(deploy/win/ihui-deploy.ps1 头注与 fetch 段两条实证:
+        #    2026-09-13 / 2026-09-28),读它读到的是旧面 —— 自锁没解,旧面自洽时还会冒绿。
         # node 在服务上下文(LocalSystem)的 PATH 里常常取不到,故按绝对路径兜底(与 ihui-deploy.ps1 Resolve-NodeExe 同源)。
+        # ⚠ 这段取 node 的逻辑仍被下面的成本熔断使用,不得随根护栏一起删。
         $guardNode = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
         if (-not $guardNode) {
             foreach ($np in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
@@ -636,15 +647,7 @@ function Invoke-PollOnce {
             }
         }
         if (-not $guardNode) {
-            Log "FAIL  自进化前置闸:node.exe 取不到 ⇒ 根护栏/成本熔断判不了,本轮不部署(fail-closed)"
-            return
-        }
-        $rgOut = (& $guardNode (Join-Path $Root 'scripts\root-guard.mjs') --check 2>&1 | Out-String)
-        $rgRc = $LASTEXITCODE
-        if ($rgRc -ne 0) {
-            Log "FAIL  根护栏未通过(rc=$rgRc)⇒ 本轮不部署(fail-closed;人工复核后 node scripts/root-guard.mjs --seal --reason `"...`")"
-            foreach ($ln in ($rgOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
-            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 解锁后下一轮自动执行,不会丢' }
+            Log "FAIL  自进化前置闸:node.exe 取不到 ⇒ 成本熔断判不了,本轮不部署(fail-closed)"
             return
         }
         $cbOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --check --kind deploy 2>&1 | Out-String)
@@ -661,7 +664,7 @@ function Invoke-PollOnce {
             if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 判据恢复后自动执行,不会丢' }
             return
         }
-        # ---- 1c) 两道前置闸全过 ⇒ 本轮确定会部署,此刻才消费 marker ----
+        # ---- 1c) 1b) 前置闸全过 ⇒ 本轮确定会部署,此刻才消费 marker ----
         # 排序理由见 1a):只有走到这里,"删 marker"才不会吞掉用户请求。
         # 反例(2026-10-28 实测):熔断 40/40 那轮照样消费 ⇒ marker 消失、部署未跑、
         # 会话侧却读到"已消费"而误判成功 —— 正是本轮要根治的静默假成功。

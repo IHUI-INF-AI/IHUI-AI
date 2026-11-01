@@ -166,6 +166,43 @@ test('T4 scanDuplicateDefinitions:顶层同名命中,嵌套/注释不算,ts 臂�
   )
   const names = scanDuplicateDefinitions(ts, '.ts').map((x) => x.name).sort()
   assert.deepEqual(names, ['fmt', 'tick'])
+
+  // 2026-11-01 实测误伤面:TS 重载族(签名不带体、实现带体且排在最后)不是"重复定义"。
+  // 真发现来自落地器自己的复跑:apps/miniapp-taro/src/rn-compat/primitives.tsx 的 View 族
+  // 被这臂喊成三份 ⇒ 防御臂对合法语法狼来了,真双份反而没人信它。
+  const overloads = [
+    'export function View(props: RNBaseProps): ReactElement',
+    'export function View(props: RNCompatProps): ReactElement',
+    'export function View(props: RNCompatProps) {',
+    '  return null',
+    '}',
+  ].join('\n')
+  assert.deepEqual(
+    scanDuplicateDefinitions(overloads, '.tsx'),
+    [],
+    '重载族(2 签名 + 1 实现)不得判成重复定义',
+  )
+  // 反向牙一:签名照旧,但混进第二份带体实现(旁路合并把两侧实现一起送进 HEAD 那一型)⇒ 必须翻红
+  assert.equal(
+    scanDuplicateDefinitions(
+      `${overloads}\nexport function View(props: RNCompatProps) {\n  return null\n}`,
+      '.tsx',
+    ).length,
+    1,
+    '两份带体实现必须判重',
+  )
+  // 反向牙二:只有签名没有实现 ⇒ 不是合法重载族,照旧判重
+  assert.equal(
+    scanDuplicateDefinitions('export function Q(a): X\nexport function Q(b): X', '.ts').length,
+    1,
+  )
+  // 反向牙三:实现排在签名之前 ⇒ 重载顺序非法,照旧判重
+  assert.equal(
+    scanDuplicateDefinitions('export function Z() {\n}\nexport function Z(): X', '.ts').length,
+    1,
+  )
+  // 反向牙四:豁免只对 function 档开 —— const 同名两枚,哪怕一枚以 `{` 收尾也照旧判重
+  assert.equal(scanDuplicateDefinitions('export const k = 5\nexport const k = {', '.ts').length, 1)
 })
 
 // ── T5 失败臂变红:落地面自带重复定义 ⇒ verdict=1(判 HEAD 面,不读工作树) ──
