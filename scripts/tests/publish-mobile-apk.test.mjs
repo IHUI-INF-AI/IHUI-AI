@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { prodCheckoutRoot } from '../lib/prod-checkout-root.mjs'
 import { __test__ as pub } from '../publish-mobile-apk.mjs'
 
 const APK_CT = 'application/vnd.android.package-archive'
@@ -36,30 +37,35 @@ test('T1 站点腿公网地址与落点形态(与线上 cdn-server 的 --root �
 })
 
 test('T2 落点选择:生产签出优先,其次本仓,都不存在时不猜(未判定)', () => {
-  const prodDir = join('P', 'ihui-prod', pub.SITE_LEG.RelDir)
+  // 生产根期望值一律向单源取(§0.6):本测不复算候选序,只锁"优先级 + 都不在时给 null"。
+  const prodDir = join(prodCheckoutRoot('R', () => false, {}), pub.SITE_LEG.RelDir)
   const repoDir = join('R', pub.SITE_LEG.RelDir)
   const mk = (has) => (p) => has.includes(p)
-  const both = pub.siteLegPlan({ repoRoot: 'R', exists: mk([prodDir, repoDir]), resolveDevEnvRoot: () => 'P', env: {} })
+  const both = pub.siteLegPlan({ repoRoot: 'R', exists: mk([prodDir, repoDir]), env: {} })
   assert.equal(both.chosen.source, 'prod-checkout', '线上 cdn-server 读的是生产签出,选错边等于把包放到没人发的位置')
   assert.equal(both.chosen.dir, prodDir)
-  const onlyRepo = pub.siteLegPlan({ repoRoot: 'R', exists: mk([repoDir]), resolveDevEnvRoot: () => 'P', env: {} })
+  const onlyRepo = pub.siteLegPlan({ repoRoot: 'R', exists: mk([repoDir]), env: {} })
   assert.equal(onlyRepo.chosen.source, 'repo')
-  const none = pub.siteLegPlan({ repoRoot: 'R', exists: mk([]), resolveDevEnvRoot: () => 'P', env: {} })
+  const none = pub.siteLegPlan({ repoRoot: 'R', exists: mk([]), env: {} })
   assert.equal(none.chosen, null, '两处都不存在时必须给 null,由调用方判未判定 —— 静默跳过会让对外地址停在旧包')
   assert.equal(none.candidates.length, 2)
 })
 
-test('T3 devEnvRoot 取不到(换机/非 win)时不炸,仍留本仓候选', () => {
-  const plan = pub.siteLegPlan({
-    repoRoot: 'R',
-    exists: (p) => p === join('R', pub.SITE_LEG.RelDir),
-    resolveDevEnvRoot: () => {
-      throw new Error('换机:取不到 DevEnv 根')
-    },
-    env: {},
-  })
-  assert.equal(plan.candidates.length, 1)
-  assert.equal(plan.chosen.source, 'repo')
+test('T3 生产根取不到(仓根在 scratch 夹具内 ⇒ 单源抛出)时不炸,仍留本仓候选', () => {
+  // 真实失效形态:devEnvRoot 对"仓根本身在 §26 夹具里"显式抛错 ⇒ prodCheckoutRoot 抛 ⇒ 本器不得炸。
+  const prev = process.env.IHUI_DEVENV_ROOT
+  delete process.env.IHUI_DEVENV_ROOT
+  try {
+    const plan = pub.siteLegPlan({
+      repoRoot: join('X:', 'ihui-scratch', 'repo'),
+      exists: (p) => p === join('X:', 'ihui-scratch', 'repo', pub.SITE_LEG.RelDir),
+      env: {},
+    })
+    assert.equal(plan.candidates.length, 1)
+    assert.equal(plan.chosen.source, 'repo')
+  } finally {
+    if (prev !== undefined) process.env.IHUI_DEVENV_ROOT = prev
+  }
 })
 
 test('T4 站点腿正常落地:版本名实物 + 指针三键齐,指针指向本次版本', () => {
