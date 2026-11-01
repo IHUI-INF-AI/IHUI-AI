@@ -551,8 +551,9 @@ test('C18 web 工具类模型(票 O67):真 HEAD 面取源可解 / 三态分清 /
    * 判据一律走 lib 与门自己的出口,本件不复制任何一条(§0.6)。
    */
   const listR = spawnSync('git', ['-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD', 'apps/web'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
+    // 门 193:派生 git 必须显式接管 stdio(裸 options 在本机会 EBUSY);与本文件 L37 同一档
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
   assert.equal(listR.status, 0, '取不到 apps/web 清单 ⇒ 这条锁自己先瞎了')
