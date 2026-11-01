@@ -12,7 +12,7 @@
  * 保证(drizzle eq),要判到它得连库跑,属集成档(AGENTS §5 测试隔离铁律禁连生产 PG,故不在这里做)。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { chatConversationCollaborators, chatConversations } from '@ihui/database'
+import { chatConversations } from '@ihui/database'
 
 const { queries } = vi.hoisted(() => ({ queries: [] as string[] }))
 

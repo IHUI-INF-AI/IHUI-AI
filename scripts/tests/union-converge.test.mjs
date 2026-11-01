@@ -805,8 +805,13 @@ function topLevelBody(src, header) {
 
 /** 出路文案的判据输入全走构造面 —— 不依赖仓库恰好处于哪种状态。 */
 const BOGUS_SHA = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+// 2026-11-01 纯搬运拆分(守门 103 体积清偿):本体的判据族已逐字搬入
+// lib/union-converge-judgments.mjs ⇒ 源码级锁的被审面改为**两文件拼接**(锁的内容一条不减,
+// 只是跟着实现的新家走;计数不漂移:搬出的那一份在 lib 里逐字还在)。
 const srcOfTool = () =>
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8')
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8') +
+  '\n' +
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'union-converge-judgments.mjs'), 'utf8')
 
 test('R-A 出路文案:对侧 sha 不可达 ⇒ 只给按分支取的 fetch,并给得出免联网出口', () => {
   const g = U.unreachableObjectGuidance({
@@ -1617,7 +1622,7 @@ test('R-S 反向锁(真临时仓):本侧对同一主键**也改过** ⇒ 两侧�
 })
 
 test('R-T 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本体 —— 只写函数不接,产出面与自证面就会各读一张表', () => {
-  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  const src = maskComments(srcOfTool())
   assert.match(
     src,
     /for \(const \[l, n\] of theirsRewriteCaps\(oursText, theirsText, baseText, suppress\)\)/,
@@ -1630,7 +1635,7 @@ test('R-T 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本�
   )
 })
 test('R-U 装车锁(源码级):折叠判据必须先过"是不是同一件事"的相似度闸 —— 摘掉它,同号两个不同议题会被静默删掉一侧', () => {
-  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  const src = maskComments(srcOfTool())
   assert.match(src, /if \(sim < SIM_THRESHOLD\) continue/, '相似度闸不得被摘掉')
   assert.match(src, /from '\.\/lib\/live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
 })

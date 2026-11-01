@@ -135,7 +135,21 @@
       "storeEncrypted": "MCP credentials are stored encrypted (backend: {backend})",
       "migrationFailed": "Credential migration did not complete; the original file was kept and not overwritten ({reason})"
     },
-    "agentFailureTerminated": "Run halted: outcome={outcome} | stalled at={stage}"
+    "agentFailureTerminated": "Run halted: outcome={outcome} | stalled at={stage}",
+    "failureOutcomeRetryable": "Retryable (transient failure; sending again may succeed)",
+    "failureOutcomeTerminal": "Terminal (sending again fails the same way)",
+    "failureOutcomeUndetermined": "Undetermined (insufficient evidence; never read as success or failure)",
+    "agentStallLlmRequest": "Model request",
+    "agentStallToolExecution": "Tool execution",
+    "agentStallApprovalWait": "Awaiting approval",
+    "agentStallElicitationWait": "Awaiting extra input",
+    "agentStallStreamChannel": "Stream channel",
+    "agentStallQueueDispatch": "Queue dispatch",
+    "agentStallPermissionGate": "Permission gate",
+    "agentStallBudgetGovernance": "Budget governance",
+    "agentStallHookPipeline": "Hook pipeline",
+    "agentStallDoomLoopGuard": "Doom-loop guard",
+    "agentStallUndetermined": "Undetermined stage"
   },
   "waiting": {
     "agent": {

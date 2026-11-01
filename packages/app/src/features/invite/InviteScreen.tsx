@@ -110,7 +110,7 @@ export function InviteScreen({
               <View style={styles.metaRow}>
                 <Text style={styles.cardTime}>{item.invitedAt}</Text>
                 {/* reward 后端不下发 ⇒ 缺失时不渲染,不以 +0 顶位 */}
-                {item.reward != null ? (
+                {item.reward !== null && item.reward !== undefined ? (
                   <Text style={styles.cardReward}>+{item.reward}</Text>
                 ) : null}
               </View>
