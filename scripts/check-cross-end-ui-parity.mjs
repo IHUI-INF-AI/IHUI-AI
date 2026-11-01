@@ -553,56 +553,122 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
    */
   if (tiers && Object.keys(tiers).length) {
     /**
-     * **间距档消费腿**(2026-10-27,治 C3/C8 那批"仅小程序"假分叉):
-     * 裸 `rnSpacing.md` / `rnSpacing['3xl']` / `rnSpacingFor.gap` 按档表 dp 计入 values,
-     * 并按命名空间名进 named(与具名档同一张冲突对账表)。
-     * **换算器包住的不双计**:包裹区间用**括号配对**扫(开括号起 400 字符封顶,配不拢弃区间);
-     * 落在区间内的成员入账交 `geometryItemsInSrc` 采集支按"成员解不到"报名。
+     * **换算器包裹区间**(间距腿与字号腿共用一份):包裹区间用**括号配对**扫(开括号起 400 字符
+     * 封顶,配不拢弃区间);落在区间内的成员入账交 `geometryItemsInSrc` 采集支按"成员解不到"报名,
+     * 这里不重复计。
      * 前一版想用一条 `(?:X|\s)*` 嵌套量词的置换正则直接匹配"被换算器包住的成员",实测
      * 对抗样本(`rpx(` 后接近而失败的长串)触发灾难性回溯,单样本冻结 >2 分钟、
      * 全量门空转 28 分钟零输出(2026-10-27 取证)—— 位置判定对任意输入 O(n),回溯从根上禁用。
-     * 档表读不到的成员(改名/新增没进源)⇒ 报名未判定,不静默跳过(§0.3)。
      */
-    {
-      const wrapRanges = []
-      const CALL_RE = /\b(?:toUnit|toRpx|px2rpx|rp|rpx)\s*\(/g
-      for (let mm; (mm = CALL_RE.exec(code));) {
-        const open = mm.index + mm[0].length - 1
-        let depth = 0
-        const cap = Math.min(code.length, open + 400)
-        for (let i = open; i < cap; i++) {
-          const ch = code[i]
-          if (ch === '(') depth++
-          else if (ch === ')') {
-            depth--
-            if (depth === 0) {
-              wrapRanges.push([mm.index, i + 1])
-              CALL_RE.lastIndex = i + 1
-              break
-            }
+    const wrapRanges = []
+    const CALL_RE = /\b(?:toUnit|toRpx|px2rpx|rp|rpx)\s*\(/g
+    for (let mm; (mm = CALL_RE.exec(code));) {
+      const open = mm.index + mm[0].length - 1
+      let depth = 0
+      const cap = Math.min(code.length, open + 400)
+      for (let i = open; i < cap; i++) {
+        const ch = code[i]
+        if (ch === '(') depth++
+        else if (ch === ')') {
+          depth--
+          if (depth === 0) {
+            wrapRanges.push([mm.index, i + 1])
+            CALL_RE.lastIndex = i + 1
+            break
           }
         }
       }
-      const insideWrap = (at) => wrapRanges.some(([a, b]) => at > a && at < b)
-      for (const m of code.matchAll(
-        /\b(rnSpacing(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
-      )) {
-        if (insideWrap(m.index)) continue
-        const key = m[2] || m[3]
-        const memberName = `${m[1]}.${key}`
-        const px = tiers[memberName]
-        if (px === undefined) {
-          unreadable.push({
-            raw: memberName,
-            text: key,
-            px: null,
-            why: '间距档位表读不到该成员(源表没有此档或已改名)',
-          })
-          continue
-        }
-        push(px, 'spacing')
-        if (named[memberName] === undefined) named[memberName] = px
+    }
+    const insideWrap = (at) => wrapRanges.some(([a, b]) => at > a && at < b)
+    /**
+     * **间距档消费腿**(2026-10-27,治 C3/C8 那批"仅小程序"假分叉):
+     * 裸 `rnSpacing.md` / `rnSpacing['3xl']` / `rnSpacingFor.gap` 按档表 dp 计入 values,
+     * 并按命名空间名进 named(与具名档同一张冲突对账表)。
+     * 档表读不到的成员(改名/新增没进源)⇒ 报名未判定,不静默跳过(§0.3)。
+     */
+    for (const m of code.matchAll(
+      /\b(rnSpacing(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
+    )) {
+      if (insideWrap(m.index)) continue
+      const key = m[2] || m[3]
+      const memberName = `${m[1]}.${key}`
+      const px = tiers[memberName]
+      if (px === undefined) {
+        unreadable.push({
+          raw: memberName,
+          text: key,
+          px: null,
+          why: '间距档位表读不到该成员(源表没有此档或已改名)',
+        })
+        continue
       }
+      push(px, 'spacing')
+      if (named[memberName] === undefined) named[memberName] = px
+    }
+    /**
+     * **字号档消费腿**(2026-11-02 Phase 3,治"落档后覆盖数反而下降"):
+     * 落档后 RN 屏只剩 `fontSize: rnType.bodySm.size` 与 `...rnType.bodySm` 两种写法,
+     * 旧词汇表只认字面量 ⇒ 该侧 fontSize 读成空集,已对齐的屏被报成 one-sided。
+     * 口径三条,与字面量支逐字同形:
+     *  ① `.size` 按档值计入 fontSize(有几何键语境时按键归档,与 `fontSize: 13` 的
+     *     `dimOfKey('fontSize')` 同一判据);
+     *  ② **整对象展开** `...rnType.bodySm` 等价于 `fontSize: <size>`:几何维只取字号这一格,
+     *     行高/字重不是几何档(NON_GEO_KEY 同一条排除);
+     *  ③ `.lineHeight` 是排版量,只在几何键语境下按键归档(键名会被 NON_GEO_KEY 挡住),
+     *     裸引用与展开一律不入集 —— 与字面量 `lineHeight: 20` 的口径一致。
+     * 档表读不到的成员 ⇒ 逐枚未判定(§0.3),绝不折成"该侧无字号档"。
+     */
+    for (const m of code.matchAll(
+      /\b(rnType|taroType)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])(?:\s*\.\s*(size|lineHeight|fontSize))?(?![\w.])/g,
+    )) {
+      if (insideWrap(m.index)) continue
+      const ns = m[1]
+      const step = m[2] || m[3]
+      const sizeField = ns === 'taroType' ? 'fontSize' : 'size'
+      const field = m[4] ?? sizeField // 展开形态 `...rnType.body` 按整个对象里的字号计
+      const memberName = `${ns}.${step}.${field}`
+      const px = tiers[memberName]
+      if (px === undefined) {
+        unreadable.push({
+          raw: memberName,
+          text: step,
+          px: null,
+          why: '字号档位表读不到该成员(源表没有此档/此字段或已改名)',
+        })
+        continue
+      }
+      if (!(px > 0) || px > MAX_GEO_PX) continue
+      const rawKey = keyBefore(m.index)
+      const key = rawKey ? rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null
+      const dim = key && keyed(key) ? dimOfKey(key) : m[4] === undefined || field === sizeField ? 'fontSize' : null
+      if (dim) push(px, dim)
+      if (named[memberName] === undefined) named[memberName] = px
+    }
+    /**
+     * **圆角档在几何键语境下的取用**:`size: rnRadius.xl` 这类写法与其字面量同值计入几何维。
+     * `borderRadius:` 由 RADIUS_FORM_RE 挡在 `keyed()` 之外(圆角档是圆角维的地盘,不双计);
+     * 档值来自 `collect` 搬进 tiers 的 `radiusLookup` 那一份(§0.6 不另抄档表)。
+     */
+    for (const m of code.matchAll(
+      /\b(rnRadius(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
+    )) {
+      if (insideWrap(m.index)) continue
+      const rawKey = keyBefore(m.index)
+      if (!rawKey) continue
+      const key = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+      if (!keyed(key)) continue
+      const memberName = `${m[1]}.${m[2] || m[3]}`
+      const px = tiers[memberName]
+      if (px === undefined) {
+        unreadable.push({
+          raw: memberName,
+          text: m[2] || m[3],
+          px: null,
+          why: '圆角档位表读不到该成员(源表没有此档或已改名)',
+        })
+        continue
+      }
+      if (px > 0 && px <= MAX_GEO_PX) push(px, dimOfKey(key))
     }
     const alias = {}
     for (const m of code.matchAll(
@@ -743,6 +809,46 @@ export function specTiers(sources) {
         const hit = spSteps.find(([k]) => k === m[2])
         if (hit && hit[1] > 0) tiers[`rnSpacingFor.${m[1]}`] = hit[1]
       }
+  }
+  /**
+   * **字号档位表**(`packages/design-tokens/src/typography.ts` 的 TYPE_STEPS,2026-11-02 Phase 3)。
+   * 键形态 = 消费方成员(`rnType.bodySm.size` / `rnType.bodySm.lineHeight`);`weight` 不入表
+   * (字重不是几何档,GEO_KEY/NON_GEO_KEY 两筛同样不认它)。口径与本文件间距那段逐字同形:
+   * 只收 `size/lineHeight` **两侧都是数字字面量**的成员 —— 取值一旦改成表达式/引用,
+   * 这里读不到,由 `readGeometry` 那一条逐枚报未判定(§0.3),绝不猜。
+   * `0` 档不入表(与间距段的 C4 纪律同一条:0 值进集会造"两侧同值"假账)。
+   */
+  for (const [rel, srcTy] of Object.entries(sources)) {
+    if (!/[\\/]typography\.[jt]s$/.test(rel)) continue
+    const codeTy = stripComments(srcTy)
+    const tyTable = codeTy.match(/TYPE_STEPS\s*=\s*\{([\s\S]*?)\}\s*as const/)
+    if (!tyTable) continue
+    /**
+     * **小程序投影面**(`taroType`,同表折成 `${size * 2}rpx`,2026-11-02 Phase 3 第二腿)。
+     * 不接的后果:`ScreenStates.taro.tsx` 的标题只写 `fontSize: taroType.strong.fontSize`,
+     * 几何维在小程序侧读不到 ⇒ 已对齐的 15 被读成"仅 RN 档"(假分叉,与 rnType 那条同型)。
+     * 口径三条:① 投影倍数**从源里读**,读不到就整族不入表(不做"×2 必然等于同值"的推断 ——
+     * 与间距段拒绝 `taroSpacing.*` 入表是同一条理由:单位口径没算清就把双倍数值混进比对集);
+     * ② 入表值是**逻辑 px**(rpx 折半),与 `rnType.*` 的 dp 面同量纲;
+     * ③ `lineHeight` 与 rnType 同罪:NON_GEO_KEY 挡住裸引用,只有几何键语境才归档。
+     */
+    const projSize = /taroType[\s\S]{0,400}?\$\{v\.size\s*\*\s*(\d+(?:\.\d+)?)\}rpx/.exec(codeTy)
+    const projLh = /taroType[\s\S]{0,400}?\$\{v\.lineHeight\s*\*\s*(\d+(?:\.\d+)?)\}rpx/.exec(
+      codeTy,
+    )
+    for (const m of tyTable[1].matchAll(
+      /(?:'([^']{1,16})'|([A-Za-z_$][\w$]*))\s*:\s*\{\s*size\s*:\s*(\d+(?:\.\d+)?)\s*,\s*lineHeight\s*:\s*(\d+(?:\.\d+)?)/g,
+    )) {
+      const step = m[1] || m[2]
+      const size = Number(m[3])
+      const lh = Number(m[4])
+      if (size > 0) tiers[`rnType.${step}.size`] = size
+      if (lh > 0) tiers[`rnType.${step}.lineHeight`] = lh
+      const sizePx = projSize ? round((size * Number(projSize[1])) / 2) : 0
+      const lhPx = projLh ? round((lh * Number(projLh[1])) / 2) : 0
+      if (sizePx > 0) tiers[`taroType.${step}.fontSize`] = sizePx
+      if (lhPx > 0) tiers[`taroType.${step}.lineHeight`] = lhPx
+    }
   }
   for (const [rel, src] of Object.entries(sources)) {
     if (/[\\/]geometry\.[jt]s$/.test(rel)) continue
@@ -2905,12 +3011,20 @@ export function collect(
    */
   const spacingPath = 'packages/design-tokens/src/spacing.ts'
   const hasSpacing = geoList === null ? false : geoList.includes(spacingPath)
-  // 几何表、圆角表、间距表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
+  /**
+   * 字号档唯一源表(RN/共享屏 `rnType.X.size` 的档值出处,2026-11-02 Phase 3)。
+   * 不接的后果与间距那条同型:几何维只认字面量 ⇒ 落档后 RN 侧整族只剩引用,读数从 80 掉到 68,
+   * 于是"已经对齐"反被读成"该侧无字号档"(one-sided)。
+   */
+  const typographyPath = 'packages/design-tokens/src/typography.ts'
+  const hasTypography = geoList === null ? false : geoList.includes(typographyPath)
+  // 几何表、圆角表、间距表、字号表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
   const tierPaths = [
     ...specFiles,
     ...(hasGeo ? [geoPath, geoDtsPath] : []),
     ...(hasRadius ? [radiusPath] : []),
     ...(hasSpacing ? [spacingPath] : []),
+    ...(hasTypography ? [typographyPath] : []),
   ]
   const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
@@ -2934,6 +3048,15 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${spacingPath},而配对组件在引用间距档位 ⇒ 间距维判据失明`,
     )
   /**
+   * 字号表同一条失明判据(2026-11-02 Phase 3):表取不到而配对腿在引用 `rnType.X.size` ⇒
+   * 字号维看不见。不得把"读不到"记成"该侧无字号档" —— 那一型在落档后会把已对齐的屏报成
+   * one-sided(见 collect 里 typographyPath 的头注)。
+   */
+  if (!hasTypography && need.some((rel) => /\b(?:rn|taro)Type\s*[.[]/.test(text[rel])))
+    throw new Undetermined(
+      `${FACE_TXT[face]}取不到 ${typographyPath},而配对组件在引用字号档位 ⇒ 字号维判据失明`,
+    )
+  /**
    * 圆角档表同一条失明判据:表取不到而配对组件在用圆角形态 ⇒ 那一维看不见,不得把"看不见"
    * 记成"两端一致"。空表(解析失败)与缺文件同罪。
    */
@@ -2944,6 +3067,15 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${radiusPath} 或档位表解析为空,而配对组件在用圆角 ⇒ 圆角维判据失明`,
     )
   const tiers = specTiers(specSources)
+  /**
+   * 圆角档也挂进同一张档表(键形态与消费方 `rnRadius.<step>` / `rnRadiusFor.<role>` 同构)。
+   * 取源仍是 `radiusLookup` 那一份(§0.6:不在读几何维的地方另抄一条 `RADIUS_STEPS` 正则),
+   * 这里只做键名搬家。取用面在 `readGeometry`:几何键语境(非 borderRadius)下出现圆角档时,
+   * 与其字面量同值计入;`borderRadius:` 仍由 RADIUS_FORM_RE 挡在外面,不与圆角维双计。
+   */
+  if (radiusTable)
+    for (const [k, v] of Object.entries(radiusTable))
+      tiers[k.startsWith('role:') ? `rnRadiusFor.${k.slice(5)}` : `rnRadius.${k}`] = v
   /**
    * **CSS 变量解值表**(2026-11-01 票 O67,与具名档**同面同轮**取,一次 catBatch 读满)。
    *
