@@ -34,6 +34,7 @@ import { Alert, Tooltip } from '@/components/feedback'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   fetchProvidersHealthSummary,
+  PROVIDERS_HEALTH_SUMMARY_TTL,
   type ProviderHealthInfo,
   type ProviderHealthStatus,
 } from '@/lib/models-api'
@@ -78,7 +79,7 @@ export function ProvidersHealthTab() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['gateway-providers-health'],
     queryFn: () => fetchProvidersHealthSummary(true),
-    refetchInterval: 30_000,
+    refetchInterval: PROVIDERS_HEALTH_SUMMARY_TTL,
     enabled: allow,
   })
 
