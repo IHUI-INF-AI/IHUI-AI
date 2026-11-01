@@ -1681,6 +1681,50 @@ test('T42 类臂解析维:查无定义必点名 / 已定义必通过 / 判不出
 })
 
 /**
+ * 票 O67(2026-11-01):web 腿的 Tailwind 工具类此前**逐枚未判定**(门没有可解析的取源)。
+ * 这条是**真仓端到端**:不看函数在不在,直接跑门读它自己的 JSON 面。
+ * 三条边界必须在场,缺一条就会把某一型折成"通过":
+ *  ① 模型可用(不可用时全部回落未判定 —— 那是正确行为,但本仓 HEAD 上没有工具链缺席的借口);
+ *  ② web 腿的未判定名单里**不得**再出现"工具类模型未生效"以外的整片沉默 —— 具体到本票,
+ *     两族那七枚类必须已被判定(modeled/resolved),只留名字不落判决就是新的假绿;
+ *  ③ 小程序侧 `ui-card` 这类**样式源里根本没有**的标记名仍必须逐枚点名(§0.3:没有就是没有,
+ *     不许因为"另一侧判过了"顺手把它也算成判过)。
+ */
+test('T47 web 工具类判定真装车(票 O67):真 HEAD 面两族七枚类必须已被判定,小程序侧静默不可吞', () => {
+  const r = spawnSync(process.execPath, [SELF, '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  assert.equal(r.status, 0, `HEAD 面判红:\n${r.stdout.slice(-600)}`)
+  const j = JSON.parse(r.stdout)
+  const wu = j.classArm?.webUtility
+  assert.ok(wu, 'json 面没有 classArm.webUtility ⇒ "模型没建起来"与"这一维没跑"分不开')
+  assert.equal(wu.available, true, `web 工具类模型没建起来:${wu.why}`)
+  assert.ok(wu.candidates >= 7, `候选面缩了(现读 ${wu.candidates} 枚)⇒ 该判的类没进尺子`)
+  assert.deepEqual(wu.missing, ['thin-scroll'], `编译器产出面变了:${JSON.stringify(wu.missing)}`)
+  const webLegs = (j.classArm.legs ?? []).filter((l) => l.side === 'web')
+  const blind = webLegs.flatMap((l) => l.undetermined.map((u) => `${l.name}:${u.class}(${u.reason})`))
+  assert.deepEqual(blind, [], `web 腿仍有未判定 ⇒ 取源没接上这一族:${blind.join(' ')}`)
+  const judged = webLegs.flatMap((l) => [
+    ...(l.modeled ?? []).map((x) => x.class),
+    ...(l.undefined ?? []),
+  ])
+  for (const cls of ['min-h-0', 'min-w-0', 'resize-none', 'accent-primary', 'appearance-none', 'underline'])
+    assert.ok(judged.includes(cls), `${cls} 不在任何判定桶里(既没判过也没点名)`)
+  const mini = (j.classArm.legs ?? []).find((l) => l.name === 'AgentRuntimePanel' && l.side === 'miniapp')
+  assert.ok(
+    mini?.undetermined?.some((u) => u.class === 'ui-card'),
+    '小程序侧 ui-card(样式源里没有定义)被静默吞掉 —— §0.3 要求逐枚点名',
+  )
+  // 几何口径未被带偏:本票七枚全是 0 档 / 无盒档,不许给 web 腿凭空添几何读数
+  assert.deepEqual(j.web.red, [], `web 腿判红面变了:${JSON.stringify(j.web.red)}`)
+  assert.deepEqual(j.web.undetermined, [], `web 腿整腿未判定:${JSON.stringify(j.web.undetermined)}`)
+})
+
+/**
  * G-16 第(i)格(2026-10-24):**同档异名**的两枚投影常数。
  * 旧口径只认"一端引常数名、另一端直取它投影的几何 step"(单向消账);两枚**不同的常数名**
  * 投影到同一个 step 时仍各算一条单侧 —— 而它们其实是同一档,两端都已走单一源。
