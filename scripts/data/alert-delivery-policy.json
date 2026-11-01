@@ -1,0 +1,20 @@
+[
+  {
+    "id": "public-entry-env",
+    "prefix": "公网路径探测越阈值",
+    "cooldownMs": 86400000,
+    "reason": "公网入口段慢的根因是本机跨境国际段被限速/丢包(实测国际 11KB/s vs 国内 484KB/s,隧道全落 LAX),本机服务段本地对照 10/10、最慢 19ms ⇒ 属 §5e-1「收信人本机不可整改」的环境类。同族 24h 只保留首封 + 抑制计数,避免 sev 档在 90% 阈值上来回抖成新身份后逐封轰炸。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": "node scripts/check-public-path-probe.mjs --snapshot --json / node scripts/check-tunnel-leg-health.mjs --json"
+  },
+  {
+    "id": "tunnel-restart-churn",
+    "prefix": "公网入口隧道腿异常:restart-churn",
+    "cooldownMs": 86400000,
+    "reason": "重启动作本身引发的瞬时抖动(24h 滚动窗口计数),不是需要收信人每小时动手的故障。按 §162 停止重启后自然衰减;同族 24h 只保留首封。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": "node scripts/check-tunnel-leg-health.mjs --json"
+  }
+]
