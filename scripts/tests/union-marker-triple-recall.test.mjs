@@ -21,6 +21,13 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as U } from '../union-converge.mjs'
 import { __test__ as T } from '../lib/conflict-marker-triples.mjs'
+import {
+  bodyCopiesInFamily,
+  functionBodyIn,
+  sourceOf,
+  uniqueDefinition,
+  wiringInBody,
+} from './helpers/union-converge-source-probe.mjs'
 
 const LT = '<'.repeat(7)
 const GT = '>'.repeat(7)
@@ -118,12 +125,28 @@ test('U8 形状锁(§0.6 单一真相源):配对判据只有一份,接线点就�
     ),
     'union-converge 必须 import lib 的那份配对判据,不得自己再扫一遍行',
   )
-  const fnAt = UNION_SRC.indexOf('export function liveDocExpectedCounts')
-  assert.ok(fnAt > 0)
-  const body = UNION_SRC.slice(fnAt, UNION_SRC.indexOf('\nexport ', fnAt + 10))
+  // 唯一性锁(2026-11-01 修探测面,强于原实现):扣减表在全家族(union-converge.mjs + lib/union-converge-*.mjs)
+  // 恰好 1 份定义,且**函数体全家族只此一处** —— 原实现只看单文件,把判据复制进 lib 反而看不见。
+  const caps = uniqueDefinition('markerTripleRecallCaps')
+  assert.ok(caps.ok, caps.why)
   assert.ok(
-    body.includes('markerTripleRecallCaps(oursText, theirsText)'),
-    '扣行必须接在"决定对侧在场就补回"的那张期望表里(产出面与自证面共用),不是只在报告面报数',
+    caps.body.includes('classifyMarkerTriples('),
+    '扣减表必须**问**lib 那份配对判据(单源),不得在自家里再扫一遍标记行',
+  )
+  const pairing = functionBodyIn(sourceOf('scripts/lib/conflict-marker-triples.mjs'), 'classifyMarkerTriples')
+  assert.ok(pairing !== null, '取不到 lib 的配对判据本体 ⇒ 未判定(不许当绿灯)')
+  const copies = bodyCopiesInFamily(pairing)
+  assert.equal(
+    copies.count,
+    0,
+    `配对判据本体被抄进了 union 家族(${copies.hits.map((h) => `${h.rel}×${h.n}`).join(' / ')})⇒ 同一判据两份定义`,
+  )
+  // 接线锁:扣行必须接在期望表函数体内(该函数已搬进 lib,探测面跟着它的新家走,仍取真函数体)
+  const wiring = wiringInBody('liveDocExpectedCounts', 'markerTripleRecallCaps(oursText, theirsText)')
+  assert.ok(
+    wiring.ok,
+    wiring.why ||
+      '扣行必须接在"决定对侧在场就补回"的那张期望表里(产出面与自证面共用),不是只在报告面报数',
   )
 })
 
