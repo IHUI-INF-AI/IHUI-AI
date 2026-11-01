@@ -26,6 +26,22 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/** 每页条数(触底续取,对齐端内 income 的分页单位) */
+const PAGE_SIZE = 20
+
+function toItems(list: CommissionRecord[]): ModelIncomeItem[] {
+  return list.map((r) => ({
+    id: r.id,
+    orderId: r.orderId,
+    status: r.status,
+    createdAt: formatDateByTemplate(r.createdAt, 'YYYY-MM-DD HH:mm'),
+    userNickname: r.userNickname,
+    orderAmount: r.orderAmount,
+    rate: r.rate,
+    commissionAmount: r.commissionAmount,
+  }))
+}
+
 export default function ModelIncomeScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
@@ -38,30 +54,25 @@ export default function ModelIncomeScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
     try {
       const [overviewRes, listRes, dayMonthRes] = await Promise.all([
         getOverview(),
-        getCommissionList({ page: 1, pageSize: 50 }),
+        getCommissionList({ page: 1, pageSize: PAGE_SIZE }),
         getDayMonthSummary(),
       ])
       let errMsg = ''
       if (overviewRes.success) setOverview(overviewRes.data)
       else errMsg = overviewRes.error || t('modelIncome.loadOverviewFailed')
       if (listRes.success) {
-        const items: ModelIncomeItem[] = (listRes.data.list as CommissionRecord[]).map((r) => ({
-          id: r.id,
-          orderId: r.orderId,
-          status: r.status,
-          createdAt: formatDateByTemplate(r.createdAt, 'YYYY-MM-DD HH:mm'),
-          userNickname: r.userNickname,
-          orderAmount: r.orderAmount,
-          rate: r.rate,
-          commissionAmount: r.commissionAmount,
-        }))
-        setRecords(items)
+        setRecords(toItems(listRes.data.list))
+        setPage(1)
+        setHasMore(PAGE_SIZE < listRes.data.total)
       } else {
         errMsg = errMsg || listRes.error || t('modelIncome.loadListFailed')
       }
@@ -78,6 +89,24 @@ export default function ModelIncomeScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const next = page + 1
+      const res = await getCommissionList({ page: next, pageSize: PAGE_SIZE })
+      if (res.success) {
+        setRecords((prev) => [...prev, ...toItems(res.data.list)])
+        setPage(next)
+        setHasMore(next * PAGE_SIZE < res.data.total)
+      }
+    } catch {
+      setError(t('modelIncome.networkError'))
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMore, page, t])
 
   const summary: ModelIncomeSummary | null =
     overview || dayMonth
@@ -108,6 +137,9 @@ export default function ModelIncomeScreen() {
       onOpenWithdraw={() => setShowWithdraw(true)}
       onCloseWithdraw={() => setShowWithdraw(false)}
       onConfirmWithdraw={() => setShowWithdraw(false)}
+      loadingMore={loadingMore}
+      hasMore={hasMore}
+      onLoadMore={loadMore}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />
