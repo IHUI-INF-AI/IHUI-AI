@@ -15,22 +15,9 @@
  * 灰度语义(与仓内既有机制对齐,不改):
  *   - stable 槽位 = 现网(8801,一直跑**旧版本**)⇒ 灰度期内线上从没跑过新版本,
  *     这就是「异常自动回滚」在灰度期的形态:**撤灰度流量**即可(不是整份退包);
- *   - canary 槽位 = 灰度候选(8845,跑 .next-staging 那份新构建;staging 已被部署环搬走时
- *     回落服务 .next-canary 快照 —— 产物来源判据在 deploy/win/ihui-canary-gray.ps1);
+ *   - canary 槽位 = 灰度候选(8845,跑 .next-staging 那份新构建);
  *   - 分流器 = 源站前置(8846),按契约比例把请求切给两个槽位;
  *   - 档位 pass ⇒ 升档;fail ⇒ 归零(撤灰度,回滚);unknown ⇒ 原地不动(不放量也不回滚)。
- *
- * 灰度实例在位维度(O65 第 2 期 · 2026-11-01 补,票 31460):
- *   观察窗的 pass/fail/unknown 只说明「被采样的那一面」没超阈值;灰度期里如果灰度实例
- *   根本不在位(无产物可服务),采样面就只是现网 ⇒ "现网侧通过"不得冒充"灰度侧通过"。
- *   因此 `decideStageAction` 除 verdict 外还收 `canaryServing`(yes/no/unknown)作第二维:
- *     - verdict=pass ∧ canaryServing=yes      ⇒ 照旧 advance/promote(灰度面被真量过);
- *     - verdict=pass ∧ canaryServing=no      ⇒ hold:档位原地不动,措辞点名「灰度实例不在位,
- *       放量推进未判定」—— 不回滚(现网侧确实没回归)也不升档(灰度侧一条样本都没采到);
- *     - verdict=pass ∧ canaryServing=unknown ⇒ hold(§0.3:取不到输入一律未判定,
- *       缺省即未判定 = 失效方向是"多要一次说明",绝不是"多放一档",§0.10);
- *     - fail/unknown 两档不受该维影响(fail 照旧归零撤量;unknown 照旧原地不动)。
- *   调用方(ihui-deploy-loop.ps1)必须显式传 --canary-serving;不传 = unknown = 不推进。
  *
  * 档位表的末档(ramp-full = 100%)**不是**「分流器放到 100%」,而是「全量候选已验证通过」
  * 的信号:末档被验证通过之前,流量始终按比例分给两个槽位。
@@ -63,14 +50,6 @@ export const EXIT_UNKNOWN = 2
 /** 动作闭集:调用方(PowerShell)只按这四个动作做事,不得自行解释判定。 */
 export const ACTIONS = Object.freeze(['init', 'advance', 'hold', 'rollback', 'promote'])
 
-/**
- * 灰度实例在位维(票 31460 补的第二判据维)闭集:
- *   yes = 本轮灰度实例真在位(产物可服务,采样面或分流对象含 8845);
- *   no  = 明确不在位(无产物/起不来);
- *   unknown = 没问到/取不到输入 ⇒ 一律按未判定处理(pass 也不推进)。
- */
-export const CANARY_SERVING = Object.freeze(['yes', 'no', 'unknown'])
-
 const asText = (v) => (typeof v === 'string' ? v : v === null || v === undefined ? '' : String(v)).trim()
 
 /**
@@ -79,24 +58,16 @@ const asText = (v) => (typeof v === 'string' ? v : v === null || v === undefined
  * - fail    ⇒ rollback:撤灰度流量(比例归零)+ 停灰度实例 ⇒ 线上留在旧版本(这才是灰度期
  *             真正的「自动回滚」;整份退包是全量切换后的形态,两者不可混)。
  * - unknown ⇒ hold:既不放量也不回滚(没有证据就不动)。
- * - pass ∧ 灰度实例在位(canaryServing=yes)⇒ advance:升到下一档(比例变大)。
- * - pass ∧ 灰度实例不在位/未判定(canaryServing=no|unknown|缺省)⇒ hold:
- *             「现网侧通过」不冒充「灰度侧通过」——放量推进这一格是未判定,必须单独出声
- *             (票 31460:此前 pass 无条件推进,灰度槽位 20/20 轮无产物仍一路 advance)。
- * - pass ∧ 在位 且已在末档 ⇒ promote:末档已被验证通过 ⇒ 可以全量切流(把候选变成 stable)。
+ * - pass    ⇒ advance:升到下一档(比例变大)。
+ * - pass 且已在末档 ⇒ promote:末档已被验证通过 ⇒ 可以全量切流(把候选变成 stable)。
  *
- * @param {{verdict: string, currentStage: string, stages: Array<{id: string, percent: number}>,
- *          canaryServing?: string}} input
+ * @param {{verdict: string, currentStage: string, stages: Array<{id: string, percent: number}>}} input
  * @returns {{action: string, stage: string, percent: number, changed: boolean, reason: string}}
  */
-export function decideStageAction({ verdict, currentStage, stages, canaryServing } = {}) {
+export function decideStageAction({ verdict, currentStage, stages } = {}) {
   const v = asText(verdict)
   if (!VERDICTS.includes(v)) {
     throw new TrafficShapeError(`verdict 非法:${v}(闭集:${VERDICTS.join('/')})`)
-  }
-  const serving = asText(canaryServing) || 'unknown'
-  if (!CANARY_SERVING.includes(serving)) {
-    throw new TrafficShapeError(`canaryServing 非法:${serving}(闭集:${CANARY_SERVING.join('/')},缺省=unknown)`)
   }
   if (!Array.isArray(stages) || stages.length === 0) {
     throw new TrafficShapeError('档位表为空')
@@ -122,18 +93,7 @@ export function decideStageAction({ verdict, currentStage, stages, canaryServing
       reason: r.reason,
     }
   }
-  // pass:先看灰度实例这一维 —— 不在位/未判定 ⇒ 推进未判定(不回滚,现网侧确实没回归)。
-  if (serving !== 'yes') {
-    const why = serving === 'no' ? '灰度实例不在位(无产物可服务/起不来)' : '灰度实例在位与否未判定(调用方没给 --canary-serving)'
-    return {
-      action: 'hold',
-      stage: cur,
-      percent: stagePercent(cur, stages),
-      changed: false,
-      reason: `现网侧通过,但${why} ⇒ 灰度侧一条样本都没采到,放量推进未判定(档位保持 ${cur},不回滚)`,
-    }
-  }
-  // changed=true ⇒ 刚升到下一档;changed=false ⇒ 已在末档且本轮 pass 是对末档的验证。
+  // pass:changed=true ⇒ 刚升到下一档;changed=false ⇒ 已在末档且本轮 pass 是对末档的验证。
   if (r.changed) {
     return {
       action: 'advance',
@@ -245,12 +205,7 @@ function main() {
     const verdict = asText(args.verdict)
     const current = asText(args.current)
     try {
-      const action = decideStageAction({
-        verdict,
-        currentStage: current,
-        stages: policy.stages,
-        canaryServing: args['canary-serving'] === true ? '' : asText(args['canary-serving']),
-      })
+      const action = decideStageAction({ verdict, currentStage: current, stages: policy.stages })
       let contract = null
       if (action.action === 'advance' || action.action === 'init') {
         contract = buildRampContract({ policy, stage: action.stage, sha: asText(args.sha) })
@@ -281,7 +236,7 @@ function main() {
     return
   }
 
-  console.error('用法:--init [--sha <sha>] [--contract <path>] | --decide --verdict pass|fail|unknown [--canary-serving yes|no|unknown] [--current <stage>] [--contract <path>] | --status [--contract <path>]')
+  console.error('用法:--init [--sha <sha>] [--contract <path>] | --decide --verdict pass|fail|unknown [--current <stage>] [--contract <path>] | --status [--contract <path>]')
   process.exit(EXIT_UNKNOWN)
 }
 
