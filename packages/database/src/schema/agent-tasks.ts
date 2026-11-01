@@ -41,6 +41,13 @@ export const agentTasks = pgTable(
     teamId: uuid('team_id').references(() => teams.id, { onDelete: 'set null' }),
     lockedBy: varchar('locked_by', { length: 128 }),
     lockedAt: timestamp('locked_at', { withTimezone: true }),
+    // F3(2026-11-02)Thread/Ticket 最小版:
+    //   parent_dispatch_id = 同会话 thread 的上一条派单 id(会话第一条为 NULL,不塞自身冒充父节点);
+    //   attention = 人工注意力(awaiting_answer / awaiting_review,NULL = 不需要人)。
+    // 两列都是派单记录的镜像(运行时真相仍在 Redis hash + runtimes),落库供按 id 查询/审计;
+    // 迁移与回滚见 drizzle/20261102120000_dispatch_thread_attention.sql。
+    parentDispatchId: varchar('parent_dispatch_id', { length: 100 }),
+    attention: varchar('attention', { length: 20 }),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

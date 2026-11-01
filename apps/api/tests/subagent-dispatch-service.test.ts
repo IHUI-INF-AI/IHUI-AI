@@ -97,7 +97,7 @@ import {
 const service = subagentDispatchService as unknown as {
   _createAgentTask: (
     input: Record<string, unknown>,
-    dispatchId: string,
+    pending: { id: string; parentDispatchId?: string; attention?: string },
   ) => Promise<string | undefined>
   _syncAgentTask: (runtime: {
     agentTaskId?: string
@@ -114,7 +114,7 @@ describe('_createAgentTask(派单轨迹创建)', () => {
   })
 
   it('无 agentId 直接跳过,不触达 db', async () => {
-    const id = await service._createAgentTask({ goal: 'hello' }, 'dispatch-1')
+    const id = await service._createAgentTask({ goal: 'hello' }, { id: 'dispatch-1' })
     expect(id).toBeUndefined()
     expect(mockInsert).not.toHaveBeenCalled()
   })
@@ -127,7 +127,10 @@ describe('_createAgentTask(派单轨迹创建)', () => {
         return { returning: vi.fn().mockResolvedValue([{ id: 'task-1' }]) }
       }),
     })
-    const id = await service._createAgentTask({ agentId: 'agent-9', goal: '写测试' }, 'dispatch-1')
+    const id = await service._createAgentTask(
+      { agentId: 'agent-9', goal: '写测试' },
+      { id: 'dispatch-1' },
+    )
     expect(id).toBe('task-1')
     expect(mockInsert).toHaveBeenCalledTimes(1)
     expect(captured).toMatchObject({
@@ -147,7 +150,7 @@ describe('_createAgentTask(派单轨迹创建)', () => {
     })
     await service._createAgentTask(
       { agentId: 'a', orchestration: 'debate', agentRole: 'reviewer', goal: 'g' },
-      'd',
+      { id: 'd' },
     )
     const captured = (mockInsert.mock.results[0]!.value as { values: ReturnType<typeof vi.fn> })
       .values.mock.calls[0]![0] as Record<string, unknown>
@@ -158,7 +161,7 @@ describe('_createAgentTask(派单轨迹创建)', () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 't' }]) }),
     })
-    await service._createAgentTask({ agentId: 'a', goal: 'g'.repeat(5000) }, 'd')
+    await service._createAgentTask({ agentId: 'a', goal: 'g'.repeat(5000) }, { id: 'd' })
     const captured = (mockInsert.mock.results[0]!.value as { values: ReturnType<typeof vi.fn> })
       .values.mock.calls[0]![0] as Record<string, unknown>
     expect((captured.description as string).length).toBe(2000)
@@ -168,7 +171,7 @@ describe('_createAgentTask(派单轨迹创建)', () => {
     mockInsert.mockImplementation(() => {
       throw new Error('db down')
     })
-    const id = await service._createAgentTask({ agentId: 'a', goal: 'g' }, 'd')
+    const id = await service._createAgentTask({ agentId: 'a', goal: 'g' }, { id: 'd' })
     expect(id).toBeUndefined()
     expect(mockLoggerWarn).toHaveBeenCalledTimes(1)
   })
