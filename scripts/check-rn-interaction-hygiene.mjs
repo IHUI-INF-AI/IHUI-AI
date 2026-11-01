@@ -578,7 +578,7 @@ function scrimByChild(tag, childrenRegion, table, tokenNames) {
  * 方向自证:①② 都**不要求**黑底证据(它本来就是透明的)——放过的是"量不到东西"的判据,
  * 不是"缺反馈"的豁免;真按钮必然有自己的视觉(② 第②条拦下)。
  */
-function isFillLayer(props, selfClosing, childrenRegion, table) {
+function isFillLayer(props, selfClosing, childrenRegion) {
   const absFill = /style=\{\s*StyleSheet\.absoluteFill(?:Object)?\s*\}/.test(props)
   if (selfClosing && absFill) return true
   if (!selfClosing && !absFill && /className\s*=\s*"[^"]*\bflex-1\b[^"]*"/.test(props)) {
@@ -677,7 +677,7 @@ function scanText(text, minTap, rel = '') {
     const scrim = scrimSelf || scrimKid
     // 自闭合的信号在标签闭合处(props 区不含 `/`),所以按 stripped 的 end-2 取
     const selfClosing = stripped[end - 2] === '/'
-    const fillLayer = !scrim && isFillLayer(props, selfClosing, childrenInner, table)
+    const fillLayer = !scrim && isFillLayer(props, selfClosing, childrenInner)
     const inert = !scrim && !fillLayer && isInertPress(props)
     if (scrimKid) childScrims.push({ line, tag })
     if (fillLayer) fillLayers.push({ line, tag, kind: selfClosing ? 'absoluteFill' : 'transparentHitLayer' })
@@ -867,7 +867,7 @@ function scanKeyboard(text) {
  * 分两桶是因为**两类都有合法用途**,一刀切判红就是逼人跳门:
  *  - 字形桶:children 是单字符字面量/`{'×'}`/✓ 之类 —— 图标坐在定宽盒里,放大即破版;
  *  - 内容桶:children 带 `t(`、插值、单词 —— 那是正文/按钮/提示文字,关掉就等于
- *    "用户在系统里把字号调到最大,这里仍然不给放大"(FloatBox 那一格已按 useFontMultiplier 同比放大修掉)。
+ *    "用户在系统里把字号调到最大,这里仍然不给放大"(FloatBox 那一格已按 readFontMultiplier 同比放大修掉)。
  * 升级前置:内容桶必须逐格改成"字号+行高同比放大"后归零(见 apps/mobile-rn/tests/rn-floatbox-font-scale.test.tsx)。
  */
 function scanFontLock(text) {

@@ -329,16 +329,28 @@ def _shell_stream_codec() -> str:
 
     取不到控制台代码页时(无控制台的服务进程)退回 OEM 代码页;仍是 65001 或
     该代码页名不被 Python 认识时用 utf-8 —— 后者与 65001 语义一致。
-    """
-    if os.name != "nt":
-        return "utf-8"
-    cp = 0
-    try:
-        import ctypes
 
-        kernel32 = ctypes.windll.kernel32
-        cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
-    except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
+    平台判据用 sys.platform 且把整个 Windows 实现包进该分支(2026-11-01 CI 修):
+    typeshed 只按 sys.platform 收窄模块属性可用性(`ctypes.windll` 是 win32-only),
+    写成「非 win32 就提前 return」不解决问题 —— mypy 消除的是被证伪的分支体,
+    提前 return 之后的代码在 Linux 面照样被分析 ⇒ Linux CI 报
+    `Module has no attribute "windll"`(实测 2026-11-01 Monorepo CI 的 Mypy job)。
+    同款处置见 app/core/proc_sandbox.py 与 app/core/installation_id.py 的同名头注。
+    """
+    if sys.platform == "win32":
+        cp = 0
+        try:
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+            cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
+        except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
+            cp = 0
+    else:
+        # 非 Windows:没有控制台代码页这回事,cp 恒 0 ⇒ 下面的 cp<=0 分支直接落 utf-8。
+        # 这里必须给 cp 一个**无条件**的定义:在 Linux 面上 mypy 会把上面整个
+        # sys.platform 分支剪掉(不可达),若 cp 只在该分支里赋值,下面的读数就成了
+        # "Name 'cp' is not defined"(2026-11-01 本次改动第一版就踩了这个坑)。
         cp = 0
     if cp <= 0 or cp == 65001:
         return "utf-8"

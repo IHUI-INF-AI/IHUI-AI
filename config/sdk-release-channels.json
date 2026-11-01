@@ -12,7 +12,9 @@
   "outOfScopeNotes": [
     "homebrew cask 的 sha256 回填需要真实 release 资产(gh release 产物)才能做,属发布后动作,不在本台账五通道判据内。",
     "NuGet 已知残余:nupkg 未随包 NOTICE 全文(经 PackageLicenseExpression 属合法形态);补随包需改 packages/sdk/dotnet/Ihui.AI.csproj,属既有文件、owner 决定。",
-    "packages/api-client 不在 O14 发布对象内(release-sdk.yml 不含它);但它的 package.json 已非 private 且带 publishConfig,而 check-pkg-installable 实测其产物不可安装(workspace: 依赖 + 92 处无扩展名 ESM import)。处置建议(不在本票授权范围):补 private:true 或修产物,归主会话。"
+    "packages/api-client 不在 O14 发布对象内(release-sdk.yml 不含它)。2026-11-01 现读:`packages/api-client/package.json` = `name: \"@ihui/api-client\"` + **`private: true`** + `version: 0.0.0`(占位档),同时仍带 `publishConfig`(registry=npmjs.org/access=public)与 `files: [dist, LICENSE, NOTICE]` —— 即「保险丝在位、但对外形态没拆干净」。旧注记自述的『已非 private 且产物不可安装』与现读矛盾,已按现读改正(67c421c1fd 恢复 private,7fba73b50f9 同日复核不该摘)。命名空间侧还有一格结构性不可能:org `ihui` 在 registry **确实存在但不是我方账号**(`/-/org/ihui/user` → 200 `{\"ihui\":\"owner\"}`,对照组乱名 → 404 「Scope not found」;我方账号 = `ihui-ai`,`/-/org/ihui-ai/user` → 200 `{\"ihui-ai\":\"owner\"}`)⇒ `@ihui/*` 属外部所有权,永不可由我方发布,不是补凭据能解的。因此:不得摘 api-client 的 private;若将来要对外发布,唯一出路是先改名到 `@ihui-ai/*`(改 packages/api-client/package.json,根/包清单文件由主会话执行)。publish-ready 回归的「摘 private 即当场过发布前置」用例是这条判断的机器锁。",
+    "@ihui-ai/sdk 首发时向 registry 留了一枚探针版本 `0.0.0-stage`(2026-10-31T08:34:35Z,unpackedSize=334B、license 字段缺),**至今未 deprecate**(`npm view @ihui-ai/sdk@0.0.0-stage deprecated` → 空;`dist-tags.latest` 正确指向 0.1.0,所以默认安装不受影响,但按版本号精确安装能拿到一个空壳包)。同族先例已结清过:`ihui-cli@0.0.0-stage` 已于 2026-10-19 用 `npm deprecate` 标记(docs/RELEASE.md「token 包级写操作实测」行)。补法 = 对同一 token 再跑一次同样的只写命令:`npm deprecate @ihui-ai/sdk@0.0.0-stage \"staging placeholder, use 0.1.0\" --registry=https://registry.npmjs.org/`,回读 `npm view @ihui-ai/sdk@0.0.0-stage deprecated`。这是对公开 registry 的对外写动作,不在结构判据席位的授权内 ⇒ 归 npm 账号持有人/主会话执行,不由本席执行。",
+    "取证方法债(2026-11-01 实测,防同一假结论回流):判「npm org 存不存在」的**无效查法** = `https://registry.npmjs.org/-/v1/org/<name>` —— 该端点对 `ihui`/`ihui-ai`/`npm`(确定存在)/乱名**一律 404**,零鉴别力;docs/RELEASE.md 早期据此写下过「真卡点是没有 npm org」的假结论(已按现读更正)。有效只读查法 = `https://registry.npmjs.org/-/org/<scope>/user`(我方持有 → 200 且返回成员与角色;不存在 → 404 `{\"error\":\"Scope not found\"}`),并以乱名作负对照组、以 `npm whoami` 作身份对照。"
   ],
   "channels": [
     {
@@ -30,8 +32,8 @@
         "presentOn": [200],
         "absentOn": [404, 410]
       },
-      "statusVerifiedAt": "2026-10-31",
-      "lastRealProbe": "present(HTTP 200,registry 现读 2026-10-31:version=0.1.0、dist-tags.latest=0.1.0 —— 首发已落地;run 41185016746 日志 published via OIDC provenance、sigstore logIndex=3612314245);身份/命名空间三读同上:whoami=ihui-ai、org 端点 owner=ihui-ai、ihui-cli@1.0.0 maintainer=ihui-ai"
+      "statusVerifiedAt": "2026-11-01",
+      "lastRealProbe": "present(HTTP 200,`node scripts/check-sdk-release-channels.mjs --json` 实跑 2026-11-01 RC=0;`npm view @ihui-ai/sdk version` = 0.1.0,registry 本体回读 versions=[0.0.0-stage, 0.1.0]、dist-tags.latest=0.1.0、license=Apache-2.0、unpackedSize(0.1.0)=280213B);身份/命名空间四读同日同机:whoami=ihui-ai、`/-/org/ihui-ai/user` → 200 `{\"ihui-ai\":\"owner\"}`、`/-/org/ihui/user` → 200 `{\"ihui\":\"owner\"}`(他方账号,见 outOfScopeNotes)、乱名对照 → 404 「Scope not found」;`ihui-cli@1.0.0` 仍在位。首发来源 = run 41185016746(workflow_dispatch + language=npm;未推 git tag —— 理由见 releaseTrigger.note,对外事实以 registry + sigstore logIndex=3612314245 为准)。"
     },
     {
       "id": "pypi",
@@ -48,8 +50,8 @@
         "presentOn": [200],
         "absentOn": [404]
       },
-      "statusVerifiedAt": "2026-09-26",
-      "lastRealProbe": "absent(HTTP 404,curl 实测 2026-09-26)"
+      "statusVerifiedAt": "2026-11-01",
+      "lastRealProbe": "absent(HTTP 404;2026-11-01 本机经 `node scripts/check-sdk-release-channels.mjs --json` 实跑复核,同结论延续 2026-09-26 的 curl 实测)。gh secret list 同日现读:PYPI_TOKEN 仍不在仓库 ⇒ blocked-by-credential 如实。"
     },
     {
       "id": "maven",
@@ -66,8 +68,8 @@
         "presentOn": [200],
         "absentOn": [404]
       },
-      "statusVerifiedAt": "2026-09-26",
-      "lastRealProbe": "absent(HTTP 404,curl 实测 2026-09-26)"
+      "statusVerifiedAt": "2026-11-01",
+      "lastRealProbe": "absent(HTTP 404;2026-11-01 本机经 `node scripts/check-sdk-release-channels.mjs --json` 实跑复核,同结论延续 2026-09-26 的 curl 实测)。gh secret list 同日现读:MAVEN_USERNAME / MAVEN_TOKEN 仍不在仓库。"
     },
     {
       "id": "nuget",
@@ -84,8 +86,8 @@
         "presentOn": [200],
         "absentOn": [404, 410]
       },
-      "statusVerifiedAt": "2026-09-26",
-      "lastRealProbe": "absent(302→404,curl -L 实测 2026-09-26;对照组 newtonsoft.json=200 / 乱名=404,证明判据不是查法失效)"
+      "statusVerifiedAt": "2026-11-01",
+      "lastRealProbe": "absent(302→404,curl -L 实测 2026-09-26;对照组 newtonsoft.json=200 / 乱名=404,证明判据不是查法失效)。2026-11-01 本机 `--json` 实跑复核仍 absent(HTTP 404);gh secret list 同日现读:NUGET_API_KEY 仍不在仓库。"
     },
     {
       "id": "go",
@@ -101,8 +103,8 @@
         "remote": "origin",
         "pattern": "refs/tags/packages/sdk/go/v*"
       },
-      "statusVerifiedAt": "2026-10-28",
-      "lastRealProbe": "present(git ls-remote --tags origin exit 0,命中 refs/tags/packages/sdk/go/v0.1.0 —— tag 本体 + peeled ^{} 共 2 条;实测 2026-10-28)。版本号来源 tag:packages/sdk/go/v0.1.0。"
+      "statusVerifiedAt": "2026-11-01",
+      "lastRealProbe": "present(2026-11-01 本机 `--json` 实跑 + `git ls-remote --tags origin \"refs/tags/packages/sdk/go/v*\"` 双读一致:命中 refs/tags/packages/sdk/go/v0.1.0 —— tag 本体 + peeled ^{} 共 2 条;同读数延续 2026-10-28)。版本号来源 tag:packages/sdk/go/v0.1.0。另现读:`git tag -l 'sdk-v*'` = 0 条、origin `refs/tags/sdk-v*` = 0 条 ⇒ 唯一对外触发器 tag 仍未打(owner 动作,五通道共享,不构成 npm/go 两通道的 blocker)。"
     }
   ]
 }

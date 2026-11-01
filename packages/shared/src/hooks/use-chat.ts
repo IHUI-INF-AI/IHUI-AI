@@ -146,6 +146,14 @@ export interface ChatMessage {
    *  permissionMode 等随历史接口原样下发;客户端自报不采信 —— 缺失 = 老消息/未绑定
    *  工作区,安静降级,不得据此编造 default)。 */
   metadata?: Record<string, unknown>
+  /** 票59/票64(消息级版本切换,2026-10-07 起服务端 wire 已透出):版本族坐标。
+   *  服务端历史读面(serializeMessage)逐字段下发;**与 W16 live 本地链同字段不同义**
+   *  (live addMessage 写的 parentMessageId = 前一条,没有 siblingIndex 伴随)。
+   *  判族唯一口径:`siblingIndex` 非 null 且非 undefined 才参与族投影
+   *  (web 侧实现 apps/web/src/lib/message-version-family.ts,接端时必须 import 该口径,
+   *  不得二次判族 —— §0.6 单一真相源)。null/缺失 = 不属于任何版本族(存量行为零感知)。 */
+  parentMessageId?: string | null
+  siblingIndex?: number | null
 }
 
 /**
