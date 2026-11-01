@@ -114,6 +114,28 @@ function scan() {
     }
   }
 
+  const buildFiles = listBuildFiles()
+  if (buildFiles === null) {
+    violations.push('[build-pin] 取不到 deploy/ 目录 ⇒ 未判定(§0.3),不记绿')
+  } else if (buildFiles.length === 0) {
+    violations.push('[build-pin] deploy/ 下枚举到 0 个构建文件 ⇒ 判死,不记绿(§0.3)')
+  } else {
+    const pm = readPackageManagerPnpm()
+    for (const abs of buildFiles) {
+      let text
+      try {
+        text = readFileSync(abs, 'utf8')
+      } catch {
+        violations.push(
+          `${relative(ROOT, abs).replaceAll('\\', '/')} [build-pin] 读不到 ⇒ 未判定,不记绿`,
+        )
+        continue
+      }
+      const rel = relative(ROOT, abs).replaceAll('\\', '/')
+      for (const why of judgeBuildToolPins(text, pm)) violations.push(`${rel} [build-pin] ${why}`)
+    }
+  }
+
   return violations
 }
 
@@ -155,6 +177,98 @@ export function judgeInstallPins(text) {
     out.push(`第 ${i + 1} 行安装命令未逐字钉版:${line.trim().slice(0, 100)}`)
   })
   return out
+}
+
+/**
+ * 规则 D(2026-11-01 供给链新增,绝对零容忍):`deploy/**` 的构建文件里,**装工具链的那一行**
+ * 必须逐字钉版,且凡写到 pnpm 版本的地方必须等于根 `package.json` 的 `packageManager`。
+ *
+ * 为什么单独一条维:规则 C 的射程是 `.github/workflows/`,而容器/快照/SaaS 模板这些构建文件
+ * 不在里面。实测漏网的正是 `corepack prepare pnpm@latest --activate` —— 同一枚提交两次构建
+ * 能拿到两个不同的 pnpm,而 pnpm 直接读 `pnpm-lock.yaml` 并执行 `postinstall` 生命周期脚本,
+ * 它站在"任意依赖投毒 ⇒ 进产物"这条链的第一格。三处 `Dockerfile.cli` /
+ * `deploy/saas/admin-api/Dockerfile` / `deploy/snap/snapcraft.yaml` 全是这一型,且其中一处还挂着
+ * `|| true`(连"钉不上"都不响)。
+ *
+ * 判什么:
+ *   D1 `corepack prepare <tok> --activate` / `npm i -g <tok>` / `pnpm add -g <tok>` /
+ *      `yarn global add <tok>` ⇒ `<tok>` 必须带 `@x.y(.z)`(或 `@$VAR` 这种由仓内现读值供版);
+ *   D2 文本里出现的每个 `pnpm@x.y.z` 字面量必须等于 `packageManager` 里的同一值 —— 钉了版
+ *      但钉成另一个版本,同样是"两次构建不同东西",只是换了个更隐蔽的形态。
+ * 不判什么(刻意留出,不是豁免):`FROM node:22-alpine` 这类基础镜像按大版本走、
+ * `apk add` / `apt-get install` 不带 `=` —— 把它们一起纳进来会立刻造出恒红门(§12e),
+ * 而钉这些需要先在真构建里验"该版本在该仓库快照里存在",本仓无 docker 可用(实测
+ * `docker: command not found`)⇒ 记为待办,不在本维赌。
+ * 存量:本枚改动后现读 0 条 ⇒ blocking 合法。
+ */
+const BUILD_INSTALL_RE =
+  /(?:corepack\s+prepare|npm\s+(?:i|install|add)\s+-{1,2}(?:g|global)|pnpm\s+add\s+-{1,2}(?:g|global)|yarn\s+global\s+add)\s+([^\s|;&)]+)/g
+const D2_VERSIONED_RE = /pnpm@(\d+\.\d+\.\d+)/g
+const CONCRETE_VERSION_RE = /^\d+\.\d+(?:\.\d+)?(?:[-+][\w.-]+)?$/
+const DERIVED_SPEC_RE = /^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$/
+
+/** 去掉行注释(Dockerfile 与 YAML 都以 `#` 起行);历史说明注释里写过旧版本号,不能当判红目标。 */
+function stripBuildComments(text) {
+  return text
+    .split(/\r?\n/)
+    .map((l) => (/^\s*#/.test(l) ? '' : l))
+    .join('\n')
+}
+
+/**
+ * @param text 构建文件全文
+ * @param packageManagerPnpm 根 package.json `packageManager` 里的 pnpm 版本(现读传入,本函数不读盘)
+ */
+export function judgeBuildToolPins(text, packageManagerPnpm) {
+  const body = stripBuildComments(text)
+  const out = []
+  for (const m of body.matchAll(BUILD_INSTALL_RE)) {
+    const token = m[1].replace(/^['"]|['"]$/g, '')
+    const at = token.lastIndexOf('@')
+    const spec = at > 0 ? token.slice(at + 1) : ''
+    if (!spec) {
+      out.push(`装工具链没带版本:${token}(浮动 ⇒ 同一枚提交两次构建能拿到两个不同的东西)`)
+      continue
+    }
+    if (CONCRETE_VERSION_RE.test(spec) || DERIVED_SPEC_RE.test(spec)) continue
+    out.push(`装工具链的版本位不是具体版本:${token}(要 x.y.z 或 @$VAR)`)
+  }
+  if (packageManagerPnpm) {
+    for (const m of body.matchAll(D2_VERSIONED_RE)) {
+      if (m[1] !== packageManagerPnpm) {
+        out.push(`pnpm 钉的是 ${m[1]},与根 packageManager 的 ${packageManagerPnpm} 不同值`)
+      }
+    }
+  }
+  return out
+}
+
+/** 构建文件面:deploy/ 下的 Dockerfile* 与 *.yaml/*.yml(README 等散文不在射程)。 */
+function listBuildFiles() {
+  const dir = join(ROOT, 'deploy')
+  let entries
+  try {
+    entries = readdirSync(dir, { recursive: true, encoding: 'utf8' })
+  } catch {
+    return null // 取不到 ⇒ 未判定(§0.3),由调用方顶红而不是默默放行
+  }
+  return entries
+    .filter((e) => typeof e === 'string')
+    .map((e) => e.replaceAll('\\', '/'))
+    .filter((p) => !p.endsWith('/'))
+    .filter((p) => /(^|\/)Dockerfile[\w.]*$|\.ya?ml$/.test(p))
+    .map((p) => join(dir, p))
+}
+
+/** 根 package.json 的 packageManager 里的 pnpm 版本(读不到返回 null ⇒ D2 不判,只判 D1)。 */
+function readPackageManagerPnpm() {
+  try {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+    const m = /pnpm@(\d+\.\d+\.\d+)/.exec(String(pkg.packageManager ?? ''))
+    return m ? m[1] : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -247,6 +361,76 @@ export function selfTest() {
   } else if (judgePermissionsDeclaration(stripped).length === 0) {
     failures.push('反向自证不过:删掉 permissions 块后仍放行 ⇒ 本维是哑的')
   }
+
+  // 规则 D 的成对夹具:每一条放行都配一条必须翻红的反证(§22c 用生产判据本身跑)。
+  const dCases = [
+    {
+      name: 'D① corepack 钉到具体版本放行',
+      text: 'RUN corepack enable && corepack prepare pnpm@11.18.0 --activate\n',
+      pm: '11.18.0',
+      want: 0,
+    },
+    {
+      name: 'D② corepack @latest 判红(2026-11-01 实测三处即此型)',
+      text: 'RUN corepack enable && corepack prepare pnpm@latest --activate\n',
+      pm: '11.18.0',
+      want: 1,
+    },
+    {
+      name: 'D③ corepack 不带版本判红',
+      text: 'RUN corepack prepare pnpm --activate\n',
+      pm: '11.18.0',
+      want: 1,
+    },
+    {
+      name: 'D④ npm -g 具体版本放行',
+      text: 'RUN npm install -g pnpm@11.18.0\n',
+      pm: '11.18.0',
+      want: 0,
+    },
+    {
+      name: 'D⑤ 钉成另一个版本判红(与 packageManager 不同值;版本位本身是合法的,只违 D2)',
+      text: 'RUN npm install -g pnpm@9.15.0\n',
+      pm: '11.18.0',
+      want: 1,
+    },
+    {
+      name: 'D⑥ 注释里的历史版本号不判(只裁命令行)',
+      text: '# 原为 node:20-alpine + pnpm@9.15.0,与根 package.json engines 冲突\nRUN apk add --no-cache tini\n',
+      pm: '11.18.0',
+      want: 0,
+    },
+    {
+      name: 'D⑦ 区间(^11)不算具体版本',
+      text: 'RUN npm i -g pnpm@^11.18.0\n',
+      pm: '11.18.0',
+      want: 1,
+    },
+    {
+      name: 'D⑧ snapcraft 的缩进形态同样在射程',
+      text: '    steps:\n      corepack prepare pnpm@latest --activate\n',
+      pm: '11.18.0',
+      want: 1,
+    },
+  ]
+  for (const c of dCases) {
+    const got = judgeBuildToolPins(c.text, c.pm).length
+    if (got !== c.want) failures.push(`${c.name}: 期望 ${c.want} 条,实得 ${got} 条`)
+  }
+  // 反向自证:拿本仓真实构建文件,把已钉的 pnpm 摘回 @latest ⇒ 必须翻红;摘不到样本即本维是哑的。
+  const cliDocker = readFileSync(join(ROOT, 'deploy', 'docker', 'Dockerfile.cli'), 'utf8')
+  if (judgeBuildToolPins(cliDocker, readPackageManagerPnpm()).length !== 0) {
+    failures.push('真实样本 Dockerfile.cli 本应零违规 ⇒ 有新的浮动工具链安装混进来了')
+  }
+  const floatBack = cliDocker.replace(
+    'corepack prepare pnpm@11.18.0',
+    'corepack prepare pnpm@latest',
+  )
+  if (floatBack === cliDocker) {
+    failures.push('规则 D 反向自证未取到样本:Dockerfile.cli 里没摘掉任何 pnpm 版本钉')
+  } else if (judgeBuildToolPins(floatBack, '11.18.0').length === 0) {
+    failures.push('规则 D 反向自证不过:摘掉版本钉后仍放行 ⇒ 本维是哑的')
+  }
   return failures
 }
 
@@ -297,5 +481,13 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { judgePermissionsDeclaration, judgeInstallPins, selfTest, scan }
+export const __test__ = {
+  judgePermissionsDeclaration,
+  judgeInstallPins,
+  judgeBuildToolPins,
+  listBuildFiles,
+  readPackageManagerPnpm,
+  selfTest,
+  scan,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

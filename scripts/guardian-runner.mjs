@@ -1192,17 +1192,18 @@ const checks = [
   //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
   {
     id: '48',
-    label: '🧩 GitHub Actions workflow 守门(步骤顺序 + 顶层 permissions 声明 + 安装命令逐字钉版)',
+    label: '🧩 GitHub Actions workflow + deploy 构建文件守门(步骤顺序 + permissions + 安装逐字钉版 + 工具链版本对账)',
     script: 'check-workflow-step-order.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: [".github/workflows/"],
+    stagedTriggers: ['.github/workflows/', 'deploy/'],
     onFailHint: [
       '',
       '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
       '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
       '  💡 [permissions] 缺顶层 permissions: 块或写了 write-all ⇒ GITHUB_TOKEN 正拿仓库/组织默认档位(可能含写权)。修复: 顶层(第 0 列)逐条点名 scope,禁 write-all。取证: node --test scripts/tests/workflow-permissions-declaration.test.mjs',
-      '  💡 [install-pin] 安装命令没逐字钉版(区间与裸包名都算)⇒ 同一枚提交在两个时间点能装出两个东西,而它常站在握凭据的那条链第一格。修复: ==x.y.z / @x.y.z,或现读值 @$V,或走锁文件。取证: node scripts/check-workflow-step-order.mjs --self-test',
+      '  💡 [install-pin] 安装命令没逐字钉版(区间与裸包名都算)⇒ 同一枚提交在两个时间点能装出两个东西,而它常站在握凭据的那条链第一格。修复: ==x.y.z / @x.y.z,或现读值 @$VAR,或走锁文件。取证: node scripts/check-workflow-step-order.mjs --self-test',
+      '  💡 [build-pin] deploy/ 的构建文件里,装工具链那一行(corepack prepare / npm i -g / pnpm add -g / yarn global add)没逐字钉版,或钉成的版本 ≠ 根 package.json 的 packageManager ⇒ 镜像与 snap 产物用的包管理器由"当天 registry 最新"决定。修复: 钉到 packageManager 同值(pnpm 现读值见根 package.json)。取证: node scripts/check-workflow-step-order.mjs --self-test',
     ].join('\n'),
   },
 
