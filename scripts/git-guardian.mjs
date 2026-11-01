@@ -42,6 +42,12 @@ import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 // 连同守护本身一起杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。计划任务的存在性与
 // XML 改走 Get-ScheduledTask / Export-ScheduledTask,形态判据仍是 lib/schtasks-form.mjs 那一份。
 import { pickPowerShell } from './check-service-binary-paths.mjs'
+// P5 云同步自愈(2026-11-01 立,接「都要全自动自修复」):百度网盘同步客户端(云同步腿出机依赖)
+// 原设计"机主专属裁决,本判据不启动它"。实测守护(会话 0)能拉起但进程随即退出——无法无头养活。
+// 故本自愈器**只尽力拉起、绝不伪造成功**:拉起后即返回 attempted,是否留得住由下一轮 P5 判定独立决
+// 定(判机器状态 ⇒ 不进提交链,§12e),挂进 CHECK_ONLY 早退分支等于永不执行。30 分钟节流防拉起风暴。
+import { healBaiduSync } from './heal-baidu-sync.mjs'
+import { healCloudSync } from './cloud-sync/heal-cloud-sync.mjs'
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l38(门 103 C1 收口)〉首意: 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 import { splitDeadRefs, objectExists } from './git-refs-heal.mjs'
 import {
@@ -114,6 +120,7 @@ import {
   maskEmail,
   notifyWindowMs,
   notifyFailCooldownMs,
+  notifyClassMinIntervalMs,
   alertHeldTier,
   noteUndeterminedStreak,
   clearUndeterminedStreak,
@@ -135,6 +142,7 @@ export {
   withAlertMark,
   maskEmail,
   alertHeldTier,
+  notifyClassMinIntervalMs,
   noteUndeterminedStreak,
   clearUndeterminedStreak,
   judgeRefsHealth,
@@ -2546,6 +2554,19 @@ export function notifyGuardRed(name, detail, opts = {}) {
       if (process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1')
         return { sent: false, why: 'GIT_GUARDIAN_NOTIFY_DISABLED=1,已关闭' }
       if (CHECK_ONLY) return { sent: false, why: '--check 模式零副作用,不发' }
+      // 同类最小间隔:同一告警类(按名)在 CLASS_MIN 内已通报过则压住,止住"详情微变就每 2 分钟重发"
+      // 的告警疲劳;首报与跨档(持续档/计数档)重报不受影响。默认 0 = 不节流(行为不变)。
+      const classMinMs = notifyClassMinIntervalMs()
+      if (classMinMs > 0) {
+        const prev = parseNotifyState(readNotifyText(stateFile))[name]
+        if (prev && now - prev.ts < classMinMs) {
+          return {
+            sent: false,
+            suppressed: true,
+            why: `同类(${name}) ${Math.round(classMinMs / 60000)} 分钟内已通报,本轮压住`,
+          }
+        }
+      }
     }
     const fp = dedupKey ? stableAlertFingerprint(name, dedupKey) : alertFingerprint(name, detail)
     const state = parseNotifyState(readNotifyText(stateFile))
@@ -6357,6 +6378,107 @@ export function auditSmsChannelHealth(opts = {}) {
     logger(
       '⚠️ 短信通道健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
     )
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
+ * 自开发/自修复「发起腿」健康的**常驻**派发点(尺子 = `scripts/check-autonomy-leg-health.mjs`,2026-11-01 立)。
+ *
+ * 为什么必须挂守护而不是挂提交链:这条腿断在"运行时"(执行体路径钉死别机盘符、服务面抖动),
+ * 提交链门判的是文本,结构上判不出"这台机此刻能不能起会话" ⇒ 按 §12e 不能做成 blocking 门。
+ * 病灶实测:auto-evolve 48 轮派发仅 1 成功,持续 6 天无任何判据在跑 —— 失败被记成"票失败"并封票,
+ * 真因一行也没被点名。本函数是这条尺子唯一调度器。
+ * drift ⇒ 经到人通道(身份 = state+维度名+计数,不掺时刻/明细,§5e-3);unjudged ⇒ 只写日志(§0.3)。
+ */
+const AUTONOMY_HEALTH_TICK = join(WORKTREE, '.ihui-agent', 'state', 'autonomy-leg-health-tick.ts')
+const AUTONOMY_HEALTH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'autonomy-leg-health-last.json')
+const AUTONOMY_HEALTH_INTERVAL_MS = Number(process.env.IHUI_AUTONOMY_HEALTH_INTERVAL_MS || 30 * 60 * 1000)
+const AUTONOMY_HEALTH_TIMEOUT_MS = Number(process.env.IHUI_AUTONOMY_HEALTH_TIMEOUT_MS || 240_000)
+
+export function sweepAutonomyLegHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AUTONOMY_HEALTH_INTERVAL_MS,
+    tickFile = AUTONOMY_HEALTH_TICK,
+    lastFile = AUTONOMY_HEALTH_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-autonomy-leg-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 发起腿健康:尺子脚本不在位(scripts/check-autonomy-leg-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: AUTONOMY_HEALTH_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 20,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(
+        `⚠️ 发起腿健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响发信 */
+    }
+    if (parsed.verdict === 'drift') {
+      const bad = (parsed.dims || []).filter((d) => d.state === 'drift')
+      notify(
+        '自开发发起腿不健康(自动派单这条链正在带病运行)',
+        `读数:${parsed.summary || ''}\n逐维:${bad.map((d) => `${d.dim}=${d.readout}`).join(' ｜ ') || '(无点名)'}\n出路:${bad.map((d) => d.next).filter(Boolean).join('\n') || '见尺子点名'}\n尺子:scripts/check-autonomy-leg-health.mjs(判据 import scripts/lib/autonomy-runner.mjs)\n取证:node scripts/check-autonomy-leg-health.mjs --json 或读 .ihui-agent/state/autonomy-leg-health-last.json`,
+        { severity: 'warning', dedupKey: parsed.identity || `verdict=drift;count=${bad.length}` }
+      )
+      logger(`❌ 发起腿 drift:${bad.map((d) => d.dim).join('+')}(${(parsed.summary || '').slice(0, 120)})已按身份去重发信`)
+      return { ran: true, judged: true, breaches: bad.length, unjudged: 0 }
+    }
+    if (parsed.verdict === 'unjudged') {
+      logger(`ℹ️ 发起腿健康:未判定 —— ${(parsed.summary || '无原因').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    logger(`✅ 发起腿健康:${(parsed.summary || '').slice(0, 160)}`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ 发起腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
     return { ran: false, why: '派发异常' }
   }
 }
@@ -10888,7 +11010,7 @@ function acquireSingleInstance(pidFile = GUARDIAN_PID_FILE) {
   return { ok: true }
 }
 
-function main() {
+async function main() {
   // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
   const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
   const inst = manual ? { ok: true } : acquireSingleInstance()
@@ -11089,6 +11211,12 @@ function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
+    // P5 云同步自愈(接 auditOpsPatrol):它判出百度同步客户端没跑,本行即时尽力拉起(服务或 exe),
+    // 立即返回 attempted,绝不自报 verified——留得住与否由下一轮 P5 独立判定(§12e:不进提交链)。
+    if (!CHECK_ONLY) {
+      const healed = await healCloudSync({ logger: (m) => log(m) })
+      if (healed.skipped) healBaiduSync({ logger: (m) => log(m) }) // 未启用无头通道则回退 GUI 拉起(治标)
+    }
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
     // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动
@@ -11113,6 +11241,10 @@ function main() {
     // 短信通道健康(2026-10-27 立,尺子 = scripts/check-sms-channel-health.mjs):判机器状态 ⇒
     // 不进提交链(§12e)。立因 = 当天阿里云欠费停机一整天、用户拿不到登录验证码,而全仓零门喊过。
     if (!CHECK_ONLY) auditSmsChannelHealth()
+    // 自开发发起腿健康(2026-11-01 立,尺子 = scripts/check-autonomy-leg-health.mjs):
+    // 立因 = auto-evolve 这条腿在本机断了 6 天(48 轮仅 1 成功),期间零判据在跑 —— 失败被记成
+    // "票失败"并封票,真因(执行体路径钉死别机盘符)一行也没被点名。判机器状态 ⇒ 不进提交链(§12e)。
+    if (!CHECK_ONLY) sweepAutonomyLegHealth()
     // Qoder 会话回灌计划任务存续(2026-10-31 立,尺子 = scripts/check-qoder-session-sync-task.mjs):
     // 立因 = 回灌腿以交互用户身份跑(DPAPI 只能由登录用户解),它的失效形态全是安静 —— 任务被删/
     // 禁用/改成 S4U/停摆都不会让池里那枚号立刻变红。判机器状态 ⇒ 不进提交链(§12e),本行是唯一调度器。
@@ -11954,7 +12086,11 @@ export function dispatchDeployFeedback(opts = {}) {
     runner ??
     (() => {
       try {
-        const out = execFileSync(process.execPath, [script, '--once'], {
+        // 2026-11-01 接「全自动自修复」:原调用只给 `--once`(扫描档,注脚自写"--once 仅扫描"),
+        // 建单一律 dry-run、永不落地 ⇒ feedback-loop-status 永远卡在 ticketed 段(实测 3 条 >48h)。
+        // 改为 `--once --apply` 让派发器真正登记工单(自带 --max-per-run=3 + 24h 同身份去重,
+        // 每轮至多落 3 张真票,不刷屏也不重复建单)。这是 feedback-loop 卡点的唯一出环动作。
+        const out = execFileSync(process.execPath, [script, '--once', '--apply'], {
           cwd: WORKTREE,
           encoding: 'utf8',
           windowsHide: true,
@@ -12364,7 +12500,12 @@ if (isDirectRun) {
   if (DAEMON) {
     startDaemon()
   } else {
-    process.exit(main())
+    main()
+      .then((code) => process.exit(typeof code === 'number' ? code : 0))
+      .catch((e) => {
+        console.error(e)
+        process.exit(1)
+      })
   }
 }
 
