@@ -26,6 +26,7 @@ import {
 } from '@tarojs/components'
 
 import { flattenStyle, toTaroStyle, type StyleProp, type TextStyle, type ViewStyle } from './style'
+import { resolveRefreshControl } from './props-resolution'
 /**
  * 纯类型别名一律 `import type`(编译期擦除,不进运行时图):`./index` 会 `export * from './primitives'`,
  * 值层若互相 require 就是环 —— 类型层没有这个问题。
@@ -291,6 +292,19 @@ export function Image(props: RNBaseProps) {
       style={toTaroStyle(merged(props.style, VIEW_BASE))}
       className={typeof props.className === 'string' ? props.className : undefined}
       onClick={clickHandler(props)}
+      /**
+       * onLoad 桥(2026-11-01):Taro 给 detail.{width,height},RN 消费面读
+       * nativeEvent.source.{width,height,uri} —— 旧写法声明了 onLoad 却从不派发,
+       * BusinessLicense/ModelRecord 两屏的"图片加载完再量尺寸"静默失效。
+       */
+      onLoad={(e) => {
+        const d = (e as { detail?: { width?: number; height?: number } }).detail
+        const w = d?.width ?? 0
+        const h = d?.height ?? 0
+        ;(props.onLoad as ((ev: NativeSyntheticEvent<ImageLoadEventData>) => void) | undefined)?.({
+          nativeEvent: { source: { width: w, height: h, uri: uri ?? '' }, width: w, height: h },
+        })
+      }}
     />
   )
 }
@@ -320,12 +334,27 @@ export function ScrollView(props: RNBaseProps) {
   const horizontal = props.horizontal === true
   const base: ViewStyle = horizontal ? { flexDirection: 'row' } : {}
   const throttleMs = typeof props.scrollEventThrottle === 'number' ? props.scrollEventThrottle : 16
+  /**
+   * 下拉刷新承接(2026-11-01):RN 的 refreshControl 是"挂 <RefreshControl> 子元素的声明位",
+   * 手势由 ScrollView 承接;小程序等价物是 refresher 三件套 ⇒ 从元素里解出 refreshing/onRefresh
+   * 接上(resolveRefreshControl 纯函数,行为钉在 props-resolution.test.ts)。
+   * 此前三参全被丢弃 ⇒ 共享层 113 处下拉刷新在小程序端整条静默(§0.9 装好了没覆盖=没有)。
+   */
+  const rc = resolveRefreshControl(props.refreshControl)
+  // RN 的 showsHorizontal/VerticalScrollIndicator 缺省 true;只有消费面显式给 false 才关滚动条
+  // (旧写法硬编码 showScrollbar={false},与 RN 缺省相反 ⇒ 纯视觉分叉)。
+  const showScrollbar = !(
+    props.showsHorizontalScrollIndicator === false || props.showsVerticalScrollIndicator === false
+  )
   return (
     <TaroScrollView
       scrollX={horizontal}
       scrollY={!horizontal}
       enhanced
-      showScrollbar={false}
+      showScrollbar={showScrollbar}
+      refresherEnabled={rc?.enabled === true}
+      refresherTriggered={rc?.refreshing === true}
+      onRefresherRefresh={rc?.onRefresh ? () => rc.onRefresh?.() : undefined}
       className={typeof props.className === 'string' ? props.className : undefined}
       style={toTaroStyle(merged(props.style, { ...VIEW_BASE, ...base }))}
       // RN 的 scrollEventThrottle 在小程序没有原生对应档(旧写法把它当 Taro prop 直传,组件不认 ⇒ TS2769)
@@ -340,12 +369,14 @@ export function ScrollView(props: RNBaseProps) {
   )
 }
 
-/** 下拉刷新:RN 把它做成 ScrollView 的子元素;小程序的下拉手势属页面级,由页面壳承接 */
-export function RefreshControl(props: RNBaseProps) {
-  if (props.refreshing !== true) return null
-  return (
-    <View style={{ alignItems: 'center', paddingVertical: 8 }}>{props.children as ReactNode}</View>
-  )
+/**
+ * 下拉刷新:RN 把它做成 ScrollView 的子元素;小程序的下拉手势由 ScrollView 的 refresher
+ * 三件套承接(见 ScrollView 内 resolveRefreshControl)。本组件按 RN 语义**渲染产物为空**
+ * —— 旧写法在 refreshing 时渲染一枚静态 spinner,那会让"原生 refresher + 内容内 spinner"
+ * 双份出现,且 onRefresh 永远无人调用。
+ */
+export function RefreshControl(_props: RNBaseProps) {
+  return null
 }
 
 /**
@@ -425,14 +456,39 @@ export function TextInput(props: RNBaseProps) {
     'phone-pad': 'number',
     url: 'text',
   }
+  /**
+   * 焦点桥(2026-11-01):RN 消费面读 nativeEvent.{text,target},Taro 给 detail.value;
+   * 旧写法声明了 onFocus/onBlur 却从不派发 ⇒ SearchInput/TextField/MessageInput 的
+   * 聚焦态样式与失焦收起整条静默。消费面现读全部忽略载荷(零参回调),桥按最小形状合成。
+   */
+  const focusBridge = {
+    onFocus: props.onFocus
+      ? (e: { detail?: { value?: string } }) =>
+          (
+            props.onFocus as
+              ((ev: NativeSyntheticEvent<{ target: number; text?: string }>) => void) | undefined
+          )?.({ nativeEvent: { target: -1, text: String(e.detail?.value ?? '') } })
+      : undefined,
+    onBlur: props.onBlur
+      ? (e: { detail?: { value?: string } }) =>
+          (
+            props.onBlur as
+              ((ev: NativeSyntheticEvent<{ target: number; text?: string }>) => void) | undefined
+          )?.({ nativeEvent: { target: -1, text: String(e.detail?.value ?? '') } })
+      : undefined,
+  }
   const common = {
     value: (props.value as string) ?? '',
     placeholder: (props.placeholder as string) ?? '',
+    placeholderStyle: props.placeholderTextColor
+      ? `color: ${props.placeholderTextColor as string}`
+      : undefined,
     maxlength: (props.maxLength as number) ?? -1,
     disabled: props.editable === false,
     autoFocus: props.autoFocus === true,
     className: typeof props.className === 'string' ? props.className : undefined,
     style: toTaroStyle(merged(props.style, VIEW_BASE)),
+    ...focusBridge,
   }
   if (multiline) {
     return (
@@ -461,10 +517,19 @@ function keyTypeOf(keyboardType: string): string {
 }
 
 export function Switch(props: RNBaseProps) {
+  /**
+   * trackColor 在 RN 是 {false,true} 对象或 string;TaroSwitch.color 只收一枚 on 态颜色。
+   * 旧写法把对象**原样**塞进 color ⇒ 6 个设置屏的开关配色整条失效(2026-11-01 现读,
+   * 消费面全部传对象形)。取 true 档;color 为 undefined 时交 Taro 缺省。
+   * thumbColor 在 Taro 无等价键(滑块色由宿主主题定),声明位保留、不装假映射。
+   */
+  const track = props.trackColor as string | { false?: unknown; true?: unknown } | undefined
+  const color = typeof track === 'string' ? track : (track?.true as string | undefined)
   return (
     <TaroSwitch
       checked={props.value === true}
-      color={props.trackColor as string | undefined}
+      disabled={props.disabled === true}
+      color={color}
       onChange={(e) =>
         (props.onValueChange as ((v: boolean) => void) | undefined)?.(Boolean(e.detail?.value))
       }
