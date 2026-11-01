@@ -36,6 +36,7 @@ function harness(results, extra = {}) {
       tickFile: `${dir}/tick`,
       lastFile: `${dir}/last.json`,
       streakFile: `${dir}/streak.json`,
+      peakFile: `${dir}/sev-peak.json`,
       // 夹具默认关掉"重复测量合并",让每一格测试各测各的那一维;合并本身由下面两格专测钉住。
       minGapMs: 0,
       logger: (l) => logs.push(l),
@@ -305,7 +306,7 @@ test('形状锁:调用派发点的每一处都必须把三个状态件钉在 scr
   assert.equal((src.match(/auditPublicPathProbe\(\s*\{/g) || []).length, 0, '不许就地内联造 opts —— 那正是"少钉一个状态件"的入口(2026-10-16 的污染就是这么发生的)')
   // harness 自己:三个状态件必须都在 scratch 目录下,且夹具 now 必须是**过去**(泄漏了也会按龄回收)
   const harnessBlock = src.slice(src.indexOf('function harness('), src.indexOf('const B_LOCAL_BREACH'))
-  for (const key of ['tickFile', 'lastFile', 'streakFile']) {
+  for (const key of ['tickFile', 'lastFile', 'streakFile', 'peakFile']) {
     assert.ok(new RegExp(`${key}:\\s*\`\\$\\{dir\\}/`).test(harnessBlock), `harness 缺 ${key} 的 scratch 覆写 —— 缺一个就会写真生产件`)
   }
   assert.ok(/now:\s*1_700_000_000_000/.test(harnessBlock), '夹具的 now 必须是过去的固定时刻(2026-10-16 那枚 2027 的 now 就是污染源)')
