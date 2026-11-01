@@ -859,9 +859,49 @@ export function navBarCoveredOnScreen(sharedText, shellText, hasTitle) {
   const shared = maskComments(String(sharedText ?? ''))
   if (!/<BackChevron\b/.test(shared)) return false
   if (!hasTitle) return true
-  return /navTitle|setNavigationBarTitle/.test(
-    `${shared}\n${maskComments(String(shellText ?? ''))}`,
+  // 标题这一格不能写死形态名:实测 pkg-content/topic/detail 的屏叫 styles.navTitle,
+  // 而 pages/ask/create(:53 屏取同一个键 t('askCreate.title'))与 pages/exam/result
+  // (:51 屏把标题改成数据里的考试名,比页上的静态「考试结果」更准)叫 styles.title。
+  // 三者都是"返回件同层有一枚标题文本";壳自己 setNavigationBarTitle 设原生标题同样算。
+  return (
+    /navTitle|styles\.title\b|headerTitle/.test(shared) ||
+    /setNavigationBarTitle/.test(maskComments(String(shellText ?? '')))
   )
+}
+
+/**
+ * `@/components` 这类 barrel 的具名导入清单(2026-11-01 立)。只要具名,默认导入与 `import * as`
+ * 一律不展开(取用面不明 ⇒ 保守不销)。type-only 导入不算能力。
+ */
+export function barrelNamedImports(pageText, from = '@/components') {
+  const t = maskComments(String(pageText ?? ''))
+  const out = new Set()
+  for (const m of t.matchAll(
+    new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*['"]${from.replace(/\//g, '\\/')}['"]`, 'g'),
+  )) {
+    for (const raw of m[1].split(',')) {
+      const n = raw
+        .trim()
+        .split(/\s+as\s+/)[0]
+        .replace(/^type\s+/, '')
+        .trim()
+      if (n && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(n)) out.add(n)
+    }
+  }
+  return [...out].sort()
+}
+
+/**
+ * barrel 里**每一枚**具名符号都能在「屏 ⊕ 壳」里找到实现,才算这枚 barrel 不带来私有能力。
+ * 判面遮注释(比 pageOnlyCapabilities 的字面口径更严):屏里注释提一句组件名不算把它实现了。
+ * 一枚没命中 ⇒ 整枚不销(保守)—— 实测 pkg-learn/course/detail 装 13 枚、13 枚全未命中,
+ * 而 pages/ask/create 与 pages/exam/result 各只装 1 枚且真命中,两种都得给出正确答案。
+ */
+export function barrelFullyCovered(pageText, sharedText, shellText, from = '@/components') {
+  const names = barrelNamedImports(pageText, from)
+  if (names.length === 0) return false
+  const src = `${maskComments(String(sharedText ?? ''))}\n${maskComments(String(shellText ?? ''))}`
+  return names.every((n) => new RegExp(`${n.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}\\b`).test(src))
 }
 
 /**
@@ -1028,6 +1068,11 @@ export function judgeConversion({
   if (pageTokens.has('@/components')) {
     const nav = navBarOnlyChrome(pageText)
     if (nav.ok && navBarCoveredOnScreen(sharedText, shellText, nav.hasTitle))
+      pageTokens.delete('@/components')
+    // barrel 符号级覆盖(2026-11-01 立):上面那条只管"只装一枚导航条";这里管更一般的一型 ——
+    // 具名导入的每一枚符号都能在屏/壳找到实现(实测 pages/ask/create 与 pages/exam/result 各只装
+    // 1 枚且真命中),旧口径却因为"@/components 这个名字不会出现在共享源里"整枚判成私有能力。
+    else if (barrelFullyCovered(pageText, sharedText, shellText))
       pageTokens.delete('@/components')
   }
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
@@ -1596,6 +1641,29 @@ function main(argv) {
         '',
       ),
     ], [['列表分页'], [], ['输入框聚焦态'], []])
+    // S32(2026-11-01 立):barrel 的销账口径必须到符号级。四臂各钉一种"不该放过"的形态。
+    P('S32 barrel 逐符号:全命中才销;少一枚、只在注释里出现、带默认导入 三种都不销', [
+      barrelFullyCovered(
+        `import { EmptyState } from '@/components'\nexport default function P(){ return <EmptyState /> }`,
+        'export function S(){ return <EmptyState title={x} /> }',
+        '',
+      ),
+      barrelFullyCovered(
+        `import { EmptyState, CourseHeader } from '@/components'\nexport default function P(){ return <EmptyState /> }`,
+        '<EmptyState />',
+        '',
+      ),
+      barrelFullyCovered(
+        `import { CourseHeader } from '@/components'\nexport default function P(){ return <CourseHeader /> }`,
+        '<View />',
+        '// 将来用 CourseHeader 替换这里的占位',
+      ),
+      barrelFullyCovered(
+        `import SomeBar from '@/components'\nexport default function P(){ return <SomeBar /> }`,
+        '<SomeBar />',
+        '',
+      ),
+    ], [true, false, false, false])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
@@ -1717,6 +1785,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   capabilityTokens,
+  barrelNamedImports,
+  barrelFullyCovered,
   navBarOnlyChrome,
   navBarCoveredOnScreen,
   pageOnlyCapabilities,
