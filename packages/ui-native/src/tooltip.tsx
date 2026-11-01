@@ -66,7 +66,9 @@ export function Tooltip({ children, content, side = 'top' }: TooltipProps) {
   const triggerRef = useRef<View>(null)
 
   const show = useCallback(() => {
-    triggerRef.current?.measureInWindow((x, y, width, height) => {
+    // 显式标注形参:RN 宿主下由 RN 的类型给,小程序宿主下 `View` 来自 @tarojs/components,
+    // 其 measureInWindow 回调未定型 ⇒ 隐式 any(TS7006)。显式写死两端都成立。
+    triggerRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
       setRect({ x, y, width, height })
       setVisible(true)
     })
@@ -111,7 +113,7 @@ export function Tooltip({ children, content, side = 'top' }: TooltipProps) {
         <Pressable className="flex-1" onPress={hide}>
           <Animated.View
             pointerEvents="none"
-            onLayout={(e) =>
+            onLayout={(e: { nativeEvent: { layout: { width: number; height: number } } }) =>
               setContentSize({
                 width: e.nativeEvent.layout.width,
                 height: e.nativeEvent.layout.height,
