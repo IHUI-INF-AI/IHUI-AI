@@ -60,7 +60,7 @@ import csrfPlugin from './plugins/csrf.js'
 import responseSanitizerPlugin from './plugins/response-sanitizer.js'
 import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
-import { tracePlugin } from './plugins/trace.js'
+import { requestLogSerializer, tracePlugin } from './plugins/trace.js'
 import { redis, createRedisClient, FAST_FAIL_REDIS_OPTIONS } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
@@ -161,6 +161,15 @@ const loggerConfig = {
   redact: {
     paths: [...LOG_REDACT_PATHS],
     censor: LOG_REDACT_CENSOR,
+  },
+  // 2026-11-01 凭据外泄收口:Fastify 默认的 `req` 序列化器把 `req.url` **原样**
+  // 写进 "incoming request" 日志,而 `/api/ws/ai?token=…`、`/v1/realtime?api_key=…`
+  // 的凭据就在 query 里。这条日志发生在 onRequest 钩子之前(Fastify log-controller),
+  // log-sanitizer 的 Proxy 够不着它 —— 必须在序列化这一层切掉 query。
+  // 覆盖默认实现只丢 host/remoteAddress;method + path + statusCode + 响应耗时
+  // 仍由 Fastify 的完成日志给出,排障信息不缩水。
+  serializers: {
+    req: requestLogSerializer,
   },
 }
 

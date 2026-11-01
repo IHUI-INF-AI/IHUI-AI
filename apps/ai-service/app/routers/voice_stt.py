@@ -141,26 +141,9 @@ def _transcribe_sync(model: Any, tmp_path: str, language: str | None) -> str:
 
 # 2026-11-01 安全强化:匿名可调端点的上传上限(见 stt 端点头注)。
 MAX_STT_UPLOAD_BYTES = 25 * 1024 * 1024
-_STT_READ_CHUNK_BYTES = 1024 * 1024
-
-
-async def _read_capped(file: Any, limit: int) -> bytes | None:
-    """分块读到 limit 为止;**超限返回 None**,而不是先把整包读进内存再判长度。
-
-    先 `read()` 再 `len()` 的写法(本仓 media_tasks 那处就是)对"上限本身"仍造成峰值占用:
-    攻击者送 2GB 时,判定发生在内存已经吃到 2GB 之后。这里边读边断,峰值受限于 limit + 一块。
-    """
-    chunks: list[bytes] = []
-    total = 0
-    while True:
-        piece = await file.read(_STT_READ_CHUNK_BYTES)
-        if not piece:
-            break
-        total += len(piece)
-        if total > limit:
-            return None
-        chunks.append(piece)
-    return b"".join(chunks)
+# 分块读 + 上限的实现在 ``app/utils/upload_read.py``(全仓唯一一份,四个上传端点共用)。
+# 这里保留 ``_read_capped`` 这个名字:同文件与既有测试都按它调用,判据本体不在这里复查。
+from ..utils.upload_read import read_capped as _read_capped
 
 
 @router.post("/voice/stt", response_model=STTResponse)

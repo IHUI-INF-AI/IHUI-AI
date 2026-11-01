@@ -29,6 +29,20 @@ import { readFileSync } from 'node:fs'
 const ALGORITHM = 'aes-256-gcm'
 const KEY_LENGTH = 32
 
+/**
+ * 必填环境变量:缺失即 exit 2。
+ * 2026-11-01:此前 `process.env.DATABASE_URL || '<内置开发库连接串>'` —— 内置串带真实口令,
+ * 随仓库分发即是口令外泄,且脚本在缺配时静默连开发库更容易被误用。
+ */
+function requireEnv(name) {
+  const value = (process.env[name] ?? '').trim()
+  if (!value) {
+    console.error(`❌ 缺少环境变量 ${name}:请显式配置后再运行(拒绝使用内置默认连接串)。`)
+    process.exit(2)
+  }
+  return value
+}
+
 function keyFromEnv(keyStr, label) {
   if (!keyStr || typeof keyStr !== 'string') throw new Error(`${label} 未提供或为空`)
   if (keyStr.length < KEY_LENGTH) throw new Error(`${label} 必须至少 ${KEY_LENGTH} 字符(实际 ${keyStr.length})`)
@@ -134,7 +148,7 @@ function fp(k) { return k ? k.slice(0, 8) + '…(len ' + k.length + ')' : '(none
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
-  const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://ihui:fa6ZJRVkG1_vdTDCAGX0fUMZ8y0cDAbi@localhost:8810/ihui_dev'
+  const DATABASE_URL = requireEnv('DATABASE_URL')
 
   const currentKeyEnv = process.env.CREDENTIALS_ENCRYPTION_KEY || loadKeyFromFile(process.env.CREDENTIALS_ENCRYPTION_KEY_FILE, 'current')
   const oldKeyEnv = process.env.OLD_CREDENTIALS_ENCRYPTION_KEY || loadKeyFromFile(process.env.OLD_CREDENTIALS_ENCRYPTION_KEY_FILE, 'old')
