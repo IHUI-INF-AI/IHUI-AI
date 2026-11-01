@@ -1942,7 +1942,8 @@
     "inputPlaceholder": "Type a message...",
     "send": "Send",
     "clear": "Clear",
-    "error": "Failed to send, please retry"
+    "error": "Failed to send, please retry",
+    "modeDisabledHint": "Image/Audio modes are not available yet; text chat only for now"
   },
   "assistant": {
     "title": "My Assistants",

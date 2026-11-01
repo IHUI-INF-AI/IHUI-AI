@@ -1942,7 +1942,8 @@
     "inputPlaceholder": "輸入訊息...",
     "send": "傳送",
     "clear": "清空",
-    "error": "傳送失敗,請重試"
+    "error": "傳送失敗,請重試",
+    "modeDisabledHint": "影像/語音模式暫未開放,目前僅支援文字對話"
   },
   "assistant": {
     "title": "我的助手",

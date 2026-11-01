@@ -1275,7 +1275,7 @@
   "aiGroup": {
     "join": {
       "title": "加入群组",
-      "message": "已申请加入「{name}」"
+      "message": "已加入「{name}」"
     },
     "cardMembers": "成员",
     "detailEnter": "进入群聊",
@@ -1656,6 +1656,11 @@
   },
   "agentStat": {
     "title": "智能体统计",
+    "totalAgents": "智能体总数",
+    "totalUsers": "创作者数",
+    "totalCalls": "调用次数",
+    "publishedCount": "已发布数",
+    "pendingCount": "待审核数",
     "conversations": "对话数",
     "messages": "消息数",
     "tokens": "Token 消耗",
@@ -3282,7 +3287,10 @@
     "twoFactor": "两步验证",
     "loginAlert": "登录提醒",
     "desc": "管理账号安全相关的开关",
-    "loadFailed": "加载安全设置失败"
+    "loadFailed": "加载安全设置失败",
+    "readOnlyHint": "以下为当前真实状态，后端暂不支持修改",
+    "stateOn": "已开启",
+    "stateOff": "未开启"
   },
   "settingsAccount": {
     "title": "账号管理",
