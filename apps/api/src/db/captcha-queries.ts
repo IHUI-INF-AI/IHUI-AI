@@ -35,6 +35,19 @@ export async function deleteCaptcha(captchaKey: string): Promise<void> {
 }
 
 export async function cleanupExpiredCaptchas(): Promise<void> {
-  await db.delete(captchas).where(lt(captchas.expiresAt, new Date()))
+  // 先取一批过期主键,再按主键删(见 CLEANUP_BATCH_LIMIT 的立因):
+  // expires_at 无二级索引,一条无界 DELETE 会把 seq scan + 行锁一次性摊进事务。
+  const expired = await db
+    .select({ id: captchas.id })
+    .from(captchas)
+    .where(lt(captchas.expiresAt, new Date()))
+    .limit(CLEANUP_BATCH_LIMIT)
+  if (expired.length === 0) return
+  await db.delete(captchas).where(
+    inArray(
+      captchas.id,
+      expired.map((row) => row.id),
+    ),
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

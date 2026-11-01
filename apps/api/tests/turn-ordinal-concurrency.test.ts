@@ -309,7 +309,7 @@ suite('O82 续四:turn_ordinal 并发双插(真库演练)', () => {
       expect(ords).toHaveLength(2)
       if (ords[0] === ords[1]) collisions += 1
     }
-    // eslint-disable-next-line no-console -- 测量结果必须出声,这是本票的交付物
+    // 测量结果必须出声,这是本票的交付物(tests 面已整面放行 no-console,此处无需逐行豁免)
     console.log(report('旧形态 select-max→insert', collisions, collisions))
     // 判据是"量得出竞态":0 不代表安全,只代表本实验没复现出来 ⇒ 立论失效,必须喊出来
     expect(collisions, '旧形态并发双插未在真库复现出撞号:收紧依据需重查').toBeGreaterThan(0)
@@ -329,7 +329,7 @@ suite('O82 续四:turn_ordinal 并发双插(真库演练)', () => {
       if (ords[0] === ords[1]) collisions += 1
       if (ords[0] !== 1 || ords[1] !== 2) notConsecutive += 1
     }
-    // eslint-disable-next-line no-console -- 测量结果必须出声,这是本票的交付物
+    // 测量结果必须出声,这是本票的交付物(tests 面已整面放行 no-console,此处无需逐行豁免)
     console.log(report('createMessage(生产路径)', collisions, notConsecutive))
     expect(collisions, 'createMessage 并发双插撞号').toBe(0)
     expect(notConsecutive, 'createMessage 并发双插序号不连续').toBe(0)
@@ -359,7 +359,7 @@ suite('O82 续四:turn_ordinal 并发双插(真库演练)', () => {
       if (ords[0] === ords[1]) collisions += 1
       if (ords[0] !== 1 || ords[1] !== 2) notConsecutive += 1
     }
-    // eslint-disable-next-line no-console -- 测量结果必须出声,这是本票的交付物
+    // 测量结果必须出声,这是本票的交付物(tests 面已整面放行 no-console,此处无需逐行豁免)
     console.log(report('/messages/send(生产路由)', collisions, notConsecutive))
     expect(collisions, '/messages/send 并发双插撞号').toBe(0)
     expect(notConsecutive, '/messages/send 并发双插序号不连续').toBe(0)
