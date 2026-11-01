@@ -3397,7 +3397,7 @@ class AgentLoopV2:
 
         ok, info = _validate_path_in_workspace(
             signal["target"],
-            extra_roots=get_session_extra_roots(self._session_id),
+            extra_roots=get_session_extra_roots(self._session_id, user_id=self._user_id),
         )
         if not ok:
             logger.warning("[self_heal] 目标不在工作区白名单,跳过 heal: %s", info)

@@ -11,6 +11,7 @@
  *  - GET    /subagents/all            全量派单(新→旧,支持 status/limit 透传;G-299①)
  *  - POST   /subagents/:id/cancel     取消派单
  *  - POST   /subagents/:id/resume     从 checkpoint 恢复(深化 v2 新增)
+ *  - POST   /subagents/:id/attention  进入/清除人工注意力(F3 Thread/Ticket 新增)
  *  - GET    /subagents/topology       Swarm 拓扑(节点 + 边)
  *  - GET    /subagents/stats          全局统计(深化新增)
  *  - GET    /subagents/:id/stats      单个 dispatch 资源统计(深化新增)
@@ -170,6 +171,8 @@ export const DISPATCH_STATUS_LITERALS: readonly string[] = [
   'quota_exceeded',
   // F1(2026-11-02):重启中断的过渡态(自动重入队前的留痕),筛选纯增量,不改变既有 8 档语义
   'interrupted',
+  // F2(2026-11-02):等槽位的排队态;`?status=queued` 可筛出等待中的派单,同样是纯增量
+  'queued',
 ] as const
 
 /** 一次最多回多少行:必须 ≥ 消费者契约(agent-teams 页 getAllSubagentDispatches({limit:200})),否则页面被削 */
@@ -620,7 +623,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
         ownerUserId: request.userId,
       })
 
-      // 并发超限 → 429
+      // F2(2026-11-02):并发满额不再返回 429 —— service 已把派单落 queued 并进真队列,
+      // 这里直接按成功返回(dispatch.status = 'queued')。保留该分支只为兼容其他 outcome 来源。
       if (result.outcome === 'concurrent_limit') {
         return reply.status(429).send(error(429, result.error ?? '并发派单数已达上限'))
       }
@@ -740,6 +744,45 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // ---------- POST /subagents/:id/attention(F3 Thread/Ticket) ----------
+  // 人工注意力:awaiting_answer / awaiting_review 进入,传 null 清除。
+  // 与执行状态机正交(不改 status);归属闸仍走唯一出口 ownsDispatchById,一律 404,不引 403。
+
+  const attentionSchema = z.object({
+    attention: z.enum(['awaiting_answer', 'awaiting_review']).nullable(),
+  })
+
+  server.post('/subagents/:id/attention', async (request, reply) => {
+    await requireAuth(request, reply)
+    const userId = request.userId
+    if (!userId) return
+
+    const { id } = request.params as { id: string }
+    if (!id) {
+      return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    // 写操作:归属闸必须先于 service 调用(返回 404 不得暗地里改他人记录)
+    if (!ownsDispatchById(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
+    }
+
+    const parsed = attentionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, 'attention 必须是 awaiting_answer / awaiting_review / null'))
+    }
+
+    const result = await subagentDispatchService.setAttention(id, parsed.data.attention)
+    if (!result.ok) {
+      if (result.reason === 'terminal') {
+        return reply.status(409).send(error(409, '派单已结束,无法进入人工注意力'))
+      }
+      return reply.status(404).send(error(404, '派单不存在'))
+    }
+    return reply.send(success({ dispatch: result.dispatch }))
+  })
+
   // ---------- GET /subagents/topology ----------
   // S-ACL(2026-11-01):原 `getTopology()` 是全量推导 —— 节点带 goal/status/duration/tokens,
   // 等于把他人派单的执行面貌摊给任何登录用户。消费方只有 web 用户页(use-subagent-dispatch.ts
@@ -787,7 +830,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
     if (!userId) return
 
-    const queue = subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId))
+    // F2:读真队列(Redis zset),service 出口已改为异步
+    const queue = await subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success({ queue }))
   })
 

@@ -314,6 +314,29 @@ test('显式开关只关"要不要发"(GIT_GUARDIAN_NOTIFY_DISABLED),不存在�
   rmScratch(h.dir)
 })
 
+test('同类最小间隔(GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS):同一类名在间隔内即便详情指纹变了也压住;跨过间隔再发', () => {
+  const keep = process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS
+  const h = harness()
+  try {
+    process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS = '600000' // 10 分钟
+    const r1 = N.notifyGuardRed('盘根外流', '清单: A', { ...h.opts, now: 0 })
+    assert.equal(r1.sent, true, '首报必须发')
+    // 详情指纹变了(清单换 B),仍在 10 分钟内 ⇒ 被同类间隔压住(止住"27 封同因告警"那型轰炸)
+    const r2 = N.notifyGuardRed('盘根外流', '清单: B', { ...h.opts, now: 60_000 })
+    assert.equal(r2.sent, false, '同类 10 分钟内即便详情变了也压住')
+    assert.equal(r2.suppressed, true)
+    assert.equal(h.calls.length, 1, '间隔内不重复派发')
+    // 跨过 10 分钟间隔 ⇒ 再发(用不同指纹模拟"新一轮"),不得静音
+    const r3 = N.notifyGuardRed('盘根外流', '清单: C', { ...h.opts, now: 600_001 })
+    assert.equal(r3.sent, true, '跨过同类间隔必须再发,否则真故障被压成静音')
+    assert.equal(h.calls.length, 2)
+  } finally {
+    if (keep === undefined) delete process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS
+    else process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS = keep
+  }
+  rmScratch(h.dir)
+})
+
 test('force(人工 --notify-test 面):绕过当轮去重,且不污染/不抢占真实状态', () => {
   const h = harness()
   N.notifyGuardRed('合并吞并对账判红', '丢失 38 个路径', { ...h.opts, now: 0 })

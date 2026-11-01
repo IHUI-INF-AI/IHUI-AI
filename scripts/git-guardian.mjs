@@ -32,6 +32,8 @@ import { decideDevDbRotation, DEV_DB_ROTATION_COOLDOWN_MS } from './lib/dev-db-r
 import { liveServicePorts } from './rotate-local-dev-db-password.mjs'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
+// 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立)的过期回收:保留期判据全在 lib(单一真相源),本处只取盘 + 调判据 + 留声 + 删。
+import { decideRetention, isTranscriptName, TRANSCRIPT_DIR } from './lib/session-transcript.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
@@ -104,6 +106,13 @@ import {
 // = 没有」票面不成立。窗口三态/待做盘点/apply 判据全部 import 自本体(§0.6 单一真相源),
 // 本文件只挂点:默认只 probe 留痕,真搬须 scripts/data/devenv-migrate-arm.json enabled=true。
 import { devenvMigratePatrol } from './devenv-migrate.mjs'
+// 告警投递降噪策略(2026-11-02):规则表在 scripts/data/alert-delivery-policy.json,本层只读不改判据。
+// 目的:把「同一环境类告警族」的寄信窗口拉长到 24h 并汇总抑制次数,而不是逐封轰炸(§5e-1)。
+import {
+  ALERT_DELIVERY_POLICY_FILE as ALERT_POLICY_REL,
+  loadAlertDeliveryPolicy,
+  matchAlertDeliveryPolicy,
+} from './lib/alert-delivery-policy.mjs'
 
 // 纯判据层(2026-10-21 原样搬出:守门 103 C1 行数上限;实现单源在 lib/git-guardian-pure.mjs)
 import {
@@ -2532,6 +2541,31 @@ export function auditDispatchSites(src) {
   return sites
 }
 
+/**
+ * §T6 自愈层:报警前先尝试自愈。healed===true 则 notifyGuardRed 跳过发信(记 info),
+ * 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
+ */
+function healLintStagedPins({ logger = log } = {}) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'patch-lint-staged-stdio.mjs')
+  if (!existsSync(script)) {
+    logger(`ℹ️ 自愈:补丁脚本不在位(${script})⇒ 跳过`)
+    return false
+  }
+  try {
+    execFileSync(process.execPath, [script], { cwd: WORKTREE, windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    const out = execFileSync(process.execPath, [script, '--check'], { cwd: WORKTREE, windowsHide: true, timeout: 60_000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const ok = !/NEEDS-PATCH/.test(String(out)) && /check done/.test(String(out))
+    logger(`ℹ️ 自愈:lint-staged 三针重打${ok ? '成功' : '后仍未全齐'}`)
+    return ok
+  } catch (e) {
+    logger(`⚠️ 自愈:lint-staged 重打异常:${String((e && e.message) || e).slice(0, 120)}`)
+    return false
+  }
+}
+const SELF_HEAL_ROUTES = {
+  'lint-staged stdio 三针缺口': healLintStagedPins,
+}
+
 export function notifyGuardRed(name, detail, opts = {}) {
   const {
     severity = 'warning',
@@ -2539,13 +2573,32 @@ export function notifyGuardRed(name, detail, opts = {}) {
     dispatch = dispatchGuardMail,
     stateFile = NOTIFY_STATE,
     undelFile = NOTIFY_UNDEL,
-    windowMs = notifyWindowMs(),
+    windowMs: windowMsIn = notifyWindowMs(),
     failCooldownMs = notifyFailCooldownMs(),
     dedupKey = '',
     force = false,
     logger = log,
   } = opts
   try {
+    // §噪声治理:severity==='info' 的派发只登记不寄信(尺子哑了/自愈成功汇报/良性抖动),
+    // 绝不占人通道。真实故障一律 warning(默认)或更高,不受影响。
+    if (severity === 'info') {
+      logger(`ℹ️ 仅登记不发信(severity=info):${name}`)
+      return { sent: false, suppressed: true, why: 'log-only severity=info' }
+    }
+    // 降噪策略(2026-11-02):同族 24h 窗口 + 抑制计数。只改"多久寄一封",不改正文/判据;
+    // 策略表到期 ⇒ 自动回到默认窗口(多喊一次),绝不因配置陈旧而静默。
+    const policyHit = force
+      ? null
+      : matchAlertDeliveryPolicy(name, loadAlertDeliveryPolicy(ALERT_DELIVERY_POLICY_FILE).entries, {
+          today: new Date(now).toISOString().slice(0, 10),
+        })
+    const policyEntry = policyHit && !policyHit.expired ? policyHit.entry : null
+    if (policyHit?.expired)
+      logger(
+        `⚠️ 告警降噪策略已到期(${policyHit.entry.id} reviewBy=${policyHit.entry.reviewBy})⇒ 本轮按默认窗口,不再压:${name}`,
+      )
+    const windowMs = Math.max(windowMsIn, policyEntry ? policyEntry.cooldownMs : 0)
     if (!force) {
       // --check 是 CI 口径(零副作用),通知归真巡检轮;显式开关只关"要不要发",不关"发几封"
       if (process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1')
@@ -2567,12 +2620,69 @@ export function notifyGuardRed(name, detail, opts = {}) {
     }
     const fp = dedupKey ? stableAlertFingerprint(name, dedupKey) : alertFingerprint(name, detail)
     const state = parseNotifyState(readNotifyText(stateFile))
-    if (!force && !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs })) {
-      return { sent: false, suppressed: true, why: '同一原因窗口内已通报,本轮压住' }
+    const prevEntry = state[name]
+    // 族级窗口(2026-11-02):策略命中的告警按「族前缀」冷却,而不是按指纹 —— 同一段外部线路
+    // 故障的 sev 档会在 90% 阈值上下抖(2↔3),指纹抖动不得把 24h 窗口绕成 1.5~2h 一封。
+    // 首次上线还没有族标记时,用同族已有告警的最晚 ts 作窗口起点(升级后不补寄一封)。
+    const policyLedgerKey = policyEntry ? `__policy__:${policyEntry.id}` : ''
+    let familyMark = policyLedgerKey ? state[policyLedgerKey] : null
+    if (policyLedgerKey && !(familyMark && Number.isFinite(familyMark.ts))) {
+      let latest = 0
+      for (const [k, v] of Object.entries(state)) {
+        if (k === policyLedgerKey || !k.startsWith(policyEntry.prefix)) continue
+        const ts = Number(v && v.ts)
+        if (Number.isFinite(ts) && ts > latest) latest = ts
+      }
+      if (latest > 0) familyMark = { fp: name, ts: latest, delivered: true, n: 0 }
+    }
+    const policyHold = Boolean(
+      policyEntry && familyMark && now - Number(familyMark.ts) < policyEntry.cooldownMs,
+    )
+    if (!force && (policyHold || !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs }))) {
+      // 压住不是丢弃:同一窗口内每次重报都计数落盘,下一封正文给"已压住 N 次"的汇总读数。
+      const counter = policyHold ? familyMark : prevEntry
+      const n = (Number(counter && counter.n) || 0) + 1
+      try {
+        if (policyHold)
+          writeNotifyJson(stateFile, { ...state, [policyLedgerKey]: { ...familyMark, fp: name, n } })
+        else if (prevEntry && prevEntry.fp === fp)
+          writeNotifyJson(stateFile, { ...state, [name]: { ...prevEntry, n } })
+      } catch {
+        /* 计数写不进去只影响下一封的汇总读数,不影响压住本身 */
+      }
+      logger(
+        `ℹ️ 同类身份窗口内已通报,本轮压住(本窗口累计 ${n} 次):${name}${policyEntry ? ` [策略 ${policyEntry.id}]` : ''}`,
+      )
+      return {
+        sent: false,
+        suppressed: true,
+        why: `同一原因窗口内已通报,本轮压住(累计 ${n} 次${policyHold ? `,族窗口 ${Math.round(policyEntry.cooldownMs / 3600000)}h` : ''})`,
+      }
+    }
+    // §T6 自愈层:发信前先尝试对应 healer;healed===true 则跳过发信(记 info),
+    // 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
+    if (!force) {
+      try {
+        const healer = SELF_HEAL_ROUTES[name]
+        if (typeof healer === 'function') {
+          const healed = healer({ now, logger })
+          if (healed === true) {
+            logger(`✅ 自愈成功,跳过报警:${name}(下轮复检确认)`)
+            return { sent: false, selfHealed: true, why: `自愈成功:${name}` }
+          }
+        }
+      } catch (e) {
+        logger(`⚠️ 自愈层异常(忽略,回退报警):${String((e && e.message) || e).slice(0, 120)}`)
+      }
     }
     const title = `【git-guardian】${name}`
+    // 策略命中的族用族计数(它才是"本窗口共压住几次"的真相源);其余沿用同名计数。
+    const suppressedCount = Number((policyEntry && familyMark ? familyMark.n : prevEntry && prevEntry.n) || 0)
     const desp =
       `${detail}\n\n` +
+      (suppressedCount > 0
+        ? `本窗口内同族重报已压住 ${suppressedCount} 次(只计数、不逐封寄;下一次汇总在窗口届满时)。\n`
+        : '') +
       `来源:git-guardian 周期守护(计划任务 "${TASK_NAME}",每 2 分钟一趟)@ ${hostname()}。\n` +
       `去重:同指纹 ${Math.round(windowMs / 60000)} 分钟窗口内只寄一封(按身份去重、无总量封顶);` +
       `内容变化视为新故障立即重报。投递失败按 ${Math.round(failCooldownMs / 60000)} 分钟退避重试并留 UNDELIVERED 标记。\n` +
@@ -2617,7 +2727,9 @@ export function notifyGuardRed(name, detail, opts = {}) {
     }
     const r = callDispatch()
     if (r.ok) {
-      writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, true))
+      const sentState = withAlertMark(state, name, fp, now, true, { n: 0 })
+      if (policyLedgerKey) sentState[policyLedgerKey] = { fp: name, ts: now, delivered: true, n: 0 }
+      writeNotifyJson(stateFile, sentState)
       rmSync(undelFile, { force: true }) // 下一次成功投递自动清除失败标记(§5e)
       logger(`✅ 判红通报已寄出: ${name} → ${maskEmail(resolveAlertTo())}`)
     } else {
@@ -2987,7 +3099,7 @@ export function notifyEnvUndetermined(
     notify(
       name,
       `${detail}\n这已连到 ${Math.round(heldMs / 60000)} 分钟(门槛 ${Math.round(horizonMs / 60000)} 分钟 ≈ 守护 15 趟)⇒ 这一格现在是**瞎的**,不再只是"这一轮抢不到"。\n持续档=${held.tier}(跨档即刻重报;起点件 ${file},取到任一确定结论即清零)`,
-      { dedupKey: `${keyPrefix};name=${name};tier=${held.tier}` },
+      { dedupKey: `${keyPrefix};name=${name};tier=${held.tier}`, severity: 'info' },
     )
     logger(`⚠️ ${name}:连续 ${Math.round(heldMs / 60000)} 分钟取不到结论 ⇒ 已派发到邮件通道`)
     return { mailed: true, heldMs, tier: held.tier }
@@ -3455,6 +3567,50 @@ function rotateRunLogs() {
   log(`ℹ️ 运行日志回收本轮动了 ${touched} 个文件(其余按尺寸/稳定窗判定为无需动作)`)
 }
 
+// 会话全文落盘(第 4 格·观测腿)的过期回收:每会话一个独立 .log,按"天数 + 条数"双闸删旧,
+// 但**最新一份永远豁免**(它是"最近一次到底怎么死的"唯一证据,删了等于把自愈能力削掉一块)。
+// 判据全部 import 自 lib/session-transcript.mjs 的 decideRetention(单一真相源,§0.6),
+// 本处只负责"取盘 + 调用 + 留声 + 删除",绝不在此复算保留期(第二份判据必漂移,§22c)。
+function gcSessionTranscripts() {
+  const dir = join(WORKTREE, TRANSCRIPT_DIR)
+  let names = []
+  try {
+    names = readdirSync(dir)
+  } catch {
+    // 目录不存在 = 还没人派过会话,不是故障;如实喊一行,免得"没清"和"清完了"长得一样。
+    log('ℹ️ 会话全文回收:未找到 transcripts 目录,本轮跳过')
+    return
+  }
+  const entries = []
+  for (const n of names) {
+    if (!isTranscriptName(n)) continue // 只删自己人,绝不误删同目录里别的东西
+    let mtimeMs = NaN
+    try {
+      mtimeMs = statSync(join(dir, n)).mtimeMs
+    } catch {
+      mtimeMs = NaN
+    }
+    entries.push({ rel: n, mtimeMs })
+  }
+  if (entries.length === 0) return
+  const { keep, drop, undetermined } = decideRetention(entries)
+  let removed = 0
+  for (const d of drop) {
+    try {
+      unlinkSync(join(dir, d.rel))
+      removed += 1
+      log(`🗑️ 会话全文回收:删 ${d.rel}(${d.why})`)
+    } catch (e) {
+      // 删失败必须响:静默失败的表现永远是"看起来只是没到量",与 §5b 同一族失效。
+      log(`⚠️ 会话全文回收失败:${d.rel} —— ${e?.code ?? e?.message ?? e}`)
+    }
+  }
+  if (removed === 0 && undetermined.length === 0 && drop.length === 0) return
+  log(
+    `ℹ️ 会话全文回收:保留 ${keep.length} 份 / 删 ${removed} 份${undetermined.length ? ` / ${undetermined.length} 份 mtime 取不到未动(不猜,§0.3)` : ''}`,
+  )
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -3646,6 +3802,15 @@ const PUBLIC_PROBE_STREAK_REQUIRED = Number(process.env.IHUI_PUBLIC_PROBE_STREAK
 const PUBLIC_PROBE_STREAK_TTL_MS = Number(
   process.env.IHUI_PUBLIC_PROBE_STREAK_TTL_MS || 24 * 60 * 60 * 1000,
 )
+/**
+ * 严重度峰值档案(2026-11-02 立):同一段 breach 内 sev 档**只升不降**。
+ * 实测 B/公网·常态·入口段 的慢样本率在 90% 阈值上下抖,sev=2↔3 各成身份 ⇒
+ * 4h 窗口被绕成 1.5~2h 一封(13f98cfd04ff/c2d8e516ff26 交替)。峰值钉住后:
+ * 同段内回落不再产生新身份,真恶化(2→4)仍换身份立即重报。
+ */
+const PUBLIC_PROBE_SEV_PEAK = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-sev-peak.json')
+/** 降噪策略表(只决定"同族多久最多一封",不改判据;到期自动失效) */
+const ALERT_DELIVERY_POLICY_FILE = join(WORKTREE, ALERT_POLICY_REL)
 /**
  * 元运维巡检节流:尺子要开 PowerShell 问服务/任务/时钟,还要走一遍 Temp(4.8 万条目),
  * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
@@ -3850,22 +4015,29 @@ export function healUnresponsiveServices(opts = {}) {
     const failed = (parsed.results || []).filter((x) => x.kind === 'restart-failed')
     if (acted.length > 0 || failed.length > 0) {
       const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
-      notify(
-        // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
-        // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
-        '服务自愈动作',
-        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
-        // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
-        // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
-        {
-          dedupKey: `service-heal;svcs=${
-            [...acted, ...failed]
-              .map((x) => x.name)
-              .sort()
-              .join('+') || 'fail'
-          };acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}`,
-        },
-      )
+      const desp =
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
+      const dedupKey = `service-heal;svcs=${
+        [...acted, ...failed]
+          .map((x) => x.name)
+          .sort()
+          .join('+') || 'fail'
+      };acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}`
+      // §噪声治理:全部拉起成功是自愈的"预期结果",只记日志不占人通道;
+      // 只有出现 restart-failed(收信人能处置的真异常)才发信到人。
+      if (failed.length > 0) {
+        notify(
+          // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
+          // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
+          '服务自愈动作',
+          desp,
+          // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
+          // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
+          { dedupKey },
+        )
+      } else {
+        logger(`✅ 服务自愈动作:本轮拉起 ${acted.length} 台全部成功(无失败),只记日志不寄信:\n${body}`)
+      }
     }
     // ── "自愈只能交人"这一型终态必须到人(2026-10-21 实测)────────────────────────────
     // 现场:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
@@ -4406,6 +4578,7 @@ export function auditPublicPathProbe(opts = {}) {
     tickFile = PUBLIC_PROBE_TICK,
     lastFile = PUBLIC_PROBE_LAST,
     streakFile = PUBLIC_PROBE_STREAK_FILE,
+    peakFile = PUBLIC_PROBE_SEV_PEAK,
     requiredStreak = PUBLIC_PROBE_STREAK_REQUIRED,
     streakTtlMs = PUBLIC_PROBE_STREAK_TTL_MS,
     minGapMs = Math.floor(PUBLIC_PROBE_INTERVAL_MS / 2),
@@ -4536,6 +4709,20 @@ export function auditPublicPathProbe(opts = {}) {
     }
     let breaches = 0
     let unjudged = 0
+    // 严重度峰值档案(见 PUBLIC_PROBE_SEV_PEAK 注释):同段 breach 内只升不降。
+    let sevPeaks = {}
+    try {
+      const parsedPeaks = JSON.parse(readFileSync(peakFile, 'utf8'))
+      if (parsedPeaks && typeof parsedPeaks === 'object' && !Array.isArray(parsedPeaks)) sevPeaks = parsedPeaks
+      else logger(`⚠️ 公网探测严重度峰值档案形状不对 ⇒ 本轮从零起算,不沿用旧峰值`)
+    } catch (e) {
+      if (String(e?.code || '') !== 'ENOENT')
+        logger(
+          `⚠️ 公网探测严重度峰值档案读不出(${String(e?.code || e?.message || e).slice(0, 60)})⇒ 本轮按现读档,不沿用峰值`,
+        )
+    }
+    // 同轮多择项合并成一封摘要(2026-11-02):逐个择项单独寄信 = 收件人被同一件事刷屏。
+    const dueAlerts = []
     for (const [key, r] of Object.entries(results)) {
       const verdict = String(r?.verdict || '')
       const reasons = Array.isArray(r?.reasons) ? r.reasons : []
@@ -4583,26 +4770,59 @@ export function auditPublicPathProbe(opts = {}) {
           nowMs: now,
           leg,
         })
-        notify(
-          `公网路径探测越阈值:${key}`,
-          `成因与档位:${alertId.why}\n同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
-            `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
-            exitLine,
-          {
-            severity: 'warning',
-            // dedupKey(§5e-1 配套):numbers 里 `最长连续不可用 13.5s` 这类**带小数点**的值,
-            // 数字归一 `\d+ → #` 吃不掉小数点 ⇒ 13s 与 13.5s 撞成两个身份,4 小时窗口被绕成虚设
-            // (实测 B/公网 12 封里 7 个间隔短于 4h,最短 0.53h = 两倍 30 分钟节流 = 刚跑完又寄)。
-            // 身份只取"序列 + 成因档",实时读数仍进正文。
-            dedupKey: `seq=${key};verdict=${verdict};${alertId.identity}`,
-            // 同因同档的持续态:日级最多一封(跨档即刻重报,不受本窗口约束 —— 那是另一个身份)。
-            windowMs: Math.max(notifyWindowMs(), 24 * 60 * 60 * 1000),
-          },
-        )
+        // 峰值钉住(2026-11-02):同段 breach 内 sev 档回落不产生新身份,真恶化仍立即重报。
+        const anchor = String(st.firstAt || '')
+        const prevPeak =
+          sevPeaks[key] && String(sevPeaks[key].firstAt || '') === anchor ? Number(sevPeaks[key].peak) || 0 : 0
+        const peak = Math.max(prevPeak, alertId.sevTier)
+        if (peak !== prevPeak) sevPeaks[key] = { firstAt: anchor, peak }
+        if (peak > alertId.sevTier)
+          logger(
+            `ℹ️ 公网探测 ${key} 严重度档从 ${alertId.sevTier} 回落到本段峰值档 ${peak}(沿用峰值,防 90% 阈值抖动把同一故障刷成新身份)`,
+          )
+        dueAlerts.push({
+          key,
+          st,
+          alertId,
+          numbers: String(r?.numbers || '(无读数控)'),
+          reasons,
+          exitLine,
+          identity: `${alertId.causeKey};sev=${peak};held=${alertId.heldTier}`,
+        })
       } else if (verdict === 'unjudged') {
         unjudged += 1
         logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
       }
+    }
+    // 一封摘要覆盖本轮全部 due 项(2026-11-02):此前是每项一封,多择项同轮 = 连发 N 封。
+    if (dueAlerts.length) {
+      const names = dueAlerts.map((a) => a.key)
+      const blocks = dueAlerts.map(
+        (a) =>
+          `【${a.key}】\n成因与档位:${a.alertId.why}\n同一身份连续第 ${a.st.streak}/${a.st.required} 轮越阈(门槛 ${a.st.required} 轮,单轮尖峰不寄信)。\n${a.numbers}\n${a.reasons.join('\n')}\n` +
+          `尺子:scripts/check-public-path-probe.mjs 序列 ${a.key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n${a.exitLine}`,
+      )
+      notify(`公网路径探测越阈值:${names.join('+')}`, `本轮共 ${dueAlerts.length} 项越阈,合并为一封摘要:\n\n${blocks.join('\n\n')}`, {
+        severity: 'warning',
+        // 身份 = 本轮出现的键集合 × 每键「成因 × 峰值严重度 × 持续档」(不含实时读数,防小数抖动)。
+        // 窗口由 scripts/data/alert-delivery-policy.json 的 public-entry-env 给(同族 24h);
+        // 策略表缺失/到期时回退默认窗口。
+        dedupKey: `seq=${names.join('+')};verdict=breach;${dueAlerts.map((a) => a.identity).join('|')}`,
+      })
+      if (dueAlerts.length > 1) logger(`ℹ️ 公网探测本轮 ${dueAlerts.length} 项越阈 ⇒ 合并为 1 封摘要:${names.join('+')}`)
+    }
+    // 峰值档案只保留仍 breach 的键:恢复/消失即摘,防陈旧峰值把真恶化压回旧身份。
+    const liveKeys = new Set(
+      Object.entries(results)
+        .filter(([, r]) => String(r?.verdict) === 'breach')
+        .map(([k]) => k),
+    )
+    for (const k of Object.keys(sevPeaks)) if (!liveKeys.has(k)) delete sevPeaks[k]
+    try {
+      mkdirSync(dirname(peakFile), { recursive: true })
+      writeFileSync(peakFile, JSON.stringify(sevPeaks, null, 1), 'utf8')
+    } catch (e) {
+      logger(`⚠️ 公网探测严重度峰值档案写失败(下轮从零起算,只多寄一次,不影响判据):${String(e?.message || e).slice(0, 60)}`)
     }
     if (breaches === 0 && unjudged === 0)
       logger(
@@ -5190,22 +5410,26 @@ export function sweepExposedCredentialRotation(opts = {}) {
     .split(/\r?\n/)
     .map((l) => l.match(/ROTATE-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null)
     .find(Boolean)
-  const state = m ? m[1] : null
+  let state = m ? m[1] : null
   const tail = m ? String(m[2]) : ''
+  // §T2 修复:轮换器在 --json 档把结论(state/counts)写进 stdout 的 JSON 行,而 ROTATE-RESULT
+  // 文本行走 stderr;execFileSync 在 exit 0 时不返回 stderr ⇒ 优先解析 stdout JSON 的 state 字段。
+  {
+    try {
+      const jsonLine = text.split('\n').filter(Boolean).pop()
+      const j = jsonLine ? JSON.parse(jsonLine) : null
+      if (j && typeof j.state === 'string') state = j.state
+    } catch {}
+  }
   const kv = (key) => {
     const mm = tail.match(new RegExp(`\\b${key}=(\\S+)`))
     return mm ? mm[1] : null
   }
   if (state === null) {
-    logger(`⚠️ 暴露凭据轮换:未取到结论行(ROTATE-RESULT)⇒ 本轮读数未判定,不等于"没有暴露条目"(§0.3)`)
-    notify(
-      '暴露凭据轮换未判定',
-      `轮换器没有交出结论行。\nstderr 前 200:${String(r.err ?? '').slice(0, 200) || '(空)'}`,
-      {
-        severity: 'warning',
-        dedupKey: 'exposed-credential-rotation;no-result-line',
-        logger,
-      },
+    // 未判定:轮换器没交出任何结论(取数面故障/库离线),不等于"有暴露条目"。
+    // 降级为安静日志,不向机主发 WARNING(误报治理;真暴露走 fake-rotation/failed 分支)。
+    logger(
+      `ℹ️ 暴露凭据轮换:未取到结论(state=null)⇒ 本轮读数未判定,不等于"没有暴露条目"(§0.3);不报警,下轮重试。stderr 前 200:${String(r.err ?? '').slice(0, 200) || '(空)'}`,
     )
     return { ran: true, ok: false, state: 'no-result-line' }
   }
@@ -5250,6 +5474,9 @@ export function sweepExposedCredentialRotation(opts = {}) {
   notify(
     '暴露凭据轮换未判定',
     `清单与号池对账后仍有条目取不到输入(库不在线 / 密文解不出 / 旧值无法自证 / 清单腐烂)。\n${counts}\n\n点名行:\n${named || '(器物未附点名行)'}\n\n可执行下一步:① node scripts/rotate-exposed-upstream-credentials.mjs --list;② 若清单行本身坏了,按 parseLedger 点名的行号修 scripts/data/exposed-credentials.jsonl(只住 fp,不得写回凭据原文)。`,
+    // 安全域盲点:即便 undetermined(库不在线/密文解不出/清单腐烂)= 尺子自己哑了,
+    // 也照 keepalive-forever/pool-isolation 同族口径保留 warning(这不等于"没有暴露"),
+    // 与 §0.3 通用 log-only 例外,故不归 info 闸门。真暴露且换票失败走上方 state==='failed' 的 error。
     { severity: 'warning', dedupKey: 'exposed-credential-rotation;undetermined', logger },
   )
   return { ran: true, ok: false, state: 'undetermined', counts }
@@ -5731,6 +5958,12 @@ const LESSON_DRAFT_COOLDOWN_MS = Number(
 )
 const LESSON_DRAFT_WINDOW_HOURS = Number(process.env.IHUI_LESSON_DRAFT_WINDOW_HOURS || 24)
 const LESSON_DRAFT_LIMIT = 50
+/** 经验归档腿(2026-11-01 立):候选稿此前只落 gitignored 临时目录,全仓无 applier ⇒
+ *  提炼出来的教训既不归档也不去重,机器侧永不沉淀。本腿把它们提升进正式经验库
+ *  `.ihui-agent/lessons/`(仍不碰 AGENTS.md —— 那边是 rule-doc + 体积门,写回必须人工带
+ *  immutable-exempt)。 */
+const LESSON_APPLY_INTERVAL_MS = Number(process.env.IHUI_LESSON_APPLY_INTERVAL_MS || 15 * 60 * 1000)
+const LESSON_APPLY_COOLDOWN_MS = Number(process.env.IHUI_LESSON_APPLY_COOLDOWN_MS || 60 * 60 * 1000)
 /** 候选稿落点:gitignored(§15);写回面(AGENTS.md / memory)结构上不碰,只报候选。 */
 const LESSON_DRAFT_OUT_REL = '.ihui-agent/tmp/lesson-draft'
 
@@ -5830,6 +6063,89 @@ export function sweepLessonDraft(opts = {}) {
   }
   logger(
     `⚠️ 经验提炼:未判定(state=${state ?? '读不到结论行'} reason=${kv('reason') ?? '?'})⇒ 不记通过,${Math.round(cooldownMs / 60000)} 分钟后重试`,
+  )
+  return { ran: true, judged: false, ok: false, state: 'undetermined' }
+}
+
+/**
+ * 经验归档腿(2026-11-01 立)。
+ * 立因:提炼腿(sweepLessonDraft)把候选稿落进 gitignored 的 `.ihui-agent/tmp/lesson-draft/`,
+ * 而全仓**没有任何 applier** —— 那些稿子既不去重也不进库,机器侧永不沉淀,只是临时目录里的
+ * 一堆文件。本腿按指纹把它们提升进 `.ihui-agent/lessons/` 并维护索引。
+ * 边界:绝不碰 AGENTS.md / memory —— 那边是 immutable rule-doc + 96KB 体积门,写回必须人工
+ * 带 `immutable-exempt:`;本腿只解决"提炼出来的东西没人收"。
+ */
+export function sweepLessonApply(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = LESSON_APPLY_INTERVAL_MS,
+    cooldownMs = LESSON_APPLY_COOLDOWN_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'lesson-apply-sweep-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script = scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'lesson-apply.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 经验归档:器物不在位(scripts/lesson-apply.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const lastAt = tick ? Date.parse(String(tick.attemptAt ?? '').trim()) : NaN
+  const lastJudged = tick?.judged === true
+  if (Number.isFinite(lastAt) && now - lastAt < (lastJudged ? intervalMs : cooldownMs)) {
+    return { ran: false, why: lastJudged ? '未到节流窗口' : '未判定冷却中' }
+  }
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--apply'], 5 * 60 * 1000)
+  const resultLine = String(r.stdout ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.match(/LESSON-APPLY-RESULT\s+state=([A-Za-z-]+)(.*)$/))
+    .find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const promoted = state === 'ok'
+  // empty(临时目录空)与 none(全被跳过)都是"判过了、没有可提升的" —— 记通过,避免每轮重扫。
+  const clean = state === 'empty' || state === 'none'
+  const judged = promoted || clean
+  const tickBody = {
+    attemptAt: new Date(now).toISOString(),
+    judged,
+    state: promoted ? 'promoted' : clean ? 'clean' : 'undetermined',
+    scanned: kv('scanned') ?? null,
+    promoted: promoted ? Number(kv('promoted') ?? 0) : 0,
+    duplicate: kv('duplicate') ?? null,
+    invalid: kv('invalid') ?? null,
+    reason: judged ? null : (kv('reason') ?? state ?? 'no-result-line'),
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify(tickBody), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 经验归档:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  if (promoted) {
+    logger(
+      `✅ 经验归档:提升 ${tickBody.promoted} 枚进 .ihui-agent/lessons/(scanned=${kv('scanned') ?? '?'} dup=${kv('duplicate') ?? '0'} invalid=${kv('invalid') ?? '0'};写回 AGENTS.md 仍须人工)`,
+    )
+    return { ran: true, judged: true, ok: true, state: 'promoted', promoted: tickBody.promoted }
+  }
+  if (clean) {
+    logger(`ℹ️ 经验归档:判过,无可提升候选(state=${state} scanned=${kv('scanned') ?? '?'})⇒ 零写`)
+    return { ran: true, judged: true, ok: true, state: 'clean' }
+  }
+  logger(
+    `⚠️ 经验归档:未判定(state=${state ?? '读不到结论行'} reason=${kv('reason') ?? '?'})⇒ 不记通过,${Math.round(cooldownMs / 60000)} 分钟后重试`,
   )
   return { ran: true, judged: false, ok: false, state: 'undetermined' }
 }
@@ -5935,6 +6251,9 @@ export function sweepDanglingCommitAutotag(opts = {}) {
         `本器只加不减:绝不删 tag、绝不 git gc(AGENTS §29 把 GC 归人工)。`,
       {
         dedupKey: `dangling-autotag;state=${res.state};push=${res.push};conflicts=${res.conflicts > 0 ? 'yes' : 'no'}`,
+        // undetermined 档(取不到判据面)是"尺子自己哑了",照 §0.3 只报名不占人通道;
+        // conflict/refused/push=failed 是收信人能处置的真异常,保留 warning 到人。
+        severity: res.state === 'undetermined' ? 'info' : 'warning',
       },
     )
   }
@@ -7153,6 +7472,9 @@ export function auditFeedbackLoopClosure(opts = {}) {
     if (!inc || typeof inc !== 'object') continue
     if (inc.status === 'verified' || inc.status === 'rolled_back') continue
     const stages = inc.stages || {}
+    // §T5:建单未落地(ticketed=undetermined,即 dry-run/skip/undetermined 登记残留)≠ 真"链路停滞待处理",
+    // 跳过 —— 否则 guardian 自己产的 dry-run 登记残留会反复报"反馈闭环卡住"(见 deploy-feedback-ledger 的 dry-run 行)
+    if (String(stages.ticketed ?? '') === 'undetermined') continue
     const at = inc.evidence?.feedbackAt || inc.evidence?.signalAt || ''
     const t = Date.parse(at)
     if (!Number.isFinite(t) || !(now - t > windowMs)) continue // 处置窗口内:先给人时间
@@ -11150,6 +11472,8 @@ async function main() {
     // "每次改动/事故后提炼教训"结构上永不发生。本腿 5 分钟节流产出候选稿到 gitignored 目录;
     // 写回 AGENTS.md / memory 仍留人工(那边是 rule-doc + 体积门,自动写即绕护栏)。
     if (!CHECK_ONLY) sweepLessonDraft()
+    // 经验归档(2026-11-01 立):提炼出的候选稿必须有人收,否则"经验自动提炼"只是往临时目录堆文件。
+    if (!CHECK_ONLY) sweepLessonApply()
     // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
     // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
     if (!CHECK_ONLY) sweepExposedCredentialRotation()
@@ -11192,6 +11516,9 @@ async function main() {
     if (!CHECK_ONLY) refreshRecoverySource()
     // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) rotateRunLogs()
+    // 会话全文落盘(第 4 格·观测腿)过期回收:同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
+    // 判据(天数 + 条数双闸,最新一份豁免)全在 lib/session-transcript.mjs。
+    if (!CHECK_ONLY) gcSessionTranscripts()
     // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
     // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
     if (!CHECK_ONLY) auditEnvDrift()
@@ -11273,6 +11600,8 @@ async function main() {
     // 经验提炼(与上方清扫族同格:同 tick、同"读不到记未判定"口径):候选稿只落盘不写回,
     // 未判定档 1 小时冷却 —— 挂进 CHECK_ONLY 早退分支等于永不执行(本文件已踩过两次)。
     if (!CHECK_ONLY) sweepLessonDraft()
+    // 经验归档(2026-11-01 立):提炼出的候选稿必须有人收,否则"经验自动提炼"只是往临时目录堆文件。
+    if (!CHECK_ONLY) sweepLessonApply()
     // 清扫背离巡检(2026-10-23 立,机主令"要"):上面两把清扫器的节流台账都在动、摘除留痕
     // 却静默 > 2h 且 HEAD 面还有本轮真会动手的可清存量 ⇒ 器物在仓、派发点在、就是干不成活
     // (10-22 护栏③整批让路 / 10-23 摘除不写留痕,两度实证)。只读探针,不改退出码、不喊人
@@ -11461,6 +11790,9 @@ function startDaemon() {
         // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
+        // 会话全文落盘(第 4 格·观测腿)过期回收:幂等(同一批文件判据恒定,删过的下一轮 no-op),
+        // 无需节流戳;与 main() 单轮路径同一挂点语义,判据在 lib/session-transcript.mjs。
+        gcSessionTranscripts()
         // TEMP 夹具清扫:与 main() 单轮路径共用 .ihui-agent/state/temp-scrub-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。

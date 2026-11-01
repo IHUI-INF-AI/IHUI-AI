@@ -56,7 +56,9 @@ def test_admission_rejects_missing_and_file(tmp_path):
 def test_admission_resolves_and_dedups(tmp_path):
     d = tmp_path / "docs"
     d.mkdir()
-    resolved = set_session_extra_roots("sess-adm", [str(d), str(d) + os.sep, str(d)])
+    resolved = set_session_extra_roots(
+        "sess-adm", [str(d), str(d) + os.sep, str(d)], allowed_roots=[str(tmp_path)]
+    )
     assert resolved == (str(d.resolve()),)
     # 空表 = 清空
     cleared = set_session_extra_roots("sess-adm", [])
@@ -68,7 +70,7 @@ def test_admission_rejects_empty_session_id(tmp_path):
     d = tmp_path / "docs"
     d.mkdir()
     try:
-        set_session_extra_roots("  ", [str(d)])
+        set_session_extra_roots("  ", [str(d)], allowed_roots=[str(tmp_path)])
         raise AssertionError("应当拒绝空 session_id")
     except ValueError as e:
         assert "session_id" in str(e)
@@ -89,7 +91,7 @@ def test_read_overlay_allows_and_expires(tmp_path):
     ok, _ = _validate_path_in_workspace(str(f), extra_roots=())
     assert not ok
 
-    set_session_extra_roots("sess-read", [str(d)])
+    set_session_extra_roots("sess-read", [str(d)], allowed_roots=[str(tmp_path)])
     roots = get_session_extra_roots("sess-read")
     ok, info = _validate_path_in_workspace(str(f), extra_roots=roots)
     assert ok and str(f.resolve()) == info
@@ -104,7 +106,7 @@ def test_write_overlay_enforces_sensitive_blacklist(tmp_path):
     d = tmp_path / "wroot"
     (d / "normal").mkdir(parents=True)
     (d / ".git").mkdir()
-    set_session_extra_roots("sess-write", [str(d)])
+    set_session_extra_roots("sess-write", [str(d)], allowed_roots=[str(tmp_path)])
     roots = get_session_extra_roots("sess-write")
 
     ok, _ = _validate_write_path_in_workspace(str(d / "normal" / "a.txt"), extra_roots=roots)
@@ -125,7 +127,7 @@ async def test_call_tool_session_scoped_read(tmp_path):
     d.mkdir()
     f = d / "note.txt"
     f.write_text("payload", encoding="utf-8")
-    set_session_extra_roots("conv-A", [str(d)])
+    set_session_extra_roots("conv-A", [str(d)], allowed_roots=[str(tmp_path)])
 
     r_a = await mcp_server_module.mcp_server.call_tool(
         "read_file", {"path": str(f)}, session_id="conv-A"
@@ -204,7 +206,10 @@ def _engine_with_store(tmp_path):
     return AgentEngine(loop_factory=factory, store=store), store
 
 
-async def test_engine_settings_additional_directories(tmp_path):
+async def test_engine_settings_additional_directories(tmp_path, monkeypatch):
+    # 2026-11-01:附加目录必须落在允许根内(端点/engine 同一判据)。
+    # 本用例测的是 engine settings 的替换语义,故把 tmp 目录登记成服务端白名单根。
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
     engine, _store = _engine_with_store(tmp_path)
     d1 = tmp_path / "root-1"
     d1.mkdir()
@@ -244,8 +249,9 @@ async def test_engine_settings_additional_directories(tmp_path):
     assert get_session_extra_roots(th.session_id) == ()
 
 
-async def test_engine_settings_rejects_invalid_dir_wholesale(tmp_path):
+async def test_engine_settings_rejects_invalid_dir_wholesale(tmp_path, monkeypatch):
     """任一目录准入失败整表拒绝:合法目录也不得部分生效。"""
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
     engine, _store = _engine_with_store(tmp_path)
     d_ok = tmp_path / "ok-dir"
     d_ok.mkdir()

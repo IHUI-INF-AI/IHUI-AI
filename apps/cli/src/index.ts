@@ -458,6 +458,11 @@ async function runAgentAndExit(
         apiKey: cfg.apiKey,
         maxIterations: cfg.maxIterations,
         jsonMode,
+        // 本函数(`runAgentAndExit`)就是无头单次执行本身:--prompt-file / `ihui "任务"` /
+        // `ihui agent 任务` 三条单发入口都汇到这里,而交互式 REPL / ACP 各自直调 runToolLoop、
+        // 不经此处。所以这一个字段是"无头单次执行"在 runAgent 侧的**唯一事实来源** ——
+        // 它开着,零工具调用 + 空正文才会被收口成 no_progress(退出码 3)。
+        headlessOneShot: true,
         outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined,
         checkpoints,
         enableMcp: cfg.enableMcp,

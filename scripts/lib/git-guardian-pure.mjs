@@ -11,8 +11,14 @@ import { readFileSync, writeFileSync, rmSync } from 'node:fs'
 export const NOTIFY_DEFAULT_WINDOW_MS = 4 * 60 * 60 * 1000
 /** 投递失败后的重试间隔(反 spam 用的退避,不是配额:窗口照常重发,与"封顶 N 封"不同) */
 export const NOTIFY_DEFAULT_FAIL_COOLDOWN_MS = 30 * 60 * 1000
-/** 同一告警类的最小重报间隔;缺省 0 = 不节流(保持旧行为,只有显式设环境变量才生效) */
-export const NOTIFY_DEFAULT_CLASS_MIN_INTERVAL_MS = 0
+/**
+ * 同类最小间隔(2026-11-01 立,抗告警疲劳):同一告警**类**(按 alert 名)在 `CLASS_MIN` 内
+ * 已通报过,则本轮压住——无论其详情指纹是否变化。直接止住"详情微变(文件清单/路径/sha 抖动)
+ * 就每 2 分钟重发"的轰炸,同时保留每条故障的**首报**与跨档(持续档/计数档)重报。
+ * 默认 0 = 不节流(行为不变);经 GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS 调档或关闭。
+ * 与 shouldAlert 的 4h 窗口是两层独立闸门:本层按"类名"粗粒度节流,那层按"指纹"精粒度去重。
+ */
+export const NOTIFY_DEFAULT_CLASS_MIN_MS = 0
 
 /**
  * 嵌套 ref 健康判据(纯函数 —— 镜像测试直接喂构造面,不依赖活 gitdir)。
@@ -172,7 +178,9 @@ export function parseNotifyState(text) {
     const out = {}
     for (const [k, v] of Object.entries(obj)) {
       if (v && typeof v === 'object' && typeof v.fp === 'string' && Number.isFinite(v.ts)) {
+        // n = 本窗口内被窗口压住的重报次数(只计数、不逐封寄);下一封正文据此给汇总读数。
         out[k] = { fp: v.fp, ts: v.ts, delivered: Boolean(v.delivered) }
+        if (Number.isFinite(v.n) && v.n > 0) out[k].n = v.n
       }
     }
     return out
@@ -199,8 +207,8 @@ export function shouldAlert(state, key, fp, now, { windowMs, failCooldownMs } = 
 }
 
 /** 写回一条发信标记(送达与否由调用方按派发结论给);返回新对象,不改入参 */
-export function withAlertMark(state, key, fp, now, delivered) {
-  return { ...state, [key]: { fp, ts: now, delivered: Boolean(delivered) } }
+export function withAlertMark(state, key, fp, now, delivered, extra = {}) {
+  return { ...state, [key]: { fp, ts: now, delivered: Boolean(delivered), ...extra } }
 }
 
 /** 收件人脱敏展示:日志/状态里只留 local-part 首字符 + 域名(地址不是密钥,但也不扩散) */
@@ -219,13 +227,10 @@ export function notifyFailCooldownMs() {
   return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_FAIL_COOLDOWN_MS
 }
 
-/**
- * 同一告警类(按名)的最小重报间隔;0 = 不节流(缺省即旧行为)。
- * 消费方 = git-guardian 的通知入口:详情微变但身份同一枚时,窗口内压住,止住告警疲劳。
- */
+/** 同类最小间隔(ms),读 GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS,默认 0 = 不节流。负值按 0 处理。 */
 export function notifyClassMinIntervalMs() {
   const n = Number(process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS)
-  return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_CLASS_MIN_INTERVAL_MS
+  return Number.isFinite(n) && n > 0 ? n : NOTIFY_DEFAULT_CLASS_MIN_MS
 }
 
 /**

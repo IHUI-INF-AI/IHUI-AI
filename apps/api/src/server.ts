@@ -27,6 +27,8 @@ import { registerRoutes } from './routes/index.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
+  redactCredentialText,
+  redactErrorForLog,
 } from './utils/redact-credential-text.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
 import { downloadsRoutes } from './routes/downloads.js'
@@ -190,6 +192,14 @@ function isMostlyEnglish(s: string | undefined): boolean {
   return /[a-zA-Z]/.test(s)
 }
 
+/**
+ * 落盘前的错误影子(实现住在 utils/redact-credential-text.ts,与自由文本打码同一出口)。
+ * 这里只做一次转发,不复制判据 —— 打码规则全仓只有一份。
+ */
+function errorForLog(error: FastifyError): FastifyError {
+  return redactErrorForLog(error)
+}
+
 function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
   // 2026-09-20 f5:响应已发出(在途或已结束)时,这里的 send 只会触发
   // FST_ERR_REP_ALREADY_SENT 级联 —— 生产日志 WARN#2 的发送者正是本函数(server.ts:167)。
@@ -205,9 +215,9 @@ function errorHandler(error: FastifyError, _request: FastifyRequest, reply: Fast
       : 500
 
   if (statusCode >= 500) {
-    logger.error({ err: error }, 'Unhandled error')
+    logger.error({ err: errorForLog(error) }, 'Unhandled error')
   } else {
-    logger.warn({ err: error.message, statusCode }, 'Request error')
+    logger.warn({ err: redactCredentialText(error.message ?? ''), statusCode }, 'Request error')
   }
 
   const errorCode = isAppError(error) ? error.errorCode : isZodErr ? 'VALIDATION_FAILED' : undefined

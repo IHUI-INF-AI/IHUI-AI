@@ -19,6 +19,9 @@
  *    60 分钟节流;收件人现值 = apps/api/.env 的 ALERT_EMAIL_TO(git-guardian 同源解析)。
  *  - 预算闸 = 派发轮数 + token 双闸(第 3 期④接入:起会话 CLI `--json` 终态行 usage 计量后
  *    记账,单会话闸 + 近 24 小时闸;量不到 token 的轮只记墙钟并如实告警,不冒充量到)。
+ *  - 会话后落账(2026-11-01 立):自治会话结构上没有提交权(dangerous 档不放宽),所以"干完活
+ *    落不了账"必须由本器补 —— 但只认会话自己写的产物清单,且路径安全/真有改动/整批放行三道判据
+ *    都住 lib/ticket-artifacts.mjs;任一档判不过就不提交,记 artifact-* 台账(§0.3 fail-closed)。
  *
  * 用法:
  *   node scripts/auto-evolve.mjs --once        # 真单轮(需 enabled=true)
@@ -28,7 +31,7 @@
  *   node scripts/auto-evolve.mjs --self-test   # 内置断言
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, openSync, closeSync, unlinkSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, openSync, closeSync, unlinkSync, statSync, utimesSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHmac, randomUUID } from 'node:crypto'
@@ -40,8 +43,13 @@ import { ticketKeyOf } from './lib/ticket-key.mjs'
 export { ticketKeyOf }
 // 发起腿的「执行体存续」判据单源(2026-11-01 立):盘符归一 + 派发前核验 + 失败分型。
 // 本层零复算判据(§0.6),只做接线。
-import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
-export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
+import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure, gateTicketByHumanValve, VALVE_MODES } from './lib/autonomy-runner.mjs'
+export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure, gateTicketByHumanValve }
+// 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
+import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
+export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
+// 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
+import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -55,11 +63,21 @@ export const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
 const ESCAPE_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-tick.json')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'auto-evolve')
 export const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
-/** 自治决策候选评估(第 2 期接线):id = ticketKey,由 AI 会话写;本器不替 AI 编因子 */
+/** 自治决策候选评估(第 2 期接线):id = ticketKey,由 scripts/autonomy-candidates.mjs 按
+ *  **结构性证据**生成(每因子带 evidence,可复核);本器不替 AI 编语义因子。
+ *  2026-11-01 前这个文件全仓只有本行一处定义、零写入方 ⇒ 第 2 期整期不生效(排期恒走台账序)。 */
 const AUTONOMY_CANDIDATES = join(ROOT, '.ihui-agent', 'state', 'autonomy-candidates.json')
+const AUTONOMY_CANDIDATES_SCRIPT = join(ROOT, 'scripts', 'autonomy-candidates.mjs')
+/** 候选刷新节流:生成器实测 84s(要跑 plan-tasks + 台账聚合),不能每轮都跑。
+ *  6h 一刷 —— 票面结构在小时级尺度上变化很慢,而调度器轮次远密于此。 */
+const AUTONOMY_CANDIDATES_REFRESH_MS = 6 * 3600_000
 const MAIL_SCRIPT = join(ROOT, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
 const TSX_ENTRY = join(ROOT, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
 const API_ENV = join(ROOT, 'apps', 'api', '.env')
+/** 会话产物清单目录(会话写、本器读):路径口径住 lib/ticket-artifacts.mjs,这里只补仓根 */
+export const ARTIFACT_MANIFEST_DIR = join(ROOT, '.ihui-agent', 'state', 'ticket-artifacts')
+/** 代提交唯一出口:safe-commit 五步法(本器不自己拼 git add/commit —— 那会把共享索引里别人的改动打包) */
+const SAFE_COMMIT = join(ROOT, 'scripts', 'safe-commit.mjs')
 /** ihui-cli 登录态(settings.json 的 apiKey 字段;login 同源存放处,同信任级) */
 const CLI_SETTINGS = join(process.env.USERPROFILE ?? '', '.ihui', 'settings.json')
 /** JWT secret 探测序(机器事实按当次实测取值:运行面部署副本优先,回落仓内副本) */
@@ -151,6 +169,36 @@ export function parseTicketRows(stdout) {
  * 有文件 ⇒ 只放行模型判为可排期的票;压后/未收录的票本轮不派(逐条点名原因)。
  * 无文件 ⇒ 保持现值行为:台账序 + 白名单闸。
  */
+/**
+ * 决策候选刷新腿(2026-11-01 补,治"第 2 期整期不生效")。
+ * 只在文件缺失或超过节流窗口时才真调生成器;生成失败**不阻断派发** ——
+ * "没有候选评估"本来就是这套设计的合法起点(落回台账序),不能让它升级成"本轮不派"。
+ * dry-run 不写盘 ⇒ 也就没有新候选可读,如实返回未判定而不是假装刷新过。
+ */
+export function refreshAutonomyCandidates({ now = Date.now(), dryRun = false, scriptFile = AUTONOMY_CANDIDATES_SCRIPT, candidatesFile = AUTONOMY_CANDIDATES, runner = null } = {}) {
+  if (!existsSync(scriptFile)) return { state: 'undetermined', why: '生成器物不在位(scripts/autonomy-candidates.mjs)' }
+  try {
+    const st = statSync(candidatesFile)
+    const ageMs = now - st.mtimeMs
+    // 允许 ageMs 为小负值:文件刚写完时 mtime 可能比 now 晚几毫秒(写入顺序/文件系统精度),
+    // 卡 `>= 0` 会让"刚生成"被判成不新鲜 ⇒ 每轮都重刷 84s 的器物(S11a 实测抓到)。
+    // 时钟回拨也落进同一侧:宁可少刷一次(下一轮自然补),不要每轮白等。
+    if (Number.isFinite(ageMs) && ageMs < AUTONOMY_CANDIDATES_REFRESH_MS) {
+      return { state: 'ok', why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑` }
+    }
+  } catch {
+    /* 没生成过 ⇒ 继续往下刷 */
+  }
+  if (dryRun) return { state: 'undetermined', why: 'dry-run 不写盘 ⇒ 候选不刷新(决策将按台账序)' }
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : spawnSync(process.execPath, [scriptFile, '--apply'], { cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 180_000 })
+  if (r.error) return { state: 'undetermined', why: `生成器起不来:${r.error.message}` }
+  if (r.status !== 0) return { state: 'undetermined', why: `生成器 exit=${r.status} ${String(r.stderr ?? '').slice(-160)}` }
+  return { state: 'ok', why: '已按结构性证据刷新' }
+}
+
 export function rankTicketRows(rows, { policyText, candidatesText, keyOf = ticketKeyOf } = {}) {
   if (typeof candidatesText !== 'string' || candidatesText.trim() === '') {
     return { rows, mode: 'ledger-order', why: '无候选评估文件', ranked: [], skipped: [] }
@@ -256,6 +304,38 @@ function record(entry) {
   appendFileSync(LEDGER, `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`, 'utf8')
 }
 
+/**
+ * 会话全文落盘(第 4 格·观测腿,2026-11-01 立)。
+ *
+ * 立因:台账原先只记 `exitCode / durationMs / tokens` 三枚读数,会话**调了哪些工具、为什么零推进**
+ * 一个字不留。两枚 session-ok 各自 3.4s / 23s 就 end_turn、票行零推进,事故报告只能写"核该会话末轮
+ * 实际动作" —— 可动作在哪没人知道。本函数把"那一轮到底发生了什么"落盘,给 A7 维的每一条 drift
+ * 一个可归因的证据面(§0.3:猜等于没判)。
+ *
+ * 四条约束(逐条对应 lib 头部):
+ *  ① 脱敏在 buildTranscript 内(best-effort,命中数进头部);
+ *  ② 截断在 capTranscript 内(超限必留"中略"痕,绝不静默丢);
+ *  ③ 轮转在 git-guardian 的 decideRetention 内(最新一份永久豁免);
+ *  ④ **写盘失败不打断派发**:返回 null 并大声告警,绝不记成"已落盘"(否则 A7 会把"丢日志"
+ *     读成"会话没产出",与"会话真没产出"同罪,事故就被盖住了)。
+ *
+ * 落盘目录 `.ihui-agent/state/session-transcripts` 已被 .gitignore 忽略,证据不进版本库。
+ */
+function persistTranscript({ mode, ticketKey, ticketLine, cmd, action, exitCode, durationMs, timedOut = false, signal = null, prompt = '', stdout = '', stderr = '', notes = '', at = new Date() }) {
+  try {
+    const body = buildTranscript({ at, mode, ticketKey, ticketLine, cmd, action, exitCode, durationMs, timedOut, signal, prompt, stdout, stderr, notes })
+    const capped = capTranscript(body)
+    const rel = transcriptRelPathOf({ at, ticketKey, mode, action })
+    const abs = join(ROOT, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, capped.text, 'utf8')
+    return rel
+  } catch (e) {
+    console.error(`⚠ 会话全文落盘失败(transcript-write-failed,本轮照常收尾):${e.message}`)
+    return null
+  }
+}
+
 /** 同票连败计数:该 key 最近连续的 session-failed/session-timeout 条数(遇到任何其他 action 打断) */
 export function failureStreakOf(ledger, key) {
   let n = 0
@@ -333,10 +413,32 @@ export async function mintSessionCredential({ userId, writeSettings = (jwt) => w
   return { ok: true, from: found.from }
 }
 
+/**
+ * 把新签的 JWT 写进 CLI 登录态(settings.json 的 apiKey 字段,与 `ihui login` 同一存放处)。
+ *
+ * 2026-11-01 修(实测病灶):原实现直接 `readFileSync(CLI_SETTINGS)` 再写回,文件不存在就抛
+ * `ENOENT: C:\windows\system32\config\systemprofile\.ihui\settings.json` 并**打断整轮派发** ——
+ * 因为调度器是由计划任务/服务身份起的,USERPROFILE 指向服务账户目录,那里没有机主的登录态。
+ * 一次 ENOENT 就把本轮变成"没派任何票",而账面只看到异常栈,票面连败计数却被记上(§0.3 归因失真)。
+ * 现在:文件不存在 ⇒ 建最小结构(只含 apiKey)继续;目录不存在 ⇒ 一并建。
+ * 边界:服务身份与机主身份读的是各自 HOME 下的 settings,互不覆盖 —— 这是"两个身份各自登录"
+ * 的机器事实,不是本函数的缺陷。
+ */
 function writeCliSettingsJwt(jwt) {
-  const s = JSON.parse(readFileSync(CLI_SETTINGS, 'utf8'))
+  let s = {}
+  try {
+    s = JSON.parse(readFileSync(CLI_SETTINGS, 'utf8'))
+  } catch {
+    /* 首次 / 服务身份无登录态 ⇒ 建最小结构,不抛 */
+  }
   s.apiKey = jwt
-  writeFileSync(CLI_SETTINGS, JSON.stringify(s, null, 2), 'utf8')
+  try {
+    mkdirSync(dirname(CLI_SETTINGS), { recursive: true })
+    writeFileSync(CLI_SETTINGS, JSON.stringify(s, null, 2), 'utf8')
+  } catch (e) {
+    // 写不进去也不该把整轮打死:调用方会把"凭据未写入"记成未判定,而不是票面失败。
+    console.error(`⚠ CLI 登录态写入失败(${String(e?.message ?? e).slice(0, 120)})⇒ 本轮会话可能以未登录退出,按未判定记账`)
+  }
 }
 
 /**
@@ -475,6 +577,64 @@ function releaseLock() {
   }
 }
 
+/**
+ * 派发结算(2026-11-01 立):把"CLI 退出码 0"翻译成"这张票到底推进了没有"。
+ * 立因:台账里唯一一枚 session-ok 对一张大工程票只跑了 45.5s 就 exit 0 ——
+ * 调度器把"会话结束了"读成"这轮干成了",于是账面永远不会出现"派了但没动"这一档。
+ * 而 AGENTS §10/§20 要求的是交付与产出一致、完成只认远端落地,所以这一档必须被量出来。
+ * 四态不并桶:
+ *  - line-gone     派单面上已无此票(结清摘行或被别的席位摘出)⇒ 算推进
+ *  - line-changed  该行前缀与派发时记录的不再逐字相等 ⇒ 算推进(注记/改写)
+ *  - no-progress   该行原样躺在派单面上 ⇒ 零推进,逐条点名
+ *  - unjudged      派单面取不到 ⇒ 不猜(§0.3)
+ * 比较口径刻意取"前 200 字逐字相等"(与记账时同一截法):票行只在 200 字之后被改的会被读成
+ * no-progress —— 失效方向是多要一次定向说明,绝不是多放一次"算它干成了"(§0.10)。
+ *
+ * 窗口口径(2026-11-01 收,治"悬案永久化"):默认 **windowHours = Infinity**,即结清台账里
+ * 所有未结算的 session-ok,不只近 48h。原默认 48h 的结构性后果是:一枚成功一旦滑出窗口,
+ * 结算腿结构上再也不会碰它 ⇒ 那笔账永久悬着,而尺子 A7 的"超窗未结算"判据因此恒红
+ * (§12e 恒红门)。实测病灶就是台账里唯一那枚 2026-10-25 的成功:不限窗口去问,结论是
+ * line-gone(票早已摘行 = 真推进了),而 48h 窗口让它连被问一次的机会都没有。
+ * 窗口参数保留(测试与调用方仍可显式收窄),只是不再是默认值。
+ */
+export function settlePriorDispatches({ ledger = [], currentRows = null, windowHours = Infinity, now = Date.now(), recordedPrefix = 200, sameRowPrefix = 60 } = {}) {
+  const cutoff = now - windowHours * 3600_000
+  const settledOf = new Set(ledger.filter((e) => e.action === 'dispatch-settled').map((e) => String(e.sourceTs ?? '')))
+  const outs = []
+  for (const e of ledger) {
+    if (e.action !== 'session-ok' || !e.ticketKey) continue
+    const at = Date.parse(String(e.ts ?? ''))
+    if (!Number.isFinite(at) || at < cutoff) continue
+    if (settledOf.has(String(e.ts))) continue
+    const thenPrefix = String(e.ticketLine ?? '').slice(0, recordedPrefix)
+    if (!Array.isArray(currentRows)) {
+      outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'unjudged', why: '派单面取不到 ⇒ 无法判这张票是否推进' })
+      continue
+    }
+    const faceRow = currentRows.find((r) => ticketKeyOf(String(r.text ?? '')) === e.ticketKey)
+    if (faceRow) {
+      const nowPrefix = String(faceRow.text ?? '').slice(0, recordedPrefix)
+      outs.push(
+        nowPrefix === thenPrefix
+          ? { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'no-progress', why: `会话报成功但票行逐字未变(L${faceRow.line})` }
+          : { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票行已改写(L${faceRow.line})` }
+      )
+      continue
+    }
+    // 票键没命中 ⇒ 再问一次"还是不是那一行"。ticketKeyOf 对尾部注记不稳定(实测同一张票
+    // 追加"—— 已追加进展注记"后 key 会变,而追加"（进行中@…）"认领牌 key 不变),
+    // 只按 key 找行会把最常见的"只写了注记"掉进 line-gone,而那与"整票结清"是两回事(§10)。
+    const headKey = thenPrefix.slice(0, Math.min(sameRowPrefix, thenPrefix.length))
+    const sameRow = headKey ? currentRows.find((r) => String(r.text ?? '').startsWith(headKey)) : null
+    if (sameRow) {
+      outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票键随注记漂移但行首同源 ⇒ 同一张票被改写(L${sameRow.line}),不得记成结清摘行` })
+      continue
+    }
+    outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-gone', why: '派单面上既无同票键也无同前缀行 ⇒ 已摘行或摘出在飞' })
+  }
+  return outs
+}
+
 function pickTickets() {
   const r = spawnSync(process.execPath, [PLAN_TASKS, ...DISPATCH_ARGS], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -515,26 +675,34 @@ function dispatchSession(gates, ticket, dryRun) {
     return { action: 'runner-undetermined', why: '当次仓根取不到 ⇒ 命令行无法归一,本轮不派(§0.3)' }
   }
   mkdirSync(TMP_DIR, { recursive: true })
+  // 清单目录必须由调度器预建:会话侧写文件是普通能力,但"目录不存在时要不要自己建"不是契约的一部分 ——
+  // 让落账腿依赖会话的建目录习惯,等于把成功率押在一个没人保证的行为上。
+  mkdirSync(ARTIFACT_MANIFEST_DIR, { recursive: true })
   const promptFile = join(TMP_DIR, `prompt-${key}-${Date.now()}.md`)
-  writeFileSync(
-    promptFile,
-    [
-      `# 派发票(auto-evolve 单轮)`,
-      ``,
-      `- 票面:${ticket.text}`,
-      `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
-      ``,
-      `按 AGENTS.md 全部强制条款执行本票;只 add 本任务文件;走 safe-commit 五步法;`,
-      `提交时绑票键(决策链审计口):PowerShell 先 $env:IHUI_TICKET_KEY='${key}';`,
-      `$env:IHUI_TICKET_LINE='<票面前 120 字>';再跑 safe-commit —— 审计器靠它把提交接回本票。`,
-      `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
-      ``,
-      `完成判定(硬性,防半成品):`,
-      `- 要么完成整票(验证齐绿 + 翻勾 + 提交推送),要么保持未勾并走 live-doc-edit 在票行追加进展注记,禁止"写完了你看下"式半成品提交。`,
-      `- 若判定本票工作量超出单会话预算(maxSessionMinutes=${gates.maxSessionMinutes} 分钟),立即停下:不写任何代码,只在票行追加工作量评估注记后正常退出(这是合法完成,不算失败)。`,
-    ].join('\n'),
-    'utf8'
-  )
+  const promptText = [
+    `# 派发票(auto-evolve 单轮)`,
+    ``,
+    `- 票面:${ticket.text}`,
+    `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
+    ``,
+    `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
+    `提交不在你的权限内:自动会话对 dangerous 档一律不放宽(permissions.ts),git_commit 与`,
+    `run_command 都过不去 —— 不要试,也不要绕。改完把产物写进下面的清单,由调度器会话后代提交。`,
+    `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
+    ``,
+    `## 落账清单(硬性,调度器只认这一份)`,
+    `- 路径:${manifestPathOf(key)}(相对仓根,不存在就创建目录)`,
+    `- 格式:{"ticketKey":"${key}","files":["相对仓根的路径"],"note":"可选"}`,
+    `- 只许列本票**真正改过**的文件;没改任何文件就不要写清单。`,
+    `- 清单里不许出现:PROJECT_PLAN.md(活文档)、绝对路径/盘符、带 .. 的路径、.git/.env 一类敏感面。`,
+    `- 调度器会逐个核对 git status:无改动的文件被剔除并点名;全部被剔除 ⇒ 本轮记 stale,不提交。`,
+    `- 整批里有一条不合规 ⇒ 整批不提交(不做部分提交)。`,
+    ``,
+    `完成判定(硬性,防半成品):`,
+    `- 要么完成整票(验证齐绿 + 翻勾 + 写清单,提交由调度器代劳),要么保持未勾并走 live-doc-edit 在票行追加进展注记,禁止"写完了你看下"式半成品提交。`,
+    `- 若判定本票工作量超出单会话预算(maxSessionMinutes=${gates.maxSessionMinutes} 分钟),立即停下:不写任何代码,只在票行追加工作量评估注记后正常退出(这是合法完成,不算失败)。`,
+  ].join('\n')
+  writeFileSync(promptFile, promptText, 'utf8')
   const cmd = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
   const t0 = Date.now()
   // windowsVerbatimArguments 必带(同 probe:node 对 cmd.exe 的默认引用改写会毁模板内引号)
@@ -557,21 +725,183 @@ function dispatchSession(gates, ticket, dryRun) {
   const tokens = meter.measured ? meter.tokens : null
   const tokensMeasured = meter.measured
   const costUsd = meter.costUsd
-  if (r.error?.killed || (r.signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
-    return { action: 'session-timeout', exitCode: null, durationMs, why: `超过 maxSessionMinutes=${gates.maxSessionMinutes}`, tokens, tokensMeasured, costUsd }
-  }
-  if (r.error) {
+  const stdout = r.stdout ?? ''
+  const stderr = r.stderr ?? ''
+  const signal = r.signal ?? null
+  // 第 4 格·会话全文落盘:成败都落盘(否则 A7 的每一条 drift 只能靠猜,§0.3)。
+  // 先算 action,再一次性落盘 + 返回,避免四条分支各写一遍(分支越多越容易漏 transcript)。
+  let action, failureKind = 'ok', exitCode = 0, why = '', timedOut = false
+  if (r.error?.killed || (signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
+    action = 'session-timeout'
+    exitCode = null
+    timedOut = true
+    why = `超过 maxSessionMinutes=${gates.maxSessionMinutes}`
+  } else if (r.error) {
     const kind = classifySessionFailure({ status: null, stderr: '', error: r.error.message })
-    return { action: 'session-failed', failureKind: kind.kind, sign: kind.sign, exitCode: null, durationMs, why: r.error.message, tokens, tokensMeasured, costUsd }
-  }
-  if (r.status !== 0) {
+    action = 'session-failed'
+    failureKind = kind.kind
+    exitCode = null
+    why = r.error.message
+  } else if (r.status !== 0) {
     // 真因常在头部(ERR_MODULE_NOT_FOUND 的前两行),只截尾会把 "der:639:32" 这类
     // 中段残渣当成原因寄出去 —— 比没有原因更贵。各取头尾并标来源。
-    const errText = excerptBothEnds(r.stderr, r.stdout)
-    const kind = classifySessionFailure({ status: r.status, stderr: `${r.stderr ?? ''}\n${r.stdout ?? ''}` })
-    return { action: 'session-failed', failureKind: kind.kind, sign: kind.sign, exitCode: r.status, durationMs, why: `exit=${r.status} ${errText}`, tokens, tokensMeasured, costUsd }
+    const errText = excerptBothEnds(stderr, stdout)
+    const kind = classifySessionFailure({ status: r.status, stderr: `${stderr}\n${stdout}` })
+    action = 'session-failed'
+    failureKind = kind.kind
+    exitCode = r.status
+    why = `exit=${r.status} ${errText}`
+  } else {
+    action = 'session-ok'
   }
-  return { action: 'session-ok', failureKind: 'ok', exitCode: 0, durationMs, why: '', tokens, tokensMeasured, costUsd }
+  const transcript = persistTranscript({
+    mode: 'dispatch',
+    ticketKey: key,
+    ticketLine: ticket.text,
+    cmd,
+    action,
+    exitCode,
+    durationMs,
+    timedOut,
+    signal,
+    prompt: promptText,
+    stdout,
+    stderr,
+    at: t0,
+  })
+  return { action, failureKind, exitCode, durationMs, why, tokens, tokensMeasured, costUsd, transcript }
+}
+
+/**
+ * 代提交消息前缀:只按票面自述分档,不猜工作内容。
+ * 会话改了什么本器不知道(它只交清单),所以前缀取"票面在说修东西还是写东西"——
+ * 猜错只影响 changelog 归类,不影响判据;而猜工作内容则会造假账。
+ */
+export function commitPrefixOf(ticketText) {
+  const t = String(ticketText ?? '')
+  if (/(修复|修好|缺陷|报错|故障|回归|超时|fix|bug|broken|hotfix|regress)/i.test(t)) return 'fix'
+  if (/(文档|注释|readme|chore|清理|重命名|归档|排版|doc)/i.test(t)) return 'chore'
+  return 'feat'
+}
+
+/** 代提交消息:正文点名票键与票面(决策链审计靠这两项把提交接回本票)。 */
+export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
+  const face = String(ticketText ?? '').replace(/\s+/g, ' ').trim()
+  return [
+    `${commitPrefixOf(ticketText)}: ${face.slice(0, 80)}`,
+    '',
+    `票键:${ticketKey}`,
+    `票面:${face}`,
+    `落账:auto-evolve 会话后按 ${manifestPathOf(ticketKey)} 代提交(会话侧无提交权)`,
+  ].join('\n')
+}
+
+/**
+ * 会话后落账腿(2026-11-01 立)。
+ *
+ * 立因:派发票要求会话自己提交,而会话侧 dangerous 档结构上不放宽 ⇒ 自治会话改得动文件却落不了账。
+ * 本函数把"退出码 0"之外的第二问补上:这一轮到底产出了什么、能不能代它落账。
+ *
+ * 四档 fail-closed,判据全部来自 lib/ticket-artifacts.mjs(本处零复算):
+ *  - artifact-manifest-missing  会话没写清单 ⇒ 不提交(合法结果:会话可能只写了注记)
+ *  - artifact-manifest-invalid  清单坏/票键不符/空清单/路径不过安全校验 ⇒ 不提交
+ *  - artifact-manifest-stale    清单里没有一个文件真有改动 ⇒ 不提交
+ *  - artifact-committed         至少一枚真有改动 ⇒ 调 safe-commit 代提交(带票键与席位)
+ * dry-run 只出预览(`artifact-preview`),绝不冒充已提交。
+ *
+ * IO 全部注入:自检要在不碰真 git / 真索引的前提下反向验证每一档。
+ */
+export function landTicketArtifacts({ ticketKey, ticketText, manifestText, statusFn, commitFn, dryRun = false }) {
+  const parsed = parseArtifactManifest(manifestText, ticketKey)
+  if (parsed.state !== 'ok') {
+    return { action: `artifact-manifest-${parsed.state}`, files: [], dropped: [], why: parsed.why }
+  }
+  const safe = sanitizeArtifactPaths(parsed.files)
+  if (!safe.ok) {
+    // 整批不提交:清单自述里出现逃逸/活文档/敏感面 ⇒ 这份自述不可信,不做部分提交。
+    return {
+      action: 'artifact-manifest-invalid',
+      files: [],
+      dropped: safe.rejected.map((r) => r.path),
+      why: `路径安全校验不过,整批不提交:${safe.rejected.map((r) => `${r.path}(${r.why})`).join('; ')}`,
+    }
+  }
+  const { dirty, stale } = selectDirtyPaths(safe.accepted, statusFn)
+  const dropped = stale.map((s) => s.path)
+  if (dirty.length === 0) {
+    return {
+      action: 'artifact-manifest-stale',
+      files: [],
+      dropped,
+      why: `清单里的文件在本工作区都没有改动,不提交:${stale.map((s) => `${s.path}(${s.why})`).join('; ')}`,
+    }
+  }
+  if (dryRun) {
+    return {
+      action: 'artifact-preview',
+      files: dirty,
+      dropped,
+      why: `dry-run 不提交;真跑会调 safe-commit 提交 ${dirty.length} 枚(票键 ${ticketKey}${dropped.length ? `,剔除 ${dropped.length} 枚无改动` : ''})`,
+    }
+  }
+  const env = {
+    IHUI_TICKET_KEY: String(ticketKey),
+    IHUI_TICKET_LINE: String(ticketText ?? '').slice(0, 120),
+    // 席位短名进 AI 归属 notes;缺它 safe-commit 会把本枚判成"无归属",审计链断在这里。
+    IHUI_AGENT_SESSION_ID: 'auto-evolve',
+  }
+  let r
+  try {
+    r = commitFn({ files: dirty, message: buildArtifactCommitMessage({ ticketKey, ticketText }), env })
+  } catch (e) {
+    // 并发索引锁/进程起不来都不许把整轮打崩:落 failed 台账,下一轮照常。
+    return { action: 'artifact-commit-failed', files: dirty, dropped, why: `代提交抛错(不牵连本轮):${e?.message ?? e}` }
+  }
+  if (!r || r.ok !== true) {
+    return {
+      action: 'artifact-commit-failed',
+      files: dirty,
+      dropped,
+      why: `safe-commit 未落地(status=${r?.status ?? '?'}):${String(r?.stderr ?? '').slice(-300) || '(无输出)'}`,
+    }
+  }
+  return { action: 'artifact-committed', files: dirty, dropped, why: `safe-commit 已落地(status=0,票键 ${ticketKey})` }
+}
+
+/** 清单现读:读不到(不存在/读失败)一律 null ⇒ 上层落 missing,不猜内容。 */
+function readArtifactManifest(ticketKey) {
+  try {
+    return readFileSync(join(ROOT, manifestPathOf(ticketKey)), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/** 单文件改动现读。抛错上抛给 selectDirtyPaths 判 stale —— 取不到不许读成"有改动"。 */
+function gitPorcelainOf(file) {
+  const r = spawnSync('git', ['status', '--porcelain', '--', file], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 60_000,
+    encoding: 'utf8',
+  })
+  if (r.error) throw new Error(r.error.message)
+  if (r.status !== 0) throw new Error(`git status 退出码 ${r.status}:${String(r.stderr ?? '').slice(-160)}`)
+  return String(r.stdout ?? '')
+}
+
+/** 真出口:safe-commit 五步法。环境变量只叠加不覆盖,票键/席位显式传入。 */
+function runSafeCommit({ files, message, env }) {
+  const r = spawnSync(process.execPath, [SAFE_COMMIT, '-m', message, '--', ...files], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 15 * 60_000,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  })
+  return { ok: r.status === 0, status: r.status ?? null, stderr: `${String(r.stderr ?? '')}\n${String(r.stdout ?? '')}` }
 }
 
 async function runOnce({ dryRun = false, noDecide = false } = {}) {
@@ -650,6 +980,10 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     const allRows = pickTickets()
     let rows = allRows
     let decisionReadout = '台账序(无候选评估文件)'
+    if (!noDecide) {
+      const gen = refreshAutonomyCandidates({ dryRun })
+      console.log(gen.state === 'ok' ? `🗳 自治决策候选:${gen.why}` : `⏭ 自治决策候选未刷新(${gen.why})⇒ 本轮按台账序`)
+    }
     if (!noDecide && existsSync(AUTONOMY_CANDIDATES)) {
       try {
         const ranked = rankTicketRows(allRows, {
@@ -672,6 +1006,19 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
     }
     const ledger = readLedger()
+    // ---- 先结算上一轮的"成功",再决定本轮派谁 ----
+    // 没有这一环,session-ok 永远只是"会话结束了"而不是"票推进了"(§10 交付一致性)。
+    const settled = settlePriorDispatches({ ledger, currentRows: allRows })
+    for (const s of settled) {
+      record({ mode: 'dispatch', action: 'dispatch-settled', ticketKey: s.ticketKey, ticketLine: s.ticketLine, sourceTs: s.sourceTs, settled: s.state, why: s.why })
+      if (s.state === 'no-progress') {
+        console.log(`⚠ 结算:票 ${s.ticketKey} 会话自称成功但票行零推进 —— ${s.why}`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(gates, 'auto-evolve:no-progress', '[auto-evolve] 有票派出去但零推进(会话"成功"不可信)', `票键:${s.ticketKey}\n票面:${s.ticketLine}\n判据:${s.why}\n这条不是"票失败"(不计连败、不封票),而是"成功判定过松"的凭据。\n出路:核该会话末轮实际做了什么(日志 .ihui-agent/state/auto-evolve-run.log);若它结构上交付不了(自动会话无提交权),这一族就得改判据 —— 派发的合格线要绑"票行推进 + 绑定票键的提交",而不是 CLI 退出码。`)
+        }
+      }
+    }
     let dispatched = 0
     for (const e of ledger) {
       if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
@@ -717,7 +1064,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, why: res.why ?? '' })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, why: res.why ?? '' })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
       // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
@@ -745,6 +1092,19 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         return
       }
       if (dryRun) {
+        // dry-run 不派会话,但落账腿仍要"演练一遍":有残留清单就现读并打印会提交什么,
+        // 让巡检能提前看见"真跑会不会提交/会不会被判 stale",而不是等真跑才发现清单写歪了。
+        const preview = landTicketArtifacts({
+          ticketKey: key,
+          ticketText: ticket.text,
+          manifestText: readArtifactManifest(key),
+          statusFn: gitPorcelainOf,
+          commitFn: runSafeCommit,
+          dryRun: true,
+        })
+        record({ mode: 'dryrun', action: preview.action, ticketKey: key, files: preview.files, dropped: preview.dropped, why: preview.why })
+        console.log(`🧪 dry-run 落账预览(${preview.action}):${preview.why}`)
+        if (preview.files.length) console.log(`   会提交:${preview.files.join(', ')}`)
         console.log(`✅ dry-run 记账完成(不真派)`)
         return
       }
@@ -776,6 +1136,25 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         return
       }
       console.log(`✅ 派发完成(action=${res.action},耗时 ${(res.durationMs / 1000).toFixed(1)}s)`)
+      // ---- 会话后落账腿(2026-11-01 立)----
+      // 会话退出码 0 只说明"它结束了";能不能落账要看它自己写的清单。这一步失败不许把整轮打崩:
+      // 并发索引锁是常态,记 artifact-commit-failed 就够,下一轮还会再来。
+      const landed = landTicketArtifacts({
+        ticketKey: key,
+        ticketText: ticket.text,
+        manifestText: readArtifactManifest(key),
+        statusFn: gitPorcelainOf,
+        commitFn: runSafeCommit,
+        dryRun: false,
+      })
+      record({ mode: 'dispatch', action: landed.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), files: landed.files, dropped: landed.dropped, why: landed.why })
+      if (landed.action === 'artifact-committed') {
+        console.log(`✅ 落账:代提交 ${landed.files.length} 枚 —— ${landed.files.join(', ')}${landed.dropped.length ? `(剔除无改动 ${landed.dropped.length} 枚)` : ''}`)
+      } else if (landed.action === 'artifact-commit-failed') {
+        console.error(`⚠ 落账未落地(${landed.action}):${landed.why} ⇒ 本轮照常收尾,下一轮重试`)
+      } else {
+        console.log(`ℹ 落账:${landed.action} —— ${landed.why}`)
+      }
       return
     }
     console.log('ℹ 候选行全部未命中白名单或在封 ⇒ 本轮无派发')
@@ -806,11 +1185,13 @@ async function probeSession({ gates, dryRun = false } = {}) {
     }
     mkdirSync(TMP_DIR, { recursive: true })
     const promptFile = join(TMP_DIR, `probe-${Date.now()}.md`)
-    writeFileSync(
-      promptFile,
-      ['只读自检任务(禁止创建或修改任何文件):', '', '运行 `node scripts/auto-evolve.mjs --self-test`,', '然后原样报告其输出的最后一行(形如 "self-test: 全绿" 或 "self-test: N 例红")。'].join('\n'),
-      'utf8'
-    )
+    const promptText = [
+      '只读自检任务(禁止创建或修改任何文件;禁止运行任何命令——本会话无审批人,run_command 等需确认的操作会被拒绝,被拒也不要重试):',
+      '',
+      '用 read_file 读取 scripts/lib/session-transcript.mjs 的第 1~30 行,',
+      '然后原样报告其中以 `export const TRANSCRIPT_DIR` 开头的那一行(逐字,不要改写)。',
+    ].join('\n')
+    writeFileSync(promptFile, promptText, 'utf8')
     const resolvedProbe = resolveSessionCommand(gates.sessionCommandTemplate, ROOT)
     if (resolvedProbe === null) {
       record({ mode: 'probe', action: 'probe-undetermined', why: '当次仓根取不到 ⇒ 模板无法归一,不冒充已探测' })
@@ -836,8 +1217,27 @@ async function probeSession({ gates, dryRun = false } = {}) {
       /* 用完即删 */
     }
     const durationMs = Date.now() - t0
-    const passed = r.status === 0 && String(r.stdout ?? '').includes('"stopReason":"end_turn"') && String(r.stdout ?? '').includes('self-test: 全绿')
-    record({ mode: 'probe', action: passed ? 'probe-ok' : 'probe-fail', exitCode: r.status ?? null, durationMs, why: passed ? '' : `status=${r.status} stdout 尾部=${String(r.stdout ?? '').slice(-160)}` })
+    // 2026-11-01 改判:旧 probe 派「跑 --self-test」,但 run_command 对任意 node 脚本判
+    // autoApprovable:false,headless(无审批人)被正确拒签 ⇒ 模型空手重试 3 次 ⇒ DOOM_LOOP 击杀
+    // (transcript 20261101T151837251-probe-probe-probe-fail 实证)。probe 的职责是验「起会话通路」,
+    // 不是验「能跑危险命令」——后者是自动会话的结构性边界(A7 维已登记)。改为确定性只读校验:
+    // read_file 在 headless 下自动放行,回显行是机器可判的固定标记,弱模型也无发挥空间。
+    const passed = r.status === 0 && String(r.stdout ?? '').includes('"stopReason":"end_turn"') && String(r.stdout ?? '').includes('export const TRANSCRIPT_DIR')
+    // 第 4 格·会话全文落盘:probe 同样要留证据(它跑通说明通路健康,跑挂说明哪一步断)。
+    const transcript = persistTranscript({
+      mode: 'probe',
+      ticketKey: 'probe',
+      ticketLine: 'probe 自检',
+      cmd,
+      action: passed ? 'probe-ok' : 'probe-fail',
+      exitCode: r.status ?? null,
+      durationMs,
+      prompt: promptText,
+      stdout: r.stdout ?? '',
+      stderr: r.stderr ?? '',
+      at: t0,
+    })
+    record({ mode: 'probe', action: passed ? 'probe-ok' : 'probe-fail', exitCode: r.status ?? null, durationMs, transcript, why: passed ? '' : `status=${r.status} stdout 尾部=${String(r.stdout ?? '').slice(-160)}` })
     console.log(passed ? `✅ probe 通过(${(durationMs / 1000).toFixed(1)}s)⇒ 起会话通路健康` : `❌ probe 未通过(status=${r.status})⇒ 记台账 probe-fail`)
     if (!passed) process.exitCode = 1
   } finally {
@@ -1013,7 +1413,227 @@ function selfTest() {
   const u1 = parseSessionUsage(`{"type":"start","prompt":"x"}\n${complete}\n`)
   ok('S8a complete 行 usage → tokens/成本', u1.measured === true && u1.tokens === 1000 && u1.costUsd === 0.12)
   ok('S8b 无 complete 行(超时/被杀)→ 未计量', parseSessionUsage('{"type":"message_delta","text":"x"}').measured === false)
+  ok('S9a 结算:票已从派单面消失 ⇒ line-gone(结清摘行算推进)', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'kk', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B1 原文' }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'line-gone'
+  })())
+  ok('S9b 结算:票行逐字未变 ⇒ no-progress(会话自称成功也不算推进)', (() => {
+    const text = 'B2 **同一张票** 一字未动'
+    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(text), ts: '2026-10-31T05:00:00.000Z', ticketLine: text }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text, line: 9 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'no-progress'
+  })())
+  ok('S9c 结算:票行被改写(加注记/翻勾)⇒ line-changed', (() => {
+    const then = 'B3 **原票面** 前缀一致的部分'
+    const now2 = 'B3 **原票面** 前缀一致的部分 —— 已追加进展注记'
+    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(then), ts: '2026-10-31T05:00:00.000Z', ticketLine: then }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 3 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'line-changed'
+  })())
+  ok('S9d 派单面取不到 ⇒ unjudged,不猜成"没推进"也不猜成"推进了"', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'k4', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B4' }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: null, now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'unjudged'
+  })())
+  ok('S9e 已结算的成功不重复结算(结算腿每轮都跑也不该把同一枚记两次)', (() => {
+    const led = [
+      { action: 'session-ok', ticketKey: 'k5', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B5' },
+      { action: 'dispatch-settled', ticketKey: 'k5', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'line-gone' },
+    ]
+    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
+  })())
+  ok('S9g 反向锁:票键随尾部注记漂移但行首同源 ⇒ line-changed(不得冒充"结清摘行")', (() => {
+    const then = 'B12 **注记漂移试验** 原文'
+    const now2 = then + ' —— 会话只追加了一句进展'
+    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(then), ts: '2026-10-31T05:00:00.000Z', ticketLine: then }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 12 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return ticketKeyOf(then) !== ticketKeyOf(now2) && r.length === 1 && r[0].state === 'line-changed'
+  })())
+  ok('S9f 窗口语义仍可用:显式传 windowHours 时超窗的成功不进结算', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
+    return settlePriorDispatches({ ledger: led, currentRows: [], windowHours: 48, now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
+  })())
+  ok('S9h 默认不限窗口 ⇒ 超窗的成功也结清(否则悬案永久化,尺子 A7 结构上恒红)', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
+    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 1
+  })())
   ok('S8c usage 形状坏 → 未计量(不读成 0 tokens 放行)', parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured === false)
+  // S10 会话后落账腿(2026-11-01 立):四档 fail-closed + 代提交带票键。
+  // 判据全部 import 自 lib/ticket-artifacts.mjs,本处只验"编排有没有按档处置"。
+  const commitSpy = () => {
+    const calls = []
+    return {
+      calls,
+      fn: (arg) => {
+        calls.push(arg)
+        return { ok: true, status: 0, stderr: '' }
+      },
+    }
+  }
+  const manifestOf = (files, key = 'k10') => JSON.stringify({ ticketKey: key, files })
+  ok('S10a 清单缺失 ⇒ missing 档,一次提交都不调', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: null, statusFn: () => ' M x', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-missing' && spy.calls.length === 0
+  })())
+  ok('S10b 清单 JSON 坏 ⇒ invalid,不提交', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: '{"ticketKey":"k10",', statusFn: () => ' M x', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
+  })())
+  ok('S10c 清单票键不匹配 ⇒ invalid(上一轮的清单不许记到这张票头上)', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs'], 'other'), statusFn: () => ' M x', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
+  })())
+  ok('S10d files 空数组 ⇒ invalid(写了空清单也算 invalid,不读成"没改")', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf([]), statusFn: () => ' M x', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
+  })())
+  ok('S10e 路径逃逸(../x、D:/x、/abs/x)⇒ 整批拒绝,不做部分提交', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs', '../x', 'D:/x', '/abs/x']), statusFn: () => ' M x', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0 && r.dropped.length === 3
+  })())
+  ok('S10f 清单含 PROJECT_PLAN.md ⇒ 整批拒绝(活文档并发冲突)', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs', 'PROJECT_PLAN.md']), statusFn: () => ' M x', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0 && r.dropped.includes('PROJECT_PLAN.md')
+  })())
+  ok('S10g 清单文件全无改动 ⇒ stale,不提交', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs']), statusFn: () => '', commitFn: spy.fn })
+    return r.action === 'artifact-manifest-stale' && spy.calls.length === 0 && r.dropped[0] === 'scripts/a.mjs'
+  })())
+  ok('S10h 有效清单 ⇒ 调提交且 env 带票键/席位,消息点名票键与票面', (() => {
+    const spy = commitSpy()
+    const face = '修复 **落账腿** 结构断点'
+    const r = landTicketArtifacts({
+      ticketKey: 'k10',
+      ticketText: face,
+      manifestText: manifestOf(['scripts/a.mjs', 'scripts/b.mjs']),
+      statusFn: (p) => (p === 'scripts/a.mjs' ? ' M scripts/a.mjs' : ''),
+      commitFn: spy.fn,
+    })
+    const call = spy.calls[0] ?? {}
+    return (
+      r.action === 'artifact-committed' &&
+      r.files.length === 1 &&
+      r.dropped.length === 1 &&
+      call.env?.IHUI_TICKET_KEY === 'k10' &&
+      call.env?.IHUI_AGENT_SESSION_ID === 'auto-evolve' &&
+      /^(feat|fix|chore): /.test(String(call.message ?? '')) &&
+      String(call.message ?? '').includes('k10') &&
+      String(call.message ?? '').includes(face)
+    )
+  })())
+  ok('S10i 提交抛错(并发索引锁)⇒ artifact-commit-failed,不把整轮打崩', (() => {
+    const r = landTicketArtifacts({
+      ticketKey: 'k10',
+      ticketText: '某票',
+      manifestText: manifestOf(['scripts/a.mjs']),
+      statusFn: () => ' M scripts/a.mjs',
+      commitFn: () => {
+        throw new Error('index.lock: File exists')
+      },
+    })
+    return r.action === 'artifact-commit-failed' && r.files.length === 1 && r.why.includes('index.lock')
+  })())
+  ok('S10j dry-run ⇒ 只出预览,不调提交', (() => {
+    const spy = commitSpy()
+    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs']), statusFn: () => ' M scripts/a.mjs', commitFn: spy.fn, dryRun: true })
+    return r.action === 'artifact-preview' && r.files.length === 1 && spy.calls.length === 0
+  })())
+  // S11:决策候选刷新腿(第 2 期写侧的接线锁)。每条都钉一个具体失效方向。
+  const s11Dir = join(TMP_DIR, 'selftest-s11')
+  const s11Script = join(ROOT, 'scripts', 'autonomy-candidates.mjs')
+  ok('S11a 候选文件新鲜 ⇒ 不重跑生成器(84s 的器物不能每轮都调)', (() => {
+    mkdirSync(s11Dir, { recursive: true })
+    const cand = join(s11Dir, 'fresh.json')
+    writeFileSync(cand, '{}', 'utf8')
+    let called = 0
+    const r = refreshAutonomyCandidates({ now: Date.now(), scriptFile: s11Script, candidatesFile: cand, runner: () => { called++; return '' } })
+    return r.state === 'ok' && called === 0 && String(r.why).includes('新鲜')
+  })())
+  ok('S11b 候选文件过期 ⇒ 真调生成器一次(节流不等于永不刷新)', (() => {
+    mkdirSync(s11Dir, { recursive: true })
+    const cand = join(s11Dir, 'stale.json')
+    writeFileSync(cand, '{}', 'utf8')
+    const old = new Date(Date.now() - 7 * 3600_000)
+    utimesSync(cand, old, old)
+    let called = 0
+    const r = refreshAutonomyCandidates({ now: Date.now(), scriptFile: s11Script, candidatesFile: cand, runner: () => { called++; return '' } })
+    return r.state === 'ok' && called === 1 && String(r.why).includes('刷新')
+  })())
+  ok('S11c dry-run ⇒ 不刷新且如实说"决策将按台账序",不假装刷过', (() => {
+    const r = refreshAutonomyCandidates({ dryRun: true, scriptFile: s11Script, candidatesFile: join(s11Dir, 'never-exists.json'), runner: () => { throw new Error('dry-run 不该调生成器') } })
+    return r.state === 'undetermined' && String(r.why).includes('dry-run')
+  })())
+  ok('S11d 器物不在位 ⇒ 未判定并点名路径(不把"没装"读成"没有候选"的合法态)', (() => {
+    const r = refreshAutonomyCandidates({ scriptFile: join(s11Dir, 'nope.mjs'), candidatesFile: join(s11Dir, 'x.json'), runner: () => { throw new Error('不该调') } })
+    return r.state === 'undetermined' && String(r.why).includes('不在位')
+  })())
+  ok('S11e 接线锁:刷新腿真在派发主循环里(没有这一行,第 2 期永远不生效)', (() => {
+    const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+    return /if \(!noDecide\) \{\s*\r?\n\s*const gen = refreshAutonomyCandidates\(\{ dryRun \}\)/.test(src)
+  })())
+  // S12 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立):命名/脱敏/截断/轮转判据 + 接线锁。
+  // 判据全部 import 自 lib/session-transcript.mjs(单一真相源),本处只验"编排有没有按契约处置"。
+  ok('S12a 正文三段齐备(PROMPT/STDOUT/STDERR 横幅)', (() => {
+    const t = buildTranscript({ ticketKey: 'k12', prompt: 'P', stdout: 'O', stderr: 'E' })
+    return t.includes('===== PROMPT(会话被交代了什么) =====') && t.includes('===== STDOUT(事件流原样) =====') && t.includes('===== STDERR =====')
+  })())
+  ok('S12b 脱敏:Bearer 令牌被替换,头部记命中次数', (() => {
+    const t = buildTranscript({ prompt: 'Authorization: Bearer eyJabc.def.ghi token' })
+    return t.includes('«REDACTED:bearer»') && /redacted:.*bearer/.test(t)
+  })())
+  ok('S12c 脱敏:私钥块整段被替换(原文不残留)', (() => {
+    const block = '-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----'
+    const t = buildTranscript({ prompt: block })
+    return t.includes('«REDACTED:private-key»') && !t.includes('MIIabc')
+  })())
+  ok('S12d 截断留痕:超限时正文含"中略"且头尾保留,头部 redacted 行仍在', (() => {
+    const big = 'x'.repeat(5 * 1024 * 1024)
+    const t = buildTranscript({ prompt: big })
+    const capped = capTranscript(t)
+    return capped.truncated === true && capped.text.includes('中略') && capped.text.startsWith('# session transcript')
+  })())
+  ok('S12e 不截断:未超限逐字不变', (() => {
+    const t = buildTranscript({ prompt: '短文本' })
+    const capped = capTranscript(t)
+    return capped.truncated === false && capped.text === t
+  })())
+  ok('S12f 命名:transcriptRelPathOf 产物过 isTranscriptName 且含票键', (() => {
+    const rel = transcriptRelPathOf({ at: new Date(), ticketKey: 'deadbeef12345678', mode: 'dispatch', action: 'session-ok' })
+    return isTranscriptName(rel) && rel.includes('deadbeef12345678')
+  })())
+  ok('S12g 轮转:最新一份无论多老都保留(失效方向=多留证据)', (() => {
+    const now = Date.now()
+    const oldest = now - 365 * 86_400_000
+    const newer = now - 100 * 86_400_000 // 也超 14 天,但比 oldest 新 ⇒ 仍豁免保留
+    const r = decideRetention([{ rel: 'oldest.log', mtimeMs: oldest }, { rel: 'newer.log', mtimeMs: newer }], { now, keepDays: 14, keepMax: 500 })
+    return r.keep.length === 1 && r.keep[0] === 'newer.log' && r.drop.length === 1 && r.drop[0].rel === 'oldest.log'
+  })())
+  ok('S12h 轮转:非最新的过期件被删(带 why)', (() => {
+    const now = Date.now()
+    const old = now - 365 * 86_400_000
+    const mid = now - 86_400_000
+    const r = decideRetention([{ rel: 'a.log', mtimeMs: old }, { rel: 'b.log', mtimeMs: mid }, { rel: 'c.log', mtimeMs: now }], { now, keepDays: 14, keepMax: 500 })
+    return r.keep.length === 2 && r.drop.some((d) => d.rel === 'a.log' && /天前/.test(d.why))
+  })())
+  ok('S12i 轮转:mtime 取不到 ⇒ 不删(未判定不猜,§0.3)', (() => {
+    const r = decideRetention([{ rel: 'a.log', mtimeMs: NaN }], { now: Date.now(), keepDays: 14, keepMax: 500 })
+    return r.undetermined.length === 1 && r.drop.length === 0
+  })())
+  ok('S12j 接线锁:dispatchSession / probeSession 都调 persistTranscript 并把 transcript 带进台账', (() => {
+    const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+    const dispatchWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'dispatch'/.test(src)
+    const probeWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'probe'/.test(src)
+    const ledgerWired = /transcript: res\.transcript \?\? null/.test(src) && /record\(\{ mode: 'probe'[\s\S]*?transcript,/.test(src)
+    return dispatchWired && probeWired && ledgerWired
+  })())
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
     process.exitCode = 1
@@ -1105,5 +1725,9 @@ export const __test__ = {
   GATES_JSON,
   LEDGER,
   todayKey,
+  landTicketArtifacts,
+  buildArtifactCommitMessage,
+  commitPrefixOf,
+  ARTIFACT_MANIFEST_DIR,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
