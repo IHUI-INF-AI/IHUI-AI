@@ -31,7 +31,7 @@ interface Question {
 type AnswerValue = number | number[] | string | boolean
 
 export default function ExamAnswer() {
-  const { t, tList } = useI18n()
+  const { t } = useI18n()
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [loadFailed, setLoadFailed] = useState(false)
@@ -43,7 +43,9 @@ export default function ExamAnswer() {
   const submittedRef = useRef(false)
   const onSubmitRef = useRef<() => void>(() => {})
 
-  const judgmentOptions = tList('exam.answer.judgmentOptions')
+  // 判断题两档文案取共享屏同一对词条(examQuestion.judgmentTrue/False),不再用端内
+  // exam.answer.judgmentOptions —— 两端同一句话必须同源,否则改一端另一端不跟。
+  const judgmentOptions = [t('examQuestion.judgmentTrue'), t('examQuestion.judgmentFalse')]
   const current = useMemo(() => questions[currentIdx], [questions, currentIdx])
   // AI 操控通道(2026-09-21):填空题 / 主观题的作答框(renderAnswer 里按题型分支渲染,
   // 同一屏只有一个作答框)。写入走与 onInput 同一个 select(current) 通道。
@@ -54,8 +56,8 @@ export default function ExamAnswer() {
     answerType
       ? {
           kind: answerType === 'subjective' ? 'textarea' : 'input',
-          label: t('exam.answer.answerPlaceholder'),
-          placeholder: t('exam.answer.answerPlaceholder'),
+          label: t('examQuestion.answerPlaceholder'),
+          placeholder: t('examQuestion.answerPlaceholder'),
           inputType: 'text',
           ...(answerType === 'subjective' ? { maxLength: 1000 } : {}),
           readValue: () => {
@@ -72,6 +74,25 @@ export default function ExamAnswer() {
     const sec = s % 60
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   }, [])
+
+  // 题型标签分派与共享屏 typeLabel 同一套:判断题无独立词条,取两个选项词拼合。
+  const typeLabel = useCallback(
+    (type: QuestionType) => {
+      switch (type) {
+        case 'multi_choice':
+          return t('examQuestion.multi')
+        case 'fill_blank':
+          return t('examQuestion.fill')
+        case 'subjective':
+          return t('examQuestion.subjective')
+        case 'judgment':
+          return `${t('examQuestion.judgmentTrue')}/${t('examQuestion.judgmentFalse')}`
+        default:
+          return t('examQuestion.single')
+      }
+    },
+    [t],
+  )
 
   const onSubmit = useCallback(async () => {
     if (submittedRef.current) return
@@ -161,7 +182,7 @@ export default function ExamAnswer() {
           <FocusInput
             className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-title text-foreground"
             type="text"
-            placeholder={t('exam.answer.answerPlaceholder')}
+            placeholder={t('examQuestion.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
             onInput={(e) => select(e.detail.value)}
           />
@@ -173,7 +194,7 @@ export default function ExamAnswer() {
         <ThemeRoot>
           <FocusTextarea
             className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-title text-foreground min-h-[320rpx]"
-            placeholder={t('exam.answer.answerPlaceholder')}
+            placeholder={t('examQuestion.subjectivePlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
             onInput={(e) => select(e.detail.value)}
             maxlength={1000}
@@ -252,7 +273,9 @@ export default function ExamAnswer() {
       <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[64rpx]">
         <View className="flex justify-between items-center">
           <Text className="text-title text-[var(--color-danger)] font-bold">
-            {formatTime(remain)}
+            {remain > 0
+              ? t('examQuestion.timeLeft', { time: formatTime(remain) })
+              : t('examQuestion.timeUp')}
           </Text>
           <Text className="text-body text-[var(--color-success)] font-semibold">
             {currentIdx + 1}/{questions.length}
@@ -261,17 +284,13 @@ export default function ExamAnswer() {
 
         {current && (
           <View>
-            {/* 对齐 RN qType 题型行:共享屏按 multi/其它 二分取词,但那两词只对单/多选成立
-                (判断题/填空/主观题不是单多选),故只在选择题上渲染,避免贴错题型 */}
-            {current.type === 'single_choice' || current.type === 'multi_choice' ? (
-              <View className="mt-[16rpx] flex">
-                <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-caption font-semibold text-[var(--color-success)]">
-                  {current.type === 'multi_choice'
-                    ? t('examQuestion.multi')
-                    : t('examQuestion.single')}
-                </Text>
-              </View>
-            ) : null}
+            {/* 对齐 RN typeLabel:五种题型各有共享词条(判断题取两选项词拼合),
+                不再只在单/多选上渲染 —— 缺标签等于缺一句文案 */}
+            <View className="mt-[16rpx] flex">
+              <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-caption font-semibold text-[var(--color-success)]">
+                {typeLabel(current.type)}
+              </Text>
+            </View>
             <Text className="mt-[16rpx] block text-subtitle text-foreground font-semibold leading-relaxed">
               {currentIdx + 1}. {current.title}
             </Text>
@@ -289,7 +308,7 @@ export default function ExamAnswer() {
               onClick={prev}
             >
               <Text className="text-title text-[var(--color-text-medium)]">
-                {t('exam.answer.prev')}
+                {t('examQuestion.prev')}
               </Text>
             </View>
           )}
@@ -300,7 +319,7 @@ export default function ExamAnswer() {
               onClick={next}
             >
               <Text className="text-title text-[var(--color-text-medium)]">
-                {t('exam.answer.next')}
+                {t('examQuestion.next')}
               </Text>
             </View>
           ) : (
@@ -310,7 +329,7 @@ export default function ExamAnswer() {
               onClick={onSubmit}
             >
               <Text className="text-title font-semibold text-primary-foreground">
-                {t('exam.answer.submit')}
+                {t('examQuestion.submit')}
               </Text>
             </View>
           )}
