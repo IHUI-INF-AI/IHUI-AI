@@ -23,16 +23,23 @@
  *   node scripts/root-guard.mjs --status
  *   node scripts/root-guard.mjs --seal --reason "人工复核后重新封存"
  *   node scripts/root-guard.mjs --unlock --target agents-ironlaw --reason "..." [--ttl-min 120]
+ *   node scripts/root-guard.mjs --check --against-rev <40位sha>   # 当前面红时,再问"本轮将要检出的那一面"自洽否
+ *   node scripts/root-guard.mjs --check --against-remote origin   # 同上,但由本器现读远端 main 的 sha(只在红轮付这次网络)
+ *       # 用途:部署环前置闸跑在 `git merge --ff-only` 之前 ⇒ 旧 HEAD 上"清单绑旧哈希"会永远判红,
+ *       # 而修对清单的提交只在远端那一面(2026-11-01 实测 44 轮空转)。候选面自洽才大声放行;
+ *       # 候选面取不到/不自洽 ⇒ 维持原判,绝不把"没判成"读成放行(§0.3)。
  *   node scripts/root-guard.mjs --self-test
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { gitRaw } from './lib/face-reader.mjs'
-import { join, dirname, resolve } from 'node:path'
+import { join, dirname, resolve, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const MANIFEST_PATH = join(ROOT, 'scripts', 'data', 'root-guard-manifest.json')
+/** 清单在 git 路径里的写法(正斜杠,跨面取材用;与 MANIFEST_PATH 同一条路径,不另立一份)。 */
+export const MANIFEST_REL = 'scripts/data/root-guard-manifest.json'
 export const UNLOCK_PATH = join(ROOT, '.ihui-agent', 'state', 'root-guard-unlocks.json')
 
 export const EXIT_OK = 0
@@ -248,6 +255,96 @@ function headHashOf(target) {
   }
 }
 
+/** 读被审 rev 面上该目标的 blob。取不到 ⇒ null(交给 hashTarget 落"未判定",不冒充内容)。 */
+function faceReader(rev) {
+  return (abs) => {
+    const rel = relative(ROOT, abs).replace(/\\/g, '/')
+    try {
+      return gitRaw(['show', `${rev}:${rel}`], ROOT, {})
+    } catch {
+      return null
+    }
+  }
+}
+
+/**
+ * 候选面判定(2026-11-01 立,专治部署环自锁)。
+ *
+ * 为什么要这一格:`ihui-deploy-loop.ps1` 的前置闸跑在 `git merge --ff-only` **之前**,
+ * 于是生产签出那枚旧 HEAD 上"清单绑的是旧 guardian-runner 哈希"会一直判红,而把清单修对的
+ * 提交恰恰只存在于远端那一面 ⇒ 门越守越锁(2026-11-01 实测连续 44 轮 `FAIL 根护栏未通过`)。
+ * 判据本该问"本轮真正要检出并构建的那份代码自不自洽",而不是问"上一版自不自洽"。
+ *
+ * 三条不许漂的纪律:
+ *  ① 清单与全部目标都从**同一枚 rev** 取(§0.4 同面同轮)⇒ 候选面自洽才放,候选面自己红照样红;
+ *  ② 不掺解锁记录(人工解锁绑的是工作树哈希,跨面套用它就是把一次性放行变成永久放行);
+ *  ③ rev 形态不对 / 候选面取不到 ⇒ `verdict='unknown'` ⇒ 调用方维持原判,
+ *     **绝不把"没判成"读成"放行"**(§0.3),也不因此新增红(§12e)。
+ */
+export function checkAgainstRev({
+  rev,
+  readText = (r) => {
+    try {
+      return gitRaw(['show', `${r}:${MANIFEST_REL}`], ROOT, {})
+    } catch {
+      return null
+    }
+  },
+} = {}) {
+  const revText = String(rev ?? '').trim()
+  if (!/^[0-9a-f]{40}$/.test(revText)) {
+    return {
+      verdict: 'unknown',
+      targets: [],
+      why: `候选 rev 不是 40 位全量 sha:${revText.slice(0, 20) || '(空)'}`,
+    }
+  }
+  const text = readText(revText)
+  if (text === null || text === undefined) {
+    return {
+      verdict: 'unknown',
+      targets: [],
+      why: `候选面取不到清单(${revText.slice(0, 11)} 上没有 ${MANIFEST_REL})`,
+    }
+  }
+  let candManifest
+  try {
+    candManifest = loadManifest(text)
+  } catch (e) {
+    return { verdict: 'unknown', targets: [], why: `候选面清单形态坏:${e?.message ?? e}` }
+  }
+  const res = checkAll({
+    manifest: candManifest,
+    readFile: faceReader(revText),
+    root: ROOT,
+    unlocks: [],
+  })
+  return { ...res, rev: revText }
+}
+
+/**
+ * 放行裁决(把"什么时候可以因候选面而放行"收成一个可测的纯函数,判据只住这一份)。
+ * 四档:当前面绿 ⇒ 照常放;当前面红 ∧ 候选面绿 ⇒ 大声放;候选面红/未判定 ⇒ 维持 fail-closed;
+ * 当前面本身未判定 ⇒ 绝不借候选面翻绿(§0.3,取不到输入不是"通过"的替代品)。
+ */
+export function decideRelease({ currentVerdict, candidate } = {}) {
+  if (currentVerdict === 'pass') return { release: true, loud: false, reason: '当前面自洽' }
+  if (currentVerdict === 'unknown')
+    return { release: false, loud: false, reason: '当前面未判定 ⇒ 不借任何他面翻绿' }
+  if (!candidate) return { release: false, loud: false, reason: '未给候选面(未要求跨面复核)' }
+  if (candidate.verdict === 'pass')
+    return {
+      release: true,
+      loud: true,
+      reason: `候选面 ${String(candidate.rev).slice(0, 11)} 清单与全部目标自洽 ⇒ 放行 ff`,
+    }
+  return {
+    release: false,
+    loud: false,
+    reason: candidate.why ?? `候选面 verdict=${candidate.verdict} ⇒ 不放行`,
+  }
+}
+
 function readOrDie(path, label) {
   try {
     return readFileSync(path, 'utf8')
@@ -460,12 +557,49 @@ function main(argv) {
     }
   }
   const res = checkAll({ manifest, unlocks })
+  // 候选面 = 本轮真正会被检出并构建的那一面。只在当前面已经判红时才去问(绿轮零额外开销,
+  // 也就不会因为一次 fetch 抖动新增红 —— §12e)。
+  const revArg = val('--against-rev', '')
+  const remoteArg = val('--against-remote', '')
+  let cand = null
+  if (res.verdict === 'fail' && (revArg || remoteArg)) {
+    let rev = revArg
+    if (!rev) {
+      try {
+        rev =
+          String(gitRaw(['ls-remote', remoteArg, 'refs/heads/main'], ROOT, {}))
+            .split('\t')[0]
+            ?.trim() ?? ''
+      } catch {
+        rev = ''
+      }
+    }
+    cand = checkAgainstRev({ rev })
+  }
   if (has('--json')) {
-    console.log(JSON.stringify({ verdict: res.verdict, targets: res.targets }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          verdict: res.verdict,
+          targets: res.targets,
+          against: cand ? { rev: cand.rev, verdict: cand.verdict, why: cand.why ?? '' } : null,
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     console.log(fmt(res))
   }
+  const release = decideRelease({ currentVerdict: res.verdict, candidate: cand })
   if (res.verdict === 'fail') {
+    if (release.release && release.loud) {
+      console.log(
+        `WARN 根护栏:当前面判红,但本轮将要检出的那一面(${String(cand.rev).slice(0, 11)})清单与全部目标自洽 ⇒ 放行 ff —— 被构建与被切流的是后者;自锁的成因正是"把清单修对的那枚提交只存在于远端那一面"。`,
+      )
+      process.exitCode = EXIT_OK
+      return
+    }
     console.error(
       '❌ 根护栏判红:规则文件被改动且无有效人工解锁 ⇒ 部署环 fail-closed 拒绝推进。人工复核后:node scripts/root-guard.mjs --seal --reason "..."',
     )
@@ -474,6 +608,11 @@ function main(argv) {
       const target = manifest.targets.find((x) => x.id === t.id)
       console.error(
         `   差面判读[${t.id}]:${faceDiagnosis({ expected: t.expected, actual: t.actual, head: target ? headHashOf(target) : null })}`,
+      )
+    }
+    if (cand) {
+      console.error(
+        `   候选面复核:${cand.why ? cand.why : `${cand.rev.slice(0, 11)} 面 verdict=${cand.verdict}`} ⇒ 不放行(取不到不等于放行,§0.3)`,
       )
     }
   } else if (res.verdict === 'unknown') {
@@ -489,6 +628,8 @@ export const __test__ = {
   hashTarget,
   loadManifest,
   activeUnlocks,
+  checkAgainstRev,
+  decideRelease,
   checkAll,
   exitCodeOf,
   faceDiagnosis,
@@ -499,3 +640,4 @@ export const __test__ = {
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   main(process.argv.slice(2))
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
