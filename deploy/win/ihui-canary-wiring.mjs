@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * ihui-canary-wiring — 金丝雀「灰度分流」的**接线判据**(O65 第 2 期 · 2026-10-28 立)。
  *
@@ -33,7 +32,8 @@
  *                                      否则"异常自动回滚"这一格只是日志上的话
  *   W9 撤量/退包次序                —— -Action stop 必须排在 -rollbackOnly 之前(顺序反了
  *                                      就是"包退完了,分流器还往已拆掉的候选槽位送请求")
- *   W10 灰度在位维                  —— --decide 必须带 --canary-serving yes|no|unknown
+ *   W10 灰度在位 ∧ 采样面折算        —— --decide 必须同时带 --canary-serving yes|no|unknown 与
+ *                                      --verdict $rampVerdict(按 $graySampledFrom 折算过的那枚),两维缺一即缺口
  *                                      (票 31460:灰度实例不在位时的"现网侧 pass"不得被喂给
  *                                      档位推进冒充"灰度侧通过";缺省 unknown ⇒ hold 不推进)
  *
@@ -65,13 +65,13 @@ export const WIRING_RULES = [
     id: 'W1',
     need: /ihui-canary-stage\.mjs/,
     why: '观察窗没有调用档位编排层 ⇒ 灰度比例从未被产出,分流执行体读不到契约',
-    fix: "在 Invoke-CanaryGate 内调 `& $Node $stageCli --status/--decide …`(deploy/win/ihui-canary-stage.mjs)",
+    fix: '在 Invoke-CanaryGate 内调 `& $Node $stageCli --status/--decide …`(deploy/win/ihui-canary-stage.mjs)',
   },
   {
     id: 'W2',
     need: /ihui-canary-gray\.ps1/,
     why: '分流器与灰度实例的进程编排没被调用 ⇒ 契约写得再对也没有进程消费它',
-    fix: "在 Invoke-CanaryGate 内调 `& $PwshExe … -File $grayPs1 -Action start …`",
+    fix: '在 Invoke-CanaryGate 内调 `& $PwshExe … -File $grayPs1 -Action start …`',
   },
   {
     id: 'W3',
@@ -84,13 +84,13 @@ export const WIRING_RULES = [
     need: /--decide/,
     also: /--verdict/,
     why: '观察窗的结论没有喂给档位推进 ⇒ 判过也没有下一档,判死也没有归零',
-    fix: "把 rc 映射成 pass|fail|unknown 后调 `--decide --verdict <v>`(比例只来自 canary-policy.json)",
+    fix: '把 rc 映射成 pass|fail|unknown 后调 `--decide --verdict <v>`(比例只来自 canary-policy.json)',
   },
   {
     id: 'W5',
     need: /-Action\s+stop/,
     why: '判死时没有撤灰度(停进程 + 契约归零)⇒ 坏构建还留在分流路径上',
-    fix: "fail 分支在整包回滚之前先 `-Action stop`(撤流量),再调 ihui-deploy.ps1 -rollbackOnly",
+    fix: 'fail 分支在整包回滚之前先 `-Action stop`(撤流量),再调 ihui-deploy.ps1 -rollbackOnly',
   },
   {
     id: 'W6',
@@ -109,7 +109,7 @@ export const WIRING_RULES = [
     id: 'W8',
     need: /-rollbackOnly/,
     why: '观察窗判死却没有真调用整包回滚出口 ⇒ "异常自动回滚"只是日志上的话',
-    fix: "fail 分支调 ihui-deploy.ps1 -rollbackOnly -CanaryRollback(撤灰度在前、退包在后)",
+    fix: 'fail 分支调 ihui-deploy.ps1 -rollbackOnly -CanaryRollback(撤灰度在前、退包在后)',
   },
   {
     id: 'W9',
@@ -120,8 +120,13 @@ export const WIRING_RULES = [
   {
     id: 'W10',
     need: /--canary-serving/,
-    why: '档位推进没有携带灰度实例在位维 ⇒ 灰度实例不在位时的"现网侧 pass"照样被喂给 --decide 升档(票 31460 治的形态:放量完成的灰度那一半是空的)',
-    fix: '把灰度实例是否在位现算成 yes|no|unknown 后随 --decide 传 `--canary-serving <v>`;缺省/取不到一律 unknown ⇒ stage.mjs 侧落 hold,不推进也不回滚',
+    also: /rampVerdict/,
+    why:
+      '档位推进没有同时携带「灰度实例在位维」与「按采样面折算的档位判定」⇒ 灰度实例不在位时(采样面=stable)' +
+      '那枚"现网侧 pass"照样被喂给 --decide 升档,而升档这一格从来是空的(票 31460 治的形态;2026-11-01 实测:' +
+      '近 20 轮 20/20 灰度无产物,档位照样 ramp-1 → ramp-2。§0.3:未判定不得折成判过)。',
+    fix: '先按 $graySampledFrom 折算 $rampVerdict(≠canary ⇒ unknown ⇒ 原地不动),再把灰度实例是否在位现算成 yes|no|unknown,' +
+      '随 --decide 一起传 `--verdict $rampVerdict --canary-serving $canaryServing`;缺省/取不到一律 unknown ⇒ stage.mjs 侧落 hold,不推进也不回滚',
   },
 ]
 
@@ -152,16 +157,20 @@ export function canaryGateBody(text) {
 
 /** 判据本体:返回缺口数组(空 = 已接线)。输入不是文本 ⇒ 抛(调用方落未判定)。 */
 export function wiringGaps(text) {
-  if (typeof text !== 'string' || !text.trim()) throw new Error('接线判据输入为空文本(取不到被审面)')
+  if (typeof text !== 'string' || !text.trim())
+    throw new Error('接线判据输入为空文本(取不到被审面)')
   const body = canaryGateBody(text)
-  if (body === null) throw new Error('找不到 `function Invoke-CanaryGate` 段(判据对象不在位 ⇒ 未判定)')
+  if (body === null)
+    throw new Error('找不到 `function Invoke-CanaryGate` 段(判据对象不在位 ⇒ 未判定)')
   if (!body.trim()) throw new Error('Invoke-CanaryGate 段为空 ⇒ 未判定(空段不记绿)')
   const gaps = []
   for (const rule of WIRING_RULES) {
     // 形状自锁:一格判据若没声明任何一种"判法",它会永远绿 —— 这正是"加了格子却没人判"
     // 的形态(§0.9:造好没装车 = 没有;这里连造都没造出来)。当场抛,不当绿。
     if (!rule.need && !rule.also && !rule.minCount && !rule.forbid && !rule.order) {
-      throw new Error(`判据 ${rule.id} 没声明任何判法(need/also/minCount/forbid/order 全空 ⇒ 恒绿摆设)`)
+      throw new Error(
+        `判据 ${rule.id} 没声明任何判法(need/also/minCount/forbid/order 全空 ⇒ 恒绿摆设)`,
+      )
     }
     if (rule.need && !rule.need.test(body)) {
       gaps.push({ id: rule.id, why: rule.why, fix: rule.fix })
@@ -174,7 +183,11 @@ export function wiringGaps(text) {
     if (rule.minCount) {
       const hits = body.match(rule.minCount.pattern)
       if (!hits || hits.length < rule.minCount.atLeast) {
-        gaps.push({ id: rule.id, why: `${rule.why}(现读 Test-Path ${hits ? hits.length : 0} 处 < ${rule.minCount.atLeast})`, fix: rule.fix })
+        gaps.push({
+          id: rule.id,
+          why: `${rule.why}(现读 Test-Path ${hits ? hits.length : 0} 处 < ${rule.minCount.atLeast})`,
+          fix: rule.fix,
+        })
         continue
       }
     }
@@ -182,11 +195,19 @@ export function wiringGaps(text) {
       const a = body.search(rule.order.first)
       const b = body.search(rule.order.second)
       if (a < 0 || b < 0) {
-        gaps.push({ id: rule.id, why: `${rule.why}(stop 位置=${a} 退包位置=${b} ⇒ 两格中有一格根本不在)`, fix: rule.fix })
+        gaps.push({
+          id: rule.id,
+          why: `${rule.why}(stop 位置=${a} 退包位置=${b} ⇒ 两格中有一格根本不在)`,
+          fix: rule.fix,
+        })
         continue
       }
       if (a > b) {
-        gaps.push({ id: rule.id, why: `${rule.why}(现读:stop 在第 ${a} 字、rollbackOnly 在第 ${b} 字)`, fix: rule.fix })
+        gaps.push({
+          id: rule.id,
+          why: `${rule.why}(现读:stop 在第 ${a} 字、rollbackOnly 在第 ${b} 字)`,
+          fix: rule.fix,
+        })
         continue
       }
     }
@@ -264,7 +285,8 @@ function selfTest() {
     for (const rule of WIRING_RULES) {
       t(`正向:真部署环命中 ${rule.id}`, () => {
         const gaps = wiringGaps(real)
-        if (gaps.some((g) => g.id === rule.id)) throw new Error(`${rule.id} 判为缺口:${gaps.find((g) => g.id === rule.id)?.why}`)
+        if (gaps.some((g) => g.id === rule.id))
+          throw new Error(`${rule.id} 判为缺口:${gaps.find((g) => g.id === rule.id)?.why}`)
       })
     }
     // 变异对:每一格"摘掉即翻红"——判据必须是活的,不是恒绿。
@@ -276,20 +298,23 @@ function selfTest() {
       { name: '摘掉撤灰度(stop)', re: /-Action\s+stop/g, want: 'W5' },
       { name: '摘掉整包回滚出口', re: /-rollbackOnly/g, want: 'W8' },
       { name: '摘掉灰度在位维(--canary-serving)', re: /--canary-serving/g, want: 'W10' },
+      { name: '摘掉采样面折算的档位判定', re: /rampVerdict/g, want: 'W10' },
     ]
     for (const m of mutations) {
       t(`变异:${m.name} ⇒ ${m.want} 翻红`, () => {
         const mutated = real.replace(m.re, '「已摘线」')
         if (mutated === real) throw new Error('变异未生效(原文里没有这一格 ⇒ 本自证假绿)')
         const gaps = wiringGaps(mutated)
-        if (!gaps.some((g) => g.id === m.want)) throw new Error(`摘线后仍判 ${m.want} 绿 ⇒ 判据是摆设`)
+        if (!gaps.some((g) => g.id === m.want))
+          throw new Error(`摘线后仍判 ${m.want} 绿 ⇒ 判据是摆设`)
       })
     }
     // 成对夹具工厂:除被检的那一格之外,其余各格都必须齐备 —— 否则"翻红"可能来自别格,
     // 而那是假阳(与"摘掉即翻红"要证的恰好相反)。
     const fakeGate = ({ hardcode = false, swapOrder = false } = {}) => {
       const stop = '  & $PwshExe -File $grayPs1 -Action stop'
-      const rb = "  & $PwshExe -File (Join-Path $WinDir 'ihui-deploy.ps1') -rollbackOnly -CanaryRollback"
+      const rb =
+        "  & $PwshExe -File (Join-Path $WinDir 'ihui-deploy.ps1') -rollbackOnly -CanaryRollback"
       return [
         'function Invoke-CanaryGate {',
         "  $stageCli = Join-Path $WinDir 'ihui-canary-stage.mjs'",
@@ -297,24 +322,30 @@ function selfTest() {
         '  if (-not (Test-Path $stageCli)) { Log "GRAY 未判定:stage 件不在位"; return $false }',
         '  if (-not (Test-Path $grayPs1)) { Log "GRAY 未判定:gray 件不在位"; return $false }',
         '  if (-not (Test-Path $trafficCli)) { Log "GRAY 未判定:traffic 件不在位"; return $false }',
-        "  & $Node $trafficCli --gray-policy --stage $s --out $gp",
-        "  & $Node $stageCli --decide --verdict 'pass' --canary-serving yes --current $s --contract $r",
+        '  & $Node $trafficCli --gray-policy --stage $s --out $gp',
+        '  $rampVerdict = if ($graySampledFrom -eq "canary") { $verdictWord } else { "unknown" }',
+        "  & $Node $stageCli --decide --verdict $rampVerdict --canary-serving yes --current $s --contract $r",
         swapOrder ? rb : stop,
         swapOrder ? stop : rb,
-        hardcode ? '  # 反例:把槽位端口/比例写死在部署环里 ⇒ 第二份策略(§0.6)' : '  $samplePolicy = $policyPath',
+        hardcode
+          ? '  # 反例:把槽位端口/比例写死在部署环里 ⇒ 第二份策略(§0.6)'
+          : '  $samplePolicy = $policyPath',
         hardcode ? '  $u = "http://127.0.0.1:8845/health"' : '  $u = $samplePolicy',
         '}',
       ].join('\n')
     }
     t('夹具自证:其余各格齐备的假段落 ⇒ 零缺口(防本判据恒红的假阳对照)', () => {
       const gaps = wiringGaps(fakeGate({}))
-      if (gaps.length) throw new Error(`应全中,实得 ${gaps.map((g) => `${g.id}:${g.why}`).join(' | ')}`)
+      if (gaps.length)
+        throw new Error(`应全中,实得 ${gaps.map((g) => `${g.id}:${g.why}`).join(' | ')}`)
     })
     t('W7 反向对照:同一段里出现端口/比例字面量即判缺口(其余各格齐备也不放过)', () => {
       const gaps = wiringGaps(fakeGate({ hardcode: true }))
-      if (!gaps.some((g) => g.id === 'W7')) throw new Error(`比例/端口字面量未被 W7 咬住(实得 ${JSON.stringify(gaps)})`)
+      if (!gaps.some((g) => g.id === 'W7'))
+        throw new Error(`比例/端口字面量未被 W7 咬住(实得 ${JSON.stringify(gaps)})`)
       const others = gaps.filter((g) => g.id !== 'W7')
-      if (others.length) throw new Error(`夹具除 W7 外应全中,实得 ${others.map((g) => g.id).join(',')}`)
+      if (others.length)
+        throw new Error(`夹具除 W7 外应全中,实得 ${others.map((g) => g.id).join(',')}`)
     })
     t('W9 反向对照:撤灰度排在退包之后 ⇒ 只有 W9 翻红', () => {
       const gaps = wiringGaps(fakeGate({ swapOrder: true }))
@@ -341,7 +372,8 @@ function selfTest() {
   }
 
   const failed = checks.filter((c) => !c.ok)
-  for (const c of checks) console.log(`${c.ok ? 'ok  ' : 'FAIL'}  ${c.name}${c.ok ? '' : ` — ${c.why}`}`)
+  for (const c of checks)
+    console.log(`${c.ok ? 'ok  ' : 'FAIL'}  ${c.name}${c.ok ? '' : ` — ${c.why}`}`)
   console.log(`\n通过 ${checks.length - failed.length} / 失败 ${failed.length}`)
   if (failed.length) process.exitCode = 1
 }
@@ -366,7 +398,8 @@ function main() {
     process.exit(EXIT_UNDETERMINED)
   }
   if (args.json) console.log(JSON.stringify({ file, wired: gaps.length === 0, gaps }))
-  else if (gaps.length === 0) console.log(`CANARY-WIRING wired  ${file} 判据 ${WIRING_RULES.length} 格全中`)
+  else if (gaps.length === 0)
+    console.log(`CANARY-WIRING wired  ${file} 判据 ${WIRING_RULES.length} 格全中`)
   else {
     console.log(`CANARY-WIRING GAP  ${file} 缺 ${gaps.length}/${WIRING_RULES.length} 格:`)
     for (const g of gaps) console.log(`  - ${g.id} ${g.why}\n    修法:${g.fix}`)
@@ -378,5 +411,13 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   main()
 }
 
-export const __test__ = { canaryGateBody, wiringGaps, WIRING_RULES, DEFAULT_LOOP_PS1, EXIT_WIRED, EXIT_GAP, EXIT_UNDETERMINED }
+export const __test__ = {
+  canaryGateBody,
+  wiringGaps,
+  WIRING_RULES,
+  DEFAULT_LOOP_PS1,
+  EXIT_WIRED,
+  EXIT_GAP,
+  EXIT_UNDETERMINED,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
