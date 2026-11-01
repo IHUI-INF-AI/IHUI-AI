@@ -8,7 +8,7 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: b933fb09a2b5a2cac2dfa97bb87293614df5bd03
+// sourceCommit: c6a4b67a293e647c5b9f23ed7b22e5c11c141156
 // inputsSha256: db1a74ed5f24a7a8d6d76d33651241b01b33be0597d707d5e411db5eb088f0af
 // input: packages/i18n/messages/miniapp-taro/en.json f03836d142771c258cd916a32dd40ca167967bd3eaa0cb0331f4f15e2bad53cd
 // input: packages/i18n/messages/miniapp-taro/ja.json eb4236a9ca015688788d53588f4f4c3a1f593dac2242233ffe21866f2c21f109
@@ -23,14 +23,14 @@
 // input: packages/i18n/messages/shared/ko.json 4deec88683b37191b069fd197100cf0486777751cee02de80c5c3ece47ec6fa7
 // input: packages/i18n/messages/shared/zh-TW.json df6d607ec2db137d6297bd77222d1fcfc9eb70270007c8a02bc5f709817d822f
 // carried: present
-// carriedKeys: en=507 ja=507 ko=507 zh-TW=507
-// generatedAt: 2026-11-01T06:39:32.444Z
+// carriedKeys: en=508 ja=508 ko=508 zh-TW=508
+// generatedAt: 2026-11-01T07:29:22.554Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: 'd74e12cc661f9140ed13a13308ddea9b7037c034c784c4f24e98032be3913c3a', bytes: 142720 },
-  ja: { version: 'c2a012c0c621e514c548323147b9cea891053e78999772b79e4bc56407413217', bytes: 163788 },
-  ko: { version: 'e131314c66d63adf95905b9a758e1132e22b48201cec2e618769fb187a5e41ca', bytes: 155684 },
-  'zh-TW': { version: '2b79208aa6e6936bc8c9896d8c7e40c46bab072764435d4e1733c1de95bd99ee', bytes: 147872 },
+  en: { version: 'b445ef9b92647778c35e9487acac70a7505b2ba34c9e09b0bea0b2537e388497', bytes: 142740 },
+  ja: { version: '5d75f78112e3653cd5a84e5bdba40d103bbe89971cddb588f7032ab4ff600c1b', bytes: 163804 },
+  ko: { version: 'cc57fbfc472cd345dabe771d75cea2903318876434254a89119cb0d40eb5d318', bytes: 155708 },
+  'zh-TW': { version: '3bf339873d9d00414534821ea6b9393dbda2cc12a69f0ea11542704d5c3124cc', bytes: 147892 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
