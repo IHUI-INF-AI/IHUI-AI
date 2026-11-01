@@ -73,6 +73,11 @@ vi.mock('../../src/db/index.js', () => ({
           orderBy: () => ({
             limit: () => Promise.resolve([]),
           }),
+          // 2026-10-31 安全强化第 19 批(chat-server.ts:234):展示身份改服务端取材,
+          // 新增了 db.select({...}).from(users).where(eq(...)).limit(1) 这一形态 ——
+          // 本替身的 where 链原先只有 orderBy().limit(),少了直接 limit() 就报
+          // "db.select(...).from(...).where(...).limit is not a function"。
+          limit: () => Promise.resolve([]),
         }),
       }),
     })),

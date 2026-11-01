@@ -404,7 +404,6 @@ const RULE_TEMPLATES_FALLBACK: RuleTemplateDto[] = [
  * 量词,命中者本就该改写为占有量词或分解。与长度闸互补,均在**匹配前**拒绝。
  */
 export function hasNestedQuantifier(pattern: string): boolean {
-  let depth = 0
   let groupQuantified = false
   const groupStack: boolean[] = []
   for (let i = 0; i < pattern.length; i++) {
@@ -415,12 +414,10 @@ export function hasNestedQuantifier(pattern: string): boolean {
     }
     if (ch === '(') {
       groupStack.push(groupQuantified)
-      depth++
       groupQuantified = false
       continue
     }
     if (ch === ')') {
-      depth--
       const wasInnerQuantified = groupQuantified
       groupQuantified = groupStack.pop() ?? false
       // 组关闭后看下一个字符是否量词化该组
