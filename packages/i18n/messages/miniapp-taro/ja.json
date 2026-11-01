@@ -1086,7 +1086,7 @@
     "useCount": "{n}人使用",
     "join": {
       "title": "グループに参加",
-      "message": "「{name}」への参加を申請しました"
+      "message": "「{name}」に参加しました"
     },
     "cardMembers": "メンバー",
     "detailEnter": "チャットに入る",
@@ -4771,7 +4771,7 @@
     "taskRunning": "実行中…",
     "taskEmpty": "タスクなし、または未取得",
     "taskResult": "実行結果",
-    "taskUnjudged": "未判定：上流の応答を解釈できません。今回の結果は成功として扱えません。"
+    "taskUnjudged": "上流の応答を解釈できず、今回の結果は未判定です（成功ではありません）"
   },
   "developerInfo": {
     "title": "開発者情報",
