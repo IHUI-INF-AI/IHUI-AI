@@ -11,7 +11,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import {
   getClawdbotService,
   getToolExecutor,
@@ -169,7 +169,13 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // P2 安全修复(2026-09-09 第九轮):admin bot 管理端点此前仅 checkAuth(任意
   // 登录用户可触 initialize/shutdown 等),收权为 admin(与路由内 checkAuth 双保险)。
-  server.addHook('preHandler', requireAdmin)
+  // 2026-11-01 档位对齐:改用 `requireAdminRouteGuard` —— 与 `requireAdmin` 的唯一差别是多一道
+  // `requireActiveUser`(该函数自己的注释写明"此差别是安全语义":被注销/封禁的账号不得进 admin 面)。
+  // 同级的另两枚 /api/admin 插件面(`admin.ts`、`admin-support-tickets.ts`)早就用较强的一枚,本面是
+  // 三枚里最弱的那个;现读全仓**没有任何一门安全闸钉着这句 addHook**(删掉它 ⇒ 37 个端点退化成
+  // "任意登录用户可进",唯一会红的是 import 变孤儿的编译副产物),所以存续由
+  // `apps/api/tests/clawdbot-admin-gate-wiring.test.ts` 钉住。
+  server.addHook('preHandler', requireAdminRouteGuard)
 
   server.get('/clawdbot/status', async (_req, reply) => {
     if (!(await checkAuth(_req, reply))) return

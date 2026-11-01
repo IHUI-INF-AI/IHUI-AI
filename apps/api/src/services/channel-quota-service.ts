@@ -29,7 +29,7 @@
  * 当月定义:UTC+8 当月 1 日 00:00 至当前(与 tiered-pricing-service.ts 一致)。
  * 当日定义:UTC+8 当日 00:00 至当前(usage_date 列存 UTC+8 date,由应用层计算写入)。
  */
-import { eq, and, gte, sql } from 'drizzle-orm'
+import { eq, and, gte, inArray, sql } from 'drizzle-orm'
 import {
   pgTable,
   uuid,
@@ -145,8 +145,10 @@ export interface RecordUsageInput {
 const QUOTA_CACHE_PREFIX = 'channel:quota:'
 /** 配额检查缓存 TTL(10 秒,平衡实时性与 DB 压力) */
 const QUOTA_CACHE_TTL_SEC = 10
-/** 旧数据保留天数(resetDailyQuota 清理 90 天前) */
+/** 旧数据保留天数(resetDailyQuota 清理 N 天前) */
 const USAGE_RETENTION_DAYS = 90
+/** 单轮删除的主键批次上界(见 resetDailyQuota 的批上界说明) */
+const USAGE_DELETE_BATCH_LIMIT = 500
 
 // =============================================================================
 // Redis 客户端(单例,参考 relay-response-cache.ts / expiration-monitor-service.ts)
@@ -603,28 +605,45 @@ export async function getDailyUsage(
 // =============================================================================
 
 /**
- * 清理 90 天前的旧用量数据。
+ * 清理 USAGE_RETENTION_DAYS 天前的旧用量数据,返回删除行数。
  *
  * 设计说明:
  * - 配额按 date 分组,无需主动"重置"当日配额(新的一天自动是新行)
- * - 此函数仅做数据保留策略:删除 USAGE_RETENTION_DAYS 天前的旧数据,控制表体积
- * - 建议由 BullMQ repeatable job 每日 0 点调用
+ * - 此函数仅做数据保留策略:删除保留期前的旧数据,控制表体积
+ * - 由 jobs/ops-retention-cleanup.ts 的日批 cron 触发(2026-11-01 接线,此前零调用方)
+ * - 单轮批上界:首次上线积压可能是整段历史,一条无界 DELETE + 全量 .returning()
+ *   会把行锁与返回集一次性摊进事务 ⇒ 先取一批主键再按主键删,短批即止
  *
  * @returns 删除的行数(0 表示无需清理或失败)
  */
 export async function resetDailyQuota(): Promise<number> {
+  let deleted = 0
   try {
     // 计算 N 天前的 UTC+8 date 字符串(与 usage_date 列对齐)
     const cutoffMs = Date.now() - USAGE_RETENTION_DAYS * 24 * 60 * 60 * 1000
     const cutoffDateStr = getUtc8DateStr(new Date(cutoffMs))
-    const result = await db
-      .delete(aiRelayChannelDailyUsage)
-      .where(sql`${aiRelayChannelDailyUsage.usageDate} < ${cutoffDateStr}::date`)
-      .returning({ id: aiRelayChannelDailyUsage.id })
-    return result.length
+    // 取批与按批删除共用同一份谓词,防两半各写一遍漂移
+    const cutoffCond = sql`${aiRelayChannelDailyUsage.usageDate} < ${cutoffDateStr}::date`
+    while (true) {
+      const batch = await db
+        .select({ id: aiRelayChannelDailyUsage.id })
+        .from(aiRelayChannelDailyUsage)
+        .where(cutoffCond)
+        .limit(USAGE_DELETE_BATCH_LIMIT)
+      if (batch.length === 0) return deleted
+      await db.delete(aiRelayChannelDailyUsage).where(
+        inArray(
+          aiRelayChannelDailyUsage.id,
+          batch.map((row) => row.id),
+        ),
+      )
+      deleted += batch.length
+      if (batch.length < USAGE_DELETE_BATCH_LIMIT) return deleted
+    }
   } catch (err) {
     logger.warn('[channel-quota] resetDailyQuota failed', {
       error: (err as Error).message,
+      hint: `已删 ${deleted} 条后中断,下一轮继续`,
     })
     return 0
   }

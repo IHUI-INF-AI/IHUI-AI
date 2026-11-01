@@ -42,12 +42,9 @@ import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 // 连同守护本身一起杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。计划任务的存在性与
 // XML 改走 Get-ScheduledTask / Export-ScheduledTask,形态判据仍是 lib/schtasks-form.mjs 那一份。
 import { pickPowerShell } from './check-service-binary-paths.mjs'
-// P5 云同步自愈(2026-11-01 立,接「都要全自动自修复」):百度网盘同步客户端(云同步腿出机依赖)
-// 原设计"机主专属裁决,本判据不启动它"。实测守护(会话 0)能拉起但进程随即退出——无法无头养活。
-// 故本自愈器**只尽力拉起、绝不伪造成功**:拉起后即返回 attempted,是否留得住由下一轮 P5 判定独立决
-// 定(判机器状态 ⇒ 不进提交链,§12e),挂进 CHECK_ONLY 早退分支等于永不执行。30 分钟节流防拉起风暴。
-import { healBaiduSync } from './heal-baidu-sync.mjs'
-import { healCloudSync } from './cloud-sync/heal-cloud-sync.mjs'
+// P5 云同步自愈腿曾静态引用 ./heal-baidu-sync.mjs 与 ./cloud-sync/heal-cloud-sync.mjs:两枚模块
+// 从未入库(2026-11-01 现读:全仓 0 命中、git 历史 0 枚添加)⇒ 静态 import 让守护在加载期就
+// ERR_MODULE_NOT_FOUND,整个自愈层停摆。要复活这条腿必须先把模块本体落进仓里再补 import。
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l38(门 103 C1 收口)〉首意: 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 import { splitDeadRefs, objectExists } from './git-refs-heal.mjs'
 import {
@@ -11232,12 +11229,6 @@ async function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
-    // P5 云同步自愈(接 auditOpsPatrol):它判出百度同步客户端没跑,本行即时尽力拉起(服务或 exe),
-    // 立即返回 attempted,绝不自报 verified——留得住与否由下一轮 P5 独立判定(§12e:不进提交链)。
-    if (!CHECK_ONLY) {
-      const healed = await healCloudSync({ logger: (m) => log(m) })
-      if (healed.skipped) healBaiduSync({ logger: (m) => log(m) }) // 未启用无头通道则回退 GUI 拉起(治标)
-    }
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
     // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动

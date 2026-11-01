@@ -66,8 +66,11 @@
  *     · 存量前置(§12e 升 blocking 的唯一入口):现读 2026-11-01 全量档 61 枚入库 `.js` 逐枚读正文
  *       ⇒ **0 枚命中**,同名并存 **0 对**,两型覆盖面均为 0 ⇒ 零容忍不新增恒红面(复量脚本口径见
  *       镜像测试的端到端断言,不散写第二份);
- *     · 内容取不到 ⇒ **逐枚未判定**点名,既不冒红也不记绿(§0.3);调用方没给取材通道 / 豁免台账
- *       取不到或形状坏 ⇒ 整维未判定 ⇒ CLI exit 2;
+ *     · 内容取不到 ⇒ **逐枚未判定**点名,既不冒红也不记绿(§0.3);调用方没给取材通道 ⇒ 整维未判定 ⇒ CLI exit 2;
+ *       豁免台账另有三态(2026-11-01 补,镜像 `--root 换仓三态` 用例实跑复现的回归):**本仓**缺台账或
+ *       内容坏 ⇒ 未判定 exit 2;**`--root` 指到别的仓且该仓没有这一族台账** ⇒ 按**零豁免**照判并点名
+ *       (缺文件≠坏文件:零豁免的方向是更严,一格都不放行;把它判成未判定会让门 98 在旁路落地换仓通道
+ *       重新变成"等于没装",那是 G-929/dc3906305 刚修过的同一条根因);
  *     · 出口 = **具名台账** `scripts/data/dangling-shadow-exemptions.json`(`{file, reason, ticket,
  *       until}` 四键齐备、理由 ≥10 字、`until` 未到期才算"验过才免");台账里登记着而被审面
  *       早已不命中 ⇒ **清单腐烂判红**(§0.7),到期 ⇒ 回到射程。刻意不留行内裸标记:这一型判的是
@@ -149,7 +152,14 @@ import { maskComments, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 // 坏值(给了旗标没给值)与目录不存在都 ⇒ exit 2,**不静默回落到自推导**——回落会把
 // "指错了仓"读成"在主仓审过了",是 fail-open 的一种形态(门 231 的 M16 钉同三态)。
 const ROOT_FLAG = requireFlagValue(process.argv.slice(2), '--root', { noun: '被审仓根目录' })
-const ROOT = ROOT_FLAG.value ? resolve(ROOT_FLAG.value) : resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** 本脚本自家仓根(与 ROOT 的唯一差别 = ROOT 可被 `--root` 指到别的仓)。 */
+const SELF_REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const ROOT = ROOT_FLAG.value ? resolve(ROOT_FLAG.value) : SELF_REPO_ROOT
+/** 被审仓根**不是本仓** ⇒ 换仓通道(LAND_ROOT 指到别的仓)。具名豁免台账是**逐仓登记**的配置面:
+ *  别的仓没有这一族豁免是常态,不是"本仓台账烂了" —— 这一区分是 loadShadowExemptionLedger 三态的入口。 */
+export function isForeignAuditRoot(root = ROOT) {
+  return resolve(root) !== SELF_REPO_ROOT
+}
 export const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
 const EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 /** 带 `?raw` / `?url` 后缀的导入(Vite/测试里读源码文本):查询串在 resolveSpec 里剥掉,
@@ -1283,16 +1293,33 @@ export function shadowExemptionActive(entry, today) {
  * 台账取材:读**工作树**的 JSON(与守门 213/225 的具名豁免台账同一条口径 —— 台账是"配置面",
  * 不是被审内容面,故不跟 HEAD/索引走)。取不到/坏 ⇒ `{entries:null, problem}` ⇒ D6-c 整维未判定,
  * 绝不回落成"没有豁免"(那会把"台账烂了"读成"一门干净的尺子",§0.3)。
+ *
+ * 三态(2026-11-01 补第三态,镜像 `--root 换仓三态` 用例实跑复现的回归):
+ *   ① 本仓 + 取到/坏 ⇒ 照旧(坏 ⇒ 未判定);
+ *   ② 本仓 + **文件缺失** ⇒ 未判定(这一族台账在本仓是**已入库**的配置,缺失 = 有人删了它);
+ *   ③ **换仓通道**(`--root` 指到别的仓)+ 该仓没有这一族台账 ⇒ 按「零豁免」判:全表照判、
+ *      一格都不放行(`entries: []`),并逐次点名缺的是哪条路径。
+ * ③ 不是 fail-open:豁免的方向是"放人",取不到时按零豁免只会**更严**;真正会坏的是把整维判成
+ * 未判定 ⇒ 门 98 在旁路落地换仓通道重新变成"等于没装"(G-929 那条根因,dc3906305 刚修过一层,
+ * D6-c 装台账时又在此层复发 —— 现读镜像 `--root 换仓三态` 用例 rc=2 即当时留下的实证)。
  */
-export function loadShadowExemptionLedger(root = ROOT, today = new Date().toISOString().slice(0, 10)) {
+export function loadShadowExemptionLedger(
+  root = ROOT,
+  today = new Date().toISOString().slice(0, 10),
+  foreignRepo = isForeignAuditRoot(root),
+) {
   let raw = null
+  let absent = false
   try {
     raw = readFileSync(join(root, SHADOW_EXEMPTION_LEDGER), 'utf8')
   } catch {
     raw = null
+    absent = true
   }
+  if (absent && foreignRepo)
+    return { entries: [], problem: null, today, absent: true, foreign: true, missingAt: join(root, SHADOW_EXEMPTION_LEDGER) }
   const parsed = parseShadowExemptionLedger(raw)
-  return { entries: parsed.entries, problem: parsed.problem, today }
+  return { entries: parsed.entries, problem: parsed.problem, today, absent, foreign: foreignRepo }
 }
 
 /**
@@ -1649,12 +1676,15 @@ async function revMain(rev, anchorOpt, conflicts) {
     console.log(`❌ 无法判定:anchor 须是提交 ${anchor}`)
     process.exit(2)
   }
+  // 台账一次加载、被审面与锚点面共用(两处各读一遍必漂,§0.6);absent/foreign 两格也供下面那条
+  // 换仓说明用 —— 说明必须在**这一档**打印:旁路落地器 object-space-land 走的就是 --rev 面。
+  const shadowCtx = loadShadowExemptionLedger()
   let face
   const anchorCounts = new Map()
   try {
-    face = auditOneFace(rev)
+    face = auditOneFace(rev, shadowCtx)
     if (anchor) {
-      const a = auditOneFace(anchor)
+      const a = auditOneFace(anchor, shadowCtx)
       for (const [f, list] of a.byFile) anchorCounts.set(f, list.length)
     }
   } catch (e) {
@@ -1686,6 +1716,11 @@ async function revMain(rev, anchorOpt, conflicts) {
     console.log(`❌ D6-c 豁免台账腐烂:${wnBombs.rot.map((r) => `${r.file} 至 ${r.until}`).join(', ')} 在该面已不命中`)
     process.exit(1)
   }
+  if (shadowCtx && shadowCtx.absent && shadowCtx.foreign)
+    console.log(
+      `   ℹ️ D6-c 被审仓不是本仓(--root ${ROOT})且该仓没有 ${SHADOW_EXEMPTION_LEDGER} ⇒ 按**零豁免**全表照判,一格都不放行` +
+        '(换仓通道不得因缺台账判未判定,G-929 同型;台账内容坏仍是未判定)',
+    )
   if (wnBombs.undetermined.length) {
     console.log(`❌ 无法判定:D6-c 在 ${rev} 面有 ${wnBombs.undetermined.length} 格取不到输入 —— 不记绿也不冒红(§0.3):`)
     for (const u of wnBombs.undetermined) console.log(`   ${u.file}:${u.why}`)
@@ -1955,6 +1990,13 @@ async function main() {
   for (const e of wnPending.bombs.exempted)
     console.log(
       `   ℹ️ D6-c 已豁免 ${e.file}:${e.marker}(第 ${e.line} 行)—— 理由:${e.entry.reason}(票 ${e.entry.ticket},有效至 ${e.entry.until};到期或改回 .ts 后删这一行)`,
+    )
+  // 换仓通道的缺台账必须**点名**,不能像现在这样把整维判成未判定(G-929 那条根因的同层复发):
+  // 零豁免的方向是更严,不是放人,所以这里只登记一条说明(§0.10)。
+  if (SHADOW_LEDGER.absent && SHADOW_LEDGER.foreign)
+    console.log(
+      `   ℹ️ D6-c 被审仓不是本仓(--root ${ROOT})且该仓没有 ${SHADOW_EXEMPTION_LEDGER} ⇒ 按**零豁免**全表照判,` +
+        '一格都不放行(不因此判未判定;台账内容坏仍是未判定)',
     )
   for (const u of wnPending.bombs.undetermined) console.log(`   ⚠️ D6-c 未判定 ${u.file}:${u.why}`)
   /**
@@ -2758,6 +2800,32 @@ function selfTest() {
       typeof auditShadowSyntaxBombs === 'function' &&
       SHADOW_EXEMPTION_LEDGER === 'scripts/data/dangling-shadow-exemptions.json'
     cCheck('D6-c⑬ 判据经导出交镜像测试(不另抄一份)', kitOk, SHADOW_EXEMPTION_LEDGER)
+    // ⑭ 台账三态(2026-11-01 补):这一格是镜像 `--root 换仓三态` 用例实跑复现出来的回归 ——
+    //     D6-c 刚装车时把"被审仓没有这一族台账"判成整维未判定,于是门 98 在旁路落地换仓通道
+    //     又变回"等于没装"(G-929 同型根因,dc3906305 刚在上一层修过)。正解是**零豁免照判**(更严,
+    //     不是放人);而"本仓台账缺失/内容坏"仍是未判定,两态不得并桶。
+    const foreignLedger = loadShadowExemptionLedger(join(ROOT, '__no_such_foreign_repo__'))
+    const ownLedgerExists = loadShadowExemptionLedger(ROOT, day, false)
+    const ownLedgerMissing = loadShadowExemptionLedger(join(ROOT, 'scripts/data'), day, false)
+    cCheck(
+      'D6-c⑭ 台账三态:换仓缺台账⇒零豁免照判 / 本仓在⇒照常 / 本仓缺⇒未判定(两态不并桶)',
+      isForeignAuditRoot(ROOT) === false &&
+        isForeignAuditRoot(join(ROOT, '__no_such_foreign_repo__')) === true &&
+        foreignLedger.absent === true &&
+        foreignLedger.foreign === true &&
+        Array.isArray(foreignLedger.entries) &&
+        foreignLedger.entries.length === 0 &&
+        foreignLedger.problem === null &&
+        ownLedgerExists.entries !== null &&
+        ownLedgerExists.absent === false &&
+        ownLedgerMissing.absent === true &&
+        ownLedgerMissing.problem !== null &&
+        ownLedgerMissing.entries === null,
+      `foreign=${JSON.stringify(foreignLedger.problem)}/ownExists=${ownLedgerExists.absent}/ownMissing=${String(ownLedgerMissing.problem).slice(0, 24)}`,
+    )
+    // 零豁免面必须真的照常裁定(不是"跳过判定"):同一枚必炸正文在 foreign 面上仍进 bombs
+    const foreignRun = runC({ 'x/a.js': 'export const m = new Map<string, number>()\n' }, ['x/a.js'], foreignLedger.entries)
+    cCheck('D6-c⑮ 零豁免面不放松:换仓缺台账时正文命中仍进 bombs', foreignRun.bombs.bombs.length === 1)
     if (cFail) fail += cFail
     console.log(`D6-c 成对块:${cFail === 0 ? '全部通过' : `失败 ${cFail} 例`}`)
   }
@@ -2988,6 +3056,7 @@ export const __test__ = {
   parseShadowExemptionLedger,
   shadowExemptionActive,
   loadShadowExemptionLedger,
+  isForeignAuditRoot,
   d6cChannelBlind,
   SHADOW_EXEMPTION_LEDGER,
   SHADOW_EXEMPTION_REASON_MIN,

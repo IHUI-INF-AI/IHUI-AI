@@ -11,7 +11,7 @@ import { Bot, Sparkles, Building2, Gift, Activity, RefreshCw, Loader2 } from 'lu
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
-import { fetchProvidersHealthSummary } from '@/lib/models-api'
+import { fetchProvidersHealthSummary, PROVIDERS_HEALTH_SUMMARY_TTL } from '@/lib/models-api'
 import type { ProvidersHealthResponse } from '@/lib/models-api'
 import { Tooltip } from '@/components/feedback'
 import { ProviderStatusBadge } from './ProviderStatusBadge'
@@ -125,7 +125,7 @@ function ProviderStatusSummary() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['models-header-providers-health'],
     queryFn: () => fetchProvidersHealthSummary(true),
-    staleTime: 30_000,
+    staleTime: PROVIDERS_HEALTH_SUMMARY_TTL,
   })
   const [open, setOpen] = React.useState(false)
 
