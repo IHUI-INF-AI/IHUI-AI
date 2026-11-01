@@ -70,21 +70,21 @@ const runCli = (args, opts = {}) => {
   return { rc: r.status, out: String(r.stdout || ''), err: String(r.stderr || '') }
 }
 
-// ── T1 动作面:四种动作 ──────────────────────────────────────────────
+// ── T1 动作面:四种动作(灰度实例在位维显式给 yes,见 T11 的 no/unknown 面)──────
 test('T1 decideStageAction:pass⇒advance、末档 pass⇒promote、fail⇒rollback、unknown⇒hold', () => {
-  const adv = decideStageAction({ verdict: 'pass', currentStage: '', stages: STAGES })
+  const adv = decideStageAction({ verdict: 'pass', currentStage: '', stages: STAGES, canaryServing: 'yes' })
   assert.equal(adv.action, 'advance')
   assert.equal(adv.stage, 'ramp-1')
   assert.equal(adv.percent, 1)
   assert.equal(adv.changed, true)
 
-  const adv2 = decideStageAction({ verdict: 'pass', currentStage: 'ramp-2', stages: STAGES })
+  const adv2 = decideStageAction({ verdict: 'pass', currentStage: 'ramp-2', stages: STAGES, canaryServing: 'yes' })
   assert.equal(adv2.action, 'advance')
   assert.equal(adv2.stage, 'ramp-3')
   assert.equal(adv2.percent, 25)
 
   // 末档再 pass ⇒ 已无「下一档」⇒ promote(可全量切流),不是 advance。
-  const pro = decideStageAction({ verdict: 'pass', currentStage: 'ramp-full', stages: STAGES })
+  const pro = decideStageAction({ verdict: 'pass', currentStage: 'ramp-full', stages: STAGES, canaryServing: 'yes' })
   assert.equal(pro.action, 'promote')
   assert.equal(pro.stage, 'ramp-full')
   assert.equal(pro.percent, 100)
@@ -103,6 +103,50 @@ test('T1 decideStageAction:pass⇒advance、末档 pass⇒promote、fail⇒rollb
   assert.equal(hd.stage, 'ramp-2')
   assert.equal(hd.percent, 5)
   assert.equal(hd.changed, false)
+})
+
+// ── T11 灰度在位维(票 31460):三档终态钉死 ─────────────────────────
+test('T11 pass ∧ 灰度实例不在位/未判定 ⇒ hold(现网侧通过不冒充灰度侧通过),fail 不受该维影响', () => {
+  // ① pass ∧ yes ⇒ advance(灰度面被真量过,照旧升档)。
+  const up = decideStageAction({ verdict: 'pass', currentStage: 'ramp-1', stages: STAGES, canaryServing: 'yes' })
+  assert.equal(up.action, 'advance')
+  assert.equal(up.stage, 'ramp-2')
+
+  // ② pass ∧ no ⇒ hold:档位原地不动、措辞必须点名「灰度实例不在位」与「未判定」。
+  const holdNo = decideStageAction({ verdict: 'pass', currentStage: 'ramp-1', stages: STAGES, canaryServing: 'no' })
+  assert.equal(holdNo.action, 'hold')
+  assert.equal(holdNo.stage, 'ramp-1')
+  assert.equal(holdNo.percent, 1)
+  assert.equal(holdNo.changed, false)
+  assert.match(holdNo.reason, /灰度实例不在位/)
+  assert.match(holdNo.reason, /未判定/)
+  assert.match(holdNo.reason, /不回滚/)
+
+  // ③ pass ∧ unknown ⇒ hold,措辞点名「调用方没给 --canary-serving」(§0.3 缺输入=未判定)。
+  const holdUnk = decideStageAction({ verdict: 'pass', currentStage: 'ramp-2', stages: STAGES, canaryServing: 'unknown' })
+  assert.equal(holdUnk.action, 'hold')
+  assert.equal(holdUnk.stage, 'ramp-2')
+  assert.match(holdUnk.reason, /未判定/)
+
+  // ④ 缺省(fail-closed):pass 而不给该维 ⇒ 与 unknown 同结局,绝不推进。
+  const holdDefault = decideStageAction({ verdict: 'pass', currentStage: 'ramp-2', stages: STAGES })
+  assert.equal(holdDefault.action, 'hold')
+  assert.equal(holdDefault.stage, 'ramp-2')
+  assert.equal(holdDefault.changed, false)
+
+  // ⑤ fail ∧ no ⇒ 仍 rollback(撤量判据不受在位维影响;no 更该撤)。
+  const rb = decideStageAction({ verdict: 'fail', currentStage: 'ramp-2', stages: STAGES, canaryServing: 'no' })
+  assert.equal(rb.action, 'rollback')
+  assert.equal(rb.stage, 'off')
+  assert.equal(rb.percent, 0)
+
+  // ⑥ 末档 pass ∧ no ⇒ hold,不是 promote(「放量完成」更不能由空灰度冒充)。
+  const proNo = decideStageAction({ verdict: 'pass', currentStage: 'ramp-full', stages: STAGES, canaryServing: 'no' })
+  assert.equal(proNo.action, 'hold')
+  assert.equal(proNo.stage, 'ramp-full')
+
+  // ⑦ 该维取值不在闭集 ⇒ 抛(不猜)。
+  assert.throws(() => decideStageAction({ verdict: 'pass', currentStage: 'ramp-1', stages: STAGES, canaryServing: 'banana' }), TrafficShapeError)
 })
 
 // ── T2 动作闭集 ─────────────────────────────────────────────────────
@@ -219,8 +263,8 @@ test('T9 CLI:--init 落盘第一档 / --decide 升档 / --decide fail 落比例�
     assert.equal(afterInit.stage, 'ramp-1')
     assert.equal(afterInit.percent, 1)
 
-    // --decide pass ⇒ 升到第二档(5%)并落盘。
-    const adv = runCli(['--decide', '--verdict', 'pass', '--current', 'ramp-1', '--contract', contract])
+    // --decide pass ∧ 灰度在位 ⇒ 升到第二档(5%)并落盘。
+    const adv = runCli(['--decide', '--verdict', 'pass', '--canary-serving', 'yes', '--current', 'ramp-1', '--contract', contract])
     assert.equal(adv.rc, 0, adv.err)
     const afterAdv = JSON.parse(readFileSync(contract, 'utf8'))
     assert.equal(afterAdv.stage, 'ramp-2')
@@ -260,6 +304,42 @@ test('T10 CLI:策略文件不存在 ⇒ exit 2(不猜默认比例)', () => {
   withTemp((dir) => {
     const r = runCli(['--status', '--policy', join(dir, 'no-such-policy.json'), '--contract', join(dir, 'ramp.json')])
     assert.equal(r.rc, EXIT_UNKNOWN)
+  })
+})
+
+// ── T11 CLI 面:--canary-serving 维(票 31460 三档终态的真 CLI 锁)─────
+test('T11 CLI:pass 不带 --canary-serving ⇒ hold 且契约不动;no ⇒ hold;yes ⇒ advance 落盘;非法值 ⇒ exit 2 不写契约', () => {
+  withTemp((dir) => {
+    const contract = join(dir, 'ramp.json')
+    const init = runCli(['--init', '--sha', 'sha-serve', '--contract', contract])
+    assert.equal(init.rc, 0, init.err)
+    const baseContract = readFileSync(contract, 'utf8')
+
+    // 缺省(fail-closed):pass 不给在位维 ⇒ hold,契约文件一字节不动(不推进)。
+    const noFlag = runCli(['--decide', '--verdict', 'pass', '--current', 'ramp-1', '--contract', contract])
+    assert.equal(noFlag.rc, 0, noFlag.err)
+    assert.equal(JSON.parse(noFlag.out).action, 'hold')
+    assert.equal(readFileSync(contract, 'utf8'), baseContract, '缺省维不得改契约')
+
+    // 显式 no ⇒ hold,且结论措辞点名「灰度实例不在位」「未判定」。
+    const noDim = runCli(['--decide', '--verdict', 'pass', '--canary-serving', 'no', '--current', 'ramp-1', '--contract', contract])
+    assert.equal(noDim.rc, 0, noDim.err)
+    const noDoc = JSON.parse(noDim.out)
+    assert.equal(noDoc.action, 'hold')
+    assert.match(noDoc.reason, /灰度实例不在位/)
+    assert.equal(readFileSync(contract, 'utf8'), baseContract, 'no 维不得改契约')
+
+    // 显式 yes ⇒ advance 并落盘新契约(与 T9 呼应,这里只验维度开关本身)。
+    const yesDim = runCli(['--decide', '--verdict', 'pass', '--canary-serving', 'yes', '--current', 'ramp-1', '--sha', 'sha-serve', '--contract', contract])
+    assert.equal(yesDim.rc, 0, yesDim.err)
+    assert.equal(JSON.parse(yesDim.out).action, 'advance')
+    assert.equal(JSON.parse(readFileSync(contract, 'utf8')).stage, 'ramp-2')
+
+    // 非法维值 ⇒ 未判定 exit 2,且不改契约。
+    const restored = (() => { writeFileSync(contract, baseContract, 'utf8'); return baseContract })()
+    const badDim = runCli(['--decide', '--verdict', 'pass', '--canary-serving', 'banana', '--current', 'ramp-1', '--contract', contract])
+    assert.equal(badDim.rc, EXIT_UNKNOWN)
+    assert.equal(readFileSync(contract, 'utf8'), restored)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

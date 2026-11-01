@@ -447,10 +447,17 @@ function Invoke-CanaryGate {
     # ── 判定结论 → 档位推进(pass/fail/unknown 三态由 rc 现算,阈值判据不在这层)──────
     # fail ⇒ 契约比例归零 = 撤灰度流量(先于整包回滚:先把请求从候选身上拿走,再退包);
     # unknown ⇒ 原地不动(不放量也不回滚);pass ⇒ 升一档,末档再 pass ⇒ promote(可全量)。
+    # 灰度实例在位维(票 31460,2026-11-01 补):观察窗的 pass 只证明"被采样的那一面"没超
+    # 阈值;灰度期里灰度实例不在位 ⇒ "现网侧通过"不得冒充"灰度侧通过",推进这一格是
+    # 未判定。本层只如实汇报"灰度实例这轮到底在不在位",hold 的判据住在
+    # deploy\win\ihui-canary-stage.mjs(pass ∧ serving≠yes ⇒ hold),不在这层解释(§0.6)。
+    $canaryServing = 'unknown'
+    if ($graySampledFrom -eq 'canary' -or $canaryUp) { $canaryServing = 'yes' }
+    elseif ($splitUp) { $canaryServing = 'no' }
     $verdictWord = if ($dRc -eq 0) { 'pass' } elseif ($dRc -eq 3) { 'fail' } else { 'unknown' }
     if ($splitUp -or ($grayStage -ne 'off')) {
         if (Test-Path -LiteralPath $grayStageCli) {
-            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --canary-serving $canaryServing --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
             foreach ($ln in ($advOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
             if ($LASTEXITCODE -ne 0) {
                 Log "GRAY 未判定:档位推进没判出(rc=$LASTEXITCODE)⇒ 契约保持本轮读到的档位,不猜"
@@ -469,6 +476,14 @@ function Invoke-CanaryGate {
             # 灰度期放量未完:基线必须是"现网实测",不能拿灰度槽位的样本充当基线(否则下一轮
             # 拿候选跟自己比,回归判据自己漂);.rollback 同理保留 —— 它是撤灰度的退路。
             Log "CANARY 通过(灰度槽位实测)⇒ 档位可进;基线与回滚点保持现网那份,不更新"
+            return $false
+        }
+        if ($grayStage -ne 'off' -or -not $splitUp) {
+            # 灰度期在档而采样面只是现网(灰度实例不在位/分流器没起来)⇒ 措辞与结论分离
+            # (票 31460):现网侧通过 ≠ 灰度侧通过。--decide 那侧已按 serving=no|unknown
+            # 落 hold(不升档),本层同步不刷"放量完成"、不升基线、不删回滚点;
+            # 也不回滚 —— 现网侧确实没回归,反向升成恒红同样违规(§12e)。
+            Log ("CANARY 通过(仅现网侧样本) / GRAY 未判定:灰度实例不在位或分流器未起(采样面={0},档位={1},serving={2})⇒ 档位保持不动(不回滚),基线与回滚点不更新" -f $graySampledFrom, $grayStage, $canaryServing)
             return $false
         }
         # 放量完成:候选样本就是"当前在线版本"的实测 ⇒ 升为下一轮基线(滚动基线),
