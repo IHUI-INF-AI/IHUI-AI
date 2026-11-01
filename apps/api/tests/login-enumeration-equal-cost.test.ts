@@ -16,7 +16,8 @@
  */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
-import { hashPassword, verifyLoginPassword } from '../src/utils/password-crypto.js'
+import { hashPassword } from '../src/utils/password-crypto.js'
+import { verifyLoginPassword } from '../src/utils/login-verify.js'
 
 const RIGHT = 'Correct-Horse-Battery-Staple-9'
 
@@ -60,7 +61,7 @@ describe('登录等代价校验', () => {
   })
 
   it('占位哈希进程内只算一次(惰性,不在启动路径上做口令推导)', async () => {
-    const { dummyVerifyHash } = await import('../src/utils/password-crypto.js')
+    const { dummyVerifyHash } = await import('../src/utils/login-verify.js')
     const first = await dummyVerifyHash()
     const second = await dummyVerifyHash()
     expect(second).toBe(first)
