@@ -246,6 +246,29 @@ test('M17b 精确核对判负的族不得被整族销账(导航目标/取数端�
   assert.deepEqual(conv.shellCapabilityCovered(t3, shell), ['取数', '导航', '用户提示'])
 })
 
+test('M17c 提示族精确判负同样不得被整族销账(壳有 appAlert 不等于页面的成功提示也能承接)', () => {
+  // 2026-11-01 补:与 M17b 同型。页面有一条壳/屏都没有的成功提示,两条精确路径都判负;
+  // 此时壳里出现过任意 appAlert( 也不许整族销账,否则转壳后这条提示静默消失。
+  const shell = "appAlert(t('common.loadFailed'))"
+  const t1 = new Set(['Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t1, shell, '', ['用户提示']), [])
+  assert.ok(t1.has('Taro.showToast'), '提示族已判负 ⇒ 不许被整族销账')
+  // 反面:精确判据放行时照旧销(不传 gap 的旧口径不变)
+  const t2 = new Set(['Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t2, "appAlert(t('follow.done'))"), ['用户提示'])
+  // 接线锁:判据体内两条精确路径都判负 ⇒ 该 token 必须留在 extras 里(不是只由 shellCapabilityCovered 保证)
+  const r = conv.judgeConversion({
+    spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+    pageText: "Taro.showToast({ title: t('follow.done') })",
+    shellText:
+      "import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){ return null }\nconst a = () => appAlert(t('common.loadFailed'))",
+    sharedText: "export function DemoScreen(){ return t('demo.body') }",
+    messagesText: '{"follow":{"done":"ok"},"common":{"loadFailed":"fail"}}',
+  })
+  assert.equal(r.kind, 'page-only-capability')
+  assert.ok(r.extras.includes('Taro.showToast'), '判据体内应把提示族记成 gap,extras 必须点名')
+})
+
 test('M18 提示能力认"error 交给共享屏渲染"这一形:共享屏不渲染就不销(本票重构引入过的回归)', () => {
   const mk = () => new Set(['Taro.showToast'])
   // 2026-10-29 把 wrapper 重构成 usePaginatedList 后,壳里不再有 setError 字面量,
