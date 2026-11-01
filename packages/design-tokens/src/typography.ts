@@ -41,6 +41,11 @@ export const TYPE_STEPS = {
   caption: { size: 11, lineHeight: 16, weight: 400 },
   /** 标签 / 空态文案(对齐 geometry.textLabel=12) */
   label: { size: 12, lineHeight: 16, weight: 400 },
+  /**
+   * 小号正文 13(2026-11-02 Phase 3 补):web `text-[13px]` 21 处在用、RN 313 处,
+   * 介于 label 12 与 body 14;行高按 size×1.4 取整 = 18,字重 400(与正文一致)。
+   */
+  bodySm: { size: 13, lineHeight: 18, weight: 400 },
   /** 正文(对齐 geometry.textBody=14) */
   body: { size: 14, lineHeight: 20, weight: 400 },
   /** 强调文字 / 昵称(对齐 geometry.textStrong=15) */

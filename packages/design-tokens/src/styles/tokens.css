@@ -358,6 +358,7 @@
   --spacing-sm: 8px;
   --spacing-sm-loose: 10px;
   --spacing-md: 12px;
+  --spacing-md-loose: 14px;
   --spacing-lg: 16px;
   --spacing-xl: 20px;
   --spacing-2xl: 24px;
@@ -375,6 +376,9 @@
   --text-label: 12px;
   --text-label--line-height: 16px;
   --text-label--font-weight: 400;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-body-sm--font-weight: 400;
   --text-body: 14px;
   --text-body--line-height: 20px;
   --text-body--font-weight: 400;
