@@ -151,6 +151,16 @@ export interface HelpScreenProps {
   searchValue?: string
   onSearchChange?: (value: string) => void
   searchPlaceholder?: string
+  /** 意见反馈(端内帮助页同一枚表单):值与提交态由平台注入,给了 onSubmitFeedback 才渲染 */
+  feedbackName?: string
+  feedbackContact?: string
+  feedbackContent?: string
+  feedbackStatus?: 'idle' | 'submitting' | 'success' | 'failed'
+  feedbackError?: string
+  onFeedbackNameChange?: (value: string) => void
+  onFeedbackContactChange?: (value: string) => void
+  onFeedbackContentChange?: (value: string) => void
+  onSubmitFeedback?: () => void
 }
 
 /** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */

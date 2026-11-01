@@ -24,6 +24,14 @@ export function HelpScreen() {
   const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  // 意见反馈(对齐端内帮助页同一枚表单):本地暂存 + 提交到 POST /feedbacks
+  const [feedbackName, setFeedbackName] = useState('')
+  const [feedbackContact, setFeedbackContact] = useState('')
+  const [feedbackContent, setFeedbackContent] = useState('')
+  const [feedbackStatus, setFeedbackStatus] = useState<
+    'idle' | 'submitting' | 'success' | 'failed'
+  >('idle')
+  const [feedbackError, setFeedbackError] = useState('')
 
   const load = useCallback(async () => {
     setError('')
@@ -61,6 +69,36 @@ export function HelpScreen() {
     setExpandedId(expandedId === id ? null : id)
   }
 
+  const handleSubmitFeedback = useCallback(async () => {
+    if (!feedbackName.trim() || !feedbackContact.trim() || !feedbackContent.trim()) {
+      setFeedbackStatus('failed')
+      setFeedbackError(t('feedback.contentRequired'))
+      return
+    }
+    setFeedbackStatus('submitting')
+    setFeedbackError('')
+    try {
+      const res = await fetchApi('/feedbacks', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'other',
+          content: feedbackContent.trim(),
+          contact: feedbackContact.trim(),
+        }),
+      })
+      if (res.success) {
+        setFeedbackStatus('success')
+        setFeedbackContent('')
+        return
+      }
+      setFeedbackStatus('failed')
+      setFeedbackError(res.error || t('feedback.failed'))
+    } catch {
+      setFeedbackStatus('failed')
+      setFeedbackError(t('feedback.failed'))
+    }
+  }, [feedbackName, feedbackContact, feedbackContent, t])
+
   return (
     <SharedHelpScreen
       t={t}
@@ -75,6 +113,15 @@ export function HelpScreen() {
       colorScheme={resolvedTheme}
       searchValue={query}
       onSearchChange={setQuery}
+      feedbackName={feedbackName}
+      feedbackContact={feedbackContact}
+      feedbackContent={feedbackContent}
+      feedbackStatus={feedbackStatus}
+      feedbackError={feedbackError}
+      onFeedbackNameChange={setFeedbackName}
+      onFeedbackContactChange={setFeedbackContact}
+      onFeedbackContentChange={setFeedbackContent}
+      onSubmitFeedback={handleSubmitFeedback}
     />
   )
 }
