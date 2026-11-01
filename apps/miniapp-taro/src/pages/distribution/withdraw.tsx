@@ -3,170 +3,24 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 镜像 packages/app/src/features/withdraw/WithdrawScreen.tsx
-import { useI18n } from '@/i18n'
-import { View, Text, Button, Input } from '@tarojs/components'
-// 描边画在外层输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
-import { useFieldFocus } from '@/hooks/use-field-focus'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useRef } from 'react'
-import { getDistributionInfo, withdraw } from '@/api'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+
+/**
+ * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
+ *   渲染 = packages/app/src/features/withdraw/WithdrawScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/WithdrawScreen.tsx 本体,
+ *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
+ * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ */
 import ThemeRoot from '@/components/ThemeRoot'
+import AuthReadyGate from '@/components/AuthReadyGate'
+import { WithdrawScreen as WithdrawScreenShell } from '@rn-shells/WithdrawScreen'
 
-export default function DistributionWithdraw() {
-  const { t } = useI18n()
-  const gate = useAuthReadyGate()
-  const [available, setAvailable] = useState(0)
-  const [amount, setAmount] = useState('')
-  // 收款银行卡输入口(镜像补全 2026-10-30):对齐 RN WithdrawScreen 的 withdraw.bankCard /
-  // withdraw.bankCardPlaceholder。后端 /distribution/withdraw 契约当前只读 { amount, method },
-  // 该字段仍是"填了也丢"的假输入口,但跨端镜像保真要求页面消费共享屏的 i18n 键。
-  const [bankCard, setBankCard] = useState('')
-  const [payType, setPayType] = useState('wechat')
-  const [submitting, setSubmitting] = useState(false)
-  // 提现金额输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
-  const ffAmount = useFieldFocus()
-  // 收款银行卡输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
-  const ffBankCard = useFieldFocus()
-  const availableRef = useRef(0)
-
-  const payTypes = [
-    { value: 'wechat', label: t('distribution.withdraw.methodWechat') },
-    { value: 'alipay', label: t('distribution.withdraw.methodAlipay') },
-  ]
-
-  const load = async () => {
-    try {
-      const info = await getDistributionInfo()
-      setAvailable(info.available)
-      availableRef.current = info.available
-    } catch {
-      // ignore
-    }
-  }
-
-  const fillAll = () => {
-    setAmount(String(availableRef.current))
-  }
-
-  const onSubmit = async () => {
-    const amt = Number(amount)
-    if (!amt || amt <= 0) {
-      Taro.showToast({ title: t('distribution.withdraw.invalidAmount'), icon: 'none' })
-      return
-    }
-    if (amt > availableRef.current) {
-      Taro.showToast({ title: t('distribution.withdraw.insufficient'), icon: 'none' })
-      return
-    }
-    setSubmitting(true)
-    try {
-      await withdraw({ amount: amt, type: payType })
-      Taro.showToast({ title: t('distribution.withdraw.submitted'), icon: 'success' })
-      setTimeout(() => {
-        Taro.navigateBack()
-      }, 800)
-    } catch {
-      // ignore
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // G-933 冷启动抢跑门控:GET /api/distribution/overview 由 distributionRoutes 的统一
-  // preHandler 守(`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权;
-  // 提交提现(onSubmit → POST /api/distribution/withdraw)是用户动作,不经这一道门。
-  useDidShow(() => {
-    gate.waitUntilReady(load)
-  })
-
+export default function WithdrawPage() {
   return (
-    <ThemeRoot className="min-h-screen bg-background">
-      {/* 对齐 RN WithdrawScreen header:页标题(本页无自绘返回键,返回由原生导航栏承担) */}
-      <View className="mx-[20rpx] mt-[24rpx]">
-        <Text className="text-heading font-semibold text-foreground">
-          {t('withdraw.title')}
-        </Text>
-      </View>
-      {/* 对齐 RN WithdrawScreen balanceCard:白卡 + 28rpx 标签 + 56rpx 加粗余额 */}
-      <View className="mx-[20rpx] mt-[24rpx] bg-card rounded-lg p-[28rpx]">
-        <Text className="text-body text-muted-foreground">
-          {t('withdraw.availableBalance')}
-        </Text>
-        <Text className="block text-[length:56rpx] text-foreground font-bold mt-[16rpx]">
-          ¥{available}
-        </Text>
-      </View>
-      {/* 对齐 RN card:白卡 + 描边 + 输入框(muted 底 + 描边圆角) */}
-      <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-lg p-[24rpx]">
-        <Text className="text-body text-muted-foreground">{t('withdraw.amount')}</Text>
-        <View
-          className="mt-[16rpx] flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
-          style={ffAmount.focusStyle}
-        >
-          <Text className="text-title font-semibold text-foreground">¥</Text>
-          <Input
-            className="flex-1 ml-[16rpx] text-title text-foreground"
-            {...ffAmount.spread}
-            type="digit"
-            value={amount}
-            onInput={(e) => setAmount(e.detail.value)}
-            placeholder={t('distribution.withdraw.amountPlaceholder')}
-            placeholder-style="color: var(--color-text-tertiary)"
-          />
-          <Button
-            className="text-label text-[var(--color-brand-accent-deep)] bg-transparent border-none leading-[48rpx] p-0 min-h-0"
-            onClick={fillAll}
-          >
-            {t('distribution.withdraw.all')}
-          </Button>
-        </View>
-        {/* 对齐 RN WithdrawScreen withdraw.bankCard 字段(镜像补全):标签 + 描边输入盒 */}
-        <Text className="text-body text-muted-foreground mt-[24rpx]">{t('withdraw.bankCard')}</Text>
-        <View
-          className="mt-[16rpx] flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
-          style={ffBankCard.focusStyle}
-        >
-          <Input
-            className="flex-1 text-title text-foreground"
-            {...ffBankCard.spread}
-            value={bankCard}
-            onInput={(e) => setBankCard(e.detail.value)}
-            placeholder={t('withdraw.bankCardPlaceholder')}
-            placeholder-style="color: var(--color-text-tertiary)"
-          />
-        </View>
-        <View className="mt-[24rpx]">
-          <Text className="text-body text-muted-foreground">
-            {t('distribution.withdraw.method')}
-          </Text>
-          <View className="flex mt-[16rpx] gap-[16rpx]">
-            {payTypes.map((pt) => (
-              <View
-                key={pt.value}
-                className={`flex-1 py-[12rpx] text-center rounded-xl text-body ${payType === pt.value ? 'bg-cta text-cta-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
-                onClick={() => setPayType(pt.value)}
-                hoverClass="opacity-60"
-              >
-                <Text>{pt.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
-      {/* 对齐 RN submitBtn:brand 底(语义 primary)+ 100rpx 高 + 24rpx 圆角;disabled 取 text-tertiary */}
-      <Button
-        className={`mx-[20rpx] mt-[40rpx] rounded-sm text-title font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-cta text-cta-foreground'}`}
-        disabled={submitting}
-        onClick={onSubmit}
-      >
-        {submitting ? t('withdraw.submitting') : t('withdraw.submit')}
-      </Button>
-      {/* 对齐 RN hint:caption 档 tertiary 字色;费率取后端实际取值
-          (apps/api/src/routes/distribution.ts 建单时 fee 恒 0、amount 与 originalAmount 等额) */}
-      <Text className="block mx-[20rpx] mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
-        {t('withdraw.feeHint', { fee: 0 })}
-      </Text>
+    <ThemeRoot>
+      <AuthReadyGate>
+        <WithdrawScreenShell />
+      </AuthReadyGate>
     </ThemeRoot>
   )
 }
