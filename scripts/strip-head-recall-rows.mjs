@@ -51,7 +51,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw } from './lib/face-reader.mjs'
 import { recallRowsOf } from './lib/head-recall.mjs'
 import { compositeKeyOf } from './lib/plan-task-index.mjs'
-import { declaredRows } from './scrub-declared-removals.mjs'
+import {
+  declaredRows,
+  SELF_CERTIFYING_SWEEP_SEATS,
+} from './scrub-declared-removals.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -109,7 +112,9 @@ export function judge({ maxBatch = DEFAULT_MAX_BATCH, logger = console.log } = {
   }
   let declared
   try {
-    declared = declaredRows(ROOT)
+    declared = declaredRows(ROOT, undefined, {
+      excludeSeats: SELF_CERTIFYING_SWEEP_SEATS,
+    })
   } catch (e) {
     return {
       state: 'undetermined',
