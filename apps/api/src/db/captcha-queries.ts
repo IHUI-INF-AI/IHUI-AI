@@ -6,9 +6,16 @@
  * 验证码查询（DB fallback）。
  * 主存储为内存 code-store.ts，此模块仅在 Redis/DB 持久化时使用。
  */
-import { eq, lt } from 'drizzle-orm'
+import { eq, inArray, lt } from 'drizzle-orm'
 import { db } from './index.js'
 import { captchas } from '@ihui/database'
+
+/**
+ * 单轮删除的主键批次上界。
+ * expires_at 无二级索引,且清理此前从未挂上生命周期,积压可能是全表 ——
+ * 一条无界 DELETE 会把 seq scan + 行锁一次性摊到事务里,故先取一批主键再删。
+ */
+const CLEANUP_BATCH_LIMIT = 1000
 
 export async function saveCaptcha(captchaKey: string, code: string): Promise<void> {
   await db.insert(captchas).values({

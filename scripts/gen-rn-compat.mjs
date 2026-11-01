@@ -144,10 +144,10 @@ function buildTable(names) {
  * 模板指纹 —— 抬模板正文(注释、类型别名、任何非表格行)必须同时抬这一串里的版本号。
  *
  * 为什么需要它(2026-11-01 实测到病灶):`--write` 的幂等判据 `iconTableCovers` 刻意只比
- * **语义档**(图标名 ∧ 该名的 SVG 取值),不比字节 —— 因为落盘要先过 prettier 再注水印,
- * 比字节会"每轮都有变化"。代价是:改了 renderSource 的模板文字(本次的 `LucideIcon` 类型别名)
- * 而名字集合没动 ⇒ 判据照打「✓ 图标无变化」,产物**永远停在旧模板**,而文件头写着"请勿手改"
- * ⇒ 两头都没有出路(§0.8)。把模板形状压成一枚指纹进判据,模板一改就必然重落一次。
+ * **语义档**(图标名 ∧ 该名的 SVG 取值),不比字节 —— 落盘要先过 prettier 再注水印,比字节会
+ * "每轮都有变化"。代价是:改了 renderSource 的模板文字而名字集合没动 ⇒ 判据照打「✓ 图标无变化」,
+ * 产物**永远停在旧模板**,而文件头写着"请勿手改" ⇒ 两头都没有出路(§0.8)。
+ * 把模板形状压成一枚指纹进判据,模板一改就必然重落一次。
  */
 export const TEMPLATE_STAMP = 'gen-rn-compat:template-v2'
 
@@ -177,11 +177,10 @@ function renderSource(names, rows) {
 import { makeIcon } from './icons-runtime'
 
 /**
- * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里
- * ⚠️ 上一版写成 \`(props: CompatIconProps) => ReturnType<typeof makeIcon>\`:makeIcon 是**工厂**,
- * ReturnType 取到的就是"组件函数"本身 ⇒ 这行声明的实际形状是"返回一个组件的函数",于是
- * packages/app/features/about/about-icons.ts 把 makeIcon 产物交给它时报成片 TS2322(现读 10 条)、
- * AboutScreen 的 \`<Icon />\` 跟着 TS2786(不被认作合法 JSX 组件)。正解 = 直接取工厂的返回类型。
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
  */
 export type LucideIcon = ReturnType<typeof makeIcon>
 
@@ -524,6 +523,7 @@ function renderRouteMap(map) {
     .sort()
     .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
  *

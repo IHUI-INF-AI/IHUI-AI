@@ -203,8 +203,10 @@ export function removeWorktree(
   if (!fs.existsSync(wtPath)) {
     // 目录已经不在(上一轮 fallback 删过 / 外部删掉):注册表条目可能还指着它 ⇒ 同样要 prune,
     // 否则"回收一个目录已不在的检出"这条路会永久留一条 prunable 条目(prune 只摘目录确实
-    // 不存在的条目,对在场检出零副作用)。
-    runGit(['worktree', 'prune'], opts.sourcePath);
+    // 不存在的条目,对在场检出零副作用)。S3 接线(2026-11-01):改走 pruneWorktrees ——
+    // 同一个 git worktree prune,但带前后计数(有界可观察),且让本模块导出的 pruneWorktrees
+    // 真挂进删除出口(此前零调用,守门 121 C5 点名)。
+    pruneWorktrees(opts.sourcePath);
     return false;
   }
   const args = ['worktree', 'remove', wtPath];
@@ -224,7 +226,11 @@ export function removeWorktree(
   // 含未跟踪件)注册表条目仍指向活目录 ⇒ 只有目录真删掉之后 prune 才摘得掉。此前本模块
   // 导出的 `pruneWorktrees` 全仓零调用 ⇒ 每次 fallback 都永久留一条 prunable 条目,而编辑器
   // SCM 把 `git worktree list` 每条都当独立仓 ⇒ 变更数合计爆表。放在这里,调用方漏调也无害。
-  runGit(['worktree', 'prune'], opts.sourcePath);
+  // S3 接线(2026-11-01):prune 从裸跑改为经 pruneWorktrees 计数跑,摘除数 >0 时留一行 stderr。
+  const pruned = pruneWorktrees(opts.sourcePath);
+  if (pruned > 0) {
+    process.stderr.write(`[worktree-remove] ${opts.sourcePath}: pruned ${pruned} stale worktree 注册条目\n`);
+  }
   return true;
 }
 

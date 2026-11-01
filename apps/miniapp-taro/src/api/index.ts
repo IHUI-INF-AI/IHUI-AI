@@ -348,6 +348,12 @@ export interface MiniappStreamOptions extends ChatOptions {
    *  值域唯一源 = @ihui/types 的封闭联合,端内不得抄第二份档位字面量。
    *  小程序侧首票只做**通道**(控件另票,见 D130 第 5 栏"通道在位、控件另票")。 */
   reasoningEffort?: ReasoningEffort
+  /** 票59 小程序腿(2026-11-01):regenerate sibling 新回复的版本族坐标。
+   *  经请求体 metadata 透传(网关 chatStreamSchema.metadata 已显式声明这两键,
+   *  载荷键与 web streamChat 的 metadata.parentMessageId/siblingIndex 逐字同形);
+   *  不声明/不发 ⇒ 回复落库不带族,版本切换整链空转。 */
+  parentMessageId?: string
+  siblingIndex?: number
 }
 
 /**
@@ -691,6 +697,12 @@ export const chatStream = async (
     reasoningEffort: options.reasoningEffort,
     tools: options.tools,
     tool_choice: options.tool_choice,
+    // 票59 小程序腿:版本族坐标走 metadata(与 apps/api ai-chat-stream.ts 的
+    // chatStreamSchema.metadata 声明面对齐;两键缺一即不发 ⇒ 普通回复请求体零变化)。
+    metadata:
+      options.parentMessageId !== undefined && options.siblingIndex !== undefined
+        ? { parentMessageId: options.parentMessageId, siblingIndex: options.siblingIndex }
+        : undefined,
   })
 
   // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +

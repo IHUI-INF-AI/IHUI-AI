@@ -2640,6 +2640,128 @@ function selfTest() {
     console.log(`${wired && sinkHits.length === 1 ? '✅' : '❌'} D5 接线:auditTree 违规进表 / 取不到进 sink(${sinkHits.join(',')})`)
   }
   {
+    // ── D6-c:错名 .js 的**正文语言维**(2026-11-01 补,票面 G-815915 的型②「命中即必炸」)──
+    // 成对钉死四格:有牙 / 不咬合法 JS 与解释文字 / 豁免必须"验过才免"且会到期 / 取不到判未判定。
+    const day = '2026-11-01'
+    const mk = (files) => (p) => (p in files ? files[p] : null)
+    const okLedger = [] // 空表 = 没有豁免(合法台账,不是"取不到")
+    const runC = (files, tracked, ledger = okLedger, sites = []) =>
+      auditWrongNameShadow(sites, new Set(tracked), mk(files), ledger, day)
+    let cFail = 0
+    const cCheck = (name, cond, detail) => {
+      if (!cond) cFail++
+      console.log(`${cond ? '✅' : '❌'} ${name}${detail ? `(${detail})` : ''}`)
+    }
+    // ① 阳性对照·夹具:无同 stem 同伴、无人指向,只有"正文写了 TS"这一格可看 ⇒ a/b 全瞎,c 必须咬
+    const naked = runC({ 'p/x.js': 'export const m = new Map<string, number>()\n' }, ['p/x.js'])
+    cCheck(
+      'D6-c① 裸影子(无同伴/无人指向)正文含泛型 ⇒ 必拦',
+      naked.bombs.bombs.length === 1 && (naked.byFile.get('p/x.js') || []).length === 1 && naked.coexist.length === 0,
+      `必炸 ${naked.bombs.bombs.length} 枚 / 违规表 ${naked.byFile.size} 处 / 并存 ${naked.coexist.length} 对`,
+    )
+    // ② 反向对照:合法普通 JS(解构/可选链/模板/正则/三元/new)一律不得判红
+    const legit = runC(
+      {
+        'q/a.js': 'const { a, b = 1 } = obj ?? {}\nconst re = /a(?:b)?/g\nf(x ? y : z)\nnew Foo(a, b)\nexport default () => `v ${a}`\n',
+      },
+      ['q/a.js'],
+    )
+    cCheck('D6-c② 合法 JS 正文不得被咬(假阳 = 恒红门,§12e)', legit.byFile.size === 0 && legit.bombs.candidates.length === 0)
+    // ③ 门不得读自己的解释文字:注释/字符串里写出的 TS 形态一律不计
+    const narr = runC(
+      { 'r/a.js': "// 别写成 interface Foo {\nconst s = 'export type A = 1'\nmodule.exports = 1\n" },
+      ['r/a.js'],
+    )
+    cCheck('D6-c③ 注释/字符串里的 TS 形态不计', narr.byFile.size === 0)
+    // ④ 与判据 a 同枚 ⇒ **并句不并数**:违规表仍 1 处,但 hint 必须点名"必炸"证据
+    const pair = runC({ 's/x.js': 'interface Foo { a: number }\n' }, ['s/x.js', 's/x.ts'])
+    cCheck(
+      'D6-c④ 同名并存 + 正文 TS ⇒ 计数不翻倍、hint 带必炸证据',
+      pair.byFile.size === 1 &&
+        (pair.byFile.get('s/x.js') || []).length === 1 &&
+        /TS 专有语法/.test(pair.byFile.get('s/x.js')[0].hint) &&
+        pair.coexist.length === 1,
+      `计数 ${(pair.byFile.get('s/x.js') || []).length} / hint ${JSON.stringify((pair.byFile.get('s/x.js')[0] || {}).line)}`,
+    )
+    // ⑤ 阳性对照·真仓历史 blob:那起把生产 API 打崩约 2.5 小时的原件,去掉同伴与消费方后
+    //    只剩 c 这一格看得见(夹具不算证明 —— §22c 那条"只认自己造的夹具"讲的正是这一型)
+    const PRE = '6bf657df86^'
+    const SHADOW_BLOB = 'apps/api/src/services/user-concurrency-service.js'
+    let realBomb = null
+    try {
+      const blob = gitRaw(['show', `${PRE}:${SHADOW_BLOB}`], ROOT, { timeout: GIT_TIMEOUT })
+      realBomb = auditShadowSyntaxBombs(() => blob, [SHADOW_BLOB], okLedger, day)
+    } catch (e) {
+      realBomb = { err: `历史 blob 取不到:${e && e.message ? e.message : e}` }
+    }
+    cCheck(
+      'D6-c⑤ 真仓历史影子 blob 必须被点名(只喂正文、不给同伴与消费方)',
+      !!realBomb && Array.isArray(realBomb.bombs) && realBomb.bombs.length === 1,
+      Array.isArray(realBomb && realBomb.bombs) && realBomb.bombs.length
+        ? `${realBomb.bombs[0].marker} 第 ${realBomb.bombs[0].line} 行`
+        : JSON.stringify(realBomb),
+    )
+    // ⑥ 豁免"验过才免":未到期 + 四键齐备 ⇒ 不判红、进 exempted、逐枚点名
+    const waived = ['q/x.js']
+    const goodLedger = [
+      { file: 'q/x.js', reason: '上游 vendored 产物,改名会破坏其自更新脚本', ticket: 'G-815915', until: '2026-12-31' },
+    ]
+    const w1 = runC({ 'q/x.js': 'export const m = new Map<string, number>()\n' }, waived, goodLedger)
+    cCheck(
+      'D6-c⑥ 有效豁免:免判红但仍逐枚点名,且不进违规表',
+      w1.bombs.bombs.length === 0 && w1.bombs.exempted.length === 1 && w1.byFile.size === 0,
+    )
+    // ⑦ 到期 ⇒ 回到射程(豁免不会自动续期)
+    const w2 = runC({ 'q/x.js': 'export const m = new Map<string, number>()\n' }, waived, [
+      { ...goodLedger[0], until: '2026-10-31' },
+    ])
+    cCheck('D6-c⑦ 豁免到期 ⇒ 立刻回到射程', w2.bombs.bombs.length === 1 && w2.bombs.exempted.length === 0)
+    // ⑧ 清单腐烂:登了而被审面不再命中 ⇒ 判红通道(rot)
+    const w3 = runC({ 'q/x.js': 'module.exports = 1\n' }, ['q/x.js'], goodLedger)
+    cCheck('D6-c⑧ 台账登记却不再命中 ⇒ rot 点名(§0.7)', w3.bombs.rot.length === 1 && w3.bombs.bombs.length === 0)
+    // ⑨ 坏台账整批不生效(缺键 / 理由过短 / 日期不是 YYYY-MM-DD)⇒ entries=null ⇒ 整维未判定,绝不回落"没有豁免"
+    const badRows = [
+      '缺 reason:',
+      [{ file: 'q/x.js', ticket: 'G-1', until: '2026-12-31' }],
+      '理由过短:',
+      [{ file: 'q/x.js', reason: '顺手', ticket: 'G-1', until: '2026-12-31' }],
+      '日期形态坏:',
+      [{ file: 'q/x.js', reason: '够长的理由够长的理由', ticket: 'G-1', until: '2026/12/31' }],
+    ]
+    let badAll = true
+    for (let i = 0; i < badRows.length; i += 2) {
+      const r = parseShadowExemptionLedger(JSON.stringify(badRows[i + 1]))
+      if (!(r.entries === null && r.problem)) badAll = false
+      const w = runC({ 'q/x.js': 'new Map<string, number>()\n' }, ['q/x.js'], r.entries)
+      if (!(w.bombs.undetermined.length === 1 && w.byFile.size === 0)) badAll = false
+    }
+    cCheck('D6-c⑨ 坏台账整批不生效 ⇒ 未判定(不记绿不冒红)', badAll)
+    // ⑩ 取材通道没接(readFile 缺省)⇒ 整维未判定,且 a/b 的裁定一字不受影响
+    const w5 = auditWrongNameShadow([], new Set(['t/x.js', 't/x.ts']), undefined, okLedger, day)
+    cCheck(
+      'D6-c⑩ 未提供内容取材通道 ⇒ 整维未判定,a/b 照常裁',
+      w5.bombs.undetermined.length === 1 && w5.coexist.length === 1 && d6cChannelBlind(w5.bombs),
+    )
+    // ⑪ 采集口径成对:扫过且干净 ⇒ 不判死;一枚都没进射程 ⇒ 判死
+    const w6 = runC({ 'u/a.js': 'module.exports = 1\n' }, ['u/a.js'])
+    const w7 = auditWrongNameShadow([], new Set(['v/a.ts']), mk({}), okLedger, day)
+    cCheck(
+      'D6-c⑪ 盲区判据方向:扫过 1 枚且干净 ⇒ 不判死;射程 0 枚 ⇒ 判死',
+      !d6cChannelBlind(w6.bombs) && d6cChannelBlind(w7.bombs),
+      `scanned ${w6.bombs.scannedFiles}/${w7.bombs.scannedFiles}`,
+    )
+    // ⑫ 磁盘残留不算本仓债务:trackedSrc(同一取材面)外的 .js 不进射程
+    const w8 = runC({ 'w/a.js': 'new Map<string, number>()\n' }, [], okLedger)
+    cCheck('D6-c⑫ 未入库的同名 .js 不进射程(与 D4 同口径)', w8.bombs.scannedFiles === 0 && w8.byFile.size === 0)
+    // ⑬ 形态清单与接线:__test__ 必须真的把这把尺交给镜像测试(§22c),CLI 与测试同一实现
+    const kitOk =
+      typeof auditShadowSyntaxBombs === 'function' &&
+      SHADOW_EXEMPTION_LEDGER === 'scripts/data/dangling-shadow-exemptions.json'
+    cCheck('D6-c⑬ 判据经导出交镜像测试(不另抄一份)', kitOk, SHADOW_EXEMPTION_LEDGER)
+    if (cFail) fail += cFail
+    console.log(`D6-c 成对块:${cFail === 0 ? '全部通过' : `失败 ${cFail} 例`}`)
+  }
+  {
     // G-815985 `--rev` 面的 kind 判定三态(commit/tree/解析不到)。
     const treeSha = gitRaw(['rev-parse', 'HEAD^{tree}'], ROOT, { timeout: GIT_TIMEOUT }).trim()
     const ok =
@@ -2869,6 +2991,10 @@ export const __test__ = {
   d6cChannelBlind,
   SHADOW_EXEMPTION_LEDGER,
   SHADOW_EXEMPTION_REASON_MIN,
+  // D6-c 的射程过滤面:镜像要复量"扫了多少枚"必须用同一份过滤判据,不得在测试里另抄一份(§22c)
+  SKIP_DIR,
+  FIXTURE_ROOT,
+  SRC_RE,
   // D7(2026-10-29 立):判据本体交镜像测试,CLI 与测试共用同一把尺(§22c)
   auditNamespaceAggregator,
   d7ChannelBlind,

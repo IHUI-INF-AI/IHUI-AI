@@ -13,6 +13,9 @@ import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { generateCompactId } from '../utils/crypto-random.js'
+import { isDuplicate } from '../utils/ws-dedup.js'
+import { checkWsRateLimit } from '../utils/ws-rate-limit.js'
+import { bufferMessage, replayMessages } from '../utils/ws-replay-buffer.js'
 import {
   removeIfSame,
   removeIfDead,
@@ -50,6 +53,8 @@ const wsChatMessageSchema = z
     // 中途切换房间(room action)字段
     action: z.enum(['join', 'leave']).optional(),
     room: z.string().max(128).optional(),
+    // 客户端幂等键:重发同一条消息必须带同一个值,服务端据此去重(见入站处理的 isDuplicate 那一格)
+    clientMessageId: z.string().min(1).max(64).optional(),
     // 兼容 typing 等扩展字段(无强约束,但限制 key 数量防滥用)
   })
   .refine((v) => Object.keys(v).length <= 20, { message: '字段过多' })
@@ -77,10 +82,14 @@ const isSocketUnusable = (s: WebSocket): boolean =>
  *   u1 发消息 → 本机直推(排除 u1) + publish 到 Redis "chatroom:room1"
  *            → 实例B 订阅器收到 → 推给本机 u2
  *
- * 客户端连接: ws://host/ws/room/:roomId?token=<access_token>&nickname=<昵称>
+ * 客户端连接: ws://host/ws/room/:roomId?token=<access_token>&nickname=<昵称>[&since=<毫秒时间戳>]
+ *   `since` = 该客户端上次收到的消息时刻;断线重连时带上,服务端把回放缓冲里该时刻之后的
+ *   消息按序补发(缺省即不补发)。
+ * 入站消息: 可选 `clientMessageId`(幂等键)——同一连接/同一用户在去重窗口内重复投递的
+ *   同一 ID 只处理一次,重复帧直接丢弃。
  * 消息类型: text / image / file / system / typing
  *
- * 降级: Redis 不可用时仅本机广播(单实例部署).
+ * 降级: Redis 不可用时仅本机广播(单实例部署),去重/跨实例限流/回放补发同步降级为放行/跳过。
  */
 const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // roomId -> 本机成员集合
@@ -511,7 +520,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ws/room/:roomId', { websocket: true }, (socket, request) => {
-    const query = request.query as { token?: string; nickname?: string }
+    const query = request.query as { token?: string; nickname?: string; since?: string }
     const roomId = (request.params as { roomId: string }).roomId
     // 2026-07-24 安全审计:roomId 格式校验(防 channel 注入 + 防 Redis key 注入)
     // 允许 UUID 或 字母数字_- 组合(最长 128 字符)
