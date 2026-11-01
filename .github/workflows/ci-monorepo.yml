@@ -435,7 +435,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install uv
         id: install-uv
-        run: pip install uv
+        # uv 档钉死:不钉就是"当时最新",同一枚提交在两个时间点能解析出不同依赖图。
+        # 取本机实测档(与 apps/ai-service/Dockerfile 同版),完整理由见 ci.yml 的 install-uv 那格。
+        run: pip install uv==0.12.1
       - name: Install dependencies
         id: install-deps
         working-directory: apps/ai-service

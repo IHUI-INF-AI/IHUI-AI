@@ -201,13 +201,30 @@ async def fetch_image_url(token: str, file_key: str, node_id: str, scale: int = 
 
 
 async def download_image_data_uri(url: str, max_bytes: int = 10 * 1024 * 1024) -> str:
-    """下载导出图转 base64 data URI(喂给视觉模型;与 vision_helper 同一形态)。"""
+    """下载导出图转 base64 data URI(喂给视觉模型;与 vision_helper 同一形态)。
+
+    2026-11-01 安全强化:`url` 来自 **Figma 响应的 meta.images 映射**(不是本服务的常量),
+    而 httpx 在 follow_redirects=True 下自己跟跳 ⇒ 入口过一次、每跳再过一次,判据与
+    screenshot_service 的 SSRF 尺同一份出口(§0.6,不开第二套"什么算内网")。
+    """
+    from app.services.screenshot_service import (
+        _validate_url_ssrf,
+        httpx_ssrf_request_hook,
+    )
+
+    ok_url, reason = _validate_url_ssrf(url)
+    if not ok_url:
+        raise FigmaTranscodeError("FIGMA_FETCH_BLOCKED", f"导出图地址被 SSRF 判据拦下:{reason}")
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            event_hooks={"request": [httpx_ssrf_request_hook]},
+        ) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.content
-    except httpx.HTTPError as e:
+    except (httpx.HTTPError, ValueError) as e:
         raise FigmaTranscodeError("FIGMA_FETCH_FAILED", f"导出图下载失败: {type(e).__name__}: {e}") from e
     if len(data) > max_bytes:
         raise FigmaTranscodeError("FIGMA_FETCH_FAILED", f"导出图过大({len(data)} bytes)")
