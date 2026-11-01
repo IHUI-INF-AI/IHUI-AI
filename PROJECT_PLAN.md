@@ -33593,3 +33593,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] B87 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T07:32:13.093Z last=2026-10-29T07:32:13.093Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）
 
 - [ ] B88 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T07:58:38.989Z last=2026-10-29T07:58:38.989Z route=/deploy/build-fail code=TS2339 sample="deploy_outcome action=build-fail sha=[hex:40] d…"）
+
+- [ ] B91 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T08:29:24.187Z last=2026-10-29T08:29:24.187Z route=/deploy/build-fail code=TS2554 sample="deploy_outcome action=build-fail sha=[hex:40] d…"）
