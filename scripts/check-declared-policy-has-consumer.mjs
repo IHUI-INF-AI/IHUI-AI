@@ -43,9 +43,12 @@
 //      无关的恒红门只会逼人 `--no-verify`、连带废掉全部守门)。
 //      新族的存量读数由 judge() 的 `factory` 字段当场给出(候选数 / 零生产调用方逐条点名 /
 //      读不出形态逐条点名),全量档打印在 C7 行,`--json` 里同名可读。
-//      现读(2026-10-05,HEAD 面,本枚改动跑出来的):候选 21 / 零生产调用方 6 / 形态读不出 0。
-//      这 6 条里 4 条是真零调用方,2 条(`createTaroTransport`、`createTaroStreamTransport`)是
-//      下面"已知限制"里"取用面从第一个顶层声明起算"那一型 —— 消费者真在生产面,只是写在前面。
+//      现读(2026-11-01,HEAD 面,default 链装车后重跑):候选 21 / 零生产调用方 2 / 形态读不出 0。
+//      这 2 条(`createTaroTransport`、`createTaroStreamTransport`)全是下面"已知限制"里
+//      "取用面从第一个顶层声明起算"那一型 —— 消费者真在生产面(apps/miniapp-taro/src/app.tsx
+//      第 55/56 行的模块级调用),只是写在第一个顶层声明(第 127 行)之前。
+//      2026-10-05 那次读到的"零生产调用方 6"本次只剩 2 条;其余 4 条本轮未逐条取证是"接上了"
+//      还是"声明已摘",不在本票射程内,故只报差额不编成因。
 //
 // "接线"的算法(与守门 64/115 同族的收口点):
 //   - 消费者 = **生产面文件**(扫描根 apps/*/src + packages/*/src;测试面整面排除:
@@ -56,6 +59,26 @@
 //     **注释与字符串里的提及一律不算**(本仓"看起来有、其实没装车"最高频形态就是注释提及);
 //     文件自己还声明同名符号 ⇒ 不算消费别人的(同名不同物,如 apps/api 也有自己的 listSessions);
 //     `export { X } from` 纯 re-export 不算消费者(barrel 不消费)。
+//   - **default 链**(2026-11-01 扩认链,治"已接线误报未接线"):default 导入**不带符号名**
+//     (`import D from './m.js'` 与 `import D, { a } from './m.js'` 两种形都记成 default 槽位绑定),
+//     而种子表按具名符号建 ⇒ `imported='default'` 永远命中不了任何顶层声明,传递闭包断在
+//     **模块入口**这一环。实测代价:apps/api 的 9 枚策略常量插件/路由本体都在跑、
+//     `server.ts` / `routes/index.ts` 逐条 default 取用,门照样判它们未接线
+//     (阳性对照:`plugins/ab-testing.ts` 的具名导出同一判据下天生绿 —— 差别只有 default/具名)。
+//     正解是**只扩认链**:把 default 导入接到"声明文件的 default 虚拟宿主",该宿主的声明体
+//     引用由 parseFile 现算,后面走的还是既有的"声明体边 + 传递闭包",不新写第二套闭包。
+//     default 导出形态按本仓实测三形收:`export default <标识符>` / `export default <expr>(…)`
+//     (如 `export default fp(plugin, {`)/ `export default function|class NAME`,外加
+//     `export { X as default }`;语句跨度=括号配平归零即止,撞上下一条顶层声明立刻收口。
+//     既有三条判序**一条不松**:① 消费者面仍只含生产扫描根;② 必须 `G.uses.has(local)`,
+//     只 import 不取用照旧不算;③ G 自己声明了同名 `local` ⇒ 归属歧义不认(default 是保留字,
+//     两个文件各自的槽位不构成"同名不同物",故比对落在**绑定名**而不是导入名上)。
+//     另加一条比具名**更严**的归属尺 `specResolvesToModule`:specifier 的最后一段必须就是
+//     声明文件基名(目录 barrel 只在声明文件基名为 `index` 时才认)—— 具名那把 specCompat 允许
+//     "父目录段命中",对带符号名的具名导入有第二道过滤,对不带符号名的 default 导入不够
+//     (否则 `./plugins/tenant.js` 会顺带点亮同目录另一枚文件的槽位 ⇒ 假绿)。
+//     反向锁(--self-test D 组):default 声明体没引用那枚常量 ⇒ 照旧红;模块没有 default 导出 ⇒
+//     照旧红;取用写在注释里 ⇒ 照旧红;变异对照 M5/M6 关掉外部消费或闭包 ⇒ 必从绿退回红。
 //   - **传递闭包**:同文件内"甲的声明体引用了乙"记一条甲→乙边;甲被生产面消费 ⇒ 乙也算被消费。
 //     这是保留策略的真实形状:常量喂给 prune 函数、prune 挂在写生命周期点、写入口被命令面 import。
 //     没有闭包,"给签名默认值接一处调用"的正常修法会被误判红;有了闭包,它仍拦得住
@@ -103,18 +126,58 @@
 //   任一候选文件内容取不到 ⇒ exit 2「无法判定」(既不冒红也绝不记绿);
 //   判定面枚举到 0 个扫描根源文件 ⇒ 判死(空扫不记绿)。
 //
+// 存量重述(2026-11-01,default 链装车后现读;改判据面必须同枚重述,不留旧数):
+//   HEAD 面(C1~C5 + C7,不含 C6 词表维)未接线 **18 → 9 处**,消掉的 9 处**全部**是 apps/api
+//   那九枚 default 出口模块里的策略常量(csrf / tenant / watch-aspect / auth-passkey /
+//   public-status / relay-monitor-public / v1-assistants / v1-protocol-completeness / v1-public),
+//   候选声明总数 214、C7 候选 21、i18n(C6)未接线 11753 三个数**一字未动** ⇒ 本轮只消误报、
+//   没有把任何真未接线顺手放绿。余下 9 处逐条成因见"已知限制"与交付报告,分三档:
+//     · 真未接线(策略在生产面确实没有取用点)4 处:internal-service-ticket.ts:103(唯一入口
+//       `mintInternalServiceTicket` 只被 apps/api/tests/* 调)、category.ts:20(唯一"提及"在
+//       course.ts:356 的注释里)、side-task-lifecycle.ts:55(唯一入口 `isSideTaskExpired` 只在
+//       `__tests__`)、constants.ts:40(同名串只活在 apps/ai-service 的 Python 侧,跨语言镜像);
+//     · 判据仍看不见 5 处:app.tsx 模块级调用先于第一个顶层声明 2 处(createTaroTransport /
+//       createTaroStreamTransport)、遮噪器把正则字面量当模板起手的整段抹白 1 处
+//       (login-intent.ts:22)、消费方在 `apps/web/app/**`(C1~C5 消费者面之外)2 处
+//       (models-api.ts:309、llm.ts:501 cleanupSyncHistory)。
+//   (2026-11-01 同日另两枚 packages/auth 存量由旁席提交 9fb6fee7a8 清偿,不记在本票账上。)
+//
 // 已知限制(如实登记,不以豁免遮):
 //   - specifier 兼容判定只认"文件基名 / 直接父目录 / @ihui/<pkg>"三种链形,更深的 barrel 跳数
 //     不追(失误方向是把"已接线"错判成"未接线",由棘轮与全量档只报数兜住);
+//   - **行域启发式的反向尾巴**(2026-11-01 写 D7 夹具时实测到,方向是**假绿**,与本票其余
+//     "更严"型限制相反,故单独点名):`uses`/`edges` 按"最后一个不超过本行的顶层声明"认宿主,
+//     而 `export default X` 这类**顶层表达式语句**不是声明 ⇒ 它那一行被算进**上一条声明**的行域,
+//     凭空产生"上一条声明 → X"这条边。夹具里的表现:声明序为 `…export function clearDemoCache(){}`
+//     再 `export default demoPlugin` 时,只取用 clearDemoCache 的消费者也会把 demoPlugin(及其
+//     引用的 DEMO_TTL)带绿。本票**不改它**(动行域规则会连带换掉 C1~C5 与闭包全部的现读数,
+//     且 default 链装车后这一型已不再是把已接线判成未接线的理由),登记为独立一票:
+//     出路是把顶层表达式语句的行域收口到"下一条声明或本语句结束",不是给门加豁免。
 //   - **取用面从该文件第一个顶层声明起算**(`parseFile` 的 uses/edges 先要认出一个 host):
 //     写在所有顶层声明**之前**的模块级调用(入口文件最常见的 `setTransport(createXTransport())`
 //     形态)不被认成消费者。这一条自 C1~C5 立项就在,方向同样是"把已接线判成未接线"(更严),
 //     由棘轮与全量档只报数兜住;本票**不改它** —— 动 `uses` 的收集范围会换掉既有四族与 C6 的
-//     现读数,那是另一枚票的活(改哪一面都要同枚重述存量)。C7 现读 6 条里的
-//     `apps/miniapp-taro/src/utils/api-client-transport.ts:32 createTaroTransport` 与
-//     `apps/miniapp-taro/src/utils/taro-stream-transport.ts:46 createTaroStreamTransport` 正是
-//     这一型(消费方 `apps/miniapp-taro/src/app.tsx:56/57` 真在调,而那两行位于第 118 行第一个
-//     顶层声明之前);其余 4 条经逐条读定义确认是真零生产调用方。
+//     现读数,那是另一枚票的活(改哪一面都要同枚重述存量)。现读(2026-11-01,HEAD 面)命中这一型
+//     的仍是那两条:`apps/miniapp-taro/src/utils/api-client-transport.ts:32 createTaroTransport`
+//     与 `apps/miniapp-taro/src/utils/taro-stream-transport.ts:46 createTaroStreamTransport`
+//     —— 消费方 `apps/miniapp-taro/src/app.tsx` 第 55/56 行真在调(`setTransport(createTaroTransport())`
+//     / `setStreamTransport(createTaroStreamTransport())`),而那两行位于该文件第一个列 0 顶层声明
+//     (第 127 行 `function NetworkStatusHandler()`)之前。
+//   - **遮噪器不认识正则字面量**(2026-11-01 实测登记,本票不改):`maskCommentsKeepStrings`
+//     只按 ' / " / ` 三种定界符走,正则字面量里的反引号会被当成模板起始 —— 从那一行起整段被
+//     当"模板内容"抹白。实测落点 `apps/miniapp-taro/src/pages/user/index.tsx` 第 201 行
+//     `{line.replace(/```/g, '')}` 起,该文件 1560 行里 **1006 行代码被抹白**,第一个列 0 顶层
+//     声明也因此只读到第 176 行 ⇒ 第 771 行 `consumeLoginIntent()` 的真取用根本不进 `uses`,
+//     `stores/login-intent.ts` 的 `LOGIN_INTENT_TTL_MS` 因此被判未接线。方向是"把已接线判成
+//     未接线"(更严),但这是**另一枚缺陷**(遮噪器层,不是取用面/链形层),动它要连带重述四族
+//     与 C6 的现读数,本票不顺手改;登记在此供后续票取用。
+//   - **C1~C5 的消费者面不含 `apps/*\/app/**`**:发射点面为 C6 单独放宽到 App Router 目录
+//     (见 inI18nScanRoot 注),候选与消费者仍只认 `apps|packages/<端>/src/`。实测两条存量
+//     因此看不见:`apps/web/src/lib/models-api.ts:309 PROVIDERS_HEALTH_SUMMARY_TTL`(真取用点在
+//     `apps/web/app/(main)/models/ModelsHeader.tsx` 与 `…/settings/gateway/ProvidersHealthTab.tsx`)、
+//     `packages/api-client/src/endpoints/llm.ts:501 cleanupSyncHistory`(真取用点在
+//     `apps/web/app/(main)/settings/gateway/ProvidersHealthTab.tsx`)。本票**禁止扩根**(扩了
+//     就把 App Router 页面级导出收成候选、抬高候选数),故只如实分档。
 //   - 类型可达 ≠ 运行时供给:接口字段把某契约类型引到位,闭包会判"已接线"。
 //     "工具字面量到底有没有供 contract(含 resultBudget)"由守门 111 按同族判据管,两门互补。
 //   - C6(G-816043):「有值」只认票面五语言(en/ja/ko/zh-CN/zh-TW)全有,缺任一语言的面板
@@ -768,6 +831,15 @@ export function blankStringContents(text) {
 // 消费者判 0)。遮蔽区一旦吞掉声明行,方向是"漏候选"(漏报),但更糟的是它也会吞掉
 // import 绑定本身让已接线被误判未接线 —— 两种错向都不可接受,故子句封死在单条语句内。
 const CLAUSE_RE = /(?:^|[\s;}])(import|export)\s+((?:(?!import\b)(?!export\b)[^;])*?)\s*from\s*['"]([^'"]+)['"]/g
+/**
+ * default 槽位的**虚拟宿主名**(2026-11-01)。`default` 是保留字,既不可能被 TOP_DECL_RES
+ * 认成顶层声明标识符,也不可能成为候选声明名 ⇒ 它只存在于 edges 里,与既有具名判序零相撞。
+ */
+export const DEFAULT_SLOT = 'default'
+/** 模块的 default 导出语句起始行(遮噪后的代码面上判,注释与字符串里的"export default"不可见) */
+const DEFAULT_EXPORT_RE = /^\s*export\s+default\b/
+/** `export { X as default }`(无 from 的那一侧才是本模块自己的槽位;带 from 的已被 CLAUSE_RE 抹掉) */
+const AS_DEFAULT_EXPORT_RE = /^\s*export\s*\{[^}]*\b([A-Za-z0-9_$]+)\s+as\s+default\b/
 const TOP_DECL_RES = [
   /^(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)/,
   /^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+([A-Za-z0-9_$]+)/,
@@ -777,6 +849,37 @@ const TOP_DECL_RES = [
 const IDENT_RE = /[A-Za-z0-9_$]+/g
 
 /**
+ * `export default …` 的**语句跨度**里引用到的本文件顶层声明名(= default 槽位的"声明体")。
+ * 收口规则三条,缺一不可:
+ *   ① 从命中行起做括号配平,归零即止(遮噪面上字符串/模板内容已抹平,配平读的是真语法);
+ *   ② 撞上下一条**顶层声明行**立即收口 —— 顶层声明不可能长在表达式语句内部,这一条挡住
+ *      "括号读不平 ⇒ 一路扫到文件尾"的过度归因(那是把无关声明算进 default 的声明体);
+ *   ③ 只收 `declNames` 里的名字(本文件自己声明的符号),外来的名字一律不算。
+ * 于是 `export default fp(plugin, { … })` 认 plugin、`export default v1Assistants` 认 v1Assistants、
+ * `export default function NAME(…){…}` 认 NAME 并把它整段函数体当声明体(与真运行时一致)。
+ */
+function defaultStatementRefs(lines, start, declNames) {
+  const out = new Set()
+  let depth = 0
+  for (let li = start; li < lines.length; li++) {
+    if (li > start && TOP_DECL_RES.some((re) => re.test(lines[li]))) break
+    const line = lines[li]
+    IDENT_RE.lastIndex = 0
+    let t
+    while ((t = IDENT_RE.exec(line))) {
+      if (t[0] !== DEFAULT_SLOT && declNames.has(t[0])) out.add(t[0])
+    }
+    for (let k = 0; k < line.length; k++) {
+      const ch = line[k]
+      if (ch === '(' || ch === '[' || ch === '{') depth++
+      else if (ch === ')' || ch === ']' || ch === '}') depth--
+    }
+    if (depth <= 0) break
+  }
+  return out
+}
+
+/**
  * 解析一个源文件(注释见文件头"接线算法"):
  *  - decls:   顶层声明 [{name, exported, line(0 基), shape}];行文本取自**遮噪后的代码面**
  *             (注释与字符串内容都已抹平),所以"注释里写了一句 `export function createXHandler`"
@@ -784,10 +887,16 @@ const IDENT_RE = /[A-Za-z0-9_$]+/g
  *             shape ∈ DECL_SHAPES(工厂/非工厂/读不出),只给 C7 用,C1~C5 不读它;
  *  - imports: import 绑定 [{imported, local, spec}];`export … from` 是转出不是消费,
  *             收进 reExports(只为把它从取用面遮掉,永不作消费者证据);
+ *             default 导入记成 `imported=DEFAULT_SLOT`(`import D from 's'` 与
+ *             `import D, { a } from 's'` 两种形都收 —— 后者此前整条被丢弃);
  *  - uses:    在 import/export-from 语句区域之外出现过的标识符集合;
  *  - edges:   同文件引用边 host→ref(某顶层声明的"行域"里出现的其他顶层声明名;自引用不成边)。
  *            接口成员行(`budget: XxxContract`)天然落在宿主接口的行域里 ⇒ 类型引用与函数
  *            调用同形处理,不再单写一套。
+ *            另有一枚**虚拟宿主** `DEFAULT_SLOT`:模块有 default 导出时,它的声明体引用到的
+ *            本文件符号挂在这条边上(见 defaultStatementRefs)。它不进 decls/declNames,
+ *            所以既不会被立案成候选、也不参与"同名不同物"比对。
+ *  - hasDefault / defaultRefs:default 槽位是否存在、以及它指向哪些顶层声明。
  */
 export function parseFile(rel, text) {
   const noComments = maskCommentsKeepStrings(text)
@@ -812,8 +921,14 @@ export function parseFile(rel, text) {
         if (asM) target.push({ imported: asM[1], local: asM[2], spec })
         else if (/^[A-Za-z0-9_$]+$/.test(piece)) target.push({ imported: piece, local: piece, spec })
       }
+      // 混合形 `import D, { a } from 's'`:具名半边照旧逐条收,默认半边(第一个 `{` 之前的
+      // 裸标识符)也记成 default 槽位绑定 —— 改前这一整支被丢弃,连"模块被 default 取用"都看不见。
+      // `import type { … }` 的前缀是关键字 type,不得当成默认绑定名。
+      const defLocal = clause.slice(0, braces.index).trim().replace(/,\s*$/, '')
+      if (kind === 'import' && !/^type\b/.test(clause.trim()) && /^[A-Za-z0-9_$]+$/.test(defLocal))
+        imports.push({ imported: DEFAULT_SLOT, local: defLocal, spec })
     } else if (kind === 'import' && /^[A-Za-z0-9_$]+$/.test(clause.trim())) {
-      imports.push({ imported: 'default', local: clause.trim(), spec })
+      imports.push({ imported: DEFAULT_SLOT, local: clause.trim(), spec })
     }
   }
   const code = blankStringContents(masked.join(''))
@@ -852,7 +967,24 @@ export function parseFile(rel, text) {
       if (declNames.has(name) && name !== host) edges.get(host).add(name)
     }
   }
-  return { rel, decls, declNames, imports, reExports, uses, edges }
+  // default 槽位:整文件扫 export-default 语句(与上面的"行域宿主"循环互不影响 ——
+  // 既有宿主区间一条没动,这一支只往 edges 里**加**一个虚拟宿主)。
+  const defaultRefs = new Set()
+  let hasDefault = false
+  for (let li = 0; li < lines.length; li++) {
+    if (DEFAULT_EXPORT_RE.test(lines[li])) {
+      hasDefault = true
+      for (const r of defaultStatementRefs(lines, li, declNames)) defaultRefs.add(r)
+      continue
+    }
+    const adm = AS_DEFAULT_EXPORT_RE.exec(lines[li])
+    if (adm) {
+      hasDefault = true
+      if (declNames.has(adm[1])) defaultRefs.add(adm[1])
+    }
+  }
+  if (defaultRefs.size) edges.set(DEFAULT_SLOT, defaultRefs)
+  return { rel, decls, declNames, imports, reExports, uses, edges, hasDefault, defaultRefs }
 }
 
 // ==================== specifier 兼容判定(引用必须指向声明方那一条模块链)====================
@@ -884,6 +1016,29 @@ export function specCompat(spec, declFile) {
     const esc = pd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     if (new RegExp(`(?:^|[/.])${esc}/`).test(spec)) return true
   }
+  return false
+}
+
+/**
+ * **default 槽位专用**的模块归属判定(2026-11-01 立)。
+ *
+ * 为什么具名那把尺子在这里不够用:specCompat 认"直接父目录以路径段形态出现在 specifier 里",
+ * 这一条对**具名**导入是安全的 —— 具名那一边还有"导入名在声明文件里逐字声明"这道硬过滤;
+ * 而 default 导入**不带任何符号名**,只剩 specifier 一个线索。若沿用 specCompat,
+ * `import tenantPlugin from './plugins/tenant.js'` 会把同目录里另一枚
+ * `plugins/internal-service-ticket.ts` 的 default 槽位也点亮(目录段 `plugins/` 命中)
+ * ⇒ 假绿。所以 default 链只认"specifier 的最后一段就是声明文件自己":
+ *   `./demo.js` / `../plugins/demo` / `@ihui/pkg/demo` ⇒ 命中 demo.*;
+ *   目录形 barrel(`./endpoints` ⇒ `endpoints/index.ts`)仅当声明文件基名就是 `index` 时才认,
+ *   此时再走一次既有 specCompat(包名/基名/父目录三条链形原样复用,不新写一套)。
+ * 判不出 ⇒ 不兼容。失误方向仍是"把已接线判成未接线"(比具名那把更严),由棘轮与全量档兜住。
+ */
+export function specResolvesToModule(spec, declFile) {
+  if (!spec) return false
+  const seg = (spec.split('/').filter(Boolean).pop() || '').replace(/\.[^.]+$/, '')
+  const base = basenameNoExt(declFile)
+  if (seg && seg === base) return true
+  if (base === 'index') return specCompat(spec, declFile)
   return false
 }
 
@@ -997,6 +1152,47 @@ export function judge(files, opts = {}) {
           }
         }
         if (hit) connected.add(`${name}\u0000${F}`)
+      }
+    }
+
+    // 3b) **default 链**(2026-11-01 扩认链,治"已接线误报未接线"):
+    //   `import D from './m.js'` 绑定的是 m.js 的 default 槽位 —— 槽位不带符号名,所以
+    //   上面那张按具名符号建的种子表在结构上永远命中不了它,传递闭包断在模块入口这一环。
+    //   这里把 default 导入接到**目标模块的 default 虚拟宿主**,后面第 4 步的"声明体边 +
+    //   传递闭包"原样复用,不新写第二套闭包。
+    //   既有三条判序逐条对齐、一条不松:
+    //     · 消费者面仍是 parsed(只含生产面扫描根文件,测试面整面排除);
+    //     · 只 import 不取用不算 ⇒ 必须 `G.uses.has(b.local)`;
+    //     · 归属歧义不算 ⇒ G 自己声明了同名符号 `b.local` 时不认(具名那条"同名不同物"的等价形;
+    //       槽位名本身是保留字,不存在两个文件的 default 互相冒充,故不比对 imported);
+    //     · specifier 必须**指向声明文件自己**(specResolvesToModule,比具名用的 specCompat 更严,
+    //       因为 default 导入不带符号名,目录段命中不足以证明归属)。
+    const defaultSlots = []
+    for (const f of candidateFiles) {
+      const p = parsed.get(f)
+      if (p && p.hasDefault) defaultSlots.push(f)
+    }
+    if (defaultSlots.length) {
+      const defaultBindings = []
+      for (const p of parsed.values()) {
+        for (const b of p.imports) {
+          if (b.imported !== DEFAULT_SLOT) continue
+          defaultBindings.push({ file: p.rel, local: b.local, spec: b.spec })
+        }
+      }
+      for (const F of defaultSlots) {
+        const k = `${DEFAULT_SLOT}\u0000${F}`
+        if (connected.has(k)) continue
+        for (const b of defaultBindings) {
+          if (b.file === F) continue
+          const G = parsed.get(b.file)
+          if (!G) continue
+          if (G.declNames.has(b.local)) continue
+          if (!specResolvesToModule(b.spec, F)) continue
+          if (!G.uses.has(b.local)) continue
+          connected.add(k)
+          break
+        }
       }
     }
   }
@@ -1292,6 +1488,122 @@ const HF_NOISE = [
 const HF_DECL_FILE = 'apps/web/src/hooks/use-chat/stream-handlers.ts'
 const HF_USE_FILE = 'apps/web/src/hooks/use-chat/send-message.ts'
 
+// ==================== default 链夹具(2026-11-01,治"已接线误报未接线")====================
+// 形状全部照抄真仓那九枚:apps/api 的插件走 `export default fp(plugin, {`,路由走
+// `export default 标识符`;消费者走 `import D from './x.js'`(server.ts / routes/index.ts)。
+const DEF_DECL_FILE = 'apps/api/src/plugins/demo.ts'
+const DEF_USE_FILE = 'apps/api/src/server.ts'
+/** 形一:csrf.ts / tenant.ts / watch-aspect.ts 形(具名插件 + fp 包一层) */
+const DEF_FP = [
+  "import fp from 'fastify-plugin'",
+  'const DEMO_TTL = 60',
+  'export async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+  "export default fp(demoPlugin, { name: 'demo' })",
+  '',
+].join('\n')
+/** 形二:v1-assistants.ts / auth-passkey.ts 形(`export default 标识符`) */
+const DEF_IDENT = [
+  'const DEMO_TTL = 60',
+  'async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+  'export default demoPlugin',
+  '',
+].join('\n')
+/** 形三:`export default function NAME(…)` —— 整段函数体就是这个槽位的声明体 */
+const DEF_FUN = [
+  'const DEMO_TTL = 60',
+  'export default function demoPlugin(server: unknown): void { void DEMO_TTL; void server }',
+  '',
+].join('\n')
+/** 形四:多行对象字面量 default 导出(跨度必须配平归零才算完) */
+const DEF_OBJ = [
+  'const DEMO_TTL = 60',
+  'async function demoPlugin(): Promise<void> { void DEMO_TTL }',
+  'export default {',
+  '  handler: demoPlugin,',
+  '  meta: { nested: 1 },',
+  '}',
+  '',
+].join('\n')
+/** 形五:`export { X as default }`(web 的 skeleton.tsx 真在用这一形) */
+const DEF_AS_DEFAULT = [
+  'const DEMO_TTL = 60',
+  'async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+  'export { demoPlugin as default }',
+  '',
+].join('\n')
+/** 反向锁 A:default 的声明体**没有**引用那枚常量(它只被无关的私有函数用)⇒ 不得顺带点亮 */
+const DEF_NOREF = [
+  'const DEMO_TTL = 60',
+  'function unrelated(): number { return DEMO_TTL }',
+  'async function demoPlugin(server: unknown): Promise<void> { void server }',
+  'export default demoPlugin',
+  '',
+].join('\n')
+/** 反向锁 B:模块根本没有 default 导出 ⇒ default 导入无从绑定 */
+const DEF_NONE = [
+  'const DEMO_TTL = 60',
+  'export async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+  '',
+].join('\n')
+/** 反向锁 C:那句 export default 只活在注释里 ⇒ 遮噪后不可见 */
+const DEF_COMMENTED_SRC = [
+  'const DEMO_TTL = 60',
+  'async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+  '// export default demoPlugin —— 注释里的声明不是声明',
+  "export const note = 'export default demoPlugin';",
+  '',
+].join('\n')
+/** 正消费者:default 导入且在顶层声明之外真取用 */
+const DEF_USE = [
+  "import demoPlugin from './plugins/demo.js'",
+  'export function build(server: unknown): void { void demoPlugin; void server }',
+  '',
+].join('\n')
+/** 只 import 不取用(既有那条"看起来有"的判序必须同样管住 default) */
+const DEF_NOUSE = [
+  "import demoPlugin from './plugins/demo.js'",
+  'export function build(server: unknown): void { void server }',
+  '',
+].join('\n')
+/** 取用只写在注释里 */
+const DEF_COMMENTED_USE = [
+  "import demoPlugin from './plugins/demo.js'",
+  '// void demoPlugin 曾在 D113 接线',
+  'export function build(server: unknown): void { void server }',
+  '',
+].join('\n')
+/** 归属歧义:消费者自己声明了同名 local ⇒ 那次取用可能指自家,不算(对齐"同名不同物") */
+const DEF_SHADOW = [
+  "import demoPlugin from './plugins/demo.js'",
+  'const demoPlugin = { stub: true }',
+  'export function build(): unknown { return demoPlugin.stub }',
+  '',
+].join('\n')
+/** 同目录他文件的 default 导入:目录段命中不足以证明归属(新尺比 specCompat 更严) */
+const DEF_OTHER_DIR = [
+  "import otherThing from './plugins/other.js'",
+  'export function build(): void { void otherThing }',
+  '',
+].join('\n')
+/** 混合形 `import D, { named } from`:默认半边此前整条被丢弃 */
+const DEF_MIX_SRC = [
+  'const DEMO_TTL = 60',
+  'async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+  'export default demoPlugin',
+  'export function clearDemoCache(): void {}',
+  '',
+].join('\n')
+const DEF_MIX_USE = [
+  "import demoPlugin, { clearDemoCache } from './plugins/demo.js'",
+  'export function build(): void { demoPlugin(); clearDemoCache() }',
+  '',
+].join('\n')
+const DEF_MIX_USE_NAMED_ONLY = [
+  "import demoPlugin, { clearDemoCache } from './plugins/demo.js'",
+  'export function build(): void { clearDemoCache() }',
+  '',
+].join('\n')
+
 function selfTest() {
   let ran = 0
   let fail = 0
@@ -1484,7 +1796,117 @@ function selfTest() {
     judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_IN_BODY(false)]])).factory.unwired.length,
   ], [3, 2])
 
-  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + 静态键表族四验收 + C7 工厂族五验收)`)
+  // ⑱ default 链(2026-11-01):default 导入接进"声明体边 + 传递闭包",只扩认链、不松判据。
+  const DEF_FORMS = [
+    ['形一 export default fp(plugin, {', DEF_FP],
+    ['形二 export default 标识符', DEF_IDENT],
+    ['形三 export default function', DEF_FUN],
+    ['形四 export default 对象字面量(多行)', DEF_OBJ],
+    ['形五 export { X as default }', DEF_AS_DEFAULT],
+  ]
+  const defPair = (src, use, useFile = DEF_USE_FILE) =>
+    new Map([
+      [DEF_DECL_FILE, src],
+      [useFile, use],
+    ])
+  const defRun = (src, use, opts = {}, useFile = DEF_USE_FILE) =>
+    judge(defPair(src, use, useFile), opts)
+  eq(
+    'D1 五形 default 导出 + default 导入并取用 ⇒ 全部 0 未接线(改前五形全判 1 处 = 本票要修的误报)',
+    DEF_FORMS.map(([, src]) => defRun(src, DEF_USE).unwired.length),
+    [0, 0, 0, 0, 0],
+  )
+  eq(
+    'M5 变异对照 mutate=no-external-refs ⇒ 五形全退回红(证明 default 链靠的是外部消费,不是豁免)',
+    DEF_FORMS.map(([, src]) => defRun(src, DEF_USE, { mutate: 'no-external-refs' }).unwired.length),
+    [1, 1, 1, 1, 1],
+  )
+  eq(
+    'M6 变异对照 mutate=no-closure ⇒ 五形全退回红(证明走的是既有声明体边,不是第二条闭包)',
+    DEF_FORMS.map(([, src]) => defRun(src, DEF_USE, { mutate: 'no-closure' }).unwired.length),
+    [1, 1, 1, 1, 1],
+  )
+  eq(
+    'D2 反向锁:default 声明体没引用那枚常量 / 模块无 default 导出 / export default 只在注释里 ⇒ 三形照旧红',
+    [DEF_NOREF, DEF_NONE, DEF_COMMENTED_SRC].map((src) =>
+      defRun(src, DEF_USE).unwired.map((u) => u.name),
+    ),
+    [['DEMO_TTL'], ['DEMO_TTL'], ['DEMO_TTL']],
+  )
+  eq(
+    'D3 既有排除面对 default 同样生效:零取用 / 取用写在注释里 / 消费者自家同名 local ⇒ 三形照旧红',
+    [DEF_NOUSE, DEF_COMMENTED_USE, DEF_SHADOW].map((use) => defRun(DEF_FP, use).unwired.length),
+    [1, 1, 1],
+  )
+  eq(
+    'D4 测试面整面排除对 default 同样生效(唯一 default 消费者在 tests/)',
+    defRun(DEF_FP, DEF_USE, {}, 'apps/api/tests/d.test.ts').unwired.length,
+    1,
+  )
+  eq(
+    'D5 specifier 尺(比具名用的 specCompat 更严):基名命中算,目录段命中不算,index barrel 算',
+    [
+      specResolvesToModule('./demo.js', DEF_DECL_FILE),
+      specResolvesToModule('../plugins/demo', DEF_DECL_FILE),
+      specResolvesToModule('./plugins/other.js', DEF_DECL_FILE),
+      specCompat('./plugins/other.js', DEF_DECL_FILE),
+      specResolvesToModule('@ihui/types', 'packages/types/src/index.ts'),
+      specResolvesToModule('', DEF_DECL_FILE),
+    ],
+    [true, true, false, true, true, false],
+  )
+  eq(
+    'D6 同目录另一枚 default 导入不得点亮本文件(specCompat 会点亮,新尺不点 ⇒ 反向假绿锁)',
+    defRun(DEF_FP, DEF_OTHER_DIR).unwired.length,
+    1,
+  )
+  eq(
+    'D7 混合形 import D, { named }:默认半边取用 ⇒ 绿;只取用具名半边 ⇒ default 那支照旧红',
+    [DEF_MIX_USE, DEF_MIX_USE_NAMED_ONLY].map((use) => defRun(DEF_MIX_SRC, use).unwired.length),
+    [0, 1],
+  )
+  const dParse = parseFile(DEF_DECL_FILE, DEF_FP)
+  const dSlot = parseFile(DEF_DECL_FILE, DEF_AS_DEFAULT)
+  const dOff = parseFile(DEF_DECL_FILE, DEF_COMMENTED_SRC)
+  eq(
+    'D8 parseFile 形状锁:default 是**虚拟宿主** —— 进 edges,不进 decls/declNames(不得被立案,也不得撞"同名不同物")',
+    [
+      dParse.hasDefault,
+      [...dParse.defaultRefs],
+      [...dParse.edges.keys()].includes(DEFAULT_SLOT),
+      dParse.decls.map((x) => x.name).includes(DEFAULT_SLOT),
+      dParse.declNames.has(DEFAULT_SLOT),
+      dOff.hasDefault,
+      dSlot.hasDefault && [...dSlot.defaultRefs].join(),
+    ],
+    [true, ['demoPlugin'], true, false, false, false, 'demoPlugin'],
+  )
+  const SS_PAIR_WIRED = new Map([
+    ['apps/cli/src/sessions/state-store.ts', SS_WIRED],
+    ['apps/cli/src/commands/repl.ts', REPL_CONSUMER],
+  ])
+  const SS_PAIR_BARREL = new Map([
+    ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+    ['apps/cli/src/sessions/index.ts', "export { saveSession } from './state-store.js';\n"],
+  ])
+  const SS_PAIR_SAMENAME = new Map([
+    ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+    [
+      'apps/cli/src/commands/repl.ts',
+      "import { saveSession } from '../sessions/state-store.js';\nfunction saveSession(): void {}\nexport function loop(): void { saveSession() }\n",
+    ],
+  ])
+  eq(
+    'D9 既有三条判序读数不变:具名导入接线仍绿 / barrel re-export 仍不算 / 自家同名声明仍不算消费别人的',
+    [SS_PAIR_WIRED, SS_PAIR_BARREL, SS_PAIR_SAMENAME].map((m) => judge(m).unwired.length),
+    [0, 2, 2],
+  )
+
+  console.log(
+    fail
+      ? `\n❌ 自检 ${fail}/${ran} 例失败`
+      : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + 静态键表族四验收 + C7 工厂族五验收 + default 链五形接线与双变异对照)`,
+  )
   process.exit(fail ? 1 : 0)
 }
 
@@ -1525,6 +1947,8 @@ export const __test__ = {
   blankStringContents,
   parseFile,
   specCompat,
+  specResolvesToModule,
+  DEFAULT_SLOT,
   judge,
   decide,
   listFace,
@@ -1544,6 +1968,24 @@ export const __test__ = {
     HF_NOISE,
     HF_DECL_FILE,
     HF_USE_FILE,
+    DEF_DECL_FILE,
+    DEF_USE_FILE,
+    DEF_FP,
+    DEF_IDENT,
+    DEF_FUN,
+    DEF_OBJ,
+    DEF_AS_DEFAULT,
+    DEF_NOREF,
+    DEF_NONE,
+    DEF_COMMENTED_SRC,
+    DEF_USE,
+    DEF_NOUSE,
+    DEF_COMMENTED_USE,
+    DEF_SHADOW,
+    DEF_OTHER_DIR,
+    DEF_MIX_SRC,
+    DEF_MIX_USE,
+    DEF_MIX_USE_NAMED_ONLY,
   },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
