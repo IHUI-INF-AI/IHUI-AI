@@ -107,6 +107,10 @@ const nextConfig: NextConfig = {
     '@ihui/api-client',
     '@ihui/i18n',
     '@ihui/rn-app',
+    // ui-native 与 rn-app 对称:它经 @ihui/app 进入 web 的组件树,源码是 .ts/.tsx。
+    // 2026-11-01 补:此前只靠 webpack symlinks:true 走 realpath 判 node_modules 才被转译,
+    // 一旦 hoisted 布局变化就会落到"未转译"一侧(与 nativewind/types 的 module-not-found 同型)。
+    '@ihui/ui-native',
     'react-native-web',
     '@tauri-apps/api',
     '@tauri-apps/plugin-dialog',

@@ -93,6 +93,33 @@
  *   同一次接线顺手补回一处**已存在的取证失明**:`buckets.red/stock` 的 entry 此前不带
  *   `boilerplate(Count)`,渲染层那句 `v.boilerplateCount > 0` 于是恒为假 ⇒ G-587 那条「少认了多少
  *   必须可见」在真正判红的行上从来没打印过(现读由自检例 16/17 钉住,两档一起带上)。
+ * R1s(blocking,**差值棘轮**,P86,2026-11-01 立):**混合陈旧底稿**。R1 的前提是"整 blob 逐字节
+ *   等于某个祖先版本";而 worktree-preserving 收敛之后,代码文件的工作树副本常年滞后 HEAD,
+ *   真实提交形态是 `某祖先 ∪ 本次新增` —— 逐字节不等于任何祖先 ⇒ **结构上落在 R1 定义之外**。
+ *   实测这一型吞过一次他人已入库的 55 枚登记行(枚 `6534b09698`,已由 `4710182cc9` 回补),而当时
+ *   全部五道尺子(git diff / R1 / R1r / 门 71 / 门 130)都没有响:diff 上看只是"少了几行"。
+ *   判据(与票面同向):**HEAD 有而暂存 blob 无的行,必须逐行给出有意删除的理由。**
+ *     · 行级差集 = `lineDeltaMaps(HEAD:p, :p).removed`(多重集,逐字行文本;与 R1r 同一份计行口径);
+ *     · 理由来源两条,缺一即无理由:① 提交信息里的 `intentional-delete:` 段逐行含该行的 sha256
+ *       前 8/12 位或原文(≥12 字);② 具名台账 `scripts/data/intentional-deletions.jsonl`
+ *       (`sha256` 前缀 + 可选 `path` + `reason` + `until`;只存摘要与出处,**绝不存正文**)。
+ *   **射程(为什么必须先做形态筛,否则这道门天生恒红)**:任何正常编辑都会删行 —— 若对所有
+ *   暂存路径都要求"逐行理由",第一枚提交就是红的,唯一结局是人人 `--no-verify` 并连带废掉
+ *   全链(§12e/§12f)。所以只对**能证明底稿陈旧**的形态判:暂存内容的行多重集必须**完整包含**
+ *   某枚祖先版本的正文(`staged ⊇ 祖先`)。这一条就是"陈旧底稿 ⊕ 新增"的定义式,而正常编辑
+ *   (删/改 HEAD 里现存的任意一行)在结构上过不了它 —— 因为被删的那行仍在那个祖先里。反过来说:
+ *   能过筛的形态,意味着作者从某枚祖先起**只加不改**,却又"恰好"丢了 HEAD 自那之后入库的行。
+ *   底稿探测上限 `MIXED_STALE_MAX_BASE_PROBES` 枚最近祖先,超出即如实落"未覆盖"(不静默绿)。
+ *   **差值棘轮**:锚点 = 用**同一把尺子**量该文件在 HEAD 侧自身的"无理由删行"数(`HEAD^` → `HEAD`,
+ *   底稿窗口**剔掉 HEAD 与 HEAD^**,否则锚点会被 HEAD 自己的新增行喂饱 —— R1r 锚点同一条);
+ *   只有"本次比 HEAD 那一步删得更多"才判红,存量只报数。骨架行(去空白后 <12 字)不计证据,
+ *   单独报数 —— 与 R1r 的样板档同一条实测拐点,否则 `}` / `})` 这类行会把整道门拖成噪音源。
+ *   **三态绝不并桶**:判红 / 只报数(存量)/ 未覆盖(超尺寸、底稿窗口截断)/ **未判定**(HEAD 或
+ *   暂存侧正文取不到、HEAD^ 不存在、台账坏) —— 最后一档逐条点名原因并让本门落 exit 2。
+ *   **面纪律**:只判索引面(`--staged`);合并/cherry-pick/revert/rebase 上下文随 R1 一并豁免
+ *   (合并结果相对 ours 少行本就是合并语义,那一族归门 100/168)。pre-commit 阶段 git 还没写出
+ *   提交信息(**这是结构事实,不是配置问题**),所以信息面要么显式给 `--message <文件|文本>`,
+ *   要么走台账;两者都取不到时报告会点名"信息面取不到",绝不把它读成"给了理由"。
  * R2(warn,不计失败):暂存删除了 HEAD 里存在的路径。宿主层会静默删工作区文件(实测一次
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
@@ -139,13 +166,31 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, catBatchOids, catBatchSizes, gitRaw } from './lib/face-reader.mjs'
+// R1s 的删除理由短语**只认这一份**(lib/deletion-intent.mjs,守门 168 / 逐字回潮对账同源)。
+// 门体里再抄一次 `intentional-delete:` 字面量,改短语那一刻门与测试会同时变绿而语义已分叉(§22c)。
+import { INTENTIONAL_DELETE_MARKER } from './lib/deletion-intent.mjs'
+// R1s 的理由面:台账形状/指纹/逐行匹配 + 文本读取(唯一实现;门体一个 readFileSync 都没有 ——
+// 镜像 M-3 钉的就是"被审正文不许按盘读",那是 §0.4 的面纪律,不能因为这一档被悄悄破掉)。
+import {
+  INTENTIONAL_DELETIONS_FILE,
+  deletionLineReason,
+  deletionReasonHint,
+  lineFingerprint,
+  messageReasonSection,
+  parseDeletionLedger,
+  readDeletionLedger,
+  readTextFileIfExists,
+} from './lib/intentional-deletions.mjs'
 // R1r 的行级复活判据与尺寸/证据行护栏:与落地器 `object-space-land.mjs` 共用**这一份**实现。
 // 两处各写一遍必然漂开(本仓记过最多次的失败型),而漂开的后果不是"数字不一致",是同一枚提交
 // 在两道尺子下一红一绿。本层是纯函数层 —— 取材一律走下面的 face-reader,不得在 lib 里读 git。
 import {
+  lineDeltaMaps,
   resurrectAnalysis,
   resurrectInputPath,
+  tallyLines,
   watermarkReinjection,
+  RESURRECT_MIN_LINE_LEN,
 } from './lib/stale-content-analysis.mjs'
 // G-926:自检夹具的横幅文案必须取自**同一份规范文案**(住 watermark-lines.mjs),
 // 在自检里另抄一遍字符串 = 文案一改,自检与真仓判的就不是同一个东西(§22c 同一条禁令)。
@@ -466,7 +511,9 @@ export function analyze(
     suspects.push({ p, cur })
   }
 
-  const ancestry = new Map(suspects.map(({ p }) => [p, ancestorWindow(repoRoot, p, { deep: true })]))
+  const ancestry = new Map(
+    suspects.map(({ p }) => [p, ancestorWindow(repoRoot, p, { deep: true })]),
+  )
   const more = []
   for (const { p } of suspects) for (const c of ancestry.get(p).shas) more.push(`${c}:${p}`)
   if (more.length) for (const [k, v] of resolveBlobs(repoRoot, more)) blobs.set(k, v)
@@ -1088,13 +1135,440 @@ function renderResurrect(rr) {
   return lines
 }
 
-/** 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
+// ─────────────────────────────────────────────────────────────────────────────
+// R1s「混合陈旧底稿」拦闸(P86,2026-11-01)。判据说明见文件头注;本区只放实现。
+// 计行口径**不在这里重写**:行多重集差走 lib 的 `lineDeltaMaps`,重数走 `tallyLines`,
+// 理由短语走 lib/deletion-intent 的唯一常量。本区只做"判"与"取材面的纪律"。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 底稿探测上限(最近多少枚祖先版本参与"暂存是否完整包含它"的判定)与单路径读取预算。
+ * 这两个数是**门档自己的成本参数**,不是判据的松紧:探测被截断会如实落"未覆盖"并点名
+ * (截断只会少认底稿 ⇒ 偏保守,绝不凭空造红;但"少看了"绝不能写成"看过了")。
+ */
+export const MIXED_STALE_MAX_BASE_PROBES = 10
+export const MIXED_STALE_PATH_BUDGET_BYTES = 32 << 20
+
+/**
+ * "暂存内容是否完整包含某枚祖先的正文"(多重集包含)= 陈旧底稿的**定义式**。
+ * 这是本判据的牙,也是它不恒红的唯一原因:正常编辑必然删掉/改掉 HEAD 里现存的某一行,
+ * 而被删的那行仍然存在于更早的祖先里 ⇒ 结构上过不了筛选。
+ * `bases` 里正文取不到(null)的候选直接跳过(取不到 ≠ 包含);返回命中清单供报告点名。
+ */
+export function findStaleBase(stagedText, bases) {
+  const staged = tallyLines(String(stagedText ?? ''))
+  const hits = []
+  let probed = 0
+  for (const b of bases || []) {
+    if (typeof b?.text !== 'string' || !b.text) continue
+    probed++
+    const base = tallyLines(b.text)
+    if (base.size === 0) continue
+    let ok = true
+    for (const [line, n] of base) {
+      if ((staged.get(line) ?? 0) < n) {
+        ok = false
+        break
+      }
+    }
+    if (ok) hits.push(b.commit)
+  }
+  return { hit: hits.length > 0, commits: hits, probed }
+}
+
+/** `lineDeltaMaps` 的 removed 多重集展开成行数组(顺序 = 首次出现顺序;证据样本要用它)。 */
+function expandRemoved(maps) {
+  const out = []
+  if (!maps) return out
+  for (const [line, n] of maps.removed) for (let i = 0; i < n; i++) out.push(line)
+  return out
+}
+
+/** 骨架/样板行(去空白后 < RESURRECT_MIN_LINE_LEN 字)不计证据但必须报数 —— 与 R1r 同一条拐点。 */
+function splitByEvidence(lines) {
+  const judged = []
+  const boilerplate = []
+  for (const l of lines) {
+    if (String(l).trim().length >= RESURRECT_MIN_LINE_LEN) judged.push(l)
+    else boilerplate.push(l)
+  }
+  return { judged, boilerplate }
+}
+
+/** HEAD 提交的完整信息(锚点侧的理由面),取不到返回 null(调用方按"信息面取不到"处理)。 */
+function headCommitMessage(repoRoot) {
+  try {
+    return git(['-C', repoRoot, 'log', '-1', '--format=%B', 'HEAD'])
+  } catch {
+    return null
+  }
+}
+
+/**
+ * R1s 主体。返回四个互不相交的桶(调用方必须分开渲染,任何一桶都不得被读成"通过"):
+ *  - `red`            本次比 HEAD 那一步删得更多(无理由删行数 > 锚点)⇒ 判红
+ *  - `stock`          无理由删行数 ≤ 锚点 ⇒ 只报数(存量不是本次带进来的,拦它=恒红门)
+ *  - `outOfSignature` 丢了行但**不是**"祖先 ⊕ 新增"形态 ⇒ 按正常编辑处置,只报数
+ *  - `uncovered`      射程外(正文超门档上限 / 底稿探测被预算或上限截断)
+ *  - `undetermined`   该判而没判成 ⇒ 调用方落 exit 2,绝不记绿
+ *
+ * @param {string} repoRoot 仓根
+ * @param {string[]} paths 被审路径(= 索引面改动清单)
+ * @param {{message?:string|null, maxBlobBytes?:number, pathBudgetBytes?:number,
+ *          maxBaseProbes?:number, ledger?:object|null, today?:string}} opts
+ */
+export function analyzeMixedStale(repoRoot, paths, opts = {}) {
+  const buckets = { red: [], stock: [], outOfSignature: [], uncovered: [], undetermined: [] }
+  const pushU = (p, reason) => buckets.undetermined.push({ path: p, reason })
+  if (!paths.length) return buckets
+  const {
+    message = null,
+    maxBlobBytes = RESURRECT_GATE_MAX_BLOB_BYTES,
+    pathBudgetBytes = MIXED_STALE_PATH_BUDGET_BYTES,
+    maxBaseProbes = MIXED_STALE_MAX_BASE_PROBES,
+    ledger = null,
+    today = new Date().toISOString().slice(0, 10),
+  } = opts
+  if (ledger && ledger.broken) {
+    for (const p of paths) pushU(p, `删除理由台账坏 ⇒ 理由无从核对:${ledger.broken}`)
+    return buckets
+  }
+  const msg = messageReasonSection(message)
+
+  // ① 只问 oid(一次 --batch-check):暂存与 HEAD 逐字节相同 ⇒ 结构上没有"HEAD 行丢失"。
+  const oidSpecs = []
+  for (const p of paths) oidSpecs.push(`:${p}`, `HEAD:${p}`)
+  let oids
+  try {
+    oids = catBatchOids(repoRoot, oidSpecs)
+  } catch (e) {
+    for (const p of paths) pushU(p, `oid 取材失败:${firstLine(e)}`)
+    return buckets
+  }
+  const cand = []
+  for (const p of paths) {
+    const cur = oids.get(`:${p}`)
+    const head = oids.get(`HEAD:${p}`)
+    // 新增文件(HEAD 侧无此路径)/ 暂存删除 / unmerged:没有"HEAD 有而暂存无"可言,按定义不判。
+    if (!cur || !head) continue
+    if (cur === head) continue
+    cand.push(p)
+  }
+  if (!cand.length) return buckets
+
+  // ② 底稿窗口:走 R1/R1r 同一个出口(窗口长度只住在 windowFor),只取最近 maxBaseProbes 枚。
+  const winMap = new Map()
+  for (const p of cand) {
+    try {
+      winMap.set(p, ancestorWindow(repoRoot, p))
+    } catch {
+      winMap.set(p, { shas: [], truncated: false, window: windowFor(p) })
+    }
+  }
+  const probeBase = new Map()
+  for (const p of cand) probeBase.set(p, (winMap.get(p).shas ?? []).slice(0, maxBaseProbes))
+
+  // ③ 先问大小,再决定读什么(超大正文不读 —— 但必须落"未覆盖",不得静默当干净)。
+  const sizeSpecs = []
+  for (const p of cand) {
+    sizeSpecs.push(`:${p}`, `HEAD:${p}`)
+    for (const c of probeBase.get(p)) sizeSpecs.push(`${c}:${p}`)
+  }
+  let sizes
+  try {
+    sizes = catBatchSizes(repoRoot, sizeSpecs)
+  } catch (e) {
+    for (const p of cand) pushU(p, `正文大小取不到:${firstLine(e)}`)
+    return buckets
+  }
+  const toRead = new Map()
+  let usedBytes = 0
+  for (const p of cand) {
+    const sc = sizes.get(`:${p}`)
+    const sh = sizes.get(`HEAD:${p}`)
+    if (typeof sc !== 'number' || typeof sh !== 'number') {
+      pushU(p, '暂存或 HEAD 侧正文大小取不到 ⇒ "HEAD 有而暂存无"的行级差集无从量')
+      continue
+    }
+    if (Math.max(sc, sh) > maxBlobBytes) {
+      buckets.uncovered.push({
+        path: p,
+        reason: `正文 ${Math.max(sc, sh)}B 超过门档单份上限 ${maxBlobBytes}B ⇒ 未读(整 blob 那一支 R1 仍照判)`,
+      })
+      continue
+    }
+    const used = []
+    let bytes = 0
+    for (const c of probeBase.get(p)) {
+      const s = sizes.get(`${c}:${p}`) ?? 0
+      if (bytes + s > pathBudgetBytes) break
+      bytes += s
+      used.push(c)
+    }
+    if (usedBytes + bytes > RESURRECT_RUN_BUDGET_BYTES) {
+      pushU(p, '门档本轮总读取预算已耗尽 ⇒ 未判定(不是"没有混合底稿")')
+      continue
+    }
+    usedBytes += bytes
+    toRead.set(p, {
+      specs: [`:${p}`, `HEAD:${p}`, ...used.map((c) => `${c}:${p}`)],
+      used,
+      total: probeBase.get(p).length,
+      truncated: used.length < probeBase.get(p).length || (winMap.get(p).truncated ?? false),
+    })
+  }
+  if (!toRead.size) return buckets
+  let texts
+  try {
+    texts = catBatch(
+      repoRoot,
+      [...toRead.values()].flatMap((v) => v.specs),
+    )
+  } catch (e) {
+    for (const p of toRead.keys()) pushU(p, `正文批量读取失败:${firstLine(e)}`)
+    return buckets
+  }
+
+  // ④ 形态筛 + 行级差集。只有"丢行 ∧ 暂存 ⊇ 某祖先正文"才进入无理由判定。
+  const judged = []
+  const expired = []
+  for (const p of [...toRead.keys()]) {
+    const headText = texts.get(`HEAD:${p}`)
+    const stagedText = texts.get(`:${p}`)
+    if (typeof headText !== 'string' || typeof stagedText !== 'string') {
+      pushU(p, 'HEAD 或暂存侧正文取不到 ⇒ 行级差集无从量')
+      continue
+    }
+    const removed = expandRemoved(lineDeltaMaps(headText, stagedText))
+    if (!removed.length) continue // 纯新增/纯修改:没有"HEAD 有而暂存无"的行
+    const meta = toRead.get(p)
+    const base = findStaleBase(
+      stagedText,
+      meta.used.map((c) => ({ commit: c, text: texts.get(`${c}:${p}`) ?? null })),
+    )
+    const ev = splitByEvidence(removed)
+    if (!base.hit) {
+      buckets.outOfSignature.push({
+        path: p,
+        removed: removed.length,
+        probed: base.probed,
+        truncated: meta.truncated,
+        reason: `丢了 ${removed.length} 行 HEAD 内容,但暂存内容不是"某祖先版本 ⊕ 新增"的形态(在 ${base.probed} 枚祖先正文里找不到可被完整包含的底稿)⇒ 按正常编辑处置${meta.truncated ? '(底稿探测已截断,更早的祖先未看)' : ''}`,
+      })
+      continue
+    }
+    const unreasoned = []
+    for (const line of ev.judged)
+      if (!deletionLineReason(line, { section: msg.section, ledger, path: p, today, expired }))
+        unreasoned.push(line)
+    judged.push({
+      path: p,
+      removedTotal: removed.length,
+      unreasoned,
+      boilerplate: ev.boilerplate.length,
+      commits: base.commits,
+      truncated: meta.truncated,
+    })
+  }
+  for (const e of expired)
+    buckets.outOfSignature.push({
+      path: e.path,
+      removed: 0,
+      probed: 0,
+      truncated: false,
+      reason: `台账里有命中指纹 ${e.prefix} 的条目但复核日已过期(${e.until} < ${today})⇒ 不算理由`,
+    })
+  if (!judged.length) return buckets
+
+  // ⑤ 差值棘轮:锚点用同一把尺子量该文件在 HEAD 侧自身的"无理由删行"数。
+  //    底稿窗口必须剔掉 HEAD 与 HEAD^ —— 不剔就会在窗口里找到 HEAD 自己的正文,锚点恒等于
+  //    "HEAD 新增行数",棘轮被它自己喂饱(R1r 锚点同一条,那一课的注释更细)。
+  const headSha = revParseOr(repoRoot, 'HEAD')
+  const headParentSha = revParseOr(repoRoot, 'HEAD^')
+  if (!headParentSha) {
+    for (const j of judged)
+      pushU(j.path, '仓库没有 HEAD^(只有一枚提交)⇒ 无从量 HEAD 侧存量,不计红也不计绿')
+    return buckets
+  }
+  const anchorMsg = messageReasonSection(headCommitMessage(repoRoot))
+  const anchorSpecs = []
+  const olderByPath = new Map()
+  for (const j of judged) {
+    const older = (winMap.get(j.path).shas ?? [])
+      .filter((c) => c !== headSha && c !== headParentSha)
+      .slice(0, maxBaseProbes)
+    olderByPath.set(j.path, older)
+    anchorSpecs.push(`HEAD^:${j.path}`, `HEAD:${j.path}`)
+    for (const c of older) anchorSpecs.push(`${c}:${j.path}`)
+  }
+  let anchorTexts
+  try {
+    anchorTexts = catBatch(repoRoot, anchorSpecs)
+  } catch (e) {
+    for (const j of judged) pushU(j.path, `锚点侧正文读取失败:${firstLine(e)}`)
+    return buckets
+  }
+  for (const j of judged) {
+    const parentText = anchorTexts.get(`HEAD^:${j.path}`)
+    const headText = anchorTexts.get(`HEAD:${j.path}`)
+    if (typeof parentText !== 'string' || typeof headText !== 'string') {
+      pushU(j.path, 'HEAD^ 或 HEAD 侧正文取不到 ⇒ 存量无从对齐')
+      continue
+    }
+    const headRemoved = expandRemoved(lineDeltaMaps(parentText, headText))
+    const older = olderByPath.get(j.path) ?? []
+    let anchor = 0
+    if (headRemoved.length) {
+      const base = findStaleBase(
+        headText,
+        older.map((c) => ({ commit: c, text: anchorTexts.get(`${c}:${j.path}`) ?? null })),
+      )
+      if (base.hit) {
+        const ev = splitByEvidence(headRemoved)
+        let n = 0
+        for (const line of ev.judged)
+          if (
+            !deletionLineReason(line, { section: anchorMsg.section, ledger, path: j.path, today })
+          )
+            n++
+        anchor = n
+      }
+    }
+    const entry = {
+      path: j.path,
+      count: j.unreasoned.length,
+      anchor,
+      removedTotal: j.removedTotal,
+      boilerplate: j.boilerplate,
+      commits: j.commits.map((c) => c.slice(0, 9)),
+      sample: j.unreasoned.slice(0, 3).map((l) => String(l).trim().slice(0, 100)),
+      hints: j.unreasoned.slice(0, 3).map(deletionReasonHint),
+      truncated: j.truncated,
+      messageFace: msg.available,
+    }
+    if (j.unreasoned.length > anchor) buckets.red.push(entry)
+    else if (j.unreasoned.length > 0) buckets.stock.push(entry)
+  }
+  return buckets
+}
+
+/** R1s 的四个桶渲染成报告行。顺序固定:红 → 存量 → 未覆盖/形态外 → 未判定。 */
+export function renderMixedStale(ms) {
+  const lines = []
+  if (ms.red.length) {
+    lines.push(
+      `❌ [R1s] 检出 ${ms.red.length} 个路径是「陈旧底稿 ⊕ 本次新增」的混合体,并**静默丢掉了 HEAD 里他人已入库的行**(整 blob 判据 R1 对这一型看不见):`,
+    )
+    for (const v of ms.red.slice(0, 20)) {
+      lines.push(
+        `   - ${v.path}  无理由删掉 ${v.count} 行(HEAD 侧自身存量 ${v.anchor} 行)${v.commits.length ? `  底稿见祖先 ${v.commits.slice(0, 3).join(', ')}` : ''}`,
+      )
+      for (const l of v.sample) lines.push(`       ✂ 无理由删除: ${l}`)
+      if (v.boilerplate > 0)
+        lines.push(
+          `       ↺ 另有 ${v.boilerplate} 行骨架/样板行(去空白后 <${RESURRECT_MIN_LINE_LEN} 字)不计证据,不在此判红`,
+        )
+    }
+    if (ms.red.length > 20) lines.push(`   ... 另有 ${ms.red.length - 20} 个`)
+    lines.push(
+      '   成因:共享工作区里该文件的工作树副本滞后 HEAD,你又在自己的改动上提交了那份旧底稿。',
+    )
+    lines.push(
+      '   出口 ① 取 HEAD 形态重新施加你的改动(活文档:`node scripts/merge-live-doc.mjs --file <文档>`)',
+    )
+    lines.push(
+      '   出口 ② 旁路落地走 `node scripts/object-space-land.mjs`(blob 取 HEAD,不碰共享工作树)',
+    )
+    lines.push(
+      `   出口 ③ 确属有意删掉这些行 → 提交信息写 \`${INTENTIONAL_DELETE_MARKER}\` 段并**逐行**贴指纹或原文,`,
+    )
+    lines.push(
+      `        或登记 ${INTENTIONAL_DELETIONS_FILE}(sha256 前 8+ 位 + 出处;只存摘要,不存正文)`,
+    )
+    for (const v of ms.red.slice(0, 8))
+      for (const h of v.hints || []) lines.push(`        ${v.path}  ↳ ${h}`)
+    if (!ms.red[0].messageFace)
+      lines.push(
+        '   ⚠️ 本轮**提交信息面取不到**(pre-commit 阶段 git 尚未写出提交信息)⇒ 只能凭台账判;',
+      )
+    if (!ms.red[0].messageFace) lines.push('      需要按信息面判就显式给 `--message <文件|文本>`。')
+  }
+  if (ms.stock.length) {
+    lines.push(
+      `ℹ️  [R1s 只报数] ${ms.stock.length} 个路径的无理由删行数**不超过该文件 HEAD 侧自身的存量**(差值棘轮:存量是别人欠的账,当场判红就是恒红门):`,
+    )
+    for (const v of ms.stock.slice(0, 15))
+      lines.push(`   - ${v.path}  无理由删 ${v.count} 行(HEAD 侧存量 ${v.anchor} 行)`)
+    if (ms.stock.length > 15) lines.push(`   ... 另有 ${ms.stock.length - 15} 个`)
+  }
+  if (ms.uncovered.length) {
+    lines.push(
+      `ℹ️  [R1s 未覆盖] ${ms.uncovered.length} 个路径不在这条判据的射程内(**未覆盖 ≠ 通过**;整 blob 那一支 R1 仍照判):`,
+    )
+    for (const v of ms.uncovered.slice(0, 10)) lines.push(`   - ${v.path}: ${v.reason}`)
+    if (ms.uncovered.length > 10) lines.push(`   ... 另有 ${ms.uncovered.length - 10} 个`)
+  }
+  if (ms.outOfSignature.length) {
+    // 刻意**不逐枚点名**:这一桶是"判过了,结论是按正常编辑处置",不是"没判"。点名的义务只对
+    // "没判成"(undetermined)与"判红"成立 —— 给每一次正常删除都印一行路径,报告会淹掉真信号,
+    // 而"没判"与"判过且干净"的区别仍由下面的未判定桶守住(§0.3)。
+    lines.push(
+      `ℹ️  [R1s 形态外] ${ms.outOfSignature.length} 个路径丢了 HEAD 的行,但暂存内容不是"某个祖先版本 ⊕ 新增"的形态 ⇒ 按正常编辑处置(只报数,不点名)`,
+    )
+  }
+  if (ms.undetermined.length) {
+    lines.push(
+      `❓ [R1s 未判定] ${ms.undetermined.length} 个路径**没读到结论**(不是"检查过且干净",不得被读成通过):`,
+    )
+    for (const v of ms.undetermined.slice(0, 15)) lines.push(`   - ${v.path}: ${v.reason}`)
+    if (ms.undetermined.length > 15) lines.push(`   ... 另有 ${ms.undetermined.length - 15} 个`)
+  }
+  return lines
+}
+
+/**
+ * `--message` / `IHUI_COMMIT_MSG_FILE` 的解析与"陈旧信息面"守卫。
+ * 顺序:显式入参 → 环境变量 → `<gitdir>/COMMIT_EDITMSG`(**仅当它与 HEAD 的信息不同** ——
+ * 与 HEAD 逐字相同的 COMMIT_EDITMSG 是上一次提交的残留,拿它当本次理由就是"没给理由"被读成"给了理由")。
+ * 磁盘读取一律经 lib 的 `readTextFileIfExists`(门体不得出现 `readFileSync` —— M-3 形状锁,
+ * 它守的是"被审正文不许按盘读";这里的两个面是**人为声明的理由**,不是被审正文)。
+ */
+export function resolveCommitMessage(repoRoot, explicit = null) {
+  const pick = (v) => {
+    if (typeof v !== 'string' || !v.trim()) return null
+    const fromFile = readTextFileIfExists(resolve(repoRoot, v))
+    return fromFile === null ? v : fromFile
+  }
+  const direct = pick(explicit ?? process.env.IHUI_COMMIT_MSG_FILE)
+  if (direct !== null) return direct
+  try {
+    const text = readTextFileIfExists(join(gitDirOf(repoRoot), 'COMMIT_EDITMSG'))
+    if (typeof text !== 'string') return null
+    const head = headCommitMessage(repoRoot)
+    if (typeof head === 'string' && text.trim() === head.trim()) return null
+    return text
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
  *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。
  *  `r1WatermarkPass` 是 G-926 的那一维:整 blob 命中祖先、但按水印补回档放行的路径数 —— 它是**判过**的,
  *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。
  *  `r1WorktreeStock` 是 G-417② 的那一维:全量档工作树副本等于历史 blob 的路径数 —— 只报数不拦
- *  (机器状态,提交链由 --staged 面负责),但结论行必须带着它,不得读成"无历史版本回写"。 */
-function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0, r1WorktreeStock = 0) {
+ *  (机器状态,提交链由 --staged 面负责),但结论行必须带着它,不得读成"无历史版本回写"。
+ *  `ms`(R1s,P86)是可选的混合陈旧底稿四桶:存量与形态外只报数,**未判定必须进尾注** ——
+ *  否则一次"没判成"的提交在账面上读起来与"判过且干净"完全同形(§0.3)。 */
+function verdictLine(
+  modifiedCount,
+  rr,
+  r1WindowLoss = 0,
+  r1WatermarkPass = 0,
+  r1WorktreeStock = 0,
+  ms = null,
+) {
   const tail = []
   if (r1WindowLoss) tail.push(`${r1WindowLoss} 处窗口不足未判定(R1)`)
   if (r1WatermarkPass) tail.push(`${r1WatermarkPass} 处水印补回型放行(R1,见上)`)
@@ -1102,6 +1576,10 @@ function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0, r
   if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
   if (rr?.uncovered.length) tail.push(`${rr.uncovered.length} 处未覆盖`)
   if (rr?.stock.length) tail.push(`${rr.stock.length} 处复活只报数(存量)`)
+  if (ms?.stock.length) tail.push(`${ms.stock.length} 处混合底稿删行只报数(存量)`)
+  if (ms?.uncovered.length) tail.push(`${ms.uncovered.length} 处未覆盖(R1s)`)
+  if (ms?.undetermined.length) tail.push(`${ms.undetermined.length} 处未判定(R1s)`)
+  if (ms?.outOfSignature.length) tail.push(`${ms.outOfSignature.length} 处删行但非陈旧底稿形态`)
   return `✅ 反回退守门通过(判定 ${modifiedCount} 个文件,无历史版本回写)${tail.length ? ` —— 但其中 ${tail.join('、')},见上` : ''}`
 }
 
@@ -1250,7 +1728,8 @@ export function renderCostLine(cost, { mode }) {
   return `📊 [成本读数] ${COST_READOUT_FIELDS.map((k) => `${k}=${valueOf[k]}`).join(' ')}`
 }
 
-function auditInner(repoRoot, { staged }) {
+function auditInner(repoRoot, opts = {}) {
+  const { staged } = opts
   const { modified, deleted } = staged
     ? stagedPaths(repoRoot)
     : { modified: worktreeDirtyPaths(repoRoot), deleted: [] }
@@ -1327,6 +1806,26 @@ function auditInner(repoRoot, { staged }) {
     }
   } else if (!exempt || mergeHead) {
     lines.push('ℹ️  [R1r] 复活行判据只判索引面(--staged);全量档的工作树副本属机器状态,判红即恒红门')
+  }
+  /**
+   * R1s(混合陈旧底稿,P86)—— 与 R1r 同一条面纪律:只判索引面。合并/cherry-pick/revert/rebase
+   * 上下文整轮豁免(合并结果相对 ours 少行本就是合并语义,那一族归门 100/168)——豁免必须打印,
+   * 否则"没判"在账面上与"判过且干净"同形。
+   */
+  let ms = null
+  if (staged) {
+    if (!exempt) {
+      ms = analyzeMixedStale(repoRoot, judged, {
+        message: resolveCommitMessage(repoRoot, opts?.message ?? null),
+        ledger: readDeletionLedger(repoRoot),
+      })
+      lines.push(...renderMixedStale(ms))
+      if (ms.red.length) failed = true
+    } else lines.push('⚠️  [R1s] 随 R1 一并豁免(merge/cherry-pick/revert/rebase 上下文)')
+  } else {
+    lines.push(
+      'ℹ️  [R1s] 混合陈旧底稿判据只判索引面(--staged);工作树副本属机器状态,也不是本次提交内容',
+    )
   }
   if (violations.length) {
     // G-417②(2026-10-23)面纪律:R1 判红只认索引面。全量档比的是盘上工作树副本 —— 机器状态,
@@ -1416,16 +1915,18 @@ function auditInner(repoRoot, { staged }) {
         windowLoss.length,
         watermarkPass.length,
         staged ? 0 : violations.length,
+        ms,
       ),
     )
   // 2026-10-27 补:此前"有路径没判成"(`undetermined`)整轮仍返回 code 0 —— 结论行虽带着
   // "N 处未判定"的尾注,但**退出码是绿的**,调用方(含批量执行器)按退出码记账 ⇒ 把"没判"
   // 记成了"判过且通过",正是 §0.3 明令禁止的那一型。未判定档现在落 exit 2(既不记绿也不冒红,
   // 与真判红的 exit 1 分开),并已在上面逐条点名路径。
-  const undeterminedCount = rr?.undetermined?.length ?? 0
+  // R1s(P86)的未判定与 R1r 同类、同权:两桶相加,任一非零都不出合格证。
+  const undeterminedCount = (rr?.undetermined?.length ?? 0) + (ms?.undetermined?.length ?? 0)
   if (!failed && undeterminedCount > 0) {
     lines.push(
-      `❓ [未判定] ${undeterminedCount} 个路径没有取得结论 ⇒ 本门本次不出具合格证(exit 2,` +
+      `❓ [未判定] ${undeterminedCount} 个路径没有取得结论(R1r ${rr?.undetermined?.length ?? 0} 处 / R1s ${ms?.undetermined?.length ?? 0} 处)⇒ 本门本次不出具合格证(exit 2,` +
         `不是"检查过且干净",也不是判红),上面已逐条点名`,
     )
   }
@@ -1948,6 +2449,42 @@ function selfTestRun() {
     writeFileSync(join(repo, 'wm.ts'), wmHeadOnly)
     g(['add', '-A'])
 
+    // ── 19–20:R1s 混合陈旧底稿(P86)────────────────────────────────────────────
+    // 现场同票面:底稿是旧的那一版,作者在旧底稿上只做新增 ⇒ HEAD 里他人后来入库的行被静默吞掉。
+    // 19 钉"判红且点名"(R1 / R1r 对这一型都不响 —— 这正是新格存在的理由);
+    // 20 钉"逐行给理由就放行"(理由通道真的接上,证明不是又一台恒红门)。
+    g(['reset', '-q'])
+    const MS_BASE = 'export const legacyLineOne = 1\n'
+    const MS_HEAD = `${MS_BASE}export const otherWorkLineTwo = 2\n`
+    const MS_STAGED = `${MS_BASE}export const myFreshLineThree = 3\n`
+    writeFileSync(join(repo, 'ms.ts'), MS_BASE)
+    commitOnly('ms.ts', 'MS1: 底稿')
+    writeFileSync(join(repo, 'ms.ts'), MS_HEAD)
+    commitOnly('ms.ts', 'MS2: 别人已入库的一行')
+    writeFileSync(join(repo, 'ms.ts'), MS_STAGED)
+    g(['add', '--', 'ms.ts'])
+    const r1s19 = analyzeMixedStale(repo, ['ms.ts'], { ledger: readDeletionLedger(repo) })
+    const out19 = renderMixedStale(r1s19).join('\n')
+    check(
+      `19 混合体(旧底稿 ⊕ 新增)无理由 ⇒ R1s 判红并点名(red=${r1s19.red.length}/stock=${r1s19.stock.length}/未判定=${r1s19.undetermined.length})`,
+      r1s19.red.length === 1 &&
+        r1s19.red[0].path === 'ms.ts' &&
+        r1s19.red[0].count === 1 &&
+        r1s19.red[0].anchor === 0 &&
+        out19.includes('otherWorkLineTwo') &&
+        out19.includes('❌ [R1s]'),
+    )
+    const r1s20 = analyzeMixedStale(repo, ['ms.ts'], {
+      message: `chore: 有意清掉那一行\n\n${INTENTIONAL_DELETE_MARKER}\n${deletionReasonHint('export const otherWorkLineTwo = 2')}\n`,
+      ledger: readDeletionLedger(repo),
+    })
+    check(
+      '20 同一夹具逐行给出理由(信息面)⇒ 不判红(理由通道真的接上,不是恒红门)',
+      r1s20.red.length === 0 && r1s20.stock.length === 0 && r1s20.undetermined.length === 0,
+    )
+    writeFileSync(join(repo, 'ms.ts'), MS_HEAD)
+    g(['add', '-A'])
+
     const { fail, cases } = report()
     for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     console.log(
@@ -1976,7 +2513,11 @@ async function main() {
     console.log(`⚠️  已跳过反回退守门(${SKIP_ENV}=1)`)
     return 0
   }
-  const { code, lines } = audit(repoRoot, { staged: argv.includes('--staged') })
+  // `--message <文件|文本>`:R1s 的**理由面**。pre-commit 阶段 git 还没写出提交信息(结构事实),
+  // 所以要么显式给这一路,要么走台账;都不给就由报告点名"信息面取不到",绝不猜。
+  const mi = argv.indexOf('--message')
+  const message = mi >= 0 ? (argv[mi + 1] ?? null) : null
+  const { code, lines } = audit(repoRoot, { staged: argv.includes('--staged'), message })
   if (lines.length) console.log(lines.join('\n'))
   return code
 }
@@ -2007,6 +2548,19 @@ export const __test__ = {
   analyze,
   analyzeMerge,
   analyzeResurrect,
+  analyzeMixedStale,
+  renderMixedStale,
+  parseDeletionLedger,
+  messageReasonSection,
+  deletionLineReason,
+  deletionReasonHint,
+  lineFingerprint,
+  findStaleBase,
+  readDeletionLedger,
+  resolveCommitMessage,
+  INTENTIONAL_DELETIONS_FILE,
+  MIXED_STALE_MAX_BASE_PROBES,
+  MIXED_STALE_PATH_BUDGET_BYTES,
   r1WatermarkInfo,
   renderResurrect,
   verdictLine,

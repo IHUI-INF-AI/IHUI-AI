@@ -21,7 +21,6 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -43,6 +42,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useClipboard } from '../hooks/use-clipboard'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -298,8 +298,8 @@ export default function ChatTemplatesScreen() {
         animationType="fade"
         onRequestClose={closePreview}
       >
-        <Pressable style={styles.overlay} onPress={closePreview}>
-          <Pressable style={styles.sheet} onPress={() => undefined}>
+        <Tappable style={styles.overlay} onPress={closePreview}>
+          <Tappable style={styles.sheet} onPress={() => undefined}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={2}>
                 {preview?.title ?? t('chatTemplates.previewTitle')}
@@ -333,8 +333,8 @@ export default function ChatTemplatesScreen() {
             >
               <Text style={styles.secondaryButtonText}>{t('chatTemplates.goChat')}</Text>
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </Tappable>
+        </Tappable>
       </Modal>
     </View>
   )
