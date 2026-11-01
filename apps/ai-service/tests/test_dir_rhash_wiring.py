@@ -52,7 +52,13 @@ async def _index(root: Path) -> ci.IndexResult:
 def _snapshot_payload() -> dict:
     snaps = list(ci._MERKLE_SNAPSHOT_DIR.glob("repo-1-*.merkle.json"))
     assert len(snaps) == 1, f"快照文件应恰好一枚,现读 {len(snaps)}"
-    return json.loads(snaps[0].read_text(encoding="utf-8"))
+    # 快照落盘默认 gzip(缺口表 #8):魔数自识别,明文旧档也认 —— 与读侧同一把尺。
+    raw = snaps[0].read_bytes()
+    if raw[:2] == b"\x1f\x8b":
+        import gzip
+
+        raw = gzip.decompress(raw)
+    return json.loads(raw)
 
 
 @pytest.mark.asyncio
