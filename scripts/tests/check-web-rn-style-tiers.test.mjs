@@ -19,7 +19,7 @@ import test from 'node:test'
 import { __test__ as src } from '../check-web-rn-style-tiers.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn } = src
+const { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn, rankRows, rowValues } = src
 
 const RN_TEXT = `
   const s = StyleSheet.create({
@@ -89,5 +89,26 @@ test('④ 取材面纪律:面旗走统一层,且本门不得自派 git 取 blob 
     '不得自己派生 git 取正文(§0.4 单一真相源;守门 118 会当场判红)',
   )
   assert.match(body, /取值集枚举到 0/, '空取值集必须落未判定,不记绿也不冒红')
+})
+
+// ⑤ 缺陷回归(2026-11-02 Phase 3):JSON 取值出口 `Number("10px")` ⇒ NaN ⇒ `[null]`。
+//   取值必须从结构化字段 r.val 取,不得从 rankRows 的展示串反解。
+test('⑤ JSON 取值出口是有限数字:不得从 `gap=10px×n` 展示串反解', () => {
+  const rows = [
+    { prop: 'gap', val: 10, n: 3, state: 'missingTier' },
+    { prop: 'padding', val: 14, n: 1, state: 'missingTier' },
+    { prop: 'gap', val: 10, n: 2, state: 'missingTier' },
+    { prop: 'fontSize', val: 13, n: 5, state: 'inTier' },
+    { prop: 'gap', val: 22, n: 4, state: 'fork' },
+  ]
+  assert.deepEqual(rowValues(rows, 'missingTier'), [10, 14], '去重 + 数字 + 升序')
+  assert.deepEqual(rowValues(rows, 'fork'), [22])
+  assert.ok(rowValues(rows, 'missingTier').every((v) => Number.isFinite(v)), '取值出口必须全是有限数字')
+
+  // 缺陷形态自证:展示串带 `px`,任何走 Number(split) 的实现都必然 NaN
+  const display = rankRows(rows, 'missingTier', 999)[0]
+  assert.equal(Number(display.split('=')[1].split('×')[0]), NaN, '展示串反解必然 NaN —— 这就是旧缺陷')
+  // JSON 落盘后不得出现 null(JSON.stringify(NaN) === 'null')
+  assert.equal(JSON.stringify({ v: rowValues(rows, 'missingTier') }), '{"v":[10,14]}', '序列化后不得出现 null')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
