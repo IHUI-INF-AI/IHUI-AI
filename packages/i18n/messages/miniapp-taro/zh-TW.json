@@ -822,6 +822,10 @@
       "unbookmark": "取消收藏",
       "flagFailed": "標記儲存失敗"
     },
+    "messageVersion": {
+      "history": "版本歷史",
+      "regenerateFailed": "重新產生失敗，請稍後再試"
+    },
     "share": {
       "title": "分享"
     },

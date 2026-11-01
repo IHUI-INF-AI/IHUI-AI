@@ -452,7 +452,7 @@ export type { ScreenReappearAdapter } from './hooks/use-screen-reappear'
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
 /** 系统字号缩放唯一取数口:端内写了死 lineHeight 又要字号真的能放大,只能经它(上限 1.4 的来由见 MoreLink) */
-export { useFontMultiplier } from './components'
+export { readFontMultiplier } from './components'
 
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'

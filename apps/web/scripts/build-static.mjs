@@ -26,9 +26,10 @@ process.env.EXPORT_STATIC = 'true'
 process.env.NEXT_TELEMETRY_DISABLED = '1'
 
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { maskComments } from '../../../scripts/lib/code-mask.mjs'
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const nextBin = path.join(webRoot, 'node_modules', 'next', 'dist', 'bin', 'next')
@@ -53,18 +54,81 @@ const RUNTIME_ONLY_ROUTE_DIRS = ['cdn', 'uploads']
  */
 const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
 /**
- * 直接 import `proxy.ts` 的测试(相对 apps/web/)。
+ * 直接 import `proxy.ts` 的文件(相对 apps/web/)。
  *
  * `next build` 的 typecheck 覆盖 tsconfig.include 的**全部**文件(含 src/tests 与
- * 各 `__tests__` 目录),而 proxy.ts 在静态导出构建期已被移出 ⇒ 这两个测试的
- * `import ... from '../../../proxy' / '../../proxy'` 结构上必然 TS2307
- * (2026-10-31 实测 Build Docker run 41150575611 的 build:static)。
+ * 各 `__tests__` 目录),而 proxy.ts 在静态导出构建期已被移出 ⇒ 这些文件
+ * `import ... from '../../proxy' / '../../../proxy'` 结构上必然 TS2307
+ * (2026-10-31 实测 Build Docker run 41150575611 的 build:static;
+ *  2026-11-01 再测:同一型又发一次 —— 新增的 src/tests/proxy-internal-prefix-block.test.ts
+ *  没被登记 ⇒ run 41276637151 build:static 恒红)。
+ *
+ * **本清单必须由扫描派生,不得手维护**(§0.6 单一真相源):手维护过一次就漏过一次,
+ * 而漏的代价是"CI 恒红 + 报错指向一个与真实病因无关的文件"(报在测试文件上,
+ * 真实病因是"依赖它的 proxy.ts 被移走了")。派生口径 = 逐文件扫描 `from '<相对路径>'`,
+ * 把解析后**正好落在 apps/web/proxy.ts** 的那一批列进来 —— 判据是"真的引到了 proxy.ts",
+ * 不是"文件名里带 proxy"。
+ *
  * 与 proxy 同批移出、finally 恢复;`pnpm typecheck`(不在本脚本内)仍照旧检查它们。
  */
-const STATIC_EXCLUDED_TEST_FILES = [
-  'src/tests/proxy-guard.test.ts',
-  'src/lib/__tests__/origin-direct-host-guard.test.ts',
-]
+const PROXY_MODULE_ABS_PATH = path.resolve(webRoot, 'proxy.ts')
+/** 扫描时跳过的目录(构建产物 / 依赖 / 本脚本自己的暂存区)。 */
+const PROXY_SCAN_SKIP_DIRS = new Set([
+  'node_modules',
+  '.next',
+  '.next-static',
+  'out',
+  '.static-excluded',
+  'e2e',
+  'storybook',
+])
+
+/**
+ * 扫出所有直接 import `proxy.ts` 的文件(相对 apps/web/),按 POSIX 斜杠给回。
+ * 取不到目录/读不到文件 ⇒ 该目录跳过(不抛),因为构建期这一步只是"多移几个文件"的保险。
+ */
+function findProxyImporters() {
+  const found = new Set()
+  const walk = (dir) => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const abs = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (PROXY_SCAN_SKIP_DIRS.has(entry.name)) continue
+        walk(abs)
+        continue
+      }
+      if (!/\.(ts|tsx)$/.test(entry.name)) continue
+      let text
+      try {
+        text = readFileSync(abs, 'utf8')
+      } catch {
+        continue
+      }
+      // 只认相对路径 import(specifier 以 . 开头);包名形态的 'proxy' 与本文件无关。
+      // 注释必须先遮:本文件自己的头注里就写着 `from '../../proxy'` 这类字面量,
+      // 不遮就会把**扫描器自己**当成 proxy 的导入方(实测会 ⇒ 自己被移出构建目录)。
+      const code = maskComments(text)
+      for (const m of code.matchAll(/from\s+['"](\.[^'"]*)['"]/g)) {
+        const resolved = path.resolve(path.dirname(abs), m[1])
+        if (resolved !== PROXY_MODULE_ABS_PATH && `${resolved}.ts` !== PROXY_MODULE_ABS_PATH) {
+          continue
+        }
+        found.add(path.relative(webRoot, abs).split(path.sep).join('/'))
+        break
+      }
+    }
+  }
+  walk(webRoot)
+  return [...found].sort()
+}
+
+const STATIC_EXCLUDED_TEST_FILES = findProxyImporters()
 const STATIC_EXCLUDED_FILES = [...STATIC_EXCLUDED_TOP_FILES, ...STATIC_EXCLUDED_TEST_FILES]
 const appDir = path.join(webRoot, 'app')
 const stashDir = path.join(webRoot, '.static-excluded')

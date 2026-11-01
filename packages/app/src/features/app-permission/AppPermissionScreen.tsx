@@ -5,11 +5,10 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppPermissionScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
-import { Tappable } from '@ihui/ui-native'
 
 export type { AppPermissionScreenProps }
 
@@ -75,18 +74,18 @@ export function AppPermissionScreen({
                 <Text style={styles.permDesc}>{item.desc}</Text>
               </View>
               {onOpenSettings ? (
-                <Tappable onPress={onOpenSettings} style={styles.settingButton}>
+                <Pressable onPress={onOpenSettings} style={styles.settingButton}>
                   <Text style={styles.settingText}>{t('appPermission.goSetting')}</Text>
-                </Tappable>
+                </Pressable>
               ) : null}
             </View>
           </View>
         ))}
 
         {onOpenSettings ? (
-          <Tappable onPress={onOpenSettings} style={styles.openAll}>
+          <Pressable onPress={onOpenSettings} style={styles.openAll}>
             <Text style={styles.openAllText}>{t('appPermission.openAllSetting')}</Text>
-          </Tappable>
+          </Pressable>
         ) : null}
 
         <Text style={styles.footer}>{t('appPermission.footer')}</Text>
@@ -137,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.error.bg,
       borderRadius: rnRadius.xs,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       overflow: 'hidden',
     },
     tagOptional: {
@@ -146,14 +145,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xs,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       overflow: 'hidden',
     },
     tagStatus: {
       fontSize: rnType.caption.size,
       borderRadius: rnRadius.xs,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       overflow: 'hidden',
     },
     statusGranted: { color: tk.brandAccent.deep, backgroundColor: tk.brandAccent.light },

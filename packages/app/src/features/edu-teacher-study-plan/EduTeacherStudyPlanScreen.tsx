@@ -958,7 +958,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       flexShrink: 0,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
@@ -1075,7 +1075,7 @@ function createStyles(tk: AppThemeTokens) {
     checkbox: {
       width: 18,
       height: 18,
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
@@ -1088,7 +1088,11 @@ function createStyles(tk: AppThemeTokens) {
     itemText: { fontSize: rnType.body.size, color: tk.text.primary },
     itemTextSm: { fontSize: rnType.label.size, color: tk.text.primary },
     itemTextDone: { color: tk.text.tertiary, textDecorationLine: 'line-through' },
-    itemMeta: { marginTop: 2, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    itemMeta: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     /* 弹层 */
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
     modalScrim: {
@@ -1167,3 +1171,4 @@ function createStyles(tk: AppThemeTokens) {
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,6 +11,8 @@ import { readFileSync, writeFileSync, rmSync } from 'node:fs'
 export const NOTIFY_DEFAULT_WINDOW_MS = 4 * 60 * 60 * 1000
 /** 投递失败后的重试间隔(反 spam 用的退避,不是配额:窗口照常重发,与"封顶 N 封"不同) */
 export const NOTIFY_DEFAULT_FAIL_COOLDOWN_MS = 30 * 60 * 1000
+/** 同一告警类的最小重报间隔;缺省 0 = 不节流(保持旧行为,只有显式设环境变量才生效) */
+export const NOTIFY_DEFAULT_CLASS_MIN_INTERVAL_MS = 0
 
 /**
  * 嵌套 ref 健康判据(纯函数 —— 镜像测试直接喂构造面,不依赖活 gitdir)。
@@ -215,6 +217,15 @@ export function notifyWindowMs() {
 export function notifyFailCooldownMs() {
   const n = Number(process.env.GIT_GUARDIAN_NOTIFY_FAIL_COOLDOWN_MS)
   return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_FAIL_COOLDOWN_MS
+}
+
+/**
+ * 同一告警类(按名)的最小重报间隔;0 = 不节流(缺省即旧行为)。
+ * 消费方 = git-guardian 的通知入口:详情微变但身份同一枚时,窗口内压住,止住告警疲劳。
+ */
+export function notifyClassMinIntervalMs() {
+  const n = Number(process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS)
+  return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_CLASS_MIN_INTERVAL_MS
 }
 
 /**

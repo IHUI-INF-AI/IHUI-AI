@@ -42,12 +42,9 @@ import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 // 连同守护本身一起杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。计划任务的存在性与
 // XML 改走 Get-ScheduledTask / Export-ScheduledTask,形态判据仍是 lib/schtasks-form.mjs 那一份。
 import { pickPowerShell } from './check-service-binary-paths.mjs'
-// P5 云同步自愈(2026-11-01 立,接「都要全自动自修复」):百度网盘同步客户端(云同步腿出机依赖)
-// 原设计"机主专属裁决,本判据不启动它"。实测守护(会话 0)能拉起但进程随即退出——无法无头养活。
-// 故本自愈器**只尽力拉起、绝不伪造成功**:拉起后即返回 attempted,是否留得住由下一轮 P5 判定独立决
-// 定(判机器状态 ⇒ 不进提交链,§12e),挂进 CHECK_ONLY 早退分支等于永不执行。30 分钟节流防拉起风暴。
-import { healBaiduSync } from './heal-baidu-sync.mjs'
-import { healCloudSync } from './cloud-sync/heal-cloud-sync.mjs'
+// P5 云同步自愈腿曾静态引用 ./heal-baidu-sync.mjs 与 ./cloud-sync/heal-cloud-sync.mjs:两枚模块
+// 从未入库(2026-11-01 现读:全仓 0 命中、git 历史 0 枚添加)⇒ 静态 import 让守护在加载期就
+// ERR_MODULE_NOT_FOUND,整个自愈层停摆。要复活这条腿必须先把模块本体落进仓里再补 import。
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l38(门 103 C1 收口)〉首意: 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 import { splitDeadRefs, objectExists } from './git-refs-heal.mjs'
 import {
@@ -8629,6 +8626,10 @@ const CROSS_END_LEGS = new Set([
   // 2026-10-29 立:跨端驾驶舱(编排器 parity-auto.mjs)。不在册 ⇒ 它整轮跑不起来时一声不出,
   // 而"没人跑完整趟"与"跑完整趟且全绿"是两件必须分开的事(§5e-3:能看见的才谈得上修)。
   'parity-cockpit',
+  // 2026-10-30 立(e1636ec07b):手写页升级腿(sweepHandMirrorUpgrades)。不在册 ⇒ 未知腿分支
+  // 把它的未判定当场吞掉(mailed:false、连起点件都不写)。2026-11-01 复接:后续重构把本腿
+  // 的 note/settle 接线整段弄丢,此处随接线一起补回在册。
+  'hand-upgrade',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -10380,6 +10381,12 @@ export function sweepHandMirrorUpgrades(opts = {}) {
     tickFile = join(dirname(LOG), 'hand-mirror-upgrade-last.json'),
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
+    // 只为成对夹具开(测试不得碰真 .ihui-agent/state 的起点件):生产调用一律走默认值。
+    // 2026-11-01 复接(e1636ec07b 原接线,后续重构弄丢 ⇒ 未判定连击一次都不记,180 分钟
+    // 到人这条腿结构上是空的)。
+    undetFile = crossEndUndetFile('hand-upgrade'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'upgrade-miniapp-shell-pages.mjs')
   if (!existsSync(script)) {
@@ -10415,7 +10422,16 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   if (!res || typeof res !== 'object') {
     const why = r.signal ? `子进程被 ${r.signal} 杀掉(多为超时)` : '子进程已退出但末行不是结论 JSON'
     logger(
-      `ℹ️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+      `⚠️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+    )
+    // 2026-10-30 立(e1636ec07b)/2026-11-01 复接:这一支原先只 log 只 return,一次都没记
+    // 连击 ⇒ 起点件不存在,存续性门槛结构上永远走不到(§5e-3)。
+    noteCrossEndUndetermined(
+      'hand-upgrade',
+      `${why}(status=${r.status},signal=${r.signal ?? '-'});stderr 前 120:${String(r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
+        `这表示「手写页→壳承载的自动升级这一格是瞎的」,不是"没有可升级的页"。\n` +
+        `出路:node scripts/upgrade-miniapp-shell-pages.mjs --land --json --cap=2(只读复跑看它实际报什么)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
     )
     return { ran: true, ok: false, why: '结论解析失败', status: r.status, signal: r.signal }
   }
@@ -10423,6 +10439,8 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   logger(
     `ℹ️ 手写页升级:可落地=${res.upgradable ?? 0} 本批=${res.batch?.length ?? 0} 落地=${landedN}${res.landed?.declLanded ? ' + 声明件' : ''}${res.landed?.err ? ` | ${String(res.landed.err).split('\n')[0].slice(0, 120)}` : ''}`,
   )
+  // 取到确定结论(含"零可落地")⇒ 撤掉在册起点,不背着旧账到人
+  settleCrossEndLeg('hand-upgrade', { logger, file: undetFile })
   return { ran: true, ok: true, ...res }
 }
 
@@ -11211,12 +11229,6 @@ async function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
-    // P5 云同步自愈(接 auditOpsPatrol):它判出百度同步客户端没跑,本行即时尽力拉起(服务或 exe),
-    // 立即返回 attempted,绝不自报 verified——留得住与否由下一轮 P5 独立判定(§12e:不进提交链)。
-    if (!CHECK_ONLY) {
-      const healed = await healCloudSync({ logger: (m) => log(m) })
-      if (healed.skipped) healBaiduSync({ logger: (m) => log(m) }) // 未启用无头通道则回退 GUI 拉起(治标)
-    }
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
     // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动
@@ -12677,5 +12689,22 @@ export const __test__ = {
   BARE_AUDIT_SINCE,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
+  // 单实例锁判据(2026-11-01 补登记):镜像测试 git-guardian-single-instance 按名解构
+  // import 这一份本体(§22c)。此前已定义而未登记进本台账 ⇒ 那格测试结构上打不到
+  // (TypeError: acquireSingleInstance is not a function,恒红 4 格,§0.2 那一型)。
+  acquireSingleInstance,
+  // 跨端镜像自愈派发腿(2026-11-01 补登记):镜像测试 cross-end-mirror-heal-dispatch 的
+  // T6 装车锁按名 import(§22c)。此前已定义+已挂 !CHECK_ONLY 派发链而未登记进本台账
+  // ⇒ 装车锁打不到这一格(恒红,§0.2 同型)。
+  healCrossEndMirror,
+  // 小程序语言包自愈腿(2026-11-01 补登记):镜像测试 derived-and-push-legs-dispatch 的
+  // L10 装车锁按名 import(§0.9/§22c)。此前同型漏登记 ⇒ 恒红。
+  healI18nBundleLeg,
+  // L10 装车锁四腿同批补登记(2026-11-01):均已定义+已挂 !CHECK_ONLY 派发链而未登记
+  // 进本台账 ⇒ 装车锁逐格打不到(恒红,§0.2 同型)。
+  healStyleTokensLeg,
+  healUiRoutesLeg,
+  auditPushDivergenceLeg,
+  healMirrorPurgeLeg,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

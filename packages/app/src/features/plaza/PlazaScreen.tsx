@@ -26,7 +26,6 @@ import type { PlazaItem, StatusChip } from '@ihui/types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
-import { Tappable } from '@ihui/ui-native'
 
 export interface PlazaScreenProps {
   t: TFunction
@@ -347,9 +346,9 @@ export function PlazaScreen({
                 <Text style={styles.emptyTextStrong}>千万级空白市场</Text>
                 <Text style={styles.emptyText}>不会开发?发布需求</Text>
                 <Text style={styles.emptyText}>快来抢占市场!</Text>
-                <Tappable style={styles.emptyBtn} onPress={onPublish}>
+                <Pressable style={styles.emptyBtn} onPress={onPublish}>
                   <Text style={styles.emptyBtnText}>发布需求</Text>
-                </Tappable>
+                </Pressable>
               </View>
             )
           }
@@ -386,7 +385,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     searchBar: {
-      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingHorizontal: 10,
       paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -404,7 +403,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     listContent: {
-      padding: rnSpacing['sm-loose'],
+      padding: 10,
       paddingBottom: 80,
     } as ViewStyle,
     columnsRow: {
@@ -444,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyBtn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing['2xl'],
-      paddingVertical: rnSpacing['sm-loose'],
+      paddingVertical: 10,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
@@ -540,7 +539,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.DEFAULT,
     } as TextStyle,
     chatBtn: {
-      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingHorizontal: 10,
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
