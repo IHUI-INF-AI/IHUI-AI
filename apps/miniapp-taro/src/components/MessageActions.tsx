@@ -11,6 +11,13 @@ export interface MessageActionsProps {
   onPin?: () => void
   onDelete?: () => void
   pinned?: boolean
+  /**
+   * 无障碍标签(spec 键名空间 messageCenter.*;2026-11-01 对齐 RN/共享屏)。
+   * 缺省回落到组件内既有措辞,不新增键;调用方可覆盖以贴合所在屏语境。
+   */
+  markReadLabel?: string
+  deleteLabel?: string
+  pinLabel?: string
 }
 
 export default function MessageActions({
@@ -18,6 +25,9 @@ export default function MessageActions({
   onPin,
   onDelete,
   pinned = false,
+  markReadLabel,
+  deleteLabel,
+  pinLabel,
 }: MessageActionsProps) {
   const [expanded, setExpanded] = useState(false)
   const tt = useTt()
@@ -34,38 +44,58 @@ export default function MessageActions({
 
       {expanded && (
         <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[240rpx]">
-          <View
-            className="flex items-center px-3 py-2 "
-            onClick={() => {
-              onMarkRead?.()
-              setExpanded(false)
-            }}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-sm text-foreground">{tt('message.markRead', '标记已读')}</Text>
-          </View>
-          <View
-            className="flex items-center px-3 py-2 "
-            onClick={() => {
-              onPin?.()
-              setExpanded(false)
-            }}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-sm text-foreground">
-              {pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话')}
-            </Text>
-          </View>
-          <View
-            className="flex items-center px-3 py-2 "
-            onClick={() => {
-              onDelete?.()
-              setExpanded(false)
-            }}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-sm text-destructive">{tt('message.deleteConv', '删除会话')}</Text>
-          </View>
+          {/* 与共享屏 spec 同口径:操作位只在给了处理函数时渲染,不挂"点了没反应"的假按钮 */}
+          {onMarkRead ? (
+            <View
+              className="flex items-center px-3 py-2 "
+              aria-role="button"
+              aria-label={markReadLabel ?? tt('messageCenter.markRead', '标记已读')}
+              onClick={() => {
+                onMarkRead()
+                setExpanded(false)
+              }}
+              hoverClass="opacity-60"
+            >
+              <Text className="text-sm text-foreground">
+                {markReadLabel ?? tt('messageCenter.markRead', '标记已读')}
+              </Text>
+            </View>
+          ) : null}
+          {onPin ? (
+            <View
+              className="flex items-center px-3 py-2 "
+              aria-role="button"
+              aria-label={
+                pinLabel ??
+                (pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话'))
+              }
+              onClick={() => {
+                onPin()
+                setExpanded(false)
+              }}
+              hoverClass="opacity-60"
+            >
+              <Text className="text-sm text-foreground">
+                {pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话')}
+              </Text>
+            </View>
+          ) : null}
+          {onDelete ? (
+            <View
+              className="flex items-center px-3 py-2 "
+              aria-role="button"
+              aria-label={deleteLabel ?? tt('messageCenter.deleteConv', '删除会话')}
+              onClick={() => {
+                onDelete()
+                setExpanded(false)
+              }}
+              hoverClass="opacity-60"
+            >
+              <Text className="text-sm text-destructive">
+                {deleteLabel ?? tt('messageCenter.deleteConv', '删除会话')}
+              </Text>
+            </View>
+          ) : null}
         </View>
       )}
     </View>
