@@ -822,6 +822,10 @@
       "unbookmark": "북마크 해제",
       "flagFailed": "표시 저장 실패"
     },
+    "messageVersion": {
+      "history": "버전 기록",
+      "regenerateFailed": "재생성에 실패했습니다. 잠시 후 다시 시도해 주세요"
+    },
     "share": {
       "title": "공유"
     },
