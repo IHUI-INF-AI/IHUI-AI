@@ -105,9 +105,12 @@ export async function acceptCollaboratorInvitation(
   conversationId: string,
   userId: string,
 ): Promise<ChatConversationCollaborator[]> {
+  // 条件写入:WHERE 带 status='pending' 现值比较,已裁决/非本人的行不会被空写顶 updatedAt
+  // (守门 198 出口形态:真变化守卫在此为原子 WHERE,展开名固定 changed)。
+  const changed = { status: 'accepted' as const }
   return db
     .update(chatConversationCollaborators)
-    .set({ status: 'accepted', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(
       and(
         eq(chatConversationCollaborators.conversationId, conversationId),
@@ -123,9 +126,12 @@ export async function revokeCollaborator(
   conversationId: string,
   userId: string,
 ): Promise<ChatConversationCollaborator[]> {
+  // 条件写入:WHERE 带终态守卫(status <> 'revoked')现值比较,二次撤销不再空写顶 updatedAt
+  // (守门 198 出口形态:真变化守卫在此为原子 WHERE,展开名固定 changed)。
+  const changed = { status: 'revoked' as const }
   return db
     .update(chatConversationCollaborators)
-    .set({ status: 'revoked', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(
       and(
         eq(chatConversationCollaborators.conversationId, conversationId),
