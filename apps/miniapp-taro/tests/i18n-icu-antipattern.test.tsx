@@ -77,8 +77,10 @@ type IcuKey = {
 
 const ICU_KEYS: readonly IcuKey[] = [
   { key: 'streak.continuousDays', placeholder: 'n' },
-  { key: 'modelPlaza.modelCount', placeholder: 'n' },
-  { key: 'modelPlaza.synced', placeholder: 'n' },
+  // `modelPlaza.modelCount` / `modelPlaza.synced` 已于 2026-11-01 摘除(枚 ea9c9e6624「再摘 499+11 枚死键」):
+  // 消费方 pkg-ai/model-plaza/index.tsx 经枚 0fb91af8f8 整体升级为壳承载后不再直引 modelPlaza.*,
+  // 两键在五语言包里都已不存在。留在这里等于断言一个已删的键(结构上永远红),故按实收紧 ——
+  // 不是放宽判据:仍存的 8 个活键照旧全量判 ICU 占位符五语言 parity。
   { key: 'pay.countdownTip', placeholder: 'time' },
   { key: 'pay.couponSaved', placeholder: 'n' },
   { key: 'pay.balanceAmount', placeholder: 'n' },
