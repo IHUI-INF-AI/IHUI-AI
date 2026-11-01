@@ -119,7 +119,8 @@ describe('预测式编辑两把钥匙 — 开关位与门槛位各自独立', ()
 
   it('T3b 展示中关掉开关 ⇒ 建议撤下且不再发新请求(开关即时生效)', async () => {
     const { editIntentRequests, metricBodies } = stubFetch()
-    const { rerender, result } = renderIntent('const a = 1')
+    // 不用 rerender:开关位由 store 直接翻转(组件订阅该 store),rerender 在本例里是空转
+    const { result } = renderIntent('const a = 1')
     await waitFor(() => expect(result.current.predictionVisible).toBe(true), {
       timeout: EDITOR_EDIT_INTENT_DEBOUNCE_MS + 2000,
     })
