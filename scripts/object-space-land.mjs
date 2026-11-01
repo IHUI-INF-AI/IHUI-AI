@@ -41,6 +41,11 @@
  *    正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再 `hash-object`,
  *    工作树副本一个字节都不写。已存在路径不进这一档(横幅保持/祖先对账/行级复活照旧)。
  *    blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *  - ⑥ [L33560 最后一格 · 2026-11-01] 落地(CAS)**之前**,对"将要进树的那份内容"跑一次冲突
+ *    标记判据(`lib/conflict-marker-landing-gate.mjs` 唯一实现,union-converge 落地闸同源):
+ *    `must-block` ⇒ 不落地 + 逐条点名(文件/行号/标记原文),exit 1;`strippable`(空区)只建议
+ *    摘除、不拦;取不到正文 ⇒ exit 2。默认开启,应急 `IHUI_LAND_SKIP_CONFLICT_MARKER_GATE=1`
+ *    (跳过必打留痕;设了它本判据完全失效)。
  *
  * CLI 契约(env 驱动,无参数):
  *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
@@ -172,6 +177,12 @@ import { createExclusionPredicate } from './lib/third-party-roots.mjs'
 import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
+// L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
+// (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
+import {
+  gateLandingMarkers,
+  LANDING_MARKER_SKIP_ENV,
+} from './lib/conflict-marker-landing-gate.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -2845,6 +2856,79 @@ async function main() {
     // 读报告的人会以为有人绕过了守卫(而这类"账面声称的出路"正是本仓记过多次的失效型)。
     console.log('⚠️ IHUI_LAND_SKIP_WATERMARK=1 ⇒ 本次跳过水印预检(该行输出即留痕)')
   }
+  /**
+   * ── L33560 最后一格(2026-11-01 S-OSL):**落地前**的冲突标记闸 ──────────────────────
+   *
+   * 判据本体不在本文件:`lib/conflict-marker-landing-gate.mjs` 是唯一实现(§22c),本器只提供
+   * 取材面 —— `mine` 里那份**已经 hash 进对象库、正是 commitTreeWithIndex 要写进树的 oid**
+   * (与上面水印预检同一份字节,不再从盘上重读一次:两次读之间别人改盘 = 给未验证的字节发通行证)。
+   *
+   * 位置:水印预检之后、CAS 循环之前。拒落时对象库只多几枚**未被引用**的 blob(它们在本器
+   * 落地前就被 hash-object 造出来了),ref / 索引 / commit 面一个都没动 —— 与悬空引用预检、
+   * 门 98/231 的"拒落不留 commit 对象"同一语义。
+   *
+   * 分档(判据口径全在 lib 头注,这里不重述):
+   *   · `must-block`(任一侧有真内容)⇒ 不落地 + 逐条点名(文件 + 行号区间 + 标记原文),exit 1
+   *     —— 与 union-converge 的 bad 同档,沿用本文件既有退出码表里的"业务拒绝";
+   *   · `strippable`(区域内两侧零正文)⇒ **不拦**,只打一行"建议摘除";
+   *   · 取不到正文 ⇒ exit 2(未判定 ≠ 通过,§0.3)。
+   *
+   * 逃生口:`IHUI_LAND_SKIP_CONFLICT_MARKER_GATE=1`(与 `IHUI_LAND_SKIP_AFFECTED_GATES`
+   * 同族命名),由 lib 自己读并**必打一行留痕**。⚠️ 设了它,本判据完全失效:旁路落地可以
+   * 再次把冲突标记三行带进 HEAD。别名 `IHUI_OSL_SKIP_CONFLICT_MARKER_GATE=1` 只做转发
+   * (本器历史命名习惯),不构成第二个开关。
+   */
+  const OSL_CONFLICT_SKIP_ALIAS = 'IHUI_OSL_SKIP_CONFLICT_MARKER_GATE'
+  {
+    const gateEnv = { ...process.env }
+    if (gateEnv[OSL_CONFLICT_SKIP_ALIAS] === '1' && gateEnv[LANDING_MARKER_SKIP_ENV] !== '1') {
+      console.log(
+        `ℹ️ ${OSL_CONFLICT_SKIP_ALIAS}=1 视同 ${LANDING_MARKER_SKIP_ENV}=1(别名只转发到唯一判据的逃生口,不另立开关)`,
+      )
+      gateEnv[LANDING_MARKER_SKIP_ENV] = '1'
+    }
+    const gateEntries = paths.map((p) => {
+      const oid = mine.get(p)
+      if (!isOidLike(oid)) return { path: p, text: null }
+      const text = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+      return { path: p, text: text === null ? null : text }
+    })
+    const cgate = gateLandingMarkers(gateEntries, {
+      env: gateEnv,
+      log: (s) => console.log(s),
+    })
+    for (const a of cgate.advices) console.log(`⚠️ ${a}`)
+    if (cgate.violations.length > 0) {
+      console.error(
+        `❌ 落地内容里存在冲突标记区(${cgate.violations.length} 处)⇒ 拒绝落地(未创建 commit、HEAD 与主索引均未动):`,
+      )
+      for (const v of cgate.violations) console.error(`   ${v}`)
+      console.error(
+        '   为什么拦:这一档是"任一侧有真内容"—— 落地等于把 git 写给机器看的分界行当正文带进 HEAD,' +
+          '或逼人二选一而静默丢一侧。请先在内容里把冲突真正解掉再来。',
+      )
+      console.error(
+        `   应急跳过 ${LANDING_MARKER_SKIP_ENV}=1(该变量会让本判据完全失效,仅限确证无害时用,跳过会打留痕)`,
+      )
+      process.exit(1)
+    }
+    if (cgate.undetermined.length > 0) {
+      console.error(
+        `❌ 落地前冲突标记自检未能判定(${cgate.undetermined.length} 路径):取不到正文 ≠ 干净`,
+      )
+      for (const u of cgate.undetermined) console.error(`   ${u}`)
+      console.error('   方向:修好取材(blob 是否真在对象库)再跑,不得按"通过"重跑(§0.3)。')
+      process.exit(2)
+    }
+    // skipped 的留痕行由 lib 自己打(log 回调直通 stdout),这里不再复写第二遍。
+    if (!cgate.skipped) {
+      console.log(
+        `✅ 落地前冲突标记自检:${cgate.judged}/${paths.length} 路径无 must-block 区` +
+          `${cgate.advices.length ? `(另有 ${cgate.advices.length} 处空冲突区:只建议摘除,不拦)` : ''}`,
+      )
+    }
+  }
+
   // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
   // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
   let lastMadeCommit = ''
