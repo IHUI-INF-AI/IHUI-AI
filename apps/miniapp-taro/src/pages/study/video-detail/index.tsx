@@ -4,6 +4,8 @@
 
 // 镜像 packages/app/src/features/video-player/VideoPlayerScreen.tsx
 import { useI18n } from '@/i18n'
+// G-815966:百分比裁剪走具名唯一出口,不再内联手搓(棘轮门基线 0)
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -263,7 +265,7 @@ export default function VideoDetailPage() {
   const totalSections = info.chapters?.length ?? 0
   // 已学节数只在"本次会话标记学完"或"记录已是 completed"时有确定值,不猜历史完成数
   const doneSectionsCount = lessonCompleted ? totalSections : doneSections.length
-  const progressPercent = lessonCompleted ? 100 : Math.min(100, Math.max(0, lessonProgress))
+  const progressPercent = lessonCompleted ? 100 : clampPercent(lessonProgress)
 
   return (
     <ThemeRoot>
