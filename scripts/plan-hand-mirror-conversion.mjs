@@ -831,10 +831,17 @@ export function judgeConversion({
       why: `壳 ${name} 未消费共享屏(不带 @ihui/rn-app 取用该符号)`,
     }
   const pageTokens = capabilityTokens(pageText)
-  // 硬编码正文闸:转壳后正文来自共享屏消费的键 ⇒ **那些键的值里没有的**中文片段会消失
-  // (不是"未还原",是丢内容)。没有共享屏可比时(取不到 sharedText/键集为空/词包坏了)
-  // 退回整包文本口径 —— 退回面是"判不出作用域",不是把作用域判据遮掉。
-  const consumedKeys = sharedText ? screenConsumedKeys(sharedText) : new Set()
+  // 硬编码正文闸:转壳后正文来自**宿主取词面**的键 ⇒ **那些键的值里没有的**中文片段会消失
+  // (不是"未还原",是丢内容)。作用域 = 共享屏 ⊕ 承载壳(2026-11-01 立):实测
+  // apps/mobile-rn/src/screens/ChangePwdScreen.tsx:35 的校验提示走 `appAlert(t('pwd.oldRequired'), …)`,
+  // 而端内同一句走 `tt('user.password.enterOld', …)` —— 提示这件事住在壳里,只问屏就把"能力已在"判成缺失。
+  // 两处不放宽:① 词包面只有端包 ⊕ shared 包 ⇒ 壳取 mobile-rn 独有键时值取不到,照旧拦(那是裸键回显,真降级);
+  // ② 阈值不改。没有可比对象时(键集为空/词包坏了)退回整包文本口径 —— 退回面是"判不出作用域",
+  // 不是把作用域判据遮掉。
+  const consumedKeys = new Set([
+    ...screenConsumedKeys(sharedText),
+    ...screenConsumedKeys(shellText),
+  ])
   const screenHay = consumedKeys.size > 0 ? messagesValuesByKeys(messagesText, consumedKeys) : null
   const missingCjk =
     screenHay === null
@@ -1425,6 +1432,27 @@ function main(argv) {
         'return <Text>{createdAt}</Text>',
       ),
     ], [['时间格式化'], []])
+    // S29(2026-11-01 立,现读 pkg-user/user/password 与 pkg-shop/vip/index 两页即此型):
+    // 正文的作用域必须把**承载壳**算进来。壳 apps/mobile-rn/src/screens/ChangePwdScreen.tsx:35
+    // 用 `appAlert(t('pwd.oldRequired'), …)` 承担校验提示,而端内同一句走
+    // `tt('user.password.enterOld', '请输入原密码')` —— 提示这件事真住在壳里,只问屏就把"能力已在"
+    // 判成"转壳会丢内容"。反臂钉住刻意不放宽的那一格:壳取的键若在端包⊕shared 词包里取不到值
+    // (mobile-rn 独有键),小程序侧就是裸键回显 ⇒ 照旧拦,绝不因"壳提到了这个键"就放行。
+    const S29_PAGE = `const tip = '${'隐'.repeat(150)}'\nexport default function Page(){ return null }`
+    const S29_PACK = `{"demo":{"body":"${'隐'.repeat(150)}"},"rnonly":{"tip":"${'独'.repeat(150)}"}}`
+    const s29Hits = (shellTail, sharedTail) =>
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: S29_PAGE,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){ ${shellTail}; return null }`,
+        sharedText: `export function DemoScreen(){ ${sharedTail} return null }`,
+        messagesText: S29_PACK,
+      }).extras?.includes(HARDCODED_TEXT_TOKEN)
+    P('S29 正文作用域含承载壳:壳取到值的键算覆盖;壳取端包无值的键不算;屏取键的旧语义不丢', [
+      s29Hits(`appAlert(t('demo.body'))`, ''),
+      s29Hits(`appAlert(t('absent.key'))`, ''),
+      s29Hits(``, `return t('demo.body')`),
+    ], [false, true, false])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
