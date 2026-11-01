@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 090d7b101228aea63c62d44a29e7d549641eef2c
-// inputsSha256: 179d9336b4d079c3067cf63ed5137c416feb13655fea0656c843f12dd8853777
+// sourceCommit: f25456c0fd0395c3bf05cc3647630c5beb9dc00d
+// inputsSha256: a4c5312f542b2af7d01e3f4f9ae3a8aa777cd26049ca6eb7c6c87239162b3a96
 // input: apps/miniapp-taro/src/api/index.ts ee48e8627cea7ddc17fde60d5338374402ee82d4f834ee2d73c9202d9fa723a9
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts d49f8d705e8c3d86642c2b0d6cf794bd9caacb67996f4d1a38b02c626d3a2810
@@ -257,7 +257,7 @@
 // input: apps/miniapp-taro/src/pages/study/record.config.ts 63199eca9fc79561731df66d1c2a8b150d77a569236769edb40b588708013270
 // input: apps/miniapp-taro/src/pages/study/record.tsx 4fe95890ec87e4601d5f966e5dd8e997db50645e08aad3a1e0459e7931ecc65a
 // input: apps/miniapp-taro/src/pages/study/video-detail/index.config.ts 25501702785e2d21848ca6715a67d8c8e6ca0e678108d867420965fb903ea7c0
-// input: apps/miniapp-taro/src/pages/study/video-detail/index.tsx 1d6a332e1ac85c61826de7bab327eee5d8f820b49b50ab7ed94c6f13ce08469b
+// input: apps/miniapp-taro/src/pages/study/video-detail/index.tsx 4f3c4ce1c77dd64df73cd48327b15362ffe078a18a06b7455a623e972b4b0ad0
 // input: apps/miniapp-taro/src/pages/user/components/UserCard.tsx 612d216d2e040191c41d5fcdcc86f245964d34836051c765c6b87bf4cc591b0b
 // input: apps/miniapp-taro/src/pages/user/index.config.ts fb47e1b55b9f740820c57343a77f8ced282817a3016f730f82725bc50a2a4054
 // input: apps/miniapp-taro/src/pages/user/index.tsx 802f5fb91869168a90fcdf0387f44e6ce67964e4ea954445de35e358e6e93cd1
@@ -683,7 +683,7 @@
 // input: apps/miniapp-taro/src/rn-compat/apis.ts 74024e745d78e642e020d9980d84566b689c28ef9426c4c75e87d63280df63e6
 // input: apps/miniapp-taro/src/rn-compat/expo-blur.tsx 122201c2e167636d9e53ea5c8153b0ef00149bfb1b32cb6ef0ebc3b1689ab1a2
 // input: apps/miniapp-taro/src/rn-compat/i18n.ts d0a4a728156c3dd19f0a7d2e27b370aa1ef679010706e57852f2ad4a9fe22940
-// input: apps/miniapp-taro/src/rn-compat/icons-generated.tsx 78bba8cd87105ff3881ec2d55e8f9acdd0750b3bb439da9a8a39a093fe831a49
+// input: apps/miniapp-taro/src/rn-compat/icons-generated.tsx 8acf45f2452cb69b2295906e9e834b95523cc045826f5cc8c9fb90fae1d7439e
 // input: apps/miniapp-taro/src/rn-compat/icons-runtime.tsx 10df2a6256e9b7c7254d820ba8f2e6b1651a13ac918765ff1efca6f51368bb26
 // input: apps/miniapp-taro/src/rn-compat/index.ts 74fa6b74b2cdadff0d3c3cf83beca2686eda5a914dab05a19697820cb3cd4045
 // input: apps/miniapp-taro/src/rn-compat/native-asset.ts 786a834025ce532edf976a24d66b1d26c6db04ae32fcfa2797b327b2f82261c3
@@ -696,7 +696,7 @@
 // input: apps/miniapp-taro/src/rn-compat/native-wechat.ts 6602b523685d95e0f7f087dc13f93aa79326aea0cc6b790cac1d31842d66f11c
 // input: apps/miniapp-taro/src/rn-compat/navigation.tsx bda0148ed5e69622ce75aeed1c2ccb1a62598ff2a6ebcd5f7cb14f5029432c36
 // input: apps/miniapp-taro/src/rn-compat/platform.tsx b9e4c1fbcb9ff3d020d2403a29074706bf67e1c438fd18f54cafef529b95d8b2
-// input: apps/miniapp-taro/src/rn-compat/primitives.tsx 5fcef8fb5611a4f3539edfdb09e576180833804549a4de9423eb5dd5f0e4ea89
+// input: apps/miniapp-taro/src/rn-compat/primitives.tsx 36d61a42d835790b458cd665e3c15a4e1a1748ec18c97b3cf6c1d0906f388ba1
 // input: apps/miniapp-taro/src/rn-compat/storage.ts 6dddcbc0c98306826837394b1cb39c48ddaaad9e5eb6b82a91d55a055f786e88
 // input: apps/miniapp-taro/src/rn-compat/style.ts a348dbb1fc70481ffd4dc4a563f22881c2bd73a6dd7c751ece2ab553ef8c7356
 // input: apps/miniapp-taro/src/rn-compat/theme.tsx 55e376377a67760dec59650f6bda594f77b56de61705e419e969d25a2f852fd4
@@ -742,7 +742,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 606 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=205(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-01T04:33:19.549Z
+// generatedAt: 2026-11-01T05:04:40.026Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
