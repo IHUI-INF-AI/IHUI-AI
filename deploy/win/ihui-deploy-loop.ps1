@@ -590,7 +590,10 @@ function Invoke-PollOnce {
             Log "FAIL  自进化前置闸:node.exe 取不到 ⇒ 根护栏/成本熔断判不了,本轮不部署(fail-closed)"
             return
         }
-        $rgOut = (& $guardNode (Join-Path $Root 'scripts\root-guard.mjs') --check 2>&1 | Out-String)
+        # 当前面红时再问一次"本轮将要检出的那一面"(2026-11-01 治自锁):前置闸跑在 ff 之前,
+        # 旧 HEAD 的清单绑旧哈希会永远判红,而修对清单的提交只在远端那一面 —— 实测连吃 44 轮。
+        # 只在红轮付这一次 ls-remote;两面都不自洽照旧 fail-closed,取不到候选面也照旧不放行。
+        $rgOut = (& $guardNode (Join-Path $Root 'scripts\root-guard.mjs') --check --against-remote origin 2>&1 | Out-String)
         $rgRc = $LASTEXITCODE
         if ($rgRc -ne 0) {
             Log "FAIL  根护栏未通过(rc=$rgRc)⇒ 本轮不部署(fail-closed;人工复核后 node scripts/root-guard.mjs --seal --reason `"...`")"
