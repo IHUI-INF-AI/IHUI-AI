@@ -17,8 +17,9 @@
  * 另建运营池行(uid 2345730760515203 实测两行、心跳与签到绑定分叉)。安全边界的目标
  * 是"一次写只能命中一行",精确到主键 id 同样满足且更强 ⇒ 现在每个 update 的 where
  * 必须能收窄到单行:`eq(id)` 或 `isNull(ownerUserId)` 二选一;按 uid 裸写仍判红。
- * 目标行含个人池唯一行的腿(trae,2026-11-01)再收紧一档:必须 eq(id)。
- * 阳性对照:裸 uid 判红,owner-null / id 两种收窄判绿。
+ * 目标行含个人池唯一行的腿(trae,2026-11-01;qoder/workbuddy 同日跟进)再收紧一档:必须 eq(id)。
+ * 阳性对照:裸 uid 判红,owner-null / id 两种收窄判绿。另加接线锁:上述腿必须真调
+ * chooseSyncTargetRow 且全文不留 owner 过滤(否则个人池行进不了候选集,收窄再严也漏写)。
  */
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
@@ -33,8 +34,14 @@ const LEGS = [
   'relay-trae-session-sync.ts',
   'relay-workbuddy-session-sync.ts',
 ] as const
-/** 2026-11-01 起目标行可为"个人池唯一行"的腿:写必须按主键 id,不得再靠 owner-null 通配 */
-const ID_WRITE_LEGS = ['relay-trae-session-sync.ts'] as const
+/** 2026-11-01 起目标行可为"个人池唯一行"的腿:写必须按主键 id,不得再靠 owner-null 通配。
+ *  三条腿同日全部收口(qoder/workbuddy 与 trae 同型:只认运营池行 ⇒ 本机号落个人池时
+ *  回灌看不见它 —— qoder 会另建运营池重复行,workbuddy 恒"池内没有该 uid"模板永不回灌)。 */
+const ID_WRITE_LEGS = [
+  'relay-qoder-session-sync.ts',
+  'relay-trae-session-sync.ts',
+  'relay-workbuddy-session-sync.ts',
+] as const
 
 /** prettier 会把长谓词折行 ⇒ 先归一化空白再比(形状锁只比语义,不比排版) */
 const squash = (s: string) => s.replace(/\s+/g, ' ')
@@ -109,6 +116,27 @@ for (const file of ID_WRITE_LEGS) {
         `${file}: update 谓词里仍出现 uid ⇒ 多行并存时会写穿他人副本`,
       )
     }
+  })
+}
+
+/**
+ * 接线锁(§0.9 "造好没装车 = 没有"):写了 eq(id) 不等于会选到个人池行 —— 若腿把
+ * `isNull(ownerUserId)` 留在候选查询里,个人池行永远进不了候选集,归属闸再严也白搭。
+ * 故对同一批腿再加两条:① 必须真调 chooseSyncTargetRow(判据单源,不许自己复算);
+ * ② 全文不得再出现 owner_user_id IS NULL 过滤(候选面必须与归属无关)。
+ */
+const CHOOSER_CALLSITE = /chooseSyncTargetRow\(/
+const OWNER_FILTER = /isNull\(aiRelayAccountPool\.ownerUserId\)/
+
+for (const file of ID_WRITE_LEGS) {
+  test(`${file}: 候选面与归属无关(调 chooseSyncTargetRow,不留 owner 过滤)`, () => {
+    const src = readFileSync(resolve(SCRIPTS_DIR, file), 'utf8')
+    assert.match(src, CHOOSER_CALLSITE, `${file}: 未调用 chooseSyncTargetRow ⇒ 判据出现第二把尺`)
+    assert.doesNotMatch(
+      src,
+      OWNER_FILTER,
+      `${file}: 仍有 owner_user_id IS NULL 过滤 ⇒ 个人池行进不了候选集,回灌必然漏它`,
+    )
   })
 }
 
