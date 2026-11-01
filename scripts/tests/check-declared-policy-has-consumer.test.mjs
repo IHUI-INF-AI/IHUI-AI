@@ -8,7 +8,9 @@
 // 不复制判据实现 —— 两份真相是登记在案的漂移源。
 // 判据族:C1~C5(策略常量/预算契约/契约类型/谓词/清理函数)+ C6(i18n 码表键)+
 //   C7(G-816034 ①②,导出 `create*Handler` / `create*Transport` 工厂)—— T11 判纯函数四验收,
-//   T12 让子进程在临时仓真跑 `--staged`,证明新族走的是同一条取材面 + 同一条棘轮 + 同一套退出码。
+//   T15 让子进程在临时仓真跑 `--staged`,证明新族走的是同一条取材面 + 同一条棘轮 + 同一套退出码。
+//   default 链(2026-11-01,default 导入接进"声明体边 + 传递闭包")—— T13 判纯函数五形接线/
+//   双变异对照/八条反向锁/新归属尺,T14 在同一临时仓口径下验"撤掉 default 取用即红、还原即复绿"。
 // 装车前置(刻意不硬写编号):接线归主会话(AGENTS §25 三件同批事实),本测试判"注册表
 // 若出现本门,必须同时 blocking + skipEnv + 编号唯一";未注册时绿,并如实说明是"未装车"
 // 而不是"已防护"。
@@ -41,6 +43,8 @@ test('T1 §22c 锚点:__test__ 必须导出核心判据且 skipEnv 命名在位'
     'blankStringContents',
     'parseFile',
     'specCompat',
+    'specResolvesToModule',
+    'DEFAULT_SLOT',
     'judge',
     'decide',
     'analyze',
@@ -62,6 +66,37 @@ test('T1 §22c 锚点:__test__ 必须导出核心判据且 skipEnv 命名在位'
   }
   assert.ok(gate.inScanRoot(gate.FIXTURES.HF_DECL_FILE), 'C7 声明夹具路径不在扫描根 ⇒ 该族所有断言恒绿')
   assert.ok(gate.inScanRoot(gate.FIXTURES.HF_USE_FILE), 'C7 消费者夹具路径不在扫描根 ⇒ 接线侧断言恒绿')
+  // default 链夹具(2026-11-01)同规格:单一实现 + 两条路径都必须在扫描根内。
+  for (const k of [
+    'DEF_DECL_FILE',
+    'DEF_USE_FILE',
+    'DEF_FP',
+    'DEF_IDENT',
+    'DEF_FUN',
+    'DEF_OBJ',
+    'DEF_AS_DEFAULT',
+    'DEF_NOREF',
+    'DEF_NONE',
+    'DEF_COMMENTED_SRC',
+    'DEF_USE',
+    'DEF_NOUSE',
+    'DEF_COMMENTED_USE',
+    'DEF_SHADOW',
+    'DEF_OTHER_DIR',
+    'DEF_MIX_SRC',
+    'DEF_MIX_USE',
+    'DEF_MIX_USE_NAMED_ONLY',
+  ]) {
+    assert.ok(k in gate.FIXTURES, `FIXTURES 缺 default 链夹具:${k}`)
+  }
+  assert.ok(
+    gate.inScanRoot(gate.FIXTURES.DEF_DECL_FILE),
+    'default 声明夹具路径不在扫描根 ⇒ 接线侧断言恒绿',
+  )
+  assert.ok(
+    gate.inScanRoot(gate.FIXTURES.DEF_USE_FILE),
+    'default 消费者夹具路径不在扫描根 ⇒ 接线侧断言恒绿',
+  )
 })
 
 test('T2 正向证明(镜像自带构造):未接线必红、已接线必绿', () => {
@@ -441,11 +476,166 @@ test('T11 C7 工厂族四验收:命中必红/接线必绿/同词不同义不立�
 })
 
 /**
- * T12 端到端(--staged,临时仓):新族**必须在索引 blob 上真响**。
- * 纯函数判红不等于装车 —— 这里让子进程跑整门,验"锚点齐平不红 / 新增未接线工厂红且点名 /
- * 补上生产消费者又绿",证明 C7 走的是与本门既有四族同一套取材面与退出码口径。
+ * T13 default 链(2026-11-01):判据"只扩认链、不松判据"两半都要有牙。
+ * 与源脚本 --self-test 的 D 组成对;夹具与判据全部从 `__test__` 取(§22c 单一真相)。
  */
-test('T12 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零消费者工厂红且点名、补上消费者复绿', () => {
+test('T13 default 链:五形接线必绿 / 双变异对照退回红 / 八条反向锁照旧红 / 新 specifier 尺更严', () => {
+  const F = gate.FIXTURES
+  const forms = [F.DEF_FP, F.DEF_IDENT, F.DEF_FUN, F.DEF_OBJ, F.DEF_AS_DEFAULT]
+  // 夹具装配只做一次:每条断言都落在 printWidth 内(改判据不该把测试面写成格式存量)
+  const filesOf = (src, use, useFile = F.DEF_USE_FILE) =>
+    new Map([
+      [F.DEF_DECL_FILE, src],
+      [useFile, use],
+    ])
+  const unwiredNames = (src, use, opts = {}, useFile = F.DEF_USE_FILE) =>
+    gate.judge(filesOf(src, use, useFile), opts).unwired.map((u) => u.name)
+  assert.deepEqual(
+    forms.map((src) => unwiredNames(src, F.DEF_USE)),
+    [[], [], [], [], []],
+    'default 导出的策略模块被 default 取用 ⇒ 五形都必须 0 未接线(改前五形全判 1 处)',
+  )
+  for (const mutate of ['no-external-refs', 'no-closure']) {
+    assert.deepEqual(
+      forms.map((src) => unwiredNames(src, F.DEF_USE, { mutate })),
+      [['DEMO_TTL'], ['DEMO_TTL'], ['DEMO_TTL'], ['DEMO_TTL'], ['DEMO_TTL']],
+      `mutate=${mutate} 仍判绿 ⇒ default 链是靠豁免而不是靠那两支既有判据`,
+    )
+  }
+  // 反向锁:声明体没引用 / 无 default 导出 / export default 只在注释里 / 只 import 不取用 /
+  // 取用写在注释里 / 消费者同名 local / 测试面 / specifier 只命中目录段
+  const negations = [
+    ['default 声明体没引用常量', F.DEF_NOREF, F.DEF_USE],
+    ['模块无 default 导出', F.DEF_NONE, F.DEF_USE],
+    ['export default 只写在注释与字符串里', F.DEF_COMMENTED_SRC, F.DEF_USE],
+    ['default 导入了但零取用', F.DEF_FP, F.DEF_NOUSE],
+    ['取用只写在注释里', F.DEF_FP, F.DEF_COMMENTED_USE],
+    ['消费者自家声明同名 local(归属歧义)', F.DEF_FP, F.DEF_SHADOW],
+    ['唯一 default 消费者在测试面', F.DEF_FP, F.DEF_USE, 'apps/api/tests/d.test.ts'],
+    ['specifier 只命中同目录段', F.DEF_FP, F.DEF_OTHER_DIR],
+  ]
+  for (const [label, src, use, useFile] of negations) {
+    assert.deepEqual(
+      unwiredNames(src, use, {}, useFile),
+      ['DEMO_TTL'],
+      `${label} ⇒ 照旧红(判据不得被放宽)`,
+    )
+  }
+  // 新尺必须比具名那把更严,且这一条差异被真用上(同目录段:specCompat 认、新尺不认)
+  assert.deepEqual(
+    [
+      gate.specResolvesToModule('./demo.js', F.DEF_DECL_FILE),
+      gate.specResolvesToModule('../plugins/demo', F.DEF_DECL_FILE),
+      gate.specResolvesToModule('./plugins/other.js', F.DEF_DECL_FILE),
+      gate.specCompat('./plugins/other.js', F.DEF_DECL_FILE),
+      gate.specResolvesToModule('@ihui/types', 'packages/types/src/index.ts'),
+      gate.specResolvesToModule('', F.DEF_DECL_FILE),
+    ],
+    [true, true, false, true, true, false],
+    'default 槽位不带符号名 ⇒ 归属尺只认"specifier 末段就是声明文件基名"(目录 barrel 例外于 index)',
+  )
+  assert.deepEqual(
+    [
+      unwiredNames(F.DEF_MIX_SRC, F.DEF_MIX_USE).length,
+      unwiredNames(F.DEF_MIX_SRC, F.DEF_MIX_USE_NAMED_ONLY).length,
+    ],
+    [0, 1],
+    '`import D, { named } from` 的默认半边此前整条被丢弃;只取用具名半边不得顺带点亮 default 那支',
+  )
+  // 形状锁:DEFAULT_SLOT 只是虚拟宿主,不进 decls/declNames(否则会被立案或撞"同名不同物")
+  const p = gate.parseFile(F.DEF_DECL_FILE, F.DEF_FP)
+  const dOff = gate.parseFile(F.DEF_DECL_FILE, F.DEF_COMMENTED_SRC)
+  assert.equal(p.hasDefault, true)
+  assert.deepEqual([...p.defaultRefs], ['demoPlugin'])
+  assert.ok(p.edges.has(gate.DEFAULT_SLOT), 'default 虚拟宿主必须进 edges,否则第 4 步闭包接不上')
+  assert.equal(p.declNames.has(gate.DEFAULT_SLOT), false, 'default 进了 declNames 会污染具名判序')
+  assert.equal(
+    p.decls.some((d) => d.name === gate.DEFAULT_SLOT),
+    false,
+  )
+  assert.equal(dOff.hasDefault, false, '注释里的 export default 不得算槽位')
+})
+
+/**
+ * T14 端到端(--staged,临时仓):default 链必须在**索引 blob** 上真响真绿。
+ * A 撤掉消费者取用 ⇒ 1 > 锚点 0 ⇒ 红并点名;B 还原取用 ⇒ 复绿。
+ * 这一对证明装车路径(取材面/棘轮/退出码)与既有四族一致,不是只在纯函数里好看。
+ */
+test('T14 default 链端到端(--staged 临时仓):撤掉 default 取用即红且点名,还原即复绿', () => {
+  const dir = mkScratch('g121-def-')
+  try {
+    const git = (args) =>
+      spawnSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    assert.equal(git(['init', '-q']).status, 0)
+    assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
+    assert.equal(git(['config', 'user.name', 'gate']).status, 0)
+    mkdirSync(join(dir, 'apps', 'api', 'src', 'plugins'), { recursive: true })
+    mkdirSync(join(dir, 'apps', 'api', 'src'), { recursive: true })
+    const DECL = join(dir, 'apps', 'api', 'src', 'plugins', 'demo.ts')
+    const BOOT = join(dir, 'apps', 'api', 'src', 'server.ts')
+    writeFileSync(
+      DECL,
+      [
+        'const DEMO_TTL = 60',
+        'async function demoPlugin(server: unknown): Promise<void> { void DEMO_TTL; void server }',
+        'export default demoPlugin',
+        '',
+      ].join('\n'),
+    )
+    writeFileSync(
+      BOOT,
+      "import demoPlugin from './plugins/demo.js'\nexport function build(server: unknown): void { void demoPlugin; void server }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    assert.equal(git(['commit', '-qm', 'base']).status, 0)
+    const runGate = () =>
+      spawnSync(process.execPath, [SCRIPT, '--staged', '--root', dir], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    // A. 基线是"已接线" ⇒ HEAD 锚点 0;把消费者改成只 import 不取用 ⇒ 索引面 1 > 0 ⇒ 红
+    writeFileSync(
+      BOOT,
+      "import demoPlugin from './plugins/demo.js'\nexport function build(server: unknown): void { void server }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    const red = runGate()
+    assert.equal(
+      red.status,
+      1,
+      `撤掉 default 取用应当红 rc=${red.status}\n${red.stdout?.slice(-700)}${red.stderr?.slice(-700)}`,
+    )
+    assert.match(String(red.stderr), /plugins\/demo\.ts/, '红必须点名声明文件')
+    assert.match(String(red.stderr), /DEMO_TTL/, '红必须点名那枚策略常量')
+    // B. 还原取用 ⇒ 回到锚点 ⇒ 复绿(证明判据不是恒红摆设)
+    writeFileSync(
+      BOOT,
+      "import demoPlugin from './plugins/demo.js'\nexport function build(server: unknown): void { void demoPlugin; void server }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    const green = runGate()
+    assert.equal(
+      green.status,
+      0,
+      `还原 default 取用应当复绿 rc=${green.status}\n${green.stdout?.slice(-700)}${green.stderr?.slice(-700)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+/**
+ * T15 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零消费者工厂红且点名、补上消费者复绿
+ * (2026-11-01 本票重写 T13/T14 时误吞了原 T12 的 test() 头,导致这一整块成为孤儿代码
+ * —— 语法仍解析、`node --test` 一条都不跑,原 C7 三情形端到端腿静默失活;此处补回声明头。)
+ */
+test('T15 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零消费者工厂红且点名、补上消费者复绿', () => {
   const dir = mkScratch('g121-c7-')
   try {
     const git = (args) =>
