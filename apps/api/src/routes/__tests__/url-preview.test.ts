@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type * as DnsModule from 'node:dns'
+import type * as Undici from 'undici'
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify from 'fastify'
@@ -34,6 +35,15 @@ vi.mock('node:dns', async (importOriginal) => {
       lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
     },
   }
+})
+
+// 生产出站走 **undici 的 fetch**(2026-10-31 安全强化第 15 批 M3:判定与建连共用同一次解析,
+// 收口 TTL=0 rebinding 窗口)—— 只 stub globalThis.fetch 拦不住它(那是 10-31 之前的旧出口),
+// 于是路由级用例出现"探测成功但 fetch 替身零调用"。这里把 undici 的 fetch 换成替身。
+const h = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof Undici>()
+  return { ...actual, fetch: h.undiciFetchStub }
 })
 
 // 鉴权 mock(形态对齐 team-memory 路由测试)。
@@ -218,8 +228,9 @@ describe('GET /api/url-preview/preview 路由面', () => {
   })
 
   it('缺 url 参数 400;正常探测回三态 envelope', async () => {
-    const fetchStub = vi.fn(async () => htmlResponse(OK_HTML))
-    vi.stubGlobal('fetch', fetchStub)
+    const fetchStub = h.undiciFetchStub
+    fetchStub.mockReset()
+    fetchStub.mockImplementation(async () => htmlResponse(OK_HTML))
     const app = await build()
     try {
       const bad = await app.inject({ method: 'GET', url: '/api/url-preview/preview' })
