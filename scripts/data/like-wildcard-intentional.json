@@ -1,0 +1,27 @@
+{
+  "_comment": "scripts/check-like-wildcard-escape.mjs(门 279 D3)的具名豁免台账。登记的是「整值即模式」面:客户端传进来的就是 LIKE 模式本身(网段通配),不是被包裹的字面量 —— 这类面**不能**改走 escapeLikeChars,否则功能立即失效。判序:条目形状坏/缺 reason/缺 until ⇒ 未判定(exit 2);until 到期 ⇒ 红;anchor 不再命中或文件已不在被审面 ⇒ 清单腐烂红。新增同类面必须先在此登记并附回归依据,不得就地裸调。",
+  "reviewBy": "2027-03-31",
+  "entries": [
+    {
+      "file": "apps/api/src/routes/admin/relay-logs.ts",
+      "anchor": "conds.push(like(llmCallLogs.clientIp, clientIp))",
+      "reason": "该腿的 clientIp 字段在 zod schema 注释里逐字写明「客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')」,整值即模式是对外契约;转义会把网段筛选打成恒空",
+      "ticket": "G-279-relay-logs-clientip",
+      "until": "2027-03-31"
+    },
+    {
+      "file": "apps/api/src/routes/developer-relay.ts",
+      "anchor": "conds.push(like(llmCallLogs.clientIp, clientIp))",
+      "reason": "与 admin/relay-logs 同一入参契约的开发者自查面,同一条字段注释;两枚必须同形,否则运营能筛而开发者不能",
+      "ticket": "G-279-developer-relay-clientip",
+      "until": "2027-03-31"
+    },
+    {
+      "file": "apps/api/src/routes/admin/export-csv.ts",
+      "anchor": "conds.push(like(llmCallLogs.clientIp, clientIp))",
+      "reason": "CSV 导出复用同一套筛选条件(导出的行集必须与页面所见一致),此处若单独收口会造成「页面能看到、导出没有」的口径分裂",
+      "ticket": "G-279-export-csv-clientip",
+      "until": "2027-03-31"
+    }
+  ]
+}

@@ -5,6 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { eq, and, desc, sql, ilike, inArray } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   eduOrders,
   eduPayments,
@@ -184,8 +185,8 @@ export async function findOrders(
   if (userId) conds.push(eq(eduOrders.userId, userId))
   if (orderNo) {
     // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
-    const escapedOrderNo = orderNo.replace(/[%_\\]/g, '\\$&')
-    conds.push(ilike(eduOrders.orderNo, `%${escapedOrderNo}%`))
+    // 2026-11-01:转义判据收进 utils/like-escape.ts 单源,本行只留调用。
+    conds.push(ilike(eduOrders.orderNo, asContainsTerm(orderNo)))
   }
 
   const list = await db

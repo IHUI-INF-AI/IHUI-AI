@@ -19,6 +19,7 @@ import { load as loadDom } from 'cheerio'
 import { algorithmRecord } from '@ihui/database'
 import { desc, or, and, ilike, eq, isNotNull, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   DEEP_SYNTHESIS_BATCH_SEEDS,
   DEEP_SYNTHESIS_DISCOVERY_URL,
@@ -399,7 +400,10 @@ export async function searchAlgorithmRecords(query: RecordQuery): Promise<Record
   if (query.category) conditions.push(eq(algorithmRecord.category, query.category))
   const q = query.q?.trim()
   if (q) {
-    const like = `%${q.replace(/[%_]/g, '')}%`
+    // 2026-11-01 口径更正:这里此前是**删掉** `%_`(还漏了反斜杠)—— 搜 "100%" 会被吃掉
+    // 百分号变成搜 "100"(命中 1000、第 100 题…)。单源改成转义后,"100%" 变成字面量匹配,
+    // 这是**可观察行为变化**(与仓内其余五份实现同口径),回归时按新语义看。
+    const like = asContainsTerm(q)
     conditions.push(
       or(
         ilike(algorithmRecord.algName, like),
