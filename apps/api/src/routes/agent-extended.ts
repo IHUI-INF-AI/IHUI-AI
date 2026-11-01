@@ -821,12 +821,20 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 审核提现申请(status: approved/rejected) — 仅管理员
   const withdrawalReviewSchema = z.object({
     status: z.enum(['approved', 'rejected']),
-    reviewer: z.uuid(),
     rejectReason: z.string().optional(),
   })
   server.post('/withdrawal/:id/review', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params)
     const body = withdrawalReviewSchema.parse(request.body)
+    // 2026-11-01 安全强化:`reviewer` 此前住在请求体(`reviewer: z.uuid()`),也就是
+    // "谁批准了这笔试款"这条**审计主体**由客户端自报 —— 任何管理员都能把别人的 id 盖上去,
+    // 事后无从追责。AGENTS §5「身份不得住客户端可整写字段」在这一格的形状就是:
+    // 主体只从承载层取(requireAdmin 里 authenticate 已写入 request.userId)。
+    // 键从 schema 里删掉而不是"收下但忽略":本仓记过"可传而忽略 = 没修"那一型
+    // (见 apps/ai-service/tests/test_rules_authz.py 的结构用例),而且 zod 默认剥未知键,
+    // 老客户端继续传 reviewer 也不会 400 —— 只是那个值不再进库。
+    const reviewer = request.userId
+    if (!reviewer) return reply.code(401).send({ error: '未登录' })
     const rows = await db
       .select()
       .from(zhsAgentWithdrawalDetail)
@@ -840,7 +848,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .update(zhsAgentWithdrawalDetail)
       .set({
         status: body.status,
-        reviewer: body.reviewer,
+        reviewer,
         reviewedAt: new Date(),
         ...(body.status === 'rejected' && body.rejectReason && { rejectReason: body.rejectReason }),
         updatedAt: new Date(),

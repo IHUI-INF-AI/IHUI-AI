@@ -411,5 +411,70 @@ describe('agent-extended IDOR 防护', () => {
       expect(res.statusCode).toBe(201)
     })
   })
+
+  // 2026-11-01 安全强化:`POST /withdrawal/:id/review` 的审计主体
+  describe('提现审核的 reviewer 只从令牌主体来', () => {
+    const ADMIN_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const ADMIN_B = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb'
+
+    /** 记录 `.set()` 实际收到的对象 —— 归属断言必须落在"写进去的值"上,不是"参数被解析过"。 */
+    function stubChain(): {
+      obj: Record<string, unknown>
+      captured: () => Record<string, unknown> | undefined
+    } {
+      let captured: Record<string, unknown> | undefined
+      const obj: Record<string, unknown> = {
+        then: (resolve?: (v: unknown) => unknown) =>
+          // 现读前置:handler 先问"这行在不在 + 是不是 pending",两个条件都要给足,
+          // 否则断言测的是前置分支而不是归属(实测第一轮就是 400「仅待审核状态可审核」)。
+          Promise.resolve([{ id: REC_ID, status: 'pending', amount: 1 }]).then(resolve),
+      }
+      for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'values', 'returning']) {
+        obj[m] = vi.fn().mockReturnValue(obj)
+      }
+      obj.set = vi.fn((payload: Record<string, unknown>) => {
+        captured = payload
+        return obj
+      })
+      return { obj, captured: () => captured }
+    }
+
+    beforeEach(() => {
+      mocks.dbUpdate.mockReset()
+      mocks.dbSelect.mockReset()
+    })
+
+    it('请求体塞别人的 reviewer ⇒ 进库的是令牌主体', async () => {
+      asAdmin(ADMIN_A)
+      const { obj, captured } = stubChain()
+      mocks.dbSelect.mockReturnValue(obj)
+      mocks.dbUpdate.mockReturnValue(obj)
+
+      const res = await server.inject({
+        method: 'POST',
+        url: `/withdrawal/${REC_ID}/review`,
+        payload: { status: 'approved', reviewer: ADMIN_B },
+      })
+      expect(res.statusCode).toBe(200)
+      const written = captured()
+      expect(written, '没走到 .set() ⇒ 这条断言是空的').toBeDefined()
+      expect(written?.reviewer).toBe(ADMIN_A)
+      expect(written?.reviewer).not.toBe(ADMIN_B)
+    })
+
+    it('不带 reviewer 也必须能过校验(结构锁:键留着当必填=没修)', async () => {
+      asAdmin(ADMIN_A)
+      const { obj } = stubChain()
+      mocks.dbSelect.mockReturnValue(obj)
+      mocks.dbUpdate.mockReturnValue(obj)
+      const res = await server.inject({
+        method: 'POST',
+        url: `/withdrawal/${REC_ID}/review`,
+        payload: { status: 'rejected', rejectReason: '资料不全' },
+      })
+      // 400 的唯一合法成因就是"reviewer 仍是必填"这一回归
+      expect(res.statusCode, res.body).not.toBe(400)
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
