@@ -37,6 +37,7 @@ const {
   DECLARATION_FLAGS,
   SYNC_FORWARDED_FLAGS,
   scanFlagConsumption,
+  checkFlagCoverage,
   judgeFlags,
   unknownFlagEscape,
   UNKNOWN_FLAG_ESCAPE_ENV,
@@ -301,6 +302,7 @@ test('⑨ 未知旗 CLI:rc=2、点名、零副作用(真仓 HEAD ∧ 夹具仓 H
     gitIn(dir, ['commit', '-q', '-m', 'seed'])
     const fxHead = gitIn(dir, ['rev-parse', 'HEAD'])
     const fxIdx = gitIn(dir, ['ls-files', '-s'])
+    const fxPorcelain = gitIn(dir, ['status', '--porcelain'])
 
     const r = runCli(dir, ['--definitely-not-a-flag'])
     assert.equal(r.status, 2, `未知旗必须 rc=2(实得 ${r.status});输出:${out(r).slice(0, 200)}`)
@@ -316,20 +318,37 @@ test('⑨ 未知旗 CLI:rc=2、点名、零副作用(真仓 HEAD ∧ 夹具仓 H
     assert.equal(gitIn(REPO, ['rev-parse', 'HEAD']), headBefore, '零副作用:真仓 HEAD 不许动')
     assert.equal(gitIn(dir, ['rev-parse', 'HEAD']), fxHead, '夹具仓 HEAD 不许动')
     assert.equal(gitIn(dir, ['ls-files', '-s']), fxIdx, '夹具仓索引 sha 不许动')
+    assert.equal(gitIn(dir, ['status', '--porcelain']), fxPorcelain, '夹具仓工作区/索引状态不许动')
   } finally {
     rmScratch(dir)
   }
 })
 
-test('⑩ --help 是纯查询:rc=0、印用法、不动仓里任何东西', () => {
+test('⑩ --help/-h 是纯查询:印用法、不动仓里任何东西(HEAD ∧ 索引 ∧ 工作区三面逐字不变)', () => {
   const headBefore = gitIn(REPO, ['rev-parse', 'HEAD'])
+  // 真仓索引/工作区不作断言的理由见 ⑨(多席共享工作区);与别席无关的不变量在夹具仓上判全三面。
   const dir = mkScratch('union-flag-help')
   try {
-    const r = runCli(dir, ['--help'])
-    assert.equal(r.status, 0, `--help 必须 rc=0(实得 ${r.status});输出:${out(r).slice(0, 200)}`)
-    assert.match(r.stdout, /用法:/, '--help 必须打印用法')
-    assert.doesNotMatch(out(r), /\[union-converge\]/, '--help 绝不允许开跑收敛')
-    assert.equal(gitIn(REPO, ['rev-parse', 'HEAD']), headBefore, '--help 不得推进 HEAD')
+    gitIn(dir, ['init', '-q', '-b', 'main'])
+    gitIn(dir, ['config', 'user.email', 'guard@example.invalid'])
+    gitIn(dir, ['config', 'user.name', 'guard'])
+    writeFileSync(join(dir, 'a.txt'), 'one\n', 'utf8')
+    gitIn(dir, ['add', 'a.txt'])
+    gitIn(dir, ['commit', '-q', '-m', 'seed'])
+    const fxHead = gitIn(dir, ['rev-parse', 'HEAD'])
+    const fxIdx = gitIn(dir, ['ls-files', '-s'])
+    const fxPorcelain = gitIn(dir, ['status', '--porcelain'])
+
+    for (const flag of ['--help', '-h']) {
+      const r = runCli(dir, [flag])
+      assert.equal(r.status, 0, `${flag} 必须 rc=0(实得 ${r.status});输出:${out(r).slice(0, 200)}`)
+      assert.match(r.stdout, /用法:/, `${flag} 必须打印用法`)
+      assert.doesNotMatch(out(r), /\[union-converge\]|第 \d\/\d 轮/, `${flag} 绝不允许开跑收敛`)
+      assert.equal(gitIn(REPO, ['rev-parse', 'HEAD']), headBefore, `${flag} 不得推进真仓 HEAD`)
+      assert.equal(gitIn(dir, ['rev-parse', 'HEAD']), fxHead, `${flag} 不得推进夹具仓 HEAD`)
+      assert.equal(gitIn(dir, ['ls-files', '-s']), fxIdx, `${flag} 不得写索引(票面:帮助路径不得留中间态)`)
+      assert.equal(gitIn(dir, ['status', '--porcelain']), fxPorcelain, `${flag} 不得写工作区/索引`)
+    }
   } finally {
     rmScratch(dir)
   }
@@ -359,6 +378,62 @@ test('⑪ 装车锁:闸排在 main 的一切动作之前,且清单/闸体全仓�
     [...src.matchAll(/export const (KNOWN_FLAGS|UNION_KNOWN_FLAGS)\b/g)].length,
     0,
     '旗清单不得在本器再立第二份',
+  )
+})
+
+test('⑫ 白名单完备性自检双向:真源码必须 ok;摘掉 --accept-state-growth 或长出未登记消费点必须 gap', () => {
+  const src = unionSrc()
+  const okCov = checkFlagCoverage(src)
+  assert.equal(okCov.verdict, 'ok', `真源码的覆盖自检必须 ok(实得 ${okCov.verdict}:${okCov.reason})`)
+  assert.ok(
+    okCov.scanned.length >= 15,
+    `扫描器只认出 ${okCov.scanned.length} 枚 ⇒ 扫描器腐烂,覆盖自检就成了假绿`,
+  )
+  assert.ok(
+    okCov.scanned.includes('--accept-state-growth'),
+    '扫描器必须认出同步链每轮转发的那枚(票面难点就是它)⇒ 否则"完备性由机器证"不成立',
+  )
+
+  // 反向例①(票面点名的变异):白名单里摘掉 --accept-state-growth ⇒ 自检必须红且点名它。
+  // 两半独立成立:missing 走"源码消费点"这一半,forwardedOutside 走"同步链转发族"这一半,
+  // 任一被摘掉都红 —— 漏了它,同步链每轮自动收敛都会死在闸上(失效方向必须可被自检看见)。
+  const dropped = UNION_KNOWN_FLAGS.filter((f) => f !== '--accept-state-growth')
+  const cov1 = checkFlagCoverage(src, { known: dropped })
+  assert.equal(cov1.verdict, 'gap', '白名单摘掉一枚真在用的旗却没红 ⇒ 覆盖自检没有牙')
+  assert.ok(cov1.missing.includes('--accept-state-growth'), '必须点名漏的是哪一枚')
+  assert.ok(
+    cov1.forwardedOutside.includes('--accept-state-growth'),
+    '转发族那一半也必须抓到自己(转发旗缺登记 = 每次自动收敛当场死在闸上)',
+  )
+
+  // 反向例②:源码长出一枚没登记的 argv 消费点 ⇒ gap(白名单腐烂的第一现场)。
+  const grown = `${src}\nconst sneaky = argv.includes('--never-registered-flag')\n`
+  const cov2 = checkFlagCoverage(grown)
+  assert.equal(cov2.verdict, 'gap', '源码多了消费点而白名单不动却没红 ⇒ 覆盖自检只认旧快照')
+  assert.deepEqual(cov2.missing, ['--never-registered-flag'], '必须逐枚点名漏项')
+
+  // 三态:取不到输入 ⇒ undetermined,既不冒绿也不冒红(§0.3)。
+  assert.equal(checkFlagCoverage('').verdict, 'undetermined', '源码没取到不许冒绿')
+  assert.equal(checkFlagCoverage(src, { known: [] }).verdict, 'undetermined', '白名单为空不许冒绿')
+})
+
+test('⑬ 自检装车锁:--self-test 必须真登记并求值那条覆盖自检(只写在注释/只写在本测试里 = 没有)', () => {
+  const src = unionSrc()
+  const iSelf = src.indexOf('function selfTest()')
+  assert.ok(iSelf > 0, '找不到 selfTest 函数 ⇒ 本用例锚点腐烂')
+  const iCall = src.indexOf('checkFlagCoverage(readFileSync(fileURLToPath(import.meta.url)')
+  assert.ok(iCall > iSelf, '--self-test 体内必须调用 checkFlagCoverage 扫自己这份源码')
+  const iReport = src.indexOf('const { fail, cases } = report()', iSelf)
+  assert.ok(iReport > iCall, '覆盖自检必须登记在 report() 之前(登记了不跑 = 没装车)')
+  assert.match(
+    src.slice(iCall, iReport),
+    /ok\(\s*\n\s*'旗标白名单覆盖自检/,
+    '必须经共用登记出口(ok)登记,退化成裸布尔或只写注释都不算装车',
+  )
+  assert.match(
+    src.slice(iCall, iReport),
+    /cov\.verdict === 'ok'/,
+    '登记的结论必须是覆盖自检的三态判定,不能换成恒真式',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
