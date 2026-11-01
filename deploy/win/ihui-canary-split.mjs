@@ -32,12 +32,12 @@
  *     未捕获 ⇒ 分流器进程整只退出,线上由「灰度过半」直接掉成「全站不可达」。
  *
  * 用法:
- *   node deploy/win/ihui-canary-split.mjs --contract <ramp.json> --listen <port>
+ *   node deploy/win/ihui-canary-split.mjs --contract <ramp.json> --listen <port> [--stats <split-stats.json>]
  */
 
 import http from 'node:http'
 import net from 'node:net'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -45,6 +45,8 @@ import { loadTrafficPolicy, selectTrafficLane } from '../../scripts/canary-traff
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DEFAULT_CONTRACT = join(ROOT, '.ihui-agent', 'state', 'canary', 'ramp.json')
+/** 车道计数落盘的唯一默认落点(观测面;与契约同目录)。 */
+export const DEFAULT_STATS_PATH = join(ROOT, '.ihui-agent', 'state', 'canary', 'split-stats.json')
 
 // 灰度槽位探活:契约写着比例、但承载新构建的实例还没起(或已挂)时,那一部分流量会打到
 // 空端口 —— 5% 的 502 比"没放量"坏得多。故探活不通过 ⇒ 该部分流量回落 stable(老版本在线)。
@@ -170,6 +172,97 @@ export function createHealthCache({ ttlMs = HEALTH_TTL_MS, probe = probePort } =
       state.set(port, { ok, at: now })
       return ok
     },
+  }
+}
+
+/**
+ * 车道计数落盘出口(2026-11-01 立,治"灰度期到底放过多少量无人知道")。
+ *
+ * 立因:响应头 `x-ihui-canary-lane` 只是单枚请求的排障线索,进程整轮只在 listen 时 print 一行;
+ * 契约文件 ramp.json 记的是**期望比例**,deploy-decisions.jsonl 记的是**判定结论** ——
+ * 两者都证明不了"实际放过多少量"。演练里的 22/400 只在夹具内由客户端算出,生产面没有产物。
+ *
+ * 纪律(缺一即本层不成立):
+ *  - **只作观测面**:计数绝不回流进任何回滚阈值/档位判据(那会新增一条会抖的判据,§5e-3 同源);
+ *  - 契约取不到也计数(`contractMissing`),让"契约坏 ⇒ 全回 stable"这条承诺留下证据;
+ *  - 写失败**绝不影响转发**:handler 里的任何异常都会把分流器打死(2026-10-29 实测过这个形态),
+ *    所以这里吞异常、只在 stderr 点名一次,不 throw 也不冒绿;
+ *  - 落盘是"分流器进程自己的累计",不是"本轮增量" —— 消费方(gray.ps1 复用已在位的分流器进程),
+ *    读数措辞必须如实(§0.3)。
+ */
+export const STATS_FLUSH_INTERVAL_MS = 5000
+export const STATS_FLUSH_EVERY = 100
+
+/** 落盘形态(纯函数,可测;只含观测字段,不含任何判据输入)。 */
+export function laneStatsShape(counters, { contractPercent = null, updatedAt }) {
+  return {
+    updatedAt,
+    contractPercent,
+    lanes: { stable: counters.stable, canary: counters.canary },
+    fallback: counters.fallback,
+    contractMissing: counters.contractMissing,
+  }
+}
+
+export function createLaneStatsWriter({
+  statsPath = DEFAULT_STATS_PATH,
+  throttleMs = STATS_FLUSH_INTERVAL_MS,
+  everyN = STATS_FLUSH_EVERY,
+  now = () => Date.now(),
+  writeFileSync: writeFn = writeFileSync,
+  mkdirSync: mkdirFn = mkdirSync,
+  renameSync: renameFn = renameSync,
+  onError = null,
+} = {}) {
+  const counters = { stable: 0, canary: 0, fallback: 0, contractMissing: 0 }
+  let contractPercent = null
+  let sinceWrite = 0
+  let lastWriteAt = now()
+  let writeFailures = 0
+  const onWriteError =
+    onError ??
+    ((e, count) => {
+      if (count === 1)
+        console.error(
+          `[canary-split] 车道计数落盘失败(仅观测面,不影响转发):${statsPath} — ${e?.message ?? e}`,
+        )
+    })
+  const flush = () => {
+    const stamp = new Date(now()).toISOString()
+    const payload = laneStatsShape(counters, { contractPercent, updatedAt: stamp })
+    sinceWrite = 0
+    lastWriteAt = now()
+    try {
+      mkdirFn(dirname(statsPath), { recursive: true })
+      // 先写临时名再改名:读侧(部署环)不该看到半截 JSON。
+      const tmp = `${statsPath}.writing`
+      writeFn(tmp, JSON.stringify(payload), 'utf8')
+      renameFn(tmp, statsPath)
+    } catch (e) {
+      writeFailures += 1
+      onWriteError(e, writeFailures)
+    }
+    return payload
+  }
+  const observe = (evt) => {
+    if (evt?.lane === 'canary') counters.canary += 1
+    else if (evt?.lane === 'stable') counters.stable += 1
+    if (evt?.fallback) counters.fallback += 1
+    if (evt?.contractMissing) {
+      counters.contractMissing += 1
+      contractPercent = null
+    } else if (Number.isFinite(evt?.percent)) {
+      contractPercent = evt.percent
+    }
+    sinceWrite += 1
+    const t = now()
+    if (sinceWrite >= everyN || t - lastWriteAt >= throttleMs) flush()
+  }
+  return {
+    observe,
+    flush,
+    counters: () => ({ ...counters }),
+    failures: () => writeFailures,
   }
 }
 
@@ -322,6 +415,73 @@ function main() {
     // 灰度实例不在位 ⇒ 命中灰度的流量必须回落 stable(绝不打到空端口)
     const fb = laneFor({ contract: c, headers: { 'x-canary-tag': 'canary' }, remoteAddress: '', canaryUp: false })
     if (fb.lane !== 'stable' || !fb.fallback) throw new Error('灰度实例不健康时未回落 stable')
+    // 车道计数落盘出口(2026-11-01 立):节流形态 + 契约缺失也计数 + 写失败不吞转发
+    {
+      const writes = []
+      let clock = 0
+      const w = createLaneStatsWriter({
+        statsPath: 'X:/nowhere/split-stats.json',
+        throttleMs: 5000,
+        everyN: 4,
+        now: () => clock,
+        writeFileSync: (_p, text) => writes.push(['.writing', JSON.parse(text)]),
+        mkdirSync: () => {},
+        renameSync: (_from, to) => writes.push([to, writes.pop()[1]]),
+      })
+      w.observe({ lane: 'stable', percent: 5, fallback: false, contractMissing: false })
+      w.observe({ lane: 'canary', percent: 5, fallback: false, contractMissing: false })
+      if (writes.length !== 0) throw new Error('未到节流点就落盘(会把每枚请求变成一次磁盘写)')
+      w.observe({ lane: 'stable', percent: 5, fallback: true, contractMissing: false })
+      w.observe({ lane: 'stable', percent: 0, fallback: false, contractMissing: true })
+      if (writes.length === 0) throw new Error('满 everyN 未落盘 ⇒ 计数出口是摆设')
+      if (writes[writes.length - 1][0] !== 'X:/nowhere/split-stats.json')
+        throw new Error('落盘没有走改名(读侧会看到半截 JSON)')
+      const last = writes[writes.length - 1][1]
+      if (last.lanes.stable !== 3 || last.lanes.canary !== 1)
+        throw new Error(`车道计数不对:${JSON.stringify(last.lanes)}`)
+      if (last.fallback !== 1 || last.contractMissing !== 1)
+        throw new Error(`回落/契约缺失未计数:${JSON.stringify(last)}`)
+      if (last.contractPercent !== null)
+        throw new Error('契约缺失后的那枚必须把比例读点判为取不到(不得留着上一枚的 5 冒充)')
+      if (typeof last.updatedAt !== 'string' || !last.updatedAt)
+        throw new Error('落盘缺 updatedAt(读侧无法判读数账龄)')
+      // 时间维节流:计数未到 everyN,但账龄过了 ⇒ 必须落(否则慢流量整轮没有读数)
+      clock += 6000
+      w.observe({ lane: 'canary', percent: 5, fallback: false, contractMissing: false })
+      const byTime = writes[writes.length - 1][1]
+      if (byTime.lanes.canary !== 2) throw new Error('时间维节流未触发落盘')
+      // 写不进去 ⇒ 吞住并计数,绝不抛穿到转发路径(抛穿 = 分流器整只死)
+      const errs = []
+      const boom = createLaneStatsWriter({
+        statsPath: 'X:/nowhere/split-stats.json',
+        everyN: 1,
+        onError: (e, n) => errs.push(`${e?.message}:${n}`),
+        writeFileSync: () => {
+          throw new Error('磁盘坏了')
+        },
+        mkdirSync: () => {},
+        renameSync: () => {},
+      })
+      for (let i = 0; i < 5; i += 1)
+        boom.observe({ lane: 'stable', percent: 0, fallback: false, contractMissing: false })
+      if (boom.failures() !== 5) throw new Error('写失败未被吞住计数(会抛穿转发路径 ⇒ 分流器整只死)')
+      if (errs.length !== 5) throw new Error('写失败一条都没点名(哑掉的观测出口等于没有出口)')
+      // flush() 必须无条件落一次(演练/退出收尾用,不能只靠节流)
+      const once = []
+      const fw = createLaneStatsWriter({
+        statsPath: 'X:/a/split-stats.json',
+        everyN: 9999,
+        throttleMs: 9999,
+        writeFileSync: (_p, text) => once.push(JSON.parse(text)),
+        mkdirSync: () => {},
+        renameSync: () => {},
+      })
+      fw.observe({ lane: 'canary', percent: 10, fallback: false, contractMissing: false })
+      if (once.length !== 0) throw new Error('flush 前不应有落盘')
+      fw.flush()
+      if (once.length !== 1 || once[0].lanes.canary !== 1 || once[0].contractPercent !== 10)
+        throw new Error(`flush 收尾没落全:${JSON.stringify(once)}`)
+    }
     console.log('ok  分流器自检通过')
     return
   }
@@ -331,15 +491,31 @@ function main() {
   if (!stablePortFallback) {
     console.error('[canary-split] 现网端口取不到(策略 traffic.slots.stable.port 读不出)⇒ 契约缺失时只能 503,不回退猜端口')
   }
-  const server = createSplitServer({ contractPath, stablePortFallback })
+  // 车道计数落盘(2026-11-01 立):CLI 形态必须自带观测出口 —— gray.ps1 起的正是这一条路径,
+  // 而它把 stdout 重定向进日志;只 print 一行的话灰度期结束后"放过多少量"就无任何持久产物。
+  const statsPath =
+    typeof args.stats === 'string' && args.stats ? resolve(String(args.stats)) : DEFAULT_STATS_PATH
+  const stats = createLaneStatsWriter({ statsPath })
+  const server = createSplitServer({ contractPath, stablePortFallback, onLane: stats.observe })
   server.listen(listen, '127.0.0.1', () => {
     const c = loadContract(contractPath)
     console.log(
       `[canary-split] 监听 127.0.0.1:${listen} 契约=${contractPath} 比例=${c ? c.percent : 0}%` +
       `${c ? '' : `(契约缺失 ⇒ 全部回 stable:${stablePortFallback || '端口不可知 ⇒ 503'})`}` +
-      ` 现网回调端口=${stablePortFallback || 'n/a'}`,
+      ` 现网回调端口=${stablePortFallback || 'n/a'}` +
+      ` 车道计数=${statsPath}`,
     )
+    // 落一次初值:即使一枚请求都没进来,也要留下"分流器起过、计数为 0"的证据,
+    // 而不是让读侧对着一个不存在的文件猜(§0.3:取不到 ⇒ 未判定,不是 0)。
+    stats.flush()
   })
+  for (const sig of ['SIGINT', 'SIGTERM']) {
+    process.on(sig, () => {
+      stats.flush()
+      process.exit(0)
+    })
+  }
+  process.on('exit', () => stats.flush())
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {

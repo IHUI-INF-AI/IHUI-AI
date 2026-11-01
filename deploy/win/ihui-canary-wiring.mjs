@@ -36,11 +36,20 @@
  *                                      --verdict $rampVerdict(按 $graySampledFrom 折算过的那枚),两维缺一即缺口
  *                                      (票 31460:灰度实例不在位时的"现网侧 pass"不得被喂给
  *                                      档位推进冒充"灰度侧通过";缺省 unknown ⇒ hold 不推进)
+ *   W11 实切量落日志/台账             —— Invoke-CanaryGate 必须读分流器的车道计数产物并打成
+ *                                      一行 `GRAY 实切=<canary>/<total> 占比=…`,同时随
+ *                                      --reason-append 进决策台账(取不到也要如实打"未判定")
+ *   W12 计数落盘出口本体              —— 分流器 CLI(deploy/win/ihui-canary-split.mjs 源码)必须
+ *                                      把 onLane 接到计数落盘出口(createLaneStatsWriter ∧
+ *                                      onLane: stats.observe):响应头只是单枚排障线索,进程整轮
+ *                                      只 print 一行 ⇒ 灰度期"放过多少量"没有任何持久产物。
+ *                                      这一格判的是**另一份文件**,所以输入取不到即未判定(§0.3),
+ *                                      绝不"这一格跳过就算绿"。
  *
  * 三态(§0.3,不并桶):
- *   0 = 已接线(W1–W10 全中)
+ *   0 = 已接线(W1–W12 全中)
  *   1 = 有缺口(逐条点名 id + 修法)
- *   2 = 未判定(被审文件取不到 / 找不到 Invoke-CanaryGate 段 ⇒ 绝不记绿)
+ *   2 = 未判定(被审文件取不到 / 找不到 Invoke-CanaryGate 段 / 分流器源码取不到 ⇒ 绝不记绿)
  *
  * 用法:
  *   node deploy/win/ihui-canary-wiring.mjs --check [--file <ps1>] [--json]
@@ -54,6 +63,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const DEFAULT_LOOP_PS1 = join(ROOT, 'deploy', 'win', 'ihui-deploy-loop.ps1')
+/** W12 的第二枚被审文件:分流器本体(车道计数落盘出口住在这里,不在部署环里)。 */
+export const DEFAULT_SPLIT_MJS = join(ROOT, 'deploy', 'win', 'ihui-canary-split.mjs')
 
 export const EXIT_WIRED = 0
 export const EXIT_GAP = 1
@@ -128,6 +139,31 @@ export const WIRING_RULES = [
     fix: '先按 $graySampledFrom 折算 $rampVerdict(≠canary ⇒ unknown ⇒ 原地不动),再把灰度实例是否在位现算成 yes|no|unknown,' +
       '随 --decide 一起传 `--verdict $rampVerdict --canary-serving $canaryServing`;缺省/取不到一律 unknown ⇒ stage.mjs 侧落 hold,不推进也不回滚',
   },
+  {
+    id: 'W11',
+    need: /GRAY 实切=/,
+    also: /--reason-append/,
+    why:
+      '灰度期"到底放过多少量"没有落到日志与决策台账 —— 分流器只把车道写进响应头(单枚排障线索),' +
+      '契约文件写的是期望比例,台账写的是判定结论,三者都证明不了实切量(2026-11-01 现读:' +
+      '部署环通篇读不到 split-stats.json)。取不到计数时也必须打出「GRAY 实切=未判定」而不是不提(§0.3)。',
+    fix: '在 Invoke-CanaryGate 内读 .ihui-agent\\state\\canary\\split-stats.json 折算成一行 ' +
+      '`GRAY 实切=<canary>/<total> 占比=x%`,随 --decide 传 `--reason-append` 并入台账 reason,' +
+      '并在档位决策之后 Log 同一行(计数只作观测,绝不回流进回滚阈值,也不进告警去重身份 §5e-3)',
+  },
+  {
+    id: 'W12',
+    scope: 'split',
+    need: /createLaneStatsWriter/,
+    also: /onLane:\s*stats\.observe/,
+    why:
+      '分流器 CLI 没有车道计数落盘出口(或出口造好却没接进 CLI)⇒ 灰度期整轮跑完磁盘上没有任何实切产物。' +
+      '2026-11-01 现读:ihui-canary-gray.ps1 正是以 CLI 形态起分流器并把 stdout 重定向进日志,' +
+      '而 main() 里 createSplitServer 不传 onLane、进程只在 listen 时 print 一行 —— 这一格是空的。',
+    fix: '在 deploy/win/ihui-canary-split.mjs 的 main() 里 createLaneStatsWriter({ statsPath }) ' +
+      '并以 `onLane: stats.observe` 接进 createSplitServer;节流落盘(默认 5s / 100 枚一写)+' +
+      '退出前 flush,写失败只点名不得抛穿转发路径,契约缺失也计数(contractMissing)',
+  },
 ]
 
 /**
@@ -155,8 +191,13 @@ export function canaryGateBody(text) {
   return lines.slice(start, end).join('\n')
 }
 
-/** 判据本体:返回缺口数组(空 = 已接线)。输入不是文本 ⇒ 抛(调用方落未判定)。 */
-export function wiringGaps(text) {
+/** 判据本体:返回缺口数组(空 = 已接线)。输入不是文本 ⇒ 抛(调用方落未判定)。
+ *
+ * 两个输入面:`text` = 部署环全文(W1–W11,裁到 Invoke-CanaryGate 段);
+ * `splitText` = 分流器源码全文(W12)。带 `scope:'split'` 的格子**必须**拿到自己的输入,
+ * 拿不到就抛 —— "这一格没有输入所以跳过"等于把没判写成判过(§0.3)。
+ */
+export function wiringGaps(text, splitText) {
   if (typeof text !== 'string' || !text.trim())
     throw new Error('接线判据输入为空文本(取不到被审面)')
   const body = canaryGateBody(text)
@@ -172,16 +213,20 @@ export function wiringGaps(text) {
         `判据 ${rule.id} 没声明任何判法(need/also/minCount/forbid/order 全空 ⇒ 恒绿摆设)`,
       )
     }
-    if (rule.need && !rule.need.test(body)) {
+    const isSplit = rule.scope === 'split'
+    if (isSplit && (typeof splitText !== 'string' || !splitText.trim()))
+      throw new Error(`分流器源码取不到 ⇒ ${rule.id} 未判定(绝不因"没有输入"记绿)`)
+    const corpus = isSplit ? splitText : body
+    if (rule.need && !rule.need.test(corpus)) {
       gaps.push({ id: rule.id, why: rule.why, fix: rule.fix })
       continue
     }
-    if (rule.also && !rule.also.test(body)) {
+    if (rule.also && !rule.also.test(corpus)) {
       gaps.push({ id: rule.id, why: `${rule.why}(缺 ${rule.also})`, fix: rule.fix })
       continue
     }
     if (rule.minCount) {
-      const hits = body.match(rule.minCount.pattern)
+      const hits = corpus.match(rule.minCount.pattern)
       if (!hits || hits.length < rule.minCount.atLeast) {
         gaps.push({
           id: rule.id,
@@ -192,8 +237,8 @@ export function wiringGaps(text) {
       }
     }
     if (rule.order) {
-      const a = body.search(rule.order.first)
-      const b = body.search(rule.order.second)
+      const a = corpus.search(rule.order.first)
+      const b = corpus.search(rule.order.second)
       if (a < 0 || b < 0) {
         gaps.push({
           id: rule.id,
@@ -212,7 +257,7 @@ export function wiringGaps(text) {
       }
     }
     if (rule.forbid) {
-      const hit = rule.forbid.find((re) => re.test(body))
+      const hit = rule.forbid.find((re) => re.test(corpus))
       if (hit) {
         gaps.push({ id: rule.id, why: `${rule.why}(命中 ${hit})`, fix: rule.fix })
         continue
@@ -261,6 +306,13 @@ function selfTest() {
       return ''
     }
   })()
+  const splitReal = (() => {
+    try {
+      return readFileSync(DEFAULT_SPLIT_MJS, 'utf8')
+    } catch {
+      return ''
+    }
+  })()
   const body = canaryGateBody(real)
 
   t('被审文件取不到 ⇒ 抛(未判定,不记绿)', () => {
@@ -282,9 +334,11 @@ function selfTest() {
     if (!hit) throw new Error('无段未抛')
   })
   if (body) {
+    if (!splitReal.trim())
+      throw new Error(`分流器源码取不到(${DEFAULT_SPLIT_MJS})⇒ W12 无从判定,自检不得记绿`)
     for (const rule of WIRING_RULES) {
-      t(`正向:真部署环命中 ${rule.id}`, () => {
-        const gaps = wiringGaps(real)
+      t(`正向:真部署环/真分流器命中 ${rule.id}`, () => {
+        const gaps = wiringGaps(real, splitReal)
         if (gaps.some((g) => g.id === rule.id))
           throw new Error(`${rule.id} 判为缺口:${gaps.find((g) => g.id === rule.id)?.why}`)
       })
@@ -299,22 +353,48 @@ function selfTest() {
       { name: '摘掉整包回滚出口', re: /-rollbackOnly/g, want: 'W8' },
       { name: '摘掉灰度在位维(--canary-serving)', re: /--canary-serving/g, want: 'W10' },
       { name: '摘掉采样面折算的档位判定', re: /rampVerdict/g, want: 'W10' },
+      { name: '摘掉实切量日志行(GRAY 实切=)', re: /GRAY 实切=/g, want: 'W11' },
+      { name: '摘掉实切量并台账(--reason-append)', re: /--reason-append/g, want: 'W11' },
     ]
     for (const m of mutations) {
       t(`变异:${m.name} ⇒ ${m.want} 翻红`, () => {
         const mutated = real.replace(m.re, '「已摘线」')
         if (mutated === real) throw new Error('变异未生效(原文里没有这一格 ⇒ 本自证假绿)')
-        const gaps = wiringGaps(mutated)
+        const gaps = wiringGaps(mutated, splitReal)
         if (!gaps.some((g) => g.id === m.want))
           throw new Error(`摘线后仍判 ${m.want} 绿 ⇒ 判据是摆设`)
       })
     }
+    // W12 的变异面在分流器源码里(不在部署环里):摘掉 CLI 的接线 ⇒ 翻红
+    t(`变异:摘掉分流器 CLI 的计数接线(onLane: stats.observe)⇒ W12 翻红`, () => {
+      const mutated = splitReal.replace(/onLane:\s*stats\.observe/g, '「计数出口已摘线」')
+      if (mutated === splitReal) throw new Error('变异未生效(分流器 CLI 根本没接出口)')
+      const gaps = wiringGaps(real, mutated)
+      if (!gaps.some((g) => g.id === 'W12')) throw new Error('摘线后仍判 W12 绿 ⇒ 判据是摆设')
+    })
+    t('W12 输入面:分流器源码取不到 ⇒ 抛(未判定,绝不跳过这一格记绿)', () => {
+      let hit = false
+      try {
+        wiringGaps(real, '')
+      } catch (e) {
+        hit = /W12 未判定/.test(String(e?.message ?? e))
+      }
+      if (!hit) throw new Error('缺输入未抛 ⇒ 这一格会静默变绿')
+    })
     // 成对夹具工厂:除被检的那一格之外,其余各格都必须齐备 —— 否则"翻红"可能来自别格,
     // 而那是假阳(与"摘掉即翻红"要证的恰好相反)。
-    const fakeGate = ({ hardcode = false, swapOrder = false } = {}) => {
+    const fakeGate = ({ hardcode = false, swapOrder = false, noReadout = false } = {}) => {
       const stop = '  & $PwshExe -File $grayPs1 -Action stop'
       const rb =
         "  & $PwshExe -File (Join-Path $WinDir 'ihui-deploy.ps1') -rollbackOnly -CanaryRollback"
+      const readout = noReadout
+        ? '  $grayRealSplit = "未判定"'
+        : [
+            "  $grayRealSplit = 'GRAY 实切=未判定(计数产物取不到)'",
+            '  if (Test-Path -LiteralPath $splitStatsPath) { $grayRealSplit = "GRAY 实切=$($splitCanary)/$($splitTotal) 占比=$($splitShare)%" }',
+            "  $dArgs += @('--reason-append', $grayRealSplit)",
+            '  Log $grayRealSplit',
+          ].join('\n')
       return [
         'function Invoke-CanaryGate {',
         "  $stageCli = Join-Path $WinDir 'ihui-canary-stage.mjs'",
@@ -331,16 +411,29 @@ function selfTest() {
           ? '  # 反例:把槽位端口/比例写死在部署环里 ⇒ 第二份策略(§0.6)'
           : '  $samplePolicy = $policyPath',
         hardcode ? '  $u = "http://127.0.0.1:8845/health"' : '  $u = $samplePolicy',
+        readout,
         '}',
       ].join('\n')
     }
+    /** W12 的分流器夹具:接了出口 / 摘了出口(成对反向对照)。 */
+    const fakeSplit = ({ unwired = false, noWriter = false } = {}) =>
+      [
+        'function main() {',
+        noWriter
+          ? '  const stats = { observe: () => {} }'
+          : '  const stats = createLaneStatsWriter({ statsPath })',
+        unwired
+          ? '  const server = createSplitServer({ contractPath, stablePortFallback })'
+          : '  const server = createSplitServer({ contractPath, stablePortFallback, onLane: stats.observe })',
+        '}',
+      ].join('\n')
     t('夹具自证:其余各格齐备的假段落 ⇒ 零缺口(防本判据恒红的假阳对照)', () => {
-      const gaps = wiringGaps(fakeGate({}))
+      const gaps = wiringGaps(fakeGate({}), fakeSplit())
       if (gaps.length)
         throw new Error(`应全中,实得 ${gaps.map((g) => `${g.id}:${g.why}`).join(' | ')}`)
     })
     t('W7 反向对照:同一段里出现端口/比例字面量即判缺口(其余各格齐备也不放过)', () => {
-      const gaps = wiringGaps(fakeGate({ hardcode: true }))
+      const gaps = wiringGaps(fakeGate({ hardcode: true }), fakeSplit())
       if (!gaps.some((g) => g.id === 'W7'))
         throw new Error(`比例/端口字面量未被 W7 咬住(实得 ${JSON.stringify(gaps)})`)
       const others = gaps.filter((g) => g.id !== 'W7')
@@ -348,15 +441,27 @@ function selfTest() {
         throw new Error(`夹具除 W7 外应全中,实得 ${others.map((g) => g.id).join(',')}`)
     })
     t('W9 反向对照:撤灰度排在退包之后 ⇒ 只有 W9 翻红', () => {
-      const gaps = wiringGaps(fakeGate({ swapOrder: true }))
+      const gaps = wiringGaps(fakeGate({ swapOrder: true }), fakeSplit())
       if (gaps.length !== 1 || gaps[0].id !== 'W9') throw new Error(`实得 ${JSON.stringify(gaps)}`)
+    })
+    t('W11 反向对照:整块实切量读数被摘掉(日志+台账一起没)⇒ 只有 W11 翻红', () => {
+      const gaps = wiringGaps(fakeGate({ noReadout: true }), fakeSplit())
+      if (gaps.length !== 1 || gaps[0].id !== 'W11') throw new Error(`实得 ${JSON.stringify(gaps)}`)
+    })
+    t('W12 反向对照:分流器 CLI 没把计数出口接进 createSplitServer ⇒ 只有 W12 翻红', () => {
+      const gaps = wiringGaps(fakeGate({}), fakeSplit({ unwired: true }))
+      if (gaps.length !== 1 || gaps[0].id !== 'W12') throw new Error(`实得 ${JSON.stringify(gaps)}`)
+    })
+    t('W12 反向对照:出口本体都不存在(只有个空 observe)⇒ 只有 W12 翻红', () => {
+      const gaps = wiringGaps(fakeGate({}), fakeSplit({ noWriter: true }))
+      if (gaps.length !== 1 || gaps[0].id !== 'W12') throw new Error(`实得 ${JSON.stringify(gaps)}`)
     })
     t('形状自锁:一格判据没声明任何判法 ⇒ 抛(不得恒绿)', () => {
       WIRING_RULES.push({ id: 'X0', why: '故意造的空格', fix: '不该存在' })
       try {
         let hit = false
         try {
-          wiringGaps(fakeGate({}))
+          wiringGaps(fakeGate({}), fakeSplit())
         } catch (e) {
           hit = /恒绿摆设/.test(String(e?.message ?? e))
         }
@@ -383,6 +488,7 @@ function main() {
   if (args['self-test']) return selfTest()
 
   const file = args.file ? resolve(String(args.file)) : DEFAULT_LOOP_PS1
+  const splitFile = args.split ? resolve(String(args.split)) : DEFAULT_SPLIT_MJS
   let text
   try {
     text = readFileSync(file, 'utf8')
@@ -390,16 +496,23 @@ function main() {
     console.error(`接线未判定:${file} 读不到(${e?.message ?? e})`)
     process.exit(EXIT_UNDETERMINED)
   }
+  let splitText
+  try {
+    splitText = readFileSync(splitFile, 'utf8')
+  } catch (e) {
+    console.error(`接线未判定:${splitFile} 读不到(W12 的判据面,取不到不跳过 ⇒ ${e?.message ?? e})`)
+    process.exit(EXIT_UNDETERMINED)
+  }
   let gaps
   try {
-    gaps = wiringGaps(text)
+    gaps = wiringGaps(text, splitText)
   } catch (e) {
     console.error(`接线未判定:${e?.message ?? e}`)
     process.exit(EXIT_UNDETERMINED)
   }
-  if (args.json) console.log(JSON.stringify({ file, wired: gaps.length === 0, gaps }))
+  if (args.json) console.log(JSON.stringify({ file, splitFile, wired: gaps.length === 0, gaps }))
   else if (gaps.length === 0)
-    console.log(`CANARY-WIRING wired  ${file} 判据 ${WIRING_RULES.length} 格全中`)
+    console.log(`CANARY-WIRING wired  ${file} 判据 ${WIRING_RULES.length} 格全中(分流器面=${splitFile})`)
   else {
     console.log(`CANARY-WIRING GAP  ${file} 缺 ${gaps.length}/${WIRING_RULES.length} 格:`)
     for (const g of gaps) console.log(`  - ${g.id} ${g.why}\n    修法:${g.fix}`)
@@ -416,6 +529,7 @@ export const __test__ = {
   wiringGaps,
   WIRING_RULES,
   DEFAULT_LOOP_PS1,
+  DEFAULT_SPLIT_MJS,
   EXIT_WIRED,
   EXIT_GAP,
   EXIT_UNDETERMINED,
