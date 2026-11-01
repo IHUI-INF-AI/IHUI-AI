@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   statCell: { flex: 1, alignItems: 'center', gap: rnSpacing['2xs'] },
-  statLabel: { fontSize: 10, color: tokens.text.tertiary, textAlign: 'center' },
+  statLabel: { fontSize: rnType.badge.size, color: tokens.text.tertiary, textAlign: 'center' },
   statValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tokens.text.primary },
   finishedCard: {
     alignItems: 'center',
@@ -439,7 +439,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.bg,
   },
-  resultCellLabel: { fontSize: 10, color: tokens.text.tertiary, textAlign: 'center' },
+  resultCellLabel: {
+    fontSize: rnType.badge.size,
+    color: tokens.text.tertiary,
+    textAlign: 'center',
+  },
   resultCellValue: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
   primaryBtn: {
     height: 42,

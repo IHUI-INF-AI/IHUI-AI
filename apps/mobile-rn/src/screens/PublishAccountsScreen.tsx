@@ -489,7 +489,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
     },
     pillOn: { backgroundColor: tokens.success.light },
-    pillText: { fontSize: 10, color: tokens.text.secondary },
+    pillText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     pillTextOn: { color: tokens.success.deepText, fontWeight: '600' },
     stateBox: {
       alignItems: 'center',

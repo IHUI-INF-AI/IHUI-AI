@@ -1749,7 +1749,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     areaArrow: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.tertiary,
       marginLeft: rnSpacing['xs-loose'],
     },

@@ -10,7 +10,7 @@ import type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps } from '../
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** AIGC 封面选择共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps }
@@ -142,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.light },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.lg },
     previewWrap: {
@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
-    previewBadgeText: { fontSize: 12, color: tk.surface.light },
+    previewBadgeText: { fontSize: rnType.label.size, color: tk.surface.light },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     filterChip: {
       paddingHorizontal: 14,
@@ -170,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     filterChipActive: { backgroundColor: primary },
-    filterText: { fontSize: 14, color: tk.text.medium },
+    filterText: { fontSize: rnType.body.size, color: tk.text.medium },
     filterTextActive: { color: tk.surface.light, fontWeight: '600' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     coverItem: {
@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     coverLabel: {
       marginTop: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.sm,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.medium,
     },
     selectedDot: {
@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: primary,
       alignItems: 'center',
     },
-    aiGenText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    aiGenText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     footer: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     confirmBtnDisabled: { backgroundColor: tk.text.tertiary },
-    confirmText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    confirmText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

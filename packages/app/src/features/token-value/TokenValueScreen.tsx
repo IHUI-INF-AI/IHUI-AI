@@ -22,7 +22,7 @@ import type {
   TokenValueScreenProps,
 } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -217,9 +217,9 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     balanceCard: { padding: 14, borderRadius: rnRadius.lg, backgroundColor: tk.brand.cta },
-    balanceLabel: { fontSize: 14, color: tk.brand.ctaForeground },
+    balanceLabel: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     balanceValue: {
       marginTop: rnSpacing.sm,
       fontSize: 32,
@@ -228,17 +228,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     balanceMeta: { flexDirection: 'row', marginTop: rnSpacing.md, gap: rnSpacing['2xl'] },
     metaItem: {},
-    metaLabel: { fontSize: 11, color: tk.brand.ctaForeground },
+    metaLabel: { fontSize: rnType.caption.size, color: tk.brand.ctaForeground },
     metaValue: {
       marginTop: rnSpacing.sm,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.brand.ctaForeground,
     },
     sectionTitle: {
       marginTop: rnSpacing.xl,
       marginBottom: rnSpacing.md,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -259,17 +259,17 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
-    popularText: { fontSize: 10, fontWeight: '600', color: tk.brand.ctaForeground },
+    popularText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.brand.ctaForeground },
     pkgTokens: {
       marginTop: rnSpacing.sm,
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
-    pkgUnit: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
+    pkgUnit: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     pkgBonus: {
       marginTop: rnSpacing.sm,
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.brandAccent.deep,
       fontWeight: '600',
     },
@@ -282,13 +282,13 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    pkgPrice: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    pkgPrice: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     tabRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
-    errorText: { color: tk.brandAccent.deep, fontSize: 14 },
+    errorText: { color: tk.brandAccent.deep, fontSize: rnType.body.size },
     footerText: {
       paddingVertical: rnSpacing.md,
       textAlign: 'center',
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     recordItem: {
@@ -310,11 +310,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     recordIconGreen: { backgroundColor: tk.success.light },
     recordIconGray: { backgroundColor: tk.surface.muted },
-    recordIconText: { fontSize: 14, fontWeight: '600', color: tk.text.secondary },
+    recordIconText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.secondary },
     recordMain: { flex: 1 },
-    recordTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    recordTime: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
-    recordAmount: { fontSize: 16, fontWeight: '700' },
+    recordTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    recordTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    recordAmount: { fontSize: rnType.title.size, fontWeight: '700' },
     amountGreen: { color: tk.success.DEFAULT },
     amountRed: { color: tk.brandAccent.deep },
   })

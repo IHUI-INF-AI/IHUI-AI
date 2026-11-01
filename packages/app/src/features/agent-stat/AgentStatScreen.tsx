@@ -9,7 +9,7 @@ import type { AgentStatScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnSpacing } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 /** Agent 统计共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentStatScreenProps }
 
@@ -49,8 +49,7 @@ export function AgentStatScreen({
   // totalAgents/totalUsers/totalCalls/publishedCount/pendingCount/avgRating,
   // conversations/messages/tokens 当前无后端来源。只渲染有值的指标,避免空值卡。
   const metrics: Array<[string, string | number]> = []
-  if (stat.totalAgents !== undefined)
-    metrics.push([t('agentStat.totalAgents'), stat.totalAgents])
+  if (stat.totalAgents !== undefined) metrics.push([t('agentStat.totalAgents'), stat.totalAgents])
   if (stat.totalUsers !== undefined) metrics.push([t('agentStat.totalUsers'), stat.totalUsers])
   if (stat.totalCalls !== undefined) metrics.push([t('agentStat.totalCalls'), stat.totalCalls])
   if (stat.publishedCount !== undefined)
@@ -93,15 +92,20 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     body: { padding: 14 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
     },
-    label: { fontSize: 14, color: tk.text.secondary },
-    value: { fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT, flexShrink: 0 },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
+    value: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+      flexShrink: 0,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

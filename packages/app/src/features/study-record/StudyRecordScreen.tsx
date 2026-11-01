@@ -224,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
     statusCompleted: { backgroundColor: tk.success.light },
     statusPaused: { backgroundColor: tk.surface.card },
     statusInProgress: { backgroundColor: tk.warning.light },
-    statusText: { fontSize: 10, fontWeight: '600' },
+    statusText: { fontSize: rnType.badge.size, fontWeight: '600' },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

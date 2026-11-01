@@ -73,7 +73,40 @@ test('④ 写盘四步齐备(clean→改→inject→verify 都在源码里,§5c)
   }
   // 归属避让:不得把"脏=我改的"当成可写;必须有 held 桶
   assert.match(body, /report\.held\.push/, '必须保留他人持有跳过面')
-  // 悬空标识符落盘后必须按 import 语句复核
-  assert.match(body, /hasSymbolImport\(after, 'rnSpacing'\)/, '落盘后必须按 import 语句复核,不是全文含')
+  // 悬空标识符落盘后必须按 import 语句复核(多腿按改动集合逐个核)
+  assert.match(body, /hasSymbolImport\(after, sym\)/, '落盘后必须按 import 语句复核,不是全文含')
+})
+
+// ⑤ 字号/圆角腿(2026-11-02 Phase 2):显式开关才动,且必须保住"字号↔行高"配对。
+test('⑤ 字号腿只动无 lineHeight 的对象;圆角同值双档取角色档;默认面不碰这两腿', () => {
+  const FIX = `
+  const s = StyleSheet.create({
+    plain: { fontSize: 14 },
+    paired: { fontSize: 16, lineHeight: 24 },
+    rounded: { borderRadius: 8 },
+  })
+  const out = { fontSize: 14 }
+  `
+  const typeTier = new Map([
+    [12, 'label'],
+    [14, 'body'],
+    [16, 'title'],
+  ])
+  const radiusTier = new Map([
+    [4, 'sm'],
+    [8, 'lg'],
+  ])
+  const def = transform(FIX, TIER)
+  assert.ok(def.text.includes('fontSize: 14'), '默认面不得碰字号')
+  assert.ok(def.text.includes('borderRadius: 8'), '默认面不得碰圆角')
+
+  const fs = transform(FIX, TIER, { typeByValue: typeTier })
+  assert.ok(fs.text.includes('fontSize: rnType.body.size'), '无 lineHeight ⇒ 等值可落档')
+  assert.ok(fs.text.includes('fontSize: 16, lineHeight: 24'), '同对象带 lineHeight ⇒ 不动(否则字号跟了行高没跟)')
+  assert.ok(fs.text.includes('const out = { fontSize: 14 }'), 'StyleSheet 块外不动')
+  assert.equal(transform(fs.text, TIER, { typeByValue: typeTier }).changes.length, 0, '二次改 0 处')
+
+  const rd = transform(FIX, TIER, { radiusByValue: radiusTier })
+  assert.ok(rd.text.includes('borderRadius: rnRadius.lg'), '8px 双档名取角色表在用的 lg')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

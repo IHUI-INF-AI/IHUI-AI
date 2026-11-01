@@ -10,7 +10,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseScreenProps } from '../../types'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 /** 课程列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
@@ -150,11 +150,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       height: 50,
       paddingHorizontal: rnSpacing.md,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    error: { fontSize: 14, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -162,26 +162,26 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
-    metaText: { fontSize: 14, color: tk.text.secondary },
-    cardDesc: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     footerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
-    price: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
+    price: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.brand.DEFAULT },
     pagination: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginTop: rnSpacing.lg,
     },
-    pageBtn: { fontSize: 16, color: tk.text.primary },
+    pageBtn: { fontSize: rnType.title.size, color: tk.text.primary },
     pageBtnDisabled: { opacity: 0.4 },
-    pageIndicator: { fontSize: 12, color: tk.text.secondary },
+    pageIndicator: { fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

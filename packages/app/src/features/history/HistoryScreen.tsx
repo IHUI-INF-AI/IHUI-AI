@@ -128,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
     },
     cardType: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       color: tk.success.DEFAULT,
       paddingHorizontal: rnSpacing['xs-loose'],

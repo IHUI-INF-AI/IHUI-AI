@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.warning.DEFAULT,
     },
-    vipText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
+    vipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.surface.light },
     desc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

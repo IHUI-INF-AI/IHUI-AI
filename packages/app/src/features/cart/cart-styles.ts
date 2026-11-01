@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -22,7 +22,7 @@ export function createCartStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     listContent: { paddingBottom: rnSpacing.xl, gap: rnSpacing.md },
     card: {
       flexDirection: 'row',
@@ -54,8 +54,8 @@ export function createCartStyles(tk: AppThemeTokens) {
     },
     coverFallback: { alignItems: 'center', justifyContent: 'center' },
     info: { flex: 1, gap: 5 },
-    title: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    price: { fontSize: 15, fontWeight: '600', color: tk.success.DEFAULT },
+    title: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    price: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.success.DEFAULT },
     qtyRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -73,7 +73,12 @@ export function createCartStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     qtyBtnDisabled: { opacity: 0.5 },
-    qtyValue: { minWidth: 20, textAlign: 'center', fontSize: 14, color: tk.text.primary },
+    qtyValue: {
+      minWidth: 20,
+      textAlign: 'center',
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+    },
     deleteBtn: {
       width: 28,
       height: 28,
@@ -89,7 +94,7 @@ export function createCartStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.xl,
       backgroundColor: tk.surface.card,
     },
-    selectAll: { fontSize: 14, color: tk.text.primary },
+    selectAll: { fontSize: rnType.body.size, color: tk.text.primary },
     totalWrap: {
       flex: 1,
       flexDirection: 'row',
@@ -98,7 +103,7 @@ export function createCartStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     totalLabel: { fontSize: 13, color: tk.text.secondary },
-    totalPrice: { fontSize: 18, fontWeight: '700', color: tk.danger.DEFAULT },
+    totalPrice: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.danger.DEFAULT },
     checkoutBtn: {
       paddingHorizontal: 18,
       height: 36,
@@ -108,7 +113,7 @@ export function createCartStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     checkoutBtnDisabled: { opacity: 0.5 },
-    checkoutText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    checkoutText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

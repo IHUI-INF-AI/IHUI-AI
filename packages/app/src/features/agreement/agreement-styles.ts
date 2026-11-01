@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -17,7 +17,7 @@ export function createAgreementStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     body: { padding: 14, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     card: {
       padding: 14,
@@ -27,13 +27,13 @@ export function createAgreementStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       gap: rnSpacing['sm-loose'],
     },
-    subtitle: { fontSize: 14, color: tk.text.secondary },
+    subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    metaLabel: { fontSize: 12, color: tk.text.tertiary },
-    metaValue: { fontSize: 12, color: tk.text.secondary },
+    metaLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    metaValue: { fontSize: rnType.label.size, color: tk.text.secondary },
     paragraph: { fontSize: 14, color: tk.text.medium, lineHeight: 22 },
     loadingText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       textAlign: 'center',
       paddingVertical: rnSpacing['2xl'],

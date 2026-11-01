@@ -166,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     statusBadge: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing.xs,

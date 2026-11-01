@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamItem, ExamScreenProps, ExamStatus } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -168,17 +168,17 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     toastText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.brand.DEFAULT,
     },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
     listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
@@ -196,22 +196,27 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'flex-start',
       gap: rnSpacing.sm,
     },
-    cardTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
     statusBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
-    statusText: { fontSize: 11 },
-    cardDesc: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    statusText: { fontSize: rnType.caption.size },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     metaWrap: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: rnSpacing.md,
       marginTop: rnSpacing.sm,
     },
-    metaText: { fontSize: 14, color: tk.text.secondary },
+    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
     actionRow: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -224,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     startBtnDisabled: { backgroundColor: tk.border.light },
-    startBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    startBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

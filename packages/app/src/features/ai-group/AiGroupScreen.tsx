@@ -325,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1.5,
       borderColor: tk.surface.light,
     },
-    miniAvatarText: { fontSize: 10, fontWeight: '600', color: tk.text.secondary },
+    miniAvatarText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.text.secondary },
     moreText: { marginLeft: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     footMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     enterMiniBtn: {

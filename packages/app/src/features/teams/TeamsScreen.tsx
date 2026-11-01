@@ -15,7 +15,7 @@ import {
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -229,8 +229,8 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     actionRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     newBtn: {
       alignSelf: 'flex-start',
@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    newBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    newBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     formCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.sm,
@@ -251,7 +251,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     formTitle: { fontSize: 13, color: tk.text.secondary },
-    fieldLabel: { fontSize: 12, fontWeight: '600', color: tk.text.medium },
+    fieldLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     input: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing.md,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     inputMultiline: {
@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing.md,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       textAlignVertical: 'top',
     },
@@ -286,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
-    cancelBtnText: { fontSize: 14, color: tk.text.primary },
+    cancelBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
     submitBtn: {
       flex: 1,
       height: 44,
@@ -295,17 +295,17 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    submitBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     btnDisabled: { opacity: 0.6 },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     center: {
       alignItems: 'center',
       paddingVertical: rnSpacing['3xl'],
       justifyContent: 'center',
       gap: rnSpacing.sm,
     },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     listBody: { padding: 14, paddingTop: 0, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
@@ -316,9 +316,9 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardDesc: { fontSize: 13, color: tk.text.secondary },
-    cardMeta: { fontSize: 11, color: tk.text.tertiary },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardFoot: {
       flexDirection: 'row',
       alignItems: 'center',

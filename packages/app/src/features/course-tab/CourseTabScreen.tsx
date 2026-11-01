@@ -477,7 +477,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
     } as ViewStyle,
     vipBadgeText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       color: tk.brand.foreground,
     } as TextStyle,

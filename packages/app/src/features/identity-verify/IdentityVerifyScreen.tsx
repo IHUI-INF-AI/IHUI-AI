@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IdentityVerifyStatus, IdentityVerifyScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     body: { flex: 1 },
     card: {
       padding: 14,
@@ -116,8 +116,13 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    subtitle: { fontSize: 14, color: tk.text.secondary },
-    status: { marginTop: rnSpacing.sm, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
+    subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
+    status: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.danger.DEFAULT,
+    },
     statusOk: { color: tk.success.DEFAULT },
     uploadItem: {
       flexDirection: 'row',
@@ -125,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing['sm-loose'],
     },
-    label: { fontSize: 14, color: tk.text.medium },
+    label: { fontSize: rnType.body.size, color: tk.text.medium },
     uploadBtn: {
       width: 48,
       height: 50,
@@ -134,8 +139,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    uploadBtnText: { fontSize: 24, color: tk.text.tertiary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    uploadBtnText: { fontSize: rnType.display.size, color: tk.text.tertiary },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,
@@ -145,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     submitBtnDisabled: { opacity: 0.5 },
-    submitBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    submitBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

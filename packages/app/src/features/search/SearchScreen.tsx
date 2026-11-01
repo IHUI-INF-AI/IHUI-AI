@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardHead: { flexDirection: 'row', marginBottom: rnSpacing.sm },
     typeBadge: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
       paddingHorizontal: rnSpacing['xs-loose'],

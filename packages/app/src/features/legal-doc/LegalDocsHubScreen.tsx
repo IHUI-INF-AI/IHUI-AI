@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { BookOpen, FileText, Globe, Shield } from 'lucide-react-native'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -195,7 +195,7 @@ function createHubStyles(tk: ReturnType<typeof getTokens>) {
       paddingBottom: rnSpacing.xs,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     tabStrip: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
     tab: {
       flexDirection: 'row',
@@ -212,7 +212,7 @@ function createHubStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.brand.cta,
       borderColor: tk.brand.cta,
     },
-    tabText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    tabText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     tabActiveText: { color: tk.brand.ctaForeground },
   })
 }

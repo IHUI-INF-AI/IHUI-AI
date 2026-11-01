@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
     row: { flexDirection: 'row', alignItems: 'center' },
     amountBox: { width: 80, alignItems: 'center' },
     amountText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
-    minSpend: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    minSpend: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
     body: { flex: 1, marginLeft: rnSpacing.md },
     itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     expire: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
@@ -138,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 10, color: tk.surface.light },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light },
     useBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing['xs-loose'],

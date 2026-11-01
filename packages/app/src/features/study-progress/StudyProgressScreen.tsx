@@ -8,7 +8,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { StudyProgressData, StudyProgressScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -100,9 +100,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: rnSpacing.lg,
     },
-    muted: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     error: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
@@ -131,9 +131,9 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     statValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
-    statLabel: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
+    statLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     bar: {
       height: 6,
       backgroundColor: tk.surface.card,
@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     barFill: { height: 6, backgroundColor: tk.success.DEFAULT, borderRadius: rnRadius.xl },
-    meta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     btn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing.lg,

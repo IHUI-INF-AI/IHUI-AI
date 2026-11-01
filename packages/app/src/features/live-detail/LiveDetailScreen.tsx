@@ -297,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
     videoHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     videoUrl: {
       marginTop: rnSpacing.sm,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
@@ -353,9 +353,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       marginRight: rnSpacing.sm,
     },
-    chatTime: { fontSize: 10, color: tk.text.tertiary },
+    chatTime: { fontSize: rnType.badge.size, color: tk.text.tertiary },
     chatContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.primary },
-    chatErrorText: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.danger.DEFAULT },
+    chatErrorText: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.badge.size,
+      color: tk.danger.DEFAULT,
+    },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',

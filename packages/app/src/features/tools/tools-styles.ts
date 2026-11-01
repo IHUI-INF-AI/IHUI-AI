@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -17,14 +17,14 @@ export function createToolsStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.lg },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: { fontSize: 12, color: tk.text.secondary },
+    heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     section: { gap: rnSpacing['sm-loose'] },
     sectionHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    sectionTitle: { fontSize: 16, fontWeight: '700', color: tk.text.primary },
+    sectionTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     emptyBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderStyle: 'dashed',
@@ -54,8 +54,8 @@ export function createToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.light,
     },
     cardMain: { flex: 1, gap: rnSpacing['2xs'] },
-    cardTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    cardDesc: { fontSize: 12, color: tk.text.secondary },
+    cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    cardDesc: { fontSize: rnType.label.size, color: tk.text.secondary },
     errorBox: {
       alignItems: 'center',
       gap: rnSpacing.sm,
@@ -65,8 +65,8 @@ export function createToolsStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
     },
-    errorText: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    errorSub: { fontSize: 12, color: tk.text.secondary },
+    errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },
     refreshBtn: {
       alignSelf: 'center',
       alignItems: 'center',
@@ -76,7 +76,7 @@ export function createToolsStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    refreshText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    refreshText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     skeletonTitle: {
       height: 20,
       width: 160,

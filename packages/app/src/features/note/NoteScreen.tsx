@@ -17,7 +17,7 @@ import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
 
-import { rnRadius, rnCssLight, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -189,8 +189,8 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.light },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     actionRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     addBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -199,17 +199,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    addBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    addBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     toastText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.brand.DEFAULT,
     },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
@@ -221,9 +221,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: rnSpacing.md,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardContent: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['sm-loose'] },
     editBtn: {
       paddingHorizontal: rnSpacing.md,
@@ -231,14 +231,14 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
-    editBtnText: { color: tk.text.medium, fontSize: 14 },
+    editBtnText: { color: tk.text.medium, fontSize: rnType.body.size },
     deleteBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
-    deleteBtnText: { color: tk.danger.DEFAULT, fontSize: 14 },
+    deleteBtnText: { color: tk.danger.DEFAULT, fontSize: rnType.body.size },
     modalOverlay: {
       flex: 1,
       backgroundColor: rnCssLight.black50,
@@ -254,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     modalTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
@@ -265,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
@@ -276,7 +276,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
       minHeight: 120,
@@ -290,7 +290,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
-    cancelBtnText: { color: tk.text.medium, fontSize: 16 },
+    cancelBtnText: { color: tk.text.medium, fontSize: rnType.title.size },
     saveBtn: {
       flex: 1,
       paddingVertical: rnSpacing['sm-loose'],
@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     saveBtnDisabled: { backgroundColor: tk.text.tertiary },
-    saveBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    saveBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
