@@ -578,6 +578,10 @@
     "copied": "已複製"
   },
   "ai": {
+    "messageVersion": {
+      "history": "歷史版本",
+      "regenerateFailed": "重新產生失敗"
+    },
     "contextUsage": {
       "title": "上下文使用情況",
       "segSystem": "系統提示",
