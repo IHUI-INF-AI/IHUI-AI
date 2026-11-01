@@ -9,7 +9,7 @@ export type { MoreLinkProps } from './MoreLink'
  * 端内凡给文字写死 `lineHeight` 又想让"设置里调大字号"真的生效,必须走它 ——
  * 直接在端内 `PixelRatio.getFontScale()` 或写死倍率就是第二份上限值(上限 1.4 的来由见 MoreLink 头注)。
  */
-export { useFontMultiplier } from './MoreLink'
+export { readFontMultiplier } from './MoreLink'
 
 export { SectionHeader } from './SectionHeader'
 export type { SectionHeaderProps } from './SectionHeader'

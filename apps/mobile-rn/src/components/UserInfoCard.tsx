@@ -1,7 +1,8 @@
-import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../i18n'
 
 /**
  * UserInfoCard 用户信息卡片 (mobile-rn 端)
@@ -460,7 +461,7 @@ const newStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
   },
@@ -510,7 +511,7 @@ const newStyles = StyleSheet.create({
   growthRow: {
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
   },
@@ -548,7 +549,7 @@ const newStyles = StyleSheet.create({
     // spec 常量,这一处是同一角色漏改的第三个裸数字(值等值 8,渲染字节不变;改档只改 spec 一处)。
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 6,
+    paddingVertical: rnSpacing['xs-loose'],
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
   },
@@ -567,7 +568,7 @@ const newStyles = StyleSheet.create({
   // 见 spec 文件末差异登记第 3 条
   copyBtn: {
     paddingHorizontal: rnSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.sm,
   },
@@ -613,7 +614,7 @@ const newStyles = StyleSheet.create({
   },
   modalBenefitList: {
     alignSelf: 'stretch',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     marginBottom: rnSpacing.lg,
   },
   modalBenefitItem: {
@@ -634,5 +635,4 @@ const newStyles = StyleSheet.create({
     fontWeight: '600',
   },
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

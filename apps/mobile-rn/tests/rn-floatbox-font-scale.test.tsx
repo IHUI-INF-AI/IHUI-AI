@@ -8,7 +8,7 @@
  * 为什么这型会复发:RN 的 `lineHeight` 是 dp,系统字号调大时字大了、行盒没大 ⇒ 字被裁。
  * 当年为了不被裁,端内把 `allowFontScaling={false}` 钉死 —— 副作用是用户在系统里把字号调到最大,
  * 这条 toast 仍然不给放大,而它承载的正是"保存成功/失败"这类唯一反馈文字。
- * 现口径:字号与行高一起按共享层唯一口 `useFontMultiplier()`(夹顶 1.4,来由见 MoreLink)放大,
+ * 现口径:字号与行高一起按共享层唯一口 `readFontMultiplier()`(夹顶 1.4,来由见 MoreLink)放大,
  * 保留 allowFontScaling={false} 以免 RN 再乘一次变成双倍。
  *
  * 四态:
@@ -40,7 +40,10 @@ vi.mock('react-native', async (importOriginal) => {
   }
 })
 
-import { FLOAT_BOX_FONT_SIZE_PX, FLOAT_BOX_TEXT_LINE_HEIGHT_PX } from '@ihui/shared/ui/float-box-spec'
+import {
+  FLOAT_BOX_FONT_SIZE_PX,
+  FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
+} from '@ihui/shared/ui/float-box-spec'
 import { FloatBox } from '../src/components/FloatBox'
 
 const MAX_CLAMP = 1.4
@@ -80,7 +83,9 @@ describe('FloatBox 文字随系统字号同比放大', () => {
       // 放大后的字就不会被行高切掉)。这里不比"系数之差"—— 小整数取整会让 ±0.5px 抖到 3%,
       // 那条阈值本身就是把取整当缺陷(实测 0.0286 > 0.02 就是这么来的)。
       expect(lh).toBeGreaterThan(fs)
-      expect(lh - fs).toBeGreaterThanOrEqual(FLOAT_BOX_TEXT_LINE_HEIGHT_PX - FLOAT_BOX_FONT_SIZE_PX - 1)
+      expect(lh - fs).toBeGreaterThanOrEqual(
+        FLOAT_BOX_TEXT_LINE_HEIGHT_PX - FLOAT_BOX_FONT_SIZE_PX - 1,
+      )
     } finally {
       spy.mockRestore()
     }

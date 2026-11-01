@@ -36,6 +36,10 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as gateFail } from '../lib/gate-failure-kind.mjs'
 
+// F5 用的中断传播尺子单源在 signal-exit(lib),此前测试裸调未 import ⇒ ReferenceError 恒红
+// (2026-11-01 补;§22c 镜像只 import 这一份,不复制判据)。
+import { shouldPropagateAsInterrupt } from '../lib/signal-exit.mjs'
+
 const REAL_CRASH_STDERR =
   "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' imported from G:\\IHUI-AI-wt-crash\\scripts\\scan-i18n-zh-residue.mjs\n" +
   '    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\n' +

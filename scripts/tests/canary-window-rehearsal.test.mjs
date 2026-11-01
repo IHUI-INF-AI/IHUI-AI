@@ -65,7 +65,7 @@ test('R1 演练策略:只换地址,判据字段逐项不变', () => {
   assert.equal(web.url, 'http://127.0.0.1:18001/')
 })
 
-test('R2 三态端到端:healthy ⇒ pass/advance;500 ⇒ fail/rollback;429 ⇒ unknown/hold', async () => {
+test('R2 三态端到端(含灰度在位维):healthy ⇒ pass/advance;pass∧灰度不在位 ⇒ hold;500 ⇒ fail/rollback;429 ⇒ unknown/hold', async () => {
   const stable = await startFixture({ mode: 'ok' })
   const canary = await startFixture({ mode: 'ok' })
   try {
@@ -90,6 +90,8 @@ test('R2 三态端到端:healthy ⇒ pass/advance;500 ⇒ fail/rollback;429 ⇒ 
     const ledger = scratchFile('deploy-decisions.jsonl')
     const cases = [
       { name: 'pass', mode: 'ok', verdict: 'pass', rc: 0, action: 'advance', current: 'ramp-1' },
+      // 票 31460 第四格:观察窗 pass 而灰度实例不在位 ⇒ 档位必须 hold(现网侧通过不冒充灰度侧通过)。
+      { name: 'pass-serving-no', mode: 'ok', verdict: 'pass', rc: 0, action: 'hold', current: 'ramp-1', serving: 'no' },
       { name: 'fail', mode: 'error', verdict: 'fail', rc: 3, action: 'rollback', current: 'ramp-2' },
       { name: 'unknown', mode: 'throttle', verdict: 'unknown', rc: 2, action: 'hold', current: 'ramp-2' },
     ]
@@ -106,6 +108,7 @@ test('R2 三态端到端:healthy ⇒ pass/advance;500 ⇒ fail/rollback;429 ⇒ 
         verdict: c.verdict,
         current: c.current,
         sha: 'rehearsal',
+        canaryServing: c.serving ?? 'yes',
         contractPath: scratchFile(`ramp-${c.name}.json`),
       })
       assert.equal(st.payload?.action, c.action, `${c.name}:档位动作`)

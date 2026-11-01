@@ -662,7 +662,57 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
   const m = mA.counts
   const out = []
   out.accepted = []
+  /**
+   * F6 专案(2026-11-01,半格死锁实测收口):块级量纲**不能**按"块数比块数"判。
+   * 实测锚点:某波次登记块的首行在 base/ours/theirs **各出现 4 次**(同一段的多份漂移副本,
+   * 各面内 5 行组彼此有漂移 ⇒ 三面 verbatim 全 0);行级 union 按「每行重数 = max(两侧)」
+   * 把 4 份都保住后,**重组**把其中两份拼成了逐字相同的连续块 ⇒ 归并面 verbatim=1。
+   * 每一行的份数都在两侧上限内(守恒断言通过),按块数判就是判一个 union 语义上**不可满足**的恒红
+   * (§12e:那种门的唯一结局是逼人跳门、连带废掉整条收敛链 —— 2026-11-01 实测把 git-sync-converge
+   * 卡死在「落地闸不过 1 处」且无任何自动出口)。
+   * 改判与 union 的行级语义**同形**:只把「块内任一行的归并重数 **超过** 两侧对该行的最大重数」
+   * 的真放大判红(2026-09-26 事故型"一侧追加两份、union 再叠一层":copies 3 > 行级预算 2,照判);
+   * 预算内的重组涌现块**降为只报名**(out.emergentBlocks,消费方打印 ⚠️ 不拦),不是"判过"。
+   * 判据输入只用 auditPlan 已产出的 dupBlocks 明细(行号 + 份数),不另写第二份块检测(§22c)。
+   * 取材面守恒:dupBlocks 明细取不到(旧形状 auditPlan)⇒ 原样走旧口径,绝不静默放宽。
+   */
+  const f6Detail = mA.dupBlocks && Array.isArray(mA.dupBlocks.verbatim) ? mA.dupBlocks : null
+  if (f6Detail) out.emergentBlocks = []
   for (const [k, label] of KEYS) {
+    if (k === 'dupBlocks' && f6Detail) {
+      const worstBlk = Math.max(...sA.map((a) => a.counts[k] ?? 0))
+      const mergedLines = mergedText.split('\n')
+      const sideLineArrs = sides.map((t) => t.split('\n'))
+      const countIn = (arr, row) => {
+        let n = 0
+        for (const l of arr) if (l === row) n++
+        return n
+      }
+      for (const v of f6Detail.verbatim) {
+        const rows = mergedLines.slice(v.lines[0] - 1, v.lines[0] - 1 + v.len)
+        // 行号错位(理论上不会:行号出自同一次 auditPlan)⇒ 退回旧口径,绝不静默放过。
+        if (rows.length !== v.len) {
+          if (v.copies > worstBlk) out.push(`${label} 各侧最多 ${worstBlk},归并结果 ${m[k]}`)
+          continue
+        }
+        // 行级预算 = 块内**最稀缺**那行在两侧的最大重数(块要整块合法出现 c 份,每行都得 ≥c 份)。
+        const budget = Math.min(
+          ...rows.map((r) => Math.max(0, ...sideLineArrs.map((sl) => countIn(sl, r)))),
+        )
+        if (v.copies > budget)
+          out.push(
+            `${label} 归并整块 ${v.copies} 份 > 行级预算 ${budget}(两侧组数最多 ${worstBlk})—— 块内最稀缺行的份数被归并抬出了两侧上限`,
+          )
+        else
+          out.emergentBlocks.push({
+            first: v.first.slice(0, 80),
+            copies: v.copies,
+            budget,
+            lines: v.lines,
+          })
+      }
+      continue
+    }
     const worst = Math.max(...sA.map((a) => a.counts[k]))
     if (m[k] > worst) {
       // 声明式放行只适用于"并集天然放大"那三维(见函数头注的成因)。放行了也必须把两个数
@@ -2422,6 +2472,12 @@ export function buildUnion(
         })
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
+        // F6 涌现块(2026-11-01):行级预算内的重组产物,只报名不拦 —— 报数必须点名(§0.3 同族),
+        // 否则下一个看见"没红"的人无法知道这里发生过一次块级重组。
+        for (const eb of __rg.emergentBlocks || [])
+          console.log(
+            `   ⚠️ ${p} 整块重复涌现(行级预算内 = union 重组语义,不拦):「${eb.first}…」归并 ${eb.copies} 份 ≤ 行级预算 ${eb.budget}(行 ${eb.lines.join(',')})`,
+          )
         console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
         const __cl0 = mergeNoteCrossLineCaliber(mergedText, sides)
         if (__cl0) console.log(`   ${__cl0}`)
@@ -2698,6 +2754,11 @@ export function buildUnion(
       })
       for (const msg of __rg2) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
       for (const msg of __rg2.accepted || []) acceptedGrowth.push(msg)
+      // 与活文档 union 调用点同一纪律:涌现块只报名不拦,但必须点名(§0.3 报数要点名)。
+      for (const eb of __rg2.emergentBlocks || [])
+        console.log(
+          `   ⚠️ ${p} 整块重复涌现(行级预算内 = 重组语义,不拦):「${eb.first}…」归并 ${eb.copies} 份 ≤ 行级预算 ${eb.budget}(行 ${eb.lines.join(',')})`,
+        )
     }
     return {
       tree,
