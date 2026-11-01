@@ -407,6 +407,16 @@ function Invoke-CanaryGate {
         }
         # 2) 进程编排:-SplitOnly = 灰度实例无产物时也要让契约有一个真进程消费
         #    (分流器自带"灰度槽位不在位 ⇒ 回落 stable",永远不会把请求打到空端口)
+        # 1' 先把"灰度产物来源与顺序"现检一遍(2026-11-01 立):这一格曾经 20/20 轮静默空转
+        #    (换流把 .next-staging 整份搬走,灰度排在之后永远拿不到产物,却照样 advance),
+        #    判据住在 deploy/win/ihui-canary-artifact.mjs,本层只搬运它的结论、不重写判据(§0.6)。
+        $artifactCli = Join-Path $WinDir 'ihui-canary-artifact.mjs'
+        if (Test-Path -LiteralPath $artifactCli) {
+            $artOut = (& $Node $artifactCli 2>&1 | Out-String)
+            foreach ($ln in ($artOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray-artifact] {0}" -f $ln.Trim()) } }
+        } else {
+            Log "GRAY 未判定:灰度产物来源判据不在位($artifactCli)⇒ 不猜它绿,照常走后面的灰度编排"
+        }
         $gpOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action start -SplitOnly -Sha ([string]$script:LastDeploySha) -StateDir $stateDir 2>&1 | Out-String)
         foreach ($ln in ($gpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
         $splitUp = ($LASTEXITCODE -eq 0)
@@ -448,9 +458,18 @@ function Invoke-CanaryGate {
     # fail ⇒ 契约比例归零 = 撤灰度流量(先于整包回滚:先把请求从候选身上拿走,再退包);
     # unknown ⇒ 原地不动(不放量也不回滚);pass ⇒ 升一档,末档再 pass ⇒ promote(可全量)。
     $verdictWord = if ($dRc -eq 0) { 'pass' } elseif ($dRc -eq 3) { 'fail' } else { 'unknown' }
+    # 档位推进只许吃「真的量过候选」的那份判定(§0.3:未判定不得折成判过)。
+    # 灰度实例不在位时,观察窗量的是现网端点(采样面=stable)——那份读数描述的是已经在跑的
+    # 构建,不是候选。实测 2026-11-01:近 20 轮 20/20 灰度无产物,却照样 --decide --verdict pass
+    # 并打「依据=判定通过 ⇒ ramp-1 → ramp-2」⇒ 升档这一格从来是空的。现按 unknown 交回推进器。
+    $rampVerdict = $verdictWord
+    if ($graySampledFrom -ne 'canary') {
+        $rampVerdict = 'unknown'
+        Log ("GRAY 档位推进依据=unknown(采样面={0},灰度实例未参与)⇒ 不升档、不记「判定通过」;观察窗对现网端点的结论仍按上面那行如实记录" -f $graySampledFrom)
+    }
     if ($splitUp -or ($grayStage -ne 'off')) {
         if (Test-Path -LiteralPath $grayStageCli) {
-            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            $advOut = (& $Node $grayStageCli --decide --verdict $rampVerdict --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
             foreach ($ln in ($advOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
             if ($LASTEXITCODE -ne 0) {
                 Log "GRAY 未判定:档位推进没判出(rc=$LASTEXITCODE)⇒ 契约保持本轮读到的档位,不猜"
