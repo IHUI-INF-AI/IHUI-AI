@@ -11,10 +11,12 @@ import { cn } from '@/lib/utils'
 import {
   applyPredictedEditActions,
   fetchPredictiveEdit,
+  passesEditIntentThreshold,
   usePredictiveEditMetricSettlement,
   PREDICTIVE_EDIT_LANGUAGE,
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
+import { usePredictiveEditEnabled } from '@/stores/predictive-edit'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
