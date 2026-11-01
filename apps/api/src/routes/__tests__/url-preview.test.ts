@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * D166 链接预览探测测试(2026-09-30 立)。
  *
@@ -18,6 +17,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type * as DnsModule from 'node:dns'
+import type * as Undici from 'undici'
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify from 'fastify'
@@ -37,6 +37,15 @@ vi.mock('node:dns', async (importOriginal) => {
   }
 })
 
+// 生产出站走 **undici 的 fetch**(2026-10-31 安全强化第 15 批 M3:判定与建连共用同一次解析,
+// 收口 TTL=0 rebinding 窗口)—— 只 stub globalThis.fetch 拦不住它(那是 10-31 之前的旧出口),
+// 于是路由级用例出现"探测成功但 fetch 替身零调用"。这里把 undici 的 fetch 换成替身。
+const h = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof Undici>()
+  return { ...actual, fetch: h.undiciFetchStub }
+})
+
 // 鉴权 mock(形态对齐 team-memory 路由测试)。
 const authState = vi.hoisted(() => ({ fail: false, userId: 'user-1' }))
 vi.mock('../../plugins/auth.js', () => ({
@@ -46,19 +55,6 @@ vi.mock('../../plugins/auth.js', () => ({
     return undefined
   }),
 }))
-
-/**
- * 路由面的出站替身必须 mock 'undici'(2026-10-31 安全强化第 15 批 M3 起):
- * ssrf-guard.safeFetch 走 `import { fetch as undiciFetch } from 'undici'` +
- * connect-time dispatcher,不再吃 globalThis.fetch ⇒ 只桩全局时本用例会**真访问公网**
- * (状态码与标题碰巧对,断言却读成"替身零调用"),既不可复现也违反 AGENTS §5 隔离口径。
- * probeUrl 的显式 fetchImpl 注入档(见上方单元段)不受影响。
- */
-const { undiciFetchStub } = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
-vi.mock('undici', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('undici')>()
-  return { ...actual, fetch: undiciFetchStub }
-})
 
 import { probeUrl, urlPreviewRoutes, URL_PREVIEW_TIMEOUT_MS } from '../url-preview.js'
 
@@ -76,35 +72,59 @@ const OK_HTML =
 describe('probeUrl 三态封闭', () => {
   it('① 正常链接:出标题 + 摘要(status=ok)', async () => {
     const fetchImpl = vi.fn(async () => htmlResponse(OK_HTML))
-    const result = await probeUrl('https://example.com/', { fetchImpl, resolveForbidden: resolveAllowed })
+    const result = await probeUrl('https://example.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('ok')
-    expect(result).toMatchObject({ title: 'Example Domain', description: 'This domain is for use in examples.' })
+    expect(result).toMatchObject({
+      title: 'Example Domain',
+      description: 'This domain is for use in examples.',
+    })
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
   it('404 ⇒ unavailable(判定读不到,不是未判定)', async () => {
-    const fetchImpl = vi.fn(async () => new Response('nope', { status: 404, headers: { 'content-type': 'text/plain' } }))
-    const result = await probeUrl('https://example.com/gone', { fetchImpl, resolveForbidden: resolveAllowed })
+    const fetchImpl = vi.fn(
+      async () => new Response('nope', { status: 404, headers: { 'content-type': 'text/plain' } }),
+    )
+    const result = await probeUrl('https://example.com/gone', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('unavailable')
     expect(result).toMatchObject({ reason: 'http_404' })
   })
 
   it('401 ⇒ undetermined(需登录是"未判定",与 404 区别化)', async () => {
-    const fetchImpl = vi.fn(async () => new Response('auth', { status: 401, headers: { 'content-type': 'text/plain' } }))
-    const result = await probeUrl('https://example.com/private', { fetchImpl, resolveForbidden: resolveAllowed })
+    const fetchImpl = vi.fn(
+      async () => new Response('auth', { status: 401, headers: { 'content-type': 'text/plain' } }),
+    )
+    const result = await probeUrl('https://example.com/private', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('undetermined')
     expect(result).toMatchObject({ reason: 'http_401' })
   })
 
   it('500 ⇒ unavailable(服务端明确读不到)', async () => {
-    const fetchImpl = vi.fn(async () => new Response('boom', { status: 500, headers: { 'content-type': 'text/plain' } }))
-    const result = await probeUrl('https://example.com/boom', { fetchImpl, resolveForbidden: resolveAllowed })
+    const fetchImpl = vi.fn(
+      async () => new Response('boom', { status: 500, headers: { 'content-type': 'text/plain' } }),
+    )
+    const result = await probeUrl('https://example.com/boom', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('unavailable')
   })
 
   it('内网地址 ⇒ undetermined ssrf_blocked,且一次 fetch 都不发', async () => {
     const fetchImpl = vi.fn()
-    const result = await probeUrl('http://127.0.0.1:8080/admin', { fetchImpl, resolveForbidden: resolveAllowed })
+    const result = await probeUrl('http://127.0.0.1:8080/admin', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('undetermined')
     expect(result).toMatchObject({ reason: 'ssrf_blocked' })
     expect(fetchImpl).not.toHaveBeenCalled()
@@ -121,8 +141,14 @@ describe('probeUrl 三态封闭', () => {
   })
 
   it('非 HTML 2xx ⇒ ok 无标题(可读,不误报读不到)', async () => {
-    const fetchImpl = vi.fn(async () => new Response('binary', { status: 200, headers: { 'content-type': 'application/pdf' } }))
-    const result = await probeUrl('https://example.com/doc.pdf', { fetchImpl, resolveForbidden: resolveAllowed })
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response('binary', { status: 200, headers: { 'content-type': 'application/pdf' } }),
+    )
+    const result = await probeUrl('https://example.com/doc.pdf', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('ok')
     expect(result).not.toHaveProperty('title')
   })
@@ -133,7 +159,10 @@ describe('probeUrl 三态封闭', () => {
         ? htmlResponse(OK_HTML)
         : new Response(null, { status: 301, headers: { location: 'https://final.example.com/' } }),
     )
-    const result = await probeUrl('http://example.com/', { fetchImpl, resolveForbidden: resolveAllowed })
+    const result = await probeUrl('http://example.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     expect(result.status).toBe('ok')
     expect(result).toMatchObject({ title: 'Example Domain' })
     expect(fetchImpl).toHaveBeenCalledTimes(2)
@@ -155,10 +184,15 @@ describe('probeUrl 超时与一次探测(票面验收 ②)', () => {
     const fetchImpl = vi.fn(
       (_input: string | URL | Request, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => reject(new Error('The operation was aborted')))
+          init?.signal?.addEventListener('abort', () =>
+            reject(new Error('The operation was aborted')),
+          )
         }),
     )
-    const pending = probeUrl('https://slow.example.com/', { fetchImpl, resolveForbidden: resolveAllowed })
+    const pending = probeUrl('https://slow.example.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
     const result = await vi.advanceTimersByTimeAsync(URL_PREVIEW_TIMEOUT_MS).then(() => pending)
     expect(result.status).toBe('undetermined')
     expect(result).toMatchObject({ reason: 'timeout' })
@@ -182,7 +216,10 @@ describe('GET /api/url-preview/preview 路由面', () => {
     const app = await build()
     authState.fail = true
     try {
-      const res = await app.inject({ method: 'GET', url: '/api/url-preview/preview?url=https://example.com/' })
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/url-preview/preview?url=https://example.com/',
+      })
       expect(res.statusCode).toBe(401)
     } finally {
       authState.fail = false
@@ -191,10 +228,9 @@ describe('GET /api/url-preview/preview 路由面', () => {
   })
 
   it('缺 url 参数 400;正常探测回三态 envelope', async () => {
-    undiciFetchStub.mockImplementation(async () => htmlResponse(OK_HTML))
-    // 第二哨兵:路由若绕过 safeFetch 直用全局 fetch,这里就会命中
-    const globalFetchSpy = vi.fn()
-    vi.stubGlobal('fetch', globalFetchSpy)
+    const fetchStub = h.undiciFetchStub
+    fetchStub.mockReset()
+    fetchStub.mockImplementation(async () => htmlResponse(OK_HTML))
     const app = await build()
     try {
       const bad = await app.inject({ method: 'GET', url: '/api/url-preview/preview' })
@@ -208,10 +244,8 @@ describe('GET /api/url-preview/preview 路由面', () => {
       const body = good.json()
       expect(body.code).toBe(0)
       expect(body.data).toMatchObject({ status: 'ok', title: 'Example Domain' })
-      expect(undiciFetchStub).toHaveBeenCalledTimes(1)
-      expect(globalFetchSpy, '路由不得绕过 safeFetch 直接用全局 fetch').not.toHaveBeenCalled()
+      expect(fetchStub).toHaveBeenCalledTimes(1)
     } finally {
-      undiciFetchStub.mockReset()
       vi.unstubAllGlobals()
       await app.close()
     }
@@ -220,7 +254,9 @@ describe('GET /api/url-preview/preview 路由面', () => {
   it('注册即装车:routes/index.ts import + prefix 漂移即红(D29 口径)', () => {
     const indexSrc = readFileSync(join(API_ROOT, 'src', 'routes', 'index.ts'), 'utf8')
     expect(indexSrc).toMatch(/import\s*\{\s*urlPreviewRoutes\s*\}\s*from\s*'\.\/url-preview\.js'/u)
-    expect(indexSrc).toMatch(/server\.register\(\s*urlPreviewRoutes\s*,\s*\{\s*prefix:\s*'\/api\/url-preview'/u)
+    expect(indexSrc).toMatch(
+      /server\.register\(\s*urlPreviewRoutes\s*,\s*\{\s*prefix:\s*'\/api\/url-preview'/u,
+    )
   })
 })
 

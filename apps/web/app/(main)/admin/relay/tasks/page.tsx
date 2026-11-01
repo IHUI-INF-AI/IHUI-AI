@@ -109,7 +109,7 @@ export default function RelayTasksPage() {
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">号池任务中心</h1>
+          <h1 className="text-heading font-semibold">号池任务中心</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             四类载体的周期任务一张表:上次执行/下次执行/成败。调度仍由各载体自己承载,此处只观测与手动触发。
           </p>
@@ -194,7 +194,9 @@ export default function RelayTasksPage() {
                         </div>
                       )}
                     {t.lastRunStale && (
-                      <div className="text-xs text-amber-600">心跳疑似停摆(超 3 个节律周期无新心跳)</div>
+                      <div className="text-xs text-amber-600">
+                        心跳疑似停摆(超 3 个节律周期无新心跳)
+                      </div>
                     )}
                   </td>
                   <td className="text-muted-foreground px-3 py-2 text-xs">
@@ -470,3 +472,4 @@ function WorkbuddyAutomation() {
     </Card>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

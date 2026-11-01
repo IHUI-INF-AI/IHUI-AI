@@ -140,6 +140,17 @@ function buildTable(names) {
   return { rows, missing }
 }
 
+/**
+ * 模板指纹 —— 抬模板正文(注释、类型别名、任何非表格行)必须同时抬这一串里的版本号。
+ *
+ * 为什么需要它(2026-11-01 实测到病灶):`--write` 的幂等判据 `iconTableCovers` 刻意只比
+ * **语义档**(图标名 ∧ 该名的 SVG 取值),不比字节 —— 落盘要先过 prettier 再注水印,比字节会
+ * "每轮都有变化"。代价是:改了 renderSource 的模板文字而名字集合没动 ⇒ 判据照打「✓ 图标无变化」,
+ * 产物**永远停在旧模板**,而文件头写着"请勿手改" ⇒ 两头都没有出路(§0.8)。
+ * 把模板形状压成一枚指纹进判据,模板一改就必然重落一次。
+ */
+export const TEMPLATE_STAMP = 'gen-rn-compat:template-v2'
+
 function renderSource(names, rows) {
   const declared = rows
     .map((r) => /^  '([A-Za-z0-9]+)':/.exec(r)?.[1])
@@ -162,6 +173,7 @@ function renderSource(names, rows) {
  * 渲染口径:SVG 为纯黑描边,由 CSS mask 只取 alpha ⇒ 实际颜色走 background-color,
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
+// ${TEMPLATE_STAMP} —— 模板指纹。改本文件的模板正文必须抬版本号,否则 --write 按语义档判"无变化"、产物停在旧模板。
 import { makeIcon } from './icons-runtime'
 
 /**
@@ -426,6 +438,14 @@ export function iconTableCovers(rows, diskText) {
 }
 
 /**
+ * 写盘决策用的完整"已是最新"判据 = 语义档(名 ∧ SVG 取值)∧ 模板指纹在册。
+ * 只比语义档会让模板正文的改动永不落地(见 TEMPLATE_STAMP 头注,2026-11-01 实测)。
+ */
+export function iconsUpToDate(rows, diskText) {
+  return iconTableCovers(rows, diskText) && String(diskText || '').includes(TEMPLATE_STAMP)
+}
+
+/**
  * 扫 `const S = { … }` 块，按**转义感知**逐条取 `键 → 解码后的值`。
  *
  * 为什么不能用正则按行切：prettier 会把长值折到键的下一行（实测产物里 `Activity:` 与它的
@@ -663,7 +683,7 @@ async function main() {
 
   // 幂等判据取**语义档**(名字集合/映射键集合),不取字节:落盘内容会先过 prettier 再注水印,
   // 拿未格式化的稿与盘上副本比字节必然永不相等 ⇒ 每轮都"有变化",改动面被无意义的重写长期占用。
-  const iconsAlreadyCovered = iconTableCovers(rows, current)
+  const iconsAlreadyCovered = iconsUpToDate(rows, current)
   const routesAlreadyCovered = routeMapCovers([...routeInfo.map.entries()], routeCurrent)
   console.log(
     `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
@@ -705,7 +725,9 @@ async function main() {
      * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
      */
     if (iconsAlreadyCovered)
-      console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
+      console.log(
+        `✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值与模板指纹 ${TEMPLATE_STAMP})`,
+      )
     else {
       atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
@@ -742,6 +764,8 @@ export const __test__ = {
   renderRouteMap,
   routeMapCovers,
   iconTableCovers,
+  iconsUpToDate,
+  TEMPLATE_STAMP,
   OUT_REL,
   ROUTE_OUT_REL,
   // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)

@@ -1,7 +1,8 @@
-import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../i18n'
 
 /**
  * HandPlatePops 手柄式底部弹出层 (mobile-rn 端)
@@ -48,7 +49,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import { Tappable } from '@ihui/ui-native'
 
 export interface HandPlatePaymentMethod {
   id: string
@@ -351,7 +351,7 @@ export function HandPlatePops({
                   {payOptions.map((m) => {
                     const active = m.id === selectedPayMethod
                     return (
-                      <Tappable
+                      <Pressable
                         key={m.id}
                         style={[
                           styles.purchasePaymentOption,
@@ -370,14 +370,14 @@ export function HandPlatePops({
                         <View style={[styles.radio, active ? styles.radioActive : null]}>
                           {active ? <View style={styles.radioDot} /> : null}
                         </View>
-                      </Tappable>
+                      </Pressable>
                     )
                   })}
                 </View>
 
                 {hasAgreement ? (
                   <View style={styles.purchaseAgreement}>
-                    <Tappable
+                    <Pressable
                       style={[styles.checkbox, isAgreed ? styles.checkboxChecked : null]}
                       onPress={toggleAgree}
                       accessibilityRole="checkbox"
@@ -385,18 +385,18 @@ export function HandPlatePops({
                       accessibilityLabel={purchase.agreementText}
                     >
                       {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
-                    </Tappable>
-                    <Tappable
+                    </Pressable>
+                    <Pressable
                       style={styles.purchaseAgreementTextWrap}
                       onPress={purchase.onAgreementPress}
                       disabled={!purchase.onAgreementPress}
                     >
                       <Text style={styles.purchaseAgreementText}>{purchase.agreementText}</Text>
-                    </Tappable>
+                    </Pressable>
                   </View>
                 ) : null}
 
-                <Tappable
+                <Pressable
                   style={[
                     styles.purchasePayBtn,
                     payDisabled ? styles.purchasePayBtnDisabled : null,
@@ -413,7 +413,7 @@ export function HandPlatePops({
                       {purchase.payText ?? `${t('purchase.payNow')} ¥${formatYuan(purchase.price)}`}
                     </Text>
                   )}
-                </Tappable>
+                </Pressable>
               </View>
             ) : (
               children
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   purchasePayment: {
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   } as ViewStyle,
   purchasePaymentTitle: {
     fontSize: rnType.label.size,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     borderWidth: 1,
     borderColor: 'transparent',
   } as ViewStyle,
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   purchasePaymentName: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: rnSpacing['sm-loose'],
     fontSize: rnType.body.size,
     color: tokens.text.primary,
   } as TextStyle,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   } as ViewStyle,
   checkbox: {
     width: CHECKBOX_SIZE,

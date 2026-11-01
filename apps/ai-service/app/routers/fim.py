@@ -46,7 +46,7 @@ import math
 import os
 import threading
 import time
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, model_validator
@@ -187,7 +187,19 @@ _FIM_METRICS_REDIS_KEY = "ihui:fim:metrics"  # 全量快照 JSON,无 TTL(持续�
 #: V3 #82 未闭环 ②:接受率看板需要 scene 维度(补全 / 编辑意图预测分开聚合)。
 #: 缺省场景 = 历史唯一的那个场景(FIM 补全),因此**不传 scene 的旧调用方落的就是原来的桶**,
 #: 聚合键继续用裸 model(Redis 旧快照里的裸 model 键也能原样恢复),读数含义一字不变。
-_DEFAULT_METRICS_SCENE = "completion"
+#:
+#: scene 族唯一真相源(§0.6):标识符只在这里声明一次。上报侧按名字传字符串即可,
+#: 看板侧的显示文案经 i18n 五语言取键(不在此层,Python 不拥有展示名)。
+#: `edit_intent` 与前端单源常量 `apps/web/src/lib/predictive-edit-api.ts` 的
+#: `PREDICTIVE_EDIT_METRICS_SCENE` 必须逐字同值,由 `tests/test_fim.py` 钉住(跨语言
+#: 两份声明无法避免——Python 与 TS 不同运行时,故以内容对照测试代替共享导入)。
+METRICS_SCENE_COMPLETION: Final = "completion"
+METRICS_SCENE_EDIT_INTENT: Final = "edit_intent"
+#: 已知场景清单:只用于**发现**未登记的新场景(见 report_fim_metrics 的一次性告警),
+#: 不是白名单——scene 字段形态保持开放字符串,未登记场景照样成桶、照样进 summary,
+#: 这样新增一个场景只需加一行登记与一条翻译,不需要改判据也不丢历史读数。
+KNOWN_METRICS_SCENES: Final = (METRICS_SCENE_COMPLETION, METRICS_SCENE_EDIT_INTENT)
+_DEFAULT_METRICS_SCENE = METRICS_SCENE_COMPLETION
 #: 聚合键分隔符(载体私有控制符,不出现在任何真实 model/scene 里;上报时会被剥掉防伪造串键)
 _METRICS_SCENE_SEP = "\u241f"
 _METRICS_SCENE_MAX_LEN = 32

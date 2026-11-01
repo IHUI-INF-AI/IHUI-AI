@@ -26,6 +26,8 @@ import {
   rnSpacing,
   rnType,
 } from '@ihui/design-tokens'
+// G-815966:百分比裁剪走具名唯一出口,本地同名内联实现已摘(与具名出口语义逐字同形)
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import type {
   EduGradeTrendEntry,
   EduGradeTrendScreenProps,
@@ -41,12 +43,6 @@ export type { EduGradeTrendEntry, EduGradeTrendScreenProps, EduGradeWeaknessItem
 function rateOf(score: number, totalScore: number): number {
   if (!Number.isFinite(score) || !Number.isFinite(totalScore) || totalScore <= 0) return 0
   return clampPercent((score / totalScore) * 100)
-}
-
-/** 夹到 0..100;条宽 `${n}%` 越界在 RN 上会被裁掉,不夹反而看不出来 */
-function clampPercent(value: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.min(100, Math.max(0, value))
 }
 
 /** 分数字面量:整数原样,小数保留 1 位(后端 score 是 numeric,可能回 87.5) */

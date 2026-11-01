@@ -258,7 +258,8 @@ test('T2 观察窗判死 ⇒ 契约比例归零(撤灰度),判通过 ⇒ 升到�
       '契约没落盘 ⇒ 分流器下一次读到的还是老比例',
     )
 
-    // 正向对照:同一批命令行喂"全通过"样本 ⇒ rc=0 ⇒ 升到策略里的下一档,不是归零
+    // 正向对照:同一批命令行喂"全通过"样本 ⇒ rc=0 ⇒ 升到策略里的下一档,不是归零。
+    // 喂 pass 时必须同时给灰度在位维(票 31460 / W10):这里的正向对照模拟灰度实例真在位。
     const good = samplesFor(dir, 'candidate-pass.jsonl', 'pass')
     const dp = runNode(VERDICT_CLI, ['--decide', '--candidate', good, '--json'])
     assert.equal(dp.rc, 0, `候选全绿必须 pass(rc=0),实得 rc=${dp.rc} out=${dp.out}`)
@@ -266,6 +267,8 @@ test('T2 观察窗判死 ⇒ 契约比例归零(撤灰度),判通过 ⇒ 升到�
       '--decide',
       '--verdict',
       'pass',
+      '--canary-serving',
+      'yes',
       '--current',
       REAL.stages[0].id,
       '--sha',
@@ -278,6 +281,18 @@ test('T2 观察窗判死 ⇒ 契约比例归零(撤灰度),判通过 ⇒ 升到�
     assert.equal(advDoc.action, 'advance')
     assert.equal(advDoc.percent, REAL.stages[1].percent, '升档后的比例必须等于档位表下一档')
     assert.equal(JSON.parse(readFileSync(contract, 'utf8')).percent, REAL.stages[1].percent)
+
+    // 反向对照(票 31460 的核心形态):同样喂 pass 而不给/给否在位维 ⇒ hold,契约一字节不动
+    // (灰度实例不在位时"现网侧通过"绝不推进档位)。
+    const before = readFileSync(contract, 'utf8')
+    const advNoFlag = runNode(STAGE_CLI, ['--decide', '--verdict', 'pass', '--current', REAL.stages[0].id, '--contract', contract])
+    assert.equal(advNoFlag.rc, 0, advNoFlag.err)
+    assert.equal(JSON.parse(advNoFlag.out).action, 'hold', '缺在位维 ⇒ 必须 hold(fail-closed)')
+    const advNo = runNode(STAGE_CLI, ['--decide', '--verdict', 'pass', '--canary-serving', 'no', '--current', REAL.stages[0].id, '--contract', contract])
+    assert.equal(advNo.rc, 0, advNo.err)
+    assert.equal(JSON.parse(advNo.out).action, 'hold')
+    assert.match(JSON.parse(advNo.out).reason, /未判定/)
+    assert.equal(readFileSync(contract, 'utf8'), before, 'hold 不得改契约')
 
     // unknown ⇒ 原地不动:没有证据既不放量也不回滚(这一格坏掉就是"判不了就乱动")
     const hold = runNode(STAGE_CLI, [

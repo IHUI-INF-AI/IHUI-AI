@@ -901,7 +901,13 @@ function Test-LlmGateway {
     if ($r.Status -eq 401 -or $r.Status -eq 403) {
         $tok = Get-HcToken -Force          # 只有令牌确实失效才重登,正常轮次零登录
         if (-not $tok) {
+            # 立因(2026-11-01,票 L4461 的"凭据缺失要单独出声"格):这一支此前**一句话不打**
+            # 就按未知收尾 —— 401/403 被拒后重登录又拿不到令牌(凭据缺失/轮换未同步),
+            # 人读面只剩 GATE-DIM 的 llm=unknown(401/auth-retry-no-token)。中文点名行经
+            # LocalSystem 管道会烂,但这一型必须同时留一行中文点名:它与"网关坏"是两件事,
+            # 处置是查凭据腿(IHUI_ADMIN_PASSWORD / 口令文件 / JWT_SECRET),不是修网关、更不是回滚。
             $script:LastLlmProbe = @{ Verdict = 'unknown'; Status = [int]$r.Status; Reason = 'auth-retry-no-token' }
+            Log "HEALTH 探测令牌被拒(HTTP $($r.Status))且重登未取到令牌 → llm 项按未知处理(凭据缺失/失效,不据此回滚)"
             return 'unknown'
         }
         $r = Invoke-Probe -Url "$PublicWeb/api/llm/providers/health" -Token $tok

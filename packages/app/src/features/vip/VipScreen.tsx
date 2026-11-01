@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    benefitIcon: { marginTop: 2 },
+    benefitIcon: { marginTop: rnSpacing['2xs'] },
     benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
     benefitTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     benefitDesc: { fontSize: rnType.label.size, lineHeight: 20, color: tk.text.secondary },
