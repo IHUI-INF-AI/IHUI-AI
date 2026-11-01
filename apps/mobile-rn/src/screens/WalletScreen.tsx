@@ -57,10 +57,10 @@ export function WalletScreen() {
       // null 安全:后端缺值时保留 null ⇒ 共享屏显示 — 占位符;
       // 不被 /100 换算强转成 0,避免静默击穿「余额为 null 显示 —」既有特性。
       setBalance({
-        balance: d.balance == null ? null : d.balance / 100,
-        frozenBalance: d.frozenBalance == null ? null : d.frozenBalance / 100,
-        totalRecharge: d.totalRecharge == null ? null : d.totalRecharge / 100,
-        totalWithdraw: d.totalWithdraw == null ? null : d.totalWithdraw / 100,
+        balance: Number.isFinite(d.balance) ? d.balance / 100 : null,
+        frozenBalance: Number.isFinite(d.frozenBalance) ? d.frozenBalance / 100 : null,
+        totalRecharge: Number.isFinite(d.totalRecharge) ? d.totalRecharge / 100 : null,
+        totalWithdraw: Number.isFinite(d.totalWithdraw) ? d.totalWithdraw / 100 : null,
       } as WalletBalance)
     } catch {
       setError(uniappT('wallet.loadFailed'))
