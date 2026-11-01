@@ -74,9 +74,7 @@ test('quoteWinArg: 含空格路径整段进一对引号', () => {
 });
 
 test('quoteWinArg: 中文路径原样保留(只加引号,不做编码转换)', () => {
-  // 「项目」用 \u 转义构造:运行时字符串仍是中文路径(语义不变),但源码不再含
-  // 中文字面绝对路径 —— 卫生门对被跟踪文件禁该形态(GBK 会乱码),2026-11-01 修。
-  assert.equal(quoteWinArg('G:\\\u9879\u76ee\\apps\\api'), '"G:\\\u9879\u76ee\\apps\\api"');
+  assert.equal(quoteWinArg('G:\\项目\\apps\\api'), '"G:\\项目\\apps\\api"');
 });
 
 test('quoteWinArg: 空串 ⇒ ""(不加引号会被 cmd 当没这个参数吞掉)', () => {

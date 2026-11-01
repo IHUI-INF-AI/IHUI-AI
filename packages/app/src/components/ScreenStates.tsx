@@ -8,6 +8,7 @@ import { SCREEN_STATES_STATE_MIN_HEIGHT_PX } from '@ihui/shared/ui/screen-states
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../theme/tokens'
+import { Tappable } from '@ihui/ui-native'
 
 /**
  * 屏幕状态四件套 —— 「细化美化」的共享底座。
@@ -141,9 +142,9 @@ export function EmptyState({
       <Text style={styles.stateTitle}>{title}</Text>
       {desc ? <Text style={styles.stateDesc}>{desc}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable style={styles.stateBtn} onPress={onAction} accessibilityRole="button">
+        <Tappable style={styles.stateBtn} onPress={onAction} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{actionLabel}</Text>
-        </Pressable>
+        </Tappable>
       ) : null}
     </View>
   )
@@ -175,9 +176,9 @@ export function ErrorState({
       </View>
       <Text style={styles.stateTitle}>{message}</Text>
       {onRetry ? (
-        <Pressable style={styles.stateBtn} onPress={onRetry} accessibilityRole="button">
+        <Tappable style={styles.stateBtn} onPress={onRetry} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{retryLabel}</Text>
-        </Pressable>
+        </Tappable>
       ) : null}
     </View>
   )
@@ -271,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: rnSpacing['3xl'],
-      gap: 10,
+      gap: rnSpacing['sm-loose'],
       // 占位高台与小程序 .ihui-state 同取 SCREEN_STATES_STATE_MIN_HEIGHT_PX(防 loading 期塌零)
       minHeight: SCREEN_STATES_STATE_MIN_HEIGHT_PX,
     },
@@ -294,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     stateDesc: { fontSize: 13, color: tk.text.tertiary, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
-      marginTop: 6,
+      marginTop: rnSpacing['xs-loose'],
       paddingHorizontal: 18,
       paddingVertical: 9,
       borderRadius: rnRadius.sm,

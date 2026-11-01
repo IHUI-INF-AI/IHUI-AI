@@ -93,15 +93,18 @@ export interface AnnouncementScreenProps {
 
 // ============ 详情屏(批次 7,2026-07-29) ============
 
-/** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note) */
+/** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note)
+ *  tags/views/likes 可选:GET /api/notes/:id(other/notes-routes.ts)只回
+ *  id/title/content/isPublic/author/createdAt/updatedAt,这三列不在该端点投影里,
+ *  端上按「缺了就不渲染」消费,不造 0/[] 冒充真值。 */
 export interface NoteDetailItem {
   id: string
   title: string
   content: string
   createdAt: string
-  tags: string[]
-  views: number
-  likes: number
+  tags?: string[]
+  views?: number
+  likes?: number
   author: string
 }
 

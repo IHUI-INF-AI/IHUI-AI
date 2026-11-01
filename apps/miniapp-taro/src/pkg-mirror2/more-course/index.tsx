@@ -2,14 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/more-course/MoreCourseScreen.tsx
+// 承载 RN 壳 apps/mobile-rn/src/screens/MoreCourseScreen.tsx(RN 端独占课程列表,迁移守门豁免项)
 
 /**
  * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
- *   渲染 = packages/app/src/features/more-course/MoreCourseScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
- *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/MoreCourseScreen.tsx 本体,
+ *   渲染与数据交互 = RN 壳 apps/mobile-rn/src/screens/MoreCourseScreen.tsx 本体
+ *   (Carousel/ToolBar/PopularCourses/KnowledgePlanet/BottomFigure 端内组合,经 rn-compat 落地),
  *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
- * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ * ⇒ 源头(RN 壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ *   订正(2026-11-01):原页顶声明的共享层同名屏全仓无壳渲染(仅 barrel 导出,孤儿);
+ *   RN 壳在迁移守门是显式豁免项(expires 2027-06-30),本页承载的是壳本体,登记表同名
+ *   条目与裁决台账需随之改档。
  */
 import ThemeRoot from '@/components/ThemeRoot'
 import { MoreCourseScreen as MoreCourseScreenShell } from '@rn-shells/MoreCourseScreen'

@@ -93,20 +93,26 @@ export function InviteScreen({
                 <Text style={styles.cardName} numberOfLines={1}>
                   {item.nickname}
                 </Text>
-                <Text
-                  style={[
-                    styles.cardStatus,
-                    item.status === 'completed' ? styles.statusDone : styles.statusPending,
-                  ]}
-                >
-                  {item.status === 'completed'
-                    ? t('invite.statusCompleted')
-                    : t('invite.statusPending')}
-                </Text>
+                {/* status 后端不下发 ⇒ 缺失时不渲染徽章 */}
+                {item.status ? (
+                  <Text
+                    style={[
+                      styles.cardStatus,
+                      item.status === 'completed' ? styles.statusDone : styles.statusPending,
+                    ]}
+                  >
+                    {item.status === 'completed'
+                      ? t('invite.statusCompleted')
+                      : t('invite.statusPending')}
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.cardTime}>{item.invitedAt}</Text>
-                <Text style={styles.cardReward}>+{item.reward}</Text>
+                {/* reward 后端不下发 ⇒ 缺失时不渲染,不以 +0 顶位 */}
+                {item.reward != null ? (
+                  <Text style={styles.cardReward}>+{item.reward}</Text>
+                ) : null}
               </View>
             </View>
           )}

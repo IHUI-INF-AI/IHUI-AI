@@ -77,11 +77,6 @@
       "miniapp": "pkg-about/about/agreement/index"
     },
     {
-      "shared": "packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
-      "miniapp": "pkg-mirror/ai-assistant-n8n/index"
-    },
-    {
       "shared": "packages/app/src/features/ai-assistant/AiAssistantScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiAssistantScreen.tsx",
       "miniapp": "pkg-ai/ai-assistant/index"
@@ -770,11 +765,6 @@
       "shared": "packages/app/src/features/model-record/ModelRecordScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ModelRecordScreen.tsx",
       "miniapp": "pkg-about/about/model-record/index"
-    },
-    {
-      "shared": "packages/app/src/features/more-course/MoreCourseScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx",
-      "miniapp": "pkg-mirror2/more-course/index"
     },
     {
       "shared": "packages/app/src/features/my-agents/MyAgentsScreen.tsx",

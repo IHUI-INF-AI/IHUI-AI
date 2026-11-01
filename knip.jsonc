@@ -633,23 +633,7 @@
         "src/components/Input.tsx",
         "src/components/Switch.tsx",
         "src/components/VipBadge.tsx",
-        "src/constants/web-portal.ts",
-        // 2026-11-01:rn-compat 兼容层整片免检(判据面改动,理由见下)。
-        // 立因:这一层是"小程序承载 RN 壳"的**平台 adapter** —— 共享屏(packages/app/src)
-        // 用 RN 形态写 import 'react-native' / 'lucide-react-native',而本端 tsconfig 的
-        // paths 把这两个包名指向本目录下的实现(react-native → src/rn-compat/index.ts、
-        // lucide-react-native → src/rn-compat/icons-generated.tsx)。knip 的静态图不读
-        // 各端 tsconfig 的 paths,且这两条路径指向的**消费方在另一个 workspace**(packages/app),
-        // 本端 paths 对它们不生效 ⇒ 兼容层的出口(含 228 枚图标)全被记成「未用导出」
-        // (CI run 41276637110 实测 exports 2180 vs 基线 1988 = +192;本地同形 2175/+187)。
-        // 试过在 paths 里显式登记这两条别名:实测**计数一条不变**(跨 workspace 的消费方
-        // 不吃本端别名),故不是可修的解析盲区,只能按"看不见的装载形态"登记豁免。
-        // 这不是"给死代码开后门":本层出口的覆盖面由本仓**专属判据**管着 ——
-        // scripts/check-rn-compat-coverage.mjs(C1 逐条比对消费面 vs 本层出口面,
-        // 少一枚/多一枚都判红),它按 HEAD 面判,不依赖 knip 的静态图。
-        // 到期复核:knip 支持跨 workspace 的 paths 别名(或能解析 tsconfig paths 后),
-        // 删本条并让 knip 重新看见这条消费链。
-        "src/rn-compat/**"
+        "src/constants/web-portal.ts"
       ]
     },
     "packages/database": {

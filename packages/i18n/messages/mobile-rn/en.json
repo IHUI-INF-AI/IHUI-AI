@@ -1275,7 +1275,7 @@
   "aiGroup": {
     "join": {
       "title": "Join Group",
-      "message": "Requested to join \"{name}\""
+      "message": "Joined \"{name}\""
     },
     "cardMembers": "Members",
     "detailEnter": "Enter chat",
@@ -1656,6 +1656,11 @@
   },
   "agentStat": {
     "title": "Agent Stats",
+    "totalAgents": "Total Agents",
+    "totalUsers": "Creators",
+    "totalCalls": "Total Calls",
+    "publishedCount": "Published",
+    "pendingCount": "Pending",
     "conversations": "Conversations",
     "messages": "Messages",
     "tokens": "Tokens Used",
@@ -3282,7 +3287,10 @@
     "twoFactor": "Two-Factor Authentication",
     "loginAlert": "Login Alerts",
     "desc": "Manage your account security options",
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "readOnlyHint": "Showing the current server state; changing it is not supported yet",
+    "stateOn": "On",
+    "stateOff": "Off"
   },
   "settingsAccount": {
     "title": "Account Management",

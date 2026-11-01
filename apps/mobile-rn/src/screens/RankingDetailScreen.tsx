@@ -15,7 +15,7 @@ import { StyleSheet, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { listConversations, type ConversationDetail } from '@ihui/api-client'
+import { listConversations, fetchApi, type ConversationDetail } from '@ihui/api-client'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import { tokens } from '../theme/active-tokens'
 import { useTheme } from '../context/ThemeContext'
@@ -27,6 +27,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { RankingItem } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import Clipboard from '@react-native-clipboard/clipboard'
@@ -38,11 +39,22 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 type RankingDetailRouteProp = RouteProp<RootStackParamList, 'RankingDetail'>
 
+/** GET /ranking 列表行的最小取用面(端上返回形状两种都认:数组或 {list}) */
+interface RankingListRow {
+  id?: string
+  userId?: string
+  nickname?: string
+  avatar?: string | null
+  points?: number
+  studyHours?: number
+  rank?: number
+}
+
 export default function RankingDetailScreenWrapper() {
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
   const route = useRoute<RankingDetailRouteProp>()
-  const { item } = route.params
+  const { item, id } = route.params
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -136,14 +148,53 @@ export default function RankingDetailScreenWrapper() {
   const onOpenMessages = () => navigation.navigate('MessageCenter')
   const onGoHome = () => navigation.navigate('Main', { screen: 'HomeMain' })
 
-  // 详情数据(列表页透传;无 item 时回退零值,不展示伪造内容)
-  const detail = item
+  /**
+   * 壳自取数(2026-11-01):route.params 经 rn-compat 只承载标量(item 对象进不了 URL
+   * query,此前被 String(v) 拼成 '[object Object]' 打坏整页参数),壳化端只有 id。
+   * 后端没有 /api/ranking/:id 详情端点 ⇒ 复用列表页同一数据源 GET /ranking 按 id 找回
+   * 本条(昵称/头像/rank 取列表位次);points/studyHours 该数据集不含,取不到维持
+   * 零值回退,不伪造(§0.3:取不到不冒绿)。
+   */
+  const [fetched, setFetched] = useState<RankingItem | null>(null)
+  useEffect(() => {
+    if (item || !id) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetchApi<{ list?: RankingListRow[] } | RankingListRow[]>('/ranking')
+        if (!res.success || cancelled) return
+        const rows = Array.isArray(res.data) ? res.data : (res.data?.list ?? [])
+        const idx = rows.findIndex((r) => String(r.id ?? r.userId ?? '') === String(id))
+        if (idx < 0) return
+        const row = rows[idx] ?? null
+        if (!row) return
+        setFetched({
+          id: String(id),
+          rank: row.rank ?? idx + 1,
+          nickname: row.nickname ?? t('menu.ranking'),
+          avatar: row.avatar ?? null,
+          points: row.points ?? 0,
+          studyHours: row.studyHours ?? 0,
+          isMe: false,
+        })
+      } catch {
+        // 取不到保持零值回退
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [id, item, t])
+
+  // 详情数据(RN:列表页透传 item;壳化端:上面按 id 自取;都取不到回退零值,不展示伪造内容)
+  const source = item ?? fetched
+  const detail = source
     ? {
-        avatar: item.avatar ?? null,
-        title: item.nickname,
-        rank: item.rank,
-        points: item.points,
-        studyHours: item.studyHours,
+        avatar: source.avatar ?? null,
+        title: source.nickname,
+        rank: source.rank,
+        points: source.points,
+        studyHours: source.studyHours,
         level: 0,
       }
     : {

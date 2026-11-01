@@ -243,17 +243,8 @@ test('TA-12 真源跑一遍：零判红 + 命中数与流内生产/消费行数�
       throw new Error(`覆盖面不闭合：命中 ${s.resolved} ≠ 生产 ${producers} + 消费 ${consumers}`)
     }
     if (s.entries !== all.length) throw new Error(`条目数不闭合：${s.entries} vs ${all.length}`)
-    // 自证(防"该判未判定却归零"):只有当真源里**确实存在**会落未判定的形态(文件类
-    // path-ish / 不可机判标识符)时,undetermined 才必须 > 0。2026-11-01 对齐现形:
-    // audit.jsonl 的 schema 已演化(现读 4062 条里 input.target=0,全部落在可机判/启发式族),
-    // 无条件断言 undetermined>0 会把"数据里本来就没有那一族"读成"抽取式失灵"。
-    // 判"存在哪一族"用门体单源 extractTarget(§22c 不复制第二份)。
-    const wouldBeUndetermined = all.filter((o) => {
-      const t = gate.extractTarget({ rowNo: 0, tool: typeof o.tool === 'string' ? o.tool : '(no-tool)', raw: o })
-      return t && (t.kind === 'path-ish' || (t.judgeable === false && t.kind !== 'none'))
-    }).length
-    if (wouldBeUndetermined > 0 && s.undetermined === 0)
-      throw new Error('真源里存在应落未判定的形态却归零 ⇒ 抽取式失灵(0 命中先怀疑尺子)')
+    if (s.undetermined === 0)
+      throw new Error('真源里文件类 target 明明存在，未判定归零 ⇒ 抽取式失灵（0 命中先怀疑尺子）')
   } finally {
     gate.rmScratch(fx.dir)
     if (fs.existsSync(fx.dir)) throw new Error('夹具未回收（会在 scratch 根里长二阶目录）')
