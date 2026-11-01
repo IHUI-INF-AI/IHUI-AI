@@ -26,6 +26,7 @@ import {
   acceptInvitation,
   rejectInvitation,
 } from '../db/team-queries.js'
+import { findUserById } from '../db/queries.js'
 import { success, error } from '../utils/response.js'
 
 // =============================================================================
@@ -132,6 +133,31 @@ function serializeInvitation(i: {
 // 路由
 // =============================================================================
 
+/**
+ * 当前用户是否为该邀请的**被邀请人**(accept / reject 共用,单一实现)。
+ *
+ * 修前(2026-11-01 安全强化):`isEmailMatch` 只判"邀请上有邮箱",
+ * 从不与当前用户的邮箱比对 ⇒ 邀请链接一旦被转发/泄露,任何登录用户都能
+ * 以被邀请人身份入队(accept),或替他人拒掉邀请(reject)。
+ *
+ * 现行口径:
+ *  - `invitee_id` 精确命中 ⇒ 通过(定向邀请,与邮箱无关);
+ *  - 否则要求"邀请带邮箱 **且** 当前用户有邮箱 **且** 忽略大小写相等";
+ *  - 当前用户无邮箱、或邮箱不一致 ⇒ 拒。
+ */
+async function isInvitationAddressee(
+  invitation: { inviteeId: string | null; email: string | null },
+  userId: string,
+): Promise<boolean> {
+  if (invitation.inviteeId === userId) return true
+  const invitedEmail = invitation.email?.trim().toLowerCase()
+  if (!invitedEmail) return false
+  const me = await findUserById(userId)
+  const myEmail = me?.email?.trim().toLowerCase()
+  if (!myEmail) return false
+  return invitedEmail === myEmail
+}
+
 export const teamRoutes: FastifyPluginAsync = async (server) => {
   const idParam = z.object({ id: z.string() })
   const tokenParam = z.object({ token: z.string() })
@@ -177,12 +203,11 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '邀请已过期'))
     }
 
-    // 校验当前用户为被邀请人（invitee_id 或 email 匹配）
+    // 校验当前用户为被邀请人(invitee_id 精确命中,或 email 与当前用户邮箱一致)
     const member = await findTeamMember(invitation.teamId, userId)
     if (!member) {
-      const isInvitee = invitation.inviteeId === userId
-      const isEmailMatch = invitation.email !== null && invitation.email !== undefined
-      if (!isInvitee && !isEmailMatch) {
+      const isAddressee = await isInvitationAddressee(invitation, userId)
+      if (!isAddressee) {
         return reply.status(403).send(error(403, '无权接受该邀请'))
       }
     }
@@ -206,10 +231,9 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, `邀请已${invitation.status}`))
     }
 
-    // 校验当前用户为被邀请人
-    const isInvitee = invitation.inviteeId === userId
-    const isEmailMatch = invitation.email !== null && invitation.email !== undefined
-    if (!isInvitee && !isEmailMatch) {
+    // 校验当前用户为被邀请人(reject 与 accept 同一份判据,否则可替他人拒掉邀请)
+    const isAddressee = await isInvitationAddressee(invitation, userId)
+    if (!isAddressee) {
       return reply.status(403).send(error(403, '无权拒绝该邀请'))
     }
 
