@@ -142,13 +142,20 @@ describe('/api/admin/support/tickets 的 admin 闸', () => {
     expect(dbTouch).toEqual([])
   })
 
-  it('接线锁:插件体内必须先 addHook 再注册路由(逐条补 preHandler 救不了"以后再加一条忘了挂")', () => {
+  it('接线锁(形态档,不是安全性质):闸在位,且本文件现状是"先 addHook 再注册路由"', () => {
+    // 2026-11-01 更正:这一枚提交当初把"必须排在第一条路由之前"写成安全性质
+    // ("逐条补 preHandler 救不了以后新增的端点")。那是没量过的 folklore ——
+    // 真 Fastify 实测见 `apps/api/tests/fastify-plugin-hook-scope.test.ts`:
+    // **同一插件体内 addHook 与注册顺序无关**,晚加的 hook 照样罩得住先注册的路由;
+    // 真正的边界是封装(`register()` 子作用域里的 hook 不罩父作用域路由)。
+    // 所以本档留作**代码形态变更登记**:有人把闸挪位/删掉都会在这里翻红,但"挪位"不等于"失守";
+    // 真正的失守判据是上一条"非管理员一律 403 且一次库都没问"。
     const src = readFileSync(join(ROOT, ROUTE_FILE), 'utf8')
     const hook = src.indexOf("server.addHook('preHandler', requireAdminRouteGuard)")
     expect(hook, '缺失插件级 preHandler 闸').toBeGreaterThan(-1)
     const firstRoute = src.search(/\bserver\.(get|post|put|delete|patch)\(/)
     expect(firstRoute, '找不到任何路由注册').toBeGreaterThan(-1)
-    expect(hook).toBeLessThan(firstRoute)
+    expect(hook, '闸的相对位置变了(形态变更;安全性由越权档判) ').toBeLessThan(firstRoute)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
