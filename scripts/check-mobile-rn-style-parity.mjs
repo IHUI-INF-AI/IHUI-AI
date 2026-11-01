@@ -69,6 +69,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC_RELS = ['apps/mobile-rn/src', 'packages/app/src']
 const SRC_ABS = SRC_RELS.map((r) => join(root, r))
 const BASELINE_PATH = join(root, 'scripts/rn-style-parity-baseline.json')
+/**
+ * 硬编码 hex 的**显式白名单**(2026-11-02 立,跨端对齐 Phase 2「色值归零」)。
+ * 基线(`rn-style-parity-baseline.json`)是"历史上没治理"的整批放行,不带理由也不到期;
+ * 本表是逐条债:component × value × file × owner × expires + reason≥20 字 + evidence≥8 字。
+ * 判据:基线外新增 hex 必须在**本表**命中才放行,否则照旧 BLOCK;到期项不得再消账(必须回红)。
+ * 为什么不合进基线:基线整体过期不成立(`--update-baseline` 会把它整批续命),白名单必须会到期。
+ */
+const ALLOWLIST_PATH = join(root, 'scripts/data/mobile-rn-hex-allowlist.json')
 
 // ─── CLI 解析 ───
 const argv = process.argv.slice(2)
@@ -103,7 +111,8 @@ check-mobile-rn-style-parity.mjs — mobile-rn 跨端样式一致性守门(2026-
   --help, -h           显示此帮助
 
 校验内容:
-  RULE-1 (BLOCK) src/**(ts/tsx)出现基线之外的新增硬编码 #hex(必须改用 design-tokens)
+  RULE-1 (BLOCK) src/**(ts/tsx)出现基线之外的新增硬编码 #hex(必须改用 design-tokens,
+                  或在 scripts/data/mobile-rn-hex-allowlist.json 登记带到期日的显式白名单)
   RULE-2 (WARN)  基线中已不存在的条目(建议 --update-baseline 收紧)
 
 退出码:
@@ -260,6 +269,59 @@ function diffAgainstBaseline(currentMap, baselineMap) {
   return { newHits, staleFiles, shrunk }
 }
 
+/** 白名单单条形态问题;返回 null = 合格。today 可注入(判据自检不依赖当天时钟)。 */
+function allowlistProblem(e, today) {
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return '非对象条目'
+  for (const k of ['component', 'value', 'file', 'owner']) {
+    if (typeof e[k] !== 'string' || !e[k].trim()) return `缺 ${k}`
+  }
+  if (!/^#[0-9a-f]{3,8}$/.test(String(e.value).toLowerCase())) return `value 非法:${String(e.value)}`
+  if (typeof e.expires !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.expires))
+    return '缺/坏 expires(豁免必须会到期)'
+  if (String(e.expires) < String(today)) return `已过期(${e.expires})`
+  if (typeof e.reason !== 'string' || e.reason.trim().length < 20) return 'reason 需 ≥20 字的定向说明'
+  if (typeof e.evidence !== 'string' || e.evidence.trim().length < 8)
+    return 'evidence 需 ≥8 字(定位不到文件:行 = 下一个人复核不了)'
+  return null
+}
+
+/** 把白名单从「基线外新增」里抵掉。返回剩余红点、已放行条目、形态坏/过期/腐烂点名。
+ *  判据单源:自检与主流程都调本函数(不在自检里复制一份)。
+ *  - 过期/形态坏 ⇒ 不消账(该 hex 留在 remaining 里照旧 BLOCK);
+ *  - 腐烂(条目在表里而当前扫描无此 file+value)⇒ 只报数点名,不判红(与 allowed-diff 的 shrunk 同档)。
+ */
+function applyAllowlist({ currentMap, newHits, entries, today }) {
+  const valid = new Map()
+  const problems = []
+  const expired = []
+  for (const e of entries) {
+    const p = allowlistProblem(e, today)
+    if (p) {
+      if (p.startsWith('已过期')) expired.push({ entry: e, problem: p })
+      else problems.push({ entry: e, problem: p })
+      continue
+    }
+    valid.set(`${e.file}|${String(e.value).toLowerCase()}`, e)
+  }
+  const remaining = []
+  const allowedHits = []
+  for (const h of newHits) {
+    const rest = []
+    for (const v of h.added) {
+      const e = valid.get(`${h.file}|${v}`)
+      if (e) allowedHits.push({ file: h.file, value: v, component: e.component })
+      else rest.push(v)
+    }
+    if (rest.length > 0) remaining.push({ file: h.file, added: rest })
+  }
+  const unused = entries.filter((e) => {
+    if (allowlistProblem(e, today) !== null) return false
+    const cur = currentMap.get(e.file)
+    return !cur || !cur.has(String(e.value).toLowerCase())
+  })
+  return { remaining, allowedHits, problems, expired, unused }
+}
+
 // ─── --self-test:阳性对照(红/绿/注释三夹具 + 词法边界,零依赖真仓) ───
 
 function runSelfTest() {
@@ -302,11 +364,61 @@ function runSelfTest() {
     ok(selectFace({ staged: true }).face === 'staged', '--staged 必须选索引面')
     ok(selectFace({}).face === 'head', '缺省面必须是 head(不许默认磁盘)')
   }
+  // 白名单判据(2026-11-02):未登记/过期/形态坏一律不消账;在期内且合格才放行;腐烂只报数。
+  {
+    const today = '2026-11-02'
+    const entry = {
+      component: 'Demo',
+      value: '#abcdef',
+      file: 'a.tsx',
+      owner: 'rn-ui',
+      expires: '2027-03-27',
+      reason: '该值在设计 token 里没有同值档,登记为带到期日的显式债',
+      evidence: 'a.tsx:1 Demo',
+    }
+    const cur = new Map([['a.tsx', new Set(['#abcdef'])]])
+    const hits = [{ file: 'a.tsx', added: ['#abcdef'] }]
+    const inPeriod = applyAllowlist({ currentMap: cur, newHits: hits, entries: [entry], today })
+    ok(inPeriod.remaining.length === 0 && inPeriod.allowedHits.length === 1, '白名单在期内的值必须放行')
+    const none = applyAllowlist({ currentMap: cur, newHits: hits, entries: [], today })
+    ok(none.remaining.length === 1, '未登记的基线外 hex 必须判红')
+    const expired = applyAllowlist({
+      currentMap: cur,
+      newHits: hits,
+      entries: [{ ...entry, expires: '2026-01-01' }],
+      today,
+    })
+    ok(
+      expired.expired.length === 1 && expired.remaining.length === 1,
+      '过期白名单必须重新报红(到期项不得再消账)',
+    )
+    const bad = applyAllowlist({
+      currentMap: cur,
+      newHits: hits,
+      entries: [{ ...entry, reason: '短' }],
+      today,
+    })
+    ok(bad.problems.length === 1 && bad.remaining.length === 1, 'reason 过短必须判形态坏且不消账')
+    const rot = applyAllowlist({
+      currentMap: new Map(),
+      newHits: [],
+      entries: [entry],
+      today,
+    })
+    ok(rot.unused.length === 1, '白名单条目已不在扫描面必须点名(白名单不许留僵尸)')
+    const otherFile = applyAllowlist({
+      currentMap: cur,
+      newHits: [{ file: 'other.tsx', added: ['#abcdef'] }],
+      entries: [entry],
+      today,
+    })
+    ok(otherFile.remaining.length === 1, '白名单只按 file+value 精确命中,不得跨文件放行')
+  }
   if (fails.length > 0) {
     for (const f of fails) console.error(`[SELF-TEST FAIL] ${f}`)
     return 1
   }
-  console.log('[SELF-TEST OK] rn-parity 判据自检通过(红/绿/注释/词法边界/面旗互斥 5 组)')
+  console.log('[SELF-TEST OK] rn-parity 判据自检通过(红/绿/注释/词法边界/面旗互斥/白名单期限 6 组)')
   return 0
 }
 
@@ -359,15 +471,62 @@ function main() {
   }
   const baselineMap = new Map(Object.entries(baseline).map(([f, h]) => [f, new Set(h)]))
 
-  // ── RULE-1:基线之外的新增硬编码 hex -> BLOCK;RULE-2:已治理条目 -> WARN ──
-  const { newHits, staleFiles, shrunk } = diffAgainstBaseline(currentMap, baselineMap)
+  // ── 显式白名单加载(取不到 ⇒ exit 2 未判定,不回落成"白名单为空"把存量全判红) ──
+  if (!existsSync(ALLOWLIST_PATH)) {
+    console.error(`❌ 无法判定(exit 2):白名单 ${ALLOWLIST_PATH} 取不到(不得把"没读到"当成"没有白名单")`)
+    return 2
+  }
+  let allowRaw
+  try {
+    allowRaw = JSON.parse(stripBom(readFileSync(ALLOWLIST_PATH, 'utf8')))
+  } catch (e) {
+    console.error(`❌ 无法判定(exit 2):白名单解析失败:${e.message}`)
+    return 2
+  }
+  if (!allowRaw || !Array.isArray(allowRaw.entries)) {
+    console.error('❌ 无法判定(exit 2):白名单必须形如 {"note": string, "entries": [...]}')
+    return 2
+  }
+  const today = new Date().toISOString().slice(0, 10)
 
-  if (newHits.length > 0) {
-    console.error(`[FAIL] RULE-1: ${newHits.length} 个文件出现基线之外的新增硬编码 #hex(必须改用 @ihui/design-tokens):`)
-    for (const h of newHits.slice(0, 30))
+  // ── RULE-1:基线之外的新增硬编码 hex -> 白名单命中放行,否则 BLOCK;RULE-2:已治理条目 -> WARN ──
+  const { newHits, staleFiles, shrunk } = diffAgainstBaseline(currentMap, baselineMap)
+  // 判据单源:白名单抵扣走 applyAllowlist(自检与主流程同一枚实现,§0.6)
+  const applied = applyAllowlist({ currentMap, newHits, entries: allowRaw.entries, today })
+  const baselineCount = [...baselineMap.values()].reduce((n, s) => n + s.size, 0)
+
+  if (applied.expired.length > 0) {
+    console.error(`[FAIL] RULE-1: ${applied.expired.length} 条白名单已过期 ⇒ 不再消账(到期项必须回红):`)
+    for (const x of applied.expired.slice(0, 20))
+      console.error(`    ${x.entry.file}: ${x.entry.value}(${x.entry.expires})`)
+  }
+  if (applied.problems.length > 0) {
+    console.error(`[FAIL] ${applied.problems.length} 条白名单形态不合格 ⇒ 不消账:`)
+    for (const x of applied.problems.slice(0, 20))
+      console.error(`    ${String(x.entry?.file ?? '?')}: ${String(x.entry?.value ?? '?')} ⇒ ${x.problem}`)
+  }
+  for (const e of applied.allowedHits) {
+    if (!quiet)
+      console.log(`[ALLOW] ${e.file}: ${e.value}(${e.component},白名单在期内)`)
+  }
+
+  if (applied.remaining.length > 0) {
+    console.error(
+      `[FAIL] RULE-1: ${applied.remaining.length} 个文件出现基线之外的新增硬编码 #hex(必须改用 @ihui/design-tokens,或在 ${ALLOWLIST_PATH} 登记带期限的显式白名单):`,
+    )
+    for (const h of applied.remaining.slice(0, 30))
       console.error(`    ${h.file}: ${h.added.join(' ')}`)
   } else if (!quiet) {
-    console.log(`[PASS] RULE-1: 无新增硬编码 #hex(存量 ${currentCount} 处 / ${current.length} 文件,只减不增)`)
+    console.log(
+      `[PASS] RULE-1: 无未登记硬编码 #hex(存量 ${currentCount} 处 / ${current.length} 文件;基线 ${baselineCount} 处 / 白名单在期内 ${applied.allowedHits.length} 处)`,
+    )
+  }
+  // 白名单腐烂(条目在表里而当前扫描已无此值)只报数点名:与 allowed-diff 的 shrunk 同档,不阻断
+  if (applied.unused.length > 0) {
+    console.warn(
+      `[WARN] ${applied.unused.length} 条白名单已不在扫描面(建议删条目,白名单不许留僵尸):`,
+    )
+    for (const e of applied.unused.slice(0, 10)) console.warn(`    ${e.file}: ${e.value}(${e.component})`)
   }
 
   let warnings = 0
@@ -383,7 +542,7 @@ function main() {
     for (const s of shrunk.slice(0, 10)) console.warn(`    ${s.file}(已移除: ${s.removed.join(' ')})`)
   }
 
-  if (newHits.length > 0) {
+  if (applied.remaining.length > 0 || applied.expired.length > 0 || applied.problems.length > 0) {
     console.error(`\n❌ RN 端样式一致性守门失败:新增硬编码 hex 将加剧与小程序端的视觉分裂`)
     return 1
   }
@@ -402,6 +561,7 @@ if (isDirectRun) {
 // 导入本模块(经 isDirectRun 守卫)不触发 CLI、不 process.exit。
 export const __test__ = {
   SKIP_ENV,
+  ALLOWLIST_PATH,
   stripBom,
   stripTsComments,
   extractHexes,
@@ -410,6 +570,8 @@ export const __test__ = {
   faceText,
   scanFace,
   diffAgainstBaseline,
+  allowlistProblem,
+  applyAllowlist,
   runSelfTest,
   main,
 }
