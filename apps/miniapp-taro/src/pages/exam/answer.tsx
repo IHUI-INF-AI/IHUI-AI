@@ -16,28 +16,29 @@ import { ErrorState } from '@/components/ScreenStates.taro'
 import {
   getExamPaper,
   getExamQuestions,
+  serializeExamAnswers,
   submitExam,
   startExamRecord,
-  type QuestionType,
+  toShellOptionTexts,
+  toShellQuestionType,
+  type ExamAnswerValue,
+  type ExamQuestion,
+  type ShellQuestionType,
 } from '@/api'
-
-interface Question {
-  id: string
-  title: string
-  type: QuestionType
-  options?: string[]
-}
-
-type AnswerValue = number | number[] | string | boolean
 
 export default function ExamAnswer() {
   const { t } = useI18n()
   const router = useRouter()
-  const [questions, setQuestions] = useState<Question[]>([])
+  // 题目一律吃 api-client 的原始形状(ExamQuestion):type 是后端五档
+  // single|multiple|judge|fill|essay,options 是 {key,value}[] | null。
+  // 渲染要的「共享屏题型 / 选项文案」现投影(toShellQuestionType / toShellOptionTexts),
+  // 提交要的「选项 key」由 serializeExamAnswers 内部消化 —— 端内不再翻译第二遍。
+  const [questions, setQuestions] = useState<ExamQuestion[]>([])
   const [loadFailed, setLoadFailed] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({})
-  const [remain, setRemain] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, ExamAnswerValue>>({})
+  // null = 时长未知(试卷未回/无时长),不是 0 —— 0 会被读成「时间到,已自动交卷」。
+  const [remain, setRemain] = useState<number | null>(null)
   const recordIdRef = useRef('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const submittedRef = useRef(false)
@@ -47,11 +48,14 @@ export default function ExamAnswer() {
   // exam.answer.judgmentOptions —— 两端同一句话必须同源,否则改一端另一端不跟。
   const judgmentOptions = [t('examQuestion.judgmentTrue'), t('examQuestion.judgmentFalse')]
   const current = useMemo(() => questions[currentIdx], [questions, currentIdx])
+  // 共享屏题型(单一投影点):typeLabel / 作答区分支 / 选项取值全部读它,
+  // 不再各自拿后端词表去比对 'fill_blank' 之类根本不存在的值。
+  // 无当前题时占位 'single' —— 所有消费点都被 `!current` 或 `current &&` 守卫住。
+  const shellType: ShellQuestionType = current ? toShellQuestionType(current.type) : 'single'
   // AI 操控通道(2026-09-21):填空题 / 主观题的作答框(renderAnswer 里按题型分支渲染,
   // 同一屏只有一个作答框)。写入走与 onInput 同一个 select(current) 通道。
   // 选择/判断题的选项是 View onClick、非输入框,不在本轮范围。
-  const answerType =
-    current?.type === 'fill_blank' || current?.type === 'subjective' ? current.type : ''
+  const answerType = shellType === 'fill' || shellType === 'subjective' ? shellType : ''
   useUiField(
     answerType
       ? {
@@ -75,13 +79,13 @@ export default function ExamAnswer() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   }, [])
 
-  // 题型标签分派与共享屏 typeLabel 同一套:判断题无独立词条,取两个选项词拼合。
+  // 题型标签分派与共享屏 typeLabel 同一套(逐 case 同名):判断题无独立词条,取两个选项词拼合。
   const typeLabel = useCallback(
-    (type: QuestionType) => {
+    (type: ShellQuestionType) => {
       switch (type) {
-        case 'multi_choice':
+        case 'multi':
           return t('examQuestion.multi')
-        case 'fill_blank':
+        case 'fill':
           return t('examQuestion.fill')
         case 'subjective':
           return t('examQuestion.subjective')
@@ -102,15 +106,21 @@ export default function ExamAnswer() {
       timerRef.current = null
     }
     try {
-      const arr = Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }))
+      // 提交前必须序列化:题库 answer 列存的是**选项 key**("A"/["A","B"]),后端
+      // submitExamRecord 走 contentEqual 直接比 ⇒ 交下标会整卷判错。判据单源在
+      // @ihui/api-client 的 serializeExamAnswers(与 RN wrapper 同一实现,端内不另抄)。
+      const arr = serializeExamAnswers(questions, answers)
       const res = await submitExam({ recordId: recordIdRef.current, answers: arr })
       Taro.redirectTo({
         url: `/pages/exam/result?id=${recordIdRef.current}&score=${res.result.score}&pass=${res.result.isPassed}`,
       })
     } catch {
+      // 对齐 RN onSubmit 的失败面:失败必须让用户看见并留在本屏(可重交),
+      // 不再像改前那样静默把 submittedRef 复位 —— 那会让"点了没反应"成为常态。
       submittedRef.current = false
+      Taro.showToast({ title: t('examQuestion.submitFailed'), icon: 'none' })
     }
-  }, [answers])
+  }, [answers, questions, t])
 
   onSubmitRef.current = onSubmit
 
@@ -120,10 +130,15 @@ export default function ExamAnswer() {
     Promise.all([getExamPaper(id), getExamQuestions(id), startExamRecord(id)])
       .then(([{ paper }, { list }, { record }]) => {
         recordIdRef.current = record.id
-        setQuestions((list || []) as unknown as Question[])
-        setRemain((paper.duration || 0) * 60)
+        setQuestions(list || [])
+        // 时长未知(缺省/0)的试卷不限时:既不起倒计时,更不能拿 0 当起始值
+        // —— 0 会被计时条读成「时间到,已自动交卷」,并在第一秒真的自动交卷。
+        const seconds = Math.max(0, Math.floor(Number(paper.duration) || 0)) * 60
+        if (seconds <= 0) return
+        setRemain(seconds)
         timerRef.current = setInterval(() => {
           setRemain((prev) => {
+            if (prev === null) return prev
             if (prev <= 1) {
               onSubmitRef.current()
               return 0
@@ -147,11 +162,11 @@ export default function ExamAnswer() {
   }, [router.params.id])
 
   const select = useCallback(
-    (val: AnswerValue) => {
+    (val: ExamAnswerValue) => {
       if (!current) return
       const id = current.id
       setAnswers((prev) => {
-        if (current.type === 'multi_choice') {
+        if (current.type === 'multiple') {
           const arr = Array.isArray(prev[id]) ? (prev[id] as number[]) : []
           const idx = val as number
           return {
@@ -176,7 +191,7 @@ export default function ExamAnswer() {
   const renderAnswer = () => {
     if (!current) return null
     const ans = answers[current.id]
-    if (current.type === 'fill_blank') {
+    if (shellType === 'fill') {
       return (
         <ThemeRoot>
           <FocusInput
@@ -189,7 +204,7 @@ export default function ExamAnswer() {
         </ThemeRoot>
       )
     }
-    if (current.type === 'subjective') {
+    if (shellType === 'subjective') {
       return (
         <ThemeRoot>
           <FocusTextarea
@@ -202,15 +217,16 @@ export default function ExamAnswer() {
         </ThemeRoot>
       )
     }
-    const opts = current.type === 'judgment' ? judgmentOptions : current.options || []
-    const isMulti = current.type === 'multi_choice'
+    const isJudgment = shellType === 'judgment'
+    const opts = isJudgment ? judgmentOptions : toShellOptionTexts(current)
+    const isMulti = shellType === 'multi'
     return opts.map((opt, i) => {
       const selected = isMulti
         ? Array.isArray(ans) && (ans as number[]).includes(i)
-        : current.type === 'judgment'
+        : isJudgment
           ? ans === (i === 0)
           : ans === i
-      const val: AnswerValue = current.type === 'judgment' ? i === 0 : i
+      const val: ExamAnswerValue = isJudgment ? i === 0 : i
       return (
         <ThemeRoot key={i}>
           {/* 对齐 RN SharedExamQuestionScreen option:p28rpx 圆角24rpx 2rpx描边 mb16rpx;
@@ -232,7 +248,7 @@ export default function ExamAnswer() {
                   : 'border-[var(--color-border)] text-[var(--color-text-medium)]'
               }`}
             >
-              {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
+              {isJudgment ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
             </View>
             <Text
               className={`flex-1 ml-[24rpx] text-title ${
@@ -272,10 +288,14 @@ export default function ExamAnswer() {
           顶部计时条为小程序业务(自动交卷),进度对齐 RN progress(28rpx/600 success) */}
       <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[64rpx]">
         <View className="flex justify-between items-center">
+          {/* 三态:null=时长未知/不限时(占位,不冒充「已交卷」);>0 倒计时;0 才是真的时间到。
+              改前起始值是 0,首屏就渲染「考试时间到,已自动交卷」并在 1 秒后自动交卷。 */}
           <Text className="text-title text-[var(--color-danger)] font-bold">
-            {remain > 0
-              ? t('examQuestion.timeLeft', { time: formatTime(remain) })
-              : t('examQuestion.timeUp')}
+            {remain === null
+              ? '--:--'
+              : remain > 0
+                ? t('examQuestion.timeLeft', { time: formatTime(remain) })
+                : t('examQuestion.timeUp')}
           </Text>
           <Text className="text-body text-[var(--color-success)] font-semibold">
             {currentIdx + 1}/{questions.length}
@@ -288,7 +308,7 @@ export default function ExamAnswer() {
                 不再只在单/多选上渲染 —— 缺标签等于缺一句文案 */}
             <View className="mt-[16rpx] flex">
               <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-caption font-semibold text-[var(--color-success)]">
-                {typeLabel(current.type)}
+                {typeLabel(shellType)}
               </Text>
             </View>
             <Text className="mt-[16rpx] block text-subtitle text-foreground font-semibold leading-relaxed">

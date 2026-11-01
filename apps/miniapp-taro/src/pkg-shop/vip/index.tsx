@@ -68,6 +68,28 @@ function daysUntil(expire: string): number | null {
   return Math.max(0, Math.ceil((at - Date.now()) / 86400000))
 }
 
+/**
+ * 等级权益归一 —— 与 RN 端 apps/mobile-rn/src/screens/VipScreen.tsx:57 normalizeBenefits 同口径:
+ * 接口 benefits 实返数组(字符串或 { name } 对象),api-client 声明成 Record 属历史漂移;
+ * 取不到 / 非数组一律空 ⇒ 按「该等级无权益数据」处理,不造词。
+ */
+function normalizeLevelBenefits(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const text = item.trim()
+      if (text) out.push(text)
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const name = (item as { name?: unknown }).name
+      if (typeof name === 'string' && name.trim()) out.push(name.trim())
+    }
+  }
+  return out
+}
+
 export default function VipIndexPage() {
   const { t } = useI18n()
   const tt = useTt()
@@ -316,6 +338,24 @@ export default function VipIndexPage() {
   const currentPrice = selectedPlan?.price ?? 0
   const daysLeft = info.expireTime ? daysUntil(info.expireTime) : null
 
+  /**
+   * 权益详情条目:各等级 benefits 的并集去重(与 RN 端 apps/mobile-rn/src/screens/VipScreen.tsx:464
+   * 同口径 —— Set<string> 按标题首见去重、顺序为 levels → benefits 遍历序);标题即接口文案本身,
+   * 不另造词,也不带副文案。全部等级都没有 benefits ⇒ 空数组 ⇒ 该区不渲染。
+   */
+  const benefitItems = useMemo(() => {
+    const seen = new Set<string>()
+    const items: { key: string; title: string }[] = []
+    for (const level of levels) {
+      for (const title of normalizeLevelBenefits(level.benefits)) {
+        if (seen.has(title)) continue
+        seen.add(title)
+        items.push({ key: title, title })
+      }
+    }
+    return items
+  }, [levels])
+
   return (
     <ThemeRoot>
       <View className="vip-page">
@@ -409,31 +449,24 @@ export default function VipIndexPage() {
           onPurchase={onLevelPurchase}
         />
 
-        {/* 权益详情(对齐 RN benefitsSection:标题 + 逐项「✓ 标题 / 描述」卡片;
-            benefits 为空则不渲染,与 RN「无 benefitItems 则不出现」同向) */}
-        {benefits.length > 0 ? (
+        {/* 权益详情(对齐 RN benefitsSection:去重并集 + 标题 + ✓ 图标,无副文案;
+            空数组则不渲染,与 RN「无 benefitItems 则不出现」同向) */}
+        {benefitItems.length > 0 ? (
           <View className="mt-[24rpx]">
             <Text className="block px-[28rpx] text-title font-semibold text-foreground">
               {t('vip.details.benefitsTitle')}
             </Text>
             <View className="px-[28rpx] mt-[16rpx]">
-              {benefits.map((item) => (
+              {benefitItems.map((item) => (
                 <View
-                  key={item.id}
+                  key={item.key}
                   className="flex flex-row items-start gap-[16rpx] bg-card ui-card rounded-lg p-[24rpx] mb-[16rpx]"
                 >
                   <LineIcon name="check" size={16} color="var(--color-success)" />
                   <View className="flex-1">
-                    {item.title ? (
-                      <Text className="block text-body font-medium text-foreground">
-                        {item.title}
-                      </Text>
-                    ) : null}
-                    {item.desc ? (
-                      <Text className="block text-caption text-muted-foreground mt-[8rpx]">
-                        {item.desc}
-                      </Text>
-                    ) : null}
+                    <Text className="block text-body font-medium text-foreground">
+                      {item.title}
+                    </Text>
                   </View>
                 </View>
               ))}
