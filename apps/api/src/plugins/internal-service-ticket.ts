@@ -83,7 +83,7 @@ export async function mintInternalServiceTicket(input: {
   jti?: string
 }): Promise<string> {
   const { getJwtSecret } = await import('@ihui/auth')
-  const ttl = clampTicketTtl(input.ttlSeconds ?? 60)
+  const ttl = clampTicketTtl(input.ttlSeconds ?? DEFAULT_TICKET_TTL_SECONDS)
   const jti = input.jti ?? newJti()
   return await new SignJWT({ type: INTERNAL_TICKET_TYPE, scope: input.scope, jti })
     .setProtectedHeader({ alg: 'HS256' })
@@ -160,7 +160,13 @@ export interface ReplayStore {
  *     后者正是本仓记过最多次的失效形态:兜底表现得像功能正常。
  */
 export interface RedisSetNxLike {
-  set(key: string, value: string, expiryMode: 'EX', ttlSeconds: number, mode: 'NX'): Promise<unknown>
+  set(
+    key: string,
+    value: string,
+    expiryMode: 'EX',
+    ttlSeconds: number,
+    mode: 'NX',
+  ): Promise<unknown>
 }
 
 export const JTI_KEY_PREFIX = 'ihui:internal-ticket:jti:'
