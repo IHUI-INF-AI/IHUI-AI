@@ -1985,7 +1985,9 @@ export default function ChatPage() {
             <ChatMessageItem
               msg={msg}
               onReuse={handleReuse}
-              onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
+              // 票59:把"点的是哪一条"传下去 —— 不给 target 时 handleRegenerate 只会
+              // 落到最后一条助手消息上,给旧回答重生成就会挂错版本族。
+              onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg) : undefined}
               onLongPress={() => handleLongPress(msg, idx)}
               onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
               isFavorited={

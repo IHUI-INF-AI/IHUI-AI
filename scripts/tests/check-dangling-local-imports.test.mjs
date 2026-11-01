@@ -16,6 +16,9 @@
  *  6. (2026-10-22 补,票面 G-13)D6「错名 .js 影子架空 .ts 说明符映射」夹具正反成对 + 端到端计数行 ——
  *     同名并存对必报(不管有没有人指向),而 ./x.js→x.ts 的正常约定拼法、JS 侧字面导入与 .d.ts 声明
  *     同伴三型不得误报(误报 = 恒红门,§12e)。
+ *  7. (2026-11-01 补,票面 G-815915)D6 的**两型各有真仓历史阳性对照**:型② 走"只喂正文"(c 独立有牙),
+ *     型① 走"同一棵树的 ls-tree 全量清单 + 真实三 blob"(a 不是只认夹具);两型都拿当年那枚
+ *     `user-concurrency-service.js` 量,读数必须与门体 `--rev 6bf657df86^` 的计数行同源。
  */
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
@@ -453,9 +456,13 @@ test('D4 正反成对:错名 .js 影子必红,而"影子与实体并存"的两�
 /**
  * 三条形状锁,钉的是"这一维换个人来改就会悄悄失效"的那三格:
  *  ① D4 不许自带第二台 import 解析器(两遍解析必给两个"谁 import 了谁"的口径);
- *  ② 内容只能走取材层 —— 默认面不得新增磁盘读(`readFileSync(` 在本文件里只许有 FILES_MODE
- *     那一个逃生舱调用点);这条是守门 118 对本门分类的最低要求,写在这里是因为 118 只在
- *     "本次改动动过这道门"时才判,而这条约束应当无条件成立。
+ *  ② 内容只能走取材层 —— 默认面不得新增**被审内容**的磁盘读。`readFileSync(` 在本文件里只许有
+ *     两处,且各自的**身份**都被点名钉死:一处在 FILES_MODE 那个人工逃生舱里(读被审内容),
+ *     一处只许读 `join(root, SHADOW_EXEMPTION_LEDGER)`(D6-c 的具名豁免台账 = **配置面**,与守门
+ *     213/225 的具名台账同一条口径,AGENTS.md §0.4 管的是"被审内容取哪个面",不含配置面)。
+ *     2026-11-01 本锁第一次翻红就是这一格:它把"配置面读一次"误记成"新增磁盘读",而 2026-11-01 的
+ *     装车没同步它 ⇒ 镜像在 HEAD 面长红。修法不是把 1 改成 2 放行,而是**分开数**:被审内容的读取
+ *     仍恰为一处(再加一处即翻红),台账读取也恰为一处(两处各读一遍必漂,§0.6)。
  *  ③ 只报数那一族不得被顺手折进判红面(判红与报名是两个出口)。
  */
 test('D4 形状锁:不得有第二台解析器 / 不得新增磁盘读 / 只报数不折进判红', () => {
@@ -463,10 +470,14 @@ test('D4 形状锁:不得有第二台解析器 / 不得新增磁盘读 / 只报�
   const body = /export function auditShadowJs\([\s\S]*?\n}\n/.exec(src)
   assert.ok(body, 'auditShadowJs 必须仍是顶层导出的那一块(拆进别处就要重新配对账)')
   assert.ok(!/parseImports\(/.test(body[0]), 'D4 里又开了一遍 import 解析 ⇒ 两遍解析必然口径分叉')
+  const allReads = (src.match(/readFileSync\(/g) || []).length
+  const ledgerReads = (src.match(/readFileSync\(join\(root, SHADOW_EXEMPTION_LEDGER\)/g) || []).length
+  assert.equal(ledgerReads, 1, 'D6-c 的具名豁免台账(配置面)只许有一处读取 —— 两处各读一遍必漂(§0.6)')
   assert.equal(
-    (src.match(/readFileSync\(/g) || []).length,
+    allReads - ledgerReads,
     1,
-    '默认面新增了磁盘读(唯一合法的一处在 --files 逃生舱里)⇒ 本门会被守门 118 判成按磁盘判',
+    `默认面新增了**被审内容**的磁盘读(唯一合法的一处在 --files 逃生舱里),实得内容读 ${allReads - ledgerReads} 处` +
+      ' ⇒ 本门会被守门 118 判成按磁盘判',
   )
   assert.match(src, /jsSink\.push\(/, '落点必须由 auditFile 在同一遍解析里递出')
   assert.match(src, /mergeShadow\(byPending, shadowPending\)/, 'D4 必须并进同一张违规表(锚点/打印/退出码只一套)')
@@ -704,6 +715,18 @@ test('--root 换仓三态(G-929 同型票):显式仓根真判点名 / 目录不�
     // ③ 方向锁:同一棵树不给 --root(缺省按脚本位置在主仓里问)⇒ 仍 exit 2
     const noRoot = runRev(['--rev', tree, '--anchor', anchor])
     assert.equal(noRoot.rc, 2, `不给 --root 必须仍按自推导(夹具仓的树在主仓问不到 ⇒ exit 2),实得 rc=${noRoot.rc} —— 缺省行为被改坏了`)
+    // ④ 配对锁(2026-11-01):① 的 rc=1 之所以成立,是因为换仓面「没有这一族台账」按**零豁免**照判;
+    //    而"该仓**有**台账但内容坏"仍必须未判定 —— 缺文件与坏文件两态不得并桶,否则"把台账写成
+    //    一堆乱码"就成了让这一维静默放行的出路(§0.10:失效方向只能是多要一次说明,不能是多放一次门)。
+    mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
+    writeFileSync(join(dir, 'scripts', 'data', 'dangling-shadow-exemptions.json'), '{ 这不是合法台账\n')
+    const corruptLedger = runRev(['--rev', tree, '--anchor', anchor, '--root', dir])
+    assert.equal(
+      corruptLedger.rc,
+      2,
+      `换仓台账存在但内容坏必须仍 exit 2(未判定),实得 rc=${corruptLedger.rc} —— 与"缺台账=零豁免"并桶即 fail-open`,
+    )
+    assert.match(corruptLedger.out, /解析失败|形状坏/, '未判定必须点名"台账内容坏",不得静默回落成没有豁免')
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
@@ -757,18 +780,21 @@ test('D6 夹具正反成对:同名并存必报,./x.js→x.ts 正常解析与 JS 
  * D6 的端到端计数行(与 D4/D5 同取向):**覆盖面为 0 必须如实报 0,而不是缺行**。
  * 票面现读(2026-10-22):同名并存对 0、TS 侧说明符解析到入库 .js 自身 0 ⇒ 扩这一维不新增恒红面,
  * HEAD 面整门仍 exit 0。缺行 = 这一维没上岗,"判红候选 0"就成了空话(本门别名表那段记的同一型)。
+ *
+ * 〔2026-11-01 收成一把尺〕本用例原先**自己抄了一条计数行正则**,而 2026-11-01 票面 G-815915 的
+ * 型② 把「正文含 TS 专有语法(型②必炸)扫 N 枚命中 M 枚」插进 b 段与「判红候选」之间 ⇒ 抄的那条
+ * 当场失配,本用例在 HEAD 面直接翻红(实跑复现:`报告缺 D6 计数行`,而报告里那行明明在)。
+ * 这正是 §0.6/§22c 说的"第二份必然漂移",而漂移的表现是**测试红、判据绿** —— 修法是删副本、
+ * 委托给本文件唯一的解析实现 `assertD6cCountLine`,不是把抄的那条正则再补一个字段(补完还是两份)。
  */
-test('D6 端到端计数行:HEAD 面两判据均 0 且整门 exit 0(覆盖面 0 不变红)', () => {
+test('D6 端到端计数行:HEAD 面三判据均 0 且整门 exit 0(覆盖面 0 不变红)', () => {
   const { rc, out } = runGuard()
   assert.equal(rc, 0, `HEAD 面整门应 exit 0,实得 rc=${rc}:${out.slice(-600)}`)
-  const m =
-    /D6 错名影子:同名并存 \.js \+ \.ts\/\.tsx (\d+) 对 \| TS 侧 '\.js' 说明符解析到入库 \.js 自身 (\d+) 处 \| 判红候选 (\d+) 处/.exec(
-    out,
-  )
-  assert.ok(m, `报告缺 D6 计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
-  assert.equal(Number(m[1]), 0, `HEAD 面出现 ${m[1]} 对同名并存 ⇒ 影子 .js 又进了库(票面现读为 0,零容忍)`)
-  assert.equal(Number(m[2]), 0, `HEAD 面出现 ${m[2]} 处 TS 侧说明符解析到入库 .js 自身 ⇒ 错名映射已被架空`)
-  assert.equal(Number(m[3]), 0, '判红候选必须为 0(非零时门已 exit 1,走到这里说明口径分叉)')
+  const n = assertD6cCountLine(out)
+  assert.equal(n.coexist, 0, `HEAD 面出现 ${n.coexist} 对同名并存 ⇒ 影子 .js 又进了库(票面现读为 0,零容忍)`)
+  assert.equal(n.literalWin, 0, `HEAD 面出现 ${n.literalWin} 处 TS 侧说明符解析到入库 .js 自身 ⇒ 错名映射已被架空`)
+  assert.equal(n.candidates, 0, '判红候选必须为 0(非零时门已 exit 1,走到这里说明口径分叉)')
+  assert.ok(n.scanned > 0, '型② 射程为 0 枚 ⇒ 这一维没看过东西,那句"命中 0 枚"不作数(assertD6cCountLine 已拦,此行为读数留痕)')
   // 接线形状锁:D6 必须并进全量/staged/files/--rev 四张同一通道,且 __test__ 出口在入口守卫之后(§22d)
   const src = readFileSync(GUARD, 'utf8')
   assert.match(src, /mergeWrongName\(byPending, wnPending\)/, 'D6 必须并进同一张违规表(锚点/打印/退出码只一套)')
@@ -1052,6 +1078,65 @@ test('D6-c 真仓历史 blob 阳性对照:只喂正文(不给同伴、不给消�
   const after = C_KIT.auditShadowSyntaxBombs(() => null, [], [], '2026-11-01')
   assert.equal(after.scannedFiles, 0)
   assert.equal(C_KIT.d6cChannelBlind(after), true, '一枚都没进射程 ⇒ 判死不记绿')
+})
+
+/**
+ * D6 **型①(同名并存)的真仓历史清单面阳性对照**(2026-11-01 补,T98 / 票面 G-815915)。
+ *
+ * 为什么单独一条:上一条历史例**刻意不给同伴**(为的是证明 c 独立有牙),而票面要求"两型都有阳性
+ * 对照"——型① 此前只有自造的 `x.js + x.ts` 夹具,夹具只证明"实现按自己的理解会红"。这里把
+ * `6bf657df86^` 那棵树的 **git ls-tree 全量清单**当 trackedSrc、三个真实 blob 当内容面,同一判据必须:
+ *   · a)点名 `user-concurrency-service.js ⇄ .ts` 这一对(影子陷阱本体,当年就是这样进的 HEAD);
+ *   · b)**不**点名 —— 当年 .ts 同伴在库 ⇒ 解析候选首位是 `.ts`,b 打的是"无同伴、映射被错名直接吃掉"
+ *     那一型;这一格若命中说明三判据的口径互相分叉(实读与门体 `--rev 6bf657df86^` 计数行同源:
+ *     并存 1 对 / 解析落点 0 处 / 必炸 1 枚);
+ *   · c)同一枚的"必炸"证据**并进同一行 hint 且计数不翻倍**(§12e 棘轮锚点)。
+ * 清单面与内容面同源、过滤判据全部取自门体(§22c:测试里不抄第二份)。
+ */
+test('D6 型① 真仓历史清单面阳性对照:6bf657df86^ 的同名并存对必须被点名(清单取自 ls-tree,不手写)', () => {
+  const PRE = '6bf657df86^'
+  const SHADOW = 'apps/api/src/services/user-concurrency-service.js'
+  const REAL_TS = 'apps/api/src/services/user-concurrency-service.ts'
+  const CONSUMER = 'apps/api/src/routes/v1-public.ts'
+  const show = (rev, p) => gitRaw(['show', `${rev}:${p}`], ROOT, { timeout: 120000 })
+  // 取样自证(票面要求"自己先 git show 取证确认它确实存在且确实是影子形态",不是凭记忆造夹具)
+  const jsBlob = show(PRE, SHADOW)
+  const tsBlob = show(PRE, REAL_TS)
+  const consumerBlob = show(PRE, CONSUMER)
+  assert.match(jsBlob, /new Map<string, number>/, '历史 .js 正文不是 TS 形态 ⇒ 取样取错了,阳性对照无从谈起')
+  assert.match(consumerBlob, /from '\.\.\/services\/user-concurrency-service\.js'/, '消费方不是当年那一条 `.js` 说明符')
+  assert.ok(jsBlob !== tsBlob, '两份正文必须不同 —— 相同就不是"架空",而是重复登记')
+  const treeFiles = new Set(
+    gitRaw(['ls-tree', '-r', '--name-only', PRE, '-z'], ROOT, { timeout: 120000 })
+      .split('\0')
+      .filter(Boolean),
+  )
+  assert.ok(treeFiles.has(SHADOW) && treeFiles.has(REAL_TS), '历史面自证:影子与 .ts 当年都在库(都进了 HEAD)')
+
+  const files = { [SHADOW]: jsBlob, [REAL_TS]: tsBlob, [CONSUMER]: consumerBlob }
+  const read = (p) => (p in files ? files[p] : null)
+  const sites = []
+  auditFile(CONSUMER, read, (p) => p in files, new Map(), sites)
+  const wn = C_KIT.auditWrongNameShadow(sites, treeFiles, read, [], '2026-11-01')
+  assert.ok(wn.coexist.includes(SHADOW), `型① 必须点名当年那一对同名并存,实得 coexist=${JSON.stringify(wn.coexist)}`)
+  assert.deepEqual(wn.literalWin, [], '当年 .ts 同伴在库 ⇒ 解析候选落在 .ts,b 维不该命中(命中即三判据口径分叉)')
+  assert.ok(wn.bombs.candidates.some((c) => c.file === SHADOW), '型② 必须在同一份历史面上点名必炸那枚')
+  const row = wn.byFile.get(SHADOW)
+  assert.equal((row || []).length, 1, '同一枚 a+c ⇒ 违规表只记 1 处(并句不并数,否则把无关提交顶过自己的 HEAD 锚点)')
+  assert.match(row[0].hint, /影子陷阱本体/, 'a 维措辞必须在 —— 删掉它没人知道这一对是什么')
+  assert.match(row[0].hint, /TS 专有语法/, 'c 维的"必炸"证据必须并进同一行 hint')
+  assert.equal(row[0].line, 29, '行号必须是探针在历史 blob 里命中的真实行(泛型实参第 29 行),不是占位 1')
+  // 射程诚实性:历史面 37 枚入库 .js 全进射程,读不到正文的 36 枚逐枚未判定(内容面只有三个 blob)
+  assert.equal(wn.bombs.scannedFiles, 37, `射程枚数必须等于该面清单现读,实得 ${wn.bombs.scannedFiles}`)
+  assert.equal(wn.bombs.undetermined.length, 36, '取不到正文的每一枚必须逐枚点名(§0.3:不记绿也不冒红)')
+  // 反向对照:修好后的 HEAD 清单面里这一对已不存在 ⇒ 同一判据读 0(尺子不靠历史面撑读数)
+  const headFiles = new Set(
+    gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], ROOT, { timeout: 120000 })
+      .split('\0')
+      .filter(Boolean),
+  )
+  const after = C_KIT.auditWrongNameShadow([], headFiles, (p) => (p === SHADOW ? jsBlob : null), [], '2026-11-01')
+  assert.deepEqual(after.coexist, [], 'HEAD 面已无该 .js ⇒ 并存对必须为 0(与门体计数行现读同源)')
 })
 
 test('D6-c 豁免必须"验过才免"且会到期;坏台账整批不生效;登记不再命中 = 清单腐烂', () => {
