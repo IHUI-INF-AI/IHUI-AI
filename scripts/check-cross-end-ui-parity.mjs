@@ -3942,6 +3942,12 @@ export function waiverProblem(w) {
 const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius', 'webRnGeometry']
 const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
 const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
+/**
+ * 非色档允许差异(`styleTier:<kind>:<prop>:<value>`,2026-11-02 Phase 4 立)。
+ * 本门只核**到期**(消费方是 `check-web-rn-style-tiers.mjs` 的分叉桶);样式档分叉不是本门
+ * 的 findings,所以不参与 component×key 计数核销,但**到期必须回红**(白名单不得腐化)。
+ */
+const STYLE_TIER_KEY_RE = /^styleTier:(?:spacing|fontSize|radius):[A-Za-z][A-Za-z0-9]*:\d+(?:\.\d+)?$/
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 function allowedDiffTodayISO() {
@@ -3959,7 +3965,10 @@ function allowedDiffBadExpiry(v) {
 export function allowedDiffProblem(e) {
   if (!e || typeof e !== 'object' || Array.isArray(e)) return '条目不是对象'
   if (typeof e.component !== 'string' || !e.component.trim()) return 'component 缺失'
-  if (typeof e.key !== 'string' || !(ALLOWED_DIFF_KEYS.includes(e.key) || ALLOWED_PLATFORM_KEY_RE.test(e.key)))
+  if (
+    typeof e.key !== 'string' ||
+    !(ALLOWED_DIFF_KEYS.includes(e.key) || ALLOWED_PLATFORM_KEY_RE.test(e.key) || STYLE_TIER_KEY_RE.test(e.key))
+  )
     return `key 非法:${e.key ?? '(空)'}`
   if (!ALLOWED_DIFF_PLATFORMS.has(e.platform)) return `platform 非法:${e.platform ?? '(空)'}`
   if (typeof e.owner !== 'string' || !e.owner.trim()) return 'owner 缺失'
@@ -3968,7 +3977,7 @@ export function allowedDiffProblem(e) {
     return 'reason 少于 20 字,不足以复核'
   if (typeof e.evidence !== 'string' || e.evidence.trim().length < 8)
     return 'evidence 缺失或不足以定位'
-  if (ALLOWED_DIFF_KEYS.includes(e.key)) {
+  if (ALLOWED_DIFF_KEYS.includes(e.key) || STYLE_TIER_KEY_RE.test(e.key)) {
     if (!Number.isInteger(e.count) || e.count < 1)
       return 'count 必须是正整数(登记的是实测差异处数,不是无限额度)'
   } else if (e.count !== undefined) {
@@ -3995,6 +4004,7 @@ export function allowedDiffVerdict(findings, entries = [], { today = allowedDiff
   const shrunk = []
   const matched = []
   const platform = []
+  const delegated = []
   const map = new Map()
   for (const e of Array.isArray(entries) ? entries : []) {
     const why = allowedDiffProblem(e)
@@ -4044,16 +4054,25 @@ export function allowedDiffVerdict(findings, entries = [], { today = allowedDiff
     }
   }
   for (const e of map.values()) {
-    if (!e.key.startsWith('platform:')) continue
+    /**
+     * 非本门 findings 的两族条目:平台能力(`platform:`)、非色档允许差异(`styleTier:`)。
+     * 两族都**只核到期**并把到期项折进 `red` —— 消费方各有其表,但"到期必须重新复核"
+     * 不能因为换了一本账就失效(§12e:不得为消红削判据)。
+     */
+    const external = e.key.startsWith('platform:') || STYLE_TIER_KEY_RE.test(e.key)
+    if (!external) continue
     if (e.expires < today) {
       expired.push({
         component: e.component,
         key: e.key,
         expires: e.expires,
-        platform: e.platform,
-        why: `平台差异登记已到期(${e.expires}),必须重新复核`,
+        ...(e.key.startsWith('platform:') ? { platform: e.platform } : {}),
+        why:
+          e.key.startsWith('platform:')
+            ? `平台差异登记已到期(${e.expires}),必须重新复核`
+            : `非色档允许差异登记已到期(${e.expires}),必须重新复核或续期`,
       })
-    } else {
+    } else if (e.key.startsWith('platform:')) {
       platform.push({
         component: e.component,
         key: e.key,
@@ -4061,10 +4080,19 @@ export function allowedDiffVerdict(findings, entries = [], { today = allowedDiff
         owner: e.owner,
         expires: e.expires,
       })
+    } else {
+      delegated.push({
+        component: e.component,
+        key: e.key,
+        platform: e.platform,
+        owner: e.owner,
+        expires: e.expires,
+        count: e.count,
+      })
     }
   }
   const red = [...invalid, ...unregistered, ...expired, ...over]
-  return { red, invalid, unregistered, expired, over, shrunk, matched, platform }
+  return { red, invalid, unregistered, expired, over, shrunk, matched, platform, delegated }
 }
 
 /** 相对说明符 → 仓库相对路径(只处理 `./` 与 `../`,不碰别名 —— 样式文件不该走别名)。 */
@@ -5404,6 +5432,7 @@ export function main(argv, repoRoot = ROOT) {
           shrunk: allowed.shrunk.length,
           invalid: allowed.invalid.length,
           platform: allowed.platform,
+          delegated: allowed.delegated.length,
           red: allowed.red,
         },
         /**
