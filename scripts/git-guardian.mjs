@@ -2571,6 +2571,12 @@ export function notifyGuardRed(name, detail, opts = {}) {
     logger = log,
   } = opts
   try {
+    // §噪声治理:severity==='info' 的派发只登记不寄信(尺子哑了/自愈成功汇报/良性抖动),
+    // 绝不占人通道。真实故障一律 warning(默认)或更高,不受影响。
+    if (severity === 'info') {
+      logger(`ℹ️ 仅登记不发信(severity=info):${name}`)
+      return { sent: false, suppressed: true, why: 'log-only severity=info' }
+    }
     if (!force) {
       // --check 是 CI 口径(零副作用),通知归真巡检轮;显式开关只关"要不要发",不关"发几封"
       if (process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1')
@@ -3028,7 +3034,7 @@ export function notifyEnvUndetermined(
     notify(
       name,
       `${detail}\n这已连到 ${Math.round(heldMs / 60000)} 分钟(门槛 ${Math.round(horizonMs / 60000)} 分钟 ≈ 守护 15 趟)⇒ 这一格现在是**瞎的**,不再只是"这一轮抢不到"。\n持续档=${held.tier}(跨档即刻重报;起点件 ${file},取到任一确定结论即清零)`,
-      { dedupKey: `${keyPrefix};name=${name};tier=${held.tier}` },
+      { dedupKey: `${keyPrefix};name=${name};tier=${held.tier}`, severity: 'info' },
     )
     logger(`⚠️ ${name}:连续 ${Math.round(heldMs / 60000)} 分钟取不到结论 ⇒ 已派发到邮件通道`)
     return { mailed: true, heldMs, tier: held.tier }
@@ -3891,22 +3897,29 @@ export function healUnresponsiveServices(opts = {}) {
     const failed = (parsed.results || []).filter((x) => x.kind === 'restart-failed')
     if (acted.length > 0 || failed.length > 0) {
       const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
-      notify(
-        // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
-        // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
-        '服务自愈动作',
-        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
-        // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
-        // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
-        {
-          dedupKey: `service-heal;svcs=${
-            [...acted, ...failed]
-              .map((x) => x.name)
-              .sort()
-              .join('+') || 'fail'
-          };acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}`,
-        },
-      )
+      const desp =
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
+      const dedupKey = `service-heal;svcs=${
+        [...acted, ...failed]
+          .map((x) => x.name)
+          .sort()
+          .join('+') || 'fail'
+      };acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}`
+      // §噪声治理:全部拉起成功是自愈的"预期结果",只记日志不占人通道;
+      // 只有出现 restart-failed(收信人能处置的真异常)才发信到人。
+      if (failed.length > 0) {
+        notify(
+          // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
+          // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
+          '服务自愈动作',
+          desp,
+          // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
+          // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
+          { dedupKey },
+        )
+      } else {
+        logger(`✅ 服务自愈动作:本轮拉起 ${acted.length} 台全部成功(无失败),只记日志不寄信:\n${body}`)
+      }
     }
     // ── "自愈只能交人"这一型终态必须到人(2026-10-21 实测)────────────────────────────
     // 现场:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
@@ -6069,6 +6082,9 @@ export function sweepDanglingCommitAutotag(opts = {}) {
         `本器只加不减:绝不删 tag、绝不 git gc(AGENTS §29 把 GC 归人工)。`,
       {
         dedupKey: `dangling-autotag;state=${res.state};push=${res.push};conflicts=${res.conflicts > 0 ? 'yes' : 'no'}`,
+        // undetermined 档(取不到判据面)是"尺子自己哑了",照 §0.3 只报名不占人通道;
+        // conflict/refused/push=failed 是收信人能处置的真异常,保留 warning 到人。
+        severity: res.state === 'undetermined' ? 'info' : 'warning',
       },
     )
   }
