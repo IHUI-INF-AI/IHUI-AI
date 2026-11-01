@@ -10,11 +10,10 @@ import { getTraderDetail, getOverview, getInviteInfo } from '@ihui/api-client'
 import type { CommissionOverview, InviteInfo } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { VipTraderScreen as SharedVipTraderScreen, type VipTraderStat } from '@ihui/rn-app'
-import { ConfirmPurchasePopUp } from '../components/ConfirmPurchasePopUp'
+import { appAlert } from '../components/BottomPops'
 import { useWechatPayment } from '../hooks/useWechatPayment'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { Medal } from 'lucide-react-native'
 import { useRefreshOnFocus } from '../hooks'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -81,7 +80,6 @@ export default function VipTraderScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [confirmVisible, setConfirmVisible] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -146,7 +144,7 @@ export default function VipTraderScreen() {
   }, [load])
 
   // 微信 APP 支付(orderType=1 VIP 订单),对齐 VipScreen pay 流程
-  const { paying, pay } = useWechatPayment({
+  const { pay } = useWechatPayment({
     orderType: 1,
     onSuccess: async () => {
       setOpened(true)
@@ -154,41 +152,34 @@ export default function VipTraderScreen() {
     },
   })
 
-  // 立即开通 → 弹出确认购买弹窗(对齐 Uniapp trader.vue openPopup + ConfirmPurchasePopUp)
+  // 立即开通 → 确认步(对齐端内 openPopup 的 Taro.showModal:同标题/同正文/取消+确认两选项)
   const onOpen = useCallback(() => {
-    setConfirmVisible(true)
-  }, [])
-
-  const onConfirmPurchase = useCallback(() => {
-    setConfirmVisible(false)
-    void pay(TRADER_PRICE_CENTS, t(TRADER_PRODUCT_NAME_KEY))
+    appAlert(
+      t('vipTrader.openTitle'),
+      `${t('vipTrader.confirmPay')} ¥${(TRADER_PRICE_CENTS / 100).toLocaleString()} ${t('vipTrader.openTrader')}?`,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => void pay(TRADER_PRICE_CENTS, t(TRADER_PRODUCT_NAME_KEY)),
+        },
+      ],
+    )
   }, [pay, t])
 
   return (
-    <>
-      <SharedVipTraderScreen
-        t={t}
-        stats={stats}
-        opened={opened}
-        loading={loading}
-        refreshing={refreshing}
-        error={error}
-        onRefresh={onRefresh}
-        onOpen={onOpen}
-        onBack={() => navigation.goBack()}
-        colorScheme={resolvedTheme}
-      />
-      <ConfirmPurchasePopUp
-        visible={confirmVisible}
-        title={t('vipTrader.title')}
-        message={t('vipTrader.heroDesc', { price: '9,980', power: '1600W' })}
-        product={{ name: t(TRADER_PRODUCT_NAME_KEY), price: 9980, icon: Medal }}
-        onCancel={() => setConfirmVisible(false)}
-        onConfirm={onConfirmPurchase}
-        loading={paying}
-        confirmText={t('vipTrader.openNow')}
-      />
-    </>
+    <SharedVipTraderScreen
+      t={t}
+      stats={stats}
+      opened={opened}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={onRefresh}
+      onOpen={onOpen}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

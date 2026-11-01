@@ -70,6 +70,10 @@ export interface LiveListScreenProps {
   onPressItem: (item: LiveListItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 触底加载更多(可选;不传则无分页行为) */
+  onEndReached?: () => void
+  /** 加载更多进行中(列表底部展示进度) */
+  loadingMore?: boolean
 }
 
 /** 直播列表项(平台注入,字段对齐 mobile-rn LiveScreen Live) */

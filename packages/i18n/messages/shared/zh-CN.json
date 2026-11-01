@@ -789,6 +789,8 @@
     "contentRequired": "请输入反馈内容",
     "contact": "联系方式",
     "contactPlaceholder": "选填,方便我们联系您",
+    "namePlaceholder": "请输入姓名",
+    "tip": "您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理",
     "empty": "暂无反馈记录",
     "failed": "提交失败,请稍后重试",
     "fieldContact": "联系方式",
@@ -2754,5 +2756,83 @@
     "rateTitle": "分佣比例",
     "openVip": "开通 VIP 会员 参与分佣计划",
     "rateEmpty": "暂无分佣比例"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "成为VIP会员后可参与分佣计划",
+      "rule2": "邀请好友成为会员,您将获得会员费20%的佣金",
+      "rule3": "佣金将在好友支付成功后24小时内自动结算到您的账户",
+      "rule4": "账户余额满100元可申请提现到微信或支付宝"
+    }
+  },
+  "orderRefund": {
+    "d1": "不想要了",
+    "d2": "拍错/多拍",
+    "d3": "质量问题",
+    "d4": "与描述不符",
+    "d5": "其他原因"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "常见问题"
+    }
+  },
+  "share": {
+    "appTitle": "智汇 AI - 让学习更高效",
+    "timelineTitle": "智汇 AI,你的智能学习助手"
+  },
+  "member": {
+    "benefits": {
+      "empty": "暂无权益",
+      "myBenefits": "我的专属权益",
+      "loadFailed": "加载失败",
+      "tierCatalog": "等级权益",
+      "tier": {
+        "normal": "普通会员",
+        "silver": "银卡会员",
+        "gold": "金卡会员",
+        "diamond": "钻石会员"
+      },
+      "b": {
+        "discount": "购物折扣",
+        "points": "积分加速",
+        "gift": "新人礼包",
+        "sign": "每日签到",
+        "news": "优惠资讯",
+        "pointsMul": "积分倍数",
+        "birthday": "生日礼包",
+        "shipping": "免邮特权",
+        "coupon": "专属优惠券",
+        "service": "专属客服",
+        "preview": "优先体验",
+        "event": "尊享活动",
+        "discountD1": "全场商品 95 折",
+        "pointsD1": "消费 1 元得 1 积分",
+        "giftD": "注册专享礼包",
+        "signD": "每日签到领积分",
+        "newsD": "优惠活动通知",
+        "discountD2": "全场商品 9 折",
+        "pointsMulD2": "1.2 倍积分加速",
+        "birthdayD": "生日专享礼包",
+        "shippingD2": "每月 3 次免邮",
+        "couponD2": "每月 2 张优惠券",
+        "signD2": "签到领双倍积分",
+        "discountD3": "全场商品 85 折",
+        "pointsMulD3": "1.5 倍积分加速",
+        "birthdayD3": "生日双倍礼包",
+        "shippingD3": "无限次免邮",
+        "serviceD": "1 对 1 专属服务",
+        "couponD3": "每月 5 张优惠券",
+        "previewD": "新功能优先体验",
+        "discountD4": "全场商品 8 折",
+        "pointsMulD4": "2 倍积分加速",
+        "birthdayD4": "生日豪华礼包",
+        "shippingD4": "无限次免邮",
+        "serviceD4": "7×24 专属管家",
+        "couponD4": "每月 10 张优惠券",
+        "previewD4": "新功能首发体验",
+        "eventD": "线下高端活动"
+      }
+    }
   }
 }
