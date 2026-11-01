@@ -6,8 +6,8 @@
   "maxSessionMinutes": 45,
   "humanValveMode": "observe",
   "humanValveModeNote": "派发前问一次 scripts/lib/human-valve.mjs 的 classifyAction(判据单源,本器零复算)。observe=只记账不拦;enforce=命中停机类即不派并喊人。缺省档只能是 observe:分类器是 fail-closed 的(动作不在已知清单即 stop),直接把新闸设成 enforce 等于把刚修活的发起腿再锁死。切 enforce 的前置条件由尺子 A6 维量:observe 期必须真有过命中、且未判定率落零。",
-  "sessionCommandTemplate": "node ${REPO_ROOT}/apps/cli/dist/index.js --prompt-file {promptFile} --workspace ${REPO_ROOT} --json --max-iterations 40 --permission-mode acceptEdits --no-setup --no-update-check",
-  "sessionCommandNote": "仓根一律写 ${REPO_ROOT} 令牌(§0 盘符是现读机器事实,入库件里钉死某台机的 G:/IHUI-AI 会让换机后的发起腿静默失效 —— 2026-11-01 实测 48 轮派发仅 1 成功)。派发前由 scripts/lib/autonomy-runner.mjs 的 preflightSessionRunner 拿当次仓根核验在位,不在位即熔断并喊人,不再按票面失败计数。",
+  "sessionCommandTemplate": "node ${REPO_ROOT}/apps/cli/node_modules/tsx/dist/cli.mjs ${REPO_ROOT}/apps/cli/src/index.ts --prompt-file {promptFile} --workspace ${REPO_ROOT} --json --max-iterations 40 --permission-mode acceptEdits --no-setup --no-update-check",
+  "sessionCommandNote": "仓根一律写 ${REPO_ROOT} 令牌(§0 盘符是现读机器事实,入库件里钉死某台机的 G:/IHUI-AI 会让换机后的发起腿静默失效 —— 2026-11-01 实测 48 轮派发仅 1 成功)。派发前由 scripts/lib/autonomy-runner.mjs 的 preflightSessionRunner 拿当次仓根核验在位,不在位即熔断并喊人,不再按票面失败计数。入口走 tsx 源码而非 dist:dist 为 tsc 逐文件产物未 bundle,import @ihui/shared 会落到 packages/shared/src/*.ts 触发 ERR_UNSUPPORTED_DIR_IMPORT(2026-11-01 实测),故自治环须用 tsx 加载 TS 源码图;dist 二进制本身的发布可用性属独立议题。",
   "ticketWhitelist": [
     "readme",
     "文档",
