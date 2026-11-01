@@ -38,6 +38,15 @@ export function HelpScreen({
   searchValue,
   onSearchChange,
   searchPlaceholder,
+  feedbackName,
+  feedbackContact,
+  feedbackContent,
+  feedbackStatus = 'idle',
+  feedbackError,
+  onFeedbackNameChange,
+  onFeedbackContactChange,
+  onFeedbackContentChange,
+  onSubmitFeedback,
 }: HelpScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -83,6 +92,62 @@ export function HelpScreen({
         contentContainerStyle={styles.listBody}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListHeaderComponent={<Text style={styles.sectionTitle}>{t('webViewPortal.docs.faq')}</Text>}
+        ListFooterComponent={
+          onSubmitFeedback ? (
+            <View style={styles.feedbackCard}>
+              <Text style={styles.sectionTitle}>{t('feedback.title')}</Text>
+              <Text style={styles.fieldLabel}>{t('certApply.name')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={feedbackName ?? ''}
+                onChangeText={onFeedbackNameChange}
+                placeholder={t('feedback.namePlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.fieldLabel}>{t('feedback.contact')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={feedbackContact ?? ''}
+                onChangeText={onFeedbackContactChange}
+                placeholder={t('feedback.contactPlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.fieldLabel}>{t('courseQAAsk.question')}</Text>
+              <TextInput
+                style={[styles.fieldInput, styles.fieldInputMulti]}
+                value={feedbackContent ?? ''}
+                onChangeText={onFeedbackContentChange}
+                placeholder={t('feedback.contentPlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                multiline
+              />
+              <Text style={styles.feedbackTip}>{t('feedback.tip')}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackBtn,
+                  feedbackStatus === 'submitting' && styles.feedbackBtnOff,
+                ]}
+                onPress={onSubmitFeedback}
+                disabled={feedbackStatus === 'submitting'}
+              >
+                <Text style={styles.feedbackBtnText}>
+                  {feedbackStatus === 'submitting'
+                    ? t('feedback.submitting')
+                    : t('feedback.submit')}
+                </Text>
+              </TouchableOpacity>
+              {feedbackError ? <Text style={styles.errorText}>{feedbackError}</Text> : null}
+              {feedbackStatus === 'success' ? (
+                <Text style={styles.feedbackOk}>{t('feedback.success')}</Text>
+              ) : null}
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           loading ? (
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
@@ -158,6 +223,59 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       lineHeight: 18,
     },
+    sectionTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      paddingBottom: rnSpacing.xs,
+    },
+    feedbackCard: {
+      marginTop: rnSpacing.lg,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    fieldLabel: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    fieldInput: {
+      marginTop: rnSpacing.xs,
+      height: 40,
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadiusFor.control,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+    },
+    fieldInputMulti: { height: 88, paddingTop: rnSpacing.sm, textAlignVertical: 'top' },
+    feedbackTip: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+      lineHeight: 16,
+    },
+    feedbackBtn: {
+      marginTop: rnSpacing.md,
+      height: 50,
+      borderRadius: rnRadiusFor.control,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.brand.cta,
+    },
+    feedbackBtnOff: { opacity: 0.5 },
+    feedbackBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
+    feedbackOk: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

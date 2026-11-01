@@ -767,6 +767,7 @@ export async function loadToolFamilies(): Promise<{ families: ToolFamily[]; load
     ['LSP_TOOLS', async () => import('../tools/lsp.js')],
     ['BROWSER_TOOLS', async () => import('../tools/browser.js')],
     ['BROWSER_PAGE_TOOLS', async () => import('../tools/browser-page.js')],
+    ['WORKTREE_TOOLS', async () => import('../tools/worktree.js')],
   ];
   for (const [family, loader] of wanted) {
     try {

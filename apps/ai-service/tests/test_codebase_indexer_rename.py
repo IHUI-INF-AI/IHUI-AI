@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -72,7 +73,12 @@ async def _index(root: Path, repo_id: str = "repo-1", *, incremental: bool = Tru
 
 def _snapshot_blob(root: Path, repo_id: str = "repo-1") -> dict:
     idx = CodebaseIndexer.__new__(CodebaseIndexer)
-    return json.loads(idx._snapshot_path(repo_id, root).read_text(encoding="utf-8"))
+    raw = idx._snapshot_path(repo_id, root).read_bytes()
+    # 快照默认 gzip 落盘(T12 缺口表 #8,3b3e9542a4):读侧与生产用**同一把**魔数尺子,
+    # 不另写一份判据 —— 否则本文件的四条接线钉会在压缩档上全部失真(实测 4 红)。
+    if ci._is_gzip_compressed(raw):
+        raw = gzip.decompress(raw)
+    return json.loads(raw.decode("utf-8"))
 
 
 def _write(root: Path, rel: str, body: str) -> Path:

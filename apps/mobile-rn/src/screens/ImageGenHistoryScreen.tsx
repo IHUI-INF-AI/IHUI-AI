@@ -7,7 +7,7 @@
  *
  * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app ImageGenHistoryScreen,
  * 本 wrapper 仅保留平台特定职责:
- * - 数据:getAigcTasks(GET /api/ai/aigc/records)历史分页 + fetchApi(GET /api/image-gen/favorites)收藏分页
+ * - 数据:fetchApi(GET /api/image-gen/history,aiGcContent 域)历史分页 + fetchApi(GET /api/image-gen/favorites)收藏分页
  * - URL:resolveFileUrl 解析封面;时间文本按当前 locale 预格式化
  * - 分页:PAGE_SIZE=20,onEndReached 上拉加载(静默失败,下次触底重试)+ RefreshControl 下拉刷新
  * - 导航:goBack / ImageGenCreate 跳转;主题色 / i18n 注入
@@ -15,11 +15,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, getAigcTasks, resolveFileUrl, type AigcTask } from '@ihui/api-client'
+import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { ImageGenHistoryScreen as SharedImageGenHistoryScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { WEB_BASE_URL } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -29,7 +30,7 @@ interface GridItem {
   id: string
   coverUrl: string
   prompt: string
-  status?: AigcTask['status']
+  status?: 'pending' | 'running' | 'succeeded' | 'failed'
   timeText: string
 }
 
@@ -40,21 +41,20 @@ interface FavoritesData {
   pageSize: number
 }
 
+/** /api/image-gen/history 行(aiGcContent 裸行,与 web 同源) */
+interface HistoryData {
+  list: Array<{
+    id: string
+    content: string | null
+    status: number | null
+    createdAt: string
+  }>
+  total: number
+  page: number
+  pageSize: number
+}
+
 const PAGE_SIZE = 20
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null
-}
-
-function asString(v: unknown): string {
-  return typeof v === 'string' ? v : ''
-}
-
-function coverOf(result: unknown): string {
-  const r = isRecord(result) ? result : {}
-  const raw = asString(r.coverUrl) || asString(r.fileUrl)
-  return raw ? resolveFileUrl(raw) : ''
-}
 
 function formatTime(iso: string, formatter: Intl.DateTimeFormat): string {
   if (!iso) return ''
@@ -65,14 +65,17 @@ function formatTime(iso: string, formatter: Intl.DateTimeFormat): string {
   }
 }
 
-function toGridHistoryItem(task: AigcTask, formatter: Intl.DateTimeFormat): GridItem {
-  const r = isRecord(task.result) ? task.result : {}
+/**
+ * aiGcContent 行 → 网格项(对齐 web /image-gen/history 口径)。
+ * 该表无图片 URL 列(content 仅存提示词),故 coverUrl 恒空,与 web 渲染一致;
+ * status 为内容启用标志(0/1),非生成任务状态,不映射。
+ */
+function toGridHistoryRow(row: HistoryData['list'][number], formatter: Intl.DateTimeFormat): GridItem {
   return {
-    id: task.taskId,
-    coverUrl: coverOf(task.result),
-    prompt: asString(r.prompt),
-    status: task.status,
-    timeText: formatTime(task.createdAt ?? '', formatter),
+    id: row.id,
+    coverUrl: '',
+    prompt: row.content ?? '',
+    timeText: formatTime(row.createdAt ?? '', formatter),
   }
 }
 
@@ -118,9 +121,11 @@ export function ImageGenHistoryScreen() {
     setError('')
     try {
       if (tab === 'history') {
-        const res = await getAigcTasks({ page: 1, pageSize: PAGE_SIZE })
+        const res = await fetchApi<HistoryData>('/api/image-gen/history', {
+          params: { page: 1, pageSize: PAGE_SIZE },
+        })
         if (res.success) {
-          setHistoryItems(res.data.list.map((task) => toGridHistoryItem(task, timeFormatter)))
+          setHistoryItems(res.data.list.map((row) => toGridHistoryRow(row, timeFormatter)))
           setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
           setError(apiFailureToText(res, t('imageGen.loadFailed')))
@@ -151,9 +156,11 @@ export function ImageGenHistoryScreen() {
     try {
       const nextPage = page + 1
       if (tab === 'history') {
-        const res = await getAigcTasks({ page: nextPage, pageSize: PAGE_SIZE })
+        const res = await fetchApi<HistoryData>('/api/image-gen/history', {
+          params: { page: nextPage, pageSize: PAGE_SIZE },
+        })
         if (res.success) {
-          const nextItems = res.data.list.map((task) => toGridHistoryItem(task, timeFormatter))
+          const nextItems = res.data.list.map((row) => toGridHistoryRow(row, timeFormatter))
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setHistoryItems((prev) => [...prev, ...nextItems])
         }
@@ -211,7 +218,14 @@ export function ImageGenHistoryScreen() {
         void load()
       }}
       onBack={() => navigation.goBack()}
-      onCreate={() => navigation.navigate('ImageGenCreate')}
+      // ImageGenCreate 在小程序 route-map 无映射(app.config 无生图创建页)⇒ 静默不跳。
+      // 与 ImageGenTemplates 同款(2026-11-01 收口):统一改走 WebView 承载 web /image-gen,
+      // 小程序 webview 页按 host 白名单放行(域内 https),双端行为一致。
+      onCreate={() =>
+        navigation.navigate('WebView', {
+          url: `${WEB_BASE_URL}/image-gen`,
+        })
+      }
       colorScheme={resolvedTheme}
     />
   )

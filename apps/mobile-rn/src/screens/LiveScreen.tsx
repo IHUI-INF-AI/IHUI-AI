@@ -40,16 +40,24 @@ export function LiveScreen() {
   const [lives, setLives] = useState<Live[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
+  const PAGE_SIZE = 20
+  const hasMore = lives.length < total
 
   const load = async (refresh = false) => {
     if (refresh) setRefreshing(true)
     else setLoading(true)
     setError('')
     try {
-      const res = await getLiveList({ page: 1, pageSize: 20 })
+      const res = await getLiveList({ page: refresh ? 1 : page, pageSize: PAGE_SIZE })
       if (res.success) {
-        setLives(res.data.list)
+        const next = refresh ? 1 : page
+        setLives((prev) => (refresh || next === 1 ? res.data.list : [...prev, ...res.data.list]))
+        setTotal(res.data.total)
+        setPage(next)
       } else {
         setError(apiFailureToText(res, t('live.loadFailed')))
       }
@@ -59,6 +67,24 @@ export function LiveScreen() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+    }
+  }
+
+  const loadMore = async () => {
+    if (loadingMore || loading || refreshing || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const next = page + 1
+      const res = await getLiveList({ page: next, pageSize: PAGE_SIZE })
+      if (res.success) {
+        setLives((prev) => [...prev, ...res.data.list])
+        setTotal(res.data.total)
+        setPage(next)
+      }
+    } catch {
+      // 触底加载失败不打断已有内容,可再次触底重试
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -109,6 +135,9 @@ export function LiveScreen() {
             refreshing={refreshing}
             error={error}
             onRefresh={() => load(true)}
+            onLoadMore={() => void loadMore()}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
             onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
             onBack={() => navigation.goBack()}
             contentBottomPadding={tabBarScrollReserve(insets.bottom)}

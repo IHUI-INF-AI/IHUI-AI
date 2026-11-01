@@ -1030,8 +1030,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const query = z.object({ workspacePath: z.string().optional() }).parse(request.query)
-    if (query.workspacePath) subagentManager.discover(query.workspacePath)
-    return reply.send(success({ subagents: subagentManager.list() }))
+    const ownerUserId = request.userId
+    // 2026-11-02:workspacePath 是客户端自报串,discover 内的登记根闸才是唯一判据。
+    // 越界/未登记一律 404(防枚举:不复述服务端路径细节),也不静默回落成"只看全局桶"。
+    if (query.workspacePath) {
+      try {
+        subagentManager.discover(ownerUserId, query.workspacePath)
+      } catch {
+        return reply.status(404).send(error(404, '工作区不可用'))
+      }
+    }
+    // configs 按 owner 分桶:只回本人的子代理配置
+    return reply.send(success({ subagents: subagentManager.list(ownerUserId) }))
   })
 
   server.post('/subagents/delegate', async (request, reply) => {
@@ -1048,7 +1058,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!body.name || !body.prompt)
       return reply.status(400).send(error(400, 'name 和 prompt 不能为空'))
     try {
-      const result = await subagentManager.delegate(body)
+      const result = await subagentManager.delegate({ ...body, ownerUserId: request.userId })
       return reply.send(success(result))
     } catch (e) {
       return reply.status(404).send(error(404, (e as Error).message))

@@ -428,6 +428,11 @@ export default defineConfig({
         __dirname,
         '../../packages/types/src/permission-mode.ts',
       ),
+      // 跨端分享正文通道(2026-11-01 引入):packages/app 的 8 个屏按 '@ihui/shared/share' 取用,
+      // 缺本条目时父别名 '@ihui/shared' 按 startsWith 吞成 <mock>/share ⇒ 36 个套件收集期
+      // MODULE_NOT_FOUND。该模块只用 React ref/context、零平台依赖 ⇒ 直指真实源码
+      // (给它写 mock 测的就是 mock,同 utils/app-control-intent 的规矩)。
+      '@ihui/shared/share': resolve(__dirname, '../../packages/shared/src/share/index.ts'),
       // Base alias last so it only catches direct @ihui/shared imports
       '@ihui/shared': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
       '@ihui/types': resolve(__dirname, 'tests/__mocks__/ihui-types.ts'),

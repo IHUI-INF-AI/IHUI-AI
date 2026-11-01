@@ -50,23 +50,18 @@ const FACE_TXT = {
   worktree: '工作树(人工逃生舱,提交链不走这档)',
 }
 
-/** 按被审面取任意仓库内文件(与 readGatesFace 同一口径,不另写第二份取面逻辑)。 */
-export function readFaceText(rel, face = FACE_SEL.face, root = ROOT) {
+/** 按被审面取闸门配置;取不到抛 Undetermined,由调用方折成 exit 2 —— 不回落另一个面。 */
+export function readGatesFace(face = FACE_SEL, root = ROOT) {
   if (face === 'worktree') {
-    const t = readWorktreeFile(root, rel)
-    if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+    const t = readWorktreeFile(root, GATES_REL)
+    if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${GATES_REL}`)
     return t
   }
-  const spec = (face === 'staged' ? ':' : 'HEAD:') + rel
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + GATES_REL
   const got = catBatch(root, [spec], { maxBuffer: 1 << 26 })
   const t = got.get(spec)
-  if (t === null || t === undefined) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
+  if (t === null || t === undefined) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${GATES_REL}`)
   return t
-}
-
-/** 闸门配置(仓库内容,按被审面取)。 */
-export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
-  return readFaceText(GATES_REL, face, root)
 }
 
 /** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。 */

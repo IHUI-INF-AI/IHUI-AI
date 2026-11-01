@@ -292,3 +292,4 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **207 体积清偿第四批(2026-10-31)**:44 行「R4 登记补记」与同族重复副本已整行移入 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(规则条款一条未减:每类判据至少存活一份);R4 的点名义务同期改由 README「守门脚本点名索引」承担(补 17 枚门名)。
 >>>>>>> c970ac616ca6e92d55930349645153bccb53a25d
 <!-- 2026-11-01 守门 207 体积清偿(本票第六批):「只读对账尺子」的旧短副本 + 第四批/第五批两枚历史登记,共 4 行整行逐字移入 .ihui-agent/archive/AGENTS_trim-2026-11-01b.md(该件此刻真在审面里);规则条款一条未减,判据唯一真相源仍在本文。盘符/gitdir 形态按当次实测。 -->
+- **自主能力与开发库哨兵点名(R4 义务,2026-11-01 补)**:`check-autonomy-leg-health.mjs`(自主能力各腿在位/连败封票;判机器状态⇒**刻意不进提交链**§12e,调度=git-guardian 巡检轮,判据 import `auto-evolve.mjs` 的 `quarantineUntilOf`/`failureStreakOf` 零复算,自检 `--self-test`)、`check-dev-db-rotation-window.mjs`(开发库口令轮换窗口对账;同档不进提交链)。两门此前已接线而文档通篇不点名 ⇒ 门 89 R4 判红,这一行就是把那格补上。

@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 子智能体「全局配置变更面」的管理员闸存续锁(2026-11-01 安全强化)。
@@ -97,11 +98,14 @@ describe('子智能体全局配置变更面:管理员闸 + 去裸鉴权', () => 
     expect(mutationRoutesGuarded(stripped)).toBe(false)
 
     // 变异 2:把裸 authenticate 塞回 DELETE /roles/custom/:id
+    // 2026-11-02 P0-3:DELETE 在 `customRoles.delete(id)` 之前插入归属闸,样本锚点随之前移
+    // (闸语义不变:仍是「才是这一条路由、且体内出现裸 authenticate ⇒ 判否」)。
     const bare = s.replace(
-      "server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {\n    const { id } = request.params as { id: string }\n    const deleted = customRoles.delete(id)",
-      "server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {\n    await authenticate(request)\n    if (!request.userId) return\n    const { id } = request.params as { id: string }\n    const deleted = customRoles.delete(id)",
+      "server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {\n    const { id } = request.params as { id: string }\n    const existing = customRoles.get(id)",
+      "server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {\n    await authenticate(request)\n    if (!request.userId) return\n    const { id } = request.params as { id: string }\n    const existing = customRoles.get(id)",
     )
     expect(bare, '塞裸鉴权没塞进去 ⇒ 这一格不成对照').not.toBe(s)
     expect(mutationRoutesGuarded(bare)).toBe(false)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

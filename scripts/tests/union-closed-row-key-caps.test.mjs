@@ -34,6 +34,7 @@ import { declaredRows } from '../scrub-declared-removals.mjs'
 import { extractTaskFingerprint } from '../check-plan-task-duplicates.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { uniqueDefinition } from './helpers/union-converge-source-probe.mjs'
 
 const UNION_SRC = readFileSync(fileURLToPath(new URL('../union-converge.mjs', import.meta.url)), 'utf8')
 const SCRUB_SRC = readFileSync(fileURLToPath(new URL('../scrub-declared-removals.mjs', import.meta.url)), 'utf8')
@@ -186,15 +187,29 @@ test('⑤ 凭据缺口 ⇒ 整批不扣(held 桶照旧补回并点名),绝不"�
 test('⑥ 接线锁:台账索引单源、凭据随报告面交回、held 桶不得与未判定桶合并', () => {
   assert.ok(/keyIndex/.test(SCRUB_SRC), '台账构造出口必须产出 keyIndex(主键 → 台账原文)')
   assert.ok(/dropTitleRows/.test(SCRUB_SRC), '题面指纹的证据面必须随 declaredRows 交回')
-  const fnAt = UNION_SRC.indexOf('export function declaredFamilyCaps')
-  assert.ok(fnAt > 0)
-  const body = UNION_SRC.slice(fnAt, fnAt + 9000)
-  assert.ok(/ledKeyIndex/.test(body), '扣减必须吃 keyIndex(单源构造出口)')
-  assert.ok(/held\.set\(/.test(body), '证据缺口必须落 held(照旧补回),不得落 undetermined(那样会删行)')
-  assert.ok(/evidence\.set\(l/.test(body), '每一处扣减都必须登记凭据')
-  const wantAt = UNION_SRC.indexOf('const fam = declaredFamilyCaps')
-  const wantBody = UNION_SRC.slice(wantAt, wantAt + 1200)
-  assert.ok(/evidence: fam\.evidence/.test(wantBody), '凭据必须随 report 交回调用方')
-  assert.ok(/fam\.held/.test(wantBody), 'held 桶必须从期望表出口透传(否则没人看得见让路)')
+  // 唯一性锁(2026-11-01 修探测面):认账判据已搬进 lib/union-converge-judgments.mjs,
+  // 探测面改为全家族扫描并要求"恰好 1 份定义 + 函数体全家族只此一处"(改名不改体的拷贝也翻红)。
+  const fam = uniqueDefinition('declaredFamilyCaps')
+  assert.ok(fam.ok, fam.why)
+  for (const [needle, why] of [
+    ['ledKeyIndex', '扣减必须吃 keyIndex(单源构造出口)'],
+    ['held.set(', '证据缺口必须落 held(照旧补回),不得落 undetermined(那样会删行)'],
+    ['evidence.set(l', '每一处扣减都必须登记凭据'],
+  ])
+    assert.ok(fam.body.includes(needle), why)
+  // 接线锁:凭据/held 桶必须从**期望表出口**透传(该函数同样已搬进 lib,取真函数体而非固定字窗口)
+  const wire = uniqueDefinition('liveDocExpectedCounts')
+  assert.ok(wire.ok, wire.why)
+  for (const [needle, why] of [
+    ['const fam = declaredFamilyCaps', '期望表必须自己问认账判据(接线点就在函数体内)'],
+    ['evidence: fam.evidence', '凭据必须随 report 交回调用方'],
+    ['fam.held', 'held 桶必须从期望表出口透传(否则没人看得见让路)'],
+    ['fam.undetermined', '未判定桶必须与 held 桶各自独立透传'],
+  ])
+    assert.ok(wire.body.includes(needle), why)
+  assert.ok(
+    /via: 'held'/.test(wire.body) && /via: 'undetermined'/.test(wire.body),
+    '让路桶与未判定桶必须各落各的 via(方向相反:一个照旧补回、一个不补回),绝不可合并成一桶',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

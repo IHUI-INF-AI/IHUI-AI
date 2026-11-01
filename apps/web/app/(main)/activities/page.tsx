@@ -78,9 +78,7 @@ export default function ActivitiesPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Gift className="h-6 w-6 text-primary" />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
-              {t('title')}
-            </h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>

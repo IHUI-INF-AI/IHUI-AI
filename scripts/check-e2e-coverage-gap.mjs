@@ -35,7 +35,9 @@ import {
 } from './lib/face-reader.mjs'
 import {
   SOURCE_EXTS,
+  classifyGapTier,
   countByReason,
+  countByTier,
   diffGaps,
   extOf,
   findTestlessModules,
@@ -135,9 +137,6 @@ export function listQualifierTests(tests) {
 export function collectFace(root, face, opts = {}) {
   const roots = opts.roots ?? []
   const list = opts.listFiles ?? ((repoRoot, which) => listFaceFiles(repoRoot, which))
-  // `opts.rev` 只服务"以任意提交为基底"的调用方(如补测器取 HEAD^);缺省仍按面自取,
-  // 门本身的行为一字未变 —— 取材实现全仓仍只此一份(§0.6),第二份必然漂移。
-  const contentRev = opts.rev ?? (face === 'staged' ? '' : 'HEAD')
   let all
   try {
     all = list(root, face)
@@ -154,7 +153,7 @@ export function collectFace(root, face, opts = {}) {
     if (face === 'worktree') {
       for (const p of sourceFiles) contents.set(p, readWorktreeFile(root, p))
     } else {
-      const rev = contentRev
+      const rev = face === 'staged' ? '' : 'HEAD'
       let got
       try {
         got = catBatch(root, sourceFiles.map((p) => `${rev}:${p}`), { timeout: 120_000 })
@@ -170,7 +169,7 @@ export function collectFace(root, face, opts = {}) {
     if (face === 'worktree') {
       for (const p of qualifierTests) testTexts.set(p, readWorktreeFile(root, p))
     } else {
-      const rev = contentRev
+      const rev = face === 'staged' ? '' : 'HEAD'
       let got
       try {
         got = catBatch(root, qualifierTests.map((p) => `${rev}:${p}`), { timeout: 120_000 })
@@ -192,7 +191,7 @@ export function evaluateFace(root, face, roots, opts = {}) {
     testTexts: collected.testTexts,
     roots,
   })
-  return { ...result, face, sourceCount: collected.sourceCount }
+  return { ...result, face, sourceCount: collected.sourceCount, files: collected.files }
 }
 
 /**
@@ -463,6 +462,18 @@ async function main(argv) {
     console.log(`本次新增缺口 ${newGaps.length} 枚(缺测试的新模块,须补测或登记):`)
     for (const g of newGaps.slice(0, LIST_LIMIT)) console.log(`  ✗ ${g.path}`)
     if (newGaps.length > LIST_LIMIT) console.log(`  …另 ${newGaps.length - LIST_LIMIT} 枚`)
+  }
+  if (argv.includes('--tiers')) {
+    // 只报数:分档不改判定、不改 rc,只为把"存量缺口归零"这个前置量清(见 seat 记录)。
+    const textMap = new Map(
+      (faceResult.files ?? []).filter((f) => typeof f.text === 'string').map((f) => [f.path, f.text]),
+    )
+    const tiered = faceResult.gaps.map((g) => ({
+      path: g.path,
+      tier: classifyGapTier({ path: g.path, text: textMap.get(g.path) }),
+    }))
+    console.log(`缺口分档(只报数,不改判定;合计 ${tiered.length}):`)
+    for (const [tier, n] of countByTier(tiered)) console.log(`   ${String(n).padStart(4)}  ${tier}`)
   }
   printUndetermined(faceResult)
   if (faceResult.emptyRoots.length > 0) {

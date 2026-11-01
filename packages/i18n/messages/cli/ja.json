@@ -136,20 +136,20 @@
       "migrationFailed": "認証情報の移行が完了していません。元のファイルを保持し上書きしていません（{reason}）"
     },
     "agentFailureTerminated": "実行終了:結末={outcome}｜停止位置={stage}",
-    "failureOutcomeRetryable": "再試行可",
-    "failureOutcomeTerminal": "終了(再試行不可)",
-    "failureOutcomeUndetermined": "未判定",
-    "agentStallLlmRequest": "LLM リクエスト",
+    "failureOutcomeRetryable": "再試行可能(一時的な失敗。再送で成功しうる)",
+    "failureOutcomeTerminal": "確定失敗(再送しても同じく失敗する)",
+    "failureOutcomeUndetermined": "未判定(根拠不足。成功とも失敗とも読まない)",
+    "agentStallLlmRequest": "モデル要求",
     "agentStallToolExecution": "ツール実行",
     "agentStallApprovalWait": "承認待ち",
-    "agentStallElicitationWait": "追加質問待ち",
-    "agentStallStreamChannel": "ストリームチャネル",
-    "agentStallQueueDispatch": "キュー投入",
+    "agentStallElicitationWait": "追加入力待ち",
+    "agentStallStreamChannel": "ストリーム経路",
+    "agentStallQueueDispatch": "キュー配信",
     "agentStallPermissionGate": "権限ゲート",
-    "agentStallBudgetGovernance": "予算ガバナンス",
+    "agentStallBudgetGovernance": "予算管理",
     "agentStallHookPipeline": "フックパイプライン",
-    "agentStallDoomLoopGuard": "デッドループ監視",
-    "agentStallUndetermined": "未判定"
+    "agentStallDoomLoopGuard": "無限ループ防止",
+    "agentStallUndetermined": "未判定の段階"
   },
   "waiting": {
     "agent": {

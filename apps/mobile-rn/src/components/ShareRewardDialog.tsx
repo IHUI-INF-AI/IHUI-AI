@@ -359,13 +359,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     marginBottom: 14,
   } as TextStyle,
   benefits: {
     alignSelf: 'stretch',
     gap: rnSpacing.sm,
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
   } as ViewStyle,
   benefitItem: {
     flexDirection: 'row',
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   } as ViewStyle,
   benefitText: {
     flex: 1,
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   secondaryButton: {
     alignSelf: 'stretch',
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     paddingVertical: 9,
     paddingHorizontal: rnSpacing.xl,
     alignItems: 'center',

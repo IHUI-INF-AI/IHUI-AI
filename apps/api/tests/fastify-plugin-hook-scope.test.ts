@@ -16,7 +16,7 @@
  *  ③ 反证档:如果①那句其实测不到差异(hook 根本没跑),本文件必须失败,不能静默绿。
  */
 import { describe, it, expect } from 'vitest'
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 
 async function build(opts?: { nestedHook?: boolean }) {
   const app = Fastify()

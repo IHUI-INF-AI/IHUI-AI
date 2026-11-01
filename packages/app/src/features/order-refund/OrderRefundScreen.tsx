@@ -7,7 +7,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -77,6 +77,15 @@ export function OrderRefundScreen({
 }: OrderRefundScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 预设退款原因(对齐小程序退款页的五项单选):点选即把该原因文案写进 reason,
+  // 提交链路不变(壳仍只发 reason 文本),用户也可在下方输入框改成「其他原因」。
+  const reasonOptions = [
+    { id: 'd1', label: t('orderRefund.d1') },
+    { id: 'd2', label: t('orderRefund.d2') },
+    { id: 'd3', label: t('orderRefund.d3') },
+    { id: 'd4', label: t('orderRefund.d4') },
+    { id: 'd5', label: t('orderRefund.d5') },
+  ]
 
   return (
     <View style={styles.container}>
@@ -134,6 +143,24 @@ export function OrderRefundScreen({
               {isSelected ? (
                 <View style={styles.refundForm}>
                   <Text style={styles.formLabel}>{t('orderRefund.reasonLabel')}</Text>
+                  <View style={styles.reasonRow}>
+                    {reasonOptions.map((option) => {
+                      const active = reason === option.label
+                      return (
+                        <TouchableOpacity
+                          key={option.id}
+                          style={[styles.reasonChip, active && styles.reasonChipActive]}
+                          onPress={() => onReasonChange(option.label)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: active }}
+                        >
+                          <Text style={[styles.reasonText, active && styles.reasonTextActive]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    })}
+                  </View>
                   <TextField
                     colorScheme={colorScheme}
                     style={styles.formInput}
@@ -247,6 +274,23 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     formLabel: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
+    reasonRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.sm,
+    },
+    reasonChip: {
+      paddingVertical: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadiusFor.chip,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    reasonChipActive: { borderColor: tk.brand.DEFAULT },
+    reasonText: { fontSize: rnType.body.size, color: tk.text.medium },
+    reasonTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     formInput: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing.sm,
