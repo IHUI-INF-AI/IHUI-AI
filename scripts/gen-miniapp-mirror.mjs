@@ -666,6 +666,19 @@ export function buildShellPage({
     }
   }
   const jsxTag = `${shellSymbol}Shell`
+  // 壳渲染链现读校验(2026-11-01 G-998102 收口,F 组翻车根因):壳可能与镜像目标**不同屏**
+  // (如 AssistantScreen 壳实际渲染 chat-room/ChatRoomScreen),按「同名壳=渲染同名共享屏」
+  // 假设写出的「渲染 = spec」标记就是假声明(R1 凭据),镜像页上线而真相错位。此处现读壳的
+  // import 面,共享屏名不在其中 ⇒ 打点警告(不阻断:壳可能经再导出二跳承载,由人工轮裁决)。
+  const sharedName = spec.split('/').pop()?.replace(/\.tsx$/, '') ?? ''
+  const importsShared =
+    sharedName.length > 0 &&
+    new RegExp(`import\\s+[^;]*\\b${sharedName}\\b[^;]*from\\s+['"][^'"]+['"]`).test(shellText)
+  if (!importsShared) {
+    console.warn(
+      `[gen-miniapp-mirror] ⚠ 壳渲染链不符: apps/mobile-rn/src/screens/${shellSymbol}.tsx 的 import 面不含共享屏名 ${sharedName} —— 壳可能承载的是另一屏,本页「镜像 ${spec}」声明将成为假凭据,请先核对壳的实际渲染目标再落页`,
+    )
+  }
   const L = []
   L.push(`// 镜像 ${spec}`, '')
   L.push('/**')
