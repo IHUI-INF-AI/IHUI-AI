@@ -33570,6 +33570,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [x] P89 〔千段租约〕 本机=lichunchuan-96818d62 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
-- [ ] B67 [auto-triage] API 5xx 错误签名聚类(GET /api/agents/list 503)(登记@2026-11-01/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 3 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/agents/list → 503 GET /api/agents/list -> 503 / FastifyError: Service Unavailable)
 
-- [ ] B69 [auto-triage] API 5xx 错误签名聚类(GET /api/oauth-keys/list 503)(登记@2026-11-01/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 3 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/oauth-keys/list → 503 GET /api/oauth-keys/list -> 503 / FastifyError: Service Unavailable)
