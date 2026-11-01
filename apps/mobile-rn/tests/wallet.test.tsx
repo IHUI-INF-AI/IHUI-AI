@@ -100,11 +100,12 @@ vi.mock('@ihui/ui-native', () => ({
 import { WalletScreen } from '../src/screens/WalletScreen'
 import { WithdrawScreen } from '../src/screens/WithdrawScreen'
 
+// 余额单位是「分」(与壳内 WalletScreen /100 换算同源):100050 分 → ¥1000.50
 const mockBalance = {
-  balance: 1000.5,
-  frozenBalance: 50.0,
-  totalRecharge: 5000.0,
-  totalWithdraw: 2000.0,
+  balance: 100050,
+  frozenBalance: 5000,
+  totalRecharge: 500000,
+  totalWithdraw: 200000,
 }
 
 describe('WalletScreen 余额查询', () => {
