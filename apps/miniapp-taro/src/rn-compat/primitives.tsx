@@ -548,7 +548,10 @@ export function Modal(props: RNBaseProps) {
       {onBack ? (
         <View
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          onClick={onBack}
+          // 遮罩点击走 RN 的 onPress 口:此前写成 `onClick`,而 compat 的 View 只把 **onPress**
+          // 挂到 Taro 的点击位 ⇒ 这一格在小程序端"点了没反应"(Modal 点遮罩关闭整条腿是死的)。
+          // Android 返回键另有页面壳承接 onRequestClose,不受这一格影响。
+          onPress={onBack}
         />
       ) : null}
       <View style={transparent ? undefined : { flex: 1 }}>{props.children}</View>
