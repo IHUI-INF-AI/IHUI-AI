@@ -187,10 +187,10 @@ Ghidra：函数 **1,759**、外部入口 2（`entry`、`tls_callback_0`）、导
 | 2 | **已落地** | `apps/ai-service/app/services/ignore_rules.py`（P84）：`.gitignore`/`.aiignore` 等逐级合成排除谓词；"跟踪但被 .gitignore 覆盖 ⇒ 保留并逐条点名"写进剪枝回执；测试 `test_codebase_indexer_ignore.py` + `test_codebase_indexer_ignore_channels.py` |
 | 4 | **已落地** | P85 改名判定：`compute_simhash` 进索引链（同 content-hash 直判精确改名 + 汉明距离近同候选），快照附加表 `simhashes`/`aliases`；测试 `test_codebase_indexer.py` 改名段 |
 | 7 | **已落地** | `apps/ai-service/app/services/tool_surface.py`：工具→能力键声明表 + 产品形态覆盖 + 列表面过滤 + 执行面具名拒绝（`CAPABILITY_DISABLED` 点名缺哪枚键），`mcp_server.py` 三面同尺接线（list_tools 过滤 / call_tool 具名拒绝 / get_tool_schema 反查），`capability_matrix.py` 登记键，测试 `test_tool_surface_gate.py` 24 例（含三条接线锁） |
-| 3 | 未落地 | 无事件源（watchdog 0 命中现状未变）；现有"调用时增量"仍是唯一通道 |
-| 5 | 未落地 | token 预算/目录权重渲染未接 |
-| 6 | 部分 | 超时并链（`linkAbortSignal`，父信号 + 终止时限同一 AbortController）在；**宿主 PID/产品身份入参校验未落地**（grep hostPid/PRODUCT_ID 于 `apps/cli/src/hooks/index.ts` 0 命中，2026-11-01 复核） |
-| 8 | 未落地 | 快照仍为明文 JSON |
+| 3 | **缓议(有因)** | 需要常驻 watcher 宿主承载(watchdog 不在依赖、仓内无 daemon 载体);按 §0.9「造好没装车=没有」,盲写未接线的抽象不落地。待"谁常驻跑 watcher"有承载决策再立票 |
+| 5 | **大半已落地**(另一席交付) | `render_repo_tree` 按 token 预算装箱仓库目录骨架(代码枚 `0de483bff6` + ignore 剪枝续 `978b6f7854`),mcp_server 已接线,渲染钉 12 例+接线钉 5 例;缺的只剩 10 维权重配置(dirNameWeights/fileTypeWeights/timeDecay 等),按需分批 |
+| 6 | **身份核验半格已落地**(代码枚 `713eaf1513`) | `dispatchHookEntry` 唯一收口加 deny-by-default 宿主身份门:登记口 `registerHookHostIdentity`(未显式登记按当前进程自登记)+ PID 三态探活 + 产品身份匹配,不过 ⇒ 具名 `HOST_IDENTITY_UNVERIFIED`(skipped 档不改写阻断语义);核验通过把 `IHUI_HOST_PID`/`IHUI_HOST_PRODUCT` stamp 进钩子子进程 env(对侧 QODER_PRODUCT_ID 的对应物);应急出口 `IHUI_HOOK_SKIP_HOST_IDENTITY=1`(warnOnce 审计)。9 例新测试 + 既有 hook 回归 295 例零放宽,tsc/eslint 零错。**如实交代**:显式登记的宿主入口接线(repl/agent 侧)归第二笔,生产路径当前恒走自登记 |
+| 8 | **已落地**(代码枚 `3b3e9542a4`) | 快照 gzip 落盘 + 读侧魔数自识别双形态:旧明文档零迁移;解压失败/截断 ⇒ CORRUPT 出原委(绝不静默当"无快照");应急出口 `IHUI_SNAPSHOT_COMPRESS`(只影响写侧,读侧只认魔数)。对齐对侧 encode/decode/is_compressed/read/write 五件套;8 例新测试,合跑 45 例绿,ruff/mypy 绿 |
 
 ---
 
