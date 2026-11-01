@@ -26,7 +26,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -181,8 +180,12 @@ describe('票 4706② · hub 分支与本地路径共用唯一校验出口', () 
     expect(dispatch).toBeGreaterThan(-1);
     expect(validation).toBeGreaterThan(-1);
     expect(validation).toBeLessThan(dispatch);
-    // 且必须用同一个唯一出口,不得自立第二把判据(§0.6)
-    expect(src.match(/applyToolArgValidation\(/g)?.length).toBe(3);
+    // 且必须共用同一个唯一出口:定义恰好一枚、hub 分支体内调用恰好一枚
+    // (不锁全文件出现次数 —— 那是脆计数,他席合法新增调用点会把本锁变恒红,§12e)
+    expect(src.match(/function applyToolArgValidation/g)?.length).toBe(1);
+    expect(
+      src.slice(branchStart, dispatch).match(/applyToolArgValidation\(/g)?.length,
+    ).toBe(1);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
