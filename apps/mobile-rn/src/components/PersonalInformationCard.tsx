@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
+    marginTop: rnSpacing['md-loose'],
   } as ViewStyle,
   withdrawInfo: {
     flexDirection: 'row',

@@ -170,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     pressed: { opacity: 0.85 },
     cover: { width: '100%', height: 128, backgroundColor: tk.surface.card },
-    body: { padding: 14, gap: rnSpacing.sm },
+    body: { padding: rnSpacing['md-loose'], gap: rnSpacing.sm },
     title: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     description: { fontSize: rnType.body.size, color: tk.text.secondary },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, flexWrap: 'wrap' },

@@ -451,7 +451,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     infoCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -514,7 +514,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     inviteRow: { flexDirection: 'row', gap: rnSpacing.sm, alignItems: 'center' },
     inviteBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
@@ -557,7 +557,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     btnDisabled: { opacity: 0.6 },
     dangerCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,

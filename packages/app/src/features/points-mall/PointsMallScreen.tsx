@@ -125,7 +125,7 @@ function createStyles(tk: AppThemeTokens) {
     balanceCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
       alignItems: 'center',
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     retryText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     columnWrapper: { justifyContent: 'space-between', marginBottom: rnSpacing['sm-loose'] },
     card: {
       width: '48%',

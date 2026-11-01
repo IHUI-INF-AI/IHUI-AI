@@ -109,4 +109,42 @@ test('⑤ 字号腿只动无 lineHeight 的对象;圆角同值双档取角色档
   const rd = transform(FIX, TIER, { radiusByValue: radiusTier })
   assert.ok(rd.text.includes('borderRadius: rnRadius.lg'), '8px 双档名取角色表在用的 lg')
 })
+
+// ⑥ 成对腿(2026-11-02 Phase 3):仅当 size 与 lineHeight 同时精确等于同一档才整对象替换
+test('⑥ 成对腿:两值同档才换,四种拒绝原因分桶,不得注入 weight', () => {
+  const FIX = `
+  const s = StyleSheet.create({
+    ok: { fontSize: 14, lineHeight: 20 },
+    mismatch: { fontSize: 14, lineHeight: 22 },
+    nonLiteral: { fontSize: 14, lineHeight: 1.4 * 14 },
+    ambiguous: { fontSize: 14, lineHeight: 20, lineHeight: 22 },
+    plain: { fontSize: 14 },
+  })
+  const cfg = { fontSize: 14, lineHeight: 20 }
+  `
+  const typeTier = new Map([
+    [12, 'label'],
+    [14, 'body'],
+    [16, 'title'],
+  ])
+  const pairTier = new Map([
+    ['12|16', 'label'],
+    ['14|20', 'body'],
+    ['16|24', 'title'],
+  ])
+  const opts = { typeByValue: typeTier, pairByValue: pairTier, fontSizePairsOnly: true }
+  const r = transform(FIX, TIER, opts)
+  assert.ok(r.text.includes('fontSize: rnType.body.size, lineHeight: rnType.body.lineHeight'), '同档两值必须一起换')
+  assert.ok(r.text.includes('fontSize: 14, lineHeight: 22'), '行高不等值 ⇒ 整个对象不动')
+  assert.ok(r.text.includes('lineHeight: 1.4 * 14'), '行高非字面量 ⇒ 整个对象不动')
+  assert.ok(r.text.includes('ambiguous: { fontSize: 14, lineHeight: 20, lineHeight: 22 }'), '顶层多行高 ⇒ 整个对象不动')
+  assert.ok(r.text.includes('plain: { fontSize: 14 }'), '无行高的 fontSize 不属本腿')
+  assert.ok(r.text.includes('cfg = { fontSize: 14, lineHeight: 20 }'), 'StyleSheet 块外不动')
+  assert.ok(!r.text.includes('weight'), '禁止 ...rnType 展开:不得把 weight 注入')
+  assert.equal(r.skipped.pairMismatch, 1)
+  assert.equal(r.skipped.pairNonLiteral, 1)
+  assert.equal(r.skipped.pairAmbiguous, 1)
+  assert.equal(r.skipped.pairNoLineHeight, 1)
+  assert.equal(transform(r.text, TIER, opts).changes.length, 0, '二次改 0 处')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

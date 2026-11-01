@@ -275,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

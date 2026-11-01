@@ -339,7 +339,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     wfName: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['md-loose'] },
     metaText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     badge: {
       paddingHorizontal: rnSpacing.sm,
@@ -403,7 +403,12 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.surface.muted,
       padding: rnSpacing.sm,
     },
-    jsonText: { fontSize: 11, color: tk.text.medium, fontFamily: 'monospace', lineHeight: 16 },
+    jsonText: {
+      fontSize: rnType.caption.size,
+      color: tk.text.medium,
+      fontFamily: 'monospace',
+      lineHeight: rnType.caption.lineHeight,
+    },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -419,7 +424,12 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
     logTime: { fontSize: rnType.badge.size, color: tk.text.tertiary, fontFamily: 'monospace' },
     logLevel: { fontSize: rnType.badge.size, fontWeight: '700', width: 44 },
-    logMsg: { flex: 1, fontSize: 11, color: tk.text.primary, lineHeight: 16 },
+    logMsg: {
+      flex: 1,
+      fontSize: rnType.caption.size,
+      color: tk.text.primary,
+      lineHeight: rnType.caption.lineHeight,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

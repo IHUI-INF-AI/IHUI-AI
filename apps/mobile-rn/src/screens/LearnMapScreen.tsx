@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: rnSpacing['sm-loose'],
-    padding: 14,
+    padding: rnSpacing['md-loose'],
   },
   stepBadge: {
     width: 26,
@@ -301,8 +301,8 @@ const styles = StyleSheet.create({
   expandText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   nodesBox: {
     gap: rnSpacing['sm-loose'],
-    marginHorizontal: 14,
-    marginBottom: 14,
+    marginHorizontal: rnSpacing['md-loose'],
+    marginBottom: rnSpacing['md-loose'],
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing['sm-loose'],
     borderRadius: rnRadius.md,

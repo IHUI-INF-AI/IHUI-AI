@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
     errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

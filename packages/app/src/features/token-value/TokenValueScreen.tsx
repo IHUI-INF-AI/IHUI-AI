@@ -218,7 +218,11 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     headerTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    balanceCard: { padding: 14, borderRadius: rnRadius.lg, backgroundColor: tk.brand.cta },
+    balanceCard: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.brand.cta,
+    },
     balanceLabel: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     balanceValue: {
       marginTop: rnSpacing.sm,
@@ -245,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
     pkgScroll: { gap: rnSpacing['sm-loose'], paddingVertical: rnSpacing.xs },
     pkgCard: {
       width: 130,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1.5,
       borderColor: tk.border.light,
@@ -294,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
     recordItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,

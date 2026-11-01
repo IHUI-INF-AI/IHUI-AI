@@ -48,7 +48,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['md-loose'] },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     metaLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     metaValue: { fontSize: rnType.caption.size, color: tk.text.secondary },

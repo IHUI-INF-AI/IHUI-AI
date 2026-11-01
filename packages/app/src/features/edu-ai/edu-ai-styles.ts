@@ -256,7 +256,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    stepMain: { flex: 1, gap: rnSpacing.xs, paddingBottom: 14 },
+    stepMain: { flex: 1, gap: rnSpacing.xs, paddingBottom: rnSpacing['md-loose'] },
     stepHead: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -69,7 +69,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     orderBtns: { flexDirection: 'row', gap: rnSpacing['2xs'] },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,

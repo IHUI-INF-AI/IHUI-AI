@@ -117,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       backgroundColor: tk.surface.bg,
     },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },

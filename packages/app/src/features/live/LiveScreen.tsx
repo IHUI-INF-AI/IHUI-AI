@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.lg },
     separator: { height: 12 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -266,9 +266,13 @@ function createStyles(tk: AppThemeTokens) {
     topDetail: { flex: 1, fontSize: rnType.badge.size },
     num: { fontSize: rnType.caption.size, color: tk.text.primary, fontVariant: ['tabular-nums'] },
     dim: { color: tk.text.secondary },
-    note: { fontSize: rnType.badge.size, paddingLeft: 14, paddingVertical: rnSpacing['2xs'] },
+    note: {
+      fontSize: rnType.badge.size,
+      paddingLeft: rnSpacing['md-loose'],
+      paddingVertical: rnSpacing['2xs'],
+    },
     details: {
-      marginLeft: 14,
+      marginLeft: rnSpacing['md-loose'],
       marginBottom: rnSpacing.xs,
       padding: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,

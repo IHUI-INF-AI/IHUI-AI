@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     sendBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

@@ -120,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     action: { fontSize: rnType.display.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

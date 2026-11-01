@@ -243,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
     formCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.sm,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -306,10 +306,10 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
-    listBody: { padding: 14, paddingTop: 0, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['md-loose'], paddingTop: 0, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing['xs-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -327,7 +327,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     enterBtn: {
       paddingVertical: rnSpacing.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brandAccent.light,
     },

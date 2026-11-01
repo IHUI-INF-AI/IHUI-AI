@@ -398,7 +398,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     badgeTextActive: { color: tk.success.deepText },
     badgeInactive: { backgroundColor: tk.surface.muted },
     badgeTextInactive: { color: tk.text.secondary },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['md-loose'] },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     metaText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     formDesc: { fontSize: rnType.label.size, color: tk.text.secondary },

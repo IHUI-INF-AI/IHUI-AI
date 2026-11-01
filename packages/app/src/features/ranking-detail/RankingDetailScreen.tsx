@@ -86,11 +86,11 @@ export function RankingDetailScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     scroll: { flex: 1 },
-    scrollContent: { padding: 14 },
+    scrollContent: { padding: rnSpacing['md-loose'] },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.md,
     },
     row1: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },

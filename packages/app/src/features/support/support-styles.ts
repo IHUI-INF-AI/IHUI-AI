@@ -63,7 +63,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     tabBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: 7,
       borderRadius: rnRadius.sm,
     },
@@ -196,7 +196,11 @@ export function createSupportStyles(tk: AppThemeTokens) {
     commentUser: { backgroundColor: tk.surface.muted },
     commentMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     commentRole: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
-    commentText: { fontSize: 13, color: tk.text.primary, lineHeight: 18 },
+    commentText: {
+      fontSize: rnType.bodySm.size,
+      color: tk.text.primary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     starRow: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     ratingBox: {
       borderWidth: StyleSheet.hairlineWidth,
