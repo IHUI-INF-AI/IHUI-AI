@@ -2233,6 +2233,18 @@ class SubagentDispatchService {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
+  /**
+   * 取单条派单(只读,不改任何状态)。
+   *
+   * S-ACL(2026-11-01):按 id 的 6 个端点原先直接调 cancel/resume/getDispatchStats/...,
+   * 路由层拿不到记录就无法判归属 ⇒ 知道 id 即可跨租户读/取消。
+   * 这里只补一个**读**出口给路由层做归属闸;鉴权判据留在路由(§22c:判据单一份)。
+   * **不**给 cancel/resume 塞 owner 参数 —— 那两个方法还背着并发上限与状态机语义。
+   */
+  findById(id: string): SubagentDispatch | null {
+    return this.runtimes.get(id)?.dispatch ?? null
+  }
+
   /** 全局统计 */
   getStats(): DispatchStats {
     const all = Array.from(this.runtimes.values()).map((r) => r.dispatch)
@@ -2407,9 +2419,16 @@ class SubagentDispatchService {
 
   // ---------- 优先级队列 ----------
 
-  /** 获取调度队列(按优先级排序) */
-  getQueue(): QueueEntry[] {
+  /**
+   * 获取调度队列(按优先级排序)。
+   *
+   * S-ACL(2026-11-01):`visible` 是**调用方给的可见性谓词**(默认不过滤 = 旧行为)。
+   * 判据本体只有一份(路由里的 isDispatchVisibleTo),service 不认识租户字段 —— 避免
+   * routes → service 的反向 import 造成环,也避免同一口径在两个文件各写一遍。
+   */
+  getQueue(visible?: (dispatch: SubagentDispatch) => boolean): QueueEntry[] {
     const entries = Array.from(this.runtimes.values())
+      .filter((r) => (visible ? visible(r.dispatch) : true))
       .filter((r) => {
         // 队列准入:未知/未来值兜 'failed'(不在准入集内 ⇒ 不会被当可调度项排进队列)
         const s = coerceKnownOr(
@@ -2535,9 +2554,14 @@ class SubagentDispatchService {
 
   // ---------- 拓扑推导 ----------
 
-  /** 推导拓扑:支持 DAG / critique / with_communication / debate / vote / 普通模式 */
-  getTopology(): RichSwarmTopology {
-    const all = this.listAll()
+  /**
+   * 推导拓扑:支持 DAG / critique / with_communication / debate / vote / 普通模式。
+   *
+   * S-ACL(2026-11-01):`visible` 同 getQueue —— 由路由传入 isDispatchVisibleTo,
+   * service 不复制租户口径。
+   */
+  getTopology(visible?: (dispatch: SubagentDispatch) => boolean): RichSwarmTopology {
+    const all = visible ? this.listAll().filter(visible) : this.listAll()
     const nodes: RichTopologyNode[] = []
     const edges: TopologyEdge[] = []
 

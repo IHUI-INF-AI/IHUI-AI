@@ -237,6 +237,20 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
   }
 
+  /**
+   * 按 id 端点的归属闸(单一实现,S-ACL 2026-11-01)。
+   *
+   * 取记录 → 判可见性,判据仍只有 isDispatchVisibleTo 一份(§22c:不在各处重写表达)。
+   * 「取不到」与「不属于你」合并成同一个 false ⇒ 调用方一律 404:
+   *   - 本文件既有约定就是 404(先 400 只挡 id 为空,不存在/已结束一律 404,无 403);
+   *   - 403 会告诉攻击者「这个 id 真实存在,只是不属于你」⇒ 可枚举他人 id,
+   *     配合 /subagents/all 的 id 面就成了探测口径。防枚举优先。
+   */
+  const ownsDispatch = (id: string, userId: string): boolean => {
+    const dispatch = subagentDispatchService.findById(id)
+    return dispatch !== null && isDispatchVisibleTo(dispatch, userId)
+  }
+
   // ---------- Zod schemas ----------
 
   const retrySchema = z.object({
@@ -670,14 +684,20 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ---------- POST /subagents/:id/cancel ----------
+  // S-ACL(2026-11-01):归属闸必须在**调 service 之前** —— cancel 会真的改状态,
+  // 先取消再判归属 = 「返回 404 但暗地里取消了别人的派单」。
 
   server.post('/subagents/:id/cancel', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    if (!ownsDispatch(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在或已结束(无法取消)'))
     }
 
     const cancelled = subagentDispatchService.cancel(id)
@@ -691,11 +711,16 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/subagents/:id/resume', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    // resume 会重置状态并重新执行 ⇒ 与 cancel 同级,闸在调用之前
+    if (!ownsDispatch(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
     }
 
     try {
@@ -710,16 +735,25 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ---------- GET /subagents/topology ----------
+  // S-ACL(2026-11-01):原 `getTopology()` 是全量推导 —— 节点带 goal/status/duration/tokens,
+  // 等于把他人派单的执行面貌摊给任何登录用户。消费方只有 web 用户页(use-subagent-dispatch.ts
+  // useSwarmTopology、lib/subagents-api.ts fetchTopology),无管理端语义 ⇒ 按调用方收窄。
 
   server.get('/subagents/topology', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const topology = subagentDispatchService.getTopology()
+    const topology = subagentDispatchService.getTopology((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success({ topology }))
   })
 
   // ---------- GET /subagents/stats(全局统计) ----------
+  // S-ACL(2026-11-01)**未收口,已知残余**:active/completed/failed 可由 runtimes 现算,
+  // 但 total / totalTokens / avgDurationMs 来自进程级累加器 `_stats`(service:1292,写点 1668/2198/2199),
+  // 没有租户维度。只把三个计数收窄 = 同一个响应里「计数是本人的、token 总量是全站的」,
+  // 而消费方(fleet-cross-session-panel)读的正是 token 总量 ⇒ 那是假修。
+  // 真收口需在 service 里加按 owner 的累加器(3 个写点 + 读口径),属另一张票。
 
   server.get('/subagents/stats', async (request, reply) => {
     await requireAuth(request, reply)
@@ -731,12 +765,14 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/queue(优先级调度队列,深化 v2 新增) ----------
   // 注意:此路由必须在 /:id/stats 之前注册,否则 'queue' 会被当作 :id
+  // S-ACL(2026-11-01):队列项带 dispatchId/goal/status ⇒ 同 topology,按调用方收窄。
 
   server.get('/subagents/queue', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const queue = subagentDispatchService.getQueue()
+    const queue = subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success({ queue }))
   })
 
@@ -770,11 +806,15 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/subagents/:id/stats', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    if (!ownsDispatch(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
     }
 
     const stats = subagentDispatchService.getDispatchStats(id)
@@ -788,11 +828,15 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/subagents/:id/dag', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    if (!ownsDispatch(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在或无 DAG 配置'))
     }
 
     const dag = subagentDispatchService.getDag(id)
@@ -806,11 +850,15 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/subagents/:id/quotas', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    if (!ownsDispatch(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
     }
 
     const quotas = subagentDispatchService.getQuotas(id)
@@ -824,11 +872,17 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/subagents/:id/messages', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    // 原实现对不存在/不可见的 id 都回 200 + 空数组(把「没有」与「不给你看」写成同一形状)
+    // ⇒ 归属不符时明确 404,与其余 5 个按 id 端点同形。
+    if (!ownsDispatch(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
     }
 
     const messages = subagentDispatchService.getMessages(id)
