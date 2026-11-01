@@ -222,6 +222,17 @@ export interface AgentOptions {
   jsonMode?: boolean;
   /** P1-5 输出格式:覆盖 jsonMode(若设置)。--output-format 显式传入,默认 undefined 走 jsonMode 路径 */
   outputFormat?: OutputFormat;
+  /**
+   * true = 本次运行是**无头单次执行**(没人能追加输入、没人能应答确认)。
+   *
+   * 唯一生产置 true 处是 index.ts 的 `runAgentAndExit`(即 `--prompt-file` / `ihui "任务"` /
+   * `ihui agent 任务` 这条单发路径)。交互式 REPL 与 ACP 各自直接调 `runToolLoop`,不经本函数,
+   * 所以"这是无头单次执行"这件事在结构上只能由本字段声明 —— 仓内此前没有任何一处可复用的
+   * 判据(jsonMode / !stdout.isTTY 都是**输出形态**判据,不是执行形态判据)。
+   *
+   * 当前唯一消费者:`runToolLoop` 的 `failOnNoProgress`(零推进收口为 no_progress)。
+   */
+  headlessOneShot?: boolean;
   checkpoints?: CheckpointManager;
   enableMcp?: boolean;
   /** 允许 dangerous 工具自动执行(无确认)。headless 模式推荐显式开启。 */
@@ -259,6 +270,15 @@ export type AgentStopReason =
   | 'doom_loop'
   // P0-C(2026-09-17 立):plan 审批门修复 — LLM 提出 plan 但无可用审批机制(非交互、无回调、未显式 auto)时终止
   | 'plan_approval_required'
+  /**
+   * 零推进(本票):本轮无工具调用且正文为空,补救一次后仍未推进。
+   *
+   * **刻意不进** canonical 封闭集 `AGENT_TURN_STOP_REASONS`:那张表是 ai-service 回合终态的
+   * 跨语言对齐表(Python 真源 `turn_stop_reason.py`,等值由守门 151 的 SV5 校验),增删一个成员
+   * 就要同时改 Py 侧与服务端消费方;而"CLI 循环这一轮什么都没做"是**本端循环**的内部事实,
+   * 服务端 done 帧上没有对应档。故与上面三档同列(CLI 循环特有档),不派生自 canonical。
+   */
+  | 'no_progress'
   /**
    * G-815977 收编:与 ai-service 回合终态封闭集(`AGENT_TURN_STOP_REASONS`,跨语言对齐表在
    * packages/types/src/agent-runtime.ts,Py 侧真源 app/core/turn_stop_reason.py)同族的档位
@@ -333,6 +353,11 @@ export interface SetupAgentToolsOptions {
   silent?: boolean;
   /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * 本会话"有没有能被问到的审批人"这一事实,随 ctx 下发给工具层做**拒绝归因**
+   * (见 `ToolContext.approverAvailable`)。缺省 = 不表态(工具层沿用旧归因)。
+   */
+  approverAvailable?: boolean;
   /**
    * 会话级危险旁路(--allow-dangerous)。影子披露字段:随 ctx 下发给工具层做日志/披露追溯
    * (见 ToolContext.allowDangerous 与 danger-gate 的 noteDangerousApproval),
@@ -571,6 +596,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     workspacePath: opts.workspacePath,
     confirmDangerous: opts.confirmDangerous,
     allowDangerous: opts.allowDangerous,
+    // 有审批人否:缺省不传(undefined)⇒ 工具层沿用旧归因(user-declined / no-confirmation-channel)。
+    approverAvailable: opts.approverAvailable,
     // G-212:这里原来写作 `settings.sandbox ? {…} : undefined` —— 首跑/无 settings.json 的会话
     // 走的是 V1 `loadSettings()`(它不并 DEFAULT_SETTINGS),`sandbox` 整块缺失 ⇒ ctx.sandbox
     // 为 undefined ⇒ 白名单/凭据 env 屏蔽**一律不生效**,而默认档早已是严档 'limited'。
@@ -735,6 +762,37 @@ export interface RunToolLoopOptions {
    *   - 'auto' / undefined:先携带 tools 探测,provider 拒绝("not supported")时自动降级 prompt 模式
    */
   providerSupportsTools?: boolean | 'auto';
+  /**
+   * 零推进收口闸(只有 `runAgent` 在无头单次执行时置 true;交互式 REPL 不传)。
+   *
+   * 判据 = 本轮 `toolCalls.length === 0` **且** 本轮正文 `trim() === ''` —— 模型既没动手
+   * 也没说话。置 true 时先注入一条提醒**补救一次**,仍未推进 ⇒ 收口 `stopReason='no_progress'`
+   * (退出码 3)。不传 ⇒ 空回复照旧 `end_turn`(交互里模型空回一句不该把 REPL 判成错误退出)。
+   */
+  failOnNoProgress?: boolean;
+}
+
+/**
+ * 零推进补救提示(**只注入一次**,内容即判据的一部分,改写它等于改语义)。
+ *
+ * 两个分支都点到:未完成 ⇒ 继续做;确已完成 ⇒ 写出结论与依据 —— 否则模型很可能把
+ * "被推一把"理解成"再确认一遍我确实做完了"然后继续什么都不说。
+ */
+export const ZERO_PROGRESS_REMEDY_PROMPT =
+  '你还没有调用任何工具，也没有给出任何结论。若任务未完成，请继续执行（调用你需要的工具推进任务）；若任务确已完成，请写出结论与依据。';
+
+/** 补救次数上限(有界:1 次。再空就是空转,不该继续烧 token) */
+export const MAX_ZERO_PROGRESS_REMEDIES = 1;
+
+/**
+ * 零推进判据(纯函数,正反两面的唯一出口)。
+ *
+ * 只看两个事实:本轮工具调用数为 0、本轮正文 trim 后为空。**任一不满足都不是零推进** ——
+ * 有工具调用说明 turn 在推进,有正文说明模型至少给了说法(哪怕只是一句"我做不到",
+ * 那也是可审计的产出,不该被改判成失败)。
+ */
+export function isZeroProgressRound(toolCallCount: number, text: string): boolean {
+  return toolCallCount === 0 && text.trim() === '';
 }
 
 /** pattern 外发长度上限:超出即截断并在 stderr 点名(不得静默) */
@@ -1656,6 +1714,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let slidingWindowDoomDetected = false;
   // P0-C(2026-09-17 立):plan 审批门 — 无可用审批机制时置 true,终止循环并返回 plan_approval_required
   let planApprovalRequired = false;
+  /**
+   * 零推进闸(本票)的两格状态:
+   *  - `zeroProgressRemediesUsed`:已注入过几次补救提醒(上限 MAX_ZERO_PROGRESS_REMEDIES);
+   *  - `noProgressDetected`:补救用尽仍零推进 ⇒ 收口 no_progress(非 0 退出)。
+   * 两者只在 `opts.failOnNoProgress === true` 时被写,其余调用方(REPL/ACP)恒为初值。
+   */
+  let zeroProgressRemediesUsed = 0;
+  let noProgressDetected = false;
 
   // P2-5 UsageLedger:使用调用方传入的账本(若无则内部创建临时实例,仅用于结果汇总)
   // 调用方传入时可通过 ledger.history / getChatState 获取详细使用情况
@@ -2253,6 +2319,42 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           continue;
         }
         /**
+         * 零推进收口(本票) —— 这一轮模型**既没调工具也没说一句话**。
+         *
+         * 病灶:此前这条直落 `end_turn`,于是 `stopReasonToExitCode` 给出 0,调度器
+         * (`scripts/auto-evolve.mjs` 的 `status === 0 ⇒ session-ok`)把"什么都没做"记成
+         * "会话成功",票面零推进而账面全绿。全仓此前没有任何空回复守卫。
+         *
+         * 判据只取两个事实(`isZeroProgressRound`):本轮 toolCalls 为 0 ∧ 本轮正文
+         * trim 后为空。带工具调用 / 带正文的轮次一律不算(反向锁见
+         * tests/agent-no-progress.test.ts,防止把正常收口判成失败)。
+         *
+         * 处置分两段,且都是**有界**的:
+         *   ① 先补救 **一次**(MAX_ZERO_PROGRESS_REMEDIES=1):一条 user 提醒进持久历史
+         *      (它是真实发生过的对话事实,不是只服务一次请求的旁路补丁),再走一轮采样;
+         *   ② 补救后仍零推进 ⇒ `noProgressDetected=true` 收口 `no_progress`,退出码 3。
+         *
+         * 闸门位置有讲究:必须排在 goal 校验**之前** —— 校验那一路在"未过且有预算"时
+         * 会回灌反馈并 continue,那会把"补救一次"变成"按轮次上限补救 N 次"。
+         *
+         * 只在 `opts.failOnNoProgress` 时生效(仅 runAgent 的无头单次执行置 true):
+         * 交互式 REPL 里模型空回一句是正常对话,不该被 REPL 判成错误退出。
+         */
+        if (opts.failOnNoProgress === true && isZeroProgressRound(toolCalls.length, iterationText)) {
+          if (zeroProgressRemediesUsed < MAX_ZERO_PROGRESS_REMEDIES) {
+            zeroProgressRemediesUsed += 1;
+            opts.messages.push({ role: 'user', content: ZERO_PROGRESS_REMEDY_PROMPT });
+            continue;
+          }
+          noProgressDetected = true;
+          process.stderr.write(
+            chalk.red(
+              `[no-progress] 本轮既无工具调用也无正文,已补救 ${MAX_ZERO_PROGRESS_REMEDIES} 次仍无推进,判定空转终止\n`,
+            ),
+          );
+          break;
+        }
+        /**
          * AGENTS.md §8 第 3+4 步 —— 交账前的独立校验与续跑判定。
          *
          * 为什么要挪进循环:接线的第一版把校验放在循环**外**,于是"未过"只能一次性地
@@ -2494,12 +2596,17 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             // 无渠道 ⇒ 与改前一样落 false,拒因文案原样保留。
             const confirmation = await resolveDangerousConfirmation(opts.ctx, tool!, call.arguments);
             if (confirmation.kind !== 'approved') {
+              // 归因:本会话没有审批人时不得写成"被拒绝"(没人被问过),否则排障会去找
+              // 一个不存在的确认交互(同一桩假事实,与 danger-gate 那档同修)。
               return {
                 call,
                 result: {
                   success: false,
                   output: '',
-                  error: `工具 ${call.name} 需要用户确认但被拒绝(mode=${mode})`,
+                  error:
+                    opts.ctx.approverAvailable === false
+                      ? `工具 ${call.name} 需用户确认，但本会话无审批人，一律不执行(mode=${mode})`
+                      : `工具 ${call.name} 需要用户确认但被拒绝(mode=${mode})`,
                   errorType: 'permission_denied',
                 },
                 durationMs: Date.now() - startTime,
@@ -2687,6 +2794,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   } else if (goalDeliverUnverified) {
     // 未过但已无预算续跑:按未达标交账,不得退化成 end_turn,也不得记成 blocked
     stopReason = applyGoalVerificationToStopReason('end_turn', verification);
+  } else if (noProgressDetected) {
+    /**
+     * 零推进(本票):补救一次后仍是"零工具调用 + 空正文"。
+     *
+     * 排位理由与 goal_blocked 同一条:"这一轮什么都没做"比"轮次恰好用完"更准确地描述了
+     * 发生了什么,所以排在 `max_iterations` **之前**(两者都非 0 退出,但成因不同,
+     * 调度器的连败归因要读得出区别)。它也确实不是 end_turn —— 退 0 会把空转记成成功。
+     */
+    stopReason = 'no_progress';
   } else if (iterations >= opts.maxIterations) {
     stopReason = 'max_iterations';
   } else {
@@ -2752,6 +2868,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   } else if (stopReason === 'plan_approval_required') {
     // P0-C:plan 待审批通知 — 提示用户用 --auto-approve-plan 或交互模式审批
     await runHook('notification', { ...hookCtx, notificationText: 'Agent 因 plan 待用户审批而暂停 (plan_approval_required)' }, { signal: opts.signal });
+  } else if (stopReason === 'no_progress') {
+    // 零推进通知:机器面写档位名,人话由命令层出口打印(与同族各档同形)
+    await runHook('notification', { ...hookCtx, notificationText: 'Agent 因零推进终止 (no_progress:本轮无工具调用且正文为空,补救后仍未推进)' }, { signal: opts.signal });
   }
   await runHook('stop', hookCtx, { signal: opts.signal });
 
@@ -2840,6 +2959,12 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     permissionMode: opts.permissionMode,
     // 会话级旁路事实随 ctx 下发,工具层披露可追溯(L7905 收口);放行策略走唯一出口
     allowDangerous: opts.allowDangerous,
+    // 本入口**没有审批人**:危险确认通道是下面的 buildAgentDangerGate,而它没有 prompt
+    // (只认 --allow-dangerous)⇒ 这一层说出的 false 结构性不可能是人答的。不声明这件事,
+    // 工具层会把"没人可问"记成 `user-declined`,审计面就是一桩假事实(排障被带去查一个
+    // 根本不存在的确认交互)。声明后落 `no-approver` 档,文案明写"本会话无审批人"。
+    // 交互式 REPL 走 repl.ts 自己的 inquirer 闸门、不经本函数 ⇒ 那边仍是真 user-declined。
+    approverAvailable: false,
     // 策略收口到唯一出口(danger-gate):flag 开即放行、无人可问即 denied(fail-closed)。
     // 原有提示文案逐字保留在调用方(onDecision),行为与迁移前逐路径等价。
     confirmDangerous: buildAgentDangerGate({
@@ -3009,6 +3134,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       planFirst: opts.planFirst,
       // P0-C:plan 审批门 — 透传显式 auto 标志(headless 非交互无回调时由 runToolLoop fail-fast)
       autoApprovePlan: opts.autoApprovePlan,
+      // 零推进闸:只有无头单次执行才把"什么都没做"判成失败(交互式 REPL 不走本函数)
+      failOnNoProgress: opts.headlessOneShot === true,
       // WP-8③:goal 模式 —— 指标声明 + 校验注入点 + 结论出口(全部可选,不声明即零差异)
       goalCriteria: opts.goalCriteria,
       goal: opts.goal,
@@ -3110,6 +3237,16 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         for (const c of failed.slice(0, 10)) {
           console.info(chalk.dim(`   - [${c.verdict}/${c.basis}] ${c.criterion_id}: ${c.reason}`));
         }
+      } else if (result.stopReason === 'no_progress') {
+        /**
+         * 零推进(本票):人读面也不得说"完成"。
+         *
+         * 这一步是同一桩谎言的另一半 —— 机器面已退 3、事件流已写 no_progress,但终端上
+         * 那句 `✨ 完成` 会把空转读成成功(与上面"校验未过不得说完成"同一条纪律)。
+         */
+        console.info(
+          chalk.red(`\n❌ 零推进:没有调用任何工具,也没有给出任何结论(${result.iterations} 轮迭代, ${result.stopReason})`),
+        );
       } else {
         console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})`));
       }
@@ -3231,6 +3368,23 @@ export function stopReasonToExitCode(reason: AgentStopReason): number {
       return 2;
     case 'cancelled':
       return 130;
+    /**
+     * 零推进(本票):无工具调用 + 空正文,补救一次后仍未推进。
+     *
+     * 为什么必须是非 0:调度器判 "session-ok" 的唯一判据是 `status === 0`
+     * (`scripts/auto-evolve.mjs`),退 0 等于把空转记成成功 —— 那正是本票要终结的形态。
+     *
+     * 为什么是 3(而不是复用 1 / 2):
+     *  - 0 = 成功;1 = 硬错误 / 验收未过(含 verification_*、goal_blocked);2 = 轮次耗尽 /
+     *    死循环 / plan 待审批("部分完成,需人介入");130 = Ctrl-C 取消。这四档语义都被占满,
+     *    零推进塞进任何一格都会让排障读错成因(尤其 2 —— 它已经承担"跑满了"的意思)。
+     *  - 3 在主入口(`apps/cli/src/index.ts` → `stopReasonToExitCode`)这个退出码域里
+     *    **未被占用**:全仓 `process.exit(3)` 只有 `subagents/worker-entry.ts` 的 self-OOM,
+     *    那是另一个可执行文件、另一个退出码域,且该入口不传 `headlessOneShot`,
+     *    结构上永远不会产出 `no_progress` ⇒ 两者不可能撞在同一个进程上。
+     */
+    case 'no_progress':
+      return 3;
     // WP-8③:独立校验没过 = 事先声明的验收条件没满足。对脚本/CI 而言这就是失败,
     // 不得因为"循环自己说完成了"而退 0。
     case 'verification_not_achieved':

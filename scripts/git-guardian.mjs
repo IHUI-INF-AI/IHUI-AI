@@ -32,6 +32,8 @@ import { decideDevDbRotation, DEV_DB_ROTATION_COOLDOWN_MS } from './lib/dev-db-r
 import { liveServicePorts } from './rotate-local-dev-db-password.mjs'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
+// 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立)的过期回收:保留期判据全在 lib(单一真相源),本处只取盘 + 调判据 + 留声 + 删。
+import { decideRetention, isTranscriptName, TRANSCRIPT_DIR } from './lib/session-transcript.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
@@ -3500,6 +3502,50 @@ function rotateRunLogs() {
   }
   if (touched === 0) return
   log(`ℹ️ 运行日志回收本轮动了 ${touched} 个文件(其余按尺寸/稳定窗判定为无需动作)`)
+}
+
+// 会话全文落盘(第 4 格·观测腿)的过期回收:每会话一个独立 .log,按"天数 + 条数"双闸删旧,
+// 但**最新一份永远豁免**(它是"最近一次到底怎么死的"唯一证据,删了等于把自愈能力削掉一块)。
+// 判据全部 import 自 lib/session-transcript.mjs 的 decideRetention(单一真相源,§0.6),
+// 本处只负责"取盘 + 调用 + 留声 + 删除",绝不在此复算保留期(第二份判据必漂移,§22c)。
+function gcSessionTranscripts() {
+  const dir = join(WORKTREE, TRANSCRIPT_DIR)
+  let names = []
+  try {
+    names = readdirSync(dir)
+  } catch {
+    // 目录不存在 = 还没人派过会话,不是故障;如实喊一行,免得"没清"和"清完了"长得一样。
+    log('ℹ️ 会话全文回收:未找到 transcripts 目录,本轮跳过')
+    return
+  }
+  const entries = []
+  for (const n of names) {
+    if (!isTranscriptName(n)) continue // 只删自己人,绝不误删同目录里别的东西
+    let mtimeMs = NaN
+    try {
+      mtimeMs = statSync(join(dir, n)).mtimeMs
+    } catch {
+      mtimeMs = NaN
+    }
+    entries.push({ rel: n, mtimeMs })
+  }
+  if (entries.length === 0) return
+  const { keep, drop, undetermined } = decideRetention(entries)
+  let removed = 0
+  for (const d of drop) {
+    try {
+      unlinkSync(join(dir, d.rel))
+      removed += 1
+      log(`🗑️ 会话全文回收:删 ${d.rel}(${d.why})`)
+    } catch (e) {
+      // 删失败必须响:静默失败的表现永远是"看起来只是没到量",与 §5b 同一族失效。
+      log(`⚠️ 会话全文回收失败:${d.rel} —— ${e?.code ?? e?.message ?? e}`)
+    }
+  }
+  if (removed === 0 && undetermined.length === 0 && drop.length === 0) return
+  log(
+    `ℹ️ 会话全文回收:保留 ${keep.length} 份 / 删 ${removed} 份${undetermined.length ? ` / ${undetermined.length} 份 mtime 取不到未动(不猜,§0.3)` : ''}`,
+  )
 }
 
 function healRootSeal() {
@@ -11371,6 +11417,9 @@ async function main() {
     if (!CHECK_ONLY) refreshRecoverySource()
     // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) rotateRunLogs()
+    // 会话全文落盘(第 4 格·观测腿)过期回收:同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
+    // 判据(天数 + 条数双闸,最新一份豁免)全在 lib/session-transcript.mjs。
+    if (!CHECK_ONLY) gcSessionTranscripts()
     // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
     // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
     if (!CHECK_ONLY) auditEnvDrift()
@@ -11642,6 +11691,9 @@ function startDaemon() {
         // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
+        // 会话全文落盘(第 4 格·观测腿)过期回收:幂等(同一批文件判据恒定,删过的下一轮 no-op),
+        // 无需节流戳;与 main() 单轮路径同一挂点语义,判据在 lib/session-transcript.mjs。
+        gcSessionTranscripts()
         // TEMP 夹具清扫:与 main() 单轮路径共用 .ihui-agent/state/temp-scrub-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。

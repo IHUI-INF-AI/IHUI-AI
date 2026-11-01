@@ -48,6 +48,8 @@ export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, 
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
 import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
+// 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
+import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -309,6 +311,38 @@ function readLedger() {
 function record(entry) {
   mkdirSync(dirname(LEDGER), { recursive: true })
   appendFileSync(LEDGER, `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`, 'utf8')
+}
+
+/**
+ * 会话全文落盘(第 4 格·观测腿,2026-11-01 立)。
+ *
+ * 立因:台账原先只记 `exitCode / durationMs / tokens` 三枚读数,会话**调了哪些工具、为什么零推进**
+ * 一个字不留。两枚 session-ok 各自 3.4s / 23s 就 end_turn、票行零推进,事故报告只能写"核该会话末轮
+ * 实际动作" —— 可动作在哪没人知道。本函数把"那一轮到底发生了什么"落盘,给 A7 维的每一条 drift
+ * 一个可归因的证据面(§0.3:猜等于没判)。
+ *
+ * 四条约束(逐条对应 lib 头部):
+ *  ① 脱敏在 buildTranscript 内(best-effort,命中数进头部);
+ *  ② 截断在 capTranscript 内(超限必留"中略"痕,绝不静默丢);
+ *  ③ 轮转在 git-guardian 的 decideRetention 内(最新一份永久豁免);
+ *  ④ **写盘失败不打断派发**:返回 null 并大声告警,绝不记成"已落盘"(否则 A7 会把"丢日志"
+ *     读成"会话没产出",与"会话真没产出"同罪,事故就被盖住了)。
+ *
+ * 落盘目录 `.ihui-agent/state/session-transcripts` 已被 .gitignore 忽略,证据不进版本库。
+ */
+function persistTranscript({ mode, ticketKey, ticketLine, cmd, action, exitCode, durationMs, timedOut = false, signal = null, prompt = '', stdout = '', stderr = '', notes = '', at = new Date() }) {
+  try {
+    const body = buildTranscript({ at, mode, ticketKey, ticketLine, cmd, action, exitCode, durationMs, timedOut, signal, prompt, stdout, stderr, notes })
+    const capped = capTranscript(body)
+    const rel = transcriptRelPathOf({ at, ticketKey, mode, action })
+    const abs = join(ROOT, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, capped.text, 'utf8')
+    return rel
+  } catch (e) {
+    console.error(`⚠ 会话全文落盘失败(transcript-write-failed,本轮照常收尾):${e.message}`)
+    return null
+  }
 }
 
 /** 同票连败计数:该 key 最近连续的 session-failed/session-timeout 条数(遇到任何其他 action 打断) */
@@ -654,33 +688,30 @@ function dispatchSession(gates, ticket, dryRun) {
   // 让落账腿依赖会话的建目录习惯,等于把成功率押在一个没人保证的行为上。
   mkdirSync(ARTIFACT_MANIFEST_DIR, { recursive: true })
   const promptFile = join(TMP_DIR, `prompt-${key}-${Date.now()}.md`)
-  writeFileSync(
-    promptFile,
-    [
-      `# 派发票(auto-evolve 单轮)`,
-      ``,
-      `- 票面:${ticket.text}`,
-      `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
-      ``,
-      `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
-      `提交不在你的权限内:自动会话对 dangerous 档一律不放宽(permissions.ts),git_commit 与`,
-      `run_command 都过不去 —— 不要试,也不要绕。改完把产物写进下面的清单,由调度器会话后代提交。`,
-      `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
-      ``,
-      `## 落账清单(硬性,调度器只认这一份)`,
-      `- 路径:${manifestPathOf(key)}(相对仓根,不存在就创建目录)`,
-      `- 格式:{"ticketKey":"${key}","files":["相对仓根的路径"],"note":"可选"}`,
-      `- 只许列本票**真正改过**的文件;没改任何文件就不要写清单。`,
-      `- 清单里不许出现:PROJECT_PLAN.md(活文档)、绝对路径/盘符、带 .. 的路径、.git/.env 一类敏感面。`,
-      `- 调度器会逐个核对 git status:无改动的文件被剔除并点名;全部被剔除 ⇒ 本轮记 stale,不提交。`,
-      `- 整批里有一条不合规 ⇒ 整批不提交(不做部分提交)。`,
-      ``,
-      `完成判定(硬性,防半成品):`,
-      `- 要么完成整票(验证齐绿 + 翻勾 + 写清单,提交由调度器代劳),要么保持未勾并走 live-doc-edit 在票行追加进展注记,禁止"写完了你看下"式半成品提交。`,
-      `- 若判定本票工作量超出单会话预算(maxSessionMinutes=${gates.maxSessionMinutes} 分钟),立即停下:不写任何代码,只在票行追加工作量评估注记后正常退出(这是合法完成,不算失败)。`,
-    ].join('\n'),
-    'utf8'
-  )
+  const promptText = [
+    `# 派发票(auto-evolve 单轮)`,
+    ``,
+    `- 票面:${ticket.text}`,
+    `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
+    ``,
+    `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
+    `提交不在你的权限内:自动会话对 dangerous 档一律不放宽(permissions.ts),git_commit 与`,
+    `run_command 都过不去 —— 不要试,也不要绕。改完把产物写进下面的清单,由调度器会话后代提交。`,
+    `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
+    ``,
+    `## 落账清单(硬性,调度器只认这一份)`,
+    `- 路径:${manifestPathOf(key)}(相对仓根,不存在就创建目录)`,
+    `- 格式:{"ticketKey":"${key}","files":["相对仓根的路径"],"note":"可选"}`,
+    `- 只许列本票**真正改过**的文件;没改任何文件就不要写清单。`,
+    `- 清单里不许出现:PROJECT_PLAN.md(活文档)、绝对路径/盘符、带 .. 的路径、.git/.env 一类敏感面。`,
+    `- 调度器会逐个核对 git status:无改动的文件被剔除并点名;全部被剔除 ⇒ 本轮记 stale,不提交。`,
+    `- 整批里有一条不合规 ⇒ 整批不提交(不做部分提交)。`,
+    ``,
+    `完成判定(硬性,防半成品):`,
+    `- 要么完成整票(验证齐绿 + 翻勾 + 写清单,提交由调度器代劳),要么保持未勾并走 live-doc-edit 在票行追加进展注记,禁止"写完了你看下"式半成品提交。`,
+    `- 若判定本票工作量超出单会话预算(maxSessionMinutes=${gates.maxSessionMinutes} 分钟),立即停下:不写任何代码,只在票行追加工作量评估注记后正常退出(这是合法完成,不算失败)。`,
+  ].join('\n')
+  writeFileSync(promptFile, promptText, 'utf8')
   const cmd = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
   const t0 = Date.now()
   // windowsVerbatimArguments 必带(同 probe:node 对 cmd.exe 的默认引用改写会毁模板内引号)
@@ -703,21 +734,51 @@ function dispatchSession(gates, ticket, dryRun) {
   const tokens = meter.measured ? meter.tokens : null
   const tokensMeasured = meter.measured
   const costUsd = meter.costUsd
-  if (r.error?.killed || (r.signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
-    return { action: 'session-timeout', exitCode: null, durationMs, why: `超过 maxSessionMinutes=${gates.maxSessionMinutes}`, tokens, tokensMeasured, costUsd }
-  }
-  if (r.error) {
+  const stdout = r.stdout ?? ''
+  const stderr = r.stderr ?? ''
+  const signal = r.signal ?? null
+  // 第 4 格·会话全文落盘:成败都落盘(否则 A7 的每一条 drift 只能靠猜,§0.3)。
+  // 先算 action,再一次性落盘 + 返回,避免四条分支各写一遍(分支越多越容易漏 transcript)。
+  let action, failureKind = 'ok', exitCode = 0, why = '', timedOut = false
+  if (r.error?.killed || (signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
+    action = 'session-timeout'
+    exitCode = null
+    timedOut = true
+    why = `超过 maxSessionMinutes=${gates.maxSessionMinutes}`
+  } else if (r.error) {
     const kind = classifySessionFailure({ status: null, stderr: '', error: r.error.message })
-    return { action: 'session-failed', failureKind: kind.kind, sign: kind.sign, exitCode: null, durationMs, why: r.error.message, tokens, tokensMeasured, costUsd }
-  }
-  if (r.status !== 0) {
+    action = 'session-failed'
+    failureKind = kind.kind
+    exitCode = null
+    why = r.error.message
+  } else if (r.status !== 0) {
     // 真因常在头部(ERR_MODULE_NOT_FOUND 的前两行),只截尾会把 "der:639:32" 这类
     // 中段残渣当成原因寄出去 —— 比没有原因更贵。各取头尾并标来源。
-    const errText = excerptBothEnds(r.stderr, r.stdout)
-    const kind = classifySessionFailure({ status: r.status, stderr: `${r.stderr ?? ''}\n${r.stdout ?? ''}` })
-    return { action: 'session-failed', failureKind: kind.kind, sign: kind.sign, exitCode: r.status, durationMs, why: `exit=${r.status} ${errText}`, tokens, tokensMeasured, costUsd }
+    const errText = excerptBothEnds(stderr, stdout)
+    const kind = classifySessionFailure({ status: r.status, stderr: `${stderr}\n${stdout}` })
+    action = 'session-failed'
+    failureKind = kind.kind
+    exitCode = r.status
+    why = `exit=${r.status} ${errText}`
+  } else {
+    action = 'session-ok'
   }
-  return { action: 'session-ok', failureKind: 'ok', exitCode: 0, durationMs, why: '', tokens, tokensMeasured, costUsd }
+  const transcript = persistTranscript({
+    mode: 'dispatch',
+    ticketKey: key,
+    ticketLine: ticket.text,
+    cmd,
+    action,
+    exitCode,
+    durationMs,
+    timedOut,
+    signal,
+    prompt: promptText,
+    stdout,
+    stderr,
+    at: t0,
+  })
+  return { action, failureKind, exitCode, durationMs, why, tokens, tokensMeasured, costUsd, transcript }
 }
 
 /**
@@ -1040,7 +1101,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, why: res.why ?? '' })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, why: res.why ?? '' })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
       // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
@@ -1161,11 +1222,8 @@ async function probeSession({ gates, dryRun = false } = {}) {
     }
     mkdirSync(TMP_DIR, { recursive: true })
     const promptFile = join(TMP_DIR, `probe-${Date.now()}.md`)
-    writeFileSync(
-      promptFile,
-      ['只读自检任务(禁止创建或修改任何文件):', '', '运行 `node scripts/auto-evolve.mjs --self-test`,', '然后原样报告其输出的最后一行(形如 "self-test: 全绿" 或 "self-test: N 例红")。'].join('\n'),
-      'utf8'
-    )
+    const promptText = ['只读自检任务(禁止创建或修改任何文件):', '', '运行 `node scripts/auto-evolve.mjs --self-test`,', '然后原样报告其输出的最后一行(形如 "self-test: 全绿" 或 "self-test: N 例红")。'].join('\n')
+    writeFileSync(promptFile, promptText, 'utf8')
     const resolvedProbe = resolveSessionCommand(gates.sessionCommandTemplate, ROOT)
     if (resolvedProbe === null) {
       record({ mode: 'probe', action: 'probe-undetermined', why: '当次仓根取不到 ⇒ 模板无法归一,不冒充已探测' })
@@ -1192,7 +1250,21 @@ async function probeSession({ gates, dryRun = false } = {}) {
     }
     const durationMs = Date.now() - t0
     const passed = r.status === 0 && String(r.stdout ?? '').includes('"stopReason":"end_turn"') && String(r.stdout ?? '').includes('self-test: 全绿')
-    record({ mode: 'probe', action: passed ? 'probe-ok' : 'probe-fail', exitCode: r.status ?? null, durationMs, why: passed ? '' : `status=${r.status} stdout 尾部=${String(r.stdout ?? '').slice(-160)}` })
+    // 第 4 格·会话全文落盘:probe 同样要留证据(它跑通说明通路健康,跑挂说明哪一步断)。
+    const transcript = persistTranscript({
+      mode: 'probe',
+      ticketKey: 'probe',
+      ticketLine: 'probe 自检',
+      cmd,
+      action: passed ? 'probe-ok' : 'probe-fail',
+      exitCode: r.status ?? null,
+      durationMs,
+      prompt: promptText,
+      stdout: r.stdout ?? '',
+      stderr: r.stderr ?? '',
+      at: t0,
+    })
+    record({ mode: 'probe', action: passed ? 'probe-ok' : 'probe-fail', exitCode: r.status ?? null, durationMs, transcript, why: passed ? '' : `status=${r.status} stdout 尾部=${String(r.stdout ?? '').slice(-160)}` })
     console.log(passed ? `✅ probe 通过(${(durationMs / 1000).toFixed(1)}s)⇒ 起会话通路健康` : `❌ probe 未通过(status=${r.status})⇒ 记台账 probe-fail`)
     if (!passed) process.exitCode = 1
   } finally {
@@ -1533,6 +1605,61 @@ function selfTest() {
   ok('S11e 接线锁:刷新腿真在派发主循环里(没有这一行,第 2 期永远不生效)', (() => {
     const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
     return /if \(!noDecide\) \{\s*\r?\n\s*const gen = refreshAutonomyCandidates\(\{ dryRun \}\)/.test(src)
+  })())
+  // S12 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立):命名/脱敏/截断/轮转判据 + 接线锁。
+  // 判据全部 import 自 lib/session-transcript.mjs(单一真相源),本处只验"编排有没有按契约处置"。
+  ok('S12a 正文三段齐备(PROMPT/STDOUT/STDERR 横幅)', (() => {
+    const t = buildTranscript({ ticketKey: 'k12', prompt: 'P', stdout: 'O', stderr: 'E' })
+    return t.includes('===== PROMPT(会话被交代了什么) =====') && t.includes('===== STDOUT(事件流原样) =====') && t.includes('===== STDERR =====')
+  })())
+  ok('S12b 脱敏:Bearer 令牌被替换,头部记命中次数', (() => {
+    const t = buildTranscript({ prompt: 'Authorization: Bearer eyJabc.def.ghi token' })
+    return t.includes('«REDACTED:bearer»') && /redacted:.*bearer/.test(t)
+  })())
+  ok('S12c 脱敏:私钥块整段被替换(原文不残留)', (() => {
+    const block = '-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----'
+    const t = buildTranscript({ prompt: block })
+    return t.includes('«REDACTED:private-key»') && !t.includes('MIIabc')
+  })())
+  ok('S12d 截断留痕:超限时正文含"中略"且头尾保留,头部 redacted 行仍在', (() => {
+    const big = 'x'.repeat(5 * 1024 * 1024)
+    const t = buildTranscript({ prompt: big })
+    const capped = capTranscript(t)
+    return capped.truncated === true && capped.text.includes('中略') && capped.text.startsWith('# session transcript')
+  })())
+  ok('S12e 不截断:未超限逐字不变', (() => {
+    const t = buildTranscript({ prompt: '短文本' })
+    const capped = capTranscript(t)
+    return capped.truncated === false && capped.text === t
+  })())
+  ok('S12f 命名:transcriptRelPathOf 产物过 isTranscriptName 且含票键', (() => {
+    const rel = transcriptRelPathOf({ at: new Date(), ticketKey: 'deadbeef12345678', mode: 'dispatch', action: 'session-ok' })
+    return isTranscriptName(rel) && rel.includes('deadbeef12345678')
+  })())
+  ok('S12g 轮转:最新一份无论多老都保留(失效方向=多留证据)', (() => {
+    const now = Date.now()
+    const oldest = now - 365 * 86_400_000
+    const newer = now - 100 * 86_400_000 // 也超 14 天,但比 oldest 新 ⇒ 仍豁免保留
+    const r = decideRetention([{ rel: 'oldest.log', mtimeMs: oldest }, { rel: 'newer.log', mtimeMs: newer }], { now, keepDays: 14, keepMax: 500 })
+    return r.keep.length === 1 && r.keep[0] === 'newer.log' && r.drop.length === 1 && r.drop[0].rel === 'oldest.log'
+  })())
+  ok('S12h 轮转:非最新的过期件被删(带 why)', (() => {
+    const now = Date.now()
+    const old = now - 365 * 86_400_000
+    const mid = now - 86_400_000
+    const r = decideRetention([{ rel: 'a.log', mtimeMs: old }, { rel: 'b.log', mtimeMs: mid }, { rel: 'c.log', mtimeMs: now }], { now, keepDays: 14, keepMax: 500 })
+    return r.keep.length === 2 && r.drop.some((d) => d.rel === 'a.log' && /天前/.test(d.why))
+  })())
+  ok('S12i 轮转:mtime 取不到 ⇒ 不删(未判定不猜,§0.3)', (() => {
+    const r = decideRetention([{ rel: 'a.log', mtimeMs: NaN }], { now: Date.now(), keepDays: 14, keepMax: 500 })
+    return r.undetermined.length === 1 && r.drop.length === 0
+  })())
+  ok('S12j 接线锁:dispatchSession / probeSession 都调 persistTranscript 并把 transcript 带进台账', (() => {
+    const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+    const dispatchWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'dispatch'/.test(src)
+    const probeWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'probe'/.test(src)
+    const ledgerWired = /transcript: res\.transcript \?\? null/.test(src) && /record\(\{ mode: 'probe'[\s\S]*?transcript,/.test(src)
+    return dispatchWired && probeWired && ledgerWired
   })())
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
