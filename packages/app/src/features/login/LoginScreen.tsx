@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -37,7 +38,6 @@ import type {
   ThirdPartyLoginOption,
   ThirdPartyPlatform,
 } from '@ihui/types'
-import { Tappable } from '@ihui/ui-native'
 
 /**
  * 登录共享屏 — RN 端 4-tab 完整版(2026-07-30 重做)。
@@ -744,7 +744,7 @@ function PhoneTabContent({
         {hasNationSelector ? (
           <View>
             <View style={[styles.phoneRow, phoneFocused && styles.phoneRowFocused]}>
-              <Tappable
+              <Pressable
                 style={styles.areaBox}
                 onPress={onToggleNationShow}
                 accessibilityRole="button"
@@ -752,7 +752,7 @@ function PhoneTabContent({
               >
                 <Text style={styles.areaText}>{phoneHead}</Text>
                 <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
-              </Tappable>
+              </Pressable>
               <TextField
                 colorScheme={colorScheme}
                 style={[styles.input, styles.phoneInputWithArea]}
@@ -773,7 +773,7 @@ function PhoneTabContent({
                 {nations.map((n) => {
                   const active = n.content === phoneHead
                   return (
-                    <Tappable
+                    <Pressable
                       key={n.id}
                       style={[styles.nationItem, active && styles.nationItemActive]}
                       onPress={() => onSelectNation?.(n)}
@@ -786,7 +786,7 @@ function PhoneTabContent({
                       <Text style={[styles.nationCode, active && styles.nationCodeActive]}>
                         {n.content}
                       </Text>
-                    </Tappable>
+                    </Pressable>
                   )
                 })}
               </View>
@@ -1574,8 +1574,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: rnSpacing['sm-loose'],
-      marginHorizontal: -rnSpacing['sm-loose'],
+      gap: 10,
+      marginHorizontal: -10,
       marginBottom: rnSpacing['2xl'],
     },
     // logoBox fallback:53×53(2026-09-04 sqlogo 原图等比 72→50,再整体放大 50→53,与 logoImage 同步)
@@ -1682,7 +1682,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== 输入框 =====
     field: {
-      gap: rnSpacing['xs-loose'],
+      gap: 6,
       marginBottom: rnSpacing.lg,
     },
     labelRow: {
@@ -1751,7 +1751,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     areaArrow: {
       fontSize: 10,
       color: tk.text.tertiary,
-      marginLeft: rnSpacing['xs-loose'],
+      marginLeft: 6,
     },
     phoneInputWithArea: {
       flex: 1,
@@ -1854,7 +1854,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 16,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
-      marginTop: rnSpacing['2xs'],
+      marginTop: 2,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1893,7 +1893,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     autoLoginRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: rnSpacing['xs-loose'],
+      gap: 6,
     },
     autoLoginText: {
       fontSize: rnType.label.size,
@@ -1927,7 +1927,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyItemMain: {
       flex: 1,
-      paddingVertical: rnSpacing['sm-loose'],
+      paddingVertical: 10,
       paddingRight: rnSpacing.md,
     },
     historyItemDel: {
@@ -1940,7 +1940,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     historyClear: {
-      paddingVertical: rnSpacing['sm-loose'],
+      paddingVertical: 10,
       paddingHorizontal: 14,
       alignItems: 'center',
     },
@@ -1978,7 +1978,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: OAUTH_BRAND_COLORS.wechat,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: rnSpacing['sm-loose'],
+      gap: 10,
     },
     wechatLoginBtnText: {
       color: OAUTH_BUTTON_FOREGROUND,
@@ -2145,7 +2145,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
       gap: rnSpacing.xs,
-      paddingVertical: rnSpacing['xs-loose'],
+      paddingVertical: 6,
       paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: 'transparent',

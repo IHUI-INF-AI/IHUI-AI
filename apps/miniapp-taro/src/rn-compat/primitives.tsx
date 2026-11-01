@@ -284,6 +284,15 @@ export function Image(props: RNBaseProps) {
   const uri =
     typeof source === 'string' ? source : typeof source === 'number' ? String(source) : source?.uri
   const resizeMode = (props.resizeMode as string) ?? 'cover'
+  const onLoad = props.onLoad as ((e: NativeSyntheticEvent<ImageLoadEventData>) => void) | undefined
+  const onError = props.onError as
+    ((e: NativeSyntheticEvent<ImageErrorEventData>) => void) | undefined
+  /**
+   * RN 的 `onLoad` 载荷在 `nativeEvent.source`,weapp 的 `bindload` 给的是 `e.detail.{width,height}`
+   * ⇒ 由这一层造出 RN 形状。此前本层**根本没转发** onLoad/onError:共享屏那两屏
+   * (BusinessLicenseScreen / ModelRecordScreen)按 `e.nativeEvent.source` 算图片宽高比,在小程序端
+   * 永远拿不到尺寸(类型补齐了也不等于接上了)。取不到就落 0,屏侧有 `width > 0` 兜 ⇒ 最坏退回原形态。
+   */
   return (
     <TaroImage
       src={uri ?? ''}
@@ -291,6 +300,31 @@ export function Image(props: RNBaseProps) {
       style={toTaroStyle(merged(props.style, VIEW_BASE))}
       className={typeof props.className === 'string' ? props.className : undefined}
       onClick={clickHandler(props)}
+      onLoad={
+        onLoad
+          ? (event) => {
+              const detail = (event as unknown as { detail?: { width?: number; height?: number } })
+                .detail
+              const width = detail?.width ?? 0
+              const height = detail?.height ?? 0
+              onLoad({
+                ...(event as object),
+                nativeEvent: { source: { width, height, uri: uri ?? '' }, width, height, uri },
+              } as unknown as NativeSyntheticEvent<ImageLoadEventData>)
+            }
+          : undefined
+      }
+      onError={
+        onError
+          ? (event) => {
+              const detail = (event as unknown as { detail?: { errMsg?: string } }).detail
+              onError({
+                ...(event as object),
+                nativeEvent: { error: detail?.errMsg ?? 'image load failed' },
+              } as unknown as NativeSyntheticEvent<ImageErrorEventData>)
+            }
+          : undefined
+      }
     />
   )
 }

@@ -313,9 +313,9 @@ function createStyles(tk: AppThemeTokens) {
   const primary = tk.brand.DEFAULT
   return StyleSheet.create({
     container: {
-      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingHorizontal: 10,
       paddingTop: 5,
-      paddingBottom: rnSpacing['sm-loose'],
+      paddingBottom: 10,
       backgroundColor: tk.surface.bg,
     },
     containerFullscreen: {
@@ -341,8 +341,8 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.xs,
     },
     agentVarInput: {
-      paddingHorizontal: rnSpacing['sm-loose'],
-      paddingVertical: rnSpacing['xs-loose'],
+      paddingHorizontal: 10,
+      paddingVertical: 6,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -382,11 +382,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: rnSpacing.xs,
     },
-    fileVideoBadge: {
-      color: tk.text.secondary,
-      fontSize: rnType.title.size,
-      marginBottom: rnSpacing['2xs'],
-    },
+    fileVideoBadge: { color: tk.text.secondary, fontSize: rnType.title.size, marginBottom: 2 },
     fileVideoText: {
       color: tk.text.secondary,
       fontSize: rnType.badge.size,
@@ -400,7 +396,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: rnSpacing.xs,
     },
-    fileDocIcon: { fontSize: rnType.heading.size, marginBottom: rnSpacing['2xs'] },
+    fileDocIcon: { fontSize: rnType.heading.size, marginBottom: 2 },
     fileDocText: {
       fontSize: rnType.badge.size,
       color: tk.text.secondary,
@@ -431,8 +427,8 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
       paddingHorizontal: 15,
-      paddingVertical: rnSpacing['xs-loose'],
-      gap: rnSpacing['sm-loose'],
+      paddingVertical: 6,
+      gap: 10,
     },
     // 聚焦描边取墨档走 WRAP 唯一实现(与 SearchInput / TextField 同一出口),不在这里另挑一档
     inputRowFocused: { borderColor: wrapFocusInk(tk) },
@@ -446,7 +442,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       flex: 1,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: rnSpacing['xs-loose'],
+      paddingVertical: 6,
       fontSize: rnType.subtitle.size,
       color: tk.text.primary,
       minHeight: 40,
@@ -463,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
     voiceBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: rnSpacing['2xs'],
+      gap: 2,
       height: 20,
     },
     voiceBarLine: { width: 1, borderRadius: rnRadius.xs },

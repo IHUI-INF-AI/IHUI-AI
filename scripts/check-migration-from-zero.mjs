@@ -479,7 +479,13 @@ function runFreshDbGuard(targetUrl, password) {
     windowsHide: true,
     timeout: FRESH_DB_GUARD_TIMEOUT_MS,
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, DATABASE_URL: targetUrl, PGPASSWORD: password },
+    env: {
+      ...process.env,
+      DATABASE_URL: targetUrl,
+      PGPASSWORD: password,
+      // QUEUE_ISOLATION_EXEMPT: 该子进程只连 PG 做从零库形状守卫(不 import BullMQ、
+      // 不加载 relay worker),队列隔离对它无意义。
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (res.status !== 0) {
@@ -562,7 +568,13 @@ function runDrizzleKitMigrate(url, password, tempUrl) {
       windowsHide: true,
       timeout: DRIZZLE_MIGRATE_TIMEOUT_MS,
       maxBuffer: 32 * 1024 * 1024,
-      env: { ...process.env, DATABASE_URL: tempUrl, PGPASSWORD: password },
+      env: {
+        ...process.env,
+        DATABASE_URL: tempUrl,
+        PGPASSWORD: password,
+        // QUEUE_ISOLATION_EXEMPT: drizzle-kit migrate 只连 PG 执行迁移(不 import
+        // BullMQ、不加载 relay worker),队列隔离对它无意义。
+      },
       stdio: ['ignore', 'pipe', 'pipe']
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })

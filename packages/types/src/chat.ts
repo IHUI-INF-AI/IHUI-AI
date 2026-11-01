@@ -92,6 +92,12 @@ export interface ChatMessage {
    *  线性会话中 = 前一条消息;重新生成/编辑重跑时 = 触发的用户消息。
    *  W17 Fork(消息分叉)与编辑历史追溯将基于此字段扩展为真正的消息树。 */
   parentMessageId?: string
+  /** 票59/票64(消息级版本切换):版本族内序号(服务端盖章,wire 已透出)。
+   *  非 null = 本行参与版本族投影(族根 = parentMessageId ?? 自身 id,根被开族时补 0);
+   *  null/缺失 = 不属于任何版本族。判族只认本键非 null —— W16 live 本地链的
+   *  parentMessageId(= 前一条)没有本键伴随,不受族投影影响(两套语义同字段不同义,
+   *  口径实现 apps/web/src/lib/message-version-family.ts,接端禁止二次判族)。 */
+  siblingIndex?: number | null
   /** 创建时间戳(ms),用于排序 + 分享 */
   createdAt?: number
   /** 生成该消息所用模型 ID(assistant 消息) */

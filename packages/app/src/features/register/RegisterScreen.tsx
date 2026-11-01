@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingHorizontal: 10,
       paddingBottom: rnSpacing['3xl'],
     },
     header: {
