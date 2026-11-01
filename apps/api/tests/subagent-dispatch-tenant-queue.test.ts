@@ -262,9 +262,9 @@ describe('F2 租户化槽位 + 真排队', () => {
   })
 
   it('全局硬上限只保护不拒绝:三租户各占 1 槽,第四单落 queued;释放槽位后自动出队', async () => {
-    const a = await service.dispatch({ ...baseInput, goal: 'ga', ownerUserId: 'tenant-a' })
-    const b = await service.dispatch({ ...baseInput, goal: 'gb', ownerUserId: 'tenant-b' })
-    const c = await service.dispatch({ ...baseInput, goal: 'gc', ownerUserId: 'tenant-c' })
+    const _a = await service.dispatch({ ...baseInput, goal: 'ga', ownerUserId: 'tenant-a' })
+    const _b = await service.dispatch({ ...baseInput, goal: 'gb', ownerUserId: 'tenant-b' })
+    const _c = await service.dispatch({ ...baseInput, goal: 'gc', ownerUserId: 'tenant-c' })
     const d = await service.dispatch({ ...baseInput, goal: 'gd', ownerUserId: 'tenant-d' })
 
     expect(d.outcome).toBe('ok')
@@ -318,7 +318,7 @@ describe('F2 租户化槽位 + 真排队', () => {
   })
 
   it('同优先级严格先来后到:早创建的 normal 先于晚创建的 normal 出队', async () => {
-    const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
+    const _a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
     await service.dispatch({ ...baseInput, goal: 'b1', ownerUserId: 'tenant-b' })
     await service.dispatch({ ...baseInput, goal: 'c1', ownerUserId: 'tenant-c' })
 
