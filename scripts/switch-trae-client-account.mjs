@@ -31,6 +31,7 @@ const USAGE =
   '  --list     列出号池全部 Trae 账号(健康态/到期/设备/归属,不含凭据)\n' +
   '  --current  本机 Trae 登录号在池里的状态\n' +
   '  --to       把指定号写回本机客户端(uid 精确 > 名称精确 > 名称包含;歧义会列候选)\n' +
+  '  --restore  把上一次切号前的 storage.json 逐字节写回(同机多号共用一枚设备档槽位,踩了能倒回去)\n' +
   '  --dry-run  只打印计划不写文件;--force 代杀 Trae 客户端后写;--json 机读汇总走 stdout\n'
 
 function resolveTsx() {

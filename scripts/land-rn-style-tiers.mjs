@@ -35,6 +35,7 @@
  *   node scripts/land-rn-style-tiers.mjs --apply             # 落盘
  *   node scripts/land-rn-style-tiers.mjs --file <path>       # 单文件试点(可重复给)
  *   node scripts/land-rn-style-tiers.mjs --limit <n>         # 最多动 n 个文件
+ *   node scripts/land-rn-style-tiers.mjs --repair-imports --apply  # 只补 rnSpacing 的 import(放宽归属,见下)
  *   node scripts/land-rn-style-tiers.mjs --json              # 机器可读
  *   node scripts/land-rn-style-tiers.mjs --self-test
  *
@@ -53,6 +54,13 @@ const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
 
 const argv = process.argv.slice(2)
 const apply = argv.includes('--apply')
+/**
+ * --repair-imports:只做"补 import"这一件事,并**放宽归属检查**。
+ * 立因(实测):器物把数字改写成 rnSpacing 后文件就变脏,下一轮被自己的归属避让挡在修复态外
+ * ⇒ 自己落出的悬空标识符自己修不到。该档只动一种文件:正文用 `rnSpacing` 而 import 里没有它 ——
+ * 这本身就是错的,补它不会伤害任何人的在飞改动(不碰数字、不碰换行)。
+ */
+const repairImports = argv.includes('--repair-imports')
 const jsonMode = argv.includes('--json')
 const selfTest = argv.includes('--self-test')
 const limit = (() => {
@@ -237,10 +245,8 @@ export function ensureImport(src, symbol) {
   return { text: src.slice(0, at) + line + src.slice(at), added: true, reason: null }
 }
 
-const WMO = { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }
-
 function watermark(cmd, file) {
-  // 内联写 windowsHide(门 52 的判据只认 options 字面量，不认 WMO 变量引用；行为与 WMO 逐键相同)
+  // 内联写 windowsHide(门 52 的判据只认 options 字面量，不认变量引用)
   return execFileSync(process.execPath, [WATERMARK, cmd, file], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -276,7 +282,8 @@ function listCandidates() {
 }
 
 function run() {
-  const byValue = loadSpacingSteps()
+  // repair 档:空档表 ⇒ transform 永远产 0 处数字改动 ⇒ 只可能走"补 import"那一支
+  const byValue = repairImports ? new Map() : loadSpacingSteps()
   const files = listCandidates()
   if (files.length === 0) {
     console.error('❌ 枚举到 0 个候选文件 ⇒ 判死,不记绿(§0.3)')
@@ -286,13 +293,13 @@ function run() {
   let touched = 0
   for (const f of files) {
     if (touched >= limit) break
-    if (!isCleanOwned(f)) {
+    if (!repairImports && !isCleanOwned(f)) {
       report.held.push(f)
       continue
     }
     const original = readFileSync(join(ROOT, f), 'utf8')
     const dry = transform(original, byValue)
-    if (dry.reason === 'no-stylesheet') {
+    if (dry.reason === 'no-stylesheet' && !repairImports) {
       report.noSheet += 1
       continue
     }
@@ -322,8 +329,20 @@ function run() {
         report.importFixes.push(f)
         touched += 1
       } catch (e) {
-        writeFileSync(join(ROOT, f), original, 'utf8')
-        report.verifyFailed.push(`${f} —— ${e?.message ?? e}`)
+        // 回滚本身也可能被同一把文件锁挡住(实测:UNKNOWN open ⇒ 内层 catch 里再抛会让整进程崩,
+        // 而那时文件可能正停在"已 clean 未 inject"的无水印态)。三件事:重试、不再抛、点名剩余风险。
+        let rolledBack = false
+        for (let attempt = 0; attempt < 4 && !rolledBack; attempt += 1) {
+          try {
+            writeFileSync(join(ROOT, f), original, 'utf8')
+            rolledBack = true
+          } catch {
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60)
+          }
+        }
+        report.verifyFailed.push(
+          rolledBack ? `${f} —— ${e?.message ?? e}` : `${f} —— ${e?.message ?? e}且**回滚失败,该文件可能停在无水印态**,需人工 node scripts/watermark.mjs inject ${f}`,
+        )
       }
       continue
     }

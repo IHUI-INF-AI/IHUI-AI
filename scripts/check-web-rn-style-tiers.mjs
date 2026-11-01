@@ -197,6 +197,19 @@ const RN_KEYS = {
 const SPACING_CLASS_PREFIX = ['gap', 'p', 'px', 'py', 'pt', 'pb', 'm', 'mx', 'my']
 
 /**
+ * 走档引用面(2026-10-31 补):值在表内 **不等于** 改了档表会上屏。
+ * `padding: 10` 与 `padding: rnSpacing['sm-loose']` 在本尺前一版读起来一模一样(都算 inTier),
+ * 但只有后者随 `SPACING_STEPS` 改动自动跟随 ⇒ "web 调档 ⇒ RN 同步"这句话的真正判据是引用率,
+ * 不是值合法率。首跑现读:走档引用 7689(rnSpacing 3376 / rnType 2378 / rnRadius 1935)
+ * vs 裸数字 4257 ⇒ 约 64% 已接,剩下 4257 处是"值对但不跟随"的存量。
+ */
+const TIER_REF_RES = {
+  spacing: /rn(?:Spacing|SpacingFor)\s*[.[]/g,
+  fontSize: /rnType(?:For)?\s*[.[]/g,
+  radius: /rn(?:Radius|RadiusFor)\s*[.[]/g,
+}
+
+/**
  * 累加一处取用。
  * ⚠ 必须走 Map API:早先用 `map[key]` 读写时,数据挂在 Map 实例的**属性**上,
  *   而 `bucketize` / `mergeUniverse` 按 Map **迭代器**遍历 ⇒ 属性永远枚举不到,
@@ -211,12 +224,17 @@ function bump(map, key, val) {
 /** RN 侧:StyleSheet 数字字面量(含负值,负值按绝对值入桶——同一条偏移的两侧)。 */
 function collectRn(files, readOne) {
   const acc = { spacing: new Map(), fontSize: new Map(), radius: new Map() }
+  const refs = { spacing: 0, fontSize: 0, radius: 0 }
   let unreadable = 0
   for (const f of files) {
     const t = readOne(f)
     if (t === null) {
       unreadable++
       continue
+    }
+    for (const kind of Object.keys(TIER_REF_RES)) {
+      const hits = t.match(TIER_REF_RES[kind])
+      if (hits) refs[kind] += hits.length
     }
     for (const key of RN_KEYS.spacing) {
       const re = new RegExp(`\\b${key}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)(?![\\d.])`, 'g')
@@ -226,7 +244,7 @@ function collectRn(files, readOne) {
     for (const m of t.matchAll(/\bfontSize\s*:\s*(-?\d+(?:\.\d+)?)(?![\d.])/g)) bump(acc.fontSize, 'fontSize', Number(m[1]))
     for (const m of t.matchAll(/\bborderRadius\s*:\s*(\d+(?:\.\d+)?)(?![\d.])/g)) bump(acc.radius, 'borderRadius', Number(m[1]))
   }
-  return { acc, unreadable }
+  return { acc, refs, unreadable }
 }
 
 /** web 侧:className 工具类 + 任意值 + CSS 里的 var/字面量(仅记非色档)。 */
@@ -345,9 +363,16 @@ function runJudge() {
       radiusReadable: tier.radiusReadable,
     },
     files: { rn: rnList.files.length, web: webList.files.length, rnUnreadable: rn.unreadable, webUnreadable: web.unreadable },
-    rn: { ...tally(rnRows), rows: rnRows },
+    rn: { ...tally(rnRows), rows: rnRows, refs: rn.refs },
     web: { ...tally(webRows), rows: webRows },
   }
+}
+
+function refRate(r) {
+  const refs = r.rn.refs.spacing + r.rn.refs.fontSize + r.rn.refs.radius
+  const literals = r.rn.inN + r.rn.missingN + r.rn.forkN
+  const pct = refs + literals > 0 ? ((refs / (refs + literals)) * 100).toFixed(1) : '0.0'
+  return { refs, literals, pct }
 }
 
 function report(r) {
@@ -366,9 +391,13 @@ function report(r) {
     if (x.missingTier) console.log(`     缺位 Top: ${rankRows(x.rows, 'missingTier').join(' ')}`)
     if (x.fork) console.log(`     分叉 Top: ${rankRows(x.rows, 'fork').join(' ')}`)
   }
+  const rr = refRate(r)
+  console.log(`\n【RN 侧走档引用面】值在表内 ≠ 改表会上屏;只有引用才随 SPACING_STEPS 动`)
+  console.log(`  rnSpacing ${r.rn.refs.spacing} · rnType ${r.rn.refs.fontSize} · rnRadius ${r.rn.refs.radius} = ${rr.refs} 处引用 / ${rr.literals} 处裸数字 ⇒ ${rr.pct}% 已接`)
   const rnMissing = rankRows(r.rn.rows, 'missingTier', 999)
-  console.log(`\n结论:TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
+  console.log(`\n结论:TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处 rn_ref=${rr.refs}/${rr.refs + rr.literals}=${rr.pct}%`)
   console.log(`     (只读尺:不进提交链也不进 CI,§12e。净增才经 §5e 到人;调度=parity-auto gate 组 + guardian 巡检轮)`)
+  console.log(`     自动落档出路(器物,默认只读预演):node scripts/land-rn-style-tiers.mjs ⇒ 把"值在表内却写成裸数字"的位置等值改写为 rnSpacing 引用(像素零变化,§5c clean→改→inject)`)
   if (rnMissing.length) console.log(`     补表候选(去重取值): ${[...new Set(rnMissing.map((s) => s.split('=')[1].split('×')[0]))].join(' ')}`)
 }
 
@@ -469,9 +498,11 @@ async function main() {
   }
   if (jsonMode) {
     const slim = (x) => ({ inTier: x.inTier, inN: x.inN, missingTier: x.missingTier, missingN: x.missingN, fork: x.fork, forkN: x.forkN })
-    console.log(JSON.stringify({ ...r, rn: slim(r.rn), web: slim(r.web), rnMissingValues: [...new Set(rankRows(r.rn.rows, 'missingTier', 999).map((s) => Number(s.split('=')[1].split('×')[0])))], rnForkValues: [...new Set(rankRows(r.rn.rows, 'fork', 999).map((s) => Number(s.split('=')[1].split('×')[0])))] }, null, 2))
+    const rr = refRate(r)
+    console.log(JSON.stringify({ ...r, rn: { ...slim(r.rn), refs: r.rn.refs, refsTotal: rr.refs, literalsTotal: rr.literals, refPct: Number(rr.pct) }, web: slim(r.web), rnMissingValues: [...new Set(rankRows(r.rn.rows, 'missingTier', 999).map((s) => Number(s.split('=')[1].split('×')[0])))], rnForkValues: [...new Set(rankRows(r.rn.rows, 'fork', 999).map((s) => Number(s.split('=')[1].split('×')[0])))] }, null, 2))
   } else if (quietMode) {
-    console.log(`TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
+    const rr = refRate(r)
+    console.log(`TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处 rn_ref=${rr.refs}/${rr.refs + rr.literals}=${rr.pct}%`)
   } else report(r)
 }
 
@@ -483,5 +514,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn, rankRows, TW_STEP_PX, SPACING_CLASS_PREFIX }
+export const __test__ = { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn, rankRows, refRate, TIER_REF_RES, TW_STEP_PX, SPACING_CLASS_PREFIX }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

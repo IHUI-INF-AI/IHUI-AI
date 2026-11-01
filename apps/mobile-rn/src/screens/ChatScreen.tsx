@@ -230,7 +230,7 @@ import { rpx } from '../utils/rpx'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatModelType } from '@ihui/types'
-import { Tappable } from '@ihui/ui-native'
+import { pressFeedback } from '@ihui/ui-native'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -2228,8 +2228,8 @@ export function ChatScreen() {
     // 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue 行 117-131:tishi_block + intelligent-assistant)
     nodes.push(
       <View key="tishi-block" style={styles.tishiBlock}>
-        <Tappable
-          style={styles.tishiBtn}
+        <Pressable
+          style={pressFeedback(styles.tishiBtn)}
           onPress={() => setTishiShow((v) => !v)}
           hitSlop={8}
           accessibilityRole="button"
@@ -2239,7 +2239,7 @@ export function ChatScreen() {
             {tishiShow ? t('chat.closeCardShort') : t('chat.viewCardShort')}
             {t('chat.cardWord')}
           </Text>
-        </Tappable>
+        </Pressable>
         {tishiShow ? (
           <View style={styles.tishiCardWrap}>
             <IntelligentAssistant
@@ -2294,14 +2294,14 @@ export function ChatScreen() {
         >
           {materialCards.map((card) => (
             <View key={card.id} style={styles.materialCard}>
-              <Tappable
+              <Pressable
                 hitSlop={10}
                 onPress={() => removeMaterialCard(card.id)}
-                style={styles.materialCardClose}
+                style={pressFeedback(styles.materialCardClose)}
                 accessibilityLabel={t('chat.matDeleteA11y')}
               >
                 <X size={12} color={tokens.surface.light} />
-              </Tappable>
+              </Pressable>
               <Text style={styles.materialCardTitle} numberOfLines={1}>
                 {card.title}
               </Text>
@@ -2325,14 +2325,14 @@ export function ChatScreen() {
         >
           {inputFiles.map((file) => (
             <View key={file.id} style={styles.imgsListItem}>
-              <Tappable
+              <Pressable
                 hitSlop={10}
                 onPress={() => removeImage(file.id)}
-                style={styles.imgsListClose}
+                style={pressFeedback(styles.imgsListClose)}
                 accessibilityLabel={t('chat.imageDelete')}
               >
                 <X size={10} color={tokens.surface.light} />
-              </Tappable>
+              </Pressable>
             </View>
           ))}
         </ScrollView>,
@@ -2365,17 +2365,20 @@ export function ChatScreen() {
           const active = currentModelType === key
           const labelTxt = t(label)
           return (
-            <Tappable
+            <Pressable
               key={key}
               onPress={() => handleModelTypeClick(key)}
-              style={[styles.modelTypeBtn, active ? styles.modelTypeBtnActive : null]}
+              style={pressFeedback([
+                styles.modelTypeBtn,
+                active ? styles.modelTypeBtnActive : null,
+              ])}
               accessibilityLabel={labelTxt}
             >
               <Icon size={24} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
               <Text style={[styles.modelTypeLabel, active ? styles.modelTypeLabelActive : null]}>
                 {labelTxt}
               </Text>
-            </Tappable>
+            </Pressable>
           )
         })}
       </ScrollView>
@@ -2870,34 +2873,38 @@ export function ChatScreen() {
           title="智汇AI"
           rightAction={
             <View style={styles.navRight}>
-              <Tappable
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={() => setDrawerVisible(true)}
                 accessibilityLabel={t('chat.topBarMenu')}
               >
                 <PanelLeftRounded size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
-              </Tappable>
-              <Tappable
+              </Pressable>
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={showAgentList}
                 accessibilityLabel={t('chat.topBarAgent')}
               >
                 <Bot size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
-              </Tappable>
-              <Tappable
+              </Pressable>
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={goToMyPage}
                 accessibilityLabel={t('chat.topBarProfile')}
               >
                 <Share2 size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
-              </Tappable>
-              <Tappable
+              </Pressable>
+              <Pressable
+                style={pressFeedback(undefined)}
                 hitSlop={8}
                 onPress={showQrCode}
                 accessibilityLabel={t('chat.topBarCommunity')}
               >
                 <QrCode size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
-              </Tappable>
+              </Pressable>
             </View>
           }
         />
@@ -3110,8 +3117,11 @@ export function ChatScreen() {
           animationType="slide"
           onRequestClose={closeMaterialList}
         >
-          <Tappable style={styles.modalMask} onPress={closeMaterialList}>
-            <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={pressFeedback(styles.modalMask)} onPress={closeMaterialList}>
+            <Pressable
+              style={pressFeedback(styles.materialPopup)}
+              onPress={(e) => e.stopPropagation()}
+            >
               <MaterialList
                 categories={MATERIAL_CATEGORY_KEYS.map((c) => ({ ...c, label: t(c.label) }))}
                 activeCategory={materialTab}
@@ -3124,7 +3134,7 @@ export function ChatScreen() {
                 onClose={closeMaterialList}
               />
             </Pressable>
-          </Tappable>
+          </Pressable>
         </Modal>
       ) : null}
 
@@ -3135,15 +3145,22 @@ export function ChatScreen() {
         animationType="fade"
         onRequestClose={closeMaterialDetail}
       >
-        <Tappable style={styles.modalMask} onPress={closeMaterialDetail}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={pressFeedback(styles.modalMask)} onPress={closeMaterialDetail}>
+          <Pressable
+            style={pressFeedback(styles.listDialogContent)}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('mat.detailLabel')}
               </Text>
-              <Tappable hitSlop={8} onPress={closeMaterialDetail} style={styles.listDialogClose}>
+              <Pressable
+                hitSlop={8}
+                onPress={closeMaterialDetail}
+                style={pressFeedback(styles.listDialogClose)}
+              >
                 <X size={18} color={tokens.text.secondary} />
-              </Tappable>
+              </Pressable>
             </View>
             <View style={styles.detailDialogBody}>
               {materialDetailLoading ? (
@@ -3151,12 +3168,12 @@ export function ChatScreen() {
               ) : materialDetailError ? (
                 <View style={styles.detailDialogErrorWrap}>
                   <Text style={styles.detailDialogErrorText}>{materialDetailError}</Text>
-                  <Tappable
+                  <Pressable
                     onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
-                    style={styles.detailDialogRetryBtn}
+                    style={pressFeedback(styles.detailDialogRetryBtn)}
                   >
                     <Text style={styles.detailDialogRetryText}>重试</Text>
-                  </Tappable>
+                  </Pressable>
                 </View>
               ) : materialDetailData ? (
                 <ScrollView style={styles.detailDialogScroll}>
@@ -3178,30 +3195,33 @@ export function ChatScreen() {
               ) : null}
             </View>
           </Pressable>
-        </Tappable>
+        </Pressable>
       </Modal>
 
       {/* 二维码弹窗(对齐 Uniapp qr-code-modal) */}
       <Modal visible={qrCodeVisible} transparent animationType="fade" onRequestClose={hideQrCode}>
-        <Tappable style={styles.modalMask} onPress={hideQrCode}>
-          <Pressable style={styles.qrCodeContent} onPress={(e) => e.stopPropagation()}>
-            <Tappable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
+        <Pressable style={pressFeedback(styles.modalMask)} onPress={hideQrCode}>
+          <Pressable
+            style={pressFeedback(styles.qrCodeContent)}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Pressable hitSlop={8} onPress={hideQrCode} style={pressFeedback(styles.qrCodeClose)}>
               <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
-            </Tappable>
-            <Tappable
+            </Pressable>
+            <Pressable
               ref={qrCodeViewRef}
-              style={styles.qrCodePlaceholder}
+              style={pressFeedback(styles.qrCodePlaceholder)}
               collapsable={false}
               onLongPress={handleLongPressQrCode}
             >
               <QrCode size={240} color={tokens.text.primary} />
-            </Tappable>
+            </Pressable>
             <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
-            <Tappable onLongPress={handleLongPressQrCode} style={styles.qrCodeHint}>
+            <Pressable onLongPress={handleLongPressQrCode} style={pressFeedback(styles.qrCodeHint)}>
               <Text style={styles.qrCodeHintText}>长按二维码可保存</Text>
-            </Tappable>
+            </Pressable>
           </Pressable>
-        </Tappable>
+        </Pressable>
       </Modal>
 
       {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup)
@@ -3273,16 +3293,19 @@ export function ChatScreen() {
           {/* 外层由 Pressable 换成避让层后,点遮罩关闭的手势下移到这枚满屏 Pressable
               (与 BottomPops / VerifyCodeModal 同一形态),否则"点空白处关掉"会静默失效。 */}
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setUrlInputVisible(false)} />
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={pressFeedback(styles.listDialogContent)}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>网页链接</Text>
-              <Tappable
+              <Pressable
                 hitSlop={8}
                 onPress={() => setUrlInputVisible(false)}
-                style={styles.listDialogClose}
+                style={pressFeedback(styles.listDialogClose)}
               >
                 <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
-              </Tappable>
+              </Pressable>
             </View>
             <View style={styles.urlInputBody}>
               <TextInput
@@ -3296,16 +3319,16 @@ export function ChatScreen() {
                 keyboardType="url"
                 autoFocus
               />
-              <Tappable
+              <Pressable
                 onPress={() => {
                   void handleUrlConfirm()
                 }}
-                style={styles.urlInputConfirmBtn}
+                style={pressFeedback(styles.urlInputConfirmBtn)}
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.sendLink')}
               >
                 <Text style={styles.urlInputConfirmText}>发送</Text>
-              </Tappable>
+              </Pressable>
             </View>
           </Pressable>
         </KeyboardAvoidingView>
@@ -3318,17 +3341,23 @@ export function ChatScreen() {
         animationType="fade"
         onRequestClose={() => setFileUploadVisible(false)}
       >
-        <Tappable style={styles.modalMask} onPress={() => setFileUploadVisible(false)}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={pressFeedback(styles.modalMask)}
+          onPress={() => setFileUploadVisible(false)}
+        >
+          <Pressable
+            style={pressFeedback(styles.listDialogContent)}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>文件上传</Text>
-              <Tappable
+              <Pressable
                 hitSlop={8}
                 onPress={() => setFileUploadVisible(false)}
-                style={styles.listDialogClose}
+                style={pressFeedback(styles.listDialogClose)}
               >
                 <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
-              </Tappable>
+              </Pressable>
             </View>
             <View style={styles.fileUploadBody}>
               <Text style={styles.fileUploadDesc}>支持文件类型:</Text>
@@ -3340,19 +3369,19 @@ export function ChatScreen() {
                 ))}
               </View>
               <Text style={styles.fileUploadHint}>选择文件后自动上传,支持常见文档/文本格式</Text>
-              <Tappable
+              <Pressable
                 onPress={() => void handleFileUpload()}
-                style={styles.fileUploadConfirmBtn}
+                style={pressFeedback(styles.fileUploadConfirmBtn)}
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.selectFile')}
               >
                 <Text style={styles.fileUploadConfirmText}>
                   {fileUploading ? t('chat.uploadingShort') : t('chat.selectFile')}
                 </Text>
-              </Tappable>
+              </Pressable>
             </View>
           </Pressable>
-        </Tappable>
+        </Pressable>
       </Modal>
 
       {/* ModelConfigDialog 模型配置弹窗(对齐 Uniapp ai_index.vue 行 104 ModelConfigDialog) */}
@@ -3371,23 +3400,26 @@ export function ChatScreen() {
         animationType="fade"
         onRequestClose={() => setModelListVisible(false)}
       >
-        <Tappable style={styles.modalMask} onPress={() => setModelListVisible(false)}>
+        <Pressable
+          style={pressFeedback(styles.modalMask)}
+          onPress={() => setModelListVisible(false)}
+        >
           <Pressable
-            style={[
+            style={pressFeedback([
               styles.listDialogContent,
               { height: modelPickerHeight, maxHeight: modelPickerHeight },
-            ]}
+            ])}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>{t('chat.selectModel')}</Text>
-              <Tappable
+              <Pressable
                 hitSlop={8}
                 onPress={() => setModelListVisible(false)}
-                style={styles.listDialogClose}
+                style={pressFeedback(styles.listDialogClose)}
               >
                 <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
-              </Tappable>
+              </Pressable>
             </View>
             <ModelPickerList
               items={modelPickerItems}
@@ -3401,7 +3433,7 @@ export function ChatScreen() {
               }}
             />
           </Pressable>
-        </Tappable>
+        </Pressable>
       </Modal>
 
       {/* AgentList 弹窗(对齐 Uniapp ai_index.vue 行 34 AgentList) —— 抽至 AgentSelector(D114) */}
@@ -3524,13 +3556,13 @@ export function ChatScreen() {
         >
           <View style={styles.fangdaHeader}>
             <Text style={styles.fangdaTitle}>放大输入</Text>
-            <Tappable
+            <Pressable
               hitSlop={8}
               onPress={() => setFangdaVisible(false)}
-              style={styles.fangdaCloseBtn}
+              style={pressFeedback(styles.fangdaCloseBtn)}
             >
               <X size={rnGeometry.glyphMd} color={tokens.text.primary} />
-            </Tappable>
+            </Pressable>
           </View>
           <TextInput
             style={styles.fangdaInput}
@@ -3543,15 +3575,15 @@ export function ChatScreen() {
             textAlignVertical="top"
           />
           <View style={styles.fangdaFooter}>
-            <Tappable
-              style={styles.fangdaSendBtn}
+            <Pressable
+              style={pressFeedback(styles.fangdaSendBtn)}
               onPress={() => {
                 setFangdaVisible(false)
                 void send()
               }}
             >
               <Text style={styles.fangdaSendBtnText}>发送</Text>
-            </Tappable>
+            </Pressable>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -3573,28 +3605,28 @@ export function ChatScreen() {
               accessibilityLabel={t('chat.imagePreviewA11y')}
             />
           ) : null}
-          <Tappable
+          <Pressable
             hitSlop={10}
             onPress={() => setPreviewImageUrl(null)}
-            style={styles.imagePreviewClose}
+            style={pressFeedback(styles.imagePreviewClose)}
             accessibilityRole="button"
             accessibilityLabel={t('home.closePreview')}
           >
             {/* 底改实底白后字形必须换档:白底配 text.primary(亮近黑 / 暗近白),不再用 surface.light 白字 */}
             <X size={rnGeometry.glyphMd} color={tokens.text.primary} />
-          </Tappable>
-          <Tappable
+          </Pressable>
+          <Pressable
             hitSlop={10}
             onPress={() => {
               if (previewImageUrl) setAnnotatorUri(previewImageUrl)
             }}
-            style={styles.imagePreviewAnnotate}
+            style={pressFeedback(styles.imagePreviewAnnotate)}
             accessibilityRole="button"
             accessibilityLabel={t('chat.menuAnnotateImage')}
           >
             {/* D124:图片标注编辑器入口(与关闭钮同一行,左移一个按钮位) */}
             <PenLine size={rnGeometry.glyphMd} color={tokens.text.primary} />
-          </Tappable>
+          </Pressable>
         </View>
       </Modal>
 
@@ -3818,7 +3850,7 @@ const styles = StyleSheet.create({
   msgErrorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.danger.light,
@@ -3874,7 +3906,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息富内容:代码块(展开/收起 + 复制,对齐 ai_index2 code-block) ──
   codeBlock: {
-    marginVertical: 6,
+    marginVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.gray[800],
     overflow: 'hidden',
@@ -3883,8 +3915,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
     backgroundColor: tokens.gray[700],
   },
   codeBlockLang: {
@@ -3903,14 +3935,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rnSpacing.xs,
-    paddingVertical: 2,
+    paddingVertical: rnSpacing['2xs'],
   },
   codeBlockBtnText: {
     fontSize: rnType.caption.size,
     color: tokens.gray['200'],
   },
   codeBlockContent: {
-    padding: 10,
+    padding: rnSpacing['sm-loose'],
     fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.gray['200'],
@@ -3919,7 +3951,7 @@ const styles = StyleSheet.create({
   // ── 消息富内容:思考过程(推理 reasoning,对齐 ai_index2 thinking-process) ──
   // 用浅灰/中性色区分代码块(深色底):思考过程是半成品,别和最终代码混淆
   thinkingBlock: {
-    marginBottom: 6,
+    marginBottom: rnSpacing['xs-loose'],
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
@@ -3928,7 +3960,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing.sm,
   },
   thinkingTitle: {
@@ -3943,8 +3975,8 @@ const styles = StyleSheet.create({
     marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing['sm-loose'],
     fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.text.secondary,

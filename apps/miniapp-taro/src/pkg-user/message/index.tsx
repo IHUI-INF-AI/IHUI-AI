@@ -13,10 +13,12 @@ import {
   getPrivateMessages,
   getNotificationPreferences,
   updateNotificationPreferences,
+  markRoomRead,
   type AggregateMessages,
   type NotificationPreferences,
 } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { IHUI_KEY_PREFIX } from '@/constants/storage'
 import { getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { getTopBarMetrics } from '@/utils/system-info'
@@ -47,9 +49,71 @@ interface Room {
   unreadCount?: number
   unread?: number
   isUnread?: boolean
+  /** 数据来源桶:aggregate 三类房间的已读出口不同(只有私信有 markRoomRead 端点) */
+  kind?: 'announcement' | 'private' | 'system'
 }
 
 const { menuButton } = getTopBarMetrics()
+
+/** 系统通知 / 私信两个列表的页大小(与 RN wrapper 的 PAGE_SIZE 同值,后端默认也是 20) */
+const PAGE_SIZE = 20
+
+/**
+ * 已删除会话的本地屏蔽表。
+ *
+ * 本页聚合数据源 `GET /messages/aggregate` 没有删除端点(公告 / 系统通知 / 私信三类房间
+ * 都没有端内可用的删除出口),所以「删除会话」= 本地移除 + 记入本表,保证 `useDidShow`
+ * 重拉后不会复活。key 前缀取 `@/constants/storage` 的 `IHUI_KEY_PREFIX`(页面不硬编码
+ * 完整字面 key,该前缀也是内存告警清理的识别面)。
+ */
+const HIDDEN_CONV_KEY = `${IHUI_KEY_PREFIX}msg_center_hidden_convs`
+
+function readHiddenConvIds(): string[] {
+  try {
+    const raw: unknown = Taro.getStorageSync(HIDDEN_CONV_KEY)
+    if (!raw) return []
+    const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    // storage 读不到 ⇒ 不屏蔽任何行(失效方向 = 多显示,不丢数据)
+    return []
+  }
+}
+
+function writeHiddenConvIds(ids: string[]): void {
+  try {
+    Taro.setStorageSync(HIDDEN_CONV_KEY, JSON.stringify(ids))
+  } catch {
+    // storage 不可用不阻断删除本身:本次会话内已从 state 移除
+  }
+}
+
+type SystemNoticeRaw = Awaited<ReturnType<typeof getSystemNotices>>['list'][number]
+type PrivateMessageRaw = Awaited<ReturnType<typeof getPrivateMessages>>['list'][number]
+
+function toSystemNoticeItem(s: SystemNoticeRaw): SystemNoticeItem {
+  return {
+    id: s.id,
+    title: s.title,
+    content: s.content || '',
+    type: (s.type === 'activity' || s.type === 'upgrade' ? s.type : 'system') as
+      'system' | 'activity' | 'upgrade',
+    createdAt: s.createdAt,
+    read: false,
+  }
+}
+
+function toPrivateMessageItem(p: PrivateMessageRaw): PrivateMessageItem {
+  return {
+    id: String(p.id),
+    userId: p.senderId,
+    userName: p.senderId,
+    lastMessage: p.content,
+    lastTime: p.createdAt,
+    unread: p.isRead ? 0 : 1,
+    online: false,
+  }
+}
 
 const DEFAULT_SYSTEM: SystemNoticeItem[] = []
 const DEFAULT_PRIVATE: PrivateMessageItem[] = []
@@ -68,6 +132,12 @@ export default function MessageIndex() {
   const [detailMessages, setDetailMessages] = useState<MessageDetailItem[]>([])
   const [systemList, setSystemList] = useState<SystemNoticeItem[]>(DEFAULT_SYSTEM)
   const [privateList, setPrivateList] = useState<PrivateMessageItem[]>(DEFAULT_PRIVATE)
+  // 系统通知 / 私信两个列表的分页游标与「还有更多」判据(接口不回 total,以整页返回作判据)
+  const [sysPage, setSysPage] = useState(1)
+  const [sysHasMore, setSysHasMore] = useState(false)
+  const [privPage, setPrivPage] = useState(1)
+  const [privHasMore, setPrivHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [tabs, setTabs] = useState<MessageTabItem[]>(() => [
     { key: 'all', label: t('message.tabs.all') },
     { key: 'system', label: t('message.tabs.system'), unread: 0 },
@@ -106,30 +176,38 @@ export default function MessageIndex() {
   const loadAggregate = useCallback(async () => {
     try {
       const res: AggregateMessages = await getMessageRooms()
+      const hidden = new Set(readHiddenConvIds())
       const rooms: Room[] = []
       for (const ann of res.announcements || []) {
+        if (hidden.has(ann.id)) continue
         rooms.push({
           id: ann.id,
           name: ann.title,
           lastMessage: ann.content || '',
           unreadCount: 0,
+          kind: 'announcement',
         })
       }
       for (const priv of res.privateMessages || []) {
+        const id = String(priv.id)
+        if (hidden.has(id)) continue
         rooms.push({
-          id: String(priv.id),
+          id,
           name: priv.senderId,
           lastMessage: priv.content,
           unreadCount: priv.isRead ? 0 : 1,
           isUnread: !priv.isRead,
+          kind: 'private',
         })
       }
       for (const sys of res.systemNotices || []) {
+        if (hidden.has(sys.id)) continue
         rooms.push({
           id: sys.id,
           name: sys.title,
           lastMessage: sys.content || '',
           unreadCount: 0,
+          kind: 'system',
         })
       }
       setList(rooms)
@@ -150,17 +228,13 @@ export default function MessageIndex() {
 
   const loadSystemNotices = useCallback(async () => {
     try {
-      const res = await getSystemNotices({ page: 1, pageSize: 20 })
-      const items: SystemNoticeItem[] = (res.list || []).map((s) => ({
-        id: s.id,
-        title: s.title,
-        content: s.content || '',
-        type: (s.type === 'activity' || s.type === 'upgrade' ? s.type : 'system') as
-          'system' | 'activity' | 'upgrade',
-        createdAt: s.createdAt,
-        read: false,
-      }))
-      setSystemList(items)
+      const res = await getSystemNotices({ page: 1, pageSize: PAGE_SIZE })
+      const raw = res.list || []
+      const hidden = new Set(readHiddenConvIds())
+      setSystemList(raw.map(toSystemNoticeItem).filter((s) => !hidden.has(s.id)))
+      setSysPage(1)
+      // 接口只回 page/pageSize 不回 total:末页未满 ⇒ 没有更多
+      setSysHasMore(raw.length === PAGE_SIZE)
     } catch {
       // ignore
     }
@@ -168,17 +242,12 @@ export default function MessageIndex() {
 
   const loadPrivateMessages = useCallback(async () => {
     try {
-      const res = await getPrivateMessages({ page: 1, pageSize: 20 })
-      const items: PrivateMessageItem[] = (res.list || []).map((p) => ({
-        id: String(p.id),
-        userId: p.senderId,
-        userName: p.senderId,
-        lastMessage: p.content,
-        lastTime: p.createdAt,
-        unread: p.isRead ? 0 : 1,
-        online: false,
-      }))
-      setPrivateList(items)
+      const res = await getPrivateMessages({ page: 1, pageSize: PAGE_SIZE })
+      const raw = res.list || []
+      const hidden = new Set(readHiddenConvIds())
+      setPrivateList(raw.map(toPrivateMessageItem).filter((p) => !hidden.has(p.id)))
+      setPrivPage(1)
+      setPrivHasMore(raw.length === PAGE_SIZE)
     } catch {
       // ignore
     }
@@ -250,6 +319,106 @@ export default function MessageIndex() {
 
   const onTabChange = (k: string) => setActiveTab(k)
 
+  /**
+   * 标记单条会话已读(对齐 RN MessageCenterScreen 的 onMarkRead 语义:只在未读行出现)。
+   * 网络出口 = 本端既有的 markRoomRead(POST /messages/rooms/:roomId/read,按登录身份鉴权);
+   * 只有私信类房间有该端点,其余两类在聚合接口里本就没有未读源(unreadCount 恒 0),
+   * 不制造「先翻 UI 再补请求」的假成功:请求失败就只喊错、不回写。
+   * 视觉反馈 = 未读点消失(该行 unread 归零)+ 私信 tab 的未读数同步递减。
+   */
+  const onMarkRead = useCallback(
+    async (room: Room) => {
+      const id = room.id
+      if (!id) return
+      const cleared = room.unreadCount ?? room.unread ?? 0
+      try {
+        if (room.kind === 'private') await markRoomRead(id)
+        setList((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, unreadCount: 0, unread: 0, isUnread: false } : r)),
+        )
+        setPrivateList((prev) => prev.map((p) => (p.id === id ? { ...p, unread: 0 } : p)))
+        if (cleared > 0) {
+          setTabs((prev) =>
+            prev.map((tb) =>
+              tb.key === 'private'
+                ? { ...tb, unread: Math.max(0, (tb.unread ?? 0) - cleared) }
+                : tb,
+            ),
+          )
+        }
+        Taro.showToast({ title: t('message.markedRead'), icon: 'none' })
+      } catch {
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      }
+    },
+    [t],
+  )
+
+  /**
+   * 删除会话:先 Taro.showModal 二次确认(破坏性动作),确认后从列表移除并记入本地屏蔽表
+   * (`/messages/aggregate` 无删除端点,见 HIDDEN_CONV_KEY 注释),三个列表同步摘除。
+   */
+  const onDeleteConversation = useCallback(
+    (room: Room) => {
+      const id = room.id
+      if (!id) return
+      Taro.showModal({
+        title: t('messageCenter.deleteConv'),
+        content: room.name || t('message.unnamedRoom'),
+        cancelText: t('common.cancel'),
+        confirmText: t('common.delete'),
+        success: (res) => {
+          if (!res.confirm) return
+          writeHiddenConvIds(Array.from(new Set([...readHiddenConvIds(), id])))
+          setList((prev) => prev.filter((r) => r.id !== id))
+          setSystemList((prev) => prev.filter((s) => s.id !== id))
+          setPrivateList((prev) => prev.filter((p) => p.id !== id))
+          Taro.showToast({ title: t('common.deleteSuccess'), icon: 'success' })
+        },
+      })
+    },
+    [t],
+  )
+
+  /**
+   * 加载下一页:系统通知 / 私信两个 tab 各有独立游标(接口分页字段同源)。
+   * 按 id 去重防重入追加;"是否还有更多"由末页是否满页判定,失败显式喊错不静默。
+   */
+  const onLoadMore = useCallback(async () => {
+    if (loadingMore) return
+    if (activeTab !== 'system' && activeTab !== 'private') return
+    const hasMore = activeTab === 'system' ? sysHasMore : privHasMore
+    if (!hasMore) return
+    const nextPage = (activeTab === 'system' ? sysPage : privPage) + 1
+    const hidden = new Set(readHiddenConvIds())
+    setLoadingMore(true)
+    try {
+      if (activeTab === 'system') {
+        const res = await getSystemNotices({ page: nextPage, pageSize: PAGE_SIZE })
+        const incoming = (res.list || []).map(toSystemNoticeItem).filter((s) => !hidden.has(s.id))
+        setSystemList((prev) => {
+          const seen = new Set(prev.map((it) => it.id))
+          return [...prev, ...incoming.filter((it) => !seen.has(it.id))]
+        })
+        setSysPage(nextPage)
+        setSysHasMore((res.list || []).length === PAGE_SIZE)
+      } else {
+        const res = await getPrivateMessages({ page: nextPage, pageSize: PAGE_SIZE })
+        const incoming = (res.list || []).map(toPrivateMessageItem).filter((p) => !hidden.has(p.id))
+        setPrivateList((prev) => {
+          const seen = new Set(prev.map((it) => it.id))
+          return [...prev, ...incoming.filter((it) => !seen.has(it.id))]
+        })
+        setPrivPage(nextPage)
+        setPrivHasMore((res.list || []).length === PAGE_SIZE)
+      }
+    } catch {
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [activeTab, loadingMore, privHasMore, privPage, sysHasMore, sysPage, t])
+
   const onOpenPrivate = async (item: PrivateMessageItem) => {
     setSelectedPrivate(item)
     setDetailMessages([])
@@ -318,6 +487,33 @@ export default function MessageIndex() {
     }
   }
 
+  /**
+   * 底部「加载更多」脚注(对齐 RN MessageCenterScreen loadMoreBtn):
+   * 加载中 → common.loading;还有下一页 → messageCenter.loadMore(可点);
+   * 到头 → common.noMore(不可点)。列表为空时不渲染。
+   */
+  const renderLoadMoreFooter = (visible: boolean, hasMore: boolean) => {
+    if (!visible) return null
+    const shell = hasMore ? 'bg-card border border-border' : 'bg-muted'
+    return (
+      <View className="flex justify-center mt-[24rpx] pb-[24rpx]">
+        <View
+          className={`px-[32rpx] py-[16rpx] rounded-sm ${shell}`}
+          hoverClass="opacity-60"
+          onClick={() => void onLoadMore()}
+        >
+          <Text className="text-[length:28rpx] text-muted-foreground">
+            {loadingMore
+              ? t('common.loading')
+              : hasMore
+                ? t('messageCenter.loadMore')
+                : t('common.noMore')}
+          </Text>
+        </View>
+      </View>
+    )
+  }
+
   const renderTabContent = () => {
     if (activeTab === 'order' || activeTab === 'course') {
       // 对齐共享屏 TABS=['system','order','course','social'] 的 order/course 两类:
@@ -335,6 +531,7 @@ export default function MessageIndex() {
             list={systemList}
             onClick={(item) => Taro.showToast({ title: item.title, icon: 'none' })}
           />
+          {renderLoadMoreFooter(systemList.length > 0, sysHasMore)}
         </ThemeRoot>
       )
     }
@@ -351,7 +548,12 @@ export default function MessageIndex() {
       )
     }
     if (activeTab === 'private') {
-      return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
+      return (
+        <View>
+          <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
+          {renderLoadMoreFooter(privateList.length > 0, privHasMore)}
+        </View>
+      )
     }
     return (
       <ThemeRoot>
@@ -359,7 +561,7 @@ export default function MessageIndex() {
         <View className="p-[20rpx]">
           <SearchBar
             value={keyword}
-            placeholder={t('message.search')}
+            placeholder={t('messageCenter.searchPh')}
             onInput={setKeyword}
             onClear={() => setKeyword('')}
           />
@@ -402,14 +604,20 @@ export default function MessageIndex() {
                       {room.lastMessage || t('message.empty')}
                     </Text>
                   </View>
+                  {/* 标记已读:只在未读行出现(对齐 RN MessageCenterScreen 的
+                      `onMarkRead && !item.read` 语义),与 ⋯ 菜单同一出口同一状态回写 */}
+                  {unread > 0 && (
+                    <Text
+                      className="shrink-0 px-[12rpx] py-[8rpx] text-[length:24rpx] text-muted-foreground"
+                      onClick={() => void onMarkRead(room)}
+                    >
+                      {t('messageCenter.markRead')}
+                    </Text>
+                  )}
                   <MessageActions
-                    onMarkRead={() =>
-                      Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
-                    }
+                    onMarkRead={() => void onMarkRead(room)}
                     onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
-                    onDelete={() =>
-                      Taro.showToast({ title: t('message.deleted'), icon: 'success' })
-                    }
+                    onDelete={() => onDeleteConversation(room)}
                   />
                 </View>
               )

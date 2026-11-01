@@ -202,16 +202,33 @@ function main() {
   if (land && batch.length > 0) {
     const before = git(['rev-parse', 'HEAD']).trim()
     let err = ''
+    let refusalLog = ''
     try {
       landViaObjectSpace(
         batch.map((x) => x.pageRel),
         landMessage(batch),
       )
     } catch (e) {
-      err = String(e?.stderr ?? e?.message ?? e).slice(0, 600)
+      // 这里以前把子进程读数截到 600 字符再折成一行 ⇒ 复活闸/落地闸逐条点名的
+      // 「哪几行、该走哪条出口」全被切掉,人只能猜或跳门。现在全文落盘 + 摘要只给末段。
+      const full = String(e?.stderr ?? e?.message ?? e)
+      refusalLog = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'upgrade-land-refusal.log')
+      try {
+        writeFileSync(refusalLog, full, 'utf8')
+      } catch {
+        /* 落盘失败不得掩盖原始拒绝原因 */
+      }
+      err = full
     }
     const after = git(['rev-parse', 'HEAD']).trim()
-    landed = { pages: batch.length, ok: after !== before, headBefore: before.slice(0, 12), headAfter: after.slice(0, 12), err }
+    landed = {
+      pages: batch.length,
+      ok: after !== before,
+      headBefore: before.slice(0, 12),
+      headAfter: after.slice(0, 12),
+      err,
+      refusalLog,
+    }
     // 落 HEAD 失败 ⇒ 把本批工作树副本退回 HEAD。
     // 不退回就自锁:本器为了落地先把生成的正文写进工作树,land 若没推进 HEAD(超时 / CAS 冲突 /
     // 陈旧守卫),那份正文就留在盘上;下一轮 planUpgrades 看到「工作树副本相对 HEAD 有改动」⇒
@@ -264,7 +281,7 @@ function main() {
         ok: true,
         applied: apply,
         land,
-        landed,
+        landed: landed && { ...landed, err: landed.err ? landed.err.slice(-2000) : '' },
         upgradable: res.upgradable.length,
         batch: batch.map((x) => ({ route: x.route, shell: x.shell, saved: x.beforeLines - x.afterLines })),
         refused: res.refused.length,
@@ -279,10 +296,18 @@ function main() {
   )
   for (const x of batch) console.log(`  ${x.route} | ${x.shell} | ${x.beforeLines}→${x.afterLines} 行`)
   for (const x of res.refused) console.log(`  拒 ${x.route} | ${x.why}`)
-  if (land && landed)
+  if (land && landed) {
     console.log(
-      `  落地:${landed.ok ? `HEAD ${landed.headBefore}→${landed.headAfter}` : 'HEAD 未推进'}${landed.declLanded ? ' + 声明件' : ''}${landed.err ? ` | ${landed.err.split('\n').slice(-2).join(' ')}` : ''}`,
+      `  落地:${landed.ok ? `HEAD ${landed.headBefore}→${landed.headAfter}` : 'HEAD 未推进'}${landed.declLanded ? ' + 声明件' : ''}`,
     )
+    if (landed.refusalLog) {
+      console.log(`  完整拒绝读数:${landed.refusalLog}`)
+      for (const line of String(landed.err).split('\n').filter((l) => l.trim()).slice(-8))
+        console.log(`    │ ${line}`)
+    } else if (landed.err) {
+      console.log(`  落地异常:${landed.err.split('\n')[0]}`)
+    }
+  }
   if (apply && !land && batch.length > 0)
     console.log('ℹ️ 下一步:提交页面 → node scripts/gen-rn-shell-types.mjs --write → 提交派生声明件')
   return apply || land || batch.length === 0 ? 0 : 1

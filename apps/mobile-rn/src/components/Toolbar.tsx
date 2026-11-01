@@ -1,7 +1,8 @@
-import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../i18n'
 
 /**
  * Toolbar 首页内容大块 (mobile-rn 端)
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   root: {
     flexDirection: 'column',
     width: '100%',
-    marginTop: 10,
+    marginTop: rnSpacing['sm-loose'],
   },
 
   // ── 旧版 32×32 工具按钮阵列(兼容) ──
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
     gap: rnSpacing.xs,
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
   },
   rowItem: {
     flexDirection: 'row',
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
     width: '31%',
     height: 70,
     borderRadius: rnRadius['2xl'],
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -417,15 +418,15 @@ const styles = StyleSheet.create({
 
   // ── 2. 栏目标题 ──
   sectionTitleRow: {
-    paddingVertical: 10,
-    marginTop: 6,
+    paddingVertical: rnSpacing['sm-loose'],
+    marginTop: rnSpacing['xs-loose'],
   },
 
   // ── 3. 营销 banner(正常流布局;机器人列随浮动动画上浮,paddingTop 10 为浮动基线余量,上浮 -10 不出容器) ──
   bannerWrap: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingTop: 10,
+    paddingTop: rnSpacing['sm-loose'],
   },
   // 面层撑满外框内容盒并承载横排布局(机器人列 + 卡片并排、底对齐,与正常流收口时的
   // bannerWrap 排布同形 —— View 默认 column,面层不显式声明 row 两者会竖排,
@@ -479,7 +480,7 @@ const styles = StyleSheet.create({
     width: '48.5%',
     minHeight: 53, // 描述两行时按内容放开,不裁字;常规文案下单行保持 53
     borderRadius: rnRadius.lg, // 工具格是卡片类容器 ⇒ card 档 lg(项目不允许胶囊)
-    marginBottom: 10,
+    marginBottom: rnSpacing['sm-loose'],
     backgroundColor: tokens.surface.card,
     flexDirection: 'row',
     alignItems: 'center',

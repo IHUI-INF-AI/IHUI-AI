@@ -72,6 +72,62 @@ export function decideSync(input: DecideInput): SyncDecision {
   return { apply: true, reason, next }
 }
 
+/**
+ * 同票轮次的到期回填(2026-11-01 立,治「库里有 rt 密文却读不到 rt 自然终点」)。
+ *
+ * `decideSync` 的同票分支一个凭证列都不写 —— 那是对的(同票 = 没有新证据,不许推 credVersion),
+ * 但客户端手里那两枚**到期时刻**是随票一起白送的真证据,不接就等于把已知信息扔掉:
+ * 永久保活号的死线正是 rt 的自然终点(机主已不能靠验证码重登,rt 一死即永久丢号),
+ * 而管理面当时读到的只有 NULL。现读 3 行栽在这一格(trae 机主号 / minimax auto / workbuddy)。
+ *
+ * 只填池内为 NULL 的键,绝不覆盖已有值:客户端那份可能是它上次登录时的旧快照,
+ * 而池内的值可能来自票过期后的兜底续期 —— 覆盖方向必须是「未知 → 已知」,反向不归本函数管。
+ *
+ * **而且只在票面一致时回填**(`ticketIdentical`)。立因(2026-11-01 真接管实测出来):
+ * 池换票成功会把 rt 轮转掉,而库里那枚 rt 终点按契约写回未知(NULL);此刻客户端 storage 里
+ * 还是**轮转前那张票**的快照(到期时刻属于已死的 rt)。若不问票面就把它的日期回填进池行,
+ * 管理面会读到"还剩半年",而真实终点无人知道 —— 比 NULL 更坏,因为它是假的未来。
+ * 返回空对象 = 本轮无可补内容(调用方据此不写库、不推 updatedAt)。
+ */
+export function expiryBackfillOf(input: {
+  ticketIdentical: boolean
+  poolTokenExpiresAt: Date | null
+  poolRefreshExpiresAt: Date | null
+  clientExpiresAt: Date | null
+  clientRefreshExpiresAt: Date | null
+}): { tokenExpiresAt?: Date; refreshExpiresAt?: Date } {
+  const out: { tokenExpiresAt?: Date; refreshExpiresAt?: Date } = {}
+  if (!input.ticketIdentical) return out
+  if (input.poolTokenExpiresAt === null && input.clientExpiresAt !== null) {
+    out.tokenExpiresAt = input.clientExpiresAt
+  }
+  if (input.poolRefreshExpiresAt === null && input.clientRefreshExpiresAt !== null) {
+    out.refreshExpiresAt = input.clientRefreshExpiresAt
+  }
+  return out
+}
+
+/**
+ * 客户端会话里「rt 自然终点」的键名单源(2026-11-01 立)。
+ *
+ * 立因是量出来的静默丢数据,不是洁癖:提取器 `toPoolAccount` 产出的键是
+ * `refreshTokenExpiresAt`,而 Trae 回灌 wrapper 转发的却是 `a.refreshExpiresAt` —— 那枚键
+ * 从来不存在,于是客户端明明知道这枚 rt 还能活多久,这维信息一路走不到库,账面只读得到
+ * 「refresh_expires_at = NULL」。qoder 腿用前一种拼写、minimax 腿读后一种,同一个维度三种口径,
+ * 而漂移的唯一表现就是安静少数据(判据面不报错,列一直是 NULL,谁都不觉得坏了)。
+ * 生产端与消费端配对由 apps/api/tests/relay-session-sync-expiry-contract.test.ts 跨边界判。
+ */
+export const CLIENT_REFRESH_EXPIRY_KEYS = ['refreshTokenExpiresAt', 'refreshExpiresAt'] as const
+
+/** 按规范拼写优先读客户端给的 rt 终点;两种都没给 ⇒ null(未知,不猜)。 */
+export function clientRefreshExpiryRaw(acc: Record<string, unknown>): string | null {
+  for (const key of CLIENT_REFRESH_EXPIRY_KEYS) {
+    const value = acc[key]
+    if (typeof value === 'string' && value.trim() !== '') return value
+  }
+  return null
+}
+
 export function parseIso(value: string | null | undefined): Date | null {
   if (value === null || value === undefined || value === '') return null
   const d = new Date(value)

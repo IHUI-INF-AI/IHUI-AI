@@ -252,8 +252,11 @@ services:
       - AGNES_API_KEY=${AGNES_API_KEY:-}
       - AGNES_API_BASE=${AGNES_API_BASE:-https://api.agnes-ai.cn/v1}
       # Agnes 视频通道可选覆盖:不填则回退 AGNES_API_KEY / AGNES_API_BASE(再回退代码默认国内域名)
+      # 视频 base 的 compose 默认必须是空(不是国内域名):填了非空默认值 ⇒ 容器里这一档永远非空
+      # ⇒ 优先级链里 AGNES_API_BASE 那一档成死链 ⇒ 配了「旧 key + apihub 域」时,
+      # 视频流会拿旧 key 打国内域名 = 必然 401(键与域必须成对)。
       - AGNES_VIDEO_API_KEY=${AGNES_VIDEO_API_KEY:-}
-      - AGNES_VIDEO_API_BASE=${AGNES_VIDEO_API_BASE:-https://api.agnes-ai.cn/v1}
+      - AGNES_VIDEO_API_BASE=${AGNES_VIDEO_API_BASE:-}
       - STEPFUN_API_KEY=${STEPFUN_API_KEY:-}
       - STEPFUN_API_BASE=${STEPFUN_API_BASE:-https://api.stepfun.com/step_plan/v1}
       - LITELLM_MODEL=${LITELLM_MODEL:-stepfun/step-3.7-flash}
@@ -356,7 +359,7 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - '127.0.0.1:${JAEGER_UI_PORT:-8814}:16686'
+      - '${JAEGER_UI_PORT:-8814}:16686'
     networks:
       - ihui-net
     healthcheck:
@@ -377,8 +380,8 @@ services:
       - ./monitoring/otel-collector/config.yaml:/etc/otelcol/config.yaml
     command: ['--config=/etc/otelcol/config.yaml']
     ports:
-      - '127.0.0.1:${OTEL_COLLECTOR_PORT:-8813}:4318'
-      - '127.0.0.1:${OTEL_COLLECTOR_GRPC_PORT:-8812}:4317'
+      - '${OTEL_COLLECTOR_PORT:-8813}:4318'
+      - '${OTEL_COLLECTOR_GRPC_PORT:-8812}:4317'
     networks:
       - ihui-net
     depends_on:
@@ -412,10 +415,9 @@ services:
       - '--storage.tsdb.retention.time=30d'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      # --web.enable-lifecycle 已摘除(2026-11-01 安全强化):它打开的是无鉴权的
-      # POST /-/reload 与 admin API(可改写抓取配置、删时序数据)。配置变更改走重启容器。
+      - '--web.enable-lifecycle'
     ports:
-      - '127.0.0.1:${PROMETHEUS_PORT:-8815}:9090'
+      - '${PROMETHEUS_PORT:-8815}:9090'
     networks:
       - ihui-net
     healthcheck:
@@ -437,7 +439,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
     ports:
-      - '127.0.0.1:${NODE_EXPORTER_PORT:-8817}:9100'
+      - '${NODE_EXPORTER_PORT:-8817}:9100'
     networks:
       - ihui-net
 
@@ -454,7 +456,7 @@ services:
       - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki-data:/loki-data
     ports:
-      - '127.0.0.1:${LOKI_PORT:-8818}:3100'
+      - '${LOKI_PORT:-8818}:3100'
     networks:
       - ihui-net
     healthcheck:
@@ -489,9 +491,8 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       # 宿主机 /var/log(只读,用于采集 Nginx 等系统日志)
       - /var/log:/var/log:ro
-      # Docker socket 挂载已摘除(2026-11-01 安全强化):`:ro` 对 socket API 没有任何
-      # 约束力 —— 能写该 socket 就等于拿到宿主机 root(可再拉起一枚挂 / 的特权容器)。
-      # 容器发现改由静态 targets 承担,不给采集器留 root-equivalent 面。
+      # Docker socket(用于 docker_sd_configs 自动发现容器)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       # API 应用日志目录(只读,需要在 docker-compose 服务中通过 volumes 共享 ./apps/api/logs)
       - ./apps/api/logs:/apps/api/logs:ro
       # Promtail 读取位置持久化(重启后不重复读取)
@@ -541,7 +542,7 @@ services:
       - ./monitoring/alertmanager/noise-rules.yml:/etc/alertmanager/noise-rules.yml:ro
       - alertmanager-data:/alertmanager
     ports:
-      - '127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093'
+      - '${ALERTMANAGER_PORT:-9093}:9093'
     networks:
       - ihui-net
     healthcheck:

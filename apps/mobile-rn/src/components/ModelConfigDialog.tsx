@@ -72,7 +72,7 @@ import {
   modelConfigUploadCardStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
 import { TextField } from '@ihui/rn-app'
-import { Tappable } from '@ihui/ui-native'
+import { pressFeedback } from '@ihui/ui-native'
 
 const toUnit = (px: number) => px
 
@@ -232,8 +232,8 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   return (
     <Pressable
       onPress={onPress}
-      className="rounded-md active:opacity-60"
-      style={{
+      className="rounded-md"
+      style={pressFeedback({
         ...modelConfigChipInnerStyle(
           MODEL_CONFIG_CHIP_PAD_X_PX,
           MODEL_CONFIG_CHIP_PAD_Y_PX,
@@ -241,7 +241,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         ),
         ...modelConfigChipItemMarginStyle(MODEL_CONFIG_CHIP_GAP_PX, toUnit),
         backgroundColor: active ? tokens.success.light : tokens.surface.muted,
-      }}
+      })}
     >
       <Text
         className="text-xs"
@@ -322,8 +322,8 @@ function RatioSelector({
       <View className="mb-1.5 flex-row items-center">
         <Pressable
           onPress={() => setSizeIndex(null)}
-          className="mr-1.5 flex-row items-center rounded-md px-2.5 py-1.5 active:opacity-60"
-          style={{ backgroundColor: tokens.surface.muted }}
+          className="mr-1.5 flex-row items-center rounded-md px-2.5 py-1.5"
+          style={pressFeedback({ backgroundColor: tokens.surface.muted })}
           accessibilityLabel={t('common.back')}
         >
           <ChevronLeft size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
@@ -660,8 +660,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
         <Row label={t('profile.cfgTimbre')}>
           <Pressable
             onPress={() => setTimbreOpen((v) => !v)}
-            className="rounded-md px-2.5 py-2 active:opacity-60"
-            style={{ backgroundColor: tokens.surface.muted }}
+            className="rounded-md px-2.5 py-2"
+            style={pressFeedback({ backgroundColor: tokens.surface.muted })}
           >
             <Text className="text-xs" style={{ color: tokens.text.primary }}>
               {voiceList.find((x) => x.id === config.timbre)?.name ?? t('profile.cfgTimbrePick')}
@@ -673,7 +673,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
               style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.card }}
             >
               {voiceList.map((tb) => (
-                <Tappable
+                <Pressable
+                  style={pressFeedback(undefined)}
                   key={tb.id}
                   onPress={() => {
                     update({ timbre: tb.id })
@@ -690,7 +691,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
                   >
                     {tb.name}
                   </Text>
-                </Tappable>
+                </Pressable>
               ))}
             </View>
           ) : null}
@@ -751,11 +752,11 @@ function BasicModelConfigDialog({
             <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
               {t('agent.config')}
             </Text>
-            <Tappable onPress={onClose} hitSlop={8}>
+            <Pressable style={pressFeedback(undefined)} onPress={onClose} hitSlop={8}>
               <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                 {t('common.cancel')}
               </Text>
-            </Tappable>
+            </Pressable>
           </View>
 
           <ScrollView className="max-h-[60%] px-4 pb-2">
@@ -777,8 +778,8 @@ function BasicModelConfigDialog({
           <View className="flex-row gap-2 px-4 pb-4 pt-2">
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.surface.muted }}
+              className="flex-1 items-center rounded-md py-2.5"
+              style={pressFeedback({ backgroundColor: tokens.surface.muted })}
             >
               <Text className="text-xs" style={{ color: tokens.text.secondary }}>
                 {t('common.cancel')}
@@ -786,8 +787,8 @@ function BasicModelConfigDialog({
             </Pressable>
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.success.DEFAULT }}
+              className="flex-1 items-center rounded-md py-2.5"
+              style={pressFeedback({ backgroundColor: tokens.success.DEFAULT })}
             >
               <Text className="text-xs text-white">{t('common.save')}</Text>
             </Pressable>
@@ -898,11 +899,11 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
             <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
               {t('agent.config')}
             </Text>
-            <Tappable onPress={onClose} hitSlop={8}>
+            <Pressable style={pressFeedback(undefined)} onPress={onClose} hitSlop={8}>
               <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                 {t('common.cancel')}
               </Text>
-            </Tappable>
+            </Pressable>
           </View>
 
           <ScrollView className="max-h-[60%] px-4 pb-2">
@@ -971,8 +972,8 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
           <View className="flex-row gap-2 px-4 pb-4 pt-2">
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.surface.muted }}
+              className="flex-1 items-center rounded-md py-2.5"
+              style={pressFeedback({ backgroundColor: tokens.surface.muted })}
             >
               <Text className="text-xs" style={{ color: tokens.text.secondary }}>
                 {t('common.cancel')}
@@ -980,8 +981,8 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
             </Pressable>
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.success.DEFAULT }}
+              className="flex-1 items-center rounded-md py-2.5"
+              style={pressFeedback({ backgroundColor: tokens.success.DEFAULT })}
             >
               <Text className="text-xs text-white">{t('common.save')}</Text>
             </Pressable>
@@ -1010,19 +1011,23 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
                   选择音色
                 </Text>
-                <Tappable onPress={() => setShowAudioMenu(false)} hitSlop={8}>
+                <Pressable
+                  style={pressFeedback(undefined)}
+                  onPress={() => setShowAudioMenu(false)}
+                  hitSlop={8}
+                >
                   <X size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
-                </Tappable>
+                </Pressable>
               </View>
 
               {/* 菜单项 */}
               <Pressable
                 onPress={handleSelectVoice}
-                className="flex-row items-center active:opacity-60"
-                style={{
+                className="flex-row items-center"
+                style={pressFeedback({
                   ...modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit),
                   ...modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit),
-                }}
+                })}
               >
                 <View
                   className="mr-3 items-center justify-center rounded-lg"
@@ -1046,11 +1051,11 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
               <Pressable
                 onPress={handleCloneVoice}
-                className="flex-row items-center active:opacity-60"
-                style={{
+                className="flex-row items-center"
+                style={pressFeedback({
                   ...modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit),
                   ...modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit),
-                }}
+                })}
               >
                 <View
                   className="mr-3 items-center justify-center rounded-lg"
@@ -1100,9 +1105,13 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
                     音色克隆
                   </Text>
-                  <Tappable onPress={handleCloseRecordDialog} hitSlop={8}>
+                  <Pressable
+                    style={pressFeedback(undefined)}
+                    onPress={handleCloseRecordDialog}
+                    hitSlop={8}
+                  >
                     <X size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
-                  </Tappable>
+                  </Pressable>
                 </View>
 
                 {/* 录音内容 */}
@@ -1132,21 +1141,23 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
                   {/* 录音按钮 */}
                   <View className="mb-3 items-center">
-                    <Tappable
+                    <Pressable
                       onPress={isRecording ? handleStopRecord : handleStartRecord}
                       className={
                         isRecording
                           ? 'items-center justify-center rounded-xl bg-red-500'
                           : 'items-center justify-center rounded-xl bg-emerald-500'
                       }
-                      style={modelConfigSquareStyle(MODEL_CONFIG_RECORD_BUTTON_PX, toUnit)}
+                      style={pressFeedback(
+                        modelConfigSquareStyle(MODEL_CONFIG_RECORD_BUTTON_PX, toUnit),
+                      )}
                     >
                       {isRecording ? (
                         <Square size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
                       ) : (
                         <Mic size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
                       )}
-                    </Tappable>
+                    </Pressable>
                     <Text className="mt-2 text-xs" style={{ color: tokens.text.tertiary }}>
                       {isRecording ? t('profile.cfgStopRecord') : t('profile.cfgStartRecord')}
                     </Text>
@@ -1182,11 +1193,11 @@ function UploadButton({
     <View className="mr-1.5 mb-1.5" style={modelConfigUploadCardStyle(toUnit)}>
       <Pressable
         onPress={onPress}
-        className="items-center rounded-lg border border-dashed py-2 active:opacity-60"
-        style={{
+        className="items-center rounded-lg border border-dashed py-2"
+        style={pressFeedback({
           borderColor: tokens.success.lighter,
           backgroundColor: tokens.success.light,
-        }}
+        })}
       >
         <View
           className="mb-1 items-center justify-center"
@@ -1209,8 +1220,11 @@ function UploadButton({
             onDelete()
           }}
           hitSlop={4}
-          className="absolute -top-2 -right-2 items-center justify-center rounded-2xl active:opacity-60"
-          style={{ ...modelConfigDeleteBadgeStyle(toUnit), backgroundColor: tokens.surface.card }}
+          className="absolute -top-2 -right-2 items-center justify-center rounded-2xl"
+          style={pressFeedback({
+            ...modelConfigDeleteBadgeStyle(toUnit),
+            backgroundColor: tokens.surface.card,
+          })}
         >
           <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
             ×
@@ -1246,11 +1260,11 @@ function ModelSelecterDialog({
             <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
               选择模型
             </Text>
-            <Tappable onPress={onClose} hitSlop={8}>
+            <Pressable style={pressFeedback(undefined)} onPress={onClose} hitSlop={8}>
               <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                 {t('common.cancel')}
               </Text>
-            </Tappable>
+            </Pressable>
           </View>
 
           {/* 模型列表 */}
@@ -1268,10 +1282,10 @@ function ModelSelecterDialog({
                   <Pressable
                     key={model.id}
                     onPress={() => handleSelect(model.id)}
-                    className="mb-2 rounded-md px-3 py-3 active:opacity-60"
-                    style={{
+                    className="mb-2 rounded-md px-3 py-3"
+                    style={pressFeedback({
                       backgroundColor: isActive ? tokens.success.light : tokens.surface.muted,
-                    }}
+                    })}
                   >
                     <Text
                       className="text-sm font-medium"
@@ -1294,8 +1308,8 @@ function ModelSelecterDialog({
           <View className="px-4 pb-4 pt-2">
             <Pressable
               onPress={onClose}
-              className="items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.surface.muted }}
+              className="items-center rounded-md py-2.5"
+              style={pressFeedback({ backgroundColor: tokens.surface.muted })}
             >
               <Text className="text-xs" style={{ color: tokens.text.secondary }}>
                 {t('common.cancel')}

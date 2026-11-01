@@ -22,7 +22,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
-import { encryptEnvelope, traeUserDataDirs } from './trae-auth-extract.mjs'
+import { decryptEnvelope, encryptEnvelope, traeUserDataDirs } from './trae-auth-extract.mjs'
 import { listProductPids } from './trae-client-process.mjs'
 
 /** storage.json 里 IDE 会话凭据键(与 trae-auth-extract 的 pickAuthEnvelopeKeys 同键面) */
@@ -56,7 +56,7 @@ export function parseArgs(argv) {
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--list' || a === '--current' || a === '--to') {
+    if (a === '--list' || a === '--current' || a === '--to' || a === '--restore') {
       const mode = a.slice(2)
       if (options.mode) {
         options.error = `模式互斥:已指定 --${options.mode},又给了 ${a}`
@@ -128,14 +128,46 @@ export function buildClientUserInfo(input) {
 }
 
 /**
+ * 设备档槽位的占用关系(纯函数,2026-11-01 立)。
+ *
+ * 立因是实测形态,不是假想:`iCubeAuthInfo://icube-dc:<deviceId>` 这个槽位**按 deviceId 寻址**,
+ * 而 deviceId 是「整机一份」—— 本机 storage.json 只有一枚 dc 键(1338580922808328),
+ * 号池里却有 2 行 trae 共用它、且各持一份不同的设备私钥(secrets 档 2 枚)。
+ * 于是切到 B 号会把 B 的私钥写进与 A 同一个槽位:写入本身成功,但**A 的设备档就此丢失**,
+ * 而 A 下次换票要的就是那份私钥 —— 症状要到 A 刷不动那天才暴露,现场只会看到"莫名其妙登不上"。
+ *
+ * 比的是**解密后的密钥材料**而不是信封字节:信封每次用随机 session key 重新封装,
+ * 同一份私钥两次加密的密文并不相等(拿密文比会天天误报"覆盖了别人的档")。
+ *
+ * 返回:'none'(槽位原本没有)/ 'same'(就是这一号的)/ 'other'(装的是另一号的材料)/
+ * 'undetermined'(槽位有内容但解不开 —— 不猜,如实点名)。
+ */
+export function deviceDocRelationOf(priorEnvelope, device) {
+  if (typeof priorEnvelope !== 'string' || priorEnvelope === '') return 'none'
+  const wantPriv = String(device?.deviceKeyPem ?? '').replace(/\s+/g, '')
+  if (!wantPriv) return 'undetermined'
+  let prior
+  try {
+    prior = JSON.parse(decryptEnvelope(priorEnvelope))
+  } catch {
+    return 'undetermined'
+  }
+  const havePriv = String(prior?.privateKeyPEM ?? '').replace(/\s+/g, '')
+  if (!havePriv) return 'undetermined'
+  return havePriv === wantPriv ? 'same' : 'other'
+}
+
+/**
  * storage.json 补丁(纯函数,不改入参):写 AUTH 信封 + 设备齐时写 dc 信封,其余键原样。
  * device = {deviceId, deviceKeyPem, devicePubPem};缺任一项 ⇒ 不动 dc 键(客户端沿用现机设备档)。
+ * 额外回报 `deviceDoc`:本次是否踩到了别人的设备档槽位(判据见 deviceDocRelationOf)。
  */
 export function buildStoragePatch(store, { userInfo, device }) {
   const next = { ...(store || {}) }
   const changed = []
   next[AUTH_KEY] = encryptEnvelope(JSON.stringify(userInfo))
   changed.push(AUTH_KEY)
+  let deviceDoc = null
   if (
     device &&
     typeof device.deviceId === 'string' &&
@@ -146,12 +178,13 @@ export function buildStoragePatch(store, { userInfo, device }) {
     device.devicePubPem
   ) {
     const key = DC_KEY_PREFIX + device.deviceId
+    deviceDoc = { key, relation: deviceDocRelationOf(next[key], device) }
     next[key] = encryptEnvelope(
       JSON.stringify({ privateKeyPEM: device.deviceKeyPem, publicKeyPEM: device.devicePubPem }),
     )
     changed.push(key)
   }
-  return { next, changed }
+  return { next, changed, deviceDoc }
 }
 
 /** 本机 storage.json 落点:traeUserDataDirs 候选序里第一个存在的文件;全无 ⇒ null */
@@ -196,6 +229,67 @@ export function writeStorageAtomic(file, store) {
   fs.writeFileSync(tmp, JSON.stringify(store), 'utf8')
   fs.renameSync(tmp, file)
   return bak
+}
+
+/**
+ * 还原上一次切号写回(2026-11-01 立)。
+ *
+ * 立因:一键切号覆盖的是**按 deviceId 寻址**的设备档槽位,而同机多号共用同一枚 deviceId
+ * (本机实测只有一枚 dc 键 1338580922808328,池里却有 2 行 trae 各持一份私钥)。
+ * 于是"备份在 .pre-switch.bak"这句话只有配上还原口才算备份 —— 否则踩了别人的档只能重新登录找回,
+ * 而机主已经没有验证码这条路。
+ *
+ * 逐字节 copy,不做 JSON.parse→stringify 往返:重排会改掉本次无关的那些键的字节形态
+ * (storage.json 里其余条目是客户端自己的排版,改它等于制造第二处损坏)。
+ */
+export function restoreStorage(storageFile, bakFile = `${storageFile}.pre-switch.bak`) {
+  const out = { ok: false, reason: null, file: storageFile, from: bakFile, kept: null }
+  if (!fs.existsSync(bakFile)) {
+    out.reason = `还原件不在位:${bakFile}(还没切过号,或已被清理)`
+    return out
+  }
+  let want
+  try {
+    want = fs.readFileSync(bakFile)
+  } catch (e) {
+    out.reason = `读还原件失败:${e instanceof Error ? e.message : String(e)}`
+    return out
+  }
+  try {
+    JSON.parse(want.toString('utf8'))
+  } catch {
+    out.reason = '还原件不是合法 JSON(坏了 ⇒ 不敢写回,交人工核对)'
+    return out
+  }
+  const kept = `${storageFile}.pre-restore.bak`
+  if (fs.existsSync(storageFile)) {
+    try {
+      fs.copyFileSync(storageFile, kept)
+      out.kept = kept
+    } catch (e) {
+      out.reason = `留当前态失败:${e instanceof Error ? e.message : String(e)}`
+      return out
+    }
+  }
+  try {
+    fs.copyFileSync(bakFile, storageFile)
+  } catch (e) {
+    out.reason = `写回失败:${e instanceof Error ? e.message : String(e)}`
+    return out
+  }
+  let now
+  try {
+    now = fs.readFileSync(storageFile)
+  } catch (e) {
+    out.reason = `写后回读失败:${e instanceof Error ? e.message : String(e)}`
+    return out
+  }
+  if (Buffer.compare(now, want) !== 0) {
+    out.reason = '写后回读与还原件逐字节不一致(当前态留在 ' + (kept ?? '未留') + ')'
+    return out
+  }
+  out.ok = true
+  return out
 }
 
 /** 客户端在跑吗(tasklist 按映像名过滤;查询失败按"没在跑"处理,写回前有 existsSync 兜底) */
@@ -282,6 +376,8 @@ export const __test__ = {
   iso,
   buildClientUserInfo,
   buildStoragePatch,
+  deviceDocRelationOf,
+  restoreStorage,
   findStorageFile,
   findStorageFileForProduct,
   isProductRunning,

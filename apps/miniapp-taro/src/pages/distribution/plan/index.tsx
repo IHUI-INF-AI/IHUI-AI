@@ -148,9 +148,7 @@ export default function DistributionPlan() {
             key={row.level}
             className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx]"
           >
-            <Text className="flex-1 text-body font-medium text-foreground">
-              {row.level}
-            </Text>
+            <Text className="flex-1 text-body font-medium text-foreground">{row.level}</Text>
             <Text className="text-title font-bold text-[var(--color-primary)] min-w-[88rpx]">
               {row.rate}
             </Text>
@@ -158,7 +156,7 @@ export default function DistributionPlan() {
         ))}
         {!rateRows.length ? (
           <Text className="block text-center text-body text-muted-foreground py-[16rpx]">
-            {tt('common.empty', '暂无数据')}
+            {tt('earnCommission.rateEmpty', '暂无分佣比例')}
           </Text>
         ) : null}
       </View>

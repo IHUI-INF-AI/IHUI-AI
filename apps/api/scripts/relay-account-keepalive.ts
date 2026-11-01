@@ -57,6 +57,10 @@ export interface MarkArgs {
   once: boolean
   json: boolean
   help: boolean
+  /** 显式接管:<uid>(唯一"现在就证明续期链路活着"的出口) */
+  takeover?: string
+  /** 越过"客户端心跳新鲜就不动"的让位闸(会顶掉本机登录态,须显式给) */
+  force?: boolean
   error: null | string
 }
 
@@ -77,9 +81,16 @@ export function parseArgs(argv: string[]): MarkArgs {
     else if (a === '--once') out.once = true
     else if (a === '--json') out.json = true
     else if (a === '--off') out.off = true
+    else if (a === '--force') out.force = true
     else if (a === '--help' || a === '-h') out.help = true
     else if (a === '--') continue
-    else if (a === '--mark' || a === '--provider' || a === '--explain' || a === '--client-active') {
+    else if (
+      a === '--mark' ||
+      a === '--provider' ||
+      a === '--explain' ||
+      a === '--takeover' ||
+      a === '--client-active'
+    ) {
       const v = argv[i + 1]
       if (typeof v !== 'string' || v === '' || v.startsWith('--')) {
         out.error = `${a} 需要一个值`
@@ -87,6 +98,7 @@ export function parseArgs(argv: string[]): MarkArgs {
       }
       if (a === '--mark') out.mark = v
       else if (a === '--explain') out.explain = v
+      else if (a === '--takeover') out.takeover = v
       else if (a === '--client-active') out.clientActiveAt = v
       else out.provider = v
       i++
@@ -169,6 +181,17 @@ export interface KeepAliveRow {
   refreshFailureCount: number
   credVersion: number
   clientActiveAt: string | null
+  /**
+   * 末次**池侧接管续期**时刻(ISO);从未发生 ⇒ null。
+   * 2026-11-01 立:交付时如实登记的盲区是「池能不能刷 Trae 票」没有正例 —— `lastRefreshAt`
+   * 回答不了"接管有没有真发生过",而它是这枚号唯一的续命腿。证据由程序自己落在这枚行上
+   * (jsonb 留痕),不靠仓内文件台账:承载体可能跑在另一棵树,文件会读成"从未发生"。
+   */
+  takeoverAt: string | null
+  /** 接管累计次数(读不到留痕 ⇒ 0;0 只说明"没有留痕",不等于"这枚号没被刷过以外的任何结论") */
+  takeoverCount: number
+  /** 末次接管是不是 rt 死线抢刷(客户端心跳仍新鲜时被接管) */
+  takeoverForced: boolean
 }
 
 export async function listKeepAliveForever(): Promise<KeepAliveRow[]> {
@@ -193,6 +216,7 @@ export async function listKeepAliveForever(): Promise<KeepAliveRow[]> {
     .where(scheduler.keepAliveForeverCondition())
   return rows.map((r) => {
     const meta = (r.extraMetadata ?? {}) as Record<string, unknown>
+    const trail = scheduler.takeoverTrailOf({ extraMetadata: r.extraMetadata })
     return {
       id: r.id,
       providerCode: r.providerCode,
@@ -209,6 +233,10 @@ export async function listKeepAliveForever(): Promise<KeepAliveRow[]> {
       credVersion: r.credVersion,
       clientActiveAt:
         typeof meta[CLIENT_ACTIVE_AT_KEY] === 'string' ? meta[CLIENT_ACTIVE_AT_KEY] : null,
+      // 读数一律经调度层的具名出口取(§0.6:键名与形态的判据只许一份)
+      takeoverAt: trail?.at ?? null,
+      takeoverCount: scheduler.takeoverCountOf({ extraMetadata: r.extraMetadata }),
+      takeoverForced: trail?.forced ?? false,
     }
   })
 }
@@ -259,6 +287,13 @@ export async function explainAccount(
     keepAliveForever: scheduler.keepAliveForeverOf(row),
     clientActiveAt: scheduler.clientActiveAtOf(row),
     deferRefresh: scheduler.shouldDeferRefresh(row, now),
+    // rt 死线这一维单独摊开:让位/接管只读得到布尔,答不出"为什么这轮不让位了"
+    rtGuardHours: scheduler.rtExpiryGuardHours(),
+    rtDeadlineNear: scheduler.rtDeadlineNearOf(row, now),
+    clientRenewingNow: scheduler.clientRenewingNowOf(row, now),
+    forcedTakeover: scheduler.forcedTakeoverOf(row, now),
+    takeoverTrail: scheduler.takeoverTrailOf(row),
+    takeoverCount: scheduler.takeoverCountOf(row),
     adapterRegistered: Boolean(adapter),
     adapterCanRefresh: typeof adapter?.refreshToken === 'function',
     keepaliveIdleDays: scheduler.keepaliveIdleDays(),
@@ -272,20 +307,130 @@ export async function explainAccount(
   }
 }
 
+/**
+ * 显式接管的闸门(纯函数,可测)。
+ *
+ * 存在理由:交付时如实登记过「没真触发过一次池接管续期」——「池能刷 Trae 票」这件事只有反证
+ * (2026-10-24 那次池刷成功把客户端顶了)和读数(adapterCanRefresh),没有正例。补一个可审计的
+ * 手动出口才有实证,但这个出口每次动手都会改变机主唯一登录态的归属,所以闸必须写成品德明确的
+ * 四条,而不是靠调用方自觉:
+ *  · 运营池那行(§5 归属闸:私有副本不由这条腿代管);
+ *  · 未摘除(摘除态归解摘退避轮管,抢在这里刷等于绕过 6h 退避死撞鉴权点);
+ *  · 适配器真的有刷新能力(否则白跑一趟还把失败计数叠上去);
+ *  · 已登记永久保活(普通号归四档巡检管,本出口只管机主那枚"登不回来"的号);
+ *  · 心跳新鲜且 rt 未进死线 ⇒ 让位中,除非 `--force` 显式授权顶掉正在用的客户端。
+ */
+export function takeoverGateOf(
+  input: {
+    found: boolean
+    registered: boolean
+    clientRenewing: boolean
+    rtDeadlineNear: boolean
+    adapterCanRefresh: boolean
+    tempUnschedulable: boolean
+  },
+  force = false,
+): { allowed: boolean; reason: string | null } {
+  if (!input.found) return { allowed: false, reason: '运营池无此 uid(私有副本不在本出口射程)' }
+  if (!input.adapterCanRefresh)
+    return {
+      allowed: false,
+      reason: '适配器无刷新能力 ⇒ 这条腿本来刷不动,不该由手动出口去叠失败计数',
+    }
+  if (input.tempUnschedulable)
+    return { allowed: false, reason: '该号已被摘除,归解摘退避轮(默认 6h)重新纳入,本出口不绕过退避' }
+  if (!input.registered)
+    return {
+      allowed: false,
+      reason: '该号未登记永久保活;普通号请走调度巡检四档,本出口只管机主登不回来的那枚',
+    }
+  if (input.clientRenewing && !input.rtDeadlineNear && !force)
+    return {
+      allowed: false,
+      reason:
+        '本机客户端心跳新鲜(让位中)。要强行接管请显式 --force —— 它会把正在用的 Trae 顶下线,' +
+        '下次打开前需先 node scripts/switch-trae-client-account.mjs --to <uid> 把新票取回',
+    }
+  return { allowed: true, reason: null }
+}
+
+/**
+ * 显式让池接管续一次票(唯一"现在就证明续期链路活着"的出口)。
+ * 刷新走 `scheduler.refreshOne` —— 回写/解摘/失败累计/接管留痕的口径与巡检完全同一条,
+ * 本出口不写第二份(§0.6);成功与否都回读被审行自证(结论以库上现读到的为准,不以退出码冒充)。
+ */
+export async function takeoverNow(
+  providerCode: string,
+  uid: string,
+  force = false,
+  now = new Date(),
+): Promise<Record<string, unknown>> {
+  const readRow = async () =>
+    (
+      await dbRead
+        .select()
+        .from(aiRelayAccountPool)
+        .where(
+          and(
+            eq(aiRelayAccountPool.providerCode, providerCode),
+            eq(aiRelayAccountPool.uid, uid),
+            isNull(aiRelayAccountPool.ownerUserId),
+          ),
+        )
+        .limit(1)
+    )[0]
+  const row = await readRow()
+  const adapter = getRelayAdapter(providerCode)
+  const gate = takeoverGateOf(
+    {
+      found: Boolean(row),
+      registered: row ? scheduler.keepAliveForeverOf(row) : false,
+      clientRenewing: row ? scheduler.clientRenewingNowOf(row, now) : false,
+      rtDeadlineNear: row ? scheduler.rtDeadlineNearOf(row, now) : false,
+      adapterCanRefresh: typeof adapter?.refreshToken === 'function',
+      tempUnschedulable: row?.tempUnschedulable === true,
+    },
+    force,
+  )
+  if (!gate.allowed || !row) {
+    return { ok: false, stage: 'refused', reason: gate.reason, providerCode, uid }
+  }
+  const credBefore = row.credVersion
+  const refreshed = await scheduler.refreshOne(row)
+  const after = await readRow()
+  const trail = after ? scheduler.takeoverTrailOf(after) : null
+  return {
+    ok: refreshed,
+    stage: refreshed ? 'refreshed' : 'refresh-failed',
+    providerCode,
+    uid,
+    credBefore,
+    credAfter: after?.credVersion ?? null,
+    forced: scheduler.forcedTakeoverOf(row, now),
+    takeoverTrail: trail,
+    tokenExpiresAt: after?.tokenExpiresAt ?? null,
+    refreshExpiresAt: after?.refreshExpiresAt ?? null,
+    refreshFailureCount: after?.refreshFailureCount ?? null,
+    lastErrorMessage: after?.lastErrorMessage ?? null,
+    readBackMatches: Boolean(after) && after?.credVersion !== credBefore,
+  }
+}
+
 export async function main(argv: string[]): Promise<number> {
   const a = parseArgs(argv)
   if (a.error) {
     process.stderr.write(`❌ ${a.error}(未判定)\n`)
     return 2
   }
-  if (a.help || (!a.mark && !a.status && !a.once && !a.explain)) {
+  if (a.help || (!a.mark && !a.status && !a.once && !a.explain && !a.takeover)) {
     process.stderr.write(
       '用法: npx tsx apps/api/scripts/relay-account-keepalive.ts ' +
-        '--status|--mark <uid>|--explain <uid>|--once [--provider trae] [--off] [--json]\n' +
-        '  --status   列出永久保活号(零凭据)\n' +
-        '  --mark     登记/取消(--off)永久保活(运营池那行)\n' +
-        '  --explain  单号诊断:逐闸摊开它为什么没被续期(纯读,不写库不打上游)\n' +
-        '  --once     跑一轮号池巡检(复用 sweepAccountPool:临期/空闲保活/定级/恢复/解摘)\n',
+        '--status|--mark <uid>|--explain <uid>|--takeover <uid>|--once [--provider trae] [--off] [--force] [--json]\n' +
+        '  --status    列出永久保活号(零凭据,含池侧接管次数与末次时刻)\n' +
+        '  --mark      登记/取消(--off)永久保活(运营池那行)\n' +
+        '  --explain   单号诊断:逐闸摊开它为什么没被续期(纯读,不写库不打上游)\n' +
+        '  --once      跑一轮号池巡检(复用 sweepAccountPool:临期/空闲保活/定级/恢复/解摘)\n' +
+        '  --takeover  显式让池接管续一次票(有闸:心跳新鲜需 --force;成功后回读自证)\n',
     )
     return a.help ? 0 : 2
   }
@@ -304,6 +449,24 @@ export async function main(argv: string[]): Promise<number> {
         `再凭证=${info.recredentialable} 健康可调度=${info.healthIsSchedulable} 摘除=${info.tempUnschedulable}\n`,
     )
     return info.ok ? 0 : 1
+  }
+
+  if (a.takeover) {
+    // 手动出口同样要先落心跳:让位判据读的是库里那条心跳,而 api 不在时它是陈旧的 ——
+    // 不补这一笔,「客户端其实在跑」会被读成「客户端静默」,闸门形同虚设(代价不对称同 --once)。
+    if (a.clientActiveAt) {
+      await touchClientHeartbeat([a.takeover], a.clientActiveAt, false).catch(() => 0)
+    }
+    const r = await takeoverNow(a.provider, a.takeover, a.force === true)
+    process.stdout.write(`${JSON.stringify(r)}\n`)
+    process.stderr.write(
+      r.ok
+        ? `✅ 接管续期成功:${a.provider}/${a.takeover} cred ${r.credBefore}→${r.credAfter} ` +
+            `token到期=${r.tokenExpiresAt ?? '-'} rt到期=${r.refreshExpiresAt ?? '-'} ` +
+            `末次接管留痕=${r.takeoverTrail ? (r.takeoverTrail as { at: string }).at : '(未落)'}\n`
+        : `❌ 接管未落地(stage=${r.stage}):${r.reason ?? r.lastErrorMessage ?? '上游未回报新票'}\n`,
+    )
+    return r.ok ? 0 : 1
   }
 
   if (a.mark) {
@@ -341,7 +504,11 @@ export async function main(argv: string[]): Promise<number> {
     // 塞不进"哪枚号被解摘/摘除"这种明细。所以读数另取一次:永久保活号的当前状态由数据面
     // 现读(listKeepAliveForever),薄壳据此判是否发信 —— 判据不住第二份实现里。
     const keepAlive = await listKeepAliveForever()
-    process.stdout.write(`${JSON.stringify({ ok: true, sweep: res, heartbeated, keepAlive })}\n`)
+    // rtGuardHours 随结论一起出:薄壳据此判「哪些号进了 rt 死线」,阈值单源仍在调度层
+    // (§0.1 数字现读;在薄壳里抄一个 72,下月两边漂开时症状是"该喊的没喊")。
+    process.stdout.write(
+      `${JSON.stringify({ ok: true, sweep: res, heartbeated, keepAlive, rtGuardHours: scheduler.rtExpiryGuardHours() })}\n`,
+    )
     process.stderr.write(
       `巡检完成: refreshed=${res.refreshed} failed=${res.refreshFailed} skipped=${res.refreshSkipped} ` +
         `keepalive=${res.keepalive} healthChecked=${res.healthChecked} recovered=${res.healthRecovered} ` +
@@ -351,15 +518,19 @@ export async function main(argv: string[]): Promise<number> {
     for (const r of keepAlive) {
       process.stderr.write(
         `  ${r.providerCode}/${r.uid} 健康=${r.healthStatus} 摘除=${r.tempUnschedulable ? '是' : '否'} ` +
-          `失败=${r.refreshFailureCount} token到期=${r.tokenExpiresAt ?? '-'}\n`,
+          `失败=${r.refreshFailureCount} token到期=${r.tokenExpiresAt ?? '-'} ` +
+          `接管=${r.takeoverCount} 末次=${r.takeoverAt ?? '(从未)'}${r.takeoverForced ? ' [rt死线抢刷]' : ''}\n`,
       )
     }
     return 0
   }
 
   const rows = await listKeepAliveForever()
+  const guardHours = scheduler.rtExpiryGuardHours()
   if (a.json) {
-    process.stdout.write(`${JSON.stringify({ ok: true, total: rows.length, rows })}\n`)
+    process.stdout.write(
+      `${JSON.stringify({ ok: true, total: rows.length, rtGuardHours: guardHours, rows })}\n`,
+    )
   } else {
     process.stderr.write(`永久保活登记数 = ${rows.length}\n`)
     for (const r of rows) {
@@ -367,7 +538,10 @@ export async function main(argv: string[]): Promise<number> {
         `  ${r.providerCode}/${r.uid} ${r.name} 健康=${r.healthStatus} 启用=${r.isEnabled ? '是' : '否'} ` +
           `摘除=${r.tempUnschedulable ? '是' : '否'} token到期=${r.tokenExpiresAt ?? '-'} ` +
           `rt到期=${r.refreshExpiresAt ?? '-'} 客户端心跳=${r.clientActiveAt ?? '-'} ` +
-          `失败=${r.refreshFailureCount}\n`,
+          `失败=${r.refreshFailureCount}\n` +
+          `    池侧接管=${r.takeoverCount} 次,末次=${r.takeoverAt ?? '(从未发生)'}${
+            r.takeoverForced ? ' [心跳仍新鲜时被抢刷:下次开客户端先一键切号]' : ''
+          } rt守护窗=${guardHours ?? '关'}h\n`,
       )
     }
   }

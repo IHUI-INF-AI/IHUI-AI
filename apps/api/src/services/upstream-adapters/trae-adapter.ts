@@ -788,6 +788,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
             token: payload.token,
             refreshToken: payload.refreshToken,
             expiresAt: payload.expiresAt ?? null,
+            refreshExpiresAt: payload.refreshExpiresAt ?? null,
           }
         }
         const text = await resProof.text().catch(() => '')
@@ -822,6 +823,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
       refreshToken: payload.refreshToken,
       // 上游未给/给不出可解析的过期时刻 → 保守兜底 24h(临期刷新 + 401 自愈双保险)
       expiresAt: payload.expiresAt ?? new Date(Date.now() + 24 * 3600_000),
+      // rt 终点不做同类兜底:编造一个未来时刻正是本仓点名的「列记未来时刻而上游回 401」型
+      refreshExpiresAt: payload.refreshExpiresAt ?? null,
     }
   },
 

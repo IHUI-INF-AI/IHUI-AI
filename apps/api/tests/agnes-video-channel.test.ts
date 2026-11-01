@@ -13,12 +13,62 @@
  *   正是为了让付费视频流能挂到另一条队列上,而不是为了让它"换个 key 绕过限流"。
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
   VENDORS,
   resolveAgnesVideoChannel,
   agnesVideoPollUrl,
   pickAgnesVideoUrl,
 } from '../src/routes/ai-vendors/_shared.js'
+
+const REPO = resolve(__dirname, '../../..')
+
+/**
+ * 配置面不变量(2026-10-30 立,治本票自己踩过的那一格):
+ * 视频 base 的**配置默认值必须留空**,否则优先级链里 AGNES_API_BASE 那一档成死链 ——
+ * 配了「旧 key + apihub 域」时,视频流会拿旧 key 打国内域名 = 必然 401(键与域必须成对)。
+ * 这条只钉「默认值不得非空」,不断言具体域名(域名随账号走)。
+ *
+ * 两种登记形态各用各的解析:
+ *   compose 形态 `- AGNES_VIDEO_API_BASE=${AGNES_VIDEO_API_BASE:-<默认>}` ⇒ 默认值在花括号里;
+ *   env 形态     `AGNES_VIDEO_API_BASE=<值>`                          ⇒ 值在第一个等号之后。
+ */
+function composeDefaultOf(line: string): string {
+  const m = line.match(/\$\{AGNES_VIDEO_API_BASE:-([^}]*)\}/)
+  return (m?.[1] ?? '').trim()
+}
+
+function envValueOf(line: string): string {
+  const i = line.indexOf('=')
+  return i < 0 ? '' : line.slice(i + 1).trim()
+}
+
+describe('AGNES_VIDEO_API_BASE 的配置面默认值必须留空', () => {
+  it('docker-compose.yml:AGNES_VIDEO_API_BASE 的 compose 默认不得写死域名', () => {
+    const text = readFileSync(resolve(REPO, 'docker-compose.yml'), 'utf8')
+    const line = text.split('\n').find((l) => l.includes('AGNES_VIDEO_API_BASE='))
+    expect(line).toBeTruthy()
+    expect(line).toContain('${AGNES_VIDEO_API_BASE:-}')
+    expect(composeDefaultOf(line)).toBe('')
+  })
+
+  it('.env.production.example:AGNES_VIDEO_API_BASE 留空(不填则回退 AGNES_API_BASE)', () => {
+    const text = readFileSync(resolve(REPO, '.env.production.example'), 'utf8')
+    const line = text.split('\n').find((l) => l.startsWith('AGNES_VIDEO_API_BASE='))
+    expect(line).toBeTruthy()
+    expect(envValueOf(line)).toBe('')
+  })
+
+  it('.env.example 与 apps/api/.env.example 两处同样留空', () => {
+    for (const f of ['.env.example', 'apps/api/.env.example']) {
+      const text = readFileSync(resolve(REPO, f), 'utf8')
+      const line = text.split('\n').find((l) => l.startsWith('AGNES_VIDEO_API_BASE='))
+      expect(line, `${f} 缺 AGNES_VIDEO_API_BASE 登记`).toBeTruthy()
+      expect(envValueOf(line), `${f} 的 AGNES_VIDEO_API_BASE 不得写死域名`).toBe('')
+    }
+  })
+})
 
 const AGNES_ENV_KEYS = [
   'AGNES_API_KEY',

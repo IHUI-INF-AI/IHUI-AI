@@ -11,6 +11,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ as S } from '../sync-trae-client-session.mjs'
+import { toPoolAccount } from '../lib/trae-auth-extract.mjs'
 
 test('① 参数面:--dry-run/--json 合法;未知参数 ⇒ 未判定;--help 走帮助', () => {
   assert.deepEqual(S.parseArgs(['--dry-run']).dryRun, true)
@@ -22,28 +23,31 @@ test('① 参数面:--dry-run/--json 合法;未知参数 ⇒ 未判定;--help �
   assert.equal(S.parseArgs(['--', '--dry-run']).dryRun, true)
 })
 
-test('② 载荷形状:providerCode=trae、accounts 只留 uid/token/refreshToken/expiresAt 四键', () => {
-  const payload = S.buildPayload({
-    providerCode: 'trae',
-    accounts: [
-      {
-        uid: 'u1',
-        token: 't',
-        refreshToken: 'rt',
-        expiresAt: '2026-11-07T00:00:00.000Z',
-        refreshExpiresAt: '2027-04-21T00:00:00.000Z',
-        extra: 'x',
-      },
-    ],
-    meta: { uid: 'u1', tokenFingerprint: 'ab12' },
+test('② 载荷形状:账号键集含 refreshTokenExpiresAt(夹具取自提取器真产出,不手抄键名)', () => {
+  // 手抄夹具会照抄 wrapper 的错拼写:上一版夹具写的是 refreshExpiresAt,而提取器账号侧
+  // 真产出的是 refreshTokenExpiresAt ⇒ 生产端与消费端对不上,这条断链在测试里照样绿
+  // (2026-11-01 实测:客户端 storage 里 rt 到期=2027-04-29,库里该列恒 NULL)。
+  const extracted = toPoolAccount({
+    userId: 'u1',
+    token: 't',
+    refreshToken: 'rt',
+    expiredAt: '2026-11-07T00:00:00.000Z',
+    refreshExpiredAt: '2027-04-21T00:00:00.000Z',
   })
+  const payload = S.buildPayload(extracted)
   assert.deepEqual(
     Object.keys(payload.accounts[0]).sort(),
-    ['expiresAt', 'refreshExpiresAt', 'refreshToken', 'token', 'uid'].sort(),
+    ['expiresAt', 'refreshToken', 'refreshTokenExpiresAt', 'sessionTemplate', 'token', 'uid'].sort(),
   )
+  assert.equal(payload.accounts[0].refreshTokenExpiresAt, '2027-04-21T00:00:00.000Z')
   assert.equal(payload.providerCode, 'trae')
   assert.equal(payload.accounts[0].refreshToken, 'rt')
-  assert.equal(payload.meta.tokenFingerprint, 'ab12')
+  assert.equal(payload.meta.tokenFingerprint.length, 12)
+  // 反向对照:提取器这次没给 rt 终点 ⇒ 载荷不带该键(而不是带一枚假值)
+  const noRtExpiry = S.buildPayload(
+    toPoolAccount({ userId: 'u3', token: 't3', refreshToken: 'rt3' }),
+  )
+  assert.equal('refreshTokenExpiresAt' in noRtExpiry.accounts[0], false)
 })
 
 test('③ 客户端无 refreshToken(web 号)⇒ 载荷不带该键,ts 端保留池内列', () => {

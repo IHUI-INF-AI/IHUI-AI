@@ -261,9 +261,206 @@ describe('发信面判据(薄壳侧)', () => {
     expect(alertTargetsOf([])).toEqual([])
     expect(alertTargetsOf(undefined)).toEqual([])
   })
+  it('㉕ rt 死线射程:进窗与已过点都算,读不到日期不算,阈值缺失整档未判定', async () => {
+    const { rtDeadlineTargetsOf } = await keepaliveShell()
+    const now = Date.now()
+    const rows = [
+      { uid: 'a', refreshExpiresAt: new Date(now + 3600_000).toISOString() }, // 1h 后 ⇒ 进窗
+      { uid: 'b', refreshExpiresAt: new Date(now - 3600_000).toISOString() }, // 已过点 ⇒ 更急
+      { uid: 'c', refreshExpiresAt: new Date(now + 30 * 86400_000).toISOString() }, // 远 ⇒ 不喊
+      { uid: 'd', refreshExpiresAt: null }, // 证据缺口 ⇒ 由隔离性体检尺另开身份点名,不与此折叠
+      { uid: 'e', refreshExpiresAt: '坏时刻' },
+      null,
+    ]
+    expect(rtDeadlineTargetsOf(rows, now, 72).map((r: { uid: string }) => r.uid)).toEqual([
+      'a',
+      'b',
+    ])
+    // 阈值拿不到 ⇒ 空集(在薄壳里抄一个 72 就是两份判据漂移的起点)
+    expect(rtDeadlineTargetsOf(rows, now, null)).toEqual([])
+    expect(rtDeadlineTargetsOf(rows, now, 0)).toEqual([])
+    expect(rtDeadlineTargetsOf(undefined, now, 72)).toEqual([])
+  })
+  it('㉖ 两类告警身份不同:同一枚号不得互相遮蔽(故障压掉死线 = 该喊的没喊)', async () => {
+    const { alertIdOf, mailSlugOf, alertBodyOf } = await keepaliveShell()
+    const row = {
+      providerCode: 'trae',
+      uid: '2574430691145387',
+      name: 'x',
+      healthStatus: 'healthy',
+      tempUnschedulable: false,
+      tokenExpiresAt: '2026-11-14',
+      refreshExpiresAt: '2026-11-04',
+      lastRefreshAt: null,
+      lastErrorMessage: null,
+      takeoverAt: '2026-11-01T00:00:00.000Z',
+    }
+    // 历史形态逐字不变(改了它 = 把已登记的抑制窗口当成全新事件重发)
+    expect(alertIdOf(row)).toBe('relay-keepalive-trae-25744306')
+    expect(alertIdOf(row, 'rt-deadline')).toBe('relay-keepalive-trae-25744306;rt-deadline')
+    expect(mailSlugOf(alertIdOf(row, 'rt-deadline'))).toBe(
+      'relay-keepalive-trae-25744306_rt-deadline',
+    )
+    const rtBody = alertBodyOf(row, 'rt-deadline')
+    expect(rtBody).toContain('一键切号')
+    expect(rtBody).toContain('2574430691145387')
+    expect(rtBody).toContain('2026-11-01T00:00:00.000Z')
+    // 正文里绝不出现凭据(只有到期时刻与 uid)
+    for (const forbidden of ['refreshToken=', 'token=', 'Authorization']) {
+      expect(rtBody).not.toContain(forbidden)
+    }
+    expect(alertBodyOf(row, 'fault')).toContain('自动解摘')
+  })
+})
+
+describe('显式接管出口 takeoverGateOf(2026-11-01 立)', () => {
+  const OPEN = {
+    found: true,
+    registered: true,
+    clientRenewing: false,
+    rtDeadlineNear: false,
+    adapterCanRefresh: true,
+    tempUnschedulable: false,
+  }
+  it('㉗ 五道闸逐条各拦一件事,全开才放行', async () => {
+    const { takeoverGateOf } = await import('../scripts/relay-account-keepalive.js')
+    expect(takeoverGateOf(OPEN)).toEqual({ allowed: true, reason: null })
+    // 注意各闸的"命中值"方向不同:found/registered/adapterCanRefresh 缺了才拦,
+    // tempUnschedulable 是**被摘除(true)**才拦 —— 统一取 false 会把这条读成放行。
+    for (const [field, blocking, why] of [
+      ['found', false, '池无此行'],
+      ['adapterCanRefresh', false, '适配器哑'],
+      ['registered', false, '普通号归巡检四档'],
+      ['tempUnschedulable', true, '摘除态归解摘退避轮'],
+    ] as const) {
+      const r = takeoverGateOf({ ...OPEN, [field]: blocking })
+      expect(r.allowed, `${field}=${blocking} 必须拦(${why})`).toBe(false)
+      expect(String(r.reason).length > 0, `${field} 的拦要说得出 why:${why}`).toBe(true)
+    }
+    // 心跳新鲜 + rt 未进死线 ⇒ 让位中,拒绝;显式 force 才放行
+    expect(takeoverGateOf({ ...OPEN, clientRenewing: true }).allowed).toBe(false)
+    expect(takeoverGateOf({ ...OPEN, clientRenewing: true }, true).allowed).toBe(true)
+    // rt 已进死线 ⇒ 不必 force(让位就是把号送到死线上)
+    expect(takeoverGateOf({ ...OPEN, clientRenewing: true, rtDeadlineNear: true }).allowed).toBe(
+      true,
+    )
+    // 摘除与心跳同时命中 ⇒ 先报摘除(修法不同:等退避 vs 等客户端静默)
+    expect(
+      String(takeoverGateOf({ ...OPEN, tempUnschedulable: true, clientRenewing: true }).reason),
+    ).toContain('摘除')
+  })
+  it('㉘ 薄壳认 --takeover(不认就不会补心跳,闸门读的是陈旧心跳)', async () => {
+    const { parseArgs } = await keepaliveShell()
+    expect(parseArgs(['--takeover', '2574430691145387']).takeover).toBe(true)
+    expect(parseArgs(['--once']).takeover).toBe(false)
+  })
 })
 
 beforeEach(() => {
   updates.length = 0
+})
+
+describe('rt 死线优先于让位(2026-11-01 补)', () => {
+  const foreverRow = (over: Record<string, unknown> = {}) => ({
+    providerCode: 'trae',
+    tokenExpiresAt: FUTURE,
+    extraMetadata: {
+      [S.KEEPALIVE_FOREVER_KEY]: true,
+      [S.CLIENT_ACTIVE_AT_KEY]: iso(new Date(NOW.getTime() - 5 * 60 * 1000)),
+    },
+    ...over,
+  })
+
+  it('⑱ 心跳新鲜本应让位,但 rt 进入守护窗 ⇒ 不让位(号死不可逆,顶客户端可逆)', () => {
+    const dying = new Date(NOW.getTime() + 24 * 60 * 60 * 1000)
+    expect(S.shouldDeferRefresh(foreverRow({ refreshExpiresAt: dying }), NOW)).toBe(false)
+    // 同一枚号把守护窗关掉 ⇒ 回到 2026-10-31 的纯心跳形态(仍让位)
+    expect(
+      S.shouldDeferRefresh(foreverRow({ refreshExpiresAt: dying }), NOW, {
+        RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS: 'off',
+      }),
+    ).toBe(true)
+  })
+  it('⑲ rt 还远 / rt 未知 ⇒ 继续让位(读不到证据不构成抢刷客户端的理由)', () => {
+    const far = new Date(NOW.getTime() + (S.KEEPALIVE_RT_GUARD_DEFAULT_HOURS + 24) * 3600_000)
+    expect(S.shouldDeferRefresh(foreverRow({ refreshExpiresAt: far }), NOW)).toBe(true)
+    expect(S.shouldDeferRefresh(foreverRow({ refreshExpiresAt: null }), NOW)).toBe(true)
+    expect(S.shouldDeferRefresh(foreverRow({}), NOW)).toBe(true)
+  })
+  it('⑳ 守护窗取值:默认 72h;0/off ⇒ 整维关;非法值回落默认(失效方向是多保一次)', () => {
+    expect(S.rtExpiryGuardHours({})).toBe(S.KEEPALIVE_RT_GUARD_DEFAULT_HOURS)
+    expect(S.rtExpiryGuardHours({ RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS: '0' })).toBeNull()
+    expect(S.rtExpiryGuardHours({ RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS: 'off' })).toBeNull()
+    expect(S.rtExpiryGuardHours({ RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS: '12' })).toBe(12)
+    expect(S.rtExpiryGuardHours({ RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS: 'nonsense' })).toBe(
+      S.KEEPALIVE_RT_GUARD_DEFAULT_HOURS,
+    )
+  })
+  it('㉑ forcedTakeoverOf 只在「永久保活 ∧ 心跳新鲜 ∧ rt 临期」三样齐时成立', () => {
+    const dying = new Date(NOW.getTime() + 3600_000)
+    expect(S.forcedTakeoverOf(foreverRow({ refreshExpiresAt: dying }), NOW)).toBe(true)
+    // 心跳停了 = 正常接管,不是抢刷
+    expect(
+      S.forcedTakeoverOf(
+        foreverRow({
+          refreshExpiresAt: dying,
+          extraMetadata: {
+            [S.KEEPALIVE_FOREVER_KEY]: true,
+            [S.CLIENT_ACTIVE_AT_KEY]: iso(new Date(NOW.getTime() - S.CLIENT_ACTIVE_TTL_MS - 1000)),
+          },
+        }),
+        NOW,
+      ),
+    ).toBe(false)
+    // 没登记的普通号即使 rt 临期也不进这一档(不得借死线把整池节奏改了)
+    expect(
+      S.forcedTakeoverOf(
+        {
+          providerCode: 'trae',
+          tokenExpiresAt: FUTURE,
+          refreshExpiresAt: dying,
+          extraMetadata: {},
+        },
+        NOW,
+      ),
+    ).toBe(false)
+  })
+  it('㉒ 候选面第三支只在给了 rt 边界时出现;不给时与历史逐字一致', () => {
+    const legacy = q(S.keepaliveIdleWhere(NOW, new Date(NOW.getTime() - 24 * 3600_000)))
+    expect(legacy.sql).not.toMatch(/refresh_expires_at/)
+    const withRt = q(
+      S.keepaliveIdleWhere(
+        NOW,
+        new Date(NOW.getTime() - 24 * 3600_000),
+        new Date(NOW.getTime() + 72 * 3600_000),
+      ),
+    )
+    expect(withRt.sql).toMatch(/refresh_expires_at/)
+    // 第三支带进两枚参数:登记判据的键名 + rt 边界 ISO(与 ⑪ 同一把尺,多写少写都当场红)
+    expect(withRt.params.length - legacy.params.length).toBe(2)
+    expect(withRt.sql).toMatch(/ or /i)
+  })
+  it('㉓ 接管凭证:写进去的形状读得回来,缺键 ⇒ null,不拿 0 冒充「没刷过」以外的结论', () => {
+    const trail = { at: iso(NOW), credVersionAfter: 7, forced: true }
+    const row = { extraMetadata: { [S.KEEPALIVE_TAKEOVER_KEY]: trail } }
+    expect(S.takeoverTrailOf(row)).toEqual(trail)
+    expect(S.takeoverTrailOf({ extraMetadata: {} })).toBeNull()
+    expect(S.takeoverTrailOf({ extraMetadata: null })).toBeNull()
+    expect(
+      S.takeoverTrailOf({ extraMetadata: { [S.KEEPALIVE_TAKEOVER_KEY]: { at: '坏时刻' } } }),
+    ).toBeNull()
+    expect(S.takeoverCountOf(row)).toBe(0)
+    expect(S.takeoverCountOf({ extraMetadata: { [S.KEEPALIVE_TAKEOVER_COUNT_KEY]: 3 } })).toBe(3)
+    expect(S.takeoverCountOf({ extraMetadata: { [S.KEEPALIVE_TAKEOVER_COUNT_KEY]: 'x' } })).toBe(0)
+  })
+  it('㉔ 合并出口是增量 jsonb 参数:不整包覆盖、不用 jsonb_build_object、值不拼进 SQL', () => {
+    const one = q(S.mergeExtraMetadataSql({ cosy: 'x' }))
+    expect(one.sql).toMatch(/coalesce/i)
+    expect(one.sql).toMatch(/\|\|/)
+    expect(one.sql).not.toMatch(/jsonb_build_object/i)
+    // 值是参数而不是串:拼串既毁 jsonb 类型推断,也是注入面
+    expect(one.sql).not.toContain('cosy')
+    expect(JSON.parse(String(one.params[0]))).toEqual({ cosy: 'x' })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

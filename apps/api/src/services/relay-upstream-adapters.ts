@@ -112,6 +112,15 @@ export interface TokenRefreshResult {
    */
   expiresAt: Date | null
   /**
+   * refreshToken 的自然终点(可选,2026-11-01 立)。与 `expiresAt` 同一条纪律:**只许取上游
+   * 响应当场给出的值**,取不到 ⇒ undefined = 未知。
+   *
+   * 立因:换票成功会轮转 refreshToken,旧 rt 的到期时刻随旧票一起作废。调度器若在 rt
+   * 轮换时不写这一列,库里留下的就是「一枚已死死票的到期时刻」—— 那比 NULL 更坏,因为管理面
+   * 会把它当成还剩寿命读(永久保活号的死线正是这一维)。
+   */
+  refreshExpiresAt?: Date | null
+  /**
    * 平台扩展敏感凭证整包(可选)。CodeArts 刷新会轮转**整套** STS 凭据(AK/SK/security_token),
    * 调度器据此 encryptField(JSON.stringify(...)) 回写 secretsEnc。
    */
