@@ -10,6 +10,7 @@ import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { PRICING_RULE_MODES, pricingRules, type PricingRule } from '@ihui/database'
+import { canonicalStringify } from '@ihui/shared'
 import { loadActiveRules } from '../services/pricing-engine.js'
 
 /**
@@ -53,6 +54,53 @@ const updateRuleSchema = createRuleSchema.partial()
 /** 唯一约束冲突(PG 23505)→ 409,其余上抛由调用方归位 500 */
 function isUniqueViolation(e: unknown): boolean {
   return (e as { code?: string } | null)?.code === '23505'
+}
+
+/**
+ * PUT 的「真变化」取值面(守门 198/G-998153:先取现值、按键比较,只有真变化才写)。
+ * - 未传的键跳过 ⇒ 保留原值(路由头注「PUT 局部更新」的既有契约);
+ * - jsonb 比 canonicalStringify 的规范串:JSONB 读出的 key 顺序不稳,直接 `!==` 会把
+ *   「传了同一份内容」判成假变化(共享层唯一实现,本处不复造);
+ * - timestamp 比时刻,不比对象引用;其余按值比。
+ * 无真变化时返回空对象,由调用方整条跳过 UPDATE(含 version 递增 —— 空写也不该留下
+ * 「这一版被改过」的审计痕迹,与同文件 DELETE 软下线的幂等跳过同族)。
+ * 注:ruleKey 不在射程 —— 本路由的 set 面从不写它,PUT 传 ruleKey 会静默无效(现状,未改)。
+ */
+function pickPricingChanges(
+  existing: PricingRule,
+  b: Partial<z.infer<typeof createRuleSchema>>,
+): Partial<typeof pricingRules.$inferInsert> {
+  const changed: Partial<typeof pricingRules.$inferInsert> = {}
+  if (b.displayName !== undefined && b.displayName !== existing.displayName)
+    changed.displayName = b.displayName
+  if (b.currency !== undefined && b.currency !== existing.currency) changed.currency = b.currency
+  if (b.mode !== undefined && b.mode !== existing.mode) changed.mode = b.mode
+  if (b.basePrice !== undefined && b.basePrice !== existing.basePrice)
+    changed.basePrice = b.basePrice
+  if (b.enabled !== undefined && b.enabled !== existing.enabled) changed.enabled = b.enabled
+  if (
+    b.tierMultipliers !== undefined &&
+    canonicalStringify(b.tierMultipliers) !== canonicalStringify(existing.tierMultipliers)
+  )
+    changed.tierMultipliers = b.tierMultipliers
+  if (
+    b.timeOfDayFactor !== undefined &&
+    canonicalStringify(b.timeOfDayFactor ?? null) !==
+      canonicalStringify(existing.timeOfDayFactor ?? null)
+  )
+    changed.timeOfDayFactor = b.timeOfDayFactor
+  if (
+    b.effectiveFrom !== undefined &&
+    b.effectiveFrom.getTime() !== existing.effectiveFrom.getTime()
+  )
+    changed.effectiveFrom = b.effectiveFrom
+  if (b.effectiveTo !== undefined) {
+    const nextMs = b.effectiveTo === null ? null : b.effectiveTo.getTime()
+    const currentMs = existing.effectiveTo ? existing.effectiveTo.getTime() : null
+    if (nextMs !== currentMs) changed.effectiveTo = b.effectiveTo
+  }
+  if (Object.keys(changed).length === 0) return {}
+  return { ...changed, version: existing.version + 1 }
 }
 
 /** 错峰窗口 → 人话说明(用户面价格页直接渲染,不再各自解析 jsonb) */
@@ -161,21 +209,15 @@ export const pricingRulesRoutes: FastifyPluginAsync = async (server) => {
       const [existing] = await db.select().from(pricingRules).where(eq(pricingRules.id, id))
       if (!existing) return reply.status(404).send(error(404, '定价规则不存在'))
       try {
+        const changed = pickPricingChanges(existing, b)
+        if (Object.keys(changed).length === 0) {
+          // 幂等跳过(同本文件 DELETE 软下线那一档):未传字段保留原值、传了却与现值逐同
+          // ⇒ 真变化不存在 ⇒ 不发 UPDATE、不盖 updatedAt、不再无谓 version+1,直接回当前行。
+          return reply.send(success(existing))
+        }
         const [row] = await db
           .update(pricingRules)
-          .set({
-            ...(b.displayName !== undefined ? { displayName: b.displayName } : {}),
-            ...(b.currency !== undefined ? { currency: b.currency } : {}),
-            ...(b.mode !== undefined ? { mode: b.mode } : {}),
-            ...(b.basePrice !== undefined ? { basePrice: b.basePrice } : {}),
-            ...(b.tierMultipliers !== undefined ? { tierMultipliers: b.tierMultipliers } : {}),
-            ...(b.timeOfDayFactor !== undefined ? { timeOfDayFactor: b.timeOfDayFactor } : {}),
-            ...(b.enabled !== undefined ? { enabled: b.enabled } : {}),
-            ...(b.effectiveFrom !== undefined ? { effectiveFrom: b.effectiveFrom } : {}),
-            ...(b.effectiveTo !== undefined ? { effectiveTo: b.effectiveTo } : {}),
-            version: existing.version + 1,
-            updatedAt: new Date(),
-          })
+          .set({ ...changed, updatedAt: new Date() })
           .where(eq(pricingRules.id, id))
           .returning()
         if (!row) return reply.status(404).send(error(404, '定价规则不存在'))

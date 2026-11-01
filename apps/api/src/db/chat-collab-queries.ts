@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { and, eq, inArray, ne, or, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   chatConversationCollaborators,
@@ -27,6 +27,12 @@ export async function upsertCollaboratorInvitation(input: {
   invitedBy: string
   tier: string
 }): Promise<ChatConversationCollaborator> {
+  // 先取现值按键比较(守门 198/G-998153)落在 ON CONFLICT DO UPDATE 的 WHERE 上:
+  // 三个会被写的键都「与库里现值逐同」时,PG 根本不写这一行 ⇒ 不发 UPDATE 的等价物、不盖 updatedAt。
+  // 同邀请人 + 同档位 + 已 pending 的重复邀请就是这种空写;而 accepted/revoked 被重邀复位、
+  // 或换了邀请人/档位,都落在「真变化」一侧,照旧写。守卫留在 setWhere 里是为了保住
+  // 「读现值 + 写」的原子性(upsert 本就为这个约束的竞态而生,拆成 select-再-decide 会引入丢写窗口)。
+  const changed = { invitedBy: input.invitedBy, tier: input.tier, status: 'pending' as const }
   const rows = await db
     .insert(chatConversationCollaborators)
     .values({
@@ -38,15 +44,17 @@ export async function upsertCollaboratorInvitation(input: {
     })
     .onConflictDoUpdate({
       target: [chatConversationCollaborators.conversationId, chatConversationCollaborators.userId],
-      set: {
-        invitedBy: input.invitedBy,
-        tier: input.tier,
-        status: 'pending',
-        updatedAt: new Date(),
-      },
+      set: { ...changed, updatedAt: new Date() },
+      setWhere: or(
+        sql`${chatConversationCollaborators.invitedBy} IS DISTINCT FROM ${input.invitedBy}`,
+        sql`${chatConversationCollaborators.tier} IS DISTINCT FROM ${input.tier}`,
+        sql`${chatConversationCollaborators.status} IS DISTINCT FROM ${changed.status}`,
+      ),
     })
     .returning()
-  const row = rows[0]
+  // setWhere 不成立 ⇒ RETURNING 回 0 行(不是失败,是「没必要写」):幂等回读现值交还调用方,
+  // 路由的邀请帧因此拿到真实的 updatedAt,而不是每次重复邀请都被拨新的假变化。
+  const row = rows[0] ?? (await getCollaborator(input.conversationId, input.userId))
   if (!row) throw new Error('upsertCollaboratorInvitation: RETURNING 未回吐行')
   return row
 }

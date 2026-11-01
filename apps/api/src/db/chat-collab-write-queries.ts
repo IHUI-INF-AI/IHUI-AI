@@ -100,12 +100,16 @@ export async function acquireCollabLock(input: {
       holderUserId: input.holderUserId,
       acquiredAt: new Date().toISOString(),
     }
+    // 现值比较 = 本事务 FOR UPDATE 读到的 row.metadata(守门 198 出口形态,展开名固定 changed):
+    // 走到这里只剩两种形态 —— 无人持麦(锁从无到有)或 takeover 覆盖他人(持麦人必变);
+    // 「已是本人」在上方已幂等返回(不重写 acquiredAt,免得拨表),「他人持麦且非 takeover」也已回给路由判 409,
+    // 两者都到不了这条 UPDATE ⇒ 此处必是真变化,不需要再发一次空写。
+    const changed = {
+      metadata: { ...normalizeMetadataBase(row.metadata), collabLock: lock },
+    }
     await tx
       .update(chatConversations)
-      .set({
-        metadata: { ...normalizeMetadataBase(row.metadata), collabLock: lock },
-        updatedAt: new Date(),
-      })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(chatConversations.id, input.conversationId))
     return { acquired: true, lock, takenFrom: current ? current.holderUserId : null }
   })
