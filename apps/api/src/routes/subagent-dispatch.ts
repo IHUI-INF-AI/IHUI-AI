@@ -46,6 +46,11 @@ import type { AgentTask } from '@ihui/database'
 import { mapStatus, type AgentTaskStatus } from '@ihui/types'
 import type { SubagentDispatch } from '@ihui/shared/subagents'
 import { isUuidString } from '../utils/uuid.js'
+// 归属判据唯一出口(2026-11-02):谓词与按 id 闸都住在 utils/dispatch-ownership.ts,
+// extended 插件与本插件共用同一份;本文件不得再自带第二份实现(§22c)。
+import { isDispatchVisibleTo, ownsDispatchById } from '../utils/dispatch-ownership.js'
+
+export { isDispatchVisibleTo }
 
 // ---------------------------------------------------------------------------
 // D08 ③(2026-10-27,gb17c-e17):Fleet 统一仪表盘 —— 会话归属 + 逐 agent 指标
@@ -208,16 +213,9 @@ export function clampDispatchOffset(raw: unknown): number {
 /**
  * 租户可见性(单一口径)。
  *
- * - 记录带归属 ⇒ 只有本人可见(跨租户不可见);
- * - 记录无归属(本字段落地前的在途记录 / Redis 旧 hash)⇒ 按「未标注」照旧公开,
- *   **不隐藏历史**:把没标注写成"已隔离"与把泄漏写成"已修"是同一类错(§0.3)。
- *   该档是已知残余,已在 .ihui-agent/seats/S-G02.md 记明。
+ * 实现已迁至 `utils/dispatch-ownership.ts`(2026-11-02,两插件共用唯一出口);
+ * 本文件只 re-export 供既有 `__test__` 与镜像测试引用,不再自带第二份表达。
  */
-export function isDispatchVisibleTo(dispatch: SubagentDispatch, userId: string): boolean {
-  const owner = (dispatch as SubagentDispatch & { ownerUserId?: unknown }).ownerUserId
-  if (typeof owner !== 'string' || owner.length === 0) return true
-  return owner === userId
-}
 
 export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 注入 Redis 客户端(fastify.decorate 挂载后,服务初始化时从 app 拿取)
@@ -238,19 +236,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
   }
 
-  /**
-   * 按 id 端点的归属闸(单一实现,S-ACL 2026-11-01)。
-   *
-   * 取记录 → 判可见性,判据仍只有 isDispatchVisibleTo 一份(§22c:不在各处重写表达)。
-   * 「取不到」与「不属于你」合并成同一个 false ⇒ 调用方一律 404:
-   *   - 本文件既有约定就是 404(先 400 只挡 id 为空,不存在/已结束一律 404,无 403);
-   *   - 403 会告诉攻击者「这个 id 真实存在,只是不属于你」⇒ 可枚举他人 id,
-   *     配合 /subagents/all 的 id 面就成了探测口径。防枚举优先。
-   */
-  const ownsDispatch = (id: string, userId: string): boolean => {
-    const dispatch = subagentDispatchService.findById(id)
-    return dispatch !== null && isDispatchVisibleTo(dispatch, userId)
-  }
+  // 按 id 端点的归属闸:直接复用 utils/dispatch-ownership.ts 的唯一实现(ownsDispatchById)。
 
   // ---------- Zod schemas ----------
 
@@ -714,7 +700,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatch(id, userId)) {
+    if (!ownsDispatchById(id, userId)) {
       return reply.status(404).send(error(404, '派单不存在或已结束(无法取消)'))
     }
 
@@ -737,7 +723,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
     // resume 会重置状态并重新执行 ⇒ 与 cancel 同级,闸在调用之前
-    if (!ownsDispatch(id, userId)) {
+    if (!ownsDispatchById(id, userId)) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -865,7 +851,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatch(id, userId)) {
+    if (!ownsDispatchById(id, userId)) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -887,7 +873,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatch(id, userId)) {
+    if (!ownsDispatchById(id, userId)) {
       return reply.status(404).send(error(404, '派单不存在或无 DAG 配置'))
     }
 
@@ -909,7 +895,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatch(id, userId)) {
+    if (!ownsDispatchById(id, userId)) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -933,7 +919,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
     // 原实现对不存在/不可见的 id 都回 200 + 空数组(把「没有」与「不给你看」写成同一形状)
     // ⇒ 归属不符时明确 404,与其余 5 个按 id 端点同形。
-    if (!ownsDispatch(id, userId)) {
+    if (!ownsDispatchById(id, userId)) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
