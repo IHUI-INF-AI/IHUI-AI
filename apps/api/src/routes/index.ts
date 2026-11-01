@@ -114,6 +114,8 @@ import { aiAudioRoutes } from './ai-audio.js'
 import { customerServiceRoutes, adminCustomerServiceRoutes } from './customer-service.js'
 import { gdprRoutes } from './gdpr.js'
 import { clawdbotRoutes } from './clawdbot.js'
+// 工作簿 agent 命令面(goal-b45 F 席,2026-11-02 立):open/read/write/save/close 五命令,
+// 非破坏式保存 + 公式不回缓存值。注册面判据见 tests/workbook-routes-registered.test.ts。
 import { workbookRoutes } from './workbook.js'
 import { tenantRoutes } from './tenant.js'
 import canaryRoutes from './canary.js'
@@ -378,9 +380,6 @@ import { agentRuntimeRoutes } from './agent-runtime.js'
 import { repoWikiRoutes } from './repo-wiki.js'
 // Knowledge Card:仓库级任务经验卡(2026-09-10 新增,2-1 项目知识引擎)
 import { knowledgeCardRoutes } from './knowledge-card.js'
-// 工作簿 agent 命令面(goal-b45 F 席,2026-11-02 立):open/read/write/save/close 五命令,
-// 非破坏式保存 + 公式不回缓存值。注册面判据见 tests/workbook-routes-registered.test.ts。
-import { workbookRoutes } from './workbook.js'
 // D29 团队记忆面(2026-09-25 接):路由/服务/api-client 端点/web 页四件早在库,
 // 唯独这里没注册 ⇒ /api/team-memory 生产 404。注册面判据见 tests/team-memory-routes-registered.test.ts。
 import { teamMemoryRoutes } from './team-memory.js'
@@ -807,8 +806,9 @@ export function registerRoutes(server: FastifyInstance) {
   // 看不见它)。归属不是新发明的:整棵子树 `addHook('preHandler', checkAuthOrInternalService)`,
   // 每条 handler 的主体取 `request.userId`,服务层 open 时比对文件属主
   // (`workbook-service.ts` 的 `owner !== subjectId ⇒ 拒`),句柄再按会话属主比
-  // (`takeSession` 的 `s.subjectId !== subjectId ⇒ 拒`)。注册本身由
-  // apps/api/tests/workbook-routes-registered.test.ts 钉住(它此前一直红着替这个 404 作证)。
+  // (`takeSession` 的 `s.subjectId !== subjectId ⇒ 拒`)⇒ 整棵子树零公开面。注册本身由
+  // apps/api/tests/workbook-routes-registered.test.ts 钉住(缺这一行 = 生产 404 而单测全绿;
+  // 这一行也不能有第二份:同 prefix 重复 register 会让 Fastify 起不来)。
   server.register(workbookRoutes, { prefix: '/api/workbook' })
 
   // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
@@ -1471,11 +1471,6 @@ export function registerRoutes(server: FastifyInstance) {
 
   // Knowledge Card:仓库级任务经验卡 CRUD + 检索(2026-09-10 立,2-1 项目知识引擎)
   server.register(knowledgeCardRoutes, { prefix: '/api/knowledge-cards' })
-
-  // 工作簿 agent 命令面(2026-11-02 立,goal-b45 F 席):POST /api/workbook/{open,read,write,save,close}
-  // 整棵子树在路由内挂 preHandler 鉴权(人用 JWT 或内部服务票),零公开面。
-  // 注册面"装车证明"见 tests/workbook-routes-registered.test.ts(缺这一行 = 生产 404 而单测全绿)。
-  server.register(workbookRoutes, { prefix: '/api/workbook' })
 
   // D29 团队记忆 CRUD(2026-09-25 补注册):路由内是 `/` 与 `/:id`,挂此前缀后逐字等于
   // packages/api-client/src/endpoints/team-memory.ts 里 fetchApi('/api/team-memory…') 的路径。
