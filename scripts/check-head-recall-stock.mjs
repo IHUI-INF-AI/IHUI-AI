@@ -40,7 +40,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, selectFace } from './lib/face-reader.mjs'
 import { recallRowsOf } from './lib/head-recall.mjs'
-import { declaredRows } from './scrub-declared-removals.mjs'
+import {
+  declaredRows,
+  SELF_CERTIFYING_SWEEP_SEATS,
+} from './scrub-declared-removals.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const FILE = 'PROJECT_PLAN.md'
@@ -183,7 +186,9 @@ function main() {
 
   let declared
   try {
-    declared = declaredRows(ROOT)
+    declared = declaredRows(ROOT, undefined, {
+      excludeSeats: SELF_CERTIFYING_SWEEP_SEATS,
+    })
   } catch (e) {
     console.error(
       `${C.yellow}⏭ 未判定:${C.reset}摘除台账取不到:${String(e?.message ?? e).split('\n')[0]}`,
