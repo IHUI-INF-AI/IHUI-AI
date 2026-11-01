@@ -36,6 +36,8 @@ import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
+// 活跃状态判据的唯一出口(2026-11-01,S-ACTIVE):listActive 与并发计数共用一份
+import { isActiveDispatchStatus } from '../utils/dispatch-status.js'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -2220,7 +2222,7 @@ class SubagentDispatchService {
   listActive(): SubagentDispatch[] {
     return Array.from(this.runtimes.values())
       .map((r) => r.dispatch)
-      .filter((d) => d.status === 'pending' || d.status === 'running')
+      .filter((d) => isActiveDispatchStatus(d.status))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
@@ -2234,7 +2236,7 @@ class SubagentDispatchService {
   /** 全局统计 */
   getStats(): DispatchStats {
     const all = Array.from(this.runtimes.values()).map((r) => r.dispatch)
-    const active = all.filter((d) => d.status === 'pending' || d.status === 'running').length
+    const active = all.filter((d) => isActiveDispatchStatus(d.status)).length
     const completed = all.filter((d) => d.status === 'completed').length
     const failed = all.filter((d) => d.status === 'failed').length
     const total = this._stats.totalDispatches
