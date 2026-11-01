@@ -620,12 +620,23 @@ export const SHELL_CAPABILITY_RULES = [
   },
 ]
 
-/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
-export function shellCapabilityCovered(pageTokens, shellText, sharedText = '') {
+/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。
+ *
+ * `gaps` 是**精确核对已经判负**的族名(2026-11-01 立):
+ * 导航族由 `coveredNavigation` 逐目标反查、取数族由 `apiEndpointsCovered` 逐端点对账 ——
+ * 这两个谓词一旦判负,就说明"壳里虽然有 navigate(/fetchApi(,但目标/端点不是页面那几个",
+ * 此时本表的整族销账必须让位,否则假绿(`pkg-learn/live/list` 缺开播/日历/我的订阅三入口、
+ * `pkg-shop/vip-trader/index` 缺 50+ 键承载的分区,曾被整族销账判成可转而真转壳丢功能)。
+ * 精确判负的族**不再**参与整族销账;精确谓词判不了(取不到 routeMap / 端点解析不出)时不传 gap,
+ * 维持旧口径 —— 这一层的方向必须是"多要一次定向说明",不是"多放一页过去"。
+ */
+export function shellCapabilityCovered(pageTokens, shellText, sharedText = '', gaps = []) {
   const s = maskComments(String(shellText ?? ''))
   const shared = maskComments(String(sharedText ?? ''))
+  const skip = new Set(Array.isArray(gaps) ? gaps : [])
   const cleared = []
   for (const rule of SHELL_CAPABILITY_RULES) {
+    if (skip.has(rule.what)) continue
     if (!rule.tokens.some((t) => pageTokens.has(t))) continue
     if (!rule.shellEvidence(s, shared)) continue
     for (const t of rule.tokens) pageTokens.delete(t)
@@ -1122,8 +1133,28 @@ export function judgeConversion({
     else if (barrelFullyCovered(pageText, sharedText, shellText))
       pageTokens.delete('@/components')
   }
-  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
-  shellCapabilityCovered(pageTokens, shellText, sharedText)
+  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)。
+  // 但"整族销账"只在精确核对没有判负时才成立(2026-11-01 立):
+  //   ① 导航族:上面 coveredNavigation 已逐目标反查过 route-map,一旦有目标在壳里查不到,
+  //      壳里只要出现任意 navigation.navigate( 就把整族销账 ⇒ 三处入口消失也判可转(实测 live/list);
+  //   ② 取数族:apiEndpointsCovered 已逐端点对账,端点不重合时壳里只要有 fetchApi( 就整族销账
+  //      ⇒ 页面取 /live/channels、壳取 /live/list 也被判成同一件事。
+  // 两个精确谓词判不了(无 routeMap / 符号端点解析不出)时**不传 gap**,维持旧口径。
+  const blanketGaps = []
+  if (
+    routeMap &&
+    ['Taro.navigateTo', 'Taro.redirectTo', 'Taro.switchTab', 'Taro.reLaunch'].some((t) =>
+      pageTokens.has(t),
+    ) &&
+    !coveredNavigation(pageText, shellText, routeMap).covered
+  )
+    blanketGaps.push('导航')
+  if (
+    ['@/api', '@/api/index', '@/api/social'].some((t) => pageTokens.has(t)) &&
+    !apiEndpointsCovered(pageText, shellText, apiModuleText)
+  )
+    blanketGaps.push('取数')
+  shellCapabilityCovered(pageTokens, shellText, sharedText, blanketGaps)
   // 选项列表(2026-11-01 立):沿用 **同一个** modalCovered 谓词的第二档(键集合对账),不另立实现
   // (§0.6 单一真相源:Taro.showModal 在上方已由 modalCovered(shellText) 销,这里只补 showActionSheet
   // 那一格 —— 它的选项是"一组可点的东西",光有 appAlert 形态不够,要逐键对上)。
