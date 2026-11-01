@@ -188,13 +188,28 @@ export function buildLedger({ face, elements, tierRows, allowedEntries, today = 
       for (const o of elements) if (o.prop === r.prop && o.val === r.val) cls[o.class] = (cls[o.class] ?? 0) + 1
       const allowedN =
         (cls['rn-only-display'] ?? 0) + (cls['rn-only-shape'] ?? 0) + (cls['rn-only-hairline'] ?? 0)
+      const decision = allowedN >= r.n ? 'allowance' : allowedN > 0 ? 'partial-allowance' : 'pending-decision'
+      /**
+       * 未核销的余额 = 两端同一元素(正文标题/展示数字/组件内边距),**不硬凑成允许差异**。
+       * 对齐方向固定为 RN(§9 派生链 web → RN → 小程序:web 是上游,值以 web 现用档为准),
+       * 改前证据要求随行带上,避免下一手把本表当成"改值授权"。
+       */
+      const needAlign = decision !== 'allowance'
       return {
         kind: r.kind,
         prop: r.prop,
         value: r.val,
         occurrences: r.n,
         classes: cls,
-        decision: allowedN >= r.n ? 'allowance' : allowedN > 0 ? 'partial-allowance' : 'pending-decision',
+        decision,
+        ...(needAlign
+          ? {
+              changeSide: 'rn',
+              evidenceNeeded:
+                'web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值' +
+                (decision === 'partial-allowance' ? '(混合行:只对齐非字形盒的那几处)' : ''),
+            }
+          : {}),
       }
     })
   // 额度覆盖:允许类元素必须有登记,且额度 ≥ 实测处数、未到期。

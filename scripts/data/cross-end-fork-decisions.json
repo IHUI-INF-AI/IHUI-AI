@@ -1298,7 +1298,9 @@
       "classes": {
         "web-align": 2
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1308,7 +1310,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1318,7 +1322,9 @@
       "classes": {
         "web-align": 3
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1328,7 +1334,9 @@
       "classes": {
         "web-align": 2
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1338,7 +1346,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1348,7 +1358,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1358,7 +1370,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1368,7 +1382,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1388,7 +1404,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1398,7 +1416,9 @@
       "classes": {
         "web-align": 6
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1408,7 +1428,9 @@
       "classes": {
         "web-align": 8
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1418,7 +1440,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1428,7 +1452,9 @@
       "classes": {
         "web-align": 4
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1438,7 +1464,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1448,7 +1476,9 @@
       "classes": {
         "web-align": 9
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1458,7 +1488,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1488,7 +1520,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1498,7 +1532,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1528,7 +1564,9 @@
       "classes": {
         "web-align": 2
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1538,7 +1576,9 @@
       "classes": {
         "web-align": 2
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1558,7 +1598,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1568,7 +1610,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "spacing",
@@ -1578,7 +1622,9 @@
       "classes": {
         "web-align": 2
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "fontSize",
@@ -1589,7 +1635,9 @@
         "rn-only-display": 2,
         "web-align": 1
       },
-      "decision": "partial-allowance"
+      "decision": "partial-allowance",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
     },
     {
       "kind": "fontSize",
@@ -1601,7 +1649,9 @@
         "comment-noise": 1,
         "web-align": 3
       },
-      "decision": "partial-allowance"
+      "decision": "partial-allowance",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
     },
     {
       "kind": "fontSize",
@@ -1612,7 +1662,9 @@
         "rn-only-display": 10,
         "web-align": 1
       },
-      "decision": "partial-allowance"
+      "decision": "partial-allowance",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
     },
     {
       "kind": "fontSize",
@@ -1623,7 +1675,9 @@
         "web-align": 75,
         "rn-only-display": 8
       },
-      "decision": "partial-allowance"
+      "decision": "partial-allowance",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
     },
     {
       "kind": "fontSize",
@@ -1643,7 +1697,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "fontSize",
@@ -1673,7 +1729,9 @@
       "classes": {
         "web-align": 1
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "fontSize",
@@ -1683,7 +1741,9 @@
       "classes": {
         "web-align": 8
       },
-      "decision": "pending-decision"
+      "decision": "pending-decision",
+      "changeSide": "rn",
+      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "kind": "radius",
