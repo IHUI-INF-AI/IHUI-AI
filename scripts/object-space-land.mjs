@@ -3654,8 +3654,48 @@ async function runSelfTest() {
   return bad === 0 ? 0 : 1
 }
 
+/**
+ * 用法面(S-HELPRC 2026-11-01 立;口径 = L33582 / RP-79 残余的裁决,见
+ * `.ihui-agent/seats/S-HELPRC.md`)。
+ *
+ * 病:本器此前**根本没有 `--help` 处理**(头注只写了"CLI 契约(env 驱动,无参数)")。
+ * 于是 `node scripts/object-space-land.mjs --help` 这个 token 谁都不认,一路落进
+ * `parseArgs` 的"缺 LAND_PATHS"出口 —— 用户**主动要帮助**,拿到的是"你少给了必填项" exit 2。
+ * 同族另两器(git-sync-converge / union-converge)已是"打印用法 + rc=0",三器口径相反,
+ * 且"哪些 token 被认识"在本器上不可说 = 与 `git-sync-converge` 2026-10-30 踩过的
+ * "未知旗静默落进默认档"同一族(那次的后果是真跑了索引层收敛)。
+ *
+ * 裁决口径(与 POSIX/GNU 惯例及同族一致):
+ *   · `--help` / `-h` = 用户主动请求帮助 = **成功** ⇒ 打印用法 + rc=0;
+ *   · 未知旗标 / 缺必填 env / 互斥声明 = **用法错** ⇒ rc=2。
+ * 本器 env 契约下 token 不进场,未知 token 仍由 parseArgs 的缺清单出口 exit 2 —— **不动**
+ * (它不点名该 token,这一格登记为残留,见 seat 文件,不在本处顺手扩权)。
+ *
+ * 位置:排在 `isDirectRun` 的最前面,先于 `--self-test` 与 `main()` —— help 必须在
+ * **任何会动索引/refs 的动作之前**退出(零副作用是这条口径能被测的前提)。
+ */
+const USAGE = [
+  '用法: LAND_PATHS="<a.ts;b.ts>" LAND_MSG="<提交信息>" node scripts/object-space-land.mjs',
+  '      # CLI 契约是 env 驱动、无位置参数;每个 env 的含义:',
+  '  LAND_PATHS          必填(与 LAND_REMOVE_PATHS 至少给一边),";" 分隔的仓库相对路径',
+  '  LAND_REMOVE_PATHS   可选,要从结果树里摘掉(取消跟踪)的同一形清单;与 LAND_PATHS 不得有交集',
+  '  LAND_MSG            提交信息(只写能被回读证明的东西)',
+  '  LAND_BASE_REF       基线 ref(缺省 HEAD)',
+  '  LAND_BLOBS          内容清单 JSON 路径(给了就不读工作树,用于"同文件里有他人在飞改动")',
+  '  LAND_ROOT           仓库根(缺省本仓)',
+  '      node scripts/object-space-land.mjs --self-test   # 器物自证(先于 env 契约)',
+  '      node scripts/object-space-land.mjs --help|-h     # 本用法(rc=0,不执行任何动作)',
+  '退出码: 0 正常/用法打印 · 1 判据红(自证不过) · 2 用法或环境错(空清单/空消息/路径不在盘上/根不可当仓库问)',
+]
+
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
+  // help 排在**第一位**:它不该被 env 契约(缺 LAND_PATHS 即拒 exit 2)挡成"用法错",
+  // 也不该排到 --self-test 之后 —— 用户要的是用法,不是自证。
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log(USAGE.join('\n'))
+    process.exit(0)
+  }
   // --self-test 先于 main:它是器物自证入口,不该被 env 契约(缺 LAND_PATHS 即拒)挡住
   if (process.argv.includes('--self-test')) {
     runSelfTest()
