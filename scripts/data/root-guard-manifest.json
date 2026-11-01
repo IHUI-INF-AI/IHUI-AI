@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-01T01:01:07.775Z",
+  "sealedAt": "2026-11-01T01:53:24.846Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 304b03ace2:门48 新增规则B(每枚 workflow 须有顶层 permissions 块,禁 write-all)已随该枚入库,存量 49 枚归零才上 blocking;注册表改动行数中性;此脱钩是清单未同批重封所致,非规则被回退",
+  "reason": "部署环被本护栏 fail-closed 拒推进:清单绑的 guardian-runner 哈希落后于已入库内容(合并枚把对侧登记条目带进 HEAD 后显形)。逐面复核 = 按门自己点名的处置(复核 HEAD 面那份改动 → 重新 --seal → 清单与规则文件同枚提交并推送);本枚封的是 HEAD 面上三份目标(guardian-runner / judgement-libs / agents-ironlaw)的逐字节内容,取材面与被审面同一面。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "1529b6e61932bbed6249a6fba9a16222aa2147b10ff3286cf2fcf4863de04f24"
+      "sha256": "7242cbaa69a4be7164e857e4011164e61c63ec17186df08520a0171ed5962626"
     },
     {
       "id": "judgement-libs",
