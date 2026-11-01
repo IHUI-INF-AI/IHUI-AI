@@ -23,8 +23,11 @@ import {
   anchorRegression,
   audit,
   bareRoundedAudit,
+  classArmVerdicts,
+  classDefScan,
   clauseDemand,
   collect,
+  cssVarTiers,
   diffValues,
   elementRadiusCount,
   elementRadiusDiff,
@@ -54,7 +57,13 @@ import {
   verdictOf,
   waiverProblem,
   webRadiusAudit,
+  webUtilityRow,
 } from '../check-cross-end-ui-parity.mjs'
+import {
+  normalizeUtilityDecls,
+  parseCompiledUtilities,
+  resolveUtilityLength,
+} from './web-utility-classes.mjs'
 
 // 装车锁的被读对象:上一级的主文件本体。
 const MAIN_SOURCE_PATH = fileURLToPath(new URL('../check-cross-end-ui-parity.mjs', import.meta.url))
@@ -2539,6 +2548,179 @@ export function runSelfTest() {
       const inMain = (mainSrc.match(re) || []).length
       const inLib = (libSrc.match(re) || []).length
       if (inMain !== 0 || inLib !== 1) return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
+      return true
+    })(),
+  )
+  t(
+    'LA CSS 变量解值(2026-11-01 票 O67):① 同值不同写法判同档、② 档名不在源里必须点名未判定、' +
+      '③ 非长度档不入集也不冒充未判定、④ 0 值档不入集、⑤ 源/派生态互证不等 ⇒ 未判定、' +
+      '⑥ 解值表为空时一条不采(由失明判据喊死,不得当成"该侧无档")、⑦ 真差异仍必须判红',
+    (() => {
+      // 一张**最小档表**(形态与 tokens.css 受管块同形:带长度单位才算档)
+      const table = cssVarTiers({
+        'packages/design-tokens/src/styles/tokens.css':
+          ':root {\n  --spacing-xs: 4px;\n  --spacing-sm: 8px;\n  --text-badge: 10px;\n  --spacing-none: 0px;\n  --text-badge--font-weight: 600;\n  --color-brand: #123456;\n}\n',
+      })
+      if (table.get('--spacing-xs')?.px !== 4) return '① 源里的 --spacing-xs 没解成 4px'
+      if (table.get('--color-brand')?.kind !== 'other') return '①/③ 颜色档被当成长度档'
+      if (table.get('--text-badge--font-weight')?.kind !== 'other') return '③ 无单位值被当成长度'
+      const same = readGeometry('.a {\n  gap: var(--spacing-xs);\n}\n', 'miniapp', {}, table)
+      const other = readGeometry('export const S = { a: { gap: 4 } }', 'rn', {}, table)
+      if (!same.values.has(4)) return '① var 解值没进几何集'
+      if (JSON.stringify(diffValues(same.values, other.values)) !== '{"onlyMiniapp":[],"onlyRn":[]}')
+        return `① 同值被读成分叉:${JSON.stringify(diffValues(same.values, other.values))}`
+      // ② 编出来的档名 ⇒ 逐枚点名
+      const unknown = readGeometry('.a {\n  gap: var(--spacing-nope);\n}\n', 'miniapp', {}, table)
+      if (unknown.values.size !== 0) return '② 解不到的档却有了读数'
+      if (!unknown.unreadable.some((u) => /--spacing-nope/.test(u.raw) && u.px === null && u.why))
+        return `② 未知档名没点名:${JSON.stringify(unknown.unreadable)}`
+      // ③ 非长度档:不入集、不报未判定,但必须留覆盖面读数
+      const color = readGeometry('.a {\n  padding: var(--color-brand);\n}\n', 'miniapp', {}, table)
+      if (color.values.size !== 0 || color.unreadable.length !== 0 || color.cssVar.notLength !== 1)
+        return `③ 非长度档口径错:${JSON.stringify(color.cssVar)}/${JSON.stringify(color.unreadable)}`
+      // ④ 0 值档不入集(C4 纪律)
+      const zero = readGeometry('.a {\n  gap: var(--spacing-none);\n}\n', 'miniapp', {}, table)
+      if (zero.values.has(0)) return '④ 0 值档进了比对集合(造同值假账)'
+      // ⑤ 互证不等
+      const bad = cssVarTiers({
+        'packages/design-tokens/src/styles/tokens.css': ':root {\n  --spacing-9xl: 40px;\n}\n',
+        'apps/miniapp-taro/src/app.css': '@theme static {\n  --spacing-9xl: 96rpx;\n}\n',
+      })
+      if (bad.get('--spacing-9xl')?.px !== null || !bad.get('--spacing-9xl')?.why)
+        return `⑤ 源与派生态不等却仍按一个值入账:${JSON.stringify(bad.get('--spacing-9xl'))}`
+      const g5 = readGeometry('.a {\n  gap: var(--spacing-9xl);\n}\n', 'miniapp', {}, bad)
+      if (!g5.unreadable.length) return '⑤ 互证不等的档被静默当成"该侧无档"'
+      // ⑥ 表为空 ⇒ 一条不采
+      const noTable = readGeometry('.a {\n  gap: var(--spacing-xs);\n}\n', 'miniapp', {}, null)
+      if (noTable.values.size !== 0 || noTable.cssVar.resolved !== 0) return '⑥ 没有解值表却有了入账'
+      // ⑦ 真差异仍必须判红(成对:锚点 0 红 / 锚点覆盖存量绿)
+      const mp = 'apps/miniapp-taro/src/components/LA.tsx'
+      const rn = 'packages/app/src/components/LA.tsx'
+      const f = audit(
+        { pairs: [{ name: 'LA', miniapp: mp, rn }] },
+        {
+          [mp]: '.a {\n  gap: var(--spacing-sm);\n  height: 30rpx;\n}\n',
+          [rn]: 'export const S = { a: { gap: 4, height: 10 } }',
+        },
+        {},
+        {},
+        null,
+        {},
+        {},
+        table,
+      ).findings[0]
+      if (!f || JSON.stringify(f.geometry) !== '{"onlyMiniapp":[8,15],"onlyRn":[4,10]}')
+        return `⑦ 真分叉读数错:${JSON.stringify(f && f.geometry)}`
+      if (verdictOf([f], { counts: { LA: 0 } }).red.length !== 1) return '⑦ 真分叉没被锚点问责'
+      if (verdictOf([f], { counts: { LA: 4 } }).red.length !== 0) return '⑦ 存量被判成新增'
+      // ⑧ 装车锁:解值表只有一个生产者,且"源取不到"必须能喊死
+      const mainSrc = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      if ((mainSrc.match(/cssVarTiers\(/g) || []).length !== 2)
+        return '⑧ 解值表的生产者不唯一(两张表必然漂开)'
+      if (!mainSrc.includes('几何维判据失明')) return '⑧ 源取不到时的失明判据被摘'
+      if (!mainSrc.includes('cssVarCopyRead')) return '⑧ "互证没做"这一格被摘 ⇒ 副本读不到会被读成已核对'
+      return true
+    })(),
+  )
+  t(
+    'LB web 工具类模型(2026-11-01 票 O67):① 编译产物解析只认单类规则、② calc×var 刻度解成 px、' +
+      '③ 裸数字不擅自加 px、④ 行级三态(0 档 / 无盒档 / 正档)、⑤ 模型不可用必须落未判定、' +
+      '⑥ 伪元素部件不再算"多处定义"但夹一条状态选择器就退回、⑦ 门体零第二份类名字典且声明体接线只认模型来源',
+    (() => {
+      // ① 编译产物:主题变量 + 单类规则;带变体 / 复合选择器的规则**不进**表(那是别的元素的档)
+      const { vars, rules } = parseCompiledUtilities(
+        '@layer theme {\n  :root, :host {\n    --spacing: 0.25rem;\n    --spacing-md: 12px;\n  }\n}\n' +
+          '@layer utilities {\n  .min-h-4 {\n    min-height: calc(var(--spacing) * 4);\n  }\n' +
+          '  .p-md {\n    padding: var(--spacing-md);\n  }\n' +
+          '  .hover\\:p-md:hover {\n    padding: var(--spacing-md);\n  }\n}\n',
+      )
+      if (vars.get('--spacing') !== '0.25rem') return '① 主题变量没解出来'
+      if (vars.get('--spacing-md') !== '12px') return '① 项目令牌没解出来'
+      if (!rules.has('min-h-4') || !rules.has('p-md')) return '① 单类规则没进表'
+      if (rules.has('hover:p-md')) return '① 带变体的规则进了表 ⇒ 会把别的状态的档记到这个类上'
+      // ② 刻度解值
+      if (resolveUtilityLength('calc(var(--spacing) * 4)', vars) !== 16)
+        return `② calc×var 没解成 16:${resolveUtilityLength('calc(var(--spacing) * 4)', vars)}`
+      if (resolveUtilityLength('var(--spacing-md)', vars) !== 12) return '② var 直取没解成 12'
+      if (resolveUtilityLength('calc(var(--spacing) * 0)', vars) !== 0) return '② 0 档没解成 0'
+      if (resolveUtilityLength('var(--spacing-nope)', vars) !== null)
+        return '② 未知变量被猜成一个值(未判定必须留成 null)'
+      // ③ 裸数字不加单位(`line-height: 1.5` 加个 px 就是一枚幽灵档)
+      if (normalizeUtilityDecls('line-height: 1.5;', vars).includes('1.5px'))
+        return '③ 裸数字被加上了 px'
+      if (!normalizeUtilityDecls('min-height: calc(var(--spacing) * 4);', vars).includes('16px'))
+        return '③ 长度没归一成 px'
+      if (!normalizeUtilityDecls('resize: none;', vars).includes('resize: none;'))
+        return '③ 非长度声明被吃掉(该工具类就没有盒档读数了)'
+      // ④ 行级三态:模型可用时三种结局必须分得开
+      const model = {
+        available: true,
+        why: null,
+        decls: new Map([
+          ['min-h-0', 'min-height: 0px;'],
+          ['resize-none', 'resize: none;'],
+          ['min-h-4', 'min-height: 16px;'],
+        ]),
+      }
+      const zero = webUtilityRow('min-h-0', model, { conditional: false })
+      const noneBox = webUtilityRow('resize-none', model, { conditional: false })
+      const pos = webUtilityRow('min-h-4', model, { conditional: false })
+      if (zero.verdict !== 'modeled' || !/0/.test(zero.reason))
+        return `④ 0 档没落 modeled:${JSON.stringify(zero)}`
+      if (noneBox.verdict !== 'modeled') return `④ 无盒档没落 modeled:${JSON.stringify(noneBox)}`
+      if (pos.verdict !== 'resolved' || pos.source !== 'tailwind' || !pos.body)
+        return `④ 正档没带声明体:${JSON.stringify(pos)}`
+      // ⑤ 模型不可用 / 主题没生成 / 条件取用:三种都是未判定,不得折成"该侧无档"
+      const noModel = webUtilityRow('min-h-4', null, { conditional: false })
+      if (noModel.verdict !== 'undetermined' || !/模型未生效/.test(noModel.reason))
+        return `⑤ 模型缺席仍判过了:${JSON.stringify(noModel)}`
+      const notGen = webUtilityRow('no-such-util', model, { conditional: false })
+      if (notGen.verdict !== 'undetermined' || !/未生成/.test(notGen.reason))
+        return `⑤ 主题没生成的名字没落未判定:${JSON.stringify(notGen)}`
+      const cond = webUtilityRow('min-h-4', model, { conditional: true })
+      if (cond.verdict !== 'undetermined' || !/条件取用/.test(cond.reason))
+        return `⑤ 条件取用被当成无条件:${JSON.stringify(cond)}`
+      // ⑥ 伪元素部件:元素自身一条 + 部件若干 ⇒ resolved(只取自身体);夹一条状态选择器 ⇒ 回多处定义
+      const partCss =
+        '.thin-x { scrollbar-width: thin; }\n.thin-x::-webkit-scrollbar { width: 6px; height: 6px; }\n' +
+        '.thin-x::-webkit-scrollbar-thumb { border-radius: 2px; }\n'
+      const partDefs = classDefScan(partCss, new Set(['thin-x']))
+      const partRow = classArmVerdicts(
+        new Map([['thin-x', { conditional: false }]]),
+        partDefs,
+        new Map(),
+        'web',
+      )[0]
+      if (partRow.verdict !== 'resolved' || partRow.source !== 'cssPartSplit')
+        return `⑥ 伪元素部件被读成"多处定义":${JSON.stringify(partRow)}`
+      if (/6px/.test(String(partRow.body ?? '')))
+        return '⑥ 部件声明体(滚动条滑块 6px)被当成元素自身的盒档(会给元素凭空加档)'
+      if (!/scrollbar-width/.test(String(partRow.body ?? '')))
+        return '⑥ 元素自身那条规则反而没被取到'
+      const stateCss = partCss + '.thin-x:hover { width: 9px; }\n'
+      const stateRow = classArmVerdicts(
+        new Map([['thin-x', { conditional: false }]]),
+        classDefScan(stateCss, new Set(['thin-x'])),
+        new Map(),
+        'web',
+      )[0]
+      if (stateRow.verdict !== 'undetermined' || stateRow.reason !== '多处定义')
+        return `⑥ 夹了状态选择器仍被解释成"元素自身那一档":${JSON.stringify(stateRow)}`
+      // ⑦ 装车锁:门体零第二份类名字典(类名→px 的映射只能来自编译器取源),且接线只认模型来源
+      const mainSrc = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      const libSrc = readFileSync(
+        fileURLToPath(new URL('./web-utility-classes.mjs', import.meta.url)),
+        'utf8',
+      )
+      if ((mainSrc.match(/webUtilityDeclarations\(/g) || []).length !== 1)
+        return '⑦ 模型生产者不唯一(门内出现两处)⇒ 两张表必然漂开'
+      if (/(?:min-h-\d|resize-none|accent-primary|appearance-none)\s*['":]/.test(libSrc))
+        return '⑦ 取源件里出现手写类名字典(映射必须由编译器算)'
+      if (!/classArmVerdicts\(l\.refs, own, glob, l\.side,/.test(mainSrc))
+        return '⑦ 第五参(工具类模型)没接进判定 ⇒ 新维只存在函数里'
+      if (!/r\.source === 'tailwind'/.test(mainSrc))
+        return '⑦ 几何入读面没有按来源收窄 ⇒ web 既有类臂口径会被静默带偏'
+      if (!/web 工具类模型/.test(mainSrc)) return '⑦ 人读面没有模型覆盖面读数'
       return true
     })(),
   )

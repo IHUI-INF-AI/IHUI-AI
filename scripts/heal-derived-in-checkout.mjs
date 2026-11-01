@@ -174,8 +174,42 @@ function runGeneratorIn(dir, generatorRel, args = [], timeoutMs = 20 * 60 * 1000
 }
 
 /**
- * 离线包族:面上现算钉 ↔ 检出里重生成的钉。
- * 7 份落点一次带走(钉/清单/内联包 + 4 份 CDN 载荷 —— 它们是同一次生成的同一批字节,落一半会自相矛盾)。
+ * 把「与基线逐字节相同」的落点从本批剔出去(纯函数,无 git、无 IO ⇒ 镜像测试直接钉)。
+ *
+ * 立因(2026-11-01 实测):i18n 一族从 10-31 21:19 起每轮 `refused`,原话是"构造内容与该路径某
+ * 历史 blob 逐字节相同 ⇒ 按写回旧版处理",点名 4 份 CDN 载荷。逐字节去量那 4 份:**盘 == HEAD,
+ * 一字节没变**(生成器按当下源面重跑,吐出的还是同一份)。于是这条腿把 7 份全交给落地器时,
+ * 4 份"本就无需动"的路径把 3 份真变的 gen.ts 一起堵死 —— 而 105 的 G5 是 blocking,红就常驻在
+ * 完好的仓上(§12e 同一型)。落地器对"声明路径 == 基线"另有出口①(整批拒),先撞上的是祖先档,
+ * 所以人看到的永远是那句和内容无关的话。
+ *
+ * "离线包是一次生成的同一批字节,落一半自相矛盾"这句仍然成立,只是**完整性按变化集判**:
+ * 与基线全等的那几份,面上已经是生成器会写出的字节,落与不落同一张脸。
+ * 返回 `error` 时调用方必须拒落 —— 生成后读不回一份,就没有"整批自洽"这回事。
+ */
+export function partitionIdenticalOutputs({ rels, readDisk, readFace }) {
+  const changed = []
+  const identical = []
+  let bytesAll = 0
+  for (const rel of rels) {
+    const disk = readDisk(rel)
+    if (disk === null) return { error: rel, changed: [], identical: [], bytesAll }
+    bytesAll += Buffer.byteLength(disk)
+    const face = readFace(rel)
+    if (face !== null && face === disk) {
+      identical.push(rel)
+      continue
+    }
+    changed.push({ path: rel, text: disk })
+  }
+  return { changed, identical, bytesAll }
+}
+
+/**
+ * 离线包族:面上现算钉 ↔ 按被审面重生成的钉。
+ * 7 份落点**同批生成**(钉/清单/内联包 + 4 份 CDN 载荷),但只交变化集给落地器:
+ * 与基线逐字节全等的那几份本就在面上是同一份字节,把它们一起递上去会撞落地器的祖先档,
+ * 把真变的落点一起堵死(判据与出处见 partitionIdenticalOutputs 头注)。
  */
 export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null }) {
   // 离线包这一族**不能在检出里生成**:生成器要 require('fflate')(pnpm 把依赖装在端内,
@@ -188,7 +222,11 @@ export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null 
   const bundleRel = gate105.I18N_BUNDLE
   if (!rd.has(bundleRel))
     return { state: 'undetermined', why: `${FACE_LABEL[face]} 取不到 ${bundleRel}` }
-  rd.prefetch([bundleRel, ...gate105.bundleInputRels(gate105.REMOTE_LOCALES, (rel) => rd.has(rel))])
+  rd.prefetch([
+    bundleRel,
+    ...I18N_OUTPUTS,
+    ...gate105.bundleInputRels(gate105.REMOTE_LOCALES, (rel) => rd.has(rel)),
+  ])
   const faceText = rd.read(bundleRel)
   const facePin = parsePin(String(faceText ?? ''))
   if (!facePin.present || facePin.malformed) {
@@ -222,14 +260,27 @@ export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null 
       why: `新钉(${String(fresh.digest).slice(0, 12)}…)≠ 面上现算(${computed.digest.slice(0, 12)}…)⇒ 生成器与门不同形,不落半套`,
     }
   }
-  const out = []
-  let bytes = 0
-  for (const rel of I18N_OUTPUTS) {
-    const abs = join(root, rel)
-    if (!existsSync(abs)) return { state: 'refused', why: `生成后读不回 ${rel}` }
-    const text = readFileSync(abs, 'utf8')
-    bytes += Buffer.byteLength(text)
-    out.push({ path: rel, blob: hashText(root, text) })
+  const part = partitionIdenticalOutputs({
+    rels: I18N_OUTPUTS,
+    readDisk: (rel) => {
+      const abs = join(root, rel)
+      return existsSync(abs) ? readFileSync(abs, 'utf8') : null
+    },
+    readFace: (rel) => (rd.has(rel) ? rd.read(rel) : null),
+  })
+  if (part.error) return { state: 'refused', why: `生成后读不回 ${part.error}` }
+  const out = part.changed.map((c) => ({ path: c.path, blob: hashText(root, c.text) }))
+  const identical = part.identical
+  const bytes = part.bytesAll
+  if (out.length === 0) {
+    // 钉说新旧不同、7 份字节却说全等 ⇒ 两把尺不同形,这是判据事故而不是"没什么要落"
+    // (§0.3:不得把没判成写成判过;也不得把矛盾读成 clean)。
+    return {
+      state: 'refused',
+      why:
+        `钉不等(${String(facePin.digest).slice(0, 12)}… → ${String(fresh.digest).slice(0, 12)}…)` +
+        '而全部落点与基线逐字节全等 ⇒ 门与生成器不同形,不落一份自相矛盾的账',
+    }
   }
   if (bytes > MAX_I18N_BYTES) {
     return {
@@ -237,7 +288,7 @@ export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null 
       why: `一次重生成写回 ${bytes} 字节 > 上限 ${MAX_I18N_BYTES} ⇒ 异常量级,不自动背书`,
     }
   }
-  return { state: 'ready', files: out, digest: computed.digest }
+  return { state: 'ready', files: out, digest: computed.digest, identical }
 }
 
 /** 在**主仓**里按被审面重跑离线包生成器(检出里跑不了:见 healI18nFamily 头注) */
@@ -820,7 +871,12 @@ export function healDerivedInCheckout(opts = {}) {
     const out = []
     if (i18nStale === 'stale') {
       const r = healI18n({ face, root, dir, reader: null })
-      judged.push({ family: 'i18n', state: r.state, why: r.why ?? '' })
+      judged.push({
+        family: 'i18n',
+        state: r.state,
+        why: r.why ?? '',
+        identical: r.identical ?? [],
+      })
       if (r.state === 'ready' && r.files?.length) {
         out.push(...r.files)
         roundFamilies.add('i18n')
@@ -1302,6 +1358,7 @@ export const __test__ = {
   checkoutPathOf,
   withHeadCheckout,
   healI18nFamily,
+  partitionIdenticalOutputs,
   healUiRoutesFamily,
   healDerivedInCheckout,
   // 只判不修的两把尺(与写回档共用同一条 readPinInputs / uiRoutesFaceDigest 出口)

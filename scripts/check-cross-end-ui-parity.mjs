@@ -48,6 +48,12 @@ import { geometryItemsInSrc, lengthConstsOf, cssVarItemsInSrc } from './lib/radi
 // CSS 变量解值的取源:tokens.css 的块解析**只此一份实现**(lib/design-token-blocks.mjs 是它的全仓唯一出口,
 // 生成器与守门 36/93 都从那里取);本门不得再抄第二份 `--x: y` 正则(§0.6)。
 import { collectVars } from './lib/design-token-blocks.mjs'
+// web 腿工具类 → 声明体/px 的**唯一取源**(票 O67):类名到声明的映射由 Tailwind 编译器算,
+// 主题值取自编译产物,本门不手敲第二份类名字典(否则两张表必然漂开成"这张认得、那张不认")。
+import {
+  WEB_UTILITY_CLOSURE_EXTRA,
+  webUtilityDeclarations,
+} from './lib/web-utility-classes.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -2550,25 +2556,87 @@ export function collect(
       }
   }
   const addDef = (map, n, d) => {
-    const cur = map.get(n) ?? { count: 0, important: false, complex: 0, bodies: [] }
+    const cur = map.get(n) ?? {
+      count: 0,
+      base: 0,
+      parts: 0,
+      important: false,
+      complex: 0,
+      bodies: [],
+      baseBodies: [],
+    }
     cur.count += d.count
+    // `base` / `parts` 必须跟着合并:判定层要拿它们区分"元素自身那一档"与"伪元素部件"
+    // (票 O67 的 thin-scroll)。漏合并 = 跨文件合计时 base 恒 0 ⇒ 该型永远回落到"多处定义"。
+    cur.base += d.base ?? 0
+    cur.parts += d.parts ?? 0
     cur.important = cur.important || d.important
     cur.complex += d.complex
     cur.bodies.push(...(d.bodies ?? []))
+    cur.baseBodies.push(...(d.baseBodies ?? []))
     map.set(n, cur)
   }
   const mergeDefs = (list) => {
-    const acc = { count: 0, important: false, complex: 0, bodies: [] }
+    const acc = { count: 0, base: 0, parts: 0, important: false, complex: 0, bodies: [], baseBodies: [] }
     for (const d of list) {
       acc.count += d.count
+      acc.base += d.base ?? 0
+      acc.parts += d.parts ?? 0
       acc.important = acc.important || d.important
       acc.complex += d.complex
       acc.bodies.push(...(d.bodies ?? []))
+      acc.baseBodies.push(...(d.baseBodies ?? []))
     }
     return acc
   }
+  /**
+   * ── web 腿工具类模型(票 O67)──────────────────────────────────────────
+   * web 侧写在 `className` 里的 `min-h-0` / `resize-none` 这类**由构建期按主题生成**的名字,
+   * 在 `apps/web` 的 `.css` 里当然查不到定义 ⇒ 旧口径只能逐枚记"未判定"。本格把"这类名到底
+   * 生成什么声明"变成可解析输入:唯一取源 = `lib/web-utility-classes.mjs`(Tailwind 编译器 +
+   * 被审面的 `globals.css` 与其 `@import` 闭包),门体**不持第二份类名字典**。
+   *
+   * 取数口径与被审面一致:样式源一并从 `cssBySide.web`(同面同轮已读满的那批)取,
+   * 闭包里在 `apps/web` 之外的令牌表另按同一面取;取不到就 `available:false` ⇒ 逐枚未判定
+   * (不回落"该侧无档",也不猜一个 px)。
+   */
+  let webUtility = {
+    available: false,
+    why: '本轮没有 web 腿用到类名',
+    decls: new Map(),
+    missing: [],
+    candidates: [],
+  }
+  {
+    const webWantedSet = new Set()
+    for (const l of classRefs) if (l.side === 'web') for (const k of l.refs.keys()) webWantedSet.add(k)
+    if (webWantedSet.size) {
+      const utilFiles = Object.fromEntries(cssBySide.web)
+      const missingExtra = WEB_UTILITY_CLOSURE_EXTRA.filter((rel) => typeof utilFiles[rel] !== 'string')
+      if (missingExtra.length) {
+        const preU = face === 'staged' ? ':' : 'HEAD:'
+        const gotU = catBatch(repoRoot, missingExtra.map((rel) => preU + rel), { maxBuffer: 1 << 26 })
+        for (const rel of missingExtra) {
+          const t = gotU.get(preU + rel)
+          if (typeof t === 'string') utilFiles[rel] = t
+        }
+      }
+      const candidates = [...webWantedSet].sort()
+      webUtility = {
+        ...webUtilityDeclarations({ repoRoot, files: utilFiles, candidates }),
+        candidates,
+      }
+    }
+  }
   const classArmLegs = []
-  const classArmTotals = { legs: 0, legsWithClasses: 0, resolved: 0, undefined: 0, undetermined: 0 }
+  const classArmTotals = {
+    legs: 0,
+    legsWithClasses: 0,
+    resolved: 0,
+    modeled: 0,
+    undefined: 0,
+    undetermined: 0,
+  }
   /** 配对腿文件 → 解析成功的类臂声明体(只给几何维加读数,不改圆角维取面)。 */
   const classArmCss = {}
   for (const l of classRefs) {
@@ -2589,10 +2657,11 @@ export function collect(
         if (rest.length) addDef(glob, n, mergeDefs(rest))
       }
     }
-    const rows = classArmVerdicts(l.refs, own, glob, l.side)
+    const rows = classArmVerdicts(l.refs, own, glob, l.side, l.side === 'web' ? webUtility : null)
     const miss = rows.filter((r) => r.verdict === 'undefined').map((r) => r.class)
     const unk = rows.filter((r) => r.verdict === 'undetermined')
     const ok = rows.filter((r) => r.verdict === 'resolved')
+    const modeled = rows.filter((r) => r.verdict === 'modeled')
     /**
      * **类臂盒档入几何**(G-16 第(ii)格):解析成功的类名,它的定义体就是该元素的盒档出处。
      * 只收小程序/web 腿 —— RN 侧盒档走 StyleSheet,className 由构建期生成(见 classArmVerdicts)。
@@ -2603,11 +2672,23 @@ export function collect(
       const bodies = []
       for (const r of ok) {
         const d = own.get(r.class) ?? glob.get(r.class)
-        if (d?.bodies?.length) bodies.push(...d.bodies)
+        const body = r.body ?? (d?.bodies ?? [])
+        if (body.length) bodies.push(...body)
       }
       if (bodies.length) classArmCss[l.file] = bodies.join('\n')
     }
+    /**
+     * web 腿的**新增**入几何面只收工具类模型的声明体(`source:'tailwind'`)。既有口径 ——
+     * web 自己 `.css` 里解析成功的类臂体 —— 本轮不动(它一并在动就会移动 `webCounts`,
+     * 那是另一票的账)。工具类模型的 px 已由 lib 归一成 `Npx`,与本腿读档口径同形。
+     */
+    if (l.side === 'web') {
+      const bodies = ok.filter((r) => r.source === 'tailwind' && r.body).map((r) => r.body)
+      if (bodies.length)
+        classArmCss[l.file] = [classArmCss[l.file], ...bodies].filter(Boolean).join('\n')
+    }
     classArmTotals.resolved += ok.length
+    classArmTotals.modeled += modeled.length
     classArmTotals.undefined += miss.length
     classArmTotals.undetermined += unk.length
     classArmLegs.push({
@@ -2615,11 +2696,27 @@ export function collect(
       side: l.side,
       file: l.file,
       resolved: ok.length,
+      modeled: modeled.map((m) => ({ class: m.class, reason: m.reason })),
       undefined: miss,
       undetermined: unk.map((u) => ({ class: u.class, reason: u.reason })),
     })
   }
-  const classArm = { legs: classArmLegs, totals: classArmTotals, zeroReach: classWanted.size === 0 }
+  const classArm = {
+    legs: classArmLegs,
+    totals: classArmTotals,
+    zeroReach: classWanted.size === 0,
+    /**
+     * web 工具类模型的**覆盖面**(票 O67):可用性、候选枚数、编译器没产出的名字。
+     * 没有这三个数,"这一维对 web 腿判过了"与"模型没建起来、全被记成未判定"在账面上同形。
+     */
+    webUtility: {
+      available: Boolean(webUtility?.available),
+      why: webUtility?.why ?? null,
+      candidates: webUtility?.candidates?.length ?? 0,
+      resolved: webUtility?.decls?.size ?? 0,
+      missing: webUtility?.missing ?? [],
+    },
+  }
   /**
    * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
    * 取不到任何一份 ⇒ Undetermined。空表不等于"没有单源档",那是一台瞎了的尺子 ——
@@ -3512,8 +3609,12 @@ export function usedClassNames(src) {
  * 上一版实现给 69 份表逐条建 `class -> 属性/值` 全索引,实测把本门从 28s 拖到 >300s
  * (G-16(ii) 只读探针记录),在 pre-commit blocking 下等于逼人 `--no-verify`。
  *
- * 记三件事,对应"唯一无覆盖定义 + 无条件使用"里三个会改变结论的事实:
+ * 记四件事,对应"唯一无覆盖定义 + 无条件使用"里会改变结论的事实:
  *  - `count`:该名字出现在几个选择器里(>1 = 多处定义,不选边);
+ *  - `base`:其中**选择器恰好是 `.name`**(元素自身那一档)的出现数 —— 与 `parts` 分开记,
+ *    是为了让"多处定义"里"元素自身的档"与"伪元素部件的档"不再糊成一个数(票 O67);
+ *  - `parts`:选择器是 `.name::…`(伪元素部件:滚动条滑块之类)**且只比 `.name` 多这一截**的出现数;
+ *    它们描述的不是这个元素自己的盒档,所以不能与 `base` 一起算"多处定义";
  *  - `important`:规则体里出现过 `!important`(状态覆盖,不选边);
  *  - `complex`:选择器不是**恰好** `.name` 的次数(`.a .b` / `.a:hover` / `.a.b` 都算条件覆盖)。
  */
@@ -3537,10 +3638,27 @@ export function classDefScan(cssText, wanted) {
       for (const c of p.matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)/gi)) {
         const name = c[1]
         if (!wanted.has(name)) continue
-        const cur = out.get(name) ?? { count: 0, important: false, complex: 0, bodies: [] }
+        const cur = out.get(name) ?? {
+          count: 0,
+          base: 0,
+          parts: 0,
+          important: false,
+          complex: 0,
+          bodies: [],
+          baseBodies: [],
+        }
         cur.count++
+        // 元素自身那一档:选择器**逐字**是 `.name`(不多一个类、不带状态、不带后代)。
+        const isBase = p === `.${name}`
+        // 伪元素部件:`.name::xxx`(可再带 `:hover` 等)—— 比 `.name` 多出来的那截全部落在
+        // `::` 之后。只比"多了一截"是不够的(`.name:hover` 也是多一截),所以判据必须是 `::`。
+        const isPart = !isBase && p.startsWith(`.${name}::`)
+        if (isBase) {
+          cur.base++
+          cur.baseBodies.push(m[2])
+        } else if (isPart) cur.parts++
         if (important) cur.important = true
-        if (p !== `.${name}`) cur.complex++
+        if (!isBase) cur.complex++
         // 声明体留着给"类臂盒档入几何"用:解析成功(唯一无覆盖定义)时,这一段就是那个元素的盒档来源。
         cur.bodies.push(m[2])
         out.set(name, cur)
@@ -3557,14 +3675,16 @@ export function classDefScan(cssText, wanted) {
  * 多处定义 / 带 `!important` / 选择器不是单类 / 条件取用 一律**未判定**、不选边。
  * 查无定义 = `undefined`(这才是本维要报的新信号:className 写了个谁也没定义的名字,
  * 过去会被 `blindClasses` 一并归成"落在全局表"),绝不折成通过。
- * web / rn 侧查不到时**不得**记成 `undefined`:那两侧的字符串可能是构建期生成的工具类,
- * 本门没有可解析的 Tailwind 配置 ⇒ 一律 `undetermined`(判不出就报名)。
+ * web / rn 侧查不到时**不得**记成 `undefined`(那两侧的字符串可能是构建期生成的工具类),
+ * 只在**没有工具类模型**时才记 `undetermined`;有模型时由 `utilityRow` 按编译器真产出的
+ * 声明体判(见第五参 `webUtility`,票 O67)。
  */
 export function classArmVerdicts(
   refs,
   ownDefs = new Map(),
   globalDefs = new Map(),
   side = 'miniapp',
+  webUtility = null,
 ) {
   // 工具类 / 标记名的形态判据(只用于"查不到定义时"的归类,不做提取):
   // `max-w-sm` / `min-w-0` / `line-clamp-1` 与 `ui-card` / `ui-panel` 这类标记名在样式源里
@@ -3579,6 +3699,10 @@ export function classArmVerdicts(
     const important = Boolean(own?.important || glob?.important)
     const complex = (own?.complex ?? 0) + (glob?.complex ?? 0)
     if (count === 0) {
+      if (side === 'web') {
+        rows.push(webUtilityRow(name, webUtility, meta))
+        continue
+      }
       rows.push(
         side === 'miniapp'
           ? UTILITY_SHAPE.test(name)
@@ -3591,16 +3715,34 @@ export function classArmVerdicts(
           : {
               class: name,
               verdict: 'undetermined',
-              reason:
-                side === 'web'
-                  ? 'web 工具类未建模(无可解析的 Tailwind 配置)'
-                  : 'RN 侧 className 由构建期生成,静态查不到',
+              reason: 'RN 侧 className 由构建期生成,静态查不到',
             },
       )
       continue
     }
-    if (count > 1) rows.push({ class: name, verdict: 'undetermined', reason: '多处定义' })
-    else if (important)
+    if (count > 1) {
+      /**
+       * 「多处定义」里有一型不是真歧义(票 O67,`thin-scroll` 为实证):同一条类名有一条
+       * **元素自身**的规则(`.name`),其余全是**伪元素部件**(`.name::…`)—— 后者描述滚动条
+       * 滑块之类的部件盒,不是这个元素自己的档。旧口径把两者一起数成 count>1 ⇒ 判"多处定义"⇒
+       * 该元素的盒档永远读不到。收口条件(四条同时成立,缺一即仍判多处定义):
+       * ① 元素自身的规则**恰好一条**;② 其余出现数**全部**是伪元素部件(`count - base === parts`);
+       * ③ 无 `!important`;④ 取用是无条件的。声明体只取元素自身那条,部件体**不入几何**
+       * (否则 `.name::-webkit-scrollbar{width:6px}` 会给元素凭空加一档 6)。
+       */
+      const base = (own?.base ?? 0) + (glob?.base ?? 0)
+      const parts = (own?.parts ?? 0) + (glob?.parts ?? 0)
+      const baseBody = (own?.baseBodies?.[0] ?? glob?.baseBodies?.[0] ?? null)
+      if (base === 1 && count - base === parts && !important && !meta?.conditional)
+        rows.push({
+          class: name,
+          verdict: 'resolved',
+          reason: null,
+          source: 'cssPartSplit',
+          body: baseBody,
+        })
+      else rows.push({ class: name, verdict: 'undetermined', reason: '多处定义' })
+    } else if (important)
       rows.push({ class: name, verdict: 'undetermined', reason: '带 !important 的状态覆盖' })
     else if (complex > 0)
       rows.push({ class: name, verdict: 'undetermined', reason: '选择器不是单类(条件覆盖)' })
@@ -3609,6 +3751,49 @@ export function classArmVerdicts(
     else rows.push({ class: name, verdict: 'resolved', reason: null })
   }
   return rows.sort((a, b) => a.class.localeCompare(b.class))
+}
+
+/**
+ * web 腿一条"样式源里没有定义"的类名 → 判定行(票 O67 的落点)。
+ *
+ * 三种结局,一个都不许折成另一个:
+ *  - 模型不可用(入口样式表不在被审面 / 编译器没跑起来)⇒ `undetermined` + 点名原因;
+ *  - 编译器**没产出**这个类(主题没生成它 / 写错了 / 来自未装载的插件)⇒ `undetermined` + 点名;
+ *  - 产出了 ⇒ 声明体交几何维自己的 `readGeometry` 读档(属性归类单源,不在这里判):
+ *    · 读出正档 ⇒ `resolved`,声明体并入几何(`source: 'tailwind'`);
+ *    · 读出 0 档 ⇒ `modeled`(C4 纪律:0 值不进比对集,否则造"同值假账");
+ *    · 读不出任何长度 ⇒ `modeled`(该工具类不产生盒档,如 `resize-none` / `underline`)。
+ * `modeled` 是**判过**的一档,与 `undetermined`(没判)必须分开印 —— 混成一个数就是把
+ * "判过、不产生盒档"说成"没判"。
+ */
+export function webUtilityRow(name, webUtility, meta) {
+  const unavailable = (why) => ({ class: name, verdict: 'undetermined', reason: `web 工具类模型未生效(${why})` })
+  if (!webUtility?.available) return unavailable(webUtility?.why ?? '本轮未建模型')
+  const body = webUtility.decls?.get(name)
+  // 模型可用但编译器没产出这个类:它不是"该侧无档",也不是"写错了"(插件/任意值都可能),
+  // 一律未判定并点名 —— 与"模型没建起来"分开写,否则下一个人分不清该补哪一头。
+  if (typeof body !== 'string')
+    return { class: name, verdict: 'undetermined', reason: '该主题未生成此类名(编译器没有产出)' }
+  if (meta?.conditional)
+    return { class: name, verdict: 'undetermined', reason: '条件取用(工具类本身已建模)' }
+  const vals = [...readGeometry(body, 'rn').values]
+  if (!vals.length) {
+    /**
+     * 读不出档有两种成因,必须分开说:声明里**写了 0**(`min-height: 0px`)与**根本没有长度**
+     * (`resize: none`)。`readGeometry` 对 0 一律不收(整门 C4 纪律:0 值进集合会与对面的 0
+     * 凑成一条"同值"假账),所以这里靠声明文本自己分辨 —— 只影响措辞,不参与任何判定。
+     */
+    const zero = /:\s*-?0(?:px|rpx|rem)?\s*(?:;|$)/.test(String(body).trim())
+    return {
+      class: name,
+      verdict: 'modeled',
+      reason: zero
+        ? '工具类已建模:盒档为 0(按 C4 纪律不入比对集)'
+        : '工具类已建模:不产生盒档',
+      source: 'tailwind',
+    }
+  }
+  return { class: name, verdict: 'resolved', reason: null, source: 'tailwind', body }
 }
 
 /**
@@ -4527,12 +4712,27 @@ export function main(argv, repoRoot = ROOT) {
       const tt = ca.totals
       console.log(
         `  ⓘ 类臂解析(只报数,不进退出码):${tt.legsWithClasses}/${tt.legs} 条腿用到类名;` +
-          `唯一无覆盖定义 ${tt.resolved} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined};` +
+          `唯一无覆盖定义 ${tt.resolved} / 已建模但无盒档 ${tt.modeled ?? 0} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined};` +
           `其中 ${Object.keys(collected.classArmCss ?? {}).length} 份声明体已并入几何维`,
       )
+      /**
+       * web 工具类模型的覆盖面(票 O67):三列缺一不可 —— 缺 `available` 时"全被记成未判定"
+       * 与"模型判过、只是没有这类名字"读起来一模一样;缺 `missing` 时"主题没生成它"与
+       * "模型没建起来"也分不开。
+       */
+      const wu = ca.webUtility ?? null
+      if (wu)
+        console.log(
+          `     ⓘ web 工具类模型:${wu.available ? '可用' : `不可用(${wu.why})`} —— 候选 ${wu.candidates} 枚 / ` +
+            `编译器产出 ${wu.resolved} 枚 / 主题未生成 ${wu.missing.length} 枚` +
+            (wu.missing.length ? `(${wu.missing.join(' ')})` : '') +
+            `;取源 = lib/web-utility-classes.mjs(Tailwind 编译器 × 被审面 globals.css),门体零第二份类名字典`,
+        )
       for (const l of ca.legs) {
         const parts = []
         if (l.undefined.length) parts.push(`查无定义:${l.undefined.join(' ')}`)
+        if (l.modeled?.length)
+          parts.push(`已建模无盒档:${l.modeled.map((u) => `${u.class}(${u.reason})`).join(' ')}`)
         if (l.undetermined.length)
           parts.push(`未判定:${l.undetermined.map((u) => `${u.class}(${u.reason})`).join(' ')}`)
         if (parts.length)
@@ -4540,7 +4740,8 @@ export function main(argv, repoRoot = ROOT) {
       }
       console.log(
         '     ⇒ 转判红的条件(尚未生效):① 小程序侧"查无定义"类名数超台账锚点;' +
-          '② web/rn 侧补上可解析的 Tailwind 配置 / 样式源,把"未判定"降到可判;两项都须先钉锚点再判红',
+          '② web 侧的"未判定"必须是**模型不可用 / 主题未生成 / 条件取用**三型之一(模型可用而仍判不出,' +
+          '说明取源缺了这一族 —— 先补取源,不许把未判定直接折成通过);两项都须先钉锚点再判红',
       )
     }
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
@@ -5199,6 +5400,8 @@ export const __test__ = {
   usedClassRefs,
   classDefScan,
   classArmVerdicts,
+  // web 腿工具类判定(票 O67):行级判定单测要走同一份实现,不在测试里复制判据(§22c)。
+  webUtilityRow,
   elementRadiusDiff,
   elementRadiusCount,
   waiverProblem,

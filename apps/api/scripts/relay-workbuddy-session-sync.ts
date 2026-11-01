@@ -15,6 +15,9 @@
  * 2. **只合并写 secretsEnc 的 sessionTemplate/sealedPaths/edition 三键**,不动
  *    token/refreshToken/credVersion(WorkBuddy 的票以池内为准,客户端票不回灌);
  * 3. 池内没有该 uid ⇒ 不建行(切号只对已导入的号有意义,建行会灌进无票幽灵号)。
+ *    目标行选择(2026-11-01 根治):候选按 (provider, uid) 不带 owner 过滤拉齐,交
+ *    `chooseSyncTargetRow` 判 —— 运营池优先、运营池无行而个人池恰一行则写该行、多行拒写点名。
+ *    此前只查运营池行 ⇒ 本机号落在个人池时恒"池内没有该 uid",模板永不回灌。
  *
  * 退出码:0 写入(或 dry-run 判定可写)/ 1 DB 失败 / 2 未判定(无客户端/进程歧义/无模板/池内无行)。
  * 任何输出面零凭据:只报 uid/edition/键计数/文件路径。
@@ -30,10 +33,12 @@ const REPO_ROOT = resolvePath(API_DIR, '..', '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, isNull } = await import('drizzle-orm')
+const { and, eq } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
+// 目标行选择判据单源(与 trae/qoder 腿共用):运营池优先,运营池无行时认个人池唯一行
+const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
 
 /** 未判定:环境/数据没就绪 ⇒ 不写库、不算失败(退出码 2) */
 export class UndeterminedError extends Error {
@@ -123,20 +128,24 @@ async function collectTemplate(): Promise<WorkbuddyTemplatePayload> {
 
 export async function runSync(dryRun: boolean): Promise<WorkbuddySyncSummary> {
   const tpl = await collectTemplate()
-  const [row] = await db
+  // 候选不带 owner 过滤:本机号可能已归属某个用户个人池(2026-11-01 实测本机 uid 只有
+  // 个人池一行)。仍沿用"池内没有就报未判定、不建行"的口径 —— 建行会灌进无票幽灵号。
+  const candidates = await db
     .select()
     .from(aiRelayAccountPool)
     .where(
-      and(
-        eq(aiRelayAccountPool.providerCode, 'workbuddy'),
-        eq(aiRelayAccountPool.uid, tpl.uid),
-        isNull(aiRelayAccountPool.ownerUserId),
-      ),
+      and(eq(aiRelayAccountPool.providerCode, 'workbuddy'), eq(aiRelayAccountPool.uid, tpl.uid)),
     )
-    .limit(1)
-  if (!row) {
+  const target = chooseSyncTargetRow(candidates)
+  if (target.kind === 'ambiguous') {
+    throw new UndeterminedError(
+      `该 workbuddy 号同 uid ${target.count} 行且无运营池行(归属未判定,拒写不猜)`,
+    )
+  }
+  if (target.kind === 'none') {
     throw new UndeterminedError(`池内没有该 workbuddy 号 uid=${tpl.uid}(未导入?不建行、不写库)`)
   }
+  const row = target.row
   let base: Record<string, unknown> = {}
   if (row.secretsEnc) {
     try {
@@ -170,13 +179,7 @@ export async function runSync(dryRun: boolean): Promise<WorkbuddySyncSummary> {
       secretsEnc: encryptField(JSON.stringify(secrets)),
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(aiRelayAccountPool.providerCode, 'workbuddy'),
-        eq(aiRelayAccountPool.uid, tpl.uid),
-        isNull(aiRelayAccountPool.ownerUserId),
-      ),
-    )
+    .where(eq(aiRelayAccountPool.id, row.id))
   summary.applied = true
   return summary
 }

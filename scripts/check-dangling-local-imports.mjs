@@ -490,6 +490,12 @@ export function parseImports(text) {
 function listNames(body) {
   return body
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    // 行注释(行内/整行)也必须先剥:注释正文里的逗号会让下面的 split 把"注释尾巴 + 下一行
+    // 条目"粘成一个条目、再被标识符正则整条丢掉 ⇒ 漏识别 ⇒ 假红。实测形态:
+    // apps/miniapp-taro/src/api/index.ts:131 的 `ExamQuestion, // …下沉, 直接 re-export`
+    // 把第 132 行 `Banner,` 吞掉,门遂断言 HEAD 从未导出 Banner(其实就在这块 transfer 里)。
+    // 名单体内不可能有字符串/正则字面量,剥注释只可能少认名字(宁漏不误报),不会凭空多认一个导出。
+    .replace(/\/\/[^\n]*/g, ' ')
     .split(',')
     .map((s) => s.replace(/^\s*type\s+/, '').trim())
     .filter((s) => /^[A-Za-z_$][\w$]*(?:\s+as\s+[A-Za-z_$][\w$]*)?$/.test(s))
@@ -1037,7 +1043,15 @@ const TS_SYNTAX_PROBES = [
   ['implements 子句', /(?<![\w$.])implements\s+[A-Za-z_$]/, false],
   ['satisfies 表达式', /(?<![\w$.])satisfies\s+[A-Za-z_$]/, false],
   ['变量类型标注', /(?<![\w$.])(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:(?!:)/, false],
-  ['形参类型标注', /\(\s*[A-Za-z_$][\w$]*\s*\??\s*:/, false],
+  // 冒号后必须紧跟"类型起始字符",**且** `?` 只有两种合法位置,否则会把 JS 三元式判成可选形参:
+  //   遮罩把字符串换成空格后,`(z ? 'x' : '')` / `(v ? \`…\` : b)` 与 `(a?: T)` 都是
+  //   `(ident 空白 :  类型)` 这个形状;三元式的判别点是 **`?` 与标识符之间必有空白**
+  //   (`v ? …`),而 TS 可选形参写 `a?:`(或 `a ?: T`,罕见)。故拆成两条:
+  //     ① 可选形参:`ident?` 紧贴冒号;
+  //     ② 必填形参:ident 与冒号之间**只有空白**(出现 `?` 即不成立 ⇒ 三元式自动排除)。
+  //   代价是 `a ?: T` 这种带空格的写法会漏(fail-safe 方向:宁漏不误报)。
+  ['形参类型标注', /\(\s*[A-Za-z_$][\w$]*\?\s*:\s*[A-Za-z_$0-9{[(<`"']/, false],
+  ['形参类型标注', /\(\s*[A-Za-z_$][\w$]*\s*:\s*[A-Za-z_$0-9{[(<`"']/, false],
   ['泛型实参(new X<…>)', /(?<![\w$.])new\s+[A-Za-z_$][\w$.]*\s*</, false],
   ['泛型形参约束(<T extends …>)', /<[A-Za-z_$][\w$]*\s+extends\s/, false],
   ['类型别名', /(?<![\w$.])type\s+[A-Za-z_$][\w$]*\s*(?:<[^<>\n]*>\s*)?=(?!=)/, false],
@@ -2556,6 +2570,7 @@ if (isDirectRun) {
 // §22d:__test__ 的 export 必须在入口守卫之后(位置本身是判据,镜像测试钉着)。
 // D6 的裁定函数与形态清单走这一出口,镜像测试直接 import 源模块、不复制实现(§22c)。
 export const __test__ = {
+  parseExports,
   auditWrongNameShadow,
   mergeWrongName,
   TS_SIDE_CONSUMER_RE,
