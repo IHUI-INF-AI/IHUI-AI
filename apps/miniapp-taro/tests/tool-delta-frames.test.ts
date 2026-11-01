@@ -143,7 +143,15 @@ describe('D113 接线自证(源码级):解析 / dispatch / 回调表 / 消费点
     expect(block.slice(0, 300)).toMatch(/margin-top:\s*6rpx/)
     expect(block.slice(0, 300)).toMatch(/padding:\s*10rpx 12rpx/)
     const text = cssSrc.slice(cssSrc.indexOf('.ai-card-tool-partial-diff-text {'))
-    expect(text.slice(0, 300)).toMatch(/font-size:\s*22rpx/)
+    // font-size 两种合规形态:字面量 22rpx,或设计令牌 var(--text-caption)。
+    // 令牌形态必须能**现读回 22rpx**(令牌值漂了/换了别的档 ⇒ 照样红),不许只看"用了令牌"就放行。
+    if (!/font-size:\s*22rpx/.test(text.slice(0, 300))) {
+      expect(text.slice(0, 300)).toMatch(/font-size:\s*var\(--text-caption\)/)
+      const appCss = readFileSync(join(END_ROOT, 'src/app.css'), 'utf8')
+      expect(appCss, '--text-caption 必须仍是 22rpx(App 端 11px 同值档)').toMatch(
+        /--text-caption:\s*22rpx/,
+      )
+    }
     expect(text.slice(0, 300)).toMatch(/line-height:\s*32rpx/)
   })
 })

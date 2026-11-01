@@ -68,7 +68,7 @@ export default function MessageVersionMenu({
   if (!pos) return null
 
   return (
-    <View className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5">
+    <View className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-[4rpx]">
       <View
         className="inline-flex items-center px-1"
         onClick={() => step(prev)}

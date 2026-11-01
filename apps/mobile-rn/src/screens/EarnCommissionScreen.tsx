@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getCommissionRates, getOverview, type CommissionOverview } from '@ihui/api-client'
 import { EarnCommissionScreen as SharedEarnCommissionScreen } from '@ihui/rn-app'
+import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -40,8 +41,14 @@ function EarnCommissionScreen() {
   }, [load])
 
   const onOpenVip = (): void => {
-    // 对齐历史「开通会员」入口:loginPopUp/UserInfoCard openIntroduce → vip_info?type=IntroducePopup
-    navigation.navigate('Vip', { type: 'IntroducePopup' })
+    // 对齐端内 Taro.showModal 的开通确认步:标题/正文/确认/取消四键同源,确认后才跳 VIP。
+    appAlert(t('distribution.plan.openVipTitle'), t('distribution.plan.openVipContent'), [
+      { text: t('distribution.plan.cancel'), style: 'cancel' },
+      {
+        text: t('distribution.plan.confirm'),
+        onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }),
+      },
+    ])
   }
 
   return (

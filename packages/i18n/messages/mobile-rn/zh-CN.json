@@ -1869,7 +1869,18 @@
     "email": "客服邮箱",
     "loadFailed": "加载客服失败"
   },
+  "artifacts": {
+    "previewFailed": "预览链接获取失败,请稍后重试",
+    "loading": "加载中…",
+    "loadFailed": "产物列表加载失败"
+  },
   "distribution": {
+    "plan": {
+      "openVipTitle": "开通VIP会员",
+      "openVipContent": "是否前往开通VIP会员,参与分佣计划?",
+      "confirm": "确认",
+      "cancel": "取消"
+    },
     "title": "分销中心",
     "subtitle": "推广商品,赚取佣金",
     "retry": "重试",
@@ -3484,6 +3495,8 @@
   },
   "vipTrader": {
     "title": "VIP 操盘手",
+    "openTitle": "开通会员",
+    "confirmPay": "确认支付",
     "openTrader": "开通操盘手会员",
     "subtitle": "尊享操盘手专属权益",
     "badge": "操盘手专属",

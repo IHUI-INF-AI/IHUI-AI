@@ -59,10 +59,24 @@ const MAX_FONT_MULTIPLIER = 1.4
  * 于是用户在系统里调大字号后,文字变大、箭头不动 —— 换掉字形载体并不消除这一半病因,
  * 固定 12dp 的 SVG 同样会跑偏,所以倍率必须同时喂给 `maxFontSizeMultiplier` 与图标尺寸。
  */
-export function useFontMultiplier(): number {
+/**
+ * 系统字号倍率的**唯一取值口**,纯函数(不持状态/不订阅/无副作用)。
+ *
+ * 为什么单列一个不带 `use` 前缀的出口(2026-11-01):`react-hooks/rules-of-hooks` 只会看名字,
+ * 带 `use` 前缀的函数一旦被普通函数调用,调用点就会被判成"条件/非组件里调 hook"——实测
+ * `hooks/scaled-text.ts` 的 `scaleText()`(纯样式换算,常落在 `.map()` 的渲染回调里)因此被判红。
+ * 真正的 hook 语义在这里并不存在:`PixelRatio.getFontScale()` 是一次同步读值,刷新靠父层重渲染。
+ * 所以把**取值**下沉成本函数,`useFontMultiplier()` 留作既有调用面与替身(mocks 按名导出)的别名。
+ */
+export function fontMultiplier(): number {
   const raw = PixelRatio.getFontScale()
   if (!Number.isFinite(raw) || raw <= 0) return 1
   return Math.min(Math.max(raw, 1), MAX_FONT_MULTIPLIER)
+}
+
+/** 历史调用名(组件内读值)。语义与 `fontMultiplier()` 逐字相同,保留以不破既有调用面与替身。 */
+export function useFontMultiplier(): number {
+  return fontMultiplier()
 }
 
 export interface MoreLinkProps {

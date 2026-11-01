@@ -189,25 +189,48 @@ export function isValidIsoDate(iso) {
  *                   date:string|null, holder:string|null, undetermined:boolean}}
  */
 export function claimMarkOf(line) {
+  // 薄封装本体已上收到 `claimMarksOf`(2026-11-01 S-STRIP):本函数历史语义 = **首个**命中牌,
+  // 逐字保留 —— 守门 109 等下游只问"这行有没有牌/第一枚是什么",不看枚数。
+  return claimMarksOf(line)[0] ?? null
+}
+
+/**
+ * 这一行**全部** lease 形态牌(2026-11-01 立,S-STRIP)。
+ *
+ * 立因(实测,`strip-stale-claim-marks.mjs --dry-run` 连轮整批不落):
+ * 台账存在「一行两牌」行 —— `- [ ]（进行中@A/x）（认领已释放@…） （进行中@B/y）…`。
+ * `claimMarkOf` 只返回首个匹配(第 1 枚紧贴 `- [ ]` ⇒ structural),于是清扫器按
+ * `at + mark.length` 只替换那一枚,第 2 枚留在原地 ⇒ C3「摘后挂牌集 == 跳过集」恒 false
+ * ⇒ 4 枚超龄 109–157h 的真活永久不可派。**失效方向是安静的**:器物每轮都"成功"地什么都不做。
+ *
+ * 判据**零复制**:与 `claimMarkOf` 共用 `CLAIM_SOURCE` / `parseLeaseForm` /
+ * `codeSpanRangesOf` / `insideCodeSpan`(§22c 单一真相源),逐枚判定的谓词与旧循环逐字同形,
+ * 所以 `claimMarkOf(l)` ≡ `claimMarksOf(l)[0] ?? null` —— 既有调用方一行都不用改。
+ *
+ * @returns {Array<{mark:string, at:number, structural:boolean, form:'legacy'|'lease'|'unknown',
+ *                  date:string|null, holder:string|null, undetermined:boolean}>} 按出现位置升序
+ */
+export function claimMarksOf(line) {
   const text = String(line ?? '')
   // 条目行前置**住在判据本体里**,不由各调用方各记一遍(2026-10-22 实测:本席在门 109 装了这道
   // 护栏,转头在新器物里漏掉 ⇒ 同一 HEAD 面把 216 行叙述当成挂牌 —— 一份纪律散在多处必然漏)。
-  if (!/^\s*- \[ \]/.test(text)) return null
-  if (!/[（(]进行中/.test(text)) return null
+  if (!/^\s*- \[ \]/.test(text)) return []
+  if (!/[（(]进行中/.test(text)) return []
   const matches = [...text.matchAll(new RegExp(CLAIM_SOURCE, 'g'))]
-  if (matches.length === 0) return null
+  if (matches.length === 0) return []
   const { spans, undetermined } = codeSpanRangesOf(text)
   const headRe = /^\s*- \[ \]\s*/.exec(text)
+  const out = []
   for (const m of matches) {
     const inCode = !undetermined && insideCodeSpan(spans, m.index, m[0].length)
     const structural = headRe !== null && headRe[0].length === m.index
     const parsed = parseLeaseForm(m[0])
     if (structural && !inCode)
-      return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
-    if (!structural && parsed.form === 'lease' && !inCode)
-      return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
+      out.push({ mark: m[0], at: m.index, structural, ...parsed, undetermined })
+    else if (!structural && parsed.form === 'lease' && !inCode)
+      out.push({ mark: m[0], at: m.index, structural, ...parsed, undetermined })
   }
-  return null
+  return out
 }
 
 /** 主键位置窗口:条目正文开头多少个字符内出现的编号才算"这一行的主键"。

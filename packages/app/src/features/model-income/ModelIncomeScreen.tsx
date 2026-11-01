@@ -42,6 +42,9 @@ export function ModelIncomeScreen({
   onOpenWithdraw,
   onCloseWithdraw,
   onConfirmWithdraw,
+  loadingMore = false,
+  hasMore = true,
+  onLoadMore,
   onBack,
   colorScheme = 'light',
 }: ModelIncomeScreenProps) {
@@ -73,12 +76,18 @@ export function ModelIncomeScreen({
   if (error) {
     return (
       <ErrorState
-        message={error}
+        message={error || t('common.loadFailed')}
         onRetry={onRefresh}
         retryLabel={t('modelIncome.retry')}
         colorScheme={colorScheme}
       />
     )
+  }
+
+  const tabLabel = (tab: ModelIncomeTab): string => {
+    if (tab === 'all') return t('modelIncome.tab.all')
+    if (tab === 'pending') return t('modelIncome.tab.pending')
+    return t('modelIncome.tab.settled')
   }
 
   return (
@@ -132,9 +141,7 @@ export function ModelIncomeScreen({
               onPress={() => onSelectTab(tab)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                {t(`modelIncome.tab.${tab}`)}
-              </Text>
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{tabLabel(tab)}</Text>
             </TouchableOpacity>
           )
         })}
@@ -147,6 +154,15 @@ export function ModelIncomeScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={<EmptyState title={t('modelIncome.empty')} colorScheme={colorScheme} />}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore ? (
+            <Text style={styles.footer}>{t('common.loading')}</Text>
+          ) : items.length > 0 && !hasMore ? (
+            <Text style={styles.footer}>{t('common.noMore')}</Text>
+          ) : null
+        }
         renderItem={({ item }) => {
           const settled = isSettled(item.status)
           return (
@@ -158,7 +174,7 @@ export function ModelIncomeScreen({
                 <Text
                   style={[styles.cardStatus, settled ? styles.statusSettled : styles.statusPending]}
                 >
-                  {t(`modelIncome.tab.${settled ? 'settled' : 'pending'}`)}
+                  {tabLabel(settled ? 'settled' : 'pending')}
                 </Text>
               </View>
               <Text style={styles.cardTime}>{item.createdAt}</Text>
@@ -196,7 +212,7 @@ export function ModelIncomeScreen({
                 onPress={onCloseWithdraw}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.modalClose}>{t('modelIncome.withdrawModal.close')}</Text>
+                <Text style={styles.modalClose}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSub}>
@@ -329,6 +345,12 @@ function createStyles(tk: AppThemeTokens) {
     cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardAmount: { fontSize: rnType.title.size, fontWeight: '700', color: tk.brandAccent.deep },
+    footer: {
+      paddingVertical: rnSpacing.md,
+      textAlign: 'center',
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: tk.overlay.modal },
     modalBody: {
       backgroundColor: tk.surface.light,

@@ -63,10 +63,8 @@ export function LiveListScreen() {
     [statusTab, t],
   )
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<LiveListItem>(
-    fetcher,
-    PAGE_SIZE,
-  )
+  const { items, loading, refreshing, loadingMore, hasMore, error, refresh, loadMore } =
+    usePaginatedList<LiveListItem>(fetcher, PAGE_SIZE)
 
   const onSelectTab = (tab: LiveListTab) => {
     if (tab === statusTab) return
@@ -85,6 +83,8 @@ export function LiveListScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={refresh}
+      onEndReached={hasMore ? loadMore : undefined}
+      loadingMore={loadingMore}
       onPressItem={(item: LiveListItem) => navigation.navigate('LiveDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

@@ -79,7 +79,8 @@ function walkRepoFiles(dir, out = []) {
     return out
   }
   for (const entry of entries) {
-    if (['node_modules', '__tests__', 'tests', 'dist', '.next', '.swc'].includes(entry.name)) continue
+    if (['node_modules', '__tests__', 'tests', 'dist', '.next', '.swc'].includes(entry.name))
+      continue
     const rel = `${dir}/${entry.name}`
     if (entry.isDirectory()) walkRepoFiles(rel, out)
     else if (/\.(tsx|ts)$/.test(entry.name)) out.push(rel)
@@ -574,13 +575,111 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     const faceRn = [...face].filter((rel) => rel.startsWith('apps/mobile-rn/'))
     assert.ok(faceRn.length > 100, `RN 宿主面枚举异常(现读 ${faceRn.length} 枚),不得静默缩面`)
     for (const rel of faceRn) {
-      assert.ok(reachable.has(rel), `${rel} 不在承载闭包里,却进了取词面(RN 专属键会被倒灌成本端存活)`)
+      assert.ok(
+        reachable.has(rel),
+        `${rel} 不在承载闭包里,却进了取词面(RN 专属键会被倒灌成本端存活)`,
+      )
     }
     // 反向样本:RN 专属登录屏只被 RootNavigator 引用、端内零承载 —— 它在面里就是有人把整目录收回来了。
     const loginScreen = `${RN_SCREENS_DIR}/LoginScreen.tsx`
     if (!reachable.has(loginScreen)) {
       assert.ok(!face.has(loginScreen), `${loginScreen} 未被端内承载,却进了取词面`)
     }
+  })
+
+  // ── 场景 21-22:all 档与单档的"自相矛盾"缺陷自锁(2026-11-01 立)──
+  // 现读现场:`--target all --exit 1` 判 miniapp-taro/mobile-rn 红,而单档**不带旗**跑出 `ok`
+  // —— 旧末行标签只映射退出码,把"死键 43 但未启 --exit"印成裸 `ok`;两段读数被并排一比对,
+  // 就成了"同码同面同输入、结论相反"。同旗对照实测两面判定本就一致 ⇒ 缺陷本体是结论拼装,
+  // 不是判定逻辑。修复 = panelVerdictOf 单源拼装(all 与单档共用),死键计数与旗态编进 token。
+
+  /** 取末行结论(唯一同时含 ` → ` 与 `(判定面:` 的那一行)。 */
+  function verdictLine(stdout) {
+    const line = stdout.split('\n').find((l) => l.includes(' → ') && l.includes('(判定面:'))
+    assert.ok(line, `末行结论缺失:\n${stdout}`)
+    return line
+  }
+
+  /**
+   * 从末行抽出某面板 token(形如 `cli=exit 1(死键1,基线0)`)。
+   * token 内部空格只出现在 `exit 1` / `未判定(exit 2)` 这类"空格后接数字/括号"处,
+   * 面板边界按"空格 + 下一端名 + ="切;`ok(跳过:…)` 的回填原因已去空格,不误切。
+   */
+  function panelToken(stdout, name) {
+    const line = verdictLine(stdout)
+    const start = line.indexOf(`${name}=`)
+    assert.ok(start >= 0, `末行没有 ${name} 面板:\n${line}`)
+    const rest = line.slice(start)
+    const faceIdx = rest.indexOf('(判定面:')
+    assert.ok(faceIdx > 0, `末行缺判定面后缀,token 无界可切:\n${line}`)
+    const body = rest.slice(0, faceIdx)
+    const next = body.search(/ (?=[a-z][a-z0-9-]*=)/)
+    return (next > 0 ? body.slice(0, next) : body).trimEnd()
+  }
+
+  /** 造一个 cli 带一枚真死键、extension 全清的夹具仓。 */
+  function setupDivergenceFixture() {
+    setupFixture({
+      target: 'cli',
+      zhCN: { waiting: { agent: { first: { 0: '正在准备' } } }, nobody: { reads: '没人取' } },
+      codeFiles: { 'apps/cli/src/waiting-text.ts': "t('waiting.agent.first.0')" },
+    })
+    setupFixture({
+      target: 'extension',
+      zhCN: { ext: { key: '扩展' } },
+      codeFiles: { 'apps/extension/src/popup.tsx': "t('ext.key')" },
+    })
+  }
+
+  test('场景 21:同码同面下,all 档第 i 面板判定 == 单档该面板判定(带旗与不带旗两档逐字锁)', () => {
+    setupDivergenceFixture()
+    for (const flagArgs of [['--exit', '1'], []]) {
+      const all = runCli(['--target', 'all', '--dry-run', ...flagArgs])
+      const allLine = verdictLine(all.stdout)
+      let worst = 0
+      for (const name of ['web', 'miniapp-taro', 'mobile-rn', 'cli', 'extension']) {
+        const single = runCli(['--target', name, '--dry-run', ...flagArgs])
+        const tok = panelToken(single.stdout, name)
+        assert.ok(
+          allLine.includes(tok),
+          `${name} 在旗态 ${JSON.stringify(flagArgs)} 下 all 档与单档结论分叉:\n` +
+            `单档 token: ${tok}\nall 末行:  ${allLine}`,
+        )
+        assert.equal(
+          single.status,
+          Number(panelToken(single.stdout, name).split('=')[1].startsWith('exit')),
+          `单档退出码必须与它自报的 token 一致(带旗 ${JSON.stringify(flagArgs)})`,
+        )
+        worst = Math.max(worst, single.status)
+      }
+      assert.equal(
+        all.status,
+        worst,
+        `all 聚合退出码必须 == 各单档退出码最大值(旗 ${JSON.stringify(flagArgs)})`,
+      )
+    }
+    // 不带旗时 cli 面板有死键:必须点名计数,不得再印裸 ok(缺陷本体的正向对照)
+    const silent = runCli(['--target', 'cli', '--dry-run'])
+    assert.match(
+      verdictLine(silent.stdout),
+      /cli=ok\(死键1,带--exit1则红\)/,
+      `不带旗的红端必须自曝死键数:\n${silent.stdout}`,
+    )
+  })
+
+  test('场景 22:反向锁 —— 真死键在 all 档照红、红不串端;结清后归绿(没有把红修成永不响)', () => {
+    setupDivergenceFixture()
+    const red = runCli(['--target', 'all', '--dry-run', '--exit', '1'])
+    assert.equal(red.status, 1, '真死键必须让 all 档整场 exit 1')
+    assert.match(red.stdout, /cli=exit 1\(死键1,基线0\)/, '红端要带计数点名')
+    assert.match(red.stdout, /extension=ok\(死键0\)/, '干净端不得被红端串成红')
+    // 把死键接上引用(仍是一枚无人取的 nobody.reads 之外全清)⇒ all 必须归绿
+    const carrier = path.join(tmpDir, 'apps/cli/src/waiting-text.ts')
+    fs.writeFileSync(carrier, "t('waiting.agent.first.0')\nt('nobody.reads')\n", 'utf8')
+    commitTmpDir('wire the last key')
+    const green = runCli(['--target', 'all', '--dry-run', '--exit', '1'])
+    assert.equal(green.status, 0, `结清后 all 档必须归绿,实际:\n${green.stdout}${green.stderr}`)
+    assert.match(green.stdout, /cli=ok\(死键0\)/, '归绿也要带计数,便于与红档并排比对')
   })
 })
 
