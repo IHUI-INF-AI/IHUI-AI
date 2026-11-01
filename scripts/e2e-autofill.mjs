@@ -21,10 +21,14 @@
  *   (测试被删 = 把缺口带回来)⇒ 判红。
  *   存量缺口 = 本轮之前也没有测试的模块 ⇒ 只报数,绝不判红。
  *
- * 单一真相源(§0.6 / §22c):扫描面、测试落点配方、模块↔测试显式映射全部住在
- * scripts/data/e2e-autofill-map.json;本文件只实现判据,不另抄清单。
- * 覆盖判据 = ① 显式映射命中;或 ② 模块 key(路由 slug / 文件名 stem)的每个 token 都出现在
- * 测试文件 stem 里,且测试层与模块层同族(路由模块只认 e2e spec,代码模块只认单测)。
+ * 单一真相源(§0.6 / §22c,**2026-11-01 归一**):"哪些模块没有对应测试"这一判据全仓只有一份,
+ * 住在 `scripts/lib/e2e-coverage-gap.mjs`(`findTestlessModules`,规则①~⑤),取材与射程清单住在
+ * 门 250 本体 `scripts/check-e2e-coverage-gap.mjs`(`collectFace` / `evaluateFace` / `loadScope`)。
+ * 本器**只保留生成维**:`scripts/data/e2e-autofill-map.json` 的 recipes 决定"建议落点 + 框架 +
+ * 用例名"(骨架怎么写),不再决定"有没有被覆盖"。曾经长在本器里的第二把尺(token 子集同名 +
+ * 自算受审面)已退出入口,函数体暂留供旧用例引用,归下一席删除(见席位报告残余清单)。
+ * 门尺与本器读数同源:门 `--json` 的 gapCount == 本器 faceResult.gapCount(本器另按 recipes
+ * 过滤掉"给不出建议落点"的模块,差额逐条报数 `noRecipeCount`,不静默吞)。
  *
  * CLI:
  *   node scripts/e2e-autofill.mjs [--check] [--staged]        准入判定(默认)
@@ -45,6 +49,10 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, gitRaw, listFaceFiles } from './lib/face-reader.mjs'
+// 缺口成员判定与取材**只此一份**(§0.6):判据层 = scripts/lib/e2e-coverage-gap.mjs,
+// 取材/射程 = scripts/check-e2e-coverage-gap.mjs(门 250)。本器不再自算覆盖(见 gapReportFromGate)。
+import { classifyFile, findTestlessModules } from './lib/e2e-coverage-gap.mjs'
+import { __test__ as GATE_WIRING } from './check-e2e-coverage-gap.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(HERE, '..')
@@ -109,9 +117,6 @@ export function loadMap(root = ROOT) {
   return map
 }
 
-const segmentsOf = (rel) => normalizeRel(rel).split('/')
-const hasSegment = (rel, list) => segmentsOf(rel).some((s) => list.includes(s))
-
 export function appOf(rel) {
   const n = normalizeRel(rel)
   if (n.startsWith('apps/web/')) return 'web'
@@ -119,37 +124,13 @@ export function appOf(rel) {
   return null
 }
 
-/** node_modules / dist / .next 一类:清单枚举与测试索引都不得穿过。 */
-export function isNoisePath(rel, map) {
-  return hasSegment(rel, map.audit.noiseSegments)
-}
-
+/**
+ * 测试文件后缀判定(**只服务 `--emit` 的落点安全校验**:建议落点必须落在测试文件名上)。
+ * 它不参与"有没有被覆盖"的判定 —— 那一判据全仓只有一份,在门 250 的判据层。
+ */
 export function isTestFile(rel, map) {
   const n = normalizeRel(rel)
   return map.audit.testSuffixes.some((suffix) => n.endsWith(suffix))
-}
-
-export function isE2eSpec(rel, map) {
-  const n = normalizeRel(rel)
-  if (!isTestFile(n, map)) return false
-  return (map.e2eRoots ?? []).some((root) => n.startsWith(`${normalizeRel(root)}/`))
-}
-
-/** 受审源模块:在被审根内、非噪音/非测试目录、非 barrel/类型/框架样板文件。 */
-export function isAuditedSource(rel, map) {
-  const n = normalizeRel(rel)
-  if (!appOf(n)) return false
-  if (!map.audit.roots.some((root) => n === root || n.startsWith(`${normalizeRel(root)}/`))) {
-    return false
-  }
-  if (isNoisePath(n, map)) return false
-  if (hasSegment(n, map.audit.nonSourceSegments)) return false
-  if (isTestFile(n, map)) return false
-  const base = n.split('/').pop()
-  if ((map.audit.ignoreFilenames ?? []).includes(base)) return false
-  if ((map.audit.ignoreSuffixes ?? []).some((suffix) => n.endsWith(suffix))) return false
-  const ext = `.${base.split('.').pop().toLowerCase()}`
-  return map.audit.sourceExts.includes(ext)
 }
 
 /** 第一条命中的配方就是该模块的族(顺序有意义:先具体后兜底)。 */
@@ -184,7 +165,7 @@ export function stemOf(rel) {
   return base.replace(/\.(?:tsx?|jsx?|mjs|cjs)$/, '').replace(/\.(?:node-test|test|spec)$/, '')
 }
 
-/** camelCase 也要拆成 token,否则 `agentPlanApi.ts` 与 `agent-plan-api.test.ts` 永远配不上。 */
+/** camelCase 拆 token:**只服务用例名/落点建议的可读性**(生成维),不参与覆盖判定。 */
 export function tokensOf(value) {
   return String(value ?? '')
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
@@ -233,76 +214,62 @@ export function safeSpecPath(rel, map) {
   return n
 }
 
-/** 测试索引:只做一次 token 拆解,避免逐模块重复解析。 */
-export function indexTests(testRels, map) {
-  const index = []
-  for (const rel of testRels) {
-    const n = normalizeRel(rel)
-    if (!isTestFile(n, map) || isNoisePath(n, map)) continue
-    const app = appOf(n)
-    if (!app) continue
-    index.push({ rel: n, app, e2e: isE2eSpec(n, map), tokens: new Set(tokensOf(stemOf(n))) })
-  }
-  return index
-}
+/**
+ * 棘轮差的**唯一入口**见下方 `gapReportFromGate`(2026-11-01 归一):覆盖判定改引门 250 判据层。
+ * 这里不再保留第二套 `coversWithIndex / indexTests / testCoversModule / diffGaps` ——
+ * 同一判据两份实现必然漂移(§0.6 / §22c),实测漂移量:门尺 3852 枚缺口 vs 旧器尺 3163 枚。
+ */
 
 /**
- * 覆盖判据的**唯一实现**:显式映射优先;否则要求 ① 同包 ② 层同族(路由↔e2e / 代码↔单测)
- * ③ 模块 key 的每个 token 都在测试 stem 里。
+ * 缺口成员判定的**唯一入口**(2026-11-01 归一,席 E2E):
+ * 面清单 + 正文取材 + 覆盖判据全部转引门 250(`GATE_WIRING.evaluateFace` → `lib/e2e-coverage-gap.mjs`
+ * 的 `findTestlessModules`),本器只把门给出的缺口路径按 recipes 翻成"建议落点/框架/用例名"。
+ *
+ * 棘轮口径不变(§0.2,锚点 = 基底面自身):新缺口 = 基底面里不存在该模块,或基底面里它**有**测试
+ * (测试被删 = 把缺口带回来)。基底必须按**基底自己的树**枚举(`baseRev` + `listBaseFiles` 同批改,
+ * 只换正文不换清单会把"测试被删"误判成存量 —— 失效方向必须是"多要一次说明",§0.10)。
+ *
+ * 取不到输入一律抛 `Undetermined`(调用方折成 exit 2 未判定),不记绿也不冒红(§0.3)。
  */
-export function coversWithIndex(moduleRel, testIndex, map) {
-  const m = normalizeRel(moduleRel)
-  const app = appOf(m)
-  const recipe = recipeFor(m, map)
-  if (!app || !recipe) return []
-  const explicit = new Set((map.mappings?.[m] ?? []).map(normalizeRel))
-  const keyTokens = tokensOf(moduleKeyOf(m, map))
-  if (keyTokens.length === 0) return []
-  const hits = []
-  for (const test of testIndex) {
-    if (test.app !== app) continue
-    if (explicit.has(test.rel)) {
-      hits.push(test.rel)
+export function gapReportFromGate({
+  root = ROOT,
+  face = 'head',
+  map,
+  scope,
+  baseRev = null,
+  listBaseFiles = null,
+  evaluate = (r, f, rs, opts) => GATE_WIRING.evaluateFace(r, f, rs, opts),
+} = {}) {
+  const theMap = map ?? loadMap(root)
+  const theScope = scope ?? GATE_WIRING.loadScope(root)
+  const roots = theScope.roots.map((r) => r.root)
+  if (roots.length === 0) throw new Undetermined('射程清单解析出 0 条 root ⇒ 不判')
+
+  const faceResult = evaluate(root, face, roots, {})
+  const baseOpts = baseRev ? { rev: baseRev, listFiles: () => listBaseFiles() } : {}
+  if (baseRev && !listBaseFiles) {
+    throw new Undetermined(`基底 rev=${baseRev} 未同时提供基底清单出口(listBaseFiles)⇒ 不判`)
+  }
+  const baseResult = evaluate(root, 'head', roots, baseOpts)
+
+  const baseGapSet = new Set(baseResult.gaps.map((g) => g.path))
+  const baseModuleSet = new Set([...baseResult.gaps, ...baseResult.covered].map((x) => x.path))
+
+  const gaps = []
+  let noRecipeCount = 0
+  for (const g of faceResult.gaps) {
+    const recipe = recipeFor(g.path, theMap)
+    if (!recipe) {
+      noRecipeCount += 1
       continue
     }
-    const sameLayer = recipe.framework === 'playwright' ? test.e2e : !test.e2e
-    if (!sameLayer) continue
-    if (keyTokens.every((token) => test.tokens.has(token))) hits.push(test.rel)
-  }
-  return hits
-}
-
-export function testCoversModule(moduleRel, testRel, map) {
-  const t = normalizeRel(testRel)
-  if (!isTestFile(t, map)) return false
-  return coversWithIndex(moduleRel, indexTests([t], map), map).includes(t)
-}
-
-/**
- * 棘轮差:新缺口 = 本轮才出现(或本轮前有测试、本轮没了)的未覆盖模块;存量只报数。
- * 构造面即可证明,不依赖 git(镜像测试与 --self-test 都从这里取判据)。
- */
-export function diffGaps({ faceModules, baseModules, faceTests, baseTests, map }) {
-  const faceIndex = indexTests(faceTests, map)
-  const baseIndex = indexTests(baseTests, map)
-  const baseSet = new Set(baseModules.map(normalizeRel))
-  const baseCovered = new Set()
-  for (const rel of baseModules) {
-    if (coversWithIndex(rel, baseIndex, map).length > 0) baseCovered.add(normalizeRel(rel))
-  }
-  const gaps = []
-  for (const rel of faceModules) {
-    const moduleRel = normalizeRel(rel)
-    if (coversWithIndex(moduleRel, faceIndex, map).length > 0) continue
-    const recipe = recipeFor(moduleRel, map)
-    if (!recipe) continue
     gaps.push({
-      module: moduleRel,
+      module: g.path,
       kind: recipe.framework === 'playwright' ? 'route' : 'unit',
       framework: recipe.framework,
-      spec: suggestedSpecOf(moduleRel, map),
-      caseName: caseNameOf(moduleRel, map),
-      isNew: !baseSet.has(moduleRel) || baseCovered.has(moduleRel),
+      spec: suggestedSpecOf(g.path, theMap),
+      caseName: caseNameOf(g.path, theMap),
+      isNew: !baseModuleSet.has(g.path) || !baseGapSet.has(g.path),
     })
   }
   gaps.sort((a, b) => a.module.localeCompare(b.module))
@@ -310,6 +277,10 @@ export function diffGaps({ faceModules, baseModules, faceTests, baseTests, map }
     gaps,
     newGaps: gaps.filter((g) => g.isNew),
     stockGaps: gaps.filter((g) => !g.isNew),
+    noRecipeCount,
+    faceResult,
+    baseResult,
+    roots,
   }
 }
 
@@ -380,7 +351,15 @@ export function writeSkeleton(root, specRel, text) {
 }
 
 export function parseArgs(argv = []) {
-  const out = { mode: 'check', face: 'head', spec: null, module: null, write: false, includeStock: false, error: null }
+  const out = {
+    mode: 'check',
+    face: 'head',
+    spec: null,
+    module: null,
+    write: false,
+    includeStock: false,
+    error: null,
+  }
   const modes = new Set()
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -494,37 +473,57 @@ export async function main(argv = process.argv.slice(2)) {
 
   const faceLabel = args.face === 'staged' ? '索引 blob 面' : 'HEAD blob 面'
   const baseLabel = args.face === 'staged' ? 'HEAD' : 'HEAD^'
+  let report
   let faceFiles
-  let baseFiles
   try {
+    if (args.face !== 'staged') gitRaw(['rev-parse', '--verify', 'HEAD^'], ROOT)
+    // 写目标存在性检查用的面清单(不是覆盖判据,只是落点字节是否存在)
     faceFiles = listFaceFiles(ROOT, args.face, { paths: FACE_PATHS })
-    if (args.face === 'staged') {
-      baseFiles = listFaceFiles(ROOT, 'head', { paths: FACE_PATHS })
-    } else {
-      gitRaw(['rev-parse', '--verify', 'HEAD^'], ROOT)
-      baseFiles = listRevFiles('HEAD^')
-    }
+    // 覆盖判定 + 取材:全部转引门 250 的判据层(§0.6 单一真相源)
+    report = gapReportFromGate({
+      root: ROOT,
+      face: args.face,
+      map,
+      baseRev: args.face === 'staged' ? null : 'HEAD^',
+      listBaseFiles: args.face === 'staged' ? null : () => listRevFiles('HEAD^'),
+    })
   } catch (e) {
     console.error(`[e2e-autofill] ⏭ 未判定:${faceLabel}取材失败(${e?.message ?? e})`)
     return 2
   }
 
-  const faceModules = faceFiles.filter((rel) => isAuditedSource(rel, map)).sort()
-  const baseModules = baseFiles.filter((rel) => isAuditedSource(rel, map))
-  const faceTests = faceFiles.filter((rel) => isTestFile(rel, map))
-  const baseTests = baseFiles.filter((rel) => isTestFile(rel, map))
+  const fr = report.faceResult
+  const result = report
 
-  if (faceFiles.length === 0) {
-    console.error(`[e2e-autofill] ⏭ 未判定:${faceLabel}枚举到 0 个文件(不是"没有缺口")`)
+  if (fr.scanned === 0) {
+    console.error(
+      `[e2e-autofill] ⏭ 未判定:${faceLabel}在射程根 ${report.roots.join(', ')} 内枚举到 0 枚文件(不是"没有缺口")`,
+    )
     return 2
   }
-  if (faceModules.length === 0) {
+  if (fr.modules === 0) {
     console.error(`[e2e-autofill] ⏭ 未判定:${faceLabel}枚举到 0 个受审模块(不是"全绿")`)
     return 2
   }
+  if ((fr.emptyRoots ?? []).length > 0) {
+    console.error(
+      `[e2e-autofill] ⏭ 未判定:射程根 ${fr.emptyRoots.join(', ')} 在该面为空 ⇒ 射程腐烂,本轮不判`,
+    )
+    return 2
+  }
+  const blockingUndetermined = (fr.undetermined ?? []).filter((u) => u.blocks)
+  if (blockingUndetermined.length > 0) {
+    console.error(`[e2e-autofill] ⏭ 未判定:${blockingUndetermined.length} 枚形态判不出,逐条点名:`)
+    for (const u of blockingUndetermined.slice(0, MAX_LISTED)) {
+      console.error(`   ! ${u.path}  ← ${u.reason}`)
+    }
+    if (blockingUndetermined.length > MAX_LISTED) {
+      console.error(`   …另 ${blockingUndetermined.length - MAX_LISTED} 枚(--json 取全量)`)
+    }
+    return 2
+  }
 
-  const result = diffGaps({ faceModules, baseModules, faceTests, baseTests, map })
-  const scope = `${faceLabel}(对比 ${baseLabel}) 受审模块 ${faceModules.length} 枚 / 测试文件 ${indexTests(faceTests, map).length} 份`
+  const scope = `${faceLabel}(对比 ${baseLabel}) 判据源=门 250 判据层 受审模块 ${fr.modules} 枚 / 门尺缺口 ${fr.gapCount} 枚(其中 ${report.noRecipeCount} 枚无建议落点配方,只报数不生成)`
   // 候选池:默认只有新增(准入档);--include-stock 才把存量并进来(存量清偿档)。
   const gapPool = args.includeStock ? [...result.newGaps, ...result.stockGaps] : result.newGaps
 
@@ -536,8 +535,10 @@ export async function main(argv = process.argv.slice(2)) {
           face: args.face,
           base: baseLabel,
           includeStock: args.includeStock,
-          auditedModules: faceModules.length,
-          testFiles: indexTests(faceTests, map).length,
+          auditedModules: fr.modules,
+          gateGapCount: fr.gapCount,
+          noRecipeCount: report.noRecipeCount,
+          judgedBy: 'scripts/lib/e2e-coverage-gap.mjs(门 250 判据层,单源)',
           newGapCount: result.newGaps.length,
           stockGapCount: result.stockGaps.length,
           gaps: gapPool.map((g) => ({
@@ -646,21 +647,35 @@ export function selfTest() {
   }
 
   try {
-    check('S1 源模块面:正常源文件在审', isAuditedSource('apps/web/src/lib/foo.ts', map) === true)
+    check(
+      'S1 受审面判据=门判据层:正常源文件算模块',
+      classifyFile({ path: 'apps/web/src/lib/foo.ts', text: 'export const a = 1\n' }).kind ===
+        'module',
+    )
     check(
       'S1 反证:测试文件不进源面',
-      isAuditedSource('apps/web/src/lib/foo.test.ts', map) === false,
+      classifyFile({ path: 'apps/web/src/lib/foo.test.ts', text: 'export const a = 1\n' }).kind ===
+        'test',
     )
     check(
-      'S1 反证:node_modules 不穿',
-      isAuditedSource('apps/web/src/node_modules/x.ts', map) === false,
+      'S1 反证:.d.ts 不审',
+      classifyFile({ path: 'apps/api/src/db/types.d.ts', text: 'export type A = 1\n' }).kind ===
+        'skipped',
     )
-    check('S1 反证:.next 不穿', isAuditedSource('apps/web/.next/x.ts', map) === false)
     check(
-      'S1 反证:barrel index.ts 不审',
-      isAuditedSource('apps/api/src/lib/index.ts', map) === false,
+      'S1 反证:纯转发桶(barrel)不审',
+      classifyFile({ path: 'apps/api/src/lib/index.ts', text: "export * from './a'\n" }).kind ===
+        'skipped',
     )
-    check('S1 反证:.d.ts 不审', isAuditedSource('apps/api/src/db/types.d.ts', map) === false)
+    check(
+      'S1 反证:夹具/e2e 目录段里的文件不当模块',
+      classifyFile({ path: 'apps/api/tests/fixtures/helper.ts', text: 'export const a = 1\n' })
+        .kind === 'skipped',
+    )
+    check(
+      'S1 未判定方向:取不到正文 ⇒ 判不出,不是"不算模块"放过',
+      classifyFile({ path: 'apps/web/src/lib/foo.ts' }).kind === 'undetermined',
+    )
 
     check('S2 playwright spec 认', isTestFile('apps/web/e2e/foo.spec.ts', map) === true)
     check('S2 node-test 认', isTestFile('apps/web/src/__tests__/foo.node-test.mjs', map) === true)
@@ -693,66 +708,114 @@ export function selfTest() {
       suggestedSpecOf('apps/api/src/lib/foo.ts', map) === 'apps/api/tests/lib/foo.test.ts',
     )
 
-    const route = 'apps/web/app/(main)/admin/users/page.tsx'
+    // S5/S6:覆盖判定**只跑门 250 的判据层**(§0.6);本器不再有自己的实现可测。
+    const GROOTS = ['apps/web/app', 'apps/web/src', 'apps/api/src']
+    const SRC = (p) => ({ path: p, text: 'export const a = 1\n' })
+    const gapOf = (files, tests) =>
+      findTestlessModules({ files, testFiles: tests, roots: GROOTS }).gaps.map((g) => g.path)
     check(
-      'S5 路由被同名 e2e 覆盖',
-      testCoversModule(route, 'apps/web/e2e/admin-users.spec.ts', map),
+      'S5 单源判据:同目录同名测试 ⇒ 覆盖',
+      gapOf([SRC('apps/web/src/lib/foo.ts')], ['apps/web/src/lib/foo.test.ts']).length === 0,
     )
     check(
-      'S5 反证:泛化 e2e 不覆盖具体路由',
-      testCoversModule(route, 'apps/web/e2e/admin.spec.ts', map) === false,
+      'S5 单源判据:无任何测试 ⇒ 缺口',
+      gapOf([SRC('apps/web/src/lib/foo.ts')], []).join('|') === 'apps/web/src/lib/foo.ts',
     )
     check(
-      'S5 层不同族:e2e 不覆盖 web 代码模块',
-      testCoversModule('apps/web/src/lib/foo.ts', 'apps/web/e2e/foo.spec.ts', map) === false,
+      'S5 单源判据:邻包同名测试不冒充(跨包同名不算覆盖)',
+      gapOf([SRC('apps/web/src/lib/foo.ts')], ['apps/api/src/lib/__tests__/foo.test.ts']).length ===
+        1,
     )
     check(
-      'S5 camelCase:agentPlanApi ↔ agent-plan-api.test',
-      testCoversModule(
-        'apps/web/src/lib/agentPlanApi.ts',
-        'apps/web/src/lib/__tests__/agent-plan-api.test.ts',
-        map,
-      ),
+      'S5 单源判据:e2e spec 不覆盖 web 代码模块(层不同族)',
+      gapOf([SRC('apps/web/src/lib/foo.ts')], ['apps/web/e2e/foo.spec.ts']).length === 1,
+    )
+    check(
+      'S5 旧尺收窄点(登记):camelCase 模块 ↔ kebab-case 测试,单源判据不认',
+      gapOf(
+        [SRC('apps/web/src/lib/agentPlanApi.ts')],
+        ['apps/web/src/lib/__tests__/agent-plan-api.test.ts'],
+      ).length === 1,
     )
 
-    const map2 = {
-      ...map,
-      mappings: {
-        'apps/api/src/routes/foo.ts': ['apps/api/src/routes/__tests__/feature.test.ts'],
-      },
+    // S6:棘轮(new/stock)由 gapReportFromGate 在注入面上判 —— 判据仍是门那一套,只是把
+    // "门给的缺口集合"按基底面对照,再套本器的 recipes。
+    const fakeFace = {
+      gaps: [
+        { path: 'apps/web/src/a.ts', root: 'apps/web/src' },
+        { path: 'apps/web/src/b.ts', root: 'apps/web/src' },
+        { path: 'apps/web/src/c.ts', root: 'apps/web/src' },
+        { path: 'packages/shared/src/widget.ts', root: 'packages/shared/src' },
+      ],
+      covered: [],
+      skipped: [],
+      undetermined: [],
+      emptyRoots: [],
+      roots: GROOTS,
+      scanned: 9,
+      modules: 9,
+      gapCount: 4,
     }
-    check(
-      'S6 显式映射可跨命名覆盖',
-      testCoversModule(
-        'apps/api/src/routes/foo.ts',
-        'apps/api/src/routes/__tests__/feature.test.ts',
-        map2,
-      ),
-    )
-
-    const diff = diffGaps({
-      faceModules: ['apps/web/src/a.ts', 'apps/web/src/b.ts', 'apps/web/src/c.ts'],
-      baseModules: ['apps/web/src/a.ts', 'apps/web/src/c.ts'],
-      faceTests: [],
-      baseTests: ['apps/web/src/__tests__/c.test.ts'],
+    const fakeBase = {
+      gaps: [{ path: 'apps/web/src/a.ts', root: 'apps/web/src' }],
+      covered: [{ path: 'apps/web/src/c.ts', test: 'apps/web/src/c.test.ts' }],
+      skipped: [],
+      undetermined: [],
+      emptyRoots: [],
+      roots: GROOTS,
+      scanned: 8,
+      modules: 8,
+      gapCount: 1,
+    }
+    const fakeEvaluate = (_root, _face, _roots, opts) => (opts?.rev ? fakeBase : fakeFace)
+    const fakeScope = {
+      roots: [...GROOTS, 'packages/shared/src'].map((r) => ({
+        root: r,
+        reason: '自检构造面',
+        reviewBy: '2099-01-01',
+      })),
+      note: '',
+    }
+    const rep = gapReportFromGate({
       map,
+      scope: fakeScope,
+      baseRev: 'HEAD^',
+      listBaseFiles: () => [],
+      evaluate: fakeEvaluate,
     })
     check(
       'S7 新模块无测试 ⇒ 新缺口',
-      diff.newGaps.some((g) => g.module === 'apps/web/src/b.ts'),
+      rep.newGaps.some((g) => g.module === 'apps/web/src/b.ts'),
     )
     check(
       'S7 存量同形态 ⇒ 只报数',
-      diff.stockGaps.some((g) => g.module === 'apps/web/src/a.ts'),
+      rep.stockGaps.some((g) => g.module === 'apps/web/src/a.ts'),
     )
     check(
       'S7 存量不进新缺口',
-      diff.newGaps.every((g) => g.module !== 'apps/web/src/a.ts'),
+      rep.newGaps.every((g) => g.module !== 'apps/web/src/a.ts'),
     )
     check(
       'S7 测试被删(回潮)⇒ 新缺口',
-      diff.newGaps.some((g) => g.module === 'apps/web/src/c.ts'),
+      rep.newGaps.some((g) => g.module === 'apps/web/src/c.ts'),
     )
+    check(
+      'S7 建议落点/用例名仍由本器 recipes 生成',
+      rep.gaps.every((g) => g.module === 'packages/shared/src/widget.ts' || (g.spec && g.caseName)),
+    )
+    check(
+      'S7 无配方的缺口点名报数,不静默吞',
+      rep.noRecipeCount === 1 &&
+        rep.gaps.every((g) => g.module !== 'packages/shared/src/widget.ts') &&
+        fakeFace.gapCount === rep.gaps.length + rep.noRecipeCount,
+    )
+    let baseRevRefused = ''
+    try {
+      gapReportFromGate({ map, scope: fakeScope, baseRev: 'HEAD^', evaluate: fakeEvaluate })
+    } catch (e) {
+      baseRevRefused = String(e?.message ?? e)
+    }
+    check('S7 基底 rev 无清单出口 ⇒ 未判定(不猜基底)', /listBaseFiles/.test(baseRevRefused))
 
     const pw = skeletonFor({
       module: 'apps/web/app/(main)/x/page.tsx',
@@ -782,7 +845,10 @@ export function selfTest() {
     check('S10 模式互斥', Boolean(parseArgs(['--check', '--propose']).error))
     check('S10 --worktree 不受支持', Boolean(parseArgs(['--worktree']).error))
     check('S10 --write 必须配 --emit', Boolean(parseArgs(['--write']).error))
-    check('S10 --include-stock 只与 propose/emit 同用', Boolean(parseArgs(['--include-stock']).error))
+    check(
+      'S10 --include-stock 只与 propose/emit 同用',
+      Boolean(parseArgs(['--include-stock']).error),
+    )
     check(
       'S10 --include-stock 与 emit 可组合',
       parseArgs(['--emit', 'apps/web/e2e/x.spec.ts', '--include-stock']).includeStock === true,
@@ -805,6 +871,35 @@ export function selfTest() {
     const miss = selectEmitTarget({ specRel: 'apps/web/e2e/nope.spec.ts', gaps: [] })
     check('S12 唯一命中可取', hit.ok === true)
     check('S12 不在清单 ⇒ 拒绝', miss.ok === false)
+
+    // S13 单一真相源形状锁(§0.6 / §22c):第二把尺不许长回来。
+    // 判据名动态拼装,免得本条自述文本把自己判红。
+    const ownSource = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const DEAD_RULER = [
+      'isAuditedSource',
+      'coversWithIndex',
+      'indexTests',
+      'testCoversModule',
+      'diffGaps',
+    ]
+    const resurrected = DEAD_RULER.filter((name) =>
+      new RegExp(`export\\s+function\\s+${name}\\b`).test(ownSource),
+    )
+    check(
+      'S13 第二把尺已从本器移除(覆盖判定不再自算)',
+      resurrected.length === 0,
+      resurrected.join(' / '),
+    )
+    check(
+      'S13 入口转引门 250 判据层(取材+判定同源)',
+      ownSource.includes("from './lib/e2e-coverage-gap.mjs'") &&
+        ownSource.includes("from './check-e2e-coverage-gap.mjs'") &&
+        ownSource.includes('GATE_WIRING.evaluateFace'),
+    )
+    check(
+      'S13 main 走 gapReportFromGate,不再走自算 diffGaps',
+      /report = gapReportFromGate\(/.test(ownSource),
+    )
   } finally {
     /* 结束时统一打印读数 */
   }
@@ -830,10 +925,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   loadMap,
-  isAuditedSource,
   isTestFile,
-  isE2eSpec,
-  isNoisePath,
   appOf,
   recipeFor,
   routeSlugOf,
@@ -843,15 +935,14 @@ export const __test__ = {
   suggestedSpecOf,
   caseNameOf,
   safeSpecPath,
-  indexTests,
-  coversWithIndex,
-  testCoversModule,
-  diffGaps,
+  gapReportFromGate,
   selectEmitTarget,
   skeletonFor,
   writeSkeleton,
   parseArgs,
   main,
   selfTest,
+  // 单源出口转引(镜像测试据此钉"判据只有一份"):本器的覆盖判定 = 门 250 判据层本身
+  singleSource: { findTestlessModules, classifyFile, evaluateFace: GATE_WIRING.evaluateFace },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
