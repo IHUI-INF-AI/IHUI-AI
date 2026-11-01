@@ -197,12 +197,9 @@ export async function decideWindow({ policyPath, candidate, baseline, ledger, sh
   return { ...r, payload: lastJsonLine(r.out) }
 }
 
-/** 走真 CLI 推进档位(会真写契约文件)。
- *  canaryServing(票 31460 补的第二判据维):彩排夹具里灰度实例恒真在位 ⇒ 缺省 'yes';
- *  传 'no'/'unknown' 复现"灰度实例不在位"的现场(pass 也只算现网侧,档位必须 hold)。 */
-export async function advanceStage({ policyPath, verdict, current, sha, contractPath, canaryServing = 'yes' }) {
-  const r = await runNode([STAGE_CLI, '--decide', '--policy', policyPath, '--verdict', verdict,
-    '--canary-serving', canaryServing, '--current', current,
+/** 走真 CLI 推进档位(会真写契约文件)。 */
+export async function advanceStage({ policyPath, verdict, current, sha, contractPath }) {
+  const r = await runNode([STAGE_CLI, '--decide', '--policy', policyPath, '--verdict', verdict, '--current', current,
     '--sha', sha, '--contract', contractPath])
   return { ...r, payload: lastJsonLine(r.out) }
 }

@@ -388,7 +388,13 @@ export interface SecuritySettingsScreenProps {
   settings: SecuritySettingsItem | null
   loading: boolean
   error: string
-  onToggle: (key: keyof SecuritySettingsItem, value: boolean) => void
+  /**
+   * 切换回调。后端 /user/security 只有 GET 无写端点 ⇒ 只读形态(readOnly)下不会调用;
+   * 不传即等价只读。缺省 undefined,既有调用方零影响。
+   */
+  onToggle?: (key: keyof SecuritySettingsItem, value: boolean) => void
+  /** 只读展示:true 时四项渲染为状态文字而非 Switch(后端无写端点,不得留假开关) */
+  readOnly?: boolean
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
