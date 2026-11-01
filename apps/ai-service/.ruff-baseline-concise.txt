@@ -1,0 +1,40 @@
+app\api\v1\knowledge_write.py:18:8: F401 [*] `re` imported but unused
+app\main.py:31:1: I001 [*] Import block is un-sorted or un-formatted
+app\routers\edu_canteen_receipt.py:44:5: F401 [*] `..services.vision_helper.read_local_image` imported but unused
+app\routers\llm.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+app\services\agent_orchestrator.py:21:1: I001 [*] Import block is un-sorted or un-formatted
+app\services\codebase_investigator.py:32:1: UP035 [*] Import from `collections.abc` instead: `Awaitable`, `Callable`
+app\services\codebase_investigator.py:71:9: I001 [*] Import block is un-sorted or un-formatted
+app\services\conversation.py:22:1: I001 [*] Import block is un-sorted or un-formatted
+app\services\mcp_server.py:42:5: F401 [*] `app.core.file_read_state.judge_read_state` imported but unused
+app\services\mcp_server.py:43:5: F401 [*] `app.core.file_read_state.read_state_field` imported but unused
+app\services\mcp_server.py:44:5: F401 [*] `app.core.file_read_state.record_read` imported but unused
+app\services\mcp_server.py:45:5: F401 [*] `app.core.file_read_state.record_self_write` imported but unused
+app\services\workbuddy_tasks.py:64:8: F401 [*] `time` imported but unused
+app\services\workbuddy_tasks.py:82:5: F401 [*] `app.services.checkin_workbuddy.workbuddy_extract_uid` imported but unused
+tests\test_artifact_tools.py:18:8: F401 [*] `os` imported but unused
+tests\test_artifact_tools.py:45:12: F811 [*] Redefinition of unused `os` from line 18: `os` redefined here
+tests\test_automation_tools.py:150:16: C408 Unnecessary `dict()` call (rewrite as a literal)
+tests\test_automation_tools.py:267:9: I001 [*] Import block is un-sorted or un-formatted
+tests\test_codebase_embedding_fallback.py:15:1: I001 [*] Import block is un-sorted or un-formatted
+tests\test_dag_api.py:53:5: I001 [*] Import block is un-sorted or un-formatted
+tests\test_external_runtime_import.py:15:27: F401 [*] `unittest.mock.AsyncMock` imported but unused
+tests\test_external_runtime_import.py:19:53: F401 [*] `app.services.external_runtime_import` imported but unused
+tests\test_hook_runtime_injection_wiring.py:239:5: I001 [*] Import block is un-sorted or un-formatted
+tests\test_knowledge_compiler.py:17:21: F401 [*] `pathlib.Path` imported but unused
+tests\test_knowledge_compiler.py:24:5: F401 [*] `app.services.knowledge_compiler.compute_source_hash` imported but unused
+tests\test_knowledge_writer.py:37:35: UP037 [*] Remove quotes from type annotation
+tests\test_sandbox_block_metrics.py:33:1: I001 [*] Import block is un-sorted or un-formatted
+tests\test_sandbox_block_metrics.py:451:12: SIM300 [*] Yoda condition detected
+tests\test_security_batch10_p0.py:17:1: I001 [*] Import block is un-sorted or un-formatted
+tests\test_security_batch10_p0.py:19:8: F401 [*] `os` imported but unused
+tests\test_security_batch10_p0.py:135:9: I001 [*] Import block is un-sorted or un-formatted
+tests\test_security_batch10_r3.py:137:43: UP037 [*] Remove quotes from type annotation
+tests\test_security_batch10_r3.py:165:43: UP037 [*] Remove quotes from type annotation
+tests\test_security_batch10_r3.py:181:43: F401 [*] `app.services.mcp_server` imported but unused
+tests\test_security_batch10_r3.py:188:43: UP037 [*] Remove quotes from type annotation
+tests\test_security_batch10_r4.py:17:1: I001 [*] Import block is un-sorted or un-formatted
+tests\test_security_batch10_r5.py:27:45: F401 [*] `app.services.mcp_server._tool_db_query` imported but unused
+tests\test_security_batch10_r6.py:21:8: F401 [*] `pytest` imported but unused
+tests\test_sse_admission_recovery_single_source.py:32:8: F401 [*] `pytest` imported but unused
+tests\test_sse_admission_recovery_single_source.py:33:19: F401 [*] `httpx.ASGITransport` imported but unused

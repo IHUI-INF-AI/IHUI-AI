@@ -13,6 +13,7 @@ import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { rnSpacing } from '@ihui/design-tokens'
 /**
  * 产物预览屏(html_report / slides 的 html 导出体)—— 对齐 web 的「在线看产物」
  * 语义。渲染直接用导出端点的自包含 HTML 体(出口前有 sha256 复验),不走
@@ -88,12 +89,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing.md,
+    gap: rnSpacing.md,
   },
   headerTitle: { fontSize: 16, fontWeight: '700', color: tokens.text.primary, flexShrink: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
   errorText: { fontSize: 13 },
   loadingText: { fontSize: 13, color: tokens.text.secondary },
 })

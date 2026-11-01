@@ -64,11 +64,11 @@ export function PlayBetaContent(): React.JSX.Element {
       <BackButton />
       {/* Hero */}
       <section className="text-center">
-        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 ui-card rounded-lg border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <Smartphone className="h-3.5 w-3.5 text-primary" />
           {t('hero.badge')}
         </div>
-        <h1 className="mt-3 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+        <h1 className="mt-3 text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('hero.title')}
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
@@ -81,14 +81,14 @@ export function PlayBetaContent(): React.JSX.Element {
           <Card className="border-emerald-500/30">
             <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-3 p-3 text-center">
               <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-              <h2 className="text-xl font-bold text-foreground">{t('success.title')}</h2>
+              <h2 className="text-heading font-bold text-foreground">{t('success.title')}</h2>
               <p className="text-sm text-muted-foreground">{t('success.desc')}</p>
               <ol className="mt-2 w-full space-y-2 text-left">
                 {STEPS.map((key, idx) => (
                   <li key={key} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <span
                       className={cn(
-                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary',
+                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-label font-semibold text-primary',
                       )}
                     >
                       {idx + 1}
@@ -102,7 +102,7 @@ export function PlayBetaContent(): React.JSX.Element {
 
           <Card className="border-border">
             <CardContent className="min-[640px]:p-3 p-3">
-              <h2 className="text-sm font-semibold text-foreground">{t('join.title')}</h2>
+              <h2 className="text-body font-semibold text-foreground">{t('join.title')}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{t('join.desc')}</p>
               <Button asChild className="mt-3 w-full">
                 <a href={PLAY_TESTING_URL} target="_blank" rel="noopener noreferrer">
@@ -119,7 +119,7 @@ export function PlayBetaContent(): React.JSX.Element {
           {/* Why join */}
           <Card className="border-border min-[768px]:col-span-2">
             <CardContent className="min-[640px]:p-3 p-3">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">{t('why.title')}</h2>
+              <h2 className="mb-3 text-body font-semibold text-foreground">{t('why.title')}</h2>
               <ul className="space-y-2.5">
                 {whyItems.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -201,11 +201,11 @@ export function PlayBetaContent(): React.JSX.Element {
       {/* FAQ */}
       <Card className="mt-10 border-border">
         <CardContent className="min-[640px]:p-3 p-3">
-          <h2 className="mb-3 text-sm font-semibold text-foreground">{t('faq.title')}</h2>
+          <h2 className="mb-3 text-body font-semibold text-foreground">{t('faq.title')}</h2>
           <div className="space-y-3">
             {FAQ.map((item) => (
               <div key={item.q}>
-                <h3 className="text-sm font-medium text-foreground">{t(item.q)}</h3>
+                <h3 className="text-body font-medium text-foreground">{t(item.q)}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{t(item.a)}</p>
               </div>
             ))}
@@ -215,4 +215,4 @@ export function PlayBetaContent(): React.JSX.Element {
     </main>
   )
 }
-
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

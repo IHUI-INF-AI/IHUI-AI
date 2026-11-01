@@ -9,6 +9,7 @@ import type { AgentStatScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
+import { rnSpacing } from '@ihui/design-tokens'
 /** Agent 统计共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentStatScreenProps }
 
@@ -75,9 +76,9 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     body: { padding: 14 },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
@@ -85,7 +86,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
     },
     label: { fontSize: 14, color: tk.text.secondary },
     value: { fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT, flexShrink: 0 },

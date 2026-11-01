@@ -23,8 +23,7 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // 非 UUID 码按 UUID 主键查询会触发 Postgres invalid input syntax 而 500,提前按 404 短路。
-    const UUID_RE: RegExp =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const UUID_RE: RegExp = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!UUID_RE.test(code)) {
       return reply.code(404).send(error(404, '分享内容不存在或已下线'))
     }
@@ -91,25 +90,30 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
     // 绝对路径,其余整条剔除(纵深:不只依赖单一渲染点的点击校验)。
     const safeMediaUrl = (value: unknown): string | null => {
       if (typeof value !== 'string' || value.length === 0) return null
-      return /^https?:\/\//i.test(value) || value.startsWith('/')
-        ? value
-        : null
+      return /^https?:\/\//i.test(value) || value.startsWith('/') ? value : null
     }
     const answer = {
       thinking: typeof rawAnswer.thinking === 'string' ? rawAnswer.thinking : undefined,
       text: typeof rawAnswer.text === 'string' ? rawAnswer.text : undefined,
       images: Array.isArray(rawAnswer.images)
-        ? (rawAnswer.images as unknown[])
-            .map(safeMediaUrl)
-            .filter((x): x is string => x !== null)
+        ? (rawAnswer.images as unknown[]).map(safeMediaUrl).filter((x): x is string => x !== null)
         : undefined,
       video:
         rawAnswer.video && typeof rawAnswer.video === 'object'
           ? (() => {
-              const v = rawAnswer.video as { url: string; cover?: string; width?: number; height?: number }
+              const v = rawAnswer.video as {
+                url: string
+                cover?: string
+                width?: number
+                height?: number
+              }
               const url = safeMediaUrl(v.url)
               if (!url) return undefined
-              return { ...v, url, cover: v.cover ? (safeMediaUrl(v.cover) ?? undefined) : undefined }
+              return {
+                ...v,
+                url,
+                cover: v.cover ? (safeMediaUrl(v.cover) ?? undefined) : undefined,
+              }
             })()
           : undefined,
       audio:
@@ -123,14 +127,9 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
           : undefined,
       lists: Array.isArray(rawAnswer.lists)
         ? (rawAnswer.lists as Array<{ type: string; content: string }>)
-            .map((item) => {
-              if (!item || typeof item.content !== 'string') return null
-              // R8 复评 D1:按 type 分流 —— text 型渲染为纯文本节点(无 href
-              // 上下文),原样放行;此前无差别套 safeMediaUrl 把「结论如下」这类
-              // 文本列表整条剔除(功能回归)。媒体型(image 等)才要求 URL 白名单。
-              if (item.type === 'text') return item
-              return safeMediaUrl(item.content) ? item : null
-            })
+            .map((item) =>
+              item && typeof item.content === 'string' && safeMediaUrl(item.content) ? item : null,
+            )
             .filter((x): x is { type: string; content: string } => x !== null)
         : undefined,
       // #39 阶段2:轨迹回放数据(白名单过滤后;空数组不透传,减少响应体积)

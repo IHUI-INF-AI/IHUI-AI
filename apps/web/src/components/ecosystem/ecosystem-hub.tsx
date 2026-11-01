@@ -41,7 +41,7 @@ export function EcosystemHub() {
 
       <section aria-labelledby="ecosystem-packs" className="mb-8">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 id="ecosystem-packs" className="text-sm font-medium">
+          <h2 id="ecosystem-packs" className="text-body font-medium">
             {t('bundlesSection')}
           </h2>
           <ViewMoreLink label={more('more')} href={expertPackListHref()} />
@@ -58,7 +58,9 @@ export function EcosystemHub() {
               >
                 <span className="flex items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="text-sm font-medium">{t(`bundles.${pack.titleKey}.title`)}</span>
+                  <span className="text-body font-medium">
+                    {t(`bundles.${pack.titleKey}.title`)}
+                  </span>
                 </span>
                 <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                   {t(`bundles.${pack.titleKey}.desc`)}
@@ -84,15 +86,11 @@ export function EcosystemHub() {
 
       <section aria-labelledby="ecosystem-skills" className="mb-8">
         <div className="mb-2 flex items-center gap-2">
-          <h2 id="ecosystem-skills" className="text-sm font-medium">
+          <h2 id="ecosystem-skills" className="text-body font-medium">
             {t('skillsSection')}
           </h2>
           <CountBadge count={counts.skillsMarket} />
-          <ViewMoreLink
-            label={more('more')}
-            href={MARKETS.skillsMarket.href}
-            className="ms-auto"
-          />
+          <ViewMoreLink label={more('more')} href={MARKETS.skillsMarket.href} className="ms-auto" />
         </div>
         {skills.status === 'failed' ? (
           // 取数失败时正文区不得完全空白:整段没有一行文字,用户读到的是"这个市场没有东西",
@@ -107,7 +105,7 @@ export function EcosystemHub() {
               <li key={item.name}>
                 <Link href={skillDetailHref(item.name)} className={CARD_CLASS}>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{item.name}</span>
+                    <span className="block truncate text-body font-medium">{item.name}</span>
                     <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                       {item.description}
                     </span>
@@ -124,15 +122,11 @@ export function EcosystemHub() {
 
       <section aria-labelledby="ecosystem-connectors" className="mb-8">
         <div className="mb-2 flex items-center gap-2">
-          <h2 id="ecosystem-connectors" className="text-sm font-medium">
+          <h2 id="ecosystem-connectors" className="text-body font-medium">
             {t('connectorsSection')}
           </h2>
           <CountBadge count={counts.connectors} />
-          <ViewMoreLink
-            label={more('more')}
-            href={MARKETS.connectors.href}
-            className="ms-auto"
-          />
+          <ViewMoreLink label={more('more')} href={MARKETS.connectors.href} className="ms-auto" />
         </div>
         <p className="mb-2 text-xs text-muted-foreground">{t('connectorsHint')}</p>
         {connectors.status === 'failed' ? (
@@ -145,7 +139,7 @@ export function EcosystemHub() {
               <li key={entry.key}>
                 <Link href={connectorAuthDetailHref(entry.key)} className={CARD_CLASS}>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{entry.name}</span>
+                    <span className="block truncate text-body font-medium">{entry.name}</span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
                       {tc(entry.configured ? 'configured' : 'notConfigured')}
                     </span>
@@ -161,7 +155,7 @@ export function EcosystemHub() {
       </section>
 
       <section aria-labelledby="ecosystem-markets">
-        <h2 id="ecosystem-markets" className="mb-2 text-sm font-medium">
+        <h2 id="ecosystem-markets" className="mb-2 text-body font-medium">
           {t('marketsSection')}
         </h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -173,7 +167,7 @@ export function EcosystemHub() {
                 <Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium">{t(`cards.${key}.title`)}</span>
+                    <span className="text-body font-medium">{t(`cards.${key}.title`)}</span>
                     <CountBadge count={counts[key]} />
                   </span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
@@ -188,3 +182,4 @@ export function EcosystemHub() {
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

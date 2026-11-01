@@ -46,8 +46,8 @@ import {
 } from '@ihui/shared/utils/image-preview-offset'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
-import { Tappable } from '@ihui/ui-native'
 
+import { rnSpacing } from '@ihui/design-tokens'
 /** 盒尺寸(dp)。RN 的 onLayout / onLoad 给的都是这个量纲,与平移量同一坐标系。 */
 export interface ImagePreviewBox {
   readonly width: number
@@ -210,14 +210,15 @@ export default function ImagePreviewModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={styles.closeBtn}>
-          <Tappable
+          <Pressable
+            style={undefined}
             onPress={onClose}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
           >
             <X size={30} color={HUD_COLOR} />
-          </Tappable>
+          </Pressable>
         </View>
         {/*
           手势面只在本端真的溢出时才打开(pointerEvents 由共享判据给值):
@@ -274,45 +275,49 @@ export default function ImagePreviewModal({
           <View style={styles.row}>
             {multi ? (
               <>
-                <Tappable onPress={() => go(-1)} hitSlop={10} accessibilityRole="button">
+                <Pressable onPress={() => go(-1)} hitSlop={10} accessibilityRole="button">
                   <ChevronLeft size={26} color={HUD_COLOR} />
-                </Tappable>
-                <Tappable onPress={() => go(1)} hitSlop={10} accessibilityRole="button">
+                </Pressable>
+                <Pressable onPress={() => go(1)} hitSlop={10} accessibilityRole="button">
                   <ChevronRight size={26} color={HUD_COLOR} />
-                </Tappable>
+                </Pressable>
               </>
             ) : null}
-            <Tappable
+            <Pressable
+              style={undefined}
               onPress={() => setZoom((z) => zoomStep(z, 'out'))}
               hitSlop={10}
               accessibilityRole="button"
             >
               <Minus size={22} color={HUD_COLOR} />
-            </Tappable>
+            </Pressable>
             <Text style={styles.hudText}>{`${Math.round(zoom * 100)}%`}</Text>
-            <Tappable
+            <Pressable
+              style={undefined}
               onPress={() => setZoom((z) => zoomStep(z, 'in'))}
               hitSlop={10}
               accessibilityRole="button"
             >
               <Plus size={22} color={HUD_COLOR} />
-            </Tappable>
+            </Pressable>
             {onTransfer ? (
               <>
-                <Tappable
+                <Pressable
+                  style={undefined}
                   onPress={() => void transfer('save')}
                   hitSlop={10}
                   accessibilityRole="button"
                 >
                   <Download size={22} color={HUD_COLOR} />
-                </Tappable>
-                <Tappable
+                </Pressable>
+                <Pressable
+                  style={undefined}
                   onPress={() => void transfer('copy')}
                   hitSlop={10}
                   accessibilityRole="button"
                 >
                   <Copy size={22} color={HUD_COLOR} />
-                </Tappable>
+                </Pressable>
               </>
             ) : null}
           </View>
@@ -348,7 +353,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 24,
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   },
   row: {
     flexDirection: 'row',

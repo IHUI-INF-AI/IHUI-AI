@@ -143,7 +143,7 @@ export function PlanReviewPanel({
     <div className="rounded-xl border bg-card" data-testid="plan-review-panel">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <ClipboardList className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">{t('title')}</h3>
+        <h3 className="text-body font-semibold">{t('title')}</h3>
         {/* D98④:查看 PR(与 D15 同 URL 源,仅跳转) */}
         {pullRequestUrl && (
           <a
@@ -203,7 +203,7 @@ export function PlanReviewPanel({
               {plan.steps.map((step, idx) => (
                 <li key={step.id} className="rounded-lg border bg-background/50 p-3">
                   <div className="flex gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-cta/10 text-xs font-medium text-primary">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-cta/10 text-label font-medium text-primary">
                       {idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -213,7 +213,7 @@ export function PlanReviewPanel({
                           {step.tools.map((tool) => (
                             <span
                               key={tool}
-                              className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
+                              className="rounded bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground"
                             >
                               {tool}
                             </span>
@@ -252,5 +252,4 @@ export function PlanReviewPanel({
 }
 
 export default PlanReviewPanel
-//
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -44,6 +44,7 @@ import {
 } from '@ihui/shared/ui/navbar-spec'
 import { NavBarCore, type NavBarCoreBoxProps, type NavBarCoreTextProps } from '@ihui/shared/ui'
 import { useI18n } from '../i18n'
+import { rnSpacing } from '@ihui/design-tokens'
 export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
   icon: AppIcon | string
@@ -78,7 +79,11 @@ function CoreBox({ style, children }: NavBarCoreBoxProps<StyleProp<ViewStyle>, s
   return <View style={style}>{children}</View>
 }
 
-function CoreText({ style, numberOfLines, children }: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
+function CoreText({
+  style,
+  numberOfLines,
+  children,
+}: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
   return (
     <Text style={style} numberOfLines={numberOfLines}>
       {children}
@@ -248,8 +253,8 @@ const styles = StyleSheet.create({
   actionBtn: {
     // 盒宽/盒高/居中唯一源 navbar-spec;gap 与内边距是"图标+文字"并排的端内布局,不是跨端档
     ...navbarActionBoxStyle((px: number) => px),
-    paddingHorizontal: 6,
-    gap: 4,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    gap: rnSpacing.xs,
   },
   actionImage: {
     width: NAVBAR_ACTION_GLYPH_PX,
