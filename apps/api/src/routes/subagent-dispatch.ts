@@ -40,7 +40,7 @@ import {
   type DagVisualization,
   type DispatchResourceStats,
 } from '../services/subagent-dispatch-service.js'
-import { findAgentTasksByAgentId } from '../db/agent-queries.js'
+import { findAgentById, findAgentTasksByAgentId } from '../db/agent-queries.js'
 import type { AgentTask } from '@ihui/database'
 import { mapStatus, type AgentTaskStatus } from '@ihui/types'
 import type { SubagentDispatch } from '@ihui/shared/subagents'
@@ -748,18 +748,27 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ topology }))
   })
 
-  // ---------- GET /subagents/stats(全局统计) ----------
-  // S-ACL(2026-11-01)**未收口,已知残余**:active/completed/failed 可由 runtimes 现算,
-  // 但 total / totalTokens / avgDurationMs 来自进程级累加器 `_stats`(service:1292,写点 1668/2198/2199),
-  // 没有租户维度。只把三个计数收窄 = 同一个响应里「计数是本人的、token 总量是全站的」,
-  // 而消费方(fleet-cross-session-panel)读的正是 token 总量 ⇒ 那是假修。
-  // 真收口需在 service 里加按 owner 的累加器(3 个写点 + 读口径),属另一张票。
+  // ---------- GET /subagents/stats ----------
+  // S-STATS(2026-11-01)收口:原实现六个字段里 total/totalTokens/avgDurationMs 读自进程级累加器
+  // `_stats`(service 无租户维度)⇒ 任何一个登录用户拿到的都是**全站**派单数与 token 总量。
+  //
+  // 为什么不能判「不该收窄」(形态丙已排除,证据):本端点唯一消费方是
+  // apps/web/src/lib/subagents-api.ts `getSubagentStats` → apps/web/src/components/ai/
+  // fleet-cross-session-panel.tsx(D08 ③ Fleet 面板,token 总量画在同一屏),而该面板的行数据来自
+  // GET /subagents/all —— 已被 S-ACL 按 isDispatchVisibleTo 收窄。同一个面板里「列表是本人的、
+  // token 总量是全站的」不是管理端语义,是口径自相矛盾 ⇒ 必须收窄。
+  //
+  // 采用「按需聚合」而非「按 owner 分桶累加」:token/时长本就落在记录上
+  // (runtime.steps[].tokenUsage / startedAt|completedAt),累加器只是第二份副本,还会与记录
+  // 生命周期脱钩(G-998156 的重复进账/续跑重放就是这一族)。现在六个字段同源于一份 filtered 集合,
+  // 判据仍只有 isDispatchVisibleTo 一份 ⇒ 不会出现「计数按租户、token 按全站」的错位。
 
   server.get('/subagents/stats', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const stats = subagentDispatchService.getStats()
+    const stats = subagentDispatchService.getStats((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success(stats))
   })
 
@@ -780,10 +789,26 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // agent 详情页运行时数据汇总:从 agent_tasks 按 agentId 聚合最近记录,
   // 映射为 progress/swarm/checkpoint/plan/background 5 个 Tab 的数据形状。
   // 注意:by-agent 为静态前缀,须在 /subagents/:id/stats 参数路由之前注册。
+  //
+  // S-STATS(2026-11-01):补 agent 归属闸。agents 表有 userId(创建者)+ status/publishStatus
+  // (上架态)⇒ **agent 本身就有租户维度**,不存在「全局共享、不该加校验」那一档:
+  //   - 本人创建的 draft/pending agent ⇒ 只有创建者能读它的运行时汇总;
+  //   - 已上架(published)⇒ 公开资源,任何登录用户可读(维持详情页现状)。
+  // 越权面收掉的是「知道一个 uuid 就能读别人未上架 agent 的运行时」。
+  //
+  // 已知残余(如实标注,不写成已修):agent_tasks 行**没有**租户归属 ——
+  // service(2026-08-06 起)_createAgentTask 只写 agentId/name/description/payload,
+  // 从不写 createdBy;且历史行无法回溯。因此对**已上架** agent,汇总里的
+  // steps[].detail / checkpoints[].diff / agents[].result.output 仍可能带着其他租户
+  // 派单的 goal 与产出。出路二选一(下一张工单):
+  //   a) 在 _createAgentTask 落 createdBy = input.ownerUserId,再按调用方过滤任务行
+  //      (历史 NULL 行)按 isDispatchVisibleTo 同一档「未标注」处理);
+  //   b) 本端点降为「仅创建者可读」,把公开详情页的运行时 Tab 换成空态。
 
   server.get('/subagents/by-agent/:agentId/summary', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { agentId } = request.params as { agentId: string }
     // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
@@ -795,6 +820,15 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
 
     try {
+      // 归属闸:取不到 agent 与「不是你的」合并成同一个 404(同 ownsDispatch:防枚举,
+      // 且不告诉调用方这个 uuid 真实存在)。
+      const agent = await findAgentById(agentId)
+      const agentOwner = typeof agent?.userId === 'string' ? agent.userId : null
+      const isPublished = agent?.status === 'published' || agent?.publishStatus === 'published'
+      if (!agent || (agentOwner !== userId && !isPublished)) {
+        return reply.status(404).send(error(404, '派单不存在'))
+      }
+
       const tasks = await findAgentTasksByAgentId(agentId, 50)
       return reply.send(success(buildAgentRuntimeSummary(agentId, tasks)))
     } catch (e) {

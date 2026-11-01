@@ -370,10 +370,6 @@ interface DispatchRuntime {
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
   /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
   agentTaskId?: string
-  /** G-998156:该 run 的累加读数已被全局统计消费到的步骤水位(已计入 _stats 的 steps 数)。
-   *  undefined/0 = 尚未进账(界下);>0 = 该 run 曾进过账,此后 steps 只会因重试/续跑追加
-   *  —— 即「曾溢出/重放」的那一位(上游 workflow-runs-eviction.ts 的 truncated 同位)。 */
-  statsConsumedSteps?: number
   /** ai-service 编排原始结果(D27 交付清单聚合数据源,仅成功分支赋值;DAG/多轮通信无单一编排结果时为 null) */
   orchestration?: AiOrchestrationResult | null
 }
@@ -1289,11 +1285,6 @@ class SubagentDispatchService {
   private runtimes = new Map<string, DispatchRuntime>()
   private redisClient: Redis | null = null
   private readonly _maxConcurrent = DEFAULT_MAX_CONCURRENT
-  private _stats = {
-    totalDispatches: 0,
-    totalTokens: 0,
-    totalDurationMs: 0,
-  }
 
   constructor(redisClient?: Redis | null) {
     if (redisClient) {
@@ -1665,8 +1656,6 @@ class SubagentDispatchService {
       data: { mode, role, retry, priority, hasDag: !!dag, hasQuotas: !!quotas },
     })
 
-    this._stats.totalDispatches++
-
     // 异步调 ai-service(不 await,立即返回 pending)
     // with_communication 需要 Redis client
     if (mode === 'with_communication') {
@@ -1800,7 +1789,6 @@ class SubagentDispatchService {
         dispatch.result = quotaError
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1839,7 +1827,6 @@ class SubagentDispatchService {
         runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1860,7 +1847,6 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1887,7 +1873,6 @@ class SubagentDispatchService {
         dispatch.status = 'failed'
         dispatch.result = result.message
         runtime.completedAt = Date.now()
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2048,7 +2033,6 @@ class SubagentDispatchService {
     dispatch.result = allResults
     runtime.completedAt = Date.now()
     runtime.hasFailed = hasFailed
-    this._updateStats(runtime)
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
@@ -2128,7 +2112,6 @@ class SubagentDispatchService {
         runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2144,7 +2127,6 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2163,7 +2145,6 @@ class SubagentDispatchService {
         dispatch.status = 'failed'
         dispatch.result = result.message
         runtime.completedAt = Date.now()
-        this._updateStats(runtime)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2174,30 +2155,6 @@ class SubagentDispatchService {
         return
       }
     }
-  }
-
-  /**
-   * 更新全局统计。
-   *
-   * G-998156:照上游 workflow-runs-eviction.ts `admitsNewEntry(run, live)` 的形状收紧累加型
-   * 读数 —— `runtime.steps.reduce` 的全量每次都在,**重复进账**(同一 run 的 steps 被再次喂给
-   * 本函数:续跑/重放/多终态分支)会把旧步骤的 token 再加一遍。收紧条件**只挂在坏过的样本上**:
-   *  - `statsConsumedSteps > 0`(该 run 曾进账 = 曾溢出/重放)⇒ 只累计**越过已消费水位**的新增
-   *    步骤(live = 步数越过水位,与上游 advancesWaterMark 同形);
-   *  - 界下(首次进账)一律放行,与旧实现逐字同形 —— 健康路径一条都不动。
-   */
-  private _updateStats(runtime: DispatchRuntime): void {
-    const durationMs = (runtime.completedAt ?? 0) - (runtime.startedAt ?? 0)
-    const consumedFrom = runtime.statsConsumedSteps ?? 0
-    const truncated = consumedFrom > 0
-    const live = runtime.steps.length > consumedFrom
-    const admitsNewEntry = truncated !== true || live
-    const tokens = admitsNewEntry
-      ? runtime.steps.slice(consumedFrom).reduce((acc, s) => acc + s.tokenUsage.total, 0)
-      : 0
-    this._stats.totalTokens += tokens
-    this._stats.totalDurationMs += durationMs
-    runtime.statsConsumedSteps = runtime.steps.length
   }
 
   /** 取消派单:仅 pending/running 可取消 */
@@ -2245,22 +2202,43 @@ class SubagentDispatchService {
     return this.runtimes.get(id)?.dispatch ?? null
   }
 
-  /** 全局统计 */
-  getStats(): DispatchStats {
-    const all = Array.from(this.runtimes.values()).map((r) => r.dispatch)
+  /**
+   * 统计读数(六个字段同源:都从 `runtimes` 的同一个集合派生)。
+   *
+   * S-STATS(2026-11-01):原实现的 total / totalTokens / avgDurationMs 读自进程级累加器
+   * `_stats`(无租户维度)⇒ 任何登录用户拿到的是**全站**派单数与 token 总量。
+   * 传 `visible` 就只算该调用方可见的记录;判据仍由路由提供(isDispatchVisibleTo),
+   * 本类不持有租户表达(§22c:判据单一份)。
+   *
+   * 为什么删掉累加器而不是按 owner 再开一份桶:
+   *  - token/时长本来就在记录上(`runtime.steps[].tokenUsage` / `startedAt|completedAt`),
+   *    累加器只是同一份数据的**第二份副本** —— 副本与记录生命周期脱钩正是 G-998156 那一族
+   *    (重复进账/续跑重放)缺陷的根;按需聚合后这类漂移结构上不存在。
+   *  - 分桶累加还要在 3 个写点上各带 owner,任何一处漏带就静默落进别人的桶;
+   *    按需聚合没有写点,只有一处读口径。
+   *
+   * 口径与旧实现对齐:total = 记录数(旧 `totalDispatches` 在创建时 +1,而 runtimes 只增不减 ⇒ 等价);
+   * avgDurationMs 的分母仍是 total(未终态记录按 0 时长参与分母,与旧实现一致)。
+   */
+  getStats(visible?: (dispatch: SubagentDispatch) => boolean): DispatchStats {
+    const runtimes = Array.from(this.runtimes.values()).filter(
+      (r) => !visible || visible(r.dispatch),
+    )
+    const all = runtimes.map((r) => r.dispatch)
     const active = all.filter((d) => isActiveDispatchStatus(d.status)).length
     const completed = all.filter((d) => d.status === 'completed').length
     const failed = all.filter((d) => d.status === 'failed').length
-    const total = this._stats.totalDispatches
-    const avgDurationMs = total > 0 ? Math.round(this._stats.totalDurationMs / total) : 0
-    return {
-      active,
-      completed,
-      failed,
-      total,
-      avgDurationMs,
-      totalTokens: this._stats.totalTokens,
+    const total = all.length
+    let totalTokens = 0
+    let totalDurationMs = 0
+    for (const r of runtimes) {
+      totalTokens += r.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
+      if (r.startedAt !== undefined && r.completedAt !== undefined) {
+        totalDurationMs += r.completedAt - r.startedAt
+      }
     }
+    const avgDurationMs = total > 0 ? Math.round(totalDurationMs / total) : 0
+    return { active, completed, failed, total, avgDurationMs, totalTokens }
   }
 
   /** 单个 dispatch 资源统计 */
