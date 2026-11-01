@@ -26,6 +26,7 @@ import { aiRelayAccountPool } from '@ihui/database'
 import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
 import { error, success } from '../utils/response.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { importAccounts } from '../services/relay-account-pool-service.js'
 import { isRelayProviderCode } from '../services/relay-account-format.js'
 
@@ -93,7 +94,11 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
     const secret = config.AI_CALLBACK_SECRET
     if (!secret) return '内部密钥未配置(AI_CALLBACK_SECRET)'
     const provided = request.headers['x-internal-secret']
-    if (typeof provided !== 'string' || provided !== secret) return '内部密钥不匹配'
+    // 2026-11-01 安全强化:改走 secretsEqual 单源(internal-service-token.ts:130)。
+    // 裸 `!==` 是非常数时间比较,而兄弟文件
+    // internal-relay-account-pool-credential.ts 早在 2026-10-31 那批已改过 —— 同一枚
+    // AI_CALLBACK_SECRET 在两处用两种强度比,漏的那一侧不会响。
+    if (typeof provided !== 'string' || !secretsEqual(provided, secret)) return '内部密钥不匹配'
     return null
   }
 

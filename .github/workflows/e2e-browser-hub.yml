@@ -147,7 +147,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        run: pip install uv
+        # uv 档钉死,完整理由见 .github/workflows/ci.yml 的 install-uv 那格
+        run: pip install uv==0.12.1
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile

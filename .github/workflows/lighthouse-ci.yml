@@ -50,7 +50,10 @@ jobs:
 
       - name: Run Lighthouse CI
         run: |
-          npm install -g @lhci/cli@0.13
+          # 0.13 → 0.13.0 逐字钉版:只钉 minor 仍是"任意补丁版自动上位",而这条作业跑的是
+          # 性能审计,数字口径变了就会被读成"页面退步了"。下一行 `|| echo` 是**有意**的非致命
+          # (审计告警不该挡合并),与 ci.yml 那格"把装不上环境吃成绿灯"不是一回事,故保留。
+          npm install -g @lhci/cli@0.13.0
           lhci autorun --config=apps/web/lighthouserc.json || echo "LHCI warnings treated as non-fatal"
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

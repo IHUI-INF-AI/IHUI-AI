@@ -158,7 +158,7 @@ export default function DistributionPlan() {
         ))}
         {!rateRows.length ? (
           <Text className="block text-center text-body text-muted-foreground py-[16rpx]">
-            {tt('common.empty', '暂无数据')}
+            {tt('earnCommission.rateEmpty', '暂无分佣比例')}
           </Text>
         ) : null}
       </View>
