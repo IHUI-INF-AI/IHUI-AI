@@ -5308,6 +5308,9 @@ export function sweepExposedCredentialRotation(opts = {}) {
   notify(
     '暴露凭据轮换未判定',
     `清单与号池对账后仍有条目取不到输入(库不在线 / 密文解不出 / 旧值无法自证 / 清单腐烂)。\n${counts}\n\n点名行:\n${named || '(器物未附点名行)'}\n\n可执行下一步:① node scripts/rotate-exposed-upstream-credentials.mjs --list;② 若清单行本身坏了,按 parseLedger 点名的行号修 scripts/data/exposed-credentials.jsonl(只住 fp,不得写回凭据原文)。`,
+    // 安全域盲点:即便 undetermined(库不在线/密文解不出/清单腐烂)= 尺子自己哑了,
+    // 也照 keepalive-forever/pool-isolation 同族口径保留 warning(这不等于"没有暴露"),
+    // 与 §0.3 通用 log-only 例外,故不归 info 闸门。真暴露且换票失败走上方 state==='failed' 的 error。
     { severity: 'warning', dedupKey: 'exposed-credential-rotation;undetermined', logger },
   )
   return { ran: true, ok: false, state: 'undetermined', counts }
