@@ -84,27 +84,27 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 618 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4655 | `apiRoutes` |
-| 路由文件 | 656 | `apiRouteFiles` |
+| API 路由 | 4670 | `apiRoutes` |
+| 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 68 | `cliCommandFiles` |
+| CLI 命令文件 | 69 | `cliCommandFiles` |
 | CLI 工具文件 | 72 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3826 | `testFiles` |
+| 测试文件 | 3902 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 309 | `guardianGates` |
-| — blocking | 283 | `guardianBlocking` |
-| — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 18422 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
+| 工程守门 | 312 | `guardianGates` |
+| — blocking | 284 | `guardianBlocking` |
+| — warn | 30 | `guardianWarn` |
+| 跟踪文件 | 18623 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-01。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
@@ -146,6 +146,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 8 端职责、下载矩阵与桌面薄壳方案全文见 [`readme-04`](./docs/engineering/readme-04-architecture-and-modules.md)。
 移动 App（`apps/mobile-rn`）的用户侧功能面按 web 同名页逐页对齐，硬规矩是**每屏只接 `apps/api` 里真实注册的路由**：后端没有实现或只回显不入库的入口，端内不造 UI（宁可不做，也不给一个点了没反应的按钮）。2026-10-21 一批补齐 35 屏 —— 安全中心（评分／两步验证／会话撤销／安全事件）、开发者 API 密钥、数据权利与导出、第三方账号、用量、发票、收货地址、积分中心、错题本、我的试卷、分销汇总、发布四屏（账号／新建／日历／数据）、智能体分类、知识库与 RAG 文档管理、图片模板与画廊、语音转写、群组、文章与问答编辑、广场发布、AI 世界创建等。入口分布在「设置」菜单与「我的」页菜单，五语言词条同批落 [`packages/i18n/messages/mobile-rn/`](./packages/i18n/messages/mobile-rn)。
 同轮补的后端与承载面(2026-10-21):`GET/POST/DELETE /api/user/ip-whitelist` 与 `GET/PUT /api/agent/security-config` 落进 `user_preferences(group='security')` —— web 那两张卡此前打的是没有后端的路径;两面**只存不拦**(IP 白名单要拦在哪一层是待拍板的产品语义,`security-config-routes.ts` 头注把原因写全)。「Web 功能门户」现读 13 组 91 条(本轮新增「账单管理」`/settings/billing` 与「知识库」`/knowledge`,两端同表,清单唯一真相源在 `packages/shared/src/constants/web-portal.ts`);记忆详情按 web `/memory/[id]`(那张页带编辑+保存,共享记忆屏只有新建/删除)走既有 WebView 承载,URL 形状同样住在该同源。
+跨端分享正文通道(2026-11-01):小程序的转发卡与朋友圈卡只能在**页面级**注册,而卡上的标题/封面只有**屏**取到数据才算得出 —— 手写页转成壳承载形制后,"谁注册"与"谁有数据"分家,没人递正文就会静默把「分享这条内容」降成「分享首页默认文案」。这条缝由 [`packages/shared/src/share/share-intent.tsx`](./packages/shared/src/share/share-intent.tsx) 承担:屏侧 `usePublishShareIntent({ title, timelineTitle, path?, query?, imageUrl? })` 随数据发布当下正文(两张卡各取一个文案键,故 title 与 timelineTitle 分开),宿主侧 `useShareIntentHost()` 在分享回调里**点击时现读**;`scripts/gen-miniapp-mirror.mjs` 只在屏真发布时(判据 `screenPublishesShare`,注释里提一句不算)才在生成的宿主页里产出 `useShareAppMessage` / `useShareTimeline` / `showShareMenu` 三条注册,落点缺省由端内 `currentPageSharePath` 按本页路由带参兜底。只用 React context/ref,不碰 Taro/DOM/RN API ⇒ RN 与 web 端没有宿主时发布是 no-op,各端自己的分享不受影响;每页持自己的 ref ⇒ 页面栈里两屏同组件也不互相覆盖正文。已接 8 枚屏(文章/课程/专题/直播详情/直播列表/课程 Tab/考试结果/视频播放),所属端 = 小程序(注册在页面)+ 共享屏(发布);改完跑 `pnpm sync:cross-end:apply` 重算生成面。
 ---
 ## 🚀 快速开始
 ### 环境要求
@@ -4372,7 +4373,6 @@ A: Yes. ~14839+ tests / 3782 test files / 67 e2e spec / 4656 API 路由 / 617 �
 于 2026-09-25 补上,且 R5 的射程同日扩到 miniapp-taro 与渐变端(`from-primary`/`to-primary`)。
 详见 AGENTS 守门速查第 83 项;紧急跳过
 | | 会话级分叉(跨端宿主) | 分叉三层**早已入库**(W17 2026-09-14):端点 `POST /api/chat/conversations/:id/branch` + 客户端 `branchConversation()` + DB 事务 `branchConversationFrom`(新会话 metadata 记 `forkedFromMessageId`/`forkedFromMessageCount`/`forkedAt`,供分支树溯源)。**宿主覆盖**：web 消息级 `use-chat/send-message.ts`;extension sidepanel 2026-09-25 接(`ChatPage.tsx` assistant 气泡下方「从此处分支」;该端原为**无会话纯流式**,故先懒建会话 + 逐条落库才谈得上分叉,落库失败走非阻断 notice 不打断既有聊天)。rn **2026-09-25 接**(宿主 `AiAssistantN8nScreen.tsx`:气泡动作行 `GitBranchPlus` 钮 + 只有落过库的消息才给分叉资格;切换成功靠"切换前 id≠新 id ∧ 切后立即读回 ref===新 id ∧ 组件仍挂载"三条件取证,**不拿"没抛错"当"已切换"**,故"调用成功但没切过去"不会被谎报成"加载失败")。cli 2026-09-25 接 `/branch [标题]`(注册进既有 `SLASH_COMMANDS` 表 + `handleSlashCommand`,故 `/help`/Tab 补全/相似度建议自动生效;`-c <会话id>` 显式指定源)。cli 的 REPL 会话是**纯本地**的(全端 `conversationId` 零引用、`streamChat` 不带 `metadata.conversationId`),而服务端 `branchSchema` 要求 UUID 且必须属于该远端会话 —— 所以无参时取"账号内最近活跃的远端会话"并**在输出里点名解析到了谁**,分叉点取该会话最近一条 assistant 服务端消息(本地占位 id 一律跳过),不与既有 `/fork`(本地历史分叉)语义重叠。 |
-| | 编辑意图预测(Predictive Edit) | 服务端三态(`suggested` / `no_action` / `undetermined` 且六个不可分辨理由两两可分)与结构化动作校验早已入库(`apps/ai-service/app/services/edit_intent.py`,含区间冲突 `find_range_conflict` 与锚点内容比对两格,动作条数上限由 `MAX_ACTIONS` 单源插入 prompt,不再两侧各说各话)。**前端真调用方(2026-11-01 现读齐备)**:设置页开关卡 `apps/web/src/components/settings/predictive-edit-card.tsx`(挂在 preferences 页,与 NavTier/Sampling/FoldPolicy/WebSearch 同层同形;开关绑 store 而非本地 useState)+ 编辑器侧 `apps/web/src/components/chat/use-edit-intent.ts` 的**三把钥匙**(服务端 enabled ∧ 用户 userEnabled ∧ 阈值,任一关即不发请求——否则"用户关了"与"模型判了 no_action"会在面上折回同一态,那是本票点名禁止的失效) + `edit-intent-bar.tsx` 渲染建议 + `CodeEditor.tsx` 消费。**接受率按场景分账**:服务端 `FIMMetricsReport.scene`(`_normalize_scene`/`_metrics_key`/`_split_metrics_key`,summary 行带 scene)与前端 `PREDICTIVE_EDIT_METRICS_SCENE` 跨语言同值由 `tests/test_fim.py` 钉住;旧调用方不传 scene 走裸 model 键(向后兼容,Redis 旧快照原样恢复)。**真模型取证 2026-11-01 首跑**:五档处置实测到(suggested 1.6–2.3s、no_action 1.8–3.7s、model_timeout、parse_failed、all_actions_rejected 带逐条丢弃原因),`no_credentials` 因本机有凭据结构上跑不到;真实响应可跨 4s 预算上界,该格留作契约收紧候选而非静默。文案走 `chat` 命名空间 6 键 × 五语言(zh-CN/zh-TW/en/ja/ko)齐备,无端内硬编码中文。 |
 | | 小元素包(D64) | 图片预览翻页 / 第 N·M 张 / 缩放档位进退 / 保存与复制**成败都说话**;思考卡双态标题(有思考→"思考过程",无思考有引用→"使用了 N 个引用");后台子任务八态含 `stopFailed` 显式文案 + 重试停止;回复反馈问卷卡(三选 + 可跳过 + 免打扰)。**宿主覆盖(2026-09-25)**:web 全五项;rn ②预览+传输 / ③思考卡 / ④子任务八态;miniapp ②(逻辑+渲染,复制降级为复制地址)/ ③;extension ④;cli 平台独占豁免。①热力图 web 专有,⑤反馈落库待后端载荷 |
 | | 多任务窗格(D73) | 窗格树唯一真相源 `@ihui/shared/chat/multi-pane`:向右/向下拆分、最大化还原、**相邻窗格联动调宽**(最小份额钳制)、空窗格复用 D22 `application/x-ihui-conversation` 通道拖入、Fork 失败三态显式文案 |
 ### 守门补登:桌面端本地缓存明文巡检(2026-09-24 立,warn-only)
@@ -15423,6 +15423,8 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 ## 守门脚本点名索引(内部参考)
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
+- 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
+- 安全/回跳(2026-11-01 立,blocking,runner id '278'): `check-redirect-target-origin-pinned.mjs`(判 `apps/web` 每枚 `resolveSafeRedirectTarget(...)`/`isSafeNavigationTarget(...)` 的 options 实参必须是**字面量对象且含 `allowedOrigins`**——`isSafeNavigationTarget` 缺该键时走"只判协议"支,任意 http(s) 外站点照过,同日实测四处真命中含两枚授权码签发路径;options 为变量/展开 ⇒ 未判定按 §0.3 exit 2,豁免 = 具名台账且带到期)
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):
 - git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
 - 接线/自检: `check-gate-face-discipline.mjs` `check-skip-env-promise.mjs` `check-selftest-registrant-evaluates.mjs` `check-ci-failure-triage-wiring.mjs`(W1 差值只拦新增、W2 失明/错位/孤儿锁硬拦,`TRIAGE_WORKFLOW_FILE` 必须指本文件) `check-api-key-permission-labels.mjs`(union↔web 标签表↔五语言键集) `check-sheet-flex-contract.mjs`(bounded 容器内列表唯一弹性块;镜像 `check-sheet-flex-contract.test.mjs`) `check-mobile-rn-style-parity.mjs`(RN 硬编码 hex 基线棘轮) `check-list-predicate-has-positive-proof.mjs` `check-ops-patrol.mjs` `check-shared-type-not-redeclared.mjs`(sameShape+reachable 两维) `check-alert-identity-volatility.mjs`(V1 去重身份不含抖动量;V3 声明 `inScope:true` 必须在 `SCOPE_PREFIXES` 内、V4 发现集不得漏面;台账 `scripts/data/alert-mail-faces.json`;生产者 `alert-notification-service.ts`;镜像 `check-alert-identity-volatility.test.mjs`) `check-generator-resource-release.mjs`(async 生成器消费点必须显式 aclose/return;warn 起步) `check-no-warm-border.mjs`(W1-W4 暖色描边/9-patch/colorAccent/plugins 被 ignore;镜像 `check-no-warm-border.test.mjs`) `check-auth-cookie-domain-scope.mjs`(V1 域外写手/V2 判据拆毁/V3 回归形状;单源 `apps/api/src/utils/auth-cookies.ts` 的 `resolveCookieDomain`;镜像 `check-auth-cookie-domain-scope.test.mjs`) `check-bpe-encoding-parity.mjs`(C1 声明/C2 行为/C3 反向锁) `check-grafana-metric-exists.mjs`(指标名必须有发射点或台账) `check-grafana-datasource-wiring.mjs`(A uid 必须存在;B 只报数;C gridPos 相交/越界;镜像 `check-grafana-datasource-wiring.test.mjs`) `check-sse-no-blind-merge.mjs`(全量帧/`snapshot`/`initial` 分支禁止铺开本地旧状态,判据落在 `sse-parse.ts`) `check-direct-run-guard.mjs` `check-test-judge-not-replicated.mjs` `check-staged-typecheck-mirror-sync.mjs` `check-registry-worktree-superset.mjs` `check-rich-anchor-renderer-single-source.mjs`(249)
@@ -40639,15 +40641,13 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 - **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
 - **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
 - **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
-| API 路由 | 4670 | `apiRoutes` |
-| 路由文件 | 658 | `apiRouteFiles` |
-| CLI 命令文件 | 69 | `cliCommandFiles` |
-| 测试文件 | 3902 | `testFiles` |
-| 工程守门 | 312 | `guardianGates` |
-| — blocking | 284 | `guardianBlocking` |
-| — warn | 30 | `guardianWarn` |
-| 跟踪文件 | 18623 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-01。
-- 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
-- 安全/回跳(2026-11-01 立,blocking,runner id '278'): `check-redirect-target-origin-pinned.mjs`(判 `apps/web` 每枚 `resolveSafeRedirectTarget(...)`/`isSafeNavigationTarget(...)` 的 options 实参必须是**字面量对象且含 `allowedOrigins`**——`isSafeNavigationTarget` 缺该键时走"只判协议"支,任意 http(s) 外站点照过,同日实测四处真命中含两枚授权码签发路径;options 为变量/展开 ⇒ 未判定按 §0.3 exit 2,豁免 = 具名台账且带到期)
-跨端分享正文通道(2026-11-01):小程序的转发卡与朋友圈卡只能在**页面级**注册,而卡上的标题/封面只有**屏**取到数据才算得出 —— 手写页转成壳承载形制后,"谁注册"与"谁有数据"分家,没人递正文就会静默把「分享这条内容」降成「分享首页默认文案」。这条缝由 [`packages/shared/src/share/share-intent.tsx`](./packages/shared/src/share/share-intent.tsx) 承担:屏侧 `usePublishShareIntent({ title, timelineTitle, path?, query?, imageUrl? })` 随数据发布当下正文(两张卡各取一个文案键,故 title 与 timelineTitle 分开),宿主侧 `useShareIntentHost()` 在分享回调里**点击时现读**;`scripts/gen-miniapp-mirror.mjs` 只在屏真发布时(判据 `screenPublishesShare`,注释里提一句不算)才在生成的宿主页里产出 `useShareAppMessage` / `useShareTimeline` / `showShareMenu` 三条注册,落点缺省由端内 `currentPageSharePath` 按本页路由带参兜底。只用 React context/ref,不碰 Taro/DOM/RN API ⇒ RN 与 web 端没有宿主时发布是 no-op,各端自己的分享不受影响;每页持自己的 ref ⇒ 页面栈里两屏同组件也不互相覆盖正文。已接 8 枚屏(文章/课程/专题/直播详情/直播列表/课程 Tab/考试结果/视频播放),所属端 = 小程序(注册在页面)+ 共享屏(发布);改完跑 `pnpm sync:cross-end:apply` 重算生成面。
+| API 路由 | 4655 | `apiRoutes` |
+| 路由文件 | 656 | `apiRouteFiles` |
+| CLI 命令文件 | 68 | `cliCommandFiles` |
+| 测试文件 | 3826 | `testFiles` |
+| 工程守门 | 309 | `guardianGates` |
+| — blocking | 283 | `guardianBlocking` |
+| — warn | 28 | `guardianWarn` |
+| 跟踪文件 | 18422 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
+| | 编辑意图预测(Predictive Edit) | 服务端三态(`suggested` / `no_action` / `undetermined` 且六个不可分辨理由两两可分)与结构化动作校验早已入库(`apps/ai-service/app/services/edit_intent.py`,含区间冲突 `find_range_conflict` 与锚点内容比对两格,动作条数上限由 `MAX_ACTIONS` 单源插入 prompt,不再两侧各说各话)。**前端真调用方(2026-11-01 现读齐备)**:设置页开关卡 `apps/web/src/components/settings/predictive-edit-card.tsx`(挂在 preferences 页,与 NavTier/Sampling/FoldPolicy/WebSearch 同层同形;开关绑 store 而非本地 useState)+ 编辑器侧 `apps/web/src/components/chat/use-edit-intent.ts` 的**三把钥匙**(服务端 enabled ∧ 用户 userEnabled ∧ 阈值,任一关即不发请求——否则"用户关了"与"模型判了 no_action"会在面上折回同一态,那是本票点名禁止的失效) + `edit-intent-bar.tsx` 渲染建议 + `CodeEditor.tsx` 消费。**接受率按场景分账**:服务端 `FIMMetricsReport.scene`(`_normalize_scene`/`_metrics_key`/`_split_metrics_key`,summary 行带 scene)与前端 `PREDICTIVE_EDIT_METRICS_SCENE` 跨语言同值由 `tests/test_fim.py` 钉住;旧调用方不传 scene 走裸 model 键(向后兼容,Redis 旧快照原样恢复)。**真模型取证 2026-11-01 首跑**:五档处置实测到(suggested 1.6–2.3s、no_action 1.8–3.7s、model_timeout、parse_failed、all_actions_rejected 带逐条丢弃原因),`no_credentials` 因本机有凭据结构上跑不到;真实响应可跨 4s 预算上界,该格留作契约收紧候选而非静默。文案走 `chat` 命名空间 6 键 × 五语言(zh-CN/zh-TW/en/ja/ko)齐备,无端内硬编码中文。 |
