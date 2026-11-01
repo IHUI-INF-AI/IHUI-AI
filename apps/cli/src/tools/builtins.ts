@@ -29,6 +29,10 @@ import {
 } from './background-registry.js';
 import { projectTaskRoster, formatTaskRoster } from './task-roster-projection.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
+// 危险确认的「有没有渠道 / 人答没答真」判定只住 `resolveDangerousConfirmation` 一处
+// (契约声明见 tools/index.ts 的 DangerousConfirmationCallback);本文件的 handler 只传上下文,
+// 不得再各自读 ctx.confirmDangerous 判放行 —— 由 tests/danger-gate-wiring.test.ts 的 W7 钉住。
+import { resolveDangerousConfirmation } from './index.js';
 import { mapTerminalState, ABORTED_BEFORE_COMPLETION_NOTE } from './failure-classification.js';
 import { todo_read, todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
@@ -977,11 +981,10 @@ export const run_command: Tool = {
     // 只读命令自动批准(判据在 command-safety 的 gateCommandExecution,与 profile 无关;
     // 默认档是严档 'limited',见 config/sandbox-profile.ts 的 DEFAULT_SANDBOX_PROFILE)
     if (!gate.autoApprovable) {
-      // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
-      if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
-        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
-      }
-      if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) {
+      // 默认拒绝策略经唯一判定出口:无渠道(no-channel)与人答假(declined)都是拒绝,
+      // 绝不允许「没人可问 = 放行」;拒因文案仍由本 handler 原样发出(可观测行为不变)。
+      const confirmation = await resolveDangerousConfirmation(ctx, run_command, args);
+      if (confirmation.kind !== 'approved') {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
       }
     }
@@ -1219,10 +1222,9 @@ export const kill_command: Tool = {
   async execute(args, ctx): Promise<ToolResult> {
     const taskId = args.task_id as string;
     if (!taskId) return { success: false, output: '', error: '缺少 task_id 参数' };
-    if (kill_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
-      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
-    }
-    if (ctx.confirmDangerous && !(await ctx.confirmDangerous(kill_command, args))) {
+    // 与 run_command 同一条判定路径:只经唯一出口问人,不在 handler 里各判一遍。
+    const confirmation = await resolveDangerousConfirmation(ctx, kill_command, args);
+    if (confirmation.kind !== 'approved') {
       return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
     }
     const result = await killTask(taskId, 'model');

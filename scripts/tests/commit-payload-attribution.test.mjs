@@ -206,8 +206,11 @@ test('B8 接线锁:前置护栏必须在**两处**发令前都被调用,且拒�
   assert.match(src, /gitStagedStatusEntries/, '取材要走 lib 的带状态出口,不自己拆 -z 帧')
   const calls = src.match(/rejectIfForeignEnteredIndex\(/g) ?? []
   assert.ok(calls.length >= 2, `前置护栏调用点必须覆盖两处发令(现状 ${calls.length} 处)`)
-  const iFirst = src.indexOf('commitArgs(false)')
-  const iSecond = src.indexOf('commitArgs(true)')
+  // 2026-11-01 对齐现形:发令帮手已由 `commitArgs(skipHooks)` 改名 `commitArgv(skipHooks, …)`
+  // (内部新增了真正的 commitArgs 构造器,故帮手让名);两处发令点=首次(commitArgv(false,…))
+  // 与跳门重试(commitArgv(true)),护栏语义逐字未动(1064/1093 与 1916/1917 实测在位)。
+  const iFirst = src.indexOf('commitArgv(false')
+  const iSecond = src.indexOf('commitArgv(true')
   assert.ok(iFirst > 0 && iSecond > 0, '两处发令点都必须还在')
   const guarded = (idx) => src.lastIndexOf('rejectIfForeignEnteredIndex(', idx) > 0
   assert.ok(guarded(iFirst), '首次发令前必须复量索引')

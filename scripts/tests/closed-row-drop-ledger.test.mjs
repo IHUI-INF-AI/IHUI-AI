@@ -155,8 +155,12 @@ test('③接线锁:union 的期望表必须调用 declaredDropCaps(被删 ⇒ �
 })
 
 test('③b 接线锁:union 必须 import 摘除台账(§0.6 单一真相源,不许在本器复算)', () => {
+  // 2026-11-01 放宽形状:此前死抠 `import { declaredRows } from` 单名字形态,
+  // 而真源是同名模块的多名字 import(`{ declaredRows, rowStateOf, titleFpOf }`)——
+  // 契约是"declaredRows 必须从复洁器 import",不是"必须单名字 import"(§12e 禁判出
+  // union 语义上不可满足的恒红那一型)。
   assert.ok(
-    /import \{ declaredRows \} from '\.\/scrub-declared-removals\.mjs'/.test(UNION_SRC),
+    /import \{[^}]*\bdeclaredRows\b[^}]*\} from '\.\/scrub-declared-removals\.mjs'/.test(UNION_SRC),
     'declaredRows 必须从复洁器 import —— 两处各写一份必漂移',
   )
 })

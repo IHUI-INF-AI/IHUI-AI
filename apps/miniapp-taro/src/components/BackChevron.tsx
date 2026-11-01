@@ -50,7 +50,7 @@ const TARO_PLATFORM: BackChevronPlatform<string, CSSProperties, ITouchEvent> = {
   toUnit: (px) => rpx(px * TARO_RPX_PER_PX),
   /// 墨迹:逻辑 px → rpx 数(LineIcon 的 size 收数值)
   glyphUnit: (px) => px * TARO_RPX_PER_PX,
-  useFontMultiplier: () => 1,
+  readFontMultiplier: () => 1,
   Pressable: function TaroPressable({
     onActivate,
     accessibilityLabel,

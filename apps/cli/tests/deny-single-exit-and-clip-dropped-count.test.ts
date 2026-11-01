@@ -449,6 +449,13 @@ describe('票 A:单源面 —— HEAD 尚未成立的两条(如实点名,按棘�
    *    (`buildToolDenial(` 与 `denialErrorSuffix(` 在两份文件面上都是 0)—— 目标是 1 处,未达成。
    * 按本仓的棘轮口径,存量不当场判红(那是与任何提交无关的恒红门),但**新增一处必红**;
    * 上面两条用例名里就写着目标值,谁把它们改成 `toBe(1)` 谁就是在宣布票 A 做完了。
+   *
+   * 〔2026-11-01 现读更新(席 DANG)〕"各自 re-test 审批面"那一半**已接线**:
+   * builtins 的 run_command/kill_command 与 terminal 的 terminal_open 一律改经
+   * `resolveDangerousConfirmation(ctx, tool, args)` 判(见 danger-gate-wiring.test.ts 的 W7),
+   * 两份文件面上的 `ctx.confirmDangerous` 读点由 6/2 归 **0**,下面那条已由上界收成精确地板 0。
+   * 未接线的只剩文案半:拒绝头语仍在 3 份文件里各拼一句(改它会给 builtins/terminal 的返回
+   * 加 `[ihui-denial …]` 后缀 = 可观测变化,不属本票"行为不变"的射程),上界 7/3 原样保留。
    */
   it('「有没有审批面」在 index 面上仍有 2 个站点(目标 1,HEAD 未达成 ⇒ 封上界 2)', () => {
     expect(countOccurrences(TOOLS_CODE, 'ctx.confirmDangerous ?')).toBeLessThanOrEqual(2)
@@ -462,9 +469,9 @@ describe('票 A:单源面 —— HEAD 尚未成立的两条(如实点名,按棘�
     expect(filesWithHead).toBeLessThanOrEqual(3)
   })
 
-  it('builtins/terminal 两支仍在自己 re-test 审批面且不带拒绝结构(现状封上界 ⇒ 接线后本条应改成 0)', () => {
-    expect(countOccurrences(BUILTINS_CODE, 'ctx.confirmDangerous')).toBeLessThanOrEqual(6)
-    expect(countOccurrences(TERMINAL_CODE, 'ctx.confirmDangerous')).toBeLessThanOrEqual(2)
+  it('builtins/terminal 不再自己 re-test 审批面(2026-11-01 已接线 ⇒ 地板 0),且仍不带拒绝结构', () => {
+    expect(countOccurrences(BUILTINS_CODE, 'ctx.confirmDangerous')).toBe(0)
+    expect(countOccurrences(TERMINAL_CODE, 'ctx.confirmDangerous')).toBe(0)
     expect(countOccurrences(BUILTINS_CODE, 'buildToolDenial(')).toBe(0)
     expect(countOccurrences(TERMINAL_CODE, 'buildToolDenial(')).toBe(0)
   })

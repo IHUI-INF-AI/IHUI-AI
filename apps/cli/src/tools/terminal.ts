@@ -18,6 +18,9 @@ import { spawn as spawnChild } from 'node:child_process';
 import { createRequire } from 'node:module';
 import * as crypto from 'node:crypto';
 import type { Tool, ToolResult } from './index.js';
+// 危险确认判定只住 `resolveDangerousConfirmation` 一处(与 builtins 的 run_command/kill_command
+// 同一条出口);本 handler 只传上下文,不再各自读 ctx.confirmDangerous 判放行。
+import { resolveDangerousConfirmation } from './index.js';
 import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
 import { runPreToolCall } from '../hooks/index.js';
 import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
@@ -238,10 +241,9 @@ export const terminal_open: Tool = {
       return { success: false, output: blockMessage };
     }
     if (!gate.autoApprovable) {
-      if (!ctx.confirmDangerous) {
-        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_open.name}` };
-      }
-      if (!(await ctx.confirmDangerous(terminal_open, args))) {
+      // 经唯一判定出口问人:无渠道与人答假都是拒绝(可观测行为与原两支逐字等价)。
+      const confirmation = await resolveDangerousConfirmation(ctx, terminal_open, args);
+      if (confirmation.kind !== 'approved') {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_open.name}` };
       }
     }

@@ -25,7 +25,9 @@ const agentsharePng = aizhsUrl('remote-images/agentshare.png')
 export interface ChatMessageItemProps {
   msg: ChatMessage
   onReuse?: (question: string) => void
-  onRegenerate?: () => void
+  /** 票59:必须把"点的是哪一条"原样传下去 —— 只接 `() => void` 时宿主拿不到目标行,
+   *  重新生成只会落在最后一条助手消息上,给旧回答开的新版本就会挂错版本族。 */
+  onRegenerate?: (msg: ChatMessage) => void
   onLongPress?: () => void
   onEdit?: () => void
   /** 是否已收藏(仅 AI 消息,对标原 ai_assistant.vue 收藏状态) */
@@ -328,7 +330,11 @@ export default function ChatMessageItem({
                 onClick={handleReuse}
               />
               <Text
-                style={{ fontSize: '20rpx', color: 'var(--color-link)', marginTop: 'var(--spacing-2xs)' }}
+                style={{
+                  fontSize: '20rpx',
+                  color: 'var(--color-link)',
+                  marginTop: 'var(--spacing-2xs)',
+                }}
                 onClick={handleReuse}
               >
                 {t('ai.chatMessageItem.reuse')}
@@ -337,7 +343,10 @@ export default function ChatMessageItem({
           ) : null}
           {/* 用户消息图片列表(若有) */}
           {msg.images && msg.images.length > 0 ? (
-            <View className="agent-content-item-question" style={{ marginTop: 'var(--spacing-sm-loose)' }}>
+            <View
+              className="agent-content-item-question"
+              style={{ marginTop: 'var(--spacing-sm-loose)' }}
+            >
               {msg.images.map((imgUrl, i) => (
                 <Image
                   key={i}
@@ -406,7 +415,11 @@ export default function ChatMessageItem({
               </Text>
               {onRegenerate ? (
                 <View className="px-3 pb-2">
-                  <View className="inline-flex items-center" onClick={onRegenerate}>
+                  <View
+                    className="inline-flex items-center"
+                    onClick={() => onRegenerate(msg)}
+                    hoverClass="opacity-60"
+                  >
                     <LineIcon
                       name="refresh-cw"
                       size={24}
@@ -439,7 +452,11 @@ export default function ChatMessageItem({
                   return (
                     <Text
                       key={idx}
-                      style={{ fontWeight: 'bold', display: 'block', marginBottom: 'var(--spacing-sm-loose)' }}
+                      style={{
+                        fontWeight: 'bold',
+                        display: 'block',
+                        marginBottom: 'var(--spacing-sm-loose)',
+                      }}
                     >
                       {seg.value}
                     </Text>
@@ -749,7 +766,7 @@ export default function ChatMessageItem({
                     marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
                   }}
-                  onClick={onRegenerate}
+                  onClick={() => onRegenerate(msg)}
                 >
                   ↻ {t('ai.chatMessageItem.regenerate')}
                 </Text>

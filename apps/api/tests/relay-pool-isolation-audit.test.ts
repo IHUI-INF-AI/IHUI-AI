@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 号池隔离性体检尺裁决锁(2026-11-01 立)。
@@ -98,13 +98,18 @@ describe('D4 rt 终点证据(rtBlindDim)', () => {
   })
   it('⑩ 仅普通号瞎 ⇒ info(不逼红);都正常 ⇒ ok', () => {
     expect(
-      A.rtBlindDim({ scanned: true, foreverBlind: [], otherBlind: [{ provider: 'qoder', uid: 'o1' }] })
-        .state,
+      A.rtBlindDim({
+        scanned: true,
+        foreverBlind: [],
+        otherBlind: [{ provider: 'qoder', uid: 'o1' }],
+      }).state,
     ).toBe('info')
     expect(A.rtBlindDim({ scanned: true, foreverBlind: [], otherBlind: [] }).state).toBe('ok')
   })
   it('⑪ 没扫到(scanned=false)⇒ unjudged', () => {
-    expect(A.rtBlindDim({ scanned: false, foreverBlind: [], otherBlind: [] }).state).toBe('unjudged')
+    expect(A.rtBlindDim({ scanned: false, foreverBlind: [], otherBlind: [] }).state).toBe(
+      'unjudged',
+    )
   })
   it('⑫ Trae 永久号瞎 ⇒ info(客户端不暴露 rt 终点,属固有,不误警);且整体不算 breach', () => {
     const d = A.rtBlindDim({
@@ -122,7 +127,9 @@ describe('D4 rt 终点证据(rtBlindDim)', () => {
 
 describe('D5 出口亲和(egressDim)', () => {
   it('⑫ 代理池为空 ⇒ info(全池同出口 IP,接受这一维)', () => {
-    expect(A.egressDim({ proxyTotal: 0, proxyActive: 0, proxyBound: 0, accountsWithProxy: 0 }).state).toBe('info')
+    expect(
+      A.egressDim({ proxyTotal: 0, proxyActive: 0, proxyBound: 0, accountsWithProxy: 0 }).state,
+    ).toBe('info')
   })
   it('⑬ active 代理有未绑定 ⇒ breach(多号可共用一位)', () => {
     const d = A.egressDim({ proxyTotal: 5, proxyActive: 3, proxyBound: 1, accountsWithProxy: 2 })
@@ -130,8 +137,17 @@ describe('D5 出口亲和(egressDim)', () => {
     expect(d.count).toBe(2)
   })
   it('⑭ 全部绑定 ⇒ ok;任一取不到 ⇒ unjudged', () => {
-    expect(A.egressDim({ proxyTotal: 5, proxyActive: 3, proxyBound: 3, accountsWithProxy: 3 }).state).toBe('ok')
-    expect(A.egressDim({ proxyTotal: null, proxyActive: null, proxyBound: null, accountsWithProxy: null }).state).toBe('unjudged')
+    expect(
+      A.egressDim({ proxyTotal: 5, proxyActive: 3, proxyBound: 3, accountsWithProxy: 3 }).state,
+    ).toBe('ok')
+    expect(
+      A.egressDim({
+        proxyTotal: null,
+        proxyActive: null,
+        proxyBound: null,
+        accountsWithProxy: null,
+      }).state,
+    ).toBe('unjudged')
   })
 })
 
@@ -151,7 +167,9 @@ describe('汇总裁决 overallState / conclusionLine', () => {
     expect(A.overallState([mk('a', 'ok'), mk('b', 'breach'), mk('c', 'info')])).toBe('breach')
   })
   it('⑱ 无 breach 但有 unjudged ⇒ undetermined(不记绿)', () => {
-    expect(A.overallState([mk('a', 'ok'), mk('b', 'info'), mk('c', 'unjudged')])).toBe('undetermined')
+    expect(A.overallState([mk('a', 'ok'), mk('b', 'info'), mk('c', 'unjudged')])).toBe(
+      'undetermined',
+    )
   })
   it('⑲ 全 ok/info ⇒ ok', () => {
     expect(A.overallState([mk('a', 'ok'), mk('b', 'info')])).toBe('ok')
@@ -178,4 +196,4 @@ describe('参数解析 parseArgs', () => {
     expect(A.parseArgs([])).toEqual({ json: false, help: false, error: null })
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

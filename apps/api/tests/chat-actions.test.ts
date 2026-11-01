@@ -116,19 +116,51 @@ describe('chat regenerate / branch / pin 端点', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  it('POST /conversations/:id/regenerate 成功删除目标消息及之后内容', async () => {
+  it('POST /conversations/:id/regenerate 开分支不删行:响应带版本族坐标 rootId/nextSiblingIndex', async () => {
     mockAuthenticate.mockImplementationOnce(async (request: any) => {
       request.userId = 'user-1'
     })
     mockFindConversationById.mockResolvedValueOnce(ownedConversation)
-    mockRegenerate.mockResolvedValueOnce({ regeneratedFrom: MSG_ID, remainingCount: 3 })
+    // 票59(1/3,2026-10-07 起 sibling 语义):服务层不再物理删除,返回族根与下一序号;
+    // 旧契约 { regeneratedFrom, remainingCount } 只作兼容字段保留,切换器只认坐标两键。
+    mockRegenerate.mockResolvedValueOnce({
+      regeneratedFrom: MSG_ID,
+      remainingCount: 3,
+      rootId: MSG_ID,
+      nextSiblingIndex: 1,
+    })
     const res = await server.inject({
       method: 'POST',
       url: `/api/chat/conversations/${CONV_ID}/regenerate`,
       body: { messageId: MSG_ID },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ regeneratedFrom: MSG_ID, remainingCount: 3 })
+    expect(res.json().data).toEqual({
+      regeneratedFrom: MSG_ID,
+      remainingCount: 3,
+      rootId: MSG_ID,
+      nextSiblingIndex: 1,
+    })
+  })
+
+  it('POST /conversations/:id/regenerate 会话属他人 ⇒ 403 且服务层零调用(无副作用)', async () => {
+    // 认证不等于授权:令牌主体由 authenticate 盖章进 request.userId(承载层显式入参),
+    // 归属核验在 ensureOwnedConversation;越权路径必须在触达 chat-queries 之前终止。
+    mockAuthenticate.mockImplementationOnce(async (request: any) => {
+      request.userId = 'user-1'
+    })
+    mockFindConversationById.mockResolvedValueOnce({
+      ...ownedConversation,
+      userId: 'user-2',
+    } as unknown as ChatConversation)
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/chat/conversations/${CONV_ID}/regenerate`,
+      body: { messageId: MSG_ID },
+    })
+    expect(res.statusCode).toBe(403)
+    // 副作用断言:开分支写链(siblingIndex=0 补标 / 序号推进)一次都没被发起
+    expect(mockRegenerate).not.toHaveBeenCalled()
   })
 
   it('POST /conversations/:id/branch 未登录返回 401', async () => {

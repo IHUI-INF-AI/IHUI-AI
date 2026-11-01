@@ -45,6 +45,44 @@ function countInlineDecisions(text: string): number {
   return n
 }
 
+// ==================== W7:消费侧(问人那一侧)的同一件事 ====================
+//
+// W1 数的是「会话级 flag 的放行结论被调用方自己算」;本组数的是它的对偶:
+// 「审批渠道有没有 / 人答没答真」被调用方自己读 `*.confirmDangerous` 判。
+// 判据本体早就写在 `tools/index.ts` 的 `resolveDangerousConfirmation` 头注里
+// ("调用方不得自行读 ctx.confirmDangerous 判'有没有渠道'"),此前**无器物**——
+// 文档写了规则而没人钉,正是本仓反复记过的"判据在、工具在、没人调度"那一型。
+
+/** 消费侧形态①:`!<ref>.confirmDangerous` —— 自行判"有没有审批渠道" */
+const CONSUMER_NO_CHANNEL = /!\s*[\w$.]+\.confirmDangerous\b/g
+/** 消费侧形态②:`<ref>.confirmDangerous &&` / `? ` —— 自行把渠道存在性并进放行条件 */
+const CONSUMER_GATE = /[\w$.]+\.confirmDangerous\s*(?:\?|&&)/g
+/** 消费侧形态③:`<ref>.confirmDangerous(` —— 绕过契约出口直呼回调 */
+const CONSUMER_DIRECT_CALL = /[\w$.]+\.confirmDangerous\s*\(/g
+
+/**
+ * 剥掉「整行注释」(// 行、块注释的 * 续行)后的代码面 —— 出路文案/文档里引用
+ * `ctx.confirmDangerous` 不算读点(实测:`utils/tool-denial.ts` 的英文指引串、
+ * `headless-permission.ts` 的头注都含该词,不剥就会把文档读成站点)。
+ */
+function codeOnly(text: string): string {
+  return text
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join('\n')
+}
+
+/** 消费侧就地判审批的读点数(纯函数,有牙/不咬自己两半都喂合成字符串测) */
+function countConsumerReads(text: string): number {
+  const code = codeOnly(text)
+  let n = 0
+  for (const re of [CONSUMER_NO_CHANNEL, CONSUMER_GATE, CONSUMER_DIRECT_CALL]) n += Array.from(code.matchAll(re)).length
+  return n
+}
+
+/** 契约判定唯一出口所在文件(它自己必然读回调,不参与消费侧计数) */
+const CONTRACT_EXIT_REL = 'tools/index.ts'
+
 const git = (args: string[]): string =>
   execFileSync('git', ['-c', 'safe.directory=*', ...args], {
     cwd: repoRoot,
@@ -258,6 +296,66 @@ describe('W6 双层 ask:call-site 分支与 dangerous 档必须各问一次(G-89
     const src = headOf(TWO_AXES_REL)
     expect(src).not.toBe('')
     expect(src).toMatch(/requiresUserConfirmation\(\s*\{\s*\.\.\.base,\s*dangerLevel:\s*'dangerous'\s*\}\s*\)\)\s*\.toBe\(true\)/)
+  })
+})
+
+describe('W7 消费侧棘轮:除契约判定出口,任何 src 文件不得自行读 *.confirmDangerous 判放行', () => {
+  it('逐文件 worktree ≤ HEAD(锚点 = 该文件 HEAD 自身读数;只拦"把就地问人抄回来")', () => {
+    const offenders: string[] = []
+    const remaining: string[] = []
+    for (const f of allFiles) {
+      if (f.relCli === GATE_REL || f.relCli === CONTRACT_EXIT_REL) continue
+      const work = countConsumerReads(readFileSync(f.abs, 'utf-8'))
+      const head = countConsumerReads(headOf(f.rel))
+      if (work > 0) remaining.push(`${f.relCli}=${work}`)
+      if (work > head) {
+        offenders.push(
+          `${f.relCli}: HEAD=${head} 工作树=${work}(「有没有审批渠道 / 人答没答真」只住 resolveDangerousConfirmation)`,
+        )
+      }
+    }
+    // 现值如实喊出来(供交付报告核对):接线完成后应只剩契约出口一处不计、其余全零
+    console.info(`[danger-gate-wiring] 消费侧就地判审批现值: ${remaining.join(', ') || '(全零)'}`)
+    expect(offenders).toEqual([])
+  }, 180_000)
+
+  it('有牙(第一半):四种消费侧形态都被同一把尺子抓到,且逐条读数点名', () => {
+    const shapes = [
+      "if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) return deny",
+      'if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) return deny',
+      'if (!ctx.confirmDangerous) { return deny }',
+      'const allowed = opts.ctx.confirmDangerous ? await opts.ctx.confirmDangerous(tool, args) : false',
+    ]
+    const counts = shapes.map((s) => countConsumerReads(s))
+    // 逐条点名:整批 ≥1 会掩盖"某一条其实没抓到"(本仓老课:门让你怎么写、门就看不见怎么写)
+    expect(counts).toEqual([1, 2, 1, 2])
+  })
+
+  it('不咬自己(第二半):经出口传上下文 / 类型声明 / 构造 ctx / 出路文案与注释都不计数', () => {
+    const sanctioned = [
+      'const confirmation = await resolveDangerousConfirmation(ctx, run_command, args);',
+      "if (confirmation.kind !== 'approved') return deny;",
+      'confirmDangerous?: DangerousConfirmationCallback;',
+      'confirmDangerous: createAuditedDangerGate({ allowDangerous: opts.allowDangerous, silent: true }),',
+      "const guidance = 'host wire ctx.confirmDangerous to a real approval channel (operator-side ...)'",
+      '// 例如宿主是否接了 `ctx.confirmDangerous` / plan 审批器',
+      '/* 无回调时 `allowed = ctx.confirmDangerous ? ... : false` 也已是 deny 方向 */',
+    ].join('\n')
+    expect(countConsumerReads(sanctioned)).toBe(0)
+  })
+
+  it('装车证明:三个消费点(builtins / terminal / runToolLoop 的 ask 档)读点归零且经唯一出口', () => {
+    const sites: Array<[string, RegExp]> = [
+      ['tools/builtins.ts', /const confirmation = await resolveDangerousConfirmation\(ctx, (?:run_command|kill_command), args\)/g],
+      ['tools/terminal.ts', /const confirmation = await resolveDangerousConfirmation\(ctx, terminal_open, args\)/g],
+      ['commands/agent.ts', /const confirmation = await resolveDangerousConfirmation\(opts\.ctx, tool!, call\.arguments\)/g],
+    ]
+    for (const [rel, exitShape] of sites) {
+      const src = readFileSync(path.join(srcRoot, rel), 'utf-8')
+      const needed = rel === 'commands/agent.ts' ? 1 : rel === 'tools/terminal.ts' ? 1 : 2
+      expect(Array.from(src.matchAll(exitShape)).length, `${rel} 经出口的次数`).toBe(needed)
+      expect(countConsumerReads(src), `${rel} 就地读审批渠道的残留`).toBe(0)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

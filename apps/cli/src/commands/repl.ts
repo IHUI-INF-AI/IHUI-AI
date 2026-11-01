@@ -120,7 +120,7 @@ import {
   clearAllLoops,
 } from '../tools/background-registry.js';
 // 后台任务台账:跨进程"只报不恢复"。状态判据一律住在 background-ledger,本文件不复写任何推断。
-import { drainLedgerAlerts, ledgerStateLabel, summarizeLedger } from '../tools/background-ledger.js';
+import { drainLedgerAlerts, ledgerStateLabel, pruneLedger, summarizeLedger } from '../tools/background-ledger.js';
 import { runSandboxedAsync } from '../sandbox/index.js';
 import { estimateMessagesTokens } from '../context.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, setHookRewakeQueue } from '../hooks/index.js';
@@ -997,7 +997,7 @@ function printBackgroundLedger(liveIds: readonly string[]): void {
     console.info(
       chalk.red(
         `│  LEDGER OVER LIMIT: ${ledger.oversize.lines} lines / ${ledger.oversize.bytes} B — ` +
-          `AUTO-CLEAN REFUSED. Clean it by hand: pruneLedger({ confirm: true })`,
+          `AUTO-CLEAN REFUSED. Clean it by hand: /bg prune (or pruneLedger({ confirm: true }))`,
       ),
     );
   }
@@ -1628,7 +1628,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     case 'background': {
       const sub = args[0] ?? '';
       if (!sub) {
-        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg ledger | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
+        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg ledger | /bg prune | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
         break;
       }
       if (sub === 'list') {
@@ -1654,6 +1654,15 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         printBackgroundLedger(list.filter((t) => t.status === 'running').map((t) => t.id));
       } else if (sub === 'ledger') {
         printBackgroundLedger(listTasks().filter((t) => t.status === 'running').map((t) => t.id));
+      } else if (sub === 'prune') {
+        // S3 接线(2026-11-01):pruneLedger 的人工命令入口。它的设计口径是"只有 confirm:true
+        // 才动文件、且只搬走已落终态的记录"(未终态的是证据,永久保留)—— 敲下 /bg prune
+        // 这个显式动作本身即人工确认。结论逐条打印(ok/原因 + archived/retained 计数)。
+        const result = pruneLedger({ confirm: true });
+        console.info(chalk.cyan('\n╭─ bg ledger prune'));
+        console.info(`│  ${result.ok ? chalk.green(result.message) : chalk.yellow(result.message)}`);
+        console.info(chalk.cyan('╰─'));
+        console.info('');
       } else if (sub === 'live') {
         // W11 后台任务 live tail:增量跟随输出直至退出(对标 Claude Code 后台任务实时流)
         const id = args[1] ?? '';
