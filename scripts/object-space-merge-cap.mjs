@@ -125,6 +125,10 @@ function run(argv, opts = {}) {
     cwd: process.cwd(),
     encoding: 'utf8',
     maxBuffer: 1 << 28,
+    // §5b 派生进程纪律:本机任何派生 git 必须显式 windowsHide —— 漏它在新分配的控制台宿主
+    // (计划任务/守护/无终端父进程)下必闪黑窗,这一型历史复发 4 次,门 52 就是为此而设。
+    // 放在 ...opts 之前:调用方仍可显式覆盖,但默认必须是安全的。
+    windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
     ...opts,
   })
