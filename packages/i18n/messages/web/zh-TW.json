@@ -11646,8 +11646,6 @@
     "predictiveEditDelete": "刪除",
     "predictiveEditLine": "第 {line} 行",
     "predictiveEditPreview": "懸停預覽此條改動的區域",
-    "predictiveEditSetting": "預測式編輯",
-    "predictiveEditSettingDesc": "停筆後自動預測下一處編輯意圖，在聊天輸入區與程式碼編輯器顯示可勾選的編輯建議；關閉後不再發起預測請求。",
     "cmdCode": "請用代碼實現以下功能，並添加註釋：",
     "cmdExplain": "請詳細解釋以下概念：",
     "cmdKouboScript": "請幫我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 選題方向:\n3. 雙門禁驗證(歧義壓縮 / 跨稿詞表 / 全量驗證 / 語病 / 熱點覆蓋)\n請走 koubo-workflow 流水線(約束優先寫作法)。",

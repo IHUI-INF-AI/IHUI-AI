@@ -1942,7 +1942,8 @@
     "inputPlaceholder": "输入消息...",
     "send": "发送",
     "clear": "清空",
-    "error": "发送失败,请重试"
+    "error": "发送失败,请重试",
+    "modeDisabledHint": "图像/语音模式暂未开放,当前仅支持文本对话"
   },
   "assistant": {
     "title": "我的助手",
