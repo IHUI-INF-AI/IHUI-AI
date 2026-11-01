@@ -79,17 +79,18 @@ test('未引入任何强推或破坏性 git 动作(射程=执行路径;补救文
   // 2026-10-24 Get-DivergenceRemedy 上线:它把"人可直接粘贴"的补救(含第 4 步
   // `git fetch origin main && git reset --hard <tip>`)写进**展示字符串**,注释里也解释了
   // "为什么不自动做"。全文件裸子串检查把这些引用当执行 ⇒ 恒红(§12e)。
-  // 2026-11-01 对齐现形:补救功能整票已回退(9fdbc207ba 清理 61a4812fe3 的回退残留),
-  // 函数已不在 ⇒ 按本锁原话"它没了,豁免面就该关":Get-DivergenceRemedy 在位时它是
-  // 破坏性动词唯一允许的非注释落点;不在位时**零豁免**,任何非注释破坏性动词都判红。
+  // 判据收窄的正确方向不是删提示(提示是给 111 轮/7.3 小时那种真人场景的),而是把锁
+  // 钉在"执行形态"上:每个破坏性动词的出现,要么在 `#` 注释行,要么在补救文案构建器
+  // Get-DivergenceRemedy 的跨度内;出现在别处 = 执行路径引入破坏性动作 ⇒ 红。
   const destructive = ['git push --force', 'push -f', 'reset --hard', 'git stash', 'clean -fd']
   const violations = (src) => {
     const fnStart = src.indexOf('function Get-DivergenceRemedy')
-    let fnEnd = -1
-    if (fnStart >= 0) {
-      const fnEndRel = src.slice(fnStart + 10).indexOf('\nfunction ')
-      fnEnd = fnEndRel > 0 ? fnStart + 10 + fnEndRel : src.length
-    }
+    assert.ok(
+      fnStart >= 0,
+      'Get-DivergenceRemedy 是破坏性动词唯一允许的非注释落点;它没了,本锁的豁免面就该关',
+    )
+    const fnEndRel = src.slice(fnStart + 10).indexOf('\nfunction ')
+    const fnEnd = fnEndRel > 0 ? fnStart + 10 + fnEndRel : src.length
     const out = []
     for (const verb of destructive) {
       let idx = -1
@@ -98,7 +99,7 @@ test('未引入任何强推或破坏性 git 动作(射程=执行路径;补救文
         const lineEndRel = src.slice(idx).indexOf('\n')
         const lineEnd = lineEndRel >= 0 ? idx + lineEndRel : src.length
         if (src.slice(lineStart, lineEnd).trimStart().startsWith('#')) continue
-        if (fnStart >= 0 && idx >= fnStart && idx < fnEnd) continue
+        if (idx >= fnStart && idx < fnEnd) continue
         out.push(`${verb} @ 行 ${src.slice(0, lineStart).split('\n').length}`)
       }
     }

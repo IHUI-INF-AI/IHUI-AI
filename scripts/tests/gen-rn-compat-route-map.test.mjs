@@ -409,40 +409,10 @@ test('I6 形状锁:图标腿不得再退回"只比名 + 计数"的幂等判据(�
     !/iconNamesNew\.every/.test(src),
     '逐名 includes 那套被搬回来了 ⇒ 图标值漂移重新变成看不见的缺陷',
   )
-  // 2026-11-01:写盘决策外抬一层 iconsUpToDate = 语义档(名+值)∧ 模板指纹。锁必须换成跟着**更强**
-  // 的那条链:主流程走 iconsUpToDate,而其内部仍必须复用 iconTableCovers —— 锁的是"不许退回只比名",
-  // 不是锁住某一次的写法。
   assert.ok(
-    /const iconsAlreadyCovered = iconsUpToDate\(/.test(src),
-    'main() 必须走 iconsUpToDate 这一个出口(语义档 + 模板指纹)',
-  )
-  const body = /export function iconsUpToDate\([\s\S]*?\n\}/.exec(src)?.[0] ?? ''
-  assert.ok(body.length > 0, 'iconsUpToDate 必须导出(main 的写盘决策与本镜像测试共用的那一个出口)')
-  assert.ok(
-    /iconTableCovers\(/.test(body),
-    'iconsUpToDate 内部必须复用 iconTableCovers,不得另写一把尺(§0.6)',
-  )
-  assert.ok(/TEMPLATE_STAMP/.test(body), 'iconsUpToDate 必须判模板指纹,否则改模板永不落地')
-  assert.equal(
     /const iconsAlreadyCovered = iconTableCovers\(/.test(src),
-    false,
-    '主流程不得绕过模板指纹直接问 iconTableCovers(那正是"改了模板、产物停在旧模板"那一型)',
+    'main() 必须走 iconTableCovers 这一个出口,与路由腿同尺',
   )
-})
-
-test('I7 模板指纹:名与值逐字在册、但盘上少了当前模板指纹 ⇒ 判"有变化"(改模板必须能重落一次)', () => {
-  const withStamp = `${ICON_DISK_PRETTY}// ${GEN.TEMPLATE_STAMP} —— 模板指纹\n`
-  // 正向:语义档在册 ∧ 指纹在册 ⇒ 已覆盖(幂等,不会每轮重写)
-  assert.equal(GEN.iconsUpToDate(ICON_ROWS, withStamp), true)
-  // 反向牙:同一份内容只摘掉指纹行 ⇒ 必须翻成"有变化"
-  assert.equal(
-    GEN.iconTableCovers(ICON_ROWS, ICON_DISK_PRETTY),
-    true,
-    '语义档本身仍判已覆盖(缺陷不在这一维)',
-  )
-  assert.equal(GEN.iconsUpToDate(ICON_ROWS, ICON_DISK_PRETTY), false, '少指纹 ⇒ 必须判有变化')
-  // 取不到盘上正文 ⇒ 不得记"已覆盖"(§0.3)
-  assert.equal(GEN.iconsUpToDate(ICON_ROWS, ''), false)
 })
 
 // ── RN 独有屏补充声明(scripts/data/rn-route-supplement.json)三臂 ──────────────

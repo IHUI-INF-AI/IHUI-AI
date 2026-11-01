@@ -135,9 +135,6 @@ export function listQualifierTests(tests) {
 export function collectFace(root, face, opts = {}) {
   const roots = opts.roots ?? []
   const list = opts.listFiles ?? ((repoRoot, which) => listFaceFiles(repoRoot, which))
-  // `opts.rev` 只服务"以任意提交为基底"的调用方(如补测器取 HEAD^);缺省仍按面自取,
-  // 门本身的行为一字未变 —— 取材实现全仓仍只此一份(§0.6),第二份必然漂移。
-  const contentRev = opts.rev ?? (face === 'staged' ? '' : 'HEAD')
   let all
   try {
     all = list(root, face)
@@ -154,7 +151,7 @@ export function collectFace(root, face, opts = {}) {
     if (face === 'worktree') {
       for (const p of sourceFiles) contents.set(p, readWorktreeFile(root, p))
     } else {
-      const rev = contentRev
+      const rev = face === 'staged' ? '' : 'HEAD'
       let got
       try {
         got = catBatch(root, sourceFiles.map((p) => `${rev}:${p}`), { timeout: 120_000 })
@@ -170,7 +167,7 @@ export function collectFace(root, face, opts = {}) {
     if (face === 'worktree') {
       for (const p of qualifierTests) testTexts.set(p, readWorktreeFile(root, p))
     } else {
-      const rev = contentRev
+      const rev = face === 'staged' ? '' : 'HEAD'
       let got
       try {
         got = catBatch(root, qualifierTests.map((p) => `${rev}:${p}`), { timeout: 120_000 })
