@@ -2590,7 +2590,27 @@ def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
                 elif data_url.startswith(("http://", "https://")):
                     import httpx
 
-                    r = httpx.get(data_url, timeout=10.0, follow_redirects=True)
+                    from app.services.screenshot_service import (
+                        _validate_url_ssrf,
+                        httpx_ssrf_request_hook,
+                    )
+
+                    # 2026-11-01 安全强化:`data_url` 取自**远端页面 DOM**(页方可控),此前这里是
+                    # 裸调 + follow_redirects=True ⇒ 一个公网登录页就能把 http://169.254.169.254/
+                    # 或内网元数据端点拉回来。现入口过一次、每一跳再过一次(重定向由 httpx 自己跟,
+                    # 前置判断救不了第二跳)。被拦下就跳过这枚候选,继续下一枚 —— 判不了不判死,
+                    # 但绝不放行。
+                    ok_url, _reason = _validate_url_ssrf(data_url)
+                    if not ok_url:
+                        continue
+                    # 用显式 Client 而不是 httpx.get():模块级便捷 API 不吃 event_hooks
+                    # (mypy 在 httpx._api.get 上直接报 call-arg),而这一格要的正是逐跳复检。
+                    with httpx.Client(
+                        timeout=10.0,
+                        follow_redirects=True,
+                        event_hooks={"request": [httpx_ssrf_request_hook]},
+                    ) as client:
+                        r = client.get(data_url)
                     # 2026-09-30:微信官方码(connect/qrcode)下发的是 **JPEG**,
                     # 只认 PNG 魔数会把 oschina 这类"能直取原图"的平台白退回截图。
                     if r.status_code == 200 and (
