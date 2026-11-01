@@ -41,6 +41,7 @@ import {
   type DispatchResourceStats,
 } from '../services/subagent-dispatch-service.js'
 import { findAgentById, findAgentTasksByAgentId } from '../db/agent-queries.js'
+import { getConversationAccess } from '../db/chat-conversation-access.js'
 import type { AgentTask } from '@ihui/database'
 import { mapStatus, type AgentTaskStatus } from '@ihui/types'
 import type { SubagentDispatch } from '@ihui/shared/subagents'
@@ -596,7 +597,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/subagents/dispatch', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const parsed = dispatchSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -605,12 +607,28 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const input = parsed.data
 
     try {
+      // P1(2026-11-02):agentId / conversationId 归属闸 —— 与 /subagents/by-agent/:agentId/summary
+      // 同一判据(§22c):agent 是「本人所有 或 已上架(published)」;会话经 chat-conversation-access
+      // 的单源判据(本人会话 ∪ 已接受协作成员)。取不到 / 不是你的合并成同一个 404(防枚举,不用 403)。
+      if (input.agentId) {
+        const agent = await findAgentById(input.agentId)
+        const agentOwner = typeof agent?.userId === 'string' ? agent.userId : null
+        const isPublished = agent?.status === 'published' || agent?.publishStatus === 'published'
+        if (!agent || (agentOwner !== userId && !isPublished)) {
+          return reply.status(404).send(error(404, '派单不存在'))
+        }
+      }
+      if (input.conversationId && !(await getConversationAccess(input.conversationId, userId))) {
+        return reply.status(404).send(error(404, '派单不存在'))
+      }
+
       // 会话归属透传:schema 已声明 conversationId,service 的 buildDispatch 抄进派单记录,
       // GET /subagents/all 原样回读 ⇒ 前端「按会话分组」即刻生效,路由层无需再改。
       // 租户归属**只从鉴权结果注入**(dispatchSchema 无该字段 ⇒ 请求体自报会被 Zod 剥掉),
       // 由 buildDispatch 落进记录并随 Redis 持久化,GET /subagents/all 据此隔离。
       const result = await subagentDispatchService.dispatch({
         ...input,
+        // 与上面的 userId 同值(都是鉴权结果);保留此前已有的字面形态,归属写入源头不变
         ownerUserId: request.userId,
       })
 
