@@ -90,8 +90,14 @@ export interface ChatMessage {
   content: string
   /** 2026-09-13 立,W16 消息树地基:父消息 id。
    *  线性会话中 = 前一条消息;重新生成/编辑重跑时 = 触发的用户消息。
-   *  W17 Fork(消息分叉)与编辑历史追溯将基于此字段扩展为真正的消息树。 */
-  parentMessageId?: string
+   *  W17 Fork(消息分叉)与编辑历史追溯将基于本字段扩展为真正的消息树。
+   *  **null = 本行不是任何一条的子行**(族根即如此:族根以自身 id 为键,
+   *  它没有父行)—— 2026-11-01 对齐:全仓其余四处口径(web store / shared 的
+   *  use-chat 与 message-version-family / api-client endpoints)都写 `string | null`,
+   *  只有本行少写了 `| null`,于是按 web 口径补族根坐标的那一格
+   *  ({...m, parentMessageId: null, siblingIndex: 0},见 apps/web/src/stores/chat.ts)
+   *  在小程序腿编译不过(TS2345 null 不能赋给 string | undefined)。 */
+  parentMessageId?: string | null
   /** 票59/票64(消息级版本切换):版本族内序号(服务端盖章,wire 已透出)。
    *  非 null = 本行参与版本族投影(族根 = parentMessageId ?? 自身 id,根被开族时补 0);
    *  null/缺失 = 不属于任何版本族。判族只认本键非 null —— W16 live 本地链的

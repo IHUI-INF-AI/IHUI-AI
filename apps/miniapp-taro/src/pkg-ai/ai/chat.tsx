@@ -50,7 +50,9 @@ import {
 import { formatTokenCount } from '@ihui/shared/utils'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
-// 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)
+// 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
+// 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
+// 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
 import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
 import MessageVersionMenu from './message-version-menu'
 import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
@@ -197,6 +199,7 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState('')
   // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
   // activeVersionByRoot 同语义;失效指针由投影层回落最新版本(判族唯一源在共享层)。
+  // 纯本地读投影态:切换不写库、不发请求(与 web 同一口径)。
   const [activeVersionByRoot, setActiveVersionByRoot] = useState<Record<string, string>>({})
   // D20 留尾2:超长会话向前翻页。cursor 走 ref(不驱动渲染);hasMore/loading 走 state(驱动顶部入口)
   const [earlierHasMore, setEarlierHasMore] = useState(false)
@@ -1587,7 +1590,7 @@ export default function ChatPage() {
       }
       try {
         const res = await regenerateConversation(sessionId, root.id)
-        if (!res.success || !res.data) throw new Error(res.message ?? 'regenerate rejected')
+        if (!res.success || !res.data) throw new Error(res.error || 'regenerate rejected')
         const { rootId, nextSiblingIndex } = res.data
         // 族根本地补坐标 siblingIndex=0(服务端已同步行;投影/rootInSet 防御同 web
         // mergeVersionMessage 口径 —— 不带坐标的族根会被当成非族行,切换器就配不齐)
@@ -1604,7 +1607,11 @@ export default function ChatPage() {
           siblingIndex: nextSiblingIndex,
         })
       } catch (e) {
-        logger.warn('chat.regenerate.sibling-failed', String((e as Error)?.message ?? e))
+        logger.warn(
+          'pkg-ai/ai/chat',
+          'regenerate.sibling-failed',
+          String((e as Error)?.message ?? e),
+        )
         Taro.showToast({ title: t('ai.messageVersion.regenerateFailed'), icon: 'none' })
       }
     },
@@ -1778,6 +1785,33 @@ export default function ChatPage() {
   // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
   const tierText = resolvePermissionTierText(workspaceTier, tt)
 
+  // 票59 小程序腿:切换激活版本 —— 只改读投影的指针,不写库、不发请求(与 web
+  // stores/chat.ts 的 setActiveMessageVersion 同语义);同值不回写(省一次整树重渲染)。
+  const handleSwitchMessageVersion = useCallback((rootId: string, messageId: string): void => {
+    setActiveVersionByRoot((prev) =>
+      prev[rootId] === messageId ? prev : { ...prev, [rootId]: messageId },
+    )
+  }, [])
+
+  // 票59 小程序腿:族内只渲染激活版本。回调仍按**原始下标**切片(handleEdit 截断、
+  // handleLongPress 分享定位都吃 messages 的下标),所以这里同时带出可见行和它的原始下标。
+  //
+  // 为什么族投影吃 `familyRows` 而不是 `messages`:端内 ChatMessage.id 可选(流式行拿到
+  // 落库 id 前为空),而共享判族基类要求 id 必填 —— 参与族判定的行必然来自服务端历史水合
+  // 或本屏 regenerate 占位(两条路都写了 id),按 id 收窄是**等价**的,无 id 的行一律原样保留。
+  const versionList = useMemo(() => {
+    const familyRows = messages.filter((m): m is ChatMessage & { id: string } => !!m.id)
+    const visibleIds = new Set(
+      projectActiveMessages(familyRows, activeVersionByRoot).map((m) => m.id),
+    )
+    return {
+      familyRows,
+      items: messages
+        .map((msg, idx) => ({ msg, idx }))
+        .filter(({ msg }) => !msg.id || visibleIds.has(msg.id)),
+    }
+  }, [messages, activeVersionByRoot])
+
   return (
     <ThemeRoot className="page">
       <View
@@ -1946,7 +1980,7 @@ export default function ChatPage() {
           </View>
         ) : null}
 
-        {messages.map((msg, idx) => (
+        {versionList.items.map(({ msg, idx }) => (
           <Fragment key={idx}>
             <ChatMessageItem
               msg={msg}
@@ -1974,6 +2008,17 @@ export default function ChatPage() {
                   : undefined
               }
             />
+            {/* 票59 小程序腿:版本切换器锚在当前激活的那一条 assistant 消息之后(与 web
+                MessageItem 把 MessageVersionMenu 挂在气泡尾部同一位置语义)。
+                判族/位置读数唯一源 = @ihui/shared/chat/message-version-family,
+                端内零第二份实现;族内只有一条时组件自身返回 null(不渲染 1/1 骗点击)。 */}
+            {msg.role === 'assistant' && msg.id ? (
+              <MessageVersionMenu
+                messages={versionList.familyRows}
+                messageId={msg.id}
+                onSwitch={handleSwitchMessageVersion}
+              />
+            ) : null}
             {/* D77:业务表单卡锚定在对应 assistant 消息之后(messageId =
                 msg.id ?? timestamp;仅 assistant 侧匹配,防同毫秒时间戳撞上 user 消息) */}
             {msg.role === 'assistant'
