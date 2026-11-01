@@ -239,7 +239,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
   if (wbAccounts.length === 0) {
     return (
       <section className="rounded-lg border border-border bg-card px-4 py-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
+        <h2 className="flex items-center gap-2 text-body font-semibold">
           <ListChecks className="h-4 w-4 text-primary" />
           {t('taskPanelTitle')}
         </h2>
@@ -256,7 +256,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className="flex items-center gap-2 text-sm font-semibold">
+        <span className="flex items-center gap-2 text-body font-semibold">
           <ListChecks className="h-4 w-4 text-primary" />
           {t('taskPanelTitle')}
         </span>

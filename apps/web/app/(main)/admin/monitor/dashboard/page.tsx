@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   Server,
   Cpu,
-  Globe,
   Activity,
   Database,
   Brain,
@@ -56,14 +55,11 @@ function isServiceOk(status: ServiceItem['status']): boolean {
   return status === 'healthy' || status === 'running'
 }
 
-// 键必须与后端 checkServiceHealth 返回的 name 逐字一致(api/web/ai-service/postgres/redis) ——
-// 旧表用的是展示名(API/DB/Redis/AI-Service),五枚全不命中、每行都退成兜底 Server。
 const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  api: Server,
-  web: Globe,
-  'ai-service': Brain,
-  postgres: Database,
-  redis: Cpu,
+  API: Server,
+  DB: Database,
+  Redis: Cpu,
+  'AI-Service': Brain,
 }
 
 export default function AdminMonitorDashboardPage() {
@@ -104,7 +100,7 @@ export default function AdminMonitorDashboardPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
-        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LayoutDashboard className="h-6 w-6 text-primary" />
           系统监控概览
         </h1>
@@ -121,7 +117,7 @@ export default function AdminMonitorDashboardPage() {
                 <Server className="h-4 w-4 shrink-0" />
                 <span className="truncate">服务状态</span>
               </span>
-              <span className="shrink-0 whitespace-nowrap text-label font-normal text-muted-foreground tabular-nums">
+              <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
                 {okCount}/{services.length} 正常
               </span>
             </CardTitle>
@@ -141,14 +137,13 @@ export default function AdminMonitorDashboardPage() {
                   return (
                     <div
                       key={s.name}
-                      data-service={s.name}
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
                         <Icon
                           className={cn('h-4 w-4', ok ? 'text-success-text' : 'text-danger-text')}
                         />
-                        <span className="text-body font-medium">{s.name}</span>
+                        <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {ok ? (
@@ -182,7 +177,7 @@ export default function AdminMonitorDashboardPage() {
               {perfCards.map((c) => (
                 <div key={c.label} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{c.label}</div>
-                  <div className={cn('mt-1 text-heading font-bold', c.cls)}>
+                  <div className={cn('mt-1 text-xl font-bold', c.cls)}>
                     {c.value === null ? (
                       <span className="text-base font-medium text-muted-foreground">未判定</span>
                     ) : (
@@ -220,8 +215,8 @@ export default function AdminMonitorDashboardPage() {
         <CardContent>
           {/* 旧实现是 Math.random() 画的 48 根假柱子(读数恒随机、与后端无关)。
               后端至今没有 QPS 时序数据源 ⇒ 这里显式「未判定」,不画假曲线。 */}
-          <div className="py-6 text-center" data-qps-unjudged>
-            <div className="text-display font-bold text-muted-foreground">未判定</div>
+          <div className="py-6 text-center">
+            <div className="text-2xl font-bold text-muted-foreground">未判定</div>
             <p className="mt-1 text-xs text-muted-foreground">
               后端暂无 QPS 时序数据源,此处不冒充读数(旧实现为随机生成的假曲线)。
             </p>

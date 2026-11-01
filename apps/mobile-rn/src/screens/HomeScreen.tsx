@@ -150,7 +150,6 @@ import { tabBarDockSpacer } from '../components/TabBar.styles'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
-import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -691,7 +690,7 @@ function NavShareImageButton({ onPress, a11yLabel }: { onPress: () => void; a11y
 }
 
 const navShareStyles = StyleSheet.create({
-  btn: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  btn: { paddingHorizontal: rnSpacing['xs-loose'], alignItems: 'center', justifyContent: 'center' },
 })
 
 export function HomeScreen() {
@@ -1920,7 +1919,7 @@ export function HomeScreen() {
                 </Text>
               </View>
               {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
-              <Tappable
+              <Pressable
                 onPress={() => {
                   if (showModelSearch) {
                     setShowModelSearch(false)
@@ -1939,15 +1938,16 @@ export function HomeScreen() {
                   size={18}
                   color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
                 />
-              </Tappable>
-              <Tappable
+              </Pressable>
+              <Pressable
+                style={undefined}
                 onPress={closeModelModal}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={shellStyles.modelModalClose}>×</Text>
-              </Tappable>
+              </Pressable>
             </View>
             {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
             {showModelSearch ? (
@@ -1966,14 +1966,15 @@ export function HomeScreen() {
                   accessibilityLabel={t('home.a11yModelSearchInput')}
                 />
                 {modelSearch ? (
-                  <Tappable
+                  <Pressable
+                    style={undefined}
                     onPress={() => setModelSearch('')}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel={t('home.a11yClearQuery')}
                   >
                     <Text style={shellStyles.modelSearchClear}>×</Text>
-                  </Tappable>
+                  </Pressable>
                 ) : null}
               </View>
             ) : null}
@@ -1988,7 +1989,7 @@ export function HomeScreen() {
                 const active = !modelSearch.trim() && modelModalTab === mt.type
                 const Icon = mt.icon
                 return (
-                  <Tappable
+                  <Pressable
                     key={mt.type}
                     onPress={() => {
                       setModelSearch('')
@@ -2011,7 +2012,7 @@ export function HomeScreen() {
                     >
                       {mt.label}
                     </Text>
-                  </Tappable>
+                  </Pressable>
                 )
               })}
             </ScrollView>
@@ -2055,14 +2056,15 @@ export function HomeScreen() {
           />
           <View style={shellStyles.materialSheet}>
             <View style={shellStyles.materialSheetBar}>
-              <Tappable
+              <Pressable
+                style={undefined}
                 onPress={() => setShowMaterialList(false)}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={shellStyles.materialSheetClose}>×</Text>
-              </Tappable>
+              </Pressable>
             </View>
             <MaterialList
               categories={materialCategories}
@@ -2097,14 +2099,15 @@ export function HomeScreen() {
               <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('home.matDetailFallback')}
               </Text>
-              <Tappable
+              <Pressable
+                style={undefined}
                 onPress={closeMaterialDetail}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={shellStyles.detailDialogClose}>×</Text>
-              </Tappable>
+              </Pressable>
             </View>
             <View style={shellStyles.detailDialogBody}>
               {materialDetailLoading ? (
@@ -2112,13 +2115,13 @@ export function HomeScreen() {
               ) : materialDetailError ? (
                 <View style={shellStyles.detailDialogErrorWrap}>
                   <Text style={shellStyles.detailDialogErrorText}>{materialDetailError}</Text>
-                  <Tappable
+                  <Pressable
                     onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
                     style={shellStyles.detailDialogRetryBtn}
                     accessibilityRole="button"
                   >
                     <Text style={shellStyles.detailDialogRetryText}>{t('home.retryText')}</Text>
-                  </Tappable>
+                  </Pressable>
                 </View>
               ) : materialDetailData ? (
                 <ScrollView style={shellStyles.detailDialogScroll}>
@@ -2158,23 +2161,24 @@ export function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setQrCodeVisible(false)}
       >
-        <Tappable
+        <Pressable
           style={shellStyles.modalMask}
           onPress={() => setQrCodeVisible(false)}
           accessibilityRole="button"
           accessibilityLabel={t('home.closeBtn')}
         >
           <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
-            <Tappable
+            <Pressable
+              style={undefined}
               onLongPress={() => void handleLongPressQrCode()}
               delayLongPress={500}
               accessibilityRole="imagebutton"
               accessibilityLabel={t('home.qrLongPressA11y')}
             >
               <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
-            </Tappable>
+            </Pressable>
             <Text style={shellStyles.qrTitle}>{t('home.qrHint')}</Text>
-            <Tappable
+            <Pressable
               hitSlop={8}
               onPress={() => setQrCodeVisible(false)}
               style={shellStyles.qrClose}
@@ -2182,9 +2186,9 @@ export function HomeScreen() {
               accessibilityLabel={t('home.closeBtn')}
             >
               <Text style={shellStyles.qrCloseText}>×</Text>
-            </Tappable>
+            </Pressable>
           </Pressable>
-        </Tappable>
+        </Pressable>
       </Modal>
       {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup)
        *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +
@@ -2236,14 +2240,15 @@ export function HomeScreen() {
                     <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
                       {card.title}
                     </Text>
-                    <Tappable
+                    <Pressable
+                      style={undefined}
                       onPress={() => handleRemoveMaterialCard(card.uid)}
                       hitSlop={8}
                       accessibilityRole="button"
                       accessibilityLabel={t('home.a11yRemoveMat')}
                     >
                       <Text style={shellStyles.materialCardClose}>×</Text>
-                    </Tappable>
+                    </Pressable>
                   </View>
                 ))}
               </View>

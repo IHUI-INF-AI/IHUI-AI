@@ -67,7 +67,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           data-testid="user-message-quote"
           className="border-l-2 border-brand-accent-deep pl-3 text-sm leading-relaxed text-muted-foreground"
         >
-          <div className="mb-0.5 text-xs font-medium">{parts.quote.label}</div>
+          <div className="mb-0.5 text-label font-medium">{parts.quote.label}</div>
           {parts.quote.lines.map((l, i) => (
             <div key={`q-${i}`}>{l.length > 0 ? l : ' '}</div>
           ))}
