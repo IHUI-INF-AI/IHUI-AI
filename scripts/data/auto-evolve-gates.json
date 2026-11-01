@@ -4,7 +4,8 @@
   "failureStreakLimit": 3,
   "quarantineHours": 48,
   "maxSessionMinutes": 45,
-  "sessionCommandTemplate": "node G:/IHUI-AI/apps/cli/npm-dist/dist/index.js --prompt-file {promptFile} --workspace G:/IHUI-AI --json --max-iterations 40 --permission-mode acceptEdits",
+  "sessionCommandTemplate": "node ${REPO_ROOT}/apps/cli/dist/index.js --prompt-file {promptFile} --workspace ${REPO_ROOT} --json --max-iterations 40 --permission-mode acceptEdits --no-setup --no-update-check",
+  "sessionCommandNote": "仓根一律写 ${REPO_ROOT} 令牌(§0 盘符是现读机器事实,入库件里钉死某台机的 G:/IHUI-AI 会让换机后的发起腿静默失效 —— 2026-11-01 实测 48 轮派发仅 1 成功)。派发前由 scripts/lib/autonomy-runner.mjs 的 preflightSessionRunner 拿当次仓根核验在位,不在位即熔断并喊人,不再按票面失败计数。",
   "ticketWhitelist": [
     "readme",
     "文档",

@@ -6,13 +6,16 @@ import type { MetadataRoute } from 'next'
 
 // 动态 sitemap(2026-08-02 修订,GEO 优化):
 // - 覆盖 120+ 核心公开页(产品/营销/帮助/法律/资源/文档)
-// - hreflang 修正:只声明实际存在的语言路由(zh-CN 主 + zh-TW 5 个 use-cases 子页)
-//   移除 en/ko/ja 路由声明(对应路由文件不存在,AI 爬虫访问 /en/agents 会 404,
-//   严重损害 GEO 信任度 + Google Search Console 报 hreflang 错误)
+// - hreflang 修正:只声明实际存在的语言路由(zh-CN 主 + 5 个 use-cases 子页的 zh-TW/ja/ko 副本)
+//   移除 en 路由声明(/en 只覆盖 5 页,见下方 2026-10-19 补记)
+//   〔2026-11-01 更正〕原此处写「移除 en/ko/ja 路由声明(对应路由文件不存在,AI 爬虫访问会 404)」
+//   —— ko/ja 那半句是 2026-08-02 的读数,已被现读推翻:app/(main)/{ja,ko}/use-cases/* 各 5 枚
+//   page.tsx 在 HEAD 面上,线上这三条语言的同名子页实测 200。已把 ja/ko 一并声明进 hreflang 集群。
 // - 补充遗漏公开页:/openclaw、/developers、/products、/services、/docs/* 16 子文档页等
 // 2026-10-19 补记:app/en 下现存在 /en、/en/agents、/en/models、/en/pricing、/en/docs
-// 五条路由,但 ko/ja 仍无路由文件;为避免 /en 单页被爬虫误判为全站 hreflang 基准,
-// 本 sitemap 暂仍只声明 zh-CN / zh-TW / x-default,en 路由待全量 i18n 后再统一声明。
+// 五条路由,为避免 /en 单页被爬虫误判为全站 hreflang 基准,本 sitemap 暂不声明 en。
+// 同句里「ko/ja 仍无路由文件」这半句已失效(2026-11-01 现读:两种语言各 5 枚 use-cases
+// page.tsx 在 HEAD 面上)⇒ ja/ko 自本枚起进集群,见 zhRoutes 内 2026-11-01 更正注释。
 // - 优先级 + 更新频率按页面重要度分级
 // - 私有页(admin/user/wallet/orders/sso-callback/auth/dashboard/favorites/
 //   notifications/messages/following/search/task-receiver)不进 sitemap,
@@ -225,7 +228,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // hreflang 策略(2026-08-02 修正):
     // - 所有页面都声明 x-default(指向 zh-CN 主版本)
     // - 只有实际存在 zh-TW 路由的 5 个 use-cases 子页才声明 zh-CN + zh-TW hreflang
-    // - 不再声明 ko/ja(对应路由文件不存在,声明会导致 AI 爬虫 404)
+    // - 5 个 use-cases 子页在 zh-TW / ja / ko 三种语言下都有实路由文件(2026-11-01 现读
+    //   `git ls-tree HEAD -- apps/web/app` 各 5 枚 page.tsx;线上 GET /ja/use-cases/ai-design、
+    //   /ko/use-cases/ai-marketing、/zh-TW/use-cases/ai-research 均 200)⇒ 三种一起声明。
+    //   旧注释写「ko/ja 路由文件不存在」是 2026-08-02 的读数,已被上面这枚现读推翻;
+    //   不声明的代价不是 404,而是这 10 个页面在 sitemap 里不可发现。
     // - /en 路由已存在但仅覆盖 5 页,暂不声明 en hreflang(见文件头 2026-10-19 补记)
     const languages: Record<string, string> = {
       'x-default': `${SITE_URL}${path}`,
@@ -234,6 +241,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     if (ZH_TW_PAGES.has(path)) {
       languages['zh-CN'] = `${SITE_URL}${path}`
       languages['zh-TW'] = `${SITE_URL}/zh-TW${path}`
+      languages['ja'] = `${SITE_URL}/ja${path}`
+      languages['ko'] = `${SITE_URL}/ko${path}`
     }
 
     return {

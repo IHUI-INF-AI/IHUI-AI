@@ -489,11 +489,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           // 放在 checksum 之后：先确认"传输完整"，再确认"内容该不该收" —— 顺序反了会把
           // 传输损坏误报成内容违规，取证时会认错攻击面。
           const headBuf = readHeadBytes(finalPath, CONTENT_SNIFF_BYTES)
-          const typeVerdict = validateUploadHead(
-            headBuf,
-            session.fileName,
-            session.mimeType ?? '',
-          )
+          const typeVerdict = validateUploadHead(headBuf, session.fileName, session.mimeType ?? '')
           if (!typeVerdict.ok) {
             try {
               unlinkSync(finalPath)
@@ -521,7 +517,8 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
             return {
               kind: 'content-rejected',
               reason: typeVerdict.reason,
-              declaredName: session.fileName,
+              // 会话行可为空 fileName(库允许),415 文案要如实说"没提供",不能吐 `undefined`。
+              declaredName: session.fileName ?? '(会话未提供文件名)',
             } as const
           }
 
@@ -529,6 +526,15 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
           return { kind: 'merged' } as const
         } catch (e) {
+          // 合并段里任何未预期异常都折成 500,但**不能把半成品留在公网可寻址目录**:
+          // `finalPath` 是 `uploads/public/<uuid>`,留在盘上就是一枚"无人认领却长期托管"的产物
+          // (2026-11-01 实测:内容类型闸收到空 fileName 时 throw,正是走到这一支)。
+          // 分片目录按原判据保留(取证与误判申诉要靠它),只清合并产物本身。
+          try {
+            if (existsSync(finalPath)) unlinkSync(finalPath)
+          } catch (cleanErr) {
+            request.log.error({ err: cleanErr, finalPath }, '合并段异常后清理半成品失败')
+          }
           return { kind: 'disk-error', err: e } as const
         }
       },

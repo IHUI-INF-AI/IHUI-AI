@@ -24,9 +24,16 @@ import Fastify, { type FastifyInstance } from 'fastify'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const ROUTE_FILE = 'apps/api/src/routes/context-mentions.ts'
 
-const { calls, mockAuthenticate } = vi.hoisted(() => ({
+const { calls, mockAuthenticate, accessStub } = vi.hoisted(() => ({
   calls: [] as Array<[string, unknown]>,
   mockAuthenticate: vi.fn(),
+  accessStub: { current: 'owner' as 'owner' | 'collaborator' | null },
+}))
+
+vi.mock('../src/db/chat-conversation-access.js', () => ({
+  // 会话可达性判据本体在 db/chat-conversation-access.ts(并由 chat-conversation-access.test.ts
+  // 单独钉);这里只做桩,不复算"谁能看谁的会话"(§22c 禁止测试里复制判据)。
+  getConversationAccess: vi.fn(async () => accessStub.current),
 }))
 
 function rec(name: string, ret: unknown = { ok: true }) {
@@ -73,6 +80,7 @@ describe('上下文/记忆族的身份来源', () => {
 
   beforeEach(async () => {
     calls.length = 0
+    accessStub.current = 'owner'
     mockAuthenticate.mockReset()
     mockAuthenticate.mockImplementation(
       async (request: { userId?: string; jwtPayload?: object }) => {
@@ -149,6 +157,36 @@ describe('上下文/记忆族的身份来源', () => {
       .filter((l) => !l.trim().startsWith('//'))
       .join('\n')
     expect(code).not.toMatch(/userId \|\| request\.userId/)
+  })
+
+  // 2026-11-01 第二格:身份对了还不够 —— conversationId 也是客户端给的,必须问可达性
+  it('读他人会话记忆 ⇒ 404 且服务层一次都没被问', async () => {
+    accessStub.current = null
+    calls.length = 0
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/context/memory?conversationId=c-victim',
+    })
+    expect(res.statusCode).toBe(404)
+    expect(calls, '不可达会话不得先去读记忆再判 404').toEqual([])
+  })
+
+  it('清他人会话记忆 ⇒ 404 且清除动作一次都没发(破坏性面必须有副作用断言)', async () => {
+    accessStub.current = null
+    calls.length = 0
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/context/memory?conversationId=c-victim',
+    })
+    expect(res.statusCode).toBe(404)
+    expect(calls).toEqual([])
+  })
+
+  it('正向对照:协作成员(非属主)同样可达 —— 只认属主会砍断共享会话的笔记面板', async () => {
+    accessStub.current = 'collaborator'
+    const res = await app.inject({ method: 'GET', url: '/api/context/memory?conversationId=c-1' })
+    expect(res.statusCode).toBe(200)
+    expect(argsOf('getSessionMemory')).toEqual(['c-1', OWNER])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -21,6 +21,10 @@ import {
 type KnobName = keyof typeof P.DEFAULT_RELAY_POOL_POLICY
 
 /** 每枚钮的「合法且非默认」env 原文(取自源模块的取值域,不新造档位) */
+// 2026-11-01 补第 9 钮:5f225a3e42 加 preferLowCredit 时只补了 src/services/__tests__ 的专项,
+// 忘了回头补这份 view 卷宗 ⇒ NON_DEFAULT 少一键(取值落到 undefined,differsFromDefault 恒 false),
+// 而 POLICY_KEYS 是从源对象 keys 现读的 9 枚 ⇒ "偏离计数 8 ≠ 钮数 9"。
+// 补的是**源取值域里的合法值**,不是新造档位。
 const NON_DEFAULT: Record<KnobName, string> = {
   strategy: 'weighted_random',
   idleWeightPerHour: '0.9',
@@ -30,6 +34,7 @@ const NON_DEFAULT: Record<KnobName, string> = {
   creditFloor: '50',
   maxInFlightGlobal: '3',
   crossDomainFallback: '1',
+  preferLowCredit: 'true',
 }
 
 /** 每种类别的「非空但代码认不出」脏值(按 view 自报的 kind 取,零复算判据) */
@@ -234,5 +239,4 @@ describe('受管模板可发现性(env 钮必须在 apps/api/.env.example 登记
     expect(/重启\s*apps\/api\s*进程|重启 api 进程/.test(template)).toBe(true)
   })
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

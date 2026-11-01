@@ -358,6 +358,8 @@ export interface CourseDetailItem {
   price: number
   isFree: boolean
   isEnrolled: boolean
+  /** 分享卡封面。RN 侧源字段是 `CourseDetail.cover`,端内叫 `coverUrl` —— 屏拿不到就没有封面图 */
+  coverUrl?: string
 }
 
 /** 课程章节 */

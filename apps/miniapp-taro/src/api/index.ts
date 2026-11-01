@@ -1471,6 +1471,29 @@ export const getPrivateMessages = (params?: { page?: number; pageSize?: number }
 export const getRoomHistory = (roomId: string, page = 1) =>
   get(`/messages/rooms/${roomId}/history`, { page })
 export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
+/** 站内消息分页(GET /messages;参数名 msgType 与后端 schema 现读对齐,RN 屏旧写法 `type=` 不在 schema 内) */
+export const getMessages = (params: { page?: number; pageSize?: number; msgType?: string }) =>
+  get<{
+    list: Array<{
+      id: string
+      title: string | null
+      content: string | null
+      msgType: string
+      isRead: boolean
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+    total: number
+  }>('/messages', params)
+/** 标记单条站内消息已读(PUT /messages/:id/read,后端按属主校验) */
+export const markMessageRead = (id: string) => put(`/messages/${id}/read`)
+/** 删除单条站内消息(DELETE /messages/:id) */
+export const deleteMessage = (id: string) => del(`/messages/${id}`)
+/** 标记私信已读(POST /messages/private/:pid/read) */
+export const markPrivateRead = (pid: string) => post(`/messages/private/${pid}/read`)
+/** 删除私信(DELETE /messages/private/:pid) */
+export const deletePrivateMessage = (pid: string) => del(`/messages/private/${pid}`)
 
 /* ============ 通知偏好 ============ */
 export interface NotificationPreferences {

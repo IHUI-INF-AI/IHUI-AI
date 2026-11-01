@@ -534,6 +534,19 @@ export const SHELL_CAPABILITY_RULES = [
       /appAlert\s*\(|Alert\.alert\s*\(|setError\s*\(|errorText/.test(s) ||
       (/error=\{error\}/.test(s) && /ErrorState|\{error\}|message=\{error\}/.test(shared)),
   },
+  {
+    what: '时间格式化',
+    tokens: ['@/utils/time'],
+    // 立因(2026-11-01 现读):apps/miniapp-taro/src/utils/time.ts:29 的 `formatDate` 就是
+    // `@ihui/shared/utils/date-utils` 那枚 `formatDateByTemplate` 的逐字薄封装(函数体只有一句
+    // `return formatDateByTemplate(date, format)`,relativeTime 同样转发 formatRelativeTime)。
+    // ⇒ 屏侧只要直接从共享层取同一枚函数,转壳后时间格式一字节都不会变;而旧判据按字面找
+    // '@/utils/time' 是否出现在屏/壳里 —— 屏是 RN/共享源,永远不 import 小程序别名 ⇒ 这一族
+    // 结构性无法销(实测 pkg-learn/live/detail 就卡在这一枚)。判据问的是"能力有没有",不是"名字有没有"。
+    shellEvidence: (_s, shared) =>
+      /@ihui\/shared\/utils\/date-utils/.test(shared) &&
+      /formatDateByTemplate|formatRelativeTime/.test(shared),
+  },
 ]
 
 /** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
@@ -891,6 +904,36 @@ export function judgeConversion({
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
   if (apiEndpointsCovered(pageText, shellText, apiModuleText))
     for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
+  // 页面级分享(2026-11-01 立):小程序的转发/朋友圈卡在**页面级**注册,而卡上标题/封面只有屏
+  // 取到数据才算得出。转壳后端内不再自己写这两句 ⇒ 除非①屏用共享层 `usePublishShareIntent`
+  // 把当下正文交给宿主,且②生成器**真在宿主页里产出**对应注册句,否则就是静默把「分享这条内容」
+  // 降成「分享首页默认文案」。两条都从生成器现读(判据出口单源 = gen-miniapp-mirror,§0.6),
+  // 不写符号白名单 —— 生成器哪天不再产出这一句,销账当场失效,而不是继续放页面过去。
+  const shareTokens = ['useShareAppMessage', 'useShareTimeline', 'Taro.showShareMenu'].filter((t) =>
+    pageTokens.has(t),
+  )
+  if (shareTokens.length > 0 && gen.screenPublishesShare(sharedText, shellText)) {
+    const probe = gen.buildShellPage({
+      spec,
+      base: name.replace(/Screen$/, ''),
+      shellText,
+      shellName,
+      sharedText,
+      navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
+      navTitleHook: titleEffect && !titleOnlyLifecycle(pageText) ? 'useEffect' : 'useDidShow',
+      navTitleDeps: titleEffect && !titleOnlyLifecycle(pageText) ? (titleEffect.deps ?? null) : null,
+      authGate,
+    })
+    const emitted = typeof probe === 'string' ? probe : String(probe?.content ?? '')
+    const SHARE_EMITTED = {
+      useShareAppMessage: /\buseShareAppMessage\s*\(/,
+      useShareTimeline: /\buseShareTimeline\s*\(/,
+      // 端内 showShareMenu() 是 Taro.showShareMenu 的单一出口薄封装(带 no-permission 静默兜底)
+      'Taro.showShareMenu': /\bshowShareMenu\s*\(/,
+    }
+    if (shareTokens.every((t) => SHARE_EMITTED[t].test(emitted)))
+      for (const t of shareTokens) pageTokens.delete(t)
+  }
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
   shellCapabilityCovered(pageTokens, shellText, sharedText)
   const extras = pageOnlyCapabilities({
@@ -1366,6 +1409,22 @@ function main(argv) {
         '<BackChevron onPress={onBack} />',
       ),
     ], [['返回键'], [], []])
+    // S28(2026-11-01 立,现读 pkg-learn/live/detail 卡在 @/utils/time 这一枚):端内
+    // utils/time.ts:29 的 formatDate 逐字转发共享层 formatDateByTemplate ⇒ 屏从共享层取同一枚
+    // 函数即"能力已在",而旧判据按字面找 '@/utils/time' 在屏里出现 —— 屏是共享/RN 源,永不 import
+    // 小程序别名,那一族因此结构性无法销。两臂都得钉:屏没消费共享函数照旧不销。
+    P('S28 时间格式化:屏取共享 date-utils 同一枚函数才销;屏没取则照旧拦', [
+      shellCapabilityCovered(
+        new Set(['@/utils/time']),
+        '<Shared createdAt={item.createdAt} />',
+        "import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'\n{formatDateByTemplate(createdAt, 'YYYY-MM-DD HH:mm')}",
+      ),
+      shellCapabilityCovered(
+        new Set(['@/utils/time']),
+        "import { formatDate } from '@/utils/time'",
+        'return <Text>{createdAt}</Text>',
+      ),
+    ], [['时间格式化'], []])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。

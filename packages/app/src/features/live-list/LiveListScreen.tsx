@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import {
   EmptyState,
@@ -49,6 +50,12 @@ export function LiveListScreen({
 }: LiveListScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 列表页分享的是"这一屏":原页两张卡用应用级两枚文案(转发卡 appTitle / 朋友圈卡 timelineTitle),
+  // 封面走端默认 /static/share.png ⇒ 与宿主兜底同值,不重复发布
+  usePublishShareIntent({
+    title: t('share.appTitle'),
+    timelineTitle: t('share.timelineTitle'),
+  })
   const showError: boolean = error !== '' && items.length === 0
 
   const statusColor = (status: LiveStatus) => {

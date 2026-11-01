@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleDetailItem, ArticleDetailScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -31,6 +32,8 @@ export function ArticleDetailScreen({
 }: ArticleDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)
+  usePublishShareIntent({ title: item?.title, imageUrl: item?.cover })
 
   if (loading) return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
 

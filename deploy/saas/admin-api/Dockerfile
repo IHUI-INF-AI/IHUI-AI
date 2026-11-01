@@ -9,7 +9,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json ./
-RUN corepack enable && corepack prepare pnpm@latest --activate 2>/dev/null || true
+# 2026-11-01 供应链强化:`pnpm@latest` 是浮动版本 + 这条还挂着 `|| true`,连"钉错了"都不响。
+# 钉到根 package.json 的 packageManager 同值(11.18.0),`|| true` 保留兜底语义但不再掩版本漂移。
+RUN corepack enable && corepack prepare pnpm@11.18.0 --activate 2>/dev/null || true
 RUN npm install --omit=dev --no-audit --no-fund 2>&1 | tail -5 || \
     pnpm install --prod --frozen-lockfile 2>&1 | tail -5
 

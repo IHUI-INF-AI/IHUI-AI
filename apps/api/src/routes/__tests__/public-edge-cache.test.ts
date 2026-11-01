@@ -103,6 +103,10 @@ vi.mock('../../plugins/auth.js', () => ({
 vi.mock('../../plugins/require-permission.js', () => ({
   requireAdmin: vi.fn(),
   isSystemAdmin: vi.fn().mockReturnValue(false),
+  // 2026-11-01 补:`news.ts:125` 的 GET /admin/news/status 在"第 31 批 /api/admin/news 根因收口"
+  // 里挂上了 requireAuth(preHandler),而本替身清单是**整片替换** —— 少一枚名字就等于那枚是
+  // undefined,vitest 直接抛 No "requireAuth" export is defined。补桩与上面 requireActiveUser 同形。
+  requireAuth: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../../db/rbac-queries.js', () => ({

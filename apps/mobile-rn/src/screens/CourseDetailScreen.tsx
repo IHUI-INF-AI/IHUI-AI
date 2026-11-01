@@ -120,6 +120,7 @@ export function CourseDetailScreen() {
         price: course.price,
         isFree: course.isFree,
         isEnrolled: course.isEnrolled,
+        coverUrl: course.cover ?? undefined,
       }
     : null
 
