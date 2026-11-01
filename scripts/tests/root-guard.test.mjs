@@ -158,7 +158,7 @@ test('⑤e 三面互不相同 ⇒ 交人工,不选边', () => {
 // 纪律:判据只住源脚本一份,本文件 import __test__(§22c)。
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 
 const RG_CLI = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'root-guard.mjs')
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -209,7 +209,11 @@ test('⑥c 真面判定与清单同轮同面:pass 的充要条件是每条 actua
     `判的目标数(${r.targets.length})与那一面的清单条数(${manifest.targets.length})不同 ⇒ 不同轮不同面`,
   )
   if (r.verdict === 'pass') {
-    for (const t of r.targets) assert.equal(t.actual, t.expected, `${t.id} 哈希不一致却报 pass`)
+    // advisory 目标(文档面)不一致只告警(warn)、不 fail-closed,故不得拉低 verdict;
+    // 只有非 warn 的目标才要求 actual==expected,否则把"文档面被改"误读成"判据漏判"。
+    for (const t of r.targets)
+      if (t.state !== 'warn')
+        assert.equal(t.actual, t.expected, `${t.id} 哈希不一致却报 pass`)
   } else if (r.verdict === 'fail') {
     const bad = r.targets.filter((t) => t.state === 'fail')
     assert.ok(bad.length > 0, 'verdict=fail 却一条 fail 都点不出')
@@ -220,7 +224,7 @@ test('⑥c 真面判定与清单同轮同面:pass 的充要条件是每条 actua
   }
 })
 
-test('⑥d §12e 反向对照:当前面绿时,候选面读不到也不得新增红', () => {
+test('⑥d §0.3 反向对照:显式 --against-rev 解不出真值 ⇒ 未判定(rc=2),绝不冒绿', () => {
   const run = (args) =>
     spawnSync(process.execPath, [RG_CLI, ...args], {
       cwd: ROOT,
@@ -230,18 +234,20 @@ test('⑥d §12e 反向对照:当前面绿时,候选面读不到也不得新增�
     })
   const plain = run(['--check'])
   if (plain.status !== 0) {
-    // 当前面本来就红(他席改了规则文件没重封)⇒ 这一例的前提不成立,如实报"本轮不适用",不冒充通过
+    // 被审面(默认 HEAD)取不到或自锁 ⇒ 这一例的前提不成立,如实报"本轮不适用",不冒充通过
     assert.fail(
-      `当前面已判红(rc=${plain.status})⇒ ⑥d 的前置"绿轮零额外开销"无从验;先重封再跑本例:${plain.stdout.split('\n')[1] ?? ''}`,
+      `--check 默认面未绿(rc=${plain.status})⇒ ⑥d 的前置无从验;先确 HEAD 面自洽再跑本例:${plain.stdout.split('\n')[1] ?? ''}`,
     )
   }
-  const withBadCand = run(['--check', '--against-rev', 'deadbeef'])
+  // 新语义:--against-rev 即"被审面"。给它一个解不出 40 位 sha 的劣质 rev ⇒ 取不到那一面
+  // ⇒ 未判定(rc=2),而不是因"主面绿"蒙成 0(§0.3:没判成绝不读成放行)。
+  const withBadFace = run(['--check', '--against-rev', 'deadbeef'])
   assert.equal(
-    withBadCand.status,
-    0,
-    `当前面绿而候选 rev 形态坏 ⇒ 必须仍是 0(不因候选面新增红),实得 rc=${withBadCand.status}`,
+    withBadFace.status,
+    2,
+    `显式劣质 rev 被当成被审面却没解成 40 位 sha ⇒ 必须 rc=2(未判定),实得 rc=${withBadFace.status}`,
   )
-  assert.ok(!/候选面复核/.test(withBadCand.stderr), '当前面绿时不该出现候选面放行的任何输出')
+  assert.ok(/未判定/.test(withBadFace.stderr), '劣质 rev 应点名"未判定",不得静默')
 })
 
 test('⑥f 反向对照:候选面自己不自洽(改了规则文件却没重封清单)⇒ 绝不放行', () => {

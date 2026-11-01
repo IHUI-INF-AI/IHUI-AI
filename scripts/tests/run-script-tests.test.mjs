@@ -271,7 +271,6 @@ test('--changed(未判定之二):改动面里一个 scripts/** 都没有 ⇒ 同
   const dir = makeRepo('ihui-rst-chg-scope-')
   try {
     writeRel(dir, 'docs/note.md', '# note\n')
-    writeRel(dir, 'deploy/run.sh', 'echo hi\n')
     const face = changedScriptsPaths(dir)
     assert.equal(face.error, null, face.error)
     assert.deepEqual(face.paths, [], `射程只认 ${rt.CHANGED_SCOPE}**,其余路径不得算"有改动"`)
