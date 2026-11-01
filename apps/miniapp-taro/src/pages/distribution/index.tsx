@@ -9,6 +9,7 @@ import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useUserStore } from '@/stores/user'
 import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
@@ -51,6 +52,7 @@ interface RateRow {
 
 export default function DistributionIndex() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const user = useUserStore((s) => s.user)
   const [data, setData] = useState<OperatorData>({})
   const [statsTab, setStatsTab] = useState<StatsTab>('day')
@@ -75,7 +77,9 @@ export default function DistributionIndex() {
     }
     // 分佣比例(对齐 RN ratesCard 的取数):失败按空态处理,不编造比例
     try {
-      const res = await api.get<{ rates?: Record<string, string> }>('/distribution/commission-rates')
+      const res = await api.get<{ rates?: Record<string, string> }>(
+        '/distribution/commission-rates',
+      )
       setRateRows(
         Object.entries(res?.rates ?? {}).map(([level, rate]) => ({
           level,
@@ -87,9 +91,20 @@ export default function DistributionIndex() {
     }
   }, [])
 
+  // G-933 冷启动抢跑门控(范式同 pages/distribution/plan/index.tsx:36-62):load() 里的两发请求
+  // 都挂在 distributionRoutes 的统一 preHandler 之下 ——
+  //   · getOperatorDataCardData → GET /operator/data-card(注册点 apps/api/src/routes/distribution.ts:104)
+  //   · GET /distribution/commission-rates(注册点 apps/api/src/routes/distribution.ts:315)
+  // 而该 preHandler(addHook('preHandler', authenticate),同文件 :32-39)对本插件全部路由生效,
+  // 无票即 authenticate 抛 401。冷启动未落定/未登录时照发,只会换来一次 401,并被下面两个 catch
+  // 吞成"暂无分佣比例"的假空态(比空态更糟:用户以为后端没配比例)。故父页这两发整块挡到门后。
+  // 子组件 CommissionOverview 的 GET /distribution/overview 同样需鉴权,但它自己的挂载 effect
+  // 在这一发之前就会跑,父页门控拦不住,只能在该组件内单独挂门。
   useDidShow(() => {
-    load()
-    setOverviewTick((n) => n + 1)
+    gate.waitUntilReady(() => {
+      load()
+      setOverviewTick((n) => n + 1)
+    })
   })
 
   const onGetQrCode = useCallback(async () => {

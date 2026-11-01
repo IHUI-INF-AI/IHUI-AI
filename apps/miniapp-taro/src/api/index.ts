@@ -1158,14 +1158,24 @@ export const getExamList = (params?: {
   categoryId?: string
   paperType?: 'normal' | 'random' | 'mock' | 'exam'
 }) => get<{ list: Exam[]; total: number }>('/exam/papers', params)
-export type QuestionType =
-  'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
-// ExamPaper 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
-// ExamQuestion 已 re-export 自 @ihui/api-client(见文件顶部)
-// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder }
-// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null }
-// 后端 /exam/papers/:id/questions 实际返回与 api-client 一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)
-// QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
+// 题型词表与作答判据的单一来源:@ihui/api-client(endpoints/exam.ts) 的
+// ShellQuestionType / toShellQuestionType / toShellOptionTexts / toShellOptionKeys /
+// serializeExamAnswers,三端同一份。端内不再自留 'multi_choice'/'fill_blank' 那套旧词表 ——
+// 它与后端实际返回值不符,曾让 answer.tsx 的 typeLabel 五种题型全部落进 default(一律显示"单选题"),
+// 并让作答按下标提交(题库 answer 存的是选项 key "A"/["A","B"],下标恒判错)。
+export {
+  serializeExamAnswers,
+  toShellOptionKeys,
+  toShellOptionTexts,
+  toShellQuestionType,
+  type ExamAnswerValue,
+  type ShellQuestionType,
+} from '@ihui/api-client'
+// ExamPaper / ExamQuestion 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export。
+// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder };
+// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null },
+// 与后端 /exam/papers/:id/questions 的实际返回一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)。
+// ⇒ 本端一律吃 api-client 的原始形状,渲染时才用 toShellQuestionType/toShellOptionTexts 投影。
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
   get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then((r) => ({
