@@ -961,4 +961,202 @@ test('D7 接线形状锁:并进同一张违规表、覆盖面取全量 HEAD、ru
   assert.match(runner, /check-dangling-local-imports\.mjs/, '门 98 本体必须仍在 runner 里')
   assert.match(runner, /D7/, 'runner 的 label/onFailHint 必须点名 D7 —— 已接线而文档不点名是门 89 R4 的红')
 })
+
+/**
+ * D6-c「错名 `.js` 的正文语言维」(2026-11-01 补,票面 G-815915 的型②「该 `.js` 正文含 TS 语法 ⇒
+ * 命中即必炸」)。镜像只 import 门体 `__test__` 出口,一个判据常量都不抄(§22c)。
+ *
+ * 这一维补的是 a/b/D4 都看不见的同一格:a(同名并存)与 b(解析落点)都**只清单不读正文**,
+ * D4 的次判据虽读正文,但前置是"已被 `.js` 说明符字面命中" ⇒ 一枚"没有同 stem 同伴、此刻也
+ * 没人指向、正文却写着 TS"的入库 `.js` 三判据全瞎 —— 而下一次有人指向它时炸的是运行时。
+ */
+const C_KIT = D6KIT
+
+/** D6-c 端到端计数行的**唯一实现**(基准断言与变异自证共用,§0.6):
+ *  · 行必须存在且五字段齐(缺行/形态坏 = 这一维没上岗);
+ *  · `扫 N 枚` 的 N 必须等于**同一面**的入库 `.js` 真数(覆盖面有牙:灌水或漏扫都翻红);
+ *  · `命中 M 枚` 的 M 必须为 0(HEAD 面零容忍;立门当天现读 61 枚全扫 0 命中)。 */
+function assertD6cCountLine(out, expectScanned) {
+  const m =
+    /D6 错名影子:同名并存 \.js \+ \.ts\/\.tsx (\d+) 对 \| TS 侧 '\.js' 说明符解析到入库 \.js 自身 (\d+) 处 \| 正文含 TS 专有语法\(型②必炸\)扫 (\d+) 枚命中 (\d+) 枚 \| 判红候选 (\d+) 处/.exec(
+      out,
+    )
+  assert.ok(m, `报告缺 D6-c 计数行 ⇒ 型②这一维没上岗:${out.slice(0, 600)}`)
+  for (const [i, name] of [
+    [1, '同名并存(a)'],
+    [2, '解析落点(b)'],
+    [3, '正文语言维射程枚数(scanned)'],
+    [4, '正文命中枚数(candidates)'],
+    [5, '判红候选'],
+  ])
+    assert.match(String(m[i] ?? ''), /^\d+$/, `D6 计数行字段「${name}」缺失或非数字形态 ⇒ 计数行形状坏了`)
+  if (expectScanned !== undefined)
+    assert.equal(
+      Number(m[3]),
+      expectScanned,
+      `D6-c 射程读到 ${m[3]} 枚,同一面 git ls-tree 现读 ${expectScanned} 枚 ⇒ 覆盖面与清单面不一致(漏扫/灌水)`,
+    )
+  assert.ok(Number(m[3]) > 0, '射程 0 枚 ⇒ 这一维根本没看过东西,那句"命中 0 枚"不作数(门体据此 exit 2)')
+  assert.equal(Number(m[4]), 0, `HEAD 面上有 ${m[4]} 枚入库 .js 正文写着 TS 语法 ⇒ 有人把实现写进了错名 .js`)
+  assert.ok(!/D6-c 未判定/.test(out), `D6-c 未判定不得常态挂着:${out.slice(0, 800)}`)
+  return { coexist: Number(m[1]), literalWin: Number(m[2]), scanned: Number(m[3]), hits: Number(m[4]), candidates: Number(m[5]) }
+}
+
+test('D6-c 前置复量(票面"覆盖面为 0"这条前提自己复量,不照抄):HEAD 面入库 .js 逐枚与门体射程一致', () => {
+  const trackedJs = listTrackedJs()
+  const { out } = runGuard()
+  console.log('   D6-c 计数行现读:', JSON.stringify(assertD6cCountLine(out, trackedJs.length)))
+  assert.ok(trackedJs.length > 0, '清单面自证:HEAD 面必须列得出入库 .js(列到 0 枚 = 尺子失效,不记绿)')
+})
+
+/** 同一取材面的入库 `.js` 清单:过滤判据全部取自门体 `__test__`(§22c:测试里另抄一份必漂移)。 */
+function listTrackedJs() {
+  return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], ROOT, { timeout: 120000 })
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => C_KIT.SRC_RE.test(p) && !C_KIT.SKIP_DIR.test(p) && !C_KIT.FIXTURE_ROOT.test(p) && C_KIT.JS_SPEC_RE.test(p))
+}
+
+test('D6-c 判据本体经 __test__ 出口交付,台账路径只有一份(§22c:镜像不得复制判据常量)', () => {
+  for (const fn of [
+    C_KIT.auditShadowSyntaxBombs,
+    C_KIT.parseShadowExemptionLedger,
+    C_KIT.shadowExemptionActive,
+    C_KIT.loadShadowExemptionLedger,
+    C_KIT.d6cChannelBlind,
+  ])
+    assert.equal(typeof fn, 'function', 'D6-c 的判据本体必须是可单测的纯函数')
+  assert.equal(typeof C_KIT.SHADOW_EXEMPTION_LEDGER, 'string')
+  assert.ok(C_KIT.SHADOW_EXEMPTION_REASON_MIN >= 10, '豁免理由下限不得为 0(空口登记不成立)')
+  // 台账必须真的存在且是当前形状(取不到时门体 CLI 当场 exit 2,不回落"没有豁免")
+  const raw = readFileSync(join(ROOT, C_KIT.SHADOW_EXEMPTION_LEDGER), 'utf8')
+  const parsed = C_KIT.parseShadowExemptionLedger(raw)
+  assert.equal(parsed.problem, null, `现读台账形状坏:${parsed.problem}`)
+  assert.ok(Array.isArray(parsed.entries))
+})
+
+test('D6-c 真仓历史 blob 阳性对照:只喂正文(不给同伴、不给消费方)必须点名那枚打崩生产的文件', () => {
+  const PRE = '6bf657df86^'
+  const SHADOW = 'apps/api/src/services/user-concurrency-service.js'
+  const blob = gitRaw(['show', `${PRE}:${SHADOW}`], ROOT, { timeout: 120000 })
+  assert.match(blob, /new Map<string, number>/, '历史 blob 取样取错了(阳性对照无从谈起)')
+  // a/b 两判据在这一格都是瞎的:没有同 stem 同伴进 trackedSrc,也没有 sites
+  const wn = C_KIT.auditWrongNameShadow([], new Set([SHADOW]), (p) => (p === SHADOW ? blob : null), [], '2026-11-01')
+  assert.deepEqual(wn.coexist, [], '本夹具刻意不留同伴 ⇒ a 维不该命中(留证:这一格原先三判据全瞎)')
+  assert.deepEqual(wn.literalWin, [], '本夹具刻意不留说明符 ⇒ b 维不该命中')
+  assert.equal(wn.bombs.bombs.length, 1, 'c 维必须咬住')
+  assert.equal(wn.byFile.get(SHADOW)[0].rule, 'D6')
+  assert.match(wn.byFile.get(SHADOW)[0].hint, /TS 专有语法/)
+  assert.ok(wn.byFile.get(SHADOW)[0].line > 1, '裸影子那一格行号必须是探针命中的真实行,不是占位 1')
+  // 反向对照:同一枚文件修好后(HEAD 面只剩 .ts,`.js` 已不在库)⇒ 射程为空,尺子不冒充"看过"
+  const after = C_KIT.auditShadowSyntaxBombs(() => null, [], [], '2026-11-01')
+  assert.equal(after.scannedFiles, 0)
+  assert.equal(C_KIT.d6cChannelBlind(after), true, '一枚都没进射程 ⇒ 判死不记绿')
+})
+
+test('D6-c 豁免必须"验过才免"且会到期;坏台账整批不生效;登记不再命中 = 清单腐烂', () => {
+  const day = '2026-11-01'
+  const bomb = (p) => (p === 'z/a.js' ? 'export const m = new Map<string, number>()\n' : null)
+  const good = [{ file: 'z/a.js', reason: '上游 vendored 产物,改名会破坏其自更新脚本', ticket: 'G-815915', until: '2026-12-31' }]
+  const hit = C_KIT.auditShadowSyntaxBombs(bomb, ['z/a.js'], [], day)
+  assert.equal(hit.bombs.length, 1, '基准:无豁免必红')
+  const waived = C_KIT.auditShadowSyntaxBombs(bomb, ['z/a.js'], good, day)
+  assert.deepEqual(waived.bombs, [], '有效豁免 ⇒ 免判红')
+  assert.equal(waived.exempted.length, 1, '免了也必须点名(逐枚进报告,不得静默)')
+  const expired = C_KIT.auditShadowSyntaxBombs(bomb, ['z/a.js'], [{ ...good[0], until: '2026-10-31' }], day)
+  assert.equal(expired.bombs.length, 1, '到期 ⇒ 立刻回到射程(豁免不会自动续期)')
+  const rot = C_KIT.auditShadowSyntaxBombs(() => 'module.exports = 1\n', ['z/a.js'], good, day)
+  assert.equal(rot.rot.length, 1, '登记了却被审面不再命中 ⇒ 清单腐烂,调用方判红(§0.7)')
+  assert.deepEqual(rot.bombs, [], '腐烂格与真违规分开计数(不得靠并桶消红)')
+  for (const bad of [
+    [{ file: 'z/a.js', ticket: 'G-1', until: '2026-12-31' }],
+    [{ file: 'z/a.js', reason: '顺手', ticket: 'G-1', until: '2026-12-31' }],
+    [{ file: 'z/a.js', reason: '够长的理由够长的理由', ticket: 'G-1', until: '2026/12/31' }],
+    [{ file: 'z/a.js', reason: '够长的理由够长的理由', ticket: 'G-1' }],
+  ]) {
+    const r = C_KIT.parseShadowExemptionLedger(JSON.stringify(bad))
+    assert.equal(r.entries, null, `坏行必须整批不生效,实得 ${JSON.stringify(r)}`)
+    assert.ok(r.problem, '坏行必须给出原因(不得静默当空表)')
+    const dead = C_KIT.auditShadowSyntaxBombs(bomb, ['z/a.js'], r.entries, day)
+    assert.equal(dead.undetermined.length, 1, '台账坏 ⇒ D6-c 未判定(既不记绿也不冒红,§0.3)')
+    assert.equal(dead.bombs.length, 0)
+  }
+  assert.equal(C_KIT.d6cChannelBlind(hit), false, '扫过且命中 ⇒ 通道活着')
+  assert.equal(C_KIT.d6cChannelBlind(C_KIT.auditShadowSyntaxBombs(bomb, ['z/a.js'], null, day)), true, '台账没加载 ⇒ 判死')
+  assert.equal(C_KIT.d6cChannelBlind(C_KIT.auditShadowSyntaxBombs(null, ['z/a.js'], [], day)), true, '取材通道没接 ⇒ 判死')
+})
+
+test('D6-c 与 a/b 并进同一张表:同枚只并句不并数(棘轮锚点不得被计数虚高顶红,§12e)', () => {
+  const day = '2026-11-01'
+  const files = { 'z/x.js': 'interface Foo { a: number }\n' }
+  const read = (p) => files[p] ?? null
+  const tracked = ['z/x.js', 'z/x.ts']
+  const base = C_KIT.auditWrongNameShadow([], new Set(tracked), null, [], day)
+  const withC = C_KIT.auditWrongNameShadow([], new Set(tracked), read, [], day)
+  assert.equal(base.coexist.length, 1, 'a 维基准:同名并存 1 对')
+  assert.equal(base.byFile.get('z/x.js').length, 1, '不带正文 ⇒ 该文件 1 处违规')
+  assert.equal(withC.byFile.get('z/x.js').length, 1, '带正文命中同一枚 ⇒ 仍然 1 处(并句不并数)')
+  assert.match(withC.byFile.get('z/x.js')[0].hint, /TS 专有语法/, 'hint 必须把"必炸"证据并进来')
+  assert.notEqual(withC.byFile.get('z/x.js')[0].hint, base.byFile.get('z/x.js')[0].hint)
+  // 磁盘残留不算本仓债务:trackedSrc(同一取材面)之外的同名 .js 不进射程
+  const notTracked = C_KIT.auditShadowSyntaxBombs(read, ['z/x.ts'], [], day)
+  assert.equal(notTracked.scannedFiles, 0)
+  assert.deepEqual(notTracked.bombs, [])
+})
+
+/**
+ * 变异自证(与 D4 那三条同一取向):牙必须长在"形态 + 覆盖面 + 零容忍"上,不能靠一次性读数。
+ * 全部在**同一条缓存的门体输出**上做字符串变异,零额外全量扫描;夹具本身摘不到/改不到也当场判失败。
+ */
+test('D6-c 计数行断言变异自证:摘行/射程归零/命中变红 三型必翻红,只报数维归零必不红', () => {
+  const { out } = runGuard()
+  const trackedJs = listTrackedJs()
+  const N = assertD6cCountLine(out, undefined)
+  assert.ok(trackedJs.length > 0, '夹具失效:HEAD 面一枚入库 .js 都列不出来')
+  // 变异①:整行摘除 ⇒ 必须翻红("缺行 = 没上岗"有牙)
+  const noLine = out.replace(/^.*D6 错名影子:.*\n?/m, '')
+  assert.ok(noLine.length < out.length, '夹具失效:没摘到 D6 计数行')
+  assert.throws(() => assertD6cCountLine(noLine), /缺 D6-c 计数行/)
+  // 变异②:射程读数 → 0 ⇒ 必须翻红(采集口径为 0 = 尺子失效,门体据此 exit 2)
+  const zeroScan = out.replace(/(型②必炸\)扫 )\d+( 枚)/, (_, a, b) => `${a}0${b}`)
+  assert.match(zeroScan, /型②必炸\)扫 0 枚/, '夹具失效:没把射程改成 0')
+  assert.throws(() => assertD6cCountLine(zeroScan), /射程 0 枚|覆盖面/)
+  // 变异③:命中读数 → 1 ⇒ 必须翻红(HEAD 面零容忍)
+  const oneHit = zeroScan.replace(/(扫 0 枚命中 )\d+( 枚)/, (_, a, b) => `${a}1${b}`)
+  assert.match(oneHit, /扫 0 枚命中 1 枚/, '夹具失效:没把命中改成 1')
+  assert.throws(() => assertD6cCountLine(oneHit), /射程 0 枚|正文写着 TS/)
+  // 变异④(反向防呆):a/b 两格的读数归零**不得**翻红 —— 它们是"现读为 0"的报数格,不是下限
+  const zeroAB = out
+    .replace(/同名并存 \.js \+ \.ts\/\.tsx (\d+) 对/, '同名并存 .js + .ts/.tsx 0 对')
+    .replace(/解析到入库 \.js 自身 (\d+) 处/, '解析到入库 .js 自身 0 处')
+  assert.match(zeroAB, /同名并存 \.js \+ \.ts\/\.tsx 0 对/, '夹具失效:没把 a 格改成 0')
+  assert.doesNotThrow(() => assertD6cCountLine(zeroAB), 'a/b 归零是本仓常态 ⇒ 断言不得为此翻红(假红 = 挡全仓落地)')
+  console.log(`   变异自证基准读数:${JSON.stringify(N)}`)
+})
+
+test('D6-c 接线形状锁:三面 + --rev 都吃到正文与台账,判死与出口齐备(造好没装车 = 没有)', () => {
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(src, /wnPending = auditWrongNameShadow\(\s*stagedSites,\s*trackedStagedSrc,\s*readPending,/, '--staged 面必须吃到索引正文与台账')
+  assert.match(src, /wnPending = auditWrongNameShadow\(\s*filesSites,\s*filesTrackedSrc,\s*wread,/, '--files 面同一条通道')
+  assert.match(src, /wnHead = auditWrongNameShadow\(\s*jsSitesHead,\s*new Set\(headFiles\),\s*readHead,/, '全量档必须吃 HEAD 内容')
+  assert.match(
+    src,
+    /auditWrongNameShadow\(\s*jsSites,\s*new Set\(files\),\s*read,/,
+    '--rev 面(auditOneFace)必须吃被审树内容,D6-c 不得只在全量档上岗',
+  )
+  assert.match(src, /const SHADOW_LEDGER = loadShadowExemptionLedger\(\)/, '台账一次加载、三面共用(两处各读一遍必漂,§0.6)')
+  assert.match(src, /d6cChannelBlind\(wnPending\.bombs\)/, 'CLI 必须有采集口径判死(不记绿也不冒红)')
+  assert.match(src, /wnBombs\.undetermined\.length/, '--rev 档同样必须把未判定折成 exit 2')
+  assert.match(src, /wnPending\.bombs\.rot\.length/, '台账腐烂必须判红(§0.7)')
+  // 三把"未判定/腐烂"尺必须排在报数行之后、报告收尾之前(装在 main 的计数段,不是死代码)
+  const atCountLine = src.indexOf('D6 错名影子:同名并存')
+  const atRot = src.indexOf('wnPending.bombs.rot.length')
+  const atBlind = src.indexOf('d6cChannelBlind(wnPending.bombs)')
+  const atFinalZero = src.indexOf('全量口径为零容忍')
+  assert.ok(
+    atCountLine > 0 && atCountLine < atRot && atRot < atBlind && atBlind < atFinalZero,
+    `D6-c 的判定段必须住在计数区(计数 ${atCountLine} / 腐烂 ${atRot} / 判死 ${atBlind} / 收尾 ${atFinalZero})`,
+  )
+  assert.match(src, /auditShadowSyntaxBombs,/, '__test__ 必须出口本体(镜像测试不得复制判据,§22c)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

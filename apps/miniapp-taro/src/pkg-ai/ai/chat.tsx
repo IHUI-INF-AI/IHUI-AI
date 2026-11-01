@@ -38,6 +38,10 @@ import {
   // 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏的写链同样只走 api-client ——
   // 端内不重写第二份 fetch,归属与错误码分流都在服务端那一条判据里。
   setMessageFlags,
+  // 票59 小程序腿(2026-11-01):regenerate 的 sibling 契约写链 —— 与 web
+  // use-chat/send-message.ts 的 regenerateMessage 同一端点同一载荷键(POST
+  // /api/chat/conversations/:id/regenerate,响应 rootId/nextSiblingIndex)。
+  regenerateConversation,
   // D77(2026-10-17):业务表单应答上行 —— 唯一装配/传输出口(buildFormResponseEvent +
   // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
   buildFormResponseEvent,
@@ -46,6 +50,9 @@ import {
 import { formatTokenCount } from '@ihui/shared/utils'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+// 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)
+import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
+import MessageVersionMenu from './message-version-menu'
 import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
 import { useSideQueue } from './side-queue-host'
 import QueueInteractionBar from './queue-interaction-bar'
@@ -188,6 +195,9 @@ export default function ChatPage() {
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
+  // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
+  // activeVersionByRoot 同语义;失效指针由投影层回落最新版本(判族唯一源在共享层)。
+  const [activeVersionByRoot, setActiveVersionByRoot] = useState<Record<string, string>>({})
   // D20 留尾2:超长会话向前翻页。cursor 走 ref(不驱动渲染);hasMore/loading 走 state(驱动顶部入口)
   const [earlierHasMore, setEarlierHasMore] = useState(false)
   const [loadingEarlier, setLoadingEarlier] = useState(false)
@@ -809,28 +819,62 @@ export default function ChatPage() {
   )
 
   const sendMessage = useCallback(
-    async (overrideText?: string, baseHistory?: readonly ChatMessage[]) => {
+    async (
+      overrideText?: string,
+      baseHistory?: readonly ChatMessage[],
+      /** 票59 小程序腿:sibling 入族坐标(由 handleRegenerate 从 /regenerate 响应取)。
+       *  存在时**不追加新用户消息、不截断旧回复** —— 旧回复留在列表被读投影压成
+       *  "上一版",新回复带坐标按族尾插入(与 web mergeVersionMessage 同形)。 */
+      siblingVersion?: { rootId: string; siblingIndex: number },
+    ) => {
       const text = (overrideText ?? '').trim()
-      if (!text) return
+      if (!text && !siblingVersion) return
       // W27:流式中发送 ⇒ 入队而不是丢弃(出队由下方流结束 effect 统一负责)
       if (thinking) {
-        sideQueueRef.current.enqueue(text)
-        setInputValue('')
+        if (!siblingVersion && text) {
+          sideQueueRef.current.enqueue(text)
+          setInputValue('')
+        }
         return
       }
       if (checkSpecialModel(text)) return
-      const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
-      const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
+      const userMsg: ChatMessage | null = siblingVersion
+        ? null
+        : { role: 'user', content: text, timestamp: Date.now() }
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        ...(siblingVersion
+          ? {
+              // 本地占位 id:本轮结束后下一次历史水合会用服务端行(带真 id 同坐标)替换
+              id: `ver_${Date.now()}`,
+              parentMessageId: siblingVersion.rootId,
+              siblingIndex: siblingVersion.siblingIndex,
+            }
+          : {}),
+      }
       // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
       // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
       // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
       const history: ChatMessage[] = [
         ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
-        userMsg,
+        ...(userMsg ? [userMsg] : []),
       ]
-      setMessages(
-        baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg, assistantMsg],
-      )
+      if (siblingVersion) {
+        // 族根指针回落默认:重新生成后激活版本 = 新插入的这一条
+        setActiveVersionByRoot((prev) => {
+          if (!(siblingVersion.rootId in prev)) return prev
+          const next = { ...prev }
+          delete next[siblingVersion.rootId]
+          return next
+        })
+        setMessages((prev) => [...prev, assistantMsg])
+      } else {
+        setMessages(
+          baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg!, assistantMsg],
+        )
+      }
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
@@ -852,6 +896,9 @@ export default function ChatPage() {
             model: roundModel || undefined,
             agentId: activeAgentId || undefined,
             materialContent: selectedMaterial?.content || undefined,
+            // 票59 小程序腿:sibling 新回复的族坐标经请求体 metadata 透传(键与 web 同形)
+            parentMessageId: siblingVersion?.rootId,
+            siblingIndex: siblingVersion?.siblingIndex,
             // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
             contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
           },
@@ -1516,16 +1563,53 @@ export default function ChatPage() {
     Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(content) })
   }, [])
 
-  const handleRegenerate = useCallback(() => {
-    const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
-    const text = resendTargetText(messages)
-    if (lastUserIdx < 0 || !text) return
-    // 把截断后的历史显式交给 sendMessage:它闭包里的 messages 是"点击那一轮"的旧值,
-    // 只 setMessages 截断再延时重发,旧值里那条 user 会和重发的 userMsg 一起带进上下文(问题发两遍)
-    const base = messages.slice(0, lastUserIdx)
-    setMessages(base)
-    void sendMessage(text, base)
-  }, [messages, sendMessage])
+  /** 票59 小程序腿(2026-11-01):regenerate 改接服务端 sibling 契约 ——
+   *  POST /api/chat/conversations/:id/regenerate(后端**不再物理删除**,旧回复保留为
+   *  版本族根)→ 拿 rootId/nextSiblingIndex → 新回复带坐标按族尾流式生成,旧回复被
+   *  读投影压成"上一版",切换器 ← n/N → 可回看。与 web regenerateMessage 同链同载荷键。
+   *  降级路径(如实标注,不是暗桩):会话主键或目标回复的服务端 id 尚未落地
+   *  (纯本地新聊、流式行未回写 id)⇒ 无从入族,回退旧的本地截断+普通重发。 */
+  const handleRegenerate = useCallback(
+    async (target?: ChatMessage) => {
+      if (thinking) return
+      const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+      const text = resendTargetText(messages)
+      if (lastUserIdx < 0 || !text) return
+      const root =
+        target && target.role === 'assistant' && target.id
+          ? target
+          : [...messages].reverse().find((m) => m.role === 'assistant' && m.id)
+      if (!sessionId || !root?.id) {
+        const base = messages.slice(0, lastUserIdx)
+        setMessages(base)
+        void sendMessage(text, base)
+        return
+      }
+      try {
+        const res = await regenerateConversation(sessionId, root.id)
+        if (!res.success || !res.data) throw new Error(res.message ?? 'regenerate rejected')
+        const { rootId, nextSiblingIndex } = res.data
+        // 族根本地补坐标 siblingIndex=0(服务端已同步行;投影/rootInSet 防御同 web
+        // mergeVersionMessage 口径 —— 不带坐标的族根会被当成非族行,切换器就配不齐)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === rootId && m.siblingIndex === undefined
+              ? { ...m, siblingIndex: 0, parentMessageId: null }
+              : m,
+          ),
+        )
+        // 上行历史截到最后一个用户问题(含),旧回复不进模型上下文但仍留在列表
+        void sendMessage(undefined, messages.slice(0, lastUserIdx + 1), {
+          rootId,
+          siblingIndex: nextSiblingIndex,
+        })
+      } catch (e) {
+        logger.warn('chat.regenerate.sibling-failed', String((e as Error)?.message ?? e))
+        Taro.showToast({ title: t('ai.messageVersion.regenerateFailed'), icon: 'none' })
+      }
+    },
+    [messages, sendMessage, sessionId, thinking, t],
+  )
 
   /** 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏。形态以 RN 那份为准 ——
    *  一次点击只动它点的那一把(两个维度都给,等于顺手取消另一个没打算动的标记),
