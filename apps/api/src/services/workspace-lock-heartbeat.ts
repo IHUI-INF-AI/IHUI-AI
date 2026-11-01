@@ -36,9 +36,10 @@ import type { ExtendedDispatchStatus } from '@ihui/shared/subagents'
  * `deleted` 是删除路径的结算档:行被移除本身即结算事实,不属于任何状态词汇表。
  */
 export type LockReleaseOutcome =
-  // interrupted(F1 2026-11-02)是启动恢复的**过渡态**(随即自动转 pending 重跑),
-  // 不是终态 ⇒ 不释放工作区锁,也不进 agent_tasks 结算(与 pending/running/paused 同档排除)。
-  | Exclude<ExtendedDispatchStatus, 'pending' | 'running' | 'paused' | 'interrupted'>
+  // interrupted(F1 2026-11-02)是启动恢复的**过渡态**(随即自动转 pending 重跑);
+  // queued(F2 2026-11-02)是**等槽位**的排队态,尚未执行;
+  // 两者都不是终态 ⇒ 不释放工作区锁,也不进 agent_tasks 结算(与 pending/running/paused 同档排除)。
+  | Exclude<ExtendedDispatchStatus, 'pending' | 'running' | 'paused' | 'interrupted' | 'queued'>
   | Exclude<AgentTaskStatus, 'in_progress'>
   | 'deleted'
 

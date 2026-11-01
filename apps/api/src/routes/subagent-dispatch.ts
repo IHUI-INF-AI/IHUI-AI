@@ -170,6 +170,8 @@ export const DISPATCH_STATUS_LITERALS: readonly string[] = [
   'quota_exceeded',
   // F1(2026-11-02):重启中断的过渡态(自动重入队前的留痕),筛选纯增量,不改变既有 8 档语义
   'interrupted',
+  // F2(2026-11-02):等槽位的排队态;`?status=queued` 可筛出等待中的派单,同样是纯增量
+  'queued',
 ] as const
 
 /** 一次最多回多少行:必须 ≥ 消费者契约(agent-teams 页 getAllSubagentDispatches({limit:200})),否则页面被削 */
@@ -620,7 +622,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
         ownerUserId: request.userId,
       })
 
-      // 并发超限 → 429
+      // F2(2026-11-02):并发满额不再返回 429 —— service 已把派单落 queued 并进真队列,
+      // 这里直接按成功返回(dispatch.status = 'queued')。保留该分支只为兼容其他 outcome 来源。
       if (result.outcome === 'concurrent_limit') {
         return reply.status(429).send(error(429, result.error ?? '并发派单数已达上限'))
       }
@@ -787,7 +790,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
     if (!userId) return
 
-    const queue = subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId))
+    // F2:读真队列(Redis zset),service 出口已改为异步
+    const queue = await subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success({ queue }))
   })
 

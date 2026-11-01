@@ -62,8 +62,36 @@ const REDIS_KEY_QUEUE = 'subagent:dispatch:queue' // zset(priority score)
 /** 日志最大保留条数(LTRIM) */
 const LOG_MAX_ENTRIES = 500
 
-/** 默认最大并发 dispatch 数 */
+/**
+ * 全局并发硬上限(F2 2026-11-02:保护值,不再作为「拒绝」依据 —— 满额落 queued 等槽位)。
+ *
+ * 配额维度改为 `(ownerUserId, priority)`:
+ *  - 全局硬上限:所有租户合计的在跑数,防止单租户/单优先级把进程打满;
+ *  - 每租户上限:防单租户吃满全局(单租户打满只影响自己);
+ *  - 每租户每优先级上限:同租户内 high/urgent 可多占,low 只留 1 档(避免低优任务长期霸槽)。
+ *
+ * 具体数值是产品策略决策点(F2 报告里单列):默认全局 3 / 租户 2 / low 1·normal 1·high 2·urgent 2。
+ * 调数值只需改这三个常量,调度逻辑与判据不变。
+ */
 const DEFAULT_MAX_CONCURRENT = 3
+
+/** 单租户在跑上限(与全局上限取小,是「单租户打满不影响他人」的关键保护) */
+const DEFAULT_TENANT_MAX_CONCURRENT = 2
+
+/** 单租户单优先级在跑上限(仍需同时满足租户总上限) */
+const TENANT_PRIORITY_MAX_CONCURRENT: Record<DispatchPriority, number> = {
+  low: 1,
+  normal: 1,
+  high: 2,
+  urgent: 2,
+}
+
+/**
+ * 队列分数:priority 主序 + 先来后到次序,全部编码进 zset score。
+ * score = PRIORITY_SCORE * 1e14 - createdAt(ms) ⇒ 同优先级里越早创建分数越大,
+ * `zrevrange` 一次读出的顺序就是真实出队顺序(不依赖第二次排序,也不受浮点抖动影响)。
+ */
+const QUEUE_PRIORITY_SCORE_UNIT = 1e14
 
 /** 重试最大次数上限 */
 const MAX_RETRY_ATTEMPTS = 3
@@ -94,18 +122,24 @@ const ALL_ROLES: SubagentRole[] = ['researcher', 'coder', 'reviewer', 'architect
 // ---------------------------------------------------------------------------
 
 /**
- * 扩展 dispatch 状态(增加 preempted / quota_exceeded / interrupted)。
+ * 扩展 dispatch 状态(增加 preempted / quota_exceeded / interrupted / queued)。
  *
  * `interrupted`(2026-11-02,F1 崩溃自愈):**只由启动恢复写入** —— 进程重启时发现
  * Redis 里仍是 running 的记录(说明执行态已随进程消失),先标记 interrupted 留痕,
  * 随即转 pending 重新入队执行。它不是终态,也不参与并发计数;若重新入队失败
  * (例如 ai-service 不可用),记录停在 interrupted 且 `resume` 接受该态(见 resume 注释)。
+ *
+ * `queued`(2026-11-02,F2 租户槽位 + 真排队):并发配额(全局硬上限 + 每租户配额)满时,
+ * 新派单不再返回 429,而是落 queued 并写进 Redis zset(`subagent:dispatch:queue`);
+ * 槽位释放后按「优先级 → 先来后到」出队。它不占槽位(不计入 isActiveDispatchStatus),
+ * 但也不是终态:可被 cancel,重启后由 zset 原样恢复等待。
  */
 export type ExtendedDispatchStatus =
   | DispatchStatus
   | 'preempted'
   | 'quota_exceeded'
   | 'interrupted'
+  | 'queued'
 
 /**
  * 写侧状态视图:`SubagentDispatch.status` 的声明面是基础联合(不含 preempted / quota_exceeded),
@@ -114,6 +148,29 @@ export type ExtendedDispatchStatus =
  */
 function statusWriteView(dispatch: SubagentDispatch): { status: ExtendedDispatchStatus } {
   return dispatch
+}
+
+/**
+ * 读侧状态视图:记录声明面只容基础档,而运行时确实会读到扩展档(queued / interrupted / preempted)。
+ * 与 statusWriteView 同一手法(不 as-cast、不在调用点散落 `as ExtendedDispatchStatus`)。
+ */
+function statusReadView(dispatch: SubagentDispatch): { status: ExtendedDispatchStatus } {
+  return dispatch
+}
+
+/**
+ * 终态判据(F2):只有这些状态会释放并发槽位,触发排队出队。
+ * 与 `isActiveDispatchStatus`(pending|running)互补 —— 未终态但也不占槽的 queued/interrupted
+ * 既不出队也不被当终态结算。
+ */
+function isTerminalDispatchStatus(status: string): boolean {
+  return (
+    status === 'completed' ||
+    status === 'failed' ||
+    status === 'cancelled' ||
+    status === 'preempted' ||
+    status === 'quota_exceeded'
+  )
 }
 
 /** 派单优先级(调度队列排序) */
@@ -331,6 +388,8 @@ export interface ResumeResult {
   resumed: boolean
   skippedSteps: string[]
   resumedFromStep?: string
+  /** F2(2026-11-02):无并发槽位时 resume 只把记录放回真队列,resumed=true 但尚未开跑 */
+  queued?: boolean
   error?: string
 }
 
@@ -1339,6 +1398,8 @@ export class SubagentDispatchService {
   private inFlight = new Set<string>()
   /** 防止 _loadActiveDispatches 重入(构造器 + setRedisClient 可能连续触发) */
   private _loading = false
+  /** 防止排队出队并发重入(槽位释放与启动恢复可能同时触发) */
+  private _draining = false
 
   constructor(redisClient?: Redis | null) {
     if (redisClient) {
@@ -1407,11 +1468,25 @@ export class SubagentDispatchService {
         outbox: runtime.outbox ? JSON.stringify(runtime.outbox) : '',
       })
       await this.redisClient.sadd(REDIS_KEY_IDS, id)
-      // 优先级队列
-      await this.redisClient.zadd(REDIS_KEY_QUEUE, PRIORITY_SCORE[runtime.priority], id)
+      // F2(2026-11-02):zset 只装「正在排队」的记录。旧实现每次写都 zadd(连 running/终态也塞),
+      // 队列只写不读、退役成员永不清理 ⇒ getQueue 只能读内存视图(与真实出队脱钩)。
+      if (statusReadView(d).status === 'queued') {
+        await this.redisClient.zadd(REDIS_KEY_QUEUE, this._queueScore(runtime), id)
+      } else {
+        await this.redisClient.zrem(REDIS_KEY_QUEUE, id)
+      }
     } catch {
       // Redis 不可用 → 降级内存,不抛异常
     }
+    // 终态释放槽位 ⇒ 触发真队列出队(异步,不阻塞状态写回;重入由 _draining 挡)
+    if (isTerminalDispatchStatus(d.status)) void this._drainQueue()
+  }
+
+  /** 队列分数:priority 主序 + createdAt 先来后到(数值越大越先出队) */
+  private _queueScore(runtime: DispatchRuntime): number {
+    const created = Date.parse(runtime.dispatch.createdAt)
+    const ts = Number.isFinite(created) ? created : Date.now()
+    return PRIORITY_SCORE[runtime.priority] * QUEUE_PRIORITY_SCORE_UNIT - ts
   }
 
   /**
@@ -1616,8 +1691,17 @@ export class SubagentDispatchService {
         const key = `${REDIS_KEY_DISPATCH}${id}`
         const raw = await this.redisClient.hgetall(key)
         if (!raw || !raw.id) continue
-        const status = raw.status as DispatchStatus
-        if (status !== 'pending' && status !== 'running') continue
+        const status = raw.status as ExtendedDispatchStatus
+        // F2:queued 也必须加载 —— 重启后它仍在 zset 里等槽位;interrupted 是恢复中途宕机的遗留,
+        // 同样不能漏(否则记录既不动也 resume 不了)。
+        if (
+          status !== 'pending' &&
+          status !== 'running' &&
+          status !== 'queued' &&
+          status !== 'interrupted'
+        ) {
+          continue
+        }
         const dispatch: SubagentDispatch = {
           id: raw.id,
           goal: raw.goal || '',
@@ -1628,7 +1712,8 @@ export class SubagentDispatchService {
           deliverables: raw.deliverables || '',
           agentRole: (raw.agentRole || 'coder') as SubagentRole,
           orchestration: (raw.orchestration || 'parallel') as OrchestrationMode,
-          status,
+          // 声明面只容基础档;真正的扩展档经写侧视图落回同一个对象(见 statusWriteView 注释)
+          status: status === 'running' ? 'running' : 'pending',
           result: raw.result || undefined,
           createdAt: raw.createdAt || nowIso(),
           updatedAt: raw.updatedAt || nowIso(),
@@ -1637,6 +1722,7 @@ export class SubagentDispatchService {
           // conversationId 同理:旧 hash 没有就保持未归属
           conversationId: raw.conversationId || undefined,
         }
+        statusWriteView(dispatch).status = status
         const retry = raw.retry ? parseJsonOr<RetryConfig | undefined>(raw.retry, undefined) : undefined
         const dag = raw.dag ? parseJsonOr<DagConfig | undefined>(raw.dag, undefined) : undefined
         const priority = (raw.priority as DispatchPriority) || 'normal'
@@ -1675,18 +1761,33 @@ export class SubagentDispatchService {
     for (const id of toRecover) {
       await this._recoverInterruptedDispatch(id)
     }
+    // 恢复过程中放不进槽位的记录已落 queued ⇒ 按真队列顺序补位(容量足则立即开跑)
+    await this._drainQueue()
   }
 
   /**
    * 接管一条重启前未终态的派单。
-   * running ⇒ interrupted(留痕)⇒ pending ⇒ 重新入队;
-   * pending ⇒ 保持 pending 直接重新入队。
+   * running ⇒ interrupted(留痕)⇒ 有槽位则 pending 重新入队,无槽位则 queued 等槽位;
+   * pending / interrupted ⇒ 同一条准入路径(不再无条件开跑);
+   * queued ⇒ 留在队列(刷新 zset 成员),由 `_drainQueue` 按顺序补位。
    * 已在 inFlight ⇒ 跳过(本进程正在执行,不是中断)。
    */
   private async _recoverInterruptedDispatch(id: string): Promise<void> {
     const runtime = this.runtimes.get(id)
     if (!runtime || this.inFlight.has(id)) return
-    const wasRunning = runtime.dispatch.status === 'running'
+    const from = statusReadView(runtime.dispatch).status
+    if (from === 'queued') {
+      // 重启后队列成员:重新写一次 zset(分数按记录 createdAt 复原),不在这里抢跑
+      await this._persistDispatch(id)
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: 'info',
+        event: 'dispatch_queue_restored',
+        data: { priority: runtime.priority },
+      })
+      return
+    }
+    const wasRunning = from === 'running'
     if (wasRunning) {
       statusWriteView(runtime.dispatch).status = 'interrupted'
       runtime.dispatch.updatedAt = nowIso()
@@ -1704,6 +1805,23 @@ export class SubagentDispatchService {
         },
       })
     }
+
+    // F2:恢复也要走同一份容量判据 —— 不能因为「重启」就把全局/租户上限撑破;
+    // 放不下的落 queued,等槽位释放后按真队列顺序续跑(仍然满足 F1「自动续跑」)。
+    const blocked = this._capacityBlocked(runtime.priority, runtime.dispatch.ownerUserId, id)
+    if (blocked) {
+      statusWriteView(runtime.dispatch).status = 'queued'
+      runtime.dispatch.updatedAt = nowIso()
+      await this._persistDispatch(id)
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: 'info',
+        event: 'dispatch_requeued',
+        data: { from, blockedBy: blocked },
+      })
+      return
+    }
+
     runtime.dispatch.status = 'pending'
     runtime.dispatch.updatedAt = nowIso()
     await this._persistDispatch(id)
@@ -1711,9 +1829,105 @@ export class SubagentDispatchService {
       ts: nowIso(),
       level: 'info',
       event: 'dispatch_recovered',
-      data: { from: wasRunning ? 'interrupted' : 'pending', hasDag: Boolean(runtime.dag) },
+      data: { from: wasRunning ? 'interrupted' : from, hasDag: Boolean(runtime.dag) },
     })
     this._scheduleExecution(id, runtime.dag !== undefined && (runtime.dispatch.orchestration ?? 'parallel') === 'parallel')
+  }
+
+  /**
+   * 容量判据(唯一出口):返回 null = 有槽位;否则返回被哪一档挡住。
+   * 计数口径与 `isActiveDispatchStatus` 同源(pending|running 占槽;queued 不占)。
+   * 先判全局硬上限,再判租户总上限,最后判租户内优先级上限 —— 三层都过才允许开跑。
+   */
+  private _capacityBlocked(
+    priority: DispatchPriority,
+    ownerUserId: string | undefined,
+    excludeId?: string,
+  ): 'global' | 'tenant' | 'priority' | null {
+    // 判「有没有槽位」时必须排除正在申请的那条记录(它已先入 Map,状态为 pending/queued):
+    // 不排除 ⇒ 申请人把自己算进占用,租户优先级上限为 1 时任何单都进不来(自锁)。
+    const active = Array.from(this.runtimes.values()).filter(
+      (r) => r.dispatch.id !== excludeId && isActiveDispatchStatus(r.dispatch.status),
+    )
+    if (active.length >= this._maxConcurrent) return 'global'
+    const tenantActive = active.filter((r) => r.dispatch.ownerUserId === ownerUserId)
+    if (tenantActive.length >= DEFAULT_TENANT_MAX_CONCURRENT) return 'tenant'
+    const tenantPriorityActive = tenantActive.filter((r) => r.priority === priority)
+    if (tenantPriorityActive.length >= TENANT_PRIORITY_MAX_CONCURRENT[priority]) return 'priority'
+    return null
+  }
+
+  /**
+   * 读真队列(F2):zset 分数已编码「优先级 + createdAt」,`zrevrange` 的顺序就是出队顺序。
+   * Redis 不可用时按内存做同一口径的降级读(不另建第二套排序语义)。
+   */
+  private async _queuedIds(): Promise<string[]> {
+    if (this.redisClient) {
+      try {
+        const raw = await this.redisClient.zrevrange(REDIS_KEY_QUEUE, 0, -1, 'WITHSCORES')
+        const ids: string[] = []
+        for (let i = 0; i + 1 < raw.length; i += 2) ids.push(raw[i]!)
+        return ids
+      } catch {
+        // Redis 不可用 → 内存降级
+      }
+    }
+    return Array.from(this.runtimes.values())
+      .filter((r) => statusReadView(r.dispatch).status === 'queued')
+      .sort(
+        (a, b) =>
+          PRIORITY_SCORE[b.priority] - PRIORITY_SCORE[a.priority] ||
+          a.dispatch.createdAt.localeCompare(b.dispatch.createdAt),
+      )
+      .map((r) => r.dispatch.id)
+  }
+
+  /** 从真队列移除(记录已出队 / 已取消 / 已终态) */
+  private async _removeFromQueue(id: string): Promise<void> {
+    if (!this.redisClient) return
+    try {
+      await this.redisClient.zrem(REDIS_KEY_QUEUE, id)
+    } catch {
+      // Redis 不可用 → 内存视图不维护 zset,忽略
+    }
+  }
+
+  /**
+   * 真队列出队:按 zset 顺序扫描,能放进槽位的逐条提升为 pending 并开跑。
+   *
+   * 为什么是「扫描」而不是只取队首:队首可能属于已打满的租户,只取队首会让该租户
+   * 把所有人的队列堵死(与 F2「单租户打满只影响自己」相反)。扫描保证**实际出队顺序
+   * 仍严格服从 zset 顺序**,只是跳过此刻放不下的项(它们留在队列里等下次槽位释放)。
+   */
+  private async _drainQueue(): Promise<void> {
+    if (this._draining) return
+    this._draining = true
+    try {
+      const ids = await this._queuedIds()
+      for (const id of ids) {
+        const runtime = this.runtimes.get(id)
+        if (!runtime || statusReadView(runtime.dispatch).status !== 'queued') {
+          await this._removeFromQueue(id)
+          continue
+        }
+        if (this._capacityBlocked(runtime.priority, runtime.dispatch.ownerUserId, id)) continue
+        runtime.dispatch.status = 'pending'
+        runtime.dispatch.updatedAt = nowIso()
+        await this._persistDispatch(id)
+        await this._persistLog(id, {
+          ts: nowIso(),
+          level: 'info',
+          event: 'dispatch_dequeued',
+          data: { priority: runtime.priority, ownerUserId: runtime.dispatch.ownerUserId ?? null },
+        })
+        this._scheduleExecution(
+          id,
+          runtime.dag !== undefined && (runtime.dispatch.orchestration ?? 'parallel') === 'parallel',
+        )
+      }
+    } finally {
+      this._draining = false
+    }
   }
 
   /**
@@ -1762,34 +1976,9 @@ export class SubagentDispatchService {
       }
     }
 
-    // 优先级调度:urgent 可抢占
+    // 优先级调度:urgent 可抢占(仅同租户,见 _tryPreempt);并发满额不再在这里拒绝,
+    // 统一在入 Map 之后走 F2 准入(_capacityBlocked + 落 queued),因此不会出现 429。
     const priority: DispatchPriority = input.priority ?? 'normal'
-    if (priority === 'urgent') {
-      const activeCount = this.listActive().length
-      if (activeCount >= this._maxConcurrent) {
-        // 尝试抢占最低优先级的 running dispatch(仅限同一 ownerUserId,P0-1)
-        const preempted = this._tryPreempt(input.ownerUserId)
-        if (!preempted) {
-          return {
-            outcome: 'concurrent_limit',
-            limit: this._maxConcurrent,
-            active: activeCount,
-            error: `并发派单数已达上限 ${this._maxConcurrent},且无低优先级可抢占`,
-          }
-        }
-      }
-    } else {
-      // 非 urgent:正常并发检查
-      const activeCount = this.listActive().length
-      if (activeCount >= this._maxConcurrent) {
-        return {
-          outcome: 'concurrent_limit',
-          limit: this._maxConcurrent,
-          active: activeCount,
-          error: `并发派单数已达上限 ${this._maxConcurrent}`,
-        }
-      }
-    }
 
     const role: SubagentRole = input.agentRole ?? 'coder'
     const mode: OrchestrationMode = input.orchestration ?? 'parallel'
@@ -1835,16 +2024,45 @@ export class SubagentDispatchService {
     this.runtimes.set(pending.id, runtime)
     // 2026-08-06: 派单轨迹持久化 — 带 agentId 的派单写入 agent_tasks(agents 详情页 5 Tab 运行时数据源)
     runtime.agentTaskId = await this._createAgentTask(input, pending.id)
+
+    // F2 准入(唯一判据):全局硬上限 → 租户总上限 → 租户内优先级上限。
+    // urgent 可先尝试同租户抢占自己的低优任务;仍无槽位则落 queued —— 不返回 concurrent_limit/429。
+    let blocked = this._capacityBlocked(priority, input.ownerUserId, pending.id)
+    if (blocked && priority === 'urgent' && this._tryPreempt(input.ownerUserId)) {
+      blocked = this._capacityBlocked(priority, input.ownerUserId, pending.id)
+    }
+    if (blocked) {
+      statusWriteView(pending).status = 'queued'
+      pending.updatedAt = nowIso()
+    }
+
     await this._persistDispatch(pending.id)
     await this._persistLog(pending.id, {
       ts: nowIso(),
       level: 'info',
       event: 'dispatch_created',
-      data: { mode, role, retry, priority, hasDag: !!dag, hasQuotas: !!quotas },
+      data: {
+        mode,
+        role,
+        retry,
+        priority,
+        hasDag: !!dag,
+        hasQuotas: !!quotas,
+        queued: blocked !== null,
+        blockedBy: blocked,
+      },
     })
-
-    // 异步调 ai-service(不 await,立即返回 pending);与启动恢复共用同一执行入口
-    this._scheduleExecution(pending.id, dag !== undefined && mode === 'parallel')
+    if (blocked) {
+      await this._persistLog(pending.id, {
+        ts: nowIso(),
+        level: 'info',
+        event: 'dispatch_queued',
+        data: { blockedBy: blocked, priority },
+      })
+    } else {
+      // 异步调 ai-service(不 await,立即返回 pending);与启动恢复共用同一执行入口
+      this._scheduleExecution(pending.id, dag !== undefined && mode === 'parallel')
+    }
 
     return { dispatch: pending, outcome: 'ok' }
   }
@@ -2456,12 +2674,18 @@ export class SubagentDispatchService {
     }
   }
 
-  /** 取消派单:仅 pending/running 可取消 */
+  /** 取消派单:pending/running/queued 可取消(queued 取消即从真队列移除) */
   cancel(id: string): boolean {
     const runtime = this.runtimes.get(id)
     if (!runtime) return false
     const d = runtime.dispatch
-    if (d.status !== 'pending' && d.status !== 'running') return false
+    if (
+      d.status !== 'pending' &&
+      d.status !== 'running' &&
+      statusReadView(d).status !== 'queued'
+    ) {
+      return false
+    }
     d.status = 'cancelled'
     d.updatedAt = nowIso()
     runtime.completedAt = Date.now()
@@ -2563,6 +2787,7 @@ export class SubagentDispatchService {
           'preempted',
           'quota_exceeded',
           'interrupted',
+          'queued',
         ],
         'failed',
       ),
@@ -2605,6 +2830,7 @@ export class SubagentDispatchService {
             'preempted',
             'quota_exceeded',
             'interrupted',
+            'queued',
           ],
           'failed',
         ),
@@ -2670,6 +2896,29 @@ export class SubagentDispatchService {
     const failedStep = Array.from(checkpoints.entries()).find(([, cp]) => cp.status !== 'ok')
     const resumedFromStep = failedStep?.[0]
 
+    // F2:resume 也要占槽位。没有槽位时落 queued(不是绕过上限直接跑),等 _drainQueue 补位。
+    const blocked = this._capacityBlocked(runtime.priority, dispatch.ownerUserId, id)
+    if (blocked) {
+      statusWriteView(dispatch).status = 'queued'
+      dispatch.updatedAt = nowIso()
+      runtime.hasFailed = false
+      runtime.completedAt = undefined
+      await this._persistDispatch(id)
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: 'info',
+        event: 'dispatch_resume_queued',
+        data: { skippedSteps, resumedFromStep, blockedBy: blocked },
+      })
+      return {
+        dispatchId: id,
+        resumed: true,
+        skippedSteps,
+        resumedFromStep,
+        queued: true,
+      }
+    }
+
     // 重置 dispatch 状态为 running
     dispatch.status = 'running'
     dispatch.updatedAt = nowIso()
@@ -2704,13 +2953,23 @@ export class SubagentDispatchService {
    * 判据本体只有一份(路由里的 isDispatchVisibleTo),service 不认识租户字段 —— 避免
    * routes → service 的反向 import 造成环,也避免同一口径在两个文件各写一遍。
    */
-  getQueue(visible?: (dispatch: SubagentDispatch) => boolean): QueueEntry[] {
-    const entries = Array.from(this.runtimes.values())
-      .filter((r) => (visible ? visible(r.dispatch) : true))
-      .filter((r) => {
-        // 队列准入:未知/未来值兜 'failed'(不在准入集内 ⇒ 不会被当可调度项排进队列)
-        const s = coerceKnownOr(
-          r.dispatch.status,
+  async getQueue(visible?: (dispatch: SubagentDispatch) => boolean): Promise<QueueEntry[]> {
+    // F2:读真队列 —— zset 成员 = 正在排队等待槽位的记录;顺序就是出队顺序。
+    // 内存视图不再作为数据源(它只是进程内副本,重启/多实例会与真队列脱钩)。
+    const ids = await this._queuedIds()
+    const entries: Array<{ runtime: DispatchRuntime; status: ExtendedDispatchStatus }> = []
+    for (const id of ids) {
+      const runtime = this.runtimes.get(id)
+      // 运行时不存在 / 已不在 queued ⇒ 视为退役成员,顺手清出 zset(不返回幽灵队列项)
+      if (!runtime || statusReadView(runtime.dispatch).status !== 'queued') {
+        await this._removeFromQueue(id)
+        continue
+      }
+      if (visible && !visible(runtime.dispatch)) continue
+      entries.push({
+        runtime,
+        status: coerceKnownOr(
+          runtime.dispatch.status,
           [
             'pending',
             'running',
@@ -2721,32 +2980,18 @@ export class SubagentDispatchService {
             'preempted',
             'quota_exceeded',
             'interrupted',
+            'queued',
           ],
           'failed',
-        )
-        return s === 'pending' || s === 'running' || s === 'preempted'
+        ),
       })
-      .sort((a, b) => PRIORITY_SCORE[b.priority] - PRIORITY_SCORE[a.priority])
-    return entries.map((r, idx) => ({
-      dispatchId: r.dispatch.id,
-      priority: r.priority,
-      status: coerceKnownOr(
-        r.dispatch.status,
-        [
-          'pending',
-          'running',
-          'completed',
-          'failed',
-          'cancelled',
-          'paused',
-          'preempted',
-          'quota_exceeded',
-          'interrupted',
-        ],
-        'failed',
-      ),
-      goal: r.dispatch.goal,
-      createdAt: r.dispatch.createdAt,
+    }
+    return entries.map(({ runtime, status }, idx) => ({
+      dispatchId: runtime.dispatch.id,
+      priority: runtime.priority,
+      status,
+      goal: runtime.dispatch.goal,
+      createdAt: runtime.dispatch.createdAt,
       position: idx + 1,
     }))
   }
@@ -2861,6 +3106,7 @@ export class SubagentDispatchService {
           'preempted',
           'quota_exceeded',
           'interrupted',
+          'queued',
         ],
         'failed',
       )
