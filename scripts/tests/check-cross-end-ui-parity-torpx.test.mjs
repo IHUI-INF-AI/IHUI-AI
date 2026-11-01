@@ -87,8 +87,13 @@ test('C1 正例:toRpx(44) 与 RN 侧的 44 判为同值 —— 假分叉消失',
 })
 
 test('C2 正例:toRpx(SP.md) 成员解析成功并参与比对;RD 的 toRpx(RD.sm) 走同一把尺', () => {
-  const g = src.readGeometry(miniText(), 'miniapp')
-  const r = src.readGeometry(headBlob(RN), 'rn')
+  /**
+   * 取证面必须与 C3/C8 及 `collect()` 生产面**同形**:档表(间距/几何/圆角)+ CSS 命名档解值两路都要喂。
+   * 2026-11-01 实测:C2 原写法两路都不喂,而小程序腿把 `64` 写成了 `var(--spacing-6xl)` ⇒ 该值只在
+   * 解值腿里可见,于是"两端同一档"被读成"仅 RN 档 64"(夹具比门瞎造出的假红,端上一行未改)。
+   */
+  const g = src.readGeometry(miniText(), 'miniapp', spTiers, cssVars)
+  const r = src.readGeometry(headBlob(RN), 'rn', spTiers, cssVars)
   const d = src.diffValues(g.values, r.values)
   assert.equal(d.onlyRn.length, 0, `仍有"仅 RN 档"假分叉:${d.onlyRn.join('/')}`)
   assert.ok(g.values.has(16) && g.values.has(8), 'SP.lg=16 / SP.sm=8 未经成员解析进集合')
@@ -352,8 +357,6 @@ test('C8 端到端:audit 里 ScreenStates 的假分叉清零,真差异仍必须�
 })
 
 test('C14 正例:var(--spacing-xs) 解成 4px 后与 web/RN 侧的 gap-1 判同值(假分叉消失)', () => {
-  const mp = 'apps/miniapp-taro/src/components/T14.tsx'
-  const rn = 'packages/app/src/components/T14.tsx'
   // 同一枚档:小程序按 §4 写成令牌,对面写成 Tailwind 刻度档与 StyleSheet 数字三种形态
   // 书写形态按端内真实样式表(一行一条声明)—— 简写支的提取式要求声明自行首起,单行块不是它的射程
   const a = [
