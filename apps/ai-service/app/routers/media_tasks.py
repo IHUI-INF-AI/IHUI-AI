@@ -204,11 +204,14 @@ async def media_upload(
     provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
     try:
         if file is not None:
-            data = await file.read()
+            # 2026-11-01 安全强化:分块读到 50MB 上限即断(原先整包 read 后判长度)
+            from ..utils.upload_read import read_capped
+
+            data = await read_capped(file, 50 * 1024 * 1024)
+            if data is None:
+                raise HTTPException(status_code=413, detail="文件超过 50MB 上限")
             if not data:
                 raise HTTPException(status_code=400, detail="上传文件为空")
-            if len(data) > 50 * 1024 * 1024:
-                raise HTTPException(status_code=400, detail="文件超过 50MB 上限")
             filename = file.filename or "file.bin"
             upload_url = await provider.upload_file(data, filename, purpose=purpose)
             return {"ok": True, "data": {"file_url": upload_url, "filename": filename, "size": len(data)}}

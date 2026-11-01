@@ -31,6 +31,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
@@ -326,10 +327,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/roles/custom ----------
 
-  server.post('/subagents/roles/custom', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.post('/subagents/roles/custom', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const parsed = customRoleSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -370,10 +368,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- PUT /subagents/roles/custom/:id ----------
 
-  server.put('/subagents/roles/custom/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.put('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const existing = customRoles.get(id)
     if (!existing) {
@@ -404,10 +399,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- DELETE /subagents/roles/custom/:id ----------
 
-  server.delete('/subagents/roles/custom/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const deleted = customRoles.delete(id)
     if (!deleted) {
@@ -418,10 +410,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/roles/auto-generate(调用 ai-service 生成角色定义) ----------
 
-  server.post('/subagents/roles/auto-generate', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.post('/subagents/roles/auto-generate', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const parsed = autoGenerateSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -501,10 +490,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/agents/:role/evolve(调用 ai-service 分析演化) ----------
 
-  server.post('/subagents/agents/:role/evolve', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.post('/subagents/agents/:role/evolve', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { role } = request.params as { role: string }
 
     // 读取演化历史记录;无记录 → 无需演化,直接返回空桩(避免无谓 LLM 调用)
@@ -597,10 +583,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/agents/:role/apply-evolution ----------
 
-  server.post('/subagents/agents/:role/apply-evolution', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.post('/subagents/agents/:role/apply-evolution', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { role } = request.params as { role: string }
     const parsed = applyEvolutionSchema.safeParse(request.body)
     if (!parsed.success) {

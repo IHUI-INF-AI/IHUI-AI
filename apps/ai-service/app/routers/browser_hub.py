@@ -140,12 +140,16 @@ async def create_session(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """创建新的浏览器会话。"""
-    session = await hub.create_session(
-        url=body.url,
-        viewport={"width": body.viewport_width, "height": body.viewport_height},
-        user_agent=body.user_agent,
-        owner_user_id=user_id,
-    )
+    try:
+        session = await hub.create_session(
+            url=body.url,
+            viewport={"width": body.viewport_width, "height": body.viewport_height},
+            user_agent=body.user_agent,
+            owner_user_id=user_id,
+        )
+    except ValueError as exc:
+        # 2026-11-01 安全强化:初始 URL 与 navigate 同一道 SSRF 闸(服务层抛 ValueError)。
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         url = await session.get_current_url()
         title = await session.get_title()
@@ -240,6 +244,9 @@ async def navigate(
     except BrowserTabScopeError as exc:
         raise _tab_scope_denial(exc) from exc
     result = await session.navigate(body.url, wait_until=body.wait_until)
+    if result.get("errorCode") == "SSRF_BLOCKED":
+        # 2026-11-01 安全强化:导航被 SSRF 闸拒绝 ⇒ 400 具名拒因(不再以 code=0 回 success)
+        raise HTTPException(status_code=400, detail=f"SSRF_BLOCKED: {result.get('error') or ''}")
     return {"code": 0, "data": result}
 
 
