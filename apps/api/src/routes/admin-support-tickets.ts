@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { customerServiceTickets, customerServiceComments, users } from '@ihui/database'
 import { eq, desc, sql, ilike, and, type SQL } from 'drizzle-orm'
 import { isUuidString } from '../utils/uuid.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 
 // 客服工单(admin/support/tickets)路由 - 4 个端点,接 customerServiceTickets + customerServiceComments 表。
 // status mapping: 前端 'open'|'processing'|'closed'|'resolved' ↔ 后端 'pending'|'open'|'resolved'|'closed'|'rejected'
@@ -54,6 +55,14 @@ const ticketListQuerySchema = listQuerySchema.extend({
 })
 
 const adminSupportTicketsRoutes: FastifyPluginAsync = async (server) => {
+  // 2026-11-01 安全强化:这一整片此前**四条路由零 preHandler**。匿名请求看着像被 401 挡住了
+  // (那是 plugins/auth-default-deny.ts 那条兜底闸在响:名单外 + 无凭据 ⇒ 401),而兜底闸对
+  // "带有效凭据"那一格打的是 `enforce-credential-ok` ⇒ 放行到 handler。于是任意一个登录用户都能
+  // ① GET 全量客服工单(含他人 userId/标题/优先级)、② PUT 改他人工单状态、
+  // ③ POST 以 `isAdmin: true` 冒充官方客服回复。
+  // 处置取 admin.ts:109 同一条形状 —— 插件级 `addHook('preHandler', …)`,不是逐条补:
+  // 逐条补救不了"以后往这文件里再加一条路由、忘了挂"的那一枚,而 admin 面漏挂的表现永远是安静的那一侧。
+  server.addHook('preHandler', requireAdminRouteGuard)
   // GET /support/tickets — 工单列表(分页 + status 筛选 + search 模糊匹配 title)
   server.get('/support/tickets', async (request, reply) => {
     const parsed = ticketListQuerySchema.safeParse(request.query)
@@ -109,7 +118,8 @@ const adminSupportTicketsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
     }
-    if (!isUuidString(parsedParams.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
+    if (!isUuidString(parsedParams.data.id))
+      return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = statusBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
