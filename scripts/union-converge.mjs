@@ -169,6 +169,10 @@ import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-sim
 // 冲突标记的「成套 / 空区 / 有正文区」分类判据(2026-11-01,MARKERS 票):与守门 79 共用
 // `lib/conflict-marker-triples.mjs` 那一份实现,本器不再抄第二条「什么算成对标记」(§0.6)。
 import { classifyMarkerTriples } from './lib/conflict-marker-triples.mjs'
+// **落地前**自检(L33560,2026-11-01):本器用 commit-tree 造提交,pre-commit 不跑 ⇒ 守门 79 在这条
+// 通道上一次都没看过将要落地的内容。判据本体仍住 lib(配对 = conflict-marker-triples;分型 = 这份),
+// 本文件只负责"把产物面那份内容交进去"与"把判红折进既有 bad 通道(退出码 1)"。
+import { gateLandingMarkers } from './lib/conflict-marker-landing-gate.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -1403,6 +1407,48 @@ export function buildUnion(
       )
     }
     const tree = run(['write-tree'])
+    /**
+     * ── 落地前冲突标记自检(票 L33560,2026-11-01 接装)────────────────────────────────
+     * 位置纪律:必须在 `write-tree` **之后**(产物面已成树、内容已定,再判任何一侧的输入都晚了),
+     * 在返回/落地**之前**(判红就要折进 violations ⇒ plan().bad ⇒ main 的 `if (p.bad.length)` 退出 1,
+     * 该器既有的判红档,**不自创第二个退出码**)。
+     *
+     * 为什么这一格只能在旁路上补:守门 79 挂在 pre-commit / --rev / 全量三种**事后**面上,
+     * 而本器与 object-space-land 都走 `commit-tree + update-ref`,钩子链整条不跑 ⇒ 带标记的内容
+     * 可以直接进 HEAD,等门 79 看见时它已经在了(2026-11-01 实测的两轮回潮就是这么来的)。
+     *
+     * 判据不在这里重写(§0.6/§22c):配对问 `lib/conflict-marker-triples`(与守门 79 同一份),
+     * 分型问 `lib/conflict-marker-landing-gate`。两档口径:
+     *   must-block(区内任一侧有非空内容)⇒ 进 bad,不落地;
+     *   strippable(区内两侧零正文)⇒ 只打印"建议摘除",**不拦** —— 一律拦就回到本票立项现场
+     *   (空区永远只能靠人工摘),一律放就是静默丢内容,票面明令两档不许混。
+     */
+    const liveDocMarkerEntries = []
+    for (const p of LIVE_DOCS) {
+      let text = null
+      try {
+        const oid = run(['rev-parse', '--verify', '--quiet', `${tree}:${p}`])
+        if (oid) text = blobText(oid, cwd)
+      } catch {
+        text = null
+      }
+      // 产物面没有该路径 ⇒ 只有当两侧本来也都没有它时才算"无从判"(两侧删掉同一份文档);
+      // 某侧有而产物面没有 = 取不到输入 ⇒ 交 null 走"未判定",绝不冒充干净。
+      if (text === null && !blobOf(ours, p, cwd) && !blobOf(theirs, p, cwd)) continue
+      liveDocMarkerEntries.push({ path: p, text })
+    }
+    const markerGate = gateLandingMarkers(liveDocMarkerEntries, {
+      log: (s) => console.log(`   ${s}`),
+    })
+    for (const a of markerGate.advices) console.log(`   ⑂ ${a}`)
+    for (const v of markerGate.violations) violations.push(v)
+    for (const u of markerGate.undetermined) violations.push(u)
+    if (!markerGate.skipped) {
+      console.log(
+        `   落地前冲突标记自检(活文档):判 ${markerGate.judged} 份,判红 ${markerGate.violations.length} 处 / 建议摘除 ${markerGate.advices.length} 处` +
+          ` —— 有正文的冲突标记区一条不放过(与守门 79 同一套 P1/P2),空冲突区只建议不拦`,
+      )
+    }
     // ── 任务状态分叉不得被归并放大(2026-09-26 立,守门 130 的同一条判据长在这里)──────────
     // 为什么必须在落地闸里判,而不是等提交链:本收敛器用 commit-tree 造合并提交,
     // **pre-commit 根本不跑**;而"每行重数取 max"的并集策略恰恰就是状态副本的产地
