@@ -16,6 +16,8 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { createStudentStyles, STUDENT_PALETTE, type StudentTone } from './student-styles'
 import { ListPager } from './ListPager'
+// G-815966:百分比裁剪走具名唯一出口,不再内联手搓(棘轮门基线 0)
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 export interface MyLessonItem {
   id: string
@@ -116,7 +118,7 @@ export function MyLessonsScreen({
         ) : (
           <View style={styles.card}>
             {items.map((item, idx) => {
-              const progress = Math.min(100, Math.max(0, Math.round(item.progress ?? 0)))
+              const progress = Math.round(clampPercent(item.progress ?? 0))
               const tone = STUDENT_PALETTE[lessonTone(item.status)]
               return (
                 <View
