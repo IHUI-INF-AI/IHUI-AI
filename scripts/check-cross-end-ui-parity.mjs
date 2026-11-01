@@ -37,7 +37,6 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
 import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
@@ -119,6 +118,16 @@ export const WEB_LEDGER = {
   waivers: 'webWaivers',
 }
 const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
+/**
+ * 允许差异登记表(2026-11-02 立,跨端对齐 Phase 1「允许差异」地基):component × key × platform ×
+ * owner × 到期日。本门只对**未登记 / 已到期 / 超量 / 条目坏**的差异报红;已登记、在期内且读数不超
+ * 额度的差异只记账。到期不是自动续期 —— 到期当日重新报红,逼 owner 复核,防止白名单腐化
+ * (§12e:不得为消红削判据)。key=geometry|radius|elementRadius 时 count 是该族实测差异处数
+ * (额度不是无限信用);key=platform:<capability> 时登记宿主能力差异(支付/分享/订阅消息/小程序原生/
+ * 字体/模糊/手势/安全区/平台常量),不带 count。台账与豁免表**分开两本账**:豁免是临时欠债,
+ * 允许差异是设计边界;两者都必须在期,且都不许把"没判"写成"判过"。
+ */
+export const ALLOWED_DIFFS_REL = 'scripts/data/cross-end-allowed-diffs.json'
 /** 落在这些键/标识符上下文里的数字才算"看得见的尺寸"。 */
 const GEO_KEY =
   /(size|width|height|box|icon|padding|margin|font|line|gap|radius|top|bottom|left|right|thickness|spacing|edge)/i
@@ -3716,6 +3725,134 @@ export function waiverProblem(w) {
   return null
 }
 
+/* ================= 允许差异登记表(2026-11-02 立;纯函数,镜像测试直接喂构造面) ================= */
+
+const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius']
+const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
+const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function allowedDiffTodayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** 日期必须是真实存在的 YYYY-MM-DD:2026-02-30 会被 Date 滚到 3 月,不能当有效到期日。 */
+function allowedDiffBadExpiry(v) {
+  if (typeof v !== 'string' || !ISO_DATE_RE.test(v)) return true
+  const d = new Date(`${v}T00:00:00Z`)
+  return Number.isNaN(d.valueOf()) || d.toISOString().slice(0, 10) !== v
+}
+
+/** 条目形状判据**只住这一处**:结构坏了就是台账坏了,不得当成"没登记"悄悄跳过。 */
+export function allowedDiffProblem(e) {
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return '条目不是对象'
+  if (typeof e.component !== 'string' || !e.component.trim()) return 'component 缺失'
+  if (typeof e.key !== 'string' || !(ALLOWED_DIFF_KEYS.includes(e.key) || ALLOWED_PLATFORM_KEY_RE.test(e.key)))
+    return `key 非法:${e.key ?? '(空)'}`
+  if (!ALLOWED_DIFF_PLATFORMS.has(e.platform)) return `platform 非法:${e.platform ?? '(空)'}`
+  if (typeof e.owner !== 'string' || !e.owner.trim()) return 'owner 缺失'
+  if (allowedDiffBadExpiry(e.expires)) return 'expires 缺失或不是合法 YYYY-MM-DD'
+  if (typeof e.reason !== 'string' || e.reason.trim().length < 20)
+    return 'reason 少于 20 字,不足以复核'
+  if (typeof e.evidence !== 'string' || e.evidence.trim().length < 8)
+    return 'evidence 缺失或不足以定位'
+  if (ALLOWED_DIFF_KEYS.includes(e.key)) {
+    if (!Number.isInteger(e.count) || e.count < 1)
+      return 'count 必须是正整数(登记的是实测差异处数,不是无限额度)'
+  } else if (e.count !== undefined) {
+    return 'platform 条目不得带 count(平台差异不是逐档读数)'
+  }
+  return null
+}
+
+/**
+ * 允许差异判据。四条红:未登记(`unregistered`)、已到期(`expired`)、超量(`over`)、条目坏
+ * (`invalid`);收缩(`shrunk`)只报名不判红 —— 收紧是好事,额度可以随之下调。
+ * 判序刻意**不复用** `verdictOf`:后者的豁免短路的是"临时欠债",而本表登记的是"设计边界";
+ * 把两者折成一个短路,会让一条豁免到期时把允许差异也一起放行(或反过来)。
+ *
+ * @param {Array} findings audit 产出的差异族(含 diffCount/radiusCount/elementRadiusCount)
+ * @param {Array} entries  `cross-end-allowed-diffs.json` 的 entries
+ * @param {{today?: string}} opts 测试注入当日日期,生产默认 UTC 当日
+ */
+export function allowedDiffVerdict(findings, entries = [], { today = allowedDiffTodayISO() } = {}) {
+  const invalid = []
+  const unregistered = []
+  const expired = []
+  const over = []
+  const shrunk = []
+  const matched = []
+  const platform = []
+  const map = new Map()
+  for (const e of Array.isArray(entries) ? entries : []) {
+    const why = allowedDiffProblem(e)
+    if (why) {
+      invalid.push({ component: e?.component ?? '(未知)', key: e?.key ?? '(未知)', why })
+      continue
+    }
+    const k = `${e.component}|${e.key}`
+    if (map.has(k)) {
+      invalid.push({ component: e.component, key: e.key, why: '同一 component×key 重复登记' })
+      continue
+    }
+    map.set(k, e)
+  }
+  for (const f of findings ?? []) {
+    const counts = {
+      geometry: diffCount(f),
+      radius: radiusCount(f),
+      elementRadius: elementRadiusCount(f),
+    }
+    for (const key of ALLOWED_DIFF_KEYS) {
+      const count = counts[key]
+      if (!count) continue
+      const e = map.get(`${f.name}|${key}`)
+      if (!e) {
+        unregistered.push({ component: f.name, key, count, why: `未登记差异 ${count} 处` })
+        continue
+      }
+      if (e.expires < today) {
+        expired.push({
+          component: f.name,
+          key,
+          count,
+          expires: e.expires,
+          why: `登记已到期(${e.expires}),差异仍在(${count} 处),必须重新复核或续期`,
+        })
+        continue
+      }
+      if (count > e.count) {
+        over.push({ component: f.name, key, count, allowed: e.count, why: `差异 ${count} > 登记额度 ${e.count}` })
+        continue
+      }
+      if (count < e.count) shrunk.push({ component: f.name, key, count, allowed: e.count })
+      else matched.push({ component: f.name, key, count })
+    }
+  }
+  for (const e of map.values()) {
+    if (!e.key.startsWith('platform:')) continue
+    if (e.expires < today) {
+      expired.push({
+        component: e.component,
+        key: e.key,
+        expires: e.expires,
+        platform: e.platform,
+        why: `平台差异登记已到期(${e.expires}),必须重新复核`,
+      })
+    } else {
+      platform.push({
+        component: e.component,
+        key: e.key,
+        platform: e.platform,
+        owner: e.owner,
+        expires: e.expires,
+      })
+    }
+  }
+  const red = [...invalid, ...unregistered, ...expired, ...over]
+  return { red, invalid, unregistered, expired, over, shrunk, matched, platform }
+}
+
 /** 相对说明符 → 仓库相对路径(只处理 `./` 与 `../`,不碰别名 —— 样式文件不该走别名)。 */
 export function resolveRel(fromFile, spec) {
   const segs = fromFile.split('/').slice(0, -1)
@@ -4581,6 +4718,26 @@ export function loadBaseline(repoRoot, face) {
   return chooseBaseline(got.get(spec))
 }
 
+/**
+ * 允许差异登记表与台账同面取材(§0.4):默认 HEAD blob,`--staged` 判索引。
+ * 缺席 ≠ 空表:`present:false` 由调用侧另计一条红(删表不能变成"全部允许");
+ * 解析失败 ≠ 没登记:返回 `problem`,同样由调用侧判红(坏台账不得当豁免用)。
+ */
+export function loadAllowedDiffs(repoRoot, face) {
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + ALLOWED_DIFFS_REL
+  const got = catBatch(repoRoot, [spec], { maxBuffer: 1 << 24 })
+  const text = got.get(spec)
+  if (text === null || text === undefined) return { entries: [], present: false, problem: null }
+  try {
+    const doc = JSON.parse(text)
+    if (!doc || typeof doc !== 'object' || !Array.isArray(doc.entries))
+      return { entries: [], present: true, problem: 'entries 不是数组(允许差异登记表坏了)' }
+    return { entries: doc.entries, present: true, problem: null }
+  } catch (e) {
+    return { entries: [], present: true, problem: `不是合法 JSON:${e?.message ?? e}` }
+  }
+}
+
 export function faceFromArgv(argv) {
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
@@ -4596,13 +4753,15 @@ export function faceFromArgv(argv) {
 
 export function main(argv, repoRoot = ROOT) {
   const pairAll = argv.includes('--pair-all')
-  let face, collected, baseline
+  let face, collected, baseline, allowedDoc
   let rejProblems = []
   let rejNames = []
   let aliases = {}
   try {
     face = faceFromArgv(argv)
     baseline = loadBaseline(repoRoot, face)
+    // 允许差异表与台账同面取材:两面必须来自同一枚提交,否则"索引里登记了、HEAD 面没登记"会互相打脸。
+    allowedDoc = loadAllowedDiffs(repoRoot, face)
     /** 拆对声明先校验再喂给 collect:一条坏声明(无理由 / 过期 / 不是对象)必须判红,
      *  绝不能因为"解析不出"就退回默认档继续把这条族当配对算。 */
     const rej = baseline.pairingRejects ?? {}
@@ -4647,6 +4806,14 @@ export function main(argv, repoRoot = ROOT) {
     collected.cssVars ?? null,
   )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
+  /**
+   * 允许差异登记判据(2026-11-02 立):与 `verdictOf` 分开两本账。判的是"这条差异有没有登记、
+   * 登记有没有到期、读数有没有超过登记额度",不是"存量锚点有没有上升"。三条都要进退出码:
+   * 没有 `unregistered` 支,删掉登记表就能让全部分叉安静下来;没有 `expired` 支,白名单会腐化。
+   * `present:false` 也计一条红:登记表缺席时"所有差异都未登记",不能读成"没有任何差异"。
+   */
+  const allowed = allowedDiffVerdict(res.findings, allowedDoc.entries)
+  const allowedRed = allowed.red.length + (allowedDoc.problem ? 1 : 0) + (allowedDoc.present ? 0 : 1)
   /**
    * 台账里"被 web 腿钉过"的族名单。**在 JSON 分支之前算**:`--json` 那一支也在同一块作用域里,
    * 放到函数末尾会让它读到 TDZ 中的 const(症状是崩溃,不是"少一个字段")。
@@ -4782,6 +4949,23 @@ export function main(argv, repoRoot = ROOT) {
         exitNotes: collected.exitNotes ?? [],
         red: res.red,
         waived: res.waived.length,
+        /**
+         * 允许差异登记表(2026-11-02 立)。机器面与退出码读同一次 `allowed`:
+         * `unregistered` 是"没登记的差异",`expired` 是"登记到期而差异仍在",二者都必须红。
+         */
+        allowedDiff: {
+          registry: allowedDoc.present ? 'present' : 'absent',
+          problem: allowedDoc.problem ?? null,
+          registered: allowedDoc.entries.length,
+          matched: allowed.matched.length,
+          unregistered: allowed.unregistered.length,
+          expired: allowed.expired.length,
+          over: allowed.over.length,
+          shrunk: allowed.shrunk.length,
+          invalid: allowed.invalid.length,
+          platform: allowed.platform,
+          red: allowed.red,
+        },
         /**
          * RS(根槽位维):**层**进入判据的读数。它与 RD 并列而非替换 ——
          * RD 的 `radiusSeen` 只说明两端文件里出现过的档集合,而集合相等**不证明同一元素同档**
@@ -5471,6 +5655,17 @@ export function main(argv, repoRoot = ROOT) {
       '  ⓘ 逐族欠债账(只读尺子,不进提交链):node scripts/cross-end-ui-parity-debt.mjs' +
         ' —— 按欠债降序点名每一族;与在册快照对比可看涨跌。',
     )
+  if (!argv.includes('--json')) {
+    console.log(
+      `  允许差异登记 ${allowedDoc.entries.length} 条(命中 ${allowed.matched.length} · 未登记 ${allowed.unregistered.length} · 到期 ${allowed.expired.length} · 超量 ${allowed.over.length} · 收缩 ${allowed.shrunk.length} · 条目坏 ${allowed.invalid.length} · 平台 ${allowed.platform.length})` +
+        ';到期后重新报红,防止白名单腐化(§12e)',
+    )
+    for (const x of allowed.red) console.log(`  × AD ${x.component} ${x.key}:${x.why}`)
+    for (const x of allowed.shrunk)
+      console.log(
+        `  · AD ${x.component} ${x.key}:差异 ${x.count} < 登记额度 ${x.allowed}(收缩不判红,到期前可下调额度)`,
+      )
+  }
   const rotRed = res.rot.length ? 1 : 0
   /**
    * **web 腿的死亡机制**:台账里挂着 web 锚点、而本轮这一族一条记录都没产出 ⇒ 红。
@@ -5503,6 +5698,12 @@ export function main(argv, repoRoot = ROOT) {
     return 1
   }
   if (aliasRed) return 1
+  // AD(允许差异登记)独立先判支:与 CS/WD 同形,刻意不并入下面那条被自检锁钉住的求和行。
+  if (allowedRed > 0) {
+    if (!argv.includes('--json'))
+      console.log(`  × AD 折进退出码:未放行差异 ${allowedRed} 条(未登记/到期/超量/条目坏/登记表缺席)`)
+    return 1
+  }
   return rotRed +
     res.red.length +
     icRed.length +
@@ -5592,6 +5793,10 @@ export const __test__ = {
   elementRadiusDiff,
   elementRadiusCount,
   waiverProblem,
+  allowedDiffProblem,
+  allowedDiffVerdict,
+  loadAllowedDiffs,
+  ALLOWED_DIFFS_REL,
   faceFromArgv,
   chooseBaseline,
   parseBaseline,
