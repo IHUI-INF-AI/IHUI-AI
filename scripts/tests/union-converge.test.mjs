@@ -712,6 +712,41 @@ test('planStateRegressions 必须拦"归并把整块登记放大"(F6 在 KEYS �
   assert.equal(U.planStateRegressions(oneSide, [oneSide, oneSide]).length, 0, '块数等值不得判红')
 })
 
+test('F6 行级预算口径(2026-11-01 半格死锁收口):预算内涌现不拦但必报名,真放大照拦', () => {
+  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const BLK = [
+    LP('- 涌现行一:两侧各多份漂移副本,行级 union 重组拼出逐字相同块'),
+    LP('- 涌现行二:第二行,过块级阈值'),
+    LP('- 涌现行三:第三行'),
+  ].join('\n')
+  const SEP = '### 分隔'
+  // 涌现:两侧各两份(每行两侧最大重数 = 2 = 行级预算),归并两份 ⇒ 预算内,不拦但必须报名。
+  // 实测锚点(2026-11-01 生产死锁):某波次块首行三面各 4 份、各面内漂移 ⇒ verbatim 全 0,
+  // union 产物 verbatim=1 —— 旧"块数比块数"口径在这里判恒红,git-sync-converge 被卡死无自动出口。
+  const bothSides = `## 甲\n${BLK}\n${SEP}\n${BLK}\n`
+  const rOk = U.planStateRegressions(bothSides, [bothSides, bothSides])
+  assert.equal(
+    rOk.filter((x) => x.startsWith('F6')).length,
+    0,
+    '行级预算内的重组涌现块不得判红(union 语义上不可满足的恒红,§12e)',
+  )
+  assert.equal(
+    (rOk.emergentBlocks || []).length,
+    1,
+    '预算内涌现必须报名(报数要点名,不是"判过"),实测 ' + JSON.stringify(rOk.emergentBlocks),
+  )
+  assert.equal(rOk.emergentBlocks[0].copies, 2)
+  assert.equal(rOk.emergentBlocks[0].budget, 2)
+  // 真放大(2026-09-26 事故型):一侧两份(预算 2)、对侧一份,归并三份 ⇒ 3 > 2 照红。
+  const side2 = `## 甲\n${BLK}\n${SEP}\n${BLK}\n`
+  const side1 = `## 甲\n${BLK}\n`
+  const merged3 = `## 甲\n${BLK}\n${SEP}\n${BLK}\n${SEP}二\n${BLK}\n`
+  const rBad = U.planStateRegressions(merged3, [side2, side1])
+  const f6 = rBad.filter((x) => x.startsWith('F6'))
+  assert.equal(f6.length, 1, '份数超行级预算的真放大必须判红,实测 ' + JSON.stringify(rBad))
+  assert.ok(f6[0].includes('行级预算 2'), '红项必须点名行级预算,实测 ' + f6[0])
+})
+
 /**
  * 反假红锁:`core.quotepath` 默认 true 会把中文路径输出成 `"...\346\226\207..."`,
  * 而落地闸拿这份转义串去合并树里找同名路径 ⇒ 找不到 ⇒ 判"合并树丢了对侧路径"。
