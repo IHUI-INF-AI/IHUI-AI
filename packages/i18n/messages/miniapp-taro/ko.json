@@ -1086,7 +1086,7 @@
     "useCount": "{n}명 사용",
     "join": {
       "title": "그룹 가입",
-      "message": "「{name}」 가입을 신청했습니다"
+      "message": "「{name}」에 가입했습니다"
     },
     "cardMembers": "멤버",
     "detailEnter": "채팅 입장",
@@ -4774,7 +4774,7 @@
     "taskRunning": "실행 중…",
     "taskEmpty": "작업이 없거나 아직 불러오지 않음",
     "taskResult": "실행 결과",
-    "taskUnjudged": "미판정: 업스트림 응답을 해석할 수 없어 이번 결과를 성공으로 볼 수 없습니다."
+    "taskUnjudged": "업스트림 응답을 해석하지 못해 이번 결과는 미판정입니다(성공 아님)"
   },
   "developerInfo": {
     "title": "개발자 정보",
