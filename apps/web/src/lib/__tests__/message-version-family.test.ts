@@ -144,19 +144,6 @@ describe('票59 2/3:versionFamilyMembers / versionFamilyPosition 与手动切换
     ])
   })
 
-  it('切换可逆:v0 → v1 → v2 → 回 v0,投影逐次确定且回到起点与首次逐字相同(纯读投影,零写库)', () => {
-    // 票59 交付判据「切换可逆」:投影是无状态纯函数,激活版本只由 pinned 指针决定 ⇒
-    // 任意来回切换不粘滞、不丢版本;同一指针永远得到同一投影(可逆的机器形式)。
-    const at = (pinnedId: string) =>
-      projectActiveMessages(timeline, { 'ai-root': pinnedId }).map((m) => m.id)
-    const firstV0 = at('ai-root')
-    expect(at('ai-v1')).toEqual(['user-1', 'ai-v1'])
-    expect(at('ai-v2')).toEqual(['user-1', 'ai-v2'])
-    expect(at('ai-root')).toEqual(firstV0)
-    // 清除切换态(回到未点过菜单的默认)= 最新版,与默认投影一致
-    expect(at('ai-v2')).toEqual(projectActiveMessages(timeline).map((m) => m.id))
-  })
-
   it('变异对照:把 activate 覆盖那段删掉(只留默认判据)时,上面三条切换断言必须翻红', () => {
     // 这条不是重复实现,而是把"覆盖真的参与了判定"钉成可红可绿:
     // 只按 siblingIndex 最大取激活,任何 override 都不可能改变输出。

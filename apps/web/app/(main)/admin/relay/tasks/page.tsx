@@ -194,9 +194,7 @@ export default function RelayTasksPage() {
                         </div>
                       )}
                     {t.lastRunStale && (
-                      <div className="text-xs text-amber-600">
-                        心跳疑似停摆(超 3 个节律周期无新心跳)
-                      </div>
+                      <div className="text-xs text-amber-600">心跳疑似停摆(超 3 个节律周期无新心跳)</div>
                     )}
                   </td>
                   <td className="text-muted-foreground px-3 py-2 text-xs">
