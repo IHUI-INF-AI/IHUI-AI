@@ -42,6 +42,13 @@ interface OperatorData {
 
 type StatsTab = 'day' | 'month' | 'sum'
 
+/** 分佣比例行 —— 真值接 GET /distribution/commission-rates(与分佣计划页同一端点,
+ *  档位/比例全部取自后端在册配置;不做硬编兜底,未配置时如实渲染空态)。 */
+interface RateRow {
+  level: string
+  rate: string
+}
+
 export default function DistributionIndex() {
   const tt = useTt()
   const user = useUserStore((s) => s.user)
@@ -55,6 +62,8 @@ export default function DistributionIndex() {
   const [submitting, setSubmitting] = useState(false)
   // 佣金概览块的重取令牌:每次页面显示(useDidShow)递增,块内同批拉 /distribution/overview
   const [overviewTick, setOverviewTick] = useState(0)
+  // 分佣比例档位(对齐 RN DistributionScreen 的 ratesCard;空数组 ⇒ 空态)
+  const [rateRows, setRateRows] = useState<RateRow[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +72,18 @@ export default function DistributionIndex() {
       if (!res?.verified) setShowVerify(true)
     } catch {
       // ignore
+    }
+    // 分佣比例(对齐 RN ratesCard 的取数):失败按空态处理,不编造比例
+    try {
+      const res = await api.get<{ rates?: Record<string, string> }>('/distribution/commission-rates')
+      setRateRows(
+        Object.entries(res?.rates ?? {}).map(([level, rate]) => ({
+          level,
+          rate: String(rate ?? ''),
+        })),
+      )
+    } catch {
+      setRateRows([])
     }
   }, [])
 
@@ -323,6 +344,31 @@ export default function DistributionIndex() {
               <Text className="dist-menu-label">{item.label}</Text>
             </View>
           ))}
+        </View>
+
+        {/* 分佣比例 —— 对齐 RN DistributionScreen 的 ratesCard:标题 + 逐档 level/rate;
+            未配置时如实给空态,不拿硬编比例顶位 */}
+        <View className="mt-[24rpx] bg-card ui-card rounded-lg p-[28rpx]">
+          <Text className="block text-title font-semibold text-foreground mb-[16rpx]">
+            {tt('earnCommission.rateTitle', '分佣比例')}
+          </Text>
+          {rateRows.length === 0 ? (
+            <Text className="block text-body text-muted-foreground text-center py-[16rpx]">
+              {tt('earnCommission.rateEmpty', '暂无分佣比例')}
+            </Text>
+          ) : (
+            rateRows.map((row) => (
+              <View
+                key={row.level}
+                className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx] mb-[16rpx]"
+              >
+                <Text className="flex-1 text-body font-medium text-foreground">{row.level}</Text>
+                <Text className="text-title font-bold text-[var(--color-primary)] min-w-[88rpx]">
+                  {row.rate}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
 
         {/* 分销佣金概览(等级/佣金比例/收益卡/提现/分销商品)— 对齐 RN 容器底部渲染的共享屏 */}
