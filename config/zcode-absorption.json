@@ -640,7 +640,7 @@
     {
       "path": "packages/desktop/src",
       "status": "windowed",
-      "files": 233,
+      "files": 150,
       "read": 66,
       "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。〔10-30 g35-s15:index.ts 已拆出为子片，本串中「index.ts+遥测族 14/14」那枚改由子片记账。〕〔10-30 g35-s21:遥测/ARMS 12 枚 + processResource* 15 枚 + resourceManager* 4 枚共 31 枚已逐枚拆出为子片(各 deep 1/1 带行数兑现);本片 files 264→233、read 97→66(父子不同计一枚,全表 read 之和守恒),本串「遥测族 14/14」「剩余 processResource*/resourceManager* ≈25」两处改由子片记账。〕",
       "tickets": ["G-379"],
@@ -8879,6 +8879,267 @@
         }
       ],
       "why": "b75-1 否证:上游 settings 域产品面/样式原语/小件,无票价值或绑上游产品域;可迁移思想已记机制段备查。重开条件:我方建同类资源管理设置页时按机制段对照实现。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopEarlyDataBaseDirBootstrap.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopEarlyDataBaseDirBootstrap.ts:1-3"],
+      "tickets": [],
+      "readFiles": [
+        { "p": "packages/desktop/src/main/desktopEarlyDataBaseDirBootstrap.ts", "lines": 3 }
+      ]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopEarlyChromiumHardwareAccelerationBootstrap.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/src/main/desktopEarlyChromiumHardwareAccelerationBootstrap.ts:1-4"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopEarlyChromiumHardwareAccelerationBootstrap.ts",
+          "lines": 4
+        }
+      ]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopLaunchMarks.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopLaunchMarks.ts:6-16"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopLaunchMarks.ts", "lines": 17 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopCuaPipIpc.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopCuaPipIpc.ts:10-19"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopCuaPipIpc.ts", "lines": 20 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopBrowserDataIpc.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopBrowserDataIpc.ts:9-20"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopBrowserDataIpc.ts", "lines": 21 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopProviderConfig.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopProviderConfig.ts:10-20"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopProviderConfig.ts", "lines": 21 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopZoom.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopZoom.ts:1-20"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopZoom.ts", "lines": 21 }]
+    },
+    {
+      "path": "packages/desktop/src/main/zcodeDataSizeWorker.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/zcodeDataSizeWorker.ts:10-20"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/zcodeDataSizeWorker.ts", "lines": 21 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopElectronApp.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopElectronApp.ts:10-21"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopElectronApp.ts", "lines": 22 }]
+    },
+    {
+      "path": "packages/desktop/src/main/electronCpuNormalization.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/electronCpuNormalization.ts:10-21"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/electronCpuNormalization.ts", "lines": 22 }]
+    },
+    {
+      "path": "packages/desktop/src/main/storageScanWorkerProtocol.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/storageScanWorkerProtocol.ts:17-26"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/storageScanWorkerProtocol.ts", "lines": 27 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopDarwinCloseBehavior.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopDarwinCloseBehavior.ts:13-30"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopDarwinCloseBehavior.ts", "lines": 31 }]
+    },
+    {
+      "path": "packages/desktop/src/main/remoteCdn.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/remoteCdn.ts:15-31"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/remoteCdn.ts", "lines": 32 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopHelpConfig.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopHelpConfig.ts:9-33"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopHelpConfig.ts", "lines": 34 }]
+    },
+    {
+      "path": "packages/desktop/src/main/localTtftExportDedupe.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/localTtftExportDedupe.ts:10-33"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/localTtftExportDedupe.ts", "lines": 34 }]
+    },
+    {
+      "path": "packages/desktop/src/main/unreadBadge.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/unreadBadge.ts:3-34"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/unreadBadge.ts", "lines": 35 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopPrintToPdf.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopPrintToPdf.ts:11-34"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopPrintToPdf.ts", "lines": 36 }]
+    },
+    {
+      "path": "packages/desktop/src/main/e2eCoverage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/e2eCoverage.ts:7-35"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/e2eCoverage.ts", "lines": 36 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopLinuxXdg.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopLinuxXdg.ts:25-37"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopLinuxXdg.ts", "lines": 38 }]
+    },
+    {
+      "path": "packages/desktop/src/main/mcpUserDirectory/types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/mcpUserDirectory/types.ts:22-37"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/mcpUserDirectory/types.ts", "lines": 38 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopWindowChromeState.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopWindowChromeState.ts:15-38"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/desktopWindowChromeState.ts", "lines": 39 }]
+    },
+    {
+      "path": "packages/desktop/src/main/storageScanWorker.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/storageScanWorker.ts:15-42"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/storageScanWorker.ts", "lines": 43 }]
+    },
+    {
+      "path": "packages/desktop/src/main/resourceMetricsStats.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/resourceMetricsStats.ts:15-44"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/resourceMetricsStats.ts", "lines": 45 }]
+    },
+    {
+      "path": "packages/desktop/src/main/desktopDataBaseDirBootstrap.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopDataBaseDirBootstrap.ts:6-46"],
+      "tickets": [],
+      "readFiles": [
+        { "p": "packages/desktop/src/main/desktopDataBaseDirBootstrap.ts", "lines": 47 }
+      ]
+    },
+    {
+      "path": "packages/desktop/src/main/mcpUserDirectory/utils.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/mcpUserDirectory/utils.ts:37-50"],
+      "tickets": [],
+      "readFiles": [{ "p": "packages/desktop/src/main/mcpUserDirectory/utils.ts", "lines": 51 }]
     },
     {
       "path": "packages/desktop/src/main/about.ts",
