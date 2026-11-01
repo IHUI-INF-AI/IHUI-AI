@@ -331,11 +331,12 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout setup-python install-uv install-deps syntax-check
+          TRIAGE_IDS: checkout setup-python install-uv install-deps probe-dev-extra syntax-check
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
           O_INSTALL_UV: ${{ steps.install-uv.outcome }}
           O_INSTALL_DEPS: ${{ steps.install-deps.outcome }}
+          O_PROBE_DEV_EXTRA: ${{ steps.probe-dev-extra.outcome }}
           O_SYNTAX_CHECK: ${{ steps.syntax-check.outcome }}
         run: cd ../../ && bash scripts/ci-failure-triage.sh
 

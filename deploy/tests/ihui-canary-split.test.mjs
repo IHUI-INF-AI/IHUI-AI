@@ -20,10 +20,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../../scripts/lib/scratch-dir.mjs'
-import { readContract, routingKeyOf, laneFor, createHealthCache, createSplitServer } from '../win/ihui-canary-split.mjs'
+import {
+  createLaneStatsWriter,
+  createHealthCache,
+  createSplitServer,
+  laneFor,
+  readContract,
+  routingKeyOf,
+} from '../win/ihui-canary-split.mjs'
 
 const CONTRACT_JSON = (percent, extra = {}) => JSON.stringify({
   v: 1,
@@ -63,6 +70,12 @@ function contractFile(content) {
 function absentContractFile() {
   if (!scratchDir) scratchDir = mkScratch('canary-split-')
   return join(scratchDir, `absent-${process.pid}-${Math.random().toString(36).slice(2)}.json`)
+}
+
+/** 车道计数落盘夹具路径(目录由写入器自己建)。 */
+function statsFile(name = 'split-stats.json') {
+  if (!scratchDir) scratchDir = mkScratch('canary-split-')
+  return join(scratchDir, `stats-${process.pid}-${Math.random().toString(36).slice(2)}`, name)
 }
 
 test.after(() => {
@@ -280,6 +293,103 @@ test('T12 端到端:契约缺失且无现网端口 ⇒ 503 点名,且进程不�
     }
   } finally {
     split.close()
+  }
+})
+
+/**
+ * T13–T15 钉 2026-11-01 立的「车道计数落盘出口」:灰度期"到底放过多少量"必须有持久产物。
+ * 成对夹具:T13 正向(接了出口 ⇒ 有产物且与客户端读数一致)、T14 反向(摘掉出口 ⇒ 无产物,
+ * 证明 T13 的产物真来自这格而不是别的)、T15 落盘写不进去也不得拖垮转发。
+ */
+test('T13 计数面:接上 onLane 落盘出口 ⇒ 持久计数存在且与客户端读数逐车道一致', async () => {
+  const stable = await startEchoUpstream()
+  const canary = await startEchoUpstream()
+  const contractPath = contractFile(CONTRACT_JSON(50, { slots: { stable: { port: stable.port }, canary: { port: canary.port } } }))
+  const statsPath = statsFile()
+  const writer = createLaneStatsWriter({ statsPath, everyN: 4, throttleMs: 0 })
+  const split = createSplitServer({
+    contractPath,
+    health: { isUp: async () => true },
+    onLane: writer.observe,
+    stablePortFallback: stable.port,
+  })
+  const splitPort = await listen(split)
+  const tally = { stable: 0, canary: 0 }
+  try {
+    for (let i = 0; i < 12; i += 1) {
+      const res = await fetch(`http://127.0.0.1:${splitPort}/`, {
+        headers: { 'x-ihui-canary-key': `t13-${i}` },
+      })
+      await res.text()
+      const lane = res.headers.get('x-ihui-canary-lane')
+      if (lane === 'stable' || lane === 'canary') tally[lane] += 1
+    }
+    writer.flush()
+    const doc = JSON.parse(readFileSync(statsPath, 'utf8'))
+    assert.deepEqual(doc.lanes, tally, '持久计数必须与客户端实测逐车道一致')
+    assert.equal(doc.contractPercent, 50, '落盘必须带上当时的契约比例(读侧要能对比"期望 vs 实切")')
+    assert.ok(doc.updatedAt, '落盘必须带 updatedAt(读数账龄)')
+    assert.ok(typeof doc.fallback === 'number' && typeof doc.contractMissing === 'number')
+    assert.ok(tally.canary > 0 && tally.stable > 0, '夹具本身必须真的两车道都走过')
+  } finally {
+    await new Promise((r) => split.close(r))
+    stable.srv.close()
+    canary.srv.close()
+  }
+})
+
+test('T14 计数面(反向对照):摘掉落盘出口 ⇒ 磁盘上没有产物(证明 T13 的产物来自这一格)', async () => {
+  const stable = await startEchoUpstream()
+  const contractPath = contractFile(CONTRACT_JSON(0, { slots: { stable: { port: stable.port }, canary: { port: stable.port + 1 } } }))
+  const statsPath = statsFile()
+  const split = createSplitServer({
+    contractPath,
+    health: { isUp: async () => true },
+    stablePortFallback: stable.port,
+  })
+  const splitPort = await listen(split)
+  try {
+    for (let i = 0; i < 5; i += 1) {
+      const res = await fetch(`http://127.0.0.1:${splitPort}/`, {
+        headers: { 'x-ihui-canary-key': `t14-${i}` },
+      })
+      await res.text()
+    }
+    assert.equal(existsSync(statsPath), false, '没接出口却冒出计数文件 ⇒ 产物来源另有其处,T13 就是假绿')
+  } finally {
+    await new Promise((r) => split.close(r))
+    stable.srv.close()
+  }
+})
+
+test('T15 计数面:落盘写不进去 ⇒ 只点名,不得拖垮转发(观测面绝不能打死分流器)', async () => {
+  const stable = await startEchoUpstream()
+  const contractPath = contractFile(CONTRACT_JSON(0, { slots: { stable: { port: stable.port }, canary: { port: stable.port + 1 } } }))
+  const errs = []
+  const writer = createLaneStatsWriter({
+    statsPath: statsFile(),
+    everyN: 1,
+    onError: (e) => errs.push(String(e?.message ?? e)),
+    writeFileSync: () => {
+      throw new Error('夹具:磁盘坏了')
+    },
+  })
+  const split = createSplitServer({
+    contractPath,
+    health: { isUp: async () => true },
+    onLane: writer.observe,
+    stablePortFallback: stable.port,
+  })
+  const splitPort = await listen(split)
+  try {
+    const res = await fetch(`http://127.0.0.1:${splitPort}/`, { headers: { 'x-ihui-canary-key': 't15' } })
+    const body = await res.text()
+    assert.equal(res.status, 200, '观测出口写失败绝不能把请求打挂')
+    assert.equal(body, `upstream:${stable.port}`)
+    assert.ok(errs.length >= 1, '写失败必须点名(哑掉的观测出口等于没有出口)')
+  } finally {
+    await new Promise((r) => split.close(r))
+    stable.srv.close()
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

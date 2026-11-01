@@ -407,6 +407,16 @@ function Invoke-CanaryGate {
         }
         # 2) 进程编排:-SplitOnly = 灰度实例无产物时也要让契约有一个真进程消费
         #    (分流器自带"灰度槽位不在位 ⇒ 回落 stable",永远不会把请求打到空端口)
+        # 1' 先把"灰度产物来源与顺序"现检一遍(2026-11-01 立):这一格曾经 20/20 轮静默空转
+        #    (换流把 .next-staging 整份搬走,灰度排在之后永远拿不到产物,却照样 advance),
+        #    判据住在 deploy/win/ihui-canary-artifact.mjs,本层只搬运它的结论、不重写判据(§0.6)。
+        $artifactCli = Join-Path $WinDir 'ihui-canary-artifact.mjs'
+        if (Test-Path -LiteralPath $artifactCli) {
+            $artOut = (& $Node $artifactCli 2>&1 | Out-String)
+            foreach ($ln in ($artOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray-artifact] {0}" -f $ln.Trim()) } }
+        } else {
+            Log "GRAY 未判定:灰度产物来源判据不在位($artifactCli)⇒ 不猜它绿,照常走后面的灰度编排"
+        }
         $gpOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action start -SplitOnly -Sha ([string]$script:LastDeploySha) -StateDir $stateDir 2>&1 | Out-String)
         foreach ($ln in ($gpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
         $splitUp = ($LASTEXITCODE -eq 0)
@@ -438,6 +448,37 @@ function Invoke-CanaryGate {
         return $false
     }
     $dArgs = @($scriptPath, '--decide', '--policy', $samplePolicy, '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
+    # ── 灰度「实切量」读数(2026-11-01 立)──────────────────────────────────────
+    # 立因:分流器把车道只写进响应头(排障用),契约文件写的是**期望比例**,决策台账写的是**判定
+    # 结论** —— 灰度期结束后"到底放过多少量"没有任何持久产物(演练里的 22/400 只在夹具内由客户端
+    # 算出)。执行体现在落到 .ihui-agent\state\canary\split-stats.json(观测面,唯一生产者 =
+    # deploy/win/ihui-canary-split.mjs 的计数出口;判据 = ihui-canary-wiring.mjs W11/W12)。
+    # 纪律:这枚读数**只进日志与台账 reason,绝不进回滚阈值、绝不进告警去重身份**(身份 = action +
+    # 完整 sha;把会抖的计数写进身份 = 每轮都是"新故障",AGENTS §5e-3)。取不到 ⇒ 如实写"未判定",
+    # 不拿 0 冒充"没放过量"(§0.3)。采样窗刚跑完,此刻的累计正好覆盖整窗。
+    $grayRealSplit = 'GRAY 实切=未判定(计数产物取不到)'
+    $splitStatsPath = Join-Path $stateDir 'split-stats.json'
+    if (Test-Path -LiteralPath $splitStatsPath) {
+        try {
+            $splitDoc = Get-Content -LiteralPath $splitStatsPath -Raw | ConvertFrom-Json
+            $splitStable = [int]$splitDoc.lanes.stable
+            $splitCanary = [int]$splitDoc.lanes.canary
+            $splitTotal = $splitStable + $splitCanary
+            if ($splitTotal -le 0) {
+                $grayRealSplit = 'GRAY 实切=0/0 占比=-(分流器累计无请求)'
+            } else {
+                $splitShare = [Math]::Round(100.0 * $splitCanary / $splitTotal, 1)
+                $splitWant = if ($null -eq $splitDoc.contractPercent) { '取不到' } else { "$($splitDoc.contractPercent)%" }
+                $grayRealSplit = ('GRAY 实切={0}/{1} 占比={2}%(分流器进程累计;契约比例={3},回落={4},契约缺失={5})' -f `
+                        $splitCanary, $splitTotal, $splitShare, $splitWant, [int]$splitDoc.fallback, [int]$splitDoc.contractMissing)
+            }
+        } catch {
+            Log "GRAY 未判定:分流器计数产物读不出($splitStatsPath):$_"
+        }
+    } else {
+        Log "GRAY 未判定:分流器没有计数产物($splitStatsPath 不在位)⇒ 实切量未判定,不拿 0 冒充"
+    }
+    $dArgs += @('--reason-append', $grayRealSplit)
     # 首次运行没有基线 ⇒ 只按绝对阈值判(判断器内部如实记"无基线",本层不补默认值)。
     if (Test-Path -LiteralPath $baseline) { $dArgs += @('--baseline', $baseline) }
     $dOut = (& $Node @dArgs 2>&1 | Out-String)
@@ -455,9 +496,18 @@ function Invoke-CanaryGate {
     if ($graySampledFrom -eq 'canary' -or $canaryUp) { $canaryServing = 'yes' }
     elseif ($splitUp) { $canaryServing = 'no' }
     $verdictWord = if ($dRc -eq 0) { 'pass' } elseif ($dRc -eq 3) { 'fail' } else { 'unknown' }
+    # 档位推进只许吃「真的量过候选」的那份判定(§0.3:未判定不得折成判过)。
+    # 灰度实例不在位时,观察窗量的是现网端点(采样面=stable)——那份读数描述的是已经在跑的
+    # 构建,不是候选。实测 2026-11-01:近 20 轮 20/20 灰度无产物,却照样 --decide --verdict pass
+    # 并打「依据=判定通过 ⇒ ramp-1 → ramp-2」⇒ 升档这一格从来是空的。现按 unknown 交回推进器。
+    $rampVerdict = $verdictWord
+    if ($graySampledFrom -ne 'canary') {
+        $rampVerdict = 'unknown'
+        Log ("GRAY 档位推进依据=unknown(采样面={0},灰度实例未参与)⇒ 不升档、不记「判定通过」;观察窗对现网端点的结论仍按上面那行如实记录" -f $graySampledFrom)
+    }
     if ($splitUp -or ($grayStage -ne 'off')) {
         if (Test-Path -LiteralPath $grayStageCli) {
-            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --canary-serving $canaryServing --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            $advOut = (& $Node $grayStageCli --decide --verdict $rampVerdict --canary-serving $canaryServing --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
             foreach ($ln in ($advOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
             if ($LASTEXITCODE -ne 0) {
                 Log "GRAY 未判定:档位推进没判出(rc=$LASTEXITCODE)⇒ 契约保持本轮读到的档位,不猜"
@@ -470,6 +520,9 @@ function Invoke-CanaryGate {
             }
         }
     }
+    # 档位决策之后:把"实切了多少量"落到日志(同一枚读数已经随 --reason-append 进了决策台账)。
+    # 这一行是灰度期唯一的人类可读实切证据;判据尺子 = ihui-canary-wiring.mjs W11。
+    Log $grayRealSplit
 
     if ($dRc -eq 0) {
         if ($graySampledFrom -eq 'canary') {
@@ -783,8 +836,14 @@ function Invoke-PollOnce {
         }
         # ---- 2b) 记账与绿色态(O65 O6502 记账腿 / O6503 记号腿)----
         # 记账条件 = 本轮墙钟 ≥1 分钟(真的动过构建/部署);behind=0 的秒退不进账,否则额度被空转吃光。
+        # 失败轮/成功轮口径分开(2026-11-01 立):实测近 24h 38 条账里 rc=1 占 31 次 / 472 分钟(76%),
+        # 熔断读到的墙钟几乎全是失败轮 ⇒ 一次编译错误就把生产发布黑成一整天(熔断排在 fetch 之前,
+        # 停的是"部署"这件事本身)。现在失败轮按 cost-caps.json 的 failChargeCapMinutes 封顶记账,
+        # 实墙钟逐条留在台账 minutesWall —— 封顶不是免单:次数照记,连败照样撞 perHour/perDay 闸。
+        # 配额数值(perDay / minutesPerDay)一个字没改:上调额度归机主侧人工阀。
         if ($roundMinutes -ge 1) {
-            $budgetOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --charge --kind deploy --minutes $roundMinutes --note "deploy-loop rc=$roundRc" 2>&1 | Out-String)
+            $roundOutcome = if ($deployDoneThisRound) { 'ok' } elseif ($roundRc -eq 0) { 'unknown' } else { 'fail' }
+            $budgetOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --charge --kind deploy --minutes $roundMinutes --outcome $roundOutcome --note "deploy-loop rc=$roundRc" 2>&1 | Out-String)
             foreach ($ln in ($budgetOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [budget] $($ln.Trim())" } }
         }
         # ---- 2c) 金丝雀观察窗(O65 第 2 期「上线闭环」)----

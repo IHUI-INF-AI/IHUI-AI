@@ -9405,6 +9405,50 @@
         "invalid_arguments": {
           "title": "送信された内容に誤りがあります",
           "action": "確認してから再試行"
+        },
+        "ADVISOR_BUDGET_EXHAUSTED": {
+          "title": "このセッションのアドバイザー相談回数を使い切りました",
+          "action": "新しいセッションで続けるか、管理者に相談上限の引き上げを依頼してください"
+        },
+        "ADVISOR_IDENTITY_REQUIRED": {
+          "title": "相談リクエストに所有者とセッションの識別情報がありません",
+          "action": "再ログイン後に相談し直してください"
+        },
+        "ADVISOR_MODEL_UNAVAILABLE": {
+          "title": "指定したアドバイザーモデルを呼び出せませんでした",
+          "action": "別のモデルを選ぶか、しばらくしてから再試行"
+        },
+        "ADVISOR_PROMPT_EMPTY": {
+          "title": "相談用のプロンプトが空です",
+          "action": "相談したい質問を入力してから再試行"
+        },
+        "ADVISOR_PROMPT_TOO_LONG": {
+          "title": "相談用のプロンプトが長さ上限を超過しています",
+          "action": "内容を短くまとめるか分割してから再相談"
+        },
+        "BAD_MAX_TOKENS": {
+          "title": "maxTokens が整数ではありません",
+          "action": "maxTokens に正の整数を指定してツリーの描画を再試行"
+        },
+        "INSTANCE_NOT_VISIBLE": {
+          "title": "ワークフローのインスタンスが見つからないか表示できません",
+          "action": "インスタンス ID を確認するか、所有者のアカウントに切り替え"
+        },
+        "PRINCIPAL_REQUIRED": {
+          "title": "呼び出し元の身元が確認できないため、他端末の操作を拒否しました",
+          "action": "再ログイン後、本人のセッションでその操作を実行し直してください"
+        },
+        "RENDER_FAILED": {
+          "title": "ディレクトリツリーの描画に失敗しました",
+          "action": "対象フォルダを狭めるか maxTokens を下げて再試行"
+        },
+        "SCHEDULER_ERROR": {
+          "title": "定期タスクの一覧を読み取れません",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの点検を依頼"
+        },
+        "WORKFLOW_NOT_TRIGGERABLE": {
+          "title": "このワークフローは現在トリガーできません",
+          "action": "存在・有効化・実行中のインスタンスなしを確認してから再試行"
         }
       },
       "worktree": {

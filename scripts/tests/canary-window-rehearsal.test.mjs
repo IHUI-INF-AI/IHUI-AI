@@ -151,4 +151,50 @@ test('R3 分流契约面:0% / 100% 边界与非法比例 fail-closed', async () 
     await canary.close()
   }
 })
+
+// 2026-11-01 立:灰度期"到底放过多少量"必须有**持久产物**,不能只在客户端内存里算。
+// 正反成对:接了出口 ⇒ 落盘读数与客户端逐车道一致;摘掉出口 ⇒ persisted=null(无产物)。
+// 演练主档那一格(`用例 X:持久车道计数存在且与客户端读数一致`)摘掉即 exit 1。
+test('⑥ 车道计数持久出口:接了出口 ⇒ 落盘读数=客户端读数;摘了出口 ⇒ 无产物(成对对照)', async () => {
+  const stable = await startFixture({ mode: 'ok' })
+  const canary = await startFixture({ mode: 'ok' })
+  const contract = (percent) => {
+    const p = scratchFile(`contract-stats-${percent}-${Math.random().toString(36).slice(2)}.json`)
+    writeFileSync(p, `${JSON.stringify({
+      v: 1,
+      stage: 'test',
+      percent,
+      routingKeyHeader: 'x-ihui-canary-key',
+      tagHeader: 'x-canary-tag',
+      bucketGranularity: 10000,
+      bucketSalt: 'ihui-deploy-canary',
+      slots: { stable: { port: stable.port }, canary: { port: canary.port } },
+    }, null, 2)}\n`, 'utf8')
+    return p
+  }
+  try {
+    const statsPath = scratchFile('split-stats-positive.json')
+    const wired = await measureSplit({
+      contractPath: contract(50),
+      keys: 40,
+      stablePortFallback: stable.port,
+      statsPath,
+    })
+    assert.ok(wired.persisted, '接了出口必须读得到持久计数(读不到 = 灰度期无产物,演练必须翻红)')
+    assert.equal(wired.persisted.lanes.canary, wired.canary)
+    assert.equal(wired.persisted.lanes.stable, wired.stable)
+    assert.equal(wired.persisted.contractPercent, 50, '落盘要带当时的契约比例,读侧才能比"期望 vs 实切"')
+    assert.ok(wired.persisted.updatedAt, '落盘必须带 updatedAt(读数账龄)')
+
+    const bare = await measureSplit({
+      contractPath: contract(50),
+      keys: 20,
+      stablePortFallback: stable.port,
+    })
+    assert.equal(bare.persisted, null, '没接出口却冒出产物 ⇒ 上面那条正向对照是假的')
+  } finally {
+    await stable.close()
+    await canary.close()
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
