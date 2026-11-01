@@ -92,7 +92,7 @@ export interface BackChevronPlatform<UB extends string | number, S, E> {
   /** 逻辑 px → 图标墨迹的平台单位**数值**(RN:dp;小程序:rpx 数) */
   glyphUnit: (px: number) => number
   /** 系统字号缩放倍率(小程序端无此通道,注入 `() => 1`) */
-  readFontMultiplier: () => number
+  useFontMultiplier: () => number
   /** 可按压容器(内部合成盒子视图 + 按压态) */
   Pressable: ComponentType<BackChevronPressableProps<UB, S, E>>
   /** 图标字形 */
@@ -131,7 +131,7 @@ export function BackChevronCore<UB extends string | number, S, E>({
   testID,
   className,
 }: BackChevronCoreProps<UB, S, E>) {
-  const multiplier = platform.readFontMultiplier()
+  const multiplier = platform.useFontMultiplier()
   const boxStyle = backChevronBoxStyle(platform.toUnit)
   const glyphSize = platform.glyphUnit(Math.round(backChevronGlyphPx() * multiplier))
 

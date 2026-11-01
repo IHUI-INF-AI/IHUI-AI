@@ -10,7 +10,7 @@
  *     拉进被检程序(根桶事故同型);而"只在注释里禁止"拦不住任何东西;
  *  ② 核心行为(几何 / 按压 / 字号 / 透传)—— 注入 capturing 原语直调函数,不渲染:
  *     墨迹 = round(档位 × 注入倍率)、pressed 恒定 0.6、调用方 style 原样透传;
- *  ③ RN 壳接线 —— 五件原语(Pressable/View/ChevronLeft/readFontMultiplier/单位换算)在壳里,
+ *  ③ RN 壳接线 —— 五件原语(Pressable/View/ChevronLeft/useFontMultiplier/单位换算)在壳里,
  *     pressed 落在子 View 的**数组**样式上(守门 131:函数形态 style 会被 cssInterop 整份吃掉),
  *     壳不重复取尺寸档(真相源只有核心);
  *  ④ Taro 壳接线 + hoverClass 同值 —— 'opacity-60' 与 BACK_CHEVRON_PRESSED_OPACITY 的
@@ -185,8 +185,8 @@ function rnWiringProblems(src: string): string[] {
   if (!/from\s+['"]lucide-react-native['"]/.test(code) || !/<ChevronLeft[\s/>]/.test(code)) {
     out.push('RN 壳未注入 lucide-react-native ChevronLeft 字形(守门 102 的矢量出口)')
   }
-  if (!/from\s+['"]\.\/MoreLink['"]/.test(code) || !code.includes('readFontMultiplier')) {
-    out.push('RN 壳未注入 readFontMultiplier(./MoreLink,系统字号缩放通道)')
+  if (!/from\s+['"]\.\/MoreLink['"]/.test(code) || !code.includes('useFontMultiplier')) {
+    out.push('RN 壳未注入 useFontMultiplier(./MoreLink,系统字号缩放通道)')
   }
   if (!/\btoUnit\s*:/.test(code)) out.push('RN 壳未注入 toUnit(盒子几何单位换算)')
   if (!/\bglyphUnit\s*:/.test(code)) out.push('RN 壳未注入 glyphUnit(墨迹单位换算)')
@@ -241,7 +241,7 @@ function taroWiringProblems(src: string): string[] {
   if (!/glyphUnit\s*:\s*\(px[^)]*\)\s*=>\s*px\s*\*\s*TARO_RPX_PER_PX/.test(code)) {
     out.push('Taro 壳 glyphUnit 未给 rpx 数值(LineIcon 的 size 收数值,它自己再按 H5/原生换算)')
   }
-  if (!/readFontMultiplier\s*:\s*\(\)\s*=>\s*1/.test(code)) {
+  if (!/useFontMultiplier\s*:\s*\(\)\s*=>\s*1/.test(code)) {
     out.push('Taro 壳字号倍率未注入恒 1(小程序端无系统字号缩放通道)')
   }
   out.push(...specReFetchedIn(code, 'Taro'))
@@ -291,7 +291,7 @@ function makePlatform(
   return {
     toUnit,
     glyphUnit: (px) => px,
-    readFontMultiplier: () => multiplier,
+    useFontMultiplier: () => multiplier,
     Pressable: CapturingPressable,
     Glyph: StubGlyph,
   }
@@ -364,7 +364,7 @@ describe('② 核心行为:几何 / 按压 / 字号 / 透传(capturing 原语直
     const glyph = base.seen.children as ReactElement<BackChevronGlyphProps>
     expect(glyph.props.size).toBe(geometryPx('glyphMd'))
     expect(glyph.props.size).toBe(backChevronGlyphPx())
-    // 1.4 是 RN readFontMultiplier 的上限:20 × 1.4 = 28 取整后仍是整数,
+    // 1.4 是 RN useFontMultiplier 的上限:20 × 1.4 = 28 取整后仍是整数,
     // 若漏乘倍率这里会是 20、若不取整会是 28.000000000000004 之类
     const scaled = renderCore(makePlatform(1.4))
     const glyphScaled = scaled.seen.children as ReactElement<BackChevronGlyphProps>
