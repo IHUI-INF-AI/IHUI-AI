@@ -213,14 +213,14 @@ def test_session_extra_roots_expire_and_are_capped() -> None:
     store = mcp_server._SESSION_EXTRA_ROOTS
     store._clock = lambda: now[0]
     with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
-        mcp_server.set_session_extra_roots("conv-A", [d1])
+        mcp_server.set_session_extra_roots("conv-A", [d1], allowed_roots=[d1])
         assert mcp_server.get_session_extra_roots("conv-A"), "刚登记的授权必须生效"
         # 显式移除路径仍可用(它此前只是没被接线)
         mcp_server.clear_session_extra_roots("conv-A")
         assert mcp_server.get_session_extra_roots("conv-A") == ()
         # 时间推过 TTL ⇒ 未显式清理的授权也必须失效
         now[0] = 1.0
-        mcp_server.set_session_extra_roots("conv-B", [d2])
+        mcp_server.set_session_extra_roots("conv-B", [d2], allowed_roots=[d2])
         now[0] = 7 * 3600.0
         assert mcp_server.get_session_extra_roots("conv-B") == (), "会话级扩权不得跨会话永生"
     # 上限:刷会话不得让授权表无限增长

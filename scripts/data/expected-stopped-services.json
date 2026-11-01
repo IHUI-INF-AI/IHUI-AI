@@ -14,6 +14,12 @@
       "supersededBy": ["IHUI-WEB-ROUTER", "IHUI-WEB-GREEN", "IHUI-WEB-BLUE"],
       "since": "2026-10-29",
       "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-TMP-CHROME",
+      "reason": "瞬态无头 Chrome(agent 自动化浏览器):nssm 包装 C:\\Users\\Administrator\\.agent-browser\\browsers\\chrome-156.0.8078.73\\chrome.exe --headless=new --remote-debugging-port=9333 --user-data-dir=D:\\tmp\\cdp\\profile,Manual 启动、停在 D:\\tmp\\cdp。仓库与自愈白名单/排除台账均未登记,既非生产常驻服务、也不接任何流量;停着是常态(由上游 agent 工具按需拉起/释放),把它拉起反而平白开一个调试端口的无头浏览器。故判『停着是设计内』:不再刷红、自愈也不碰。若日后确有业务依赖它常驻,移除此条即恢复报警。",
+      "since": "2026-11-01",
+      "reviewBy": "2027-01-01"
     }
   ],
   "blueGreen": {
