@@ -42,6 +42,18 @@
  *         它存在的全部意义是"别把这一下冒泡给外层遮罩",按下去本来就不该有事发生。
  *         真实动作(`onPress={() => open(id)}`)照判。
  *       两档的放过数量必须出现在结论行里(静默放过 = 没量到,§0.3 同型)。
+ *      2026-11-01 再补同族三格(HEAD 面现读残留 3 处全是遮罩,反证已量:整屏写法在本仓
+ *      射程内只有遮罩用途;`activeOpacity={1}` 写法 12 枚里 7 枚坐真按钮上,所以**没有**
+ *      按"关了默认反馈"整档放过 —— 那条路是消红通道,不走):
+ *       - **遮罩表引用改名失配**(UserInfoCard:282 实证):`scrimByStyle` 原只认字面
+ *         `styles.` 前缀,样式对象改名 `newStyles.` 后表键查不到。表键与 const 名无关,
+ *         改为认"以 styles/style 结尾的引用名 + 表内确有该键"(G-211 同型更正)。
+ *       - **证据在唯一子元素上的 TouchableWithoutFeedback**(ProfileScreen:1924 实证):
+ *         TWF 按 RN 契约不接 style —— "证据写在自己的 props 区"对它字面上永远不可能;
+ *         整层可见部分百分百是那枚子 View。四条同时成立才收:恰一枚子元素/实底过
+ *         既有遮罩三出口/整屏铺满声明/tag 逐字 TWF。真按钮挂不上 TWF 的实底还过不了黑底尺。
+ *       - **满屏透明承接层**(tooltip:111、dialog/sheet 同型):`flex-1` 且自己无任何底/框/影,
+ *         根子元素 pointerEvents="none" 或自吞触摸 ⇒ 这层没有任何像素可暗,按下去=关层。
  *
  * 档位取 36 不取 44:本仓既定档就是 `tapBox: 36`(geometry.js 注明对齐 web 顶栏 `w-9`,
  * 两端已各自对齐到它)。另立一个 44 就是造第二份真相,比漏判更糟。要改档值须先改那张表。
@@ -274,8 +286,9 @@ function styleTable(code) {
         const entryClose = matchBrace(code, i)
         if (entryClose < 0) break
         if (km) {
-          const dims = topDims(code.slice(i + 1, entryClose))
-          const bg = topColors(code.slice(i + 1, entryClose))
+          const entryBody = code.slice(i + 1, entryClose)
+          const dims = topDims(entryBody)
+          const bg = topColors(entryBody)
           const prev = map.get(km[1])
           map.set(
             km[1],
@@ -284,8 +297,9 @@ function styleTable(code) {
                   w: [...prev.w, ...dims.w],
                   h: [...prev.h, ...dims.h],
                   bg: [...prev.bg, ...bg],
+                  raw: prev.raw + ',' + entryBody,
                 }
-              : { w: dims.w, h: dims.h, bg },
+              : { w: dims.w, h: dims.h, bg, raw: entryBody },
           )
         }
         i = entryClose + 1
@@ -435,6 +449,13 @@ function isTranslucentBlack(color) {
   if (rgba && Number(rgba[1]) < 1) return true
   const hex8 = /^#000000([0-9a-fA-F]{2})$/.exec(color.trim())
   if (hex8 && parseInt(hex8[1], 16) < 255) return true
+  // 成员引用形态(rk.black50 / rnCssLight.black30)：尾段命中现读 token 名单才算。
+  // 名单取全局 SCRIM_TOKENS(主流程从被审面的 rn-tokens 注入)；名单空 ⇒ 不认(更严方向)。
+  const ref = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.exec(color.trim())
+  if (ref && SCRIM_TOKENS.size > 0) {
+    const seg = ref[0].split('.').pop()
+    if (SCRIM_TOKENS.has(seg)) return true
+  }
   return false
 }
 
@@ -449,10 +470,18 @@ function isScrim(props) {
   return false
 }
 
-/** props 里引用了哪个 styles.KEY,且那个键自己写着半透明黑底 ⇒ 也是遮罩。 */
+/**
+ * props 里引用了哪个 <样式对象>.KEY,且那个键自己写着半透明黑底 ⇒ 也是遮罩。
+ * 2026-11-01 更正(门 273 遮罩档第三型):取引用名原先只认字面 `styles.` —— StyleSheet.create
+ * 的表键与 const 名**无关**(styleTable 只按表键建索引),样式对象改名成 `newStyles.`/`coverStyles.`
+ * 就回溯不到引用,把遮罩误计成"缺反馈"(UserInfoCard:282 实证)。G-211 是同型教训:
+ * "分诊尺只认 styles. 前缀 ⇒ 那 12 处'判不出'不是世界判不了,是尺子的事"。
+ * 现在认"以 styles/style 结尾(任意大小写)的对象名 + 表内确有该键";查不到键照旧落空(不猜)。
+ */
 function scrimByStyle(props, table) {
-  for (const m of props.matchAll(/styles\.([A-Za-z_$][\w$]*)/g)) {
-    const e = table.get(m[1])
+  for (const m of props.matchAll(/(?<![0-9A-Za-z_$])[0-9A-Za-z_$]*[Ss]tyles?\.[0-9A-Za-z_$][0-9A-Za-z_$]*/g)) {
+    const key = m[0].slice(m[0].lastIndexOf('.') + 1)
+    const e = table.get(key)
     if (e && Array.isArray(e.bg) && e.bg.some((v) => isTranslucentBlack(v) || isScrimToken(v, SCRIM_TOKENS)))
       return true
   }
@@ -490,17 +519,86 @@ function isScrimToken(props, tokenNames) {
   return false
 }
 
+/** 样式证据判定链(遮罩三出口共用):自己的 props 里有没有半透黑/表键解析/token 名单。 */
+function scrimEvidence(props, table, tokenNames) {
+  return isScrim(props) || scrimByStyle(props, table) || isScrimToken(props, tokenNames)
+}
+
+/** 整屏铺满的证据:flex-1 类 / 表或内联的 flex:1 / absoluteFill / 全 inset 归零。 */
+function isFillEvidence(props, table) {
+  if (/className\s*=\s*"[^"]*\bflex-1\b/.test(props)) return true
+  if (/style=\{\s*StyleSheet\.absoluteFill(?:Object)?\s*\}/.test(props)) return true
+  const styleEq = /style=\{([^}]*)\}/.exec(props)
+  if (styleEq && /flex\s*:\s*1\b/.test(styleEq[1])) return true
+  for (const m of props.matchAll(/(?<![0-9A-Za-z_$])[0-9A-Za-z_$]*[Ss]tyles?\.[0-9A-Za-z_$][0-9A-Za-z_$]*/g)) {
+    const key = m[0].slice(m[0].lastIndexOf('.') + 1)
+    const e = table.get(key)
+    if (e && typeof e.raw === 'string' && /flex\s*:\s*1\b/.test(e.raw)) return true
+  }
+  if (/position\s*:\s*['"]absolute['"]/.test(props) && /\binset\s*:\s*0\b/.test(props)) return true
+  return false
+}
+
 /**
- * 满屏可点面(`style={StyleSheet.absoluteFill}` 且自闭合)。
- * 这一层自己没有任何视觉 —— absoluteFill 只有 position 与四边归零,按下叠透明度在屏幕上
- * 一个像素都变化不出来。对它提"要有按压反馈"是量不到东西的判据(与遮罩同一族:
- * 它按下去的动作就是关层)。
- * 收窄到两条同时成立:① style 属性区**逐字只有**这一个常量(数组追加/内联实底一律不算,
- * 那种层有自己的视觉);② 自闭合(带 children 的层里面有可见内容,照判)。
+ * 遮罩证据写在**唯一子元素**上的那一种(2026-11-01 补,ProfileScreen:1924 实证):
+ * `TouchableWithoutFeedback` 是 RN 里唯一**结构上挂不了自己的视觉**的可点原语 ——
+ * 它既不接 style 也不接 className(RN 契约),整层的可见部分百分百就是它的那一枚子 View。
+ * 所以对它,"证据要在元素自己的 props 区里"这一原则在字面上永远满足不了:证据只能在子元素上,
+ * 而子元素的样式**就是这层遮罩自己的样式**(不是"越过标签去看别人的按钮")。
+ * 收窄到四条同时成立,缺一条即照判:
+ *  ① tag 逐字 `TouchableWithoutFeedback`;② 包装层之后到配对闭标签之间**恰有一枚元素**
+ *  (表达式/文本/多子一律不算);③ 那枚子元素的 props 过既有遮罩三出口(半透黑实底证据,
+ *  不透明黑不算 —— 与整门的既有纪律同一把尺);④ 子元素声明整屏铺满(`isFillEvidence`)。
+ * 真按钮走不到这一档:按钮的样式要么写在自己身上(原口径照判),要么根本挂不上
+ * (TWF 不收 style)且实底是不透明/非黑 ⇒ ③ 不过。
  */
-function isFillLayer(props, selfClosing) {
-  if (!selfClosing) return false
-  return /style=\{\s*StyleSheet\.absoluteFill(?:Object)?\s*\}/.test(props)
+function scrimByChild(tag, childrenRegion, table, tokenNames) {
+  if (tag !== 'TouchableWithoutFeedback') return false
+  const region = String(childrenRegion || '').trim()
+  if (!region) return false
+  const one = /^<((?:[A-Za-z][\w$]*\.)?([A-Z][\w$]*))\b/.exec(region)
+  if (!one) return false
+  const el = elementRange(region, 0, one[2])
+  if (!el || !el.closed) return false
+  const tail = region.slice(el.end).trim()
+  if (tail) return false // 父级子树里除这一枚外还有东西 ⇒ 不认
+  return scrimEvidence(el.props, table, tokenNames) && isFillEvidence(el.props, table)
+}
+
+/**
+ * 满屏可点面。2026-11-01 起两种形态同档(计数分桶,都要出现在结论行里 —— 静默放过=没量到):
+ *  ① 自闭合的 `style={StyleSheet.absoluteFillObject?}`(原档一字不收:逐字只有这一个常量,
+ *     数组追加/内联实底一律不算,那种层有自己的视觉);
+ *  ② 满屏**透明**承接层:`className="flex-1"`(或 absoluteFill 非自闭合形态)且 props 里
+ *     **没有任何底/框/影** —— 这层自己没有任何像素可暗;它唯一(或多枚)直接子元素要么
+ *     `pointerEvents="none"` 要么自己吞下触摸(`onStartShouldSetResponder`),即"内容都不坐在
+ *     这层上"。tooltip:111 实证:浮层是 pointerEvents="none" 的 absolute 气泡,叠透明度
+ *     把全屏连气泡一起闪一下是观感缺陷,不是反馈。
+ *     带可见底子的满屏按钮(② 的第③条不过)与带文字的自闭合面(①不收非自闭)照判。
+ * 方向自证:①② 都**不要求**黑底证据(它本来就是透明的)——放过的是"量不到东西"的判据,
+ * 不是"缺反馈"的豁免;真按钮必然有自己的视觉(② 第②条拦下)。
+ */
+function isFillLayer(props, selfClosing, childrenRegion, table) {
+  const absFill = /style=\{\s*StyleSheet\.absoluteFill(?:Object)?\s*\}/.test(props)
+  if (selfClosing && absFill) return true
+  if (!selfClosing && !absFill && /className\s*=\s*"[^"]*\bflex-1\b[^"]*"/.test(props)) {
+    if (/backgroundColor|border(?:Color)?\s*[:=]|shadowOffset/.test(props)) return false
+    if (/className\s*=\s*"[^"]*\b(?:bg|border|shadow)-/.test(props)) return false
+    // 证据只看**根子元素自己的 props 区**(子树深处的 pointerEvents 不算 —— 可能只是装饰)：
+    // 要么整层内容声明"不接触摸"(pointerEvents="none"，tooltip 气泡型)，
+    // 要么根子元素自己吞下触摸(onStartShouldSetResponder，dialog/sheet 卡片型)——
+    // 两种都是"点击落在这层空白上=关层，内容不坐在这层上"。按下给整层叠透明度会连
+    // 内容一起暗一下 —— 那正是要避免的闪屏，不是反馈。
+    const kids = String(childrenRegion || '')
+    if (!/^\s*</.test(kids)) return false
+    const tagName = /^<\/?([A-Z][\w$]*)/.exec(kids.trim())[1]
+    const el = elementRange(kids, kids.indexOf('<'), tagName)
+    if (!el) return false
+    const noPointer = /pointerEvents\s*=\s*(?:"none"|\{\s*"none"\s*\})/.test(el.props)
+    const swallows = /onStartShouldSetResponder\s*=/.test(el.props)
+    return noPointer || swallows
+  }
+  return false
 }
 
 /**
@@ -549,6 +647,7 @@ function scanText(text, minTap, rel = '') {
   const skipped = []
   const fillLayers = []
   const inertPresses = []
+  const childScrims = []
   const crossEnd = !rel.startsWith('apps/mobile-rn/')
   for (const m of stripped.matchAll(CLICKABLE_RE)) {
     const line = stripped.slice(0, m.index).split('\n').length
@@ -567,12 +666,21 @@ function scanText(text, minTap, rel = '') {
     }
     if (!r.hit) skipped.push(r.why)
     const after = stripped.slice(end, end + 160)
-    const scrim = isScrim(props) || scrimByStyle(props, table) || isScrimToken(props, SCRIM_TOKENS)
+    // 父元素的配对闭标签：子树证据一律切到 `</tag>` 之前，免得把兄弟节点读进来
+    const par = elementRange(stripped, m.index, tag)
+    const childrenInner =
+      par && !par.selfClosing && par.closed
+        ? stripped.slice(end, Math.max(end, par.end - (tag.length + 3)))
+        : ''
+    const scrimSelf = isScrim(props) || scrimByStyle(props, table) || isScrimToken(props, SCRIM_TOKENS)
+    const scrimKid = !scrimSelf && scrimByChild(tag, childrenInner, table, SCRIM_TOKENS)
+    const scrim = scrimSelf || scrimKid
     // 自闭合的信号在标签闭合处(props 区不含 `/`),所以按 stripped 的 end-2 取
     const selfClosing = stripped[end - 2] === '/'
-    const fillLayer = !scrim && isFillLayer(props, selfClosing)
+    const fillLayer = !scrim && isFillLayer(props, selfClosing, childrenInner, table)
     const inert = !scrim && !fillLayer && isInertPress(props)
-    if (fillLayer) fillLayers.push({ line, tag })
+    if (scrimKid) childScrims.push({ line, tag })
+    if (fillLayer) fillLayers.push({ line, tag, kind: selfClosing ? 'absoluteFill' : 'transparentHitLayer' })
     if (inert) inertPresses.push({ line, tag })
     if (
       !scrim &&
@@ -586,7 +694,7 @@ function scanText(text, minTap, rel = '') {
   }
   const h3 = scanKeyboard(text)
   const h4 = scanFontLock(text)
-  return { h1, h2, skipped, slopOnly, h3, h4, fillLayers, inertPresses }
+  return { h1, h2, skipped, slopOnly, h3, h4, fillLayers, inertPresses, childScrims }
 }
 
 /**
@@ -995,6 +1103,65 @@ function runSelfTest() {
   const realPress = scan('<Pressable style={styles.card} onPress={() => open(id)}><View /></Pressable>')
   ok(realPress.h2.length === 1, 'H2 失守:真实动作的 onPress 不得被吞点击档放过')
 
+  // —— 2026-11-01 三格遮罩补档,正反成对(每格一条"该放过的必须放过"、一条"不该放过的必须照判")。
+  // ① 改名失配:同一张表、同一个键,引用面写成 newStyles. 也要查到(旧版只认字面 styles. —— G-211 同型)。
+  const sheetTok = 'const newStyles = StyleSheet.create({\n  modalOverlay: { flex: 1, backgroundColor: rk.black50 },\n})\n'
+  setScrimTokens(new Set(['black50']))
+  const renamScrim = scan(
+    sheetTok + '<TouchableOpacity style={newStyles.modalOverlay} activeOpacity={1} onPress={close}><Text>卡片</Text></TouchableOpacity>',
+  )
+  ok(renamScrim.h2.length === 0, 'H2 过头:遮罩表键被改名成 newStyles. 就不认了(表键与 const 名无关)')
+  const renamSolid = scan(
+    'const newStyles = StyleSheet.create({\n  modalOverlay: { flex: 1, backgroundColor: \'#000000\' },\n})\n' +
+      '<TouchableOpacity style={newStyles.modalOverlay} activeOpacity={1} onPress={close}><Text>卡片</Text></TouchableOpacity>',
+  )
+  ok(renamSolid.h2.length === 1, 'H2 失守:改名档反例 —— 表键是不透明实底仍须判(泛化引用名不得泛化黑底尺)')
+  // 反例二:整档放过 activeOpacity={1} 是消红通道(现读 12 枚里 7 枚坐真按钮上),必须仍判。
+  const ao1Button = scan(
+    '<TouchableOpacity activeOpacity={1} style={{ width: 60, height: 40, backgroundColor: \'#fff\' }} onPress={submit}><Text>提交</Text></TouchableOpacity>',
+  )
+  ok(ao1Button.h2.length === 1, 'H2 失守:activeOpacity={1} 的真按钮不得因遮罩补档被整档放过')
+  // ② 证据在唯一子元素上的 TWF(RN 契约: TWF 不接 style,证据只能在子 View 上)。
+  const twfScrim = scan(
+    'const styles = StyleSheet.create({\n  videoModalOverlay: { flex: 1, backgroundColor: \'rgba(0,0,0,0.92)\' },\n})\n' +
+      '<TouchableWithoutFeedback onPress={close}><View style={styles.videoModalOverlay}><Text>弹层内容</Text></View></TouchableWithoutFeedback>',
+  )
+  ok(twfScrim.h2.length === 0, 'H2 过头:TWF 结构上挂不了 style,遮罩证据在唯一子 View 上必须认')
+  const twfTwoKids = scan(
+    'const styles = StyleSheet.create({\n  videoModalOverlay: { flex: 1, backgroundColor: \'rgba(0,0,0,0.92)\' },\n})\n' +
+      '<TouchableWithoutFeedback onPress={close}><View style={styles.videoModalOverlay} /><View /></TouchableWithoutFeedback>',
+  )
+  ok(twfTwoKids.h2.length === 1, 'H2 失守:TWF 子树多于恰一枚元素 ⇒ 不认(收窄条件 ④ 的反例)')
+  const twfNoBlack = scan(
+    'const styles = StyleSheet.create({\n  sheetCard: { flex: 1, backgroundColor: \'#ffffff\' },\n})\n' +
+      '<TouchableWithoutFeedback onPress={close}><View style={styles.sheetCard} /></TouchableWithoutFeedback>',
+  )
+  ok(twfNoBlack.h2.length === 1, 'H2 失守:子元素是白底整屏容器不是遮罩,照判')
+  const twfNoDim = scan(
+    '<TouchableWithoutFeedback onPress={close}><View style={styles.unresolved} /></TouchableWithoutFeedback>',
+  )
+  ok(twfNoDim.h2.length === 1, 'H2 失守:子元素样式查不到实底证据(跨文件/未知键)⇒ 落盲区照判,不猜')
+  // ③ 满屏透明承接层:自己没有底/框/影、根子元素不接触摸或自吞触摸 ⇒ 没有任何像素可暗。
+  const voidHit = scan(
+    '<Pressable className="flex-1" onPress={hide}><Animated.View pointerEvents="none"><View><Text>气泡</Text></View></Animated.View></Pressable>',
+  )
+  ok(voidHit.h2.length === 0, 'H2 过头:flex-1 全透明承接层按下量不到像素,必须放过')
+  const voidSwallow = scan(
+    '<Pressable className="flex-1" onPress={close}><View onStartShouldSetResponder={() => true}><Text>卡片</Text></View></Pressable>',
+  )
+  ok(voidSwallow.h2.length === 0, 'H2 过头:根子元素自吞触摸的满屏层(dialog/sheet 型)同样放过')
+  const voidCardBtn = scan(
+    '<Pressable className="flex-1 bg-card" onPress={go}><View><Text>提交</Text></View></Pressable>',
+  )
+  ok(voidCardBtn.h2.length === 1, 'H2 失守:带可见底子的 flex-1 是自己的视觉,满屏不是豁免(反向例)')
+  const voidDeepPointer = scan(
+    '<Pressable className="flex-1" onPress={go}><View><Text>提交</Text><View pointerEvents="none">装饰</View></View></Pressable>',
+  )
+  ok(voidDeepPointer.h2.length === 1, 'H2 失守:pointerEvents 藏在子树深处(根子元素正常接触摸)⇒ 不算承接层')
+  const voidPlainBox = scan('<Pressable className="flex-1" onPress={go}><Text>提交</Text></Pressable>')
+  ok(voidPlainBox.h2.length === 1, 'H2 失守:直接子是 Text(内容坐在这层上)照判')
+  setScrimTokens(new Set())
+
   // Tappable 进可点原语表后,两个方向都要钉:自带反馈要放行,命中尺寸这一维不得对它失明。
   const tappable = scan('<Tappable style={{ width: 40, height: 40 }} onPress={go}><Text>a</Text></Tappable>')
   ok(tappable.h2.length === 0, 'H2 过头:Tappable 自己持有 pressed,结构上就有反馈')
@@ -1151,6 +1318,9 @@ function main() {
   let blind = 0
   let slopOnlyTotal = 0
   let fillLayerTotal = 0
+  let fillAbsTotal = 0
+  let fillVoidTotal = 0
+  let childScrimTotal = 0
   let inertTotal = 0
   let h4Glyph = 0
   let h4Content = 0
@@ -1184,6 +1354,9 @@ function main() {
     blind += r.skipped.length
     slopOnlyTotal += r.slopOnly.length
     fillLayerTotal += r.fillLayers.length
+    fillAbsTotal += r.fillLayers.filter((v) => v.kind === 'absoluteFill').length
+    fillVoidTotal += r.fillLayers.filter((v) => v.kind === 'transparentHitLayer').length
+    childScrimTotal += r.childScrims.length
     inertTotal += r.inertPresses.length
     h4Glyph += r.h4.glyph.length
     h4Content += r.h4.content.length
@@ -1196,7 +1369,7 @@ function main() {
 
   if (!quiet) {
     console.log(
-      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(提交链绝对零容忍,2026-10-31 存量 34→0;闭标签配不平的候选不进这一维 ⇒ 落盲区不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查);满屏可点面(absoluteFill 自闭合)放过 ${fillLayerTotal} 处 / 吞点击容器放过 ${inertTotal} 处(两档各带反向自检例,带视觉或真实动作的照判)`,
+      `[check-rn-interaction-hygiene] 面=${FACE_LABEL[face]} | ${files.length} 文件 | 档位 ${minTap}(现读 ${GEO_REL}) | 命中尺寸<${minTap}: ${totalH1} 处 / ${perFile.size} 文件;无按压反馈: ${totalH2} 处;滚动容器含输入框却没写 keyboardShouldPersistTaps: ${totalH3} 处(提交链绝对零容忍,2026-10-31 存量 34→0;闭标签配不平的候选不进这一维 ⇒ 落盲区不判红);盲区(静态判不了): ${blind} 处;关系统字号缩放: ${h4Content} 处内容文字 / ${h4Glyph} 处图标字形 / ${h4Scaled} 处已按倍率同比放大(只报数,两桶各有合法用途);只靠 hitSlop 过关的跨端源: ${slopOnlyTotal} 处(小程序腿无该机制,本门不判红、进普查);满屏可点面放过 ${fillLayerTotal} 处(absoluteFill 自闭合 ${fillAbsTotal} / 透明承接层 ${fillVoidTotal}) / 遮罩证据在唯一子元素上的 TWF 放过 ${childScrimTotal} 处 / 吞点击容器放过 ${inertTotal} 处(各档均带反向自检例,带视觉、真实动作或子树多于一枚的照判)`,
     )
     if (argv.includes('--list')) {
       for (const [rel, r] of perFile)
@@ -1291,6 +1464,8 @@ export const __test__ = {
   setScrimTokens,
   isScrimToken,
   isFillLayer,
+  scrimByChild,
+  isFillEvidence,
   isInertPress,
   scanKeyboard,
   elementRange,
