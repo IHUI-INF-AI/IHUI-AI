@@ -23,6 +23,7 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { contextEngineService } from '../services/context-engine-service.js'
+import { getConversationAccess } from '../db/chat-conversation-access.js'
 
 const mentionQuerySchema = z.object({
   q: z.transform(emptyToUndefined).pipe(z.string().max(255).optional()),
@@ -347,6 +348,13 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     }
     const { conversationId } = parsed.data
     try {
+      // 2026-11-01 安全强化:会话摘要的读/清此前**只过 requireAuth**,conversationId 由客户端给,
+      // 于是任何登录用户带别人的会话 id 就能读走他人摘要(或把它清掉)。归属判据收在
+      // db/chat-conversation-access.ts 单源(本人会话 ∪ 已接受协作成员);取不到访问权一律 404
+      // —— 存在性本身是信息,不回 403。
+      if (!(await getConversationAccess(conversationId, request.userId))) {
+        return reply.status(404).send(error(404, '会话记忆不存在'))
+      }
       const data = await contextEngineService.getSessionMemory(conversationId, request.userId)
       return reply.send(success(data))
     } catch (e) {
@@ -368,6 +376,10 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     }
     const { conversationId } = parsed.data
     try {
+      // 同 GET /memory:清除是**破坏性**动作,必须先证可达性(判据单源,见文件顶部注记)。
+      if (!(await getConversationAccess(conversationId, request.userId))) {
+        return reply.status(404).send(error(404, '会话记忆不存在'))
+      }
       const cleared = await contextEngineService.clearSessionMemory(conversationId)
       return reply.send(success({ cleared }))
     } catch (e) {
