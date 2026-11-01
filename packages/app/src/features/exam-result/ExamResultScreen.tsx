@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -24,6 +25,11 @@ export function ExamResultScreen({
 }: ExamResultScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主。path 是**列表页**而非本页 ⇒ 必须显式发布,交宿主兜底会把落点改成成绩页自己。
+  usePublishShareIntent({
+    title: item ? t('exam.result.shareTitle', { n: item.score }) : t('share.appTitle'),
+    path: '/pages/exam/list',
+  })
 
   if (loading) {
     return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />

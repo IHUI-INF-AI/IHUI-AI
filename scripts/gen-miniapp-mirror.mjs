@@ -733,7 +733,9 @@ export function buildShellPage({
     L.push('  })')
     L.push('  useShareTimeline(() => {')
     L.push('    const intent = shareHost.read()')
-    L.push('    const info = getTimelineShareInfo(intent?.title, intent?.imageUrl)')
+    L.push(
+      '    const info = getTimelineShareInfo(intent?.timelineTitle ?? intent?.title, intent?.imageUrl)',
+    )
     L.push('    const own = intent?.query ?? currentPageShareQuery(router)')
     L.push("    return { ...info, query: [own, info.query].filter(Boolean).join('&') }")
     L.push('  })')

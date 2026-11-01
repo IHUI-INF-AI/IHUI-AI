@@ -393,3 +393,23 @@ test('B14 判据侧单源:销账现读生成器出口,不自立符号白名单',
   )
   assert.match(SRC, /export const __test__ = \{[\s\S]*?screenPublishesShare,/, '判据必须可 import')
 })
+
+test('B15 朋友圈卡标题独立于转发卡标题(原页两张卡取的是不同文案键)', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText:
+      'export function CourseTabScreen(){ usePublishShareIntent({ title: t("share.appTitle"), timelineTitle: t("share.timelineTitle") }) }\n',
+  })
+  assert.match(
+    out,
+    /getTimelineShareInfo\(intent\?\.timelineTitle \?\? intent\?\.title/,
+    '朋友圈卡必须优先取 timelineTitle,缺省才回落 title',
+  )
+  assert.match(
+    out,
+    /getShareInfo\(intent\?\.path \?\? currentPageSharePath\(router\), intent\?\.title/,
+    '转发卡仍取 title(两张卡不得共用一个字段而互相污染)',
+  )
+})

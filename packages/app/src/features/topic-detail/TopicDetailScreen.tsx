@@ -13,6 +13,7 @@
 import { useMemo } from 'react'
 import { FlatList, Image, Pressable, RefreshControl, Text, View } from 'react-native'
 import { Heart, MessageCircle, PenLine } from 'lucide-react-native'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { formatDateByTemplate, formatRelativeTime } from '@ihui/shared/utils/date-utils'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -92,6 +93,11 @@ export function TopicDetailScreen({
 }: TopicDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createTopicDetailStyles(tk), [tk])
+  // 分享正文交给宿主:原页两张卡各取一个文案键,标题带「#」前缀 ⇒ 逐字段复刻(落点与本页路由同形,交宿主兜底)
+  usePublishShareIntent({
+    title: topic.name ? `#${topic.name}` : t('share.appTitle'),
+    timelineTitle: topic.name ? `#${topic.name}` : t('share.timelineTitle'),
+  })
 
   const renderPost = ({ item }: { item: TopicDetailPostView }) => (
     // 卡片无边距(内容自定高)⇒ 外层不设 style,命中盒等于卡片可视盒;pressed 淡出落内层数组形态。
