@@ -86,6 +86,24 @@ class Rename:
     basis: str
     hamming: int | None = None
 
+    @property
+    def kind(self) -> str:
+        """票面对侧形状:精确档 `rename`,近同档 `rename_candidate`。"""
+        return "rename" if self.basis == RENAME_BASIS_HASH else "rename_candidate"
+
+    @property
+    def distance(self) -> int:
+        """两快照内容的汉明距离。精确档逐字节相同 ⇒ 恒为 0(`hamming is None` 不参与)。"""
+        return 0 if self.hamming is None else self.hamming
+
+    @property
+    def needs_reembed(self) -> bool:
+        """是否仍须重嵌入。只有精确档允许跳过 —— 近同档内容**已经变过**。
+
+        派生自 `basis` 而不是另存布尔,避免"basis 与布尔各说各话"的一型。
+        """
+        return self.basis != RENAME_BASIS_HASH
+
 
 @dataclass(frozen=True)
 class RenameReport:
