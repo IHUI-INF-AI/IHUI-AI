@@ -62,8 +62,8 @@ function logStorageFailure(op: string, key: string | null, err: unknown, warn = 
 /**
  * 基础 storage 抽象:JSON 序列化 + null 兜底 + 错误静默
  *
- * 区别于 createJsonTransport(transport.ts):
- * - createJsonTransport 是 transport 装饰器,作用在 transport 之上
+ * 区别于 stores/transport.ts 的 transport 工厂:
+ * - transport 工厂只负责"怎么读写字符串",作用在端侧 storage 之上
  * - createJsonStorage 是独立工厂,内部自带 transport,直接面向业务
  *
  * @example

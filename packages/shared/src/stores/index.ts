@@ -10,7 +10,7 @@
  * - createUserStore:User profile(可泛型 TProfile)
  * - createThemeStore:Theme mode + accent + font + highContrast
  * - transport 抽象:createMemoryTransport / createSyncTransport / createAsyncTransport
- *               / createJsonTransport / createSSRSafeTransport
+ *               / createSSRSafeTransport
  *
  * 设计原则:
  * 1. 零运行时依赖:除 zustand 外不依赖任何端特定 API(@ihui/api-client 仅类型)
