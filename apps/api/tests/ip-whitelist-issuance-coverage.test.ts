@@ -195,12 +195,6 @@ const EXEMPTIONS: { file: string; anchor: string; class: string; reason: string 
   },
   {
     file: 'src/routes/auth-extended.ts',
-    anchor: 'POST /oauth/jwt/token',
-    class: 'third-party',
-    reason: 'private_key_jwt 客户端断言腿，主体来自客户端自签 assertion，不经用户凭据校验',
-  },
-  {
-    file: 'src/routes/auth-extended.ts',
     anchor: 'POST /oauth/access_token',
     class: 'third-party',
     reason: '/auth/oauth/token 的多路径兼容别名，同一条授权码腿',
