@@ -6685,7 +6685,8 @@ const checks = [
       '     本门只读:绝不自愈、绝不重装、绝不写盘 —— 处置权在人,不在尺子(§5e-1)。',
     ],
   },
-  // 编号 278:注册前现读 `id: '278'` 出现 0 次(最大数字 id 为 277)。立因(2026-11-01 安全强化):
+  // 编号 278:注册前现读全仓同 id 出现 0 次(现读最大 277;判重以门 89 R5/R13 反查为准)。
+  // 立因(2026-11-01 安全强化):
   // `isSafeNavigationTarget` 的 allowedOrigins 缺席即"只判协议",任意绝对外站一律通过。
   // 同日实测四处真命中,两枚在授权码签发路径(sso/login:171、sso/register:164 —— target 既被
   // POST 当 redirectUri 又拼上 sso_code 导航),两枚在自动回跳(sso/login:249、:268)。同页 :133 与
@@ -6707,6 +6708,32 @@ const checks = [
       '        file/bareCalls/reason(≥10字)/until(到期日),豁免不再命中即判清单腐烂红;',
       '     ③ "options 是变量"落未判定(exit 2)不是红,但也绝不放行 —— 机器证不出已钉就是没钉。',
       '     取证:node scripts/check-redirect-target-origin-pinned.mjs --self-test(16 例,含四档变异自证)',
+    ].join('\n'),
+  },
+  // 编号 279:注册前现读全仓同 id 出现 0 次(上一枚是 278)。立因(2026-11-01 安全强化):
+  // LIKE/ILIKE 的"通配符转义"在本仓有**六份**各自实现(voice-note / ai-world ×2 / order /
+  // tbox-points / algorithm-record),最后一份是"删掉 %_"而非转义,搜 "100%" 会被吃掉百分号。
+  // 六份已于同日全部改指 apps/api/src/utils/like-escape.ts,现读单源外实现 = 0 ⇒ D1 可绝对零容忍。
+  // D2(未转义 %${x}% 内插)存量现读 276 处 / 102+ 文件,不判红,只做该文件 HEAD 自身的差值棘轮
+  // (§12e:存量没归零前上 blocking = 恒红门,唯一结局是逼人跳门、连带全部守门作废)。
+  {
+    id: '279',
+    label:
+      '🧨 LIKE 通配符转义单源 + 未转义内插差值棘轮(blocking;D1 绝对零容忍·D2 只拦新增·D3 具名台账带到期)',
+    script: 'check-like-wildcard-escape.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_LIKE_WILDCARD_ESCAPE',
+    onFailHint: [
+      '  💡 [D1 单源] 又长出一份本地 LIKE 转义实现。修复:改调 apps/api/src/utils/like-escape.ts 的',
+      '     escapeLikeChars(只转义,给前缀/后缀/JSON 片段)或 asContainsTerm / asPrefixTerm(转义+包裹)。',
+      '     需要第四种形态 = 先把它加进单源,不要在调用点抄。',
+      '  💡 [D2 新增] 本次把用户输入内插进了 `%${x}%` / \'%\' + x + \'%\'。修复:换成 asContainsTerm(x)。',
+      '     存量 276 处只报数不拦(分档清偿中);故意吃通配符的面不要转义 —— 去登记台账。',
+      '  💡 [D3 台账] 腐烂/到期的意思是:登记的"整值即模式"面已不再命中(要么被改了要么被删了),',
+      '     或豁免到期未销账。修法是就地复核并更新 scripts/data/like-wildcard-intentional.json,不是删判据。',
+      '     取证:node scripts/check-like-wildcard-escape.mjs --self-test(14 例,含变异自证)',
     ].join('\n'),
   },
 ]

@@ -24,6 +24,7 @@ import { db } from '../db/index.js'
 import { tboxBean, tboxDevice, tboxCommand } from '@ihui/database'
 import { success, paginatedSuccess, error, parseOrThrow } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { escapeLikeChars } from '../utils/like-escape.js'
 
 // 内置积分规则表:未知事件类型默认 1 分
 const EVENT_POINTS_RULES: Record<string, number> = {
@@ -80,9 +81,8 @@ function parsePointsData(raw: string | null | undefined): PointsRecord {
  * 内存再做精确过滤兜底,避免全表扫描所有设备的积分记录。
  */
 async function fetchDevicePoints(deviceId: string): Promise<Array<PointsRecord & { id: number }>> {
-  // LIKE 通配符转义,防止 deviceId 含 %/_ 时误匹配
-  const escaped = deviceId.replace(/[\\%_]/g, (m) => `\\${m}`)
-  const pattern = `%"deviceId":"${escaped}"%`
+  // LIKE 通配符转义,防止 deviceId 含 %/_ 时误匹配(判据单源:utils/like-escape.ts)
+  const pattern = `%"deviceId":"${escapeLikeChars(deviceId)}"%`
   const beanRows = await db
     .select()
     .from(tboxBean)

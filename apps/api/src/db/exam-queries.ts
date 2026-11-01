@@ -6,6 +6,7 @@ import { eq, and, desc, asc, sql, inArray, arrayOverlaps } from 'drizzle-orm'
 import { contentEqual } from '@ihui/shared'
 import { randomBytes } from 'node:crypto'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   examCategories,
   examPapers,
@@ -444,7 +445,7 @@ export async function findAdminExamRecords(opts: {
   search?: string
 }): Promise<{ list: ExamRecord[]; total: number }> {
   const where = opts.search
-    ? sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${'%' + opts.search + '%'} OR phone ILIKE ${'%' + opts.search + '%'})`
+    ? sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${asContainsTerm(opts.search)} OR phone ILIKE ${asContainsTerm(opts.search)})`
     : sql`TRUE`
   const [list, totalRows] = await Promise.all([
     db
@@ -639,7 +640,7 @@ export async function findAdminExamRecordsRich(opts: {
   if (opts.status) conds.push(eq(examRecords.status, opts.status))
   let where = conds.length ? and(...conds) : undefined
   if (opts.search) {
-    const searchCond = sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${opts.search}%`} OR phone ILIKE ${`%${opts.search}%`})`
+    const searchCond = sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${asContainsTerm(opts.search)} OR phone ILIKE ${asContainsTerm(opts.search)})`
     where = where ? and(where, searchCond) : searchCond
   }
   const [rows, totalRows] = await Promise.all([
