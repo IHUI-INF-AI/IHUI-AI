@@ -317,7 +317,12 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
   const dir = mkScratch('canary-wiring-t3-')
   try {
     const text = readFileSync(LOOP_PS1, 'utf8')
-    assert.deepEqual(WIRING.wiringGaps(text), [], 'deploy-loop 的 canary 段应零缺口(接线在位)')
+    const splitText = readFileSync(WIRING.DEFAULT_SPLIT_MJS, 'utf8')
+    assert.deepEqual(
+      WIRING.wiringGaps(text, splitText),
+      [],
+      'deploy-loop 的 canary 段应零缺口(接线在位)',
+    )
 
     const ok = runNode(WIRING_CLI, ['--check'])
     assert.equal(ok.rc, 0, ok.out + ok.err)
@@ -331,6 +336,14 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
     const missing = runNode(WIRING_CLI, ['--check', '--file', join(dir, 'no-such-loop.ps1')])
     assert.equal(missing.rc, 2, `被审文件取不到必须未判定(rc=2),实得 rc=${missing.rc}`)
 
+    // W12 的判据面取不到 ⇒ 同样必须未判定(绝不"没输入就跳过这一格"记绿,§0.3)
+    const missingSplit = runNode(WIRING_CLI, [
+      '--check',
+      '--split',
+      join(dir, 'no-such-split.mjs'),
+    ])
+    assert.equal(missingSplit.rc, 2, `分流器面取不到必须未判定(rc=2),实得 rc=${missingSplit.rc}`)
+
     const MUTES = [
       { want: 'W1', re: /ihui-canary-stage\.mjs/g },
       { want: 'W2', re: /ihui-canary-gray\.ps1/g },
@@ -339,20 +352,35 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
       { want: 'W5', re: /-Action\s+stop/g },
       { want: 'W8', re: /-rollbackOnly/g },
       { want: 'W10', re: /rampVerdict/g },
+      { want: 'W11', re: /GRAY 实切=/g },
+      { want: 'W11', re: /--reason-append/g },
     ]
     for (const m of MUTES) {
       const mutated = text.replace(m.re, '「已摘线」')
       assert.notEqual(mutated, text, `夹具前提:${m.want} 的原文根本不在被审面里`)
-      const gaps = WIRING.wiringGaps(mutated)
+      const gaps = WIRING.wiringGaps(mutated, splitText)
       assert.ok(
         gaps.some((g) => g.id === m.want),
         `摘掉 ${m.want} 仍然判绿 ⇒ 接线锁是摆设(实得 ${JSON.stringify(gaps)})`,
       )
-      const f = join(dir, `loop-${m.want}.ps1`)
+      const f = join(dir, `loop-${m.want}-${m.re.source.replace(/[^\w]/g, '')}.ps1`)
       writeFileSync(f, mutated, 'utf8')
       const r = runNode(WIRING_CLI, ['--check', '--file', f])
       assert.equal(r.rc, 1, `CLI 对摘线副本应翻红(rc=1),实得 rc=${r.rc}:${r.out}`)
     }
+
+    // W12 的正反成对夹具:摘掉分流器 CLI 的计数接线 ⇒ 判据面翻红(判的是另一枚文件,走 --split)
+    const unwired = splitText.replace(/onLane:\s*stats\.observe/g, '「计数出口已摘线」')
+    assert.notEqual(unwired, splitText, '夹具前提:分流器 CLI 根本没接计数出口 ⇒ 本对照假绿')
+    const gapsW12 = WIRING.wiringGaps(text, unwired)
+    assert.ok(
+      gapsW12.some((g) => g.id === 'W12'),
+      `摘掉计数出口仍判 W12 绿 ⇒ 判据是摆设(实得 ${JSON.stringify(gapsW12)})`,
+    )
+    const splitCopy = join(dir, 'split-unwired.mjs')
+    writeFileSync(splitCopy, unwired, 'utf8')
+    const rW12 = runNode(WIRING_CLI, ['--check', '--split', splitCopy])
+    assert.equal(rW12.rc, 1, `CLI 对摘线分流器应翻红(rc=1),实得 rc=${rW12.rc}:${rW12.out}`)
   } finally {
     rmScratch(dir)
   }
