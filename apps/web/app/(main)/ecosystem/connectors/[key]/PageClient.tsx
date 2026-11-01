@@ -93,7 +93,7 @@ export default function ConnectorAuthDetailPageClient() {
         aria-labelledby="connector-auth-state"
         className="rounded-lg border border-border bg-card p-3"
       >
-        <h2 id="connector-auth-state" className="mb-1 text-sm font-medium">
+        <h2 id="connector-auth-state" className="mb-1 text-body font-medium">
           {t('connectorAuthStateTitle')}
         </h2>
         <Row label={tc('typeLabel')} value={typeLabel} />
@@ -128,7 +128,7 @@ export default function ConnectorAuthDetailPageClient() {
         aria-labelledby="connector-auth-scope"
         className="mt-4 rounded-lg border border-border bg-card p-3"
       >
-        <h2 id="connector-auth-scope" className="mb-1 text-sm font-medium">
+        <h2 id="connector-auth-scope" className="mb-1 text-body font-medium">
           {t('connectorAuthScopeTitle')}
         </h2>
         <ul className="flex flex-col gap-1">
@@ -160,7 +160,7 @@ export default function ConnectorAuthDetailPageClient() {
         className="mt-4 rounded-lg border border-border bg-card p-3"
       >
         <div className="mb-1 flex items-center gap-2">
-          <h2 id="connector-auth-docs" className="text-sm font-medium">
+          <h2 id="connector-auth-docs" className="text-body font-medium">
             {tc('docList')}
           </h2>
           <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
@@ -192,3 +192,4 @@ export default function ConnectorAuthDetailPageClient() {
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

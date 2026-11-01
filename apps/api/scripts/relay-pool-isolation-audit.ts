@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 号池隔离性体检尺(2026-11-01 立;判机器状态 ⇒ 刻意不进提交链,§12e)。
@@ -40,7 +40,13 @@ const computeDeviceCollisions = (
   }
 ).__test__.computeDeviceCollisions
 
-export type DimKey = 'deviceCluster' | 'sharedRefreshToken' | 'sameUidMultiRow' | 'rtBlindSpot' | 'egressAffinity' | 'deadCopy'
+export type DimKey =
+  | 'deviceCluster'
+  | 'sharedRefreshToken'
+  | 'sameUidMultiRow'
+  | 'rtBlindSpot'
+  | 'egressAffinity'
+  | 'deadCopy'
 export type DimState = 'ok' | 'breach' | 'unjudged' | 'info'
 
 export interface Dim {
@@ -77,15 +83,16 @@ export function deviceClusterDim(
     key: 'deviceCluster',
     state: collisions.length > 0 ? 'info' : 'ok',
     count: collisions.length,
-    detail: collisions.map((c) => `deviceId=${HEAD(c.deviceId, 8)} 共用 uid=[${c.uids.map((u) => HEAD(u, 12)).join(',')}]`),
+    detail: collisions.map(
+      (c) =>
+        `deviceId=${HEAD(c.deviceId, 8)} 共用 uid=[${c.uids.map((u) => HEAD(u, 12)).join(',')}]`,
+    ),
     fix: '设备身份在本机是「整机一份」(实测 storage.json 只有 1 枚 icube-dc 键),不是采集缺陷也不是本仓能伪造的维 —— 同簇号要错峰使用/避免并发续票,并在一键切号时留意设备档槽位覆盖(已上防护)',
   }
 }
 
 /** D2 共用 rt:同一枚密文出现在多行 ⇒ breach(谁刷谁顶废另一处) */
-export function sharedRtDim(
-  groups: Array<{ providerCode: string; uids: string[] }> | null,
-): Dim {
+export function sharedRtDim(groups: Array<{ providerCode: string; uids: string[] }> | null): Dim {
   if (groups === null) {
     return { key: 'sharedRefreshToken', state: 'unjudged', count: 0, detail: [], fix: '先看连库面' }
   }
@@ -93,13 +100,17 @@ export function sharedRtDim(
     key: 'sharedRefreshToken',
     state: groups.length > 0 ? 'breach' : 'ok',
     count: groups.length,
-    detail: groups.map((g) => `${g.providerCode}/[${g.uids.map((u) => HEAD(u, 12)).join(',')}] 共用同一枚 rt`),
+    detail: groups.map(
+      (g) => `${g.providerCode}/[${g.uids.map((u) => HEAD(u, 12)).join(',')}] 共用同一枚 rt`,
+    ),
     fix: '同一枚上游会话被两处持有 ⇒ 任一处刷新就顶废另一处。保留一行、另一行改走独立登录,或摘除多余行',
   }
 }
 
 /** D3 同 uid 跨池双行:各存各票时只是账面形态,但归属闸一旦漂移就是串票事故 */
-export function sameUidDim(groups: Array<{ providerCode: string; uid: string; owners: string[] }> | null): Dim {
+export function sameUidDim(
+  groups: Array<{ providerCode: string; uid: string; owners: string[] }> | null,
+): Dim {
   if (groups === null) {
     return { key: 'sameUidMultiRow', state: 'unjudged', count: 0, detail: [], fix: '先看连库面' }
   }
@@ -107,7 +118,10 @@ export function sameUidDim(groups: Array<{ providerCode: string; uid: string; ow
     key: 'sameUidMultiRow',
     state: groups.length > 0 ? 'info' : 'ok',
     count: groups.length,
-    detail: groups.map((g) => `${g.providerCode}/${HEAD(g.uid, 12)} 行数=${g.owners.length} 归属=[${g.owners.map((o) => (o === 'OPS' ? 'OPS' : HEAD(o, 8))).join(',')}]`),
+    detail: groups.map(
+      (g) =>
+        `${g.providerCode}/${HEAD(g.uid, 12)} 行数=${g.owners.length} 归属=[${g.owners.map((o) => (o === 'OPS' ? 'OPS' : HEAD(o, 8))).join(',')}]`,
+    ),
     fix: '两条 partial unique 允许同 uid 两行(运营池 + 私有各一)。回灌/切号/同步三条腿已带 owner_user_id IS NULL 归属闸并有自平衡锁;此维只做点名,提醒"别把两个持有者当成一枚号"',
   }
 }
@@ -120,13 +134,11 @@ const RT_EXPIRY_NOT_EXPOSED = new Set(['trae'])
 /** D4 rt 终点证据:永久保活号瞎 ⇒ 默认 breach;但「客户端根本不暴露 rt 终点」的 provider
  * (RT_EXPIRY_NOT_EXPOSED)属固有盲区,记 info(点名+接受),否则每轮刷一封无意义告警。
  * 其余 provider(qoder/minimax 真会暴露终点)的永久号瞎了仍是 breach(真会丢号)。 */
-export function rtBlindDim(
-  input: {
-    foreverBlind: Array<{ provider: string; uid: string }>
-    otherBlind: Array<{ provider: string; uid: string }>
-    scanned: boolean
-  },
-): Dim {
+export function rtBlindDim(input: {
+  foreverBlind: Array<{ provider: string; uid: string }>
+  otherBlind: Array<{ provider: string; uid: string }>
+  scanned: boolean
+}): Dim {
   if (!input.scanned) {
     return { key: 'rtBlindSpot', state: 'unjudged', count: 0, detail: [], fix: '先看连库面' }
   }
@@ -137,7 +149,9 @@ export function rtBlindDim(
         ? `永久保活号 ${HEAD(r.uid, 12)} (${r.provider}) 有 rt 但客户端不暴露终点 ⇒ info(固有)`
         : `永久保活号 ${HEAD(r.uid, 12)} (${r.provider}) 有 rt 却读不到自然终点`,
     ),
-    ...input.otherBlind.map((r) => `${HEAD(r.uid, 12)} (${r.provider}) 有 rt 却读不到自然终点(普通号)`),
+    ...input.otherBlind.map(
+      (r) => `${HEAD(r.uid, 12)} (${r.provider}) 有 rt 却读不到自然终点(普通号)`,
+    ),
   ]
   const breach = foreverActionable.length > 0
   const any = input.foreverBlind.length + input.otherBlind.length > 0
@@ -175,7 +189,9 @@ export function egressDim(input: {
     key: 'egressAffinity',
     state: unbound > 0 ? 'breach' : 'ok',
     count: unbound,
-    detail: [`active 代理 ${proxyActive} 枚,其中 ${unbound} 枚未绑定账号 ⇒ pickProxyForAccount 每次调用轮换,多号可共用一位`],
+    detail: [
+      `active 代理 ${proxyActive} 枚,其中 ${unbound} 枚未绑定账号 ⇒ pickProxyForAccount 每次调用轮换,多号可共用一位`,
+    ],
     fix: '给需要长期在线的号(尤其永久保活号)绑 bound_account_id,换票与转发才不会漂到别人身上',
   }
 }
@@ -203,9 +219,7 @@ export function overallState(dims: Dim[]): 'ok' | 'breach' | 'undetermined' {
 
 /** 结论行(ASCII 单行,供守护判读;三态绝不并桶) */
 export function conclusionLine(dims: Dim[], total: number | null): string {
-  const kv = dims
-    .map((d) => `${d.key}=${d.count}${d.state === 'unjudged' ? '?' : ''}`)
-    .join(' ')
+  const kv = dims.map((d) => `${d.key}=${d.count}${d.state === 'unjudged' ? '?' : ''}`).join(' ')
   return `POOL-ISOLATION state=${overallState(dims)} total=${total ?? '?'} ${kv}`
 }
 
@@ -321,7 +335,9 @@ export async function auditPoolIsolation(): Promise<AuditResult> {
     ),
     sameUidDim(
       sameUid
-        ? (sameUid as unknown as Array<{ provider_code: string; uid: string; owners: string[] }>).map((r) => ({
+        ? (
+            sameUid as unknown as Array<{ provider_code: string; uid: string; owners: string[] }>
+          ).map((r) => ({
             providerCode: r.provider_code,
             uid: String(r.uid),
             owners: (r.owners ?? []).map(String),
@@ -346,11 +362,13 @@ export async function auditPoolIsolation(): Promise<AuditResult> {
         : { scanned: false, foreverBlind: [], otherBlind: [] },
     ),
     egressDim({
-      proxyTotal: proxy ? (proxy as unknown as Array<{ total: number }>)[0]?.total ?? null : null,
-      proxyActive: proxy ? (proxy as unknown as Array<{ active: number }>)[0]?.active ?? null : null,
-      proxyBound: proxy ? (proxy as unknown as Array<{ bound: number }>)[0]?.bound ?? null : null,
+      proxyTotal: proxy ? ((proxy as unknown as Array<{ total: number }>)[0]?.total ?? null) : null,
+      proxyActive: proxy
+        ? ((proxy as unknown as Array<{ active: number }>)[0]?.active ?? null)
+        : null,
+      proxyBound: proxy ? ((proxy as unknown as Array<{ bound: number }>)[0]?.bound ?? null) : null,
       accountsWithProxy: accountsWithProxy
-        ? (accountsWithProxy as unknown as Array<{ n: number }>)[0]?.n ?? null
+        ? ((accountsWithProxy as unknown as Array<{ n: number }>)[0]?.n ?? null)
         : null,
     }),
     deadCopyDim(
@@ -377,7 +395,13 @@ export async function auditPoolIsolation(): Promise<AuditResult> {
       readErrors,
     }
   }
-  return { ok: overallState(dims) !== 'undetermined', state: overallState(dims), poolRows, dims, readErrors }
+  return {
+    ok: overallState(dims) !== 'undetermined',
+    state: overallState(dims),
+    poolRows,
+    dims,
+    readErrors,
+  }
 }
 
 export function parseArgs(argv: string[]): { json: boolean; help: boolean; error: null | string } {
@@ -443,3 +467,4 @@ export const __test__ = {
   egressDim,
   deadCopyDim,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

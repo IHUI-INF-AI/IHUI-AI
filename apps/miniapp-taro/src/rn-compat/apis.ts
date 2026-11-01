@@ -10,7 +10,15 @@
  */
 import Taro from '@tarojs/taro'
 
-import { Image as CompatImage, ScrollView, Text, View } from './primitives'
+import {
+  Image as CompatImage,
+  ScrollView,
+  Text,
+  View,
+  type RNBaseProps,
+  type RNImageProps,
+  type RNScrollViewProps,
+} from './primitives'
 
 /** Dimensions:RN 的 dp 与小程序的 px 同为逻辑像素,直接取系统信息 */
 export const Dimensions = {
@@ -320,10 +328,13 @@ export const Animated = {
     },
   // Animated.* 一律**照常渲染内容**,只丢弃补间样式(动画不播、终值正确)。
   // 返回 null 会让共享层的入场动画包裹层整块消失 —— 那是功能缺陷,不是降级。
-  View: (props: Record<string, unknown>) => View(props as never),
-  Text: (props: Record<string, unknown>) => Text(props as never),
-  ScrollView: (props: Record<string, unknown>) => ScrollView(props as never),
-  Image: (props: Record<string, unknown>) => CompatImage(props as never),
+  // props 面直接复用 primitives 的组件 props 档(此前写 `Record<string, unknown>`,于是共享源
+  // 挂在 Animated.View 上的 `onLayout={(e) => …}` / `onResponderRelease={(e) => …}` 形参全是
+  // 隐式 any(TS7006)—— 同一份源码在 RN 宿主由 RN 的类型给,两端接受集必须对齐)。
+  View: (props: RNBaseProps) => View(props),
+  Text: (props: RNBaseProps) => Text(props),
+  ScrollView: (props: RNScrollViewProps) => ScrollView(props),
+  Image: (props: RNImageProps) => CompatImage(props),
 }
 
 export const Layout = {

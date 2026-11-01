@@ -19,10 +19,7 @@ import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import {
-  type AgentAction,
-  type AgentActionPhase,
-} from '@ihui/shared/chat'
+import { type AgentAction, type AgentActionPhase } from '@ihui/shared/chat'
 
 export interface MultiAgentActionEntry {
   /** 动作(六动作之一) */
@@ -129,7 +126,7 @@ export function MultiAgentActionCard({
       {groups.map(([action, group]) => (
         <div key={action} className="flex flex-col gap-1" data-action-group={action}>
           <span
-            className="text-xs font-medium text-foreground"
+            className="text-label font-medium text-foreground"
             data-testid={testId ? `${testId}-title` : 'multi-agent-action-title'}
           >
             {titleVerb(action, group)} {t('header.count', { count: group.length })}
@@ -160,3 +157,4 @@ export function MultiAgentActionCard({
 }
 
 export default MultiAgentActionCard
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

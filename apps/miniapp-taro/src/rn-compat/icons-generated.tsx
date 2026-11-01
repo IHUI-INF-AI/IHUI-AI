@@ -13,11 +13,18 @@
  * 渲染口径:SVG 为纯黑描边,由 CSS mask 只取 alpha ⇒ 实际颜色走 background-color,
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
+// gen-rn-compat:template-v2 —— 模板指纹。改本文件的模板正文必须抬版本号,否则 --write 按语义档判"无变化"、产物停在旧模板。
 import { makeIcon } from './icons-runtime'
-import type { CompatIconProps } from './icons-runtime'
 
-/** lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里 */
-export type LucideIcon = (props: CompatIconProps) => ReturnType<typeof makeIcon>
+/**
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。
+ * ⚠️ 上一版写成 `(props: CompatIconProps) => ReturnType<typeof makeIcon>`:makeIcon 是**工厂**,
+ * ReturnType 取到的就是"组件函数"本身 ⇒ 这行声明的实际形状是"返回一个组件的函数",于是
+ * packages/app/features/about/about-icons.ts 把 makeIcon 产物交给它时报成片 TS2322(现读 10 条)、
+ * AboutScreen 的 `<Icon />` 跟着 TS2786(不被认作合法 JSX 组件)。正解 = 直接取工厂的返回类型。
+ */
+export type LucideIcon = ReturnType<typeof makeIcon>
 
 const S = {
   Activity:
