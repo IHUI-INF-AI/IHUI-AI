@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-31T17:43:28.088Z",
+  "sealedAt": "2026-11-01T01:01:07.775Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 6f57e57fe6 对 guardian-runner 的守门277 注册改动(warn 档 + stagedTriggers + onFailHint 齐全,属已入库的合法注册变更);清单落后于 HEAD 面,按 root-guard 指定出口与规则文件对齐(2026-11-01 部署环 fail-closed 现场)",
+  "reason": "复核 304b03ace2:门48 新增规则B(每枚 workflow 须有顶层 permissions 块,禁 write-all)已随该枚入库,存量 49 枚归零才上 blocking;注册表改动行数中性;此脱钩是清单未同批重封所致,非规则被回退",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "bf2a8b4fedd6b585e10abda745e162dc5d44878d6117301803f9be8df78e1f51"
+      "sha256": "1529b6e61932bbed6249a6fba9a16222aa2147b10ff3286cf2fcf4863de04f24"
     },
     {
       "id": "judgement-libs",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "82cb17279f0826ea0ba82104fbab08968e113d6fae3a57314a1a267edca26988"
+      "sha256": "4b7bd7f1861df87c17b4016559abf9c9e37b5568a4b1e1129bd880af5ece2558"
     }
   ]
 }
