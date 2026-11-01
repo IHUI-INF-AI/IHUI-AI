@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
@@ -94,7 +94,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     table: {
       margin: rnSpacing.lg,
       borderWidth: 1,
@@ -105,9 +105,14 @@ function createStyles(tk: AppThemeTokens) {
     tableHeader: { flexDirection: 'row', backgroundColor: tk.surface.muted },
     tableRow: { flexDirection: 'row' },
     rowAlt: { backgroundColor: tk.surface.muted },
-    cell: { flex: 1, padding: rnSpacing['sm-loose'], fontSize: 11, color: tk.text.secondary },
+    cell: {
+      flex: 1,
+      padding: rnSpacing['sm-loose'],
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+    },
     cellFeature: { flex: 1.2, fontWeight: '600', color: tk.text.primary },
-    cellText: { fontSize: 11 },
+    cellText: { fontSize: rnType.caption.size },
     center: {
       flex: 1,
       alignItems: 'center',
@@ -115,8 +120,8 @@ function createStyles(tk: AppThemeTokens) {
       padding: 14,
       backgroundColor: tk.surface.bg,
     },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: rnSpacing.sm },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, textAlign: 'center' },
     backBtn: { marginTop: rnSpacing.md },
   })
 }

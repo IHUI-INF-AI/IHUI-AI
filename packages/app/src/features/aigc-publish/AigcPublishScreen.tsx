@@ -254,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChipActive: { backgroundColor: primary },
     typeChipText: { fontSize: rnType.body.size, color: tk.text.medium, fontWeight: '600' },
     typeChipTextActive: { color: tk.surface.light },
-    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
     typeChipDescActive: { color: tk.surface.light },
     input: {
       paddingHorizontal: rnSpacing.md,

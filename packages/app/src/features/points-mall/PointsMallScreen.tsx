@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Gift } from 'lucide-react-native'
 import type { PointsMallItem, PointsMallScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -120,8 +120,8 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
-    title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     balanceCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.md,
@@ -130,10 +130,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.light,
       alignItems: 'center',
     },
-    balanceLabel: { fontSize: 14, color: tk.success.deepText },
+    balanceLabel: { fontSize: rnType.body.size, color: tk.success.deepText },
     balanceValue: {
       marginTop: rnSpacing.sm,
-      fontSize: 30,
+      fontSize: rnType.displayLg.size,
       fontWeight: '700',
       color: tk.success.DEFAULT,
     },
@@ -144,8 +144,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 14, color: tk.success.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    retryText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
     listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     columnWrapper: { justifyContent: 'space-between', marginBottom: rnSpacing['sm-loose'] },
     card: {
@@ -167,19 +167,23 @@ function createStyles(tk: AppThemeTokens) {
     coverEmoji: { fontSize: 32 },
     productName: {
       marginTop: rnSpacing.sm,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
       minHeight: 36,
     },
-    productDesc: { fontSize: 11, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    productDesc: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      marginTop: rnSpacing.sm,
+    },
     pointsCost: {
       marginTop: rnSpacing.sm,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.success.DEFAULT,
     },
-    stockText: { fontSize: 10, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    stockText: { fontSize: rnType.badge.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
     redeemBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
@@ -188,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     redeemBtnDisabled: { backgroundColor: tk.border.light },
-    redeemBtnText: { fontSize: 14, color: tk.surface.light },
+    redeemBtnText: { fontSize: rnType.body.size, color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

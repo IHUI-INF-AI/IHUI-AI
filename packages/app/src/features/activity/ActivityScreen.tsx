@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 10, color: tk.surface.light },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light },
     cardDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

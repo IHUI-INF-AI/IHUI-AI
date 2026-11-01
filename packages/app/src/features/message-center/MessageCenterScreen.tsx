@@ -377,7 +377,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       paddingHorizontal: 3,
     },
-    badgeText: { fontSize: 10, color: tk.surface.light, fontWeight: '700' },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light, fontWeight: '700' },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,

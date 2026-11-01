@@ -15,7 +15,7 @@ import {
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
@@ -442,7 +442,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     center: {
       alignItems: 'center',
@@ -458,9 +458,9 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    infoName: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    infoName: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     infoDesc: { fontSize: 13, color: tk.text.secondary },
-    infoMeta: { fontSize: 11, color: tk.text.tertiary },
+    infoMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     tabBody: { gap: rnSpacing.sm },
     rowCard: {
       flexDirection: 'row',
@@ -480,25 +480,30 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarInitial: { fontSize: 16, fontWeight: '600', color: tk.text.secondary },
+    avatarInitial: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.secondary },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
-    rowTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary, flexShrink: 1 },
-    rowSub: { fontSize: 11, color: tk.text.tertiary },
+    rowTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      flexShrink: 1,
+    },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     rowActions: { flexDirection: 'row', gap: rnSpacing.xs },
     badge: {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 10, fontWeight: '600' },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '600' },
     textBtn: {
       paddingVertical: rnSpacing.sm,
       paddingHorizontal: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
-    textBtnText: { fontSize: 12, color: tk.text.primary },
+    textBtnText: { fontSize: rnType.label.size, color: tk.text.primary },
     inviteCard: {
       padding: rnSpacing.md,
       gap: rnSpacing.sm,
@@ -518,7 +523,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     inviteBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     formTitle: { fontSize: 13, color: tk.text.secondary },
-    fieldLabel: { fontSize: 12, fontWeight: '600', color: tk.text.medium },
+    fieldLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     input: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -526,7 +531,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing.md,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     inputMultiline: {
@@ -538,7 +543,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing.md,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       textAlignVertical: 'top',
     },
@@ -549,7 +554,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    submitBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     btnDisabled: { opacity: 0.6 },
     dangerCard: {
       padding: 14,
@@ -559,8 +564,8 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.danger.light,
       backgroundColor: tk.surface.light,
     },
-    dangerTitle: { fontSize: 14, fontWeight: '700', color: tk.danger.DEFAULT },
-    dangerDesc: { fontSize: 12, color: tk.text.secondary },
+    dangerTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.danger.DEFAULT },
+    dangerDesc: { fontSize: rnType.label.size, color: tk.text.secondary },
     deleteBtn: {
       alignSelf: 'flex-start',
       paddingVertical: rnSpacing['sm-loose'],
@@ -569,9 +574,9 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.danger.DEFAULT,
     },
-    deleteBtnText: { fontSize: 14, fontWeight: '600', color: tk.danger.DEFAULT },
+    deleteBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.danger.DEFAULT },
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     retryBtn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -580,7 +585,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    retryBtnText: { color: tk.brand.ctaForeground, fontSize: 14 },
+    retryBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

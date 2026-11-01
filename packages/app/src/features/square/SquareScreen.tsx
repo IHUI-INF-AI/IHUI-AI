@@ -21,7 +21,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
 import type { ArticleItem, CategoryItem } from '@ihui/types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     } as ViewStyle,
     navTitle: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,

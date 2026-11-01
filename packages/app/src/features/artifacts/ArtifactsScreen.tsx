@@ -14,7 +14,7 @@
 import { useMemo } from 'react'
 import { Download, Eye, MessageSquare, PackageOpen, RefreshCw } from 'lucide-react-native'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnHue, rnHueTintOnly, rnRadius, rnTokens, rnSpacing } from '@ihui/design-tokens'
+import { rnHue, rnHueTintOnly, rnRadius, rnTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
@@ -98,10 +98,10 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
-    desc: { fontSize: 12, color: tk.text.secondary },
+    desc: { fontSize: rnType.label.size, color: tk.text.secondary },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -111,7 +111,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       gap: rnSpacing['sm-loose'],
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    cardTitle: { fontSize: 15, fontWeight: '700', color: tk.text.primary },
+    cardTitle: { fontSize: rnType.strong.size, fontWeight: '700', color: tk.text.primary },
     emptyBox: {
       alignItems: 'center',
       paddingVertical: rnSpacing['3xl'],
@@ -134,20 +134,20 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
       flexWrap: 'wrap',
     },
-    metaText: { fontSize: 11, color: tk.text.secondary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     badge: {
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
     },
-    badgeText: { fontSize: 10, fontWeight: '600' },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '600' },
     sessionBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.xs,
       marginTop: rnSpacing.xs,
     },
-    sessionText: { fontSize: 11, color: tk.brand.DEFAULT },
+    sessionText: { fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, flexShrink: 0 },
     actionBtn: {
       flexDirection: 'row',
@@ -160,7 +160,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['xs-loose'],
     },
     actionBtnDisabled: { opacity: 0.5 },
-    actionText: { fontSize: 12, color: tk.text.primary },
+    actionText: { fontSize: rnType.label.size, color: tk.text.primary },
     footerRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -168,7 +168,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       flexWrap: 'wrap',
       gap: rnSpacing.sm,
     },
-    countText: { fontSize: 11, color: tk.text.secondary, flexShrink: 1 },
+    countText: { fontSize: rnType.caption.size, color: tk.text.secondary, flexShrink: 1 },
     refreshBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -179,7 +179,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing['xs-loose'],
     },
-    refreshText: { fontSize: 12, color: tk.text.primary },
+    refreshText: { fontSize: rnType.label.size, color: tk.text.primary },
   })
 }
 

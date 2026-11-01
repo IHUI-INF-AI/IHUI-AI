@@ -325,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    badgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '700', color: '#FFFFFF' },
     errorWrap: {
       flexDirection: 'row',
       alignItems: 'center',

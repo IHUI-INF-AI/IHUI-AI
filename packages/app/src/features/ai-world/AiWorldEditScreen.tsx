@@ -263,7 +263,7 @@ function createAiWorldEditStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
     subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },

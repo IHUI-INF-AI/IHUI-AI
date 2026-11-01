@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentChatMessage, AgentChatScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginBottom: rnSpacing.sm,
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     list: { flex: 1 },
     msg: {
       maxWidth: '85%',
@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     msgUser: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgAssistant: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
-    msgText: { fontSize: 16 },
+    msgText: { fontSize: rnType.title.size },
     msgTextUser: { color: tk.surface.light },
     msgTextAssistant: { color: tk.text.primary },
     inputRow: {
@@ -149,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     sendBtnDisabled: { opacity: 0.5 },
-    sendBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    sendBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     center: {
       flex: 1,
       alignItems: 'center',
@@ -170,7 +170,12 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       backgroundColor: tk.surface.bg,
     },
-    error: { fontSize: 14, color: tk.error.text, textAlign: 'center', marginBottom: rnSpacing.sm },
+    error: {
+      fontSize: rnType.body.size,
+      color: tk.error.text,
+      textAlign: 'center',
+      marginBottom: rnSpacing.sm,
+    },
     backBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
