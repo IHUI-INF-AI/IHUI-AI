@@ -2219,6 +2219,23 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-01**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (5daf7959bd)
+- 🐞 수정:清掉 4 处既有 lint 红(死导入 + 内联 import() 类型注解),unblock CI lint (3ee0c227bc)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f73214c5d4)
+- 🔧 기타:probe (676762d377)
+- 🐞 수정:消掉 fractional 族死规则 py-0.5,CI Build 转绿 (40f16ac711)
+- 🐞 수정:收 /subagents/active 的跨租户数据越权,活性谓词收成唯一出口 (06316cc12b)
+- 🐞 수정:解「一行双牌」卡死陈旧租约清扫的结构性死结 (5ad0f6596e)
+- 🚀 기능/개선:补齐 P85 改名检测的派生契约,并修好既有的 4 红(票 L33565) (de3f4354a6)
+- 🚀 기능/개선:给 /subagents/all 补口径与租户隔离,补齐 G-02① 的判据(票 L33591) (612356a939)
+- 🚀 기능/개선:补三处器物的牙并修「装了等于没装」那一格(票 O69/RP-90/P86/SCOPE) (75c7510851)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b785eebd24)
+- 🚀 기능/개선:侧任务生命周期(D75)装上第一条生产腿——侧问队列第一次真的有状态、有过期、有界面 (e804694335)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (495c383294)
+- 🐞 수정:清 CI 的 lint/typecheck/test 三线红线(strict eqeqeq、hook 名误用、版本族字段与词条) (bd129dbd9b)
+- 🐞 수정:清 CI 的 lint/typecheck/test 三线红线(strict eqeqeq、hook 名误用、版本族字段与词条) (0255919353)
+
+**2026-11-01**
 - 🔧 기타:收编停留≥3分钟的 i18n 未提交改动 (c59f19e50e)
 
 **2026-11-01**
@@ -2378,9 +2395,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:套件红项分诊末簇收口——①百分比裁剪 5 处内联手搓收敛到具名唯一出口 clampPercent(@ihui/shared/utils/clamp-percent,api/miniapp/mobile-rn/packages-app×2,语义逐字等价:toNumber 保证有限值/round 先后序等价/NaN 归 0 为出口既定语义),edu-grade-trend 本地同名实现摘除;②三枚镜像测试对齐现形(ui-react T5 仓外样本改真仓兄弟路径构造——toRel 纯路径数学无需夹具/mkScratch 已入仓内批准根;tool-arg-wired 守恒式补 forwarded 转发豁免桶——头注恒等式 covered+forwarded+uncovered===total;transcript TA-12 数据条件化——audit.jsonl schema 演化后 path-ish 族为 0 条,判存在性用门体单源 extractTarget) (f25456c0fd)
 - 🐞 수정:合并后重新施加本侧独有的两格运行时缺口 —— Modal 遮罩点关 + Image onLoad 转发 (5f38f5d8dd)
 - 🐞 수정:卫生门真债+旧尺各一——①dev-stack-launch-fallback.test.mjs:77 中文绝对路径字面量改 \u 转义构造(运行时语义不变,销 GBK 乱码违规;HEAD 面欠账只有带进 HEAD 的提交能销);②check-workspace-hygiene 落点判据对齐 G-158 现形(改用唯一判据 isAllowedScratchRoot,批准根已入仓内 .DevEnv——判据没跟上设计红在尺子,check-service-binary-paths F3 同型) (007f24437c)
-
-**2026-11-01**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (225523491f)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
