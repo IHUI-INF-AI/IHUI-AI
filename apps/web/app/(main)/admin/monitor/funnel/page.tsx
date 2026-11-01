@@ -46,7 +46,7 @@ export default function AdminMonitorFunnelPage() {
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Filter className="h-6 w-6 text-primary" />
             业务漏斗仪表盘
           </h1>
@@ -59,26 +59,30 @@ export default function AdminMonitorFunnelPage() {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">注册用户</CardTitle>
+            <CardTitle className="text-label font-medium text-muted-foreground">注册用户</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatNumber(registerCount)}</div>
+            <div className="text-display font-bold text-primary">{formatNumber(registerCount)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">活跃用户</CardTitle>
+            <CardTitle className="text-label font-medium text-muted-foreground">活跃用户</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success-text">{formatNumber(activeCount)}</div>
+            <div className="text-display font-bold text-success-text">
+              {formatNumber(activeCount)}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">VIP 转化率</CardTitle>
+            <CardTitle className="text-label font-medium text-muted-foreground">
+              VIP 转化率
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning-text">
+            <div className="text-display font-bold text-warning-text">
               {conversionRate === null ? '未判定' : `${conversionRate.toFixed(2)}%`}
             </div>
           </CardContent>
