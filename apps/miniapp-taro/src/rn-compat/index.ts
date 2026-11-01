@@ -16,7 +16,8 @@
  *  - 语义降级处(Animated 补间、lucide strokeWidth)在各自文件里点名,不静默。
  */
 import Taro from '@tarojs/taro'
-// JSX 类型位随列表族一起搬进 ./primitives(React 19 起全局 JSX 命名空间不存在,必须显式取)
+// React 19 起全局 JSX 命名空间不再存在,`JSX.Element` 必须从 react 显式取类型位
+import type { JSX } from 'react'
 
 export * from './primitives'
 export * from './apis'
@@ -46,23 +47,47 @@ export function findNodeHandle(_componentOrRef?: unknown): number | null {
 export { StyleSheet } from './style'
 export type { ViewStyle, TextStyle, ImageStyle, StyleProp } from './style'
 
-/** RN 侧的类型别名(共享层签名里会出现,缺了会让 miniapp 侧 typecheck 报错)
- *  ⚠️ 事件面 / Responder 族 / 组件 props 的类型位住在 ./primitives(由上面的 `export *` 再出口),
- *  这里**不得**再声明同名类型:同名局部声明会盖掉星号导出,于是同一概念出现两份形状 ——
- *  2026-11-01 实测到的现场就是 `ImageLoadEventData`(index 写 `{width,height,uri?}` 而 RN 是
- *  `{source:{width,height,uri}}`),共享源按 RN 形态读 `e.nativeEvent.source` 时只有一端编得过。 */
+/** RN 侧的类型别名(共享层签名里会出现,缺了会让 miniapp 侧 typecheck 报错) */
 export type ColorValue = string
-export type DimensionValue = number | string | `${number}%` | 'auto' | undefined
+export type ImageSourcePropType =
+  string | number | { uri?: string; width?: number; height?: number }
+/**
+ * RN 的 GestureResponderEvent = NativeSyntheticEvent<NativeTouchEvent>,合成事件自带
+ * stopPropagation/preventDefault 两枚。共享层(ui-native/sheet)真的会调 `e.stopPropagation()`,
+ * 缺这一格是 TS2339。小程序端这几条事件不派发(PanResponder 已点名降级),故只有类型位。
+ */
+export type GestureResponderEvent = { nativeEvent: unknown; stopPropagation: () => void }
+export type LayoutChangeEvent = {
+  nativeEvent: { layout: { x: number; y: number; width: number; height: number } }
+}
+export type NativeSyntheticEvent<T> = { nativeEvent: T }
 export type StatusBarStyle = 'default' | 'light-content' | 'dark-content'
+export type AccessibilityRole = string
 export type Transitions = Record<string, unknown>
 export type StyleAttrs = Record<string, unknown>
 
 /**
- * 共享层与 RN 壳实际 import 的其余 RN 类型名(现读口径:量出的消费面差集)。
+ * 共享层与 RN 壳实际 import 的其余 RN 类型名(现读口径:node .ihui-agent/tmp 那把尺量出的差集)。
  * 这些是**类型位**,运行时被 babel 擦除,但缺一枚就让 miniapp 侧 `tsc --noEmit` 报
  * "has no exported member" —— 而构建(babel)照样绿,正是"构建能过、类型失明"那一型。
- * (守门 check-rn-compat-coverage C1 把这件事变成提交链上可判的:消费面具名取用的全集必须在册。)
  */
+export type DimensionValue = number | string | `${number}%` | 'auto' | undefined
+export type ListRenderItemInfo<T = unknown, Extra = unknown> = {
+  item: T
+  index: number
+  separators: unknown
+  extraData?: Extra
+}
+export type ListRenderItem<T = unknown, Extra = unknown> = (
+  info: ListRenderItemInfo<T, Extra>,
+) => JSX.Element | null
+export type SectionListData<T = unknown, Extra = unknown> = {
+  title?: string
+  data: T[]
+} & Record<string, Extra | undefined>
+export type SectionListRenderItem<T = unknown, Extra = unknown> = (
+  info: ListRenderItemInfo<T, Extra> & { section: SectionListData<T, Extra>; index: number },
+) => JSX.Element | null
 export type NativeScrollEvent = {
   contentInset: { bottom: number; left: number; right: number; top: number }
   contentSize: { height: number; width: number }
@@ -73,15 +98,27 @@ export type NativeScrollEvent = {
   velocityY?: number
 }
 export type NativeScrollEventLike = NativeScrollEvent
-
 /**
- * 以下类型位此前在本文件各写一份,与 ./primitives 的组件 props 面**同一概念两处定义**
- * (§0.6)⇒ 整族搬进 ./primitives,由上面的 `export * from './primitives'` 再出口:
- * `ListRenderItemInfo` / `ListRenderItem` / `SectionListData` / `SectionListRenderItem`
- * (列表族 props 要用它们)、`ImageLoadEventData` / `ImageErrorEventData`、
- * `TextInputSubmitEditingEventData`、`PanResponderInstance` / `GestureState`。
- * 消费面按名 import 不受影响(出口名一个都没少)。
+ * RN 的 onLoad 事件把原图信息放在 `nativeEvent.source` 里(宽/高/uri)。
+ * 漏这一支的现场:共享屏按 `e.nativeEvent.source.width` 算宽高比,BusinessLicenseScreen
+ * 在小程序宿主下整块 TS2339 —— 不是可选项,是 RN 事件契约的一半。
  */
+export type ImageLoadEventData = {
+  source: { width: number; height: number; uri: string }
+  width: number
+  height: number
+  uri?: string
+}
+export type TextInputSubmitEditingEventData = { text: string }
+export type PanResponderInstance = { panHandlers: Record<string, unknown> }
+export type GestureState = {
+  x0: number
+  y0: number
+  dx: number
+  dy: number
+  moveX: number
+  moveY: number
+}
 
 export const AppState = {
   isAvailable: true,
