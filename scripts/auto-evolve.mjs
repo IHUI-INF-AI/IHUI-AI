@@ -496,8 +496,15 @@ function releaseLock() {
  *  - unjudged      派单面取不到 ⇒ 不猜(§0.3)
  * 比较口径刻意取"前 200 字逐字相等"(与记账时同一截法):票行只在 200 字之后被改的会被读成
  * no-progress —— 失效方向是多要一次定向说明,绝不是多放一次"算它干成了"(§0.10)。
+ *
+ * 窗口口径(2026-11-01 收,治"悬案永久化"):默认 **windowHours = Infinity**,即结清台账里
+ * 所有未结算的 session-ok,不只近 48h。原默认 48h 的结构性后果是:一枚成功一旦滑出窗口,
+ * 结算腿结构上再也不会碰它 ⇒ 那笔账永久悬着,而尺子 A7 的"超窗未结算"判据因此恒红
+ * (§12e 恒红门)。实测病灶就是台账里唯一那枚 2026-10-25 的成功:不限窗口去问,结论是
+ * line-gone(票早已摘行 = 真推进了),而 48h 窗口让它连被问一次的机会都没有。
+ * 窗口参数保留(测试与调用方仍可显式收窄),只是不再是默认值。
  */
-export function settlePriorDispatches({ ledger = [], currentRows = null, windowHours = 48, now = Date.now(), recordedPrefix = 200, sameRowPrefix = 60 } = {}) {
+export function settlePriorDispatches({ ledger = [], currentRows = null, windowHours = Infinity, now = Date.now(), recordedPrefix = 200, sameRowPrefix = 60 } = {}) {
   const cutoff = now - windowHours * 3600_000
   const settledOf = new Set(ledger.filter((e) => e.action === 'dispatch-settled').map((e) => String(e.sourceTs ?? '')))
   const outs = []
@@ -1151,9 +1158,13 @@ function selfTest() {
     const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 12 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
     return ticketKeyOf(then) !== ticketKeyOf(now2) && r.length === 1 && r[0].state === 'line-changed'
   })())
-  ok('S9f 变异:超窗的 session-ok 不进结算(窗口口径就是"近 48h")', (() => {
+  ok('S9f 窗口语义仍可用:显式传 windowHours 时超窗的成功不进结算', (() => {
     const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
-    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
+    return settlePriorDispatches({ ledger: led, currentRows: [], windowHours: 48, now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
+  })())
+  ok('S9h 默认不限窗口 ⇒ 超窗的成功也结清(否则悬案永久化,尺子 A7 结构上恒红)', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
+    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 1
   })())
   ok('S8c usage 形状坏 → 未计量(不读成 0 tokens 放行)', parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured === false)
   if (failed > 0) {
