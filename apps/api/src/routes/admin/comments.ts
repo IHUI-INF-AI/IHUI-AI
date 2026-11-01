@@ -18,8 +18,11 @@ import { and, desc, eq, ilike, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { comments, users } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 
-const ADMIN_ROLE_ID = 1
+// 2026-11-01 安全强化:这里原来是本文件自带的第三份 `const ADMIN_ROLE_ID = 1` + 三处裸比较
+// —— 门 53(RULE-1)存量面最后一枚。特权判定的单源是 plugins/require-permission.ts,
+// 局部重写救不了"常量抄错/档位改了这边不知道"那一型,故整片改走 requireAdmin preHandler。
 
 const TOPIC_TYPES = [
   'article',
@@ -48,12 +51,12 @@ const listCommentsQuerySchema = z.object({
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const commentsRoutes: FastifyPluginAsync = async (server) => {
+  // 插件级闸(与挂载点 admin-missing-routes.ts:70 那条 blanket 同一出口、同一语义):
+  // 本地这条不是冗余装饰 —— 挂载点被换、或父级那条 addHook 被挪到 register 之后
+  // (Fastify 的 preHandler 在注册那一刻合成,顺序即语义)时,这一片会静默退化成"只需登录"。
+  server.addHook('preHandler', requireAdmin)
   // GET /comments - 管理员评论列表(支持 topicType + keyword + status 过滤)
   server.get('/comments', async (request, reply) => {
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
     const parsed = listCommentsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -101,10 +104,6 @@ const commentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /comments/:id - 管理员评论详情(含子评论)
   server.get('/comments/:id', async (request, reply) => {
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -155,10 +154,6 @@ const commentsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /comments/:id - 管理员软删除评论
   server.delete('/comments/:id', async (request, reply) => {
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

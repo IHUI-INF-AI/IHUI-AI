@@ -21,7 +21,6 @@
  * - 恒定时间比较(argon2.verify 内部实现)
  * - 哈希输出含算法参数,可未来平滑升级到更强算法
  */
-import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { hash as argon2Hash, verify as argon2Verify, Algorithm } from '@node-rs/argon2'
 
@@ -81,26 +80,6 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * 给"账号根本不存在"这条分支用的占位哈希(2026-11-01 防用户枚举)。
- *
- * 登录路径原先在查不到用户时**直接返回**,连 `verifyPassword` 都不走 —— 于是这条分支
- * 比"用户存在但密码错"快几十到几百毫秒(argon2id 是按参数刻意做慢的),攻击者不必看
- * 响应内容,掐表就能列账号(CWE-204;消息统一只堵住了最容易的一条道)。
- * 现在两个面都要付出一次**等参数**的真实校验,所以这里现算一枚 argon2id 哈希。
- *
- * 惰性 + 进程内缓存:启动期不做口令推导(冷启动路径上不引入额外耗时),
- * 第一次用到时算一次,后续复用。密码是随机串且不外泄 —— 它的唯一用途就是被验不过。
- */
-let dummyHashPromise: Promise<string> | null = null
-
-export function dummyVerifyHash(): Promise<string> {
-  if (dummyHashPromise === null) {
-    dummyHashPromise = hashPassword(`absent-account-${randomBytes(16).toString('hex')}`)
-  }
-  return dummyHashPromise
-}
-
-/**
  * 验证密码(兼容 bcrypt + argon2id)。
  *
  * 用于:
@@ -131,34 +110,10 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 /**
- * 登录口令校验的"等代价 + 等形状"出口(2026-11-01 防账号枚举,CWE-204)。
- *
- * 未认证登录端点原先的写法是 `if (!user || !user.passwordHash) → 短返回`,或
- * `if (!user || !user.passwordHash || !(await verifyPassword(...)))` —— 两种都会在
- * "这个账号不存在"时**跳过 argon2id 校验**。而 argon2id 是按参数刻意做慢的,
- * 于是同一份提交在两种情况下耗时差几十到几百毫秒:攻击者不必读响应,掐表就能列账号
- * (文案早在 2026-07-24 就统一过,但耗时这条道一直没堵)。
- *
- * 所以:主体不存在时也必须付一次**等参数**的真实校验;两种 false(没这个人 / 密码不对)
- * 在本层合成同一个答案,调用方只需一条失败出口,不许再按"人存不存在"分叉。
- *
- * @param user 查到的主体(可为 undefined/null = 账号不存在)
- * @param password 提交上来的口令
- * @param verify **测试缝**:默认走本模块的真实校验。存在性证明只能靠"这次到底调没调
- *   argon2" —— 而模块内部直调本模块函数是拦不住的,所以留这一个可注入位;
- *   三个登录调用点**都不传**,生产路径恒为真实校验。
- * @returns 主体存在且口令匹配才 true
- */
-export async function verifyLoginPassword(
-  user: { passwordHash?: string | null } | null | undefined,
-  password: string,
-  verify: (password: string, hash: string) => Promise<boolean> = verifyPassword,
-): Promise<boolean> {
-  const storedHash = user?.passwordHash || (await dummyVerifyHash())
-  const matches = await verify(password, storedHash)
-  return user ? matches : false
-}
-
+ * 登录口令的"等代价 + 等形状"出口已拆到 `utils/login-verify.ts`(2026-11-01):
+ * 本仓有 6 份测试整片替换本模块,新增导出会把它们全部打成 `undefined` 调用(实测
+ * tests/success-paths.test.ts 三条登录用例因此从 200/401 翻成 500)。编排层搬出去之后,
+ * 本模块继续只管哈希算法本身。
 /**
  * 判断密码哈希是否需要升级到 argon2id。
  * - bcrypt 哈希 → 需要升级
