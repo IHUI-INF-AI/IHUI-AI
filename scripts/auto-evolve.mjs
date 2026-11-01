@@ -388,10 +388,32 @@ export async function mintSessionCredential({ userId, writeSettings = (jwt) => w
   return { ok: true, from: found.from }
 }
 
+/**
+ * 把新签的 JWT 写进 CLI 登录态(settings.json 的 apiKey 字段,与 `ihui login` 同一存放处)。
+ *
+ * 2026-11-01 修(实测病灶):原实现直接 `readFileSync(CLI_SETTINGS)` 再写回,文件不存在就抛
+ * `ENOENT: C:\windows\system32\config\systemprofile\.ihui\settings.json` 并**打断整轮派发** ——
+ * 因为调度器是由计划任务/服务身份起的,USERPROFILE 指向服务账户目录,那里没有机主的登录态。
+ * 一次 ENOENT 就把本轮变成"没派任何票",而账面只看到异常栈,票面连败计数却被记上(§0.3 归因失真)。
+ * 现在:文件不存在 ⇒ 建最小结构(只含 apiKey)继续;目录不存在 ⇒ 一并建。
+ * 边界:服务身份与机主身份读的是各自 HOME 下的 settings,互不覆盖 —— 这是"两个身份各自登录"
+ * 的机器事实,不是本函数的缺陷。
+ */
 function writeCliSettingsJwt(jwt) {
-  const s = JSON.parse(readFileSync(CLI_SETTINGS, 'utf8'))
+  let s = {}
+  try {
+    s = JSON.parse(readFileSync(CLI_SETTINGS, 'utf8'))
+  } catch {
+    /* 首次 / 服务身份无登录态 ⇒ 建最小结构,不抛 */
+  }
   s.apiKey = jwt
-  writeFileSync(CLI_SETTINGS, JSON.stringify(s, null, 2), 'utf8')
+  try {
+    mkdirSync(dirname(CLI_SETTINGS), { recursive: true })
+    writeFileSync(CLI_SETTINGS, JSON.stringify(s, null, 2), 'utf8')
+  } catch (e) {
+    // 写不进去也不该把整轮打死:调用方会把"凭据未写入"记成未判定,而不是票面失败。
+    console.error(`⚠ CLI 登录态写入失败(${String(e?.message ?? e).slice(0, 120)})⇒ 本轮会话可能以未登录退出,按未判定记账`)
+  }
 }
 
 /**
