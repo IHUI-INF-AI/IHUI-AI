@@ -25,7 +25,6 @@ def test_encrypt_secret_fail_closed(monkeypatch):
 
 def test_save_fail_closed_when_crypto_unavailable(monkeypatch, tmp_path):
     """加密不可用时 save 必须返回 None(不落明文),而非静默存明文。"""
-    import pytest
 
     import app.services.publish.credentials_crypto as cc
 
