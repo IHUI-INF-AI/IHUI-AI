@@ -2,14 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx
+// 承载 RN 壳 apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx(RN 端独占流式对话,迁移守门豁免项)
 
 /**
  * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
- *   渲染 = packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
- *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx 本体,
+ *   渲染与数据交互 = RN 壳 apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx 本体
+ *   (streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,经 rn-compat 兼容层落地),
  *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
- * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ * ⇒ 源头(RN 壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ *   订正(2026-11-01):原页顶声明的共享层同名屏全仓仅 barrel 导出、零渲染调用方,其 props
+ *   无注入点 —— 本页从未渲染它(本页 import 的是 @rn-shells 壳本体);该共享屏去留归人拍板,
+ *   登记表同名条目与裁决台账需随之改档。
  */
 import ThemeRoot from '@/components/ThemeRoot'
 import AiAssistantN8nScreenShell from '@rn-shells/AiAssistantN8nScreen'

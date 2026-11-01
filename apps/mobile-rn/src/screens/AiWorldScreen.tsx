@@ -26,6 +26,7 @@ import {
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { WEB_BASE_URL } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -290,6 +291,15 @@ export function AiWorldScreen() {
       tab={tab}
       onSwitchTab={switchTab}
       onBack={() => navigation.goBack()}
+      // 收藏入口:端内已有真实页(pkg-user/ai-world-collection,route-map 已登记 AiWorldFavorites)
+      onPressFavorites={() => navigation.navigate('AiWorldFavorites')}
+      // 浏览历史:端内无 history 页(app.config.ts 无此页),走 WebView 承载 web /ai-world/history
+      onPressHistory={() =>
+        navigation.navigate('WebView', {
+          url: `${WEB_BASE_URL}/ai-world/history`,
+          title: t('aiWorld.history'),
+        })
+      }
       search={search}
       onSearchChange={setSearch}
       filterActive={filterActive}

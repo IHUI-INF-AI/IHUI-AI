@@ -45,12 +45,24 @@ export function AgentStatScreen({
     )
   }
 
-  const metrics: Array<[string, string | number]> = [
-    [t('agentStat.conversations'), stat.conversations],
-    [t('agentStat.messages'), stat.messages],
-    [t('agentStat.tokens'), stat.tokens],
-    [t('agentStat.avgRating'), stat.avgRating.toFixed(2)],
-  ]
+  // 字段契约(2026-11-01):AgentStatData 全部可选 —— 后端 GET /agents/stats 只回
+  // totalAgents/totalUsers/totalCalls/publishedCount/pendingCount/avgRating,
+  // conversations/messages/tokens 当前无后端来源。只渲染有值的指标,避免空值卡。
+  const metrics: Array<[string, string | number]> = []
+  if (stat.totalAgents !== undefined)
+    metrics.push([t('agentStat.totalAgents'), stat.totalAgents])
+  if (stat.totalUsers !== undefined) metrics.push([t('agentStat.totalUsers'), stat.totalUsers])
+  if (stat.totalCalls !== undefined) metrics.push([t('agentStat.totalCalls'), stat.totalCalls])
+  if (stat.publishedCount !== undefined)
+    metrics.push([t('agentStat.publishedCount'), stat.publishedCount])
+  if (stat.pendingCount !== undefined)
+    metrics.push([t('agentStat.pendingCount'), stat.pendingCount])
+  if (stat.conversations !== undefined)
+    metrics.push([t('agentStat.conversations'), stat.conversations])
+  if (stat.messages !== undefined) metrics.push([t('agentStat.messages'), stat.messages])
+  if (stat.tokens !== undefined) metrics.push([t('agentStat.tokens'), stat.tokens])
+  if (stat.avgRating !== undefined)
+    metrics.push([t('agentStat.avgRating'), stat.avgRating.toFixed(2)])
 
   return (
     <ScrollView style={styles.container}>

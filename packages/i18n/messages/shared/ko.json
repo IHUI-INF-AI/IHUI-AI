@@ -1948,7 +1948,8 @@
     "inputPlaceholder": "메시지 입력...",
     "send": "전송",
     "clear": "삭제",
-    "error": "전송 실패, 다시 시도해 주세요"
+    "error": "전송 실패, 다시 시도해 주세요",
+    "modeDisabledHint": "이미지/음성 모드는 아직 지원되지 않습니다. 현재는 텍스트 대화만 가능합니다"
   },
   "assistant": {
     "title": "내 어시스턴트",
