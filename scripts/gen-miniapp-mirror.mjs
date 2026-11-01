@@ -628,6 +628,8 @@ export function buildShellPage({
   shellText = '',
   shellName = null,
   navTitle = null,
+  navTitleHook = 'useDidShow',
+  navTitleDeps = null,
   authGate = false,
 }) {
   // shellName 允许与被承载的共享屏**不同名**(2026-10-27):平台侧薄壳常叫 PlanScreen /
@@ -665,8 +667,16 @@ export function buildShellPage({
   // 取词入口按表达式现读:原页可能用 t(useI18n) 也可能用 tt(useTt,带回退文案的第二参)。
   const usesT = navTitle ? /(^|[^\w.$])t\s*\(/.test(navTitle) : false
   const usesTt = navTitle ? /(^|[^\w.$])tt\s*\(/.test(navTitle) : false
+  // 标题原来住在哪条钩子就按哪条生成(2026-11-01):useEffect + 依赖数组是"随语言切换重设"的节律,
+  // 统一改写成 useDidShow 会把标题冻在进屏那一刻的语言上 —— 转壳的等价性就破在这里。
+  const titleViaEffect = navTitleHook === 'useEffect'
   if (navTitle) {
-    L.push("import Taro, { useDidShow } from '@tarojs/taro'")
+    L.push(
+      titleViaEffect
+        ? "import Taro from '@tarojs/taro'"
+        : "import Taro, { useDidShow } from '@tarojs/taro'",
+    )
+    if (titleViaEffect) L.push("import { useEffect } from 'react'")
     if (usesT) L.push("import { useI18n } from '@/i18n'")
     if (usesTt) L.push("import { useTt } from '@/i18n'")
   }
@@ -675,9 +685,9 @@ export function buildShellPage({
   if (navTitle) {
     if (usesT) L.push('  const { t } = useI18n()')
     if (usesTt) L.push('  const tt = useTt()')
-    L.push('  useDidShow(() => {')
+    L.push(titleViaEffect ? '  useEffect(() => {' : '  useDidShow(() => {')
     L.push(`    Taro.setNavigationBarTitle({ title: ${navTitle} })`)
-    L.push('  })')
+    L.push(titleViaEffect ? (navTitleDeps ? `  }, ${navTitleDeps})` : '  })') : '  })')
   }
   L.push('  return (')
   L.push('    <ThemeRoot>')
