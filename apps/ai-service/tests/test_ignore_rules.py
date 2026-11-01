@@ -11,9 +11,12 @@ gitignore 的边角(最后命中者胜、目录被剪后负向规则救不回来
 from __future__ import annotations
 
 from app.services.ignore_rules import (
+    TRACKING_DEFERRED_RULE_FILES,
     IgnoreSet,
     filter_paths,
+    filter_paths_for_index,
     is_ignored,
+    is_tracking_deferred,
     load_ignore_set,
     parse_ignore_text,
 )
@@ -140,4 +143,62 @@ def test_rule_budget_is_enforced_and_speaks(tmp_path):
     ign = load_ignore_set(tmp_path)
     assert len(ign.rules) <= 4000
     assert any("超过上限" in e for e in ign.errors), "截断必须点名,不许装作规则都在"
+
+
+# ---------------------------------------------------------------------------
+# 索引口径(P84):"跟踪但被 .gitignore 覆盖"不许静默剔出索引
+# ---------------------------------------------------------------------------
+
+
+def test_only_gitignore_defers_to_tracking_state():
+    """口径常量单源:只有 `.gitignore` 的命中可以被"已跟踪"推翻。"""
+    assert set(TRACKING_DEFERRED_RULE_FILES) == {".gitignore"}
+    ign_git = _set((".gitignore", "gen/\n"))
+    ign_ai = _set((".aiignore", "gen/\n"))
+    assert is_tracking_deferred(ign_git.rules[0]) is True
+    assert is_tracking_deferred(ign_ai.rules[0]) is False, (
+        ".aiignore 是索引专属规则,它命中就照剪 —— 与 git 跟踪状态无关"
+    )
+
+
+def test_index_face_keeps_tracked_but_ignored_and_names_the_rule():
+    ign = _set((".gitignore", "gen/\n*.log\n"))
+    kept, pruned, tracked_kept = filter_paths_for_index(
+        ["gen/kept.ts", "debug.log", "src/main.ts"],
+        ign,
+        tracked={"gen/kept.ts"},
+    )
+    assert kept == ["gen/kept.ts", "src/main.ts"], "已跟踪的那枚必须原样留在索引面里"
+    assert [p for p, _ in pruned] == ["debug.log"], "未跟踪的仍照剪"
+    assert tracked_kept == [("gen/kept.ts", ".gitignore:1")], "保留必须答得出是哪枚规则判过它"
+
+
+def test_index_face_prunes_untracked_ignored_paths():
+    ign = _set((".gitignore", "dist/\n"))
+    kept, pruned, tracked_kept = filter_paths_for_index(["dist/app.js", "app.js"], ign, tracked=set())
+    assert kept == ["app.js"]
+    assert [p for p, _ in pruned] == ["dist/app.js"]
+    assert tracked_kept == []
+
+
+def test_index_face_aiignore_prunes_even_tracked_paths():
+    """`.aiignore` 命中照剪:写它的人表达的是"这枚不进索引",与跟踪状态无关。"""
+    ign = _set((".aiignore", "secret.py\n"))
+    kept, pruned, tracked_kept = filter_paths_for_index(
+        ["secret.py", "main.py"], ign, tracked={"secret.py"}
+    )
+    assert kept == ["main.py"]
+    assert [p for p, _ in pruned] == ["secret.py"]
+    assert tracked_kept == []
+
+
+def test_index_face_with_unknown_tracking_prunes_nothing():
+    """跟踪面取不到(未判定)⇒ 一条都不剪,失效方向取"多留一份"。"""
+    ign = _set((".gitignore", "dist/\n*.log\n"))
+    kept, pruned, tracked_kept = filter_paths_for_index(
+        ["dist/app.js", "a.log", "ok.ts"], ign, tracked=None
+    )
+    assert kept == ["dist/app.js", "a.log", "ok.ts"]
+    assert pruned == [] and tracked_kept == [], "未判定不得冒充「全都没被跟踪」"
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

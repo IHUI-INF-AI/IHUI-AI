@@ -26,6 +26,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from app.services.codebase_indexer import IndexResult
+
 import pytest
 
 from app.services import code_index_consent as cic
@@ -301,9 +303,8 @@ async def test_tool_index_codebase_proceeds_after_grant():
 
     class _Indexer:
         async def index_repository(self, *_a, **_kw):  # noqa: ANN001
-            return SimpleNamespace(errors=[], repo_id="r", files_scanned=3, files_indexed=3,
-                                   files_unchanged=0, files_deleted=0, chunks_created=5,
-                                   chunks_vectorized=5, merkle_root="m")
+            return IndexResult(repo_id="r", files_scanned=3, files_indexed=3,
+                               chunks_created=5, chunks_vectorized=5, merkle_root="m")
 
     import app.services.codebase_indexer as idx_mod
 
