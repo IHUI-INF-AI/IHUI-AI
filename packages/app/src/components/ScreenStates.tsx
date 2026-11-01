@@ -299,9 +299,9 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 18,
       paddingVertical: 9,
       borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
-    stateBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    stateBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     // 按压卡片
     pressCard: {
       padding: 14,
