@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: c97d5013238a0a1b08523920814156a57c3f0301
-// inputsSha256: 10e5af7836c6f63df2c4e9a02c047c9b61095542b2c6cb6732f68eb0188b40eb
+// sourceCommit: 1ed22b9789442de9974bbf22a9bb6c7184584035
+// inputsSha256: d9eb3fe8b693f86921bf396ef05d77507d85834bbebac1e513ce4c49c8f55979
 // input: apps/miniapp-taro/src/api/index.ts 009f8927328c90429146be3b68bf0081b52c328774ee4f9dd0a3d8bc2b2e49bc
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts d49f8d705e8c3d86642c2b0d6cf794bd9caacb67996f4d1a38b02c626d3a2810
@@ -330,7 +330,6 @@
 // input: apps/miniapp-taro/src/pkg-ai/ai/image.config.ts ea5e888bef8a0be3c6647958c529a1166326886b63f0570e28c88e692726092d
 // input: apps/miniapp-taro/src/pkg-ai/ai/image.tsx dd45820fe2bef1929c34f5d8232652a664028c770352262e5807806b26c482ab
 // input: apps/miniapp-taro/src/pkg-ai/ai/mcp-status-strip.tsx 95e9bcb4f6b3f4c8bc5182d46f4f0313d41aabc368b93b2e4420763a4ab78133
-// input: apps/miniapp-taro/src/pkg-ai/ai/message-version-menu.tsx 2f8ccb7e3ddaaac62e9fddb411216f773d8a700def90820073dbb0ab7d340106
 // input: apps/miniapp-taro/src/pkg-ai/ai/model-switch.ts d9618f48e982752ef497a6e4960a03390fa8661826b12a38c52310166cdda5a0
 // input: apps/miniapp-taro/src/pkg-ai/ai/permission-stamp.ts c88699bd048b01d9fc003df9fd297c492f9bf8be170f43d44d9395ac73f8d8c2
 // input: apps/miniapp-taro/src/pkg-ai/ai/permission-tier-text.ts 1d18caea12e49c1a22b2c3c1eec4f3a3b021ad9bbd8d81823da5a7f99a63536c
@@ -437,7 +436,7 @@
 // input: apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx 980a3f882fc7cb6d9cc8ebebd823503415bed72660a332e04c7c31c20051d0cf
 // input: apps/miniapp-taro/src/pkg-learn/teacher/list.config.ts f999918b842a0fbc9c35b4f432e09de3286f1d49eef57e36e1e6edba872b1462
 // input: apps/miniapp-taro/src/pkg-learn/teacher/list.tsx 8a49484114cdd05730ae6e2711bd3899fd3c84d774ba721a1872fcc9d95fd1c9
-// input: apps/miniapp-taro/src/pkg-mirror/ai-assistant-n8n/index.tsx 541ff91fcc4b05cf7ce185cc26f240af297a1a97cb8912c36bd89e501531d224
+// input: apps/miniapp-taro/src/pkg-mirror/ai-assistant-n8n/index.tsx f7b4b637c936fcb4ba46539672cd79dea91d9ffb5db875a04afd3181cf5fe816
 // input: apps/miniapp-taro/src/pkg-mirror/ai-group/index.tsx e27ae13a8a6c619808708b644b5678795d513db1462092db44b420505cc987d5
 // input: apps/miniapp-taro/src/pkg-mirror/course-catalog/index.tsx 202b2c39f7a0476fb44959fbc3264de17badcc152558d7472d0b5fd505539bea
 // input: apps/miniapp-taro/src/pkg-mirror/course-chapter/index.tsx 99547b318b47b9a63e5e64127cc239fcebbb0edf93d7ca3ef11f25a3b7f0eb9a
@@ -447,7 +446,7 @@
 // input: apps/miniapp-taro/src/pkg-mirror/course-qa-ask/index.tsx 58b7fd0ebf783a908adcc7aa60b4ea2f18768bb0ed3d5fcd0f588c3a168c6cd9
 // input: apps/miniapp-taro/src/pkg-mirror/course-qa-list/index.tsx c0d527426186e41b6b5ea057f17f36cc09034ed393c35aa1cf0c33c44998f938
 // input: apps/miniapp-taro/src/pkg-mirror/course-resource/index.tsx 33a9e56fd98f7a7a684f97fade9f7181751a57d60a18ef7651712b97ee8f39a9
-// input: apps/miniapp-taro/src/pkg-mirror/course/index.tsx b504e7f1b12bfa0b2125daaa5ad9e587355f33f75a96c6b7291cd4ef1f766bbd
+// input: apps/miniapp-taro/src/pkg-mirror/course/index.tsx ed88a0b51845b2cf7fec9b0a31e36406e9c1ff4b9d96ea4b35e7cbc608337c47
 // input: apps/miniapp-taro/src/pkg-mirror/customer-service/index.tsx fa9b22400e75c1356a0685839f327867c4aa90b9b858f16d090b6070eed43f40
 // input: apps/miniapp-taro/src/pkg-mirror/exam-history/index.tsx cc317a17b6b5e541e92a9b1eb4028f8f155083652eb10b27133e0a34255407f6
 // input: apps/miniapp-taro/src/pkg-mirror/favorites/index.tsx cca82feb2ef5125e99f612a71dc6c8b3ab944fe72a775eff81a2235cb1ef22b3
@@ -482,7 +481,7 @@
 // input: apps/miniapp-taro/src/pkg-mirror2/home/index.tsx f6b1435ba449a5035bc5764bc1fd4d3bcfdeacd1d8d9304344f11d2bb52910b0
 // input: apps/miniapp-taro/src/pkg-mirror2/memory/index.tsx 5b65671d16c0128c752e39cff8d98df61890bb384631694b132a1999e2702503
 // input: apps/miniapp-taro/src/pkg-mirror2/message-chat/index.tsx f6c3e90be8f2701fcb843ae48a41ab76f430d4042403694108dea5970e0f553c
-// input: apps/miniapp-taro/src/pkg-mirror2/more-course/index.tsx 63bdf89407b2f36bee0ece4c671adc1e289fb2094ff0311fe98a918dc3e41afb
+// input: apps/miniapp-taro/src/pkg-mirror2/more-course/index.tsx 4de3091dc55a4466e42d16d166b36a7c154cf2f2ba45ded599042e9c5d157c82
 // input: apps/miniapp-taro/src/pkg-mirror2/my-comments/index.tsx e4c88b3f5aff75ad024002346410df504be87a2b2aa4c2d1158a8bd8421954cc
 // input: apps/miniapp-taro/src/pkg-mirror2/my-lessons/index.tsx 0a20c2a64798fb3bc1d8ea6fce62316e0fcc70a067302d3ebc691b30158687bb
 // input: apps/miniapp-taro/src/pkg-mirror2/my-resources/index.tsx 5ac4e955bbea37310e0bbc617ad74b1bdcb794f297370391e84af28e516bf552
@@ -579,7 +578,7 @@
 // input: apps/miniapp-taro/src/pkg-user/ai-world-collection/index.tsx 2acb60fafc7079384d7f9703dd58bd933b6ceafbaf673e61214721c0c41454fe
 // input: apps/miniapp-taro/src/pkg-user/ai-world/index.tsx 99a259da1b63466c7ab4a0084f8fffc9fc27c91c732d58d11f7ecaa5e6ce5d46
 // input: apps/miniapp-taro/src/pkg-user/aigc-cover/index.tsx 9b58e48c6480597440b9795b449a54f3c477d7928d36b4dcd2b54bf32964e590
-// input: apps/miniapp-taro/src/pkg-user/assistant/index.tsx 8186e1efc29e6a4c58cb98dfdb5afdbe8faa762b8c11bd82f13218150e295c60
+// input: apps/miniapp-taro/src/pkg-user/assistant/index.tsx f082ec313fe1ee88a897b3b19abb93a247073378237546adddc3c13beae008e6
 // input: apps/miniapp-taro/src/pkg-user/automations/index.tsx f04f629c683f168b1e531217948d74f57d22db4bddc712171db23a4af411d1d4
 // input: apps/miniapp-taro/src/pkg-user/bank-card/index.tsx 78d9013fceca2e100881aeaa31586b233b73782a5f5bc550753a33ce60205af3
 // input: apps/miniapp-taro/src/pkg-user/bill/index.tsx 1e95833ce56c6b7c607d341d9a94cdd53f0588a2c9733afc46b4a0274fd4413f
@@ -695,9 +694,9 @@
 // input: apps/miniapp-taro/src/rn-compat/native-svg.tsx ca5154c362ca5d15cd14cc9a2f6a872294feee2c257d82e0da959396e5156385
 // input: apps/miniapp-taro/src/rn-compat/native-webview.tsx b9904d9823d4520cb1c1f554c72fe7568b4a0c68cd25bd6dd7d8d50269f36f2a
 // input: apps/miniapp-taro/src/rn-compat/native-wechat.ts 6602b523685d95e0f7f087dc13f93aa79326aea0cc6b790cac1d31842d66f11c
-// input: apps/miniapp-taro/src/rn-compat/navigation.tsx bda0148ed5e69622ce75aeed1c2ccb1a62598ff2a6ebcd5f7cb14f5029432c36
+// input: apps/miniapp-taro/src/rn-compat/navigation.tsx b8cfa8e79ba9ee5ba6e13b3656976ef94c1e44947f1119201f4c4dadeb3629b4
 // input: apps/miniapp-taro/src/rn-compat/platform.tsx b9e4c1fbcb9ff3d020d2403a29074706bf67e1c438fd18f54cafef529b95d8b2
-// input: apps/miniapp-taro/src/rn-compat/primitives.tsx 36d61a42d835790b458cd665e3c15a4e1a1748ec18c97b3cf6c1d0906f388ba1
+// input: apps/miniapp-taro/src/rn-compat/primitives.tsx 34305d2d6b24325fe4247783b644695aad7175e58ebdbdb4b34451805ecf587c
 // input: apps/miniapp-taro/src/rn-compat/props-resolution.ts 7d958a980431d35888af7b9e3631b54f2516722a0d5b9390195b762eae2d6b7b
 // input: apps/miniapp-taro/src/rn-compat/storage.ts 6dddcbc0c98306826837394b1cb39c48ddaaad9e5eb6b82a91d55a055f786e88
 // input: apps/miniapp-taro/src/rn-compat/style.ts a348dbb1fc70481ffd4dc4a563f22881c2bd73a6dd7c751ece2ab553ef8c7356
@@ -742,9 +741,9 @@
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/webview-trust.ts 6cfd058e107011b5e3c1037c3fc0b92d4600e178d96d4882e8d4dca690ab1fdc
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 608 source files(navigateTo url 参数探测,requiresParams 的依据)
+// scanned: 607 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=205(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-01T10:47:38.703Z
+// generatedAt: 2026-11-01T11:19:58.915Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
