@@ -238,7 +238,7 @@ export default function SsoLoginPage() {
     } finally {
       setExchanging(false)
     }
-  }, [clientId, resolveLoginTarget, router, tSso, isDesktopDeepLink])
+  }, [clientId, resolveLoginTarget, router, tSso, isDesktopDeepLink, ssoState])
 
   const handleLoginSuccess = React.useCallback(() => {
     void generateCodeAndRedirect()
