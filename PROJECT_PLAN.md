@@ -6367,6 +6367,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
 
@@ -33559,3 +33560,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 〔goal 结账注记@2026-10-31/安全强化 goal R10+R11〕R10(第 31 批,提交 c6e20569d8a,18 文件):5 P0 + 4 P1 全部入库 —— OAuth 未验签签发 token 下线(501+审计)、image-proxy 位图 MIME 白名单 + CSP sandbox、平台币/结算单 admin 闸、api-key-group 余额字段结构性移除、6 条登录支路统一 2FA 闸、提现面 410/admin 闸、createOrder 服务端价格反查、上传魔数闸;回归读数见 loop-run-log 的 R10 终态条。R11(提交 548fb0c55c,12 文件):A2A 注册鉴权 + endpoint SSRF 校验、connector_store 加密不可用 fail-closed、mcp_server 四处 URL 出口逐跳 + 钉 IP(含 automation webhook 首跳)、设计器 postMessage e.source 校验、参数面板 API Key 改 sessionStorage、小程序 webview https + host 白名单。本席现读验证:R11 pytest 五文件 93 用例全绿;PreviewCanvas sandbox 变异自证(加 allow-same-origin ⇒ 用例转红,恢复 ⇒ 转绿,恢复后文件哈希与 HEAD 一致)。收敛终态(2026-10-31 22:2x 现读):本机 HEAD 与 `git ls-remote origin refs/heads/main` 同为 b0e506f31b5e(含 R10/R11 两枚;远端先前读数 6747dfe9473 为其祖先,非丢失)。批次撞号如实记录:R10 与并发席 ab5417bdbf 均标「第 31 批」,按落地时序 R10=31、ab5417bdbf=32、mcp 收尾=33。 -->
 - [x] P89 〔千段租约〕 本机=lichunchuan-96818d62 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] P89 〔千段租约〕 本机=lichunchuan-96818d62 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
+
+- [ ] B67 [auto-triage] API 5xx 错误签名聚类(POST /api/internal/relay/account-pool/credential 503)(登记@2026-11-01/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 2 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:POST /api/internal/relay/account-pool/credential → 503 POST /api/internal/relay/account-pool/credential -> 503 / FastifyError: Service Unavailable)
