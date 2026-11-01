@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -15,7 +15,7 @@ import {
   agentRuleParam,
   agentHeatStats,
 } from '@ihui/database'
-import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import { isSystemAdmin, requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { requireActiveUser } from '../plugins/auth.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
@@ -89,11 +89,30 @@ async function rawList(
   }
 }
 
-async function rawById(table: string, id: string) {
+/**
+ * zhs_developer_link 的归属闸(2026-11-01 安全强化)。
+ *
+ * 这一族此前**只按 id 取行**:任何登录用户拿别人的 id 就能读/改/删他人的开发者绑定
+ * (coze 账号、到期时间、状态),而 `GET /developer/list?user_id=X` 还把"查谁的"交给查询串。
+ * 表自带 `user_id`(packages/database/src/schema/zhs-full.ts:168 notNull)⇒ 不需要迁移就能收。
+ *
+ * 三条口径:
+ *  - 管理员 ⇒ 返回 undefined(不加属主条件):这一族有运营侧管理需要,收死会挡掉正当操作;
+ *    特权判定走集中谓词 isSystemAdmin,不在这里抄第二份 roleId 比较(门 53 RULE-1);
+ *  - 取不到主体 ⇒ `sql`false``,一行都不给(fail-closed,绝不"读不到就放行");
+ *  - 越权命中一律 **404 而不是 403**:旧行为是"按 id 一定能问到",回 403 等于承认
+ *    "这枚 id 存在",把枚举面白送出去。
+ */
+function developerOwnerScope(request: FastifyRequest): SQL | undefined {
+  if (isSystemAdmin(request, { includeInternalChannel: false })) return undefined
+  const me = request.userId
+  return me ? sql`"user_id" = ${me}` : sql`false`
+}
+
+async function rawById(table: string, id: string, extraCond?: SQL) {
   assertTable(table)
-  const rows = await db.execute(
-    sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} LIMIT 1`,
-  )
+  const scope = extraCond ? sql`"id"::text = ${id} AND ${extraCond}` : sql`"id"::text = ${id}`
+  const rows = await db.execute(sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE ${scope} LIMIT 1`)
   return (rows as Record<string, unknown>[])[0]
 }
 
@@ -135,6 +154,7 @@ async function rawUpdate(
   columns: string[],
   id: string,
   body: Record<string, unknown>,
+  extraCond?: SQL,
 ) {
   assertTable(table)
   const sets: SQL[] = []
@@ -142,16 +162,22 @@ async function rawUpdate(
     if (body[c] !== undefined) sets.push(sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
   }
   if (sets.length === 0) return undefined
+  const scope = extraCond ? sql`"id"::text = ${id} AND ${extraCond}` : sql`"id"::text = ${id}`
   const rows = await db.execute(
-    sql`UPDATE ${sql.raw(`"${table}"`)} SET ${sql.join(sets, sql`, `)} WHERE "id"::text = ${id} RETURNING *`,
+    sql`UPDATE ${sql.raw(`"${table}"`)} SET ${sql.join(sets, sql`, `)} WHERE ${scope} RETURNING *`,
   )
   return (rows as Record<string, unknown>[])[0]
 }
 
-async function rawDelete(table: string, id: string): Promise<Record<string, unknown>[]> {
+async function rawDelete(
+  table: string,
+  id: string,
+  extraCond?: SQL,
+): Promise<Record<string, unknown>[]> {
   assertTable(table)
+  const scope = extraCond ? sql`"id"::text = ${id} AND ${extraCond}` : sql`"id"::text = ${id}`
   const rows = await db.execute(
-    sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} RETURNING id`,
+    sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE ${scope} RETURNING id`,
   )
   return rows as Record<string, unknown>[]
 }
@@ -1469,7 +1495,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     const { page, pageSize } = parsePaging(q)
     const conds: SQL[] = []
-    if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
+    // 归属(2026-11-01):`?user_id=` 是查询串,原先直接被拼进 WHERE ⇒ 任何人可列他人的绑定。
+    // 非管理员**强制**只看自己(客户端那个键就此失效),管理员保留按 user_id 筛的运营能力。
+    const scope = developerOwnerScope(req)
+    if (scope) conds.push(scope)
+    else if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
     if (q.status !== undefined) conds.push(sql`"status" = ${Number(q.status)}`)
     try {
       const result = await rawList('zhs_developer_link', { page, pageSize, conds })
@@ -1483,7 +1513,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const row = await rawById('zhs_developer_link', parsed.data.id)
+      const row = await rawById('zhs_developer_link', parsed.data.id, developerOwnerScope(req))
       if (!row) return reply.status(404).send(error(404, '开发者链接不存在'))
       return reply.send(success(row))
     } catch (e) {
@@ -1504,6 +1534,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         developerLinkCols,
         parsed.data.id,
         bodyParsed.data,
+        developerOwnerScope(req),
       )
       if (!row) return reply.status(404).send(error(404, '开发者链接不存在或无可更新字段'))
       return reply.send(success(row))
@@ -1516,9 +1547,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const existing = await rawById('zhs_developer_link', parsed.data.id)
+      const scope = developerOwnerScope(req)
+      const existing = await rawById('zhs_developer_link', parsed.data.id, scope)
       if (!existing) return reply.status(404).send(error(404, '开发者链接不存在'))
-      const removed = await rawDelete('zhs_developer_link', parsed.data.id)
+      const removed = await rawDelete('zhs_developer_link', parsed.data.id, scope)
       return reply.send(success({ deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
@@ -1529,7 +1561,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { orderNo } = req.params as { orderNo: string }
     try {
       const rows = await db.execute(
-        sql`SELECT * FROM ${sql.raw('"zhs_developer_link"')} WHERE "order_no" = ${orderNo} LIMIT 1`,
+        sql`SELECT * FROM ${sql.raw('"zhs_developer_link"')} WHERE "order_no" = ${orderNo} AND ${
+          developerOwnerScope(req) ?? sql`true`
+        } LIMIT 1`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '开发者链接不存在'))

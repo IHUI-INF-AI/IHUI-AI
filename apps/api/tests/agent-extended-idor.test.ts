@@ -45,6 +45,12 @@ vi.mock('../src/plugins/require-permission.js', () => ({
   requireAuth: mocks.requireAuth,
   requireAdmin: mocks.requireAdmin,
   requirePermission: vi.fn(() => mocks.requireAuth),
+  // 2026-11-01 补:developer 一族改问集中特权谓词 isSystemAdmin,而这份 mock 原先没导出它
+  // ⇒ 运行时是 undefined,调用即 TypeError,被路由的 catch 折成 500(第一版夹具就撞在这)。
+  // 这里按 roleId 复刻**语义**而不是复刻实现:判据本体在 require-permission.ts,
+  // 测试侧只需要"roleId>=1 视为管理员"这一档输入。
+  isSystemAdmin: (request: { jwtPayload?: { roleId?: number } }) =>
+    (request.jwtPayload?.roleId ?? 0) >= 1,
 }))
 vi.mock('../src/db/index.js', () => ({
   db: {
@@ -76,6 +82,34 @@ const REC_ID = '11111111-1111-4111-8111-111111111111'
 
 function makePayload(userId: string, roleId: number): JWTPayload {
   return { userId, phone: '', familyId: '', roleId }
+}
+
+/**
+ * 取 drizzle `db.execute(sql\`…\`)` 收到的对象里**实际会绑定进去的值**。
+ *
+ * 现读探针(`db.execute(sql...)` 的对象形态):`.params` 是**空数组**,值住在
+ * `queryChunks[]` 的嵌套里 —— 数组元素为字符串时就是绑定位,为对象时是 SQL 文本块。
+ * 本文件更早那组 `if (params.length > 0) { … }` 因此是**空转断言**:取不到参数就整块跳过,
+ * 无论实现有没有强制归属都会绿(§「验证要读消费者自己读的那份」同型)。统一改用本出口。
+ */
+function boundValues(sqlObj: unknown): string[] {
+  const out: string[] = []
+  const walk = (node: unknown): void => {
+    if (typeof node === 'string') {
+      out.push(node)
+      return
+    }
+    if (Array.isArray(node)) {
+      for (const n of node) walk(n)
+      return
+    }
+    if (node && typeof node === 'object') {
+      const rec = node as Record<string, unknown>
+      if ('queryChunks' in rec) walk(rec.queryChunks)
+    }
+  }
+  walk(sqlObj)
+  return out
 }
 
 /** 构造 thenable Drizzle query builder mock,await 后返回 finalValue。 */
@@ -393,14 +427,11 @@ describe('agent-extended IDOR 防护', () => {
   describe('Bug 8:POST /need-task 强制 user_id = req.userId', () => {
     it('非 admin 传他人 user_id → user_id 被强制覆盖为自己的', async () => {
       asRegular(USER_A)
+      let captured: string[] | undefined
       mocks.dbExecute.mockImplementation(async (sqlObj: unknown) => {
-        // Drizzle sql 模板对象的 params 数组包含所有 ${value} 占位符的值
-        const params = (sqlObj as { params?: unknown[] }).params ?? []
-        if (params.length > 0) {
-          // 强制覆盖后,USER_A 在参数中,USER_B 不在
-          expect(params).toContain(USER_A)
-          expect(params).not.toContain(USER_B)
-        }
+        // 归属必须问得到值:`.params` 在这条调用形态下恒为空,留着 `if (params.length>0)`
+        // 等于"取不到就整块跳过"—— 无论实现有没有强制归属都会绿。
+        captured = boundValues(sqlObj)
         return [{ id: REC_ID, user_id: USER_A, title: 'test' }]
       })
       const res = await server.inject({
@@ -409,6 +440,9 @@ describe('agent-extended IDOR 防护', () => {
         payload: { user_id: USER_B, title: 'test task', type: 'task' },
       })
       expect(res.statusCode).toBe(201)
+      expect(captured, '没走到 db.execute ⇒ 这条归属断言是空的').toBeDefined()
+      expect(captured!).toContain(USER_A)
+      expect(captured!).not.toContain(USER_B)
     })
   })
 
@@ -474,6 +508,68 @@ describe('agent-extended IDOR 防护', () => {
       })
       // 400 的唯一合法成因就是"reviewer 仍是必填"这一回归
       expect(res.statusCode, res.body).not.toBe(400)
+    })
+  })
+
+  // 2026-11-01 安全强化:zhs_developer_link 一族(这一族走 db.execute,不是 drizzle 构造器)
+  describe('开发者绑定(developer)一族的归属过滤', () => {
+    /** 收 db.execute 实际收到的对象 —— 归属断言必须落在"进 WHERE 的值"上。 */
+    function captureCalls(rows: unknown[] = []): unknown[] {
+      const seen: unknown[] = []
+      mocks.dbExecute.mockImplementation(async (sqlObj: unknown) => {
+        seen.push(sqlObj)
+        return rows
+      })
+      return seen
+    }
+
+    beforeEach(() => {
+      mocks.dbExecute.mockReset()
+    })
+
+    it('非管理员 GET /developer/:id:WHERE 里必须带上"我自己的 user_id",取不到行就 404', async () => {
+      asRegular(USER_A)
+      const seen = captureCalls([])
+      const res = await server.inject({ method: 'GET', url: `/developer/${REC_ID}` })
+      expect(res.statusCode).toBe(404)
+      expect(seen.length).toBe(1)
+      const bound = boundValues(seen[0])
+      expect(bound).toContain(REC_ID)
+      expect(bound).toContain(USER_A)
+      expect(bound.filter((v) => v === USER_A).length).toBe(1)
+    })
+
+    it('非管理员 GET /developer/list?user_id=他人:查询串那个值不再参与过滤', async () => {
+      asRegular(USER_A)
+      const seen = captureCalls([])
+      const res = await server.inject({ method: 'GET', url: `/developer/list?user_id=${USER_B}` })
+      expect(res.statusCode).toBe(200)
+      expect(seen.length).toBeGreaterThan(0)
+      const bound = boundValues(seen[0])
+      expect(bound).toContain(USER_A)
+      expect(bound).not.toContain(USER_B)
+    })
+
+    it('正向对照:管理员保留按 user_id 筛的运营能力(否则"整片写死"也能骗过上面两条)', async () => {
+      asAdmin(USER_A)
+      const seen = captureCalls([])
+      const res = await server.inject({ method: 'GET', url: `/developer/list?user_id=${USER_B}` })
+      expect(res.statusCode).toBe(200)
+      const bound = boundValues(seen[0])
+      expect(bound).toContain(USER_B)
+      // 管理员这一支不该被再叠一层"只能看自己"的条件:那会把运营面一起收死
+      expect(bound.filter((v) => v === USER_A).length).toBe(0)
+    })
+
+    it('非管理员 DELETE /developer/:id:探测阶段取不到行就停,删除语句一条都不发', async () => {
+      asRegular(USER_A)
+      const seen = captureCalls([])
+      const res = await server.inject({ method: 'DELETE', url: `/developer/${REC_ID}` })
+      expect(res.statusCode).toBe(404)
+      // 只发了**一条** SELECT(带自己的 user_id);DELETE FROM 那条根本没出现
+      // ⇒ 这才叫"副作用没发生",不是"返回了 403 文案"
+      expect(seen.length).toBe(1)
+      expect(boundValues(seen[0])).toContain(USER_A)
     })
   })
 })
