@@ -286,7 +286,7 @@ export function Image(props: RNBaseProps) {
   const resizeMode = (props.resizeMode as string) ?? 'cover'
   const onLoad = props.onLoad as ((e: NativeSyntheticEvent<ImageLoadEventData>) => void) | undefined
   const onError = props.onError as
-    ((e: NativeSyntheticEvent<ImageErrorEventData>) => void) | undefined
+    ((e: NativeSyntheticEvent<{ error: string }>) => void) | undefined
   /**
    * RN 的 `onLoad` 载荷在 `nativeEvent.source`,weapp 的 `bindload` 给的是 `e.detail.{width,height}`
    * ⇒ 由这一层造出 RN 形状。此前本层**根本没转发** onLoad/onError:共享屏那两屏
@@ -321,7 +321,7 @@ export function Image(props: RNBaseProps) {
               onError({
                 ...(event as object),
                 nativeEvent: { error: detail?.errMsg ?? 'image load failed' },
-              } as unknown as NativeSyntheticEvent<ImageErrorEventData>)
+              } as unknown as NativeSyntheticEvent<{ error: string }>)
             }
           : undefined
       }

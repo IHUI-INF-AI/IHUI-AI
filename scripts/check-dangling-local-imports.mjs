@@ -1673,6 +1673,24 @@ async function revMain(rev, anchorOpt, conflicts) {
     for (const p of face.d5Unjudged) console.log(`   ${p}`)
     process.exit(2)
   }
+  /** D6-c 在 `--rev` 面走同一条诚实性通道(2026-11-01,票面 G-815915 型②):被审面上有入库 `.js`
+   *  读不出正文、或豁免台账取不到 ⇒ 那一维没看过东西,整轮判「未判定」,不记绿也不冒红(§0.3);
+   *  台账腐烂(登记了却不再命中)⇒ 判红(§0.7)。落地器(object-space-land)拿的就是这一档。 */
+  const wnBombs = face.wrongName.bombs
+  console.log(
+    `[dangling-imports] D6 错名影子:同名并存 ${face.wrongName.coexist.length} 对` +
+      ` | TS 侧解析到入库 .js 自身 ${face.wrongName.literalWin.length} 处` +
+      ` | 正文含 TS 专有语法(型②必炸)扫 ${wnBombs.scannedFiles} 枚命中 ${wnBombs.candidates.length} 枚`,
+  )
+  if (wnBombs.rot.length) {
+    console.log(`❌ D6-c 豁免台账腐烂:${wnBombs.rot.map((r) => `${r.file} 至 ${r.until}`).join(', ')} 在该面已不命中`)
+    process.exit(1)
+  }
+  if (wnBombs.undetermined.length) {
+    console.log(`❌ 无法判定:D6-c 在 ${rev} 面有 ${wnBombs.undetermined.length} 格取不到输入 —— 不记绿也不冒红(§0.3):`)
+    for (const u of wnBombs.undetermined) console.log(`   ${u.file}:${u.why}`)
+    process.exit(2)
+  }
   const { fresh, tolerated } = splitFresh(face.byFile, (f) => anchorCounts.get(f) ?? 0)
   const total = [...face.byFile.values()].reduce((s, v) => s + v.length, 0)
   const d5n = [...face.byFile.values()].flat().filter((v) => v.rule === 'D5').length
@@ -2843,6 +2861,14 @@ export const __test__ = {
   TS_SIDE_CONSUMER_RE,
   SHADOW_PARTNERS,
   JS_SPEC_RE,
+  // D6-c(2026-11-01 补,票面 G-815915 型②):判据本体 + 台账方言 + 采集口径盲区,镜像测试直接 import
+  auditShadowSyntaxBombs,
+  parseShadowExemptionLedger,
+  shadowExemptionActive,
+  loadShadowExemptionLedger,
+  d6cChannelBlind,
+  SHADOW_EXEMPTION_LEDGER,
+  SHADOW_EXEMPTION_REASON_MIN,
   // D7(2026-10-29 立):判据本体交镜像测试,CLI 与测试共用同一把尺(§22c)
   auditNamespaceAggregator,
   d7ChannelBlind,
