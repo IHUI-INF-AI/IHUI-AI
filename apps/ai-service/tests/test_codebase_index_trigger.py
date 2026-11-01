@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.services import mcp_server
-from app.services.codebase_indexer import CodebaseIndexer
+from app.services.codebase_indexer import CodebaseIndexer, IndexResult
 
 
 # 2026-10-03 数据出域合规整改:懒索引与 index_codebase 现在受"代码出域同意闸"
@@ -78,7 +78,9 @@ class TestIndexCodebaseTool:
 
     @pytest.mark.asyncio
     async def test_success_passthrough(self, tmp_path):
-        fake_result = SimpleNamespace(
+        # 用真实 IndexResult 而不是 SimpleNamespace:响应面要求"IndexResult 的每一枚字段
+        # 都要发到端上"(tests/test_mcp_index_payload.py),假件漏字段就会在这里假红/假绿。
+        fake_result = IndexResult(
             repo_id="repo-x",
             files_scanned=10,
             files_indexed=3,
@@ -87,7 +89,6 @@ class TestIndexCodebaseTool:
             chunks_created=30,
             chunks_vectorized=30,
             merkle_root="abc",
-            errors=[],
         )
         captured: dict = {}
 
