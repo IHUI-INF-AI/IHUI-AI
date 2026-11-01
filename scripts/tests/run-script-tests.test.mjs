@@ -350,4 +350,51 @@ test('--changed(与手抄子串是 AND 收窄,收窄到 0 仍走未判定而不�
     cleanup(dir)
   }
 })
+
+// ---- ⑪–⑬ 单片超时(2026-11-01 立)----
+// 立因(现读):`spawnSync` 默认**没有超时**,2026-11-01 全量档实测第 1 片里三枚用例派生的
+// 脚本进程挂了 24 分钟不返回 ⇒ 整套**一行输出都产不出来**,只能整轮杀掉。这一族钉的是
+// 「超时 = 未判定」,不是「超时 = 绿」,也不是「超时 = 红」:三种结论三个出口,不许糊成一个数。
+
+test('resolveChunkTimeout:默认 15 分钟;环境变量可压到秒级;非法值回落默认(不得变 0/NaN)', () => {
+  assert.equal(rt.DEFAULT_CHUNK_TIMEOUT_MS, 15 * 60 * 1000)
+  assert.equal(rt.resolveChunkTimeout({}), rt.DEFAULT_CHUNK_TIMEOUT_MS)
+  assert.equal(rt.resolveChunkTimeout({ SCRIPT_TESTS_CHUNK_TIMEOUT_MS: '1234' }), 1234)
+  // 反控:把"配错"读成 0 ⇒ 每一片一启动就被杀 ⇒ 全量档整片未判定,比挂死更隐蔽(还像"跑过了")
+  for (const bad of ['abc', '0', '-5', '   '])
+    assert.equal(
+      rt.resolveChunkTimeout({ SCRIPT_TESTS_CHUNK_TIMEOUT_MS: bad }),
+      rt.DEFAULT_CHUNK_TIMEOUT_MS,
+      `非法值 ${JSON.stringify(bad)} 必须回落默认`,
+    )
+})
+
+test('isTimeoutResult:只认 ETIMEDOUT;普通失败一律不算超时(反控:不得把红说成超时)', () => {
+  assert.equal(rt.isTimeoutResult({ error: { code: 'ETIMEDOUT' } }), true)
+  assert.equal(rt.isTimeoutResult({ error: null, status: 1 }), false)
+  assert.equal(rt.isTimeoutResult({ error: { code: 'EBUSY' } }), false)
+  assert.equal(rt.isTimeoutResult(undefined), false)
+})
+
+test('main(端到端):用例挂死 ⇒ 该片记"超时未判定"、点名文件、exit 2,且绝不打印绿', () => {
+  const dir = makeRepo('ihui-rst-timeout-')
+  const prev = process.env.SCRIPT_TESTS_CHUNK_TIMEOUT_MS
+  process.env.SCRIPT_TESTS_CHUNK_TIMEOUT_MS = '4000'
+  try {
+    writeRel(
+      dir,
+      'scripts/tests/hang.test.mjs',
+      "import { test } from 'node:test'\ntest('挂住不回(专供超时取证)', async () => {\n  await new Promise((r) => setTimeout(r, 20000))\n})\n",
+    )
+    const r = capture(() => main([], dir))
+    assert.equal(r.rc, 2, `挂死片必须走未判定 exit 2,实际 ${r.rc}:\n${r.out}`)
+    assert.ok(r.out.includes('超时未判定'), `要点名"超时未判定":\n${r.out}`)
+    assert.ok(r.out.includes('scripts/tests/hang.test.mjs'), `必须逐片点名文件:\n${r.out}`)
+    assert.ok(!r.out.includes('全量镜像测试绿'), `超时档不得打印绿:\n${r.out}`)
+  } finally {
+    if (prev === undefined) delete process.env.SCRIPT_TESTS_CHUNK_TIMEOUT_MS
+    else process.env.SCRIPT_TESTS_CHUNK_TIMEOUT_MS = prev
+    cleanup(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
