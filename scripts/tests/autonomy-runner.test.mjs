@@ -85,9 +85,12 @@ ok('T9 preflight 在本机真实入口上 = ready(病灶①②已修的直接凭
   return pf.state === 'ready' && pf.missing.length === 0 && pf.checked.length >= 2
 })())
 
+// 夹具必须是「结构性不存在」的一层,而不是某台机上恰好没建出来的产物目录:
+// 2026-11-02 实测本机 apps/cli/npm-dist/ 已被别的会话真建出来,原写法当场翻红 ——
+// 判"缺不缺在位"的用例若靠机器偶然状态,换一台机/建一次产物就自锁(§0.1 现读同义)。
 ok('T10 病灶②:归一后仍指向本机不存在的产物层 ⇒ missing 并点名(不是 ready)', (() => {
-  const pf = preflightSessionRunner(`node ${REPO_ROOT_TOKEN}/apps/cli/npm-dist/dist/index.js`, liveRootBack)
-  return pf.state === 'missing' && pf.missing.length === 1 && pf.missing[0].includes('npm-dist')
+  const pf = preflightSessionRunner(`node ${REPO_ROOT_TOKEN}/apps/cli/__ihui-absent-fixture__/dist/index.js`, liveRootBack)
+  return pf.state === 'missing' && pf.missing.length === 1 && pf.missing[0].includes('__ihui-absent-fixture__')
 })())
 
 ok('T11 病灶①:他机盘符钉死经归一后落到本机在位入口 ⇒ ready', (() => {
