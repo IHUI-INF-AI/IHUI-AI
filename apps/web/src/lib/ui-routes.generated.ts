@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: cffca2c7c7e8373a66d57294eb89b897108d9a74
-// inputsSha256: 5e4323d0d767029768da829c66b14662f6aab56089d84dd013abbf9f9c8c231d
+// sourceCommit: 090d7b101228aea63c62d44a29e7d549641eef2c
+// inputsSha256: 0aecab7437fc2f36e12b2d9df0d61dc5548e2fc716a46d63c7eef2e8b5899cf6
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -162,7 +162,7 @@
 // input: apps/web/app/(main)/admin/edu/teacher/review/page.tsx e6c70a76c86314c87c8f7c950e437bcd64f66e80263c41a2f6daba72cb0930a2
 // input: apps/web/app/(main)/admin/edu/user-platform/page.tsx 141f42907f9acae36fc0f7b7f89e1b2e336fd95ed6cb2ebaaf98cc67dcf04f54
 // input: apps/web/app/(main)/admin/edu/zhs-identity/page.tsx 978c0ec2f957a762f231be7a7d872f1cfd01379d4ad8eb38e3f89c68a3038ad6
-// input: apps/web/app/(main)/admin/error-dashboard/page.tsx d123ba8056156d95f8fdac000cbae5cd98211109176781cddb8aada5dc3144da
+// input: apps/web/app/(main)/admin/error-dashboard/page.tsx 3324d1e9e438b4783aa19b40ea694f5c7267a15a4fffd0ee513b16dfe83beb8d
 // input: apps/web/app/(main)/admin/event-bus-monitor/page.tsx 84dbac968ec72963a3373a3c14df5fb480361606dae6f626c7ce7181bbc85a5b
 // input: apps/web/app/(main)/admin/events/page.tsx 11897ee091cae65615ee67e9e34da2584d1a9fe056e79cc7b7e81c4ce55eb14f
 // input: apps/web/app/(main)/admin/exam-marking/page.tsx 047ae56d74899dffd01ef4d610b79fd37c32b282135c6e745a73d563aa65b693
@@ -217,8 +217,8 @@
 // input: apps/web/app/(main)/admin/mobile-adapter/page.tsx b779dd05ea372070b4bb871fc8028f225a5d51d4b47d342e3da798df07ef7c03
 // input: apps/web/app/(main)/admin/model-pricing/page.tsx 6fac978937028fde3aeb9efea2106e44c26e2a6084b02d7861c6e9d1b2901309
 // input: apps/web/app/(main)/admin/monitor/alerts/page.tsx b16d8669d57471bdd5b739da8c831012b2954e9ec89e1c7e7d66eadf74486a7b
-// input: apps/web/app/(main)/admin/monitor/dashboard/page.tsx 2d6d240a4fd9bacf0c9d393f7709ac0044f488d0e5cfbe711fa9991c2dab4a48
-// input: apps/web/app/(main)/admin/monitor/funnel/page.tsx 5818091e031aee465a014436ecea1ff5ceb6b09565b68f57f7d2b17a863b5f97
+// input: apps/web/app/(main)/admin/monitor/dashboard/page.tsx bb96b2063b17e1057b340d9e9b19742ee01d766e1ca2fc708f1f87904edc37f1
+// input: apps/web/app/(main)/admin/monitor/funnel/page.tsx a7a188889320b0a7e2d91d5e002b420d1dfff2794e54a9f3ae1eac6a2cbc5673
 // input: apps/web/app/(main)/admin/monitor/panels/page.tsx b7773ed5ebb69d09bd87c11f8c48b8d61ee1e65d6c4f9985ea203f9ded0cbd47
 // input: apps/web/app/(main)/admin/monitor/wallboard/page.tsx 7de7cab6caa56c00de5ad4fcadd921dbb0a8fbc15e17cb0770b8b4bc3a91cb21
 // input: apps/web/app/(main)/admin/monitoring-dashboard/page.tsx 111c46b4ffcbbc72a8d2f99de6a297d7268d5196094bb13a6579c9711cb87ae6
@@ -934,7 +934,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx ebace2ef09a778e578617c923f46a849897d21c8523df9a53d453d714b93d81d
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-01T03:15:48.781Z
+// generatedAt: 2026-11-01T04:33:19.023Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
