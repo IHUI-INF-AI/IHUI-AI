@@ -137,7 +137,7 @@
   width: var(--spacing-xs-loose);
   height: var(--spacing-xs-loose);
   background: var(--color-brand-accent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .title {
