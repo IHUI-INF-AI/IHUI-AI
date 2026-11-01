@@ -1958,3 +1958,70 @@ test('T54 圆角:档名 / 角色名 / 像素值是同一个档(取源 = HEAD 面
   const other = radiusSetOf('const s = { card: { borderRadius: rnRadius.xl } }', table)
   assert.notDeepEqual(other, byPx, '真不同档必须仍被判出差异')
 })
+
+/**
+ * T55/T56 —— 允许差异登记表的两条底线(跨端对齐 Phase 1「允许差异」地基):
+ *   ① 未登记差异必须报红(否则登记表只是注释,删掉它也不会有人发现);
+ *   ② 到期项必须重新报红(否则白名单一旦写进去就永久放行,即"白名单腐化")。
+ * 判据只走 `src.allowedDiffVerdict`(§22c:测试不复制判据),构造面即全部输入。
+ */
+const allowedFinding = (name, onlyMiniapp, onlyRn = []) => ({
+  name,
+  named: [],
+  geometry: { onlyMiniapp, onlyRn, mismatched: [] },
+  radius: null,
+  elementRadius: null,
+})
+
+const allowedEntry = (over = {}) => ({
+  component: 'Foo',
+  key: 'geometry',
+  platform: 'both',
+  owner: 'test',
+  expires: '2027-03-27',
+  count: 1,
+  reason: '测试用登记理由必须足够长,确保形状判据不被误判为坏条目。',
+  evidence: 'fixture.ts',
+  ...over,
+})
+
+test('T55 允许差异:未登记即报红;登记在期内且不超额度才放行', () => {
+  const finding = allowedFinding('Foo', ['4'])
+  const empty = src.allowedDiffVerdict([finding], [], { today: '2026-11-02' })
+  assert.equal(empty.unregistered.length, 1, '未登记差异必须进 unregistered')
+  assert.equal(empty.red.length, 1, '未登记差异必须判红(否则登记表只是注释)')
+  assert.equal(src.allowedDiffProblem(allowedEntry()), null, '合法条目不得被形状判据误杀')
+  const ok = src.allowedDiffVerdict([finding], [allowedEntry()], { today: '2026-11-02' })
+  assert.equal(ok.red.length, 0, '登记在期内且读数等于额度 ⇒ 不得报红')
+  assert.equal(ok.matched.length, 1, '放行项必须记账,不能静默吞掉')
+  const over = src.allowedDiffVerdict([allowedFinding('Foo', ['4', '8'])], [allowedEntry()], {
+    today: '2026-11-02',
+  })
+  assert.equal(over.over.length, 1, '读数超过登记额度必须单独报名')
+  assert.equal(over.red.length, 1, '超量必须判红(登记额度不是无限信用)')
+  const bad = src.allowedDiffVerdict([], [allowedEntry({ reason: '短' })], { today: '2026-11-02' })
+  assert.equal(bad.invalid.length, 1, '条目坏(理由不足)必须进 invalid')
+  assert.equal(bad.red.length, 1, '条目坏必须判红,不得当成"没登记"悄悄跳过')
+})
+
+test('T56 允许差异:到期项必须重新报红(白名单不得自动续期)', () => {
+  const finding = allowedFinding('Foo', ['4'])
+  const expired = src.allowedDiffVerdict([finding], [allowedEntry({ expires: '2026-01-01' })], {
+    today: '2026-11-02',
+  })
+  assert.equal(expired.expired.length, 1, '到期且差异仍在必须进 expired')
+  assert.equal(expired.red.length, 1, '到期项必须重新报红,防止白名单腐化')
+  // 平台差异条目没有逐档读数,同样必须受到期约束 —— 否则支付/分享/安全区那 9 类会变成永久豁免。
+  const platform = {
+    component: 'Share',
+    key: 'platform:share-channel',
+    platform: 'both',
+    owner: 'test',
+    expires: '2026-01-01',
+    reason: '测试用平台差异理由必须足够长,确保形状判据不被误判为坏条目。',
+    evidence: 'apps/miniapp-taro/src/rn-compat/apis.ts',
+  }
+  const pv = src.allowedDiffVerdict([], [platform], { today: '2026-11-02' })
+  assert.equal(pv.expired.length, 1, '平台差异到期同样必须进 expired')
+  assert.equal(pv.red.length, 1, '平台差异到期必须重新报红')
+})
