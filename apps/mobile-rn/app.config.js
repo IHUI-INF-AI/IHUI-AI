@@ -102,7 +102,15 @@ module.exports = ({ config }) => {
       // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
       [
         './plugins/withCarrier.cjs',
-        { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage },
+        {
+          appId: carrierAppId,
+          webSdkUrl: carrierWebSdkUrl,
+          androidPackage,
+          // 2026-11-01 安全强化:明文例外改成按域名开(旧形态是整 App usesCleartextTraffic=true)。
+          // 闪验网关域名住在未入库的 .aar 里,静态拿不到 ⇒ 不猜清单,由部署方供值;
+          // 没供值时基础档关死,一键登录失败会按既有设计降级到短信验证码,而不是退回整 App 明文。
+          cleartextHosts: process.env.EXPO_PUBLIC_CARRIER_CLEARTEXT_HOSTS || '',
+        },
       ],
       './plugins/withExpoImportFix.cjs',
       // Android 开屏图 + 样式:未装 expo-splash-screen 时 prebuild 的 legacy 分支

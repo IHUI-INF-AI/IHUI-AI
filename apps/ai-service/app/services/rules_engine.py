@@ -102,6 +102,37 @@ _AUDIT_LOG_MAX = 500
 # 语义冲突检测相似度阈值(>0.9 视为重复)
 _SEMANTIC_CONFLICT_THRESHOLD = 0.9
 
+
+def rule_file_path(rules_dir: str, rule_id: str) -> str | None:
+    """把外部传入的 rule_id 换成"一定住在 rules_dir 里"的文件路径;越界 ⇒ None。
+
+    立因(2026-11-01 安全强化):`DELETE /api/rules/{rule_id}` 的 rule_id 是 URL 路径段,
+    旧实现直接 `os.path.join(self._rules_dir, f"{rule_id}.md")` 再 `os.remove` ——
+    `..%2F..%2F..%2Fetc%2Fpasswd` 这类值在 join 后就是**任意 .md 文件删除**(Windows 下
+    `..\\..\\` 同形)。这一格只要登录就能打,不是 admin 专属。
+
+    两道都判,缺一不成立:
+      ① 字面量拒分隔符与 NUL(`.`/`..` 也拒)—— 让"看着就不像 id"的输入在拼接前死掉,
+         错误面窄、可测;
+      ② realpath 之后再问一次"还在不在目录里" —— 救符号链接那一型(目录里放一个指向
+         外部的 .md 链接,①看不出来)。用 os.path.realpath 而非 resolve:两者此处等价,
+         但 resolve(strict=False) 在 3.6- 的行为差异不值得为一条安全判据赌。
+    """
+    if not rule_id or rule_id in {".", ".."}:
+        return None
+    if "/" in rule_id or "\\" in rule_id or "\x00" in rule_id or "\n" in rule_id:
+        return None
+    base = os.path.realpath(rules_dir)
+    candidate = os.path.realpath(os.path.join(base, f"{rule_id}.md"))
+    try:
+        if os.path.commonpath([base, candidate]) != base:
+            return None
+    except ValueError:
+        # Windows 上不同盘符会走到这里 —— 越界,不是"判不了"
+        return None
+    return candidate
+
+
 # ── Redis 配置 ──────────────────────────────────────────
 _AUDIT_LOG_REDIS_KEY = "rules:audit-log"
 _AUDIT_LOG_REDIS_MAX = 5000
@@ -571,14 +602,21 @@ class RulesEngine:
         return updated
 
     def delete(self, rule_id: str, user: str = "system") -> bool:
-        """删除规则 → 删除 .md 文件。"""
+        """删除规则 → 删除 .md 文件。
+
+        rule_id 来自 URL 路径段,一律先过 `rule_file_path` 才允许碰文件系统:越界不是
+        "删不掉就算了",而是**当场拒**(返回 False ⇒ 路由给 404,不产出任意 .md 删除)。
+        """
+        path = rule_file_path(self._rules_dir, rule_id)
+        if path is None:
+            logger.warning("[rules_engine] 拒绝越界的 rule_id(不含路径穿越才允许删除)")
+            return False
         # 先捕获规则(供审计 + 版本控制)
         with self._lock:
             rule = self._rules.get(rule_id)
             rule_name = rule.name if rule else rule_id
         if rule:
             self._save_version(rule, "delete")
-        path = os.path.join(self._rules_dir, f"{rule_id}.md")
         deleted = False
         try:
             if os.path.exists(path):
@@ -588,9 +626,8 @@ class RulesEngine:
                 # 尝试按 id 匹配文件名(id 可能与文件名不完全一致)
                 with self._lock:
                     if rule_id in self._rules:
-                        r = self._rules[rule_id]
-                        alt_path = os.path.join(self._rules_dir, f"{r.id}.md")
-                        if os.path.exists(alt_path):
+                        alt_path = rule_file_path(self._rules_dir, self._rules[rule_id].id)
+                        if alt_path and os.path.exists(alt_path):
                             os.remove(alt_path)
                             deleted = True
         except Exception as e:
@@ -1148,8 +1185,8 @@ class RulesEngine:
         采用正则替换(非全文件重写),避免与 update() 的文件写入冲突。
         """
         try:
-            path = os.path.join(self._rules_dir, f"{rule_id}.md")
-            if not os.path.exists(path):
+            path = rule_file_path(self._rules_dir, rule_id)
+            if path is None or not os.path.exists(path):
                 return
             with open(path, encoding="utf-8") as f:
                 content = f.read()

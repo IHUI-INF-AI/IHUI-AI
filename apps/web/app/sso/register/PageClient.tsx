@@ -161,6 +161,10 @@ export default function SsoRegisterPage() {
       // 却解析成 https://evil.com ⇒ 一枚"过了服务端校验"的 sso_code 会被送到外站。
       // 落点:带显式 redirect(子项目/深链跳来)时原样返回,否则 admin 落到监控大屏
       // (与主站 LoginDialog、/sso/login 共用 @/lib/post-login-landing 判据)。
+      // 门 278 具名豁免(台账 scripts/data/redirect-origin-pinned-exemptions.json):
+      // 与 /sso/login 的签发腿同形 —— target 是服务端 /api/auth/sso/code 的 redirectUri,
+      // 权威落点集在那边的 zod refine 里(站内相对 ∪ localhost ∪ env 白名单 ∪ chromiumapp ∪ 深链);
+      // 客户端再收一层"仅第一方"会砍断 CLI/扩展的回跳,而服务端拒签时本页不导航。
       const target = resolveSafeRedirectTarget(
         resolvePostLoginLanding(useAuthStore.getState().user, searchParams.get('redirect')) ?? '/',
         { allowDeepLink: true },
