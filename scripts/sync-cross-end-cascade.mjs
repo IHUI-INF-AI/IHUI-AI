@@ -1,0 +1,509 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * sync-cross-end-cascade.mjs — 跨端对齐「一键级联」编排器(只读预演默认,--apply 才写)
+ *
+ * 立因(2026-11-01 机主令:"rn 端应自动同步 web 端样式与功能,小程序对齐 rn,并且全部自动化、
+ * 最大化减少开发"):链条各腿(派生写回 / 三端落档 / 镜像声明 / 门户登记 / 造页 / dist 重建)
+ * 都已挂在 git-guardian 的巡检轮里按节律自跑,但**没有一条把整条链按依赖序一次跑完的按需入口** ——
+ * 改完一笔 web 要么等 30-60 分钟节拍,要么逐条手敲七八个命令(漏一条 = 下游对账拿到旧面假分叉)。
+ * 本器物只做一件事:**按依赖序派发既有器物**,让"等节拍"变成"敲一发"。
+ *
+ * 铁律(§0.6 单一真相源 / §22c 禁复算判据):
+ *   ① 本层**零判据** —— 不读 token、不数分叉、不建基线;每段 argv 指向既有器物,
+ *      旗标形态取自 git-guardian 各腿的派发点与器物自身头注(2026-11-01 逐枚实测)。
+ *   ② 顺序即契约:派生同源 → RN 色档入表 → 三端落档(web→RN→小程序)→ 声明链 →
+ *      门户收敛 → 造页 → 手写页转化 → dist 重建 —— 与 guardian 主轮次同序;
+ *      下游判据要问的是上游写没写,倒过来只会拿到中间态。
+ *   ③ 三态如实(§0.3):器物不在位 / 跑前炸(用法错、超时、非 JSON)⇒ 该段 `unjudged`,
+ *      **不记绿也不冒红**;verify 段 rc≠0 是"该维真有分叉"⇒ 如实报 `red`,不许洗白。
+ *      整体退出码:全绿 0 / 任一段 red 或 failed 1 / 任一段 unjudged 2。"没判过"永不冒充"判过"。
+ *   ④ 默认只读:写盘段在缺省档标 `skipped(dry)`(与 land-* 器物自身"默认预演"同一哲学);
+ *      要落盘显式 --apply。--dry-run 与 --apply 同时给 ⇒ exit 2 用法错(与守门横向口径同一条)。
+ *   ⑤ 派生进程纪律(§12g):execFileSync 一律显式 stdio + windowsHide,不 shell:true。
+ *
+ * 用法:
+ *   node scripts/sync-cross-end-cascade.mjs                 # 只读预演(写盘段跳过,verify 段照跑)
+ *   node scripts/sync-cross-end-cascade.mjs --apply         # 全链落盘(web→RN→小程序 一键跟随)
+ *   node scripts/sync-cross-end-cascade.mjs --only=reconcile,verify   # 按段类过滤
+ *   node scripts/sync-cross-end-cascade.mjs --json          # 机器可读结论(驾驶舱/CI 可消费)
+ *   node scripts/sync-cross-end-cascade.mjs --self-test     # 判序自检(零副作用,不落盘不派子进程)
+ *
+ * 段类(kind):derive | land | declare | converge | create | convert | rebuild | verify
+ * 应急:单段跑挂想续跑其余 ⇒ --skip=<name1,name2>(点名跳过并在结论里如实标注,不静默)。
+ */
+/* eslint-disable no-console -- CLI 编排器,预演/落盘结论需人读 stdout(与 land-*-style-tiers 同型) */
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = join(HERE, '..')
+
+/**
+ * 链条定义 —— 唯一真相在器物本体,这里只是"谁先谁后 + 用哪枚旗标"的编排。
+ * base = 预演档 argv(可被只读消费);apply = 追加旗标(缺省档写盘段整段跳过)。
+ */
+const STAGES = [
+  {
+    name: 'derive-tokens',
+    kind: 'derive',
+    desc: '样式派生面写回(tokens 族:小程序/RN/extension 各受管块 ← tokens.css 单源)',
+    script: 'heal-derived-in-checkout.mjs',
+    base: ['--family', 'tokens', '--json'],
+    write: true,
+    timeoutMs: 30 * 60 * 1000,
+  },
+  {
+    name: 'rn-token-pairs',
+    kind: 'derive',
+    desc: 'RN 色档同源入表(色值档补进跨端映射)',
+    script: 'plan-rn-token-pairing.mjs',
+    base: [],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'land-web',
+    kind: 'land',
+    desc: 'web 端非色档落档自愈',
+    script: 'land-web-style-tiers.mjs',
+    base: [],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'land-rn',
+    kind: 'land',
+    desc: 'RN 端非色档落档自愈',
+    script: 'land-rn-style-tiers.mjs',
+    base: [],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'land-miniapp',
+    kind: 'land',
+    desc: '小程序端非色档落档自愈',
+    script: 'land-miniapp-style-tiers.mjs',
+    base: [],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'mirror-declare',
+    kind: 'declare',
+    desc: 'RN→小程序镜像声明链补洞',
+    script: 'repair-cross-end-mirror.mjs',
+    base: ['--json'],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'portal-converge',
+    kind: 'converge',
+    desc: 'web→RN 门户判定收敛(可自动登记面)',
+    script: 'auto-register-cross-end.mjs',
+    base: ['--converge-portal', '--converge-render', '--only=portal'],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
+  },
+  {
+    name: 'shell-pages',
+    kind: 'create',
+    desc: 'RN 缺失宿主屏补壳',
+    script: 'gen-rn-shell-types.mjs',
+    base: ['--all', '--write'],
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
+    note: '器物自身 --write 即落档档形,预演档跳过',
+  },
+  {
+    name: 'miniapp-pages',
+    kind: 'create',
+    desc: '小程序缺页造页闭环',
+    script: 'land-cross-end-shell-pages.mjs',
+    base: ['--json'],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'hand-mirror',
+    kind: 'convert',
+    desc: '手写小程序页→托管镜像转化',
+    script: 'upgrade-miniapp-shell-pages.mjs',
+    base: ['--json'],
+    apply: ['--land'],
+    write: true,
+    timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'rebuild-dist',
+    kind: 'rebuild',
+    desc: 'workspace dist 落后重建(消费方读 dist 不读 src)',
+    script: 'heal-stale-dist.mjs',
+    base: ['--json'],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'verify-css-tokens',
+    kind: 'verify',
+    desc: '校验:派生块 ↔ TS 源同源(门 93 R9-R11)',
+    script: 'sync-css-tokens.mjs',
+    base: ['--check'],
+    redOnFail: true,
+    redName: 'css-tokens',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-miniapp-tokens',
+    kind: 'verify',
+    desc: '校验:小程序 token 受管三面同步(门 36)',
+    script: 'check-miniapp-tokens-sync.mjs',
+    base: [],
+    redOnFail: true,
+    redName: 'miniapp-tokens',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-cross-end-tokens',
+    kind: 'verify',
+    desc: '校验:三端品牌色同源对账(门 93)',
+    script: 'check-cross-end-tokens.mjs',
+    base: ['--quiet'],
+    redOnFail: true,
+    redName: 'cross-end-tokens',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-ui-parity',
+    kind: 'verify',
+    desc: '校验:小程序↔RN 同脸 + web 腿(门 128)',
+    script: 'check-cross-end-ui-parity.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'ui-parity',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-screen-coverage',
+    kind: 'verify',
+    desc: '校验:共享屏→小程序镜像覆盖(门 131)',
+    script: 'check-cross-end-screen-coverage.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'screen-coverage',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-style-tiers',
+    kind: 'verify',
+    desc: '校验:三端非色档裸数字分叉尺',
+    script: 'check-web-rn-style-tiers.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'style-tiers',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-fidelity',
+    kind: 'verify',
+    desc: '校验:小程序镜像还原度(文案键未覆盖面)',
+    script: 'check-miniapp-mirror-fidelity.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'fidelity',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-i18n-parity',
+    kind: 'verify',
+    desc: '校验:i18n 五语言键集 parity',
+    script: 'check-i18n-keys.mjs',
+    base: [],
+    redOnFail: true,
+    redName: 'i18n-parity',
+    timeoutMs: 10 * 60 * 1000,
+  },
+]
+
+const KINDS = [...new Set(STAGES.map((s) => s.kind))]
+
+/** 三档旗标解析;非法形态返回 {usageError}(失效方向 = 多要一次定向说明,不是多放一次跳门) */
+export function parseArgs(argv) {
+  const opts = {
+    apply: false,
+    dryRun: false,
+    json: false,
+    selfTest: false,
+    only: null,
+    skip: new Set(),
+    usageError: null,
+  }
+  for (const a of argv) {
+    if (a === '--apply') opts.apply = true
+    else if (a === '--dry-run') opts.dryRun = true
+    else if (a === '--json') opts.json = true
+    else if (a === '--self-test') opts.selfTest = true
+    else if (a.startsWith('--only=')) opts.only = a.slice(7).split(',').filter(Boolean)
+    else if (a.startsWith('--skip=')) opts.skip = new Set(a.slice(7).split(',').filter(Boolean))
+    else
+      opts.usageError = `未知旗标:${a}(可用 --apply/--dry-run/--only=<kind|name>/--skip=<name>/--json/--self-test)`
+  }
+  if (opts.apply && opts.dryRun) opts.usageError = '--apply 与 --dry-run 互斥,两面旗同给当场拒绝'
+  if (opts.usageError) return opts
+  // --only 令牌既认段类也认段名(混给亦可;全不命中 ⇒ usageError,防"打错字静默空跑")
+  if (opts.only) {
+    const hit = opts.only.filter((t) => KINDS.includes(t) || STAGES.some((s) => s.name === t))
+    if (hit.length !== opts.only.length) {
+      const bad = opts.only.filter((t) => !hit.includes(t))
+      return {
+        ...opts,
+        usageError: `--only 含未知令牌:${bad.join(',')} ⇒ 未执行任何段(段类=${KINDS.join('/')})`,
+      }
+    }
+  }
+  return opts
+}
+
+export function selectStages(stages, opts) {
+  if (!opts.only) return stages
+  const set = new Set(opts.only)
+  return stages.filter((s) => set.has(s.kind) || set.has(s.name))
+}
+
+/**
+ * 写盘段的档位裁决(dry 缺省跳写;--skip 点名跳)。返回 null=执行,或 {state,detail}=不执行。
+ */
+export function stageDisposition(stage, opts) {
+  if (opts.skip.has(stage.name))
+    return { state: 'skipped', detail: '--skip 点名跳过(如实标注,不静默)' }
+  if (stage.write && !opts.apply)
+    return { state: 'skipped', detail: '写盘段·缺省只读(要落盘给 --apply)' }
+  return null
+}
+
+/**
+ * 单段三态裁决(§0.3):绿 done / 分红 red(仅 verify 段 rc≠0)/ 其余一律 unjudged。
+ * 器物跑了但 rc≠0 且不是 verify 段 ⇒ failed(器物自身写盘失败,是真败不是未判)。
+ */
+export function classifyStage(stage, { ran, rc, spawnable }) {
+  if (!ran) return 'skipped'
+  if (!spawnable) return 'unjudged' // 不在位/起不动/超时 ⇒ 这一维没判完,不冒充绿也不冒红
+  if (rc === 0) return 'done'
+  if (stage.redOnFail) return 'red'
+  return 'failed'
+}
+
+/** 整体退出码:unjudged 优先顶 2?"red/failed" 顶 1?—— red 是真信号必须能拦住人,故 red>unjudged 序:1 与 2 并存取 2? */
+export function chainExit(states) {
+  if (states.includes('red') || states.includes('failed')) return 1
+  if (states.includes('unjudged')) return 2
+  return 0
+}
+
+function runStage(stage, opts, logger) {
+  const disp = stageDisposition(stage, opts)
+  if (disp) {
+    logger(`⏭️ ${stage.name} —— ${disp.detail}`)
+    return { name: stage.name, kind: stage.kind, state: 'skipped', detail: disp.detail }
+  }
+  const script = join(HERE, stage.script)
+  if (!existsSync(script)) {
+    logger(`❓ ${stage.name} —— 器物不在位(scripts/${stage.script})⇒ 本段未判定`)
+    return { name: stage.name, kind: stage.kind, state: 'unjudged', detail: '器物不在位' }
+  }
+  const argv = [...stage.base, ...(stage.write && opts.apply ? (stage.apply ?? []) : [])]
+  try {
+    const out = execFileSync(process.execPath, [script, ...argv], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true, // §5b 派生进程纪律
+      timeout: stage.timeoutMs ?? 10 * 60 * 1000,
+      maxBuffer: 1 << 24,
+      stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
+    })
+    const tail = summarize(out)
+    logger(`✅ ${stage.name} —— ${tail}`)
+    return { name: stage.name, kind: stage.kind, state: 'done', detail: tail }
+  } catch (e) {
+    const rc = typeof e?.status === 'number' ? e.status : null
+    const state = classifyStage(stage, { ran: true, rc, spawnable: rc !== null })
+    const out = String(e?.stdout ?? '')
+    const errText = String(e?.stderr ?? e?.message ?? '')
+      .trim()
+      .split('\n')
+      .slice(-2)
+      .join(' / ')
+    const detail =
+      state === 'red'
+        ? `尺子判红:${summarize(out) || errText}`
+        : state === 'failed'
+          ? `器物失败 rc=${rc}:${errText}`
+          : `未能判定:${errText.slice(0, 160)}`
+    logger(
+      `${state === 'red' ? '🔴' : state === 'failed' ? '❌' : '❓'} ${stage.name} —— ${detail}`,
+    )
+    return { name: stage.name, kind: stage.kind, state, detail, rc }
+  }
+}
+
+/**
+ * 结论摘要:优先取"有判据身份的末行"(state=/RESULT/verdict/结论/判定/✅/❌/ℹ️),
+ * 多行 JSON 整块收成一行(取 verdict/state 族键优先)——旧版拿末行,JSON 的收尾 "}"
+ * 被当成结论(读数失真,2026-11-01 实测即此型)。太长截断;空输出如实"无输出"。
+ */
+const VERDICT_HINT =
+  /(state=|STATE\s|RESULT|verdict|VERDICT|结论|判定|✅|❌|⚠|❓|🔴|无变化|clean|regressed|undetermined)/
+export function summarize(stdoutText) {
+  const lines = String(stdoutText ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (!lines.length) return '无输出'
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (VERDICT_HINT.test(lines[i])) return clip(lines[i])
+  }
+  // 整段像 JSON({}/[] 开头收尾)⇒ 收成一行,判据键优先
+  const joined = lines.join('')
+  if (/^[{[]/.test(lines[0]) && /[}\]]$/.test(lines.at(-1))) {
+    try {
+      const obj = JSON.parse(joined)
+      const pick = obj?.verdict ?? obj?.state ?? obj?.summary ?? obj
+      return clip(typeof pick === 'string' ? pick : JSON.stringify(pick))
+    } catch {
+      return clip(joined.replace(/\s+/g, ' '))
+    }
+  }
+  return clip(lines.at(-1))
+}
+function clip(s) {
+  return s.length > 220 ? `${s.slice(0, 220)}…` : s
+}
+
+/** 自检:判序零副作用 —— 不 spawn、不落盘,只用夹具验三态裁决与旗标闸(§0.9 造好没装车=没有) */
+async function selfTestRun() {
+  const { test } = await import('node:test')
+  const assert = (await import('node:assert/strict')).default
+  const W = (over = {}) => ({ name: 'w', kind: 'land', write: true, ...over })
+  const V = (over = {}) => ({ name: 'v', kind: 'verify', write: false, redOnFail: true, ...over })
+  await test('S1 缺省档:写盘段跳过、verify 段执行', () => {
+    const o = parseArgs([])
+    assert.equal(stageDisposition(W(), o).state, 'skipped')
+    assert.equal(stageDisposition(V(), o), null)
+  })
+  await test('S2 --apply:写盘段放行', () => {
+    const o = parseArgs(['--apply'])
+    assert.equal(stageDisposition(W(), o), null)
+  })
+  await test('S3 两面旗同给当场拒绝', () => {
+    assert.match(parseArgs(['--apply', '--dry-run']).usageError, /互斥/)
+    assert.match(parseArgs(['--nope']).usageError, /未知旗标/)
+  })
+  await test('S4 --only 既认段类也认段名,打错字不空跑', () => {
+    assert.match(parseArgs(['--only=verify']).usageError ?? '', /^$/)
+    assert.match(parseArgs(['--only=写盘']).usageError, /未知令牌/)
+    assert.equal(
+      selectStages(STAGES, parseArgs(['--only=verify', '--skip=fidelity'])).some(
+        (s) => s.name === 'fidelity',
+      ),
+      false,
+    )
+  })
+  await test('S5 三态裁决:verify rc=1⇒red / 非verify rc=1⇒failed / 起不动⇒unjudged', () => {
+    assert.equal(classifyStage(V(), { ran: true, rc: 1, spawnable: true }), 'red')
+    assert.equal(classifyStage(W(), { ran: true, rc: 1, spawnable: true }), 'failed')
+    assert.equal(classifyStage(V(), { ran: true, rc: null, spawnable: false }), 'unjudged')
+    assert.equal(classifyStage(W(), { ran: false, rc: null, spawnable: false }), 'skipped')
+  })
+  await test('S6 退出码:red 与 unjudged 并存取 1(真信号优先顶红)', () => {
+    assert.equal(chainExit(['done', 'skipped']), 0)
+    assert.equal(chainExit(['done', 'unjudged']), 2)
+    assert.equal(chainExit(['unjudged', 'failed']), 1)
+    assert.equal(chainExit(['unjudged', 'red']), 1)
+  })
+  await test('S7 链条顺序不变量:派生在前、重建随后、校验压轴(倒序即拿到中间态)', () => {
+    const kinds = STAGES.map((s) => s.kind)
+    assert.ok(kinds.indexOf('derive') < kinds.indexOf('land'))
+    assert.ok(kinds.lastIndexOf('land') < kinds.indexOf('rebuild'))
+    assert.ok(kinds.join('').endsWith('verify'.split('').join('')))
+    assert.ok(kinds.at(-1) === 'verify' && kinds.at(0) === 'derive')
+  })
+  await test('S8 器物在位锁:每段脚本都真实存在(出路必须跑不通才算假链条,§0.8)', () => {
+    for (const s of STAGES) assert.ok(existsSync(join(HERE, s.script)), `${s.script} 不在位`)
+  })
+  console.log('✅ self-test 8 例全绿')
+}
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2))
+  const results = []
+  const print = opts.json ? () => {} : (...a) => console.log(...a)
+  if (opts.usageError) {
+    console.error(`❌ 用法错:${opts.usageError}`)
+    process.exit(2)
+  }
+  if (opts.selfTest) {
+    await selfTestRun()
+    return
+  }
+  print(`▶ 跨端级联(web→RN→小程序)face=${opts.apply ? '写盘' : '只读预演'} 段数=${STAGES.length}`)
+  for (const stage of selectStages(STAGES, opts)) {
+    results.push(runStage(stage, opts, print))
+  }
+  const states = results.map((r) => r.state)
+  const counts = states.reduce((acc, s) => ({ ...acc, [s]: (acc[s] || 0) + 1 }), {})
+  const code = chainExit(states)
+  const verdictLine = `级联结论 done=${counts.done ?? 0} red=${counts.red ?? 0} failed=${counts.failed ?? 0} unjudged=${counts.unjudged ?? 0} skipped=${counts.skipped ?? 0}`
+  if (opts.json) {
+    console.log(
+      JSON.stringify(
+        { apply: opts.apply, stages: results, counts, exit: code, verdict: verdictLine },
+        null,
+        null,
+      ),
+    )
+  } else {
+    console.log(`${code === 0 ? '✅' : code === 1 ? '🔴' : '❓'} ${verdictLine}`)
+    for (const r of results)
+      if (r.state === 'red' || r.state === 'failed' || r.state === 'unjudged')
+        console.log(`   · ${r.name}[${r.state}] ${r.detail}`)
+  }
+  process.exit(code)
+}
+
+// ─── 判序自证(§22d 双形态入口)────────────────────────────────
+export const __test__ = {
+  STAGES,
+  KINDS,
+  parseArgs,
+  selectStages,
+  stageDisposition,
+  classifyStage,
+  chainExit,
+  summarize,
+  selfTestRun,
+}
+
+// 顶层守卫:被 import 时不触发主流程
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
