@@ -44,7 +44,7 @@ export interface WsTokenPayload {
  * 签发 WS 专用短期 JWT。
  *  - alg: HS256, 与 access/refresh token 共用 JWT_SECRET
  *  - type='ws'，verifyWsToken 拒绝其他 type
- *  - 默认 5 分钟过期（可通过 payload.exp 覆盖，但不建议超过 1 小时）
+ *  - 固定 5 分钟过期（exp 由本函数按 WS_TOKEN_TTL_SECONDS 写入，payload 里自带的 exp 会被覆盖）
  *
  * @param userId  用户 UUID
  * @param payload 附加 claims（如 roleId / familyId），可选
@@ -54,13 +54,14 @@ export async function generateWsToken(
   payload?: Record<string, unknown>,
 ): Promise<string> {
   if (!userId) throw new Error('userId 不能为空')
+  const now = Math.floor(Date.now() / 1000)
   const jwt = new SignJWT({ ...payload, type: 'ws' })
     .setProtectedHeader({ alg: ALG })
     .setSubject(userId)
     .setIssuer(ISSUER)
     .setAudience(AUDIENCE)
-    .setIssuedAt()
-    .setExpirationTime(`${WS_TOKEN_TTL_SECONDS}s`)
+    .setIssuedAt(now)
+    .setExpirationTime(now + WS_TOKEN_TTL_SECONDS)
   return jwt.sign(getJwtSecret())
 }
 
