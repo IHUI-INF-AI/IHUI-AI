@@ -6684,6 +6684,30 @@ const checks = [
       '     本门只读:绝不自愈、绝不重装、绝不写盘 —— 处置权在人,不在尺子(§5e-1)。',
     ],
   },
+  // 编号 278:注册前现读 `id: '278'` 出现 0 次(最大数字 id 为 277)。立因(2026-11-01 安全强化):
+  // `isSafeNavigationTarget` 的 allowedOrigins 缺席即"只判协议",任意绝对外站一律通过。
+  // 同日实测四处真命中,两枚在授权码签发路径(sso/login:171、sso/register:164 —— target 既被
+  // POST 当 redirectUri 又拼上 sso_code 导航),两枚在自动回跳(sso/login:249、:268)。同页 :133 与
+  // /sso/redirect、LoginDialog 早显式传了白名单 ⇒ 证明"同一把尺子四个落点各写一遍必然漏",且漏的那侧是安静的。
+  // 存量(除具名台账那 1 枚 mobile-auth 设计意图外)= 0 ⇒ 按 §12e 可直接 blocking,非恒红门。
+  {
+    id: '278',
+    label:
+      '🔐 回跳落点必须钉 origin(调用点对账:blocking;resolveSafeRedirectTarget/isSafeNavigationTarget 的 options 须含 allowedOrigins 字面量,豁免=具名台账且带到期)',
+    script: 'check-redirect-target-origin-pinned.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/'],
+    skipEnv: 'HUSKY_SKIP_REDIRECT_ORIGIN_PIN',
+    onFailHint: [
+      '  💡 红的意思是:某枚回跳调用点没交出一份第一方落点集 ⇒ 刚建好的会话/刚签发的 sso_code 可被送到任意外站。',
+      '     ① 修法:options 里补 `allowedOrigins: firstPartyAllowedOrigins()`(深链走协议族另一支,不受影响);',
+      '     ② 真需要外站回跳(如 App→Web 契约):往 scripts/data/redirect-origin-pinned-exemptions.json 登记',
+      '        file/bareCalls/reason(≥10字)/until(到期日),豁免不再命中即判清单腐烂红;',
+      '     ③ "options 是变量"落未判定(exit 2)不是红,但也绝不放行 —— 机器证不出已钉就是没钉。',
+      '     取证:node scripts/check-redirect-target-origin-pinned.mjs --self-test(16 例,含四档变异自证)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
