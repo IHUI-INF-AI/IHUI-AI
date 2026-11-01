@@ -484,6 +484,57 @@ function releaseLock() {
   }
 }
 
+/**
+ * 派发结算(2026-11-01 立):把"CLI 退出码 0"翻译成"这张票到底推进了没有"。
+ * 立因:台账里唯一一枚 session-ok 对一张大工程票只跑了 45.5s 就 exit 0 ——
+ * 调度器把"会话结束了"读成"这轮干成了",于是账面永远不会出现"派了但没动"这一档。
+ * 而 AGENTS §10/§20 要求的是交付与产出一致、完成只认远端落地,所以这一档必须被量出来。
+ * 四态不并桶:
+ *  - line-gone     派单面上已无此票(结清摘行或被别的席位摘出)⇒ 算推进
+ *  - line-changed  该行前缀与派发时记录的不再逐字相等 ⇒ 算推进(注记/改写)
+ *  - no-progress   该行原样躺在派单面上 ⇒ 零推进,逐条点名
+ *  - unjudged      派单面取不到 ⇒ 不猜(§0.3)
+ * 比较口径刻意取"前 200 字逐字相等"(与记账时同一截法):票行只在 200 字之后被改的会被读成
+ * no-progress —— 失效方向是多要一次定向说明,绝不是多放一次"算它干成了"(§0.10)。
+ */
+export function settlePriorDispatches({ ledger = [], currentRows = null, windowHours = 48, now = Date.now(), recordedPrefix = 200, sameRowPrefix = 60 } = {}) {
+  const cutoff = now - windowHours * 3600_000
+  const settledOf = new Set(ledger.filter((e) => e.action === 'dispatch-settled').map((e) => String(e.sourceTs ?? '')))
+  const outs = []
+  for (const e of ledger) {
+    if (e.action !== 'session-ok' || !e.ticketKey) continue
+    const at = Date.parse(String(e.ts ?? ''))
+    if (!Number.isFinite(at) || at < cutoff) continue
+    if (settledOf.has(String(e.ts))) continue
+    const thenPrefix = String(e.ticketLine ?? '').slice(0, recordedPrefix)
+    if (!Array.isArray(currentRows)) {
+      outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'unjudged', why: '派单面取不到 ⇒ 无法判这张票是否推进' })
+      continue
+    }
+    const faceRow = currentRows.find((r) => ticketKeyOf(String(r.text ?? '')) === e.ticketKey)
+    if (faceRow) {
+      const nowPrefix = String(faceRow.text ?? '').slice(0, recordedPrefix)
+      outs.push(
+        nowPrefix === thenPrefix
+          ? { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'no-progress', why: `会话报成功但票行逐字未变(L${faceRow.line})` }
+          : { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票行已改写(L${faceRow.line})` }
+      )
+      continue
+    }
+    // 票键没命中 ⇒ 再问一次"还是不是那一行"。ticketKeyOf 对尾部注记不稳定(实测同一张票
+    // 追加"—— 已追加进展注记"后 key 会变,而追加"（进行中@…）"认领牌 key 不变),
+    // 只按 key 找行会把最常见的"只写了注记"掉进 line-gone,而那与"整票结清"是两回事(§10)。
+    const headKey = thenPrefix.slice(0, Math.min(sameRowPrefix, thenPrefix.length))
+    const sameRow = headKey ? currentRows.find((r) => String(r.text ?? '').startsWith(headKey)) : null
+    if (sameRow) {
+      outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票键随注记漂移但行首同源 ⇒ 同一张票被改写(L${sameRow.line}),不得记成结清摘行` })
+      continue
+    }
+    outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-gone', why: '派单面上既无同票键也无同前缀行 ⇒ 已摘行或摘出在飞' })
+  }
+  return outs
+}
+
 function pickTickets() {
   const r = spawnSync(process.execPath, [PLAN_TASKS, ...DISPATCH_ARGS], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -681,6 +732,19 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
     }
     const ledger = readLedger()
+    // ---- 先结算上一轮的"成功",再决定本轮派谁 ----
+    // 没有这一环,session-ok 永远只是"会话结束了"而不是"票推进了"(§10 交付一致性)。
+    const settled = settlePriorDispatches({ ledger, currentRows: allRows })
+    for (const s of settled) {
+      record({ mode: 'dispatch', action: 'dispatch-settled', ticketKey: s.ticketKey, ticketLine: s.ticketLine, sourceTs: s.sourceTs, settled: s.state, why: s.why })
+      if (s.state === 'no-progress') {
+        console.log(`⚠ 结算:票 ${s.ticketKey} 会话自称成功但票行零推进 —— ${s.why}`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(gates, 'auto-evolve:no-progress', '[auto-evolve] 有票派出去但零推进(会话"成功"不可信)', `票键:${s.ticketKey}\n票面:${s.ticketLine}\n判据:${s.why}\n这条不是"票失败"(不计连败、不封票),而是"成功判定过松"的凭据。\n出路:核该会话末轮实际做了什么(日志 .ihui-agent/state/auto-evolve-run.log);若它结构上交付不了(自动会话无提交权),这一族就得改判据 —— 派发的合格线要绑"票行推进 + 绑定票键的提交",而不是 CLI 退出码。`)
+        }
+      }
+    }
     let dispatched = 0
     for (const e of ledger) {
       if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
@@ -1050,6 +1114,47 @@ function selfTest() {
   const u1 = parseSessionUsage(`{"type":"start","prompt":"x"}\n${complete}\n`)
   ok('S8a complete 行 usage → tokens/成本', u1.measured === true && u1.tokens === 1000 && u1.costUsd === 0.12)
   ok('S8b 无 complete 行(超时/被杀)→ 未计量', parseSessionUsage('{"type":"message_delta","text":"x"}').measured === false)
+  ok('S9a 结算:票已从派单面消失 ⇒ line-gone(结清摘行算推进)', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'kk', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B1 原文' }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'line-gone'
+  })())
+  ok('S9b 结算:票行逐字未变 ⇒ no-progress(会话自称成功也不算推进)', (() => {
+    const text = 'B2 **同一张票** 一字未动'
+    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(text), ts: '2026-10-31T05:00:00.000Z', ticketLine: text }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text, line: 9 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'no-progress'
+  })())
+  ok('S9c 结算:票行被改写(加注记/翻勾)⇒ line-changed', (() => {
+    const then = 'B3 **原票面** 前缀一致的部分'
+    const now2 = 'B3 **原票面** 前缀一致的部分 —— 已追加进展注记'
+    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(then), ts: '2026-10-31T05:00:00.000Z', ticketLine: then }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 3 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'line-changed'
+  })())
+  ok('S9d 派单面取不到 ⇒ unjudged,不猜成"没推进"也不猜成"推进了"', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'k4', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B4' }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: null, now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.length === 1 && r[0].state === 'unjudged'
+  })())
+  ok('S9e 已结算的成功不重复结算(结算腿每轮都跑也不该把同一枚记两次)', (() => {
+    const led = [
+      { action: 'session-ok', ticketKey: 'k5', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B5' },
+      { action: 'dispatch-settled', ticketKey: 'k5', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'line-gone' },
+    ]
+    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
+  })())
+  ok('S9g 反向锁:票键随尾部注记漂移但行首同源 ⇒ line-changed(不得冒充"结清摘行")', (() => {
+    const then = 'B12 **注记漂移试验** 原文'
+    const now2 = then + ' —— 会话只追加了一句进展'
+    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(then), ts: '2026-10-31T05:00:00.000Z', ticketLine: then }]
+    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 12 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return ticketKeyOf(then) !== ticketKeyOf(now2) && r.length === 1 && r[0].state === 'line-changed'
+  })())
+  ok('S9f 变异:超窗的 session-ok 不进结算(窗口口径就是"近 48h")', (() => {
+    const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
+    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
+  })())
   ok('S8c usage 形状坏 → 未计量(不读成 0 tokens 放行)', parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured === false)
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)

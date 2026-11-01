@@ -159,7 +159,7 @@ export function judgeWhitelist(events, whitelist) {
   }
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve } = {}) {
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure } = {}) {
   const dims = []
   let gates
   try {
@@ -170,6 +170,7 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   dims.push(judgePreflight(gates.sessionCommandTemplate, repoRoot))
   if (transit) dims.push(transit)
   if (valve) dims.push(valve)
+  if (closure) dims.push(closure)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -276,6 +277,46 @@ export function judgeValveGate(events, { mode, headSource } = {}) {
     readout: `enforce 档:尝试 ${attempted} / 拦下 ${stopRows.filter((e) => e.action === 'valve-block').length} / 未判定 ${unjudged.length}`,
     next: unjudged.length > 0 ? 'enforce 档下的未判定 = fail-closed 停派,须先修清单可读性' : '',
   }
+}
+
+/**
+ * A7 派发闭环:session-ok 到底等不等于"票推进了"(2026-11-01 立)。
+ * 立因:台账里唯一一枚 session-ok 对一张大工程票只跑 45.5s 就 exit 0 —— 调度器原先把
+ * "会话结束了"当成"这轮干成了"。AGENTS §10 要的是交付与产出一致,所以必须有第二问:
+ * 票行到底动了没有。四档不并桶,且"没结算的成功"要单独点名(结算腿漏覆盖 = 尺子盲区)。
+ */
+export function judgeDispatchClosure(events, { schedulerSource, windowHours = 48, now = Date.now() } = {}) {
+  if (schedulerSource === null || schedulerSource === undefined) {
+    return { dim: 'A7-dispatch-closure', state: 'unjudged', readout: '派发器源码在被审面取不到 ⇒ 闭环与否判不出', next: '核 scripts/auto-evolve.mjs 是否在被审面上' }
+  }
+  if (!schedulerSource.includes('settlePriorDispatches({')) {
+    return { dim: 'A7-dispatch-closure', state: 'drift', readout: '派发器里没有结算调用 ⇒ 成功判定仍等于 CLI 退出码', next: '取票后先结算上一轮的 session-ok,把 settled 记进台账' }
+  }
+  const okRows = events.filter((e) => e.action === 'session-ok' && e.ticketKey)
+  const settledRows = events.filter((e) => e.action === 'dispatch-settled')
+  const noProgress = settledRows.filter((e) => e.settled === 'no-progress')
+  const unjudgedS = settledRows.filter((e) => e.settled === 'unjudged')
+  const advanced = settledRows.filter((e) => e.settled === 'line-gone' || e.settled === 'line-changed')
+  const cutoff = now - windowHours * 3600_000
+  const dangling = okRows.filter((e) => {
+    const at = Date.parse(String(e.ts ?? ''))
+    return Number.isFinite(at) && at < cutoff && !settledRows.some((s) => s.sourceTs === e.ts)
+  })
+  if (noProgress.length > 0) {
+    return {
+      dim: 'A7-dispatch-closure',
+      state: 'drift',
+      readout: `结算已跑,但 ${noProgress.length} 枚"会话报成功而票行零推进"(已推进 ${advanced.length} 枚)`,
+      next: noProgress.map((s) => `${s.ticketKey} :: ${String(s.ticketLine).slice(0, 60)}`).join('\n') + '\n出路:核该会话末轮实际动作;若结构上交付不了(自动会话无提交权),合格线就得改绑"票行推进 + 绑票键的提交",不得只改判据措辞',
+    }
+  }
+  if (dangling.length > 0) {
+    return { dim: 'A7-dispatch-closure', state: 'drift', readout: `${dangling.length} 枚超 ${windowHours}h 的 session-ok 至今没有结算行 ⇒ 结算腿覆盖不全(尺子盲区)`, next: '核结算循环是否每轮都跑、窗口取值是否小于调度存活期' }
+  }
+  if (unjudgedS.length > 0) {
+    return { dim: 'A7-dispatch-closure', state: 'unjudged', readout: `结算跑了但 ${unjudgedS.length} 枚落未判定(派单面当时取不到)⇒ 不冒充"推进了"`, next: '先修取票口(见 A3)' }
+  }
+  return { dim: 'A7-dispatch-closure', state: 'ok', readout: `session-ok ${okRows.length} 枚 / 已结算 ${settledRows.length} 条,零"报成功而零推进"`, next: '' }
 }
 
 async function selfTest() {
@@ -395,6 +436,33 @@ async function selfTest() {
     const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ text: 'a', line: 1 }], valve: judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }) })
     return r.state === 'drift' && r.dims.some((d) => d.dim === 'A6-human-valve-gate')
   })())
+  const closureSrc = 'function runOnce(){ const settled = settlePriorDispatches({ ledger, currentRows: allRows }) }'
+  ok('H28 派发器里没有结算调用 ⇒ drift(成功判定仍等于退出码)', judgeDispatchClosure([], { schedulerSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')
+  ok('H29 被审面取不到 ⇒ unjudged,不冒充"闭环健康"', judgeDispatchClosure([], { schedulerSource: null }).state === 'unjudged')
+  ok('H30 结算判出"报成功而票行零推进" ⇒ drift 并点名票面', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    const r = judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.state === 'drift' && r.readout.includes('1 枚') && r.next.includes('B9')
+  })())
+  ok('H31 有推进(line-changed)⇒ ok,不得把动过的票也算成零推进', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k2', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B10 旧文本' },
+      { action: 'dispatch-settled', ticketKey: 'k2', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'line-changed' },
+    ]
+    return judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') }).state === 'ok'
+  })())
+  ok('H32 变异:超窗却没结算行 ⇒ drift(结算腿覆盖不全=尺子盲区)', (() => {
+    const ev = [{ action: 'session-ok', ticketKey: 'k3', ts: '2026-10-20T05:00:00.000Z', ticketLine: 'B11 陈旧的成功' }]
+    return judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') }).state === 'drift'
+  })())
+  ok('H33 A7 的 drift 必须顶起整尺', (() => {
+    const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'], humanValveMode: 'observe' })
+    const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [] }, ticketRows: [{ text: 'a', line: 1 }], closure: judgeDispatchClosure([], { schedulerSource: 'no settle here' }) })
+    return r.state === 'drift' && r.dims.some((d) => d.dim === 'A7-dispatch-closure')
+  })())
   console.log(fail === 0 ? `autonomy-leg-health self-test: ${pass} 例全绿` : `autonomy-leg-health self-test: ${pass} 绿 / ${fail} 红`)
   return fail === 0 ? 0 : 1
 }
@@ -447,7 +515,8 @@ async function main() {
     valveSource = null
   }
   const valve = gatesObj ? judgeValveGate(events.ok ? events.events : [], { mode: gatesObj.humanValveMode, headSource: valveSource }) : null
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve })
+  const closure = judgeDispatchClosure(events.ok ? events.events : [], { schedulerSource: valveSource })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {
@@ -461,5 +530,5 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents }
+export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
