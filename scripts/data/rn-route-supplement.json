@@ -1,0 +1,11 @@
+{
+  "comment": "RN 独有屏的「RN 路由名 → 小程序镜像页」补充声明,由 scripts/gen-rn-compat.mjs 生成 route-map.generated.ts 时并入第三桶。为什么另立一张表:跨端登记表(scripts/data/cross-end-screen-registry.json)按定义只收「shared 在 packages/app/src/index.ts 有同名导出」的三元组,RN 独有屏(共享层还没这一族屏)永远进不去;而这类路由在小程序端确实有镜像页,不补上就是壳化后「点了不动」的入口(navigation 垫片拿不到路径只 console.warn)。声明不构成证据:导航器里该 route 必须真的挂在声明的 rn 文件上、小程序页必须真的在盘上,任一条对不上则该条被拒并逐条打印,不入表、不冒绿。新增条目请先确认真实同物再登记,不要为了消缺口编一条。",
+  "entries": [
+    {
+      "route": "DevEnter",
+      "rn": "apps/mobile-rn/src/screens/DevEnterScreen.tsx",
+      "miniapp": "pkg-ai/developer/index",
+      "why": "我的智能体列表页(一级状态 tab + 搜索 + 卡片列表 + 分页,调 getZntList)。小程序页 pkg-ai/developer/index.tsx 头注已写明「它的 RN 同物是端内屏 apps/mobile-rn/src/screens/DevEnterScreen.tsx,共享层还没有这一族屏」,故登记表按口径不收它;而 pkg-ai/dev-space/index(开发者空间)四入口里的「我的智能体」在壳化后走 RN 的 navigation.navigate('DevEnter'),缺这一条即该入口失效(mobile-rn/src/screens/DeveloperScreen.tsx:141)。"
+    }
+  ]
+}
