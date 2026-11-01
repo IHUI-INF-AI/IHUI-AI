@@ -578,6 +578,10 @@
     "copied": "복사됨"
   },
   "ai": {
+    "messageVersion": {
+      "history": "이전 버전",
+      "regenerateFailed": "다시 생성 실패"
+    },
     "contextUsage": {
       "title": "컨텍스트 사용 현황",
       "segSystem": "시스템 프롬프트",
