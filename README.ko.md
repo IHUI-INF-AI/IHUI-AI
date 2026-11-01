@@ -2219,6 +2219,20 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-01**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (ec33e9444a)
+
+**2026-11-01**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (f319e04d28)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (1069297f58)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5fbe83bdb3)
+- 📚 문서:把两道"已接线而文档不点名"的门补进速查区,消掉门 89 的 R4 红 (22b69217a2)
+- 🐞 수정:shared/zh-CN 的 share 块重复覆盖,补齐被遮蔽的 appTitle/timelineTitle (743a4a3d3c)
+- 🐞 수정:撤销 2 枚功能不等价的自动转壳(恢复手写实现) (200240cb0e)
+- 🔧 기타:自动把 2 枚手写镜像页升级为壳承载 (740b723d56)
+- ♻️ 리팩터:3 枚手写镜像页升级为壳承载(判据 convertible 落地) (b052075795)
+- 🚀 기능/개선:补齐跨端共享屏能力与五语词条(手写镜像页转壳前置) (18b26c7d7a)
+
+**2026-11-01**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (e908aee266)
 - 🐞 수정:补 sso/login 的 useCallback 依赖 ssoState,CI lint:strict 转绿 (82e79ab40d)
 
@@ -2390,13 +2404,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:parentMessageId 口径加宽到 string | null + 小程序腿三处类型错 + knip 兼容层出口盲区登记豁免 (1f1e6e99fb)
 - 🐞 수정:回补 cli 包 14 枚动态派生词条 + 登记契约键 (bac640521e)
 - 🐞 수정:清掉 api 包的四类存量 lint 红 + captcha 清理按自身头注分批 (3ebae14ded)
-
-**2026-11-01**
-- 🚀 기능/개선:ws-chat 把断线补发/幂等去重/跨实例限流三枚工具模块装进生产生命周期 (fadde1bce7)
-
-**2026-11-01**
-- ♻️ 리팩터:useFontMultiplier 改名 readFontMultiplier —— 它是纯读函数,不是 React Hook (e75621c841)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7362129f72)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
