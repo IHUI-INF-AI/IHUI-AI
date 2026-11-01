@@ -14,6 +14,7 @@
  * 字符串一律原样透传(共享层里的 `var(--color-*)`、`rpx` 依赖这条)。
  */
 import type { CSSProperties } from 'react'
+import Taro from '@tarojs/taro'
 
 /** RN 里按"无单位数字"语义处理的键(加 px 会破坏布局/透明度语义) */
 const UNITLESS = new Set([
@@ -165,6 +166,19 @@ export const StyleSheet = {
   flatten(style: unknown): Record<string, unknown> {
     return flattenStyle(style)
   },
+  /**
+   * RN 的 `StyleSheet.hairlineWidth` = 设备物理 1px 的逻辑值(iOS/Android 都按 pixelRatio 折算)。
+   * 本层用同一算式现算,而不是写死 1:写死会在 2x/3x 屏上把"1 物理像素描边"画成 2~3 像素粗,
+   * 分隔线当场变粗一档。取不到 pixelRatio(旧基线/非端内环境)时退 1,与 RN 的兜底同值。
+   * 这是本文件唯一的几何型取值 —— 其余仍是纯转译,不改任何尺寸。
+   */
+  get hairlineWidth(): number {
+    try {
+      return 1 / (Taro.getSystemInfoSync().pixelRatio || 1)
+    } catch {
+      return 1
+    }
+  },
   absoluteFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as Record<
     string,
     unknown
@@ -184,6 +198,9 @@ export type ImageStyle = Record<string, unknown>
  * `style={[a, cond && b, [c]]}`(嵌套数组)—— 跨端共享包(packages/app / ui-native)
  * 在小程序宿主下因此成片 TS2322。递归化只是把类型面补齐,没有放宽键检查
  * (元素仍必须是 T)。RN 的 `RegisteredStyle<number>` 一支不收:Taro 没有注册表式样式位。
+ * 2026-11-01 再补一支 `object`:`style={[styles.pressCard, style]}` 里调用方把 style 声明成
+ * `object`(ScreenStates 的 PressableCard 就是),而 `ViewStyle` 是 `Record<string, unknown>`,
+ * `object` 不带索引签名 ⇒ 整条数组在断言点 TS2322。收 `object` 只放行"样式形态",不放宽任何键检查。
  */
-export type StyleProp<T> = T | false | null | undefined | ReadonlyArray<StyleProp<T>>
+export type StyleProp<T> = T | object | false | null | undefined | ReadonlyArray<StyleProp<T>>
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
