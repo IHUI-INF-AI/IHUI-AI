@@ -40630,3 +40630,11 @@ A: Yes. ~14839+ tests / 3782 test files / 67 e2e spec / 4656 API 路由 / 617 �
 | 测试文件 | 3826 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | 跟踪文件 | 18422 | `trackedFiles` |
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
