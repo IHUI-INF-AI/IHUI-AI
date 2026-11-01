@@ -28,7 +28,6 @@
  */
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 export const LEDGER_ROW_RE = /^- \[[ x]\] /
@@ -235,7 +234,8 @@ function main() {
   console.log(`✅ 现场已保:${backupTag} → ${OURS.slice(0, 11)}`)
 
   const newBlob = run(['hash-object', '-w', '--stdin'], { input: r.kept.join('\n') }).trim()
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-merge-cap-'))
+  // 临时索引落仓内 gitignored 的临时区(§15:项目外落点只允许批准目录,临时件一律 .ihui-agent/tmp/)。
+  const dir = mkdtempSync(join(process.cwd(), '.ihui-agent', 'tmp', 'merge-cap-'))
   const idx = join(dir, 'index')
   try {
     run(['read-tree', TREE], { env: { ...process.env, GIT_INDEX_FILE: idx } })
