@@ -5366,6 +5366,157 @@ export function sweepKeepAliveForever(opts = {}) {
   return { ran: true, ok: false, state, counts }
 }
 
+/**
+ * 号池隔离性体检(2026-11-01 立;判机器状态 ⇒ 刻意不进提交链,§12e)。
+ *
+ * 盲区监测器:上一轮给机主本机 Trae 号做「永久保活档」时,交付面如实登记了三处
+ * 「号与号之间会互相牵连」的维(设备指纹整机共用 / 同 uid 跨池双行 / 池与本机客户端互顶),
+ * 当时只有一句口头结论。本尺把那三处扩成六维机读结论(D1 设备簇 / D2 共用 rt /
+ * D3 同 uid 双行 / D4 rt 终点证据 / D5 出口亲和 / D6 死副本),周期量、倒退才到人的邮箱。
+ *
+ * 器物:`scripts/check-pool-isolation.mjs --json`(spawn tsx 跑
+ * apps/api/scripts/relay-pool-isolation-audit.ts,判据一律走审计模块单源,本腿零复算)。
+ *
+ * 与永久保活腿的关键差别:那条腿的器物自己经 notify-deploy-failure 发信,本腿器物
+ * 只输出结论、不发信 ⇒ breach / undetermined 都由本守护经 notifyGuardRed 投递,
+ * 否则该喊的没人喊(§5e-3 的「双封信」反向不适用:这里根本没有工具侧那封信)。
+ *
+ * 三态(§0.3):ok ⇒ 静默只留日志;breach ⇒ 喊人(列明哪一维 breach + 点名明细,不回显凭据);
+ * undetermined ⇒ 这是「尺子自己哑了」,与「池真不隔离」是两个身份 ⇒ 同样喊人但 severity=warning。
+ * 失败只冷却 1 小时(成功才按 6 小时窗口)。判机器状态 ⇒ 绝不进提交链(§12e)。
+ */
+const POOL_ISOLATION_INTERVAL_MS = Number(
+  process.env.IHUI_POOL_ISOLATION_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
+const POOL_ISOLATION_FAILURE_COOLDOWN_MS = 60 * 60 * 1000
+
+export function sweepPoolIsolation(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = POOL_ISOLATION_INTERVAL_MS,
+    failureCooldownMs = POOL_ISOLATION_FAILURE_COOLDOWN_MS,
+    tickFile = join(dirname(LOG), 'pool-isolation-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-pool-isolation.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 号池隔离体检:腿不在位(scripts/check-pool-isolation.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '腿不在位' }
+  }
+  let last = NaN
+  let lastState = ''
+  try {
+    const rec = JSON.parse(readFileSync(tickFile, 'utf8'))
+    last = Date.parse(String(rec.attemptAt ?? '').trim())
+    lastState = String(rec.state ?? '')
+  } catch {
+    /* 没跑过 */
+  }
+  // 上一轮没判出来 ⇒ 只冷却一小时,不能让一次库抖动把体检停摆六小时
+  const window = lastState === 'undetermined' ? failureCooldownMs : intervalMs
+  if (Number.isFinite(last) && now - last < window) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 号池隔离体检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // 1 = 业务 breach,2 = 未判定:两种都不是"尺子坏了",结论整份在输出里
+            return {
+              ok: false,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.stderr ?? e?.message ?? e),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const text = String(r.out ?? '')
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.match(/POOL-ISOLATION\s+state=([A-Za-z-]+)(.*)$/) ?? null)
+    .find(Boolean)
+  const state = line ? line[1] : null
+  const tail = line ? String(line[2]) : ''
+  const total = (() => {
+    const mm = tail.match(/\btotal=(\S+)/)
+    return mm ? mm[1] : '?'
+  })()
+  try {
+    writeFileSync(
+      tickFile,
+      JSON.stringify({ attemptAt: new Date(now).toISOString(), state: state ?? 'no-result-line' }),
+      'utf8',
+    )
+  } catch {
+    /* 台账二次写失败不遮蔽结论 */
+  }
+  // 解析 --json 的明细(只在有 breach/undetermined 时需要);解析不出不阻塞结论
+  let dims = []
+  try {
+    const jsonLine = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l.startsWith('{') && l.endsWith('}'))
+    if (jsonLine) dims = JSON.parse(jsonLine).dims ?? []
+  } catch {
+    /* 解析不出明细不阻塞 */
+  }
+  const breached = dims.filter((d) => d && d.state === 'breach')
+  const detailText = breached.length
+    ? breached
+        .map((d) => `  • ${d.key}(${d.count}): ${d.detail.join('; ') || '(无点名)'} ⇒ ${d.fix}`)
+        .join('\n')
+    : ''
+
+  if (state === null) {
+    logger('⚠️ 号池隔离体检:未取到结论行(POOL-ISOLATION)⇒ 本轮读数未判定,不等于"号池健康"(§0.3)')
+    notify(
+      '号池隔离体检未判定',
+      `派发了 scripts/check-pool-isolation.mjs --json 但没拿到结论行。这条尺是机主本机 Trae 号永久保活档的交付收口件,它哑了等于"号与号互相牵连"没人量。\nstderr 前 240:${String(r.err ?? '').slice(0, 240) || '(空)'}\n\n可执行下一步:① node scripts/check-pool-isolation.mjs --json;② 若 api 的库不在线,这条尺本来就只能报未判定。`,
+      { severity: 'warning', dedupKey: 'pool-isolation;no-result-line', logger },
+    )
+    return { ran: true, ok: false, state: 'no-result-line' }
+  }
+  if (state === 'ok') {
+    logger(`✅ 号池隔离体检:本轮 ok(total=${total})`)
+    return { ran: true, ok: true, state, total }
+  }
+  if (state === 'breach') {
+    logger(`⚠️ 号池隔离体检:有维 breach(total=${total})⇒ 喊人`)
+    notify(
+      '号池隔离体检 breach',
+      `号池隔离性体检尺本轮判出 breach(total=${total}):\n${detailText}\n\n注:D1 设备簇为 info(设备身份本机一份、不可整改、已上防护),不计入 breach;其余维见点名。\n可执行下一步:① node scripts/check-pool-isolation.mjs --json 看全量;② 按各维 fix 处置。`,
+      { severity: 'warning', dedupKey: 'pool-isolation;breach', logger },
+    )
+    return { ran: true, ok: false, state, total, breached: breached.map((d) => d.key) }
+  }
+  logger(`⚠️ 号池隔离体检:本轮未判定(total=${total})⇒ 不记绿,下轮按一小时冷却重试`)
+  notify(
+    '号池隔离体检未判定',
+    `器物交出 state=undetermined(号池巡检输入取不到 / 汇总行解析不出)。这不等于「号池健康」。\ntotal=${total}\n\n可执行下一步:① node scripts/check-pool-isolation.mjs --json 看完整 stderr;② 若 api 的库不在线,这条尺本来就只能报未判定。`,
+    { severity: 'warning', dedupKey: 'pool-isolation;undetermined', logger },
+  )
+  return { ran: true, ok: false, state, total }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -8539,12 +8690,7 @@ export function auditLandedReverts(opts = {}) {
   )
   for (const h of hits.slice(0, 20))
     logger(
-      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ ` +
-        // 判语必须跟着臂次走:部分回退那型 via 恒空,写"与祖先  逐字同形"是把另一臂的话套在本臂上
-        // (2026-11-01 首轮生产日志就出现这种张冠李戴的行,人读了会去查根本不该查的等值关系)
-        (h.kind === 'partial'
-          ? `部分回退嫌疑:删 ${h.removed} 行=${((h.removed / (h.headLines || 1)) * 100).toFixed(1)}% 全文、仅补 ${h.added} 行`
-          : `与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`),
+      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ 与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`,
     )
   if (hits.length > 20)
     logger(`   …另有 ${hits.length - 20} 处,见台账 .ihui-agent/state/landed-revert-audit.jsonl`)
@@ -10894,6 +11040,10 @@ function main() {
     // 机主已不能靠验证码重登,"没人续"对它是终结不是降级。挂在本族同格(健康轮次早退之前
     // + !CHECK_ONLY),6 小时节流;判机器状态 ⇒ 绝不进提交链(§12e)。
     if (!CHECK_ONLY) sweepKeepAliveForever()
+    // 号池隔离性体检(2026-11-01 立):永久保活档交付时登记的三处「号与号互相牵连」盲区,
+    // 扩成六维机读结论(D1 设备簇 / D2 共用 rt / D3 同 uid 双行 / D4 rt 终点证据 / D5 出口亲和 /
+    // D6 死副本),周期量、倒退才到人邮箱。判机器状态 ⇒ 绝不进提交链(§12e)。
+    if (!CHECK_ONLY) sweepPoolIsolation()
     // 悬空 commit 自动保活(2026-10-30 立):守门 30a 的「30 天窗」维是 blocking,而此前**没有任何
     // 自动腿**在悬空出现的当下给它打 lost-commit/<name> tag —— 手工打 10 枚修绿、几十分钟后再冒 2 枚,
     // 于是这台机器周期性重新制造「人人 --no-verify」那一型(§12e)。判据零复算:吃 30a 自己的
