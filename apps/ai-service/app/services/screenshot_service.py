@@ -172,6 +172,28 @@ def _route_ssrf_guard(route: Any) -> bool:
     return False
 
 
+class SsrfBlockedError(ValueError):
+    """httpx 请求钩子里抛出的"这一跳被 SSRF 尺拦下"。
+
+    继承 ValueError 而不是另造一套:调用方现有的 `except (httpx.HTTPError, ValueError)` 那形
+    已经会兜住它,而"被拦"绝不能长得像"网络抖动"—— 名字里写明成因,归因才不会漂。
+    """
+
+
+def httpx_ssrf_request_hook(request: Any) -> None:
+    """httpx 的 `event_hooks={"request": [...]}` 出口:每一跳(含重定向后)都过同一把尺。
+
+    为什么需要它(2026-11-01 安全强化):`_validate_url_ssrf` 只在入口看首跳,而 httpx 在
+    `follow_redirects=True` 下会自己跟到下一跳 —— 公网页 302 → http://169.254.169.254/...
+    就绕过了一切前置判断。Playwright 那侧早就有 `_route_ssrf_guard` 逐跳复检;httpx 这两格
+    (`scan_login` 取页面 DOM 里的图、`figma_transcoder` 取远端响应的 images 映射)此前是**裸调**,
+    现在复用同一个判据出口,不开第二份"什么算内网"的实现(§0.6)。
+    """
+    ok, reason = _validate_url_ssrf(str(request.url))
+    if not ok:
+        raise SsrfBlockedError(f"SSRF 拦截:{reason}")
+
+
 # === sync 单例 Browser(核心实现,不受 EventLoop 限制)===
 _browser: Any = None
 _browser_lock = threading.Lock()

@@ -396,30 +396,50 @@ class _FakePage:
 
 def test_extract_qr_image_accepts_jpeg_official_qr(monkeypatch):
     """微信官方码(connect/qrcode)下发的是 **JPEG**。只认 PNG 魔数会把 oschina 这类
-    "能直取官方原图"的平台白退回截图 —— 与用户要的"所有码都直接获取"正相反。"""
+    "能直取官方原图"的平台白退回截图 —— 与用户要的"所有码都直接获取"正相反。
+
+    〔2026-11-01 改判留痕〕本枚把取图从 `httpx.get(...)` 改成显式 `httpx.Client(...)`:
+    模块级便捷 API 的类型签名不吃 `event_hooks`,而这一格要的正是"重定向第二跳也过 SSRF 尺"
+    (判据见 tests/test_ssrf_per_hop_for_remote_urls.py 的反例档)。夹具随之改 patch Client,
+    断言三条一字未改(真去了服务端、JPEG 被接受、解出来的字节等于原图)。
+    `_validate_url_ssrf` 打桩成立,是为了让这条用例不依赖 DNS —— 它判的是魔数与取图链路,
+    内网拦截另有专档,不在这里复算。
+    """
+    import base64
+
     import httpx
+
+    from app.services import screenshot_service
 
     jpeg = b"\xff\xd8\xff\xe0fakejpegbytes"
     calls: list[str] = []
 
-    def fake_get(url: str, **_kw):
-        calls.append(url)
+    monkeypatch.setattr(screenshot_service, "_validate_url_ssrf", lambda url: (True, ""))
 
-        class R:
-            status_code = 200
-            content = jpeg
+    class _FakeResponse:
+        status_code = 200
+        content = jpeg
+        headers = {"content-type": "image/jpeg"}
 
-            headers = {"content-type": "image/jpeg"}
+    class _FakeClient:
+        def __init__(self, *_a, **_kw):
+            pass
 
-        return R()
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr(httpx, "get", fake_get)
+        def __exit__(self, *_a):
+            return None
+
+        def get(self, url, **_kw):
+            calls.append(url)
+            return _FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", _FakeClient)
     src = "https://open.weixin.qq.com/connect/qrcode/001IICD01oGwll2t"
     got = _extract_qr_image(_FakePage(src), ('img[src*="connect/qrcode"]',))
     assert calls == [src], "必须真的去服务端拉官方码,而不是退回截图"
     assert got, "JPEG 官方码必须被接受"
-    import base64
-
     assert base64.b64decode(got) == jpeg
 
 
@@ -1006,7 +1026,6 @@ def test_resource_trim_blocks_known_trackers_only():
     assert f("image", "https://www.example.com/statistics.png") is False
 
 
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 
 # --- 会话复用(2026-09-30):常驻登录档 + 复用/强制新扫码两档语义 ---
@@ -1376,3 +1395,4 @@ def test_drag_parse_shapes():
     assert scan_login_mod._drag_parse("80") == (80.0, 0.0)
     assert scan_login_mod._drag_parse("10,-5") == (10.0, -5.0)
     assert scan_login_mod._drag_parse(" 3 , 4 ") == (3.0, 4.0)
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
