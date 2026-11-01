@@ -547,6 +547,31 @@ export const SHELL_CAPABILITY_RULES = [
       /@ihui\/shared\/utils\/date-utils/.test(shared) &&
       /formatDateByTemplate|formatRelativeTime/.test(shared),
   },
+  {
+    what: '列表分页',
+    tokens: ['@/hooks/use-social-list', 'useSocialList'],
+    // 立因(2026-11-01 现读):端内 `@/hooks/use-social-list` 解出 {items, loading, hasMore, load,
+    // removeItem},而承载壳 apps/mobile-rn/src/screens/FavoriteScreen.tsx:101 用同族
+    // `usePaginatedList` 解出 {items, loading, refreshing, loadingMore, error, total, refresh,
+    // loadMore, removeItem},hasMore 由 items.length < total 算出(:145)—— 同一件事的另一个名字。
+    // 但光有壳侧 hook 不足以销:分页要**闭环**才算能力在,所以第二臂要求屏真把 onLoadMore 接到
+    // FlatList 的 onEndReached(屏 :117)。屏没接 ⇒ 转壳后滚到底不取下一页 ⇒ 照旧拦。
+    shellEvidence: (s, shared) =>
+      /usePaginatedList\s*[<(]/.test(s) && /onEndReached=\{onLoadMore\}/.test(shared),
+  },
+  {
+    what: '输入框聚焦态',
+    tokens: ['@/hooks/use-field-focus', 'useFieldFocus'],
+    // 立因(2026-11-01 现读):端内 useFieldFocus 做的是"聚焦换墨档、零布局跳动";承载壳
+    // apps/mobile-rn/src/screens/WithdrawScreen.tsx:12 从 @ihui/rn-app 取共享 <TextField>
+    // (:175 用,:243 注记"描边宽度与常态占位归共享 TextField(聚焦换墨档、零布局跳动)")
+    // ⇒ 这一格由共享件承担。只认"壳从共享包取用 TextField"这一形:壳若自绘输入框,
+    // 焦点态谁也没做,照旧拦。字段注册表(ui-field-registry / useUiField)是另一枚 token,
+    // 本规则碰不到它 —— 聚焦样式盖不住"批量注册与校验"那层能力。
+    shellEvidence: (s) =>
+      /import\s*\{[^}]*\bTextField\b[^}]*\}\s*from\s*['"]@ihui\/rn-app['"]/.test(s) &&
+      /<TextField\b/.test(s),
+  },
 ]
 
 /** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
@@ -1548,6 +1573,29 @@ function main(argv) {
         '<BackChevron />',
       ),
     ], [true, true, false, false, false, false])
+    // S31(2026-11-01 立):分页与聚焦两族按 SHELL_CAPABILITY_RULES 销,反臂钉住"有名无闭环"。
+    P('S31 分页要屏接 onEndReached 才销;聚焦要壳从共享包取 TextField 才销(自绘输入框不算)', [
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-social-list', 'useSocialList']),
+        "import { usePaginatedList } from '../hooks'\nconst x = usePaginatedList<F>(f, 20)",
+        '<FlatList onEndReached={onLoadMore} />',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-social-list', 'useSocialList']),
+        "import { usePaginatedList } from '../hooks'\nconst x = usePaginatedList<F>(f, 20)",
+        '<FlatList data={items} />',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-field-focus', 'useFieldFocus']),
+        "import { TextField } from '@ihui/rn-app'\n<TextField value={v} />",
+        '',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-field-focus', 'useFieldFocus']),
+        "import { TextInput } from 'react-native'\n<TextInput onFocus={f} />",
+        '',
+      ),
+    ], [['列表分页'], [], ['输入框聚焦态'], []])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
