@@ -411,7 +411,7 @@ function createStyles(tk: AppThemeTokens) {
     progressFill: { height: 6, backgroundColor: tk.success.DEFAULT },
     primaryBtn: {
       paddingVertical: 7,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
@@ -421,7 +421,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '33.333%',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       paddingHorizontal: rnSpacing['xs-loose'],
       gap: rnSpacing.sm,
     },

@@ -105,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     empty: { paddingVertical: rnSpacing['4xl'], alignItems: 'center' },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

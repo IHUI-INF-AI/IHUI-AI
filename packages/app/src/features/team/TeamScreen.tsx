@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     statsCard: {
       marginHorizontal: rnSpacing['sm-loose'],
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
@@ -276,12 +276,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

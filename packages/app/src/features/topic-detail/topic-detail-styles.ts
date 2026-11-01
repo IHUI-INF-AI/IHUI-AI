@@ -32,7 +32,11 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     },
     headerInfo: { flex: 1, gap: rnSpacing.xs },
     topicName: { fontSize: 17, fontWeight: '600', color: tk.text.primary },
-    topicDesc: { fontSize: 13, lineHeight: 18, color: tk.text.secondary },
+    topicDesc: {
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
     followers: { fontSize: rnType.label.size, color: tk.text.tertiary },
     followBtn: {
       paddingHorizontal: rnSpacing.lg,

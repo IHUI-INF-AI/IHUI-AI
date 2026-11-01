@@ -269,7 +269,7 @@ function createAiWorldEditStyles(tk: AppThemeTokens) {
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
     card: {
       gap: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

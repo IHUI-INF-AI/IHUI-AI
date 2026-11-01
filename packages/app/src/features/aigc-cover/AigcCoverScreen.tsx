@@ -164,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     previewBadgeText: { fontSize: rnType.label.size, color: tk.surface.light },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     filterChip: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
@@ -216,7 +216,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     confirmBtn: {
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',

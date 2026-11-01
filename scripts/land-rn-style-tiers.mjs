@@ -23,6 +23,12 @@
  *        字号与 lineHeight 是尺寸配对:有 lineHeight 的对象单改字号,改档后就会"字号跟了、
  *        行高没跟";没有 lineHeight 的对象行高由字号派生,单改字号不产生新分叉。
  *        fontWeight 与尺寸无关(字体粗细不随字号档变),不构成阻断。
+ *      · `--include-font-size-pair`(2026-11-02 Phase 3):**整对象成对替换** —— 仅当同一
+ *        style 对象里 `fontSize` 与 `lineHeight` **同时精确等于同一档**时才替换,两值一起写成
+ *        `rnType.<step>.size` / `rnType.<step>.lineHeight`;任一半不等值、行高不是字面量、
+ *        或对象顶层出现多个 lineHeight ⇒ 整个对象不动,按原因计数(skipped.pair*)。
+ *        **不得用 `...rnType.x` 展开** —— 展开会把 weight 一并注入,改变字重观感。
+ *        只给本开关时,不带 lineHeight 的 fontSize 不碰(那属于上一条腿的射程)。
  *      · `--include-radius`:只改等值命中 `RADIUS_STEPS` 的 borderRadius;同值双档名
  *        (8px = DEFAULT / lg)取**角色表在用的那一档**(lg,与 RADIUS_ROLES.card 同源)。
  *
@@ -42,6 +48,7 @@
  *   node scripts/land-rn-style-tiers.mjs                     # 只读预演(默认,只做间距)
  *   node scripts/land-rn-style-tiers.mjs --apply             # 落盘
  *   node scripts/land-rn-style-tiers.mjs --include-font-size # 追加字号等值腿(安全子集)
+ *   node scripts/land-rn-style-tiers.mjs --include-font-size-pair # 字号+行高整对象成对腿
  *   node scripts/land-rn-style-tiers.mjs --include-radius    # 追加圆角等值腿
  *   node scripts/land-rn-style-tiers.mjs --file <path>       # 单文件试点(可重复给)
  *   node scripts/land-rn-style-tiers.mjs --limit <n>         # 最多动 n 个文件
@@ -67,6 +74,9 @@ const jsonMode = argv.includes('--json')
 const selfTest = argv.includes('--self-test')
 // 字号/圆角腿默认关闭:守护轮(30 分钟一轮)只跑默认面,不会自己把这两腿打开。
 const includeFontSize = argv.includes('--include-font-size')
+// 成对腿:字号与行高同一档才替换;只给本开关时,无 lineHeight 的 fontSize 不碰。
+const includeFontSizePair = argv.includes('--include-font-size-pair')
+const includeFontSizeAny = includeFontSize || includeFontSizePair
 const includeRadius = argv.includes('--include-radius')
 const limit = (() => {
   const i = argv.indexOf('--limit')
@@ -155,6 +165,23 @@ function loadTypeSteps(tables) {
     byValue.set(v, step)
   }
   return byValue
+}
+
+/**
+ * 字号成对:`size|lineHeight` → 档名。仅当两值同时命中**同一档**才允许成对替换;
+ * 同一对出现两个档名 ⇒ 无法无歧义落档,拒绝改写。
+ */
+function loadTypePairs(tables) {
+  const byPair = new Map()
+  for (const [step, def] of Object.entries(tables.TYPE_STEPS)) {
+    const key = `${Number(def.size)}|${Number(def.lineHeight)}`
+    if (byPair.has(key)) {
+      console.error(`❌ 字号档里 ${key} 有两个档名(${byPair.get(key)} / ${step})⇒ 无法无歧义成对落档,拒绝改写`)
+      process.exit(2)
+    }
+    byPair.set(key, step)
+  }
+  return byPair
 }
 
 /**
@@ -316,6 +343,34 @@ export function objectAround(masked, pos) {
   return null
 }
 
+/**
+ * 只保留对象**顶层**的文本(长度与原文一一对应):嵌套 `{...}` / 数组 / 括号内部抹白。
+ * 用于「同一 style 对象里的 lineHeight」判定 —— 嵌套对象里的 lineHeight 不属于本对象,
+ * 不抹白就会把 `{ fontSize: 14, inner: { lineHeight: 20 } }` 错配成同一对。
+ */
+export function topLevelText(masked, obj) {
+  const out = masked.slice(obj[0], obj[1]).split('')
+  let depth = 0
+  for (let i = 0; i < out.length; i += 1) {
+    const c = out[i]
+    if (c === '{' || c === '[' || c === '(') {
+      depth += 1
+      if (depth > 1) out[i] = ' '
+      continue
+    }
+    if (c === '}' || c === ']' || c === ')') {
+      if (depth > 1) out[i] = ' '
+      depth -= 1
+      continue
+    }
+    if (depth > 1 && c !== '\n') out[i] = ' '
+  }
+  return out.join('')
+}
+
+/** 行高字面量:`lineHeight: 20`(值必须是裸数字,后接 , 或 })。 */
+const LINE_HEIGHT_LITERAL_SRC = '\\blineHeight\\s*:\\s*(-?)(\\d+(?:\\.\\d+)?)(?=\\s*(?:,|\\}))'
+
 /** 档名 → 引用表达式。合法标识符用点号,否则方括号。 */
 function refOf(root, step, suffix = '') {
   const head = /^[A-Za-z_$][\w$]*$/.test(step) ? `${root}.${step}` : `${root}['${step}']`
@@ -336,6 +391,8 @@ const KIND_REF = {
 /**
  * 单文件变换(纯函数:输入源码 + 档表,输出新源码与改动明细)。
  * `byValue` = 间距档(与原签名兼容);`opts.typeByValue` / `opts.radiusByValue` 为显式开关。
+ * `opts.pairByValue`(size|lineHeight → 档名)启用整对象成对替换;
+ * `opts.fontSizePairsOnly` 让没有 lineHeight 的 fontSize 不碰(只开成对腿时用)。
  */
 export function transform(src, byValue, opts = {}) {
   const maps = { spacing: byValue ?? null, fontSize: opts.typeByValue ?? null, radius: opts.radiusByValue ?? null }
@@ -362,7 +419,15 @@ export function transform(src, byValue, opts = {}) {
 
   const hits = []
   const changes = []
-  const skipped = { lineHeight: 0, outsideSheet: 0, platform: 0 }
+  const skipped = {
+    lineHeight: 0,
+    outsideSheet: 0,
+    platform: 0,
+    pairMismatch: 0,
+    pairNonLiteral: 0,
+    pairAmbiguous: 0,
+    pairNoLineHeight: 0,
+  }
   for (const [kind, map] of Object.entries(maps)) {
     if (!map) continue
     const propAlt = KIND_PROPS[kind].join('|')
@@ -379,12 +444,57 @@ export function transform(src, byValue, opts = {}) {
         skipped.platform += 1
         continue
       }
-      // 字号安全子集:同一 style 对象里带 lineHeight ⇒ 不动(否则改档后"字号跟了、行高没跟")
+      // 字号安全子集:同一 style 对象里带 lineHeight ⇒ 单改字号会造成"字号跟了、行高没跟"。
+      // 成对腿开启时,只有 size 与 lineHeight **同时**精确等于同一档才两值一起替换。
       if (kind === 'fontSize') {
         const obj = objectAround(masked, pos)
-        if (obj && /\blineHeight\s*:/.test(masked.slice(obj[0], obj[1]))) {
-          skipped.lineHeight += 1
-          continue
+        if (obj) {
+          const top = topLevelText(masked, obj)
+          if (/\blineHeight\s*:/.test(top)) {
+            if (!opts.pairByValue) {
+              skipped.lineHeight += 1
+              continue
+            }
+            const lhAll = [...top.matchAll(new RegExp(LINE_HEIGHT_LITERAL_SRC, 'g'))]
+            if (lhAll.length === 0) {
+              skipped.pairNonLiteral += 1
+              continue
+            }
+            if (lhAll.length > 1) {
+              skipped.pairAmbiguous += 1
+              continue
+            }
+            const lh = lhAll[0]
+            const pairStep = opts.pairByValue.get(`${Math.abs(Number(m[3]))}|${Math.abs(Number(lh[2]))}`)
+            if (!pairStep) {
+              skipped.pairMismatch += 1
+              continue
+            }
+            const lhStart = obj[0] + lh.index
+            const lhKey = lh[0].slice(0, lh[0].length - lh[1].length - lh[2].length)
+            const prop = m[1].replace(/\s*:\s*$/, '').trim()
+            changes.push({ kind, prop, value: Number(m[3]), step: pairStep, ref: refOf(root, pairStep, suffix), symbol, pair: true })
+            changes.push({
+              kind: 'lineHeight',
+              prop: 'lineHeight',
+              value: Number(lh[2]),
+              step: pairStep,
+              ref: refOf('rnType', pairStep, '.lineHeight'),
+              symbol,
+              pair: true,
+            })
+            hits.push({ start: pos, end: pos + m[1].length + m[2].length + m[3].length, text: `${m[1]}${m[2]}${refOf(root, pairStep, suffix)}` })
+            hits.push({
+              start: lhStart,
+              end: lhStart + lh[0].length,
+              text: `${lhKey}${lh[1]}${refOf('rnType', pairStep, '.lineHeight')}`,
+            })
+            continue
+          }
+          if (opts.pairByValue && opts.fontSizePairsOnly) {
+            skipped.pairNoLineHeight += 1
+            continue
+          }
         }
       }
       const raw = Number(m[3])
@@ -490,20 +600,26 @@ function listCandidates() {
   return out
 }
 
-/** 单文件改动按类计数(spacing / fontSize / radius)。 */
+/** 单文件改动按类计数(spacing / fontSize / lineHeight / radius)。 */
 function kindCounts(changes) {
-  const out = { spacing: 0, fontSize: 0, radius: 0 }
+  const out = { spacing: 0, fontSize: 0, lineHeight: 0, radius: 0 }
   for (const c of changes) out[c.kind] = (out[c.kind] ?? 0) + 1
   return out
+}
+
+/** 成对对象数(fontSize 与 lineHeight 各记一处改动,对象数以 fontSize 的 pair 标记计)。 */
+function pairCount(changes) {
+  return changes.filter((c) => c.pair && c.kind === 'fontSize').length
 }
 
 function run() {
   const { tables, radiusText } = loadHeadTables()
   const spacingByValue = loadSpacingSteps(tables)
   // 字号/圆角是显式开关:守护轮只跑默认面(间距),不会自己把这两腿打开。
-  const typeByValue = includeFontSize ? loadTypeSteps(tables) : null
+  const typeByValue = includeFontSizeAny ? loadTypeSteps(tables) : null
+  const pairByValue = includeFontSizePair ? loadTypePairs(tables) : null
   const radiusByValue = includeRadius ? loadRadiusSteps(radiusText) : null
-  const opts = { typeByValue, radiusByValue }
+  const opts = { typeByValue, pairByValue, radiusByValue, fontSizePairsOnly: !includeFontSize && includeFontSizePair }
   const symbols = ['rnSpacing', ...(typeByValue ? ['rnType'] : []), ...(radiusByValue ? ['rnRadius'] : [])]
   const files = listCandidates()
   if (files.length === 0) {
@@ -513,7 +629,7 @@ function run() {
   const report = {
     tool: 'land-rn-style-tiers',
     apply,
-    legs: { spacing: true, fontSize: Boolean(typeByValue), radius: Boolean(radiusByValue) },
+    legs: { spacing: true, fontSize: Boolean(typeByValue), fontSizePair: Boolean(pairByValue), radius: Boolean(radiusByValue) },
     scanned: files.length,
     changedFiles: [],
     held: [],
@@ -522,8 +638,17 @@ function run() {
     verifyFailed: [],
     importFixes: [],
     totalChanges: 0,
-    byKind: { spacing: 0, fontSize: 0, radius: 0 },
-    skipped: { lineHeight: 0, outsideSheet: 0, platform: 0 },
+    pairs: 0,
+    byKind: { spacing: 0, fontSize: 0, lineHeight: 0, radius: 0 },
+    skipped: {
+      lineHeight: 0,
+      outsideSheet: 0,
+      platform: 0,
+      pairMismatch: 0,
+      pairNonLiteral: 0,
+      pairAmbiguous: 0,
+      pairNoLineHeight: 0,
+    },
   }
   const absorbSkips = (s) => {
     for (const [k, v] of Object.entries(s ?? {})) report.skipped[k] = (report.skipped[k] ?? 0) + v
@@ -576,8 +701,9 @@ function run() {
     }
     const kinds = kindCounts(dry.changes)
     if (!apply) {
-      report.changedFiles.push({ file: f, changes: dry.changes.length, kinds, sample: dry.changes.slice(0, 6) })
+      report.changedFiles.push({ file: f, changes: dry.changes.length, kinds, sample: dry.changes.slice(0, 8) })
       report.totalChanges += dry.changes.length
+      report.pairs += pairCount(dry.changes)
       for (const [k, v] of Object.entries(kinds)) report.byKind[k] += v
       touched += 1
       continue
@@ -609,6 +735,7 @@ function run() {
       const k2 = kindCounts(t2.changes)
       report.changedFiles.push({ file: f, changes: t2.changes.length, kinds: k2, importAdded: withImport.added.length > 0 })
       report.totalChanges += t2.changes.length
+      report.pairs += pairCount(t2.changes)
       for (const [k, v] of Object.entries(k2)) report.byKind[k] += v
       touched += 1
     } catch (e) {
@@ -619,17 +746,22 @@ function run() {
   if (jsonMode) {
     console.log(JSON.stringify({ ...report, heldCount: report.held.length }, null, 2))
   } else {
-    const legs = ['间距', ...(includeFontSize ? ['字号'] : []), ...(includeRadius ? ['圆角'] : [])].join(' + ')
+    const legs = ['间距', ...(includeFontSize ? ['字号'] : []), ...(includeFontSizePair ? ['字号成对'] : []), ...(includeRadius ? ['圆角'] : [])].join(' + ')
     console.log(`\n🛠  RN 非色档落档器(${apply ? '落盘' : '只读预演'})`)
     console.log('─'.repeat(64))
     console.log(`腿: ${legs}(未开的腿一律不碰)`)
     console.log(`扫描 ${report.scanned} 文件 · 无 StyleSheet ${report.noSheet} · 他人持有跳过 ${report.held.length}`)
     console.log(
       `命中文件 ${report.changedFiles.length} · 可改写 ${report.totalChanges} 处` +
-        ` · 分类 spacing=${report.byKind.spacing} fontSize=${report.byKind.fontSize} radius=${report.byKind.radius}`,
+        ` · 分类 spacing=${report.byKind.spacing} fontSize=${report.byKind.fontSize}` +
+        ` lineHeight=${report.byKind.lineHeight} radius=${report.byKind.radius}`,
     )
+    console.log(`成对对象 ${report.pairs} 个(fontSize 与 lineHeight 两值同时替换,各记 1 处)`)
     console.log(
-      `跳过: 带 lineHeight 字号 ${report.skipped.lineHeight} · StyleSheet 块外 ${report.skipped.outsideSheet} · Platform 行 ${report.skipped.platform}`,
+      `跳过: 带 lineHeight 字号(未开成对) ${report.skipped.lineHeight} · 成对不等值 ${report.skipped.pairMismatch}` +
+        ` · 行高非字面量 ${report.skipped.pairNonLiteral} · 多行高歧义 ${report.skipped.pairAmbiguous}` +
+        ` · 无行高(成对腿不碰) ${report.skipped.pairNoLineHeight}` +
+        ` · StyleSheet 块外 ${report.skipped.outsideSheet} · Platform 行 ${report.skipped.platform}`,
     )
     for (const c of report.changedFiles.slice(0, 12))
       console.log(
@@ -642,8 +774,8 @@ function run() {
     if (report.held.length) console.log(`  🔒 held(工作树脏,归属未知不猜): ${report.held.slice(0, 8).join(' ')}${report.held.length > 8 ? ' …' : ''}`)
     console.log(
       `\n结论:LAND-TIERS state=${report.verifyFailed.length ? 'rolled-back' : apply ? 'applied' : 'preview'}` +
-        ` files=${report.changedFiles.length} changes=${report.totalChanges} held=${report.held.length}` +
-        ` byKind=${report.byKind.spacing}/${report.byKind.fontSize}/${report.byKind.radius}`,
+        ` files=${report.changedFiles.length} changes=${report.totalChanges} pairs=${report.pairs} held=${report.held.length}` +
+        ` byKind=${report.byKind.spacing}/${report.byKind.fontSize}/${report.byKind.lineHeight}/${report.byKind.radius}`,
     )
   }
   if (report.verifyFailed.length) process.exit(2)
@@ -672,6 +804,20 @@ const s = StyleSheet.create({
   rounded: { borderRadius: 8 },
 })
 const out = { fontSize: 14 }
+`
+
+// 成对腿夹具:ok 两值同档 / mismatch 行高不等值 / nonLiteral 行高非字面量 / ambiguous 顶层两个行高
+const FIXTURE_PAIR = `
+import { StyleSheet } from 'react-native'
+
+const s = StyleSheet.create({
+  ok: { fontSize: 14, lineHeight: 20 },
+  mismatch: { fontSize: 14, lineHeight: 22 },
+  nonLiteral: { fontSize: 14, lineHeight: 1.4 * 14 },
+  ambiguous: { fontSize: 14, lineHeight: 20, lineHeight: 22 },
+  plain: { fontSize: 14 },
+})
+const cfg = { fontSize: 14, lineHeight: 20 }
 `
 
 const SELF_ASSERTS = () => {
@@ -750,6 +896,33 @@ const SELF_ASSERTS = () => {
   out.push(['圆角: 等值命中取角色表在用的档(rnRadius.lg)', rOut.text.includes('borderRadius: rnRadius.lg')])
   out.push(['引用形态: 点号 / 方括号 / 字号 size', refOf('rnSpacing', 'md') === 'rnSpacing.md' && refOf('rnSpacing', 'sm-loose') === "rnSpacing['sm-loose']" && refOf('rnType', 'body', '.size') === 'rnType.body.size' && refOf('rnRadius', '2xl') === "rnRadius['2xl']"])
 
+  // ---- 成对腿(2026-11-02 Phase 3):size 与 lineHeight 同时等于同档才两值一起换 ----
+  const pairTier = new Map([
+    ['12|16', 'label'],
+    ['14|20', 'body'],
+    ['16|24', 'title'],
+  ])
+  const pairOnly = transform(FIXTURE_PAIR, byValue, { typeByValue: typeTier, pairByValue: pairTier, fontSizePairsOnly: true })
+  out.push(['成对: 两值同档 ⇒ size 与 lineHeight 一起换', pairOnly.text.includes('fontSize: rnType.body.size, lineHeight: rnType.body.lineHeight')])
+  out.push(['成对: 行高不等值 ⇒ 整个对象不动', pairOnly.text.includes('fontSize: 14, lineHeight: 22')])
+  out.push(['成对: 行高非字面量 ⇒ 整个对象不动', pairOnly.text.includes('lineHeight: 1.4 * 14')])
+  out.push(['成对: 顶层多行高 ⇒ 整个对象不动', pairOnly.text.includes('ambiguous: { fontSize: 14, lineHeight: 20, lineHeight: 22 }')])
+  out.push(['成对: 无行高的 fontSize 本腿不碰', pairOnly.text.includes('plain: { fontSize: 14 }')])
+  out.push(['成对: StyleSheet 块外不动', pairOnly.text.includes('cfg = { fontSize: 14, lineHeight: 20 }')])
+  out.push(['成对: 不得注入 weight(禁止 ...rnType 展开)', !pairOnly.text.includes('weight')])
+  out.push(['成对: 二次改 0 处', transform(pairOnly.text, byValue, { typeByValue: typeTier, pairByValue: pairTier, fontSizePairsOnly: true }).changes.length === 0])
+  const pairSkips = transform(FIXTURE_PAIR, byValue, { typeByValue: typeTier, pairByValue: pairTier, fontSizePairsOnly: true }).skipped
+  out.push([
+    '成对: 拒绝原因分别计数',
+    pairSkips.pairMismatch >= 1 && pairSkips.pairNonLiteral >= 1 && pairSkips.pairAmbiguous >= 1 && pairSkips.pairNoLineHeight >= 1,
+  ])
+  out.push(['topLevelText 抹掉嵌套对象、保留顶层键', (() => {
+    const m2 = maskLiterals('{ fontSize: 14, inner: { lineHeight: 20 } }')
+    const sp2 = objectAround(m2, m2.indexOf('14'))
+    const top2 = topLevelText(m2, sp2)
+    return top2.includes('fontSize: 14') && !top2.includes('lineHeight')
+  })()])
+
   // ---- 抹白/对象定位:索引必须与原文一一对应(错位会把 12.5 认成等值) ----
   const rawMask = 'const a = "padding: 10" // gap: 6\nconst b = 1'
   const masked = maskLiterals(rawMask)
@@ -795,6 +968,7 @@ export const __test__ = {
   styleSheetRanges,
   maskLiterals,
   objectAround,
+  topLevelText,
   refOf,
   SPACING_PROPS,
   KIND_PROPS,

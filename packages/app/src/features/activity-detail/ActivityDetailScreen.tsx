@@ -84,7 +84,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     itemTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',

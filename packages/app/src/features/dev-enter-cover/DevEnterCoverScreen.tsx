@@ -83,7 +83,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     content: {
       flex: 1,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
     },
     desc: {
       fontSize: rnType.title.size,
@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     planCard: {
       flex: 1,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

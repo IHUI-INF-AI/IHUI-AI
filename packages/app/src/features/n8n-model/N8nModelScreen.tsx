@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     createBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

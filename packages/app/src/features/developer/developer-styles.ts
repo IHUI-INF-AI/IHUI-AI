@@ -22,7 +22,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     headerCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       alignItems: 'center',
       marginBottom: rnSpacing['sm-loose'],
     },

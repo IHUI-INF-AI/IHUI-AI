@@ -200,10 +200,10 @@ function createStyles(tk: AppThemeTokens) {
     },
     // 聚焦态只换颜色(§4 唯一例外位),不改宽度 —— 固定高度下加粗会顶起文字
     searchInputFocused: { borderColor: tk.brand.DEFAULT },
-    listBody: { padding: 14 },
+    listBody: { padding: rnSpacing['md-loose'] },
     separator: { height: 12 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

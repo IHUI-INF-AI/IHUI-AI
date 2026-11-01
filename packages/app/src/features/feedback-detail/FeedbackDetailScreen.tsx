@@ -86,7 +86,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     badgeRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     typeBadge: {

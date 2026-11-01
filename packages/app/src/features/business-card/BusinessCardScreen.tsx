@@ -130,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     card: {
       marginHorizontal: rnSpacing.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     contactsBox: {
       marginTop: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },

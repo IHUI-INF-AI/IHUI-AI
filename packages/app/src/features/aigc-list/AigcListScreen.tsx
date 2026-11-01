@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     categoryChip: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     textCard: {
       flex: 2,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -241,11 +241,16 @@ function createStyles(tk: AppThemeTokens) {
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     promptText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
-    contentText: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 20 },
+    contentText: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.body.lineHeight,
+    },
     audioCard: {
       flex: 2,
       flexDirection: 'row',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,

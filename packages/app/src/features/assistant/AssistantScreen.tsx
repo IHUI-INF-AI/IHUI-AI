@@ -284,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     errorText: { fontSize: rnType.body.size, color: tk.brandAccent.deep },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
