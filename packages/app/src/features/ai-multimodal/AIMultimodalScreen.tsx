@@ -37,6 +37,7 @@ export function AIMultimodalScreen({
   t,
   userName,
   mode,
+  disabledModes,
   models,
   model,
   messages,
@@ -54,6 +55,8 @@ export function AIMultimodalScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const canSend = input.trim().length > 0 && !loading
+  const disabledSet = useMemo(() => new Set(disabledModes ?? []), [disabledModes])
+  const hasDisabled = disabledSet.size > 0
 
   return (
     <View style={styles.container}>
@@ -65,18 +68,35 @@ export function AIMultimodalScreen({
       </View>
 
       <View style={styles.modeRow}>
-        {MODE_KEYS.map((m) => (
-          <TouchableOpacity
-            key={m}
-            style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
-            onPress={() => onModeChange(m)}
-          >
-            <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive]}>
-              {t(modeLabelKey(m))}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {MODE_KEYS.map((m) => {
+          const disabled = disabledSet.has(m)
+          return (
+            <TouchableOpacity
+              key={m}
+              style={[
+                styles.modeBtn,
+                mode === m && styles.modeBtnActive,
+                disabled && styles.modeBtnDisabled,
+              ]}
+              onPress={disabled ? undefined : () => onModeChange(m)}
+              disabled={disabled}
+            >
+              <Text
+                style={[
+                  styles.modeBtnText,
+                  mode === m && styles.modeBtnTextActive,
+                  disabled && styles.modeBtnTextDisabled,
+                ]}
+              >
+                {t(modeLabelKey(m))}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
+      {hasDisabled ? (
+        <Text style={styles.modeDisabledHint}>{t('aiMultimodal.modeDisabledHint')}</Text>
+      ) : null}
 
       <View style={styles.modelRow}>
         <Text style={styles.modelLabel}>{t('aiMultimodal.switchModel')}</Text>
@@ -167,8 +187,16 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     modeBtnActive: { backgroundColor: tk.brand.cta },
+    modeBtnDisabled: { opacity: 0.45 },
     modeBtnText: { textAlign: 'center', fontSize: 14, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },
+    modeBtnTextDisabled: { color: tk.text.tertiary },
+    modeDisabledHint: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.sm,
+      fontSize: 12,
+      color: tk.text.tertiary,
+    },
     modelRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     modelLabel: { fontSize: 14, color: tk.text.secondary, marginBottom: rnSpacing.sm },
     modelEmpty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: rnSpacing['xs-loose'] },
