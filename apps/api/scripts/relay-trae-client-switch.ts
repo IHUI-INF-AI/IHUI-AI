@@ -216,11 +216,35 @@ async function runSwitch(options: {
   if (!profile) warn.push('无档案快照 ⇒ host/区域等用兜底值,客户端首刷后自动回灌真档案')
   if (!device) warn.push('无设备材料 ⇒ 不写 icube-dc 键,沿用现机设备档(池侧续期走旧通道)')
 
+  // 计划判读用的现盘快照(写回基准另取,见下):设备档槽位的占用关系只有拿到现值才判得出来,
+  // 而 dry-run 的价值恰恰是"动手前就知道会不会踩到别人的档"。
+  let planStore: Record<string, unknown>
+  try {
+    planStore = JSON.parse(fs.readFileSync(storageFile, 'utf8'))
+  } catch (e) {
+    process.stderr.write(
+      `❌ 读 storage.json 失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`,
+    )
+    return 2
+  }
+  const planPatch = sw.buildStoragePatch(planStore, { userInfo, device })
+  if (planPatch.deviceDoc?.relation === 'other') {
+    warn.push(
+      `设备档槽位 ${planPatch.deviceDoc.key} 里装的是**另一枚号**的私钥,本次将被覆盖 —— ` +
+        '同机多号共用一枚 deviceId(实测),切过来切回去踩的是同一个槽。' +
+        `覆盖前整份 storage 备份在 ${storageFile}.pre-switch.bak;` +
+        '还原:node scripts/switch-trae-client-account.mjs --restore',
+    )
+  } else if (planPatch.deviceDoc?.relation === 'undetermined') {
+    warn.push('设备档槽位有内容但解不开(旧版封装/损坏)⇒ 占用关系未判定,仍会写入;备份同上')
+  }
+
   if (options.dryRun) {
     process.stderr.write(
       `[dry-run] 计划写回: uid=${row.uid} 名称=${row.name} 健康=${row.healthStatus}` +
         ` token到期=${fmt(row.tokenExpiresAt)} rt到期=${fmt(row.refreshExpiresAt)}` +
-        ` 设备=${device ? '有' : '无'} 档案=${profile ? '有' : '无'} 目标=${storageFile}\n`,
+        ` 设备=${device ? '有' : '无'} 档案=${profile ? '有' : '无'} 目标=${storageFile}` +
+        ` 设备档槽位=${planPatch.deviceDoc ? planPatch.deviceDoc.relation : '不写'}\n`,
     )
     for (const w of warn) process.stderr.write(`  ⚠️ ${w}\n`)
     return 0
@@ -238,6 +262,7 @@ async function runSwitch(options: {
     await sleep(1500) // 等落盘静默,避免退出竞态覆盖
   }
 
+  // 写回基准 = 静默后的现盘(计划判读用的一份可能已被客户端在退出时改写过)
   let store: Record<string, unknown>
   try {
     store = JSON.parse(fs.readFileSync(storageFile, 'utf8'))
@@ -247,35 +272,79 @@ async function runSwitch(options: {
     )
     return 2
   }
-  const { next, changed } = sw.buildStoragePatch(store, { userInfo, device })
+  const { next, changed, deviceDoc } = sw.buildStoragePatch(store, { userInfo, device })
   const backup = sw.writeStorageAtomic(storageFile, next)
 
-  // 写后回读自证:信封能解开、token/userId 与池行一致才算成功
+  // 写后回读自证:信封能解开、token/userId 与池行一致才算成功;
+  // 写了设备档时同样回读它解得开、且解出的就是这一号的私钥(不留"写了但没落"的假成功)。
   let verified = false
+  let deviceVerified: boolean | 'skip' = 'skip'
   try {
     const after = JSON.parse(fs.readFileSync(storageFile, 'utf8'))
     const back = JSON.parse(ex.decryptEnvelope(after[sw.AUTH_KEY]))
     verified = back?.token === token && String(back?.userId) === String(row.uid)
+    if (deviceDoc) {
+      const devBack = JSON.parse(ex.decryptEnvelope(String(after[deviceDoc.key] ?? '')))
+      deviceVerified =
+        String(devBack?.privateKeyPEM ?? '').replace(/\s+/g, '') ===
+        String(device?.deviceKeyPem ?? '').replace(/\s+/g, '')
+    }
   } catch {
-    verified = false
+    // 没写设备档时别把"会话信封读不动"报成设备档故障 —— 两类失败修法不同
+    deviceVerified = deviceDoc ? false : 'skip'
   }
-  if (!verified) {
-    process.stderr.write(`❌ 写后回读校验失败(备份在 ${backup},可手工还原)\n`)
+  if (!verified || deviceVerified === false) {
+    process.stderr.write(
+      `❌ 写后回读校验失败(${deviceVerified === false ? '设备档解不出/不是这一号的密钥' : '会话信封对不上'};备份在 ${backup},可手工还原)\n`,
+    )
     return 1
   }
   if (options.json) {
     process.stdout.write(
-      `${JSON.stringify({ ok: true, uid: row.uid, name: row.name, storageFile, backup, changedKeys: changed })}\n`,
+      `${JSON.stringify({ ok: true, uid: row.uid, name: row.name, storageFile, backup, changedKeys: changed, deviceDoc })}\n`,
     )
     return 0
   }
   process.stderr.write(
-    `✅ 已切号: uid=${row.uid} 名称=${row.name} token到期=${fmt(row.tokenExpiresAt)} 备份=${backup}\n`,
+    `✅ 已切号: uid=${row.uid} 名称=${row.name} token到期=${fmt(row.tokenExpiresAt)} 备份=${backup}\n` +
+      `   设备档槽位=${deviceDoc ? deviceDoc.relation : '未写(沿用现机设备档)'} 回读校验=${deviceVerified === 'skip' ? '不适用' : '通过'}\n`,
   )
   for (const w of warn) process.stderr.write(`  ⚠️ ${w}\n`)
   process.stderr.write(
     '   重启 Trae 即以该号登录;离机的原登录号由号池 client-first 兜底保活(每 5 分钟扫,过期自动续)。\n' +
       '   本机新会话票每 10 分钟由 worker 自动回灌进池(sync-trae-client-session)。\n',
+  )
+  return 0
+}
+
+/**
+ * 还原上一次切号写回(2026-11-01 立;动作与字节自证都在 lib.restoreStorage,这里只编排)。
+ * 存在理由:切号覆盖的是同机共用的设备档槽位,"有备份"必须等于"能倒回去"。
+ */
+function runRestore(options: { json: boolean; force: boolean }): number {
+  const storageFile = sw.findStorageFile()
+  if (!storageFile) {
+    process.stderr.write('❌ 本机未找到 Trae storage.json(未判定)\n')
+    return 2
+  }
+  if (sw.isTraeRunning() && !options.force) {
+    process.stderr.write(
+      '❌ Trae 客户端正在运行 —— 还原前请先完全退出(它退出时会用内存态覆盖 storage.json);或加 --force\n',
+    )
+    return 1
+  }
+  if (sw.isTraeRunning()) {
+    sw.killTrae()
+  }
+  const r = sw.restoreStorage(storageFile)
+  if (options.json) process.stdout.write(`${JSON.stringify(r)}\n`)
+  if (!r.ok) {
+    process.stderr.write(`❌ 还原失败(未判定):${r.reason}\n`)
+    return 2
+  }
+  process.stderr.write(
+    `✅ 已还原:${r.from} → ${r.file}${r.kept ? `(还原前的状态留在 ${r.kept})` : ''}\n` +
+      '   重启 Trae 即回到切号前的登录态。\n',
   )
   return 0
 }
@@ -288,14 +357,16 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (options.help) {
     process.stdout.write(
-      '用法: pnpm tsx apps/api/scripts/relay-trae-client-switch.ts --list|--current|--to <uid|名称> [--dry-run] [--force] [--json]\n' +
-        '把号池里的 Trae 账号写回本机 Trae 客户端登录态(一键切号;日常入口 = node scripts/switch-trae-client-account.mjs)。\n',
+      '用法: pnpm tsx apps/api/scripts/relay-trae-client-switch.ts --list|--current|--to <uid|名称>|--restore [--dry-run] [--force] [--json]\n' +
+        '把号池里的 Trae 账号写回本机 Trae 客户端登录态(一键切号;日常入口 = node scripts/switch-trae-client-account.mjs)。\n' +
+        '  --restore  把上一次切号前的 storage.json 逐字节写回(还原件 = <storage>.pre-switch.bak)\n',
     )
     return 0
   }
   try {
     if (options.mode === 'list') return await runList(options.json)
     if (options.mode === 'current') return await runCurrent(options.json)
+    if (options.mode === 'restore') return runRestore(options)
     return await runSwitch(options)
   } catch (e) {
     process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)

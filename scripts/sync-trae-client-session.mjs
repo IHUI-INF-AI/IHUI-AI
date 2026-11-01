@@ -76,7 +76,16 @@ export function buildPayload(extracted, heartbeatAt = null) {
     token: a.token,
     ...(a.refreshToken ? { refreshToken: a.refreshToken } : {}),
     ...(a.expiresAt ? { expiresAt: a.expiresAt } : {}),
-    ...(a.refreshExpiresAt ? { refreshExpiresAt: a.refreshExpiresAt } : {}),
+    // rt 自然终点:提取器账号侧的**真键名是 `refreshTokenExpiresAt`**(与导入侧同拼写),
+    // meta 侧才叫 refreshExpiresAt。此前这行转发的是 `a.refreshExpiresAt` —— 那枚键在账号对象上
+    // 从来不存在,于是客户端明明知道 rt 还剩半年,这维信息一路走不到库,账面只读得到 NULL。
+    // 键名单源在 apps/api/src/services/relay-session-sync-decision.ts;配对由跨边界契约锁判
+    // (apps/api/tests/relay-session-sync-expiry-contract.test.ts,夹具取自 toPoolAccount 真产出)。
+    ...(a.refreshTokenExpiresAt
+      ? { refreshTokenExpiresAt: a.refreshTokenExpiresAt }
+      : a.refreshExpiresAt
+        ? { refreshTokenExpiresAt: a.refreshExpiresAt }
+        : {}),
     // 设备材料(2026-10-25):新版 ExchangeToken 用设备私钥签名换票;缺它池子只能走
     // 旧通道,桌面渠道签发的票会被 10101 拒。随会话一起回灌,池侧自愈。
     ...(a.deviceId ? { deviceId: a.deviceId } : {}),

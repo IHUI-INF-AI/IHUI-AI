@@ -343,10 +343,7 @@ export function buildSchedulePlan(
   return out
 }
 
-function todayIso(): string {
-  // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
-  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
-}
+// 日界唯一出口在 utils/biz-day.ts：当日业务日键一律 bizDayKey()，与催费定时任务的"当日幂等"口径同源
 
 /**
  * 把一个报名的原始行读齐后算账。

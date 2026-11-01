@@ -139,6 +139,129 @@ export function clientActiveAtOf(row: { extraMetadata?: unknown }): Date | null 
   return Number.isNaN(d.getTime()) ? null : d
 }
 
+/**
+ * rt 死线守护窗(小时,2026-11-01 立)。
+ *
+ * 立因:永久保活档原先**只看客户端心跳**决定让位还是接管,而真正杀死这枚号的不是 access token
+ * 过期(那有 15 分钟临期档兜底),是 **refreshToken 的自然终点** —— rt 一到点,机主既不能验证码
+ * 重登(号池就成了唯一退路),池里那枚票也再也刷不出新票。机主把 Trae 开着连续用两个月不关,
+ * 按原判据池就一直让位,直到上游把 rt 收走 —— 那是让位判据自己把号送到死线上。
+ *
+ * 代价不对称决定了方向:顶掉一个开着的客户端 = 机主下次用之前先跑一键切号把票取回(可恢复);
+ * rt 死透 = 永久丢号(不可恢复)。所以死线进入守护窗后**优先于让位**。
+ *
+ * `RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS`:0/off/false ⇒ 只关掉这一维(回到 2026-10-31 的
+ * 「仅在客户端静默时接管」形态);非法值回落默认 —— 失效方向是多保一次,不是静默关掉。
+ */
+export const KEEPALIVE_RT_GUARD_DEFAULT_HOURS = 72
+export function rtExpiryGuardHours(env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = (env.RELAY_ACCOUNT_KEEPALIVE_RT_GUARD_HOURS ?? '').trim().toLowerCase()
+  if (raw === '') return KEEPALIVE_RT_GUARD_DEFAULT_HOURS
+  if (['0', 'off', 'false', 'disabled', 'disable'].includes(raw)) return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : KEEPALIVE_RT_GUARD_DEFAULT_HOURS
+}
+
+/**
+ * rt 是否已进入死线守护窗。
+ *
+ * `refreshExpiresAt` 缺失/为 NULL ⇒ false(未知**不构成**抢刷客户端的理由 —— 客户端在跑时它自己
+ * 会续 rt,让位仍然安全;而"读不到证据"就去顶机主的登录态,是把判据失效当成行动依据)。
+ */
+export function rtDeadlineNearOf(
+  row: { refreshExpiresAt?: Date | null },
+  now: Date = new Date(),
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const guardHours = rtExpiryGuardHours(env)
+  if (guardHours === null) return false
+  const expiry = row.refreshExpiresAt
+  if (!(expiry instanceof Date) || Number.isNaN(expiry.getTime())) return false
+  return expiry.getTime() - now.getTime() < guardHours * 60 * 60 * 1000
+}
+
+/** 本机客户端此刻算不算"正在自己续期"(心跳新鲜)。 */
+export function clientRenewingNowOf(
+  row: { extraMetadata?: unknown },
+  now: Date = new Date(),
+): boolean {
+  const activeAt = clientActiveAtOf(row)
+  return activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS
+}
+
+/**
+ * 死线抢刷事件:本应因心跳而让位,却因 rt 逼近自然终点由池接管续期。
+ * 判据单源 —— 调度面据此计数/发日志,读数面据此回答「上一次接管有没有把机主的客户端顶掉」,
+ * 两处不得各写一份(§0.6)。
+ */
+export function forcedTakeoverOf(
+  row: { extraMetadata?: unknown; refreshExpiresAt?: Date | null },
+  now: Date = new Date(),
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return keepAliveForeverOf(row) && clientRenewingNowOf(row, now) && rtDeadlineNearOf(row, now, env)
+}
+
+/** 接管凭证的 jsonb 键(读数面与写入面共用一名,§0.6) */
+export const KEEPALIVE_TAKEOVER_KEY = 'keepAliveTakeover'
+/**
+ * 池侧接管成功的落库凭证(2026-11-01 立)。
+ *
+ * 为什么进 jsonb 而不是仓内文件台账:承载体有两棵可能的树(dev 进程在仓库树、prod-bundle 运行
+ * 副本在另一棵 —— `edge-access.ts` 头注点名的跨树形态),文件台账会被读成「从未发生过」。
+ * 写进这一行 itself,任何一棵树上的读出口都拿到同一个事实。
+ * 零凭据:只记时刻/版本差/是否死线抢刷,不记 token 与到期原文之外的任何秘密。
+ */
+export interface KeepAliveTakeoverTrail {
+  /** ISO 时刻 */
+  at: string
+  /** 本次接管后的 credVersion(每次成功刷新恰 +1;读到 0 = 没有留痕,不等于"没刷过") */
+  credVersionAfter: number
+  /** true = 客户端心跳还新鲜就被接管(rt 死线优先),机主下次开客户端前要先一键切号 */
+  forced: boolean
+}
+
+/** 读数:这一行的末次池侧接管凭证;解不出 ⇒ null(不猜)。 */
+export function takeoverTrailOf(row: { extraMetadata?: unknown }): KeepAliveTakeoverTrail | null {
+  const meta = row.extraMetadata
+  if (!meta || typeof meta !== 'object') return null
+  const raw = (meta as Record<string, unknown>)[KEEPALIVE_TAKEOVER_KEY]
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const v = raw as Record<string, unknown>
+  if (typeof v.at !== 'string') return null
+  const at = new Date(v.at)
+  if (Number.isNaN(at.getTime())) return null
+  return {
+    at: at.toISOString(),
+    credVersionAfter:
+      typeof v.credVersionAfter === 'number' && Number.isFinite(v.credVersionAfter)
+        ? v.credVersionAfter
+        : 0,
+    forced: v.forced === true,
+  }
+}
+
+/** 接管次数(键存的是累计枚数;读不到 ⇒ 0,0 只说明"没有留痕",不说明"没刷过"以外的事) */
+export function takeoverCountOf(row: { extraMetadata?: unknown }): number {
+  const meta = row.extraMetadata
+  if (!meta || typeof meta !== 'object') return 0
+  const raw = (meta as Record<string, unknown>)[KEEPALIVE_TAKEOVER_COUNT_KEY]
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0
+}
+export const KEEPALIVE_TAKEOVER_COUNT_KEY = 'keepAliveTakeoverCount'
+
+/**
+ * extraMetadata 的增量合并 SQL(单源):整枚 jsonb 作参数传入。
+ * 不用 `jsonb_build_object($1,$2)` —— PG 在 variadic "any" 位置报 could not determine
+ * data type of parameter(2026-10-31 实测),而且整包覆盖会抹掉同住的
+ * checkinSync 同步态 / cosy 设备指纹 / 心跳键。
+ */
+export function mergeExtraMetadataSql(patch: Record<string, unknown>) {
+  return sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || ${JSON.stringify(
+    patch,
+  )}::jsonb`
+}
+
 /** SQL 侧的同一把判据(jsonb 文本投影;与 keepAliveForeverOf 同键名,不各写一份)。 */
 export function keepAliveForeverCondition() {
   return sql`(coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) ->> ${KEEPALIVE_FOREVER_KEY}) = 'true'`
@@ -158,15 +281,22 @@ export function keepaliveForeverIdleHours(env: NodeJS.ProcessEnv = process.env):
 
 /** client-first 且票尚未过期 ⇒ 本轮不许刷(刷了就是和客户端抢轮换);票已过期 ⇒ 兜底放行。 */
 export function shouldDeferRefresh(
-  row: { providerCode: string; tokenExpiresAt: Date | null; extraMetadata?: unknown },
+  row: {
+    providerCode: string
+    tokenExpiresAt: Date | null
+    extraMetadata?: unknown
+    refreshExpiresAt?: Date | null
+  },
   now: Date,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   if (keepAliveForeverOf(row)) {
     // 永久保活号不看 client-first 开关,只看「客户端此刻是不是正在续期」。
     // 顶掉正在干活的客户端 = 机主要重登 = 而他登不回来,所以只在心跳停了以后才接管。
-    const activeAt = clientActiveAtOf(row)
-    return activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS
+    if (!clientRenewingNowOf(row, now)) return false
+    // 例外(2026-11-01):rt 已进死线守护窗 ⇒ 不让位。让位救的是"此刻的登录态",
+    // 死线要的是"这枚号以后还能不能刷",后者没有第二条路(机主已不能验证码重登)。
+    return !rtDeadlineNearOf(row, now, env)
   }
   if (renewalPolicyOf(row.providerCode, env) !== 'client-first') return false
   return row.tokenExpiresAt !== null && row.tokenExpiresAt.getTime() > now.getTime()
@@ -234,7 +364,7 @@ export function accountIdleClock() {
  * 空闲窗口(默认 24h)续票 —— 它不能等 7 天,因为机主已经没有「掉线后重新验证码登录」这条
  * 退路。给 `foreverCutoff` 为空/undefined 时形状与历史完全一致(普通号窗口不变、也不看 jsonb)。
  */
-export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
+export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date, rtGuardDeadline?: Date) {
   const guards = [
     eq(aiRelayAccountPool.isEnabled, true),
     eq(aiRelayAccountPool.tempUnschedulable, false),
@@ -242,17 +372,30 @@ export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
     recredentialableCondition(),
   ]
   const standardIdle = lt(accountIdleClock(), sql`${cutoff.toISOString()}::timestamptz`)
-  if (!foreverCutoff) return and(...guards, standardIdle)
-  return and(
-    ...guards,
-    or(
-      standardIdle,
+  const foreverBranches = []
+  if (foreverCutoff) {
+    foreverBranches.push(
       and(
         keepAliveForeverCondition(),
         lt(accountIdleClock(), sql`${foreverCutoff.toISOString()}::timestamptz`),
       ),
-    ),
-  )
+    )
+  }
+  if (rtGuardDeadline) {
+    // rt 死线档:登记了永久保活 且 rt 的自然终点已进入守护窗 ⇒ 直接进候选,
+    // **不看空闲时钟** —— 号可以刚被用过、空闲时钟被拨在昨天,而 rt 只剩三天。
+    // 上游没给新终点时 refresh_expires_at 是 NULL,`lt(NULL)` 恒不命中 ⇒ 抢刷成功后
+    // 这一支自然退出,不会每 5 分钟撞一遍(与"未知不冒险"同一条纪律)。
+    foreverBranches.push(
+      and(
+        keepAliveForeverCondition(),
+        lt(aiRelayAccountPool.refreshExpiresAt, sql`${rtGuardDeadline.toISOString()}::timestamptz`),
+      ),
+    )
+  }
+  if (foreverBranches.length === 0) return and(...guards, standardIdle)
+  // 并集语义与历史逐字一致:普通号的 7 天窗 或 永久保活档的窄窗 或 rt 死线档,任一命中即候选。
+  return and(...guards, or(standardIdle, ...foreverBranches))
 }
 
 /**
@@ -536,6 +679,11 @@ export async function refreshOne(
           result.refreshToken !== undefined && result.refreshToken !== null
             ? encryptField(result.refreshToken)
             : row.refreshTokenEnc,
+        // rt 轮换 ⇒ 旧的自然终点随旧票一起作废。上游给了新终点就写新值,没给就写未知(NULL),
+        // 绝不沿用死票的旧时刻 —— 那会让管理面把「已经没了的寿命」读成「还剩 X 天」(2026-11-01 立)。
+        ...(result.refreshToken !== undefined && result.refreshToken !== null
+          ? { refreshExpiresAt: result.refreshExpiresAt ?? null }
+          : {}),
         // 平台扩展凭据整包回写(CodeArts 刷新轮转整套 STS 凭据;无 secrets 的平台保持原值)
         ...(result.secrets && Object.keys(result.secrets).length > 0
           ? { secretsEnc: encryptField(JSON.stringify(result.secrets)) }
@@ -549,6 +697,20 @@ export async function refreshOne(
         tempUnschedulable: false,
         healthStatus: row.healthStatus === 'down' ? 'unknown' : row.healthStatus,
         lastErrorMessage: null,
+        // 永久保活号的接管凭证(2026-11-01 立):与票写同一次 UPDATE,不分两次往返。
+        // 计数按本轮读到的行 +1(两轮 sweep 由分布式锁串行,不会并发写花;读不到留痕 ⇒ 从 1 起)。
+        ...(keepAliveForeverOf(row)
+          ? {
+              extraMetadata: mergeExtraMetadataSql({
+                [KEEPALIVE_TAKEOVER_KEY]: {
+                  at: now.toISOString(),
+                  credVersionAfter: row.credVersion + 1,
+                  forced: forcedTakeoverOf(row, now),
+                },
+                [KEEPALIVE_TAKEOVER_COUNT_KEY]: takeoverCountOf(row) + 1,
+              }),
+            }
+          : {}),
         updatedAt: now,
       })
       .where(eq(aiRelayAccountPool.id, row.id))
@@ -676,10 +838,13 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
         : new Date(now.getTime() - keepaliveDays * 24 * 60 * 60 * 1000)
     const foreverCutoff =
       foreverHours === null ? undefined : new Date(now.getTime() - foreverHours * 60 * 60 * 1000)
+    const rtGuardHours = rtExpiryGuardHours()
+    const rtGuardDeadline =
+      rtGuardHours === null ? undefined : new Date(now.getTime() + rtGuardHours * 60 * 60 * 1000)
     const idles = await dbRead
       .select()
       .from(aiRelayAccountPool)
-      .where(keepaliveIdleWhere(idleCutoff, foreverCutoff))
+      .where(keepaliveIdleWhere(idleCutoff, foreverCutoff, rtGuardDeadline))
       .limit(KEEPALIVE_MAX_PER_SWEEP)
     out.keepalive = idles.length
     if (idles.length > 0) {
@@ -687,12 +852,22 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
         candidates: idles.length,
         idleDays: keepaliveDays ?? 'off',
         foreverHours: foreverHours ?? 'off',
+        rtGuardHours: rtGuardHours ?? 'off',
       })
     }
     await runWithConcurrency(idles, SWEEP_CONCURRENCY, async (row) => {
       if (shouldDeferRefresh(row, now)) {
         out.refreshSkipped++
         return
+      }
+      // 死线抢刷点名:这一枚的客户端心跳还新鲜,是本该让位的形态,把它刷下去是为了不让 rt 死透。
+      // 机主下次打开客户端会发现自己被顶了,所以必须在日志里留下"是谁、为什么"。
+      if (forcedTakeoverOf(row, now)) {
+        logger.warn('[relay-account-pool] 永久保活 rt 死线抢刷(客户端心跳仍新鲜)', {
+          account: `${row.providerCode}/${String(row.uid).slice(0, 8)}`,
+          rtExpiresAt: row.refreshExpiresAt?.toISOString() ?? '未知',
+          guardHours: rtGuardHours ?? '默认',
+        })
       }
       const adapter = getRelayAdapter(row.providerCode)
       if (!adapter?.refreshToken) {

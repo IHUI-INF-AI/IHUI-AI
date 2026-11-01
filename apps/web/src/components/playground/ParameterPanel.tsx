@@ -49,16 +49,10 @@ export function ParameterPanel({
   const [loadingModels, setLoadingModels] = React.useState(false)
   const [modelsError, setModelsError] = React.useState<string | null>(null)
 
-  // 首次挂载从 sessionStorage 读取 apiKey;旧版本存在 localStorage 的残值顺手清掉
-  // (那次迁移的目的就是把 Key 从持久化存储挪走,不清理等于旧值永远可被 XSS 读到)。
+  // 首次挂载从 localStorage 读取 apiKey
   React.useEffect(() => {
     try {
-      window.localStorage.removeItem(API_KEY_STORAGE_KEY)
-    } catch {
-      // ignore
-    }
-    try {
-      const saved = window.sessionStorage.getItem(API_KEY_STORAGE_KEY)
+      const saved = window.localStorage.getItem(API_KEY_STORAGE_KEY)
       if (saved) onApiKeyChange(saved)
     } catch {
       // ignore
@@ -71,7 +65,7 @@ export function ParameterPanel({
     (key: string) => {
       onApiKeyChange(key)
       try {
-        window.sessionStorage.setItem(API_KEY_STORAGE_KEY, key)
+        window.localStorage.setItem(API_KEY_STORAGE_KEY, key)
       } catch {
         // ignore
       }
@@ -114,7 +108,7 @@ export function ParameterPanel({
       <CardContent className="min-[640px]:p-3 space-y-4 p-3">
         {/* API Key */}
         <div className="space-y-1.5">
-          <Label htmlFor="pg-api-key" className="text-xs font-medium">
+          <Label htmlFor="pg-api-key" className="text-label font-medium">
             API Key
           </Label>
           <Input
@@ -132,7 +126,7 @@ export function ParameterPanel({
         {/* 模型选择 */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium">{t('modelLabel')}</Label>
+            <Label className="text-label font-medium">{t('modelLabel')}</Label>
             <Button
               variant="ghost"
               size="icon"
@@ -211,7 +205,7 @@ export function ParameterPanel({
 
         {/* stream 开关 */}
         <div className="flex items-center justify-between">
-          <Label htmlFor="pg-stream" className="text-xs font-medium">
+          <Label htmlFor="pg-stream" className="text-label font-medium">
             {t('streamLabel')}
           </Label>
           <Switch
@@ -240,7 +234,7 @@ function SliderField({ label, value, min, max, step, onChange, disabled }: Slide
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs font-medium">{label}</Label>
+        <Label className="text-label font-medium">{label}</Label>
         <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
       </div>
       <Input

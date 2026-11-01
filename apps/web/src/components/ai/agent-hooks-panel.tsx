@@ -105,7 +105,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-add"
             onClick={handleAdd}
-            className="flex flex-1 items-center justify-center gap-1 rounded-sm bg-cta px-2 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            className="flex flex-1 items-center justify-center gap-1 rounded-sm bg-cta px-2 py-1.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Plus className="h-3 w-3" />
             {t('add')}
@@ -175,7 +175,7 @@ export function AgentHooksPanel() {
       {/* 事件日志(最近 50 条) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium">{t('eventLog')}</p>
+          <p className="text-label font-medium">{t('eventLog')}</p>
           {events.length > 0 && (
             <button
               type="button"

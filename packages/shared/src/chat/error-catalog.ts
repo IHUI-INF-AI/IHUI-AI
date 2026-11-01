@@ -554,6 +554,19 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'RISK_CONFIRM_REQUIRED.action',
     category: 'authForbidden',
   },
+  // —— 守门 94(R1):SCHEDULER_ERROR 由 apps/ai-service/app/services/mcp_server.py 的定时任务族
+  //   真实产出四处:`_tool_list_scheduled_tasks`(读任务列表时 task_scheduler.list_tasks 抛异常)、
+  //   `_tool_cancel_scheduled_task`(remove_task 抛异常)、`_tool_schedule_wakeup`(add_task 抛异常,
+  //   以及 add_task 返回 ok=False 且没自带 errorCode 时的兜底)。共同事实是**后台调度服务这一次调用
+  //   没成功**(未启动 / 注册被拒 / Redis 侧异常),任务没建成、没查到或没撤掉 —— 不是用户参数错
+  //   (故不取 invalidResponse),也不是任务不存在(不取 resourceNotFound)。分类取 runtimeException
+  //   (与 ENGINE_ERROR / DELEGATE_ERROR 同档:服务内部处理失败),动作档取「稍后重试」
+  //   (与 API_BRIDGE_ERROR 同档:调度器起来后同一请求就能成)。
+  SCHEDULER_ERROR: {
+    titleKey: 'SCHEDULER_ERROR.title',
+    actionKey: 'SCHEDULER_ERROR.action',
+    category: 'runtimeException',
+  },
   SCHEME_REJECTED: {
     titleKey: 'SCHEME_REJECTED.title',
     actionKey: 'SCHEME_REJECTED.action',

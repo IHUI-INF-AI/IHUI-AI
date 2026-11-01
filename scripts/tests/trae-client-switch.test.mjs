@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { __test__ as S } from '../lib/trae-client-switch.mjs'
 import { decryptEnvelope, encryptEnvelope } from '../lib/trae-auth-extract.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const UID = '256600094542297'
 const BASE = {
@@ -201,6 +202,114 @@ test('isProductRunning:返回数组(查询失败面为 null ⇒ 调用方拒写,
   if (Array.isArray(r)) assert.equal(r.length, 0)
   // 关掉进程控制 ⇒ 视为"不在跑"(空数组),写回门仍由 existsSync/备份兜底
   assert.deepEqual(S.isProductRunning('Trae CN', { ...process.env, IHUI_TRAE_PROCESS_CONTROL: '0' }), [])
+})
+
+/**
+ * 设备档槽位占用关系(2026-11-01 立):同机多号共用一枚 deviceId,槽位被谁占着必须当场点名。
+ * 比的是解密后的密钥材料 —— 信封每次随机 session key 重新封装,拿密文比会把"同一份私钥"
+ * 读成"覆盖了别人的档"(天天误报的判据等于没有判据)。
+ */
+test('㉑ deviceDocRelationOf:none / same / other / undetermined 四态分桶', () => {
+  // 槽位里存的是客户端自己的形态 {privateKeyPEM, publicKeyPEM}(见 extractDeviceMaterial),
+  // device.deviceKeyPem 是池侧/secrets 的键名 —— 两者由 buildStoragePatch 对接,夹具不能混
+  const devA = {
+    deviceKeyPem: '-----BEGIN PRIVATE KEY-----\nAAA\n-----END PRIVATE KEY-----\n',
+    devicePubPem: '-----BEGIN PUBLIC KEY-----\nA\n-----END PUBLIC KEY-----\n',
+  }
+  const devB = {
+    ...devA,
+    deviceKeyPem: '-----BEGIN PRIVATE KEY-----\nBBB\n-----END PRIVATE KEY-----\n',
+  }
+  const slotDoc = (d) => JSON.stringify({ privateKeyPEM: d.deviceKeyPem, publicKeyPEM: d.devicePubPem })
+  assert.equal(S.deviceDocRelationOf(undefined, devA), 'none')
+  assert.equal(S.deviceDocRelationOf('', devA), 'none')
+  // 同一份私钥,两次封装 ⇒ 仍判 same(密文不同不是换号)
+  const envA = encryptEnvelope(slotDoc(devA))
+  assert.notEqual(encryptEnvelope(slotDoc(devA)), envA, '信封应带随机 session key(前提检查)')
+  assert.equal(S.deviceDocRelationOf(envA, devA), 'same')
+  assert.equal(S.deviceDocRelationOf(encryptEnvelope(slotDoc(devB)), devA), 'other')
+  // 解不开 / 解出来没有私钥 ⇒ 未判定,不猜成 same 也不猜成 other
+  assert.equal(S.deviceDocRelationOf('不是信封', devA), 'undetermined')
+  assert.equal(S.deviceDocRelationOf(encryptEnvelope(JSON.stringify({ x: 1 })), devA), 'undetermined')
+  assert.equal(S.deviceDocRelationOf(envA, { deviceKeyPem: '' }), 'undetermined')
+})
+
+test('㉒ buildStoragePatch 回报 deviceDoc 关系,且写的是这一号的私钥', () => {
+  const device = {
+    deviceId: '1338580922808328',
+    deviceKeyPem: '-----BEGIN PRIVATE KEY-----\nMINE\n-----END PRIVATE KEY-----\n',
+    devicePubPem: '-----BEGIN PUBLIC KEY-----\nM\n-----END PUBLIC KEY-----\n',
+  }
+  const otherDoc = { ...device, deviceKeyPem: '-----BEGIN PRIVATE KEY-----\nTHEIRS\n-----END PRIVATE KEY-----\n' }
+  const store = {
+    [`${S.DC_KEY_PREFIX}${device.deviceId}`]: encryptEnvelope(
+      JSON.stringify({ privateKeyPEM: otherDoc.deviceKeyPem, publicKeyPEM: otherDoc.devicePubPem }),
+    ),
+    untouched: 'keep-me',
+  }
+  const userInfo = S.buildClientUserInfo({ ...BASE, profile: PROFILE })
+  const r = S.buildStoragePatch(store, { userInfo, device })
+  assert.equal(r.deviceDoc.relation, 'other')
+  assert.equal(r.deviceDoc.key, `${S.DC_KEY_PREFIX}${device.deviceId}`)
+  assert.ok(r.changed.includes(r.deviceDoc.key), '设备档键必须进 changed 清单')
+  // 真写进去的必须解得出这一号的私钥(不是另一号的,也不是空)
+  const written = JSON.parse(decryptEnvelope(r.next[r.deviceDoc.key]))
+  assert.equal(written.privateKeyPEM, device.deviceKeyPem)
+  assert.equal(r.next.untouched, 'keep-me', '补丁只动声明过的那两枚键')
+  // 槽位原本空的 ⇒ none(首次装机形态,不是覆盖)
+  assert.equal(
+    S.buildStoragePatch({}, { userInfo, device }).deviceDoc.relation,
+    'none',
+    '空槽位不得报成覆盖',
+  )
+  // 缺设备材料 ⇒ 不写 dc 键、不回报关系
+  const noDev = S.buildStoragePatch(store, { userInfo, device: null })
+  assert.equal(noDev.deviceDoc, null)
+  assert.deepEqual(noDev.changed, [S.AUTH_KEY])
+})
+
+/**
+ * 还原口:备份不等于能回。逐字节写回 + 写后自证 + 还原前当前态另存,
+ * 三条都在 lib 里,这里连夹具真跑一遍(夹具落唯一出口 mkScratch,不落 os.tmpdir)。
+ */
+test('㉓ restoreStorage:逐字节还原、当前态另存、坏件拒绝、缺件点名', () => {
+  const scratch = mkScratch('sw-restore')
+  try {
+    const file = path.join(scratch, 'storage.json')
+    const bak = `${file}.pre-switch.bak`
+    const original = '{"a":1,"nested":{"k":"中文不重排"}}'
+    const current = '{"a":2}'
+    fs.writeFileSync(bak, original, 'utf8')
+    fs.writeFileSync(file, current, 'utf8')
+
+    const r = S.restoreStorage(file)
+    assert.equal(r.ok, true, `还原失败:${r.reason}`)
+    assert.equal(fs.readFileSync(file, 'utf8'), original, '必须逐字节回到原样(不做 JSON 往返)')
+    assert.equal(fs.readFileSync(r.kept, 'utf8'), current, '还原前的当前态也要留得住')
+
+    // 缺还原件 ⇒ 未判定并点名落点,不静默成功
+    fs.rmSync(bak)
+    const miss = S.restoreStorage(file)
+    assert.equal(miss.ok, false)
+    assert.match(String(miss.reason), /不在位/)
+
+    // 坏还原件 ⇒ 拒绝写回(不敢把坏档铺到客户端现役盘上)
+    fs.writeFileSync(bak, '{坏了', 'utf8')
+    const broken = S.restoreStorage(file)
+    assert.equal(broken.ok, false)
+    assert.match(String(broken.reason), /不是合法 JSON/)
+    assert.equal(fs.readFileSync(file, 'utf8'), original, '拒绝还原时盘上一个字节都不该动')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('㉔ --restore 是一个模式,且与其余模式互斥', () => {
+  assert.deepEqual(S.parseArgs(['--restore']).mode, 'restore')
+  assert.equal(S.parseArgs(['--restore', '--list']).error.includes('模式互斥'), true)
+  // --restore 不吃参数:把下一个旗标当值吞掉就是坏形态
+  assert.equal(S.parseArgs(['--restore', '--json']).json, true)
+  assert.equal(S.parseArgs(['--restore', '--json']).mode, 'restore')
 })
 
 /** 造临时 APPDATA 形态目录树并把跨 profile 扫描关掉(测试确定性) */

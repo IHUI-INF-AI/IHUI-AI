@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
     pinBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: rnSpacing['2xs'],
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
       borderRadius: rnRadiusFor.chip,
@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     summary: {
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       fontSize: rnType.caption.size,
       lineHeight: 18,
       color: tk.text.secondary,
@@ -331,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
     metaInline: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: rnSpacing['2xs'],
     },
     meta: {
       fontSize: rnType.caption.size,
@@ -348,3 +348,4 @@ function createStyles(tk: AppThemeTokens) {
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -42,6 +42,8 @@ const { db } = await import('../src/db/index.js')
 const traeSync = await import('./relay-trae-session-sync.js')
 const decideSync = traeSync.__test__.decideSync
 const parseIso = traeSync.__test__.parseIso
+const expiryBackfillOf = traeSync.__test__.expiryBackfillOf
+const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
 
 import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
@@ -419,11 +421,27 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         clientToken: token,
         clientRefreshToken: cstr(acc.refreshToken) || null,
         clientExpiresAt: expiryOf(acc),
-        clientRefreshExpiresAt: parseIso(acc.refreshExpiresAt),
+        clientRefreshExpiresAt: parseIso(
+          clientRefreshExpiryRaw(acc as unknown as Record<string, unknown>),
+        ),
       })
       if (!final.apply) {
-        // 票没轮换 ⇒ 不写任何列:minimax 的会话没有设备材料可补种,健康态也不许被"同票"
-        // 反复刷新(§0.3:同票是没有新证据,不等于账号恢复)。
+        // 票没轮换 ⇒ 凭证列/健康态一律不写(minimax 的会话没有设备材料可补种;
+        // §0.3:同票是没有新证据,不等于账号恢复)。唯一例外是到期时刻的同票回填:
+        // 只把池内 NULL 填成客户端白送的真值,不推 credVersion、不碰健康态、不写私有行。
+        const expiryUpdate = expiryBackfillOf({
+          ticketIdentical: final.reason === 'same-token',
+          poolTokenExpiresAt: row.tokenExpiresAt ?? null,
+          poolRefreshExpiresAt: row.refreshExpiresAt ?? null,
+          clientExpiresAt: final.next.tokenExpiresAt ?? null,
+          clientRefreshExpiresAt: final.next.refreshExpiresAt ?? null,
+        })
+        if (Object.keys(expiryUpdate).length > 0 && !dryRun) {
+          await db
+            .update(aiRelayAccountPool)
+            .set(expiryUpdate)
+            .where(and(eq(aiRelayAccountPool.id, row.id), isNull(aiRelayAccountPool.ownerUserId)))
+        }
         summary.skipped++
         summary.rows.push({ uid: row.uid, decision: final.reason, applied: false })
         continue

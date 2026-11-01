@@ -70,9 +70,13 @@ export default function HelpPage() {
     setValue: (next) => updateField('context', next),
   })
 
+  // 过滤语义对齐共享屏 filterHelpItems:去空白 + 大小写不敏感,空词原样返回
   const filtered = useMemo(() => {
-    if (!keyword) return list
-    return list.filter((h) => h.title.includes(keyword) || h.content.includes(keyword))
+    const q = keyword.trim().toLowerCase()
+    if (!q) return list
+    return list.filter(
+      (h) => h.title.toLowerCase().includes(q) || h.content.toLowerCase().includes(q),
+    )
   }, [list, keyword])
 
   const load = useCallback(async () => {
@@ -131,7 +135,7 @@ export default function HelpPage() {
           <SearchBar
             className=""
             value={keyword}
-            placeholder={tt('about.help.search', '搜索帮助')}
+            placeholder={tt('help.searchPlaceholder', '搜索帮助')}
             onInput={setKeyword}
             onClear={() => setKeyword('')}
           />
@@ -151,9 +155,7 @@ export default function HelpPage() {
                 hoverClass="opacity-60"
               >
                 <View className="flex justify-between items-center">
-                  <Text className="text-title font-bold text-foreground flex-1">
-                    {h.title}
-                  </Text>
+                  <Text className="text-title font-bold text-foreground flex-1">{h.title}</Text>
                   <Text className="text-success text-heading ml-[16rpx]">
                     {opened === h.id ? '−' : '+'}
                   </Text>

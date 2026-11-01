@@ -1195,7 +1195,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
     '/images/generations',
     {
       schema: {
-        description: '文生图(按 vendor 路由,同步或异步轮询)',
+        description:
+          '文生图(按 vendor 路由,同步或异步轮询)。' +
+          'vendor=agnes 走 Agnes 通道:size 用 Agnes 自己的档位(1K/2K/3K/4K,可配 ratio,见 /api/ai/agnes/image),' +
+          '不是 OpenAI 的像素式;n>1 会被显式回 400 拒绝(上游对本账号的 rpm 限制,静默截断成一张会让计费与出片对不上)。',
         tags: ['Multimodal'],
         body: {
           type: 'object',

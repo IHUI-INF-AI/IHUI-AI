@@ -780,6 +780,8 @@ export interface TraeTokenPayload {
   token: string
   refreshToken: string | null
   expiresAt: Date | null
+  /** rt 的自然终点;上游当场没给 ⇒ null(未知,不编造) */
+  refreshExpiresAt: Date | null
 }
 
 function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
@@ -821,7 +823,17 @@ export function extractTokenPayload(body: unknown): TraeTokenPayload | null {
     pickString(top, ['RefreshToken', 'refresh_token'])
   const expiresRaw =
     pickAny(inner, ['ExpiredAt', 'TokenExpireAt']) ?? pickAny(top, ['ExpiredAt', 'TokenExpireAt'])
-  return { token, refreshToken: refreshToken ?? null, expiresAt: parseExpiresAt(expiresRaw) }
+  // rt 的自然终点:与 access 同一条纪律(只取上游当场给的值,解不出 ⇒ null = 未知,不编造)。
+  // 键名取 ExpiredAt/TokenExpireAt 的同族写法;上游哪天给了就自动落库,没给就保持未知。
+  const refreshExpiresRaw =
+    pickAny(inner, ['RefreshExpiredAt', 'RefreshTokenExpireAt', 'RefreshTokenExpiredAt']) ??
+    pickAny(top, ['RefreshExpiredAt', 'RefreshTokenExpireAt', 'RefreshTokenExpiredAt'])
+  return {
+    token,
+    refreshToken: refreshToken ?? null,
+    expiresAt: parseExpiresAt(expiresRaw),
+    refreshExpiresAt: parseExpiresAt(refreshExpiresRaw),
+  }
 }
 // =============================================================================
 // stop 序列本地截断(上游无 stop 字段,流式安全模拟)

@@ -449,9 +449,16 @@ function isScrim(props) {
   return false
 }
 
-/** props 里引用了哪个 styles.KEY,且那个键自己写着半透明黑底 ⇒ 也是遮罩。 */
+/**
+ * props 里引用了哪个 <样式对象>.KEY,且那个键自己写着半透明黑底 ⇒ 也是遮罩。
+ * 2026-11-01 更正(门 273 遮罩档第三型):取引用名原先只认字面 `styles.` —— StyleSheet.create
+ * 的表键与 const 名**无关**(styleTable 只按表键建索引),样式对象改名成 `newStyles.`/`coverStyles.`
+ * 就回溯不到引用,把遮罩误计成"缺反馈"(UserInfoCard:282 实证)。G-211 是同型教训:
+ * "分诊尺只认 styles. 前缀 ⇒ 那 12 处'判不出'不是世界判不了,是尺子的事"。
+ * 现在认"以 styles/style 结尾(任意大小写)的对象名 + 表内确有该键";查不到键照旧落空(不猜)。
+ */
 function scrimByStyle(props, table) {
-  for (const m of props.matchAll(/styles\.([A-Za-z_$][\w$]*)/g)) {
+  for (const m of props.matchAll(/[A-Za-z_$][\w$$]*[Ss]tyles\.([A-Za-z_$][\w$]*)/g)) {
     const e = table.get(m[1])
     if (e && Array.isArray(e.bg) && e.bg.some((v) => isTranslucentBlack(v) || isScrimToken(v, SCRIM_TOKENS)))
       return true

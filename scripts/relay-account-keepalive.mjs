@@ -36,14 +36,16 @@ const MAIL_SCRIPT = path.join(API_DIR, 'scripts', 'notify-deploy-failure.ts')
 const TMP_DIR = path.join(ROOT, '.ihui-agent', 'tmp', 'relay-account-keepalive')
 
 const USAGE =
-  '用法: node scripts/relay-account-keepalive.mjs --status|--mark <uid> [--provider trae] [--off]|--once [--json]\n'
+  '用法: node scripts/relay-account-keepalive.mjs --status|--mark <uid> [--provider trae] [--off]|--once|--takeover <uid>|--explain <uid> [--force] [--json]\n' +
+  '  --takeover 显式让池接管续一次票(客户端在跑/探测未知 ⇒ 先落心跳再判闸,需 --force 才顶号)\n'
 
-/** 透传参数面:只认这三组动词,其余原样交给 ts 侧判(未知参数由它报「未判定」) */
+/** 透传参数面:只认这几组动词,其余原样交给 ts 侧判(未知参数由它报「未判定」) */
 export function parseArgs(argv) {
-  const options = { help: false, once: false }
+  const options = { help: false, once: false, takeover: false }
   for (const a of argv) {
     if (a === '--help' || a === '-h') options.help = true
     else if (a === '--once') options.once = true
+    else if (a === '--takeover') options.takeover = true
     else if (a === '--') continue // pnpm 透传的裸分隔符,不是参数
   }
   return options
@@ -59,9 +61,40 @@ export function alertTargetsOf(keepAlive) {
   return rows.filter((r) => r && (r.tempUnschedulable === true || r.healthStatus === 'down'))
 }
 
-/** 去重身份:provider + uid 前 8 位(稳定形态,不含会抖的量) */
-export function alertIdOf(row) {
-  return `relay-keepalive-${row.providerCode}-${String(row.uid).slice(0, 8)}`
+/**
+ * 去重身份:provider + uid 前 8 位(+ 类别)。
+ * 默认类别 `fault` 保持历史形态逐字不变 —— 身份一旦改写法,已登记的抑制窗口会当成
+ * 全新事件重发一遍(§5e-3 立的就是这条:量不许进身份,但身份也不能漂)。
+ */
+export function alertIdOf(row, category = 'fault') {
+  const base = `relay-keepalive-${row.providerCode}-${String(row.uid).slice(0, 8)}`
+  return category === 'fault' ? base : `${base};${category}`
+}
+
+/** 落件名要文件系统安全(`;` 在 Windows 合法但编辑器/脚本易看漏),只用于临时正文件 */
+export function mailSlugOf(id) {
+  return String(id).replace(/[^A-Za-z0-9._-]/g, '_')
+}
+
+/**
+ * rt 死线预警名单:自然终点已进入守护窗(含已过点)的登记号。
+ *
+ * `guardHours` 必须由 ts 侧从调度层取(阈值单源在 scheduler.rtExpiryGuardHours);
+ * 传不到 ⇒ 返回空集(未判定)—— 在这里抄一个 72,下个月两边就漂开,而症状是"该喊的没喊"。
+ * `refreshExpiresAt` 读不到 ⇒ 不进射程:喊"号要死了"得有日期为证;"有 rt 却无终点"是
+ * 另一件事(证据缺口),由号池隔离性体检尺按自己的身份点名,不与此折叠。
+ */
+export function rtDeadlineTargetsOf(keepAlive, nowMs = Date.now(), guardHours = null) {
+  const rows = Array.isArray(keepAlive) ? keepAlive : []
+  if (typeof guardHours !== 'number' || !Number.isFinite(guardHours) || guardHours <= 0) return []
+  const windowMs = guardHours * 3600_000
+  return rows.filter((r) => {
+    if (!r) return false
+    const raw = r.refreshExpiresAt
+    if (typeof raw !== 'string' && !(raw instanceof Date)) return false
+    const t = new Date(raw).getTime()
+    return Number.isFinite(t) && t - nowMs < windowMs
+  })
 }
 
 /** 跑 ts 侧脚本;stdout 只取最后一枚可解析 JSON 行(db 连接等噪音不进结论) */
@@ -101,7 +134,44 @@ function runKeepaliveTs(argv) {
  * 到人通知。出口不在位/投递失败 ⇒ 只报「未判定/未送达」,不冒充已发(§0.3)。
  * 返回投递枚数;真正的发信判据与版式都在出口里,本函数只组正文。
  */
-function sendAlertMail(targets) {
+/** 两类告警的正文(身份不同 ⇒ 内容也不同,不许互相冒充) */
+export function alertBodyOf(row, category = 'fault') {
+  const head = `号池永久保活:${row.providerCode}/${row.uid}(${row.name ?? '-'})`
+  const common = [
+    `健康状态: ${row.healthStatus}`,
+    `自动摘除: ${row.tempUnschedulable ? '是' : '否'}`,
+    `token 到期: ${row.tokenExpiresAt ?? '-'}`,
+    `refreshToken 到期: ${row.refreshExpiresAt ?? '-'}`,
+    `最近刷新: ${row.lastRefreshAt ?? '-'}`,
+    `最近错误: ${row.lastErrorMessage ?? '-'}`,
+  ]
+  if (category === 'rt-deadline') {
+    return [
+      head,
+      '',
+      ...common,
+      `末次池侧接管: ${row.takeoverAt ?? '(从未发生)'}`,
+      '',
+      '这枚号的 refreshToken 已进入死线守护窗。rt 一到自然终点,号池就再也刷不出新票,',
+      '而它不能靠验证码重登 —— 所以保活档会优先保住号,不再让位本机客户端。',
+      '后果:你下次打开 Trae 可能是登出状态。这不是丢号,用一键切号把池里现役的票取回即可:',
+      `  node scripts/switch-trae-client-account.mjs --to ${row.uid}`,
+      '(客户端在跑时该命令会先要求退出;号池这一侧的票不会因此失效。)',
+      '复核出口: node scripts/relay-account-keepalive.mjs --status',
+    ].join('\n')
+  }
+  return [
+    head,
+    '',
+    ...common,
+    '',
+    '这枚号已登记永久保活(掉线无法靠验证码重登,只能靠号池 + 一键切号)。',
+    '摘除态会在退避窗口后被自动解摘并重试;若持续失败,请人工核对上游凭据是否已被回收。',
+    '复核出口: node scripts/relay-account-keepalive.mjs --status',
+  ].join('\n')
+}
+
+function sendAlertMail(targets, category = 'fault') {
   if (targets.length === 0) return 0
   if (!fs.existsSync(MAIL_SCRIPT)) {
     process.stderr.write('⚠️ 保活邮件未判定:唯一出口不在位(notify-deploy-failure.ts)\n')
@@ -115,39 +185,23 @@ function sendAlertMail(targets) {
   fs.mkdirSync(TMP_DIR, { recursive: true })
   let sent = 0
   for (const row of targets) {
-    const msgFile = path.join(TMP_DIR, `alert-${alertIdOf(row)}.md`)
+    const alertId = alertIdOf(row, category)
+    const msgFile = path.join(TMP_DIR, `alert-${mailSlugOf(alertId)}.md`)
     // 无 BOM UTF-8 正文(§5e:多行中文一律走 --message-file)
-    fs.writeFileSync(
-      msgFile,
-      [
-        `号池永久保活告警:${row.providerCode}/${row.uid}(${row.name ?? '-'})`,
-        '',
-        `健康状态: ${row.healthStatus}`,
-        `自动摘除: ${row.tempUnschedulable ? '是' : '否'}`,
-        `token 到期: ${row.tokenExpiresAt ?? '-'}`,
-        `refreshToken 到期: ${row.refreshExpiresAt ?? '-'}`,
-        `最近刷新: ${row.lastRefreshAt ?? '-'}`,
-        `最近错误: ${row.lastErrorMessage ?? '-'}`,
-        '',
-        '这枚号已登记永久保活(掉线无法靠验证码重登,只能靠号池 + 一键切号)。',
-        '摘除态会在退避窗口后被自动解摘并重试;若持续失败,请人工核对上游凭据是否已被回收。',
-        '复核出口: node scripts/relay-account-keepalive.mjs --status',
-      ].join('\n'),
-      'utf8',
-    )
+    fs.writeFileSync(msgFile, alertBodyOf(row, category), 'utf8')
     const r = spawnSync(
       process.execPath,
       [
         tsx,
         MAIL_SCRIPT,
         '--title',
-        `号池永久保活告警 ${row.providerCode}/${String(row.uid).slice(0, 8)}`,
+        `号池永久保活${category === 'rt-deadline' ? ' rt 死线' : '告警'} ${row.providerCode}/${String(row.uid).slice(0, 8)}`,
         '--severity',
         'warning',
         '--source',
         'relay-account-keepalive',
         '--alert-id',
-        alertIdOf(row),
+        alertId,
         '--message-file',
         msgFile,
       ],
@@ -180,7 +234,7 @@ async function main(argv) {
     return 0
   }
   const childArgv = [...argv]
-  if (parsed.once) {
+  if (parsed.once || parsed.takeover) {
     // 探测在本机做,不交给池里那条旧心跳:api 一挂旧心跳必然陈旧 ⇒ 池判成静默 ⇒ 接管续期
     // ⇒ 把用户正在用的 Trae 顶下线。未知(null)与在跑(true)同向送心跳 —— 误判「在跑」只是
     // 本轮少刷一次,误判「静默」是不可逆的掉线,代价不对称。
@@ -201,21 +255,31 @@ async function main(argv) {
   if (run.code === 2) return 2
   if (!parsed.once) return run.code
   const targets = alertTargetsOf(run.json?.keepAlive)
+  // rt 死线预警的阈值从 ts 侧拿(单源在调度层);拿不到 ⇒ 空集 = 这一维本轮未判定,不猜
+  const rtTargets = rtDeadlineTargetsOf(
+    run.json?.keepAlive,
+    Date.now(),
+    typeof run.json?.rtGuardHours === 'number' ? run.json.rtGuardHours : null,
+  )
+  const alertCount = targets.length + rtTargets.length
   let sent = 0
-  if (targets.length > 0) {
-    sent = sendAlertMail(targets)
-    process.stderr.write(`保活告警:需喊人 ${targets.length} 枚,已投递 ${sent} 封\n`)
+  if (alertCount > 0) {
+    // 两类各发各的:身份不同(故障 vs 死线),折叠成一条就会有一类永远喊不出去
+    sent = sendAlertMail(targets, 'fault') + sendAlertMail(rtTargets, 'rt-deadline')
+    process.stderr.write(
+      `保活告警:需喊人 ${alertCount} 枚(故障 ${targets.length} / rt 死线 ${rtTargets.length}),已投递 ${sent} 封\n`,
+    )
   }
   // 结论行(ASCII 单行,供 git-guardian 判读):state 三态绝不并桶 ——
   // 汇总取不到 ⇒ undetermined,不得写成 ok(§0.3「没判」不写成「判过」)。
   const sweep = run.json?.sweep ?? null
-  const state = !run.json || !sweep ? 'undetermined' : targets.length > 0 ? 'alert' : 'ok'
+  const state = !run.json || !sweep ? 'undetermined' : alertCount > 0 ? 'alert' : 'ok'
   process.stdout.write(
     `KEEPALIVE-RESULT state=${state}` +
       ` registered=${Array.isArray(run.json?.keepAlive) ? run.json.keepAlive.length : '?'}` +
       ` refreshed=${sweep?.refreshed ?? '?'} refreshFailed=${sweep?.refreshFailed ?? '?'}` +
       ` keepalive=${sweep?.keepalive ?? '?'} heartbeat=${run.json?.heartbeated ?? '?'}` +
-      ` alerts=${targets.length} mailed=${sent}\n`,
+      ` alerts=${alertCount} rtDeadline=${rtTargets.length} mailed=${sent}\n`,
   )
   return run.code
 }
@@ -230,5 +294,12 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, alertTargetsOf, alertIdOf }
+export const __test__ = {
+  parseArgs,
+  alertTargetsOf,
+  alertIdOf,
+  mailSlugOf,
+  rtDeadlineTargetsOf,
+  alertBodyOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

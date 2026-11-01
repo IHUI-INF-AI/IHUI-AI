@@ -78,7 +78,11 @@ function CoreBox({ style, children }: NavBarCoreBoxProps<StyleProp<ViewStyle>, s
   return <View style={style}>{children}</View>
 }
 
-function CoreText({ style, numberOfLines, children }: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
+function CoreText({
+  style,
+  numberOfLines,
+  children,
+}: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
   return (
     <Text style={style} numberOfLines={numberOfLines}>
       {children}
