@@ -114,6 +114,7 @@ import { aiAudioRoutes } from './ai-audio.js'
 import { customerServiceRoutes, adminCustomerServiceRoutes } from './customer-service.js'
 import { gdprRoutes } from './gdpr.js'
 import { clawdbotRoutes } from './clawdbot.js'
+import { workbookRoutes } from './workbook.js'
 import { tenantRoutes } from './tenant.js'
 import canaryRoutes from './canary.js'
 import tboxRoutes from './tbox.js'
@@ -795,6 +796,17 @@ export function registerRoutes(server: FastifyInstance) {
 
   // Clawdbot AI Bot 服务：/api/admin/clawdbot/*
   server.register(clawdbotRoutes, { prefix: '/api/admin' })
+
+  // 工作簿读写服务面:/api/workbook/{open,read,write,save,close}
+  // 2026-11-01 补注册:路由与服务自 5dc42a3a28 就在库里,但**从未装车** ⇒ 线上这五条全 404,
+  // 而 ai-service 的 `workbook_open/read_range/write_cells/close` 四枚 MCP 工具一直在等这条腿
+  // (消费者在 apps/ai-service/app/services/workbook_agent.py,不在 web/CLI,所以泛用调用面尺
+  // 看不见它)。归属不是新发明的:整棵子树 `addHook('preHandler', checkAuthOrInternalService)`,
+  // 每条 handler 的主体取 `request.userId`,服务层 open 时比对文件属主
+  // (`workbook-service.ts` 的 `owner !== subjectId ⇒ 拒`),句柄再按会话属主比
+  // (`takeSession` 的 `s.subjectId !== subjectId ⇒ 拒`)。注册本身由
+  // apps/api/tests/workbook-routes-registered.test.ts 钉住(它此前一直红着替这个 404 作证)。
+  server.register(workbookRoutes, { prefix: '/api/workbook' })
 
   // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
   server.register(tenantRoutes, { prefix: '/api/tenants' })
