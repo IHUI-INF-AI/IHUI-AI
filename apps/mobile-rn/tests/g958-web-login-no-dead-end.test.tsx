@@ -67,7 +67,7 @@ vi.mock('@ihui/rn-app', async () => {
     getTokens: tokens.getTokens,
     tokens: tokens.tokens,
     useWrapFocus: wrapFocus.useWrapFocus,
-    readFontMultiplier: moreLink.readFontMultiplier,
+    useFontMultiplier: moreLink.useFontMultiplier,
     scaleText: scaled.scaleText,
   }
 })
