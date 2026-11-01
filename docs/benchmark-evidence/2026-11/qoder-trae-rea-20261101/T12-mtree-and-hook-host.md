@@ -179,6 +179,19 @@ Ghidra：函数 **1,759**、外部入口 2（`entry`、`tls_callback_0`）、导
 
 > 排序依据：1–4 直接影响"增量索引的正确性与成本"（改名/整枝/ignore 语义都是当前索引链会答错的格），5 影响上下文装配质量，6–8 属工程化与小缺口。表内每条"本仓现读"列的 file:line 与计数均为 2026-11-01 本席现读，非引用旧册。
 
+## 5b. 缺口落地状态补记（2026-11-01，落地席回填；只标"代码已进 HEAD 并推送 origin/main"的格）
+
+| # | 状态 | 证据（代码枚 + 测试） |
+| --- | --- | --- |
+| 1 | **已落地**（且有一处对补法建议的刻意修正） | `apps/ai-service/app/services/dir_rhash.py`（模块 + `tests/test_dir_rhash.py` 18 例）+ `codebase_indexer.py` 接线：快照新增 `dirRhashes` 附加表（缺席/在场/形态坏三态同 P85 口径）、增量轮做目录差分并在响应透出 `dir_rhash_note` / `dirs_moved`（整枝搬家只报最浅一枝、歧义族不报），接线钉 `tests/test_dir_rhash_wiring.py` 6 例。**修正**：建议中"rhash 相同的目录整枝跳过"这一档在本仓单趟扫描设计下省不出第二遍 IO（逐文件判据已以同等读盘成本做到未变文件零重嵌入），该维的真实增量价值在**整枝搬家识别**的读数回执，接线注释里如实写明、不冒充"还省了一轮扫描" |
+| 2 | **已落地** | `apps/ai-service/app/services/ignore_rules.py`（P84）：`.gitignore`/`.aiignore` 等逐级合成排除谓词；"跟踪但被 .gitignore 覆盖 ⇒ 保留并逐条点名"写进剪枝回执；测试 `test_codebase_indexer_ignore.py` + `test_codebase_indexer_ignore_channels.py` |
+| 4 | **已落地** | P85 改名判定：`compute_simhash` 进索引链（同 content-hash 直判精确改名 + 汉明距离近同候选），快照附加表 `simhashes`/`aliases`；测试 `test_codebase_indexer.py` 改名段 |
+| 7 | **已落地** | `apps/ai-service/app/services/tool_surface.py`：工具→能力键声明表 + 产品形态覆盖 + 列表面过滤 + 执行面具名拒绝（`CAPABILITY_DISABLED` 点名缺哪枚键），`mcp_server.py` 三面同尺接线（list_tools 过滤 / call_tool 具名拒绝 / get_tool_schema 反查），`capability_matrix.py` 登记键，测试 `test_tool_surface_gate.py` 24 例（含三条接线锁） |
+| 3 | 未落地 | 无事件源（watchdog 0 命中现状未变）；现有"调用时增量"仍是唯一通道 |
+| 5 | 未落地 | token 预算/目录权重渲染未接 |
+| 6 | 部分 | 超时并链（`linkAbortSignal`，父信号 + 终止时限同一 AbortController）在；**宿主 PID/产品身份入参校验未落地**（grep hostPid/PRODUCT_ID 于 `apps/cli/src/hooks/index.ts` 0 命中，2026-11-01 复核） |
+| 8 | 未落地 | 快照仍为明文 JSON |
+
 ---
 
 ## 6. 复验命令（本席实跑过；产物在 `D:/DevEnv/Temp/ihui-scratch/goal-b46-ghidra/`）
