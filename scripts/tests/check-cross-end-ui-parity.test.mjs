@@ -312,7 +312,6 @@ test('T11 G 维必须把 geometry.d.ts 一起取进被审面(只对表 ⇒ 类�
     '有表而无类型声明必须判"未判定",不得当成一致(把失明写成通过)',
   )
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 test('T13 --emit-baseline 的 stdout 只能是 JSON(说明行走 stderr)', () => {
   // 这一枚台账模板的既定用法就是 `--emit-baseline > <台账文件>`。
@@ -2183,6 +2182,50 @@ test('T56 允许差异:到期项必须重新报红(白名单不得自动续期)'
 })
 
 /**
+ * T57 —— 非色档允许差异(`styleTier:`)委托账(跨端对齐 Phase 4「fork 字号元素级归类」)。
+ * 本门 findings 不含样式档,故只核到期、不核处数;但"换了一本账"不等于"豁免到期失效"。
+ * 形状判据同一条:kind / prop / value / count 任一坏都必须进 invalid,不得悄悄跳过。
+ */
+test('T57 非色档允许差异:合法条目进 delegated;到期折进 red;形状坏进 invalid', () => {
+  const base = {
+    component: 'UserInfoCard.avatarFallbackText',
+    key: 'styleTier:fontSize:fontSize:32',
+    platform: 'rn',
+    owner: 'cross-end-ui',
+    expires: '2027-03-27',
+    count: 1,
+    reason: 'RN 头像首字母兜底字形盒,web 侧由 SVG 承载,无同款排版档,零观感改动登记。',
+    evidence: 'apps/mobile-rn/src/components/UserInfoCard.tsx: avatarFallbackText',
+  }
+  assert.equal(src.allowedDiffProblem(base), null, '合法 styleTier 条目不得被形状判据误杀')
+  const ok = src.allowedDiffVerdict([], [base], { today: '2026-11-02' })
+  assert.equal(ok.red.length, 0, '在期内不得报红')
+  assert.equal(ok.delegated.length, 1, '委托账必须点名,不能静默吞掉')
+  assert.equal(ok.delegated[0].key, base.key, 'delegated 必须带 key 供下游核销')
+  assert.equal(ok.unregistered.length, 0, 'styleTier 不是本门 findings 的键,不得进 unregistered')
+  assert.equal(ok.platform.length, 0, '平台账与样式账必须分开,不得混桶')
+
+  // 到期与平台条目同一条约束:白名单不得腐化(§12e)
+  const expired = src.allowedDiffVerdict([], [{ ...base, expires: '2026-01-01' }], { today: '2026-11-02' })
+  assert.equal(expired.expired.length, 1, 'styleTier 到期必须进 expired')
+  assert.equal(expired.red.length, 1, 'styleTier 到期必须回红(消费方换账不等于豁免到期失效)')
+  assert.equal(expired.delegated.length, 0, '到期项不得同时出现在 delegated(否则下游会以为还有额度)')
+
+  // 形状:kind / 结构 / 量纲 / 额度任一坏都必须判坏
+  const badKeys = [
+    'styleTier:lineHeight:fontSize:32', // kind 不在 spacing|fontSize|radius
+    'styleTier:fontSize:32', // 缺 prop
+    'styleTier:fontSize:fontSize:32px', // value 带单位(本表登记的是纯数字档)
+    'styleTier:fontSize:font-size:32', // prop 不得带连字符
+    'geometry-styleTier:fontSize:fontSize:32', // 前缀拼错
+  ]
+  for (const key of badKeys) assert.ok(src.allowedDiffProblem({ ...base, key }), `非法 key 必须判坏:${key}`)
+  assert.ok(src.allowedDiffProblem({ ...base, count: 0 }), 'count=0 必须判坏(登记的是实测处数,不是无限额度)')
+  assert.ok(src.allowedDiffProblem({ ...base, count: undefined }), 'styleTier 必须带 count')
+  assert.equal(src.allowedDiffProblem({ ...base, count: 2 }), null, '正整数 count 必须接受(逐处登记)')
+})
+
+/**
  * T66 —— 档引用必须与字面量同一口径(跨端对齐 Phase 3「几何判据识别 token 引用」)。
  * 立因:落档后 RN 屏只剩 `fontSize: rnType.bodySm.size` / `...rnType.body`,几何维词汇表此前
  * 只认字面量 ⇒ 该侧 fontSize 读成空集,已对齐的屏被读成 one-sided(web↔RN 覆盖 80→68)。
@@ -2249,3 +2292,4 @@ test('T67 引用写法不得把 web↔RN 覆盖数读塌(与字面量夹具同�
   assert.equal(ref.oneSided.length, lit.oneSided.length, '引用不得把"已对齐"读成 one-sided')
   assert.equal(ref.findings.length, 0, '同值时引用写法不得报分叉')
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

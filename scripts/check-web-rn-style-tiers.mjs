@@ -80,13 +80,22 @@ if (faceSel.error) {
   console.error(`❌ ${faceSel.error} ⇒ 未判定,不猜哪一个算`)
   process.exit(2)
 }
-const FACE = faceSel.face
+export const FACE = faceSel.face
 const SPEC_PREFIX = FACE === 'head' ? 'HEAD:' : FACE === 'staged' ? ':' : ''
 
-const RN_DIRS = ['apps/mobile-rn/src', 'packages/app/src', 'packages/ui-native/src']
-const WEB_DIRS = ['apps/web/src', 'apps/web/app', 'packages/ui-react/src']
+export const RN_DIRS = ['apps/mobile-rn/src', 'packages/app/src', 'packages/ui-native/src']
+export const WEB_DIRS = ['apps/web/src', 'apps/web/app', 'packages/ui-react/src']
 const SPACING_REL = 'packages/design-tokens/src/spacing.ts'
 const TYPOGRAPHY_REL = 'packages/design-tokens/src/typography.ts'
+/**
+ * 分叉登记表(2026-11-02 Phase 4):与门 128 的允许差异**同一本账**
+ * (`scripts/data/cross-end-allowed-diffs.json`),本尺只读 `styleTier:<kind>:<prop>:<value>` 条目。
+ * 条目按**元素**逐条登记(component = `<文件基名>.<样式键>`),本尺按 `key` 把额度**累加**回
+ * prop×value 行:行内允许额度 ≥ 实测处数才算核销,不足的差额继续报「待决策」—— 不把整行合法化。
+ * 到期项由本尺 exit 1(与门 128 的到期回红同一约束),不是永久白名单。
+ */
+const ALLOWED_DIFFS_REL = 'scripts/data/cross-end-allowed-diffs.json'
+const STYLE_TIER_KEY_RE = /^styleTier:(spacing|fontSize|radius):([A-Za-z][A-Za-z0-9]*):(\d+(?:\.\d+)?)$/
 const ELEVATION_REL = 'packages/design-tokens/src/elevation.ts'
 const RADIUS_REL = 'packages/design-tokens/src/radius.js'
 
@@ -96,7 +105,7 @@ const TW_STEP_PX = 4
 const TW_TEXT = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 
 /** 清单:经统一派生层 gitRaw(stdio 纪律住在 face-reader 里,本层不再自派 git —— 守门 118/12g)。 */
-function listFiles(dirs) {
+export function listFiles(dirs) {
   const out = []
   for (const d of dirs) {
     let text
@@ -124,7 +133,7 @@ function listFiles(dirs) {
  * 正文:一次批量取。逐条 `git show` 实测 888+3674 文件要 26s;
  * `catBatch` 先把路径规格折成 oid(同 blob 只读一次),清单与内容同面同轮(§0.4)。
  */
-function fetchTexts(paths) {
+export function fetchTexts(paths) {
   const m = new Map()
   if (FACE === 'worktree') {
     for (const p of paths) {
@@ -266,7 +275,7 @@ function bucketize(sideAcc, tier, otherValues, kind) {
     for (const [val, n] of valMap) {
       const inTier = set.has(val)
       const onOther = otherValues[kind].has(val)
-      rows.push({ prop, val, n, inTier, onOther, state: inTier ? 'inTier' : onOther ? 'missingTier' : 'fork' })
+      rows.push({ kind, prop, val, n, inTier, onOther, state: inTier ? 'inTier' : onOther ? 'missingTier' : 'fork' })
     }
   }
   return rows
@@ -313,7 +322,68 @@ function rowValues(rows, state) {
   return [...new Set(rows.filter((r) => r.state === state).map((r) => r.val))].sort((a, b) => a - b)
 }
 
-function runJudge() {
+/**
+ * 允许差异条目 → `styleTier:<kind>:<prop>:<value>` 额度表。
+ * 同 key 多条(逐元素登记)⇒ 额度累加,到期取**最早**(最严的一条先回红);形状坏的条目跳过
+ * (形状判据只住门 128 的 `allowedDiffProblem`,本尺不复算第二份)。
+ */
+export function rollupStyleTierAllowances(entries) {
+  const map = new Map()
+  for (const e of Array.isArray(entries) ? entries : []) {
+    const m = typeof e?.key === 'string' ? STYLE_TIER_KEY_RE.exec(e.key) : null
+    if (!m) continue
+    if (!Number.isInteger(e.count) || e.count < 1 || typeof e.expires !== 'string') continue
+    const prev = map.get(e.key)
+    map.set(e.key, {
+      count: (prev?.count ?? 0) + e.count,
+      expires: prev && prev.expires < e.expires ? prev.expires : e.expires,
+    })
+  }
+  return map
+}
+
+/**
+ * 分叉桶核销:只对 `fork` 行;`missingTier` 不在此列(那是档表缺位,出路是补表/决策表)。
+ * 三条出口:已登记(额度 ≥ 处数)/ 待决策(没登记或额度不足)/ 到期(整行回红,exit 1)。
+ */
+export function judgeForkAllowance(rows, allowances, { today = new Date().toISOString().slice(0, 10) } = {}) {
+  const allowed = []
+  const pending = []
+  const expired = []
+  for (const r of rows ?? []) {
+    if (r.state !== 'fork') continue
+    const key = `styleTier:${r.kind}:${r.prop}:${r.val}`
+    const a = allowances?.get(key)
+    if (!a) {
+      pending.push({ ...r, allowed: 0 })
+      continue
+    }
+    if (a.expires < today) {
+      expired.push({ ...r, expires: a.expires, allowed: a.count })
+      continue
+    }
+    // 行内允许额度按处数核销(不是整行放行):22px 这种混合行只核销字形盒那几处。
+    const covered = Math.min(a.count, r.n)
+    if (covered >= r.n) allowed.push({ ...r, allowed: covered })
+    else pending.push({ ...r, allowed: covered })
+  }
+  return { allowed, pending, expired }
+}
+
+/**
+ * 汇总口径**只住这一处**(与 judgeForkAllowance 内同一口径):按处数核销,不是按行。
+ * 混合行(如 fontSize=22 里 8 处中 5 处是已登记字形盒)只把额度内那几处算「已登记」,
+ * 余额 3 处仍进「待决策」—— 早先按行求和会把整行吞掉,读数系统性偏大。
+ */
+export function sumForkAllowance(fa) {
+  return {
+    allowed: [...fa.allowed, ...fa.pending].reduce((s, r) => s + r.allowed, 0),
+    pending: fa.pending.reduce((s, r) => s + (r.n - r.allowed), 0),
+    expired: fa.expired.length,
+  }
+}
+
+export function runJudge() {
   const tier = loadTierTable()
   const rnList = listFiles(RN_DIRS)
   const webList = listFiles(WEB_DIRS)
@@ -346,6 +416,21 @@ function runJudge() {
     ...bucketize(web.acc, tier, rnU, 'fontSize'),
     ...bucketize(web.acc, tier, rnU, 'radius'),
   ]
+  // 分叉桶核销:登记表取不到 ⇒ 整桶按「待决策」报,不猜成"都登记过"(§0.3)。
+  const allowedText = fetchTexts([ALLOWED_DIFFS_REL]).get(ALLOWED_DIFFS_REL)
+  let allowances = new Map()
+  let allowanceProblem = null
+  if (typeof allowedText !== 'string') allowanceProblem = `取不到 ${ALLOWED_DIFFS_REL}(${FACE} 面)`
+  else {
+    try {
+      const doc = JSON.parse(allowedText)
+      allowances = rollupStyleTierAllowances(doc?.entries)
+    } catch {
+      allowanceProblem = `${ALLOWED_DIFFS_REL} 不是合法 JSON(${FACE} 面)`
+    }
+  }
+  const forkAllowance = judgeForkAllowance(rnRows, allowances)
+  const faSum = sumForkAllowance(forkAllowance)
   return {
     face: FACE,
     tier: {
@@ -357,6 +442,14 @@ function runJudge() {
     files: { rn: rnList.files.length, web: webList.files.length, rnUnreadable: rn.unreadable, webUnreadable: web.unreadable },
     rn: { ...tally(rnRows), rows: rnRows },
     web: { ...tally(webRows), rows: webRows },
+    forkAllowance: {
+      allowed: faSum.allowed,
+      pending: faSum.pending,
+      expired: faSum.expired,
+      registeredKeys: allowances.size,
+      problem: allowanceProblem,
+      rows: forkAllowance,
+    },
   }
 }
 
@@ -376,6 +469,19 @@ function report(r) {
     if (x.missingTier) console.log(`     缺位 Top: ${rankRows(x.rows, 'missingTier').join(' ')}`)
     if (x.fork) console.log(`     分叉 Top: ${rankRows(x.rows, 'fork').join(' ')}`)
   }
+  const fa = r.forkAllowance
+  console.log(
+    `\n【分叉登记核销】已登记 ${fa.allowed} 处 / 待决策 ${fa.pending} 处 / 到期 ${fa.expired} 行` +
+      `${fa.problem ? ` · ⚠ ${fa.problem}` : ''}`,
+  )
+  if (fa.pending)
+    console.log(
+      `     待决策 Top: ${fa.rows.pending
+        .sort((a, b) => b.n - a.n)
+        .slice(0, 12)
+        .map((x) => `${x.prop}=${x.val}px×${x.n - x.allowed}`)
+        .join(' ')}`,
+    )
   const rnMissingVals = rowValues(r.rn.rows, 'missingTier')
   console.log(`\n结论:TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
   console.log(`     (只读尺:不进提交链也不进 CI,§12e。净增才经 §5e 到人;调度=parity-auto gate 组 + guardian 巡检轮)`)
@@ -487,6 +593,17 @@ async function main() {
           web: slim(r.web),
           rnMissingValues: rowValues(r.rn.rows, 'missingTier'),
           rnForkValues: rowValues(r.rn.rows, 'fork'),
+          forkAllowance: {
+            allowed: r.forkAllowance.allowed,
+            pending: r.forkAllowance.pending,
+            expired: r.forkAllowance.expired,
+            registeredKeys: r.forkAllowance.registeredKeys,
+            problem: r.forkAllowance.problem,
+            pendingTop: r.forkAllowance.rows.pending
+              .sort((a, b) => b.n - a.n)
+              .slice(0, 12)
+              .map((x) => `${x.prop}=${x.val}px×${x.n - x.allowed}`),
+          },
         },
         null,
         2,
@@ -495,6 +612,16 @@ async function main() {
   } else if (quietMode) {
     console.log(`TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
   } else report(r)
+  /**
+   * 到期回红(Phase 4):登记表是**允许差异**不是永久白名单。只有到期一项进退出码;
+   * 「待决策」仍是未登记读数(本尺只读,不进提交链),净增经 §5e 到人,不靠退出码冒充判死。
+   */
+  if (r.forkAllowance.expired) {
+    console.error(
+      `❌ 分叉允许差异已到期 ${r.forkAllowance.expired} 行 ⇒ 必须重新复核或续期(白名单不得腐化,§12e)`,
+    )
+    process.exitCode = 1
+  }
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -505,5 +632,19 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn, rankRows, rowValues, TW_STEP_PX, SPACING_CLASS_PREFIX }
+export const __test__ = {
+  bump,
+  bucketize,
+  mergeUniverse,
+  tally,
+  collectWeb,
+  collectRn,
+  rankRows,
+  rowValues,
+  TW_STEP_PX,
+  SPACING_CLASS_PREFIX,
+  rollupStyleTierAllowances,
+  judgeForkAllowance,
+  sumForkAllowance,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

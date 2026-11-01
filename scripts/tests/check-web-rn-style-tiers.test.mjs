@@ -111,4 +111,57 @@ test('⑤ JSON 取值出口是有限数字:不得从 `gap=10px×n` 展示串反�
   // JSON 落盘后不得出现 null(JSON.stringify(NaN) === 'null')
   assert.equal(JSON.stringify({ v: rowValues(rows, 'missingTier') }), '{"v":[10,14]}', '序列化后不得出现 null')
 })
+// ⑥⑦ 分叉登记核销(2026-11-02 Phase 4「fork 字号元素级归类」):
+//   登记表与门 128 同一本账(§0.6),本尺只读 `styleTier:` 条目;额度**按处数**核销,
+//   混合行(22px 里只有 8 处中的 5 处是字形盒)不得被整行放行 —— 否则待决策读数会凭空变小。
+//   到期由本尺 exit 1(与门 128 到期回红同一条约束),不是永久白名单。
+const { rollupStyleTierAllowances, judgeForkAllowance, sumForkAllowance } = src
+
+test('⑥ 登记额度归并:同 key 累加 / 到期取最早 / 杂质条目跳过', () => {
+  const map = rollupStyleTierAllowances([
+    { key: 'styleTier:fontSize:fontSize:22', count: 3, expires: '2027-03-27' },
+    { key: 'styleTier:fontSize:fontSize:22', count: 2, expires: '2026-12-01' },
+    { key: 'styleTier:spacing:gap:3', count: 4, expires: '2027-03-27' },
+    { key: 'geometry', count: 9, expires: '2027-01-01' }, // 不是样式档键
+    { key: 'styleTier:fontSize:fontSize:22', count: 0, expires: '2027-03-27' }, // 额度非正整数
+    { key: 'styleTier:fontSize:fontSize:22', count: 1 }, // 缺到期日
+  ])
+  assert.equal(map.size, 2, '只有 22 与 gap3 两条键合法')
+  assert.equal(map.get('styleTier:fontSize:fontSize:22').count, 5, '同 key 额度必须累加(逐处登记)')
+  assert.equal(map.get('styleTier:fontSize:fontSize:22').expires, '2026-12-01', '同一 key 多条到期日取最早,不得自动续期')
+})
+
+test('⑦ 分叉按处数核销:混合行只核销额度内那几处;到期行回红;缺位行不进本账', () => {
+  const map = rollupStyleTierAllowances([
+    { key: 'styleTier:fontSize:fontSize:22', count: 5, expires: '2026-12-01' },
+  ])
+  const rows = [
+    { kind: 'fontSize', prop: 'fontSize', val: 22, n: 8, state: 'fork' }, // 混合:额度 5 < 8
+    { kind: 'fontSize', prop: 'fontSize', val: 28, n: 2, state: 'fork' }, // 未登记
+    { kind: 'spacing', prop: 'gap', val: 3, n: 4, state: 'missingTier' }, // 缺位不在此列
+  ]
+  const j = judgeForkAllowance(rows, map, { today: '2026-11-02' })
+  assert.equal(j.allowed.length, 0, '混合行不得整行进 allowed')
+  assert.equal(j.pending.length, 2, '混合行的余额与未登记行都必须进待决策')
+  assert.equal(j.pending[0].allowed, 5, '混合行核销额度必须如实记账')
+  assert.equal(sumForkAllowance(j).allowed, 5, '汇总按处数:已登记 5')
+  assert.equal(sumForkAllowance(j).pending, 5, '汇总按处数:22px 余 3 + 28px 全 2 = 5')
+  assert.ok(!j.pending.some((r) => r.prop === 'gap'), 'missingTier 是档表缺位,不得混进分叉账')
+
+  // 额度恰等于处数 ⇒ 整行进 allowed,且不残留待决策
+  const full = judgeForkAllowance([{ kind: 'fontSize', prop: 'fontSize', val: 22, n: 5, state: 'fork' }], map, {
+    today: '2026-11-02',
+  })
+  assert.equal(full.allowed.length, 1)
+  assert.equal(full.pending.length, 0)
+  assert.equal(sumForkAllowance(full).allowed, 5)
+
+  // 到期:整行回红,既不进 allowed 也不进 pending(否则下游会以为还有额度)
+  const expired = judgeForkAllowance([{ kind: 'fontSize', prop: 'fontSize', val: 22, n: 1, state: 'fork' }], map, {
+    today: '2026-12-02',
+  })
+  assert.equal(expired.expired.length, 1, '到期行必须进 expired')
+  assert.equal(expired.allowed.length + expired.pending.length, 0, '到期行不得同时占 allowed/pending')
+  assert.equal(sumForkAllowance(expired).expired, 1)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
