@@ -3053,6 +3053,34 @@ if ($behind -gt 0) {
     Ok "merge 完成,HEAD=$(git -C $Root rev-parse --short HEAD | Out-String)"
 }
 
+# ── 1a-pre) 根护栏闸(2026-11-01 后移到此:闸面 = HEAD = 刚被 ff 到的那一面)──────────────
+# 票面(锚点「根护栏前置闸读的是换流之前那一面」):老闸跑在 deploy-loop 的 1b),位置在
+# `git merge --ff-only` **之前** ⇒ 被审面是换流前的旧 HEAD,而"把清单修对的那枚提交"只存在于
+# 远端那一面 ⇒ 清单在旧面上永远对不上,门越守越锁(2026-11-01 实测连续 44 轮 FAIL)。
+# 现在:紧跟 ff 成功之后 —— 此刻 HEAD 就是刚被 ff 到、马上要被备份/构建/切流的那一面
+# ⇒ 判据与真跑代码同面,而"旧面"这一整个类别从此不存在。
+# 为什么**不**改成"看 origin/main"(上一席走过、已被实证证伪的死路):生产机上 origin/main 这个
+# 嵌套 remote-tracking ref 会被宿主清理层吞掉、永不更新(本文件 L12-16 与 fetch 段两条实证:
+# 2026-09-13「fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值」;
+# 2026-09-28「15 秒竞态 ⇒ 安静地部署旧版本」)。ff 用的是 fetch 当场定格成显式 sha 的
+# $remoteTip,根本不是 origin/main ⇒ 拿它当闸面仍是旧面:自锁没解,旧面若恰好自洽还会冒绿,
+# 而 ff 随后带进不自洽的面照样被构建(比自锁更坏)。
+# 位置纪律:必须在备份/构建/切流**全部之前** —— 源码 ff 不动线上进程,此时停手对线上零影响。
+# 单面纪律(§22c):根护栏只在**这一处**跑,deploy-loop 1b) 不再重复判(否则两处各判一面)。
+$rgNode = Resolve-NodeExe
+if (-not $rgNode) {
+    Fail "根护栏判不了:node.exe 取不到(PATH 与绝对路径兜底均落空)⇒ 本轮不构建不切流(fail-closed)"
+}
+$rgOut = (& $rgNode (Join-Path $Root 'scripts\root-guard.mjs') --check 2>&1 | Out-String)
+$rgRc = $LASTEXITCODE
+foreach ($ln in ($rgOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [root-guard] $ln" } }
+if ($rgRc -ne 0) {
+    # 非 0 一律停:rc=1 判红(清单与当前面不一致且未重封)/ rc=2 未判定(取不到被审面)。
+    # 两种都不得放行(§0.3:取不到不是通过)。
+    Fail "根护栏未通过(rc=$rgRc)⇒ 本轮不构建不切流(fail-closed)"
+}
+Ok "根护栏通过(闸面=HEAD=$((& git -C $Root rev-parse --short HEAD 2>$null | Out-String).Trim()))"
+
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
 Update-DeployLockHeartbeat   # merge/seed 之后、构建之前的阶段边界(见 :980 那条注释)
 if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {

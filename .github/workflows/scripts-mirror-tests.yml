@@ -43,12 +43,14 @@ on:
       - scripts/**
       - packages/**
       - apps/**
+      - deploy/**
       - .github/workflows/scripts-mirror-tests.yml
   pull_request:
     paths:
       - scripts/**
       - packages/**
       - apps/**
+      - deploy/**
       - .github/workflows/scripts-mirror-tests.yml
   schedule:
     # 每天 18:20 UTC(北京时间 02:20)—— 避开 build/deploy 高峰的 runner 争用
@@ -138,8 +140,28 @@ jobs:
         # 只跑改动面对应的测试;schedule/workflow_dispatch ⇒ 原样全量。
         # 基点:PR 取 base 分支 sha,push 取"推来之前的 main"(github.event.before)。
         # CI 的检出是干净工作树,不给基点就只能读成"未判定"(工具头注里同一件事)。
+        #
+        # 2026-11-01 补(deploy 射程,DEPLOYCI 票):`--changed` 现在收治 deploy/** 改动面,
+        # 命中 deploy/tests/*.test.mjs。但若改动面命中 0 枚用例,工具会写 `map_zero=true` 到
+        # GITHUB_OUTPUT 并 exit 2;本步 continue-on-error 会把 exit 2 吞成 success,于是下面
+        # "映射为 0 即判红"步必须再判一刀,否则又是头注记过的"连续 8 晚"型假绿(一行没跑而绿)。
         continue-on-error: true
         run: node scripts/run-script-tests.mjs ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && format('--changed --base {0}', github.event.pull_request.base.sha || github.event.before) || '' }}
+
+      - name: 映射为 0 即判红(不冒充 success)
+        # 本票(DEPLOYCI)的"有牙"反向对照在 CI 语义层的落地:改动面触发了本作业(含 deploy/**),
+        # 但映射到 0 条用例时,run-script-tests 已写 GITHUB_OUTPUT 的 map_zero=true 并 exit 2;
+        # 上一步 continue-on-error 会把 exit 2 吞成 success,于是这里必须再判一刀 —— 否则又是
+        # yml 头注记过的"连续 8 晚"型假绿(一行用例没跑而结论 = success)。
+        if: always()
+        shell: bash
+        run: |
+          z="${{ steps.mirror.outputs.map_zero }}"
+          if [ "$z" = "true" ]; then
+            echo "::error::改动面触发了本作业,但映射到 0 条用例 ⇒ 按未判定判红,不冒充 success"
+            exit 1
+          fi
+          echo "映射未出现 0 用例形态(map_zero=$z)"
 
       - name: 哨兵 —— 测试没跑成必须当场判红(跳过不等于通过)
         # AGENTS §0.3「取不到不记绿 / 枚举到 0 判死」在 CI 层的落地。2026-10-15 那夜实况:

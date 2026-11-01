@@ -20,7 +20,7 @@
 //
 // 改动面档 `--changed`(2026-10-29 立):
 //   此前它只有"全量"和"手抄子串"两档,于是"把某条判据改坏"要等到 nightly 才被镜像测试抓到。
-//   `--changed` 把输入面收窄到**本次改动涉及的 scripts/**",命中的测试文件走的是与 `-- <子串>`
+//   `--changed` 把输入面收窄到**本次改动涉及的 scripts/** 或 deploy/**",命中的测试文件走的是与 `-- <子串>`
 //   **同一把尺**(`discover` 的文件名子串匹配),不新造第二套匹配法(§0.6 单一真相源)。
 //   改动面本身也不新写一份:三路清单(staged / worktree / untracked)一律 import
 //   `scripts/lib/git-paths.mjs` 的唯一出口(它带 -z 取真路径 + 显式 stdio,正是守门 193/199
@@ -37,7 +37,7 @@
 //   node scripts/run-script-tests.mjs --serial        # 一片一文件(排查相互干扰)
 //   node scripts/run-script-tests.mjs --json          # 末尾追加机器可读汇总(可与 --changed 共存)
 import { spawnSync } from 'node:child_process'
-import { readdirSync, existsSync } from 'node:fs'
+import { readdirSync, existsSync, appendFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
@@ -70,8 +70,15 @@ export function discover(rootDir = ROOT, filters = []) {
   return files
 }
 
-/** 改动面收窄射程:只有落在 scripts/ 下的路径才参与"找对应测试"(deploy/ 那族由 nightly 全量兜)。 */
+/**
+ * 改动面射程:scripts/ 与 deploy/ 两族都参与"找对应测试"。
+ * 此前只有 scripts/(deploy 改动既触发不了本作业 —— push/PR 的 paths 过滤无 deploy/**,
+ * 触发了也映射不到用例,只能等 nightly 全量 ⇒ 时延 ≤24h,本票治理项)。
+ * 现在两族同构:改动面 basename 去扩展名做令牌,discover 按子串命中对应测试文件。
+ * CHANGED_SCOPE 保留为 'scripts/' 仅供旧消息/旧测试引用;实际射程以 CHANGED_SCOPES 为准。
+ */
 export const CHANGED_SCOPE = 'scripts/'
+export const CHANGED_SCOPES = ['scripts/', 'deploy/']
 
 /**
  * 本次改动涉及的 `scripts/**` 路径(相对仓库根,正斜杠)。
@@ -103,7 +110,7 @@ export function changedScriptsPaths(rootDir = ROOT, baseRef = '') {
   const add = (list, source) => {
     for (const p of list) {
       const s = rel(p)
-      if (s.startsWith(CHANGED_SCOPE)) paths.add(s)
+      if (CHANGED_SCOPES.some((sc) => s.startsWith(sc))) paths.add(s)
     }
     sources.push(source)
   }
@@ -330,10 +337,10 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
       return 2
     }
     if (!changed.paths.length) {
-      console.log(`❔ 未判定:本次改动没有触及 ${CHANGED_SCOPE}**(改动面 scripts/** = 0 个)`)
+      console.log(`❔ 未判定:本次改动没有触及 scripts/** 也没有 deploy/**(改动面相关路径 = 0 个)`)
       console.log('  枚举到 0 个候选 ≠ 测试全过 ⇒ exit 2;要跑全量请去掉 --changed')
       if (process.env.GITHUB_ACTIONS) {
-        console.log(`::warning::镜像测试未判定:改动面没有 ${CHANGED_SCOPE}** 文件`)
+        console.log('::warning::镜像测试未判定:改动面没有 scripts/** 或 deploy/** 文件')
       }
       return 2
     }
@@ -343,7 +350,7 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   if (CHANGED && filters.length) files = files.filter((f) => filters.some((k) => f.includes(k)))
   if (CHANGED && !files.length) {
     console.log(
-      `❔ 未判定:改动面 ${changed.paths.length} 个 ${CHANGED_SCOPE}** 文件,没有任何一枚对应的镜像测试`,
+      `❔ 未判定:改动面 ${changed.paths.length} 个 scripts/** 或 deploy/** 文件,没有任何一枚对应的镜像测试`,
     )
     for (const p of changed.paths.slice(0, 40)) console.log(`   ${p}`)
     if (changed.paths.length > 40) console.log(`   …另 ${changed.paths.length - 40} 个`)
@@ -352,6 +359,16 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
       console.log(
         `::error::镜像测试未判定:${changed.paths.length} 个改动文件对到 0 枚测试,见作业日志清单`,
       )
+    }
+    // 有牙反向对照:改动面触发了本作业(含 deploy/**)却映射到 0 用例 ⇒ 点名并写 map_zero,
+    // 交给我们加在 workflow 的"映射为 0 即判红"步去把 continue-on-error 吞掉的 exit 2 重新变红。
+    // 否则又是 yml 头注记过的"连续 8 晚"型假绿(一行没跑而结论 success)。
+    if (process.env.GITHUB_OUTPUT) {
+      try {
+        appendFileSync(process.env.GITHUB_OUTPUT, 'map_zero=true\n')
+      } catch {
+        /* 写不进输出文件不得影响主结论 */
+      }
     }
     return 2
   }
@@ -401,8 +418,7 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
     // collectFailures 返回的是 {name, why};这里必须逐字段取出 —— 直接把对象塞进 name
     // 会让清单打成 `[object Object]`(2026-10-21 实测:CI 日志 100 条全成这个,等于把失败名
     // 整个丢了,比改之前更糟)。
-    for (const n of p.notOk)
-      failures.push({ chunk: i + 1, name: n.name, why: n.why, file: n.file })
+    for (const n of p.notOk) failures.push({ chunk: i + 1, name: n.name, why: n.why, file: n.file })
     console.log(
       `  片 ${i + 1}/${chunks.length}: ${chunk.length} 文件 → pass ${p.pass} / fail ${p.fail}`,
     )
@@ -441,7 +457,12 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
     for (const t of timeouts) {
       console.log(`   片 ${t.chunk}(${t.files.length} 文件):`)
       for (const f of t.files.slice(0, 40))
-        console.log(`     ${f.slice(rootDir.length + 1).split('\\').join('/')}`)
+        console.log(
+          `     ${f
+            .slice(rootDir.length + 1)
+            .split('\\')
+            .join('/')}`,
+        )
       if (t.files.length > 40) console.log(`     …另 ${t.files.length - 40} 枚,见 --json`)
     }
     console.log(
@@ -490,7 +511,12 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
         attributionUnjudged: unattributed,
         timeoutChunks: timeouts.map((t) => ({
           chunk: t.chunk,
-          files: t.files.map((f) => f.slice(rootDir.length + 1).split('\\').join('/')),
+          files: t.files.map((f) =>
+            f
+              .slice(rootDir.length + 1)
+              .split('\\')
+              .join('/'),
+          ),
         })),
         ...(redFiles.length + unattributed.length === 0
           ? {}
@@ -533,5 +559,6 @@ export const __test__ = {
   ROOT,
   TEST_DIR_REL,
   CHANGED_SCOPE,
+  CHANGED_SCOPES,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
