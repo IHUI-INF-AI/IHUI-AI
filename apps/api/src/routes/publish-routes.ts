@@ -261,12 +261,31 @@ function resolveAuthHeader(request: FastifyRequest): string | undefined {
   return undefined
 }
 
+/**
+ * 构造 ai-service 转发地址(SSRF 闸,2026-11-01)。
+ * 上游主机恒为配置里的 config.AI_SERVICE_URL,path 只能是本服务内的相对路径片段。
+ * 若调用方误传带 `//host` 或 scheme 的 path(如 `//evil.com`、`http://169.254.169.254`),
+ * 一律抛错 —— 既防内网/元数据探测,也兜住将来的回归。
+ */
+export function buildPublishUpstream(path: string): string {
+  if (path.startsWith('//') || path.includes('://') || /^[a-z][a-z0-9+.-]*:/i.test(path)) {
+    throw new Error('publish upstream path must not carry a host or scheme (possible SSRF)')
+  }
+  const url = `${config.AI_SERVICE_URL}/api/publish${path}`
+  const target = new URL(url)
+  const base = new URL(config.AI_SERVICE_URL)
+  if (target.protocol !== base.protocol || target.host !== base.host) {
+    throw new Error('publish upstream host mismatch (possible SSRF)')
+  }
+  return url
+}
+
 async function proxyToAiService(
   request: FastifyRequest,
   reply: FastifyReply,
   path: string,
 ): Promise<void> {
-  const url = `${config.AI_SERVICE_URL}/api/publish${path}`
+  const url = buildPublishUpstream(path)
   const method = request.method
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -325,7 +344,7 @@ async function proxyMultipartToAiService(
 
   // 构造转发 URL(带 user_id 查询参数)
   const qs = userId ? `?user_id=${encodeURIComponent(userId)}` : ''
-  const url = `${config.AI_SERVICE_URL}/api/publish/upload${qs}`
+  const url = buildPublishUpstream(`/upload${qs}`)
 
   // 用 FormData 转发(保留原始 filename + content-type)
   const formData = new FormData()
