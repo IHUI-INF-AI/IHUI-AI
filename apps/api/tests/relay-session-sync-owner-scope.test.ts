@@ -5,7 +5,7 @@
 /**
  * 回灌腿归属闸锁(2026-10-29 立,2026-11-01 升级)。
  *
- * 立因:三条客户端会话回灌腿(qoder/trae/workbuddy)按 `(provider_code, uid)` 读写号池,
+ * 立因:四条客户端会话回灌腿(qoder/trae/workbuddy/minimax)按 `(provider_code, uid)` 读写号池,
  * 而 `(provider_code, uid)` 全局唯一约束早在 2026-10-23 加 owner_user_id 列时被**摘掉**,
  * 换成两条 partial unique(运营池一行 + 每个用户各一行)。于是同 uid 可以多行并存
  * (2026-10-29 现读:qoder 的 `019f1c4d…453` 确有 2 行,一行运营池 healthy,
@@ -33,14 +33,16 @@ const LEGS = [
   'relay-qoder-session-sync.ts',
   'relay-trae-session-sync.ts',
   'relay-workbuddy-session-sync.ts',
+  'relay-minimax-session-sync.ts',
 ] as const
 /** 2026-11-01 起目标行可为"个人池唯一行"的腿:写必须按主键 id,不得再靠 owner-null 通配。
- *  三条腿同日全部收口(qoder/workbuddy 与 trae 同型:只认运营池行 ⇒ 本机号落个人池时
- *  回灌看不见它 —— qoder 会另建运营池重复行,workbuddy 恒"池内没有该 uid"模板永不回灌)。 */
+ *  四条腿同日全部收口(qoder/workbuddy/minimax 与 trae 同型:只认运营池行 ⇒ 本机号落个人池时
+ *  回灌看不见它 —— qoder/minimax 会另建运营池重复行,workbuddy 恒"池内没有该 uid"模板永不回灌)。 */
 const ID_WRITE_LEGS = [
   'relay-qoder-session-sync.ts',
   'relay-trae-session-sync.ts',
   'relay-workbuddy-session-sync.ts',
+  'relay-minimax-session-sync.ts',
 ] as const
 
 /** prettier 会把长谓词折行 ⇒ 先归一化空白再比(形状锁只比语义,不比排版) */

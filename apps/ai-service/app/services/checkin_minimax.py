@@ -36,6 +36,7 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
+from app.services.checkin_codes import PLATFORM_MINIMAX, is_already_checked_in
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
@@ -53,20 +54,40 @@ _UA: Final = (
 
 # 设备参数顺序(严格对齐桌面端 mC();顺序进 yy 签名,值服务端不严格校验)
 DEVICE_PARAM_ORDER: Final = [
-    "device_platform", "biz_id", "app_id", "version_code", "unix",
-    "timezone_offset", "is_desktop", "desktop_version", "sys_language",
-    "lang", "uuid", "device_id", "os_name", "browser_name", "device_memory",
-    "cpu_core_num", "browser_language", "browser_platform", "user_id",
-    "op_ticket", "screen_width", "screen_height", "client",
+    "device_platform",
+    "biz_id",
+    "app_id",
+    "version_code",
+    "unix",
+    "timezone_offset",
+    "is_desktop",
+    "desktop_version",
+    "sys_language",
+    "lang",
+    "uuid",
+    "device_id",
+    "os_name",
+    "browser_name",
+    "device_memory",
+    "cpu_core_num",
+    "browser_language",
+    "browser_platform",
+    "user_id",
+    "op_ticket",
+    "screen_width",
+    "screen_height",
+    "client",
 ]
 
-_CLAIM_RESULT_OK: Final = 0  # data.claim_result: 0=新领取成功
-_CLAIM_RESULT_ALREADY: Final = 2  # 2=今日已领(幂等成功)
+# data.claim_result:0=新领取成功;「今日已领」码值(实测 2)的判据单源在
+# checkin_codes,本文件不再直写。
+_CLAIM_RESULT_OK: Final = 0
 
 
 # ---------------------------------------------------------------------------
 # 纯函数(单测直跑):签名与设备参数
 # ---------------------------------------------------------------------------
+
 
 def _md5_hex(s: str) -> str:
     return hashlib.md5(s.encode("utf-8")).hexdigest()
@@ -116,7 +137,9 @@ def build_device_params(user_id: str, device_id: str = "", uuid_str: str = "") -
     return {k: values[k] for k in DEVICE_PARAM_ORDER}
 
 
-def sign_headers(path: str, params: dict[str, str], method: str, body: dict[str, Any] | None) -> tuple[str, dict[str, str]]:
+def sign_headers(
+    path: str, params: dict[str, str], method: str, body: dict[str, Any] | None
+) -> tuple[str, dict[str, str]]:
     """计算 (url_query, headers)。now_ms 取自 params['unix'](调用方保证一致)。"""
     now_ms = int(params["unix"])
     now_sec = now_ms // 1000
@@ -142,7 +165,8 @@ def sign_headers(path: str, params: dict[str, str], method: str, body: dict[str,
 def parse_claim_result(body: dict[str, Any]) -> tuple[bool, str, int | None]:
     """claim 响应 → (是否成功态, action, credits_delta)。
 
-    claim_result: 0=新领取成功;2=今日已领(幂等成功);其它=失败。
+    claim_result: 0=新领取成功;已领标志(实测 2,判据单源在 checkin_codes)=
+    幂等成功;其它=失败。
     """
     data = body.get("data")
     if not isinstance(data, dict):
@@ -152,7 +176,7 @@ def parse_claim_result(body: dict[str, Any]) -> tuple[bool, str, int | None]:
     credits = points if isinstance(points, int) else None
     if result == _CLAIM_RESULT_OK:
         return True, "claim_ok", credits
-    if result == _CLAIM_RESULT_ALREADY:
+    if is_already_checked_in(PLATFORM_MINIMAX, result):
         return True, "skip_already", None
     return False, "checkin", None
 
@@ -171,6 +195,7 @@ def parse_status_days(body: dict[str, Any]) -> int:
 # ---------------------------------------------------------------------------
 # HTTP 层
 # ---------------------------------------------------------------------------
+
 
 def minimax_host(device_map: dict[str, Any] | None) -> str:
     dm = device_map or {}
@@ -219,6 +244,7 @@ async def _mm_request(
 # 编排:单账号签到(契约与其它平台一致)
 # ---------------------------------------------------------------------------
 
+
 def _base_result(name: str, user_id: str | None) -> dict[str, Any]:
     return {
         "name": name,
@@ -265,16 +291,17 @@ async def minimax_probe_status(
     返回 (ok, checked_in|None, credits|None, message)。与 TRAE/WorkBuddy/Qoder
     的只读探针统一签名,供 06:00 状态探针按平台分发。
     """
-    result = await minimax_checkin_account(
-        name, token, device_map, timeout=timeout, client=client
-    )
+    result = await minimax_checkin_account(name, token, device_map, timeout=timeout, client=client)
     action = result.get("action")
     credits = result.get("credits_delta")
     if not result.get("ok"):
         return False, None, None, str(result.get("message") or "")
     checked_in = action in ("skip_already", "claim_ok")
-    return True, checked_in, credits if isinstance(credits, int) else None, (
-        str(result.get("message") or "")
+    return (
+        True,
+        checked_in,
+        credits if isinstance(credits, int) else None,
+        (str(result.get("message") or "")),
     )
 
 
@@ -302,9 +329,16 @@ async def minimax_checkin_account(
     uuid_str = str(device_map.get("uuid") or "")
 
     status, data = await _mm_request(
-        PATH_SIGNIN_CLAIM, tok, user_id, method="POST", body={},
-        host=host, timeout=timeout, client=client,
-        device_id=device_id, uuid_str=uuid_str,
+        PATH_SIGNIN_CLAIM,
+        tok,
+        user_id,
+        method="POST",
+        body={},
+        host=host,
+        timeout=timeout,
+        client=client,
+        device_id=device_id,
+        uuid_str=uuid_str,
     )
     result["http_status"] = status if status > 0 else None
     if status in (0, -1):
@@ -358,16 +392,24 @@ async def minimax_checkin_account(
         return result
     # claim 未成功:查 status 给出可读归因(已签/未开放/服务端消息)
     s_status, s_data = await _mm_request(
-        PATH_SIGNIN_STATUS, tok, user_id, method="GET",
-        host=host, timeout=timeout, client=client,
-        device_id=device_id, uuid_str=uuid_str,
+        PATH_SIGNIN_STATUS,
+        tok,
+        user_id,
+        method="GET",
+        host=host,
+        timeout=timeout,
+        client=client,
+        device_id=device_id,
+        uuid_str=uuid_str,
     )
     msg = ""
     if isinstance(s_data, dict):
         msg = str(s_data.get("message") or s_data.get("msg") or "")
     detail = data.get("message") or data.get("msg") or ""
-    result["message"] = "签到未成功" + (f": {detail}" if detail else "") + (
-        f"(status HTTP {s_status} {msg})" if s_status else ""
+    result["message"] = (
+        "签到未成功"
+        + (f": {detail}" if detail else "")
+        + (f"(status HTTP {s_status} {msg})" if s_status else "")
     )
     return result
 
@@ -390,8 +432,13 @@ async def minimax_query_credits(
         return {"remaining": None, "error": "未配置 token/uid,请重新本机捕获"}
     host = minimax_host(device_map)
     status, data = await _mm_request(
-        PATH_SIGNIN_STATUS, tok, user_id, method="GET",
-        host=host, timeout=timeout, client=client,
+        PATH_SIGNIN_STATUS,
+        tok,
+        user_id,
+        method="GET",
+        host=host,
+        timeout=timeout,
+        client=client,
         device_id=str(device_map.get("device_id") or ""),
         uuid_str=str(device_map.get("uuid") or ""),
     )
@@ -408,10 +455,15 @@ async def minimax_query_credits(
         return {
             "remaining": None,
             "error": "状态查询返回非 JSON(挑战页,已熔断)",
-            "classified_error": {"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+            "classified_error": {
+                "type": "Challenge",
+                "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+            },
         }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
     days = parse_status_days(data)
     return {"remaining": None, "error": None, "checked_days": days}
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

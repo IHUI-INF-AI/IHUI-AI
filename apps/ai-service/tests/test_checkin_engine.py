@@ -92,7 +92,12 @@ class TestDeviceFingerprint:
         assert a["session_id"] == b["session_id"]
 
     def test_get_device_for_reuses_existing(self, device_map):
-        device_map[USER_ID] = {"device_id": "999", "gen": DEVICE_GEN, "session_id": "s", "market_user_id": "m"}
+        device_map[USER_ID] = {
+            "device_id": "999",
+            "gen": DEVICE_GEN,
+            "session_id": "s",
+            "market_user_id": "m",
+        }
         dev = get_device_for(USER_ID, device_map)
         assert dev["device_id"] == "999"  # 未被重建
 
@@ -169,10 +174,14 @@ class TestSigninFlow:
     async def test_status_check_roundtrip(self, jwt, device_map):
         def handler(request: httpx.Request) -> httpx.Response:
             assert request.url == httpx.URL(STATUS_URL)
-            return httpx.Response(200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""})
+            return httpx.Response(
+                200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""}
+            )
 
         async with make_client(handler) as client:
-            ok, checked_in, credits, code, msg = await status_check("u1", jwt, device_map, client=client)
+            ok, checked_in, credits, code, msg = await status_check(
+                "u1", jwt, device_map, client=client
+            )
         assert ok is True and checked_in is False and credits == 20 and code == 0
 
     async def test_checkin_account_success(self, jwt, device_map):
@@ -182,7 +191,9 @@ class TestSigninFlow:
         def handler(request: httpx.Request) -> httpx.Response:
             calls.append(request.url.path)
             if "status" in str(request.url):
-                return httpx.Response(200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""})
+                return httpx.Response(
+                    200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""}
+                )
             return httpx.Response(200, json={"code": 0, "message": "签到成功"})
 
         async with make_client(handler) as client:
@@ -204,7 +215,9 @@ class TestSigninFlow:
 
         def handler(request: httpx.Request) -> httpx.Response:
             if "status" in str(request.url):
-                return httpx.Response(200, json={"code": 0, "checked_in": True, "credits": 15, "message": ""})
+                return httpx.Response(
+                    200, json={"code": 0, "checked_in": True, "credits": 15, "message": ""}
+                )
             claim_called.append(True)
             return httpx.Response(200, json={"code": 0, "message": "签到成功"})
 
@@ -215,6 +228,35 @@ class TestSigninFlow:
         assert result["action"] == "skip_already"
         assert result["credits"] == 15
         assert claim_called == []  # 未触发 claim
+
+    async def test_checkin_account_already_via_claim_9095(self, jwt, device_map):
+        """claim 路拿到 9095(当前设备今日已经签到)→ 幂等成功,与 status 预检已签
+        同形状(ok/already/skip_already):不落冷却、不计失败、不进失败率。正是 10-30/31、
+        11-01 本机 uid 2345730760515203 连续三天被误记红(归为 BusinessError + 300s 冷却)的根因。
+        判据单源在 checkin_codes,本测试钉住「claim 回的 9095 走已签而非失败」。"""
+        claim_called = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if "status" in str(request.url):
+                # status 预检报未签 ⇒ 继续走 claim(9095 在 claim 路返回)
+                return httpx.Response(
+                    200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""}
+                )
+            claim_called.append(True)
+            return httpx.Response(
+                200, json={"code": 9095, "message": "当前设备今日已经签到,请明日再来哦～"}
+            )
+
+        async with make_client(handler) as client:
+            result = await checkin_account("u1", jwt, device_map, client=client)
+        assert result["ok"] is True
+        assert result["status"] == "already"
+        assert result["action"] == "skip_already"
+        assert result["code"] == 9095
+        # 幂等成功不得有冷却/分类错误(否则会污染失败率与冷却计时)
+        assert result["classified_error"] is None
+        # claim 确实发了(是它回的 9095),不是 status 预检兜的
+        assert claim_called == [True]
 
     async def test_checkin_account_token_invalid_401(self, jwt, device_map):
         """token 失效: 401 → SessionDead 永久冷却分类。"""
@@ -270,7 +312,9 @@ class TestSigninFlow:
             calls.append(str(request.url))
             if "status" in str(request.url):
                 # status 正常放行(未签),让流程走到 claim 再吃 403
-                return httpx.Response(200, json={"code": 0, "checked_in": False, "credits": 5, "message": ""})
+                return httpx.Response(
+                    200, json={"code": 0, "checked_in": False, "credits": 5, "message": ""}
+                )
             return httpx.Response(403, json={"code": 40301, "message": "blocked"})
 
         async with make_client(handler) as client:
@@ -308,21 +352,29 @@ class TestSigninFlow:
 
         def handler(request: httpx.Request) -> httpx.Response:
             if "status" in str(request.url):
-                return httpx.Response(200, json={"code": 0, "checked_in": False, "credits": 10, "message": ""})
+                return httpx.Response(
+                    200, json={"code": 0, "checked_in": False, "credits": 10, "message": ""}
+                )
             attempts["claim"] += 1
             if attempts["claim"] == 1:
                 raise httpx.ConnectTimeout("timed out", request=request)
             return httpx.Response(200, json={"code": 0, "message": "签到成功"})
 
         async with make_client(handler) as client:
-            result = await checkin_account("u1", jwt, device_map, retry=1, retry_delay=0, client=client)
+            result = await checkin_account(
+                "u1", jwt, device_map, retry=1, retry_delay=0, client=client
+            )
         assert attempts["claim"] == 2
         assert result["ok"] is True
         assert result["action"] == "claim_ok"
 
     async def test_retry_exhausted_returns_last_failure(self, jwt, device_map):
-        async with make_client(lambda r: (_ for _ in ()).throw(httpx.ReadTimeout("t", request=r))) as client:
-            ok, msg, code, status = await signin_with_retry("u1", jwt, device_map, retry=2, retry_delay=0, client=client)
+        async with make_client(
+            lambda r: (_ for _ in ()).throw(httpx.ReadTimeout("t", request=r))
+        ) as client:
+            ok, msg, code, status = await signin_with_retry(
+                "u1", jwt, device_map, retry=2, retry_delay=0, client=client
+            )
         assert ok is False and code is None and status == 0
 
     async def test_business_failure_not_retried(self, jwt, device_map):
@@ -334,7 +386,9 @@ class TestSigninFlow:
             return httpx.Response(200, json={"code": 1005, "message": "plan limit"})
 
         async with make_client(handler) as client:
-            ok, msg, code, status = await signin_with_retry("u1", jwt, device_map, retry=3, retry_delay=0, client=client)
+            ok, msg, code, status = await signin_with_retry(
+                "u1", jwt, device_map, retry=3, retry_delay=0, client=client
+            )
         assert len(calls) == 1  # 未重试
         assert ok is False and code == 1005
         assert classify_error(status, msg, code) == ("PlanLimit", 43200)
@@ -430,4 +484,6 @@ class TestDeviceRotation9074:
         assert len(seen_devices) == 2 and seen_devices[0] != seen_devices[1]
         assert device_map[USER_ID]["rotated"] is True
         assert device_map[USER_ID]["device_id"] == seen_devices[1]
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
