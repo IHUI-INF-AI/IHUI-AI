@@ -57,7 +57,7 @@ export function StudyProgressScreen({
           <Text style={styles.statLabel}>{t('studyProgress.totalMinutes')}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{progress.weekMinutes}</Text>
+          <Text style={styles.statValue}>{progress.weekMinutes ?? 0}</Text>
           <Text style={styles.statLabel}>{t('studyProgress.weekMinutes')}</Text>
         </View>
         <View style={styles.statCard}>

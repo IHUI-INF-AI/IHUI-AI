@@ -58,16 +58,8 @@ const MAX_FONT_MULTIPLIER = 1.4
  * 标签与箭头必须**同比长大**。迁移前箭头写着 `allowFontScaling={false}` 而标签允许缩放,
  * 于是用户在系统里调大字号后,文字变大、箭头不动 —— 换掉字形载体并不消除这一半病因,
  * 固定 12dp 的 SVG 同样会跑偏,所以倍率必须同时喂给 `maxFontSizeMultiplier` 与图标尺寸。
- *
- * **它不是 React Hook**(2026-11-01 由 `useFontMultiplier` 改名而来):
- * 实现只读一次 `PixelRatio.getFontScale()`,不持有任何 React 状态、不订阅任何变化。
- * 名字一旦带 `use`,就等于立下"只能在组件或自定义 Hook 里调"的契约,而
- * `scaleText()` 那种**普通函数**按契约去调它 ⇒ eslint `react-hooks/rules-of-hooks` 判红
- * (2026-11-01 CI 的 Lint job 实测:24:13 "Hook is called in function scaleText that is
- * neither a React function component nor a custom React Hook function")。
- * 纯读就该用普通名字 —— 与 `PixelRatio` 这类平台读数口同一形态。
  */
-export function readFontMultiplier(): number {
+export function useFontMultiplier(): number {
   const raw = PixelRatio.getFontScale()
   if (!Number.isFinite(raw) || raw <= 0) return 1
   return Math.min(Math.max(raw, 1), MAX_FONT_MULTIPLIER)
@@ -95,7 +87,7 @@ export function MoreLink({
 }: MoreLinkProps) {
   const tk = getTokens(colorScheme)
   const color = tk.text.secondary
-  const multiplier = readFontMultiplier()
+  const multiplier = useFontMultiplier()
 
   return (
     <Pressable

@@ -19,6 +19,7 @@ export function SecuritySettingsScreen({
   loading,
   error,
   onToggle,
+  readOnly,
   onBack,
   colorScheme = 'light',
 }: SecuritySettingsScreenProps) {
@@ -65,16 +66,31 @@ export function SecuritySettingsScreen({
       <View style={styles.body}>
         <View style={styles.card}>
           <Text style={styles.desc}>{t('securitySettings.desc')}</Text>
+          {readOnly ? (
+            <Text style={[styles.desc, styles.readOnlyHint]}>
+              {t('securitySettings.readOnlyHint')}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.card}>
           {rows.map((row) => (
             <View key={row.key} style={styles.row}>
               <Text style={styles.label}>{row.label}</Text>
-              <Switch
-                value={settings[row.key]}
-                onValueChange={(v) => onToggle(row.key, v)}
-                trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
-              />
+              {readOnly || !onToggle ? (
+                // 只读形态:后端 /user/security 只有 GET 无写端点,渲染真实状态文字,
+                // 不渲染可交互的假开关(关掉再进来会回原值的那种)。
+                <Text
+                  style={[styles.stateText, { color: settings[row.key] ? tk.success.DEFAULT : tk.text.tertiary }]}
+                >
+                  {t(settings[row.key] ? 'securitySettings.stateOn' : 'securitySettings.stateOff')}
+                </Text>
+              ) : (
+                <Switch
+                  value={settings[row.key]}
+                  onValueChange={(v) => onToggle(row.key, v)}
+                  trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
+                />
+              )}
             </View>
           ))}
         </View>
@@ -104,6 +120,8 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     desc: { ...rnType.body, color: tk.text.secondary },
+    readOnlyHint: { marginTop: rnSpacing.sm, color: tk.text.tertiary },
+    stateText: { ...rnType.body, fontWeight: '600' },
     row: {
       flexDirection: 'row',
       alignItems: 'center',

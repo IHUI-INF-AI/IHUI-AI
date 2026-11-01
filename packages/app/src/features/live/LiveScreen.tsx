@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveScreenItem, LiveScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -43,6 +43,9 @@ export function LiveScreen({
   refreshing,
   error,
   onRefresh,
+  onLoadMore,
+  hasMore = true,
+  loadingMore = false,
   onPressItem,
   onBack,
   colorScheme = 'light',
@@ -51,6 +54,7 @@ export function LiveScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const showError: boolean = error !== '' && items.length === 0
+  const canLoadMore = Boolean(onLoadMore) && hasMore && !loading && !loadingMore && !showError
 
   return (
     <View style={styles.container}>
@@ -70,6 +74,15 @@ export function LiveScreen({
           contentContainerStyle={[styles.listBody, { paddingBottom: contentBottomPadding }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          onEndReached={canLoadMore ? onLoadMore : undefined}
+          onEndReachedThreshold={0.2}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator size="small" color={tk.text.tertiary} />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             showError ? null : <EmptyState title={t('live.empty')} colorScheme={colorScheme} />
           }
@@ -160,6 +173,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
