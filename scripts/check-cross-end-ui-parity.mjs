@@ -37,7 +37,6 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
 import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
