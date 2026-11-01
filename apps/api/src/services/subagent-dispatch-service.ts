@@ -1582,8 +1582,8 @@ class SubagentDispatchService {
     if (priority === 'urgent') {
       const activeCount = this.listActive().length
       if (activeCount >= this._maxConcurrent) {
-        // 尝试抢占最低优先级的 running dispatch
-        const preempted = this._tryPreempt()
+        // 尝试抢占最低优先级的 running dispatch(仅限同一 ownerUserId,P0-1)
+        const preempted = this._tryPreempt(input.ownerUserId)
         if (!preempted) {
           return {
             outcome: 'concurrent_limit',
@@ -1672,13 +1672,20 @@ class SubagentDispatchService {
 
   /**
    * 尝试抢占最低优先级的 running dispatch。
-   * 仅 urgent 可以抢占 low/normal。
+   * 仅 urgent 可以抢占 low/normal,且**只能抢同一 ownerUserId 的记录**。
    * 返回 true = 抢占成功。
+   *
+   * P0-1(2026-11-02):候选原先取自 runtimes 全集、只按 priority 排序 ⇒ 等于绕过了
+   * `/cancel` 的 ownsDispatch 归属闸:A 租户的 urgent 能把 B 租户的 normal 任务置 preempted。
+   * 归属判据直接读派单记录自己的 `ownerUserId`(与 isDispatchVisibleTo 同字段,不另立租户表达);
+   * 无同租户候选 ⇒ 返回 false,调用方按既有 `concurrent_limit` 路径返回(不发明新错误码)。
+   * 无 `ownerUserId` 的旧记录(未标注)只在发起方也「未标注」时才是候选 —— 不做跨租户写入。
    */
-  private _tryPreempt(): boolean {
+  private _tryPreempt(ownerUserId: string | undefined): boolean {
     const candidates = Array.from(this.runtimes.values())
       .filter((r) => r.dispatch.status === 'running' || r.dispatch.status === 'pending')
       .filter((r) => r.priority === 'low' || r.priority === 'normal')
+      .filter((r) => r.dispatch.ownerUserId === ownerUserId)
       .sort((a, b) => PRIORITY_SCORE[a.priority] - PRIORITY_SCORE[b.priority])
     if (candidates.length === 0) return false
     const target = candidates[0]!
