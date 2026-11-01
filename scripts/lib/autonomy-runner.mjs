@@ -163,4 +163,54 @@ export const NON_TICKET_FAILURE_KINDS = ['environment', 'transport', 'undetermin
 export function isNonTicketFailure(kind) {
   return NON_TICKET_FAILURE_KINDS.includes(kind)
 }
+
+// ===========================================================================
+// 人工阀前置闸(2026-11-01 接线)
+// ===========================================================================
+//
+// 病灶实测(回源核对,非推测):`scripts/human-gates.mjs` 的 `classify()` 在派发路径上
+// **零调用** —— auto-evolve 只 loadHumanGates + summarizeHumanGates 打印了一句
+// "自决 4 条 / 停机等人 7 条"。那 7 条"停机等人"既没进票 prompt、也没在任何动作前被问,
+// 所以闸不在发信处,而在被派起的会话手里 —— 一个自觉遵守的闸等于没有闸。
+//
+// 分类判据一律 import `scripts/lib/human-valve.mjs`(§0.6 唯一实现),本层不另写第二份关键词表。
+// 该实现是 fail-closed 的:动作不在已知清单 ⇒ stop-for-human。
+// 因此这一档**必须从 observe 起步**:直接 enforce 会把所有未知措辞的票一律停掉,
+// 等于刚把发起腿修活就把它再锁死。observe 期要量的是"命中分布",看清语料与票面是否对得上,
+// 再择档 enforce —— 且 enforce 的前置条件写死在这里:observe 期必须真有过命中。
+import { classifyAction, parseValveList, BUCKETS, HumanValveDataError } from './human-valve.mjs'
+
+export const VALVE_MODES = ['observe', 'enforce']
+
+/**
+ * 派发前问一次人工阀。返回 action:
+ *  - `allow`         命中自决类(且未过期)⇒ 可派
+ *  - `block`         enforce 档命中停机类 ⇒ 本轮不派这张票
+ *  - `observe-stop`  observe 档命中停机类 ⇒ 照派,但记账(这就是"放量前先看清会拦谁")
+ *  - `unjudged`      档位非法/清单坏/取不到规则 ⇒ 不猜。enforce 档由调用方 fail-closed 停派。
+ */
+export function gateTicketByHumanValve({ ticketText, mode, valveListText, now = new Date() } = {}) {
+  if (!VALVE_MODES.includes(mode)) {
+    return { action: 'unjudged', ruleId: null, reason: `humanValveMode 取值非法(${JSON.stringify(mode)})⇒ 不猜档(合法值 ${VALVE_MODES.join('|')})` }
+  }
+  let rules
+  try {
+    rules = parseValveList(valveListText).rules
+  } catch (e) {
+    return { action: 'unjudged', ruleId: null, reason: `人工阀清单取不到或形状坏(${e instanceof HumanValveDataError ? e.message : String(e?.message ?? e)})⇒ 未判定` }
+  }
+  let verdict
+  try {
+    verdict = classifyAction(String(ticketText ?? ''), { rules, now })
+  } catch (e) {
+    return { action: 'unjudged', ruleId: null, reason: `分类器拒绝判定(${e?.message ?? e})⇒ 未判定` }
+  }
+  const stop = verdict.bucket === BUCKETS.STOP_FOR_HUMAN
+  if (!stop) return { action: 'allow', ruleId: verdict.ruleId, reason: verdict.reason }
+  return {
+    action: mode === 'enforce' ? 'block' : 'observe-stop',
+    ruleId: verdict.ruleId,
+    reason: verdict.reason,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
