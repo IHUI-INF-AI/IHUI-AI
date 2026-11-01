@@ -186,6 +186,15 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   notebook_edit: 'toolNotebookEdit',
   // G-07 会话寻址投递(2026-10-31 立):与 send_team_message 互补的第二形态
   send_to_session: 'toolSendToSession',
+  // 目录骨架渲染(mcp_server 的 render_repo_tree:按 token 预算出目录树,不是文件清单)
+  render_repo_tree: 'toolRenderRepoTree',
+  // 工作流执行族:与 workflow_trigger/resume/instance_status 同一族,动词入键名
+  run_workflow: 'toolRunWorkflow',
+  // 工作簿会话族(mcp_server 的 workbook_*:开/读区/写格/关四枚成套)
+  workbook_open: 'toolWorkbookOpen',
+  workbook_read_range: 'toolWorkbookReadRange',
+  workbook_write_cells: 'toolWorkbookWriteCells',
+  workbook_close: 'toolWorkbookClose',
 }
 
 export function toolDisplayKey(toolName: string): string | null {
