@@ -37,7 +37,12 @@ logger = logging.getLogger(__name__)
 _ALWAYS_PUBLIC: tuple[str, ...] = ("/.well-known/agent.json", "/.well-known/agent-card.json")
 
 # router 根:该前缀下的任何条目(含精确到端点的写法)都不允许匿名可达
-_NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents")
+_NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents", "/api/rules")
+# `/api/rules` 于 2026-11-01 入列:那张 router 里有五格(LLM 仲裁冲突、规则试跑、效果预测、
+# 学习反馈、匹配)不带端点级身份依赖 —— 一旦某份 .env 把 JWT_PUBLIC_PATHS 整串替换成含
+# `/api/rules`,匿名请求就能直接驱动模型消耗并写规则反馈面(与 2026-10-29 那两条同型)。
+# 本机现读 .env 第 175 行是注释态(`# JWT_PUBLIC_PATHS=`)⇒ 这一改对今天的行为零影响,
+# 它挡的是"下一次整体替换配置"那一格,不是当前流量。
 
 # 精确到端点的永不公开名单(成本面 / 调度状态面)。
 # 立因(2026-10-29 实测):代码默认值已把这两条收回,但部署 .env 的
