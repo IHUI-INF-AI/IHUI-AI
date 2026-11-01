@@ -73,6 +73,11 @@ vi.mock('../../src/db/index.js', () => ({
           orderBy: () => ({
             limit: () => Promise.resolve([]),
           }),
+          // 2026-11-01 补:第 19 批 F3 把"广播身份改由服务端从 users 表取材"落进
+          // chat-server.ts:234 —— 那条链是 `where(...).limit(1)`(无 orderBy),
+          // 替身只给 orderBy 一支会让 where() 返回的对象上没有 limit ⇒ TypeError 被吞成
+          // 放行,用例看着绿其实没测到"身份来自服务端"。两支都给,形状变化才量得到。
+          limit: () => Promise.resolve([{ nickname: '房间昵称', avatar: null }]),
         }),
       }),
     })),

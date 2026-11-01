@@ -193,12 +193,10 @@ const EXEMPTIONS: { file: string; anchor: string; class: string; reason: string 
     class: 'third-party',
     reason: '公开客户端 PKCE 授权码腿，前置是已登录会话签发的 code + code_verifier',
   },
-  {
-    file: 'src/routes/auth-extended.ts',
-    anchor: 'POST /oauth/jwt/token',
-    class: 'third-party',
-    reason: 'private_key_jwt 客户端断言腿，主体来自客户端自签 assertion，不经用户凭据校验',
-  },
+  // 2026-11-01 摘除一条豁免:原登记 `src/routes/auth-extended.ts :: POST /oauth/jwt/token`
+  // 已在 c6e20569d8(安全强化第 31 批 R10)整段下线 —— 路由还在(auth-extended.ts:2565)但函数体
+  // 只剩 safeParse + 查应用 + 审计 + 硬 501,不再调用任何签发原语。豁免清单登记的是**签发点**,
+  // 给一条不签发的腿留着等于给不存在的洞记档,而本门 :345 正要求清单不许为新模式开后门。
   {
     file: 'src/routes/auth-extended.ts',
     anchor: 'POST /oauth/access_token',
