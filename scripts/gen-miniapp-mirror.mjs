@@ -674,6 +674,11 @@ export function buildShellPage({
   L.push(` *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/${shellSymbol}.tsx 本体,`)
   L.push(' *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。')
   L.push(' * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。')
+  // 收藏字段口径(2026-11-01 补):favorites 壳承载页虽不写正文,但数据经 RN 壳透传
+  // resourceType / resourceId(取消收藏与跳详情靠它);契约见 packages/api-client/tests/favorites-field-contract.test.ts。
+  if (shellSymbol === 'FavoriteScreen') {
+    L.push(' *   收藏字段口径:经本壳透传 resourceType / resourceId(取消收藏与跳详情靠它;契约见 packages/api-client/tests/favorites-field-contract.test.ts)。')
+  }
   L.push(' */')
   L.push("import ThemeRoot from '@/components/ThemeRoot'")
   if (authGate) L.push("import AuthReadyGate from '@/components/AuthReadyGate'")

@@ -469,7 +469,8 @@ jobs:
             --ignore=tests/test_mcp_oauth_authorization_code_e2e.py \
             --ignore=tests/test_mcp_streamable_http_e2e.py \
             --ignore=tests/test_native_fc_e2e_real.py \
-            --ignore=tests/test_tool_loop_e2e.py
+            --ignore=tests/test_tool_loop_e2e.py \
+            --basetemp "$RUNNER_TEMP/ihui-pytest_tmp"
       # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
       # 立因与行为契约见该脚本头注;边界:只在 failure() 分支跑,不碰上面任何步骤的判据
       # 严格程度(无 continue-on-error、不删步骤、不扩 permissions、不新增 secret)。

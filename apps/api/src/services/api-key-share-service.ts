@@ -18,7 +18,7 @@
  * 类型约束:禁止 any,所有输入输出显式类型标注。
  */
 import { randomBytes } from 'node:crypto'
-import { eq, and, lt, isNull, isNotNull, or, desc, sql } from 'drizzle-orm'
+import { eq, and, inArray, lt, isNull, isNotNull, or, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 // NOTE:apiKeyShares 由本任务新增,主 agent 后续在 schema/index.ts 统一 export 后,
 // `@ihui/database` 会自动导出 apiKeyShares / ApiKeyShare(与 apiKeyGroups 模式一致)。
@@ -201,23 +201,43 @@ export async function incrementUsage(shareId: string, tokens: number): Promise<b
   return updated !== undefined
 }
 
+/** 单轮删除的主键批次上界(见 cleanupExpired 的立因)。 */
+const CLEANUP_BATCH_LIMIT = 500
+
+/** 到期/已撤销谓词:取批与按批删除共用同一份,防两半各写一遍漂移。 */
+function expiredShareCond() {
+  return or(
+    // 已撤销的记录
+    isNotNull(apiKeyShares.revokedAt),
+    // 已过期超过 30 天的记录
+    lt(apiKeyShares.expiresAt, sql`now() - interval '30 days'`),
+  )
+}
+
 /**
- * 清理已过期 30 天的分享记录(定时任务用)。
- * 删除 revoked_at IS NOT NULL 或 expires_at < now() - interval '30 days' 的记录。
- * @returns 删除的记录数。
+ * 清理到期/已撤销的分享记录,返回本轮删除条数(定时任务用)。
+ *
+ * 单轮批上界:此前是一条无界 DELETE + 全量 .returning() —— 首次上线积压可能是全表,
+ * 把行锁与返回集一次性摊进事务,故先取一批主键再按主键删(与 pii-retention-cleanup
+ * 的 purgeExpired 同一族形态),短批即止。
  */
 export async function cleanupExpired(): Promise<number> {
-  const result = await db
-    .delete(apiKeyShares)
-    .where(
-      or(
-        // 已撤销的记录
-        isNotNull(apiKeyShares.revokedAt),
-        // 已过期超过 30 天的记录
-        lt(apiKeyShares.expiresAt, sql`now() - interval '30 days'`),
+  let deleted = 0
+  while (true) {
+    const batch = await db
+      .select({ id: apiKeyShares.id })
+      .from(apiKeyShares)
+      .where(expiredShareCond())
+      .limit(CLEANUP_BATCH_LIMIT)
+    if (batch.length === 0) return deleted
+    await db.delete(apiKeyShares).where(
+      inArray(
+        apiKeyShares.id,
+        batch.map((row) => row.id),
       ),
     )
-    .returning({ id: apiKeyShares.id })
-  return result.length
+    deleted += batch.length
+    if (batch.length < CLEANUP_BATCH_LIMIT) return deleted
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
