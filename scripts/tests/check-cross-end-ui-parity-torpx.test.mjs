@@ -551,6 +551,7 @@ test('C18 web 工具类模型(票 O67):真 HEAD 面取源可解 / 三态分清 /
    * 判据一律走 lib 与门自己的出口,本件不复制任何一条(§0.6)。
    */
   const listR = spawnSync('git', ['-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD', 'apps/web'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   })
