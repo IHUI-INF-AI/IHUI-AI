@@ -256,10 +256,12 @@ def test_lazy_index_guardrail_sees_same_denominator(repo_fixture: Path) -> None:
     否则一次枚举改造就会悄悄改变"要不要索引"这个产品行为。
     """
     via_entry = codebase_indexer._collect_code_files(repo_fixture)
-    with_prov, prov = codebase_indexer.collect_code_files_with_provenance(repo_fixture)
+    with_prov, prov, ignore_report = codebase_indexer.collect_code_files_with_provenance(repo_fixture)
     legacy = _legacy_collect(repo_fixture)
     assert {p.relative_to(repo_fixture).as_posix() for p, _ in via_entry} == legacy
     assert {p.relative_to(repo_fixture).as_posix() for p, _ in with_prov} == legacy
+    # P84:夹具里没有 ignore 规则文件 ⇒ 剪枝是零(回执必须如实说零,而不是"没这张回执")
+    assert ignore_report.files_ignored == 0 and ignore_report.tracked_kept == 0
     assert prov.engine in (rgp.ENGINE_RIPGREP, rgp.ENGINE_PYTHON_WALK)
     # 索引上限的复评事实登记在 codebase_indexer 注释里,这里把它钉成可断言的数:
     assert MAX_FILES_PER_INDEX == 5000, "改动上限必须与本票的实测依据同批落,不得顺手调"
