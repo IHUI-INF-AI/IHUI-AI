@@ -28,18 +28,29 @@ export function MessageDirectScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<{ list: Array<{ peer_id: string }> }>(
-        '/messages/private/conversation/list',
-      )
+      // 后端 /messages/private/conversation/list 已投影 peer_nickname/last_message/
+      // last_message_time/unread_count(message.ts),不再拿 peer_id 当昵称占位;
+      // 投影字段缺失时回退 peer_id,兼容旧响应。
+      const res = await fetchApi<{
+        list: Array<{
+          peer_id: string
+          peer_nickname?: string | null
+          last_message?: string | null
+          last_message_time?: string | null
+          unread_count?: number | null
+        }>
+      }>('/messages/private/conversation/list')
       if (!res.success) throw new Error()
       const list = res.data?.list ?? []
       setItems(
         list.map((row) => ({
           memberId: row.peer_id,
-          nickname: row.peer_id,
-          lastMessage: '',
-          lastMessageTime: '',
-          unreadCount: 0,
+          nickname: row.peer_nickname || row.peer_id,
+          lastMessage: row.last_message ?? '',
+          lastMessageTime: row.last_message_time
+            ? new Date(row.last_message_time).toLocaleString()
+            : '',
+          unreadCount: row.unread_count ?? 0,
         })),
       )
     } catch {

@@ -51,7 +51,15 @@ export function WalletScreen() {
     try {
       const res = await getBalance()
       if (!res.success || !res.data) throw new Error(res.error)
-      setBalance(res.data)
+      // 余额单位是「分」(userMargins.tokenQuantity,与 web /api/finance/margin/balance 同源;
+      // web 钱包页按 value/100 渲染),壳内投影 /100,避免共享屏 toFixed(2) 放大 100 倍。
+      const d = res.data
+      setBalance({
+        balance: d.balance / 100,
+        frozenBalance: d.frozenBalance / 100,
+        totalRecharge: d.totalRecharge / 100,
+        totalWithdraw: d.totalWithdraw / 100,
+      })
     } catch {
       setError(uniappT('wallet.loadFailed'))
     } finally {

@@ -14,7 +14,7 @@ import { formatDateByTemplate } from '../utils/date-utils'
 function mapNote(raw: NoteItem): NoteItem {
   return {
     id: raw.id,
-    title: raw.title,
+    title: raw.title ?? '',
     content: raw.content,
     updatedAt: formatDateByTemplate(raw.updatedAt, 'YYYY-MM-DD HH:mm'),
   }
@@ -40,9 +40,11 @@ export function NoteScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const res = await fetchApi<NoteItem[]>('/api/notes')
+      // 对齐 web 口径:笔记存于 edu_notes 表(web /edu/notes、/student/notes 同源),
+      // 不再读 notes 表的 /api/notes(两端数据域不同,原先互不可见)。
+      const res = await fetchApi<{ list: NoteItem[] }>('/api/edu/notes')
       if (res.success) {
-        setNotes((res.data ?? []).map(mapNote))
+        setNotes((res.data?.list ?? []).map(mapNote))
       } else {
         setError(apiFailureToText(res, t('note.loadFailed')))
       }
@@ -79,11 +81,11 @@ export function NoteScreen() {
     setToast('')
     const body = { title: title.trim(), content: content.trim() }
     const res = editing
-      ? await fetchApi<NoteItem>(`/api/notes/${encodeURIComponent(editing.id)}`, {
+      ? await fetchApi<{ note: NoteItem }>(`/api/edu/notes/${encodeURIComponent(editing.id)}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
-      : await fetchApi<NoteItem>('/api/notes', {
+      : await fetchApi<{ note: NoteItem }>('/api/edu/notes', {
           method: 'POST',
           body: JSON.stringify(body),
         })
@@ -98,7 +100,7 @@ export function NoteScreen() {
   }
 
   const handleDelete = async (note: NoteItem) => {
-    const res = await fetchApi<void>(`/api/notes/${encodeURIComponent(note.id)}`, {
+    const res = await fetchApi<void>(`/api/edu/notes/${encodeURIComponent(note.id)}`, {
       method: 'DELETE',
     })
     if (res.success) {

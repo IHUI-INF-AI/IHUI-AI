@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, getInviteInfo } from '@ihui/api-client'
 import {
   PromoteScreen as SharedPromoteScreen,
   type PromoteInfo,
@@ -56,13 +56,16 @@ export function PromoteScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const [overviewRes, membersRes] = await Promise.all([
+      const [overviewRes, membersRes, inviteRes] = await Promise.all([
         fetchApi<OverviewData>('/api/distribution/overview'),
         fetchApi<TeamMembersData>('/api/distribution/team/members', {
           params: { page: 1, pageSize: 10 },
         }),
+        // 专属推广链接来自 GET /distribution/invite-info(与 web /commission/plan 同源),
+        // 不再硬编码空串让「复制/分享」弹一个空链接。
+        getInviteInfo(),
       ])
-      if (!overviewRes.success || !membersRes.success) {
+      if (!overviewRes.success || !membersRes.success || !inviteRes.success) {
         setError(t('promote.loadFailed'))
         setLoading(false)
         setRefreshing(false)
@@ -72,7 +75,7 @@ export function PromoteScreen() {
       if (ov) {
         setInfo({
           referralCode: ov.inviteCode ?? '',
-          referralLink: '',
+          referralLink: inviteRes.data?.inviteUrl ?? '',
           inviteCount: ov.invitedCount,
           activeCount: ov.activeCount,
           totalEarnings: centsToYuan(ov.totalCommission),
