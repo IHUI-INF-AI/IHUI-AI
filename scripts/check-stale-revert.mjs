@@ -306,8 +306,67 @@ function undeterminedFor(path, e, what) {
   return err
 }
 
+/**
+ * 运行期祖先窗口缓存(2026-11-01,门 84 成本,同判据)。
+ *
+ * 立因(本席实测,不是估算):同一条路径在一次 audit 里被**三个判据通道各取一次**祖先清单 ——
+ * R1 的 `analyze`(deep)、R1r 的 `analyzeResurrect`、R1s 的 `analyzeMixedStale` ——
+ * 而每次 `git log --max-count=W HEAD -- <path>` 在真仓上是全树遍历(实测 140 次调用吃掉 73.2s /
+ * 总 94.2s = 78%)。重复取的是**同一份**清单,只是没人记账。
+ *
+ * 为什么**不是**放宽:缓存键含 (repoRoot, HEAD sha, path, window),命中的是**逐字相同**的一次
+ * 取材结果 —— 同一次运行里 HEAD 不动、path 不变、窗口长度不变,清单就只有一份。HEAD 若中途被
+ * 别席推进,键失配 ⇒ 重新取材(不返回旧 HEAD 的清单,那才会把"过时"读成"判过")。
+ * 缓存只在 `audit()` 一轮之内有效:出轮即清,进程里跨轮(测试逐个临时仓)绝不串味;
+ * 外部消费者(object-space-land / check-baseline-freshness)直接调用 `ancestorWindow` 时
+ * 缓存为 null ⇒ 行为与改动前逐字相同。
+ *
+ * `deep` 与浅档分开存:深档只在浅档 truncated 时才多跑一次全历史 log,两者结果形状不同
+ * (truncated 标记、shas 长度),不能互相顶替 —— 混用等于悄悄换了一把尺子。
+ */
+let windowCache = null
+let windowCacheHead = null
+
+function beginWindowCache() {
+  windowCache = new Map()
+  windowCacheHead = null
+}
+
+function endWindowCache() {
+  windowCache = null
+  windowCacheHead = null
+}
+
+/** 本轮 HEAD(每次运行只问一次 rev-parse):缓存键的"时代"分量。取不到 ⇒ 返回 null ⇒ 不缓存。 */
+function cachedHeadSha(repoRoot) {
+  if (windowCacheHead && windowCacheHead.root === repoRoot) return windowCacheHead.sha
+  const sha = revParseOr(repoRoot, 'HEAD')
+  windowCacheHead = { root: repoRoot, sha }
+  return sha
+}
+
 export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
   const window = windowFor(path)
+  const headSha = windowCache ? cachedHeadSha(repoRoot) : null
+  const cacheKey = headSha ? `${repoRoot}\u0000${headSha}\u0000${path}\u0000${window}` : null
+  const slot = cacheKey ? (windowCache.get(cacheKey) ?? {}) : null
+  if (cacheKey && !windowCache.has(cacheKey)) windowCache.set(cacheKey, slot)
+
+  const cached = slot?.limited
+  if (cached && (!deep || !cached.truncated)) {
+    if (costMeter) {
+      // 读数仍然报"本轮取材到的祖先提交",只是不重复计同一份清单的重复派生次数。
+      if (cached.truncated) costMeter.truncated.set(path, window)
+    }
+    return cached
+  }
+  // 深档命中:浅档 truncated 且全历史已经取过 ⇒ 直接给全历史那一份。
+  if (cached && deep && cached.truncated && slot.full) {
+    if (costMeter) costMeter.truncated.delete(path)
+    return slot.full
+  }
+  // 剩下的一格(deep ∧ truncated ∧ 全历史还没取)不在这里短路:走下面的取材,深档分支自会补全。
+
   // 巡检档(G-806 ③):一次"逐路径祖先取材" = 一次 git log。meter 只在 audit 运行期非空,
   // 外部消费者(object-space-land / check-baseline-freshness)的直接调用不记到门的账上。
   if (costMeter) costMeter.gitLog++
@@ -339,6 +398,9 @@ export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
     // 截断报名的收集口:同一路径经 R1 与 R1r 两条通道各取一次,按路径只记一次(Map)。
     if (truncated) costMeter.truncated.set(path, window)
   }
+  // 浅档结果落缓存:同一次运行里 R1r / R1s 拿到的是**逐字同一份**清单,不再各派生一次。
+  const limitedResult = { shas: truncated ? shas.slice(0, window) : shas, truncated, window }
+  if (slot) slot.limited = limitedResult
   if (truncated && deep) {
     /**
      * **深档(2026-10-25)**:窗口用尽 ⇒ 回落到全历史,把"没判"变成"判过"。
@@ -364,13 +426,16 @@ export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
         costMeter.ancestorCommits += Math.max(0, all.length - window)
         costMeter.truncated.delete(path)
       }
-      return { shas: all, truncated: false, window }
+      const fullResult = { shas: all, truncated: false, window }
+      // 深档同样落缓存:同一路径的第二个 deep 调用点(classifyWorktree / analyzeMerge)复用这一份。
+      if (slot) slot.full = fullResult
+      return fullResult
     } catch (e) {
       if (e instanceof Undetermined) throw undeterminedFor(path, e, '祖先提交清单(深档全历史)')
       // 全历史取不到(超时/坏 ref):维持窗口态与 truncated 标记,由调用方按"未判定"处理。
     }
   }
-  return { shas: truncated ? shas.slice(0, window) : shas, truncated, window }
+  return limitedResult
 }
 
 /**
@@ -1941,10 +2006,14 @@ function auditInner(repoRoot, opts = {}) {
 export function audit(repoRoot, opts = {}) {
   const mode = opts?.staged ? 'staged' : 'worktree'
   beginCostMeter()
+  // 一轮一次的祖先清单缓存(见 ancestorWindow 上方):同一路径被 R1/R1r/R1s 三条通道各取一次,
+  // 缓存把这三次合成一次取材 —— 判据一字不改,只是不再为同一份清单付三遍子进程。
+  beginWindowCache()
   let out
   try {
     out = auditInner(repoRoot, opts)
   } finally {
+    endWindowCache()
     const cost = endCostMeter()
     if (out) out.lines.push(renderCostLine(cost, { mode }))
   }
