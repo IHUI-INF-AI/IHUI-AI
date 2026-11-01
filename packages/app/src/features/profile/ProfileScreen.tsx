@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { ChevronRight } from 'lucide-react-native'
-import { useFontMultiplier } from '../../components/MoreLink'
+import { readFontMultiplier } from '../../components/MoreLink'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -41,7 +41,7 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const fontMultiplier = useFontMultiplier()
+  const fontMultiplier = readFontMultiplier()
   // 实名徽标配色(见 realnameBadgeTone;取不到状态 ⇒ null ⇒ 不渲染,不猜默认态)
   const badgeTone = realnameStatus ? realnameBadgeTone(tk, realnameStatus) : null
 
