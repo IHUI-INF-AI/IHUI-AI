@@ -12,11 +12,11 @@
  * 请求能把 B 租户正在跑的 normal 任务置 `preempted`(写 completedAt + `dispatch_preempted` 日志)。
  *
  * 修法:候选只保留 `dispatch.ownerUserId === 发起方 ownerUserId` 的记录(直接从派单记录上读,
- * 不另立租户表达);没有同租户候选 ⇒ 走既有 `concurrent_limit` 返回,不发明新错误码。
+ * 不另立租户表达);没有同租户候选 ⇒ 不抢他人,记录落 queued 等槽位(F2 起不再返回 429)。
  *
  * 本文件钉住(真跑,不 mock service —— 走 `dispatch()` 真路径):
- *  ① 跨租户:并发已满、B 有 normal 在跑, A 发 urgent ⇒ outcome=concurrent_limit;
- *     B 的记录 status 不变、completedAt 未写、logs 里没有 dispatch_preempted、未新建派单;
+ *  ① 跨租户:并发已满、B 有 normal 在跑, A 发 urgent ⇒ 自己的单落 queued;
+ *     B 的记录 status 不变、completedAt 未写、logs 里没有 dispatch_preempted;
  *  ② 同租户:并发已满、A 自己的 low 在跑,A 发 urgent ⇒ 仍能抢占(证明没把功能改死);
  *     同批 B 的记录一个都不动;
  *  ③ 无归属旧记录(未标注)不会被带 owner 的 urgent 跨租户抢(不做跨租户写入)。
@@ -157,23 +157,24 @@ afterEach(() => {
 })
 
 describe('P0-1 ① 跨租户:urgent 不得抢占他人任务', () => {
-  it('并发已满且全是 B 的任务,A 发 urgent ⇒ concurrent_limit,B 保持 running 且无 dispatch_preempted', async () => {
+  it('并发已满且全是 B 的任务,A 发 urgent ⇒ 自己的单落 queued,B 保持 running 且无 dispatch_preempted', async () => {
     seedDispatch('b-normal', { owner: 'tenant-b', status: 'running', priority: 'normal' })
     seedDispatch('b-low-1', { owner: 'tenant-b', status: 'running', priority: 'low' })
     seedDispatch('b-low-2', { owner: 'tenant-b', status: 'pending', priority: 'low' })
 
     const result = await service.dispatch({ ...baseInput, priority: 'urgent', ownerUserId: 'tenant-a' })
 
-    // 按既有返回形状:仍是 concurrent_limit(没发明新错误码)
-    expect(result.outcome).toBe('concurrent_limit')
-    expect(result.error).toContain('无低优先级可抢占')
+    // F2:满额不再拒绝(不返回 concurrent_limit/429),新派单落 queued 等槽位
+    expect(result.outcome).toBe('ok')
+    expect(result.dispatch).toBeDefined()
+    expect(runtime(result.dispatch!.id)!.dispatch.status).toBe('queued')
 
     // B 的三条一条都没被写
     expectUntouched('b-normal')
     expectUntouched('b-low-1')
     expectUntouched('b-low-2', 'pending')
-    // 也没建新派单(并发集仍是 3)
-    expect(runtimes.size).toBe(3)
+    // 新派单只是排队,没有抢占他人
+    expect(runtimes.size).toBe(4)
   })
 })
 
@@ -204,7 +205,8 @@ describe('P0-1 ③ 无归属旧记录(未标注)', () => {
     seedDispatch('b-2', { owner: 'tenant-b', status: 'running', priority: 'normal' })
 
     const result = await service.dispatch({ ...baseInput, priority: 'urgent', ownerUserId: 'tenant-a' })
-    expect(result.outcome).toBe('concurrent_limit')
+    expect(result.outcome).toBe('ok')
+    expect(runtime(result.dispatch!.id)!.dispatch.status).toBe('queued')
 
     const legacy = runtime('legacy-1')!
     expect(legacy.dispatch.status).toBe('running')
