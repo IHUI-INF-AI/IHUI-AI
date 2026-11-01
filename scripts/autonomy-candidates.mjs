@@ -44,6 +44,22 @@ import { loadPolicy, POLICY_PATH, FACTOR_KEYS, validateCandidates, decide } from
 
 /** 落盘位置(与 auto-evolve.mjs 的 AUTONOMY_CANDIDATES 同一路径;那边未导出,故此处按仓根归一拼一次) */
 export const CANDIDATES_PATH = join(ROOT, '.ihui-agent', 'state', 'autonomy-candidates.json')
+/** 活文档原文:只用来给"票面是否被截断"当对照面(派单面输出是硬切,文本上认不出截断)。 */
+export const PLAN_MD = join(ROOT, 'PROJECT_PLAN.md')
+
+/**
+ * 读活文档的物理行(按行号索引即 line-1)。
+ * 读不到 ⇒ 返回 null,由 isTicketTruncated 判成"按截断处理"(保守),绝不猜"没截断"。
+ * 行号在并发写台账时会漂移,所以这里只做长度对照,不做内容断言 —— 漂移的后果是
+ * 少数票被多算一次保守下限,方向安全。
+ */
+export function readPlanLines(path = PLAN_MD) {
+  try {
+    return readFileSync(path, 'utf8').split(/\r?\n/)
+  } catch {
+    return null
+  }
+}
 export const SCHEMA_VERSION = 1
 
 /** 台账里算"本票被认领过/动过"的动作档(用于认领牌年龄;其他动作与租约无关,不参与) */
@@ -254,6 +270,25 @@ export function factorBlocking(text, max) {
  * 单票评估:票行 → 决策模型候选(九因子 + 逐因子 evidence)。
  * id 必须 = ticketKeyOf(票面):rankTicketRows 就是按这个键把模型排期接回派单面行。
  */
+/**
+ * 票面是否被派单面截断(2026-11-01 补,治"失效方向错误")。
+ *
+ * 立因:`plan-tasks` 把票行硬切到约 106 字,**截断处没有省略号**,文本上完全认不出来。
+ * 落在截断之后的落点路径与关键词因此全部读不到 ⇒ 风险因子读 0。而"风险读 0"的方向是
+ * **把高风险票排到前面**,与 AGENTS §0.10「失效方向必须朝向多报」正好相反 —— 收益类读 0
+ * 只是保守压后(安全),风险类读 0 是危险。
+ * 判据:拿行号回原文比长度;原文取不到(行号漂移/越界)一律按截断处理(fail-safe,不猜)。
+ */
+export function isTicketTruncated(row, { planLines = null } = {}) {
+  const text = String(row?.text ?? '')
+  const line = Number(row?.line)
+  if (!Array.isArray(planLines) || !Number.isFinite(line) || line <= 0) return true
+  const raw = String(planLines[line - 1] ?? '')
+  if (!raw) return true
+  // 容差 8:派单面会剥掉前缀标记与行尾空白,正常差值很小;超过这个量级只能是截断。
+  return raw.length > text.length + 8
+}
+
 export function evaluateTicket(row, ctx) {
   const text = String(row?.text ?? '')
   const max = ctx.policy.scales.levelMax
@@ -268,20 +303,29 @@ export function evaluateTicket(row, ctx) {
   const lease = factorLease(text, key, ctx)
   const blocking = factorBlocking(text, max)
   const quarantinedUntil = quarantinedUntilOf(ctx.ledger ?? [], key, ctx.now)
+  // 截断时风险三因子抬到保守下限 1(立因见 isTicketTruncated):风险读 0 会把高风险票排前面。
+  const truncated = isTicketTruncated(row, ctx)
+  const riskFloor = (f) =>
+    truncated && f.level === 0
+      ? { level: 1, evidence: `${f.evidence}｜票面被派单面截断 ⇒ 风险按保守下限 1 计,不读成 0` }
+      : f
+  const irr = riskFloor(irreversible)
+  const ext = riskFloor(external)
+  const rule = riskFloor(ruleTouch)
   return {
     id: key,
     title: text.slice(0, 120),
     benefit: { impact: impact.level, userValue: userValue.level },
-    risk: { irreversible: irreversible.level, externalDependency: external.level, ruleTouch: ruleTouch.level },
+    risk: { irreversible: irr.level, externalDependency: ext.level, ruleTouch: rule.level },
     cost: { changeSurface: surface.level, verifyMinutes: verify.minutes },
     urgency: { leaseHours: lease.hours, blockingOthers: blocking.level },
     // 审计面:每个因子的依据。决策器会剥掉这些字段(不参与计分),但人要能照着复核。
     evidence: {
       impact: impact.evidence,
       userValue: userValue.evidence,
-      irreversible: irreversible.evidence,
-      externalDependency: external.evidence,
-      ruleTouch: ruleTouch.evidence,
+      irreversible: irr.evidence,
+      externalDependency: ext.evidence,
+      ruleTouch: rule.evidence,
       changeSurface: surface.evidence,
       verifyMinutes: verify.evidence,
       leaseHours: lease.evidence,
@@ -309,8 +353,8 @@ export function activityMapOf(ledger) {
  * 派单面 → 候选列表。同票键重复的行只留第一条(决策器遇重复 id 会判形状坏 ⇒ 整轮未判定,
  * 而"派单面上同一张票登记两次"是台账事实,不该把整轮打红);重复事实逐条点名。
  */
-export function buildCandidates({ rows, policy, ledger = [], now = Date.now() }) {
-  const ctx = { policy, ledger, now, lastActivityAt: activityMapOf(ledger) }
+export function buildCandidates({ rows, policy, ledger = [], now = Date.now(), planLines = null }) {
+  const ctx = { policy, ledger, now, lastActivityAt: activityMapOf(ledger), planLines }
   const seen = new Map()
   const duplicates = []
   const candidates = []
@@ -564,6 +608,21 @@ function selfTest() {
   })
   assert(q.candidates[0].notes.length === 1 && q.candidates[0].notes[0].includes('封禁'), '封禁票应带 notes 点名')
 
+  // S17 票面截断 ⇒ 风险三因子抬到保守下限(治"风险读 0 把高风险票排前面"这一失效方向错误)
+  const longRaw = 'X-77 票面'.padEnd(200, '填')
+  const shortText = 'X-77 票面'
+  const planLines17 = [null, null, null, null, longRaw]
+  assert(isTicketTruncated({ line: 5, text: shortText }, { planLines: planLines17 }) === true, '原文明显更长必须判截断')
+  const truncBuilt = buildCandidates({ rows: [{ line: 5, text: shortText }], policy, ledger: [], now, planLines: planLines17 })
+  const tc = truncBuilt.candidates[0]
+  assert(tc.risk.irreversible >= 1 && tc.risk.externalDependency >= 1 && tc.risk.ruleTouch >= 1, '截断时风险三因子不得读 0')
+  assert(/截断/.test(tc.evidence.irreversible), '截断必须在 evidence 里说清,不静默抬值')
+  // 反向锁:原文等长 ⇒ 不抬。否则"所有票一律加风险"会把整面压后,等于另一种失效。
+  const notTrunc = buildCandidates({ rows: [{ line: 2, text: 'X-78 完整票面' }], policy, ledger: [], now, planLines: [null, 'X-78 完整票面'] })
+  assert(notTrunc.candidates[0].risk.irreversible === 0, '未截断且无风险词时必须读 0')
+  // 取不到原文 ⇒ 按截断处理(fail-safe:不猜"没截断")
+  assert(isTicketTruncated({ line: 5, text: shortText }, { planLines: null }) === true, '取不到原文必须按截断处理')
+
   console.log(`self-test: 全绿(${cases} 组断言)`)
 }
 
@@ -594,7 +653,7 @@ function main(argv) {
   }
 
   const ledger = readLedger()
-  const built = buildCandidates({ rows, policy, ledger })
+  const built = buildCandidates({ rows, policy, ledger, planLines: readPlanLines() })
   const doc = buildDocument({ candidates: built.candidates, generatedAt: built.generatedAt, policy, rowCount: rows.length })
 
   // 空面:合法事实,但空候选文件会让决策器判"候选为空 ⇒ 未判定",故不落盘(保留上一轮文件)。
