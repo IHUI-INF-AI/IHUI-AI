@@ -168,9 +168,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 3,
-      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: UserInfoCard diffCount=3(onlyMiniapp=0 / onlyRn=3)"
+      "count": 4,
+      "reason": "两端盒档读数仍有差;4 枚全属 RN 独有元素(等级说明弹窗):6=tokenRow/growthRow/inviteRow 的 paddingVertical、18=modalTitle 的 rnType.subtitle.size、24=modalCard 的 rnSpacing.xl、32=avatarFallbackText 的 initials 字号。小程序端的等级说明由 VipBenefitsPopup 承载(组件里只有 onOpenLevel 回调,无弹窗层),结构上没有这些节点;补数字等于往屏上加节点。本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json(2026-11-02 Phase 3,几何维识别 rnType/rnSpacing 引用后):UserInfoCard diffCount=4(onlyMiniapp=0 / onlyRn=[6,18,24,32]);RN 腿 apps/mobile-rn/src/components/UserInfoCard.tsx 的 modalCard/modalTitle/avatarFallbackText;小程序腿 apps/miniapp-taro/src/components/UserInfoCard.tsx 无 Modal 节点(pages/user/index.tsx:950 onOpenLevel → VipBenefitsPopup)"
     },
     {
       "component": "UserInfoCard",
