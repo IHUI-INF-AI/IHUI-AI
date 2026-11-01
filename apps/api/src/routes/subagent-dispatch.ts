@@ -617,12 +617,20 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ---------- GET /subagents/active ----------
-
+  // S-ACTIVE(2026-11-01)收口:原实现直接 `listActive()` 全量返回 —— 记录上带 ownerUserId 之后,
+  // 这就是跨租户读(A 的 pending/running 派单连同 goal/constraints/deliverables 一起给对方看)。
+  // 修法与 /all **同源**:复用 isDispatchVisibleTo,不另写一份(§22c)。
+  // 语义不动:活跃集仍只 pending/running(由 service.listActive 提供),这里只加可见性一层。
+  // 过滤放在路由而**不是** service.listActive —— 后者还是并发上限(dispatch/_tryPreempt)的计数口径,
+  // 按租户过滤会变成"每人 3 个并发"的隐性变更(越权票不承担该语义变更)。
   server.get('/subagents/active', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const dispatches = subagentDispatchService.listActive()
+    const dispatches = subagentDispatchService
+      .listActive()
+      .filter((d) => isDispatchVisibleTo(d, userId))
     return reply.send(success({ dispatches }))
   })
 
