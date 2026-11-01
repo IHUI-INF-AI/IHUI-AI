@@ -259,18 +259,33 @@ export function scanDuplicateDefinitions(text, ext) {
     )
       return
     if (l !== t) return // 只认第 0 列(有缩进即非顶层)
-    for (const re of patterns) {
-      const m = re.exec(l)
+    for (let pi = 0; pi < patterns.length; pi++) {
+      const m = patterns[pi].exec(l)
       if (m) {
         if (!seen.has(m[1])) seen.set(m[1], [])
-        seen.get(m[1]).push(idx + 1)
+        seen
+          .get(m[1])
+          .push({
+            line: idx + 1,
+            body: /\)\s*(?::[^)]*)?\{/.test(t) || /\{\s*\}\s*$/.test(t),
+            fn: pi === 0,
+          })
         break
       }
     }
   })
   const dups = []
-  for (const [name, ln] of seen) {
-    if (ln.length >= 2) dups.push({ name, lines: ln })
+  for (const [name, entries] of seen) {
+    if (entries.length < 2) continue
+    // TS 重载族的合法形状:若干条**不带实现体**的签名 + 恰一条带体,且带体那枚排在最后。
+    // 本臂要拦的是旁路合并把两侧各自重写的同名族一起送进 HEAD(两份都带体 = 真重复),
+    // 2026-11-01 实测误伤面:apps/miniapp-taro/src/rn-compat/primitives.tsx 的 `View`
+    // 重载族(2 条签名 + 1 条实现)被判成重复定义 ⇒ 防御臂对合法语法狼来了,真双份反而没人信它。
+    // 只对 JS/TS 的 function 档开这一格:class 与 const/let 同名两枚一律照旧判重。
+    const allFn = entries.every((e) => e.fn)
+    const bodies = entries.filter((e) => e.body)
+    if (allFn && bodies.length === 1 && entries[entries.length - 1].body) continue
+    dups.push({ name, lines: entries.map((e) => e.line) })
   }
   dups.sort((a, b) => a.lines[0] - b.lines[0])
   return dups
