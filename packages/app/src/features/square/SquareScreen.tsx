@@ -21,7 +21,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
 import type { ArticleItem, CategoryItem } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -235,9 +235,9 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     } as ViewStyle,
     navTitle: {
       fontSize: 20,
@@ -245,8 +245,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     listContent: {
-      paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
     } as ViewStyle,
     itemGap: {
       height: 12,
@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
     // 卡片
     card: {
       borderRadius: rnRadius.lg,
-      padding: 12,
+      padding: rnSpacing.md,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -264,12 +264,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     content: {
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
     } as ViewStyle,
     categoryBadge: {
       alignSelf: 'flex-start',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
       borderWidth: 1,
@@ -295,12 +295,12 @@ function createStyles(tk: AppThemeTokens) {
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginTop: 4,
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.xs,
     } as ViewStyle,
     authorBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
       borderWidth: 1,
@@ -321,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 12,
       lineHeight: 14,
       color: tk.text.tertiary,
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
     } as TextStyle,
 
     // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
