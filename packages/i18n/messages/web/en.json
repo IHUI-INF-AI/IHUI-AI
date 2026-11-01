@@ -9405,6 +9405,50 @@
         "invalid_arguments": {
           "title": "The submitted information is invalid",
           "action": "Check it and retry"
+        },
+        "ADVISOR_BUDGET_EXHAUSTED": {
+          "title": "This session has used up its advisor consultations",
+          "action": "Continue in a new session, or ask an admin to raise the advisor limit"
+        },
+        "ADVISOR_IDENTITY_REQUIRED": {
+          "title": "The advisor request has no owner or session identity",
+          "action": "Sign in again before consulting the advisor"
+        },
+        "ADVISOR_MODEL_UNAVAILABLE": {
+          "title": "The selected advisor model could not be called",
+          "action": "Pick another model or retry later"
+        },
+        "ADVISOR_PROMPT_EMPTY": {
+          "title": "The advisor prompt is empty",
+          "action": "Add the question you want advice on and retry"
+        },
+        "ADVISOR_PROMPT_TOO_LONG": {
+          "title": "The advisor prompt exceeds the length limit",
+          "action": "Shorten or split the question, then consult again"
+        },
+        "BAD_MAX_TOKENS": {
+          "title": "maxTokens is not an integer",
+          "action": "Set maxTokens to a positive integer and render the tree again"
+        },
+        "INSTANCE_NOT_VISIBLE": {
+          "title": "Workflow instance not found or not visible to you",
+          "action": "Check the instance ID, or switch to the account that owns it"
+        },
+        "PRINCIPAL_REQUIRED": {
+          "title": "Caller identity missing, so controlling another device was refused",
+          "action": "Sign in again and re-run the action from your own session"
+        },
+        "RENDER_FAILED": {
+          "title": "Rendering the directory tree failed",
+          "action": "Narrow the folder scope or lower maxTokens, then retry"
+        },
+        "SCHEDULER_ERROR": {
+          "title": "The scheduled task list could not be read",
+          "action": "Retry later; if it keeps failing, ask an admin to check the scheduler"
+        },
+        "WORKFLOW_NOT_TRIGGERABLE": {
+          "title": "This workflow cannot be triggered right now",
+          "action": "Confirm it exists, is enabled and has no running instance, then retry"
         }
       },
       "worktree": {
