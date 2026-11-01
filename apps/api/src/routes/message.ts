@@ -697,12 +697,36 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const userId = request.userId!
+      // 2026-11-01 字段投影:原 SQL 仅回 DISTINCT peer_id,端上只能拿 ID 当昵称占位。
+      // 现补充 peer 昵称/头像、最后一条私信(内容+时间)、未读数,均为只读 SELECT 投影,
+      // 不改表结构;peer_id 之外的键为增量字段,旧消费方不受影响。
       const rows = await db.execute(
-        sql`SELECT DISTINCT
-        CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END AS peer_id
-      FROM message_private_letter
-      WHERE sender_id = ${userId} OR receiver_id = ${userId}
-      ORDER BY peer_id`,
+        sql`WITH conv AS (
+        SELECT CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END AS peer_id
+        FROM message_private_letter
+        WHERE sender_id = ${userId} OR receiver_id = ${userId}
+        GROUP BY peer_id
+      )
+      SELECT
+        c.peer_id,
+        u.nickname AS peer_nickname,
+        u.avatar AS peer_avatar,
+        m.content AS last_message,
+        m.created_at AS last_message_time,
+        COALESCE((
+          SELECT COUNT(*)::int FROM message_private_letter r
+          WHERE r.receiver_id = ${userId} AND r.sender_id = c.peer_id AND r.is_read = false
+        ), 0) AS unread_count
+      FROM conv c
+      LEFT JOIN users u ON u.id::text = c.peer_id
+      LEFT JOIN LATERAL (
+        SELECT l.content, l.created_at FROM message_private_letter l
+        WHERE (l.sender_id = ${userId} AND l.receiver_id = c.peer_id)
+           OR (l.sender_id = c.peer_id AND l.receiver_id = ${userId})
+        ORDER BY l.id DESC
+        LIMIT 1
+      ) m ON true
+      ORDER BY m.created_at DESC NULLS LAST`,
       )
       return reply.send(success({ list: rows as Record<string, unknown>[] }))
     },
