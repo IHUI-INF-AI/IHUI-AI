@@ -12,7 +12,7 @@ import {
   type NewAiGeneratedQuestion,
 } from '@ihui/database'
 import { db } from '../db/index.js'
-import { requireAuth } from '../plugins/require-permission.js'
+import { isSystemAdmin, requireAuth } from '../plugins/require-permission.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { success, error } from '../utils/response.js'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
@@ -64,6 +64,15 @@ const reviewSchema = z.object({
   teacherReview: z.string().min(1, '复核意见不能为空').max(2000),
   status: z.enum(['approved', 'rejected'], { error: '无效的复核状态' }),
 })
+
+/**
+ * 管理员(教师面)判定 —— 复用 `plugins/require-permission` 的角色判据出口,
+ * 不在本文件另写一份 roleId 比较。`includeInternalChannel: false`:内部服务
+ * token 链路只用于 RBAC 权限点豁免,不得在此升格为"看/改全站数据"。
+ */
+function isAdminViewer(request: FastifyRequest): boolean {
+  return isSystemAdmin(request, { includeInternalChannel: false })
+}
 
 // =============================================================================
 // LLM 工具
@@ -242,6 +251,10 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
     }
     const { page, pageSize, subject, chapter, questionType } = parsed.data
 
+    // 说明(2026-11-01 安全强化):本列表**保持全量可读**是已知且刻意保留的口径 —
+    // ai_generated_question 带 quality/humanReview(人工审核流程),createdBy 可空且
+    // ON DELETE SET NULL(题目不随作者消失),是"共享题库"而非个人草稿。
+    // 写操作(删除)已按 createdBy 收紧,读语义待产品确认后再定。
     const conds: SQL[] = []
     if (subject) conds.push(eq(aiGeneratedQuestion.subject, subject))
     if (chapter) conds.push(eq(aiGeneratedQuestion.chapter, chapter))
@@ -276,10 +289,16 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const deleted = await db
-        .delete(aiGeneratedQuestion)
-        .where(eq(aiGeneratedQuestion.id, parsed.data.id))
-        .returning()
+      // 归属闸(2026-11-01):此前只按 id 删 ⇒ 任意登录用户可删他人 AI 生成的题目。
+      // 非管理员必须命中 created_by = 当前用户;不命中 = 0 行 = 404,
+      // 不区分"不存在"与"不归你",避免泄露他人题目是否存在。
+      const ownScope = isAdminViewer(request)
+        ? eq(aiGeneratedQuestion.id, parsed.data.id)
+        : and(
+            eq(aiGeneratedQuestion.id, parsed.data.id),
+            eq(aiGeneratedQuestion.createdBy, request.userId!),
+          )
+      const deleted = await db.delete(aiGeneratedQuestion).where(ownScope).returning()
       if (!deleted[0]) {
         return reply.status(404).send(error(404, '题目不存在'))
       }
@@ -402,6 +421,10 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
 
     const conds: SQL[] = []
     if (status) conds.push(eq(aiGradingRecord.status, status))
+    // 归属过滤(2026-11-01):批改记录是学生本人的答题 + AI 评分,此前只有 status
+    // 过滤 ⇒ 任意登录用户可分页拉走全站学生的答案与评语。非管理员只看自己的
+    // (student_id);管理员(教师面)保留全量,复核和统计口径不变。
+    if (!isAdminViewer(request)) conds.push(eq(aiGradingRecord.studentId, request.userId!))
     const where = conds.length > 0 ? and(...conds) : undefined
 
     const joinQuestion = sql`COALESCE(${aiGeneratedQuestion.questionText}, ${examQuestions.title}, '')`
@@ -456,6 +479,15 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
       if (!bodyParsed.success) {
         return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
+      // 归属闸(2026-11-01):复核此前只按 id 改 ⇒ 任意登录用户可替他人在别人的
+      // 批改记录上落 teacherReview/status。非管理员必须命中 student_id = 当前用户;
+      // 不命中 = 0 行 = 404,与"记录不存在"同形。
+      const ownScope = isAdminViewer(request)
+        ? eq(aiGradingRecord.id, idParsed.data.id)
+        : and(
+            eq(aiGradingRecord.id, idParsed.data.id),
+            eq(aiGradingRecord.studentId, request.userId!),
+          )
       const updated = await db
         .update(aiGradingRecord)
         .set({
@@ -463,7 +495,7 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
           status: bodyParsed.data.status,
           updatedAt: new Date(),
         })
-        .where(eq(aiGradingRecord.id, idParsed.data.id))
+        .where(ownScope)
         .returning()
       if (!updated[0]) {
         return reply.status(404).send(error(404, '批改记录不存在'))

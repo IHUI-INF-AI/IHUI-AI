@@ -7,6 +7,47 @@ import fp from 'fastify-plugin'
 import { randomUUID } from 'node:crypto'
 
 /**
+ * 请求日志的 URL 收窄 —— **只留 path,丢弃 query**。
+ *
+ * 病灶:`/api/ws/ai?token=<WS 票>`、`/v1/realtime?api_key=<key>` 这些凭据走 query
+ * 传递;Fastify 默认的 `req` 序列化器(pino `stdSerializers.req`)会把 `req.url`
+ * 原样写进 "incoming request" 日志。票 5 分钟、token 15 分钟内都能被重放,
+ * 日志一旦外发(运维收集 / 日志平台 / 工单粘贴)= 凭据外发。
+ *
+ * 为什么不用 `redact.paths: ['req.url']`:那是整字段打码,排障最需要的 path 也一起没了。
+ * 这里只切掉 `?` 之后的部分:method + path + status + 耗时仍然齐全。
+ *
+ * 为什么住在 trace.ts:server.ts 的 loggerConfig 与 trace 插件的两条日志必须用
+ * **同一个**函数,而 server.ts 已经 import 本文件(tracePlugin),反向不成立 ——
+ * 放在这里不会新增模块依赖边,也不需要再建一个只为切字符串的叶子文件。
+ */
+export function requestUrlPath(url: string | undefined | null): string {
+  if (!url) return ''
+  const queryIndex = url.indexOf('?')
+  const withoutQuery = queryIndex === -1 ? url : url.slice(0, queryIndex)
+  const hashIndex = withoutQuery.indexOf('#')
+  return hashIndex === -1 ? withoutQuery : withoutQuery.slice(0, hashIndex)
+}
+
+/** Fastify `logger.serializers.req` 的最小形状约束(只声明用到的两个字段)。 */
+export interface RequestLogInput {
+  method?: string
+  url?: string
+}
+
+/**
+ * `loggerConfig.serializers.req`:覆盖 Fastify 默认的 `req` 序列化器。
+ * 只保留 method + path,不再输出 host/remoteAddress(需要来源 IP 的排障走 error_log
+ * 或访问日志,那里不涉及请求 query)。
+ */
+export function requestLogSerializer(request: RequestLogInput): {
+  method: string | undefined
+  url: string
+} {
+  return { method: request.method, url: requestUrlPath(request.url) }
+}
+
+/**
  * Trace 中间件 — 为每个 API 请求生成 trace context,记录端到端调用链。
  *
  * 轻量级实现(不引入 @opentelemetry/api,与 otel.ts 互补):
@@ -72,7 +113,9 @@ const tracePluginInner: FastifyPluginAsync = async (server: FastifyInstance) => 
         parentSpanId: request.trace.parentSpanId,
         endpoint: 'api',
         method: request.method,
-        url: request.url,
+        // 2026-11-01:只记 path。原来记整条 request.url(query 带 WS 票 / access token /
+        // api_key),而相对 URL 当时不在 redactUrl 的覆盖范围内 ⇒ 凭据原样落盘。
+        url: requestUrlPath(request.url),
         statusCode: reply.statusCode,
         durationMs: duration,
         status,
@@ -92,7 +135,7 @@ const tracePluginInner: FastifyPluginAsync = async (server: FastifyInstance) => 
         // 2026-10-30 补:onError 原本只记 message,线上出现每小时 240 条
         // "Cannot write headers after they are sent" 却无法定位是哪条请求 —— 补方法+URL。
         method: request.method,
-        url: request.url,
+        url: requestUrlPath(request.url),
         error: error.message,
       },
       'trace error',

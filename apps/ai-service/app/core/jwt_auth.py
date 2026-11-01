@@ -5,7 +5,7 @@
 """JWT 验证中间件。
 
 与 apps/api 共享 JWT_SECRET，验证 access token 的签名与过期时间。
-未配置 jwt_secret 时跳过验证（开发环境降级）。
+未配置 jwt_secret 时**默认拒绝服务**;仅当显式开启 AI_DEV_NO_AUTH=1 才跳过验证(本地开发)。
 """
 
 import logging
@@ -109,7 +109,8 @@ PUBLIC_PATHS = _resolve_public_paths(settings.jwt_public_paths)
 class JWTAuthMiddleware(BaseHTTPMiddleware):
     """验证 Authorization: Bearer <token> 的 JWT 签名。
 
-    - 未配置 jwt_secret 时跳过（开发环境）
+    - 未配置 jwt_secret 且显式开启 AI_DEV_NO_AUTH=1 时跳过(仅本地开发)
+    - 未配置 jwt_secret 且未开启开关 ⇒ 500 fail-closed(不再按 node_env 推导)
     - 白名单路径跳过（health/metrics/legacy）
     - 验证失败返回 401
     - 验证成功将 userId/roleId 注入 request.state
@@ -119,13 +120,15 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         if not settings.jwt_secret:
-            # 生产环境 fail-fast:jwt_secret 为空是严重配置错误,拒绝所有请求
-            # 开发环境(node_env == "development")允许跳过验证
-            if settings.node_env == "development":
+            # 2026-11-01 安全强化(高危):缺 secret 不再按 node_env 推导放行。
+            # 只有显式开关(AI_DEV_NO_AUTH=1)才允许跳过;否则 fail-closed 拒绝服务。
+            if dev_auth_bypass_enabled():
+                logger.warning(
+                    "[security] JWT_SECRET 未配置且 AI_DEV_NO_AUTH=1 —— 本进程跳过鉴权(仅限本地开发)"
+                )
                 return await call_next(request)
             logger.error(
-                "[security] JWT_SECRET 未配置但 node_env=%s,拒绝请求(fail-closed)",
-                settings.node_env,
+                "[security] JWT_SECRET 未配置且未显式开启 AI_DEV_NO_AUTH,拒绝请求(fail-closed)"
             )
             return JSONResponse(
                 status_code=500,
@@ -237,6 +240,21 @@ def _bind_inbound_user_header(request: Request, user_id: str | None) -> None:
             raw_headers[index] = (b"x-user-id", encoded)
 
 
+def dev_auth_bypass_enabled() -> bool:
+    """是否允许"整站不做鉴权"—— 唯一判据(2026-11-01 安全强化,高危)。
+
+    此前中间件按 `jwt_secret 为空 + node_env == "development"` 推导放行,`auth_globally_enforced`
+    与 `require_request_user_id` 又各自按同一对条件复算 ⇒ "缺一个 secret"等于"关掉鉴权 +
+    全站单一 dev 身份",归属隔离整条失效。
+
+    现在的规则:
+      · `AI_DEV_NO_AUTH=1` 是唯一开关(默认关);
+      · 且 `JWT_SECRET` 为空(配了真实密钥就照样验签 —— 开关不是"跳过验签"的后门);
+      · `node_env` 不再参与判定(它只是文档开关/部署标识,不再能单独把鉴权关掉)。
+    """
+    return bool(getattr(settings, "ai_dev_no_auth", False)) and not bool(settings.jwt_secret)
+
+
 async def get_current_user_id(request: Request) -> str:
     """FastAPI 依赖项：获取当前用户 ID。"""
     user_id = getattr(request.state, "user_id", None)
@@ -275,7 +293,7 @@ DEV_ANONYMOUS_PRINCIPAL = "dev-anonymous"
 
 def auth_globally_enforced() -> bool:
     """本进程是否真的在做 JWT 校验(与中间件 dispatch 的早退条件严格互补)。"""
-    return bool(settings.jwt_secret) or settings.node_env != "development"
+    return not dev_auth_bypass_enabled()
 
 
 def resolve_request_user_id(request: Request) -> str | None:
