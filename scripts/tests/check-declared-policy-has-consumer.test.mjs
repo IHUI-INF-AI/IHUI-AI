@@ -64,8 +64,14 @@ test('T1 §22c 锚点:__test__ 必须导出核心判据且 skipEnv 命名在位'
   for (const k of ['HF_SRC', 'HF_TYPE', 'HF_CONSUMER', 'HF_NOISE', 'HF_DECL_FILE', 'HF_USE_FILE']) {
     assert.ok(k in gate.FIXTURES, `FIXTURES 缺 C7 夹具:${k}`)
   }
-  assert.ok(gate.inScanRoot(gate.FIXTURES.HF_DECL_FILE), 'C7 声明夹具路径不在扫描根 ⇒ 该族所有断言恒绿')
-  assert.ok(gate.inScanRoot(gate.FIXTURES.HF_USE_FILE), 'C7 消费者夹具路径不在扫描根 ⇒ 接线侧断言恒绿')
+  assert.ok(
+    gate.inScanRoot(gate.FIXTURES.HF_DECL_FILE),
+    'C7 声明夹具路径不在扫描根 ⇒ 该族所有断言恒绿',
+  )
+  assert.ok(
+    gate.inScanRoot(gate.FIXTURES.HF_USE_FILE),
+    'C7 消费者夹具路径不在扫描根 ⇒ 接线侧断言恒绿',
+  )
   // default 链夹具(2026-11-01)同规格:单一实现 + 两条路径都必须在扫描根内。
   for (const k of [
     'DEF_DECL_FILE',
@@ -230,7 +236,7 @@ test('T7 runner 装车前置:未注册 ⇒ 绿并如实报"未装车";一旦注�
   )
   // 成对反向锁:①注释里 quoting id 不得算撞号;②真注册撞号不得被这条锁放过。
   const CONTROL = [
-    "  // 编号 900:注册前已核 `grep -n \"id: '900'\"` 为空(未被占用);现值以本文件为准。",
+    '  // 编号 900:注册前已核 `grep -n "id: \'900\'"` 为空(未被占用);现值以本文件为准。',
     "  { id: '900', script: 'a.mjs' },",
     "  { id: '901', script: 'b.mjs' },",
   ].join('\n')
@@ -249,7 +255,7 @@ test('T8 --self-test 真跑且**连跑两次**皆 rc=0(只能跑一次的取证�
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     assert.equal(
@@ -265,13 +271,18 @@ test('T8 --self-test 真跑且**连跑两次**皆 rc=0(只能跑一次的取证�
 
 const LEX_KEYS = { chat: { hi: '你好', bye: '再见' }, items: { count: '条数' } }
 const lexMap = () =>
-  new Map(gate.LEX_LANGS.map((L) => [`packages/i18n/messages/web/${L}.json`, JSON.stringify(LEX_KEYS)]))
+  new Map(
+    gate.LEX_LANGS.map((L) => [`packages/i18n/messages/web/${L}.json`, JSON.stringify(LEX_KEYS)]),
+  )
 
 test('T9 C6 i18n 三验收(G-816043):零发射必报、发射齐必绿、动态只报数不静默;伪调用不可见', () => {
   // 验收①:五语言都有值、全仓无发射点 ⇒ 报未接线,按面板归 en.json 计数
-  const off = gate.judge(new Map([['apps/web/src/a.tsx', 'export function B(): number { return 1 }\n']]), {
-    lexicon: lexMap(),
-  })
+  const off = gate.judge(
+    new Map([['apps/web/src/a.tsx', 'export function B(): number { return 1 }\n']]),
+    {
+      lexicon: lexMap(),
+    },
+  )
   assert.equal(off.i18n.byFolder.web.keys, 3)
   assert.equal(off.i18n.byFolder.web.unwired, 3)
   assert.equal(off.perFile['packages/i18n/messages/web/en.json'], 3)
@@ -301,15 +312,22 @@ test('T9 C6 i18n 三验收(G-816043):零发射必报、发射齐必绿、动态�
   // C6 第二族:import { t } from i18n 家族 ⇒ 根 ns 全键直发(cli/miniapp 真实形状)
   const imp = gate.judge(
     new Map([
-      ['apps/cli/src/run.ts', "import { t } from '../i18n/index.js'\nexport function M(): string { return t('chat.hi') }\n"],
+      [
+        'apps/cli/src/run.ts',
+        "import { t } from '../i18n/index.js'\nexport function M(): string { return t('chat.hi') }\n",
+      ],
     ]),
     { lexicon: lexMap() },
   )
   assert.equal(imp.i18n.emitted, 1)
-  assert.equal(imp.i18n.byFolder.web.unwired, 2, 'import 的 t(全键) 必须接线,否则 cli 面板是假 100% 孤儿')
+  assert.equal(
+    imp.i18n.byFolder.web.unwired,
+    2,
+    'import 的 t(全键) 必须接线,否则 cli 面板是假 100% 孤儿',
+  )
   // C6 第三族:静态键表(NAV_LABEL_KEY 治理模式,d72e9ccf42)⇒ 表索引调用把表内全键接线
   const tabSrc =
-    'const t = useTranslations()\nconst CHAT_LABEL_KEY: Record<string, string> = {\n  hi: \'chat.hi\',\n  bye: \'chat.bye\',\n}\nexport function L(x: string): string { return t(CHAT_LABEL_KEY[x]) }\n'
+    "const t = useTranslations()\nconst CHAT_LABEL_KEY: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return t(CHAT_LABEL_KEY[x]) }\n"
   const tab = gate.judge(new Map([['apps/web/src/a.tsx', tabSrc]]), { lexicon: lexMap() })
   assert.equal(tab.i18n.emitted, 2, '表内两个键都必须算发射')
   assert.equal(tab.i18n.dynamic, 0, '认得出表不得再计动态')
@@ -362,8 +380,13 @@ test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 
   const dir = mkScratch('g121-i18n-')
   try {
     const git = (args) =>
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] })
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      spawnSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
     assert.equal(git(['init', '-q']).status, 0)
     assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
     assert.equal(git(['config', 'user.name', 'gate']).status, 0)
@@ -385,7 +408,7 @@ test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe'],
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       })
     // 情形 A:staged 只接线 bye ⇒ staged 未接线 0 < HEAD 锚点 1 ⇒ 绿
@@ -413,7 +436,11 @@ test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 
       1,
       `情形 B(码表加无主键)应红 rc=${red.status}\n${red.stdout?.slice(-800)}${red.stderr?.slice(-800)}`,
     )
-    assert.match(String(red.stderr), /packages\/i18n\/messages\/web\/en\.json/, '红点名必须落在 en.json 计数上')
+    assert.match(
+      String(red.stderr),
+      /packages\/i18n\/messages\/web\/en\.json/,
+      '红点名必须落在 en.json 计数上',
+    )
     assert.match(String(red.stderr), /orphan\.b/, '红点名必须给出样例键')
   } finally {
     rmScratch(dir)
@@ -436,22 +463,41 @@ test('T11 C7 工厂族四验收:命中必红/接线必绿/同词不同义不立�
     [3, 3, 3],
     '三个读得出是工厂的导出声明必须全部立案并报零消费者',
   )
-  assert.deepEqual(
-    off.unwired.map((u) => u.name).sort(),
-    ['createBarTransport', 'createBazHandler', 'createFooHandler'],
-  )
+  assert.deepEqual(off.unwired.map((u) => u.name).sort(), [
+    'createBarTransport',
+    'createBazHandler',
+    'createFooHandler',
+  ])
   // ② 反向锁(定级不升):形状读不出只报数,既不立案也不进 exit 2(§12e 恒红陷阱)
-  assert.deepEqual(off.factory.unreadable, [`${HF_DECL_FILE}:5 createLooseHandler`], '读不出形态的必须逐条点名')
+  assert.deepEqual(
+    off.factory.unreadable,
+    [`${HF_DECL_FILE}:5 createLooseHandler`],
+    '读不出形态的必须逐条点名',
+  )
   assert.equal(off.undetermined.length, 0, '形状读不出不得伪装成"无法判定"')
-  assert.equal(gate.decide({ stagedCounts: off.perFile, mode: 'full' }).exit, 0, '全量档对存量只报数')
+  assert.equal(
+    gate.decide({ stagedCounts: off.perFile, mode: 'full' }).exit,
+    0,
+    '全量档对存量只报数',
+  )
   // ③ 接线必绿 + 只 import 不取用照旧红(新族不是恒真摆设)
   const on = gate.judge(new Map([decl, [HF_USE_FILE, HF_CONSUMER]]))
-  assert.deepEqual(on.factory.unwired, [`${HF_DECL_FILE}:3 createBazHandler`], '真取用的两支必须转绿,只 import 不取用的那支必须仍红')
+  assert.deepEqual(
+    on.factory.unwired,
+    [`${HF_DECL_FILE}:3 createBazHandler`],
+    '真取用的两支必须转绿,只 import 不取用的那支必须仍红',
+  )
   // ④ 注释里的提及不算消费者(票面验收②,复用守门 115 那条口径 = 本门既有遮噪面)
   const noise = gate.judge(new Map([decl, [HF_USE_FILE, HF_NOISE]]))
-  assert.deepEqual(noise.factory.unwired.sort(), off.factory.unwired.sort(), '注释/字符串里的提及不得让任何一支转绿')
+  assert.deepEqual(
+    noise.factory.unwired.sort(),
+    off.factory.unwired.sort(),
+    '注释/字符串里的提及不得让任何一支转绿',
+  )
   // ⑤ 同词不同义(票面"不得按名字一律算候选"):与工厂**完全同名**的 type/接口字段/class 不立案
-  const sameName = gate.judge(new Map([['apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts', HF_TYPE]]))
+  const sameName = gate.judge(
+    new Map([['apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts', HF_TYPE]]),
+  )
   assert.deepEqual(
     [sameName.scanned, sameName.candidates.length, sameName.factory.candidates],
     [1, 0, 0],
@@ -460,19 +506,37 @@ test('T11 C7 工厂族四验收:命中必红/接线必绿/同词不同义不立�
   // ⑥ 形状三态落在 parseFile 的同一份遮噪面上(不是第二台词法器)
   const shapes = gate.parseFile(HF_DECL_FILE, HF_SRC).decls.map((d) => d.shape)
   assert.deepEqual(shapes, ['factory', 'factory', 'factory', 'not-factory', 'unknown'])
-  assert.ok(shapes.every((s) => gate.DECL_SHAPES.includes(s)), '出现了 DECL_SHAPES 之外的形状值')
+  assert.ok(
+    shapes.every((s) => gate.DECL_SHAPES.includes(s)),
+    '出现了 DECL_SHAPES 之外的形状值',
+  )
   // ⑦ 集合推导失败 ⇒ 未判定(取不到内容不得折成"该族 0 候选 = 绿")
   const blind = gate.judge(new Map([[HF_DECL_FILE, null]]), { face: 'head' })
   assert.equal(blind.undetermined.length, 1, '取不到内容必须逐条点名')
   assert.equal(blind.factory.candidates, 0)
   assert.equal(
-    gate.decide({ stagedCounts: blind.perFile, mode: 'full', undetermined: blind.undetermined }).exit,
+    gate.decide({ stagedCounts: blind.perFile, mode: 'full', undetermined: blind.undetermined })
+      .exit,
     2,
     '未判定必须落 exit 2,绝不记绿',
   )
   // ⑧ 新族并入同一条棘轮(新增即拦、齐平不红)
-  assert.equal(gate.decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 2 }, mode: 'staged' }).exit, 1)
-  assert.equal(gate.decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 3 }, mode: 'staged' }).exit, 0)
+  assert.equal(
+    gate.decide({
+      stagedCounts: { [HF_DECL_FILE]: 3 },
+      headCounts: { [HF_DECL_FILE]: 2 },
+      mode: 'staged',
+    }).exit,
+    1,
+  )
+  assert.equal(
+    gate.decide({
+      stagedCounts: { [HF_DECL_FILE]: 3 },
+      headCounts: { [HF_DECL_FILE]: 3 },
+      mode: 'staged',
+    }).exit,
+    0,
+  )
 })
 
 /**
@@ -635,11 +699,62 @@ test('T14 default 链端到端(--staged 临时仓):撤掉 default 取用即红�
  * (2026-11-01 本票重写 T13/T14 时误吞了原 T12 的 test() 头,导致这一整块成为孤儿代码
  * —— 语法仍解析、`node --test` 一条都不跑,原 C7 三情形端到端腿静默失活;此处补回声明头。)
  */
+// ---------------------------------------------------------------- C6 第四族:静态前缀+变量拼接(2026-11-01)
+
+const LEX_CONCAT = new Map(
+  gate.LEX_LANGS.map((L) => [
+    `packages/i18n/messages/web/${L}.json`,
+    JSON.stringify({ chat: { hi: 'a', dyn: { title: 't' } } }),
+  ]),
+)
+
+test('T16 C6 第四族拼接前缀:const 前缀接线必绿 / 不可求值前缀照旧动态 / 变异对照退回红', () => {
+  // 夹具只有一份实现(§22c):接线形态夹具从源脚本 FIXTURES 取,测试内不重抄
+  const ON = gate.FIXTURES.CONCAT_ON
+  assert.ok(ON && /const NS = 'dyn'/.test(ON), 'FIXTURES 缺拼接前缀夹具')
+  const files = new Map([['apps/web/src/a.tsx', ON]])
+  // 接线面:前缀 chat.dyn. 覆盖子键,只剩 chat.hi 未接线
+  const wired = gate.judge(files, { lexicon: LEX_CONCAT })
+  assert.deepEqual(
+    [wired.i18n.dynamic, wired.i18n.byFolder.web.unwired],
+    [0, 1],
+    '静态前缀+变量拼接必须产出前缀覆盖(改前整条判动态 ⇒ 11753 型假阳性的主根因)',
+  )
+  assert.deepEqual(wired.i18n.byFolder.web.samples, ['chat.hi'])
+  // 未接线面:前缀标识符无 const 定义 ⇒ 不认、计动态、不静默盖键(方向恒为漏报不假绿)
+  const off = gate.judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function K(x: string): string { return t(JUNK + '.' + x) }\n",
+      ],
+    ]),
+    { lexicon: LEX_CONCAT },
+  )
+  assert.deepEqual(
+    [off.i18n.dynamic, off.i18n.byFolder.web.unwired],
+    [1, 2],
+    '读不出静态前缀 ⇒ 照旧动态,一个键都不许被静默盖掉',
+  )
+  // 变异对照:关掉新识别 ⇒ 已接线夹具必须从绿退回红(新分支不是恒真摆设)
+  const mutated = gate.judge(files, { lexicon: LEX_CONCAT, mutate: 'no-concat-prefix' })
+  assert.deepEqual(
+    [mutated.i18n.dynamic, mutated.i18n.byFolder.web.unwired],
+    [1, 2],
+    'mutate=no-concat-prefix 仍绿 ⇒ 第四族识别是摆设',
+  )
+})
+
 test('T15 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零消费者工厂红且点名、补上消费者复绿', () => {
   const dir = mkScratch('g121-c7-')
   try {
     const git = (args) =>
-      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] })
+      spawnSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
     assert.equal(git(['init', '-q']).status, 0)
     assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
     assert.equal(git(['config', 'user.name', 'gate']).status, 0)
@@ -675,23 +790,39 @@ test('T15 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零�
     writeDecl('// 本轮只动注释,未新增工厂')
     assert.equal(git(['add', '-A']).status, 0)
     const flat = runGate()
-    assert.equal(flat.status, 0, `齐平应当绿 rc=${flat.status}\n${flat.stdout?.slice(-700)}${flat.stderr?.slice(-700)}`)
+    assert.equal(
+      flat.status,
+      0,
+      `齐平应当绿 rc=${flat.status}\n${flat.stdout?.slice(-700)}${flat.stderr?.slice(-700)}`,
+    )
     // B. 新增一个零生产调用方的工厂 ⇒ 2 > 锚点 1 ⇒ 红,且点名该文件与该工厂
-    writeDecl("export function createQuxHandler(): unknown { return 3 }\nexport let createLooseHandler")
+    writeDecl(
+      'export function createQuxHandler(): unknown { return 3 }\nexport let createLooseHandler',
+    )
     assert.equal(git(['add', '-A']).status, 0)
     const red = runGate()
-    assert.equal(red.status, 1, `新增零消费者工厂应当红 rc=${red.status}\n${red.stdout?.slice(-700)}${red.stderr?.slice(-700)}`)
+    assert.equal(
+      red.status,
+      1,
+      `新增零消费者工厂应当红 rc=${red.status}\n${red.stdout?.slice(-700)}${red.stderr?.slice(-700)}`,
+    )
     assert.match(String(red.stderr), /stream-handlers\.ts/, '红必须点名声明文件')
     assert.match(String(red.stderr), /createQuxHandler/, '红必须点名新增的工厂')
     // C. 把它接到生产面 ⇒ 回到锚点 ⇒ 复绿(证明判据不是恒红摆设,也证明"读得出形状"才接线)
-    writeDecl("export function createQuxHandler(): unknown { return 3 }\nexport let createLooseHandler")
+    writeDecl(
+      'export function createQuxHandler(): unknown { return 3 }\nexport let createLooseHandler',
+    )
     writeFileSync(
       BOOT,
       "import { createFooHandler, createBazHandler, createQuxHandler } from './stream-handlers.js';\nexport function boot(): unknown { return createFooHandler() }\nexport function boot2(): unknown { return createBazHandler() }\nexport function boot3(): unknown { return createQuxHandler() }\n",
     )
     assert.equal(git(['add', '-A']).status, 0)
     const wired = runGate()
-    assert.equal(wired.status, 0, `补上消费者应当复绿 rc=${wired.status}\n${wired.stdout?.slice(-700)}${wired.stderr?.slice(-700)}`)
+    assert.equal(
+      wired.status,
+      0,
+      `补上消费者应当复绿 rc=${wired.status}\n${wired.stdout?.slice(-700)}${wired.stderr?.slice(-700)}`,
+    )
   } finally {
     rmScratch(dir)
   }
