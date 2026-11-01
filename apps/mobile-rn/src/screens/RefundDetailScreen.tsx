@@ -14,6 +14,34 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'RefundDetail'>
 
+/** GET /api/refunds/me 的行(EduRefund = $inferSelect,refundAmount 为 numeric ⇒ 字符串) */
+interface RefundRow {
+  id: string
+  orderNo: string
+  refundAmount: string
+  status: string
+  reason: string | null
+  createdAt: string
+}
+
+function formatRefundDate(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
+}
+
+/** 后端真名 → 共享屏 RefundDetailItem(amount 取数、reason 兜空串,与 RefundHistoryScreen 同口径) */
+function toRefundDetailItem(row: RefundRow): RefundDetailItem {
+  return {
+    id: row.id,
+    orderNo: row.orderNo,
+    amount: Number(row.refundAmount),
+    status: row.status,
+    reason: row.reason ?? '',
+    createdAt: formatRefundDate(row.createdAt),
+  }
+}
+
 export function RefundDetailScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
@@ -27,9 +55,13 @@ export function RefundDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<RefundDetailItem>(`/refund/${id}`)
+      // GET /api/refund/:id 从未注册(routes 里只有 /refund 列表别名与 /refund-record 写侧) ⇒ 恒 404。
+      // 等价真数据源 = GET /api/refunds/me(order.ts:655,web 退款页同款):拉自己的退款记录后按 id 过滤。
+      // pageSize 顶到后端上限 100,尽量覆盖到目标行;列表接口无 id 查询参数,这是不新增端点前提下的唯一真源。
+      const res = await fetchApi<{ list: RefundRow[] }>('/api/refunds/me?pageSize=100')
       if (!res.success) throw new Error()
-      setItem(res.data ?? null)
+      const row = res.data?.list.find((r) => r.id === id)
+      setItem(row ? toRefundDetailItem(row) : null)
     } catch {
       setError(t('refundDetail.loadFailed'))
     } finally {
