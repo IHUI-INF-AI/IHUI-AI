@@ -180,4 +180,26 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    Android 模拟器)本机不具备(AGENTS §17)。前置 = 各自把消息面抽成 store +
    `src/lib/user-broadcast.ts` 追加 `message:*` handler,且两端同批(§9)。
 7. ⬜ 跨消息排序与房间的会话级事件(标题改名等)是否入契约。
+
+## 8. 现读更正(2026-11-01,票71 执行席)
+
+- ✅ **越权面已修**(票面③ 承载层纪律):`apps/api/src/routes/ai-chat-stream.ts` 的 chat-sync
+  三帧投递对象(created/patched 腿与 terminal 腿)此前按 `opts.metadata?.userId ?? request.userId`
+  **自报优先**——`metadata.userId` 是客户端可整写字段,伪造它即可把携带会话消息全文的帧投递到
+  任意在线用户的连接(跨用户内容投递)。现一律只取承载层认证身份 `request.userId`;
+  正常调用方两值恒同,行为面零变化。负控用例:
+  `apps/api/tests/ai-chat-stream-chat-sync-frames.test.ts` ⑦(伪造收件人零帧 + 三帧均落认证身份,
+  正向对照为既有用例①)。同文件其余 `metadata?.userId ?? request.userId`(上游 metadata 透传、
+  模型准入等)不在本票通道射程,已点名交主席。
+- ⬜ **resync 快照的 terminal 腿服务端未接值**(§7 第 3 项的现读补):契约与内核
+  (`ChatSyncMessageSnapshot.terminal` / `mergeChatSyncResyncSnapshot` 第三步)已就绪,但
+  `findChatSyncSnapshot` 与 sync-snapshot 路由不返回 `terminal` —— 终态 reason 在服务端
+  **没有持久面**(流收尾只广播帧,不落库;`chat_message_sync_revs` 只有 rev/updatedAt,
+  `chat_messages` 无状态列)。后果:错过 terminal 帧的端 resync 后仍停在"进行中"。
+  解锁通道 = 收尾时把终态写进 `chat_messages.metadata` jsonb 投影(改落库回写路径)或账本加列
+  (需迁移,本仓在册禁用),均属另票。
+- ✅ **§7 第 6 项状态过时**:taro/RN 两端 store 接线**已落地**——
+  `apps/miniapp-taro/src/stores/chat-sync.ts`(14 例绿)、`apps/mobile-rn/src/stores/chat-sync.ts`
+  (19 例绿),均消费 `@ihui/shared/chat` 的 `chat-sync-store`(判据零复算,全走 `@ihui/types` 内核)。
+  原注"taro/RN 无 chat store"不再成立。cli/extension 仍未接(本票禁改 `apps/cli/**`)。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

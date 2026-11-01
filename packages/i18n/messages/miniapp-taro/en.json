@@ -822,6 +822,10 @@
       "unbookmark": "Remove bookmark",
       "flagFailed": "Failed to save marker"
     },
+    "messageVersion": {
+      "history": "Version History",
+      "regenerateFailed": "Regeneration failed. Please try again later"
+    },
     "share": {
       "title": "Share"
     },

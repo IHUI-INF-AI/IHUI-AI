@@ -37,7 +37,6 @@ import { Gift, Sparkles, UserPlus, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
-import { Tappable } from '@ihui/ui-native'
 
 // ── 尺寸常量(对齐 IntroducePopup 命名常量惯例) ──
 /** 卡片水平内边距 */
@@ -149,7 +148,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
           </Svg>
 
           {/* 关闭 */}
-          <Tappable
+          <Pressable
             hitSlop={10}
             onPress={onClose}
             style={styles.close}
@@ -157,7 +156,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             accessibilityLabel={t('common.close')}
           >
             <X size={18} color={tokens.text.tertiary} />
-          </Tappable>
+          </Pressable>
 
           {/* Hero:金渐变奖励徽章(圆角方章,rx 引用 rnRadius 档位 —— 门 11 禁容器纯圆、
            *  门 77 禁 SVG rx 字面量;光环/章面/内环/高光全在 Svg 内,图标 absolute inset 0 居中) */}
@@ -360,13 +359,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: rnSpacing['2xs'],
+    marginTop: 2,
     marginBottom: 14,
   } as TextStyle,
   benefits: {
     alignSelf: 'stretch',
     gap: rnSpacing.sm,
-    marginBottom: rnSpacing['sm-loose'],
+    marginBottom: 10,
   } as ViewStyle,
   benefitItem: {
     flexDirection: 'row',
@@ -375,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: rnSpacing['sm-loose'],
+    paddingVertical: 10,
   } as ViewStyle,
   benefitText: {
     flex: 1,
@@ -405,7 +404,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   secondaryButton: {
     alignSelf: 'stretch',
-    marginTop: rnSpacing['2xs'],
+    marginTop: 2,
     paddingVertical: 9,
     paddingHorizontal: rnSpacing.xl,
     alignItems: 'center',

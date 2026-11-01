@@ -1,5 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-rn-compat-coverage.mjs —— 小程序端 RN 兼容层「覆盖面」对账门(2026-10-26 立)。
@@ -30,6 +32,15 @@ import { execFileSync } from 'node:child_process'
 import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+// 判据面遮噪:本门判的是**代码结构**(export/import 语句),而仓内横向口径写死"判代码结构的门
+// 注释与字符串都遮"。此处只能遮注释、不能遮字符串 —— 模块说明符 `from './primitives'` 与
+// `from 'react-native'` 本身就是字符串,连字符串一起抹就把真出口全抹掉了(见 lib/code-mask.mjs
+// 里 maskComments 的头注,同一格教训在守门 118 身上实测发生过)。
+// 立因(2026-11-01 实测):primitives 的类型面搬进 index.ts 时写了句「由
+// `export * from './primitives'` 再出口」⇒ 星号扫描把散文当成第 4 条星号出口,同一枚文件进
+// perSource 两次 ⇒ primitives 的 59 个出口全部 count=2 ⇒ C1 报"全部缺口"、C7 报"全部歧义",
+// 而 HEAD 档照绿 —— 门开始判自己的散文,后人只能把说明删掉(§0.9 的反面)。
+import { maskComments } from './lib/code-mask.mjs'
 import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { shellRefsOf, shellTargetRel, mismatchedShellBinding } from './lib/rn-shell-refs.mjs'
 // 路由解析复用造页器那一份(parseMiniappRoutes)—— 本门 C3 与 C8 判的都是"在册路由",
@@ -53,7 +64,17 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const COMPAT_DIR = 'apps/miniapp-taro/src/rn-compat'
 const CONSUMERS = ['packages/app/src', 'apps/mobile-rn/src']
 /** 兼容层的出口文件集(新增文件必须在此登记,否则它导出的名字会被判成"没在册") */
-const COMPAT_FILES = ['index.ts', 'primitives.tsx', 'apis.ts', 'style.ts', 'navigation.tsx', 'theme.tsx', 'storage.ts', 'platform.tsx', 'i18n.ts']
+const COMPAT_FILES = [
+  'index.ts',
+  'primitives.tsx',
+  'apis.ts',
+  'style.ts',
+  'navigation.tsx',
+  'theme.tsx',
+  'storage.ts',
+  'platform.tsx',
+  'i18n.ts',
+]
 const ICONS_REL = `${COMPAT_DIR}/icons-generated.tsx`
 const ROUTE_REL = `${COMPAT_DIR}/route-map.generated.ts`
 const MP_CONFIG_REL = 'apps/miniapp-taro/src/app.config.ts'
@@ -70,7 +91,11 @@ const REUSE_IMPORT_RE = /from '@(?:ihui\/rn-app|rn-shells)[^']*'/
 
 /** 判定面选择一律走取材层(§0.4):两面同给当场判死 */
 function faceFlags(argv) {
-  return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' }).face
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  }).face
 }
 
 /**
@@ -120,7 +145,17 @@ function makeReader(face) {
     for (const rel of uniq) map.set(rel, got.get(`${prefix}${rel}`) ?? null)
     return map
   }
-  return { face, label: face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工逃生舱)' : 'HEAD blob', listFiles, readMany }
+  return {
+    face,
+    label:
+      face === 'staged'
+        ? '索引 blob'
+        : face === 'worktree'
+          ? '工作树磁盘(人工逃生舱)'
+          : 'HEAD blob',
+    listFiles,
+    readMany,
+  }
 }
 
 /** cov 那把尺要的面上,与本门的 face 逐字同一档 */
@@ -130,9 +165,10 @@ function faceOf(reader) {
 
 function namedImportsFrom(text, moduleName) {
   const names = new Set()
+  const src = maskComments(text || '')
   const re = new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*'${moduleName}(?:/[a-z-]+)?'`, 'g')
   let m
-  while ((m = re.exec(text || ''))) {
+  while ((m = re.exec(src))) {
     for (const raw of m[1].split(',')) {
       const t = raw
         .trim()
@@ -150,7 +186,11 @@ function namedImportsFrom(text, moduleName) {
 function ownExports(src) {
   const out = new Set()
   if (!src) return out
-  for (const m of src.matchAll(/export\s+(?:declare\s+)?(?:const|function|class|let|var)\s+([A-Za-z0-9_]+)/g)) out.add(m[1])
+  src = maskComments(src)
+  for (const m of src.matchAll(
+    /export\s+(?:declare\s+)?(?:const|function|class|let|var)\s+([A-Za-z0-9_]+)/g,
+  ))
+    out.add(m[1])
   for (const m of src.matchAll(/export\s+type\s+([A-Za-z0-9_]+)/g)) out.add(m[1])
   for (const m of src.matchAll(/export\s*(?:type\s*)?\{([^}]*)\}(?:\s*from)?/g)) {
     for (const part of m[1].split(',')) {
@@ -184,7 +224,9 @@ function effectiveExports(contents) {
     }
     return null
   }
-  const starTargets = [...barrel.matchAll(/export\s*\*\s*from\s*['"]\.\/([A-Za-z0-9_.-]+?)['"]/g)]
+  const starTargets = [
+    ...maskComments(barrel).matchAll(/export\s*\*\s*from\s*['"]\.\/([A-Za-z0-9_.-]+?)['"]/g),
+  ]
     .map((m) => resolveStar(m[1]))
     .filter(Boolean)
   const perSource = starTargets.map((key) => [key, ownExports(contents.get(key))])
@@ -192,8 +234,12 @@ function effectiveExports(contents) {
   const count = new Map()
   for (const [, names] of perSource) for (const n of names) count.set(n, (count.get(n) ?? 0) + 1)
   const all = new Set(explicit)
-  for (const [, names] of perSource) for (const n of names) if (count.get(n) === 1 || explicit.has(n)) all.add(n)
-  const conflicts = [...count.entries()].filter(([n, c]) => c > 1 && !explicit.has(n)).map(([n]) => n).sort()
+  for (const [, names] of perSource)
+    for (const n of names) if (count.get(n) === 1 || explicit.has(n)) all.add(n)
+  const conflicts = [...count.entries()]
+    .filter(([n, c]) => c > 1 && !explicit.has(n))
+    .map(([n]) => n)
+    .sort()
   return { all, conflicts, starTargets }
 }
 
@@ -208,7 +254,12 @@ function compatExports(contents) {
 /** C7 夹具:桶 + 两个来源的出口集;explicit=true 时桶写了显式重导出压歧义。 */
 function c7Fixture(explicit) {
   const STAR = ["export * from './primitives'", "export * from './icons-generated'", ''].join('\n')
-  const STAR_EXPLICIT = ["export * from './primitives'", "export * from './icons-generated'", "export { Image } from './primitives'", ''].join('\n')
+  const STAR_EXPLICIT = [
+    "export * from './primitives'",
+    "export * from './icons-generated'",
+    "export { Image } from './primitives'",
+    '',
+  ].join('\n')
   const PRIM = ['export const Image = 1', 'export const View = 2', ''].join('\n')
   const ICONS = ['export const Image = 3', 'export const Star = 4', ''].join('\n')
   return {
@@ -218,14 +269,30 @@ function c7Fixture(explicit) {
   }
 }
 export function judge(reader) {
-  const findings = { c1: [], c2: [], c3: [], c4: [], c5: [], c6: [], c7: [], c8: [], c9: [], c10: [] }
+  const findings = {
+    c1: [],
+    c2: [],
+    c3: [],
+    c4: [],
+    c5: [],
+    c6: [],
+    c7: [],
+    c8: [],
+    c9: [],
+    c10: [],
+  }
   let files
   try {
     files = reader.listFiles(CONSUMERS)
   } catch (error) {
-    return { state: 'undetermined', reason: `消费面枚举失败:${String(error?.message ?? error).slice(0, 120)}`, findings }
+    return {
+      state: 'undetermined',
+      reason: `消费面枚举失败:${String(error?.message ?? error).slice(0, 120)}`,
+      findings,
+    }
   }
-  if (files.length === 0) return { state: 'undetermined', reason: '消费面枚举到 0 个文件(判据面异常,不记绿)', findings }
+  if (files.length === 0)
+    return { state: 'undetermined', reason: '消费面枚举到 0 个文件(判据面异常,不记绿)', findings }
 
   let declaredRoutes = []
   let c10Measured = null
@@ -264,16 +331,25 @@ export function judge(reader) {
       REMOTE_PACK_REL,
     ])
   } catch (error) {
-    return { state: 'undetermined', reason: `取材失败:${String(error?.message ?? error).slice(0, 120)}`, findings }
+    return {
+      state: 'undetermined',
+      reason: `取材失败:${String(error?.message ?? error).slice(0, 120)}`,
+      findings,
+    }
   }
   const rnText = new Map(files.map((f) => [f, contents.get(f)]))
   if ([...rnText.values()].some((v) => v === null || v === undefined)) {
-    return { state: 'undetermined', reason: '消费面有文件取不到正文(面错位,不回落另一面)', findings }
+    return {
+      state: 'undetermined',
+      reason: '消费面有文件取不到正文(面错位,不回落另一面)',
+      findings,
+    }
   }
 
   // C1 react-native 具名取用 ↔ 兼容层出口
   const rnNames = new Set()
-  for (const text of rnText.values()) for (const n of namedImportsFrom(text, 'react-native')) rnNames.add(n)
+  for (const text of rnText.values())
+    for (const n of namedImportsFrom(text, 'react-native')) rnNames.add(n)
   const eff = effectiveExports(contents)
   const exported = eff.all
   findings.c1 = [...rnNames].filter((n) => !exported.has(n)).sort()
@@ -286,17 +362,27 @@ export function judge(reader) {
   const runtimeIcons = new Set(gen.collectIconNames(faceFiles))
   const typeIcons = new Set()
   for (const text of rnText.values()) {
-    for (const m of (text || '').matchAll(/import\s+type\s*\{([^}]*)\}\s*from\s*'lucide-react-native'/g)) {
+    for (const m of (text || '').matchAll(
+      /import\s+type\s*\{([^}]*)\}\s*from\s*'lucide-react-native'/g,
+    )) {
       for (const raw of m[1].split(',')) {
-        const t = raw.trim().split(/\s+as\s+/)[0].trim()
+        const t = raw
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim()
         if (t && !t.startsWith('type ')) typeIcons.add(t)
       }
     }
   }
   const iconsSrc = contents.get(ICONS_REL)
-  if (iconsSrc === null) return { state: 'undetermined', reason: 'icons-generated.tsx 取不到(生成物未落地?)', findings }
-  const valueExports = new Set([...iconsSrc.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1]))
-  const typeExports = new Set([...iconsSrc.matchAll(/^export type ([A-Za-z0-9]+) =/gm)].map((m) => m[1]))
+  if (iconsSrc === null)
+    return { state: 'undetermined', reason: 'icons-generated.tsx 取不到(生成物未落地?)', findings }
+  const valueExports = new Set(
+    [...iconsSrc.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1]),
+  )
+  const typeExports = new Set(
+    [...iconsSrc.matchAll(/^export type ([A-Za-z0-9]+) =/gm)].map((m) => m[1]),
+  )
   findings.c2 = [...runtimeIcons].filter((n) => !valueExports.has(n)).sort()
   for (const n of typeIcons) if (!typeExports.has(n) && !valueExports.has(n)) findings.c2.push(n)
   findings.c2.sort()
@@ -319,13 +405,19 @@ export function judge(reader) {
   }
   // 形态容忍两种写法:生成器原样(键带引号)与 prettier 归一后(键不带引号)——
   // lint-staged 会在提交前重排生成物,尺子按单一写法匹配就会读出 0 条并冒"没有缺口"的绿(假绿)。
-  const routeEntries = [...routeSrc.matchAll(/^\s*(?:["']([A-Za-z0-9]+)["']|([A-Za-z0-9]+)):\s*["']([^"']+)["']/gm)].map(
-    (m) => [m[1] ?? m[2], m[3]],
-  )
+  const routeEntries = [
+    ...routeSrc.matchAll(/^\s*(?:["']([A-Za-z0-9]+)["']|([A-Za-z0-9]+)):\s*["']([^"']+)["']/gm),
+  ].map((m) => [m[1] ?? m[2], m[3]])
   if (routeEntries.length === 0) {
-    return { state: 'undetermined', reason: 'route-map.generated.ts 读到 0 条映射(表被改写或生成器没跑) ⇒ 这一维没看,不得记绿', findings }
+    return {
+      state: 'undetermined',
+      reason: 'route-map.generated.ts 读到 0 条映射(表被改写或生成器没跑) ⇒ 这一维没看,不得记绿',
+      findings,
+    }
   }
-  findings.c3 = routeEntries.filter(([, path]) => !declared.has(path)).map(([name, path]) => `${name} → ${path}`)
+  findings.c3 = routeEntries
+    .filter(([, path]) => !declared.has(path))
+    .map(([name, path]) => `${name} → ${path}`)
 
   // C4 结构复用维:声明镜像 ≠ 复用。HEAD 面现读 38 枚页顶写着 `// 镜像 packages/app/...`,
   // 而真实 import @ihui/rn-app / @rn-shells 的页 = 0 枚 ⇒ "镜像"只是声明不是复用
@@ -345,7 +437,11 @@ export function judge(reader) {
     try {
       headContents = headReader.readMany(pageRels)
     } catch (error) {
-      return { state: 'undetermined', reason: `C4:HEAD 面存量锚点取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判倒退也不记绿`, findings }
+      return {
+        state: 'undetermined',
+        reason: `C4:HEAD 面存量锚点取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判倒退也不记绿`,
+        findings,
+      }
     }
     const headViolating = new Set(
       pageRels.filter((rel) => {
@@ -370,18 +466,25 @@ export function judge(reader) {
       shellTargets.get(rel).add(x)
     }
   }
-  const shellFiles = [...new Set([...shellTargets.values()].flatMap((s) => [...s].map(shellTargetRel)))].sort()
+  const shellFiles = [
+    ...new Set([...shellTargets.values()].flatMap((s) => [...s].map(shellTargetRel))),
+  ].sort()
   if (shellFiles.length > 0) {
     let got
     try {
       got = reader.readMany(shellFiles)
     } catch (error) {
-      return { state: 'undetermined', reason: `C5:壳目标取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判`, findings }
+      return {
+        state: 'undetermined',
+        reason: `C5:壳目标取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判`,
+        findings,
+      }
     }
     for (const [rel, set] of shellTargets) {
       for (const x of set) {
         const target = shellTargetRel(x)
-        if (got.get(target) === null || got.get(target) === undefined) findings.c5.push(`${rel} → ${target}(被审面上不存在 ⇒ 该页编不过)`)
+        if (got.get(target) === null || got.get(target) === undefined)
+          findings.c5.push(`${rel} → ${target}(被审面上不存在 ⇒ 该页编不过)`)
       }
     }
   }
@@ -404,7 +507,8 @@ export function judge(reader) {
   // C7 桶歧义维:两条 `export *` 撞同名而桶没写显式重导出 ⇒ 该名字谁都拿不到(ESM 歧义语义)。
   // 这一维不判就等于把 `<Image>` 这类基础组件在小程序端的存在性交给"运气"。
   findings.c7 = eff.conflicts.map(
-    (n) => `${COMPAT_DIR}/index.ts:「${n}」被多条 export * 同名带出且无显式重导出 ⇒ 消费面按名取用拿到 undefined`,
+    (n) =>
+      `${COMPAT_DIR}/index.ts:「${n}」被多条 export * 同名带出且无显式重导出 ⇒ 消费面按名取用拿到 undefined`,
   )
 
   // C8 路由↔页配对维:app.config 在册的每一条路由,页文件必须真在被审面上。
@@ -413,11 +517,23 @@ export function judge(reader) {
   // 拿到一个解析不到的入口。C1..C7 全部只看"页里写了什么",看不见"路由指向的页根本不在面上"这一型。
   // 反向那一格(页在而路由不在)不判红:射程外的历史页存量口径未定,判了就是恒红门(§12e)。
   if (pageRoutes.length === 0) {
-    findings.c8.push(`${MP_CONFIG_REL}:在册路由枚举到 0 条 ⇒ 这一维没看,不得记绿(判据面异常或路由解析坏)`)
+    findings.c8.push(
+      `${MP_CONFIG_REL}:在册路由枚举到 0 条 ⇒ 这一维没看,不得记绿(判据面异常或路由解析坏)`,
+    )
   } else {
     findings.c8 = pageRoutes
-      .filter((r) => !PAGE_EXTS.some((e) => contents.get(`${MP_SRC}/${r}${e}`) !== null && contents.get(`${MP_SRC}/${r}${e}`) !== undefined))
-      .map((r) => `app.config 在册 /${r} ⇒ ${MP_SRC}/${r}{${PAGE_EXTS.join(',')}} 在被审面上一个都不存在`)
+      .filter(
+        (r) =>
+          !PAGE_EXTS.some(
+            (e) =>
+              contents.get(`${MP_SRC}/${r}${e}`) !== null &&
+              contents.get(`${MP_SRC}/${r}${e}`) !== undefined,
+          ),
+      )
+      .map(
+        (r) =>
+          `app.config 在册 /${r} ⇒ ${MP_SRC}/${r}{${PAGE_EXTS.join(',')}} 在被审面上一个都不存在`,
+      )
   }
 
   // C9 编译期契约维:小程序端那两个只在 webpack 别名里成立的说明符(@rn-shells/* 与 @ihui/rn-app/*)
@@ -427,17 +543,38 @@ export function judge(reader) {
   {
     const declSrc = contents.get(shellTypes.OUT_REL)
     if (declSrc === null || declSrc === undefined) {
-      findings.c9.push(`${shellTypes.OUT_REL}:被审面上没有这份派生件 ⇒ 壳承载页在 tsc 里等于 any(跑 node scripts/gen-rn-shell-types.mjs --write)`)
+      findings.c9.push(
+        `${shellTypes.OUT_REL}:被审面上没有这份派生件 ⇒ 壳承载页在 tsc 里等于 any(跑 node scripts/gen-rn-shell-types.mjs --write)`,
+      )
     } else {
-      const pageTexts = pageRoutes.map((r) => PAGE_EXTS.map((e) => contents.get(`${MP_SRC}/${r}${e}`)).find((t) => t !== null && t !== undefined) ?? '')
-      const targets = [...new Set(shellTypes.specsOfPages(pageTexts).map((s) => shellTypes.targetOfSpecifier(s)).filter(Boolean))]
+      const pageTexts = pageRoutes.map(
+        (r) =>
+          PAGE_EXTS.map((e) => contents.get(`${MP_SRC}/${r}${e}`)).find(
+            (t) => t !== null && t !== undefined,
+          ) ?? '',
+      )
+      const targets = [
+        ...new Set(
+          shellTypes
+            .specsOfPages(pageTexts)
+            .map((s) => shellTypes.targetOfSpecifier(s))
+            .filter(Boolean),
+        ),
+      ]
       let tmap
       try {
         tmap = reader.readMany(targets)
       } catch (error) {
-        return { state: 'undetermined', reason: `C9:契约真相源取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判`, findings }
+        return {
+          state: 'undetermined',
+          reason: `C9:契约真相源取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判`,
+          findings,
+        }
       }
-      const plan = shellTypes.planDeclarations({ pageTexts, readTarget: (rel) => tmap.get(rel) ?? null })
+      const plan = shellTypes.planDeclarations({
+        pageTexts,
+        readTarget: (rel) => tmap.get(rel) ?? null,
+      })
       for (const u of plan.undetermined) findings.c9.push(`契约无从生成:${u}`)
       if (plan.undetermined.length === 0 && shellTypes.applyBlock(declSrc, plan.next) !== declSrc) {
         findings.c9.push(
@@ -456,14 +593,23 @@ export function judge(reader) {
   let c10Stock = 0
   {
     const carrierCount = pageRoutes.filter((r) => {
-      const rel = PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`).find((x) => contents.get(x) !== null && contents.get(x) !== undefined)
-      return rel !== null && rel !== undefined && /@rn-shells\/|@ihui\/rn-app\//.test(String(contents.get(rel)))
+      const rel = PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`).find(
+        (x) => contents.get(x) !== null && contents.get(x) !== undefined,
+      )
+      return (
+        rel !== null &&
+        rel !== undefined &&
+        /@rn-shells\/|@ihui\/rn-app\//.test(String(contents.get(rel)))
+      )
     }).length
     if (carrierCount > 0) {
       const carriedMissingOn = (rd) => {
         const zh = rd.readMany([ZH_PACK_REL]).get(ZH_PACK_REL) ?? null
         const remote = rd.readMany([REMOTE_PACK_REL]).get(REMOTE_PACK_REL) ?? null
-        if (zh === null || zh === undefined || remote === null || remote === undefined) return { undetermined: `端内词包取不到(${[zh, remote].filter((v) => v === null || v === undefined).length} 份)` }
+        if (zh === null || zh === undefined || remote === null || remote === undefined)
+          return {
+            undetermined: `端内词包取不到(${[zh, remote].filter((v) => v === null || v === undefined).length} 份)`,
+          }
         let carried
         try {
           carried = carriedKeysFromRepo({
@@ -475,7 +621,9 @@ export function judge(reader) {
         }
         const packs = {}
         try {
-          packs['zh-CN'] = flattenKeys(decodePackB64(extractStringConst(zh, 'ZH_CN_PACK_B64'), ROOT))
+          packs['zh-CN'] = flattenKeys(
+            decodePackB64(extractStringConst(zh, 'ZH_CN_PACK_B64'), ROOT),
+          )
           const enB64 = extractLocaleB64(remote, 'en')
           if (enB64) packs.en = flattenKeys(decodePackB64(enB64, ROOT))
         } catch (error) {
@@ -483,23 +631,40 @@ export function judge(reader) {
         }
         if (Object.keys(packs).length === 0) return { undetermined: '一件词包都解不开' }
         const miss = new Set()
-        for (const [loc, have] of Object.entries(packs)) for (const k of carried.keys) if (!have.has(k)) miss.add(`${loc}::${k}`)
-        return { miss, measured: { carriers: carried.carriers.length, files: carried.files.length, keys: carried.keys.size, packs: Object.keys(packs).join(',') } }
+        for (const [loc, have] of Object.entries(packs))
+          for (const k of carried.keys) if (!have.has(k)) miss.add(`${loc}::${k}`)
+        return {
+          miss,
+          measured: {
+            carriers: carried.carriers.length,
+            files: carried.files.length,
+            keys: carried.keys.size,
+            packs: Object.keys(packs).join(','),
+          },
+        }
       }
       const here = carriedMissingOn(reader)
       if (here.undetermined) {
-        findings.c10.push(`承载页 ${carrierCount} 枚,但${here.undetermined} ⇒ 无从判可达键是否补齐,不记绿也不冒红`)
+        findings.c10.push(
+          `承载页 ${carrierCount} 枚,但${here.undetermined} ⇒ 无从判可达键是否补齐,不记绿也不冒红`,
+        )
       } else {
         const anchor = carriedMissingOn(makeReader('head'))
         if (anchor.undetermined) {
-          return { state: 'undetermined', reason: `C10:HEAD 面锚点${anchor.undetermined} ⇒ 差值棘轮不判,也不记绿`, findings }
+          return {
+            state: 'undetermined',
+            reason: `C10:HEAD 面锚点${anchor.undetermined} ⇒ 差值棘轮不判,也不记绿`,
+            findings,
+          }
         }
         c10Stock = anchor.miss.size
         c10Measured = here.measured
         for (const k of [...here.miss].sort()) {
           if (anchor.miss.has(k)) continue
           const [loc, key] = k.split('::')
-          findings.c10.push(`${loc} 包里没有可达键 ${key}(承载页 ${carrierCount} 枚;出路:node scripts/gen-i18n-compressed.mjs)`)
+          findings.c10.push(
+            `${loc} 包里没有可达键 ${key}(承载页 ${carrierCount} 枚;出路:node scripts/gen-i18n-compressed.mjs)`,
+          )
         }
       }
     }
@@ -516,12 +681,24 @@ export function judge(reader) {
         findings.c8.length +
         findings.c9.length +
         findings.c10.length >
-        0
+      0
         ? 'red'
-        : 'ok',   findings,
+        : 'ok',
+    findings,
     staleIcons,
     staleReuse,
-    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, shells: shellTargets.size, files: files.length, declared: declaredRoutes.length, pageRoutes: pageRoutes.length, c10: c10Measured, c10Stock },
+    measured: {
+      rnNames: rnNames.size,
+      exported: exported.size,
+      lucide: lucideTotal,
+      routes: routeEntries.length,
+      shells: shellTargets.size,
+      files: files.length,
+      declared: declaredRoutes.length,
+      pageRoutes: pageRoutes.length,
+      c10: c10Measured,
+      c10Stock,
+    },
   }
 }
 
@@ -533,10 +710,16 @@ function main() {
     for (const c of cases) {
       const got = c.got()
       const ok = got === c.want
-      console.log(`${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`)
+      console.log(
+        `${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`,
+      )
       if (ok) pass++
     }
-    console.log(pass === cases.length ? `自检 ${pass}/${cases.length} 通过` : `❌ 自检 ${pass}/${cases.length} —— 有例不过`)
+    console.log(
+      pass === cases.length
+        ? `自检 ${pass}/${cases.length} 通过`
+        : `❌ 自检 ${pass}/${cases.length} —— 有例不过`,
+    )
     process.exit(pass === cases.length ? 0 : 1)
   }
   const mode = faceFlags(argv)
@@ -551,14 +734,22 @@ function main() {
   console.log(
     `  C1 标识符:消费面取用 ${m.rnNames} 个 / 兼容层出口 ${m.exported} 个 / 缺口 ${r.findings.c1.length}`,
   )
-  console.log(`  C2 图标:消费面 ${m.lucide} 个 / 生成物在册 ${m.lucide - r.findings.c2.length} 个 / 缺口 ${r.findings.c2.length} / 生成物残名 ${r.staleIcons.length}(只报数)`)
+  console.log(
+    `  C2 图标:消费面 ${m.lucide} 个 / 生成物在册 ${m.lucide - r.findings.c2.length} 个 / 缺口 ${r.findings.c2.length} / 生成物残名 ${r.staleIcons.length}(只报数)`,
+  )
   console.log(`  C3 路由:映射 ${m.routes} 条 / 指向不在册页 ${r.findings.c3.length} 条`)
   console.log(
     `  C4 结构复用:声明镜像的页 ${m.declared ?? 0} 枚 / 真复用(共享屏或壳)= 本票后应逐轮上涨 / 存量未复用 ${r.staleReuse?.length ?? 0} 枚(只报数) / 本次新违例 ${r.findings.c4.length} 条`,
   )
-  console.log(`  C5 壳承载真值:@rn-shells 引用 ${m.shells ?? 0} 条 / 指向不存在的 RN 壳 ${r.findings.c5.length} 条`)
-  console.log(`  C6 取用形态:与壳的真导出对不上的页 ${r.findings.c6.length} 条 / C7 桶歧义名 ${r.findings.c7.length} 个`)
-  console.log(`  C8 路由↔页配对:在册路由 ${m.pageRoutes ?? 0} 条 / 页文件不在被审面上的 ${r.findings.c8.length} 条`)
+  console.log(
+    `  C5 壳承载真值:@rn-shells 引用 ${m.shells ?? 0} 条 / 指向不存在的 RN 壳 ${r.findings.c5.length} 条`,
+  )
+  console.log(
+    `  C6 取用形态:与壳的真导出对不上的页 ${r.findings.c6.length} 条 / C7 桶歧义名 ${r.findings.c7.length} 个`,
+  )
+  console.log(
+    `  C8 路由↔页配对:在册路由 ${m.pageRoutes ?? 0} 条 / 页文件不在被审面上的 ${r.findings.c8.length} 条`,
+  )
   console.log(`  C9 编译期契约:declare 声明件与面上引用不同步 ${r.findings.c9.length} 条`)
   const m10 = m.c10
   console.log(
@@ -633,13 +824,15 @@ function selfTestCases() {
       name: 'C1 并集读法的盲区:桶只剩一行类型时,星号出口一律不在册(摘掉 style 那行的旧读法会顶绿)',
       want: true,
       got: () =>
-        judge(reader({ [`${COMPAT_DIR}/index.ts`]: 'export type ViewStyle = unknown\n' })).findings.c1.length > 1,
+        judge(reader({ [`${COMPAT_DIR}/index.ts`]: 'export type ViewStyle = unknown\n' })).findings
+          .c1.length > 1,
     },
     {
       name: 'C2 生成物换成别的图标 ⇒ 点名 1 枚',
       want: 1,
       got: () =>
-        judge(reader({ [`${COMPAT_DIR}/icons-generated.tsx`]: `export const Star = null\n` })).findings.c2.length,
+        judge(reader({ [`${COMPAT_DIR}/icons-generated.tsx`]: `export const Star = null\n` }))
+          .findings.c2.length,
     },
     {
       name: 'C3 映射指向不在册页 ⇒ 点名 1 条',
@@ -662,12 +855,42 @@ function selfTestCases() {
       got: () => judge(reader(c7Fixture(true))).findings.c7.length,
     },
     {
+      name: 'C7 反向对照:桶注释里的 export * 不增星号目标(同一枚文件被数两次会把它的全部出口读成歧义)',
+      want: 0,
+      got: () =>
+        judge(
+          reader({
+            [`${COMPAT_DIR}/index.ts`]: `export * from './primitives'\nexport * from './icons-generated'\nexport const StyleSheet = {}\nexport type ViewStyle = unknown\n// 说明:类型位由 \`export * from './primitives'\` 再出口\n`,
+          }),
+        ).findings.c7.length,
+    },
+    {
+      name: 'C1 反向牙:注释里的 `export const StyleSheet` 不算出口(摘掉真行只留散文 ⇒ 必须仍点名)',
+      want: true,
+      got: () =>
+        judge(
+          reader({
+            [`${COMPAT_DIR}/index.ts`]: `export * from './primitives'\nexport * from './icons-generated'\nexport type ViewStyle = unknown\n// export const StyleSheet = {}\n`,
+          }),
+        ).findings.c1.includes('StyleSheet'),
+    },
+    {
+      name: 'C1 反向牙:消费面注释里的 import 不立需求(门不许把讲解自己的散文读成缺口 —— 2026-11-01 实测翻红现场)',
+      want: 0,
+      got: () =>
+        judge(
+          reader({
+            'packages/app/src/Control.tsx': `// 用法示例:import { Ghost } from 'react-native'\nimport { View, StyleSheet } from 'react-native'\nimport { Heart } from 'lucide-react-native'\n`,
+          }),
+        ).findings.c1.filter((n) => n === 'Ghost').length,
+    },
+    {
       name: 'C8 路由在册而页不在面 ⇒ 点名(实测悬空路由型:只插了路由行,页从未进提交)',
       want: 1,
       got: () =>
-        judge(reader({ 'apps/miniapp-taro/src/pkg-user/login/index.tsx': null })).findings.c8.filter((x) =>
-          x.includes('pkg-user/login/index'),
-        ).length,
+        judge(
+          reader({ 'apps/miniapp-taro/src/pkg-user/login/index.tsx': null }),
+        ).findings.c8.filter((x) => x.includes('pkg-user/login/index')).length,
     },
     {
       name: 'C8 反向对照:页与路由同批在面 ⇒ 不判',
@@ -678,9 +901,9 @@ function selfTestCases() {
       name: 'C8 路由枚举到 0 条 ⇒ 点名不记绿(解析坏掉不能读成"没有缺口")',
       want: 1,
       got: () =>
-        judge(reader({ 'apps/miniapp-taro/src/app.config.ts': `subPackages: []\n` })).findings.c8.filter((x) =>
-          x.includes('枚举到 0 条'),
-        ).length,
+        judge(
+          reader({ 'apps/miniapp-taro/src/app.config.ts': `subPackages: []\n` }),
+        ).findings.c8.filter((x) => x.includes('枚举到 0 条')).length,
     },
     {
       name: 'C9 契约落后:页面新引 @rn-shells/* 而声明件没这一格 ⇒ 点名',
@@ -701,7 +924,10 @@ function selfTestCases() {
     {
       name: 'C9 派生件整份不在面 ⇒ 点名(不得读成"没有壳引用所以没事")',
       want: 1,
-      got: () => judge(reader({ [shellTypes.OUT_REL]: null })).findings.c9.filter((x) => x.includes('没有这份派生件')).length,
+      got: () =>
+        judge(reader({ [shellTypes.OUT_REL]: null })).findings.c9.filter((x) =>
+          x.includes('没有这份派生件'),
+        ).length,
     },
     {
       name: '生成物不在面 ⇒ 未判定(不记绿)',
@@ -710,13 +936,19 @@ function selfTestCases() {
         judge({
           label: '夹具',
           listFiles: () => ['packages/app/src/Control.tsx'],
-          readMany: (rels) => new Map(rels.map((r) => [r, r === ICONS_REL ? null : (base[r] ?? null)])),
+          readMany: (rels) =>
+            new Map(rels.map((r) => [r, r === ICONS_REL ? null : (base[r] ?? null)])),
         }).state,
     },
     {
       name: '消费面枚举 0 文件 ⇒ 未判定(不记绿)',
       want: 'undetermined',
-      got: () => judge({ label: '夹具', listFiles: () => [], readMany: (rels) => new Map(rels.map((r) => [r, base[r] ?? null])) }).state,
+      got: () =>
+        judge({
+          label: '夹具',
+          listFiles: () => [],
+          readMany: (rels) => new Map(rels.map((r) => [r, base[r] ?? null])),
+        }).state,
     },
   ]
 }
@@ -727,5 +959,13 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { judge, namedImportsFrom, compatExports, effectiveExports, ownExports, makeReader, faceFlags }
+export const __test__ = {
+  judge,
+  namedImportsFrom,
+  compatExports,
+  effectiveExports,
+  ownExports,
+  makeReader,
+  faceFlags,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

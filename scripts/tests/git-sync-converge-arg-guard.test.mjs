@@ -114,10 +114,12 @@ test('装车锁：闸排在一切动作之前（源码形状：必须先于 --se
   const src = readFileSync(SCRIPT, 'utf8')
   const iBad = src.indexOf('const badFlag = findUnknownFlag(process.argv)')
   const iSelf = src.indexOf("if (argv.includes('--self-test'))")
-  const iBranch = src.indexOf("const branch = getOpt('--branch', 'main')")
+  const iBranch = src.indexOf("const branch = getOpt('--branch'")
   assert.ok(iBad > 0, 'main 里没有接上闸 ⇒ 清单只是注释（§0.9 造好没装车=没有）')
   assert.ok(iSelf > iBad, '闸必须排在 --self-test 之前')
   assert.ok(iBranch > iBad, '闸必须排在任何取值/动作之前')
+  // 2026-11-01 对齐现形:getOpt 已加第三参(显式参数名标签,供 429 类静默回退取证),
+  // 故取前缀锚 `getOpt('--branch'` 而不再死抠两参闭括号形态 —— 契约是"闸在前",不是参个数。
   assert.equal([...src.matchAll(/export function findUnknownFlag/g)].length, 1, '闸的实现全仓只许一份')
   assert.equal([...src.matchAll(/export const KNOWN_FLAGS/g)].length, 1, '旗清单只许一份')
 })

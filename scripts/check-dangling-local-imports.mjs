@@ -45,9 +45,37 @@
  *       D4 现读的 8 枚被字面命中的入库 `.js` 在这一口径下全部合规:2 枚带 `.d.ts` 同伴(解析落在声明),
  *       6 枚的消费方是 `.js` 侧(eslint-config 族 —— JS 导 JS 是字面导入,没有".ts 映射"可被架空)。
  *   现读覆盖面(2026-10-22):两判据均 0 处 ⇒ 扩这一维不新增恒红面,前置已满足。
- *   取材与 D4 同一条通道:同一轮跟踪路径集 + 同一遍解析递出的 `.js` 落点;不读内容,故没有"未判定"格 ——
+ *   取材与 D4 同一条通道:同一轮跟踪路径集 + 同一遍解析递出的 `.js` 落点;a/b 两判据不读内容,故没有"未判定"格 ——
  *   a 只依赖文件清单面(main() 开头"枚举到 0 个跟踪源文件 ⇒ exit 2"已兜住),b 只依赖 D4 的落点通道
  *   (d4ChannelBlind 已兜住)。判据与形态清单经 `__test__` 出口交镜像测试(§22c:两处各写一遍必漂移)。
+ *
+ * D6 判据 c「该 `.js` 正文含 TS 专有语法 ⇒ 命中即必炸」(2026-11-01 补,票面 G-815915 的型②):
+ *   票面要求"判据要同时认两型才算有牙",而 a/b 两判据都**只看文件清单与解析落点**,从不读正文:
+ *     · a 认得出"同名并存",但说不出这一对到底是"死重量"还是"加载即 SyntaxError 的炸弹";
+ *     · b 认得出"映射被错名架空",同样不知道被架空的那份 `.js` 装的是 JS 还是穿了马甲的 TS;
+ *     · 真正读正文的只有 D4 的次判据,而它的前置是"**已被 `.js` 说明符字面命中**" —— 于是留下一个
+ *       无射程的格子:一枚入库 `.js` 正文写的是 TS(泛型/类型标注/`interface`),既没有同 stem 同伴、
+ *       此刻也没有人按 `.js` 指向它 ⇒ 三判据全瞎,而下一次有人指向它、或有人补写同名 `.ts` 时,
+ *       炸的是运行时而 typecheck 与 lint 都不看它(那正是 6bf657df86 那起生产事故的完整形状)。
+ *   本判据把"正文含 TS 专有语法"从 D4 的**从属条件**升成独立判红,探针复用同一把尺
+ *   (`probeTypeScriptSyntax`,§0.6 单一真相源,不新写第二份 TS 语法探针):
+ *     · 射程:与 a 完全相同的入库 `.js` 全集(全量档 61 枚,现读 2026-11-01),不额外扩面;
+ *     · 命中即与 a/b 并进**同一张违规表**(棘轮锚点、打印、退出码三条只有一套语义);同一枚 `.js`
+ *       已在 a/b 记过 ⇒ **并句不并数**(把"必炸"证据追加进那一行的 hint),否则本次提交会把
+ *       per-file 计数虚高顶过它自己的 HEAD 锚点,把无关提交顶红(§12e);
+ *     · 存量前置(§12e 升 blocking 的唯一入口):现读 2026-11-01 全量档 61 枚入库 `.js` 逐枚读正文
+ *       ⇒ **0 枚命中**,同名并存 **0 对**,两型覆盖面均为 0 ⇒ 零容忍不新增恒红面(复量脚本口径见
+ *       镜像测试的端到端断言,不散写第二份);
+ *     · 内容取不到 ⇒ **逐枚未判定**点名,既不冒红也不记绿(§0.3);调用方没给取材通道 ⇒ 整维未判定 ⇒ CLI exit 2;
+ *       豁免台账另有三态(2026-11-01 补,镜像 `--root 换仓三态` 用例实跑复现的回归):**本仓**缺台账或
+ *       内容坏 ⇒ 未判定 exit 2;**`--root` 指到别的仓且该仓没有这一族台账** ⇒ 按**零豁免**照判并点名
+ *       (缺文件≠坏文件:零豁免的方向是更严,一格都不放行;把它判成未判定会让门 98 在旁路落地换仓通道
+ *       重新变成"等于没装",那是 G-929/dc3906305 刚修过的同一条根因);
+ *     · 出口 = **具名台账** `scripts/data/dangling-shadow-exemptions.json`(`{file, reason, ticket,
+ *       until}` 四键齐备、理由 ≥10 字、`until` 未到期才算"验过才免");台账里登记着而被审面
+ *       早已不命中 ⇒ **清单腐烂判红**(§0.7),到期 ⇒ 回到射程。刻意不留行内裸标记:这一型判的是
+ *       整个文件而不是某一行,行内标记会被下一次改写正文的人随手删掉而无人发现。
+
  *
  * D5「同一 barrel 文件内同名显式导出重复」(2026-10-19 立,本席现读):
  *   成因是 `packages/api-client/src/index.ts` 的 `export type { FormRequestEvent } from './client.js'`
@@ -124,7 +152,14 @@ import { maskComments, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 // 坏值(给了旗标没给值)与目录不存在都 ⇒ exit 2,**不静默回落到自推导**——回落会把
 // "指错了仓"读成"在主仓审过了",是 fail-open 的一种形态(门 231 的 M16 钉同三态)。
 const ROOT_FLAG = requireFlagValue(process.argv.slice(2), '--root', { noun: '被审仓根目录' })
-const ROOT = ROOT_FLAG.value ? resolve(ROOT_FLAG.value) : resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** 本脚本自家仓根(与 ROOT 的唯一差别 = ROOT 可被 `--root` 指到别的仓)。 */
+const SELF_REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const ROOT = ROOT_FLAG.value ? resolve(ROOT_FLAG.value) : SELF_REPO_ROOT
+/** 被审仓根**不是本仓** ⇒ 换仓通道(LAND_ROOT 指到别的仓)。具名豁免台账是**逐仓登记**的配置面:
+ *  别的仓没有这一族豁免是常态,不是"本仓台账烂了" —— 这一区分是 loadShadowExemptionLedger 三态的入口。 */
+export function isForeignAuditRoot(root = ROOT) {
+  return resolve(root) !== SELF_REPO_ROOT
+}
 export const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
 const EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 /** 带 `?raw` / `?url` 后缀的导入(Vite/测试里读源码文本):查询串在 resolveSpec 里剥掉,
@@ -234,7 +269,7 @@ export function treeBlobTable(rev) {
 /** 单一面的完整审计(被审面 + 棘轮锚点面共用):rev 提交/树 → {files, byFile, aliasUnparsed, shadow}。
  *  存在性面只取被审树自身(不看磁盘:磁盘是另一个面,主流程那条"索引 vs HEAD"教训见 treePaths 头注)。
  *  别名表按同面取(tsconfig 不在源文件枚举里,须另开一批 —— 主流程同位置有同一条注释,两处同形)。 */
-export function auditOneFace(rev) {
+export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger()) {
   const table = treeBlobTable(rev)
   const files = [...table.keys()].filter(
     (p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p),
@@ -275,9 +310,24 @@ export function auditOneFace(rev) {
   const byFile = auditTree(read, files, hasPath, alias.index, jsSites, d5Unjudged)
   const shadow = auditShadowJs(read, jsSites, new Set(files))
   mergeShadow(byFile, shadow)
-  const wrongName = auditWrongNameShadow(jsSites, new Set(files))
+  const wrongName = auditWrongNameShadow(
+    jsSites,
+    new Set(files),
+    read,
+    shadowCtx ? shadowCtx.entries : null,
+    shadowCtx ? shadowCtx.today : undefined,
+  )
   mergeWrongName(byFile, wrongName)
-  return { files, byFile, aliasUnparsed: alias.unparsed, aliasSeen: alias.seen, shadow, wrongName, d5Unjudged }
+  return {
+    files,
+    byFile,
+    aliasUnparsed: alias.unparsed,
+    aliasSeen: alias.seen,
+    shadow,
+    wrongName,
+    d5Unjudged,
+    shadowCtx,
+  }
 }
 
 const NON_CODE_EXT =
@@ -1188,6 +1238,160 @@ export function mergeSites(baseSites, pendingSites, pendingSet) {
  *  `.js` 侧消费方同理:JS 导 JS 是字面导入(eslint-config 族 6 枚正是这一型),不是约定拼写。 */
 const TS_SIDE_CONSUMER_RE = /(?<!\.d)\.tsx?$/
 
+/**
+ * D6-c 的具名豁免台账(这一型唯一的豁免出口,裸行内标记一律无效)。
+ * 形状与守门 213 的 `disk-root-write-exemptions.json` 同一条方言:四键齐备、理由带票号、`until` 会到期。
+ * 为什么不用行内标记:这一型判的是"整个文件装了另一种语言的正文",标记贴在哪儿都不算数,
+ * 而下一次改写正文的人会顺手删掉它 —— 台账行必须显式删除,删不掉就是腐烂(§0.7)。
+ */
+export const SHADOW_EXEMPTION_LEDGER = 'scripts/data/dangling-shadow-exemptions.json'
+/** 豁免理由最短长度:与"空口登记不成立"同口径(短于这个数等于没写理由)。 */
+export const SHADOW_EXEMPTION_REASON_MIN = 10
+
+/**
+ * 台账文本 → 条目数组。**坏行整批不生效**(半条豁免等于没有豁免,而"没生效"的方向必须是多拦
+ * 不是多放,§0.10):返回 `{ entries: null, problem }`,调用方据此判「未判定」exit 2,绝不回落成空表。
+ */
+export function parseShadowExemptionLedger(raw) {
+  if (typeof raw !== 'string')
+    return { entries: null, problem: `台账内容取不到(${SHADOW_EXEMPTION_LEDGER} 缺失或读不动)` }
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch (e) {
+    return { entries: null, problem: `台账 JSON 解析失败:${e && e.message ? e.message : e}` }
+  }
+  if (!Array.isArray(parsed)) return { entries: null, problem: '台账根节点不是数组' }
+  const entries = []
+  for (const [i, row] of parsed.entries()) {
+    if (!row || typeof row !== 'object' || Array.isArray(row))
+      return { entries: null, problem: `第 ${i} 行不是对象` }
+    const { file, reason, ticket, until } = row
+    for (const [k, v] of [
+      ['file', file],
+      ['reason', reason],
+      ['ticket', ticket],
+      ['until', until],
+    ])
+      if (typeof v !== 'string' || !v.trim())
+        return { entries: null, problem: `第 ${i} 行缺非空字符串键 ${k}` }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until))
+      return { entries: null, problem: `第 ${i} 行 until 不是 YYYY-MM-DD:${until}` }
+    if (reason.trim().length < SHADOW_EXEMPTION_REASON_MIN)
+      return { entries: null, problem: `第 ${i} 行理由少于 ${SHADOW_EXEMPTION_REASON_MIN} 字(空口登记不成立)` }
+    entries.push({ file, reason, ticket, until })
+  }
+  return { entries, problem: null }
+}
+
+/** 到期判定:`until` 是**最后有效日**(当天仍有效,次日起回到射程)。 */
+export function shadowExemptionActive(entry, today) {
+  return !!entry && String(entry.until) >= String(today)
+}
+
+/**
+ * 台账取材:读**工作树**的 JSON(与守门 213/225 的具名豁免台账同一条口径 —— 台账是"配置面",
+ * 不是被审内容面,故不跟 HEAD/索引走)。取不到/坏 ⇒ `{entries:null, problem}` ⇒ D6-c 整维未判定,
+ * 绝不回落成"没有豁免"(那会把"台账烂了"读成"一门干净的尺子",§0.3)。
+ *
+ * 三态(2026-11-01 补第三态,镜像 `--root 换仓三态` 用例实跑复现的回归):
+ *   ① 本仓 + 取到/坏 ⇒ 照旧(坏 ⇒ 未判定);
+ *   ② 本仓 + **文件缺失** ⇒ 未判定(这一族台账在本仓是**已入库**的配置,缺失 = 有人删了它);
+ *   ③ **换仓通道**(`--root` 指到别的仓)+ 该仓没有这一族台账 ⇒ 按「零豁免」判:全表照判、
+ *      一格都不放行(`entries: []`),并逐次点名缺的是哪条路径。
+ * ③ 不是 fail-open:豁免的方向是"放人",取不到时按零豁免只会**更严**;真正会坏的是把整维判成
+ * 未判定 ⇒ 门 98 在旁路落地换仓通道重新变成"等于没装"(G-929 那条根因,dc3906305 刚修过一层,
+ * D6-c 装台账时又在此层复发 —— 现读镜像 `--root 换仓三态` 用例 rc=2 即当时留下的实证)。
+ */
+export function loadShadowExemptionLedger(
+  root = ROOT,
+  today = new Date().toISOString().slice(0, 10),
+  foreignRepo = isForeignAuditRoot(root),
+) {
+  let raw = null
+  let absent = false
+  try {
+    raw = readFileSync(join(root, SHADOW_EXEMPTION_LEDGER), 'utf8')
+  } catch {
+    raw = null
+    absent = true
+  }
+  if (absent && foreignRepo)
+    return { entries: [], problem: null, today, absent: true, foreign: true, missingAt: join(root, SHADOW_EXEMPTION_LEDGER) }
+  const parsed = parseShadowExemptionLedger(raw)
+  return { entries: parsed.entries, problem: parsed.problem, today, absent, foreign: foreignRepo }
+}
+
+/**
+ * D6-c:入库 `.js` 的**正文语言维**。逐枚读正文跑 `probeTypeScriptSyntax`(与 D4 次判据同一把尺)。
+ * 返回:
+ *   · `candidates`  —— 命中的入库 `.js` 全集(**含被豁免的那些**,腐烂对账拿它当基准);
+ *   · `bombs`       —— 命中且无有效豁免 ⇒ 进违规表;
+ *   · `exempted`    —— 命中但有**未到期**的具名台账豁免 ⇒ 不判红、照样逐枚打印并计数;
+ *   · `rot`         —— 台账里登了而被审面不再命中 ⇒ 清单腐烂,调用方判红(§0.7);
+ *   · `undetermined`—— 正文在本面取不到的枚名,以及"取材通道没接/台账没加载"这一整档(§0.3)。
+ * `today` 缺省取本机当日(YYYY-MM-DD,与 `until` 同字典序可比)。
+ */
+export function auditShadowSyntaxBombs(readFile, trackedSrc, exemptionEntries, today) {
+  const day = today || new Date().toISOString().slice(0, 10)
+  const out = {
+    candidates: [],
+    bombs: [],
+    exempted: [],
+    rot: [],
+    undetermined: [],
+    scannedFiles: 0,
+    scanned: [],
+    ledgerLoaded: Array.isArray(exemptionEntries),
+  }
+  if (typeof readFile !== 'function') {
+    out.undetermined.push({ file: '*', why: '调用方未提供内容取材通道 ⇒ 正文语言维(D6-c)整维未判定' })
+    return out
+  }
+  if (!out.ledgerLoaded) {
+    out.undetermined.push({
+      file: SHADOW_EXEMPTION_LEDGER,
+      why: '豁免台账未加载或形状坏 ⇒ 无法区分"合规"与"被一条坏豁免放过"',
+    })
+    return out
+  }
+  const activeOf = new Map()
+  for (const e of exemptionEntries) if (shadowExemptionActive(e, day)) activeOf.set(e.file, e)
+  for (const p of trackedSrc) {
+    if (!JS_SPEC_RE.test(p) || SKIP_DIR.test(p) || FIXTURE_ROOT.test(p)) continue
+    out.scannedFiles++
+    out.scanned.push(p)
+    const text = readFile(p)
+    if (typeof text !== 'string') {
+      out.undetermined.push({ file: p, why: '入库 .js 正文在本面取不到 ⇒ 必炸维未判(不记绿也不冒红)' })
+      continue
+    }
+    const probe = probeTypeScriptSyntax(text)
+    if (!probe.length) continue
+    out.candidates.push({ file: p, marker: probe[0].marker, line: probe[0].line })
+    const ex = activeOf.get(p)
+    if (ex) out.exempted.push({ file: p, marker: probe[0].marker, line: probe[0].line, entry: ex })
+    else out.bombs.push({ file: p, marker: probe[0].marker, line: probe[0].line })
+  }
+  // 清单腐烂:登记的那一枚在当前面**根本不命中** ⇒ 豁免已无对象,必须删行(§0.7)。
+  // 已到期且仍命中的行不进这一格(它回到射程走 bombs,不是"无对象的登记")。
+  const hit = new Set(out.candidates.map((c) => c.file))
+  for (const e of exemptionEntries) if (!hit.has(e.file)) out.rot.push(e)
+  return out
+}
+
+/**
+ * D6-c 的采集通道是否**失明**:既没扫到命中、也没有逐枚"取不到内容"的点名,且一枚入库 `.js`
+ * 都没进射程 ⇒ 那句"必炸 0 处"不作数(与 `d4ChannelBlind` 同一条理由、同一取向:
+ * 「扫过且干净」与「根本没看」必须分得开)。`scannedFiles > 0` 就是"看过"的正证。
+ */
+export function d6cChannelBlind(bombs) {
+  if (!bombs) return true
+  if (bombs.undetermined && bombs.undetermined.length) return true
+  return !(Number(bombs.scannedFiles || 0) > 0)
+}
+
+
 /** D6 的树级判据,与 D4 共用采集通道:`sites` 是 `auditFile` 同一遍解析递出的 `.js` 字面说明符
  *  落点(`{target, by, line, spec}`),`trackedSrc` 是**同一取材面**上过滤过的跟踪源文件集。
  *  两条独立判红(现读 2026-10-22:HEAD 面两格均 0 ⇒ 存量零容忍不新增恒红面):
@@ -1199,7 +1403,7 @@ const TS_SIDE_CONSUMER_RE = /(?<!\.d)\.tsx?$/
  *  同伴,而 a 成立恰恰要求有 —— 同一枚 `.js` 不会在两格各记一次。
  *  返回 `{ byFile, coexist, literalWin }`:`byFile` 是判红表(与 D1..D5 并进同一张表),
  *  后两格是形态清单(经 `__test__` 出口交镜像测试,§22c:两处各写一遍必漂移)。 */
-function auditWrongNameShadow(sites, trackedSrc) {
+function auditWrongNameShadow(sites, trackedSrc, readFile, exemptionEntries, today) {
   const byFile = new Map()
   const coexist = []
   for (const p of trackedSrc) {
@@ -1251,9 +1455,33 @@ function auditWrongNameShadow(sites, trackedSrc) {
       },
     ])
   }
+  // ── 判据 c:正文语言维(票面 G-815915 的型②「命中即必炸」)──────────────────────
+  // 与 a/b 并进同一张表;已在 a/b 记过的**只并句不并数**(per-file 计数是棘轮锚点,
+  // 加一行就把无关提交顶过它自己的 HEAD 锚点 ⇒ 恒红门,§12e)。
+  const bombs = auditShadowSyntaxBombs(readFile, trackedSrc, exemptionEntries, today)
+  for (const b of bombs.bombs) {
+    const cur = byFile.get(b.file)
+    const evidence = `自身正文含 TS 专有语法:${b.marker}(第 ${b.line} 行)⇒ 一旦被加载即 SyntaxError`
+    if (cur && cur.length) {
+      cur[0].hint = `${cur[0].hint};${evidence}`
+      if (cur[0].line === 1) cur[0].line = b.line
+      continue
+    }
+    byFile.set(b.file, [
+      {
+        line: b.line,
+        rule: 'D6',
+        raw: `${b.file} 正文含 TS 专有语法(${b.marker})`,
+        hint:
+          `${evidence};这一枚既没有同 stem 的 .ts/.tsx 同伴、此刻也没人按 '.js' 说明符指向它,` +
+          '但它是"穿了马甲的 TS"——Node ESM 按 JavaScript 解析它,任何人补一条指向它的说明符或补写同名 .ts 都当场炸' +
+          ';修法:把文件改回 .ts(内容不动),别去改探针、也别去加宽豁免台账',
+      },
+    ])
+  }
   coexist.sort()
   literalWin.sort()
-  return { byFile, coexist, literalWin }
+  return { byFile, coexist, literalWin, bombs }
 }
 
 /** 把 D6 的按文件违规并进取违规表(与 D1..D5 同表 ⇒ 棘轮锚点、打印、退出码三条只有一套语义)。 */
@@ -1448,12 +1676,15 @@ async function revMain(rev, anchorOpt, conflicts) {
     console.log(`❌ 无法判定:anchor 须是提交 ${anchor}`)
     process.exit(2)
   }
+  // 台账一次加载、被审面与锚点面共用(两处各读一遍必漂,§0.6);absent/foreign 两格也供下面那条
+  // 换仓说明用 —— 说明必须在**这一档**打印:旁路落地器 object-space-land 走的就是 --rev 面。
+  const shadowCtx = loadShadowExemptionLedger()
   let face
   const anchorCounts = new Map()
   try {
-    face = auditOneFace(rev)
+    face = auditOneFace(rev, shadowCtx)
     if (anchor) {
-      const a = auditOneFace(anchor)
+      const a = auditOneFace(anchor, shadowCtx)
       for (const [f, list] of a.byFile) anchorCounts.set(f, list.length)
     }
   } catch (e) {
@@ -1470,6 +1701,29 @@ async function revMain(rev, anchorOpt, conflicts) {
       `❌ 无法判定:D5 在 ${rev} 面枚举到 ${face.d5Unjudged.length} 枚 barrel 却取不到内容 —— 不记绿也不冒红(§0.3):`,
     )
     for (const p of face.d5Unjudged) console.log(`   ${p}`)
+    process.exit(2)
+  }
+  /** D6-c 在 `--rev` 面走同一条诚实性通道(2026-11-01,票面 G-815915 型②):被审面上有入库 `.js`
+   *  读不出正文、或豁免台账取不到 ⇒ 那一维没看过东西,整轮判「未判定」,不记绿也不冒红(§0.3);
+   *  台账腐烂(登记了却不再命中)⇒ 判红(§0.7)。落地器(object-space-land)拿的就是这一档。 */
+  const wnBombs = face.wrongName.bombs
+  console.log(
+    `[dangling-imports] D6 错名影子:同名并存 ${face.wrongName.coexist.length} 对` +
+      ` | TS 侧解析到入库 .js 自身 ${face.wrongName.literalWin.length} 处` +
+      ` | 正文含 TS 专有语法(型②必炸)扫 ${wnBombs.scannedFiles} 枚命中 ${wnBombs.candidates.length} 枚`,
+  )
+  if (wnBombs.rot.length) {
+    console.log(`❌ D6-c 豁免台账腐烂:${wnBombs.rot.map((r) => `${r.file} 至 ${r.until}`).join(', ')} 在该面已不命中`)
+    process.exit(1)
+  }
+  if (shadowCtx && shadowCtx.absent && shadowCtx.foreign)
+    console.log(
+      `   ℹ️ D6-c 被审仓不是本仓(--root ${ROOT})且该仓没有 ${SHADOW_EXEMPTION_LEDGER} ⇒ 按**零豁免**全表照判,一格都不放行` +
+        '(换仓通道不得因缺台账判未判定,G-929 同型;台账内容坏仍是未判定)',
+    )
+  if (wnBombs.undetermined.length) {
+    console.log(`❌ 无法判定:D6-c 在 ${rev} 面有 ${wnBombs.undetermined.length} 格取不到输入 —— 不记绿也不冒红(§0.3):`)
+    for (const u of wnBombs.undetermined) console.log(`   ${u.file}:${u.why}`)
     process.exit(2)
   }
   const { fresh, tolerated } = splitFresh(face.byFile, (f) => anchorCounts.get(f) ?? 0)
@@ -1605,10 +1859,19 @@ async function main() {
   const jsSitesHead = []
   const d5Unhead = []
   const d7HeadSink = []
+  /** D6-c 的豁免台账:**配置面**,一次加载、HEAD/索引/工作区三面共用同一份(两处各读一遍必漂,§0.6)。
+   *  取不到或形状坏 ⇒ 那一维整档未判定(见下面与 D5/D7 同一条 exit 2 通道),不回落成"没有豁免"。 */
+  const SHADOW_LEDGER = loadShadowExemptionLedger()
   const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead, d7HeadSink)
   const shadowHead = auditShadowJs(readHead, jsSitesHead, new Set(headFiles))
   mergeShadow(byHead, shadowHead)
-  const wnHead = auditWrongNameShadow(jsSitesHead, new Set(headFiles))
+  const wnHead = auditWrongNameShadow(
+    jsSitesHead,
+    new Set(headFiles),
+    readHead,
+    SHADOW_LEDGER.entries,
+    SHADOW_LEDGER.today,
+  )
   mergeWrongName(byHead, wnHead)
   const headCountOf = (p) => (byHead.get(p) || []).length
 
@@ -1645,7 +1908,13 @@ async function main() {
     const trackedStagedSrc = new Set(trackedSourceFiles(''))
     shadowPending = auditShadowJs(readPending, stagedSites, trackedStagedSrc)
     mergeShadow(byPending, shadowPending)
-    wnPending = auditWrongNameShadow(stagedSites, trackedStagedSrc)
+    wnPending = auditWrongNameShadow(
+      stagedSites,
+      trackedStagedSrc,
+      readPending,
+      SHADOW_LEDGER.entries,
+      SHADOW_LEDGER.today,
+    )
     mergeWrongName(byPending, wnPending)
   } else if (FILES_MODE) {
     contentMode = `工作区内容(--files ${FILES_MODE.length} 个,仅供自验,不作结论)`
@@ -1671,7 +1940,13 @@ async function main() {
     const filesTrackedSrc = new Set([...trackedSourceFiles(''), ...headFiles, ...FILES_MODE])
     shadowPending = auditShadowJs(wread, filesSites, filesTrackedSrc)
     mergeShadow(byPending, shadowPending)
-    wnPending = auditWrongNameShadow(filesSites, filesTrackedSrc)
+    wnPending = auditWrongNameShadow(
+      filesSites,
+      filesTrackedSrc,
+      wread,
+      SHADOW_LEDGER.entries,
+      SHADOW_LEDGER.today,
+    )
     mergeWrongName(byPending, wnPending)
   } else {
     byPending = byHead
@@ -1707,8 +1982,54 @@ async function main() {
   console.log(
     `[dangling-imports] D6 错名影子:同名并存 .js + .ts/.tsx ${wnPending.coexist.length} 对` +
       ` | TS 侧 '.js' 说明符解析到入库 .js 自身 ${wnPending.literalWin.length} 处` +
-      ` | 判红候选 ${wnPending.byFile.size} 处`,
+      ` | 正文含 TS 专有语法(型②必炸)扫 ${wnPending.bombs.scannedFiles} 枚命中 ${wnPending.bombs.candidates.length} 枚` +
+      ` | 判红候选 ${wnPending.byFile.size} 处` +
+      (wnPending.bombs.exempted.length ? ` | 具名台账豁免 ${wnPending.bombs.exempted.length} 枚` : '') +
+      (wnPending.bombs.undetermined.length ? ` | 未判定 ${wnPending.bombs.undetermined.length} 格` : ''),
   )
+  for (const e of wnPending.bombs.exempted)
+    console.log(
+      `   ℹ️ D6-c 已豁免 ${e.file}:${e.marker}(第 ${e.line} 行)—— 理由:${e.entry.reason}(票 ${e.entry.ticket},有效至 ${e.entry.until};到期或改回 .ts 后删这一行)`,
+    )
+  // 换仓通道的缺台账必须**点名**,不能像现在这样把整维判成未判定(G-929 那条根因的同层复发):
+  // 零豁免的方向是更严,不是放人,所以这里只登记一条说明(§0.10)。
+  if (SHADOW_LEDGER.absent && SHADOW_LEDGER.foreign)
+    console.log(
+      `   ℹ️ D6-c 被审仓不是本仓(--root ${ROOT})且该仓没有 ${SHADOW_EXEMPTION_LEDGER} ⇒ 按**零豁免**全表照判,` +
+        '一格都不放行(不因此判未判定;台账内容坏仍是未判定)',
+    )
+  for (const u of wnPending.bombs.undetermined) console.log(`   ⚠️ D6-c 未判定 ${u.file}:${u.why}`)
+  /**
+   * 台账腐烂(§0.7「已登记的豁免若被审面不再命中 ⇒ 清单腐烂判红」):登了却不再命中的行
+   * 必须删掉,否则它替人做出"这里还欠着一条豁免"的判断,而下一条真违规会顺着它静默通过。
+   * 台账本身取不到/坏 ⇒ 整维未判定 exit 2(§0.3),与上面 D5、下面 D7 那两条同一条通道。
+   */
+  if (wnPending.bombs.rot.length) {
+    console.log(
+      `❌ D6-c 豁免台账腐烂:${SHADOW_EXEMPTION_LEDGER} 有 ${wnPending.bombs.rot.length} 行在被审面已不命中` +
+        `(${wnPending.bombs.rot.map((r) => `${r.file} 至 ${r.until}`).join(', ')})—— 清单腐烂不是"多此一举的登记",` +
+        '它让下一次真命中顺着同一行静默通过;请删行后重跑',
+    )
+    process.exit(1)
+  }
+  if (SHADOW_LEDGER.problem) {
+    console.log(`❌ 无法判定:D6-c 的豁免台账取不到或形状坏 —— ${SHADOW_LEDGER.problem}(不回落成"没有豁免")`)
+    process.exit(2)
+  }
+  if (wnPending.bombs.undetermined.length) {
+    console.log(
+      '❌ 无法判定:D6-c 有入库 .js 在本面取不到正文(或取材通道没接)—— 这一维没看过那一格,' +
+        '「必炸 0 处」不作数;既不记绿也不冒红(§0.3),先修取材通道',
+    )
+    process.exit(2)
+  }
+  if (d6cChannelBlind(wnPending.bombs)) {
+    console.log(
+      '❌ 无法判定:D6-c 在判定面扫到 0 枚入库 .js —— 这一维没看过任何东西,"必炸 0 处"不成立;' +
+        '若这一型确实已退役,连同这条判据一起摘(不得留一条永不命中的尺子)',
+    )
+    process.exit(2)
+  }
   /**
    * 票面 G-815915 反假绿①「扫到 0 个候选判死不记绿」。
    *
@@ -1788,6 +2109,12 @@ async function main() {
           .slice(0, 50)
           .map((p) => `\n     ${p}`)
           .join(''),
+    )
+  // D6-c 的覆盖面同样要能点名:这一维"看了谁"决定那句"必炸 0 处"值多少钱(与 D4/D7 同取向)。
+  if (SHOW_ALL && wnPending.bombs.scannedFiles)
+    console.log(
+      `   D6-c 扫过的入库 .js 全集(${wnPending.bombs.scannedFiles} 枚,含合规的那些 —— 名单决定这一维到底看了谁):\n` +
+        wnPending.bombs.scanned.map((p) => `     ${p}`).join('\n'),
     )
   //  **全量审计零容忍**(2026-09-24 存量清零后钉死):HEAD 普查必须为 0。
   //    为什么不放在 `--staged`:那会因别人未入库的回归拦住无关提交(= 逼人绕过,连带废掉全部守门);
@@ -2355,6 +2682,154 @@ function selfTest() {
     console.log(`${wired && sinkHits.length === 1 ? '✅' : '❌'} D5 接线:auditTree 违规进表 / 取不到进 sink(${sinkHits.join(',')})`)
   }
   {
+    // ── D6-c:错名 .js 的**正文语言维**(2026-11-01 补,票面 G-815915 的型②「命中即必炸」)──
+    // 成对钉死四格:有牙 / 不咬合法 JS 与解释文字 / 豁免必须"验过才免"且会到期 / 取不到判未判定。
+    const day = '2026-11-01'
+    const mk = (files) => (p) => (p in files ? files[p] : null)
+    const okLedger = [] // 空表 = 没有豁免(合法台账,不是"取不到")
+    const runC = (files, tracked, ledger = okLedger, sites = []) =>
+      auditWrongNameShadow(sites, new Set(tracked), mk(files), ledger, day)
+    let cFail = 0
+    const cCheck = (name, cond, detail) => {
+      if (!cond) cFail++
+      console.log(`${cond ? '✅' : '❌'} ${name}${detail ? `(${detail})` : ''}`)
+    }
+    // ① 阳性对照·夹具:无同 stem 同伴、无人指向,只有"正文写了 TS"这一格可看 ⇒ a/b 全瞎,c 必须咬
+    const naked = runC({ 'p/x.js': 'export const m = new Map<string, number>()\n' }, ['p/x.js'])
+    cCheck(
+      'D6-c① 裸影子(无同伴/无人指向)正文含泛型 ⇒ 必拦',
+      naked.bombs.bombs.length === 1 && (naked.byFile.get('p/x.js') || []).length === 1 && naked.coexist.length === 0,
+      `必炸 ${naked.bombs.bombs.length} 枚 / 违规表 ${naked.byFile.size} 处 / 并存 ${naked.coexist.length} 对`,
+    )
+    // ② 反向对照:合法普通 JS(解构/可选链/模板/正则/三元/new)一律不得判红
+    const legit = runC(
+      {
+        'q/a.js': 'const { a, b = 1 } = obj ?? {}\nconst re = /a(?:b)?/g\nf(x ? y : z)\nnew Foo(a, b)\nexport default () => `v ${a}`\n',
+      },
+      ['q/a.js'],
+    )
+    cCheck('D6-c② 合法 JS 正文不得被咬(假阳 = 恒红门,§12e)', legit.byFile.size === 0 && legit.bombs.candidates.length === 0)
+    // ③ 门不得读自己的解释文字:注释/字符串里写出的 TS 形态一律不计
+    const narr = runC(
+      { 'r/a.js': "// 别写成 interface Foo {\nconst s = 'export type A = 1'\nmodule.exports = 1\n" },
+      ['r/a.js'],
+    )
+    cCheck('D6-c③ 注释/字符串里的 TS 形态不计', narr.byFile.size === 0)
+    // ④ 与判据 a 同枚 ⇒ **并句不并数**:违规表仍 1 处,但 hint 必须点名"必炸"证据
+    const pair = runC({ 's/x.js': 'interface Foo { a: number }\n' }, ['s/x.js', 's/x.ts'])
+    cCheck(
+      'D6-c④ 同名并存 + 正文 TS ⇒ 计数不翻倍、hint 带必炸证据',
+      pair.byFile.size === 1 &&
+        (pair.byFile.get('s/x.js') || []).length === 1 &&
+        /TS 专有语法/.test(pair.byFile.get('s/x.js')[0].hint) &&
+        pair.coexist.length === 1,
+      `计数 ${(pair.byFile.get('s/x.js') || []).length} / hint ${JSON.stringify((pair.byFile.get('s/x.js')[0] || {}).line)}`,
+    )
+    // ⑤ 阳性对照·真仓历史 blob:那起把生产 API 打崩约 2.5 小时的原件,去掉同伴与消费方后
+    //    只剩 c 这一格看得见(夹具不算证明 —— §22c 那条"只认自己造的夹具"讲的正是这一型)
+    const PRE = '6bf657df86^'
+    const SHADOW_BLOB = 'apps/api/src/services/user-concurrency-service.js'
+    let realBomb = null
+    try {
+      const blob = gitRaw(['show', `${PRE}:${SHADOW_BLOB}`], ROOT, { timeout: GIT_TIMEOUT })
+      realBomb = auditShadowSyntaxBombs(() => blob, [SHADOW_BLOB], okLedger, day)
+    } catch (e) {
+      realBomb = { err: `历史 blob 取不到:${e && e.message ? e.message : e}` }
+    }
+    cCheck(
+      'D6-c⑤ 真仓历史影子 blob 必须被点名(只喂正文、不给同伴与消费方)',
+      !!realBomb && Array.isArray(realBomb.bombs) && realBomb.bombs.length === 1,
+      Array.isArray(realBomb && realBomb.bombs) && realBomb.bombs.length
+        ? `${realBomb.bombs[0].marker} 第 ${realBomb.bombs[0].line} 行`
+        : JSON.stringify(realBomb),
+    )
+    // ⑥ 豁免"验过才免":未到期 + 四键齐备 ⇒ 不判红、进 exempted、逐枚点名
+    const waived = ['q/x.js']
+    const goodLedger = [
+      { file: 'q/x.js', reason: '上游 vendored 产物,改名会破坏其自更新脚本', ticket: 'G-815915', until: '2026-12-31' },
+    ]
+    const w1 = runC({ 'q/x.js': 'export const m = new Map<string, number>()\n' }, waived, goodLedger)
+    cCheck(
+      'D6-c⑥ 有效豁免:免判红但仍逐枚点名,且不进违规表',
+      w1.bombs.bombs.length === 0 && w1.bombs.exempted.length === 1 && w1.byFile.size === 0,
+    )
+    // ⑦ 到期 ⇒ 回到射程(豁免不会自动续期)
+    const w2 = runC({ 'q/x.js': 'export const m = new Map<string, number>()\n' }, waived, [
+      { ...goodLedger[0], until: '2026-10-31' },
+    ])
+    cCheck('D6-c⑦ 豁免到期 ⇒ 立刻回到射程', w2.bombs.bombs.length === 1 && w2.bombs.exempted.length === 0)
+    // ⑧ 清单腐烂:登了而被审面不再命中 ⇒ 判红通道(rot)
+    const w3 = runC({ 'q/x.js': 'module.exports = 1\n' }, ['q/x.js'], goodLedger)
+    cCheck('D6-c⑧ 台账登记却不再命中 ⇒ rot 点名(§0.7)', w3.bombs.rot.length === 1 && w3.bombs.bombs.length === 0)
+    // ⑨ 坏台账整批不生效(缺键 / 理由过短 / 日期不是 YYYY-MM-DD)⇒ entries=null ⇒ 整维未判定,绝不回落"没有豁免"
+    const badRows = [
+      '缺 reason:',
+      [{ file: 'q/x.js', ticket: 'G-1', until: '2026-12-31' }],
+      '理由过短:',
+      [{ file: 'q/x.js', reason: '顺手', ticket: 'G-1', until: '2026-12-31' }],
+      '日期形态坏:',
+      [{ file: 'q/x.js', reason: '够长的理由够长的理由', ticket: 'G-1', until: '2026/12/31' }],
+    ]
+    let badAll = true
+    for (let i = 0; i < badRows.length; i += 2) {
+      const r = parseShadowExemptionLedger(JSON.stringify(badRows[i + 1]))
+      if (!(r.entries === null && r.problem)) badAll = false
+      const w = runC({ 'q/x.js': 'new Map<string, number>()\n' }, ['q/x.js'], r.entries)
+      if (!(w.bombs.undetermined.length === 1 && w.byFile.size === 0)) badAll = false
+    }
+    cCheck('D6-c⑨ 坏台账整批不生效 ⇒ 未判定(不记绿不冒红)', badAll)
+    // ⑩ 取材通道没接(readFile 缺省)⇒ 整维未判定,且 a/b 的裁定一字不受影响
+    const w5 = auditWrongNameShadow([], new Set(['t/x.js', 't/x.ts']), undefined, okLedger, day)
+    cCheck(
+      'D6-c⑩ 未提供内容取材通道 ⇒ 整维未判定,a/b 照常裁',
+      w5.bombs.undetermined.length === 1 && w5.coexist.length === 1 && d6cChannelBlind(w5.bombs),
+    )
+    // ⑪ 采集口径成对:扫过且干净 ⇒ 不判死;一枚都没进射程 ⇒ 判死
+    const w6 = runC({ 'u/a.js': 'module.exports = 1\n' }, ['u/a.js'])
+    const w7 = auditWrongNameShadow([], new Set(['v/a.ts']), mk({}), okLedger, day)
+    cCheck(
+      'D6-c⑪ 盲区判据方向:扫过 1 枚且干净 ⇒ 不判死;射程 0 枚 ⇒ 判死',
+      !d6cChannelBlind(w6.bombs) && d6cChannelBlind(w7.bombs),
+      `scanned ${w6.bombs.scannedFiles}/${w7.bombs.scannedFiles}`,
+    )
+    // ⑫ 磁盘残留不算本仓债务:trackedSrc(同一取材面)外的 .js 不进射程
+    const w8 = runC({ 'w/a.js': 'new Map<string, number>()\n' }, [], okLedger)
+    cCheck('D6-c⑫ 未入库的同名 .js 不进射程(与 D4 同口径)', w8.bombs.scannedFiles === 0 && w8.byFile.size === 0)
+    // ⑬ 形态清单与接线:__test__ 必须真的把这把尺交给镜像测试(§22c),CLI 与测试同一实现
+    const kitOk =
+      typeof auditShadowSyntaxBombs === 'function' &&
+      SHADOW_EXEMPTION_LEDGER === 'scripts/data/dangling-shadow-exemptions.json'
+    cCheck('D6-c⑬ 判据经导出交镜像测试(不另抄一份)', kitOk, SHADOW_EXEMPTION_LEDGER)
+    // ⑭ 台账三态(2026-11-01 补):这一格是镜像 `--root 换仓三态` 用例实跑复现出来的回归 ——
+    //     D6-c 刚装车时把"被审仓没有这一族台账"判成整维未判定,于是门 98 在旁路落地换仓通道
+    //     又变回"等于没装"(G-929 同型根因,dc3906305 刚在上一层修过)。正解是**零豁免照判**(更严,
+    //     不是放人);而"本仓台账缺失/内容坏"仍是未判定,两态不得并桶。
+    const foreignLedger = loadShadowExemptionLedger(join(ROOT, '__no_such_foreign_repo__'))
+    const ownLedgerExists = loadShadowExemptionLedger(ROOT, day, false)
+    const ownLedgerMissing = loadShadowExemptionLedger(join(ROOT, 'scripts/data'), day, false)
+    cCheck(
+      'D6-c⑭ 台账三态:换仓缺台账⇒零豁免照判 / 本仓在⇒照常 / 本仓缺⇒未判定(两态不并桶)',
+      isForeignAuditRoot(ROOT) === false &&
+        isForeignAuditRoot(join(ROOT, '__no_such_foreign_repo__')) === true &&
+        foreignLedger.absent === true &&
+        foreignLedger.foreign === true &&
+        Array.isArray(foreignLedger.entries) &&
+        foreignLedger.entries.length === 0 &&
+        foreignLedger.problem === null &&
+        ownLedgerExists.entries !== null &&
+        ownLedgerExists.absent === false &&
+        ownLedgerMissing.absent === true &&
+        ownLedgerMissing.problem !== null &&
+        ownLedgerMissing.entries === null,
+      `foreign=${JSON.stringify(foreignLedger.problem)}/ownExists=${ownLedgerExists.absent}/ownMissing=${String(ownLedgerMissing.problem).slice(0, 24)}`,
+    )
+    // 零豁免面必须真的照常裁定(不是"跳过判定"):同一枚必炸正文在 foreign 面上仍进 bombs
+    const foreignRun = runC({ 'x/a.js': 'export const m = new Map<string, number>()\n' }, ['x/a.js'], foreignLedger.entries)
+    cCheck('D6-c⑮ 零豁免面不放松:换仓缺台账时正文命中仍进 bombs', foreignRun.bombs.bombs.length === 1)
+    if (cFail) fail += cFail
+    console.log(`D6-c 成对块:${cFail === 0 ? '全部通过' : `失败 ${cFail} 例`}`)
+  }
+  {
     // G-815985 `--rev` 面的 kind 判定三态(commit/tree/解析不到)。
     const treeSha = gitRaw(['rev-parse', 'HEAD^{tree}'], ROOT, { timeout: GIT_TIMEOUT }).trim()
     const ok =
@@ -2576,6 +3051,19 @@ export const __test__ = {
   TS_SIDE_CONSUMER_RE,
   SHADOW_PARTNERS,
   JS_SPEC_RE,
+  // D6-c(2026-11-01 补,票面 G-815915 型②):判据本体 + 台账方言 + 采集口径盲区,镜像测试直接 import
+  auditShadowSyntaxBombs,
+  parseShadowExemptionLedger,
+  shadowExemptionActive,
+  loadShadowExemptionLedger,
+  isForeignAuditRoot,
+  d6cChannelBlind,
+  SHADOW_EXEMPTION_LEDGER,
+  SHADOW_EXEMPTION_REASON_MIN,
+  // D6-c 的射程过滤面:镜像要复量"扫了多少枚"必须用同一份过滤判据,不得在测试里另抄一份(§22c)
+  SKIP_DIR,
+  FIXTURE_ROOT,
+  SRC_RE,
   // D7(2026-10-29 立):判据本体交镜像测试,CLI 与测试共用同一把尺(§22c)
   auditNamespaceAggregator,
   d7ChannelBlind,

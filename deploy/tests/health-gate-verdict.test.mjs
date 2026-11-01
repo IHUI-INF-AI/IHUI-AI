@@ -178,4 +178,77 @@ test('T6 判据本体自洽:模块必须只有一份 Decision 判序实现', () 
     throw new Error('判序已变(不再是"末轮 fail 且源站不成立 → fail;末轮 fail 但源站成立 → entry-broken")⇒ 请连本测试一起改')
   }
 })
+
+// ── T10 票 L4461 补格(2026-11-01):llm 维"凭据缺失必须单独出声"的三态诚实锁 ────
+// 立因:Test-LlmGateway 有两支 unknown 出口 —— ① 开局取不到令牌(no-token),② 401/403 被拒后
+// 重登又失败(auth-retry-no-token)。①一直有 Log;②此前**不打一行就 return**,于是
+// "凭据被拒/缺失"在人读日志里静默,与"网关坏"只在 GATE-DIM 的 ASCII 行里同格 ——
+// 票面要求"凭据缺失要单独出声,且不得把未判定折成失败触发回滚、也不得折成通过"。
+// 本例反向锁:函数体内每个 `return 'unknown'` 之前(近邻 6 行内)必须有 Log 点名,
+// 且每条出口都先把探测原文落进 $script:LastLlmProbe(结论与证据同批落盘,§0.3 同族)。
+test('T10 llm 探测的每条 unknown 出口都必须出声并留取证(反"红得安静")', () => {
+  const s = read(DEPLOY)
+  const at = s.indexOf('function Test-LlmGateway')
+  if (at < 0) throw new Error('Test-LlmGateway 不在了 ⇒ 本锁失去对象;若改名/搬移,请连本测试一起改')
+  // 取函数体:到下一个顶格 `}` 为止(同文件其余函数同形)
+  const end = s.indexOf('\n}\n', at)
+  if (end < 0) throw new Error('Test-LlmGateway 函数体收口找不到')
+  const body = s.slice(at, end)
+  const lines = body.split(/\r?\n/)
+  const exits = []
+  lines.forEach((l, i) => {
+    // 跳过注释行:2026-10-31/11-01 两段留痕注释正文里就写着被扫描的字面量,不剔会把它当出口
+    if (/^\s*#/.test(l)) return
+    if (/return 'unknown'/.test(l)) exits.push(i)
+  })
+  if (exits.length < 2) {
+    throw new Error(
+      `Test-LlmGateway 里 return 'unknown' 出口只剩 ${exits.length} 支(应至少 2 支:凭据缺失 + 探测未知)` +
+        ' —— 少一支意味着某型"取不到"被折进了 fail 或 pass(票 B 明令禁止)',
+    )
+  }
+  for (const i of exits) {
+    // 窗口含出口行本身:既有形态有 `Log "…"; return 'unknown'` 同一行写法(898 行)
+    // 注释行剔除后判:留痕注释里合法地引用过 Log/LastLlmProbe 字样,算进窗口就是假绿
+    const win = lines
+      .slice(Math.max(0, i - 6), i + 1)
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n')
+    if (!/Log\s+"/.test(win)) {
+      throw new Error(`第 ${i} 行的 unknown 出口近邻 6 行(剔注释)没有 Log "…" 调用 ⇒ 该型未判定在日志里静默(凭据缺失必须单独出声)`)
+    }
+    if (!/LastLlmProbe\s+=/.test(win)) {
+      throw new Error(`第 ${i} 行的 unknown 出口近邻 6 行(剔注释)没有落 $script:LastLlmProbe ⇒ 结论没带可复核读数`)
+    }
+  }
+  // 出声的出口不得同时进 fails(未判定不得折成失败触发回滚):
+  // auth-retry 支必须 return 'unknown',不得改成 return 'fail'
+  if (!/Reason = 'auth-retry-no-token'/.test(body)) {
+    throw new Error('auth-retry-no-token 取证类别被删 ⇒ 401/403 重登失败与一般 unknown 又混成一格')
+  }
+})
+
+// ── T11 票 L4461 补格:取证行(GATE-DIM)的装车锁 ─────────────────────────────
+// 2026-10-31 立的 Format-GateProbeEvidence / Get-GateProbeClass 只住在模块里;
+// "判据在、无人调"是本仓最高频失效型(守门 70/89 R7 同族),此处钉调用点与 noprobe 兜底。
+test('T11 GATE-DIM 取证行已装车:六维逐轮点名、取不到写 noprobe 不冒读数', () => {
+  const s = read(DEPLOY)
+  const m = read(MODULE)
+  if (!/function Format-GateProbeEvidence/.test(m) || !/function Get-GateProbeClass/.test(m)) {
+    throw new Error('模块里的取证纯函数被摘 ⇒ 下面的装车断言无从谈起')
+  }
+  if (!/Log \(Format-GateProbeEvidence -Probes/.test(s)) {
+    throw new Error('主脚本不再调用 Format-GateProbeEvidence ⇒ 逐维状态/类别取证行没装车,回滚事后又只剩一个词')
+  }
+  // 六个维度必须全进取证表(公网三维 + 源站三维),缺一格就是"那一条腿没人看"
+  for (const k of ['web', 'api', 'llm', 'webOrigin', 'apiOrigin', 'llmOrigin']) {
+    if (!new RegExp(`\\b${k}\\s+=\\s+\\$`).test(s)) {
+      throw new Error(`取证表缺 ${k} 维 —— 该腿的读数不会落进 GATE-DIM 行`)
+    }
+  }
+  // §0.3:取不到不记绿也不假装有读数 ⇒ 兜底必须是 noprobe(两文件各现读一份字面量)
+  if (!/'noprobe'/.test(m) || !/'noprobe'/.test(s)) {
+    throw new Error('noprobe 兜底被摘 ⇒ 取不到输入时取证行会造假读数或整行消失')
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

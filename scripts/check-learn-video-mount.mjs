@@ -665,7 +665,7 @@ export async function runSelfTest() {
     // 再登记布尔结论 —— 不是为了好看,是为了这条锁不会自咬。
     const r1 = await collect({ fsImpl, locateClient: locator(true), psqlRunner: runner(true), httpFetcher: async () => ({ status: 200, total: 2 }), argvDsn: dsn, baseUrl: 'https://fixture.invalid' })
     const r2 = await collect({ fsImpl, locateClient: locator(true), psqlRunner: runner(false), httpFetcher: async () => ({ status: 200, total: 0 }), argvDsn: dsn, baseUrl: 'https://fixture.invalid' })
-    const r3 = await collect({ fsImpl, locateClient: locator(false), psqlRunner: runner(true), httpFetcher: async () => ({ fetchError: '夹具:不发网络' }), argvDsn: null, env: { DATABASE_URL: '' }, baseUrl: 'https://fixture.invalid' })
+    const r3 = await collect({ fsImpl, locateClient: locator(false), psqlRunner: runner(true), httpFetcher: async () => ({ fetchError: '夹具:不发网络' }), argvDsn: null, env: { DATABASE_URL: '' /* QUEUE_ISOLATION_EXEMPT: 这里的 env 是进程内 collect() 的入参,根本不派生子进程 */ }, baseUrl: 'https://fixture.invalid' })
 
     t('① manifest 解析出 1 门 2 节', parseManifest(manifestText).sections === 2)
     t('② 发布位 0 ⇒ gap', judgePublish({ courses: 1, chapters: 1, sections: 2, sectionsWithUrl: 2, publishedCourses: 0, feedSections: 0 }).state === 'gap')

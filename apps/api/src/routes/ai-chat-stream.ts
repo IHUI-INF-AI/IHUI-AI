@@ -725,7 +725,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // 票71 剩余缺口①(2026-10-31):SSE 生成腿的 chat-sync 帧发射器。
     // 参与门槛与终态帧同一把尺(replayKey = 坐标齐备):降级流没有 (conversationId, messageId),
     // 帧无处认领;插件未注册(裁剪部署/单测)时同样跳过 —— 发射器缺失不得让转发主链抛错。
-    const chatSyncMemberUserId = opts.metadata?.userId ?? request.userId
+    // 票71 越权纪律(2026-11-01):广播投递对象只取承载层认证身份。metadata.userId 是
+    // 客户端可整写字段 —— 自报优先等于允许任何人把携带本会话消息全文的
+    // message:created/patched 帧投递到任意在线用户的连接上(跨用户内容投递)。
+    // 正常调用方两值恒同(web/taro 都传本登录态),行为面零变化;被改判的只有伪造值。
+    const chatSyncMemberUserId = request.userId
     const chatSyncFrame =
       replayKey &&
       opts.metadata?.conversationId &&
@@ -1174,7 +1178,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         const reason = terminalReason
         const conversationId = opts.metadata?.conversationId
         const messageId = opts.metadata?.messageId
-        const memberUserId = opts.metadata?.userId ?? request.userId
+        // 票71 越权纪律(2026-11-01):与 created/patched 腿同一把尺 —— 投递对象只取
+        // 承载层认证身份,不信客户端自报的 metadata.userId(伪造值会把终态帧送给他人)。
+        const memberUserId = request.userId
         // 运行期护栏:本路由的既有单测/裁剪部署可能未注册 ws-broadcast 插件,
         // 此时终态帧无处可发 —— 跳过,不得让收尾路径抛错。
         if (

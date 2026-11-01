@@ -57,9 +57,12 @@ test('D159-W4 投影判据只许一份实现,且必须经包入口递出(守门 
   const decls = client.match(/export function projectToolApprovalEnvFacts/g) || []
   assert.equal(decls.length, 1, `投影出口被复制成 ${decls.length} 份 ⇒ 两处判据必漂移`)
   const index = read('packages/api-client/src/index.ts')
+  // 2026-11-01 放宽形状:此前死抠 `export { projectToolApprovalEnvFacts }` 单名字形态,
+  // 而真源是同名模块的合并命名出口(`{ projectToolApprovalEnvFacts, projectToolApprovalExpiredFact }`,
+  // index.ts:169)—— 契约是"必须经包入口显式递出",合并形态同样满足。
   assert.match(
     index,
-    /export \{ projectToolApprovalEnvFacts \} from '\.\/client\.js'/,
+    /export \{[^}]*\bprojectToolApprovalEnvFacts\b[^}]*\} from '\.\/client\.js'/,
     '入口是显式命名清单,漏列则跨包 import 拿到 undefined(而 web 构建吞掉 TS2724)',
   )
 })

@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Pressable,
   Share,
   StyleSheet,
   Text,
@@ -44,7 +45,6 @@ import { rpx } from '../utils/rpx'
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import { Tappable } from '@ihui/ui-native'
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -204,18 +204,18 @@ export function ArticleDetailScreen() {
         onRequestClose={() => setCommentVisible(false)}
       >
         <View style={styles.commentOverlay}>
-          <Tappable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
+          <Pressable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
           <View style={styles.commentSheet}>
             <View style={styles.commentHeader}>
               <Text style={styles.commentTitle}>评论</Text>
-              <Tappable
+              <Pressable
                 hitSlop={8}
                 onPress={() => setCommentVisible(false)}
                 accessibilityRole="button"
                 accessibilityLabel={t('comment.close')}
               >
                 <Text style={styles.commentClose}>×</Text>
-              </Tappable>
+              </Pressable>
             </View>
             {commentLoading ? (
               <ActivityIndicator style={styles.commentLoading} color={tokens.text.secondary} />
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     // 详见 scripts/check-sheet-flex-contract.mjs)
     flexShrink: 0,
     paddingHorizontal: rnSpacing.lg,
-    paddingBottom: rnSpacing['sm-loose'],
+    paddingBottom: 10,
   } as ViewStyle,
   commentTitle: {
     fontSize: rnType.title.size,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentItem: {
     flexDirection: 'row',
-    paddingVertical: rnSpacing['sm-loose'],
+    paddingVertical: 10,
   } as ViewStyle,
   commentAvatar: {
     width: 32,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: rnSpacing['sm-loose'],
+    marginRight: 10,
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     lineHeight: 20,
     color: tokens.text.primary,
-    marginTop: rnSpacing['2xs'],
+    marginTop: 2,
   } as TextStyle,
   commentTime: {
     fontSize: rnType.caption.size,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: rnSpacing['sm-loose'],
+    gap: 10,
     padding: rnSpacing.md,
   } as ViewStyle,
   commentInput: {

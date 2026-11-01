@@ -139,7 +139,15 @@ export function WritingBlockCard({
       }
       onAction?.(action, blockId)
     },
-    [actionLabel.accept, actionLabel.acceptAll, actionLabel.revert, blocks, onAction, pushVersion, state],
+    [
+      actionLabel.accept,
+      actionLabel.acceptAll,
+      actionLabel.revert,
+      blocks,
+      onAction,
+      pushVersion,
+      state,
+    ],
   )
 
   const handleOpenInChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -157,7 +165,7 @@ export function WritingBlockCard({
       aria-label={t('ariaLabel')}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-foreground" data-writing-block-title="">
+        <span className="text-label font-medium text-foreground" data-writing-block-title="">
           {t('title')}
         </span>
         {onAction ? (
@@ -276,3 +284,4 @@ export function WritingBlockCard({
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
