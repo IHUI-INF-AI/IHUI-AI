@@ -131,6 +131,13 @@ describe('② 接线半:chat.tsx 的读投影与版本菜单挂载点', () => {
     expect(NORM).toContain('deletenext[siblingVersion.rootId]')
   })
 
+  it('上行上下文截到族根之前(与 web historySource 同口径),族根缺席才回落全量前缀', () => {
+    expect(NORM).toContain('constrootCut=messages.findIndex((m)=>m.id===rootId)')
+    expect(NORM).toContain('rootCut===-1?messages.slice(0,lastUserIdx+1):messages.slice(0,rootCut)')
+    // 反向锁:不得再无条件用"最后一个用户问题"当截断点(那样旧回复与后续轮次会混进上下文)
+    expect(NORM).not.toContain('sendMessage(undefined,messages.slice(0,lastUserIdx+1),{')
+  })
+
   it('「重新生成」必须带上被点的那一条 —— 不带 target 只会落到最后一版,族就开错了根', () => {
     expect(NORM).toContain("msg.role==='assistant'?()=>handleRegenerate(msg):undefined")
     // 反向锁:渲染腿不得再把事件对象直接当 handler 交出去(Taro onClick 的第一参是事件)

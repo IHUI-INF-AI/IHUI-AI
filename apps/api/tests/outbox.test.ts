@@ -41,6 +41,7 @@ import {
   getOutboxStats,
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_BATCH_SIZE,
+  DEFAULT_CLEANUP_BATCH_LIMIT,
   type OutboxEventInput,
   type OutboxDispatcher,
 } from '../src/utils/outbox.js'
@@ -94,14 +95,6 @@ function mockUpdateWhere() {
     set: vi.fn().mockReturnValue({ where: whereFn }),
   })
   return whereFn
-}
-
-/** 配置 delete→where→returning 链 */
-function mockDeleteReturning(rows: unknown[]) {
-  const returningFn = vi.fn().mockResolvedValue(rows)
-  mockDbDelete.mockReturnValue({
-    where: vi.fn().mockReturnValue({ returning: returningFn }),
-  })
 }
 
 describe('outbox — 可靠消息模式', () => {
@@ -259,17 +252,69 @@ describe('outbox — 可靠消息模式', () => {
   })
 
   describe('cleanupProcessedOutbox', () => {
-    it('返回删除的记录数', async () => {
-      mockDeleteReturning([{ id: '1' }, { id: '2' }, { id: '3' }])
+    /**
+     * 配置「取批 select → 按主键 delete」链:每轮 select 出一批,记录 limit 实参。
+     * batches 出尽后给空批(= 已排空)。
+     */
+    function mockBatchChain(batches: unknown[][]) {
+      const limits: number[] = []
+      const deleteWhere = vi.fn().mockResolvedValue([])
+      mockDbSelect.mockImplementation(() => {
+        const rows = batches.shift() ?? []
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn(async (n: number) => {
+                  limits.push(n)
+                  return rows
+                }),
+              }),
+            }),
+          }),
+        }
+      })
+      mockDbDelete.mockReturnValue({ where: deleteWhere })
+      return { limits, deleteWhere }
+    }
+
+    it('先按批上界取主键、再按主键删,返回删除条数(不做无界 DELETE)', async () => {
+      const { limits, deleteWhere } = mockBatchChain([[{ id: '1' }, { id: '2' }, { id: '3' }]])
 
       const count = await cleanupProcessedOutbox(new Date('2025-01-01T00:00:00Z'))
+
       expect(count).toBe(3)
+      // 短批(3 < 上界)即止:只取了一轮,单轮持锁面始终是一批
+      expect(limits).toEqual([DEFAULT_CLEANUP_BATCH_LIMIT])
+      expect(deleteWhere).toHaveBeenCalledTimes(1)
     })
 
-    it('无记录返回 0', async () => {
-      mockDeleteReturning([])
+    it('积压满一批时继续下一轮,直到短批为止(累计条数如实上报)', async () => {
+      const full = Array.from({ length: DEFAULT_CLEANUP_BATCH_LIMIT }, (_, i) => ({ id: `x${i}` }))
+      const { limits } = mockBatchChain([full, [{ id: 'tail' }]])
+
+      const count = await cleanupProcessedOutbox(new Date('2025-01-01T00:00:00Z'))
+
+      expect(count).toBe(DEFAULT_CLEANUP_BATCH_LIMIT + 1)
+      expect(limits).toEqual([DEFAULT_CLEANUP_BATCH_LIMIT, DEFAULT_CLEANUP_BATCH_LIMIT])
+    })
+
+    it('无到期 processed 行:不发 DELETE,返回 0', async () => {
+      const { deleteWhere } = mockBatchChain([[]])
+
       const count = await cleanupProcessedOutbox(new Date())
+
       expect(count).toBe(0)
+      expect(deleteWhere).not.toHaveBeenCalled()
+    })
+
+    it('options.limit 覆盖单批上界', async () => {
+      const { limits } = mockBatchChain([[{ id: '1' }, { id: '2' }]])
+
+      const count = await cleanupProcessedOutbox(new Date(), { limit: 2 })
+
+      expect(count).toBe(2)
+      expect(limits).toEqual([2, 2])
     })
   })
 

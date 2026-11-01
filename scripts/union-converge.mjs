@@ -166,6 +166,9 @@ import {
   compositeKeyOf,
 } from './lib/plan-task-index.mjs'
 import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
+// 冲突标记的「成套 / 空区 / 有正文区」分类判据(2026-11-01,MARKERS 票):与守门 79 共用
+// `lib/conflict-marker-triples.mjs` 那一份实现,本器不再抄第二条「什么算成对标记」(§0.6)。
+import { classifyMarkerTriples } from './lib/conflict-marker-triples.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -1206,6 +1209,32 @@ export function formatFoldReport(folded, { maxEntries = 5 } = {}) {
 }
 
 /**
+ * 「空冲突区的标记行该被扣到哪一份」的表 —— `liveDocExpectedCounts` 与镜像测试共用的唯一出口。
+ *
+ * 返回 `Map<行文本, 本侧应保留的重数>`:命中键 = **对侧只把它写在空冲突区里**的那些标记行
+ * (三条一行:开头 / 恰好等于 `=======` 的分隔 / 结尾),值 = 本侧自己的份数(0 ⇒ 一条都不补)。
+ * 本函数**不判守门 79 的 P1/P4**(那是门体的事),它只回答"这一行该不该从对侧被 union 补回来";
+ * "什么算成套、什么算区域内零正文"一律问 `lib/conflict-marker-triples.mjs` 的那一份实现(§0.6)。
+ *
+ * 保守向(失效方向恒为多留一份,不是少带一份):
+ *  - 同一段文本既出现在对侧的空区、又出现在对侧**有正文**的区 ⇒ 这条**整条不扣**
+ *    (按行文本作键,份数分不开;分不开就不猜)。
+ *  - 半截标记(未配对)与成对但缺 `=======` 的畸形区:不进 `empty` 桶 ⇒ 不扣,照旧补回,
+ *    红由门 79 与落地自证臂去喊。
+ */
+export function markerTripleRecallCaps(oursText, theirsText) {
+  const caps = new Map()
+  const t = classifyMarkerTriples(theirsText)
+  if (t.empty.size === 0) return caps
+  const co = counter(oursText)
+  for (const l of t.empty.keys()) {
+    if (t.contentBearing.has(l)) continue
+    caps.set(l, co.get(l) || 0)
+  }
+  return caps
+}
+
+/**
  * 活文档三方行 union 的**期望重数表**:`结果[l] = 本侧重数 + max(0, 对侧有效重数 − max(基底重数, 本侧重数))`。
  *
  * 为什么必须带基底这一维(2026-09-25 实测逼出来的,不是理论洁癖):
@@ -1280,6 +1309,30 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
    * 产出面(`unionLines`)与自证面(`verifyUnion`)共用这一张表 ⇒ 两边不会一个不补、一个追讨。
    */
   for (const l of archiveDropCaps(oursText, archivedOverride)) want.delete(l)
+  /**
+   * **空冲突区的三条标记行永不补回**(2026-11-01,MARKERS 票;判据单源 = lib `classifyMarkerTriples`)。
+   * 立因(现读复核,不是抄台账):手工摘除 AGENTS.md 那三条 `<<<<<<< / ======= / >>>>>>>` 后,
+   * 下一枚旁路合流按"对侧在场即补回"的行级口径把它们原样带回 HEAD/索引/工作树/origin 四面 ——
+   * 补回脚手架 = 把 git 写给机器看的分节线当正文,而守门 79 对它**必红**,于是红门在每一枚合流上复发。
+   * 只扣**空冲突区**(区域内一行正文都没有,摘掉不丢任何一侧内容)的那一族;区域内有正文的
+   * **一条都不扣** —— 那一型的正确出路是给出定向说明(两侧内容如何取舍),不是让归并器顺手放行,
+   * 所以照旧补回 ⇒ 让门 79 判红喊人(§0.10:失效方向恒为"多要一次定向说明")。
+   * 扣的是**补回量**(`want` 收到本侧自身份数),本侧自己带的那几份原样留在脊柱里 ——
+   * 与上面几桶"本侧 0 份才扣"同向,绝不做"顺手替本侧删内容"这件事。
+   * 产出面(`unionLinesCore`)与自证面(`verifyUnion`)共用这张表 ⇒ 一边不补、另一边也不追讨。
+   */
+  for (const [l, own] of markerTripleRecallCaps(oursText, theirsText)) {
+    const cur = want.get(l) || 0
+    if (cur <= own) continue
+    if (own === 0) want.delete(l)
+    else want.set(l, own)
+    if (report)
+      report.push({
+        line: l,
+        via: 'marker-empty-triple',
+        why: '对侧该行的全部出现都在**空冲突区**内(区域内零正文)⇒ 补回它等于把合并脚手架当正文',
+      })
+  }
   /**
    * 同一族的**改写形态**认账(G-34/G-43, 2026-10-25):逐字维只能认"台账里那一串字节",对侧把
    * 被摘行改写过一笔(追加注记/剥装饰)就结构上认不出 ⇒ 照旧 100% 带回(昨夜 24 行 f11 存量即此)。
@@ -1682,7 +1735,9 @@ export function formatLedgerEvidence(evidence) {
         ? `题面指纹=${evidence.fingerprint}`
         : evidence.via === 'title'
           ? `题面 32 字指纹=${evidence.titleFp}`
-          : `通道=${evidence.via}`
+          : evidence.via === 'marker-empty-triple'
+            ? '空冲突区形状(区域内零正文,判据单源 lib/conflict-marker-triples 的 classifyMarkerTriples)'
+            : `通道=${evidence.via}`
   if (rows.length === 0) return `${id} / ❌ 台账原文 0 条(凭据缺口 ⇒ 上游本应整批不扣)`
   const head = String(rows[0]).trim()
   // 台账原文可能很长(实测单行 6.5KB):凭据行给前 120 字 + 长度,完整原文就在台账文件里。
@@ -2344,6 +2399,9 @@ export function buildUnion(
     // 摘除台账拦下的补回候选(G-34/G-43, 2026-10-25):逐字以外按复合主键/指纹认账,
     // 命中与"未判定"都不回补 —— 但必须逐条计数点名并随返回值交回报告面,不得静默(§0.3/§0.10)。
     const ledgerWithheld = []
+    // 空冲突区标记行的扣行账(2026-11-01,MARKERS 票):与上面那本**分开记**,因为凭据来源不是
+    // 摘除台账,而是"这一族三行在区域内一行正文都没有"这条当场判得出的形状(见 markerTripleRecallCaps)。
+    const markerWithheld = []
     // --take-theirs-doc 的两本账(2026-10-27):整份取对侧已生效的路径(逐条点名进报告与提交信息)
     // 与声明了但取不到对侧 blob 的格(未判定,随返回值交回;落地闸由 verifyUnion 对同一格点名)。
     // 声明位置在活文档循环之前 —— 循环里就要往里 push,挂到 2) 的清单堆里会撞 TDZ(见 violations 同款)。
@@ -2405,19 +2463,32 @@ export function buildUnion(
       }
       const mergedText = built0.text
       if (withheldReport.length) {
-        for (const w of withheldReport) ledgerWithheld.push({ doc: p, ...w })
-        const nUnd = withheldReport.filter((w) => w.via === 'undetermined').length
-        const nHeld = withheldReport.filter((w) => w.via === 'held').length
-        console.log(
-          `   摘除台账认账:拦下 ${withheldReport.length - nHeld} 行补回候选(${p};本侧已按台账清掉或无法排除的那一族,对侧/基底的改写形态不回补${nUnd ? `;其中未判定 ${nUnd} 行,原因逐条点名` : ''}${nHeld ? `;另 ${nHeld} 行让路照旧补回,原因逐条点名` : ''})`,
-        )
+        const markerRows = withheldReport.filter((w) => w.via === 'marker-empty-triple')
+        const ledgerRowsOnly = withheldReport.filter((w) => w.via !== 'marker-empty-triple')
+        for (const w of ledgerRowsOnly) ledgerWithheld.push({ doc: p, ...w })
+        for (const w of markerRows) markerWithheld.push({ doc: p, ...w })
+        const nUnd = ledgerRowsOnly.filter((w) => w.via === 'undetermined').length
+        const nHeld = ledgerRowsOnly.filter((w) => w.via === 'held').length
+        if (ledgerRowsOnly.length) {
+          console.log(
+            `   摘除台账认账:拦下 ${ledgerRowsOnly.length - nHeld} 行补回候选(${p};本侧已按台账清掉或无法排除的那一族,对侧/基底的改写形态不回补${nUnd ? `;其中未判定 ${nUnd} 行,原因逐条点名` : ''}${nHeld ? `;另 ${nHeld} 行让路照旧补回,原因逐条点名` : ''})`,
+          )
+        }
+        // 空冲突区标记行的扣行必须**单独一行点名**:它不是台账认账,把它混进上面那句
+        // 就等于对着一批根本没登记过的行谎称"有台账凭据"(§0.3 同一条禁令)。
+        if (markerRows.length) {
+          console.log(
+            `   空冲突区标记行不补回:${markerRows.length} 行(${p};区域内零正文 ⇒ 摘掉不丢任何一侧内容,而补回它等于把合并脚手架当正文,守门 79 必红。有正文的冲突区一条不扣 ⇒ 照旧补回并由门 79 喊人给定向说明)`,
+          )
+          for (const w of markerRows) console.log(`     ⑂ [${w.via}] 扣行原文:${w.line} —— ${w.why ?? '(未给原因)'}`)
+        }
         // 扣掉的**整行原文**必须进输出留痕(不截断),并逐条出示台账凭据 —— 删行判据的自证面。
-        for (const w of withheldReport) {
+        for (const w of ledgerRowsOnly) {
           if (w.via === 'withheld' || w.via === 'held' || w.via === 'undetermined') continue
           console.log(`     · [${w.via}] 扣行原文:${w.line}`)
           console.log(`       证据:${formatLedgerEvidence(w.evidence)}`)
         }
-        for (const w of withheldReport) {
+        for (const w of ledgerRowsOnly) {
           if (w.via !== 'undetermined' && w.via !== 'held') continue
           console.log(`     · [${w.via}] ${(w.why ? `${w.why} —— ` : '') + w.line.trim()}`)
         }
@@ -2784,6 +2855,9 @@ export function buildUnion(
       lossStale,
       // 摘除台账拦下的补回候选(G-34/G-43):不拦落地,但随报告逐条点名(与 caps 同一条留痕纪律)。
       ledgerWithheld,
+      // 空冲突区标记行的扣行账(2026-11-01,MARKERS 票):不拦落地,但必须逐行进报告与提交信息,
+      // 否则"归并器自己扣了三行"就会被下一手读成"对侧本来就没有这三行"(§0.3)。
+      markerWithheld,
       liveDocs,
       // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
       foldLedgers,
@@ -4489,6 +4563,55 @@ function selfTest() {
       '防复活必须是**有基底的三方判据**:只给两侧文本时旧行为不变(证明收紧靠的是 base 而不是削判据)',
       counter(unionLines('a\n', 'a\nb\n')).get('b') === 1,
     )
+    /**
+     * 空冲突区标记行不补回(2026-11-01,MARKERS 票;三型成对,缺一型就是"一律放行/一律禁止")。
+     * 这一族 2026-09-28 装过一次、同日 `7a075820d4` 改写下这段时被洗掉,此后靠人工反复摘 ——
+     * 所以用例必须钉住**形状**而不只是"结果里没有":扣错方向(把有正文的也扣了)同样要翻红。
+     */
+    const MK_LT = '<'.repeat(7)
+    const MK_GT = '>'.repeat(7)
+    const MK_EQ = '='.repeat(7)
+    const mkHas = (r) =>
+      r.split('\n').some((l) => l.startsWith(MK_LT) || l.startsWith(MK_GT) || l === MK_EQ)
+    ok(
+      '活文档:对侧的**空冲突区**三行(区域内零正文)不得被补回(手工摘除后不再回潮的源头腿)',
+      !mkHas(unionLines(`# d\ntail\n`, `# d\n${MK_LT} cf\n${MK_EQ}\n${MK_GT} c97\ntail\n`, '# d\ntail\n')),
+    )
+    ok(
+      '活文档:**有正文**的冲突区一条不扣 —— 标记行照旧补回、两侧正文都必须在场(不得一律放行)',
+      (() => {
+        const r = unionLines('A\n', `A\n${MK_LT} HEAD\nX\n${MK_EQ}\nY\n${MK_GT} f\n`, 'A\n')
+        return r.includes(`${MK_LT} HEAD`) && r.includes('X') && r.includes('Y')
+      })(),
+    )
+    ok(
+      '活文档:本侧自己带着空冲突区三行时,归并器**不替本侧删**(扣的是补回量,不是既有份数)',
+      (() => {
+        const r = unionLines(`A\n${MK_LT} z\n${MK_EQ}\n${MK_GT} w\n`, 'A\n', 'A\n')
+        const ls = r.split('\n')
+        return (
+          ls.filter((l) => l.startsWith(MK_LT)).length === 1 &&
+          ls.filter((l) => l.startsWith(MK_GT)).length === 1 &&
+          ls.filter((l) => l === MK_EQ).length === 1
+        )
+      })(),
+    )
+    ok(
+      '扣行必须点名:report 里逐条带 via=marker-empty-triple 与整行原文,没扣时该桶为 0(不许静默)',
+      (() => {
+        const rep = []
+        unionLines('A\n', `A\n${MK_LT} cf\n${MK_EQ}\n${MK_GT} c97\n`, 'A\n', null, { report: rep })
+        const hit = rep.filter((w) => w.via === 'marker-empty-triple')
+        const rep2 = []
+        unionLines('A\n', `A\n${MK_LT} HEAD\nX\n${MK_EQ}\nY\n${MK_GT} f\n`, 'A\n', null, { report: rep2 })
+        return (
+          hit.length === 3 &&
+          hit.every((w) => typeof w.why === 'string' && w.why.includes('空冲突区')) &&
+          hit.some((w) => w.line === `${MK_LT} cf`) &&
+          rep2.filter((w) => w.via === 'marker-empty-triple').length === 0
+        )
+      })(),
+    )
     // 「对侧改写、本侧未动」那一族的四条成对用例(正例 + 三条"判不准就不许折"的反向对照)。
     // 反向三条各自的失效方向都是**多留一份**,绝不是少带 —— 少带就是丢别人的行,比 F9 红更贵。
     const RW_BASE = '- [ ] G-770 折叠夹具:同一议题的甲写法,含落点与判据两段说明。\n'
@@ -5678,6 +5801,18 @@ async function main() {
       console.log(`      │ [${w.via}] ${w.doc} 「${String(w.line).trim().slice(0, 60)}」`)
     if (withheld.length > 8) console.log(`      …其余 ${withheld.length - 8} 行同批(计数已含)`)
   }
+  // 空冲突区标记行的扣行(2026-11-01,MARKERS 票)必须当着落地这一刻单独报名:
+  // 它的凭据不是摘除台账,而是"这一族三行区域内零正文"这条当场判得出的形状,混进上面那句
+  // 就是拿"台账认账"这顶帽子盖住一次没有台账的扣行(§0.3「没判的不得说成判过」同一条)。
+  const markerRowsP = p.markerWithheld || []
+  if (markerRowsP.length) {
+    console.log(
+      `  · 空冲突区标记行不补回:${markerRowsP.length} 行(区域内零正文 ⇒ 摘掉不丢任何一侧内容;有正文的冲突区一条不扣,照旧补回 ⇒ 由守门 79 判红喊人给定向说明)`,
+    )
+    for (const w of markerRowsP.slice(0, 8))
+      console.log(`      ⑂ [${w.via}] ${w.doc} 「${String(w.line).trim().slice(0, 60)}」`)
+    if (markerRowsP.length > 8) console.log(`      …其余 ${markerRowsP.length - 8} 行同批(计数已含)`)
+  }
   const capDropped = (p.caps || []).reduce((s, c) => s + (c.capped?.reduce((a, e) => a + e.dropped, 0) ?? 0), 0)
   // 折叠的少带必须同样当着落地那一刻打出来并写进提交信息:它放的是"同一件事的多余副本",
   // 不是"这一行没了"—— 分不清这两件事的下一手会把一次零信息损失的合并读成一次丢内容。
@@ -5771,6 +5906,11 @@ async function main() {
       : '') +
     (p.acceptedGrowth?.length
       ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
+      : '') +
+    // 空冲突区标记行的扣行必须进提交信息(2026-11-01,MARKERS 票):归并器自己扣掉的每一行都要
+    // 逐条点名 + 给理由,后来人只读 git log 也看得出"这三行不是对侧没有,是本器判成脚手架没带"。
+    (p.markerWithheld?.length
+      ? `;空冲突区标记行不补回(区域内零正文 ⇒ 摘掉不丢任何一侧内容;判据单源 lib/conflict-marker-triples): ${p.markerWithheld.map((w) => `${w.doc}「${String(w.line).trim().slice(0, 40)}」`).join(' | ')}`
       : '') +
     // 生成物"待重生成"必须进提交信息:后来人只读 git log 也要知道这一项不是已对齐
     (p.generatedDeferred?.length
@@ -5937,6 +6077,9 @@ export const __test__ = {
   planStateRegressions,
   mergeNoteCrossLineCaliber,
   mergeThreeBlobs,
+  // 空冲突区标记行的补回扣减表(2026-11-01):镜像测试直接用它,不得在测试里再写一份
+  // 「三行相邻算不算空区」的判据(§22c)
+  markerTripleRecallCaps,
   liveDocExpectedCounts,
   theirsRewriteCaps,
   // 让号摘除(G-32, 2026-10-22):镜像测试直接用它,不得在测试里再写一份留痕/相似度判据(§22c)
