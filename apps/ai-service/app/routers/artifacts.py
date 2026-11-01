@@ -51,12 +51,30 @@ _ARTIFACT_DIRS: tuple[Path, ...] = (
 TOKEN_TTL_SECONDS = 30 * 60
 TOKEN_AUDIENCE = "ihui-artifacts"
 TOKEN_ISSUER = "ihui-ai"
-# 开发环境(jwt_secret 为空)时的本地签名密钥;生产环境 jwt_secret 必填(fail-closed)
-_DEV_SIGNING_KEY = "ihui-artifacts-dev-key"
+# 签名 token 不再有任何兜底密钥(2026-11-01 安全强化)。
+# 此前这里有一个写死的开发常量 `_DEV_SIGNING_KEY = "ihui-artifacts-dev-key"`,并在
+# `_signing_key()` 里用 `settings.jwt_secret or _DEV_SIGNING_KEY` 静默回落。三重问题:
+#   ① 那个字面量躺在**公开仓**里 ⇒ 知道它就能伪造 token;
+#   ② `/api/artifacts/f/` 在 `JWT_PUBLIC_PATHS` 名单内(匿名可达,唯一门槛就是这枚签名),
+#      所以"漏配 JWT_SECRET 的部署"= 白名单目录内任意文件对公网可读;
+#   ③ 第 54 行那句注释("生产环境 jwt_secret 必填,fail-closed")当时**没有任何启动校验支撑**
+#      —— `validate_cors_origin` / `validate_mtls_config` 都不看 jwt_secret。
+# ②③ 都由本次补上:校验见 `core/config.py` 的 `validate_secrets()`(在 `create_app` 里调用),
+# 取值见下面 `_signing_key()` —— 拿不到密钥就抛,不签也不验。
+# 本地开发要用这一面:在 `.env` 里给 `JWT_SECRET` 一个 ≥32 字符的值(与 apps/api 同口径,
+# api 侧本来就在 `config/index.ts` 用 `.min(32)` 强制,不存在"本地也没有密钥"的正常形态)。
 
 
 def _signing_key() -> str:
-    return settings.jwt_secret or _DEV_SIGNING_KEY
+    """签名/验签的唯一取密钥处:空值 ⇒ 拒绝(fail-closed),不回落任何常量。"""
+    key = (settings.jwt_secret or "").strip()
+    if not key:
+        raise RuntimeError(
+            "JWT_SECRET 未配置 ⇒ 拒绝签发/校验产物访问 token。"
+            "这一面没有任何兜底密钥:回落写死常量等于把匿名可达的文件读端点开放给"
+            "任何读到公开仓这一行的人。请在 .env 配置 JWT_SECRET(≥32 字符,与 apps/api 同口径)。"
+        )
+    return key
 
 
 def sign_artifact_token(file_name: str) -> str:
@@ -73,11 +91,21 @@ def sign_artifact_token(file_name: str) -> str:
 
 
 def verify_artifact_token(token: str) -> str | None:
-    """校验签名 token,返回其中携带的相对路径;无效/过期返回 None。"""
+    """校验签名 token,返回其中携带的相对路径;无效/过期返回 None。
+
+    2026-11-01:密钥取不到(`RuntimeError`)也按"无效"处理并**喊响**,而不是抛成 500 ——
+    拒绝是正确结论,栈炸了反而把这一面变成可用性故障。生产档走不到这一支:`create_app`
+    里的 `settings.validate_secrets()` 已经在启动时把"生产 + 空 JWT_SECRET"判成起不来。
+    """
+    try:
+        key = _signing_key()
+    except RuntimeError as e:
+        logger.error("产物 token 校验被拒:签名密钥不可用(漏配 JWT_SECRET)：%s", e)
+        return None
     try:
         payload = pyjwt.decode(
             token,
-            _signing_key(),
+            key,
             algorithms=["HS256"],
             issuer=TOKEN_ISSUER,
             audience=TOKEN_AUDIENCE,
