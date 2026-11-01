@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, rmSync, readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
 import { join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch, isAllowedScratchRoot } from '../lib/scratch-dir.mjs'
 // §22c:判据/取材面一律 import 源脚本的 __test__,本文件不复制第二份(该文件有 §22d 守卫,import 无副作用)
 import { __test__ as hygiene } from '../check-workspace-hygiene.mjs'
 
@@ -118,10 +118,16 @@ after(() => {
   rmScratch(FIXTURE_ROOT)
 })
 
-test('落点:夹具 ROOT 必须在仓库树外(否则残留又会落进被扫描面)', () => {
+test('落点:夹具 ROOT 必须是批准的 scratch 落点(仓外任意位置,或仓内唯一批准的 .DevEnv)', () => {
   assert.ok(existsSync(FIXTURE_ROOT), `scratch 未创建: ${FIXTURE_ROOT}`)
-  const rel = relative(PROJECT_ROOT, FIXTURE_ROOT)
-  assert.ok(rel.startsWith('..'), `夹具落点逃不出仓库树(rel=${rel})⇒ 残留会永久挂在扫描面里`)
+  // 2026-11-01 对齐 G-158 现形:批准根已搬入仓内 `<repoRoot>/.DevEnv`(.gitignore 在册、
+  // 守门 208 整枝剪除、gitfile 边界阻断逃逸 —— 三条都在 scratch-dir 头注),本测试此前
+  // 仍用旧判据"必须在仓库树外"⇒ 恒红(判据没跟上设计,红在尺子;check-service-binary-paths
+  // F3 同型)。改用落点合法性的**唯一判据** isAllowedScratchRoot(§0.6 不复制第二份)。
+  assert.ok(
+    isAllowedScratchRoot(FIXTURE_ROOT),
+    `夹具落点不是批准根(rel=${relative(PROJECT_ROOT, FIXTURE_ROOT)})⇒ 见 scratch-dir.mjs isAllowedScratchRoot`,
+  )
 })
 
 // ─── 1. CLI 行为 / 基线(受版本控制的内容面必须干净)─────────────
