@@ -1943,6 +1943,162 @@ test('T53 真仓对照:tab-bar 两枚具名档投影在 HEAD 面被认成同一�
   )
 })
 
+/* ================= web↔RN 五维几何腿(Phase 2,2026-11-02) ================= */
+
+test('T60 五维分类:键名 → 宽高/内边距/间距/字号,圆角留给圆角档表', () => {
+  assert.equal(src.dimOfKey('paddingHorizontal'), 'padding')
+  assert.equal(src.dimOfKey('padding-top'), 'padding')
+  assert.equal(src.dimOfKey('px'), 'padding')
+  assert.equal(src.dimOfKey('gap'), 'spacing')
+  assert.equal(src.dimOfKey('marginTop'), 'spacing')
+  assert.equal(src.dimOfKey('inset'), 'spacing')
+  assert.equal(src.dimOfKey('width'), 'widthHeight')
+  assert.equal(src.dimOfKey('iconSize'), 'widthHeight')
+  assert.equal(src.dimOfKey('fontSize'), 'fontSize')
+  assert.equal(src.dimOfKey('text'), 'fontSize')
+  assert.equal(src.dimOfKey('borderRadius'), null, '圆角走 radiusSetOf,不得混进五维分类')
+  assert.equal(src.dimOfKey('opacity'), null, '不在五维的词归 null,不得硬塞一类')
+})
+
+test('T61 web 路由反解:剥分组目录,重复路由进 duplicates', () => {
+  const { map, duplicates } = src.webRouteIndex([
+    'apps/web/app/(main)/settings/page.tsx',
+    'apps/web/app/(auth)/login/page.tsx',
+    'apps/web/app/settings/page.tsx',
+    'apps/web/app/(main)/settings/nested/page.tsx',
+    'apps/web/app/(main)/not-a-page.tsx',
+  ])
+  assert.equal(map.get('settings'), 'apps/web/app/(main)/settings/page.tsx')
+  assert.equal(map.get('login'), 'apps/web/app/(auth)/login/page.tsx')
+  assert.equal(map.get('settings/nested'), 'apps/web/app/(main)/settings/nested/page.tsx')
+  assert.equal(duplicates.length, 1, '同一路由两份 page 必须点名,不得静默选一份')
+  assert.equal(duplicates[0].route, 'settings')
+})
+
+test('T62 配对的唯一锚点是 data.evidence:锚不上的行进待确认清单,不猜', () => {
+  const rn = 'packages/app/src/features/settings/SettingsScreen.tsx'
+  const rnProfile = 'packages/app/src/features/profile/ProfileScreen.tsx'
+  const rnOrphan = 'packages/app/src/features/orphan/OrphanScreen.tsx'
+  const ledger = [
+    JSON.stringify({
+      web: 'settings',
+      rn,
+      status: 'aligned',
+      data: { evidence: `${rn}:12` },
+    }),
+    JSON.stringify({
+      web: 'profile',
+      rn: rnProfile,
+      status: 'aligned',
+      data: { evidence: 'README:1' },
+    }),
+    JSON.stringify({
+      web: 'orphan',
+      rn: rnOrphan,
+      status: 'aligned',
+      data: { evidence: `${rnOrphan}:1` },
+    }),
+    JSON.stringify({ web: 'home', rn: 'packages/app/src/features/home/HomeScreen.tsx', status: 'pending' }),
+    'not-json',
+  ].join('\n')
+  const webFiles = [
+    'apps/web/app/(main)/settings/page.tsx',
+    'apps/web/app/(main)/profile/page.tsx',
+    'apps/web/app/(main)/orphan/page.tsx',
+  ]
+  const built = src.buildWebRnPairs(ledger, webFiles, [rn, rnProfile])
+  assert.equal(built.pairs.length, 1, '只有锚点命中且两端文件都在被审面的行才配对')
+  assert.equal(built.pairs[0].web, 'apps/web/app/(main)/settings/page.tsx')
+  assert.equal(built.pairs[0].rn, rn)
+  assert.equal(built.problems.length, 1, '坏行必须报,不得当成"没有这一行"')
+  const why = built.pending.map((p) => p.why).join(' | ')
+  assert.match(why, /未锚定 rn 文件/, 'evidence 未锚定 ⇒ 待确认')
+  assert.match(why, /RN 屏文件不在被审面/, 'RN 文件不在被审面 ⇒ 待确认')
+  assert.ok(!built.pending.some((p) => p.web === 'home'), '非 aligned 行不参与推导(也没被判成配上了)')
+})
+
+test('T63 五维读数:两侧都有读数才判;一侧空进 one-sided,两侧空进 no-data', () => {
+  const webSrc = 'const s = { width: 40, paddingHorizontal: 16, gap: 8, fontSize: 14 }\n'
+  const rnSrc = 'const s = { width: 50, paddingHorizontal: 16, gap: 8, fontSize: 14 }\n'
+  const audit = src.webRnGeometryAudit(
+    [{ name: 'settings', web: 'w.tsx', rn: 'r.tsx', evidence: 'r.tsx:1' }],
+    { 'w.tsx': webSrc, 'r.tsx': rnSrc },
+    null,
+    {},
+    null,
+  )
+  assert.equal(audit.pairCount, 1)
+  assert.equal(audit.judgedPairs, 1, '四个可判维都不为空 ⇒ 这一对判了')
+  assert.equal(audit.findings.length, 1)
+  const dims = audit.findings[0].dims
+  assert.deepEqual(dims.widthHeight.webOnly, [40])
+  assert.deepEqual(dims.widthHeight.rnOnly, [50])
+  assert.equal(dims.padding.status, 'same')
+  assert.equal(dims.spacing.status, 'same')
+  assert.equal(dims.fontSize.status, 'same')
+  assert.equal(dims.radius.status, 'no-data', '圆角表缺席 ⇒ 没量到,不得记成同档')
+
+  const oneSided = src.webRnGeometryAudit(
+    [{ name: 'half', web: 'w2.tsx', rn: 'r2.tsx', evidence: 'r2.tsx:1' }],
+    { 'w2.tsx': 'const s = { padding: 16 }\n', 'r2.tsx': 'const s = { color: 1 }\n' },
+    null,
+    {},
+    null,
+  )
+  assert.equal(oneSided.findings.length, 0, '一侧没有读数 ⇒ 不许冒充"有差"')
+  assert.equal(oneSided.oneSided.length, 1)
+  assert.equal(oneSided.oneSided[0].dim, 'padding')
+
+  const nothing = src.webRnGeometryAudit(
+    [{ name: 'empty', web: 'w3.tsx', rn: 'r3.tsx', evidence: 'r3.tsx:1' }],
+    { 'w3.tsx': 'const s = { color: 1 }\n', 'r3.tsx': 'const s = { color: 1 }\n' },
+    null,
+    {},
+    null,
+  )
+  assert.equal(nothing.undetermined.length, 1, '零判据必须点名,不得读成"两端同值"')
+})
+
+test('T64 误报由允许差异承接:未登记只报数,登记且在期内才核销', () => {
+  const findings = [{ name: 'settings', diffCount: 2 }]
+  const base = {
+    component: 'settings',
+    key: 'webRnGeometry',
+    platform: 'web',
+    owner: 'web-ui',
+    expires: '2027-03-27',
+    count: 2,
+    reason: 'web 屏壳与 RN 屏壳在调度层承担不同职责,几何读数跨层比较属已知误报',
+    evidence: 'settings/page.tsx vs SecuritySettingsScreen.tsx',
+  }
+  const empty = src.webRnAllowedVerdict(findings, [], { today: '2026-11-02' })
+  assert.equal(empty.unregistered.length, 1, '没登记 ⇒ 必须报未登记数(advisory 不进退出码)')
+  const ok = src.webRnAllowedVerdict(findings, [base], { today: '2026-11-02' })
+  assert.equal(ok.matched.length, 1)
+  assert.equal(ok.unregistered.length, 0)
+  const expired = src.webRnAllowedVerdict(findings, [{ ...base, expires: '2026-11-01' }], {
+    today: '2026-11-02',
+  })
+  assert.equal(expired.expired.length, 1, '到期必须重报,不得当永久豁免')
+  const over = src.webRnAllowedVerdict(findings, [{ ...base, count: 1 }], { today: '2026-11-02' })
+  assert.equal(over.over.length, 1, '实测读数超过登记额度 ⇒ 超量')
+})
+
+test('T65 真仓 HEAD:web↔RN 配对 ≥50 屏,五维都真有可判对数', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const audit = src.webRnGeometryAudit(
+    c.webRnPairs,
+    c.text,
+    c.radius,
+    c.tiers,
+    c.cssVars ?? null,
+  )
+  assert.equal(src.WEB_RN_GEOMETRY_DIMS.length, 5)
+  assert.ok(audit.pairCount >= 50, `配对 ${audit.pairCount} 屏,低于验收线 50`)
+  for (const d of src.WEB_RN_GEOMETRY_DIMS)
+    assert.ok(audit.dimCoverage[d] > 0, `${d} 维零可判对数 ⇒ 这一维等于没判`)
+})
+
 test('T54 圆角:档名 / 角色名 / 像素值是同一个档(取源 = HEAD 面 radius.js 的 RADIUS_STEPS)', () => {
   const c = src.collect(ROOT, 'head', { pairAll: false })
   const table = c.radius
