@@ -11690,8 +11690,6 @@
     "predictiveEditDelete": "削除",
     "predictiveEditLine": "{line} 行目",
     "predictiveEditPreview": "ホバーでこの修正の対象範囲をプレビュー",
-    "predictiveEditSetting": "予測編集",
-    "predictiveEditSettingDesc": "入力の一時停止後に次の編集意図を予測し、チャット入力欄とコードエディターに選択可能な提案を表示します。オフにすると予測リクエストを送りません。",
     "cmdCode": "のをコードでし、コメントをしてください：",
     "cmdExplain": "のをしくしてください：",
     "cmdKouboScript": "本日8本のDouyinナレーション原稿を生成してください。要件:\n1. 日付: MMDD\n2. テーマ方向:\n3. 二重ゲート検証(曖昧さ圧縮 / 原稿間語彙 / 全量検証 / 語弊 / ホットトピックカバー)\nkoubo-workflowパイプラインを実行してください(制約優先執筆法)。",

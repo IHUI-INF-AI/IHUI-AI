@@ -41,7 +41,11 @@ const runWithDevEnv = (v, body) => {
 // 被我们自己写在注释里的那句 join(devEnvRoot(...),'ihui-prod') 打成两枚假阳 —— 假阳的锁不如没有。
 const readCode = (rel) => maskComments(readFileSync(join(REPO, ...rel.split('/')), 'utf8'))
 
+// 目录扫描的取材结果按进程缓存一次：单源锁与回潮锁吃同一份，
+// 免得为"多覆盖一处"把 980 个文件的遮注释成本再付一遍（实测全量遮注释 1425ms，两次就翻倍）。
+let prodSourcesCache = null
 function underProduction() {
+  if (prodSourcesCache) return prodSourcesCache
   const out = []
   for (const relDir of ['scripts', 'scripts/lib']) {
     const dir = join(REPO, ...relDir.split('/'))
@@ -53,6 +57,7 @@ function underProduction() {
       out.push({ rel, src })
     }
   }
+  prodSourcesCache = out
   return out
 }
 
@@ -100,20 +105,52 @@ test('单源锁：全仓生产源码里 export function prodCheckoutRoot 恰一�
   assert.deepEqual(hits, [LIB_REL], `实现只许一份，实得 ${JSON.stringify(hits)}`)
 })
 
-test('回潮锁：三门/两 lib 不得再自拼 join(devEnvRoot(…), ’ihui-prod’)，一律吃单源', () => {
-  const watchers = [
+// ── 回潮锁（2026-11-01 收紧，S-WATCH）────────────────────────────────────
+// 老判据两处漏网（第三处 publish-mobile-apk 收口时由 S-APK 当场暴露）：
+//   ① 清单是**硬编码 4 个文件** ⇒ `publish-mobile-apk.mjs` 这个真病灶根本不在待扫面里；
+//   ② 正则只认 `join(devEnvRoot(…),'ihui-prod')` ⇒ 病灶用的别名 `resolveDevEnvRoot` 整条绕过。
+// 现在两处一起补：待扫面改成**目录扫描**（scripts 一层 + scripts/lib 一层，与单源锁同一取材面），
+// 判据改成**按字面量判**——凡 `ihui-prod` 字面量，其所在路径片段不是盘符绝对路径开头的，
+// 一律判自拼嫌疑。这比"抓特定函数名"强得多：别名、默认参数绑定(`x = devEnvRoot`)、
+// 模板串 `` `${root}/ihui-prod` `` 全都落网，未来新增的自拼文件也自动被抓，不必再手工加行。
+//
+// 已知**有意**不覆盖：写死盘符的完整绝对路径（`D:/DevEnv/ihui-prod/...`）。那是「盘符写死」另一族病，
+// 现存 5 处（auto-evolve:66 / check-monitor-runtime-parity:97 / eo-origin-guard-rule:43 /
+// repair-eo-origin:52 / prod-deploy-now:48），它不是"从 devEnvRoot 再拼一份候选序"，
+// 塞进本锁只会让锁长年红着并被静音——归下一票，见 .ihui-agent/seats/S-WATCH.md 判定表。
+const PATH_RUN = /[A-Za-z0-9_.:\\/-]/
+/** 摘出一份源码里所有"自拼生产根"的片段（遮注释后调用）。 */
+function selfStitchedRoots(src) {
+  const out = []
+  for (const m of src.matchAll(/ihui-prod/g)) {
+    let i = m.index
+    while (i > 0 && PATH_RUN.test(src[i - 1])) i -= 1
+    const run = src.slice(i, m.index + 'ihui-prod'.length)
+    if (/^[A-Za-z]:[\\/]/.test(run)) continue // 盘符绝对路径 ⇒ 盘符写死族，不是本锁管辖
+    out.push(src.slice(Math.max(0, m.index - 60), m.index + 9).replace(/\s+/g, ' '))
+  }
+  return out
+}
+
+test('回潮锁：生产源码不得再自拼 `ihui-prod` 根（目录扫描 + 字面量判据，别名同样落网）', () => {
+  const hits = []
+  for (const { rel, src } of underProduction()) {
+    if (rel === LIB_REL) continue // 单源本体自身的 BASENAME 定义，由上面那条「lib 内恰一处」锁
+    for (const frag of selfStitchedRoots(src)) hits.push(`${rel} :: …${frag}…`)
+  }
+  assert.deepEqual(
+    hits,
+    [],
+    `又出现自拼生产根 ⇒ 第二份候选序必然漂开(§0.6)；一律改吃 scripts/lib/prod-checkout-root.mjs 的 prodCheckoutRoot：\n${hits.join('\n')}`,
+  )
+  // 消费面必须真接上单源（不是注释里提一句就算接了 —— §0.9 造好没装车=没有）
+  for (const rel of [
     'scripts/lib/deploy-decisions-face.mjs',
     'scripts/check-prod-checkout-foreign-work.mjs',
-    'scripts/check-ops-patrol.mjs',
-    'scripts/check-credential-health.mjs',
-  ]
-  for (const rel of watchers) {
-    const src = readCode(rel)
-    assert.doesNotMatch(src, /join\(\s*devEnvRoot\([^)]*\)\s*,\s*'ihui-prod'\s*\)/, `${rel} 又出现自拼生产根 ⇒ 第二份候选序必然漂开(§0.6)`)
+    'scripts/publish-mobile-apk.mjs', // 第三处（S-APK 收口）
+  ]) {
+    assert.match(readCode(rel), /prodCheckoutRoot\(/, `${rel} 没接上单源(造好没装车 §0.9)`)
   }
-  // 消费面必须真接上单源（不是注释里提一句就算接了 —— §0.9 造好没装车=没有）
-  assert.match(readCode('scripts/lib/deploy-decisions-face.mjs'), /prodCheckoutRoot\(/)
-  assert.match(readCode('scripts/check-prod-checkout-foreign-work.mjs'), /prodCheckoutRoot\(/)
 })
 
 test('门体只薄再导出：check-ops-patrol 从 lib 取并再导出，自身不留第二份实现', () => {

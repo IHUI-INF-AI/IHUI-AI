@@ -712,41 +712,6 @@ test('planStateRegressions 必须拦"归并把整块登记放大"(F6 在 KEYS �
   assert.equal(U.planStateRegressions(oneSide, [oneSide, oneSide]).length, 0, '块数等值不得判红')
 })
 
-test('F6 行级预算口径(2026-11-01 半格死锁收口):预算内涌现不拦但必报名,真放大照拦', () => {
-  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
-  const BLK = [
-    LP('- 涌现行一:两侧各多份漂移副本,行级 union 重组拼出逐字相同块'),
-    LP('- 涌现行二:第二行,过块级阈值'),
-    LP('- 涌现行三:第三行'),
-  ].join('\n')
-  const SEP = '### 分隔'
-  // 涌现:两侧各两份(每行两侧最大重数 = 2 = 行级预算),归并两份 ⇒ 预算内,不拦但必须报名。
-  // 实测锚点(2026-11-01 生产死锁):某波次块首行三面各 4 份、各面内漂移 ⇒ verbatim 全 0,
-  // union 产物 verbatim=1 —— 旧"块数比块数"口径在这里判恒红,git-sync-converge 被卡死无自动出口。
-  const bothSides = `## 甲\n${BLK}\n${SEP}\n${BLK}\n`
-  const rOk = U.planStateRegressions(bothSides, [bothSides, bothSides])
-  assert.equal(
-    rOk.filter((x) => x.startsWith('F6')).length,
-    0,
-    '行级预算内的重组涌现块不得判红(union 语义上不可满足的恒红,§12e)',
-  )
-  assert.equal(
-    (rOk.emergentBlocks || []).length,
-    1,
-    '预算内涌现必须报名(报数要点名,不是"判过"),实测 ' + JSON.stringify(rOk.emergentBlocks),
-  )
-  assert.equal(rOk.emergentBlocks[0].copies, 2)
-  assert.equal(rOk.emergentBlocks[0].budget, 2)
-  // 真放大(2026-09-26 事故型):一侧两份(预算 2)、对侧一份,归并三份 ⇒ 3 > 2 照红。
-  const side2 = `## 甲\n${BLK}\n${SEP}\n${BLK}\n`
-  const side1 = `## 甲\n${BLK}\n`
-  const merged3 = `## 甲\n${BLK}\n${SEP}\n${BLK}\n${SEP}二\n${BLK}\n`
-  const rBad = U.planStateRegressions(merged3, [side2, side1])
-  const f6 = rBad.filter((x) => x.startsWith('F6'))
-  assert.equal(f6.length, 1, '份数超行级预算的真放大必须判红,实测 ' + JSON.stringify(rBad))
-  assert.ok(f6[0].includes('行级预算 2'), '红项必须点名行级预算,实测 ' + f6[0])
-})
-
 /**
  * 反假红锁:`core.quotepath` 默认 true 会把中文路径输出成 `"...\346\226\207..."`,
  * 而落地闸拿这份转义串去合并树里找同名路径 ⇒ 找不到 ⇒ 判"合并树丢了对侧路径"。
@@ -840,8 +805,13 @@ function topLevelBody(src, header) {
 
 /** 出路文案的判据输入全走构造面 —— 不依赖仓库恰好处于哪种状态。 */
 const BOGUS_SHA = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+// 2026-11-01 纯搬运拆分(守门 103 体积清偿):本体的判据族已逐字搬入
+// lib/union-converge-judgments.mjs ⇒ 源码级锁的被审面改为**两文件拼接**(锁的内容一条不减,
+// 只是跟着实现的新家走;计数不漂移:搬出的那一份在 lib 里逐字还在)。
 const srcOfTool = () =>
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8')
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8') +
+  '\n' +
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'union-converge-judgments.mjs'), 'utf8')
 
 test('R-A 出路文案:对侧 sha 不可达 ⇒ 只给按分支取的 fetch,并给得出免联网出口', () => {
   const g = U.unreachableObjectGuidance({
@@ -1652,7 +1622,7 @@ test('R-S 反向锁(真临时仓):本侧对同一主键**也改过** ⇒ 两侧�
 })
 
 test('R-T 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本体 —— 只写函数不接,产出面与自证面就会各读一张表', () => {
-  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  const src = maskComments(srcOfTool())
   assert.match(
     src,
     /for \(const \[l, n\] of theirsRewriteCaps\(oursText, theirsText, baseText, suppress\)\)/,
@@ -1665,7 +1635,7 @@ test('R-T 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本�
   )
 })
 test('R-U 装车锁(源码级):折叠判据必须先过"是不是同一件事"的相似度闸 —— 摘掉它,同号两个不同议题会被静默删掉一侧', () => {
-  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  const src = maskComments(srcOfTool())
   assert.match(src, /if \(sim < SIM_THRESHOLD\) continue/, '相似度闸不得被摘掉')
   assert.match(src, /from '\.\/lib\/live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
 })

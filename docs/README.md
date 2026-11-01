@@ -22,7 +22,6 @@
 | 改数据库 | [DATABASE.md](./DATABASE.md) |
 | 接入认证 | [AUTHENTICATION.md](./AUTHENTICATION.md) |
 | 接 AI 模型 | [AI_SERVICE.md](./AI_SERVICE.md) + [LLM_SETUP.md](./LLM_SETUP.md) |
-| 用「自动做任务」(任务中心六族) | [WORKBUDDY_TASKS.md](./WORKBUDDY_TASKS.md) |
 | 部署上线 | [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md) + [RELEASE.md](./RELEASE.md) |
 | 排查故障 | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |
 | 看常见问题 | [FAQ.md](./FAQ.md) |

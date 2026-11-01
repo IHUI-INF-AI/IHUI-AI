@@ -33,6 +33,23 @@
  *
  * 用法:node ihui-api-bluegreen.mjs [--target auto|blue|green] [--health-timeout 120]
  *        [--drain 20] [--state-file <p>] [--log-file <p>] [--dry-run]
+ *        [--gate-cmd <命令>] [--gate-timeout <秒>]
+ *
+ * ── 切流前置闸(2026-11-01 CANARYWIN2 加)──────────────────────────────────────
+ * 为什么加在这里:灰度要判"新构建值不值得升档",就必须有一刻**旧色还在服务、候选也在自己的
+ * 端口上跑着**(同期两份不同构建 = 真对照)。而 2026-11-01 现读到的对照缺陷正是"观察窗排在
+ * 换流之后":deploy.ps1 L3229 调本编排器完成了原子切流,deploy-loop.ps1 L858 的
+ * Invoke-CanaryGate 却在整轮部署跑完之后才执行 ⇒ 观察期内 stable 槽位已经是新色,升档依据
+ * 退化成"新 vs 新"(判据侧编号 C1;见 ihui-canary-artifact.mjs 的 contrastGaps)。
+ * 唯一能保证"旧色仍在服务"的时刻,就是本编排器**目标色健康通过之后、任何切流/停旧色动作之前**
+ * —— 所以闸只能落在这里,别处(部署脚本之前/之后)都拿不到这个中间态。
+ *
+ * 语义(不传 --gate-cmd ⇒ 与旧版逐字相同,零行为变化):
+ *   · 闸退出码 0            ⇒ 允许继续切流;
+ *   · 闸退出码非 0          ⇒ **不切流、不停旧色、状态文件不改**,以 exit 9 收口;
+ *   · 闸超时                ⇒ 按"未判定"处理(§0.3 取不到不是通过),同样不切流,以 exit 10 收口;
+ *   · 闸的 stdout/stderr 一律原样落编排器日志(取证),不吞、不摘要。
+ * 既有退出码:0 成功 / 1 目标色未健康 / 2 异常 —— 9、10 与之不冲突。
  *
  * 通用化(2026-10-29):默认即 API 形态(服务 IHUI-API-BLUE/GREEN、端口 8842/8843、
  * 健康 /api/health 含 "status":"ok"),**不带新参数时行为与旧版逐字一致**。web 蓝绿
@@ -46,7 +63,7 @@
  *   recognized`、rc≠0、FAIL 未切流。参数化是唯一出路:服务控制只有 nssm 这条路通,
  *   不能靠换解释器绕过。
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
@@ -70,6 +87,10 @@ function parseArgs(argv) {
     portGreen: 8843,
     healthPath: '/api/health',
     healthMatch: '"status":"ok"',
+    // 切流前置闸(2026-11-01):默认空 = 不启用 ⇒ 不传时行为与旧版逐字相同。
+    gateCmd: '',
+    // 闸超时上界(秒)。闸命令是一条判定,不是常驻任务;给一个有限上界,超时按未判定收口。
+    gateTimeoutSec: 300,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -85,6 +106,8 @@ function parseArgs(argv) {
     else if (a === '--port-green') out.portGreen = Number(next()) || out.portGreen
     else if (a === '--health-path') out.healthPath = String(next() || out.healthPath)
     else if (a === '--health-match') out.healthMatch = String(next() || out.healthMatch)
+    else if (a === '--gate-cmd') out.gateCmd = String(next() || '')
+    else if (a === '--gate-timeout') out.gateTimeoutSec = Number(next()) || out.gateTimeoutSec
     else if (a === '--dry-run') out.dryRun = true
   }
   if (!['auto', 'blue', 'green'].includes(out.target)) out.target = 'auto'
@@ -96,6 +119,10 @@ const args = parseArgs(process.argv.slice(2))
 /** 服务名与端口一律由参数派生(默认 API 形态),不再写死 —— 见头部「通用化」注。 */
 const SERVICES = { blue: args.svcBlue, green: args.svcGreen }
 const PORTS = { blue: args.portBlue, green: args.portGreen }
+
+/** 退出码:0 成功 / 1 目标色未健康 / 2 异常(既有);9 闸判红 / 10 闸超时未判定。 */
+const EXIT_GATE_BLOCK = 9
+const EXIT_GATE_TIMEOUT = 10
 
 function stamp() {
   const d = new Date()
@@ -357,6 +384,57 @@ export function decideColorStart({ isWebForm, portHealthy, recordedSha, currentS
   }
 }
 
+/**
+ * 切流前置闸(2026-11-01):在"目标色健康已过、尚未切流"这一刻跑一条外部判定命令。
+ *
+ * 为什么用 spawnSync + 显式 stdio:本机(§12g)对子进程继承句柄会撞 EBUSY 族缺陷
+ * (spawnSync ... EBUSY / status=null / errno=-4082),所以 stdio 一律显式给成
+ * ['ignore','pipe','pipe'],不让子进程继承父进程的句柄;命令串交给系统 shell 解释
+ * (调用方传的是"一条命令",不是 argv 数组,避免在这里二次拆引号)。
+ *
+ * 返回三态,不与"通过"混淆:
+ *   pass    —— shell 退出码 0;
+ *   block   —— 退出码非 0(判定失败,不切流);
+ *   timeout —— 超时被杀(**未判定**,§0.3 同样不切流)。
+ */
+export function runGateCmd(cmd, timeoutSec, { cwd = undefined } = {}) {
+  const timeoutMs = Math.max(1, Number(timeoutSec) || 0) * 1000
+  const started = Date.now()
+  // 不自己拼 `cmd /c "..."`:Windows 上引号由 Node 转义成反斜杠、cmd 不认那一套,
+  // 实测会退化成「系统找不到指定的路径」(status=1,零输出) ⇒ 闸永远判红。
+  // 交给 shell:true(Node 自己按平台拼命令行),一条命令串原样传入,不在本文件二次拆引号。
+  const r = spawnSync(cmd, [], {
+    cwd,
+    shell: true,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: timeoutMs,
+    stdio: ['ignore', 'pipe', 'pipe'], // §12g:不继承句柄,显式管道
+    maxBuffer: 8 * 1024 * 1024,
+  })
+  const ms = Date.now() - started
+  const timedOut =
+    Boolean(r.error && r.error.code === 'ETIMEDOUT') ||
+    (r.signal !== null && r.signal !== undefined && r.status === null)
+  return {
+    state: timedOut ? 'timeout' : r.status === 0 ? 'pass' : 'block',
+    rc: typeof r.status === 'number' ? r.status : null,
+    stdout: String(r.stdout || ''),
+    stderr: String(r.stderr || '') || String((r.error && r.error.message) || ''),
+    ms,
+  }
+}
+
+/** 闸结论原样落日志:逐行打,不摘要、不截断(取证的意义就在这里)。 */
+function logGateOutput(tag, text) {
+  const body = String(text || '').replace(/\s+$/, '')
+  if (!body) {
+    log('INFO', `[gate] ${tag}: (空)`)
+    return
+  }
+  for (const line of body.split(/\r?\n/)) log('INFO', `[gate] ${tag}| ${line}`)
+}
+
 async function main() {
   const ports = { blue: PORTS.blue, green: PORTS.green }
   let state = readState()
@@ -423,6 +501,29 @@ async function main() {
     return 1
   }
   log('INFO', `${targetSvc} 健康检查通过`)
+
+  // ── 3.5 切流前置闸(2026-11-01)─────────────────────────────────────────────
+  // 就是这一刻:目标色已健康、旧色仍 100% 在服务、状态文件未动 ⇒ 全流程里唯一能同时
+  // 看到"旧构建在服务 + 新构建在自己端口跑着"的中间态。灰度对照(两份不同构建)只能在这里判。
+  // 不传 --gate-cmd ⇒ 整段跳过,行为与旧版逐字相同。
+  if (args.gateCmd) {
+    log('INFO', `切流前置闸:${args.gateCmd}(上界 ${args.gateTimeoutSec}s;超时按未判定)`)
+    const g = runGateCmd(args.gateCmd, args.gateTimeoutSec)
+    logGateOutput('stdout', g.stdout)
+    logGateOutput('stderr', g.stderr)
+    if (g.state === 'timeout') {
+      log(
+        'ERROR',
+        `切流前置闸超时(${g.ms}ms > ${args.gateTimeoutSec}s)⇒ 未判定,不切流;活跃仍是 ${oldColor}`,
+      )
+      return EXIT_GATE_TIMEOUT
+    }
+    if (g.state !== 'pass') {
+      log('ERROR', `切流前置闸判红(rc=${g.rc})⇒ 不切流、不停旧色;活跃仍是 ${oldColor}`)
+      return EXIT_GATE_BLOCK
+    }
+    log('INFO', `切流前置闸通过(rc=0,${g.ms}ms)⇒ 允许切流`)
+  }
   // 只有"健康门禁真过了"才落运行记录 —— 记录的意义是"这个色此刻在用这份代码答话",
   // 没通过门禁的进程写进去,下一轮就会拿它当"已是最新"而跳过重启。
   {
@@ -464,5 +565,12 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { makeProbe, parseArgs, probeHealthy, decideColorStart, currentCodeSha }
+export const __test__ = {
+  makeProbe,
+  parseArgs,
+  probeHealthy,
+  decideColorStart,
+  currentCodeSha,
+  runGateCmd,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

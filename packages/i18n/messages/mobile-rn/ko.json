@@ -120,14 +120,14 @@
     "modelVideoa": "영상·음성",
     "modelOther": "기타",
     "modelSck": "지식 베이스",
+    "matAll": "전체",
+    "matText": "텍스트",
+    "inputPlaceholder": "질문을 입력",
     "modelSelectTitle": "모델 선택",
     "modelSelectSearchCount": "{count}개 모델 발견",
     "modelSelectAgentCount": "총 {count}개 에이전트",
     "modelSelectGroupCount": "{count}개 모델 · 회사별",
     "modelSearchPlaceholder": "모델 검색",
-    "matAll": "전체",
-    "matText": "텍스트",
-    "inputPlaceholder": "질문을 입력",
     "addCamera": "카메라",
     "addAlbum": "앨범",
     "addLocalFile": "로컬파일",
@@ -656,6 +656,10 @@
     "qrNeedPerm": "QR 저장에 사진 권한이 필요합니다",
     "qrNotRendered": "QR 렌더링 대기, 잠시 후 재시도",
     "qrSaved": "QR을 앨범에 저장했습니다",
+    "qrSaveFail": "저장 실패, 재시도",
+    "favOn": "즐겨찾기됨",
+    "favOff": "즐겨찾기 해제",
+    "annotHint": "주석을 입력창에 삽입했습니다",
     "histLoadFailRetry": "기록 불러오기 실패, 다시 시도해 주세요",
     "annotImgAdded": "주석 이미지가 입력란에 추가되었습니다",
     "annotAdded": "주석이 입력란에 추가되었습니다",
@@ -866,10 +870,6 @@
     "imagePreviewA11y": "이미지 미리보기",
     "menuAnnotateImage": "이 이미지에 주석",
     "chatDeleteFailed2": "삭제 실패",
-    "qrSaveFail": "저장 실패, 재시도",
-    "favOn": "즐겨찾기됨",
-    "favOff": "즐겨찾기 해제",
-    "annotHint": "주석을 입력창에 삽입했습니다",
     "terminal": {
       "waitingInput": "입력 대기",
       "mobileUnsupported": "모바일 터미널 미지원"
@@ -968,6 +968,10 @@
     "aiWorld": "AI 월드",
     "imageGen": "이미지 생성",
     "publish": "콘텐츠 게시",
+    "spec": "스펙 템플릿",
+    "selfMedia": "셀프미디어",
+    "context": "컨텍스트 엔진",
+    "pdfTools": "문서→Markdown",
     "webPortal": "웹 버전",
     "webPortalCenter": "웹 기능 포털",
     "knowledgeRag": "RAG 지식 베이스",
@@ -976,10 +980,6 @@
     "cart": "장바구니",
     "circleIndex": "커뮤니티 광장",
     "topicList": "토픽",
-    "spec": "스펙 템플릿",
-    "selfMedia": "셀프미디어",
-    "context": "컨텍스트 엔진",
-    "pdfTools": "문서→Markdown",
     "conversationImport": "대화 가져오기",
     "sectionOrder": "주문",
     "order": "내 주문",
@@ -1197,26 +1197,26 @@
     "send": "보내기",
     "streaming": "생성 중...",
     "callFailed": "호출에 실패했습니다. 다시 시도해 주세요",
-    "compactionToast": "컨텍스트가 자동 압축되었습니다({before} → {after} tokens)",
-    "planStatusCompleted": "완료",
-    "planStatusInProgress": "진행 중",
-    "planStatusPending": "대기 중",
+    "toolCalls": "도구 호출",
+    "toolStatusRunning": "실행 중",
+    "toolStatusSuccess": "성공",
+    "toolStatusError": "실패",
+    "toolArgs": "인수",
+    "toolResult": "출력",
     "planSteps": "실행 계획",
-    "terminalExitCode": "종료 코드",
-    "terminalOutput": "출력",
-    "terminalTruncated": "…(잘림, 전체 {total}자)",
-    "terminalStatusCompleted": "완료",
-    "terminalStatusFailed": "실패",
-    "terminalStatusRunning": "실행 중",
+    "planStatusPending": "대기 중",
+    "planStatusInProgress": "진행 중",
+    "planStatusCompleted": "완료",
     "terminalTasks": "터미널 작업",
     "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
     "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다",
-    "toolArgs": "인수",
-    "toolCalls": "도구 호출",
-    "toolResult": "출력",
-    "toolStatusError": "실패",
-    "toolStatusRunning": "실행 중",
-    "toolStatusSuccess": "성공"
+    "terminalStatusRunning": "실행 중",
+    "terminalStatusCompleted": "완료",
+    "terminalStatusFailed": "실패",
+    "terminalExitCode": "종료 코드",
+    "terminalOutput": "출력",
+    "terminalTruncated": "…(잘림, 전체 {total}자)",
+    "compactionToast": "컨텍스트가 자동 압축되었습니다({before} → {after} tokens)"
   },
   "aigcCover": {
     "applied": {
@@ -1275,7 +1275,7 @@
   "aiGroup": {
     "join": {
       "title": "그룹 가입",
-      "message": "「{name}」 가입을 신청했습니다"
+      "message": "「{name}」에 가입했습니다"
     },
     "cardMembers": "멤버",
     "detailEnter": "채팅 입장",
@@ -1656,6 +1656,11 @@
   },
   "agentStat": {
     "title": "에이전트 통계",
+    "totalAgents": "에이전트 총수",
+    "totalUsers": "제작자 수",
+    "totalCalls": "호출 횟수",
+    "publishedCount": "게시됨",
+    "pendingCount": "심사 대기",
     "conversations": "대화 수",
     "messages": "메시지 수",
     "tokens": "Token 소비",
@@ -1864,7 +1869,18 @@
     "email": "고객 지원 이메일",
     "loadFailed": "고객센터 불러오기 실패"
   },
+  "artifacts": {
+    "previewFailed": "미리보기 링크를 가져오지 못했습니다. 잠시 후 다시 시도하세요",
+    "loading": "불러오는 중…",
+    "loadFailed": "산출물 목록을 불러오지 못했습니다"
+  },
   "distribution": {
+    "plan": {
+      "openVipTitle": "VIP 회원 가입",
+      "openVipContent": "VIP 회원 가입 후 수익 분배 플랜에 참여하시겠어요?",
+      "confirm": "확인",
+      "cancel": "취소"
+    },
     "title": "유통 센터",
     "subtitle": "상품을 홍보하고 커미션을 받으세요",
     "retry": "재시도",
@@ -3282,7 +3298,10 @@
     "twoFactor": "2단계 인증",
     "loginAlert": "로그인 알림",
     "desc": "계정 보안 관련 설정 관리",
-    "loadFailed": "보안 설정 불러오기 실패"
+    "loadFailed": "보안 설정 불러오기 실패",
+    "readOnlyHint": "아래는 현재 서버 상태이며 변경은 아직 지원되지 않습니다",
+    "stateOn": "켜짐",
+    "stateOff": "꺼짐"
   },
   "settingsAccount": {
     "title": "계정 관리",
@@ -3476,6 +3495,8 @@
   },
   "vipTrader": {
     "title": "VIP 트레이더",
+    "openTitle": "회원 가입",
+    "confirmPay": "결제 확인",
     "openTrader": "트레이더 회원 가입",
     "subtitle": "트레이더 전용 혜택을 누리세요",
     "badge": "트레이더 전용",
@@ -4236,6 +4257,50 @@
     "platformJuejin": "쥐진",
     "platformShipinhao": "위챗 채널"
   },
+  "spec": {
+    "title": "스펙 템플릿",
+    "loadFailed": "템플릿 로드 실패",
+    "empty": "템플릿 없음",
+    "desktopHint": "템플릿 열람은 참고용입니다. Spec 생성은 서버 측 workspace 경로가 필요하므로 Web/데스크톱에서 전체 흐름을 사용하세요",
+    "generateEntry": "웹에서 생성"
+  },
+  "selfMedia": {
+    "title": "셀프미디어 어시스턴트",
+    "tabSkills": "스킬",
+    "tabRecords": "기록",
+    "loadFailed": "로드 실패",
+    "promptRequired": "생성 요청을 입력하세요",
+    "promptPlaceholder": "만들고 싶은 내용을 설명…",
+    "invoke": "스킬 호출 생성",
+    "invoking": "생성 중…",
+    "invokeFailed": "스킬 호출 실패, 다시 시도하세요",
+    "duration": "소요 {{ms}} ms",
+    "share": "공유",
+    "empty": "생성/게시 기록 없음"
+  },
+  "context": {
+    "title": "컨텍스트 엔진",
+    "loadFailed": "통계 로드 실패",
+    "totalEvents": "압축 횟수",
+    "avgRatio": "평균 압축률",
+    "avgQuality": "평균 품질 점수",
+    "recentEvents": "최근 압축 이벤트",
+    "tokensRange": "{{before}} → {{after}} tokens · 압축 {{ratio}} · 품질 {{quality}}",
+    "mentionsSearch": "컨텍스트 멘션 검색",
+    "mentionsPlaceholder": "파일/테이블/심볼 검색…",
+    "empty": "일치하는 결과 없음"
+  },
+  "pdfTools": {
+    "title": "문서→Markdown",
+    "hint": "PDF/Word/Excel/PPT/TXT/CSV 지원, 파일당 최대 10MB. 업로드 후 서버에서 Markdown으로 변환됩니다",
+    "pick": "문서 선택",
+    "converting": "변환 중…",
+    "unsupportedType": "지원하지 않는 파일 형식",
+    "tooLarge": "파일이 10MB 한도를 초과했습니다",
+    "uploadFailed": "업로드 실패, 다시 시도하세요",
+    "convertFailed": "변환 실패, 다시 시도하세요",
+    "share": "공유"
+  },
   "imageGen": {
     "title": "이미지 생성",
     "historyEmpty": "생성 기록이 없습니다",
@@ -4664,50 +4729,6 @@
       "error": "로드 실패"
     },
     "empty": "콘텐츠가 없습니다"
-  },
-  "spec": {
-    "title": "스펙 템플릿",
-    "loadFailed": "템플릿 로드 실패",
-    "empty": "템플릿 없음",
-    "desktopHint": "템플릿 열람은 참고용입니다. Spec 생성은 서버 측 workspace 경로가 필요하므로 Web/데스크톱에서 전체 흐름을 사용하세요",
-    "generateEntry": "웹에서 생성"
-  },
-  "selfMedia": {
-    "title": "셀프미디어 어시스턴트",
-    "tabSkills": "스킬",
-    "tabRecords": "기록",
-    "loadFailed": "로드 실패",
-    "promptRequired": "생성 요청을 입력하세요",
-    "promptPlaceholder": "만들고 싶은 내용을 설명…",
-    "invoke": "스킬 호출 생성",
-    "invoking": "생성 중…",
-    "invokeFailed": "스킬 호출 실패, 다시 시도하세요",
-    "duration": "소요 {{ms}} ms",
-    "share": "공유",
-    "empty": "생성/게시 기록 없음"
-  },
-  "context": {
-    "title": "컨텍스트 엔진",
-    "loadFailed": "통계 로드 실패",
-    "totalEvents": "압축 횟수",
-    "avgRatio": "평균 압축률",
-    "avgQuality": "평균 품질 점수",
-    "recentEvents": "최근 압축 이벤트",
-    "tokensRange": "{{before}} → {{after}} tokens · 압축 {{ratio}} · 품질 {{quality}}",
-    "mentionsSearch": "컨텍스트 멘션 검색",
-    "mentionsPlaceholder": "파일/테이블/심볼 검색…",
-    "empty": "일치하는 결과 없음"
-  },
-  "pdfTools": {
-    "title": "문서→Markdown",
-    "hint": "PDF/Word/Excel/PPT/TXT/CSV 지원, 파일당 최대 10MB. 업로드 후 서버에서 Markdown으로 변환됩니다",
-    "pick": "문서 선택",
-    "converting": "변환 중…",
-    "unsupportedType": "지원하지 않는 파일 형식",
-    "tooLarge": "파일이 10MB 한도를 초과했습니다",
-    "uploadFailed": "업로드 실패, 다시 시도하세요",
-    "convertFailed": "변환 실패, 다시 시도하세요",
-    "share": "공유"
   },
   "conversationImport": {
     "pageTitle": "외부 대화 가져오기",

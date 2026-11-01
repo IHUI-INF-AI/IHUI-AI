@@ -614,4 +614,46 @@ export function mergeChatSyncResyncSnapshot(
     applied: created?.applied === true || patched.result.applied || terminal?.applied === true,
   }
 }
+
+/* ==================== resync「重连 / 换标签」整面协调规划 ==================== */
+
+/**
+ * 重连 / 换标签后的整面 resync 规划(票71 执行席 CHATSYNC,2026-11-01)。
+ *
+ * 与 `planChatSyncResync`(单帧 gap 触发)的分工:`planChatSyncResync` 在「收到一帧、判出
+ * gap」时即时发起,是**事件驱动**的;本函数在「连接重建 / 切 tab 重新挂载」这种**没有单帧
+ * 可判**的时刻,对本地状态做一次整面巡检,把"可能已在服务端推进、但本地没有终态标记"的
+ * 消息挑出来,逐坐标发起一次权威快照拉取。
+ *
+ * 为什么只挑「无终态」的消息:有终态 ⇒ 该消息流已收尾,服务端不会再推进,重拉只会得到
+ * duplicate(仍走 `mergeChatSyncResyncSnapshot`,零变化);挑它就违反 §4「只让 gap 触发
+ * resync」的纪律,把一次重连变成对所有历史消息的快照轰炸。无终态 = 本地无法确认它是否已
+ * 结束,重连后服务端权威面可能已前进(或已收尾)⇒ 必须重拉确认。
+ *
+ * 纯函数、不碰网络/UI;与 `planChatSyncResync` 同纪律:只产出坐标,真正去重 / 判 stale /
+ * 判 gap 的是 `mergeChatSyncResyncSnapshot`,本函数**不复制任何裁定判据**(§22c)。
+ */
+export interface ChatSyncReconnectResyncPlan {
+  /** 是否存在需要重拉的消息(全部已终态 ⇒ false,避免无谓的一次空巡检)。 */
+  needed: boolean
+  requests: ChatSyncResyncRequest[]
+}
+
+export function planChatSyncReconnectResync(input: {
+  state: ChatSyncState
+  conversationId: string
+}): ChatSyncReconnectResyncPlan {
+  const { state, conversationId } = input
+  const requests: ChatSyncResyncRequest[] = []
+  for (const [messageId, surface] of state.messages) {
+    // 只有「无终态标记」的消息才可能在服务端继续推进 ⇒ 重连后必须重拉确认
+    if (surface.terminal) continue
+    requests.push({
+      conversationId,
+      messageId,
+      lastAppliedRev: state.appliedRevs.get(messageId) ?? CREATED_REV_SENTINEL,
+    })
+  }
+  return { needed: requests.length > 0, requests }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

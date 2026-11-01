@@ -7,14 +7,14 @@
  *
  * 为什么需要一把尺子而不是一次次手补:同一型故障三个月内复发了三次 ——
  * `useScreenReappear`(薄壳从 barrel 取共享 hook)、`useWrapFocus`(守门 212 的聚焦描边唯一实现)、
- * `readFontMultiplier`(字号缩放唯一口)。表现都一样:端内代码是对的,红的是别人的套件,
+ * `useFontMultiplier`(字号缩放唯一口)。表现都一样:端内代码是对的,红的是别人的套件,
  * 报错只有一句 "No X export is defined on the mock",要靠人肉猜是哪个文件。
  *
  * 判四件事(任一不成立即红;扫描集合近 0 判"尺子失明",不读成通过):
  *  F0 覆盖面:被测试加载的源文件数 > 20 且取用名字数 > 5(否则下面的"全过"是空转)。
  *  F1 端内从 '@ihui/rn-app' 具名**值**导入的名字 ⊆ (替身出口 ∪ 各套件内联工厂返回的键)。
  *  F2 替身里 `from '../..'` 的转发目标必须真存在(防替身指向已删的旧路径)。
- *  F3 正向对照:替身必须真的导出本票新增的那枚 readFontMultiplier。
+ *  F3 正向对照:替身必须真的导出本票新增的那枚 useFontMultiplier。
  *
  * 两处必要的收窄(都来自实测,不是自我放宽):
  *  ① 匹配模式必须让花括号**紧贴**目标模块名。上一版写 `import\s+([\s\S]*?)\s+from\s+'@ihui/rn-app'`,
@@ -92,7 +92,9 @@ function testLoadedSrcFiles(): Set<string> {
 function mockExports(): Set<string> {
   const code = strip(readFileSync(MOCK, 'utf8'))
   const names = new Set<string>()
-  for (const m of code.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g))
+  for (const m of code.matchAll(
+    /export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g,
+  ))
     for (const n of namedClause(m[1] ?? '')) names.add(n)
   for (const m of code.matchAll(
     /export\s+(?:declare\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g,
@@ -199,7 +201,7 @@ describe('@ihui/rn-app 替身出口忠实度', () => {
   })
 
   it('F3 正向对照:本票新增的那枚出口真的在覆盖集里', () => {
-    expect(provided.has('readFontMultiplier')).toBe(true)
+    expect(provided.has('useFontMultiplier')).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

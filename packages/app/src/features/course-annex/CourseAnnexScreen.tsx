@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseAnnexItem, CourseAnnexScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -27,6 +27,7 @@ export function CourseAnnexScreen({
   refreshing,
   error,
   onRefresh,
+  onOpen,
   onBack,
   colorScheme = 'light',
 }: CourseAnnexScreenProps) {
@@ -63,7 +64,17 @@ export function CourseAnnexScreen({
                 <Text style={styles.cardMeta}>
                   {t('courseAnnex.size')}: {fmtSize(item.size)}
                 </Text>
-                <Text style={styles.cardAction}>{t('courseAnnex.download')}</Text>
+                {/* 下载动作:仅在 wrapper 注入 onOpen 且本行有 url 时才可点;否则保持纯文案(与 web <a href={fileUrl}> 同语义)。 */}
+                {onOpen && item.url ? (
+                  <TouchableOpacity
+                    onPress={() => onOpen(item.url)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.cardAction}>{t('courseAnnex.download')}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.cardAction}>{t('courseAnnex.download')}</Text>
+                )}
               </View>
             </View>
           )}
