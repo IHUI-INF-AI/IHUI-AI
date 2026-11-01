@@ -34,6 +34,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   subagentDispatchService,
@@ -539,10 +540,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/active ----------
 
-  server.get('/subagents/active', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/active', { preHandler: requireAdminRouteGuard }, async (_request, reply) => {
     const dispatches = subagentDispatchService.listActive()
     return reply.send(success({ dispatches }))
   })
@@ -555,10 +553,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // D08 ③(2026-10-27):逐行挂「运行指标」(per-agent token / 步骤进度)与「会话归属」——
   // 指标口径来自 service 自己的统计,会话归属读派单记录本身(记录上没有 ⇒ 载荷里就没有,
   // 前端按「未归属会话」渲染;不拿别处反推、不塞常量)。
-  server.get('/subagents/all', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/all', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const q = request.query as { status?: string; limit?: string }
     let dispatches = subagentDispatchService.listAll().slice().reverse()
     if (q.status) dispatches = dispatches.filter((d) => d.status === q.status)
@@ -576,10 +571,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/:id/cancel ----------
 
-  server.post('/subagents/:id/cancel', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.post('/subagents/:id/cancel', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
@@ -594,10 +586,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/:id/resume(深化 v2 新增) ----------
 
-  server.post('/subagents/:id/resume', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.post('/subagents/:id/resume', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
@@ -616,20 +605,14 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/topology ----------
 
-  server.get('/subagents/topology', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/topology', { preHandler: requireAdminRouteGuard }, async (_request, reply) => {
     const topology = subagentDispatchService.getTopology()
     return reply.send(success({ topology }))
   })
 
   // ---------- GET /subagents/stats(全局统计) ----------
 
-  server.get('/subagents/stats', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/stats', { preHandler: requireAdminRouteGuard }, async (_request, reply) => {
     const stats = subagentDispatchService.getStats()
     return reply.send(success(stats))
   })
@@ -637,10 +620,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // ---------- GET /subagents/queue(优先级调度队列,深化 v2 新增) ----------
   // 注意:此路由必须在 /:id/stats 之前注册,否则 'queue' 会被当作 :id
 
-  server.get('/subagents/queue', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/queue', { preHandler: requireAdminRouteGuard }, async (_request, reply) => {
     const queue = subagentDispatchService.getQueue()
     return reply.send(success({ queue }))
   })
@@ -650,10 +630,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 映射为 progress/swarm/checkpoint/plan/background 5 个 Tab 的数据形状。
   // 注意:by-agent 为静态前缀,须在 /subagents/:id/stats 参数路由之前注册。
 
-  server.get('/subagents/by-agent/:agentId/summary', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/by-agent/:agentId/summary', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { agentId } = request.params as { agentId: string }
     // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
     // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
@@ -673,10 +650,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/:id/stats(单个 dispatch 资源统计) ----------
 
-  server.get('/subagents/:id/stats', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/:id/stats', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
@@ -691,10 +665,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/:id/dag(DAG 可视化数据,深化 v2 新增) ----------
 
-  server.get('/subagents/:id/dag', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/:id/dag', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
@@ -709,10 +680,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/:id/quotas(资源配额使用情况,深化 v2 新增) ----------
 
-  server.get('/subagents/:id/quotas', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/:id/quotas', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
@@ -727,10 +695,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- GET /subagents/:id/messages(with_communication 消息列表,深化 v2 新增) ----------
 
-  server.get('/subagents/:id/messages', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
+  server.get('/subagents/:id/messages', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const { id } = request.params as { id: string }
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
