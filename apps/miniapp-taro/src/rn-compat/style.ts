@@ -14,6 +14,7 @@
  * 字符串一律原样透传(共享层里的 `var(--color-*)`、`rpx` 依赖这条)。
  */
 import type { CSSProperties } from 'react'
+import Taro from '@tarojs/taro'
 
 /** RN 里按"无单位数字"语义处理的键(加 px 会破坏布局/透明度语义) */
 const UNITLESS = new Set([
@@ -155,18 +156,6 @@ export function toTaroStyle(style: unknown): CSSProperties | undefined {
 }
 
 /**
- * RN 的屏幕倍率。小程序拿不到"渲染倍率"的同步 API(`getSystemInfoSync().pixelRatio` 是设备倍率,
- * 与 RN 侧 dp→px 的语义不同档),而本层的单位口径写死"数字按 1:1 落 Npx"(见文件头注)⇒ 这里
- * 必须与那条换算式同源:报 2,则 `hairlineWidth = 1/2 = 0.5px`,与 RN 在 2x 屏上的发丝线同宽。
- * 定义住在本文件是因为 hairlineWidth 是它的派生值 —— 两处各写一个 2 就是第二份真相(§0.6)。
- */
-export const PixelRatio = {
-  get: () => 2,
-  getFontScale: () => 1,
-  getPixelRatioForImage: (_s: unknown) => 2,
-}
-
-/**
  * RN `StyleSheet.create` 的替身:原样返回对象(RN 内部也只是把它冻结)。
  * 共享层大量写 `const styles = StyleSheet.create({...})` 再 `styles.x`,保持同形即可。
  */
@@ -177,6 +166,19 @@ export const StyleSheet = {
   flatten(style: unknown): Record<string, unknown> {
     return flattenStyle(style)
   },
+  /**
+   * RN 的 `StyleSheet.hairlineWidth` = 设备物理 1px 的逻辑值(iOS/Android 都按 pixelRatio 折算)。
+   * 本层用同一算式现算,而不是写死 1:写死会在 2x/3x 屏上把"1 物理像素描边"画成 2~3 像素粗,
+   * 分隔线当场变粗一档。取不到 pixelRatio(旧基线/非端内环境)时退 1,与 RN 的兜底同值。
+   * 这是本文件唯一的几何型取值 —— 其余仍是纯转译,不改任何尺寸。
+   */
+  get hairlineWidth(): number {
+    try {
+      return 1 / (Taro.getSystemInfoSync().pixelRatio || 1)
+    } catch {
+      return 1
+    }
+  },
   absoluteFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as Record<
     string,
     unknown
@@ -185,8 +187,6 @@ export const StyleSheet = {
     string,
     unknown
   >,
-  /** RN 同名值 = `1 / PixelRatio.get()`;共享层用它写发丝分隔线宽(about-styles 等) */
-  hairlineWidth: 1 / PixelRatio.get(),
 }
 
 export type ViewStyle = Record<string, unknown>
@@ -198,12 +198,9 @@ export type ImageStyle = Record<string, unknown>
  * `style={[a, cond && b, [c]]}`(嵌套数组)—— 跨端共享包(packages/app / ui-native)
  * 在小程序宿主下因此成片 TS2322。递归化只是把类型面补齐,没有放宽键检查
  * (元素仍必须是 T)。RN 的 `RegisteredStyle<number>` 一支不收:Taro 没有注册表式样式位。
- *
- * `object` 一支同源于 RN 差异:RN 的 ViewStyle/TextStyle 是**全可选属性的 interface**,裸
- * `object` 对它可赋值(实测 `StyleProp<ViewStyle> = [a, o]` 在真实 RN 类型下 RC=0);而本层把
- * 样式档写成 `Record<string, unknown>`,裸 `object` 没有隐式索引签名 ⇒ 同一份共享源
- * (`ScreenStates.tsx` 的 `style?: object`,刻意不依赖 RN 类型)只在小程序宿主报 TS2322。
- * 补这一支是把两端接受集对齐,不是放宽:非对象值(数字/字符串)照旧拒绝。
+ * 2026-11-01 再补一支 `object`:`style={[styles.pressCard, style]}` 里调用方把 style 声明成
+ * `object`(ScreenStates 的 PressableCard 就是),而 `ViewStyle` 是 `Record<string, unknown>`,
+ * `object` 不带索引签名 ⇒ 整条数组在断言点 TS2322。收 `object` 只放行"样式形态",不放宽任何键检查。
  */
 export type StyleProp<T> = T | object | false | null | undefined | ReadonlyArray<StyleProp<T>>
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

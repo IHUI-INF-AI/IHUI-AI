@@ -140,17 +140,6 @@ function buildTable(names) {
   return { rows, missing }
 }
 
-/**
- * 模板指纹 —— 抬模板正文(注释、类型别名、任何非表格行)必须同时抬这一串里的版本号。
- *
- * 为什么需要它(2026-11-01 实测到病灶):`--write` 的幂等判据 `iconTableCovers` 刻意只比
- * **语义档**(图标名 ∧ 该名的 SVG 取值),不比字节 —— 因为落盘要先过 prettier 再注水印,
- * 比字节会"每轮都有变化"。代价是:改了 renderSource 的模板文字(本次的 `LucideIcon` 类型别名)
- * 而名字集合没动 ⇒ 判据照打「✓ 图标无变化」,产物**永远停在旧模板**,而文件头写着"请勿手改"
- * ⇒ 两头都没有出路(§0.8)。把模板形状压成一枚指纹进判据,模板一改就必然重落一次。
- */
-export const TEMPLATE_STAMP = 'gen-rn-compat:template-v2'
-
 function renderSource(names, rows) {
   const declared = rows
     .map((r) => /^  '([A-Za-z0-9]+)':/.exec(r)?.[1])
@@ -173,15 +162,13 @@ function renderSource(names, rows) {
  * 渲染口径:SVG 为纯黑描边,由 CSS mask 只取 alpha ⇒ 实际颜色走 background-color,
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
-// ${TEMPLATE_STAMP} —— 模板指纹。改本文件的模板正文必须抬版本号,否则 --write 按语义档判"无变化"、产物停在旧模板。
 import { makeIcon } from './icons-runtime'
 
 /**
- * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里
- * ⚠️ 上一版写成 \`(props: CompatIconProps) => ReturnType<typeof makeIcon>\`:makeIcon 是**工厂**,
- * ReturnType 取到的就是"组件函数"本身 ⇒ 这行声明的实际形状是"返回一个组件的函数",于是
- * packages/app/features/about/about-icons.ts 把 makeIcon 产物交给它时报成片 TS2322(现读 10 条)、
- * AboutScreen 的 \`<Icon />\` 跟着 TS2786(不被认作合法 JSX 组件)。正解 = 直接取工厂的返回类型。
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
  */
 export type LucideIcon = ReturnType<typeof makeIcon>
 
@@ -439,14 +426,6 @@ export function iconTableCovers(rows, diskText) {
 }
 
 /**
- * 写盘决策用的完整"已是最新"判据 = 语义档(名 ∧ SVG 取值)∧ 模板指纹在册。
- * 只比语义档会让模板正文的改动永不落地(见 TEMPLATE_STAMP 头注,2026-11-01 实测)。
- */
-export function iconsUpToDate(rows, diskText) {
-  return iconTableCovers(rows, diskText) && String(diskText || '').includes(TEMPLATE_STAMP)
-}
-
-/**
  * 扫 `const S = { … }` 块，按**转义感知**逐条取 `键 → 解码后的值`。
  *
  * 为什么不能用正则按行切：prettier 会把长值折到键的下一行（实测产物里 `Activity:` 与它的
@@ -524,6 +503,7 @@ function renderRouteMap(map) {
     .sort()
     .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
  *
@@ -683,7 +663,7 @@ async function main() {
 
   // 幂等判据取**语义档**(名字集合/映射键集合),不取字节:落盘内容会先过 prettier 再注水印,
   // 拿未格式化的稿与盘上副本比字节必然永不相等 ⇒ 每轮都"有变化",改动面被无意义的重写长期占用。
-  const iconsAlreadyCovered = iconsUpToDate(rows, current)
+  const iconsAlreadyCovered = iconTableCovers(rows, current)
   const routesAlreadyCovered = routeMapCovers([...routeInfo.map.entries()], routeCurrent)
   console.log(
     `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
@@ -725,9 +705,7 @@ async function main() {
      * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
      */
     if (iconsAlreadyCovered)
-      console.log(
-        `✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值与模板指纹 ${TEMPLATE_STAMP})`,
-      )
+      console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
     else {
       atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
@@ -764,8 +742,6 @@ export const __test__ = {
   renderRouteMap,
   routeMapCovers,
   iconTableCovers,
-  iconsUpToDate,
-  TEMPLATE_STAMP,
   OUT_REL,
   ROUTE_OUT_REL,
   // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)
