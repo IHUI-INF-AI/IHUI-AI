@@ -20,14 +20,15 @@
 // 三斜杠 reference 是**注释指令**:类型图照样加载增强,打包器根本看不见它。
 // 消费方若要自己的确定性,照 apps/web/nativewind-env.d.ts 在各自类型程序里挂一份。
 /// <reference types="nativewind/types" />
-/// <reference path="./nativewind-env.d.ts" />
-// ⚠️ 上面两行缺一行都还会红,理由是 react-native 在本仓有**两份并存**(仓根 0.86.2 与本包
-// node_modules 里 peer 装的 0.74.7),而模块增强是**按声明文件所在位置**解析目标的:
-// `nativewind/types` 从消费方位置解出去,只喂到仓根那一份;本包 src 下的 .tsx 用的是
-// 本包自己那份 ⇒ 本包组件的 className 仍然取不到(2026-11-01 部署实测:补了消费方 env 之后
-// next build 仍只报本包 vip-badge.tsx 一处)。`reference path` 把本包自己的
-// nativewind-env.d.ts(它引的是与本包同源的 css-interop 类型)拉进任何含本入口的程序。
-// 两行都是注释指令:打包器不读,不产生运行时依赖。
+// ⚠️ 为什么这一行必须是**注释指令**而不是 import(2026-11-01 两版都实测过):
+// `nativewind/types` 在盘上只有 `.d.ts`(无 types.js、无 types/ 目录、包内也没有 exports 映射),
+// 写成 `import 'nativewind/types'` 时类型面解得到、webpack/Metro 按 JS 产物解析**必然落空**
+// ⇒ next build 报 module-not-found;写成 `import type {}` 则 TS2306(那份不是模块)。
+// 本包 className 曾经全灭的真因也不在写法,而在**依赖装配**:本包 peer 原写 `react-native ^0.74.0`,
+// 与宿主 apps/mobile-rn 的 0.86.2 不相交 ⇒ 干净安装会另装一份 0.74.7,而 NativeWind 的模块增强
+// 按声明文件所在位置解析,只喂到仓根那一份 ⇒ 本包真实路径下的组件永远看不见 className
+// (部署实测:同一失败面只剩 packages/ui-native/src/vip-badge.tsx 一处)。
+// 现 peer 已与 packages/app 同形(四段范围)+ devDep 钉 `^0.86.0`,全仓单份 react-native。
 
 // 按压反馈唯一口:pressed 态**必须**由组件内部持有 —— cssInterop 会把注册表组件(含 Pressable)的
 // 函数形态 style 换成 `{}`(守门 131 真机定案),所以 `style={fn}` 这一路连原样式一起丢。

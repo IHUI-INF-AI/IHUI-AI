@@ -3,7 +3,6 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
-
 > ⚠️ **版权与商用授权声明**
 >
 > © 2026 **IHUI AI (智汇AI)** · 版权所有者：**李春川 (Li Chunchuan)** · https://aizhs.top
@@ -12,30 +11,23 @@
 > - 版权、许可与再分发要求详见 **根目录 [NOTICE](NOTICE)**（Apache-2.0 要求随每一副本保留本声明与 NOTICE）。
 > - 本仓库**全部源文件已嵌入版权溯源水印**（可见声明 + 不可见零宽字符隐写，可运行 `node scripts/watermark.mjs decode <file>` 验证）。移除水印不改变版权归属，未授权商用将被技术溯源并依法追究。
 > - CI 已内置水印校验（`pnpm watermark:check`），任何删除水印的改动将导致构建失败。
-
 # IHUI-AI
-
 <table align="center"><tr><td>
-
 > 🐉 **孤勇者宣言**
 >
 > **没有团队,没有融资,没有办公室。**
 > **只有一个人,一台电脑,和百万行代码。**
 > **他们用 100 人做不出来的事,我用 1 个人做出来了,而且做得更好。**
 > **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
-
 </td></tr></table>
-
 <p align="center">
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
-
 <p align="center">
   <strong>在线 Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
   <sub><strong>自托管的全栈 AI 平台</strong>:模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端 · Apache 2.0 商业可用 · 5 分钟 Fork 到上线</sub>
 </p>
-
 <p align="center">
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
@@ -46,22 +38,17 @@
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues"><img src="https://img.shields.io/github/issues/IHUI-INF-AI/IHUI-AI.svg" alt="Issues" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" /></a>
 </p>
-
 <p align="center">
   <sub>
     <a href="README.md">简体中文</a> · <a href="README.en.md">英文</a> · <a href="README.ko.md">韩文</a> · <a href="README.ja.md">日文</a>
   </sub>
 </p>
-
 ---
-
 > **本文件只写索引。** 2026-09-30 起根 README 收敛为索引层:定位、数字、快速开始与九份主题文档的入口。
 > 每条能力的完整判据、成因与取证按题域逐字拆入 [`docs/engineering/`](./docs/engineering) 下九份收纳件
 > (重写前正文的每一个节都有落点,来源行号写在各收纳件文件头),工程纪律的权威文本是
 > [`AGENTS.md`](./AGENTS.md)。
-
 ## 是什么
-
 | 维度    | 说法                                                                                                                                   |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 一句话  | 自托管的全栈 AI 平台:模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端                                                                 |
@@ -70,39 +57,28 @@
 | 前端    | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui(web),Taro 4(小程序),React Native + NativeWind(App),Tauri 2(桌面),WXT(扩展),Node.js(CLI) |
 | 数据    | PostgreSQL(行级安全 RLS 多租户)+ pgvector 向量检索 + Redis                                                                             |
 | 许可    | Apache-2.0(须保留版权与 NOTICE;源码带可溯源水印,见[许可](#许可与版权))                                                                 |
-
 **不是什么**:不是一个「给 LLM 套壳的聊天页」(它有租户、权限、计费、内容、教育等完整业务域);
 不是「一套代码编译到 8 端」(各端是独立代码,共享的是设计令牌、契约与组件工厂,不是运行时适配层)。
-
 完整定位叙述(三层价值金字塔、成本对比、差异化价值、与 6 大对标类别的关系)与项目宣言、GEO 检索优化全文:
 [`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md)。
-
 ---
-
 ## 目录
-
 - [是什么](#是什么) · [关键数字(现算)](#关键数字现算) · [九份主题文档](#九份主题文档从根-readme-拆出的原文收纳件) · [八端清单](#八端清单)
 - [快速开始](#-快速开始) · [部署](#部署) · [开发约束摘要](#开发约束摘要) · [文档导航](#文档导航) · [许可与版权](#许可与版权) · [联系我们](#联系我们)
-
 ---
-
 ## 关键数字(现算)
-
 **这些数不是手抄的。** 唯一算法在 [`scripts/gen-doc-numbers.mjs`](./scripts/gen-doc-numbers.mjs),
 它从真实来源(schema 源码、路由注册点、语言包目录、compose 清单……)现场统计;
 守门 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) 对本文与英文版当场复算,
 写旧一个数就拦下来。刷新与问责:
-
 ```bash
 pnpm doc:numbers                                      # 人读表(每个数旁边写着取数来源)
 node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个块
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
-
 对外关键数字声明(与本页生成块同源,均现算):**617 张表 · 4656 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3782 测试文件 · 308 道工程守门 · 51 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
-
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
@@ -128,18 +104,12 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 283 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
 | 跟踪文件 | 18422 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-31。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
-
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
-
 ---
-
 ## 九份主题文档(从根 README 拆出的原文收纳件)
-
 | 文件                                                                                                     | 题域                  | 收纳的重写前 README 主要章节                                                                                                                                                |
 | -------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`readme-01-positioning`](./docs/engineering/readme-01-positioning.md)                                   | 定位与宣称            | 头部横幅与对标宣言 · 一键部署 · 技术栈与规模速览 · 项目宣言 · GEO 优化 · 目录 · 项目定位 · 特性总览                                                                         |
@@ -148,7 +118,6 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | [`readme-04-architecture-and-modules`](./docs/engineering/readme-04-architecture-and-modules.md)         | 架构与模块            | 技术栈 · 8 端架构 · 跨端共享架构 · 维护倍数 · 应用层级图 · 项目结构 · 15 大模块能力详解                                                                                     |
 | [`readme-05-quickstart-api-data`](./docs/engineering/readme-05-quickstart-api-data.md)                   | 快速开始 / API / 数据 | 快速开始 · REST/WebSocket API 与能力目录 · 模型自动同步 · IM 多平台远程控制 · 数据库                                                                                        |
 | [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md) | 安全 / 可观测 / 守门  | 可观测性 · 安全设计 · 根目录守门服务 · 工程守门全表 · Commit 丢失防护 · 工程质量证据 · AI 编程协作声明 · 测试 · 部署 · CI 工作流 · 国际化 · LLM 字典化 · 守门补登与对账登记 |
-
 **RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 240,差值棘轮):只拦本次把
 可自动对档的裸数字(`padding: 16` / `fontSize: 14`)加回来,存量只报数;修复出口
 `node scripts/tokens-migrate.mjs <file> --apply`(恰在档才换,杂值不动),目录档可一次扫
@@ -156,16 +125,11 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | [`readme-07-faq-roadmap-commerce`](./docs/engineering/readme-07-faq-roadmap-commerce.md)                 | FAQ / 路线图 / 商业   | FAQ · 贡献 · 文档导航 · 路线图(已交付/最近更新/能力清单) · 盈利模式 · Star 历史 · 多语言 README · 联系我们                                                                  |
 | [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md)                     | SEO 与品牌故事        | 高密度曝光与 AI 引擎适配 · 我们的故事 · 开源共建愿景 · License · 加入我们 · 致谢 · Quick FAQ · Keywords 全表                                                                |
 | [`readme-09-ops-tools`](./docs/engineering/readme-09-ops-tools.md)                                       | 运维工具与留档        | 发布线收口新增对外能力与运维入口 · 运维与生产监控工具 · 守门补登(服务二进制路径等) · 尾部悬空表行留档                                                                       |
-
 ---
-
 ## 八端清单
-
 工作区里是 **9 个 app 包**(下表最后一行是 Capacitor 壳,拿 Web 端 `out/` 静态导出打 Android/iOS 原生包;桌面端不打包本地前端产物,见下方桌面行与 `docs/port-management.md` 薄壳条目),
-
 共享 **16 个 packages**。各端是独立代码,跨端一致由设计令牌单一源
 ([`packages/design-tokens`](./packages/design-tokens))与契约对账保证。
-
 | 端           | 目录                | 技术栈                                         | 说明                                                      |
 | ------------ | ------------------- | ---------------------------------------------- | --------------------------------------------------------- |
 | Web          | `apps/web`          | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | 主站点 + 管理后台 + IDE 面板                              |
@@ -177,20 +141,14 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 浏览器扩展   | `apps/extension`    | WXT + Chrome MV3                               | Side Panel 工具集                                         |
 | CLI          | `apps/cli`          | Node.js + TypeScript                           | 终端助手、工具集、规范/漂移检查、Agent 引擎客户端         |
 | Capacitor 壳 | `apps/mobile-cap`   | Capacitor 7                                    | 复用 `apps/web` 的 `out/` 静态导出打原生包                |
-
 共享层:`packages/`(database / auth / types / ui-react / shared / api-client / design-tokens / i18n / config / …)。
 跨端契约与「改了手机端 web 没改」这一型的防治,见 [`AGENTS.md` §4 跨端样式同步铁律](./AGENTS.md);
 8 端职责、下载矩阵与桌面薄壳方案全文见 [`readme-04`](./docs/engineering/readme-04-architecture-and-modules.md)。
-
 移动 App（`apps/mobile-rn`）的用户侧功能面按 web 同名页逐页对齐，硬规矩是**每屏只接 `apps/api` 里真实注册的路由**：后端没有实现或只回显不入库的入口，端内不造 UI（宁可不做，也不给一个点了没反应的按钮）。2026-10-21 一批补齐 35 屏 —— 安全中心（评分／两步验证／会话撤销／安全事件）、开发者 API 密钥、数据权利与导出、第三方账号、用量、发票、收货地址、积分中心、错题本、我的试卷、分销汇总、发布四屏（账号／新建／日历／数据）、智能体分类、知识库与 RAG 文档管理、图片模板与画廊、语音转写、群组、文章与问答编辑、广场发布、AI 世界创建等。入口分布在「设置」菜单与「我的」页菜单，五语言词条同批落 [`packages/i18n/messages/mobile-rn/`](./packages/i18n/messages/mobile-rn)。
 同轮补的后端与承载面(2026-10-21):`GET/POST/DELETE /api/user/ip-whitelist` 与 `GET/PUT /api/agent/security-config` 落进 `user_preferences(group='security')` —— web 那两张卡此前打的是没有后端的路径;两面**只存不拦**(IP 白名单要拦在哪一层是待拍板的产品语义,`security-config-routes.ts` 头注把原因写全)。「Web 功能门户」现读 13 组 91 条(本轮新增「账单管理」`/settings/billing` 与「知识库」`/knowledge`,两端同表,清单唯一真相源在 `packages/shared/src/constants/web-portal.ts`);记忆详情按 web `/memory/[id]`(那张页带编辑+保存,共享记忆屏只有新建/删除)走既有 WebView 承载,URL 形状同样住在该同源。
-
 ---
-
 ## 🚀 快速开始
-
 ### 环境要求
-
 | 依赖       | 版本            | 备注                     |
 | ---------- | --------------- | ------------------------ |
 | Node.js    | ≥ 20(实测 24)   | `packageManager` 锁 pnpm |
@@ -199,20 +157,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | Redis      | ≥ 7             | 缓存与队列               |
 | Python     | ≥ 3.12          | 仅 `apps/ai-service`     |
 | Docker     | ≥ 24            | 推荐路径                 |
-
 ### 一条命令起全栈(Docker,推荐)
-
 ```bash
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI
 cp .env.example .env           # 填 JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY
 docker compose up -d           # 业务 + 迁移;监控栈按需:--profile observability
 ```
-
 起不来先查:`docs/DEPLOYMENT_RUNBOOK.md` · `docs/TROUBLESHOOTING.md` · 端口注册表 `docs/port-management.md`。
-
 ### 本地开发模式
-
 ```bash
 pnpm install                   # 全量安装,禁止 --filter(见 AGENTS §12e)
 docker compose up -d db redis
@@ -220,17 +173,12 @@ pnpm --filter @ihui/database run db:migrate   # drizzle-kit 迁移 + 迁移记�
 pnpm dev                       # web :8801 + api :8802(+ ai-service :8803,见端口注册表)
 pnpm turbo build typecheck lint test       # 全量验证,必须全绿
 ```
-
 模型密钥不在仓库里:本机引导走 `node scripts/env-backfill-model-keys.mjs --verify`(见
 [`AGENTS.md` §5d](./AGENTS.md));任何机器上都不许把密钥写进代码、日志或提交。
-
 Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSocket API、模型同步与 IM 多平台:
 [`readme-05-quickstart-api-data`](./docs/engineering/readme-05-quickstart-api-data.md)。
-
 ---
-
 ## 部署
-
 | 主题                           | 入口                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------------ |
 | 生产运行手册(蓝绿、回滚、证书) | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md)                   |
@@ -240,17 +188,12 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 | 凭据轮换                       | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md) |
 | CI 工作流清单与触发条件        | [`.github/workflows/`](./.github/workflows) + 本页生成块的工作流计数           |
 | 部署/构建全局锁(禁止并发构建)  | [`AGENTS.md` §12 部署/构建全局锁](./AGENTS.md)                                 |
-
 详细部署叙述(端口管理规则、生产部署 10 项硬性门禁、IaC 决策)在
 [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md)。
-
 ---
-
 ## 开发约束摘要
-
 **这份仓库的规矩是代码,不是口头约定。** 完整条款唯一权威文本是
 [`AGENTS.md`](./AGENTS.md);下面是新人第一天就会撞到的几条,以及对应的机器判据。
-
 1. **任务计划只写 `PROJECT_PLAN.md`**,不许另立 TODO/ROADMAP 文件;认领任务要写租约
    `（进行中@日期/持有者）`。派单口径:`node scripts/plan-tasks.mjs --open --dispatchable`。
 2. **提交走 `node scripts/safe-commit.mjs`**,多会话并行时禁止 `git add .` / `-A` / `-u`;
@@ -271,18 +214,14 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 9. **临时文件**只落 `.ihui-agent/tmp/<任务名>/`;项目外路径与 C 盘写入由守门拦截。
 10. **新文件必须带溯源水印**:`node scripts/watermark.mjs inject <file>`;不得对已注入文件做
     文本级批量改写(零宽载荷会被静默破坏)。
-
 守门链现状(数量现读本页生成块,别照抄任何文档里的数字):
-
 ```bash
 node scripts/guardian-runner.mjs --staged     # pre-commit 全批
 node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」对账
 ```
-
 新增一道门**必须**用 `node scripts/gate-registry-insert.mjs`(自己取空闲号、自己保住别人的注册块),
 不得手填编号;并同步在 `AGENTS.md` 点名。守门全表、执行语义与补登台账见
 [`readme-06`](./docs/engineering/readme-06-security-observability-gates.md)。
-
 **版本号漂移守门** `scripts/check-version-drift.mjs`(已接 `ci.yml`):判据不是"版本号是多少",
 而是**每个对外可见的版本号都必须可追溯到某个源头** —— A 桌面 `tauri.conf.json` 与
 `apps/desktop/package.json` 双写一致;B/C `apps/mobile-rn` 的原生 `versionName` 与界面
@@ -294,11 +233,8 @@ GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制�
 自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
-
 ---
-
 ## 文档导航
-
 | 想知道                      | 去哪                                                                                                                               |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | README 拆出的九份原文收纳件 | [`docs/engineering/`](./docs/engineering)(readme-01 ~ readme-09,见上文总表)                                                        |
@@ -315,14 +251,10 @@ GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制�
 | 贡献流程                    | [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md) · [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                          |
 | 常见问题                    | [`docs/FAQ.md`](./docs/FAQ.md) · [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md)                                            |
 | 学习资产(工作流反馈来源)    | [`docs/learning-assets.md`](./docs/learning-assets.md)                                                                             |
-
 英文版见 [`README.en.md`](./README.en.md);日文/韩文版在 `README.ja.md` / `README.ko.md`
 (数字以本页与 `pnpm doc:numbers` 为准)。
-
 ---
-
 ## 许可与版权
-
 - **License**:Apache-2.0(全文见 [`LICENSE`](./LICENSE));贡献者协议见 [`CONTRIBUTING.md`](./CONTRIBUTING.md)。
 - **NOTICE**:分发时须保留 [`NOTICE`](./NOTICE) 与源码头部版权行。
 - **溯源水印**:源码文件带三层水印(可见横幅 + 横幅内零宽载荷 + 文件尾不可见行),
@@ -334,21 +266,16 @@ GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制�
   签名范围、构建来源与审批流程见 [`apps/cli/README.md`](./apps/cli/README.md#code-signing-policy)。
 - **隐私**:CLI 的全部外连面(仅用户配置端点、可用 `IHUI_NO_UPDATE_CHECK=1` 关闭的版本检查、默认关闭的遥测)见
   [Privacy statement](./apps/cli/README.md#privacy-statement)。
-
 ## 联系我们
-
 - 官网 / 文档:<https://aizhs.top>
 - 议题与缺陷:<https://github.com/IHUI-INF-AI/IHUI-AI/issues>
 - 安全漏洞(请勿公开贴):[`SECURITY.md`](./SECURITY.md)
 - 行为准则:[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 - 商务合作:吉林省爱智汇人工智能科技有限公司 · 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地
   (联系方式全文与二维码见 [`readme-03`](./docs/engineering/readme-03-why-comparison-scenarios.md) 与 [`readme-07`](./docs/engineering/readme-07-faq-roadmap-commerce.md))
-
 <div align="center">
-
 如果这个项目对你有用,给个 ⭐ 就是最直接的贡献。
 Made with an unusually long chain of machine-checkable rules — because "we'll be careful" is not a control.
-
 </div>
 >
 >
@@ -946,7 +873,6 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **对话队列语义**:重排 / 撤回 / 编辑 / 打断并执行 / steer↔queue 五动词,跨端单一真相源
 - **积分用量可见性**:每日消耗热力图 + 会话数独立序列
 > 📚 每个能力的完整判据、成因与取证,见下方「核心能力详解(15 大模块)」与 [`docs/engineering/`](./docs/engineering) 九份主题收纳件。
-
 ## 🎬 AI 流式输出体验(Phase 19)
 > 实现位置:`apps/web/src/components/ai/agent-task-progress-pane.tsx` v12 + `apps/web/src/components/chat/message-list.tsx`
 ### 四大招牌交互
@@ -1426,12 +1352,9 @@ cd IHUI-AI && docker compose up -d
 - **共享组件响应式 padding/width**:Card `p-4 sm:p-6` / Dialog `p-4 gap-3 sm:p-6 sm:gap-4` / Sheet 同 + left/right `w-[90vw] sm:w-3/4 sm:max-w-sm` / Drawer left/right `w-[90vw] sm:w-3/4 sm:max-w-sm`(原 w-3/4 在 375px 屏仅 281px 偏窄)
 - **不破坏桌面端**:docked 模式的 `hidden lg:block` 保持原样,移动端所有切换通过 `isMobile` 条件渲染,桌面端无任何视觉变化
 ### 侧边栏域中心与域入口页(2026-10-19 立,2026-10-23 第二批补齐 AI 域与个人域)
-
 侧边栏从多个一级菜单项收敛为**按域入口**,每个域的全部子页面由一枚卡片网格页承载 —— 页面路径不变(`CategoryShell` 作为 Next.js layout 只管自己目录子树,搬目录等于改 URL、破坏外链),故入口页只做收纳与二级跳转。
-
 - **功能说明**:五枚域入口页共用同一个渲染器 `apps/web/src/components/layout/DomainHub.tsx`,条目一律取自 `apps/web/src/components/sidebar/nav-data.ts` 的 `*_HUB_ITEMS`(§0.6 单一真相源,入口页不另抄清单);可见性由 `useNavVisibilityFilter`(`apps/web/src/components/sidebar/use-nav-visibility.ts`)统一过滤,`adminOnly`/`permission` 判"能不能看"、`advancedOnly` 判"要不要给普通人看",与 Sidebar 同一把尺子,禁止端内自抄过滤。
 - **使用方式**:浏览器直达下表 URL,或点侧边栏对应域入口;卡片点击进二级页。档位(简洁模式)在「设置 → 侧边栏档位」里调,状态落 `user_preferences.group='preferences'` 的 `navTiers`。
-
 | 域入口 URL | 条目取源 | 所属端 |
 | ---------- | -------- | ------ |
 | `/domains/ai` | `AI_HUB_ITEMS` | web(Next.js,平台独占) |
@@ -1439,9 +1362,7 @@ cd IHUI-AI && docker compose up -d
 | `/domains/content` | `CONTENT_HUB_ITEMS` | web(Next.js,平台独占) |
 | `/domains/edu` | `EDU_HUB_ITEMS` | web(Next.js,平台独占) |
 | `/domains/trade` | `TRADE_HUB_ITEMS` | web(Next.js,平台独占) |
-
 - **所属端**:平台独占 web-only(桌面端同源复用该 Web 界面;小程序/RN 的侧栏另按各自导航实现,不共享此 URL)。
-
 ### 前端 i18n 单一来源(跨端共享,2026-07-23 立)
 > web 与 extension 不再各自维护 i18n 消息源,extension 翻译 JSON 一处改、单一来源,杜绝 key 集合漂移。
 - **单一来源**:`apps/extension/src/i18n/messages/{zh-CN,en,ja,ko,zh-TW}.json`(5 语言 × 17 namespace / 202-203 行每语言,2026-07-24 从 @ihui/i18n 包内联回 extension,消除只服务单端的冗余包)
@@ -5233,43 +5154,32 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - **小程序/RN 的讲师页有了真后端**:此前两端共 5 条 `/api/teacher/*` 调用在两个引擎里都零路由(死路径)。现由 `apps/api/src/routes/teacher.ts` 补 4 条,数据取自真实表、不造新表:`GET /api/teacher/list`(按 `lessons.lecturerId` 聚合已发布课程,返回课程数与报名人数,姓名/头像取自 `users`;响应只含 id/name/avatar/title/intro/courses/students/fans,不含手机号、邮箱、用户名与口令字段)、`GET /api/teacher/:id`(同一聚合 + `user_follows` 的粉丝数与当前登录者的 `isFollowed`,匿名可读)、`GET /api/teacher/:id/courses`(该讲师的已发布课程,价格由元转分)、`POST /api/teacher/:id/follow`(必须携带人用 JWT,关注关系只从令牌主体写入 `user_follows`,请求体只有 `{follow:boolean}`,禁止自关注)。
 - **第 5 条 `/teacher/:id/reviews` 是删不是补**:全仓没有课程/讲师评价表,补一个恒空端点就是假闭环;小程序 `pkg-learn/teacher/detail.tsx` 与 RN `TeacherDetailScreen.tsx` 已移除该请求,评价区如实留空。
 - 取证:`pnpm --filter @ihui/api test teacher-routes` 末行 `Tests 9 passed (9)`,含"查询串冒用 userId 无效、关注写入取令牌主体"与"无凭据 401 且零读零写"两组反向断言。
-
 ### 用户评价接口收口(2026-10-19)
-
 - **RN「用户评价」页不再打空路径**:`apps/mobile-rn/src/screens/AgentReviewListScreen.tsx` 的 `GET /api/agent-reviews` 此前在两个引擎里零注册。现由 `apps/api/src/routes/agent-reviews.ts` 补一条只读端点:数据取自真实表 `agent_reviews`(联 `agents` 取智能体名、联 `users` 取昵称),只返回当前人用 JWT 主体名下智能体收到的评价;响应六键 `{id, agentName, author, rating, content, createdAt}`,评价者只出昵称(缺失显示「匿名用户」),不含用户 id、手机号等身份字段。`agent_reviews.agent_id` 是 varchar 而 `agents.agent_id` 是 uuid,联结键显式 `::text` 转换,避免 Postgres 无跨类型比较算子而 500。
 - **本仓没有评价写入端点**:列表如实反映库中既有数据,不新造写入能力(新增写接口属 §24 须人定档)。
 - 端侧只改展示:日期按当前语言走 `Intl.DateTimeFormat`,其余读法不变。
 - 取证:`pnpm --filter @ihui/api test agent-reviews-routes` 末行 `Tests 4 passed (4)`,含"无凭据 401 且零读"与"where 落在 agents.user_id、联结键是 agent_id"两条反向断言。
-
 ### 课程目录/章节/评价接口收口(2026-10-19)
-
 - **RN 三屏不再打空路径**:`CourseCatalogScreen` / `CourseChapterScreen` / `CourseCommentScreen` 各自调的 `GET /api/courses/:id/{catalog,chapters,comments}` 此前在两个引擎里零注册。守门 8 对本簇结构上失明——路径住在模板字面量里,落在它 mobile-rn 侧 183 个"盲区文件"中,所以它那行"死调用 0 处"不等于这三条在册。现由 `apps/api/src/routes/course-mobile-routes.ts` 补 3 条只读端点,数据全部复用既有 `learn-queries` / `learn-extended-queries`,不造新表:目录以 `lesson_chapters` 为顶层、`lesson_chapter_sections` 挂 `children`;章节列表返回 `{id,title,duration,lessonCount}`;评价列表取 `lesson_rate` 已发布行。
 - **两处口径必须服务端折**:库里小节 `duration` 是**秒**而三屏契约是**分钟**(章节时长取其小节之和),折在出口而不是端上各写一份;评价者身份只出「匿名用户」/「学员」,不回 `user_id`,`rating` 取三项评分中**已填项**的均值(未填项不参与,否则把没打分的算成差评)。
 - **不新开公开读面**:鉴权与既有 `/edu/courses/:id` 同档(插件级 `preHandler` + `checkAuth`),游客拿不到目录。
 - 取证:`pnpm --filter @ihui/api test course-mobile-routes` 末行 `Tests 9 passed (9)`,含"checkAuth 拒绝时三条端点都不落库""未发布课程 404 且不读章节""非法 uuid 400 且零查询"三组反向断言,外加注册面双向对照(同一判据喂 HEAD 面 `register=false import=false`,喂本枚工作树面 `true/true`)。
-
 ### 移动端死路径簇收口之二：改指既有后端(2026-10-19)
-
 - **8 条调用点不是"缺后端"而是"打错路径"**:`CourseQAListScreen`/`CourseQAAskScreen` → `/api/edu/qa`、`CourseResourceScreen` → `/api/resources`、`ChangePhoneScreen` → `/api/auth/change-phone/confirm`、`IdentityVerifyScreen` → `/api/auth/realname/my`、`PromoteScreen` → `/api/distribution/overview` + `/api/distribution/team/members`。后端全都在册,一律**改指 + 剥信封 + 键名投影**,不新建第二份真相。
 - **两处顺带修掉的真缺陷**:换绑手机号请求体里的 `uuid` 是**客户端自报身份**(AGENTS §5「认证不等于授权」),现只送 `{newPhone,code}`、身份从 JWT 主体取;`sms/send` 的 `type: 2` 改回后端枚举真值 `scene: 'phone-binding'`。
 - **状态词汇不许相似字符串猜**:实名态显式映射 `approved→verified`;该屏不收姓名/证号,原来的 `POST {}`(必 400)已删,动作导流到真收字段的在册屏 `RealNameAuthScreen`。
 - **单位只在出口折一次**:`commission_flows.amount` 是分(schemas/commission.ts:27),折元发生在屏层一次;课程资源 fileSize 本身就是字节数,共享屏 `fmtSize` 同按字节 —— 再折一次是新缺陷。
 - **诚实留白三格**:`referralLink`、`rules[]`、`team/members` 的 `status`(后端 :499 恒写 'active')全仓无真值源,本批**没有为消红补假数**;要补即属新增能力,按 §24 需人定档。
 - 取证:`pnpm --filter @ihui/mobile-rn exec tsc --noEmit` RC=0;`node scripts/check-api-routes.mjs --staged` 末行 `mobile-rn:文件 6 / 调用 8 / 取不到内容 0 / 未判定 0` + `死调用 0 处` —— 阳性对照即在此:字面量一律写成引号紧邻 `/api/` 形态,门 8 才看得见这 8 条并逐条判到在册。
-
 ### 移动端死路径簇收口之三：补两条最小读面(2026-10-19)
-
 - `GET /api/user/security`(RN `SecuritySettingsScreen`):`passwordEnabled` = `users.password_hash` 非空、`twoFactorEnabled` = `users.two_factor_enabled`(复用 `findUserById`,与 `GET /auth/2fa/status` 同一条查询),`biometricEnabled`/`loginAlert` 走 `user_preferences(group='security')`,缺行缺值一律**如实回落 false**(这两项全仓无写入方,回落即真实读数,不是空承诺)。
 - `GET /api/circles/users/recommend`(RN `CircleIndexScreen`):`users.nickname/avatar/bio` 左连 `user_follows` 出 `followed`,过滤用真列 `users.status = 1`(schema/users.ts:64 注明 0 禁用 / 3 注销)——**没有发明条件**;排序为粉丝数倒序 + id 升序 tie-break(确定性,禁 `RANDOM()`,翻页不重不漏);`followed` 一次 `inArray` 批量查,不逐行。
 - 两条整条要登录(插件级 `preHandler` + `checkAuth`,与 `/edu/courses/:id` 同档),SQL 留在查询层(`social-queries.ts` 新增 `findRecommendedUsers`/`findFollowingIds`),路由不重写一遍;鉴权型读面加了 `z.strictObject({})`,自报 `?userId=` 直接 400 且零查询。
 - 取证:`pnpm --filter @ihui/api exec tsc --noEmit` RC=0;`vitest run tests/user-security-routes.test.ts tests/circle-mobile-routes.test.ts` 末行 `Tests 18 passed (18)`,含"无凭据 401 且一次查询都不发""自报 userId 无效""非法分页 400 且零查询"三组反向断言,以及"注册即装车"双向对照(`circleMobileRoutes`/`userSecurityRoutes` HEAD 面 false、本枚面 true,正控 `courseMobileRoutes` 两面 true 证取材面非空)。
-
 ### 账号保活中心(2026-10-26 立：两条互不相识的保活线收成一份状态)
-
 - **为什么要它**:发布线 Cookie 探活(`services/publish/cookie_refresh_daemon.py`)与 AI 平台签到凭证(`services/checkin_scheduler.py`)此前各有一套开关、各自统计、各自表达失败 ⇒「这些账号到底还活着吗」在系统里**没有单一答案**:发布页看到的是角标、签到页看到的是记录,两边都不回答"哪个号快死了"。本中心(`apps/ai-service/app/services/keepalive/`)把 **cookie 探活 / 凭证(api_key、oauth)到期检测 / 签到凭证健康(只读 JWT `exp`,不代签)** 收成一套调度、两张表、一份健康度口径、一个告警出口。
 - **边界(不许混成一件)**:只判**凭证存活**,不代做业务动作 —— 发内容仍归发布调度器、每日签到仍归 `checkin_scheduler`,否则同一账号被两处同时访问,签到与发布互相踩。中心启用时旧 Cookie 守护循环**不再启动**(单一调度源)。
 - **端点(6 条,前缀 `/api/keepalive`,全部需登录 `require_request_user_id`,响应外壳统一 `{code,message,data}`)**:
-
 | 方法 | 路径 | 一句话用途 |
 | ---- | ---- | ---------- |
 | GET | `/api/keepalive/status` | 自检面:「到底开没开」的唯一权威答案(启用理由、调度是否真活着、上轮摘要、探针清单),不靠读配置猜 |
@@ -5278,16 +5188,13 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | GET | `/api/keepalive/events` | 探活流水,可按 `?ref=` 只看某账号、`?only_failures=true` 只看失败;`limit` 默认 50 上限 500 |
 | GET | `/api/keepalive/stats` | 近 N 天(`?days=`,1..90,默认 7)各来源 ok 失败 总数 成功率 |
 | POST | `/api/keepalive/run` | 手动触发一轮(后台执行并立即返回);`?ref=<source>:<id>` 只跑单账号,`?force=true` 无视退避;`ref` 不带冒号直接 400 |
-
 - **健康度四档(判据只在 `policy.health_of` 一处,前端不得自己再算一遍)**:
-
 | 档位 | 判据(自上而下,先命中先返回) |
 | ---- | -------------------------- |
 | `critical` | 上次失败分类是 `expired`(只能重录或重扫)、`expires_at` 已过、连续失败 ≥ `alert_after_failures`(默认 3) |
 | `warning` | 连续失败 > 0、进入临期窗口(≤ `expire_warn_days`,默认 3 天)、只看得到失败且从没成功过 |
 | `healthy` | 有成功记录、无连续失败、不在临期窗口 |
 | `unknown` | 既没成功过也没失败过(新账号还没跑过) |
-
 - **失败分类与重试语义**:结果分 `ok` / `expired` / `network` / `error` / `unsupported` / `skipped` 六类,`classify_message()` 是唯一归一化入口 —— 密文解不开(`InvalidTag`、`解密失败`、`凭证无法解密`)一律归 `expired`,因为密钥不匹配重试一万次仍是同一个错,只有重录能救;不认识的失败归 `error` 且可重试(宁可多试一次,也不要把新平台改版判死)。退避为 `base × 2^(n-1)` 封顶 `retry_cap`(默认 300 秒起、21600 秒封顶),`retry_max`(默认 3)之后不再排重试。`expired` 与环境类失败**当轮即告警**,其余攒到 `alert_after_failures` 轮,同类告警按 `alert_repeat_hours`(默认 24 小时)去重,**成功即清零**(否则恢复后下一次真出事会被旧戳静音)。`unsupported`(如 api_key 号无到期信息)**既不算成功也不算失败**,单列一档、不进 `failed` —— 否则"本就不需要保活"的号会把真红淹没。
 - **告警出口**:默认进全站通知中心(`notifications` 表,前端未读红点消费),**一轮一属主聚合成一条**(19 个号同时过期不发 19 条,否则用户关掉通知后再也看不见真告警);`notifications.user_id` 是 uuid 且有外键,`probe-user`、`system:relay-pool` 这类非 uuid 属主在此丢弃并计数(一条脏 owner 就能让整批 INSERT 失败,表现成"告警时有时无");表不存在时明确 warning 跳过,不假装已送达。另可配 `KEEPALIVE_ALERT_WEBHOOK` 追加投递。全程 fail-open:通知发不出去绝不反过来中断保活。
 - **数据落点(两张表,`ensure_tables()` 幂等建表,启动期 fail-open)**:`keepalive_account_state` 每账号一行回答"现在什么情况"(连续失败、下次重试时刻、到期时刻、预警与告警去重戳);`keepalive_events` 是追加流水,回答"过去发生过什么、成功率多少",按 `KEEPALIVE_EVENT_RETENTION_DAYS`(默认 90 天)老化。账号主键是跨来源稳定的 `<source>:<account_id>`,因为两张源表的自增 id 各自独立、裸 id 会撞号。
@@ -5296,11 +5203,8 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - **所属端**:后端 `apps/ai-service`(router 自带 `/api/keepalive` 前缀,挂载不再加 prefix);前端面板 `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`,挂在发布账号页 `/publish/accounts`;端点封装 `packages/api-client/src/endpoints/keepalive.ts`(`getKeepaliveStatus`、`getKeepaliveOverview`、`listKeepaliveAccounts`、`listKeepaliveEvents`、`runKeepalive`;`/stats` 后端有、面板未消费,别写成面板在用)。
 - **凭证层顺带修掉的一处真缺陷(与本中心同批)**:发布与签到两侧的密钥文件路径原来是 `data/…` 的**cwd 相对**写法,换个启动目录就等于换一把密钥(历史密文全废,且文件缺失时会**静默新建一把**)。现改为锚定服务根(`Path(__file__).resolve().parents[N]`),并新增**只解不加密**的历史密钥环(`PUBLISH_CREDENTIALS_KEY_LEGACY` / `CHECKIN_FERNET_KEY_LEGACY`);解密异常双契约:无环时原样抛 `InvalidTag`,有环仍全不解时抛带"密钥不匹配"的 `ValueError` —— 不把"密钥换了"说成"密文坏了"。
 - 取证:`node scripts/check-readme-sync.mjs` 末行 `未描述` 由 131 降至 125,本节 6 条 `/api/keepalive/*` 从 `in-doc-window` 转入 `已覆盖`;`node scripts/check-api-routes.mjs` 对 `packages/api-client/src/endpoints/keepalive.ts` 的两条调用现读落在"未判定(前缀假设命中)"(注册面只枚举 `app/routers` 与 `app/api`,本模块在 `app/services`),不判红也不记绿 —— 迁移到 `app/routers/keepalive.py` 才进在册面,属后续笔。
-
 ## 运维与生产监控工具(2026-09-27 起)
-
 这台机由一支 agent 运维班组常驻值守(5 个班次:每小时巡检 / 每 30 分钟版本核验 / 每日 04:00 自愈 / 每日 05:30 备份核验 / 每周一体检邮件)。下面这几件是它们共用的出口,都不在提交链上,判的是**机器状态**——挂进提交链就会变成与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带全部检查作废。
-
 | 工具                                                                                                                                                                                                                                                                                    | 干什么                                                                                                                                                                                                                                    | 为什么必须有它                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `scripts/sync-prometheus-live-config.mjs`                                                                                                                                                                                                                                               | 把 `monitoring/prometheus/prometheus.yml` 派生到部署机那份运行副本,并让运行副本的 `rule_files` 直接指回仓库那份 `alerts.yml`;`--check` 零副作用,`--reload` 走热加载(本机 prometheus 已开 `enable-lifecycle`,改监控配置**不需要重启服务**) | 生产 prometheus 过去读仓库外一份手抄副本,只抓 6 个目标 ⇒ `AlertmanagerDown`/`AlertBridgeDown` 依赖的 `up{job=…}` 序列**根本不存在**,`== 0` 恒不成立 —— 邮件链路断了不会有任何告警。而仓库那份 `alerts.yml` 因带两条 Prometheus 3.x 不认的 `disabled:` 字段被 `promtool` **整份拒绝**,两侧各自"能跑"、合起来从没跑过。**规矩:凡 Down 类判据必须配一条"job 集合差"对账,"序列缺失"比"值为 0"更危险。** 派生器另有占位符凭据守卫(它曾把 `password: __REPLACE…` 逐字烘进生产 ⇒ 主机指标采集器恒 401、磁盘/内存告警长期哑) |
@@ -5309,7 +5213,6 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | `scripts/pg-restore-drill.mjs`                                                                                                                                                                                                                                                          | 备份可恢复性核验:`--check`/`--offline-verify` 不碰库,`--apply` 才做在线还原演练                                                                                                                                                           | 全仓 `pg_restore` 此前只出现在注释里 —— **没验过的备份不算备份**。文件层已证到最强(整份归档解出 363MB SQL 流零报错);在线演练缺一个建库权限,**属机主授权动作,agent 不得自行提权**                                                                                                                                                                                                                                                                                                                                     |
 | `scripts/run-evidence.mjs`                                                                                                                                                                                                                                                              | 给任何一次取证落件并写 `#EVIDENCE-RC`,读侧 `--verify` 判"跑完 / 被截断 / 被杀"                                                                                                                                                            | 把"跑失败"与"根本没跑到"变成机器可分辨的两件事。管道尾的 `$?` 是 `tail` 的退出码,不是判据的 —— 本仓一天内三次因此得出相反结论                                                                                                                                                                                                                                                                                                                                                                                        |
 | **两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。 |
-
 >   **完全不带**文件族 —— 这类分叉本身不会报错,只会表现成"同一句话在 web 能改文件、在那个端不能";而**要不要带取决于该端有没有委托面**(见本条末尾),所以"补齐"不等于"照抄 web 的名单"。
 >   现搬到共享层：web 保留 re-export(不打断既有 import 面)。两张名单刻意命名成
 >   "把哪些工具交给模型"的**能力**清单同词不同义，并置会产出 `export *` 歧义。行为对子与
@@ -5318,13 +5221,11 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 >   判断)，仅 `running` 态渲染，`tool-result` 到达即清(最终 ± 行以 result 为准)。**收帧与渲染的管线四端都在位**(扩展那一段属"接线已到位、生产者尚未指向它"),而当前真会收到帧的是 web / 小程序 / RN 三端,三端的渲染条件
 >   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
 >   - **更正(G-816035，2026-10-08)**：以上"载荷 `partialText` 是**累积文本**、按 `toolCallId` 整帧覆盖、`seq` 不参与判断"为**历史口径**（本段其余描述的三端收帧事实不变）。机主 2026-10-07 拍板"契约定增量"，本笔收口为：每帧 `partialText` **只含本批新增行**，六消费端 + CLI 本地 store 一律**按 toolCallId 以 seq 收敛追加**（`seq` 升格为收敛判据，乱序/重传按 seq 收敛丢弃陈旧帧）；parity 门 `scripts/check-agent-event-parity.mjs` 对这一维仍零判据。
-
 - `useUpdater` 状态机(idle → checking → available → downloading → installing → done);退出更新守卫与全屏遮罩已于 2026-09-27 整条移除(两处实测缺陷:监听注册晚于异步 IPC 注入 ⇒ "正在退出..." 永久转圈,遮罩从不回报有没有更新)
 - **关闭行为可配置(2026-09-28 起)**:托盘图标显隐、关闭窗口动作(隐藏到托盘 / 直接退出 / 每次询问)、开机自启与静默启动、托盘菜单项与未读徽标,六项集中在「设置 → 桌面端行为」并可跨设备漫游;判定与超时兜底住在 Rust 侧,不依赖 WebView 是否活着
   | `scripts/pg-backup-cadence-audit.mjs` | 只读审计每日备份的**节拍与完整性**:逐日在位、每份 `complete/truncated/undetermined` 三态、0 字节与体积塌陷、异地腿缺口 | 自定义格式的 TOC 在文件**尾部**,`pg_dump` 中途死掉留下的文件大小看着完全正常 —— 只看大小与 `ls` 判不出"这份根本恢复不了" |
   | `scripts/pg-restore-app-reads.mjs` | 把 60 条**应用自己发的只读查询**同时打到生产库与还原出来的演练库,五态不并桶地报 pass / 还原库报错 / 列形分叉 / 行数漂移 / 未判定 | "表数行数全等"只证明**元数据**到了;缺手写迁移的 `search_vector`、自定义 enum、RLS 会话变量、序列落后这些形态没有一个会移动那两把尺子,而应用一查就废 |
   | `deploy/win/ihui-pg-restore-prereq.sql` | 灾难恢复第 0 步:在干净集群上先建 `ihui` / `ihui_app` 两个角色再还原 | 单库 dump **结构上不含**角色与成员关系(实测 0 条 CREATE ROLE),而归档有 958 条 `OWNER TO ihui` —— 不先建角色,属主全部落空。口令是占位符,文件本身无机密 |
-
 > ⚠️ **版权与许可声明**
 >
 > - 本仓库采用 **Apache-2.0** 开源许可：允许商用、修改与再分发（须保留版权声明与 NOTICE，并标注修改）。
@@ -5332,18 +5233,14 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 > - 源文件头部保留一行可见版权署名（Apache-2.0 第 4 条归属声明）。
 >   | `deploy/win/ihui-pg-backup.ps1`(生产实际执行的是 `deploy/prod-bundle/pg-backup.ps1`,两侧逐字节等值由守门 104 钉) | 每晚 03:00 逐库导出 `ihui_dev` + `keycloak`(自定义压缩格式,保留 ACL 只重映射属主),本地与云盘同步目录**同窗轮转 7 天** | `keycloak` 是这台机唯一"丢了就建不回来、而此前完全没被备份"的库(SSO realm 只活在库里,全仓无 realm-export / compose / kc.sh 可重建),而它只有 0.2MB。另一半成因:旧清理写死只匹配 `ihui_dev_*.dump`,于是 dash 命名的档与 `.sql.gz` 共 153.8MB 永久清不掉,云盘目录更是**一行清理代码都没有** —— 网盘配额撞顶的失败形态不是报错,而是同步客户端静默停传,和"从没配过异地"长一模一样 |
 >   | 63 | check-sse-parser-parity.mjs | **SSE 双解析器漏接对账(blocking,D106/G-148 配套)**:同一协议被 `packages/api-client`(web/extension/mobile-rn)与 `packages/shared/src/utils/sse-parse.ts`(miniapp-taro)两处独立解析。三类判定:① 抽不到事件名 = 判据失效**按失败处理**;② sse-parse 覆盖帧数 ratchet(`parseCoverageBaseline=23`,只挡倒退);③ api-client 已解析而未接的帧必须在 `scripts/data/sse-parser-coverage.json` 的 `webOnly` 写明"为什么只有该端消费"(空理由/已接却仍登记都拦)。判据强度实测:把 `steer` 守卫改坏 → 立即红两条(覆盖倒退 + 未登记),"只剩产出语句或只剩类型联合声明"都骗不过本闸。`--self-test` 10 例正反成对,`--report` 输出逐端补齐工单 |
-
 ## 守门补登：服务二进制路径存续性（2026-09-28 立，warn）
-
 `scripts/check-service-binary-paths.mjs` 把"外部自升级把 Windows 服务的二进制路径烂掉"这一型变成机器可查事实：RSSHub 曾因为 `~\.workbuddy\binaries\node\versions\<新版本>` 整个目录被换掉而**静默停服 3 天，期间没有任何告警**，而全仓没有任何一处会去问"服务声明要跑的那个 exe 今天还在不在"。
 门体遍历本机服务、按 nssm 的 `Parameters\Application` 绝对路径逐条判存在性，结论分三态且**绝不并桶**：可判存在 / 确认缺失 / 未判定。枚举不到任何 nssm 托管服务（例如这台开发机）时如实报"未判定"并点名原因——那不等于通过。定级是 **warn**：服务路径属机器状态，提交者结构上满足不了，挂进 blocking 只会让每台每次提交被逼 `--no-verify`，一次绕过等于全部守门对该提交作废。问责档跑 `--strict`（确认缺失与未判定都拒绝出具合格证）；应急跳过变量 `HUSKY_SKIP_SERVICE_BINARY_PATHS`。
 | | 桌面 | Tauri 2 + Rust / Tauri 命令枚数现读 `apps/desktop/src-tauri/src/lib.rs` 的 `generate_handler` 清单 / **A 薄壳方案**:`tauri.conf.json` 的 `devUrl` 只在开发期指向 `apps/web` dev server(:8801);**打包态不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点(2026-09-17 `f10258c8f6`「终极薄壳」定稿;依据与后果见 AGENTS §4 与 D148),复用 Web 端全部能力(对话/搜索/导出/主题/Markdown/快捷键等均由 Web 提供,非桌面端原生)/ 原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + **三阶段自动更新**(启动静默 + 使用中提示 + 退出拦截) |
-
 - **关闭程序**:退出时(Ctrl+Q / 托盘退出)自动拦截,检查+下载+安装+重启,全屏进度遮罩 + "跳过"选项
 - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
 - **退出拦截更新**:拦截窗口关闭动作,检测更新 → 下载 → 安装 → 重启,如无更新则正常退出;覆盖 QuitUpdateOverlay 全屏遮罩防止用户误操作
 - **Desktop(Tauri 2)**:Tauri 命令枚数现读 `apps/desktop/src-tauri/src/lib.rs` 的 `generate_handler` 清单 + 三阶段自动更新(启动静默 + 使用中提示 + 退出拦截)
-
 > 而**带不带现在是运行时判的**,不再是文件级禁令:2026-09-28 在真实产物 `chrome-extension://<id>/sidepanel.html` 实测扩展页是安全上下文、`showDirectoryPicker` 在位、`mode:readwrite` 是被接受的枚举、受信任点击后错误由 SecurityError 翻成 AbortError(手势链通),且那份 12-case 委托执行器对着真实可写目录句柄跑 11 条全部按语义返回。于是 `lib/workspace-capability.ts` 把放行条件钉成「能力探测 ∧ 已登记执行代理」两半(改任何一半都不许放开,`toolsForChatRequest` 必须过它),`lib/workspace-store.ts` 在 pick 到 readwrite-granted 的句柄时才登记,侧栏多了工作区入口与工具审批横幅,`ChatPage` 送 `workspaceContext`(服务端委托分支的开关本身)并接 `onToolDelegate`/`onToolApproval`;同批把 web 取句柄的档位从 `read` 改成 `readwrite` —— 此前浏览器端"让 AI 改文件"是发得出去、执行必失败。提交:`64bc41cad1` / `258b43080a` / `07e789b3e1`;未做与没量到的部分见 PROJECT_PLAN 的 O81 票㉕。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 > | **CLI** | `apps/cli/` | Node.js + Commander | 自研命令行 AI 编程助手,50 命令 + 36 工具 + ACP Server + 24 源配置导入 |
 > | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 50 命令 / 36 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
@@ -5351,9 +5248,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 > | **AI 教育全栈** | 课程学习 | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 分类/难度/价格三轴服务端筛选 + 真分页 / zhs-course |
 > 而**带不带现在是运行时判的**,不再是文件级禁令:2026-09-28 在真实产物 `chrome-extension://<id>/sidepanel.html` 实测扩展页是安全上下文、`showDirectoryPicker` 在位、`mode:readwrite` 是被接受的枚举、受信任点击后错误由 SecurityError 翻成 AbortError(手势链通),且那份 12-case 委托执行器对着真实可写目录句柄跑 11 条全部按语义返回。于是 `lib/workspace-capability.ts` 把放行条件钉成「能力探测 ∧ 已登记执行代理」两半(改任何一半都不许放开,`toolsForChatRequest` 必须过它),`lib/workspace-store.ts` 在 pick 到 readwrite-granted 的句柄时才登记,侧栏多了工作区入口与工具审批横幅,`ChatPage` 送 `workspaceContext`(服务端委托分支的开关本身)并接 `onToolDelegate`/`onToolApproval`;同批把 web 取句柄的档位从 `read` 改成 `readwrite` —— 此前浏览器端"让 AI 改文件"是发得出去、执行必失败。提交:`64bc41cad1` / `258b43080a` / `07e789b3e1`;补账①②③④ 已于同日落地(`3a8726494e` / `43a5248278` / `c3d14f5586` / `fe69a7ae56` / `baca9cbf32`):扩展端三个真键入语言包并换掉借用的近义键、审批多出"本会话都允许"一档("永远放行"仍永久禁用)、工作区上下文缓存提为共享层单源(扩展每轮不再全扫目录树,切换与清除即收回)、守门 49 的判定面收口到 HEAD/索引两面、服务端委托往返补上进程内集成证明(9 例,含"去掉 `workspace_context` 就落服务端执行"的反例)。**没量到的那一格仍然没量到**:真实浏览器与扩展里的一次点击、原生目录选择框、前端执行器产出 payload 的真实形状、真实 provider 调用与计量 —— 本机无可登录后端(8801/8802/8810/8811 实测零监听),属真人验收缺口。逐件落点与判据见 PROJECT_PLAN 的 O81 票㉕。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 > | 不开放 | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达 | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send` |
-
 ### 台账排空的两把只读尺子(2026-09-28 立,配 §1「完成即归档」)
-
 | 157 | guardian-runner.mjs | `check-gate-presence-exemption.mjs` | 凭据在场即豁免对账(票#23 CSRF 那一型,收口后此前零判据):安全钩子/中间件里「只判头/cookie 在没在」就直接裸放行跳过校验 ⇒ 命中;验过才免(isVerified*/secretsEqual/verify*/timingSafeEqual/jwt.verify/compare*)⇒ 放过;条件含 helper 调用/动态属性名/混项/取反验证 ⇒ 判不出逐条点名(--strict 下有未判定即 exit 2,拒绝出合格证)。存量按该文件 HEAD 自身计数套棘轮(立项现读命中 1 处 = csrf.ts 的 x-goog-api-key,只报数);阳性对照用修复前 csrf.ts 历史 blob 喂同一判据必须点名;行内出口 presence-exempt: 原因(须带原因)。blocking;紧急跳过 HUSKY_SKIP_GATE_PRESENCE_EXEMPTION=1;完整细节见 AGENTS.md 同名条 |
 | 77 | check-radius-single-source.mjs | **全 8 端圆角单一源头对账(blocking,2026-09-23 立)**:档位表唯一真相源 `packages/design-tokens/src/radius.js`(xs2/sm4/md6/lg8/xl12/2xl16)。判据 A:radius.js ↔ tokens.css `--radius-*` ↔ miniapp-taro app.css ↔ tailwind-preset 四处逐档同值(preset 必须引用 `RADIUS_REM`,不得重新内联)——历史上 v3 preset 的 `rounded-sm`=2px 与 web v4 的 4px 同名不同值,是"手机上所有容器圆角与全局设定不一致"的根因。判据 B:端内取用必须引用档位(RN `rnRadius.lg` / CSS `var(--radius-lg)` / 类名 `rounded-lg`),数字字面量、`rpx()` 算圆角、每文件 `*_RADIUS` 常量、`rounded-[任意值]` 一律红;CSS 声明**逐值判**(2026-09-27 补:旧写法是"值里出现 `var(` 就整条放行",于是 `border-radius: var(--radius-xl) 24rpx 0 0` 这类多值混写整型隐身,HEAD 实存 4 处而门一路报绿),任意属性形态 `[border-radius:6rpx]`(小程序 className)同时纳入 —— 值前导字符类原不含左方括号,那一型也隐身 1 处;真圆/胶囊(头像/装饰点/半高胶囊)不得方档化,须 `size/2` 几何表达式并由盒形量证(正方盒+半边=几何真圆出射程,非正方盒+半边=胶囊判红且不吃任何声明);**圆角豁免标记一族已于 2026-09-29 O81 票㊵ 整体废除**,新增判据 **B8** 把"写下一行标记"这个动作本身判红(只拆出口不拦回写,通道就会被悄悄接回来);B6 还要求引用 `rnRadius` / `RADIUS_CSS_PX` 的文件必须自己 import(本门判 HEAD,`pnpm typecheck` 只跑 worktree —— 悬空标识符两边都不红)。**棘轮锚点 = 该文件 HEAD 版本自身的违规数**(2026-09-24 换锚:并行会话的索引层重建曾把 309 个路径整文件回写成迁移前的旧基线、HEAD 积累 1179 处,而静态清单对此完全绿灯;`radius-single-source-baseline.json` 降为人工兜底且现须为空),全量审计改判 **HEAD blob 而非工作树**(滞后的旧草稿不该记成本仓债务 —— 一道与真实改动无关的红门只会逼人 `--no-verify`)。另有判据 C 覆盖面对账:含圆角的跟踪文件要么落在 SCAN_DIRS,要么在 `OUT_OF_SCOPE` 写明原因。判据不锚定行首(`width:16px; border-radius:50%` 这类同行多声明、以及 cli 分享页/设计模板/扩展 content script 里 **TS 模板字面量生成的 CSS** 同样可见,后者须用 `${RADIUS_CSS_PX.md}` 插值而非写死)。`--self-test` 例数以命令末行现读为准(本文不钉数字,钉死的下一枚提交就把它变成假账)(含真实表端到端对账、NaN 防回归、HEAD 锚点四方向正反例、多行 import 不误伤、CSS 多值逐值判与任意属性形态的正反成对锁),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`(例数以 `node --test` 末行现读为准,含"锚点必须是 HEAD 而非静态清单"装车证明、夹具端到端逐条点名多值混写与 `[border-radius:…]`、两条源码形状反向锁) |
 | 159 | guardian-runner.mjs | `check-image-source-domains.mjs` | 图源池对账:渲染/seed 路径不得出现境外图片 URL(域名清单按被审面现读,门不 import 池);database 侧镜像与 shared 三张清单逐字等值(漂移即红、一侧取不到判"无法判定");函数行为由 image-source-pool-parity 测试三方同判(blocking;出口 `HUSKY_SKIP_IMAGE_SOURCE_POOL`;细节见 AGENTS.md 同名条) |
@@ -5363,20 +5258,15 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | | 桌面 | Tauri 2 + Rust / Tauri 命令枚数现读 `apps/desktop/src-tauri/src/lib.rs` 的 `generate_handler` 清单 / **A 薄壳方案**:`tauri.conf.json` `devUrl:8801` 仅在开发期加载 `apps/web` dev server,打包态不内嵌前端产物(`beforeBuildCommand` 为空、`frontendDist` = `shell` 占位页,窗口 `url` 直指线上站点 https://aizhs.top/),复用 Web 端全部能力(对话/搜索/导出/主题/Markdown/快捷键等均由 Web 提供,非桌面端原生)/ 原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n + 图标显隐与菜单项可自定义 + 未读徽标)+ 关闭行为可配置(隐藏到托盘 / 直接退出 / 每次询问)+ 开机自启与静默启动 + 桌面偏好跨设备漫游+ 多显示器校验 + 单实例 + **两阶段自动更新**(启动静默 + 托盘独立「检查更新」,退出路径不拦截) |
 | 11 | check-rounded-full.mjs | 容器圆角违规 + 半径上限 C7 |
 | 77 | check-radius-single-source.mjs | **全 8 端圆角单一源头对账(blocking,2026-09-23 立)**:档位表唯一真相源 `packages/design-tokens/src/radius.js`(xs2/sm4/md6/lg8/xl12/2xl16)。判据 A:radius.js ↔ tokens.css `--radius-*` ↔ miniapp-taro app.css ↔ tailwind-preset 四处逐档同值(preset 必须引用 `RADIUS_REM`,不得重新内联)——历史上 v3 preset 的 `rounded-sm`=2px 与 web v4 的 4px 同名不同值,是"手机上所有容器圆角与全局设定不一致"的根因。判据 B:端内取用必须引用档位(RN `rnRadius.lg` / CSS `var(--radius-lg)` / 类名 `rounded-lg`),数字字面量、`rpx()` 算圆角、每文件 `*_RADIUS` 常量、`rounded-[任意值]` 一律红;CSS 声明**逐值判**(2026-09-27 补:旧写法是"值里出现 `var(` 就整条放行",于是 `border-radius: var(--radius-xl) 24rpx 0 0` 这类多值混写整型隐身,HEAD 实存 4 处而门一路报绿),任意属性形态 `[border-radius:6rpx]`(小程序 className)同时纳入 —— 值前导字符类原不含左方括号,那一型也隐身 1 处;真圆/胶囊(头像/装饰点/半高胶囊)不得方档化,须 `size/2` 几何表达式并由盒形量证(正方盒+半边=几何真圆出射程,非正方盒+半边=胶囊判红且不吃任何声明);**圆角豁免标记一族已于 2026-09-29 O81 票㊵ 整体废除**,新增判据 **B8** 把"写下一行标记"这个动作本身判红(只拆出口不拦回写,通道就会被悄悄接回来);B6 还要求引用 `rnRadius` / `RADIUS_CSS_PX` 的文件必须自己 import(本门判 HEAD,`pnpm typecheck` 只跑 worktree —— 悬空标识符两边都不红)。**棘轮锚点 = 该文件 HEAD 版本自身的违规数**(2026-09-24 换锚:并行会话的索引层重建曾把 309 个路径整文件回写成迁移前的旧基线、HEAD 积累 1179 处,而静态清单对此完全绿灯;`radius-single-source-baseline.json` 降为人工兜底且现须为空),全量审计改判 **HEAD blob 而非工作树**(滞后的旧草稿不该记成本仓债务 —— 一道与真实改动无关的红门只会逼人 `--no-verify`)。另有判据 C 覆盖面对账:含圆角的跟踪文件要么落在 SCAN_DIRS,要么在 `OUT_OF_SCOPE` 写明原因。判据不锚定行首(`width:16px; border-radius:50%` 这类同行多声明、以及 cli 分享页/设计模板/扩展 content script 里 **TS 模板字面量生成的 CSS** 同样可见,后者须用 `${RADIUS_CSS_PX.md}` 插值而非写死)。`--self-test` 例数以命令末行现读为准(本文不钉数字,钉死的下一枚提交就把它变成假账)(含真实表端到端对账、NaN 防回归、HEAD 锚点四方向正反例、多行 import 不误伤、CSS 多值逐值判与任意属性形态的正反成对锁),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`(例数以 `node --test` 末行现读为准,含"锚点必须是 HEAD 而非静态清单"装车证明、夹具端到端逐条点名多值混写与 `[border-radius:…]`、两条源码形状反向锁;**B8** 拦已废除的圆角豁免标记回写、**B9** 判「写死的数值半径不得超过最大档 2xl」(2026-09-29 用户定档:半径一律 ≤16px,圆形头像不豁免;全圆写法的等效半径归守门 11 的 C7,两门共用 lib/box-geometry.mjs 的 ownShortSidePx 那一份盒形尺)) |
-
 > - CI 已内置水印校验（`pnpm watermark:check`），任何**缺失**水印、载荷损坏、或**只把可见横幅删掉而留着隐形标记**的改动都会导致构建失败（2026-09-29 起后者单列为一态，理由见 AGENTS §5c）。
 >   | | 桌面 | Tauri 2 + Rust / Tauri 命令枚数现读 `apps/desktop/src-tauri/src/lib.rs` 的 `generate_handler` 清单 / **A 薄壳方案**:`tauri.conf.json` `devUrl:8801` 仅在开发期加载 `apps/web` dev server,打包态不内嵌前端产物(`beforeBuildCommand` 为空、`frontendDist` = `shell` 占位页,窗口 `url` 直指线上站点 https://aizhs.top/),复用 Web 端全部能力(对话/搜索/导出/主题/Markdown/快捷键等均由 Web 提供,非桌面端原生)/ 原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + **三阶段自动更新**(启动静默 + 使用中提示 + 退出拦截) |
 >   │ :8801 │ │ web/out │ │ │ │ :8805 │ │ :8804 │ │ ACP+Skl │
 >   | **桌面** | `apps/desktop/` | Tauri 2 + Rust | **A 薄壳架构:Tauri WebView 窗口 `url` 直指线上站点(现读 `tauri.conf.json`:`frontendDist` 为 `shell` 占位页、`beforeBuildCommand` 为空,打包态不内嵌前端产物;开发期经 `devUrl:8801` 加载 web dev server),消除双端页面重复维护**。Desktop 端仅为 Rust shell,原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + 自动更新签名。UI 功能(对话/搜索/导出/主题/Markdown/快捷键等)全部由线上 Web 站点提供 |
 >   | | 桌面 | Tauri 2 + Rust / Tauri 命令枚数现读 `apps/desktop/src-tauri/src/lib.rs` 的 `generate_handler` 清单 / **A 薄壳方案**:`tauri.conf.json` `devUrl:8801` 仅在开发期加载 `apps/web` dev server,打包态不内嵌前端产物(`beforeBuildCommand` 为空、`frontendDist` = `shell` 占位页,窗口 `url` 直指线上站点 https://aizhs.top/),复用 Web 端全部能力(对话/搜索/导出/主题/Markdown/快捷键等均由 Web 提供,非桌面端原生)/ 原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n + 图标显隐与菜单项可自定义 + 未读徽标)+ 关闭行为可配置(隐藏到托盘 / 直接退出 / 每次询问)+ 开机自启与静默启动 + 桌面偏好跨设备漫游+ 多显示器校验 + 单实例 + **两阶段自动更新**(启动静默 + 托盘独立「检查更新」,退出路径不拦截) |
-
 - 记住登录(票 #27 于 2026-09-29 收口):本地**只持久化账号**(自动填充 + 历史下拉 + 5 语言 i18n),口令不再落进可读明文存储 —— RN 走系统 Keychain/Keystore,web 与小程序由 refreshToken 静默续期承担自动登录;记录形态与 storage key 的唯一真相在 `@ihui/shared`
   | 11 | check-rounded-full.mjs | 容器圆角违规 + 半径上限 C7(尺寸由属性驱动而静态测不到时,**上限由共享几何源构造封顶 + 常驻测试钉住**,不得把"量不到"读成"没超标") |
-
 ## AI 对话决策面与运行时事实(2026-09-29 一批落地,对标 Codex / Trae / Qoder / WorkBuddy)
-
 这一批把"用户在对话里点下允许/拒绝时,他到底知道什么"补齐成可核对的事实:
-
 - **推理强度第三轴**:输入区除模型、采样外可点选档位(minimal / low / medium / high)。
   档位是封闭集合,四处(TS 联合 / TS 数组 / Python 钉扎表 / 契约层)由一道对账门逐格比;
   后端把档位钉回或丢弃时**必须回报回落通知**,界面上出徽章 —— "选了档而什么都没发生"
@@ -5400,9 +5290,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
   → **IHUI-AI** 对标并超越 Dify / Coze / FastGPT:不仅覆盖 AI 对话 / Agent 市场 / 知识库 RAG / 工作流编排,更内置完整商业闭环(10 支付网关含微信/支付宝/Stripe/PayPal + VIP 4 档 + 积分计价 + 钱包 + 订阅 + 退款 + 发票 + 佣金 + 分销 + 优惠券)+ AI 教育全栈(课程/题库/考试/直播/证书/SM-2 间隔复习)+ 38 平台自动发布 + CLI 编程助手。一个仓库干翻 40+ 商业产品。
   诚实边界:以上都只验到"静态判据 + 单元/组件用例"这一层。本机没有运行中的服务、
   没有数据库与浏览器会话,所以**到端渲染与真机行为未取证**,不写成"已实测"。
-
 ### 守门 164 · 源码替换符(U+FFFD)对账(`scripts/check-replacement-chars.mjs`,blocking,2026-09-29 立)
-
 AGENTS §3 的字节级 UTF-8 完整性此前**只看编码合法性**:守门 4c 判非法 UTF-8 字节序列,而 `U+FFFD` 是
 `EF BF BD` —— 合法。2026-09-29 实测 HEAD 面 5 个源码文件共 718 处替换符(注释被一次有损编码往返
 吃掉,连换行和 ASCII 数字一起吞),全链百余道门包括那道 UTF-8 门一路报绿。⇒ **判据若只看"编码合法",
@@ -5415,7 +5303,6 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 「批次 31/32/33(2026-08-15)」注释 —— 拿整串日期扫该路径全部 72 个 blob,无损坏正文命中 **0 种**,
 即历史里从没存在过干净版本(它们是"写进去时就坏了"),所以这 3 条按存量报数长期挂着,不读成"已全清"。
 → **IHUI-AI** 对标并超越 Dify / Coze / FastGPT:不仅覆盖 AI 对话 / Agent 市场 / 知识库 RAG / 工作流编排,更内置完整商业闭环(10 支付网关含微信/支付宝/Stripe/PayPal + VIP 4 档 + 积分计价 + 钱包 + 订阅 + 退款 + 发票 + 佣金 + 分销 + 优惠券)+ AI 教育全栈(课程/题库/考试/直播/证书/SM-2 间隔复习/学费账目与账期到期/欠费自动催缴)+ 38 平台自动发布 + CLI 编程助手。一个仓库干翻 40+ 商业产品。
-
 - **组件层的共享真值源(2026-09-29 O92 立)**:跨端 Button 的共享档位值(`default` / `destructive` / `outline` / `ghost` 与 `sm` / `lg` 的 class string)收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 必须先 spread 它、再追加或覆盖平台修饰。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。**当前覆盖范围要按档读,不要读成"整个 Button 已同源"**:共享的只有基座 + 语义色,`outline` / `ghost` / `size lg` 在 web 侧仍是整档覆盖,共享值只约束 `ui-native`,并档属全端观感决策。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
 - **活文档写回对账已进门**(guardian id 166,blocking):`scripts/check-live-doc-pathspec.mjs` —— 三份多会话共写的活文档(`PROJECT_PLAN.md` / `AGENTS.md` / `README.md`)工作树副本在这台机常年滞后 HEAD,而 `git commit -- <文档>` 取的就是工作树字节 ⇒ "我只加 4 行"的规范提交会把别人已入库的行整批写回旧态,而 `git status`、diff 行数、typecheck、守门 71 全都不响。AGENTS §12 那条对账规矩此前只有散文、没有尺子,现在有了:被提交的那份必须逐字含住 HEAD 已有非空行;三态 lost/superseded/stale **只有 lost 判红**;逐字存在于 `.ihui-agent/archive/**` 的行按 §1 归档两步走豁免(归档面按被审面枚举,不读磁盘)。提交链 `--staged` 只判"本次真改掉的那份文档",索引==HEAD 记跳过而**不记通过**;全量档审 `HEAD^→HEAD`(旁路落地那一型)只报数,`--strict` 才问责;`--worktree` 仅人工。修复出口只有一条 `merge-live-doc.mjs --file <文档> --apply`,刻意不给行内豁免。取证:门体 `--self-test` 11 条、§22c 镜像 10 例(含"同一行只因归档面有没有它而一绿一红"的成对锁与端到端双向锁);三态判据从归并器下沉成 `lib/live-doc-classify.mjs` 那一份实现,搬动用同一份夹具对 HEAD 版与工作树版做**逐字同形的 A/B**(同义证明,不是自检)。
 - **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":表里每档只放两端共同持有的原子,`outline` 基座 = `border border-input`,而 `ghost` / `size lg` 的共同集合为空 ⇒ 共享值是空串(受管的只有键名与不许整档另写,取值未跨端绑定);把这两档并成同值属全端观感决策。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
@@ -5471,7 +5358,6 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - 库里 `unused` 而券已过期 ⇒ 投影读成 `expired`,且 `status=unused` 的筛选发生在投影之后(清扫任务还没落状态时,"未使用"页不会显示过期券)。
 - 归属主体只取 `request.userId`;查询 schema 是 `strict`,客户端塞 `userId` 连同任何未知键一律 400(不是"塞了被忽略",而是"塞了不通过")。`total` 是全集条数而不是本页条数。
 - 这条路径原先的状态:RN 打 `/coupons`、小程序打 `/member/coupon`、web 打 `/api/coupons`,三端字面量互不相同而**后端一条都没注册**(库里 `user_coupons` 有写入链路:领券/裂变/核销都真在写,admin 侧也有列表,唯独用户侧没有出口)⇒ 三端会员券页都只会拿到错误态。移动两端字面量已统一成显式 `/api/coupons` 形态,好让门 8(`check-api-routes.mjs`)看得见这两处调用。
-
 **领券中心端点(2026-10-30 立,补 `promo_coupons` 的用户面出口):**
 | 端点 | 方法 | 鉴权 | 响应形状 | 消费端 |
 | ---- | ---- | ---- | -------- | ------ |
@@ -5482,9 +5368,7 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - 两条领取入口(按码 `claimCoupon` / 按 id `claimCouponById`)**共用同一份事务体** `claimResolvedCoupon`:FOR UPDATE 锁券行 → `perUserLimit` 校验 → 条件 UPDATE 扣库存(防超发)→ insert → 裂变奖励,失败原因枚举与返回形状逐字相同,按码那条的既有调用方零改动。按 id 那条的 uuid 形状闸排在进 SQL 之前(非 uuid 字面量会被 Postgres 抛 22P02)。
 - 这条路径原先的状态:小程序「领券中心」页打的是 `GET /api/coupons?status=available`,而后端 `status` 枚举只收 `unused|used|expired` ⇒ **必 400**,用户点进去永远看到"加载失败";`promo_coupons` 表结构、领取事务、防超发全都齐备,唯独没有任何用户面读出口 ⇒ 属"表在、链路在、入口从未存在"。
 - 数据现状如实说明:端点上线不等于列表有内容。当前可领的券仍需由 admin `POST /api/admin/coupons` 建出来,这是运营动作,不是代码缺口(全仓无 `promo_coupons` 的 seed)。
-
 **工具目录 seed(2026-10-30 立,补 `/tools` 页的数据面):**`GET /api/tools` 与 `tools` 表、web `/tools` 页三向都齐,但此前**全仓无 seed、也无运营建工具的页面** ⇒ 新库这张表恒空,页面三个分类各显示「暂无工具」。`packages/database/seed/tools-seed.ts` 落 9 条基线,每条对应一个本仓真实存在、点得动的 web 路由(`tools/pdf/{merge,split,watermark,convert}`、`tools/voice-stt`、`models`、`knowledge-base`、`mcp-store`、`web-tools`),按 name 幂等、已注册进 seed 主流程。因三端工具页( web `/tools`、RN `ToolsScreen`、小程序 `pkg-user/tools`)同取这一个端点,一份 seed 三端同时有内容。
-
 **圈子加入端点(2026-10-18 立,补上 leave 缺的那条对称腿):**
 | 端点                    | 方法 | 鉴权               | 响应形状                                                          | 消费端                           |
 | ----------------------- | ---- | ------------------ | ----------------------------------------------------------------- | -------------------------------- |
@@ -5550,27 +5434,21 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | ----------------------- | ---- | ---- | -------- | ------ |
 | `/settings/notification` | GET  | 登录 | `{ code:0, message:'success', data: { list: [{ key, title, enabled }] } }` | 小程序 `apps/miniapp-taro/src/pages/setting/notification.tsx`(经 `@/api` 的 `getNotificationSettings`) |
 | `/settings/notification` | PUT  | 登录 | `{ code:0, message:'success', data: { success, requested, affected, missedIds } }` | 同上 `updateNotificationSettings`(逐键 upsert) |
-
 **用户侧只读与免鉴权端点(2026-10-23 按 §21 补登,此前全仓 README 零登记):**
-
 | 端点 | 方法 | 鉴权 | 响应形状 | 所属端 / 消费方 |
 | ---- | ---- | ---- | -------- | --------------- |
 | `/api/goods/select` | GET | 公开(只取 `zhs_product.status = 1` 的在架目录,不含用户私有字段) | `{ code, message, data: { list, total, page, pageSize } }`(`page` 默认 1,`pageSize` 1..100 默认 20) | api + mobile-rn `CartScreen` + 小程序 `pkg-shop/cart`(经 `packages/api-client/src/endpoints/goods.ts` 的 `selectGoods()`) |
 | `/api/sign-ups` | GET | 需登录;归属校验在 handler 内 —— `?userId` 非本人且非系统管理员 ⇒ 403(认证不等于授权) | `{ code, message, data: { list: [{ id, targetTitle, targetType, status, createdAt }] } }`,status 归一到 `draft/published/rejected/completed` | api + web `apps/web/app/(main)/user/sign-up/page.tsx`;数据源 `lesson_sign_ups` + `exam_signups` 两表聚合 |
 | `/api/auth/wechat/mini/one-tap-login` | POST | **免鉴权**(限流 5 次/分钟);手机号与 openId 均由微信一次性 code 换回,不信客户端自报 | 成功回 `{ ...tokens, user }`(响应随 token 一并回 user);未配置 ⇒ 503,换码失败 ⇒ 401,openId 已绑他人 ⇒ 409,账号禁用 ⇒ 403 | api + 小程序 `apps/miniapp-taro`(一键登录按钮) |
-
 - **功能说明**:`/goods/select` 补的是购物车的商品分页读腿;`/sign-ups` 把课程报名与考试报名聚合成"我的报名"一张列表;`/auth/wechat/mini/one-tap-login` 是新建的一枚端点 —— 此前 `/mini/login` 对新用户只回 `{needPhone:true, openId}` 且不发 token,而 `/mini/phone` 要求已登录且不回 token,这条链结构上从来没通过(用例见 `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`)。
 - **使用方式**:三者均由 `apps/api/src/routes/index.ts` 注册(`goods.ts` 走 `prefix:'/api'`、`sign-ups.ts` 走 `prefix:'/api/sign-ups'`、`auth-extended.ts` 走 auth 前缀);请求参数由 Zod 校验,`/api/auth/wechat/mini/one-tap-login` 入参为 `{ loginCode, phoneCode }`(`strictObject`,未知键即 400)。
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
-
-
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-30**
 - 🐞 修复:registry-sync 批量失败时把真实错误写进 sync_log —— 门 47 现在只报得出条数 (a3d7f7f2bf)
 - 🔧 工程/其他:归档件补溯源水印 —— 销 10-29 归档留下的 HEAD 面欠账(门 47 复跑点名) (d05bdf123d)
 - 🐞 修复:react-native-screens 4.26.2 升到 4.30.1 —— 桥接拆除期 NPE 的官方修复面 (19ab214903)
-
 **2026-10-30**
 - 🐞 修复:回退检查点的时刻在服务端出口折成毫秒 —— 「恢复到本轮之前」此前恒回到未来 (1bf0f57b9d)
 - 🐞 修复:大屏号池列宽下限取实测最大值 186 —— 上一版 143 会把复合读数压出卡片 (977734d140)
@@ -5594,12 +5472,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (9879a83b86)
 - 🔧 工程/其他:移除 knowledge 鉴权里的推断性注释(500 已定位为生产副本未更新) (82fe24c50f)
 - 🔧 工程/其他:对齐 TOTP 默认档钉子到 enforce —— 修一条已入库的红测试 (20bf985270)
-
 **2026-10-30**
 - 🔧 工程/其他:离线语言包追平 mobile-rn/shared 已入库的新键 —— 清 105 的 G5+B2 两处判红 (df7e748402)
 - 🐞 修复:重放 nav.pdfTools 五语言 —— 侧栏引用着它,而词条第二次被并发合并洗掉 (532fdfc9da)
 - 🚀 新功能/改进:还原度尺补"本端词包缺整块命名空间"这一维 —— 两把尺原先同时看不见 (cd05449596)
-
 **2026-10-30**
 - 🚀 新功能/改进:工具目录补首启 seed —— /tools 页三档此前恒显示「暂无工具」 (784d12c567)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (49f90ce0c2)
@@ -5624,7 +5500,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:路由表随登记面重生成 + RN 测试替身收两处局部复刻 + 硬编码中文基线下调一枚 (3b76e9adf5)
 - 🐞 修复:有意还原被 9fdbc207ba 当残件删、6d0dbde7c9 只带回消费行的门234纪元声明面 ⇒ --staged/--worktree 不再 ReferenceError(此前 blocking 门在 pre-commit 面等于不存在);恢复 A1 身份维+孤儿 identity 形参接回 judge;侧车签名折算按取证收掉(接回即造 rotn=17 假阳恒红);回归锁:真跑 --staged + 变异反证,镜像 17/17、自检 26/0 (d17a1f6c74)
 - 🐞 修复:前向重放首页收口那一刀 —— 它被 ffbe506f9e 的整文件重放抹掉,商品族堆叠在 main 上已复活 (e118488e7a)
-
 **2026-10-29**
 - 🚀 新功能/改进:「已 accepted 未投影」账本 + 空响应权威答案兜底 (02bdf74496)
 - 🐞 修复:结清11枚已实现票(告警去重身份/票60多窗格/G-878原生弹窗/D11语音barge-in/G-1222556 CSRF形状/成本熔断/影响面隔离/进化回流/监控大屏/O68就绪门 等,g33 t2t3逐条一手凭据) (e7f79cf7ae)
@@ -5675,19 +5550,15 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:更正跨端对账基线里 IntelligentAssistant 豁免的叙述 —— 生产调用方 4 枚减为 3 枚 (48c9c5545a)
 - 🔧 工程/其他:摘 home.recommendCourses 五语言 —— 首页横向推荐列表已下线,键随之零消费者 (0c935a0192)
 - 🐞 修复:取消信号穿进 hook 调用点 —— 有意还原 9fdbc207ba 当残件删掉的两处 _wait_interruptible 包裹(969d74b9a6..HEAD 对该文件仅 9/32 行差异,已逐行核对) (8a8ff1f65f)
-
 **2026-10-30**
 - 🐞 修复:账本候选列不再让 hub 这类结构词冒充业务身份 (d5724ae70f)
 - 🔧 工程/其他:第二次撤净 parent-pollution-strays —— 第一次的撤销枚被别席滞后前推整片洗回 (0a66be2720)
 - 🔧 工程/其他:离线语言包跟随词包重建 —— 补键后产物自述钉必须同源 (442dba3da6)
-
 **2026-10-30**
 - 🚀 新功能/改进:领券中心接上真实数据与领取动作 —— 止血空态退场 (4f0d0c261b)
-
 **2026-10-30**
 - 🚀 新功能/改进:小程序补 member.couponList.receiveFailed 五语言 —— 领取动作需要一条失败文案 (45da4d7815)
 - 🚀 新功能/改进:补「领券中心」的两个用户面端点 —— 可领券列表 + 按 id 领取 (36f6c451f8)
-
 **2026-10-29**
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f72df75e51)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (888be1ba64)
@@ -5722,7 +5593,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:去掉收敛归并留下的三处重复导出(ExpertAutoRouteMode/ReviewFindingEvent/ReviewFindingSeverity) (b4c26c122e)
 - 🔧 工程/其他:security：闭环变更B边缘IP透传并补API响应安全头（变更C） (79e830ba98)
 - 🐞 修复:补齐 9fdbc207ba2 那批「清理功能回退残留」抹掉的实现(api-client 两导出 + 四个 store/hook 面) (c51a00fd0b)
-
 **2026-10-29**
 - 🐞 修复:底部胶囊的毛玻璃模糊半径收成单一源头 —— 两端各写一份 24 靠注释对齐 (5493867cd7)
 - 🐞 修复:消掉上一枚落地后复跑暴露的三处简体残留 —— 否则这道门就是我造的恒红门 (c306cfaa2a)
@@ -5730,13 +5600,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b7f6a03017)
 - 🔧 工程/其他:把 ruff/mypy 两面存量红(19 + 4)清到 0,让号池之外的 Python 门重新有牙 (2b981bd839)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b06c8b01c7)
-
 **2026-10-29**
 - 🐞 修复:secure-store 存量令牌一次性迁移 —— 修复后不必重登 (1b84801d41)
 - 🐞 修复:小程序端词包补 pdfToolsPage —— 这一屏渲染得出,但它每句话都取不到词条 (59a760a603)
 - 📚 文档:自动同步缺口账本到现读口径(镜像 260 · 缺口 11) (28283deb24)
 - 🔧 工程/其他:把 apps/api/scripts 装进 typecheck 射程,并清掉这面 35 枚从未被看见的存量类型错 (1362cec462)
-
 **2026-10-29**
 - 🐞 修复:dev-stack 重入锁 + 重拉冷却 + pid 文件删除收紧 —— 治三条腿反复「重拉失败」 (899b685541)
 - 🐞 修复:secure-store 回潮重放 + 三屏模糊接线 + 两处 View 直挂裸文本 (ffbe506f9e)
@@ -5758,7 +5626,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:后端工具名单从前端真相源派生 —— 消除第二把尺子与存量漏计 (a06099ba76)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (15eaa6f61c)
 - 🚀 新功能/改进:落 RP 族 RP-1 首行 —— 26 枚「未取号」票的迁移与文案改正线 (c842abf2b7)
-
 **2026-10-29**
 - 🐞 修复:账本生成器补上"写盘后紧随注入"这条腿 —— 并把被我自己洗掉的载荷落回去 (e7bd406d8b)
 - 🐞 修复:账本生成器补上"写盘后紧随注入"这条腿 —— 并把被我自己洗掉的载荷落回去 (1414862c10)
@@ -5773,13 +5640,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:工具摘要三档维度五语言词包(directories/edits/terminalCommands) (1dfe9bb132)
 - 🚀 新功能/改进:活动级几何虚拟化 + 工具摘要三档维度补齐 (80d97436e2)
 - 🚀 新功能/改进:轮次呈现投影层建立并装车 —— 消灭「造好没装车」 (1f3e7bd27b)
-
 **2026-10-29**
 - 🐞 修复:「我的」页菜单去掉重复的收藏入口 + 三组同屏撞名文案区分 (3dc363cd82)
 - 🚀 新功能/改进:工具摘要三档维度五语言词包(directories/edits/terminalCommands) (1dfe9bb132)
 - 🚀 新功能/改进:活动级几何虚拟化 + 工具摘要三档维度补齐 (80d97436e2)
 - 🚀 新功能/改进:轮次呈现投影层建立并装车 —— 消灭「造好没装车」 (1f3e7bd27b)
-
 **2026-10-29**
 - 🐞 修复:「我的」页菜单「会员中心」撞名 + 抽屉键错位 + 底部条目被淡出遮罩压暗 (3ac7b5859b)
 - 🐞 修复:增强跨端无硬边淡出遮罩强度 (dd34b4bbfa)
@@ -9172,7 +9037,6 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 | schema 文件 | 234 | `dbSchemaFiles` |
 | API 路由 | 4562 | `apiRoutes` |
 > ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
-
 | 路由文件 | 628 | `apiRouteFiles` |
 | 路由文件 | 624 | `apiRouteFiles` |
 | AI 服务路由 | 593 | `aiServiceRoutes` |
@@ -15555,11 +15419,8 @@ PostgreSQL 612 张表(`packages/database/src/schema/im-adapters.ts`):
 - **运维**:Prometheus + Grafana · 50 CI workflows · 299 守门脚本 · 蓝绿部署
 A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 > A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-
 ## 守门脚本点名索引(内部参考)
-
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
-
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):
 - git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
@@ -15570,9 +15431,7 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 - 只读尺子/派生器/核验器(不在 runner,不进提交链,也不进守护巡检轮): `check-temp-landing.mjs` `check-dispatch-premise.mjs` `check-alertmanager-live-config.mjs` `check-monitor-runtime-parity.mjs` `check-tunnel-leg-health.mjs` `check-prod-checkout-foreign-work.mjs`(git-guardian 巡检轮派生,`--json` 只判不修;未跟踪洪水只计数不判定) `check-index-unmerged-age.mjs`(2026-10-24 立,index 烂尾哨兵:unmerged 条目按路径集指纹计龄,同批滞留 ≥15 分钟即到人;立因 = 凌晨违规 stash+rebase+pop 冲突逃逸挂了 2 枚 unmerged + 91 个被删文件 12 小时无人察觉;不走提交链,派发层 = git-guardian 的 `auditIndexUnmerged`;镜像 `check-index-unmerged-age.test.mjs`) `verify-panel-data.mjs` `verify-panel-logql.mjs` `verify-grafana-panel-data.mjs` `verify-grafana-logql-panels.mjs` `sync-panel-live-provisioning.mjs` `sync-grafana-live-provisioning.mjs`(仓内 provisioning 是唯一真相 ⇒ 派生到部署机运行副本,连不上的源不写入并点名原因;幂等 + `pre-sync-backups/` 退路;`--check` 零副作用;大屏核验五档 有数/全零/空板/失败/未判定,全零 ≠ 空板,不许接提交门) `strip-stale-closed-rows.mjs` `strip-stale-claim-marks.mjs` `env-backfill-model-keys.mjs` `quarantine-disk-root-strays.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `heal-worktree-tracked.mjs` `sync-lost-commit-tags.mjs`
 - 计划/台账: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs` `check-plan-id-pool.mjs` `check-plan-closed-stock.mjs` `check-plan-claims-vs-head.mjs` `check-plan-archive-monotonic.mjs`(门 239,2026-10-24 由撞号 237 改号;已归档✅票复活成未勾活行/逐字孪生回插即红,stagedTriggers=PROJECT_PLAN.md) `check-live-doc-archive-reinflation.mjs`(门体已造、尚未纳入 runner 注册表) `check-task-claims.mjs` `check-plan-fields.mjs` `check-sweeper-liveness.mjs`(2026-10-23 立:清扫背离巡检只读探针——派发在动 ∧ 留痕静默 >2h ∧ 可清存量 >0 ⇒ 器物空转;不走提交链,派发层 = git-guardian 的 `auditSweeperLiveness`) `check-head-recall-stock.mjs`(门 268,2026-10-30 立,机主令「把计划任务文档跳跃彻底根治」:判「摘除台账已声明删除的登记行又被带回被审面」的枚数变多,--staged 判索引 blob、差值棘轮只拦新增、存量不担责 §12e;判据 import scripts/lib/head-recall.mjs 单源零复算;跳过 HUSKY_SKIP_HEAD_RECALL_STOCK=1;兜底清扫 = scripts/strip-head-recall-rows.mjs,由 git-guardian 巡检腿 sweepHeadRecallRows 每 5 分钟派发,留痕 form:dropped 且自带推送腿;自检 6 组 + 镜像 20 例)
 - API/后端/DB: `check-credential-leak-in-message.mjs` `check-egress-ip-drift.mjs` `check-credential-presence-bypass.mjs` `check-principal-consumed.mjs` `check-public-exposure-list.mjs` `check-public-admin-default.mjs`(G-875,2026-10-24 立:仓内不得再出现可登录的公开 admin 默认口令;运行面口令一律环境变量注入,历史散列由失效迁移统一作废) `check-capability-field-not-client-supplied.mjs` `check-authorization-column-isolation.mjs` `check-migration-immutable.mjs` `check-db-blind-updatedat-set.mjs` `check-sequence-lag.mjs` `check-error-code-not-text-matching.mjs` `check-error-attribution-single-source.mjs` `check-error-message-bounded.mjs` `check-inbound-schema-strict.mjs` `check-nested-additional-properties.mjs` `check-enum-default-widening.mjs` `check-enum-fallback-terminal.mjs` `check-txn-cancel-boundary.mjs` `check-dockerfile-copy-paths.mjs` `check-edu-arrears-single-source.mjs` `check-sse-frame-watermark.mjs` `check-python-import-landed.mjs` `check-python-import-resolvable.mjs` `check-mode-permission-matrix.mjs` `check-subagent-permission-inherited.mjs` `check-csrf-exemption-shape.mjs` `check-batch-write-count-honesty.mjs` `check-prod-bundle-shadow.mjs` `check-env-drift.mjs`
-
 ### 常驻工具(不在 runner,勿当没装车)
-
 - 常驻工具(不在 runner,勿当没装车): `watermark.mjs` `guardian-runner.mjs` `safe-commit.mjs` `git-guardian.mjs` `git-lock.mjs` `deploy-lock.mjs` `union-converge.mjs` `merge-live-doc.mjs` `live-doc-edit.mjs` `object-space-land.mjs` `gate-registry-insert.mjs` `plan-tasks.mjs` `plan-tasks-merge.mjs` `plan-pointer-purge.mjs` `plan-task-index.mjs` `plan-fields.mjs` `plan-field-line.mjs` `plan-row-conservation.mjs` `plan-fields-extract.mjs` `plan-line-age.mjs` `bypass-git.mjs` `face-reader.mjs` `code-mask.mjs` `scratch-dir.mjs` `key-dir.mjs` `secret-path.mjs` `seal-c-root-stray.mjs` `scrub-temp-fixtures.mjs` `c-disk-breakdown.mjs` `plan-union-merge.mjs` `run-evidence.mjs` `visible-window-probe.mjs` `install-console-window-hook.mjs` `audit-pane-store-addressing.mjs` `commit-gate-attribution.mjs` `plan-bypass-ledger-report.mjs` `alert-volume-report.mjs` `provenance-ledger.mjs` `module-context.mjs` `desktop-build.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `heal-worktree-tracked.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `msvc-env.mjs` `desktop-unsigned-config.mjs` `desktop-build-saas.mjs` `desktop-dev-saas.mjs` `gen-line-icons.mjs` `post-commit-hook.js` `release-desktop-local.mjs` `notify-deploy-failure.ts` `start-dev.ps1` `hook-run-hidden.vbs` `ensure-silent-tasks.mjs`
 - 常驻工具(非守门,勿因"不在 runner"当没装车): `watermark.mjs` `guardian-runner.mjs` `safe-commit.mjs` `git-guardian.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `heal-worktree-tracked.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `git-lock.mjs` `deploy-lock.mjs` `union-converge.mjs` `merge-live-doc.mjs` `live-doc-edit.mjs` `object-space-land.mjs` `gate-registry-insert.mjs` `plan-tasks.mjs` `plan-tasks-merge.mjs` `plan-pointer-purge.mjs` `plan-task-index.mjs` `plan-line-age.mjs` `bypass-git.mjs` `face-reader.mjs` `code-mask.mjs` `scratch-dir.mjs` `key-dir.mjs` `secret-path.mjs` `seal-c-root-stray.mjs` `scrub-temp-fixtures.mjs` `c-disk-breakdown.mjs` `plan-union-merge.mjs` `run-evidence.mjs` `visible-window-probe.mjs` `install-console-window-hook.mjs` `audit-pane-store-addressing.mjs` `commit-gate-attribution.mjs` `plan-bypass-ledger-report.mjs` `alert-volume-report.mjs` `provenance-ledger.mjs` `module-context.mjs` `notify-deploy-failure.ts` `desktop-build.mjs` `msvc-env.mjs` `desktop-unsigned-config.mjs` `plan-fields.mjs` `plan-field-line.mjs` `plan-row-conservation.mjs` `plan-fields-extract.mjs` `desktop-build-saas.mjs` `desktop-dev-saas.mjs` `gen-line-icons.mjs` `post-commit-hook.js` `release-desktop-local.mjs` `start-dev.ps1` `hook-run-hidden.vbs` `ensure-silent-tasks.mjs`
 对外关键数字声明(与本页生成块同源,均现算):**612 张表 · 4616 API 路由 · 25 个 WebSocket 端点 ·
@@ -40764,3 +40623,18 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 - **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
 - **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的)
 |                   | MCP 工具协议        | 106 内置 MCP 工具(全量清单以 apps/ai-service/app/services/mcp_server.py 的 _TOOLS 为准;核心族:代码检索/知识库查询/文件读写/目录骨架预算装箱/命令执行/网页与图片搜索/工作流触发与续跑/代码调查/团队点名消息/顾问咨询)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| CI 工作流 | 51 | `ciWorkflows` |
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+| 数据库表 | 617 | `dbTables` |
+| API 路由 | 4656 | `apiRoutes` |
+| 测试文件 | 3782 | `testFiles` |
+| 工程守门 | 308 | `guardianGates` |
+| — blocking | 282 | `guardianBlocking` |
+| 跟踪文件 | 18328 | `trackedFiles` |
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · 代码检索双腿并跑加权融合(关键词腿 + 语义腿 asyncio 并跑,任一条腿坏了具名出声,`mode` / `legsUnavailable` / `degraded` 三键在响应里可查) · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级) · 检索金标双命名空间打分(`id_native` 用本仓切块器父块现算 id 的同 id 索引,`evidence_span` 用内容锚点),零连库零网络可复跑
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能 · 目录骨架按 token 预算装箱(`render_repo_tree`:枚举走单源出口,预算不足先保目录树、削掉的文件与被 scope 排除的条目分别计数,`complete` 与 `dropReason` 说清这份骨架是全仓还是削过的) · 同仓索引租约单飞行(被挡住时点名「本轮未开工」,零索引数不当「没东西可索引」报) · Merkle 快照自证档(ok / legacy / absent / corrupt / truncated / skipped 六档,坏档不冒充增量完成)

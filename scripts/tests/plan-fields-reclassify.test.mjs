@@ -14,7 +14,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { __test__ as X } from '../plan-fields-reclassify.mjs'
@@ -113,6 +113,104 @@ describe('声明式改判:桶维读数与整批不落', () => {
     })
     assert.equal(p.items[0].unchanged, true)
     assert.equal(p.items[0].headRead.bucket, 'actionable', 'HEAD 面仍是旧读数 ⇒ 必须点出来(未提交)')
+  })
+})
+
+describe('声明式改判:before/after 桶断言(声明与复算不符即整批拒)', () => {
+  const ASSERT_OK = {
+    key: KEY,
+    owner: '机主真机验证面',
+    waiting: 'none',
+    why: WHY,
+    before: { bucket: 'actionable', source: 'fields', conflict: true },
+    after: { bucket: 'owned-elsewhere', conflict: false },
+  }
+
+  it('桶断言与复算同形 ⇒ 放行,且读数与声明逐字段一致', () => {
+    const p = planOf([ASSERT_OK])
+    assert.equal(p.error, undefined)
+    assert.equal(p.items[0].before.bucket, 'actionable')
+    assert.equal(p.items[0].before.source, 'fields')
+    assert.equal(p.items[0].before.conflict, true)
+    assert.equal(p.items[0].after.bucket, 'owned-elsewhere')
+    assert.equal(p.changes.length, 1)
+  })
+
+  it('before 桶与现算不符 ⇒ 整批拒(过期读数不许当改判前提 —— 本票的病)', () => {
+    const p = planOf([{ ...ASSERT_OK, before: { bucket: 'owned-elsewhere' } }])
+    assert.match(p.error, /桶声明与复算不一致/)
+    assert.match(p.error, /before\.bucket/)
+    assert.equal(p.changes, undefined, '被拒的批次不得留下改动')
+  })
+
+  it('after 桶与现算不符 ⇒ 整批拒(改判没落到你以为的那一档)', () => {
+    const p = planOf([{ ...ASSERT_OK, after: { bucket: 'actionable' } }])
+    assert.match(p.error, /桶声明与复算不一致/)
+    assert.match(p.error, /after\.bucket/)
+  })
+
+  it('桶值域外 / source / conflict 形态错 ⇒ 整批拒(值域单源 DISPOSITIONS)', () => {
+    assert.match(planOf([{ ...ASSERT_OK, after: { bucket: 'todo' } }]).error, /桶值域/)
+    assert.match(planOf([{ ...ASSERT_OK, before: { bucket: 'actionable', source: 'guess' } }]).error, /source 只能是 fields\/prose/)
+    assert.match(planOf([{ ...ASSERT_OK, after: { bucket: 'owned-elsewhere', conflict: 'yes' } }]).error, /conflict 只能是布尔/)
+    assert.match(planOf([{ ...ASSERT_OK, before: 'actionable' }]).error, /必须是对象/)
+  })
+
+  it('只给 before/after 不给语义字段 ⇒ 整批拒(桶是判定结果不是写入口径)', () => {
+    const p = planOf([{ key: KEY, before: { bucket: 'actionable' }, after: { bucket: 'owned-elsewhere' }, why: WHY }])
+    assert.match(p.error, /没有声明任何语义字段/)
+  })
+
+  it('bucketAssertionDrift 只比声明过的字段(未声明 = 不主张)', () => {
+    assert.equal(X.bucketAssertionDrift({ bucket: 'actionable' }, { bucket: 'actionable', source: 'prose', conflict: true }).length, 0)
+    assert.equal(X.bucketAssertionDrift({ conflict: false }, { bucket: 'actionable', conflict: true }).length, 1)
+    assert.equal(X.bucketAssertionDrift(undefined, { bucket: 'actionable' }).length, 0)
+  })
+})
+
+describe('声明式改判:写前备份', () => {
+  it('备份件与源逐字节一致(按时刻命名);源不存在 ⇒ null(明写未备份,不冒充已留旧版)', () => {
+    const dir = mkScratch('pf-reclassify-bak')
+    try {
+      const src = path.join(dir, 'scripts/data/plan-fields.jsonl')
+      mkdirSync(path.dirname(src), { recursive: true })
+      const text = JSON.stringify(recOf()) + '\n'
+      writeFileSync(src, text, 'utf8')
+      const rel = X.backupFields(dir, '2026-10-29T00:00:00.000Z')
+      assert.ok(rel && rel.endsWith('plan-fields.2026-10-29T00-00-00-000Z.jsonl'), `实测 ${rel}`)
+      assert.equal(readFileSync(path.join(dir, rel), 'utf8'), text, '备份必须与源逐字节一致')
+      assert.equal(X.backupFields(path.join(dir, 'nope'), '2026-10-29T00:00:00.000Z'), null)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('装车证明:apply 分支在写盘之前调备份,且结论行回显备份路径(造好没装车 = 没有)', () => {
+    const src = readFileSync(new URL('../plan-fields-reclassify.mjs', import.meta.url), 'utf8')
+    const bak = src.indexOf('const bk = backupFields(ROOT')
+    const write = src.indexOf('const w = writeDedupedRecords(ROOT')
+    assert.ok(bak > 0 && write > 0, 'apply 分支必须同时有备份与写盘调用')
+    assert.ok(bak < write, '备份必须在写盘之前')
+    assert.ok(src.includes('写前备份:${bk ??'), '结论行必须回显备份路径(查得到旧版在哪)')
+  })
+
+  it('轮转只留最近 20 份(按时刻排序)', () => {
+    const dir = mkScratch('pf-reclassify-bak-rot')
+    try {
+      const src = path.join(dir, 'scripts/data/plan-fields.jsonl')
+      mkdirSync(path.dirname(src), { recursive: true })
+      writeFileSync(src, '{}\n', 'utf8')
+      const names = []
+      for (let i = 0; i < 23; i++) {
+        names.push(X.backupFields(dir, `2026-10-29T00:00:${String(i).padStart(2, '0')}.000Z`))
+      }
+      const kept = readdirSync(path.join(dir, '.ihui-agent/backups/plan-fields'))
+      assert.equal(kept.length, 20, `应只留 20 份,实测 ${kept.length}`)
+      assert.ok(!kept.includes(path.basename(names[0])), '最旧的三份应被轮转掉')
+      assert.ok(kept.includes(path.basename(names.at(-1))), '最新一份必须在')
+    } finally {
+      rmScratch(dir)
+    }
   })
 })
 

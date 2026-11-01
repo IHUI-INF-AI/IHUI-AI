@@ -20,7 +20,9 @@
  * - 客户端没给 refreshToken(web 号)⇒ 保留池内该列不动。
  * - skip 分支同样会把 profile 档案快照/设备材料种进 secretsEnc(仅档变才写,2026-10-28;
  *   一键切号写回信封要这两样,票未轮换时不种就永远缺档)。
- * - 池内无此 uid(运营池)⇒ **自动入池**(2026-10-30 根治,与 Qoder 腿同型):走
+ * - 目标行解析(2026-11-01):运营池行优先;运营池无行而个人池恰有一行 ⇒ 写该行(本机号
+ *   已归属用户,不再另建);多行 ⇒ 拒写并点名。所有写操作按主键 id,不再按 uid 通配。
+ * - 池内完全无此 uid ⇒ **自动入池**(2026-10-30 根治,与 Qoder 腿同型):走
  *   `buildTraeAutoImportInput` 构造 + `importAccounts` 落库出口;此前该支只报缺失无人接,
  *   本机新登录 Trae 号静默脱离保活。profile/sessionTemplate 首轮不携带 —— 行建好后
  *   下一轮 skip 分支照 2026-10-28 口径补种(最终一致,不另写第二条模板通道)。
@@ -39,7 +41,7 @@ const API_DIR = resolvePath(SCRIPT_DIR, '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, sql, isNull } = await import('drizzle-orm')
+const { and, eq, sql, inArray } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
@@ -49,6 +51,8 @@ export const decideSync = decision.decideSync
 export const parseIso = decision.parseIso
 // 心跳键名单源 = scheduler(§0.6):回灌腿写、调度面读,两处各写一份字面量必然漂移。
 const { CLIENT_ACTIVE_AT_KEY } = await import('../src/services/relay-account-pool-scheduler.js')
+// 目标行选择单源(2026-11-01):运营池优先,个人池唯一行兜底;写一律按主键 id
+const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
 // 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定。
 // 2026-10-30 收口:此前的双份 import type 是 HEAD 就有的 tsc 重复声明(10-29 的「可转译锁」
 // 只钉 esbuild 声明面,tsc 的 TS2300 一直没被看到)——全文件只留这一份,零语义改动。
@@ -148,7 +152,7 @@ async function readStdin(): Promise<string> {
 }
 
 /**
- * 客户端活跃心跳落库(2026-10-31 永久保活档配套)。
+ * 客户端活跃心跳落库(2026-10-31 立;2026-11-01 改为按主键 id 写)。
  *
  * 每轮**无条件**写,与票面是否变化无关:调度面 `shouldDeferRefresh` 对 keepAliveForever 号
  * 只看这条心跳判「本机客户端是不是正在自己续期」。若跟着 apply 分支才写,占常态的
@@ -157,18 +161,21 @@ async function readStdin(): Promise<string> {
  *
  * 绝不推进 `updatedAt` —— 它是永久保活解摘退避(`keepAliveReviveWhere`)的时钟;心跳每 10 分钟
  * 拨一次,被摘的号就永远达不到退避条件,解摘档静默失效(取不到 ≠ 达标,但天天拨更糟)。
+ *
+ * `rowIds` 由调用方先经 `chooseSyncTargetRow` 解析(运营池优先 / 个人池唯一行);按 uid
+ * 通配会在同 uid 多行并存时写穿他人副本,故本函数只接受主键 id。
  */
 export async function touchClientHeartbeat(
-  uids: string[],
+  rowIds: readonly string[],
   at: string | null | undefined,
   dryRun: boolean,
 ): Promise<number> {
-  if (!at || uids.length === 0) return 0
+  if (!at || rowIds.length === 0) return 0
   // 心跳时刻必须解得开:调度面 clientActiveAtOf 解不出即视为无心跳,写进一枚坏值等于
   // 让这枚号从此失去「客户端在跑」的证据 ⇒ 池会接管续期 ⇒ 顶掉正在用的客户端。
   if (Number.isNaN(new Date(at).getTime())) return 0
   let touched = 0
-  for (const uid of uids) {
+  for (const rowId of rowIds) {
     if (dryRun) {
       touched++
       continue
@@ -182,13 +189,7 @@ export async function touchClientHeartbeat(
           { [CLIENT_ACTIVE_AT_KEY]: at },
         )}::jsonb`,
       })
-      .where(
-        and(
-          eq(aiRelayAccountPool.providerCode, 'trae'),
-          eq(aiRelayAccountPool.uid, uid),
-          isNull(aiRelayAccountPool.ownerUserId),
-        ),
-      )
+      .where(eq(aiRelayAccountPool.id, rowId))
       .returning({ id: aiRelayAccountPool.id })
       .catch(() => [])
     touched += written.length
@@ -223,10 +224,38 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
     rows: [],
   }
 
+  // 目标行候选一次拉齐(2026-11-01):不再只查运营池 —— 本机号若已被某个用户个人池持有,
+  // 回灌必须写那一行;否则会另建运营池行,心跳/新票留在新行,个人池行(签到绑定那条)静默失联。
+  const candidateUids = payload.accounts
+    .map((a) => (typeof a?.uid === 'string' ? a.uid : ''))
+    .filter(Boolean)
+  const candidateRows =
+    candidateUids.length > 0
+      ? await db
+          .select()
+          .from(aiRelayAccountPool)
+          .where(
+            and(
+              eq(aiRelayAccountPool.providerCode, 'trae'),
+              inArray(aiRelayAccountPool.uid, candidateUids),
+            ),
+          )
+      : []
+  const rowsByUid = new Map<string, typeof candidateRows>()
+  for (const r of candidateRows) {
+    const list = rowsByUid.get(r.uid) ?? []
+    list.push(r)
+    rowsByUid.set(r.uid, list)
+  }
+  const targetOf = (uid: string) => chooseSyncTargetRow(rowsByUid.get(uid) ?? [])
+
   // 心跳先落,再判票:票一致(same-token)是常态,那一支本来一行凭证都不写 —— 心跳若挂在
   // 票写分支上就永远不达标,池会把「客户端正在续期」误读成「客户端已静默」。
   summary.heartbeat = await touchClientHeartbeat(
-    payload.accounts.map((a) => (typeof a?.uid === 'string' ? a.uid : '')).filter(Boolean),
+    candidateUids.flatMap((uid) => {
+      const t = targetOf(uid)
+      return t.kind === 'row' ? [t.row.id] : []
+    }),
     payload.clientActiveAt,
     dryRun,
   )
@@ -239,24 +268,25 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         summary.rows.push({ uid, decision: 'apply', applied: false, error: '缺 uid/token' })
         continue
       }
-      const [row] = await db
-        .select()
-        .from(aiRelayAccountPool)
-        .where(
-          and(
-            eq(aiRelayAccountPool.providerCode, 'trae'),
-            eq(aiRelayAccountPool.uid, uid),
-            isNull(aiRelayAccountPool.ownerUserId),
-          ),
-        )
-        .limit(1)
-      if (!row) {
-        // 缺行 ⇒ 自动入池(2026-10-30 根治,与 Qoder 腿同型):此前该支只报「池内无此 uid」
-        // 且无人接 —— 本机新登录的 Trae 号静默脱离保活直到人工发现。现把本机会话交给与
-        // 手动导入同一个落库出口 importAccounts(运营池行 ownerUserId=null,部分唯一索引
-        // 只圈运营池,结构上碰不到个人池同 uid 行;credVersion 原子 +1,O64 推签到池;
-        // 推送断链落 pending 不阻塞)。并发撞唯一索引(他席先建了行)按 failed 点名,
-        // 绝不冒绿(§0.3);下一轮回灌即命中现有行走正常凭证覆盖。
+      const target = targetOf(uid)
+      if (target.kind === 'ambiguous') {
+        // 同 uid 多行且无运营池行:挑一行写就是写穿他人副本,拒写并点名(不猜)
+        summary.failed++
+        summary.rows.push({
+          uid,
+          decision: 'apply',
+          applied: false,
+          error: `同 uid 有 ${target.count} 行且无运营池行,归属未判定(不猜)`,
+        })
+        continue
+      }
+      if (target.kind === 'none') {
+        // 缺行(运营池与个人池都无同 uid)⇒ 自动入池(2026-10-30 根治,与 Qoder 腿同型):
+        // 此前该支只报「池内无此 uid」且无人接 —— 本机新登录的 Trae 号静默脱离保活直到
+        // 人工发现。现把本机会话交给与手动导入同一个落库出口 importAccounts(运营池行
+        // ownerUserId=null,部分唯一索引只圈运营池,结构上碰不到个人池同 uid 行;
+        // credVersion 原子 +1,O64 推签到池;推送断链落 pending 不阻塞)。并发撞唯一索引
+        // (他席先建了行)按 failed 点名,绝不冒绿(§0.3);下一轮回灌即命中现有行走正常凭证覆盖。
         const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
         const autoInput = buildTraeAutoImportInput(acc)
         if (!autoInput) {
@@ -290,6 +320,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         }
         continue
       }
+      const row = target.row
       // 池内明文解不出(密钥轮换/坏密文)时当作"票不同"走 apply,让客户端票覆盖坏密文
       let poolPlain: string | null = null
       try {
@@ -366,13 +397,8 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
           await db
             .update(aiRelayAccountPool)
             .set({ ...deviceUpdate, updatedAt: new Date() })
-            .where(
-              and(
-                eq(aiRelayAccountPool.providerCode, 'trae'),
-                eq(aiRelayAccountPool.uid, uid),
-                isNull(aiRelayAccountPool.ownerUserId),
-              ),
-            )
+            // 按主键 id:目标行可能是个人池唯一行(2026-11-01)
+            .where(eq(aiRelayAccountPool.id, row.id))
         }
         summary.skipped++
         summary.rows.push({ uid, decision: final.reason, applied: false })
@@ -426,13 +452,8 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(aiRelayAccountPool.providerCode, 'trae'),
-            eq(aiRelayAccountPool.uid, uid),
-            isNull(aiRelayAccountPool.ownerUserId),
-          ),
-        )
+        // 按主键 id:目标行可能是个人池唯一行(2026-11-01)
+        .where(eq(aiRelayAccountPool.id, row.id))
       summary.applied++
       summary.rows.push({ uid, decision: final.reason, applied: true })
     } catch (e) {
