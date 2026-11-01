@@ -13,15 +13,13 @@
  * 渲染口径:SVG 为纯黑描边,由 CSS mask 只取 alpha ⇒ 实际颜色走 background-color,
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
-// gen-rn-compat:template-v2 —— 模板指纹。改本文件的模板正文必须抬版本号,否则 --write 按语义档判"无变化"、产物停在旧模板。
 import { makeIcon } from './icons-runtime'
 
 /**
- * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里
- * ⚠️ 上一版写成 `(props: CompatIconProps) => ReturnType<typeof makeIcon>`:makeIcon 是**工厂**,
- * ReturnType 取到的就是"组件函数"本身 ⇒ 这行声明的实际形状是"返回一个组件的函数",于是
- * packages/app/features/about/about-icons.ts 把 makeIcon 产物交给它时报成片 TS2322(现读 10 条)、
- * AboutScreen 的 `<Icon />` 跟着 TS2786(不被认作合法 JSX 组件)。正解 = 直接取工厂的返回类型。
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
  */
 export type LucideIcon = ReturnType<typeof makeIcon>
 
@@ -74,6 +72,7 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-briefcase-business"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12 12h.01" />\n  <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />\n  <path d="M22 13a18.15 18.15 0 0 1-20 0" />\n  <rect width="20" height="14" x="2" y="6" rx="2" />\n</svg>\n',
   Building2:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-building-2"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M10 12h4" />\n  <path d="M10 8h4" />\n  <path d="M14 21v-3a2 2 0 0 0-4 0v3" />\n  <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />\n  <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />\n</svg>\n',
+  Cake: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-cake"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />\n  <path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" />\n  <path d="M2 21h20" />\n  <path d="M7 8v3" />\n  <path d="M12 8v3" />\n  <path d="M17 8v3" />\n  <path d="M7 4h.01" />\n  <path d="M12 4h.01" />\n  <path d="M17 4h.01" />\n</svg>\n',
   Calendar:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calendar"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M8 2v3" />\n  <path d="M16 2v3" />\n  <rect x="3" y="3" width="18" height="18" rx="2" />\n  <path d="M3 9h18" />\n</svg>\n',
   CalendarCheck:
@@ -190,6 +189,8 @@ const S = {
   Handshake:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-handshake"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m11 17 2 2a1 1 0 1 0 3-3" />\n  <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" />\n  <path d="m21 3 1 11h-2" />\n  <path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" />\n  <path d="M3 4h8" />\n</svg>\n',
   Hash: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-hash"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <line x1="4" x2="20" y1="9" y2="9" />\n  <line x1="4" x2="20" y1="15" y2="15" />\n  <line x1="10" x2="8" y1="3" y2="21" />\n  <line x1="16" x2="14" y1="3" y2="21" />\n</svg>\n',
+  Headset:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-headset"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />\n  <path d="M21 16v2a4 4 0 0 1-4 4h-5" />\n</svg>\n',
   Heart:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-heart"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />\n</svg>\n',
   HelpCircle:
@@ -411,6 +412,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-triangle-alert"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />\n  <path d="M12 9v4" />\n  <path d="M12 17h.01" />\n</svg>\n',
   Trophy:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-trophy"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" />\n  <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" />\n  <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" />\n  <path d="M4 22h16" />\n  <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />\n  <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" />\n</svg>\n',
+  Truck:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-truck"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />\n  <path d="M15 18H9" />\n  <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />\n  <circle cx="17" cy="18" r="2" />\n  <circle cx="7" cy="18" r="2" />\n</svg>\n',
   Type: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-type"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12 4v16" />\n  <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" />\n  <path d="M9 20h6" />\n</svg>\n',
   Undo2:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-undo-2"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M9 14 4 9l5-5" />\n  <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />\n</svg>\n',
@@ -488,6 +491,7 @@ export const Boxes = makeIcon('Boxes', src('Boxes'))
 export const Brain = makeIcon('Brain', src('Brain'))
 export const BriefcaseBusiness = makeIcon('BriefcaseBusiness', src('BriefcaseBusiness'))
 export const Building2 = makeIcon('Building2', src('Building2'))
+export const Cake = makeIcon('Cake', src('Cake'))
 export const Calendar = makeIcon('Calendar', src('Calendar'))
 export const CalendarCheck = makeIcon('CalendarCheck', src('CalendarCheck'))
 export const CalendarClock = makeIcon('CalendarClock', src('CalendarClock'))
@@ -550,6 +554,7 @@ export const Globe2 = makeIcon('Globe2', src('Globe2'))
 export const GraduationCap = makeIcon('GraduationCap', src('GraduationCap'))
 export const Handshake = makeIcon('Handshake', src('Handshake'))
 export const Hash = makeIcon('Hash', src('Hash'))
+export const Headset = makeIcon('Headset', src('Headset'))
 export const Heart = makeIcon('Heart', src('Heart'))
 export const HelpCircle = makeIcon('HelpCircle', src('HelpCircle'))
 export const History = makeIcon('History', src('History'))
@@ -670,6 +675,7 @@ export const Trash2 = makeIcon('Trash2', src('Trash2'))
 export const TrendingUp = makeIcon('TrendingUp', src('TrendingUp'))
 export const TriangleAlert = makeIcon('TriangleAlert', src('TriangleAlert'))
 export const Trophy = makeIcon('Trophy', src('Trophy'))
+export const Truck = makeIcon('Truck', src('Truck'))
 export const Type = makeIcon('Type', src('Type'))
 export const Undo2 = makeIcon('Undo2', src('Undo2'))
 export const Upload = makeIcon('Upload', src('Upload'))
