@@ -278,3 +278,138 @@ test('B9 路由占用:同 kebab 路径的页不镜像本屏 ⇒ 改道镜像分�
   )
   assert.match(SRC, /不产重名路由/, '镜像分包也占满时必须拒造并点名,不得产重名路由')
 })
+
+/**
+ * 分享正文通道接线锁(2026-11-01 立)。
+ *
+ * 立因:小程序的转发卡/朋友圈卡只能在**页面级**注册,而卡上的标题与封面只有**屏**取到数据
+ * 才算得出。手写页转成壳承载形制后端内不再自己写这两句 ⇒ 若无人把正文从屏递给宿主,
+ * 「分享这条内容」会静默降成「分享首页默认文案」——页面照常编译、按钮照常出现,
+ * 只有转出去的卡片是错的(实测 news/detail 的 news.title、course/detail 的 course.title 即此型)。
+ *
+ * 钉四件事,方向两两成对(§阳性对照:只测"产出了"判不出"无条件产出"这种更危险的形态):
+ *   B10 屏发布 ⇒ 宿主三条注册齐全、正文走 read() 现读、槽 Wrapper 真包住屏;
+ *   B11 屏未发布 ⇒ 一句都不产(反向对照:无条件注册 = 把默认文案冒充成这条内容的卡);
+ *   B12 注释里提一句 usePublishShareIntent 不算发布(遮注释,防假销账);
+ *   B13 判据侧单源:销账必须现读生成器的 screenPublishesShare + buildShellPage,
+ *       不得在判据里自立符号白名单(生成器哪天不产这一句,销账当场失效而不是继续放页)。
+ */
+const PLAN_SRC = readFileSync(
+  resolve(import.meta.dirname, '..', 'plan-hand-mirror-conversion.mjs'),
+  'utf8',
+)
+const SHARED_PUBLISHING =
+  'import { usePublishShareIntent } from "@ihui/shared/share"\nexport function ArticleDetailScreen(){ usePublishShareIntent({ title: item?.title }) }\n'
+
+test('B10 屏发布分享正文 ⇒ 宿主页产出页面级三条注册,并把正文槽包在屏外', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText: SHARED_PUBLISHING,
+    authGate: true,
+  })
+  assert.equal(typeof out, 'string')
+  assert.match(out, /useShareAppMessage\(/, '缺转发注册 ⇒ 卡片不出现')
+  assert.match(out, /useShareTimeline\(/, '缺朋友圈注册')
+  assert.match(out, /useDidShow\(\(\) => showShareMenu\(\)\)/, '缺右上角菜单开启')
+  assert.match(
+    out,
+    /import \{ useShareIntentHost \} from '@ihui\/shared\/share'/,
+    '宿主必须从共享层拿槽,不得端内另造一份',
+  )
+  assert.match(out, /const intent = shareHost\.read\(\)/, '正文必须点击时现读(渲染期快照是旧数据)')
+  assert.match(out, /intent\?\.title/, '读到的标题要进卡')
+  // 包装顺序:ShareWrap 必须在屏外面、ThemeRoot 里面,否则屏的发布落不到这一页
+  const wrapIdx = out.indexOf('<ShareWrap>')
+  const screenIdx = out.indexOf('<NewsDetailScreenShell />')
+  assert.ok(wrapIdx > 0 && screenIdx > wrapIdx, 'ShareWrap 必须包住屏')
+  assert.ok(out.indexOf('</ShareWrap>') > screenIdx, '闭合标签要在屏之后(嵌套不能错位)')
+})
+
+test('B11 反向对照:屏没发布 ⇒ 宿主一句分享注册都不产(无条件注册=拿默认文案冒充这条内容)', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText: 'export function ArticleDetailScreen(){ return null }\n',
+  })
+  assert.doesNotMatch(out, /useShareAppMessage/, '屏没发布就不能注册')
+  assert.doesNotMatch(out, /useShareTimeline/)
+  assert.doesNotMatch(out, /showShareMenu/)
+  assert.doesNotMatch(out, /useShareIntentHost/)
+  assert.doesNotMatch(out, /<ShareWrap>/)
+})
+
+test('B12 注释里提到 usePublishShareIntent 不算发布(假销账比误拒危险)', () => {
+  assert.equal(
+    G.screenPublishesShare('// usePublishShareIntent 以后再接\nexport function S(){}', ''),
+    false,
+  )
+  assert.equal(
+    G.screenPublishesShare('/* const x = usePublishShareIntent( */\nexport function S(){}', ''),
+    false,
+  )
+  assert.equal(G.screenPublishesShare('usePublishShareIntent({ title })', ''), true)
+  assert.equal(
+    G.screenPublishesShare('', 'usePublishShareIntent({ title })'),
+    true,
+    '壳正文发布同样算',
+  )
+  assert.equal(
+    G.screenPublishesShare('usePublishShareIntent', ''),
+    false,
+    '没跟括号 = 只提了个名字',
+  )
+})
+
+test('B13 navTitle 与分享同屏时 @tarojs/taro 只有一条 import、useDidShow 不重复登记', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText: SHARED_PUBLISHING,
+    navTitle: 'item?.title ?? t("news.detail")',
+    navTitleHook: 'useDidShow',
+  })
+  const taroImports = out.match(/from '@tarojs\/taro'/g) || []
+  assert.equal(taroImports.length, 1, '重复 import 同一模块 = 编译期当场崩')
+  const named = /import Taro, \{([^}]*)\} from '@tarojs\/taro'/.exec(out)
+  assert.ok(named, '有 navTitle 时必须保留 Taro 默认导入(setNavigationBarTitle 要用)')
+  const names = named[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  assert.equal(new Set(names).size, names.length, `具名清单不得有重复标识符: ${names.join(',')}`)
+  assert.ok(names.includes('useDidShow') && names.includes('useShareAppMessage'))
+})
+
+test('B14 判据侧单源:销账现读生成器出口,不自立符号白名单', () => {
+  assert.match(PLAN_SRC, /gen\.screenPublishesShare\(/, '屏是否发布必须问生成器,不在判据里另写一份')
+  assert.match(
+    PLAN_SRC,
+    /gen\.buildShellPage\(\{[\s\S]*?sharedText,[\s\S]*?\}\)/,
+    '「生成页真注册」必须用生成器实跑取证,不能靠文本猜',
+  )
+  assert.match(SRC, /export const __test__ = \{[\s\S]*?screenPublishesShare,/, '判据必须可 import')
+})
+
+test('B15 朋友圈卡标题独立于转发卡标题(原页两张卡取的是不同文案键)', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText:
+      'export function CourseTabScreen(){ usePublishShareIntent({ title: t("share.appTitle"), timelineTitle: t("share.timelineTitle") }) }\n',
+  })
+  assert.match(
+    out,
+    /getTimelineShareInfo\(intent\?\.timelineTitle \?\? intent\?\.title/,
+    '朋友圈卡必须优先取 timelineTitle,缺省才回落 title',
+  )
+  assert.match(
+    out,
+    /getShareInfo\(intent\?\.path \?\? currentPageSharePath\(router\), intent\?\.title/,
+    '转发卡仍取 title(两张卡不得共用一个字段而互相污染)',
+  )
+})

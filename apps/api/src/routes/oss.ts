@@ -18,6 +18,7 @@ import {
 } from '../db/oss-queries.js'
 import { createUploadPreHandler } from '../plugins/upload-scanner.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { escapeLikeChars } from '../utils/like-escape.js'
 import { db } from '../db/index.js'
 import { files } from '@ihui/database'
 import {
@@ -227,7 +228,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
         const rows = await db
           .select({ id: files.id, uploadedBy: files.uploadedBy, path: files.path })
           .from(files)
-          .where(and(ilike(files.path, `%${url}`), isNull(files.deletedAt)))
+          .where(and(ilike(files.path, `%${escapeLikeChars(url)}`), isNull(files.deletedAt)))
           .limit(5)
         const target = rows[0]
         if (target) {

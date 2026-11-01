@@ -6,13 +6,17 @@
 // 站内消息(edu_messages,GET /messages?msgType=)。类型徽章取用与共享屏 typeLabel
 // 同一套静态键(未知值默认「系统」档,与 spec default 分支同形)。
 // 本页拆 ./ 子模块由还原度门并入载体面(check-miniapp-mirror-fidelity localModuleRels)。
+// 分页"加载更多"对齐 spec(onLoadMore/hasMore 支,2026-11-01):后端 GET /messages 本就回
+// { list, total }(page/pageSize/msgType 均在 schema 内);hasMore = rows.length < total,
+// 不足一页或取不到 total 时不渲染入口 —— 拿不准就不给假按钮。
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { get } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 
-/** GET /messages(edu_messages)本块用到的字段;其余字段不声明、不解构 */
+/** 与 src/api getMessages 同形状;本模块只用到这些字段 */
 interface InSiteMessageRow {
   id: string
   title: string | null
@@ -31,6 +35,9 @@ export interface InSiteMessagePaneProps {
   msgType: 'order' | 'course'
 }
 
+/** 分页尺寸与 spec/RN 屏同源口径(后端默认 20;两处显式给值防漂移) */
+const PAGE_SIZE = 20
+
 export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
   const { t } = useI18n()
   // gate 对象每次渲染都是新字面量,只有 waitUntilReady(useCallback([]))是稳定引用;
@@ -38,18 +45,27 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
   const { waitUntilReady } = useAuthReadyGate()
   const [rows, setRows] = useState<InSiteMessageRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setPage(1)
     const cancel = waitUntilReady(() => {
       if (cancelled) return
-      void get<InSiteMessageListRes>('/messages', { page: 1, pageSize: 20, msgType })
+      void get<InSiteMessageListRes>('/messages', { page: 1, pageSize: PAGE_SIZE, msgType })
         .then((res) => {
-          if (!cancelled) setRows(res.list || [])
+          if (cancelled) return
+          setRows(res.list || [])
+          setTotal(typeof res.total === 'number' ? res.total : 0)
         })
         .catch(() => {
-          if (!cancelled) setRows([])
+          if (!cancelled) {
+            setRows([])
+            setTotal(0)
+          }
         })
         .finally(() => {
           if (!cancelled) setLoading(false)
@@ -60,6 +76,33 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
       cancel()
     }
   }, [waitUntilReady, msgType])
+
+  /** 下一页:按 id 去重防重入追加;失败显式喊出(loadFailed 与 spec 同词表),不静默吞。 */
+  const loadMore = () => {
+    if (loadingMore) return
+    setLoadingMore(true)
+    const next = page + 1
+    void get<InSiteMessageListRes>('/messages', {
+      page: next,
+      pageSize: PAGE_SIZE,
+      msgType,
+    })
+      .then((res) => {
+        const incoming = res.list || []
+        setRows((prev) => {
+          const seen = new Set(prev.map((r) => r.id))
+          return [...prev, ...incoming.filter((r) => !seen.has(r.id))]
+        })
+        if (typeof res.total === 'number') setTotal(res.total)
+        setPage(next)
+      })
+      .catch(() => {
+        Taro.showToast({ title: t('messageCenter.loadFailed'), icon: 'none' })
+      })
+      .finally(() => setLoadingMore(false))
+  }
+
+  const hasMore = total > 0 && rows.length < total
 
   const typeLabel = (type: string): string => {
     if (type === 'order') return t('messageCenter.type.order')
@@ -103,6 +146,17 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
           </Text>
         </View>
       ))}
+      {/* 加载更多(spec 同位:hasMore 为假时整块不渲染;loadingMore 期间禁重复触发) */}
+      {hasMore ? (
+        <Text
+          className={`block text-center text-body py-[20rpx] ${
+            loadingMore ? 'text-muted-foreground' : 'text-foreground'
+          }`}
+          onClick={loadMore}
+        >
+          {t('messageCenter.loadMore')}
+        </Text>
+      ) : null}
     </View>
   )
 }

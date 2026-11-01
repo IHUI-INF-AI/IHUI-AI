@@ -7,7 +7,9 @@
  *
  * 两个消费者,必须同源:
  *   ① `next.config.ts` 的 `headers()` —— 给这些路径发 `Cache-Control: public, s-maxage=…`;
- *   ② `middleware.ts` —— **排除**这些路径,不给它们上 per-request nonce。
+ *   ② `proxy.ts`(Next 16 由 middleware.ts 改名)—— **排除**这些路径,不给它们上 per-request nonce。
+ *     两处消费者现读:除本文件外全仓只有 `next.config.ts` 的 `headers()` 与 `proxy.ts`
+ *     的 nonce 分发段命中(2026-11-01 grep)。
  *
  * 为什么要排除,这是本轮唯一一处真正的架构取舍,写清楚免得后人"顺手统一":
  * per-request nonce 的语义是"这条响应里的 nonce 只对这一条响应有效"。而边缘缓存(libs:
@@ -100,6 +102,14 @@ function sourceToRegExp(source: string): RegExp {
       if (seg === ':path*') return '(?:/.*)?'
       if (seg === ':path+') return '/.+'
       if (seg.startsWith(':')) return '/[^/]+'
+      // 空首段 = 绝对路径开头那个 `/` 本身,由后一段的 `/xxx` 带出来。
+      // 2026-11-01 修:此前这里也拼 `'/' + ''`,于是 `/agents` 折成 `^//agents/?$`,
+      // 现读 31 条规则对任何真实 pathname **全部不匹配**(31 条逐条复跑,修前命中 0/31)
+      // ⇒ isPublicCacheablePath 恒 false ⇒ proxy.ts 的"公开可缓存页不上 nonce"这一支
+      // 从未生效:那些页既带 `Cache-Control: public, s-maxage=…` 又被钉上 per-request
+      // nonce —— 正是本文件头注自己声明"绝不允许"的形态(缓存件里锁死 nonce)。
+      // 修完两支恢复互斥。
+      if (seg === '') return ''
       return '/' + seg
     })
     .join('')
@@ -110,7 +120,8 @@ const PUBLIC_HTML_CACHE_MATCHERS = PUBLIC_HTML_CACHE_RULES.map((r) => sourceToRe
 
 /**
  * 该 pathname 是否属于"公开可缓存页"(⇒ 不上 nonce、保留 unsafe-inline)。
- * middleware 与文档共用这一判据,避免"加了缓存规则但忘了排除 nonce"。
+ * 唯一消费者是 `proxy.ts`;`next.config.ts` 直接吃数组本体。判据只在这一份,
+ * 避免"加了缓存规则但忘了排除 nonce"。
  */
 export function isPublicCacheablePath(pathname: string): boolean {
   return PUBLIC_HTML_CACHE_MATCHERS.some((re) => re.test(pathname))

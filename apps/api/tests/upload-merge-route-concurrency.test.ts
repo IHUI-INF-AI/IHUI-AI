@@ -111,13 +111,21 @@ import {
 import { PROTOCOL_UPLOAD_LIMITS } from '../src/services/upload-integrity.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
-const PART_A = Buffer.from('ihui-merge-gate-part-A-'.repeat(200))
+// 2026-11-01 夹具更正:c6e20569d8(第 31 批,R10 CWE-434 收口)在合并段末尾补了
+// `validateUploadHead(readHeadBytes(...), session.fileName, session.mimeType)` ——
+// 本档的 PART_A 原本是纯文本、SESSION 也没有 fileName/mimeType,于是 extractExt(undefined)
+// 抛 TypeError 被 :529 的 catch 折成 500,四路 merge 全红(生产契约没变,是卷宗未跟)。
+// 现按"真图片头 + 对应扩展名"造夹具:PNG 魔数 8 字节前缀取自 file-type-validator.ts:120。
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+const PART_A = Buffer.concat([PNG_MAGIC, Buffer.from('ihui-merge-gate-part-A-'.repeat(200))])
 const PART_B = Buffer.from('ihui-merge-gate-part-B-'.repeat(200))
 /** 会话 fixture:2 片,声明 md5 = 两片实算拼接值(成功路径,校验必过)。 */
 const SESSION = {
   uploadId: 'fixture-row-uploadId',
   status: 'uploading',
   totalChunks: 2,
+  fileName: 'merge-gate-fixture.png',
+  mimeType: 'image/png',
   fileMd5: createHash('md5')
     .update(Buffer.concat([PART_A, PART_B]))
     .digest('hex'),

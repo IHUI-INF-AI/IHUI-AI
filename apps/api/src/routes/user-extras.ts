@@ -9,6 +9,7 @@ import { users } from '@ihui/database'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { asPrefixTerm } from '../utils/like-escape.js'
 import { findUserById } from '../db/queries.js'
 import { getBalance, getTokenFlowTotals } from '../db/commission-queries.js'
 
@@ -111,7 +112,7 @@ export const userExtraRoutes: FastifyPluginAsync = async (server) => {
       .where(
         or(
           eq(users.inviteCode, parsed.data.code),
-          sql`${users.id}::text LIKE ${`${parsed.data.code.toLowerCase()}%`}`,
+          sql`${users.id}::text LIKE ${asPrefixTerm(parsed.data.code.toLowerCase())}`,
         ),
       )
       .limit(1)

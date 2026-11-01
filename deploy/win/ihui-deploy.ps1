@@ -3168,6 +3168,20 @@ if ($webBg) {
     Log "web 蓝绿:活跃=$webActive(:$(($WebBgPorts[$webActive]))) 目标=$webTarget(:$(($WebBgPorts[$webTarget])) dist=$webTargetDist)"
 
     # 新构建落到目标色目录(旧色目录保留 ⇒ 回滚 = 切回旧色)
+    # 灰度槽位的产物来源(2026-11-01 立):下面这行 Move 把 staging **整份搬进**目标色目录,
+    # 而灰度实例排在换流之后才起 ⇒ 它永远找不到产物(生产日志实测近 20 轮 20/20
+    # 「未判定:.next-staging 没有 BUILD_ID」,档位却照样 advance)。⇒ Move 前先镜像一份给
+    # .next-canary,灰度只认那一份(deploy/win/ihui-canary-gray.ps1 的 $GrayDist)。
+    # robocopy 的 0-7 都是成功档(1=有复制),>=8 才是真失败;真失败**不阻断部署**,只让灰度
+    # 如实进"未判定"——那一格由 ihui-deploy-loop.ps1 折算成 unknown,不记判定通过。
+    $grayCanaryDist = Join-Path $WebDir '.next-canary'
+    & robocopy.exe "$WebDir\.next-staging" $grayCanaryDist /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+    $rcRc = $LASTEXITCODE
+    if ($rcRc -ge 8) {
+        Log "WARN  灰度产物镜像失败(robocopy exit=$rcRc)⇒ 本轮灰度无产物,档位将按 unknown 处理(不阻断部署)"
+    } else {
+        Log "OK    灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档)"
+    }
     Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
 

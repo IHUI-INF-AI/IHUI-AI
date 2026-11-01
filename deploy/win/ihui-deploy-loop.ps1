@@ -407,6 +407,16 @@ function Invoke-CanaryGate {
         }
         # 2) 进程编排:-SplitOnly = 灰度实例无产物时也要让契约有一个真进程消费
         #    (分流器自带"灰度槽位不在位 ⇒ 回落 stable",永远不会把请求打到空端口)
+        # 1' 先把"灰度产物来源与顺序"现检一遍(2026-11-01 立):这一格曾经 20/20 轮静默空转
+        #    (换流把 .next-staging 整份搬走,灰度排在之后永远拿不到产物,却照样 advance),
+        #    判据住在 deploy/win/ihui-canary-artifact.mjs,本层只搬运它的结论、不重写判据(§0.6)。
+        $artifactCli = Join-Path $WinDir 'ihui-canary-artifact.mjs'
+        if (Test-Path -LiteralPath $artifactCli) {
+            $artOut = (& $Node $artifactCli 2>&1 | Out-String)
+            foreach ($ln in ($artOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray-artifact] {0}" -f $ln.Trim()) } }
+        } else {
+            Log "GRAY 未判定:灰度产物来源判据不在位($artifactCli)⇒ 不猜它绿,照常走后面的灰度编排"
+        }
         $gpOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action start -SplitOnly -Sha ([string]$script:LastDeploySha) -StateDir $stateDir 2>&1 | Out-String)
         foreach ($ln in ($gpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
         $splitUp = ($LASTEXITCODE -eq 0)
@@ -447,17 +457,19 @@ function Invoke-CanaryGate {
     # ── 判定结论 → 档位推进(pass/fail/unknown 三态由 rc 现算,阈值判据不在这层)──────
     # fail ⇒ 契约比例归零 = 撤灰度流量(先于整包回滚:先把请求从候选身上拿走,再退包);
     # unknown ⇒ 原地不动(不放量也不回滚);pass ⇒ 升一档,末档再 pass ⇒ promote(可全量)。
-    # 灰度实例在位维(票 31460,2026-11-01 补):观察窗的 pass 只证明"被采样的那一面"没超
-    # 阈值;灰度期里灰度实例不在位 ⇒ "现网侧通过"不得冒充"灰度侧通过",推进这一格是
-    # 未判定。本层只如实汇报"灰度实例这轮到底在不在位",hold 的判据住在
-    # deploy\win\ihui-canary-stage.mjs(pass ∧ serving≠yes ⇒ hold),不在这层解释(§0.6)。
-    $canaryServing = 'unknown'
-    if ($graySampledFrom -eq 'canary' -or $canaryUp) { $canaryServing = 'yes' }
-    elseif ($splitUp) { $canaryServing = 'no' }
     $verdictWord = if ($dRc -eq 0) { 'pass' } elseif ($dRc -eq 3) { 'fail' } else { 'unknown' }
+    # 档位推进只许吃「真的量过候选」的那份判定(§0.3:未判定不得折成判过)。
+    # 灰度实例不在位时,观察窗量的是现网端点(采样面=stable)——那份读数描述的是已经在跑的
+    # 构建,不是候选。实测 2026-11-01:近 20 轮 20/20 灰度无产物,却照样 --decide --verdict pass
+    # 并打「依据=判定通过 ⇒ ramp-1 → ramp-2」⇒ 升档这一格从来是空的。现按 unknown 交回推进器。
+    $rampVerdict = $verdictWord
+    if ($graySampledFrom -ne 'canary') {
+        $rampVerdict = 'unknown'
+        Log ("GRAY 档位推进依据=unknown(采样面={0},灰度实例未参与)⇒ 不升档、不记「判定通过」;观察窗对现网端点的结论仍按上面那行如实记录" -f $graySampledFrom)
+    }
     if ($splitUp -or ($grayStage -ne 'off')) {
         if (Test-Path -LiteralPath $grayStageCli) {
-            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --canary-serving $canaryServing --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            $advOut = (& $Node $grayStageCli --decide --verdict $rampVerdict --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
             foreach ($ln in ($advOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
             if ($LASTEXITCODE -ne 0) {
                 Log "GRAY 未判定:档位推进没判出(rc=$LASTEXITCODE)⇒ 契约保持本轮读到的档位,不猜"
@@ -476,14 +488,6 @@ function Invoke-CanaryGate {
             # 灰度期放量未完:基线必须是"现网实测",不能拿灰度槽位的样本充当基线(否则下一轮
             # 拿候选跟自己比,回归判据自己漂);.rollback 同理保留 —— 它是撤灰度的退路。
             Log "CANARY 通过(灰度槽位实测)⇒ 档位可进;基线与回滚点保持现网那份,不更新"
-            return $false
-        }
-        if ($grayStage -ne 'off' -or -not $splitUp) {
-            # 灰度期在档而采样面只是现网(灰度实例不在位/分流器没起来)⇒ 措辞与结论分离
-            # (票 31460):现网侧通过 ≠ 灰度侧通过。--decide 那侧已按 serving=no|unknown
-            # 落 hold(不升档),本层同步不刷"放量完成"、不升基线、不删回滚点;
-            # 也不回滚 —— 现网侧确实没回归,反向升成恒红同样违规(§12e)。
-            Log ("CANARY 通过(仅现网侧样本) / GRAY 未判定:灰度实例不在位或分流器未起(采样面={0},档位={1},serving={2})⇒ 档位保持不动(不回滚),基线与回滚点不更新" -f $graySampledFrom, $grayStage, $canaryServing)
             return $false
         }
         # 放量完成:候选样本就是"当前在线版本"的实测 ⇒ 升为下一轮基线(滚动基线),
@@ -586,7 +590,10 @@ function Invoke-PollOnce {
             Log "FAIL  自进化前置闸:node.exe 取不到 ⇒ 根护栏/成本熔断判不了,本轮不部署(fail-closed)"
             return
         }
-        $rgOut = (& $guardNode (Join-Path $Root 'scripts\root-guard.mjs') --check 2>&1 | Out-String)
+        # 当前面红时再问一次"本轮将要检出的那一面"(2026-11-01 治自锁):前置闸跑在 ff 之前,
+        # 旧 HEAD 的清单绑旧哈希会永远判红,而修对清单的提交只在远端那一面 —— 实测连吃 44 轮。
+        # 只在红轮付这一次 ls-remote;两面都不自洽照旧 fail-closed,取不到候选面也照旧不放行。
+        $rgOut = (& $guardNode (Join-Path $Root 'scripts\root-guard.mjs') --check --against-remote origin 2>&1 | Out-String)
         $rgRc = $LASTEXITCODE
         if ($rgRc -ne 0) {
             Log "FAIL  根护栏未通过(rc=$rgRc)⇒ 本轮不部署(fail-closed;人工复核后 node scripts/root-guard.mjs --seal --reason `"...`")"
