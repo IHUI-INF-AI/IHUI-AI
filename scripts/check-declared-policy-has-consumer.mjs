@@ -114,6 +114,11 @@
 //     `` `${VALIDATION_NS}.min` ``)时不计入静态键(只认 ' / " 字面量);跨文件表
 //     (COMMAND_LABEL_KEY 在 lib/、消费在组件)同文件判定不了 —— 两型都归"计动态报数"
 //     的老路,方向仍是漏报不假绿,由棘轮与全量档只报数兜住。
+//   - **C6 的第四族发射形态**(静态前缀+变量拼接,2026-11-01 补):`t(PREFIX + '.' + key)` /
+//     `` t(`${PREFIX}.${x}`) `` / `t('a.' + b)` —— 前缀必须是**同文件 `const` 静态字符串常量**
+//     (含常量拼接链,见 evalStaticExpr 三形判序)才算前缀覆盖;整链可求 ⇒ 按全键接线;
+//     求到一半停在不可求值部分 ⇒ 静态前缀;开头就读不出 ⇒ 照旧动态。改前这类真实发射点全部
+//     判动态/伪键,是"有译文零生产者"假阳性 11753 的主要在册失效型之一(禁整批删词包)。
 //
 // 判据不会恒红(本仓反复付学费换来的一条):存量走**棘轮**,锚点 = 该文件在 HEAD 自身的
 // 未接线数 —— 只拦"这次改动把未接线加回来了",不追仓库既有债。与改动无关的 blocking 红
@@ -126,20 +131,18 @@
 //   任一候选文件内容取不到 ⇒ exit 2「无法判定」(既不冒红也绝不记绿);
 //   判定面枚举到 0 个扫描根源文件 ⇒ 判死(空扫不记绿)。
 //
-// 存量重述(2026-11-01,default 链装车后现读;改判据面必须同枚重述,不留旧数):
-//   HEAD 面(C1~C5 + C7,不含 C6 词表维)未接线 **18 → 9 处**,消掉的 9 处**全部**是 apps/api
-//   那九枚 default 出口模块里的策略常量(csrf / tenant / watch-aspect / auth-passkey /
-//   public-status / relay-monitor-public / v1-assistants / v1-protocol-completeness / v1-public),
-//   候选声明总数 214、C7 候选 21、i18n(C6)未接线 11753 三个数**一字未动** ⇒ 本轮只消误报、
-//   没有把任何真未接线顺手放绿。余下 9 处逐条成因见"已知限制"与交付报告,分三档:
-//     · 真未接线(策略在生产面确实没有取用点)4 处:internal-service-ticket.ts:103(唯一入口
-//       `mintInternalServiceTicket` 只被 apps/api/tests/* 调)、category.ts:20(唯一"提及"在
-//       course.ts:356 的注释里)、side-task-lifecycle.ts:55(唯一入口 `isSideTaskExpired` 只在
-//       `__tests__`)、constants.ts:40(同名串只活在 apps/ai-service 的 Python 侧,跨语言镜像);
-//     · 判据仍看不见 5 处:app.tsx 模块级调用先于第一个顶层声明 2 处(createTaroTransport /
-//       createTaroStreamTransport)、遮噪器把正则字面量当模板起手的整段抹白 1 处
-//       (login-intent.ts:22)、消费方在 `apps/web/app/**`(C1~C5 消费者面之外)2 处
-//       (models-api.ts:309、llm.ts:501 cleanupSyncHistory)。
+// 存量重述(2026-11-01 本票二次现读:扫描根扩到 app/extension 生产根 + C6 第四族拼接装车后;
+//   改判据面必须同枚重述,不留旧数):
+//   HEAD 面(C1~C5 + C7)候选 214 → **215**(+1 = apps/extension/entrypoints/content.ts 的
+//   CTX_POPUP_TTL_MS,入面即判未接线,成因见"已知限制"Wxt 入口条),未接线 9 → **8**:
+//   消掉的 2 处正是本票扩根要治的误报(models-api.ts PROVIDERS_HEALTH_SUMMARY_TTL、
+//   llm.ts cleanupSyncHistory,真实消费点都在 apps/web/app/(main)/**,已实测逐字节取用);
+//   新增 1 处即上面那枚。余 7 处构成与上一档相同(真未接线 4:internal-service-ticket /
+//   category / side-task-lifecycle / constants;判据仍看不见 3:createTaro* 2 枚 + login-intent 1 枚)。
+//   C7 候选 21 / 零生产调用方 2 一字未动。i18n(C6)未接线 11750 → **11518**(-232):
+//   其中 -228 来自发射点面并入 apps/extension/{entrypoints,lib}(extension 面板 415→229),
+//   -4 来自第四族(拼接前缀)覆盖;动态拼键 1086 → 1093(改前 `t('a.'+b)` 被误记成伪全键,
+//   现诚实归入可判定/动态两桶,动态数反而上升是**读数更实**不是退步)。扫描面 5274 → 7770 文件。
 //   (2026-11-01 同日另两枚 packages/auth 存量由旁席提交 9fb6fee7a8 清偿,不记在本票账上。)
 //
 // 已知限制(如实登记,不以豁免遮):
@@ -171,13 +174,15 @@
 //     `stores/login-intent.ts` 的 `LOGIN_INTENT_TTL_MS` 因此被判未接线。方向是"把已接线判成
 //     未接线"(更严),但这是**另一枚缺陷**(遮噪器层,不是取用面/链形层),动它要连带重述四族
 //     与 C6 的现读数,本票不顺手改;登记在此供后续票取用。
-//   - **C1~C5 的消费者面不含 `apps/*\/app/**`**:发射点面为 C6 单独放宽到 App Router 目录
-//     (见 inI18nScanRoot 注),候选与消费者仍只认 `apps|packages/<端>/src/`。实测两条存量
-//     因此看不见:`apps/web/src/lib/models-api.ts:309 PROVIDERS_HEALTH_SUMMARY_TTL`(真取用点在
-//     `apps/web/app/(main)/models/ModelsHeader.tsx` 与 `…/settings/gateway/ProvidersHealthTab.tsx`)、
-//     `packages/api-client/src/endpoints/llm.ts:501 cleanupSyncHistory`(真取用点在
-//     `apps/web/app/(main)/settings/gateway/ProvidersHealthTab.tsx`)。本票**禁止扩根**(扩了
-//     就把 App Router 页面级导出收成候选、抬高候选数),故只如实分档。
+//   - **消费者面 `apps/*/app/**` 盲区已清(2026-11-01 本票扩根)**:扫描根(候选+消费者+发射点
+//     同面)已并入 Next.js App Router 目录与 Wxt 生产根 `apps/extension/{entrypoints,lib}`;
+//     此前被误报的 models-api.ts / llm.ts 两枚已现读转绿。**新增盲区(如实登记)**:Wxt 入口
+//     模块以 `export default defineContentScript({ … })` 注册、天然无 import 方,写在回调对象内的
+//     同文件取用无法经"外部消费种子"点亮闭包 ⇒ `apps/extension/entrypoints/content.ts:48
+//     CTX_POPUP_TTL_MS` 判未接线(实测 456-460 行 setTimeout 真在用它,属"看不见"档非"真未接线")。
+//   - **C6 第四族的静态前缀只认同文件 const**(2026-11-01 立):`import { NS } from './x'` 再
+//     `t(NS + '.' + k)` 的跨文件常量前缀不求值(求值要引模块解析器 = 第二台词法器);let/var、
+//     同名两定义、含转义的字面量、模板内非裸标识符插值一律不认 —— 方向恒为漏报不假绿。
 //   - 类型可达 ≠ 运行时供给:接口字段把某契约类型引到位,闭包会判"已接线"。
 //     "工具字面量到底有没有供 contract(含 resultBudget)"由守门 111 按同族判据管,两门互补。
 //   - C6(G-816043):「有值」只认票面五语言(en/ja/ko/zh-CN/zh-TW)全有,缺任一语言的面板
@@ -202,7 +207,14 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import {
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -213,8 +225,17 @@ export const SELF_SKIP = 'HUSKY_SKIP_DECLARED_POLICY_CONSUMER'
 const GIT_TIMEOUT = 120000
 export const FACE_NAME = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
-/** 声明候选与消费者共用的扫描根:各端/各包的 src 面。scripts/ 是工具层,刻意不入面。 */
-const SCAN_ROOT_RE = /^(?:apps|packages)\/[^/]+\/src\//
+/**
+ * 声明候选与消费者共用的扫描根:各端/各包的 src 面 + Next.js App Router 的 app 目录
+ * (`apps/<端>/app/…`,2026-11-01 本票扩根,主席逐条实测)+ Wxt 扩展的非 src 生产根
+ * (`apps/extension/entrypoints|lib`)。
+ * 扩根前 app 目录结构上不可见,两枚已接线声明被误报未接线
+ * (models-api.ts 的 PROVIDERS_HEALTH_SUMMARY_TTL、llm.ts 的 cleanupSyncHistory)。
+ * 覆盖面只扩不缩;desktop 无非 src TS 生产根(src-tauri 是 Rust,不吃本门扩展名)。
+ * scripts/ 是工具层,刻意不入面。
+ */
+const SCAN_ROOT_RE =
+  /^(?:(?:apps|packages)\/[^/]+\/(?:src|app)\/|apps\/extension\/(?:entrypoints|lib)\/)/
 const SRC_EXT_RE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/
 /** 测试面:消费判定与候选判定整面排除 */
 const TEST_FACE_RE = /(?:^|\/)(?:tests?|__tests__|spec|e2e)\/|\.test\.[^/]+$|\.spec\.[^/]+$/
@@ -234,10 +255,12 @@ export function inScanRoot(p) {
  * (实测:监控大屏 `admin.wallboard.*` 116 键全部被计为未接线)。这与门头注自认的失误
  * 方向一致 —— 只能改判据,不得靠跳门。
  *
- * 只放宽**消费者**面:候选声明(C1~C5)仍走 `inScanRoot`,避免把 App Router 目录里的
- * 页面级导出误收成"策略/契约声明"而抬高候选数。
+ * 只放宽**消费者**面一节自 2026-11-01 本票起并入候选面(SCAN_ROOT_RE 同形扩根,主席实测授权);
+ * 本判定保留为两面并宽的同一集合,仍供 analyze() 的入面清单与 staged 变更过滤使用。
+ * (历史:app 目录曾只入发射点面,页面级导出被判"候选面外"——见 SCAN_ROOT_RE 头注的扩根理由。)
  */
-const I18N_SCAN_ROOT_RE = /^(?:apps|packages)\/[^/]+\/(?:src|app)\//
+const I18N_SCAN_ROOT_RE =
+  /^(?:(?:apps|packages)\/[^/]+\/(?:src|app)\/|apps\/extension\/(?:entrypoints|lib)\/)/
 
 /** i18n 发射点入面判定(与 inScanRoot 同排除规则,只换根目录那一段)。 */
 export function inI18nScanRoot(p) {
@@ -289,7 +312,8 @@ export function isHandlerFactoryName(name, exported) {
 // factory 才进候选集。
 export const DECL_SHAPES = ['factory', 'not-factory', 'unknown']
 /** 变量初值写成 function / 箭头才算工厂(`: T` 返回类型标注可以夹在参数与 `=>` 之间) */
-const FACTORY_INIT_RE = /=\s*(?:async\s+)?(?:function\b|[A-Za-z0-9_$]+\s*=>|\([^)]*\)\s*(?::[^=]*)?=>)/
+const FACTORY_INIT_RE =
+  /=\s*(?:async\s+)?(?:function\b|[A-Za-z0-9_$]+\s*=>|\([^)]*\)\s*(?::[^=]*)?=>)/
 
 /**
  * 声明行 ⇒ 工厂形态三态。`kind` 是 TOP_DECL_RES 命中的规则号
@@ -338,7 +362,104 @@ export function flattenLexicon(value, prefix = '', out = new Set()) {
 }
 
 /**
+ * 静态字符串表达式求值(第四族取词形态的前置算子,2026-11-01 立)。
+ * 从 src[from] 起读 `部分 (+ 部分)*` 拼接链,部分只认三形:
+ *   '…' / "…" 字符串字面量(含反斜杠转义一律不认,宁漏报)、
+ *   `…${IDENT}…` 模板(静态段直收;插值必须是 consts 表里**先前已求值完**的裸标识符)、
+ *   裸标识符(必须命中 consts 表)。
+ * 返回 null = 开头就读不出是字符串表达式(不当前缀用);
+ * 返回 {value, complete, end}:complete=false 表示链在某个不可求值部分停下,value 为停下前的静态前缀。
+ * 方向恒为**漏报不假绿**:任何读不懂的形态落 dynamic,绝不外推前缀。
+ */
+function evalStaticExpr(src, from, consts) {
+  let i = from
+  let acc = ''
+  let complete = true
+  for (;;) {
+    while (i < src.length && /[ \t\n]/.test(src[i])) i++
+    const c = src[i]
+    if (c === "'" || c === '"') {
+      let j = i + 1
+      let raw = ''
+      let closed = false
+      let escaped = false
+      while (j < src.length && src[j] !== '\n') {
+        if (src[j] === '\\') {
+          escaped = true
+          raw += src[j] + (src[j + 1] ?? '')
+          j += 2
+          continue
+        }
+        if (src[j] === c) {
+          closed = true
+          break
+        }
+        raw += src[j]
+        j++
+      }
+      if (!closed || escaped) return null
+      acc += raw
+      i = j + 1
+    } else if (c === '`') {
+      let j = i + 1
+      let stopped = false
+      for (;;) {
+        if (j >= src.length) return null
+        const d = src[j]
+        if (d === '\\') return null
+        if (d === '`') break
+        if (d === '$' && src[j + 1] === '{') {
+          let k = j + 2
+          let depth = 1
+          let inner = ''
+          while (k < src.length && depth > 0) {
+            if (src[k] === '{') depth++
+            else if (src[k] === '}') {
+              depth--
+              if (depth === 0) break
+            }
+            inner += src[k]
+            k++
+          }
+          if (depth !== 0) return null
+          const im = /^[A-Za-z_$][\w$]*$/.exec(inner.trim())
+          const val = im ? consts.get(im[0]) : undefined
+          if (val === undefined) {
+            complete = false
+            stopped = true
+            break
+          }
+          acc += val
+          j = k + 1
+          continue
+        }
+        acc += d
+        j++
+      }
+      if (stopped) return { value: acc, complete: false, end: src.length }
+      i = j + 1
+    } else if (/[A-Za-z_$]/.test(c ?? '')) {
+      const wm = /^[A-Za-z_$][\w$]*/.exec(src.slice(i, i + 120))
+      const val = consts.get(wm[0])
+      if (val === undefined) return { value: acc, complete: false, end: i }
+      acc += val
+      i += wm[0].length
+    } else return null
+    let p = i
+    // 收尾只跳行内空白(不得吃换行:调用方靠"值结束于分号/换行/文件尾"这条硬判序拒收多声明符行)
+    while (p < src.length && /[ \t]/.test(src[p])) p++
+    if (src[p] === '+') {
+      i = p + 1
+      continue
+    }
+    return { value: acc, complete, end: p }
+  }
+}
+
+/**
  * 从一个源文件提出 i18n 发射点(发射形态与歧义规则见头注「C6 的接线」)。
+ * opts.noStaticConcat = 变异对照专用:关掉「静态前缀 + 变量拼接」第四族识别,
+ * 已接线夹具必须退回动态(证明新族不是恒真摆设)。
  *
  * 为什么不复用现成两层遮噪:maskCommentsKeepStrings 会把模板串内容整段遮白 ——
  * `t(`items.${x}`)` 的静态前缀随之消失(前缀覆盖判不了);blankStringContents 更是把
@@ -346,7 +467,8 @@ export function flattenLexicon(value, prefix = '', out = new Set()) {
  * 同时记下「数据区」区间(字符串内容 + 模板静态段)—— 调用匹配只认落在**代码区**的
  * 发射点,字符串字面量里的 `"t('key')"` 伪调用因此不可见(方向:宁漏报不假绿)。
  */
-export function extractI18nUsages(text) {
+export function extractI18nUsages(text, opts = {}) {
+  const allowConcat = opts.noStaticConcat !== true
   const out = text.split('')
   const dataStart = []
   const dataEnd = []
@@ -432,6 +554,27 @@ export function extractI18nUsages(text) {
     }
     return false
   }
+  // 第四族前置:文件级静态字符串常量表(`const X = 'a.b'` / 模板无插值 / 常量拼接链)。
+  // 收录条件全严:仅 `const`(let/var 可变不认)、值必须**完整静态可求**(complete)、
+  // 值之后只允许分号/换行/文件尾(多声明符 `const A='x', B=y` 整条不认)、
+  // 同名两次定义且值不同 ⇒ 整名删除(歧义不认)。
+  const consts = new Map()
+  if (allowConcat) {
+    const CONST_STR_RE = /\bconst\s+([A-Za-z_$][\w$]*)\s*(?::[^=;{]+)?=\s*/g
+    let mc
+    while ((mc = CONST_STR_RE.exec(code))) {
+      if (inData(mc.index)) continue
+      const e = evalStaticExpr(code, mc.index + mc[0].length, consts)
+      if (!e || !e.complete) continue
+      let p = e.end
+      while (p < code.length && /[ \t]/.test(code[p])) p++
+      if (!(p >= code.length || code[p] === '\n' || code[p] === ';')) continue
+      if (consts.has(mc[1])) {
+        if (consts.get(mc[1]) !== e.value) consts.set(mc[1], undefined)
+      } else consts.set(mc[1], e.value)
+    }
+    for (const [k, v] of consts) if (v === undefined) consts.delete(k)
+  }
   // ns 声明的实参:'ns' / { …, namespace: 'ns' } / ()空参 ⇒ 根 ns;`…`/表达式 ⇒ 动态(null)
   const parseNsArg = (rest) => {
     const sm = /^\s*(['"])((?:\\.|(?!\1).)*)\1/.exec(rest)
@@ -441,20 +584,39 @@ export function extractI18nUsages(text) {
     if (/^\s*(?:\)|\{)/.test(rest)) return ''
     return null
   }
-  // 发射实参:'key' ⇒ 全键;`pre${…}` ⇒ 静态前缀;`…`无前置静态/其他表达式 ⇒ 动态
+  // 发射实参:'key' ⇒ 全键;`pre${…}` ⇒ 静态前缀;`…`无前置静态/其他表达式 ⇒ 动态。
+  // 第四族(2026-11-01 补):'lit' + x / IDENT + '.' + x / `${CONST}.x` 这类**静态前缀+变量拼接**
+  // —— 前缀必须可静态求值(见 evalStaticExpr);整链可求 ⇒ 全键;求到一半停下 ⇒ 前缀;
+  // 开头就不可求 ⇒ 照旧动态(改前 `t('a.' + b)` 被误记成键 'a.' 的伪全键,现在诚实计动态)。
+  const fromConcat = (rest) => {
+    const e = evalStaticExpr(rest, 0, consts)
+    if (!e) return { kind: 'dynamic', value: '' }
+    if (e.complete) return { kind: 'key', value: e.value }
+    return e.value ? { kind: 'prefix', value: e.value } : { kind: 'dynamic', value: '' }
+  }
   const parseCallArg = (rest) => {
     const sm = /^\s*(['"])((?:\\.|(?!\1).)*)\1/.exec(rest)
-    if (sm) return { kind: 'key', value: sm[2] }
+    if (sm) {
+      if (!/^\s*\+/.test(rest.slice(sm[0].length))) return { kind: 'key', value: sm[2] }
+      return allowConcat ? fromConcat(rest) : { kind: 'dynamic', value: '' }
+    }
     const tm = /^\s*`([^`]*)`/.exec(rest)
     if (tm) {
       const d = tm[1].indexOf('${')
       if (d < 0) return { kind: 'key', value: tm[1] }
-      if (d === 0) return { kind: 'dynamic', value: '' }
-      return { kind: 'prefix', value: tm[1].slice(0, d) }
+      if (d > 0) return { kind: 'prefix', value: tm[1].slice(0, d) }
+      return allowConcat ? fromConcat(rest) : { kind: 'dynamic', value: '' }
     }
+    if (
+      allowConcat &&
+      /^\s*[A-Za-z_$][\w$]*\s*(?:\+|[,)\]])/.test(rest) &&
+      consts.has(/^\s*([A-Za-z_$][\w$]*)/.exec(rest)[1])
+    )
+      return fromConcat(rest)
     return { kind: 'dynamic', value: '' }
   }
-  const BIND_RE = /\b(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\s*\(/g
+  const BIND_RE =
+    /\b(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\s*\(/g
   const nsByLocal = new Map() // 变量名 → Set<ns|null>(null=动态 ns;多个不同元素 ⇒ 歧义)
   let m
   while ((m = BIND_RE.exec(code))) {
@@ -488,7 +650,10 @@ export function extractI18nUsages(text) {
     for (const rawLine of code.slice(open + 1, close).split('\n')) {
       const line = rawLine.trim()
       if (!line) continue
-      const vm = /^(?:[A-Za-z_$][\w$]*|'[^']*'|"[^"]*"|\d+)\s*:\s*(['"])((?:\\.|(?!\1).)*)\1\s*,?$/.exec(line)
+      const vm =
+        /^(?:[A-Za-z_$][\w$]*|'[^']*'|"[^"]*"|\d+)\s*:\s*(['"])((?:\\.|(?!\1).)*)\1\s*,?$/.exec(
+          line,
+        )
       if (!vm || !/^[A-Za-z0-9_$]+(?:\.[A-Za-z0-9_$]+)*$/.test(vm[2])) {
         allLiteral = false
         break
@@ -554,7 +719,10 @@ export function extractI18nUsages(text) {
     if (m[1] !== 'import' || !/i18n/i.test(m[3])) continue
     const braces = /\{([^}]*)\}/.exec(m[2])
     const addLocal = (imported, local) => {
-      if ((imported === 't' || imported === 'translate' || imported === 'i18n') && !rootEmitters.has(local))
+      if (
+        (imported === 't' || imported === 'translate' || imported === 'i18n') &&
+        !rootEmitters.has(local)
+      )
         rootEmitters.set(local, imported)
     }
     if (braces) {
@@ -570,14 +738,16 @@ export function extractI18nUsages(text) {
       if (defM && !rootEmitters.has(defM[1])) rootEmitters.set(defM[1], 'i18n')
     }
   }
-  const HOOK_RE = /\b(?:const|let|var)\s+(?:([A-Za-z0-9_$]+)\s*=|\{([^}]+)\}\s*=)\s*(?:await\s+)?(?:useTt|useI18n)\s*\(\s*\)/g
+  const HOOK_RE =
+    /\b(?:const|let|var)\s+(?:([A-Za-z0-9_$]+)\s*=|\{([^}]+)\}\s*=)\s*(?:await\s+)?(?:useTt|useI18n)\s*\(\s*\)/g
   while ((m = HOOK_RE.exec(code))) {
     if (inData(m.index)) continue
     const add = (local) => {
       if (local && !rootEmitters.has(local)) rootEmitters.set(local, 't')
     }
     if (m[1]) add(m[1])
-    else if (m[2]) for (const raw of m[2].split(',')) add((/^([A-Za-z0-9_$]+)/.exec(raw.trim()) || [])[1])
+    else if (m[2])
+      for (const raw of m[2].split(',')) add((/^([A-Za-z0-9_$]+)/.exec(raw.trim()) || [])[1])
   }
   for (const [local, kind] of rootEmitters) {
     if (nsByLocal.has(local)) continue // 同名变量已被 next-intl 绑定认领,不重复计
@@ -596,26 +766,18 @@ export function extractI18nUsages(text) {
           arg = parseCallArg(rest) // key-first 形:第一实参就是键
         } else {
           // messages-first 形:键在第二实参;第一实参近似为"到第一个顶层逗号为止"
-          const m2 = /^\s*[^,)]*,\s*(?:(['"])((?:\\.|(?!\1).)*)\1|`([^`]*)`)/.exec(rest)
-          if (!m2) {
+          const cm = /^\s*[^,)]*,/.exec(rest)
+          const after = cm ? rest.slice(cm[0].length) : ''
+          arg = parseCallArg(after)
+          if (arg.kind === 'dynamic') {
             // 第三族:第二实参是静态键表索引 `KEY_TABLE[x]` 时表内全键接线
-            const tabKeys = tableIndexKeys(rest.slice(rest.indexOf(',') + 1))
+            const tabKeys = tableIndexKeys(after)
             if (tabKeys) {
               for (const k of tabKeys) fullKeys.push(k)
               continue
             }
             dynamic++
             continue
-          }
-          if (m2[1] !== undefined) arg = { kind: 'key', value: m2[2] }
-          else {
-            const d = m2[3].indexOf('${')
-            arg =
-              d < 0
-                ? { kind: 'key', value: m2[3] }
-                : d === 0
-                  ? { kind: 'dynamic', value: '' }
-                  : { kind: 'prefix', value: m2[3].slice(0, d) }
           }
         }
       } else arg = parseCallArg(rest)
@@ -640,9 +802,10 @@ export function extractI18nUsages(text) {
  * C6 聚合:全仓生产面发射点 vs 五语言词表对账(纯函数;自检/镜像测试都构造输入)。
  * @param files Map<rel, text|null> —— 与 C1~C5 同一判定面的扫描根源文件
  * @param lexicon Map<rel, text|null> —— 同面词表 JSON(HEAD/索引 blob,只读不改)
+ * @param opts { noStaticConcat?: boolean } —— 变异对照专用:关掉第四族(静态前缀+变量拼接)识别
  * 未接线键按面板归 `packages/i18n/messages/<面板>/en.json` 计数 ⇒ 并入 perFile 走同一棘轮。
  */
-export function judgeI18n(files, lexicon) {
+export function judgeI18n(files, lexicon, opts = {}) {
   const emittedFull = new Set()
   const emittedPrefixes = []
   let dynamic = 0
@@ -650,7 +813,7 @@ export function judgeI18n(files, lexicon) {
   for (const [rel, text] of files) {
     // 发射点面比候选面宽:含 Next.js App Router 的 apps/web/app/**(见 inI18nScanRoot 注)
     if (!inI18nScanRoot(rel) || typeof text !== 'string') continue
-    const u = extractI18nUsages(text)
+    const u = extractI18nUsages(text, opts)
     dynamic += u.dynamic
     ambiguous += u.ambiguous
     for (const k of u.fullKeys) emittedFull.add(k)
@@ -699,7 +862,16 @@ export function judgeI18n(files, lexicon) {
     byFolder[folder] = { keys: fully.size, unwired: unwired.length, samples: unwired.slice(0, 5) }
     if (unwired.length) perFile[`packages/i18n/messages/${folder}/en.json`] = unwired.length
   }
-  return { byFolder, perFile, dynamic, ambiguous, skipped, undetermined, emitted: emittedFull.size, prefixes: emittedPrefixes.length }
+  return {
+    byFolder,
+    perFile,
+    dynamic,
+    ambiguous,
+    skipped,
+    undetermined,
+    emitted: emittedFull.size,
+    prefixes: emittedPrefixes.length,
+  }
 }
 
 // ==================== 遮噪(两层,方向不同,不可混用 —— 同守门 118 的告诫)====================
@@ -830,7 +1002,8 @@ export function blankStringContents(text) {
 // 把中间的顶层声明整段遮蔽成 clause 区 —— 调试 C2 夹具时实测到(Tool 接口行被吞,
 // 消费者判 0)。遮蔽区一旦吞掉声明行,方向是"漏候选"(漏报),但更糟的是它也会吞掉
 // import 绑定本身让已接线被误判未接线 —— 两种错向都不可接受,故子句封死在单条语句内。
-const CLAUSE_RE = /(?:^|[\s;}])(import|export)\s+((?:(?!import\b)(?!export\b)[^;])*?)\s*from\s*['"]([^'"]+)['"]/g
+const CLAUSE_RE =
+  /(?:^|[\s;}])(import|export)\s+((?:(?!import\b)(?!export\b)[^;])*?)\s*from\s*['"]([^'"]+)['"]/g
 /**
  * default 槽位的**虚拟宿主名**(2026-11-01)。`default` 是保留字,既不可能被 TOP_DECL_RES
  * 认成顶层声明标识符,也不可能成为候选声明名 ⇒ 它只存在于 edges 里,与既有具名判序零相撞。
@@ -910,7 +1083,8 @@ export function parseFile(rel, text) {
     const clause = m[2]
     const spec = m[3]
     const blankTo = m.index + m[0].length
-    for (let k = m.index; k < blankTo && k < masked.length; k++) if (masked[k] !== '\n') masked[k] = ' '
+    for (let k = m.index; k < blankTo && k < masked.length; k++)
+      if (masked[k] !== '\n') masked[k] = ' '
     const braces = /\{([^}]*)\}/.exec(clause)
     const target = kind === 'export' ? reExports : imports
     if (braces) {
@@ -919,7 +1093,8 @@ export function parseFile(rel, text) {
         if (!piece || piece === 'default') continue
         const asM = /^([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)$/.exec(piece)
         if (asM) target.push({ imported: asM[1], local: asM[2], spec })
-        else if (/^[A-Za-z0-9_$]+$/.test(piece)) target.push({ imported: piece, local: piece, spec })
+        else if (/^[A-Za-z0-9_$]+$/.test(piece))
+          target.push({ imported: piece, local: piece, spec })
       }
       // 混合形 `import D, { a } from 's'`:具名半边照旧逐条收,默认半边(第一个 `{` 之前的
       // 裸标识符)也记成 default 槽位绑定 —— 改前这一整支被丢弃,连"模块被 default 取用"都看不见。
@@ -1063,9 +1238,10 @@ export function factoryFace(candidates, unwired, unreadable = []) {
 
 /**
  * @param files Map<rel, text|null> —— 同一判定面的全部扫描根源文件(清单与内容同面同轮)
- * @param opts { face?, lexicon?: Map<rel, text|null>, mutate: null|'no-external-refs'|'no-closure' }
+ * @param opts { face?, lexicon?: Map<rel, text|null>, mutate: null|'no-external-refs'|'no-closure'|'no-concat-prefix' }
  *   —— lexicon 给出则启用 C6(i18n 码表键对账);mutate 是**变异对照专用**通道:各禁用一支
  *   判据,已接线夹具必须退回未接线,证明两支判据都不是恒真摆设。
+ *   'no-concat-prefix' 只关 C6 第四族(静态前缀+变量拼接)识别(2026-11-01 立)。
  */
 export function judge(files, opts = {}) {
   const mutate = opts.mutate || null
@@ -1228,7 +1404,7 @@ export function judge(files, opts = {}) {
   }
   let i18n = null
   if (opts.lexicon) {
-    i18n = judgeI18n(files, opts.lexicon)
+    i18n = judgeI18n(files, opts.lexicon, { noStaticConcat: mutate === 'no-concat-prefix' })
     // C6 计数并入同一 perFile ⇒ 与 C1~C5 共用 decide() 棘轮(键空间不同不相撞:
     // 词表路径不在 apps|packages/*/src 扫描根里)
     for (const [f, n] of Object.entries(i18n.perFile)) perFile[f] = (perFile[f] || 0) + n
@@ -1251,7 +1427,13 @@ export function judge(files, opts = {}) {
  *  - mode 'staged':某文件索引面未接线数 > 其 HEAD 面自身未接线数 ⇒ 红(新增即拦,存量不追);
  *  - mode 'full':只报数;`strict` 档把"存在任何未接线"记红(CI 问责面,提交链不用它)。
  */
-export function decide({ stagedCounts = {}, headCounts = {}, mode = 'full', undetermined = [], strict = false }) {
+export function decide({
+  stagedCounts = {},
+  headCounts = {},
+  mode = 'full',
+  undetermined = [],
+  strict = false,
+}) {
   if (undetermined.length) return { exit: 2, reds: [], undetermined, mode }
   const reds = []
   const files = new Set([...Object.keys(stagedCounts), ...Object.keys(headCounts)])
@@ -1269,7 +1451,9 @@ export function decide({ stagedCounts = {}, headCounts = {}, mode = 'full', unde
 
 export function listFace(root, face) {
   if (face === 'head')
-    return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], root, { timeout: GIT_TIMEOUT }).split('\0').filter(Boolean)
+    return gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], root, { timeout: GIT_TIMEOUT })
+      .split('\0')
+      .filter(Boolean)
   return gitRaw(['ls-files', '-z'], root, { timeout: GIT_TIMEOUT }).split('\0').filter(Boolean)
 }
 
@@ -1294,7 +1478,9 @@ export function analyze(root, face, opts = {}) {
   if (face === 'staged') {
     // 词表改动也算"改动面内":只改 messages/<面板>/*.json 的提交若被这里的过滤滤掉,
     // 会退回全量档,C6 的 staged 棘轮就永远轮不到它头上
-    const changed = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'], root, { timeout: GIT_TIMEOUT })
+    const changed = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'], root, {
+      timeout: GIT_TIMEOUT,
+    })
       .split('\0')
       .filter(Boolean)
       .filter((p) => inI18nScanRoot(p) || isLexiconPath(p))
@@ -1308,15 +1494,24 @@ export function analyze(root, face, opts = {}) {
   // 这样 apps/web/app/** 这类 App Router 页面能作为发射点被 C6 认到,又不会被当成候选声明。
   const sources = allPaths.filter(inI18nScanRoot)
   if (sources.length === 0)
-    throw new Undetermined(`${FACE_NAME[effFace]} 面枚举到 0 个扫描根源文件(apps|packages/*/{src,app} 源码) —— 空扫不记绿`)
+    throw new Undetermined(
+      `${FACE_NAME[effFace]} 面枚举到 0 个扫描根源文件(apps|packages/*/{src,app} 源码) —— 空扫不记绿`,
+    )
   const lexPaths = allPaths.filter(isLexiconPath)
-  const judged = judge(readFace(root, effFace, sources), { face: effFace, lexicon: readFace(root, effFace, lexPaths) })
+  const judged = judge(readFace(root, effFace, sources), {
+    face: effFace,
+    lexicon: readFace(root, effFace, lexPaths),
+  })
   let headJudged = null
   if (effFace === 'staged') {
     const headAll = listFace(root, 'head')
     const headSources = headAll.filter(inI18nScanRoot)
-    if (headSources.length === 0) throw new Undetermined('HEAD 面枚举到 0 个扫描根源文件 ⇒ 棘轮锚点无从取得(不记绿)')
-    headJudged = judge(readFace(root, 'head', headSources), { face: 'head', lexicon: readFace(root, 'head', headAll.filter(isLexiconPath)) })
+    if (headSources.length === 0)
+      throw new Undetermined('HEAD 面枚举到 0 个扫描根源文件 ⇒ 棘轮锚点无从取得(不记绿)')
+    headJudged = judge(readFace(root, 'head', headSources), {
+      face: 'head',
+      lexicon: readFace(root, 'head', headAll.filter(isLexiconPath)),
+    })
   }
   const mode = effFace === 'staged' ? 'staged' : 'full'
   const decision = decide({
@@ -1347,7 +1542,11 @@ export function main(argv) {
   }
   const root = rootArg.value !== null ? resolve(rootArg.value) : ROOT
   assertRepoRoot(root, '本门')
-  const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+  const { face, error } = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
   if (error) {
     console.error(`❌ 无法判定: ${error}`)
     return 2
@@ -1356,7 +1555,7 @@ export function main(argv) {
   try {
     out = analyze(root, face, { strict: argv.includes('--strict') })
   } catch (e) {
-    const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+    const msg = e instanceof Undetermined ? e.message : (e?.message ?? String(e))
     console.error(`❌ 无法判定(exit 2): ${msg}`)
     if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
     return 2
@@ -1364,25 +1563,53 @@ export function main(argv) {
   const { judged } = out
   const namesOf = unwiredNamesByFile(judged)
   const i18n = judged.i18n
-  const i18nUnwiredTotal = i18n ? Object.values(i18n.byFolder).reduce((s, v) => s + v.unwired, 0) : null
+  const i18nUnwiredTotal = i18n
+    ? Object.values(i18n.byFolder).reduce((s, v) => s + v.unwired, 0)
+    : null
   const lexSampleOf = (file) => {
     const m = /^packages\/i18n\/messages\/([^/]+)\/en\.json$/.exec(file)
     return m && i18n ? (i18n.byFolder[m[1]]?.samples ?? null) : null
   }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ face: out.face, fellBack: out.fellBack, exit: out.exit, mode: out.mode, scanned: judged.scanned, candidates: judged.candidates.length, unwired: judged.unwired, i18n, factory: judged.factory, reds: out.reds, undetermined: out.undetermined }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          face: out.face,
+          fellBack: out.fellBack,
+          exit: out.exit,
+          mode: out.mode,
+          scanned: judged.scanned,
+          candidates: judged.candidates.length,
+          unwired: judged.unwired,
+          i18n,
+          factory: judged.factory,
+          reds: out.reds,
+          undetermined: out.undetermined,
+        },
+        null,
+        2,
+      ),
+    )
     return out.exit
   }
   if (out.reds.length) {
-    console.error(`❌ 检出 ${out.reds.length} 个文件的「策略/契约声明无生产消费者」较 HEAD 增加(面=${FACE_NAME[out.face]},锚点=HEAD 自身未接线数):`)
+    console.error(
+      `❌ 检出 ${out.reds.length} 个文件的「策略/契约声明无生产消费者」较 HEAD 增加(面=${FACE_NAME[out.face]},锚点=HEAD 自身未接线数):`,
+    )
     for (const r of out.reds) {
       const sample = lexSampleOf(r.file)
       const detail = sample ? `样例: ${sample.join(', ')}` : (namesOf.get(r.file) || []).join(', ')
-      console.error(`   ${r.file}  未接线 ${r.now} > 锚点 ${r.anchor} ⇒ 新增 ${r.now - r.anchor} 处${detail ? `: ${detail}` : ''}`)
+      console.error(
+        `   ${r.file}  未接线 ${r.now} > 锚点 ${r.anchor} ⇒ 新增 ${r.now - r.anchor} 处${detail ? `: ${detail}` : ''}`,
+      )
     }
     if (out.reds.some((r) => lexSampleOf(r.file)))
-      console.error('   i18n 未接线的出路(二选一,不得留投机代码):① 在生产面把键真正发射出去(接线形态见本门头注 C6);② 从七个语言包里删掉这个键。禁止为消红把键名塞进字符串或注释。')
-    console.error('   出路(二选一,不得留投机代码):① 把该策略/契约挂到真实生命周期点上(读时触发或写前触发,像 state-store 的 pruneOnWrite 那样),让消费者在**非测试生产面**能指认;② 若结构上无处可挂,删掉这条声明并在 PR 说明。禁止为消红去改锚点或给门加豁免。')
+      console.error(
+        '   i18n 未接线的出路(二选一,不得留投机代码):① 在生产面把键真正发射出去(接线形态见本门头注 C6);② 从七个语言包里删掉这个键。禁止为消红把键名塞进字符串或注释。',
+      )
+    console.error(
+      '   出路(二选一,不得留投机代码):① 把该策略/契约挂到真实生命周期点上(读时触发或写前触发,像 state-store 的 pruneOnWrite 那样),让消费者在**非测试生产面**能指认;② 若结构上无处可挂,删掉这条声明并在 PR 说明。禁止为消红去改锚点或给门加豁免。',
+    )
   }
   if (out.undetermined.length) {
     console.error(`⚠️  未判定 ${out.undetermined.length} 项(计入 exit 2,不计为通过):`)
@@ -1390,31 +1617,49 @@ export function main(argv) {
   }
   if (out.fellBack) console.log('ℹ️  --staged 暂存集在扫描面内为空 ⇒ 退回全量(HEAD),防"空暂存恒绿"')
   if (out.mode === 'full' && !out.reds.length) {
-    console.log(`ℹ️ 存量未接线 ${judged.unwired.length} 处 / ${namesOf.size} 个文件(面=${FACE_NAME[out.face]},只报数不判红;按形态:${Object.entries(judged.byKind).map(([k, v]) => `${k}=${v}`).join(' / ') || '无'})`)
+    console.log(
+      `ℹ️ 存量未接线 ${judged.unwired.length} 处 / ${namesOf.size} 个文件(面=${FACE_NAME[out.face]},只报数不判红;按形态:${
+        Object.entries(judged.byKind)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' / ') || '无'
+      })`,
+    )
     let i = 0
     for (const [f, names] of namesOf) {
       if (i++ >= 40) {
         console.log(`   ……其余 ${namesOf.size - 40} 个文件略(--json 看全量)`)
         break
       }
-      console.log(`   · ${f} × ${names.length}: ${names.slice(0, 6).join(', ')}${names.length > 6 ? ' …' : ''}`)
+      console.log(
+        `   · ${f} × ${names.length}: ${names.slice(0, 6).join(', ')}${names.length > 6 ? ' …' : ''}`,
+      )
     }
     // C7 新族的存量读数**当场说出**(票面"扩判据与清偿必须同枚"):总数走上面那条,这里逐条点名。
     const fac = judged.factory
-    console.log(`ℹ️ 工厂族(C7,导出 create*Handler / create*Transport):候选 ${fac.candidates} / 零生产调用方 ${fac.unwired.length} / 形态读不出 ${fac.unreadable.length}(定级沿用本门:只报数不判红,升 blocking 的前置 = 存量清零)`)
+    console.log(
+      `ℹ️ 工厂族(C7,导出 create*Handler / create*Transport):候选 ${fac.candidates} / 零生产调用方 ${fac.unwired.length} / 形态读不出 ${fac.unreadable.length}(定级沿用本门:只报数不判红,升 blocking 的前置 = 存量清零)`,
+    )
     for (const u of fac.unwired) console.log(`   · ${u}`)
-    for (const u of fac.unreadable) console.log(`   ⚠️ 名字命中但声明行读不出工厂形态 ⇒ 未立案(不判红也不计未判定):${u}`)
+    for (const u of fac.unreadable)
+      console.log(`   ⚠️ 名字命中但声明行读不出工厂形态 ⇒ 未立案(不判红也不计未判定):${u}`)
     if (i18n) {
-      console.log(`ℹ️ i18n 码表(C6):未接线 ${i18nUnwiredTotal} 键(动态拼键 ${i18n.dynamic} 处、歧义绑定 ${i18n.ambiguous} 处${i18n.skipped.length ? `、异常面板 ${i18n.skipped.length} 个` : ''} —— 动态/歧义只报数不判红)`)
+      console.log(
+        `ℹ️ i18n 码表(C6):未接线 ${i18nUnwiredTotal} 键(动态拼键 ${i18n.dynamic} 处、歧义绑定 ${i18n.ambiguous} 处${i18n.skipped.length ? `、异常面板 ${i18n.skipped.length} 个` : ''} —— 动态/歧义只报数不判红)`,
+      )
       for (const [f, v] of Object.entries(i18n.byFolder)) {
         if (!v.unwired) continue
-        console.log(`   · 面板 ${f}: 未接线 ${v.unwired} / 五语言全有 ${v.keys} 键(样例: ${v.samples.join(', ')})`)
+        console.log(
+          `   · 面板 ${f}: 未接线 ${v.unwired} / 五语言全有 ${v.keys} 键(样例: ${v.samples.join(', ')})`,
+        )
       }
       for (const s of i18n.skipped) console.log(`   ⚠️ ${s}`)
     }
   }
-  const verdict = out.exit === 0 ? '✅ 通过' : out.exit === 2 ? '❌ 无法判定(exit 2)' : '❌ 判红(exit 1)'
-  console.log(`${verdict}(面=${FACE_NAME[out.face]} 扫描 ${judged.scanned} 文件 / 候选声明 ${judged.candidates.length} / 未接线 ${judged.unwired.length}${i18n ? ` / i18n 未接线 ${i18nUnwiredTotal}` : ''} / 工厂族 C7 ${judged.factory.candidates} 候选·${judged.factory.unwired.length} 零生产调用方 / 判红文件 ${out.reds.length} / 未判定 ${out.undetermined.length})`)
+  const verdict =
+    out.exit === 0 ? '✅ 通过' : out.exit === 2 ? '❌ 无法判定(exit 2)' : '❌ 判红(exit 1)'
+  console.log(
+    `${verdict}(面=${FACE_NAME[out.face]} 扫描 ${judged.scanned} 文件 / 候选声明 ${judged.candidates.length} / 未接线 ${judged.unwired.length}${i18n ? ` / i18n 未接线 ${i18nUnwiredTotal}` : ''} / 工厂族 C7 ${judged.factory.candidates} 候选·${judged.factory.unwired.length} 零生产调用方 / 判红文件 ${out.reds.length} / 未判定 ${out.undetermined.length})`,
+  )
   return out.exit
 }
 
@@ -1603,6 +1848,9 @@ const DEF_MIX_USE_NAMED_ONLY = [
   'export function build(): void { clearDemoCache() }',
   '',
 ].join('\n')
+/** C6 第四族(拼接前缀)接线夹具:NS 是静态字符串常量 ⇒ t(NS + '.' + x) 产出可覆盖前缀 */
+const CONCAT_ON =
+  "const t = useTranslations('chat')\nconst NS = 'dyn'\nexport function K(x: string): string { return t(NS + '.' + x) }\n"
 
 function selfTest() {
   let ran = 0
@@ -1620,89 +1868,442 @@ function selfTest() {
 
   // ① 正向证明 A:真未接线夹具必红(第八批实测:"名单有、从不命中"是门自己的失明形态)
   const rOff = judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED]]))
-  eq('W1 未接线夹具 ⇒ pruneOldSessions + DEFAULT_MAX_AGE_MS 双红', uNames(rOff), ['DEFAULT_MAX_AGE_MS', 'pruneOldSessions'])
+  eq('W1 未接线夹具 ⇒ pruneOldSessions + DEFAULT_MAX_AGE_MS 双红', uNames(rOff), [
+    'DEFAULT_MAX_AGE_MS',
+    'pruneOldSessions',
+  ])
   // ② 正向证明 B:已接线夹具必绿(闭包链 saveSession→pruneOnWrite→prune→const)
-  const rOn = judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_WIRED], ['apps/cli/src/commands/repl.ts', REPL_CONSUMER]]))
+  const rOn = judge(
+    new Map([
+      ['apps/cli/src/sessions/state-store.ts', SS_WIRED],
+      ['apps/cli/src/commands/repl.ts', REPL_CONSUMER],
+    ]),
+  )
   eq('W2 已接线夹具(写生命周期点 + 生产 importer)⇒ 0 未接线', rOn.unwired.length, 0)
   // ③ 变异对照 M1:关掉传递闭包 ⇒ W2 夹具必退回红(证明闭包一支有牙)
-  eq('M1 mutate=no-closure ⇒ 已接线夹具仍判 2 处未接线(闭包不是摆设)', uNames(judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_WIRED], ['apps/cli/src/commands/repl.ts', REPL_CONSUMER]]), { mutate: 'no-closure' })), ['DEFAULT_MAX_AGE_MS', 'pruneOldSessions'])
+  eq(
+    'M1 mutate=no-closure ⇒ 已接线夹具仍判 2 处未接线(闭包不是摆设)',
+    uNames(
+      judge(
+        new Map([
+          ['apps/cli/src/sessions/state-store.ts', SS_WIRED],
+          ['apps/cli/src/commands/repl.ts', REPL_CONSUMER],
+        ]),
+        { mutate: 'no-closure' },
+      ),
+    ),
+    ['DEFAULT_MAX_AGE_MS', 'pruneOldSessions'],
+  )
   // ④ 变异对照 M2:关掉外部消费整支 ⇒ 全链失去种子,必红(证明外部引用一支有牙)
-  eq('M2 mutate=no-external-refs ⇒ 已接线夹具仍判未接线(外部消费不是摆设)', judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_WIRED], ['apps/cli/src/commands/repl.ts', REPL_CONSUMER]]), { mutate: 'no-external-refs' }).unwired.length, 2)
+  eq(
+    'M2 mutate=no-external-refs ⇒ 已接线夹具仍判未接线(外部消费不是摆设)',
+    judge(
+      new Map([
+        ['apps/cli/src/sessions/state-store.ts', SS_WIRED],
+        ['apps/cli/src/commands/repl.ts', REPL_CONSUMER],
+      ]),
+      { mutate: 'no-external-refs' },
+    ).unwired.length,
+    2,
+  )
   // ⑤ 测试面排除
-  eq('T1 唯一消费者在 tests/ ⇒ 整面排除,仍判未接线', uNames(judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED], ['apps/cli/tests/s.test.ts', REPL_CONSUMER]]))), ['DEFAULT_MAX_AGE_MS', 'pruneOldSessions'])
+  eq(
+    'T1 唯一消费者在 tests/ ⇒ 整面排除,仍判未接线',
+    uNames(
+      judge(
+        new Map([
+          ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+          ['apps/cli/tests/s.test.ts', REPL_CONSUMER],
+        ]),
+      ),
+    ),
+    ['DEFAULT_MAX_AGE_MS', 'pruneOldSessions'],
+  )
   // ⑥ 只 import 不取用 ⇒ 不算消费者
-  eq('T2 import 了却从未取用 ⇒ 不算消费者', judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED], ['apps/cli/src/commands/repl.ts', REPL_CONSUMER.replace('persist("x")', '1')]])).unwired.length, 2)
+  eq(
+    'T2 import 了却从未取用 ⇒ 不算消费者',
+    judge(
+      new Map([
+        ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+        ['apps/cli/src/commands/repl.ts', REPL_CONSUMER.replace('persist("x")', '1')],
+      ]),
+    ).unwired.length,
+    2,
+  )
   // ⑦ 注释提及不算消费者(本仓最高频失效型)
-  eq('T3 取用只写在注释里 ⇒ 遮噪后不可见,不算消费者', judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED], ['apps/cli/src/commands/repl.ts', REPL_CONSUMER.replace('persist("x")', '// persist("x") 曾经接线')]])).unwired.length, 2)
+  eq(
+    'T3 取用只写在注释里 ⇒ 遮噪后不可见,不算消费者',
+    judge(
+      new Map([
+        ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+        [
+          'apps/cli/src/commands/repl.ts',
+          REPL_CONSUMER.replace('persist("x")', '// persist("x") 曾经接线'),
+        ],
+      ]),
+    ).unwired.length,
+    2,
+  )
   // ⑧ 纯 re-export 不算消费者
-  eq('T4 barrel 只 `export { saveSession } from …` ⇒ barrel 不消费', judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED], ['apps/cli/src/sessions/index.ts', "export { saveSession } from './state-store.js';\nexport { saveSession } from './state-store.js'\n"]])).unwired.length, 2)
+  eq(
+    'T4 barrel 只 `export { saveSession } from …` ⇒ barrel 不消费',
+    judge(
+      new Map([
+        ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+        [
+          'apps/cli/src/sessions/index.ts',
+          "export { saveSession } from './state-store.js';\nexport { saveSession } from './state-store.js'\n",
+        ],
+      ]),
+    ).unwired.length,
+    2,
+  )
   // ⑨ specifier 链不符 ⇒ 不算消费者(宁严不假绿)
-  eq('T5 import 的 specifier 与声明模块无链可寻 ⇒ 不认', judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED], ['apps/cli/src/commands/repl.ts', REPL_CONSUMER.replace('../sessions/state-store.js', '../other/store.js')]])).unwired.length, 2)
+  eq(
+    'T5 import 的 specifier 与声明模块无链可寻 ⇒ 不认',
+    judge(
+      new Map([
+        ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+        [
+          'apps/cli/src/commands/repl.ts',
+          REPL_CONSUMER.replace('../sessions/state-store.js', '../other/store.js'),
+        ],
+      ]),
+    ).unwired.length,
+    2,
+  )
   // ⑩ 契约面:MountContract 被 tools 面取用 ⇒ 类型闭包接线;谓词无消费者 ⇒ 单点红
-  const rC = judge(new Map([['packages/types/src/tool-contract.ts', TC_SRC], ['apps/cli/src/tools/index.ts', TOOL_CONSUMER]]))
-  eq('C1 契约类型经 Mount 闭包接线、谓词 mayTouchThing 零消费者 ⇒ 只剩它红', uNames(rC), ['mayTouchThing'])
-  const rC2 = judge(new Map([['packages/types/src/tool-contract.ts', TC_SRC], ['apps/cli/src/tools/index.ts', TOOL_CONSUMER + "import { mayTouchThing } from '@ihui/types';\nexport function gate(x: unknown): boolean { return mayTouchThing(x) }\n"]]))
+  const rC = judge(
+    new Map([
+      ['packages/types/src/tool-contract.ts', TC_SRC],
+      ['apps/cli/src/tools/index.ts', TOOL_CONSUMER],
+    ]),
+  )
+  eq('C1 契约类型经 Mount 闭包接线、谓词 mayTouchThing 零消费者 ⇒ 只剩它红', uNames(rC), [
+    'mayTouchThing',
+  ])
+  const rC2 = judge(
+    new Map([
+      ['packages/types/src/tool-contract.ts', TC_SRC],
+      [
+        'apps/cli/src/tools/index.ts',
+        TOOL_CONSUMER +
+          "import { mayTouchThing } from '@ihui/types';\nexport function gate(x: unknown): boolean { return mayTouchThing(x) }\n",
+      ],
+    ]),
+  )
   eq('C2 谓词补上生产消费者 ⇒ 0 未接线', rC2.unwired.length, 0)
   // ⑪ 形态收录边界:非导出清理函数 / camelCase 保留量 / scripts 层不立案
-  eq('K1 非导出的 pruneZombie 与 artifactRetentionDays 都不是候选', judge(new Map([['apps/x/src/y.ts', 'function pruneZombie(): void {}\nconst artifactRetentionDays = 7\nexport function useIt(): void {}\n']])).unwired.length, 0)
-  eq('K2 大写族命中:CACHE_TTL_MS 是候选(policy-const)', judge(new Map([['apps/api/src/z.ts', 'export const CACHE_TTL_MS = 100\n']])).unwired.map((u) => u.kinds[0]), ['policy-const'])
-  eq('K3 scripts/ 与测试路径都不入扫描面', [inScanRoot('scripts/check-x.mjs'), inScanRoot('apps/web/src/a.tsx'), inScanRoot('apps/cli/tests/a.test.ts'), inScanRoot('packages/types/src/tool-contract.ts')], [false, true, false, true])
-  // K4(2026-10-16):i18n 发射点面比候选面宽 —— App Router 页面目录 apps/*/app/** 必须入面,
-  //     否则整页 t('键') 不被认作发射点,「往语言包加键」被棘轮误判为未接线。
-  eq('K4 app/ 目录只入发射点面、不入候选面', [inI18nScanRoot('apps/web/app/(main)/admin/x/page.tsx'), inScanRoot('apps/web/app/(main)/admin/x/page.tsx'), inI18nScanRoot('apps/web/a.test.tsx'), inI18nScanRoot('packages/i18n/src/x.ts')], [true, false, false, true])
+  eq(
+    'K1 非导出的 pruneZombie 与 artifactRetentionDays 都不是候选',
+    judge(
+      new Map([
+        [
+          'apps/x/src/y.ts',
+          'function pruneZombie(): void {}\nconst artifactRetentionDays = 7\nexport function useIt(): void {}\n',
+        ],
+      ]),
+    ).unwired.length,
+    0,
+  )
+  eq(
+    'K2 大写族命中:CACHE_TTL_MS 是候选(policy-const)',
+    judge(new Map([['apps/api/src/z.ts', 'export const CACHE_TTL_MS = 100\n']])).unwired.map(
+      (u) => u.kinds[0],
+    ),
+    ['policy-const'],
+  )
+  eq(
+    'K3 scripts/ 与测试路径都不入扫描面',
+    [
+      inScanRoot('scripts/check-x.mjs'),
+      inScanRoot('apps/web/src/a.tsx'),
+      inScanRoot('apps/cli/tests/a.test.ts'),
+      inScanRoot('packages/types/src/tool-contract.ts'),
+    ],
+    [false, true, false, true],
+  )
+  // K4(2026-10-16 立,2026-11-01 本票改判):app 目录自本票起**候选面与消费者面同步入面**
+  //     (主席逐条实测授权扩根;此前只入发射点面,models-api.ts/llm.ts 两枚已接线声明被误报)。
+  eq(
+    'K4 app/ 与 extension 生产根同入候选面+发射点面;非生产根与测试面不入',
+    [
+      inI18nScanRoot('apps/web/app/(main)/admin/x/page.tsx'),
+      inScanRoot('apps/web/app/(main)/admin/x/page.tsx'),
+      inScanRoot('apps/extension/entrypoints/content.ts'),
+      inScanRoot('apps/extension/lib/x.ts'),
+      inScanRoot('apps/web/a.test.tsx'),
+      inI18nScanRoot('packages/i18n/src/x.ts'),
+    ],
+    [true, true, true, true, false, true],
+  )
   // ⑫ specCompat 的三种链形
-  eq('S1 @ihui/<pkg> 对 packages/<pkg>/src/** 兼容;父目录段/基名兼容;无关路径不兼容', [specCompat('@ihui/types', 'packages/types/src/tool-contract.ts'), specCompat('../sessions/index.js', 'apps/cli/src/sessions/state-store.ts'), specCompat('../other/store.js', 'apps/cli/src/sessions/state-store.ts')], [true, true, false])
+  eq(
+    'S1 @ihui/<pkg> 对 packages/<pkg>/src/** 兼容;父目录段/基名兼容;无关路径不兼容',
+    [
+      specCompat('@ihui/types', 'packages/types/src/tool-contract.ts'),
+      specCompat('../sessions/index.js', 'apps/cli/src/sessions/state-store.ts'),
+      specCompat('../other/store.js', 'apps/cli/src/sessions/state-store.ts'),
+    ],
+    [true, true, false],
+  )
   // ⑬ 棘轮四向(staged vs HEAD 锚点)
-  eq('R1 staged 2 > 锚点 1 ⇒ 红(新增即拦)', decide({ stagedCounts: { 'f.ts': 2 }, headCounts: { 'f.ts': 1 }, mode: 'staged' }).exit, 1)
-  eq('R2 齐平 ⇒ 绿(存量不追)', decide({ stagedCounts: { 'f.ts': 1 }, headCounts: { 'f.ts': 1 }, mode: 'staged' }).exit, 0)
-  eq('R3 减到 0 ⇒ 绿(只减不增)', decide({ stagedCounts: {}, headCounts: { 'f.ts': 3 }, mode: 'staged' }).exit, 0)
-  eq('R4 新文件带未接线(锚点缺省=0)⇒ 红', decide({ stagedCounts: { 'g.ts': 1 }, headCounts: {}, mode: 'staged' }).exit, 1)
+  eq(
+    'R1 staged 2 > 锚点 1 ⇒ 红(新增即拦)',
+    decide({ stagedCounts: { 'f.ts': 2 }, headCounts: { 'f.ts': 1 }, mode: 'staged' }).exit,
+    1,
+  )
+  eq(
+    'R2 齐平 ⇒ 绿(存量不追)',
+    decide({ stagedCounts: { 'f.ts': 1 }, headCounts: { 'f.ts': 1 }, mode: 'staged' }).exit,
+    0,
+  )
+  eq(
+    'R3 减到 0 ⇒ 绿(只减不增)',
+    decide({ stagedCounts: {}, headCounts: { 'f.ts': 3 }, mode: 'staged' }).exit,
+    0,
+  )
+  eq(
+    'R4 新文件带未接线(锚点缺省=0)⇒ 红',
+    decide({ stagedCounts: { 'g.ts': 1 }, headCounts: {}, mode: 'staged' }).exit,
+    1,
+  )
   // ⑭ 空扫与未判定:判据失明不得表现为"通过"
-  eq('E1 空扫(0 个扫描根源文件)⇒ undetermined ⇒ decide exit 2(空扫不记绿)', (() => {
-    const r = judge(new Map([['README.md', 'x'], ['scripts/foo.mjs', 'x']]))
-    return decide({ stagedCounts: r.perFile, mode: 'full', undetermined: r.undetermined }).exit
-  })(), 2)
-  eq('E2 全量档默认不判存量红(防恒红);--strict 才问责', [decide({ stagedCounts: { 'f.ts': 2 }, mode: 'full' }).exit, decide({ stagedCounts: { 'f.ts': 2 }, mode: 'full', strict: true }).exit], [0, 1])
+  eq(
+    'E1 空扫(0 个扫描根源文件)⇒ undetermined ⇒ decide exit 2(空扫不记绿)',
+    (() => {
+      const r = judge(
+        new Map([
+          ['README.md', 'x'],
+          ['scripts/foo.mjs', 'x'],
+        ]),
+      )
+      return decide({ stagedCounts: r.perFile, mode: 'full', undetermined: r.undetermined }).exit
+    })(),
+    2,
+  )
+  eq(
+    'E2 全量档默认不判存量红(防恒红);--strict 才问责',
+    [
+      decide({ stagedCounts: { 'f.ts': 2 }, mode: 'full' }).exit,
+      decide({ stagedCounts: { 'f.ts': 2 }, mode: 'full', strict: true }).exit,
+    ],
+    [0, 1],
+  )
   // ⑮ 遮噪两层的反向对照:模板里不得长出 import
-  eq('N1 模板串内的伪 import 不被认成消费者', judge(new Map([['apps/cli/src/sessions/state-store.ts', SS_UNWIRED], ['apps/cli/src/commands/repl.ts', 'export function loop(): string { return "x"; }\nconst noise = `${saveSession}`;\n']])).unwired.length, 2)
+  eq(
+    'N1 模板串内的伪 import 不被认成消费者',
+    judge(
+      new Map([
+        ['apps/cli/src/sessions/state-store.ts', SS_UNWIRED],
+        [
+          'apps/cli/src/commands/repl.ts',
+          'export function loop(): string { return "x"; }\nconst noise = `${saveSession}`;\n',
+        ],
+      ]),
+    ).unwired.length,
+    2,
+  )
 
   // ⑯ C6 i18n 维(G-816043):码表键 ⇒ 反查生产点,票面三验收 + 棘轮合流
   const LEX_KEYS = { chat: { hi: '你好', bye: '再见' }, items: { count: '条数' } }
   const lexText = JSON.stringify(LEX_KEYS)
   const lexMap = new Map(LEX_LANGS.map((L) => [`packages/i18n/messages/web/${L}.json`, lexText]))
   const NO_EMIT = 'export function B(): number { return 1 }\n'
-  const EMIT_ALL = "const t = useTranslations('chat')\nconst u = useTranslations('items')\nexport function A(): string { return t('hi') + t('bye') + u('count') }\n"
+  const EMIT_ALL =
+    "const t = useTranslations('chat')\nconst u = useTranslations('items')\nexport function A(): string { return t('hi') + t('bye') + u('count') }\n"
   const iOff = judge(new Map([['apps/web/src/a.tsx', NO_EMIT]]), { lexicon: lexMap })
-  eq('I1 验收① 五语言全有 + 全仓零发射点 ⇒ 3 键未接线(perFile 归 en.json 计数)', [iOff.i18n.byFolder.web.keys, iOff.i18n.byFolder.web.unwired, iOff.i18n.byFolder.web.samples, iOff.perFile['packages/i18n/messages/web/en.json']], [3, 3, ['chat.bye', 'chat.hi', 'items.count'], 3])
+  eq(
+    'I1 验收① 五语言全有 + 全仓零发射点 ⇒ 3 键未接线(perFile 归 en.json 计数)',
+    [
+      iOff.i18n.byFolder.web.keys,
+      iOff.i18n.byFolder.web.unwired,
+      iOff.i18n.byFolder.web.samples,
+      iOff.perFile['packages/i18n/messages/web/en.json'],
+    ],
+    [3, 3, ['chat.bye', 'chat.hi', 'items.count'], 3],
+  )
   const iOn = judge(new Map([['apps/web/src/a.tsx', EMIT_ALL]]), { lexicon: lexMap })
-  eq('I2 验收② 发射点齐备 ⇒ 0 未接线(门对自家产出形态的必答题)', [iOn.i18n.byFolder.web.unwired, iOn.perFile['packages/i18n/messages/web/en.json']], [0, undefined])
-  const lexDyn = new Map(LEX_LANGS.map((L) => [`packages/i18n/messages/web/${L}.json`, JSON.stringify({ chat: { hi: 'a', dyn: { title: 't' } } })]))
-  const iDyn = judge(new Map([['apps/web/src/a.tsx', "const t = useTranslations('chat')\nexport function D(x: string): string { return t(`dyn.${x}`) }\n"]]), { lexicon: lexDyn })
-  eq('I3 验收③ 模板前缀 ⇒ 前缀 chat.dyn. 覆盖子键 chat.dyn.title 摘出未接线,chat.hi 叶子仍报(不静默)', [iDyn.i18n.dynamic, iDyn.i18n.byFolder.web.unwired, iDyn.i18n.byFolder.web.samples, iDyn.i18n.prefixes], [0, 1, ['chat.hi'], 1])
-  const iFullDyn = judge(new Map([['apps/web/src/a.tsx', "const t = useTranslations('chat')\nexport function K(x: string): string { return t(`${x}`) + t(x) }\n"]]), { lexicon: lexMap })
-  eq('I11 全动态实参(模板无静态前缀/裸表达式)⇒ 计动态 2 处报数,任何键都不被静默盖掉', [iFullDyn.i18n.dynamic, iFullDyn.i18n.byFolder.web.unwired], [2, 3])
-  const iNoise = judge(new Map([['apps/web/src/a.tsx', "// const t = useTranslations('chat')\n// t('hi')\nexport const s = \"t('hi')\";\nconst u = useTranslations('items')\nexport function E(): string { return u('count') }\n"]]), { lexicon: lexMap })
-  eq('I4 注释与字符串里的伪发射都不可见 ⇒ 只有 items.count 被真接线', [iNoise.i18n.emitted, iNoise.i18n.byFolder.web.unwired], [1, 2])
-  const iAmb = judge(new Map([['apps/web/src/a.tsx', "function F(): string {\n  const t = useTranslations('chat')\n  return t('hi')\n}\nfunction G(): string {\n  const t = useTranslations('items')\n  return t('count')\n}\n"]]), { lexicon: lexMap })
-  eq('I5 同文件同名变量绑双 ns ⇒ 计歧义 2 处且不接线(判不了 ≠ 判没有)', [iAmb.i18n.ambiguous, iAmb.i18n.byFolder.web.unwired], [2, 3])
-  const iDynNs = judge(new Map([['apps/web/src/a.tsx', 'const t = useTranslations(`chat.${x}`)\nexport function H(x: string): string { return t(`hi`) }\n']]), { lexicon: lexMap })
-  eq('I9 动态 ns ⇒ 该变量的调用计动态报数(不静默)', [iDynNs.i18n.dynamic, iDynNs.i18n.byFolder.web.unwired], [1, 3])
-  const iRich = judge(new Map([['apps/web/src/a.tsx', "const t = useTranslations('chat')\nexport function J(): ReactNode { return t.rich('hi', { b: (c) => c }) }\n"]]), { lexicon: lexMap })
+  eq(
+    'I2 验收② 发射点齐备 ⇒ 0 未接线(门对自家产出形态的必答题)',
+    [iOn.i18n.byFolder.web.unwired, iOn.perFile['packages/i18n/messages/web/en.json']],
+    [0, undefined],
+  )
+  const lexDyn = new Map(
+    LEX_LANGS.map((L) => [
+      `packages/i18n/messages/web/${L}.json`,
+      JSON.stringify({ chat: { hi: 'a', dyn: { title: 't' } } }),
+    ]),
+  )
+  const iDyn = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function D(x: string): string { return t(`dyn.${x}`) }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    'I3 验收③ 模板前缀 ⇒ 前缀 chat.dyn. 覆盖子键 chat.dyn.title 摘出未接线,chat.hi 叶子仍报(不静默)',
+    [
+      iDyn.i18n.dynamic,
+      iDyn.i18n.byFolder.web.unwired,
+      iDyn.i18n.byFolder.web.samples,
+      iDyn.i18n.prefixes,
+    ],
+    [0, 1, ['chat.hi'], 1],
+  )
+  const iFullDyn = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function K(x: string): string { return t(`${x}`) + t(x) }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I11 全动态实参(模板无静态前缀/裸表达式)⇒ 计动态 2 处报数,任何键都不被静默盖掉',
+    [iFullDyn.i18n.dynamic, iFullDyn.i18n.byFolder.web.unwired],
+    [2, 3],
+  )
+  const iNoise = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "// const t = useTranslations('chat')\n// t('hi')\nexport const s = \"t('hi')\";\nconst u = useTranslations('items')\nexport function E(): string { return u('count') }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I4 注释与字符串里的伪发射都不可见 ⇒ 只有 items.count 被真接线',
+    [iNoise.i18n.emitted, iNoise.i18n.byFolder.web.unwired],
+    [1, 2],
+  )
+  const iAmb = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "function F(): string {\n  const t = useTranslations('chat')\n  return t('hi')\n}\nfunction G(): string {\n  const t = useTranslations('items')\n  return t('count')\n}\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I5 同文件同名变量绑双 ns ⇒ 计歧义 2 处且不接线(判不了 ≠ 判没有)',
+    [iAmb.i18n.ambiguous, iAmb.i18n.byFolder.web.unwired],
+    [2, 3],
+  )
+  const iDynNs = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        'const t = useTranslations(`chat.${x}`)\nexport function H(x: string): string { return t(`hi`) }\n',
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I9 动态 ns ⇒ 该变量的调用计动态报数(不静默)',
+    [iDynNs.i18n.dynamic, iDynNs.i18n.byFolder.web.unwired],
+    [1, 3],
+  )
+  const iRich = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function J(): ReactNode { return t.rich('hi', { b: (c) => c }) }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
   eq('I10 t.rich 同为发射形态 ⇒ chat.hi 接线', iRich.i18n.byFolder.web.unwired, 2)
-  const lexShared = new Map(LEX_LANGS.map((L) => [`packages/i18n/messages/shared/${L}.json`, lexText]))
-  const iCross = judge(new Map([['apps/web/src/a.tsx', EMIT_ALL]]), { lexicon: new Map([...lexMap, ...lexShared]) })
-  eq('I6 运行时词包 mergeMessages 深合并 ⇒ 发射点跨面板同串即接线', [iCross.i18n.byFolder.web.unwired, iCross.i18n.byFolder.shared.unwired, Object.keys(iCross.i18n.perFile).length], [0, 0, 0])
-  const lexPartial = new Map(LEX_LANGS.filter((L) => L !== 'ko').map((L) => [`packages/i18n/messages/api/${L}.json`, lexText]))
-  const iSkip = judge(new Map([['apps/web/src/a.tsx', EMIT_ALL]]), { lexicon: new Map([...lexMap, ...lexPartial]) })
-  eq('I7 面板缺 ko ⇒ 整面板跳过并报名(不静默算绿)', [iSkip.i18n.byFolder.api ?? null, iSkip.i18n.skipped.length === 1 && /api/.test(iSkip.i18n.skipped[0])], [null, true])
-  eq('I8 C6 计数并入 perFile ⇒ 与 C1~C5 共用同一 decide 棘轮(词表齐平不红、src 新增照红)', decide({ stagedCounts: { 'packages/i18n/messages/web/en.json': 3, 'apps/x/src/a.ts': 1 }, headCounts: { 'packages/i18n/messages/web/en.json': 3, 'apps/x/src/a.ts': 0 }, mode: 'staged' }).exit, 1)
+  const lexShared = new Map(
+    LEX_LANGS.map((L) => [`packages/i18n/messages/shared/${L}.json`, lexText]),
+  )
+  const iCross = judge(new Map([['apps/web/src/a.tsx', EMIT_ALL]]), {
+    lexicon: new Map([...lexMap, ...lexShared]),
+  })
+  eq(
+    'I6 运行时词包 mergeMessages 深合并 ⇒ 发射点跨面板同串即接线',
+    [
+      iCross.i18n.byFolder.web.unwired,
+      iCross.i18n.byFolder.shared.unwired,
+      Object.keys(iCross.i18n.perFile).length,
+    ],
+    [0, 0, 0],
+  )
+  const lexPartial = new Map(
+    LEX_LANGS.filter((L) => L !== 'ko').map((L) => [
+      `packages/i18n/messages/api/${L}.json`,
+      lexText,
+    ]),
+  )
+  const iSkip = judge(new Map([['apps/web/src/a.tsx', EMIT_ALL]]), {
+    lexicon: new Map([...lexMap, ...lexPartial]),
+  })
+  eq(
+    'I7 面板缺 ko ⇒ 整面板跳过并报名(不静默算绿)',
+    [
+      iSkip.i18n.byFolder.api ?? null,
+      iSkip.i18n.skipped.length === 1 && /api/.test(iSkip.i18n.skipped[0]),
+    ],
+    [null, true],
+  )
+  eq(
+    'I8 C6 计数并入 perFile ⇒ 与 C1~C5 共用同一 decide 棘轮(词表齐平不红、src 新增照红)',
+    decide({
+      stagedCounts: { 'packages/i18n/messages/web/en.json': 3, 'apps/x/src/a.ts': 1 },
+      headCounts: { 'packages/i18n/messages/web/en.json': 3, 'apps/x/src/a.ts': 0 },
+      mode: 'staged',
+    }).exit,
+    1,
+  )
   // 第二族发射形态:import 的 t/translate/i18n 与 useTt/useI18n 钩子(根 ns 直发全键)
-  const iImp = judge(new Map([['apps/cli/src/run.ts', "import { t } from '../i18n/index.js'\nexport function M(): string { return t('chat.hi') }\n"]]), { lexicon: lexMap })
-  eq('I12 import { t } from i18n 家族 ⇒ t(全键) 根 ns 直发接线(cli 真实形状)', [iImp.i18n.emitted, iImp.i18n.byFolder.web.unwired], [1, 2])
-  const iTr = judge(new Map([['apps/api/src/notify.ts', "import { translate } from '@ihui/i18n'\nexport function A(): string { return translate('chat.hi') }\nexport function B(m: unknown): string { return translate(m, 'chat.bye') }\nexport function C(m: unknown, k: string): string { return translate(m, k) }\n"]]), { lexicon: lexMap })
-  eq('I13 translate 双形:单参键与双参第二实参都接线,双参变量键 ⇒ 计动态(3 发射 2 接线 1 动态)', [iTr.i18n.emitted, iTr.i18n.dynamic, iTr.i18n.byFolder.web.unwired], [2, 1, 1])
-  const iHook = judge(new Map([['apps/mobile-rn/src/s.ts', "import { useTt, useI18n } from '@/i18n'\nexport function A(): string { const tt = useTt(); return tt('chat.hi') }\nexport function B(): string { const { t } = useI18n(); return t('chat.bye') }\n"]]), { lexicon: lexMap })
-  eq('I14 useTt()/useI18n() 钩子(直收与解构)⇒ 返回的取词函数按根 ns 接线', [iHook.i18n.emitted, iHook.i18n.byFolder.web.unwired], [2, 1])
+  const iImp = judge(
+    new Map([
+      [
+        'apps/cli/src/run.ts',
+        "import { t } from '../i18n/index.js'\nexport function M(): string { return t('chat.hi') }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I12 import { t } from i18n 家族 ⇒ t(全键) 根 ns 直发接线(cli 真实形状)',
+    [iImp.i18n.emitted, iImp.i18n.byFolder.web.unwired],
+    [1, 2],
+  )
+  const iTr = judge(
+    new Map([
+      [
+        'apps/api/src/notify.ts',
+        "import { translate } from '@ihui/i18n'\nexport function A(): string { return translate('chat.hi') }\nexport function B(m: unknown): string { return translate(m, 'chat.bye') }\nexport function C(m: unknown, k: string): string { return translate(m, k) }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I13 translate 双形:单参键与双参第二实参都接线,双参变量键 ⇒ 计动态(3 发射 2 接线 1 动态)',
+    [iTr.i18n.emitted, iTr.i18n.dynamic, iTr.i18n.byFolder.web.unwired],
+    [2, 1, 1],
+  )
+  const iHook = judge(
+    new Map([
+      [
+        'apps/mobile-rn/src/s.ts',
+        "import { useTt, useI18n } from '@/i18n'\nexport function A(): string { const tt = useTt(); return tt('chat.hi') }\nexport function B(): string { const { t } = useI18n(); return t('chat.bye') }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I14 useTt()/useI18n() 钩子(直收与解构)⇒ 返回的取词函数按根 ns 接线',
+    [iHook.i18n.emitted, iHook.i18n.byFolder.web.unwired],
+    [2, 1],
+  )
   // 第三族:静态键表(d72e9ccf42 治理模式,NAV_LABEL_KEY 全族的判据形态)
   const KEY_TABLE_SRC = [
     'const t = useTranslations()',
@@ -1714,68 +2315,333 @@ function selfTest() {
     '',
   ].join('\n')
   const iTab = judge(new Map([['apps/web/src/a.tsx', KEY_TABLE_SRC]]), { lexicon: lexMap })
-  eq('I15 静态键表 + 表索引调用 ⇒ 表内全键接线(与 d72e9ccf42 治理模式同形)', [iTab.i18n.emitted, iTab.i18n.dynamic, iTab.i18n.byFolder.web.unwired, iTab.i18n.byFolder.web.samples], [2, 0, 1, ['items.count']])
-  const iTabNoUse = judge(new Map([['apps/web/src/a.tsx', "const CHAT_LABEL_KEY: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return x }\n"]]), { lexicon: lexMap })
-  eq('I16 表声明了但零索引取用 ⇒ 不算接线(表本身不是发射点)', [iTabNoUse.i18n.emitted, iTabNoUse.i18n.byFolder.web.unwired], [0, 3])
-  const iTabBad = judge(new Map([['apps/web/src/a.tsx', "const t = useTranslations()\nconst BAD = {\n  hi: makeKey(),\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return t(BAD[x]) }\n"]]), { lexicon: lexMap })
-  eq('I17 表值非字面量 ⇒ 整表不认,调用照旧计动态(假表不得成接线捷径)', [iTabBad.i18n.dynamic, iTabBad.i18n.byFolder.web.unwired], [1, 3])
-  const iTabRoot = judge(new Map([['apps/cli/src/run.ts', "import { t } from '../i18n/index.js'\nconst KEY_MAP: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function M(x: string): string { return t(KEY_MAP[x]) }\n"]]), { lexicon: lexMap })
-  eq('I18 根 ns 取词函数同样认静态键表索引(cli 形状)', [iTabRoot.i18n.emitted, iTabRoot.i18n.byFolder.web.unwired], [2, 1])
+  eq(
+    'I15 静态键表 + 表索引调用 ⇒ 表内全键接线(与 d72e9ccf42 治理模式同形)',
+    [
+      iTab.i18n.emitted,
+      iTab.i18n.dynamic,
+      iTab.i18n.byFolder.web.unwired,
+      iTab.i18n.byFolder.web.samples,
+    ],
+    [2, 0, 1, ['items.count']],
+  )
+  const iTabNoUse = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const CHAT_LABEL_KEY: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return x }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I16 表声明了但零索引取用 ⇒ 不算接线(表本身不是发射点)',
+    [iTabNoUse.i18n.emitted, iTabNoUse.i18n.byFolder.web.unwired],
+    [0, 3],
+  )
+  const iTabBad = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations()\nconst BAD = {\n  hi: makeKey(),\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return t(BAD[x]) }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I17 表值非字面量 ⇒ 整表不认,调用照旧计动态(假表不得成接线捷径)',
+    [iTabBad.i18n.dynamic, iTabBad.i18n.byFolder.web.unwired],
+    [1, 3],
+  )
+  const iTabRoot = judge(
+    new Map([
+      [
+        'apps/cli/src/run.ts',
+        "import { t } from '../i18n/index.js'\nconst KEY_MAP: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function M(x: string): string { return t(KEY_MAP[x]) }\n",
+      ],
+    ]),
+    { lexicon: lexMap },
+  )
+  eq(
+    'I18 根 ns 取词函数同样认静态键表索引(cli 形状)',
+    [iTabRoot.i18n.emitted, iTabRoot.i18n.byFolder.web.unwired],
+    [2, 1],
+  )
+
+  // ⑱' C6 第四族(2026-11-01 立):静态前缀 + 变量拼接 —— t(PREFIX + '.' + x) / t('a.' + b) /
+  //     t(`${CONST}.${x}`)。方向恒为漏报不假绿:前缀读不出 ⇒ 照旧计动态,绝不外推覆盖。
+  const CONCAT_FIXTURE = CONCAT_ON
+  const iCon = judge(new Map([['apps/web/src/a.tsx', CONCAT_FIXTURE]]), { lexicon: lexDyn })
+  eq(
+    'U1 验收·接线 const 前缀拼接 ⇒ 前缀 chat.dyn. 覆盖子键(改前整条判动态)',
+    [
+      iCon.i18n.dynamic,
+      iCon.i18n.prefixes,
+      iCon.i18n.byFolder.web.unwired,
+      iCon.i18n.byFolder.web.samples,
+    ],
+    [0, 1, 1, ['chat.hi']],
+  )
+  const iConLit = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function K(x: string): string { return t('dyn.' + x) }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    "U2 验收·字面量起手拼接 t('dyn.' + x)(改前被误记成伪全键 dyn.)",
+    [iConLit.i18n.dynamic, iConLit.i18n.byFolder.web.unwired],
+    [0, 1],
+  )
+  const iConTm = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nconst NS = 'dyn'\nexport function K(x: string): string { return t(`${NS}.${x}`) }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    'U3 模板内插常量 t(`${NS}.${x}`) ⇒ 前缀可求值部分照收',
+    [iConTm.i18n.byFolder.web.unwired, iConTm.i18n.byFolder.web.samples],
+    [1, ['chat.hi']],
+  )
+  const iConKey = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nconst NS = 'dyn'\nexport function K(): string { return t(NS + '.title') }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    'U4 整链静态可求 ⇒ 按全键接线(chat.dyn.title 直发)',
+    [iConKey.i18n.emitted, iConKey.i18n.byFolder.web.unwired],
+    [1, 1],
+  )
+  const iConOff = judge(new Map([['apps/web/src/a.tsx', CONCAT_ON]]), {
+    lexicon: lexDyn,
+    mutate: 'no-concat-prefix',
+  })
+  eq(
+    'M7 变异对照 mutate=no-concat-prefix ⇒ 已接线的拼接夹具退回动态+未接线(新识别不是摆设)',
+    [iConOff.i18n.dynamic, iConOff.i18n.byFolder.web.unwired],
+    [1, 2],
+  )
+  const iConBad = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function K(x: string): string { return t(JUNK_PREFIX + '.' + x) }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    'U5 前缀不可静态求值(标识符无常量定义)⇒ 不认,照旧动态不静默盖键',
+    [iConBad.i18n.dynamic, iConBad.i18n.byFolder.web.unwired],
+    [1, 2],
+  )
+  const iConLet = judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nlet NS2 = 'dyn'\nexport function K(x: string): string { return t(NS2 + '.' + x) }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    'U6 let 声明可被重赋值 ⇒ 不算静态常量,不认(宁漏报不假绿)',
+    [iConLet.i18n.dynamic, iConLet.i18n.byFolder.web.unwired],
+    [1, 2],
+  )
+  const iConRoot = judge(
+    new Map([
+      [
+        'apps/cli/src/run.ts',
+        "import { t } from '../i18n/index.js'\nconst P = 'chat.dyn.'\nexport function M(x: string): string { return t(P + x) }\n",
+      ],
+    ]),
+    { lexicon: lexDyn },
+  )
+  eq(
+    'U7 根 ns 第二族同样吃拼接前缀(cli 形状)',
+    [iConRoot.i18n.prefixes, iConRoot.i18n.byFolder.web.unwired],
+    [1, 1],
+  )
 
   // ⑰ C7 工厂族(G-816034 ①②):候选族扩到导出 create*Handler / create*Transport
   //   成对用例:命中必红 / 接线必绿 / 只 import 不取用仍红 / 注释与字符串提及不算消费者 /
   //   同名但类型不同不得算候选 / 形状读不出报数不立案 / 集合推不出来落未判定 / 定级不动。
   const fOff = judge(new Map([[HF_DECL_FILE, HF_SRC]]))
-  eq('F1 验收① 新族命中必红:三个读得出是工厂的导出 ⇒ 逐条点名 3 处零生产调用方', [fOff.factory.candidates, fOff.factory.unwired.length, uNames(fOff), fOff.byKind['handler-factory']], [3, 3, ['createBarTransport', 'createBazHandler', 'createFooHandler'], 3])
-  eq('F2 同词不同义的反向锁:createQuxTransport(对象初值)与 createLooseHandler 都不在候选里', fOff.candidates.map((c) => c.name).sort(), ['createBarTransport', 'createBazHandler', 'createFooHandler'])
+  eq(
+    'F1 验收① 新族命中必红:三个读得出是工厂的导出 ⇒ 逐条点名 3 处零生产调用方',
+    [
+      fOff.factory.candidates,
+      fOff.factory.unwired.length,
+      uNames(fOff),
+      fOff.byKind['handler-factory'],
+    ],
+    [3, 3, ['createBarTransport', 'createBazHandler', 'createFooHandler'], 3],
+  )
+  eq(
+    'F2 同词不同义的反向锁:createQuxTransport(对象初值)与 createLooseHandler 都不在候选里',
+    fOff.candidates.map((c) => c.name).sort(),
+    ['createBarTransport', 'createBazHandler', 'createFooHandler'],
+  )
   // 正向证明(接线必绿):同一批声明,补上真取用的生产 importer
-  const HF_WIRED = "import { createFooHandler, createBarTransport, createBazHandler } from '../stream-handlers';\nexport function loop(): void { createFooHandler(1); createBarTransport(); createBazHandler(); }\n"
-  const fOn = judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_WIRED]]))
-  eq('F3 三个工厂都被生产面 import 且真取用 ⇒ 0 未接线(新族不是恒真摆设)', [fOn.factory.candidates, fOn.factory.unwired.length, fOn.perFile[HF_DECL_FILE] ?? 0], [3, 0, 0])
+  const HF_WIRED =
+    "import { createFooHandler, createBarTransport, createBazHandler } from '../stream-handlers';\nexport function loop(): void { createFooHandler(1); createBarTransport(); createBazHandler(); }\n"
+  const fOn = judge(
+    new Map([
+      [HF_DECL_FILE, HF_SRC],
+      [HF_USE_FILE, HF_WIRED],
+    ]),
+  )
+  eq(
+    'F3 三个工厂都被生产面 import 且真取用 ⇒ 0 未接线(新族不是恒真摆设)',
+    [fOn.factory.candidates, fOn.factory.unwired.length, fOn.perFile[HF_DECL_FILE] ?? 0],
+    [3, 0, 0],
+  )
   // 变异对照 M3:关掉外部消费整支 ⇒ 已接线夹具必退回 3 处红(证明新族走的是同一种子判据)
-  eq('M3 mutate=no-external-refs ⇒ 已接线的工厂夹具仍判 3 处未接线', judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_WIRED]]), { mutate: 'no-external-refs' }).factory.unwired.length, 3)
+  eq(
+    'M3 mutate=no-external-refs ⇒ 已接线的工厂夹具仍判 3 处未接线',
+    judge(
+      new Map([
+        [HF_DECL_FILE, HF_SRC],
+        [HF_USE_FILE, HF_WIRED],
+      ]),
+      { mutate: 'no-external-refs' },
+    ).factory.unwired.length,
+    3,
+  )
   // 变异对照 M4:关掉传递闭包 —— 工厂经"同文件宿主"接线的那一支必须有牙
-  const HF_CLO = 'const DEFAULT_TTL_MS = 1\nfunction createWrappedHandler(): unknown { return DEFAULT_TTL_MS }\nexport function mount(): unknown { return createWrappedHandler() }\n'
-  eq('M4 mutate=no-closure ⇒ 工厂喂给已接线宿主的常量仍判红(闭包对新族同样有效)', judge(new Map([[HF_DECL_FILE, HF_CLO], [HF_USE_FILE, "import { mount } from '../stream-handlers';\nexport function go(): void { mount() }\n"]]), { mutate: 'no-closure' }).unwired.map((u) => u.name), ['DEFAULT_TTL_MS'])
-  eq('F4 只 import 不取用 ⇒ 新族照旧不算消费者(createBazHandler 单点红)', judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_CONSUMER]])).factory.unwired, [`${HF_DECL_FILE}:3 createBazHandler`])
-  eq('F5 验收② 注释与字符串里的提及不算消费者(遮噪后不可见,3 处照红)', judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_NOISE]])).factory.unwired.length, 3)
-  eq('F6 票面"同词不同义":与工厂**完全同名**的 type/接口字段/class 一律不立案', (() => {
-    const r = judge(new Map([['apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts', HF_TYPE]]))
-    return [r.scanned, r.candidates.length, r.factory.candidates, r.unwired.length]
-  })(), [1, 0, 0, 0])
-  eq('F7 名字边界(宁窄):createdHandler/…Factory/复数/非导出都不立案,createHandler 与 create*Transport 立案', [
-    isHandlerFactoryName('createToolDeltaHandler', true),
-    isHandlerFactoryName('createHandler', true),
-    isHandlerFactoryName('createMemoryTransport', true),
-    isHandlerFactoryName('createdHandler', true),
-    isHandlerFactoryName('createHandlerFactory', true),
-    isHandlerFactoryName('createToolDeltaHandlers', true),
-    isHandlerFactoryName('createLooseHandler', false),
-  ], [true, true, true, false, false, false, false])
-  eq('F8 形状三态:函数/箭头(夹返回类型标注)=factory、对象初值=not-factory、整行无初值=unknown', [
-    declShape('export function createAHandler(): void {}', 0),
-    declShape('export const createAHandler = (d: unknown): H => ({})', 1),
-    declShape('export const createAHandler = base(H)', 1),
-    declShape('export const createAHandler: H = { run() {} }', 1),
-    declShape('export let createAHandler', 1),
-    declShape('export interface createAHandler { run(): void }', 3),
-    declShape('export class createAHandler { run() {} }', 2),
-  ], ['factory', 'factory', 'not-factory', 'not-factory', 'unknown', 'not-factory', 'not-factory'])
-  eq('F9 名字命中而形状读不出 ⇒ 报数逐条点名、不立案、也**不进 exit 2**(§12e:合法写法不得造恒红门)', [fOff.factory.unreadable, fOff.undetermined.length, decide({ stagedCounts: fOff.perFile, mode: 'full', undetermined: fOff.undetermined }).exit], [[`${HF_DECL_FILE}:5 createLooseHandler`], 0, 0])
-  eq('F10 factoryFace 纯函数投影(候选/未接线点名/读不出三档各归各)', factoryFace(
-    [{ file: 'a.ts', line: 1, name: 'createXHandler', kinds: ['handler-factory'] }, { file: 'a.ts', line: 2, name: 'K', kinds: ['policy-const'] }],
-    [{ file: 'a.ts', line: 1, name: 'createXHandler', kinds: ['handler-factory'] }],
-    ['a.ts:9 createYHandler'],
-  ), { candidates: 1, unwired: ['a.ts:1 createXHandler'], unreadable: ['a.ts:9 createYHandler'] })
-  eq('F11 集合推导失败落未判定:候选文件在判定面取不到内容 ⇒ 未判定点名,decide 给 exit 2(不记绿)', (() => {
-    const r = judge(new Map([[HF_DECL_FILE, null]]), { face: 'head' })
-    return [r.factory.candidates, r.undetermined.length, decide({ stagedCounts: r.perFile, mode: 'full', undetermined: r.undetermined }).exit]
-  })(), [0, 1, 2])
-  eq('F12 定级不动:C7 计数并入同一条 perFile 棘轮(新增即拦、齐平不红、全量档不判存量红)', [
-    decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 2 }, mode: 'staged' }).exit,
-    decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 3 }, mode: 'staged' }).exit,
-    decide({ stagedCounts: fOff.perFile, headCounts: fOff.perFile, mode: 'full' }).exit,
-  ], [1, 0, 0])
+  const HF_CLO =
+    'const DEFAULT_TTL_MS = 1\nfunction createWrappedHandler(): unknown { return DEFAULT_TTL_MS }\nexport function mount(): unknown { return createWrappedHandler() }\n'
+  eq(
+    'M4 mutate=no-closure ⇒ 工厂喂给已接线宿主的常量仍判红(闭包对新族同样有效)',
+    judge(
+      new Map([
+        [HF_DECL_FILE, HF_CLO],
+        [
+          HF_USE_FILE,
+          "import { mount } from '../stream-handlers';\nexport function go(): void { mount() }\n",
+        ],
+      ]),
+      { mutate: 'no-closure' },
+    ).unwired.map((u) => u.name),
+    ['DEFAULT_TTL_MS'],
+  )
+  eq(
+    'F4 只 import 不取用 ⇒ 新族照旧不算消费者(createBazHandler 单点红)',
+    judge(
+      new Map([
+        [HF_DECL_FILE, HF_SRC],
+        [HF_USE_FILE, HF_CONSUMER],
+      ]),
+    ).factory.unwired,
+    [`${HF_DECL_FILE}:3 createBazHandler`],
+  )
+  eq(
+    'F5 验收② 注释与字符串里的提及不算消费者(遮噪后不可见,3 处照红)',
+    judge(
+      new Map([
+        [HF_DECL_FILE, HF_SRC],
+        [HF_USE_FILE, HF_NOISE],
+      ]),
+    ).factory.unwired.length,
+    3,
+  )
+  eq(
+    'F6 票面"同词不同义":与工厂**完全同名**的 type/接口字段/class 一律不立案',
+    (() => {
+      const r = judge(new Map([['apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts', HF_TYPE]]))
+      return [r.scanned, r.candidates.length, r.factory.candidates, r.unwired.length]
+    })(),
+    [1, 0, 0, 0],
+  )
+  eq(
+    'F7 名字边界(宁窄):createdHandler/…Factory/复数/非导出都不立案,createHandler 与 create*Transport 立案',
+    [
+      isHandlerFactoryName('createToolDeltaHandler', true),
+      isHandlerFactoryName('createHandler', true),
+      isHandlerFactoryName('createMemoryTransport', true),
+      isHandlerFactoryName('createdHandler', true),
+      isHandlerFactoryName('createHandlerFactory', true),
+      isHandlerFactoryName('createToolDeltaHandlers', true),
+      isHandlerFactoryName('createLooseHandler', false),
+    ],
+    [true, true, true, false, false, false, false],
+  )
+  eq(
+    'F8 形状三态:函数/箭头(夹返回类型标注)=factory、对象初值=not-factory、整行无初值=unknown',
+    [
+      declShape('export function createAHandler(): void {}', 0),
+      declShape('export const createAHandler = (d: unknown): H => ({})', 1),
+      declShape('export const createAHandler = base(H)', 1),
+      declShape('export const createAHandler: H = { run() {} }', 1),
+      declShape('export let createAHandler', 1),
+      declShape('export interface createAHandler { run(): void }', 3),
+      declShape('export class createAHandler { run() {} }', 2),
+    ],
+    ['factory', 'factory', 'not-factory', 'not-factory', 'unknown', 'not-factory', 'not-factory'],
+  )
+  eq(
+    'F9 名字命中而形状读不出 ⇒ 报数逐条点名、不立案、也**不进 exit 2**(§12e:合法写法不得造恒红门)',
+    [
+      fOff.factory.unreadable,
+      fOff.undetermined.length,
+      decide({ stagedCounts: fOff.perFile, mode: 'full', undetermined: fOff.undetermined }).exit,
+    ],
+    [[`${HF_DECL_FILE}:5 createLooseHandler`], 0, 0],
+  )
+  eq(
+    'F10 factoryFace 纯函数投影(候选/未接线点名/读不出三档各归各)',
+    factoryFace(
+      [
+        { file: 'a.ts', line: 1, name: 'createXHandler', kinds: ['handler-factory'] },
+        { file: 'a.ts', line: 2, name: 'K', kinds: ['policy-const'] },
+      ],
+      [{ file: 'a.ts', line: 1, name: 'createXHandler', kinds: ['handler-factory'] }],
+      ['a.ts:9 createYHandler'],
+    ),
+    { candidates: 1, unwired: ['a.ts:1 createXHandler'], unreadable: ['a.ts:9 createYHandler'] },
+  )
+  eq(
+    'F11 集合推导失败落未判定:候选文件在判定面取不到内容 ⇒ 未判定点名,decide 给 exit 2(不记绿)',
+    (() => {
+      const r = judge(new Map([[HF_DECL_FILE, null]]), { face: 'head' })
+      return [
+        r.factory.candidates,
+        r.undetermined.length,
+        decide({ stagedCounts: r.perFile, mode: 'full', undetermined: r.undetermined }).exit,
+      ]
+    })(),
+    [0, 1, 2],
+  )
+  eq(
+    'F12 定级不动:C7 计数并入同一条 perFile 棘轮(新增即拦、齐平不红、全量档不判存量红)',
+    [
+      decide({
+        stagedCounts: { [HF_DECL_FILE]: 3 },
+        headCounts: { [HF_DECL_FILE]: 2 },
+        mode: 'staged',
+      }).exit,
+      decide({
+        stagedCounts: { [HF_DECL_FILE]: 3 },
+        headCounts: { [HF_DECL_FILE]: 3 },
+        mode: 'staged',
+      }).exit,
+      decide({ stagedCounts: fOff.perFile, headCounts: fOff.perFile, mode: 'full' }).exit,
+    ],
+    [1, 0, 0],
+  )
 
   // F13(2026-10-06 G-816034 复核副产):F5 的噪声注释写在**第一个顶层声明之前**,host 行域规则
   // 就已经把它挡掉了 ⇒ F5 证不了"遮噪"这一层承重(把注释遮噪改松,F5 一条都不翻)。
@@ -1791,10 +2657,24 @@ function selfTest() {
       '}',
       '',
     ].join('\n')
-  eq('F13 注释落在宿主行域内时遮噪才是唯一防线(成对:注释形态仍 3 红 / 去掉注释标记即接线)', [
-    judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_IN_BODY(true)]])).factory.unwired.length,
-    judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_IN_BODY(false)]])).factory.unwired.length,
-  ], [3, 2])
+  eq(
+    'F13 注释落在宿主行域内时遮噪才是唯一防线(成对:注释形态仍 3 红 / 去掉注释标记即接线)',
+    [
+      judge(
+        new Map([
+          [HF_DECL_FILE, HF_SRC],
+          [HF_USE_FILE, HF_IN_BODY(true)],
+        ]),
+      ).factory.unwired.length,
+      judge(
+        new Map([
+          [HF_DECL_FILE, HF_SRC],
+          [HF_USE_FILE, HF_IN_BODY(false)],
+        ]),
+      ).factory.unwired.length,
+    ],
+    [3, 2],
+  )
 
   // ⑱ default 链(2026-11-01):default 导入接进"声明体边 + 传递闭包",只扩认链、不松判据。
   const DEF_FORMS = [
@@ -1905,7 +2785,7 @@ function selfTest() {
   console.log(
     fail
       ? `\n❌ 自检 ${fail}/${ran} 例失败`
-      : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + 静态键表族四验收 + C7 工厂族五验收 + default 链五形接线与双变异对照)`,
+      : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + 静态键表族四验收 + 拼接前缀族七验收 + C7 工厂族五验收 + default 链五形接线与双变异对照)`,
   )
   process.exit(fail ? 1 : 0)
 }
@@ -1986,6 +2866,7 @@ export const __test__ = {
     DEF_MIX_SRC,
     DEF_MIX_USE,
     DEF_MIX_USE_NAMED_ONLY,
+    CONCAT_ON,
   },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
