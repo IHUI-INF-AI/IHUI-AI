@@ -48,6 +48,7 @@ import {
   enableToolHub,
   setHubRemoteRegistry,
   WORKTREE_TOOLS,
+  resolveDangerousConfirmation,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
@@ -2489,10 +2490,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             };
           }
           if (decision === 'ask' && dangerLevel !== 'dangerous') {
-            const allowed = opts.ctx.confirmDangerous
-              ? await opts.ctx.confirmDangerous(tool!, call.arguments)
-              : false;
-            if (!allowed) {
+            // ask 档同样只经唯一判定出口问人(不在 call-site 判"有没有渠道");
+            // 无渠道 ⇒ 与改前一样落 false,拒因文案原样保留。
+            const confirmation = await resolveDangerousConfirmation(opts.ctx, tool!, call.arguments);
+            if (confirmation.kind !== 'approved') {
               return {
                 call,
                 result: {
