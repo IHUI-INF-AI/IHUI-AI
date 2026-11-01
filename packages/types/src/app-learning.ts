@@ -138,12 +138,15 @@ export interface StudyProgressCourse {
   progress: number
 }
 
-/** 学习进度数据(平台注入,字段对齐 mobile-rn StudyProgressScreen Progress) */
+/** 学习进度数据(平台注入,字段对齐 mobile-rn StudyProgressScreen Progress)
+ * weekMinutes 可选:/study/* 域无周学时来源(周时长只在 edu 域 lessonRecordLogs 聚合里),
+ * 渲染处给 ?? 0 兜底。
+ */
 export interface StudyProgressData {
   totalCourses: number
   completedCourses: number
   totalMinutes: number
-  weekMinutes: number
+  weekMinutes?: number
   streakDays: number
   courses: StudyProgressCourse[]
 }
@@ -231,7 +234,8 @@ export interface ExamHistoryItem {
   id: string
   examTitle: string
   score: number
-  totalScore: number
+  /** exam_records 表无该列;仅当壳用 /exam/papers/by-ids 二次取到卷时才有 ⇒ 可选 */
+  totalScore?: number
   passed: boolean
   /** 提交时间(ISO 或格式化字符串) */
   submittedAt: string
@@ -484,6 +488,8 @@ export interface CourseAnnexScreenProps {
   error: string
   onRefresh: () => void
   onBack: () => void
+  /** 打开附件(下载外链)回调;不传或 item.url 为空 ⇒ 「下载」仍是纯展示文案,既有调用方零影响 */
+  onOpen?: (url: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
