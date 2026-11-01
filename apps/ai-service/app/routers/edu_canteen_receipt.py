@@ -41,7 +41,6 @@ from ..services.vision_helper import (
     is_data_uri,
     is_local_path,
     is_url,
-    read_local_image,
 )
 
 logger = logging.getLogger(__name__)

@@ -25,6 +25,9 @@
 - 错误分类 classify_error 的 (error_type, cooldown_seconds) 契约不变
   （cooldown_seconds: -1=永久, 0=不冷却, >0=冷却秒数）——落冷却仍由调用方执行；
 - signin_with_retry 仅对网络层异常（code 为 None）重试，业务失败不重试。
+- claim 路拿到「今日已签到」码(9095)时归为幂等成功态,与 status 预检命中已签
+  同形状(ok=True/status="already"/action="skip_already"),不落冷却、不计失败;
+  码值判据单源在 checkin_codes（2026-11-01 立,此前它被误分类成 BusinessError）。
 """
 
 from __future__ import annotations
@@ -41,6 +44,7 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
+from app.services.checkin_codes import PLATFORM_TRAE, is_already_checked_in
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
@@ -230,9 +234,7 @@ def _jwt_payload(jwt: str) -> dict[str, Any] | None:
         return None
 
 
-def extract_display_name(
-    jwt: str | None, device_map: dict[str, Any] | None = None
-) -> str | None:
+def extract_display_name(jwt: str | None, device_map: dict[str, Any] | None = None) -> str | None:
     """按 手机 > 邮箱 > 账户名 > 用户名 派生展示名;取不到返回 None(调用方保持原名)。
 
     搜索面(按优先级):
@@ -433,7 +435,9 @@ async def status_check(
     if not user_id:
         return False, None, None, None, "无法从 JWT 解析 user id"
     dev = get_device_for(user_id, device_map)
-    status, body = await _http_post(STATUS_URL, jwt, dev, body=b"{}", timeout=timeout, client=client)
+    status, body = await _http_post(
+        STATUS_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+    )
     if status < 0:
         return False, None, None, None, body or "网络异常"
     try:
@@ -487,7 +491,12 @@ def _parse_signin_body(
     try:
         return json.loads(body), None
     except Exception:
-        return None, (False, f"HTTP {status}: 非 JSON 响应: {body[:200]}", status if status else None, status)
+        return None, (
+            False,
+            f"HTTP {status}: 非 JSON 响应: {body[:200]}",
+            status if status else None,
+            status,
+        )
 
 
 async def signin(
@@ -506,7 +515,9 @@ async def signin(
         return False, "无法从 JWT 解析 user id", None, 0
 
     dev = get_device_for(user_id, device_map)
-    status, body = await _http_post(SIGNIN_URL, jwt, dev, body=b"{}", timeout=timeout, client=client)
+    status, body = await _http_post(
+        SIGNIN_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+    )
 
     if status < 0:
         return False, body or "网络异常", None, status
@@ -533,7 +544,11 @@ def classify_error(
 ) -> tuple[str, int]:
     """根据 HTTP 状态码和业务码分类签到错误，返回 (error_type, cooldown_seconds)。
     cooldown_seconds: -1=永久, 0=不冷却(仅记录错误计数), >0=冷却秒数
-    http_status 为 None 表示网络层异常（未拿到响应），落入 Unknown。"""
+    http_status 为 None 表示网络层异常（未拿到响应），落入 Unknown。
+
+    注意:本函数只分类**失败**。「今日已签到」码(9095)是幂等成功态,由
+    checkin_account 在调用本函数之前就拦下(判据见 checkin_codes),此处不做映射
+    —— 若哪天 9095 又落进 BusinessError,说明拦截分支被绕过,不要在这里加特例。"""
     if http_status is None:
         return "Unknown", 0
     if http_status == 200 and code == 1005:
@@ -579,7 +594,9 @@ async def signin_with_retry(
             return ok, msg, code, status
         last = (ok, msg, code, status)
         if attempt < retry:
-            logger.warning("签到网络异常重试", name=name, attempt=attempt + 1, retry_delay=retry_delay)
+            logger.warning(
+                "签到网络异常重试", name=name, attempt=attempt + 1, retry_delay=retry_delay
+            )
             await asyncio.sleep(retry_delay)
     return last
 
@@ -643,7 +660,9 @@ async def checkin_account(
         if remaining < 0:
             result["warning"] = f"JWT 已过期({exp_dt:%Y-%m-%d %H:%M})，请重新抓取"
         elif remaining < EXPIRY_WARN_HOURS:
-            result["warning"] = f"JWT 将于 {remaining:.1f}h 后过期({exp_dt:%Y-%m-%d %H:%M})，请重新抓取"
+            result["warning"] = (
+                f"JWT 将于 {remaining:.1f}h 后过期({exp_dt:%Y-%m-%d %H:%M})，请重新抓取"
+            )
         if result["warning"]:
             logger.warning("JWT 有效期告警", name=name, warning=result["warning"])
 
@@ -694,7 +713,10 @@ async def checkin_account(
             result.update(
                 code=None,
                 message="平台返回挑战页/非 API 响应,已熔断",
-                classified_error={"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+                classified_error={
+                    "type": "Challenge",
+                    "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+                },
             )
             return result
 
@@ -721,6 +743,31 @@ async def checkin_account(
             user_id=user_id,
             http_status=http_status,
             body=(msg or "")[:120],
+        )
+        return result
+
+    # 「今日已签到」(code=9095,message「当前设备今日已经签到」)是**幂等成功态**,
+    # 不是失败:客户端/同设备当天已先签一步,服务端如实回报。它与 status 预检命中
+    # 已签时的形状完全一致(ok=True / status="already" / action="skip_already",
+    # message 保留上游原文),故不触发冷却、不累加失败计数、不算失败率。
+    # 判据单源在 checkin_codes(本文件不直写码值)。
+    # 位置有意放在 403/非 JSON 挑战判定**之后**:HTTP 层的拦截墙结论优先于业务体,
+    # 且此处再钉「真收到 2xx」—— 401/429/5xx 的 HTTP 结论不许被一枚业务码洗白
+    # (9095 实测总在 HTTP 200 上返回;放宽到 4xx 等于给鉴权失败开后门)。
+    if (
+        http_status is not None
+        and 200 <= http_status < 300
+        and is_already_checked_in(PLATFORM_TRAE, code)
+    ):
+        logger.info("今日已签到(幂等,非失败)", name=name, user_id=user_id, code=code)
+        # credits 与 status 预检已签分支同源:取 status 报的可领额度(未取到就是 None,
+        # 不编造);credits_delta 保持 None —— 本轮一个积分都没进来,写 delta 会把
+        # 「今日已签」重复计进每日积分流水(sum_credits_delta_for_day)。
+        result.update(
+            ok=True,
+            status="already",
+            action="skip_already",
+            credits=credits_before,
         )
         return result
 
@@ -756,4 +803,6 @@ async def checkin_account(
     result["message"] = msg
     logger.info("签到失败", name=name, user_id=user_id, code=code, message=msg)
     return result
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

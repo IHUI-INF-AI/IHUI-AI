@@ -134,7 +134,7 @@ class TestDownloadUrlSsrfSafe:
             def __init__(self, *a: Any, **k: Any) -> None:
                 pass
 
-            async def __aenter__(self) -> "_Inner":
+            async def __aenter__(self) -> _Inner:
                 return self
 
             async def __aexit__(self, *a: Any) -> None:
@@ -162,7 +162,7 @@ class TestDownloadUrlSsrfSafe:
             def __init__(self, *a: Any, **k: Any) -> None:
                 pass
 
-            async def __aenter__(self) -> "_NeverClient":
+            async def __aenter__(self) -> _NeverClient:
                 return self
 
             async def __aexit__(self, *a: Any) -> None:
@@ -178,14 +178,13 @@ class TestDownloadUrlSsrfSafe:
     async def test_safe_url_downloads(self, monkeypatch):
         from unittest.mock import patch
 
-        import app.services.mcp_server as ms
         from app.services.mcp_server import _download_url_ssrf_safe
 
         class _Inner:
             def __init__(self, *a: Any, **k: Any) -> None:
                 pass
 
-            async def __aenter__(self) -> "_Inner":
+            async def __aenter__(self) -> _Inner:
                 return self
 
             async def __aexit__(self, *a: Any) -> None:
