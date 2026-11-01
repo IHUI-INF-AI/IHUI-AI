@@ -303,6 +303,16 @@ function rankRows(rows, state, n = 12) {
     .map((r) => `${r.prop}=${r.val}px×${r.n}`)
 }
 
+/**
+ * 某桶的去重取值(数字,不是 `rankRows` 的展示串)。
+ * 缺陷回归:上一版 JSON 直接 `Number(s.split('=')[1].split('×')[0])`,`s` 是 `gap=10px×n`
+ * ⇒ `Number('10px')` = NaN ⇒ JSON 落成 `[null]`(量纲静默丢失,读侧只能当成"没有取值")。
+ * 取值必须从结构化字段 `r.val` 取,不得从展示串反解。
+ */
+function rowValues(rows, state) {
+  return [...new Set(rows.filter((r) => r.state === state).map((r) => r.val))].sort((a, b) => a - b)
+}
+
 function runJudge() {
   const tier = loadTierTable()
   const rnList = listFiles(RN_DIRS)
@@ -366,10 +376,10 @@ function report(r) {
     if (x.missingTier) console.log(`     缺位 Top: ${rankRows(x.rows, 'missingTier').join(' ')}`)
     if (x.fork) console.log(`     分叉 Top: ${rankRows(x.rows, 'fork').join(' ')}`)
   }
-  const rnMissing = rankRows(r.rn.rows, 'missingTier', 999)
+  const rnMissingVals = rowValues(r.rn.rows, 'missingTier')
   console.log(`\n结论:TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
   console.log(`     (只读尺:不进提交链也不进 CI,§12e。净增才经 §5e 到人;调度=parity-auto gate 组 + guardian 巡检轮)`)
-  if (rnMissing.length) console.log(`     补表候选(去重取值): ${[...new Set(rnMissing.map((s) => s.split('=')[1].split('×')[0]))].join(' ')}`)
+  if (rnMissingVals.length) console.log(`     补表候选(去重取值): ${rnMissingVals.join(' ')}`)
 }
 
 // 自检夹具:两端各一段**真实书写形态**的源码文本(不是简化过的中间结构),
@@ -469,7 +479,19 @@ async function main() {
   }
   if (jsonMode) {
     const slim = (x) => ({ inTier: x.inTier, inN: x.inN, missingTier: x.missingTier, missingN: x.missingN, fork: x.fork, forkN: x.forkN })
-    console.log(JSON.stringify({ ...r, rn: slim(r.rn), web: slim(r.web), rnMissingValues: [...new Set(rankRows(r.rn.rows, 'missingTier', 999).map((s) => Number(s.split('=')[1].split('×')[0])))], rnForkValues: [...new Set(rankRows(r.rn.rows, 'fork', 999).map((s) => Number(s.split('=')[1].split('×')[0])))] }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          ...r,
+          rn: slim(r.rn),
+          web: slim(r.web),
+          rnMissingValues: rowValues(r.rn.rows, 'missingTier'),
+          rnForkValues: rowValues(r.rn.rows, 'fork'),
+        },
+        null,
+        2,
+      ),
+    )
   } else if (quietMode) {
     console.log(`TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
   } else report(r)
@@ -483,5 +505,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn, rankRows, TW_STEP_PX, SPACING_CLASS_PREFIX }
+export const __test__ = { bump, bucketize, mergeUniverse, tally, collectWeb, collectRn, rankRows, rowValues, TW_STEP_PX, SPACING_CLASS_PREFIX }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
