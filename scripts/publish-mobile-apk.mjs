@@ -28,8 +28,9 @@
  * 而页面/文件名看不出差别(与"线上版本标记会骗"同型)。带版本号的副本反过来给长缓存。
  *
  * 站点腿落点不写死盘符:生产签出根一律问单源 `scripts/lib/prod-checkout-root.mjs` 的
- * `prodCheckoutRoot`(2026-11-01 收口,RP-90 第三处),两处都不存在 ⇒ exit 2 点名已试路径
- * (静默跳过 = 对外地址停在旧包而账面是绿的)。
+ * `prodCheckoutRoot`(2026-11-01 收口,RP-90 第三处);根取不到或落点不存在 ⇒ exit 2 点名已试路径
+ * —— 主仓影子目录不是线上 cdn-server 的 `--root`,所以**不再静默回落**(静默跳过 = 对外地址停在
+ * 旧包而账面是绿的;静默回落 = 把包发到没人服务的目录而账面同样是绿的)。
  *
  * 用法:
  *   node scripts/publish-mobile-apk.mjs --apk <path> --version 0.0.9 --version-code 26102816
@@ -87,16 +88,19 @@ export function siteLegUrl(key) {
 }
 
 /**
- * 落点选择:生产签出优先(线上 cdn-server 的 --root 就是它),其次本仓。
- * 两处都不存在 ⇒ chosen=null,调用方必须**失败**而不是"跳过站点腿还报成功"——
- * 静默跳过会让对外地址停留在旧包,而账面是绿的。
+ * 落点选择:只认生产签出(线上 cdn-server 的 `--root` 就是它)。
+ * 生产根取不到 / 落点不存在 ⇒ chosen=null,调用方必须**以 2 退出**并点名已试路径;
+ * 既不许"跳过站点腿还报成功",也不许改发主仓影子目录 —— 两者都让账面是绿的而用户拿到旧包。
  *
  * 生产根一律问单源 `lib/prod-checkout-root.mjs`(2026-11-01,RP-90 第三处)。此前这里自己拼
  * `join(devEnvRoot(repoRoot),'ihui-prod')`:该写法在「仓内 `.DevEnv` 根在、`ihui-prod` 留盘根侧」
  * 的机器上候选**恒缺** ⇒ chosen 静默落 `repo` 源(主仓影子目录)⇒ 站点腿发的不是生产 checkout
  * 而账面全绿(不是报错,是选错了源 —— 与本文件头注"静默"同族)。
  *
- * 单源抛错时照旧不炸(降级留 repo 兜底源),但**不静默**:打一行点名,免得"取不到"被读成"没有"。
+ * `repo` 候选仍列在 candidates 里,但**只作诊断点名**(已试路径),永不参与选择:主仓
+ * `deploy/server-root/…` 是开发工作树里的影子目录,不是线上落点。
+ *
+ * 单源抛错时照旧不炸(prod 源缺席 ⇒ chosen=null),但**不静默**:打一行点名,免得"取不到"被读成"没有"。
  */
 export function siteLegPlan({ repoRoot = REPO, env = process.env, exists = existsSync } = {}) {
   const candidates = []
@@ -108,13 +112,14 @@ export function siteLegPlan({ repoRoot = REPO, env = process.env, exists = exist
   } catch (e) {
     prodDir = null
     console.warn(
-      `[publish] 站点腿: 生产 checkout 根取不到(单源 prodCheckoutRoot 抛错)⇒ 跳过 prod 源,仅剩仓内兜底: ${String(e?.message ?? e).slice(0, 160)}`,
+      `[publish] 站点腿: 生产 checkout 根取不到(单源 prodCheckoutRoot 抛错)⇒ 未判定,不回落主仓影子目录: ${String(e?.message ?? e).slice(0, 160)}`,
     )
   }
   if (prodDir) candidates.push({ source: 'prod-checkout', dir: join(prodDir, SITE_LEG.RelDir) })
+  // 仅诊断:列出来是为了失败时能点名"试过但不选"的那一处(不再当兜底源)。
   candidates.push({ source: 'repo', dir: join(repoRoot, SITE_LEG.RelDir) })
-  const hit = candidates.find((c) => exists(c.dir))
-  return { candidates, chosen: hit ?? null, envOverride: (env.IHUI_SITE_CDN_DIR || '').trim() || null }
+  const prodHit = prodDir && exists(join(prodDir, SITE_LEG.RelDir)) ? candidates[0] : null
+  return { candidates, chosen: prodHit, envOverride: (env.IHUI_SITE_CDN_DIR || '').trim() || null }
 }
 
 /** 流式 sha256(81MB 不整块进内存) */
@@ -333,6 +338,7 @@ async function main() {
   if (!plan.chosen) {
     console.error('未判定: 站点 CDN 落点不存在 ⇒ 固定地址不会更新,拒绝把发布报成成功')
     console.error('  已试: ' + plan.candidates.map((c) => `${c.source}=${c.dir}`).join(' | '))
+    console.error('  主仓影子目录不是线上 cdn-server 的 --root ⇒ 不选它(repo 仅作诊断点名)')
     return 2
   }
   const vKey = versionKey(args.version, args.versionCode)
