@@ -253,84 +253,44 @@ export interface SubagentConfig {
   filePath: string
 }
 
-/**
- * 子代理配置注册表。
- *
- * 2026-11-02 越权收口(两处):
- * ① `workspacePath` 此前是客户端自报串,直接 join('.claude/agents') 后 readdir ⇒ 传 `C:\`
- *    就等于让服务端枚举任意目录下的 agent 定义(名称/prompt/绝对路径随响应回吐)。现改为先
- *    过 utils/workspace-roots 的登记根闸(realpath + relative 包含判定),且闸早于**任何**
- *    fs 调用 —— 越界路径不产生 readdir/stat 副作用,也不会从 ENOENT 变成 500。
- * ② `configs` 此前是**进程级单桶**,任一用户 discover 之后所有人的 `list()` 都能读到别人的
- *    `name`/`systemPrompt`/`filePath`。现按 ownerUserId 分桶,`list()`/`get()` 只回本人。
- */
 class SubagentManager {
-  private configsByOwner = new Map<string, Map<string, SubagentConfig>>()
+  private configs = new Map<string, SubagentConfig>()
 
-  private bucket(ownerUserId: string): Map<string, SubagentConfig> {
-    let bucket = this.configsByOwner.get(ownerUserId)
-    if (!bucket) {
-      bucket = new Map<string, SubagentConfig>()
-      this.configsByOwner.set(ownerUserId, bucket)
-    }
-    return bucket
-  }
-
-  discover(ownerUserId: string, workspacePath: string): SubagentConfig[] {
-    // 归一后的登记根才是比较基准;越界在这里抛,调用方(路由)翻译成 404
-    const root = assertWithinRegisteredRoots(workspacePath, '工作区')
+  discover(workspacePath: string): SubagentConfig[] {
+    const dirs = [join(workspacePath, '.claude', 'agents'), join(homedir(), '.ihui', 'agents')]
     const found: SubagentConfig[] = []
     const seen = new Set<string>()
-    const bucket = this.bucket(ownerUserId)
-
-    const agentsDir = join(root, '.claude', 'agents')
-    if (existsSync(agentsDir)) {
-      // 只闸 workspacePath 挡不住 `.claude/agents` 本身是指向根外的符号链接
-      const realDir = realpathOrResolve(agentsDir)
-      if (!isInsideRoot(realDir, root)) throw new Error('路径越界：子代理目录不在工作区内')
-      this.scan(realDir, bucket, found, seen)
+    for (const dir of dirs) {
+      if (!existsSync(dir)) continue
+      for (const file of readdirSync(dir)) {
+        if (!file.endsWith('.md')) continue
+        const cfg = this.parseFile(join(dir, file))
+        if (cfg && !seen.has(cfg.name)) {
+          found.push(cfg)
+          seen.add(cfg.name)
+          this.configs.set(cfg.name, cfg)
+        }
+      }
     }
-    // 服务端自有的全局目录(不来自客户端串),按当前调用者归属
-    const globalDir = join(homedir(), '.ihui', 'agents')
-    if (existsSync(globalDir)) this.scan(globalDir, bucket, found, seen)
     return found
   }
 
-  private scan(
-    dir: string,
-    bucket: Map<string, SubagentConfig>,
-    found: SubagentConfig[],
-    seen: Set<string>,
-  ): void {
-    for (const file of readdirSync(dir)) {
-      if (!file.endsWith('.md')) continue
-      const cfg = this.parseFile(join(dir, file))
-      if (cfg && !seen.has(cfg.name)) {
-        found.push(cfg)
-        seen.add(cfg.name)
-        bucket.set(cfg.name, cfg)
-      }
-    }
+  list(): SubagentConfig[] {
+    return Array.from(this.configs.values())
   }
 
-  /** 只回调用者本人的配置(跨租户不可见) */
-  list(ownerUserId: string): SubagentConfig[] {
-    return Array.from(this.bucket(ownerUserId).values())
-  }
-
-  get(ownerUserId: string, name: string): SubagentConfig | null {
-    return this.bucket(ownerUserId).get(name) ?? null
+  get(name: string): SubagentConfig | null {
+    return this.configs.get(name) ?? null
   }
 
   /** 委派任务给子代理（独立上下文） */
   async delegate(params: {
-    ownerUserId: string
     name: string
     prompt: string
     workspacePath: string
     model?: string
   }): Promise<{ agentName: string; result: string }> {
-    const cfg = this.get(params.ownerUserId, params.name)
+    const cfg = this.configs.get(params.name)
     if (!cfg) throw new Error(`子代理不存在: ${params.name}`)
     // 简化：返回子代理执行结果（实际应调用 AgentLoopRuntime）
     return {
