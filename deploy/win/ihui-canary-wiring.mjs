@@ -31,9 +31,14 @@
  *                                      scripts/data/canary-policy.json,AGENTS §0.6)
  *   W8 整包回滚出口                 —— fail 分支必须真调 ihui-deploy.ps1 -rollbackOnly,
  *                                      否则"异常自动回滚"这一格只是日志上的话
+ *   W9 撤量/退包次序                —— -Action stop 必须排在 -rollbackOnly 之前(顺序反了
+ *                                      就是"包退完了,分流器还往已拆掉的候选槽位送请求")
+ *   W10 灰度在位维                  —— --decide 必须带 --canary-serving yes|no|unknown
+ *                                      (票 31460:灰度实例不在位时的"现网侧 pass"不得被喂给
+ *                                      档位推进冒充"灰度侧通过";缺省 unknown ⇒ hold 不推进)
  *
  * 三态(§0.3,不并桶):
- *   0 = 已接线(W1–W7 全中)
+ *   0 = 已接线(W1–W10 全中)
  *   1 = 有缺口(逐条点名 id + 修法)
  *   2 = 未判定(被审文件取不到 / 找不到 Invoke-CanaryGate 段 ⇒ 绝不记绿)
  *
@@ -111,6 +116,12 @@ export const WIRING_RULES = [
     order: { first: /-Action\s+stop/, second: /-rollbackOnly/ },
     why: '撤灰度(-Action stop)排在整包回滚之后 ⇒ 包都退完了,分流器还按老契约把请求往已拆掉的候选槽位上送',
     fix: 'fail 分支先 -Action stop(并已由 --decide 把契约比例归零),再调 -rollbackOnly',
+  },
+  {
+    id: 'W10',
+    need: /--canary-serving/,
+    why: '档位推进没有携带灰度实例在位维 ⇒ 灰度实例不在位时的"现网侧 pass"照样被喂给 --decide 升档(票 31460 治的形态:放量完成的灰度那一半是空的)',
+    fix: '把灰度实例是否在位现算成 yes|no|unknown 后随 --decide 传 `--canary-serving <v>`;缺省/取不到一律 unknown ⇒ stage.mjs 侧落 hold,不推进也不回滚',
   },
 ]
 
@@ -264,6 +275,7 @@ function selfTest() {
       { name: '摘掉 --verdict 推进', re: /--verdict/g, want: 'W4' },
       { name: '摘掉撤灰度(stop)', re: /-Action\s+stop/g, want: 'W5' },
       { name: '摘掉整包回滚出口', re: /-rollbackOnly/g, want: 'W8' },
+      { name: '摘掉灰度在位维(--canary-serving)', re: /--canary-serving/g, want: 'W10' },
     ]
     for (const m of mutations) {
       t(`变异:${m.name} ⇒ ${m.want} 翻红`, () => {
@@ -286,7 +298,7 @@ function selfTest() {
         '  if (-not (Test-Path $grayPs1)) { Log "GRAY 未判定:gray 件不在位"; return $false }',
         '  if (-not (Test-Path $trafficCli)) { Log "GRAY 未判定:traffic 件不在位"; return $false }',
         "  & $Node $trafficCli --gray-policy --stage $s --out $gp",
-        "  & $Node $stageCli --decide --verdict 'pass' --current $s --contract $r",
+        "  & $Node $stageCli --decide --verdict 'pass' --canary-serving yes --current $s --contract $r",
         swapOrder ? rb : stop,
         swapOrder ? stop : rb,
         hardcode ? '  # 反例:把槽位端口/比例写死在部署环里 ⇒ 第二份策略(§0.6)' : '  $samplePolicy = $policyPath',
