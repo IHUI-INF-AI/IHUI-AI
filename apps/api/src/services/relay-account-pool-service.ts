@@ -22,6 +22,7 @@ import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
+import { logger } from '../utils/logger.js'
 import {
   credentialShapeIssue,
   detectPhoneMask,
@@ -1021,11 +1022,40 @@ export async function importAccounts(
   }
   // O64:导入/覆盖即推送签到侧(号池 = 凭证权威 → 签到副本)。推送失败绝不阻塞导入:
   // 整批失败全落 pending;部分失败按 poolAccountId 精确落;由重推器/对账收敛器清偿。
+  /**
+   * 落「已同步」徽章 = `ai_relay_account_pool.extra_metadata->'checkinSync'`。
+   *
+   * 这是 admin 号池页「签到同步徽章」的唯一数据源(routes/admin/relay-account-pool.ts:416
+   * 的 `checkinSync: sql(...-> 'checkinSync')`)。此前**只有失败分支**写
+   * markCheckinSyncPending ⇒ 推送成功的行上根本没有 checkinSync 键;而对账收敛器
+   * (relay-account-pool-reconcile.ts)只在"签到侧缺行 / pool_cred_version 落后"时才补推
+   * 并 clearCheckinSyncPending,两侧一致时它不动 ⇒ 没有任何一处会写成功态 ⇒ 徽章恒空。
+   * 所以成功也必须落一次 {pending:false, lastSyncedAt, attempts:0}。
+   *
+   * 2026-11-01 实测实证:本机 qoder 号 uid `01a191f4-8dc3-75db-831b-4ef5c2dedd4a` 走自动
+   * 入池进本函数,签到侧 `checkin_accounts.id=15` 已存在且 pool_cred_version 与号池
+   * cred_version 一致,但号池行 extra_metadata 只有
+   * `{cosy,version,machineCode,machineType,machineToken,refreshTokenExpiresAt}` —— 没有
+   * checkinSync,admin 页显示不出同步态。
+   *
+   * fail-open:徽章只是可观测性,单次 UPDATE 失败只告警,绝不让导入结果变成失败。
+   */
+  const markCheckinSynced = async (ids: string[]): Promise<void> => {
+    if (ids.length === 0) return
+    try {
+      await clearCheckinSyncPending(ids)
+    } catch (e) {
+      logger.warn('[account-pool] 导入后写 checkinSync 同步态失败(徽章缺失,不影响导入)', {
+        count: ids.length,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
   const checkinPlatform = checkinPlatformFor(providerCode)
   if (checkinPush.length === 0) {
     result.checkinSync = { pushed: 0, skipped: 0, pending: 0, error: null }
   } else if (!checkinPlatform) {
-    // 平台无签到引擎(如 codearts):如实计 skipped,不推送、不落 pending
+    // 平台无签到引擎(如 codearts):如实计 skipped,不推送、不落 pending、也不写徽章
     result.checkinSync = { pushed: 0, skipped: checkinPush.length, pending: 0, error: null }
   } else {
     const push = await pushPoolSync(checkinPlatform, checkinPush)
@@ -1036,12 +1066,20 @@ export async function importAccounts(
         pending: 0,
         error: push.error,
       }
+      // 全批算已同步:skipped 的是上游按幂等跳过(pool_cred_version 未变),签到侧已有同版本。
+      await markCheckinSynced(checkinPush.map((a) => a.poolAccountId))
     } else {
       const failedIdSet = new Set(push.failedIds)
       const pendingIds =
         push.failedIds.length > 0
           ? checkinPush.filter((a) => failedIdSet.has(a.poolAccountId)).map((a) => a.poolAccountId)
           : checkinPush.map((a) => a.poolAccountId)
+      // 非本条目责任的失败仍算已同步:failedIds 为空(整批 HTTP 失败)时全批 pending,一条不 clear。
+      const syncedIds =
+        push.failedIds.length > 0
+          ? checkinPush.filter((a) => !failedIdSet.has(a.poolAccountId)).map((a) => a.poolAccountId)
+          : []
+      await markCheckinSynced(syncedIds)
       await markCheckinSyncPending(pendingIds, 'cred', null, push.error ?? '未知错误')
       result.checkinSync = {
         pushed: push.pushed,
@@ -1197,6 +1235,8 @@ async function applyPhoneCompletion(
       const push = await pushPoolSync(platform, [acc])
       if (push.ok && push.failed === 0) {
         checkinSync.pushed = push.pushed
+        // 与 importAccounts 同口径:成功也落 checkinSync 徽章(pending:false + lastSyncedAt),
+        // 否则 admin 号池页的签到同步态只会在走完一次 pending 流程后才可见。
         await clearCheckinSyncPending([row.id])
       } else {
         checkinSync.error = push.error

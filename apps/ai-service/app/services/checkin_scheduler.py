@@ -12,6 +12,11 @@ Qoder 独立 10:05 窗口的原因:官方领取活动每日 10:00(UTC+8)才开�
 (docs.qoder.com/events/100credits),08:05 跑必然「活动未下发」且当天
 不再重试 ⇒ 主 job 排除 qoder 账号(partition_platforms 拆分)。
 
+Qoder 补跑轮(2026-11-01 立):活动是 10:00 之后**异步下发**,10:05 单跑一次
+会整池空手(当日 10:07 全池 8 个号一致「活动未下发或已结束」,12:53 同票同 uid
+已是 CLAIMABLE)⇒ 按 CHECKIN_QODER_RETRY_TIMES(默认 11:00 / 12:30)再跑几轮,
+只挑「今日还没有确定结果」的号,风控语义不放松(见 _daily_run_qoder_retry)。
+
 冷却累积语义(与桌面端 auto_checkin.py 一致,引擎 docstring 明确要求):
 - classified_error.type == "Server" → server_errors + 1;
   计数 < 3 只记错误不冷却;计数 ≥ 3 触发冷却(时长用引擎给的
@@ -33,7 +38,7 @@ import asyncio
 import json
 import os
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -93,6 +98,19 @@ _CREDITS_JOB_ID = "checkin_credits_daily"
 # /events/100credits),08:05 主 job 对 Qoder 账号必然「活动未下发」且当天不再重试
 # ⇒ Qoder 账号独立 10:05 job,主 job 排除 qoder 账号。
 _JOB_ID_QODER = "checkin_daily_qoder"
+# Qoder 补跑轮(2026-11-01 立,实证见下):10:05 主窗口每天只跑一次,**活动下发晚
+# 的那天整池空手** —— 上游并非 10:00 准点下发,而是 10:00 之后异步下发,时刻不可
+# 预期。2026-11-01 实测:10:07 全池 8 个号一致返回「活动未下发或已结束」;12:53
+# 用同一张票、同一个 uid 重查已是 CLAIMABLE(票没坏、号没废,纯粹是跑早了)。
+# 结论:Qoder 腿需要「只补今日还没有确定结果的号」的补跑轮,时刻由
+# CHECKIN_QODER_RETRY_TIMES 给(默认 11:00 / 12:30)。
+_JOB_ID_QODER_RETRY = "checkin_daily_qoder_retry"
+# 补跑时刻默认值:11:00 覆盖"下发比 10:05 晚一小时"的常见情形;12:30 覆盖
+# 2026-11-01 那种"12:53 才可领"的晚下发,同时仍在当日(不跨天、不占用次日额度)。
+_QODER_RETRY_DEFAULT_TIMES = "11:00,12:30"
+# 单轮补跑账号上限:异常数据(号池被灌进几千个 qoder 号)不得把上游一轮打爆;
+# 超出的留给下一个补跑时刻,而不是放宽风控去追。
+_QODER_RETRY_MAX_PER_ROUND = 200
 # 状态探针(2026-10-16 李总需求):每日 06:00 先把平台侧「今日已签到」同步落库
 # —— 半夜 0 点平台重置后用户常已在对应程序里手动签完,等 08:05 主窗口才落
 # 记录 = UI 一早上都亮着可点按钮。探针只读不 claim,未签账号不落任何记录。
@@ -236,6 +254,93 @@ def _wb_tasks_not_running_reason(
     return "job_not_registered"
 
 
+# ---------------------------------------------------------------------------
+# Qoder 补跑轮的口径(2026-11-01):时刻解析 / 北京自然日 / 「今日已有结果」判定
+# ---------------------------------------------------------------------------
+
+
+def _parse_hhmm(raw: str) -> tuple[int, int] | None:
+    """把 "HH:MM" 解成 (hour, minute);任何不合规写法回 None(调用方整条忽略)。"""
+    parts = raw.strip().split(":")
+    if len(parts) != 2:
+        return None
+    hh, mm = parts
+    # 分钟必须两位(11:5 这种含糊写法一律不认);小时容许 1~2 位(9:30 可读且无歧义)
+    if len(hh) not in (1, 2) or len(mm) != 2:
+        return None
+    if not (hh.isdigit() and mm.isdigit()):
+        return None
+    hour, minute = int(hh), int(mm)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return hour, minute
+
+
+def _qoder_retry_times() -> list[tuple[int, int]]:
+    """CHECKIN_QODER_RETRY_TIMES 解析:start() 注册 job 与 status() 展示共用单一真源。
+
+    逗号分隔的 HH:MM;非法条目**整条忽略并告警**,不抛异常也不拖累其它条目 ——
+    一个手抖的 "25:00" 不该把整条补跑腿连带弄没(那等价于当天漏签)。空/未配置
+    回落默认 11:00 / 12:30;重复时刻去重保序(同一个 id 不能注册两次)。
+    """
+    raw = os.environ.get("CHECKIN_QODER_RETRY_TIMES") or _QODER_RETRY_DEFAULT_TIMES
+    out: list[tuple[int, int]] = []
+    for item in raw.split(","):
+        text = item.strip()
+        if not text:
+            continue
+        parsed = _parse_hhmm(text)
+        if parsed is None:
+            logger.warning(
+                "[checkin_scheduler] CHECKIN_QODER_RETRY_TIMES 条目非法已忽略: %r"
+                "(应为 HH:MM,00:00~23:59)",
+                text,
+            )
+            continue
+        if parsed not in out:
+            out.append(parsed)
+    return out
+
+
+def _qoder_retry_job_id(hour: int, minute: int) -> str:
+    """补跑 job id:start() 注册与 status() 取 next_run_time 必须算出同一个名字。"""
+    return f"{_JOB_ID_QODER_RETRY}_{hour:02d}{minute:02d}"
+
+
+def _cn_day(instant: datetime) -> date:
+    """把任意时刻折成 Asia/Shanghai 自然日(每日 00:00 UTC+8 换日,不是 UTC 0 点)。
+
+    补跑判定必须按**北京日**折日:2026-11-01 的实证跨了 UTC 日界 —— UTC
+    15:30 == 北京 11-01 23:30 仍属"今天";UTC 16:30 == 北京 11-02 00:30 已是
+    "明天"。按 UTC 折日会把 00:00~08:00 的记录算到前一天,补跑就会对着昨天
+    已领的号再打一遍。naive 时间按 UTC 解释(库里 created_at 是 timestamptz,
+    恒为 aware;naive 只可能来自测试手写)。
+    """
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=UTC)
+    return instant.astimezone(_CN_TZ).date()
+
+
+def _cn_day_start(day: date) -> datetime:
+    """Asia/Shanghai 某自然日 00:00 的 aware datetime(给 store 当查询下界)。"""
+    return datetime.combine(day, time.min, tzinfo=_CN_TZ)
+
+
+def _settled_today(record: dict[str, Any], today: date) -> bool:
+    """该记录是否构成「今日已有确定结果」:同一北京自然日 ∧ ok=true。
+
+    ok=true 同时覆盖 claim/checkin(本次真领到)与 skip_already(平台侧今日
+    已签)—— 两者都表示"这个号今天不用再打了"。失败记录、昨天的成功记录、
+    created_at 读不出来的脏行,一律不算(宁可补一次,不可漏签)。
+    """
+    if record.get("ok") is not True:
+        return False
+    created = record.get("created_at")
+    if not isinstance(created, datetime):
+        return False
+    return _cn_day(created) == today
+
+
 class CheckinScheduler:
     """签到助手每日调度器(单例)。"""
 
@@ -251,12 +356,16 @@ class CheckinScheduler:
         # status() 暴露。**进程内**语义:重启即清空(不是持久账本,不写 checkin_records
         # —— 做任务 ≠ 每日签到,不混表);多 worker 部署下各进程各自一份。
         self._wb_sweep_last: dict[str, Any] | None = None
+        # Qoder 补跑轮防重入(2026-11-01):单轮最坏 200 号 × 错峰 8~45s 可跑近两
+        # 小时,可能跨过下一个补跑时刻;两轮叠打会把同一批待补号打两遍。标志位只
+        # 在进程内(多 worker 部署各算各的,见报告残留风险)。
+        self._qoder_retry_running: bool = False
 
     # ===== 启停(lifespan 钩子) =====
 
     async def start(self) -> None:
-        """启动每日 08:05(非 Qoder)/10:05(Qoder)定时任务(CHECKIN_CRON_ENABLED
-        控制两个 job,默认 false)。
+        """启动每日 08:05(非 Qoder)/10:05(Qoder)/补跑(CHECKIN_QODER_RETRY_TIMES,
+        默认 11:00、12:30)定时任务(CHECKIN_CRON_ENABLED 控制全部 job,默认 false)。
 
         建表 fail-open:表建不出来时只告警,不阻塞主服务启动。
         """
@@ -285,6 +394,21 @@ class CheckinScheduler:
             id=_JOB_ID_QODER,
             replace_existing=True,
         )
+        # Qoder 补跑轮(2026-11-01):10:05 单跑一次会撞上"活动还没下发",按
+        # CHECKIN_QODER_RETRY_TIMES 逐个注册补跑 job(同一 jitter,与其它 job 一致);
+        # 只挑今日无确定结果的号,风控语义不变(见 _daily_run_qoder_retry)。
+        for retry_hour, retry_minute in _qoder_retry_times():
+            self._scheduler.add_job(
+                self._daily_run_qoder_retry,
+                trigger=CronTrigger(
+                    hour=retry_hour,
+                    minute=retry_minute,
+                    timezone=_CN_TZ,
+                    jitter=_CRON_JITTER,
+                ),
+                id=_qoder_retry_job_id(retry_hour, retry_minute),
+                replace_existing=True,
+            )
         # 06:00 状态探针:先于主窗口同步平台侧「已签」状态(见 _JOB_ID_PROBE 注)
         self._scheduler.add_job(
             self._daily_status_probe,
@@ -317,8 +441,11 @@ class CheckinScheduler:
             )
         self._scheduler.start()
         self._started = True
+        retry_label = "/".join(f"{h:02d}:{m:02d}" for h, m in _qoder_retry_times())
         logger.info(
-            "[checkin_scheduler] 已启动每日调度(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照,起批漂移 ≤%ds)",
+            "[checkin_scheduler] 已启动每日调度(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / "
+            "Qoder 补跑 %s / 08:10 积分快照,起批漂移 ≤%ds)",
+            retry_label or "未配置",
             _CRON_JITTER,
         )
 
@@ -371,9 +498,13 @@ class CheckinScheduler:
         """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。
 
         enabled 与 start() 读同一环境变量(_cron_enabled 单一来源);started
-        为本单例是否已 start;next_run / next_run_qoder / next_run_probe /
-        next_run_wb_tasks 仅已启动时有值(APScheduler job 的 next_run_time,
-        带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+        为本单例是否已 start;next_run / next_run_qoder / next_run_qoder_retry /
+        next_run_probe / next_run_wb_tasks 仅已启动时有值(APScheduler job 的
+        next_run_time,带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+
+        next_run_qoder_retry(2026-11-01 补):补跑轮按 env 逐个注册 job,这里取
+        这些 job 中**最近一次**触发时刻(job id 由 _qoder_retry_job_id 单一真源
+        算出,与 start() 注册的不许漂移);一个都没注册(env 全非法)则为 None。
 
         wb_tasks(2026-10-31 补):WorkBuddy 任务巡检这条 job 此前对前端完全不可见
         ⇒ 用户看不到「自动做任务」在不在跑、下次何时跑。这里与 start() 同源暴露。
@@ -396,6 +527,7 @@ class CheckinScheduler:
         """
         next_run: str | None = None
         next_run_qoder: str | None = None
+        next_run_qoder_retry: str | None = None
         next_run_probe: str | None = None
         next_run_wb_tasks: str | None = None
         # 观测态取材:调度器不存在 ⇒ job 必然没注册(不回落成"按配置猜")
@@ -420,6 +552,19 @@ class CheckinScheduler:
                 next_run_probe = (
                     next_run_time_p.isoformat() if next_run_time_p is not None else None
                 )
+            # 补跑轮可能注册多条 job(每个时刻一条):取最近的一次触发给前端
+            retry_next: list[datetime] = []
+            for retry_hour, retry_minute in _qoder_retry_times():
+                job_retry = self._scheduler.get_job(
+                    _qoder_retry_job_id(retry_hour, retry_minute)
+                )
+                if job_retry is None:
+                    continue
+                next_run_time_r: datetime | None = job_retry.next_run_time
+                if next_run_time_r is not None:
+                    retry_next.append(next_run_time_r)
+            if retry_next:
+                next_run_qoder_retry = min(retry_next).isoformat()
             if wb_job is not None:
                 next_run_time_w: datetime | None = wb_job.next_run_time
                 next_run_wb_tasks = (
@@ -432,6 +577,7 @@ class CheckinScheduler:
             "started": self._started,
             "next_run": next_run,
             "next_run_qoder": next_run_qoder,
+            "next_run_qoder_retry": next_run_qoder_retry,
             "next_run_probe": next_run_probe,
             "next_run_wb_tasks": next_run_wb_tasks,
             "wb_tasks": {
@@ -1073,6 +1219,85 @@ class CheckinScheduler:
             return
         _, qoder_side = partition_platforms(loaded[0])
         await self._run_batch(qoder_side, loaded[1], "Qoder窗口")
+
+    async def _daily_run_qoder_retry(self) -> None:
+        """Qoder 补跑轮(默认 11:00 / 12:30,CHECKIN_QODER_RETRY_TIMES 可调)。
+
+        立因(2026-11-01 实证):Qoder 的 100 credits 活动由上游在 10:00 **之后
+        异步下发**(不是准点):当日 10:07 全池 8 个号一致返回「活动未下发或已
+        结束」,12:53 用同一张票、同一个 uid 重查已是 CLAIMABLE —— 票没坏、号没
+        废,纯粹是跑早了。而 `_daily_run_qoder` 每天只跑一次(当天不再重试),活动
+        下发晚的那天整池空手。故补跑轮只挑「今天还没有确定结果」的号再打一遍。
+
+        **为什么补跑不会放大风控**(三条同时成立才动手):
+        - 只挑今日无确定结果的号:今日已有 ok=true(claim / skip_already)的号
+          一律跳过,补跑绝不对已落袋的号重复打接口,请求量上界 = 今日失败的号数;
+        - 冷却与出站全局闸门照旧:本轮直接走 `_run_batch`,冷却中的号跳过、撞
+          429 / 挑战页时整批立即中止,错峰抖动也是同一套 —— 补跑没有任何放宽,
+          不允许为了补签破风控;
+        - 单轮上限 _QODER_RETRY_MAX_PER_ROUND:异常数据(号池被灌进几千个 qoder
+          号)也不会把上游一轮打爆,超出的顺延到下一个补跑时刻;
+        - 防重入:上一轮还在跑(200 号 × 错峰可能跨过下一个补跑时刻)就整轮跳过,
+          两轮叠打等于把同一批待补号打两遍。
+        """
+        if self._qoder_retry_running:
+            logger.warning(
+                "[checkin_scheduler] 上一轮 Qoder补跑 仍在跑,本次跳过(不叠打上游)"
+            )
+            return
+        self._qoder_retry_running = True
+        try:
+            await self._run_qoder_retry_round()
+        finally:
+            self._qoder_retry_running = False
+
+    async def _run_qoder_retry_round(self) -> None:
+        """补跑轮的实际执行体(筛今日无结果的号 → 走上限 → 交给 _run_batch)。"""
+        loaded = await self._load_accounts_and_cooldowns("Qoder补跑")
+        if loaded is None:
+            return
+        accounts, cooldowns = loaded
+        _, qoder_side = partition_platforms(accounts)
+        if not qoder_side:
+            logger.info("[checkin_scheduler] 补跑轮无待补账号(无 Qoder 账号)")
+            return
+        today = _cn_day(datetime.now(UTC))
+        try:
+            records = await checkin_store.list_records_since(_cn_day_start(today))
+        except Exception as e:
+            # 判不出"今天有没有结果"就绝不动手:宁可这天漏签一次,也不能对今日
+            # 已领的号盲打一轮(风控红线高于补签收益)。
+            logger.warning(
+                "[checkin_scheduler] 补跑轮读取今日记录失败(本轮放弃,不盲打): %s", e
+            )
+            return
+        settled = {r["account_id"] for r in records if _settled_today(r, today)}
+        pending = [acc for acc in qoder_side if acc["id"] not in settled]
+        pending_count = len(pending)
+        if not pending:
+            logger.info(
+                "[checkin_scheduler] 补跑轮无待补账号(Qoder %d 个号今日均已有结果)",
+                len(qoder_side),
+            )
+            return
+        if pending_count > _QODER_RETRY_MAX_PER_ROUND:
+            logger.warning(
+                "[checkin_scheduler] Qoder补跑待补 %d 个号超单轮上限 %d,本轮只跑前 %d 个"
+                "(其余顺延到下一个补跑时刻)",
+                pending_count,
+                _QODER_RETRY_MAX_PER_ROUND,
+                _QODER_RETRY_MAX_PER_ROUND,
+            )
+            pending = pending[:_QODER_RETRY_MAX_PER_ROUND]
+        logger.info(
+            "[checkin_scheduler] Qoder补跑轮: Qoder 共 %d 个号,今日已有结果 %d 个,"
+            "待补 %d 个,本轮执行 %d 个",
+            len(qoder_side),
+            len(qoder_side) - pending_count,
+            pending_count,
+            len(pending),
+        )
+        await self._run_batch(pending, cooldowns, "Qoder补跑")
 
     async def _daily_credits_snapshot(self) -> None:
         """每日积分快照:遍历 enabled 账号逐个查余额并 upsert 当日快照。
