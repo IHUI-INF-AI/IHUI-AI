@@ -79,7 +79,8 @@ function walkRepoFiles(dir, out = []) {
     return out
   }
   for (const entry of entries) {
-    if (['node_modules', '__tests__', 'tests', 'dist', '.next', '.swc'].includes(entry.name)) continue
+    if (['node_modules', '__tests__', 'tests', 'dist', '.next', '.swc'].includes(entry.name))
+      continue
     const rel = `${dir}/${entry.name}`
     if (entry.isDirectory()) walkRepoFiles(rel, out)
     else if (/\.(tsx|ts)$/.test(entry.name)) out.push(rel)
@@ -574,7 +575,10 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     const faceRn = [...face].filter((rel) => rel.startsWith('apps/mobile-rn/'))
     assert.ok(faceRn.length > 100, `RN 宿主面枚举异常(现读 ${faceRn.length} 枚),不得静默缩面`)
     for (const rel of faceRn) {
-      assert.ok(reachable.has(rel), `${rel} 不在承载闭包里,却进了取词面(RN 专属键会被倒灌成本端存活)`)
+      assert.ok(
+        reachable.has(rel),
+        `${rel} 不在承载闭包里,却进了取词面(RN 专属键会被倒灌成本端存活)`,
+      )
     }
     // 反向样本:RN 专属登录屏只被 RootNavigator 引用、端内零承载 —— 它在面里就是有人把整目录收回来了。
     const loginScreen = `${RN_SCREENS_DIR}/LoginScreen.tsx`
@@ -648,7 +652,11 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
         )
         worst = Math.max(worst, single.status)
       }
-      assert.equal(all.status, worst, `all 聚合退出码必须 == 各单档退出码最大值(旗 ${JSON.stringify(flagArgs)})`)
+      assert.equal(
+        all.status,
+        worst,
+        `all 聚合退出码必须 == 各单档退出码最大值(旗 ${JSON.stringify(flagArgs)})`,
+      )
     }
     // 不带旗时 cli 面板有死键:必须点名计数,不得再印裸 ok(缺陷本体的正向对照)
     const silent = runCli(['--target', 'cli', '--dry-run'])
