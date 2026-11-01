@@ -15,6 +15,7 @@
  *  - GET    /subagents/topology       Swarm 拓扑(节点 + 边)
  *  - GET    /subagents/stats          全局统计(深化新增)
  *  - GET    /subagents/:id/stats      单个 dispatch 资源统计(深化新增)
+ *  - GET    /subagents/:id/artifacts/:stepId  上游长结果全文(F4 Inline & Spill 新增)
  *  - GET    /subagents/:id/dag        DAG 可视化数据(深化 v2 新增)
  *  - GET    /subagents/queue          优先级调度队列(深化 v2 新增)
  *  - GET    /subagents/:id/quotas     资源配额使用情况(深化 v2 新增)
@@ -906,6 +907,30 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '派单不存在'))
     }
     return reply.send(success(stats))
+  })
+
+  // ---------- GET /subagents/:id/artifacts/:stepId(F4 Inline & Spill) ----------
+  // 上游长结果全文的取回点(见 service 的 _spillArtifact / getArtifact)。
+  // 归属闸先于取产物,一律 404、不引 403;产物不存在也给同一个 404,不泄露「有没有」。
+
+  server.get('/subagents/:id/artifacts/:stepId', async (request, reply) => {
+    await requireAuth(request, reply)
+    const userId = request.userId
+    if (!userId) return
+
+    const { id, stepId } = request.params as { id: string; stepId: string }
+    if (!id || !stepId) {
+      return reply.status(400).send(error(400, '派单 ID 与产物 ID 不能为空'))
+    }
+    if (!ownsDispatchById(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
+    }
+
+    const artifact = await subagentDispatchService.getArtifact(id, stepId)
+    if (!artifact) {
+      return reply.status(404).send(error(404, '产物不存在'))
+    }
+    return reply.send(success({ artifact }))
   })
 
   // ---------- GET /subagents/:id/dag(DAG 可视化数据,深化 v2 新增) ----------
