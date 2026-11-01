@@ -35,7 +35,9 @@ import {
 } from './lib/face-reader.mjs'
 import {
   SOURCE_EXTS,
+  classifyGapTier,
   countByReason,
+  countByTier,
   diffGaps,
   extOf,
   findTestlessModules,
@@ -189,7 +191,7 @@ export function evaluateFace(root, face, roots, opts = {}) {
     testTexts: collected.testTexts,
     roots,
   })
-  return { ...result, face, sourceCount: collected.sourceCount }
+  return { ...result, face, sourceCount: collected.sourceCount, files: collected.files }
 }
 
 /**
@@ -460,6 +462,18 @@ async function main(argv) {
     console.log(`本次新增缺口 ${newGaps.length} 枚(缺测试的新模块,须补测或登记):`)
     for (const g of newGaps.slice(0, LIST_LIMIT)) console.log(`  ✗ ${g.path}`)
     if (newGaps.length > LIST_LIMIT) console.log(`  …另 ${newGaps.length - LIST_LIMIT} 枚`)
+  }
+  if (argv.includes('--tiers')) {
+    // 只报数:分档不改判定、不改 rc,只为把"存量缺口归零"这个前置量清(见 seat 记录)。
+    const textMap = new Map(
+      (faceResult.files ?? []).filter((f) => typeof f.text === 'string').map((f) => [f.path, f.text]),
+    )
+    const tiered = faceResult.gaps.map((g) => ({
+      path: g.path,
+      tier: classifyGapTier({ path: g.path, text: textMap.get(g.path) }),
+    }))
+    console.log(`缺口分档(只报数,不改判定;合计 ${tiered.length}):`)
+    for (const [tier, n] of countByTier(tiered)) console.log(`   ${String(n).padStart(4)}  ${tier}`)
   }
   printUndetermined(faceResult)
   if (faceResult.emptyRoots.length > 0) {
