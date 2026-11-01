@@ -23,10 +23,13 @@
  *   正例：同一面上 `chosen.source` 必须是 `prod-checkout` 且 `dir` 指向盘根侧那份；
  *   反向例：把生产文件改回 `join(devEnvRoot(repoRoot),'ihui-prod')`（本文件 `legacySiteLegPlan` 是逐字
  *     镜像）⇒ `chosen.source` 变成 `repo` ⇒ ① 翻红。
+ *   失效方向（2026-11-02 收紧）：生产根缺失而主仓影子在（⑦）/ 单源抛错（⑤）⇒ `chosen=null`，
+ *     main 以 2 退出并点名已试路径（⑧）—— 主仓影子目录不再当兜底腿。
  */
 import { test, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, parse } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -144,8 +147,8 @@ test('④ IHUI_SITE_CDN_DIR 覆盖仍生效（返回形状 {candidates,chosen,en
   assert.equal(pub.siteLegPlan({ repoRoot: FIX.repo, exists: realExists, env: { IHUI_SITE_CDN_DIR: '   ' } }).envOverride, null)
 })
 
-// —— ⑤ 单源抛错 ⇒ 不炸、跳过 prod 源、保留 repo 源，且**不静默** ——
-test('⑤ prodCheckoutRoot 抛错（仓根在 scratch 夹具内）⇒ 不炸、只剩 repo 候选、且有告警一行', () => {
+// —— ⑤ 单源抛错 ⇒ 不炸、chosen=null（repo 只留诊断），且**不静默** ——
+test('⑤ prodCheckoutRoot 抛错（仓根在 scratch 夹具内）⇒ 不炸、chosen=null、只点名 repo 已试路径且有告警一行', () => {
   const warns = []
   const orig = console.warn
   console.warn = (...a) => warns.push(a.join(' '))
@@ -159,10 +162,11 @@ test('⑤ prodCheckoutRoot 抛错（仓根在 scratch 夹具内）⇒ 不炸、�
   } finally {
     console.warn = orig
   }
-  assert.deepEqual(plan.candidates.map((c) => c.source), ['repo'], 'prod 源取不到时跳过它，但 repo 兜底必须留着')
-  assert.equal(plan.chosen.source, 'repo')
+  assert.deepEqual(plan.candidates.map((c) => c.source), ['repo'], 'prod 源取不到时无法点名它，但 repo 已试路径仍要留')
+  assert.equal(plan.chosen, null, '取不到生产根 = 未判定；repo 影子目录再在也不许顶上（静默回落=发到没人服务的目录）')
   assert.equal(warns.length, 1, '取不到必须喊一行（静默 = 把"取不到"读成"没有"）')
   assert.match(warns[0], /生产 checkout 根取不到/)
+  assert.match(warns[0], /未判定,不回落主仓影子目录/)
 })
 
 // —— ⑥ 源码形状锁：回退到自拼会在这里立刻红（§0.9 造好没装车=没有）——
@@ -173,5 +177,49 @@ test('⑥ 形状锁：siteLegPlan 必须问单源，不得再出现 devEnvRoot �
   assert.doesNotMatch(src, /devEnvRoot\(/, '不得再调用 devEnvRoot 自拼生产根')
   assert.doesNotMatch(src, /'\.DevEnv'/, "不得出现 '.DevEnv' 字面自拼")
   assert.doesNotMatch(src, /resolveDevEnvRoot/, 'resolveDevEnvRoot 兼容入参已删（唯一调用方已同改）')
+})
+
+// —— ⑦ 生产根缺失但主仓影子在 ⇒ chosen 必须 null（旧写法会静默选中影子）——
+test('⑦ 生产根缺失 + 主仓影子存在 ⇒ chosen===null，已试路径点名 prod-checkout 与 repo', () => {
+  // 只让主仓影子"存在"：prod 候选（<repo>/.DevEnv/ihui-prod 与盘根侧）都不在。
+  const plan = pub.siteLegPlan({
+    repoRoot: FIX.repo,
+    exists: (p) => norm(p) === norm(FIX.repoShadow),
+    env: {},
+  })
+  assert.equal(plan.chosen, null, '生产根缺失时绝不能选主仓影子目录（线上 cdn-server 的 --root 不是它）')
+  assert.deepEqual(plan.candidates.map((c) => c.source), ['prod-checkout', 'repo'])
+  assert.ok(
+    plan.candidates.some((c) => c.source === 'prod-checkout' && norm(c.dir).includes('/ihui-prod/')),
+    '已试路径必须点名生产 checkout 候选（判定面可见，不是"没找过"）',
+  )
+  assert.equal(norm(plan.candidates.find((c) => c.source === 'repo').dir), norm(FIX.repoShadow), 'repo 路径必须原样列出供诊断')
+})
+
+// —— ⑧ main 契约：生产根缺失 ⇒ exit 2，并打印已试路径（不落包、不联网）——
+test('⑧ main：生产根缺失 ⇒ exit 2 且点名 prod-checkout/repo 已试路径（不选主仓影子）', () => {
+  const apkDir = mkdtempSync(join(tmpdir(), 'sapk-apk-'))
+  const envRoot = mkdtempSync(join(tmpdir(), 'sapk-devenv-'))
+  try {
+    const apk = join(apkDir, 'app-release.apk')
+    writeFileSync(apk, Buffer.alloc(1024, 0x41))
+    // IHUI_DEVENV_ROOT = 强声明且该根下无 ihui-prod ⇒ 生产根必缺，主仓影子即使存在也不得顶上。
+    const r = spawnSync(
+      process.execPath,
+      [SRC, '--apk', apk, '--version', '0.0.9', '--version-code', '26102816'],
+      { cwd: join(HERE, '..', '..'), encoding: 'utf8', timeout: 30000, env: { ...process.env, IHUI_DEVENV_ROOT: envRoot } },
+    )
+    assert.equal(r.status, 2, '站点落点未判定必须 exit 2（不是 0 假绿，也不是 1 混同执行失败）')
+    const err = String(r.stderr || '')
+    assert.match(err, /未判定: 站点 CDN 落点不存在/)
+    assert.match(err, /已试: /)
+    assert.match(err, /prod-checkout=/)
+    assert.match(err, /repo=/)
+    assert.match(err, /不选它/)
+    assert.ok(!existsSync(join(envRoot, 'ihui-prod')), '测试结束前该生产根仍不存在（没有顺手造出假面）')
+  } finally {
+    rmSync(apkDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    rmSync(envRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
