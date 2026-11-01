@@ -1382,7 +1382,7 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
      * **方向铁律:投影只抵消对侧、绝不作为检出依据** —— 检出仍用原始 id,
      * 否则"某腿经 core 取到某档"本身会多出一条新读数(实测会多出 SL ColorfulLoader(1) 假账)。
      */
-    const expand = (raw) => {
+    const expand = (raw, selfFile) => {
       const ids = new Set(raw)
       for (const name of Object.keys(coreExports)) {
         if (!ids.has(name)) continue
@@ -1390,10 +1390,35 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
       }
       for (const fn of Object.keys(specFnTiers))
         if (ids.has(fn)) for (const t of specFnTiers[fn]) ids.add(t)
+      /**
+       * 同目录本地业务组件一跳(2026-11-01,SectionHeader):RN 把"更多+箭头"抽成同目录的
+       * MoreLink.tsx 并在那里消费 SECTION_HEADER_* 两枚,而 SL 的 id 集只取配对文件自身源文本,
+       * 看不见跨文件消费 ⇒ "两端同源"被读成"仅小程序引用"。这里对 ids 里出现的每个标识符,
+       * 若同目录存在同名本地组件文件,把它的标识符并入(与根槽位维 :3222 的追一跳同型)。
+       * **方向铁律不变:pa/pb 只进否定侧(!has / viaEquivalent),扩集只许抵消单侧,绝不新增读数。**
+       * 单跳、带 seen 防环,不递归展开新并入文件的再引用。
+       */
+      if (selfFile) {
+        const dir = selfFile.replace(/[^/]*$/, '')
+        const seen = new Set()
+        for (const id of [...ids]) {
+          if (seen.has(id)) continue
+          seen.add(id)
+          const f = Object.keys(text).find(
+            (k) =>
+              k !== selfFile &&
+              k.startsWith(dir) &&
+              !k.slice(dir.length + 1).includes('/') &&
+              k.slice(dir.length).startsWith(`${id}.`),
+          )
+          if (f && text[f] !== undefined)
+            for (const id2 of idsOf(stripComments(text[f]))) ids.add(id2)
+        }
+      }
       return ids
     }
-    const pa = expand(ia)
-    const pb = expand(ib)
+    const pa = expand(ia, p.miniapp)
+    const pb = expand(ib, p.rn)
     const onlyMiniapp = specNames.filter((n) => ia.has(n) && !pb.has(n) && !viaEquivalent(pb, n))
     const onlyRn = specNames.filter((n) => ib.has(n) && !pa.has(n) && !viaEquivalent(pa, n))
     // 同档异名配对:只划掉"其实是同一个几何档"的那两条假账,不新增任何单侧。
@@ -2372,6 +2397,50 @@ export function collect(
     text[need[i]] = t
   }
   /**
+   * 同目录本地业务组件一跳取材(2026-11-01;判据消费在 specLegAudit.expand,SL 维 SectionHeader):
+   * RN 把"更多+箭头"抽成同目录 MoreLink.tsx 去消费 SECTION_HEADER_* 两枚,而配对腿取材面只有
+   * 腿自身源文本 ⇒ "两端同源"被读成"仅一侧引用"。这里把**配对腿显式 `./` import 的同目录
+   * .tsx/.jsx/.ts 兄弟件**并进 text(单跳:不追兄弟件自己的再 import;取不到就如实缺席 ——
+   * expand 找不到材料时维持原读数,方向是漏判不是误判)。其余各维全部按**配对腿**取键,
+   * text 多出的兄弟键不进任何维的读数面。
+   */
+  {
+    const allFiles = new Set([...lists.miniapp, ...lists.rn])
+    const sibSpecs = new Set()
+    for (const p of pairs.pairs) {
+      for (const leg of [p.miniapp, p.rn]) {
+        if (text[leg] === undefined) continue
+        const dir = leg.replace(/[^/]*$/, '')
+        for (const m of text[leg].matchAll(/from\s+['"](\.[\w./@-]*)['"]/g)) {
+          const rel = m[1]
+          if (/\.(css|scss|less|json|svg|png|jpg)$/i.test(rel)) continue
+          const segs = []
+          for (const s of `${dir}${rel.replace(/^\.\//, '')}`.split('/')) {
+            if (s === '..') segs.pop()
+            else if (s !== '.') segs.push(s)
+          }
+          const base = segs.join('/')
+          for (const c of /\.[jt]sx?$/.test(base)
+            ? [base]
+            : [`${base}.tsx`, `${base}.jsx`, `${base}.ts`])
+            if (c !== leg && allFiles.has(c) && text[c] === undefined) sibSpecs.add(c)
+        }
+      }
+    }
+    if (sibSpecs.size) {
+      const pre = face === 'staged' ? ':' : 'HEAD:'
+      const gotS = catBatch(
+        repoRoot,
+        [...sibSpecs].map((rel) => pre + rel),
+        { maxBuffer: 1 << 28 },
+      )
+      for (const rel of sibSpecs) {
+        const t = gotS.get(pre + rel)
+        if (t !== null && t !== undefined) text[rel] = t
+      }
+    }
+  }
+  /**
    * 组件**自己 import 的本地样式表**并入同一轮读数。不并的后果是实测到的:
    * 6 个小程序配对组件把盒档写在同名 `.css` 里,配对源只有 `.tsx` ⇒ 读成
    * "RN 有 11 档、小程序 0 档"的**测量假象**(与 §4 记过的"CSS 声明形态整面隐身"同一条洞)。
@@ -3120,8 +3189,14 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
    * (`export function Foo({…})` 在上方)。旧判据在这里直接报"间接"，于是整族的根槽位永远没看 ——
    * ColorfulLoader 就是这么从"锚不到"变成"读不出"的。这里把锚点**改到同文件里那个定义上**；
    * 跟不到(定义真在别处 / HOC 包裹)才如实报 indirect，绝不退化成"根上没有档"。
+   *
+   * 语句级裸标识符(2026-11-01):旧式要求 `export default` 之后的**全部剩余文本** trim 后恰好是
+   * 这一个标识符(`\s*$` 收尾),而本仓同样常见的是"export default 在文件中部、后面还有数百行
+   * 子组件定义"(ModelConfigDialog.tsx RN 侧 :478 实测)—— 那种写法旧式必落 indirect,整族再一次
+   * "没看"。收窄成**语句级**:`export default` 后紧跟的一个标识符、可选分号,到行尾为止即命中;
+   * HOC(`withMemo(Foo)`)、成员访问(`Foo.bar`)、跨行续写仍落 indirect(方向是漏判不是误判)。
    */
-  const bareId = /^([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(after.trim())
+  const bareId = /^([A-Za-z_$][\w$]*)\s*;?(?=\s*(?:\n|$))/.exec(after)
   if (
     bareId &&
     !/^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(
@@ -3181,7 +3256,14 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
       depth === 1 &&
       c === 'r' &&
       body.startsWith('return', i) &&
-      !/[\w$]/.test(body[i - 1] ?? '')
+      !/[\w$]/.test(body[i - 1] ?? '') &&
+      // 语句起始(2026-11-01):同一行 `return` 之前的非空白字符只许是 `{`(函数体开括号与
+      // return 同行,或上一语句以 `;` 收尾)或没有 —— 无花括号分支
+      // `if (variant==='selecter') return <ModelSelecterDialog/>` 的**分支根**不是本组件的
+      // 默认根,旧判据把它读成根槽位,变体分发器(ModelConfigDialog RN :473)整族读错根。
+      // `if (x) return null` 这类卫语句原本就因 `null` 非 `<` 而跳过,现在连"分支里恰好
+      // 吐 JSX"的形态也一并排除;行前缀以 `)` 结尾的 ASI 形态宁落 indirect 不猜(漏判非误判)。
+      /(?:^|[{;])[ \t]*$/.test(body.slice(body.lastIndexOf('\n', i) + 1, i))
     )
       if (!/[\w$]/.test(body[i + 6] ?? '')) {
         const cand = exprStartOf(bodyOpen + i + 6)
@@ -3278,6 +3360,8 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
     indirect: false,
     tiers: [...new Set(pxs.filter((p) => Number.isFinite(p) && p > 0))].sort((a, b) => a - b),
     rootTag: tagName,
+    // 根元素**开标签原文**:多成员分支要用它探测"圆角是否藏在类名/样式键后"(rootRefMayHideRadius)。
+    rootTagText: tagText,
     rootImportSrc: importSourceOf(src, tagName),
   }
 }
@@ -3351,6 +3435,67 @@ function importSourceOf(raw, tagName) {
   return null
 }
 
+/** 源文本里 `export function`(含 async)的导出名 —— 多成员镜像模块的成员名单。 */
+function exportedFnNames(src) {
+  return [
+    ...stripComments(String(src ?? ''), true).matchAll(
+      /\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
+    ),
+  ].map((m) => m[1])
+}
+
+/** 从 `open`(必须是 `{`)起配平取整块;读不到返回 null。 */
+function braceBlockAt(src, open) {
+  let depth = 0
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}') {
+      depth--
+      if (depth === 0) return src.slice(open, i + 1)
+    }
+  }
+  return null
+}
+
+/**
+ * 根开标签上的 className/style 引用,是否可能把圆角档藏在本维**读不到**的地方 ——
+ * RS 只读根元素**开标签**(:3213),类臂里的 `border-radius: var(--radius-lg)`、StyleSheet 键里的
+ * `borderRadius: rnRadius.lg` 都在标签文本之外;把"两侧都读到 []"直接当"两端根上都无档",
+ * 正是 :3200 警告的那型假绿。这里只回答**有没有得看**,不做取值:
+ *  - 解得到且确无 radius ⇒ false(`[]` 是真值);
+ *  - 解不到(样式键查无声明块 / 裸透传 `style={style}` / className 无字面量 token)⇒ 如实 true。
+ * 类名字面量里的 Tailwind `rounded-*` 已由 radiusPxInLine 在开标签上读过,这里只探自定义类臂与样式键。
+ */
+function rootRefMayHideRadius(res, fullSrc) {
+  const tag = res.rootTagText ?? ''
+  if (!/(?:className|style)\s*=/.test(tag)) return false
+  // ① className 字面量 token → 本侧样式表(含伴生 css,withLocalStyles 已并入)里的类臂
+  for (const cm of tag.matchAll(/className\s*=\s*(\{[^}]*\}|"[^"]*"|'[^']*')/g)) {
+    const toks = [...cm[1].matchAll(/['"]([A-Za-z][\w-]*)['"]/g)].map((m) => m[1])
+    if (!toks.length) return true // className={expr} 无字面量可解 ⇒ 没看
+    for (const t of toks) {
+      const rm = new RegExp(`\\.${t}(?![\\w-])[^{}]*?\\{`).exec(fullSrc)
+      if (!rm) continue // 不是本侧样式表里的类 ⇒ 无藏档处
+      if (/border-radius/.test(braceBlockAt(fullSrc, rm.index + rm[0].length - 1) ?? ''))
+        return true
+    }
+  }
+  // ② 非内联 style 引用:样式键 `X.key` 解本文声明块;裸标识符透传解不到 ⇒ 没看。
+  // 内联 `style={{…}}` 的档就写在开标签文本里,radiusPxInLine 已读过,不再探。
+  if (/style=\{[^{]/.test(tag)) {
+    const sm = /style=\{([^{}]*)\}/.exec(tag)
+    if (!sm) return true // 形态解不开(嵌套对象/数组套对象等) ⇒ 没看
+    const keyRefs = [...sm[1].matchAll(/([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g)]
+    if (!keyRefs.length) return true // 裸透传,来源不在本文 ⇒ 没看
+    for (const kr of keyRefs) {
+      const bm = new RegExp(`\\b${kr[2]}\\s*:\\s*\\{`).exec(fullSrc)
+      const block = bm ? braceBlockAt(fullSrc, bm.index + bm[0].length - 1) : null
+      if (!block || /(?:borderRadius|rounded[-\w]*)/.test(block)) return true
+    }
+  }
+  return false
+}
+
 /**
  * RS 逐对比对:两端**根槽位**上的圆角档是否逐字相同。
  *
@@ -3374,10 +3519,9 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
   const anchor = (src, file, familyName) => {
     const first = rootSlotRadiiOf(src, table, familyName)
     if (first.anchored) return first
-    const stem = String(file)
-      .split('/')
-      .pop()
-      .replace(/\.(tsx|ts|jsx|js)$/, '')
+    // stem 用 baseName():平台后缀必须随扩展名一起去("ScreenStates.taro.tsx" 的 stem 是
+    // "ScreenStates",不是手工剥 .tsx 得到的 "ScreenStates.taro" —— 那个名字永远锚不中)。
+    const stem = baseName(String(file))
     return stem === familyName ? first : rootSlotRadiiOf(src, table, stem)
   }
   for (const p of pairs?.pairs ?? []) {
@@ -3387,6 +3531,49 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
     const ra = anchor(a, p.miniapp, p.name)
     const rb = anchor(b, p.rn, p.name)
     if (!ra.anchored || !rb.anchored) {
+      /**
+       * 多成员镜像模块分支(2026-11-01,ScreenStates):文件里没有名为族名/stem 的组件,而是
+       * 两端各导出 ScreenSkeleton/EmptyState/ErrorState/PressableCard 一组镜像成员 —— 族级
+       * 锚定粒度(文件级)与结构(模块级多根)不匹配 ⇒ 整族"没看"。取两端 `export function`
+       * 名的**交集**逐成员跑 rootSlotRadiiOf,按 `族#成员` 记账(读数与未判定都逐成员点名);
+       * 交集为空才维持整族未判定。
+       */
+      const members = exportedFnNames(a).filter((n) => exportedFnNames(b).includes(n))
+      if (members.length) {
+        for (const m of members) {
+          const key = `${p.name}#${m}`
+          const ma = rootSlotRadiiOf(a, table, m)
+          const mb = rootSlotRadiiOf(b, table, m)
+          if (!ma.anchored || !mb.anchored) {
+            undetermined.push({
+              name: key,
+              why: `成员导出锚不到(${!ma.anchored ? 'miniapp' : 'rn'}侧)⇒ 成员根槽位这一维没看,不当"一致"记`,
+            })
+            continue
+          }
+          if (ma.tiers === null || mb.tiers === null) {
+            undetermined.push({
+              name: key,
+              why: '成员根槽位读不出(间接 return / HOC 包裹 / 根由子组件代渲染)⇒ 未判定,不得记成"两端根上都无档"',
+            })
+            continue
+          }
+          if (!ma.tiers.length && !mb.tiers.length) {
+            // 两侧都读到 [] ≠ "两端根上都无档":圆角可能藏在类名/样式键后(RS 只读根元素开标签)。
+            // 有这种引用时如实记"没看";确无引用才按 :3419 零判据跳过。
+            if (rootRefMayHideRadius(ma, a) || rootRefMayHideRadius(mb, b)) {
+              undetermined.push({
+                name: key,
+                why: '根档在类名/样式键后 ⇒ 这一格没看,不当"一致"记(:3200 警告的那型假绿)',
+              })
+            }
+            continue
+          }
+          if (String(ma.tiers) === String(mb.tiers)) continue
+          findings.push({ name: key, miniapp: ma.tiers, rn: mb.tiers })
+        }
+        continue
+      }
       undetermined.push({
         name: p.name,
         why: `导出锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧既无 export default，也没有与族名或本文件名同名的具名导出)⇒ 根槽位这一维没看,不当"一致"记`,

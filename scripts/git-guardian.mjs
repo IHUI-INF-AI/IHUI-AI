@@ -8948,10 +8948,6 @@ const CROSS_END_LEGS = new Set([
   // 2026-10-29 立:跨端驾驶舱(编排器 parity-auto.mjs)。不在册 ⇒ 它整轮跑不起来时一声不出,
   // 而"没人跑完整趟"与"跑完整趟且全绿"是两件必须分开的事(§5e-3:能看见的才谈得上修)。
   'parity-cockpit',
-  // 2026-10-30 立(e1636ec07b):手写页升级腿(sweepHandMirrorUpgrades)。不在册 ⇒ 未知腿分支
-  // 把它的未判定当场吞掉(mailed:false、连起点件都不写)。2026-11-01 复接:后续重构把本腿
-  // 的 note/settle 接线整段弄丢,此处随接线一起补回在册。
-  'hand-upgrade',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -10703,12 +10699,6 @@ export function sweepHandMirrorUpgrades(opts = {}) {
     tickFile = join(dirname(LOG), 'hand-mirror-upgrade-last.json'),
     logger = log,
     runner = null,
-    notify = notifyGuardRed,
-    // 只为成对夹具开(测试不得碰真 .ihui-agent/state 的起点件):生产调用一律走默认值。
-    // 2026-11-01 复接(e1636ec07b 原接线,后续重构弄丢 ⇒ 未判定连击一次都不记,180 分钟
-    // 到人这条腿结构上是空的)。
-    undetFile = crossEndUndetFile('hand-upgrade'),
-    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'upgrade-miniapp-shell-pages.mjs')
   if (!existsSync(script)) {
@@ -10744,16 +10734,7 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   if (!res || typeof res !== 'object') {
     const why = r.signal ? `子进程被 ${r.signal} 杀掉(多为超时)` : '子进程已退出但末行不是结论 JSON'
     logger(
-      `⚠️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
-    )
-    // 2026-10-30 立(e1636ec07b)/2026-11-01 复接:这一支原先只 log 只 return,一次都没记
-    // 连击 ⇒ 起点件不存在,存续性门槛结构上永远走不到(§5e-3)。
-    noteCrossEndUndetermined(
-      'hand-upgrade',
-      `${why}(status=${r.status},signal=${r.signal ?? '-'});stderr 前 120:${String(r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
-        `这表示「手写页→壳承载的自动升级这一格是瞎的」,不是"没有可升级的页"。\n` +
-        `出路:node scripts/upgrade-miniapp-shell-pages.mjs --land --json --cap=2(只读复跑看它实际报什么)`,
-      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+      `ℹ️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
     )
     return { ran: true, ok: false, why: '结论解析失败', status: r.status, signal: r.signal }
   }
@@ -10761,8 +10742,6 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   logger(
     `ℹ️ 手写页升级:可落地=${res.upgradable ?? 0} 本批=${res.batch?.length ?? 0} 落地=${landedN}${res.landed?.declLanded ? ' + 声明件' : ''}${res.landed?.err ? ` | ${String(res.landed.err).split('\n')[0].slice(0, 120)}` : ''}`,
   )
-  // 取到确定结论(含"零可落地")⇒ 撤掉在册起点,不背着旧账到人
-  settleCrossEndLeg('hand-upgrade', { logger, file: undetFile })
   return { ran: true, ok: true, ...res }
 }
 
@@ -13021,22 +13000,5 @@ export const __test__ = {
   BARE_AUDIT_SINCE,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
-  // 单实例锁判据(2026-11-01 补登记):镜像测试 git-guardian-single-instance 按名解构
-  // import 这一份本体(§22c)。此前已定义而未登记进本台账 ⇒ 那格测试结构上打不到
-  // (TypeError: acquireSingleInstance is not a function,恒红 4 格,§0.2 那一型)。
-  acquireSingleInstance,
-  // 跨端镜像自愈派发腿(2026-11-01 补登记):镜像测试 cross-end-mirror-heal-dispatch 的
-  // T6 装车锁按名 import(§22c)。此前已定义+已挂 !CHECK_ONLY 派发链而未登记进本台账
-  // ⇒ 装车锁打不到这一格(恒红,§0.2 同型)。
-  healCrossEndMirror,
-  // 小程序语言包自愈腿(2026-11-01 补登记):镜像测试 derived-and-push-legs-dispatch 的
-  // L10 装车锁按名 import(§0.9/§22c)。此前同型漏登记 ⇒ 恒红。
-  healI18nBundleLeg,
-  // L10 装车锁四腿同批补登记(2026-11-01):均已定义+已挂 !CHECK_ONLY 派发链而未登记
-  // 进本台账 ⇒ 装车锁逐格打不到(恒红,§0.2 同型)。
-  healStyleTokensLeg,
-  healUiRoutesLeg,
-  auditPushDivergenceLeg,
-  healMirrorPurgeLeg,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -35,6 +35,7 @@ import { __test__ as gate } from './check-miniapp-mirror-fidelity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { buildShellPage } from './gen-miniapp-mirror.mjs'
 import { pickCarrierShell } from './lib/rn-shell-refs.mjs'
+import { maskComments } from './lib/code-mask.mjs'
 import {
   navTitleExpr,
   needsAuthGate,
@@ -90,6 +91,25 @@ const worktreeClean = (rel) => {
   }
 }
 
+/** 页面级分享钩子(转壳后必须由宿主页重新注册的那三句;端内 showShareMenu() 是 Taro.showShareMenu 的单一出口) */
+export const PAGE_LEVEL_SHARE_TOKENS = ['useShareAppMessage', 'useShareTimeline', 'showShareMenu']
+
+/**
+ * 旧页注册过、而新生成页没有的页面级分享钩子(§0.9「装了才算」的落地侧兜底)。
+ * 规划器若因任何原因判错(屏没发布正文、生成器改了产出形态),这一层让整页**拒落**而不是
+ * 落成一个丢了转发卡的壳承载页 —— 判据失效的方向必须是"多要一次定向说明",不是"多放一次"。
+ */
+export function missingPageLevelHooks(pageText, newPageText) {
+  const old = maskComments(String(pageText ?? ''))
+  const next = maskComments(String(newPageText ?? ''))
+  const miss = []
+  for (const tok of PAGE_LEVEL_SHARE_TOKENS) {
+    const re = new RegExp(`\\b${tok}\\s*\\(`)
+    if (re.test(old) && !re.test(next)) miss.push(tok)
+  }
+  return miss
+}
+
 /** 纯判据:由规划器的 convertible 行 + 现读面,算出可落地的批(不写盘)。 */
 export function planUpgrades(face = 'head') {
   const p = plan({ face })
@@ -102,6 +122,8 @@ export function planUpgrades(face = 'head') {
       .map((x) => [x.file, x.text]),
   )
   const pages = new Map(cov.collectMiniapp(face).map((x) => [x.route, x.text || '']))
+  // 共享屏正文按同一面批取一次:buildShellPage 的分享产出判据要看屏有没有发布正文
+  const sharedTexts = gate.batchReadTexts(face, [...new Set(convertible.map((x) => x.spec))])
   const upgradable = []
   const refused = []
   for (const r of convertible) {
@@ -129,6 +151,7 @@ export function planUpgrades(face = 'head') {
       base: name.replace(/Screen$/, ''),
       shellText: rnTexts.get(carrier.rel),
       shellName: carrier.name,
+      sharedText: sharedTexts.get(r.spec) ?? '',
       navTitle: viaLifecycle ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
       navTitleHook: !viaLifecycle && titleEffect ? 'useEffect' : 'useDidShow',
       navTitleDeps: !viaLifecycle && titleEffect ? (titleEffect.deps ?? null) : null,
@@ -145,6 +168,14 @@ export function planUpgrades(face = 'head') {
     })
     if (verdict.form !== 'hosted') {
       refused.push({ route: r.route, why: `新页自证非 hosted(${verdict.form}:${verdict.why})` })
+      continue
+    }
+    const hookGap = missingPageLevelHooks(pageText, body)
+    if (hookGap.length > 0) {
+      refused.push({
+        route: r.route,
+        why: `旧页注册的页面级分享钩子在新页缺失(${hookGap.join(', ')})⇒ 转壳会静默丢转发卡,整页拒落`,
+      })
       continue
     }
     if (face === 'head' && !worktreeClean(pageRel)) {
@@ -274,8 +305,12 @@ function main() {
     return apply || land || batch.length === 0 ? 0 : 1
   }
 
+  // 0 落地 ≠ 落地失败(2026-11-01 现读:batch=0 时落地器根本没被调用,旧三目却报 land-failed,
+  // 会让巡检/人读把"无可落地"当成"写盘腿坏了")。三态:land-empty / landed / land-failed。
   console.log(
-    `UPGRADE-SHELL state=${land ? (landed?.ok ? 'landed' : 'land-failed') : apply ? 'applied' : 'preview'} 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
+    `UPGRADE-SHELL state=${
+      land ? (batch.length === 0 ? 'land-empty' : landed?.ok ? 'landed' : 'land-failed') : apply ? 'applied' : 'preview'
+    } 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
   )
   for (const x of batch) console.log(`  ${x.route} | ${x.shell} | ${x.beforeLines}→${x.afterLines} 行`)
   for (const x of res.refused) console.log(`  拒 ${x.route} | ${x.why}`)
@@ -299,5 +334,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { planUpgrades, worktreeClean, landMessage }
+export const __test__ = { planUpgrades, worktreeClean, landMessage, missingPageLevelHooks }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

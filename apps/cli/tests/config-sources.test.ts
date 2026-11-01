@@ -22,19 +22,24 @@ describe('sourcesFor(A19 配置出处探针)', () => {
   let tmpCwd: string
   let originalEnv: NodeJS.ProcessEnv
 
-  /** 布置一个"五层都给 apiUrl 值"的场景(cli/env/project/global/defaults) */
-  function seedApiUrlLayers(): void {
+  /**
+   * 布置一个"五层都给 locale 值"的场景(cli/env/project/global/defaults)。
+   * 用非敏感键 locale(在 PROJECT_ALLOWED_SETTINGS_KEYS 内,且 DEFAULT_SETTINGS、
+   * ENV_MAPPING 均有落点):这样 project 层不会被 SECURITY_SENSITIVE_SETTINGS_KEYS 拒绝,
+   * 五层来源才能都出现 —— apiUrl 等安全敏感键正是"项目层必须拒绝"的新策略,不应用它构造来源。
+   */
+  function seedLocaleLayers(): void {
     fs.mkdirSync(path.join(tmpHome, '.ihui'), { recursive: true })
     fs.writeFileSync(
       path.join(tmpHome, '.ihui', 'settings.json'),
-      JSON.stringify({ apiUrl: 'http://global' }),
+      JSON.stringify({ locale: 'en' }),
     )
     fs.mkdirSync(path.join(tmpCwd, '.ihui'), { recursive: true })
     fs.writeFileSync(
       path.join(tmpCwd, '.ihui', 'settings.json'),
-      JSON.stringify({ apiUrl: 'http://project' }),
+      JSON.stringify({ locale: 'ja' }),
     )
-    process.env.IHUI_API_URL = 'http://env'
+    process.env.IHUI_LOCALE = 'ko'
   }
 
   beforeEach(() => {
@@ -68,25 +73,27 @@ describe('sourcesFor(A19 配置出处探针)', () => {
   })
 
   it('② 多层给值 ⇒ 顺序 = 优先级降序,长度 = 贡献层数(不得压成一条)', () => {
-    seedApiUrlLayers()
-    const opts = { cwd: tmpCwd, cliArgs: { apiUrl: 'http://cli' } }
-    const r = sourcesFor('apiUrl', opts)
+    // 用非敏感键 locale 构造五层来源(apiUrl 等安全敏感键已在项目层被拒绝,
+    // 见 SECURITY_SENSITIVE_SETTINGS_KEYS —— 这正是新策略想要的行为,不能用来测来源)。
+    seedLocaleLayers()
+    const opts = { cwd: tmpCwd, cliArgs: { locale: 'zh-TW' } }
+    const r = sourcesFor('locale', opts)
     expect(r).toHaveLength(5)
     expect(r.map((e) => e.layer)).toEqual(['cli', 'env', 'project', 'global', 'defaults'])
     expect(r.map((e) => e.value)).toEqual([
-      'http://cli',
-      'http://env',
-      'http://project',
-      'http://global',
-      'http://localhost:8802',
+      'zh-TW',
+      'ko',
+      'ja',
+      'en',
+      'zh-CN',
     ])
     // 探针与行为同源:最高优先级条目的值必须等于 loadConfig 实际生效值
-    expect(r[0]!.value).toBe(loadConfig(opts).apiUrl)
+    expect(r[0]!.value).toBe(loadConfig(opts).locale)
   })
 
   it('③ 来自磁盘的层必带非空 originFile;非磁盘层不带', () => {
-    seedApiUrlLayers()
-    const r = sourcesFor('apiUrl', { cwd: tmpCwd, cliArgs: { apiUrl: 'http://cli' } })
+    seedLocaleLayers()
+    const r = sourcesFor('locale', { cwd: tmpCwd, cliArgs: { locale: 'zh-TW' } })
     const disk = r.filter((e) => e.layer === 'global' || e.layer === 'project')
     expect(disk).toHaveLength(2)
     for (const e of disk) {

@@ -861,6 +861,19 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "settings_field": "mtls_enabled",
     },
     {
+        # AI 服务免鉴权旁路(2026-11-01 补登记,来源=对侧提交把 Settings.ai_dev_no_auth 默认关字段
+        # 引入 config.py 而台账未跟上,门 J4 当场判红):派生 env AI_DEV_NO_AUTH;
+        # 值为真**且** JWT_SECRET 为空才放行(见 app/core/jwt_auth.py:dev_auth_bypass_enabled)。
+        "key": "ai_dev_no_auth",
+        "env": "AI_DEV_NO_AUTH",
+        "default": "false",
+        "category": "门控类",
+        "owner_module": "app.core.jwt_auth",
+        "doc_ref": "app/core/config.py:42",
+        "reason_if_off": "安全护栏默认关:免鉴权只在本地开发显式开启,且须 JWT_SECRET 为空才生效;生产关闭是正确的安全姿态",
+        "settings_field": "ai_dev_no_auth",
+    },
+    {
         "key": "edge_first_local",
         "env": "EDGE_FIRST_LOCAL",
         "default": "false",

@@ -61,12 +61,16 @@ export function NoteDetailScreen({
       <View style={styles.metaRow}>
         <Text style={styles.author}>{item.author}</Text>
         <Text style={styles.meta}>
-          {t('noteDetail.views', { count: item.views })} · {item.createdAt}
+          {/* views 不在 /api/notes/:id 投影里 ⇒ 缺失时不渲染该段,只显示时间 */}
+          {item.views !== null && item.views !== undefined
+            ? `${t('noteDetail.views', { count: item.views })} · `
+            : ''}
+          {item.createdAt}
         </Text>
       </View>
-      {item.tags.length > 0 ? (
+      {(item.tags ?? []).length > 0 ? (
         <View style={styles.tagRow}>
-          {item.tags.map((tag) => (
+          {(item.tags ?? []).map((tag) => (
             <Text key={tag} style={styles.tag}>
               #{tag}
             </Text>
@@ -74,12 +78,15 @@ export function NoteDetailScreen({
         </View>
       ) : null}
       <Text style={styles.content}>{item.content}</Text>
-      <View style={styles.statRow}>
-        <View style={styles.stat}>
-          <Heart size={12} color={tk.text.medium} />
-          <Text style={styles.statText}>{item.likes}</Text>
+      {/* likes 同为可选字段:后端没给就不渲染点赞统计,不以 0 顶位 */}
+      {item.likes !== null && item.likes !== undefined ? (
+        <View style={styles.statRow}>
+          <View style={styles.stat}>
+            <Heart size={12} color={tk.text.medium} />
+            <Text style={styles.statText}>{item.likes}</Text>
+          </View>
         </View>
-      </View>
+      ) : null}
     </ScrollView>
   )
 }

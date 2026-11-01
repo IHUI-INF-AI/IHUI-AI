@@ -140,17 +140,6 @@ function buildTable(names) {
   return { rows, missing }
 }
 
-/**
- * 模板指纹 —— 抬模板正文(注释、类型别名、任何非表格行)必须同时抬这一串里的版本号。
- *
- * 为什么需要它(2026-11-01 实测到病灶):`--write` 的幂等判据 `iconTableCovers` 刻意只比
- * **语义档**(图标名 ∧ 该名的 SVG 取值),不比字节 —— 落盘要先过 prettier 再注水印,比字节会
- * "每轮都有变化"。代价是:改了 renderSource 的模板文字而名字集合没动 ⇒ 判据照打「✓ 图标无变化」,
- * 产物**永远停在旧模板**,而文件头写着"请勿手改" ⇒ 两头都没有出路(§0.8)。
- * 把模板形状压成一枚指纹进判据,模板一改就必然重落一次。
- */
-export const TEMPLATE_STAMP = 'gen-rn-compat:template-v2'
-
 function renderSource(names, rows) {
   const declared = rows
     .map((r) => /^  '([A-Za-z0-9]+)':/.exec(r)?.[1])
@@ -173,7 +162,6 @@ function renderSource(names, rows) {
  * 渲染口径:SVG 为纯黑描边,由 CSS mask 只取 alpha ⇒ 实际颜色走 background-color,
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
-// ${TEMPLATE_STAMP} —— 模板指纹。改本文件的模板正文必须抬版本号,否则 --write 按语义档判"无变化"、产物停在旧模板。
 import { makeIcon } from './icons-runtime'
 
 /**
@@ -261,24 +249,55 @@ function buildRouteMap() {
 /**
  * 读补充声明。事实源恒为 HEAD(§0.4,与导航器/登记表同面);只有「该文件尚未进 HEAD」时
  * 才回落到工作树 —— 否则首次引入它的那一轮 `--write` 永远看不见自己刚写的声明。
+ *
+ * 但 HEAD-only 对「已进 HEAD 的声明文件**追加/修改**条目」是同一把尺的盲区:未提交的
+ * 新条目被 HEAD 旧副本静默顶掉,`--write` 空转还报"路由映射无变化"(2026-11-01 实测:
+ * 补 WebView 条目后重跑,补充声明仍只入表 1 条 = 旧 DevEnter)。修法:工作树副本与
+ * HEAD 不同时**两份都读**,按 route 键合并(工作树胜出;HEAD 独有条目保留)。证据面
+ * 不放松:合并后的每一条仍过 buildRouteMapFromText 的三重核对(路由名在导航器 /
+ * 壳文件对得上 / 小程序页在盘上),对不上的照旧逐条点名且不入表。
  */
-function readSupplementEntries() {
-  let text = null
-  try {
-    text = headBlob(RN_ONLY_SUPPLEMENT)
-  } catch {
-    try {
-      text = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
-    } catch {
-      return []
-    }
-  }
+function parseSupplement(text) {
   try {
     const parsed = JSON.parse(text)
     return Array.isArray(parsed?.entries) ? parsed.entries : []
   } catch {
     return []
   }
+}
+
+function readSupplementEntries() {
+  let headText = null
+  try {
+    headText = headBlob(RN_ONLY_SUPPLEMENT)
+  } catch {
+    try {
+      headText = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+    } catch {
+      return []
+    }
+  }
+  const headEntries = parseSupplement(headText)
+  let workText = null
+  try {
+    workText = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+  } catch {
+    // 工作树读不到(被删) ⇒ 按 HEAD 面算,不冒充空表
+    return headEntries
+  }
+  if (workText === headText) return headEntries
+  // 工作树有未提交的声明改动:按 route 键合并,工作树条目胜出。
+  // (工作树**删除**条目不在此合并语义内 —— 撤声明请连提交一起落,别指望工作树半途生效。)
+  const merged = new Map()
+  for (const e of headEntries) {
+    const key = String(e?.route ?? '')
+    if (key) merged.set(key, e)
+  }
+  for (const e of parseSupplement(workText)) {
+    const key = String(e?.route ?? '')
+    if (key) merged.set(key, e)
+  }
+  return [...merged.values()]
 }
 
 /**
@@ -435,14 +454,6 @@ export function iconTableCovers(rows, diskText) {
     if (!m) return false
     return disk.get(m[1] ?? m[2] ?? m[3]) === decodeJsString(stripQuotes(m[4]))
   })
-}
-
-/**
- * 写盘决策用的完整"已是最新"判据 = 语义档(名 ∧ SVG 取值)∧ 模板指纹在册。
- * 只比语义档会让模板正文的改动永不落地(见 TEMPLATE_STAMP 头注,2026-11-01 实测)。
- */
-export function iconsUpToDate(rows, diskText) {
-  return iconTableCovers(rows, diskText) && String(diskText || '').includes(TEMPLATE_STAMP)
 }
 
 /**
@@ -683,7 +694,7 @@ async function main() {
 
   // 幂等判据取**语义档**(名字集合/映射键集合),不取字节:落盘内容会先过 prettier 再注水印,
   // 拿未格式化的稿与盘上副本比字节必然永不相等 ⇒ 每轮都"有变化",改动面被无意义的重写长期占用。
-  const iconsAlreadyCovered = iconsUpToDate(rows, current)
+  const iconsAlreadyCovered = iconTableCovers(rows, current)
   const routesAlreadyCovered = routeMapCovers([...routeInfo.map.entries()], routeCurrent)
   console.log(
     `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
@@ -725,9 +736,7 @@ async function main() {
      * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
      */
     if (iconsAlreadyCovered)
-      console.log(
-        `✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值与模板指纹 ${TEMPLATE_STAMP})`,
-      )
+      console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
     else {
       atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
@@ -764,8 +773,6 @@ export const __test__ = {
   renderRouteMap,
   routeMapCovers,
   iconTableCovers,
-  iconsUpToDate,
-  TEMPLATE_STAMP,
   OUT_REL,
   ROUTE_OUT_REL,
   // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)

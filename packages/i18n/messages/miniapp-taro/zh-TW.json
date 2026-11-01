@@ -578,6 +578,10 @@
     "copied": "已複製"
   },
   "ai": {
+    "messageVersion": {
+      "history": "歷史版本",
+      "regenerateFailed": "重新產生失敗"
+    },
     "contextUsage": {
       "title": "上下文使用情況",
       "segSystem": "系統提示",
@@ -821,10 +825,6 @@
       "bookmark": "收藏",
       "unbookmark": "取消收藏",
       "flagFailed": "標記儲存失敗"
-    },
-    "messageVersion": {
-      "history": "版本歷史",
-      "regenerateFailed": "重新產生失敗，請稍後再試"
     },
     "share": {
       "title": "分享"

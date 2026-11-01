@@ -107,6 +107,15 @@ import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 // D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
 // queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
 import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
+// D75 侧任务生命周期最小真实腿(2026-11-01 装车):卡片不取数,task/onAction 由本宿主注入;
+// 过期与清理判据一律走 @ihui/shared/chat/side-task-lifecycle(端内不重算 TTL)。
+import { SideTaskLifecycleCard } from '@/components/ai/side-task-lifecycle-card'
+import { sideTaskFromQueueItem } from '@/lib/side-task-projection'
+import {
+  needsCloseConfirm,
+  type CleanedSideTaskEntry,
+  type SideTaskAction,
+} from '@ihui/shared/chat/side-task-lifecycle'
 // V3 #69 额度条 / D155 下行告警条 / D131 连接状态位(2026-09-30 起)由 InputStatusSlot 统一挂载
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 // Runtime 插话能力声明的**唯一回落判点**(未声明 ⇒ false,与写死 false 同形)
@@ -541,7 +550,20 @@ export function MessageInput({
   const sideQueue = chatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
-  const shiftSideQuestion = chatStore((s) => s.shiftSideQuestion)
+  // D75 侧任务生命周期最小真实腿(2026-11-01):补答入口不再 shift 摘条,
+  // 改由 chatStore.getState().peekPendingSideQuestion 取待答首条(见下方 answerCurrentSideQuestion)。
+  // D75 装腿后队列分两格:交互条仍列**整桶**(重排下标与桶一一对应,零改动),
+  // 生命周期卡只交代最近一枚任务的状态 —— 两者读同一份桶,不各存一套真相。
+  // 卡面承载体:桶里最后一条(= 最近一枚侧问任务,状态由共享判据说话)
+  const sideTask = React.useMemo(() => {
+    const bucket = sideQueue ?? []
+    const last = bucket[bucket.length - 1]
+    return last ? sideTaskFromQueueItem(last) : null
+  }, [sideQueue])
+  // D75 动作面:关闭确认弹层由宿主决定何时展开(判据仍是共享 needsCloseConfirm,端内不另判);
+  // 被清理清单留在本面会话级状态 —— 内容已不可取,只留「来自已清理的 {标题}」这一行交代。
+  const [sideTaskConfirmOpen, setSideTaskConfirmOpen] = React.useState(false)
+  const [cleanedSideTasks, setCleanedSideTasks] = React.useState<CleanedSideTaskEntry[]>([])
   // D38 队列模式偏好(steer=插话优先 / queue=排队优先),持久化在 chat store
   const followUpQueueMode = chatStore((s) => s.followUpQueueMode)
   // Runtime 插话能力声明(null = 生产者还没说话,经 resolveInterjectionSupport 回落 false)。
@@ -560,7 +582,10 @@ export function MessageInput({
   // 经 chat store recordQueueSendOutcome 落 D162 终态台账;非队列即答(无 itemId)不落账。
   const answerWithToast = React.useCallback(
     (text: string, queuedItemId?: string) => {
-      void answerSideQuestion(text, t)
+      void answerSideQuestion(text, t, chatStore, {
+        conversationId: conversationId ?? undefined,
+        itemId: queuedItemId,
+      })
         .then(() => {
           if (queuedItemId && conversationId) {
             chatStore.getState().recordQueueSendOutcome(conversationId, queuedItemId, 'sent')
@@ -579,12 +604,44 @@ export function MessageInput({
     },
     [t, conversationId, chatStore],
   )
-  // 从当前会话队列出队一条并补答(流结束自动补答 / 「立即补答」共用)
+  // 从当前会话队列取**第一条待答**侧问并补答(流结束自动补答 / 「立即补答」共用)。
+  // D75 装腿后不再 shift 摘除:条目留在桶里,由 answerSideQuestion 的流末瞬间写成 completed,
+  // 之后由生命周期卡的 close / cleanup 收走 —— .peekPendingSideQuestion 只回 running,
+  // 所以同一条目不会被下一轮流末重复补答。
   const answerCurrentSideQuestion = React.useCallback(() => {
     if (!conversationId) return
-    const item = shiftSideQuestion(conversationId)
+    const item = chatStore.getState().peekPendingSideQuestion(conversationId)
     if (item) answerWithToast(item.text, item.id)
-  }, [conversationId, shiftSideQuestion, answerWithToast])
+  }, [conversationId, chatStore, answerWithToast])
+  // D75 生命周期卡四档动作(close / confirmClose / cancelClose / cleanup)—— 每一档都落真写操作:
+  //   close:是否需要确认由共享 `needsCloseConfirm` 判(端内不另判),纯 completed 不打扰;
+  //   confirmClose:摘除该枚条目(临时任务的产物随之一并消失,已由 ephemeralNotice 事先交代);
+  //   cancelClose:只收弹层,不动桶;
+  //   cleanup:过期条目由共享 `collectExpiredSideTasks` 判出并被 store 真收走,清单回灌卡片。
+  const handleSideTaskAction = React.useCallback(
+    (action: SideTaskAction) => {
+      if (!conversationId || !sideTask) return
+      const store = chatStore.getState()
+      if (action === 'close') {
+        if (needsCloseConfirm(sideTask)) setSideTaskConfirmOpen(true)
+        else store.removeSideQuestion(conversationId, sideTask.id)
+        return
+      }
+      if (action === 'confirmClose') {
+        setSideTaskConfirmOpen(false)
+        store.removeSideQuestion(conversationId, sideTask.id)
+        return
+      }
+      if (action === 'cancelClose') {
+        setSideTaskConfirmOpen(false)
+        return
+      }
+      const cleaned = store.cleanupExpiredSideTasks(conversationId, Date.now())
+      if (cleaned.length > 0) setCleanedSideTasks((prev) => [...prev, ...cleaned])
+      setSideTaskConfirmOpen(false)
+    },
+    [conversationId, chatStore, sideTask],
+  )
   // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
   // D28(2026-09-20):流结束后预备消息优先(W27);无预备消息时补答当前会话队首侧问
   // (每轮流结束最多补答一条,与 W27 队列同节奏)
@@ -1185,6 +1242,18 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => chatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
+        {/* D75 侧任务生命周期卡(G-102,2026-11-01 装最小真实腿):挂在本会话侧问队列
+            真正渲染的位置(与 QueueInteractionBar 同一个输入区插槽)。卡片不取数,
+            task 由桶里最近一枚条目投影、cleaned 由 cleanup 动作回灌、四档动作如上。 */}
+        {sideTask || cleanedSideTasks.length > 0 ? (
+          <SideTaskLifecycleCard
+            task={sideTask}
+            cleaned={cleanedSideTasks}
+            confirmOpen={sideTaskConfirmOpen}
+            onAction={handleSideTaskAction}
+            data-testid="side-task-lifecycle"
+          />
+        ) : null}
         <PendingCommandHint conversationId={conversationId ?? null} revision={isStreaming} />
         {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
             形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}

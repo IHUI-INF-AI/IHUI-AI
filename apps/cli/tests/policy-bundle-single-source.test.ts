@@ -43,8 +43,12 @@ describe('G-816013 策略档唯一落点', () => {
     const keys = Object.keys(DEFAULT_SETTINGS);
     const start = keys.indexOf('maxIterations');
     expect(start).toBeGreaterThan(-1);
+    // 四档经 spread 连续插入在 maxIterations 之后(键序契约的核心)。
     expect(keys.slice(start + 1, start + 5)).toEqual(EXPECTED_ORDER);
-    expect(keys[start + 5]).toBe('sandbox');
+    // sandbox 须位于四档之后。注意:安全强化第 20 批在 enableMcp 与 sandbox 之间插入了
+    // mcpTrustProjectServers(同属安全敏感键),故 sandbox 不再紧邻四档,仅需保证在其后。
+    const sandboxIdx = keys.indexOf('sandbox');
+    expect(sandboxIdx).toBeGreaterThan(start + 4);
   });
 
   it('④ 源码级反向锁:first-run.ts 不得再重述这四个布尔(第二份字面量即本用例的责任)', () => {

@@ -349,6 +349,12 @@ export interface ModelIncomeScreenProps {
   onOpenWithdraw: () => void
   onCloseWithdraw: () => void
   onConfirmWithdraw: () => void
+  /** 触底续取下一页中(列表尾部显示"加载中…") */
+  loadingMore?: boolean
+  /** 是否还有下一页(壳按 total 算出;false 且已有数据时列表尾部显示"没有更多了") */
+  hasMore?: boolean
+  /** 触底回调:壳负责向后端取下一页并追加 */
+  onLoadMore?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -400,6 +406,12 @@ export interface TokenValueScreenProps {
   /** 点击充值套餐回调,平台注入支付确认(Alert/弹窗/导航) */
   onRecharge: (pkg: TokenValuePackage) => void
   onBack: () => void
+  /** 列表触底回调(平台请求下一页;不传则不分页) */
+  onLoadMore?: () => void
+  /** 正在加载下一页 */
+  loadingMore?: boolean
+  /** 是否还有下一页(undefined=未知,不渲染结束提示) */
+  hasMore?: boolean
   colorScheme?: 'light' | 'dark'
 }
 

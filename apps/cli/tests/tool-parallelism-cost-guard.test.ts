@@ -43,6 +43,31 @@ vi.mock('../src/audit.js', () => ({
 import { runToolLoop } from '../src/commands/agent.js'
 
 // ---- 辅助:mock 工具 ----
+// 记录每个工具的真实执行时间窗[start,end],用于判定"是否真的并行"。
+// 这是比"总耗时"更稳健的并发判据:runToolLoop 的固定开销(流式解析、二次迭代、
+// ledger/audit/telemetry、pre-tool 钩子)在串行/并行下完全相同,会让绝对耗时断言
+// 在 CI 负载下偶发误判;而 time-window 重叠能直接证明并发数,不受开销与时序漂移影响。
+type ExecSpan = { name: string; start: number; end: number }
+const toolExecutionSpans: ExecSpan[] = []
+
+// 扫描所有执行窗,返回并发峰值(同一时刻最多有几个工具在跑)。
+// 并行:3 个工具同时启动 → 峰值=3;串行的峰值=1。此函数与工具耗时/循环开销无关。
+function maxConcurrency(spans: ExecSpan[]): number {
+  const events: Array<[number, number]> = []
+  for (const s of spans) {
+    events.push([s.start, 1])
+    events.push([s.end, -1])
+  }
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  let cur = 0
+  let peak = 0
+  for (const [, delta] of events) {
+    cur += delta
+    if (cur > peak) peak = cur
+  }
+  return peak
+}
+
 function makeSlowTool(name: string, delayMs: number, danger: 'read' | 'write' | 'dangerous' = 'read'): Tool {
   return {
     name,
@@ -51,7 +76,9 @@ function makeSlowTool(name: string, delayMs: number, danger: 'read' | 'write' | 
     required: [],
     dangerLevel: danger,
     execute: async () => {
+      const start = Date.now()
       await new Promise((resolve) => setTimeout(resolve, delayMs))
+      toolExecutionSpans.push({ name, start, end: Date.now() })
       return { success: true, output: `${name}-done` }
     },
   }
@@ -69,10 +96,11 @@ describe('P0-1 Tool parallelism 多工具并行执行', () => {
   beforeEach(() => {
     clearTools()
     resetRateLimiter()
+    toolExecutionSpans.length = 0
     streamChatMock.mockReset()
   })
 
-  it('多个 tool_call 并行执行(3 个 100ms 工具总耗时约 100ms,而非 300ms)', async () => {
+  it('多个 tool_call 并行执行(3 个 100ms 工具并发峰值=3,而非串行峰值=1)', async () => {
     registerTools([
       makeSlowTool('slow_a', 100),
       makeSlowTool('slow_b', 100),
@@ -83,7 +111,6 @@ describe('P0-1 Tool parallelism 多工具并行执行', () => {
       '并行执行。\n```tool_call\n{"name":"slow_a","arguments":{}}\n```\n```tool_call\n{"name":"slow_b","arguments":{}}\n```\n```tool_call\n{"name":"slow_c","arguments":{}}\n```',
       '完成。',
     ])
-    const start = Date.now()
     const result = await runToolLoop({
       modelId: 'test',
       messages: [
@@ -93,11 +120,11 @@ describe('P0-1 Tool parallelism 多工具并行执行', () => {
       ctx: { workspacePath: '.' },
       maxIterations: 3,
     })
-    const elapsed = Date.now() - start
     expect(result.stopReason).toBe('end_turn')
-    // 并行:3 个 100ms 工具总耗时应 < 250ms(允许 Promise.all 调度开销)
-    // 串行则会 > 300ms
-    expect(elapsed).toBeLessThan(250)
+    // 并发判据(替代原先的绝对耗时断言):直接看工具执行时间窗是否重叠。
+    // 真正并行时 3 个工具同时启动 → 峰值并发=3;若生产端退化为串行,峰值=1,此断言会失败。
+    // 不依赖总耗时,因此不受 runToolLoop 固定开销或 CI 时序漂移影响(非 flaky)。
+    expect(maxConcurrency(toolExecutionSpans)).toBeGreaterThanOrEqual(2)
   })
 
   it('单工具调用正常执行(串行退化为 Promise.all 单元素)', async () => {

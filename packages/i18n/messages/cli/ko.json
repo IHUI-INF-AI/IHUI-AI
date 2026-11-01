@@ -136,20 +136,20 @@
       "migrationFailed": "자격 증명 이전이 완료되지 않아 원본 파일을 그대로 두고 덮어쓰지 않았습니다({reason})"
     },
     "agentFailureTerminated": "실행 중단: 결과={outcome}｜중단 지점={stage}",
-    "failureOutcomeRetryable": "재시도 가능",
-    "failureOutcomeTerminal": "종료(재시도 무의미)",
-    "failureOutcomeUndetermined": "판단 불가",
-    "agentStallLlmRequest": "LLM 요청",
+    "failureOutcomeRetryable": "재시도 가능(일시적 실패. 다시 보내면 성공할 수 있음)",
+    "failureOutcomeTerminal": "최종 실패(다시 보내도 같은 지점에서 실패)",
+    "failureOutcomeUndetermined": "미판정(근거 부족. 성공/실패로 읽지 않음)",
+    "agentStallLlmRequest": "모델 요청",
     "agentStallToolExecution": "도구 실행",
     "agentStallApprovalWait": "승인 대기",
-    "agentStallElicitationWait": "추가 질문 대기",
-    "agentStallStreamChannel": "스트리밍 채널",
-    "agentStallQueueDispatch": "대기열 투입",
-    "agentStallPermissionGate": "권한 관문",
-    "agentStallBudgetGovernance": "예산 거버넌스",
+    "agentStallElicitationWait": "추가 입력 대기",
+    "agentStallStreamChannel": "스트림 채널",
+    "agentStallQueueDispatch": "큐 디스패치",
+    "agentStallPermissionGate": "권한 게이트",
+    "agentStallBudgetGovernance": "예산 관리",
     "agentStallHookPipeline": "훅 파이프라인",
-    "agentStallDoomLoopGuard": "무한 루프 감시",
-    "agentStallUndetermined": "판단 불가"
+    "agentStallDoomLoopGuard": "무한 루프 방지",
+    "agentStallUndetermined": "미판정 단계"
   },
   "waiting": {
     "agent": {

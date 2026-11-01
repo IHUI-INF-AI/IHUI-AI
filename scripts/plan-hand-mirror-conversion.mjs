@@ -413,14 +413,60 @@ export function clientSidePaging(pageText) {
 }
 
 /**
+ * 页侧「选项列表 / 确认弹窗」取用的文案键(纯取数,不判覆盖)。
+ * 解析不出任何键 ⇒ 空集(调用方按"判不出"处理,不放过)。
+ */
+export function modalOptionKeys(pageText) {
+  const p = maskComments(String(pageText ?? ''))
+  const out = new Set()
+  for (const m of p.matchAll(/showActionSheet\s*\(\s*\{[\s\S]{0,600}?itemList:\s*\[([\s\S]{0,400}?)\]/g))
+    for (const k of m[1].matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g)) out.add(k[1])
+  for (const m of p.matchAll(/showModal\s*\(\s*\{([\s\S]{0,600}?)\}\s*\)/g))
+    for (const k of m[1].matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g)) out.add(k[1])
+  return out
+}
+
+/**
  * 确认弹窗:壳用 RN 的 Alert.alert(现读 10 个屏),与小程序的 Taro.showModal 是同一件事。
  * 另认 `appAlert(title, msg, [{ onPress }])` 形态 —— 带选项的 appAlert 就是确认弹窗
  * (现读 AiSkillScreen 注释即「RN 端 Alert(name/description + 取消/查看详情)」,实现为 appAlert + onPress)。
+ *
+ * 第二档(可选):给 `pageKeys`(页侧选项文案键集)时,除形态在室外还要求**逐键对上** ——
+ * showActionSheet 的选项是"一组可点的东西",壳里有个 appAlert 不等于把这一组选项做了
+ * (实测 pages/distribution/plan/index 的开通确认步壳侧真没有对应键)。
+ * 键集从 appAlert/Alert.alert 的**实参段**取,用括号配平而不是 `\)` 正则:实参里有
+ * `[{ text: t('…') }]` 嵌套括号,惰性正则会截在第一个右括号上、把按钮整段读丢(实测踩过)。
+ * 两档共用这一个谓词,不再另立第二份实现(§0.6)。
  */
-export function modalCovered(shellText) {
+export function modalCovered(shellText, pageKeys = null) {
   const s = String(shellText ?? '')
-  if (/\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(s)) return true
-  return /appAlert\s*\([\s\S]{0,300}?onPress/.test(s)
+  const shaped =
+    /\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(s) ||
+    /appAlert\s*\([\s\S]{0,300}?onPress/.test(s)
+  if (!shaped) return false
+  // 只有"根本没传第二档"才回到旧口径;传了但是空集 = 页侧解析不出键 ⇒ 判不出 ⇒ 不放过
+  if (!pageKeys) return true
+  if (pageKeys.size === 0) return false
+  const shellKeys = new Set()
+  for (const m of s.matchAll(/\b(?:appAlert|Alert\.alert)\s*(?=\()/g)) {
+    const open = s.indexOf('(', m.index)
+    if (open < 0) continue
+    let depth = 0
+    for (let i = open; i < s.length; i++) {
+      const c = s[i]
+      if (c === '(') depth += 1
+      else if (c === ')') {
+        depth -= 1
+        if (depth === 0) {
+          for (const k of s.slice(open + 1, i).matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g))
+            shellKeys.add(k[1])
+          break
+        }
+      }
+    }
+  }
+  if (shellKeys.size === 0) return false
+  return [...pageKeys].every((k) => shellKeys.has(k))
 }
 
 /** 剪贴板:壳用 Clipboard.setString(现读 13 个屏),与小程序的 Taro.setClipboardData 是同一件事。 */
@@ -574,12 +620,23 @@ export const SHELL_CAPABILITY_RULES = [
   },
 ]
 
-/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
-export function shellCapabilityCovered(pageTokens, shellText, sharedText = '') {
+/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。
+ *
+ * `gaps` 是**精确核对已经判负**的族名(2026-11-01 立):
+ * 导航族由 `coveredNavigation` 逐目标反查、取数族由 `apiEndpointsCovered` 逐端点对账 ——
+ * 这两个谓词一旦判负,就说明"壳里虽然有 navigate(/fetchApi(,但目标/端点不是页面那几个",
+ * 此时本表的整族销账必须让位,否则假绿(`pkg-learn/live/list` 缺开播/日历/我的订阅三入口、
+ * `pkg-shop/vip-trader/index` 缺 50+ 键承载的分区,曾被整族销账判成可转而真转壳丢功能)。
+ * 精确判负的族**不再**参与整族销账;精确谓词判不了(取不到 routeMap / 端点解析不出)时不传 gap,
+ * 维持旧口径 —— 这一层的方向必须是"多要一次定向说明",不是"多放一页过去"。
+ */
+export function shellCapabilityCovered(pageTokens, shellText, sharedText = '', gaps = []) {
   const s = maskComments(String(shellText ?? ''))
   const shared = maskComments(String(sharedText ?? ''))
+  const skip = new Set(Array.isArray(gaps) ? gaps : [])
   const cleared = []
   for (const rule of SHELL_CAPABILITY_RULES) {
+    if (skip.has(rule.what)) continue
     if (!rule.tokens.some((t) => pageTokens.has(t))) continue
     if (!rule.shellEvidence(s, shared)) continue
     for (const t of rule.tokens) pageTokens.delete(t)
@@ -904,6 +961,7 @@ export function barrelFullyCovered(pageText, sharedText, shellText, from = '@/co
   return names.every((n) => new RegExp(`${n.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}\\b`).test(src))
 }
 
+
 /**
  * 这一页相对「共享屏本体 ∪ RN 壳」多出来的能力符号。空集 ⇒ 页面没带私有行为,可转。
  * pageTokens/sharedTokens/shellTokens 均为 Set|string(字符串现算)。
@@ -1020,14 +1078,15 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 带鉴权钩子的页,其 useDidShow 若只做 waitUntilReady(...) ⇒ 由 AuthReadyGate 承担"就绪后再渲染"
   if (authGateCoversDidShow(pageText)) for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
-  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账
-  if (toastFullyCovered(pageText, shellText, sharedText)) pageTokens.delete('Taro.showToast')
-  else if (
-    !toastCovered(pageText, shellText, sharedText) &&
-    toastOnlyInCatch(pageText) &&
-    SHELL_FEEDBACK_RE.test(String(shellText ?? ''))
-  )
-    pageTokens.delete('Taro.showToast')
+  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账。
+  // 两条精确路径都判负时记 gap:否则下方"用户提示"整族销账会因壳里出现过任意 appAlert( 而放行,
+  // 与 2026-11-01 修掉的导航/取数假绿同型(成功提示在壳侧没有对应出口 ⇒ 转壳后静默消失)。
+  const toastPreciseCovered =
+    toastFullyCovered(pageText, shellText, sharedText) ||
+    (!toastCovered(pageText, shellText, sharedText) &&
+      toastOnlyInCatch(pageText) &&
+      SHELL_FEEDBACK_RE.test(String(shellText ?? '')))
+  if (toastPreciseCovered) pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
@@ -1075,8 +1134,44 @@ export function judgeConversion({
     else if (barrelFullyCovered(pageText, sharedText, shellText))
       pageTokens.delete('@/components')
   }
-  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
-  shellCapabilityCovered(pageTokens, shellText, sharedText)
+  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)。
+  // 但"整族销账"只在精确核对没有判负时才成立(2026-11-01 立):
+  //   ① 导航族:上面 coveredNavigation 已逐目标反查过 route-map,一旦有目标在壳里查不到,
+  //      壳里只要出现任意 navigation.navigate( 就把整族销账 ⇒ 三处入口消失也判可转(实测 live/list);
+  //   ② 取数族:apiEndpointsCovered 已逐端点对账,端点不重合时壳里只要有 fetchApi( 就整族销账
+  //      ⇒ 页面取 /live/channels、壳取 /live/list 也被判成同一件事。
+  // 两个精确谓词判不了(无 routeMap / 符号端点解析不出)时**不传 gap**,维持旧口径。
+  const blanketGaps = []
+  if (
+    routeMap &&
+    ['Taro.navigateTo', 'Taro.redirectTo', 'Taro.switchTab', 'Taro.reLaunch'].some((t) =>
+      pageTokens.has(t),
+    ) &&
+    !coveredNavigation(pageText, shellText, routeMap).covered
+  )
+    blanketGaps.push('导航')
+  if (
+    ['@/api', '@/api/index', '@/api/social'].some((t) => pageTokens.has(t)) &&
+    !apiEndpointsCovered(pageText, shellText, apiModuleText)
+  )
+    blanketGaps.push('取数')
+  // ③ 用户提示族:上面两条精确判据(toastFullyCovered / catch 兜底)都判负时,壳里出现任意
+  //    appAlert( 不得再整族销账 —— 否则页面独有的成功提示(如"已关注")静默消失。
+  if (pageTokens.has('Taro.showToast') && !toastPreciseCovered) blanketGaps.push('用户提示')
+  shellCapabilityCovered(pageTokens, shellText, sharedText, blanketGaps)
+  // 选项列表(2026-11-01 立):沿用 **同一个** modalCovered 谓词的第二档(键集合对账),不另立实现
+  // (§0.6 单一真相源:Taro.showModal 在上方已由 modalCovered(shellText) 销,这里只补 showActionSheet
+  // 那一格 —— 它的选项是"一组可点的东西",光有 appAlert 形态不够,要逐键对上)。
+  // 实测 pkg-learn/teacher/detail 端内 `showActionSheet({itemList:[tt('teacher.detail.contactMessage'),
+  // tt('teacher.detail.contactPhone')…]})` 与承载壳 TeacherDetailScreen.tsx 的
+  // `appAlert(t('teacher.detail.contact'), undefined, [{ text: t('teacher.detail.contact…') }…])`
+  // 同名同值 ⇒ 同一件事;而 pages/distribution/plan/index 与 pkg-shop/vip-trader 的确认步
+  // 壳侧没有对应键 ⇒ 留在拦下(不是靠 appAlert 出现过就放过)。
+  if (
+    pageTokens.has('Taro.showActionSheet') &&
+    modalCovered(shellText, modalOptionKeys(pageText))
+  )
+    pageTokens.delete('Taro.showActionSheet')
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -1664,6 +1759,32 @@ function main(argv) {
         '',
       ),
     ], [true, false, false, false])
+    // S33(2026-11-01 立):showActionSheet 走 **modalCovered 的第二档**(键集合对账)。
+    // 四臂:键对上⇒销、壳按钮取别的键⇒不销、页侧解析不出键⇒不销、
+    // 以及"不传 pageKeys 时旧行为一字不变"(modalCovered 同时被 Taro.showModal 那格用着,
+    // 这一臂钉住我加第二档没有把既有销账口径改动 —— 既有账漂移比少销一页严重)。
+    P('S33 选项弹窗第二档:键对上才销;别的键/解析不出都不销;不给键集时旧口径不变', [
+      modalCovered(
+        `const onContact = () => appAlert(t('a.contact'), undefined, [{ text: t('a.contactMessage'), onPress: sendMsg }, { text: t('a.contactPhone'), onPress: call }])`,
+        modalOptionKeys(
+          `Taro.showActionSheet({ itemList: [tt('a.contactMessage','发消息'), tt('a.contactPhone','打电话')] })`,
+        ),
+      ),
+      modalCovered(
+        `appAlert(t('a.contact'), undefined, [{ text: t('common.confirm'), onPress: ok }])`,
+        modalOptionKeys(
+          `Taro.showActionSheet({ itemList: [tt('a.contactMessage','发消息'), tt('a.contactPhone','打电话')] })`,
+        ),
+      ),
+      modalCovered(
+        `appAlert(t('a.contact'), undefined, [{ text: t('a.contactMessage'), onPress: sendMsg }])`,
+        modalOptionKeys(`Taro.showActionSheet({ itemList: options })`),
+      ),
+      // 旧口径臂:无 onPress 的 Alert.alert 形态,单档仍判覆盖(与第二档之前逐字同行为)
+      modalCovered(`Alert.alert(t('x'), '', [{ text: 'ok' }])`),
+      // 反臂:形态都不在 ⇒ 两档都判不覆盖
+      modalCovered(`navigate('next')`, new Set(['a.b'])),
+    ], [true, false, false, true, false])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
@@ -1787,6 +1908,7 @@ export const __test__ = {
   capabilityTokens,
   barrelNamedImports,
   barrelFullyCovered,
+  modalOptionKeys,
   navBarOnlyChrome,
   navBarCoveredOnScreen,
   pageOnlyCapabilities,

@@ -19,7 +19,7 @@
  * - 标记已读   PUT  /cozeZhsApi/chat-room/messages/mark-read?user_uuid=&room_id= (markRoomAsRead)
  * - 收发通道   WS   wss://<baseUrl3>/cozeZhsApi/chat-room/ws,event: join_room / send_message / room_message
  *
- * 平台独占入口:仅 mobile-rn 端。
+ * 入口:mobile-rn 原生导航;小程序 pkg-user/assistant 经 @rn-shells 壳承载镜像(非独占)。
  */
 import { useCallback, useState } from 'react'
 import { KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native'
