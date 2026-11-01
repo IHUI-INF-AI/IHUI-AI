@@ -11,6 +11,7 @@
  *  - GET    /subagents/all            全量派单(新→旧,支持 status/limit 透传;G-299①)
  *  - POST   /subagents/:id/cancel     取消派单
  *  - POST   /subagents/:id/resume     从 checkpoint 恢复(深化 v2 新增)
+ *  - POST   /subagents/:id/attention  进入/清除人工注意力(F3 Thread/Ticket 新增)
  *  - GET    /subagents/topology       Swarm 拓扑(节点 + 边)
  *  - GET    /subagents/stats          全局统计(深化新增)
  *  - GET    /subagents/:id/stats      单个 dispatch 资源统计(深化新增)
@@ -741,6 +742,45 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
     }
+  })
+
+  // ---------- POST /subagents/:id/attention(F3 Thread/Ticket) ----------
+  // 人工注意力:awaiting_answer / awaiting_review 进入,传 null 清除。
+  // 与执行状态机正交(不改 status);归属闸仍走唯一出口 ownsDispatchById,一律 404,不引 403。
+
+  const attentionSchema = z.object({
+    attention: z.enum(['awaiting_answer', 'awaiting_review']).nullable(),
+  })
+
+  server.post('/subagents/:id/attention', async (request, reply) => {
+    await requireAuth(request, reply)
+    const userId = request.userId
+    if (!userId) return
+
+    const { id } = request.params as { id: string }
+    if (!id) {
+      return reply.status(400).send(error(400, '派单 ID 不能为空'))
+    }
+    // 写操作:归属闸必须先于 service 调用(返回 404 不得暗地里改他人记录)
+    if (!ownsDispatchById(id, userId)) {
+      return reply.status(404).send(error(404, '派单不存在'))
+    }
+
+    const parsed = attentionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, 'attention 必须是 awaiting_answer / awaiting_review / null'))
+    }
+
+    const result = await subagentDispatchService.setAttention(id, parsed.data.attention)
+    if (!result.ok) {
+      if (result.reason === 'terminal') {
+        return reply.status(409).send(error(409, '派单已结束,无法进入人工注意力'))
+      }
+      return reply.status(404).send(error(404, '派单不存在'))
+    }
+    return reply.send(success({ dispatch: result.dispatch }))
   })
 
   // ---------- GET /subagents/topology ----------
