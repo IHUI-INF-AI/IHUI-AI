@@ -1,7 +1,7 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-01T01:53:24.846Z",
+  "sealedAt": "2026-11-01T05:20:35.929Z",
   "sealedBy": "root-guard --seal",
   "reason": "部署环被本护栏 fail-closed 拒推进:清单绑的 guardian-runner 哈希落后于已入库内容(合并枚把对侧登记条目带进 HEAD 后显形)。逐面复核 = 按门自己点名的处置(复核 HEAD 面那份改动 → 重新 --seal → 清单与规则文件同枚提交并推送);本枚封的是 HEAD 面上三份目标(guardian-runner / judgement-libs / agents-ironlaw)的逐字节内容,取材面与被审面同一面。",
   "targets": [
@@ -9,7 +9,7 @@
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "7242cbaa69a4be7164e857e4011164e61c63ec17186df08520a0171ed5962626"
+      "sha256": "3e2e42815537bc6bfcf5187e62c64870e8994687e2fbe9438f8066998f97f9d7"
     },
     {
       "id": "judgement-libs",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "4b7bd7f1861df87c17b4016559abf9c9e37b5568a4b1e1129bd880af5ece2558"
+      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
     }
   ]
 }

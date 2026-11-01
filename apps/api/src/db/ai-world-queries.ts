@@ -4,6 +4,7 @@
 
 import { and, asc, desc, eq, ilike, isNotNull, sql } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   aiWorldCategories,
   aiWorldItems,
@@ -65,9 +66,9 @@ export async function listAiWorldItems(opts: ListItemsOptions = {}): Promise<AiW
 
   if (opts.search) {
     // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
-    const escapedSearch = opts.search.replace(/[%_\\]/g, '\\$&')
+    const escapedSearch = asContainsTerm(opts.search)
     conditions.push(
-      sql`(${aiWorldItems.title} ILIKE ${`%${escapedSearch}%`} OR ${aiWorldItems.summary} ILIKE ${`%${escapedSearch}%`})`,
+      sql`(${aiWorldItems.title} ILIKE ${escapedSearch} OR ${aiWorldItems.summary} ILIKE ${escapedSearch})`,
     )
   }
 
@@ -103,8 +104,8 @@ export async function countAiWorldItems(
   }
   if (opts.search) {
     // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
-    const escapedSearch = opts.search.replace(/[%_\\]/g, '\\$&')
-    conditions.push(ilike(aiWorldItems.title, `%${escapedSearch}%`))
+    const escapedSearch = asContainsTerm(opts.search)
+    conditions.push(ilike(aiWorldItems.title, escapedSearch))
   }
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })

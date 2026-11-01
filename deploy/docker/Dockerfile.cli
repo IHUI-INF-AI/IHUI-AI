@@ -16,7 +16,11 @@ FROM node:22-alpine AS builder
 WORKDIR /build
 
 # 安装 pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# 2026-11-01 供应链强化:此前写 `pnpm@latest`(浮动)——构建产物用的 pnpm 版本由"当天 registry
+# 上最新是什么"决定,同一枚提交两次构建可拿到不同工具链。与其余三枚 Dockerfile
+# (`npm install -g pnpm@11.18.0`)、根 package.json 的 `packageManager` 及 README 的配方对齐,
+# 一律钉到 11.18.0。升版本只改一处不可:四处与 packageManager 必须同批(由门 48 规则 D 对账)。
+RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 
 # 复制 workspace 配置
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
