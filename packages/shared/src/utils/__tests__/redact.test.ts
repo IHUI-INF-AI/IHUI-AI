@@ -141,6 +141,24 @@ describe('D94 脱敏 / 真实含密样本逐类断言', () => {
     expect(inline).toContain(REDACT_SECRET_MARKER)
   })
 
+  it('相对 URL(以 / 开头)的敏感 query 同样被打码', () => {
+    // 服务端请求日志里的真实形态:请求目标是 origin-form,没有 scheme。
+    expect(redactUrl('/api/ws/ai?token=SECRET123')).toBe(`/api/ws/ai?token=${REDACT_QUERY_MARKER}`)
+    expect(redactUrl('GET /v1/realtime?api_key=sk-live-abcdef123456&model=x')).toBe(
+      `GET /v1/realtime?api_key=${REDACT_QUERY_MARKER}&model=x`,
+    )
+    // 多个敏感参数逐条命中,非敏感参数保持原样
+    const out = redactUrl('/api/x?access_token=t1&page=2&api_key=k1')
+    expect(out).not.toContain('t1')
+    expect(out).not.toContain('k1')
+    expect(out).toContain('page=2')
+    // 相对 URL 同样要求"命中敏感参数名才盖",普通路径不动
+    expect(redactUrl('/api/models?page=2')).toBe('/api/models?page=2')
+    // 幂等:第二趟不得再改(标记里含 `***`,不能被当成值二次处理)
+    const once = redactUrl('/api/ws/ai?token=SECRET123')
+    expect(redactUrl(once)).toBe(once)
+  })
+
   it('用户路径脱敏走注入式(共享层不依赖 node:os)', () => {
     expect(redactUserPaths('C:\\Users\\Administrator\\secret.txt', { user: 'Administrator' })).toBe(
       'C:\\Users\\<user>\\secret.txt',

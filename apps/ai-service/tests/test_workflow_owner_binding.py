@@ -466,6 +466,8 @@ async def test_unauthenticated_channel_is_not_gated_and_ownerless_rows_stay_visi
     monkeypatch.setattr(settings, "jwt_secret", "")
     monkeypatch.setattr(jwt_auth.settings, "jwt_secret", "")
     monkeypatch.setattr(jwt_auth.settings, "node_env", "development")
+    # 2026-11-01:开发降级只由显式开关打开(不再由缺 secret + node_env 推导)
+    monkeypatch.setattr(jwt_auth.settings, "ai_dev_no_auth", True)
 
     wf = engine.create_workflow(name="无主流程", description="", triggerType="manual", steps=[])
     assert wf.userId is None, "无身份通道不得写假主体当属主"
