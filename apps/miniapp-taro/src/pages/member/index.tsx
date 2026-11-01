@@ -358,7 +358,9 @@ export default function MemberIndexPage() {
         {/* ===== 会员特权列表 ===== */}
         <View className="member-card">
           <Text className="member-card-title">
-            {tt('member.index.privileges', '会员特权')} ·{' '}
+            {/* 标题取共享屏同一词条(vip.details.benefitsTitle):此前端内写「会员特权」,
+                RN 写「权益详情」—— 同一块内容两个说法,改一端另一端不跟 */}
+            {tt('vip.details.benefitsTitle', '权益详情')} ·{' '}
             {tt('vip.benefitsCount', '{count} 项专属权益', { count: benefits.length })}
           </Text>
           <View className="member-benefits">
