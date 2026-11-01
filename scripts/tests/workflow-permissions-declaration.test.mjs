@@ -14,7 +14,7 @@
  *  3. 每条放行都有成对反证:同一份文本,把顶层块删掉/缩进进 jobs 必须翻红。
  */
 
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -59,6 +59,25 @@ test('门体 --self-test 的夹具(含"删掉即翻红"自证)必须全过', () 
 test('真实仓面:permissions 维零违规(绝对零容忍档,不是只报数)', () => {
   const permsViolations = gate.scan().filter((v) => v.includes('[permissions]'))
   assert.deepEqual(permsViolations, [])
+})
+
+// 规则 C(安装命令逐字钉版)的镜像档 —— 判据从门体 import,本文件不复算(§22c)
+test('规则 C:区间与裸包名判红,逐字钉版/现读值/锁文件放行', () => {
+  assert.equal(gate.judgeInstallPins('        run: pip install uv\n').length, 1)
+  assert.equal(gate.judgeInstallPins('        run: npm install -g npm@^11.15.0\n').length, 1)
+  assert.equal(gate.judgeInstallPins('        run: pip install uv==0.12.1\n').length, 0)
+  assert.equal(gate.judgeInstallPins('        run: npm i -g "@tauri-apps/cli@$V"\n').length, 0)
+  assert.equal(gate.judgeInstallPins('        run: pnpm install --frozen-lockfile\n').length, 0)
+})
+
+test('真实仓面:安装钉版维零违规,且覆盖面不是靠"没扫到文件"', () => {
+  const pinViolations = gate.scan().filter((v) => v.includes('[install-pin]'))
+  assert.deepEqual(pinViolations, [])
+  // 变异自证:把已钉的那枚摘回未钉,同一把尺子必须量出来(否则这条维是哑的)
+  const ci = readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')
+  const unpin = ci.replace(/^(\s*)run: pip install uv==0\.12\.1$/m, '$1run: pip install uv')
+  assert.notEqual(unpin, ci, '摘样本没摘到东西 ⇒ 这一格不成对照')
+  assert.ok(gate.judgeInstallPins(unpin).length >= 1, '摘掉版本钉后仍放行 ⇒ 规则 C 是哑的')
 })
 
 test('覆盖面自证:"0 违规"不得来自"0 文件被扫"', () => {
