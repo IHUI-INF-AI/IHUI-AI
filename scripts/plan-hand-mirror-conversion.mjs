@@ -534,6 +534,19 @@ export const SHELL_CAPABILITY_RULES = [
       /appAlert\s*\(|Alert\.alert\s*\(|setError\s*\(|errorText/.test(s) ||
       (/error=\{error\}/.test(s) && /ErrorState|\{error\}|message=\{error\}/.test(shared)),
   },
+  {
+    what: '时间格式化',
+    tokens: ['@/utils/time'],
+    // 立因(2026-11-01 现读):apps/miniapp-taro/src/utils/time.ts:29 的 `formatDate` 就是
+    // `@ihui/shared/utils/date-utils` 那枚 `formatDateByTemplate` 的逐字薄封装(函数体只有一句
+    // `return formatDateByTemplate(date, format)`,relativeTime 同样转发 formatRelativeTime)。
+    // ⇒ 屏侧只要直接从共享层取同一枚函数,转壳后时间格式一字节都不会变;而旧判据按字面找
+    // '@/utils/time' 是否出现在屏/壳里 —— 屏是 RN/共享源,永远不 import 小程序别名 ⇒ 这一族
+    // 结构性无法销(实测 pkg-learn/live/detail 就卡在这一枚)。判据问的是"能力有没有",不是"名字有没有"。
+    shellEvidence: (_s, shared) =>
+      /@ihui\/shared\/utils\/date-utils/.test(shared) &&
+      /formatDateByTemplate|formatRelativeTime/.test(shared),
+  },
 ]
 
 /** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
@@ -1396,6 +1409,22 @@ function main(argv) {
         '<BackChevron onPress={onBack} />',
       ),
     ], [['返回键'], [], []])
+    // S28(2026-11-01 立,现读 pkg-learn/live/detail 卡在 @/utils/time 这一枚):端内
+    // utils/time.ts:29 的 formatDate 逐字转发共享层 formatDateByTemplate ⇒ 屏从共享层取同一枚
+    // 函数即"能力已在",而旧判据按字面找 '@/utils/time' 在屏里出现 —— 屏是共享/RN 源,永不 import
+    // 小程序别名,那一族因此结构性无法销。两臂都得钉:屏没消费共享函数照旧不销。
+    P('S28 时间格式化:屏取共享 date-utils 同一枚函数才销;屏没取则照旧拦', [
+      shellCapabilityCovered(
+        new Set(['@/utils/time']),
+        '<Shared createdAt={item.createdAt} />',
+        "import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'\n{formatDateByTemplate(createdAt, 'YYYY-MM-DD HH:mm')}",
+      ),
+      shellCapabilityCovered(
+        new Set(['@/utils/time']),
+        "import { formatDate } from '@/utils/time'",
+        'return <Text>{createdAt}</Text>',
+      ),
+    ], [['时间格式化'], []])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
