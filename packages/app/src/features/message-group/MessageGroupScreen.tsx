@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    badgeText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.surface.light },
     cardMessage: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

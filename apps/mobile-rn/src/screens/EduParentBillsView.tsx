@@ -11,17 +11,10 @@
  * "我几个孩子各欠多少"。两个端点喂的都是同一份账目出口 `loadEnrollmentLedger`。
  */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { fetchApi } from '@ihui/api-client'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '@ihui/rn-app'
-import { rnSpacing } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import {
   aggregateParentBills,
@@ -181,7 +174,7 @@ function createOwnStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     summaryValue: {
       flexShrink: 0,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.text.primary,
       fontVariant: ['tabular-nums'],

@@ -336,7 +336,7 @@ function makeStyles() {
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.warning.amberLight,
     },
-    paidText: { fontSize: 10, fontWeight: '600', color: tokens.warning.amberText },
+    paidText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.warning.amberText },
     desc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
@@ -380,7 +380,7 @@ function makeStyles() {
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.surface.muted,
     },
-    statusText: { fontSize: 10, color: tokens.text.secondary },
+    statusText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     sectionHead: {
       flexDirection: 'row',
       alignItems: 'center',

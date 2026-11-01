@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -185,7 +185,11 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.light },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    headerSubtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    headerSubtitle: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+    },
     categoryBar: { maxHeight: 48 },
     categoryContent: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -199,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     categoryChipActive: { backgroundColor: tk.brand.cta },
-    categoryText: { fontSize: 14, color: tk.text.medium },
+    categoryText: { fontSize: rnType.body.size, color: tk.text.medium },
     categoryTextActive: { color: tk.surface.light, fontWeight: '600' },
     list: { flex: 1, paddingHorizontal: rnSpacing.md },
     row: { gap: rnSpacing.md, marginBottom: rnSpacing.md },
@@ -221,10 +225,10 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
-    videoBadgeText: { fontSize: 11, color: tk.surface.light },
+    videoBadgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
     mediaFooter: { padding: rnSpacing.md },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     textCard: {
       flex: 2,
       padding: 14,
@@ -235,8 +239,8 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
-    promptText: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.brand.DEFAULT },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    promptText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     contentText: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 20 },
     audioCard: {
       flex: 2,
@@ -256,7 +260,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.border.light,
     },
     audioInfo: { flex: 1, marginLeft: rnSpacing.md },
-    audioDuration: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    audioDuration: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     audioPlayBtn: {
       marginTop: rnSpacing.sm,
       alignSelf: 'flex-start',
@@ -265,9 +273,9 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.success.light,
     },
-    audioPlayText: { fontSize: 14, color: tk.brand.DEFAULT, fontWeight: '600' },
+    audioPlayText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     fab: {
       position: 'absolute',
       bottom: 24,
@@ -285,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
       shadowOffset: { width: 0, height: 2 },
       elevation: 3,
     },
-    fabText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    fabText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

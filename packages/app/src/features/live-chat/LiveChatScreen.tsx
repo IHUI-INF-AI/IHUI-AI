@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     user: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
     content: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
-    meta: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',

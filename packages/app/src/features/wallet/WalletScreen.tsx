@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { WalletBalance, WalletScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -105,11 +105,15 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
     body: { padding: rnSpacing['sm-loose'] },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
-    muted: { fontSize: 14, color: tk.text.secondary },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -118,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: rnSpacing.md,
     },
-    cardLabel: { fontSize: 14, color: tk.text.tertiary },
+    cardLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
     cardValue: {
       marginTop: rnSpacing.sm,
       fontSize: 22,
@@ -139,7 +143,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    rechargeBtnText: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground },
+    rechargeBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     withdrawBtn: {
       flex: 1,
       height: 44,
@@ -150,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    withdrawBtnText: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    withdrawBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

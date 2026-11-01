@@ -9,7 +9,7 @@
  * 本屏零描边,不涉及守门 83 R8。
  */
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 export function createTopicDetailStyles(tk: AppThemeTokens) {
@@ -22,7 +22,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
     },
-    navTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    navTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -33,7 +33,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     headerInfo: { flex: 1, gap: rnSpacing.xs },
     topicName: { fontSize: 17, fontWeight: '600', color: tk.text.primary },
     topicDesc: { fontSize: 13, lineHeight: 18, color: tk.text.secondary },
-    followers: { fontSize: 12, color: tk.text.tertiary },
+    followers: { fontSize: rnType.label.size, color: tk.text.tertiary },
     followBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing['xs-loose'],
@@ -70,8 +70,8 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     },
     userInfo: { flex: 1, gap: rnSpacing['2xs'] },
     author: { fontSize: 13, fontWeight: '500', color: tk.text.primary },
-    time: { fontSize: 11, color: tk.text.tertiary },
-    postTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
+    time: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    postTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     postContent: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
     imgRow: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     postImg: {
@@ -81,10 +81,10 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     imgMore: { alignItems: 'center', justifyContent: 'center' },
-    imgMoreText: { fontSize: 14, fontWeight: '600', color: tk.text.secondary },
+    imgMoreText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.secondary },
     postFooter: { flexDirection: 'row', gap: rnSpacing.lg },
     stat: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    statNum: { fontSize: 12, color: tk.text.tertiary },
+    statNum: { fontSize: rnType.label.size, color: tk.text.tertiary },
     stateText: { fontSize: 13, color: tk.text.tertiary },
     footer: { alignItems: 'center', paddingVertical: rnSpacing.md },
   } satisfies Record<string, ViewStyle | TextStyle>)
