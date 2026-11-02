@@ -36,7 +36,7 @@ import Module from 'node:module'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry } from './lib/rn-release-credentials.mjs'
+import { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, storeCredential, androidArtifacts, STORE_VENDORS } from './lib/rn-release-credentials.mjs'
 import { resolveSecretsRoot } from './lib/key-dir.mjs'
 import { siteLegPlan } from './publish-mobile-apk.mjs'
 
@@ -296,10 +296,45 @@ function takeEvidence({ withEas = true, withConfig = true }) {
       : { status: STATUS.MISSING, detail: '本机零 IHUI-* 服务 ⇒ 不承载生产;站点腿落点在别处,需生产侧通道而非在本机造目录' }
   })()
 
-  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, prodHost, latest, apple, xcode }
+  const artifacts = androidArtifacts({ dir: join(RN_DIR, 'android', 'app', 'build', 'outputs') })
+  const stores = STORE_VENDORS.map((vendor) => ({ vendor, cred: storeCredential(vendor) }))
+
+  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, prodHost, latest, apple, xcode, artifacts, stores }
 }
 
-// ── 腿注册表:每条腿 = 一组现读判据 + 一条真跑得通的命令 ──
+/**
+ * 国内商店 + 鸿蒙矩阵腿(2026-11-02 加)。
+ * 这一族此前**整仓零接线**(实读:appgallery/hms/小米/OPPO/vivo/应用宝 的命中全是 i18n 术语表、
+ * 品牌图标或上游中转适配器,没有一处是上传器),所以先把"每家缺什么"做成可重跑的读数,
+ * 而不是先写一个只能对着空凭据报错的脚本。出路一律指向同一个形态:
+ * 复用 scripts/upload-miniapp.mjs 那一套(单出口 + 凭据三态 + 默认 dry-run + 登记腿)。
+ */
+export function buildStoreLegs(ev) {
+  const channelGap = {
+    k: '渠道登记面',
+    status: STATUS.MISSING,
+    detail: 'app_versions.platform 枚举 = ios/android/web/harmony/cli,无 store 维度 ⇒ 多家商店各自一条 latest 与下载地址在数据面上表达不出来(需一次加列迁移,属数据面不在发布器射程)',
+  }
+  return ev.stores.map(({ vendor, cred }) => ({
+    id: `store-${vendor.id}`,
+    title: `${vendor.label} 上架`,
+    checks: [
+      { k: '提交物(AAB/APK)', ...ev.artifacts },
+      { k: '正式签名件', ...ev.signing },
+      { k: '开发者凭据', ...cred },
+      {
+        k: '上传通道器物',
+        status: STATUS.MISSING,
+        detail: vendor.id === 'harmony' ? '本仓当前无 RN 鸿蒙产物能力(零 .ets / oh-package.json5 / react-native-harmony)⇒ 先解决产物,发布腿才有意义' : `仓内无面向 ${vendor.label} 的上传器;凭据到位后新增 scripts/submit-store-${vendor.id}.mjs`,
+      },
+      channelGap,
+    ],
+    command: vendor.id === 'harmony' ? '先做鸿蒙产物适配(独立工程票),再回到本腿' : `凭据补进密钥目录后:node scripts/release-mobile-rn.mjs --leg store-${vendor.id} --execute`,
+    note: vendor.note,
+  }))
+}
+
+
 export function buildLegs(ev) {
   const ch = (name) => (ev.channels.raw ? findChannel(ev.channels.raw, name) : ev.channels)
   const ota = (name) => ({
@@ -353,6 +388,7 @@ export function buildLegs(ev) {
     },
     ota('preview'),
     ota('production'),
+    ...buildStoreLegs(ev),
   ]
 }
 
@@ -508,7 +544,7 @@ function selfTest() {
   return fail ? 1 : 0
 }
 
-export const __test__ = { foldStatus, checkSubmitProfile, findChannel, firstMeaningfulLine, probeRuntimeVersion, buildLegs, render, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS }
+export const __test__ = { foldStatus, checkSubmitProfile, findChannel, firstMeaningfulLine, probeRuntimeVersion, buildLegs, buildStoreLegs, render, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
