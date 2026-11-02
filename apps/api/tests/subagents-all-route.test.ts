@@ -13,7 +13,8 @@
  *  ② status 过滤:单值 / 逗号多值 / 重复参数三种写法;未知字面量 ⇒ 空(不退化成"不过滤")。
  *  ③ limit 上界:超上界夹到 500(不 400);非法 limit ⇒ 默认页大小。
  *  ④ offset 分页:窗口切在「新→旧」序上,total 是分页前计数。
- *  ⑤ 租户隔离:别人的派遣不出现;无归属记录按「未标注」照旧公开(不隐藏历史)。
+ *  ⑤ 租户隔离:别人的派遣不出现;无归属记录(fail-closed 后)只对管理员可见 ——
+ *    普通用户看不到「未标注」历史,管理员看到 orphan 但仍看不到别人的已归属记录。
  *  ⑥ 归属只从鉴权结果注入:请求体自报 ownerUserId 被 Zod 剥掉,不构成越权。
  *
  * 判据全部引生产源(§22c):状态集/夹取/可见性直接 import 路由文件的具名纯函数,
@@ -28,11 +29,20 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a)
+// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a);
+// x-probe-role=1 时同时注入 jwtPayload.roleId,用于钉住「orphan 仅管理面可见」。
 vi.mock('../src/plugins/auth.js', () => ({
-  authenticate: async (request: { userId?: string; headers: Record<string, unknown> }) => {
+  authenticate: async (request: {
+    userId?: string
+    jwtPayload?: { roleId?: number }
+    headers: Record<string, unknown>
+  }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
+    const role = request.headers['x-probe-role']
+    if (typeof role === 'string' && role.length > 0) {
+      request.jwtPayload = { roleId: Number(role) }
+    }
   },
   checkAuth: async () => true,
 }))
@@ -119,11 +129,11 @@ const ALL = {
 
 function seedFiveStatuses(): void {
   listAllMock.mockReturnValue([
-    row('d-pending', 'pending', ALL.pending),
-    row('d-running', 'running', ALL.running),
-    row('d-completed', 'completed', ALL.completed),
-    row('d-failed', 'failed', ALL.failed),
-    row('d-cancelled', 'cancelled', ALL.cancelled),
+    row('d-pending', 'pending', ALL.pending, 'tenant-a'),
+    row('d-running', 'running', ALL.running, 'tenant-a'),
+    row('d-completed', 'completed', ALL.completed, 'tenant-a'),
+    row('d-failed', 'failed', ALL.failed, 'tenant-a'),
+    row('d-cancelled', 'cancelled', ALL.cancelled, 'tenant-a'),
   ])
 }
 
@@ -200,7 +210,12 @@ describe('G-02① status 过滤', () => {
 describe('G-02① limit 上界与 offset 分页', () => {
   it('limit 超上界夹到 SUBAGENTS_ALL_MAX_LIMIT(不 400,不拉全表)', async () => {
     const rows = Array.from({ length: SUBAGENTS_ALL_MAX_LIMIT + 100 }, (_, i) =>
-      row(`r-${i}`, 'completed', new Date(Date.UTC(2026, 10, 1, 0, 0, i)).toISOString()),
+      row(
+        `r-${i}`,
+        'completed',
+        new Date(Date.UTC(2026, 10, 1, 0, 0, i)).toISOString(),
+        'tenant-a',
+      ),
     )
     listAllMock.mockReturnValue(rows)
 
@@ -213,7 +228,12 @@ describe('G-02① limit 上界与 offset 分页', () => {
 
   it('非法/缺省 limit ⇒ 默认页大小(有界)', async () => {
     const rows = Array.from({ length: SUBAGENTS_ALL_DEFAULT_LIMIT + 10 }, (_, i) =>
-      row(`r-${i}`, 'completed', new Date(Date.UTC(2026, 10, 1, 0, 0, i)).toISOString()),
+      row(
+        `r-${i}`,
+        'completed',
+        new Date(Date.UTC(2026, 10, 1, 0, 0, i)).toISOString(),
+        'tenant-a',
+      ),
     )
     listAllMock.mockReturnValue(rows)
 
@@ -240,7 +260,7 @@ describe('G-02① limit 上界与 offset 分页', () => {
 })
 
 describe('G-02① 租户隔离', () => {
-  it('别人(tenant-b)的派遣不出现,自己的都在;无归属记录按「未标注」照旧公开', async () => {
+  it('别人的派遣不出现,自己的都在;无归属记录(fail-closed)只对管理员可见', async () => {
     listAllMock.mockReturnValue([
       row('mine-1', 'completed', '2026-11-01T01:00:00Z', 'tenant-a'),
       row('theirs-1', 'completed', '2026-11-01T02:00:00Z', 'tenant-b'),
@@ -254,20 +274,33 @@ describe('G-02① 租户隔离', () => {
       headers: { 'x-probe-user': 'tenant-a' },
     })
     const ids = mine.json().data.dispatches.map((d: { id: string }) => d.id)
-    expect(ids).toContain('mine-1')
+    expect(ids).toEqual(['mine-1'])
     expect(ids).not.toContain('theirs-1')
     expect(ids).not.toContain('theirs-2')
-    expect(ids).toContain('legacy')
+    // 2026-11-02 fail-closed:未标注不再对全部登录用户公开
+    expect(ids).not.toContain('legacy')
 
-    // 反向视角:tenant-b 看得到自己的,看不到 tenant-a 的
+    // 反向视角:tenant-b 看得到自己的,看不到 tenant-a 的,也看不到无归属的
     const theirs = await app.inject({
       method: 'GET',
       url: '/api/subagents/all',
       headers: { 'x-probe-user': 'tenant-b' },
     })
     const theirIds = theirs.json().data.dispatches.map((d: { id: string }) => d.id)
-    expect(theirIds).toEqual(['legacy', 'theirs-2', 'theirs-1'])
+    expect(theirIds).toEqual(['theirs-2', 'theirs-1'])
     expect(theirIds).not.toContain('mine-1')
+    expect(theirIds).not.toContain('legacy')
+
+    // orphan 档:管理员看得到 legacy,但已归属记录仍只对属主可见(管理面不跨租户读)
+    const admin = await app.inject({
+      method: 'GET',
+      url: '/api/subagents/all',
+      headers: { 'x-probe-user': 'admin', 'x-probe-role': '1' },
+    })
+    const adminIds = admin.json().data.dispatches.map((d: { id: string }) => d.id)
+    expect(adminIds).toEqual(['legacy'])
+    expect(adminIds).not.toContain('mine-1')
+    expect(adminIds).not.toContain('theirs-1')
   })
 
   it('归属只从鉴权结果注入:请求体自报 ownerUserId 被剥掉', async () => {
