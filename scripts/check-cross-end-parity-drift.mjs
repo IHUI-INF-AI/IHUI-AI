@@ -265,16 +265,29 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
   // 是在"还原度 76.5%、断链 0、声明不符 0"一片绿期间撞出来的 ⇒ 现读存量已随本批补齐,按绝对值出声。
   if (cur.fidelityPackAbsent > 0) {
     const rows = fidelity?.json?.rows
-    const hit = Array.isArray(rows)
-      ? rows
-          .filter((r) => Array.isArray(r?.packAbsent) && r.packAbsent.length)
-          .slice(0, 3)
-          .map((r) => `${r.route} 缺 ${r.packAbsent.slice(0, 4).join(',')}`)
+    const hitRows = Array.isArray(rows)
+      ? rows.filter((r) => Array.isArray(r?.packAbsent) && r.packAbsent.length)
       : []
+    // 影响面按承载形态说话(只影响措辞,不影响判据与计数):hosted 屏由共享源渲染,缺命名空间 =
+    // 该屏文案全取不到;hand 手写页自有文案仍能渲染,缺的是"未镜像的那块 UI"(键级缺口由
+    // mirror-missing 逐键点名),不是整屏白屏。
+    const hostedCount = hitRows.filter((r) => r.form === 'hosted').length
+    const handCount = hitRows.filter((r) => r.form && r.form !== 'hosted').length
+    const impact =
+      hostedCount > 0 && handCount > 0
+        ? `${hostedCount} 屏 hosted(共享源渲染)⇒ 这些屏全部文案取不到;${handCount} 屏 hand(手写页)⇒ 自有文案仍可渲染,缺的是未镜像的那块 UI(键级缺口由 mirror-missing 逐键点名)`
+        : hostedCount > 0
+          ? '这些屏 hosted(共享源渲染)⇒ 全部文案取不到'
+          : handCount > 0
+            ? '这些屏是 hand 手写页 ⇒ 自有文案仍可渲染,缺的是未镜像的那块 UI(键级缺口由 mirror-missing 逐键点名),不是整屏白屏'
+            : '承载形态取不到 ⇒ 影响面未判定(勿按整屏白屏理解)'
+    const hit = hitRows
+      .slice(0, 3)
+      .map((r) => `${r.route}(${r.form || '?'}) 缺 ${r.packAbsent.slice(0, 4).join(',')}`)
     reasons.push({
       dim: 'mirror-pack-namespace-missing',
       detail:
-        `${cur.fidelityPackAbsent} 屏要的命名空间在本端词包里整块不存在(本端包 ∪ shared 都查无)⇒ 那一屏全部文案取不到` +
+        `${cur.fidelityPackAbsent} 屏要的命名空间在本端词包里整块不存在(本端包 ∪ shared 都查无)⇒ ${impact}` +
         ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看 ❌ 点名行,再从 messages/mobile-rn(基准侧)或 messages/shared 逐字搬该命名空间(勿代拟译文)${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
     })
   }
