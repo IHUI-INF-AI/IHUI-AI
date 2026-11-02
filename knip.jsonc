@@ -86,7 +86,15 @@
       // 这是修配置盲区,不是白名单遮盖:补入口后 knip 仍照常判「入口可达但没人用」的导出。
       // 到期复核:启用 @knip/wxt 插件(能按 wxt 约定发现入口)后应删本条 entry 通配。
       "entry": ["src/i18n/index.tsx", "entrypoints/**/*.{ts,tsx}"],
-      "project": ["**/*.{ts,tsx}"]
+      "project": ["**/*.{ts,tsx}"],
+      // 2026-11-03(Knip 棘轮 devDependencies +2 归因):两条都是"声明真实、knip 解析面看不见":
+      //   · @wxt-dev/module-react —— wxt.config.ts:9 以**字符串** modules:['@wxt-dev/module-react'] 装载,
+      //     knip 只认 import/require,字符串模块名不进依赖图;它由 wxt 运行时按约定解析。
+      //   · tailwindcss —— Tailwind v4 的入口消费形态是 CSS `@import 'tailwindcss'`
+      //     (entrypoints/sidepanel/globals.css:18)+ @tailwindcss/vite 插件在构建期解析,
+      //     JS/TS 面零 import;删掉它构建即失败,不是多余依赖。
+      // 到期复核:启用 @knip/wxt 插件或 knip 支持 CSS @import 解析后,复跑并删本条。
+      "ignoreDependencies": ["@wxt-dev/module-react", "tailwindcss"]
     },
     "apps/mobile-rn": {
       "project": ["src/**/*.{ts,tsx}"],
@@ -106,8 +114,15 @@
     },
     "apps/miniapp-taro": {
 // BEGIN:knip-taro-entries(由 scripts/gen-knip-taro-entries.mjs 生成,禁止手改)
+      // rn-compat 构建别名:键集与 apps/miniapp-taro/config/index.ts 逐项相等
+      // (自检 scripts/tests/knip-taro-alias-parity.test.mjs;alias 增减而此处不跟上即判红)。
+      // 注意:knip 对已安装包的请求先走 node_modules resolveSync,不回落到 paths ——
+      // 真正让这些目标可达的是上面 entry 里的同名文件,paths 保留是为了键集漂移可见。
+      // @rn-shells/* 与 @ihui/rn-app/* 来自 apps/miniapp-taro/tsconfig.json,非 rn-compat,不参与自检。
       "entry": [
         "src/app.tsx",
+        "src/custom-tab-bar/index.config.ts",
+        "src/custom-tab-bar/index.tsx",
         "src/pages/ask/create.config.ts",
         "src/pages/ask/create.tsx",
         "src/pages/ask/detail.config.ts",
@@ -559,23 +574,62 @@
         "src/pkg-user/user/realname.tsx",
         "src/pkg-user/user/settings.config.ts",
         "src/pkg-user/user/settings.tsx",
+        "src/rn-compat/expo-blur.tsx",
+        "src/rn-compat/icons-generated.tsx",
+        "src/rn-compat/index.ts",
+        "src/rn-compat/native-asset.ts",
+        "src/rn-compat/native-audio.ts",
+        "src/rn-compat/native-document.ts",
+        "src/rn-compat/native-extras.ts",
+        "src/rn-compat/native-secure.ts",
+        "src/rn-compat/native-svg.tsx",
+        "src/rn-compat/native-webview.tsx",
+        "src/rn-compat/native-wechat.ts",
+        "src/rn-compat/navigation.tsx",
+        "src/rn-compat/platform.tsx",
+        "src/rn-compat/storage.ts",
       ],
-// END:knip-taro-entries
-      // 2026-10-31:Taro 页面把 RN 共享屏按 tsconfig paths 引进来(@rn-shells/* →
-      // apps/mobile-rn/src/screens/*,@ihui/rn-app/* → packages/app/src/*)。knip 默认不跨
-      // workspace 解析这类别名,会 186 枚全记成「未声明依赖」⇒ 在这里显式映射(与
-      // apps/miniapp-taro/tsconfig.json 的 paths 同源;改 tsconfig 必须同改本处)。
       "paths": {
         "@rn-shells/*": ["../mobile-rn/src/screens/*"],
         "@ihui/rn-app/*": ["../../packages/app/src/*"],
+        "react-native$": ["src/rn-compat/index.ts"],
+        "lucide-react-native$": ["src/rn-compat/icons-generated.tsx"],
+        "react-native-safe-area-context$": ["src/rn-compat/platform.tsx"],
+        "@react-navigation/native$": ["src/rn-compat/navigation.tsx"],
+        "@react-navigation/native-stack$": ["src/rn-compat/navigation.tsx"],
+        "@react-native-async-storage/async-storage$": ["src/rn-compat/storage.ts"],
+        "@react-native-clipboard/clipboard$": ["src/rn-compat/platform.tsx"],
+        "expo-image-picker$": ["src/rn-compat/platform.tsx"],
+        "expo-blur$": ["src/rn-compat/expo-blur.tsx"],
+        "expo-media-library$": ["src/rn-compat/platform.tsx"],
+        "expo-linking$": ["src/rn-compat/native-extras.ts"],
+        "expo-web-browser$": ["src/rn-compat/native-extras.ts"],
+        "expo-device$": ["src/rn-compat/native-extras.ts"],
+        "react-native-restart$": ["src/rn-compat/native-extras.ts"],
+        "expo-file-system$": ["src/rn-compat/native-extras.ts"],
+        "nativewind$": ["src/rn-compat/native-extras.ts"],
+        "expo-audio$": ["src/rn-compat/native-audio.ts"],
+        "expo-document-picker$": ["src/rn-compat/native-document.ts"],
+        "expo-asset$": ["src/rn-compat/native-asset.ts"],
+        "react-native-svg$": ["src/rn-compat/native-svg.tsx"],
+        "react-native-webview$": ["src/rn-compat/native-webview.tsx"],
+        "react-native-wechat-lib$": ["src/rn-compat/native-wechat.ts"],
+        "expo-secure-store$": ["src/rn-compat/native-secure.ts"],
       },
+// END:knip-taro-entries
       // 2026-11-01:`@ihui/ui-native` 在本端 src 里确实零条静态 import,但它不是未用依赖 ——
       // config/index.ts:580 的 `compile.include` 把 `packages/app/src` 整片编进小程序产物,
       // 而那些源码 import '@ihui/ui-native',模块解析要由**本端**的 package.json 承载
       // (f5db1221ae 补这条声明就是为了修真实构建失败 "Cannot find module '@ihui/ui-native'")。
       // knip 只沿静态 import 走,看不见 webpack 装载链 ⇒ 与 mobile-rn 那侧 lucide-react 同档。
       // 到期复核 2027-05-01:若 compile.include 改成端内自带出口(不再需要本端声明),删本条。
-      "ignoreDependencies": ["@ihui/ui-native"],
+      // 2026-11-03(Knip 棘轮 devDependencies +2 归因):+ `miniprogram-ci` —— 声明在本 workspace
+      // devDependencies(package.json),消费方是根脚本 scripts/upload-miniapp.mjs:83 的动态
+      // `await import('miniprogram-ci')`;根 workspace 的 scripts/** 已在上面整体 ignore,
+      // 本 workspace 的静态面因此看不到这条 import。它确属本端上传链的真依赖(脚本的报错文案
+      // 也直接指引 `pnpm --filter @ihui/miniapp-taro add -D miniprogram-ci`),不是冗余。
+      // 到期复核:若上传脚本改为在 apps/miniapp-taro 内执行(进入本 workspace 扫描面),删本条。
+      "ignoreDependencies": ["@ihui/ui-native", "miniprogram-ci"],
       "project": ["**/*.{ts,tsx}"],
       // 2026-10-20:Taro 页面发现机制 = app.config.ts 的 pages 数组按**字符串路径**引用
       // ('about/web-portal/index',见 app.config.ts:165),knip 静态 import 面看不见该形态,

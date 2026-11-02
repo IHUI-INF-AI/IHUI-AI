@@ -179,7 +179,6 @@ export function useAIWebSocket(provider: AIWSProvider): UseAIWebSocketReturn {
 // 从独立文件 re-export,保持单文件 < 400 行(等价自旧项目 aiWebSocketMixin.js)
 
 export {
-  useAiWebSocket,
   type AiModelKey,
   type AgentContentListItem,
   type WebSocketAiMessage,
