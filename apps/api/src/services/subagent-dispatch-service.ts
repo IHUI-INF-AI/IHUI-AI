@@ -29,8 +29,8 @@
 import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { eq } from 'drizzle-orm'
-import { db } from '../db/index.js'
-import { agentTasks } from '@ihui/database'
+import { db, dbRead } from '../db/index.js'
+import { agentTasks, chatConversations } from '@ihui/database'
 import { coerceKnownOr } from '@ihui/types'
 import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
@@ -38,6 +38,8 @@ import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-
 import { broadcastSSEEvent } from './agent-sse-bus.js'
 // 活跃状态判据的唯一出口(2026-11-01,S-ACTIVE):listActive 与并发计数共用一份
 import { isActiveDispatchStatus } from '../utils/dispatch-status.js'
+// 归属回填只处理 uuid 形态的关联 id(非 uuid 直接跳过,避免 Postgres 22P02 把整批装载打断)
+import { isUuidString } from '../utils/uuid.js'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -63,6 +65,12 @@ const REDIS_KEY_QUEUE = 'subagent:dispatch:queue' // zset(priority score)
 const REDIS_KEY_THREAD = 'subagent:dispatch:thread:'
 /** F4(2026-11-02)Inline & Spill:上游长结果的全文产物(id = `${dispatchId}:${stepId}`) */
 const REDIS_KEY_ARTIFACT = 'subagent:artifact:'
+/**
+ * 归属回填记账(2026-11-02,归属回填与 fail-open 收敛):
+ * member = `${dispatchId}|${source}`,source ∈ conversation / agentTask / thread / orphan。
+ * 只用于回滚(逐条 HDEL ownerUserId / ownership)与影响面审计,不参与可见性判定。
+ */
+const REDIS_KEY_OWNERSHIP_BACKFILL = 'subagent:dispatch:ownership-backfill:20261102'
 
 /** 日志最大保留条数(LTRIM) */
 const LOG_MAX_ENTRIES = 500
@@ -1524,6 +1532,8 @@ export class SubagentDispatchService {
         quotas: runtime.quotas ? JSON.stringify(runtime.quotas) : '',
         // 租户归属随记录落 Redis:进程重启后从 hash 恢复仍能按租户过滤(不因重启丢归属)
         ownerUserId: d.ownerUserId ?? '',
+        // 归属回填标记(2026-11-02):orphan 记录随 hash 持久化,重启后仍只对管理面可见
+        ownership: d.ownership ?? '',
         // F1(2026-11-02)崩溃自愈:以下字段是「重启后足以重建执行」的最小集,
         // 少了任何一项,恢复都只能从头再来或直接失忆(agent_tasks 关联/耗时/step 全丢):
         //  - prompt:建单时算一次,恢复时原样复用(不依赖 build 函数的未来变更改变在途任务语义)
@@ -1744,6 +1754,9 @@ export class SubagentDispatchService {
           status: 'running',
           startedAt: new Date(),
           payload: { dispatchId: pending.id },
+          // 归属回填(2026-11-02):新派单从创建起就带创建者,不再产生新的 NULL 存量。
+          // 取不到 ownerUserId(内部调用/旧入口)时才落 null,由迁移口径按 orphan 处理。
+          createdBy: input.ownerUserId ?? null,
           // F3:两个派生标记随派单记录一起落库(会话 thread 归属 + 人工注意力)
           parentDispatchId: pending.parentDispatchId ?? null,
           attention: pending.attention ?? null,
@@ -1988,6 +2001,82 @@ export class SubagentDispatchService {
     }
   }
 
+  // ---------- 归属回填(2026-11-02,先回填后收紧) ----------
+
+  /**
+   * 旧派单归属三级推导:conversation 属主 → agent_tasks.created_by → 同会话 thread 兄弟。
+   *
+   * 调用点只在 `_loadActiveDispatches`,且必须在 `runtimes.set` **之前**完成 ——
+   * 这是「先回填、后收紧」的代码侧顺序保证:路由读不到尚未推导归属的记录。
+   * 关联 id 非 uuid 时直接跳过(不查库),避免 Postgres 22P02 打断整批装载。
+   */
+  private async _deriveDispatchOwner(
+    raw: Record<string, string>,
+    cache: {
+      conversations: Map<string, string | null>
+      agentTasks: Map<string, string | null>
+    },
+  ): Promise<{ owner: string; source: 'conversation' | 'agentTask' | 'thread' } | null> {
+    const conversationId = raw.conversationId ?? ''
+    if (isUuidString(conversationId)) {
+      if (!cache.conversations.has(conversationId)) {
+        const rows = await dbRead
+          .select({ userId: chatConversations.userId })
+          .from(chatConversations)
+          .where(eq(chatConversations.id, conversationId))
+          .limit(1)
+        cache.conversations.set(conversationId, rows[0]?.userId ?? null)
+      }
+      const owner = cache.conversations.get(conversationId)
+      if (owner) return { owner, source: 'conversation' }
+    }
+
+    const agentTaskId = raw.agentTaskId ?? ''
+    if (isUuidString(agentTaskId)) {
+      if (!cache.agentTasks.has(agentTaskId)) {
+        const rows = await dbRead
+          .select({ createdBy: agentTasks.createdBy })
+          .from(agentTasks)
+          .where(eq(agentTasks.id, agentTaskId))
+          .limit(1)
+        cache.agentTasks.set(agentTaskId, rows[0]?.createdBy ?? null)
+      }
+      const owner = cache.agentTasks.get(agentTaskId)
+      if (owner) return { owner, source: 'agentTask' }
+    }
+
+    if (conversationId && this.redisClient) {
+      // 兄弟记录只扫最近 50 条:thread 是"会话连续性"索引,不是全量历史;扫不到即 orphan。
+      const siblings = await this.redisClient.zrevrange(`${REDIS_KEY_THREAD}${conversationId}`, 0, 49)
+      for (const siblingId of siblings) {
+        if (siblingId === raw.id) continue
+        const owner = await this.redisClient.hget(`${REDIS_KEY_DISPATCH}${siblingId}`, 'ownerUserId')
+        if (typeof owner === 'string' && owner.length > 0) return { owner, source: 'thread' }
+      }
+    }
+    return null
+  }
+
+  /**
+   * 回填结果落回 Redis(内存先改,Redis best-effort):成功补 ownerUserId,失败标 orphan;
+   * 两种情况都写记账 set,供回滚时逐条 HDEL(见 drizzle/20261102180000 迁移头注释)。
+   */
+  private async _markBackfilledOwnership(
+    id: string,
+    owner: string | null,
+    source: 'conversation' | 'agentTask' | 'thread' | 'orphan',
+  ): Promise<void> {
+    if (!this.redisClient) return
+    try {
+      const key = `${REDIS_KEY_DISPATCH}${id}`
+      if (owner) await this.redisClient.hset(key, { ownerUserId: owner })
+      else await this.redisClient.hset(key, { ownership: 'orphan' })
+      await this.redisClient.sadd(REDIS_KEY_OWNERSHIP_BACKFILL, `${id}|${source}`)
+    } catch (err) {
+      logger.warn(`[subagent-dispatch] 归属回填落 Redis 失败(内存已生效): ${id} ${String(err)}`)
+    }
+  }
+
   /**
    * 初始化时从 Redis 加载所有活跃 dispatch,并把「中断的 running」重新入队。
    *
@@ -1997,12 +2086,27 @@ export class SubagentDispatchService {
    *  - 先把**足以重建执行**的字段全部恢复(prompt/agentTaskId/steps/dagNodeStatus/messages/outbox);
    *  - running ⇒ 标记 interrupted 留痕,再转 pending 重新入队(不是静默装回内存);
    *  - pending ⇒ 直接重新入队(它本来就还没开始);
-   *  - 已在本进程 inFlight 的记录不重复接管(防止重复 load 把活任务误判成中断)。
+   *  - 已在本进程 inFlight 的记录不重复接管(防止重复 load 把活任务误判成中断);
+   *  - 旧 hash 缺 ownerUserId ⇒ **先回填再装载**(2026-11-02):回填在 runtimes.set 之前,
+   *    路由读不到未推导归属的记录;三源都推不出才标 orphan(仅管理面)。
    */
   private async _loadActiveDispatches(): Promise<void> {
     if (!this.redisClient || this._loading) return
     this._loading = true
     const toRecover: string[] = []
+    // 回填统计只落日志(影响面审计);orphan 计数是「收紧后仅管理面可见」的存量口径
+    const backfill = {
+      scanned: 0,
+      alreadyOwned: 0,
+      derivedConversation: 0,
+      derivedAgentTask: 0,
+      derivedThread: 0,
+      orphan: 0,
+    }
+    const deriveCache = {
+      conversations: new Map<string, string | null>(),
+      agentTasks: new Map<string, string | null>(),
+    }
     try {
       const ids = await this.redisClient.smembers(REDIS_KEY_IDS)
       for (const id of ids) {
@@ -2039,6 +2143,8 @@ export class SubagentDispatchService {
           updatedAt: raw.updatedAt || nowIso(),
           // 旧 hash 没有该字段 ⇒ undefined ⇒ 「未标注」,不塞常量顶替
           ownerUserId: raw.ownerUserId || undefined,
+          // 回填标记:只有"无 owner 且已判定 orphan"的记录才带;有 owner 的记录不保留 orphan
+          ownership: raw.ownership === 'orphan' && !raw.ownerUserId ? 'orphan' : undefined,
           // conversationId 同理:旧 hash 没有就保持未归属
           conversationId: raw.conversationId || undefined,
           // F3:旧 hash 没有这两项 ⇒ undefined = 无父 / 不需要人(不塞常量顶替)
@@ -2075,6 +2181,33 @@ export class SubagentDispatchService {
           artifacts: new Map(),
           agentTaskId: raw.agentTaskId || undefined,
         }
+        // 归属回填(2026-11-02):必须在 runtimes.set **之前**完成 ——
+        // 推导成功 ⇒ 本人可见;三源都推不出 ⇒ orphan(仅管理面),不再回落「未标注公开」。
+        backfill.scanned += 1
+        if (dispatch.ownerUserId) {
+          backfill.alreadyOwned += 1
+        } else {
+          try {
+            const derived = await this._deriveDispatchOwner(raw, deriveCache)
+            if (derived) {
+              dispatch.ownerUserId = derived.owner
+              dispatch.ownership = undefined
+              await this._markBackfilledOwnership(id, derived.owner, derived.source)
+              if (derived.source === 'conversation') backfill.derivedConversation += 1
+              else if (derived.source === 'agentTask') backfill.derivedAgentTask += 1
+              else backfill.derivedThread += 1
+            } else {
+              dispatch.ownership = 'orphan'
+              await this._markBackfilledOwnership(id, null, 'orphan')
+              backfill.orphan += 1
+            }
+          } catch (err) {
+            // 推导异常按 orphan 处理:该条不公开、不中断整批;计数照报
+            dispatch.ownership = 'orphan'
+            backfill.orphan += 1
+            logger.warn(`[subagent-dispatch] 归属推导失败,按 orphan 处理: ${id} ${String(err)}`)
+          }
+        }
         this.runtimes.set(id, runtime)
         // checkpoint 是独立 hash(redis 优先,内存为空)⇒ 恢复已完成步骤/断点
         runtime.checkpoints = await this._loadCheckpoints(id)
@@ -2086,6 +2219,9 @@ export class SubagentDispatchService {
       this._loading = false
     }
     // 读取全部完成后再发起执行:避免在 Redis 读循环里穿插写/跑
+    if (backfill.scanned > 0 && (backfill.orphan > 0 || backfill.scanned > backfill.alreadyOwned)) {
+      logger.info(`[subagent-dispatch] 归属回填统计: ${JSON.stringify(backfill)}`)
+    }
     for (const id of toRecover) {
       await this._recoverInterruptedDispatch(id)
     }
