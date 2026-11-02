@@ -49,6 +49,14 @@ import { getSseStateStore, SSE_REPLICA_ID } from './sse-state-store.js'
 /** 断线宽限期:此窗口内上游继续生成等重连接管,超时才 abort(省 token 与上游资源)。 */
 export const SSE_GRACE_PERIOD_MS = 15_000
 
+/**
+ * SSE 心跳间隔(15s):写 SSE **注释帧** `: ping`,不编号、不进回放缓冲。
+ *
+ * 为什么是注释帧而不是 data 帧:注释帧按规范被客户端忽略,不产生 message 事件,
+ * 因此永远不会插进 `id:` 序列、也不会在 Last-Event-ID 重放里冒充业务事件。
+ */
+export const SSE_HEARTBEAT_INTERVAL_MS = 15_000
+
 export interface StreamSession {
   /** replayKey = `${conversationId}:${messageId}`;null = 不启用编号/缓冲(原样透传) */
   replayKey: string | null
@@ -371,6 +379,30 @@ export function emitNamedEvent(
     return
   }
   write(session, `${frame}\n\n`)
+}
+
+/**
+ * 启动 15s 心跳(2026-11-02 B3 立):只写注释帧,不编号、不进回放缓冲。
+ *
+ * 断线期间 session.raw 为 null ⇒ 本拍直接跳过(重连后由 takeoverStream 换绑的
+ * 新连接自动继续收到心跳,定时器归属原生成请求,不因换绑重建)。
+ * 返回停止函数,调用方必须在流收尾(finally)调用一次。
+ */
+export function startHeartbeat(
+  session: StreamSession,
+  intervalMs: number = SSE_HEARTBEAT_INTERVAL_MS,
+): () => void {
+  const timer: ReturnType<typeof globalThis.setInterval> = globalThis.setInterval(() => {
+    if (!session.raw) return
+    try {
+      session.raw.write(': ping\n\n')
+    } catch {
+      /* 心跳写出失败不阻塞主链:下一拍连接已断时自然跳过 */
+    }
+  }, intervalMs)
+  // 不阻止进程退出(测试/短生命周期进程不应被心跳挂着)
+  ;(timer as unknown as { unref?: () => void }).unref?.()
+  return () => globalThis.clearInterval(timer)
 }
 
 /**
