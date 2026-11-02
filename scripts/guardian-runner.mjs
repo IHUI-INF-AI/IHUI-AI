@@ -6812,6 +6812,24 @@ const checks = [
     onFailHint:
       '  💡 单独复验:node scripts/check-web-rn-gap-ratchet.mjs [--json|--gate];基线只降不升:node scripts/check-web-rn-gap-ratchet.mjs --baseline',
   },
+  // --- 共享屏「至少被一枚 RN 壳直接 import」覆盖判据(P0-1,守门 283)---
+  {
+    id: '283',
+    label:
+      '🧩 共享屏 RN 薄壳覆盖(blocking;新增共享屏既无 RN 壳直接 import 又未在册认领 ⇒ 拦提交)',
+    script: 'check-rn-host-shell-coverage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-rn-host-shell-coverage.mjs',
+      'scripts/data/rn-host-shell-manual.json',
+      'packages/app/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_RN_HOST_SHELL_COVERAGE',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
