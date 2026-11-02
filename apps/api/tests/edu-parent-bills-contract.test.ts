@@ -123,7 +123,7 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/forbidden-in-mock-tests',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/forbidden-in-mock-tests',
     // 必须带合法 db 段:带非数字段时 ioredis 会在连上后发 SELECT NaN,
     // 成为 unhandled rejection 把 vitest 退出码打成 1(21 个用例全过也判红);
     // 6379 本机无监听 ⇒ 只在 error 事件里失败,与同族测试同形,不碰生产 8811。
