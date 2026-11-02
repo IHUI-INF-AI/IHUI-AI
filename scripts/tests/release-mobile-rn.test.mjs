@@ -14,7 +14,8 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC_PATH = join(HERE, '..', 'release-mobile-rn.mjs')
 const SRC = readFileSync(SRC_PATH, 'utf8')
 const { __test__ } = await import(import.meta.resolve('../release-mobile-rn.mjs'))
-const { foldStatus, checkSubmitProfile, findChannel, probeRuntimeVersion, buildLegs, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS } = __test__
+const { foldStatus, checkSubmitProfile, findChannel, probeRuntimeVersion, buildLegs, buildStoreLegs, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS } = __test__
+const { STORE_VENDORS } = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
 
 const okAndroid = { track: 'alpha', serviceAccountKeyPath: './credentials/x.json' }
 
@@ -81,6 +82,8 @@ test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必
     slot: { status: STATUS.FOUND, detail: 'x' },
     apple: { status: STATUS.MISSING, detail: 'x' },
     xcode: { status: STATUS.MISSING, detail: 'x' },
+    artifacts: { status: STATUS.MISSING, detail: '无 release 产物' },
+    stores: STORE_VENDORS.map((v) => ({ vendor: v, cred: { status: STATUS.MISSING, detail: '夹具' } })),
   }
   const legs = buildLegs(ev)
   assert.equal(new Set(legs.map((l) => l.id)).size, legs.length, '腿 id 不得重复')
@@ -125,10 +128,77 @@ test('M10 SA key 按内容识别,不认文件名(GCP 默认名是随机串)', as
   assert.notEqual(lib.__test__.fp('a'), lib.__test__.fp('b'))
 })
 
-test('M11 凭据槽位路径与 .gitignore 在册规则一致(忽略不生效即拒落)', () => {
-  assert.ok(SA_SLOT_REL.startsWith('credentials/'), `槽位必须落在 credentials/ 下,现为 ${SA_SLOT_REL}`)
+test('M11 凭据槽位路径与 .gitignore 在册规则一致(忽略不生效即拒落)', () => {  assert.ok(SA_SLOT_REL.startsWith('credentials/'), `槽位必须落在 credentials/ 下,现为 ${SA_SLOT_REL}`)
   const gi = readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', '.gitignore'), 'utf8')
   assert.ok(/^\/credentials$/m.test(gi), '.gitignore 必须整目录忽略 /credentials')
   assert.ok(!/^!credentials/m.test(gi), '.gitignore 里不得再出现 !credentials/… 白名单:父目录被排除时 negation 静默无效,留着等于暗示密钥可提交')
+})
+
+test('M12 商店矩阵:每家一条腿,能力缺口不得报成凭据缺口', () => {
+  const ev = {
+    artifacts: { status: STATUS.MISSING, detail: '夹具:无 release 产物' },
+    signing: { status: STATUS.FOUND, detail: '夹具' },
+    stores: STORE_VENDORS.map((v) => ({ vendor: v, cred: { status: STATUS.MISSING, detail: '夹具' } })),
+  }
+  const legs = buildStoreLegs(ev)
+  assert.equal(legs.length, STORE_VENDORS.length, '矩阵必须逐家在册,少一家就是"账面都有而实际没有"')
+  for (const leg of legs) {
+    assert.ok(leg.id.startsWith('store-'), `腿 id 前缀不统一:${leg.id}`)
+    assert.ok(leg.checks.every((c) => c.k && c.status && c.detail), `${leg.id} 判据三键不齐`)
+    assert.equal(foldStatus(leg.checks.map((c) => c.status)), 'blocked', '凭据/器物缺一即不得冒 ready')
+    assert.ok(leg.command.length > 8, `${leg.id} 必须自带出路`)
+  }
+  const harmony = legs.find((l) => l.id === 'store-harmony')
+  assert.match(harmony.checks.find((c) => c.k === '上传通道器物').detail, /无 RN 鸿蒙产物能力/, '鸿蒙要如实报"产物能力都没有",不能混成"缺凭据"')
+  const huawei = STORE_VENDORS.find((v) => v.id === 'huawei')
+  assert.match(huawei.note, /HMS OAuth/, '华为那枚实测是 HMS OAuth 客户端凭据(过 AGC Connect API 回 203890688),这条结论必须留在册上')
+  assert.match(huawei.note, /Connect API/, '出路要点名缺的是 Connect API 客户端凭据')
+})
+
+test('M13 商店凭据按厂商匹配、且绝不外泄字段值', async () => {  const lib = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
+  const { STORE_VENDORS: vendors, storeCredential, STATUS: ST } = lib.__test__
+  assert.ok(Array.isArray(vendors) && vendors.length >= 6, '矩阵至少要覆盖国内主流商店')
+  const src = readFileSync(join(HERE, '..', 'lib', 'rn-release-credentials.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('export function storeCredential'), src.indexOf('export function androidArtifacts'))
+  assert.ok(!/console\.(log|info)/.test(body), 'storeCredential 自身不得打印任何内容(值只能由调用方以摘要形态输出)')
+  const fake = { match: /不可能存在的厂商名zz/, label: '夹具厂' }
+  const r = storeCredential(fake, { root: 'D:/不存在的密钥根-zz' })
+  assert.equal(r.status, ST.MISSING, '根存在但无匹配 ⇒ 判 missing')
+  const u = storeCredential(fake, { root: null })
+  assert.equal(u.status, ST.UNJUDGED, '根解析不出必须落未判定,不得判成"该厂商无凭据"(§0.3)')
+})
+
+test('M14 通道鉴别器三臂:HTML/非 JSON 一律未判定,绝不读成"对方拒绝"', async () => {
+  const { __test__ } = await import(import.meta.resolve('../probe-store-channel.mjs'))
+  const { classifyTokenResponse, CHANNELS } = __test__
+  const ok = classifyTokenResponse(200, JSON.stringify({ access_token: 'x'.repeat(40), expires_in: 3600 }))
+  assert.equal(ok.status, 'found')
+  assert.ok(ok.token, 'token 必须回传给调用方继续探测')
+  const rejected = classifyTokenResponse(200, JSON.stringify({ ret: { code: 203890688, msg: 'client id or secret error' } }))
+  assert.equal(rejected.status, 'missing', '结构化 ret.code ⇒ 这是对方的答复,可判 missing')
+  assert.equal(rejected.code, 203890688)
+  // 反例锁:2026-11-02 真踩过的坑 —— 我把 /api-publish/v2/... 当成端点,拿到 Nginx 的 404 HTML,
+  // 差点据此写"华为没开通发布 API"。非 JSON 只能是我的形态问题,不得替对方下结论。
+  const html = classifyTokenResponse(404, '<!DOCTYPE html><html><head><title>Error</title>')
+  assert.equal(html.status, 'unjudged', '非 JSON 响应必须落未判定')
+  assert.equal(html.kind, 'non-json')
+  assert.ok(Object.keys(CHANNELS).includes('huawei'), '华为通道已证,必须在册')
+})
+
+test('M15 未核实端点的厂商:零网络调用 + 未判定(防"猜的 URL 进水")', async () => {
+  const { __test__ } = await import(import.meta.resolve('../probe-store-channel.mjs'))
+  const { probeVendor, CHANNELS } = __test__
+  let calls = 0
+  const fakeFetch = async () => {
+    calls++
+    return { status: 200, text: async () => '{}' }
+  }
+  for (const id of ['xiaomi', 'oppo', 'vivo', 'yyb', 'honor', 'harmony']) {
+    const r = await probeVendor(id, { fetchImpl: fakeFetch })
+    assert.equal(r.status, 'unjudged', `${id} 未核实端点必须判未判定,不得冒 missing`)
+    assert.equal(r.verdict, 'endpoint-unverified')
+    assert.ok(!Object.keys(CHANNELS).includes(id), `${id} 的端点形态未经核实,不得进 CHANNELS 表`)
+  }
+  assert.equal(calls, 0, '未核实的厂商一条请求都不许发')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
