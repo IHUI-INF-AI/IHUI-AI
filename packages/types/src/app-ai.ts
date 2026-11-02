@@ -12,7 +12,7 @@
  */
 
 import type { TFunction } from './app-shared.js'
-import type { OnNavigate, OnToast } from './app-host-ports.js'
+import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
 
@@ -335,6 +335,8 @@ export interface AigcListScreenProps {
   onLoadMore?: () => void
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
+  audio?: AudioPort
 }
 
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
