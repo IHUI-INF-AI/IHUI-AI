@@ -499,7 +499,7 @@ describe('cursor parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.category).toBe('Cursor')
+    expect(res.providers[0]!.meta!.category).toBe('Cursor')
   })
 
   it('meta.websiteUrl = https://cursor.sh', async () => {
@@ -511,7 +511,7 @@ describe('cursor parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.websiteUrl).toBe('https://cursor.sh')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://cursor.sh')
   })
 
   it('有 model 时 meta.models 包含该 model', async () => {
@@ -524,7 +524,7 @@ describe('cursor parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toEqual(['gpt-4o'])
+    expect(res.providers[0]!.meta!.models).toEqual(['gpt-4o'])
   })
 
   it('无 model 时 meta.models undefined', async () => {
@@ -536,7 +536,7 @@ describe('cursor parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
   })
 
   it('sourceId = cursor-default', async () => {
