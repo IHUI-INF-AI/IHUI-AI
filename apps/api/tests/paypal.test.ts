@@ -261,7 +261,7 @@ describe('paypal service', () => {
       // 验证调用了 2 次 fetch(token + verify)
       expect(mockFetch).toHaveBeenCalledTimes(2)
       // 第二次调用的 URL 含 verify-webhook-signature
-      const secondCallUrl = String(mockFetch.mock.calls[1][0])
+      const secondCallUrl = String(mockFetch.mock.calls[1]![0])
       expect(secondCallUrl).toContain('/v1/notifications/verify-webhook-signature')
     })
 
@@ -426,7 +426,7 @@ describe('paypal service', () => {
 
       // 验证第二次 fetch(创建订单)的请求体
       const orderCall = mockFetch.mock.calls[1]
-      const orderBody = JSON.parse(String(orderCall[1].body))
+      const orderBody = JSON.parse(String(orderCall![1].body))
       expect(orderBody.intent).toBe('CAPTURE')
       expect(orderBody.purchase_units[0].reference_id).toBe('PP20260728001')
       expect(orderBody.purchase_units[0].amount.currency_code).toBe('USD')
@@ -475,7 +475,7 @@ describe('paypal service', () => {
 
       const result = await captureOrder('PAYID-XXX')
       expect(result.status).toBe('COMPLETED')
-      const capture = result.purchase_units[0].payments?.captures?.[0]
+      const capture = result.purchase_units[0]!.payments?.captures?.[0]
       expect(capture?.id).toBe('CAP-123')
       expect(capture?.status).toBe('COMPLETED')
     })
@@ -513,7 +513,7 @@ describe('paypal service', () => {
 
       const status = await getOrderStatus('PAYID-XXX')
       expect(status.status).toBe('APPROVED')
-      expect(status.purchase_units[0].reference_id).toBe('PP20260728001')
+      expect(status.purchase_units[0]!.reference_id).toBe('PP20260728001')
     })
   })
 
@@ -555,7 +555,7 @@ describe('paypal service', () => {
 
       // 验证请求体不含 amount(全退)
       const refundCall = mockFetch.mock.calls[1]
-      const refundBody = JSON.parse(String(refundCall[1].body))
+      const refundBody = JSON.parse(String(refundCall![1].body))
       expect(refundBody.amount).toBeUndefined()
     })
 
@@ -589,7 +589,7 @@ describe('paypal service', () => {
       expect(result.status).toBe('PENDING')
 
       const refundCall = mockFetch.mock.calls[1]
-      const refundBody = JSON.parse(String(refundCall[1].body))
+      const refundBody = JSON.parse(String(refundCall![1].body))
       expect(refundBody.amount).toEqual({ currency_code: 'USD', value: '5.00' })
       expect(refundBody.note_to_payer).toBe('partial refund')
     })

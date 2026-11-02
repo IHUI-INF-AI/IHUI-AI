@@ -47,7 +47,7 @@ function registeredPrefix(pluginName: string): string | null {
 /** 折掉查询串、模板插值段与命名参数段:`/spaces/${id}/members?x` 与 `/spaces/:spaceId/members` 同形为 `/spaces/:x/members` */
 function foldPath(p: string): string {
   return p
-    .split('?')[0]
+    .split('?')[0]!
     .replace(/\$\{[^}]*\}/gu, ':x')
     .replace(/:[A-Za-z_]\w*/gu, ':x')
 }
@@ -64,7 +64,7 @@ function composedRoutePaths(prefix: string): Set<string> {
 function clientFacePaths(): Set<string> {
   return new Set(
     [...clientSrc.matchAll(/[`'"](\/api\/[^`'"\n]*)[`'"]/gu)]
-      .map((m) => foldPath(m[1]))
+      .map((m) => foldPath(m[1]!))
       .filter((p) => p.includes(FACE_SEGMENT)),
   )
 }

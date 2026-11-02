@@ -29,7 +29,7 @@ import Fastify, {
 import { eq, type SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import type { postgres } from 'postgres'
+import type { Sql } from 'postgres'
 import { llmCallLogs, orders, projects, users } from '@ihui/database'
 import {
   getCapability,
@@ -104,7 +104,7 @@ function compiledStatement(query: unknown): RecordedQuery {
 }
 
 /** 录制型假 postgres 客户端(drizzle postgres-js 会话所需的最小面)。 */
-function makeFakeClient(): { client: postgres.Sql; queries: RecordedQuery[] } {
+function makeFakeClient(): { client: Sql; queries: RecordedQuery[] } {
   const queries: RecordedQuery[] = []
   const client = {
     options: { parsers: {}, serializers: {} },
@@ -120,7 +120,7 @@ function makeFakeClient(): { client: postgres.Sql; queries: RecordedQuery[] } {
     begin: async (fn: (inner: unknown) => Promise<unknown>): Promise<unknown> => fn(client),
     end: async (): Promise<void> => {},
   }
-  return { client: client as unknown as postgres.Sql, queries }
+  return { client: client as unknown as Sql, queries }
 }
 
 const fake = makeFakeClient()

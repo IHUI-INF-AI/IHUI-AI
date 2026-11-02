@@ -88,7 +88,6 @@ function seed(id: string, ownerUserId: string, status: string, attention?: strin
 }
 
 const asA = { 'x-probe-user': 'tenant-a' }
-const _asB = { 'x-probe-user': 'tenant-b' }
 
 beforeEach(async () => {
   store.clear()

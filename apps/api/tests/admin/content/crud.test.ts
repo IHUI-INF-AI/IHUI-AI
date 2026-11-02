@@ -45,6 +45,18 @@ const ANN_ID = '11111111-1111-4111-8111-111111111111'
 const NOT_FOUND_ID = '22222222-2222-4222-8222-222222222222'
 const AD_ID = '33333333-3333-4333-8333-333333333333'
 
+type DbChain<T> = {
+  then: (resolve: (value: T) => unknown) => Promise<unknown>
+  from: () => DbChain<T>
+  where: () => DbChain<T>
+  orderBy: () => DbChain<T>
+  limit: () => DbChain<T>
+  offset: () => DbChain<T>
+  values: () => DbChain<T>
+  set: () => DbChain<T>
+  returning: () => DbChain<T>
+}
+
 const { dbMock } = vi.hoisted(() => {
   function makeChain<T>(result: T): DbChain<T> {
     const chain = {} as DbChain<T>

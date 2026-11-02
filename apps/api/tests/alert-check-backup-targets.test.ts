@@ -65,12 +65,12 @@ describe('备份监控清单:与 runner 的库清单逐库对齐', () => {
       'runner 里找不到 $backupDatabases 那一行 ⇒ 监控清单失去对照对象,不得当通过',
     ).toBeTruthy()
     // 逐项:引号字面量直接取,`$dbName` 走同文件的兜底字面量(与 cadence-audit 同一取向)
-    const literals = [...line![1].matchAll(/'([^']+)'|"([^"]+)"/g)].map((m) => m[1] ?? m[2])
+    const literals = [...line![1]!.matchAll(/'([^']+)'|"([^"]+)"/g)].map((m) => (m[1] ?? m[2])!)
     const fallback = /if\s*\(\s*-not\s+\$dbName\s*\)\s*\{\s*\$dbName\s*=\s*"([^"]+)"\s*\}/.exec(
       runner,
     )
     expect(fallback, '$dbName 的兜底字面量不在同一份文件里 ⇒ 主库名无从解析').toBeTruthy()
-    const runnerDbs = new Set<string>([fallback![1], ...literals])
+    const runnerDbs = new Set<string>([fallback![1]!, ...literals])
     expect([...runnerDbs].sort()).toEqual([...names].sort())
   })
 })

@@ -23,6 +23,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { UserAutomation } from '@ihui/database'
+import type {
+  AutomationLastResultG2,
+  GoalOutcomeInput,
+} from '../src/services/automations/goal-loop.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -175,12 +179,17 @@ function makeRow(over: Partial<Row> = {}): Row {
     scheduledAt: new Date('2026-10-01T00:00:00.000Z'),
     timezone: 'Asia/Shanghai',
     status: 'active',
+    terminalReason: null,
     conversationId: null,
     lastRunAt: null,
     nextRunAt: null,
     lastResult: null,
     attempt: 0,
     lastError: null,
+    claimToken: null,
+    claimedAt: null,
+    settlementStatus: null,
+    settlementTerminalAt: null,
     createdAt: new Date('2026-09-01T00:00:00.000Z'),
     updatedAt: new Date('2026-09-01T00:00:00.000Z'),
     ...over,
@@ -462,7 +471,7 @@ describe('G2 ③ 纯函数决策表', () => {
     const base = { finishedAt: 'x', summary: 'y' }
     expect(withGoalCarryover(base, null)).toBe(base)
     const g = readGoalState(goalSeed() as unknown)
-    expect((withGoalCarryover(base, g) as Record<string, unknown>).goal).toBeTruthy()
+    expect((withGoalCarryover(base, g) as AutomationLastResultG2).goal).toBeTruthy()
   })
 
   it('parseGoalVerdict:NOT_MET 判序在 MET 前;解析不出 ⇒ null', () => {
@@ -470,17 +479,18 @@ describe('G2 ③ 纯函数决策表', () => {
     expect(parseGoalVerdict('verdict: met')!.met).toBe(true)
     expect(parseGoalVerdict('随便说点什么')).toBeNull()
     expect(parseGoalVerdict('')).toBeNull()
-    expect(parseGoalVerdict('VERDICT: MET').reason).toBe('目标已达成')
+    expect(parseGoalVerdict('VERDICT: MET')!.reason).toBe('目标已达成')
   })
 
   it('planGoalOutcome 决策表逐档', () => {
     const goal = readGoalState(goalSeed(0, 3) as unknown)!
-    const mk = (over: Record<string, unknown>) => ({
+    const mk = (over: Partial<GoalOutcomeInput>): GoalOutcomeInput => ({
       goal,
-      scheduleType: 'once' as const,
+      scheduleType: 'once',
       rruleNextRunAt: rruleNext,
       now,
       balanceOk: true,
+      verdict: null,
       ...over,
     })
     // 自评不可解析 ⇒ 不重跑
