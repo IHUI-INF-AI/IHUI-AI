@@ -90,6 +90,7 @@ export function ExamScreen() {
       onRefresh={() => load(true)}
       onStart={onStart}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )
