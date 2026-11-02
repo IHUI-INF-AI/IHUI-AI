@@ -168,7 +168,7 @@ export default function AccountDeletionPage() {
       {!allow ? (
         <AuthGatePrompt message={tGate('loginRequired')} />
       ) : loading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+        <p className="py-8 text-center text-body text-muted-foreground">{t('activityLoading')}</p>
       ) : status?.isScheduled ? (
         <Card>
           <CardHeader>
@@ -179,7 +179,7 @@ export default function AccountDeletionPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {status.scheduledDate && (
-              <p className="text-sm text-muted-foreground">{formatDate(status.scheduledDate)}</p>
+              <p className="text-body text-muted-foreground">{formatDate(status.scheduledDate)}</p>
             )}
             {status.canCancel && (
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={submitting}>
@@ -230,7 +230,7 @@ export default function AccountDeletionPage() {
             </div>
 
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+              <span className="min-w-0 flex-1 text-body text-muted-foreground">
                 {t('accountDeletionConfirm')}
               </span>
               <Switch checked={confirmed} onCheckedChange={setConfirmed} className="shrink-0" />

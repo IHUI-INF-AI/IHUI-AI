@@ -128,7 +128,7 @@ export default async function AiEduPage() {
                 <div className="text-display font-bold text-primary min-[768px]:text-3xl">
                   {m.value}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                <div className="mt-1 text-label text-muted-foreground min-[768px]:text-body">
                   {m.label}
                 </div>
               </div>
@@ -139,7 +139,7 @@ export default async function AiEduPage() {
         {/* 痛点 */}
         <section className="mt-12 space-y-4">
           <h2 className="text-display font-bold tracking-tight">教培行业面临的真实挑战</h2>
-          <ul className="space-y-2 text-sm text-muted-foreground min-[768px]:text-base">
+          <ul className="space-y-2 text-body text-muted-foreground min-[768px]:text-base">
             <li className="flex gap-2">
               <span className="text-rose-500">•</span>
               教师 70% 时间用于备课/批改/答疑,真正教学时间被挤压
@@ -173,7 +173,7 @@ export default async function AiEduPage() {
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   {c.title}
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">{c.desc}</p>
+                <p className="mt-2 text-body text-muted-foreground">{c.desc}</p>
               </div>
             ))}
           </div>
@@ -183,8 +183,8 @@ export default async function AiEduPage() {
         <section className="mt-12 space-y-4">
           <h2 className="text-display font-bold tracking-tight">8 端同源技术栈</h2>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2 font-medium">技术</th>
                   <th className="px-4 py-2 font-medium">用途</th>
@@ -207,17 +207,17 @@ export default async function AiEduPage() {
           <div className="rounded-lg border bg-card p-3">
             <BookOpen className="h-5 w-5 text-primary" />
             <div className="mt-3 text-display font-bold">60%</div>
-            <div className="mt-1 text-xs text-muted-foreground">教师辅导工作量降低</div>
+            <div className="mt-1 text-label text-muted-foreground">教师辅导工作量降低</div>
           </div>
           <div className="rounded-lg border bg-card p-3">
             <Users className="h-5 w-5 text-primary" />
             <div className="mt-3 text-display font-bold">25%</div>
-            <div className="mt-1 text-xs text-muted-foreground">学员留存率提升</div>
+            <div className="mt-1 text-label text-muted-foreground">学员留存率提升</div>
           </div>
           <div className="rounded-lg border bg-card p-3">
             <BarChart3 className="h-5 w-5 text-primary" />
             <div className="mt-3 text-display font-bold">95%+</div>
-            <div className="mt-1 text-xs text-muted-foreground">智能批改准确率</div>
+            <div className="mt-1 text-label text-muted-foreground">智能批改准确率</div>
           </div>
         </section>
 
@@ -225,7 +225,7 @@ export default async function AiEduPage() {
         <section className="mt-12 rounded-lg border bg-card p-3 text-center">
           <Wrench className="mx-auto h-6 w-6 text-primary" />
           <h2 className="mt-3 text-display font-bold tracking-tight">30 分钟搭建 AI 教育 Agent</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+          <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground">
             注册即用,Apache 2.0 开源,可私有化部署;Web/API/AI
             Service/Desktop/Extension/Mobile/Miniapp/CLI 8 端同源。
           </p>

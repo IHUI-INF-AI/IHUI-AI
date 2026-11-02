@@ -122,8 +122,10 @@ export function CryptoDonation(): React.JSX.Element {
   return (
     <section className="mt-16">
       <div className="text-center">
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('title')}
+        </h2>
+        <p className="mx-auto mt-2 max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           {t('subtitle')}
         </p>
       </div>
@@ -150,7 +152,7 @@ export function CryptoDonation(): React.JSX.Element {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">{t(`${w.id}.network`)}</p>
+                  <p className="text-label text-muted-foreground">{t(`${w.id}.network`)}</p>
                 </div>
               </div>
 
@@ -169,7 +171,7 @@ export function CryptoDonation(): React.JSX.Element {
                 </Tooltip>
                 <div className="flex min-w-0 flex-1 flex-col justify-between">
                   <Tooltip content={w.address}>
-                    <code className="block break-all text-xs leading-relaxed text-foreground">
+                    <code className="block break-all text-label leading-relaxed text-foreground">
                       {w.address}
                     </code>
                   </Tooltip>
@@ -199,7 +201,7 @@ export function CryptoDonation(): React.JSX.Element {
         })}
       </div>
 
-      <p className="mx-auto mt-6 max-w-2xl text-center text-xs leading-relaxed text-muted-foreground">
+      <p className="mx-auto mt-6 max-w-2xl text-center text-label leading-relaxed text-muted-foreground">
         {t('disclaimer')}
       </p>
     </section>

@@ -24,7 +24,7 @@ export function SidebarCard({ t, collapsed, onToggle }: Props) {
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate text-body text-muted-foreground">
             {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
           </span>
           <Switch checked={collapsed} onCheckedChange={onToggle} className="shrink-0" />

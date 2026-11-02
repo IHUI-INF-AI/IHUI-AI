@@ -40,7 +40,7 @@ export default function SubagentDispatchPage() {
       <button
         type="button"
         onClick={() => router.push('/subagents')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回列表
@@ -48,14 +48,14 @@ export default function SubagentDispatchPage() {
 
       <div>
         <h1 className="text-display font-bold tracking-tight">新建 Subagent 派单</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           按需配置 Agent 角色 / 编排模式 / 优先级 / DAG / 资源配额
         </p>
       </div>
 
       <Card>
         <CardHeader className="p-3">
-          <CardTitle className="text-sm">派单表单</CardTitle>
+          <CardTitle className="text-body">派单表单</CardTitle>
         </CardHeader>
         <CardContent className="min-[640px]:p-3 p-3 pt-0">
           <DispatchForm

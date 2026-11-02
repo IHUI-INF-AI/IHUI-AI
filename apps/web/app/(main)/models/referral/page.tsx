@@ -39,7 +39,7 @@ export default async function ReferralPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 邀请链接 */}
@@ -49,9 +49,9 @@ export default async function ReferralPage() {
             <Share2 className="h-4 w-4 text-primary" />
             {t('link.title')}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{t('link.tip')}</p>
+          <p className="mt-1 text-label text-muted-foreground">{t('link.tip')}</p>
           <div className="mt-3 flex flex-col gap-2 min-[640px]:flex-row">
-            <div className="flex h-10 flex-1 items-center rounded-sm border border-input bg-background px-3 font-mono text-sm text-muted-foreground">
+            <div className="flex h-10 flex-1 items-center rounded-sm border border-input bg-background px-3 font-mono text-body text-muted-foreground">
               {inviteLink}
             </div>
             <Button className="gap-1.5">
@@ -59,7 +59,7 @@ export default async function ReferralPage() {
               {t('link.copy')}
             </Button>
           </div>
-          <div className="mt-3 rounded-lg bg-background/60 p-3 text-xs text-muted-foreground">
+          <div className="mt-3 rounded-lg bg-background/60 p-3 text-label text-muted-foreground">
             {t('link.reward', { amount: '¥ 15.00' })}
           </div>
         </CardContent>
@@ -76,7 +76,7 @@ export default async function ReferralPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="mt-3 text-display font-bold tracking-tight">{s.value}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
+                <div className="mt-0.5 text-label text-muted-foreground">{s.label}</div>
               </CardContent>
             </Card>
           )
@@ -90,9 +90,9 @@ export default async function ReferralPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('list.user')}</th>
                   <th className="px-4 py-2 font-medium">{t('list.joined')}</th>
                   <th className="px-4 py-2 font-medium">{t('list.reward')}</th>
@@ -101,7 +101,7 @@ export default async function ReferralPage() {
               </thead>
               <tbody>
                 {referrals.map((r, i) => (
-                  <tr key={i} className="text-xs hover:bg-muted/30">
+                  <tr key={i} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{r.user}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{r.joined}</td>
                     <td className="px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">

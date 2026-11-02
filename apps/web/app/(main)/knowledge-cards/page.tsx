@@ -320,9 +320,9 @@ export default function KnowledgeCardsPage() {
           )}
         </div>
         {card.content && (
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{card.content}</p>
+          <p className="mt-1 line-clamp-2 text-label text-muted-foreground">{card.content}</p>
         )}
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-label text-muted-foreground">
           {t('useCount', { count: card.useCount })}
           {card.tags.length > 0 && ` · ${card.tags.map((tag) => `#${tag}`).join(' ')}`}
           {card.createdAt ? ` · ${formatDate(card.createdAt)}` : ''}
@@ -376,7 +376,7 @@ export default function KnowledgeCardsPage() {
     <div className="px-4 py-4 mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div>
         <h1 className="text-display font-semibold">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       {error && <Alert variant="danger" description={error} className="items-start" />}
@@ -535,7 +535,7 @@ export default function KnowledgeCardsPage() {
           </CardHeader>
           <CardContent>
             {loadingDetail || detailContent === null ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 py-8 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 {t('loadingDetail')}
               </div>
@@ -593,17 +593,17 @@ export default function KnowledgeCardsPage() {
         <CardContent>
           {searchResults !== null ? (
             searchResults.length === 0 ? (
-              <p className="py-6 text-sm text-muted-foreground">{t('searchEmpty')}</p>
+              <p className="py-6 text-body text-muted-foreground">{t('searchEmpty')}</p>
             ) : (
               <ul className="flex flex-col gap-3">{searchResults.map(renderCardRow)}</ul>
             )
           ) : loadingList ? (
-            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 py-6 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {t('loadingList')}
             </div>
           ) : cards.length === 0 ? (
-            <p className="py-6 text-sm text-muted-foreground">{t('emptyList')}</p>
+            <p className="py-6 text-body text-muted-foreground">{t('emptyList')}</p>
           ) : (
             <ul className="flex flex-col gap-3">{cards.map(renderCardRow)}</ul>
           )}

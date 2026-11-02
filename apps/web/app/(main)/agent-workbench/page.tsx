@@ -168,7 +168,7 @@ export default function AgentWorkbenchPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-display font-bold tracking-tight">Agent 工作台</h1>
-            <p className="mt-1 text-sm text-muted-foreground">可视化创建、管理和监控 AI Agent</p>
+            <p className="mt-1 text-body text-muted-foreground">可视化创建、管理和监控 AI Agent</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-md border p-0.5">
@@ -176,7 +176,7 @@ export default function AgentWorkbenchPage() {
                 type="button"
                 onClick={() => setViewMode('management')}
                 className={cn(
-                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors',
+                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-label transition-colors',
                   viewMode === 'management'
                     ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -188,7 +188,7 @@ export default function AgentWorkbenchPage() {
                 type="button"
                 onClick={() => setViewMode('runtime')}
                 className={cn(
-                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors',
+                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-label transition-colors',
                   viewMode === 'runtime'
                     ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -246,13 +246,13 @@ export default function AgentWorkbenchPage() {
         <div className="space-y-2 min-[1024px]:col-span-3">
           {loading && agents.length === 0 ? (
             <Card>
-              <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <CardContent className="flex items-center justify-center py-8 text-body text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
               </CardContent>
             </Card>
           ) : err ? (
             <Card>
-              <CardContent className="space-y-2 py-8 text-center text-sm text-destructive">
+              <CardContent className="space-y-2 py-8 text-center text-body text-destructive">
                 <AlertCircle className="mx-auto h-6 w-6" />
                 <p>{err}</p>
                 <Button variant="outline" size="sm" onClick={loadAgents}>
@@ -264,7 +264,7 @@ export default function AgentWorkbenchPage() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
                 <Sparkles className="h-8 w-8 opacity-40" />
-                <p className="text-sm">
+                <p className="text-body">
                   {isEmptyFilter ? '没有匹配的 Agent' : '还没有 Agent,点击右上角新建'}
                 </p>
               </CardContent>
@@ -281,7 +281,7 @@ export default function AgentWorkbenchPage() {
                 />
               ))}
               {actionLoading && (
-                <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 py-2 text-label text-muted-foreground">
                   <Loader2 className="h-3 w-3 animate-spin" /> 操作中...
                 </div>
               )}
@@ -304,7 +304,7 @@ export default function AgentWorkbenchPage() {
                 </>
               ) : (
                 <Card>
-                  <CardContent className="flex min-h-[400px] items-center justify-center text-sm text-muted-foreground">
+                  <CardContent className="flex min-h-[400px] items-center justify-center text-body text-muted-foreground">
                     从左侧选择一个 Agent 查看详情和运行日志
                   </CardContent>
                 </Card>
@@ -349,7 +349,7 @@ export default function AgentWorkbenchPage() {
                 {selected ? (
                   <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-sm text-muted-foreground">
+                  <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-body text-muted-foreground">
                     选择一个 Agent 查看运行日志
                   </div>
                 )}
@@ -362,7 +362,7 @@ export default function AgentWorkbenchPage() {
       <AgentCreator open={creatorOpen} onOpenChange={setCreatorOpen} onCreated={loadAgents} />
 
       {toast && (
-        <div className="fixed bottom-4 left-1/2 z-notification -translate-x-1/2 rounded-md bg-foreground px-4 py-2 text-sm text-background shadow-lg">
+        <div className="fixed bottom-4 left-1/2 z-notification -translate-x-1/2 rounded-md bg-foreground px-4 py-2 text-body text-background shadow-lg">
           {toast}
         </div>
       )}

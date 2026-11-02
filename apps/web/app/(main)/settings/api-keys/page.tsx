@@ -80,7 +80,9 @@ export default function ApiKeysSettingsPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             API 密钥管理
           </h1>
-          <p className="text-xs text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
+          <p className="text-label text-muted-foreground">
+            管理您的开发者 API 密钥,供第三方应用接入
+          </p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />
@@ -91,19 +93,19 @@ export default function ApiKeysSettingsPage() {
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
         {allow ? (
           <ApiKeyListCard
-          list={list}
-          isLoading={keysQuery.isLoading}
-          error={keysQuery.error as Error | null}
-          onRetry={() => keysQuery.refetch()}
-          onCreate={openCreate}
-          onDelete={async (id) => {
-            await deleteMut.mutateAsync(id)
-          }}
-          onRotate={async (id) => {
-            await rotateMut.mutateAsync(id)
-          }}
-          pendingDelete={deleteMut.isPending}
-          pendingRotate={rotateMut.isPending}
+            list={list}
+            isLoading={keysQuery.isLoading}
+            error={keysQuery.error as Error | null}
+            onRetry={() => keysQuery.refetch()}
+            onCreate={openCreate}
+            onDelete={async (id) => {
+              await deleteMut.mutateAsync(id)
+            }}
+            onRotate={async (id) => {
+              await rotateMut.mutateAsync(id)
+            }}
+            pendingDelete={deleteMut.isPending}
+            pendingRotate={rotateMut.isPending}
           />
         ) : (
           <AuthGatePrompt message="请先登录后查看 API 密钥" />

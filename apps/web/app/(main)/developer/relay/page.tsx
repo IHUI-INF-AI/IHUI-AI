@@ -62,12 +62,12 @@ function StatCard({
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 p-3">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-label text-muted-foreground">
           {icon}
           <span>{label}</span>
         </div>
         <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
-        {hint && <p className="text-xs text-amber-600 dark:text-amber-400">{hint}</p>}
+        {hint && <p className="text-label text-amber-600 dark:text-amber-400">{hint}</p>}
       </CardContent>
     </Card>
   )
@@ -129,7 +129,7 @@ export default function RelayOverviewPage() {
           <Zap className="h-6 w-6 text-primary" />
           中转站概览
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           模型 API 中转站 · 我的 Key 与近 30 天用量
         </p>
       </div>
@@ -208,7 +208,7 @@ export default function RelayOverviewPage() {
             加载中...
           </div>
         ) : list.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无数据</p>
+          <p className="py-8 text-center text-body text-muted-foreground">暂无数据</p>
         ) : (
           <div className="space-y-2 p-3">
             {list.map((k) => (
@@ -227,7 +227,7 @@ export default function RelayOverviewPage() {
                       {k.status === 'active' ? '启用' : '已吊销'}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-label text-muted-foreground">
                     余额 {formatBalance(k.costBalanceCents)} · 已用 {num.format(k.tokenUsedTotal)}{' '}
                     token
                     {k.lastUsedAt && ` · ${dateFmt.format(new Date(k.lastUsedAt))}`}

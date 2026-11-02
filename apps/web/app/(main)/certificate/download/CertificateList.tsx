@@ -45,7 +45,7 @@ export function CertificateList({
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -54,7 +54,7 @@ export function CertificateList({
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <Award className="h-8 w-8 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{t('download.noCertificates')}</p>
+        <p className="text-body text-muted-foreground">{t('download.noCertificates')}</p>
       </div>
     )
   }
@@ -73,7 +73,7 @@ export function CertificateList({
                 </div>
                 <div className="space-y-1">
                   <CardTitle className="text-base">{cert.name}</CardTitle>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('download.certNo')}：{cert.certificateNo ?? '-'}
                   </p>
                 </div>
@@ -88,7 +88,7 @@ export function CertificateList({
               </span>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1.5 text-sm">
+              <div className="space-y-1.5 text-body">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('download.issueTime')}</span>
                   <span className="font-medium">

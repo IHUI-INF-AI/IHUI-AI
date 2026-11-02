@@ -102,7 +102,7 @@ export default function DistributionTeamPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -125,7 +125,7 @@ export default function DistributionTeamPage() {
                 <Card key={s.label}>
                   <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">{s.label}</span>
+                      <span className="text-label text-muted-foreground">{s.label}</span>
                       <Icon className="h-4 w-4 text-primary" />
                     </div>
                     {teamQ.isLoading ? (
@@ -224,7 +224,7 @@ export default function DistributionTeamPage() {
 
             {total > PAGE_SIZE && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+                <span className="text-body text-muted-foreground">{t('totalOf', { total })}</span>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -234,7 +234,7 @@ export default function DistributionTeamPage() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {page} / {totalPages}
                   </span>
                   <Button

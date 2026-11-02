@@ -43,7 +43,7 @@ export default async function ChatsPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t('chats.searchPlaceholder')} className="h-9 flex-1 text-xs" />
+          <Input placeholder={t('chats.searchPlaceholder')} className="h-9 flex-1 text-label" />
         </CardContent>
       </Card>
 
@@ -56,9 +56,9 @@ export default async function ChatsPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('chats.table.id')}</th>
                   <th className="px-4 py-2 font-medium">{t('chats.table.user')}</th>
                   <th className="px-4 py-2 font-medium">{t('chats.table.title')}</th>
@@ -70,7 +70,7 @@ export default async function ChatsPage() {
               </thead>
               <tbody>
                 {chats.map((c) => (
-                  <tr key={c.id} className="text-xs hover:bg-muted/30">
+                  <tr key={c.id} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{c.id}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{c.user}</td>
                     <td className="px-4 py-2.5 font-medium">{c.title}</td>
